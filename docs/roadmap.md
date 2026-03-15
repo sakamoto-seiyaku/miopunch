@@ -56,6 +56,7 @@
 ### P1 抽离 XTCP 内核
 
 - 从 `frp xtcp` 提炼最小 NAT traversal 核心。
+- `frp/` 以 `git submodule` 引入并固定版本，仅作为参考与行为对齐基线（不 vendor，不作为运行时依赖）。
 - 范围包括 `STUN`、NAT 分类、信息交换、`make hole`、`fallback`。
 - 目标是形成可独立测试、可独立运行、可独立演进的核心库与最小 CLI。
 - 这一阶段不引入复杂组网语义。
