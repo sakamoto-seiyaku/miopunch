@@ -47,6 +47,7 @@ Commands:
   init                     Create SSH key, cloud-init seed, qcow2 overlay
   up                       Start the single QEMU VM (SSH forwarded to 127.0.0.1:$LAB_SSH_PORT)
   wait                     Wait for SSH to become ready
+  wait-guest               Wait for cloud-init to finish inside the VM
   ssh [ssh-args...]        SSH into the VM
   guest <cmd...>           Run a command inside the VM via SSH
   push-guest               Rsync lab/guest/ into /opt/miopunch-lab/guest in the VM
@@ -195,11 +196,17 @@ cmd_up() {
   rm -f "${pid_file}"
   mkdir -p "$(dirname -- "${log_file}")"
 
+  local cpu_model="host"
+  if [[ ! -e /dev/kvm ]] || [[ ! -r /dev/kvm ]] || [[ ! -w /dev/kvm ]]; then
+    cpu_model="max"
+    echo "warn: /dev/kvm not accessible; QEMU may fall back to TCG (slow)"
+  fi
+
   # accel=kvm:tcg will try KVM first and fall back to TCG automatically.
   qemu-system-x86_64 \
     -name "${vm_name}" \
     -machine accel=kvm:tcg \
-    -cpu host \
+    -cpu "${cpu_model}" \
     -smp "${cpus}" \
     -m "${mem_mb}" \
     -drive if=virtio,file="${disk_file}",format=qcow2 \
@@ -230,6 +237,25 @@ cmd_wait() {
       die "ssh not ready after ${deadline}s (see ${log_file})"
     fi
     sleep 2
+  done
+}
+
+cmd_wait_guest() {
+  local deadline="${LAB_GUEST_READY_SECONDS:-600}"
+  local start now
+  start="$(date +%s)"
+
+  echo "waiting for guest cloud-init..."
+  while true; do
+    if cmd_guest test -f /var/lib/cloud/instance/boot-finished >/dev/null 2>&1; then
+      echo "ok: guest ready"
+      return 0
+    fi
+    now="$(date +%s)"
+    if (( now - start > deadline )); then
+      die "guest not ready after ${deadline}s (cloud-init)"
+    fi
+    sleep 5
   done
 }
 
@@ -268,6 +294,7 @@ cmd_pull_artifacts() {
 cmd_selftest() {
   cmd_up
   cmd_wait
+  cmd_wait_guest
   cmd_push_guest
   cmd_guest sudo /opt/miopunch-lab/guest/bin/mlab-selftest
   cmd_pull_artifacts
@@ -353,6 +380,7 @@ main() {
     init) cmd_init "$@" ;;
     up) cmd_up "$@" ;;
     wait) cmd_wait "$@" ;;
+    wait-guest) cmd_wait_guest "$@" ;;
     ssh) cmd_ssh "$@" ;;
     guest) cmd_guest "$@" ;;
     push-guest) cmd_push_guest "$@" ;;
