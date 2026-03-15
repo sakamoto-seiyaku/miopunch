@@ -23,6 +23,7 @@ disk_file="${state_dir}/disk.qcow2"
 seed_file="${state_dir}/seed.img"
 pid_file="${state_dir}/qemu.pid"
 log_file="${state_dir}/qemu.log"
+serial_log="${state_dir}/serial.log"
 
 ssh_key="${state_dir}/ssh_key"
 ssh_key_pub="${state_dir}/ssh_key.pub"
@@ -195,6 +196,8 @@ cmd_up() {
 
   rm -f "${pid_file}"
   mkdir -p "$(dirname -- "${log_file}")"
+  : >"${log_file}"
+  : >"${serial_log}"
 
   local cpu_model="host"
   if [[ ! -e /dev/kvm ]] || [[ ! -r /dev/kvm ]] || [[ ! -w /dev/kvm ]]; then
@@ -203,7 +206,7 @@ cmd_up() {
   fi
 
   # accel=kvm:tcg will try KVM first and fall back to TCG automatically.
-  qemu-system-x86_64 \
+  if ! qemu-system-x86_64 \
     -name "${vm_name}" \
     -machine accel=kvm:tcg \
     -cpu "${cpu_model}" \
@@ -213,10 +216,20 @@ cmd_up() {
     -drive if=virtio,file="${seed_file}",format=raw \
     -netdev user,id=n0,hostfwd=tcp:127.0.0.1:"${ssh_port}"-:22 \
     -device virtio-net-pci,netdev=n0 \
-    -nographic \
+    -display none \
+    -serial "file:${serial_log}" \
+    -monitor none \
     -daemonize \
     -pidfile "${pid_file}" \
-    -D "${log_file}"
+    -D "${log_file}" \
+    2>>"${log_file}"; then
+    echo "error: QEMU failed to start (see ${log_file})" >&2
+    tail -n 80 "${log_file}" >&2 || true
+    if grep -q "host forwarding rule" "${log_file}" 2>/dev/null; then
+      echo "hint: SSH port may be in use; try a different port, e.g.: LAB_SSH_PORT=2223 ./lab/host/labctl up" >&2
+    fi
+    exit 1
+  fi
 
   echo "ok: started (pid $(cat "${pid_file}"))"
   echo "  ssh: ssh -F ${ssh_config} ${vm_name}"
@@ -227,6 +240,7 @@ cmd_wait() {
   local start now
   start="$(date +%s)"
 
+  echo "waiting for ssh (timeout ${deadline}s)..."
   while true; do
     if cmd_ssh -o BatchMode=yes -o ConnectTimeout=2 true >/dev/null 2>&1; then
       echo "ok: ssh ready"
@@ -296,8 +310,12 @@ cmd_selftest() {
   cmd_wait
   cmd_wait_guest
   cmd_push_guest
+  set +e
   cmd_guest sudo /opt/miopunch-lab/guest/bin/mlab-selftest
+  local rc=$?
+  set -e
   cmd_pull_artifacts
+  return "${rc}"
 }
 
 cmd_down() {

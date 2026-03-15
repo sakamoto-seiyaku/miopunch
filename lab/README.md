@@ -23,6 +23,13 @@ Prereqs on the host:
 - `cloud-localds` (cloud-init seed generator)
 - `ssh`, `ssh-keygen`, `rsync`, `curl`
 
+Install (Debian/Ubuntu):
+
+```bash
+sudo apt-get update
+sudo apt-get install -y qemu-system-x86 qemu-utils cloud-image-utils openssh-client rsync curl
+```
+
 Bring up the single VM:
 
 ```bash
@@ -37,6 +44,12 @@ Or run everything end-to-end:
 ```bash
 ./lab/host/labctl selftest
 ```
+
+Troubleshooting:
+
+- VM boot / SSH issues: check `lab/_state/qemu.log` and `lab/_state/serial.log`.
+- SSH port conflict: set `LAB_SSH_PORT` to a free port (default `2222`).
+- No `/dev/kvm` (or permission denied): QEMU will fall back to TCG (slow) — still OK for correctness tests.
 
 Push guest runtime and enter the VM:
 
