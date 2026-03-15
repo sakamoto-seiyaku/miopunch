@@ -1,0 +1,372 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd -- "${script_dir}/../.." && pwd)"
+
+lab_dir="${repo_root}/lab"
+images_dir="${lab_dir}/_images"
+state_dir="${lab_dir}/_state"
+
+vm_name="${LAB_VM_NAME:-miopunch-lab}"
+vm_user="${LAB_VM_USER:-lab}"
+ssh_port="${LAB_SSH_PORT:-2222}"
+mem_mb="${LAB_MEM_MB:-4096}"
+cpus="${LAB_CPUS:-2}"
+disk_size="${LAB_DISK_SIZE:-20G}"
+
+image_url="${LAB_IMAGE_URL:-https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2}"
+image_file="${LAB_IMAGE_FILE:-${images_dir}/debian-12-genericcloud-amd64.qcow2}"
+image_sha256="${LAB_IMAGE_SHA256:-}"
+
+disk_file="${state_dir}/disk.qcow2"
+seed_file="${state_dir}/seed.img"
+pid_file="${state_dir}/qemu.pid"
+log_file="${state_dir}/qemu.log"
+
+ssh_key="${state_dir}/ssh_key"
+ssh_key_pub="${state_dir}/ssh_key.pub"
+ssh_config="${state_dir}/ssh_config"
+known_hosts="${state_dir}/known_hosts"
+
+cloud_init_dir="${state_dir}/cloud-init"
+user_data="${cloud_init_dir}/user-data"
+meta_data="${cloud_init_dir}/meta-data"
+
+die() {
+  echo "error: $*" >&2
+  exit 1
+}
+
+usage() {
+  cat <<'EOF'
+Usage: lab/host/labctl <command> [args...]
+
+Commands:
+  download                 Download Debian cloud image (qcow2)
+  init                     Create SSH key, cloud-init seed, qcow2 overlay
+  up                       Start the single QEMU VM (SSH forwarded to 127.0.0.1:$LAB_SSH_PORT)
+  wait                     Wait for SSH to become ready
+  ssh [ssh-args...]        SSH into the VM
+  guest <cmd...>           Run a command inside the VM via SSH
+  push-guest               Rsync lab/guest/ into /opt/miopunch-lab/guest in the VM
+  pull-artifacts           Rsync /opt/miopunch-lab/artifacts/ from the VM into lab/_artifacts/
+  selftest                 Run guest selftest and pull artifacts
+  down                     Stop the VM (graceful poweroff, then kill if needed)
+  status                   Show VM status
+
+  snapshot-list            List qcow2 internal snapshots
+  snapshot-create <name>   Create snapshot (VM must be stopped)
+  snapshot-restore <name>  Restore snapshot (VM must be stopped)
+
+Environment overrides:
+  LAB_VM_NAME, LAB_VM_USER, LAB_SSH_PORT, LAB_MEM_MB, LAB_CPUS, LAB_DISK_SIZE
+  LAB_IMAGE_URL, LAB_IMAGE_FILE, LAB_IMAGE_SHA256
+EOF
+}
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "missing dependency: $1"
+}
+
+ensure_dirs() {
+  mkdir -p "${images_dir}" "${state_dir}" "${cloud_init_dir}"
+}
+
+is_running() {
+  [[ -f "${pid_file}" ]] || return 1
+  local pid
+  pid="$(cat "${pid_file}" 2>/dev/null || true)"
+  [[ -n "${pid}" ]] || return 1
+  kill -0 "${pid}" 2>/dev/null
+}
+
+write_ssh_config() {
+  cat >"${ssh_config}" <<EOF
+Host ${vm_name}
+  HostName 127.0.0.1
+  Port ${ssh_port}
+  User ${vm_user}
+  IdentityFile ${ssh_key}
+  IdentitiesOnly yes
+  StrictHostKeyChecking no
+  UserKnownHostsFile ${known_hosts}
+  LogLevel ERROR
+EOF
+}
+
+cmd_download() {
+  require_cmd curl
+  ensure_dirs
+  if [[ -f "${image_file}" ]]; then
+    echo "ok: image already exists: ${image_file}"
+    return 0
+  fi
+
+  echo "downloading: ${image_url}"
+  local tmp="${image_file}.tmp"
+  curl -L --fail --retry 3 --connect-timeout 10 -o "${tmp}" "${image_url}"
+
+  if [[ -n "${image_sha256}" ]]; then
+    require_cmd sha256sum
+    echo "${image_sha256}  ${tmp}" | sha256sum -c -
+  fi
+
+  mv -f "${tmp}" "${image_file}"
+  echo "ok: saved: ${image_file}"
+}
+
+cmd_init() {
+  require_cmd ssh-keygen
+  require_cmd cloud-localds
+  require_cmd qemu-img
+
+  ensure_dirs
+  [[ -f "${image_file}" ]] || die "base image missing; run: lab/host/labctl download"
+
+  if [[ ! -f "${ssh_key}" ]]; then
+    ssh-keygen -t ed25519 -N "" -f "${ssh_key}" -C "miopunch-lab"
+  fi
+  [[ -f "${ssh_key_pub}" ]] || die "missing pubkey: ${ssh_key_pub}"
+
+  local pubkey
+  pubkey="$(cat "${ssh_key_pub}")"
+
+  cat >"${meta_data}" <<EOF
+instance-id: ${vm_name}
+local-hostname: ${vm_name}
+EOF
+
+  cat >"${user_data}" <<EOF
+#cloud-config
+users:
+  - name: ${vm_user}
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - ${pubkey}
+
+package_update: true
+packages:
+  - openssh-server
+  - iproute2
+  - nftables
+  - iptables
+  - tcpdump
+  - conntrack
+  - iputils-ping
+  - jq
+  - curl
+  - ca-certificates
+  - rsync
+  - netcat-openbsd
+  - socat
+  - docker.io
+
+runcmd:
+  - [ systemctl, enable, --now, ssh ]
+  - [ systemctl, enable, --now, docker ]
+EOF
+
+  cloud-localds "${seed_file}" "${user_data}" "${meta_data}"
+  write_ssh_config
+
+  if [[ ! -f "${disk_file}" ]]; then
+    qemu-img create -f qcow2 -F qcow2 -b "${image_file}" "${disk_file}" "${disk_size}"
+  fi
+
+  echo "ok: init complete"
+  echo "  disk: ${disk_file}"
+  echo "  seed: ${seed_file}"
+  echo "  ssh : ssh -F ${ssh_config} ${vm_name}"
+}
+
+cmd_up() {
+  require_cmd qemu-system-x86_64
+  ensure_dirs
+
+  if is_running; then
+    echo "ok: already running (pid $(cat "${pid_file}"))"
+    return 0
+  fi
+
+  [[ -f "${disk_file}" && -f "${seed_file}" ]] || cmd_init
+
+  rm -f "${pid_file}"
+  mkdir -p "$(dirname -- "${log_file}")"
+
+  # accel=kvm:tcg will try KVM first and fall back to TCG automatically.
+  qemu-system-x86_64 \
+    -name "${vm_name}" \
+    -machine accel=kvm:tcg \
+    -cpu host \
+    -smp "${cpus}" \
+    -m "${mem_mb}" \
+    -drive if=virtio,file="${disk_file}",format=qcow2 \
+    -drive if=virtio,file="${seed_file}",format=raw \
+    -netdev user,id=n0,hostfwd=tcp:127.0.0.1:"${ssh_port}"-:22 \
+    -device virtio-net-pci,netdev=n0 \
+    -nographic \
+    -daemonize \
+    -pidfile "${pid_file}" \
+    -D "${log_file}"
+
+  echo "ok: started (pid $(cat "${pid_file}"))"
+  echo "  ssh: ssh -F ${ssh_config} ${vm_name}"
+}
+
+cmd_wait() {
+  local deadline="${LAB_WAIT_SECONDS:-120}"
+  local start now
+  start="$(date +%s)"
+
+  while true; do
+    if cmd_ssh -o BatchMode=yes -o ConnectTimeout=2 true >/dev/null 2>&1; then
+      echo "ok: ssh ready"
+      return 0
+    fi
+    now="$(date +%s)"
+    if (( now - start > deadline )); then
+      die "ssh not ready after ${deadline}s (see ${log_file})"
+    fi
+    sleep 2
+  done
+}
+
+cmd_ssh() {
+  require_cmd ssh
+  [[ -f "${ssh_config}" ]] || write_ssh_config
+  ssh -F "${ssh_config}" "${vm_name}" "$@"
+}
+
+cmd_guest() {
+  [[ $# -ge 1 ]] || die "guest: missing command"
+  cmd_ssh -- "$@"
+}
+
+cmd_push_guest() {
+  require_cmd rsync
+  local src="${lab_dir}/guest/"
+  local dst="/opt/miopunch-lab/guest/"
+
+  cmd_guest sudo mkdir -p /opt/miopunch-lab
+  cmd_guest sudo chown -R "${vm_user}:${vm_user}" /opt/miopunch-lab
+
+  rsync -az --delete -e "ssh -F ${ssh_config}" "${src}" "${vm_name}:${dst}"
+  echo "ok: pushed guest runtime to ${dst}"
+}
+
+cmd_pull_artifacts() {
+  require_cmd rsync
+  local src="/opt/miopunch-lab/artifacts/"
+  local dst="${lab_dir}/_artifacts/"
+  mkdir -p "${dst}"
+  rsync -az -e "ssh -F ${ssh_config}" "${vm_name}:${src}" "${dst}"
+  echo "ok: pulled artifacts into ${dst}"
+}
+
+cmd_selftest() {
+  cmd_up
+  cmd_wait
+  cmd_push_guest
+  cmd_guest sudo /opt/miopunch-lab/guest/bin/mlab-selftest
+  cmd_pull_artifacts
+}
+
+cmd_down() {
+  if ! is_running; then
+    echo "ok: not running"
+    return 0
+  fi
+
+  local pid
+  pid="$(cat "${pid_file}")"
+  echo "stopping (pid ${pid})..."
+
+  # Try graceful shutdown first (cloud images usually have sudo).
+  cmd_ssh -o ConnectTimeout=2 sudo poweroff >/dev/null 2>&1 || true
+
+  local i
+  for i in {1..30}; do
+    if ! kill -0 "${pid}" 2>/dev/null; then
+      rm -f "${pid_file}"
+      echo "ok: stopped"
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "warn: graceful shutdown timed out; killing qemu"
+  kill "${pid}" 2>/dev/null || true
+  sleep 1
+  kill -9 "${pid}" 2>/dev/null || true
+  rm -f "${pid_file}"
+  echo "ok: killed"
+}
+
+cmd_status() {
+  if is_running; then
+    echo "running: pid $(cat "${pid_file}")"
+    echo "ssh    : ssh -F ${ssh_config} ${vm_name}"
+  else
+    echo "stopped"
+  fi
+}
+
+require_vm_stopped() {
+  if is_running; then
+    die "vm is running; stop it first: lab/host/labctl down"
+  fi
+}
+
+cmd_snapshot_list() {
+  require_cmd qemu-img
+  [[ -f "${disk_file}" ]] || die "missing disk: ${disk_file}"
+  qemu-img snapshot -l "${disk_file}"
+}
+
+cmd_snapshot_create() {
+  require_cmd qemu-img
+  [[ $# -eq 1 ]] || die "snapshot-create: need <name>"
+  require_vm_stopped
+  qemu-img snapshot -c "$1" "${disk_file}"
+  echo "ok: snapshot created: $1"
+}
+
+cmd_snapshot_restore() {
+  require_cmd qemu-img
+  [[ $# -eq 1 ]] || die "snapshot-restore: need <name>"
+  require_vm_stopped
+  qemu-img snapshot -a "$1" "${disk_file}"
+  echo "ok: snapshot restored: $1"
+}
+
+main() {
+  local cmd="${1:-}"
+  shift || true
+
+  case "${cmd}" in
+    -h|--help|help|"")
+      usage
+      ;;
+    download) cmd_download "$@" ;;
+    init) cmd_init "$@" ;;
+    up) cmd_up "$@" ;;
+    wait) cmd_wait "$@" ;;
+    ssh) cmd_ssh "$@" ;;
+    guest) cmd_guest "$@" ;;
+    push-guest) cmd_push_guest "$@" ;;
+    pull-artifacts) cmd_pull_artifacts "$@" ;;
+    selftest) cmd_selftest "$@" ;;
+    down) cmd_down "$@" ;;
+    status) cmd_status "$@" ;;
+    snapshot-list) cmd_snapshot_list "$@" ;;
+    snapshot-create) cmd_snapshot_create "$@" ;;
+    snapshot-restore) cmd_snapshot_restore "$@" ;;
+    *)
+      die "unknown command: ${cmd} (use --help)"
+      ;;
+  esac
+}
+
+main "$@"

@@ -1,0 +1,222 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID:-0}" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+guest_root="$(cd -- "${script_dir}/.." && pwd)"
+
+# shellcheck source=/dev/null
+source "${guest_root}/lib/common.sh"
+# shellcheck source=/dev/null
+source "${guest_root}/lib/topology.sh"
+# shellcheck source=/dev/null
+source "${guest_root}/lib/profiles.sh"
+# shellcheck source=/dev/null
+source "${guest_root}/lib/validate.sh"
+
+state_root="${MLAB_STATE_ROOT:-/run/miopunch-lab}"
+active_case_file="${state_root}/active_case"
+artifacts_root="${MLAB_ARTIFACTS_ROOT:-/opt/miopunch-lab/artifacts}"
+
+usage() {
+  cat <<'EOF'
+Usage: mlab <command> [args...]
+
+Commands:
+  case list
+  case activate <case-id>
+  case deactivate
+  case status
+  validate case
+  validate side <a|b>
+  run <case-id>
+EOF
+}
+
+preflight() {
+  need_cmd ip
+  need_cmd iptables
+  need_cmd conntrack
+  need_cmd tcpdump
+  need_cmd socat
+  need_cmd timeout
+}
+
+case_list() {
+  ls -1 "${guest_root}/cases" 2>/dev/null | sed -n 's/\.sh$//p' | sort
+}
+
+case_activate() {
+  local case_id="${1:-}"
+  [[ -n "${case_id}" ]] || die "missing case id"
+  preflight
+
+  local case_file="${guest_root}/cases/${case_id}.sh"
+  [[ -f "${case_file}" ]] || die "case not found: ${case_id}"
+
+  mkdir -p "${state_root}"
+
+  # shellcheck source=/dev/null
+  source "${case_file}"
+
+  : "${CASE_ID:?case file must set CASE_ID}"
+  : "${A_PROFILE:?case file must set A_PROFILE}"
+  : "${B_PROFILE:?case file must set B_PROFILE}"
+
+  A_P2P_PORT="${A_P2P_PORT:-5000}"
+  B_P2P_PORT="${B_P2P_PORT:-5000}"
+
+  topology_cleanup || true
+  topology_create
+
+  profiles_apply "${NS_NAT_A}" "${A_PROFILE}" "${LAN_A_CIDR}" "${WAN_A_IP}" "${PEER_A_IP}" "${A_P2P_PORT}"
+  profiles_apply "${NS_NAT_B}" "${B_PROFILE}" "${LAN_B_CIDR}" "${WAN_B_IP}" "${PEER_B_IP}" "${B_P2P_PORT}"
+
+  echo "${CASE_ID}" >"${active_case_file}"
+  echo "ok: active case: ${CASE_ID}"
+}
+
+case_deactivate() {
+  topology_cleanup || true
+  rm -f "${active_case_file}"
+  echo "ok: deactivated"
+}
+
+case_status() {
+  if [[ -f "${active_case_file}" ]]; then
+    echo "active: $(cat "${active_case_file}")"
+  else
+    echo "active: (none)"
+  fi
+  echo "namespaces:"
+  ip netns list | sed -n "/^${NS_PREFIX}-/p" || true
+}
+
+run_case() {
+  local case_id="${1:-}"
+  [[ -n "${case_id}" ]] || die "run: missing case id"
+
+  local ts
+  ts="$(date -u +%Y%m%dT%H%M%SZ)"
+  local run_dir="${artifacts_root}/${ts}-${case_id}"
+  mkdir -p "${run_dir}"
+
+  local case_file="${guest_root}/cases/${case_id}.sh"
+  if [[ -f "${case_file}" ]]; then
+    # shellcheck source=/dev/null
+    source "${case_file}"
+    {
+      echo "CASE_ID=${CASE_ID:-${case_id}}"
+      echo "A_PROFILE=${A_PROFILE:-}"
+      echo "B_PROFILE=${B_PROFILE:-}"
+      if [[ -n "${A_PROFILE:-}" ]]; then
+        echo "A_EXPECT_MAPPING=$(expected_mapping "${A_PROFILE}")"
+        echo "A_EXPECT_FILTERING=$(expected_filtering "${A_PROFILE}")"
+      fi
+      if [[ -n "${B_PROFILE:-}" ]]; then
+        echo "B_EXPECT_MAPPING=$(expected_mapping "${B_PROFILE}")"
+        echo "B_EXPECT_FILTERING=$(expected_filtering "${B_PROFILE}")"
+      fi
+    } >"${run_dir}/case.env"
+  fi
+
+  {
+    echo "ts_utc=${ts}"
+    echo "case_id=${case_id}"
+    echo "kernel=$(uname -r)"
+    echo "guest_root=${guest_root}"
+  } >"${run_dir}/run.env"
+
+  local pcap="${run_dir}/wan.pcap"
+  local tcpdump_pid=""
+
+  dump_state() {
+    echo "=== ip netns list ===" >"${run_dir}/state.txt" 2>&1 || true
+    ip netns list >>"${run_dir}/state.txt" 2>&1 || true
+
+    ns_exec "${NS_NAT_A}" iptables-save >"${run_dir}/natA.iptables" 2>&1 || true
+    ns_exec "${NS_NAT_B}" iptables-save >"${run_dir}/natB.iptables" 2>&1 || true
+
+    ns_exec "${NS_NAT_A}" conntrack -L >"${run_dir}/natA.conntrack" 2>&1 || true
+    ns_exec "${NS_NAT_B}" conntrack -L >"${run_dir}/natB.conntrack" 2>&1 || true
+
+    ns_exec "${NS_NAT_A}" tc -s qdisc show >"${run_dir}/natA.tc" 2>&1 || true
+    ns_exec "${NS_NAT_B}" tc -s qdisc show >"${run_dir}/natB.tc" 2>&1 || true
+  }
+
+  finish() {
+    local rc=$?
+    dump_state || true
+    if [[ -n "${tcpdump_pid}" ]] && kill -0 "${tcpdump_pid}" 2>/dev/null; then
+      kill "${tcpdump_pid}" 2>/dev/null || true
+      wait "${tcpdump_pid}" 2>/dev/null || true
+    fi
+    chmod -R a+rX "${run_dir}" 2>/dev/null || true
+    echo "run_dir=${run_dir}" >>"${run_dir}/run.env" 2>/dev/null || true
+    exit "${rc}"
+  }
+  trap finish EXIT
+
+  local t0 t1 t2
+  t0="$(date -u +%s%3N)"
+  case_activate "${case_id}"
+  t1="$(date -u +%s%3N)"
+
+  # Capture WAN traffic for the validation phase.
+  ns_exec "${NS_WAN}" tcpdump -ni br0 -w "${pcap}" >/dev/null 2>&1 &
+  tcpdump_pid=$!
+
+  validate_case >"${run_dir}/validate.log" 2>&1
+  t2="$(date -u +%s%3N)"
+  case_deactivate
+
+  {
+    echo "activate_ms=$((t1 - t0))"
+    echo "validate_ms=$((t2 - t1))"
+    echo "total_ms=$((t2 - t0))"
+  } >>"${run_dir}/run.env"
+
+  echo "ok: run complete: ${run_dir}"
+}
+
+main() {
+  local cmd="${1:-}"
+  shift || true
+
+  case "${cmd}" in
+    -h|--help|help|"")
+      usage
+      ;;
+    case)
+      local sub="${1:-}"
+      shift || true
+      case "${sub}" in
+        list) case_list ;;
+        activate) case_activate "$@" ;;
+        deactivate) case_deactivate ;;
+        status) case_status ;;
+        *) die "unknown subcommand: case ${sub}" ;;
+      esac
+      ;;
+    validate)
+      local sub="${1:-}"
+      shift || true
+      case "${sub}" in
+        case) validate_case ;;
+        side) validate_side "$@" ;;
+        *) die "unknown subcommand: validate ${sub}" ;;
+      esac
+      ;;
+    run)
+      run_case "$@"
+      ;;
+    *)
+      die "unknown command: ${cmd}"
+      ;;
+  esac
+}
+
+main "$@"

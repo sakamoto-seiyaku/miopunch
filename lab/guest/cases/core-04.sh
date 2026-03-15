@@ -1,0 +1,5 @@
+CASE_ID=core-04
+# NAT3 x NAT3 (EIM+APDF ↔ EIM+APDF)
+A_PROFILE=nat3
+B_PROFILE=nat3
+

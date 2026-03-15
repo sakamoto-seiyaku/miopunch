@@ -1,0 +1,5 @@
+CASE_ID=core-05
+# NAT2 x NAT4 (EIM+ADF ↔ APDM+APDF)
+A_PROFILE=nat2
+B_PROFILE=nat4-regular
+
