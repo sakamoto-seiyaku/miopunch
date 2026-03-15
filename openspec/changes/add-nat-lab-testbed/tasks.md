@@ -6,7 +6,7 @@
 - [ ] 搭建 VM 内部的基础 lab 拓扑模型，支持 `peer`、`nat`、`stun`、`coord` 等角色。
 - [ ] 定义 case 切换机制，允许多个 case 共存定义，但任意时刻只运行一个 active case。
 - [ ] 定义最小 case 元数据 schema 与产物目录结构（包含 `RFC 4787`、`NAT1-4`、`frp` 标签与运行结果字段）。
-- [ ] 实现并固化 NAT profile 的 `mapping behavior` 验证（`EIM / ADM / APDM`）。
+- [ ] 实现并固化 NAT profile 的 `mapping behavior` 验证（`EIM / APDM`；`ADM` 暂不做）。
 - [ ] 实现并固化 NAT profile 的 `filtering behavior` 验证（`EIF / ADF / APDF`）。
 - [ ] 为第一批主覆盖集实现 NAT profile 配置与验证断言，确认其 `RFC 4787`、`NAT1-4`、`frp` 标签成立。
 - [ ] 定义并落地最小观测产物：`stdout/stderr`、`pcap`、`nft/iptables ruleset`、`conntrack` 状态、`tc qdisc` 状态、阶段化失败诊断时间线。

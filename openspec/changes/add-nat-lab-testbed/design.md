@@ -38,3 +38,8 @@
 - `P0` 先使用 Linux 内核已有能力模拟 NAT 行为。
 - `P0` 不引入用户态 NAT emulator。
 - 如果后续发现某些关键 NAT 行为无法稳定或可解释地复现，再单独提出后续 change。
+
+## Validation Notes
+
+- `mapping behavior` 当前只做 `EIM / APDM` 两类区分，`ADM` 暂不做。
+- `nat4-regular` 为稳定复现“目的地址相关”的映射行为，会对不同 remote IP 使用不同 SNAT 端口子区间；该行为属于实验台实现细节。
