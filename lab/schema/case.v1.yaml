@@ -9,7 +9,7 @@ description: NAT1 x NAT1 baseline
 side_a:
   nat_label: NAT1            # NAT1|NAT2|NAT3|NAT4
   rfc4787:
-    mapping: EIM             # EIM|ADM|APDM
+    mapping: EIM             # EIM|APDM (ADM reserved)
     filtering: EIF           # EIF|ADF|APDF
   frp:
     nat_type: EasyNAT        # EasyNAT|HardNAT
