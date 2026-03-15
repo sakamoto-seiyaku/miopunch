@@ -85,7 +85,7 @@
 - 项目当前根目录尚未形成最终代码结构；在目录稳定前，不要过早固化大规模工程脚手架。
 
 ## External Dependencies
-- `frp/`：仓库内参考实现，尤其是 `xtcp` 与 `pkg/nathole` 相关逻辑。
+- `frp/`（git submodule）：参考实现，尤其是 `xtcp` 与 `pkg/nathole` 相关逻辑。
 - `STUN servers`：用于公网地址发现和 NAT 相关信息获取。
 - `UPnP / NAT-PMP / PCP` capable routers or emulators：用于辅助连通性实验。
 - `Cloud coordination server`：用于信令协调、真实网络回归和中继/回退实验。
