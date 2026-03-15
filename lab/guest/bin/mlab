@@ -101,7 +101,7 @@ run_case() {
 
   local ts
   ts="$(date -u +%Y%m%dT%H%M%SZ)"
-  local run_dir="${artifacts_root}/${ts}-${case_id}"
+  run_dir="${artifacts_root}/${ts}-${case_id}"
   mkdir -p "${run_dir}"
 
   local case_file="${guest_root}/cases/${case_id}.sh"
@@ -131,7 +131,7 @@ run_case() {
   } >"${run_dir}/run.env"
 
   local pcap="${run_dir}/wan.pcap"
-  local tcpdump_pid=""
+  tcpdump_pid=""
 
   dump_state() {
     echo "=== ip netns list ===" >"${run_dir}/state.txt" 2>&1 || true

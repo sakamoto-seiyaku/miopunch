@@ -48,7 +48,7 @@ filtering_classify_from_flags() {
 
 udp_send() {
   local ns="$1" dst_ip="$2" dst_port="$3" src_port="$4" payload="${5:-x}"
-  printf '%s' "${payload}" | ns_exec "${ns}" socat -u - "UDP-DATAGRAM:${dst_ip}:${dst_port},sourceport=${src_port}"
+  printf '%s' "${payload}" | ns_exec "${ns}" socat -u - "udp-datagram:${dst_ip}:${dst_port},bind=:${src_port},reuseaddr"
 }
 
 peer_expect_udp() {
@@ -130,8 +130,11 @@ mapped_port_observe() {
 
   wait "${tpid}" || true
   local line
-  line="$(grep -E "^IP " "${cap}" | head -n 1 || true)"
-  [[ -n "${line}" ]] || die "mapped port observe failed; see ${cap}"
+  line="$(grep -F " > ${dst_ip}.${dst_port}:" "${cap}" | head -n 1 || true)"
+  if [[ -z "${line}" ]]; then
+    echo "error: mapped port observe failed; see ${cap}" >&2
+    return 1
+  fi
   tcpdump_parse_src_port "${line}"
 }
 
@@ -176,39 +179,51 @@ validate_one_side() {
   exp_map="$(expected_mapping "${profile}")"
   exp_filt="$(expected_filtering "${profile}")"
 
+  local ok=1
+
   # Mapping: observe src port against two different WAN endpoints.
-  local obs_map
-  obs_map="$(mapping_classify "${peer_ns}" "${nat_wan_ip}" "${peer_p2p_port}" "${MLAB_MAP_TRIES:-5}")"
+  local obs_map="unknown"
+  obs_map="$(mapping_classify "${peer_ns}" "${nat_wan_ip}" "${peer_p2p_port}" "${MLAB_MAP_TRIES:-5}")" || ok=0
 
   # Filtering: establish a flow to COORD_IP:42000 and observe mapped port.
-  local mapped_port
-  mapped_port="$(mapped_port_observe "${peer_ns}" "${nat_wan_ip}" "${peer_p2p_port}" "${COORD_IP}" 42000)"
+  local mapped_port=""
+  if ! mapped_port="$(mapped_port_observe "${peer_ns}" "${nat_wan_ip}" "${peer_p2p_port}" "${COORD_IP}" 42000)"; then
+    ok=0
+  fi
 
   # 1) reply from same ip:port should arrive
   local got_reply got_same_ip_diff_port got_other_ip
+  got_reply=0
+  got_same_ip_diff_port=0
+  got_other_ip=0
 
-  ( ns_exec "${peer_ns}" timeout 2 tcpdump -ni eth0 -c 1 -nn "udp and dst port ${peer_p2p_port}" >/dev/null 2>&1 ) &
-  local cap_pid=$!
-  sleep 0.2
-  udp_send "${NS_COORD}" "${nat_wan_ip}" "${mapped_port}" 42000 "r"
-  if wait "${cap_pid}"; then got_reply=1; else got_reply=0; fi
+  local obs_filt="unknown"
+  if [[ -n "${mapped_port}" ]]; then
+    ( ns_exec "${peer_ns}" timeout 2 tcpdump -ni eth0 -c 1 -nn "udp and dst port ${peer_p2p_port}" >/dev/null 2>&1 ) &
+    local cap_pid=$!
+    sleep 0.2
+    udp_send "${NS_COORD}" "${nat_wan_ip}" "${mapped_port}" 42000 "r"
+    if wait "${cap_pid}"; then got_reply=1; else got_reply=0; fi
 
-  ( ns_exec "${peer_ns}" timeout 2 tcpdump -ni eth0 -c 1 -nn "udp and dst port ${peer_p2p_port}" >/dev/null 2>&1 ) &
-  cap_pid=$!
-  sleep 0.2
-  udp_send "${NS_COORD}" "${nat_wan_ip}" "${mapped_port}" 42001 "p"
-  if wait "${cap_pid}"; then got_same_ip_diff_port=1; else got_same_ip_diff_port=0; fi
+    ( ns_exec "${peer_ns}" timeout 2 tcpdump -ni eth0 -c 1 -nn "udp and dst port ${peer_p2p_port}" >/dev/null 2>&1 ) &
+    cap_pid=$!
+    sleep 0.2
+    udp_send "${NS_COORD}" "${nat_wan_ip}" "${mapped_port}" 42001 "p"
+    if wait "${cap_pid}"; then got_same_ip_diff_port=1; else got_same_ip_diff_port=0; fi
 
-  ( ns_exec "${peer_ns}" timeout 2 tcpdump -ni eth0 -c 1 -nn "udp and dst port ${peer_p2p_port}" >/dev/null 2>&1 ) &
-  cap_pid=$!
-  sleep 0.2
-  udp_send "${NS_STUN}" "${nat_wan_ip}" "${mapped_port}" 42002 "o"
-  if wait "${cap_pid}"; then got_other_ip=1; else got_other_ip=0; fi
+    ( ns_exec "${peer_ns}" timeout 2 tcpdump -ni eth0 -c 1 -nn "udp and dst port ${peer_p2p_port}" >/dev/null 2>&1 ) &
+    cap_pid=$!
+    sleep 0.2
+    udp_send "${NS_STUN}" "${nat_wan_ip}" "${mapped_port}" 42002 "o"
+    if wait "${cap_pid}"; then got_other_ip=1; else got_other_ip=0; fi
 
-  local obs_filt="APDF"
-  obs_filt="$(filtering_classify_from_flags "${got_other_ip}" "${got_same_ip_diff_port}")"
+    obs_filt="$(filtering_classify_from_flags "${got_other_ip}" "${got_same_ip_diff_port}")"
+    if [[ "${got_reply}" -ne 1 ]]; then
+      ok=0
+    fi
+  fi
 
-  local obs_nat exp_nat ok=1
+  local obs_nat exp_nat
   obs_nat="$(nat_label_from "${obs_map}" "${obs_filt}")"
   exp_nat="$(nat_label_from "${exp_map}" "${exp_filt}")"
   if [[ "${obs_map}" != "${exp_map}" ]]; then ok=0; fi
@@ -219,7 +234,7 @@ validate_one_side() {
   echo "${side}: stage=filtering obs=${obs_filt} exp=${exp_filt}"
   echo "${side}: stage=labels obs_nat=${obs_nat} exp_nat=${exp_nat} profile=${profile}"
   if [[ "${got_reply}" -ne 1 ]]; then
-    echo "${side}: warn: expected reply packet not observed"
+    echo "${side}: error: expected reply packet not observed"
   fi
 
   [[ "${ok}" -eq 1 ]]

@@ -24,6 +24,10 @@ test_tcpdump_parse() {
   local line="IP 100.64.0.2.12345 > 100.64.0.10.41000: UDP, length 2"
   assert_eq "$(tcpdump_parse_src_port "${line}")" "12345" "tcpdump_parse_src_port"
   assert_eq "$(tcpdump_parse_dst "${line}")" "100.64.0.10.41000" "tcpdump_parse_dst"
+
+  local line_ts="1710512345.123456 IP 100.64.0.2.12345 > 100.64.0.10.41000: UDP, length 2"
+  assert_eq "$(tcpdump_parse_src_port "${line_ts}")" "12345" "tcpdump_parse_src_port_ts"
+  assert_eq "$(tcpdump_parse_dst "${line_ts}")" "100.64.0.10.41000" "tcpdump_parse_dst_ts"
 }
 
 test_expecteds() {
@@ -69,4 +73,3 @@ main() {
 }
 
 main "$@"
-

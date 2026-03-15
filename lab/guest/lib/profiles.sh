@@ -46,7 +46,10 @@ profile_nat1() {
   ns_exec "${ns}" iptables -w -t mangle -A FORWARD -i lan0 -o wan0 -p udp --sport "${p2p_port}" \
     -m recent --name miopunch_map_open --set
 
-  # EIM-like mapping (port-preserving when possible).
+  # EIM-like mapping: pin the P2P source port to the same external port.
+  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp --sport "${p2p_port}" \
+    -j SNAT --to-source "${wan_ip}:${p2p_port}"
+  # Best-effort SNAT for other UDP flows.
   ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp \
     -j SNAT --to-source "${wan_ip}"
 
@@ -69,7 +72,10 @@ profile_nat2() {
   ns_exec "${ns}" iptables -w -t mangle -A FORWARD -i lan0 -o wan0 -p udp --sport "${p2p_port}" \
     -m recent --name miopunch_nat2_allowed --set --rdest
 
-  # EIM-like mapping (port-preserving when possible).
+  # EIM-like mapping: pin the P2P source port to the same external port.
+  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp --sport "${p2p_port}" \
+    -j SNAT --to-source "${wan_ip}:${p2p_port}"
+  # Best-effort SNAT for other UDP flows.
   ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp \
     -j SNAT --to-source "${wan_ip}"
 
@@ -86,6 +92,8 @@ profile_nat3() {
   nat_base "${ns}"
 
   # Port-restricted filtering: rely on conntrack (APDF-like).
+  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp --sport "${p2p_port}" \
+    -j SNAT --to-source "${wan_ip}:${p2p_port}"
   ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp \
     -j SNAT --to-source "${wan_ip}"
 }
@@ -95,6 +103,12 @@ profile_nat4_regular() {
   nat_base "${ns}"
 
   # Symmetric-like mapping (APDM-like), with "regular" port allocation (sequential within range).
+  # For the testbed we intentionally allocate from different sub-ranges based on the remote IP
+  # to make the mapping address-dependent (and thus APDM-like under our simplified classifier).
+  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp -d "${COORD_IP}" \
+    -j SNAT --to-source "${wan_ip}:40000-42499"
+  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp -d "${PROBE_IP}" \
+    -j SNAT --to-source "${wan_ip}:42500-45000"
   ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp \
     -j SNAT --to-source "${wan_ip}:40000-45000"
 }
