@@ -36,6 +36,22 @@ The system SHALL provide a repeatable integration test entry point that runs aga
 - **THEN** representative success and failure paths are exercised
 - **AND** artifacts required for diagnosis are collected on failure
 
+### Requirement: Control Plane Transport Options
+The system SHALL support selecting the `control plane` transport protocol between `KCP` and `QUIC`, with `TCP` as a baseline default.
+This requirement applies to coordinator signaling and does not include `fallback relay`.
+
+#### Scenario: Connect to coordinator using QUIC
+- **GIVEN** the developer configures `quic` as the `control plane` transport
+- **WHEN** a peer connects to the coordinator
+- **THEN** the control plane connection is established using QUIC
+- **AND** the selected transport is visible in machine-readable diagnostics
+
+#### Scenario: Connect to coordinator using KCP
+- **GIVEN** the developer configures `kcp` as the `control plane` transport
+- **WHEN** a peer connects to the coordinator
+- **THEN** the control plane connection is established using KCP
+- **AND** the selected transport is visible in machine-readable diagnostics
+
 ### Requirement: P2P Data Plane Transport Selection
 The system SHALL support selecting the direct P2P data plane transport protocol between `KCP` and `QUIC` after UDP hole punching succeeds.
 This requirement applies to the direct P2P session and does not require `fallback relay` to use the same transport.
