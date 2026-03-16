@@ -20,7 +20,7 @@
 - `Containerization`：`Docker` 可作为后续进程打包手段，但不作为 `P0` 的拓扑主控。
 - `STUN`：用于地址发现与 NAT 相关信息获取。
 - `UDP hole punching helpers`：`UPnP`、`NAT-PMP`、`PCP`。
-- `Transport protocols`：默认优先 `QUIC`，后续评估 `KCP` 和进一步调度优化。
+- `Transport protocols`：P2P 数据面基线支持 `KCP / QUIC`；后续引入 `HY2` 风格的 `QUIC` 调度与进一步拥塞控制优化。
 - `Target platforms`：优先 `Linux`，后续扩展到 `Android`、`Windows`。
 
 ## Project Conventions

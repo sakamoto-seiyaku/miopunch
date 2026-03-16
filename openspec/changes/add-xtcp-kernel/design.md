@@ -15,7 +15,7 @@
 ### Separation of concerns
 
 - 明确区分 `control plane`（协调与信息交换）与 `connectivity kernel`（建链状态机）。
-- 将“建链成功”与“面向性能的传输层优化”解耦：`P1` 只要求最小数据收发验证，但允许 `control plane` 选择 `TCP / KCP / QUIC` 作为传输协议；性能调度优化留给后续阶段。
+- 将“建链成功”与“面向性能的传输层优化”解耦：`P1` 只要求最小数据收发验证，并在 P2P 数据面支持 `KCP / QUIC` 作为基线传输；性能调度优化留给后续阶段。
 
 ### Testability-first
 

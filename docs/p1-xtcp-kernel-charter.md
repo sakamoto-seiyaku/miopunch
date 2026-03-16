@@ -16,7 +16,7 @@
 
 - `frp/` 以 `git submodule` 引入并固定版本，仅作为参考实现与行为对齐基线（不 vendor，不作为运行时依赖）。
 - `P1` 只聚焦“连通性内核”：`discovery`、`signaling`、`classification`、`hole punching`、受控 `fallback`。
-- `P1` 支持 `control plane` 传输协议选择（`TCP / KCP / QUIC`），对齐 `frp` 现有的传输架构；`P1` 不实现额外的“加密/压缩”包装逻辑。
+- `P1` 在 P2P 数据面支持 `KCP / QUIC`（与 `frp xtcp` 对齐）；`P1` 不实现额外的“加密/压缩”包装逻辑；不要求 `fallback relay` 支持这些协议。
 - `P1` 不引入复杂组网语义：仍以“中心协调 + 两端数据面”作为主流程。
 - `P1` 采用 `Linux-first`：必须在 `P0` VM 实验台内可重复运行；真实环境验证作为独立测试线。
 - `P1` 不实现 `IPv6` 与端口映射辅助（`UPnP / NAT-PMP / PCP`），但接口设计不得阻塞后续 `P2` 扩展。

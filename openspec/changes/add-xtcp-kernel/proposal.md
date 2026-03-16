@@ -11,7 +11,7 @@
 
 本 change 新增 `xtcp-kernel` 能力，定义并实现：
 - 最小 `control plane`（中心协调）与两端信息交换流程。
-- `control plane` 支持 `TCP / KCP / QUIC` 传输协议选择，对齐 `frp` 现有架构；`P1` 不实现额外“加密/压缩”包装逻辑。
+- P2P 数据面支持 `KCP / QUIC`（与 `frp xtcp` 对齐）；`P1` 不实现额外“加密/压缩”包装逻辑；不要求 `fallback relay` 支持这些协议。
 - 基础 `discovery`（STUN）与必要的 NAT 行为信息记录/判定入口。
 - UDP 打洞的核心状态机（`make hole` + `confirm`）。
 - 受控 `fallback`（可配置、可观测、可测试），避免隐式降级掩盖失败原因。

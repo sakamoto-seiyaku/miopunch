@@ -36,11 +36,18 @@ The system SHALL provide a repeatable integration test entry point that runs aga
 - **THEN** representative success and failure paths are exercised
 - **AND** artifacts required for diagnosis are collected on failure
 
-### Requirement: Control Plane Transport Selection
-The system SHALL support selecting the `control plane` transport protocol among `TCP`, `KCP`, and `QUIC`.
+### Requirement: P2P Data Plane Transport Selection
+The system SHALL support selecting the direct P2P data plane transport protocol between `KCP` and `QUIC` after UDP hole punching succeeds.
+This requirement applies to the direct P2P session and does not require `fallback relay` to use the same transport.
 
-#### Scenario: Connect to coordinator using a selected protocol
-- **GIVEN** the developer configures the `xtcp-kernel` CLI to use a specific `control plane` transport protocol
-- **WHEN** the peer connects to the coordinator
-- **THEN** the connection is established using the selected protocol
-- **AND** the selection is visible in machine-readable diagnostics
+#### Scenario: Establish P2P session using QUIC
+- **GIVEN** the system negotiates `quic` as the P2P data plane transport
+- **WHEN** the peers establish the P2P session
+- **THEN** the peers can exchange application payload over QUIC streams
+- **AND** the selected transport is visible in machine-readable diagnostics
+
+#### Scenario: Establish P2P session using KCP
+- **GIVEN** the system negotiates `kcp` as the P2P data plane transport
+- **WHEN** the peers establish the P2P session
+- **THEN** the peers can exchange application payload over KCP-based streams
+- **AND** the selected transport is visible in machine-readable diagnostics
