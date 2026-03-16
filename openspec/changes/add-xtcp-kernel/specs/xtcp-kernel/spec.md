@@ -35,3 +35,12 @@ The system SHALL provide a repeatable integration test entry point that runs aga
 - **WHEN** the integration regression suite is executed
 - **THEN** representative success and failure paths are exercised
 - **AND** artifacts required for diagnosis are collected on failure
+
+### Requirement: Control Plane Transport Selection
+The system SHALL support selecting the `control plane` transport protocol among `TCP`, `KCP`, and `QUIC`.
+
+#### Scenario: Connect to coordinator using a selected protocol
+- **GIVEN** the developer configures the `xtcp-kernel` CLI to use a specific `control plane` transport protocol
+- **WHEN** the peer connects to the coordinator
+- **THEN** the connection is established using the selected protocol
+- **AND** the selection is visible in machine-readable diagnostics

@@ -11,6 +11,7 @@
 
 本 change 新增 `xtcp-kernel` 能力，定义并实现：
 - 最小 `control plane`（中心协调）与两端信息交换流程。
+- `control plane` 支持 `TCP / KCP / QUIC` 传输协议选择，对齐 `frp` 现有架构；`P1` 不实现额外“加密/压缩”包装逻辑。
 - 基础 `discovery`（STUN）与必要的 NAT 行为信息记录/判定入口。
 - UDP 打洞的核心状态机（`make hole` + `confirm`）。
 - 受控 `fallback`（可配置、可观测、可测试），避免隐式降级掩盖失败原因。
@@ -28,4 +29,4 @@
 
 - 新增 capability：`xtcp-kernel`
 - 将引入新的 Go 模块与包结构（本阶段以 `Linux-first` 为准）
-- 明确排除：`UPnP / NAT-PMP / PCP / IPv6`（`P2`）、`QUIC / KCP`（`P3`）、`overlay/mesh`、`VPP`、`TCP punching`
+- 明确排除：`UPnP / NAT-PMP / PCP / IPv6`（`P2`）、面向性能的 `HY2` 风格调度优化（`P3`）、`overlay/mesh`、`VPP`、`TCP punching`
