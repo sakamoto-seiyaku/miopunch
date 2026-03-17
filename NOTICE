@@ -1,0 +1,8 @@
+Third-party notices for miopunch
+
+This repository includes code copied or derived from the following projects:
+
+- frp (Fast Reverse Proxy) by fatedier and contributors
+  - Source: `frp/` git submodule (pinned in this repository)
+  - License: Apache License 2.0 (see `LICENSES/Apache-2.0.txt`)
+
