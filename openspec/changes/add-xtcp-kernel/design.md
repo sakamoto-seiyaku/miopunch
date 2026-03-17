@@ -7,6 +7,11 @@
 
 ## Key Decisions
 
+### Copy-first extraction
+
+- `P1` 采用“直接从 `frp/`（submodule）复制/抽离”方式落地，优先保持与上游结构相近，避免大规模重写与重构。
+- 对复制进来的上游文件，保留原始版权与许可证头部，并记录来源 commit/tag；对上游行为的偏离必须可解释并用测试覆盖。
+
 ### Reference baseline via submodule
 
 - `frp/` 以 `git submodule` 固定版本作为参考与对照基线。
@@ -25,4 +30,4 @@
 ### Observability as a hard constraint
 
 - 建链过程必须按阶段输出可机读事件流，失败必须携带明确阶段与关键条件。
-- `fallback` 必须显式可见、可配置、可测试，禁止“静默回退掩盖失败”。
+- `P1` 不实现 `fallback/relay`；直连失败就失败，但失败路径必须可观测、可定位、可复盘。

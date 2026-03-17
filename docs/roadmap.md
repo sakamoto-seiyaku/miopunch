@@ -57,10 +57,11 @@
 
 - 从 `frp xtcp` 提炼最小 NAT traversal 核心。
 - `frp/` 以 `git submodule` 引入并固定版本，仅作为参考与行为对齐基线（不 vendor，不作为运行时依赖）。
-- 范围包括 `STUN`、NAT 分类、信息交换、`make hole`、`fallback`。
+- 范围包括 `STUN`、NAT 分类、信息交换、`make hole`、P2P 数据面（`KCP / QUIC`）。
 - `control plane` 与 P2P 数据面均支持 `KCP / QUIC`（`TCP` 仅作为默认基线，不计入该选择；不含 `fallback relay`）；不引入额外“加密/压缩”包装逻辑。
 - 目标是形成可独立测试、可独立运行、可独立演进的核心库与最小 CLI。
 - 这一阶段不引入复杂组网语义。
+- `P1` 不引入 `fallback/relay`；直连失败就失败，必须可观测、可定位、可复盘。
 
 ### P2 补齐连通性
 

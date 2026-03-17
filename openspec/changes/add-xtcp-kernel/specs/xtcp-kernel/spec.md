@@ -18,14 +18,15 @@ The system SHALL expose a stage-based, machine-readable timeline for each traver
 - **THEN** the failure is attributed to a specific stage
 - **AND** the system records relevant conditions (candidates, retries, timeouts, and decisions) needed for diagnosis
 
-### Requirement: Explicit and Observable Fallback
-The system SHALL provide a controlled fallback mode that is explicit, observable, and testable.
+### Requirement: No Fallback Relay in P1
+The system SHALL NOT perform fallback relay in `P1`.
+If a direct P2P session cannot be established, the attempt SHALL fail with stage-level diagnostics.
 
-#### Scenario: Fallback is visible and does not hide the primary failure
+#### Scenario: Failure is explicit without relay
 - **GIVEN** a traversal attempt cannot establish a direct P2P session
-- **WHEN** the system engages a fallback mode
-- **THEN** the fallback decision is reported explicitly
-- **AND** the original failure stage and reason remain visible to the user
+- **WHEN** the attempt ends
+- **THEN** the result is reported as a direct-connect failure
+- **AND** the output includes stage-level diagnostics for troubleshooting
 
 ### Requirement: NAT Lab Regression Entry Point
 The system SHALL provide a repeatable integration test entry point that runs against the `P0` NAT lab testbed.
