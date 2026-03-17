@@ -33,7 +33,13 @@
 ## 6. Testing
 
 - [ ] 单元测试：协议编解码、状态机、超时/重试、候选选择。
-- [ ] 集成回归：接入 `P0` 实验台，在代表性 case 上验证成功/失败路径与诊断信息完整性。
+- [ ] 集成回归：提供一个可重复执行的入口，接入 `P0` 实验台，在代表性 case 上验证成功/失败路径与诊断信息完整性。
+- [ ] 集成回归必须不依赖公网 STUN：在 `P0` 实验台内启动本地 STUN（使用 `mlab-stun` 命名空间）。
+- [ ] 定义并固化 `P1` 的最小集成矩阵（case × transport × 预期结果），至少覆盖：
+  - [ ] `core-01`：`kcp` 与 `quic` 均要求成功建链并交换 payload。
+  - [ ] 至少 1 个 `easy-like` 非基线 case：验证不是“只在最宽松 case 能跑”的偶然成功。
+  - [ ] 至少 1 个显式失败路径：不依赖 NAT 偶然性，通过参数或环境注入让某阶段必失败，并断言阶段化诊断输出（例如 STUN 不可达 / 协调端不可达 / secret 不匹配）。
+- [ ] 集成回归失败时必须拉回足够产物（日志 + 事件流 + 关键网络状态/抓包），以便复盘；产物至少与 `P0` artifacts 同目录体系兼容。
 
 ## 7. Docs
 
@@ -46,4 +52,5 @@
 ## Verification (post-implementation)
 
 - `go test ./...`
-- `./lab/host/labctl selftest`
+- `./lab/host/labctl selftest`（验证 `P0` 实验台基线）
+- `./lab/host/labctl xtcp-selftest`（或等价入口；验证 `P1` 集成矩阵）
