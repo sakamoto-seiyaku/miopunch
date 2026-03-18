@@ -6,6 +6,11 @@
 - 当前版本只定义主线，不锁死细节。
 - 后续按实验结果、实现成本、真实网络表现持续调整。
 
+## 当前进度（截至 2026-03-18）
+
+- `P0`：NAT 实验台已落地，case 覆盖集可一键自测并导出 artifacts；见 `docs/p0-nat-lab-charter.md`、`openspec/changes/add-nat-lab-testbed/`、`docs/reports/2026-03-17-selftest.md`。
+- `P1`：`xtcp-kernel` 抽离已落地，`core-01..core-10 × {kcp,quic}` 在 P0 VM 内完成实测并汇总；见 `docs/p1-xtcp-kernel-charter.md`、`openspec/changes/add-xtcp-kernel/`、`docs/reports/2026-03-18-xtcp-fulltest.md`。
+
 ## 定位
 
 - `miopunch` 是一个以 `frp xtcp` 为起点、持续演进的 `Go NAT traversal` 项目。

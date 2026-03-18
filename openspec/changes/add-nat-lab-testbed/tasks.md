@@ -16,4 +16,8 @@
 ## Verification
 
 - `./lab/check.sh`
-- `./lab/host/labctl selftest`（`core-01..core-10`）
+- `./lab/host/labctl selftest`（`core-01..core-10`；see `docs/reports/2026-03-17-selftest.md`）
+
+## Evidence
+
+- `docs/reports/2026-03-17-selftest.md`（P0：`pass=10 fail=0`）

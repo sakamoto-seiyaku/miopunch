@@ -5,6 +5,43 @@
 `xtcp-kernel` 是一个以“中心协调 + 两端数据面”为主流程的 NAT traversal 内核。
 本阶段只解决“能稳定建链且失败可解释”的最小问题，将连通性增强与高性能传输延后到 `P2/P3`。
 
+## Upstream baseline / source record
+
+- `frp/` submodule revision:
+  - commit: `94a631fe9c22491672b016413bb4d68067adeafb`
+  - describe: `v0.62.1-93-g94a631fe`
+- Copy-first extracted packages (Apache-2.0 headers preserved):
+  - `frp/pkg/nathole/*` → `xtcp/nathole/*`
+  - `frp/pkg/transport/{message.go,tls.go}` → `xtcp/transport/{message.go,tls.go}`
+  - `frp/pkg/util/util/util.go` (subset) → `xtcp/util/util/auth.go`
+  - `frp/pkg/util/log/log.go` → `xtcp/util/log/log.go`
+  - `frp/pkg/util/xlog/*` → `xtcp/util/xlog/*`
+  - `frp/pkg/util/net/{kcp.go,udp.go}` → `xtcp/netutil/*`
+
+Deviations from upstream are intentionally kept minimal and driven by testability:
+- Lab glue supports binding a fixed local UDP port for NAT traversal (without modifying upstream-extracted `frp/pkg/nathole` code).
+- Data plane servers keep sockets alive briefly after payload exchange to avoid early-close failures in regression.
+
+## Upstream Diff Summary (code review view)
+
+Focus: keep `hole punching kernel` copy-first and minimize diffs against `frp/` baseline.
+
+- `xtcp/nathole/*` vs `frp/pkg/nathole/*`
+  - Behavior: unchanged (mode selection, classify/discovery/analyzer logic are identical).
+  - Changes in upstream-copied files are limited to:
+    - import path rewrites (`github.com/fatedier/frp/...` → `github.com/miopunch/miopunch/xtcp/...`)
+    - drop `k8s.io/apimachinery/pkg/util/sets` dependency (use `map[int]struct{}`) in random-port sender helper
+  - Additions: unit tests (`xtcp/nathole/*_test.go`)
+- `xtcp/transport/message.go` vs `frp/pkg/transport/message.go`
+  - import path rewrite only; logic unchanged
+  - Additions: unit tests (`xtcp/transport/message_test.go`)
+- Glue code (`xtcp/peer/*`, `xtcp/control/*`, `xtcp/coord/*`, `xtcp/msg/messages.go`) is intentionally *not* copy-first; it provides a minimal runnable harness around the upstream kernel.
+
+Repro commands:
+- `git submodule status`
+- `git diff --no-index --stat frp/pkg/nathole xtcp/nathole`
+- `git diff --no-index --stat frp/pkg/transport xtcp/transport`
+
 ## Key Decisions
 
 ### Copy-first extraction
