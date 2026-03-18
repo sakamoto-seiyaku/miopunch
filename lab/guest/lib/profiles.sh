@@ -20,27 +20,43 @@ profiles_apply() {
 }
 
 nat_base() {
-  local ns="$1"
+  local ns="$1" lan_cidr="$2" wan_ip="$3"
   ns_exec "${ns}" sh -c 'echo 1 > /proc/sys/net/ipv4/ip_forward'
 
+  # Ensure clean slate across case switches. Note that the lab uses iptables-nft,
+  # so flushing iptables tables is enough (no separate nft state is expected).
   ns_exec "${ns}" iptables -w -F
   ns_exec "${ns}" iptables -w -X
   ns_exec "${ns}" iptables -w -t nat -F
   ns_exec "${ns}" iptables -w -t nat -X
   ns_exec "${ns}" iptables -w -t mangle -F
   ns_exec "${ns}" iptables -w -t mangle -X
+  ns_exec "${ns}" iptables -w -t raw -F
+  ns_exec "${ns}" iptables -w -t raw -X
 
   # Reset recent module state used by some profiles (per-netns).
   ns_exec "${ns}" sh -c 'for n in miopunch_map_open miopunch_nat2_allowed; do f="/proc/net/xt_recent/${n}"; if [ -f "$f" ]; then echo clear >"$f" 2>/dev/null || true; : >"$f" 2>/dev/null || true; fi; done'
 
+  # XTCP detect mode uses "low TTL" UDP packets that are intended to die somewhere
+  # in the public Internet after creating local NAT state. In this lab, the WAN is
+  # a single L2 segment, so such packets would otherwise reach the opposite NAT and
+  # create conntrack entries that can break subsequent hole punching (e.g. NAT3×NAT3).
+  #
+  # Drop low-TTL UDP packets as early as possible (raw PREROUTING is before conntrack).
+  ns_exec "${ns}" iptables -w -t raw -A PREROUTING -i wan0 -p udp -m ttl --ttl-lt 8 -j DROP
+
   ns_exec "${ns}" iptables -w -P FORWARD DROP
   ns_exec "${ns}" iptables -w -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
   ns_exec "${ns}" iptables -w -A FORWARD -i lan0 -o wan0 -j ACCEPT
+
+  # Best-effort SNAT for TCP flows (control plane baseline).
+  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p tcp \
+    -j SNAT --to-source "${wan_ip}"
 }
 
 profile_nat1() {
   local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
-  nat_base "${ns}"
+  nat_base "${ns}" "${lan_cidr}" "${wan_ip}"
 
   # Mapping open marker for the peer endpoint/port (required to avoid always-on static DNAT).
   ns_exec "${ns}" iptables -w -t mangle -A FORWARD -i lan0 -o wan0 -p udp --sport "${p2p_port}" \
@@ -64,7 +80,7 @@ profile_nat1() {
 
 profile_nat2() {
   local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
-  nat_base "${ns}"
+  nat_base "${ns}" "${lan_cidr}" "${wan_ip}"
 
   # Record remote IPs that the peer has sent to (address-dependent filtering).
   ns_exec "${ns}" iptables -w -t mangle -A FORWARD -i lan0 -o wan0 -p udp --sport "${p2p_port}" \
@@ -89,7 +105,7 @@ profile_nat2() {
 
 profile_nat3() {
   local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
-  nat_base "${ns}"
+  nat_base "${ns}" "${lan_cidr}" "${wan_ip}"
 
   # Port-restricted filtering: rely on conntrack (APDF-like).
   ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp --sport "${p2p_port}" \
@@ -100,7 +116,7 @@ profile_nat3() {
 
 profile_nat4_regular() {
   local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
-  nat_base "${ns}"
+  nat_base "${ns}" "${lan_cidr}" "${wan_ip}"
 
   # Symmetric-like mapping (APDM-like), with "regular" port allocation (sequential within range).
   # For the testbed we intentionally allocate from different sub-ranges based on the remote IP
@@ -115,7 +131,7 @@ profile_nat4_regular() {
 
 profile_nat4_irregular() {
   local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
-  nat_base "${ns}"
+  nat_base "${ns}" "${lan_cidr}" "${wan_ip}"
 
   # Symmetric-like mapping (APDM-like), with "irregular" port allocation (random within range).
   ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp \

@@ -22,6 +22,7 @@ Prereqs on the host:
 - `qemu-system-x86_64`, `qemu-img`
 - `cloud-localds` (cloud-init seed generator)
 - `ssh`, `ssh-keygen`, `rsync`, `curl`
+- `go` (only required for `labctl push-bin` / `labctl xtcp-selftest`)
 
 Install (Debian/Ubuntu):
 
@@ -44,6 +45,34 @@ Or run everything end-to-end:
 ```bash
 ./lab/host/labctl selftest
 ```
+
+Example selftest report (captured runs + artifacts pointers):
+- `docs/reports/2026-03-17-selftest.md`
+
+Run P1 `xtcp-kernel` integration regression (builds `cmd/miopunch` on host, pushes into VM, runs guest matrix, pulls artifacts):
+
+```bash
+./lab/host/labctl xtcp-selftest
+```
+
+Run P1 `xtcp-kernel` against all `core-01..core-10` cases (non-NAT4 cases MUST succeed; NAT4-involved cases are allowed to fail but must emit diagnostics):
+
+```bash
+./lab/host/labctl xtcp-fulltest
+```
+
+Artifacts (from `xtcp-selftest`) are pulled into `lab/_artifacts/` on the host. Each run dir contains:
+- `coord.log`, `client.log`, `visitor.log`: JSON event stream + stderr (stage-level timeline; grep `"kind":"fail"`).
+- `wan.pcap`: WAN-side capture for the run.
+- `natA/natB` snapshots: `iptables-save`, `conntrack`, `tc qdisc`, `netns` listing.
+- `run.env`: parameters + basic timing.
+
+Artifacts (from `selftest`) are also pulled into `lab/_artifacts/`. Each run dir contains:
+- `validate.log`: observed `RFC 4787` mapping/filtering + `NAT1-4` labels.
+- `mlab-map-*`, `mlab-mapped-*`: tcpdump lines used by the validator (per-side, per-try).
+- `wan.pcap`, `natA/natB` snapshots, `run.env`, `case.env`.
+
+Event stages (P1): `discovery`, `signaling`, `punching`, `confirm`, `transport`, `supervisor`.
 
 Troubleshooting:
 

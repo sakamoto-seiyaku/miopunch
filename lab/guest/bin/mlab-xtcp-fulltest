@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID:-0}" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+guest_root="$(cd -- "${script_dir}/.." && pwd)"
+runner="${script_dir}/mlab-xtcp-run"
+
+[[ -x "${runner}" ]] || { echo "error: missing runner: ${runner}" >&2; exit 1; }
+
+mlab="${script_dir}/mlab"
+[[ -x "${mlab}" ]] || { echo "error: missing mlab: ${mlab}" >&2; exit 1; }
+
+control_proto="tcp"
+repeat="${MLAB_XTCP_REPEAT:-1}"
+
+pass_required=0
+fail_required=0
+pass_allowed=0
+fail_allowed=0
+
+echo "control_proto=${control_proto} repeat=${repeat}"
+
+cases=("$@")
+if [[ ${#cases[@]} -eq 0 ]]; then
+  mapfile -t cases < <("${mlab}" case list | grep -E '^core-[0-9]{2}$')
+fi
+
+data_protos=("quic" "kcp")
+
+report_line() {
+  local case_id="$1" data_proto="$2" required="$3" attempt="$4" ok="$5" run_dir="$6" rc="$7" stage="$8"
+  echo "case=${case_id} data=${data_proto} required=${required} attempt=${attempt} ok=${ok} visitor_rc=${rc} fail_stage=${stage} artifacts=${run_dir}"
+}
+
+for case_id in "${cases[@]}"; do
+  case_file="${guest_root}/cases/${case_id}.sh"
+  [[ -f "${case_file}" ]] || { echo "warn: skip missing case file: ${case_file}" >&2; continue; }
+  # shellcheck source=/dev/null
+  source "${case_file}"
+
+  nat4_involved=0
+  if [[ "${A_PROFILE:-}" == nat4-* ]] || [[ "${B_PROFILE:-}" == nat4-* ]]; then
+    nat4_involved=1
+  fi
+
+  for data_proto in "${data_protos[@]}"; do
+    for ((i = 1; i <= repeat; i++)); do
+      required="yes"
+      expect="success"
+      if [[ "${nat4_involved}" -eq 1 ]]; then
+        required="no"
+        expect="allow-diag-fail"
+      fi
+
+      echo "== ${case_id} A=${A_PROFILE:-} B=${B_PROFILE:-} nat4=${nat4_involved} control=${control_proto} data=${data_proto} expect=${expect} attempt=${i}/${repeat} =="
+
+      set +e
+      out="$("${runner}" "${case_id}" --control-proto "${control_proto}" --data-proto "${data_proto}" --expect "${expect}" 2>&1)"
+      rrc=$?
+      set -e
+
+      run_dir="$(printf '%s\n' "${out}" | sed -n 's/^run_dir=//p' | tail -n 1)"
+      if [[ -z "${run_dir}" ]]; then
+        run_dir="(unknown)"
+      fi
+
+      visitor_rc=""
+      fail_stage=""
+      if [[ "${run_dir}" != "(unknown)" ]] && [[ -f "${run_dir}/run.env" ]]; then
+        visitor_rc="$(sed -n 's/^visitor_rc=//p' "${run_dir}/run.env" | tail -n 1 || true)"
+      fi
+      if [[ "${run_dir}" != "(unknown)" ]] && [[ -f "${run_dir}/visitor.log" ]]; then
+        fail_stage="$(grep -m 1 -E '\"stage\":\"[^\"]*\".*\"kind\":\"fail\"' "${run_dir}/visitor.log" | sed -n 's/.*\"stage\":\"\\([^\"]*\\)\".*/\\1/p' || true)"
+      fi
+
+      if [[ "${rrc}" -eq 0 ]]; then
+        report_line "${case_id}" "${data_proto}" "${required}" "${i}" "yes" "${run_dir}" "${visitor_rc:-}" "${fail_stage}"
+        if [[ "${required}" == "yes" ]]; then
+          pass_required=$((pass_required + 1))
+        else
+          if [[ "${visitor_rc:-0}" == "0" ]]; then
+            pass_allowed=$((pass_allowed + 1))
+          else
+            fail_allowed=$((fail_allowed + 1))
+          fi
+        fi
+      else
+        report_line "${case_id}" "${data_proto}" "${required}" "${i}" "no" "${run_dir}" "${visitor_rc:-}" "${fail_stage}"
+        if [[ "${required}" == "yes" ]]; then
+          fail_required=$((fail_required + 1))
+        else
+          fail_allowed=$((fail_allowed + 1))
+        fi
+      fi
+    done
+  done
+done
+
+echo "summary: required_pass=${pass_required} required_fail=${fail_required} allowed_success=${pass_allowed} allowed_fail=${fail_allowed}"
+if [[ "${fail_required}" -ne 0 ]]; then
+  exit 1
+fi

@@ -169,6 +169,7 @@ run_case() {
   ns_exec "${NS_WAN}" tcpdump -ni br0 -w "${pcap}" >/dev/null 2>&1 &
   tcpdump_pid=$!
 
+  export MLAB_RUN_DIR="${run_dir}"
   validate_case >"${run_dir}/validate.log" 2>&1
   t2="$(date -u +%s%3N)"
   case_deactivate

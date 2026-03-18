@@ -1,0 +1,280 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID:-0}" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+guest_root="$(cd -- "${script_dir}/.." && pwd)"
+
+# shellcheck source=/dev/null
+source "${guest_root}/lib/common.sh"
+# shellcheck source=/dev/null
+source "${guest_root}/lib/topology.sh"
+
+mlab="${script_dir}/mlab"
+miopunch="${MLAB_MIOPUNCH_BIN:-/opt/miopunch-lab/bin/miopunch}"
+
+artifacts_root="${MLAB_ARTIFACTS_ROOT:-/opt/miopunch-lab/artifacts}"
+
+usage() {
+  cat <<'EOF'
+Usage: mlab-xtcp-run <case-id> [flags]
+
+Flags:
+  --control-proto <tcp|kcp|quic>    Control plane protocol (default: tcp)
+  --data-proto <kcp|quic>           Data plane protocol (default: quic)
+  --proxy <name>                    Proxy name (default: p1)
+  --secret <secret>                 Secret key for client side (default: secret)
+  --visitor-secret <secret>         Secret key used by visitor (default: same as --secret)
+  --payload <string>                Payload to send (default: ping)
+  --expect <success|fail|diag-fail|allow-diag-fail> Expected outcome (default: success)
+  --expect-fail-stage <stage>       If set, require a fail event at this stage (e.g. signaling)
+
+Artifacts:
+  Writes a run dir under /opt/miopunch-lab/artifacts/ and stores:
+  - coord/client/visitor/stun logs (json event stream + errors)
+  - wan pcap
+  - nat iptables/conntrack/tc snapshots
+EOF
+}
+
+preflight() {
+  need_cmd ip
+  need_cmd iptables-save
+  need_cmd conntrack
+  need_cmd tcpdump
+  need_cmd timeout
+  need_cmd grep
+  [[ -x "${miopunch}" ]] || die "missing miopunch binary: ${miopunch}"
+  [[ -x "${mlab}" ]] || die "missing mlab: ${mlab}"
+}
+
+stop_pid() {
+  local pid="$1"
+  if [[ -z "${pid}" ]]; then
+    return 0
+  fi
+  if kill -0 "${pid}" 2>/dev/null; then
+    kill "${pid}" 2>/dev/null || true
+    wait "${pid}" 2>/dev/null || true
+  fi
+}
+
+dump_state() {
+  ns_exec "${NS_NAT_A}" iptables-save >"${run_dir}/natA.iptables" 2>&1 || true
+  ns_exec "${NS_NAT_B}" iptables-save >"${run_dir}/natB.iptables" 2>&1 || true
+
+  ns_exec "${NS_NAT_A}" conntrack -L >"${run_dir}/natA.conntrack" 2>&1 || true
+  ns_exec "${NS_NAT_B}" conntrack -L >"${run_dir}/natB.conntrack" 2>&1 || true
+
+  ns_exec "${NS_NAT_A}" tc -s qdisc show >"${run_dir}/natA.tc" 2>&1 || true
+  ns_exec "${NS_NAT_B}" tc -s qdisc show >"${run_dir}/natB.tc" 2>&1 || true
+
+  ip netns list >"${run_dir}/netns.txt" 2>&1 || true
+}
+
+main() {
+  local case_id="${1:-}"
+  shift || true
+  [[ -n "${case_id}" ]] || { usage; exit 2; }
+
+  local control_proto="tcp"
+  local data_proto="quic"
+  local proxy_name="p1"
+  local secret="secret"
+  local visitor_secret=""
+  local payload="ping"
+  local expect="success"
+  local expect_fail_stage=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --control-proto) control_proto="${2:-}"; shift 2 ;;
+      --data-proto) data_proto="${2:-}"; shift 2 ;;
+      --proxy) proxy_name="${2:-}"; shift 2 ;;
+      --secret) secret="${2:-}"; shift 2 ;;
+      --visitor-secret) visitor_secret="${2:-}"; shift 2 ;;
+      --payload) payload="${2:-}"; shift 2 ;;
+      --expect) expect="${2:-}"; shift 2 ;;
+      --expect-fail-stage) expect_fail_stage="${2:-}"; shift 2 ;;
+      -h|--help|help) usage; exit 0 ;;
+      *) die "unknown arg: $1" ;;
+    esac
+  done
+  if [[ -z "${visitor_secret}" ]]; then
+    visitor_secret="${secret}"
+  fi
+
+  case "${control_proto}" in tcp|kcp|quic) ;; *) die "invalid --control-proto: ${control_proto}" ;; esac
+  case "${data_proto}" in kcp|quic) ;; *) die "invalid --data-proto: ${data_proto}" ;; esac
+  case "${expect}" in success|fail|diag-fail|allow-diag-fail) ;; *) die "invalid --expect: ${expect}" ;; esac
+
+  local a_p2p_port=5000
+  local b_p2p_port=5000
+  local case_file="${guest_root}/cases/${case_id}.sh"
+  if [[ -f "${case_file}" ]]; then
+    # shellcheck source=/dev/null
+    source "${case_file}"
+    a_p2p_port="${A_P2P_PORT:-5000}"
+    b_p2p_port="${B_P2P_PORT:-5000}"
+  fi
+
+  preflight
+
+  local ts
+  ts="$(date -u +%Y%m%dT%H%M%SZ)"
+  run_dir="${artifacts_root}/${ts}-xtcp-${case_id}-${control_proto}-${data_proto}"
+  mkdir -p "${run_dir}"
+  echo "run_dir=${run_dir}"
+
+  {
+    echo "ts_utc=${ts}"
+    echo "case_id=${case_id}"
+    echo "control_proto=${control_proto}"
+    echo "data_proto=${data_proto}"
+    echo "proxy_name=${proxy_name}"
+    echo "stun_addrs=${STUN_IP}:3478,${STUN_IP}:3479"
+    echo "coord_addr=${COORD_IP}:7000"
+    echo "peerA_ns=${NS_PEER_A}"
+    echo "peerB_ns=${NS_PEER_B}"
+    echo "peerA_p2p_port=${a_p2p_port}"
+    echo "peerB_p2p_port=${b_p2p_port}"
+  } >"${run_dir}/run.env"
+
+  local tcpdump_pid="" stun_pid="" coord_pid="" client_pid=""
+  finish() {
+    local rc=$?
+    stop_pid "${client_pid:-}" || true
+    stop_pid "${coord_pid:-}" || true
+    stop_pid "${stun_pid:-}" || true
+    stop_pid "${tcpdump_pid:-}" || true
+    dump_state || true
+    "${mlab}" case deactivate >/dev/null 2>&1 || true
+    chmod -R a+rX "${run_dir}" 2>/dev/null || true
+    exit "${rc}"
+  }
+  trap finish EXIT
+
+  local t0 t1 t2 t3
+  t0="$(date -u +%s%3N)"
+
+  "${mlab}" case activate "${case_id}" >/dev/null
+  t1="$(date -u +%s%3N)"
+
+  # Capture WAN traffic.
+  ns_exec "${NS_WAN}" tcpdump -ni br0 -w "${run_dir}/wan.pcap" >/dev/null 2>&1 &
+  tcpdump_pid=$!
+
+  # Local STUN: provide 2 endpoints for discovery.
+  ns_exec "${NS_STUN}" "${miopunch}" stun --listen "${STUN_IP}:3478" --listen "${STUN_IP}:3479" >"${run_dir}/stun.log" 2>&1 &
+  stun_pid=$!
+  sleep 0.2
+
+  # Coordinator.
+  ns_exec "${NS_COORD}" "${miopunch}" coord --listen "${COORD_IP}:7000" --proto "${control_proto}" >"${run_dir}/coord.log" 2>&1 &
+  coord_pid=$!
+
+  # Wait for coordinator to become ready (avoid connection refused race).
+  local t_coord_start t_coord_now
+  t_coord_start="$(date +%s)"
+  while true; do
+    if grep -q "\"msg\":\"coordinator listening\"" "${run_dir}/coord.log" 2>/dev/null; then
+      break
+    fi
+    if ! kill -0 "${coord_pid}" 2>/dev/null; then
+      die "coordinator exited before ready (run_dir=${run_dir})"
+    fi
+    t_coord_now="$(date +%s)"
+    if ((t_coord_now - t_coord_start >= 10)); then
+      die "coordinator not ready after 10s (run_dir=${run_dir})"
+    fi
+    sleep 0.05
+  done
+
+  # Client peer (A) registers and waits for a single SID.
+  ns_exec "${NS_PEER_A}" "${miopunch}" peer client \
+    --coord "${COORD_IP}:7000" \
+    --control-proto "${control_proto}" \
+    --proxy "${proxy_name}" \
+    --secret "${secret}" \
+    --user "a" \
+    --allow-users "*" \
+    --p2p-port "${a_p2p_port}" \
+    --stun "${STUN_IP}:3478,${STUN_IP}:3479" \
+    --once \
+    >"${run_dir}/client.log" 2>&1 &
+  client_pid=$!
+
+  # Wait for the client to finish hello/registration, otherwise visitor precheck may race
+  # (especially on QUIC control plane where handshake can take longer than a fixed sleep).
+  local t_ready_start t_ready_now
+  t_ready_start="$(date +%s)"
+  while true; do
+    if grep -q "\"stage\":\"signaling\".*\"kind\":\"ok\".*\"msg\":\"connected to coordinator\"" "${run_dir}/client.log" 2>/dev/null; then
+      break
+    fi
+    if ! kill -0 "${client_pid}" 2>/dev/null; then
+      die "client exited before ready (run_dir=${run_dir})"
+    fi
+    t_ready_now="$(date +%s)"
+    if ((t_ready_now - t_ready_start >= 10)); then
+      die "client not ready after 10s (run_dir=${run_dir})"
+    fi
+    sleep 0.05
+  done
+
+  t2="$(date -u +%s%3N)"
+
+  # Visitor peer (B) runs once and exits with status.
+  set +e
+  ns_exec "${NS_PEER_B}" "${miopunch}" peer visitor \
+    --coord "${COORD_IP}:7000" \
+    --control-proto "${control_proto}" \
+    --proxy "${proxy_name}" \
+    --secret "${visitor_secret}" \
+    --user "b" \
+    --data-proto "${data_proto}" \
+    --payload "${payload}" \
+    --p2p-port "${b_p2p_port}" \
+    --stun "${STUN_IP}:3478,${STUN_IP}:3479" \
+    >"${run_dir}/visitor.log" 2>&1
+  visitor_rc=$?
+  set -e
+  t3="$(date -u +%s%3N)"
+
+  {
+    echo "activate_ms=$((t1 - t0))"
+    echo "start_ms=$((t2 - t1))"
+    echo "visitor_ms=$((t3 - t2))"
+    echo "visitor_rc=${visitor_rc}"
+  } >>"${run_dir}/run.env"
+
+  # Stop background processes (best-effort).
+  stop_pid "${client_pid}" || true
+  stop_pid "${coord_pid}" || true
+  stop_pid "${stun_pid}" || true
+
+  if [[ "${expect}" == "success" ]]; then
+    [[ "${visitor_rc}" -eq 0 ]] || die "expected success, got rc=${visitor_rc} (run_dir=${run_dir})"
+  elif [[ "${expect}" == "fail" ]]; then
+    [[ "${visitor_rc}" -ne 0 ]] || die "expected failure, got success (run_dir=${run_dir})"
+  elif [[ "${expect}" == "diag-fail" ]]; then
+    [[ "${visitor_rc}" -ne 0 ]] || die "expected failure (diag-fail), got success (run_dir=${run_dir})"
+    grep -q "\"kind\":\"fail\"" "${run_dir}/visitor.log" || die "expected diagnostics fail event missing (run_dir=${run_dir})"
+  elif [[ "${expect}" == "allow-diag-fail" ]]; then
+    if [[ "${visitor_rc}" -ne 0 ]]; then
+      grep -q "\"kind\":\"fail\"" "${run_dir}/visitor.log" || die "expected diagnostics fail event missing (run_dir=${run_dir})"
+    fi
+  fi
+
+  if [[ -n "${expect_fail_stage}" ]]; then
+    grep -E -q "\"stage\":\"${expect_fail_stage}\".*\"kind\":\"fail\"" "${run_dir}/visitor.log" \
+      || die "expected fail stage '${expect_fail_stage}' not found (run_dir=${run_dir})"
+  fi
+
+  echo "ok: xtcp run complete: ${run_dir}"
+}
+
+main "$@"

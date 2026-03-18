@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID:-0}" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+runner="${script_dir}/mlab-xtcp-run"
+
+[[ -x "${runner}" ]] || { echo "error: missing runner: ${runner}" >&2; exit 1; }
+
+pass=0
+fail=0
+
+# Minimal regression matrix for P1:
+# - core-01: data plane kcp/quic must succeed
+# - core-02: include NAT2 (ADF) coverage
+# - core-03: easy-like non-baseline must succeed (keep representative coverage)
+# - core-06: includes NAT4, both data plane kcp/quic must succeed
+# - core-10: hardest; may fail, but must produce stage-level diagnostics
+# - explicit failure: signkey mismatch, must fail in signaling stage
+runs=(
+  "core-01 tcp quic success"
+  "core-01 tcp kcp success"
+  "core-01 quic quic success"
+  "core-01 kcp kcp success"
+
+  "core-02 tcp quic success"
+  "core-02 tcp kcp success"
+
+  "core-03 tcp quic success"
+
+  "core-06 tcp quic success"
+  "core-06 tcp kcp success"
+
+  "core-10 tcp quic diag-fail"
+
+  "core-01 tcp quic fail signaling signkey-mismatch"
+)
+
+for r in "${runs[@]}"; do
+  read -r case_id control_proto data_proto expect extra_stage extra_tag <<<"${r}"
+
+  echo "== ${case_id} control=${control_proto} data=${data_proto} expect=${expect} =="
+
+  args=("${case_id}" "--control-proto" "${control_proto}" "--data-proto" "${data_proto}" "--expect" "${expect}")
+
+  if [[ "${expect}" == "fail" ]]; then
+    args+=("--expect-fail-stage" "${extra_stage}")
+    if [[ "${extra_tag}" == "signkey-mismatch" ]]; then
+      args+=("--visitor-secret" "wrong-secret")
+    fi
+  fi
+
+  if "${runner}" "${args[@]}"; then
+    pass=$((pass + 1))
+  else
+    fail=$((fail + 1))
+  fi
+done
+
+echo "summary: pass=${pass} fail=${fail}"
+if [[ "${fail}" -ne 0 ]]; then
+  exit 1
+fi

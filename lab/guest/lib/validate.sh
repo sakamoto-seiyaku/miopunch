@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+cap_dir() {
+  if [[ -n "${MLAB_RUN_DIR:-}" ]] && [[ -d "${MLAB_RUN_DIR}" ]]; then
+    echo "${MLAB_RUN_DIR}"
+    return 0
+  fi
+  echo "/tmp"
+}
+
 capture_wan_lines() {
   local filter="$1"
   ns_exec "${NS_WAN}" timeout 4 tcpdump -ni br0 -nn -tt ${filter}
@@ -71,24 +79,33 @@ mapping_observe() {
   local peer_ns="$1" nat_wan_ip="$2" peer_src_port="$3"
   local dst1_ip="$4" dst1_port="$5" dst2_ip="$6" dst2_port="$7"
 
-  local cap="/tmp/mlab-map-${peer_ns}-$$.log"
+  local cap
+  cap="$(cap_dir)/mlab-map-${peer_ns}-${dst1_port}-${dst2_port}-$$.log"
   rm -f "${cap}"
 
-  ( ns_exec "${NS_WAN}" timeout 4 tcpdump -ni br0 -c 2 -nn -tt \
+  ( ns_exec "${NS_WAN}" timeout 4 tcpdump -ni br0 -U -c 4 -nn -tt \
       "udp and src host ${nat_wan_ip} and ((dst host ${dst1_ip} and dst port ${dst1_port}) or (dst host ${dst2_ip} and dst port ${dst2_port}))" \
       >"${cap}" 2>&1 ) &
   local tpid=$!
-  sleep 0.2
+  sleep 0.3
 
-  udp_send "${peer_ns}" "${dst1_ip}" "${dst1_port}" "${peer_src_port}" "m1"
-  udp_send "${peer_ns}" "${dst2_ip}" "${dst2_port}" "${peer_src_port}" "m2"
+  # Send each probe more than once to avoid flaky capture timing.
+  local i
+  for i in {1..2}; do
+    udp_send "${peer_ns}" "${dst1_ip}" "${dst1_port}" "${peer_src_port}" "m1"
+    udp_send "${peer_ns}" "${dst2_ip}" "${dst2_port}" "${peer_src_port}" "m2"
+    sleep 0.02
+  done
 
   wait "${tpid}" || true
 
   local p1 p2
   p1="$(grep -F " > ${dst1_ip}.${dst1_port}:" "${cap}" | head -n 1 || true)"
   p2="$(grep -F " > ${dst2_ip}.${dst2_port}:" "${cap}" | head -n 1 || true)"
-  [[ -n "${p1}" && -n "${p2}" ]] || die "mapping observe failed; see ${cap}"
+  if [[ -z "${p1}" || -z "${p2}" ]]; then
+    echo "warn: mapping observe incomplete (dst1=${dst1_ip}:${dst1_port} dst2=${dst2_ip}:${dst2_port}); see ${cap}" >&2
+    return 1
+  fi
 
   local sp1 sp2
   sp1="$(tcpdump_parse_src_port "${p1}")"
@@ -100,16 +117,26 @@ mapping_classify() {
   local peer_ns="$1" nat_wan_ip="$2" peer_src_port="$3"
   local tries="${4:-5}"
 
-  local i p1 p2 m1 m2
+  local i p1 p2 m1 m2 out got_any
+  got_any=0
   for ((i = 0; i < tries; i++)); do
     p1=$((41000 + i * 2))
     p2=$((41001 + i * 2))
-    read -r m1 m2 < <(mapping_observe "${peer_ns}" "${nat_wan_ip}" "${peer_src_port}" "${COORD_IP}" "${p1}" "${PROBE_IP}" "${p2}")
+    if ! out="$(mapping_observe "${peer_ns}" "${nat_wan_ip}" "${peer_src_port}" "${COORD_IP}" "${p1}" "${PROBE_IP}" "${p2}")"; then
+      continue
+    fi
+    got_any=1
+    read -r m1 m2 <<<"${out}"
     if [[ "$(mapping_classify_from_ports "${m1}" "${m2}")" == "APDM" ]]; then
       echo "APDM"
       return 0
     fi
   done
+
+  if [[ "${got_any}" -ne 1 ]]; then
+    echo "warn: mapping classify failed after ${tries} tries" >&2
+    return 1
+  fi
 
   echo "EIM"
 }
@@ -117,25 +144,37 @@ mapping_classify() {
 mapped_port_observe() {
   local peer_ns="$1" nat_wan_ip="$2" peer_src_port="$3" dst_ip="$4" dst_port="$5"
 
-  local cap="/tmp/mlab-mapped-${peer_ns}-$$.log"
-  rm -f "${cap}"
+  local tries="${MLAB_MAPPED_TRIES:-5}"
+  local i last_cap=""
+  for ((i = 1; i <= tries; i++)); do
+    local cap
+    cap="$(cap_dir)/mlab-mapped-${peer_ns}-${dst_port}-try${i}-$$.log"
+    last_cap="${cap}"
+    rm -f "${cap}"
 
-  ( ns_exec "${NS_WAN}" timeout 4 tcpdump -ni br0 -c 1 -nn -tt \
-      "udp and src host ${nat_wan_ip} and dst host ${dst_ip} and dst port ${dst_port}" \
-      >"${cap}" 2>&1 ) &
-  local tpid=$!
-  sleep 0.2
+    ( ns_exec "${NS_WAN}" timeout 4 tcpdump -ni br0 -c 2 -nn -tt \
+        "udp and src host ${nat_wan_ip} and dst host ${dst_ip} and dst port ${dst_port}" \
+        >"${cap}" 2>&1 ) &
+    local tpid=$!
+    sleep 0.25
 
-  udp_send "${peer_ns}" "${dst_ip}" "${dst_port}" "${peer_src_port}" "mp"
+    # Send more than once to reduce capture timing flakiness on slow guests (e.g. QEMU TCG).
+    udp_send "${peer_ns}" "${dst_ip}" "${dst_port}" "${peer_src_port}" "mp"
+    sleep 0.02
+    udp_send "${peer_ns}" "${dst_ip}" "${dst_port}" "${peer_src_port}" "mp"
 
-  wait "${tpid}" || true
-  local line
-  line="$(grep -F " > ${dst_ip}.${dst_port}:" "${cap}" | head -n 1 || true)"
-  if [[ -z "${line}" ]]; then
-    echo "error: mapped port observe failed; see ${cap}" >&2
-    return 1
-  fi
-  tcpdump_parse_src_port "${line}"
+    wait "${tpid}" || true
+    local line
+    line="$(grep -F " > ${dst_ip}.${dst_port}:" "${cap}" | head -n 1 || true)"
+    if [[ -n "${line}" ]]; then
+      tcpdump_parse_src_port "${line}"
+      return 0
+    fi
+    echo "warn: mapped port observe retry ${i}/${tries} failed; see ${cap}" >&2
+  done
+
+  echo "error: mapped port observe failed after ${tries} tries; see ${last_cap}" >&2
+  return 1
 }
 
 expected_mapping() {
@@ -199,23 +238,27 @@ validate_one_side() {
 
   local obs_filt="unknown"
   if [[ -n "${mapped_port}" ]]; then
-    ( ns_exec "${peer_ns}" timeout 2 tcpdump -ni eth0 -c 1 -nn "udp and dst port ${peer_p2p_port}" >/dev/null 2>&1 ) &
-    local cap_pid=$!
-    sleep 0.2
-    udp_send "${NS_COORD}" "${nat_wan_ip}" "${mapped_port}" 42000 "r"
-    if wait "${cap_pid}"; then got_reply=1; else got_reply=0; fi
+    expect_inbound() {
+      local src_ns="$1" src_port="$2" payload="$3"
+      local tries="${MLAB_INBOUND_TRIES:-4}"
+      local i
+      for ((i = 1; i <= tries; i++)); do
+        ( ns_exec "${peer_ns}" timeout 3 tcpdump -ni eth0 -c 1 -nn "udp and dst port ${peer_p2p_port}" >/dev/null 2>&1 ) &
+        local cap_pid=$!
+        sleep 0.25
 
-    ( ns_exec "${peer_ns}" timeout 2 tcpdump -ni eth0 -c 1 -nn "udp and dst port ${peer_p2p_port}" >/dev/null 2>&1 ) &
-    cap_pid=$!
-    sleep 0.2
-    udp_send "${NS_COORD}" "${nat_wan_ip}" "${mapped_port}" 42001 "p"
-    if wait "${cap_pid}"; then got_same_ip_diff_port=1; else got_same_ip_diff_port=0; fi
+        udp_send "${src_ns}" "${nat_wan_ip}" "${mapped_port}" "${src_port}" "${payload}"
+        if wait "${cap_pid}"; then
+          return 0
+        fi
+        sleep 0.05
+      done
+      return 1
+    }
 
-    ( ns_exec "${peer_ns}" timeout 2 tcpdump -ni eth0 -c 1 -nn "udp and dst port ${peer_p2p_port}" >/dev/null 2>&1 ) &
-    cap_pid=$!
-    sleep 0.2
-    udp_send "${NS_STUN}" "${nat_wan_ip}" "${mapped_port}" 42002 "o"
-    if wait "${cap_pid}"; then got_other_ip=1; else got_other_ip=0; fi
+    if expect_inbound "${NS_COORD}" 42000 "r"; then got_reply=1; else got_reply=0; fi
+    if expect_inbound "${NS_COORD}" 42001 "p"; then got_same_ip_diff_port=1; else got_same_ip_diff_port=0; fi
+    if expect_inbound "${NS_STUN}" 42002 "o"; then got_other_ip=1; else got_other_ip=0; fi
 
     obs_filt="$(filtering_classify_from_flags "${got_other_ip}" "${got_same_ip_diff_port}")"
     if [[ "${got_reply}" -ne 1 ]]; then

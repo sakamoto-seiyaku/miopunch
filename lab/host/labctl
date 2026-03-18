@@ -52,8 +52,11 @@ Commands:
   ssh [ssh-args...]        SSH into the VM
   guest <cmd...>           Run a command inside the VM via SSH
   push-guest               Rsync lab/guest/ into /opt/miopunch-lab/guest in the VM
+  push-bin                 Build miopunch binary on host and rsync into /opt/miopunch-lab/bin in the VM
   pull-artifacts           Rsync /opt/miopunch-lab/artifacts/ from the VM into lab/_artifacts/
   selftest                 Run guest selftest and pull artifacts
+  xtcp-selftest            Run guest xtcp selftest and pull artifacts
+  xtcp-fulltest            Run guest xtcp full-case test and pull artifacts
   down                     Stop the VM (graceful poweroff, then kill if needed)
   status                   Show VM status
 
@@ -69,6 +72,18 @@ EOF
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "missing dependency: $1"
+}
+
+find_go() {
+  if command -v go >/dev/null 2>&1; then
+    command -v go
+    return 0
+  fi
+  if [[ -x /usr/local/go/bin/go ]]; then
+    echo "/usr/local/go/bin/go"
+    return 0
+  fi
+  return 1
 }
 
 ensure_dirs() {
@@ -296,6 +311,25 @@ cmd_push_guest() {
   echo "ok: pushed guest runtime to ${dst}"
 }
 
+cmd_push_bin() {
+  require_cmd rsync
+  local go
+  go="$(find_go)" || die "missing dependency: go (or /usr/local/go/bin/go)"
+
+  local out_dir="${state_dir}/bin"
+  local out_bin="${out_dir}/miopunch"
+  mkdir -p "${out_dir}"
+
+  echo "building: ${out_bin}"
+  (cd "${repo_root}" && "${go}" build -o "${out_bin}" ./cmd/miopunch)
+
+  cmd_guest sudo mkdir -p /opt/miopunch-lab/bin
+  cmd_guest sudo chown -R "${vm_user}:${vm_user}" /opt/miopunch-lab/bin
+
+  rsync -az -e "ssh -F ${ssh_config}" "${out_bin}" "${vm_name}:/opt/miopunch-lab/bin/miopunch"
+  echo "ok: pushed miopunch binary to /opt/miopunch-lab/bin/miopunch"
+}
+
 cmd_pull_artifacts() {
   require_cmd rsync
   local src="/opt/miopunch-lab/artifacts/"
@@ -312,6 +346,34 @@ cmd_selftest() {
   cmd_push_guest
   set +e
   cmd_guest sudo /opt/miopunch-lab/guest/bin/mlab-selftest
+  local rc=$?
+  set -e
+  cmd_pull_artifacts
+  return "${rc}"
+}
+
+cmd_xtcp_selftest() {
+  cmd_up
+  cmd_wait
+  cmd_wait_guest
+  cmd_push_guest
+  cmd_push_bin
+  set +e
+  cmd_guest sudo /opt/miopunch-lab/guest/bin/mlab-xtcp-selftest
+  local rc=$?
+  set -e
+  cmd_pull_artifacts
+  return "${rc}"
+}
+
+cmd_xtcp_fulltest() {
+  cmd_up
+  cmd_wait
+  cmd_wait_guest
+  cmd_push_guest
+  cmd_push_bin
+  set +e
+  cmd_guest sudo /opt/miopunch-lab/guest/bin/mlab-xtcp-fulltest
   local rc=$?
   set -e
   cmd_pull_artifacts
@@ -402,8 +464,11 @@ main() {
     ssh) cmd_ssh "$@" ;;
     guest) cmd_guest "$@" ;;
     push-guest) cmd_push_guest "$@" ;;
+    push-bin) cmd_push_bin "$@" ;;
     pull-artifacts) cmd_pull_artifacts "$@" ;;
     selftest) cmd_selftest "$@" ;;
+    xtcp-selftest) cmd_xtcp_selftest "$@" ;;
+    xtcp-fulltest) cmd_xtcp_fulltest "$@" ;;
     down) cmd_down "$@" ;;
     status) cmd_status "$@" ;;
     snapshot-list) cmd_snapshot_list "$@" ;;
