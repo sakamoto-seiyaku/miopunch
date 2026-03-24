@@ -77,6 +77,11 @@ Commands:
 	    --allow-users <comma-list>
 	    --p2p-port <port>           (lab/test only; fixed local UDP port; 0=random)
 	    --stun <addr1,addr2,...>
+	    --stun-timeout <duration>
+	    --gather-timeout <duration>           (portmap cutoff; STUN gating uses --stun-timeout)
+	    --attempt-v6-timeout <duration>
+	    --attempt-portmap-timeout <duration>
+	    --disable-portmap
 	    --once
 
 	  peer visitor:
@@ -89,6 +94,11 @@ Commands:
 	    --payload <string>
 	    --p2p-port <port>           (lab/test only; fixed local UDP port; 0=random)
 	    --stun <addr1,addr2,...>
+	    --stun-timeout <duration>
+	    --gather-timeout <duration>           (portmap cutoff; STUN gating uses --stun-timeout)
+	    --attempt-v6-timeout <duration>
+	    --attempt-portmap-timeout <duration>
+	    --disable-portmap
 
   stun:
     --listen <ip:port>   (repeatable)
@@ -144,6 +154,11 @@ func peerClientCmd(ctx context.Context, args []string) {
 	user := fs.String("user", "client", "user name")
 	allowUsers := fs.String("allow-users", "", "comma-separated allow users (empty -> same user only)")
 	stunServers := fs.String("stun", "", "comma-separated stun servers")
+	stunTimeout := fs.Duration("stun-timeout", 3*time.Second, "STUN timeout (only applies when STUN servers are configured)")
+	gatherTimeout := fs.Duration("gather-timeout", 1500*time.Millisecond, "gather timeout for optional helpers (e.g. portmap); does not gate STUN")
+	attemptV6Timeout := fs.Duration("attempt-v6-timeout", 800*time.Millisecond, "attempt timeout for IPv6 direct")
+	attemptPortmapTimeout := fs.Duration("attempt-portmap-timeout", 800*time.Millisecond, "attempt timeout for IPv4 direct (portmap)")
+	disablePortmap := fs.Bool("disable-portmap", false, "disable IPv4 port mapping helpers")
 	p2pPort := fs.Int("p2p-port", 0, "lab/test only: fixed local UDP port for NAT traversal (0=random)")
 	once := fs.Bool("once", false, "exit after handling one session")
 	disableAssisted := fs.Bool("disable-assisted", false, "disable assisted addrs")
@@ -161,6 +176,11 @@ func peerClientCmd(ctx context.Context, args []string) {
 		SecretKey:             *secret,
 		AllowUsers:            splitComma(*allowUsers),
 		StunServers:           splitComma(*stunServers),
+		StunTimeout:           *stunTimeout,
+		GatherTimeout:         *gatherTimeout,
+		AttemptV6Timeout:      *attemptV6Timeout,
+		AttemptPortmapTimeout: *attemptPortmapTimeout,
+		DisablePortMap:        *disablePortmap,
 		DisableAssistedAddrs:  *disableAssisted,
 		HelloTimeout:          *helloTimeout,
 		ExchangeInfoTimeout:   *exchangeTimeout,
@@ -187,6 +207,11 @@ func peerVisitorCmd(ctx context.Context, args []string) {
 	dataProto := fs.String("data-proto", "quic", "data plane protocol: kcp|quic")
 	payload := fs.String("payload", "ping", "payload to send")
 	stunServers := fs.String("stun", "", "comma-separated stun servers")
+	stunTimeout := fs.Duration("stun-timeout", 3*time.Second, "STUN timeout (only applies when STUN servers are configured)")
+	gatherTimeout := fs.Duration("gather-timeout", 1500*time.Millisecond, "gather timeout for optional helpers (e.g. portmap); does not gate STUN")
+	attemptV6Timeout := fs.Duration("attempt-v6-timeout", 800*time.Millisecond, "attempt timeout for IPv6 direct")
+	attemptPortmapTimeout := fs.Duration("attempt-portmap-timeout", 800*time.Millisecond, "attempt timeout for IPv4 direct (portmap)")
+	disablePortmap := fs.Bool("disable-portmap", false, "disable IPv4 port mapping helpers")
 	p2pPort := fs.Int("p2p-port", 0, "lab/test only: fixed local UDP port for NAT traversal (0=random)")
 	disableAssisted := fs.Bool("disable-assisted", false, "disable assisted addrs")
 	helloTimeout := fs.Duration("hello-timeout", 5*time.Second, "hello timeout")
@@ -204,6 +229,11 @@ func peerVisitorCmd(ctx context.Context, args []string) {
 		DataProto:             *dataProto,
 		Payload:               []byte(*payload),
 		StunServers:           splitComma(*stunServers),
+		StunTimeout:           *stunTimeout,
+		GatherTimeout:         *gatherTimeout,
+		AttemptV6Timeout:      *attemptV6Timeout,
+		AttemptPortmapTimeout: *attemptPortmapTimeout,
+		DisablePortMap:        *disablePortmap,
 		DisableAssistedAddrs:  *disableAssisted,
 		HelloTimeout:          *helloTimeout,
 		ExchangeInfoTimeout:   *exchangeTimeout,

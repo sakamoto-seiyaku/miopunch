@@ -30,7 +30,39 @@ NAT_B_LAN_IP="${MLAB_NAT_B_LAN_IP:-10.0.2.1}"
 PEER_A_IP="${MLAB_PEER_A_IP:-10.0.1.2}"
 PEER_B_IP="${MLAB_PEER_B_IP:-10.0.2.2}"
 
+WAN_V6_CIDR="${MLAB_WAN_V6_CIDR:-fd00:64::/64}"
+WAN_V6_GW_IP="${MLAB_WAN_V6_GW_IP:-fd00:64::1}"
+
+WAN_A_V6_IP="${MLAB_WAN_A_V6_IP:-fd00:64::2}"
+WAN_B_V6_IP="${MLAB_WAN_B_V6_IP:-fd00:64::3}"
+COORD_V6_IP="${MLAB_COORD_V6_IP:-fd00:64::10}"
+STUN_V6_IP="${MLAB_STUN_V6_IP:-fd00:64::11}"
+PROBE_V6_IP="${MLAB_PROBE_V6_IP:-fd00:64::12}"
+
+LAN_A_V6_CIDR="${MLAB_LAN_A_V6_CIDR:-fd00:1::/64}"
+LAN_B_V6_CIDR="${MLAB_LAN_B_V6_CIDR:-fd00:2::/64}"
+
+NAT_A_LAN_V6_IP="${MLAB_NAT_A_LAN_V6_IP:-fd00:1::1}"
+NAT_B_LAN_V6_IP="${MLAB_NAT_B_LAN_V6_IP:-fd00:2::1}"
+
+PEER_A_V6_IP="${MLAB_PEER_A_V6_IP:-fd00:1::2}"
+PEER_B_V6_IP="${MLAB_PEER_B_V6_IP:-fd00:2::2}"
+
 topology_cleanup() {
+  # Best-effort cleanup for orphaned links (e.g. when a previous run was interrupted
+  # between `ip link add` and `ip link set ... netns`).
+  local link
+  for link in \
+    veth-a veth-natA-lan \
+    veth-natA-wan veth-wan-natA \
+    veth-b veth-natB-lan \
+    veth-natB-wan veth-wan-natB \
+    veth-coord veth-wan-coord \
+    veth-stun veth-wan-stun \
+    veth-probe veth-wan-probe; do
+    ip link del "${link}" 2>/dev/null || true
+  done
+
   local ns
   for ns in "${NS_PROBE}" "${NS_STUN}" "${NS_COORD}" "${NS_PEER_B}" "${NS_NAT_B}" "${NS_PEER_A}" "${NS_NAT_A}" "${NS_WAN}"; do
     if ip netns list | awk '{print $1}' | grep -qx "${ns}"; then
@@ -52,6 +84,12 @@ topology_create() {
   ip netns add "${NS_PROBE}"
 
   local ns
+  # Disable IPv6 Duplicate Address Detection (DAD) to make the testbed more
+  # deterministic. We assign stable static v6 addresses and don't want initial
+  # "tentative" windows to skew connectivity regressions (e.g. v6 direct attempt).
+  for ns in "${NS_WAN}" "${NS_NAT_A}" "${NS_PEER_A}" "${NS_NAT_B}" "${NS_PEER_B}" "${NS_COORD}" "${NS_STUN}" "${NS_PROBE}"; do
+    ns_exec "${ns}" sh -c 'echo 0 > /proc/sys/net/ipv6/conf/all/dad_transmits; echo 0 > /proc/sys/net/ipv6/conf/default/dad_transmits' || true
+  done
   for ns in "${NS_WAN}" "${NS_NAT_A}" "${NS_PEER_A}" "${NS_NAT_B}" "${NS_PEER_B}" "${NS_COORD}" "${NS_STUN}" "${NS_PROBE}"; do
     ip -n "${ns}" link set lo up
   done
@@ -139,4 +177,40 @@ topology_create() {
   ip -n "${NS_PROBE}" link set eth0 up
   ip -n "${NS_WAN}" link set probe0 up
   ip -n "${NS_WAN}" link set probe0 master br0
+}
+
+topology_enable_ipv6() {
+  need_cmd ip
+
+  # WAN
+  ip -n "${NS_WAN}" -6 addr add "${WAN_V6_GW_IP}/64" dev br0 nodad
+  ip -n "${NS_NAT_A}" -6 addr add "${WAN_A_V6_IP}/64" dev wan0 nodad
+  ip -n "${NS_NAT_B}" -6 addr add "${WAN_B_V6_IP}/64" dev wan0 nodad
+  ip -n "${NS_COORD}" -6 addr add "${COORD_V6_IP}/64" dev eth0 nodad
+  ip -n "${NS_STUN}" -6 addr add "${STUN_V6_IP}/64" dev eth0 nodad
+  ip -n "${NS_PROBE}" -6 addr add "${PROBE_V6_IP}/64" dev eth0 nodad
+
+  # LAN A/B
+  ip -n "${NS_NAT_A}" -6 addr add "${NAT_A_LAN_V6_IP}/64" dev lan0 nodad
+  ip -n "${NS_PEER_A}" -6 addr add "${PEER_A_V6_IP}/64" dev eth0 nodad
+  ip -n "${NS_NAT_B}" -6 addr add "${NAT_B_LAN_V6_IP}/64" dev lan0 nodad
+  ip -n "${NS_PEER_B}" -6 addr add "${PEER_B_V6_IP}/64" dev eth0 nodad
+
+  # Routing
+  ip -n "${NS_PEER_A}" -6 route replace default via "${NAT_A_LAN_V6_IP}" dev eth0
+  ip -n "${NS_PEER_B}" -6 route replace default via "${NAT_B_LAN_V6_IP}" dev eth0
+
+  ns_exec "${NS_WAN}" sh -c 'echo 1 > /proc/sys/net/ipv6/conf/all/forwarding'
+  ns_exec "${NS_NAT_A}" sh -c 'echo 1 > /proc/sys/net/ipv6/conf/all/forwarding'
+  ns_exec "${NS_NAT_B}" sh -c 'echo 1 > /proc/sys/net/ipv6/conf/all/forwarding'
+
+  ip -n "${NS_NAT_A}" -6 route replace default via "${WAN_V6_GW_IP}" dev wan0
+  ip -n "${NS_NAT_B}" -6 route replace default via "${WAN_V6_GW_IP}" dev wan0
+
+  ip -n "${NS_WAN}" -6 route replace "${LAN_A_V6_CIDR}" via "${WAN_A_V6_IP}" dev br0
+  ip -n "${NS_WAN}" -6 route replace "${LAN_B_V6_CIDR}" via "${WAN_B_V6_IP}" dev br0
+
+  ip -n "${NS_COORD}" -6 route replace default via "${WAN_V6_GW_IP}" dev eth0
+  ip -n "${NS_STUN}" -6 route replace default via "${WAN_V6_GW_IP}" dev eth0
+  ip -n "${NS_PROBE}" -6 route replace default via "${WAN_V6_GW_IP}" dev eth0
 }

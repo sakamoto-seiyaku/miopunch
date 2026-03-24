@@ -10,7 +10,7 @@ mlab="${script_dir}/mlab"
 
 cases=("$@")
 if [[ ${#cases[@]} -eq 0 ]]; then
-  mapfile -t cases < <("${mlab}" case list)
+  mapfile -t cases < <("${mlab}" case list | grep -E '^core-[0-9]{2}$')
 fi
 
 pass=0
@@ -29,4 +29,3 @@ echo "summary: pass=${pass} fail=${fail}"
 if [[ "${fail}" -ne 0 ]]; then
   exit 1
 fi
-

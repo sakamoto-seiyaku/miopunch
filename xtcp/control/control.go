@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"time"
 
 	quic "github.com/quic-go/quic-go"
@@ -56,11 +57,11 @@ func Listen(addr string, proto Protocol) (Listener, error) {
 		}
 		return &tcpListener{l: l}, nil
 	case ProtoKCP:
-		l, err := kcp.ListenWithOptions(addr, nil, 10, 3)
+		l, err := newKCPListener(addr)
 		if err != nil {
 			return nil, err
 		}
-		return &kcpListener{l: l}, nil
+		return l, nil
 	case ProtoQUIC:
 		tlsConfig, err := transport.NewServerTLSConfig("", "", "")
 		if err != nil {
@@ -121,11 +122,11 @@ func applyKCPSessionOptions(conn *kcp.UDPSession) {
 	_ = conn.SetReadBuffer(4 << 20)
 	_ = conn.SetWriteBuffer(4 << 20)
 	conn.SetStreamMode(true)
-	conn.SetWriteDelay(true)
+	conn.SetWriteDelay(false)
 	conn.SetNoDelay(1, 20, 2, 1)
 	conn.SetMtu(1350)
 	conn.SetWindowSize(1024, 1024)
-	conn.SetACKNoDelay(false)
+	conn.SetACKNoDelay(true)
 }
 
 type tcpListener struct{ l net.Listener }
@@ -134,20 +135,73 @@ func (l *tcpListener) Accept(_ context.Context) (io.ReadWriteCloser, error) { re
 func (l *tcpListener) Close() error                                         { return l.l.Close() }
 func (l *tcpListener) Addr() net.Addr                                       { return l.l.Addr() }
 
-type kcpListener struct{ l net.Listener }
+type kcpListener struct {
+	listener  *kcp.Listener
+	acceptCh  chan net.Conn
+	closeOnce sync.Once
+	closeCh   chan struct{}
+}
 
-func (l *kcpListener) Accept(_ context.Context) (io.ReadWriteCloser, error) {
-	c, err := l.l.Accept()
+func newKCPListener(addr string) (*kcpListener, error) {
+	listener, err := kcp.ListenWithOptions(addr, nil, 10, 3)
 	if err != nil {
 		return nil, err
 	}
-	if sess, ok := c.(*kcp.UDPSession); ok {
-		applyKCPSessionOptions(sess)
+	_ = listener.SetReadBuffer(4 << 20)
+	_ = listener.SetWriteBuffer(4 << 20)
+
+	l := &kcpListener{
+		listener: listener,
+		acceptCh: make(chan net.Conn),
+		closeCh:  make(chan struct{}),
 	}
-	return c, nil
+	go l.acceptLoop()
+	return l, nil
 }
-func (l *kcpListener) Close() error   { return l.l.Close() }
-func (l *kcpListener) Addr() net.Addr { return l.l.Addr() }
+
+func (l *kcpListener) acceptLoop() {
+	for {
+		sess, err := l.listener.AcceptKCP()
+		if err != nil {
+			select {
+			case <-l.closeCh:
+				close(l.acceptCh)
+				return
+			default:
+			}
+			continue
+		}
+		applyKCPSessionOptions(sess)
+		select {
+		case l.acceptCh <- sess:
+		case <-l.closeCh:
+			_ = sess.Close()
+			close(l.acceptCh)
+			return
+		}
+	}
+}
+
+func (l *kcpListener) Accept(ctx context.Context) (io.ReadWriteCloser, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case c, ok := <-l.acceptCh:
+		if !ok {
+			return nil, fmt.Errorf("kcp listener closed")
+		}
+		return c, nil
+	}
+}
+
+func (l *kcpListener) Close() error {
+	l.closeOnce.Do(func() {
+		close(l.closeCh)
+		_ = l.listener.Close()
+	})
+	return nil
+}
+func (l *kcpListener) Addr() net.Addr { return l.listener.Addr() }
 
 type quicListener struct{ l *quic.Listener }
 

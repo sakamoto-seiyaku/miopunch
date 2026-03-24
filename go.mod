@@ -4,6 +4,8 @@ go 1.25.0
 
 require (
 	github.com/fatedier/golib v0.5.1
+	github.com/huin/goupnp v1.3.0
+	github.com/jackpal/go-nat-pmp v1.0.2
 	github.com/pion/stun/v2 v2.0.0
 	github.com/quic-go/quic-go v0.59.0
 	github.com/samber/lo v1.53.0

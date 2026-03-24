@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+
+import argparse
+import signal
+import socket
+import struct
+import subprocess
+import sys
+import time
+
+
+def _iptables(cmd: list[str]) -> None:
+    subprocess.run(["iptables", "-w", *cmd], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def _iptables_ensure(cmd: list[str]) -> None:
+    check_cmd = cmd.copy()
+    idx = None
+    for i, tok in enumerate(check_cmd):
+        if tok in ("-A", "-I"):
+            idx = i
+            break
+    if idx is None:
+        _iptables(cmd)
+        return
+    check_cmd[idx] = "-C"
+    p = subprocess.run(["iptables", "-w", *check_cmd], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if p.returncode == 0:
+        return
+    _iptables(cmd)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Minimal NAT-PMP server for miopunch lab (UDP only).")
+    ap.add_argument("--external-ip", required=True, help="WAN-side IPv4 address to report in GetExternalAddress")
+    ap.add_argument("--wan-if", default="wan0", help="WAN interface name (default: wan0)")
+    ap.add_argument("--lan-if", default="lan0", help="LAN interface name (default: lan0)")
+    ap.add_argument("--listen", default="0.0.0.0:5351", help="listen addr (default: 0.0.0.0:5351)")
+    ap.add_argument("--verbose", action="store_true", help="verbose logging")
+    args = ap.parse_args()
+
+    listen_host, listen_port_s = args.listen.rsplit(":", 1)
+    listen_port = int(listen_port_s)
+
+    try:
+        external_ip_bytes = socket.inet_aton(args.external_ip)
+    except OSError:
+        print(f"error: invalid --external-ip: {args.external_ip}", file=sys.stderr)
+        return 2
+
+    start = time.time()
+    running = True
+
+    def stop(_sig, _frame):
+        nonlocal running
+        running = False
+
+    signal.signal(signal.SIGINT, stop)
+    signal.signal(signal.SIGTERM, stop)
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((listen_host, listen_port))
+    sock.settimeout(0.5)
+
+    if args.verbose:
+        print(f"natpmpd: listening on {args.listen} external_ip={args.external_ip}", file=sys.stderr)
+
+    # Key: (proto, ext_port, internal_ip, internal_port)
+    mappings: set[tuple[str, int, str, int]] = set()
+
+    def epoch() -> int:
+        e = int(time.time() - start)
+        if e < 0:
+            return 0
+        if e > 0xFFFFFFFF:
+            return 0xFFFFFFFF
+        return e
+
+    while running:
+        try:
+            data, src = sock.recvfrom(2048)
+        except socket.timeout:
+            continue
+        except OSError:
+            break
+
+        if len(data) < 2:
+            continue
+
+        ver = data[0]
+        op = data[1]
+
+        if ver != 0:
+            # Unsupported version.
+            resp = struct.pack("!BBH I", 0, (op | 0x80) & 0xFF, 1, epoch())
+            sock.sendto(resp, src)
+            continue
+
+        if op == 0:
+            # Public address request.
+            resp = struct.pack("!BBH I 4s", 0, 0x80, 0, epoch(), external_ip_bytes)
+            sock.sendto(resp, src)
+            continue
+
+        if op not in (1, 2) or len(data) < 12:
+            # Unsupported opcode.
+            resp = struct.pack("!BBH I", 0, (op | 0x80) & 0xFF, 5, epoch())
+            sock.sendto(resp, src)
+            continue
+
+        proto = "udp" if op == 1 else "tcp"
+        if proto != "udp":
+            resp = struct.pack("!BBH I H H I", 0, (op | 0x80) & 0xFF, 5, epoch(), 0, 0, 0)
+            sock.sendto(resp, src)
+            continue
+
+        internal_port = struct.unpack("!H", data[4:6])[0]
+        requested_external_port = struct.unpack("!H", data[6:8])[0]
+        lifetime = struct.unpack("!I", data[8:12])[0]
+
+        internal_ip = src[0]
+        ext_port = requested_external_port or internal_port
+
+        key = (proto, ext_port, internal_ip, internal_port)
+        if lifetime == 0:
+            if key in mappings:
+                mappings.discard(key)
+                _iptables(["-t", "nat", "-D", "PREROUTING", "-i", args.wan_if, "-p", proto, "--dport", str(ext_port), "-j", "DNAT", "--to-destination", f"{internal_ip}:{internal_port}"])
+                _iptables(["-D", "FORWARD", "-i", args.wan_if, "-o", args.lan_if, "-p", proto, "-d", internal_ip, "--dport", str(internal_port), "-j", "ACCEPT"])
+            resp = struct.pack("!BBH I H H I", 0, (op | 0x80) & 0xFF, 0, epoch(), internal_port, ext_port, 0)
+            sock.sendto(resp, src)
+            continue
+
+        mappings.add(key)
+
+        # Install DNAT + allow rule (best-effort idempotent).
+        _iptables_ensure(["-t", "nat", "-A", "PREROUTING", "-i", args.wan_if, "-p", proto, "--dport", str(ext_port), "-j", "DNAT", "--to-destination", f"{internal_ip}:{internal_port}"])
+        _iptables_ensure(["-A", "FORWARD", "-i", args.wan_if, "-o", args.lan_if, "-p", proto, "-d", internal_ip, "--dport", str(internal_port), "-j", "ACCEPT"])
+
+        if args.verbose:
+            print(f"natpmpd: map {proto} {args.external_ip}:{ext_port} -> {internal_ip}:{internal_port} lifetime={lifetime}", file=sys.stderr)
+
+        resp = struct.pack("!BBH I H H I", 0, (op | 0x80) & 0xFF, 0, epoch(), internal_port, ext_port, lifetime)
+        sock.sendto(resp, src)
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -25,6 +25,7 @@ import (
 
 	"github.com/quic-go/quic-go"
 
+	"github.com/miopunch/miopunch/xtcp/connectivity"
 	"github.com/miopunch/miopunch/xtcp/control"
 	"github.com/miopunch/miopunch/xtcp/msg"
 	"github.com/miopunch/miopunch/xtcp/nathole"
@@ -46,6 +47,11 @@ type VisitorConfig struct {
 	Payload []byte
 
 	StunServers           []string
+	StunTimeout           time.Duration
+	GatherTimeout         time.Duration
+	AttemptV6Timeout      time.Duration
+	AttemptPortmapTimeout time.Duration
+	DisablePortMap        bool
 	P2PListenAddr         string
 	DisableAssistedAddrs  bool
 	HelloTimeout          time.Duration
@@ -74,9 +80,6 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	}
 	if cfg.DataProto != "kcp" && cfg.DataProto != "quic" {
 		return fail(obs.StageSupervisor, fmt.Errorf("unsupported data proto: %q", cfg.DataProto), "invalid config", nil)
-	}
-	if len(cfg.StunServers) == 0 {
-		return fail(obs.StageSupervisor, errors.New("stun servers are required"), "invalid config", nil)
 	}
 	if cfg.HelloTimeout == 0 {
 		cfg.HelloTimeout = 5 * time.Second
@@ -132,24 +135,29 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 		cfg.Emitter.OK(obs.StageSignaling, "precheck ok", nil)
 	}
 
-	if cfg.Emitter != nil {
-		cfg.Emitter.Start(obs.StageDiscovery, "prepare start", nil)
+	listenPort, err := listenPortFromAddr(cfg.P2PListenAddr)
+	if err != nil {
+		return err
 	}
-	prepareResult, err := prepareNATHole(cfg.StunServers, cfg.DisableAssistedAddrs, cfg.P2PListenAddr)
+	gather, err := connectivity.Gather(sessionCtx, "", connectivity.GatherConfig{
+		ListenPort:           listenPort,
+		DisableAssistedAddrs: cfg.DisableAssistedAddrs,
+		DisablePortMap:       cfg.DisablePortMap,
+		StunServers:          cfg.StunServers,
+		StunTimeout:          cfg.StunTimeout,
+		GatherTimeout:        cfg.GatherTimeout,
+		SessionLease:         connectivity.PortMapLease(cfg.SessionOverallTimeout),
+		Emitter:              cfg.Emitter,
+	})
 	if err != nil {
 		if cfg.Emitter != nil {
-			cfg.Emitter.Fail(obs.StageDiscovery, err, "prepare failed", nil)
+			cfg.Emitter.Fail(obs.StageGather, err, "gather failed", nil)
 		}
 		return err
 	}
-	defer prepareResult.ListenConn.Close()
-
-	if cfg.Emitter != nil {
-		cfg.Emitter.OK(obs.StageDiscovery, "prepare ok", map[string]any{
-			"nat_type": prepareResult.NatType,
-			"behavior": prepareResult.Behavior,
-			"mapped":   prepareResult.Addrs,
-		})
+	defer gather.UDP4Conn.Close()
+	if gather.UDP6Conn != nil {
+		defer gather.UDP6Conn.Close()
 	}
 
 	now := time.Now().Unix()
@@ -160,12 +168,13 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 		Protocol:      cfg.DataProto,
 		SignKey:       util.GetAuthKey(cfg.SecretKey, now),
 		Timestamp:     now,
-		MappedAddrs:   prepareResult.Addrs,
-		AssistedAddrs: prepareResult.AssistedAddrs,
+		DirectAddrs:   gather.DirectAddrs,
+		MappedAddrs:   gather.MappedAddrs,
+		AssistedAddrs: gather.AssistedAddrs,
 	}
 
 	if cfg.Emitter != nil {
-		cfg.Emitter.Start(obs.StageSignaling, "exchange info start", map[string]any{
+		cfg.Emitter.Start(obs.StageExchange, "exchange.start", map[string]any{
 			"tx":            transactionID,
 			"control_proto": string(cfg.ControlProto),
 			"data_proto":    cfg.DataProto,
@@ -175,7 +184,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	natHoleRespMsg, err := nathole.ExchangeInfo(sessionCtx, sess.xport, transactionID, natHoleVisitorMsg, cfg.ExchangeInfoTimeout)
 	if err != nil {
 		if cfg.Emitter != nil {
-			cfg.Emitter.Fail(obs.StageSignaling, err, "exchange info failed", map[string]any{
+			cfg.Emitter.Fail(obs.StageExchange, err, "exchange.failed", map[string]any{
 				"tx": transactionID,
 			})
 		}
@@ -183,38 +192,27 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	}
 
 	if cfg.Emitter != nil {
-		cfg.Emitter.OK(obs.StageSignaling, "exchange info ok", map[string]any{
-			"sid":        natHoleRespMsg.Sid,
-			"tx":         transactionID,
-			"data_proto": natHoleRespMsg.Protocol,
-			"detect":     natHoleRespMsg.DetectBehavior,
+		cfg.Emitter.OK(obs.StageExchange, "exchange.ok", map[string]any{
+			"sid":         natHoleRespMsg.Sid,
+			"tx":          transactionID,
+			"data_proto":  natHoleRespMsg.Protocol,
+			"peer_direct": len(natHoleRespMsg.PeerDirectAddrs),
+			"punching":    natHoleRespMsg.PunchingEnabled,
 		})
 	}
 
-	if cfg.Emitter != nil {
-		cfg.Emitter.Start(obs.StagePunching, "make hole start", map[string]any{
-			"sid": natHoleRespMsg.Sid,
-		})
-	}
-
-	listenConn := prepareResult.ListenConn
-	newListenConn, raddr, err := nathole.MakeHole(sessionCtx, listenConn, natHoleRespMsg, []byte(cfg.SecretKey))
+	attemptRes, err := connectivity.Attempt(sessionCtx, natHoleRespMsg.Sid, []byte(cfg.SecretKey), gather.UDP4Conn, gather.UDP6Conn, natHoleRespMsg, connectivity.AttemptConfig{
+		AttemptV6Timeout:      cfg.AttemptV6Timeout,
+		AttemptPortmapTimeout: cfg.AttemptPortmapTimeout,
+		Emitter:               cfg.Emitter,
+	})
 	if err != nil {
-		listenConn.Close()
 		if cfg.Emitter != nil {
-			cfg.Emitter.Fail(obs.StagePunching, err, "make hole failed", map[string]any{
+			cfg.Emitter.Fail(obs.StageAttempt, err, "attempt failed", map[string]any{
 				"sid": natHoleRespMsg.Sid,
 			})
 		}
 		return err
-	}
-	listenConn = newListenConn
-
-	if cfg.Emitter != nil {
-		cfg.Emitter.OK(obs.StagePunching, "make hole ok", map[string]any{
-			"sid":   natHoleRespMsg.Sid,
-			"raddr": raddr.String(),
-		})
 	}
 
 	if cfg.Emitter != nil {
@@ -227,9 +225,9 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	var dataErr error
 	switch natHoleRespMsg.Protocol {
 	case "kcp":
-		dataErr = dialKCP(sessionCtx, cfg, listenConn, raddr)
+		dataErr = dialKCP(sessionCtx, cfg, attemptRes.Conn, attemptRes.Remote)
 	case "quic", "":
-		dataErr = dialQUIC(sessionCtx, cfg, listenConn, raddr)
+		dataErr = dialQUIC(sessionCtx, cfg, attemptRes.Conn, attemptRes.Remote)
 	default:
 		dataErr = fmt.Errorf("unknown data plane protocol: %q", natHoleRespMsg.Protocol)
 	}
@@ -293,8 +291,8 @@ func dialQUIC(ctx context.Context, cfg VisitorConfig, listenConn *net.UDPConn, r
 
 	c, err := quic.Dial(ctx, listenConn, raddr, tlsConfig, &quic.Config{
 		HandshakeIdleTimeout: 20 * time.Second,
-		MaxIdleTimeout:  30 * time.Second,
-		KeepAlivePeriod: 10 * time.Second,
+		MaxIdleTimeout:       30 * time.Second,
+		KeepAlivePeriod:      10 * time.Second,
 	})
 	if err != nil {
 		return err

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID:-0}" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+runner="${script_dir}/mlab-xtcp-run"
+
+[[ -x "${runner}" ]] || { echo "error: missing runner: ${runner}" >&2; exit 1; }
+
+pass=0
+fail=0
+
+# P2 connectivity regression:
+# - v6 direct must work without STUN
+# - portmap direct must work without STUN (NAT-PMP helper)
+# - helper unavailable must fall back to punching (with STUN)
+runs=(
+  "p2-01-v6-direct tcp quic success direct_ipv6 --disable-stun --disable-portmap --attempt-v6-timeout 2s"
+  "p2-02-portmap-direct tcp quic success direct_ipv4 --disable-stun --start-natpmpd"
+  "p2-03-punching-fallback tcp quic success punching_ipv4"
+)
+
+for r in "${runs[@]}"; do
+  read -r case_id control_proto data_proto expect expect_path extra_flags <<<"${r}"
+
+  echo "== ${case_id} control=${control_proto} data=${data_proto} expect=${expect} path=${expect_path} =="
+
+  args=("${case_id}" "--control-proto" "${control_proto}" "--data-proto" "${data_proto}" "--expect" "${expect}" "--expect-path" "${expect_path}")
+
+  if [[ -n "${extra_flags:-}" ]]; then
+    # shellcheck disable=SC2206
+    args+=(${extra_flags})
+  fi
+
+  if "${runner}" "${args[@]}"; then
+    pass=$((pass + 1))
+  else
+    fail=$((fail + 1))
+  fi
+done
+
+echo "summary: pass=${pass} fail=${fail}"
+if [[ "${fail}" -ne 0 ]]; then
+  exit 1
+fi

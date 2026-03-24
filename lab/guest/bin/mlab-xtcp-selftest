@@ -36,7 +36,7 @@ runs=(
 
   "core-10 tcp quic diag-fail"
 
-  "core-01 tcp quic fail signaling signkey-mismatch"
+  "core-01 tcp quic fail exchange signkey-mismatch"
 )
 
 for r in "${runs[@]}"; do
@@ -44,7 +44,7 @@ for r in "${runs[@]}"; do
 
   echo "== ${case_id} control=${control_proto} data=${data_proto} expect=${expect} =="
 
-  args=("${case_id}" "--control-proto" "${control_proto}" "--data-proto" "${data_proto}" "--expect" "${expect}")
+  args=("${case_id}" "--control-proto" "${control_proto}" "--data-proto" "${data_proto}" "--expect" "${expect}" "--disable-portmap")
 
   if [[ "${expect}" == "fail" ]]; then
     args+=("--expect-fail-stage" "${extra_stage}")

@@ -72,6 +72,10 @@ case_activate() {
   topology_cleanup || true
   topology_create
 
+  if [[ "${ENABLE_IPV6:-0}" == "1" ]]; then
+    topology_enable_ipv6
+  fi
+
   profiles_apply "${NS_NAT_A}" "${A_PROFILE}" "${LAN_A_CIDR}" "${WAN_A_IP}" "${PEER_A_IP}" "${A_P2P_PORT}"
   profiles_apply "${NS_NAT_B}" "${B_PROFILE}" "${LAN_B_CIDR}" "${WAN_B_IP}" "${PEER_B_IP}" "${B_P2P_PORT}"
 
@@ -149,11 +153,21 @@ run_case() {
 
   finish() {
     local rc=$?
-    dump_state || true
     if [[ -n "${tcpdump_pid}" ]] && kill -0 "${tcpdump_pid}" 2>/dev/null; then
-      kill "${tcpdump_pid}" 2>/dev/null || true
+      kill -INT "${tcpdump_pid}" 2>/dev/null || true
+      for _ in {1..30}; do
+        if ! kill -0 "${tcpdump_pid}" 2>/dev/null; then
+          break
+        fi
+        sleep 0.1
+      done
+      if kill -0 "${tcpdump_pid}" 2>/dev/null; then
+        kill -TERM "${tcpdump_pid}" 2>/dev/null || true
+      fi
       wait "${tcpdump_pid}" 2>/dev/null || true
     fi
+    dump_state || true
+    case_deactivate || true
     chmod -R a+rX "${run_dir}" 2>/dev/null || true
     echo "run_dir=${run_dir}" >>"${run_dir}/run.env" 2>/dev/null || true
     exit "${rc}"
@@ -166,13 +180,12 @@ run_case() {
   t1="$(date -u +%s%3N)"
 
   # Capture WAN traffic for the validation phase.
-  ns_exec "${NS_WAN}" tcpdump -ni br0 -w "${pcap}" >/dev/null 2>&1 &
+  ip netns exec "${NS_WAN}" tcpdump -ni br0 -w "${pcap}" >/dev/null 2>&1 &
   tcpdump_pid=$!
 
   export MLAB_RUN_DIR="${run_dir}"
   validate_case >"${run_dir}/validate.log" 2>&1
   t2="$(date -u +%s%3N)"
-  case_deactivate
 
   {
     echo "activate_ms=$((t1 - t0))"

@@ -233,7 +233,7 @@ func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.
 	var g errgroup.Group
 	g.Go(func() error {
 		// if it's sender, wait for a while to make sure the client has send the detect messages
-		if vResp.DetectBehavior.Role == "sender" {
+		if vResp.PunchingEnabled && vResp.DetectBehavior.Role == "sender" {
 			time.Sleep(1 * time.Second)
 		}
 		_ = session.visitorTransporter.Send(vResp)
@@ -241,7 +241,7 @@ func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.
 	})
 	g.Go(func() error {
 		// if it's sender, wait for a while to make sure the client has send the detect messages
-		if cResp.DetectBehavior.Role == "sender" {
+		if cResp.PunchingEnabled && cResp.DetectBehavior.Role == "sender" {
 			time.Sleep(1 * time.Second)
 		}
 		_ = session.clientTransporter.Send(cResp)
@@ -249,7 +249,11 @@ func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.
 	})
 	_ = g.Wait()
 
-	time.Sleep(time.Duration(cResp.DetectBehavior.ReadTimeoutMs+30000) * time.Millisecond)
+	sleepDur := time.Duration(cResp.DetectBehavior.ReadTimeoutMs+30000) * time.Millisecond
+	if !cResp.PunchingEnabled || !vResp.PunchingEnabled {
+		sleepDur = 2 * time.Second
+	}
+	time.Sleep(sleepDur)
 }
 
 func (c *Controller) HandleClient(m *msg.NatHoleClient, transporter transport.MessageTransporter) {
@@ -276,7 +280,7 @@ func (c *Controller) HandleReport(m *msg.NatHoleReport) {
 		log.Tracef("sid [%s] report make hole success: %v, but session not found", m.Sid, m.Success)
 		return
 	}
-	if m.Success {
+	if m.Success && session.analysisKey != "" {
 		c.analyzer.ReportSuccess(session.analysisKey, session.recommandMode, session.recommandIndex)
 	}
 	log.Infof("sid [%s] report make hole success: %v, mode %v, index %v",
@@ -300,15 +304,55 @@ func (c *Controller) GenNatHoleResponse(transactionID string, session *Session, 
 func (c *Controller) analysis(session *Session) (*msg.NatHoleResp, *msg.NatHoleResp, error) {
 	cm := session.clientMsg
 	vm := session.visitorMsg
+	protocol := vm.Protocol
+
+	// Always exchange direct candidates snapshot (P2).
+	vResp := &msg.NatHoleResp{
+		TransactionID:   vm.TransactionID,
+		Sid:             session.sid,
+		Protocol:        protocol,
+		PeerDirectAddrs: slices.Compact(cm.DirectAddrs),
+	}
+	cResp := &msg.NatHoleResp{
+		TransactionID:   cm.TransactionID,
+		Sid:             session.sid,
+		Protocol:        protocol,
+		PeerDirectAddrs: slices.Compact(vm.DirectAddrs),
+	}
+
+	// Punching is optional in P2. If we can't analyze NAT features due to missing/invalid
+	// STUN-derived mapped addrs, we keep the session usable for direct paths.
+	if len(cm.MappedAddrs) < 2 {
+		vResp.PunchingEnabled = false
+		cResp.PunchingEnabled = false
+		vResp.PunchingError = "client has insufficient STUN mapped_addrs"
+		cResp.PunchingError = vResp.PunchingError
+		return vResp, cResp, nil
+	}
+	if len(vm.MappedAddrs) < 2 {
+		vResp.PunchingEnabled = false
+		cResp.PunchingEnabled = false
+		vResp.PunchingError = "visitor has insufficient STUN mapped_addrs"
+		cResp.PunchingError = vResp.PunchingError
+		return vResp, cResp, nil
+	}
 
 	cNatFeature, err := ClassifyNATFeature(cm.MappedAddrs, parseIPs(cm.AssistedAddrs))
 	if err != nil {
-		return nil, nil, fmt.Errorf("classify client nat feature error: %v", err)
+		vResp.PunchingEnabled = false
+		cResp.PunchingEnabled = false
+		vResp.PunchingError = fmt.Sprintf("classify client NAT feature error: %v", err)
+		cResp.PunchingError = vResp.PunchingError
+		return vResp, cResp, nil
 	}
 
 	vNatFeature, err := ClassifyNATFeature(vm.MappedAddrs, parseIPs(vm.AssistedAddrs))
 	if err != nil {
-		return nil, nil, fmt.Errorf("classify visitor nat feature error: %v", err)
+		vResp.PunchingEnabled = false
+		cResp.PunchingEnabled = false
+		vResp.PunchingError = fmt.Sprintf("classify visitor NAT feature error: %v", err)
+		cResp.PunchingError = vResp.PunchingError
+		return vResp, cResp, nil
 	}
 	session.cNatFeature = cNatFeature
 	session.vNatFeature = vNatFeature
@@ -325,40 +369,32 @@ func (c *Controller) analysis(session *Session) (*msg.NatHoleResp, *msg.NatHoleR
 		timeoutMs += 30000
 	}
 
-	protocol := vm.Protocol
-	vResp := &msg.NatHoleResp{
-		TransactionID:  vm.TransactionID,
-		Sid:            session.sid,
-		Protocol:       protocol,
-		CandidateAddrs: slices.Compact(cm.MappedAddrs),
-		AssistedAddrs:  slices.Compact(cm.AssistedAddrs),
-		DetectBehavior: msg.NatHoleDetectBehavior{
-			Mode:              mode,
-			Role:              vBehavior.Role,
-			TTL:               vBehavior.TTL,
-			SendDelayMs:       vBehavior.SendDelayMs,
-			ReadTimeoutMs:     timeoutMs - vBehavior.SendDelayMs,
-			SendRandomPorts:   vBehavior.PortsRandomNumber,
-			ListenRandomPorts: vBehavior.ListenRandomPorts,
-			CandidatePorts:    getRangePorts(cm.MappedAddrs, cNatFeature.PortsDifference, vBehavior.PortsRangeNumber),
-		},
+	vResp.PunchingEnabled = true
+	cResp.PunchingEnabled = true
+
+	vResp.CandidateAddrs = slices.Compact(cm.MappedAddrs)
+	vResp.AssistedAddrs = slices.Compact(cm.AssistedAddrs)
+	vResp.DetectBehavior = msg.NatHoleDetectBehavior{
+		Mode:              mode,
+		Role:              vBehavior.Role,
+		TTL:               vBehavior.TTL,
+		SendDelayMs:       vBehavior.SendDelayMs,
+		ReadTimeoutMs:     timeoutMs - vBehavior.SendDelayMs,
+		SendRandomPorts:   vBehavior.PortsRandomNumber,
+		ListenRandomPorts: vBehavior.ListenRandomPorts,
+		CandidatePorts:    getRangePorts(cm.MappedAddrs, cNatFeature.PortsDifference, vBehavior.PortsRangeNumber),
 	}
-	cResp := &msg.NatHoleResp{
-		TransactionID:  cm.TransactionID,
-		Sid:            session.sid,
-		Protocol:       protocol,
-		CandidateAddrs: slices.Compact(vm.MappedAddrs),
-		AssistedAddrs:  slices.Compact(vm.AssistedAddrs),
-		DetectBehavior: msg.NatHoleDetectBehavior{
-			Mode:              mode,
-			Role:              cBehavior.Role,
-			TTL:               cBehavior.TTL,
-			SendDelayMs:       cBehavior.SendDelayMs,
-			ReadTimeoutMs:     timeoutMs - cBehavior.SendDelayMs,
-			SendRandomPorts:   cBehavior.PortsRandomNumber,
-			ListenRandomPorts: cBehavior.ListenRandomPorts,
-			CandidatePorts:    getRangePorts(vm.MappedAddrs, vNatFeature.PortsDifference, cBehavior.PortsRangeNumber),
-		},
+	cResp.CandidateAddrs = slices.Compact(vm.MappedAddrs)
+	cResp.AssistedAddrs = slices.Compact(vm.AssistedAddrs)
+	cResp.DetectBehavior = msg.NatHoleDetectBehavior{
+		Mode:              mode,
+		Role:              cBehavior.Role,
+		TTL:               cBehavior.TTL,
+		SendDelayMs:       cBehavior.SendDelayMs,
+		ReadTimeoutMs:     timeoutMs - cBehavior.SendDelayMs,
+		SendRandomPorts:   cBehavior.PortsRandomNumber,
+		ListenRandomPorts: cBehavior.ListenRandomPorts,
+		CandidatePorts:    getRangePorts(vm.MappedAddrs, vNatFeature.PortsDifference, cBehavior.PortsRangeNumber),
 	}
 
 	log.Debugf("sid [%s] visitor nat: %+v, candidateAddrs: %v; client nat: %+v, candidateAddrs: %v, protocol: %s",

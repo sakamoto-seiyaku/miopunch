@@ -25,6 +25,7 @@ import (
 
 	"github.com/quic-go/quic-go"
 
+	"github.com/miopunch/miopunch/xtcp/connectivity"
 	"github.com/miopunch/miopunch/xtcp/control"
 	"github.com/miopunch/miopunch/xtcp/msg"
 	"github.com/miopunch/miopunch/xtcp/nathole"
@@ -45,6 +46,11 @@ type ClientConfig struct {
 	DisableAuth bool
 
 	StunServers           []string
+	StunTimeout           time.Duration
+	GatherTimeout         time.Duration
+	AttemptV6Timeout      time.Duration
+	AttemptPortmapTimeout time.Duration
+	DisablePortMap        bool
 	P2PListenAddr         string
 	DisableAssistedAddrs  bool
 	HelloTimeout          time.Duration
@@ -69,9 +75,6 @@ func RunClient(ctx context.Context, cfg ClientConfig) error {
 	}
 	if !cfg.DisableAuth && strings.TrimSpace(cfg.SecretKey) == "" {
 		return fail(obs.StageSupervisor, errors.New("secret key is required"), "invalid config", nil)
-	}
-	if len(cfg.StunServers) == 0 {
-		return fail(obs.StageSupervisor, errors.New("stun servers are required"), "invalid config", nil)
 	}
 	if cfg.HelloTimeout == 0 {
 		cfg.HelloTimeout = 5 * time.Second
@@ -144,28 +147,29 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 	sessionCtx, cancel := context.WithTimeout(ctx, cfg.SessionOverallTimeout)
 	defer cancel()
 
-	if cfg.Emitter != nil {
-		cfg.Emitter.Start(obs.StageDiscovery, "prepare start", map[string]any{
-			"sid": sid,
-		})
+	listenPort, err := listenPortFromAddr(cfg.P2PListenAddr)
+	if err != nil {
+		return err
 	}
-
-	prepareResult, err := prepareNATHole(cfg.StunServers, cfg.DisableAssistedAddrs, cfg.P2PListenAddr)
+	gather, err := connectivity.Gather(sessionCtx, sid, connectivity.GatherConfig{
+		ListenPort:           listenPort,
+		DisableAssistedAddrs: cfg.DisableAssistedAddrs,
+		DisablePortMap:       cfg.DisablePortMap,
+		StunServers:          cfg.StunServers,
+		StunTimeout:          cfg.StunTimeout,
+		GatherTimeout:        cfg.GatherTimeout,
+		SessionLease:         connectivity.PortMapLease(cfg.SessionOverallTimeout),
+		Emitter:              cfg.Emitter,
+	})
 	if err != nil {
 		if cfg.Emitter != nil {
-			cfg.Emitter.Fail(obs.StageDiscovery, err, "prepare failed", map[string]any{"sid": sid})
+			cfg.Emitter.Fail(obs.StageGather, err, "gather failed", map[string]any{"sid": sid})
 		}
 		return err
 	}
-	defer prepareResult.ListenConn.Close()
-
-	if cfg.Emitter != nil {
-		cfg.Emitter.OK(obs.StageDiscovery, "prepare ok", map[string]any{
-			"sid":      sid,
-			"nat_type": prepareResult.NatType,
-			"behavior": prepareResult.Behavior,
-			"mapped":   prepareResult.Addrs,
-		})
+	defer gather.UDP4Conn.Close()
+	if gather.UDP6Conn != nil {
+		defer gather.UDP6Conn.Close()
 	}
 
 	transactionID := nathole.NewTransactionID()
@@ -173,12 +177,13 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 		TransactionID: transactionID,
 		ProxyName:     cfg.ProxyName,
 		Sid:           sid,
-		MappedAddrs:   prepareResult.Addrs,
-		AssistedAddrs: prepareResult.AssistedAddrs,
+		DirectAddrs:   gather.DirectAddrs,
+		MappedAddrs:   gather.MappedAddrs,
+		AssistedAddrs: gather.AssistedAddrs,
 	}
 
 	if cfg.Emitter != nil {
-		cfg.Emitter.Start(obs.StageSignaling, "exchange info start", map[string]any{
+		cfg.Emitter.Start(obs.StageExchange, "exchange.start", map[string]any{
 			"sid":           sid,
 			"tx":            transactionID,
 			"control_proto": string(cfg.ControlProto),
@@ -188,7 +193,7 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 	natHoleRespMsg, err := nathole.ExchangeInfo(sessionCtx, sess.xport, transactionID, natHoleClientMsg, cfg.ExchangeInfoTimeout)
 	if err != nil {
 		if cfg.Emitter != nil {
-			cfg.Emitter.Fail(obs.StageSignaling, err, "exchange info failed", map[string]any{
+			cfg.Emitter.Fail(obs.StageExchange, err, "exchange.failed", map[string]any{
 				"sid": sid,
 				"tx":  transactionID,
 			})
@@ -197,42 +202,30 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 	}
 
 	if cfg.Emitter != nil {
-		cfg.Emitter.OK(obs.StageSignaling, "exchange info ok", map[string]any{
-			"sid":        sid,
-			"tx":         transactionID,
-			"data_proto": natHoleRespMsg.Protocol,
-			"detect":     natHoleRespMsg.DetectBehavior,
+		cfg.Emitter.OK(obs.StageExchange, "exchange.ok", map[string]any{
+			"sid":         sid,
+			"tx":          transactionID,
+			"data_proto":  natHoleRespMsg.Protocol,
+			"peer_direct": len(natHoleRespMsg.PeerDirectAddrs),
+			"punching":    natHoleRespMsg.PunchingEnabled,
 		})
 	}
 
-	if cfg.Emitter != nil {
-		cfg.Emitter.Start(obs.StagePunching, "make hole start", map[string]any{
-			"sid": sid,
-		})
-	}
-
-	listenConn := prepareResult.ListenConn
-	newListenConn, raddr, err := nathole.MakeHole(sessionCtx, listenConn, natHoleRespMsg, []byte(cfg.SecretKey))
+	attemptRes, err := connectivity.Attempt(sessionCtx, sid, []byte(cfg.SecretKey), gather.UDP4Conn, gather.UDP6Conn, natHoleRespMsg, connectivity.AttemptConfig{
+		AttemptV6Timeout:      cfg.AttemptV6Timeout,
+		AttemptPortmapTimeout: cfg.AttemptPortmapTimeout,
+		Emitter:               cfg.Emitter,
+	})
 	if err != nil {
-		listenConn.Close()
-		_ = sess.xport.Send(&msg.NatHoleReport{Sid: natHoleRespMsg.Sid, Success: false})
 		if cfg.Emitter != nil {
-			cfg.Emitter.Fail(obs.StagePunching, err, "make hole failed", map[string]any{
-				"sid": sid,
-			})
+			cfg.Emitter.Fail(obs.StageAttempt, err, "attempt failed", map[string]any{"sid": sid})
 		}
 		return err
 	}
-	listenConn = newListenConn
 
-	if cfg.Emitter != nil {
-		cfg.Emitter.OK(obs.StagePunching, "make hole ok", map[string]any{
-			"sid":   sid,
-			"raddr": raddr.String(),
-		})
+	if attemptRes.Path == "punching_ipv4" {
+		_ = sess.xport.Send(&msg.NatHoleReport{Sid: natHoleRespMsg.Sid, Success: true})
 	}
-
-	_ = sess.xport.Send(&msg.NatHoleReport{Sid: natHoleRespMsg.Sid, Success: true})
 
 	if cfg.Emitter != nil {
 		cfg.Emitter.Start(obs.StageTransport, "data plane start", map[string]any{
@@ -244,9 +237,9 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 	var dataErr error
 	switch natHoleRespMsg.Protocol {
 	case "kcp":
-		dataErr = serveKCP(sessionCtx, cfg, listenConn, raddr)
+		dataErr = serveKCP(sessionCtx, cfg, attemptRes.Conn, attemptRes.Remote)
 	case "quic", "":
-		dataErr = serveQUIC(sessionCtx, cfg, listenConn)
+		dataErr = serveQUIC(sessionCtx, cfg, attemptRes.Conn)
 	default:
 		dataErr = fmt.Errorf("unknown data plane protocol: %q", natHoleRespMsg.Protocol)
 	}
@@ -315,8 +308,8 @@ func serveQUIC(ctx context.Context, cfg ClientConfig, listenConn *net.UDPConn) e
 
 	quicListener, err := quic.Listen(listenConn, tlsConfig, &quic.Config{
 		HandshakeIdleTimeout: 20 * time.Second,
-		MaxIdleTimeout:  30 * time.Second,
-		KeepAlivePeriod: 10 * time.Second,
+		MaxIdleTimeout:       30 * time.Second,
+		KeepAlivePeriod:      10 * time.Second,
 	})
 	if err != nil {
 		return err

@@ -56,6 +56,7 @@ Commands:
   pull-artifacts           Rsync /opt/miopunch-lab/artifacts/ from the VM into lab/_artifacts/
   selftest                 Run guest selftest and pull artifacts
   xtcp-selftest            Run guest xtcp selftest and pull artifacts
+  xtcp-connectivity-selftest  Run guest xtcp connectivity selftest and pull artifacts
   xtcp-fulltest            Run guest xtcp full-case test and pull artifacts
   down                     Stop the VM (graceful poweroff, then kill if needed)
   status                   Show VM status
@@ -366,6 +367,20 @@ cmd_xtcp_selftest() {
   return "${rc}"
 }
 
+cmd_xtcp_connectivity_selftest() {
+  cmd_up
+  cmd_wait
+  cmd_wait_guest
+  cmd_push_guest
+  cmd_push_bin
+  set +e
+  cmd_guest sudo /opt/miopunch-lab/guest/bin/mlab-xtcp-connectivity-selftest
+  local rc=$?
+  set -e
+  cmd_pull_artifacts
+  return "${rc}"
+}
+
 cmd_xtcp_fulltest() {
   cmd_up
   cmd_wait
@@ -468,6 +483,7 @@ main() {
     pull-artifacts) cmd_pull_artifacts "$@" ;;
     selftest) cmd_selftest "$@" ;;
     xtcp-selftest) cmd_xtcp_selftest "$@" ;;
+    xtcp-connectivity-selftest) cmd_xtcp_connectivity_selftest "$@" ;;
     xtcp-fulltest) cmd_xtcp_fulltest "$@" ;;
     down) cmd_down "$@" ;;
     status) cmd_status "$@" ;;

@@ -59,7 +59,7 @@ for case_id in "${cases[@]}"; do
       echo "== ${case_id} A=${A_PROFILE:-} B=${B_PROFILE:-} nat4=${nat4_involved} control=${control_proto} data=${data_proto} expect=${expect} attempt=${i}/${repeat} =="
 
       set +e
-      out="$("${runner}" "${case_id}" --control-proto "${control_proto}" --data-proto "${data_proto}" --expect "${expect}" 2>&1)"
+      out="$("${runner}" "${case_id}" --control-proto "${control_proto}" --data-proto "${data_proto}" --expect "${expect}" --disable-portmap 2>&1)"
       rrc=$?
       set -e
 

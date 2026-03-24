@@ -25,6 +25,10 @@ import (
 type Stage string
 
 const (
+	StageGather   Stage = "gather"
+	StageExchange Stage = "exchange"
+	StageAttempt  Stage = "attempt"
+
 	StageDiscovery  Stage = "discovery"
 	StageSignaling  Stage = "signaling"
 	StagePunching   Stage = "punching"
@@ -55,9 +59,10 @@ type Event struct {
 	ControlProto string `json:"control_proto,omitempty"`
 	DataProto    string `json:"data_proto,omitempty"`
 
-	Msg string         `json:"msg,omitempty"`
-	Err string         `json:"err,omitempty"`
-	KVs map[string]any `json:"kvs,omitempty"`
+	Name string         `json:"name,omitempty"`
+	Msg  string         `json:"msg,omitempty"`
+	Err  string         `json:"err,omitempty"`
+	KVs  map[string]any `json:"kvs,omitempty"`
 }
 
 type Emitter struct {

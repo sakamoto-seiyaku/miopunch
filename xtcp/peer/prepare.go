@@ -19,9 +19,30 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 
 	"github.com/miopunch/miopunch/xtcp/nathole"
 )
+
+func listenPortFromAddr(addr string) (int, error) {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return 0, nil
+	}
+	_, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		// Allow passing a bare port number for tests.
+		portStr = addr
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid listen addr %q: %w", addr, err)
+	}
+	if port < 0 || port > 65535 {
+		return 0, fmt.Errorf("invalid port in listen addr %q: %d", addr, port)
+	}
+	return port, nil
+}
 
 func prepareNATHole(stunServers []string, disableAssistedAddrs bool, localAddr string) (*nathole.PrepareResult, error) {
 	opts := nathole.PrepareOptions{
@@ -71,4 +92,3 @@ func prepareNATHole(stunServers []string, disableAssistedAddrs bool, localAddr s
 		Behavior:      natFeature.Behavior,
 	}, nil
 }
-

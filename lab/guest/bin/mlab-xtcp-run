@@ -18,6 +18,14 @@ miopunch="${MLAB_MIOPUNCH_BIN:-/opt/miopunch-lab/bin/miopunch}"
 
 artifacts_root="${MLAB_ARTIFACTS_ROOT:-/opt/miopunch-lab/artifacts}"
 
+run_dir=""
+tcpdump_pid=""
+stun_pid=""
+coord_pid=""
+client_pid=""
+natA_pmp_pid=""
+natB_pmp_pid=""
+
 usage() {
   cat <<'EOF'
 Usage: mlab-xtcp-run <case-id> [flags]
@@ -29,8 +37,15 @@ Flags:
   --secret <secret>                 Secret key for client side (default: secret)
   --visitor-secret <secret>         Secret key used by visitor (default: same as --secret)
   --payload <string>                Payload to send (default: ping)
+  --attempt-v6-timeout <duration>   Override IPv6 direct attempt timeout for peers
+  --disable-stun                    Do not configure STUN for peers
+  --disable-portmap                 Disable portmap helpers for peers
+  --start-natpmpd                   Start a minimal NAT-PMP server in both NAT namespaces
+  --natpmpd-verbose                 Enable natpmpd verbose logging
   --expect <success|fail|diag-fail|allow-diag-fail> Expected outcome (default: success)
   --expect-fail-stage <stage>       If set, require a fail event at this stage (e.g. signaling)
+  --expect-path <direct_ipv6|direct_ipv4|punching_ipv4>
+                                   If set, require the visitor to succeed via this attempt path
 
 Artifacts:
   Writes a run dir under /opt/miopunch-lab/artifacts/ and stores:
@@ -51,6 +66,13 @@ preflight() {
   [[ -x "${mlab}" ]] || die "missing mlab: ${mlab}"
 }
 
+start_bg_in_netns() {
+  local ns="$1"
+  local log_file="$2"
+  shift 2
+  ip netns exec "${ns}" sh -c 'log="$1"; shift; "$@" >"$log" 2>&1 & echo $!' _ "${log_file}" "$@"
+}
+
 stop_pid() {
   local pid="$1"
   if [[ -z "${pid}" ]]; then
@@ -58,7 +80,37 @@ stop_pid() {
   fi
   if kill -0 "${pid}" 2>/dev/null; then
     kill "${pid}" 2>/dev/null || true
-    wait "${pid}" 2>/dev/null || true
+    for _ in {1..50}; do
+      if ! kill -0 "${pid}" 2>/dev/null; then
+        return 0
+      fi
+      sleep 0.1
+    done
+    kill -9 "${pid}" 2>/dev/null || true
+  fi
+}
+
+stop_pid_int() {
+  local pid="$1"
+  if [[ -z "${pid}" ]]; then
+    return 0
+  fi
+  if kill -0 "${pid}" 2>/dev/null; then
+    kill -INT "${pid}" 2>/dev/null || true
+    for _ in {1..40}; do
+      if ! kill -0 "${pid}" 2>/dev/null; then
+        return 0
+      fi
+      sleep 0.1
+    done
+    kill "${pid}" 2>/dev/null || true
+    for _ in {1..20}; do
+      if ! kill -0 "${pid}" 2>/dev/null; then
+        return 0
+      fi
+      sleep 0.1
+    done
+    kill -9 "${pid}" 2>/dev/null || true
   fi
 }
 
@@ -86,8 +138,14 @@ main() {
   local secret="secret"
   local visitor_secret=""
   local payload="ping"
+  local attempt_v6_timeout=""
+  local disable_stun=0
+  local disable_portmap=0
+  local start_natpmpd=0
+  local natpmpd_verbose=0
   local expect="success"
   local expect_fail_stage=""
+  local expect_path=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -97,8 +155,14 @@ main() {
       --secret) secret="${2:-}"; shift 2 ;;
       --visitor-secret) visitor_secret="${2:-}"; shift 2 ;;
       --payload) payload="${2:-}"; shift 2 ;;
+      --attempt-v6-timeout) attempt_v6_timeout="${2:-}"; shift 2 ;;
+      --disable-stun) disable_stun=1; shift 1 ;;
+      --disable-portmap) disable_portmap=1; shift 1 ;;
+      --start-natpmpd) start_natpmpd=1; shift 1 ;;
+      --natpmpd-verbose) natpmpd_verbose=1; shift 1 ;;
       --expect) expect="${2:-}"; shift 2 ;;
       --expect-fail-stage) expect_fail_stage="${2:-}"; shift 2 ;;
+      --expect-path) expect_path="${2:-}"; shift 2 ;;
       -h|--help|help) usage; exit 0 ;;
       *) die "unknown arg: $1" ;;
     esac
@@ -110,6 +174,9 @@ main() {
   case "${control_proto}" in tcp|kcp|quic) ;; *) die "invalid --control-proto: ${control_proto}" ;; esac
   case "${data_proto}" in kcp|quic) ;; *) die "invalid --data-proto: ${data_proto}" ;; esac
   case "${expect}" in success|fail|diag-fail|allow-diag-fail) ;; *) die "invalid --expect: ${expect}" ;; esac
+  if [[ -n "${expect_path}" ]]; then
+    case "${expect_path}" in direct_ipv6|direct_ipv4|punching_ipv4) ;; *) die "invalid --expect-path: ${expect_path}" ;; esac
+  fi
 
   local a_p2p_port=5000
   local b_p2p_port=5000
@@ -123,11 +190,22 @@ main() {
 
   preflight
 
+  local natpmpd="${script_dir}/mlab-natpmpd"
+  if [[ "${start_natpmpd}" -eq 1 ]]; then
+    need_cmd python3
+    [[ -x "${natpmpd}" ]] || die "missing natpmpd: ${natpmpd}"
+  fi
+
   local ts
   ts="$(date -u +%Y%m%dT%H%M%SZ)"
   run_dir="${artifacts_root}/${ts}-xtcp-${case_id}-${control_proto}-${data_proto}"
   mkdir -p "${run_dir}"
   echo "run_dir=${run_dir}"
+
+  local stun_addrs=""
+  if [[ "${disable_stun}" -eq 0 ]]; then
+    stun_addrs="${STUN_IP}:3478,${STUN_IP}:3479"
+  fi
 
   {
     echo "ts_utc=${ts}"
@@ -135,21 +213,33 @@ main() {
     echo "control_proto=${control_proto}"
     echo "data_proto=${data_proto}"
     echo "proxy_name=${proxy_name}"
-    echo "stun_addrs=${STUN_IP}:3478,${STUN_IP}:3479"
+    echo "stun_addrs=${stun_addrs}"
     echo "coord_addr=${COORD_IP}:7000"
     echo "peerA_ns=${NS_PEER_A}"
     echo "peerB_ns=${NS_PEER_B}"
     echo "peerA_p2p_port=${a_p2p_port}"
     echo "peerB_p2p_port=${b_p2p_port}"
+    echo "attempt_v6_timeout=${attempt_v6_timeout}"
+    echo "disable_stun=${disable_stun}"
+    echo "disable_portmap=${disable_portmap}"
+    echo "start_natpmpd=${start_natpmpd}"
+    echo "expect_path=${expect_path}"
   } >"${run_dir}/run.env"
 
-  local tcpdump_pid="" stun_pid="" coord_pid="" client_pid=""
+  tcpdump_pid=""
+  stun_pid=""
+  coord_pid=""
+  client_pid=""
+  natA_pmp_pid=""
+  natB_pmp_pid=""
   finish() {
     local rc=$?
     stop_pid "${client_pid:-}" || true
     stop_pid "${coord_pid:-}" || true
     stop_pid "${stun_pid:-}" || true
-    stop_pid "${tcpdump_pid:-}" || true
+    stop_pid "${natA_pmp_pid:-}" || true
+    stop_pid "${natB_pmp_pid:-}" || true
+    stop_pid_int "${tcpdump_pid:-}" || true
     dump_state || true
     "${mlab}" case deactivate >/dev/null 2>&1 || true
     chmod -R a+rX "${run_dir}" 2>/dev/null || true
@@ -164,17 +254,27 @@ main() {
   t1="$(date -u +%s%3N)"
 
   # Capture WAN traffic.
-  ns_exec "${NS_WAN}" tcpdump -ni br0 -w "${run_dir}/wan.pcap" >/dev/null 2>&1 &
-  tcpdump_pid=$!
+  tcpdump_pid="$(start_bg_in_netns "${NS_WAN}" /dev/null tcpdump -ni br0 -w "${run_dir}/wan.pcap")"
+
+  if [[ "${start_natpmpd}" -eq 1 ]]; then
+    natpmpd_args=("${natpmpd}" "--wan-if" "wan0" "--lan-if" "lan0" "--external-ip")
+    if [[ "${natpmpd_verbose}" -eq 1 ]]; then
+      natpmpd_args+=("--verbose")
+    fi
+
+    natA_pmp_pid="$(start_bg_in_netns "${NS_NAT_A}" "${run_dir}/natA.natpmpd.log" "${natpmpd_args[@]}" "${WAN_A_IP}")"
+    natB_pmp_pid="$(start_bg_in_netns "${NS_NAT_B}" "${run_dir}/natB.natpmpd.log" "${natpmpd_args[@]}" "${WAN_B_IP}")"
+    sleep 0.2
+  fi
 
   # Local STUN: provide 2 endpoints for discovery.
-  ns_exec "${NS_STUN}" "${miopunch}" stun --listen "${STUN_IP}:3478" --listen "${STUN_IP}:3479" >"${run_dir}/stun.log" 2>&1 &
-  stun_pid=$!
-  sleep 0.2
+  if [[ "${disable_stun}" -eq 0 ]]; then
+    stun_pid="$(start_bg_in_netns "${NS_STUN}" "${run_dir}/stun.log" "${miopunch}" stun --listen "${STUN_IP}:3478" --listen "${STUN_IP}:3479")"
+    sleep 0.2
+  fi
 
   # Coordinator.
-  ns_exec "${NS_COORD}" "${miopunch}" coord --listen "${COORD_IP}:7000" --proto "${control_proto}" >"${run_dir}/coord.log" 2>&1 &
-  coord_pid=$!
+  coord_pid="$(start_bg_in_netns "${NS_COORD}" "${run_dir}/coord.log" "${miopunch}" coord --listen "${COORD_IP}:7000" --proto "${control_proto}")"
 
   # Wait for coordinator to become ready (avoid connection refused race).
   local t_coord_start t_coord_now
@@ -194,18 +294,29 @@ main() {
   done
 
   # Client peer (A) registers and waits for a single SID.
-  ns_exec "${NS_PEER_A}" "${miopunch}" peer client \
-    --coord "${COORD_IP}:7000" \
-    --control-proto "${control_proto}" \
-    --proxy "${proxy_name}" \
-    --secret "${secret}" \
-    --user "a" \
-    --allow-users "*" \
-    --p2p-port "${a_p2p_port}" \
-    --stun "${STUN_IP}:3478,${STUN_IP}:3479" \
-    --once \
-    >"${run_dir}/client.log" 2>&1 &
-  client_pid=$!
+  local -a client_cmd
+  client_cmd=(
+    "${miopunch}" peer client
+    --coord "${COORD_IP}:7000"
+    --control-proto "${control_proto}"
+    --proxy "${proxy_name}"
+    --secret "${secret}"
+    --user "a"
+    --allow-users "*"
+    --p2p-port "${a_p2p_port}"
+  )
+  if [[ -n "${attempt_v6_timeout}" ]]; then
+    client_cmd+=(--attempt-v6-timeout "${attempt_v6_timeout}")
+  fi
+  if [[ "${disable_portmap}" -eq 1 ]]; then
+    client_cmd+=(--disable-portmap)
+  fi
+  if [[ "${disable_stun}" -eq 0 ]]; then
+    client_cmd+=(--stun "${STUN_IP}:3478,${STUN_IP}:3479")
+  fi
+  client_cmd+=(--once)
+
+  client_pid="$(start_bg_in_netns "${NS_PEER_A}" "${run_dir}/client.log" "${client_cmd[@]}")"
 
   # Wait for the client to finish hello/registration, otherwise visitor precheck may race
   # (especially on QUIC control plane where handshake can take longer than a fixed sleep).
@@ -229,17 +340,29 @@ main() {
 
   # Visitor peer (B) runs once and exits with status.
   set +e
-  ns_exec "${NS_PEER_B}" "${miopunch}" peer visitor \
-    --coord "${COORD_IP}:7000" \
-    --control-proto "${control_proto}" \
-    --proxy "${proxy_name}" \
-    --secret "${visitor_secret}" \
-    --user "b" \
-    --data-proto "${data_proto}" \
-    --payload "${payload}" \
-    --p2p-port "${b_p2p_port}" \
-    --stun "${STUN_IP}:3478,${STUN_IP}:3479" \
-    >"${run_dir}/visitor.log" 2>&1
+  local -a visitor_cmd
+  visitor_cmd=(
+    "${miopunch}" peer visitor
+    --coord "${COORD_IP}:7000"
+    --control-proto "${control_proto}"
+    --proxy "${proxy_name}"
+    --secret "${visitor_secret}"
+    --user "b"
+    --data-proto "${data_proto}"
+    --payload "${payload}"
+    --p2p-port "${b_p2p_port}"
+  )
+  if [[ -n "${attempt_v6_timeout}" ]]; then
+    visitor_cmd+=(--attempt-v6-timeout "${attempt_v6_timeout}")
+  fi
+  if [[ "${disable_portmap}" -eq 1 ]]; then
+    visitor_cmd+=(--disable-portmap)
+  fi
+  if [[ "${disable_stun}" -eq 0 ]]; then
+    visitor_cmd+=(--stun "${STUN_IP}:3478,${STUN_IP}:3479")
+  fi
+
+  ns_exec "${NS_PEER_B}" "${visitor_cmd[@]}" >"${run_dir}/visitor.log" 2>&1
   visitor_rc=$?
   set -e
   t3="$(date -u +%s%3N)"
@@ -272,6 +395,23 @@ main() {
   if [[ -n "${expect_fail_stage}" ]]; then
     grep -E -q "\"stage\":\"${expect_fail_stage}\".*\"kind\":\"fail\"" "${run_dir}/visitor.log" \
       || die "expected fail stage '${expect_fail_stage}' not found (run_dir=${run_dir})"
+  fi
+
+  if [[ -n "${expect_path}" ]]; then
+    case "${expect_path}" in
+      direct_ipv6)
+        grep -q "\"name\":\"attempt.v6.ok\"" "${run_dir}/visitor.log" || die "expected path '${expect_path}' not found (run_dir=${run_dir})"
+        ;;
+      direct_ipv4)
+        grep -q "\"name\":\"attempt.v4.ok\"" "${run_dir}/visitor.log" || die "expected path '${expect_path}' not found (run_dir=${run_dir})"
+        ;;
+      punching_ipv4)
+        grep -q "\"name\":\"attempt.punching.ok\"" "${run_dir}/visitor.log" || die "expected path '${expect_path}' not found (run_dir=${run_dir})"
+        ;;
+      *)
+        die "unexpected expect_path: ${expect_path}"
+        ;;
+    esac
   fi
 
   echo "ok: xtcp run complete: ${run_dir}"

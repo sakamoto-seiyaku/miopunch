@@ -68,6 +68,7 @@ type NatHoleVisitor struct {
 	Protocol      string   `json:"protocol,omitempty"` // kcp | quic (data plane)
 	SignKey       string   `json:"sign_key,omitempty"`
 	Timestamp     int64    `json:"timestamp,omitempty"`
+	DirectAddrs   []string `json:"direct_addrs,omitempty"`
 	MappedAddrs   []string `json:"mapped_addrs,omitempty"`
 	AssistedAddrs []string `json:"assisted_addrs,omitempty"`
 }
@@ -76,6 +77,7 @@ type NatHoleClient struct {
 	TransactionID string   `json:"transaction_id,omitempty"`
 	ProxyName     string   `json:"proxy_name,omitempty"`
 	Sid           string   `json:"sid,omitempty"`
+	DirectAddrs   []string `json:"direct_addrs,omitempty"`
 	MappedAddrs   []string `json:"mapped_addrs,omitempty"`
 	AssistedAddrs []string `json:"assisted_addrs,omitempty"`
 }
@@ -97,13 +99,16 @@ type NatHoleDetectBehavior struct {
 }
 
 type NatHoleResp struct {
-	TransactionID  string                `json:"transaction_id,omitempty"`
-	Sid            string                `json:"sid,omitempty"`
-	Protocol       string                `json:"protocol,omitempty"`
-	CandidateAddrs []string              `json:"candidate_addrs,omitempty"`
-	AssistedAddrs  []string              `json:"assisted_addrs,omitempty"`
-	DetectBehavior NatHoleDetectBehavior `json:"detect_behavior,omitempty"`
-	Error          string                `json:"error,omitempty"`
+	TransactionID   string                `json:"transaction_id,omitempty"`
+	Sid             string                `json:"sid,omitempty"`
+	Protocol        string                `json:"protocol,omitempty"`
+	PeerDirectAddrs []string              `json:"peer_direct_addrs,omitempty"`
+	PunchingEnabled bool                  `json:"punching_enabled,omitempty"`
+	PunchingError   string                `json:"punching_error,omitempty"`
+	CandidateAddrs  []string              `json:"candidate_addrs,omitempty"`
+	AssistedAddrs   []string              `json:"assisted_addrs,omitempty"`
+	DetectBehavior  NatHoleDetectBehavior `json:"detect_behavior,omitempty"`
+	Error           string                `json:"error,omitempty"`
 }
 
 // NatHoleSid is used in two places:

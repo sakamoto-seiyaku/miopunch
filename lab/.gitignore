@@ -2,3 +2,5 @@
 /_state/
 /_artifacts/
 /_tmp/
+**/__pycache__/
+**/*.py[cod]
