@@ -29,7 +29,7 @@ Port mapping helpers SHALL NOT block the main exchange or attempt flow.
 - **GIVEN** a peer runs in an IPv4-only environment behind a port-mapping-capable gateway
 - **WHEN** the peer enters the gather phase
 - **THEN** port mapping is attempted concurrently in the background
-- **AND** if a mapping is obtained before exchange, it is included as an additional candidate
+- **AND** if one or more mappings are obtained before exchange, they are included as additional direct candidates
 - **AND** if a mapping is not obtained in time, the session proceeds without waiting
 
 ### Requirement: STUN Is Not Required for Direct Paths

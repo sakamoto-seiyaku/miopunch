@@ -16,7 +16,7 @@
   - 新增：`direct_addrs []string`
     - 同时承载 `IPv6 direct` 与 `IPv4 portmap direct` 候选
     - 地址格式：`netip.AddrPort.String()`（IPv6 需带 `[]`）
-    - 上限：`<= 5`（其中 `IPv6 <= 4`，`portmap(v4) <= 1`）
+    - 上限：`<= 8`（其中 `IPv6 <= 4`，`direct(v4) <= 4`；`direct(v4)` 可包含多个 `portmap` 候选）
   - 既有 `mapped_addrs/assisted_addrs` 仍然仅用于 `P1 IPv4 punching`（STUN 派生 + LAN assisted），不塞入任何 v6/portmap 候选。
   - `mapped_addrs` 上限建议 `<= 4`；punching 可用最低条件为 `len(mapped_addrs) >= 2`。
 
@@ -50,8 +50,21 @@
    - 默认预算（可配置）：
      - `gather_timeout = 1.5s`
      - `IPv6 gather` 为本地枚举与过滤（不需要单独网络超时）
-     - `portmap` 后台并发启动；只要在 `gather_timeout` 内出结果就纳入快照
+     - `portmap` 为 **per-session A 档**：每个 session 的 gather 窗口内并发启动；只要在 `gather_timeout` 内出结果就纳入快照；晚到不纳入本次 exchange（no trickle），但必须完整记录其耗时与错误
      - `STUN` 仅当配置了 STUN server 时才执行，deadline 不超过 `gather_timeout`
+
+#### IPv4 Port Mapping Semantics (P2(v1), A-mode)
+
+目标：只把 `portmap` 作为“当次会话的额外直连候选来源”，不引入进程级长生命周期 socket，也不引入完整续租/重发现/多网关生命周期。
+
+- `portmap` 以“本 session 的 UDP4 listen port（internal port）”为目标端口尝试映射。
+- helper **可以产出 0..N 个** `direct(v4)` 候选（例如 `UPnP` 与 `NAT-PMP` 都成功、或同一协议多次尝试得到不同 external port）：
+  - 但在 control plane 的 `direct_addrs` 中只携带裁剪后的最多 `direct(v4) <= 4`
+  - 去重规则为 `netip.AddrPort` 完全相同去重
+- `portmap` 不阻塞 `exchange`：当 `gather_timeout` 到期时，无论 helper 是否完成，都发送当前快照并进入 attempt。
+- `portmap` late result 不参与本次会话（no trickle），但必须输出可机读观测事件（例如 `gather.portmap.result`）。
+- `lease` 为短租约（经验值）：建议 `lease = min(5m, session_overall_timeout+2m)`。
+- 会话结束后 best-effort unmap（失败不影响会话结果，但必须记录到观测事件）。
 
 #### IPv6 Candidate Filtering (TS-style, minimal)
 
@@ -89,6 +102,14 @@
      - `attempt_v6_timeout = 800ms`
      - `attempt_portmap_timeout = 800ms`
      - `punching` 沿用 `P1` 的 `DetectBehavior.ReadTimeoutMs` 与 session overall timeout
+
+#### Attempting Multiple `direct(v4)` Candidates
+
+`P2(v1)` 允许 `direct(v4) = 0..N`。为避免 “一个个串行试导致预算被耗尽”，建议采用最小的 fan-out：
+
+- 在 `attempt_portmap_timeout` 窗口内，对所有 `direct(v4)` 候选并发发送轻量握手（复用 `NatHoleSid`），等待第一个成功响应。
+- 成功后立即取消其他 attempt，并记录最终选路与取消原因。
+- 观测事件必须包含：每个候选的 begin/end、是否收到响应、超时/取消原因。
 
 ## Compatibility & Change Boundaries
 

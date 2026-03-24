@@ -22,12 +22,15 @@
 - [ ] best-effort 获取 `IPv4` 端口映射（`UPnP / NAT-PMP`；`PCP` deferred），并输出可机读诊断信息。
 - [ ] 依赖选择：优先 `github.com/huin/goupnp`（`UPnP IGD`）+ `github.com/jackpal/go-nat-pmp`（`NAT-PMP`）；`PCP` 另开 change（证据驱动）。
 - [ ] helper 不阻塞主流程：gather 阶段并发启动；exchange 阶段尽力携带；没出结果不等待。
+- [ ] `P2(v1)` 采用 A 档（per-session）语义：不引入进程级长生命周期 socket，不要求跨 session cache；晚到结果不参与本次 exchange（no trickle），但必须完整记录。
+- [ ] helper 支持产出 `0..N` 个 `direct(v4)` 候选（按上限裁剪并去重），并在 attempt 阶段可逐个或并发尝试。
 - [ ] 单元测试：错误分类、超时、取消、诊断输出；（必要时引入可测试的 fake gateway）。
 
 ## 5. Outer Attempt Policy (Attempt)
 
 - [ ] 实现固定尝试顺序：`IPv6` → `IPv4 portmap direct` → `IPv4 punching(mode0..4)`。
 - [ ] 定义超时/预算与取消语义：每条路径有明确的 `deadline`，失败/超时必须记录原因。
+- [ ] `portmap direct` 支持 `0..N` 候选：在预算内 fan-out 发送轻量握手并等待第一个成功响应；其余 attempt 必须被取消并记录原因。
 - [ ] 将 `P1 xtcp punching` 作为兜底路径集成（不得改变 `xtcp/nathole` 算法行为；仅允许粘合与扩展点调整）。
 - [ ] 单元测试：attempt policy 的状态机、取消传播、顺序与回退行为。
 
