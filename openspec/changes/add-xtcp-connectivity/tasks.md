@@ -5,6 +5,7 @@
 - [ ] 定义 `xtcp-connectivity` 的包边界：outer attempt policy、helper、candidate snapshot、事件模型。
 - [ ] CLI 增加最小开关与预算参数（提供合理默认值；可禁用 helper 以便回归对比）。
 - [ ] `STUN` 配置变为可选：未配置/不可用时，`IPv6/portmap` 直连路径仍应可成功；仅在回落到 `IPv4 punching` 时才依赖 STUN。
+- [ ] 落地 `STUN Gating Rule A`：若配置了 STUN，则 exchange 前必须等待 STUN 完成或超时（避免 no-trickle 下 punching 兜底被人为关掉）；`portmap` 不得阻塞 exchange。
 
 ## 2. Candidate Snapshot Model
 
@@ -31,6 +32,7 @@
 - [ ] 实现固定尝试顺序：`IPv6` → `IPv4 portmap direct` → `IPv4 punching(mode0..4)`。
 - [ ] 定义超时/预算与取消语义：每条路径有明确的 `deadline`，失败/超时必须记录原因。
 - [ ] `portmap direct` 支持 `0..N` 候选：在预算内 fan-out 发送轻量握手并等待第一个成功响应；其余 attempt 必须被取消并记录原因。
+- [ ] 直连轻量握手：复用 `NatHoleSid`，attempt 阶段临时启用读循环；收到 request 必须回 response；成功判定必须稳定且可测试。
 - [ ] 将 `P1 xtcp punching` 作为兜底路径集成（不得改变 `xtcp/nathole` 算法行为；仅允许粘合与扩展点调整）。
 - [ ] 单元测试：attempt policy 的状态机、取消传播、顺序与回退行为。
 

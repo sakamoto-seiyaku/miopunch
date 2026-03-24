@@ -48,10 +48,21 @@
      - `STUN`（沿用 `P1` discovery；仅在需要回落到 punching 时才依赖其结果；不把 STUN 变成 `IPv6/portmap` 的硬依赖）
    - helper 结果**不阻塞** exchange；只在 gather 窗口内“尽力而为”。
    - 默认预算（可配置）：
-     - `gather_timeout = 1.5s`
+     - `stun_timeout = 3s`：仅当配置了 STUN server 时才执行；用于决定本次会话 punching 是否可用（见下文 “STUN Gating Rule A”）
+     - `gather_timeout = 1.5s`：仅用于可选 helper（例如 `portmap`）是否纳入本次快照；不得用于“人为缩短 STUN 预算导致 punching 兜底不可用”
      - `IPv6 gather` 为本地枚举与过滤（不需要单独网络超时）
      - `portmap` 为 **per-session A 档**：每个 session 的 gather 窗口内并发启动；只要在 `gather_timeout` 内出结果就纳入快照；晚到不纳入本次 exchange（no trickle），但必须完整记录其耗时与错误
-     - `STUN` 仅当配置了 STUN server 时才执行，deadline 不超过 `gather_timeout`
+
+#### STUN Gating Rule A (P2(v1), no-trickle)
+
+目标：在 no-trickle 的前提下，避免因为过小的 gather 窗口导致 “punching 兜底被人为关掉”，同时保持 `portmap` 的非阻塞属性。
+
+- 若本会话 **配置了 STUN servers**：
+  - 系统 MUST 等待 STUN discovery 完成（或 `stun_timeout` 超时）后再进行首次 `exchange`。
+  - 若 STUN 成功产出满足 punching 的 mapped addrs，则 `punching_enabled=true`；否则 `punching_enabled=false` 并填充 `punching_error`。
+- 若本会话 **未配置 STUN servers**：
+  - 系统 MUST 直接进行首次 `exchange`，并明确 `punching_enabled=false`（原因写入 `punching_error`）。
+- `portmap` 永远不阻塞首次 `exchange`：只在 `gather_timeout` 内“尽力纳入快照”；晚到结果不参与本次会话（no trickle），但必须记录。
 
 #### IPv4 Port Mapping Semantics (P2(v1), A-mode)
 
@@ -110,6 +121,21 @@
 - 在 `attempt_portmap_timeout` 窗口内，对所有 `direct(v4)` 候选并发发送轻量握手（复用 `NatHoleSid`），等待第一个成功响应。
 - 成功后立即取消其他 attempt，并记录最终选路与取消原因。
 - 观测事件必须包含：每个候选的 begin/end、是否收到响应、超时/取消原因。
+
+#### Direct Handshake Semantics (reuse `NatHoleSid`)
+
+目标：为 `IPv6 direct` 与 `direct(v4)`（portmap）提供最小的“路径确认”握手；不引入长生命周期 socket；避免与 `QUIC/KCP` 的收包循环冲突。
+
+- attempt 阶段临时启用读循环（attempt 结束即停止），在对应 socket 上处理 `NatHoleSid`：
+  - 收到与本会话 `Sid` 匹配且可解密的 `NatHoleSid`
+    - 若 `Response=false`（request）→ MUST 回 `Response=true` 到来源地址
+    - 收到 request 或 response 都可作为“对端可达”的成功信号（具体以实现选择为准，但必须稳定且可测试）
+- 发包策略（经验值，可配置）：
+  - 对每个候选地址发送 `NatHoleSid{Response=false}` 共 `3` 次，间隔约 `100ms`，总窗口受 `attempt_*_timeout` 约束
+- 成功判定（最小且可测试）：
+  - 在 attempt 窗口内，收到任意一条匹配 `Sid` 的 `NatHoleSid`（request 或 response）即判定该候选成功
+- fan-out：
+  - 对 `direct(v4)` 的 `0..N` 候选并发发送；谁先成功选谁；其他必须 cancel，并记录取消原因
 
 ## Compatibility & Change Boundaries
 
