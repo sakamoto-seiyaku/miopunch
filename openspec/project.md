@@ -19,7 +19,7 @@
 - `Linux lab networking`：在 VM 内使用 `netns`、`veth`、`nftables/iptables`、`tc` 构建实验拓扑。
 - `Containerization`：`Docker` 可作为后续进程打包手段，但不作为 `P0` 的拓扑主控。
 - `STUN`：用于地址发现与 NAT 相关信息获取。
-- `UDP hole punching helpers`：`UPnP`、`NAT-PMP`、`PCP`。
+- `UDP connectivity helpers`：`UPnP`、`NAT-PMP`（`P2(v1)`）；`PCP`（deferred）。
 - `Transport protocols`：P2P 数据面基线支持 `KCP / QUIC`；后续引入 `HY2` 风格的 `QUIC` 调度与进一步拥塞控制优化。
 - `Target platforms`：优先 `Linux`，后续扩展到 `Android`、`Windows`。
 
@@ -68,7 +68,7 @@
 - 本项目讨论的“打洞”默认指 `UDP NAT traversal / UDP hole punching`。
 - `frp xtcp` 提供的是“中心协调 + P2P 数据面”的起点，不等于完全去中心化。
 - `fallback` 是受控降级机制，不应掩盖失败原因；失败路径同样要可观测、可测试。
-- `UPnP`、`NAT-PMP`、`PCP` 属于连通性增强与端口映射辅助，不是经典打洞的替代。
+- `UPnP`、`NAT-PMP` 属于连通性增强与端口映射辅助，不是经典打洞的替代（`PCP` deferred）。
 - `IPv6` 是一等公民能力；设计时默认考虑 `IPv4 / IPv6 / dual-stack`，而不是把 IPv6 当附属功能。
 - 当前明确主线只有 `P0` 到 `P3`：测试台、XTCP 内核抽离、连通性增强、传输层抽象。
 - `overlay / mesh`、`VPP`、`TCP punching`、`udp2raw` 风格伪装属于后续方向，现阶段只保留接口空间和设计余地，不提前承诺实现。
@@ -88,7 +88,7 @@
 ## External Dependencies
 - `frp/`（git submodule）：参考实现，尤其是 `xtcp` 与 `pkg/nathole` 相关逻辑。
 - `STUN servers`：用于公网地址发现和 NAT 相关信息获取。
-- `UPnP / NAT-PMP / PCP` capable routers or emulators：用于辅助连通性实验。
+- `UPnP / NAT-PMP` capable routers or emulators（`PCP` optional）：用于辅助连通性实验。
 - `Cloud coordination server`：用于信令协调、真实网络回归和中继/回退实验。
 - `Android device + cellular network + home broadband`：用于真实环境验证。
 - `Linux kernel networking features`：网络命名空间、路由、NAT、流量控制等实验基础设施。

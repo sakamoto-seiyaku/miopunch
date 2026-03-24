@@ -48,6 +48,17 @@
 - 失败路径同样需要回归，验证诊断信息、阶段信息、回退信息是否准确。
 - 核心指标：建链成功率、建链时延、吞吐、回退率、不同 NAT 组合表现。
 
+## 外部参考项目
+
+- 详细清单与借鉴边界见 `docs/reference-projects.md`；这些项目用于吸收局部工程经验，不代表整体照搬。
+- `frp`：`P1` 行为基线；后续阶段继续作为回归对照与来源追溯参考。
+- `Tailscale`：`P2` 连通性、双栈、candidate / endpoint 聚合、可观测性；后续 `overlay / mesh` 也可参考。
+- `MiniUPnP`：`P0 / P2` 的 `UPnP / NAT-PMP / PCP` 实验台与协议行为基线。
+- `go-libp2p`：`P2` 的端口映射生命周期、续租、重发现、多网关选择参考。
+- `goupnp`：`P2` 的 Go 侧 `UPnP` 客户端实现基线，但不能直接等价为完整双栈方案。
+- `pion/ice`：`P2 / P3` 的 candidate、双栈 gather、优先级与路径切换参考。
+- `gonc`：真实网络 heuristics、诊断表达与实验性打洞策略参考。
+
 ## 主线 Roadmap
 
 ### P0 测试台先行
@@ -70,9 +81,14 @@
 
 ### P2 补齐连通性
 
-- 在基础打洞流程上补齐 `UPnP`、`NAT-PMP`、`PCP`、`IPv6`、双栈策略。
+- 在基础打洞流程上补齐 `UPnP`、`NAT-PMP`、`IPv6`、双栈策略（`PCP` deferred，证据驱动另开 change）。
 - 将端口映射辅助视为连通性增强，而不是经典打洞的替代。
 - 将 `IPv6` 视为一等公民能力，而不是附属特性。
+- `P2(v1)` 只交换一次候选快照（no trickle candidates）；helper 结果晚到不阻塞主流程。
+- `P2(v1)` 固定尝试顺序：`IPv6` → `IPv4 portmap` → `IPv4 punching(mode0..4)`。
+- 优先收敛统一的 `candidate model` 与 `attempt policy`，将 `STUN / IPv6 / port mapping helpers` 统一为候选来源。
+- `helper` 只负责产出 candidate、lease 与诊断信息，不直接侵入 `transport` 语义。
+- 允许为 `P2` 重组/扩展 `P1` glue code 与协议字段，但必须保持 `P1` 的 `IPv4 punching kernel` 行为基线，并在 `P0` 实验台回归证明不漂移。
 - 目标是最大化真实网络中的建链成功率。
 
 ### P3 抽象传输层
@@ -97,3 +113,10 @@
 - 每个阶段都必须定义回归基线。
 - 每个阶段都必须用真实网络或仿真网络复验。
 - 新方向进入主线前，先通过实验分支验证价值。
+
+## 突发奇想
+
+> 与项目有关的想法, 但并非落实到路线图内容, 需要深度讨论
+
+- `IPv6 NAT66 / 受限 IPv6`（例如教育网）：是否需要把 `P1 IPv4 punching kernel(mode0..4)` 泛化到 `UDP6`；待讨论（不纳入 `P2(v1)`）。
+- clash 等全局代理, 1. 国内外分流 stun 得到ip 并不一致 2. tun 网卡干扰. 3 fakeip 问题
