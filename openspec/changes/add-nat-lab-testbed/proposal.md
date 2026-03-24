@@ -23,7 +23,7 @@
 
 ## Inputs / References
 
-- Charter: `docs/p0-nat-lab-charter.md`
+- Charter: `docs/decisions/p0-nat-lab-charter.md`
 - Roadmap: `docs/roadmap.md`
 - Project conventions: `openspec/project.md`
 

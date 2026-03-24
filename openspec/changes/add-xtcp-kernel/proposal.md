@@ -22,7 +22,7 @@
 
 ## Inputs / References
 
-- Charter: `docs/p1-xtcp-kernel-charter.md`
+- Charter: `docs/decisions/p1-xtcp-kernel-charter.md`
 - Roadmap: `docs/roadmap.md`
 - Project conventions: `openspec/project.md`
 - Reference implementation baseline: `frp/`（git submodule，固定版本；重点参考 `xtcp` 与 `pkg/nathole` 相关逻辑）

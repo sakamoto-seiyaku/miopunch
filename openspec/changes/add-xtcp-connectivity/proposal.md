@@ -21,7 +21,7 @@
 
 ## Inputs / References
 
-- Charter: `docs/p2-connectivity-charter.md`
+- Charter: `docs/decisions/p2-connectivity-charter.md`
 - Roadmap: `docs/roadmap.md`
 - Project conventions: `openspec/project.md`
 - Reference projects: `docs/reference-projects.md`（重点：`Tailscale`、`MiniUPnP`、`go-libp2p`、`goupnp`、`pion/ice`）

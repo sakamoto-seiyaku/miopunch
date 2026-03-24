@@ -3,7 +3,7 @@
 This directory contains the implementation scaffolding for the `nat-lab-testbed` capability.
 
 Key documents:
-- Charter: `docs/p0-nat-lab-charter.md`
+- Charter: `docs/decisions/p0-nat-lab-charter.md`
 - OpenSpec change: `openspec/changes/add-nat-lab-testbed/`
 
 High-level structure:

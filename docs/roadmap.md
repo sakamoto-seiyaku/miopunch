@@ -8,9 +8,9 @@
 
 ## 当前进度（截至 2026-03-25）
 
-- `P0`：NAT 实验台已落地，case 覆盖集可一键自测并导出 artifacts；见 `docs/p0-nat-lab-charter.md`、`openspec/changes/add-nat-lab-testbed/`、`docs/reports/2026-03-17-selftest.md`。
-- `P1`：`xtcp-kernel` 抽离已落地，`core-01..core-10 × {kcp,quic}` 在 P0 VM 内完成实测并汇总；见 `docs/p1-xtcp-kernel-charter.md`、`openspec/changes/add-xtcp-kernel/`、`docs/reports/2026-03-18-xtcp-fulltest.md`。
-- `P2`：`xtcp-connectivity` 已落地（`IPv6-first`、`UPnP/NAT-PMP`、固定 attempt 顺序、可观测性、no-trickle），并在 P0 VM 内完成实测并汇总；见 `docs/p2-connectivity-charter.md`、`openspec/changes/add-xtcp-connectivity/`、`docs/reports/2026-03-24-xtcp-connectivity-fulltest.md`。
+- `P0`：NAT 实验台已落地，case 覆盖集可一键自测并导出 artifacts；见 `docs/decisions/p0-nat-lab-charter.md`、`openspec/changes/add-nat-lab-testbed/`、`docs/reports/2026-03-17-selftest.md`。
+- `P1`：`xtcp-kernel` 抽离已落地，`core-01..core-10 × {kcp,quic}` 在 P0 VM 内完成实测并汇总；见 `docs/decisions/p1-xtcp-kernel-charter.md`、`openspec/changes/add-xtcp-kernel/`、`docs/reports/2026-03-18-xtcp-fulltest.md`。
+- `P2`：`xtcp-connectivity` 已落地（`IPv6-first`、`UPnP/NAT-PMP`、固定 attempt 顺序、可观测性、no-trickle），并在 P0 VM 内完成实测并汇总；见 `docs/decisions/p2-connectivity-charter.md`、`openspec/changes/add-xtcp-connectivity/`、`docs/reports/2026-03-24-xtcp-connectivity-fulltest.md`。
 
 ## 定位
 
