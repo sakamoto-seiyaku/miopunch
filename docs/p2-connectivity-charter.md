@@ -57,9 +57,4 @@
 - 集成回归：基于 `P0` 实验台新增并固化 `P2` 场景（至少覆盖 `IPv6` 可用、`portmap` 可用、回落到 `punching` 三类路径）。
 - 回归约束：`P1` 的既有集成矩阵必须继续通过，并在 `P0` 实验台中复测确认结果基线不漂移。
 
-## 开放问题
-
-- `port mapping` helper 的最小实现边界：`P2(v1)` 先做 `UPnP + NAT-PMP`（best-effort + 诊断，不阻塞主流程）；`PCP` 另开 change（证据驱动）。明确不直接移植 `Tailscale net/portmapper`，除非后续证据证明最小 helper 不够用。
-- `IPv6` 候选选择规则：地址过滤、接口选择与优先级（先收敛最小可用规则，再在真实网络中迭代）。
-- `IPv6 NAT66 / 受限 IPv6`：是否需要引入 `UDP6` 侧的 STUN 与 “v6 punching kernel（mode0..4 的泛化）”；本阶段不做，后续以真实网络证据驱动另开 change。
-- `Prepare/Gather` 的时间预算：在“不做 trickle”的前提下，gather 窗口如何设定才能平衡成功率与建链时延。
+> 开放问题与后续方向统一收敛在 `docs/roadmap.md` 的末尾章节。

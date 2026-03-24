@@ -114,9 +114,12 @@
 - 每个阶段都必须用真实网络或仿真网络复验。
 - 新方向进入主线前，先通过实验分支验证价值。
 
-## 突发奇想
+## 开放问题（待讨论）
 
-> 与项目有关的想法, 但并非落实到路线图内容, 需要深度讨论
+> 这些问题不直接进入当前主线实现；需要更多真实网络证据与工程验证后再开 change 推进。
 
-- `IPv6 NAT66 / 受限 IPv6`（例如教育网）：是否需要把 `P1 IPv4 punching kernel(mode0..4)` 泛化到 `UDP6`；待讨论（不纳入 `P2(v1)`）。
-- clash 等全局代理, 1. 国内外分流 stun 得到ip 并不一致 2. tun 网卡干扰. 3 fakeip 问题
+- `port mapping`：`UPnP/NAT-PMP` 是否足够；是否需要 `PCP`；是否需要续租/重发现/多网关选择；是否需要直接移植 `Tailscale net/portmapper`。
+- `IPv6` 候选选择：地址过滤、接口选择与优先级（先收敛最小可用规则，再在真实网络中迭代）。
+- `IPv6 NAT66 / 受限 IPv6`（例如教育网）：是否需要 `UDP6` 侧 STUN；是否需要把 `P1 IPv4 punching kernel(mode0..4)` 泛化到 `UDP6`。
+- `Prepare/Gather` 时间预算：在 no-trickle 前提下，gather 窗口如何平衡“成功率/时延”。
+- 全局代理/TUN 干扰：clash 等导致 STUN 得到的公网信息不一致、tun 网卡干扰、fakeip 等问题。
