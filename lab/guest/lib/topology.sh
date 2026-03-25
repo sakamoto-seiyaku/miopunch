@@ -48,6 +48,52 @@ NAT_B_LAN_V6_IP="${MLAB_NAT_B_LAN_V6_IP:-fd00:2::1}"
 PEER_A_V6_IP="${MLAB_PEER_A_V6_IP:-fd00:1::2}"
 PEER_B_V6_IP="${MLAB_PEER_B_V6_IP:-fd00:2::2}"
 
+topology_block_forward_udp6() {
+  need_cmd ip6tables
+
+  local ns
+  for ns in "${NS_NAT_A}" "${NS_NAT_B}"; do
+    ns_exec "${ns}" ip6tables -w -A FORWARD -i lan0 -o wan0 -p udp -j DROP
+    ns_exec "${ns}" ip6tables -w -A FORWARD -i wan0 -o lan0 -p udp -j DROP
+  done
+}
+
+topology_apply_wan_netem() {
+  need_cmd tc
+  [[ $# -ge 3 ]] || die "topology_apply_wan_netem: missing args"
+
+  local ns="$1"
+  local dev="$2"
+  shift 2
+  ns_exec "${ns}" tc qdisc replace dev "${dev}" root netem "$@"
+}
+
+topology_apply_symmetric_wan_netem() {
+  [[ $# -gt 0 ]] || die "topology_apply_symmetric_wan_netem: missing netem args"
+
+  topology_apply_wan_netem "${NS_WAN}" natA0 "$@"
+  topology_apply_wan_netem "${NS_WAN}" natB0 "$@"
+}
+
+topology_apply_p2p_udp_loss() {
+  local probability="$1"
+  local a_port="$2"
+  local b_port="$3"
+
+  need_cmd iptables
+  [[ -n "${probability}" ]] || die "topology_apply_p2p_udp_loss: missing probability"
+
+  ns_exec "${NS_NAT_A}" iptables -w -A FORWARD -i lan0 -o wan0 -p udp --sport "${a_port}" -d "${WAN_B_IP}" \
+    -m statistic --mode random --probability "${probability}" -j DROP
+  ns_exec "${NS_NAT_A}" iptables -w -A FORWARD -i wan0 -o lan0 -p udp --dport "${a_port}" -s "${WAN_B_IP}" \
+    -m statistic --mode random --probability "${probability}" -j DROP
+
+  ns_exec "${NS_NAT_B}" iptables -w -A FORWARD -i lan0 -o wan0 -p udp --sport "${b_port}" -d "${WAN_A_IP}" \
+    -m statistic --mode random --probability "${probability}" -j DROP
+  ns_exec "${NS_NAT_B}" iptables -w -A FORWARD -i wan0 -o lan0 -p udp --dport "${b_port}" -s "${WAN_A_IP}" \
+    -m statistic --mode random --probability "${probability}" -j DROP
+}
+
 topology_cleanup() {
   # Best-effort cleanup for orphaned links (e.g. when a previous run was interrupted
   # between `ip link add` and `ip link set ... netns`).

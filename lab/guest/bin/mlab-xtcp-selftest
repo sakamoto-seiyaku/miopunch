@@ -7,6 +7,8 @@ fi
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 runner="${script_dir}/mlab-xtcp-run"
+guest_root="$(cd -- "${script_dir}/.." && pwd)"
+expect_dir="${guest_root}/cases/expect"
 
 [[ -x "${runner}" ]] || { echo "error: missing runner: ${runner}" >&2; exit 1; }
 
@@ -34,6 +36,9 @@ runs=(
   "core-06 tcp quic success"
   "core-06 tcp kcp success"
 
+  "core-01-loss tcp quic success"
+  "core-01-loss tcp kcp success"
+
   "core-10 tcp quic diag-fail"
 
   "core-01 tcp quic fail exchange signkey-mismatch"
@@ -44,7 +49,15 @@ for r in "${runs[@]}"; do
 
   echo "== ${case_id} control=${control_proto} data=${data_proto} expect=${expect} =="
 
-  args=("${case_id}" "--control-proto" "${control_proto}" "--data-proto" "${data_proto}" "--expect" "${expect}" "--disable-portmap")
+  args=("${case_id}" "--control-proto" "${control_proto}" "--data-proto" "${data_proto}" "--expect" "${expect}" "--disable-portmap" "--verify-artifacts")
+
+  if [[ "${expect}" == "success" ]]; then
+    expect_events_file="${expect_dir}/transport-${data_proto}.events.json"
+    if [[ "${case_id}" == "core-01-loss" ]]; then
+      expect_events_file="${expect_dir}/core-01-loss.${data_proto}.events.json"
+    fi
+    args+=("--expect-events-file" "${expect_events_file}")
+  fi
 
   if [[ "${expect}" == "fail" ]]; then
     args+=("--expect-fail-stage" "${extra_stage}")

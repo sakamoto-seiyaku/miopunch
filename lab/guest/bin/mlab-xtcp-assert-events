@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import sys
+from pathlib import Path
+
+
+def load_json_lines(path: Path):
+    events = []
+    raw_tail = []
+    with path.open("r", encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            raw_tail.append(line.rstrip("\n"))
+            if len(raw_tail) > 20:
+                raw_tail.pop(0)
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                value = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(value, dict):
+                events.append(value)
+    return events, raw_tail
+
+
+def compare(actual, expected):
+    if isinstance(expected, dict) and "op" in expected:
+        op = expected["op"]
+        value = expected.get("value")
+        if op == "eq":
+            return actual == value
+        if op == "ne":
+            return actual != value
+        if op == "gt":
+            return actual is not None and actual > value
+        if op == "ge":
+            return actual is not None and actual >= value
+        if op == "lt":
+            return actual is not None and actual < value
+        if op == "le":
+            return actual is not None and actual <= value
+        if op == "contains":
+            return actual is not None and str(value) in str(actual)
+        raise ValueError(f"unsupported op: {op}")
+    return actual == expected
+
+
+def match_event(event, matcher):
+    for field in ("stage", "kind", "name", "msg", "role", "control_proto", "data_proto"):
+        if field in matcher and not compare(event.get(field), matcher[field]):
+            return False
+
+    if "err_contains" in matcher:
+        err = event.get("err", "")
+        if matcher["err_contains"] not in err:
+            return False
+
+    if "kvs" in matcher:
+        kvs = event.get("kvs", {})
+        if not isinstance(kvs, dict):
+            return False
+        for key, expected in matcher["kvs"].items():
+            if not compare(kvs.get(key), expected):
+                return False
+
+    return True
+
+
+def summarize(event):
+    bits = [
+        f"stage={event.get('stage', '-')}",
+        f"kind={event.get('kind', '-')}",
+    ]
+    if event.get("name"):
+        bits.append(f"name={event['name']}")
+    if event.get("msg"):
+        bits.append(f"msg={event['msg']}")
+    if event.get("kvs"):
+        bits.append(f"kvs={json.dumps(event['kvs'], ensure_ascii=False, sort_keys=True)}")
+    return " ".join(bits)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Assert ordered JSON events in visitor.log")
+    parser.add_argument("--log", required=True, help="JSON-lines event log")
+    parser.add_argument("--events", required=True, help="JSON array of ordered matchers")
+    args = parser.parse_args()
+
+    log_path = Path(args.log)
+    events_path = Path(args.events)
+
+    expected = json.loads(events_path.read_text(encoding="utf-8"))
+    if not isinstance(expected, list):
+        raise SystemExit(f"expected array in {events_path}")
+
+    events, raw_tail = load_json_lines(log_path)
+
+    cursor = 0
+    matched = []
+    for event in events:
+        if cursor >= len(expected):
+            break
+        matcher = expected[cursor]
+        if match_event(event, matcher):
+            matched.append(event)
+            cursor += 1
+
+    if cursor == len(expected):
+        return 0
+
+    print(f"error: ordered event assertion failed at index {cursor}", file=sys.stderr)
+    print(f"  log: {log_path}", file=sys.stderr)
+    print(f"  expectation file: {events_path}", file=sys.stderr)
+    print(f"  missing matcher: {json.dumps(expected[cursor], ensure_ascii=False, sort_keys=True)}", file=sys.stderr)
+    if matched:
+        print("  matched so far:", file=sys.stderr)
+        for event in matched[-5:]:
+            print(f"    - {summarize(event)}", file=sys.stderr)
+    if events:
+        print("  recent parsed events:", file=sys.stderr)
+        for event in events[-10:]:
+            print(f"    - {summarize(event)}", file=sys.stderr)
+    if raw_tail:
+        print("  recent raw log lines:", file=sys.stderr)
+        for line in raw_tail[-10:]:
+            print(f"    > {line}", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

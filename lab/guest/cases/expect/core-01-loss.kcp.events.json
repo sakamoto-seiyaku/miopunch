@@ -1,0 +1,12 @@
+[
+  {
+    "stage": "attempt",
+    "kind": "ok",
+    "name": "attempt.punching.ok"
+  },
+  {
+    "stage": "transport",
+    "kind": "ok",
+    "msg": "kcp payload exchanged"
+  }
+]

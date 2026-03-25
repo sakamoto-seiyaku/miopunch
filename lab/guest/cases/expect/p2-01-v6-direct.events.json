@@ -1,0 +1,33 @@
+[
+  {
+    "stage": "gather",
+    "kind": "ok",
+    "name": "gather.v6.result",
+    "kvs": {
+      "count": {
+        "op": "gt",
+        "value": 0
+      }
+    }
+  },
+  {
+    "stage": "gather",
+    "kind": "info",
+    "name": "gather.stun.skip"
+  },
+  {
+    "stage": "attempt",
+    "kind": "start",
+    "name": "attempt.v6.start"
+  },
+  {
+    "stage": "attempt",
+    "kind": "ok",
+    "name": "attempt.v6.ok"
+  },
+  {
+    "stage": "transport",
+    "kind": "ok",
+    "msg": "quic payload exchanged"
+  }
+]

@@ -7,6 +7,8 @@ fi
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 runner="${script_dir}/mlab-xtcp-run"
+guest_root="$(cd -- "${script_dir}/.." && pwd)"
+expect_dir="${guest_root}/cases/expect"
 
 [[ -x "${runner}" ]] || { echo "error: missing runner: ${runner}" >&2; exit 1; }
 
@@ -18,17 +20,26 @@ fail=0
 # - portmap direct must work without STUN (NAT-PMP helper)
 # - helper unavailable must fall back to punching (with STUN)
 runs=(
-  "p2-01-v6-direct tcp quic success direct_ipv6 --disable-stun --disable-portmap --attempt-v6-timeout 2s"
-  "p2-02-portmap-direct tcp quic success direct_ipv4 --disable-stun --start-natpmpd"
-  "p2-03-punching-fallback tcp quic success punching_ipv4"
+  "p2-01-v6-direct tcp quic success direct_ipv6 ${expect_dir}/p2-01-v6-direct.events.json --disable-stun --disable-portmap --attempt-v6-timeout 4s"
+  "p2-02-portmap-direct tcp quic success direct_ipv4 ${expect_dir}/p2-02-portmap-direct.events.json --disable-stun --start-natpmpd"
+  "p2-03-punching-fallback tcp quic success punching_ipv4 ${expect_dir}/p2-03-punching-fallback.events.json"
+  "p2-04-v6-fallback-direct-ipv4 tcp quic success direct_ipv4 ${expect_dir}/p2-04-v6-fallback-direct-ipv4.events.json --disable-stun --start-natpmpd --attempt-v6-timeout 4s"
 )
 
 for r in "${runs[@]}"; do
-  read -r case_id control_proto data_proto expect expect_path extra_flags <<<"${r}"
+  read -r case_id control_proto data_proto expect expect_path expect_events_file extra_flags <<<"${r}"
 
   echo "== ${case_id} control=${control_proto} data=${data_proto} expect=${expect} path=${expect_path} =="
 
-  args=("${case_id}" "--control-proto" "${control_proto}" "--data-proto" "${data_proto}" "--expect" "${expect}" "--expect-path" "${expect_path}")
+  args=(
+    "${case_id}"
+    "--control-proto" "${control_proto}"
+    "--data-proto" "${data_proto}"
+    "--expect" "${expect}"
+    "--expect-path" "${expect_path}"
+    "--expect-events-file" "${expect_events_file}"
+    "--verify-artifacts"
+  )
 
   if [[ -n "${extra_flags:-}" ]]; then
     # shellcheck disable=SC2206

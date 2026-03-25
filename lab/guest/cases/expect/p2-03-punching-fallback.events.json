@@ -1,0 +1,47 @@
+[
+  {
+    "stage": "gather",
+    "kind": "start",
+    "name": "gather.portmap.start"
+  },
+  {
+    "stage": "gather",
+    "kind": "start",
+    "name": "gather.stun.start"
+  },
+  {
+    "stage": "gather",
+    "kind": "ok",
+    "name": "gather.stun.result",
+    "kvs": {
+      "count": {
+        "op": "gt",
+        "value": 0
+      }
+    }
+  },
+  {
+    "stage": "gather",
+    "kind": "info",
+    "name": "gather.portmap.snapshot",
+    "kvs": {
+      "included": false,
+      "direct_v4": 0
+    }
+  },
+  {
+    "stage": "attempt",
+    "kind": "start",
+    "name": "attempt.punching.start"
+  },
+  {
+    "stage": "attempt",
+    "kind": "ok",
+    "name": "attempt.punching.ok"
+  },
+  {
+    "stage": "transport",
+    "kind": "ok",
+    "msg": "quic payload exchanged"
+  }
+]

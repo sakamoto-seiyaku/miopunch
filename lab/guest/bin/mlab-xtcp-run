@@ -15,6 +15,7 @@ source "${guest_root}/lib/topology.sh"
 
 mlab="${script_dir}/mlab"
 miopunch="${MLAB_MIOPUNCH_BIN:-/opt/miopunch-lab/bin/miopunch}"
+assert_events="${script_dir}/mlab-xtcp-assert-events"
 
 artifacts_root="${MLAB_ARTIFACTS_ROOT:-/opt/miopunch-lab/artifacts}"
 
@@ -25,6 +26,7 @@ coord_pid=""
 client_pid=""
 natA_pmp_pid=""
 natB_pmp_pid=""
+state_dumped=0
 
 usage() {
   cat <<'EOF'
@@ -44,8 +46,10 @@ Flags:
   --natpmpd-verbose                 Enable natpmpd verbose logging
   --expect <success|fail|diag-fail|allow-diag-fail> Expected outcome (default: success)
   --expect-fail-stage <stage>       If set, require a fail event at this stage (e.g. signaling)
+  --expect-events-file <path>       Ordered JSON event expectations for visitor.log
   --expect-path <direct_ipv6|direct_ipv4|punching_ipv4>
                                    If set, require the visitor to succeed via this attempt path
+  --verify-artifacts                Require the minimal artifact set before passing
 
 Artifacts:
   Writes a run dir under /opt/miopunch-lab/artifacts/ and stores:
@@ -64,6 +68,52 @@ preflight() {
   need_cmd grep
   [[ -x "${miopunch}" ]] || die "missing miopunch binary: ${miopunch}"
   [[ -x "${mlab}" ]] || die "missing mlab: ${mlab}"
+}
+
+ensure_state_dumped() {
+  if [[ "${state_dumped}" -eq 0 ]]; then
+    dump_state || true
+    state_dumped=1
+  fi
+}
+
+resolve_path() {
+  local path="$1"
+  if [[ "${path}" = /* ]]; then
+    printf '%s\n' "${path}"
+    return 0
+  fi
+  printf '%s\n' "${guest_root}/${path}"
+}
+
+verify_run_artifacts() {
+  local required=(
+    run.env
+    visitor.log
+    client.log
+    coord.log
+    wan.pcap
+    natA.iptables
+    natB.iptables
+    natA.conntrack
+    natB.conntrack
+    natA.tc
+    natB.tc
+    netns.txt
+  )
+
+  local f
+  for f in "${required[@]}"; do
+    [[ -e "${run_dir}/${f}" ]] || die "missing artifact: ${f} (run_dir=${run_dir})"
+  done
+
+  if [[ "${disable_stun:-0}" -eq 0 ]]; then
+    [[ -e "${run_dir}/stun.log" ]] || die "missing artifact: stun.log (run_dir=${run_dir})"
+  fi
+  if [[ "${start_natpmpd:-0}" -eq 1 ]]; then
+    [[ -e "${run_dir}/natA.natpmpd.log" ]] || die "missing artifact: natA.natpmpd.log (run_dir=${run_dir})"
+    [[ -e "${run_dir}/natB.natpmpd.log" ]] || die "missing artifact: natB.natpmpd.log (run_dir=${run_dir})"
+  fi
 }
 
 start_bg_in_netns() {
@@ -145,7 +195,9 @@ main() {
   local natpmpd_verbose=0
   local expect="success"
   local expect_fail_stage=""
+  local expect_events_file=""
   local expect_path=""
+  local verify_artifacts=0
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -162,7 +214,9 @@ main() {
       --natpmpd-verbose) natpmpd_verbose=1; shift 1 ;;
       --expect) expect="${2:-}"; shift 2 ;;
       --expect-fail-stage) expect_fail_stage="${2:-}"; shift 2 ;;
+      --expect-events-file) expect_events_file="${2:-}"; shift 2 ;;
       --expect-path) expect_path="${2:-}"; shift 2 ;;
+      --verify-artifacts) verify_artifacts=1; shift 1 ;;
       -h|--help|help) usage; exit 0 ;;
       *) die "unknown arg: $1" ;;
     esac
@@ -177,6 +231,10 @@ main() {
   if [[ -n "${expect_path}" ]]; then
     case "${expect_path}" in direct_ipv6|direct_ipv4|punching_ipv4) ;; *) die "invalid --expect-path: ${expect_path}" ;; esac
   fi
+  if [[ -n "${expect_events_file}" ]]; then
+    expect_events_file="$(resolve_path "${expect_events_file}")"
+    [[ -f "${expect_events_file}" ]] || die "missing --expect-events-file: ${expect_events_file}"
+  fi
 
   local a_p2p_port=5000
   local b_p2p_port=5000
@@ -189,6 +247,10 @@ main() {
   fi
 
   preflight
+  if [[ -n "${expect_events_file}" ]]; then
+    need_cmd python3
+    [[ -f "${assert_events}" ]] || die "missing assert helper: ${assert_events}"
+  fi
 
   local natpmpd="${script_dir}/mlab-natpmpd"
   if [[ "${start_natpmpd}" -eq 1 ]]; then
@@ -219,13 +281,20 @@ main() {
     echo "peerB_ns=${NS_PEER_B}"
     echo "peerA_p2p_port=${a_p2p_port}"
     echo "peerB_p2p_port=${b_p2p_port}"
+    echo "enable_ipv6=${ENABLE_IPV6:-0}"
+    echo "block_forward_udp6=${BLOCK_FORWARD_UDP6:-0}"
+    echo "wan_netem=${WAN_NETEM:-}"
+    echo "p2p_udp_loss_probability=${P2P_UDP_LOSS_PROBABILITY:-}"
     echo "attempt_v6_timeout=${attempt_v6_timeout}"
     echo "disable_stun=${disable_stun}"
     echo "disable_portmap=${disable_portmap}"
     echo "start_natpmpd=${start_natpmpd}"
+    echo "expect_events_file=${expect_events_file}"
     echo "expect_path=${expect_path}"
+    echo "verify_artifacts=${verify_artifacts}"
   } >"${run_dir}/run.env"
 
+  state_dumped=0
   tcpdump_pid=""
   stun_pid=""
   coord_pid=""
@@ -240,7 +309,7 @@ main() {
     stop_pid "${natA_pmp_pid:-}" || true
     stop_pid "${natB_pmp_pid:-}" || true
     stop_pid_int "${tcpdump_pid:-}" || true
-    dump_state || true
+    ensure_state_dumped
     "${mlab}" case deactivate >/dev/null 2>&1 || true
     chmod -R a+rX "${run_dir}" 2>/dev/null || true
     exit "${rc}"
@@ -376,8 +445,18 @@ main() {
 
   # Stop background processes (best-effort).
   stop_pid "${client_pid}" || true
+  client_pid=""
   stop_pid "${coord_pid}" || true
+  coord_pid=""
   stop_pid "${stun_pid}" || true
+  stun_pid=""
+  stop_pid "${natA_pmp_pid}" || true
+  natA_pmp_pid=""
+  stop_pid "${natB_pmp_pid}" || true
+  natB_pmp_pid=""
+  stop_pid_int "${tcpdump_pid}" || true
+  tcpdump_pid=""
+  ensure_state_dumped
 
   if [[ "${expect}" == "success" ]]; then
     [[ "${visitor_rc}" -eq 0 ]] || die "expected success, got rc=${visitor_rc} (run_dir=${run_dir})"
@@ -390,6 +469,10 @@ main() {
     if [[ "${visitor_rc}" -ne 0 ]]; then
       grep -q "\"kind\":\"fail\"" "${run_dir}/visitor.log" || die "expected diagnostics fail event missing (run_dir=${run_dir})"
     fi
+  fi
+
+  if [[ -n "${expect_events_file}" ]]; then
+    python3 "${assert_events}" --log "${run_dir}/visitor.log" --events "${expect_events_file}"
   fi
 
   if [[ -n "${expect_fail_stage}" ]]; then
@@ -412,6 +495,10 @@ main() {
         die "unexpected expect_path: ${expect_path}"
         ;;
     esac
+  fi
+
+  if [[ "${verify_artifacts}" -eq 1 ]]; then
+    verify_run_artifacts
   fi
 
   echo "ok: xtcp run complete: ${run_dir}"

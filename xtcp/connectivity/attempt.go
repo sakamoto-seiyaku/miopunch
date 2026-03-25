@@ -367,8 +367,36 @@ func directHandshakeFanout(ctx context.Context, conn *net.UDPConn, sid string, k
 	select {
 	case raddr := <-successCh:
 		winner := raddr.AddrPort()
+		sendDirectHandshakeResponses(conn, sid, key, raddr, sendCount, sendInterval)
 		return raddr, winner, nil
 	case <-ctx.Done():
 		return nil, netip.AddrPort{}, ctx.Err()
+	}
+}
+
+func sendDirectHandshakeResponses(conn *net.UDPConn, sid string, key []byte, raddr *net.UDPAddr, sendCount int, sendInterval time.Duration) {
+	if conn == nil || raddr == nil {
+		return
+	}
+	if sendCount <= 0 {
+		sendCount = 2
+	}
+	if sendInterval <= 0 {
+		sendInterval = 50 * time.Millisecond
+	}
+
+	payload, err := nathole.EncodeMessage(&msg.NatHoleSid{
+		Sid:      sid,
+		Response: true,
+	}, key)
+	if err != nil {
+		return
+	}
+
+	for i := 0; i < sendCount; i++ {
+		_, _ = conn.WriteToUDP(payload, raddr)
+		if i+1 < sendCount {
+			time.Sleep(sendInterval)
+		}
 	}
 }

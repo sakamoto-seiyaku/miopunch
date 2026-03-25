@@ -290,10 +290,11 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 		}
 	}
 
-	// In sessions without STUN and without IPv6 direct candidates, portmap is the
-	// only remaining source of exchangeable candidates. Wait (bounded) for the
-	// first portmap result to avoid a racy "no candidates" failure.
-	if pmUpdateCh != nil && len(cfg.StunServers) == 0 && len(directCandidates) == 0 {
+	// In sessions without STUN, portmap may still be the only viable IPv4
+	// fallback after IPv6 direct fails. Wait (bounded) for the first portmap
+	// result before freezing the snapshot so dual-stack no-STUN sessions can
+	// include IPv4 direct candidates when they arrive in time.
+	if pmUpdateCh != nil && len(cfg.StunServers) == 0 {
 		pmState.mu.Lock()
 		needWait := len(pmState.included) == 0 && !pmState.frozen
 		pmState.mu.Unlock()

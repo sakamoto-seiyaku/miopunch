@@ -79,6 +79,20 @@ case_activate() {
   profiles_apply "${NS_NAT_A}" "${A_PROFILE}" "${LAN_A_CIDR}" "${WAN_A_IP}" "${PEER_A_IP}" "${A_P2P_PORT}"
   profiles_apply "${NS_NAT_B}" "${B_PROFILE}" "${LAN_B_CIDR}" "${WAN_B_IP}" "${PEER_B_IP}" "${B_P2P_PORT}"
 
+  if [[ "${BLOCK_FORWARD_UDP6:-0}" == "1" ]]; then
+    topology_block_forward_udp6
+  fi
+
+  if [[ -n "${WAN_NETEM:-}" ]]; then
+    # shellcheck disable=SC2206
+    local -a netem_args=(${WAN_NETEM})
+    topology_apply_symmetric_wan_netem "${netem_args[@]}"
+  fi
+
+  if [[ -n "${P2P_UDP_LOSS_PROBABILITY:-}" ]]; then
+    topology_apply_p2p_udp_loss "${P2P_UDP_LOSS_PROBABILITY}" "${A_P2P_PORT}" "${B_P2P_PORT}"
+  fi
+
   echo "${CASE_ID}" >"${active_case_file}"
   echo "ok: active case: ${CASE_ID}"
 }
@@ -116,6 +130,10 @@ run_case() {
       echo "CASE_ID=${CASE_ID:-${case_id}}"
       echo "A_PROFILE=${A_PROFILE:-}"
       echo "B_PROFILE=${B_PROFILE:-}"
+      echo "ENABLE_IPV6=${ENABLE_IPV6:-0}"
+      echo "BLOCK_FORWARD_UDP6=${BLOCK_FORWARD_UDP6:-0}"
+      echo "WAN_NETEM=${WAN_NETEM:-}"
+      echo "P2P_UDP_LOSS_PROBABILITY=${P2P_UDP_LOSS_PROBABILITY:-}"
       if [[ -n "${A_PROFILE:-}" ]]; then
         echo "A_EXPECT_MAPPING=$(expected_mapping "${A_PROFILE}")"
         echo "A_EXPECT_FILTERING=$(expected_filtering "${A_PROFILE}")"
