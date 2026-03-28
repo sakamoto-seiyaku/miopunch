@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/miopunch/miopunch/xtcp/msg"
+	"github.com/miopunch/miopunch/internal/wire"
 )
 
 func TestAttempt_DirectIPv4HandshakeSucceeds(t *testing.T) {
@@ -25,8 +25,8 @@ func TestAttempt_DirectIPv4HandshakeSucceeds(t *testing.T) {
 	sid := "sid-1"
 	key := []byte("0123456789abcdef")
 
-	respA := &msg.NatHoleResp{PeerDirectAddrs: []string{b.LocalAddr().String()}}
-	respB := &msg.NatHoleResp{PeerDirectAddrs: []string{a.LocalAddr().String()}}
+	respA := &wire.NatHoleResp{PeerDirectAddrs: []string{b.LocalAddr().String()}}
+	respB := &wire.NatHoleResp{PeerDirectAddrs: []string{a.LocalAddr().String()}}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -80,8 +80,8 @@ func TestAttempt_DirectIPv6HandshakeSucceeds(t *testing.T) {
 	sid := "sid-v6"
 	key := []byte("0123456789abcdef")
 
-	respA := &msg.NatHoleResp{PeerDirectAddrs: []string{b.LocalAddr().String()}}
-	respB := &msg.NatHoleResp{PeerDirectAddrs: []string{a.LocalAddr().String()}}
+	respA := &wire.NatHoleResp{PeerDirectAddrs: []string{b.LocalAddr().String()}}
+	respB := &wire.NatHoleResp{PeerDirectAddrs: []string{a.LocalAddr().String()}}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -126,7 +126,7 @@ func TestAttempt_PunchingDisabledReturnsError(t *testing.T) {
 	}
 	defer conn.Close()
 
-	resp := &msg.NatHoleResp{
+	resp := &wire.NatHoleResp{
 		PeerDirectAddrs: nil,
 		PunchingEnabled: false,
 		PunchingError:   "stun missing",

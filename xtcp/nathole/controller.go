@@ -29,8 +29,7 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/miopunch/miopunch/xtcp/msg"
-	"github.com/miopunch/miopunch/xtcp/transport"
+	"github.com/miopunch/miopunch/internal/wire"
 	"github.com/miopunch/miopunch/xtcp/util/log"
 	"github.com/miopunch/miopunch/xtcp/util/util"
 )
@@ -56,15 +55,15 @@ type Session struct {
 	recommandMode  int
 	recommandIndex int
 
-	visitorMsg         *msg.NatHoleVisitor
-	visitorTransporter transport.MessageTransporter
-	vResp              *msg.NatHoleResp
+	visitorMsg         *wire.NatHoleVisitor
+	visitorTransporter wire.MessageTransporter
+	vResp              *wire.NatHoleResp
 	vNatFeature        *NatFeature
 	vBehavior          RecommandBehavior
 
-	clientMsg         *msg.NatHoleClient
-	clientTransporter transport.MessageTransporter
-	cResp             *msg.NatHoleResp
+	clientMsg         *wire.NatHoleClient
+	clientTransporter wire.MessageTransporter
+	cResp             *wire.NatHoleResp
 	cNatFeature       *NatFeature
 	cBehavior         RecommandBehavior
 
@@ -150,7 +149,7 @@ func (c *Controller) GenSid() string {
 	return fmt.Sprintf("%d%s", t, id)
 }
 
-func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.MessageTransporter, visitorUser string) {
+func (c *Controller) HandleVisitor(m *wire.NatHoleVisitor, transporter wire.MessageTransporter, visitorUser string) {
 	if m.PreCheck {
 		c.mu.RLock()
 		cfg, ok := c.clientCfgs[m.ProxyName]
@@ -256,7 +255,7 @@ func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.
 	time.Sleep(sleepDur)
 }
 
-func (c *Controller) HandleClient(m *msg.NatHoleClient, transporter transport.MessageTransporter) {
+func (c *Controller) HandleClient(m *wire.NatHoleClient, transporter wire.MessageTransporter) {
 	c.mu.RLock()
 	session, ok := c.sessions[m.Sid]
 	c.mu.RUnlock()
@@ -272,7 +271,7 @@ func (c *Controller) HandleClient(m *msg.NatHoleClient, transporter transport.Me
 	}
 }
 
-func (c *Controller) HandleReport(m *msg.NatHoleReport) {
+func (c *Controller) HandleReport(m *wire.NatHoleReport) {
 	c.mu.RLock()
 	session, ok := c.sessions[m.Sid]
 	c.mu.RUnlock()
@@ -287,12 +286,12 @@ func (c *Controller) HandleReport(m *msg.NatHoleReport) {
 		m.Sid, m.Success, session.recommandMode, session.recommandIndex)
 }
 
-func (c *Controller) GenNatHoleResponse(transactionID string, session *Session, errInfo string) *msg.NatHoleResp {
+func (c *Controller) GenNatHoleResponse(transactionID string, session *Session, errInfo string) *wire.NatHoleResp {
 	var sid string
 	if session != nil {
 		sid = session.sid
 	}
-	return &msg.NatHoleResp{
+	return &wire.NatHoleResp{
 		TransactionID: transactionID,
 		Sid:           sid,
 		Error:         errInfo,
@@ -301,19 +300,19 @@ func (c *Controller) GenNatHoleResponse(transactionID string, session *Session, 
 
 // analysis analyzes the NAT type and behavior of the visitor and client, then makes hole-punching decisions.
 // return the response to the visitor and client.
-func (c *Controller) analysis(session *Session) (*msg.NatHoleResp, *msg.NatHoleResp, error) {
+func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHoleResp, error) {
 	cm := session.clientMsg
 	vm := session.visitorMsg
 	protocol := vm.Protocol
 
 	// Always exchange direct candidates snapshot (P2).
-	vResp := &msg.NatHoleResp{
+	vResp := &wire.NatHoleResp{
 		TransactionID:   vm.TransactionID,
 		Sid:             session.sid,
 		Protocol:        protocol,
 		PeerDirectAddrs: slices.Compact(cm.DirectAddrs),
 	}
-	cResp := &msg.NatHoleResp{
+	cResp := &wire.NatHoleResp{
 		TransactionID:   cm.TransactionID,
 		Sid:             session.sid,
 		Protocol:        protocol,
@@ -374,7 +373,7 @@ func (c *Controller) analysis(session *Session) (*msg.NatHoleResp, *msg.NatHoleR
 
 	vResp.CandidateAddrs = slices.Compact(cm.MappedAddrs)
 	vResp.AssistedAddrs = slices.Compact(cm.AssistedAddrs)
-	vResp.DetectBehavior = msg.NatHoleDetectBehavior{
+	vResp.DetectBehavior = wire.NatHoleDetectBehavior{
 		Mode:              mode,
 		Role:              vBehavior.Role,
 		TTL:               vBehavior.TTL,
@@ -386,7 +385,7 @@ func (c *Controller) analysis(session *Session) (*msg.NatHoleResp, *msg.NatHoleR
 	}
 	cResp.CandidateAddrs = slices.Compact(vm.MappedAddrs)
 	cResp.AssistedAddrs = slices.Compact(vm.AssistedAddrs)
-	cResp.DetectBehavior = msg.NatHoleDetectBehavior{
+	cResp.DetectBehavior = wire.NatHoleDetectBehavior{
 		Mode:              mode,
 		Role:              cBehavior.Role,
 		TTL:               cBehavior.TTL,
@@ -404,7 +403,7 @@ func (c *Controller) analysis(session *Session) (*msg.NatHoleResp, *msg.NatHoleR
 	return vResp, cResp, nil
 }
 
-func getRangePorts(addrs []string, difference, maxNumber int) []msg.PortsRange {
+func getRangePorts(addrs []string, difference, maxNumber int) []wire.PortsRange {
 	if maxNumber <= 0 {
 		return nil
 	}
@@ -413,7 +412,7 @@ func getRangePorts(addrs []string, difference, maxNumber int) []msg.PortsRange {
 	if !isLast {
 		return nil
 	}
-	ports := make([]msg.PortsRange, 0, 1)
+	ports := make([]wire.PortsRange, 0, 1)
 	_, portStr, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil
@@ -422,7 +421,7 @@ func getRangePorts(addrs []string, difference, maxNumber int) []msg.PortsRange {
 	if err != nil {
 		return nil
 	}
-	ports = append(ports, msg.PortsRange{
+	ports = append(ports, wire.PortsRange{
 		From: max(port-difference-5, port-maxNumber, 1),
 		To:   min(port+difference+5, port+maxNumber, 65535),
 	})

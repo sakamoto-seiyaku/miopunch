@@ -1,20 +1,18 @@
-package transport
+package wire
 
 import (
 	"context"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/miopunch/miopunch/xtcp/msg"
 )
 
 type recorderSender struct {
 	mu   sync.Mutex
-	sent []msg.Message
+	sent []Message
 }
 
-func (r *recorderSender) Send(m msg.Message) error {
+func (r *recorderSender) Send(m Message) error {
 	r.mu.Lock()
 	r.sent = append(r.sent, m)
 	r.mu.Unlock()
@@ -29,17 +27,17 @@ func TestMessageTransporter_DoDispatch(t *testing.T) {
 	defer cancel()
 
 	lane := "tx-1"
-	req := &msg.NatHoleVisitor{TransactionID: lane, ProxyName: "p", PreCheck: true}
+	req := &NatHoleVisitor{TransactionID: lane, ProxyName: "p", PreCheck: true}
 
 	done := make(chan error, 1)
 	go func() {
-		_, err := tr.Do(ctx, req, lane, msg.TypeNameNatHoleResp)
+		_, err := tr.Do(ctx, req, lane, TypeNameNatHoleResp)
 		done <- err
 	}()
 
 	time.Sleep(50 * time.Millisecond)
-	resp := &msg.NatHoleResp{TransactionID: lane}
-	if !tr.DispatchWithType(resp, msg.TypeNameNatHoleResp, lane) {
+	resp := &NatHoleResp{TransactionID: lane}
+	if !tr.DispatchWithType(resp, TypeNameNatHoleResp, lane) {
 		t.Fatalf("DispatchWithType returned false")
 	}
 

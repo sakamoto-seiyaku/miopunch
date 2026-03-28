@@ -23,11 +23,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/miopunch/miopunch/xtcp/control"
-	"github.com/miopunch/miopunch/xtcp/coord"
-	"github.com/miopunch/miopunch/xtcp/obs"
-	"github.com/miopunch/miopunch/xtcp/peer"
-	"github.com/miopunch/miopunch/xtcp/stun"
+	"github.com/miopunch/miopunch/event"
+	"github.com/miopunch/miopunch/internal/control"
+	"github.com/miopunch/miopunch/internal/coordinator"
+	"github.com/miopunch/miopunch/internal/peer"
+
+	"github.com/miopunch/miopunch/stun"
 )
 
 func main() {
@@ -113,15 +114,15 @@ func coordCmd(ctx context.Context, args []string) {
 	helloTimeout := fs.Duration("hello-timeout", 5*time.Second, "hello timeout")
 	_ = fs.Parse(args)
 
-	em := obs.NewEmitter(os.Stdout, "coord")
-	cfg := coord.Config{
+	em := event.NewEmitter(os.Stdout, "coord")
+	cfg := coordinator.Config{
 		ListenAddr:              *listen,
 		Protocol:                control.Protocol(*proto),
 		AnalysisReserveDuration: *reserve,
 		HelloTimeout:            *helloTimeout,
 		Emitter:                 em,
 	}
-	if err := coord.Run(ctx, cfg); err != nil {
+	if err := coordinator.Run(ctx, cfg); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -167,7 +168,7 @@ func peerClientCmd(ctx context.Context, args []string) {
 	overallTimeout := fs.Duration("overall-timeout", 60*time.Second, "per-session overall timeout")
 	_ = fs.Parse(args)
 
-	em := obs.NewEmitter(os.Stdout, "peer-client")
+	em := event.NewEmitter(os.Stdout, "peer-client")
 	cfg := peer.ClientConfig{
 		CoordAddr:             *coordAddr,
 		ControlProto:          control.Protocol(*controlProto),
@@ -219,7 +220,7 @@ func peerVisitorCmd(ctx context.Context, args []string) {
 	overallTimeout := fs.Duration("overall-timeout", 60*time.Second, "per-session overall timeout")
 	_ = fs.Parse(args)
 
-	em := obs.NewEmitter(os.Stdout, "peer-visitor")
+	em := event.NewEmitter(os.Stdout, "peer-visitor")
 	cfg := peer.VisitorConfig{
 		CoordAddr:             *coordAddr,
 		ControlProto:          control.Protocol(*controlProto),

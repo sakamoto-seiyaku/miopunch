@@ -8,9 +8,9 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/miopunch/miopunch/xtcp/msg"
+	"github.com/miopunch/miopunch/internal/wire"
 	"github.com/miopunch/miopunch/xtcp/nathole"
-	"github.com/miopunch/miopunch/xtcp/obs"
+	"github.com/miopunch/miopunch/event"
 )
 
 type AttemptConfig struct {
@@ -20,7 +20,7 @@ type AttemptConfig struct {
 	DirectSendCount    int
 	DirectSendInterval time.Duration
 
-	Emitter *obs.Emitter
+	Emitter *event.Emitter
 }
 
 type AttemptResult struct {
@@ -29,13 +29,13 @@ type AttemptResult struct {
 	Remote *net.UDPAddr
 }
 
-type PunchFunc func(ctx context.Context, listenConn *net.UDPConn, resp *msg.NatHoleResp, key []byte) (*net.UDPConn, *net.UDPAddr, error)
+type PunchFunc func(ctx context.Context, listenConn *net.UDPConn, resp *wire.NatHoleResp, key []byte) (*net.UDPConn, *net.UDPAddr, error)
 
-func Attempt(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, udp6Conn *net.UDPConn, resp *msg.NatHoleResp, cfg AttemptConfig) (*AttemptResult, error) {
+func Attempt(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, udp6Conn *net.UDPConn, resp *wire.NatHoleResp, cfg AttemptConfig) (*AttemptResult, error) {
 	return attemptWithPunch(ctx, sid, key, udp4Conn, udp6Conn, resp, cfg, nathole.MakeHole)
 }
 
-func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, udp6Conn *net.UDPConn, resp *msg.NatHoleResp, cfg AttemptConfig, punch PunchFunc) (*AttemptResult, error) {
+func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, udp6Conn *net.UDPConn, resp *wire.NatHoleResp, cfg AttemptConfig, punch PunchFunc) (*AttemptResult, error) {
 	if cfg.AttemptV6Timeout == 0 {
 		cfg.AttemptV6Timeout = 800 * time.Millisecond
 	}
@@ -49,7 +49,7 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 		cfg.DirectSendInterval = 100 * time.Millisecond
 	}
 
-	emit := func(ev obs.Event) {
+	emit := func(ev event.Event) {
 		if cfg.Emitter != nil {
 			ev.SID = sid
 			cfg.Emitter.Emit(ev)
@@ -65,9 +65,9 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 
 	parsed := ParseDirectAddrPorts(resp.PeerDirectAddrs)
 	if len(parsed.Invalid) > 0 {
-		emit(obs.Event{
-			Stage: obs.StageAttempt,
-			Kind:  obs.KindInfo,
+		emit(event.Event{
+			Stage: event.StageAttempt,
+			Kind:  event.KindInfo,
 			Name:  "attempt.peer_direct_addrs.invalid",
 			Msg:   "invalid peer direct_addrs dropped",
 			KVs: map[string]any{
@@ -77,9 +77,9 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 	}
 
 	peerV6, peerV4 := SplitAddrPortsByFamily(parsed.Addrs)
-	emit(obs.Event{
-		Stage: obs.StageAttempt,
-		Kind:  obs.KindStart,
+	emit(event.Event{
+		Stage: event.StageAttempt,
+		Kind:  event.KindStart,
 		Name:  "attempt.start",
 		Msg:   "attempt start",
 		KVs: map[string]any{
@@ -90,12 +90,12 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 
 	// 1) IPv6 direct
 	if udp6Conn != nil && len(peerV6) > 0 {
-		emit(obs.Event{Stage: obs.StageAttempt, Kind: obs.KindStart, Name: "attempt.v6.start", Msg: "attempt ipv6 direct"})
+		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindStart, Name: "attempt.v6.start", Msg: "attempt ipv6 direct"})
 
 		for _, cand := range peerV6 {
-			emit(obs.Event{
-				Stage: obs.StageAttempt,
-				Kind:  obs.KindStart,
+			emit(event.Event{
+				Stage: event.StageAttempt,
+				Kind:  event.KindStart,
 				Name:  "attempt.candidate.begin",
 				Msg:   "candidate begin",
 				KVs: map[string]any{
@@ -111,9 +111,9 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 		cancel()
 		if err == nil {
 			for _, cand := range peerV6 {
-				ev := obs.Event{
-					Stage: obs.StageAttempt,
-					Kind:  obs.KindInfo,
+				ev := event.Event{
+					Stage: event.StageAttempt,
+					Kind:  event.KindInfo,
 					Name:  "attempt.candidate.end",
 					Msg:   "candidate canceled",
 					KVs: map[string]any{
@@ -124,16 +124,16 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 					},
 				}
 				if cand == winner {
-					ev.Kind = obs.KindOK
+					ev.Kind = event.KindOK
 					ev.Msg = "candidate ok"
 					ev.KVs["reason"] = "reachable"
 				}
 				emit(ev)
 			}
 
-			emit(obs.Event{
-				Stage: obs.StageAttempt,
-				Kind:  obs.KindOK,
+			emit(event.Event{
+				Stage: event.StageAttempt,
+				Kind:  event.KindOK,
 				Name:  "attempt.v6.ok",
 				Msg:   "ipv6 direct ok",
 				KVs: map[string]any{
@@ -146,9 +146,9 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 		}
 
 		for _, cand := range peerV6 {
-			emit(obs.Event{
-				Stage: obs.StageAttempt,
-				Kind:  obs.KindInfo,
+			emit(event.Event{
+				Stage: event.StageAttempt,
+				Kind:  event.KindInfo,
 				Name:  "attempt.candidate.end",
 				Msg:   "candidate timeout",
 				Err:   err.Error(),
@@ -159,17 +159,17 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 				},
 			})
 		}
-		emit(obs.Event{Stage: obs.StageAttempt, Kind: obs.KindInfo, Name: "attempt.v6.fail", Msg: "ipv6 direct failed", Err: err.Error()})
+		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindInfo, Name: "attempt.v6.fail", Msg: "ipv6 direct failed", Err: err.Error()})
 	}
 
 	// 2) IPv4 direct (portmap candidates)
 	if len(peerV4) > 0 {
-		emit(obs.Event{Stage: obs.StageAttempt, Kind: obs.KindStart, Name: "attempt.v4.start", Msg: "attempt ipv4 direct"})
+		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindStart, Name: "attempt.v4.start", Msg: "attempt ipv4 direct"})
 
 		for _, cand := range peerV4 {
-			emit(obs.Event{
-				Stage: obs.StageAttempt,
-				Kind:  obs.KindStart,
+			emit(event.Event{
+				Stage: event.StageAttempt,
+				Kind:  event.KindStart,
 				Name:  "attempt.candidate.begin",
 				Msg:   "candidate begin",
 				KVs: map[string]any{
@@ -185,9 +185,9 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 		cancel()
 		if err == nil {
 			for _, cand := range peerV4 {
-				ev := obs.Event{
-					Stage: obs.StageAttempt,
-					Kind:  obs.KindInfo,
+				ev := event.Event{
+					Stage: event.StageAttempt,
+					Kind:  event.KindInfo,
 					Name:  "attempt.candidate.end",
 					Msg:   "candidate canceled",
 					KVs: map[string]any{
@@ -198,16 +198,16 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 					},
 				}
 				if cand == winner {
-					ev.Kind = obs.KindOK
+					ev.Kind = event.KindOK
 					ev.Msg = "candidate ok"
 					ev.KVs["reason"] = "reachable"
 				}
 				emit(ev)
 			}
 
-			emit(obs.Event{
-				Stage: obs.StageAttempt,
-				Kind:  obs.KindOK,
+			emit(event.Event{
+				Stage: event.StageAttempt,
+				Kind:  event.KindOK,
 				Name:  "attempt.v4.ok",
 				Msg:   "ipv4 direct ok",
 				KVs: map[string]any{
@@ -220,9 +220,9 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 		}
 
 		for _, cand := range peerV4 {
-			emit(obs.Event{
-				Stage: obs.StageAttempt,
-				Kind:  obs.KindInfo,
+			emit(event.Event{
+				Stage: event.StageAttempt,
+				Kind:  event.KindInfo,
 				Name:  "attempt.candidate.end",
 				Msg:   "candidate timeout",
 				Err:   err.Error(),
@@ -233,32 +233,32 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 				},
 			})
 		}
-		emit(obs.Event{Stage: obs.StageAttempt, Kind: obs.KindInfo, Name: "attempt.v4.fail", Msg: "ipv4 direct failed", Err: err.Error()})
+		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindInfo, Name: "attempt.v4.fail", Msg: "ipv4 direct failed", Err: err.Error()})
 	}
 
 	// 3) Punching fallback (P1 kernel)
 	punchingPossible := resp.PunchingEnabled || len(resp.CandidateAddrs) > 0
 	if !punchingPossible {
 		err := fmt.Errorf("punching disabled: %s", resp.PunchingError)
-		emit(obs.Event{Stage: obs.StageAttempt, Kind: obs.KindFail, Name: "attempt.punching.disabled", Msg: "punching disabled", Err: err.Error()})
+		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.punching.disabled", Msg: "punching disabled", Err: err.Error()})
 		return nil, err
 	}
 	if len(resp.CandidateAddrs) == 0 {
 		err := errors.New("punching enabled but candidate_addrs empty")
-		emit(obs.Event{Stage: obs.StageAttempt, Kind: obs.KindFail, Name: "attempt.punching.invalid", Msg: "punching response invalid", Err: err.Error()})
+		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.punching.invalid", Msg: "punching response invalid", Err: err.Error()})
 		return nil, err
 	}
 
-	emit(obs.Event{Stage: obs.StageAttempt, Kind: obs.KindStart, Name: "attempt.punching.start", Msg: "attempt punching"})
+	emit(event.Event{Stage: event.StageAttempt, Kind: event.KindStart, Name: "attempt.punching.start", Msg: "attempt punching"})
 	newConn, raddr, err := punch(ctx, udp4Conn, resp, key)
 	if err != nil {
-		emit(obs.Event{Stage: obs.StageAttempt, Kind: obs.KindFail, Name: "attempt.punching.fail", Msg: "punching failed", Err: err.Error()})
+		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.punching.fail", Msg: "punching failed", Err: err.Error()})
 		return nil, err
 	}
 
-	emit(obs.Event{
-		Stage: obs.StageAttempt,
-		Kind:  obs.KindOK,
+	emit(event.Event{
+		Stage: event.StageAttempt,
+		Kind:  event.KindOK,
 		Name:  "attempt.punching.ok",
 		Msg:   "punching ok",
 		KVs: map[string]any{
@@ -301,7 +301,7 @@ func directHandshakeFanout(ctx context.Context, conn *net.UDPConn, sid string, k
 				}
 			}
 
-			var in msg.NatHoleSid
+			var in wire.NatHoleSid
 			if err := nathole.DecodeMessageInto(buf[:n], key, &in); err != nil {
 				continue
 			}
@@ -333,7 +333,7 @@ func directHandshakeFanout(ctx context.Context, conn *net.UDPConn, sid string, k
 		ap := ap
 		go func() {
 			udpAddr := net.UDPAddrFromAddrPort(ap)
-			req := &msg.NatHoleSid{
+			req := &wire.NatHoleSid{
 				TransactionID: tx,
 				Sid:           sid,
 				Response:      false,
@@ -385,7 +385,7 @@ func sendDirectHandshakeResponses(conn *net.UDPConn, sid string, key []byte, rad
 		sendInterval = 50 * time.Millisecond
 	}
 
-	payload, err := nathole.EncodeMessage(&msg.NatHoleSid{
+	payload, err := nathole.EncodeMessage(&wire.NatHoleSid{
 		Sid:      sid,
 		Response: true,
 	}, key)

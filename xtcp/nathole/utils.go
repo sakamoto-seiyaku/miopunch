@@ -23,12 +23,12 @@ import (
 	"github.com/fatedier/golib/crypto"
 	"github.com/pion/stun/v2"
 
-	"github.com/miopunch/miopunch/xtcp/msg"
+	"github.com/miopunch/miopunch/internal/wire"
 )
 
-func EncodeMessage(m msg.Message, key []byte) ([]byte, error) {
+func EncodeMessage(m wire.Message, key []byte) ([]byte, error) {
 	buffer := bytes.NewBuffer(nil)
-	if err := msg.WriteMsg(buffer, m); err != nil {
+	if err := wire.WriteMsg(buffer, m); err != nil {
 		return nil, err
 	}
 
@@ -39,13 +39,13 @@ func EncodeMessage(m msg.Message, key []byte) ([]byte, error) {
 	return buf, nil
 }
 
-func DecodeMessageInto(data, key []byte, m msg.Message) error {
+func DecodeMessageInto(data, key []byte, m wire.Message) error {
 	buf, err := crypto.Decode(data, key)
 	if err != nil {
 		return err
 	}
 
-	return msg.ReadMsgInto(bytes.NewReader(buf), m)
+	return wire.ReadMsgInto(bytes.NewReader(buf), m)
 }
 
 type ChangedAddress struct {

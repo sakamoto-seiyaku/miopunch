@@ -24,18 +24,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/miopunch/miopunch/xtcp/control"
-	"github.com/miopunch/miopunch/xtcp/msg"
-	"github.com/miopunch/miopunch/xtcp/transport"
+	"github.com/miopunch/miopunch/internal/control"
+	"github.com/miopunch/miopunch/internal/wire"
 )
 
 type controlSession struct {
 	rwc        io.ReadWriteCloser
-	dispatcher *msg.Dispatcher
-	xport      transport.MessageTransporter
+	dispatcher *wire.Dispatcher
+	xport      wire.MessageTransporter
 }
 
-func dialHello(ctx context.Context, coordAddr string, proto control.Protocol, hello *msg.PeerHello, timeout time.Duration) (*controlSession, error) {
+func dialHello(ctx context.Context, coordAddr string, proto control.Protocol, hello *wire.PeerHello, timeout time.Duration) (*controlSession, error) {
 	if strings.TrimSpace(coordAddr) == "" {
 		return nil, errors.New("coord addr is required")
 	}
@@ -51,18 +50,18 @@ func dialHello(ctx context.Context, coordAddr string, proto control.Protocol, he
 		return nil, err
 	}
 
-	disp := msg.NewDispatcher(rwc)
-	xport := transport.NewMessageTransporter(disp)
+	disp := wire.NewDispatcher(rwc)
+	xport := wire.NewMessageTransporter(disp)
 
-	disp.RegisterHandler(&msg.NatHoleResp{}, func(m msg.Message) {
-		in := m.(*msg.NatHoleResp)
-		_ = xport.DispatchWithType(in, msg.TypeNameNatHoleResp, in.TransactionID)
+	disp.RegisterHandler(&wire.NatHoleResp{}, func(m wire.Message) {
+		in := m.(*wire.NatHoleResp)
+		_ = xport.DispatchWithType(in, wire.TypeNameNatHoleResp, in.TransactionID)
 	})
 
-	helloRespCh := make(chan *msg.PeerHelloResp, 1)
-	disp.RegisterHandler(&msg.PeerHelloResp{}, func(m msg.Message) {
+	helloRespCh := make(chan *wire.PeerHelloResp, 1)
+	disp.RegisterHandler(&wire.PeerHelloResp{}, func(m wire.Message) {
 		select {
-		case helloRespCh <- m.(*msg.PeerHelloResp):
+		case helloRespCh <- m.(*wire.PeerHelloResp):
 		default:
 		}
 	})

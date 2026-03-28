@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package transport
+package wire
 
 import (
 	"context"
@@ -20,28 +20,26 @@ import (
 	"sync"
 
 	"github.com/fatedier/golib/errors"
-
-	"github.com/miopunch/miopunch/xtcp/msg"
 )
 
 type MessageTransporter interface {
-	Send(msg.Message) error
+	Send(Message) error
 	// Do will first send msg, then recv msg with the same laneKey and specified msgType.
-	Do(ctx context.Context, req msg.Message, laneKey, recvMsgType string) (msg.Message, error)
+	Do(ctx context.Context, req Message, laneKey, recvMsgType string) (Message, error)
 	// Dispatch will dispatch message to related channel registered in Do function by its message type and laneKey.
-	Dispatch(m msg.Message, laneKey string) bool
+	Dispatch(m Message, laneKey string) bool
 	// Same with Dispatch but with specified message type.
-	DispatchWithType(m msg.Message, msgType, laneKey string) bool
+	DispatchWithType(m Message, msgType, laneKey string) bool
 }
 
 type MessageSender interface {
-	Send(msg.Message) error
+	Send(Message) error
 }
 
 func NewMessageTransporter(sender MessageSender) MessageTransporter {
 	return &transporterImpl{
 		sender:   sender,
-		registry: make(map[string]map[string]chan msg.Message),
+		registry: make(map[string]map[string]chan Message),
 	}
 }
 
@@ -51,16 +49,16 @@ type transporterImpl struct {
 	// First key is message type and second key is lane key.
 	// Dispatch will dispatch message to related channel by its message type
 	// and lane key.
-	registry map[string]map[string]chan msg.Message
+	registry map[string]map[string]chan Message
 	mu       sync.RWMutex
 }
 
-func (impl *transporterImpl) Send(m msg.Message) error {
+func (impl *transporterImpl) Send(m Message) error {
 	return impl.sender.Send(m)
 }
 
-func (impl *transporterImpl) Do(ctx context.Context, req msg.Message, laneKey, recvMsgType string) (msg.Message, error) {
-	ch := make(chan msg.Message, 1)
+func (impl *transporterImpl) Do(ctx context.Context, req Message, laneKey, recvMsgType string) (Message, error) {
+	ch := make(chan Message, 1)
 	defer close(ch)
 	unregisterFn := impl.registerMsgChan(ch, laneKey, recvMsgType)
 	defer unregisterFn()
@@ -77,8 +75,8 @@ func (impl *transporterImpl) Do(ctx context.Context, req msg.Message, laneKey, r
 	}
 }
 
-func (impl *transporterImpl) DispatchWithType(m msg.Message, msgType, laneKey string) bool {
-	var ch chan msg.Message
+func (impl *transporterImpl) DispatchWithType(m Message, msgType, laneKey string) bool {
+	var ch chan Message
 	impl.mu.RLock()
 	byLaneKey, ok := impl.registry[msgType]
 	if ok {
@@ -98,16 +96,16 @@ func (impl *transporterImpl) DispatchWithType(m msg.Message, msgType, laneKey st
 	return true
 }
 
-func (impl *transporterImpl) Dispatch(m msg.Message, laneKey string) bool {
+func (impl *transporterImpl) Dispatch(m Message, laneKey string) bool {
 	msgType := reflect.TypeOf(m).Elem().Name()
 	return impl.DispatchWithType(m, msgType, laneKey)
 }
 
-func (impl *transporterImpl) registerMsgChan(recvCh chan msg.Message, laneKey string, msgType string) (unregister func()) {
+func (impl *transporterImpl) registerMsgChan(recvCh chan Message, laneKey string, msgType string) (unregister func()) {
 	impl.mu.Lock()
 	byLaneKey, ok := impl.registry[msgType]
 	if !ok {
-		byLaneKey = make(map[string]chan msg.Message)
+		byLaneKey = make(map[string]chan Message)
 		impl.registry[msgType] = byLaneKey
 	}
 	byLaneKey[laneKey] = recvCh

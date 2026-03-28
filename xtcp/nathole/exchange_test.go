@@ -6,16 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/miopunch/miopunch/xtcp/msg"
-	"github.com/miopunch/miopunch/xtcp/transport"
+	"github.com/miopunch/miopunch/internal/wire"
 )
 
 type recorderSender struct {
 	mu   sync.Mutex
-	sent []msg.Message
+	sent []wire.Message
 }
 
-func (r *recorderSender) Send(m msg.Message) error {
+func (r *recorderSender) Send(m wire.Message) error {
 	r.mu.Lock()
 	r.sent = append(r.sent, m)
 	r.mu.Unlock()
@@ -24,17 +23,17 @@ func (r *recorderSender) Send(m msg.Message) error {
 
 func TestExchangeInfo_AllowsDirectOnlyWhenPunchingDisabled(t *testing.T) {
 	sender := &recorderSender{}
-	tr := transport.NewMessageTransporter(sender)
+	tr := wire.NewMessageTransporter(sender)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	lane := "tx-1"
-	req := &msg.NatHoleClient{TransactionID: lane, ProxyName: "p", Sid: "s"}
+	req := &wire.NatHoleClient{TransactionID: lane, ProxyName: "p", Sid: "s"}
 
 	done := make(chan struct{})
 	var (
-		got *msg.NatHoleResp
+		got *wire.NatHoleResp
 		err error
 	)
 	go func() {
@@ -43,14 +42,14 @@ func TestExchangeInfo_AllowsDirectOnlyWhenPunchingDisabled(t *testing.T) {
 	}()
 
 	time.Sleep(50 * time.Millisecond)
-	resp := &msg.NatHoleResp{
+	resp := &wire.NatHoleResp{
 		TransactionID:   lane,
 		Sid:             "s",
 		PeerDirectAddrs: []string{"[::1]:1234"},
 		PunchingEnabled: false,
 		PunchingError:   "stun missing",
 	}
-	if !tr.DispatchWithType(resp, msg.TypeNameNatHoleResp, lane) {
+	if !tr.DispatchWithType(resp, wire.TypeNameNatHoleResp, lane) {
 		t.Fatalf("DispatchWithType returned false")
 	}
 
@@ -65,17 +64,17 @@ func TestExchangeInfo_AllowsDirectOnlyWhenPunchingDisabled(t *testing.T) {
 
 func TestExchangeInfo_PunchingEnabledCompatWhenCandidateAddrsPresent(t *testing.T) {
 	sender := &recorderSender{}
-	tr := transport.NewMessageTransporter(sender)
+	tr := wire.NewMessageTransporter(sender)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	lane := "tx-2"
-	req := &msg.NatHoleClient{TransactionID: lane, ProxyName: "p", Sid: "s"}
+	req := &wire.NatHoleClient{TransactionID: lane, ProxyName: "p", Sid: "s"}
 
 	done := make(chan struct{})
 	var (
-		got *msg.NatHoleResp
+		got *wire.NatHoleResp
 		err error
 	)
 	go func() {
@@ -84,12 +83,12 @@ func TestExchangeInfo_PunchingEnabledCompatWhenCandidateAddrsPresent(t *testing.
 	}()
 
 	time.Sleep(50 * time.Millisecond)
-	resp := &msg.NatHoleResp{
+	resp := &wire.NatHoleResp{
 		TransactionID:  lane,
 		Sid:            "s",
 		CandidateAddrs: []string{"203.0.113.1:12345"},
 	}
-	if !tr.DispatchWithType(resp, msg.TypeNameNatHoleResp, lane) {
+	if !tr.DispatchWithType(resp, wire.TypeNameNatHoleResp, lane) {
 		t.Fatalf("DispatchWithType returned false")
 	}
 

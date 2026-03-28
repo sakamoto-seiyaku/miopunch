@@ -27,8 +27,7 @@ import (
 	"github.com/fatedier/golib/pool"
 	"golang.org/x/net/ipv4"
 
-	"github.com/miopunch/miopunch/xtcp/msg"
-	"github.com/miopunch/miopunch/xtcp/transport"
+	"github.com/miopunch/miopunch/internal/wire"
 	"github.com/miopunch/miopunch/xtcp/util/xlog"
 )
 
@@ -85,23 +84,23 @@ type PrepareResult struct {
 // PreCheck is used to check if the proxy is ready for penetration.
 // Call this function before calling Prepare to avoid unnecessary preparation work.
 func PreCheck(
-	ctx context.Context, transporter transport.MessageTransporter,
+	ctx context.Context, transporter wire.MessageTransporter,
 	proxyName string, timeout time.Duration,
 ) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	var natHoleRespMsg *msg.NatHoleResp
+	var natHoleRespMsg *wire.NatHoleResp
 	transactionID := NewTransactionID()
-	m, err := transporter.Do(timeoutCtx, &msg.NatHoleVisitor{
+	m, err := transporter.Do(timeoutCtx, &wire.NatHoleVisitor{
 		TransactionID: transactionID,
 		ProxyName:     proxyName,
 		PreCheck:      true,
-	}, transactionID, msg.TypeNameNatHoleResp)
+	}, transactionID, wire.TypeNameNatHoleResp)
 	if err != nil {
 		return fmt.Errorf("get natHoleRespMsg error: %v", err)
 	}
-	mm, ok := m.(*msg.NatHoleResp)
+	mm, ok := m.(*wire.NatHoleResp)
 	if !ok {
 		return fmt.Errorf("get natHoleRespMsg error: invalid message type")
 	}
@@ -161,18 +160,18 @@ func Prepare(stunServers []string, opts PrepareOptions) (*PrepareResult, error) 
 // 2. Server will gather information from client and visitor and analyze it. Then send back a NatHoleResp message to them to tell them how to do next.
 // 3. Receive NatHoleResp message from server.
 func ExchangeInfo(
-	ctx context.Context, transporter transport.MessageTransporter,
-	laneKey string, m msg.Message, timeout time.Duration,
-) (*msg.NatHoleResp, error) {
+	ctx context.Context, transporter wire.MessageTransporter,
+	laneKey string, m wire.Message, timeout time.Duration,
+) (*wire.NatHoleResp, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	var natHoleRespMsg *msg.NatHoleResp
-	m, err := transporter.Do(timeoutCtx, m, laneKey, msg.TypeNameNatHoleResp)
+	var natHoleRespMsg *wire.NatHoleResp
+	m, err := transporter.Do(timeoutCtx, m, laneKey, wire.TypeNameNatHoleResp)
 	if err != nil {
 		return nil, fmt.Errorf("get natHoleRespMsg error: %v", err)
 	}
-	mm, ok := m.(*msg.NatHoleResp)
+	mm, ok := m.(*wire.NatHoleResp)
 	if !ok {
 		return nil, fmt.Errorf("get natHoleRespMsg error: invalid message type")
 	}
@@ -198,7 +197,7 @@ func ExchangeInfo(
 }
 
 // MakeHole is used to make a NAT hole between client and visitor.
-func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *msg.NatHoleResp, key []byte) (*net.UDPConn, *net.UDPAddr, error) {
+func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *wire.NatHoleResp, key []byte) (*net.UDPConn, *net.UDPAddr, error) {
 	xl := xlog.FromContextSafe(ctx)
 	transactionID := NewTransactionID()
 	sendToRangePortsFunc := func(conn *net.UDPConn, addr string) error {
@@ -311,7 +310,7 @@ func waitDetectMessage(
 			return nil, err
 		}
 		xl.Debugf("get udp message local %s, from %s", conn.LocalAddr(), raddr)
-		var m msg.NatHoleSid
+		var m wire.NatHoleSid
 		if err := DecodeMessageInto(buf[:n], key, &m); err != nil {
 			pool.PutBuf(buf)
 			xl.Warnf("decode sid message error: %v", err)
@@ -359,7 +358,7 @@ func sendSidMessage(
 	if transactionID == "" {
 		transactionID = NewTransactionID()
 	}
-	m := &msg.NatHoleSid{
+	m := &wire.NatHoleSid{
 		TransactionID: transactionID,
 		Sid:           sid,
 		Response:      false,
@@ -395,7 +394,7 @@ func sendSidMessage(
 }
 
 func sendSidMessageToRangePorts(
-	ctx context.Context, conn *net.UDPConn, addrs []string, ports []msg.PortsRange,
+	ctx context.Context, conn *net.UDPConn, addrs []string, ports []wire.PortsRange,
 	sendFunc func(*net.UDPConn, string) error,
 ) {
 	xl := xlog.FromContextSafe(ctx)

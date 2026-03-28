@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package coord
+package coordinator
 
 import (
 	"context"
@@ -23,11 +23,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/miopunch/miopunch/xtcp/control"
-	"github.com/miopunch/miopunch/xtcp/msg"
+	"github.com/miopunch/miopunch/event"
+
+	"github.com/miopunch/miopunch/internal/control"
+	"github.com/miopunch/miopunch/internal/wire"
 	"github.com/miopunch/miopunch/xtcp/nathole"
-	"github.com/miopunch/miopunch/xtcp/obs"
-	"github.com/miopunch/miopunch/xtcp/transport"
 )
 
 type Config struct {
@@ -37,7 +37,7 @@ type Config struct {
 	AnalysisReserveDuration time.Duration
 	HelloTimeout            time.Duration
 
-	Emitter *obs.Emitter
+	Emitter *event.Emitter
 }
 
 func Run(ctx context.Context, cfg Config) error {
@@ -61,7 +61,7 @@ func Run(ctx context.Context, cfg Config) error {
 	defer l.Close()
 
 	if cfg.Emitter != nil {
-		cfg.Emitter.OK(obs.StageSupervisor, "coordinator listening", map[string]any{
+		cfg.Emitter.OK(event.StageSupervisor, "coordinator listening", map[string]any{
 			"addr":  cfg.ListenAddr,
 			"proto": string(cfg.Protocol),
 		})
@@ -88,27 +88,27 @@ func Run(ctx context.Context, cfg Config) error {
 func handleConn(ctx context.Context, rwc io.ReadWriteCloser, ctrl *nathole.Controller, cfg Config) {
 	defer rwc.Close()
 
-	disp := msg.NewDispatcher(rwc)
-	xport := transport.NewMessageTransporter(disp)
+	disp := wire.NewDispatcher(rwc)
+	xport := wire.NewMessageTransporter(disp)
 
-	helloCh := make(chan *msg.PeerHello, 1)
-	disp.RegisterHandler(&msg.PeerHello{}, func(m msg.Message) {
+	helloCh := make(chan *wire.PeerHello, 1)
+	disp.RegisterHandler(&wire.PeerHello{}, func(m wire.Message) {
 		select {
-		case helloCh <- m.(*msg.PeerHello):
+		case helloCh <- m.(*wire.PeerHello):
 		default:
 		}
 	})
 
 	disp.Run()
 
-	var hello *msg.PeerHello
+	var hello *wire.PeerHello
 	select {
 	case <-ctx.Done():
 		return
 	case <-disp.Done():
 		return
 	case <-time.After(cfg.HelloTimeout):
-		_ = disp.Send(&msg.PeerHelloResp{Error: "hello timeout"})
+		_ = disp.Send(&wire.PeerHelloResp{Error: "hello timeout"})
 		return
 	case hello = <-helloCh:
 	}
@@ -119,7 +119,7 @@ func handleConn(ctx context.Context, rwc io.ReadWriteCloser, ctrl *nathole.Contr
 	case "client":
 		proxyName := strings.TrimSpace(hello.ProxyName)
 		if proxyName == "" {
-			_ = disp.Send(&msg.PeerHelloResp{Error: "client proxy_name is required"})
+			_ = disp.Send(&wire.PeerHelloResp{Error: "client proxy_name is required"})
 			return
 		}
 		if user == "" {
@@ -133,18 +133,18 @@ func handleConn(ctx context.Context, rwc io.ReadWriteCloser, ctrl *nathole.Contr
 		}
 
 		if !hello.DisableAuth && strings.TrimSpace(hello.SecretKey) == "" {
-			_ = disp.Send(&msg.PeerHelloResp{Error: "client secret_key is required"})
+			_ = disp.Send(&wire.PeerHelloResp{Error: "client secret_key is required"})
 			return
 		}
 
 		sidCh, err := ctrl.ListenClient(proxyName, hello.SecretKey, allowUsers)
 		if err != nil {
-			_ = disp.Send(&msg.PeerHelloResp{Error: err.Error()})
+			_ = disp.Send(&wire.PeerHelloResp{Error: err.Error()})
 			return
 		}
 
 		if cfg.Emitter != nil {
-			cfg.Emitter.OK(obs.StageSignaling, "client registered", map[string]any{
+			cfg.Emitter.OK(event.StageSignaling, "client registered", map[string]any{
 				"user":       user,
 				"proxy_name": proxyName,
 			})
@@ -159,7 +159,7 @@ func handleConn(ctx context.Context, rwc io.ReadWriteCloser, ctrl *nathole.Contr
 				case <-disp.Done():
 					return
 				case sid := <-sidCh:
-					_ = disp.Send(&msg.NatHoleSid{Sid: sid})
+					_ = disp.Send(&wire.NatHoleSid{Sid: sid})
 				}
 			}
 		}()
@@ -169,15 +169,15 @@ func handleConn(ctx context.Context, rwc io.ReadWriteCloser, ctrl *nathole.Contr
 			ctrl.CloseClient(proxyName)
 		}()
 
-		disp.RegisterHandler(&msg.NatHoleClient{}, func(m msg.Message) {
-			in := m.(*msg.NatHoleClient)
+		disp.RegisterHandler(&wire.NatHoleClient{}, func(m wire.Message) {
+			in := m.(*wire.NatHoleClient)
 			ctrl.HandleClient(in, xport)
 		})
-		disp.RegisterHandler(&msg.NatHoleReport{}, func(m msg.Message) {
-			ctrl.HandleReport(m.(*msg.NatHoleReport))
+		disp.RegisterHandler(&wire.NatHoleReport{}, func(m wire.Message) {
+			ctrl.HandleReport(m.(*wire.NatHoleReport))
 		})
 
-		_ = disp.Send(&msg.PeerHelloResp{})
+		_ = disp.Send(&wire.PeerHelloResp{})
 		<-disp.Done()
 		return
 
@@ -187,25 +187,25 @@ func handleConn(ctx context.Context, rwc io.ReadWriteCloser, ctrl *nathole.Contr
 		}
 
 		if cfg.Emitter != nil {
-			cfg.Emitter.OK(obs.StageSignaling, "visitor connected", map[string]any{
+			cfg.Emitter.OK(event.StageSignaling, "visitor connected", map[string]any{
 				"user": user,
 			})
 		}
 
-		disp.RegisterHandler(&msg.NatHoleVisitor{}, msg.AsyncHandler(func(m msg.Message) {
-			in := m.(*msg.NatHoleVisitor)
+		disp.RegisterHandler(&wire.NatHoleVisitor{}, wire.AsyncHandler(func(m wire.Message) {
+			in := m.(*wire.NatHoleVisitor)
 			ctrl.HandleVisitor(in, xport, user)
 		}))
-		disp.RegisterHandler(&msg.NatHoleReport{}, func(m msg.Message) {
-			ctrl.HandleReport(m.(*msg.NatHoleReport))
+		disp.RegisterHandler(&wire.NatHoleReport{}, func(m wire.Message) {
+			ctrl.HandleReport(m.(*wire.NatHoleReport))
 		})
 
-		_ = disp.Send(&msg.PeerHelloResp{})
+		_ = disp.Send(&wire.PeerHelloResp{})
 		<-disp.Done()
 		return
 
 	default:
-		_ = disp.Send(&msg.PeerHelloResp{Error: fmt.Sprintf("unknown role: %q", role)})
+		_ = disp.Send(&wire.PeerHelloResp{Error: fmt.Sprintf("unknown role: %q", role)})
 		return
 	}
 }

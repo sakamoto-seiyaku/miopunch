@@ -27,7 +27,7 @@ import (
 	quic "github.com/quic-go/quic-go"
 	kcp "github.com/xtaci/kcp-go/v5"
 
-	"github.com/miopunch/miopunch/xtcp/transport"
+	"github.com/miopunch/miopunch/internal/tlsutil"
 )
 
 type Protocol string
@@ -63,7 +63,7 @@ func Listen(addr string, proto Protocol) (Listener, error) {
 		}
 		return l, nil
 	case ProtoQUIC:
-		tlsConfig, err := transport.NewServerTLSConfig("", "", "")
+		tlsConfig, err := tlsutil.NewServerTLSConfig("", "", "")
 		if err != nil {
 			return nil, err
 		}
@@ -94,7 +94,7 @@ func Dial(ctx context.Context, addr string, proto Protocol) (io.ReadWriteCloser,
 		applyKCPSessionOptions(sess)
 		return sess, nil
 	case ProtoQUIC:
-		tlsConfig, err := transport.NewClientTLSConfig("", "", "", "")
+		tlsConfig, err := tlsutil.NewClientTLSConfig("", "", "", "")
 		if err != nil {
 			return nil, err
 		}
@@ -233,7 +233,7 @@ func (q *quicStreamRWC) Close() error {
 }
 
 func ServerTLSConfig() (*tls.Config, error) {
-	cfg, err := transport.NewServerTLSConfig("", "", "")
+	cfg, err := tlsutil.NewServerTLSConfig("", "", "")
 	if err != nil {
 		return nil, err
 	}

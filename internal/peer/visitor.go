@@ -25,13 +25,14 @@ import (
 
 	"github.com/quic-go/quic-go"
 
-	"github.com/miopunch/miopunch/xtcp/connectivity"
-	"github.com/miopunch/miopunch/xtcp/control"
-	"github.com/miopunch/miopunch/xtcp/msg"
+	"github.com/miopunch/miopunch/connectivity"
+	"github.com/miopunch/miopunch/event"
+
+	"github.com/miopunch/miopunch/internal/control"
+	"github.com/miopunch/miopunch/internal/netutil"
+	"github.com/miopunch/miopunch/internal/tlsutil"
+	"github.com/miopunch/miopunch/internal/wire"
 	"github.com/miopunch/miopunch/xtcp/nathole"
-	"github.com/miopunch/miopunch/xtcp/netutil"
-	"github.com/miopunch/miopunch/xtcp/obs"
-	"github.com/miopunch/miopunch/xtcp/transport"
 	"github.com/miopunch/miopunch/xtcp/util/util"
 )
 
@@ -58,11 +59,11 @@ type VisitorConfig struct {
 	ExchangeInfoTimeout   time.Duration
 	SessionOverallTimeout time.Duration
 
-	Emitter *obs.Emitter
+	Emitter *event.Emitter
 }
 
 func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
-	fail := func(stage obs.Stage, err error, msg string, kvs map[string]any) error {
+	fail := func(stage event.Stage, err error, msg string, kvs map[string]any) error {
 		if cfg.Emitter != nil {
 			cfg.Emitter.Fail(stage, err, msg, kvs)
 		}
@@ -70,16 +71,16 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	}
 
 	if strings.TrimSpace(cfg.ProxyName) == "" {
-		return fail(obs.StageSupervisor, errors.New("proxy name is required"), "invalid config", nil)
+		return fail(event.StageSupervisor, errors.New("proxy name is required"), "invalid config", nil)
 	}
 	if strings.TrimSpace(cfg.SecretKey) == "" {
-		return fail(obs.StageSupervisor, errors.New("secret key is required"), "invalid config", nil)
+		return fail(event.StageSupervisor, errors.New("secret key is required"), "invalid config", nil)
 	}
 	if cfg.DataProto == "" {
 		cfg.DataProto = "quic"
 	}
 	if cfg.DataProto != "kcp" && cfg.DataProto != "quic" {
-		return fail(obs.StageSupervisor, fmt.Errorf("unsupported data proto: %q", cfg.DataProto), "invalid config", nil)
+		return fail(event.StageSupervisor, fmt.Errorf("unsupported data proto: %q", cfg.DataProto), "invalid config", nil)
 	}
 	if cfg.HelloTimeout == 0 {
 		cfg.HelloTimeout = 5 * time.Second
@@ -94,12 +95,12 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 		cfg.Payload = []byte("ping")
 	}
 
-	sess, err := dialHello(ctx, cfg.CoordAddr, cfg.ControlProto, &msg.PeerHello{
+	sess, err := dialHello(ctx, cfg.CoordAddr, cfg.ControlProto, &wire.PeerHello{
 		Role: "visitor",
 		User: cfg.User,
 	}, cfg.HelloTimeout)
 	if err != nil {
-		return fail(obs.StageSignaling, err, "connect to coordinator failed", map[string]any{
+		return fail(event.StageSignaling, err, "connect to coordinator failed", map[string]any{
 			"coord":         cfg.CoordAddr,
 			"control_proto": string(cfg.ControlProto),
 			"proxy_name":    cfg.ProxyName,
@@ -108,7 +109,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	defer sess.rwc.Close()
 
 	if cfg.Emitter != nil {
-		cfg.Emitter.OK(obs.StageSignaling, "connected to coordinator", map[string]any{
+		cfg.Emitter.OK(event.StageSignaling, "connected to coordinator", map[string]any{
 			"coord":         cfg.CoordAddr,
 			"control_proto": string(cfg.ControlProto),
 			"proxy_name":    cfg.ProxyName,
@@ -119,20 +120,20 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	defer cancel()
 
 	if cfg.Emitter != nil {
-		cfg.Emitter.Start(obs.StageSignaling, "precheck start", map[string]any{
+		cfg.Emitter.Start(event.StageSignaling, "precheck start", map[string]any{
 			"proxy_name": cfg.ProxyName,
 		})
 	}
 	if err := nathole.PreCheck(sessionCtx, sess.xport, cfg.ProxyName, cfg.ExchangeInfoTimeout); err != nil {
 		if cfg.Emitter != nil {
-			cfg.Emitter.Fail(obs.StageSignaling, err, "precheck failed", map[string]any{
+			cfg.Emitter.Fail(event.StageSignaling, err, "precheck failed", map[string]any{
 				"proxy_name": cfg.ProxyName,
 			})
 		}
 		return err
 	}
 	if cfg.Emitter != nil {
-		cfg.Emitter.OK(obs.StageSignaling, "precheck ok", nil)
+		cfg.Emitter.OK(event.StageSignaling, "precheck ok", nil)
 	}
 
 	listenPort, err := listenPortFromAddr(cfg.P2PListenAddr)
@@ -151,7 +152,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	})
 	if err != nil {
 		if cfg.Emitter != nil {
-			cfg.Emitter.Fail(obs.StageGather, err, "gather failed", nil)
+			cfg.Emitter.Fail(event.StageGather, err, "gather failed", nil)
 		}
 		return err
 	}
@@ -162,7 +163,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 
 	now := time.Now().Unix()
 	transactionID := nathole.NewTransactionID()
-	natHoleVisitorMsg := &msg.NatHoleVisitor{
+	natHoleVisitorMsg := &wire.NatHoleVisitor{
 		TransactionID: transactionID,
 		ProxyName:     cfg.ProxyName,
 		Protocol:      cfg.DataProto,
@@ -174,7 +175,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	}
 
 	if cfg.Emitter != nil {
-		cfg.Emitter.Start(obs.StageExchange, "exchange.start", map[string]any{
+		cfg.Emitter.Start(event.StageExchange, "exchange.start", map[string]any{
 			"tx":            transactionID,
 			"control_proto": string(cfg.ControlProto),
 			"data_proto":    cfg.DataProto,
@@ -184,7 +185,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	natHoleRespMsg, err := nathole.ExchangeInfo(sessionCtx, sess.xport, transactionID, natHoleVisitorMsg, cfg.ExchangeInfoTimeout)
 	if err != nil {
 		if cfg.Emitter != nil {
-			cfg.Emitter.Fail(obs.StageExchange, err, "exchange.failed", map[string]any{
+			cfg.Emitter.Fail(event.StageExchange, err, "exchange.failed", map[string]any{
 				"tx": transactionID,
 			})
 		}
@@ -192,7 +193,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	}
 
 	if cfg.Emitter != nil {
-		cfg.Emitter.OK(obs.StageExchange, "exchange.ok", map[string]any{
+		cfg.Emitter.OK(event.StageExchange, "exchange.ok", map[string]any{
 			"sid":         natHoleRespMsg.Sid,
 			"tx":          transactionID,
 			"data_proto":  natHoleRespMsg.Protocol,
@@ -208,7 +209,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	})
 	if err != nil {
 		if cfg.Emitter != nil {
-			cfg.Emitter.Fail(obs.StageAttempt, err, "attempt failed", map[string]any{
+			cfg.Emitter.Fail(event.StageAttempt, err, "attempt failed", map[string]any{
 				"sid": natHoleRespMsg.Sid,
 			})
 		}
@@ -216,7 +217,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	}
 
 	if cfg.Emitter != nil {
-		cfg.Emitter.Start(obs.StageTransport, "data plane start", map[string]any{
+		cfg.Emitter.Start(event.StageTransport, "data plane start", map[string]any{
 			"sid":        natHoleRespMsg.Sid,
 			"data_proto": natHoleRespMsg.Protocol,
 		})
@@ -232,7 +233,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 		dataErr = fmt.Errorf("unknown data plane protocol: %q", natHoleRespMsg.Protocol)
 	}
 	if dataErr != nil && cfg.Emitter != nil {
-		cfg.Emitter.Fail(obs.StageTransport, dataErr, "data plane failed", map[string]any{
+		cfg.Emitter.Fail(event.StageTransport, dataErr, "data plane failed", map[string]any{
 			"sid":        natHoleRespMsg.Sid,
 			"data_proto": natHoleRespMsg.Protocol,
 		})
@@ -273,7 +274,7 @@ func dialKCP(ctx context.Context, cfg VisitorConfig, listenConn *net.UDPConn, ra
 	}
 
 	if cfg.Emitter != nil {
-		cfg.Emitter.OK(obs.StageTransport, "kcp payload exchanged", map[string]any{
+		cfg.Emitter.OK(event.StageTransport, "kcp payload exchanged", map[string]any{
 			"bytes": len(cfg.Payload),
 		})
 	}
@@ -283,7 +284,7 @@ func dialKCP(ctx context.Context, cfg VisitorConfig, listenConn *net.UDPConn, ra
 func dialQUIC(ctx context.Context, cfg VisitorConfig, listenConn *net.UDPConn, raddr *net.UDPAddr) error {
 	defer listenConn.Close()
 
-	tlsConfig, err := transport.NewClientTLSConfig("", "", "", raddr.String())
+	tlsConfig, err := tlsutil.NewClientTLSConfig("", "", "", raddr.String())
 	if err != nil {
 		return err
 	}
@@ -318,7 +319,7 @@ func dialQUIC(ctx context.Context, cfg VisitorConfig, listenConn *net.UDPConn, r
 	}
 
 	if cfg.Emitter != nil {
-		cfg.Emitter.OK(obs.StageTransport, "quic payload exchanged", map[string]any{
+		cfg.Emitter.OK(event.StageTransport, "quic payload exchanged", map[string]any{
 			"bytes": len(cfg.Payload),
 		})
 	}

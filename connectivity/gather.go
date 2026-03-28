@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/miopunch/miopunch/xtcp/nathole"
-	"github.com/miopunch/miopunch/xtcp/obs"
+	"github.com/miopunch/miopunch/event"
 )
 
 type GatherConfig struct {
@@ -26,7 +26,7 @@ type GatherConfig struct {
 	GatherTimeout time.Duration
 	SessionLease  time.Duration
 
-	Emitter *obs.Emitter
+	Emitter *event.Emitter
 }
 
 type GatherResult struct {
@@ -49,7 +49,7 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 		cfg.SessionLease = 5 * time.Minute
 	}
 
-	emit := func(ev obs.Event) {
+	emit := func(ev event.Event) {
 		if cfg.Emitter != nil {
 			ev.SID = sid
 			cfg.Emitter.Emit(ev)
@@ -63,18 +63,18 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 
 	udp6Conn, udp6Port, udp6Err := bindUDP6(cfg.ListenPort, udp4Port)
 	if udp6Err != nil {
-		emit(obs.Event{
-			Stage: obs.StageGather,
-			Kind:  obs.KindInfo,
+		emit(event.Event{
+			Stage: event.StageGather,
+			Kind:  event.KindInfo,
 			Name:  "gather.udp6.unavailable",
 			Msg:   "udp6 bind failed",
 			Err:   udp6Err.Error(),
 		})
 	}
 
-	emit(obs.Event{
-		Stage: obs.StageGather,
-		Kind:  obs.KindStart,
+	emit(event.Event{
+		Stage: event.StageGather,
+		Kind:  event.KindStart,
 		Name:  "gather.start",
 		Msg:   "gather start",
 		KVs: map[string]any{
@@ -90,9 +90,9 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 	if udp6Conn != nil {
 		v6Addrs, err := GatherLocalIPv6Candidates()
 		if err != nil {
-			emit(obs.Event{
-				Stage: obs.StageGather,
-				Kind:  obs.KindFail,
+			emit(event.Event{
+				Stage: event.StageGather,
+				Kind:  event.KindFail,
 				Name:  "gather.v6.error",
 				Msg:   "ipv6 gather failed",
 				Err:   err.Error(),
@@ -101,9 +101,9 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 			for _, addr := range v6Addrs {
 				directCandidates = append(directCandidates, netip.AddrPortFrom(addr, uint16(udp6Port)))
 			}
-			emit(obs.Event{
-				Stage: obs.StageGather,
-				Kind:  obs.KindOK,
+			emit(event.Event{
+				Stage: event.StageGather,
+				Kind:  event.KindOK,
 				Name:  "gather.v6.result",
 				Msg:   "ipv6 candidates gathered",
 				KVs: map[string]any{
@@ -134,19 +134,19 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 		pmStart = time.Now()
 		pmDeadline = gatherStart.Add(cfg.GatherTimeout)
 
-		emit(obs.Event{Stage: obs.StageGather, Kind: obs.KindStart, Name: "gather.portmap.start", Msg: "portmap start"})
+		emit(event.Event{Stage: event.StageGather, Kind: event.KindStart, Name: "gather.portmap.start", Msg: "portmap start"})
 
 		emitOutcome := func(res PortMapAttemptResult, included bool) {
-			evKind := obs.KindOK
+			evKind := event.KindOK
 			msg := "portmap method ok"
 			errText := ""
 			if res.Err != nil {
-				evKind = obs.KindInfo
+				evKind = event.KindInfo
 				msg = "portmap method finished with error"
 				errText = res.Err.Error()
 			}
-			emit(obs.Event{
-				Stage: obs.StageGather,
+			emit(event.Event{
+				Stage: event.StageGather,
 				Kind:  evKind,
 				Name:  "gather.portmap.method.result",
 				Msg:   msg,
@@ -192,10 +192,10 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 			cctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 			if err := cleanup(cctx); err != nil {
-				emit(obs.Event{Stage: obs.StageGather, Kind: obs.KindInfo, Name: "gather.portmap.unmap.error", Msg: "portmap unmap error", Err: err.Error(), KVs: map[string]any{"method": res.Method}})
+				emit(event.Event{Stage: event.StageGather, Kind: event.KindInfo, Name: "gather.portmap.unmap.error", Msg: "portmap unmap error", Err: err.Error(), KVs: map[string]any{"method": res.Method}})
 				return
 			}
-			emit(obs.Event{Stage: obs.StageGather, Kind: obs.KindInfo, Name: "gather.portmap.unmap.ok", Msg: "portmap unmapped", KVs: map[string]any{"method": res.Method}})
+			emit(event.Event{Stage: event.StageGather, Kind: event.KindInfo, Name: "gather.portmap.unmap.ok", Msg: "portmap unmapped", KVs: map[string]any{"method": res.Method}})
 		}
 
 		go run(portmapUPnP)
@@ -225,14 +225,14 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 
 			included = TrimDirectAddrPorts(included)
 
-			emit(obs.Event{
-				Stage: obs.StageGather,
-				Kind:  obs.KindInfo,
-				Name:  "gather.portmap.cutoff",
-				Msg:   "portmap snapshot cutoff",
-				KVs: map[string]any{
-					"reason":       reason,
-					"ms":           time.Since(pmStart).Milliseconds(),
+				emit(event.Event{
+					Stage: event.StageGather,
+					Kind:  event.KindInfo,
+					Name:  "gather.portmap.cutoff",
+					Msg:   "portmap snapshot cutoff",
+					KVs: map[string]any{
+						"reason":       reason,
+						"ms":           time.Since(pmStart).Milliseconds(),
 					"included":     len(included) > 0,
 					"direct_v4":    len(included),
 					"methods_done": done,
@@ -241,17 +241,17 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 		}()
 	}
 
-	// 3) STUN gating rule A.
-	var mappedAddrs []string
-	if len(cfg.StunServers) == 0 {
-		emit(obs.Event{
-			Stage: obs.StageGather,
-			Kind:  obs.KindInfo,
-			Name:  "gather.stun.skip",
-			Msg:   "stun not configured; punching disabled for this session",
-		})
-	} else {
-		emit(obs.Event{Stage: obs.StageGather, Kind: obs.KindStart, Name: "gather.stun.start", Msg: "stun start"})
+		// 3) STUN gating rule A.
+		var mappedAddrs []string
+		if len(cfg.StunServers) == 0 {
+			emit(event.Event{
+				Stage: event.StageGather,
+				Kind:  event.KindInfo,
+				Name:  "gather.stun.skip",
+				Msg:   "stun not configured; punching disabled for this session",
+			})
+		} else {
+			emit(event.Event{Stage: event.StageGather, Kind: event.KindStart, Name: "gather.stun.start", Msg: "stun start"})
 
 		stunCtx, cancel := context.WithTimeout(ctx, cfg.StunTimeout)
 		defer cancel()
@@ -259,22 +259,22 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 		stunRes := DiscoverSTUN(stunCtx, udp4Conn, cfg.StunServers)
 		mappedAddrs = stunRes.MappedAddrs
 
-		kind := obs.KindOK
-		msg := "stun ok"
-		errText := ""
-		if len(stunRes.Errors) > 0 {
-			kind = obs.KindInfo
-			msg = "stun finished with errors"
-			errText = fmt.Sprintf("%v", stunRes.Errors)
-		}
+			kind := event.KindOK
+			msg := "stun ok"
+			errText := ""
+			if len(stunRes.Errors) > 0 {
+				kind = event.KindInfo
+				msg = "stun finished with errors"
+				errText = fmt.Sprintf("%v", stunRes.Errors)
+			}
 
-		emit(obs.Event{
-			Stage: obs.StageGather,
-			Kind:  kind,
-			Name:  "gather.stun.result",
-			Msg:   msg,
-			Err:   errText,
-			KVs: map[string]any{
+			emit(event.Event{
+				Stage: event.StageGather,
+				Kind:  kind,
+				Name:  "gather.stun.result",
+				Msg:   msg,
+				Err:   errText,
+				KVs: map[string]any{
 				"count": len(mappedAddrs),
 				"ms":    time.Since(start).Milliseconds(),
 			},
@@ -299,16 +299,16 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 		needWait := len(pmState.included) == 0 && !pmState.frozen
 		pmState.mu.Unlock()
 
-		if needWait {
-			wait := time.Until(pmDeadline)
-			if wait > 0 {
-				emit(obs.Event{
-					Stage: obs.StageGather,
-					Kind:  obs.KindInfo,
-					Name:  "gather.portmap.wait",
-					Msg:   "waiting for portmap candidates",
-					KVs: map[string]any{
-						"ms": wait.Milliseconds(),
+			if needWait {
+				wait := time.Until(pmDeadline)
+				if wait > 0 {
+					emit(event.Event{
+						Stage: event.StageGather,
+						Kind:  event.KindInfo,
+						Name:  "gather.portmap.wait",
+						Msg:   "waiting for portmap candidates",
+						KVs: map[string]any{
+							"ms": wait.Milliseconds(),
 					},
 				})
 				timer := time.NewTimer(wait)
@@ -330,36 +330,36 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 		pmState.mu.Unlock()
 		close(pmSnapshotDone)
 
-		included = TrimDirectAddrPorts(included)
-		directCandidates = append(directCandidates, included...)
+			included = TrimDirectAddrPorts(included)
+			directCandidates = append(directCandidates, included...)
 
-		emit(obs.Event{
-			Stage: obs.StageGather,
-			Kind:  obs.KindInfo,
-			Name:  "gather.portmap.snapshot",
-			Msg:   "portmap snapshot finalized",
-			KVs: map[string]any{
-				"included":     len(included) > 0,
-				"direct_v4":    len(included),
+			emit(event.Event{
+				Stage: event.StageGather,
+				Kind:  event.KindInfo,
+				Name:  "gather.portmap.snapshot",
+				Msg:   "portmap snapshot finalized",
+				KVs: map[string]any{
+					"included":     len(included) > 0,
+					"direct_v4":    len(included),
 				"methods_done": done,
 				"deadline_ms":  cfg.GatherTimeout.Milliseconds(),
 			},
 		})
 	}
 	directAddrs := TrimAndFormatDirectAddrs(directCandidates)
-	if len(directAddrs) == 0 && len(mappedAddrs) == 0 {
-		// Nothing to exchange; keep it explicit to avoid silent hangs.
-		return nil, errors.New("no candidates gathered: direct_addrs empty and stun mapped_addrs empty")
-	}
+		if len(directAddrs) == 0 && len(mappedAddrs) == 0 {
+			// Nothing to exchange; keep it explicit to avoid silent hangs.
+			return nil, errors.New("no candidates gathered: direct_addrs empty and stun mapped_addrs empty")
+		}
 
-	emit(obs.Event{
-		Stage: obs.StageGather,
-		Kind:  obs.KindOK,
-		Name:  "gather.done",
-		Msg:   "gather done",
-		KVs: map[string]any{
-			"direct_addrs": len(directAddrs),
-			"mapped_addrs": len(mappedAddrs),
+		emit(event.Event{
+			Stage: event.StageGather,
+			Kind:  event.KindOK,
+			Name:  "gather.done",
+			Msg:   "gather done",
+			KVs: map[string]any{
+				"direct_addrs": len(directAddrs),
+				"mapped_addrs": len(mappedAddrs),
 		},
 	})
 

@@ -1,16 +1,16 @@
 ## 1. Package Layout Migration
 
-- [ ] 1.1 Create the target directory skeleton (`connectivity/`, `event/`, `nat/`, `stun/`, `internal/**`) per the design mapping.
-- [ ] 1.2 Migrate `xtcp/obs` → `event/` and update all imports without changing event semantics/output format.
-- [ ] 1.3 Checkpoint: run `go test ./...` + `go vet ./...` (ensure the repo still compiles after moving `event/`).
-- [ ] 1.4 Migrate `xtcp/connectivity` → `connectivity/` and update all imports.
-- [ ] 1.5 Checkpoint: run `go test ./...` + `go vet ./...` (ensure `connectivity/` move did not drift behavior or break imports).
-- [ ] 1.6 Migrate `xtcp/stun` (server) → `stun/` and update all imports.
-- [ ] 1.7 Checkpoint: run `go test ./...` + `go vet ./...` (ensure `stun/` move is safe).
-- [ ] 1.8 Migrate glue/implementation packages into `internal/` (`xtcp/control`, `xtcp/coord`, `xtcp/msg`, `xtcp/transport`, `xtcp/netutil`, `xtcp/peer`) and update imports.
-- [ ] 1.9 Checkpoint: run `go test ./...` + `go vet ./...` (post-`internal/` migration).
-- [ ] 1.10 Checkpoint: run `./lab/host/labctl xtcp-selftest` and confirm artifacts validate (P1 regression).
-- [ ] 1.11 Checkpoint: run `./lab/host/labctl xtcp-connectivity-selftest` and confirm artifacts validate (P2 regression).
+- [x] 1.1 Create the target directory skeleton (`connectivity/`, `event/`, `nat/`, `stun/`, `internal/**`) per the design mapping.
+- [x] 1.2 Migrate `xtcp/obs` → `event/` and update all imports without changing event semantics/output format.
+- [x] 1.3 Checkpoint: run `go test ./...` + `go vet ./...` (ensure the repo still compiles after moving `event/`).
+- [x] 1.4 Migrate `xtcp/connectivity` → `connectivity/` and update all imports.
+- [x] 1.5 Checkpoint: run `go test ./...` + `go vet ./...` (ensure `connectivity/` move did not drift behavior or break imports).
+- [x] 1.6 Migrate `xtcp/stun` (server) → `stun/` and update all imports.
+- [x] 1.7 Checkpoint: run `go test ./...` + `go vet ./...` (ensure `stun/` move is safe).
+- [x] 1.8 Migrate glue/implementation packages into `internal/` (`xtcp/control`, `xtcp/coord`, `xtcp/msg`, `xtcp/transport`, `xtcp/netutil`, `xtcp/peer`) and update imports.
+- [x] 1.9 Checkpoint: run `go test ./...` + `go vet ./...` (post-`internal/` migration).
+- [x] 1.10 Checkpoint: run `./lab/host/labctl xtcp-selftest` and confirm artifacts validate (P1 regression).
+- [x] 1.11 Checkpoint: run `./lab/host/labctl xtcp-connectivity-selftest` and confirm artifacts validate (P2 regression).
 
 ## 2. Nathole + Util Cleanup (Minimal, No Behavior Drift)
 
