@@ -187,7 +187,7 @@
 ## 开放问题
 
 - `P3` 的新包路径如何命名与落位：是否引入新的 `dataplane/` 包，还是以其他目录表达 `miopunch transport` 抽象。
-- 传输选择在消息层中采用何种最小表示，才能既支持 `kcp / quic / brutal`，又不把 `P3(v1)` 复杂化。
+- 传输选择在消息层中采用何种最小表示，才能既支持 `data-proto=kcp|quic` + `quic-cc=bbr|brutal`，又不把 `P3(v1)` 复杂化。
 - `brutal` 在 `P3(v1)` 中应开放哪些最小参数，哪些参数必须明确推迟到后续 change。
 - `connectivity`（打洞内核）与 `dataplane`（数据面）的能力归属是否要在 spec 层显式拆开：
   - 已决策：打洞内核只承诺“产出可用 UDP 通道 + UDP self-check”；所有传输协议选择与 `payload exchanged` 验收归属 `dataplane`。
