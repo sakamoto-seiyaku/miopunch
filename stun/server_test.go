@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/miopunch/miopunch/xtcp/nathole"
+	"github.com/miopunch/miopunch/nat"
 )
 
 func freeUDPAddr(t *testing.T) string {
@@ -33,7 +33,7 @@ func TestServer_Discover(t *testing.T) {
 	}
 	defer s.Close()
 
-	addrs, local, err := nathole.Discover([]string{a1, a2}, "")
+	addrs, local, err := nat.Discover([]string{a1, a2}, "")
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}

@@ -1,9 +1,11 @@
-package nathole
+package coordinator
 
 import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/miopunch/miopunch/internal/punching"
 )
 
 func TestAnalyzer_GetRecommandBehaviors_ReturnsSupportedRoleAndMode(t *testing.T) {
@@ -13,13 +15,13 @@ func TestAnalyzer_GetRecommandBehaviors_ReturnsSupportedRoleAndMode(t *testing.T
 	v := &NatFeature{NatType: HardNAT, RegularPortsChange: true}
 
 	mode, index, cb, vb := a.GetRecommandBehaviors("k", c, v)
-	if !slices.Contains(SupportedModes, mode) {
+	if !slices.Contains(punching.SupportedModes, mode) {
 		t.Fatalf("unsupported mode: %d", mode)
 	}
 	if index < 0 {
 		t.Fatalf("invalid index: %d", index)
 	}
-	if !slices.Contains(SupportedRoles, cb.Role) || !slices.Contains(SupportedRoles, vb.Role) {
+	if !slices.Contains(punching.SupportedRoles, cb.Role) || !slices.Contains(punching.SupportedRoles, vb.Role) {
 		t.Fatalf("unsupported roles: client=%q visitor=%q", cb.Role, vb.Role)
 	}
 

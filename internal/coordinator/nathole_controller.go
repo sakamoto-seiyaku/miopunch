@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nathole
+package coordinator
 
 import (
 	"context"
@@ -36,11 +36,6 @@ import (
 
 // NatHoleTimeout seconds.
 var NatHoleTimeout int64 = 10
-
-func NewTransactionID() string {
-	id, _ := util.RandID()
-	return fmt.Sprintf("%d%s", time.Now().Unix(), id)
-}
 
 type ClientCfg struct {
 	name       string
@@ -426,4 +421,14 @@ func getRangePorts(addrs []string, difference, maxNumber int) []wire.PortsRange 
 		To:   min(port+difference+5, port+maxNumber, 65535),
 	})
 	return ports
+}
+
+func parseIPs(addrs []string) []string {
+	var ips []string
+	for _, addr := range addrs {
+		if ip, _, err := net.SplitHostPort(addr); err == nil {
+			ips = append(ips, ip)
+		}
+	}
+	return ips
 }

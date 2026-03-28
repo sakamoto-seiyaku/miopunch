@@ -1,4 +1,4 @@
-package nathole
+package nat
 
 import "testing"
 

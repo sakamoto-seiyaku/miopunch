@@ -10,7 +10,7 @@ import (
 
 	"github.com/pion/stun/v2"
 
-	"github.com/miopunch/miopunch/xtcp/nathole"
+	"github.com/miopunch/miopunch/nat"
 )
 
 const stunResponseTimeout = 3 * time.Second
@@ -116,7 +116,7 @@ func doSTUNRequest(ctx context.Context, conn *net.UDPConn, addr string) (externa
 
 	xor := &stun.XORMappedAddress{}
 	mapped := &stun.MappedAddress{}
-	changed := &nathole.ChangedAddress{}
+	changed := &nat.ChangedAddress{}
 	other := &stun.OtherAddress{}
 
 	if err := mapped.GetFrom(&resp); err == nil {

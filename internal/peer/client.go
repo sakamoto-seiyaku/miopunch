@@ -30,9 +30,9 @@ import (
 
 	"github.com/miopunch/miopunch/internal/control"
 	"github.com/miopunch/miopunch/internal/netutil"
+	"github.com/miopunch/miopunch/internal/punching"
 	"github.com/miopunch/miopunch/internal/tlsutil"
 	"github.com/miopunch/miopunch/internal/wire"
-	"github.com/miopunch/miopunch/xtcp/nathole"
 )
 
 type ClientConfig struct {
@@ -95,22 +95,22 @@ func RunClient(ctx context.Context, cfg ClientConfig) error {
 		AllowUsers:  cfg.AllowUsers,
 		DisableAuth: cfg.DisableAuth,
 	}, cfg.HelloTimeout)
-		if err != nil {
-			return fail(event.StageSignaling, err, "connect to coordinator failed", map[string]any{
-				"coord":         cfg.CoordAddr,
-				"control_proto": string(cfg.ControlProto),
-				"proxy_name":    cfg.ProxyName,
-			})
-		}
+	if err != nil {
+		return fail(event.StageSignaling, err, "connect to coordinator failed", map[string]any{
+			"coord":         cfg.CoordAddr,
+			"control_proto": string(cfg.ControlProto),
+			"proxy_name":    cfg.ProxyName,
+		})
+	}
 	defer sess.rwc.Close()
 
-		if cfg.Emitter != nil {
-			cfg.Emitter.OK(event.StageSignaling, "connected to coordinator", map[string]any{
-				"coord":         cfg.CoordAddr,
-				"control_proto": string(cfg.ControlProto),
-				"proxy_name":    cfg.ProxyName,
-			})
-		}
+	if cfg.Emitter != nil {
+		cfg.Emitter.OK(event.StageSignaling, "connected to coordinator", map[string]any{
+			"coord":         cfg.CoordAddr,
+			"control_proto": string(cfg.ControlProto),
+			"proxy_name":    cfg.ProxyName,
+		})
+	}
 
 	sidCh := make(chan string, 16)
 	sess.dispatcher.RegisterHandler(&wire.NatHoleSid{}, wire.AsyncHandler(func(m wire.Message) {
@@ -132,11 +132,11 @@ func RunClient(ctx context.Context, cfg ClientConfig) error {
 			return nil
 		case sid := <-sidCh:
 			err := runClientSession(ctx, sess, cfg, sid)
-				if err != nil && cfg.Emitter != nil {
-					cfg.Emitter.Fail(event.StageSupervisor, err, "client session failed", map[string]any{
-						"sid": sid,
-					})
-				}
+			if err != nil && cfg.Emitter != nil {
+				cfg.Emitter.Fail(event.StageSupervisor, err, "client session failed", map[string]any{
+					"sid": sid,
+				})
+			}
 			if cfg.Once {
 				return err
 			}
@@ -163,17 +163,17 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 		Emitter:              cfg.Emitter,
 	})
 	if err != nil {
-			if cfg.Emitter != nil {
-				cfg.Emitter.Fail(event.StageGather, err, "gather failed", map[string]any{"sid": sid})
-			}
-			return err
+		if cfg.Emitter != nil {
+			cfg.Emitter.Fail(event.StageGather, err, "gather failed", map[string]any{"sid": sid})
 		}
+		return err
+	}
 	defer gather.UDP4Conn.Close()
 	if gather.UDP6Conn != nil {
 		defer gather.UDP6Conn.Close()
 	}
 
-	transactionID := nathole.NewTransactionID()
+	transactionID := punching.NewTransactionID()
 	natHoleClientMsg := &wire.NatHoleClient{
 		TransactionID: transactionID,
 		ProxyName:     cfg.ProxyName,
@@ -191,7 +191,7 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 		})
 	}
 
-	natHoleRespMsg, err := nathole.ExchangeInfo(sessionCtx, sess.xport, transactionID, natHoleClientMsg, cfg.ExchangeInfoTimeout)
+	natHoleRespMsg, err := punching.ExchangeInfo(sessionCtx, sess.xport, transactionID, natHoleClientMsg, cfg.ExchangeInfoTimeout)
 	if err != nil {
 		if cfg.Emitter != nil {
 			cfg.Emitter.Fail(event.StageExchange, err, "exchange.failed", map[string]any{

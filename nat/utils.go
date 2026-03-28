@@ -12,41 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nathole
+package nat
 
 import (
-	"bytes"
 	"fmt"
+	"github.com/pion/stun/v2"
 	"net"
 	"strconv"
-
-	"github.com/fatedier/golib/crypto"
-	"github.com/pion/stun/v2"
-
-	"github.com/miopunch/miopunch/internal/wire"
 )
-
-func EncodeMessage(m wire.Message, key []byte) ([]byte, error) {
-	buffer := bytes.NewBuffer(nil)
-	if err := wire.WriteMsg(buffer, m); err != nil {
-		return nil, err
-	}
-
-	buf, err := crypto.Encode(buffer.Bytes(), key)
-	if err != nil {
-		return nil, err
-	}
-	return buf, nil
-}
-
-func DecodeMessageInto(data, key []byte, m wire.Message) error {
-	buf, err := crypto.Decode(data, key)
-	if err != nil {
-		return err
-	}
-
-	return wire.ReadMsgInto(bytes.NewReader(buf), m)
-}
 
 type ChangedAddress struct {
 	IP   net.IP

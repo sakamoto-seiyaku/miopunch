@@ -27,7 +27,6 @@ import (
 
 	"github.com/miopunch/miopunch/internal/control"
 	"github.com/miopunch/miopunch/internal/wire"
-	"github.com/miopunch/miopunch/xtcp/nathole"
 )
 
 type Config struct {
@@ -67,7 +66,7 @@ func Run(ctx context.Context, cfg Config) error {
 		})
 	}
 
-	ctrl, err := nathole.NewController(cfg.AnalysisReserveDuration)
+	ctrl, err := NewController(cfg.AnalysisReserveDuration)
 	if err != nil {
 		return err
 	}
@@ -85,7 +84,7 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 }
 
-func handleConn(ctx context.Context, rwc io.ReadWriteCloser, ctrl *nathole.Controller, cfg Config) {
+func handleConn(ctx context.Context, rwc io.ReadWriteCloser, ctrl *Controller, cfg Config) {
 	defer rwc.Close()
 
 	disp := wire.NewDispatcher(rwc)

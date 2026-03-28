@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nathole
+package punching
 
 import (
 	"context"
@@ -28,6 +28,7 @@ import (
 	"golang.org/x/net/ipv4"
 
 	"github.com/miopunch/miopunch/internal/wire"
+	"github.com/miopunch/miopunch/nat"
 	"github.com/miopunch/miopunch/xtcp/util/xlog"
 )
 
@@ -115,7 +116,7 @@ func PreCheck(
 // Prepare is used to do some preparation work before penetration.
 func Prepare(stunServers []string, opts PrepareOptions) (*PrepareResult, error) {
 	// discover for Nat type
-	addrs, localAddr, err := Discover(stunServers, "")
+	addrs, localAddr, err := nat.Discover(stunServers, "")
 	if err != nil {
 		return nil, fmt.Errorf("discover error: %v", err)
 	}
@@ -123,8 +124,8 @@ func Prepare(stunServers []string, opts PrepareOptions) (*PrepareResult, error) 
 		return nil, fmt.Errorf("discover error: not enough addresses")
 	}
 
-	localIPs, _ := ListLocalIPsForNatHole(10)
-	natFeature, err := ClassifyNATFeature(addrs, localIPs)
+	localIPs, _ := nat.ListLocalIPsForNatHole(10)
+	natFeature, err := nat.ClassifyNATFeature(addrs, localIPs)
 	if err != nil {
 		return nil, fmt.Errorf("classify nat feature error: %v", err)
 	}

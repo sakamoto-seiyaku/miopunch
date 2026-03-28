@@ -8,9 +8,9 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/miopunch/miopunch/internal/wire"
-	"github.com/miopunch/miopunch/xtcp/nathole"
 	"github.com/miopunch/miopunch/event"
+	"github.com/miopunch/miopunch/internal/punching"
+	"github.com/miopunch/miopunch/internal/wire"
 )
 
 type AttemptConfig struct {
@@ -32,7 +32,7 @@ type AttemptResult struct {
 type PunchFunc func(ctx context.Context, listenConn *net.UDPConn, resp *wire.NatHoleResp, key []byte) (*net.UDPConn, *net.UDPAddr, error)
 
 func Attempt(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, udp6Conn *net.UDPConn, resp *wire.NatHoleResp, cfg AttemptConfig) (*AttemptResult, error) {
-	return attemptWithPunch(ctx, sid, key, udp4Conn, udp6Conn, resp, cfg, nathole.MakeHole)
+	return attemptWithPunch(ctx, sid, key, udp4Conn, udp6Conn, resp, cfg, punching.MakeHole)
 }
 
 func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, udp6Conn *net.UDPConn, resp *wire.NatHoleResp, cfg AttemptConfig, punch PunchFunc) (*AttemptResult, error) {
@@ -302,7 +302,7 @@ func directHandshakeFanout(ctx context.Context, conn *net.UDPConn, sid string, k
 			}
 
 			var in wire.NatHoleSid
-			if err := nathole.DecodeMessageInto(buf[:n], key, &in); err != nil {
+			if err := punching.DecodeMessageInto(buf[:n], key, &in); err != nil {
 				continue
 			}
 			if in.Sid != sid {
@@ -311,7 +311,7 @@ func directHandshakeFanout(ctx context.Context, conn *net.UDPConn, sid string, k
 
 			if !in.Response {
 				in.Response = true
-				resp, err := nathole.EncodeMessage(&in, key)
+				resp, err := punching.EncodeMessage(&in, key)
 				if err == nil {
 					_, _ = conn.WriteToUDP(resp, raddr)
 				}
@@ -328,7 +328,7 @@ func directHandshakeFanout(ctx context.Context, conn *net.UDPConn, sid string, k
 		}
 	}()
 
-	tx := nathole.NewTransactionID()
+	tx := punching.NewTransactionID()
 	for _, ap := range candidates {
 		ap := ap
 		go func() {
@@ -338,7 +338,7 @@ func directHandshakeFanout(ctx context.Context, conn *net.UDPConn, sid string, k
 				Sid:           sid,
 				Response:      false,
 			}
-			payload, err := nathole.EncodeMessage(req, key)
+			payload, err := punching.EncodeMessage(req, key)
 			if err != nil {
 				return
 			}
@@ -385,7 +385,7 @@ func sendDirectHandshakeResponses(conn *net.UDPConn, sid string, key []byte, rad
 		sendInterval = 50 * time.Millisecond
 	}
 
-	payload, err := nathole.EncodeMessage(&wire.NatHoleSid{
+	payload, err := punching.EncodeMessage(&wire.NatHoleSid{
 		Sid:      sid,
 		Response: true,
 	}, key)

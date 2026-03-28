@@ -1,4 +1,4 @@
-package nathole
+package punching
 
 import (
 	"context"

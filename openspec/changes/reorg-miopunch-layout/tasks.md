@@ -14,8 +14,8 @@
 
 ## 2. Nathole + Util Cleanup (Minimal, No Behavior Drift)
 
-- [ ] 2.1 Split `xtcp/nathole` into `nat/` + `internal/punching/` + `internal/coordinator/` (minimal move-first; avoid deep refactors).
-- [ ] 2.2 Checkpoint: run `go test ./...` + `go vet ./...` (post-`nathole` split).
+- [x] 2.1 Split `xtcp/nathole` into `nat/` + `internal/punching/` + `internal/coordinator/` (minimal move-first; avoid deep refactors).
+- [x] 2.2 Checkpoint: run `go test ./...` + `go vet ./...` (post-`nathole` split).
 - [ ] 2.3 Remove `xtcp/util/**` buckets by moving code into ownership-aligned locations (`internal/*util/` or owner packages) and update call sites.
 - [ ] 2.4 Checkpoint: run `go test ./...` + `go vet ./...` (post-`util` cleanup).
 - [ ] 2.5 Ensure there is no top-level `xtcp/` directory remaining after migration.

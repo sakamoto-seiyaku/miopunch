@@ -21,7 +21,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/miopunch/miopunch/xtcp/nathole"
+	"github.com/miopunch/miopunch/internal/punching"
+	"github.com/miopunch/miopunch/nat"
 )
 
 func listenPortFromAddr(addr string) (int, error) {
@@ -44,17 +45,17 @@ func listenPortFromAddr(addr string) (int, error) {
 	return port, nil
 }
 
-func prepareNATHole(stunServers []string, disableAssistedAddrs bool, localAddr string) (*nathole.PrepareResult, error) {
-	opts := nathole.PrepareOptions{
+func prepareNATHole(stunServers []string, disableAssistedAddrs bool, localAddr string) (*punching.PrepareResult, error) {
+	opts := punching.PrepareOptions{
 		DisableAssistedAddrs: disableAssistedAddrs,
 	}
 	if localAddr == "" {
-		return nathole.Prepare(stunServers, opts)
+		return punching.Prepare(stunServers, opts)
 	}
 
 	// Avoid modifying the copy-first extracted nathole.Prepare logic: we keep upstream code intact
 	// and only glue a fixed local port for the lab environment here.
-	addrs, discoveredLocalAddr, err := nathole.Discover(stunServers, localAddr)
+	addrs, discoveredLocalAddr, err := nat.Discover(stunServers, localAddr)
 	if err != nil {
 		return nil, fmt.Errorf("discover error: %v", err)
 	}
@@ -62,8 +63,8 @@ func prepareNATHole(stunServers []string, disableAssistedAddrs bool, localAddr s
 		return nil, fmt.Errorf("discover error: not enough addresses")
 	}
 
-	localIPs, _ := nathole.ListLocalIPsForNatHole(10)
-	natFeature, err := nathole.ClassifyNATFeature(addrs, localIPs)
+	localIPs, _ := nat.ListLocalIPsForNatHole(10)
+	natFeature, err := nat.ClassifyNATFeature(addrs, localIPs)
 	if err != nil {
 		return nil, fmt.Errorf("classify nat feature error: %v", err)
 	}
@@ -84,7 +85,7 @@ func prepareNATHole(stunServers []string, disableAssistedAddrs bool, localAddr s
 			assistedAddrs = append(assistedAddrs, net.JoinHostPort(ip, strconv.Itoa(laddr.Port)))
 		}
 	}
-	return &nathole.PrepareResult{
+	return &punching.PrepareResult{
 		Addrs:         addrs,
 		AssistedAddrs: assistedAddrs,
 		ListenConn:    listenConn,

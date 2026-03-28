@@ -30,9 +30,9 @@ import (
 
 	"github.com/miopunch/miopunch/internal/control"
 	"github.com/miopunch/miopunch/internal/netutil"
+	"github.com/miopunch/miopunch/internal/punching"
 	"github.com/miopunch/miopunch/internal/tlsutil"
 	"github.com/miopunch/miopunch/internal/wire"
-	"github.com/miopunch/miopunch/xtcp/nathole"
 	"github.com/miopunch/miopunch/xtcp/util/util"
 )
 
@@ -124,7 +124,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 			"proxy_name": cfg.ProxyName,
 		})
 	}
-	if err := nathole.PreCheck(sessionCtx, sess.xport, cfg.ProxyName, cfg.ExchangeInfoTimeout); err != nil {
+	if err := punching.PreCheck(sessionCtx, sess.xport, cfg.ProxyName, cfg.ExchangeInfoTimeout); err != nil {
 		if cfg.Emitter != nil {
 			cfg.Emitter.Fail(event.StageSignaling, err, "precheck failed", map[string]any{
 				"proxy_name": cfg.ProxyName,
@@ -162,7 +162,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	}
 
 	now := time.Now().Unix()
-	transactionID := nathole.NewTransactionID()
+	transactionID := punching.NewTransactionID()
 	natHoleVisitorMsg := &wire.NatHoleVisitor{
 		TransactionID: transactionID,
 		ProxyName:     cfg.ProxyName,
@@ -182,7 +182,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 		})
 	}
 
-	natHoleRespMsg, err := nathole.ExchangeInfo(sessionCtx, sess.xport, transactionID, natHoleVisitorMsg, cfg.ExchangeInfoTimeout)
+	natHoleRespMsg, err := punching.ExchangeInfo(sessionCtx, sess.xport, transactionID, natHoleVisitorMsg, cfg.ExchangeInfoTimeout)
 	if err != nil {
 		if cfg.Emitter != nil {
 			cfg.Emitter.Fail(event.StageExchange, err, "exchange.failed", map[string]any{
