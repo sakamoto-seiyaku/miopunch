@@ -26,13 +26,13 @@
 
 - [x] 3.1 Update `cmd/miopunch` imports to the new package layout and remove `xtcp` from user-facing help/usage text.
 - [x] 3.2 Checkpoint: run `go test ./...` and verify `miopunch help` output contains no `xtcp`.
-- [ ] 3.3 Update `lab/**` scripts and validators (if any) that hard-code old paths/terms so the regression runner still works.
-- [ ] 3.4 Checkpoint: run `./lab/check.sh` (syntax + guest unit + openspec validate all).
-- [ ] 3.5 Update `docs/roadmap.md` to reference current archived change paths and to use `miopunch` naming for `P3` (do not rewrite historical reports).
-- [ ] 3.6 Checkpoint: run `openspec validate --all --strict --no-interactive`.
+- [x] 3.3 Update `lab/**` scripts and validators (if any) that hard-code old paths/terms so the regression runner still works.
+- [x] 3.4 Checkpoint: run `./lab/check.sh` (syntax + guest unit + openspec validate all).
+- [x] 3.5 Update `docs/roadmap.md` to reference current archived change paths and to use `miopunch` naming for `P3` (do not rewrite historical reports).
+- [x] 3.6 Checkpoint: run `openspec validate --all --strict --no-interactive`.
 
 ## 4. Verification / Guardrails
 
-- [ ] 4.1 Add a guardrail check (script + documented command, and/or wired into `lab/check.sh`) that fails if any new `github.com/miopunch/miopunch/xtcp` imports are introduced.
-- [ ] 4.2 Final checkpoint: run `go test ./...` + `go vet ./...` from the final migrated tree.
-- [ ] 4.3 Final checkpoint: run `./lab/host/labctl xtcp-selftest` and `./lab/host/labctl xtcp-connectivity-selftest`.
+- [x] 4.1 Add a guardrail check (script + documented command, and/or wired into `lab/check.sh`) that fails if any new `github.com/miopunch/miopunch/xtcp` imports are introduced.
+- [x] 4.2 Final checkpoint: run `go test ./...` + `go vet ./...` from the final migrated tree.
+- [x] 4.3 Final checkpoint: run `./lab/host/labctl xtcp-selftest` and `./lab/host/labctl xtcp-connectivity-selftest`.

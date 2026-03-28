@@ -24,6 +24,9 @@ done < <(
 echo "== unit =="
 ./lab/guest/tests/unit.sh
 
+echo "== guardrails =="
+./scripts/check_no_xtcp_imports.sh
+
 echo "== openspec =="
 openspec validate --all --strict --no-interactive
 
