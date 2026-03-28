@@ -25,7 +25,8 @@
   - `--data-proto kcp|quic`
   - `--quic-cc bbr|brutal`（仅 `data-proto=quic` 时生效；默认 `bbr`）
 - `brutal` 是对外名，表示“`QUIC` 下的 `brutal` 调度/拥塞控制模式”；它不是完整 `Hysteria2` 产品协议兼容层。
-- `P3` 采用方案 A：全仓 QUIC 统一迁移到 `HY2` 最新 release 对应的 QUIC fork，并在 `miopunch` 侧钉死版本；`control plane` 与 `data plane` 共用同一 QUIC 栈。
+- `P3` 采用方案 A：全仓 QUIC 统一迁移到 `HY2` 最新 release 对应的 QUIC fork，并在 `miopunch` 侧钉死版本（仅在我们显式变更或追随重大修复时升级）；`control plane` 与 `data plane` 共用同一 QUIC 栈。
+- `P3(v1)` 暂不引入配置文件与复杂 UX；实验台与回归优先通过 CLI 或代码常量写死参数，先闭环“能跑通 + 可回归”。
 - 每次会话只选择一个传输协议；传输协议由本地配置或显式参数指定，不做“传输失败后自动切换协议”。
 - `connectivity` 层只负责 `gather / exchange / attempt` 并产出已打通的 UDP 通道；不负责后续传输层选择、切换与调度。
 - `dataplane`（传输层）负责：
