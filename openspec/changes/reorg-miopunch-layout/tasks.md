@@ -24,8 +24,8 @@
 
 ## 3. CLI, Lab, and Docs Alignment
 
-- [ ] 3.1 Update `cmd/miopunch` imports to the new package layout and remove `xtcp` from user-facing help/usage text.
-- [ ] 3.2 Checkpoint: run `go test ./...` and verify `miopunch help` output contains no `xtcp`.
+- [x] 3.1 Update `cmd/miopunch` imports to the new package layout and remove `xtcp` from user-facing help/usage text.
+- [x] 3.2 Checkpoint: run `go test ./...` and verify `miopunch help` output contains no `xtcp`.
 - [ ] 3.3 Update `lab/**` scripts and validators (if any) that hard-code old paths/terms so the regression runner still works.
 - [ ] 3.4 Checkpoint: run `./lab/check.sh` (syntax + guest unit + openspec validate all).
 - [ ] 3.5 Update `docs/roadmap.md` to reference current archived change paths and to use `miopunch` naming for `P3` (do not rewrite historical reports).

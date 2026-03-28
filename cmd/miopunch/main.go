@@ -57,7 +57,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintf(os.Stderr, `miopunch (xtcp-kernel)
+	fmt.Fprintf(os.Stderr, `miopunch (punching kernel)
 
 Usage:
   miopunch coord  [flags]
