@@ -1,0 +1,12 @@
+[
+  {
+    "stage": "transport",
+    "kind": "ok",
+    "name": "transport.payload_exchanged",
+    "kvs": {
+      "data_proto": "quic",
+      "quic_cc": "bbr"
+    }
+  }
+]
+

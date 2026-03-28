@@ -23,38 +23,47 @@ fail=0
 # - core-10: hardest; may fail, but must produce stage-level diagnostics
 # - explicit failure: signkey mismatch, must fail in signaling stage
 runs=(
-  "core-01 tcp quic success"
-  "core-01 tcp kcp success"
-  "core-01 quic quic success"
-  "core-01 kcp kcp success"
+  "core-01 tcp quic bbr success"
+  "core-01 tcp quic brutal success"
+  "core-01 tcp kcp bbr success"
+  "core-01 quic quic bbr success"
+  "core-01 kcp kcp bbr success"
 
-  "core-02 tcp quic success"
-  "core-02 tcp kcp success"
+  "core-02 tcp quic bbr success"
+  "core-02 tcp kcp bbr success"
 
-  "core-03 tcp quic success"
+  "core-03 tcp quic bbr success"
 
-  "core-06 tcp quic success"
-  "core-06 tcp kcp success"
+  "core-06 tcp quic bbr success"
+  "core-06 tcp kcp bbr success"
 
-  "core-01-loss tcp quic success"
-  "core-01-loss tcp kcp success"
+  "core-01-loss tcp quic brutal success"
+  "core-01-loss tcp kcp bbr success"
 
-  "core-10 tcp quic diag-fail"
+  "core-10 tcp quic bbr diag-fail"
 
-  "core-01 tcp quic fail exchange signkey-mismatch"
+  "core-01 tcp quic bbr fail exchange signkey-mismatch"
 )
 
 for r in "${runs[@]}"; do
-  read -r case_id control_proto data_proto expect extra_stage extra_tag <<<"${r}"
+  read -r case_id control_proto data_proto quic_cc expect extra_stage extra_tag <<<"${r}"
 
-  echo "== ${case_id} control=${control_proto} data=${data_proto} expect=${expect} =="
+  echo "== ${case_id} control=${control_proto} data=${data_proto} quic_cc=${quic_cc} expect=${expect} =="
 
-  args=("${case_id}" "--control-proto" "${control_proto}" "--data-proto" "${data_proto}" "--expect" "${expect}" "--disable-portmap" "--verify-artifacts")
+  args=("${case_id}" "--control-proto" "${control_proto}" "--data-proto" "${data_proto}" "--quic-cc" "${quic_cc}" "--expect" "${expect}" "--disable-portmap" "--verify-artifacts")
 
   if [[ "${expect}" == "success" ]]; then
-    expect_events_file="${expect_dir}/transport-${data_proto}.events.json"
+    if [[ "${data_proto}" == "quic" ]]; then
+      expect_events_file="${expect_dir}/transport-quic.${quic_cc}.events.json"
+    else
+      expect_events_file="${expect_dir}/transport-kcp.events.json"
+    fi
     if [[ "${case_id}" == "core-01-loss" ]]; then
-      expect_events_file="${expect_dir}/core-01-loss.${data_proto}.events.json"
+      if [[ "${data_proto}" == "quic" ]]; then
+        expect_events_file="${expect_dir}/core-01-loss.quic.${quic_cc}.events.json"
+      else
+        expect_events_file="${expect_dir}/core-01-loss.kcp.events.json"
+      fi
     fi
     args+=("--expect-events-file" "${expect_events_file}")
   fi

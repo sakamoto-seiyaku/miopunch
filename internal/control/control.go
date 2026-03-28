@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	quic "github.com/quic-go/quic-go"
+	quic "github.com/apernet/quic-go"
 	kcp "github.com/xtaci/kcp-go/v5"
 
 	"github.com/miopunch/miopunch/internal/tlsutil"

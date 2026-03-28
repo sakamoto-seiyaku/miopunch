@@ -19,20 +19,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"strings"
 	"time"
 
-	"github.com/quic-go/quic-go"
-
 	"github.com/miopunch/miopunch/connectivity"
+	"github.com/miopunch/miopunch/dataplane"
 	"github.com/miopunch/miopunch/event"
 
 	"github.com/miopunch/miopunch/internal/authutil"
 	"github.com/miopunch/miopunch/internal/control"
-	"github.com/miopunch/miopunch/internal/netutil"
 	"github.com/miopunch/miopunch/internal/punching"
-	"github.com/miopunch/miopunch/internal/tlsutil"
 	"github.com/miopunch/miopunch/internal/wire"
 )
 
@@ -44,6 +40,7 @@ type VisitorConfig struct {
 	ProxyName string
 	SecretKey string
 	DataProto string // kcp | quic
+	QuicCC    string // bbr | brutal (only when DataProto=quic)
 
 	Payload []byte
 
@@ -81,6 +78,17 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	}
 	if cfg.DataProto != "kcp" && cfg.DataProto != "quic" {
 		return fail(event.StageSupervisor, fmt.Errorf("unsupported data proto: %q", cfg.DataProto), "invalid config", nil)
+	}
+	if cfg.QuicCC == "" {
+		cfg.QuicCC = "bbr"
+	}
+	if cfg.DataProto == "quic" {
+		if cfg.QuicCC != "bbr" && cfg.QuicCC != "brutal" {
+			return fail(event.StageSupervisor, fmt.Errorf("unsupported quic cc: %q", cfg.QuicCC), "invalid config", nil)
+		}
+	} else {
+		// For kcp mode, keep quic-cc empty to avoid implying a meaningful value.
+		cfg.QuicCC = ""
 	}
 	if cfg.HelloTimeout == 0 {
 		cfg.HelloTimeout = 5 * time.Second
@@ -163,10 +171,21 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 
 	now := time.Now().Unix()
 	transactionID := punching.NewTransactionID()
+
+	// P3(v1): brutal parameters are intentionally fixed for lab regression.
+	var brutalUpBps, brutalDownBps uint64
+	if cfg.DataProto == "quic" && cfg.QuicCC == "brutal" {
+		brutalUpBps = 1_000_000
+		brutalDownBps = 1_000_000
+	}
+
 	natHoleVisitorMsg := &wire.NatHoleVisitor{
 		TransactionID: transactionID,
 		ProxyName:     cfg.ProxyName,
 		Protocol:      cfg.DataProto,
+		QuicCC:        cfg.QuicCC,
+		BrutalUpBps:   brutalUpBps,
+		BrutalDownBps: brutalDownBps,
 		SignKey:       authutil.GetAuthKey(cfg.SecretKey, now),
 		Timestamp:     now,
 		DirectAddrs:   gather.DirectAddrs,
@@ -179,6 +198,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 			"tx":            transactionID,
 			"control_proto": string(cfg.ControlProto),
 			"data_proto":    cfg.DataProto,
+			"quic_cc":       cfg.QuicCC,
 		})
 	}
 
@@ -197,6 +217,9 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 			"sid":         natHoleRespMsg.Sid,
 			"tx":          transactionID,
 			"data_proto":  natHoleRespMsg.Protocol,
+			"quic_cc":     natHoleRespMsg.QuicCC,
+			"brutal_up":   natHoleRespMsg.BrutalUpBps,
+			"brutal_down": natHoleRespMsg.BrutalDownBps,
 			"peer_direct": len(natHoleRespMsg.PeerDirectAddrs),
 			"punching":    natHoleRespMsg.PunchingEnabled,
 		})
@@ -220,18 +243,19 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 		cfg.Emitter.Start(event.StageTransport, "data plane start", map[string]any{
 			"sid":        natHoleRespMsg.Sid,
 			"data_proto": natHoleRespMsg.Protocol,
+			"quic_cc":    natHoleRespMsg.QuicCC,
 		})
 	}
 
-	var dataErr error
-	switch natHoleRespMsg.Protocol {
-	case "kcp":
-		dataErr = dialKCP(sessionCtx, cfg, attemptRes.Conn, attemptRes.Remote)
-	case "quic", "":
-		dataErr = dialQUIC(sessionCtx, cfg, attemptRes.Conn, attemptRes.Remote)
-	default:
-		dataErr = fmt.Errorf("unknown data plane protocol: %q", natHoleRespMsg.Protocol)
+	dpCfg := dataplane.Config{
+		Proto:  dataplane.Protocol(natHoleRespMsg.Protocol),
+		QuicCC: dataplane.QUICCC(natHoleRespMsg.QuicCC),
+		Brutal: dataplane.BrutalConfig{
+			UpBps:   natHoleRespMsg.BrutalUpBps,
+			DownBps: natHoleRespMsg.BrutalDownBps,
+		},
 	}
+	dataErr := dataplane.DialAndExchange(sessionCtx, dpCfg, attemptRes.Conn, attemptRes.Remote, cfg.Payload, cfg.Emitter)
 	if dataErr != nil && cfg.Emitter != nil {
 		cfg.Emitter.Fail(event.StageTransport, dataErr, "data plane failed", map[string]any{
 			"sid":        natHoleRespMsg.Sid,
@@ -239,89 +263,4 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 		})
 	}
 	return dataErr
-}
-
-func dialKCP(ctx context.Context, cfg VisitorConfig, listenConn *net.UDPConn, raddr *net.UDPAddr) error {
-	defer listenConn.Close()
-	laddr, err := net.ResolveUDPAddr("udp", listenConn.LocalAddr().String())
-	if err != nil {
-		return err
-	}
-	_ = listenConn.Close()
-
-	lConn, err := net.DialUDP("udp", laddr, raddr)
-	if err != nil {
-		return err
-	}
-	defer lConn.Close()
-
-	c, err := netutil.NewKCPConnFromUDP(lConn, true, raddr.String())
-	if err != nil {
-		return err
-	}
-	defer c.Close()
-
-	_ = c.SetDeadline(time.Now().Add(15 * time.Second))
-	if err := writeFrame(c, cfg.Payload); err != nil {
-		return err
-	}
-	resp, err := readFrame(c, 64*1024)
-	if err != nil {
-		return err
-	}
-	if string(resp) != "ok:"+string(cfg.Payload) {
-		return fmt.Errorf("unexpected response: %q", string(resp))
-	}
-
-	if cfg.Emitter != nil {
-		cfg.Emitter.OK(event.StageTransport, "kcp payload exchanged", map[string]any{
-			"bytes": len(cfg.Payload),
-		})
-	}
-	return nil
-}
-
-func dialQUIC(ctx context.Context, cfg VisitorConfig, listenConn *net.UDPConn, raddr *net.UDPAddr) error {
-	defer listenConn.Close()
-
-	tlsConfig, err := tlsutil.NewClientTLSConfig("", "", "", raddr.String())
-	if err != nil {
-		return err
-	}
-	tlsConfig.NextProtos = []string{"miopunch-xtcp-data"}
-
-	c, err := quic.Dial(ctx, listenConn, raddr, tlsConfig, &quic.Config{
-		HandshakeIdleTimeout: 20 * time.Second,
-		MaxIdleTimeout:       30 * time.Second,
-		KeepAlivePeriod:      10 * time.Second,
-	})
-	if err != nil {
-		return err
-	}
-	defer c.CloseWithError(0, "")
-
-	stream, err := c.OpenStreamSync(ctx)
-	if err != nil {
-		return err
-	}
-	defer stream.Close()
-
-	_ = stream.SetDeadline(time.Now().Add(15 * time.Second))
-	if err := writeFrame(stream, cfg.Payload); err != nil {
-		return err
-	}
-	resp, err := readFrame(stream, 64*1024)
-	if err != nil {
-		return err
-	}
-	if string(resp) != "ok:"+string(cfg.Payload) {
-		return fmt.Errorf("unexpected response: %q", string(resp))
-	}
-
-	if cfg.Emitter != nil {
-		cfg.Emitter.OK(event.StageTransport, "quic payload exchanged", map[string]any{
-			"bytes": len(cfg.Payload),
-		})
-	}
-	return nil
 }

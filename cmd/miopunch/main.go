@@ -76,6 +76,8 @@ Commands:
 	    --secret <secret>
 	    --user <name>
 	    --allow-users <comma-list>
+	    --data-proto <kcp|quic>
+	    --quic-cc <bbr|brutal>
 	    --p2p-port <port>           (lab/test only; fixed local UDP port; 0=random)
 	    --stun <addr1,addr2,...>
 	    --stun-timeout <duration>
@@ -92,6 +94,7 @@ Commands:
 	    --secret <secret>
 	    --user <name>
 	    --data-proto <kcp|quic>
+	    --quic-cc <bbr|brutal>
 	    --payload <string>
 	    --p2p-port <port>           (lab/test only; fixed local UDP port; 0=random)
 	    --stun <addr1,addr2,...>
@@ -154,6 +157,8 @@ func peerClientCmd(ctx context.Context, args []string) {
 	secret := fs.String("secret", "", "secret key")
 	user := fs.String("user", "client", "user name")
 	allowUsers := fs.String("allow-users", "", "comma-separated allow users (empty -> same user only)")
+	dataProto := fs.String("data-proto", "quic", "data plane protocol: kcp|quic")
+	quicCC := fs.String("quic-cc", "bbr", "quic congestion control: bbr|brutal (only applies when --data-proto=quic)")
 	stunServers := fs.String("stun", "", "comma-separated stun servers")
 	stunTimeout := fs.Duration("stun-timeout", 3*time.Second, "STUN timeout (only applies when STUN servers are configured)")
 	gatherTimeout := fs.Duration("gather-timeout", 1500*time.Millisecond, "gather timeout for optional helpers (e.g. portmap); does not gate STUN")
@@ -176,6 +181,8 @@ func peerClientCmd(ctx context.Context, args []string) {
 		ProxyName:             *proxy,
 		SecretKey:             *secret,
 		AllowUsers:            splitComma(*allowUsers),
+		DataProto:             *dataProto,
+		QuicCC:                *quicCC,
 		StunServers:           splitComma(*stunServers),
 		StunTimeout:           *stunTimeout,
 		GatherTimeout:         *gatherTimeout,
@@ -206,6 +213,7 @@ func peerVisitorCmd(ctx context.Context, args []string) {
 	secret := fs.String("secret", "", "secret key")
 	user := fs.String("user", "visitor", "user name")
 	dataProto := fs.String("data-proto", "quic", "data plane protocol: kcp|quic")
+	quicCC := fs.String("quic-cc", "bbr", "quic congestion control: bbr|brutal (only applies when --data-proto=quic)")
 	payload := fs.String("payload", "ping", "payload to send")
 	stunServers := fs.String("stun", "", "comma-separated stun servers")
 	stunTimeout := fs.Duration("stun-timeout", 3*time.Second, "STUN timeout (only applies when STUN servers are configured)")
@@ -228,6 +236,7 @@ func peerVisitorCmd(ctx context.Context, args []string) {
 		ProxyName:             *proxy,
 		SecretKey:             *secret,
 		DataProto:             *dataProto,
+		QuicCC:                *quicCC,
 		Payload:               []byte(*payload),
 		StunServers:           splitComma(*stunServers),
 		StunTimeout:           *stunTimeout,

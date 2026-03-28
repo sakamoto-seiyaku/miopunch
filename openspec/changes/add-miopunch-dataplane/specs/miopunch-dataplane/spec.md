@@ -26,6 +26,28 @@ Each session SHALL select exactly one data plane mode and SHALL NOT auto-switch 
 - **THEN** the session uses QUIC-based transport
 - **AND** diagnostics identify the selected data plane mode
 
+### Requirement: Exchange Enforces Data Plane Consistency
+For a given session, both peers SHALL use the same data plane selection for:
+`data-proto`, and when `data-proto=quic`, also `quic-cc` (and `up/down` limits when `quic-cc=brutal`).
+
+If the peers are not consistent, the system SHALL fail during the `exchange` step (before `attempt`)
+and SHALL emit diagnostics that attribute the failure to data plane mismatch.
+
+#### Scenario: Exchange fails when data-proto mismatches
+- **GIVEN** peer A configures `data-proto=kcp`
+- **AND** peer B configures `data-proto=quic`
+- **WHEN** the peers run the exchange step
+- **THEN** the exchange fails explicitly
+- **AND** diagnostics identify a data plane mismatch
+
+#### Scenario: Exchange fails when QUIC CC mismatches
+- **GIVEN** both peers configure `data-proto=quic`
+- **AND** peer A configures `quic-cc=bbr`
+- **AND** peer B configures `quic-cc=brutal`
+- **WHEN** the peers run the exchange step
+- **THEN** the exchange fails explicitly
+- **AND** diagnostics identify a QUIC CC mismatch
+
 ### Requirement: QUIC Congestion Control Mode Selection (BBR or Brutal)
 When `data-proto=quic`, the system SHALL support selecting the QUIC congestion control mode between `bbr` and `brutal`.
 If not specified, the QUIC congestion control mode SHALL default to `bbr`.

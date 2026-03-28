@@ -22,6 +22,7 @@ import (
 	"net"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -298,19 +299,74 @@ func (c *Controller) GenNatHoleResponse(transactionID string, session *Session, 
 func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHoleResp, error) {
 	cm := session.clientMsg
 	vm := session.visitorMsg
-	protocol := vm.Protocol
+
+	// P3 transport: data plane config must match on both peers. No negotiation or downgrade.
+	visitorProto := strings.TrimSpace(vm.Protocol)
+	if visitorProto == "" {
+		visitorProto = "quic"
+	}
+	clientProto := strings.TrimSpace(cm.Protocol)
+	if clientProto == "" {
+		clientProto = "quic"
+	}
+	if visitorProto != clientProto {
+		return nil, nil, fmt.Errorf("data plane protocol mismatch: visitor=%q client=%q", visitorProto, clientProto)
+	}
+	if visitorProto != "kcp" && visitorProto != "quic" {
+		return nil, nil, fmt.Errorf("unsupported data plane protocol: %q", visitorProto)
+	}
+
+	var quicCC string
+	var brutalUpBps, brutalDownBps uint64
+	if visitorProto == "quic" {
+		visitorCC := strings.TrimSpace(vm.QuicCC)
+		if visitorCC == "" {
+			visitorCC = "bbr"
+		}
+		clientCC := strings.TrimSpace(cm.QuicCC)
+		if clientCC == "" {
+			clientCC = "bbr"
+		}
+		if visitorCC != clientCC {
+			return nil, nil, fmt.Errorf("quic cc mismatch: visitor=%q client=%q", visitorCC, clientCC)
+		}
+		if visitorCC != "bbr" && visitorCC != "brutal" {
+			return nil, nil, fmt.Errorf("unsupported quic cc: %q", visitorCC)
+		}
+		quicCC = visitorCC
+
+		if quicCC == "brutal" {
+			if vm.BrutalUpBps == 0 || vm.BrutalDownBps == 0 || cm.BrutalUpBps == 0 || cm.BrutalDownBps == 0 {
+				return nil, nil, fmt.Errorf("brutal requires explicit up/down limits")
+			}
+			if vm.BrutalUpBps != cm.BrutalUpBps || vm.BrutalDownBps != cm.BrutalDownBps {
+				return nil, nil, fmt.Errorf(
+					"brutal limits mismatch: visitor=(up=%d,down=%d) client=(up=%d,down=%d)",
+					vm.BrutalUpBps, vm.BrutalDownBps, cm.BrutalUpBps, cm.BrutalDownBps,
+				)
+			}
+			brutalUpBps = vm.BrutalUpBps
+			brutalDownBps = vm.BrutalDownBps
+		}
+	}
 
 	// Always exchange direct candidates snapshot (P2).
 	vResp := &wire.NatHoleResp{
 		TransactionID:   vm.TransactionID,
 		Sid:             session.sid,
-		Protocol:        protocol,
+		Protocol:        visitorProto,
+		QuicCC:          quicCC,
+		BrutalUpBps:     brutalUpBps,
+		BrutalDownBps:   brutalDownBps,
 		PeerDirectAddrs: slices.Compact(cm.DirectAddrs),
 	}
 	cResp := &wire.NatHoleResp{
 		TransactionID:   cm.TransactionID,
 		Sid:             session.sid,
-		Protocol:        protocol,
+		Protocol:        visitorProto,
+		QuicCC:          quicCC,
+		BrutalUpBps:     brutalUpBps,
+		BrutalDownBps:   brutalDownBps,
 		PeerDirectAddrs: slices.Compact(vm.DirectAddrs),
 	}
 
@@ -391,8 +447,8 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 		CandidatePorts:    getRangePorts(vm.MappedAddrs, vNatFeature.PortsDifference, cBehavior.PortsRangeNumber),
 	}
 
-	logutil.Debugf("sid [%s] visitor nat: %+v, candidateAddrs: %v; client nat: %+v, candidateAddrs: %v, protocol: %s",
-		session.sid, *vNatFeature, vm.MappedAddrs, *cNatFeature, cm.MappedAddrs, protocol)
+	logutil.Debugf("sid [%s] visitor nat: %+v, candidateAddrs: %v; client nat: %+v, candidateAddrs: %v, protocol: %s, quic_cc: %s",
+		session.sid, *vNatFeature, vm.MappedAddrs, *cNatFeature, cm.MappedAddrs, visitorProto, quicCC)
 	logutil.Debugf("sid [%s] visitor detect behavior: %+v", session.sid, vResp.DetectBehavior)
 	logutil.Debugf("sid [%s] client detect behavior: %+v", session.sid, cResp.DetectBehavior)
 	return vResp, cResp, nil

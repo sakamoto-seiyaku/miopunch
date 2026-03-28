@@ -35,6 +35,7 @@ Usage: mlab-xtcp-run <case-id> [flags]
 Flags:
   --control-proto <tcp|kcp|quic>    Control plane protocol (default: tcp)
   --data-proto <kcp|quic>           Data plane protocol (default: quic)
+  --quic-cc <bbr|brutal>            QUIC congestion control (default: bbr; only when --data-proto=quic)
   --proxy <name>                    Proxy name (default: p1)
   --secret <secret>                 Secret key for client side (default: secret)
   --visitor-secret <secret>         Secret key used by visitor (default: same as --secret)
@@ -184,6 +185,7 @@ main() {
 
   local control_proto="tcp"
   local data_proto="quic"
+  local quic_cc="bbr"
   local proxy_name="p1"
   local secret="secret"
   local visitor_secret=""
@@ -203,6 +205,7 @@ main() {
     case "$1" in
       --control-proto) control_proto="${2:-}"; shift 2 ;;
       --data-proto) data_proto="${2:-}"; shift 2 ;;
+      --quic-cc) quic_cc="${2:-}"; shift 2 ;;
       --proxy) proxy_name="${2:-}"; shift 2 ;;
       --secret) secret="${2:-}"; shift 2 ;;
       --visitor-secret) visitor_secret="${2:-}"; shift 2 ;;
@@ -227,6 +230,11 @@ main() {
 
   case "${control_proto}" in tcp|kcp|quic) ;; *) die "invalid --control-proto: ${control_proto}" ;; esac
   case "${data_proto}" in kcp|quic) ;; *) die "invalid --data-proto: ${data_proto}" ;; esac
+  if [[ "${data_proto}" == "quic" ]]; then
+    case "${quic_cc}" in bbr|brutal) ;; *) die "invalid --quic-cc: ${quic_cc}" ;; esac
+  else
+    quic_cc="bbr"
+  fi
   case "${expect}" in success|fail|diag-fail|allow-diag-fail) ;; *) die "invalid --expect: ${expect}" ;; esac
   if [[ -n "${expect_path}" ]]; then
     case "${expect_path}" in direct_ipv6|direct_ipv4|punching_ipv4) ;; *) die "invalid --expect-path: ${expect_path}" ;; esac
@@ -261,6 +269,9 @@ main() {
   local ts
   ts="$(date -u +%Y%m%dT%H%M%SZ)"
   run_dir="${artifacts_root}/${ts}-xtcp-${case_id}-${control_proto}-${data_proto}"
+  if [[ "${data_proto}" == "quic" ]]; then
+    run_dir="${run_dir}-${quic_cc}"
+  fi
   mkdir -p "${run_dir}"
   echo "run_dir=${run_dir}"
 
@@ -274,6 +285,7 @@ main() {
     echo "case_id=${case_id}"
     echo "control_proto=${control_proto}"
     echo "data_proto=${data_proto}"
+    echo "quic_cc=${quic_cc}"
     echo "proxy_name=${proxy_name}"
     echo "stun_addrs=${stun_addrs}"
     echo "coord_addr=${COORD_IP}:7000"
@@ -372,6 +384,8 @@ main() {
     --secret "${secret}"
     --user "a"
     --allow-users "*"
+    --data-proto "${data_proto}"
+    --quic-cc "${quic_cc}"
     --p2p-port "${a_p2p_port}"
   )
   if [[ -n "${attempt_v6_timeout}" ]]; then
@@ -418,6 +432,7 @@ main() {
     --secret "${visitor_secret}"
     --user "b"
     --data-proto "${data_proto}"
+    --quic-cc "${quic_cc}"
     --payload "${payload}"
     --p2p-port "${b_p2p_port}"
   )

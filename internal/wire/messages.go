@@ -66,6 +66,9 @@ type NatHoleVisitor struct {
 	ProxyName     string   `json:"proxy_name,omitempty"`
 	PreCheck      bool     `json:"pre_check,omitempty"`
 	Protocol      string   `json:"protocol,omitempty"` // kcp | quic (data plane)
+	QuicCC        string   `json:"quic_cc,omitempty"`  // bbr | brutal (only when Protocol=quic)
+	BrutalUpBps   uint64   `json:"brutal_up_bps,omitempty"`
+	BrutalDownBps uint64   `json:"brutal_down_bps,omitempty"`
 	SignKey       string   `json:"sign_key,omitempty"`
 	Timestamp     int64    `json:"timestamp,omitempty"`
 	DirectAddrs   []string `json:"direct_addrs,omitempty"`
@@ -77,6 +80,10 @@ type NatHoleClient struct {
 	TransactionID string   `json:"transaction_id,omitempty"`
 	ProxyName     string   `json:"proxy_name,omitempty"`
 	Sid           string   `json:"sid,omitempty"`
+	Protocol      string   `json:"protocol,omitempty"` // kcp | quic (data plane)
+	QuicCC        string   `json:"quic_cc,omitempty"`  // bbr | brutal (only when Protocol=quic)
+	BrutalUpBps   uint64   `json:"brutal_up_bps,omitempty"`
+	BrutalDownBps uint64   `json:"brutal_down_bps,omitempty"`
 	DirectAddrs   []string `json:"direct_addrs,omitempty"`
 	MappedAddrs   []string `json:"mapped_addrs,omitempty"`
 	AssistedAddrs []string `json:"assisted_addrs,omitempty"`
@@ -102,6 +109,9 @@ type NatHoleResp struct {
 	TransactionID   string                `json:"transaction_id,omitempty"`
 	Sid             string                `json:"sid,omitempty"`
 	Protocol        string                `json:"protocol,omitempty"`
+	QuicCC          string                `json:"quic_cc,omitempty"`
+	BrutalUpBps     uint64                `json:"brutal_up_bps,omitempty"`
+	BrutalDownBps   uint64                `json:"brutal_down_bps,omitempty"`
 	PeerDirectAddrs []string              `json:"peer_direct_addrs,omitempty"`
 	PunchingEnabled bool                  `json:"punching_enabled,omitempty"`
 	PunchingError   string                `json:"punching_error,omitempty"`

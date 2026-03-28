@@ -1,0 +1,19 @@
+[
+  {
+    "stage": "attempt",
+    "kind": "ok",
+    "name": "attempt.punching.ok"
+  },
+  {
+    "stage": "transport",
+    "kind": "ok",
+    "name": "transport.payload_exchanged",
+    "kvs": {
+      "data_proto": "quic",
+      "quic_cc": "brutal",
+      "brutal_up_bps": 1000000,
+      "brutal_down_bps": 1000000
+    }
+  }
+]
+

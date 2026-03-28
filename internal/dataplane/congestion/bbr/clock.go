@@ -1,0 +1,21 @@
+package bbr
+
+import "github.com/apernet/quic-go/monotime"
+
+// NOTE: Derived from Hysteria2's BBR sender implementation.
+// Source: apernet/hysteria (tag: app/v2.7.1), core/internal/congestion/bbr/clock.go
+
+// A Clock returns the current time.
+type Clock interface {
+	Now() monotime.Time
+}
+
+// DefaultClock implements the Clock interface using the Go stdlib clock.
+type DefaultClock struct{}
+
+var _ Clock = DefaultClock{}
+
+// Now gets the current time.
+func (DefaultClock) Now() monotime.Time {
+	return monotime.Now()
+}

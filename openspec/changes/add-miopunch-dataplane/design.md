@@ -24,6 +24,8 @@
 
 - **QUIC fork / versioning**
   - 采用 HY2 最新 release 对应的 QUIC fork。
+  - 当前对齐目标：`apernet/hysteria` `app/v2.7.1` 使用的 `github.com/apernet/quic-go` 版本：
+    - `v0.59.1-0.20260217092621-db4786c77a22`
   - `miopunch` 侧钉死该版本；后续升级由我们自己的变更驱动（或重大修复驱动）。
 - **Spec ownership (kernel vs data plane)**
   - `xtcp-kernel` 仅承诺“打洞产出可用 UDP 通道 + UDP self-check”，不再承诺数据面协议选择与 `payload exchanged`。

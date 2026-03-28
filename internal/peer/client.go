@@ -19,19 +19,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"strings"
 	"time"
 
-	"github.com/quic-go/quic-go"
-
 	"github.com/miopunch/miopunch/connectivity"
+	"github.com/miopunch/miopunch/dataplane"
 	"github.com/miopunch/miopunch/event"
 
 	"github.com/miopunch/miopunch/internal/control"
-	"github.com/miopunch/miopunch/internal/netutil"
 	"github.com/miopunch/miopunch/internal/punching"
-	"github.com/miopunch/miopunch/internal/tlsutil"
 	"github.com/miopunch/miopunch/internal/wire"
 )
 
@@ -43,6 +39,9 @@ type ClientConfig struct {
 	ProxyName  string
 	SecretKey  string
 	AllowUsers []string
+
+	DataProto string // kcp | quic
+	QuicCC    string // bbr | brutal (only when DataProto=quic)
 
 	DisableAuth bool
 
@@ -76,6 +75,22 @@ func RunClient(ctx context.Context, cfg ClientConfig) error {
 	}
 	if !cfg.DisableAuth && strings.TrimSpace(cfg.SecretKey) == "" {
 		return fail(event.StageSupervisor, errors.New("secret key is required"), "invalid config", nil)
+	}
+	if cfg.DataProto == "" {
+		cfg.DataProto = "quic"
+	}
+	if cfg.DataProto != "kcp" && cfg.DataProto != "quic" {
+		return fail(event.StageSupervisor, fmt.Errorf("unsupported data proto: %q", cfg.DataProto), "invalid config", nil)
+	}
+	if cfg.QuicCC == "" {
+		cfg.QuicCC = "bbr"
+	}
+	if cfg.DataProto == "quic" {
+		if cfg.QuicCC != "bbr" && cfg.QuicCC != "brutal" {
+			return fail(event.StageSupervisor, fmt.Errorf("unsupported quic cc: %q", cfg.QuicCC), "invalid config", nil)
+		}
+	} else {
+		cfg.QuicCC = ""
 	}
 	if cfg.HelloTimeout == 0 {
 		cfg.HelloTimeout = 5 * time.Second
@@ -174,10 +189,22 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 	}
 
 	transactionID := punching.NewTransactionID()
+
+	// P3(v1): brutal parameters are intentionally fixed for lab regression.
+	var brutalUpBps, brutalDownBps uint64
+	if cfg.DataProto == "quic" && cfg.QuicCC == "brutal" {
+		brutalUpBps = 1_000_000
+		brutalDownBps = 1_000_000
+	}
+
 	natHoleClientMsg := &wire.NatHoleClient{
 		TransactionID: transactionID,
 		ProxyName:     cfg.ProxyName,
 		Sid:           sid,
+		Protocol:      cfg.DataProto,
+		QuicCC:        cfg.QuicCC,
+		BrutalUpBps:   brutalUpBps,
+		BrutalDownBps: brutalDownBps,
 		DirectAddrs:   gather.DirectAddrs,
 		MappedAddrs:   gather.MappedAddrs,
 		AssistedAddrs: gather.AssistedAddrs,
@@ -188,6 +215,8 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 			"sid":           sid,
 			"tx":            transactionID,
 			"control_proto": string(cfg.ControlProto),
+			"data_proto":    cfg.DataProto,
+			"quic_cc":       cfg.QuicCC,
 		})
 	}
 
@@ -207,6 +236,9 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 			"sid":         sid,
 			"tx":          transactionID,
 			"data_proto":  natHoleRespMsg.Protocol,
+			"quic_cc":     natHoleRespMsg.QuicCC,
+			"brutal_up":   natHoleRespMsg.BrutalUpBps,
+			"brutal_down": natHoleRespMsg.BrutalDownBps,
 			"peer_direct": len(natHoleRespMsg.PeerDirectAddrs),
 			"punching":    natHoleRespMsg.PunchingEnabled,
 		})
@@ -232,18 +264,19 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 		cfg.Emitter.Start(event.StageTransport, "data plane start", map[string]any{
 			"sid":        sid,
 			"data_proto": natHoleRespMsg.Protocol,
+			"quic_cc":    natHoleRespMsg.QuicCC,
 		})
 	}
 
-	var dataErr error
-	switch natHoleRespMsg.Protocol {
-	case "kcp":
-		dataErr = serveKCP(sessionCtx, cfg, attemptRes.Conn, attemptRes.Remote)
-	case "quic", "":
-		dataErr = serveQUIC(sessionCtx, cfg, attemptRes.Conn)
-	default:
-		dataErr = fmt.Errorf("unknown data plane protocol: %q", natHoleRespMsg.Protocol)
+	dpCfg := dataplane.Config{
+		Proto:  dataplane.Protocol(natHoleRespMsg.Protocol),
+		QuicCC: dataplane.QUICCC(natHoleRespMsg.QuicCC),
+		Brutal: dataplane.BrutalConfig{
+			UpBps:   natHoleRespMsg.BrutalUpBps,
+			DownBps: natHoleRespMsg.BrutalDownBps,
+		},
 	}
+	dataErr := dataplane.ServeAndExchange(sessionCtx, dpCfg, attemptRes.Conn, attemptRes.Remote, cfg.Emitter)
 	if dataErr != nil && cfg.Emitter != nil {
 		cfg.Emitter.Fail(event.StageTransport, dataErr, "data plane failed", map[string]any{
 			"sid":        sid,
@@ -251,106 +284,4 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 		})
 	}
 	return dataErr
-}
-
-func serveKCP(ctx context.Context, cfg ClientConfig, listenConn *net.UDPConn, raddr *net.UDPAddr) error {
-	defer listenConn.Close()
-	laddr, err := net.ResolveUDPAddr("udp", listenConn.LocalAddr().String())
-	if err != nil {
-		return err
-	}
-	_ = listenConn.Close()
-
-	lConn, err := net.DialUDP("udp", laddr, raddr)
-	if err != nil {
-		return err
-	}
-	defer lConn.Close()
-
-	c, err := netutil.NewKCPConnFromUDP(lConn, true, raddr.String())
-	if err != nil {
-		return err
-	}
-	defer c.Close()
-
-	_ = c.SetDeadline(time.Now().Add(15 * time.Second))
-	req, err := readFrame(c, 64*1024)
-	if err != nil {
-		return err
-	}
-	resp := append([]byte("ok:"), req...)
-	if err := writeFrame(c, resp); err != nil {
-		return err
-	}
-
-	if cfg.Emitter != nil {
-		cfg.Emitter.OK(event.StageTransport, "kcp payload exchanged", map[string]any{
-			"bytes": len(req),
-		})
-	}
-
-	// Keep the UDP socket alive briefly so the dialer side can finish its exchange
-	// without receiving ICMP "port unreachable" due to early close.
-	select {
-	case <-ctx.Done():
-	case <-time.After(750 * time.Millisecond):
-	}
-	return nil
-}
-
-func serveQUIC(ctx context.Context, cfg ClientConfig, listenConn *net.UDPConn) error {
-	defer listenConn.Close()
-
-	tlsConfig, err := tlsutil.NewServerTLSConfig("", "", "")
-	if err != nil {
-		return err
-	}
-	tlsConfig.NextProtos = []string{"miopunch-xtcp-data"}
-
-	quicListener, err := quic.Listen(listenConn, tlsConfig, &quic.Config{
-		HandshakeIdleTimeout: 20 * time.Second,
-		MaxIdleTimeout:       30 * time.Second,
-		KeepAlivePeriod:      10 * time.Second,
-	})
-	if err != nil {
-		return err
-	}
-	defer quicListener.Close()
-
-	c, err := quicListener.Accept(ctx)
-	if err != nil {
-		return err
-	}
-	defer c.CloseWithError(0, "")
-
-	stream, err := c.AcceptStream(ctx)
-	if err != nil {
-		return err
-	}
-	defer stream.Close()
-
-	_ = stream.SetDeadline(time.Now().Add(15 * time.Second))
-	req, err := readFrame(stream, 64*1024)
-	if err != nil {
-		return err
-	}
-	resp := append([]byte("ok:"), req...)
-	if err := writeFrame(stream, resp); err != nil {
-		return err
-	}
-
-	if cfg.Emitter != nil {
-		cfg.Emitter.OK(event.StageTransport, "quic payload exchanged", map[string]any{
-			"bytes": len(req),
-		})
-	}
-
-	// Wait for the dialer side to close the connection before closing the underlying UDP socket.
-	// Closing too early may surface as "Application error 0x0 (remote)" on the visitor.
-	select {
-	case <-ctx.Done():
-	case <-c.Context().Done():
-	case <-time.After(2 * time.Second):
-	}
-	return nil
 }
