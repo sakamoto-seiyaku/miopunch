@@ -6,12 +6,12 @@
 - 当前版本只定义主线，不锁死细节。
 - 后续按实验结果、实现成本、真实网络表现持续调整。
 
-## 当前进度（截至 2026-03-25）
+## 当前进度（截至 2026-03-28）
 
-- `P0`：NAT 实验台已落地，case 覆盖集可一键自测并导出 artifacts；见 `docs/decisions/p0-nat-lab-charter.md`、`openspec/changes/2026-03-24-add-nat-lab-testbed/`、`docs/reports/2026-03-17-selftest.md`。
-- `P1`：打洞内核（from `frp xtcp`）抽离已落地，`core-01..core-10 × {kcp,quic}` 在 P0 VM 内完成实测并汇总；见 `docs/decisions/p1-xtcp-kernel-charter.md`、`openspec/changes/2026-03-24-add-xtcp-kernel/`、`docs/reports/2026-03-18-xtcp-fulltest.md`。
-- `P2`：连通性增强层已落地（`IPv6-first`、`UPnP/NAT-PMP`、固定 attempt 顺序、可观测性、no-trickle），并在 P0 VM 内完成实测并汇总；见 `docs/decisions/p2-connectivity-charter.md`、`openspec/changes/2026-03-24-add-xtcp-connectivity/`、`docs/reports/2026-03-24-xtcp-connectivity-fulltest.md`。
-- `P3`：目录重组与命名收敛、以及传输层抽象正在推进；见 `docs/decisions/p3-miopunch-transport-charter.md`、`openspec/changes/reorg-miopunch-layout/`、`openspec/changes/add-miopunch-dataplane/`。
+- `P0`：NAT 实验台已落地，case 覆盖集可一键自测并导出 artifacts；见 `docs/decisions/p0-nat-lab-charter.md`、`openspec/changes/archive/2026-03-24-add-nat-lab-testbed/`、`docs/reports/2026-03-17-selftest.md`。
+- `P1`：打洞内核（from `frp xtcp`）抽离已落地，`core-01..core-10 × {kcp,quic}` 在 P0 VM 内完成实测并汇总；见 `docs/decisions/p1-xtcp-kernel-charter.md`、`openspec/changes/archive/2026-03-24-add-xtcp-kernel/`、`docs/reports/2026-03-18-xtcp-fulltest.md`。
+- `P2`：连通性增强层已落地（`IPv6-first`、`UPnP/NAT-PMP`、固定 attempt 顺序、可观测性、no-trickle），并在 P0 VM 内完成实测并汇总；见 `docs/decisions/p2-connectivity-charter.md`、`openspec/changes/archive/2026-03-24-add-xtcp-connectivity/`、`docs/reports/2026-03-24-xtcp-connectivity-fulltest.md`。
+- `P3`：目录重组与命名收敛已完成并归档，传输层抽象正在推进；见 `docs/decisions/p3-miopunch-transport-charter.md`、`openspec/changes/archive/2026-03-28-reorg-miopunch-layout/`、`openspec/changes/add-miopunch-dataplane/`。
 
 ## 定位
 
@@ -96,7 +96,7 @@
 ### P3 抽象传输层
 
 - 将打洞成功后的 session 抽象成独立传输层接口。
-- 目录重组与命名收敛：见 `openspec/changes/reorg-miopunch-layout/`。
+- 目录重组与命名收敛：见 `openspec/changes/archive/2026-03-28-reorg-miopunch-layout/`。
 - `dataplane` 抽象与最小验收：见 `openspec/changes/add-miopunch-dataplane/`。
 - 以 `KCP / QUIC` 为基线，并定义传输选项的协商/切换与测试基准。
 - 在传输层稳定后，引入 `HY2` 风格的 `QUIC` 调度/拥塞控制作为与 `KCP / QUIC` 同级的传输选项。
