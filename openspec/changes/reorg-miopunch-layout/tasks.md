@@ -16,11 +16,11 @@
 
 - [x] 2.1 Split `xtcp/nathole` into `nat/` + `internal/punching/` + `internal/coordinator/` (minimal move-first; avoid deep refactors).
 - [x] 2.2 Checkpoint: run `go test ./...` + `go vet ./...` (post-`nathole` split).
-- [ ] 2.3 Remove `xtcp/util/**` buckets by moving code into ownership-aligned locations (`internal/*util/` or owner packages) and update call sites.
-- [ ] 2.4 Checkpoint: run `go test ./...` + `go vet ./...` (post-`util` cleanup).
-- [ ] 2.5 Ensure there is no top-level `xtcp/` directory remaining after migration.
-- [ ] 2.6 Checkpoint: verify no `github.com/miopunch/miopunch/xtcp` imports remain (e.g. `rg -n -- \"github.com/miopunch/miopunch/xtcp\"`) and rerun `go test ./...`.
-- [ ] 2.7 Checkpoint: rerun `./lab/host/labctl xtcp-selftest` and `./lab/host/labctl xtcp-connectivity-selftest` (prove P0/P1/P2 experiment entry points still work after the big split).
+- [x] 2.3 Remove `xtcp/util/**` buckets by moving code into ownership-aligned locations (`internal/*util/` or owner packages) and update call sites.
+- [x] 2.4 Checkpoint: run `go test ./...` + `go vet ./...` (post-`util` cleanup).
+- [x] 2.5 Ensure there is no top-level `xtcp/` directory remaining after migration.
+- [x] 2.6 Checkpoint: verify no `github.com/miopunch/miopunch/xtcp` imports remain (e.g. `rg -n -- \"github.com/miopunch/miopunch/xtcp\"`) and rerun `go test ./...`.
+- [x] 2.7 Checkpoint: rerun `./lab/host/labctl xtcp-selftest` and `./lab/host/labctl xtcp-connectivity-selftest` (prove P0/P1/P2 experiment entry points still work after the big split).
 
 ## 3. CLI, Lab, and Docs Alignment
 

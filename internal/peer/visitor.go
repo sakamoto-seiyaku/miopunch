@@ -28,12 +28,12 @@ import (
 	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/event"
 
+	"github.com/miopunch/miopunch/internal/authutil"
 	"github.com/miopunch/miopunch/internal/control"
 	"github.com/miopunch/miopunch/internal/netutil"
 	"github.com/miopunch/miopunch/internal/punching"
 	"github.com/miopunch/miopunch/internal/tlsutil"
 	"github.com/miopunch/miopunch/internal/wire"
-	"github.com/miopunch/miopunch/xtcp/util/util"
 )
 
 type VisitorConfig struct {
@@ -167,7 +167,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 		TransactionID: transactionID,
 		ProxyName:     cfg.ProxyName,
 		Protocol:      cfg.DataProto,
-		SignKey:       util.GetAuthKey(cfg.SecretKey, now),
+		SignKey:       authutil.GetAuthKey(cfg.SecretKey, now),
 		Timestamp:     now,
 		DirectAddrs:   gather.DirectAddrs,
 		MappedAddrs:   gather.MappedAddrs,

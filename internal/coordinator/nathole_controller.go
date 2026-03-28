@@ -29,9 +29,9 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/miopunch/miopunch/internal/authutil"
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/wire"
-	"github.com/miopunch/miopunch/xtcp/util/log"
-	"github.com/miopunch/miopunch/xtcp/util/util"
 )
 
 // NatHoleTimeout seconds.
@@ -109,7 +109,7 @@ func (c *Controller) CleanWorker(ctx context.Context) {
 		case <-ticker.C:
 			start := time.Now()
 			count, total := c.analyzer.Clean()
-			log.Tracef("clean %d/%d nathole analysis data, cost %v", count, total, time.Since(start))
+			logutil.Tracef("clean %d/%d nathole analysis data, cost %v", count, total, time.Since(start))
 		case <-ctx.Done():
 			return
 		}
@@ -140,7 +140,7 @@ func (c *Controller) CloseClient(name string) {
 
 func (c *Controller) GenSid() string {
 	t := time.Now().Unix()
-	id, _ := util.RandID()
+	id, _ := authutil.RandID()
 	return fmt.Sprintf("%d%s", t, id)
 }
 
@@ -180,18 +180,18 @@ func (c *Controller) HandleVisitor(m *wire.NatHoleVisitor, transporter wire.Mess
 		if !ok {
 			return fmt.Errorf("xtcp server for [%s] doesn't exist", m.ProxyName)
 		}
-		if !util.ConstantTimeEqString(m.SignKey, util.GetAuthKey(clientCfg.sk, m.Timestamp)) {
+		if !authutil.ConstantTimeEqString(m.SignKey, authutil.GetAuthKey(clientCfg.sk, m.Timestamp)) {
 			return fmt.Errorf("xtcp connection of [%s] auth failed", m.ProxyName)
 		}
 		c.sessions[sid] = session
 		return nil
 	}()
 	if err != nil {
-		log.Warnf("handle visitorMsg error: %v", err)
+		logutil.Warnf("handle visitorMsg error: %v", err)
 		_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, err.Error()))
 		return
 	}
-	log.Tracef("handle visitor message, sid [%s], server name: %s", sid, m.ProxyName)
+	logutil.Tracef("handle visitor message, sid [%s], server name: %s", sid, m.ProxyName)
 
 	defer func() {
 		c.mu.Lock()
@@ -209,14 +209,14 @@ func (c *Controller) HandleVisitor(m *wire.NatHoleVisitor, transporter wire.Mess
 	select {
 	case <-session.notifyCh:
 	case <-time.After(time.Duration(NatHoleTimeout) * time.Second):
-		log.Debugf("wait for NatHoleClient message timeout, sid [%s]", sid)
+		logutil.Debugf("wait for NatHoleClient message timeout, sid [%s]", sid)
 		return
 	}
 
 	// Make hole-punching decisions based on the NAT information of the client and visitor.
 	vResp, cResp, err := c.analysis(session)
 	if err != nil {
-		log.Debugf("sid [%s] analysis error: %v", err)
+		logutil.Debugf("sid [%s] analysis error: %v", err)
 		vResp = c.GenNatHoleResponse(session.visitorMsg.TransactionID, nil, err.Error())
 		cResp = c.GenNatHoleResponse(session.clientMsg.TransactionID, nil, err.Error())
 	}
@@ -257,7 +257,7 @@ func (c *Controller) HandleClient(m *wire.NatHoleClient, transporter wire.Messag
 	if !ok {
 		return
 	}
-	log.Tracef("handle client message, sid [%s], server name: %s", session.sid, m.ProxyName)
+	logutil.Tracef("handle client message, sid [%s], server name: %s", session.sid, m.ProxyName)
 	session.clientMsg = m
 	session.clientTransporter = transporter
 	select {
@@ -271,13 +271,13 @@ func (c *Controller) HandleReport(m *wire.NatHoleReport) {
 	session, ok := c.sessions[m.Sid]
 	c.mu.RUnlock()
 	if !ok {
-		log.Tracef("sid [%s] report make hole success: %v, but session not found", m.Sid, m.Success)
+		logutil.Tracef("sid [%s] report make hole success: %v, but session not found", m.Sid, m.Success)
 		return
 	}
 	if m.Success && session.analysisKey != "" {
 		c.analyzer.ReportSuccess(session.analysisKey, session.recommandMode, session.recommandIndex)
 	}
-	log.Infof("sid [%s] report make hole success: %v, mode %v, index %v",
+	logutil.Infof("sid [%s] report make hole success: %v, mode %v, index %v",
 		m.Sid, m.Success, session.recommandMode, session.recommandIndex)
 }
 
@@ -391,10 +391,10 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 		CandidatePorts:    getRangePorts(vm.MappedAddrs, vNatFeature.PortsDifference, cBehavior.PortsRangeNumber),
 	}
 
-	log.Debugf("sid [%s] visitor nat: %+v, candidateAddrs: %v; client nat: %+v, candidateAddrs: %v, protocol: %s",
+	logutil.Debugf("sid [%s] visitor nat: %+v, candidateAddrs: %v; client nat: %+v, candidateAddrs: %v, protocol: %s",
 		session.sid, *vNatFeature, vm.MappedAddrs, *cNatFeature, cm.MappedAddrs, protocol)
-	log.Debugf("sid [%s] visitor detect behavior: %+v", session.sid, vResp.DetectBehavior)
-	log.Debugf("sid [%s] client detect behavior: %+v", session.sid, cResp.DetectBehavior)
+	logutil.Debugf("sid [%s] visitor detect behavior: %+v", session.sid, vResp.DetectBehavior)
+	logutil.Debugf("sid [%s] client detect behavior: %+v", session.sid, cResp.DetectBehavior)
 	return vResp, cResp, nil
 }
 

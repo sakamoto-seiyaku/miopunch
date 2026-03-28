@@ -28,8 +28,8 @@ import (
 	"golang.org/x/net/ipv4"
 
 	"github.com/miopunch/miopunch/internal/wire"
+	"github.com/miopunch/miopunch/internal/xlog"
 	"github.com/miopunch/miopunch/nat"
-	"github.com/miopunch/miopunch/xtcp/util/xlog"
 )
 
 var (
