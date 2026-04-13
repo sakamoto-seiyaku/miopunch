@@ -1,0 +1,3 @@
+interface:
+  display_name: "Miopunch Dev"
+  short_description: "Miopunch development workflow and test gates"
