@@ -35,6 +35,13 @@ type ClientConfig struct {
 	CoordAddr    string
 	ControlProto control.Protocol
 
+	Signaling string // coord | mqtt
+
+	MQTTBroker      string
+	MQTTTopicPrefix string
+	MQTTUser        string
+	MQTTPass        string
+
 	User       string
 	ProxyName  string
 	SecretKey  string
@@ -70,6 +77,13 @@ func RunClient(ctx context.Context, cfg ClientConfig) error {
 		return err
 	}
 
+	if strings.TrimSpace(cfg.Signaling) == "" {
+		cfg.Signaling = "coord"
+	}
+	if cfg.Signaling != "coord" && cfg.Signaling != "mqtt" {
+		return fail(event.StageSupervisor, fmt.Errorf("unsupported signaling: %q", cfg.Signaling), "invalid config", nil)
+	}
+
 	if strings.TrimSpace(cfg.ProxyName) == "" {
 		return fail(event.StageSupervisor, errors.New("proxy name is required"), "invalid config", nil)
 	}
@@ -100,6 +114,10 @@ func RunClient(ctx context.Context, cfg ClientConfig) error {
 	}
 	if cfg.SessionOverallTimeout == 0 {
 		cfg.SessionOverallTimeout = 60 * time.Second
+	}
+
+	if cfg.Signaling == "mqtt" {
+		return runClientMQTT(ctx, cfg)
 	}
 
 	sess, err := dialHello(ctx, cfg.CoordAddr, cfg.ControlProto, &wire.PeerHello{

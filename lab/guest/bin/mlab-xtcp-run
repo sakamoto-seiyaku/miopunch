@@ -23,6 +23,7 @@ run_dir=""
 tcpdump_pid=""
 stun_pid=""
 coord_pid=""
+mqtt_pid=""
 client_pid=""
 natA_pmp_pid=""
 natB_pmp_pid=""
@@ -33,6 +34,8 @@ usage() {
 Usage: mlab-xtcp-run <case-id> [flags]
 
 Flags:
+  --signaling <coord|mqtt>          Signaling backend (default: coord)
+  --mqtt-broker <host:port>         MQTT broker address when --signaling=mqtt (default: <coord-ip>:1883)
   --control-proto <tcp|kcp|quic>    Control plane protocol (default: tcp)
   --data-proto <kcp|quic>           Data plane protocol (default: quic)
   --quic-cc <bbr|brutal>            QUIC congestion control (default: bbr; only when --data-proto=quic)
@@ -54,7 +57,7 @@ Flags:
 
 Artifacts:
   Writes a run dir under /opt/miopunch-lab/artifacts/ and stores:
-  - coord/client/visitor/stun logs (json event stream + errors)
+  - coord|mqtt, client, visitor, stun logs (json event stream + errors)
   - wan pcap
   - nat iptables/conntrack/tc snapshots
 EOF
@@ -92,7 +95,6 @@ verify_run_artifacts() {
     run.env
     visitor.log
     client.log
-    coord.log
     wan.pcap
     natA.iptables
     natB.iptables
@@ -107,6 +109,12 @@ verify_run_artifacts() {
   for f in "${required[@]}"; do
     [[ -e "${run_dir}/${f}" ]] || die "missing artifact: ${f} (run_dir=${run_dir})"
   done
+
+  if [[ "${signaling:-coord}" == "coord" ]]; then
+    [[ -e "${run_dir}/coord.log" ]] || die "missing artifact: coord.log (run_dir=${run_dir})"
+  else
+    [[ -e "${run_dir}/mqtt.log" ]] || die "missing artifact: mqtt.log (run_dir=${run_dir})"
+  fi
 
   if [[ "${disable_stun:-0}" -eq 0 ]]; then
     [[ -e "${run_dir}/stun.log" ]] || die "missing artifact: stun.log (run_dir=${run_dir})"
@@ -191,6 +199,8 @@ main() {
   local visitor_secret=""
   local payload="ping"
   local attempt_v6_timeout=""
+  local signaling="coord"
+  local mqtt_broker=""
   local disable_stun=0
   local disable_portmap=0
   local start_natpmpd=0
@@ -203,6 +213,8 @@ main() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      --signaling) signaling="${2:-}"; shift 2 ;;
+      --mqtt-broker) mqtt_broker="${2:-}"; shift 2 ;;
       --control-proto) control_proto="${2:-}"; shift 2 ;;
       --data-proto) data_proto="${2:-}"; shift 2 ;;
       --quic-cc) quic_cc="${2:-}"; shift 2 ;;
@@ -228,12 +240,16 @@ main() {
     visitor_secret="${secret}"
   fi
 
+  case "${signaling}" in coord|mqtt) ;; *) die "invalid --signaling: ${signaling}" ;; esac
   case "${control_proto}" in tcp|kcp|quic) ;; *) die "invalid --control-proto: ${control_proto}" ;; esac
   case "${data_proto}" in kcp|quic) ;; *) die "invalid --data-proto: ${data_proto}" ;; esac
   if [[ "${data_proto}" == "quic" ]]; then
     case "${quic_cc}" in bbr|brutal) ;; *) die "invalid --quic-cc: ${quic_cc}" ;; esac
   else
     quic_cc="bbr"
+  fi
+  if [[ "${signaling}" == "mqtt" && -z "${mqtt_broker}" ]]; then
+    mqtt_broker="${COORD_IP}:1883"
   fi
   case "${expect}" in success|fail|diag-fail|allow-diag-fail) ;; *) die "invalid --expect: ${expect}" ;; esac
   if [[ -n "${expect_path}" ]]; then
@@ -283,6 +299,8 @@ main() {
   {
     echo "ts_utc=${ts}"
     echo "case_id=${case_id}"
+    echo "signaling=${signaling}"
+    echo "mqtt_broker=${mqtt_broker}"
     echo "control_proto=${control_proto}"
     echo "data_proto=${data_proto}"
     echo "quic_cc=${quic_cc}"
@@ -310,6 +328,7 @@ main() {
   tcpdump_pid=""
   stun_pid=""
   coord_pid=""
+  mqtt_pid=""
   client_pid=""
   natA_pmp_pid=""
   natB_pmp_pid=""
@@ -317,6 +336,7 @@ main() {
     local rc=$?
     stop_pid "${client_pid:-}" || true
     stop_pid "${coord_pid:-}" || true
+    stop_pid "${mqtt_pid:-}" || true
     stop_pid "${stun_pid:-}" || true
     stop_pid "${natA_pmp_pid:-}" || true
     stop_pid "${natB_pmp_pid:-}" || true
@@ -354,32 +374,52 @@ main() {
     sleep 0.2
   fi
 
-  # Coordinator.
-  coord_pid="$(start_bg_in_netns "${NS_COORD}" "${run_dir}/coord.log" "${miopunch}" coord --listen "${COORD_IP}:7000" --proto "${control_proto}")"
+  if [[ "${signaling}" == "coord" ]]; then
+    # Coordinator.
+    coord_pid="$(start_bg_in_netns "${NS_COORD}" "${run_dir}/coord.log" "${miopunch}" coord --listen "${COORD_IP}:7000" --proto "${control_proto}")"
 
-  # Wait for coordinator to become ready (avoid connection refused race).
-  local t_coord_start t_coord_now
-  t_coord_start="$(date +%s)"
-  while true; do
-    if grep -q "\"msg\":\"coordinator listening\"" "${run_dir}/coord.log" 2>/dev/null; then
-      break
-    fi
-    if ! kill -0 "${coord_pid}" 2>/dev/null; then
-      die "coordinator exited before ready (run_dir=${run_dir})"
-    fi
-    t_coord_now="$(date +%s)"
-    if ((t_coord_now - t_coord_start >= 10)); then
-      die "coordinator not ready after 10s (run_dir=${run_dir})"
-    fi
-    sleep 0.05
-  done
+    # Wait for coordinator to become ready (avoid connection refused race).
+    local t_coord_start t_coord_now
+    t_coord_start="$(date +%s)"
+    while true; do
+      if grep -q "\"msg\":\"coordinator listening\"" "${run_dir}/coord.log" 2>/dev/null; then
+        break
+      fi
+      if ! kill -0 "${coord_pid}" 2>/dev/null; then
+        die "coordinator exited before ready (run_dir=${run_dir})"
+      fi
+      t_coord_now="$(date +%s)"
+      if ((t_coord_now - t_coord_start >= 10)); then
+        die "coordinator not ready after 10s (run_dir=${run_dir})"
+      fi
+      sleep 0.05
+    done
+  else
+    mqtt_pid="$(start_bg_in_netns "${NS_COORD}" "${run_dir}/mqtt.log" "${miopunch}" mqtt-broker --listen "${mqtt_broker}")"
+    sleep 0.1
+
+    local t_mqtt_start t_mqtt_now
+    t_mqtt_start="$(date +%s)"
+    while true; do
+      if grep -q "\"msg\":\"mqtt broker listening\"" "${run_dir}/mqtt.log" 2>/dev/null; then
+        break
+      fi
+      if ! kill -0 "${mqtt_pid}" 2>/dev/null; then
+        die "mqtt broker exited before ready (run_dir=${run_dir})"
+      fi
+      t_mqtt_now="$(date +%s)"
+      if ((t_mqtt_now - t_mqtt_start >= 10)); then
+        die "mqtt broker not ready after 10s (run_dir=${run_dir})"
+      fi
+      sleep 0.05
+    done
+  fi
 
   # Client peer (A) registers and waits for a single SID.
   local -a client_cmd
   client_cmd=(
     "${miopunch}" peer client
-    --coord "${COORD_IP}:7000"
-    --control-proto "${control_proto}"
+    --signaling "${signaling}"
     --proxy "${proxy_name}"
     --secret "${secret}"
     --user "a"
@@ -397,6 +437,11 @@ main() {
   if [[ "${disable_stun}" -eq 0 ]]; then
     client_cmd+=(--stun "${STUN_IP}:3478,${STUN_IP}:3479")
   fi
+  if [[ "${signaling}" == "coord" ]]; then
+    client_cmd+=(--coord "${COORD_IP}:7000" --control-proto "${control_proto}")
+  else
+    client_cmd+=(--mqtt-broker "${mqtt_broker}")
+  fi
   client_cmd+=(--once)
 
   client_pid="$(start_bg_in_netns "${NS_PEER_A}" "${run_dir}/client.log" "${client_cmd[@]}")"
@@ -406,8 +451,14 @@ main() {
   local t_ready_start t_ready_now
   t_ready_start="$(date +%s)"
   while true; do
-    if grep -q "\"stage\":\"signaling\".*\"kind\":\"ok\".*\"msg\":\"connected to coordinator\"" "${run_dir}/client.log" 2>/dev/null; then
-      break
+    if [[ "${signaling}" == "coord" ]]; then
+      if grep -q "\"stage\":\"signaling\".*\"kind\":\"ok\".*\"msg\":\"connected to coordinator\"" "${run_dir}/client.log" 2>/dev/null; then
+        break
+      fi
+    else
+      if grep -q "\"stage\":\"signaling\".*\"kind\":\"ok\".*\"msg\":\"connected to mqtt broker\"" "${run_dir}/client.log" 2>/dev/null; then
+        break
+      fi
     fi
     if ! kill -0 "${client_pid}" 2>/dev/null; then
       die "client exited before ready (run_dir=${run_dir})"
@@ -426,8 +477,7 @@ main() {
   local -a visitor_cmd
   visitor_cmd=(
     "${miopunch}" peer visitor
-    --coord "${COORD_IP}:7000"
-    --control-proto "${control_proto}"
+    --signaling "${signaling}"
     --proxy "${proxy_name}"
     --secret "${visitor_secret}"
     --user "b"
@@ -444,6 +494,11 @@ main() {
   fi
   if [[ "${disable_stun}" -eq 0 ]]; then
     visitor_cmd+=(--stun "${STUN_IP}:3478,${STUN_IP}:3479")
+  fi
+  if [[ "${signaling}" == "coord" ]]; then
+    visitor_cmd+=(--coord "${COORD_IP}:7000" --control-proto "${control_proto}")
+  else
+    visitor_cmd+=(--mqtt-broker "${mqtt_broker}")
   fi
 
   ns_exec "${NS_PEER_B}" "${visitor_cmd[@]}" >"${run_dir}/visitor.log" 2>&1
@@ -463,6 +518,8 @@ main() {
   client_pid=""
   stop_pid "${coord_pid}" || true
   coord_pid=""
+  stop_pid "${mqtt_pid}" || true
+  mqtt_pid=""
   stop_pid "${stun_pid}" || true
   stun_pid=""
   stop_pid "${natA_pmp_pid}" || true

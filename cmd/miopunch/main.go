@@ -43,6 +43,8 @@ func main() {
 	switch os.Args[1] {
 	case "coord":
 		coordCmd(ctx, os.Args[2:])
+	case "mqtt-broker":
+		mqttBrokerCmd(ctx, os.Args[2:])
 	case "peer":
 		peerCmd(ctx, os.Args[2:])
 	case "stun":
@@ -61,6 +63,7 @@ func usage() {
 
 Usage:
   miopunch coord  [flags]
+  miopunch mqtt-broker [flags]
   miopunch peer   <client|visitor> [flags]
   miopunch stun   [flags]
 
@@ -70,8 +73,14 @@ Commands:
     --proto  <tcp|kcp|quic>   (control plane protocol)
 
 	  peer client:
+	    --config <path.yaml>
+	    --signaling <coord|mqtt>
 	    --coord <ip:port>
 	    --control-proto <tcp|kcp|quic>
+	    --mqtt-broker <host:port|tcp://...>
+	    --mqtt-topic-prefix <prefix>
+	    --mqtt-user <user>
+	    --mqtt-pass <pass>
 	    --proxy <name>
 	    --secret <secret>
 	    --user <name>
@@ -88,8 +97,14 @@ Commands:
 	    --once
 
 	  peer visitor:
+	    --config <path.yaml>
+	    --signaling <coord|mqtt>
 	    --coord <ip:port>
 	    --control-proto <tcp|kcp|quic>
+	    --mqtt-broker <host:port|tcp://...>
+	    --mqtt-topic-prefix <prefix>
+	    --mqtt-user <user>
+	    --mqtt-pass <pass>
 	    --proxy <name>
 	    --secret <secret>
 	    --user <name>
@@ -103,6 +118,9 @@ Commands:
 	    --attempt-v6-timeout <duration>
 	    --attempt-portmap-timeout <duration>
 	    --disable-portmap
+
+  mqtt-broker:
+    --listen <ip:port>   (default: 0.0.0.0:1883)
 
   stun:
     --listen <ip:port>   (repeatable)
@@ -151,12 +169,18 @@ func peerCmd(ctx context.Context, args []string) {
 
 func peerClientCmd(ctx context.Context, args []string) {
 	fs := flag.NewFlagSet("peer client", flag.ExitOnError)
+	configFile := fs.String("config", "", "config file (yaml)")
+	signaling := fs.String("signaling", "coord", "signaling backend: coord|mqtt")
 	coordAddr := fs.String("coord", "127.0.0.1:7000", "coordinator address")
 	controlProto := fs.String("control-proto", "tcp", "control plane protocol: tcp|kcp|quic")
 	proxy := fs.String("proxy", "", "proxy name")
 	secret := fs.String("secret", "", "secret key")
 	user := fs.String("user", "client", "user name")
 	allowUsers := fs.String("allow-users", "", "comma-separated allow users (empty -> same user only)")
+	mqttBroker := fs.String("mqtt-broker", "", "mqtt broker address (host:port or tcp://...)")
+	mqttTopicPrefix := fs.String("mqtt-topic-prefix", "miopunch/p3.5", "mqtt topic prefix")
+	mqttUser := fs.String("mqtt-user", "", "mqtt username")
+	mqttPass := fs.String("mqtt-pass", "", "mqtt password")
 	dataProto := fs.String("data-proto", "quic", "data plane protocol: kcp|quic")
 	quicCC := fs.String("quic-cc", "bbr", "quic congestion control: bbr|brutal (only applies when --data-proto=quic)")
 	stunServers := fs.String("stun", "", "comma-separated stun servers")
@@ -173,10 +197,100 @@ func peerClientCmd(ctx context.Context, args []string) {
 	overallTimeout := fs.Duration("overall-timeout", 60*time.Second, "per-session overall timeout")
 	_ = fs.Parse(args)
 
+	set := map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	if strings.TrimSpace(*configFile) != "" {
+		ycfg, err := loadPeerYAMLConfig(*configFile)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if ycfg.Signaling != nil && !set["signaling"] {
+			*signaling = *ycfg.Signaling
+		}
+		if ycfg.Coord != nil && !set["coord"] {
+			*coordAddr = *ycfg.Coord
+		}
+		if ycfg.ControlProto != nil && !set["control-proto"] {
+			*controlProto = *ycfg.ControlProto
+		}
+		if ycfg.Proxy != nil && !set["proxy"] {
+			*proxy = *ycfg.Proxy
+		}
+		if ycfg.Secret != nil && !set["secret"] {
+			*secret = *ycfg.Secret
+		}
+		if ycfg.User != nil && !set["user"] {
+			*user = *ycfg.User
+		}
+		if len(ycfg.AllowUsers) > 0 && !set["allow-users"] {
+			*allowUsers = strings.Join(ycfg.AllowUsers, ",")
+		}
+		if ycfg.DataProto != nil && !set["data-proto"] {
+			*dataProto = *ycfg.DataProto
+		}
+		if ycfg.QuicCC != nil && !set["quic-cc"] {
+			*quicCC = *ycfg.QuicCC
+		}
+		if ycfg.P2PPort != nil && !set["p2p-port"] {
+			*p2pPort = *ycfg.P2PPort
+		}
+		if len(ycfg.Stun) > 0 && !set["stun"] {
+			*stunServers = strings.Join(ycfg.Stun, ",")
+		}
+		if ycfg.StunTimeout != nil && !set["stun-timeout"] {
+			*stunTimeout = ycfg.StunTimeout.Duration
+		}
+		if ycfg.GatherTimeout != nil && !set["gather-timeout"] {
+			*gatherTimeout = ycfg.GatherTimeout.Duration
+		}
+		if ycfg.AttemptV6Timeout != nil && !set["attempt-v6-timeout"] {
+			*attemptV6Timeout = ycfg.AttemptV6Timeout.Duration
+		}
+		if ycfg.AttemptPortmapTimeout != nil && !set["attempt-portmap-timeout"] {
+			*attemptPortmapTimeout = ycfg.AttemptPortmapTimeout.Duration
+		}
+		if ycfg.DisablePortmap != nil && !set["disable-portmap"] {
+			*disablePortmap = *ycfg.DisablePortmap
+		}
+		if ycfg.DisableAssisted != nil && !set["disable-assisted"] {
+			*disableAssisted = *ycfg.DisableAssisted
+		}
+		if ycfg.HelloTimeout != nil && !set["hello-timeout"] {
+			*helloTimeout = ycfg.HelloTimeout.Duration
+		}
+		if ycfg.ExchangeTimeout != nil && !set["exchange-timeout"] {
+			*exchangeTimeout = ycfg.ExchangeTimeout.Duration
+		}
+		if ycfg.OverallTimeout != nil && !set["overall-timeout"] {
+			*overallTimeout = ycfg.OverallTimeout.Duration
+		}
+		if ycfg.Once != nil && !set["once"] {
+			*once = *ycfg.Once
+		}
+		if ycfg.MQTTBroker != nil && !set["mqtt-broker"] {
+			*mqttBroker = *ycfg.MQTTBroker
+		}
+		if ycfg.MQTTTopicPrefix != nil && !set["mqtt-topic-prefix"] {
+			*mqttTopicPrefix = *ycfg.MQTTTopicPrefix
+		}
+		if ycfg.MQTTUser != nil && !set["mqtt-user"] {
+			*mqttUser = *ycfg.MQTTUser
+		}
+		if ycfg.MQTTPass != nil && !set["mqtt-pass"] {
+			*mqttPass = *ycfg.MQTTPass
+		}
+	}
+
 	em := event.NewEmitter(os.Stdout, "peer-client")
 	cfg := peer.ClientConfig{
 		CoordAddr:             *coordAddr,
 		ControlProto:          control.Protocol(*controlProto),
+		Signaling:             *signaling,
+		MQTTBroker:            *mqttBroker,
+		MQTTTopicPrefix:       *mqttTopicPrefix,
+		MQTTUser:              *mqttUser,
+		MQTTPass:              *mqttPass,
 		User:                  *user,
 		ProxyName:             *proxy,
 		SecretKey:             *secret,
@@ -207,11 +321,17 @@ func peerClientCmd(ctx context.Context, args []string) {
 
 func peerVisitorCmd(ctx context.Context, args []string) {
 	fs := flag.NewFlagSet("peer visitor", flag.ExitOnError)
+	configFile := fs.String("config", "", "config file (yaml)")
+	signaling := fs.String("signaling", "coord", "signaling backend: coord|mqtt")
 	coordAddr := fs.String("coord", "127.0.0.1:7000", "coordinator address")
 	controlProto := fs.String("control-proto", "tcp", "control plane protocol: tcp|kcp|quic")
 	proxy := fs.String("proxy", "", "proxy name")
 	secret := fs.String("secret", "", "secret key")
 	user := fs.String("user", "visitor", "user name")
+	mqttBroker := fs.String("mqtt-broker", "", "mqtt broker address (host:port or tcp://...)")
+	mqttTopicPrefix := fs.String("mqtt-topic-prefix", "miopunch/p3.5", "mqtt topic prefix")
+	mqttUser := fs.String("mqtt-user", "", "mqtt username")
+	mqttPass := fs.String("mqtt-pass", "", "mqtt password")
 	dataProto := fs.String("data-proto", "quic", "data plane protocol: kcp|quic")
 	quicCC := fs.String("quic-cc", "bbr", "quic congestion control: bbr|brutal (only applies when --data-proto=quic)")
 	payload := fs.String("payload", "ping", "payload to send")
@@ -228,10 +348,97 @@ func peerVisitorCmd(ctx context.Context, args []string) {
 	overallTimeout := fs.Duration("overall-timeout", 60*time.Second, "per-session overall timeout")
 	_ = fs.Parse(args)
 
+	set := map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	if strings.TrimSpace(*configFile) != "" {
+		ycfg, err := loadPeerYAMLConfig(*configFile)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if ycfg.Signaling != nil && !set["signaling"] {
+			*signaling = *ycfg.Signaling
+		}
+		if ycfg.Coord != nil && !set["coord"] {
+			*coordAddr = *ycfg.Coord
+		}
+		if ycfg.ControlProto != nil && !set["control-proto"] {
+			*controlProto = *ycfg.ControlProto
+		}
+		if ycfg.Proxy != nil && !set["proxy"] {
+			*proxy = *ycfg.Proxy
+		}
+		if ycfg.Secret != nil && !set["secret"] {
+			*secret = *ycfg.Secret
+		}
+		if ycfg.User != nil && !set["user"] {
+			*user = *ycfg.User
+		}
+		if ycfg.DataProto != nil && !set["data-proto"] {
+			*dataProto = *ycfg.DataProto
+		}
+		if ycfg.QuicCC != nil && !set["quic-cc"] {
+			*quicCC = *ycfg.QuicCC
+		}
+		if ycfg.Payload != nil && !set["payload"] {
+			*payload = *ycfg.Payload
+		}
+		if ycfg.P2PPort != nil && !set["p2p-port"] {
+			*p2pPort = *ycfg.P2PPort
+		}
+		if len(ycfg.Stun) > 0 && !set["stun"] {
+			*stunServers = strings.Join(ycfg.Stun, ",")
+		}
+		if ycfg.StunTimeout != nil && !set["stun-timeout"] {
+			*stunTimeout = ycfg.StunTimeout.Duration
+		}
+		if ycfg.GatherTimeout != nil && !set["gather-timeout"] {
+			*gatherTimeout = ycfg.GatherTimeout.Duration
+		}
+		if ycfg.AttemptV6Timeout != nil && !set["attempt-v6-timeout"] {
+			*attemptV6Timeout = ycfg.AttemptV6Timeout.Duration
+		}
+		if ycfg.AttemptPortmapTimeout != nil && !set["attempt-portmap-timeout"] {
+			*attemptPortmapTimeout = ycfg.AttemptPortmapTimeout.Duration
+		}
+		if ycfg.DisablePortmap != nil && !set["disable-portmap"] {
+			*disablePortmap = *ycfg.DisablePortmap
+		}
+		if ycfg.DisableAssisted != nil && !set["disable-assisted"] {
+			*disableAssisted = *ycfg.DisableAssisted
+		}
+		if ycfg.HelloTimeout != nil && !set["hello-timeout"] {
+			*helloTimeout = ycfg.HelloTimeout.Duration
+		}
+		if ycfg.ExchangeTimeout != nil && !set["exchange-timeout"] {
+			*exchangeTimeout = ycfg.ExchangeTimeout.Duration
+		}
+		if ycfg.OverallTimeout != nil && !set["overall-timeout"] {
+			*overallTimeout = ycfg.OverallTimeout.Duration
+		}
+		if ycfg.MQTTBroker != nil && !set["mqtt-broker"] {
+			*mqttBroker = *ycfg.MQTTBroker
+		}
+		if ycfg.MQTTTopicPrefix != nil && !set["mqtt-topic-prefix"] {
+			*mqttTopicPrefix = *ycfg.MQTTTopicPrefix
+		}
+		if ycfg.MQTTUser != nil && !set["mqtt-user"] {
+			*mqttUser = *ycfg.MQTTUser
+		}
+		if ycfg.MQTTPass != nil && !set["mqtt-pass"] {
+			*mqttPass = *ycfg.MQTTPass
+		}
+	}
+
 	em := event.NewEmitter(os.Stdout, "peer-visitor")
 	cfg := peer.VisitorConfig{
 		CoordAddr:             *coordAddr,
 		ControlProto:          control.Protocol(*controlProto),
+		Signaling:             *signaling,
+		MQTTBroker:            *mqttBroker,
+		MQTTTopicPrefix:       *mqttTopicPrefix,
+		MQTTUser:              *mqttUser,
+		MQTTPass:              *mqttPass,
 		User:                  *user,
 		ProxyName:             *proxy,
 		SecretKey:             *secret,

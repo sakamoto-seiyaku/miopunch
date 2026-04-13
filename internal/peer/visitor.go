@@ -36,6 +36,13 @@ type VisitorConfig struct {
 	CoordAddr    string
 	ControlProto control.Protocol
 
+	Signaling string // coord | mqtt
+
+	MQTTBroker      string
+	MQTTTopicPrefix string
+	MQTTUser        string
+	MQTTPass        string
+
 	User      string
 	ProxyName string
 	SecretKey string
@@ -65,6 +72,13 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 			cfg.Emitter.Fail(stage, err, msg, kvs)
 		}
 		return err
+	}
+
+	if strings.TrimSpace(cfg.Signaling) == "" {
+		cfg.Signaling = "coord"
+	}
+	if cfg.Signaling != "coord" && cfg.Signaling != "mqtt" {
+		return fail(event.StageSupervisor, fmt.Errorf("unsupported signaling: %q", cfg.Signaling), "invalid config", nil)
 	}
 
 	if strings.TrimSpace(cfg.ProxyName) == "" {
@@ -101,6 +115,10 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	}
 	if len(cfg.Payload) == 0 {
 		cfg.Payload = []byte("ping")
+	}
+
+	if cfg.Signaling == "mqtt" {
+		return runVisitorMQTT(ctx, cfg)
 	}
 
 	sess, err := dialHello(ctx, cfg.CoordAddr, cfg.ControlProto, &wire.PeerHello{

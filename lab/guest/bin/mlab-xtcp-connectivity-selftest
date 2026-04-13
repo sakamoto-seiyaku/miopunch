@@ -24,6 +24,9 @@ runs=(
   "p2-02-portmap-direct tcp quic success direct_ipv4 ${expect_dir}/p2-02-portmap-direct.events.json --disable-stun --start-natpmpd"
   "p2-03-punching-fallback tcp quic success punching_ipv4 ${expect_dir}/p2-03-punching-fallback.events.json"
   "p2-04-v6-fallback-direct-ipv4 tcp quic success direct_ipv4 ${expect_dir}/p2-04-v6-fallback-direct-ipv4.events.json --disable-stun --start-natpmpd --attempt-v6-timeout 4s"
+
+  # P3.5 regression: STUN + MQTT signaling (no coord)
+  "core-01 tcp quic success - ${expect_dir}/core-01.mqtt.quic.bbr.events.json --signaling mqtt --disable-portmap"
 )
 
 for r in "${runs[@]}"; do
@@ -36,10 +39,12 @@ for r in "${runs[@]}"; do
     "--control-proto" "${control_proto}"
     "--data-proto" "${data_proto}"
     "--expect" "${expect}"
-    "--expect-path" "${expect_path}"
     "--expect-events-file" "${expect_events_file}"
     "--verify-artifacts"
   )
+  if [[ -n "${expect_path}" && "${expect_path}" != "-" ]]; then
+    args+=("--expect-path" "${expect_path}")
+  fi
 
   if [[ -n "${extra_flags:-}" ]]; then
     # shellcheck disable=SC2206

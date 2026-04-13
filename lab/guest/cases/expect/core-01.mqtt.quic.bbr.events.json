@@ -1,0 +1,20 @@
+[
+  {
+    "stage": "signaling",
+    "kind": "ok",
+    "msg": {
+      "op": "contains",
+      "value": "mqtt"
+    }
+  },
+  {
+    "stage": "transport",
+    "kind": "ok",
+    "name": "transport.payload_exchanged",
+    "kvs": {
+      "data_proto": "quic",
+      "quic_cc": "bbr"
+    }
+  }
+]
+
