@@ -37,4 +37,4 @@
 
 - [x] 7.1 Run `/usr/local/go/bin/go test ./...`
 - [x] 7.2 Run `/usr/local/go/bin/go vet ./...`
-- [ ] 7.3 Run `lab/guest/bin/mlab-xtcp-connectivity-selftest`
+- [x] 7.3 Run `lab/guest/bin/mlab-xtcp-connectivity-selftest`

@@ -260,6 +260,8 @@ func (s *Session) helloBarrier(ctx context.Context) error {
 
 	helloTopic := s.topic("hello/" + string(s.cfg.Role))
 	peerHelloTopic := s.topic("hello/" + string(peer))
+	ackTopic := s.topic("hello_ack/" + string(s.cfg.Role))
+	peerAckTopic := s.topic("hello_ack/" + string(peer))
 
 	barCtx, cancel := context.WithTimeout(ctx, s.cfg.HelloTimeout)
 	defer cancel()
@@ -267,9 +269,14 @@ func (s *Session) helloBarrier(ctx context.Context) error {
 	ticker := time.NewTicker(s.cfg.HelloInterval)
 	defer ticker.Stop()
 
-	// Publish immediately and then periodically until peer hello observed.
+	// Two-way presence handshake:
+	// - Always publish hello/<role> until the barrier completes.
+	// - After observing peer's hello, publish hello_ack/<role> until complete.
+	// This avoids a startup race where one side publishes hello before the other
+	// has subscribed, then stops publishing too early.
+	sawPeerHello := false
+	sawPeerAck := false
 	_ = s.publishJSON(barCtx, helloTopic, map[string]any{"ts_unix_ms": time.Now().UnixMilli()})
-
 	for {
 		select {
 		case <-barCtx.Done():
@@ -278,10 +285,20 @@ func (s *Session) helloBarrier(ctx context.Context) error {
 			return err
 		case msg := <-s.msgCh:
 			if msg.Topic == peerHelloTopic {
+				sawPeerHello = true
+				_ = s.publishJSON(barCtx, ackTopic, map[string]any{"ts_unix_ms": time.Now().UnixMilli()})
+			}
+			if msg.Topic == peerAckTopic {
+				sawPeerAck = true
+			}
+			if sawPeerHello && sawPeerAck {
 				return nil
 			}
 		case <-ticker.C:
 			_ = s.publishJSON(barCtx, helloTopic, map[string]any{"ts_unix_ms": time.Now().UnixMilli()})
+			if sawPeerHello {
+				_ = s.publishJSON(barCtx, ackTopic, map[string]any{"ts_unix_ms": time.Now().UnixMilli()})
+			}
 		}
 	}
 }
