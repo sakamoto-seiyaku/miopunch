@@ -74,6 +74,7 @@ Commands:
 
 	  peer client:
 	    --config <path.yaml>
+	    --log-level <trace|debug|info|warn|error>
 	    --signaling <coord|mqtt>
 	    --coord <ip:port>
 	    --control-proto <tcp|kcp|quic>
@@ -98,6 +99,7 @@ Commands:
 
 	  peer visitor:
 	    --config <path.yaml>
+	    --log-level <trace|debug|info|warn|error>
 	    --signaling <coord|mqtt>
 	    --coord <ip:port>
 	    --control-proto <tcp|kcp|quic>
@@ -121,9 +123,11 @@ Commands:
 
   mqtt-broker:
     --listen <ip:port>   (default: 0.0.0.0:1883)
+    --log-level <trace|debug|info|warn|error>
 
   stun:
     --listen <ip:port>   (repeatable)
+    --log-level <trace|debug|info|warn|error>
 `)
 }
 
@@ -133,7 +137,9 @@ func coordCmd(ctx context.Context, args []string) {
 	proto := fs.String("proto", "tcp", "control plane protocol: tcp|kcp|quic")
 	reserve := fs.Duration("reserve", 24*time.Hour, "analysis reserve duration")
 	helloTimeout := fs.Duration("hello-timeout", 5*time.Second, "hello timeout")
+	logLevel := addLogLevelFlag(fs)
 	_ = fs.Parse(args)
+	applyLogLevel(*logLevel)
 
 	em := event.NewEmitter(os.Stdout, "coord")
 	cfg := coordinator.Config{
@@ -170,6 +176,7 @@ func peerCmd(ctx context.Context, args []string) {
 func peerClientCmd(ctx context.Context, args []string) {
 	fs := flag.NewFlagSet("peer client", flag.ExitOnError)
 	configFile := fs.String("config", "", "config file (yaml)")
+	logLevel := addLogLevelFlag(fs)
 	signaling := fs.String("signaling", "coord", "signaling backend: coord|mqtt")
 	coordAddr := fs.String("coord", "127.0.0.1:7000", "coordinator address")
 	controlProto := fs.String("control-proto", "tcp", "control plane protocol: tcp|kcp|quic")
@@ -196,6 +203,7 @@ func peerClientCmd(ctx context.Context, args []string) {
 	exchangeTimeout := fs.Duration("exchange-timeout", 5*time.Second, "exchangeInfo timeout")
 	overallTimeout := fs.Duration("overall-timeout", 60*time.Second, "per-session overall timeout")
 	_ = fs.Parse(args)
+	applyLogLevel(*logLevel)
 
 	set := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
@@ -322,6 +330,7 @@ func peerClientCmd(ctx context.Context, args []string) {
 func peerVisitorCmd(ctx context.Context, args []string) {
 	fs := flag.NewFlagSet("peer visitor", flag.ExitOnError)
 	configFile := fs.String("config", "", "config file (yaml)")
+	logLevel := addLogLevelFlag(fs)
 	signaling := fs.String("signaling", "coord", "signaling backend: coord|mqtt")
 	coordAddr := fs.String("coord", "127.0.0.1:7000", "coordinator address")
 	controlProto := fs.String("control-proto", "tcp", "control plane protocol: tcp|kcp|quic")
@@ -347,6 +356,7 @@ func peerVisitorCmd(ctx context.Context, args []string) {
 	exchangeTimeout := fs.Duration("exchange-timeout", 5*time.Second, "exchangeInfo timeout")
 	overallTimeout := fs.Duration("overall-timeout", 60*time.Second, "per-session overall timeout")
 	_ = fs.Parse(args)
+	applyLogLevel(*logLevel)
 
 	set := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
@@ -470,7 +480,9 @@ func stunCmd(ctx context.Context, args []string) {
 	fs := flag.NewFlagSet("stun", flag.ExitOnError)
 	var listens multiString
 	fs.Var(&listens, "listen", "listen address (repeatable)")
+	logLevel := addLogLevelFlag(fs)
 	_ = fs.Parse(args)
+	applyLogLevel(*logLevel)
 
 	if len(listens) == 0 {
 		listens = append(listens, "0.0.0.0:3478", "0.0.0.0:3479")

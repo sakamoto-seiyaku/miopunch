@@ -32,7 +32,9 @@ import (
 func mqttBrokerCmd(ctx context.Context, args []string) {
 	fs := flag.NewFlagSet("mqtt-broker", flag.ExitOnError)
 	listen := fs.String("listen", "0.0.0.0:1883", "listen address")
+	logLevel := addLogLevelFlag(fs)
 	_ = fs.Parse(args)
+	applyLogLevel(*logLevel)
 
 	em := event.NewEmitter(os.Stdout, "mqtt-broker")
 
