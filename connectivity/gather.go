@@ -381,10 +381,24 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 			// P3.5: internal STUN cn/global sampling (best-effort). Selection happens in exchange.
 			start := time.Now()
 			cnServers, globalServers := internalSTUNBuckets()
+			client := newSharedSTUNClient(udp4Conn)
+			defer client.Close()
 
-			// Prefer sampling global first so the default/fallback view is always measured.
-			globalObs := observeSTUNView(stunCtx, udp4Conn, resolver, globalServers, localIPs)
-			cnObs := observeSTUNView(stunCtx, udp4Conn, resolver, cnServers, localIPs)
+			var (
+				cnObs     *wire.STUNViewObservation
+				globalObs *wire.STUNViewObservation
+				wg        sync.WaitGroup
+			)
+			wg.Add(2)
+			go func() {
+				defer wg.Done()
+				globalObs = observeInternalSTUNView(stunCtx, client, resolver, globalServers, localIPs)
+			}()
+			go func() {
+				defer wg.Done()
+				cnObs = observeInternalSTUNView(stunCtx, client, resolver, cnServers, localIPs)
+			}()
+			wg.Wait()
 			stunCN = cnObs
 			stunGlobal = globalObs
 			mappedAddrs = append(mappedAddrs, cnObs.MappedAddrs...)

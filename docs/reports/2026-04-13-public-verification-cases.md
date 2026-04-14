@@ -360,6 +360,151 @@ adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch peer visitor \
 - `Mode 2` 对应 “HardNAT 作为 receiver，EasyNAT 作为 sender”。
 - 本次实际运行也符合该路径：先 `attempt.v6.fail`，再 `attempt.punching.start`，最后两端都 `attempt.punching.ok` 并完成 `transport.payload_exchanged`。
 
+### 2026-04-14 当前代码复跑（case1）
+
+说明：
+
+- 本轮在 `p3.5-next` 当前代码上重新执行 case1。
+- 先尝试“`-4` + 内置 STUN + `broker.hivemq.com:1883` + `--builtin-dns-mode on`”，随后回退到已知可用的公网 IP broker/STUN 组合。
+
+#### 1) 内置 STUN + hostname broker（FAIL）
+
+命令要点：
+
+- Host / Android 两端都使用 `-4`
+- `--mqtt-broker broker.hivemq.com:1883`
+- 不显式传 `--stun`
+- `--builtin-dns-mode on`
+
+结果：
+
+- Host 侧内置 STUN 采样成功，但 MQTT 连接超时：
+  - `stage=signaling kind=fail msg="mqtt connect failed"`
+  - 实际解析到的 broker 为 `tcp://35.156.35.233:1883`
+- Android 侧内置 STUN `cn/global` 两组都未拿到可用映射地址：
+  - `direct_addrs=0`
+  - `mapped_addrs=0`
+  - 最终 `gather failed`
+- 因而这一轮没有进入 `exchange.ok` / `attempt.punching.ok` / `transport.payload_exchanged`
+
+日志文件：
+
+- Host: `docs/reports/2026-04-14-case1-mobile-builtin-hostname-fail.host.jsonl`
+- Android: `docs/reports/2026-04-14-case1-mobile-builtin-hostname-fail.android.jsonl`
+
+#### 2) 显式 broker IP + 显式 STUN IP 集合（PASS）
+
+命令要点：
+
+- Host / Android 两端都使用 `-4`
+- `--mqtt-broker 54.36.178.49:1883`
+- `--stun 106.13.249.54:3478,106.13.248.6:3478,106.12.251.193:3478,124.221.129.2:3478,124.222.69.57:3478,111.206.174.3:3478`
+- `--data-proto quic --quic-cc brutal`
+- `--disable-portmap`
+
+结果：
+
+- Host `mapped_addrs=3`，Android `mapped_addrs=3`
+- 两端都出现：
+  - `stage=signaling kind=ok msg="connected to mqtt broker"`
+  - `stage=exchange kind=ok msg="exchange.ok"`
+  - `stage=attempt kind=ok name="attempt.punching.ok"`
+  - `stage=transport kind=ok name="transport.payload_exchanged"`
+- Host `attempt.punching.ok`：`raddr=114.254.0.97:38728`
+- Android `attempt.punching.ok`：`raddr=221.216.228.198:61065`
+- payload 交换成功：`bytes=11`
+
+补充观测：
+
+- Android / visitor NAT 分类：
+  - `NatType=HardNAT`
+  - `Behavior=BehaviorPortChanged`
+  - `PortsDifference=45874`
+- Host / client NAT 分类：
+  - `NatType=EasyNAT`
+  - `Behavior=BehaviorNoChange`
+- analyzer 仍选择 `Mode=2`，即 `HardNAT(receiver) <- EasyNAT(sender)`，与此前结论一致。
+
+日志文件：
+
+- Host: `docs/reports/2026-04-14-case1-mobile-explicit-ip-pass.host.jsonl`
+- Android: `docs/reports/2026-04-14-case1-mobile-explicit-ip-pass.android.jsonl`
+
+#### 3) 显式 broker IP + 内置 STUN（默认 `--stun-timeout=3s`，FAIL）
+
+说明：
+
+- 本轮代码已把 case1 实测可用的 CN STUN IP 前置，并把内置路径的预解析窗口限制到前 `6` 个 concrete endpoints，避免先把整份内置清单全部解析完。
+- 在这个前提下重新用“仅内置 STUN”执行 case1，broker 仍固定为显式 IP，避免把 MQTT hostname 解析问题混入本轮结论。
+
+命令要点：
+
+- Host / Android 两端都使用 `-4`
+- `--mqtt-broker 54.36.178.49:1883`
+- 不显式传 `--stun`
+- `--builtin-dns-mode on`
+- 保持默认 `--stun-timeout=3s`
+
+结果：
+
+- Host 侧内置 STUN 正常：
+  - `cn available=true count=2 ok_count=2`
+  - `global available=true count=2 ok_count=2`
+- Android 侧在默认 `3s` 预算下仍未拿到可用映射地址：
+  - `cn available=false count=0 ok_count=0`
+  - `global available=false count=0 ok_count=0`
+  - 最终 `gather failed`
+- 因而这一轮没有进入 `exchange.ok` / `attempt.punching.ok` / `transport.payload_exchanged`
+
+日志文件：
+
+- Host: `docs/reports/2026-04-14-case1-mobile-builtin-3s-fail.host.jsonl`
+- Android: `docs/reports/2026-04-14-case1-mobile-builtin-3s-fail.android.jsonl`
+
+#### 4) 显式 broker IP + 内置 STUN（`--stun-timeout=15s`，PASS）
+
+命令要点：
+
+- Host / Android 两端都使用 `-4`
+- `--mqtt-broker 54.36.178.49:1883`
+- 不显式传 `--stun`
+- `--builtin-dns-mode on`
+- `--stun-timeout 15s`
+- `--hello-timeout 40s --exchange-timeout 40s`
+- `--data-proto quic --quic-cc brutal`
+- `--disable-portmap`
+
+结果：
+
+- Host：
+  - `cn available=true count=2 ok_count=2`
+  - `global available=true count=2 ok_count=2`
+- Android：
+  - `cn available=true count=2 ok_count=2`
+  - `global available=false count=0 ok_count=0`
+- visitor 侧 debug 日志显示：
+  - `selected_view=cn reason=availability`
+  - `visitor nat={HardNAT BehaviorPortChanged}`
+  - `client nat={EasyNAT BehaviorNoChange}`
+- 两端都出现：
+  - `stage=signaling kind=ok msg="connected to mqtt broker"`
+  - `stage=exchange kind=ok msg="exchange.ok"`
+  - `stage=attempt kind=ok name="attempt.punching.ok"`
+  - `stage=transport kind=ok name="transport.payload_exchanged"`
+- Host `attempt.punching.ok`：`raddr=114.254.0.97:3016`
+- Android `attempt.punching.ok`：`raddr=221.216.228.198:6303`
+- payload 交换成功：`bytes=12`（`case1builtin`）
+
+结论：
+
+- 仅依赖内置 STUN 的 case1 现在可以在真实 Android 移动网络上跑通。
+- 但当前 Android 侧对内置 STUN 的默认 `3s` 预算仍偏紧；提高到 `15s` 后可以稳定完成本轮 `case1`。
+
+日志文件：
+
+- Host: `docs/reports/2026-04-14-case1-mobile-builtin-15s-pass.host.jsonl`
+- Android: `docs/reports/2026-04-14-case1-mobile-builtin-15s-pass.android.jsonl`
+
 ## Case2-4（占位）
 
 - Case2：Android data network ↔ Home isolated subnet（`signaling=mqtt`）

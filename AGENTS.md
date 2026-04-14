@@ -1,6 +1,7 @@
 # miopunch agent rules
 
 - Before making any code/spec/test changes, read and follow the `$dev` skill at `.codex/skills/dev`.
+- When Go work touches goroutines, channels, mutexes, WaitGroups, shared state, or parallel execution, explicitly read and follow the `$go-concurrency` skill in addition to `$dev`.
 - Prefer the OpenSpec workflow for non-trivial work: propose/new-change → apply → verify → archive.
 - Full validation is required when a code-affecting change enters the mainline branch, whether by direct commit or merge.
 - Code-affecting changes include Go code, tests, lab/runtime scripts, and other execution-affecting files.

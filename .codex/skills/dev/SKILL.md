@@ -22,6 +22,11 @@ Use this skill as the default workflow for development work in this repo.
 5. Archive:
    - Use `$openspec-archive-change` only after the required validation level passes
 
+## Required Companion Skills
+
+- When Go work involves goroutines, channels, mutexes, WaitGroups, shared-state synchronization, worker lifecycles, or parallel execution, explicitly use `$go-concurrency` alongside this skill.
+- When the same change also depends on context cancellation or deadline propagation, explicitly add `$go-context`.
+
 ## Guardrails
 
 - **Naming**: prefer `miopunch` everywhere; avoid new `xtcp` names/paths/imports.
