@@ -4,6 +4,8 @@ This folder contains extra notes that are helpful during development but are not
 
 ## Test Gates (manual)
 
+Use this full set when a code-affecting change is committed or merged into mainline. Docs-only / notes-only / OpenSpec-only changes do not require this full set unless explicitly requested.
+
 Host checks:
 
 ```bash

@@ -1,6 +1,6 @@
 ---
 name: dev
-description: "Miopunch development playbook and guardrails. Use for any miopunch repo work: implementing features/fixes, refactors, adding tests, updating specs/docs, creating or applying OpenSpec changes, and running lab verification. Enforces naming/layering rules plus required test gates (go test/vet + labctl selftests/fulltest) before commit/archive."
+description: "Miopunch development playbook and guardrails. Use for any miopunch repo work: implementing features/fixes, refactors, adding tests, updating specs/docs, creating or applying OpenSpec changes, and running lab verification. Enforces naming/layering rules and requires the full test gates when code-affecting changes are committed or merged into mainline."
 ---
 
 # Miopunch Dev
@@ -18,9 +18,9 @@ Use this skill as the default workflow for development work in this repo.
    - Use `$openspec-apply-change`
 4. Verify:
    - Use `$openspec-verify-change`
-   - Run the required test gates (below)
+   - For code-affecting changes entering mainline, run the required full test gates (below)
 5. Archive:
-   - Use `$openspec-archive-change` only after all gates pass
+   - Use `$openspec-archive-change` only after the required validation level passes
 
 ## Guardrails
 
@@ -33,9 +33,16 @@ Use this skill as the default workflow for development work in this repo.
 - **Scope**: do not over-optimize or over-design; prioritize runnable, observable connectivity.
 - **Tests**: do not “fix” baseline NAT/P0 scenarios by mutating them; add new cases for new behavior.
 
+## Validation Policy
+
+- **Run the full gate set** when a code-affecting change enters the mainline branch, whether by direct commit or merge.
+- **Code-affecting** includes Go code, tests, lab/runtime scripts, and other execution-affecting files.
+- **Docs-only / notes-only / OpenSpec-only** changes do not require the full gate set unless explicitly requested.
+- For non-mainline iteration work, prefer focused validation that matches the touched code.
+
 ## Required Test Gates
 
-### Host checks (always)
+### Host checks (full gate set)
 
 Note: in this environment `go` might not be in `PATH`; prefer exporting `/usr/local/go/bin`.
 
@@ -46,7 +53,7 @@ go vet ./...
 bash scripts/check_no_xtcp_imports.sh
 ```
 
-### Lab checks (VM)
+### Lab checks (VM, full gate set)
 
 ```bash
 ./lab/host/labctl selftest
@@ -79,5 +86,5 @@ Optional cleanup:
 
 ## Resources
 
-- Run the full gate set: `bash .codex/skills/dev/scripts/run_test_gates.sh`
+- Run the full gate set when required by the validation policy: `bash .codex/skills/dev/scripts/run_test_gates.sh`
 - Reference notes: read `.codex/skills/dev/references/dev.md` when needed
