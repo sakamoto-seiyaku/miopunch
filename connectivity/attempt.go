@@ -264,14 +264,14 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 	}
 
 	// 3) Punching fallback (P1 kernel)
-	punchingPossible := resp.PunchingEnabled || len(resp.CandidateAddrs) > 0
+	punchingPossible := resp.PunchingEnabled || len(resp.CandidateAddrs) > 0 || len(resp.AssistedAddrs) > 0
 	if !punchingPossible {
 		err := fmt.Errorf("punching disabled: %s", resp.PunchingError)
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.punching.disabled", Msg: "punching disabled", Err: err.Error()})
 		return nil, err
 	}
-	if len(resp.CandidateAddrs) == 0 {
-		err := errors.New("punching enabled but candidate_addrs empty")
+	if len(resp.CandidateAddrs) == 0 && len(resp.AssistedAddrs) == 0 {
+		err := errors.New("punching enabled but both candidate_addrs and assisted_addrs empty")
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.punching.invalid", Msg: "punching response invalid", Err: err.Error()})
 		return nil, err
 	}

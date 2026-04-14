@@ -16,7 +16,7 @@
 **Goals:**
 - 提供 `-4/-6` 的最小选择面，明确且可观测地限制 P2P 地址族。
 - 在系统 DNS 异常时仍可解析 STUN/MQTT（默认 `auto` 回退），减少手工输入 IP 的依赖。
-- 在未显式指定 STUN 时，对内置 STUN 的 `cn/global` 观测面进行采样与确定性仲裁，并把“最终选定视角”作为 attempt 的唯一输入。
+- 在未显式指定 STUN 时，对内置 STUN 的 `cn/global` 观测面进行采样与确定性仲裁，但该仲裁只作用于 STUN 派生的公网候选，不改变 direct/local 信息交换语义。
 - 在 `debug` 日志中可追溯完整证据链；非 debug 记录最终选择与关键原因。
 
 **Non-Goals:**
@@ -58,7 +58,26 @@
   - 若用户显式配置 `--stun`（或 YAML `stun:` 非空）：仅使用用户列表；不启用内置 STUN；不做 `cn/global` 分组与仲裁。
   - 否则：使用内置 STUN 列表，并按 `cn` / `global(!cn)` 分组。
 - gather 阶段对两组分别采样，生成两份观测结果 `view=cn` 与 `view=global`（若某组全失败则视为不可用）。
-- `exchange` 阶段传递双方的观测摘要，随后使用**确定性**规则选出一个最终视角 `selected_view`，并把 attempt 的输入裁剪为该视角对应的 candidates。
+- `exchange` 阶段仍按原有语义交换完整信息：
+  - `direct/local/assisted/portmap` 相关信息照常传递，不受 `cn/global` 影响；
+  - `cn/global` 只附加在 STUN 派生的公网地址观测上。
+- 随后使用**确定性**规则选出一个最终视角 `selected_view`；该视角只用于从 `cn/global` 两组里选出“进入 NAT 分析与 punching 的公网 candidates”。
+
+更明确地说，流程应该是：
+
+1. `gather`：
+   - 收集原有的 `direct/local/assisted/portmap` 信息；
+   - 额外收集两组 `STUN public view`（`cn/global`）。
+2. `exchange`：
+   - 交换双方原有的非 STUN 信息；
+   - 交换双方的 `STUN public view` 观测摘要与对应公网地址。
+3. `coordinator`：
+   - 对 `STUN public view` 做仲裁，得到唯一 `selected_view`；
+   - 仅用该视角对应的公网地址做 NAT 分析与 punching candidate 生成。
+4. `attempt/punching`：
+   - direct 尝试仍基于原始 direct 信息；
+   - assisted/local 信息仍保持原样参与；
+   - 只有 STUN 公网 candidate 子集受 `selected_view` 约束。
 
 仲裁顺序（固定）：
 1. 可用性（该视角是否有成功观测/可用 candidates）
@@ -72,10 +91,12 @@
 ### 4) 可观测性分层
 
 - `debug`：输出两组观测的摘要（成功/失败、RTT、候选数量、NAT 难度等级）与逐步仲裁理由。
+- `debug`：额外要能区分“哪些是 STUN 公网候选，哪些是 direct/local/assisted 信息”，避免把 `selected_view` 误解为全局裁剪。
 - `info`/更低：至少输出最终 `selected_view` 以及触发该结果的关键理由（例如“cn 不可用 → 选 global”或“RTT 差异显著 → 选 global”）。
 
 ## Risks / Trade-offs
 
 - [DNS fallback 误判/误用] → mode 默认 `auto`；仅在解析失败时触发；并在日志中明确记录使用了哪条解析路径。
 - [CN/global 仲裁过简] → 以“可复现 + 可解释”为第一目标；规则固定且可观测，后续再用真实样本迭代。
+- [仲裁边界被误用] → 明确规定 `selected_view` 只作用于 STUN 公网候选；direct/local/assisted 信息保持原语义与原路径。
 - [两端仲裁不一致] → 交换阶段传递足够的观测摘要，并保持仲裁规则纯函数化（无随机、无时间依赖），同时在 debug 输出双方输入以便定位。

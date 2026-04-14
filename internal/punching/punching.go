@@ -185,14 +185,14 @@ func ExchangeInfo(
 	// Backward-compatible punching gate:
 	// - Old control plane had no punching_enabled field; presence of candidate_addrs implies punching is possible.
 	// - New control plane may disable punching (e.g. STUN missing) while still exchanging peer_direct_addrs.
-	punchingPossible := natHoleRespMsg.PunchingEnabled || len(natHoleRespMsg.CandidateAddrs) > 0
-	if natHoleRespMsg.PunchingEnabled == false && len(natHoleRespMsg.CandidateAddrs) > 0 {
+	punchingPossible := natHoleRespMsg.PunchingEnabled || len(natHoleRespMsg.CandidateAddrs) > 0 || len(natHoleRespMsg.AssistedAddrs) > 0
+	if natHoleRespMsg.PunchingEnabled == false && (len(natHoleRespMsg.CandidateAddrs) > 0 || len(natHoleRespMsg.AssistedAddrs) > 0) {
 		natHoleRespMsg.PunchingEnabled = true
 		natHoleRespMsg.PunchingError = ""
 	}
 
-	if punchingPossible && len(natHoleRespMsg.CandidateAddrs) == 0 {
-		return nil, fmt.Errorf("natHoleRespMsg get empty candidate addresses while punching enabled")
+	if punchingPossible && len(natHoleRespMsg.CandidateAddrs) == 0 && len(natHoleRespMsg.AssistedAddrs) == 0 {
+		return nil, fmt.Errorf("natHoleRespMsg has no candidate addresses and no assisted addresses while punching enabled")
 	}
 	return natHoleRespMsg, nil
 }

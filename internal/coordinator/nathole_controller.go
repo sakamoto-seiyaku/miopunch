@@ -414,38 +414,93 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 		logutil.Infof("sid [%s] selected_view=%s reason=%s", session.sid, selectedView, selectedReason)
 	}
 
-	// Punching is optional in P2. If we can't analyze NAT features due to missing/invalid
-	// STUN-derived mapped addrs, we keep the session usable for direct paths.
-	if len(clientMapped) < 2 {
-		vResp.PunchingEnabled = false
-		cResp.PunchingEnabled = false
-		vResp.PunchingError = "client has insufficient STUN mapped_addrs"
-		cResp.PunchingError = vResp.PunchingError
-		return vResp, cResp, nil
+	var invalid []string
+	clientMapped, invalid = filterValidHostPorts(clientMapped)
+	if len(invalid) > 0 {
+		logutil.Debugf("sid [%s] drop invalid client mapped_addrs: %v", session.sid, invalid)
 	}
-	if len(visitorMapped) < 2 {
-		vResp.PunchingEnabled = false
-		cResp.PunchingEnabled = false
-		vResp.PunchingError = "visitor has insufficient STUN mapped_addrs"
-		cResp.PunchingError = vResp.PunchingError
+	visitorMapped, invalid = filterValidHostPorts(visitorMapped)
+	if len(invalid) > 0 {
+		logutil.Debugf("sid [%s] drop invalid visitor mapped_addrs: %v", session.sid, invalid)
+	}
+
+	// Always exchange assisted candidates (local interface addrs) regardless of STUN
+	// view selection. Assisted addrs are not STUN-derived and must not be gated by
+	// cn/global arbitration or STUN availability.
+	vResp.AssistedAddrs, invalid = filterValidHostPorts(cm.AssistedAddrs)
+	if len(invalid) > 0 {
+		logutil.Debugf("sid [%s] drop invalid client assisted_addrs: %v", session.sid, invalid)
+	}
+	vResp.AssistedAddrs = slices.Compact(vResp.AssistedAddrs)
+	cResp.AssistedAddrs, invalid = filterValidHostPorts(vm.AssistedAddrs)
+	if len(invalid) > 0 {
+		logutil.Debugf("sid [%s] drop invalid visitor assisted_addrs: %v", session.sid, invalid)
+	}
+	cResp.AssistedAddrs = slices.Compact(cResp.AssistedAddrs)
+
+	// Candidate addrs are STUN-derived and therefore are the only part affected by
+	// cn/global selection.
+	vResp.CandidateAddrs = slices.Compact(clientMapped)
+	cResp.CandidateAddrs = slices.Compact(visitorMapped)
+
+	// NAT analysis requires at least two (non-empty) mapped addrs per peer. When
+	// unavailable, we still allow a best-effort punching attempt using assisted
+	// candidates (e.g. same-LAN connectivity) without claiming NAT feature support.
+	natAnalysisPossible := len(clientMapped) >= 2 && len(visitorMapped) >= 2
+	fallbackPunching := func(msg string) (*wire.NatHoleResp, *wire.NatHoleResp) {
+		visitorHasTargets := len(vResp.CandidateAddrs) > 0 || len(vResp.AssistedAddrs) > 0
+		clientHasTargets := len(cResp.CandidateAddrs) > 0 || len(cResp.AssistedAddrs) > 0
+		if !visitorHasTargets && !clientHasTargets {
+			vResp.PunchingEnabled = false
+			cResp.PunchingEnabled = false
+			vResp.PunchingError = "punching disabled: no assisted or STUN candidates"
+			cResp.PunchingError = vResp.PunchingError
+			return vResp, cResp
+		}
+
+		// Minimal, deterministic detect behavior when NAT features cannot be analyzed.
+		// Prefer the peer that actually has targets as the sender.
+		visitorRole := "receiver"
+		clientRole := "sender"
+		if !clientHasTargets && visitorHasTargets {
+			visitorRole = "sender"
+			clientRole = "receiver"
+		}
+
+		vResp.PunchingEnabled = true
+		cResp.PunchingEnabled = true
+		vResp.DetectBehavior = wire.NatHoleDetectBehavior{
+			Role:          visitorRole,
+			Mode:          0,
+			TTL:           0,
+			SendDelayMs:   0,
+			ReadTimeoutMs: 5000,
+		}
+		cResp.DetectBehavior = wire.NatHoleDetectBehavior{
+			Role:          clientRole,
+			Mode:          0,
+			TTL:           0,
+			SendDelayMs:   0,
+			ReadTimeoutMs: 5000,
+		}
+		logutil.Infof("sid [%s] punching fallback: %s (selected_view=%s reason=%s)", session.sid, msg, selectedView, selectedReason)
+		return vResp, cResp
+	}
+
+	if !natAnalysisPossible {
+		vResp, cResp = fallbackPunching("nat analysis unavailable")
 		return vResp, cResp, nil
 	}
 
 	cNatFeature, err := ClassifyNATFeature(clientMapped, parseIPs(cm.AssistedAddrs))
 	if err != nil {
-		vResp.PunchingEnabled = false
-		cResp.PunchingEnabled = false
-		vResp.PunchingError = fmt.Sprintf("classify client NAT feature error: %v", err)
-		cResp.PunchingError = vResp.PunchingError
+		vResp, cResp = fallbackPunching(fmt.Sprintf("classify client nat feature error: %v", err))
 		return vResp, cResp, nil
 	}
 
 	vNatFeature, err := ClassifyNATFeature(visitorMapped, parseIPs(vm.AssistedAddrs))
 	if err != nil {
-		vResp.PunchingEnabled = false
-		cResp.PunchingEnabled = false
-		vResp.PunchingError = fmt.Sprintf("classify visitor NAT feature error: %v", err)
-		cResp.PunchingError = vResp.PunchingError
+		vResp, cResp = fallbackPunching(fmt.Sprintf("classify visitor nat feature error: %v", err))
 		return vResp, cResp, nil
 	}
 	session.cNatFeature = cNatFeature
@@ -466,8 +521,6 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 	vResp.PunchingEnabled = true
 	cResp.PunchingEnabled = true
 
-	vResp.CandidateAddrs = slices.Compact(clientMapped)
-	vResp.AssistedAddrs = slices.Compact(cm.AssistedAddrs)
 	vResp.DetectBehavior = wire.NatHoleDetectBehavior{
 		Mode:              mode,
 		Role:              vBehavior.Role,
@@ -478,8 +531,6 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 		ListenRandomPorts: vBehavior.ListenRandomPorts,
 		CandidatePorts:    getRangePorts(clientMapped, cNatFeature.PortsDifference, vBehavior.PortsRangeNumber),
 	}
-	cResp.CandidateAddrs = slices.Compact(visitorMapped)
-	cResp.AssistedAddrs = slices.Compact(vm.AssistedAddrs)
 	cResp.DetectBehavior = wire.NatHoleDetectBehavior{
 		Mode:              mode,
 		Role:              cBehavior.Role,
@@ -531,4 +582,20 @@ func parseIPs(addrs []string) []string {
 		}
 	}
 	return ips
+}
+
+func filterValidHostPorts(addrs []string) (valid []string, invalid []string) {
+	valid = make([]string, 0, len(addrs))
+	for _, addr := range addrs {
+		addr = strings.TrimSpace(addr)
+		if addr == "" {
+			continue
+		}
+		if _, _, err := net.SplitHostPort(addr); err != nil {
+			invalid = append(invalid, addr)
+			continue
+		}
+		valid = append(valid, addr)
+	}
+	return valid, invalid
 }

@@ -26,19 +26,24 @@
 - [x] 4.4 Extend exchange payload to carry enough observation summary for deterministic selection
 - [x] 4.5 Implement deterministic arbitration: availability → NAT difficulty → STUN RTT (30ms tie) → ok_count → default global
 - [x] 4.6 Ensure `exchange` produces exactly one final `selected_view`, and attempt/punching uses only that view’s candidates
+- [x] 4.7 Narrow `selected_view` semantics so it only applies to STUN-derived public candidates; direct/local/assisted/portmap exchange must remain unchanged
+- [x] 4.8 Add focused tests/regression coverage for “internal STUN enabled but LAN/direct metadata still survives exchange unchanged”
+- [x] 4.9 Re-run public case verification and confirm internal-STUN path does not break same-LAN/near-LAN case behavior purely by view selection
 
 ## 5. Observability & Experiment Runbook
 
 - [x] 5.1 Add `debug` evidence chain logs for cn/global observations + step-by-step arbitration
 - [x] 5.2 Add non-debug summary logs for `selected_view` + key reason
 - [x] 5.3 Add a minimal public-network runbook doc (case0..caseN) that records exact commands and required evidence to accept a run (incl. `--log-level debug`)
+- [x] 5.4 Clarify in runbook/reporting that `selected_view` is a STUN-public-only decision, not a direct/local candidate filter
 
 ## 6. Post-change Validation
 
 - [x] 6.1 Run `go test ./...` and `go vet ./...`
 - [x] 6.2 If touching lab/runtime behavior, run the full lab gate set from `.codex/skills/dev/SKILL.md`
-- [ ] 6.3 Manually verify at least one real-network run where system DNS fails but built-in DNS resolves STUN/MQTT
-- [ ] 6.4 Manually verify at least one real-network run that exercises cn/global view selection with recorded evidence
+- [x] 6.3 Manually verify at least one real-network run where system DNS fails but built-in DNS resolves STUN/MQTT
+- [x] 6.4 Manually verify at least one real-network run that exercises cn/global view selection with recorded evidence
+- [x] 6.5 Manually verify at least one same-LAN or near-LAN run where internal STUN is enabled and final connectivity still succeeds through preserved local/direct information
 
 ## 7. Code Review Fixups
 

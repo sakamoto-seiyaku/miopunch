@@ -132,6 +132,6 @@ adb shell /data/local/tmp/miopunch peer visitor \
 在 `--log-level debug` 下：
 
 - `exchange.ok`：包含最终 `selected_view` / `selected_reason`
+- `selected_view` 仅用于裁剪 **STUN 派生的公网 candidates**；不应被理解为对 `direct/local/assisted/portmap` 信息的全局过滤
 - `mqtt` 场景：仲裁 debug evidence chain 会出现在 **visitor 侧**（因为 visitor 执行 analysis）
 - `coord` 场景：仲裁 debug evidence chain 会出现在 **coordinator 日志**（analysis 在 coordinator 运行）
-

@@ -140,3 +140,37 @@ func TestAttempt_PunchingDisabledReturnsError(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 }
+
+func TestAttempt_AllowsPunchingWhenOnlyAssistedAddrsPresent(t *testing.T) {
+	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer conn.Close()
+
+	resp := &wire.NatHoleResp{
+		PeerDirectAddrs: nil,
+		PunchingEnabled: false,
+		AssistedAddrs:   []string{"127.0.0.1:12345"},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	called := false
+	punch := func(ctx context.Context, listenConn *net.UDPConn, resp *wire.NatHoleResp, key []byte) (*net.UDPConn, *net.UDPAddr, error) {
+		called = true
+		return listenConn, &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 12345}, nil
+	}
+
+	got, err := attemptWithPunch(ctx, "sid-assisted-only", []byte("0123456789abcdef"), conn, nil, resp, AttemptConfig{}, punch)
+	if err != nil {
+		t.Fatalf("Attempt() error = %v, want nil", err)
+	}
+	if !called {
+		t.Fatalf("expected punch func to be called")
+	}
+	if got == nil || got.Path != "punching_ipv4" {
+		t.Fatalf("Attempt() result = %#v, want Path=punching_ipv4", got)
+	}
+}

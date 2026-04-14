@@ -20,7 +20,9 @@
   - 支持通过 CLI 与 YAML 配置固化/覆盖内置 DNS 的启用模式与 resolver 列表。
 - 增加内置 `STUN` 名单并按 `cn` / `global(!cn)` 分组采样（来源以 `gonc` 为基线）：
   - 当用户显式提供 `--stun`/`stun:` 时：仅使用用户输入；不使用内置 STUN；不做 `cn/global` 分组与仲裁。
-  - 当未显式提供 STUN 时：系统可采样 `cn/global` 两组并进行仲裁；`exchange` 最终只产出 **一个**“已选定的 candidate 视角/分组”，后续 attempt/punching 只沿该视角执行。
+  - 当未显式提供 STUN 时：系统可采样 `cn/global` 两组并进行仲裁；但该仲裁**只作用于 STUN 派生的公网地址集合**。
+  - `exchange` 仍按原流程交换完整的非 STUN 信息（例如 direct/local/assisted/portmap 相关信息）；`cn/global` 不得改变这些信息的传递与使用。
+  - 最终只会选出 **一个** `selected_view`，它只用于决定“哪一组 STUN 公网候选”进入 NAT 分析与 punching candidate 生成。
   - 仲裁顺序固定为：`可用性` → `NAT feature 难度` → `STUN RTT` → `成功次数` → `默认 global`（RTT 打平阈值 `30ms`）。
 - 可观测性：
   - `debug` 日志必须输出完整的观测与仲裁证据链；
@@ -39,7 +41,7 @@
 - CLI/配置：
   - `cmd/miopunch`: 增加 `-4/-6`；扩展 YAML 配置以表达 P2P 地址族偏好与内置 DNS 策略（命名保持现有 `snake_case` 风格）。
 - 解析/可达性：
-  - `connectivity/*`: STUN 解析与 cn/global 观测仲裁；确保 `exchange` 语义只产出一个最终视角。
+  - `connectivity/*`: STUN 解析与 cn/global 观测仲裁；确保 `selected_view` 只裁剪 STUN 公网候选，而不影响 direct/local 信息交换。
   - `internal/signaling/mqtt/*`: broker 主机名解析在需要时可回退到内置 DNS（不改变其余联网策略）。
 - 依赖：
   - 可能引入最小 DNS client 依赖（或自实现 TCP/53 查询）；不引入 DoT/DoH。

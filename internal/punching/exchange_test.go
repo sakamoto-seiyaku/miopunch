@@ -100,3 +100,42 @@ func TestExchangeInfo_PunchingEnabledCompatWhenCandidateAddrsPresent(t *testing.
 		t.Fatalf("expected PunchingEnabled=true, got %#v", got)
 	}
 }
+
+func TestExchangeInfo_PunchingEnabledCompatWhenAssistedAddrsPresent(t *testing.T) {
+	sender := &recorderSender{}
+	tr := wire.NewMessageTransporter(sender)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	lane := "tx-3"
+	req := &wire.NatHoleClient{TransactionID: lane, ProxyName: "p", Sid: "s"}
+
+	done := make(chan struct{})
+	var (
+		got *wire.NatHoleResp
+		err error
+	)
+	go func() {
+		got, err = ExchangeInfo(ctx, tr, lane, req, 2*time.Second)
+		close(done)
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+	resp := &wire.NatHoleResp{
+		TransactionID: lane,
+		Sid:           "s",
+		AssistedAddrs: []string{"127.0.0.1:12345"},
+	}
+	if !tr.DispatchWithType(resp, wire.TypeNameNatHoleResp, lane) {
+		t.Fatalf("DispatchWithType returned false")
+	}
+
+	<-done
+	if err != nil {
+		t.Fatalf("ExchangeInfo error: %v", err)
+	}
+	if got == nil || !got.PunchingEnabled {
+		t.Fatalf("expected PunchingEnabled=true, got %#v", got)
+	}
+}

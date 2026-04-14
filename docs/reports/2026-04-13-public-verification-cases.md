@@ -104,6 +104,64 @@ adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch peer visitor \
   - `stage=transport kind=ok name="transport.payload_exchanged"`
 - 连接路径：先 `attempt.v6.fail`，随后回退 `attempt.punching.ok`，最终完成 payload 交换
 
+### Case0C：`signaling=mqtt` + 内置 STUN（PASS，验证 cn/global 视角仲裁不影响 LAN assisted）
+
+说明：
+
+- 不显式配置 `--stun`，走 **内置 STUN cn/global 采样 + 视角仲裁**（`selected_view/selected_reason` 可见）。
+- Pixel（ADB shell）系统 DNS 仍不可用，但 `P3.5` 已提供 `--builtin-dns-mode on`，因此 **STUN hostname 不再需要预解析为 IP**。
+
+本次命令要点：
+
+- MQTT broker 仍使用 IP：`54.36.178.49:1883`
+- STUN：使用内置列表（不传 `--stun`）
+- 内置 DNS：`--builtin-dns-mode on`
+
+执行命令（示例）：
+
+Host（client）：
+
+```bash
+/tmp/miopunch-host peer client \
+  --log-level debug \
+  --signaling mqtt \
+  --mqtt-broker 54.36.178.49:1883 \
+  --mqtt-topic-prefix miopunch/case0-20260414-r6 \
+  --proxy case0r6 --secret case0secret --user case0 \
+  --data-proto quic --quic-cc brutal \
+  --builtin-dns-mode on \
+  --disable-portmap \
+  --hello-timeout 20s --exchange-timeout 20s --overall-timeout 120s \
+  --once
+```
+
+Pixel（visitor）：
+
+```bash
+adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch peer visitor \
+  --log-level debug \
+  --signaling mqtt \
+  --mqtt-broker 54.36.178.49:1883 \
+  --mqtt-topic-prefix miopunch/case0-20260414-r6 \
+  --proxy case0r6 --secret case0secret --user case0 \
+  --data-proto quic --quic-cc brutal \
+  --payload case0r6 \
+  --builtin-dns-mode on \
+  --disable-portmap \
+  --hello-timeout 20s --exchange-timeout 20s --overall-timeout 120s
+```
+
+结果要点（实际观测）：
+
+- `exchange.ok` kvs 含 `selected_view=global selected_reason=availability`
+- 最终走 `attempt.punching.ok`，且 remote addr 为 `192.168.4.x:*`（LAN assisted 生效）
+- 两端均出现 `transport.payload_exchanged`
+
+证据文件：
+
+- Host: `docs/reports/2026-04-14-case0-lan-internalstun.host.jsonl`
+- Pixel: `docs/reports/2026-04-14-case0-lan-internalstun.android.jsonl`
+
 ## Case0 暴露问题（已确认/已复现）
 
 ### 1) Android（ADB shell）DNS 解析不可用：MQTT/STUN 需用 IP
