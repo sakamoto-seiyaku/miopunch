@@ -15,6 +15,7 @@ import (
 	"golang.org/x/net/dns/dnsmessage"
 )
 
+// DNSMode controls when the built-in DNS client is used.
 type DNSMode string
 
 const (
@@ -23,6 +24,7 @@ const (
 	DNSModeOff  DNSMode = "off"
 )
 
+// ParseDNSMode parses a DNS mode string.
 func ParseDNSMode(value string) (DNSMode, error) {
 	value = strings.TrimSpace(strings.ToLower(value))
 	switch value {
@@ -37,6 +39,8 @@ func ParseDNSMode(value string) (DNSMode, error) {
 	}
 }
 
+// DefaultDNSServers returns the default upstream resolvers for the built-in DNS
+// client. All queries are performed over DNS over TCP/53.
 func DefaultDNSServers() []string {
 	return []string{
 		"1.1.1.1:53",
@@ -46,12 +50,14 @@ func DefaultDNSServers() []string {
 	}
 }
 
+// DNSResolver resolves STUN/MQTT hostnames without relying on system DNS.
 type DNSResolver struct {
 	mode    DNSMode
 	servers []netip.AddrPort
 	dialer  net.Dialer
 }
 
+// NewDNSResolver constructs a resolver for the given mode and server list.
 func NewDNSResolver(mode string, servers []string) (*DNSResolver, error) {
 	parsedMode, err := ParseDNSMode(mode)
 	if err != nil {
@@ -76,6 +82,8 @@ func NewDNSResolver(mode string, servers []string) (*DNSResolver, error) {
 	}, nil
 }
 
+// LookupNetIP resolves host to IP addresses with the given network ("ip",
+// "ip4", or "ip6").
 func (r *DNSResolver) LookupNetIP(ctx context.Context, network string, host string) ([]netip.Addr, error) {
 	host = strings.TrimSpace(host)
 	if host == "" {

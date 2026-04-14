@@ -96,14 +96,16 @@ func runClientMQTT(ctx context.Context, cfg ClientConfig) error {
 	if err != nil {
 		return fail(event.StageSupervisor, err, "invalid mqtt config", nil)
 	}
+	brokerURLForLog := mqttBrokerURLForLog(brokerURL)
 	brokerURL, err = resolveMQTTBrokerURL(sessionCtx, brokerURL, cfg.BuiltinDNSMode, cfg.BuiltinDNSServers)
 	if err != nil {
-		return fail(event.StageSignaling, err, "mqtt broker resolve failed", map[string]any{"broker": brokerURL, "sid": sid})
+		return fail(event.StageSignaling, err, "mqtt broker resolve failed", map[string]any{"broker": brokerURLForLog, "sid": sid})
 	}
+	brokerURLForLog = mqttBrokerURLForLog(brokerURL)
 
 	if cfg.Emitter != nil {
 		cfg.Emitter.Start(event.StageSignaling, "mqtt connect start", map[string]any{
-			"broker": brokerURL,
+			"broker": brokerURLForLog,
 			"sid":    sid,
 		})
 	}
@@ -117,12 +119,12 @@ func runClientMQTT(ctx context.Context, cfg ClientConfig) error {
 		BarrierTimeout:  cfg.ExchangeInfoTimeout,
 	})
 	if err != nil {
-		return fail(event.StageSignaling, err, "mqtt connect failed", map[string]any{"broker": brokerURL, "sid": sid})
+		return fail(event.StageSignaling, err, "mqtt connect failed", map[string]any{"broker": brokerURLForLog, "sid": sid})
 	}
 	defer mq.Close()
 	if cfg.Emitter != nil {
 		cfg.Emitter.OK(event.StageSignaling, "connected to mqtt broker", map[string]any{
-			"broker": brokerURL,
+			"broker": brokerURLForLog,
 			"sid":    sid,
 		})
 	}
@@ -144,16 +146,16 @@ func runClientMQTT(ctx context.Context, cfg ClientConfig) error {
 
 	if cfg.Emitter != nil {
 		cfg.Emitter.OK(event.StageExchange, "exchange.ok", map[string]any{
-			"sid":         sid,
-			"tx":          transactionID,
-			"data_proto":  natHoleRespMsg.Protocol,
-			"quic_cc":     natHoleRespMsg.QuicCC,
-			"brutal_up":   natHoleRespMsg.BrutalUpBps,
-			"brutal_down": natHoleRespMsg.BrutalDownBps,
+			"sid":             sid,
+			"tx":              transactionID,
+			"data_proto":      natHoleRespMsg.Protocol,
+			"quic_cc":         natHoleRespMsg.QuicCC,
+			"brutal_up":       natHoleRespMsg.BrutalUpBps,
+			"brutal_down":     natHoleRespMsg.BrutalDownBps,
 			"selected_view":   natHoleRespMsg.SelectedView,
 			"selected_reason": natHoleRespMsg.SelectedReason,
-			"peer_direct": len(natHoleRespMsg.PeerDirectAddrs),
-			"punching":    natHoleRespMsg.PunchingEnabled,
+			"peer_direct":     len(natHoleRespMsg.PeerDirectAddrs),
+			"punching":        natHoleRespMsg.PunchingEnabled,
 		})
 	}
 

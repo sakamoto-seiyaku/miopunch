@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"strconv"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -25,7 +25,10 @@ type GatherConfig struct {
 	DisableAssistedAddrs bool
 	DisablePortMap       bool
 
+	// StunServers is the user-provided STUN server list (host:port).
 	StunServers []string
+	// StunExplicit indicates the user explicitly configured STUN (including empty).
+	// When true, internal STUN defaults and cn/global arbitration are disabled.
 	StunExplicit bool
 
 	BuiltinDNSMode    string

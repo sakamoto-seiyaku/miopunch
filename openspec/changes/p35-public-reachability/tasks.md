@@ -39,3 +39,11 @@
 - [ ] 6.2 If touching lab/runtime behavior, run the full lab gate set from `.codex/skills/dev/SKILL.md`
 - [ ] 6.3 Manually verify at least one real-network run where system DNS fails but built-in DNS resolves STUN/MQTT
 - [ ] 6.4 Manually verify at least one real-network run that exercises cn/global view selection with recorded evidence
+
+## 7. Code Review Fixups
+
+- [x] 7.1 Redact MQTT broker credentials in logs/events (do not emit user/pass in `broker` fields)
+- [x] 7.2 Run `gofmt` for touched files and ensure `gofmt -l .` is clean
+- [x] 7.3 Add missing doc comments for exported DNS resolver APIs (`internal/netutil`)
+- [x] 7.4 Add clarifying comments for `StunExplicit` behavior (avoid naked bool ambiguity)
+- [x] 7.5 Reject unsupported STUN address formats (e.g. `tcp://...` or `?...`) instead of silently treating them as UDP

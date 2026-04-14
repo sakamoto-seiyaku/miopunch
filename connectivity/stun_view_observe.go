@@ -2,6 +2,7 @@ package connectivity
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -75,7 +76,11 @@ func resolveSTUNServers(ctx context.Context, resolver *netutil.DNSResolver, serv
 	resolved = make([]string, 0, len(servers))
 	errors = make([]string, 0)
 	for _, raw := range servers {
-		server := normalizeSTUNServer(raw)
+		server, err := normalizeSTUNServer(raw)
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("%s: %v", strings.TrimSpace(raw), err))
+			continue
+		}
 		host, port, err := net.SplitHostPort(server)
 		if err != nil {
 			resolved = append(resolved, server)
@@ -102,13 +107,20 @@ func resolveSTUNServers(ctx context.Context, resolver *netutil.DNSResolver, serv
 	return resolved, errors
 }
 
-func normalizeSTUNServer(server string) string {
+func normalizeSTUNServer(server string) (string, error) {
 	server = strings.TrimSpace(server)
-	server = strings.TrimPrefix(server, "udp://")
-	server = strings.TrimPrefix(server, "tcp://")
-	if i := strings.Index(server, "?"); i >= 0 {
-		server = server[:i]
+	switch {
+	case server == "":
+		return "", errors.New("empty stun server")
+	case strings.HasPrefix(server, "udp://"):
+		server = strings.TrimPrefix(server, "udp://")
+	case strings.HasPrefix(server, "tcp://"):
+		return "", errors.New("tcp stun scheme is not supported")
+	case strings.Contains(server, "://"):
+		return "", errors.New("unsupported stun scheme")
 	}
-	return server
+	if strings.Contains(server, "?") {
+		return "", errors.New("unsupported stun address format")
+	}
+	return server, nil
 }
-

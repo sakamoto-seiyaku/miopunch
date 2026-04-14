@@ -27,4 +27,3 @@ func internalSTUNBuckets() (cn []string, global []string) {
 	global = append([]string(nil), internalSTUNGlobal...)
 	return cn, global
 }
-

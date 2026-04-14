@@ -78,4 +78,3 @@ func selectSTUNView(cn, global stunViewAggregate) (selectedView string, reason s
 func absInt(v int) int {
 	return int(math.Abs(float64(v)))
 }
-

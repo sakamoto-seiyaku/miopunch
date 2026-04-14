@@ -12,6 +12,15 @@ import (
 	"github.com/miopunch/miopunch/internal/netutil"
 )
 
+func mqttBrokerURLForLog(brokerURL string) string {
+	u, err := url.Parse(brokerURL)
+	if err != nil {
+		return "invalid_mqtt_broker_url"
+	}
+	u.User = nil
+	return u.String()
+}
+
 func buildMQTTBrokerURL(broker string, user string, pass string) (string, error) {
 	broker = strings.TrimSpace(broker)
 	if broker == "" {

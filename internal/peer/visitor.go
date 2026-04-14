@@ -54,7 +54,9 @@ type VisitorConfig struct {
 	BuiltinDNSMode    string
 	BuiltinDNSServers []string
 
-	StunServers           []string
+	StunServers []string
+	// StunExplicit indicates the user explicitly configured STUN (including empty).
+	// When true, internal STUN defaults and cn/global arbitration are disabled.
 	StunExplicit          bool
 	StunTimeout           time.Duration
 	GatherTimeout         time.Duration
@@ -250,16 +252,16 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 
 	if cfg.Emitter != nil {
 		cfg.Emitter.OK(event.StageExchange, "exchange.ok", map[string]any{
-			"sid":         natHoleRespMsg.Sid,
-			"tx":          transactionID,
-			"data_proto":  natHoleRespMsg.Protocol,
-			"quic_cc":     natHoleRespMsg.QuicCC,
-			"brutal_up":   natHoleRespMsg.BrutalUpBps,
-			"brutal_down": natHoleRespMsg.BrutalDownBps,
+			"sid":             natHoleRespMsg.Sid,
+			"tx":              transactionID,
+			"data_proto":      natHoleRespMsg.Protocol,
+			"quic_cc":         natHoleRespMsg.QuicCC,
+			"brutal_up":       natHoleRespMsg.BrutalUpBps,
+			"brutal_down":     natHoleRespMsg.BrutalDownBps,
 			"selected_view":   natHoleRespMsg.SelectedView,
 			"selected_reason": natHoleRespMsg.SelectedReason,
-			"peer_direct": len(natHoleRespMsg.PeerDirectAddrs),
-			"punching":    natHoleRespMsg.PunchingEnabled,
+			"peer_direct":     len(natHoleRespMsg.PeerDirectAddrs),
+			"punching":        natHoleRespMsg.PunchingEnabled,
 		})
 	}
 
