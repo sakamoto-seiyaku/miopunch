@@ -151,11 +151,11 @@ func (c *Controller) HandleVisitor(m *wire.NatHoleVisitor, transporter wire.Mess
 		cfg, ok := c.clientCfgs[m.ProxyName]
 		c.mu.RUnlock()
 		if !ok {
-			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("xtcp server for [%s] doesn't exist", m.ProxyName)))
+			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("proxy [%s] not found", m.ProxyName)))
 			return
 		}
 		if !slices.Contains(cfg.allowUsers, visitorUser) && !slices.Contains(cfg.allowUsers, "*") {
-			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("xtcp visitor user [%s] not allowed for [%s]", visitorUser, m.ProxyName)))
+			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("visitor user [%s] not allowed for proxy [%s]", visitorUser, m.ProxyName)))
 			return
 		}
 		_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, ""))
@@ -179,10 +179,10 @@ func (c *Controller) HandleVisitor(m *wire.NatHoleVisitor, transporter wire.Mess
 
 		clientCfg, ok = c.clientCfgs[m.ProxyName]
 		if !ok {
-			return fmt.Errorf("xtcp server for [%s] doesn't exist", m.ProxyName)
+			return fmt.Errorf("proxy [%s] not found", m.ProxyName)
 		}
 		if !authutil.ConstantTimeEqString(m.SignKey, authutil.GetAuthKey(clientCfg.sk, m.Timestamp)) {
-			return fmt.Errorf("xtcp connection of [%s] auth failed", m.ProxyName)
+			return fmt.Errorf("auth failed for proxy [%s]", m.ProxyName)
 		}
 		c.sessions[sid] = session
 		return nil
