@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/pion/stun/v2"
@@ -42,6 +43,12 @@ func DiscoverSTUN(ctx context.Context, conn *net.UDPConn, stunServers []string) 
 	}
 	if minRTT > 0 {
 		res.RTTMs = int(minRTT.Milliseconds())
+	}
+
+	var dropped []string
+	res.MappedAddrs, dropped = sanitizeMappedAddrs(res.MappedAddrs)
+	if len(dropped) > 0 {
+		res.Errors = append(res.Errors, fmt.Sprintf("dropped invalid mapped_addrs: %v", dropped))
 	}
 
 	if len(res.MappedAddrs) > 4 {
@@ -144,4 +151,21 @@ func doSTUNRequest(ctx context.Context, conn *net.UDPConn, addr string) (externa
 		otherAddr = other.String()
 	}
 	return externalAddr, otherAddr, rtt, nil
+}
+
+func sanitizeMappedAddrs(addrs []string) (valid []string, dropped []string) {
+	valid = make([]string, 0, len(addrs))
+	for _, addr := range addrs {
+		addr = strings.TrimSpace(addr)
+		if addr == "" {
+			dropped = append(dropped, "<empty>")
+			continue
+		}
+		if _, _, err := net.SplitHostPort(addr); err != nil {
+			dropped = append(dropped, addr)
+			continue
+		}
+		valid = append(valid, addr)
+	}
+	return valid, dropped
 }

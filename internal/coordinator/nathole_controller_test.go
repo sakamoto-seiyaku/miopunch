@@ -112,3 +112,67 @@ func TestControllerAnalysis_SelectedViewDoesNotAffectAssistedAddrs(t *testing.T)
 		t.Fatalf("analysis() CandidateAddrs = (visitor=%#v client=%#v), want non-empty", vResp.CandidateAddrs, cResp.CandidateAddrs)
 	}
 }
+
+func TestControllerAnalysis_CompactCandidateCloneDoesNotBreakNATClassify(t *testing.T) {
+	c, err := NewController(time.Minute)
+	if err != nil {
+		t.Fatalf("NewController() error = %v, want nil", err)
+	}
+
+	repeatedClientMapped := []string{
+		"203.0.113.1:40000",
+		"203.0.113.1:40000",
+		"203.0.113.1:40000",
+		"203.0.113.1:40000",
+	}
+	repeatedVisitorMapped := []string{
+		"203.0.113.2:50000",
+		"203.0.113.2:50000",
+		"203.0.113.2:50000",
+		"203.0.113.2:50000",
+	}
+
+	session := &Session{
+		sid: "sid-compact-clone",
+		clientMsg: &wire.NatHoleClient{
+			TransactionID: "c-tx",
+			DirectAddrs:   []string{"[::1]:1"},
+			AssistedAddrs: []string{"192.168.0.10:11111"},
+			STUNCN:        &wire.STUNViewObservation{Available: false, NATDifficulty: 999},
+			STUNGlobal: &wire.STUNViewObservation{
+				Available:     true,
+				NATDifficulty: 1,
+				RTTMs:         10,
+				OkCount:       4,
+				MappedAddrs:   repeatedClientMapped,
+			},
+		},
+		visitorMsg: &wire.NatHoleVisitor{
+			TransactionID: "v-tx",
+			DirectAddrs:   []string{"[::1]:2"},
+			AssistedAddrs: []string{"192.168.0.20:22222"},
+			STUNCN:        &wire.STUNViewObservation{Available: false, NATDifficulty: 999},
+			STUNGlobal: &wire.STUNViewObservation{
+				Available:     true,
+				NATDifficulty: 1,
+				RTTMs:         10,
+				OkCount:       4,
+				MappedAddrs:   repeatedVisitorMapped,
+			},
+		},
+	}
+
+	vResp, cResp, err := c.analysis(session)
+	if err != nil {
+		t.Fatalf("analysis() error = %v, want nil", err)
+	}
+	if vResp == nil || cResp == nil {
+		t.Fatalf("analysis() returned nil resp: visitor=%#v client=%#v", vResp, cResp)
+	}
+	if session.cNatFeature == nil || session.vNatFeature == nil {
+		t.Fatalf("analysis() nat features = (visitor=%#v client=%#v), want both classified", session.vNatFeature, session.cNatFeature)
+	}
+	if len(vResp.CandidateAddrs) != 1 || len(cResp.CandidateAddrs) != 1 {
+		t.Fatalf("analysis() compacted candidate_addrs = (visitor=%#v client=%#v), want one deduped addr each", vResp.CandidateAddrs, cResp.CandidateAddrs)
+	}
+}

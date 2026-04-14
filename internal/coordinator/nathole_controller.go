@@ -439,9 +439,10 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 	cResp.AssistedAddrs = slices.Compact(cResp.AssistedAddrs)
 
 	// Candidate addrs are STUN-derived and therefore are the only part affected by
-	// cn/global selection.
-	vResp.CandidateAddrs = slices.Compact(clientMapped)
-	cResp.CandidateAddrs = slices.Compact(visitorMapped)
+	// cn/global selection. Compact a clone so NAT classification can still observe
+	// the original repeated mapped_addrs samples.
+	vResp.CandidateAddrs = slices.Compact(slices.Clone(clientMapped))
+	cResp.CandidateAddrs = slices.Compact(slices.Clone(visitorMapped))
 
 	// NAT analysis requires at least two (non-empty) mapped addrs per peer. When
 	// unavailable, we still allow a best-effort punching attempt using assisted
@@ -492,13 +493,15 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 		return vResp, cResp, nil
 	}
 
-	cNatFeature, err := ClassifyNATFeature(clientMapped, parseIPs(cm.AssistedAddrs))
+	clientLocalIPs := parseIPs(vResp.AssistedAddrs)
+	cNatFeature, err := ClassifyNATFeature(clientMapped, clientLocalIPs)
 	if err != nil {
 		vResp, cResp = fallbackPunching(fmt.Sprintf("classify client nat feature error: %v", err))
 		return vResp, cResp, nil
 	}
 
-	vNatFeature, err := ClassifyNATFeature(visitorMapped, parseIPs(vm.AssistedAddrs))
+	visitorLocalIPs := parseIPs(cResp.AssistedAddrs)
+	vNatFeature, err := ClassifyNATFeature(visitorMapped, visitorLocalIPs)
 	if err != nil {
 		vResp, cResp = fallbackPunching(fmt.Sprintf("classify visitor nat feature error: %v", err))
 		return vResp, cResp, nil
