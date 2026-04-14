@@ -18,6 +18,8 @@ const stunResponseTimeout = 3 * time.Second
 type STUNDiscoveryResult struct {
 	MappedAddrs []string
 	Errors      []string
+	OkCount     int
+	RTTMs       int
 }
 
 func DiscoverSTUN(ctx context.Context, conn *net.UDPConn, stunServers []string) STUNDiscoveryResult {
@@ -25,13 +27,21 @@ func DiscoverSTUN(ctx context.Context, conn *net.UDPConn, stunServers []string) 
 		MappedAddrs: make([]string, 0, len(stunServers)*2),
 		Errors:      make([]string, 0),
 	}
+	var minRTT time.Duration
 	for _, server := range stunServers {
-		addrs, err := discoverFromSTUNServer(ctx, conn, server)
+		addrs, rtt, err := discoverFromSTUNServer(ctx, conn, server)
 		if err != nil {
 			res.Errors = append(res.Errors, fmt.Sprintf("%s: %v", server, err))
 			continue
 		}
+		res.OkCount++
+		if minRTT == 0 || (rtt > 0 && rtt < minRTT) {
+			minRTT = rtt
+		}
 		res.MappedAddrs = append(res.MappedAddrs, addrs...)
+	}
+	if minRTT > 0 {
+		res.RTTMs = int(minRTT.Milliseconds())
 	}
 
 	if len(res.MappedAddrs) > 4 {
@@ -40,47 +50,48 @@ func DiscoverSTUN(ctx context.Context, conn *net.UDPConn, stunServers []string) 
 	return res
 }
 
-func discoverFromSTUNServer(ctx context.Context, conn *net.UDPConn, addr string) ([]string, error) {
-	external, other, err := doSTUNRequest(ctx, conn, addr)
+func discoverFromSTUNServer(ctx context.Context, conn *net.UDPConn, addr string) ([]string, time.Duration, error) {
+	external, other, rtt, err := doSTUNRequest(ctx, conn, addr)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if external == "" {
-		return nil, errors.New("no external address found")
+		return nil, 0, errors.New("no external address found")
 	}
 
 	out := make([]string, 0, 2)
 	out = append(out, external)
 	if other == "" {
-		return out, nil
+		return out, rtt, nil
 	}
 
-	external2, _, err := doSTUNRequest(ctx, conn, other)
+	external2, _, _, err := doSTUNRequest(ctx, conn, other)
 	if err != nil {
-		return out, nil
+		return out, rtt, nil
 	}
 	if external2 != "" {
 		out = append(out, external2)
 	}
-	return out, nil
+	return out, rtt, nil
 }
 
-func doSTUNRequest(ctx context.Context, conn *net.UDPConn, addr string) (externalAddr string, otherAddr string, err error) {
+func doSTUNRequest(ctx context.Context, conn *net.UDPConn, addr string) (externalAddr string, otherAddr string, rtt time.Duration, err error) {
 	raddr, err := net.ResolveUDPAddr("udp4", addr)
 	if err != nil {
-		return "", "", err
+		return "", "", 0, err
 	}
 
 	req, err := stun.Build(stun.TransactionID, stun.BindingRequest)
 	if err != nil {
-		return "", "", err
+		return "", "", 0, err
 	}
 	if err := req.NewTransactionID(); err != nil {
-		return "", "", err
+		return "", "", 0, err
 	}
 
+	start := time.Now()
 	if _, err := conn.WriteToUDP(req.Raw, raddr); err != nil {
-		return "", "", err
+		return "", "", 0, err
 	}
 
 	deadline := time.Now().Add(stunResponseTimeout)
@@ -96,9 +107,9 @@ func doSTUNRequest(ctx context.Context, conn *net.UDPConn, addr string) (externa
 		_ = conn.SetReadDeadline(time.Time{})
 		if readErr != nil {
 			if ctx.Err() != nil {
-				return "", "", ctx.Err()
+				return "", "", 0, ctx.Err()
 			}
-			return "", "", readErr
+			return "", "", 0, readErr
 		}
 
 		resp.Raw = append(resp.Raw[:0], buf[:n]...)
@@ -113,6 +124,7 @@ func doSTUNRequest(ctx context.Context, conn *net.UDPConn, addr string) (externa
 		}
 		break
 	}
+	rtt = time.Since(start)
 
 	xor := &stun.XORMappedAddress{}
 	mapped := &stun.MappedAddress{}
@@ -131,5 +143,5 @@ func doSTUNRequest(ctx context.Context, conn *net.UDPConn, addr string) (externa
 	if err := other.GetFrom(&resp); err == nil {
 		otherAddr = other.String()
 	}
-	return externalAddr, otherAddr, nil
+	return externalAddr, otherAddr, rtt, nil
 }

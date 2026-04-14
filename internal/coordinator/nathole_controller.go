@@ -370,16 +370,60 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 		PeerDirectAddrs: slices.Compact(vm.DirectAddrs),
 	}
 
+	selectedView := ""
+	selectedReason := ""
+	clientMapped := cm.MappedAddrs
+	visitorMapped := vm.MappedAddrs
+	if cm.STUNCN != nil && cm.STUNGlobal != nil && vm.STUNCN != nil && vm.STUNGlobal != nil {
+		cnAgg := aggregateSTUNView("cn", vm.STUNCN, cm.STUNCN)
+		globalAgg := aggregateSTUNView("global", vm.STUNGlobal, cm.STUNGlobal)
+		selectedView, selectedReason = selectSTUNView(cnAgg, globalAgg)
+
+		switch selectedView {
+		case "cn":
+			clientMapped = cm.STUNCN.MappedAddrs
+			visitorMapped = vm.STUNCN.MappedAddrs
+		case "global":
+			clientMapped = cm.STUNGlobal.MappedAddrs
+			visitorMapped = vm.STUNGlobal.MappedAddrs
+		default:
+			// Should never happen, but keep legacy behavior.
+		}
+
+		vResp.SelectedView = selectedView
+		cResp.SelectedView = selectedView
+		vResp.SelectedReason = selectedReason
+		cResp.SelectedReason = selectedReason
+
+		logutil.Debugf(
+			"sid [%s] stun view observations: cn(visitor avail=%v nat=%d rtt=%d ok=%d, client avail=%v nat=%d rtt=%d ok=%d) "+
+				"global(visitor avail=%v nat=%d rtt=%d ok=%d, client avail=%v nat=%d rtt=%d ok=%d)",
+			session.sid,
+			vm.STUNCN.Available, vm.STUNCN.NATDifficulty, vm.STUNCN.RTTMs, vm.STUNCN.OkCount,
+			cm.STUNCN.Available, cm.STUNCN.NATDifficulty, cm.STUNCN.RTTMs, cm.STUNCN.OkCount,
+			vm.STUNGlobal.Available, vm.STUNGlobal.NATDifficulty, vm.STUNGlobal.RTTMs, vm.STUNGlobal.OkCount,
+			cm.STUNGlobal.Available, cm.STUNGlobal.NATDifficulty, cm.STUNGlobal.RTTMs, cm.STUNGlobal.OkCount,
+		)
+		logutil.Debugf(
+			"sid [%s] stun view arbitration: cn(avail=%v nat=%d rtt=%d ok=%d) global(avail=%v nat=%d rtt=%d ok=%d) -> selected=%s reason=%s",
+			session.sid,
+			cnAgg.available, cnAgg.natDifficulty, cnAgg.rttMs, cnAgg.okCount,
+			globalAgg.available, globalAgg.natDifficulty, globalAgg.rttMs, globalAgg.okCount,
+			selectedView, selectedReason,
+		)
+		logutil.Infof("sid [%s] selected_view=%s reason=%s", session.sid, selectedView, selectedReason)
+	}
+
 	// Punching is optional in P2. If we can't analyze NAT features due to missing/invalid
 	// STUN-derived mapped addrs, we keep the session usable for direct paths.
-	if len(cm.MappedAddrs) < 2 {
+	if len(clientMapped) < 2 {
 		vResp.PunchingEnabled = false
 		cResp.PunchingEnabled = false
 		vResp.PunchingError = "client has insufficient STUN mapped_addrs"
 		cResp.PunchingError = vResp.PunchingError
 		return vResp, cResp, nil
 	}
-	if len(vm.MappedAddrs) < 2 {
+	if len(visitorMapped) < 2 {
 		vResp.PunchingEnabled = false
 		cResp.PunchingEnabled = false
 		vResp.PunchingError = "visitor has insufficient STUN mapped_addrs"
@@ -387,7 +431,7 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 		return vResp, cResp, nil
 	}
 
-	cNatFeature, err := ClassifyNATFeature(cm.MappedAddrs, parseIPs(cm.AssistedAddrs))
+	cNatFeature, err := ClassifyNATFeature(clientMapped, parseIPs(cm.AssistedAddrs))
 	if err != nil {
 		vResp.PunchingEnabled = false
 		cResp.PunchingEnabled = false
@@ -396,7 +440,7 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 		return vResp, cResp, nil
 	}
 
-	vNatFeature, err := ClassifyNATFeature(vm.MappedAddrs, parseIPs(vm.AssistedAddrs))
+	vNatFeature, err := ClassifyNATFeature(visitorMapped, parseIPs(vm.AssistedAddrs))
 	if err != nil {
 		vResp.PunchingEnabled = false
 		cResp.PunchingEnabled = false
@@ -422,7 +466,7 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 	vResp.PunchingEnabled = true
 	cResp.PunchingEnabled = true
 
-	vResp.CandidateAddrs = slices.Compact(cm.MappedAddrs)
+	vResp.CandidateAddrs = slices.Compact(clientMapped)
 	vResp.AssistedAddrs = slices.Compact(cm.AssistedAddrs)
 	vResp.DetectBehavior = wire.NatHoleDetectBehavior{
 		Mode:              mode,
@@ -432,9 +476,9 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 		ReadTimeoutMs:     timeoutMs - vBehavior.SendDelayMs,
 		SendRandomPorts:   vBehavior.PortsRandomNumber,
 		ListenRandomPorts: vBehavior.ListenRandomPorts,
-		CandidatePorts:    getRangePorts(cm.MappedAddrs, cNatFeature.PortsDifference, vBehavior.PortsRangeNumber),
+		CandidatePorts:    getRangePorts(clientMapped, cNatFeature.PortsDifference, vBehavior.PortsRangeNumber),
 	}
-	cResp.CandidateAddrs = slices.Compact(vm.MappedAddrs)
+	cResp.CandidateAddrs = slices.Compact(visitorMapped)
 	cResp.AssistedAddrs = slices.Compact(vm.AssistedAddrs)
 	cResp.DetectBehavior = wire.NatHoleDetectBehavior{
 		Mode:              mode,
@@ -444,11 +488,11 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 		ReadTimeoutMs:     timeoutMs - cBehavior.SendDelayMs,
 		SendRandomPorts:   cBehavior.PortsRandomNumber,
 		ListenRandomPorts: cBehavior.ListenRandomPorts,
-		CandidatePorts:    getRangePorts(vm.MappedAddrs, vNatFeature.PortsDifference, cBehavior.PortsRangeNumber),
+		CandidatePorts:    getRangePorts(visitorMapped, vNatFeature.PortsDifference, cBehavior.PortsRangeNumber),
 	}
 
 	logutil.Debugf("sid [%s] visitor nat: %+v, candidateAddrs: %v; client nat: %+v, candidateAddrs: %v, protocol: %s, quic_cc: %s",
-		session.sid, *vNatFeature, vm.MappedAddrs, *cNatFeature, cm.MappedAddrs, visitorProto, quicCC)
+		session.sid, *vNatFeature, visitorMapped, *cNatFeature, clientMapped, visitorProto, quicCC)
 	logutil.Debugf("sid [%s] visitor detect behavior: %+v", session.sid, vResp.DetectBehavior)
 	logutil.Debugf("sid [%s] client detect behavior: %+v", session.sid, cResp.DetectBehavior)
 	return vResp, cResp, nil

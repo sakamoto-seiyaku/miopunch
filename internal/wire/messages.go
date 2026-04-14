@@ -74,6 +74,10 @@ type NatHoleVisitor struct {
 	DirectAddrs   []string `json:"direct_addrs,omitempty"`
 	MappedAddrs   []string `json:"mapped_addrs,omitempty"`
 	AssistedAddrs []string `json:"assisted_addrs,omitempty"`
+
+	// P3.5: internal STUN cn/global sampling observations.
+	STUNCN     *STUNViewObservation `json:"stun_cn,omitempty"`
+	STUNGlobal *STUNViewObservation `json:"stun_global,omitempty"`
 }
 
 type NatHoleClient struct {
@@ -87,11 +91,24 @@ type NatHoleClient struct {
 	DirectAddrs   []string `json:"direct_addrs,omitempty"`
 	MappedAddrs   []string `json:"mapped_addrs,omitempty"`
 	AssistedAddrs []string `json:"assisted_addrs,omitempty"`
+
+	// P3.5: internal STUN cn/global sampling observations.
+	STUNCN     *STUNViewObservation `json:"stun_cn,omitempty"`
+	STUNGlobal *STUNViewObservation `json:"stun_global,omitempty"`
 }
 
 type PortsRange struct {
 	From int `json:"from,omitempty"`
 	To   int `json:"to,omitempty"`
+}
+
+type STUNViewObservation struct {
+	Available     bool     `json:"available,omitempty"`
+	OkCount       int      `json:"ok_count,omitempty"`
+	RTTMs         int      `json:"rtt_ms,omitempty"`
+	NATDifficulty int      `json:"nat_difficulty,omitempty"`
+	MappedAddrs   []string `json:"mapped_addrs,omitempty"`
+	Errors        []string `json:"errors,omitempty"`
 }
 
 type NatHoleDetectBehavior struct {
@@ -112,6 +129,8 @@ type NatHoleResp struct {
 	QuicCC          string                `json:"quic_cc,omitempty"`
 	BrutalUpBps     uint64                `json:"brutal_up_bps,omitempty"`
 	BrutalDownBps   uint64                `json:"brutal_down_bps,omitempty"`
+	SelectedView    string                `json:"selected_view,omitempty"`
+	SelectedReason  string                `json:"selected_reason,omitempty"`
 	PeerDirectAddrs []string              `json:"peer_direct_addrs,omitempty"`
 	PunchingEnabled bool                  `json:"punching_enabled,omitempty"`
 	PunchingError   string                `json:"punching_error,omitempty"`

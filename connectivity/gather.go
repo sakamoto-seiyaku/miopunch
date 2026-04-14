@@ -7,11 +7,13 @@ import (
 	"net"
 	"net/netip"
 	"strconv"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/miopunch/miopunch/event"
 	"github.com/miopunch/miopunch/internal/netutil"
+	"github.com/miopunch/miopunch/internal/wire"
 	"github.com/miopunch/miopunch/nat"
 )
 
@@ -24,6 +26,7 @@ type GatherConfig struct {
 	DisablePortMap       bool
 
 	StunServers []string
+	StunExplicit bool
 
 	BuiltinDNSMode    string
 	BuiltinDNSServers []string
@@ -43,6 +46,9 @@ type GatherResult struct {
 	DirectAddrs   []string
 	MappedAddrs   []string
 	AssistedAddrs []string
+
+	STUNCN     *wire.STUNViewObservation
+	STUNGlobal *wire.STUNViewObservation
 }
 
 func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResult, retErr error) {
@@ -278,8 +284,11 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 		}()
 	}
 
+	localIPs, _ := nat.ListLocalIPsForNatHole(10)
+
 	// 3) STUN gating rule A.
 	var mappedAddrs []string
+	var stunCN, stunGlobal *wire.STUNViewObservation
 	if !allowV4 || udp4Conn == nil {
 		emit(event.Event{
 			Stage: event.StageGather,
@@ -287,81 +296,141 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 			Name:  "gather.stun.skip",
 			Msg:   "stun disabled by p2p ip family",
 		})
-	} else if len(cfg.StunServers) == 0 {
-		emit(event.Event{
-			Stage: event.StageGather,
-			Kind:  event.KindInfo,
-			Name:  "gather.stun.skip",
-			Msg:   "stun not configured; punching disabled for this session",
-		})
 	} else {
-		emit(event.Event{Stage: event.StageGather, Kind: event.KindStart, Name: "gather.stun.start", Msg: "stun start"})
-
-		stunCtx, cancel := context.WithTimeout(ctx, cfg.StunTimeout)
-		defer cancel()
-		start := time.Now()
-
 		resolver, err := netutil.NewDNSResolver(cfg.BuiltinDNSMode, cfg.BuiltinDNSServers)
 		if err != nil {
 			return nil, err
 		}
 
-		resolvedServers := make([]string, 0, len(cfg.StunServers))
-		resolveErrors := make([]string, 0)
-		for _, server := range cfg.StunServers {
-			host, port, err := net.SplitHostPort(server)
-			if err != nil {
-				resolvedServers = append(resolvedServers, server)
-				continue
-			}
-			if _, err := netip.ParseAddr(host); err == nil {
-				resolvedServers = append(resolvedServers, net.JoinHostPort(host, port))
-				continue
-			}
+		emit(event.Event{Stage: event.StageGather, Kind: event.KindStart, Name: "gather.stun.start", Msg: "stun start"})
 
-			addrs, err := resolver.LookupNetIP(stunCtx, "ip4", host)
-			if err != nil {
-				resolveErrors = append(resolveErrors, fmt.Sprintf("%s: resolve: %v", server, err))
-				continue
-			}
-			max := 2
-			if len(addrs) < max {
-				max = len(addrs)
-			}
-			for i := 0; i < max; i++ {
-				resolvedServers = append(resolvedServers, net.JoinHostPort(addrs[i].String(), port))
-			}
+		stunCtx, cancel := context.WithTimeout(ctx, cfg.StunTimeout)
+		defer cancel()
+
+		discoverExplicit := func(servers []string) (*STUNDiscoveryResult, error) {
+			resolved, resolveErrors := resolveSTUNServers(stunCtx, resolver, servers)
+			stunRes := DiscoverSTUN(stunCtx, udp4Conn, resolved)
+			stunRes.Errors = append(stunRes.Errors, resolveErrors...)
+			return &stunRes, nil
 		}
 
-		stunRes := DiscoverSTUN(stunCtx, udp4Conn, resolvedServers)
-		stunRes.Errors = append(stunRes.Errors, resolveErrors...)
-		mappedAddrs = stunRes.MappedAddrs
+		switch {
+		case cfg.StunExplicit:
+			if len(cfg.StunServers) == 0 {
+				emit(event.Event{
+					Stage: event.StageGather,
+					Kind:  event.KindInfo,
+					Name:  "gather.stun.skip",
+					Msg:   "stun explicitly disabled; punching disabled for this session",
+				})
+				break
+			}
+			start := time.Now()
+			stunRes, err := discoverExplicit(cfg.StunServers)
+			if err != nil {
+				return nil, err
+			}
+			mappedAddrs = stunRes.MappedAddrs
 
-		kind := event.KindOK
-		msg := "stun ok"
-		errText := ""
-		if len(stunRes.Errors) > 0 {
-			kind = event.KindInfo
-			msg = "stun finished with errors"
-			errText = fmt.Sprintf("%v", stunRes.Errors)
+			kind := event.KindOK
+			msg := "stun ok"
+			errText := ""
+			if len(stunRes.Errors) > 0 {
+				kind = event.KindInfo
+				msg = "stun finished with errors"
+				errText = fmt.Sprintf("%v", stunRes.Errors)
+			}
+			emit(event.Event{
+				Stage: event.StageGather,
+				Kind:  kind,
+				Name:  "gather.stun.result",
+				Msg:   msg,
+				Err:   errText,
+				KVs: map[string]any{
+					"configured": true,
+					"count":      len(mappedAddrs),
+					"ok_count":   stunRes.OkCount,
+					"rtt_ms":     stunRes.RTTMs,
+					"ms":         time.Since(start).Milliseconds(),
+				},
+			})
+		case len(cfg.StunServers) > 0:
+			start := time.Now()
+			stunRes, err := discoverExplicit(cfg.StunServers)
+			if err != nil {
+				return nil, err
+			}
+			mappedAddrs = stunRes.MappedAddrs
+			emit(event.Event{
+				Stage: event.StageGather,
+				Kind:  event.KindOK,
+				Name:  "gather.stun.result",
+				Msg:   "stun ok",
+				KVs: map[string]any{
+					"configured": true,
+					"count":      len(mappedAddrs),
+					"ok_count":   stunRes.OkCount,
+					"rtt_ms":     stunRes.RTTMs,
+					"ms":         time.Since(start).Milliseconds(),
+				},
+			})
+		default:
+			// P3.5: internal STUN cn/global sampling (best-effort). Selection happens in exchange.
+			start := time.Now()
+			cnServers, globalServers := internalSTUNBuckets()
+
+			// Prefer sampling global first so the default/fallback view is always measured.
+			globalObs := observeSTUNView(stunCtx, udp4Conn, resolver, globalServers, localIPs)
+			cnObs := observeSTUNView(stunCtx, udp4Conn, resolver, cnServers, localIPs)
+			stunCN = cnObs
+			stunGlobal = globalObs
+			mappedAddrs = append(mappedAddrs, cnObs.MappedAddrs...)
+			mappedAddrs = append(mappedAddrs, globalObs.MappedAddrs...)
+			mappedAddrs = slices.Compact(mappedAddrs)
+
+			emit(event.Event{
+				Stage: event.StageGather,
+				Kind:  event.KindInfo,
+				Name:  "gather.stun.view.result",
+				Msg:   "stun cn observation",
+				KVs: map[string]any{
+					"view":           "cn",
+					"available":      cnObs.Available,
+					"count":          len(cnObs.MappedAddrs),
+					"ok_count":       cnObs.OkCount,
+					"rtt_ms":         cnObs.RTTMs,
+					"nat_difficulty": cnObs.NATDifficulty,
+				},
+			})
+			emit(event.Event{
+				Stage: event.StageGather,
+				Kind:  event.KindInfo,
+				Name:  "gather.stun.view.result",
+				Msg:   "stun global observation",
+				KVs: map[string]any{
+					"view":           "global",
+					"available":      globalObs.Available,
+					"count":          len(globalObs.MappedAddrs),
+					"ok_count":       globalObs.OkCount,
+					"rtt_ms":         globalObs.RTTMs,
+					"nat_difficulty": globalObs.NATDifficulty,
+				},
+			})
+			emit(event.Event{
+				Stage: event.StageGather,
+				Kind:  event.KindOK,
+				Name:  "gather.stun.result",
+				Msg:   "stun sampled",
+				KVs: map[string]any{
+					"configured": false,
+					"ms":         time.Since(start).Milliseconds(),
+				},
+			})
 		}
-
-		emit(event.Event{
-			Stage: event.StageGather,
-			Kind:  kind,
-			Name:  "gather.stun.result",
-			Msg:   msg,
-			Err:   errText,
-			KVs: map[string]any{
-				"count": len(mappedAddrs),
-				"ms":    time.Since(start).Milliseconds(),
-			},
-		})
 	}
 
 	assistedAddrs := make([]string, 0)
 	if allowV4 && udp4Conn != nil && !cfg.DisableAssistedAddrs {
-		localIPs, _ := nat.ListLocalIPsForNatHole(10)
 		assistedAddrs = make([]string, 0, len(localIPs))
 		for _, ip := range localIPs {
 			assistedAddrs = append(assistedAddrs, net.JoinHostPort(ip, strconv.Itoa(udp4Port)))
@@ -447,6 +516,8 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 		DirectAddrs:   directAddrs,
 		MappedAddrs:   mappedAddrs,
 		AssistedAddrs: assistedAddrs,
+		STUNCN:        stunCN,
+		STUNGlobal:    stunGlobal,
 	}, nil
 }
 

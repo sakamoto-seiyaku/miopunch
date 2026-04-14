@@ -217,6 +217,7 @@ func peerClientCmd(ctx context.Context, args []string) {
 	set := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
 	var p2pIPFamilyFromYAML *string
+	stunExplicit := set["stun"]
 	if strings.TrimSpace(*configFile) != "" {
 		ycfg, err := loadPeerYAMLConfig(*configFile)
 		if err != nil {
@@ -260,7 +261,10 @@ func peerClientCmd(ctx context.Context, args []string) {
 		if ycfg.P2PPort != nil && !set["p2p-port"] {
 			*p2pPort = *ycfg.P2PPort
 		}
-		if len(ycfg.Stun) > 0 && !set["stun"] {
+		if ycfg.Stun != nil {
+			stunExplicit = true
+		}
+		if ycfg.Stun != nil && !set["stun"] {
 			*stunServers = strings.Join(ycfg.Stun, ",")
 		}
 		if ycfg.StunTimeout != nil && !set["stun-timeout"] {
@@ -344,6 +348,7 @@ func peerClientCmd(ctx context.Context, args []string) {
 		DataProto:             *dataProto,
 		QuicCC:                *quicCC,
 		StunServers:           splitComma(*stunServers),
+		StunExplicit:          stunExplicit,
 		BuiltinDNSMode:        *builtinDNSMode,
 		BuiltinDNSServers:     splitComma(*builtinDNS),
 		StunTimeout:           *stunTimeout,
@@ -406,6 +411,7 @@ func peerVisitorCmd(ctx context.Context, args []string) {
 	set := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
 	var p2pIPFamilyFromYAML *string
+	stunExplicit := set["stun"]
 	if strings.TrimSpace(*configFile) != "" {
 		ycfg, err := loadPeerYAMLConfig(*configFile)
 		if err != nil {
@@ -449,7 +455,10 @@ func peerVisitorCmd(ctx context.Context, args []string) {
 		if ycfg.P2PPort != nil && !set["p2p-port"] {
 			*p2pPort = *ycfg.P2PPort
 		}
-		if len(ycfg.Stun) > 0 && !set["stun"] {
+		if ycfg.Stun != nil {
+			stunExplicit = true
+		}
+		if ycfg.Stun != nil && !set["stun"] {
 			*stunServers = strings.Join(ycfg.Stun, ",")
 		}
 		if ycfg.StunTimeout != nil && !set["stun-timeout"] {
@@ -530,6 +539,7 @@ func peerVisitorCmd(ctx context.Context, args []string) {
 		QuicCC:                *quicCC,
 		Payload:               []byte(*payload),
 		StunServers:           splitComma(*stunServers),
+		StunExplicit:          stunExplicit,
 		BuiltinDNSMode:        *builtinDNSMode,
 		BuiltinDNSServers:     splitComma(*builtinDNS),
 		StunTimeout:           *stunTimeout,

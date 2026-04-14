@@ -55,6 +55,7 @@ type VisitorConfig struct {
 	BuiltinDNSServers []string
 
 	StunServers           []string
+	StunExplicit          bool
 	StunTimeout           time.Duration
 	GatherTimeout         time.Duration
 	AttemptV6Timeout      time.Duration
@@ -181,6 +182,7 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 		DisableAssistedAddrs: cfg.DisableAssistedAddrs,
 		DisablePortMap:       cfg.DisablePortMap,
 		StunServers:          cfg.StunServers,
+		StunExplicit:         cfg.StunExplicit,
 		BuiltinDNSMode:       cfg.BuiltinDNSMode,
 		BuiltinDNSServers:    cfg.BuiltinDNSServers,
 		StunTimeout:          cfg.StunTimeout,
@@ -223,6 +225,8 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 		DirectAddrs:   gather.DirectAddrs,
 		MappedAddrs:   gather.MappedAddrs,
 		AssistedAddrs: gather.AssistedAddrs,
+		STUNCN:        gather.STUNCN,
+		STUNGlobal:    gather.STUNGlobal,
 	}
 
 	if cfg.Emitter != nil {
@@ -252,6 +256,8 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 			"quic_cc":     natHoleRespMsg.QuicCC,
 			"brutal_up":   natHoleRespMsg.BrutalUpBps,
 			"brutal_down": natHoleRespMsg.BrutalDownBps,
+			"selected_view":   natHoleRespMsg.SelectedView,
+			"selected_reason": natHoleRespMsg.SelectedReason,
 			"peer_direct": len(natHoleRespMsg.PeerDirectAddrs),
 			"punching":    natHoleRespMsg.PunchingEnabled,
 		})
