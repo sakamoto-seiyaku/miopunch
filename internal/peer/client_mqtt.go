@@ -46,9 +46,12 @@ func runClientMQTT(ctx context.Context, cfg ClientConfig) error {
 	}
 	gather, err := connectivity.Gather(sessionCtx, sid, connectivity.GatherConfig{
 		ListenPort:           listenPort,
+		P2PIPFamily:          cfg.P2PIPFamily,
 		DisableAssistedAddrs: cfg.DisableAssistedAddrs,
 		DisablePortMap:       cfg.DisablePortMap,
 		StunServers:          cfg.StunServers,
+		BuiltinDNSMode:       cfg.BuiltinDNSMode,
+		BuiltinDNSServers:    cfg.BuiltinDNSServers,
 		StunTimeout:          cfg.StunTimeout,
 		GatherTimeout:        cfg.GatherTimeout,
 		SessionLease:         connectivity.PortMapLease(cfg.SessionOverallTimeout),
@@ -57,7 +60,9 @@ func runClientMQTT(ctx context.Context, cfg ClientConfig) error {
 	if err != nil {
 		return fail(event.StageGather, err, "gather failed", map[string]any{"sid": sid})
 	}
-	defer gather.UDP4Conn.Close()
+	if gather.UDP4Conn != nil {
+		defer gather.UDP4Conn.Close()
+	}
 	if gather.UDP6Conn != nil {
 		defer gather.UDP6Conn.Close()
 	}
@@ -87,6 +92,10 @@ func runClientMQTT(ctx context.Context, cfg ClientConfig) error {
 	brokerURL, err := buildMQTTBrokerURL(cfg.MQTTBroker, cfg.MQTTUser, cfg.MQTTPass)
 	if err != nil {
 		return fail(event.StageSupervisor, err, "invalid mqtt config", nil)
+	}
+	brokerURL, err = resolveMQTTBrokerURL(sessionCtx, brokerURL, cfg.BuiltinDNSMode, cfg.BuiltinDNSServers)
+	if err != nil {
+		return fail(event.StageSignaling, err, "mqtt broker resolve failed", map[string]any{"broker": brokerURL, "sid": sid})
 	}
 
 	if cfg.Emitter != nil {
@@ -146,6 +155,7 @@ func runClientMQTT(ctx context.Context, cfg ClientConfig) error {
 	attemptRes, err := connectivity.Attempt(sessionCtx, sid, []byte(cfg.SecretKey), gather.UDP4Conn, gather.UDP6Conn, natHoleRespMsg, connectivity.AttemptConfig{
 		AttemptV6Timeout:      cfg.AttemptV6Timeout,
 		AttemptPortmapTimeout: cfg.AttemptPortmapTimeout,
+		P2PIPFamily:           cfg.P2PIPFamily,
 		Emitter:               cfg.Emitter,
 	})
 	if err != nil {

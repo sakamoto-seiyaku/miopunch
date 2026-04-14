@@ -63,9 +63,13 @@ type peerYAMLConfig struct {
 	QuicCC    *string `yaml:"quic_cc"`
 	Payload   *string `yaml:"payload"`
 
-	P2PPort *int `yaml:"p2p_port"`
+	P2PPort     *int    `yaml:"p2p_port"`
+	P2PIPFamily *string `yaml:"p2p_ip_family"`
 
 	Stun []string `yaml:"stun"`
+
+	BuiltinDNSMode *string  `yaml:"builtin_dns_mode"`
+	BuiltinDNS     []string `yaml:"builtin_dns"`
 
 	StunTimeout           *yamlDuration `yaml:"stun_timeout"`
 	GatherTimeout         *yamlDuration `yaml:"gather_timeout"`

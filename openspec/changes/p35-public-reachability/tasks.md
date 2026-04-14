@@ -1,22 +1,22 @@
 ## 1. Pre-flight Validation
 
-- [ ] 1.1 Run baseline `go test ./...` (clean tree)
-- [ ] 1.2 Run baseline `go vet ./...`
+- [x] 1.1 Run baseline `go test ./...` (clean tree)
+- [x] 1.2 Run baseline `go vet ./...`
 
 ## 2. CLI & YAML Surface
 
-- [ ] 2.1 Add peer short flags `-4/-6` and plumb into runtime config (`P2P/打洞` only)
-- [ ] 2.2 Add YAML config fields for P2P IP family preference (keep `snake_case`)
-- [ ] 2.3 Add YAML + CLI knobs for built-in DNS mode and resolver list (scope-limited to STUN/MQTT)
+- [x] 2.1 Add peer short flags `-4/-6` and plumb into runtime config (`P2P/打洞` only)
+- [x] 2.2 Add YAML config fields for P2P IP family preference (keep `snake_case`)
+- [x] 2.3 Add YAML + CLI knobs for built-in DNS mode and resolver list (scope-limited to STUN/MQTT)
 - [ ] 2.4 Ensure “explicit `--stun`/`stun:` disables internal STUN + cn/global arbitration” is enforced
 
 ## 3. Built-in DNS (TCP/53)
 
-- [ ] 3.1 Add unit tests for resolver mode behavior and TCP/53 query path (use a local test DNS server)
-- [ ] 3.2 Implement built-in DNS resolver over `TCP/53` with modes `auto|on|off`
-- [ ] 3.3 Default built-in resolver list to `1.1.1.1, 8.8.8.8, 223.5.5.5, 119.29.29.29` and allow YAML override
-- [ ] 3.4 Integrate resolver into STUN endpoint hostname resolution only
-- [ ] 3.5 Integrate resolver into MQTT broker hostname resolution only
+- [x] 3.1 Add unit tests for resolver mode behavior and TCP/53 query path (use a local test DNS server)
+- [x] 3.2 Implement built-in DNS resolver over `TCP/53` with modes `auto|on|off`
+- [x] 3.3 Default built-in resolver list to `1.1.1.1, 8.8.8.8, 223.5.5.5, 119.29.29.29` and allow YAML override
+- [x] 3.4 Integrate resolver into STUN endpoint hostname resolution only
+- [x] 3.5 Integrate resolver into MQTT broker hostname resolution only
 
 ## 4. STUN cn/global Sampling & Single-View Arbitration
 

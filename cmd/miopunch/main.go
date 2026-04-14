@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/event"
 	"github.com/miopunch/miopunch/internal/control"
 	"github.com/miopunch/miopunch/internal/coordinator"
@@ -88,6 +89,8 @@ Commands:
 	    --allow-users <comma-list>
 	    --data-proto <kcp|quic>
 	    --quic-cc <bbr|brutal>
+	    -4                          (p2p/punching ipv4 only)
+	    -6                          (p2p/punching ipv6 only)
 	    --p2p-port <port>           (lab/test only; fixed local UDP port; 0=random)
 	    --stun <addr1,addr2,...>
 	    --stun-timeout <duration>
@@ -113,6 +116,8 @@ Commands:
 	    --data-proto <kcp|quic>
 	    --quic-cc <bbr|brutal>
 	    --payload <string>
+	    -4                          (p2p/punching ipv4 only)
+	    -6                          (p2p/punching ipv6 only)
 	    --p2p-port <port>           (lab/test only; fixed local UDP port; 0=random)
 	    --stun <addr1,addr2,...>
 	    --stun-timeout <duration>
@@ -190,6 +195,10 @@ func peerClientCmd(ctx context.Context, args []string) {
 	mqttPass := fs.String("mqtt-pass", "", "mqtt password")
 	dataProto := fs.String("data-proto", "quic", "data plane protocol: kcp|quic")
 	quicCC := fs.String("quic-cc", "bbr", "quic congestion control: bbr|brutal (only applies when --data-proto=quic)")
+	p2pV4Only := fs.Bool("4", false, "p2p/punching ipv4 only")
+	p2pV6Only := fs.Bool("6", false, "p2p/punching ipv6 only")
+	builtinDNSMode := fs.String("builtin-dns-mode", "auto", "built-in dns mode for STUN/MQTT resolution: auto|on|off")
+	builtinDNS := fs.String("builtin-dns", "", "comma-separated built-in dns resolvers (ip[:port]) for STUN/MQTT resolution (TCP/53)")
 	stunServers := fs.String("stun", "", "comma-separated stun servers")
 	stunTimeout := fs.Duration("stun-timeout", 3*time.Second, "STUN timeout (only applies when STUN servers are configured)")
 	gatherTimeout := fs.Duration("gather-timeout", 1500*time.Millisecond, "gather timeout for optional helpers (e.g. portmap); does not gate STUN")
@@ -207,11 +216,19 @@ func peerClientCmd(ctx context.Context, args []string) {
 
 	set := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	var p2pIPFamilyFromYAML *string
 	if strings.TrimSpace(*configFile) != "" {
 		ycfg, err := loadPeerYAMLConfig(*configFile)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
+		}
+		p2pIPFamilyFromYAML = ycfg.P2PIPFamily
+		if ycfg.BuiltinDNSMode != nil && !set["builtin-dns-mode"] {
+			*builtinDNSMode = *ycfg.BuiltinDNSMode
+		}
+		if len(ycfg.BuiltinDNS) > 0 && !set["builtin-dns"] {
+			*builtinDNS = strings.Join(ycfg.BuiltinDNS, ",")
 		}
 		if ycfg.Signaling != nil && !set["signaling"] {
 			*signaling = *ycfg.Signaling
@@ -290,6 +307,27 @@ func peerClientCmd(ctx context.Context, args []string) {
 		}
 	}
 
+	if *p2pV4Only && *p2pV6Only {
+		fmt.Fprintln(os.Stderr, "invalid config: -4 and -6 are mutually exclusive")
+		os.Exit(2)
+	}
+
+	p2pIPFamily := connectivity.P2PIPFamilyAuto
+	if p2pIPFamilyFromYAML != nil && !set["4"] && !set["6"] {
+		family, err := connectivity.ParseP2PIPFamily(*p2pIPFamilyFromYAML)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+		p2pIPFamily = family
+	}
+	if *p2pV4Only {
+		p2pIPFamily = connectivity.P2PIPFamilyV4
+	}
+	if *p2pV6Only {
+		p2pIPFamily = connectivity.P2PIPFamilyV6
+	}
+
 	em := event.NewEmitter(os.Stdout, "peer-client")
 	cfg := peer.ClientConfig{
 		CoordAddr:             *coordAddr,
@@ -306,10 +344,13 @@ func peerClientCmd(ctx context.Context, args []string) {
 		DataProto:             *dataProto,
 		QuicCC:                *quicCC,
 		StunServers:           splitComma(*stunServers),
+		BuiltinDNSMode:        *builtinDNSMode,
+		BuiltinDNSServers:     splitComma(*builtinDNS),
 		StunTimeout:           *stunTimeout,
 		GatherTimeout:         *gatherTimeout,
 		AttemptV6Timeout:      *attemptV6Timeout,
 		AttemptPortmapTimeout: *attemptPortmapTimeout,
+		P2PIPFamily:           p2pIPFamily,
 		DisablePortMap:        *disablePortmap,
 		DisableAssistedAddrs:  *disableAssisted,
 		HelloTimeout:          *helloTimeout,
@@ -343,6 +384,10 @@ func peerVisitorCmd(ctx context.Context, args []string) {
 	mqttPass := fs.String("mqtt-pass", "", "mqtt password")
 	dataProto := fs.String("data-proto", "quic", "data plane protocol: kcp|quic")
 	quicCC := fs.String("quic-cc", "bbr", "quic congestion control: bbr|brutal (only applies when --data-proto=quic)")
+	p2pV4Only := fs.Bool("4", false, "p2p/punching ipv4 only")
+	p2pV6Only := fs.Bool("6", false, "p2p/punching ipv6 only")
+	builtinDNSMode := fs.String("builtin-dns-mode", "auto", "built-in dns mode for STUN/MQTT resolution: auto|on|off")
+	builtinDNS := fs.String("builtin-dns", "", "comma-separated built-in dns resolvers (ip[:port]) for STUN/MQTT resolution (TCP/53)")
 	payload := fs.String("payload", "ping", "payload to send")
 	stunServers := fs.String("stun", "", "comma-separated stun servers")
 	stunTimeout := fs.Duration("stun-timeout", 3*time.Second, "STUN timeout (only applies when STUN servers are configured)")
@@ -360,11 +405,19 @@ func peerVisitorCmd(ctx context.Context, args []string) {
 
 	set := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	var p2pIPFamilyFromYAML *string
 	if strings.TrimSpace(*configFile) != "" {
 		ycfg, err := loadPeerYAMLConfig(*configFile)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
+		}
+		p2pIPFamilyFromYAML = ycfg.P2PIPFamily
+		if ycfg.BuiltinDNSMode != nil && !set["builtin-dns-mode"] {
+			*builtinDNSMode = *ycfg.BuiltinDNSMode
+		}
+		if len(ycfg.BuiltinDNS) > 0 && !set["builtin-dns"] {
+			*builtinDNS = strings.Join(ycfg.BuiltinDNS, ",")
 		}
 		if ycfg.Signaling != nil && !set["signaling"] {
 			*signaling = *ycfg.Signaling
@@ -440,6 +493,27 @@ func peerVisitorCmd(ctx context.Context, args []string) {
 		}
 	}
 
+	if *p2pV4Only && *p2pV6Only {
+		fmt.Fprintln(os.Stderr, "invalid config: -4 and -6 are mutually exclusive")
+		os.Exit(2)
+	}
+
+	p2pIPFamily := connectivity.P2PIPFamilyAuto
+	if p2pIPFamilyFromYAML != nil && !set["4"] && !set["6"] {
+		family, err := connectivity.ParseP2PIPFamily(*p2pIPFamilyFromYAML)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+		p2pIPFamily = family
+	}
+	if *p2pV4Only {
+		p2pIPFamily = connectivity.P2PIPFamilyV4
+	}
+	if *p2pV6Only {
+		p2pIPFamily = connectivity.P2PIPFamilyV6
+	}
+
 	em := event.NewEmitter(os.Stdout, "peer-visitor")
 	cfg := peer.VisitorConfig{
 		CoordAddr:             *coordAddr,
@@ -456,10 +530,13 @@ func peerVisitorCmd(ctx context.Context, args []string) {
 		QuicCC:                *quicCC,
 		Payload:               []byte(*payload),
 		StunServers:           splitComma(*stunServers),
+		BuiltinDNSMode:        *builtinDNSMode,
+		BuiltinDNSServers:     splitComma(*builtinDNS),
 		StunTimeout:           *stunTimeout,
 		GatherTimeout:         *gatherTimeout,
 		AttemptV6Timeout:      *attemptV6Timeout,
 		AttemptPortmapTimeout: *attemptPortmapTimeout,
+		P2PIPFamily:           p2pIPFamily,
 		DisablePortMap:        *disablePortmap,
 		DisableAssistedAddrs:  *disableAssisted,
 		HelloTimeout:          *helloTimeout,

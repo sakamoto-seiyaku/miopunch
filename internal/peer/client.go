@@ -52,11 +52,15 @@ type ClientConfig struct {
 
 	DisableAuth bool
 
+	BuiltinDNSMode    string
+	BuiltinDNSServers []string
+
 	StunServers           []string
 	StunTimeout           time.Duration
 	GatherTimeout         time.Duration
 	AttemptV6Timeout      time.Duration
 	AttemptPortmapTimeout time.Duration
+	P2PIPFamily           connectivity.P2PIPFamily
 	DisablePortMap        bool
 	P2PListenAddr         string
 	DisableAssistedAddrs  bool
@@ -115,6 +119,11 @@ func RunClient(ctx context.Context, cfg ClientConfig) error {
 	if cfg.SessionOverallTimeout == 0 {
 		cfg.SessionOverallTimeout = 60 * time.Second
 	}
+	family, err := connectivity.ParseP2PIPFamily(string(cfg.P2PIPFamily))
+	if err != nil {
+		return fail(event.StageSupervisor, err, "invalid config", map[string]any{"p2p_ip_family": cfg.P2PIPFamily})
+	}
+	cfg.P2PIPFamily = family
 
 	if cfg.Signaling == "mqtt" {
 		return runClientMQTT(ctx, cfg)
@@ -187,9 +196,12 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 	}
 	gather, err := connectivity.Gather(sessionCtx, sid, connectivity.GatherConfig{
 		ListenPort:           listenPort,
+		P2PIPFamily:          cfg.P2PIPFamily,
 		DisableAssistedAddrs: cfg.DisableAssistedAddrs,
 		DisablePortMap:       cfg.DisablePortMap,
 		StunServers:          cfg.StunServers,
+		BuiltinDNSMode:       cfg.BuiltinDNSMode,
+		BuiltinDNSServers:    cfg.BuiltinDNSServers,
 		StunTimeout:          cfg.StunTimeout,
 		GatherTimeout:        cfg.GatherTimeout,
 		SessionLease:         connectivity.PortMapLease(cfg.SessionOverallTimeout),
@@ -201,7 +213,9 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 		}
 		return err
 	}
-	defer gather.UDP4Conn.Close()
+	if gather.UDP4Conn != nil {
+		defer gather.UDP4Conn.Close()
+	}
 	if gather.UDP6Conn != nil {
 		defer gather.UDP6Conn.Close()
 	}
@@ -265,6 +279,7 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 	attemptRes, err := connectivity.Attempt(sessionCtx, sid, []byte(cfg.SecretKey), gather.UDP4Conn, gather.UDP6Conn, natHoleRespMsg, connectivity.AttemptConfig{
 		AttemptV6Timeout:      cfg.AttemptV6Timeout,
 		AttemptPortmapTimeout: cfg.AttemptPortmapTimeout,
+		P2PIPFamily:           cfg.P2PIPFamily,
 		Emitter:               cfg.Emitter,
 	})
 	if err != nil {

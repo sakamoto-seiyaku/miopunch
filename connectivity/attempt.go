@@ -17,6 +17,8 @@ type AttemptConfig struct {
 	AttemptV6Timeout      time.Duration
 	AttemptPortmapTimeout time.Duration
 
+	P2PIPFamily P2PIPFamily
+
 	DirectSendCount    int
 	DirectSendInterval time.Duration
 
@@ -56,7 +58,19 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 		}
 	}
 
-	if udp4Conn == nil {
+	family, err := ParseP2PIPFamily(string(cfg.P2PIPFamily))
+	if err != nil {
+		return nil, err
+	}
+	cfg.P2PIPFamily = family
+
+	allowV4 := cfg.P2PIPFamily != P2PIPFamilyV6
+	allowV6 := cfg.P2PIPFamily != P2PIPFamilyV4
+
+	if cfg.P2PIPFamily == P2PIPFamilyV6 && udp6Conn == nil {
+		return nil, errors.New("udp6 conn is required for p2p ip family v6")
+	}
+	if allowV4 && udp4Conn == nil {
 		return nil, errors.New("udp4 conn is required")
 	}
 	if resp == nil {
@@ -83,13 +97,21 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 		Name:  "attempt.start",
 		Msg:   "attempt start",
 		KVs: map[string]any{
-			"peer_v6": len(peerV6),
-			"peer_v4": len(peerV4),
+			"p2p_ip_family": cfg.P2PIPFamily,
+			"peer_v6":       len(peerV6),
+			"peer_v4":       len(peerV4),
 		},
 	})
 
+	if cfg.P2PIPFamily == P2PIPFamilyV6 && len(peerV6) == 0 {
+		err := errors.New("p2p ip family v6 requires peer ipv6 candidates")
+		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.v6.required", Msg: "ipv6-only requires peer ipv6 candidates", Err: err.Error()})
+		return nil, err
+	}
+
 	// 1) IPv6 direct
-	if udp6Conn != nil && len(peerV6) > 0 {
+	var v6DirectErr error
+	if allowV6 && udp6Conn != nil && len(peerV6) > 0 {
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindStart, Name: "attempt.v6.start", Msg: "attempt ipv6 direct"})
 
 		for _, cand := range peerV6 {
@@ -145,6 +167,7 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 			return &AttemptResult{Path: "direct_ipv6", Conn: udp6Conn, Remote: raddr}, nil
 		}
 
+		v6DirectErr = err
 		for _, cand := range peerV6 {
 			emit(event.Event{
 				Stage: event.StageAttempt,
@@ -163,7 +186,11 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 	}
 
 	// 2) IPv4 direct (portmap candidates)
-	if len(peerV4) > 0 {
+	if cfg.P2PIPFamily == P2PIPFamilyV6 {
+		return nil, v6DirectErr
+	}
+
+	if allowV4 && len(peerV4) > 0 {
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindStart, Name: "attempt.v4.start", Msg: "attempt ipv4 direct"})
 
 		for _, cand := range peerV4 {

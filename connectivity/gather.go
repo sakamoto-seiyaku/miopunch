@@ -11,16 +11,23 @@ import (
 	"time"
 
 	"github.com/miopunch/miopunch/event"
+	"github.com/miopunch/miopunch/internal/netutil"
 	"github.com/miopunch/miopunch/nat"
 )
 
 type GatherConfig struct {
 	ListenPort int
 
+	P2PIPFamily P2PIPFamily
+
 	DisableAssistedAddrs bool
 	DisablePortMap       bool
 
 	StunServers []string
+
+	BuiltinDNSMode    string
+	BuiltinDNSServers []string
+
 	StunTimeout time.Duration
 
 	GatherTimeout time.Duration
@@ -38,7 +45,16 @@ type GatherResult struct {
 	AssistedAddrs []string
 }
 
-func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, error) {
+func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResult, retErr error) {
+	family, err := ParseP2PIPFamily(string(cfg.P2PIPFamily))
+	if err != nil {
+		return nil, err
+	}
+	cfg.P2PIPFamily = family
+
+	allowV4 := cfg.P2PIPFamily != P2PIPFamilyV6
+	allowV6 := cfg.P2PIPFamily != P2PIPFamilyV4
+
 	if cfg.StunTimeout == 0 {
 		cfg.StunTimeout = 3 * time.Second
 	}
@@ -56,21 +72,41 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 		}
 	}
 
-	udp4Conn, udp4Port, err := bindUDP4(cfg.ListenPort)
-	if err != nil {
-		return nil, err
+	var udp4Conn *net.UDPConn
+	var udp4Port int
+	if allowV4 {
+		udp4Conn, udp4Port, err = bindUDP4(cfg.ListenPort)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	udp6Conn, udp6Port, udp6Err := bindUDP6(cfg.ListenPort, udp4Port)
-	if udp6Err != nil {
-		emit(event.Event{
-			Stage: event.StageGather,
-			Kind:  event.KindInfo,
-			Name:  "gather.udp6.unavailable",
-			Msg:   "udp6 bind failed",
-			Err:   udp6Err.Error(),
-		})
+	var udp6Conn *net.UDPConn
+	var udp6Port int
+	if allowV6 {
+		udp6Conn, udp6Port, err = bindUDP6(cfg.ListenPort, udp4Port)
+		if err != nil {
+			emit(event.Event{
+				Stage: event.StageGather,
+				Kind:  event.KindInfo,
+				Name:  "gather.udp6.unavailable",
+				Msg:   "udp6 bind failed",
+				Err:   err.Error(),
+			})
+		}
 	}
+
+	defer func() {
+		if retErr == nil {
+			return
+		}
+		if udp4Conn != nil {
+			_ = udp4Conn.Close()
+		}
+		if udp6Conn != nil {
+			_ = udp6Conn.Close()
+		}
+	}()
 
 	emit(event.Event{
 		Stage: event.StageGather,
@@ -78,8 +114,9 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 		Name:  "gather.start",
 		Msg:   "gather start",
 		KVs: map[string]any{
-			"udp4_port": udp4Port,
-			"udp6_port": udp6Port,
+			"p2p_ip_family": cfg.P2PIPFamily,
+			"udp4_port":     udp4Port,
+			"udp6_port":     udp6Port,
 		},
 	})
 
@@ -127,7 +164,7 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 		pmStart        time.Time
 		pmDeadline     time.Time
 	)
-	if !cfg.DisablePortMap {
+	if allowV4 && udp4Conn != nil && !cfg.DisablePortMap {
 		pmState = &portmapState{}
 		pmSnapshotDone = make(chan struct{})
 		pmUpdateCh = make(chan struct{}, 1)
@@ -243,7 +280,14 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 
 	// 3) STUN gating rule A.
 	var mappedAddrs []string
-	if len(cfg.StunServers) == 0 {
+	if !allowV4 || udp4Conn == nil {
+		emit(event.Event{
+			Stage: event.StageGather,
+			Kind:  event.KindInfo,
+			Name:  "gather.stun.skip",
+			Msg:   "stun disabled by p2p ip family",
+		})
+	} else if len(cfg.StunServers) == 0 {
 		emit(event.Event{
 			Stage: event.StageGather,
 			Kind:  event.KindInfo,
@@ -256,7 +300,41 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 		stunCtx, cancel := context.WithTimeout(ctx, cfg.StunTimeout)
 		defer cancel()
 		start := time.Now()
-		stunRes := DiscoverSTUN(stunCtx, udp4Conn, cfg.StunServers)
+
+		resolver, err := netutil.NewDNSResolver(cfg.BuiltinDNSMode, cfg.BuiltinDNSServers)
+		if err != nil {
+			return nil, err
+		}
+
+		resolvedServers := make([]string, 0, len(cfg.StunServers))
+		resolveErrors := make([]string, 0)
+		for _, server := range cfg.StunServers {
+			host, port, err := net.SplitHostPort(server)
+			if err != nil {
+				resolvedServers = append(resolvedServers, server)
+				continue
+			}
+			if _, err := netip.ParseAddr(host); err == nil {
+				resolvedServers = append(resolvedServers, net.JoinHostPort(host, port))
+				continue
+			}
+
+			addrs, err := resolver.LookupNetIP(stunCtx, "ip4", host)
+			if err != nil {
+				resolveErrors = append(resolveErrors, fmt.Sprintf("%s: resolve: %v", server, err))
+				continue
+			}
+			max := 2
+			if len(addrs) < max {
+				max = len(addrs)
+			}
+			for i := 0; i < max; i++ {
+				resolvedServers = append(resolvedServers, net.JoinHostPort(addrs[i].String(), port))
+			}
+		}
+
+		stunRes := DiscoverSTUN(stunCtx, udp4Conn, resolvedServers)
+		stunRes.Errors = append(stunRes.Errors, resolveErrors...)
 		mappedAddrs = stunRes.MappedAddrs
 
 		kind := event.KindOK
@@ -282,7 +360,7 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (*GatherResult, e
 	}
 
 	assistedAddrs := make([]string, 0)
-	if !cfg.DisableAssistedAddrs {
+	if allowV4 && udp4Conn != nil && !cfg.DisableAssistedAddrs {
 		localIPs, _ := nat.ListLocalIPsForNatHole(10)
 		assistedAddrs = make([]string, 0, len(localIPs))
 		for _, ip := range localIPs {
