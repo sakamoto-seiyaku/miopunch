@@ -244,8 +244,21 @@ func (q *quicStreamRWC) Close() error {
 		}
 		_ = q.stream.Close()
 	}
-	if q.closeConn && q.conn != nil {
-		_ = q.conn.CloseWithError(0, "")
+	if q.conn != nil {
+		if q.closeConn {
+			_ = q.conn.CloseWithError(0, "")
+		} else {
+			// Server side: prefer dialer to close first to avoid cutting off
+			// in-flight writes. If it doesn't, close after a short grace period.
+			conn := q.conn
+			go func() {
+				select {
+				case <-conn.Context().Done():
+				case <-time.After(2 * time.Second):
+					_ = conn.CloseWithError(0, "")
+				}
+			}()
+		}
 	}
 	return nil
 }
