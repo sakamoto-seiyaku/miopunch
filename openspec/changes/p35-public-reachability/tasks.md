@@ -36,7 +36,7 @@
 ## 6. Post-change Validation
 
 - [x] 6.1 Run `go test ./...` and `go vet ./...`
-- [ ] 6.2 If touching lab/runtime behavior, run the full lab gate set from `.codex/skills/dev/SKILL.md`
+- [x] 6.2 If touching lab/runtime behavior, run the full lab gate set from `.codex/skills/dev/SKILL.md`
 - [ ] 6.3 Manually verify at least one real-network run where system DNS fails but built-in DNS resolves STUN/MQTT
 - [ ] 6.4 Manually verify at least one real-network run that exercises cn/global view selection with recorded evidence
 

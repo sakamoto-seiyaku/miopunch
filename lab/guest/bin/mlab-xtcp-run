@@ -436,6 +436,10 @@ main() {
   fi
   if [[ "${disable_stun}" -eq 0 ]]; then
     client_cmd+=(--stun "${STUN_IP}:3478,${STUN_IP}:3479")
+  else
+    # P3.5: "no --stun" enables internal STUN defaults.
+    # For lab cases that require a strict "no STUN" environment, force an explicit empty config.
+    client_cmd+=(--stun=)
   fi
   if [[ "${signaling}" == "coord" ]]; then
     client_cmd+=(--coord "${COORD_IP}:7000" --control-proto "${control_proto}")
@@ -494,6 +498,9 @@ main() {
   fi
   if [[ "${disable_stun}" -eq 0 ]]; then
     visitor_cmd+=(--stun "${STUN_IP}:3478,${STUN_IP}:3479")
+  else
+    # Keep visitor side consistent with client: explicit empty config disables internal STUN defaults.
+    visitor_cmd+=(--stun=)
   fi
   if [[ "${signaling}" == "coord" ]]; then
     visitor_cmd+=(--coord "${COORD_IP}:7000" --control-proto "${control_proto}")
