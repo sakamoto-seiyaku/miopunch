@@ -2,6 +2,7 @@ package dataplane
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -14,7 +15,9 @@ func dialKCP(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *ne
 	if raddr == nil {
 		return fmt.Errorf("kcp requires remote addr")
 	}
-	defer listenConn.Close()
+	if listenConn == nil {
+		return errors.New("kcp requires listen conn")
+	}
 
 	laddr, err := net.ResolveUDPAddr("udp", listenConn.LocalAddr().String())
 	if err != nil {
@@ -34,7 +37,9 @@ func dialKCP(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *ne
 	}
 	defer c.Close()
 
-	_ = c.SetDeadline(time.Now().Add(15 * time.Second))
+	if err := c.SetDeadline(time.Now().Add(15 * time.Second)); err != nil {
+		return err
+	}
 	if err := writeFrame(c, payload); err != nil {
 		return err
 	}
@@ -54,7 +59,9 @@ func serveKCP(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *n
 	if raddr == nil {
 		return fmt.Errorf("kcp requires remote addr")
 	}
-	defer listenConn.Close()
+	if listenConn == nil {
+		return errors.New("kcp requires listen conn")
+	}
 
 	laddr, err := net.ResolveUDPAddr("udp", listenConn.LocalAddr().String())
 	if err != nil {
@@ -74,7 +81,9 @@ func serveKCP(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *n
 	}
 	defer c.Close()
 
-	_ = c.SetDeadline(time.Now().Add(15 * time.Second))
+	if err := c.SetDeadline(time.Now().Add(15 * time.Second)); err != nil {
+		return err
+	}
 	req, err := readFrame(c, 64*1024)
 	if err != nil {
 		return err

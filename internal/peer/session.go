@@ -17,7 +17,6 @@ package peer
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -73,6 +72,8 @@ func dialHello(ctx context.Context, coordAddr string, proto control.Protocol, he
 		return nil, err
 	}
 
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
 	select {
 	case <-ctx.Done():
 		_ = rwc.Close()
@@ -80,9 +81,9 @@ func dialHello(ctx context.Context, coordAddr string, proto control.Protocol, he
 	case <-disp.Done():
 		_ = rwc.Close()
 		return nil, io.EOF
-	case <-time.After(timeout):
+	case <-timer.C:
 		_ = rwc.Close()
-		return nil, fmt.Errorf("hello timeout")
+		return nil, errors.New("hello timeout")
 	case resp := <-helloRespCh:
 		if strings.TrimSpace(resp.Error) != "" {
 			_ = rwc.Close()
@@ -95,30 +96,4 @@ func dialHello(ctx context.Context, coordAddr string, proto control.Protocol, he
 		dispatcher: disp,
 		xport:      xport,
 	}, nil
-}
-
-func writeFrame(w io.Writer, payload []byte) error {
-	var hdr [4]byte
-	binary.BigEndian.PutUint32(hdr[:], uint32(len(payload)))
-	if _, err := w.Write(hdr[:]); err != nil {
-		return err
-	}
-	_, err := w.Write(payload)
-	return err
-}
-
-func readFrame(r io.Reader, max int) ([]byte, error) {
-	var hdr [4]byte
-	if _, err := io.ReadFull(r, hdr[:]); err != nil {
-		return nil, err
-	}
-	n := int(binary.BigEndian.Uint32(hdr[:]))
-	if n < 0 || n > max {
-		return nil, fmt.Errorf("frame too large: %d", n)
-	}
-	buf := make([]byte, n)
-	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, err
-	}
-	return buf, nil
 }

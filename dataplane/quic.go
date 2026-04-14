@@ -15,7 +15,7 @@ import (
 	"github.com/miopunch/miopunch/internal/tlsutil"
 )
 
-const dataALPN = "miopunch-xtcp-data"
+const dataALPN = "miopunch-data"
 
 func dialQUIC(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *net.UDPAddr, payload []byte, em *event.Emitter) error {
 	if raddr == nil {
@@ -49,7 +49,9 @@ func dialQUIC(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *n
 	}
 	defer stream.Close()
 
-	_ = stream.SetDeadline(time.Now().Add(15 * time.Second))
+	if err := stream.SetDeadline(time.Now().Add(15 * time.Second)); err != nil {
+		return err
+	}
 	if err := writeFrame(stream, payload); err != nil {
 		return err
 	}
@@ -100,7 +102,9 @@ func serveQUIC(ctx context.Context, cfg Config, listenConn *net.UDPConn, em *eve
 	}
 	defer stream.Close()
 
-	_ = stream.SetDeadline(time.Now().Add(15 * time.Second))
+	if err := stream.SetDeadline(time.Now().Add(15 * time.Second)); err != nil {
+		return err
+	}
 	req, err := readFrame(stream, 64*1024)
 	if err != nil {
 		return err

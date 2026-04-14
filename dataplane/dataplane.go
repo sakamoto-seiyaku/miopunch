@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"time"
 
 	"github.com/miopunch/miopunch/event"
 )
@@ -71,8 +70,4 @@ func emitPayloadExchanged(em *event.Emitter, cfg Config, bytes int, impl string)
 		Msg:   string(cfg.Proto) + " payload exchanged",
 		KVs:   kvs,
 	})
-}
-
-func withDeadline(t time.Time, fn func() error) error {
-	return fn()
 }

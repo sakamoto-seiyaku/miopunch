@@ -39,7 +39,7 @@ const (
 )
 
 const (
-	defaultALPN = "miopunch-xtcp-control"
+	defaultALPN = "miopunch-control"
 )
 
 type Listener interface {
@@ -112,7 +112,7 @@ func Dial(ctx context.Context, addr string, proto Protocol) (io.ReadWriteCloser,
 			_ = c.CloseWithError(0, "")
 			return nil, err
 		}
-		return &quicStreamRWC{stream: s, conn: c}, nil
+		return &quicStreamRWC{stream: s, conn: c, closeConn: true}, nil
 	default:
 		return nil, fmt.Errorf("unknown control protocol: %q", proto)
 	}
@@ -215,7 +215,7 @@ func (l *quicListener) Accept(ctx context.Context) (io.ReadWriteCloser, error) {
 		_ = c.CloseWithError(0, "")
 		return nil, err
 	}
-	return &quicStreamRWC{stream: s, conn: c}, nil
+	return &quicStreamRWC{stream: s, conn: c, closeConn: false}, nil
 }
 func (l *quicListener) Close() error   { return l.l.Close() }
 func (l *quicListener) Addr() net.Addr { return l.l.Addr() }
@@ -223,13 +223,31 @@ func (l *quicListener) Addr() net.Addr { return l.l.Addr() }
 type quicStreamRWC struct {
 	stream *quic.Stream
 	conn   *quic.Conn
+
+	// closeConn controls whether Close() also closes the underlying QUIC conn.
+	// For server side (Accept), we prefer the dialer to close first to avoid
+	// cutting off in-flight writes.
+	closeConn bool
 }
 
 func (q *quicStreamRWC) Read(p []byte) (int, error)  { return q.stream.Read(p) }
 func (q *quicStreamRWC) Write(p []byte) (int, error) { return q.stream.Write(p) }
 func (q *quicStreamRWC) Close() error {
-	q.stream.CancelRead(0)
-	return q.stream.Close()
+	if q == nil {
+		return nil
+	}
+
+	if q.stream != nil {
+		if q.closeConn {
+			q.stream.CancelRead(0)
+			q.stream.CancelWrite(0)
+		}
+		_ = q.stream.Close()
+	}
+	if q.closeConn && q.conn != nil {
+		_ = q.conn.CloseWithError(0, "")
+	}
+	return nil
 }
 
 func ServerTLSConfig() (*tls.Config, error) {

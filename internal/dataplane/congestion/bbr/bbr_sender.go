@@ -15,6 +15,7 @@ import (
 	"github.com/apernet/quic-go/monotime"
 
 	"github.com/miopunch/miopunch/internal/dataplane/congestion/common"
+	"github.com/miopunch/miopunch/internal/logutil"
 )
 
 // BbrSender implements BBR congestion control algorithm.  BBR aims to estimate
@@ -953,9 +954,7 @@ func (b *bbrSender) shouldExitStartupDueToLoss(lastPacketSendState *sendTimeStat
 }
 
 func (b *bbrSender) debugPrint(format string, a ...any) {
-	fmt.Printf("[BBRSender] [%s] %s\n",
-		time.Now().Format("15:04:05"),
-		fmt.Sprintf(format, a...))
+	logutil.Debugf("[BBRSender] "+format, a...)
 }
 
 func bdpFromRttAndBandwidth(rtt time.Duration, bandwidth Bandwidth) congestion.ByteCount {

@@ -20,9 +20,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-
-	"github.com/miopunch/miopunch/internal/punching"
-	"github.com/miopunch/miopunch/nat"
 )
 
 func listenPortFromAddr(addr string) (int, error) {
@@ -43,53 +40,4 @@ func listenPortFromAddr(addr string) (int, error) {
 		return 0, fmt.Errorf("invalid port in listen addr %q: %d", addr, port)
 	}
 	return port, nil
-}
-
-func prepareNATHole(stunServers []string, disableAssistedAddrs bool, localAddr string) (*punching.PrepareResult, error) {
-	opts := punching.PrepareOptions{
-		DisableAssistedAddrs: disableAssistedAddrs,
-	}
-	if localAddr == "" {
-		return punching.Prepare(stunServers, opts)
-	}
-
-	// Avoid modifying the copy-first extracted nathole.Prepare logic: we keep upstream code intact
-	// and only glue a fixed local port for the lab environment here.
-	addrs, discoveredLocalAddr, err := nat.Discover(stunServers, localAddr)
-	if err != nil {
-		return nil, fmt.Errorf("discover error: %v", err)
-	}
-	if len(addrs) < 2 {
-		return nil, fmt.Errorf("discover error: not enough addresses")
-	}
-
-	localIPs, _ := nat.ListLocalIPsForNatHole(10)
-	natFeature, err := nat.ClassifyNATFeature(addrs, localIPs)
-	if err != nil {
-		return nil, fmt.Errorf("classify nat feature error: %v", err)
-	}
-
-	laddr, err := net.ResolveUDPAddr("udp4", discoveredLocalAddr.String())
-	if err != nil {
-		return nil, fmt.Errorf("resolve local udp addr error: %v", err)
-	}
-	listenConn, err := net.ListenUDP("udp4", laddr)
-	if err != nil {
-		return nil, fmt.Errorf("listen local udp addr error: %v", err)
-	}
-
-	var assistedAddrs []string
-	if !opts.DisableAssistedAddrs {
-		assistedAddrs = make([]string, 0, len(localIPs))
-		for _, ip := range localIPs {
-			assistedAddrs = append(assistedAddrs, net.JoinHostPort(ip, strconv.Itoa(laddr.Port)))
-		}
-	}
-	return &punching.PrepareResult{
-		Addrs:         addrs,
-		AssistedAddrs: assistedAddrs,
-		ListenConn:    listenConn,
-		NatType:       natFeature.NatType,
-		Behavior:      natFeature.Behavior,
-	}, nil
 }
