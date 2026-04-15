@@ -135,6 +135,42 @@ For now, the safest temporary summary is:
 - **VM connector**: `ssh` (assumes SSH access to the VM).
 - Windows native `powershell` / `cmd` targets are out of scope for this POC.
 
+### Config Loading (Agreed)
+
+- Config is optional; when present it is auto-loaded.
+- Load order is **first match wins** (no merge):
+  1. `--config <path>`
+  2. `$MIOPUNCH_CONFIG`
+  3. Binary directory: `miopunch.{yaml,yml}` or `config.{yaml,yml}`
+  4. Default path: `os.UserConfigDir()/miopunch/config.yaml`
+
+### CLI (Agreed)
+
+- Peer list: `miopunch ls`
+- Shell entry: `miopunch <peer> sh [target] [-s session] [-4|-6]`
+- Shell listing:
+  - `miopunch <peer> sh ls`
+    - 0 targets: error
+    - 1 target: list sessions for that target
+    - ≥2 targets: list targets
+  - `miopunch <peer> sh ls <target>`: list sessions for that target
+
+### Target Selection (Agreed)
+
+- `target` is positional (no `-t`).
+- User-facing `target` names are matched across all discovered targets (WSL distros + config-defined VM shortcuts).
+- If a `target` name is ambiguous, require `wsl:<name>` or `ssh:<name>` to disambiguate.
+- If `target` is omitted:
+  - 1 target: auto-select it
+  - ≥2 targets: use config `default_target` when present; otherwise TTY prompts; non-TTY errors
+
+### Session Naming + Resume (Agreed)
+
+- `-s <name>` selects the `tmux` session name (user-controlled naming).
+- If `-s` is omitted: use config `default_session`, else default to `main`.
+- Attach/create semantics are `tmux new -A -s <session>`.
+- Single-writer: one controller attach per `(peer,target,session)`; additional attaches fail by default.
+
 ### Session Persistence Expectations
 
 - A shell session should persist until the user explicitly closes it.
