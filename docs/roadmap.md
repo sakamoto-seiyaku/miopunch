@@ -32,7 +32,8 @@
 - 不在早期追求完整产品形态。
 - 不在早期承诺完整虚拟局域网能力。
 - 不在早期承诺 `TCP` 打洞、`VPP`、全平台完整支持。
-- 不以 GUI、包装、易用性为当前重点。
+- 主线（`P0–P3.5`）不以 GUI、包装、易用性为当前重点（以实验可复现/可回归为优先）。
+  - 例外：Alpha/POC 产品线以“可用能力 + 极度友好 + 可解释性”为重点（见下文“Alpha/POC 产品线”）。
 
 ## 开发原则
 
@@ -111,10 +112,63 @@
 - 面向中国大陆 / 非中国大陆分流场景，将不同 `STUN` 观测面视为不同公网视角，并为后续打洞路径选择保留仲裁空间。
 - `P3.5` 仍以“完成公网实验准备”为目标，不提前展开完整产品化配置、加密与发布语义。
 
+### Alpha/POC 产品线（远程 Shell）
+
+定位：
+
+- 与 `P0–P3.5` 实验主线并行推进；目标是把能力包装成“个人/小团队可用”的 POC，而不是替代实验台。
+- 首个可交付能力：`join → ping → sh(tmux)`（远程 Shell + tmux 现场恢复 + 高可解释性）。
+- 无中心化数据面 relay（现在与未来都不做）；控制面允许 mesh 转发 + MQTT 兜底；broker 不可信但控制面端到端加密+签名可验真。
+
+事实源：
+
+- 语义/流程/口径：`docs/notes/2026-04-15-alpha-product-discussion.md`
+- 术语词典：`docs/notes/2026-04-16-alpha-glossary.md`
+- POC 实现清单（vertical slice）：`docs/notes/2026-04-20-poc-implementation-checklist.md`
+
+待办任务（按优先级从高到低）：
+
+- [ ] 明确 POC“可用性边界/成功标准”（无数据面 relay 前提下）
+  - [ ] 写清楚：支持/不支持的网络环境（例如对称 NAT/企业网/蜂窝网络的预期）
+  - [ ] 写清楚：成功判定与失败判定（`join/ping/sh` 各自的最小验收）
+  - [ ] 写清楚：失败时的用户可执行动作（校时/换 broker/重试/换 seed 等）
+- [ ] 拆二进制：产品 `miopunch`（POC CLI）与实验 `miopunch-lab`（现有 `coord/peer/stun/mqtt-broker`）
+  - [ ] 迁移现有实验 CLI 到 `cmd/miopunch-lab`，并更新其 `--help` 文案为 `miopunch-lab`
+  - [ ] `cmd/miopunch` 作为产品 CLI 新入口（`up/ls/invite/approve/join/ping/sh/...`）
+  - [ ] 更新实验脚本/文档统一改用 `miopunch-lab`（不维持两套入口）
+- [ ] 控制面 topic 派生（POC v0）实现与单测：inbox topic 必须把 `peer_id` 纳入 HKDF 输入（防止“全网同 inbox”灾难）
+- [ ] 控制面 wire format（POC v0）落地：签名/转发/去重的硬规则实现与单测
+  - [ ] 签名 transcript 覆盖 `dst_peer_id`（`hop_limit` 不签名）
+  - [ ] bounded flooding：`H=3`，超出即丢弃；转发仅允许 `hop_limit--` 与按原 `dst_peer_id` 转发
+  - [ ] 去重窗口与限流/丢弃策略（并把 facts 纳入可解释性输出）
+- [ ] RPC 时间语义（POC v0）实现与单测
+  - [ ] RPC request 必须包含 `expires_at_unix_ms`，严格过期丢弃
+  - [ ] `abs(now-created_at)>10m` 触发 sanity drop，并给出“校时”建议
+- [ ] invite/approve 幂等与 uses 计数（POC v0）实现与单测
+  - [ ] issuer(admin) 持久化：`uses_left` + `handled_request_id → cached_response`（覆盖 invite 有效期）
+  - [ ] 重启恢复后不重复扣 uses、不重复交付 bundle
+- [ ] 本地 state/密钥落盘最低口径（POC v0）
+  - [ ] 明确 threat model（本机失陷=该 peer 失陷）
+  - [ ] state 目录权限/ACL 规则；system service 与用户态两种最小权限运行方式
+  - [ ] 不自研“加密落盘”（后置），仅依赖 OS 能力与运行用户隔离
+- [ ] 数据面“栈一致性/失败可解释性”（POC v0）
+  - [ ] POC 固定默认数据面栈（不做自动协商/降级）
+  - [ ] 配置不一致时给出 `DP_STACK_MISMATCH` 等强解释与修复建议
+- [ ] MQTT/broker 策略（POC v0）
+  - [ ] 公共 broker 作为默认入口：配置开关与 threat model/元数据口径写清楚
+  - [ ] invite code 携带 broker 实例信息（POC 以“命中同一实例”为优先；后续再增强 hostname/多端点）
+- [ ] LocalAPI（CLI↔daemon）最小闭环：HTTP/JSON + SSE + WS（shell 字节流），并冻结 `stage/reason_code/exit_code` 输出契约
+- [ ] `up` 常驻 + task 框架：`invite/join/approve/ping/sh_ls/sh_attach/revoke_member`（先闭环，后扩展）
+- [ ] `sh` 现场：WSL/SSH targets + `tmux new -A -s <session>` 语义 + 单写者锁 + resize + Ctrl-C 透传
+- [ ] HTTP 面板（POC 最小）：只监听 `127.0.0.1`；卡片+SSE；写操作白名单 `invite/join/sh_attach`
+- [ ] 更新/补齐对外文档：
+  - [ ] `docs/roadmap.md`/README（如有）明确“实验主线 vs 产品 POC”边界与入口差异
+  - [ ] 公网实验 runbook（`docs/public-network-runbook.md`）继续服务实验，迁到 `miopunch-lab` 命令树
+
 ## 后续方向
 
 - 个人 `overlay / mesh` 网络。
-- 多节点互通、节点间转发、弱中心化 relay。
+- 多节点互通、节点间转发/中继（仅 peer↔peer；不引入中心化数据面 relay）。
 - `VPP` 数据平面。
 - `TCP` 打洞。
 - `udp2raw` 式伪装与用户态协议栈实验。

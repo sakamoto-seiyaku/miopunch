@@ -719,8 +719,10 @@
     - wire：规范输出大写（解析大小写不敏感）；固定 `26` 字符（`[A-Z2-7]`）
     - 输入容错：解析时允许空格/短横线分组；输出一律规范化为大写无分隔符
   - 方法（POC v0，敲定）：
-    - 使用 `HKDF(net_secret, salt=net_id, info=...purpose...)` 派生 `16B` “名字材料”
-    - 编码：RFC4648 base32(raw, no-pad)；写入 MQTT topic 时统一用小写（便于人工输入/一致性）
+    - `net_id_raw16 = sha256(net_secret)[:16]`
+      - 注意：`net_id` 的 base32 形式仅用于 wire 展示；HKDF 的 `salt` 使用 `net_id_raw16`（raw bytes）
+    - 使用 `HKDF(net_secret, salt=net_id_raw16, info="miopunch/v0/topic.inbox/"+peer_id)` 派生 `16B` “名字材料”（`name16`）
+    - `inbox_topic = base32(raw,no-pad,name16)`；写入 MQTT topic 时统一用小写（便于人工输入/一致性）
     - topic 中不明文包含 `peer_id`
   - 约束：
     - topic 命名必须具备 ≥128bit 有效熵（不可枚举）

@@ -295,6 +295,10 @@
 
 - 定义：Miopunch 语义：某 peer 的控制面“收件箱 topic”（接收加密控制消息）。  
 - 同义词：Mailbox（`mailbox`）与 Inbox（`inbox`）在本文档中等价。  
+- Miopunch/POC（派生，敲定）：由 `net_secret + peer_id` 确定性派生（topic 中不明文包含 `peer_id`）。  
+  - `net_id_raw16 = sha256(net_secret)[:16]`
+  - `name16 = HKDF(net_secret, salt=net_id_raw16, info="miopunch/v0/topic.inbox/"+peer_id, L=16)`
+  - `inbox_topic = base32(raw,no-pad,name16)`（写入 MQTT topic 用小写）
 - refs：实现口径（POC 约定）
 
 ### Mailbox（`mailbox`）
