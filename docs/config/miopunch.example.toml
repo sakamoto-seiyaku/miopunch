@@ -1,0 +1,167 @@
+# miopunch Alpha/POC 示例配置（可直接改）
+#
+# 目的：
+# - 展示 miopunch（Alpha/POC）配置项的命名与风格（TOML + snake_case）
+# - 把“代码内置默认的 STUN cn/global 名单”显式展开到配置文件里，便于用户按需修改
+#
+# 约定：
+# - 你可以只复制你关心的字段；未配置字段仍以程序内置默认值为准
+# - STUN 名单同步来源：`connectivity/stun_internal.go`
+
+[defaults]
+default_session = "main"
+# default_target = "wsl:ubuntu"
+
+[targets]
+# 目标连接器（被控端）。
+# POC：Windows 原生 powershell/cmd 不作为 target；shell 目标主要来自 WSL/ssh。
+#
+# WSL：配置是可选的（用于“更短别名/更友好展示”）；你仍可直接在 CLI 里写 `wsl:<distro>`。
+[targets.wsl.ubuntu]
+distro = "Ubuntu-22.04" # 来自 `wsl.exe -l -q`
+
+# VM/其它：ssh target 必须显式配置（在 CLI 中使用 `ssh:<name>`）。
+[targets.ssh.home]
+host = "192.168.1.50"
+port = 22
+user = "ubuntu"
+# auth 细节（key/agent）按实现最佳实践收敛；POC 至少支持 key/agent。
+
+[resolver]
+# 仅用于 STUN/MQTT 的域名解析；不扩展为全局网络栈语义。
+mode = "auto"     # auto | system | builtin
+protocol = "tcp"  # POC 固定：tcp53（不做 DoT/DoH）
+servers = [
+  "1.1.1.1:53",
+  "8.8.8.8:53",
+  "223.5.5.5:53",
+  "119.29.29.29:53",
+]
+
+[control_plane]
+broker_profile = "global" # global | cn（未显式配置 brokers 时生效）
+# brokers = ["broker.example.com:1883"] # 显式覆盖内置 broker 列表（host:port；可为域名或 IP；默认语义为 tcp）
+#
+# 约定（POC）：
+# - brokers 的顺序即优先级；常驻 up 只会同时连接前 2 个（不足则 1 个）
+# - 生成 invite code 时会把“最终生效 brokers”的前 1–2 个写入 code（joiner 无需额外配置即可入网）
+# - 为避免 joiner/approver 因 DNS 差异落到不同 broker 实例，invite 会尽量把 hostname 规范化/固定为 `ip:port` 再写入 code
+#   - 若无法解析则保留 hostname 并在 invite/approve/join 强警告（该 code 的成功将依赖双方 DNS 结果一致）
+#
+# POC 内置默认 brokers（公共测试 broker；示例/不保证长期可用；可能限流/变更/不可达）：
+# - 仅使用 TCP `:1883`（POC 不强推 MQTT over TLS/WSS；需要时自行显式配置）
+#
+# - global（默认）优先级：
+#   1) mqtt.eclipseprojects.io:1883
+#   2) broker.emqx.io:1883
+#   3) broker.hivemq.com:1883
+#
+# - cn 优先级（仅调整顺序；同一集合）：
+#   1) broker.emqx.io:1883
+#   2) mqtt.eclipseprojects.io:1883
+#   3) broker.hivemq.com:1883
+#
+# 显式覆盖示例：
+# brokers = ["mqtt.eclipseprojects.io:1883", "broker.emqx.io:1883"]
+
+# 内置 STUN 分桶（cn/global）：用于 view 采样与仲裁。
+# 说明：bucket 只作用于“STUN 观测到的公网映射视图”，不影响 LAN/local candidates 的收集与交换。
+
+stun_servers_cn = [
+  # case1 公网验证（2026-04-14，Android 移动网络 <-> 家宽）
+  "106.13.249.54:3478",
+  "106.13.248.6:3478",
+  "106.12.251.193:3478",
+  "124.221.129.2:3478",
+  "124.222.69.57:3478",
+  "111.206.174.3:3478",
+
+  # hostnames + verified IP literals（来源见代码注释）
+  "stun.chat.bilibili.com:3478",
+  "stun.douyucdn.cn:18000",
+  "stun.hitv.com:3478",
+  "stun.cdnbye.com:3478",
+  "stun.miwifi.com:3478",
+  "stun.yy.com:3478",
+
+  # verified IP supplements
+  "106.12.251.31:3478",
+  "106.12.251.52:3478",
+  "106.12.71.140:3478",
+  "180.76.162.88:3478",
+  "111.206.174.2:3478",
+  "77.72.169.210:3478",
+  "77.72.169.211:3478",
+  "77.72.169.212:3478",
+  "77.72.169.213:3478",
+]
+
+stun_servers_global = [
+  # Source baseline: gonc.
+  "global.turn.twilio.com:3478",
+
+  # natmap issue #18 等来源（详见代码注释）
+  "turn.cloudflare.com:3478",
+  "stun.cloudflare.com:3478",
+  "stun.relay.metered.ca:80",
+  "fwa.lifesizecloud.com:3478",
+  "stun.hivestreaming.com:3478",
+
+  # AWS kinesisvideo STUN (443)
+  "stun.kinesisvideo.us-east-2.amazonaws.com:443",
+  "stun.kinesisvideo.us-east-1.amazonaws.com:443",
+  "stun.kinesisvideo.af-south-1.amazonaws.com:443",
+  "stun.kinesisvideo.ap-east-1.amazonaws.com:443",
+  "stun.kinesisvideo.ap-south-1.amazonaws.com:443",
+  "stun.kinesisvideo.ap-northeast-2.amazonaws.com:443",
+  "stun.kinesisvideo.ap-southeast-1.amazonaws.com:443",
+  "stun.kinesisvideo.ap-southeast-2.amazonaws.com:443",
+  "stun.kinesisvideo.ap-northeast-1.amazonaws.com:443",
+  "stun.kinesisvideo.ca-central-1.amazonaws.com:443",
+  "stun.kinesisvideo.eu-central-1.amazonaws.com:443",
+  "stun.kinesisvideo.eu-west-1.amazonaws.com:443",
+  "stun.kinesisvideo.eu-west-2.amazonaws.com:443",
+  "stun.kinesisvideo.eu-west-3.amazonaws.com:443",
+  "stun.kinesisvideo.sa-east-1.amazonaws.com:443",
+
+  # xirsys/expressturn
+  "u1.xirsys.com:3478",
+  "relay1.expressturn.com:3478",
+  "relay2.expressturn.com:3478",
+  "relay4.expressturn.com:3478",
+  "relay5.expressturn.com:3478",
+  "relay6.expressturn.com:3478",
+  "relay7.expressturn.com:3478",
+  "relay8.expressturn.com:3478",
+
+  # common public STUN
+  "stun.nextcloud.com:3478",
+  "stun.freeswitch.org:3478",
+  "stun.sonetel.com:3478",
+  "stun.voip.blackberry.com:3478",
+  "stun.voipgate.com:3478",
+  "stun.hot-chilli.net:3478",
+  "stun.sipnet.com:3478",
+  "stun.radiojar.com:3478",
+
+  # Google STUN (19302)
+  "stun.l.google.com:19302",
+  "stun1.l.google.com:19302",
+  "stun2.l.google.com:19302",
+  "stun3.l.google.com:19302",
+  "stun4.l.google.com:19302",
+
+  # nextcloud (443)
+  "stun.nextcloud.com:443",
+]
+
+[data_plane]
+data_proto = "quic" # kcp | quic
+quic_cc = "bbr"     # bbr | brutal（仅 quic 生效）
+# brutal_up_bps = 2000000
+# brutal_down_bps = 2000000
+
+[http_panel]
+enabled = false
+listen_addr = "127.0.0.1:27400"
+reports_keep = 20
