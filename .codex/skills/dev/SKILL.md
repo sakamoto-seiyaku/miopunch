@@ -22,10 +22,24 @@ Use this skill as the default workflow for development work in this repo.
 5. Archive:
    - Use `$openspec-archive-change` only after the required validation level passes
 
-## Required Companion Skills
+## Go Companion Skills (Router)
 
-- When Go work involves goroutines, channels, mutexes, WaitGroups, shared-state synchronization, worker lifecycles, or parallel execution, explicitly use `$go-concurrency` alongside this skill.
-- When the same change also depends on context cancellation or deadline propagation, explicitly add `$go-context`.
+When changing Go code in this repo, explicitly add the relevant `go-*` skills
+in addition to `$dev`:
+
+- **Default for most Go changes**: `$go-style-core`, `$go-naming`, `$go-error-handling`
+- **Packages / imports / splitting binaries / `cmd/` work**: `$go-packages`
+- **Tests**: `$go-testing`
+- **Exported APIs / doc comments**: `$go-documentation`
+- **Logging changes**: `$go-logging`
+- **Performance work**: `$go-performance`
+- **Interfaces / mock boundaries**: `$go-interfaces`
+- **Generics**: `$go-generics`
+- **Many optional settings in a constructor**: `$go-functional-options`
+- **Concurrency (required)**: use `$go-concurrency` when goroutines, channels, mutexes,
+  WaitGroups, shared state, worker lifecycles, or parallel execution are involved
+- **Context (required)**: use `$go-context` when cancellation, deadlines, or timeouts
+  must be propagated or enforced
 
 ## Guardrails
 
