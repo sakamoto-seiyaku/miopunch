@@ -126,44 +126,90 @@
 - 术语词典：`docs/notes/2026-04-16-alpha-glossary.md`
 - POC 实现清单（vertical slice）：`docs/notes/2026-04-20-poc-implementation-checklist.md`
 
-待办任务（按优先级从高到低）：
+待办任务（按 change 顺序；小步快走、每步可验证）：
 
-- [ ] 明确 POC“可用性边界/成功标准”（无数据面 relay 前提下）
-  - [ ] 写清楚：支持/不支持的网络环境（例如对称 NAT/企业网/蜂窝网络的预期）
-  - [ ] 写清楚：成功判定与失败判定（`join/ping/sh` 各自的最小验收）
-  - [ ] 写清楚：失败时的用户可执行动作（校时/换 broker/重试/换 seed 等）
-- [ ] 拆二进制：产品 `miopunch`（POC CLI）与实验 `miopunch-lab`（现有 `coord/peer/stun/mqtt-broker`）
-  - [ ] 迁移现有实验 CLI 到 `cmd/miopunch-lab`，并更新其 `--help` 文案为 `miopunch-lab`
-  - [ ] `cmd/miopunch` 作为产品 CLI 新入口（`up/ls/invite/approve/join/ping/sh/...`）
-  - [ ] 更新实验脚本/文档统一改用 `miopunch-lab`（不维持两套入口）
-- [ ] 控制面 topic 派生（POC v0）实现与单测：inbox topic 必须把 `peer_id` 纳入 HKDF 输入（防止“全网同 inbox”灾难）
-- [ ] 控制面 wire format（POC v0）落地：签名/转发/去重的硬规则实现与单测
-  - [ ] 签名 transcript 覆盖 `dst_peer_id`（`hop_limit` 不签名）
-  - [ ] bounded flooding：`H=3`，超出即丢弃；转发仅允许 `hop_limit--` 与按原 `dst_peer_id` 转发
-  - [ ] 去重窗口与限流/丢弃策略（并把 facts 纳入可解释性输出）
-- [ ] RPC 时间语义（POC v0）实现与单测
-  - [ ] RPC request 必须包含 `expires_at_unix_ms`，严格过期丢弃
-  - [ ] `abs(now-created_at)>10m` 触发 sanity drop，并给出“校时”建议
-- [ ] invite/approve 幂等与 uses 计数（POC v0）实现与单测
-  - [ ] issuer(admin) 持久化：`uses_left` + `handled_request_id → cached_response`（覆盖 invite 有效期）
-  - [ ] 重启恢复后不重复扣 uses、不重复交付 bundle
-- [ ] 本地 state/密钥落盘最低口径（POC v0）
-  - [ ] 明确 threat model（本机失陷=该 peer 失陷）
-  - [ ] state 目录权限/ACL 规则；system service 与用户态两种最小权限运行方式
-  - [ ] 不自研“加密落盘”（后置），仅依赖 OS 能力与运行用户隔离
-- [ ] 数据面“栈一致性/失败可解释性”（POC v0）
-  - [ ] POC 固定默认数据面栈（不做自动协商/降级）
-  - [ ] 配置不一致时给出 `DP_STACK_MISMATCH` 等强解释与修复建议
-- [ ] MQTT/broker 策略（POC v0）
-  - [ ] 公共 broker 作为默认入口：配置开关与 threat model/元数据口径写清楚
-  - [ ] invite code 携带 broker 实例信息（POC 以“命中同一实例”为优先；后续再增强 hostname/多端点）
-- [ ] LocalAPI（CLI↔daemon）最小闭环：HTTP/JSON + SSE + WS（shell 字节流），并冻结 `stage/reason_code/exit_code` 输出契约
-- [ ] `up` 常驻 + task 框架：`invite/join/approve/ping/sh_ls/sh_attach/revoke_member`（先闭环，后扩展）
-- [ ] `sh` 现场：WSL/SSH targets + `tmux new -A -s <session>` 语义 + 单写者锁 + resize + Ctrl-C 透传
-- [ ] HTTP 面板（POC 最小）：只监听 `127.0.0.1`；卡片+SSE；写操作白名单 `invite/join/sh_attach`
-- [ ] 更新/补齐对外文档：
-  - [ ] `docs/roadmap.md`/README（如有）明确“实验主线 vs 产品 POC”边界与入口差异
-  - [ ] 公网实验 runbook（`docs/public-network-runbook.md`）继续服务实验，迁到 `miopunch-lab` 命令树
+- 约束：每个 change 都应（尽量）包含：单元测试、集成测试、真实环境 smoke test；并把“验收口径/失败口径/用户动作建议”写清楚。
+- 建议：每个 change 用 OpenSpec workflow 跟踪（`openspec/changes/poc-XX-*`），避免把实现细节散落在聊天里。
+
+#### Change POC-01：POC 口径收口 + 拆二进制（lab vs product）
+
+- 目标：把“实验主线工具链”和“POC 产品 CLI”彻底解耦，防止互相污染；同时把 POC 可用性边界写清楚。
+- 交付：
+  - 明确 POC“可用性边界/成功标准”（无数据面 relay 前提下）：支持/不支持网络、`join/ping/sh` 最小验收、失败时用户动作（校时/换 broker/重试/换 seed）。
+  - 拆二进制：产品 `miopunch`（POC CLI）与实验 `miopunch-lab`（现有 `coord/peer/stun/mqtt-broker`）。
+  - 更新实验脚本/文档统一改用 `miopunch-lab`（不维持两套入口）。
+- 测试：
+  - 单元：`go test ./...`（至少覆盖新入口与 help/flags）。
+  - 集成：lab 自测最小集（确保拆分不破坏实验台）。
+  - 真实环境：`miopunch-lab` 基本命令在一台机器可跑通（用于回归“实验线”不被破坏）。
+
+#### Change POC-02：控制面 topic 派生 + inbox/mailbox 基础约束
+
+- 目标：把 broker 视为不可信 mailbox，但做到“入口不可枚举 + 每 peer inbox 唯一”。
+- 交付：
+  - topic 派生落地与单测（inbox topic 的 HKDF info 必须包含 `peer_id`；topic 小写；`base32(raw,no-pad)`）。
+  - `join code` 里携带 broker 实例信息（POC 以“命中同一实例”为优先；后续再增强 hostname/多端点）。
+- 测试：
+  - 单元：topic 派生确定性测试 + 不同 peer_id 不同 inbox。
+  - 集成：本地/CI 可复现的 control-plane smoke（用本地 broker 进程或已有 lab broker 工具跑两端订阅/投递）。
+  - 真实环境：公共 broker 路径下完成一次订阅/投递（仅验证“可达 + 不泄露明文”）。
+
+#### Change POC-03：控制面 wire format（签名覆盖 dst）+ bounded flooding(H=3) + 去重/限流
+
+- 目标：把“网内转发控制消息”做成可控、可诊断、不会放大的最小实现。
+- 交付：
+  - 签名 transcript 覆盖 `dst_peer_id`（`hop_limit` 不签名）；转发仅允许 `hop_limit--` 且必须按原 `dst_peer_id` 转发。
+  - bounded flooding：`H=3`，超出即丢弃；去重窗口；每 peer 的限流/队列上限/丢弃策略。
+  - 把“限流/丢弃 facts”纳入可解释性输出（方便用户理解为什么没转发/没到达）。
+- 测试：
+  - 单元：签名/验签覆盖 `dst_peer_id`；hop_limit 修改不影响签名但不会改变 dst；去重窗口正确性。
+  - 集成：3 节点模拟（A→B→C）验证 H=3、去重与丢弃 facts。
+  - 真实环境：同一 LAN 的 3 个进程 smoke（验证“网内优先 + MQTT 兜底”不互相打架）。
+
+#### Change POC-04：RPC 时间语义 + invite/approve 幂等/uses 持久化（可重启不重复计数）
+
+- 目标：让 join/approve 可重试、可解释、可恢复；issuer 重启后不重复扣 uses、不重复交付 bundle。
+- 交付：
+  - RPC request 必须包含 `expires_at_unix_ms`，严格过期丢弃；保留 `abs(now-created_at)>10m` sanity drop 并提示校时。
+  - issuer(admin) 持久化：`uses_left` + `handled_request_id → cached_response`（覆盖 invite 有效期）。
+- 测试：
+  - 单元：过期丢弃 + 校时提示；幂等缓存命中；uses 不重复扣减。
+  - 集成：issuer 重启回归（同一 request_id 重放不产生新 uses 消耗）。
+  - 真实环境：Windows↔Linux（公共 broker）下 `invite→join→approve` 可重试闭环。
+
+#### Change POC-05：daemon `up` + LocalAPI（CLI↔daemon）最小闭环 + 输出契约冻结
+
+- 目标：把“常驻进程 + CLI”跑通；为 UI/面板与未来扩展预留稳定接口。
+- 交付：
+  - `up` 常驻 + task 框架：`invite/join/approve/ping/sh_ls/sh_attach/revoke_member`（先闭环，后扩展）。
+  - LocalAPI：HTTP/JSON + SSE + WS（shell 字节流）；冻结 `stage/reason_code/exit_code` 输出契约（顶层 envelope 稳定）。
+  - 本地 state/密钥落盘最低口径：threat model + state 目录权限/ACL + system service/用户态两种最小权限运行方式（不自研加密落盘）。
+- 测试：
+  - 单元：handler/task 状态机；输出 envelope 稳定性测试。
+  - 集成：起 daemon → CLI 调用 → 校验 stage/reason_code/exit_code。
+  - 真实环境：Windows 安装/启动 daemon（含管理员权限需求：TUN/驱动未来可用），CLI 可用且错误提示友好。
+
+#### Change POC-06：`sh(tmux)` vertical slice（WSL/SSH targets）+ 单写者锁 + 现场语义
+
+- 目标：交付 POC 核心价值：远程 Shell + tmux 现场恢复 + 可解释性。
+- 交付：
+  - `sh`：WSL/SSH targets；`tmux new -A -s <session>` 语义；单写者锁（WS 心跳/TTL）；resize；Ctrl-C 透传。
+  - 数据面固定默认栈（POC 不做自动协商/降级）；配置不一致给出 `DP_STACK_MISMATCH` 等强解释与修复建议。
+- 测试：
+  - 单元：锁超时/抢占规则；frame 编解码；错误 reason_code。
+  - 集成：本机 tmux + WS 循环（attach/detach/reconnect）回归。
+  - 真实环境：Windows 平板/PC + 家中主机（WSL/VM）+ Android 入网辅助，演示 `join→sh` 全流程。
+
+#### Change POC-07：HTTP 面板（POC 最小）+ report/export（可解释性对外输出）
+
+- 目标：把“用户极度友好/一览无余”的可解释性落到 UI 与可分享报告。
+- 交付：
+  - HTTP 面板：只监听 `127.0.0.1`；卡片+SSE；写操作白名单 `invite/join/sh_attach`。
+  - 报告导出：`--report` 生成 md；`--redact` 脱敏开关；事件留存策略（log rotation）写清楚。
+- 测试：
+  - 单元：SSE/WS 基础协议；report 结构稳定（顶层字段不漂移）。
+  - 集成：起面板 → SSE 刷新 → 触发任务 → 卡片状态推进；导出 report 可读。
+  - 真实环境：浏览器打开面板完成一次 join/sh，生成可分享的脱敏报告。
 
 ## 后续方向
 
