@@ -176,7 +176,7 @@
 - 测试：
   - 单元：过期丢弃 + 校时提示；幂等缓存命中；uses 不重复扣减。
   - 集成：issuer 重启回归（同一 request_id 重放不产生新 uses 消耗）。
-  - 真实环境：Windows↔Linux（公共 broker）下 `invite→join→approve` 可重试闭环。
+  - 真实环境：公共 broker 下验证“RPC request 重放闭环”基础语义（重复 `request_msg_id` 触发 cached response 重发、且不重复副作用）；`invite→join→approve` 端到端闭环待 POC-05 daemon/CLI 落地后验收。
 
 #### Change POC-05：daemon `up` + LocalAPI（CLI↔daemon）最小闭环 + 输出契约冻结
 

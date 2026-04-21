@@ -28,6 +28,9 @@ import (
 
 const (
 	defaultMQTTURL = "tcp://127.0.0.1:1883"
+
+	smokeEchoRequestKind  = "smoke_echo_request"
+	smokeEchoResponseKind = "smoke_echo_response"
 )
 
 type multiFlag []string
@@ -48,6 +51,12 @@ type smokeConfig struct {
 	requestBody   string
 	respCh        chan controlplane.Message
 	wantReplyToID string
+
+	dropFirstResponse     bool
+	droppedFirstResponse  bool
+	droppedResponseMsgID  string
+	droppedResponseCount  int64
+	droppedResponseNotify chan struct{}
 }
 
 type node struct {
@@ -65,7 +74,8 @@ type node struct {
 
 	mqtt *mqttclient.Client
 
-	fwd *controlplane.Forwarder
+	fwd     *controlplane.Forwarder
+	handled *controlplane.HandledRequestsCache
 
 	responseDelay time.Duration
 
@@ -222,8 +232,71 @@ func (n *node) udpReadLoop() {
 
 		payload := make([]byte, nRead)
 		copy(payload, buf[:nRead])
-		n.fwd.HandleInbound(neighborID, payload)
+		n.handleInbound(neighborID, payload)
 	}
+}
+
+func (n *node) handleInbound(srcNeighborID string, ciphertext []byte) {
+	if n == nil || n.fwd == nil {
+		return
+	}
+	if n.maybeDropFirstSmokeResponse(ciphertext) {
+		return
+	}
+	n.fwd.HandleInbound(srcNeighborID, ciphertext)
+}
+
+func (n *node) maybeDropFirstSmokeResponse(ciphertext []byte) bool {
+	n.mu.Lock()
+	smoke := n.smoke
+	if smoke == nil || !smoke.dropFirstResponse || smoke.droppedFirstResponse {
+		n.mu.Unlock()
+		return false
+	}
+	wantReplyToID := smoke.wantReplyToID
+	n.mu.Unlock()
+
+	pt, err := controlplane.OpenGroupV0(n.netSecret, ciphertext)
+	if err != nil {
+		return false
+	}
+	msg, err := controlplane.UnmarshalMessage(pt)
+	if err != nil {
+		return false
+	}
+	if msg.Route.DstPeerID != n.selfPeerID {
+		return false
+	}
+	if msg.Signed.Kind != smokeEchoResponseKind {
+		return false
+	}
+	if msg.Signed.InReplyTo != wantReplyToID {
+		return false
+	}
+
+	var body struct {
+		OK    bool  `json:"ok"`
+		Count int64 `json:"count"`
+	}
+	_ = json.Unmarshal(msg.Signed.Body, &body)
+
+	n.mu.Lock()
+	smoke = n.smoke
+	if smoke == nil || !smoke.dropFirstResponse || smoke.droppedFirstResponse || smoke.wantReplyToID != wantReplyToID {
+		n.mu.Unlock()
+		return false
+	}
+	smoke.droppedFirstResponse = true
+	smoke.droppedResponseMsgID = msg.Route.MsgID
+	smoke.droppedResponseCount = body.Count
+	if smoke.droppedResponseNotify != nil {
+		close(smoke.droppedResponseNotify)
+		smoke.droppedResponseNotify = nil
+	}
+	n.mu.Unlock()
+
+	fmt.Fprintf(os.Stderr, "smoke: intentionally dropped first response msg_id=%s count=%d\n", msg.Route.MsgID, body.Count)
+	return true
 }
 
 func (n *node) verifyForSelf(msg controlplane.Message) error {
@@ -239,11 +312,14 @@ func (n *node) deliver(srcNeighborID string, msg controlplane.Message) error {
 	if err := n.verifyForSelf(msg); err != nil {
 		return err
 	}
+	if err := controlplane.ValidateRPCRequestTime(time.Now().UTC().UnixMilli(), msg); err != nil {
+		return err
+	}
 
 	switch msg.Signed.Kind {
-	case "smoke_echo_req":
+	case smokeEchoRequestKind:
 		return n.handleEchoReq(srcNeighborID, msg)
-	case "smoke_echo_resp":
+	case smokeEchoResponseKind:
 		return n.handleEchoResp(srcNeighborID, msg)
 	default:
 		return nil
@@ -251,33 +327,45 @@ func (n *node) deliver(srcNeighborID string, msg controlplane.Message) error {
 }
 
 func (n *node) handleEchoReq(srcNeighborID string, msg controlplane.Message) error {
-	n.mu.Lock()
-	n.echoReqCount++
-	count := n.echoReqCount
-	delay := n.responseDelay
-	n.mu.Unlock()
+	fmt.Fprintf(os.Stderr, "echo_request recv: via=%s from=%s msg_id=%s\n", srcNeighborID, msg.Signed.SenderPeerID, msg.Route.MsgID)
 
-	fmt.Fprintf(os.Stderr, "echo_req recv: via=%s from=%s msg_id=%s count=%d\n", srcNeighborID, msg.Signed.SenderPeerID, msg.Route.MsgID, count)
+	ct, cacheHit, err := n.handled.Handle(msg, func() ([]byte, error) {
+		n.mu.Lock()
+		n.echoReqCount++
+		count := n.echoReqCount
+		delay := n.responseDelay
+		n.mu.Unlock()
 
-	if delay > 0 {
-		select {
-		case <-n.ctx.Done():
-			return n.ctx.Err()
-		case <-time.After(delay):
+		fmt.Fprintf(os.Stderr, "echo_request apply: via=%s from=%s msg_id=%s count=%d\n", srcNeighborID, msg.Signed.SenderPeerID, msg.Route.MsgID, count)
+
+		if delay > 0 {
+			select {
+			case <-n.ctx.Done():
+				return nil, n.ctx.Err()
+			case <-time.After(delay):
+			}
 		}
-	}
 
-	body, err := json.Marshal(struct {
-		OK    bool  `json:"ok"`
-		Count int64 `json:"count"`
-	}{OK: true, Count: count})
+		body, err := json.Marshal(struct {
+			OK    bool  `json:"ok"`
+			Count int64 `json:"count"`
+		}{OK: true, Count: count})
+		if err != nil {
+			return nil, err
+		}
+
+		ct, _, err := n.newCiphertext(msg.Signed.SenderPeerID, smokeEchoResponseKind, msg.Route.MsgID, body, 0)
+		if err != nil {
+			return nil, err
+		}
+		return ct, nil
+	})
 	if err != nil {
 		return err
 	}
 
-	ct, _, err := n.newCiphertext(msg.Signed.SenderPeerID, "smoke_echo_resp", msg.Route.MsgID, body)
-	if err != nil {
-		return err
+	if cacheHit {
+		fmt.Fprintf(os.Stderr, "echo_request hit: via=%s from=%s msg_id=%s\n", srcNeighborID, msg.Signed.SenderPeerID, msg.Route.MsgID)
 	}
 
 	// If the request arrived via MQTT fallback, reply via MQTT so the caller
@@ -294,7 +382,7 @@ func (n *node) handleEchoReq(srcNeighborID string, msg controlplane.Message) err
 }
 
 func (n *node) handleEchoResp(srcNeighborID string, msg controlplane.Message) error {
-	fmt.Fprintf(os.Stderr, "echo_resp recv: via=%s from=%s in_reply_to=%s msg_id=%s\n", srcNeighborID, msg.Signed.SenderPeerID, msg.Signed.InReplyTo, msg.Route.MsgID)
+	fmt.Fprintf(os.Stderr, "echo_response recv: via=%s from=%s in_reply_to=%s msg_id=%s\n", srcNeighborID, msg.Signed.SenderPeerID, msg.Signed.InReplyTo, msg.Route.MsgID)
 
 	n.mu.Lock()
 	smoke := n.smoke
@@ -313,7 +401,7 @@ func (n *node) handleEchoResp(srcNeighborID string, msg controlplane.Message) er
 	return nil
 }
 
-func (n *node) newCiphertext(dstPeerID string, kind string, inReplyTo string, bodyJSON []byte) ([]byte, string, error) {
+func (n *node) newCiphertext(dstPeerID string, kind string, inReplyTo string, bodyJSON []byte, expiresAtUnixMs int64) ([]byte, string, error) {
 	msgID, err := controlplane.NewMsgID()
 	if err != nil {
 		return nil, "", err
@@ -327,6 +415,7 @@ func (n *node) newCiphertext(dstPeerID string, kind string, inReplyTo string, bo
 			MsgID:           msgID,
 			HopLimit:        controlplane.HopLimitMax,
 			CreatedAtUnixMs: nowMS,
+			ExpiresAtUnixMs: expiresAtUnixMs,
 		},
 		Signed: controlplane.Signed{
 			SenderPeerID: n.selfPeerID,
@@ -384,7 +473,8 @@ func (n *node) runSmoke(dstPeerID string, meshTimeout time.Duration, totalTimeou
 		return err
 	}
 
-	ct, reqID, err := n.newCiphertext(dstPeerID, "smoke_echo_req", "", body)
+	expiresAtUnixMs := time.Now().UTC().Add(totalTimeout + 2*time.Second).UnixMilli()
+	ct, reqID, err := n.newCiphertext(dstPeerID, smokeEchoRequestKind, "", body, expiresAtUnixMs)
 	if err != nil {
 		return err
 	}
@@ -436,6 +526,105 @@ func (n *node) runSmoke(dstPeerID string, meshTimeout time.Duration, totalTimeou
 	}
 }
 
+func (n *node) runSmokeReplay(dstPeerID string, totalTimeout time.Duration, requestBody string) error {
+	if n.mqtt == nil {
+		return errors.New("smoke replay requires MQTT (do not use --mqtt-disable)")
+	}
+
+	body, err := json.Marshal(struct {
+		Body string `json:"body"`
+	}{Body: requestBody})
+	if err != nil {
+		return err
+	}
+
+	expiresAtUnixMs := time.Now().UTC().Add(totalTimeout + 30*time.Second).UnixMilli()
+	ct, reqID, err := n.newCiphertext(dstPeerID, smokeEchoRequestKind, "", body, expiresAtUnixMs)
+	if err != nil {
+		return err
+	}
+
+	respCh := make(chan controlplane.Message, 1)
+	droppedNotify := make(chan struct{})
+
+	n.mu.Lock()
+	n.smoke = &smokeConfig{
+		dstPeerID:             dstPeerID,
+		meshTimeout:           0,
+		totalTimeout:          totalTimeout,
+		requestBody:           requestBody,
+		respCh:                respCh,
+		wantReplyToID:         reqID,
+		dropFirstResponse:     true,
+		droppedResponseNotify: droppedNotify,
+	}
+	n.mu.Unlock()
+
+	defer func() {
+		n.mu.Lock()
+		n.smoke = nil
+		n.mu.Unlock()
+	}()
+
+	fmt.Fprintf(os.Stderr, "smoke(replay): publishing request (1/2) msg_id=%s dst=%s\n", reqID, dstPeerID)
+	if err := n.publishMQTT(dstPeerID, ct); err != nil {
+		return fmt.Errorf("mqtt publish (1/2): %w", err)
+	}
+
+	select {
+	case <-droppedNotify:
+	case <-time.After(totalTimeout):
+		return fmt.Errorf("smoke(replay): timed out waiting to drop first response after %s", totalTimeout)
+	case <-n.ctx.Done():
+		return n.ctx.Err()
+	}
+
+	n.mu.Lock()
+	smoke := n.smoke
+	droppedMsgID := ""
+	droppedCount := int64(0)
+	if smoke != nil {
+		droppedMsgID = smoke.droppedResponseMsgID
+		droppedCount = smoke.droppedResponseCount
+	}
+	n.mu.Unlock()
+
+	if droppedMsgID == "" {
+		return errors.New("smoke(replay): dropped response missing msg_id (unexpected)")
+	}
+
+	fmt.Fprintf(os.Stderr, "smoke(replay): replaying request (2/2) msg_id=%s dst=%s\n", reqID, dstPeerID)
+	if err := n.publishMQTT(dstPeerID, ct); err != nil {
+		return fmt.Errorf("mqtt publish (2/2): %w", err)
+	}
+
+	deadline := time.NewTimer(totalTimeout)
+	defer deadline.Stop()
+
+	select {
+	case resp := <-respCh:
+		if resp.Route.MsgID != droppedMsgID {
+			return fmt.Errorf("smoke(replay): response msg_id mismatch: got=%s want=%s", resp.Route.MsgID, droppedMsgID)
+		}
+		var got struct {
+			OK    bool  `json:"ok"`
+			Count int64 `json:"count"`
+		}
+		if err := json.Unmarshal(resp.Signed.Body, &got); err != nil {
+			return fmt.Errorf("smoke(replay): decode response body: %w", err)
+		}
+		if got.Count != droppedCount {
+			return fmt.Errorf("smoke(replay): response count mismatch: got=%d want=%d", got.Count, droppedCount)
+		}
+		fmt.Fprintf(os.Stderr, "smoke(replay): ok (cached response re-sent): resp_msg_id=%s count=%d\n", resp.Route.MsgID, got.Count)
+		return nil
+	case <-deadline.C:
+		return fmt.Errorf("smoke(replay): timeout after %s waiting for response", totalTimeout)
+	case <-n.ctx.Done():
+		return n.ctx.Err()
+	}
+}
+
 func parseNeighbor(value string) (peerID string, addr string, _ error) {
 	before, after, ok := strings.Cut(value, "=")
 	if !ok {
@@ -479,15 +668,16 @@ func main() {
 	mqttClientID := flag.String("mqtt-client-id", "", "optional MQTT client id")
 	mqttDisable := flag.Bool("mqtt-disable", false, "disable MQTT subscribe/publish")
 
-	responseDelay := flag.Duration("response-delay", 0, "delay before responding to smoke_echo_req (to trigger fallback)")
+	responseDelay := flag.Duration("response-delay", 0, "delay before responding to smoke_echo_request (to trigger fallback)")
 	exitAfter := flag.Duration("exit-after", 0, "exit after duration (0 = run until signal)")
 	printIdentity := flag.Bool("print-identity", false, "print derived peer_id + pubkey and exit")
 
 	smoke := flag.Bool("smoke", false, "run smoke request (node A)")
+	smokeReplay := flag.Bool("smoke-replay", false, "replay same request_msg_id via MQTT and assert cached response behavior")
 	smokeDst := flag.String("smoke-dst-peer-id", "", "smoke destination peer_id (node C)")
 	smokeMeshTimeout := flag.Duration("smoke-mesh-timeout", 1*time.Second, "mesh-first timeout before MQTT fallback (spec: 1s)")
 	smokeTotalTimeout := flag.Duration("smoke-total-timeout", 6*time.Second, "overall smoke timeout (includes mesh timeout)")
-	smokeBody := flag.String("smoke-body", "hello", "request body string for smoke_echo_req")
+	smokeBody := flag.String("smoke-body", "hello", "request body string for smoke_echo_request")
 
 	flag.Parse()
 
@@ -657,6 +847,7 @@ func main() {
 		udpConn:        udpConn,
 		srcNeighborBy:  srcNeighborByAddr,
 		meshSendByPeer: meshSendByPeerID,
+		handled:        controlplane.NewHandledRequestsCache(0, 0, nil),
 		responseDelay:  *responseDelay,
 		echoReqCount:   0,
 		mqtt:           nil,
@@ -676,7 +867,7 @@ func main() {
 			if n.fwd != nil {
 				// Avoid blocking the MQTT client's internal read loop. Deliver handlers may publish,
 				// which needs PUBACK processing in the background.
-				go n.fwd.HandleInbound("mqtt", payload)
+				go n.handleInbound("mqtt", payload)
 			}
 		})
 		if err != nil {
@@ -714,12 +905,17 @@ func main() {
 			fmt.Fprintf(os.Stderr, "invalid --smoke-dst-peer-id: %v\n", err)
 			os.Exit(2)
 		}
-		if *smokeTotalTimeout <= *smokeMeshTimeout {
+		if !*smokeReplay && *smokeTotalTimeout <= *smokeMeshTimeout {
 			fmt.Fprintf(os.Stderr, "--smoke-total-timeout must be > --smoke-mesh-timeout\n")
 			os.Exit(2)
 		}
 
-		if err := n.runSmoke(dstPeerID, *smokeMeshTimeout, *smokeTotalTimeout, *smokeBody); err != nil {
+		if *smokeReplay {
+			err = n.runSmokeReplay(dstPeerID, *smokeTotalTimeout, *smokeBody)
+		} else {
+			err = n.runSmoke(dstPeerID, *smokeMeshTimeout, *smokeTotalTimeout, *smokeBody)
+		}
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(1)
 		}

@@ -152,9 +152,16 @@ func (f *Forwarder) HandleInbound(srcNeighborID string, ciphertext []byte) {
 		return
 	}
 
-	if f.seen.SeenBefore(canonicalMsgID) {
-		f.dedupDrops.Add(1)
-		return
+	seenBefore := f.seen.SeenBefore(canonicalMsgID)
+	if seenBefore {
+		// Dedup applies strictly to forwarding and best-effort delivery.
+		//
+		// For dst=self RPC requests, duplicate delivery MUST reach the upper layer
+		// so it can re-send the cached final response without re-applying side effects.
+		if msg.Route.DstPeerID != f.selfPeerID || !IsRPCRequest(msg.Signed.Kind) {
+			f.dedupDrops.Add(1)
+			return
+		}
 	}
 
 	if msg.Route.DstPeerID == f.selfPeerID {

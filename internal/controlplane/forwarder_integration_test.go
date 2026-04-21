@@ -1,6 +1,7 @@
 package controlplane
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"encoding/json"
 	"strings"
@@ -285,5 +286,212 @@ func TestForwarder_StrictMsgIDRejectsNonCanonical(t *testing.T) {
 	}
 	if got := fwdB.Stats().DecodeDrops; got != 1 {
 		t.Fatalf("DecodeDrops = %d, want %d", got, 1)
+	}
+}
+
+func TestForwarder_SelfRPCRequestDuplicateIsDelivered(t *testing.T) {
+	netSecret := []byte("0123456789abcdef0123456789abcdef")
+
+	peerA := testBase32ID("peer-A")
+	peerB := testBase32ID("peer-B")
+
+	delivered := make(chan Message, 2)
+	fwdB, err := NewForwarder(ForwarderConfig{
+		NetSecret:  netSecret,
+		SelfPeerID: peerB,
+		Deliver: func(_ string, msg Message) error {
+			delivered <- msg
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewForwarder(B) error = %v", err)
+	}
+	t.Cleanup(func() { _ = fwdB.Close() })
+
+	body, err := json.Marshal(struct {
+		N int `json:"n"`
+	}{N: 1})
+	if err != nil {
+		t.Fatalf("json.Marshal(body) error = %v", err)
+	}
+
+	seed := []byte("0123456789abcdef0123456789abcdef")
+	priv := ed25519.NewKeyFromSeed(seed)
+
+	req := Message{
+		ProtoVersion: ProtoVersionV0,
+		Route: Route{
+			DstPeerID:       peerB,
+			MsgID:           testBase32ID("req-1"),
+			HopLimit:        0,
+			CreatedAtUnixMs: 1,
+			ExpiresAtUnixMs: 2,
+		},
+		Signed: Signed{
+			SenderPeerID: peerA,
+			Kind:         "echo_request",
+			Body:         body,
+		},
+	}
+	if err := SignV0(priv, &req); err != nil {
+		t.Fatalf("SignV0() error = %v", err)
+	}
+
+	pt, err := MarshalMessage(req)
+	if err != nil {
+		t.Fatalf("MarshalMessage() error = %v", err)
+	}
+	ct, err := SealGroupV0(netSecret, pt)
+	if err != nil {
+		t.Fatalf("SealGroupV0() error = %v", err)
+	}
+
+	fwdB.HandleInbound(peerA, ct)
+	fwdB.HandleInbound(peerA, ct)
+
+	for i := 0; i < 2; i++ {
+		select {
+		case got := <-delivered:
+			if got.Route.MsgID != req.Route.MsgID {
+				t.Fatalf("delivered msg_id = %q, want %q", got.Route.MsgID, req.Route.MsgID)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timed out waiting for delivery %d/2", i+1)
+		}
+	}
+
+	if got := fwdB.Stats().DedupDrops; got != 0 {
+		t.Fatalf("DedupDrops = %d, want %d", got, 0)
+	}
+}
+
+func TestForwarder_SelfRPCRequestDuplicateResendsCachedResponse(t *testing.T) {
+	netSecret := []byte("0123456789abcdef0123456789abcdef")
+
+	peerA := testBase32ID("peer-A")
+	peerB := testBase32ID("peer-B")
+
+	seedA := []byte("0123456789abcdef0123456789abcdef")
+	privA := ed25519.NewKeyFromSeed(seedA)
+
+	seedB := []byte("fedcba9876543210fedcba9876543210")
+	privB := ed25519.NewKeyFromSeed(seedB)
+
+	handled := NewHandledRequestsCache(16, 1*time.Hour, func() time.Time { return time.Unix(0, 0).UTC() })
+
+	var sideEffects atomic.Int64
+	sentToA := make(chan []byte, 2)
+
+	fwdB, err := NewForwarder(ForwarderConfig{
+		NetSecret:  netSecret,
+		SelfPeerID: peerB,
+		Deliver: func(_ string, msg Message) error {
+			if msg.Signed.Kind != "echo_request" {
+				return nil
+			}
+
+			respCT, _, err := handled.Handle(msg, func() ([]byte, error) {
+				sideEffects.Add(1)
+
+				body, err := json.Marshal(struct {
+					OK bool `json:"ok"`
+				}{OK: true})
+				if err != nil {
+					return nil, err
+				}
+
+				resp := Message{
+					ProtoVersion: ProtoVersionV0,
+					Route: Route{
+						DstPeerID:       msg.Signed.SenderPeerID,
+						MsgID:           testBase32ID("resp-1"),
+						HopLimit:        0,
+						CreatedAtUnixMs: 1,
+					},
+					Signed: Signed{
+						SenderPeerID: peerB,
+						Kind:         "echo_response",
+						InReplyTo:    msg.Route.MsgID,
+						Body:         body,
+					},
+				}
+				if err := SignV0(privB, &resp); err != nil {
+					return nil, err
+				}
+				pt, err := MarshalMessage(resp)
+				if err != nil {
+					return nil, err
+				}
+				return SealGroupV0(netSecret, pt)
+			})
+			if err != nil {
+				return err
+			}
+
+			sentToA <- respCT
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewForwarder(B) error = %v", err)
+	}
+	t.Cleanup(func() { _ = fwdB.Close() })
+
+	body, err := json.Marshal(struct {
+		Msg string `json:"msg"`
+	}{Msg: "hi"})
+	if err != nil {
+		t.Fatalf("json.Marshal(body) error = %v", err)
+	}
+
+	req := Message{
+		ProtoVersion: ProtoVersionV0,
+		Route: Route{
+			DstPeerID:       peerB,
+			MsgID:           testBase32ID("req-1"),
+			HopLimit:        0,
+			CreatedAtUnixMs: 1,
+			ExpiresAtUnixMs: 2,
+		},
+		Signed: Signed{
+			SenderPeerID: peerA,
+			Kind:         "echo_request",
+			Body:         body,
+		},
+	}
+	if err := SignV0(privA, &req); err != nil {
+		t.Fatalf("SignV0() error = %v", err)
+	}
+
+	pt, err := MarshalMessage(req)
+	if err != nil {
+		t.Fatalf("MarshalMessage() error = %v", err)
+	}
+	ct, err := SealGroupV0(netSecret, pt)
+	if err != nil {
+		t.Fatalf("SealGroupV0() error = %v", err)
+	}
+
+	fwdB.HandleInbound(peerA, ct)
+	fwdB.HandleInbound(peerA, ct)
+
+	var ct1, ct2 []byte
+	select {
+	case ct1 = <-sentToA:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for response send 1/2")
+	}
+	select {
+	case ct2 = <-sentToA:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for response send 2/2")
+	}
+
+	if !bytes.Equal(ct1, ct2) {
+		t.Fatalf("cached response ciphertext mismatch: len1=%d len2=%d", len(ct1), len(ct2))
+	}
+	if got := sideEffects.Load(); got != 1 {
+		t.Fatalf("side effects applied %d times, want %d", got, 1)
 	}
 }
