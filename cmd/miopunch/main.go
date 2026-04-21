@@ -4,95 +4,117 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/miopunch/miopunch/internal/poc"
 )
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
-type failureOutput struct {
-	Stage       string
-	ReasonCode  string
-	Facts       []string
-	Suggestions []string
-}
-
-func (f failureOutput) write(w io.Writer) {
-	fmt.Fprintf(w, "stage=%s\n", f.Stage)
-	fmt.Fprintf(w, "reason_code=%s\n", f.ReasonCode)
-	fmt.Fprintln(w, "facts:")
-	for _, fact := range f.Facts {
-		fmt.Fprintf(w, "- %s\n", fact)
-	}
-	fmt.Fprintln(w, "suggestions:")
-	for _, suggestion := range f.Suggestions {
-		fmt.Fprintf(w, "- %s\n", suggestion)
-	}
-}
-
 func run(args []string, stdout, stderr io.Writer) int {
-	if len(args) == 0 {
-		failureOutput{
+	opt, rest, err := parseGlobalOptions(args)
+	if err != nil {
+		return exitWithFailure(opt, stdout, stderr, "", "", failureOutput{
+			Stage:      "cli",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts: []poc.Fact{
+				{Message: err.Error()},
+			},
+			Suggestions: []poc.Suggestion{
+				{Message: "run: miopunch --help"},
+			},
+		})
+	}
+
+	if len(rest) == 0 {
+		writeFailure(stderr, failureOutput{
 			Stage:      "cli",
 			ReasonCode: "MISSING_COMMAND",
-			Facts: []string{
-				"cmd: (missing)",
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts: []poc.Fact{
+				{Message: "cmd: (missing)"},
 			},
-			Suggestions: []string{
-				"run: miopunch --help",
+			Suggestions: []poc.Suggestion{
+				{Message: "run: miopunch --help"},
 			},
-		}.write(stderr)
+		})
 		fmt.Fprintln(stderr)
 		usage(stderr)
-		return 2
+		return int(poc.ExitCodeBadRequest)
 	}
 
-	switch args[0] {
+	cmd := rest[0]
+	cmdArgs := rest[1:]
+
+	switch cmd {
 	case "-h", "--help", "help":
 		usage(stdout)
 		return 0
 	case "coord", "peer", "stun", "mqtt-broker":
-		fmt.Fprintf(stderr, "miopunch %s is a lab/experiment command.\n\n", args[0])
-		failureOutput{
+		fmt.Fprintf(stderr, "miopunch %s is a lab/experiment command.\n\n", cmd)
+		writeFailure(stderr, failureOutput{
 			Stage:      "cli",
 			ReasonCode: "LAB_COMMAND_MOVED",
-			Facts: []string{
-				fmt.Sprintf("cmd: %s", args[0]),
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts: []poc.Fact{
+				{Message: fmt.Sprintf("cmd: %s", cmd)},
 			},
-			Suggestions: []string{
-				fmt.Sprintf("use: miopunch-lab %s [flags]", args[0]),
-				fmt.Sprintf("run: miopunch-lab %s --help", args[0]),
+			Suggestions: []poc.Suggestion{
+				{Message: fmt.Sprintf("use: miopunch-lab %s [flags]", cmd)},
+				{Message: fmt.Sprintf("run: miopunch-lab %s --help", cmd)},
 			},
-		}.write(stderr)
-		return 2
-	case "up", "ls", "invite", "approve", "join", "ping", "sh", "reset":
-		failureOutput{
+		})
+		return int(poc.ExitCodeBadRequest)
+	case "up":
+		return runUp(cmdArgs, stdout, stderr)
+	case "ls":
+		return runLS(opt, cmdArgs, stdout, stderr)
+	case "invite":
+		return runTaskKind(opt, "invite", nil, stdout, stderr)
+	case "approve":
+		return runTaskKind(opt, "approve", nil, stdout, stderr)
+	case "join":
+		return runTaskKind(opt, "join", nil, stdout, stderr)
+	case "ping":
+		return runTaskKind(opt, "ping", nil, stdout, stderr)
+	case "sh":
+		if len(cmdArgs) > 0 && cmdArgs[0] == "ls" {
+			return runTaskKind(opt, "sh_ls", nil, stdout, stderr)
+		}
+		return runTaskKind(opt, "sh_attach", nil, stdout, stderr)
+	case "revoke":
+		return runTaskKind(opt, "revoke_member", nil, stdout, stderr)
+	case "reset":
+		return exitWithFailure(opt, stdout, stderr, "reset", "", failureOutput{
 			Stage:      "cli",
-			ReasonCode: "NOT_IMPLEMENTED",
-			Facts: []string{
-				fmt.Sprintf("cmd: %s", args[0]),
+			ReasonCode: poc.ReasonCodeNotImplemented,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts: []poc.Fact{
+				{Message: "cmd: reset"},
 			},
-			Suggestions: []string{
-				"run: miopunch --help",
-				"see: docs/roadmap.md (POC roadmap)",
+			Suggestions: []poc.Suggestion{
+				{Message: "see: docs/roadmap.md (POC roadmap)"},
 			},
-		}.write(stderr)
-		return 2
+		})
+	case "install-system-daemon":
+		return runInstallSystemDaemon(opt, cmdArgs, stdout, stderr)
+	case "uninstall-system-daemon":
+		return runUninstallSystemDaemon(opt, cmdArgs, stdout, stderr)
 	default:
-		fmt.Fprintf(stderr, "unknown command: %s\n\n", args[0])
-		failureOutput{
+		fmt.Fprintf(stderr, "unknown command: %s\n\n", cmd)
+		return exitWithFailure(opt, stdout, stderr, cmd, "", failureOutput{
 			Stage:      "cli",
 			ReasonCode: "UNKNOWN_COMMAND",
-			Facts: []string{
-				fmt.Sprintf("cmd: %s", args[0]),
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts: []poc.Fact{
+				{Message: fmt.Sprintf("cmd: %s", cmd)},
 			},
-			Suggestions: []string{
-				"run: miopunch --help",
+			Suggestions: []poc.Suggestion{
+				{Message: "run: miopunch --help"},
 			},
-		}.write(stderr)
-		fmt.Fprintln(stderr)
-		usage(stderr)
-		return 2
+		})
 	}
 }
 
@@ -105,7 +127,7 @@ For lab/experiments (coord/peer/stun/mqtt-broker), use:
   miopunch-lab <command> [flags]
 
 Usage:
-  miopunch <command> [args]
+  miopunch [--format human|json] [--localapi <addr>] <command> [args]
 
 Commands (POC, work in progress):
   up
@@ -116,6 +138,8 @@ Commands (POC, work in progress):
   ping
   sh
   reset
+  install-system-daemon
+  uninstall-system-daemon
 
 Help:
   miopunch --help

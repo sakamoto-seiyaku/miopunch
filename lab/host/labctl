@@ -52,7 +52,7 @@ Commands:
   ssh [ssh-args...]        SSH into the VM
   guest <cmd...>           Run a command inside the VM via SSH
   push-guest               Rsync lab/guest/ into /opt/miopunch-lab/guest in the VM
-  push-bin                 Build miopunch binary on host and rsync into /opt/miopunch-lab/bin in the VM
+  push-bin                 Build miopunch binaries on host and rsync into /opt/miopunch-lab/bin in the VM
   pull-artifacts           Rsync /opt/miopunch-lab/artifacts/ from the VM into lab/_artifacts/
   selftest                 Run guest selftest and pull artifacts
   xtcp-selftest            Run guest xtcp selftest and pull artifacts
@@ -318,17 +318,23 @@ cmd_push_bin() {
   go="$(find_go)" || die "missing dependency: go (or /usr/local/go/bin/go)"
 
   local out_dir="${state_dir}/bin"
-  local out_bin="${out_dir}/miopunch-lab"
+  local product_bin="${out_dir}/miopunch"
+  local lab_bin="${out_dir}/miopunch-lab"
   mkdir -p "${out_dir}"
 
-  echo "building: ${out_bin}"
-  (cd "${repo_root}" && "${go}" build -o "${out_bin}" ./cmd/miopunch-lab)
+  echo "building: ${product_bin}"
+  (cd "${repo_root}" && "${go}" build -o "${product_bin}" ./cmd/miopunch)
+  echo "building: ${lab_bin}"
+  (cd "${repo_root}" && "${go}" build -o "${lab_bin}" ./cmd/miopunch-lab)
 
   cmd_guest sudo mkdir -p /opt/miopunch-lab/bin
   cmd_guest sudo chown -R "${vm_user}:${vm_user}" /opt/miopunch-lab/bin
 
-  rsync -az -e "ssh -F ${ssh_config}" "${out_bin}" "${vm_name}:/opt/miopunch-lab/bin/miopunch-lab"
-  echo "ok: pushed miopunch-lab binary to /opt/miopunch-lab/bin/miopunch-lab"
+  rsync -az -e "ssh -F ${ssh_config}" \
+    "${product_bin}" \
+    "${lab_bin}" \
+    "${vm_name}:/opt/miopunch-lab/bin/"
+  echo "ok: pushed miopunch binaries to /opt/miopunch-lab/bin/{miopunch,miopunch-lab}"
 }
 
 cmd_pull_artifacts() {

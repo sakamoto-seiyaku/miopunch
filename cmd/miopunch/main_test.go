@@ -23,6 +23,12 @@ func TestRun_Help(t *testing.T) {
 	if !strings.Contains(got, "miopunch-lab") {
 		t.Fatalf("run(--help) output missing miopunch-lab hint, got:\n%s", got)
 	}
+	if !strings.Contains(got, "install-system-daemon") {
+		t.Fatalf("run(--help) output missing install-system-daemon, got:\n%s", got)
+	}
+	if !strings.Contains(got, "--format human|json") {
+		t.Fatalf("run(--help) output missing global flags, got:\n%s", got)
+	}
 }
 
 func TestRun_LabCommandMoved(t *testing.T) {
@@ -53,22 +59,25 @@ func TestRun_LabCommandMoved(t *testing.T) {
 	}
 }
 
-func TestRun_NotImplemented_HasFailureEnvelope(t *testing.T) {
+func TestRun_DaemonNotRunning_HasFailureEnvelope(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
 	gotExitCode := run([]string{"join"}, &out, &out)
 
-	if gotExitCode != 2 {
-		t.Fatalf("run(join) exitCode = %d, want %d", gotExitCode, 2)
+	if gotExitCode != 3 {
+		t.Fatalf("run(join) exitCode = %d, want %d", gotExitCode, 3)
 	}
 
 	got := out.String()
 	if !strings.Contains(got, "stage=") {
 		t.Fatalf("run(join) output missing stage, got:\n%s", got)
 	}
-	if !strings.Contains(got, "reason_code=NOT_IMPLEMENTED") {
+	if !strings.Contains(got, "reason_code=DAEMON_NOT_RUNNING") {
 		t.Fatalf("run(join) output missing reason_code, got:\n%s", got)
+	}
+	if !strings.Contains(got, "exit_code=3") {
+		t.Fatalf("run(join) output missing exit_code, got:\n%s", got)
 	}
 	if !strings.Contains(got, "facts:") {
 		t.Fatalf("run(join) output missing facts, got:\n%s", got)
@@ -76,7 +85,7 @@ func TestRun_NotImplemented_HasFailureEnvelope(t *testing.T) {
 	if !strings.Contains(got, "suggestions:") {
 		t.Fatalf("run(join) output missing suggestions, got:\n%s", got)
 	}
-	if !strings.Contains(got, "docs/roadmap.md") {
-		t.Fatalf("run(join) output missing roadmap hint, got:\n%s", got)
+	if !strings.Contains(got, "miopunch up") {
+		t.Fatalf("run(join) output missing guidance, got:\n%s", got)
 	}
 }

@@ -18,9 +18,11 @@ require (
 
 require (
 	github.com/256dpi/mercury v0.2.0 // indirect
+	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d // indirect
+	github.com/kardianos/service v1.2.4 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.6 // indirect
 	github.com/klauspost/reedsolomon v1.12.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
