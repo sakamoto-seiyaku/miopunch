@@ -153,6 +153,7 @@
   - 单元：topic 派生确定性测试 + 不同 peer_id 不同 inbox。
   - 集成：本地/CI 可复现的 control-plane smoke（用本地 broker 进程或已有 lab broker 工具跑两端订阅/投递）。
   - 真实环境：公共 broker 路径下完成一次订阅/投递（仅验证“可达 + 不泄露明文”）。
+  - 补充：新增 POC 端到端验收用例条目（`join → ping → sh(tmux)`），后续 changes（尤其 POC-06）需要把它跑通并固化为回归。
 
 #### Change POC-03：控制面 wire format（签名覆盖 dst）+ bounded flooding(H=3) + 去重/限流
 
@@ -198,7 +199,8 @@
 - 测试：
   - 单元：锁超时/抢占规则；frame 编解码；错误 reason_code。
   - 集成：本机 tmux + WS 循环（attach/detach/reconnect）回归。
-  - 真实环境：Windows 平板/PC + 家中主机（WSL/VM）+ Android 入网辅助，演示 `join→sh` 全流程。
+  - 集成：补齐并跑通 POC 端到端验收用例（`join → ping → sh(tmux)`），确保失败口径稳定、可解释。
+  - 真实环境：Windows 平板/PC + 家中主机（WSL/VM）+ Android 入网辅助，演示 `join→ping→sh` 全流程。
 
 #### Change POC-07：HTTP 面板（POC 最小）+ report/export（可解释性对外输出）
 
