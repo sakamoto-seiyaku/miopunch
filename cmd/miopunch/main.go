@@ -76,14 +76,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 	case "approve":
 		return runTaskKind(opt, "approve", nil, stdout, stderr)
 	case "join":
-		return runTaskKind(opt, "join", nil, stdout, stderr)
+		return runJoin(opt, cmdArgs, stdout, stderr)
 	case "ping":
-		return runTaskKind(opt, "ping", nil, stdout, stderr)
+		return runPing(opt, cmdArgs, stdout, stderr)
 	case "sh":
 		if len(cmdArgs) > 0 && cmdArgs[0] == "ls" {
-			return runTaskKind(opt, "sh_ls", nil, stdout, stderr)
+			return runShLS(opt, cmdArgs[1:], stdout, stderr)
 		}
-		return runTaskKind(opt, "sh_attach", nil, stdout, stderr)
+		return runSh(opt, cmdArgs, stdout, stderr)
 	case "revoke":
 		return runTaskKind(opt, "revoke_member", nil, stdout, stderr)
 	case "reset":

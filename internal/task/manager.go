@@ -9,7 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gorilla/websocket"
+
 	"github.com/miopunch/miopunch/internal/poc"
+	"github.com/miopunch/miopunch/internal/pocstate"
 )
 
 type Manager struct {
@@ -22,6 +25,11 @@ type Manager struct {
 
 	attachByTask map[string]*attachState
 
+	dialPeerStreamHook DialPeerStreamHook
+
+	stateMu   sync.Mutex
+	statePath string
+
 	subsAll    map[int]chan Event
 	subsByTask map[string]map[int]chan Event
 	nextSubID  int
@@ -30,17 +38,23 @@ type Manager struct {
 }
 
 type attachState struct {
-	ch   chan struct{}
+	wsCh chan *websocket.Conn
 	once sync.Once
 }
 
 func NewManager() *Manager {
+	statePath, _ := pocstate.DefaultStatePath()
+	return NewManagerWithStatePath(statePath)
+}
+
+func NewManagerWithStatePath(statePath string) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Manager{
 		ctx:          ctx,
 		cancel:       cancel,
 		tasks:        make(map[string]*Task),
 		attachByTask: make(map[string]*attachState),
+		statePath:    strings.TrimSpace(statePath),
 		subsAll:      make(map[int]chan Event),
 		subsByTask:   make(map[string]map[int]chan Event),
 	}
@@ -58,6 +72,40 @@ func (m *Manager) Close() {
 		m.cancel()
 	}
 	m.wg.Wait()
+}
+
+func (m *Manager) loadState() (pocstate.State, error) {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+
+	if strings.TrimSpace(m.statePath) == "" {
+		return pocstate.State{}, errors.New("missing state path")
+	}
+	return pocstate.Load(m.statePath)
+}
+
+func (m *Manager) saveState(st pocstate.State) error {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+
+	if strings.TrimSpace(m.statePath) == "" {
+		return errors.New("missing state path")
+	}
+	return pocstate.Save(m.statePath, st)
+}
+
+func (m *Manager) ListPeers() ([]string, error) {
+	st, err := m.loadState()
+	if err != nil {
+		return nil, err
+	}
+
+	peerIDs := make([]string, 0, len(st.Peers))
+	for peerID := range st.Peers {
+		peerIDs = append(peerIDs, peerID)
+	}
+	sort.Strings(peerIDs)
+	return peerIDs, nil
 }
 
 func (m *Manager) List() []Task {
@@ -234,7 +282,7 @@ func (m *Manager) CreateAndRun(req CreateRequest) (Task, error) {
 	m.mu.Lock()
 	m.tasks[t.ID] = t
 	if req.Kind == "sh_attach" {
-		m.attachByTask[t.ID] = &attachState{ch: make(chan struct{})}
+		m.attachByTask[t.ID] = &attachState{wsCh: make(chan *websocket.Conn, 1)}
 	}
 	m.mu.Unlock()
 
@@ -256,9 +304,13 @@ func (m *Manager) CreateAndRun(req CreateRequest) (Task, error) {
 	return t.Clone(), nil
 }
 
-// TriggerShellAttach notifies a running `sh_attach` task that a client connected to its WebSocket.
-// It is safe to call multiple times; subsequent calls are no-ops.
-func (m *Manager) TriggerShellAttach(taskID string) bool {
+// AttachShellWS hands a LocalAPI WebSocket connection to a running `sh_attach` task.
+// It is safe to call multiple times; subsequent calls are no-ops and return false.
+func (m *Manager) AttachShellWS(taskID string, conn *websocket.Conn) bool {
+	if conn == nil {
+		return false
+	}
+
 	m.mu.Lock()
 	state, ok := m.attachByTask[taskID]
 	m.mu.Unlock()
@@ -266,8 +318,12 @@ func (m *Manager) TriggerShellAttach(taskID string) bool {
 		return false
 	}
 
-	state.once.Do(func() { close(state.ch) })
-	return true
+	added := false
+	state.once.Do(func() {
+		state.wsCh <- conn
+		added = true
+	})
+	return added
 }
 
 func (m *Manager) runStub(ctx context.Context, taskID string, req CreateRequest) {
@@ -282,56 +338,20 @@ func (m *Manager) runStub(ctx context.Context, taskID string, req CreateRequest)
 
 	switch req.Kind {
 	case "invite":
-		m.setStage(taskID, poc.StageSelfDiscovery, "self discovery (stub)")
-		m.addFact(taskID, poc.Fact{Message: "stub: invite is not implemented in POC-05"})
-		m.addSuggestion(taskID, poc.Suggestion{Message: "retry after implementing invite in POC-06/07"})
-		m.done(taskID, poc.ReasonCodeNotImplemented, poc.ExitCodeBadRequest)
+		m.runInviteTask(taskID, req.Args)
 	case "join":
-		m.setStage(taskID, poc.StageCandidateExchange, "candidate exchange (stub)")
-		m.addFact(taskID, poc.Fact{Message: "stub: join is not implemented in POC-05"})
-		m.addSuggestion(taskID, poc.Suggestion{Message: "retry after implementing join in POC-06/07"})
-		m.done(taskID, poc.ReasonCodeNotImplemented, poc.ExitCodeBadRequest)
+		m.runJoinTask(taskID, req.Args)
 	case "approve":
 		m.setStage(taskID, poc.StagePeerContact, "peer contact (stub)")
 		m.addFact(taskID, poc.Fact{Message: "stub: approve is not implemented in POC-05"})
 		m.addSuggestion(taskID, poc.Suggestion{Message: "retry after implementing approve in POC-06/07"})
 		m.done(taskID, poc.ReasonCodeNotImplemented, poc.ExitCodeBadRequest)
 	case "ping":
-		m.setStage(taskID, poc.StageControlPlaneReady, "control plane ready (stub)")
-		m.addFact(taskID, poc.Fact{Message: "stub: ping not implemented; returning success for plumbing"})
-		m.done(taskID, poc.ReasonCodeOK, poc.ExitCodeOK)
+		m.runPingTask(taskID, req.Args)
 	case "sh_ls":
-		m.setStage(taskID, poc.StageSessionAttach, "shell list (stub)")
-		m.addFact(taskID, poc.Fact{Message: "stub: sh_ls is not implemented in POC-05"})
-		m.addSuggestion(taskID, poc.Suggestion{Message: "retry after implementing sh_ls in POC-06"})
-		m.done(taskID, poc.ReasonCodeNotImplemented, poc.ExitCodeBadRequest)
+		m.runShellListTask(taskID, req.Args)
 	case "sh_attach":
-		m.setStage(taskID, poc.StageSessionAttach, "waiting for websocket attach (stub)")
-		m.addFact(taskID, poc.Fact{Message: "stub: sh_attach runtime is not implemented in POC-05"})
-
-		m.mu.Lock()
-		state := m.attachByTask[taskID]
-		m.mu.Unlock()
-		if state == nil {
-			m.addFact(taskID, poc.Fact{Message: "missing sh_attach internal waiter state"})
-			m.addSuggestion(taskID, poc.Suggestion{Message: "recreate task and retry"})
-			m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
-			return
-		}
-
-		select {
-		case <-ctx.Done():
-			m.addFact(taskID, poc.Fact{Message: "task context cancelled"})
-			m.addSuggestion(taskID, poc.Suggestion{Message: "task cancelled"})
-			m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
-		case <-state.ch:
-			m.addSuggestion(taskID, poc.Suggestion{Message: "sh_attach is not implemented yet; see POC-06 roadmap"})
-			m.done(taskID, poc.ReasonCodeNotImplemented, poc.ExitCodeBadRequest)
-		case <-time.After(30 * time.Second):
-			m.addFact(taskID, poc.Fact{Message: "no websocket attach within 30s"})
-			m.addSuggestion(taskID, poc.Suggestion{Message: "retry and attach within 30s"})
-			m.done(taskID, poc.ReasonCodeTimeout, poc.ExitCodeTimeout)
-		}
+		m.runShellAttachTask(taskID, req.Args)
 	case "revoke_member":
 		m.setStage(taskID, poc.StageControlPlaneReady, "revoke member (stub)")
 		m.addFact(taskID, poc.Fact{Message: "stub: revoke_member is not implemented in POC-05"})

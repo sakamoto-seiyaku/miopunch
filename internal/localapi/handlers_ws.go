@@ -61,7 +61,6 @@ func (s *Server) handleTaskWS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	defer func() { _ = conn.Close() }()
 
 	if conn.Subprotocol() != shSubprotocolV0 {
 		_ = conn.WriteControl(
@@ -69,17 +68,19 @@ func (s *Server) handleTaskWS(w http.ResponseWriter, r *http.Request) {
 			websocket.FormatCloseMessage(websocket.CloseProtocolError, "subprotocol required"),
 			time.Now().Add(2*time.Second),
 		)
+		_ = conn.Close()
 		return
 	}
 
-	// Signal the task runtime so SSE consumers receive actionable output.
-	_ = s.tasks.TriggerShellAttach(taskID)
-
-	_ = conn.WriteControl(
-		websocket.CloseMessage,
-		websocket.FormatCloseMessage(websocket.CloseNormalClosure, "not implemented (POC-05)"),
-		time.Now().Add(2*time.Second),
-	)
+	if !s.tasks.AttachShellWS(taskID, conn) {
+		_ = conn.WriteControl(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseTryAgainLater, "task not ready"),
+			time.Now().Add(2*time.Second),
+		)
+		_ = conn.Close()
+		return
+	}
 }
 
 func clientOffersSubprotocol(r *http.Request, want string) bool {

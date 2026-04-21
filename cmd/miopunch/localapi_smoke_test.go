@@ -16,7 +16,7 @@ import (
 	"github.com/miopunch/miopunch/internal/task"
 )
 
-func TestCLI_Smoke_LocalAPI_Ping_JSONEnvelope(t *testing.T) {
+func TestCLI_Smoke_LocalAPI_Invite_JSONEnvelope(t *testing.T) {
 	t.Parallel()
 
 	socketPath := filepath.Join(t.TempDir(), "localapi.sock")
@@ -26,7 +26,8 @@ func TestCLI_Smoke_LocalAPI_Ping_JSONEnvelope(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = ln.Close() })
 
-	mgr := task.NewManager()
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	mgr := task.NewManagerWithStatePath(statePath)
 	t.Cleanup(mgr.Close)
 
 	api := localapi.NewServer(localapi.ListenModeUser, mgr)
@@ -55,9 +56,9 @@ func TestCLI_Smoke_LocalAPI_Ping_JSONEnvelope(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	exitCode := run([]string{"--format", "json", "--localapi", "unix:" + socketPath, "ping"}, &stdout, &stderr)
+	exitCode := run([]string{"--format", "json", "--localapi", "unix:" + socketPath, "invite"}, &stdout, &stderr)
 	if exitCode != 0 {
-		t.Fatalf("run(ping --format json) exitCode=%d want %d, stderr=%s", exitCode, 0, stderr.String())
+		t.Fatalf("run(invite --format json) exitCode=%d want %d, stderr=%s", exitCode, 0, stderr.String())
 	}
 
 	out := stdout.String()
@@ -76,8 +77,8 @@ func TestCLI_Smoke_LocalAPI_Ping_JSONEnvelope(t *testing.T) {
 	if env.TaskID == "" {
 		t.Fatalf("task_id is empty, raw=%s", out)
 	}
-	if env.Kind != "ping" {
-		t.Fatalf("kind=%q want %q", env.Kind, "ping")
+	if env.Kind != "invite" {
+		t.Fatalf("kind=%q want %q", env.Kind, "invite")
 	}
 	if env.Status != "done" {
 		t.Fatalf("status=%q want %q", env.Status, "done")

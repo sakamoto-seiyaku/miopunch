@@ -39,7 +39,30 @@ type peer struct {
 }
 
 func (s *Server) handlePeers(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, peersResponse{Peers: []peer{}})
+	peerIDs, err := s.tasks.ListPeers()
+	if err != nil {
+		reqID, _ := poc.NewRequestID()
+		writeError(w, ErrorResponse{
+			Stage:      "localapi",
+			ReasonCode: poc.ReasonCodeInternal,
+			ExitCode:   poc.ExitCodeInternal,
+			Message:    "failed to load peers",
+			Facts: []poc.Fact{
+				{Message: "error=" + err.Error()},
+			},
+			Suggestions: []poc.Suggestion{
+				{Message: "retry"},
+			},
+			RequestID: reqID,
+		})
+		return
+	}
+
+	out := make([]peer, 0, len(peerIDs))
+	for _, peerID := range peerIDs {
+		out = append(out, peer{PeerID: peerID})
+	}
+	writeJSON(w, http.StatusOK, peersResponse{Peers: out})
 }
 
 type tasksResponse struct {

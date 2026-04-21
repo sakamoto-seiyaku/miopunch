@@ -15,6 +15,7 @@ import (
 
 	"github.com/miopunch/miopunch/internal/localapi"
 	"github.com/miopunch/miopunch/internal/poc"
+	"github.com/miopunch/miopunch/internal/pocacceptor"
 	"github.com/miopunch/miopunch/internal/task"
 )
 
@@ -166,6 +167,9 @@ func runUp(args []string, stdout, stderr io.Writer) int {
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- httpServer.Serve(ln)
+	}()
+	go func() {
+		_ = pocacceptor.Run(ctx, pocacceptor.Config{})
 	}()
 
 	fmt.Fprintf(stderr, "miopunch up: serving LocalAPI (%s) at %s\n", mode, addr.String())

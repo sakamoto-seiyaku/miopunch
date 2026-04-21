@@ -19,6 +19,7 @@ require (
 require (
 	github.com/256dpi/mercury v0.2.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
+	github.com/creack/pty v1.1.21 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d // indirect
@@ -33,7 +34,8 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	golang.org/x/crypto v0.49.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/term v0.42.0 // indirect
 	golang.org/x/text v0.35.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637 // indirect

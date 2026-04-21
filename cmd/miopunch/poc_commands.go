@@ -48,8 +48,40 @@ func runLS(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
+func runJoin(opt globalOptions, args []string, stdout, stderr io.Writer) int {
+	var joinArgs any
+	if len(args) >= 1 && strings.TrimSpace(args[0]) != "" {
+		joinArgs = task.JoinArgs{Code: args[0]}
+	}
+	return runTaskKind(opt, "join", joinArgs, stdout, stderr)
+}
+
+func runPing(opt globalOptions, args []string, stdout, stderr io.Writer) int {
+	var pingArgs any
+	if len(args) >= 1 && strings.TrimSpace(args[0]) != "" {
+		pingArgs = task.PingArgs{PeerID: args[0]}
+	}
+	return runTaskKind(opt, "ping", pingArgs, stdout, stderr)
+}
+
+func runShLS(opt globalOptions, args []string, stdout, stderr io.Writer) int {
+	peerID := ""
+	if len(args) >= 1 {
+		peerID = args[0]
+	}
+	target := ""
+	if len(args) >= 2 {
+		target = args[1]
+	}
+	var shArgs any
+	if strings.TrimSpace(peerID) != "" {
+		shArgs = task.ShLSArgs{PeerID: peerID, Target: target}
+	}
+	return runTaskKind(opt, "sh_ls", shArgs, stdout, stderr)
+}
+
 func runTaskKind(opt globalOptions, kind string, args any, stdout, stderr io.Writer) int {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
 	c, _, err := connectLocalAPI(ctx, opt.LocalAPIOverride)
@@ -110,29 +142,6 @@ func runTaskKind(opt globalOptions, kind string, args any, stdout, stderr io.Wri
 		fmt.Fprintf(stderr, "task_id=%s\n", created.ID)
 	}
 
-	if kind == "sh_attach" {
-		wsCtx, cancelWS := context.WithTimeout(ctx, 2*time.Second)
-		defer cancelWS()
-		conn, resp, err := c.DialTaskWS(wsCtx, created.ID)
-		if resp != nil && resp.Body != nil {
-			_ = resp.Body.Close()
-		}
-		if err != nil {
-			return exitWithFailure(opt, stdout, stderr, kind, created.ID, failureOutput{
-				Stage:      "cli",
-				ReasonCode: poc.ReasonCodeUnavailable,
-				ExitCode:   poc.ExitCodeUnavailable,
-				Facts: []poc.Fact{
-					{Message: "websocket connect failed: " + err.Error()},
-				},
-				Suggestions: []poc.Suggestion{
-					{Message: "retry"},
-				},
-			})
-		}
-		_ = conn.Close()
-	}
-
 	if err := waitForTaskDoneEvent(r, created.ID); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			return exitWithFailure(opt, stdout, stderr, kind, created.ID, failureOutput{
@@ -168,7 +177,10 @@ func runTaskKind(opt globalOptions, kind string, args any, stdout, stderr io.Wri
 	env := envelopeFromTask(finalTask)
 	if opt.Format == outputFormatJSON {
 		writeEnvelopeJSON(stdout, env)
-	} else if env.ExitCode != poc.ExitCodeOK {
+		return int(finalTask.ExitCode)
+	}
+
+	if env.ExitCode != poc.ExitCodeOK {
 		writeFailure(stderr, failureOutput{
 			Stage:       env.Stage,
 			ReasonCode:  env.ReasonCode,
@@ -176,6 +188,22 @@ func runTaskKind(opt globalOptions, kind string, args any, stdout, stderr io.Wri
 			Facts:       env.Facts,
 			Suggestions: env.Suggestions,
 		})
+		return int(finalTask.ExitCode)
+	}
+
+	for _, fact := range env.Facts {
+		msg := strings.TrimSpace(fact.Message)
+		if msg == "" {
+			continue
+		}
+		fmt.Fprintln(stdout, msg)
+	}
+	for _, suggestion := range env.Suggestions {
+		msg := strings.TrimSpace(suggestion.Message)
+		if msg == "" {
+			continue
+		}
+		fmt.Fprintln(stderr, msg)
 	}
 	return int(finalTask.ExitCode)
 }

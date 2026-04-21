@@ -15,4 +15,12 @@ const (
 	ReasonCodeTimeout          ReasonCode = "TIMEOUT"
 	ReasonCodeUnavailable      ReasonCode = "UNAVAILABLE"
 	ReasonCodeInternal         ReasonCode = "INTERNAL"
+
+	// POC-06: shell / tmux vertical slice diagnostics (POC v0).
+	ReasonCodeSHTargetNotFound  ReasonCode = "SH_TARGET_NOT_FOUND"
+	ReasonCodeSHTargetAmbiguous ReasonCode = "SH_TARGET_AMBIGUOUS"
+	ReasonCodeSHInUse           ReasonCode = "SH_IN_USE"
+	ReasonCodeSHConnectorFail   ReasonCode = "SH_CONNECTOR_FAIL"
+	ReasonCodeSHTmuxMissing     ReasonCode = "SH_TMUX_MISSING"
+	ReasonCodeSHTmuxAttachFail  ReasonCode = "SH_TMUX_ATTACH_FAIL"
 )
