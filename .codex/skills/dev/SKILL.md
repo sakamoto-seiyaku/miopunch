@@ -47,6 +47,16 @@ addition to `$dev`, then add the rest based on what the diff touches.
 - Touching `context.WithTimeout/Deadline`, timeouts, cancellation flow → add `$go-context`
 - Touching goroutines/channels/`errgroup`/shared state → add `$go-concurrency`
 
+**Quick trigger checklist (scan the diff):**
+- Any `*_test.go` changes → add `$go-testing`
+- Any `context.` usage (timeouts, deadlines, cancellation) → add `$go-context`
+- Any `go` statement / `chan` / `sync.` / `atomic.` / `errgroup` / shared state → add `$go-concurrency`
+- New package/folder, file moves, or import reshapes → add `$go-packages`
+- New exported identifiers (public API surface) → add `$go-documentation`
+- Logging (`log.*`, `slog.*`) changes → add `$go-logging`
+- Interfaces/mocking boundaries → add `$go-interfaces`
+- Perf-sensitive paths / allocation work → add `$go-performance`
+
 ## Guardrails
 
 - **Naming**: prefer `miopunch` everywhere; avoid new `xtcp` names/paths/imports.
