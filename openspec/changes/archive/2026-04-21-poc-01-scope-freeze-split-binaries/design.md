@@ -63,6 +63,7 @@ lab 的回归链路以脚本为事实源（`lab/host/labctl`、`lab/guest/bin/*`
 - [Breaking: 习惯使用 `miopunch coord/peer/...` 的开发者会被打断] → 产品二进制提供明确错误提示与迁移指引；同时更新所有仓库内脚本/文档为 `miopunch-lab`。
 - [Lab 脚本遗漏引用导致回归链断裂] → 将脚本与文档引用作为显式 checklist；在 tasks 里用 `rg` 做“无 `miopunch coord` 残留”检查。
 - [二进制名变化影响 VM 侧默认路径] → 统一修改 `labctl push-bin` 与 guest 侧默认路径；不保留双入口，避免后续混淆。
+- [Minor: 为保证 lab gate 稳定性做了小幅时序修正] → 在 `nat analysis unavailable` 场景下，coordinator 的 punching fallback 会启用 punching；此前对 punching sender 统一 `sleep 1s` 可能吃掉 direct attempt 预算导致 flake。实现中已将延迟收敛为“仅当 punching 是唯一可行路径（无 peer direct addrs）”时才延迟；无 wire/protocol 变更，仅为稳定性修复。
 
 ## Open Questions
 

@@ -16,6 +16,7 @@
 - [x] 3.1 Remove `coord/peer/stun/mqtt-broker` subcommands from `cmd/miopunch`
 - [x] 3.2 Add explicit guidance when users attempt `miopunch coord|peer|stun|mqtt-broker` (tell them to use `miopunch-lab ...`)
 - [x] 3.3 Ensure `go build ./cmd/miopunch` succeeds and `miopunch --help` is product-oriented
+- [x] 3.4 Ensure product CLI failures include `stage/reason_code/facts/suggestions` (minimal POC envelope)
 
 ## 4. Update Lab Automation to Use `miopunch-lab`
 
@@ -29,6 +30,7 @@
 - [x] 5.1 Refactor entrypoints to allow testing help/arg parsing without `os.Exit` (e.g. `run(args) (exitCode int)` pattern)
 - [x] 5.2 Add unit tests covering `miopunch` help output and the “lab commands moved” guidance
 - [x] 5.3 Add unit tests covering `miopunch-lab` help output for at least one subcommand (e.g. `coord --help`)
+- [x] 5.4 Add unit test covering POC command failure envelope (`stage/reason_code/facts/suggestions`)
 
 ## 6. Post-change Validation
 
