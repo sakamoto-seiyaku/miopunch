@@ -22,13 +22,13 @@
 启动 coordinator：
 
 ```bash
-miopunch coord --listen 0.0.0.0:7000 --proto tcp
+miopunch-lab coord --listen 0.0.0.0:7000 --proto tcp
 ```
 
 启动 client（A 端）：
 
 ```bash
-miopunch peer client \
+miopunch-lab peer client \
   --coord <coord-ip:7000> \
   --control-proto tcp \
   --proxy p1 \
@@ -40,7 +40,7 @@ miopunch peer client \
 启动 visitor（B 端）：
 
 ```bash
-miopunch peer visitor \
+miopunch-lab peer visitor \
   --coord <coord-ip:7000> \
   --control-proto tcp \
   --proxy p1 \
@@ -53,8 +53,8 @@ miopunch peer visitor \
 如果需要启用 punching（显式配置 STUN）：
 
 ```bash
-miopunch peer client  ... --stun <stun1,stun2> --stun-timeout 3s
-miopunch peer visitor ... --stun <stun1,stun2> --stun-timeout 3s
+miopunch-lab peer client  ... --stun <stun1,stun2> --stun-timeout 3s
+miopunch-lab peer visitor ... --stun <stun1,stun2> --stun-timeout 3s
 ```
 
 ## P0 实验台回归（VM 内实测）

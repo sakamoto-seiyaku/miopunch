@@ -19,7 +19,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
+	"io"
 	"strings"
 	"time"
 
@@ -29,19 +29,25 @@ import (
 	"github.com/miopunch/miopunch/event"
 )
 
-func mqttBrokerCmd(ctx context.Context, args []string) {
-	fs := flag.NewFlagSet("mqtt-broker", flag.ExitOnError)
+func mqttBrokerCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("mqtt-broker", flag.ContinueOnError)
+	fs.SetOutput(stderr)
 	listen := fs.String("listen", "0.0.0.0:1883", "listen address")
 	logLevel := addLogLevelFlag(fs)
-	_ = fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return 0
+		}
+		return 2
+	}
 	applyLogLevel(*logLevel)
 
-	em := event.NewEmitter(os.Stdout, "mqtt-broker")
+	em := event.NewEmitter(stdout, "mqtt-broker")
 
 	url := strings.TrimSpace(*listen)
 	if url == "" {
-		fmt.Fprintln(os.Stderr, "missing --listen")
-		os.Exit(2)
+		fmt.Fprintln(stderr, "missing --listen")
+		return 2
 	}
 	if !strings.Contains(url, "://") {
 		url = "tcp://" + url
@@ -50,7 +56,7 @@ func mqttBrokerCmd(ctx context.Context, args []string) {
 	server, err := transport.Launch(url)
 	if err != nil {
 		em.Fail(event.StageSupervisor, err, "mqtt broker listen failed", map[string]any{"url": url})
-		os.Exit(1)
+		return 1
 	}
 
 	backend := broker.NewMemoryBackend()
@@ -67,4 +73,5 @@ func mqttBrokerCmd(ctx context.Context, args []string) {
 	backend.Close(5 * time.Second)
 	_ = server.Close()
 	engine.Close()
+	return 0
 }

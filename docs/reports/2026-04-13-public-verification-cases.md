@@ -17,10 +17,10 @@
 - Android: Pixel 6a（ADB 可用，`su` 可用）
 - Host 与 Pixel 同一局域网
 
-Host 构建（便于在本机直接执行 `miopunch`）：
+Host 构建（便于在本机直接执行 `miopunch-lab`）：
 
 ```bash
-/usr/local/go/bin/go build -o /tmp/miopunch-host ./cmd/miopunch
+/usr/local/go/bin/go build -o /tmp/miopunch-lab-host ./cmd/miopunch-lab
 ```
 
 ## Android 编译与部署（不需要 Go 环境）
@@ -30,15 +30,15 @@ Host 构建（便于在本机直接执行 `miopunch`）：
 ```bash
 CGO_ENABLED=0 GOOS=android GOARCH=arm64 \
   /usr/local/go/bin/go build -trimpath -ldflags="-s -w" \
-  -o /tmp/miopunch-android-arm64 ./cmd/miopunch
+  -o /tmp/miopunch-lab-android-arm64 ./cmd/miopunch-lab
 ```
 
 推送与执行：
 
 ```bash
-adb -s 28201JEGR0XPAJ push /tmp/miopunch-android-arm64 /data/local/tmp/miopunch
-adb -s 28201JEGR0XPAJ shell chmod +x /data/local/tmp/miopunch
-adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch --help
+adb -s 28201JEGR0XPAJ push /tmp/miopunch-lab-android-arm64 /data/local/tmp/miopunch-lab
+adb -s 28201JEGR0XPAJ shell chmod +x /data/local/tmp/miopunch-lab
+adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch-lab --help
 ```
 
 ## Case0：LAN smoke（Host ↔ Pixel6a）
@@ -69,7 +69,7 @@ adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch --help
 Host（client）：
 
 ```bash
-/tmp/miopunch-host peer client \
+/tmp/miopunch-lab-host peer client \
   --signaling mqtt \
   --mqtt-broker 54.36.178.49:1883 \
   --mqtt-topic-prefix miopunch/case0 \
@@ -84,7 +84,7 @@ Host（client）：
 Pixel（visitor）：
 
 ```bash
-adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch peer visitor \
+adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch-lab peer visitor \
   --signaling mqtt \
   --mqtt-broker 54.36.178.49:1883 \
   --mqtt-topic-prefix miopunch/case0 \
@@ -122,7 +122,7 @@ adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch peer visitor \
 Host（client）：
 
 ```bash
-/tmp/miopunch-host peer client \
+/tmp/miopunch-lab-host peer client \
   --log-level debug \
   --signaling mqtt \
   --mqtt-broker 54.36.178.49:1883 \
@@ -138,7 +138,7 @@ Host（client）：
 Pixel（visitor）：
 
 ```bash
-adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch peer visitor \
+adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch-lab peer visitor \
   --log-level debug \
   --signaling mqtt \
   --mqtt-broker 54.36.178.49:1883 \
@@ -222,7 +222,7 @@ dial tcp: lookup broker.hivemq.com on [::1]:53: read udp [::1]:45399->[::1]:53: 
 Host（client）：
 
 ```bash
-/tmp/miopunch-host peer client \
+/tmp/miopunch-lab-host peer client \
   --signaling mqtt \
   --mqtt-broker 54.36.178.49:1883 \
   --mqtt-topic-prefix miopunch/case1-20260414c \
@@ -238,7 +238,7 @@ Host（client）：
 Pixel（visitor）：
 
 ```bash
-adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch peer visitor \
+adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch-lab peer visitor \
   --signaling mqtt \
   --mqtt-broker 54.36.178.49:1883 \
   --mqtt-topic-prefix miopunch/case1-20260414c \
@@ -286,7 +286,7 @@ adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch peer visitor \
 完整命令（Host / client）：
 
 ```bash
-/tmp/miopunch-host peer client \
+/tmp/miopunch-lab-host peer client \
   --signaling mqtt \
   --mqtt-broker 54.36.178.49:1883 \
   --mqtt-topic-prefix miopunch/case1-20260414d \
@@ -302,7 +302,7 @@ adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch peer visitor \
 完整命令（Android / visitor）：
 
 ```bash
-adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch peer visitor \
+adb -s 28201JEGR0XPAJ shell /data/local/tmp/miopunch-lab peer visitor \
   --signaling mqtt \
   --mqtt-broker 54.36.178.49:1883 \
   --mqtt-topic-prefix miopunch/case1-20260414d \

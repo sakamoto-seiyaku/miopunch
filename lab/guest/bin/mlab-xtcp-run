@@ -14,7 +14,7 @@ source "${guest_root}/lib/common.sh"
 source "${guest_root}/lib/topology.sh"
 
 mlab="${script_dir}/mlab"
-miopunch="${MLAB_MIOPUNCH_BIN:-/opt/miopunch-lab/bin/miopunch}"
+miopunch="${MLAB_MIOPUNCH_LAB_BIN:-${MLAB_MIOPUNCH_BIN:-/opt/miopunch-lab/bin/miopunch-lab}}"
 assert_events="${script_dir}/mlab-xtcp-assert-events"
 
 artifacts_root="${MLAB_ARTIFACTS_ROOT:-/opt/miopunch-lab/artifacts}"
@@ -70,7 +70,7 @@ preflight() {
   need_cmd tcpdump
   need_cmd timeout
   need_cmd grep
-  [[ -x "${miopunch}" ]] || die "missing miopunch binary: ${miopunch}"
+  [[ -x "${miopunch}" ]] || die "missing miopunch-lab binary: ${miopunch}"
   [[ -x "${mlab}" ]] || die "missing mlab: ${mlab}"
 }
 

@@ -26,7 +26,7 @@
 
 ```bash
 export PATH=/usr/local/go/bin:$PATH
-go build -o /tmp/miopunch-host ./cmd/miopunch
+go build -o /tmp/miopunch-lab-host ./cmd/miopunch-lab
 ```
 
 ## Build（Android / arm64；无需 Go 环境）
@@ -35,14 +35,14 @@ go build -o /tmp/miopunch-host ./cmd/miopunch
 export PATH=/usr/local/go/bin:$PATH
 CGO_ENABLED=0 GOOS=android GOARCH=arm64 \
   go build -trimpath -ldflags="-s -w" \
-  -o /tmp/miopunch-android-arm64 ./cmd/miopunch
+  -o /tmp/miopunch-lab-android-arm64 ./cmd/miopunch-lab
 ```
 
 部署：
 
 ```bash
-adb push /tmp/miopunch-android-arm64 /data/local/tmp/miopunch
-adb shell chmod +x /data/local/tmp/miopunch
+adb push /tmp/miopunch-lab-android-arm64 /data/local/tmp/miopunch-lab
+adb shell chmod +x /data/local/tmp/miopunch-lab
 ```
 
 ## Case0：LAN smoke（Host ↔ Android，同一局域网）
@@ -52,7 +52,7 @@ adb shell chmod +x /data/local/tmp/miopunch
 Host（client）：
 
 ```bash
-/tmp/miopunch-host peer client \
+/tmp/miopunch-lab-host peer client \
   --log-level debug \
   --signaling mqtt \
   --mqtt-broker broker.hivemq.com:1883 \
@@ -66,7 +66,7 @@ Host（client）：
 Android（visitor）：
 
 ```bash
-adb shell /data/local/tmp/miopunch peer visitor \
+adb shell /data/local/tmp/miopunch-lab peer visitor \
   --log-level debug \
   --signaling mqtt \
   --mqtt-broker broker.hivemq.com:1883 \
@@ -89,7 +89,7 @@ adb shell /data/local/tmp/miopunch peer visitor \
 Host（client）：
 
 ```bash
-/tmp/miopunch-host peer client \
+/tmp/miopunch-lab-host peer client \
   --log-level debug \
   --signaling mqtt \
   --mqtt-broker broker.hivemq.com:1883 \
@@ -106,7 +106,7 @@ Host（client）：
 Android（visitor）：
 
 ```bash
-adb shell /data/local/tmp/miopunch peer visitor \
+adb shell /data/local/tmp/miopunch-lab peer visitor \
   --log-level debug \
   --signaling mqtt \
   --mqtt-broker broker.hivemq.com:1883 \

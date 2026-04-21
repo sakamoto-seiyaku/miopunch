@@ -318,17 +318,17 @@ cmd_push_bin() {
   go="$(find_go)" || die "missing dependency: go (or /usr/local/go/bin/go)"
 
   local out_dir="${state_dir}/bin"
-  local out_bin="${out_dir}/miopunch"
+  local out_bin="${out_dir}/miopunch-lab"
   mkdir -p "${out_dir}"
 
   echo "building: ${out_bin}"
-  (cd "${repo_root}" && "${go}" build -o "${out_bin}" ./cmd/miopunch)
+  (cd "${repo_root}" && "${go}" build -o "${out_bin}" ./cmd/miopunch-lab)
 
   cmd_guest sudo mkdir -p /opt/miopunch-lab/bin
   cmd_guest sudo chown -R "${vm_user}:${vm_user}" /opt/miopunch-lab/bin
 
-  rsync -az -e "ssh -F ${ssh_config}" "${out_bin}" "${vm_name}:/opt/miopunch-lab/bin/miopunch"
-  echo "ok: pushed miopunch binary to /opt/miopunch-lab/bin/miopunch"
+  rsync -az -e "ssh -F ${ssh_config}" "${out_bin}" "${vm_name}:/opt/miopunch-lab/bin/miopunch-lab"
+  echo "ok: pushed miopunch-lab binary to /opt/miopunch-lab/bin/miopunch-lab"
 }
 
 cmd_pull_artifacts() {

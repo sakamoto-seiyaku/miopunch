@@ -87,9 +87,9 @@
   - 不新增新的泛化 `util` 包
   - 工具函数尽量归属到真正拥有该语义的领域包
   - 能直接并回拥有者包的，就不再额外抽象出微型工具层
-- `stun` server 建议保留为顶层包：它既是实验台和 CLI 的独立能力，也可能继续作为 `miopunch stun` 子命令存在；不必因为当前主要服务于实验台就下沉到 `internal/`。
+- `stun` server 建议保留为顶层包：它既是实验台和 CLI 的独立能力，也可能继续作为 `miopunch-lab stun` 子命令存在；不必因为当前主要服务于实验台就下沉到 `internal/`。
 - `stun` client / mapped-address discovery 属于 `connectivity` 的 `gather` 语义，不单独抽成顶层公共包。
-- `cmd/miopunch` 继续保留为单二进制入口，但其帮助文案、import 路径与内部子模块命名应同步收敛为 `miopunch` 新结构。
+- 实验入口统一收敛为 `cmd/miopunch-lab`；`cmd/miopunch` 预留给 POC/产品 CLI（详见 POC-01）。
 
 ## 抽象边界
 

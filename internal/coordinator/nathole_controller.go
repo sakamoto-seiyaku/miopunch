@@ -227,16 +227,18 @@ func (c *Controller) HandleVisitor(m *wire.NatHoleVisitor, transporter wire.Mess
 	// send response to visitor and client
 	var g errgroup.Group
 	g.Go(func() error {
-		// if it's sender, wait for a while to make sure the client has send the detect messages
-		if vResp.PunchingEnabled && vResp.DetectBehavior.Role == "sender" {
+		// If punching is the only viable path (no peer direct addrs) and this peer
+		// is the sender, delay so the receiver has time to start listening.
+		if vResp.PunchingEnabled && vResp.DetectBehavior.Role == "sender" && len(vResp.PeerDirectAddrs) == 0 {
 			time.Sleep(1 * time.Second)
 		}
 		_ = session.visitorTransporter.Send(vResp)
 		return nil
 	})
 	g.Go(func() error {
-		// if it's sender, wait for a while to make sure the client has send the detect messages
-		if cResp.PunchingEnabled && cResp.DetectBehavior.Role == "sender" {
+		// If punching is the only viable path (no peer direct addrs) and this peer
+		// is the sender, delay so the receiver has time to start listening.
+		if cResp.PunchingEnabled && cResp.DetectBehavior.Role == "sender" && len(cResp.PeerDirectAddrs) == 0 {
 			time.Sleep(1 * time.Second)
 		}
 		_ = session.clientTransporter.Send(cResp)

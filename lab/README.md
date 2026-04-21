@@ -49,7 +49,7 @@ Or run everything end-to-end:
 Example selftest report (captured runs + artifacts pointers):
 - `docs/reports/2026-03-17-selftest.md`
 
-Run P1 `xtcp-kernel` integration regression (builds `cmd/miopunch` on host, pushes into VM, runs guest matrix, pulls artifacts):
+Run P1 `xtcp-kernel` integration regression (builds `cmd/miopunch-lab` on host, pushes into VM, runs guest matrix, pulls artifacts):
 
 ```bash
 ./lab/host/labctl xtcp-selftest
