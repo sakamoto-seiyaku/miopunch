@@ -24,8 +24,9 @@ Use this skill as the default workflow for development work in this repo.
 
 ## Go Companion Skills (Router)
 
-When changing Go code in this repo, explicitly add the relevant `go-*` skills
-in addition to `$dev`:
+When changing Go code in this repo, treat the `go-*` skills as a router. **At
+minimum, always apply** `$go-style-core`, `$go-naming`, `$go-error-handling` in
+addition to `$dev`, then add the rest based on what the diff touches.
 
 - **Default for most Go changes**: `$go-style-core`, `$go-naming`, `$go-error-handling`
 - **Packages / imports / splitting binaries / `cmd/` work**: `$go-packages`
@@ -40,6 +41,11 @@ in addition to `$dev`:
   WaitGroups, shared state, worker lifecycles, or parallel execution are involved
 - **Context (required)**: use `$go-context` when cancellation, deadlines, or timeouts
   must be propagated or enforced
+
+**Quick heuristic (most common in miopunch):**
+- Editing `cmd/*`, imports, entrypoints, binary splits → add `$go-packages`
+- Touching `context.WithTimeout/Deadline`, timeouts, cancellation flow → add `$go-context`
+- Touching goroutines/channels/`errgroup`/shared state → add `$go-concurrency`
 
 ## Guardrails
 
