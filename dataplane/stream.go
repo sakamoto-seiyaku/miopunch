@@ -53,9 +53,10 @@ func ServeStream(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr
 }
 
 type quicStreamConn struct {
-	udp    *net.UDPConn
-	conn   *quic.Conn
-	stream *quic.Stream
+	udp       *net.UDPConn
+	conn      *quic.Conn
+	stream    *quic.Stream
+	closeConn bool
 }
 
 func (q *quicStreamConn) Read(p []byte) (int, error)  { return q.stream.Read(p) }
@@ -67,6 +68,23 @@ func (q *quicStreamConn) Close() error {
 	if q.stream != nil {
 		_ = q.stream.Close()
 	}
+
+	if q.conn != nil && !q.closeConn {
+		if q.udp != nil {
+			udp := q.udp
+			conn := q.conn
+			q.udp = nil
+			go func() {
+				select {
+				case <-conn.Context().Done():
+				case <-time.After(5 * time.Second):
+				}
+				_ = udp.Close()
+			}()
+		}
+		return nil
+	}
+
 	if q.conn != nil {
 		q.conn.CloseWithError(0, "")
 	}
@@ -128,9 +146,10 @@ func dialQUICStream(ctx context.Context, cfg Config, listenConn *net.UDPConn, ra
 	}
 
 	return &quicStreamConn{
-		udp:    listenConn,
-		conn:   conn,
-		stream: stream,
+		udp:       listenConn,
+		conn:      conn,
+		stream:    stream,
+		closeConn: true,
 	}, nil
 }
 

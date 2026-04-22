@@ -157,10 +157,16 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 	if err != nil {
 		return err
 	}
-	defer stream.Close()
 
 	reader := shellproto.NewReader(stream)
 	writer := shellproto.NewWriter(stream)
+
+	closeStream := true
+	defer func() {
+		if closeStream {
+			_ = stream.Close()
+		}
+	}()
 
 	readControl := func(ctx context.Context) (shellproto.Control, error) {
 		type frameResult struct {
@@ -227,7 +233,12 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 	case shellproto.OpShLS:
 		return serveShLS(handshakeCtx, writer, ctl)
 	case shellproto.OpShAttach:
-		return serveShAttach(ctx, local, locks, lockTTL, reader, writer, stream, ctl)
+		closeStream = false
+		go func() {
+			_ = serveShAttach(ctx, local, locks, lockTTL, reader, writer, stream, ctl)
+			_ = stream.Close()
+		}()
+		return nil
 	default:
 		return errors.New("unknown op")
 	}

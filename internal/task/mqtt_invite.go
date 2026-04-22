@@ -11,6 +11,7 @@ import (
 	mqttclient "github.com/256dpi/gomqtt/client"
 	"github.com/256dpi/gomqtt/client/future"
 	"github.com/256dpi/gomqtt/packet"
+	"github.com/256dpi/gomqtt/transport"
 )
 
 type mqttMailbox struct {
@@ -26,6 +27,9 @@ func openMQTTMailbox(ctx context.Context, endpoint string, clientIDPrefix string
 	endpoint = strings.TrimSpace(endpoint)
 	if endpoint == "" {
 		return nil, errors.New("empty broker endpoint")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	url := endpoint
 	if !strings.Contains(url, "://") {
@@ -62,6 +66,18 @@ func openMQTTMailbox(ctx context.Context, endpoint string, clientIDPrefix string
 	cfg := mqttclient.NewConfigWithClientID(url, clientID)
 	cfg.CleanSession = true
 	cfg.ValidateSubs = true
+
+	dialTimeout := 5 * time.Second
+	if deadline, ok := ctx.Deadline(); ok {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return nil, context.DeadlineExceeded
+		}
+		if remaining < dialTimeout {
+			dialTimeout = remaining
+		}
+	}
+	cfg.Dialer = transport.NewDialer(transport.DialConfig{Timeout: dialTimeout})
 
 	f, err := mb.c.Connect(cfg)
 	if err != nil {

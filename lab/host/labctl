@@ -58,6 +58,8 @@ Commands:
   xtcp-selftest            Run guest xtcp selftest and pull artifacts
   xtcp-connectivity-selftest  Run guest xtcp connectivity selftest and pull artifacts
   xtcp-fulltest            Run guest xtcp full-case test and pull artifacts
+  poc-e2e-selftest         Run guest POC e2e selftest and pull artifacts
+  poc-e2e-fulltest         Run guest POC e2e fulltest and pull artifacts
   down                     Stop the VM (graceful poweroff, then kill if needed)
   status                   Show VM status
 
@@ -320,12 +322,15 @@ cmd_push_bin() {
   local out_dir="${state_dir}/bin"
   local product_bin="${out_dir}/miopunch"
   local lab_bin="${out_dir}/miopunch-lab"
+  local poc_e2e_bin="${out_dir}/miopunch-poc-e2e"
   mkdir -p "${out_dir}"
 
   echo "building: ${product_bin}"
   (cd "${repo_root}" && "${go}" build -o "${product_bin}" ./cmd/miopunch)
   echo "building: ${lab_bin}"
   (cd "${repo_root}" && "${go}" build -o "${lab_bin}" ./cmd/miopunch-lab)
+  echo "building: ${poc_e2e_bin}"
+  (cd "${repo_root}" && "${go}" build -o "${poc_e2e_bin}" ./tools/miopunch-poc-e2e)
 
   cmd_guest sudo mkdir -p /opt/miopunch-lab/bin
   cmd_guest sudo chown -R "${vm_user}:${vm_user}" /opt/miopunch-lab/bin
@@ -333,8 +338,9 @@ cmd_push_bin() {
   rsync -az -e "ssh -F ${ssh_config}" \
     "${product_bin}" \
     "${lab_bin}" \
+    "${poc_e2e_bin}" \
     "${vm_name}:/opt/miopunch-lab/bin/"
-  echo "ok: pushed miopunch binaries to /opt/miopunch-lab/bin/{miopunch,miopunch-lab}"
+  echo "ok: pushed miopunch binaries to /opt/miopunch-lab/bin/{miopunch,miopunch-lab,miopunch-poc-e2e}"
 }
 
 cmd_pull_artifacts() {
@@ -395,6 +401,34 @@ cmd_xtcp_fulltest() {
   cmd_push_bin
   set +e
   cmd_guest sudo /opt/miopunch-lab/guest/bin/mlab-xtcp-fulltest
+  local rc=$?
+  set -e
+  cmd_pull_artifacts
+  return "${rc}"
+}
+
+cmd_poc_e2e_selftest() {
+  cmd_up
+  cmd_wait
+  cmd_wait_guest
+  cmd_push_guest
+  cmd_push_bin
+  set +e
+  cmd_guest sudo /opt/miopunch-lab/guest/bin/mlab-poc-e2e-selftest
+  local rc=$?
+  set -e
+  cmd_pull_artifacts
+  return "${rc}"
+}
+
+cmd_poc_e2e_fulltest() {
+  cmd_up
+  cmd_wait
+  cmd_wait_guest
+  cmd_push_guest
+  cmd_push_bin
+  set +e
+  cmd_guest sudo /opt/miopunch-lab/guest/bin/mlab-poc-e2e-fulltest
   local rc=$?
   set -e
   cmd_pull_artifacts
@@ -491,6 +525,8 @@ main() {
     xtcp-selftest) cmd_xtcp_selftest "$@" ;;
     xtcp-connectivity-selftest) cmd_xtcp_connectivity_selftest "$@" ;;
     xtcp-fulltest) cmd_xtcp_fulltest "$@" ;;
+    poc-e2e-selftest) cmd_poc_e2e_selftest "$@" ;;
+    poc-e2e-fulltest) cmd_poc_e2e_fulltest "$@" ;;
     down) cmd_down "$@" ;;
     status) cmd_status "$@" ;;
     snapshot-list) cmd_snapshot_list "$@" ;;

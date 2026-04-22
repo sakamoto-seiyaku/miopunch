@@ -55,6 +55,18 @@ Run P1 `xtcp-kernel` integration regression (builds `cmd/miopunch-lab` on host, 
 ./lab/host/labctl xtcp-selftest
 ```
 
+Run POC e2e closure selftest (builds `cmd/miopunch`, `cmd/miopunch-lab`, and `tools/miopunch-poc-e2e` on host, pushes into VM, runs Docker+systemd multi-node harness inside the VM, pulls artifacts):
+
+```bash
+./lab/host/labctl poc-e2e-selftest
+```
+
+Run POC e2e full diagnostic suite (slower; includes packet capture artifacts):
+
+```bash
+./lab/host/labctl poc-e2e-fulltest
+```
+
 Run P1 `xtcp-kernel` against all `core-01..core-10` cases (non-NAT4 cases MUST succeed; NAT4-involved cases are allowed to fail but must emit diagnostics):
 
 ```bash

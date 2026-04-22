@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"sort"
 	"strings"
@@ -67,6 +68,18 @@ func Attach(ctx context.Context, target string, session string) (PTY, error) {
 	}
 
 	cmd := exec.CommandContext(ctx, "tmux", "new", "-A", "-s", session)
+	env := os.Environ()
+	hasTerm := false
+	for _, v := range env {
+		if strings.HasPrefix(v, "TERM=") && strings.TrimSpace(strings.TrimPrefix(v, "TERM=")) != "" {
+			hasTerm = true
+			break
+		}
+	}
+	if !hasTerm {
+		env = append(env, "TERM=xterm-256color")
+	}
+	cmd.Env = env
 	p, err := startUnixPTY(cmd)
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
