@@ -1011,7 +1011,7 @@ POC 路由策略（最小）：
   - wire（POC v0，敲定到最小字段）：
     - `state_pull_request.body`：`{ have_state_head?: { governance_head_b64, decls_head_b64 } }`（可选；用于解释/调试）
     - `state_pull_response.body`（全量，POC 口径）：`{ state_head, governance_snapshot, decls }`
-      - `governance_snapshot`：`snapshot` 对象 `{ snapshot_body, owner_sig_b64, hash_b64? }`（`hash_b64` 仅展示；接收端必须复算）
+      - `governance_snapshot`：`snapshot` 对象 `{ snapshot_body, signatures, hash_b64? }`（`hash_b64` 仅展示；接收端必须复算）
       - `decls`：声明集合全量（含 tombstone）；`decl` 结构见 4.7
       - 可选：`peers`（派生视图，仅用于 UI/调试；权威仍是 `decls`）
     - 约束：响应解密后载荷仍受 `256KiB` 上限约束；若超过则以 `STATE_PULL_TOO_LARGE` 失败
@@ -1341,8 +1341,11 @@ POC 范围（写操作，明确可用入口）：
 - admin/owner/config 这类“带删除语义”的状态，使用 **owner 签名 snapshot 链**：
   - snapshot 由两部分构成：
     - `snapshot_body`：可哈希、可复制的“治理快照本体”（不含签名字段）
-    - `owner_sig_b64`：owner 对该 `snapshot_body` 的签名
+    - `signatures`：owner 对该 `snapshot_body` 的签名集合（允许多签；最小阈值见下）
+      - 每个 signature：`{ key_id, sig_b64 }`
+      - `key_id`（敲定；TUF 风格）：`hex(sha256(ed25519_pub))`（64 hex chars，用于定位签名者公钥）
   - `snapshot_body`（POC 语义，字段可演进）：
+    - `net_id`（string，必需；用于避免跨网误用/误签；参与 hash 与签名）
     - `prev_hash_b64`（base64url no-pad；32B sha256；genesis 为空字符串）
     - `height`（int；genesis=0；每次变更 +1）
     - `owners`（[]Ed25519 pub；base64url no-pad）
@@ -1351,10 +1354,18 @@ POC 范围（写操作，明确可用入口）：
     - `config_digest?`（可选；用于未来把“网络配置”纳入治理）
   - hash 与签名（POC，敲定）：
     - `hash_b64 = base64url(no-pad, sha256(canonical_json(snapshot_body)))`
-    - `owner_sig_b64 = base64url(no-pad, Ed25519.Sign(owner_priv, sha256(canonical_json(snapshot_body))))`
+    - `sig_b64 = base64url(no-pad, Ed25519.Sign(owner_priv, sha256(canonical_json(snapshot_body))))`
   - 验证规则（必须）：
-    - 以“当前已知 snapshot”中的 `owners` 集合作为验签信任根（允许 snapshot 变更 owners/admins）
-    - `prev_hash_b64` 必须指向本地链头（避免产生分叉；见 7.2 的流程）
+    - **apply/update（本地已有链头）**：
+      - `prev_hash_b64` 必须指向本地链头（避免产生分叉；见 7.2 的流程）
+      - `height` 必须为本地链头 `height+1`
+      - `net_id` 必须与本地 `net_id` 一致
+      - old-threshold（敲定，=1）：至少 1 个签名可用“本地当前链头”的 `owners` 集合验签通过（旧信任根授权）
+      - new-threshold（敲定，=1）：至少 1 个签名可用“候选 snapshot_body”的 `owners` 集合验签通过（新信任根自签/可持续）
+        - 若 owners 有 overlap，同一个签名可同时满足 old/new；若无 overlap，则需要收集两边签名（与 TUF root rotation 一致）
+    - **bootstrap/accept（本地无链头，例如 join 初次落盘）**：
+      - 通过 out-of-band 交付的 `membership_bundle` 获得初始 head snapshot（信任根来源）
+      - 至少满足 new-threshold（自洽验签）+ `net_id` 一致 + 字段形状合法（genesis: `prev_hash_b64==""` 且 `height==0`）
   - 所有节点以链头为准（通过 `governance_head_b64` 对齐）
   - 分叉属于异常/误操作；实现应尽量避免（优先拒绝 stale proposal；见 7.2）
 
@@ -1406,10 +1417,10 @@ Admin 可执行（不需要 owner 的日常动作）：
   - `proposal_version`（int，必需；POC 固定 `0`）
   - `proposal_id`（string，必需；`16B` 随机 → base32(raw,no-pad)；`26` 字符）
   - `created_at_unix_ms`（int64，必需）
-  - `net_id`（string，建议；用于“避免 owner 跨网误签”）
+  - `net_id`（string，建议；应等于 `snapshot_body.net_id`；用于“避免 owner 跨网误签”）
   - `initiator_peer_id`（string，必需；发起该 proposal 的 admin peer）
   - `initiator_name`（string，可选；仅用于展示）
-  - `snapshot_body`（object，必需；见 7.1；**必须**包含 `prev_hash_b64/height/owners/admins/...`）
+  - `snapshot_body`（object，必需；见 7.1；**必须**包含 `net_id/prev_hash_b64/height/owners/admins/...`）
   - `prev_snapshot_body`（object，可选但强烈建议；用于签名端做 diff 展示）
     - 若提供：签名端必须校验 `sha256(canonical_json(prev_snapshot_body)) == snapshot_body.prev_hash_b64`
   - `summary`（object，建议；用于展示/解释；**非权威**，签名端必须复算/校验）
@@ -1442,8 +1453,11 @@ Admin 可执行（不需要 owner 的日常动作）：
 3) 代发/应用（任意在线 admin 节点）：
 
 - admin 先本地验证再应用：
-  - `owner_sig_b64` 可用“当前 owners 集合”验签通过
+  - old-threshold（=1）：至少 1 个 `signatures` 可用“当前 owners 集合”验签通过
+  - new-threshold（=1）：至少 1 个 `signatures` 可用“候选 owners 集合”验签通过
   - `prev_hash_b64 == 本地 governance_head_b64`（若不匹配：拒绝并提示重新发起；避免 fork）
+  - `height == 本地 height+1`（若不匹配：拒绝并提示重新发起）
+  - `net_id == 本地 net_id`（若不匹配：拒绝；避免跨网误用）
 - 应用成功后：
   - 本地持久化新链头
   - 通过正常机制传播（最终一致）：
@@ -1462,6 +1476,7 @@ Admin 可执行（不需要 owner 的日常动作）：
 
 - 编码：UTF-8 JSON（建议 pretty-print；字段名固定；允许新增字段）
 - 所有 `*_b64`：`base64url(no-pad)`
+- `key_id`：`hex(sha256(ed25519_pub))`（64 hex chars；TUF 风格）
 - unknown 字段：必须安全忽略（向前兼容）
 - **安全提醒**：proposal/snapshot 文件不得包含任何私钥/`net_secret`/broker 密码等敏感材料；只包含公钥与摘要。
 
@@ -1481,6 +1496,7 @@ Admin 可执行（不需要 owner 的日常动作）：
   "created_at_unix_ms": 0,
   "initiator_peer_id": "<peer_id_26ch>",
   "snapshot_body": {
+    "net_id": "<net_id_26ch>",
     "prev_hash_b64": "",
     "height": 0,
     "owners": [],
@@ -1493,7 +1509,7 @@ Admin 可执行（不需要 owner 的日常动作）：
 `snapshot.json`（签名端 → 代发端）：
 
 - 语义：这是“可被全网验真并应用”的治理快照载体。
-- 必需字段：`snapshot_body, owner_sig_b64`
+- 必需字段：`snapshot_body, signatures`
 - 可选字段：`hash_b64`（展示用；接收端必须复算并校验一致）
 
 最小示例（v0）：
@@ -1501,13 +1517,19 @@ Admin 可执行（不需要 owner 的日常动作）：
 ```json
 {
   "snapshot_body": {
+    "net_id": "<net_id_26ch>",
     "prev_hash_b64": "",
     "height": 0,
     "owners": [],
     "admins": [],
     "recovery_allowlist": []
   },
-  "owner_sig_b64": "<ed25519_sig_b64_86ch>"
+  "signatures": [
+    {
+      "key_id": "<key_id_hex_64ch>",
+      "sig_b64": "<ed25519_sig_b64_86ch>"
+    }
+  ]
 }
 ```
 

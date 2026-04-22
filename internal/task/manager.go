@@ -342,10 +342,7 @@ func (m *Manager) runStub(ctx context.Context, taskID string, req CreateRequest)
 	case "join":
 		m.runJoinTask(taskID, req.Args)
 	case "approve":
-		m.setStage(taskID, poc.StagePeerContact, "peer contact (stub)")
-		m.addFact(taskID, poc.Fact{Message: "stub: approve is not implemented in POC-05"})
-		m.addSuggestion(taskID, poc.Suggestion{Message: "retry after implementing approve in POC-06/07"})
-		m.done(taskID, poc.ReasonCodeNotImplemented, poc.ExitCodeBadRequest)
+		m.runApproveTask(taskID, req.Args)
 	case "ping":
 		m.runPingTask(taskID, req.Args)
 	case "sh_ls":
@@ -353,10 +350,7 @@ func (m *Manager) runStub(ctx context.Context, taskID string, req CreateRequest)
 	case "sh_attach":
 		m.runShellAttachTask(taskID, req.Args)
 	case "revoke_member":
-		m.setStage(taskID, poc.StageControlPlaneReady, "revoke member (stub)")
-		m.addFact(taskID, poc.Fact{Message: "stub: revoke_member is not implemented in POC-05"})
-		m.addSuggestion(taskID, poc.Suggestion{Message: "retry after implementing revoke_member in POC-06/07"})
-		m.done(taskID, poc.ReasonCodeNotImplemented, poc.ExitCodeBadRequest)
+		m.runRevokeMemberTask(taskID, req.Args)
 	default:
 		m.setStage(taskID, poc.StageControlPlaneReady, "not implemented (stub)")
 		m.addFact(taskID, poc.Fact{Message: "stub: unsupported task kind"})
@@ -422,17 +416,35 @@ func (m *Manager) addSuggestion(taskID string, suggestion poc.Suggestion) {
 }
 
 func (m *Manager) done(taskID string, reasonCode poc.ReasonCode, exitCode poc.ExitCode) {
+	var report string
+	var reportReady bool
+
 	m.mu.Lock()
 	t, ok := m.tasks[taskID]
 	if ok {
 		t.Status = StatusDone
 		t.ReasonCode = reasonCode
 		t.ExitCode = exitCode
-		t.Report = buildReportMarkdown(t.Clone())
+		report = buildReportMarkdown(t.Clone())
+		t.Report = report
 		t.ReportReady = true
+		reportReady = true
 	}
 	delete(m.attachByTask, taskID)
 	m.mu.Unlock()
+
+	if reportReady {
+		if err := m.persistReport(taskID, report); err != nil {
+			m.addFact(taskID, poc.Fact{Message: "persist task report failed: " + err.Error()})
+			m.addSuggestion(taskID, poc.Suggestion{Message: "fix state_dir permissions/disk space; then retry"})
+
+			m.mu.Lock()
+			if t, ok := m.tasks[taskID]; ok {
+				t.Report = buildReportMarkdown(t.Clone())
+			}
+			m.mu.Unlock()
+		}
+	}
 
 	m.publish(Event{
 		Kind:       "report_ready",

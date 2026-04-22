@@ -1,8 +1,12 @@
 package shellproto
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 const (
+	OpHello     = "hello"
 	OpPing      = "ping"
 	OpShLS      = "sh_ls"
 	OpShAttach  = "sh_attach"
@@ -25,6 +29,11 @@ type ControlError struct {
 
 type Control struct {
 	Op string `json:"op"`
+
+	// POC-06.5: hello handshake (required before ping/sh_*).
+	PeerID      string          `json:"peer_id,omitempty"`
+	ApproveDecl json.RawMessage `json:"approve_decl,omitempty"`
+	SigB64      string          `json:"sig_b64,omitempty"`
 
 	Target  string `json:"target,omitempty"`
 	Session string `json:"session,omitempty"`

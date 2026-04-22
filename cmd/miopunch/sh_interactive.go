@@ -210,13 +210,40 @@ func runShellInteractive(opt globalOptions, args task.ShAttachArgs, stdout, stde
 	if err != nil {
 		return 0
 	}
+
+	if strings.TrimSpace(opt.ReportPath) != "" {
+		reportCtx, cancelReport := context.WithTimeout(context.Background(), 5*time.Second)
+		err := exportTaskReport(reportCtx, c, created.ID, opt.ReportPath, opt.Redact)
+		cancelReport()
+		if err != nil {
+			writeFailure(stderr, failureOutput{
+				Stage:      "cli",
+				ReasonCode: poc.ReasonCodeInternal,
+				ExitCode:   poc.ExitCodeInternal,
+				Facts: []poc.Fact{
+					{Message: "export report: " + err.Error()},
+				},
+				Suggestions: []poc.Suggestion{
+					{Message: "check --report path and retry"},
+				},
+			})
+			return int(poc.ExitCodeInternal)
+		}
+	}
+
 	if finalTask.ExitCode != poc.ExitCodeOK {
+		facts := finalTask.Facts
+		suggestions := finalTask.Suggestions
+		if opt.Redact {
+			facts = redactFacts(facts)
+			suggestions = redactSuggestions(suggestions)
+		}
 		writeFailure(stderr, failureOutput{
 			Stage:       string(finalTask.Stage),
 			ReasonCode:  finalTask.ReasonCode,
 			ExitCode:    finalTask.ExitCode,
-			Facts:       finalTask.Facts,
-			Suggestions: finalTask.Suggestions,
+			Facts:       facts,
+			Suggestions: suggestions,
 		})
 	}
 	return int(finalTask.ExitCode)

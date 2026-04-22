@@ -53,6 +53,11 @@ func (m *Manager) runPingTask(taskID string, rawArgs []byte) {
 	}
 	defer res.stream.Close()
 
+	m.setStage(taskID, poc.StageCapabilityHandshake, "hello handshake")
+	if !m.requireHello(ctx, taskID, res.stream) {
+		return
+	}
+
 	m.setStage(taskID, poc.StageCapabilityHandshake, "ping")
 
 	req := shellproto.Control{Op: shellproto.OpPing}

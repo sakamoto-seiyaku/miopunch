@@ -147,4 +147,3 @@ func TestReaderWriter_NilReceiver(t *testing.T) {
 		t.Fatalf("(*Writer)(nil).WriteJSON() error = %v, want %v", err, io.ErrClosedPipe)
 	}
 }
-

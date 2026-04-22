@@ -15,6 +15,8 @@ const (
 type globalOptions struct {
 	Format           outputFormat
 	LocalAPIOverride string
+	ReportPath       string
+	Redact           bool
 }
 
 func parseGlobalOptions(args []string) (globalOptions, []string, error) {
@@ -55,6 +57,25 @@ func parseGlobalOptions(args []string) (globalOptions, []string, error) {
 			i++
 		case strings.HasPrefix(a, "--localapi="):
 			opt.LocalAPIOverride = strings.TrimSpace(strings.TrimPrefix(a, "--localapi="))
+			i++
+		case a == "--report":
+			if i+1 >= len(args) {
+				return globalOptions{}, nil, fmt.Errorf("missing value for --report")
+			}
+			i++
+			opt.ReportPath = strings.TrimSpace(args[i])
+			i++
+		case strings.HasPrefix(a, "--report="):
+			opt.ReportPath = strings.TrimSpace(strings.TrimPrefix(a, "--report="))
+			i++
+		case a == "--redact":
+			opt.Redact = true
+			i++
+		case a == "--redact=true":
+			opt.Redact = true
+			i++
+		case a == "--redact=false":
+			opt.Redact = false
 			i++
 		default:
 			// Stop parsing flags at the first unrecognized flag. This keeps

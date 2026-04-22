@@ -2,6 +2,8 @@ package pocacceptor
 
 import (
 	"context"
+	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/dataplane"
+	"github.com/miopunch/miopunch/internal/controlplane"
 	"github.com/miopunch/miopunch/internal/pocstate"
 	"github.com/miopunch/miopunch/internal/shelllock"
 	"github.com/miopunch/miopunch/internal/shellproto"
@@ -62,16 +65,21 @@ func Run(ctx context.Context, cfg Config) error {
 			continue
 		}
 
-		if err := serveOnce(ctx, st.Local, locks, cfg.LockTTL); err != nil {
+		if err := serveOnce(ctx, cfg.StatePath, st.Local, locks, cfg.LockTTL); err != nil {
 			// Best-effort: keep the daemon running; transient errors are expected.
 			continue
 		}
 	}
 }
 
-func serveOnce(ctx context.Context, local *pocstate.LocalConfig, locks *shelllock.Manager, lockTTL time.Duration) error {
+func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfig, locks *shelllock.Manager, lockTTL time.Duration) error {
 	handshakeCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
+
+	stateDir, err := pocstate.StateDir(statePath)
+	if err != nil {
+		return err
+	}
 
 	sid := mqttsig.DeriveSID(local.ProxyName, local.SecretKey)
 
@@ -154,32 +162,63 @@ func serveOnce(ctx context.Context, local *pocstate.LocalConfig, locks *shellloc
 	reader := shellproto.NewReader(stream)
 	writer := shellproto.NewWriter(stream)
 
-	type frameResult struct {
-		kind    shellproto.Kind
-		payload []byte
-		err     error
-	}
-	frameCh := make(chan frameResult, 1)
-	go func() {
-		kind, payload, err := reader.ReadFrame()
-		frameCh <- frameResult{kind: kind, payload: payload, err: err}
-	}()
+	readControl := func(ctx context.Context) (shellproto.Control, error) {
+		type frameResult struct {
+			kind    shellproto.Kind
+			payload []byte
+			err     error
+		}
+		frameCh := make(chan frameResult, 1)
+		go func() {
+			kind, payload, err := reader.ReadFrame()
+			frameCh <- frameResult{kind: kind, payload: payload, err: err}
+		}()
 
-	var ctl shellproto.Control
-	select {
-	case res := <-frameCh:
-		if res.err != nil {
-			return res.err
+		var ctl shellproto.Control
+		select {
+		case res := <-frameCh:
+			if res.err != nil {
+				return shellproto.Control{}, res.err
+			}
+			if res.kind != shellproto.KindJSON {
+				return shellproto.Control{}, errors.New("frame must be JSON")
+			}
+			if err := json.Unmarshal(res.payload, &ctl); err != nil {
+				return shellproto.Control{}, err
+			}
+			return ctl, nil
+		case <-ctx.Done():
+			_ = stream.Close()
+			return shellproto.Control{}, ctx.Err()
 		}
-		if res.kind != shellproto.KindJSON {
-			return errors.New("first frame must be JSON")
-		}
-		if err := json.Unmarshal(res.payload, &ctl); err != nil {
-			return err
-		}
-	case <-handshakeCtx.Done():
-		_ = stream.Close()
-		return handshakeCtx.Err()
+	}
+
+	helloCtl, err := readControl(handshakeCtx)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(helloCtl.Op) != shellproto.OpHello {
+		_ = writer.WriteJSON(shellproto.Control{
+			Op: shellproto.OpHello,
+			OK: false,
+			Error: &shellproto.ControlError{
+				ReasonCode: shellproto.ReasonHelloRequired,
+				Message:    "hello required",
+				Suggestions: []string{
+					"upgrade both ends to POC-06.5 hello handshake",
+					"ensure you have joined and are approved before ping/sh",
+				},
+			},
+		})
+		return errors.New("hello required")
+	}
+	if err := handleHello(handshakeCtx, stateDir, writer, helloCtl); err != nil {
+		return err
+	}
+
+	ctl, err := readControl(handshakeCtx)
+	if err != nil {
+		return err
 	}
 
 	switch strings.TrimSpace(ctl.Op) {
@@ -192,6 +231,240 @@ func serveOnce(ctx context.Context, local *pocstate.LocalConfig, locks *shellloc
 	default:
 		return errors.New("unknown op")
 	}
+}
+
+func handleHello(ctx context.Context, stateDir string, w *shellproto.Writer, req shellproto.Control) error {
+	_ = ctx
+	if w == nil {
+		return errors.New("nil hello writer")
+	}
+
+	peerID, err := controlplane.CanonicalizePeerID(req.PeerID)
+	if err != nil {
+		_ = writeHelloError(w, shellproto.ReasonHelloInvalid, "invalid peer_id", []string{"join and retry"})
+		return err
+	}
+	sigB64 := strings.TrimSpace(req.SigB64)
+	if sigB64 == "" {
+		_ = writeHelloError(w, shellproto.ReasonHelloInvalid, "missing sig_b64", []string{"join and retry"})
+		return errors.New("missing hello sig_b64")
+	}
+
+	head, err := pocstate.LoadGovernanceHeadSnapshot(stateDir)
+	if err != nil {
+		_ = writeHelloError(w, shellproto.ReasonHelloInternal, "missing governance head snapshot", []string{"initialize governance via: miopunch invite"})
+		return err
+	}
+
+	declsFile, err := pocstate.EnsureDecls(stateDir)
+	if err != nil {
+		_ = writeHelloError(w, shellproto.ReasonHelloInternal, "failed to load decls", []string{"retry"})
+		return err
+	}
+
+	revoked, err := isRevokedV0(head, declsFile.Decls, peerID)
+	if err != nil {
+		_ = writeHelloError(w, shellproto.ReasonHelloInternal, "failed to validate local decls", []string{"retry"})
+		return err
+	}
+	if revoked && !head.IsAdmin(peerID) && !head.IsOwner(peerID) {
+		_ = writeHelloError(w, shellproto.ReasonHelloRevoked, "peer_id is revoked", []string{"re-join with a new identity"})
+		return errors.New("revoked peer")
+	}
+
+	approveMsgID := ""
+	var memberEdPub ed25519.PublicKey
+	var candidateDecl pocstate.DeclV0
+	haveCandidateDecl := false
+
+	if len(req.ApproveDecl) > 0 {
+		var decl pocstate.DeclV0
+		if err := json.Unmarshal(req.ApproveDecl, &decl); err != nil {
+			_ = writeHelloError(w, shellproto.ReasonHelloDeclInvalid, "invalid approve_decl", []string{"join and retry"})
+			return err
+		}
+		if strings.TrimSpace(decl.Kind) != pocstate.DeclKindApproveMember {
+			_ = writeHelloError(w, shellproto.ReasonHelloDeclInvalid, "approve_decl kind mismatch", []string{"join and retry"})
+			return errors.New("approve_decl kind mismatch")
+		}
+
+		issuerPub, ok, err := head.AdminEd25519Pub(decl.IssuerPeerID)
+		if err != nil {
+			_ = writeHelloError(w, shellproto.ReasonHelloDeclInvalid, "invalid approve_decl issuer_peer_id", []string{"join and retry"})
+			return err
+		}
+		if !ok {
+			_ = writeHelloError(w, shellproto.ReasonHelloIssuerNotAdmin, "approve_decl issuer is not an admin", []string{"join and retry"})
+			return errors.New("approve_decl issuer not admin")
+		}
+		if err := pocstate.VerifyDeclV0(issuerPub, decl); err != nil {
+			_ = writeHelloError(w, shellproto.ReasonHelloDeclInvalid, "approve_decl signature invalid", []string{"re-run join and retry"})
+			return err
+		}
+
+		var body pocstate.ApproveMemberBodyV0
+		if err := json.Unmarshal(decl.Body, &body); err != nil {
+			_ = writeHelloError(w, shellproto.ReasonHelloDeclInvalid, "approve_decl body invalid", []string{"join and retry"})
+			return err
+		}
+		if strings.TrimSpace(body.MemberPeerID) != peerID {
+			_ = writeHelloError(w, shellproto.ReasonHelloDeclInvalid, "approve_decl member_peer_id mismatch", []string{"join and retry"})
+			return errors.New("approve_decl member_peer_id mismatch")
+		}
+
+		memberEdPubBytes, err := base64.RawURLEncoding.DecodeString(strings.TrimSpace(body.Ed25519PubB64))
+		if err != nil || len(memberEdPubBytes) != ed25519.PublicKeySize {
+			_ = writeHelloError(w, shellproto.ReasonHelloDeclInvalid, "approve_decl member ed25519_pub_b64 invalid", []string{"join and retry"})
+			return errors.New("approve_decl member ed25519_pub_b64 invalid")
+		}
+		memberEdPub = ed25519.PublicKey(memberEdPubBytes)
+
+		derivedPeerID, err := controlplane.PeerIDFromEd25519Pub(memberEdPub)
+		if err != nil {
+			_ = writeHelloError(w, shellproto.ReasonHelloDeclInvalid, "approve_decl member pubkey invalid", []string{"join and retry"})
+			return err
+		}
+		if derivedPeerID != peerID {
+			_ = writeHelloError(w, shellproto.ReasonHelloDeclInvalid, "approve_decl member pubkey does not match peer_id", []string{"join and retry"})
+			return errors.New("approve_decl member pubkey mismatch")
+		}
+
+		approveMsgID = decl.MsgID
+		candidateDecl = decl
+		haveCandidateDecl = true
+	} else if head.IsAdmin(peerID) {
+		pub, ok, err := head.AdminEd25519Pub(peerID)
+		if err != nil {
+			_ = writeHelloError(w, shellproto.ReasonHelloInternal, "failed to load admin pubkey", []string{"retry"})
+			return err
+		}
+		if !ok {
+			_ = writeHelloError(w, shellproto.ReasonHelloNotApproved, "peer_id not approved", []string{"join and retry"})
+			return errors.New("admin pubkey missing")
+		}
+		memberEdPub = pub
+	} else {
+		pub, ok, err := findApprovedMemberPubV0(head, declsFile.Decls, peerID)
+		if err != nil {
+			_ = writeHelloError(w, shellproto.ReasonHelloInternal, "failed to validate local decls", []string{"retry"})
+			return err
+		}
+		if !ok {
+			_ = writeHelloError(w, shellproto.ReasonHelloNotApproved, "peer_id not approved", []string{"join and retry"})
+			return errors.New("peer not approved")
+		}
+		memberEdPub = pub
+	}
+
+	if err := shellproto.VerifyHelloV0(memberEdPub, peerID, approveMsgID, sigB64); err != nil {
+		_ = writeHelloError(w, shellproto.ReasonHelloSigInvalid, "invalid hello signature", []string{"ensure you are using the correct identity"})
+		return err
+	}
+
+	if haveCandidateDecl {
+		if _, err := pocstate.UpdateDecls(stateDir, func(f *pocstate.DeclsFileV0) error {
+			f.Decls = pocstate.AddDeclSetUnionV0(f.Decls, candidateDecl)
+			return nil
+		}); err != nil {
+			_ = writeHelloError(w, shellproto.ReasonHelloInternal, "failed to persist decls", []string{"retry"})
+			return err
+		}
+	}
+
+	return w.WriteJSON(shellproto.Control{Op: shellproto.OpHello, OK: true})
+}
+
+func writeHelloError(w *shellproto.Writer, reasonCode string, message string, suggestions []string) error {
+	if w == nil {
+		return errors.New("nil hello writer")
+	}
+	message = strings.TrimSpace(message)
+	if message == "" {
+		message = "hello rejected"
+	}
+	out := shellproto.Control{
+		Op: shellproto.OpHello,
+		OK: false,
+		Error: &shellproto.ControlError{
+			ReasonCode:  strings.TrimSpace(reasonCode),
+			Message:     message,
+			Suggestions: suggestions,
+		},
+	}
+	return w.WriteJSON(out)
+}
+
+func isRevokedV0(head pocstate.GovernanceHeadSnapshotV1, decls []pocstate.DeclV0, peerID string) (bool, error) {
+	peerID = strings.TrimSpace(peerID)
+	if peerID == "" {
+		return false, errors.New("empty peer_id")
+	}
+
+	for _, d := range decls {
+		if strings.TrimSpace(d.Kind) != pocstate.DeclKindRevokeMember {
+			continue
+		}
+
+		issuerPub, ok, err := head.AdminEd25519Pub(d.IssuerPeerID)
+		if err != nil {
+			return false, err
+		}
+		if !ok {
+			continue
+		}
+		if err := pocstate.VerifyDeclV0(issuerPub, d); err != nil {
+			continue
+		}
+
+		var body pocstate.RevokeMemberBodyV0
+		if err := json.Unmarshal(d.Body, &body); err != nil {
+			continue
+		}
+		if strings.TrimSpace(body.MemberPeerID) == peerID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func findApprovedMemberPubV0(head pocstate.GovernanceHeadSnapshotV1, decls []pocstate.DeclV0, peerID string) (ed25519.PublicKey, bool, error) {
+	peerID = strings.TrimSpace(peerID)
+	if peerID == "" {
+		return nil, false, errors.New("empty peer_id")
+	}
+
+	for _, d := range decls {
+		if strings.TrimSpace(d.Kind) != pocstate.DeclKindApproveMember {
+			continue
+		}
+
+		issuerPub, ok, err := head.AdminEd25519Pub(d.IssuerPeerID)
+		if err != nil {
+			return nil, false, err
+		}
+		if !ok {
+			continue
+		}
+		if err := pocstate.VerifyDeclV0(issuerPub, d); err != nil {
+			continue
+		}
+
+		var body pocstate.ApproveMemberBodyV0
+		if err := json.Unmarshal(d.Body, &body); err != nil {
+			continue
+		}
+		if strings.TrimSpace(body.MemberPeerID) != peerID {
+			continue
+		}
+
+		memberEdPubBytes, err := base64.RawURLEncoding.DecodeString(strings.TrimSpace(body.Ed25519PubB64))
+		if err != nil || len(memberEdPubBytes) != ed25519.PublicKeySize {
+			continue
+		}
+		return ed25519.PublicKey(memberEdPubBytes), true, nil
+	}
+
+	return nil, false, nil
 }
 
 func servePing(w *shellproto.Writer) error {

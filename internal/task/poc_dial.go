@@ -184,6 +184,22 @@ func mqttBrokerURL(broker string) string {
 
 func remoteReasonToPOC(reason string) (poc.ReasonCode, poc.ExitCode) {
 	switch strings.TrimSpace(reason) {
+	case "HELLO_REQUIRED":
+		return poc.ReasonCodeForbidden, poc.ExitCodeForbidden
+	case "HELLO_INVALID":
+		return poc.ReasonCodeBadRequest, poc.ExitCodeBadRequest
+	case "HELLO_NOT_APPROVED":
+		return poc.ReasonCodeForbidden, poc.ExitCodeForbidden
+	case "HELLO_REVOKED":
+		return poc.ReasonCodeForbidden, poc.ExitCodeForbidden
+	case "HELLO_ISSUER_NOT_ADMIN":
+		return poc.ReasonCodeForbidden, poc.ExitCodeForbidden
+	case "HELLO_DECL_INVALID":
+		return poc.ReasonCodeForbidden, poc.ExitCodeForbidden
+	case "HELLO_SIG_INVALID":
+		return poc.ReasonCodeForbidden, poc.ExitCodeForbidden
+	case "HELLO_INTERNAL":
+		return poc.ReasonCodeInternal, poc.ExitCodeInternal
 	case "SH_TARGET_NOT_FOUND":
 		return poc.ReasonCodeSHTargetNotFound, poc.ExitCodeNotFound
 	case "SH_TARGET_AMBIGUOUS":

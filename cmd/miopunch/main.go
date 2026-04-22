@@ -72,9 +72,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	case "ls":
 		return runLS(opt, cmdArgs, stdout, stderr)
 	case "invite":
-		return runTaskKind(opt, "invite", nil, stdout, stderr)
+		return runInvite(opt, cmdArgs, stdout, stderr)
 	case "approve":
-		return runTaskKind(opt, "approve", nil, stdout, stderr)
+		return runApprove(opt, cmdArgs, stdout, stderr)
 	case "join":
 		return runJoin(opt, cmdArgs, stdout, stderr)
 	case "ping":
@@ -85,7 +85,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		return runSh(opt, cmdArgs, stdout, stderr)
 	case "revoke":
-		return runTaskKind(opt, "revoke_member", nil, stdout, stderr)
+		return runRevoke(opt, cmdArgs, stdout, stderr)
 	case "reset":
 		return exitWithFailure(opt, stdout, stderr, "reset", "", failureOutput{
 			Stage:      "cli",
@@ -127,7 +127,14 @@ For lab/experiments (coord/peer/stun/mqtt-broker), use:
   miopunch-lab <command> [flags]
 
 Usage:
-  miopunch [--format human|json] [--localapi <addr>] <command> [args]
+  miopunch [--format human|json] [--localapi <addr>] [--report <path>] [--redact] <command> [args]
+
+Global flags:
+  --format human|json   Output format for CLI (default: human)
+  --localapi <addr>     LocalAPI address (unix socket / named pipe)
+  --report <path>       Export this command's task report as Markdown
+  --redact              Redact secrets in CLI output and --report export:
+                        invite_code, secret_key, net_secret_b64, invite_secret_b64
 
 Commands (POC, work in progress):
   up
@@ -137,6 +144,7 @@ Commands (POC, work in progress):
   join
   ping
   sh
+  revoke
   reset
   install-system-daemon
   uninstall-system-daemon

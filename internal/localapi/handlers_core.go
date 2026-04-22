@@ -134,6 +134,29 @@ func (s *Server) handleTaskReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if report, ok, err := s.tasks.LoadPersistedReport(taskID); err != nil {
+		reqID, _ := poc.NewRequestID()
+		writeError(w, ErrorResponse{
+			Stage:      "localapi",
+			ReasonCode: poc.ReasonCodeInternal,
+			ExitCode:   poc.ExitCodeInternal,
+			Message:    "failed to load task report",
+			Facts: []poc.Fact{
+				{Message: "error=" + err.Error()},
+			},
+			Suggestions: []poc.Suggestion{
+				{Message: "retry"},
+			},
+			RequestID: reqID,
+		})
+		return
+	} else if ok {
+		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(report))
+		return
+	}
+
 	if _, ok := s.tasks.Get(taskID); !ok {
 		writeNotFound(w, taskID, "task not found")
 		return

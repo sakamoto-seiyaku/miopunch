@@ -42,6 +42,28 @@ func TestTaskWS_ShellAttachLifecycle_NoNetwork(t *testing.T) {
 		go func() {
 			defer serverConn.Close()
 
+			var hello shellproto.Control
+			if err := shellproto.ReadJSON(serverConn, &hello); err != nil {
+				return
+			}
+
+			if strings.TrimSpace(hello.Op) != shellproto.OpHello {
+				_ = shellproto.WriteJSON(serverConn, shellproto.Control{
+					Op: shellproto.OpHello,
+					OK: false,
+					Error: &shellproto.ControlError{
+						ReasonCode: shellproto.ReasonHelloRequired,
+						Message:    "unexpected op",
+					},
+				})
+				return
+			}
+
+			_ = shellproto.WriteJSON(serverConn, shellproto.Control{
+				Op: shellproto.OpHello,
+				OK: true,
+			})
+
 			var req shellproto.Control
 			if err := shellproto.ReadJSON(serverConn, &req); err != nil {
 				return
@@ -50,6 +72,7 @@ func TestTaskWS_ShellAttachLifecycle_NoNetwork(t *testing.T) {
 			if strings.TrimSpace(req.Op) != shellproto.OpShAttach {
 				_ = shellproto.WriteJSON(serverConn, shellproto.Control{
 					Op: shellproto.OpShAttach,
+					OK: false,
 					Error: &shellproto.ControlError{
 						ReasonCode: "SH_CONNECTOR_FAIL",
 						Message:    "unexpected op",

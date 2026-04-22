@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/miopunch/miopunch/internal/controlplane"
 	"github.com/miopunch/miopunch/internal/localapi"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/task"
@@ -48,6 +50,148 @@ func runLS(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
+func runInvite(opt globalOptions, args []string, stdout, stderr io.Writer) int {
+	inviteArgs := task.InviteArgs{}
+
+	i := 0
+	for i < len(args) {
+		a := args[i]
+		if a == "--" {
+			i++
+			break
+		}
+		if !strings.HasPrefix(a, "-") {
+			break
+		}
+
+		switch {
+		case a == "--mode":
+			if i+1 >= len(args) {
+				return exitWithFailure(opt, stdout, stderr, "invite", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "missing value for --mode"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch invite --mode approve|auto"},
+					},
+				})
+			}
+			i++
+			inviteArgs.Mode = strings.TrimSpace(args[i])
+			i++
+		case strings.HasPrefix(a, "--mode="):
+			inviteArgs.Mode = strings.TrimSpace(strings.TrimPrefix(a, "--mode="))
+			i++
+		case a == "--uses":
+			if i+1 >= len(args) {
+				return exitWithFailure(opt, stdout, stderr, "invite", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "missing value for --uses"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch invite --uses 1"},
+					},
+				})
+			}
+			i++
+			n, err := strconv.Atoi(strings.TrimSpace(args[i]))
+			if err != nil || n <= 0 {
+				return exitWithFailure(opt, stdout, stderr, "invite", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "invalid --uses"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch invite --uses 1"},
+					},
+				})
+			}
+			inviteArgs.MaxUses = n
+			i++
+		case strings.HasPrefix(a, "--uses="):
+			n, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(a, "--uses=")))
+			if err != nil || n <= 0 {
+				return exitWithFailure(opt, stdout, stderr, "invite", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "invalid --uses"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch invite --uses 1"},
+					},
+				})
+			}
+			inviteArgs.MaxUses = n
+			i++
+		case a == "--expires":
+			if i+1 >= len(args) {
+				return exitWithFailure(opt, stdout, stderr, "invite", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "missing value for --expires"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch invite --expires 15m"},
+					},
+				})
+			}
+			i++
+			inviteArgs.Expires = strings.TrimSpace(args[i])
+			i++
+		case strings.HasPrefix(a, "--expires="):
+			inviteArgs.Expires = strings.TrimSpace(strings.TrimPrefix(a, "--expires="))
+			i++
+		default:
+			return exitWithFailure(opt, stdout, stderr, "invite", "", failureOutput{
+				Stage:      "cli",
+				ReasonCode: poc.ReasonCodeBadRequest,
+				ExitCode:   poc.ExitCodeBadRequest,
+				Facts:      []poc.Fact{{Message: "unknown flag: " + a}},
+				Suggestions: []poc.Suggestion{
+					{Message: "run: miopunch --help"},
+				},
+			})
+		}
+	}
+
+	if len(args[i:]) != 0 {
+		return exitWithFailure(opt, stdout, stderr, "invite", "", failureOutput{
+			Stage:      "cli",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts:      []poc.Fact{{Message: "unexpected extra args"}},
+			Suggestions: []poc.Suggestion{
+				{Message: "use: miopunch invite [--mode ...] [--uses ...] [--expires ...]"},
+			},
+		})
+	}
+
+	argsAny := any(inviteArgs)
+	if strings.TrimSpace(inviteArgs.Mode) == "" && inviteArgs.MaxUses == 0 && strings.TrimSpace(inviteArgs.Expires) == "" {
+		argsAny = nil
+	}
+	return runTaskKind(opt, "invite", argsAny, stdout, stderr)
+}
+
+func runApprove(opt globalOptions, args []string, stdout, stderr io.Writer) int {
+	if len(args) < 1 || strings.TrimSpace(args[0]) == "" {
+		return exitWithFailure(opt, stdout, stderr, "approve", "", failureOutput{
+			Stage:      "cli",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts: []poc.Fact{
+				{Message: "missing invite code"},
+			},
+			Suggestions: []poc.Suggestion{
+				{Message: "use: miopunch approve <invite_code-or-url>"},
+			},
+		})
+	}
+	return runTaskKind(opt, "approve", task.ApproveArgs{Code: args[0]}, stdout, stderr)
+}
+
 func runJoin(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 	var joinArgs any
 	if len(args) >= 1 && strings.TrimSpace(args[0]) != "" {
@@ -80,8 +224,56 @@ func runShLS(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 	return runTaskKind(opt, "sh_ls", shArgs, stdout, stderr)
 }
 
+func runRevoke(opt globalOptions, args []string, stdout, stderr io.Writer) int {
+	if len(args) < 1 || strings.TrimSpace(args[0]) == "" {
+		return exitWithFailure(opt, stdout, stderr, "revoke", "", failureOutput{
+			Stage:      "cli",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts:      []poc.Fact{{Message: "missing peer_id"}},
+			Suggestions: []poc.Suggestion{
+				{Message: "use: miopunch revoke <peer_id> --dangerous"},
+			},
+		})
+	}
+
+	peerID := args[0]
+	dangerous := false
+	for _, a := range args[1:] {
+		switch {
+		case a == "--dangerous":
+			dangerous = true
+		case a == "--dangerous=true":
+			dangerous = true
+		default:
+			return exitWithFailure(opt, stdout, stderr, "revoke", "", failureOutput{
+				Stage:      "cli",
+				ReasonCode: poc.ReasonCodeBadRequest,
+				ExitCode:   poc.ExitCodeBadRequest,
+				Facts:      []poc.Fact{{Message: "unknown arg: " + a}},
+				Suggestions: []poc.Suggestion{
+					{Message: "use: miopunch revoke <peer_id> --dangerous"},
+				},
+			})
+		}
+	}
+	if !dangerous {
+		return exitWithFailure(opt, stdout, stderr, "revoke", "", failureOutput{
+			Stage:      "cli",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts:      []poc.Fact{{Message: "missing --dangerous (revoke is irreversible in POC v0)"}},
+			Suggestions: []poc.Suggestion{
+				{Message: "re-run with: miopunch revoke <peer_id> --dangerous"},
+			},
+		})
+	}
+
+	return runTaskKind(opt, "revoke_member", task.RevokeMemberArgs{PeerID: peerID, Dangerous: true}, stdout, stderr)
+}
+
 func runTaskKind(opt globalOptions, kind string, args any, stdout, stderr io.Writer) int {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := taskContextForKind(kind, args)
 	defer cancel()
 
 	c, _, err := connectLocalAPI(ctx, opt.LocalAPIOverride)
@@ -175,6 +367,29 @@ func runTaskKind(opt globalOptions, kind string, args any, stdout, stderr io.Wri
 	}
 
 	env := envelopeFromTask(finalTask)
+	if opt.Redact {
+		env.Facts = redactFacts(env.Facts)
+		env.Suggestions = redactSuggestions(env.Suggestions)
+	}
+
+	if strings.TrimSpace(opt.ReportPath) != "" {
+		reportCtx, cancelReport := context.WithTimeout(context.Background(), 5*time.Second)
+		err := exportTaskReport(reportCtx, c, finalTask.ID, opt.ReportPath, opt.Redact)
+		cancelReport()
+		if err != nil {
+			return exitWithFailure(opt, stdout, stderr, kind, created.ID, failureOutput{
+				Stage:      "cli",
+				ReasonCode: poc.ReasonCodeInternal,
+				ExitCode:   poc.ExitCodeInternal,
+				Facts: []poc.Fact{
+					{Message: "export report: " + err.Error()},
+				},
+				Suggestions: []poc.Suggestion{
+					{Message: "check --report path and retry"},
+				},
+			})
+		}
+	}
 	if opt.Format == outputFormatJSON {
 		writeEnvelopeJSON(stdout, env)
 		return int(finalTask.ExitCode)
@@ -206,6 +421,31 @@ func runTaskKind(opt globalOptions, kind string, args any, stdout, stderr io.Wri
 		fmt.Fprintln(stderr, msg)
 	}
 	return int(finalTask.ExitCode)
+}
+
+func taskContextForKind(kind string, args any) (context.Context, context.CancelFunc) {
+	defaultTimeout := 2 * time.Minute
+	codeValue := ""
+	switch strings.TrimSpace(kind) {
+	case "join":
+		if v, ok := args.(task.JoinArgs); ok {
+			codeValue = strings.TrimSpace(v.Code)
+		}
+	case "approve":
+		if v, ok := args.(task.ApproveArgs); ok {
+			codeValue = strings.TrimSpace(v.Code)
+		}
+	}
+
+	if codeValue != "" {
+		if decoded, err := controlplane.DecodeInviteCodeV0(codeValue); err == nil {
+			expiresAt := time.UnixMilli(decoded.ExpiresAtUnixMs).UTC().Add(30 * time.Second)
+			if time.Until(expiresAt) > 0 {
+				return context.WithDeadline(context.Background(), expiresAt)
+			}
+		}
+	}
+	return context.WithTimeout(context.Background(), defaultTimeout)
 }
 
 func envelopeFromTask(t task.Task) poc.EnvelopeJSONV0 {
@@ -295,6 +535,10 @@ func exitWithError(opt globalOptions, stdout, stderr io.Writer, kind string, tas
 }
 
 func exitWithFailure(opt globalOptions, stdout, stderr io.Writer, kind string, taskID string, f failureOutput) int {
+	if opt.Redact {
+		f.Facts = redactFacts(f.Facts)
+		f.Suggestions = redactSuggestions(f.Suggestions)
+	}
 	if opt.Format == outputFormatJSON {
 		env := poc.NewEnvelopeJSONV0()
 		env.TaskID = taskID

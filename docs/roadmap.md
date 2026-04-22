@@ -126,7 +126,7 @@
 - 术语词典：`docs/notes/2026-04-16-alpha-glossary.md`
 - POC 实现清单（vertical slice）：`docs/notes/2026-04-20-poc-implementation-checklist.md`
 
-待办任务（按 change 顺序；小步快走、每步可验证）：
+Change 划分（按 change 顺序；`POC-06` 已实现，后续按 `POC-06.5 / POC-07` 继续推进）：
 
 - 约束：每个 change 都应（尽量）包含：单元测试、集成测试、真实环境 smoke test；并把“验收口径/失败口径/用户动作建议”写清楚。
 - 建议：每个 change 用 OpenSpec workflow 跟踪（`openspec/changes/poc-XX-*`），避免把实现细节散落在聊天里。
@@ -190,7 +190,7 @@
   - 集成：起 daemon → CLI 调用 → 校验 stage/reason_code/exit_code。
   - 真实环境：Windows 安装/启动 daemon（含管理员权限需求：TUN/驱动未来可用），CLI 可用且错误提示友好。
 
-#### Change POC-06：`sh(tmux)` vertical slice（WSL/SSH targets）+ 单写者锁 + 现场语义
+#### Change POC-06（已实现）：`sh(tmux)` vertical slice（WSL/SSH targets）+ 单写者锁 + 现场语义
 
 - 目标：交付 POC 核心价值：远程 Shell + tmux 现场恢复 + 可解释性。
 - 交付：
@@ -202,16 +202,29 @@
   - 集成：补齐并跑通 POC 端到端验收用例（`join → ping → sh(tmux)`），确保失败口径稳定、可解释。
   - 真实环境：Windows 平板/PC + 家中主机（WSL/VM）+ Android 入网辅助，演示 `join→ping→sh` 全流程。
 
-#### Change POC-07：HTTP 面板（POC 最小）+ report/export（可解释性对外输出）
+#### Change POC-06.5：治理/成员/撤销 + report/export
 
-- 目标：把“用户极度友好/一览无余”的可解释性落到 UI 与可分享报告。
+- 目标：在已实现的 `POC-06` shell vertical slice 之上，补齐最小治理闭环与可对外分享的报告导出。
+- 交付：
+  - 最小治理状态：`governance/head_snapshot.json`（先做 genesis + 验证口径）与 `decls/decls.json`（`approve_member/revoke_member`，set-union 收敛，`revoke` 为永久 tombstone）。
+  - `invite/join/approve` 闭环：高熵 `invite_topic/reply_topic`、`join_request` 用 `invite_secret` AEAD 加密、`membership_bundle` 用 `X25519 + HKDF + AEAD` 回包，并沿用 uses/幂等持久化。
+  - `ping/sh` 前增加 `hello` 验真：携带 `peer_id + approve_member decl + 持钥签名`；被控端按当前治理快照校验 admin 签发与 revoke 状态，必要时把已验真的未知成员落盘接纳。
+  - report/export 前移：task 完成报告落盘（ring buffer 轮转），CLI 支持 `--report <path>` 与 `--redact`。
+- 测试：
+  - 单元：snapshot/decl hash 与验签、`revoke_member` tombstone、invite/approve 幂等命中、report/redact 结构稳定。
+  - 集成：`invite → join → approve → ping → sh` 闭环；issuer 重启后重放同一 request 不重复扣 uses；`revoke` 后立即拒绝后续 `ping/sh`。
+  - 真实环境：公共 broker 下完成一次 `join/approve/sh` 闭环，并导出可分享的脱敏报告。
+
+#### Change POC-07：HTTP 面板（POC 最小）
+
+- 目标：把已具备的 LocalAPI / task 状态 / report 能力收束到本机面板 UI，但不再承担 report/export 语义本身。
 - 交付：
   - HTTP 面板：只监听 `127.0.0.1`；卡片+SSE；写操作白名单 `invite/join/sh_attach`。
-  - 报告导出：`--report` 生成 md；`--redact` 脱敏开关；事件留存策略（log rotation）写清楚。
+  - 面板复用既有 task 报告与诊断输出，不再定义第二套导出/脱敏/留存规则。
 - 测试：
-  - 单元：SSE/WS 基础协议；report 结构稳定（顶层字段不漂移）。
-  - 集成：起面板 → SSE 刷新 → 触发任务 → 卡片状态推进；导出 report 可读。
-  - 真实环境：浏览器打开面板完成一次 join/sh，生成可分享的脱敏报告。
+  - 单元：SSE/WS 基础协议；面板 handler 与写操作白名单稳定。
+  - 集成：起面板 → SSE 刷新 → 触发任务 → 卡片状态推进。
+  - 真实环境：浏览器打开面板完成一次 `join/sh`，验证本机交互体验与权限边界。
 
 ## 后续方向
 

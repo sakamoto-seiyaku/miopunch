@@ -53,6 +53,11 @@ func (m *Manager) runShellListTask(taskID string, rawArgs []byte) {
 	}
 	defer res.stream.Close()
 
+	m.setStage(taskID, poc.StageCapabilityHandshake, "hello handshake")
+	if !m.requireHello(ctx, taskID, res.stream) {
+		return
+	}
+
 	m.setStage(taskID, poc.StageCapabilityHandshake, "shell list request")
 
 	if err := shellproto.WriteJSON(res.stream, shellproto.Control{Op: shellproto.OpShLS, Target: args.Target}); err != nil {

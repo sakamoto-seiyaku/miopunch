@@ -1,0 +1,374 @@
+package task
+
+import (
+	"context"
+	"crypto/ed25519"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/miopunch/miopunch/internal/controlplane"
+	"github.com/miopunch/miopunch/internal/poc"
+	"github.com/miopunch/miopunch/internal/pocstate"
+)
+
+func (m *Manager) runApproveTask(taskID string, rawArgs []byte) {
+	var args ApproveArgs
+	if err := decodeArgs(rawArgs, &args); err != nil {
+		m.addFact(taskID, poc.Fact{Message: err.Error()})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "retry with valid args"})
+		m.done(taskID, poc.ReasonCodeBadRequest, poc.ExitCodeBadRequest)
+		return
+	}
+	args = args.normalize()
+	if args.Code == "" {
+		m.addFact(taskID, poc.Fact{Message: "missing invite code"})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "use: miopunch approve <invite_code-or-url>"})
+		m.done(taskID, poc.ReasonCodeBadRequest, poc.ExitCodeBadRequest)
+		return
+	}
+
+	m.setStage(taskID, poc.StageControlPlaneReady, "decode invite code")
+	code, err := controlplane.DecodeInviteCodeV0(args.Code)
+	if err != nil {
+		m.addFact(taskID, poc.Fact{Message: "invalid invite code: " + err.Error()})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "verify the code and retry"})
+		m.done(taskID, poc.ReasonCodeBadRequest, poc.ExitCodeBadRequest)
+		return
+	}
+
+	stateDir, err := pocstate.StateDir(m.statePath)
+	if err != nil {
+		m.addFact(taskID, poc.Fact{Message: "state_dir: " + err.Error()})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
+		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+		return
+	}
+
+	selfID, err := pocstate.EnsureIdentity(stateDir)
+	if err != nil {
+		m.addFact(taskID, poc.Fact{Message: "ensure identity: " + err.Error()})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
+		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+		return
+	}
+
+	if selfID.PeerID != code.IssuerPeerID {
+		m.addFact(taskID, poc.Fact{Message: "invite code issuer mismatch"})
+		m.addFact(taskID, poc.Fact{Message: "invite_issuer_peer_id=" + code.IssuerPeerID})
+		m.addFact(taskID, poc.Fact{Message: "self_peer_id=" + selfID.PeerID})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "run approve on the issuing/admin machine that generated the invite"})
+		m.done(taskID, poc.ReasonCodeForbidden, poc.ExitCodeForbidden)
+		return
+	}
+	if strings.TrimSpace(code.IssuerEd25519PubB64) != strings.TrimSpace(selfID.Ed25519PubB64()) {
+		m.addFact(taskID, poc.Fact{Message: "invite code issuer ed25519 pubkey mismatch"})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "retry approve on the issuing machine"})
+		m.done(taskID, poc.ReasonCodeForbidden, poc.ExitCodeForbidden)
+		return
+	}
+	if strings.TrimSpace(code.IssuerX25519PubB64) != strings.TrimSpace(selfID.X25519PubB64()) {
+		m.addFact(taskID, poc.Fact{Message: "invite code issuer x25519 pubkey mismatch"})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "retry approve on the issuing machine"})
+		m.done(taskID, poc.ReasonCodeForbidden, poc.ExitCodeForbidden)
+		return
+	}
+
+	inviteSecret, err := decodeInviteSecretB64(code.InviteSecretB64)
+	if err != nil {
+		m.addFact(taskID, poc.Fact{Message: "invalid invite_secret_b64"})
+		m.done(taskID, poc.ReasonCodeBadRequest, poc.ExitCodeBadRequest)
+		return
+	}
+
+	// Approve lifetime is bounded by the invite expiry.
+	expiresAt := time.UnixMilli(code.ExpiresAtUnixMs).UTC()
+	ctx, cancel := context.WithDeadline(m.ctx, expiresAt)
+	defer cancel()
+
+	m.setStage(taskID, poc.StageSelfDiscovery, "ensure governance state")
+
+	store, err := controlplane.NewInviteStore(stateDir)
+	if err != nil {
+		m.addFact(taskID, poc.Fact{Message: "invite store: " + err.Error()})
+		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+		return
+	}
+	idem, err := controlplane.NewInviteIdempotency(store, nil)
+	if err != nil {
+		m.addFact(taskID, poc.Fact{Message: "invite idempotency: " + err.Error()})
+		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+		return
+	}
+
+	inviteID, err := store.EnsureInvite(code.InviteTopic, code.ExpiresAtUnixMs, code.MaxUses)
+	if err != nil {
+		m.addFact(taskID, poc.Fact{Message: "ensure invite record: " + err.Error()})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
+		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+		return
+	}
+
+	netState, err := pocstate.EnsureNet(stateDir, code.InviteBrokers)
+	if err != nil {
+		m.addFact(taskID, poc.Fact{Message: "ensure net: " + err.Error()})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
+		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+		return
+	}
+	head, err := pocstate.EnsureGovernanceHeadSnapshot(stateDir, netState.NetID, selfID)
+	if err != nil {
+		m.addFact(taskID, poc.Fact{Message: "ensure head snapshot: " + err.Error()})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
+		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+		return
+	}
+	if _, err := pocstate.EnsureDecls(stateDir); err != nil {
+		m.addFact(taskID, poc.Fact{Message: "ensure decls: " + err.Error()})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
+		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+		return
+	}
+
+	st, err := m.loadState()
+	if err != nil {
+		m.addFact(taskID, poc.Fact{Message: "load state: " + err.Error()})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
+		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+		return
+	}
+	if st.Local == nil {
+		st.Local = &pocstate.LocalConfig{}
+	}
+	st.Local.NormalizeDefaults()
+	st.Local.PeerID = selfID.PeerID
+	if strings.TrimSpace(st.Local.ProxyName) == "" {
+		st.Local.ProxyName = selfID.PeerID
+	}
+	if strings.TrimSpace(st.Local.SecretKey) == "" {
+		secretKey, _, err := newSecretKeyB64URLNoPad()
+		if err != nil {
+			m.addFact(taskID, poc.Fact{Message: "new secret_key: " + err.Error()})
+			m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
+			m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+			return
+		}
+		st.Local.SecretKey = secretKey
+	}
+	st.EnsureLocalDefaults()
+
+	if err := m.saveState(st); err != nil {
+		m.addFact(taskID, poc.Fact{Message: "save state: " + err.Error()})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
+		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+		return
+	}
+
+	seedPeers := []seedPeerV0{
+		{
+			PeerID:      selfID.PeerID,
+			ProxyName:   st.Local.ProxyName,
+			SecretKey:   st.Local.SecretKey,
+			MQTTBroker:  st.Local.MQTTBroker,
+			TopicPrefix: st.Local.TopicPrefix,
+			DataProto:   st.Local.DataProto,
+			QUICCC:      st.Local.QUICCC,
+		},
+	}
+
+	m.setStage(taskID, poc.StagePeerContact, "connect invite brokers")
+
+	mbs := make([]*mqttMailbox, 0, len(code.InviteBrokers))
+	for _, ep := range code.InviteBrokers {
+		mb, err := openMQTTMailbox(ctx, ep, "miopunch-invite-approve")
+		if err != nil {
+			for _, c := range mbs {
+				_ = c.Close()
+			}
+			m.addFact(taskID, poc.Fact{Message: "mqtt connect failed: " + err.Error()})
+			m.addSuggestion(taskID, poc.Suggestion{Message: "verify broker reachability and retry"})
+			m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
+			return
+		}
+		mbs = append(mbs, mb)
+	}
+	defer func() {
+		for _, mb := range mbs {
+			_ = mb.Close()
+		}
+	}()
+
+	subCtx, cancelSub := context.WithTimeout(ctx, 10*time.Second)
+	defer cancelSub()
+	for _, mb := range mbs {
+		if err := mb.Subscribe(subCtx, code.InviteTopic); err != nil {
+			m.addFact(taskID, poc.Fact{Message: "subscribe invite_topic failed: " + err.Error()})
+			m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
+			m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
+			return
+		}
+	}
+
+	evCh, stop := fanInMailboxEvents(ctx, mbs)
+	defer stop()
+
+	m.addFact(taskID, poc.Fact{TermID: "peer_id", Message: "peer_id=" + selfID.PeerID})
+	m.addFact(taskID, poc.Fact{TermID: "net_id", Message: "net_id=" + netState.NetID})
+	m.addFact(taskID, poc.Fact{TermID: "invite_id", Message: "invite_id=" + inviteID})
+	m.addFact(taskID, poc.Fact{Message: fmt.Sprintf("invite_max_uses=%d", code.MaxUses)})
+	m.addSuggestion(taskID, poc.Suggestion{Message: "wait for join_request on another machine: miopunch join <invite_code>"})
+
+	m.setStage(taskID, poc.StageCapabilityHandshake, "wait join_request")
+
+	approvedUnique := 0
+	for {
+		select {
+		case <-ctx.Done():
+			m.addFact(taskID, poc.Fact{Message: "approve timed out waiting for join_request"})
+			m.addSuggestion(taskID, poc.Suggestion{Message: "verify joiner is running: miopunch join <invite_code>"})
+			m.done(taskID, poc.ReasonCodeTimeout, poc.ExitCodeTimeout)
+			return
+		case ev := <-evCh:
+			if ev.Err != nil {
+				m.addFact(taskID, poc.Fact{Message: "mqtt error: " + ev.Err.Error()})
+				continue
+			}
+			if ev.Topic != code.InviteTopic {
+				continue
+			}
+
+			joinReqJSON, err := controlplane.OpenInviteJoinRequestV0(inviteSecret, code.InviteTopic, ev.Payload)
+			if err != nil {
+				continue
+			}
+
+			req, err := controlplane.UnmarshalMessage(joinReqJSON)
+			if err != nil {
+				continue
+			}
+			if strings.TrimSpace(req.Signed.Kind) != joinRequestKindV0 {
+				continue
+			}
+
+			var body joinRequestBodyV0
+			if err := json.Unmarshal(req.Signed.Body, &body); err != nil {
+				continue
+			}
+			replyTopic := strings.TrimSpace(body.ReplyTopic)
+			if replyTopic == "" {
+				continue
+			}
+
+			memberEdPubBytes, err := base64.RawURLEncoding.DecodeString(strings.TrimSpace(body.Ed25519PubB64))
+			if err != nil || len(memberEdPubBytes) != ed25519.PublicKeySize {
+				continue
+			}
+			memberEdPub := ed25519.PublicKey(memberEdPubBytes)
+			memberPeerID, err := controlplane.PeerIDFromEd25519Pub(memberEdPub)
+			if err != nil {
+				continue
+			}
+			if req.Signed.SenderPeerID != memberPeerID {
+				continue
+			}
+
+			memberXPub, err := base64.RawURLEncoding.DecodeString(strings.TrimSpace(body.X25519PubB64))
+			if err != nil || len(memberXPub) != 32 {
+				continue
+			}
+
+			if err := controlplane.VerifyV0ForSelf(selfID.PeerID, memberEdPub, req); err != nil {
+				continue
+			}
+
+			ct, hit, err := idem.Handle(req, code.InviteTopic, code.ExpiresAtUnixMs, code.MaxUses, func() ([]byte, error) {
+				decl, err := pocstate.NewApproveMemberDeclV0(time.Now().UTC(), selfID, pocstate.ApproveMemberBodyV0{
+					MemberPeerID:  memberPeerID,
+					MemberName:    body.MemberName,
+					Ed25519PubB64: strings.TrimSpace(body.Ed25519PubB64),
+					X25519PubB64:  strings.TrimSpace(body.X25519PubB64),
+					PlatformHint:  body.PlatformHint,
+				})
+				if err != nil {
+					return nil, err
+				}
+
+				declsFile, err := pocstate.UpdateDecls(stateDir, func(f *pocstate.DeclsFileV0) error {
+					f.Decls = pocstate.AddDeclSetUnionV0(f.Decls, decl)
+					return nil
+				})
+				if err != nil {
+					return nil, err
+				}
+
+				bundle := membershipBundleV0{
+					NetID:                  netState.NetID,
+					NetSecretB64:           base64.RawURLEncoding.EncodeToString(netState.NetSecret),
+					BrokersEffective:       netState.BrokersEffective,
+					GovernanceHeadSnapshot: head,
+					Decls:                  declsFile.Decls,
+					SeedPeers:              seedPeers,
+				}
+				pt, err := json.Marshal(bundle)
+				if err != nil {
+					return nil, fmt.Errorf("marshal membership_bundle: %w", err)
+				}
+				return controlplane.SealInviteMembershipBundleV0(selfID.X25519Priv, memberXPub, code.InviteTopic, selfID.PeerID, memberPeerID, pt)
+			})
+			if err != nil {
+				if errors.Is(err, controlplane.ErrInviteExpired) {
+					m.addFact(taskID, poc.Fact{Message: "invite expired"})
+					m.done(taskID, poc.ReasonCodeTimeout, poc.ExitCodeTimeout)
+					return
+				}
+				if errors.Is(err, controlplane.ErrInviteUsesExhausted) {
+					m.addFact(taskID, poc.Fact{Message: "invite uses exhausted"})
+					m.done(taskID, poc.ReasonCodeOK, poc.ExitCodeOK)
+					return
+				}
+				m.addFact(taskID, poc.Fact{Message: "handle join_request failed: " + err.Error()})
+				continue
+			}
+
+			pubCtx, cancelPub := context.WithTimeout(ctx, 10*time.Second)
+			pubErr := publishToAll(pubCtx, mbs, replyTopic, ct)
+			cancelPub()
+			if pubErr != nil {
+				m.addFact(taskID, poc.Fact{Message: "publish membership_bundle failed: " + pubErr.Error()})
+				continue
+			}
+
+			m.addFact(taskID, poc.Fact{TermID: "member_peer_id", Message: "member_peer_id=" + memberPeerID})
+			m.addFact(taskID, poc.Fact{Message: fmt.Sprintf("idempotency_hit=%v", hit)})
+			if !hit {
+				approvedUnique++
+			}
+			if approvedUnique >= code.MaxUses {
+				m.addSuggestion(taskID, poc.Suggestion{Message: "approved max uses; invite complete"})
+				m.done(taskID, poc.ReasonCodeOK, poc.ExitCodeOK)
+				return
+			}
+
+			// Default POC: stop after the first successful approval.
+			if code.MaxUses == 1 && !hit {
+				m.done(taskID, poc.ReasonCodeOK, poc.ExitCodeOK)
+				return
+			}
+		}
+	}
+}
+
+func publishToAll(ctx context.Context, mbs []*mqttMailbox, topic string, payload []byte) error {
+	for _, mb := range mbs {
+		if mb == nil {
+			continue
+		}
+		if err := mb.Publish(ctx, topic, payload); err != nil {
+			return err
+		}
+	}
+	return nil
+}

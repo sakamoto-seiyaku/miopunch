@@ -58,6 +58,11 @@ func (m *Manager) runShellAttachTask(taskID string, rawArgs []byte) {
 	}
 	defer res.stream.Close()
 
+	m.setStage(taskID, poc.StageCapabilityHandshake, "hello handshake")
+	if !m.requireHello(handshakeCtx, taskID, res.stream) {
+		return
+	}
+
 	m.setStage(taskID, poc.StageCapabilityHandshake, "shell attach request")
 
 	session := strings.TrimSpace(args.Session)

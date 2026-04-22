@@ -113,6 +113,28 @@ func (c *Client) GetTask(ctx context.Context, taskID string) (task.Task, error) 
 	return t, nil
 }
 
+func (c *Client) GetTaskReport(ctx context.Context, taskID string) (string, error) {
+	resp, err := c.doRaw(ctx, http.MethodGet, "/api/v0/tasks/"+url.PathEscape(taskID)+"/report", nil)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode/100 == 2 {
+		b, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	}
+
+	apiErr, err := decodeAPIError(resp)
+	if err != nil {
+		return "", err
+	}
+	return "", apiErr
+}
+
 func (c *Client) OpenTaskEvents(ctx context.Context, taskID string) (io.ReadCloser, error) {
 	resp, err := c.doRaw(ctx, http.MethodGet, "/api/v0/tasks/"+url.PathEscape(taskID)+"/events", nil)
 	if err != nil {
