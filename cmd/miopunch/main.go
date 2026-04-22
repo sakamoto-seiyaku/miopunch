@@ -149,6 +149,10 @@ Commands (POC, work in progress):
   install-system-daemon
   uninstall-system-daemon
 
+Command flags:
+  up --http_panel                    Enable loopback-only HTTP panel UI (MD3)
+  up --http_panel_listen_addr <addr> HTTP panel listen address (default: 127.0.0.1:27400; host must be 127.0.0.1)
+
 Help:
   miopunch --help
 `)

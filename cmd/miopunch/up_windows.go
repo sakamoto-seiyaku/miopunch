@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/kardianos/service"
 
+	"github.com/miopunch/miopunch/internal/http_panel"
 	"github.com/miopunch/miopunch/internal/localapi"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/pocacceptor"
@@ -24,7 +26,7 @@ import (
 func runUp(args []string, stdout, stderr io.Writer) int {
 	_ = stdout
 
-	operatorSID, _, err := parseOperatorSID(args)
+	operatorSID, rest, err := parseOperatorSID(args)
 	if err != nil {
 		writeFailure(stderr, failureOutput{
 			Stage:      "daemon",
@@ -35,6 +37,22 @@ func runUp(args []string, stdout, stderr io.Writer) int {
 			},
 			Suggestions: []poc.Suggestion{
 				{Message: "retry"},
+			},
+		})
+		return int(poc.ExitCodeBadRequest)
+	}
+
+	upOpt, _, err := parseUpOptions(rest)
+	if err != nil {
+		writeFailure(stderr, failureOutput{
+			Stage:      "daemon",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts: []poc.Fact{
+				{Message: err.Error()},
+			},
+			Suggestions: []poc.Suggestion{
+				{Message: "retry with valid flags"},
 			},
 		})
 		return int(poc.ExitCodeBadRequest)
@@ -58,17 +76,18 @@ func runUp(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if !service.Interactive() {
-		return runUpAsWindowsService(operatorSID, stderr)
+		return runUpAsWindowsService(operatorSID, upOpt, stderr)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	return serveUpWindows(ctx, operatorSID, stderr)
+	return serveUpWindows(ctx, operatorSID, upOpt, stderr)
 }
 
 type windowsUpProgram struct {
 	operatorSID string
+	upOpt       upOptions
 	stderr      io.Writer
 
 	cancel context.CancelFunc
@@ -82,7 +101,7 @@ func (p *windowsUpProgram) Start(service.Service) error {
 
 	go func() {
 		defer close(p.done)
-		_ = serveUpWindows(ctx, p.operatorSID, p.stderr)
+		_ = serveUpWindows(ctx, p.operatorSID, p.upOpt, p.stderr)
 	}()
 
 	return nil
@@ -102,7 +121,7 @@ func (p *windowsUpProgram) Stop(service.Service) error {
 	return nil
 }
 
-func runUpAsWindowsService(operatorSID string, stderr io.Writer) int {
+func runUpAsWindowsService(operatorSID string, upOpt upOptions, stderr io.Writer) int {
 	cfg := &service.Config{
 		Name:        "miopunch",
 		DisplayName: "miopunch",
@@ -110,6 +129,7 @@ func runUpAsWindowsService(operatorSID string, stderr io.Writer) int {
 	}
 	prg := &windowsUpProgram{
 		operatorSID: strings.TrimSpace(operatorSID),
+		upOpt:       upOpt,
 		stderr:      stderr,
 	}
 	svc, err := service.New(prg, cfg)
@@ -144,7 +164,7 @@ func runUpAsWindowsService(operatorSID string, stderr io.Writer) int {
 	return 0
 }
 
-func serveUpWindows(ctx context.Context, operatorSID string, stderr io.Writer) int {
+func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, stderr io.Writer) int {
 	systemAddr, err := localapi.DefaultSystemAddr(operatorSID)
 	if err != nil {
 		writeFailure(stderr, failureOutput{
@@ -225,26 +245,78 @@ func serveUpWindows(ctx context.Context, operatorSID string, stderr io.Writer) i
 	mgr := task.NewManager()
 	defer mgr.Close()
 
+	var panel *http_panel.Server
+	var panelLn net.Listener
+	if upOpt.HTTPPanel {
+		var listenErr error
+		panelLn, _, listenErr = http_panel.Listen(upOpt.HTTPPanelListenAddr)
+		if listenErr != nil {
+			var addrErr *http_panel.ListenAddrError
+			if errors.As(listenErr, &addrErr) {
+				writeFailure(stderr, failureOutput{
+					Stage:      "daemon",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts: []poc.Fact{
+						{Message: "http panel is loopback-only (127.0.0.1)"},
+						{Message: "listen_addr=" + addrErr.ListenAddr},
+						{Message: "error=" + addrErr.Problem},
+					},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: --http_panel_listen_addr " + http_panel.DefaultListenAddr},
+					},
+				})
+				return int(poc.ExitCodeBadRequest)
+			}
+
+			writeFailure(stderr, failureOutput{
+				Stage:      "daemon",
+				ReasonCode: poc.ReasonCodeUnavailable,
+				ExitCode:   poc.ExitCodeUnavailable,
+				Facts: []poc.Fact{
+					{Message: "failed to listen http panel: " + listenErr.Error()},
+				},
+				Suggestions: []poc.Suggestion{
+					{Message: "change the port via --http_panel_listen_addr and retry"},
+				},
+			})
+			return int(poc.ExitCodeUnavailable)
+		}
+		panel = http_panel.NewServer(panelLn.Addr().String(), mgr)
+		defer func() { _ = panelLn.Close() }()
+	}
+
 	api := localapi.NewServer(localapi.ListenModeSystem, mgr)
 	httpServer := &http.Server{
 		Handler: api.Handler(),
 	}
 
-	errCh := make(chan error, 1)
+	panelHTTPServer := &http.Server{}
+	errCh := make(chan error, 2)
 	go func() {
-		errCh <- httpServer.Serve(ln)
+		errCh <- fmt.Errorf("localapi serve: %w", httpServer.Serve(ln))
 	}()
+	if panel != nil && panelLn != nil {
+		panelHTTPServer.Handler = panel.Handler()
+		go func() {
+			errCh <- fmt.Errorf("http panel serve: %w", panelHTTPServer.Serve(panelLn))
+		}()
+	}
 	go func() {
 		_ = pocacceptor.Run(ctx, pocacceptor.Config{})
 	}()
 
 	fmt.Fprintf(stderr, "miopunch up: serving LocalAPI (system) at %s\n", systemAddr.String())
+	if panel != nil {
+		fmt.Fprintf(stderr, "miopunch up: serving HTTP panel at %s/\n", panel.Origin())
+	}
 
 	select {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 		_ = httpServer.Shutdown(shutdownCtx)
+		_ = panelHTTPServer.Shutdown(shutdownCtx)
 		return 0
 	case err := <-errCh:
 		if errors.Is(err, http.ErrServerClosed) {
