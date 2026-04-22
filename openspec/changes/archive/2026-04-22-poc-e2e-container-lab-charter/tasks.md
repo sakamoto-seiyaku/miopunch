@@ -66,4 +66,4 @@
 - [x] 8.5 运行 `bash scripts/check_no_xtcp_imports.sh`
 - [x] 8.6 运行 `./lab/host/labctl poc-e2e-selftest`
 - [x] 8.7 运行 `./lab/host/labctl poc-e2e-fulltest`
-- [ ] 8.8 mainline 合入前，除新增 POC e2e 命令外，还要运行 `$dev` 要求的现有完整 lab gate set
+- [x] 8.8 mainline 合入前，除新增 POC e2e 命令外，还要运行 `$dev` 要求的现有完整 lab gate set

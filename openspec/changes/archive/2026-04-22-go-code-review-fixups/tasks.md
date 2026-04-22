@@ -35,4 +35,4 @@
 ## 7. Post-change Validation
 
 - [x] 7.1 Re-run: `gofmt -l .`, `go test ./...`, `go vet ./...`, `bash scripts/check_no_xtcp_imports.sh`
-- [ ] 7.2 If runtime behavior is touched, run relevant lab selftests (`./lab/host/labctl ...`) before mainline merge
+- [x] 7.2 If runtime behavior is touched, run relevant lab selftests (`./lab/host/labctl ...`) before mainline merge

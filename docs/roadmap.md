@@ -6,13 +6,15 @@
 - 当前版本只定义主线，不锁死细节。
 - 后续按实验结果、实现成本、真实网络表现持续调整。
 
-## 当前进度（截至 2026-04-14）
+## 当前进度（截至 2026-04-22）
 
 - `P0`：NAT 实验台已落地，case 覆盖集可一键自测并导出 artifacts；见 `docs/decisions/p0-nat-lab-charter.md`、`openspec/changes/archive/2026-03-24-add-nat-lab-testbed/`、`docs/reports/2026-03-17-selftest.md`。
 - `P1`：打洞内核（from `frp xtcp`）抽离已落地，`core-01..core-10 × {kcp,quic}` 在 P0 VM 内完成实测并汇总；见 `docs/decisions/p1-xtcp-kernel-charter.md`、`openspec/changes/archive/2026-03-24-add-xtcp-kernel/`、`docs/reports/2026-03-18-xtcp-fulltest.md`。
 - `P2`：连通性增强层已落地（`IPv6-first`、`UPnP/NAT-PMP`、固定 attempt 顺序、可观测性、no-trickle），并在 P0 VM 内完成实测并汇总；见 `docs/decisions/p2-connectivity-charter.md`、`openspec/changes/archive/2026-03-24-add-xtcp-connectivity/`、`docs/reports/2026-03-24-xtcp-connectivity-fulltest.md`。
-- `P3`：目录重组与命名收敛已完成并归档，传输层抽象正在推进；见 `docs/decisions/p3-miopunch-transport-charter.md`、`openspec/changes/archive/2026-03-28-reorg-miopunch-layout/`、`openspec/changes/add-miopunch-dataplane/`。
-- `P3.5`：公网实验可达性补强已进入纲领阶段，聚焦 `IPv4-only / IPv6-only`、内置 `DNS` 与内置默认 `STUN/MQTT` 名单、以及中国大陆 / 非中国大陆 `STUN` 观测分域；见 `docs/decisions/p3.5-public-network-charter.md`。
+- `P3`：目录重组与命名收敛、`dataplane` 抽象与最小验收已完成并归档；见 `docs/decisions/p3-miopunch-transport-charter.md`、`openspec/changes/archive/2026-03-28-reorg-miopunch-layout/`、`openspec/changes/archive/2026-03-28-add-miopunch-dataplane/`。
+- `P3.5`：公网实验可达性补强保留为后续 backlog，目前未作为近期执行主线；其 charter 仍聚焦 `IPv4-only / IPv6-only`、内置 `DNS` 与内置默认 `STUN/MQTT` 名单、以及中国大陆 / 非中国大陆 `STUN` 观测分域；见 `docs/decisions/p3.5-public-network-charter.md`。
+- 主线/Lab：当前主要承担既有实验台、回归基线与问题复现角色，短期没有新的主线 roadmap 条目在推进。
+- Alpha/POC：原规划的最小产品面（`POC-01..POC-07`）已经按设计收口；其中 `POC-01..04`、`POC-06`、`POC-06.5`、`POC-07` 已归档，`POC-05` 已实现完成但 OpenSpec change 仍待单独归档。
 
 ## 定位
 
@@ -65,6 +67,11 @@
 
 ## 主线 Roadmap
 
+当前阶段判断（2026-04-22）：
+
+- 主线/Lab 方向当前以维护既有实验台、回归基线、以及承接问题复现为主，不主动扩展新的主线 change。
+- `P3.5` 保留为公网实验增强 backlog；只有在真实网络验证重新暴露明确缺口时再继续推进。
+
 ### P0 测试台先行
 
 - 先建设 NAT 仿真与回归环境，再推进功能开发。
@@ -99,7 +106,7 @@
 
 - 将打洞成功后的 session 抽象成独立传输层接口。
 - 目录重组与命名收敛：见 `openspec/changes/archive/2026-03-28-reorg-miopunch-layout/`。
-- `dataplane` 抽象与最小验收：见 `openspec/changes/add-miopunch-dataplane/`。
+- `dataplane` 抽象与最小验收：见 `openspec/changes/archive/2026-03-28-add-miopunch-dataplane/`。
 - 以 `KCP / QUIC` 为基线，并定义传输选项的协商/切换与测试基准。
 - 在传输层稳定后，引入 `HY2` 风格的 `QUIC` 调度/拥塞控制作为与 `KCP / QUIC` 同级的传输选项。
 - 目标是把“能连上”与“传得好”拆成两个独立问题。
@@ -126,12 +133,19 @@
 - 术语词典：`docs/notes/2026-04-16-alpha-glossary.md`
 - POC 实现清单（vertical slice）：`docs/notes/2026-04-20-poc-implementation-checklist.md`
 
-Change 划分（按 change 顺序；`POC-06` 已实现，后续按 `POC-06.5 / POC-07` 继续推进）：
+现状（截至 2026-04-22）：
+
+- 原规划 `POC-01..POC-07` 已覆盖并落地最初定义的最小产品面。
+- 已归档：`POC-01..04`、`POC-06`、`POC-06.5`、`POC-07`。
+- 已实现但 OpenSpec change 尚待归档：`POC-05`（`openspec/changes/poc-05-daemon-up-localapi/`）。
+- 下列条目当前主要作为“已完成范围 + 验收口径”记录，不再作为一份待实现清单。
+
+Change 划分（按最初设计顺序回顾）：
 
 - 约束：每个 change 都应（尽量）包含：单元测试、集成测试、真实环境 smoke test；并把“验收口径/失败口径/用户动作建议”写清楚。
 - 建议：每个 change 用 OpenSpec workflow 跟踪（`openspec/changes/poc-XX-*`），避免把实现细节散落在聊天里。
 
-#### Change POC-01：POC 口径收口 + 拆二进制（lab vs product）
+#### Change POC-01（已实现并归档）：POC 口径收口 + 拆二进制（lab vs product）
 
 - 目标：把“实验主线工具链”和“POC 产品 CLI”彻底解耦，防止互相污染；同时把 POC 可用性边界写清楚。
 - 交付：
@@ -143,7 +157,7 @@ Change 划分（按 change 顺序；`POC-06` 已实现，后续按 `POC-06.5 / P
   - 集成：lab 自测最小集（确保拆分不破坏实验台）。
   - 真实环境：`miopunch-lab` 基本命令在一台机器可跑通（用于回归“实验线”不被破坏）。
 
-#### Change POC-02：控制面 topic 派生 + inbox/mailbox 基础约束
+#### Change POC-02（已实现并归档）：控制面 topic 派生 + inbox/mailbox 基础约束
 
 - 目标：把 broker 视为不可信 mailbox，但做到“入口不可枚举 + 每 peer inbox 唯一”。
 - 交付：
@@ -155,7 +169,7 @@ Change 划分（按 change 顺序；`POC-06` 已实现，后续按 `POC-06.5 / P
   - 真实环境：公共 broker 路径下完成一次订阅/投递（仅验证“可达 + 不泄露明文”）。
   - 补充：新增 POC 端到端验收用例条目（`join → ping → sh(tmux)`），后续 changes（尤其 POC-06）需要把它跑通并固化为回归。
 
-#### Change POC-03：控制面 wire format（签名覆盖 dst）+ bounded flooding(H=3) + 去重/限流
+#### Change POC-03（已实现并归档）：控制面 wire format（签名覆盖 dst）+ bounded flooding(H=3) + 去重/限流
 
 - 目标：把“网内转发控制消息”做成可控、可诊断、不会放大的最小实现。
 - 交付：
@@ -167,7 +181,7 @@ Change 划分（按 change 顺序；`POC-06` 已实现，后续按 `POC-06.5 / P
   - 集成：3 节点模拟（A→B→C）验证 H=3、去重与丢弃 facts。
   - 真实环境：同一 LAN 的 3 个进程 smoke（验证“网内优先 + MQTT 兜底”不互相打架）。
 
-#### Change POC-04：RPC 时间语义 + invite/approve 幂等/uses 持久化（可重启不重复计数）
+#### Change POC-04（已实现并归档）：RPC 时间语义 + invite/approve 幂等/uses 持久化（可重启不重复计数）
 
 - 目标：让 join/approve 可重试、可解释、可恢复；issuer 重启后不重复扣 uses、不重复交付 bundle。
 - 交付：
@@ -178,7 +192,7 @@ Change 划分（按 change 顺序；`POC-06` 已实现，后续按 `POC-06.5 / P
   - 集成：issuer 重启回归（同一 request_id 重放不产生新 uses 消耗）。
   - 真实环境：公共 broker 下验证“RPC request 重放闭环”基础语义（重复 `request_msg_id` 触发 cached response 重发、且不重复副作用）；`invite→join→approve` 端到端闭环待 POC-05 daemon/CLI 落地后验收。
 
-#### Change POC-05：daemon `up` + LocalAPI（CLI↔daemon）最小闭环 + 输出契约冻结
+#### Change POC-05（已实现，待归档）：daemon `up` + LocalAPI（CLI↔daemon）最小闭环 + 输出契约冻结
 
 - 目标：把“常驻进程 + CLI”跑通；为 UI/面板与未来扩展预留稳定接口。
 - 交付：
@@ -190,7 +204,7 @@ Change 划分（按 change 顺序；`POC-06` 已实现，后续按 `POC-06.5 / P
   - 集成：起 daemon → CLI 调用 → 校验 stage/reason_code/exit_code。
   - 真实环境：Windows 安装/启动 daemon（含管理员权限需求：TUN/驱动未来可用），CLI 可用且错误提示友好。
 
-#### Change POC-06（已实现）：`sh(tmux)` vertical slice（WSL/SSH targets）+ 单写者锁 + 现场语义
+#### Change POC-06（已实现并归档）：`sh(tmux)` vertical slice（WSL/SSH targets）+ 单写者锁 + 现场语义
 
 - 目标：交付 POC 核心价值：远程 Shell + tmux 现场恢复 + 可解释性。
 - 交付：
@@ -202,7 +216,7 @@ Change 划分（按 change 顺序；`POC-06` 已实现，后续按 `POC-06.5 / P
   - 集成：补齐并跑通 POC 端到端验收用例（`join → ping → sh(tmux)`），确保失败口径稳定、可解释。
   - 真实环境：Windows 平板/PC + 家中主机（WSL/VM）+ Android 入网辅助，演示 `join→ping→sh` 全流程。
 
-#### Change POC-06.5：治理/成员/撤销 + report/export
+#### Change POC-06.5（已实现并归档）：治理/成员/撤销 + report/export
 
 - 目标：在已实现的 `POC-06` shell vertical slice 之上，补齐最小治理闭环与可对外分享的报告导出。
 - 交付：
@@ -215,11 +229,11 @@ Change 划分（按 change 顺序；`POC-06` 已实现，后续按 `POC-06.5 / P
   - 集成：`invite → join → approve → ping → sh` 闭环；issuer 重启后重放同一 request 不重复扣 uses；`revoke` 后立即拒绝后续 `ping/sh`。
   - 真实环境：公共 broker 下完成一次 `join/approve/sh` 闭环，并导出可分享的脱敏报告。
 
-#### Change POC-07：HTTP 面板（POC 最小）
+#### Change POC-07（已实现并归档）：HTTP 面板（POC 最小）
 
 - 目标：把已具备的 LocalAPI / task 状态 / report 能力收束到本机面板 UI，但不再承担 report/export 语义本身。
 - 交付：
-  - HTTP 面板：只监听 `127.0.0.1`；卡片+SSE；写操作白名单 `invite/join/sh_attach`。
+  - HTTP 面板：只监听 `127.0.0.1`；`MD3` 风格卡片 UI + SSE；写操作白名单 `invite/join/sh_attach`。
   - 面板复用既有 task 报告与诊断输出，不再定义第二套导出/脱敏/留存规则。
 - 测试：
   - 单元：SSE/WS 基础协议；面板 handler 与写操作白名单稳定。
