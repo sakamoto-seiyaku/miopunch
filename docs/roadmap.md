@@ -6,7 +6,7 @@
 - 当前版本只定义主线，不锁死细节。
 - 后续按实验结果、实现成本、真实网络表现持续调整。
 
-## 当前进度（截至 2026-04-22）
+## 当前进度（截至 2026-04-23）
 
 - `P0`：NAT 实验台已落地，case 覆盖集可一键自测并导出 artifacts；见 `docs/decisions/p0-nat-lab-charter.md`、`openspec/changes/archive/2026-03-24-add-nat-lab-testbed/`、`docs/reports/2026-03-17-selftest.md`。
 - `P1`：打洞内核（from `frp xtcp`）抽离已落地，`core-01..core-10 × {kcp,quic}` 在 P0 VM 内完成实测并汇总；见 `docs/decisions/p1-xtcp-kernel-charter.md`、`openspec/changes/archive/2026-03-24-add-xtcp-kernel/`、`docs/reports/2026-03-18-xtcp-fulltest.md`。
@@ -14,7 +14,7 @@
 - `P3`：目录重组与命名收敛、`dataplane` 抽象与最小验收已完成并归档；见 `docs/decisions/p3-miopunch-transport-charter.md`、`openspec/changes/archive/2026-03-28-reorg-miopunch-layout/`、`openspec/changes/archive/2026-03-28-add-miopunch-dataplane/`。
 - `P3.5`：公网实验可达性补强保留为后续 backlog，目前未作为近期执行主线；其 charter 仍聚焦 `IPv4-only / IPv6-only`、内置 `DNS` 与内置默认 `STUN/MQTT` 名单、以及中国大陆 / 非中国大陆 `STUN` 观测分域；见 `docs/decisions/p3.5-public-network-charter.md`。
 - 主线/Lab：当前主要承担既有实验台、回归基线与问题复现角色，短期没有新的主线 roadmap 条目在推进。
-- Alpha/POC：原规划的最小产品面（`POC-01..POC-07`）已经按设计收口；其中 `POC-01..04`、`POC-06`、`POC-06.5`、`POC-07` 已归档，`POC-05` 已实现完成但 OpenSpec change 仍待单独归档。
+- Alpha/POC：原规划的最小产品面（`POC-01..POC-07`）已经按设计收口，并已全部归档；POC 作为“验证阶段”到此结束，后续工作不再沿用同一批 `POC-XX` 编号继续扩展。
 
 ## 定位
 
@@ -67,7 +67,7 @@
 
 ## 主线 Roadmap
 
-当前阶段判断（2026-04-22）：
+当前阶段判断（2026-04-23）：
 
 - 主线/Lab 方向当前以维护既有实验台、回归基线、以及承接问题复现为主，不主动扩展新的主线 change。
 - `P3.5` 保留为公网实验增强 backlog；只有在真实网络验证重新暴露明确缺口时再继续推进。
@@ -119,7 +119,7 @@
 - 面向中国大陆 / 非中国大陆分流场景，将不同 `STUN` 观测面视为不同公网视角，并为后续打洞路径选择保留仲裁空间。
 - `P3.5` 仍以“完成公网实验准备”为目标，不提前展开完整产品化配置、加密与发布语义。
 
-### Alpha/POC 产品线（远程 Shell）
+### Alpha/POC 产品线（已收口）
 
 定位：
 
@@ -136,9 +136,9 @@
 现状（截至 2026-04-22）：
 
 - 原规划 `POC-01..POC-07` 已覆盖并落地最初定义的最小产品面。
-- 已归档：`POC-01..04`、`POC-06`、`POC-06.5`、`POC-07`。
-- 已实现但 OpenSpec change 尚待归档：`POC-05`（`openspec/changes/poc-05-daemon-up-localapi/`）。
+- 已归档：`POC-01..07`。
 - 下列条目当前主要作为“已完成范围 + 验收口径”记录，不再作为一份待实现清单。
+- 后续若继续推进产品化，将按新的方向拆分，不再简单续写为下一号 `POC-XX`。
 
 Change 划分（按最初设计顺序回顾）：
 
@@ -190,9 +190,9 @@ Change 划分（按最初设计顺序回顾）：
 - 测试：
   - 单元：过期丢弃 + 校时提示；幂等缓存命中；uses 不重复扣减。
   - 集成：issuer 重启回归（同一 request_id 重放不产生新 uses 消耗）。
-  - 真实环境：公共 broker 下验证“RPC request 重放闭环”基础语义（重复 `request_msg_id` 触发 cached response 重发、且不重复副作用）；`invite→join→approve` 端到端闭环待 POC-05 daemon/CLI 落地后验收。
+  - 真实环境：公共 broker 下验证“RPC request 重放闭环”基础语义（重复 `request_msg_id` 触发 cached response 重发、且不重复副作用）；`invite→join→approve` 端到端闭环后续由完整产品线回归继续覆盖。
 
-#### Change POC-05（已实现，待归档）：daemon `up` + LocalAPI（CLI↔daemon）最小闭环 + 输出契约冻结
+#### Change POC-05（已实现并归档）：daemon `up` + LocalAPI（CLI↔daemon）最小闭环 + 输出契约冻结
 
 - 目标：把“常驻进程 + CLI”跑通；为 UI/面板与未来扩展预留稳定接口。
 - 交付：
@@ -242,12 +242,20 @@ Change 划分（按最初设计顺序回顾）：
 
 ## 后续方向
 
-- 个人 `overlay / mesh` 网络。
-- 多节点互通、节点间转发/中继（仅 peer↔peer；不引入中心化数据面 relay）。
-- `VPP` 数据平面。
-- `TCP` 打洞。
-- `udp2raw` 式伪装与用户态协议栈实验。
-- `Linux / Android / Windows` 深化支持。
+- 第一方向：跨平台客户端壳。
+  - 目标是把当前已验证完成的 POC 能力，收束为面向 `Linux / Android / Windows` 的独立客户端。
+  - 这一方向优先解决 GUI、安装/更新、平台交互、daemon 托管、以及“operator/client”角色边界，而不是继续扩展打洞语义本身。
+  - 约束：排除 `Electron`；选型调研见 `docs/notes/2026-04-23-cross-platform-client-shell-survey.md`。
+
+- 第二方向：`TCP` 打洞。
+  - 目标是把基于 `TCP` 的 candidate / attempt / session 建立流程融合进现有链路层抽象。
+  - 这一方向应视为对现有 `UDP + QUIC/KCP` 路径的并列补充，而不是把 `QUIC/KCP` 强行承载到 `TCP` 之上。
+
+- 第三方向：更远期的数据面与组网展望。
+  - 个人 `overlay / mesh` 网络。
+  - 多节点互通、节点间转发/中继（仅 peer↔peer；不引入中心化数据面 relay）。
+  - `VPP` 数据平面。
+  - `udp2raw` 式伪装与用户态协议栈实验。
 
 ## 里程碑原则
 
