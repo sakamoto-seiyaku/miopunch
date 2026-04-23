@@ -245,7 +245,7 @@ Change 划分（按最初设计顺序回顾）：
 - 第一方向：跨平台客户端壳。
   - 目标是把当前已验证完成的 POC 能力，收束为面向 `Linux / Android / Windows` 的独立客户端。
   - 这一方向优先解决 GUI、安装/更新、平台交互、daemon 托管、以及“operator/client”角色边界，而不是继续扩展打洞语义本身。
-  - 约束：排除 `Electron`；选型调研见 `docs/notes/2026-04-23-cross-platform-client-shell-survey.md`。
+  - 约束：客户端与 daemon 交互只走 `LocalAPI`（unix socket / named pipe），排除 `Electron`；选型调研见 `docs/notes/2026-04-23-cross-platform-client-shell-survey.md`。
 
 - 第二方向：`TCP` 打洞。
   - 目标是把基于 `TCP` 的 candidate / attempt / session 建立流程融合进现有链路层抽象。

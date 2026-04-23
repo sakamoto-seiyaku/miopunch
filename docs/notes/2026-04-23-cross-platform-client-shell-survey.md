@@ -1,98 +1,114 @@
-# Cross-platform 客户端壳（Door 1）选型调研（排除 Electron）
+# Cross-platform 客户端壳（Door 1）选型调研（LocalAPI-only，排除 Electron）
 
 ## 背景：我们仓库“已经有什么”
 
 本调研只讨论“客户端壳（GUI/安装/托管）”，不扩展打洞/协议语义。
 
-- `miopunch up` 已提供两条本地接口（同一 `task.Manager`）：
-  - `LocalAPI`：`internal/localapi`（Unix socket / Windows pipe），对外暴露 `status/peers/tasks/events + ws(sh_attach)`。
-  - `HTTP panel`：`internal/http_panel`（loopback-only `127.0.0.1:<port>`），内置静态 UI（MD3 + xterm.js + QRCode）。
-- `HTTP panel` UI 通过相对路径 `fetch("/api/v0/...")` 访问 API，且对 `POST /api/v0/tasks` 与 `GET /api/v0/tasks/{id}/ws` 做了 same-origin 校验（`Origin/Referer` 必须是 `http://127.0.0.1:<port>` 或 `http://localhost:<port>`）。
-  - 这意味着：**客户端壳若复用现有 HTTP panel UI，应该直接加载面板 URL**（例如 `http://127.0.0.1:27400/`），而不是用 `file://`/自定义 scheme 承载前端资源再跨域调用 API。
+**硬约束（本调研前提）**：客户端与 daemon 的交互 **只走 `LocalAPI`**（IPC：unix socket / Windows named pipe），不依赖 `HTTP panel` 的 loopback HTTP。
 
-关联实现入口：
+- `LocalAPI`：`internal/localapi`
+  - 传输：
+    - Linux：unix socket（system：`/run/miopunch/localapi.sock`；user：`$XDG_RUNTIME_DIR/miopunch/localapi.sock`）
+    - Android：unix socket（路径策略 TBD；可能需要显式指定 `--localapi unix:<path>`）
+    - Windows：named pipe（`\\\\.\\pipe\\miopunch\\localapi-<operator_sid>`，DACL 仅允许 `{LocalSystem}+{operator user}`）
+  - 语义：HTTP/JSON + SSE + WS（shell attach 需要 WS subprotocol：`miopunch.sh.v0`）
+  - 安全边界：固定 `Host`（`internal/poc/localapi.go`：`local-miopunch.localapi`）+ OS 权限（socket mode / pipe DACL）
+- `HTTP panel`：`internal/http_panel`
+  - 说明：它仍可作为“浏览器调试/演示面板”，但 **不作为 Door 1 客户端的技术基线**。
 
-- daemon 启动面板：`cmd/miopunch/up.go`（`--http_panel`、`--http_panel_listen_addr`）
-- 面板 loopback-only：`internal/http_panel/listen.go`
-- same-origin：`internal/http_panel/origin.go`
+## 约束与评估维度
 
-## 约束与目标
+- 硬约束：
+  - 排除 `Electron`。
+  - 客户端对 daemon **必须走 LocalAPI（IPC）**，不新增“loopback HTTP 作为主通道”。
+- 目标：
+  - “功能即可”：把已验证的 POC 能力收束成可用客户端。
+  - 优先覆盖：`Windows / Linux / Android`（Android 端以“控制端”为主，常驻语义另行评估）。
+- 评估维度（用于快速淘汰）：
+  - **LocalAPI 适配成本**：能否稳定支持 unix socket + Windows named pipe（以及 Android 的 socket 路径策略）
+  - **交互式 shell**：能否承载 `sh_attach` 的 WS 二进制字节流（或是否允许先用“外部终端/外部 CLI”兜底）
+  - **发行与依赖**：安装包体积、运行时依赖、更新策略、daemon 托管与权限提示（operator/ACL）
+  - **空载开销**：冷启动时间、idle RAM
 
-- 硬约束：`Electron` 直接排除。
-- 目标：先把现有 POC 能力“糊成可用客户端”，不追求移动端原生体验，不追求 UI 极致精致。
-- 优先关注：安装/更新、daemon 托管、跨平台可运行、空载内存与启动开销可控。
+## 方案分型（结合 LocalAPI 约束）
 
-## 方案分型（结合当前实现）
-
-### 方案 A：Browser-first（不做桌面壳）
-
-做法：
-
-- 继续沿用 `miopunch up --http_panel`，直接用系统浏览器打开面板 URL。
-
-优点：
-
-- 0 额外运行时 / 0 GUI 框架引入。
-- 复用现有 MD3 UI、xterm、二维码能力。
-
-缺点：
-
-- 不像一个“独立客户端应用”（窗口/托盘/自启动/更新/daemon 托管需要另做）。
-
-### 方案 B：System WebView 壳（推荐优先评估）
+### 方案 A：Go 原生 UI（UI 进程直连 LocalAPI）
 
 做法：
 
-- 做一个很薄的跨平台窗口应用：负责启动/探测 `miopunch up --http_panel`，然后用系统 WebView 打开 `http://127.0.0.1:<port>/`。
-
-为什么它和我们的 repo 更贴合：
-
-- 我们已经有 `HTTP panel`（MD3 + xterm + QR），壳只需要“开一个窗口 + 管一下 daemon”。
-- same-origin 规则天然满足：壳加载的就是面板 origin（`http://127.0.0.1:<port>`）。
-
-候选（均非 Electron）：
-
-- **Go 生态最薄壳**：`webview`/WebView2/WebKitGTK 这类“直接开 WebView 窗口”的库
-  - 优先级高：不引入第二门语言工具链；可以和现有 Go 构建/发布流程融合。
-- **Wails**（Go + 系统 WebView）：更偏“完整应用框架”，适合后续增加系统托盘、窗口管理、自动更新等。
-- **Tauri**（Rust + 系统 WebView）：也可以，但会引入 Rust 工具链；对“仅做壳”来说不一定划算。
-
-需要明确的现实成本（不夸大/不拍脑袋）：
-
-- Windows：通常依赖 WebView2 runtime（系统/安装器侧要处理）。
-- Linux：通常依赖 WebKitGTK（发行版差异、依赖体积与安装体验要评估）。
-
-### 方案 C：Native-render（不用 WebView）
-
-做法：
-
-- 完整重写 GUI，用 `LocalAPI`（Unix socket / Windows pipe）作为唯一后端接口；或直接把 daemon 能力嵌入进 app。
+- 客户端（GUI）用 Go 写，直接复用 `internal/localapi.Client` 通过 unix socket / named pipe 调用：
+  - `GET /api/v0/status|peers|tasks`
+  - `GET /api/v0/events`（SSE）
+  - `POST /api/v0/tasks`（invite/join/approve/ping/sh_ls/sh_attach/revoke_member）
+  - `GET /api/v0/tasks/{id}/ws`（WS：`miopunch.sh.v0`）
 
 候选：
 
-- Flutter（Material 3 生态成熟）
-- Compose Multiplatform（Material 3 语义原生，但发行包通常会更重）
-- Avalonia/.NET、Qt
-- Go 原生 UI（Fyne/Gio 等）
+- `Fyne` / `Gio`（Go 跨平台 UI）
 
-风险/成本（结合当前 repo）：
+优点：
 
-- 需要重做：任务列表/事件流（SSE）、二维码、尤其是 **交互式 shell attach**（当前用 xterm.js + WebSocket subprotocol `miopunch.sh.v0`）。
-- “功能即可”的前提下，投入可能明显高于方案 B。
+- LocalAPI 适配成本最低（Go 侧已实现 unix socket / npipe dialer）。
+- 不引入“第二门语言工具链”。
+
+主要风险：
+
+- GUI 内的 terminal/TTY 体验：如果要“内嵌交互式 shell”，需要 terminal 组件；否则可先用“拉起外部终端执行 `miopunch sh <peer>`”做兜底（该 CLI 本身也是 LocalAPI client）。
+
+### 方案 B：WebView UI + Go 后端（特例：允许 Wails）
+
+做法：
+
+- UI 用 Web 技术（MD3/xterm/QR 都容易复用），但 **不直接访问 LocalAPI**（浏览器 JS 无法直连 unix socket / named pipe）。
+- 由内置 Go 后端负责：
+  - 作为 LocalAPI client 连接 daemon
+  - 把 status/tasks/events/sh_attach 等能力通过框架桥接给前端（RPC/event bridge）
+
+候选：
+
+- **Wails（特例纳入）**：Go + system WebView
+
+优点：
+
+- 复用现有 Web UI 资产成本最低（尤其是 xterm.js 的 shell 交互）。
+- 后端用 Go，LocalAPI client 复用直接。
+
+主要限制：
+
+- 通常只覆盖桌面端；Android 覆盖需要单独路径（不保证“一套壳全平台”）。
+
+### 方案 C：Flutter / Compose 等（非 WebView 渲染）
+
+做法：
+
+- UI 跨平台，但必须解决 **LocalAPI over IPC**：
+  - 要么在 UI 语言侧实现 unix socket + named pipe 的 HTTP/SSE/WS
+  - 要么内嵌一个 Go sidecar/库，由它负责 LocalAPI client，再通过平台通道/FFI 暴露给 UI
+
+优点：
+
+- UI 体系成熟，Material 3 生态更完整。
+
+主要风险（结合当前 repo）：
+
+- LocalAPI 的 IPC + SSE + WS 子集一次性做齐，工程投入可能明显高于方案 A/B。
+
+### 方案 D：Browser-first
+
+- 不适用：浏览器无法直接访问 LocalAPI 的 unix socket / named pipe。
 
 ## 推荐结论（当前阶段）
 
-- **优先走方案 B（System WebView 壳）**：最小化重写，最大复用现有 HTTP panel（MD3/xterm/QR 已齐）。
-- 方案 C 作为“后续再讨论”的升级路径：只有当 WebView 壳在内存/发行体验上不可接受时，再考虑投入重写原生 UI。
+- 若要求 “一套客户端覆盖 `Windows/Linux/Android` 且严格 LocalAPI-only”，**优先评估方案 A（Go 原生 UI）**。
+- **Wails 作为桌面端特例候选（方案 B）**：当“内嵌 xterm shell”优先级更高、且 Android 可接受另行方案时再启用。
 
 ## 下一步建议（可执行的评估清单）
 
-对 2 个候选（“Go 最薄壳” vs “Wails”）各做一个最小 demo，仅实现：
+对候选做最小 demo（只做“LocalAPI client + 基础渲染”，不做 fancy UI）：
 
-1. 启动或复用后台 daemon（`miopunch up --http_panel`）
-2. 打开面板 URL（`http://127.0.0.1:<port>/`）
-3. 记录并对比指标：
-   - 空载 RAM（启动后静置 30s）
-   - 冷启动耗时（点击到窗口出现）
-   - 安装包体积与依赖（Windows WebView2 / Linux WebKitGTK 的策略）
-
+1. 连接与权限提示：复用 `cmd/miopunch/localapi_client.go` 的探测顺序（system → user）
+2. 状态页：`status + peers + tasks`
+3. 事件流：接入 `GET /api/v0/events`（SSE），确保任务推进可实时刷新
+4. shell：
+   - v0（兜底）：拉起外部终端执行 `miopunch sh <peer>`（仍是 LocalAPI）
+   - v1（增强）：实现 `sh_attach` 的 WS 字节流承载与窗口 resize 控制帧
