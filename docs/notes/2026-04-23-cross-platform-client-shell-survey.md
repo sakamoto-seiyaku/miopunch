@@ -9,7 +9,7 @@
 - `LocalAPI`：`internal/localapi`
   - 传输：
     - Linux：unix socket（system：`/run/miopunch/localapi.sock`；user：`$XDG_RUNTIME_DIR/miopunch/localapi.sock`）
-    - Android：unix socket（路径策略 TBD；可能需要显式指定 `--localapi unix:<path>`）
+    - Android（D1b，后续）：unix socket（路径策略 TBD；可能需要显式指定 `--localapi unix:<path>`）
     - Windows：named pipe（`\\\\.\\pipe\\miopunch\\localapi-<operator_sid>`，DACL 仅允许 `{LocalSystem}+{operator user}`）
   - 语义：HTTP/JSON + SSE + WS（shell attach 需要 WS subprotocol：`miopunch.sh.v0`）
   - 安全边界：固定 `Host`（`internal/poc/localapi.go`：`local-miopunch.localapi`）+ OS 权限（socket mode / pipe DACL）
@@ -23,7 +23,8 @@
   - 客户端对 daemon **必须走 LocalAPI（IPC）**，不新增“loopback HTTP 作为主通道”。
 - 目标：
   - “功能即可”：把已验证的 POC 能力收束成可用客户端。
-  - 优先覆盖：`Windows / Linux / Android`（Android 端以“控制端”为主，常驻语义另行评估）。
+  - 最终覆盖：`Windows / Linux / Android`（Android 端以“控制端”为主，常驻语义另行评估）。
+  - 阶段策略（与 `docs/roadmap.md` 对齐）：先做桌面端 `D1a`（Wails 覆盖 `Linux/Windows`），Android 作为 `D1b` 后续推进。
 - 评估维度（用于快速淘汰）：
   - **LocalAPI 适配成本**：能否稳定支持 unix socket + Windows named pipe（以及 Android 的 socket 路径策略）
   - **交互式 shell**：能否承载 `sh_attach` 的 WS 二进制字节流（或是否允许先用“外部终端/外部 CLI”兜底）
@@ -76,6 +77,7 @@
 主要限制：
 
 - 通常只覆盖桌面端；Android 覆盖需要单独路径（不保证“一套壳全平台”）。
+- Wails v2 的 `AssetServer` 对 WebSockets / SSE（Windows response streaming）存在能力边界：若要最大化复用 `xterm.js`（WS）与事件流刷新，需要选择“Wails runtime events + loopback-only WS”等桥接方式（细节见 `docs/decisions/door-1-client-shell-charter.md`）。
 
 ### 方案 C：Flutter / Compose 等（非 WebView 渲染）
 
@@ -101,6 +103,7 @@
 
 - 若要求 “一套客户端覆盖 `Windows/Linux/Android` 且严格 LocalAPI-only”，**优先评估方案 A（Go 原生 UI）**。
 - **Wails 作为桌面端特例候选（方案 B）**：当“内嵌 xterm shell”优先级更高、且 Android 可接受另行方案时再启用。
+- 当前 roadmap 偏好：`D1a` 桌面端优先落地 Wails；移动端（Android）待选型明确后推进（必要时引入 `Flutter`）。
 
 ## 下一步建议（可执行的评估清单）
 

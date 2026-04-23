@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"runtime"
 	"strings"
 
@@ -20,7 +19,7 @@ func (e *localAPIConnectionError) Error() string {
 
 func connectLocalAPI(ctx context.Context, override string) (*localapi.Client, localapi.Addr, error) {
 	if strings.TrimSpace(override) != "" {
-		addr, err := parseLocalAPIAddr(override)
+		addr, err := localapi.ParseAddr(override)
 		if err != nil {
 			return nil, localapi.Addr{}, &localAPIConnectionError{
 				Failure: failureOutput{
@@ -164,26 +163,6 @@ func connectLocalAPI(ctx context.Context, override string) (*localapi.Client, lo
 				{Message: "or install system service: miopunch install-system-daemon"},
 			},
 		},
-	}
-}
-
-func parseLocalAPIAddr(value string) (localapi.Addr, error) {
-	v := strings.TrimSpace(value)
-	switch {
-	case strings.HasPrefix(v, "unix:"):
-		path := strings.TrimSpace(strings.TrimPrefix(v, "unix:"))
-		if path == "" {
-			return localapi.Addr{}, fmt.Errorf("empty unix socket path")
-		}
-		return localapi.Addr{Transport: localapi.TransportUnix, Path: path}, nil
-	case strings.HasPrefix(v, "npipe:"):
-		path := strings.TrimSpace(strings.TrimPrefix(v, "npipe:"))
-		if path == "" {
-			return localapi.Addr{}, fmt.Errorf("empty npipe path")
-		}
-		return localapi.Addr{Transport: localapi.TransportNpipe, Path: path}, nil
-	default:
-		return localapi.Addr{}, fmt.Errorf("unsupported addr format: %q", value)
 	}
 }
 

@@ -1,0 +1,52 @@
+#!/bin/sh
+set -e
+
+LOG_DIR="/var/log/miopunch"
+LOG_FILE="$LOG_DIR/install.log"
+
+mkdir -p "$LOG_DIR"
+
+stamp() {
+  date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date
+}
+
+append_log() {
+  echo "$*" >>"$LOG_FILE"
+}
+
+say() {
+  echo "$*" >&2
+  append_log "$*"
+}
+
+run_and_log() {
+  tmp="$(mktemp)"
+  if "$@" >"$tmp" 2>&1; then
+    cat "$tmp" >>"$LOG_FILE"
+    cat "$tmp" >&2
+    rm -f "$tmp"
+    return 0
+  fi
+
+  rc="$?"
+  cat "$tmp" >>"$LOG_FILE"
+  cat "$tmp" >&2
+  rm -f "$tmp"
+
+  say "install failed (rc=$rc). See: $LOG_FILE"
+  exit "$rc"
+}
+
+say "=== miopunch postinst ($1) $(stamp) ==="
+
+if [ "$1" = "configure" ]; then
+  run_and_log /usr/bin/miopunch install-system-daemon
+
+  say ""
+  say "To use miopunch, ensure your user is in miopunch-operators and re-login:"
+  say "  sudo usermod -aG miopunch-operators <user>"
+  say "  log out and log back in"
+  say "installer_log=$LOG_FILE"
+fi
+
+exit 0

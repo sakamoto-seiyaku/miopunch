@@ -35,6 +35,14 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("%s (http=%d exit_code=%d reason_code=%s)", msg, e.StatusCode, e.Response.ExitCode, e.Response.ReasonCode)
 }
 
+type UnexpectedStatusError struct {
+	StatusCode int
+}
+
+func (e *UnexpectedStatusError) Error() string {
+	return fmt.Sprintf("unexpected status: %d", e.StatusCode)
+}
+
 func NewClient(addr Addr) (*Client, error) {
 	dial, err := dialContextForAddr(addr)
 	if err != nil {
@@ -69,23 +77,31 @@ func (c *Client) ProbeStatus(ctx context.Context) error {
 	_ = resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status: %d", resp.StatusCode)
+		return &UnexpectedStatusError{StatusCode: resp.StatusCode}
 	}
 	return nil
 }
 
-type PeersResponse struct {
-	Peers []Peer `json:"peers"`
-}
-
-type Peer struct {
-	PeerID string `json:"peer_id"`
+func (c *Client) GetStatus(ctx context.Context) (StatusResponse, error) {
+	var resp StatusResponse
+	if err := c.doJSON(ctx, http.MethodGet, "/api/v0/status", nil, &resp); err != nil {
+		return StatusResponse{}, err
+	}
+	return resp, nil
 }
 
 func (c *Client) GetPeers(ctx context.Context) (PeersResponse, error) {
 	var resp PeersResponse
 	if err := c.doJSON(ctx, http.MethodGet, "/api/v0/peers", nil, &resp); err != nil {
 		return PeersResponse{}, err
+	}
+	return resp, nil
+}
+
+func (c *Client) GetTasks(ctx context.Context) (TasksResponse, error) {
+	var resp TasksResponse
+	if err := c.doJSON(ctx, http.MethodGet, "/api/v0/tasks", nil, &resp); err != nil {
+		return TasksResponse{}, err
 	}
 	return resp, nil
 }
@@ -182,7 +198,7 @@ func (c *Client) DialTaskWS(ctx context.Context, taskID string) (*websocket.Conn
 	u := url.URL{
 		Scheme: "ws",
 		Host:   poc.LocalAPIHost,
-		Path:   "/api/v0/tasks/" + taskID + "/ws",
+		Path:   "/api/v0/tasks/" + url.PathEscape(taskID) + "/ws",
 	}
 	return d.DialContext(ctx, u.String(), nil)
 }

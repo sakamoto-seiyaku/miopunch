@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=miopunch
+Exec=miopunch-desktop
+Icon=miopunch
+Terminal=false
+Categories=Network;
+StartupNotify=true
+

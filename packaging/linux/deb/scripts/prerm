@@ -1,0 +1,52 @@
+#!/bin/sh
+set -e
+
+LOG_DIR="/var/log/miopunch"
+LOG_FILE="$LOG_DIR/install.log"
+
+mkdir -p "$LOG_DIR"
+
+stamp() {
+  date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date
+}
+
+append_log() {
+  echo "$*" >>"$LOG_FILE"
+}
+
+say() {
+  echo "$*" >&2
+  append_log "$*"
+}
+
+run_and_log_uninstall() {
+  if [ ! -x /usr/bin/miopunch ]; then
+    say "warning: /usr/bin/miopunch is not present; skipping uninstall-system-daemon"
+    return 0
+  fi
+
+  tmp="$(mktemp)"
+  rc=0
+  /usr/bin/miopunch uninstall-system-daemon >"$tmp" 2>&1 || rc="$?"
+
+  cat "$tmp" >>"$LOG_FILE"
+  cat "$tmp" >&2
+  rm -f "$tmp"
+
+  if [ "$rc" -eq 0 ] || [ "$rc" -eq 7 ]; then
+    return 0
+  fi
+
+  say "uninstall-system-daemon failed (rc=$rc). See: $LOG_FILE"
+  exit "$rc"
+}
+
+say "=== miopunch prerm ($1) $(stamp) ==="
+
+case "$1" in
+  remove|deconfigure)
+    run_and_log_uninstall
+    ;;
+esac
+
+exit 0

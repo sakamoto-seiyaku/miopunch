@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>miopunch</title>
+    <link rel="stylesheet" href="/assets/md3.css" />
+    <link rel="stylesheet" href="/assets/vendor/xterm/xterm.css" />
+  </head>
+  <body>
+    <main class="md3-shell">
+      <header class="md3-topbar">
+        <div class="md3-topbar__title">miopunch</div>
+        <div class="md3-topbar__subtitle">
+          <span id="subtitle-version">desktop</span>
+          <span class="md3-dot">•</span>
+          <span id="subtitle-origin">loading…</span>
+        </div>
+      </header>
+
+      <nav class="md3-tabs" role="tablist" aria-label="miopunch tabs">
+        <button class="md3-tab is-active" role="tab" data-tab="status" aria-selected="true">Status</button>
+        <button class="md3-tab" role="tab" data-tab="invite" aria-selected="false">Invite</button>
+        <button class="md3-tab" role="tab" data-tab="join" aria-selected="false">Join</button>
+        <button class="md3-tab" role="tab" data-tab="shell" aria-selected="false">Shell</button>
+      </nav>
+
+      <section class="md3-tabpanel is-active" id="tab-status" role="tabpanel">
+        <div class="md3-grid">
+          <section class="md3-card">
+            <div class="md3-card__header">
+              <h2 class="md3-card__title">Daemon</h2>
+              <button class="md3-btn md3-btn--tonal" id="btn-refresh">Refresh</button>
+            </div>
+            <div class="md3-kv">
+              <div class="md3-kv__k">Version</div>
+              <div class="md3-kv__v" id="status-version">—</div>
+              <div class="md3-kv__k">Uptime</div>
+              <div class="md3-kv__v" id="status-uptime">—</div>
+            </div>
+
+            <div class="md3-helper md3-mt-sm" id="conn-selected">—</div>
+
+            <div class="md3-grid md3-mt-sm" id="conn-error" style="display: none">
+              <section class="md3-subcard">
+                <div class="md3-subcard__title">Suggestions</div>
+                <div class="md3-list" id="conn-suggestions"></div>
+              </section>
+              <section class="md3-subcard">
+                <div class="md3-subcard__title">Facts</div>
+                <div class="md3-list" id="conn-facts"></div>
+              </section>
+            </div>
+
+            <details class="md3-mt-sm">
+              <summary class="md3-btn md3-btn--tonal">Advanced</summary>
+              <div class="md3-form md3-mt-sm">
+                <label class="md3-label" for="localapi-override">LocalAPI override</label>
+                <div class="md3-row">
+                  <input class="md3-textfield" id="localapi-override" placeholder="unix:/path/to/localapi.sock" autocomplete="off" />
+                  <button class="md3-btn md3-btn--primary" id="btn-localapi-apply">Apply</button>
+                  <button class="md3-btn md3-btn--tonal" id="btn-localapi-clear">Clear</button>
+                </div>
+                <div class="md3-helper md3-mt-sm" id="localapi-known">—</div>
+              </div>
+            </details>
+          </section>
+
+          <section class="md3-card">
+            <div class="md3-card__header">
+              <h2 class="md3-card__title">Peers</h2>
+              <span class="md3-chip" id="peers-count">0</span>
+            </div>
+            <div class="md3-list" id="peers-list"></div>
+          </section>
+        </div>
+
+        <section class="md3-card md3-mt">
+          <div class="md3-card__header">
+            <h2 class="md3-card__title">Tasks</h2>
+            <span class="md3-chip" id="tasks-count">0</span>
+          </div>
+          <div class="md3-tasks" id="tasks-list"></div>
+        </section>
+      </section>
+
+      <section class="md3-tabpanel" id="tab-invite" role="tabpanel">
+        <section class="md3-card">
+          <div class="md3-card__header">
+            <h2 class="md3-card__title">Create invite</h2>
+            <button class="md3-btn md3-btn--primary" id="btn-invite">Create</button>
+          </div>
+
+          <div class="md3-kv md3-mt-sm">
+            <div class="md3-kv__k">Task</div>
+            <div class="md3-kv__v" id="invite-task-id">—</div>
+            <div class="md3-kv__k">Stage</div>
+            <div class="md3-kv__v" id="invite-stage">—</div>
+          </div>
+
+          <div class="md3-form md3-mt">
+            <label class="md3-label" for="invite-code">Invite code</label>
+            <div class="md3-row">
+              <input class="md3-textfield" id="invite-code" readonly value="" placeholder="(create an invite first)" />
+              <button class="md3-btn md3-btn--tonal" id="btn-copy-invite" disabled>Copy</button>
+            </div>
+          </div>
+
+          <div class="md3-qr md3-mt" id="invite-qr"></div>
+          <div class="md3-helper md3-mt-sm" id="invite-hint"></div>
+        </section>
+      </section>
+
+      <section class="md3-tabpanel" id="tab-join" role="tabpanel">
+        <section class="md3-card">
+          <div class="md3-card__header">
+            <h2 class="md3-card__title">Join</h2>
+          </div>
+
+          <form class="md3-form md3-mt-sm" id="join-form">
+            <label class="md3-label" for="join-code">Invite code or URL</label>
+            <div class="md3-row">
+              <input class="md3-textfield" id="join-code" placeholder="paste invite code here" autocomplete="off" />
+              <button class="md3-btn md3-btn--primary" type="submit">Start</button>
+            </div>
+          </form>
+
+          <div class="md3-kv md3-mt">
+            <div class="md3-kv__k">Task</div>
+            <div class="md3-kv__v" id="join-task-id">—</div>
+            <div class="md3-kv__k">Stage</div>
+            <div class="md3-kv__v" id="join-stage">—</div>
+            <div class="md3-kv__k">Reason</div>
+            <div class="md3-kv__v" id="join-reason">—</div>
+            <div class="md3-kv__k">Exit</div>
+            <div class="md3-kv__v" id="join-exit">—</div>
+          </div>
+
+          <div class="md3-grid md3-mt">
+            <section class="md3-subcard">
+              <div class="md3-subcard__title">Facts</div>
+              <div class="md3-list" id="join-facts"></div>
+            </section>
+            <section class="md3-subcard">
+              <div class="md3-subcard__title">Suggestions</div>
+              <div class="md3-list" id="join-suggestions"></div>
+            </section>
+          </div>
+
+          <div class="md3-row md3-mt">
+            <button class="md3-btn md3-btn--tonal" id="join-report-export" disabled>Export report</button>
+            <div class="md3-helper" id="join-report-path"></div>
+          </div>
+        </section>
+      </section>
+
+      <section class="md3-tabpanel" id="tab-shell" role="tabpanel">
+        <section class="md3-card">
+          <div class="md3-card__header">
+            <h2 class="md3-card__title">Shell attach</h2>
+            <button class="md3-btn md3-btn--tonal" id="btn-shell-disconnect" disabled>Disconnect</button>
+          </div>
+
+          <form class="md3-form md3-mt-sm" id="shell-form">
+            <div class="md3-grid md3-grid--form">
+              <div>
+                <label class="md3-label" for="shell-peer-id">Peer ID</label>
+                <input class="md3-textfield" id="shell-peer-id" list="peer-id-list" placeholder="peer_id" autocomplete="off" />
+                <datalist id="peer-id-list"></datalist>
+              </div>
+              <div>
+                <label class="md3-label" for="shell-target">Target (optional)</label>
+                <input class="md3-textfield" id="shell-target" placeholder="local" autocomplete="off" />
+              </div>
+              <div>
+                <label class="md3-label" for="shell-session">Session</label>
+                <input class="md3-textfield" id="shell-session" value="main" autocomplete="off" />
+              </div>
+            </div>
+
+            <div class="md3-row md3-mt-sm">
+              <button class="md3-btn md3-btn--primary" type="submit" id="btn-shell-connect">Connect</button>
+              <div class="md3-helper" id="shell-status">—</div>
+            </div>
+          </form>
+
+          <div class="md3-terminal md3-mt" id="terminal"></div>
+        </section>
+      </section>
+    </main>
+
+    <div class="md3-toast" id="toast" role="status" aria-live="polite"></div>
+    <noscript>
+      <div class="md3-noscript">This panel requires JavaScript.</div>
+    </noscript>
+
+    <script defer src="/assets/vendor/xterm/xterm.js"></script>
+    <script defer src="/assets/vendor/qrcode/qrcode.js"></script>
+    <script defer src="/assets/app.js"></script>
+  </body>
+</html>

@@ -17,7 +17,7 @@ import (
 	"github.com/miopunch/miopunch/internal/poc"
 )
 
-const linuxStableBinaryPath = "/usr/local/bin/miopunch"
+const linuxStableBinaryPath = "/usr/bin/miopunch"
 
 func runInstallSystemDaemon(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 	_ = args
@@ -225,6 +225,14 @@ func installStableBinary(dest string) error {
 	exe, err = filepath.EvalSymlinks(exe)
 	if err != nil {
 		return fmt.Errorf("resolve executable symlink: %w", err)
+	}
+
+	destEval := dest
+	if p, err := filepath.EvalSymlinks(dest); err == nil {
+		destEval = p
+	}
+	if filepath.Clean(exe) == filepath.Clean(destEval) {
+		return nil
 	}
 
 	dir := filepath.Dir(dest)

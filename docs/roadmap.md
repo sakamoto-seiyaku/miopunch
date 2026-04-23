@@ -242,10 +242,16 @@ Change 划分（按最初设计顺序回顾）：
 
 ## 后续方向
 
-- 第一方向：跨平台客户端壳。
-  - 目标是把当前已验证完成的 POC 能力，收束为面向 `Linux / Android / Windows` 的独立客户端。
+- 第一方向：客户端壳（桌面优先，移动端后续）。
+  - 目标是把当前已验证完成的 POC 能力，收束成“可用的独立客户端”，但不再把“同一套壳一次性覆盖 `Linux / Android / Windows`”作为阶段性硬门槛。
+  - 分阶段推进：
+    - `D1a`（优先）：用 `Wails` 快速覆盖桌面端 `Linux / Windows`（system WebView；非 Electron），优先实现“能用、能解释、能回归”。
+    - `D1b`（后续）：Android 端以“控制端”为主（不做被控端/agent），UI 生态与实现路径另行调研；必要时可切换/引入 `Flutter`。
   - 这一方向优先解决 GUI、安装/更新、平台交互、daemon 托管、以及“operator/client”角色边界，而不是继续扩展打洞语义本身。
-  - 约束：客户端与 daemon 交互只走 `LocalAPI`（unix socket / named pipe），排除 `Electron`；选型调研见 `docs/notes/2026-04-23-cross-platform-client-shell-survey.md`。
+  - 关键体验约束：客户端与 daemon 交互只走 `LocalAPI`（unix socket / named pipe），排除 `Electron`；并且需要在 App 内承载交互式 `sh_attach` 终端（至少桌面端必须内嵌；移动端也以此为必备能力）。
+  - 参考：
+    - 纲领：`docs/decisions/door-1-client-shell-charter.md`
+    - 选型调研：`docs/notes/2026-04-23-cross-platform-client-shell-survey.md`
 
 - 第二方向：`TCP` 打洞。
   - 目标是把基于 `TCP` 的 candidate / attempt / session 建立流程融合进现有链路层抽象。

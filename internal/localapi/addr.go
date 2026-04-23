@@ -1,6 +1,9 @@
 package localapi
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type Transport string
 
@@ -25,6 +28,26 @@ func (a Addr) String() string {
 		return "npipe:" + a.Path
 	default:
 		return fmt.Sprintf("%s:%s", a.Transport, a.Path)
+	}
+}
+
+func ParseAddr(value string) (Addr, error) {
+	v := strings.TrimSpace(value)
+	switch {
+	case strings.HasPrefix(v, "unix:"):
+		path := strings.TrimSpace(strings.TrimPrefix(v, "unix:"))
+		if path == "" {
+			return Addr{}, fmt.Errorf("empty unix socket path")
+		}
+		return Addr{Transport: TransportUnix, Path: path}, nil
+	case strings.HasPrefix(v, "npipe:"):
+		path := strings.TrimSpace(strings.TrimPrefix(v, "npipe:"))
+		if path == "" {
+			return Addr{}, fmt.Errorf("empty npipe path")
+		}
+		return Addr{Transport: TransportNpipe, Path: path}, nil
+	default:
+		return Addr{}, fmt.Errorf("unsupported addr format: %q", value)
 	}
 }
 

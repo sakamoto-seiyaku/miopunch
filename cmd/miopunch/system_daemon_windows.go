@@ -244,6 +244,10 @@ func installStableBinary(dest string) error {
 		return fmt.Errorf("determine current executable: %w", err)
 	}
 
+	if strings.EqualFold(filepath.Clean(exe), filepath.Clean(dest)) {
+		return nil
+	}
+
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return fmt.Errorf("create dest dir: %w", err)
 	}
