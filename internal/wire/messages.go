@@ -75,6 +75,12 @@ type NatHoleVisitor struct {
 	MappedAddrs   []string `json:"mapped_addrs,omitempty"`
 	AssistedAddrs []string `json:"assisted_addrs,omitempty"`
 
+	// Door 2: TCP candidate and observation carry fields (best-effort).
+	TCPDirectAddrs []string             `json:"tcp_direct_addrs,omitempty"`
+	TCPMappedAddrs []string             `json:"tcp_mapped_addrs,omitempty"`
+	TCPSTUNCN      *STUNViewObservation `json:"tcp_stun_cn,omitempty"`
+	TCPSTUNGlobal  *STUNViewObservation `json:"tcp_stun_global,omitempty"`
+
 	// P3.5: internal STUN cn/global sampling observations.
 	STUNCN     *STUNViewObservation `json:"stun_cn,omitempty"`
 	STUNGlobal *STUNViewObservation `json:"stun_global,omitempty"`
@@ -91,6 +97,12 @@ type NatHoleClient struct {
 	DirectAddrs   []string `json:"direct_addrs,omitempty"`
 	MappedAddrs   []string `json:"mapped_addrs,omitempty"`
 	AssistedAddrs []string `json:"assisted_addrs,omitempty"`
+
+	// Door 2: TCP candidate and observation carry fields (best-effort).
+	TCPDirectAddrs []string             `json:"tcp_direct_addrs,omitempty"`
+	TCPMappedAddrs []string             `json:"tcp_mapped_addrs,omitempty"`
+	TCPSTUNCN      *STUNViewObservation `json:"tcp_stun_cn,omitempty"`
+	TCPSTUNGlobal  *STUNViewObservation `json:"tcp_stun_global,omitempty"`
 
 	// P3.5: internal STUN cn/global sampling observations.
 	STUNCN     *STUNViewObservation `json:"stun_cn,omitempty"`
@@ -122,16 +134,36 @@ type NatHoleDetectBehavior struct {
 	ListenRandomPorts int          `json:"listen_random_ports,omitempty"`
 }
 
+type TcpDetectBehavior struct {
+	Role              string       `json:"role,omitempty"` // sender or receiver
+	Mode              int          `json:"mode,omitempty"` // 0, 1, 2...
+	SendDelayMs       int          `json:"send_delay_ms,omitempty"`
+	ReadTimeoutMs     int          `json:"read_timeout,omitempty"`
+	CandidatePorts    []PortsRange `json:"candidate_ports,omitempty"`
+	SendRandomPorts   int          `json:"send_random_ports,omitempty"`
+	ListenRandomPorts int          `json:"listen_random_ports,omitempty"`
+}
+
 type NatHoleResp struct {
-	TransactionID   string                `json:"transaction_id,omitempty"`
-	Sid             string                `json:"sid,omitempty"`
-	Protocol        string                `json:"protocol,omitempty"`
-	QuicCC          string                `json:"quic_cc,omitempty"`
-	BrutalUpBps     uint64                `json:"brutal_up_bps,omitempty"`
-	BrutalDownBps   uint64                `json:"brutal_down_bps,omitempty"`
-	SelectedView    string                `json:"selected_view,omitempty"`
-	SelectedReason  string                `json:"selected_reason,omitempty"`
-	PeerDirectAddrs []string              `json:"peer_direct_addrs,omitempty"`
+	TransactionID   string   `json:"transaction_id,omitempty"`
+	Sid             string   `json:"sid,omitempty"`
+	Protocol        string   `json:"protocol,omitempty"`
+	QuicCC          string   `json:"quic_cc,omitempty"`
+	BrutalUpBps     uint64   `json:"brutal_up_bps,omitempty"`
+	BrutalDownBps   uint64   `json:"brutal_down_bps,omitempty"`
+	SelectedView    string   `json:"selected_view,omitempty"`
+	SelectedReason  string   `json:"selected_reason,omitempty"`
+	PeerDirectAddrs []string `json:"peer_direct_addrs,omitempty"`
+
+	PeerTCPDirectAddrs []string `json:"peer_tcp_direct_addrs,omitempty"`
+	TCPSelectedView    string   `json:"tcp_selected_view,omitempty"`
+	TCPSelectedReason  string   `json:"tcp_selected_reason,omitempty"`
+	TCPCandidateAddrs  []string `json:"tcp_candidate_addrs,omitempty"`
+
+	TCPPunchingEnabled bool               `json:"tcp_punching_enabled,omitempty"`
+	TCPPunchingError   string             `json:"tcp_punching_error,omitempty"`
+	TCPDetectBehavior  *TcpDetectBehavior `json:"tcp_detect_behavior,omitempty"`
+
 	PunchingEnabled bool                  `json:"punching_enabled,omitempty"`
 	PunchingError   string                `json:"punching_error,omitempty"`
 	CandidateAddrs  []string              `json:"candidate_addrs,omitempty"`

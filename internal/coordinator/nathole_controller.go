@@ -372,6 +372,20 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 		PeerDirectAddrs: slices.Compact(vm.DirectAddrs),
 	}
 
+	var invalid []string
+
+	vResp.PeerTCPDirectAddrs, invalid = filterValidHostPorts(cm.TCPDirectAddrs)
+	if len(invalid) > 0 {
+		logutil.Debugf("sid [%s] drop invalid client tcp_direct_addrs: %v", session.sid, invalid)
+	}
+	vResp.PeerTCPDirectAddrs = dedupStringsInOrder(vResp.PeerTCPDirectAddrs)
+
+	cResp.PeerTCPDirectAddrs, invalid = filterValidHostPorts(vm.TCPDirectAddrs)
+	if len(invalid) > 0 {
+		logutil.Debugf("sid [%s] drop invalid visitor tcp_direct_addrs: %v", session.sid, invalid)
+	}
+	cResp.PeerTCPDirectAddrs = dedupStringsInOrder(cResp.PeerTCPDirectAddrs)
+
 	selectedView := ""
 	selectedReason := ""
 	clientMapped := cm.MappedAddrs
@@ -416,7 +430,6 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 		logutil.Infof("sid [%s] selected_view=%s reason=%s", session.sid, selectedView, selectedReason)
 	}
 
-	var invalid []string
 	clientMapped, invalid = filterValidHostPorts(clientMapped)
 	if len(invalid) > 0 {
 		logutil.Debugf("sid [%s] drop invalid client mapped_addrs: %v", session.sid, invalid)
@@ -424,6 +437,48 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 	visitorMapped, invalid = filterValidHostPorts(visitorMapped)
 	if len(invalid) > 0 {
 		logutil.Debugf("sid [%s] drop invalid visitor mapped_addrs: %v", session.sid, invalid)
+	}
+
+	tcpSelectedView := ""
+	tcpSelectedReason := ""
+	clientTCPMapped := cm.TCPMappedAddrs
+	visitorTCPMapped := vm.TCPMappedAddrs
+	if cm.TCPSTUNCN != nil && cm.TCPSTUNGlobal != nil && vm.TCPSTUNCN != nil && vm.TCPSTUNGlobal != nil {
+		cnAgg := aggregateSTUNView("cn", vm.TCPSTUNCN, cm.TCPSTUNCN)
+		globalAgg := aggregateSTUNView("global", vm.TCPSTUNGlobal, cm.TCPSTUNGlobal)
+		tcpSelectedView, tcpSelectedReason = selectSTUNView(cnAgg, globalAgg)
+
+		switch tcpSelectedView {
+		case "cn":
+			clientTCPMapped = cm.TCPSTUNCN.MappedAddrs
+			visitorTCPMapped = vm.TCPSTUNCN.MappedAddrs
+		case "global":
+			clientTCPMapped = cm.TCPSTUNGlobal.MappedAddrs
+			visitorTCPMapped = vm.TCPSTUNGlobal.MappedAddrs
+		default:
+			// Keep legacy behavior when view selection returns an unknown view.
+		}
+
+		vResp.TCPSelectedView = tcpSelectedView
+		cResp.TCPSelectedView = tcpSelectedView
+		vResp.TCPSelectedReason = tcpSelectedReason
+		cResp.TCPSelectedReason = tcpSelectedReason
+
+		logutil.Debugf(
+			"sid [%s] tcp stun view arbitration -> selected=%s reason=%s",
+			session.sid,
+			tcpSelectedView,
+			tcpSelectedReason,
+		)
+	}
+
+	clientTCPMapped, invalid = filterValidHostPorts(clientTCPMapped)
+	if len(invalid) > 0 {
+		logutil.Debugf("sid [%s] drop invalid client tcp_mapped_addrs: %v", session.sid, invalid)
+	}
+	visitorTCPMapped, invalid = filterValidHostPorts(visitorTCPMapped)
+	if len(invalid) > 0 {
+		logutil.Debugf("sid [%s] drop invalid visitor tcp_mapped_addrs: %v", session.sid, invalid)
 	}
 
 	// Always exchange assisted candidates (local interface addrs) regardless of STUN
@@ -445,6 +500,8 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 	// the original repeated mapped_addrs samples.
 	vResp.CandidateAddrs = slices.Compact(slices.Clone(clientMapped))
 	cResp.CandidateAddrs = slices.Compact(slices.Clone(visitorMapped))
+	vResp.TCPCandidateAddrs = dedupStringsInOrder(clientTCPMapped)
+	cResp.TCPCandidateAddrs = dedupStringsInOrder(visitorTCPMapped)
 
 	// NAT analysis requires at least two (non-empty) mapped addrs per peer. When
 	// unavailable, we still allow a best-effort punching attempt using assisted
@@ -603,4 +660,21 @@ func filterValidHostPorts(addrs []string) (valid []string, invalid []string) {
 		valid = append(valid, addr)
 	}
 	return valid, invalid
+}
+
+func dedupStringsInOrder(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	return out
 }
