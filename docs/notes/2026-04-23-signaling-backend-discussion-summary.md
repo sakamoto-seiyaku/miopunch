@@ -4,6 +4,14 @@
 > 状态：临时讨论记录；不是最终设计稿；后续若继续推进，应收敛为 decision / charter / OpenSpec change。  
 > 背景：当前产品主线已经完成最小 POC 闭环，但后续希望继续讨论“更去中心化的控制面入口/信道插件化”。
 
+## TL;DR（截至 2026-04-24）
+
+- 第一版只叫 **`V1`**：先把“外部信道/入口”拆成可插拔 `backend` 框架，并跑通双 backend（主备）落地。
+- `V1` 推荐组合：`MQTT + NATS(core)`（主备，上限 2）。`demo.nats.io` 仅用于 smoke/开发验证，不作为生产依赖。
+- `V2` 候选（更慢但更广泛/更自控）：`Git private repo` 与 `Email（SMTP + IMAP/POP3）` 等 `store-and-poll / store-and-forward` carrier。
+  - 它们更适合 `bootstrap + fallback mailbox + scheduled/store-and-poll exchange`，不应假设 `realtime exchange`。
+  - Email 需要把反垃圾/投递延迟/元数据暴露与（若自建）较高运维成本写进预期。
+
 ## 本轮先确认的上下文
 
 - 产品二进制 `miopunch` 已不再暴露 `coord/peer/stun/mqtt-broker` 这类实验入口；这些入口保留在 `miopunch-lab`。
@@ -76,7 +84,7 @@
 
 补充确认（针对 `join code` / bootstrap）：
 
-- `BackendRoster`（例如 `MQTT + DHT`）属于网络属性，最终应下发/同步到每个节点
+- `BackendRoster`（例如 `MQTT + NATS` / `MQTT + DHT`）属于网络属性，最终应下发/同步到每个节点
 - `BackendRoster` 的变更（新增/删除/主备切换）应通过治理/快照更新来完成（而不是每个节点本地手配覆盖）
 - `join code` 不需要限制“只能编码一个入口”；编码两个 seed 入口也完全允许
 - `join code` 倾向额外携带一个可校验的 hash（`network definition snapshot hash`），用于让新节点在入网阶段快速做一致性校验（同时也能自然表达“这份 join code 可能已过期”）
@@ -139,7 +147,7 @@
 这意味着：
 
 - 一个网络可以配置多个 backend
-- 讨论中先限定最多 2 个：primary + backup（`MQTT + DHT` 只是示例；用户可配置任意两种组合）
+- 讨论中先限定最多 2 个：primary + backup（`MQTT + NATS` / `MQTT + DHT` 只是示例；用户可配置任意两种组合）
 - **写端**：外部 fallback 时按优先级择一写入；若主路在简单超时预算内不可达/失败，则切换到备用；不做并行镜像
 - **读端**：为处理非对称可达，需同时监听/轮询所有已配置 backend，并在本地合并 + 去重
 
@@ -231,7 +239,7 @@
 - 允许重复/乱序；
 - 上层可依赖 `msg_id / expires_at / cached response / 去重 / 幂等` 修复投递语义。
 
-补充：当网络配置多个外部 backend（例如 `MQTT + DHT`）时，一个直觉类比是：
+补充：当网络配置多个外部 backend（例如 `MQTT + NATS` / `MQTT + DHT`）时，一个直觉类比是：
 
 - 每个 backend 都提供一套“外部收件箱（inbox）”能力
 - 同一个 `peer_id` 会在每个 backend 上各自派生出一个 inbox 地址（topic / key / channel 等）
@@ -274,7 +282,7 @@
 - `Exchange` 仍遵循 **网内优先**：若网内直连/转发可通，则优先在网内完成本轮 exchange 所需信息交换与 barrier/窗口协调
 - 若网内不可通，则按外部 backend 的主备顺序做 fallback（例如 primary→backup），失败判定同样以“简单超时”为主
 - 一旦某条路径（网内/某个外部 backend）收到对端响应并形成共识，本 round 的 exchange 关键状态/锚点即绑定到该路径；不在同一 round 内跨 backend 拆分关键状态
-- 上述描述中 `MQTT + DHT` 仅为示例；实际允许用户配置任意两种 backend 组合作为主备
+- 上述描述中 `MQTT + NATS` / `MQTT + DHT` 仅为示例；实际允许用户配置任意两种 backend 组合作为主备
 
 ## ExchangeMode：当前讨论中出现的三种模式
 

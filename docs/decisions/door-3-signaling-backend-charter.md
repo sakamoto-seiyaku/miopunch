@@ -25,7 +25,7 @@
 ### 2) backend 是网络级对象（Network Config）
 
 - backend 属于 **network-level config**（而不是每个节点本地手配覆盖）。
-- `BackendRoster`（例如 `MQTT + DHT`）属于网络属性，最终应同步到每个节点。
+- `BackendRoster`（例如 `MQTT + NATS` / `MQTT + DHT`）属于网络属性，最终应同步到每个节点。
 - roster 变更（新增/删除/主备切换）应通过治理/快照等可验真对象传播。
 
 ### 3) backend 地位平等 + 一律不可信
@@ -118,7 +118,23 @@
 - 不在 Door 3 引入 backend↔backend 的复制/同步机制。
 - 不在 Door 3 直接承诺“任意聊天软件/任意第三方平台都能用”；backend 只要满足 capability/profile 即可。
 
+## V1 推进建议（为了把拆分框架落地）
+
+> 目的：引入第二个 backend 的首要价值是“把抽象与拆分跑通”，为后续更复杂 backend 留出清晰框架；不把“第二 backend”与“去中心化入口”绑死在一次落地里。
+
+在不引入新语义的前提下，V1 目标是完成：
+
+- 把现有 “MQTT 外部兜底” 路径拆成 `Backend` 抽象 + `MQTT backend` 实现（保持上层语义不变）。
+- 再加入一个“参考级第二 backend”（建议 `NATS(core)`），跑通：
+  - `primary + backup` 同时配置
+  - 读端全收 + 合并去重
+  - 写端择一 + 超时切备
+  - 回包优先同路
+
 ## 开放问题（需要继续讨论，但先不下钻 wire）
 
 - scheduled/store-and-poll 下的 candidate 新鲜度预算、keepalive 责任归属与失败口径。
-- 第一批值得验证的 backend 组合（当前倾向：`MQTT + DHT`；另备选：`MQTT` 基线 + 一个状态型 backend）。
+- 第一批（V1）值得验证的 backend 组合：
+  - `MQTT + NATS(core)`：用作“最像 MQTT 的第二 backend”与参考实现；允许用 `demo.nats.io` 做 smoke/开发验证，但不把公共 demo 作为生产依赖。
+  - `MQTT + DHT`：保留为后续专项验证（更偏 scheduled/store-and-poll 或 “DHT + 另一种消息原语” 路线）。
+- `V2` 候选 backend（慢速/状态型）：`Git private repo`、`Email（SMTP + IMAP/POP3）` 等；倾向定位为 `store-and-poll / store-and-forward`，用于 `bootstrap + fallback + scheduled`。

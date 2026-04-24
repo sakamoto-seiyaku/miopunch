@@ -265,8 +265,11 @@ Change 划分（按最初设计顺序回顾）：
 - 第三方向：Signaling backend 插件化（去中心化入口 / 多 backend）。
   - 目标是把当前“网内优先 + MQTT 兜底”的外部入口，抽象成可插拔的 signaling backend，并允许主备（KISS，上限 2）。
   - 外部 backend 的正式定位：`bootstrap + fallback mailbox + exchange(realtime|scheduled)`；backend 一律不可信，控制面端到端加密+签名可验真。
+  - `V1` 目标：先落地 `MQTT + NATS(core)` 双 backend（主备）作为参考实现，把“拆分框架”跑通；`demo.nats.io` 仅用于 smoke/开发环境，不作为生产依赖。
+  - `V2` 候选：`Git private repo`、`Email（SMTP + IMAP/POP3）` 等 `store-and-poll / store-and-forward` slow backend（更适合作兜底与 scheduled 交换）。
   - 纲领：`docs/decisions/door-3-signaling-backend-charter.md`。
   - 讨论纪要：`docs/notes/2026-04-23-signaling-backend-discussion-summary.md`。
+  - 候选调研：`docs/notes/2026-04-24-signaling-backend-survey.md`。
 
 - 第四方向：更远期的数据面与组网展望。
   - 个人 `overlay / mesh` 网络。
