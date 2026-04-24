@@ -73,6 +73,7 @@ Usage:
   miopunch-lab mqtt-broker [flags]
   miopunch-lab peer   <client|visitor> [flags]
   miopunch-lab stun   [flags]
+  miopunch-lab stun probe [flags]
 
 Commands:
   coord:
@@ -139,6 +140,17 @@ Commands:
   stun:
     --listen <ip:port>   (repeatable)
     --log-level <trace|debug|info|warn|error>
+
+  stun probe:
+    --builtin | --stun <addr1,addr2,...>
+    --attempts <n>           (default: 3)
+    --ok-threshold <n>       (default: 2)
+    --timeout <duration>     (default: 2s)
+    --dial-timeout <duration> (default: 2s)
+    --concurrency <n>        (default: 8)
+    --builtin-dns-mode <auto|on|off>
+    --builtin-dns <ip[:port],...>
+    --out <path>
 `)
 }
 
@@ -591,6 +603,10 @@ func peerVisitorCmd(ctx context.Context, args []string, stdout, stderr io.Writer
 }
 
 func stunCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	if len(args) > 0 && args[0] == "probe" {
+		return stunProbeCmd(ctx, args[1:], stdout, stderr)
+	}
+
 	_ = stdout
 	fs := flag.NewFlagSet("stun", flag.ContinueOnError)
 	fs.SetOutput(stderr)

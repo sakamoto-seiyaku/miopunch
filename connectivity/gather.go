@@ -13,6 +13,7 @@ import (
 
 	"github.com/miopunch/miopunch/event"
 	"github.com/miopunch/miopunch/internal/netutil"
+	"github.com/miopunch/miopunch/internal/stunclient"
 	"github.com/miopunch/miopunch/internal/wire"
 	"github.com/miopunch/miopunch/nat"
 )
@@ -311,8 +312,17 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 		defer cancel()
 
 		discoverExplicit := func(servers []string) (*STUNDiscoveryResult, error) {
-			resolved, resolveErrors := resolveSTUNServers(stunCtx, resolver, servers)
+			usable, ignored, filterErrors := stunclient.FilterHostPorts(servers, stunclient.EndpointSchemeUDP)
+			if len(usable) == 0 {
+				return nil, fmt.Errorf("stun configured but no usable udp endpoints (ignored=%v errors=%v)", ignored, filterErrors)
+			}
+
+			resolved, resolveErrors := stunclient.ResolveHostPortsIP4(stunCtx, resolver, usable, 0)
 			stunRes := DiscoverSTUN(stunCtx, udp4Conn, resolved)
+			stunRes.Errors = append(stunRes.Errors, filterErrors...)
+			if len(ignored) > 0 {
+				stunRes.Errors = append(stunRes.Errors, fmt.Sprintf("ignored non-udp stun endpoints: %v", ignored))
+			}
 			stunRes.Errors = append(stunRes.Errors, resolveErrors...)
 			return &stunRes, nil
 		}
@@ -381,7 +391,7 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 			// P3.5: internal STUN cn/global sampling (best-effort). Selection happens in exchange.
 			start := time.Now()
 			cnServers, globalServers := internalSTUNBuckets()
-			client := newSharedSTUNClient(udp4Conn)
+			client := stunclient.NewUDPClient(udp4Conn)
 			defer client.Close()
 
 			var (

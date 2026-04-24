@@ -13,39 +13,41 @@ func TestInternalSTUNBucketsCNContainsVerifiedPublicEndpoints(t *testing.T) {
 	}
 
 	wantCN := []string{
-		"106.13.249.54:3478",
-		"106.13.248.6:3478",
-		"106.12.251.193:3478",
-		"124.221.129.2:3478",
-		"124.222.69.57:3478",
-		"111.206.174.3:3478",
-		"stun.chat.bilibili.com:3478",
-		"106.12.251.31:3478",
-		"106.12.251.52:3478",
-		"106.12.71.140:3478",
-		"180.76.162.88:3478",
-		"stun.miwifi.com:3478",
-		"111.206.174.2:3478",
-		"stun.douyucdn.cn:18000",
-		"stun.hitv.com:3478",
-		"stun.cdnbye.com:3478",
-		"77.72.169.210:3478",
-		"77.72.169.211:3478",
-		"77.72.169.212:3478",
-		"77.72.169.213:3478",
-		"stun.yy.com:3478",
+		"udp://106.13.249.54:3478",
+		"udp://106.13.248.6:3478",
+		"udp://106.12.251.193:3478",
+		"udp://111.206.174.3:3478",
+		"udp://stun.chat.bilibili.com:3478",
+		"udp://stun.douyucdn.cn:18000",
+		"udp://stun.hitv.com:3478",
+		"udp://106.12.251.31:3478",
+		"udp://106.12.251.52:3478",
+		"udp://106.12.71.140:3478",
+		"udp://180.76.162.88:3478",
+		"udp://77.72.169.210:3478",
+		"udp://77.72.169.211:3478",
+		"udp://77.72.169.212:3478",
+		"udp://77.72.169.213:3478",
 	}
 	wantGlobal := []string{
 		"turn.cloudflare.com:3478",
-		"stun.cloudflare.com:3478",
+		"udp://stun.cloudflare.com:3478",
 		"fwa.lifesizecloud.com:3478",
 		"stun.freeswitch.org:3478",
 		"stun.voip.blackberry.com:3478",
 		"stun.nextcloud.com:3478",
-		"stun.sipnet.com:3478",
+		"udp://stun.sipnet.com:3478",
 		"stun.radiojar.com:3478",
 		"stun.sonetel.com:3478",
-		"stun.voipgate.com:3478",
+		"stun.sonetel.net:3478",
+		"stun.siplogin.de:3478",
+		"stun.dcalling.de:3478",
+		"stun.flashdance.cx:3478",
+		"stun.sip.us:3478",
+		"stun.ipfire.org:3478",
+		"stun.cope.es:3478",
+		"stun.annatel.net:3478",
+		"tcp://stun.voipgate.com:3478",
 		"stun.hot-chilli.net:3478",
 		"u1.xirsys.com:3478",
 		"relay1.expressturn.com:3478",
@@ -74,21 +76,18 @@ func TestInternalSTUNBucketsCNContainsVerifiedPublicEndpoints(t *testing.T) {
 		"stun.kinesisvideo.sa-east-1.amazonaws.com:443",
 	}
 	wantCNPrefix := []string{
-		"106.13.249.54:3478",
-		"106.13.248.6:3478",
-		"106.12.251.193:3478",
-		"124.221.129.2:3478",
-		"124.222.69.57:3478",
-		"111.206.174.3:3478",
-		"stun.chat.bilibili.com:3478",
-		"stun.douyucdn.cn:18000",
-		"stun.hitv.com:3478",
-		"stun.cdnbye.com:3478",
+		"udp://106.13.249.54:3478",
+		"udp://106.13.248.6:3478",
+		"udp://106.12.251.193:3478",
+		"udp://111.206.174.3:3478",
+		"udp://stun.chat.bilibili.com:3478",
+		"udp://stun.douyucdn.cn:18000",
+		"udp://stun.hitv.com:3478",
 	}
 	wantGlobalPrefix := []string{
 		"global.turn.twilio.com:3478",
 		"turn.cloudflare.com:3478",
-		"stun.cloudflare.com:3478",
+		"udp://stun.cloudflare.com:3478",
 		"stun.relay.metered.ca:80",
 		"fwa.lifesizecloud.com:3478",
 		"stun.hivestreaming.com:3478",
@@ -106,6 +105,17 @@ func TestInternalSTUNBucketsCNContainsVerifiedPublicEndpoints(t *testing.T) {
 	gotGlobal := make(map[string]struct{}, len(global))
 	for _, server := range global {
 		gotGlobal[server] = struct{}{}
+	}
+	for _, server := range []string{
+		"stun.l.google.com:19302",
+		"stun1.l.google.com:19302",
+		"stun2.l.google.com:19302",
+		"stun3.l.google.com:19302",
+		"stun4.l.google.com:19302",
+	} {
+		if _, ok := gotGlobal[server]; ok {
+			t.Fatalf("global bucket contains removed endpoint %q", server)
+		}
 	}
 	for _, server := range wantGlobal {
 		if _, ok := gotGlobal[server]; !ok {

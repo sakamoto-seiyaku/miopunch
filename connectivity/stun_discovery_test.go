@@ -1,11 +1,15 @@
 package connectivity
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/miopunch/miopunch/internal/stunclient"
+)
 
 func TestSanitizeMappedAddrs(t *testing.T) {
 	t.Parallel()
 
-	got, dropped := sanitizeMappedAddrs([]string{
+	got, dropped := stunclient.SanitizeMappedAddrs([]string{
 		"203.0.113.1:40000",
 		"",
 		"   ",

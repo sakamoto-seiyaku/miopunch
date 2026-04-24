@@ -2,13 +2,11 @@ package connectivity
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
-	"net/netip"
-	"strings"
 
 	"github.com/miopunch/miopunch/internal/netutil"
+	"github.com/miopunch/miopunch/internal/stunclient"
 	"github.com/miopunch/miopunch/internal/wire"
 	"github.com/miopunch/miopunch/nat"
 )
@@ -43,7 +41,7 @@ func observeSTUNView(ctx context.Context, conn *net.UDPConn, resolver *netutil.D
 	return out
 }
 
-func observeInternalSTUNView(ctx context.Context, client *sharedSTUNClient, resolver *netutil.DNSResolver, servers []string, localIPs []string) *wire.STUNViewObservation {
+func observeInternalSTUNView(ctx context.Context, client *stunclient.UDPClient, resolver *netutil.DNSResolver, servers []string, localIPs []string) *wire.STUNViewObservation {
 	out := &wire.STUNViewObservation{}
 
 	resolved, resolveErrors := resolveInternalSTUNServers(ctx, resolver, servers)
@@ -74,48 +72,12 @@ func observeInternalSTUNView(ctx context.Context, client *sharedSTUNClient, reso
 }
 
 func resolveInternalSTUNServers(ctx context.Context, resolver *netutil.DNSResolver, servers []string) (resolved []string, errors []string) {
-	resolved = make([]string, 0, min(len(servers), internalSTUNResolvedEndpointLimit))
-	errors = make([]string, 0)
-	for _, raw := range servers {
-		if len(resolved) >= internalSTUNResolvedEndpointLimit {
-			break
-		}
+	usable, _, filterErrors := stunclient.FilterHostPorts(servers, stunclient.EndpointSchemeUDP)
+	resolved, resolveErrors := stunclient.ResolveHostPortsIP4(ctx, resolver, usable, internalSTUNResolvedEndpointLimit)
 
-		server, err := normalizeSTUNServer(raw)
-		if err != nil {
-			errors = append(errors, fmt.Sprintf("%s: %v", strings.TrimSpace(raw), err))
-			continue
-		}
-		host, port, err := net.SplitHostPort(server)
-		if err != nil {
-			resolved = append(resolved, server)
-			continue
-		}
-		if _, err := netip.ParseAddr(host); err == nil {
-			resolved = append(resolved, net.JoinHostPort(host, port))
-			continue
-		}
-		if resolver == nil {
-			errors = append(errors, fmt.Sprintf("%s: resolve: no dns resolver configured", server))
-			continue
-		}
-
-		addrs, err := resolver.LookupNetIP(ctx, "ip4", host)
-		if err != nil {
-			errors = append(errors, fmt.Sprintf("%s: resolve: %v", server, err))
-			continue
-		}
-		max := 2
-		if remaining := internalSTUNResolvedEndpointLimit - len(resolved); remaining < max {
-			max = remaining
-		}
-		if len(addrs) < max {
-			max = len(addrs)
-		}
-		for index := 0; index < max; index++ {
-			resolved = append(resolved, net.JoinHostPort(addrs[index].String(), port))
-		}
-	}
+	errors = make([]string, 0, len(filterErrors)+len(resolveErrors))
+	errors = append(errors, filterErrors...)
+	errors = append(errors, resolveErrors...)
 	return resolved, errors
 }
 
@@ -149,54 +111,11 @@ func natDifficulty(f *nat.NatFeature) int {
 }
 
 func resolveSTUNServers(ctx context.Context, resolver *netutil.DNSResolver, servers []string) (resolved []string, errors []string) {
-	resolved = make([]string, 0, len(servers))
-	errors = make([]string, 0)
-	for _, raw := range servers {
-		server, err := normalizeSTUNServer(raw)
-		if err != nil {
-			errors = append(errors, fmt.Sprintf("%s: %v", strings.TrimSpace(raw), err))
-			continue
-		}
-		host, port, err := net.SplitHostPort(server)
-		if err != nil {
-			resolved = append(resolved, server)
-			continue
-		}
-		if _, err := netip.ParseAddr(host); err == nil {
-			resolved = append(resolved, net.JoinHostPort(host, port))
-			continue
-		}
+	usable, _, filterErrors := stunclient.FilterHostPorts(servers, stunclient.EndpointSchemeUDP)
+	resolved, resolveErrors := stunclient.ResolveHostPortsIP4(ctx, resolver, usable, 0)
 
-		addrs, err := resolver.LookupNetIP(ctx, "ip4", host)
-		if err != nil {
-			errors = append(errors, fmt.Sprintf("%s: resolve: %v", server, err))
-			continue
-		}
-		max := 2
-		if len(addrs) < max {
-			max = len(addrs)
-		}
-		for i := 0; i < max; i++ {
-			resolved = append(resolved, net.JoinHostPort(addrs[i].String(), port))
-		}
-	}
+	errors = make([]string, 0, len(filterErrors)+len(resolveErrors))
+	errors = append(errors, filterErrors...)
+	errors = append(errors, resolveErrors...)
 	return resolved, errors
-}
-
-func normalizeSTUNServer(server string) (string, error) {
-	server = strings.TrimSpace(server)
-	switch {
-	case server == "":
-		return "", errors.New("empty stun server")
-	case strings.HasPrefix(server, "udp://"):
-		server = strings.TrimPrefix(server, "udp://")
-	case strings.HasPrefix(server, "tcp://"):
-		return "", errors.New("tcp stun scheme is not supported")
-	case strings.Contains(server, "://"):
-		return "", errors.New("unsupported stun scheme")
-	}
-	if strings.Contains(server, "?") {
-		return "", errors.New("unsupported stun address format")
-	}
-	return server, nil
 }

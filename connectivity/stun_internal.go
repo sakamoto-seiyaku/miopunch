@@ -10,53 +10,51 @@ var (
 		// Source: case1 public verification on 2026-04-14
 		// (Android mobile network <-> home broadband).
 		//
+		// Source: built-in UDP+TCP STUN probe on 2026-04-24:
+		// docs/reports/2026-04-24-builtin-stun-probe.tcp-udp.jsonl
+		//
+		// All CN endpoints are UDP-only per the probe, so they are explicitly
+		// marked with `udp://` to avoid wasting time in future TCP sampling.
+		//
 		// Front-load the exact IP literals that were proven to work in case1 so
 		// the bounded-concurrency sampler can succeed on Android mobile networks
 		// before the per-view timeout budget is exhausted.
-		"106.13.249.54:3478",
-		"106.13.248.6:3478",
-		"106.12.251.193:3478",
-		"124.221.129.2:3478",
-		"124.222.69.57:3478",
-		"111.206.174.3:3478",
+		"udp://106.13.249.54:3478",
+		"udp://106.13.248.6:3478",
+		"udp://106.12.251.193:3478",
+		"udp://111.206.174.3:3478",
 
 		// Keep the bilibili hostname plus supplemental verified IP literals
 		// because the built-in resolver currently expands at most two A records
 		// per hostname.
-		"stun.chat.bilibili.com:3478",
+		"udp://stun.chat.bilibili.com:3478",
 		// Source: natmap issue #18 + MikeWang000000 comment
 		// https://github.com/heiher/natmap/issues/18#issuecomment-2093158186
 		//
-		// Current host-side UDP STUN probe on 2026-04-14:
-		// - stun.douyucdn.cn:18000 => 3/3 A records responded
-		// - stun.hitv.com:3478 => 3/3 A records responded
-		// - stun.cdnbye.com:3478 => 4/6 A records responded
-		"stun.douyucdn.cn:18000",
-		"stun.hitv.com:3478",
-		"stun.cdnbye.com:3478",
-		"stun.miwifi.com:3478",
-
-		// Source: natmap issue #18 wray-lee comment
-		// https://github.com/heiher/natmap/issues/18#issuecomment-2230898238
-		//
-		// User requested to keep stun.yy.com in the CN defaults even though the
-		// current host-side probe was not stable on 2026-04-14.
-		"stun.yy.com:3478",
+		// Current built-in STUN probe on 2026-04-24 confirmed these endpoints are
+		// stable on UDP but do not support STUN over TCP.
+		"udp://stun.douyucdn.cn:18000",
+		"udp://stun.hitv.com:3478",
 
 		// Verified IP supplements for hostname pools that return more usable A
 		// records than the current resolver expansion limit can cover.
-		"106.12.251.31:3478",
-		"106.12.251.52:3478",
-		"106.12.71.140:3478",
-		"180.76.162.88:3478",
-		"111.206.174.2:3478",
-		"77.72.169.210:3478",
-		"77.72.169.211:3478",
-		"77.72.169.212:3478",
-		"77.72.169.213:3478",
+		"udp://106.12.251.31:3478",
+		"udp://106.12.251.52:3478",
+		"udp://106.12.71.140:3478",
+		"udp://180.76.162.88:3478",
+		"udp://77.72.169.210:3478",
+		"udp://77.72.169.211:3478",
+		"udp://77.72.169.212:3478",
+		"udp://77.72.169.213:3478",
 	}
 
 	internalSTUNGlobal = []string{
+		// Source: built-in UDP+TCP STUN probe on 2026-04-24:
+		// docs/reports/2026-04-24-builtin-stun-probe.tcp-udp.jsonl
+		//
+		// Most global endpoints support both protocols (dual). A few are
+		// protocol-restricted and use `udp://` or `tcp://` prefixes.
+		//
 		// Source baseline: gonc.
 		"global.turn.twilio.com:3478",
 
@@ -66,7 +64,7 @@ var (
 		// Current host-side UDP STUN probe on 2026-04-14 confirmed these
 		// hostnames respond on the comment-provided UDP-compatible ports.
 		"turn.cloudflare.com:3478",
-		"stun.cloudflare.com:3478",
+		"udp://stun.cloudflare.com:3478",
 		"stun.relay.metered.ca:80",
 		"fwa.lifesizecloud.com:3478",
 		"stun.hivestreaming.com:3478",
@@ -102,16 +100,22 @@ var (
 		"stun.freeswitch.org:3478",
 		"stun.sonetel.com:3478",
 		"stun.voip.blackberry.com:3478",
-		"stun.voipgate.com:3478",
+		"tcp://stun.voipgate.com:3478",
 		"stun.hot-chilli.net:3478",
-		"stun.sipnet.com:3478",
+		"udp://stun.sipnet.com:3478",
 		"stun.radiojar.com:3478",
-		"stun.l.google.com:19302",
-		"stun1.l.google.com:19302",
-		"stun2.l.google.com:19302",
-		"stun3.l.google.com:19302",
-		"stun4.l.google.com:19302",
 		"stun.nextcloud.com:443",
+
+		// Additional dual endpoints discovered from mondain public list:
+		// docs/reports/2026-04-24-mondain-stun-probe.tcp-udp.jsonl
+		"stun.siplogin.de:3478",
+		"stun.sonetel.net:3478",
+		"stun.dcalling.de:3478",
+		"stun.flashdance.cx:3478",
+		"stun.sip.us:3478",
+		"stun.ipfire.org:3478",
+		"stun.cope.es:3478",
+		"stun.annatel.net:3478",
 	}
 )
 
@@ -119,4 +123,10 @@ func internalSTUNBuckets() (cn []string, global []string) {
 	cn = append([]string(nil), internalSTUNCN...)
 	global = append([]string(nil), internalSTUNGlobal...)
 	return cn, global
+}
+
+// BuiltinSTUNBuckets returns cloned built-in STUN endpoint buckets.
+// The returned slices are safe to mutate by the caller.
+func BuiltinSTUNBuckets() (cn []string, global []string) {
+	return internalSTUNBuckets()
 }
