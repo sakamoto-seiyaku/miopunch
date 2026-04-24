@@ -256,12 +256,28 @@ Change 划分（按最初设计顺序回顾）：
 - 第二方向：`TCP` 打洞。
   - 目标是把基于 `TCP` 的 candidate / attempt / session 建立流程融合进现有链路层抽象。
   - 这一方向应视为对现有 `UDP + QUIC/KCP` 路径的并列补充，而不是把 `QUIC/KCP` 强行承载到 `TCP` 之上。
+  - 纲领：`docs/decisions/door-2-tcp-punching-charter.md`。
+  - 参考 `gonc` 的工程基线（用于校准预期，不代表照搬实现）：
+    - 自动尝试优先级常见为：`tcp6 → tcp4 → udp6 → udp4`（当前也倾向以此作为默认基线）；并允许用户显式限制只使用 UDP 或只使用 TCP。
+    - 非同 LAN 的 TCP punching 通常要求至少一端为 `easy` NAT；否则应降低预期或直接跳过。
+    - 融入后会触及 `Gather / Exchange(wire) / Attempt / Dataplane` 四段边界；TCP 数据面倾向为 `TLS 1.3 + stream`，并与 UDP(QUIC/KCP) 并列存在。
 
-- 第三方向：更远期的数据面与组网展望。
+- 第三方向：Signaling backend 插件化（去中心化入口 / 多 backend）。
+  - 目标是把当前“网内优先 + MQTT 兜底”的外部入口，抽象成可插拔的 signaling backend，并允许主备（KISS，上限 2）。
+  - 外部 backend 的正式定位：`bootstrap + fallback mailbox + exchange(realtime|scheduled)`；backend 一律不可信，控制面端到端加密+签名可验真。
+  - 纲领：`docs/decisions/door-3-signaling-backend-charter.md`。
+  - 讨论纪要：`docs/notes/2026-04-23-signaling-backend-discussion-summary.md`。
+
+- 第四方向：更远期的数据面与组网展望。
   - 个人 `overlay / mesh` 网络。
   - 多节点互通、节点间转发/中继（仅 peer↔peer；不引入中心化数据面 relay）。
   - `VPP` 数据平面。
   - `udp2raw` 式伪装与用户态协议栈实验。
+
+- 基础清理：从产品路径中去掉 `coord` 服务语义。
+  - `coord` server 仅保留为 `miopunch-lab` 实验/回归入口，不再作为产品化网络加入、发现或打洞交换的默认心智模型。
+  - 将当前仍复用的 NAT/打洞分析逻辑从 `internal/coordinator` 的命名与服务形态中剥离出来，收束为独立的决策/分析模块，供 MQTT leader、未来 mailbox/overlay 信道与 lab coord 共同调用。
+  - 目标是避免后续“无中心化控制面”讨论继续被历史 `frp/xtcp coord` 语义污染；该条也可视为 Door 3 的前置清理。
 
 ## 里程碑原则
 
