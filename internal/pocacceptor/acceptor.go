@@ -109,22 +109,22 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 	transactionID := time.Now().UTC().UnixNano()
 
 	natHoleClientMsg := &wire.NatHoleClient{
-		TransactionID: fmt.Sprintf("tx-%d", transactionID),
-		ProxyName:     local.ProxyName,
-		Sid:           sid,
-		Protocol:      local.DataProto,
-		QuicCC:        local.QUICCC,
-		Capabilities:  []string{wire.CapabilityTCPP2PV0},
-		P2PNetwork:    local.P2PNetwork,
-		DirectAddrs:   gather.DirectAddrs,
-		MappedAddrs:   gather.MappedAddrs,
-		AssistedAddrs: gather.AssistedAddrs,
+		TransactionID:  fmt.Sprintf("tx-%d", transactionID),
+		ProxyName:      local.ProxyName,
+		Sid:            sid,
+		Protocol:       local.DataProto,
+		QuicCC:         local.QUICCC,
+		Capabilities:   []string{wire.CapabilityTCPP2PV0},
+		P2PNetwork:     local.P2PNetwork,
+		DirectAddrs:    gather.DirectAddrs,
+		MappedAddrs:    gather.MappedAddrs,
+		AssistedAddrs:  gather.AssistedAddrs,
 		TCPDirectAddrs: gather.TCPDirectAddrs,
 		TCPMappedAddrs: gather.TCPMappedAddrs,
 		TCPSTUNCN:      gather.TCPSTUNCN,
 		TCPSTUNGlobal:  gather.TCPSTUNGlobal,
-		STUNCN:        gather.STUNCN,
-		STUNGlobal:    gather.STUNGlobal,
+		STUNCN:         gather.STUNCN,
+		STUNGlobal:     gather.STUNGlobal,
 	}
 
 	mq, err := mqttsig.Open(handshakeCtx, mqttsig.Config{

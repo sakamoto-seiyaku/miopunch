@@ -29,4 +29,3 @@ func newTCPDialerWithReuseAddr(localAddr *net.TCPAddr, timeout time.Duration) *n
 	}
 	return dialer
 }
-

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -175,14 +176,81 @@ type wsWrite struct {
 	data    []byte
 }
 
+type shellWSConn interface {
+	ReadMessage() (messageType int, p []byte, err error)
+	WriteMessage(messageType int, data []byte) error
+	Close() error
+}
+
+type shellTaskClient interface {
+	CreateTask(ctx context.Context, kind string, args any) (task.Task, error)
+	DialTaskWS(ctx context.Context, taskID string) (shellWSConn, *http.Response, error)
+	GetTask(ctx context.Context, taskID string) (task.Task, error)
+	GetTaskReport(ctx context.Context, taskID string) (string, error)
+}
+
+type localAPIShellClient struct {
+	client *localapi.Client
+}
+
+func (c localAPIShellClient) CreateTask(ctx context.Context, kind string, args any) (task.Task, error) {
+	return c.client.CreateTask(ctx, kind, args)
+}
+
+func (c localAPIShellClient) DialTaskWS(ctx context.Context, taskID string) (shellWSConn, *http.Response, error) {
+	return c.client.DialTaskWS(ctx, taskID)
+}
+
+func (c localAPIShellClient) GetTask(ctx context.Context, taskID string) (task.Task, error) {
+	return c.client.GetTask(ctx, taskID)
+}
+
+func (c localAPIShellClient) GetTaskReport(ctx context.Context, taskID string) (string, error) {
+	return c.client.GetTaskReport(ctx, taskID)
+}
+
+type shellInteractiveDeps struct {
+	connect     func(context.Context, string) (shellTaskClient, error)
+	stdin       io.Reader
+	stdinFD     func() int
+	isTerminal  func(int) bool
+	makeRaw     func(int) (*term.State, error)
+	restoreTerm func(int, *term.State) error
+	getSize     func(int) (int, int, error)
+	watchResize func(context.Context, int, func(int, int))
+}
+
+func defaultShellInteractiveDeps() shellInteractiveDeps {
+	return shellInteractiveDeps{
+		connect: func(ctx context.Context, override string) (shellTaskClient, error) {
+			c, _, err := connectLocalAPI(ctx, override)
+			if err != nil {
+				return nil, err
+			}
+			return localAPIShellClient{client: c}, nil
+		},
+		stdin:       os.Stdin,
+		stdinFD:     func() int { return int(os.Stdin.Fd()) },
+		isTerminal:  term.IsTerminal,
+		makeRaw:     term.MakeRaw,
+		restoreTerm: term.Restore,
+		getSize:     term.GetSize,
+		watchResize: watchResize,
+	}
+}
+
 func runShellInteractive(opt globalOptions, args task.ShAttachArgs, stdout, stderr io.Writer) int {
+	return runShellInteractiveWithDeps(opt, args, stdout, stderr, defaultShellInteractiveDeps())
+}
+
+func runShellInteractiveWithDeps(opt globalOptions, args task.ShAttachArgs, stdout, stderr io.Writer, deps shellInteractiveDeps) int {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	apiCtx, cancelAPI := context.WithTimeout(ctx, 5*time.Second)
 	defer cancelAPI()
 
-	c, _, err := connectLocalAPI(apiCtx, opt.LocalAPIOverride)
+	c, err := deps.connect(apiCtx, opt.LocalAPIOverride)
 	if err != nil {
 		return exitWithError(opt, stdout, stderr, "sh", "", err)
 	}
@@ -218,22 +286,22 @@ func runShellInteractive(opt globalOptions, args task.ShAttachArgs, stdout, stde
 	}
 	defer func() { _ = conn.Close() }()
 
-	stdinFD := int(os.Stdin.Fd())
+	stdinFD := deps.stdinFD()
 	var restoreTerm func()
-	if term.IsTerminal(stdinFD) {
-		oldState, err := term.MakeRaw(stdinFD)
+	if deps.isTerminal(stdinFD) {
+		oldState, err := deps.makeRaw(stdinFD)
 		if err == nil {
-			restoreTerm = func() { _ = term.Restore(stdinFD, oldState) }
+			restoreTerm = func() { _ = deps.restoreTerm(stdinFD, oldState) }
 			defer restoreTerm()
 		}
 	}
 
 	wsWriteCh := make(chan wsWrite, 64)
-	var wg sync.WaitGroup
+	var writerWG sync.WaitGroup
 
-	wg.Add(1)
+	writerWG.Add(1)
 	go func() {
-		defer wg.Done()
+		defer writerWG.Done()
 		defer cancel()
 
 		for {
@@ -262,19 +330,17 @@ func runShellInteractive(opt globalOptions, args task.ShAttachArgs, stdout, stde
 		}
 	}
 
-	if cols, rows, err := term.GetSize(stdinFD); err == nil {
+	if cols, rows, err := deps.getSize(stdinFD); err == nil {
 		sendWinSize(cols, rows)
 	}
-	watchResize(ctx, stdinFD, sendWinSize)
+	deps.watchResize(ctx, stdinFD, sendWinSize)
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		defer cancel()
 
 		buf := make([]byte, 32*1024)
 		for {
-			n, err := os.Stdin.Read(buf)
+			n, err := deps.stdin.Read(buf)
 			if n > 0 {
 				payload := append([]byte(nil), buf[:n]...)
 				select {
@@ -300,7 +366,7 @@ func runShellInteractive(opt globalOptions, args task.ShAttachArgs, stdout, stde
 	}
 
 	cancel()
-	wg.Wait()
+	writerWG.Wait()
 
 	finalCtx, cancelFinal := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFinal()
@@ -348,7 +414,9 @@ func runShellInteractive(opt globalOptions, args task.ShAttachArgs, stdout, stde
 	return int(finalTask.ExitCode)
 }
 
-func waitForTaskDone(ctx context.Context, c *localapi.Client, taskID string) (task.Task, error) {
+func waitForTaskDone(ctx context.Context, c interface {
+	GetTask(context.Context, string) (task.Task, error)
+}, taskID string) (task.Task, error) {
 	deadline := time.Now().Add(4 * time.Second)
 	for {
 		t, err := c.GetTask(ctx, taskID)

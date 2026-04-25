@@ -154,6 +154,10 @@ profile_nat4_irregular() {
     -j SNAT --to-source "${wan_ip}:45000"
   ns_exec "${ns}" iptables -w -t nat -I POSTROUTING 1 -o wan0 -s "${lan_cidr}" -p tcp --sport "${tcp_listen_port}" \
     -j SNAT --to-source "${wan_ip}:45100"
+  ns_exec "${ns}" iptables -w -t nat -A PREROUTING -i wan0 -p tcp --dport 45100 \
+    -j DNAT --to-destination "${peer_ip}:${tcp_listen_port}"
+  ns_exec "${ns}" iptables -w -A FORWARD -i wan0 -o lan0 -p tcp -d "${peer_ip}" --dport "${tcp_listen_port}" \
+    -j ACCEPT
 
   # Symmetric-like mapping (APDM-like), with "irregular" port allocation (random within range).
   ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp \

@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	stderrors "errors"
 	"fmt"
 	"net"
 	"slices"
@@ -26,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/golib/errors"
+	goliberrors "github.com/fatedier/golib/errors"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 
@@ -38,6 +39,10 @@ import (
 
 // NatHoleTimeout seconds.
 var NatHoleTimeout int64 = 10
+
+const tcpReceiverDialLeadMs = 1000
+
+var randID = authutil.RandID
 
 type ClientCfg struct {
 	name       string
@@ -140,10 +145,13 @@ func (c *Controller) CloseClient(name string) {
 	delete(c.clientCfgs, name)
 }
 
-func (c *Controller) GenSid() string {
+func (c *Controller) GenSid() (string, error) {
 	t := time.Now().Unix()
-	id, _ := authutil.RandID()
-	return fmt.Sprintf("%d%s", t, id)
+	id, err := randID()
+	if err != nil {
+		return "", fmt.Errorf("generate sid random id: %w", err)
+	}
+	return fmt.Sprintf("%d%s", t, id), nil
 }
 
 func (c *Controller) HandleVisitor(m *wire.NatHoleVisitor, transporter wire.MessageTransporter, visitorUser string) {
@@ -152,18 +160,23 @@ func (c *Controller) HandleVisitor(m *wire.NatHoleVisitor, transporter wire.Mess
 		cfg, ok := c.clientCfgs[m.ProxyName]
 		c.mu.RUnlock()
 		if !ok {
-			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("proxy [%s] not found", m.ProxyName)))
+			c.sendNatHoleResponse(transporter, c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("proxy [%s] not found", m.ProxyName)), "visitor precheck proxy missing")
 			return
 		}
 		if !slices.Contains(cfg.allowUsers, visitorUser) && !slices.Contains(cfg.allowUsers, "*") {
-			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("visitor user [%s] not allowed for proxy [%s]", visitorUser, m.ProxyName)))
+			c.sendNatHoleResponse(transporter, c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("visitor user [%s] not allowed for proxy [%s]", visitorUser, m.ProxyName)), "visitor precheck user denied")
 			return
 		}
-		_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, ""))
+		c.sendNatHoleResponse(transporter, c.GenNatHoleResponse(m.TransactionID, nil, ""), "visitor precheck ok")
 		return
 	}
 
-	sid := c.GenSid()
+	sid, err := c.GenSid()
+	if err != nil {
+		logutil.Warnf("generate sid error: %v", err)
+		c.sendNatHoleResponse(transporter, c.GenNatHoleResponse(m.TransactionID, nil, "generate sid failed"), "visitor sid generation failed")
+		return
+	}
 	session := &Session{
 		sid:                sid,
 		visitorMsg:         m,
@@ -174,7 +187,7 @@ func (c *Controller) HandleVisitor(m *wire.NatHoleVisitor, transporter wire.Mess
 		clientCfg *ClientCfg
 		ok        bool
 	)
-	err := func() error {
+	err = func() error {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 
@@ -190,7 +203,7 @@ func (c *Controller) HandleVisitor(m *wire.NatHoleVisitor, transporter wire.Mess
 	}()
 	if err != nil {
 		logutil.Warnf("handle visitorMsg error: %v", err)
-		_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, err.Error()))
+		c.sendNatHoleResponse(transporter, c.GenNatHoleResponse(m.TransactionID, nil, err.Error()), "visitor error response")
 		return
 	}
 	logutil.Tracef("handle visitor message, sid [%s], server name: %s", sid, m.ProxyName)
@@ -201,7 +214,7 @@ func (c *Controller) HandleVisitor(m *wire.NatHoleVisitor, transporter wire.Mess
 		delete(c.sessions, sid)
 	}()
 
-	if err := errors.PanicToError(func() {
+	if err := goliberrors.PanicToError(func() {
 		clientCfg.sidCh <- sid
 	}); err != nil {
 		return
@@ -233,7 +246,9 @@ func (c *Controller) HandleVisitor(m *wire.NatHoleVisitor, transporter wire.Mess
 		if vResp.PunchingEnabled && vResp.DetectBehavior.Role == "sender" && len(vResp.PeerDirectAddrs) == 0 {
 			time.Sleep(1 * time.Second)
 		}
-		_ = session.visitorTransporter.Send(vResp)
+		if err := session.visitorTransporter.Send(vResp); err != nil {
+			return fmt.Errorf("send visitor nathole response: %w", err)
+		}
 		return nil
 	})
 	g.Go(func() error {
@@ -242,16 +257,31 @@ func (c *Controller) HandleVisitor(m *wire.NatHoleVisitor, transporter wire.Mess
 		if cResp.PunchingEnabled && cResp.DetectBehavior.Role == "sender" && len(cResp.PeerDirectAddrs) == 0 {
 			time.Sleep(1 * time.Second)
 		}
-		_ = session.clientTransporter.Send(cResp)
+		if err := session.clientTransporter.Send(cResp); err != nil {
+			return fmt.Errorf("send client nathole response: %w", err)
+		}
 		return nil
 	})
-	_ = g.Wait()
+	if err := g.Wait(); err != nil {
+		logutil.Warnf("send nathole responses error, sid [%s]: %v", sid, err)
+		return
+	}
 
 	sleepDur := time.Duration(cResp.DetectBehavior.ReadTimeoutMs+30000) * time.Millisecond
 	if !cResp.PunchingEnabled || !vResp.PunchingEnabled {
 		sleepDur = 2 * time.Second
 	}
 	time.Sleep(sleepDur)
+}
+
+func (c *Controller) sendNatHoleResponse(transporter wire.MessageTransporter, resp *wire.NatHoleResp, label string) {
+	if transporter == nil {
+		logutil.Warnf("%s send nathole response skipped: nil transporter", label)
+		return
+	}
+	if err := transporter.Send(resp); err != nil && !stderrors.Is(err, context.Canceled) {
+		logutil.Warnf("%s send nathole response error: %v", label, err)
+	}
 }
 
 func (c *Controller) HandleClient(m *wire.NatHoleClient, transporter wire.MessageTransporter) {
@@ -640,6 +670,7 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 							100,
 						),
 					}
+					alignTCPPunchingSendDelays(vResp.TCPDetectBehavior, cResp.TCPDetectBehavior)
 
 					logutil.Debugf(
 						"sid [%s] tcp nat: visitor=%+v client=%+v -> mode=%d index=%d visitor_role=%s client_role=%s budget_ms=%d",
@@ -765,6 +796,28 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 	logutil.Debugf("sid [%s] visitor detect behavior: %+v", session.sid, vResp.DetectBehavior)
 	logutil.Debugf("sid [%s] client detect behavior: %+v", session.sid, cResp.DetectBehavior)
 	return vResp, cResp, nil
+}
+
+func alignTCPPunchingSendDelays(a, b *wire.TcpDetectBehavior) {
+	alignTCPPunchingReceiverDelay(a, b)
+	alignTCPPunchingReceiverDelay(b, a)
+}
+
+func alignTCPPunchingReceiverDelay(sender, receiver *wire.TcpDetectBehavior) {
+	if sender == nil || receiver == nil {
+		return
+	}
+	if sender.Role != DetectRoleSender || receiver.Role != DetectRoleReceiver {
+		return
+	}
+	if sender.SendDelayMs <= tcpReceiverDialLeadMs {
+		return
+	}
+
+	receiverDelay := sender.SendDelayMs - tcpReceiverDialLeadMs
+	if receiver.SendDelayMs < receiverDelay {
+		receiver.SendDelayMs = receiverDelay
+	}
 }
 
 func getRangePorts(addrs []string, difference, maxNumber int) []wire.PortsRange {

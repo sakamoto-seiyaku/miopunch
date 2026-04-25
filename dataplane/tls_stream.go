@@ -157,6 +157,7 @@ func convergePinnedTLS(ctx context.Context, sid string, secretKey []byte, selfRo
 		tlsConfig, err = tlsutil.NewPinnedServerTLSConfig(secretKey, sid, selfRole, peerRole)
 	}
 	if err != nil {
+		closeTCPCandidates(candidates)
 		return nil, err
 	}
 
@@ -241,6 +242,14 @@ func convergePinnedTLS(ctx context.Context, sid string, secretKey []byte, selfRo
 	}
 
 	return winner, nil
+}
+
+func closeTCPCandidates(candidates []connectivity.TCPConn) {
+	for _, c := range candidates {
+		if c.Conn != nil {
+			_ = c.Conn.Close()
+		}
+	}
 }
 
 func convergePinnedTLSElection(ctx context.Context, successes []tlsCandidate, selfRole string) (*tls.Conn, connectivity.TCPConnOrigin, error) {

@@ -50,8 +50,7 @@ configured TTL, the lock SHALL expire automatically.
 - **AND** a new attach attempt for the same `(peer,target,session)` can succeed
 
 ### Requirement: LocalAPI WebSocket for sh_attach uses miopunch.sh.v0 frame semantics
-When attaching to `GET /api/v0/tasks/<task_id>/ws` for a `sh_attach` task, the
-client SHALL negotiate `Sec-WebSocket-Protocol: miopunch.sh.v0`.
+The system SHALL require clients attaching to `GET /api/v0/tasks/<task_id>/ws` for a `sh_attach` task to negotiate `Sec-WebSocket-Protocol: miopunch.sh.v0`.
 
 The WebSocket frames SHALL follow:
 - binary frames: PTY/ConPTY raw byte stream (stdin/stdout)
@@ -86,3 +85,11 @@ identifiers (not renamed within POC v0), including at minimum:
 - **THEN** the task fails with `reason_code=SH_TMUX_MISSING`
 - **AND** the output includes a concrete installation or remediation suggestion
 
+### Requirement: sh_attach interactive CLI exits when remote session ends
+The interactive `sh_attach` CLI SHALL restore the local terminal and return when the task WebSocket closes, the remote task ends, or the WebSocket read path fails. It MUST NOT wait for an additional local stdin byte before exiting. After the WebSocket ends, the CLI SHALL still make a bounded best-effort attempt to fetch final task state and export the report when requested.
+
+#### Scenario: Remote close while stdin is idle
+- **WHEN** a user is attached with `miopunch sh <peer> ...`
+- **AND** the task WebSocket closes while the user is not typing
+- **THEN** the CLI restores the terminal and returns without waiting for stdin input
+- **AND** final task-state lookup and report export remain bounded

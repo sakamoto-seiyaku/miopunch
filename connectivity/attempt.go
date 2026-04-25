@@ -58,6 +58,10 @@ func Attempt(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn,
 }
 
 func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, udp6Conn *net.UDPConn, tcp4Listener *net.TCPListener, tcp6Listener *net.TCPListener, resp *wire.NatHoleResp, cfg AttemptConfig, punch PunchFunc) (*AttemptResult, error) {
+	if resp == nil {
+		return nil, errors.New("nil NatHoleResp")
+	}
+
 	if cfg.AttemptV6Timeout == 0 {
 		cfg.AttemptV6Timeout = 800 * time.Millisecond
 	}
@@ -107,9 +111,6 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 	}
 	if allowUDP && allowV4 && udp4Conn == nil {
 		return nil, errors.New("udp4 conn is required")
-	}
-	if resp == nil {
-		return nil, errors.New("nil NatHoleResp")
 	}
 	if strings.TrimSpace(resp.Error) != "" {
 		err := fmt.Errorf("exchange failed: %s", strings.TrimSpace(resp.Error))

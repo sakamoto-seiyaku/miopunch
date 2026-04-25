@@ -3,11 +3,33 @@ package connectivity
 import (
 	"context"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/miopunch/miopunch/internal/wire"
 )
+
+func TestAttempt_NilNatHoleRespReturnsError(t *testing.T) {
+	_, err := attemptWithPunch(
+		context.Background(),
+		"sid-nil",
+		[]byte("0123456789abcdef"),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		AttemptConfig{},
+		func(context.Context, *net.UDPConn, *wire.NatHoleResp, []byte) (*net.UDPConn, *net.UDPAddr, error) {
+			t.Fatalf("punch func should not be called for nil NatHoleResp")
+			return nil, nil, nil
+		},
+	)
+	if err == nil || !strings.Contains(err.Error(), "nil NatHoleResp") {
+		t.Fatalf("attemptWithPunch(nil NatHoleResp) error = %v, want nil NatHoleResp error", err)
+	}
+}
 
 func TestAttempt_DirectIPv4HandshakeSucceeds(t *testing.T) {
 	a, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})

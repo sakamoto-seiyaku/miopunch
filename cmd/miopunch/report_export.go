@@ -9,10 +9,13 @@ import (
 	"strings"
 
 	"github.com/miopunch/miopunch/internal/atomicfile"
-	"github.com/miopunch/miopunch/internal/localapi"
 )
 
-func exportTaskReport(ctx context.Context, c *localapi.Client, taskID string, path string, redact bool) error {
+type taskReportGetter interface {
+	GetTaskReport(ctx context.Context, taskID string) (string, error)
+}
+
+func exportTaskReport(ctx context.Context, c taskReportGetter, taskID string, path string, redact bool) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return nil

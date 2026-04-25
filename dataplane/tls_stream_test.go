@@ -3,11 +3,35 @@ package dataplane
 import (
 	"context"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/miopunch/miopunch/connectivity"
 )
+
+func TestConvergePinnedTLS_ConfigFailureClosesCandidates(t *testing.T) {
+	conn, peer := net.Pipe()
+	defer peer.Close()
+
+	tracked := &closeTrackingConn{Conn: conn}
+	_, err := convergePinnedTLS(
+		context.Background(),
+		"",
+		[]byte("secret"),
+		tlsRoleVisitor,
+		tlsRoleClient,
+		true,
+		[]connectivity.TCPConn{{Conn: tracked, Origin: connectivity.TCPConnOriginDial}},
+		nil,
+	)
+	if err == nil {
+		t.Fatalf("convergePinnedTLS(empty sid) error = nil, want error")
+	}
+	if !tracked.closed() {
+		t.Fatalf("convergePinnedTLS(empty sid) did not close candidate connection")
+	}
+}
 
 func TestTLSStream_ConvergesAndExchangesWithMultipleCandidates(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -39,4 +63,24 @@ func TestTLSStream_ConvergesAndExchangesWithMultipleCandidates(t *testing.T) {
 	if err := <-errCh; err != nil {
 		t.Fatalf("ServeAndExchangeTLS() error = %v, want nil", err)
 	}
+}
+
+type closeTrackingConn struct {
+	net.Conn
+
+	mu       sync.Mutex
+	isClosed bool
+}
+
+func (c *closeTrackingConn) Close() error {
+	c.mu.Lock()
+	c.isClosed = true
+	c.mu.Unlock()
+	return c.Conn.Close()
+}
+
+func (c *closeTrackingConn) closed() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.isClosed
 }

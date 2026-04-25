@@ -17,6 +17,7 @@ package wire
 import (
 	"io"
 	"reflect"
+	"sync"
 )
 
 func AsyncHandler(f func(Message)) func(Message) {
@@ -29,10 +30,16 @@ func AsyncHandler(f func(Message)) func(Message) {
 type Dispatcher struct {
 	rw io.ReadWriter
 
-	sendCh         chan Message
-	doneCh         chan struct{}
+	sendCh chan Message
+	doneCh chan struct{}
+
+	handlersMu     sync.RWMutex
 	msgHandlers    map[reflect.Type]func(Message)
 	defaultHandler func(Message)
+
+	doneOnce sync.Once
+	errMu    sync.RWMutex
+	err      error
 }
 
 func NewDispatcher(rw io.ReadWriter) *Dispatcher {
@@ -56,7 +63,10 @@ func (d *Dispatcher) sendLoop() {
 		case <-d.doneCh:
 			return
 		case m := <-d.sendCh:
-			_ = WriteMsg(d.rw, m)
+			if err := WriteMsg(d.rw, m); err != nil {
+				d.closeWithError(err)
+				return
+			}
 		}
 	}
 }
@@ -65,14 +75,13 @@ func (d *Dispatcher) readLoop() {
 	for {
 		m, err := ReadMsg(d.rw)
 		if err != nil {
-			close(d.doneCh)
+			d.closeWithError(err)
 			return
 		}
 
-		if handler, ok := d.msgHandlers[reflect.TypeOf(m)]; ok {
+		handler := d.handlerFor(m)
+		if handler != nil {
 			handler(m)
-		} else if d.defaultHandler != nil {
-			d.defaultHandler(m)
 		}
 	}
 }
@@ -80,6 +89,18 @@ func (d *Dispatcher) readLoop() {
 func (d *Dispatcher) Send(m Message) error {
 	select {
 	case <-d.doneCh:
+		if err := d.Err(); err != nil {
+			return err
+		}
+		return io.EOF
+	default:
+	}
+
+	select {
+	case <-d.doneCh:
+		if err := d.Err(); err != nil {
+			return err
+		}
 		return io.EOF
 	case d.sendCh <- m:
 		return nil
@@ -87,13 +108,41 @@ func (d *Dispatcher) Send(m Message) error {
 }
 
 func (d *Dispatcher) RegisterHandler(msg Message, handler func(Message)) {
+	d.handlersMu.Lock()
+	defer d.handlersMu.Unlock()
 	d.msgHandlers[reflect.TypeOf(msg)] = handler
 }
 
 func (d *Dispatcher) RegisterDefaultHandler(handler func(Message)) {
+	d.handlersMu.Lock()
+	defer d.handlersMu.Unlock()
 	d.defaultHandler = handler
 }
 
 func (d *Dispatcher) Done() chan struct{} {
 	return d.doneCh
+}
+
+func (d *Dispatcher) Err() error {
+	d.errMu.RLock()
+	defer d.errMu.RUnlock()
+	return d.err
+}
+
+func (d *Dispatcher) handlerFor(m Message) func(Message) {
+	d.handlersMu.RLock()
+	defer d.handlersMu.RUnlock()
+	if handler, ok := d.msgHandlers[reflect.TypeOf(m)]; ok {
+		return handler
+	}
+	return d.defaultHandler
+}
+
+func (d *Dispatcher) closeWithError(err error) {
+	d.doneOnce.Do(func() {
+		d.errMu.Lock()
+		d.err = err
+		d.errMu.Unlock()
+		close(d.doneCh)
+	})
 }

@@ -1,6 +1,7 @@
 package coordinator
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -8,6 +9,45 @@ import (
 
 	"github.com/miopunch/miopunch/internal/wire"
 )
+
+func TestControllerGenSid_RandIDFailureFailsClosed(t *testing.T) {
+	c, err := NewController(time.Minute)
+	if err != nil {
+		t.Fatalf("NewController() error = %v, want nil", err)
+	}
+
+	wantErr := errors.New("entropy unavailable")
+	origRandID := randID
+	randID = func() (string, error) {
+		return "", wantErr
+	}
+	t.Cleanup(func() { randID = origRandID })
+
+	got, err := c.GenSid()
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("Controller.GenSid() error = %v, want %v", err, wantErr)
+	}
+	if got != "" {
+		t.Fatalf("Controller.GenSid() sid = %q, want empty on error", got)
+	}
+}
+
+func TestAlignTCPPunchingSendDelays_DelaysReceiverNearSender(t *testing.T) {
+	sender := &wire.TcpDetectBehavior{
+		Role:        DetectRoleSender,
+		SendDelayMs: 3000,
+	}
+	receiver := &wire.TcpDetectBehavior{
+		Role:        DetectRoleReceiver,
+		SendDelayMs: 0,
+	}
+
+	alignTCPPunchingSendDelays(sender, receiver)
+
+	if receiver.SendDelayMs != 2000 {
+		t.Fatalf("alignTCPPunchingSendDelays() receiver SendDelayMs = %d, want 2000", receiver.SendDelayMs)
+	}
+}
 
 func TestControllerAnalysis_AllowsPunchingFallbackWithAssistedAddrs(t *testing.T) {
 	c, err := NewController(time.Minute)

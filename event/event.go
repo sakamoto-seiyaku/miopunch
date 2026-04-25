@@ -82,7 +82,7 @@ func NewEmitter(out io.Writer, role string) *Emitter {
 	}
 }
 
-func (e *Emitter) Emit(ev Event) {
+func (e *Emitter) Emit(ev Event) error {
 	now := e.clock()
 	if ev.TS == "" {
 		ev.TS = now.Format(time.RFC3339Nano)
@@ -97,21 +97,21 @@ func (e *Emitter) Emit(ev Event) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	enc := json.NewEncoder(e.out)
-	_ = enc.Encode(ev)
+	return enc.Encode(ev)
 }
 
-func (e *Emitter) Start(stage Stage, msg string, kvs map[string]any) {
-	e.Emit(Event{Stage: stage, Kind: KindStart, Msg: msg, KVs: kvs})
+func (e *Emitter) Start(stage Stage, msg string, kvs map[string]any) error {
+	return e.Emit(Event{Stage: stage, Kind: KindStart, Msg: msg, KVs: kvs})
 }
 
-func (e *Emitter) OK(stage Stage, msg string, kvs map[string]any) {
-	e.Emit(Event{Stage: stage, Kind: KindOK, Msg: msg, KVs: kvs})
+func (e *Emitter) OK(stage Stage, msg string, kvs map[string]any) error {
+	return e.Emit(Event{Stage: stage, Kind: KindOK, Msg: msg, KVs: kvs})
 }
 
-func (e *Emitter) Fail(stage Stage, err error, msg string, kvs map[string]any) {
+func (e *Emitter) Fail(stage Stage, err error, msg string, kvs map[string]any) error {
 	ev := Event{Stage: stage, Kind: KindFail, Msg: msg, KVs: kvs}
 	if err != nil {
 		ev.Err = err.Error()
 	}
-	e.Emit(ev)
+	return e.Emit(ev)
 }

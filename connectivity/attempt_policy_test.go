@@ -375,6 +375,41 @@ func TestAttemptTCPPunching_DisabledFailsInTCPOnly(t *testing.T) {
 	}
 }
 
+func TestAttemptTCPPunching_InvalidTargetsReturnsBeforeDialing(t *testing.T) {
+	ln, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
+	if err != nil {
+		t.Fatalf("ListenTCP: %v", err)
+	}
+	defer ln.Close()
+
+	resp := &wire.NatHoleResp{
+		TCPPunchingEnabled: true,
+		TCPCandidateAddrs:  []string{"not-an-addr"},
+		TCPDetectBehavior: &wire.TcpDetectBehavior{
+			Mode: 2,
+		},
+	}
+
+	var log bytes.Buffer
+	em := event.NewEmitter(&log, "test")
+	emit := func(ev event.Event) {
+		em.Emit(ev)
+	}
+
+	res, err := attemptTCPPunching(context.Background(), "sid", nil, ln, resp, AttemptConfig{P2PNetwork: P2PNetworkTCPOnly}, emit)
+	if err == nil {
+		t.Fatalf("attemptTCPPunching(invalid targets) error = nil, want error")
+	}
+	if res != nil {
+		t.Fatalf("attemptTCPPunching(invalid targets) result = %#v, want nil", res)
+	}
+
+	names := parseEventNames(t, &log)
+	if indexOf(names, "attempt.tcp_punching.fail") < 0 {
+		t.Fatalf("attemptTCPPunching(invalid targets) events = %v, want fail event", names)
+	}
+}
+
 func TestTCPPunchingRandomPortGuardrails(t *testing.T) {
 	if got := effectiveTCPSendRandomPorts(10000); got != maxTCPSendRandomPorts {
 		t.Fatalf("effectiveTCPSendRandomPorts(10000) = %d, want %d", got, maxTCPSendRandomPorts)

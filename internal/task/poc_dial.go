@@ -84,23 +84,23 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	}
 
 	natHoleVisitorMsg := &wire.NatHoleVisitor{
-		TransactionID: transactionID,
-		ProxyName:     cfg.ProxyName,
-		Protocol:      cfg.DataProto,
-		QuicCC:        cfg.QUICCC,
-		BrutalUpBps:   brutalUpBps,
-		BrutalDownBps: brutalDownBps,
-		Capabilities:  []string{wire.CapabilityTCPP2PV0},
-		P2PNetwork:    cfg.P2PNetwork,
-		DirectAddrs:   gather.DirectAddrs,
-		MappedAddrs:   gather.MappedAddrs,
-		AssistedAddrs: gather.AssistedAddrs,
+		TransactionID:  transactionID,
+		ProxyName:      cfg.ProxyName,
+		Protocol:       cfg.DataProto,
+		QuicCC:         cfg.QUICCC,
+		BrutalUpBps:    brutalUpBps,
+		BrutalDownBps:  brutalDownBps,
+		Capabilities:   []string{wire.CapabilityTCPP2PV0},
+		P2PNetwork:     cfg.P2PNetwork,
+		DirectAddrs:    gather.DirectAddrs,
+		MappedAddrs:    gather.MappedAddrs,
+		AssistedAddrs:  gather.AssistedAddrs,
 		TCPDirectAddrs: gather.TCPDirectAddrs,
 		TCPMappedAddrs: gather.TCPMappedAddrs,
 		TCPSTUNCN:      gather.TCPSTUNCN,
 		TCPSTUNGlobal:  gather.TCPSTUNGlobal,
-		STUNCN:        gather.STUNCN,
-		STUNGlobal:    gather.STUNGlobal,
+		STUNCN:         gather.STUNCN,
+		STUNGlobal:     gather.STUNGlobal,
 	}
 
 	m.setStage(taskID, poc.StageCandidateExchange, "mqtt exchange")

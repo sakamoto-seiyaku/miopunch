@@ -6,7 +6,7 @@
 ## Requirements
 
 ### Requirement: RPC requests include expires_at_unix_ms and are strictly expired
-For POC v0, a control-plane message is an RPC request when `signed.kind` ends with `_request`.
+For POC v0, the system SHALL treat a control-plane message as an RPC request when `signed.kind` ends with `_request`.
 
 An RPC request SHALL include `route.expires_at_unix_ms` (unix milliseconds).
 A receiver SHALL drop an RPC request when `now_unix_ms > route.expires_at_unix_ms`.

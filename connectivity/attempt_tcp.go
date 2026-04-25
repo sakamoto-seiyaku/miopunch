@@ -272,6 +272,7 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 	maxConcurrency := 64
 	totalBudget := 5 * time.Second
 	dialTimeout := 1500 * time.Millisecond
+	dialRoundInterval := 200 * time.Millisecond
 	if cfg.P2PNetwork == P2PNetworkTCPOnly {
 		totalBudget = 10 * time.Second
 		dialTimeout = 2500 * time.Millisecond
@@ -279,6 +280,11 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 	settleWindow := 200 * time.Millisecond
 	sendRandomPorts := effectiveTCPSendRandomPorts(resp.TCPDetectBehavior.SendRandomPorts)
 	listenRandomPorts := effectiveTCPListenRandomPorts(resp.TCPDetectBehavior.ListenRandomPorts)
+	targets, err := buildTCPPunchTargets(resp.TCPCandidateAddrs, resp.TCPDetectBehavior.CandidatePorts, sendRandomPorts)
+	if err != nil {
+		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.tcp_punching.fail", Msg: "tcp punching target build failed", Err: err.Error()})
+		return nil, err
+	}
 
 	emit(event.Event{
 		Stage: event.StageAttempt,
@@ -299,6 +305,7 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 			"max_concurrency":               maxConcurrency,
 			"total_budget_ms":               int(totalBudget.Milliseconds()),
 			"dial_timeout_ms":               int(dialTimeout.Milliseconds()),
+			"dial_round_interval_ms":        int(dialRoundInterval.Milliseconds()),
 			"settle_window_ms":              int(settleWindow.Milliseconds()),
 		},
 	})
@@ -329,6 +336,17 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 	type dialJob struct {
 		srcPort int
 		dst     netip.AddrPort
+	}
+
+	dialJobs := make([]dialJob, 0, len(listeners)*len(targets))
+	for _, ln := range listeners {
+		addr, ok := ln.Addr().(*net.TCPAddr)
+		if !ok {
+			continue
+		}
+		for _, dst := range targets {
+			dialJobs = append(dialJobs, dialJob{srcPort: addr.Port, dst: dst})
+		}
 	}
 
 	jobCh := make(chan dialJob)
@@ -401,12 +419,6 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 		}()
 	}
 
-	targets, err := buildTCPPunchTargets(resp.TCPCandidateAddrs, resp.TCPDetectBehavior.CandidatePorts, sendRandomPorts)
-	if err != nil {
-		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.tcp_punching.fail", Msg: "tcp punching target build failed", Err: err.Error()})
-		return nil, err
-	}
-
 	emit(event.Event{
 		Stage: event.StageAttempt,
 		Kind:  event.KindInfo,
@@ -434,17 +446,30 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 			}
 		}
 
-		for _, ln := range listeners {
-			addr, ok := ln.Addr().(*net.TCPAddr)
-			if !ok {
-				continue
-			}
-			for _, dst := range targets {
+		sendRound := func() bool {
+			for _, job := range dialJobs {
 				select {
 				case <-subCtx.Done():
-					return
-				case jobCh <- dialJob{srcPort: addr.Port, dst: dst}:
+					return false
+				case jobCh <- job:
 				}
+			}
+			return true
+		}
+		if !sendRound() {
+			return
+		}
+
+		ticker := time.NewTicker(dialRoundInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-subCtx.Done():
+				return
+			case <-ticker.C:
+			}
+			if !sendRound() {
+				return
 			}
 		}
 	}()

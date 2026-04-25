@@ -60,4 +60,3 @@ func resolveSTUNServersTCP(ctx context.Context, resolver *netutil.DNSResolver, s
 	errors = append(errors, resolveErrors...)
 	return resolved, ignored, errors
 }
-
