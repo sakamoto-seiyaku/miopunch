@@ -54,6 +54,7 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	m.setStage(taskID, poc.StageCandidateExchange, "gather candidates")
 	gather, err := connectivity.Gather(ctx, sid, connectivity.GatherConfig{
 		ListenPort: 0,
+		P2PNetwork: connectivity.P2PNetwork(cfg.P2PNetwork),
 	})
 	if err != nil {
 		return nil, err
@@ -65,6 +66,12 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 		}
 		if gather.UDP6Conn != nil {
 			_ = gather.UDP6Conn.Close()
+		}
+		if gather.TCP4Listener != nil {
+			_ = gather.TCP4Listener.Close()
+		}
+		if gather.TCP6Listener != nil {
+			_ = gather.TCP6Listener.Close()
 		}
 	}()
 
@@ -83,9 +90,15 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 		QuicCC:        cfg.QUICCC,
 		BrutalUpBps:   brutalUpBps,
 		BrutalDownBps: brutalDownBps,
+		Capabilities:  []string{wire.CapabilityTCPP2PV0},
+		P2PNetwork:    cfg.P2PNetwork,
 		DirectAddrs:   gather.DirectAddrs,
 		MappedAddrs:   gather.MappedAddrs,
 		AssistedAddrs: gather.AssistedAddrs,
+		TCPDirectAddrs: gather.TCPDirectAddrs,
+		TCPMappedAddrs: gather.TCPMappedAddrs,
+		TCPSTUNCN:      gather.TCPSTUNCN,
+		TCPSTUNGlobal:  gather.TCPSTUNGlobal,
 		STUNCN:        gather.STUNCN,
 		STUNGlobal:    gather.STUNGlobal,
 	}
@@ -113,7 +126,9 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	}
 
 	m.setStage(taskID, poc.StagePunchAttempt, "punch attempt")
-	attemptRes, err := connectivity.Attempt(ctx, sid, []byte(cfg.SecretKey), gather.UDP4Conn, gather.UDP6Conn, natHoleRespMsg, connectivity.AttemptConfig{})
+	attemptRes, err := connectivity.Attempt(ctx, sid, []byte(cfg.SecretKey), gather.UDP4Conn, gather.UDP6Conn, gather.TCP4Listener, gather.TCP6Listener, natHoleRespMsg, connectivity.AttemptConfig{
+		P2PNetwork: connectivity.P2PNetwork(cfg.P2PNetwork),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -134,16 +149,29 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	}
 
 	m.setStage(taskID, poc.StageDataplaneHandshake, "data plane dial stream")
-	stream, err := dataplane.DialStream(ctx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
+	var stream io.ReadWriteCloser
+	if len(attemptRes.TCPConns) > 0 {
+		dpCfg.Proto = dataplane.ProtocolTLS
+		stream, err = dataplane.DialTLSStream(ctx, sid, []byte(cfg.SecretKey), attemptRes.TCPConns, nil)
+	} else {
+		stream, err = dataplane.DialStream(ctx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
+	}
 	if err != nil {
 		return nil, err
 	}
 
 	m.addFact(taskID, poc.Fact{TermID: "peer_id", Message: "peer_id=" + peerID})
 	m.addFact(taskID, poc.Fact{TermID: "sid", Message: "sid=" + sid})
-	m.addFact(taskID, poc.Fact{TermID: "data_proto", Message: "data_proto=" + natHoleRespMsg.Protocol})
-	if strings.TrimSpace(natHoleRespMsg.QuicCC) != "" {
-		m.addFact(taskID, poc.Fact{TermID: "quic_cc", Message: "quic_cc=" + natHoleRespMsg.QuicCC})
+	dataProto := natHoleRespMsg.Protocol
+	quicCC := natHoleRespMsg.QuicCC
+	if len(attemptRes.TCPConns) > 0 {
+		dataProto = string(dataplane.ProtocolTLS)
+		quicCC = ""
+	}
+
+	m.addFact(taskID, poc.Fact{TermID: "data_proto", Message: "data_proto=" + dataProto})
+	if strings.TrimSpace(quicCC) != "" {
+		m.addFact(taskID, poc.Fact{TermID: "quic_cc", Message: "quic_cc=" + quicCC})
 	}
 	if strings.TrimSpace(attemptRes.Path) != "" {
 		m.addFact(taskID, poc.Fact{TermID: "attempt_path", Message: "attempt_path=" + attemptRes.Path})
@@ -152,8 +180,8 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	return &dialResult{
 		stream:     stream,
 		sid:        sid,
-		dataProto:  natHoleRespMsg.Protocol,
-		quicCC:     natHoleRespMsg.QuicCC,
+		dataProto:  dataProto,
+		quicCC:     quicCC,
 		attemptWay: attemptRes.Path,
 	}, nil
 }

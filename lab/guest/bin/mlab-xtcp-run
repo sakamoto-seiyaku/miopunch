@@ -39,6 +39,10 @@ Flags:
   --control-proto <tcp|kcp|quic>    Control plane protocol (default: tcp)
   --data-proto <kcp|quic>           Data plane protocol (default: quic)
   --quic-cc <bbr|brutal>            QUIC congestion control (default: bbr; only when --data-proto=quic)
+  --p2p-network <auto|udp_only|tcp_only>
+                                   P2P policy (default: udp_only; legacy stability)
+  -u                                Alias for --p2p-network=udp_only
+  -t                                Alias for --p2p-network=tcp_only
   --proxy <name>                    Proxy name (default: p1)
   --secret <secret>                 Secret key for client side (default: secret)
   --visitor-secret <secret>         Secret key used by visitor (default: same as --secret)
@@ -51,7 +55,7 @@ Flags:
   --expect <success|fail|diag-fail|allow-diag-fail> Expected outcome (default: success)
   --expect-fail-stage <stage>       If set, require a fail event at this stage (e.g. signaling)
   --expect-events-file <path>       Ordered JSON event expectations for visitor.log
-  --expect-path <direct_ipv6|direct_ipv4|punching_ipv4>
+  --expect-path <direct_tcp6|direct_tcp4|punching_tcp4|direct_ipv6|direct_ipv4|punching_ipv4>
                                    If set, require the visitor to succeed via this attempt path
   --verify-artifacts                Require the minimal artifact set before passing
 
@@ -194,6 +198,8 @@ main() {
   local control_proto="tcp"
   local data_proto="quic"
   local quic_cc="bbr"
+  local p2p_network="udp_only"
+  local p2p_network_overridden=0
   local proxy_name="p1"
   local secret="secret"
   local visitor_secret=""
@@ -218,6 +224,9 @@ main() {
       --control-proto) control_proto="${2:-}"; shift 2 ;;
       --data-proto) data_proto="${2:-}"; shift 2 ;;
       --quic-cc) quic_cc="${2:-}"; shift 2 ;;
+      --p2p-network) p2p_network="${2:-}"; p2p_network_overridden=1; shift 2 ;;
+      -u) p2p_network="udp_only"; p2p_network_overridden=1; shift 1 ;;
+      -t) p2p_network="tcp_only"; p2p_network_overridden=1; shift 1 ;;
       --proxy) proxy_name="${2:-}"; shift 2 ;;
       --secret) secret="${2:-}"; shift 2 ;;
       --visitor-secret) visitor_secret="${2:-}"; shift 2 ;;
@@ -248,12 +257,13 @@ main() {
   else
     quic_cc="bbr"
   fi
+  case "${p2p_network}" in auto|udp_only|tcp_only) ;; *) die "invalid --p2p-network: ${p2p_network}" ;; esac
   if [[ "${signaling}" == "mqtt" && -z "${mqtt_broker}" ]]; then
     mqtt_broker="${COORD_IP}:1883"
   fi
   case "${expect}" in success|fail|diag-fail|allow-diag-fail) ;; *) die "invalid --expect: ${expect}" ;; esac
   if [[ -n "${expect_path}" ]]; then
-    case "${expect_path}" in direct_ipv6|direct_ipv4|punching_ipv4) ;; *) die "invalid --expect-path: ${expect_path}" ;; esac
+    case "${expect_path}" in direct_tcp6|direct_tcp4|punching_tcp4|direct_ipv6|direct_ipv4|punching_ipv4) ;; *) die "invalid --expect-path: ${expect_path}" ;; esac
   fi
   if [[ -n "${expect_events_file}" ]]; then
     expect_events_file="$(resolve_path "${expect_events_file}")"
@@ -322,6 +332,8 @@ main() {
     echo "expect_events_file=${expect_events_file}"
     echo "expect_path=${expect_path}"
     echo "verify_artifacts=${verify_artifacts}"
+    echo "p2p_network=${p2p_network}"
+    echo "p2p_network_overridden=${p2p_network_overridden}"
   } >"${run_dir}/run.env"
 
   state_dumped=0
@@ -427,6 +439,7 @@ main() {
     --data-proto "${data_proto}"
     --quic-cc "${quic_cc}"
     --p2p-port "${a_p2p_port}"
+    --p2p-network "${p2p_network}"
   )
   if [[ -n "${attempt_v6_timeout}" ]]; then
     client_cmd+=(--attempt-v6-timeout "${attempt_v6_timeout}")
@@ -489,6 +502,7 @@ main() {
     --quic-cc "${quic_cc}"
     --payload "${payload}"
     --p2p-port "${b_p2p_port}"
+    --p2p-network "${p2p_network}"
   )
   if [[ -n "${attempt_v6_timeout}" ]]; then
     visitor_cmd+=(--attempt-v6-timeout "${attempt_v6_timeout}")
@@ -561,6 +575,15 @@ main() {
 
   if [[ -n "${expect_path}" ]]; then
     case "${expect_path}" in
+      direct_tcp6)
+        grep -q "\"name\":\"attempt.tcp6.ok\"" "${run_dir}/visitor.log" || die "expected path '${expect_path}' not found (run_dir=${run_dir})"
+        ;;
+      direct_tcp4)
+        grep -q "\"name\":\"attempt.tcp4.ok\"" "${run_dir}/visitor.log" || die "expected path '${expect_path}' not found (run_dir=${run_dir})"
+        ;;
+      punching_tcp4)
+        grep -q "\"name\":\"attempt.tcp_punching.ok\"" "${run_dir}/visitor.log" || die "expected path '${expect_path}' not found (run_dir=${run_dir})"
+        ;;
       direct_ipv6)
         grep -q "\"name\":\"attempt.v6.ok\"" "${run_dir}/visitor.log" || die "expected path '${expect_path}' not found (run_dir=${run_dir})"
         ;;

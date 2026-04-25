@@ -33,6 +33,10 @@ const (
 	TypeNatHoleReport  = '6'
 )
 
+const (
+	CapabilityTCPP2PV0 = "tcp_p2p_v0"
+)
+
 var msgTypeMap = map[byte]any{
 	TypePeerHello:     PeerHello{},
 	TypePeerHelloResp: PeerHelloResp{},
@@ -49,6 +53,9 @@ var TypeNameNatHoleResp = reflect.TypeFor[NatHoleResp]().Name()
 type PeerHello struct {
 	Role string `json:"role,omitempty"` // client | visitor
 	User string `json:"user,omitempty"`
+
+	Capabilities []string `json:"capabilities,omitempty"`
+	P2PNetwork   string   `json:"p2p_network,omitempty"` // auto | udp_only | tcp_only
 
 	// client only
 	ProxyName   string   `json:"proxy_name,omitempty"`
@@ -71,6 +78,8 @@ type NatHoleVisitor struct {
 	BrutalDownBps uint64   `json:"brutal_down_bps,omitempty"`
 	SignKey       string   `json:"sign_key,omitempty"`
 	Timestamp     int64    `json:"timestamp,omitempty"`
+	Capabilities  []string `json:"capabilities,omitempty"`
+	P2PNetwork    string   `json:"p2p_network,omitempty"` // auto | udp_only | tcp_only
 	DirectAddrs   []string `json:"direct_addrs,omitempty"`
 	MappedAddrs   []string `json:"mapped_addrs,omitempty"`
 	AssistedAddrs []string `json:"assisted_addrs,omitempty"`
@@ -94,6 +103,8 @@ type NatHoleClient struct {
 	QuicCC        string   `json:"quic_cc,omitempty"`  // bbr | brutal (only when Protocol=quic)
 	BrutalUpBps   uint64   `json:"brutal_up_bps,omitempty"`
 	BrutalDownBps uint64   `json:"brutal_down_bps,omitempty"`
+	Capabilities  []string `json:"capabilities,omitempty"`
+	P2PNetwork    string   `json:"p2p_network,omitempty"` // auto | udp_only | tcp_only
 	DirectAddrs   []string `json:"direct_addrs,omitempty"`
 	MappedAddrs   []string `json:"mapped_addrs,omitempty"`
 	AssistedAddrs []string `json:"assisted_addrs,omitempty"`
@@ -151,6 +162,7 @@ type NatHoleResp struct {
 	QuicCC          string   `json:"quic_cc,omitempty"`
 	BrutalUpBps     uint64   `json:"brutal_up_bps,omitempty"`
 	BrutalDownBps   uint64   `json:"brutal_down_bps,omitempty"`
+	P2PNetwork      string   `json:"p2p_network,omitempty"` // auto | udp_only | tcp_only (effective)
 	SelectedView    string   `json:"selected_view,omitempty"`
 	SelectedReason  string   `json:"selected_reason,omitempty"`
 	PeerDirectAddrs []string `json:"peer_direct_addrs,omitempty"`

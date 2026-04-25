@@ -58,6 +58,17 @@ profile_nat1() {
   local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
   nat_base "${ns}" "${lan_cidr}" "${wan_ip}"
 
+  # Door-2 TCP convention: base=P, listen/punch=L=P+100.
+  #
+  # Keep the external TCP ports stable for P and L so the coordinator can
+  # produce explainable tcp_candidate_addrs and the lab remains deterministic.
+  local tcp_base_port="${p2p_port}"
+  local tcp_listen_port=$((p2p_port + 100))
+  ns_exec "${ns}" iptables -w -t nat -I POSTROUTING 1 -o wan0 -s "${lan_cidr}" -p tcp --sport "${tcp_listen_port}" \
+    -j SNAT --to-source "${wan_ip}:${tcp_listen_port}"
+  ns_exec "${ns}" iptables -w -t nat -I POSTROUTING 1 -o wan0 -s "${lan_cidr}" -p tcp --sport "${tcp_base_port}" \
+    -j SNAT --to-source "${wan_ip}:${tcp_base_port}"
+
   # Mapping open marker for the peer endpoint/port (required to avoid always-on static DNAT).
   ns_exec "${ns}" iptables -w -t mangle -A FORWARD -i lan0 -o wan0 -p udp --sport "${p2p_port}" \
     -m recent --name miopunch_map_open --set
@@ -132,6 +143,17 @@ profile_nat4_regular() {
 profile_nat4_irregular() {
   local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
   nat_base "${ns}" "${lan_cidr}" "${wan_ip}"
+
+  # Door-2 TCP: simulate a "hard" NAT for TCP STUN sampling while keeping the
+  # punching port reachable via one of the derived (+100) candidate ports.
+  local tcp_base_port="${p2p_port}"
+  local tcp_listen_port=$((p2p_port + 100))
+  ns_exec "${ns}" iptables -w -t nat -I POSTROUTING 1 -o wan0 -s "${lan_cidr}" -p tcp --sport "${tcp_base_port}" -d "${STUN_IP}" --dport 3478 \
+    -j SNAT --to-source "${wan_ip}:40000"
+  ns_exec "${ns}" iptables -w -t nat -I POSTROUTING 1 -o wan0 -s "${lan_cidr}" -p tcp --sport "${tcp_base_port}" -d "${STUN_IP}" --dport 3479 \
+    -j SNAT --to-source "${wan_ip}:45000"
+  ns_exec "${ns}" iptables -w -t nat -I POSTROUTING 1 -o wan0 -s "${lan_cidr}" -p tcp --sport "${tcp_listen_port}" \
+    -j SNAT --to-source "${wan_ip}:45100"
 
   # Symmetric-like mapping (APDM-like), with "irregular" port allocation (random within range).
   ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp \

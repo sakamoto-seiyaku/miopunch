@@ -1,0 +1,43 @@
+[
+  {
+    "stage": "gather",
+    "kind": "start",
+    "name": "gather.tcp_stun.start"
+  },
+  {
+    "stage": "gather",
+    "name": "gather.tcp_stun.result",
+    "kvs": {
+      "count": {
+        "op": "ge",
+        "value": 2
+      }
+    }
+  },
+  {
+    "stage": "attempt",
+    "kind": "start",
+    "name": "attempt.tcp_punching.start",
+    "kvs": {
+      "mode": 2,
+      "send_random_ports": {
+        "op": "gt",
+        "value": 0
+      }
+    }
+  },
+  {
+    "stage": "attempt",
+    "kind": "ok",
+    "name": "attempt.tcp_punching.ok"
+  },
+  {
+    "stage": "transport",
+    "kind": "ok",
+    "name": "transport.payload_exchanged",
+    "kvs": {
+      "data_proto": "tls"
+    }
+  }
+]
+

@@ -219,8 +219,18 @@ func (s *Session) RunVisitor(ctx context.Context, m *wire.NatHoleVisitor, analyz
 	}
 
 	visitorResp, clientResp, err := analyze(s.cfg.SID, m, &clientMsg)
-	if err != nil {
-		return nil, err
+	analyzeErr := err
+	if analyzeErr != nil {
+		visitorResp = &wire.NatHoleResp{
+			TransactionID: m.TransactionID,
+			Sid:           s.cfg.SID,
+			Error:         analyzeErr.Error(),
+		}
+		clientResp = &wire.NatHoleResp{
+			TransactionID: clientMsg.TransactionID,
+			Sid:           s.cfg.SID,
+			Error:         analyzeErr.Error(),
+		}
 	}
 
 	if err := s.publishJSON(exchCtx, s.topic("resp/client"), clientResp); err != nil {
@@ -245,6 +255,9 @@ func (s *Session) RunVisitor(ctx context.Context, m *wire.NatHoleVisitor, analyz
 		return nil, err
 	}
 	waitUntil(startAt)
+	if analyzeErr != nil {
+		return visitorResp, analyzeErr
+	}
 	return visitorResp, nil
 }
 

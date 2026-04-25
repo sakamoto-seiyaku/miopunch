@@ -16,6 +16,7 @@ const (
 	defaultMQTTBroker  = "mqtt.eclipseprojects.io:1883"
 	defaultDataProto   = "quic"
 	defaultQUICCC      = "bbr"
+	defaultP2PNetwork  = "auto"
 )
 
 type State struct {
@@ -34,6 +35,8 @@ type LocalConfig struct {
 
 	DataProto string `json:"data_proto"` // quic | kcp
 	QUICCC    string `json:"quic_cc"`    // bbr | brutal (only when data_proto=quic)
+
+	P2PNetwork string `json:"p2p_network,omitempty"` // auto | udp_only | tcp_only
 }
 
 type PeerConfig struct {
@@ -44,6 +47,8 @@ type PeerConfig struct {
 
 	DataProto string `json:"data_proto"` // quic | kcp
 	QUICCC    string `json:"quic_cc"`    // bbr | brutal (only when data_proto=quic)
+
+	P2PNetwork string `json:"p2p_network,omitempty"` // auto | udp_only | tcp_only
 }
 
 func Load(path string) (State, error) {
@@ -147,6 +152,7 @@ func (c LocalConfig) ToPeer() PeerConfig {
 		TopicPrefix: c.TopicPrefix,
 		DataProto:   c.DataProto,
 		QUICCC:      c.QUICCC,
+		P2PNetwork:  c.P2PNetwork,
 	}
 }
 
@@ -166,6 +172,9 @@ func (c *LocalConfig) NormalizeDefaults() {
 	if strings.TrimSpace(c.QUICCC) == "" {
 		c.QUICCC = defaultQUICCC
 	}
+	if strings.TrimSpace(c.P2PNetwork) == "" {
+		c.P2PNetwork = defaultP2PNetwork
+	}
 }
 
 func (c *PeerConfig) NormalizeDefaults() {
@@ -183,5 +192,8 @@ func (c *PeerConfig) NormalizeDefaults() {
 	}
 	if strings.TrimSpace(c.QUICCC) == "" {
 		c.QUICCC = defaultQUICCC
+	}
+	if strings.TrimSpace(c.P2PNetwork) == "" {
+		c.P2PNetwork = defaultP2PNetwork
 	}
 }

@@ -24,6 +24,7 @@ runs=(
   "p2-02-portmap-direct tcp quic success direct_ipv4 ${expect_dir}/p2-02-portmap-direct.events.json --disable-stun --start-natpmpd"
   "p2-03-punching-fallback tcp quic success punching_ipv4 ${expect_dir}/p2-03-punching-fallback.events.json"
   "p2-04-v6-fallback-direct-ipv4 tcp quic success direct_ipv4 ${expect_dir}/p2-04-v6-fallback-direct-ipv4.events.json --disable-stun --start-natpmpd --attempt-v6-timeout 4s"
+  "p2-05-tcp-spraying tcp quic success punching_tcp4 ${expect_dir}/p2-05-tcp-spraying.events.json -t --disable-portmap"
 
   # P3.5 regression: STUN + MQTT signaling (no coord)
   "core-01 tcp quic success - ${expect_dir}/core-01.mqtt.quic.bbr.events.json --signaling mqtt --disable-portmap"

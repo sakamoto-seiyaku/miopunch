@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/internal/controlplane"
 	"github.com/miopunch/miopunch/internal/localapi"
 	"github.com/miopunch/miopunch/internal/poc"
@@ -201,25 +202,178 @@ func runJoin(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 }
 
 func runPing(opt globalOptions, args []string, stdout, stderr io.Writer) int {
+	peerID := ""
+	p2pNetwork := "auto"
+	i := 0
+	for i < len(args) {
+		a := args[i]
+		if a == "--" {
+			i++
+			break
+		}
+
+		switch {
+		case a == "-u":
+			p2pNetwork = "udp_only"
+			i++
+			continue
+		case a == "-t":
+			p2pNetwork = "tcp_only"
+			i++
+			continue
+		case a == "--p2p-network":
+			if i+1 >= len(args) {
+				return exitWithFailure(opt, stdout, stderr, "ping", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "missing value for --p2p-network"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch ping <peer_id> --p2p-network auto|udp_only|tcp_only"},
+					},
+				})
+			}
+			p2pNetwork = args[i+1]
+			i += 2
+			continue
+		case strings.HasPrefix(a, "--p2p-network="):
+			p2pNetwork = strings.TrimPrefix(a, "--p2p-network=")
+			i++
+			continue
+		case strings.HasPrefix(a, "-"):
+			return exitWithFailure(opt, stdout, stderr, "ping", "", failureOutput{
+				Stage:      "cli",
+				ReasonCode: poc.ReasonCodeBadRequest,
+				ExitCode:   poc.ExitCodeBadRequest,
+				Facts:      []poc.Fact{{Message: "unknown arg: " + a}},
+				Suggestions: []poc.Suggestion{
+					{Message: "use: miopunch ping <peer_id> [-u|-t|--p2p-network ...]"},
+				},
+			})
+		default:
+			if peerID == "" {
+				peerID = a
+			}
+			i++
+			continue
+		}
+	}
+
+	for ; i < len(args); i++ {
+		if peerID == "" {
+			peerID = args[i]
+		}
+	}
+
+	network, err := connectivity.ParseP2PNetwork(p2pNetwork)
+	if err != nil {
+		return exitWithFailure(opt, stdout, stderr, "ping", "", failureOutput{
+			Stage:      "cli",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts:      []poc.Fact{{Message: err.Error()}},
+			Suggestions: []poc.Suggestion{
+				{Message: "use: miopunch ping <peer_id> --p2p-network auto|udp_only|tcp_only"},
+			},
+		})
+	}
+
 	var pingArgs any
-	if len(args) >= 1 && strings.TrimSpace(args[0]) != "" {
-		pingArgs = task.PingArgs{PeerID: args[0]}
+	if strings.TrimSpace(peerID) != "" {
+		pingArgs = task.PingArgs{PeerID: peerID, P2PNetwork: string(network)}
 	}
 	return runTaskKind(opt, "ping", pingArgs, stdout, stderr)
 }
 
 func runShLS(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 	peerID := ""
-	if len(args) >= 1 {
-		peerID = args[0]
-	}
 	target := ""
-	if len(args) >= 2 {
-		target = args[1]
+	p2pNetwork := "auto"
+
+	i := 0
+	for i < len(args) {
+		a := args[i]
+		if a == "--" {
+			i++
+			break
+		}
+
+		switch {
+		case a == "-u":
+			p2pNetwork = "udp_only"
+			i++
+			continue
+		case a == "-t":
+			p2pNetwork = "tcp_only"
+			i++
+			continue
+		case a == "--p2p-network":
+			if i+1 >= len(args) {
+				return exitWithFailure(opt, stdout, stderr, "sh_ls", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "missing value for --p2p-network"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch sh ls <peer_id> [target] --p2p-network auto|udp_only|tcp_only"},
+					},
+				})
+			}
+			p2pNetwork = args[i+1]
+			i += 2
+			continue
+		case strings.HasPrefix(a, "--p2p-network="):
+			p2pNetwork = strings.TrimPrefix(a, "--p2p-network=")
+			i++
+			continue
+		case strings.HasPrefix(a, "-"):
+			return exitWithFailure(opt, stdout, stderr, "sh_ls", "", failureOutput{
+				Stage:      "cli",
+				ReasonCode: poc.ReasonCodeBadRequest,
+				ExitCode:   poc.ExitCodeBadRequest,
+				Facts:      []poc.Fact{{Message: "unknown arg: " + a}},
+				Suggestions: []poc.Suggestion{
+					{Message: "use: miopunch sh ls <peer_id> [target] [-u|-t|--p2p-network ...]"},
+				},
+			})
+		default:
+			if peerID == "" {
+				peerID = a
+			} else if target == "" {
+				target = a
+			}
+			i++
+			continue
+		}
 	}
+
+	for ; i < len(args); i++ {
+		if peerID == "" {
+			peerID = args[i]
+			continue
+		}
+		if target == "" {
+			target = args[i]
+			continue
+		}
+	}
+
+	network, err := connectivity.ParseP2PNetwork(p2pNetwork)
+	if err != nil {
+		return exitWithFailure(opt, stdout, stderr, "sh_ls", "", failureOutput{
+			Stage:      "cli",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts:      []poc.Fact{{Message: err.Error()}},
+			Suggestions: []poc.Suggestion{
+				{Message: "use: miopunch sh ls <peer_id> [target] --p2p-network auto|udp_only|tcp_only"},
+			},
+		})
+	}
+
 	var shArgs any
 	if strings.TrimSpace(peerID) != "" {
-		shArgs = task.ShLSArgs{PeerID: peerID, Target: target}
+		shArgs = task.ShLSArgs{PeerID: peerID, Target: target, P2PNetwork: string(network)}
 	}
 	return runTaskKind(opt, "sh_ls", shArgs, stdout, stderr)
 }

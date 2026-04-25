@@ -23,17 +23,26 @@ type ApproveArgs struct {
 
 type PingArgs struct {
 	PeerID string `json:"peer_id"`
+
+	// P2PNetwork overrides session policy for this task invocation.
+	P2PNetwork string `json:"p2p_network,omitempty"` // auto | udp_only | tcp_only
 }
 
 type ShLSArgs struct {
 	PeerID string `json:"peer_id"`
 	Target string `json:"target,omitempty"`
+
+	// P2PNetwork overrides session policy for this task invocation.
+	P2PNetwork string `json:"p2p_network,omitempty"` // auto | udp_only | tcp_only
 }
 
 type ShAttachArgs struct {
 	PeerID  string `json:"peer_id"`
 	Target  string `json:"target,omitempty"`
 	Session string `json:"session,omitempty"`
+
+	// P2PNetwork overrides session policy for this task invocation.
+	P2PNetwork string `json:"p2p_network,omitempty"` // auto | udp_only | tcp_only
 }
 
 type RevokeMemberArgs struct {
@@ -73,12 +82,14 @@ func (a ApproveArgs) normalize() ApproveArgs {
 
 func (a PingArgs) normalize() PingArgs {
 	a.PeerID = strings.TrimSpace(a.PeerID)
+	a.P2PNetwork = strings.TrimSpace(a.P2PNetwork)
 	return a
 }
 
 func (a ShLSArgs) normalize() ShLSArgs {
 	a.PeerID = strings.TrimSpace(a.PeerID)
 	a.Target = strings.TrimSpace(a.Target)
+	a.P2PNetwork = strings.TrimSpace(a.P2PNetwork)
 	return a
 }
 
@@ -86,6 +97,7 @@ func (a ShAttachArgs) normalize() ShAttachArgs {
 	a.PeerID = strings.TrimSpace(a.PeerID)
 	a.Target = strings.TrimSpace(a.Target)
 	a.Session = strings.TrimSpace(a.Session)
+	a.P2PNetwork = strings.TrimSpace(a.P2PNetwork)
 	return a
 }
 

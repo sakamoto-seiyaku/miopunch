@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/shellproto"
 )
@@ -42,6 +43,17 @@ func (m *Manager) runPingTask(taskID string, rawArgs []byte) {
 		m.addSuggestion(taskID, poc.Suggestion{Message: "join first: miopunch join <code>"})
 		m.done(taskID, poc.ReasonCodeNotFound, poc.ExitCodeNotFound)
 		return
+	}
+
+	if strings.TrimSpace(args.P2PNetwork) != "" {
+		network, err := connectivity.ParseP2PNetwork(args.P2PNetwork)
+		if err != nil {
+			m.addFact(taskID, poc.Fact{Message: err.Error()})
+			m.addSuggestion(taskID, poc.Suggestion{Message: "use: --p2p-network auto|udp_only|tcp_only (or -u/-t)"})
+			m.done(taskID, poc.ReasonCodeBadRequest, poc.ExitCodeBadRequest)
+			return
+		}
+		cfg.P2PNetwork = string(network)
 	}
 
 	res, err := m.dialPeerStream(ctx, taskID, args.PeerID, cfg)

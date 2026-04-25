@@ -9,8 +9,12 @@ import (
 func TestWriteReadMsg_RoundTrip(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
 	in := &PeerHello{
-		Role:       "client",
-		User:       "u",
+		Role: "client",
+		User: "u",
+		Capabilities: []string{
+			CapabilityTCPP2PV0,
+		},
+		P2PNetwork: "auto",
 		ProxyName:  "p",
 		SecretKey:  "s",
 		AllowUsers: []string{"*"},
@@ -30,6 +34,12 @@ func TestWriteReadMsg_RoundTrip(t *testing.T) {
 	if hello.Role != in.Role || hello.ProxyName != in.ProxyName {
 		t.Fatalf("mismatch: %#v vs %#v", hello, in)
 	}
+	if hello.P2PNetwork != in.P2PNetwork {
+		t.Fatalf("P2PNetwork = %q, want %q", hello.P2PNetwork, in.P2PNetwork)
+	}
+	if !slices.Equal(hello.Capabilities, in.Capabilities) {
+		t.Fatalf("Capabilities = %v, want %v", hello.Capabilities, in.Capabilities)
+	}
 }
 
 func TestWriteReadMsg_RoundTrip_TCPFields(t *testing.T) {
@@ -37,6 +47,10 @@ func TestWriteReadMsg_RoundTrip_TCPFields(t *testing.T) {
 	in := &NatHoleVisitor{
 		TransactionID: "tx",
 		ProxyName:     "p",
+		Capabilities: []string{
+			CapabilityTCPP2PV0,
+		},
+		P2PNetwork: "tcp_only",
 		TCPDirectAddrs: []string{
 			"192.0.2.1:1111",
 		},
@@ -68,6 +82,13 @@ func TestWriteReadMsg_RoundTrip_TCPFields(t *testing.T) {
 	got, ok := out.(*NatHoleVisitor)
 	if !ok {
 		t.Fatalf("unexpected type: %T", out)
+	}
+
+	if got.P2PNetwork != in.P2PNetwork {
+		t.Fatalf("P2PNetwork = %q, want %q", got.P2PNetwork, in.P2PNetwork)
+	}
+	if !slices.Equal(got.Capabilities, in.Capabilities) {
+		t.Fatalf("Capabilities = %v, want %v", got.Capabilities, in.Capabilities)
 	}
 
 	if !slices.Equal(got.TCPDirectAddrs, in.TCPDirectAddrs) {

@@ -30,6 +30,7 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/internal/authutil"
 	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/wire"
@@ -318,6 +319,31 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 		return nil, nil, fmt.Errorf("unsupported data plane protocol: %q", visitorProto)
 	}
 
+	visitorNetwork, err := connectivity.ParseP2PNetwork(vm.P2PNetwork)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid visitor p2p_network: %w", err)
+	}
+	clientNetwork, err := connectivity.ParseP2PNetwork(cm.P2PNetwork)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid client p2p_network: %w", err)
+	}
+	effectiveNetwork, err := connectivity.MergeP2PNetwork(visitorNetwork, clientNetwork)
+	if err != nil {
+		return nil, nil, fmt.Errorf("p2p_network mismatch: visitor=%s client=%s: %w", visitorNetwork, clientNetwork, err)
+	}
+	if effectiveNetwork == connectivity.P2PNetworkTCPOnly {
+		missing := make([]string, 0, 2)
+		if !slices.Contains(vm.Capabilities, wire.CapabilityTCPP2PV0) {
+			missing = append(missing, "visitor")
+		}
+		if !slices.Contains(cm.Capabilities, wire.CapabilityTCPP2PV0) {
+			missing = append(missing, "client")
+		}
+		if len(missing) > 0 {
+			return nil, nil, fmt.Errorf("tcp_only requires capability %q (missing: %s)", wire.CapabilityTCPP2PV0, strings.Join(missing, ","))
+		}
+	}
+
 	var quicCC string
 	var brutalUpBps, brutalDownBps uint64
 	if visitorProto == "quic" {
@@ -360,6 +386,7 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 		QuicCC:          quicCC,
 		BrutalUpBps:     brutalUpBps,
 		BrutalDownBps:   brutalDownBps,
+		P2PNetwork:      string(effectiveNetwork),
 		PeerDirectAddrs: slices.Compact(cm.DirectAddrs),
 	}
 	cResp := &wire.NatHoleResp{
@@ -369,6 +396,7 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 		QuicCC:          quicCC,
 		BrutalUpBps:     brutalUpBps,
 		BrutalDownBps:   brutalDownBps,
+		P2PNetwork:      string(effectiveNetwork),
 		PeerDirectAddrs: slices.Compact(vm.DirectAddrs),
 	}
 
@@ -500,8 +528,136 @@ func (c *Controller) analysis(session *Session) (*wire.NatHoleResp, *wire.NatHol
 	// the original repeated mapped_addrs samples.
 	vResp.CandidateAddrs = slices.Compact(slices.Clone(clientMapped))
 	cResp.CandidateAddrs = slices.Compact(slices.Clone(visitorMapped))
-	vResp.TCPCandidateAddrs = dedupStringsInOrder(clientTCPMapped)
-	cResp.TCPCandidateAddrs = dedupStringsInOrder(visitorTCPMapped)
+
+	clientTCPCandidates, invalidTCP := offsetHostPorts(clientTCPMapped, 100)
+	if len(invalidTCP) > 0 {
+		logutil.Debugf("sid [%s] drop invalid client tcp_candidate_addrs (+100): %v", session.sid, invalidTCP)
+	}
+	visitorTCPCandidates, invalidTCP := offsetHostPorts(visitorTCPMapped, 100)
+	if len(invalidTCP) > 0 {
+		logutil.Debugf("sid [%s] drop invalid visitor tcp_candidate_addrs (+100): %v", session.sid, invalidTCP)
+	}
+	vResp.TCPCandidateAddrs = dedupStringsInOrder(clientTCPCandidates)
+	cResp.TCPCandidateAddrs = dedupStringsInOrder(visitorTCPCandidates)
+
+	// Door 2 (TCP): derive punching enablement and detect behavior independently
+	// from UDP punching analysis. When evidence is insufficient, disable TCP
+	// punching with an explainable error and allow attempt to continue via direct
+	// candidates or UDP fallback (unless tcp_only).
+	vResp.TCPPunchingEnabled = false
+	cResp.TCPPunchingEnabled = false
+	vResp.TCPPunchingError = ""
+	cResp.TCPPunchingError = ""
+	vResp.TCPDetectBehavior = nil
+	cResp.TCPDetectBehavior = nil
+
+	if effectiveNetwork == connectivity.P2PNetworkUDPOnly {
+		vResp.TCPPunchingError = "tcp punching disabled by p2p_network=udp_only"
+		cResp.TCPPunchingError = vResp.TCPPunchingError
+	} else {
+		if len(clientTCPMapped) < 2 || len(visitorTCPMapped) < 2 {
+			vResp.TCPPunchingError = fmt.Sprintf(
+				"tcp punching disabled: insufficient tcp_mapped_addrs samples (client=%d visitor=%d)",
+				len(clientTCPMapped),
+				len(visitorTCPMapped),
+			)
+			cResp.TCPPunchingError = vResp.TCPPunchingError
+		} else if len(vResp.TCPCandidateAddrs) == 0 || len(cResp.TCPCandidateAddrs) == 0 {
+			vResp.TCPPunchingError = "tcp punching disabled: no usable tcp_candidate_addrs after +100 offset"
+			cResp.TCPPunchingError = vResp.TCPPunchingError
+		} else {
+			clientLocalIPs := parseIPs(vResp.AssistedAddrs)
+			cTCPNatFeature, err := ClassifyNATFeature(clientTCPMapped, clientLocalIPs)
+			if err != nil {
+				vResp.TCPPunchingError = fmt.Sprintf("tcp punching disabled: classify client nat feature error: %v", err)
+				cResp.TCPPunchingError = vResp.TCPPunchingError
+			} else {
+				visitorLocalIPs := parseIPs(cResp.AssistedAddrs)
+				vTCPNatFeature, err := ClassifyNATFeature(visitorTCPMapped, visitorLocalIPs)
+				if err != nil {
+					vResp.TCPPunchingError = fmt.Sprintf("tcp punching disabled: classify visitor nat feature error: %v", err)
+					cResp.TCPPunchingError = vResp.TCPPunchingError
+				} else {
+					tcpAnalysisKey := natAnalysisKey("tcp", visitorTCPMapped, vTCPNatFeature, clientTCPMapped, cTCPNatFeature)
+					mode, index, cBehavior, vBehavior := c.analyzer.GetRecommandBehaviors(tcpAnalysisKey, cTCPNatFeature, vTCPNatFeature)
+
+					tcpBudgetMs := 5000
+					if effectiveNetwork == connectivity.P2PNetworkTCPOnly {
+						tcpBudgetMs = 10000
+					}
+
+					vSendRandomPorts := 0
+					vListenRandomPorts := 0
+					cSendRandomPorts := 0
+					cListenRandomPorts := 0
+					if mode == DetectMode2 || mode == DetectMode4 {
+						const (
+							tcpSpraySendRandomPorts   = 128
+							tcpSprayListenRandomPorts = 32
+						)
+						if vBehavior.Role == DetectRoleSender {
+							vSendRandomPorts = tcpSpraySendRandomPorts
+						}
+						if vBehavior.Role == DetectRoleReceiver {
+							vListenRandomPorts = tcpSprayListenRandomPorts
+						}
+						if cBehavior.Role == DetectRoleSender {
+							cSendRandomPorts = tcpSpraySendRandomPorts
+						}
+						if cBehavior.Role == DetectRoleReceiver {
+							cListenRandomPorts = tcpSprayListenRandomPorts
+						}
+					}
+
+					vReadTimeout := max(tcpBudgetMs-vBehavior.SendDelayMs, 0)
+					cReadTimeout := max(tcpBudgetMs-cBehavior.SendDelayMs, 0)
+
+					vResp.TCPPunchingEnabled = true
+					cResp.TCPPunchingEnabled = true
+					vResp.TCPPunchingError = ""
+					cResp.TCPPunchingError = ""
+					vResp.TCPDetectBehavior = &wire.TcpDetectBehavior{
+						Mode:              mode,
+						Role:              vBehavior.Role,
+						SendDelayMs:       vBehavior.SendDelayMs,
+						ReadTimeoutMs:     vReadTimeout,
+						SendRandomPorts:   vSendRandomPorts,
+						ListenRandomPorts: vListenRandomPorts,
+						CandidatePorts: offsetPortsRanges(
+							getRangePorts(clientTCPMapped, cTCPNatFeature.PortsDifference, vBehavior.PortsRangeNumber),
+							100,
+						),
+					}
+					cResp.TCPDetectBehavior = &wire.TcpDetectBehavior{
+						Mode:              mode,
+						Role:              cBehavior.Role,
+						SendDelayMs:       cBehavior.SendDelayMs,
+						ReadTimeoutMs:     cReadTimeout,
+						SendRandomPorts:   cSendRandomPorts,
+						ListenRandomPorts: cListenRandomPorts,
+						CandidatePorts: offsetPortsRanges(
+							getRangePorts(visitorTCPMapped, vTCPNatFeature.PortsDifference, cBehavior.PortsRangeNumber),
+							100,
+						),
+					}
+
+					logutil.Debugf(
+						"sid [%s] tcp nat: visitor=%+v client=%+v -> mode=%d index=%d visitor_role=%s client_role=%s budget_ms=%d",
+						session.sid,
+						*vTCPNatFeature,
+						*cTCPNatFeature,
+						mode,
+						index,
+						vBehavior.Role,
+						cBehavior.Role,
+						tcpBudgetMs,
+					)
+					logutil.Debugf("sid [%s] visitor tcp detect behavior: %+v", session.sid, vResp.TCPDetectBehavior)
+					logutil.Debugf("sid [%s] client tcp detect behavior: %+v", session.sid, cResp.TCPDetectBehavior)
+				}
+			}
+		}
+	}
 
 	// NAT analysis requires at least two (non-empty) mapped addrs per peer. When
 	// unavailable, we still allow a best-effort punching attempt using assisted
@@ -634,6 +790,84 @@ func getRangePorts(addrs []string, difference, maxNumber int) []wire.PortsRange 
 		To:   min(port+difference+5, port+maxNumber, 65535),
 	})
 	return ports
+}
+
+func offsetPortsRanges(ranges []wire.PortsRange, delta int) []wire.PortsRange {
+	if len(ranges) == 0 || delta == 0 {
+		return ranges
+	}
+
+	out := make([]wire.PortsRange, 0, len(ranges))
+	for _, r := range ranges {
+		from := r.From + delta
+		to := r.To + delta
+		if from > 65535 {
+			continue
+		}
+		if to > 65535 {
+			to = 65535
+		}
+		if from < 1 {
+			from = 1
+		}
+		if from > to {
+			continue
+		}
+		out = append(out, wire.PortsRange{From: from, To: to})
+	}
+	return out
+}
+
+func offsetHostPorts(addrs []string, delta int) (valid []string, invalid []string) {
+	valid = make([]string, 0, len(addrs))
+	invalid = make([]string, 0)
+
+	for _, addr := range addrs {
+		host, portStr, err := net.SplitHostPort(addr)
+		if err != nil {
+			invalid = append(invalid, addr)
+			continue
+		}
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			invalid = append(invalid, addr)
+			continue
+		}
+		port += delta
+		if port <= 0 || port > 65535 {
+			invalid = append(invalid, addr)
+			continue
+		}
+		valid = append(valid, net.JoinHostPort(host, strconv.Itoa(port)))
+	}
+	return valid, invalid
+}
+
+func natAnalysisKey(prefix string, visitorMapped []string, vFeature *NatFeature, clientMapped []string, cFeature *NatFeature) string {
+	hash := md5.New()
+	hash.Write([]byte(prefix))
+	hash.Write([]byte{0})
+
+	vIPs := slices.Compact(parseIPs(visitorMapped))
+	if len(vIPs) > 0 {
+		hash.Write([]byte(vIPs[0]))
+	}
+	if vFeature != nil {
+		hash.Write([]byte(vFeature.NatType))
+		hash.Write([]byte(vFeature.Behavior))
+		hash.Write([]byte(strconv.FormatBool(vFeature.RegularPortsChange)))
+	}
+
+	cIPs := slices.Compact(parseIPs(clientMapped))
+	if len(cIPs) > 0 {
+		hash.Write([]byte(cIPs[0]))
+	}
+	if cFeature != nil {
+		hash.Write([]byte(cFeature.NatType))
+		hash.Write([]byte(cFeature.Behavior))
+		hash.Write([]byte(strconv.FormatBool(cFeature.RegularPortsChange)))
+	}
+	return hex.EncodeToString(hash.Sum(nil))
 }
 
 func parseIPs(addrs []string) []string {

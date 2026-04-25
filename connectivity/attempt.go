@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/miopunch/miopunch/event"
@@ -17,6 +18,8 @@ type AttemptConfig struct {
 	AttemptV6Timeout      time.Duration
 	AttemptPortmapTimeout time.Duration
 
+	P2PNetwork P2PNetwork
+
 	P2PIPFamily P2PIPFamily
 
 	DirectSendCount    int
@@ -25,19 +28,36 @@ type AttemptConfig struct {
 	Emitter *event.Emitter
 }
 
+type TCPConnOrigin string
+
+const (
+	TCPConnOriginDial   TCPConnOrigin = "dial"
+	TCPConnOriginAccept TCPConnOrigin = "accept"
+)
+
+type TCPConn struct {
+	Conn   net.Conn
+	Origin TCPConnOrigin
+}
+
 type AttemptResult struct {
 	Path   string
 	Conn   *net.UDPConn
 	Remote *net.UDPAddr
+
+	// TCPConns is populated when the selected path is TCP. It may include multiple
+	// simultaneously successful connections; the data plane is responsible for
+	// selecting a single winner and closing non-winners.
+	TCPConns []TCPConn
 }
 
 type PunchFunc func(ctx context.Context, listenConn *net.UDPConn, resp *wire.NatHoleResp, key []byte) (*net.UDPConn, *net.UDPAddr, error)
 
-func Attempt(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, udp6Conn *net.UDPConn, resp *wire.NatHoleResp, cfg AttemptConfig) (*AttemptResult, error) {
-	return attemptWithPunch(ctx, sid, key, udp4Conn, udp6Conn, resp, cfg, punching.MakeHole)
+func Attempt(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, udp6Conn *net.UDPConn, tcp4Listener *net.TCPListener, tcp6Listener *net.TCPListener, resp *wire.NatHoleResp, cfg AttemptConfig) (*AttemptResult, error) {
+	return attemptWithPunch(ctx, sid, key, udp4Conn, udp6Conn, tcp4Listener, tcp6Listener, resp, cfg, punching.MakeHole)
 }
 
-func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, udp6Conn *net.UDPConn, resp *wire.NatHoleResp, cfg AttemptConfig, punch PunchFunc) (*AttemptResult, error) {
+func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, udp6Conn *net.UDPConn, tcp4Listener *net.TCPListener, tcp6Listener *net.TCPListener, resp *wire.NatHoleResp, cfg AttemptConfig, punch PunchFunc) (*AttemptResult, error) {
 	if cfg.AttemptV6Timeout == 0 {
 		cfg.AttemptV6Timeout = 800 * time.Millisecond
 	}
@@ -58,6 +78,19 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 		}
 	}
 
+	network, err := ParseP2PNetwork(string(cfg.P2PNetwork))
+	if err != nil {
+		return nil, err
+	}
+	effectiveNetwork := network
+	if strings.TrimSpace(resp.P2PNetwork) != "" {
+		effectiveNetwork, err = ParseP2PNetwork(resp.P2PNetwork)
+		if err != nil {
+			return nil, fmt.Errorf("invalid resp p2p_network: %w", err)
+		}
+	}
+	cfg.P2PNetwork = effectiveNetwork
+
 	family, err := ParseP2PIPFamily(string(cfg.P2PIPFamily))
 	if err != nil {
 		return nil, err
@@ -66,208 +99,250 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 
 	allowV4 := cfg.P2PIPFamily != P2PIPFamilyV6
 	allowV6 := cfg.P2PIPFamily != P2PIPFamilyV4
+	allowTCP := cfg.P2PNetwork != P2PNetworkUDPOnly
+	allowUDP := cfg.P2PNetwork != P2PNetworkTCPOnly
 
-	if cfg.P2PIPFamily == P2PIPFamilyV6 && udp6Conn == nil {
+	if allowUDP && cfg.P2PIPFamily == P2PIPFamilyV6 && udp6Conn == nil {
 		return nil, errors.New("udp6 conn is required for p2p ip family v6")
 	}
-	if allowV4 && udp4Conn == nil {
+	if allowUDP && allowV4 && udp4Conn == nil {
 		return nil, errors.New("udp4 conn is required")
 	}
 	if resp == nil {
 		return nil, errors.New("nil NatHoleResp")
 	}
+	if strings.TrimSpace(resp.Error) != "" {
+		err := fmt.Errorf("exchange failed: %s", strings.TrimSpace(resp.Error))
+		emit(event.Event{
+			Stage: event.StageAttempt,
+			Kind:  event.KindFail,
+			Name:  "attempt.exchange.failed",
+			Msg:   "exchange failed",
+			Err:   err.Error(),
+		})
+		return nil, err
+	}
 
-	parsed := ParseDirectAddrPorts(resp.PeerDirectAddrs)
-	if len(parsed.Invalid) > 0 {
+	parsedUDP := ParseDirectAddrPorts(resp.PeerDirectAddrs)
+	if len(parsedUDP.Invalid) > 0 {
 		emit(event.Event{
 			Stage: event.StageAttempt,
 			Kind:  event.KindInfo,
 			Name:  "attempt.peer_direct_addrs.invalid",
 			Msg:   "invalid peer direct_addrs dropped",
 			KVs: map[string]any{
-				"count": len(parsed.Invalid),
+				"count": len(parsedUDP.Invalid),
 			},
 		})
 	}
 
-	peerV6, peerV4 := SplitAddrPortsByFamily(parsed.Addrs)
+	parsedTCP := ParseDirectAddrPorts(resp.PeerTCPDirectAddrs)
+	if len(parsedTCP.Invalid) > 0 {
+		emit(event.Event{
+			Stage: event.StageAttempt,
+			Kind:  event.KindInfo,
+			Name:  "attempt.peer_tcp_direct_addrs.invalid",
+			Msg:   "invalid peer tcp_direct_addrs dropped",
+			KVs: map[string]any{
+				"count": len(parsedTCP.Invalid),
+			},
+		})
+	}
+
+	peerUDPV6, peerUDPV4 := SplitAddrPortsByFamily(parsedUDP.Addrs)
+	peerTCPV6, peerTCPV4 := SplitAddrPortsByFamily(parsedTCP.Addrs)
 	emit(event.Event{
 		Stage: event.StageAttempt,
 		Kind:  event.KindStart,
 		Name:  "attempt.start",
 		Msg:   "attempt start",
 		KVs: map[string]any{
+			"p2p_network":   cfg.P2PNetwork,
 			"p2p_ip_family": cfg.P2PIPFamily,
-			"peer_v6":       len(peerV6),
-			"peer_v4":       len(peerV4),
+			"peer_v6":       len(peerUDPV6),
+			"peer_v4":       len(peerUDPV4),
+			"peer_tcp_v6":   len(peerTCPV6),
+			"peer_tcp_v4":   len(peerTCPV4),
 		},
 	})
 
-	if cfg.P2PIPFamily == P2PIPFamilyV6 && len(peerV6) == 0 {
-		err := errors.New("p2p ip family v6 requires peer ipv6 candidates")
+	if cfg.P2PIPFamily == P2PIPFamilyV6 && len(peerUDPV6) == 0 && len(peerTCPV6) == 0 {
+		err := errors.New("p2p ip family v6 requires peer ipv6 candidates (tcp or udp)")
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.v6.required", Msg: "ipv6-only requires peer ipv6 candidates", Err: err.Error()})
 		return nil, err
 	}
 
-	// 1) IPv6 direct
-	var v6DirectErr error
-	if allowV6 && udp6Conn != nil && len(peerV6) > 0 {
-		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindStart, Name: "attempt.v6.start", Msg: "attempt ipv6 direct"})
+	var attemptErr error
 
-		for _, cand := range peerV6 {
-			emit(event.Event{
-				Stage: event.StageAttempt,
-				Kind:  event.KindStart,
-				Name:  "attempt.candidate.begin",
-				Msg:   "candidate begin",
-				KVs: map[string]any{
-					"path":      "direct_ipv6",
-					"candidate": cand.String(),
-				},
-			})
+	// Order: tcp6 -> tcp4 -> udp6 -> udp4.
+	if allowTCP && allowV6 && tcp6Listener != nil && len(peerTCPV6) > 0 {
+		res, err := attemptTCPDirect(ctx, sid, key, tcp6Listener, peerTCPV6, cfg, emit, "direct_tcp6")
+		if err == nil && res != nil {
+			return res, nil
 		}
-
-		stepStart := time.Now()
-		subCtx, cancel := context.WithTimeout(ctx, cfg.AttemptV6Timeout)
-		raddr, winner, err := directHandshakeFanout(subCtx, udp6Conn, sid, key, peerV6, cfg.DirectSendCount, cfg.DirectSendInterval)
-		cancel()
-		if err == nil {
-			for _, cand := range peerV6 {
-				ev := event.Event{
-					Stage: event.StageAttempt,
-					Kind:  event.KindInfo,
-					Name:  "attempt.candidate.end",
-					Msg:   "candidate canceled",
-					KVs: map[string]any{
-						"path":      "direct_ipv6",
-						"candidate": cand.String(),
-						"winner":    winner.String(),
-						"reason":    "winner_selected",
-					},
-				}
-				if cand == winner {
-					ev.Kind = event.KindOK
-					ev.Msg = "candidate ok"
-					ev.KVs["reason"] = "reachable"
-				}
-				emit(ev)
-			}
-
-			emit(event.Event{
-				Stage: event.StageAttempt,
-				Kind:  event.KindOK,
-				Name:  "attempt.v6.ok",
-				Msg:   "ipv6 direct ok",
-				KVs: map[string]any{
-					"winner": winner.String(),
-					"raddr":  raddr.String(),
-					"ms":     time.Since(stepStart).Milliseconds(),
-				},
-			})
-			return &AttemptResult{Path: "direct_ipv6", Conn: udp6Conn, Remote: raddr}, nil
-		}
-
-		v6DirectErr = err
-		for _, cand := range peerV6 {
-			emit(event.Event{
-				Stage: event.StageAttempt,
-				Kind:  event.KindInfo,
-				Name:  "attempt.candidate.end",
-				Msg:   "candidate timeout",
-				Err:   err.Error(),
-				KVs: map[string]any{
-					"path":      "direct_ipv6",
-					"candidate": cand.String(),
-					"reason":    "timeout",
-				},
-			})
-		}
-		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindInfo, Name: "attempt.v6.fail", Msg: "ipv6 direct failed", Err: err.Error()})
+		attemptErr = err
 	}
 
-	// 2) IPv4 direct (portmap candidates)
+	if allowTCP && allowV4 && tcp4Listener != nil {
+		if len(peerTCPV4) > 0 {
+			res, err := attemptTCPDirect(ctx, sid, key, tcp4Listener, peerTCPV4, cfg, emit, "direct_tcp4")
+			if err == nil && res != nil {
+				return res, nil
+			}
+			attemptErr = err
+		}
+
+		res, err := attemptTCPPunching(ctx, sid, key, tcp4Listener, resp, cfg, emit)
+		if err == nil && res != nil {
+			return res, nil
+		}
+		if err != nil {
+			attemptErr = err
+		}
+	}
+
+	if allowUDP && allowV6 && udp6Conn != nil && len(peerUDPV6) > 0 {
+		res, err := attemptUDPDirect(ctx, sid, key, udp6Conn, peerUDPV6, cfg, emit, "direct_ipv6")
+		if err == nil && res != nil {
+			return res, nil
+		}
+		attemptErr = err
+	}
+
+	if allowUDP && allowV4 && udp4Conn != nil && len(peerUDPV4) > 0 {
+		res, err := attemptUDPDirect(ctx, sid, key, udp4Conn, peerUDPV4, cfg, emit, "direct_ipv4")
+		if err == nil && res != nil {
+			return res, nil
+		}
+		attemptErr = err
+	}
+
 	if cfg.P2PIPFamily == P2PIPFamilyV6 {
-		return nil, v6DirectErr
+		if attemptErr == nil {
+			attemptErr = errors.New("ipv6-only attempt failed")
+		}
+		return nil, attemptErr
 	}
 
-	if allowV4 && len(peerV4) > 0 {
+	if !allowUDP {
+		if attemptErr == nil {
+			attemptErr = errors.New("tcp-only attempt failed")
+		}
+		return nil, attemptErr
+	}
+
+	if !allowV4 || udp4Conn == nil {
+		if attemptErr == nil {
+			attemptErr = errors.New("udp4 conn is required for udp punching")
+		}
+		return nil, attemptErr
+	}
+
+	// UDP4 punching fallback (P1 kernel).
+	return attemptUDPPunching(ctx, sid, key, udp4Conn, resp, cfg, emit, punch, attemptErr)
+}
+
+func attemptUDPDirect(ctx context.Context, sid string, key []byte, conn *net.UDPConn, candidates []netip.AddrPort, cfg AttemptConfig, emit func(event.Event), path string) (*AttemptResult, error) {
+	if path == "direct_ipv6" {
+		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindStart, Name: "attempt.v6.start", Msg: "attempt ipv6 direct"})
+	} else {
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindStart, Name: "attempt.v4.start", Msg: "attempt ipv4 direct"})
+	}
 
-		for _, cand := range peerV4 {
-			emit(event.Event{
-				Stage: event.StageAttempt,
-				Kind:  event.KindStart,
-				Name:  "attempt.candidate.begin",
-				Msg:   "candidate begin",
-				KVs: map[string]any{
-					"path":      "direct_ipv4",
-					"candidate": cand.String(),
-				},
-			})
-		}
+	for _, cand := range candidates {
+		emit(event.Event{
+			Stage: event.StageAttempt,
+			Kind:  event.KindStart,
+			Name:  "attempt.candidate.begin",
+			Msg:   "candidate begin",
+			KVs: map[string]any{
+				"path":      path,
+				"candidate": cand.String(),
+			},
+		})
+	}
 
-		stepStart := time.Now()
-		subCtx, cancel := context.WithTimeout(ctx, cfg.AttemptPortmapTimeout)
-		raddr, winner, err := directHandshakeFanout(subCtx, udp4Conn, sid, key, peerV4, cfg.DirectSendCount, cfg.DirectSendInterval)
-		cancel()
-		if err == nil {
-			for _, cand := range peerV4 {
-				ev := event.Event{
-					Stage: event.StageAttempt,
-					Kind:  event.KindInfo,
-					Name:  "attempt.candidate.end",
-					Msg:   "candidate canceled",
-					KVs: map[string]any{
-						"path":      "direct_ipv4",
-						"candidate": cand.String(),
-						"winner":    winner.String(),
-						"reason":    "winner_selected",
-					},
-				}
-				if cand == winner {
-					ev.Kind = event.KindOK
-					ev.Msg = "candidate ok"
-					ev.KVs["reason"] = "reachable"
-				}
-				emit(ev)
-			}
+	stepStart := time.Now()
+	timeout := cfg.AttemptPortmapTimeout
+	if path == "direct_ipv6" {
+		timeout = cfg.AttemptV6Timeout
+	}
 
-			emit(event.Event{
-				Stage: event.StageAttempt,
-				Kind:  event.KindOK,
-				Name:  "attempt.v4.ok",
-				Msg:   "ipv4 direct ok",
-				KVs: map[string]any{
-					"winner": winner.String(),
-					"raddr":  raddr.String(),
-					"ms":     time.Since(stepStart).Milliseconds(),
-				},
-			})
-			return &AttemptResult{Path: "direct_ipv4", Conn: udp4Conn, Remote: raddr}, nil
-		}
-
-		for _, cand := range peerV4 {
-			emit(event.Event{
+	subCtx, cancel := context.WithTimeout(ctx, timeout)
+	raddr, winner, err := directHandshakeFanout(subCtx, conn, sid, key, candidates, cfg.DirectSendCount, cfg.DirectSendInterval)
+	cancel()
+	if err == nil {
+		for _, cand := range candidates {
+			ev := event.Event{
 				Stage: event.StageAttempt,
 				Kind:  event.KindInfo,
 				Name:  "attempt.candidate.end",
-				Msg:   "candidate timeout",
-				Err:   err.Error(),
+				Msg:   "candidate canceled",
 				KVs: map[string]any{
-					"path":      "direct_ipv4",
+					"path":      path,
 					"candidate": cand.String(),
-					"reason":    "timeout",
+					"winner":    winner.String(),
+					"reason":    "winner_selected",
 				},
-			})
+			}
+			if cand == winner {
+				ev.Kind = event.KindOK
+				ev.Msg = "candidate ok"
+				ev.KVs["reason"] = "reachable"
+			}
+			emit(ev)
 		}
+
+		evName := "attempt.v4.ok"
+		evMsg := "ipv4 direct ok"
+		if path == "direct_ipv6" {
+			evName = "attempt.v6.ok"
+			evMsg = "ipv6 direct ok"
+		}
+		emit(event.Event{
+			Stage: event.StageAttempt,
+			Kind:  event.KindOK,
+			Name:  evName,
+			Msg:   evMsg,
+			KVs: map[string]any{
+				"winner": winner.String(),
+				"raddr":  raddr.String(),
+				"ms":     time.Since(stepStart).Milliseconds(),
+			},
+		})
+		return &AttemptResult{Path: path, Conn: conn, Remote: raddr}, nil
+	}
+
+	for _, cand := range candidates {
+		emit(event.Event{
+			Stage: event.StageAttempt,
+			Kind:  event.KindInfo,
+			Name:  "attempt.candidate.end",
+			Msg:   "candidate timeout",
+			Err:   err.Error(),
+			KVs: map[string]any{
+				"path":      path,
+				"candidate": cand.String(),
+				"reason":    "timeout",
+			},
+		})
+	}
+	if path == "direct_ipv6" {
+		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindInfo, Name: "attempt.v6.fail", Msg: "ipv6 direct failed", Err: err.Error()})
+	} else {
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindInfo, Name: "attempt.v4.fail", Msg: "ipv4 direct failed", Err: err.Error()})
 	}
+	return nil, err
+}
 
-	// 3) Punching fallback (P1 kernel)
+func attemptUDPPunching(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, resp *wire.NatHoleResp, cfg AttemptConfig, emit func(event.Event), punch PunchFunc, lastErr error) (*AttemptResult, error) {
 	punchingPossible := resp.PunchingEnabled || len(resp.CandidateAddrs) > 0 || len(resp.AssistedAddrs) > 0
 	if !punchingPossible {
 		err := fmt.Errorf("punching disabled: %s", resp.PunchingError)
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.punching.disabled", Msg: "punching disabled", Err: err.Error()})
+		if lastErr != nil {
+			return nil, fmt.Errorf("%w (udp fallback: %v)", err, lastErr)
+		}
 		return nil, err
 	}
 	if len(resp.CandidateAddrs) == 0 && len(resp.AssistedAddrs) == 0 {

@@ -2,8 +2,10 @@ package control
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -19,6 +21,9 @@ func testDialListen(t *testing.T, proto Protocol) {
 
 	l, err := Listen("127.0.0.1:0", proto)
 	if err != nil {
+		if errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
+			t.Skipf("sockets not permitted in this environment: %v", err)
+		}
 		t.Fatalf("Listen(%s): %v", proto, err)
 	}
 	defer l.Close()

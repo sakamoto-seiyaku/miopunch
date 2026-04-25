@@ -111,8 +111,16 @@ func runPortMap(ctx context.Context, opts PortMapOptions, mappers []portMapperFu
 }
 
 func portmapUPnP(ctx context.Context, internalPort int, lease time.Duration) (PortMapAttemptResult, PortMapCleanup) {
+	return portmapUPnPWithProto(ctx, internalPort, lease, "UDP", "upnp")
+}
+
+func portmapUPnPTCP(ctx context.Context, internalPort int, lease time.Duration) (PortMapAttemptResult, PortMapCleanup) {
+	return portmapUPnPWithProto(ctx, internalPort, lease, "TCP", "upnp_tcp")
+}
+
+func portmapUPnPWithProto(ctx context.Context, internalPort int, lease time.Duration, proto string, method string) (PortMapAttemptResult, PortMapCleanup) {
 	start := time.Now()
-	res := PortMapAttemptResult{Method: "upnp"}
+	res := PortMapAttemptResult{Method: method}
 	unmaps := make([]PortMapCleanup, 0)
 
 	internalClientIP, err := guessOutboundIPv4()
@@ -123,15 +131,10 @@ func portmapUPnP(ctx context.Context, internalPort int, lease time.Duration) (Po
 	}
 
 	leaseSeconds := int(lease.Seconds())
-	desc := "miopunch-xtcp"
+	desc := "miopunch-p2p"
 
-	type mapping struct {
-		externalPort uint16
-		proto        string
-	}
-
-	addMapping := func(method string, extIP string, m mapping, unmapFn PortMapCleanup) {
-		ap, err := netip.ParseAddrPort(net.JoinHostPort(extIP, strconv.Itoa(int(m.externalPort))))
+	addMapping := func(extIP string, externalPort uint16, unmapFn PortMapCleanup) {
+		ap, err := netip.ParseAddrPort(net.JoinHostPort(extIP, strconv.Itoa(int(externalPort))))
 		if err != nil {
 			return
 		}
@@ -163,13 +166,13 @@ func portmapUPnP(ctx context.Context, internalPort int, lease time.Duration) (Po
 				continue
 			}
 			extPort := uint16(internalPort)
-			if err := c.AddPortMapping("", extPort, "UDP", uint16(internalPort), internalClientIP.String(), true, desc, uint32(leaseSeconds)); err != nil {
+			if err := c.AddPortMapping("", extPort, proto, uint16(internalPort), internalClientIP.String(), true, desc, uint32(leaseSeconds)); err != nil {
 				upnpErr(err)
 				continue
 			}
-			addMapping("upnp:igd1:wanip1", extIP, mapping{externalPort: extPort, proto: "UDP"}, func(_ context.Context) error {
+			addMapping(extIP, extPort, func(_ context.Context) error {
 				// Best-effort; no context support in goupnp.
-				return c.DeletePortMapping("", extPort, "UDP")
+				return c.DeletePortMapping("", extPort, proto)
 			})
 		}
 	}
@@ -185,12 +188,12 @@ func portmapUPnP(ctx context.Context, internalPort int, lease time.Duration) (Po
 				continue
 			}
 			extPort := uint16(internalPort)
-			if err := c.AddPortMapping("", extPort, "UDP", uint16(internalPort), internalClientIP.String(), true, desc, uint32(leaseSeconds)); err != nil {
+			if err := c.AddPortMapping("", extPort, proto, uint16(internalPort), internalClientIP.String(), true, desc, uint32(leaseSeconds)); err != nil {
 				upnpErr(err)
 				continue
 			}
-			addMapping("upnp:igd1:wanppp1", extIP, mapping{externalPort: extPort, proto: "UDP"}, func(_ context.Context) error {
-				return c.DeletePortMapping("", extPort, "UDP")
+			addMapping(extIP, extPort, func(_ context.Context) error {
+				return c.DeletePortMapping("", extPort, proto)
 			})
 		}
 	}
@@ -206,12 +209,12 @@ func portmapUPnP(ctx context.Context, internalPort int, lease time.Duration) (Po
 				continue
 			}
 			extPort := uint16(internalPort)
-			if err := c.AddPortMapping("", extPort, "UDP", uint16(internalPort), internalClientIP.String(), true, desc, uint32(leaseSeconds)); err != nil {
+			if err := c.AddPortMapping("", extPort, proto, uint16(internalPort), internalClientIP.String(), true, desc, uint32(leaseSeconds)); err != nil {
 				upnpErr(err)
 				continue
 			}
-			addMapping("upnp:igd2:wanip1", extIP, mapping{externalPort: extPort, proto: "UDP"}, func(_ context.Context) error {
-				return c.DeletePortMapping("", extPort, "UDP")
+			addMapping(extIP, extPort, func(_ context.Context) error {
+				return c.DeletePortMapping("", extPort, proto)
 			})
 		}
 	}
@@ -227,12 +230,12 @@ func portmapUPnP(ctx context.Context, internalPort int, lease time.Duration) (Po
 				continue
 			}
 			extPort := uint16(internalPort)
-			if err := c.AddPortMapping("", extPort, "UDP", uint16(internalPort), internalClientIP.String(), true, desc, uint32(leaseSeconds)); err != nil {
+			if err := c.AddPortMapping("", extPort, proto, uint16(internalPort), internalClientIP.String(), true, desc, uint32(leaseSeconds)); err != nil {
 				upnpErr(err)
 				continue
 			}
-			addMapping("upnp:igd2:wanppp1", extIP, mapping{externalPort: extPort, proto: "UDP"}, func(_ context.Context) error {
-				return c.DeletePortMapping("", extPort, "UDP")
+			addMapping(extIP, extPort, func(_ context.Context) error {
+				return c.DeletePortMapping("", extPort, proto)
 			})
 		}
 	}
@@ -258,8 +261,16 @@ func portmapUPnP(ctx context.Context, internalPort int, lease time.Duration) (Po
 }
 
 func portmapNATPMP(ctx context.Context, internalPort int, lease time.Duration) (PortMapAttemptResult, PortMapCleanup) {
+	return portmapNATPMPWithProto(ctx, internalPort, lease, "udp", "natpmp")
+}
+
+func portmapNATPMPTCP(ctx context.Context, internalPort int, lease time.Duration) (PortMapAttemptResult, PortMapCleanup) {
+	return portmapNATPMPWithProto(ctx, internalPort, lease, "tcp", "natpmp_tcp")
+}
+
+func portmapNATPMPWithProto(ctx context.Context, internalPort int, lease time.Duration, proto string, method string) (PortMapAttemptResult, PortMapCleanup) {
 	start := time.Now()
-	res := PortMapAttemptResult{Method: "natpmp"}
+	res := PortMapAttemptResult{Method: method}
 
 	gw, err := defaultGatewayIPv4()
 	if err != nil {
@@ -289,7 +300,7 @@ func portmapNATPMP(ctx context.Context, internalPort int, lease time.Duration) (
 		lifetime = 30
 	}
 
-	mapping, err := client.AddPortMapping("udp", internalPort, internalPort, lifetime)
+	mapping, err := client.AddPortMapping(proto, internalPort, internalPort, lifetime)
 	if err != nil {
 		res.Err = err
 		res.Duration = time.Since(start)
@@ -302,7 +313,7 @@ func portmapNATPMP(ctx context.Context, internalPort int, lease time.Duration) (
 
 	return res, func(_ context.Context) error {
 		// NAT-PMP uses lifetime=0 to delete.
-		_, err := client.AddPortMapping("udp", internalPort, internalPort, 0)
+		_, err := client.AddPortMapping(proto, internalPort, internalPort, 0)
 		return err
 	}
 }

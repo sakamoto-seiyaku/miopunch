@@ -2,6 +2,7 @@ package coordinator
 
 import (
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -230,11 +231,11 @@ func TestControllerAnalysis_EchoesAndDerivesTCPFields(t *testing.T) {
 		t.Fatalf("analysis() client PeerTCPDirectAddrs = %#v, want %#v", cResp.PeerTCPDirectAddrs, []string{"192.0.2.2:2222"})
 	}
 
-	if !slices.Equal(vResp.TCPCandidateAddrs, []string{"203.0.113.10:41000"}) {
-		t.Fatalf("analysis() visitor TCPCandidateAddrs = %#v, want %#v", vResp.TCPCandidateAddrs, []string{"203.0.113.10:41000"})
+	if !slices.Equal(vResp.TCPCandidateAddrs, []string{"203.0.113.10:41100"}) {
+		t.Fatalf("analysis() visitor TCPCandidateAddrs = %#v, want %#v", vResp.TCPCandidateAddrs, []string{"203.0.113.10:41100"})
 	}
-	if !slices.Equal(cResp.TCPCandidateAddrs, []string{"203.0.113.20:51000"}) {
-		t.Fatalf("analysis() client TCPCandidateAddrs = %#v, want %#v", cResp.TCPCandidateAddrs, []string{"203.0.113.20:51000"})
+	if !slices.Equal(cResp.TCPCandidateAddrs, []string{"203.0.113.20:51100"}) {
+		t.Fatalf("analysis() client TCPCandidateAddrs = %#v, want %#v", cResp.TCPCandidateAddrs, []string{"203.0.113.20:51100"})
 	}
 
 	if vResp.TCPSelectedView != "" || vResp.TCPSelectedReason != "" {
@@ -292,10 +293,43 @@ func TestControllerAnalysis_TCPSelectedViewAffectsTCPCandidateAddrs(t *testing.T
 		t.Fatalf("analysis() client tcp_selected_view=(%q,%q), want (global,availability)", cResp.TCPSelectedView, cResp.TCPSelectedReason)
 	}
 
-	if !slices.Equal(vResp.TCPCandidateAddrs, clientGlobalMapped) {
-		t.Fatalf("analysis() visitor TCPCandidateAddrs = %#v, want %#v", vResp.TCPCandidateAddrs, clientGlobalMapped)
+	wantClient := []string{"203.0.113.10:41100", "203.0.113.10:41101"}
+	if !slices.Equal(vResp.TCPCandidateAddrs, wantClient) {
+		t.Fatalf("analysis() visitor TCPCandidateAddrs = %#v, want %#v", vResp.TCPCandidateAddrs, wantClient)
 	}
-	if !slices.Equal(cResp.TCPCandidateAddrs, visitorGlobalMapped) {
-		t.Fatalf("analysis() client TCPCandidateAddrs = %#v, want %#v", cResp.TCPCandidateAddrs, visitorGlobalMapped)
+	wantVisitor := []string{"203.0.113.20:51100", "203.0.113.20:51101"}
+	if !slices.Equal(cResp.TCPCandidateAddrs, wantVisitor) {
+		t.Fatalf("analysis() client TCPCandidateAddrs = %#v, want %#v", cResp.TCPCandidateAddrs, wantVisitor)
+	}
+}
+
+func TestControllerAnalysis_TCPOnlyRequiresCapability(t *testing.T) {
+	c, err := NewController(time.Minute)
+	if err != nil {
+		t.Fatalf("NewController() error = %v, want nil", err)
+	}
+
+	session := &Session{
+		sid: "sid-tcp-only-capability",
+		clientMsg: &wire.NatHoleClient{
+			TransactionID: "c-tx",
+			P2PNetwork:    "tcp_only",
+			Capabilities:  nil,
+		},
+		visitorMsg: &wire.NatHoleVisitor{
+			TransactionID: "v-tx",
+			P2PNetwork:    "tcp_only",
+			Capabilities: []string{
+				wire.CapabilityTCPP2PV0,
+			},
+		},
+	}
+
+	_, _, err = c.analysis(session)
+	if err == nil {
+		t.Fatalf("analysis() error = nil, want non-nil")
+	}
+	if !strings.Contains(err.Error(), "tcp_only requires capability") {
+		t.Fatalf("analysis() error = %v, want tcp_only capability error", err)
 	}
 }

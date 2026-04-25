@@ -65,6 +65,7 @@ type peerYAMLConfig struct {
 
 	P2PPort     *int    `yaml:"p2p_port"`
 	P2PIPFamily *string `yaml:"p2p_ip_family"`
+	P2PNetwork  *string `yaml:"p2p_network"`
 
 	Stun []string `yaml:"stun"`
 

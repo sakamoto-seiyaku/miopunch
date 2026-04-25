@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 	"golang.org/x/term"
 
+	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/internal/localapi"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/shellproto"
@@ -35,16 +35,107 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 		})
 	}
 
-	fs := flag.NewFlagSet("sh", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	var session string
-	fs.StringVar(&session, "s", "main", "tmux session name")
-	fs.StringVar(&session, "session", "main", "tmux session name")
+	peerID := ""
+	target := ""
+	session := "main"
+	p2pNetwork := "auto"
 
-	_ = fs.Parse(args)
-	rest := fs.Args()
+	i := 0
+	for i < len(args) {
+		a := args[i]
+		if a == "--" {
+			i++
+			break
+		}
 
-	if len(rest) < 1 || strings.TrimSpace(rest[0]) == "" {
+		switch {
+		case a == "-s" || a == "-session" || a == "--session":
+			if i+1 >= len(args) {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "missing value for --session"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch sh <peer_id> [target] [-s session]"},
+					},
+				})
+			}
+			session = args[i+1]
+			i += 2
+			continue
+		case strings.HasPrefix(a, "-s="):
+			session = strings.TrimPrefix(a, "-s=")
+			i++
+			continue
+		case strings.HasPrefix(a, "--session="):
+			session = strings.TrimPrefix(a, "--session=")
+			i++
+			continue
+		case strings.HasPrefix(a, "-session="):
+			session = strings.TrimPrefix(a, "-session=")
+			i++
+			continue
+		case a == "-u":
+			p2pNetwork = "udp_only"
+			i++
+			continue
+		case a == "-t":
+			p2pNetwork = "tcp_only"
+			i++
+			continue
+		case a == "--p2p-network":
+			if i+1 >= len(args) {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "missing value for --p2p-network"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch sh <peer_id> [target] --p2p-network auto|udp_only|tcp_only"},
+					},
+				})
+			}
+			p2pNetwork = args[i+1]
+			i += 2
+			continue
+		case strings.HasPrefix(a, "--p2p-network="):
+			p2pNetwork = strings.TrimPrefix(a, "--p2p-network=")
+			i++
+			continue
+		case strings.HasPrefix(a, "-"):
+			return exitWithFailure(opt, stdout, stderr, "sh", "", failureOutput{
+				Stage:      "cli",
+				ReasonCode: poc.ReasonCodeBadRequest,
+				ExitCode:   poc.ExitCodeBadRequest,
+				Facts:      []poc.Fact{{Message: "unknown arg: " + a}},
+				Suggestions: []poc.Suggestion{
+					{Message: "use: miopunch sh <peer_id> [target] [-s session] [-u|-t|--p2p-network ...]"},
+				},
+			})
+		default:
+			if peerID == "" {
+				peerID = a
+			} else if target == "" {
+				target = a
+			}
+			i++
+			continue
+		}
+	}
+
+	for ; i < len(args); i++ {
+		if peerID == "" {
+			peerID = args[i]
+			continue
+		}
+		if target == "" {
+			target = args[i]
+			continue
+		}
+	}
+
+	if strings.TrimSpace(peerID) == "" {
 		return exitWithFailure(opt, stdout, stderr, "sh", "", failureOutput{
 			Stage:      "cli",
 			ReasonCode: poc.ReasonCodeBadRequest,
@@ -58,16 +149,24 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 		})
 	}
 
-	peerID := rest[0]
-	target := ""
-	if len(rest) >= 2 {
-		target = rest[1]
+	network, err := connectivity.ParseP2PNetwork(p2pNetwork)
+	if err != nil {
+		return exitWithFailure(opt, stdout, stderr, "sh", "", failureOutput{
+			Stage:      "cli",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts:      []poc.Fact{{Message: err.Error()}},
+			Suggestions: []poc.Suggestion{
+				{Message: "use: miopunch sh <peer_id> [target] --p2p-network auto|udp_only|tcp_only"},
+			},
+		})
 	}
 
 	return runShellInteractive(opt, task.ShAttachArgs{
-		PeerID:  peerID,
-		Target:  target,
-		Session: strings.TrimSpace(session),
+		PeerID:     peerID,
+		Target:     target,
+		Session:    strings.TrimSpace(session),
+		P2PNetwork: string(network),
 	}, stdout, stderr)
 }
 

@@ -85,6 +85,7 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 
 	gather, err := connectivity.Gather(handshakeCtx, sid, connectivity.GatherConfig{
 		ListenPort: 0,
+		P2PNetwork: connectivity.P2PNetwork(local.P2PNetwork),
 	})
 	if err != nil {
 		return err
@@ -97,6 +98,12 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 		if gather.UDP6Conn != nil {
 			_ = gather.UDP6Conn.Close()
 		}
+		if gather.TCP4Listener != nil {
+			_ = gather.TCP4Listener.Close()
+		}
+		if gather.TCP6Listener != nil {
+			_ = gather.TCP6Listener.Close()
+		}
 	}()
 
 	transactionID := time.Now().UTC().UnixNano()
@@ -107,9 +114,15 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 		Sid:           sid,
 		Protocol:      local.DataProto,
 		QuicCC:        local.QUICCC,
+		Capabilities:  []string{wire.CapabilityTCPP2PV0},
+		P2PNetwork:    local.P2PNetwork,
 		DirectAddrs:   gather.DirectAddrs,
 		MappedAddrs:   gather.MappedAddrs,
 		AssistedAddrs: gather.AssistedAddrs,
+		TCPDirectAddrs: gather.TCPDirectAddrs,
+		TCPMappedAddrs: gather.TCPMappedAddrs,
+		TCPSTUNCN:      gather.TCPSTUNCN,
+		TCPSTUNGlobal:  gather.TCPSTUNGlobal,
 		STUNCN:        gather.STUNCN,
 		STUNGlobal:    gather.STUNGlobal,
 	}
@@ -133,7 +146,9 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 		return err
 	}
 
-	attemptRes, err := connectivity.Attempt(handshakeCtx, sid, []byte(local.SecretKey), gather.UDP4Conn, gather.UDP6Conn, natHoleRespMsg, connectivity.AttemptConfig{})
+	attemptRes, err := connectivity.Attempt(handshakeCtx, sid, []byte(local.SecretKey), gather.UDP4Conn, gather.UDP6Conn, gather.TCP4Listener, gather.TCP6Listener, natHoleRespMsg, connectivity.AttemptConfig{
+		P2PNetwork: connectivity.P2PNetwork(local.P2PNetwork),
+	})
 	if err != nil {
 		return err
 	}
@@ -153,7 +168,13 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 		},
 	}
 
-	stream, err := dataplane.ServeStream(handshakeCtx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
+	var stream io.ReadWriteCloser
+	if len(attemptRes.TCPConns) > 0 {
+		dpCfg.Proto = dataplane.ProtocolTLS
+		stream, err = dataplane.ServeTLSStream(handshakeCtx, sid, []byte(local.SecretKey), attemptRes.TCPConns, nil)
+	} else {
+		stream, err = dataplane.ServeStream(handshakeCtx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
+	}
 	if err != nil {
 		return err
 	}

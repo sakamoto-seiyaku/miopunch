@@ -43,11 +43,11 @@ func TestAttempt_DirectIPv4HandshakeSucceeds(t *testing.T) {
 	}
 	ch := make(chan out, 2)
 	go func() {
-		res, err := Attempt(ctx, sid, key, a, nil, respA, cfg)
+		res, err := Attempt(ctx, sid, key, a, nil, nil, nil, respA, cfg)
 		ch <- out{res: res, err: err}
 	}()
 	go func() {
-		res, err := Attempt(ctx, sid, key, b, nil, respB, cfg)
+		res, err := Attempt(ctx, sid, key, b, nil, nil, nil, respB, cfg)
 		ch <- out{res: res, err: err}
 	}()
 
@@ -98,11 +98,11 @@ func TestAttempt_DirectIPv6HandshakeSucceeds(t *testing.T) {
 	}
 	ch := make(chan out, 2)
 	go func() {
-		res, err := Attempt(ctx, sid, key, a, a, respA, cfg)
+		res, err := Attempt(ctx, sid, key, a, a, nil, nil, respA, cfg)
 		ch <- out{res: res, err: err}
 	}()
 	go func() {
-		res, err := Attempt(ctx, sid, key, b, b, respB, cfg)
+		res, err := Attempt(ctx, sid, key, b, b, nil, nil, respB, cfg)
 		ch <- out{res: res, err: err}
 	}()
 
@@ -135,7 +135,7 @@ func TestAttempt_PunchingDisabledReturnsError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	_, err = Attempt(ctx, "sid-2", []byte("0123456789abcdef"), conn, nil, resp, AttemptConfig{})
+	_, err = Attempt(ctx, "sid-2", []byte("0123456789abcdef"), conn, nil, nil, nil, resp, AttemptConfig{})
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -163,7 +163,7 @@ func TestAttempt_AllowsPunchingWhenOnlyAssistedAddrsPresent(t *testing.T) {
 		return listenConn, &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 12345}, nil
 	}
 
-	got, err := attemptWithPunch(ctx, "sid-assisted-only", []byte("0123456789abcdef"), conn, nil, resp, AttemptConfig{}, punch)
+	got, err := attemptWithPunch(ctx, "sid-assisted-only", []byte("0123456789abcdef"), conn, nil, nil, nil, resp, AttemptConfig{}, punch)
 	if err != nil {
 		t.Fatalf("Attempt() error = %v, want nil", err)
 	}

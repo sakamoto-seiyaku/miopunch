@@ -10,6 +10,7 @@ type Protocol string
 const (
 	ProtocolKCP  Protocol = "kcp"
 	ProtocolQUIC Protocol = "quic"
+	ProtocolTLS  Protocol = "tls"
 )
 
 type QUICCC string
@@ -51,6 +52,8 @@ func (c Config) Validate() error {
 		return nil
 	case ProtocolQUIC:
 		// ok
+	case ProtocolTLS:
+		return nil
 	default:
 		return fmt.Errorf("unsupported data proto: %q", c.Proto)
 	}

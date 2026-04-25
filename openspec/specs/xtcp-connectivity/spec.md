@@ -1,27 +1,41 @@
 # xtcp-connectivity Specification
 
 ## Purpose
-`xtcp-connectivity` 定义并约束 `P2` 阶段的连通性增强（`UDP only`）：在不引入 `relay/fallback` 的前提下，通过 `IPv6-first`、`IPv4 port mapping helpers (UPnP/NAT-PMP)` 与固定的 attempt policy，优先走更直接、更可靠的路径；同时保留 `P1 xtcp-kernel` 的 `IPv4 punching` 作为最后兜底，并对 `gather/exchange/attempt` 提供可机读可定位的可观测事件流。
+`xtcp-connectivity` 定义并约束 `P2`/Door-2 阶段的连通性增强：在不引入 `relay/fallback` 的前提下，通过 `IPv6-first`、`IPv4 port mapping helpers (UPnP/NAT-PMP)`、TCP direct / TCP punching 与固定的 attempt policy，优先走更直接、更可靠的路径；同时保留 `P1 xtcp-kernel` 的 `IPv4 punching` 作为最后兜底，并对 `gather/exchange/attempt` 提供可机读可定位的可观测事件流。
 ## Requirements
 ### Requirement: UDP-Only Connectivity in P2
-The system SHALL implement `P2` connectivity enhancements for `UDP` traversal only.
-The system SHALL NOT implement `TCP hole punching` in `P2`.
+The system SHALL implement `P2` connectivity enhancements for `UDP` traversal.
+The system SHALL additionally support `TCP direct` and `TCP hole punching` as Door-2 paths when the session policy permits them (via `p2p_network`).
 
-#### Scenario: P2 does not expose TCP punching
-- **GIVEN** the system is built with `xtcp-connectivity` enabled
-- **WHEN** a developer configures a traversal session
-- **THEN** only UDP-based traversal and transports are available
-- **AND** TCP hole punching is not available as a selectable path in P2
+The system SHALL support the session policy key:
+`p2p_network=auto | udp_only | tcp_only`.
+
+#### Scenario: udp_only does not attempt TCP
+- **GIVEN** a session is configured with `p2p_network=udp_only`
+- **WHEN** the peers establish a session
+- **THEN** only UDP-based traversal and transports are attempted
+- **AND** TCP direct and TCP punching are not attempted
+
+#### Scenario: auto attempts TCP before UDP
+- **GIVEN** a session is configured with `p2p_network=auto`
+- **WHEN** the peers establish a session
+- **THEN** TCP paths are attempted before UDP paths per the fixed policy order
 
 ### Requirement: IPv6-First Direct Connectivity
 The system SHALL treat `IPv6` as a first-class candidate source.
-If a viable direct IPv6 path exists, the system SHALL prefer it over any IPv4 path.
+Within a given network family, the system SHALL prefer `IPv6` direct connectivity over `IPv4` direct connectivity:
+`tcp6` before `tcp4`, and `udp6` before `udp4`.
 
-#### Scenario: Prefer IPv6 when available
-- **GIVEN** both peers have mutually reachable IPv6 addresses
-- **WHEN** the peers establish a session using `xtcp-connectivity`
-- **THEN** the system attempts IPv6 direct connectivity before any IPv4 helper or punching path
-- **AND** the selected path is recorded in machine-readable diagnostics
+#### Scenario: Prefer tcp6 when available
+- **GIVEN** both peers have mutually reachable `tcp6` candidates
+- **WHEN** the attempt phase runs in `p2p_network=auto`
+- **THEN** the system attempts `tcp6` direct connectivity before `tcp4`
+
+#### Scenario: Prefer udp6 when available in udp_only mode
+- **GIVEN** both peers have mutually reachable `udp6` candidates
+- **AND** the session is configured with `p2p_network=udp_only`
+- **WHEN** the attempt phase runs
+- **THEN** the system attempts `udp6` direct connectivity before any `udp4` path
 
 ### Requirement: IPv4 Port Mapping Helper Candidates (UPnP, NAT-PMP)
 The system SHALL support best-effort IPv4 port mapping helpers (`UPnP`, `NAT-PMP`) as additional candidate sources.
@@ -36,21 +50,25 @@ Port mapping helpers SHALL NOT block the main exchange or attempt flow.
 - **AND** if a mapping is not obtained in time, the session proceeds without waiting
 
 ### Requirement: STUN Is Not Required for Direct Paths
-The system SHALL allow a session to succeed via `IPv6 direct` or `IPv4 portmap direct` even when `STUN` is not configured or STUN discovery fails.
-The system SHALL require STUN-derived mapped addresses only when falling back to `IPv4 punching`.
+The system SHALL allow a session to succeed via direct paths (TCP direct or UDP direct) even when `STUN` is not configured or STUN discovery fails.
+
+The system SHALL require STUN-derived mapped addresses only when falling back to punching for that network:
+- UDP punching requires UDP STUN-derived `mapped_addrs`
+- TCP punching requires TCP STUN-derived `tcp_mapped_addrs`
+
 When using the built-in STUN defaults, the system SHALL sample internal STUN endpoints with bounded concurrency and SHALL stop requesting additional internal endpoints once it has gathered enough NAT-observation data for the current view.
 The system SHALL keep explicit user-provided `--stun` / `stun:` behavior deterministic and SHALL NOT apply the built-in priority or early-stop policy to that explicit list.
 
-#### Scenario: Session succeeds without STUN via IPv6
-- **GIVEN** both peers have mutually reachable IPv6 addresses
+#### Scenario: Session succeeds without STUN via direct connectivity
+- **GIVEN** both peers have mutually reachable direct candidates
 - **AND** the peers do not configure any STUN servers
-- **WHEN** the peers establish a session using `xtcp-connectivity`
-- **THEN** the session succeeds via IPv6 direct connectivity
-- **AND** the diagnostics show STUN was not required for the selected path
+- **WHEN** the peers establish a session
+- **THEN** the session can succeed via direct connectivity
+- **AND** diagnostics show STUN was not required for the selected path
 
 #### Scenario: Session fails with a clear reason when punching is required but STUN is unavailable
-- **GIVEN** the network requires IPv4 punching to establish a session
-- **AND** STUN is not configured or STUN discovery fails
+- **GIVEN** the network requires punching to establish a session
+- **AND** STUN is not configured or STUN discovery fails for the required network
 - **WHEN** the system reaches the fallback-to-punching step
 - **THEN** the attempt fails explicitly
 - **AND** diagnostics explain that punching requires STUN-derived mapped addresses
@@ -80,13 +98,18 @@ Built-in internal STUN sampling SHALL complete within the current gather budget 
 - **AND** the system does not trickle later STUN responses after exchange begins
 
 ### Requirement: Fixed Attempt Policy Ordering
-The system SHALL implement a fixed attempt policy order for `P2`:
-`IPv6 direct` → `IPv4 portmap direct` → `IPv4 punching (P1 xtcp kernel)`.
+The system SHALL implement a fixed attempt policy order that is controlled by `p2p_network`:
 
-#### Scenario: Attempt order is observable and stable
-- **GIVEN** a session has IPv6 and IPv4 candidates available
-- **WHEN** the attempt phase starts
-- **THEN** the system attempts candidates in the fixed order
+- `p2p_network=auto`: `tcp6 → tcp4 → udp6 → udp4`
+- `p2p_network=udp_only`: `udp6 → udp4`
+- `p2p_network=tcp_only`: `tcp6 → tcp4`
+
+For each network family attempted, the system SHALL attempt `direct` connectivity before attempting `punching`.
+
+#### Scenario: Attempt order is observable and stable in auto
+- **GIVEN** a session has TCP and UDP candidates available
+- **WHEN** the attempt phase starts with `p2p_network=auto`
+- **THEN** the system attempts candidates in the fixed order `tcp6 → tcp4 → udp6 → udp4`
 - **AND** each attempted path is recorded with begin/end events and outcomes
 
 ### Requirement: P1 IPv4 Punching Regression Compatibility
@@ -141,4 +164,3 @@ The system SHALL use the same UDP socket that will later be used for punching wh
 - **WHEN** internal STUN sampling runs
 - **THEN** both views make progress within the same gather budget
 - **AND** one slow view does not prevent the other from producing its observation snapshot
-

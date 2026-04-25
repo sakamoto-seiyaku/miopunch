@@ -64,6 +64,7 @@ type ClientConfig struct {
 	AttemptV6Timeout      time.Duration
 	AttemptPortmapTimeout time.Duration
 	P2PIPFamily           connectivity.P2PIPFamily
+	P2PNetwork            connectivity.P2PNetwork
 	DisablePortMap        bool
 	P2PListenAddr         string
 	DisableAssistedAddrs  bool
@@ -128,17 +129,25 @@ func RunClient(ctx context.Context, cfg ClientConfig) error {
 	}
 	cfg.P2PIPFamily = family
 
+	network, err := connectivity.ParseP2PNetwork(string(cfg.P2PNetwork))
+	if err != nil {
+		return fail(event.StageSupervisor, err, "invalid config", map[string]any{"p2p_network": cfg.P2PNetwork})
+	}
+	cfg.P2PNetwork = network
+
 	if cfg.Signaling == "mqtt" {
 		return runClientMQTT(ctx, cfg)
 	}
 
 	sess, err := dialHello(ctx, cfg.CoordAddr, cfg.ControlProto, &wire.PeerHello{
-		Role:        "client",
-		User:        cfg.User,
-		ProxyName:   cfg.ProxyName,
-		SecretKey:   cfg.SecretKey,
-		AllowUsers:  cfg.AllowUsers,
-		DisableAuth: cfg.DisableAuth,
+		Role:         "client",
+		User:         cfg.User,
+		Capabilities: []string{wire.CapabilityTCPP2PV0},
+		P2PNetwork:   string(cfg.P2PNetwork),
+		ProxyName:    cfg.ProxyName,
+		SecretKey:    cfg.SecretKey,
+		AllowUsers:   cfg.AllowUsers,
+		DisableAuth:  cfg.DisableAuth,
 	}, cfg.HelloTimeout)
 	if err != nil {
 		return fail(event.StageSignaling, err, "connect to coordinator failed", map[string]any{
@@ -199,6 +208,7 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 	}
 	gather, err := connectivity.Gather(sessionCtx, sid, connectivity.GatherConfig{
 		ListenPort:           listenPort,
+		P2PNetwork:           cfg.P2PNetwork,
 		P2PIPFamily:          cfg.P2PIPFamily,
 		DisableAssistedAddrs: cfg.DisableAssistedAddrs,
 		DisablePortMap:       cfg.DisablePortMap,
@@ -223,6 +233,12 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 	if gather.UDP6Conn != nil {
 		defer gather.UDP6Conn.Close()
 	}
+	if gather.TCP4Listener != nil {
+		defer gather.TCP4Listener.Close()
+	}
+	if gather.TCP6Listener != nil {
+		defer gather.TCP6Listener.Close()
+	}
 
 	transactionID := punching.NewTransactionID()
 
@@ -241,9 +257,15 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 		QuicCC:        cfg.QuicCC,
 		BrutalUpBps:   brutalUpBps,
 		BrutalDownBps: brutalDownBps,
+		Capabilities:  []string{wire.CapabilityTCPP2PV0},
+		P2PNetwork:    string(cfg.P2PNetwork),
 		DirectAddrs:   gather.DirectAddrs,
 		MappedAddrs:   gather.MappedAddrs,
 		AssistedAddrs: gather.AssistedAddrs,
+		TCPDirectAddrs: gather.TCPDirectAddrs,
+		TCPMappedAddrs: gather.TCPMappedAddrs,
+		TCPSTUNCN:      gather.TCPSTUNCN,
+		TCPSTUNGlobal:  gather.TCPSTUNGlobal,
 		STUNCN:        gather.STUNCN,
 		STUNGlobal:    gather.STUNGlobal,
 	}
@@ -284,11 +306,12 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 		})
 	}
 
-	attemptRes, err := connectivity.Attempt(sessionCtx, sid, []byte(cfg.SecretKey), gather.UDP4Conn, gather.UDP6Conn, natHoleRespMsg, connectivity.AttemptConfig{
-		AttemptV6Timeout:      cfg.AttemptV6Timeout,
-		AttemptPortmapTimeout: cfg.AttemptPortmapTimeout,
-		P2PIPFamily:           cfg.P2PIPFamily,
-		Emitter:               cfg.Emitter,
+		attemptRes, err := connectivity.Attempt(sessionCtx, sid, []byte(cfg.SecretKey), gather.UDP4Conn, gather.UDP6Conn, gather.TCP4Listener, gather.TCP6Listener, natHoleRespMsg, connectivity.AttemptConfig{
+			AttemptV6Timeout:      cfg.AttemptV6Timeout,
+			AttemptPortmapTimeout: cfg.AttemptPortmapTimeout,
+			P2PNetwork:            cfg.P2PNetwork,
+			P2PIPFamily:           cfg.P2PIPFamily,
+			Emitter:               cfg.Emitter,
 	})
 	if err != nil {
 		if cfg.Emitter != nil {
@@ -301,28 +324,45 @@ func runClientSession(ctx context.Context, sess *controlSession, cfg ClientConfi
 		_ = sess.xport.Send(&wire.NatHoleReport{Sid: natHoleRespMsg.Sid, Success: true})
 	}
 
-	if cfg.Emitter != nil {
-		cfg.Emitter.Start(event.StageTransport, "data plane start", map[string]any{
-			"sid":        sid,
-			"data_proto": natHoleRespMsg.Protocol,
-			"quic_cc":    natHoleRespMsg.QuicCC,
-		})
-	}
+		if cfg.Emitter != nil {
+			dataProto := natHoleRespMsg.Protocol
+			quicCC := natHoleRespMsg.QuicCC
+			if len(attemptRes.TCPConns) > 0 {
+				dataProto = string(dataplane.ProtocolTLS)
+				quicCC = ""
+			}
+			cfg.Emitter.Start(event.StageTransport, "data plane start", map[string]any{
+				"sid":        sid,
+				"data_proto": dataProto,
+				"quic_cc":    quicCC,
+			})
+		}
 
-	dpCfg := dataplane.Config{
-		Proto:  dataplane.Protocol(natHoleRespMsg.Protocol),
-		QuicCC: dataplane.QUICCC(natHoleRespMsg.QuicCC),
-		Brutal: dataplane.BrutalConfig{
-			UpBps:   natHoleRespMsg.BrutalUpBps,
-			DownBps: natHoleRespMsg.BrutalDownBps,
-		},
+		dpCfg := dataplane.Config{
+			Proto:  dataplane.Protocol(natHoleRespMsg.Protocol),
+			QuicCC: dataplane.QUICCC(natHoleRespMsg.QuicCC),
+			Brutal: dataplane.BrutalConfig{
+				UpBps:   natHoleRespMsg.BrutalUpBps,
+				DownBps: natHoleRespMsg.BrutalDownBps,
+			},
+		}
+		dataProto := natHoleRespMsg.Protocol
+		if len(attemptRes.TCPConns) > 0 {
+			dataProto = string(dataplane.ProtocolTLS)
+			dpCfg.Proto = dataplane.ProtocolTLS
+		}
+
+		dataErr := error(nil)
+		if len(attemptRes.TCPConns) > 0 {
+			dataErr = dataplane.ServeAndExchangeTLS(sessionCtx, dpCfg, natHoleRespMsg.Sid, []byte(cfg.SecretKey), attemptRes.TCPConns, cfg.Emitter)
+		} else {
+			dataErr = dataplane.ServeAndExchange(sessionCtx, dpCfg, attemptRes.Conn, attemptRes.Remote, cfg.Emitter)
+		}
+		if dataErr != nil && cfg.Emitter != nil {
+			cfg.Emitter.Fail(event.StageTransport, dataErr, "data plane failed", map[string]any{
+				"sid":        sid,
+				"data_proto": dataProto,
+			})
+		}
+		return dataErr
 	}
-	dataErr := dataplane.ServeAndExchange(sessionCtx, dpCfg, attemptRes.Conn, attemptRes.Remote, cfg.Emitter)
-	if dataErr != nil && cfg.Emitter != nil {
-		cfg.Emitter.Fail(event.StageTransport, dataErr, "data plane failed", map[string]any{
-			"sid":        sid,
-			"data_proto": natHoleRespMsg.Protocol,
-		})
-	}
-	return dataErr
-}
