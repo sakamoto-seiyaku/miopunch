@@ -31,12 +31,13 @@ When deriving `tcp_candidate_addrs`, the system SHALL:
 - drop empty entries and entries that are not valid `host:port`
 - de-duplicate entries while preserving order
 - prefer the selected TCP view's `mapped_addrs` when TCP view selection is available; otherwise use the opposite peer's `tcp_mapped_addrs`
+- emit usable TCP attempt targets according to the current TCP attempt-target policy when such policy is active, including the `P+100` port convention defined by `miopunch-tcp-p2p-v0`
 
 #### Scenario: Response includes derived tcp_candidate_addrs
 - **GIVEN** the client request includes `tcp_mapped_addrs` with at least one valid entry
 - **AND** the visitor request includes `tcp_mapped_addrs` with at least one valid entry
 - **WHEN** the system produces `NatHoleResp` for both sides
-- **THEN** each response includes `tcp_candidate_addrs` derived from the opposite peer's TCP mapped addresses
+- **THEN** each response includes `tcp_candidate_addrs` containing usable TCP attempt targets derived from the opposite peer's TCP mapped/view-source addresses
 
 ### Requirement: TCP cn/global view selection mirrors the selected_view algorithm
 When both peers provide both `tcp_stun_cn` and `tcp_stun_global`, the system SHALL deterministically select exactly one `tcp_selected_view`.
@@ -51,4 +52,3 @@ When view selection occurs, the system SHALL set `tcp_selected_reason` to the fi
 - **WHEN** the system produces an exchange response
 - **THEN** `tcp_selected_view` is `global`
 - **AND** `tcp_selected_reason` is `availability`
-
