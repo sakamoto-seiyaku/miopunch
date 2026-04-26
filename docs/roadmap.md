@@ -6,14 +6,14 @@
 - 当前版本只定义主线，不锁死细节。
 - 后续按实验结果、实现成本、真实网络表现持续调整。
 
-## 当前进度（截至 2026-04-23）
+## 当前进度（截至 2026-04-26）
 
 - `P0`：NAT 实验台已落地，case 覆盖集可一键自测并导出 artifacts；见 `docs/decisions/p0-nat-lab-charter.md`、`openspec/changes/archive/2026-03-24-add-nat-lab-testbed/`、`docs/reports/2026-03-17-selftest.md`。
 - `P1`：打洞内核（from `frp xtcp`）抽离已落地，`core-01..core-10 × {kcp,quic}` 在 P0 VM 内完成实测并汇总；见 `docs/decisions/p1-xtcp-kernel-charter.md`、`openspec/changes/archive/2026-03-24-add-xtcp-kernel/`、`docs/reports/2026-03-18-xtcp-fulltest.md`。
 - `P2`：连通性增强层已落地（`IPv6-first`、`UPnP/NAT-PMP`、固定 attempt 顺序、可观测性、no-trickle），并在 P0 VM 内完成实测并汇总；见 `docs/decisions/p2-connectivity-charter.md`、`openspec/changes/archive/2026-03-24-add-xtcp-connectivity/`、`docs/reports/2026-03-24-xtcp-connectivity-fulltest.md`。
 - `P3`：目录重组与命名收敛、`dataplane` 抽象与最小验收已完成并归档；见 `docs/decisions/p3-miopunch-transport-charter.md`、`openspec/changes/archive/2026-03-28-reorg-miopunch-layout/`、`openspec/changes/archive/2026-03-28-add-miopunch-dataplane/`。
 - `P3.5`：公网实验可达性补强保留为后续 backlog，目前未作为近期执行主线；其 charter 仍聚焦 `IPv4-only / IPv6-only`、内置 `DNS` 与内置默认 `STUN/MQTT` 名单、以及中国大陆 / 非中国大陆 `STUN` 观测分域；见 `docs/decisions/p3.5-public-network-charter.md`。
-- 主线/Lab：当前主要承担既有实验台、回归基线与问题复现角色，短期没有新的主线 roadmap 条目在推进。
+- 主线/Lab：当前主线工作切换为“主线网络测试重构”，事实源为 `docs/decisions/mainline-network-test-charter.md`。近期目标是先彻底补齐场景 1（二节点连接性矩阵）和场景 2（主线控制面 e2e），二者通过后再拆分场景 3（12 节点 NAT 综合网络）。
 - Alpha/POC：原规划的最小产品面（`POC-01..POC-07`）已经按设计收口，并已全部归档；POC 作为“验证阶段”到此结束，后续工作不再沿用同一批 `POC-XX` 编号继续扩展。
 
 ## 定位
@@ -67,10 +67,31 @@
 
 ## 主线 Roadmap
 
-当前阶段判断（2026-04-23）：
+当前阶段判断（2026-04-26）：
 
-- 主线/Lab 方向当前以维护既有实验台、回归基线、以及承接问题复现为主，不主动扩展新的主线 change。
+- 当前主线工作不再继续扩展旧 POC 编号，而是先把主线网络测试体系按 `docs/decisions/mainline-network-test-charter.md` 完整落地。
+- 推进顺序固定为：场景 1 先通过，场景 2 再通过，随后再讨论和拆分场景 3。
 - `P3.5` 保留为公网实验增强 backlog；只有在真实网络验证重新暴露明确缺口时再继续推进。
+
+### 主线网络测试重构
+
+目标：
+
+- 把现有 NAT lab、POC e2e 和主线组网测试统合为可复现、可诊断、可分层推进的主线测试体系。
+- 先证明二节点连接能力和产品控制面闭环，再进入 12 节点复杂 NAT 组网。
+- 测试中发现的项目代码问题统一记录到 `docs/notes/mainline-network-test-findings.md`，后续单独修复，不在测试重构中顺手混改。
+
+Change 划分：
+
+- `MNT-01`：场景 1 主线连接性矩阵。补齐真实主线节点下的 UDP 15 类无向组合、TCP 49 类有向组合、MQTT-only 信令、自部署 broker、fixture 契约、证据链和 TCP hard 可解释失败口径。
+- `MNT-02`：场景 2 主线控制面 e2e。默认至少 6 节点，覆盖 blank `up`、`invite/approve/join`、多成员一致性、`ping`、`sh` smoke、restart、broker outage/recovery、revoke、失败合约、幂等性、并发和 report/redaction。
+- `MNT-03+`：场景 3 预留。12 节点 NAT 综合网络可能拆成一个或多个 change；具体拆法等 `MNT-01` 和 `MNT-02` 完成并通过后再定。
+
+进入场景 3 的门槛：
+
+- 场景 1 required gate 通过，且所有失败类 case 都具备稳定诊断证据。
+- 场景 2 required gate 通过，且控制面状态、权限、恢复和报告接口没有未解释缺口。
+- 场景 1/2 暴露出的项目代码问题已记录到 findings 文件，并明确哪些阻塞场景 3。
 
 ### P0 测试台先行
 
