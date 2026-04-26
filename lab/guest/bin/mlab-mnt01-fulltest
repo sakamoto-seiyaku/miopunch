@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID:-0}" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+guest_root="$(cd -- "${script_dir}/.." && pwd)"
+runner="${script_dir}/mlab-mnt01-run"
+[[ -x "${runner}" ]] || { echo "error: missing runner: ${runner}" >&2; exit 1; }
+
+# shellcheck source=/dev/null
+source "${guest_root}/lib/mnt01_aggregate.sh"
+
+artifacts_root="${MLAB_ARTIFACTS_ROOT:-/opt/miopunch-lab/artifacts}"
+ts="$(date -u +%Y%m%dT%H%M%SZ)"
+aggregate_dir="${artifacts_root}/${ts}-mnt01-fulltest-aggregate"
+mnt01_aggregate_init "${aggregate_dir}"
+
+udp_profiles=(udp-nat1 udp-nat2 udp-nat3 udp-nat4-regular udp-nat4-irregular)
+for ((left = 0; left < ${#udp_profiles[@]}; left++)); do
+  for ((right = left; right < ${#udp_profiles[@]}; right++)); do
+    profile_a="${udp_profiles[left]}"
+    profile_b="${udp_profiles[right]}"
+    mnt01_run_case "mnt01 fulltest" --case-id "mnt01-full-udp-${profile_b}-x-${profile_a}" --matrix udp --profile-a "${profile_a}" --profile-b "${profile_b}"
+  done
+done
+
+tcp_profiles=(tcp6-direct tcp4-direct tcp4-portmap-direct tcp-easy-stable tcp-hard-regular tcp-hard-irregular tcp-blocked-unknown)
+for dialer in "${tcp_profiles[@]}"; do
+  for target in "${tcp_profiles[@]}"; do
+    mnt01_run_case "mnt01 fulltest" --case-id "mnt01-full-tcp-${dialer}-to-${target}" --matrix tcp --profile-a "${target}" --profile-b "${dialer}" --direction "${dialer}->${target}"
+  done
+done
+
+echo "summary: pass=${mnt01_pass} fail=${mnt01_fail}"
+mnt01_write_summary "${aggregate_dir}/summary.json" "mnt01-fulltest" $'  "udp_classes": 15,\n  "tcp_classes": 49,'
+echo "aggregate=${aggregate_dir}"
+[[ "${mnt01_fail}" -eq 0 ]]

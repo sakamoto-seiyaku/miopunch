@@ -19,6 +19,24 @@ profiles_apply() {
   esac
 }
 
+profiles_apply_extra_port() {
+  local ns="$1"
+  local profile="$2"
+  local lan_cidr="$3"
+  local wan_ip="$4"
+  local peer_ip="$5"
+  local p2p_port="$6"
+
+  case "${profile}" in
+    nat1) profile_nat1_port_rules "${ns}" "${lan_cidr}" "${wan_ip}" "${peer_ip}" "${p2p_port}" ;;
+    nat2) profile_nat2_port_rules "${ns}" "${lan_cidr}" "${wan_ip}" "${peer_ip}" "${p2p_port}" ;;
+    nat3) profile_nat3_port_rules "${ns}" "${lan_cidr}" "${wan_ip}" "${peer_ip}" "${p2p_port}" ;;
+    nat4-regular) ;;
+    nat4-irregular) profile_nat4_irregular_port_rules "${ns}" "${lan_cidr}" "${wan_ip}" "${peer_ip}" "${p2p_port}" ;;
+    *) die "unknown profile: ${profile}" ;;
+  esac
+}
+
 nat_base() {
   local ns="$1" lan_cidr="$2" wan_ip="$3"
   ns_exec "${ns}" sh -c 'echo 1 > /proc/sys/net/ipv4/ip_forward'
@@ -57,7 +75,14 @@ nat_base() {
 profile_nat1() {
   local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
   nat_base "${ns}" "${lan_cidr}" "${wan_ip}"
+  profile_nat1_port_rules "${ns}" "${lan_cidr}" "${wan_ip}" "${peer_ip}" "${p2p_port}"
+  # Best-effort SNAT for other UDP flows.
+  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp \
+    -j SNAT --to-source "${wan_ip}"
+}
 
+profile_nat1_port_rules() {
+  local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
   # Door-2 TCP convention: base=P, listen/punch=L=P+100.
   #
   # Keep the external TCP ports stable for P and L so the coordinator can
@@ -76,9 +101,6 @@ profile_nat1() {
   # EIM-like mapping: pin the P2P source port to the same external port.
   ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp --sport "${p2p_port}" \
     -j SNAT --to-source "${wan_ip}:${p2p_port}"
-  # Best-effort SNAT for other UDP flows.
-  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp \
-    -j SNAT --to-source "${wan_ip}"
 
   # EIF-like filtering implemented via gated static DNAT + open marker:
   # once the peer has sent an outbound packet, allow inbound from any remote to the mapped port.
@@ -92,7 +114,14 @@ profile_nat1() {
 profile_nat2() {
   local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
   nat_base "${ns}" "${lan_cidr}" "${wan_ip}"
+  profile_nat2_port_rules "${ns}" "${lan_cidr}" "${wan_ip}" "${peer_ip}" "${p2p_port}"
+  # Best-effort SNAT for other UDP flows.
+  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp \
+    -j SNAT --to-source "${wan_ip}"
+}
 
+profile_nat2_port_rules() {
+  local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
   # Record remote IPs that the peer has sent to (address-dependent filtering).
   ns_exec "${ns}" iptables -w -t mangle -A FORWARD -i lan0 -o wan0 -p udp --sport "${p2p_port}" \
     -m recent --name miopunch_map_open --set
@@ -102,9 +131,6 @@ profile_nat2() {
   # EIM-like mapping: pin the P2P source port to the same external port.
   ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp --sport "${p2p_port}" \
     -j SNAT --to-source "${wan_ip}:${p2p_port}"
-  # Best-effort SNAT for other UDP flows.
-  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp \
-    -j SNAT --to-source "${wan_ip}"
 
   ns_exec "${ns}" iptables -w -t nat -A PREROUTING -i wan0 -p udp --dport "${p2p_port}" \
     -j DNAT --to-destination "${peer_ip}:${p2p_port}"
@@ -117,12 +143,16 @@ profile_nat2() {
 profile_nat3() {
   local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
   nat_base "${ns}" "${lan_cidr}" "${wan_ip}"
+  profile_nat3_port_rules "${ns}" "${lan_cidr}" "${wan_ip}" "${peer_ip}" "${p2p_port}"
+  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp \
+    -j SNAT --to-source "${wan_ip}"
+}
 
+profile_nat3_port_rules() {
+  local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
   # Port-restricted filtering: rely on conntrack (APDF-like).
   ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp --sport "${p2p_port}" \
     -j SNAT --to-source "${wan_ip}:${p2p_port}"
-  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp \
-    -j SNAT --to-source "${wan_ip}"
 }
 
 profile_nat4_regular() {
@@ -143,7 +173,15 @@ profile_nat4_regular() {
 profile_nat4_irregular() {
   local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
   nat_base "${ns}" "${lan_cidr}" "${wan_ip}"
+  profile_nat4_irregular_port_rules "${ns}" "${lan_cidr}" "${wan_ip}" "${peer_ip}" "${p2p_port}"
 
+  # Symmetric-like mapping (APDM-like), with "irregular" port allocation (random within range).
+  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp \
+    -j SNAT --to-source "${wan_ip}:40000-45000" --random-fully
+}
+
+profile_nat4_irregular_port_rules() {
+  local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
   # Door-2 TCP: simulate a "hard" NAT for TCP STUN sampling while keeping the
   # punching port reachable via one of the derived (+100) candidate ports.
   local tcp_base_port="${p2p_port}"
@@ -158,8 +196,4 @@ profile_nat4_irregular() {
     -j DNAT --to-destination "${peer_ip}:${tcp_listen_port}"
   ns_exec "${ns}" iptables -w -A FORWARD -i wan0 -o lan0 -p tcp -d "${peer_ip}" --dport "${tcp_listen_port}" \
     -j ACCEPT
-
-  # Symmetric-like mapping (APDM-like), with "irregular" port allocation (random within range).
-  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp \
-    -j SNAT --to-source "${wan_ip}:40000-45000" --random-fully
 }

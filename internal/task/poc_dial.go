@@ -53,8 +53,13 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 
 	m.setStage(taskID, poc.StageCandidateExchange, "gather candidates")
 	gather, err := connectivity.Gather(ctx, sid, connectivity.GatherConfig{
-		ListenPort: 0,
-		P2PNetwork: connectivity.P2PNetwork(cfg.P2PNetwork),
+		ListenPort:           cfg.P2PPort,
+		P2PNetwork:           connectivity.P2PNetwork(cfg.P2PNetwork),
+		P2PIPFamily:          connectivity.P2PIPFamily(cfg.P2PIPFamily),
+		DisableAssistedAddrs: cfg.DisableAssistedAddrs,
+		DisablePortMap:       cfg.DisablePortMap,
+		StunServers:          cfg.StunServers,
+		StunExplicit:         cfg.StunExplicit,
 	})
 	if err != nil {
 		return nil, err
@@ -127,7 +132,8 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 
 	m.setStage(taskID, poc.StagePunchAttempt, "punch attempt")
 	attemptRes, err := connectivity.Attempt(ctx, sid, []byte(cfg.SecretKey), gather.UDP4Conn, gather.UDP6Conn, gather.TCP4Listener, gather.TCP6Listener, natHoleRespMsg, connectivity.AttemptConfig{
-		P2PNetwork: connectivity.P2PNetwork(cfg.P2PNetwork),
+		P2PNetwork:  connectivity.P2PNetwork(cfg.P2PNetwork),
+		P2PIPFamily: connectivity.P2PIPFamily(cfg.P2PIPFamily),
 	})
 	if err != nil {
 		return nil, err

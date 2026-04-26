@@ -68,7 +68,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		})
 		return int(poc.ExitCodeBadRequest)
 	case "up":
-		return runUp(cmdArgs, stdout, stderr)
+		return runUp(opt, cmdArgs, stdout, stderr)
 	case "ls":
 		return runLS(opt, cmdArgs, stdout, stderr)
 	case "invite":
@@ -152,6 +152,7 @@ Commands (POC, work in progress):
 Command flags:
   up --http_panel                    Enable loopback-only HTTP panel UI (MD3)
   up --http_panel_listen_addr <addr> HTTP panel listen address (default: 127.0.0.1:27400; host must be 127.0.0.1)
+  up --state_path <path>             Override daemon state path (lab/testing)
 
 Help:
   miopunch --help

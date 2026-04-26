@@ -240,10 +240,12 @@ func (k *kcpStreamConn) Close() error {
 }
 
 func dialKCPStream(ctx context.Context, listenConn *net.UDPConn, raddr *net.UDPAddr) (io.ReadWriteCloser, error) {
-	_ = ctx
-
 	if listenConn == nil {
 		return nil, errors.New("kcp requires listen conn")
+	}
+	if err := ctx.Err(); err != nil {
+		_ = listenConn.Close()
+		return nil, err
 	}
 	if raddr == nil {
 		_ = listenConn.Close()
@@ -263,11 +265,24 @@ func dialKCPStream(ctx context.Context, listenConn *net.UDPConn, raddr *net.UDPA
 	if err != nil {
 		return nil, err
 	}
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := udpConn.SetDeadline(deadline); err != nil {
+			_ = udpConn.Close()
+			return nil, err
+		}
+	}
 
 	c, err := netutil.NewKCPConnFromUDP(udpConn, true, raddr.String())
 	if err != nil {
 		_ = udpConn.Close()
 		return nil, err
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := c.SetDeadline(deadline); err != nil {
+			_ = c.Close()
+			_ = udpConn.Close()
+			return nil, err
+		}
 	}
 
 	return &kcpStreamConn{udp: udpConn, conn: c}, nil

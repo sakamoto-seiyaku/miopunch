@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID:-0}" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+guest_root="$(cd -- "${script_dir}/.." && pwd)"
+runner="${script_dir}/mlab-mnt01-run"
+[[ -x "${runner}" ]] || { echo "error: missing runner: ${runner}" >&2; exit 1; }
+
+# shellcheck source=/dev/null
+source "${guest_root}/lib/mnt01_aggregate.sh"
+
+artifacts_root="${MLAB_ARTIFACTS_ROOT:-/opt/miopunch-lab/artifacts}"
+ts="$(date -u +%Y%m%dT%H%M%SZ)"
+aggregate_dir="${artifacts_root}/${ts}-mnt01-smoke-aggregate"
+mnt01_aggregate_init "${aggregate_dir}"
+
+mnt01_run_case "mnt01 smoke" --case-id mnt01-smoke-udp-direct --matrix udp --profile-a udp-nat1 --profile-b udp-nat1 --classification success-required
+mnt01_run_case "mnt01 smoke" --case-id mnt01-smoke-udp-punching --matrix udp --profile-a udp-nat3 --profile-b udp-nat3 --classification diag-fail-allowed
+mnt01_run_case "mnt01 smoke" --case-id mnt01-smoke-tcp-hard-diag --matrix tcp --profile-a tcp-easy-stable --profile-b tcp-hard-irregular --classification diag-fail-allowed --repeat "${MLAB_MNT01_HARD_REPEAT:-2}"
+mnt01_run_case "mnt01 smoke" --case-id mnt01-smoke-auto-priority --matrix specialty --profile-a tcp6-direct --profile-b tcp6-direct --p2p-network auto --classification success-required --expect-path direct_tcp6
+mnt01_run_case "mnt01 smoke" --case-id mnt01-smoke-portmap --matrix specialty --profile-a tcp4-portmap-direct --profile-b tcp4-portmap-direct --p2p-network tcp_only --classification diag-fail-allowed --start-natpmpd
+mnt01_run_case "mnt01 smoke" --case-id mnt01-smoke-stun-unavailable --matrix specialty --profile-a udp-nat3 --profile-b udp-nat3 --p2p-network udp_only --classification diag-fail-allowed --disable-stun
+mnt01_run_case "mnt01 smoke" --case-id mnt01-smoke-kcp-transport --matrix specialty --profile-a udp-nat1 --profile-b udp-nat1 --p2p-network udp_only --classification diag-fail-allowed --data-proto kcp
+mnt01_run_case "mnt01 smoke" --case-id mnt01-smoke-brutal-transport --matrix specialty --profile-a udp-nat1 --profile-b udp-nat1 --p2p-network udp_only --classification success-required --data-proto quic --quic-cc brutal
+
+echo "summary: pass=${mnt01_pass} fail=${mnt01_fail}"
+mnt01_write_summary "${aggregate_dir}/summary.json" "mnt01-smoke"
+echo "aggregate=${aggregate_dir}"
+[[ "${mnt01_fail}" -eq 0 ]]

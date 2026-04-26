@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,7 +22,7 @@ import (
 	"github.com/miopunch/miopunch/internal/task"
 )
 
-func runUp(args []string, stdout, stderr io.Writer) int {
+func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int {
 	_ = stdout
 
 	opt, _, err := parseUpOptions(args)
@@ -39,9 +40,32 @@ func runUp(args []string, stdout, stderr io.Writer) int {
 		})
 		return int(poc.ExitCodeBadRequest)
 	}
+	if strings.TrimSpace(globalOpt.LocalAPIOverride) != "" {
+		opt.LocalAPIOverride = strings.TrimSpace(globalOpt.LocalAPIOverride)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	override := strings.TrimSpace(opt.LocalAPIOverride)
+	var overrideAddr localapi.Addr
+	if override != "" {
+		overrideAddr, err = localapi.ParseAddr(override)
+		if err != nil {
+			writeFailure(stderr, failureOutput{
+				Stage:      "daemon",
+				ReasonCode: poc.ReasonCodeBadRequest,
+				ExitCode:   poc.ExitCodeBadRequest,
+				Facts: []poc.Fact{
+					{Message: "invalid --localapi: " + err.Error()},
+				},
+				Suggestions: []poc.Suggestion{
+					{Message: "retry with a unix: localapi address"},
+				},
+			})
+			return int(poc.ExitCodeBadRequest)
+		}
+	}
 
 	systemAddr, err := localapi.DefaultSystemAddr("")
 	if err != nil {
@@ -59,43 +83,14 @@ func runUp(args []string, stdout, stderr io.Writer) int {
 
 	userAddr, userAddrErr := localapi.DefaultUserAddr("")
 
-	if err := probeLocalAPI(ctx, systemAddr); err == nil {
-		writeFailure(stderr, failureOutput{
-			Stage:      "daemon",
-			ReasonCode: poc.ReasonCodeConflict,
-			ExitCode:   poc.ExitCodeConflict,
-			Facts: []poc.Fact{
-				{Message: "system localapi is reachable: " + systemAddr.String()},
-			},
-			Suggestions: []poc.Suggestion{
-				{Message: "stop the existing daemon before starting a new one"},
-			},
-		})
-		return int(poc.ExitCodeConflict)
-	} else if isPermissionError(err) {
-		writeFailure(stderr, failureOutput{
-			Stage:      "daemon",
-			ReasonCode: poc.ReasonCodeForbidden,
-			ExitCode:   poc.ExitCodeForbidden,
-			Facts: []poc.Fact{
-				{Message: "permission denied probing system localapi: " + systemAddr.String()},
-			},
-			Suggestions: []poc.Suggestion{
-				{Message: "join the operator group: " + poc.LinuxOperatorGroup},
-				{Message: "or run: sudo miopunch up"},
-			},
-		})
-		return int(poc.ExitCodeForbidden)
-	}
-
-	if userAddrErr == nil {
-		if err := probeLocalAPI(ctx, userAddr); err == nil {
+	if override == "" {
+		if err := probeLocalAPI(ctx, systemAddr); err == nil {
 			writeFailure(stderr, failureOutput{
 				Stage:      "daemon",
 				ReasonCode: poc.ReasonCodeConflict,
 				ExitCode:   poc.ExitCodeConflict,
 				Facts: []poc.Fact{
-					{Message: "user localapi is reachable: " + userAddr.String()},
+					{Message: "system localapi is reachable: " + systemAddr.String()},
 				},
 				Suggestions: []poc.Suggestion{
 					{Message: "stop the existing daemon before starting a new one"},
@@ -108,19 +103,52 @@ func runUp(args []string, stdout, stderr io.Writer) int {
 				ReasonCode: poc.ReasonCodeForbidden,
 				ExitCode:   poc.ExitCodeForbidden,
 				Facts: []poc.Fact{
-					{Message: "permission denied probing user localapi: " + userAddr.String()},
+					{Message: "permission denied probing system localapi: " + systemAddr.String()},
 				},
 				Suggestions: []poc.Suggestion{
-					{Message: "check socket permissions"},
+					{Message: "join the operator group: " + poc.LinuxOperatorGroup},
+					{Message: "or run: sudo miopunch up"},
 				},
 			})
 			return int(poc.ExitCodeForbidden)
+		}
+
+		if userAddrErr == nil {
+			if err := probeLocalAPI(ctx, userAddr); err == nil {
+				writeFailure(stderr, failureOutput{
+					Stage:      "daemon",
+					ReasonCode: poc.ReasonCodeConflict,
+					ExitCode:   poc.ExitCodeConflict,
+					Facts: []poc.Fact{
+						{Message: "user localapi is reachable: " + userAddr.String()},
+					},
+					Suggestions: []poc.Suggestion{
+						{Message: "stop the existing daemon before starting a new one"},
+					},
+				})
+				return int(poc.ExitCodeConflict)
+			} else if isPermissionError(err) {
+				writeFailure(stderr, failureOutput{
+					Stage:      "daemon",
+					ReasonCode: poc.ReasonCodeForbidden,
+					ExitCode:   poc.ExitCodeForbidden,
+					Facts: []poc.Fact{
+						{Message: "permission denied probing user localapi: " + userAddr.String()},
+					},
+					Suggestions: []poc.Suggestion{
+						{Message: "check socket permissions"},
+					},
+				})
+				return int(poc.ExitCodeForbidden)
+			}
 		}
 	}
 
 	mode := localapi.ListenModeUser
 	addr := userAddr
-	if os.Geteuid() == 0 {
+	if override != "" {
+		addr = overrideAddr
+	} else if os.Geteuid() == 0 {
 		mode = localapi.ListenModeSystem
 		addr = systemAddr
 	} else if userAddrErr != nil {
@@ -174,7 +202,12 @@ func runUp(args []string, stdout, stderr io.Writer) int {
 	}
 	defer func() { _ = ln.Close() }()
 
-	mgr := task.NewManager()
+	var mgr *task.Manager
+	if strings.TrimSpace(opt.StatePath) != "" {
+		mgr = task.NewManagerWithStatePath(opt.StatePath)
+	} else {
+		mgr = task.NewManager()
+	}
 	defer mgr.Close()
 
 	var panel *http_panel.Server
@@ -235,7 +268,7 @@ func runUp(args []string, stdout, stderr io.Writer) int {
 		}()
 	}
 	go func() {
-		_ = pocacceptor.Run(ctx, pocacceptor.Config{})
+		_ = pocacceptor.Run(ctx, pocacceptor.Config{StatePath: opt.StatePath})
 	}()
 
 	fmt.Fprintf(stderr, "miopunch up: serving LocalAPI (%s) at %s\n", mode, addr.String())

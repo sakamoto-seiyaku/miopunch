@@ -1,0 +1,627 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID:-0}" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+guest_root="$(cd -- "${script_dir}/.." && pwd)"
+
+# shellcheck source=/dev/null
+source "${guest_root}/lib/common.sh"
+# shellcheck source=/dev/null
+source "${guest_root}/lib/topology.sh"
+# shellcheck source=/dev/null
+source "${guest_root}/lib/profiles.sh"
+
+artifacts_root="${MLAB_ARTIFACTS_ROOT:-/opt/miopunch-lab/artifacts}"
+miopunch="${MLAB_MIOPUNCH_PRODUCT_BIN:-${MLAB_PRODUCT_BIN:-/opt/miopunch-lab/bin/miopunch}}"
+miopunch_lab="${MLAB_MIOPUNCH_LAB_BIN:-/opt/miopunch-lab/bin/miopunch-lab}"
+
+run_dir=""
+socket_root=""
+tcpdump_wan_pid=""
+tcpdump_mqtt_pid=""
+stun_pid=""
+mqtt_pid=""
+daemon_a_pid=""
+daemon_b_pid=""
+natA_pmp_pid=""
+natB_pmp_pid=""
+state_dumped=0
+
+usage() {
+  cat <<'EOF'
+Usage: mlab-mnt01-run --case-id <id> --profile-a <profile> --profile-b <profile> [flags]
+
+Profiles:
+  UDP: udp-nat1, udp-nat2, udp-nat3, udp-nat4-regular, udp-nat4-irregular
+  TCP: tcp6-direct, tcp4-direct, tcp4-portmap-direct, tcp-easy-stable,
+       tcp-hard-regular, tcp-hard-irregular, tcp-blocked-unknown
+
+Flags:
+  --matrix <udp|tcp|specialty>       Matrix/report group (default: specialty)
+  --direction <dialer->target>       Direction label for reports
+  --classification <class>           success-required|success-preferred|diag-fail-allowed|fail-required
+  --p2p-network <auto|udp_only|tcp_only>
+  --data-proto <quic|kcp>            Product data plane (default: quic)
+  --quic-cc <bbr|brutal>             QUIC congestion control (default: bbr)
+  --repeat <n>                       Bounded repeat count (default: 1)
+  --enable-ipv6                      Enable IPv6 topology
+  --block-forward-udp6               Drop forwarded UDPv6 in NAT namespaces
+  --disable-stun                     Configure explicit empty STUN list
+  --start-natpmpd                    Start NAT-PMP helper in both NAT namespaces
+  --disable-portmap-a                Disable portmap for peer A
+  --disable-portmap-b                Disable portmap for peer B
+  --expect-path <attempt_path>       Require final attempt_path on success
+  --wan-netem <args>                 Apply symmetric WAN netem args
+  --p2p-udp-loss-probability <p>     Drop matching p2p UDP packets with probability
+EOF
+}
+
+preflight() {
+  need_cmd ip
+  need_cmd jq
+  need_cmd tcpdump
+  need_cmd strings
+  [[ -x "${miopunch}" ]] || die "missing miopunch binary: ${miopunch}"
+  [[ -x "${miopunch_lab}" ]] || die "missing miopunch-lab binary: ${miopunch_lab}"
+}
+
+profile_nat() {
+  case "$1" in
+    udp-nat1|tcp6-direct|tcp4-direct|tcp-easy-stable) echo "nat1" ;;
+    udp-nat2) echo "nat2" ;;
+    udp-nat3|tcp4-portmap-direct|tcp-blocked-unknown) echo "nat3" ;;
+    udp-nat4-regular|tcp-hard-regular) echo "nat4-regular" ;;
+    udp-nat4-irregular|tcp-hard-irregular) echo "nat4-irregular" ;;
+    *) die "unknown MNT-01 profile: $1" ;;
+  esac
+}
+
+profile_family() {
+  case "$1" in
+    tcp6-direct) echo "v6" ;;
+    tcp*) echo "v4" ;;
+    *) echo "auto" ;;
+  esac
+}
+
+profile_needs_ipv6() {
+  [[ "$1" == "tcp6-direct" ]]
+}
+
+profile_needs_portmap() {
+  [[ "$1" == "tcp4-portmap-direct" ]]
+}
+
+profile_blocks_tcp() {
+  [[ "$1" == "tcp-blocked-unknown" ]]
+}
+
+profile_is_hard_tcp() {
+  case "$1" in
+    tcp-hard-regular|tcp-hard-irregular) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+default_classification() {
+  local matrix="$1" profile_a="$2" profile_b="$3"
+  if [[ "${profile_a}" == "tcp-blocked-unknown" || "${profile_b}" == "tcp-blocked-unknown" ]]; then
+    echo "fail-required"
+    return 0
+  fi
+  if [[ "${matrix}" == "udp" ]]; then
+    if [[ "${profile_a}" != "udp-nat1" || "${profile_b}" != "udp-nat1" ]]; then
+      echo "diag-fail-allowed"
+      return 0
+    fi
+  fi
+  if [[ "${matrix}" == "tcp" ]]; then
+    if [[ "${profile_a}" != "tcp6-direct" || "${profile_b}" != "tcp6-direct" ]]; then
+      echo "diag-fail-allowed"
+      return 0
+    fi
+  fi
+  if profile_is_hard_tcp "${profile_a}" || profile_is_hard_tcp "${profile_b}"; then
+    echo "diag-fail-allowed"
+    return 0
+  fi
+  if [[ "${matrix}" == "udp" ]] && [[ "${profile_a}" == udp-nat4-* || "${profile_b}" == udp-nat4-* ]]; then
+    echo "diag-fail-allowed"
+    return 0
+  fi
+  echo "success-required"
+}
+
+start_bg_in_netns() {
+  local namespace="$1"
+  local log_file="$2"
+  shift 2
+  ip netns exec "${namespace}" sh -c 'log="$1"; shift; "$@" >"$log" 2>&1 & echo $!' _ "${log_file}" "$@"
+}
+
+stop_pid() {
+  local pid="$1"
+  if [[ -z "${pid}" ]]; then
+    return 0
+  fi
+  if kill -0 "${pid}" 2>/dev/null; then
+    kill "${pid}" 2>/dev/null || true
+    for _ in {1..40}; do
+      if ! kill -0 "${pid}" 2>/dev/null; then
+        return 0
+      fi
+      sleep 0.1
+    done
+    kill -9 "${pid}" 2>/dev/null || true
+  fi
+}
+
+stop_pid_int() {
+  local pid="$1"
+  if [[ -z "${pid}" ]]; then
+    return 0
+  fi
+  if kill -0 "${pid}" 2>/dev/null; then
+    kill -INT "${pid}" 2>/dev/null || true
+    for _ in {1..30}; do
+      if ! kill -0 "${pid}" 2>/dev/null; then
+        return 0
+      fi
+      sleep 0.1
+    done
+    stop_pid "${pid}"
+  fi
+}
+
+dump_state() {
+  [[ -n "${run_dir}" ]] || return 0
+  ns_exec "${NS_NAT_A}" iptables-save >"${run_dir}/natA.iptables" 2>&1 || true
+  ns_exec "${NS_NAT_B}" iptables-save >"${run_dir}/natB.iptables" 2>&1 || true
+  ns_exec "${NS_NAT_A}" conntrack -L >"${run_dir}/natA.conntrack" 2>&1 || true
+  ns_exec "${NS_NAT_B}" conntrack -L >"${run_dir}/natB.conntrack" 2>&1 || true
+  ns_exec "${NS_NAT_A}" tc -s qdisc show >"${run_dir}/natA.tc" 2>&1 || true
+  ns_exec "${NS_NAT_B}" tc -s qdisc show >"${run_dir}/natB.tc" 2>&1 || true
+  ip netns list >"${run_dir}/netns.txt" 2>&1 || true
+  state_dumped=1
+}
+
+finish() {
+  local rc=$?
+  stop_pid "${daemon_b_pid:-}" || true
+  stop_pid "${daemon_a_pid:-}" || true
+  stop_pid "${mqtt_pid:-}" || true
+  stop_pid "${stun_pid:-}" || true
+  stop_pid "${natA_pmp_pid:-}" || true
+  stop_pid "${natB_pmp_pid:-}" || true
+  stop_pid_int "${tcpdump_mqtt_pid:-}" || true
+  stop_pid_int "${tcpdump_wan_pid:-}" || true
+  if [[ "${state_dumped}" -eq 0 ]]; then
+    dump_state || true
+  fi
+  topology_cleanup >/dev/null 2>&1 || true
+  [[ -n "${socket_root:-}" ]] && rm -rf "${socket_root}" || true
+  [[ -n "${run_dir:-}" ]] && chmod -R a+rX "${run_dir}" 2>/dev/null || true
+  exit "${rc}"
+}
+
+apply_tcp_block() {
+  local nat_ns="$1" peer_ip="$2" remote_peer_ip="$3" remote_wan_ip="$4" p2p_port="$5"
+  local tcp_listen_port=$((p2p_port + 100))
+  ns_exec "${nat_ns}" iptables -w -I FORWARD 1 -i lan0 -o wan0 -p tcp --sport "${p2p_port}" -j DROP
+  ns_exec "${nat_ns}" iptables -w -I FORWARD 1 -i lan0 -o wan0 -p tcp --sport "${tcp_listen_port}" -j DROP
+  ns_exec "${nat_ns}" iptables -w -I FORWARD 1 -i lan0 -o wan0 -p tcp -d "${remote_peer_ip}" --dport "${p2p_port}" -j DROP
+  ns_exec "${nat_ns}" iptables -w -I FORWARD 1 -i lan0 -o wan0 -p tcp -d "${remote_peer_ip}" --dport "${tcp_listen_port}" -j DROP
+  ns_exec "${nat_ns}" iptables -w -I FORWARD 1 -i lan0 -o wan0 -p tcp -d "${remote_wan_ip}" --dport "${p2p_port}" -j DROP
+  ns_exec "${nat_ns}" iptables -w -I FORWARD 1 -i lan0 -o wan0 -p tcp -d "${remote_wan_ip}" --dport "${tcp_listen_port}" -j DROP
+  ns_exec "${nat_ns}" iptables -w -I FORWARD 1 -i wan0 -o lan0 -p tcp -d "${peer_ip}" --dport "${p2p_port}" -j DROP
+  ns_exec "${nat_ns}" iptables -w -I FORWARD 1 -i wan0 -o lan0 -p tcp -d "${peer_ip}" --dport "${tcp_listen_port}" -j DROP
+}
+
+wait_localapi() {
+  local namespace="$1" socket="$2" label="$3"
+  local start now
+  start="$(date +%s)"
+  while true; do
+    if ip netns exec "${namespace}" "${miopunch}" --localapi "unix:${socket}" --format json ls >/dev/null 2>&1; then
+      return 0
+    fi
+    now="$(date +%s)"
+    if ((now - start > 20)); then
+      die "localapi not ready for ${label} (run_dir=${run_dir})"
+    fi
+    sleep 0.2
+  done
+}
+
+require_report_evidence() {
+  local report="$1" classification="$2" expect_path="$3"
+  _="${classification}"
+  grep -q "CandidateExchange: gather candidates" "${report}" || die "missing candidate discovery evidence: ${report}"
+  grep -q "CandidateExchange: mqtt exchange" "${report}" || die "missing MQTT exchange evidence: ${report}"
+  grep -q "PunchAttempt: punch attempt" "${report}" || die "missing attempt evidence: ${report}"
+  if [[ -n "${expect_path}" ]]; then
+    grep -q "attempt_path=${expect_path}" "${report}" || die "missing expected attempt_path=${expect_path}: ${report}"
+  fi
+}
+
+assert_no_broker_payload() {
+  local pcap="$1"
+  if [[ ! -s "${pcap}" ]]; then
+    die "missing broker pcap evidence: ${pcap}"
+  fi
+  if strings "${pcap}" | grep -q '"op":"ping"'; then
+    die "MQTT broker pcap contains data-plane ping frame: ${pcap}"
+  fi
+}
+
+record_attempt() {
+  local attempt="$1" repeat="$2" classification="$3" json_file="$4" rc="$5"
+  local stage reason facts ping_ok attempt_path stop_condition ok
+  stage="$(jq -r '.stage // ""' "${json_file}" 2>/dev/null || true)"
+  reason="$(jq -r '.reason_code // ""' "${json_file}" 2>/dev/null || true)"
+  facts="$(jq -r '.facts[]?.message' "${json_file}" 2>/dev/null | tr '\n' ';' || true)"
+  ping_ok="no"
+  attempt_path=""
+  if printf '%s\n' "${facts}" | grep -q 'ping=ok'; then
+    ping_ok="yes"
+  fi
+  attempt_path="$(printf '%s\n' "${facts}" | sed -n 's/.*attempt_path=\([^;]*\).*/\1/p' | head -n 1)"
+
+  if [[ "${rc}" -eq 0 ]]; then
+    if [[ "${ping_ok}" == "yes" ]]; then
+      stop_condition="payload_exchange_proven"
+    else
+      stop_condition="task_done_without_payload"
+    fi
+  elif [[ "${classification}" == "fail-required" ]]; then
+    stop_condition="expected_failure"
+  elif [[ "${attempt}" -lt "${repeat}" ]]; then
+    stop_condition="retry_budget_remaining"
+  else
+    stop_condition="budget_exhausted"
+  fi
+
+  ok="no"
+  case "${classification}" in
+    success-required)
+      [[ "${rc}" -eq 0 && "${ping_ok}" == "yes" && -n "${attempt_path}" ]] && ok="yes"
+      ;;
+    success-preferred|diag-fail-allowed)
+      if [[ "${rc}" -eq 0 ]]; then
+        [[ "${ping_ok}" == "yes" && -n "${attempt_path}" ]] && ok="yes"
+      else
+        [[ -n "${stage}" && -n "${reason}" && -n "${stop_condition}" ]] && ok="yes"
+      fi
+      ;;
+    fail-required)
+      [[ "${rc}" -ne 0 && -n "${stage}" && -n "${reason}" && -n "${stop_condition}" ]] && ok="yes"
+      ;;
+    *)
+      die "unknown classification: ${classification}"
+      ;;
+  esac
+
+  printf 'attempt=%s\tclassification=%s\trc=%s\tok=%s\tstage=%s\treason=%s\tping_ok=%s\tattempt_path=%s\tstop_condition=%s\tfacts=%s\n' \
+    "${attempt}" "${classification}" "${rc}" "${ok}" "${stage}" "${reason}" "${ping_ok}" "${attempt_path}" "${stop_condition}" "${facts}" \
+    >>"${run_dir}/attempts.tsv"
+}
+
+main() {
+  local case_id=""
+  local matrix="specialty"
+  local profile_a=""
+  local profile_b=""
+  local direction=""
+  local classification=""
+  local p2p_network=""
+  local data_proto="quic"
+  local quic_cc="bbr"
+  local repeat="1"
+  local enable_ipv6=0
+  local block_forward_udp6=0
+  local disable_stun=0
+  local start_natpmpd=0
+  local disable_portmap_a=0
+  local disable_portmap_b=0
+  local expect_path=""
+  local wan_netem=""
+  local p2p_udp_loss_probability=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --case-id) case_id="${2:-}"; shift 2 ;;
+      --matrix) matrix="${2:-}"; shift 2 ;;
+      --profile-a) profile_a="${2:-}"; shift 2 ;;
+      --profile-b) profile_b="${2:-}"; shift 2 ;;
+      --direction) direction="${2:-}"; shift 2 ;;
+      --classification) classification="${2:-}"; shift 2 ;;
+      --p2p-network) p2p_network="${2:-}"; shift 2 ;;
+      --data-proto) data_proto="${2:-}"; shift 2 ;;
+      --quic-cc) quic_cc="${2:-}"; shift 2 ;;
+      --repeat) repeat="${2:-}"; shift 2 ;;
+      --enable-ipv6) enable_ipv6=1; shift ;;
+      --block-forward-udp6) block_forward_udp6=1; shift ;;
+      --disable-stun) disable_stun=1; shift ;;
+      --start-natpmpd) start_natpmpd=1; shift ;;
+      --disable-portmap-a) disable_portmap_a=1; shift ;;
+      --disable-portmap-b) disable_portmap_b=1; shift ;;
+      --expect-path) expect_path="${2:-}"; shift 2 ;;
+      --wan-netem) wan_netem="${2:-}"; shift 2 ;;
+      --p2p-udp-loss-probability) p2p_udp_loss_probability="${2:-}"; shift 2 ;;
+      -h|--help|help) usage; exit 0 ;;
+      *) die "unknown arg: $1" ;;
+    esac
+  done
+
+  [[ -n "${case_id}" ]] || { usage; exit 2; }
+  [[ -n "${profile_a}" ]] || die "missing --profile-a"
+  [[ -n "${profile_b}" ]] || die "missing --profile-b"
+  case "${matrix}" in udp|tcp|specialty) ;; *) die "invalid --matrix: ${matrix}" ;; esac
+  case "${data_proto}" in quic|kcp) ;; *) die "invalid --data-proto: ${data_proto}" ;; esac
+  case "${quic_cc}" in bbr|brutal) ;; *) die "invalid --quic-cc: ${quic_cc}" ;; esac
+  [[ "${repeat}" =~ ^[0-9]+$ && "${repeat}" -ge 1 ]] || die "invalid --repeat: ${repeat}"
+
+  if [[ -z "${p2p_network}" ]]; then
+    case "${matrix}" in
+      udp) p2p_network="udp_only" ;;
+      tcp) p2p_network="tcp_only" ;;
+      *) p2p_network="auto" ;;
+    esac
+  fi
+  case "${p2p_network}" in auto|udp_only|tcp_only) ;; *) die "invalid --p2p-network: ${p2p_network}" ;; esac
+
+  if [[ -z "${classification}" ]]; then
+    classification="$(default_classification "${matrix}" "${profile_a}" "${profile_b}")"
+  fi
+  case "${classification}" in success-required|success-preferred|diag-fail-allowed|fail-required) ;; *) die "invalid --classification: ${classification}" ;; esac
+  if [[ -z "${direction}" ]]; then
+    direction="${profile_b}->${profile_a}"
+  fi
+
+  if profile_needs_ipv6 "${profile_a}" || profile_needs_ipv6 "${profile_b}"; then
+    enable_ipv6=1
+  fi
+  if profile_needs_portmap "${profile_a}" || profile_needs_portmap "${profile_b}"; then
+    start_natpmpd=1
+  fi
+  if [[ "${matrix}" != "specialty" ]]; then
+    [[ "${start_natpmpd}" -eq 1 ]] || disable_portmap_a=1
+    [[ "${start_natpmpd}" -eq 1 ]] || disable_portmap_b=1
+  fi
+
+  preflight
+
+  local ts safe_case
+  ts="$(date -u +%Y%m%dT%H%M%SZ)"
+  safe_case="$(printf '%s' "${case_id}" | tr -c 'A-Za-z0-9_.-' '-')"
+  run_dir="${artifacts_root}/${ts}-mnt01-${safe_case}"
+  socket_root="/run/miopunch-lab/mnt01-${safe_case}-${RANDOM}${RANDOM}"
+  mkdir -p "${run_dir}" "${run_dir}/state/a" "${run_dir}/state/b" "${socket_root}"
+  echo "run_dir=${run_dir}"
+  trap finish EXIT
+
+  local nat_a nat_b p2p_family_a p2p_family_b
+  local accept_port_a=5000
+  local accept_port_b=5000
+  local dial_port_a=5001
+  local dial_port_b=5001
+  nat_a="$(profile_nat "${profile_a}")"
+  nat_b="$(profile_nat "${profile_b}")"
+  p2p_family_a="$(profile_family "${profile_a}")"
+  p2p_family_b="$(profile_family "${profile_b}")"
+
+  topology_cleanup >/dev/null 2>&1 || true
+  topology_create
+  if [[ "${enable_ipv6}" -eq 1 ]]; then
+    topology_enable_ipv6
+  fi
+  profiles_apply "${NS_NAT_A}" "${nat_a}" "${LAN_A_CIDR}" "${WAN_A_IP}" "${PEER_A_IP}" "${accept_port_a}"
+  profiles_apply_extra_port "${NS_NAT_A}" "${nat_a}" "${LAN_A_CIDR}" "${WAN_A_IP}" "${PEER_A_IP}" "${dial_port_a}"
+  profiles_apply "${NS_NAT_B}" "${nat_b}" "${LAN_B_CIDR}" "${WAN_B_IP}" "${PEER_B_IP}" "${accept_port_b}"
+  profiles_apply_extra_port "${NS_NAT_B}" "${nat_b}" "${LAN_B_CIDR}" "${WAN_B_IP}" "${PEER_B_IP}" "${dial_port_b}"
+  if [[ "${block_forward_udp6}" -eq 1 ]]; then
+    topology_block_forward_udp6
+  fi
+  if [[ -n "${wan_netem}" ]]; then
+    # shellcheck disable=SC2206
+    local -a netem_args=(${wan_netem})
+    topology_apply_symmetric_wan_netem "${netem_args[@]}"
+  fi
+  if [[ -n "${p2p_udp_loss_probability}" ]]; then
+    topology_apply_p2p_udp_loss "${p2p_udp_loss_probability}" "${accept_port_a}" "${accept_port_b}"
+    topology_apply_p2p_udp_loss "${p2p_udp_loss_probability}" "${dial_port_a}" "${dial_port_b}"
+  fi
+  if profile_blocks_tcp "${profile_a}"; then
+    apply_tcp_block "${NS_NAT_A}" "${PEER_A_IP}" "${PEER_B_IP}" "${WAN_B_IP}" "${accept_port_a}"
+    apply_tcp_block "${NS_NAT_A}" "${PEER_A_IP}" "${PEER_B_IP}" "${WAN_B_IP}" "${dial_port_a}"
+  fi
+  if profile_blocks_tcp "${profile_b}"; then
+    apply_tcp_block "${NS_NAT_B}" "${PEER_B_IP}" "${PEER_A_IP}" "${WAN_A_IP}" "${accept_port_b}"
+    apply_tcp_block "${NS_NAT_B}" "${PEER_B_IP}" "${PEER_A_IP}" "${WAN_A_IP}" "${dial_port_b}"
+  fi
+
+  tcpdump_wan_pid="$(start_bg_in_netns "${NS_WAN}" /dev/null tcpdump -ni br0 -w "${run_dir}/wan.pcap")"
+  tcpdump_mqtt_pid="$(start_bg_in_netns "${NS_COORD}" /dev/null tcpdump -ni eth0 -w "${run_dir}/mqtt.pcap" tcp port 1883)"
+
+  if [[ "${start_natpmpd}" -eq 1 ]]; then
+    natA_pmp_pid="$(start_bg_in_netns "${NS_NAT_A}" "${run_dir}/natA.natpmpd.log" "${script_dir}/mlab-natpmpd" --wan-if wan0 --lan-if lan0 --external-ip "${WAN_A_IP}")"
+    natB_pmp_pid="$(start_bg_in_netns "${NS_NAT_B}" "${run_dir}/natB.natpmpd.log" "${script_dir}/mlab-natpmpd" --wan-if wan0 --lan-if lan0 --external-ip "${WAN_B_IP}")"
+    sleep 0.2
+  fi
+
+  if [[ "${disable_stun}" -eq 0 ]]; then
+    stun_pid="$(start_bg_in_netns "${NS_STUN}" "${run_dir}/stun.log" "${miopunch_lab}" stun --listen "${STUN_IP}:3478" --listen "${STUN_IP}:3479")"
+    sleep 0.2
+  fi
+  mqtt_pid="$(start_bg_in_netns "${NS_COORD}" "${run_dir}/mqtt.log" "${miopunch_lab}" mqtt-broker --listen "${COORD_IP}:1883")"
+  sleep 0.2
+  for _ in {1..80}; do
+    if grep -q '"msg":"mqtt broker listening"' "${run_dir}/mqtt.log" 2>/dev/null; then
+      break
+    fi
+    sleep 0.05
+  done
+
+  local seed_flags=(
+    --state-a "${run_dir}/state/a/state.json"
+    --state-b "${run_dir}/state/b/state.json"
+    --mqtt-broker "${COORD_IP}:1883"
+    --stun "${STUN_IP}:3478,${STUN_IP}:3479"
+    --p2p-network "${p2p_network}"
+    --p2p-ip-family-a "${p2p_family_a}"
+    --p2p-ip-family-b "${p2p_family_b}"
+    --p2p-port-a "${accept_port_a}"
+    --p2p-port-b "${accept_port_b}"
+    --dial-port-a "${dial_port_a}"
+    --dial-port-b "${dial_port_b}"
+    --data-proto "${data_proto}"
+    --quic-cc "${quic_cc}"
+    --out-env "${run_dir}/fixture.env"
+    --out-json "${run_dir}/fixture.json"
+  )
+  if [[ "${disable_stun}" -eq 1 ]]; then
+    seed_flags+=(--disable-stun)
+  fi
+  if [[ "${disable_portmap_a}" -eq 1 ]]; then
+    seed_flags+=(--disable-portmap-a)
+  fi
+  if [[ "${disable_portmap_b}" -eq 1 ]]; then
+    seed_flags+=(--disable-portmap-b)
+  fi
+  "${miopunch_lab}" mnt01-seed "${seed_flags[@]}" >"${run_dir}/seed.stdout" 2>"${run_dir}/seed.stderr"
+  # shellcheck source=/dev/null
+  source "${run_dir}/fixture.env"
+
+  local sock_a="${socket_root}/a.sock"
+  local sock_b="${socket_root}/b.sock"
+  daemon_a_pid="$(start_bg_in_netns "${NS_PEER_A}" "${run_dir}/daemon-a.log" "${miopunch}" up --localapi "unix:${sock_a}" --state_path "${run_dir}/state/a/state.json")"
+  daemon_b_pid="$(start_bg_in_netns "${NS_PEER_B}" "${run_dir}/daemon-b.log" "${miopunch}" up --localapi "unix:${sock_b}" --state_path "${run_dir}/state/b/state.json")"
+  wait_localapi "${NS_PEER_A}" "${sock_a}" "peer-a"
+  wait_localapi "${NS_PEER_B}" "${sock_b}" "peer-b"
+  sleep 3
+
+  {
+    echo "case_id=${case_id}"
+    echo "matrix=${matrix}"
+    echo "direction=${direction}"
+    echo "profile_a=${profile_a}"
+    echo "profile_b=${profile_b}"
+    echo "nat_a=${nat_a}"
+    echo "nat_b=${nat_b}"
+    echo "classification=${classification}"
+    echo "p2p_network=${p2p_network}"
+    echo "p2p_ip_family_a=${p2p_family_a}"
+    echo "p2p_ip_family_b=${p2p_family_b}"
+    echo "accept_port_a=${accept_port_a}"
+    echo "accept_port_b=${accept_port_b}"
+    echo "dial_port_a=${dial_port_a}"
+    echo "dial_port_b=${dial_port_b}"
+    echo "data_proto=${data_proto}"
+    echo "quic_cc=${quic_cc}"
+    echo "repeat=${repeat}"
+    echo "enable_ipv6=${enable_ipv6}"
+    echo "disable_stun=${disable_stun}"
+    echo "start_natpmpd=${start_natpmpd}"
+    echo "disable_portmap_a=${disable_portmap_a}"
+    echo "disable_portmap_b=${disable_portmap_b}"
+    echo "peer_a_id=${peer_a_id}"
+    echo "peer_b_id=${peer_b_id}"
+    echo "mqtt_broker=${COORD_IP}:1883"
+    echo "coord_used=no"
+  } >"${run_dir}/case.env"
+
+  : >"${run_dir}/attempts.tsv"
+  local failures=0
+  local attempt
+  for ((attempt = 1; attempt <= repeat; attempt++)); do
+    local json_file="${run_dir}/attempt-${attempt}.json"
+    local report_file="${run_dir}/attempt-${attempt}.md"
+    set +e
+    ip netns exec "${NS_PEER_B}" "${miopunch}" \
+      --localapi "unix:${sock_b}" \
+      --format json \
+      --redact \
+      --report "${report_file}" \
+      ping "${peer_a_id}" --p2p-network "${p2p_network}" \
+      >"${json_file}" 2>"${run_dir}/attempt-${attempt}.stderr"
+    local ping_rc=$?
+    set -e
+    record_attempt "${attempt}" "${repeat}" "${classification}" "${json_file}" "${ping_rc}"
+    local attempt_ok
+    attempt_ok="$(tail -n 1 "${run_dir}/attempts.tsv" | awk -F '\t' '{for (i=1; i<=NF; i++) if ($i=="ok=yes") print "yes"}')"
+    if [[ "${attempt_ok}" != "yes" ]]; then
+      failures=$((failures + 1))
+    fi
+    require_report_evidence "${report_file}" "${classification}" "${expect_path}"
+  done
+
+  stop_pid_int "${tcpdump_mqtt_pid}" || true
+  tcpdump_mqtt_pid=""
+  stop_pid_int "${tcpdump_wan_pid}" || true
+  tcpdump_wan_pid=""
+  dump_state || true
+  assert_no_broker_payload "${run_dir}/mqtt.pcap"
+
+  local required_pass=0 preferred_success=0 allowed_diag_fail=0 required_fail=0 unexpected_fail=0
+  while IFS=$'\t' read -r attempt_field class_field rc_field ok_field stage_field reason_field ping_field path_field stop_field facts_field; do
+    [[ -n "${attempt_field}" ]] || continue
+    _="${class_field}${stage_field}${reason_field}${path_field}${stop_field}${facts_field}"
+    local rc_value="${rc_field#rc=}"
+    local ok_value="${ok_field#ok=}"
+    local ping_value="${ping_field#ping_ok=}"
+    if [[ "${ok_value}" != "yes" ]]; then
+      unexpected_fail=$((unexpected_fail + 1))
+      continue
+    fi
+    case "${classification}" in
+      success-required) required_pass=$((required_pass + 1)) ;;
+      success-preferred)
+        if [[ "${rc_value}" == "0" && "${ping_value}" == "yes" ]]; then
+          preferred_success=$((preferred_success + 1))
+        else
+          allowed_diag_fail=$((allowed_diag_fail + 1))
+        fi
+        ;;
+      diag-fail-allowed)
+        if [[ "${rc_value}" == "0" && "${ping_value}" == "yes" ]]; then
+          preferred_success=$((preferred_success + 1))
+        else
+          allowed_diag_fail=$((allowed_diag_fail + 1))
+        fi
+        ;;
+      fail-required) required_fail=$((required_fail + 1)) ;;
+    esac
+  done <"${run_dir}/attempts.tsv"
+
+  local stop_conditions_json stop_conditions_joined
+  stop_conditions_json="$(awk -F '\t' '{for (i=1; i<=NF; i++) if ($i ~ /^stop_condition=/) print substr($i, 16)}' "${run_dir}/attempts.tsv" | sort -u | jq -R . | jq -s .)"
+  stop_conditions_joined="$(awk -F '\t' '{for (i=1; i<=NF; i++) if ($i ~ /^stop_condition=/) print substr($i, 16)}' "${run_dir}/attempts.tsv" | sort -u | paste -sd, -)"
+
+  cat >"${run_dir}/summary.json" <<EOF
+{
+  "case_id": "${case_id}",
+  "matrix": "${matrix}",
+  "direction": "${direction}",
+  "classification": "${classification}",
+  "repeat": ${repeat},
+  "required_pass": ${required_pass},
+  "preferred_success": ${preferred_success},
+  "allowed_diag_fail": ${allowed_diag_fail},
+  "required_fail": ${required_fail},
+  "unexpected_fail": ${unexpected_fail},
+  "stop_conditions": ${stop_conditions_json},
+  "artifacts": "${run_dir}"
+}
+EOF
+
+  echo "case=${case_id} classification=${classification} required_pass=${required_pass} preferred_success=${preferred_success} allowed_diag_fail=${allowed_diag_fail} required_fail=${required_fail} unexpected_fail=${unexpected_fail} stop_conditions=${stop_conditions_joined} run_dir=${run_dir}"
+  if [[ "${failures}" -ne 0 || "${unexpected_fail}" -ne 0 ]]; then
+    exit 1
+  fi
+}
+
+main "$@"

@@ -23,7 +23,7 @@ import (
 	"github.com/miopunch/miopunch/internal/task"
 )
 
-func runUp(args []string, stdout, stderr io.Writer) int {
+func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int {
 	_ = stdout
 
 	operatorSID, rest, err := parseOperatorSID(args)
@@ -56,6 +56,9 @@ func runUp(args []string, stdout, stderr io.Writer) int {
 			},
 		})
 		return int(poc.ExitCodeBadRequest)
+	}
+	if strings.TrimSpace(globalOpt.LocalAPIOverride) != "" {
+		upOpt.LocalAPIOverride = strings.TrimSpace(globalOpt.LocalAPIOverride)
 	}
 	if strings.TrimSpace(operatorSID) == "" {
 		operatorSID, err = poc.CurrentOperatorSID()
@@ -165,6 +168,27 @@ func runUpAsWindowsService(operatorSID string, upOpt upOptions, stderr io.Writer
 }
 
 func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, stderr io.Writer) int {
+	override := strings.TrimSpace(upOpt.LocalAPIOverride)
+	var overrideAddr localapi.Addr
+	var err error
+	if override != "" {
+		overrideAddr, err = localapi.ParseAddr(override)
+		if err != nil {
+			writeFailure(stderr, failureOutput{
+				Stage:      "daemon",
+				ReasonCode: poc.ReasonCodeBadRequest,
+				ExitCode:   poc.ExitCodeBadRequest,
+				Facts: []poc.Fact{
+					{Message: "invalid --localapi: " + err.Error()},
+				},
+				Suggestions: []poc.Suggestion{
+					{Message: "retry with a localapi address"},
+				},
+			})
+			return int(poc.ExitCodeBadRequest)
+		}
+	}
+
 	systemAddr, err := localapi.DefaultSystemAddr(operatorSID)
 	if err != nil {
 		writeFailure(stderr, failureOutput{
@@ -181,50 +205,57 @@ func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, st
 
 	userAddr, _ := localapi.DefaultUserAddr(operatorSID)
 
-	if err := probeLocalAPI(ctx, systemAddr); err == nil {
-		writeFailure(stderr, failureOutput{
-			Stage:      "daemon",
-			ReasonCode: poc.ReasonCodeConflict,
-			ExitCode:   poc.ExitCodeConflict,
-			Facts: []poc.Fact{
-				{Message: "system localapi is reachable: " + systemAddr.String()},
-			},
-			Suggestions: []poc.Suggestion{
-				{Message: "stop the existing daemon before starting a new one"},
-			},
-		})
-		return int(poc.ExitCodeConflict)
-	} else if isPermissionError(err) {
-		writeFailure(stderr, failureOutput{
-			Stage:      "daemon",
-			ReasonCode: poc.ReasonCodeForbidden,
-			ExitCode:   poc.ExitCodeForbidden,
-			Facts: []poc.Fact{
-				{Message: "permission denied probing system localapi: " + systemAddr.String()},
-			},
-			Suggestions: []poc.Suggestion{
-				{Message: "run from an elevated Administrator prompt"},
-			},
-		})
-		return int(poc.ExitCodeForbidden)
+	if override == "" {
+		if err := probeLocalAPI(ctx, systemAddr); err == nil {
+			writeFailure(stderr, failureOutput{
+				Stage:      "daemon",
+				ReasonCode: poc.ReasonCodeConflict,
+				ExitCode:   poc.ExitCodeConflict,
+				Facts: []poc.Fact{
+					{Message: "system localapi is reachable: " + systemAddr.String()},
+				},
+				Suggestions: []poc.Suggestion{
+					{Message: "stop the existing daemon before starting a new one"},
+				},
+			})
+			return int(poc.ExitCodeConflict)
+		} else if isPermissionError(err) {
+			writeFailure(stderr, failureOutput{
+				Stage:      "daemon",
+				ReasonCode: poc.ReasonCodeForbidden,
+				ExitCode:   poc.ExitCodeForbidden,
+				Facts: []poc.Fact{
+					{Message: "permission denied probing system localapi: " + systemAddr.String()},
+				},
+				Suggestions: []poc.Suggestion{
+					{Message: "run from an elevated Administrator prompt"},
+				},
+			})
+			return int(poc.ExitCodeForbidden)
+		}
+
+		if err := probeLocalAPI(ctx, userAddr); err == nil {
+			writeFailure(stderr, failureOutput{
+				Stage:      "daemon",
+				ReasonCode: poc.ReasonCodeConflict,
+				ExitCode:   poc.ExitCodeConflict,
+				Facts: []poc.Fact{
+					{Message: "user localapi is reachable: " + userAddr.String()},
+				},
+				Suggestions: []poc.Suggestion{
+					{Message: "stop the existing daemon before starting a new one"},
+				},
+			})
+			return int(poc.ExitCodeConflict)
+		}
 	}
 
-	if err := probeLocalAPI(ctx, userAddr); err == nil {
-		writeFailure(stderr, failureOutput{
-			Stage:      "daemon",
-			ReasonCode: poc.ReasonCodeConflict,
-			ExitCode:   poc.ExitCodeConflict,
-			Facts: []poc.Fact{
-				{Message: "user localapi is reachable: " + userAddr.String()},
-			},
-			Suggestions: []poc.Suggestion{
-				{Message: "stop the existing daemon before starting a new one"},
-			},
-		})
-		return int(poc.ExitCodeConflict)
+	addr := systemAddr
+	if override != "" {
+		addr = overrideAddr
 	}
 
-	ln, err := localapi.Listen(systemAddr, localapi.ListenModeSystem)
+	ln, err := localapi.Listen(addr, localapi.ListenModeSystem)
 	if err != nil {
 		writeFailure(stderr, failureOutput{
 			Stage:      "daemon",
@@ -232,7 +263,7 @@ func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, st
 			ExitCode:   poc.ExitCodeUnavailable,
 			Facts: []poc.Fact{
 				{Message: "failed to listen: " + err.Error()},
-				{Message: "addr=" + systemAddr.String()},
+				{Message: "addr=" + addr.String()},
 			},
 			Suggestions: []poc.Suggestion{
 				{Message: "retry from an elevated Administrator prompt"},
@@ -242,7 +273,12 @@ func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, st
 	}
 	defer func() { _ = ln.Close() }()
 
-	mgr := task.NewManager()
+	var mgr *task.Manager
+	if strings.TrimSpace(upOpt.StatePath) != "" {
+		mgr = task.NewManagerWithStatePath(upOpt.StatePath)
+	} else {
+		mgr = task.NewManager()
+	}
 	defer mgr.Close()
 
 	var panel *http_panel.Server
@@ -303,10 +339,10 @@ func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, st
 		}()
 	}
 	go func() {
-		_ = pocacceptor.Run(ctx, pocacceptor.Config{})
+		_ = pocacceptor.Run(ctx, pocacceptor.Config{StatePath: upOpt.StatePath})
 	}()
 
-	fmt.Fprintf(stderr, "miopunch up: serving LocalAPI (system) at %s\n", systemAddr.String())
+	fmt.Fprintf(stderr, "miopunch up: serving LocalAPI (system) at %s\n", addr.String())
 	if panel != nil {
 		fmt.Fprintf(stderr, "miopunch up: serving HTTP panel at %s/\n", panel.Origin())
 	}

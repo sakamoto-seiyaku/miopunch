@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID:-0}" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+guest_root="$(cd -- "${script_dir}/.." && pwd)"
+runner="${script_dir}/mlab-mnt01-run"
+[[ -x "${runner}" ]] || { echo "error: missing runner: ${runner}" >&2; exit 1; }
+
+# shellcheck source=/dev/null
+source "${guest_root}/lib/mnt01_aggregate.sh"
+
+artifacts_root="${MLAB_ARTIFACTS_ROOT:-/opt/miopunch-lab/artifacts}"
+ts="$(date -u +%Y%m%dT%H%M%SZ)"
+aggregate_dir="${artifacts_root}/${ts}-mnt01-selftest-aggregate"
+mnt01_aggregate_init "${aggregate_dir}"
+
+udp_profiles=(udp-nat1 udp-nat2 udp-nat3 udp-nat4-regular udp-nat4-irregular)
+for ((left = 0; left < ${#udp_profiles[@]}; left++)); do
+  for ((right = left; right < ${#udp_profiles[@]}; right++)); do
+    profile_a="${udp_profiles[left]}"
+    profile_b="${udp_profiles[right]}"
+    mnt01_run_case "mnt01 selftest" --case-id "mnt01-udp-${profile_b}-x-${profile_a}" --matrix udp --profile-a "${profile_a}" --profile-b "${profile_b}"
+  done
+done
+
+mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp-v6-direct --matrix tcp --profile-a tcp6-direct --profile-b tcp6-direct --classification success-required
+mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp4-direct --matrix tcp --profile-a tcp4-direct --profile-b tcp4-direct --classification diag-fail-allowed
+mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp-portmap --matrix tcp --profile-a tcp4-portmap-direct --profile-b tcp4-portmap-direct --classification diag-fail-allowed
+mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp-hard --matrix tcp --profile-a tcp-easy-stable --profile-b tcp-hard-irregular --classification diag-fail-allowed --repeat "${MLAB_MNT01_HARD_REPEAT:-2}"
+mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp-blocked --matrix tcp --profile-a tcp4-direct --profile-b tcp-blocked-unknown --classification fail-required
+mnt01_run_case "mnt01 selftest" --case-id mnt01-self-ipv6-udp4-fallback --matrix specialty --profile-a udp-nat1 --profile-b udp-nat1 --p2p-network udp_only --classification success-required --enable-ipv6 --block-forward-udp6 --expect-path direct_ipv4
+mnt01_run_case "mnt01 selftest" --case-id mnt01-self-loss-netem --matrix specialty --profile-a udp-nat3 --profile-b udp-nat3 --p2p-network udp_only --classification diag-fail-allowed --wan-netem "delay 20ms loss 1%" --p2p-udp-loss-probability 0.01
+
+echo "summary: pass=${mnt01_pass} fail=${mnt01_fail}"
+mnt01_write_summary "${aggregate_dir}/summary.json" "mnt01-selftest"
+echo "aggregate=${aggregate_dir}"
+[[ "${mnt01_fail}" -eq 0 ]]

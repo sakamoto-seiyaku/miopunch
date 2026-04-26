@@ -6,11 +6,14 @@ import (
 	"strings"
 
 	"github.com/miopunch/miopunch/internal/http_panel"
+	"github.com/miopunch/miopunch/internal/localapi"
 )
 
 type upOptions struct {
 	HTTPPanel           bool
 	HTTPPanelListenAddr string
+	LocalAPIOverride    string
+	StatePath           string
 }
 
 func parseUpOptions(args []string) (upOptions, []string, error) {
@@ -49,6 +52,26 @@ func parseUpOptions(args []string) (upOptions, []string, error) {
 		case strings.HasPrefix(a, "--http_panel_listen_addr="):
 			opt.HTTPPanelListenAddr = strings.TrimSpace(strings.TrimPrefix(a, "--http_panel_listen_addr="))
 			i++
+		case a == "--localapi":
+			if i+1 >= len(args) {
+				return upOptions{}, nil, errors.New("missing value for --localapi")
+			}
+			i++
+			opt.LocalAPIOverride = strings.TrimSpace(args[i])
+			i++
+		case strings.HasPrefix(a, "--localapi="):
+			opt.LocalAPIOverride = strings.TrimSpace(strings.TrimPrefix(a, "--localapi="))
+			i++
+		case a == "--state_path":
+			if i+1 >= len(args) {
+				return upOptions{}, nil, errors.New("missing value for --state_path")
+			}
+			i++
+			opt.StatePath = strings.TrimSpace(args[i])
+			i++
+		case strings.HasPrefix(a, "--state_path="):
+			opt.StatePath = strings.TrimSpace(strings.TrimPrefix(a, "--state_path="))
+			i++
 		default:
 			return upOptions{}, nil, fmt.Errorf("unknown flag: %s", a)
 		}
@@ -61,6 +84,11 @@ func parseUpOptions(args []string) (upOptions, []string, error) {
 
 	if strings.TrimSpace(opt.HTTPPanelListenAddr) == "" {
 		opt.HTTPPanelListenAddr = http_panel.DefaultListenAddr
+	}
+	if strings.TrimSpace(opt.LocalAPIOverride) != "" {
+		if _, err := localapi.ParseAddr(opt.LocalAPIOverride); err != nil {
+			return upOptions{}, nil, fmt.Errorf("invalid --localapi: %w", err)
+		}
 	}
 
 	return opt, rest, nil

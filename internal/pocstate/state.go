@@ -36,7 +36,15 @@ type LocalConfig struct {
 	DataProto string `json:"data_proto"` // quic | kcp
 	QUICCC    string `json:"quic_cc"`    // bbr | brutal (only when data_proto=quic)
 
-	P2PNetwork string `json:"p2p_network,omitempty"` // auto | udp_only | tcp_only
+	P2PNetwork  string `json:"p2p_network,omitempty"`   // auto | udp_only | tcp_only
+	P2PIPFamily string `json:"p2p_ip_family,omitempty"` // auto | v4 | v6
+	P2PPort     int    `json:"p2p_port,omitempty"`
+
+	StunServers  []string `json:"stun,omitempty"`
+	StunExplicit bool     `json:"stun_explicit,omitempty"`
+
+	DisablePortMap       bool `json:"disable_portmap,omitempty"`
+	DisableAssistedAddrs bool `json:"disable_assisted_addrs,omitempty"`
 }
 
 type PeerConfig struct {
@@ -48,7 +56,15 @@ type PeerConfig struct {
 	DataProto string `json:"data_proto"` // quic | kcp
 	QUICCC    string `json:"quic_cc"`    // bbr | brutal (only when data_proto=quic)
 
-	P2PNetwork string `json:"p2p_network,omitempty"` // auto | udp_only | tcp_only
+	P2PNetwork  string `json:"p2p_network,omitempty"`   // auto | udp_only | tcp_only
+	P2PIPFamily string `json:"p2p_ip_family,omitempty"` // auto | v4 | v6
+	P2PPort     int    `json:"p2p_port,omitempty"`
+
+	StunServers  []string `json:"stun,omitempty"`
+	StunExplicit bool     `json:"stun_explicit,omitempty"`
+
+	DisablePortMap       bool `json:"disable_portmap,omitempty"`
+	DisableAssistedAddrs bool `json:"disable_assisted_addrs,omitempty"`
 }
 
 func Load(path string) (State, error) {
@@ -153,6 +169,14 @@ func (c LocalConfig) ToPeer() PeerConfig {
 		DataProto:   c.DataProto,
 		QUICCC:      c.QUICCC,
 		P2PNetwork:  c.P2PNetwork,
+		P2PIPFamily: c.P2PIPFamily,
+		P2PPort:     c.P2PPort,
+
+		StunServers:  append([]string(nil), c.StunServers...),
+		StunExplicit: c.StunExplicit,
+
+		DisablePortMap:       c.DisablePortMap,
+		DisableAssistedAddrs: c.DisableAssistedAddrs,
 	}
 }
 
@@ -175,6 +199,7 @@ func (c *LocalConfig) NormalizeDefaults() {
 	if strings.TrimSpace(c.P2PNetwork) == "" {
 		c.P2PNetwork = defaultP2PNetwork
 	}
+	c.StunServers = normalizeBrokers(c.StunServers)
 }
 
 func (c *PeerConfig) NormalizeDefaults() {
@@ -196,4 +221,5 @@ func (c *PeerConfig) NormalizeDefaults() {
 	if strings.TrimSpace(c.P2PNetwork) == "" {
 		c.P2PNetwork = defaultP2PNetwork
 	}
+	c.StunServers = normalizeBrokers(c.StunServers)
 }

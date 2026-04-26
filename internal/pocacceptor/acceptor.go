@@ -84,8 +84,13 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 	sid := mqttsig.DeriveSID(local.ProxyName, local.SecretKey)
 
 	gather, err := connectivity.Gather(handshakeCtx, sid, connectivity.GatherConfig{
-		ListenPort: 0,
-		P2PNetwork: connectivity.P2PNetwork(local.P2PNetwork),
+		ListenPort:           local.P2PPort,
+		P2PNetwork:           connectivity.P2PNetwork(local.P2PNetwork),
+		P2PIPFamily:          connectivity.P2PIPFamily(local.P2PIPFamily),
+		DisableAssistedAddrs: local.DisableAssistedAddrs,
+		DisablePortMap:       local.DisablePortMap,
+		StunServers:          local.StunServers,
+		StunExplicit:         local.StunExplicit,
 	})
 	if err != nil {
 		return err
@@ -108,12 +113,20 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 
 	transactionID := time.Now().UTC().UnixNano()
 
+	var brutalUpBps, brutalDownBps uint64
+	if local.DataProto == "quic" && local.QUICCC == "brutal" {
+		brutalUpBps = 1_000_000
+		brutalDownBps = 1_000_000
+	}
+
 	natHoleClientMsg := &wire.NatHoleClient{
 		TransactionID:  fmt.Sprintf("tx-%d", transactionID),
 		ProxyName:      local.ProxyName,
 		Sid:            sid,
 		Protocol:       local.DataProto,
 		QuicCC:         local.QUICCC,
+		BrutalUpBps:    brutalUpBps,
+		BrutalDownBps:  brutalDownBps,
 		Capabilities:   []string{wire.CapabilityTCPP2PV0},
 		P2PNetwork:     local.P2PNetwork,
 		DirectAddrs:    gather.DirectAddrs,
@@ -147,7 +160,8 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 	}
 
 	attemptRes, err := connectivity.Attempt(handshakeCtx, sid, []byte(local.SecretKey), gather.UDP4Conn, gather.UDP6Conn, gather.TCP4Listener, gather.TCP6Listener, natHoleRespMsg, connectivity.AttemptConfig{
-		P2PNetwork: connectivity.P2PNetwork(local.P2PNetwork),
+		P2PNetwork:  connectivity.P2PNetwork(local.P2PNetwork),
+		P2PIPFamily: connectivity.P2PIPFamily(local.P2PIPFamily),
 	})
 	if err != nil {
 		return err
