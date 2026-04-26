@@ -304,6 +304,46 @@
 - 若 winner 为 UDP：沿用现有 `QUIC/KCP over UDP` 数据面与上层语义。
 - 若 winner 为 TCP：使用 `TLS 1.3 + stream` 数据面；上层 `ping/sh_attach` 等语义保持不变（只是底层承载从 `*net.UDPConn` 变为 `net.Conn`）。
 
+## 2026-04-26 补充：TCP assisted candidate 与 UDP 语义对齐
+
+MNT-01 场景一复测暴露出一个 Door 2 设计缺口：TCP 私网 listen 地址当前会进入 `tcp_direct_addrs`，随后被下发为 `peer_tcp_direct_addrs` 并由 `direct_tcp4` 分支尝试。这会把私网辅助地址误解释为 direct candidate，也会让测试误以为 `direct_tcp4` 已被覆盖。
+
+本轮补充确认，TCP 应与 UDP 保持同一 candidate 分层原则：
+
+- `tcp_direct_addrs` 只表达真正可直连的 TCP 入口，例如公网 TCP direct、TCP portmap direct、可路由 IPv6 TCP direct。
+- 私网、本地、CGNAT 等不能作为跨 NAT direct 的 TCP listen 地址应进入 `tcp_assisted_addrs`。
+- `tcp_assisted_addrs` 是 TCP punching input，不是 direct path input。
+- `direct_tcp4` 只尝试 `peer_tcp_direct_addrs`，不尝试 assisted 地址。
+- `punching_tcp4` 可以使用 `tcp_assisted_addrs` 作为 exact target，并与 TCP STUN 派生的 `tcp_candidate_addrs` 一起进入 bounded accept+dial attempt。
+
+字段口径：
+
+- request 侧：
+  - `tcp_direct_addrs`：本端真实 TCP direct 入口。
+  - `tcp_assisted_addrs`：本端 TCP assisted/private punching input。
+  - `tcp_mapped_addrs`：TCP STUN 观测结果，仍记录 base port `P` 的映射。
+- response 侧：
+  - `peer_tcp_direct_addrs`：对端真实 TCP direct 入口，只供 direct path 使用。
+  - `tcp_assisted_addrs`：对端 TCP assisted/private punching input，只供 TCP punching 使用。
+  - `tcp_candidate_addrs`：由 TCP STUN 或 TCP view selection 派生的 punching candidate，decision 侧按 `P+100` 约定输出可尝试目标。
+
+当 TCP STUN 证据不足但存在 `tcp_assisted_addrs` 或其它明确 TCP target 时，允许最小 best-effort TCP assisted punching，而不是直接禁用 TCP punching。该 fallback 不声称完成了 NAT feature analysis，只表达“有明确目标，可做 bounded accept+dial 尝试”。
+
+assisted-only TCP punching 的临时口径为：
+
+- `Mode=0`。
+- 不启用 candidate range/random port spraying。
+- 有可拨 target 的一侧可以作为 sender；双方都有 assisted target 时，双方都可以发送，因为 TCP executor 应 receive-first 并通过 settle/cancel 收敛。
+- 成功仍记录为 `punching_tcp4`，不新增 `assisted_tcp4` path 名称。
+- 诊断必须记录 assisted exact、candidate exact、candidate expanded 的目标计数，以及最终 winning target 的来源。
+
+attempt 侧必须区分两个 bucket：
+
+- exact targets：`tcp_assisted_addrs` 与 `tcp_candidate_addrs` 原始目标。
+- sprayable candidate IPs：仅来自 `tcp_candidate_addrs` 的 IP，可应用 candidate ports 与 random ports。
+
+不能把 assisted 与 STUN-derived candidate 简单混成一个列表后统一扩展端口，否则会把 range/random spraying 错误套到私网 assisted IP 上。
+
 ## 风险与可行性评估（能不能成）
 
 ### 可行性较高的场景（预期）
@@ -328,6 +368,7 @@
 - TCP STUN 端点可用性（列表内容待定，流程已选定）：`connectivity/stun_internal.go` 的内置默认列表目前只有“UDP 可用性”证据（2026-04-14 的探测记录）；Door 2 必须补齐 STUN over TCP 可用性的探测证据，然后把端点分类标清楚（TCP-only/UDP-only/dual），避免“默认列表让 TCP 白白超时”。
 - wire 演进策略（已选定）：以最小入侵为原则，在现有 NAT-hole 消息中增加并列字段表达 TCP（候选/观测/决策/行为），例如 `tcp_direct_addrs`、`tcp_mapped_addrs`、`tcp_stun_cn/global`、`tcp_selected_view/reason`、`tcp_punching_enabled/error`、`tcp_detect_behavior`，避免复用字符串前缀破坏现有语义。
 - portmap（已选定）：portmap helper 扩展为可指定协议（UDP/TCP）；Gather 侧对 `udp4_port` 与 `tcp_listen_port(P+100)` 分别做 best-effort portmap。
+- TCP assisted candidate 分层（已选定）：新增 `tcp_assisted_addrs` 语义；私网 TCP listen 地址不得进入 `tcp_direct_addrs`；assisted-only 场景允许最小 bounded TCP punching fallback。
 - TCP 端口选择（已选定）：若用户 pin `ListenPort>0` 则 `P=ListenPort` 且 `P/P+100` 不可用即 fail-fast；若未 pin（`ListenPort=0`）则优先复用 UDP bind 出的端口号作为 `P`，并要求 `P+100` 可用；不满足时再探测选择 `P`。
 - TLS pinning（已选定）：`HKDF(secret_key, sid, role)` 派生每会话证书密钥并 mutual verify，不额外新增 wire 交换字段。
 - capabilities（已选定）：在 `PeerHello` 增加 `capabilities`（如 `tcp_p2p_v0`），`tcp_only` 可 fail-fast。

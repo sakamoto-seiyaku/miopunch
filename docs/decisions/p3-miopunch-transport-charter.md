@@ -147,6 +147,53 @@
 - `transport` 层的事件、错误和统计输出应与 `signaling / gather / attempt` 同样具备结构化、可机读、可回归的属性。
 - 事件命名与 payload schema 在后续 OpenSpec change 中固化；本文档只约束“必须有这些观测点”。
 
+## 2026-04-26 补充：peer transport session 与 logical stream
+
+MNT-01 的 `data_proto=kcp` specialty 暴露出 P3 早期 stream 抽象的方向问题：当前 dataplane 把 punching 后的 carrier 直接暴露为裸 `io.ReadWriteCloser`，一次 `ping` 操作返回时可能关闭底层 KCP/UDP socket。KCP 最先暴露这个问题，但根因属于 transport session / logical stream 分层缺失。
+
+P3 后续设计应从“单会话、单流”的早期模型升级为：
+
+```text
+punching path
+  -> secure peer transport session
+    -> mux/native stream layer
+      -> generic logical stream(kind, metadata)
+        -> payload protocol
+```
+
+协议模型：
+
+- TCP：`TCP carrier -> TLS 1.3 identity binding -> smux -> logical streams`。
+- KCP：`UDP punching path -> KCP carrier -> TLS 1.3 identity binding -> smux -> logical streams`。
+- QUIC：`QUIC native TLS 1.3 identity binding -> native QUIC streams`。
+
+安全口径：
+
+- KCP 不使用 kcp-go optional block crypto 作为主安全层。
+- QUIC 不再额外套一层 TLS，而是使用 QUIC native TLS 1.3 并补齐 identity binding。
+- TCP 与 KCP 应尽量共享 TLS 1.3 identity binding、session 和 mux 代码。
+
+生命周期口径：
+
+- daemon 采用 on-demand live session：按需打洞建 session；session 活着时复用 logical streams；空闲、认证失效、配置变化或 transport fatal error 后关闭。
+- 不照搬 FRP proactive tunnel 作为本轮硬要求。
+- 不持久化 session endpoint、candidate、mapped addr 或 winning target；session 死后从当前网络状态重新 gather/exchange/punch/secure-session。
+- 关闭 logical stream 不关闭 peer transport session；关闭 session 才关闭所有 logical streams、mux/QUIC session、secure session、carrier 和底层 socket。
+
+logical stream 必须是通用抽象，不得写死成 `shellproto ping/sh` 专用通道：
+
+- 每个 stream 打开时声明 stable `kind` 和小型 structured `metadata`。
+- stream-open 阶段完成 peer membership、revocation、kind、target、session 等授权。
+- `shellproto` 只是当前 payload protocol，可作为 `kind=shell.v0` 的上层内容继续存在。
+- 未来 `socks5.v0`、`http-forward.v0`、`file.v0` 等业务不需要伪装成 shellproto hello/ping/sh。
+
+timeout 与诊断口径：
+
+- session 必须有 keepalive 或等价活性检测。
+- session 必须有 idle timeout。
+- 每个 logical stream 必须有独立 deadline，不继承 punching round timeout。
+- close reason 必须可诊断，至少区分 idle timeout、daemon shutdown、identity/config change、auth revoked、stream protocol error 和 transport fatal error。
+
 ## 测试与验收
 
 - 结构迁移验收至少包括：
@@ -162,6 +209,7 @@
   - `core-01`：`data=kcp`、`data=quic(quic-cc=bbr)`、`data=quic(quic-cc=brutal)` 均可成功建立并交换 payload
   - `core-01-loss`：复用 `core-01` 的 NAT 基线，作为 derived loss variant；至少验证 `data=quic(quic-cc=brutal)` 在代表性高丢包场景下仍可完成 payload 交换
   - 至少 1 个包含更严格路径或 NAT 组合的代表 case（建议复用现有 `core-06` 或同类样本），确认传输层抽象不会破坏既有建链路径
+  - MNT-01 KCP transport specialty：在已建立 UDP path 后，KCP session 必须连续完成 stream-open/hello 与 ping response，不得依赖 handler sleep 或 KCP 专用 linger。
 - 回归约束：
   - 现有 `kcp / quic` 的实验台结果不应因 `P3` 抽象而劣化或漂移（除非 change 明确声明并给出证据）
   - 成功 case 不仅要求退出成功，还要求 ordered event assertions、`payload exchanged` 与 artifacts 完整
@@ -193,6 +241,7 @@
 - `connectivity`（打洞内核）与 `dataplane`（数据面）的能力归属是否要在 spec 层显式拆开：
   - 已决策：打洞内核只承诺“产出可用 UDP 通道 + UDP self-check”；所有传输协议选择与 `payload exchanged` 验收归属 `dataplane`。
   - 后续在 OpenSpec 中需要落实为：对 `xtcp-kernel` 的数据面 requirements 做移除/迁移，并由新的 `miopunch-dataplane` 承接。
+- peer transport session 的接口形状、stream-open envelope 和 per-kind authorization schema 需要在后续 OpenSpec change 中细化；本文只锁定分层和生命周期语义。
 - 现有 `xtcp` 代码树的收敛应拆成多少步：哪些属于 `P3` 同步完成，哪些应作为独立机械重构提交处理。
 
 > 具体的接口形状、消息结构与迁移步骤，应在后续 OpenSpec change 的 `proposal / design` 中继续收敛。

@@ -96,6 +96,24 @@
 - backend 切换只发生在 `round` 边界：本 round 失败→下一 round 才切换 backend。
 - path 选择顺序（高层）：网内可达 → external primary → external backup（都失败则失败）。
 
+### exchange schedule 与 punching phase schedule 的边界
+
+MNT-01/F-001 复盘确认，signaling backend 只应负责 exchange schedule，不应解释 NAT role 或在 backend 内硬编码 sender/receiver timing。
+
+设计上需要严格区分：
+
+- `exchange schedule`：属于 signaling/backend 层，回答双方如何拿到同一轮 snapshot、如何观察 start window、backend profile 是否满足该 round 的投递/提前量/clock skew 要求。
+- `punching phase schedule`：属于 punching decision/executor 层，回答本轮 mode、role、delay、TTL、targets、probe budget、receive/send loop 和 cancel reason。
+
+公共 `start_at` barrier 只能保证两端进入同一轮 attempt window，不能表达 receiver 低 TTL 开洞、sender 延迟普通包、bounded retry 等 NAT 打洞相位。Door 3 后续支持 MQTT/NATS/DHT/Git/Email 等多 backend 时，也不应把这些 NAT timing 写进 backend 适配器。
+
+因此：
+
+- backend profile 可以要求更大的 `min_lead_time`、window 或轮询预算。
+- backend 若无法满足 start window 或 clock skew 要求，应在 exchange 层失败或切换 backend。
+- 一旦进入 attempt window，phase 内部的 NAT role timing 由 punching phase plan 统一表达和执行。
+- MQTT 当前的 `ready/start_at` 语义后续应保持为 exchange readiness，不再承担 punching phase ordering。
+
 ## Join code 与 hash pin（已确认口径）
 
 ### 1) seed backend
