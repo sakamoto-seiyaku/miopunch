@@ -139,7 +139,7 @@
     - 若未 pin（`ListenPort=0`）：优先复用 UDP bind 出来的端口号作为 `P`（不同协议允许复用相同端口号）；要求 `P+100 <= 65535` 且可用于 TCP listen/punching。若不满足，再在高端口范围内探测选择一个 `P`（探测失败才回退/报错）。
   - `+100` 的使用层级（已选定）：
     - `tcp_mapped_addrs`（以及 TCP STUN view）记录的是 **STUN 观测的原始映射端口**（即 `P` 的映射），不做 `+100` 改写。
-    - coordinator 生成真正用于 dial 的 `TCPCandidateAddrs` / `TcpDetectBehavior.CandidatePorts` 时，对端端口基线按 `incPort(mapped_port, 100)` 偏移；下发到 attempt 的端口范围是 **最终绝对端口**（已包含 `+100`），attempt 不再做二次偏移。
+    - punching decision boundary 生成真正用于 dial 的 `TCPCandidateAddrs` / `TcpDetectBehavior.CandidatePorts` 时，对端端口基线按 `incPort(mapped_port, 100)` 偏移；下发到 attempt 的端口范围是 **最终绝对端口**（已包含 `+100`），attempt 不再做二次偏移。
   - TCP portmap（已选定）：映射 `P+100`（对应实际 listen/punching 端口），而不是 `P`（STUN 观测端口）。
 
 ### STUN 端点列表约定（不写两遍）
@@ -206,7 +206,7 @@
 
 ### Exchange（wire/控制面）：交换“分协议”的候选与观测
 
-建议目标：让 coordinator 能对 UDP/TCP 分别做“可解释决策”，并把决策产出成 attempt 可执行的指令。
+建议目标：让 punching decision boundary 能对 UDP/TCP 分别做“可解释决策”，并把决策产出成 attempt 可执行的指令。
 
 1) 候选交换：
    - UDP：保持兼容现有字段（`PeerDirectAddrs/CandidateAddrs/AssistedAddrs`）。
@@ -227,7 +227,7 @@
      - `mode 0/1/3`：不喷射或仅做范围端口猜测（deterministic）。
      - `mode 2/4`：包含端口喷射（random ports + multi-listen），但必须满足“有理由 + 有预算 + 可解释输出”。
      - TCP 侧默认参数需要更小（成本更高）：例如 `SendRandomPorts=128`、`ListenRandomPorts=32`（同一套语义，但预算更小）。
-     - mode 选择方法（建议与 UDP4 对齐）：coordinator 基于双方 `tcp_mapped_addrs` 做 `nat.ClassifyNATFeature`，再复用现有 analyzer 选出 `(mode,index)` 与双方 `Role/Delay/PortsRangeNumber/...`；仅在“每端 >=2 个样本”时才进入可分析路径，否则只能 best-effort 回退（类似 UDP 侧的 `nat analysis unavailable` 语境）。
+     - mode 选择方法（建议与 UDP4 对齐）：punching decision boundary 基于双方 `tcp_mapped_addrs` 做 `nat.ClassifyNATFeature`，再复用现有 analyzer 选出 `(mode,index)` 与双方 `Role/Delay/PortsRangeNumber/...`；仅在“每端 >=2 个样本”时才进入可分析路径，否则只能 best-effort 回退（类似 UDP 侧的 `nat analysis unavailable` 语境）。
 
 ### Attempt：按优先级编排 direct → punching（复用 UDP4 的“预算/可观测/收敛”）
 
@@ -254,14 +254,14 @@
 
 #### 深度对齐：UDP4 的 mode1..4，哪些可复用到 TCP
 
-现有 UDP4 punching（来自 `frp xtcp`）把“不同 NAT 组合”映射成 4 种主要策略（mode 1..4，见 `internal/punching/punching.go:36`、`internal/coordinator/nathole_analysis.go:51`）：
+现有 UDP4 punching（来自 `frp xtcp`）把“不同 NAT 组合”映射成 4 种主要策略（mode 1..4，见 `internal/punching/punching.go:36`、`internal/punchdecision/nathole_analysis.go:51`）：
 
 - `mode 1`（Hard + Easy，且端口变化“规律”）：对 Hard 侧做 **范围端口猜测**（`PortsRangeNumber`），不依赖随机喷射。
 - `mode 2`（Hard + Easy，且端口变化“不规律”）：依赖 **随机端口喷射**（`PortsRandomNumber=1000`）+ **多端口监听**（`ListenRandomPorts=256`）。
 - `mode 3`（Hard + Hard，且双方端口变化“规律”）：双方都做 **范围端口猜测**（`PortsRangeNumber`），不依赖随机喷射。
 - `mode 4`（Hard + Hard，且仅一侧规律）：仍然依赖 **随机端口喷射 + 多端口监听**，只是叠加少量范围端口猜测（`PortsRangeNumber=2`）。
 
-> UDP 里“范围端口猜测”的具体范围，是 coordinator 基于最后一个 mapped port 与 `PortsDifference` 计算出来的（见 `internal/coordinator/nathole_controller.go:557` 的 `getRangePorts`）。
+> UDP 里“范围端口猜测”的具体范围，是 punching decision boundary 基于最后一个 mapped port 与 `PortsDifference` 计算出来的（见 `internal/punchdecision/decision.go` 的 `getRangePorts`）。
 
 对 TCP 的结论（以“默认不喷射，但可解释地启用”为约束）：
 
@@ -271,7 +271,7 @@
   - `mode 0`（补充）：TCP direct / simultaneous-open 的基线策略，等价于“不猜端口，只打已知候选端口集合”。
 - **可复用（但必须强约束）**
   - `mode 2 / mode 4`：其核心是 `random ports + multi-listen`（端口喷射）。TCP 上实现代价和噪音更高（大量并发 dial/listen/半连接），因此不能“无理由默认喷射”，但可以在满足以下条件时启用：
-    - 明确触发理由：coordinator/analyzer 选择 `mode2/4`（TCP 侧观测落入“端口变化不规律”的语境，对齐 UDP 的 `mode2/4` 定义）。
+    - 明确触发理由：punching decision engine/analyzer 选择 `mode2/4`（TCP 侧观测落入“端口变化不规律”的语境，对齐 UDP 的 `mode2/4` 定义）。
     - 明确预算：总时长、并发上限、随机端口数量上限、监听端口数量上限；并支持早停。
     - 明确输出：把“触发原因/预算/实际喷射规模/是否被限额或跳过”输出到事件与 report。
     - 字段语义（已选定，与 UDP 对齐）：
@@ -297,7 +297,7 @@
 - 固定 attempt 顺序与时间预算（避免“看起来卡住了”的黑盒连接尝试）。
 - candidate fanout + winner 选择（提升“最快成功”的概率）。
 - 事件/日志结构（每个 candidate begin/end，明确 reason：timeout/skip/winner）。
-- coordinator 统一给出“可尝试/不可尝试”的 gating 结论，并可解释。
+- punching decision boundary 统一给出“可尝试/不可尝试”的 gating 结论，并可解释。
 
 ### Dataplane：不改变上层语义，只替换承载
 

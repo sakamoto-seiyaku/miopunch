@@ -1,4 +1,4 @@
-package coordinator
+package punchdecision
 
 import (
 	"github.com/miopunch/miopunch/internal/punching"

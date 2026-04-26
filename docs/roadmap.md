@@ -277,9 +277,9 @@ Change 划分（按最初设计顺序回顾）：
   - `VPP` 数据平面。
   - `udp2raw` 式伪装与用户态协议栈实验。
 
-- 基础清理：从产品路径中去掉 `coord` 服务语义。
+- 基础清理（已落地）：从产品路径中去掉 `coord` 服务语义。
   - `coord` server 仅保留为 `miopunch-lab` 实验/回归入口，不再作为产品化网络加入、发现或打洞交换的默认心智模型。
-  - 将当前仍复用的 NAT/打洞分析逻辑从 `internal/coordinator` 的命名与服务形态中剥离出来，收束为独立的决策/分析模块，供 MQTT leader、未来 mailbox/overlay 信道与 lab coord 共同调用。
+  - NAT/打洞分析逻辑已从 `internal/coordinator` 的命名与服务形态中剥离，收束到 `internal/punchdecision` 决策模块，供 MQTT leader、未来 mailbox/overlay 信道与 lab coord 共同调用。
   - 目标是避免后续“无中心化控制面”讨论继续被历史 `frp/xtcp coord` 语义污染；该条也可视为 Door 3 的前置清理。
 
 ## 里程碑原则

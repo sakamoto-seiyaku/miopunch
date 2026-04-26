@@ -23,7 +23,7 @@ import (
 	"github.com/miopunch/miopunch/dataplane"
 	"github.com/miopunch/miopunch/event"
 
-	"github.com/miopunch/miopunch/internal/coordinator"
+	"github.com/miopunch/miopunch/internal/punchdecision"
 	"github.com/miopunch/miopunch/internal/punching"
 	mqttsig "github.com/miopunch/miopunch/internal/signaling/mqtt"
 	"github.com/miopunch/miopunch/internal/wire"
@@ -155,7 +155,7 @@ func runVisitorMQTT(ctx context.Context, cfg VisitorConfig) error {
 	}
 
 	natHoleRespMsg, err := mq.RunVisitor(sessionCtx, natHoleVisitorMsg, func(sid string, visitor *wire.NatHoleVisitor, client *wire.NatHoleClient) (*wire.NatHoleResp, *wire.NatHoleResp, error) {
-		return coordinator.AnalyzeOnce(sid, visitor, client)
+		return punchdecision.AnalyzeOnce(sid, visitor, client)
 	})
 	if err != nil {
 		return fail(event.StageExchange, err, "exchange.failed", map[string]any{"sid": sid, "tx": transactionID})

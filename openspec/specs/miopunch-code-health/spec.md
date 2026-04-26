@@ -51,7 +51,7 @@ The system SHALL ensure structured event emission returns JSON encode or writer 
 The system SHALL ensure reviewed connectivity and dataplane paths do not leave goroutines, wait paths, or owned network connections stuck after early failure. TCP punching workers MUST have a deterministic stop path when target construction fails. TLS stream setup MUST close owned TCP candidates if TLS configuration fails before handshakes begin.
 
 #### Scenario: Invalid TCP punching targets do not strand workers
-- **WHEN** TCP punching cannot build attempt targets from the coordinator response
+- **WHEN** TCP punching cannot build attempt targets from the punching decision response
 - **THEN** the attempt returns the target-build error
 - **AND** no TCP punching worker remains blocked waiting for jobs
 

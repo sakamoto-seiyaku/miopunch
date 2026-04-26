@@ -9,9 +9,9 @@ import (
 
 	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/dataplane"
-	"github.com/miopunch/miopunch/internal/coordinator"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/pocstate"
+	"github.com/miopunch/miopunch/internal/punchdecision"
 	"github.com/miopunch/miopunch/internal/punching"
 	mqttsig "github.com/miopunch/miopunch/internal/signaling/mqtt"
 	"github.com/miopunch/miopunch/internal/wire"
@@ -118,7 +118,7 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	}
 
 	natHoleRespMsg, err := mq.RunVisitor(ctx, natHoleVisitorMsg, func(sid string, visitor *wire.NatHoleVisitor, client *wire.NatHoleClient) (*wire.NatHoleResp, *wire.NatHoleResp, error) {
-		return coordinator.AnalyzeOnce(sid, visitor, client)
+		return punchdecision.AnalyzeOnce(sid, visitor, client)
 	})
 	_ = mq.Close()
 	if err != nil {

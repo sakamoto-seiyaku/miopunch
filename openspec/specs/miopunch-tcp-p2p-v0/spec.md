@@ -66,11 +66,11 @@ For a given session, the system SHALL select a base port `P` and a TCP listen/pu
 
 `tcp_mapped_addrs` SHALL record STUN-observed mapped addresses for the STUN port `P` (no `+100` rewrite).
 
-The coordinator SHALL apply the `+100` offset when deriving TCP attempt targets (e.g., `tcp_candidate_addrs` and `tcp_detect_behavior.candidate_ports`), and the attempt implementation SHALL treat these as absolute ports (no additional offsetting).
+The punching decision boundary SHALL apply the `+100` offset when deriving TCP attempt targets (e.g., `tcp_candidate_addrs` and `tcp_detect_behavior.candidate_ports`), and the attempt implementation SHALL treat these as absolute ports (no additional offsetting).
 
 #### Scenario: tcp_candidate_addrs reflect the +100 port convention
 - **GIVEN** both peers provide TCP STUN mapped addresses derived from local port `P`
-- **WHEN** the coordinator derives `tcp_candidate_addrs` for attempt
+- **WHEN** the punching decision boundary derives `tcp_candidate_addrs` for attempt
 - **THEN** the derived dial targets use ports that are offset by `+100` from the observed mapped ports
 
 ### Requirement: Gather produces TCP candidates and TCP STUN observations (best-effort)
@@ -88,17 +88,17 @@ When `p2p_network` permits TCP (`auto` or `tcp_only`), the system SHALL attempt 
 - **THEN** the gather snapshot may omit `tcp_mapped_addrs`
 - **AND** the system records explainable diagnostics for the failure
 
-### Requirement: Coordinator derives TCP punching enablement and behavior (mode0..4)
-When `p2p_network` permits TCP, the coordinator SHALL derive TCP attempt inputs in `NatHoleResp`, including:
+### Requirement: Decision boundary derives TCP punching enablement and behavior (mode0..4)
+When `p2p_network` permits TCP, the punching decision boundary SHALL derive TCP attempt inputs in `NatHoleResp`, including:
 - `tcp_candidate_addrs`
 - `tcp_punching_enabled` and `tcp_punching_error`
 - `tcp_detect_behavior` (mode0..4 semantics)
 
-The coordinator SHALL set `tcp_punching_enabled=false` when there is insufficient TCP STUN evidence to make an explainable punching decision (e.g., fewer than 2 mapped samples per peer), and SHALL set `tcp_punching_error` to a concrete reason.
+The punching decision boundary SHALL set `tcp_punching_enabled=false` when there is insufficient TCP STUN evidence to make an explainable punching decision (e.g., fewer than 2 mapped samples per peer), and SHALL set `tcp_punching_error` to a concrete reason.
 
 #### Scenario: tcp_punching_enabled is false when TCP STUN evidence is insufficient
 - **GIVEN** at least one peer provides fewer than 2 TCP mapped address samples
-- **WHEN** the coordinator produces `NatHoleResp`
+- **WHEN** the punching decision boundary produces `NatHoleResp`
 - **THEN** `tcp_punching_enabled=false`
 - **AND** `tcp_punching_error` explains the missing evidence
 
@@ -127,7 +127,7 @@ and initial spraying sizes:
 The system SHALL emit explainable diagnostics that include the trigger reason (mode2/4), the enforced budgets, and the actual attempt scale.
 
 #### Scenario: mode2/4 spraying uses bounded defaults
-- **GIVEN** the coordinator selects `mode=2` (or `mode=4`) for TCP detect behavior
+- **GIVEN** the punching decision boundary selects `mode=2` (or `mode=4`) for TCP detect behavior
 - **WHEN** the attempt executes the TCP punching phase
 - **THEN** the implementation enforces the default budgets and concurrency limits
 - **AND** diagnostics include the configured and effective spraying parameters

@@ -16,8 +16,8 @@
 
 - 产品二进制 `miopunch` 已不再暴露 `coord/peer/stun/mqtt-broker` 这类实验入口；这些入口保留在 `miopunch-lab`。
 - `coord server` 仍存在于 lab/实验链路中，但产品 POC 主线不应再把“必须自建 dedicated coord server”作为默认心智模型。
-- `internal/coordinator` 里的 NAT/打洞分析逻辑目前仍被 MQTT 路径复用（例如 visitor 侧 leader 使用 `AnalyzeOnce` 做一次性分析）。
-- 已在 `docs/roadmap.md` 的“后续方向”中加入一条基础清理项：产品路径去掉 `coord` 服务语义，并把分析逻辑从 `internal/coordinator` 的命名/服务形态中进一步剥离。
+- NAT/打洞分析逻辑已收束到 `internal/punchdecision`；MQTT 路径由 visitor 侧 leader 直接调用中立决策边界做一次性分析。
+- 已在 `docs/roadmap.md` 的“后续方向”中更新基础清理状态：产品路径去掉 `coord` 服务语义，`internal/coordinator` 仅保留 lab coord 适配器语义。
 
 ## 对问题的重新表述
 
@@ -37,7 +37,7 @@
 
 - `coord server` 可以继续保留为 `miopunch-lab` 的实验/回归入口。
 - 但产品主线路径不应再依赖 dedicated coord server。
-- 后续若继续演进，应把“分析/决策逻辑”和“coord server 形态”分开看。
+- 后续若继续演进，应继续把“分析/决策逻辑”和“coord server 形态”分开看：前者属于 `internal/punchdecision`，后者仅是 lab 入口。
 
 ### 2) signaling backend 不应只被理解为“替换 MQTT”
 

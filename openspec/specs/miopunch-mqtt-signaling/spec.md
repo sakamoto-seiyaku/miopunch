@@ -55,7 +55,7 @@ and selected transport options.
 
 When `p2p_network=tcp_only`, the system SHALL fail fast during exchange if the peer capability set does not include the required TCP Door-2 capability (e.g., `tcp_p2p_v0`).
 
-The decision logic for punching behavior SHALL remain consistent with the existing implementation (same gather snapshot, same coordinator analysis boundary, no trickle updates).
+The decision logic for punching behavior SHALL remain consistent with the existing implementation (same gather snapshot, same neutral punching decision boundary, no trickle updates).
 
 #### Scenario: Exchange results in a usable NatHoleResp snapshot
 - **WHEN** both peers complete gather and exchange via MQTT
