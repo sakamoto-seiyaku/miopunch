@@ -154,8 +154,14 @@ func runVisitorMQTT(ctx context.Context, cfg VisitorConfig) error {
 		})
 	}
 
+	var decisionRes *punchdecision.Result
 	natHoleRespMsg, err := mq.RunVisitor(sessionCtx, natHoleVisitorMsg, func(sid string, visitor *wire.NatHoleVisitor, client *wire.NatHoleClient) (*wire.NatHoleResp, *wire.NatHoleResp, error) {
-		return punchdecision.AnalyzeOnce(sid, visitor, client)
+		res, err := punchdecision.AnalyzeWithDaemonMemory(sid, "", visitor, client)
+		if err != nil {
+			return nil, nil, err
+		}
+		decisionRes = res
+		return res.VisitorResponse, res.ClientResponse, nil
 	})
 	if err != nil {
 		return fail(event.StageExchange, err, "exchange.failed", map[string]any{"sid": sid, "tx": transactionID})
@@ -185,6 +191,12 @@ func runVisitorMQTT(ctx context.Context, cfg VisitorConfig) error {
 	})
 	if err != nil {
 		return fail(event.StageAttempt, err, "attempt failed", map[string]any{"sid": natHoleRespMsg.Sid})
+	}
+	switch attemptRes.Path {
+	case "punching_ipv4":
+		punchdecision.ReportDaemonUDPSuccess(decisionRes)
+	case "punching_tcp4":
+		punchdecision.ReportDaemonTCPSuccess(decisionRes)
 	}
 
 	if cfg.Emitter != nil {

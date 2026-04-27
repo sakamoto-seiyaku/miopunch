@@ -26,7 +26,9 @@ import (
 var (
 	// mode 0, both EasyNAT, PublicNetwork is always receiver
 	// sender | receiver, ttl 7
+	// sender, sendDelayMs 200 | receiver, ttl 7
 	// receiver, ttl 7 | sender
+	// receiver, ttl 7 | sender, sendDelayMs 200
 	// sender | receiver, ttl 4
 	// receiver, ttl 4 | sender
 	// sender | receiver
@@ -36,7 +38,9 @@ var (
 	// receiver | sender, sendDelayMs 5000
 	// receiver | sender, sendDelayMs 10000
 	mode0Behaviors = []lo.Tuple2[RecommandBehavior, RecommandBehavior]{
+		lo.T2(RecommandBehavior{Role: DetectRoleSender, SendDelayMs: 200}, RecommandBehavior{Role: DetectRoleReceiver, TTL: 7}),
 		lo.T2(RecommandBehavior{Role: DetectRoleSender}, RecommandBehavior{Role: DetectRoleReceiver, TTL: 7}),
+		lo.T2(RecommandBehavior{Role: DetectRoleReceiver, TTL: 7}, RecommandBehavior{Role: DetectRoleSender, SendDelayMs: 200}),
 		lo.T2(RecommandBehavior{Role: DetectRoleReceiver, TTL: 7}, RecommandBehavior{Role: DetectRoleSender}),
 		lo.T2(RecommandBehavior{Role: DetectRoleSender}, RecommandBehavior{Role: DetectRoleReceiver, TTL: 4}),
 		lo.T2(RecommandBehavior{Role: DetectRoleReceiver, TTL: 4}, RecommandBehavior{Role: DetectRoleSender}),

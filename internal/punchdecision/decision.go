@@ -46,8 +46,17 @@ type Result struct {
 	ClientResponse  *wire.NatHoleResp
 
 	AnalysisKey string
+	// AnalyzerKey is the key used to scope analyzer records for UDP punching.
+	// It is equal to AnalysisKey unless the caller supplies an extra scope key.
+	AnalyzerKey string
 	Mode        int
 	Index       int
+
+	// TCPAnalyzerKey is the key used to scope analyzer records for TCP punching.
+	// It is empty when TCP punching is disabled for the round.
+	TCPAnalyzerKey string
+	TCPMode        int
+	TCPIndex       int
 
 	VisitorNATFeature *NatFeature
 	ClientNATFeature  *NatFeature
@@ -85,8 +94,27 @@ func (e *Engine) ReportSuccess(key string, mode, index int) {
 	e.analyzer.ReportSuccess(key, mode, index)
 }
 
+func scopedAnalyzerKey(scopeKey, proto, analysisKey string) string {
+	scopeKey = strings.TrimSpace(scopeKey)
+	if scopeKey == "" {
+		return analysisKey
+	}
+	proto = strings.TrimSpace(proto)
+	return scopeKey + "\x00" + proto + "\x00" + analysisKey
+}
+
 // Analyze derives attempt-ready NAT-hole responses from exchanged snapshots.
 func (e *Engine) Analyze(sid string, visitor *wire.NatHoleVisitor, client *wire.NatHoleClient) (*Result, error) {
+	return e.analyze(sid, "", visitor, client)
+}
+
+// AnalyzeWithScope derives attempt-ready NAT-hole responses from exchanged snapshots,
+// while scoping analyzer memory by the caller-provided key.
+func (e *Engine) AnalyzeWithScope(sid string, scopeKey string, visitor *wire.NatHoleVisitor, client *wire.NatHoleClient) (*Result, error) {
+	return e.analyze(sid, scopeKey, visitor, client)
+}
+
+func (e *Engine) analyze(sid string, scopeKey string, visitor *wire.NatHoleVisitor, client *wire.NatHoleClient) (*Result, error) {
 	if e == nil || e.analyzer == nil {
 		return nil, errors.New("punch decision engine is nil")
 	}
@@ -380,7 +408,11 @@ func (e *Engine) Analyze(sid string, visitor *wire.NatHoleVisitor, client *wire.
 					cResp.TCPPunchingError = vResp.TCPPunchingError
 				} else {
 					tcpAnalysisKey := natAnalysisKey("tcp", visitorTCPMapped, vTCPNatFeature, clientTCPMapped, cTCPNatFeature)
-					mode, index, cBehavior, vBehavior := e.analyzer.GetRecommandBehaviors(tcpAnalysisKey, cTCPNatFeature, vTCPNatFeature)
+					tcpAnalyzerKey := scopedAnalyzerKey(scopeKey, "tcp", tcpAnalysisKey)
+					tcpMode, tcpIndex, cBehavior, vBehavior := e.analyzer.GetRecommandBehaviors(tcpAnalyzerKey, cTCPNatFeature, vTCPNatFeature)
+					result.TCPAnalyzerKey = tcpAnalyzerKey
+					result.TCPMode = tcpMode
+					result.TCPIndex = tcpIndex
 
 					tcpBudgetMs := 5000
 					if effectiveNetwork == connectivity.P2PNetworkTCPOnly {
@@ -391,7 +423,7 @@ func (e *Engine) Analyze(sid string, visitor *wire.NatHoleVisitor, client *wire.
 					vListenRandomPorts := 0
 					cSendRandomPorts := 0
 					cListenRandomPorts := 0
-					if mode == DetectMode2 || mode == DetectMode4 {
+					if tcpMode == DetectMode2 || tcpMode == DetectMode4 {
 						const (
 							tcpSpraySendRandomPorts   = 128
 							tcpSprayListenRandomPorts = 32
@@ -418,7 +450,7 @@ func (e *Engine) Analyze(sid string, visitor *wire.NatHoleVisitor, client *wire.
 					vResp.TCPPunchingError = ""
 					cResp.TCPPunchingError = ""
 					vResp.TCPDetectBehavior = &wire.TcpDetectBehavior{
-						Mode:              mode,
+						Mode:              tcpMode,
 						Role:              vBehavior.Role,
 						SendDelayMs:       vBehavior.SendDelayMs,
 						ReadTimeoutMs:     vReadTimeout,
@@ -430,7 +462,7 @@ func (e *Engine) Analyze(sid string, visitor *wire.NatHoleVisitor, client *wire.
 						),
 					}
 					cResp.TCPDetectBehavior = &wire.TcpDetectBehavior{
-						Mode:              mode,
+						Mode:              tcpMode,
 						Role:              cBehavior.Role,
 						SendDelayMs:       cBehavior.SendDelayMs,
 						ReadTimeoutMs:     cReadTimeout,
@@ -448,8 +480,8 @@ func (e *Engine) Analyze(sid string, visitor *wire.NatHoleVisitor, client *wire.
 						sid,
 						*vTCPNatFeature,
 						*cTCPNatFeature,
-						mode,
-						index,
+						tcpMode,
+						tcpIndex,
 						vBehavior.Role,
 						cBehavior.Role,
 						tcpBudgetMs,
@@ -524,8 +556,9 @@ func (e *Engine) Analyze(sid string, visitor *wire.NatHoleVisitor, client *wire.
 	result.ClientNATFeature = cNatFeature
 	result.VisitorNATFeature = vNatFeature
 	result.AnalysisKey = udpAnalysisKey(vm.MappedAddrs, vNatFeature, cm.MappedAddrs, cNatFeature)
+	result.AnalyzerKey = scopedAnalyzerKey(scopeKey, "udp", result.AnalysisKey)
 
-	mode, index, cBehavior, vBehavior := e.analyzer.GetRecommandBehaviors(result.AnalysisKey, cNatFeature, vNatFeature)
+	mode, index, cBehavior, vBehavior := e.analyzer.GetRecommandBehaviors(result.AnalyzerKey, cNatFeature, vNatFeature)
 	result.Mode = mode
 	result.Index = index
 

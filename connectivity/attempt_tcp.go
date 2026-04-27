@@ -432,8 +432,37 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 		},
 	})
 
+	emit(event.Event{
+		Stage: event.StageAttempt,
+		Kind:  event.KindInfo,
+		Name:  "attempt.tcp_punching.recv.start",
+		Msg:   "tcp punching receive loop start",
+		KVs: map[string]any{
+			"listen_ports":        len(listeners),
+			"listen_random_ports": listenRandomPorts,
+		},
+	})
+
+	probeStartOnce := sync.Once{}
+	probeFirstOnce := sync.Once{}
+	connFirstOnce := sync.Once{}
+
 	go func() {
 		defer close(jobCh)
+
+		probeStartOnce.Do(func() {
+			emit(event.Event{
+				Stage: event.StageAttempt,
+				Kind:  event.KindInfo,
+				Name:  "attempt.tcp_punching.probe.start",
+				Msg:   "tcp punching probe loop start",
+				KVs: map[string]any{
+					"send_delay_ms":          resp.TCPDetectBehavior.SendDelayMs,
+					"total_budget_ms":        int(totalBudget.Milliseconds()),
+					"dial_round_interval_ms": int(dialRoundInterval.Milliseconds()),
+				},
+			})
+		})
 
 		delay := time.Duration(resp.TCPDetectBehavior.SendDelayMs) * time.Millisecond
 		if delay > 0 {
@@ -445,6 +474,15 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 				return
 			}
 		}
+
+		probeFirstOnce.Do(func() {
+			emit(event.Event{
+				Stage: event.StageAttempt,
+				Kind:  event.KindInfo,
+				Name:  "attempt.tcp_punching.probe.first",
+				Msg:   "tcp punching first probe burst",
+			})
+		})
 
 		sendRound := func() bool {
 			for _, job := range dialJobs {
@@ -482,7 +520,18 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 	settleOnce := sync.Once{}
 	startSettle := func() {
 		settleOnce.Do(func() {
-			time.AfterFunc(settleWindow, cancel)
+			time.AfterFunc(settleWindow, func() {
+				emit(event.Event{
+					Stage: event.StageAttempt,
+					Kind:  event.KindInfo,
+					Name:  "attempt.tcp_punching.canceled",
+					Msg:   "tcp punching canceled after settle window",
+					KVs: map[string]any{
+						"reason": "winner_selected",
+					},
+				})
+				cancel()
+			})
 		})
 	}
 
@@ -493,6 +542,29 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 		if c.Conn == nil {
 			continue
 		}
+		connFirstOnce.Do(func() {
+			emit(event.Event{
+				Stage: event.StageAttempt,
+				Kind:  event.KindInfo,
+				Name:  "attempt.tcp_punching.conn.first",
+				Msg:   "tcp punching first connection observed",
+				KVs: map[string]any{
+					"origin": c.Origin,
+					"laddr":  c.Conn.LocalAddr().String(),
+					"raddr":  c.Conn.RemoteAddr().String(),
+				},
+			})
+			emit(event.Event{
+				Stage: event.StageAttempt,
+				Kind:  event.KindOK,
+				Name:  "attempt.tcp_punching.winner",
+				Msg:   "tcp punching winner selected",
+				KVs: map[string]any{
+					"origin":     c.Origin,
+					"elapsed_ms": time.Since(stepStart).Milliseconds(),
+				},
+			})
+		})
 		if len(tcpConns) < 8 {
 			tcpConns = append(tcpConns, c)
 			earlyStop = true
@@ -508,6 +580,16 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 		if err == nil {
 			err = errors.New("tcp punching failed: no connections established")
 		}
+		emit(event.Event{
+			Stage: event.StageAttempt,
+			Kind:  event.KindInfo,
+			Name:  "attempt.tcp_punching.timeout",
+			Msg:   "tcp punching timeout",
+			Err:   err.Error(),
+			KVs: map[string]any{
+				"elapsed_ms": time.Since(stepStart).Milliseconds(),
+			},
+		})
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.tcp_punching.fail", Msg: "tcp punching failed", Err: err.Error()})
 		return nil, err
 	}

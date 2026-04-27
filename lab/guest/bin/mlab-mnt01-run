@@ -23,6 +23,10 @@ run_dir=""
 socket_root=""
 tcpdump_wan_pid=""
 tcpdump_mqtt_pid=""
+tcpdump_natA_lan_pid=""
+tcpdump_natB_lan_pid=""
+tcpdump_natA_wan_pid=""
+tcpdump_natB_wan_pid=""
 stun_pid=""
 mqtt_pid=""
 daemon_a_pid=""
@@ -113,12 +117,6 @@ default_classification() {
     echo "fail-required"
     return 0
   fi
-  if [[ "${matrix}" == "udp" ]]; then
-    if [[ "${profile_a}" != "udp-nat1" || "${profile_b}" != "udp-nat1" ]]; then
-      echo "diag-fail-allowed"
-      return 0
-    fi
-  fi
   if [[ "${matrix}" == "tcp" ]]; then
     if [[ "${profile_a}" != "tcp6-direct" || "${profile_b}" != "tcp6-direct" ]]; then
       echo "diag-fail-allowed"
@@ -179,12 +177,33 @@ stop_pid_int() {
 
 dump_state() {
   [[ -n "${run_dir}" ]] || return 0
-  ns_exec "${NS_NAT_A}" iptables-save >"${run_dir}/natA.iptables" 2>&1 || true
-  ns_exec "${NS_NAT_B}" iptables-save >"${run_dir}/natB.iptables" 2>&1 || true
+  ns_exec "${NS_NAT_A}" iptables-save -c >"${run_dir}/natA.iptables" 2>&1 || true
+  ns_exec "${NS_NAT_B}" iptables-save -c >"${run_dir}/natB.iptables" 2>&1 || true
+  ns_exec "${NS_WAN}" iptables-save -c >"${run_dir}/wan.iptables" 2>&1 || true
+  ns_exec "${NS_NAT_A}" ip addr show >"${run_dir}/natA.ip.addr" 2>&1 || true
+  ns_exec "${NS_NAT_B}" ip addr show >"${run_dir}/natB.ip.addr" 2>&1 || true
+  ns_exec "${NS_NAT_A}" ip route show >"${run_dir}/natA.ip.route" 2>&1 || true
+  ns_exec "${NS_NAT_B}" ip route show >"${run_dir}/natB.ip.route" 2>&1 || true
+  ns_exec "${NS_NAT_A}" ip neigh show >"${run_dir}/natA.ip.neigh" 2>&1 || true
+  ns_exec "${NS_NAT_B}" ip neigh show >"${run_dir}/natB.ip.neigh" 2>&1 || true
   ns_exec "${NS_NAT_A}" conntrack -L >"${run_dir}/natA.conntrack" 2>&1 || true
   ns_exec "${NS_NAT_B}" conntrack -L >"${run_dir}/natB.conntrack" 2>&1 || true
+  ns_exec "${NS_NAT_A}" conntrack -S >"${run_dir}/natA.conntrack.stats" 2>&1 || true
+  ns_exec "${NS_NAT_B}" conntrack -S >"${run_dir}/natB.conntrack.stats" 2>&1 || true
+  ns_exec "${NS_NAT_A}" sh -c 'sysctl -n net.netfilter.nf_conntrack_count net.netfilter.nf_conntrack_max net.netfilter.nf_conntrack_udp_timeout net.netfilter.nf_conntrack_udp_timeout_stream 2>/dev/null || true' >"${run_dir}/natA.sysctl.conntrack" 2>&1 || true
+  ns_exec "${NS_NAT_B}" sh -c 'sysctl -n net.netfilter.nf_conntrack_count net.netfilter.nf_conntrack_max net.netfilter.nf_conntrack_udp_timeout net.netfilter.nf_conntrack_udp_timeout_stream 2>/dev/null || true' >"${run_dir}/natB.sysctl.conntrack" 2>&1 || true
   ns_exec "${NS_NAT_A}" tc -s qdisc show >"${run_dir}/natA.tc" 2>&1 || true
   ns_exec "${NS_NAT_B}" tc -s qdisc show >"${run_dir}/natB.tc" 2>&1 || true
+  ns_exec "${NS_WAN}" ip addr show >"${run_dir}/wan.ip.addr" 2>&1 || true
+  ns_exec "${NS_WAN}" ip route show >"${run_dir}/wan.ip.route" 2>&1 || true
+  ns_exec "${NS_PEER_A}" ip addr show >"${run_dir}/peerA.ip.addr" 2>&1 || true
+  ns_exec "${NS_PEER_B}" ip addr show >"${run_dir}/peerB.ip.addr" 2>&1 || true
+  ns_exec "${NS_PEER_A}" ip route show >"${run_dir}/peerA.ip.route" 2>&1 || true
+  ns_exec "${NS_PEER_B}" ip route show >"${run_dir}/peerB.ip.route" 2>&1 || true
+  ns_exec "${NS_PEER_A}" iptables-save >"${run_dir}/peerA.iptables" 2>&1 || true
+  ns_exec "${NS_PEER_B}" iptables-save >"${run_dir}/peerB.iptables" 2>&1 || true
+  ns_exec "${NS_PEER_A}" ss -u -a -n >"${run_dir}/peerA.ss.udp" 2>&1 || true
+  ns_exec "${NS_PEER_B}" ss -u -a -n >"${run_dir}/peerB.ss.udp" 2>&1 || true
   ip netns list >"${run_dir}/netns.txt" 2>&1 || true
   state_dumped=1
 }
@@ -199,6 +218,10 @@ finish() {
   stop_pid "${natB_pmp_pid:-}" || true
   stop_pid_int "${tcpdump_mqtt_pid:-}" || true
   stop_pid_int "${tcpdump_wan_pid:-}" || true
+  stop_pid_int "${tcpdump_natA_lan_pid:-}" || true
+  stop_pid_int "${tcpdump_natB_lan_pid:-}" || true
+  stop_pid_int "${tcpdump_natA_wan_pid:-}" || true
+  stop_pid_int "${tcpdump_natB_wan_pid:-}" || true
   if [[ "${state_dumped}" -eq 0 ]]; then
     dump_state || true
   fi
@@ -446,6 +469,12 @@ main() {
 
   tcpdump_wan_pid="$(start_bg_in_netns "${NS_WAN}" /dev/null tcpdump -ni br0 -w "${run_dir}/wan.pcap")"
   tcpdump_mqtt_pid="$(start_bg_in_netns "${NS_COORD}" /dev/null tcpdump -ni eth0 -w "${run_dir}/mqtt.pcap" tcp port 1883)"
+  if [[ "${MLAB_CAPTURE_LAN_PCAP:-0}" -eq 1 ]]; then
+    tcpdump_natA_lan_pid="$(start_bg_in_netns "${NS_NAT_A}" /dev/null tcpdump -ni lan0 -w "${run_dir}/natA.lan.pcap" 'udp and (port 5000 or port 5001)')"
+    tcpdump_natB_lan_pid="$(start_bg_in_netns "${NS_NAT_B}" /dev/null tcpdump -ni lan0 -w "${run_dir}/natB.lan.pcap" 'udp and (port 5000 or port 5001)')"
+    tcpdump_natA_wan_pid="$(start_bg_in_netns "${NS_NAT_A}" /dev/null tcpdump -ni wan0 -w "${run_dir}/natA.wan.pcap" 'udp and (port 5000 or port 5001)')"
+    tcpdump_natB_wan_pid="$(start_bg_in_netns "${NS_NAT_B}" /dev/null tcpdump -ni wan0 -w "${run_dir}/natB.wan.pcap" 'udp and (port 5000 or port 5001)')"
+  fi
 
   if [[ "${start_natpmpd}" -eq 1 ]]; then
     natA_pmp_pid="$(start_bg_in_netns "${NS_NAT_A}" "${run_dir}/natA.natpmpd.log" "${script_dir}/mlab-natpmpd" --wan-if wan0 --lan-if lan0 --external-ip "${WAN_A_IP}")"

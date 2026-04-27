@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/miopunch/miopunch/event"
+	"github.com/miopunch/miopunch/internal/eventctx"
 	"github.com/miopunch/miopunch/internal/punching"
 	"github.com/miopunch/miopunch/internal/wire"
 )
@@ -353,7 +354,8 @@ func attemptUDPPunching(ctx context.Context, sid string, key []byte, udp4Conn *n
 	}
 
 	emit(event.Event{Stage: event.StageAttempt, Kind: event.KindStart, Name: "attempt.punching.start", Msg: "attempt punching"})
-	newConn, raddr, err := punch(ctx, udp4Conn, resp, key)
+	punchCtx := eventctx.WithEmitFunc(ctx, emit)
+	newConn, raddr, err := punch(punchCtx, udp4Conn, resp, key)
 	if err != nil {
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.punching.fail", Msg: "punching failed", Err: err.Error()})
 		return nil, err

@@ -99,7 +99,8 @@ profile_nat1_port_rules() {
     -m recent --name miopunch_map_open --set
 
   # EIM-like mapping: pin the P2P source port to the same external port.
-  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp --sport "${p2p_port}" \
+  # Insert before best-effort UDP SNAT rules so both the accept/dial ports stay pinned.
+  ns_exec "${ns}" iptables -w -t nat -I POSTROUTING 1 -o wan0 -s "${lan_cidr}" -p udp --sport "${p2p_port}" \
     -j SNAT --to-source "${wan_ip}:${p2p_port}"
 
   # EIF-like filtering implemented via gated static DNAT + open marker:
@@ -129,7 +130,8 @@ profile_nat2_port_rules() {
     -m recent --name miopunch_nat2_allowed --set --rdest
 
   # EIM-like mapping: pin the P2P source port to the same external port.
-  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp --sport "${p2p_port}" \
+  # Insert before best-effort UDP SNAT rules so both the accept/dial ports stay pinned.
+  ns_exec "${ns}" iptables -w -t nat -I POSTROUTING 1 -o wan0 -s "${lan_cidr}" -p udp --sport "${p2p_port}" \
     -j SNAT --to-source "${wan_ip}:${p2p_port}"
 
   ns_exec "${ns}" iptables -w -t nat -A PREROUTING -i wan0 -p udp --dport "${p2p_port}" \
@@ -151,7 +153,8 @@ profile_nat3() {
 profile_nat3_port_rules() {
   local ns="$1" lan_cidr="$2" wan_ip="$3" peer_ip="$4" p2p_port="$5"
   # Port-restricted filtering: rely on conntrack (APDF-like).
-  ns_exec "${ns}" iptables -w -t nat -A POSTROUTING -o wan0 -s "${lan_cidr}" -p udp --sport "${p2p_port}" \
+  # Insert before best-effort UDP SNAT rules so both the accept/dial ports stay pinned.
+  ns_exec "${ns}" iptables -w -t nat -I POSTROUTING 1 -o wan0 -s "${lan_cidr}" -p udp --sport "${p2p_port}" \
     -j SNAT --to-source "${wan_ip}:${p2p_port}"
 }
 

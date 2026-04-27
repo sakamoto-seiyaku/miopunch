@@ -1,14 +1,18 @@
 package task
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"time"
 
 	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/dataplane"
+	"github.com/miopunch/miopunch/event"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/pocstate"
 	"github.com/miopunch/miopunch/internal/punchdecision"
@@ -122,21 +126,134 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 		return nil, err
 	}
 
+	var decisionRes *punchdecision.Result
 	natHoleRespMsg, err := mq.RunVisitor(ctx, natHoleVisitorMsg, func(sid string, visitor *wire.NatHoleVisitor, client *wire.NatHoleClient) (*wire.NatHoleResp, *wire.NatHoleResp, error) {
-		return punchdecision.AnalyzeOnce(sid, visitor, client)
+		res, err := punchdecision.AnalyzeWithDaemonMemory(sid, peerID, visitor, client)
+		if err != nil {
+			return nil, nil, err
+		}
+		decisionRes = res
+		return res.VisitorResponse, res.ClientResponse, nil
 	})
 	_ = mq.Close()
 	if err != nil {
 		return nil, err
 	}
 
+	if natHoleRespMsg != nil {
+		db := natHoleRespMsg.DetectBehavior
+		m.addFact(taskID, poc.Fact{TermID: "punching_plan", Message: fmt.Sprintf(
+			"punching_plan: enabled=%t mode=%d role=%s ttl=%d send_delay_ms=%d read_timeout_ms=%d candidate_addrs=%d assisted_addrs=%d candidate_ports=%d send_random_ports=%d listen_random_ports=%d",
+			natHoleRespMsg.PunchingEnabled,
+			db.Mode,
+			db.Role,
+			db.TTL,
+			db.SendDelayMs,
+			db.ReadTimeoutMs,
+			len(natHoleRespMsg.CandidateAddrs),
+			len(natHoleRespMsg.AssistedAddrs),
+			len(db.CandidatePorts),
+			db.SendRandomPorts,
+			db.ListenRandomPorts,
+		)})
+
+		if natHoleRespMsg.TCPDetectBehavior != nil {
+			tdb := natHoleRespMsg.TCPDetectBehavior
+			m.addFact(taskID, poc.Fact{TermID: "tcp_punching_plan", Message: fmt.Sprintf(
+				"tcp_punching_plan: enabled=%t mode=%d role=%s send_delay_ms=%d read_timeout_ms=%d candidate_ports=%d send_random_ports=%d listen_random_ports=%d",
+				natHoleRespMsg.TCPPunchingEnabled,
+				tdb.Mode,
+				tdb.Role,
+				tdb.SendDelayMs,
+				tdb.ReadTimeoutMs,
+				len(tdb.CandidatePorts),
+				tdb.SendRandomPorts,
+				tdb.ListenRandomPorts,
+			)})
+		}
+	}
+
+	if decisionRes != nil && decisionRes.ClientResponse != nil {
+		peer := decisionRes.ClientResponse
+		db := peer.DetectBehavior
+		m.addFact(taskID, poc.Fact{TermID: "peer_punching_plan", Message: fmt.Sprintf(
+			"peer_punching_plan: enabled=%t mode=%d role=%s ttl=%d send_delay_ms=%d read_timeout_ms=%d candidate_addrs=%d assisted_addrs=%d candidate_ports=%d send_random_ports=%d listen_random_ports=%d",
+			peer.PunchingEnabled,
+			db.Mode,
+			db.Role,
+			db.TTL,
+			db.SendDelayMs,
+			db.ReadTimeoutMs,
+			len(peer.CandidateAddrs),
+			len(peer.AssistedAddrs),
+			len(db.CandidatePorts),
+			db.SendRandomPorts,
+			db.ListenRandomPorts,
+		)})
+
+		if peer.TCPDetectBehavior != nil {
+			tdb := peer.TCPDetectBehavior
+			m.addFact(taskID, poc.Fact{TermID: "peer_tcp_punching_plan", Message: fmt.Sprintf(
+				"peer_tcp_punching_plan: enabled=%t mode=%d role=%s send_delay_ms=%d read_timeout_ms=%d candidate_ports=%d send_random_ports=%d listen_random_ports=%d",
+				peer.TCPPunchingEnabled,
+				tdb.Mode,
+				tdb.Role,
+				tdb.SendDelayMs,
+				tdb.ReadTimeoutMs,
+				len(tdb.CandidatePorts),
+				tdb.SendRandomPorts,
+				tdb.ListenRandomPorts,
+			)})
+		}
+	}
+
+	var attemptEvents bytes.Buffer
+	attemptEmitter := event.NewEmitter(&attemptEvents, "task")
+
 	m.setStage(taskID, poc.StagePunchAttempt, "punch attempt")
 	attemptRes, err := connectivity.Attempt(ctx, sid, []byte(cfg.SecretKey), gather.UDP4Conn, gather.UDP6Conn, gather.TCP4Listener, gather.TCP6Listener, natHoleRespMsg, connectivity.AttemptConfig{
 		P2PNetwork:  connectivity.P2PNetwork(cfg.P2PNetwork),
 		P2PIPFamily: connectivity.P2PIPFamily(cfg.P2PIPFamily),
+		Emitter:     attemptEmitter,
 	})
 	if err != nil {
+		for _, line := range strings.Split(attemptEvents.String(), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			var ev event.Event
+			if err := json.Unmarshal([]byte(line), &ev); err != nil {
+				continue
+			}
+			if !strings.HasPrefix(ev.Name, "attempt.punching.") && !strings.HasPrefix(ev.Name, "attempt.tcp_punching.") {
+				continue
+			}
+
+			errStr := ""
+			if strings.TrimSpace(ev.Err) != "" {
+				errStr = " err=" + strings.TrimSpace(ev.Err)
+			}
+			kvsStr := ""
+			if len(ev.KVs) > 0 {
+				if b, err := json.Marshal(ev.KVs); err == nil {
+					kvsStr = " kvs=" + string(b)
+				}
+			}
+
+			msg := strings.TrimSpace(ev.Msg)
+			if msg == "" {
+				msg = "-"
+			}
+			m.addFact(taskID, poc.Fact{Message: "attempt_diag: " + ev.Name + " msg=" + msg + errStr + kvsStr})
+		}
 		return nil, err
+	}
+	switch attemptRes.Path {
+	case "punching_ipv4":
+		punchdecision.ReportDaemonUDPSuccess(decisionRes)
+	case "punching_tcp4":
+		punchdecision.ReportDaemonTCPSuccess(decisionRes)
 	}
 	if attemptRes.Conn == gather.UDP4Conn {
 		gather.UDP4Conn = nil

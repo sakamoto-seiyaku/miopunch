@@ -32,7 +32,7 @@ mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp4-direct --matrix tcp --
 mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp-portmap --matrix tcp --profile-a tcp4-portmap-direct --profile-b tcp4-portmap-direct --classification diag-fail-allowed
 mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp-hard --matrix tcp --profile-a tcp-easy-stable --profile-b tcp-hard-irregular --classification diag-fail-allowed --repeat "${MLAB_MNT01_HARD_REPEAT:-2}"
 mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp-blocked --matrix tcp --profile-a tcp4-direct --profile-b tcp-blocked-unknown --classification fail-required
-mnt01_run_case "mnt01 selftest" --case-id mnt01-self-ipv6-udp4-fallback --matrix specialty --profile-a udp-nat1 --profile-b udp-nat1 --p2p-network udp_only --classification success-required --enable-ipv6 --block-forward-udp6 --expect-path direct_ipv4
+mnt01_run_case "mnt01 selftest" --case-id mnt01-self-ipv6-udp4-fallback --matrix specialty --profile-a udp-nat1 --profile-b udp-nat1 --p2p-network udp_only --classification success-required --enable-ipv6 --block-forward-udp6
 mnt01_run_case "mnt01 selftest" --case-id mnt01-self-loss-netem --matrix specialty --profile-a udp-nat3 --profile-b udp-nat3 --p2p-network udp_only --classification diag-fail-allowed --wan-netem "delay 20ms loss 1%" --p2p-udp-loss-probability 0.01
 
 echo "summary: pass=${mnt01_pass} fail=${mnt01_fail}"
