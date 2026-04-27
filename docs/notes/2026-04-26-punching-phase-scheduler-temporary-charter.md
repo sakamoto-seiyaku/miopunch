@@ -323,9 +323,9 @@ miopunch 当前已有 `punchdecision.Engine` 与 `Analyzer`，并保留了 FRP �
 
 ## F-003：peer transport session 与 logical stream 分层
 
-F-003 的现象是 `mnt01-smoke-kcp-transport` 已经完成 candidate exchange、进入 `PunchAttempt`，并以 `attempt_path=punching_ipv4` 建立路径；随后 `hello=ok`，但读取 `ping` response 超时。
+F-003 的原现象是 `mnt01-smoke-kcp-transport` 已经完成 candidate exchange、进入 `PunchAttempt`，并以 `attempt_path=punching_ipv4` 建立路径；随后 `hello=ok`，但读取 `ping` response 超时。
 
-这不应归类为 UDP punching 链路失败。`hello=ok` 已经证明 KCP stream 至少承载了第一轮控制交换；失败发生在同一条 stream 的后续请求/响应阶段。当前代码中 `dataplane.DialStream` / `ServeStream` 返回裸 `io.ReadWriteCloser`，acceptor 在 `ping` 写完响应后返回并关闭 stream，等价于把一次业务 op 的生命周期直接绑定到底层 KCP/QUIC/TLS carrier 生命周期上。KCP 最先暴露问题，是因为 UDP/KCP 过早关闭会让最后一段响应更容易卡在 flush/retransmit/close 时序里；但根因不是 KCP 专用，而是 dataplane/session 抽象缺口。
+这不应归类为 UDP punching 链路失败。`hello=ok` 已经证明 KCP stream 至少承载了第一轮控制交换；失败发生在同一条 stream 的后续请求/响应阶段。修复方向是让 `dataplane.DialStream` / `ServeStream` 建立 peer transport session，并在 session 上打开 logical streams；acceptor 处理完一次 `ping` 只关闭 logical stream，不关闭底层 KCP/QUIC/TLS carrier。KCP 最先暴露问题，是因为 UDP/KCP 过早关闭会让最后一段响应更容易卡在 flush/retransmit/close 时序里；但根因不是 KCP 专用，而是 dataplane/session 抽象缺口。
 
 旧 one-shot KCP payload 路径曾在写完 response 后短暂保持 UDP/KCP socket 存活，避免响应还没被对端读到就收到 early close/ICMP 等影响。该 linger 是一次性交换时代的补偿，不应成为 stream 化后的根本设计。
 
@@ -343,7 +343,7 @@ gonc 的参考价值在于 secure negotiation 与 mux 的组合顺序。
 
 - P2P 建路后先执行 `secure.DoNegotiation`。
 - TCP P2P 默认把 `SecureLayer` 设置为 `tls13`。
-- `:mux` 在 negotiated conn 上创建 `smux/yamux` session。
+- `:mux` 在 negotiated conn 上创建 `yamux` session。
 - 业务连接再通过 `OpenStream` / `AcceptStream` 进入 mux session。
 
 因此，miopunch 不应继续把 punching 之后的连接直接暴露成单个业务流，而应把它提升为 peer transport session。
@@ -362,8 +362,8 @@ punching path
 
 协议对应关系为：
 
-- TCP：`TCP carrier -> TLS 1.3 identity binding -> smux -> logical streams`。
-- KCP：`UDP punching path -> KCP carrier -> TLS 1.3 identity binding -> smux -> logical streams`。
+- TCP：`TCP carrier -> TLS 1.3 identity binding -> yamux -> logical streams`。
+- KCP：`UDP punching path -> KCP carrier -> TLS 1.3 identity binding -> yamux -> logical streams`。
 - QUIC：`QUIC native TLS 1.3 identity binding -> native QUIC streams`。
 
 KCP 不使用 kcp-go optional block crypto 作为主安全层；QUIC 不再额外套一层 TLS；TCP 与 KCP 应尽量共享 TLS 1.3 identity binding 与 session/mux 设计。
@@ -387,7 +387,7 @@ KCP 不使用 kcp-go optional block crypto 作为主安全层；QUIC 不再额�
 必须区分三类 role：
 
 - NAT role：`sender` / `receiver` / detect behavior，只属于 punching phase。
-- session role：secure session、QUIC、smux 的 client/server 或 opener/acceptor role。
+- session role：secure session、QUIC、yamux 的 client/server 或 opener/acceptor role。
 - stream role：logical stream opener 与 logical stream handler。
 
 NAT sender/receiver 不应泄漏到 session/mux 设计里。当前 `ping` 是 task 侧打开 logical stream，acceptor 侧处理；未来若允许另一侧主动打开 stream，也必须由 session policy 和 stream kind policy 授权，而不是继承 NAT role。
@@ -432,7 +432,7 @@ F-003 应归类为 dataplane peer session / logical stream 设计缺口。
 后续正式设计应把 F-003 从 KCP one-off bug 提升为统一 transport session 设计变更，并在实现上引入：
 
 - peer session manager；
-- TCP/KCP 上的 `TLS 1.3 + smux` session；
+- TCP/KCP 上的 `TLS 1.3 + yamux` session；
 - QUIC native stream session；
 - generic logical stream open envelope；
 - stream-level authorization；
@@ -441,7 +441,7 @@ F-003 应归类为 dataplane peer session / logical stream 设计缺口。
 ## 后续待讨论问题
 
 - F-002/F-005：TCP 私网 assisted candidate 对齐方向已临时记录；后续需在正式设计中同步字段契约、地址分类、decision/attempt 行为与测试重组。
-- F-003：peer transport session / logical stream 分层已临时记录；后续需在正式设计中同步 session manager、stream-open auth、smux/QUIC stream 语义与测试收紧。
+- F-003：peer transport session / logical stream 分层已临时记录；后续需在正式设计中同步 session manager、stream-open auth、yamux/QUIC stream 语义与测试收紧。
 - UDP/TCP phase scheduler 是否需要抽象成显式内部类型，还是先保持在各自 executor 内但共享语义。
 - `DetectBehavior` 是否需要新增更明确的 budget/probe interval 字段，还是继续复用当前 `ReadTimeoutMs` 和协议内默认节奏。
 - Cross-round success memory 已临时记录；后续需在正式设计中同步 per-peer key、success signal 与 MQTT/task 长期 analyzer 接入方式。

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/miopunch/miopunch/event"
-	"github.com/miopunch/miopunch/internal/netutil"
 )
 
 func dialKCP(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *net.UDPAddr, payload []byte, em *event.Emitter) error {
@@ -19,31 +18,26 @@ func dialKCP(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *ne
 		return errors.New("kcp requires listen conn")
 	}
 
-	laddr, err := net.ResolveUDPAddr("udp", listenConn.LocalAddr().String())
+	sess, err := DialSession(ctx, cfg, listenConn, raddr, em)
 	if err != nil {
 		return err
 	}
-	_ = listenConn.Close()
+	defer sess.Close(CloseReasonDaemonShutdown)
 
-	lConn, err := net.DialUDP("udp", laddr, raddr)
+	stream, err := sess.OpenStream(ctx, StreamOpen{Kind: StreamKindPayloadV0})
 	if err != nil {
 		return err
 	}
-	defer lConn.Close()
+	defer stream.Close()
 
-	c, err := netutil.NewKCPConnFromUDP(lConn, true, raddr.String())
-	if err != nil {
+	if conn, ok := stream.(interface{ SetDeadline(time.Time) error }); ok {
+		_ = conn.SetDeadline(time.Now().Add(15 * time.Second))
+		defer conn.SetDeadline(time.Time{})
+	}
+	if err := writeFrame(stream, payload); err != nil {
 		return err
 	}
-	defer c.Close()
-
-	if err := c.SetDeadline(time.Now().Add(15 * time.Second)); err != nil {
-		return err
-	}
-	if err := writeFrame(c, payload); err != nil {
-		return err
-	}
-	resp, err := readFrame(c, 64*1024)
+	resp, err := readFrame(stream, 64*1024)
 	if err != nil {
 		return err
 	}
@@ -63,33 +57,31 @@ func serveKCP(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *n
 		return errors.New("kcp requires listen conn")
 	}
 
-	laddr, err := net.ResolveUDPAddr("udp", listenConn.LocalAddr().String())
+	sess, err := ServeSession(ctx, cfg, listenConn, raddr, em)
 	if err != nil {
 		return err
 	}
-	_ = listenConn.Close()
+	defer sess.Close(CloseReasonDaemonShutdown)
 
-	lConn, err := net.DialUDP("udp", laddr, raddr)
+	accepted, err := sess.AcceptStream(ctx)
 	if err != nil {
 		return err
 	}
-	defer lConn.Close()
-
-	c, err := netutil.NewKCPConnFromUDP(lConn, true, raddr.String())
-	if err != nil {
-		return err
+	defer accepted.Stream.Close()
+	if accepted.Open.Kind != StreamKindPayloadV0 {
+		return fmt.Errorf("unexpected stream kind: %q", accepted.Open.Kind)
 	}
-	defer c.Close()
 
-	if err := c.SetDeadline(time.Now().Add(15 * time.Second)); err != nil {
-		return err
+	if conn, ok := accepted.Stream.(interface{ SetDeadline(time.Time) error }); ok {
+		_ = conn.SetDeadline(time.Now().Add(15 * time.Second))
+		defer conn.SetDeadline(time.Time{})
 	}
-	req, err := readFrame(c, 64*1024)
+	req, err := readFrame(accepted.Stream, 64*1024)
 	if err != nil {
 		return err
 	}
 	resp := append([]byte("ok:"), req...)
-	if err := writeFrame(c, resp); err != nil {
+	if err := writeFrame(accepted.Stream, resp); err != nil {
 		return err
 	}
 

@@ -79,7 +79,7 @@ MNT-01 gate layers:
 - `mnt01-smoke`: representative MQTT-only signaling, direct paths, punching, TCP hard diagnostics, `auto` priority, portmap helper, STUN unavailable, and transport variant coverage.
 - `mnt01-selftest`: UDP 15-class unordered matrix plus representative TCP risk, IPv6 fallback, and loss/netem specialty cases.
 - `mnt01-fulltest`: UDP 15-class unordered matrix plus TCP 49-class directed matrix.
-- Transport specialty coverage keeps Brutal QUIC as `success-required`; KCP is currently `diag-fail-allowed` with full attempt evidence until `docs/notes/mainline-network-test-findings.md` F-003 is fixed.
+- Transport specialty coverage keeps both KCP and Brutal QUIC as `success-required`; KCP must prove `hello=ok` and `ping=ok` after F-003.
 
 MNT-01 fixture scope:
 - The fixture may seed only identity, peer config, hello/auth bootstrap, self-hosted MQTT/STUN endpoints, test ports, product connectivity options, and network profile labels.

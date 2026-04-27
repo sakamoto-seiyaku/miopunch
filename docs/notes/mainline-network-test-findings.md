@@ -76,10 +76,10 @@
 
 - 场景：场景 1 / MNT-01
 - 影响：medium
-- 状态：open（设计结论已收敛；进入 `add-peer-transport-sessions`）
+- 状态：fixed by `add-peer-transport-sessions`
 - 复现条件：`./lab/host/labctl mnt01-smoke`，case `mnt01-smoke-kcp-transport`，真实 `miopunch up` 双节点、MQTT-only、`data_proto=kcp`、UDP direct/punching 路径。
 - 期望行为：KCP transport variant 在已完成 candidate exchange、`PunchAttempt` 和 hello handshake 后能证明 `ping=ok` payload exchange。
-- 实际行为：case 能进入 `PunchAttempt`，建立 `attempt_path=punching_ipv4`，并完成 `hello=ok`，但读取 ping response 超时；MNT-01 当前将该 specialty 作为 `diag-fail-allowed`，要求完整诊断证据而非静默通过。
+- 原实际行为：case 能进入 `PunchAttempt`，建立 `attempt_path=punching_ipv4`，并完成 `hello=ok`，但读取 ping response 超时；MNT-01 曾将该 specialty 作为 `diag-fail-allowed`，要求完整诊断证据而非静默通过。
 - 证据：`lab/_artifacts/20260426T062455Z-mnt01-mnt01-smoke-kcp-transport/attempt-1.md`；2026-04-26 复测仍可复现，证据为 `lab/_artifacts/20260426T065845Z-mnt01-mnt01-smoke-kcp-transport/attempt-1.md`。
 - 初步判断：
   - 这不是 UDP punching 链路层失败。该 case 已经完成 candidate exchange、进入 `PunchAttempt`，并以 `attempt_path=punching_ipv4` 建立路径；`hello=ok` 也证明 KCP stream 至少能承载第一轮 capability/control exchange。
@@ -87,8 +87,8 @@
   - 旧的 one-shot KCP payload 实现会在写完 response 后短暂保持 UDP/KCP socket 存活，避免响应还未被对端读取就被关闭；当前 stream 化实现把 KCP 包装成裸 `io.ReadWriteCloser` 后，一次业务 op 的生命周期会直接绑定到底层 carrier/session 生命周期。
   - acceptor 侧在处理完 hello 与 ping 后返回，defer close 可能过早关闭 KCP stream 和底层 UDP socket；client 侧则仍在等待 ping response。
   - 该问题已收敛为 peer transport session / logical stream 分层缺口，而不是 KCP 专用 linger 问题。后续 TCP TLS、KCP、QUIC 和未来 CCK 等路径都应遵循 `punching path -> secure peer transport session -> logical streams -> payload protocol`。
-- 设计结论：采用 on-demand live peer transport session。TCP/KCP 使用 TLS 1.3 identity binding + smux；QUIC 使用 native QUIC streams；logical stream 使用 generic `kind+metadata`，不写死 shellproto；关闭 logical stream 不关闭 session。
-- 后续动作：进入 `add-peer-transport-sessions` change。修复后将 `mnt01-smoke-kcp-transport` 从 `diag-fail-allowed` 收紧为必须 `hello=ok` + `ping=ok`。
+- 设计结论：采用 on-demand live peer transport session。TCP/KCP 使用 TLS 1.3 identity binding + yamux；QUIC 使用 native QUIC streams；logical stream 使用 generic `kind+metadata`，不写死 shellproto；关闭 logical stream 不关闭 session。
+- 修复动作：`add-peer-transport-sessions` 将 dataplane 升级为 peer transport session + generic logical stream；`mnt01-smoke-kcp-transport` 收紧为 `success-required`，必须证明 `hello=ok` + `ping=ok`。
 
 ### F-004：MNT-01 IPv6 到 UDP4 fallback 成功但 attempt_path 与验收期望不一致
 

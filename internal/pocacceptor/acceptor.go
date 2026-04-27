@@ -175,25 +175,60 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 	}
 
 	dpCfg := dataplane.Config{
-		Proto:  dataplane.Protocol(natHoleRespMsg.Protocol),
-		QuicCC: dataplane.QUICCC(natHoleRespMsg.QuicCC),
+		Proto:      dataplane.Protocol(natHoleRespMsg.Protocol),
+		QuicCC:     dataplane.QUICCC(natHoleRespMsg.QuicCC),
+		SecurityID: sid,
+		SecretKey:  []byte(local.SecretKey),
+		PathFamily: dataplane.PathFamilyFromAttemptPath(attemptRes.Path),
 		Brutal: dataplane.BrutalConfig{
 			UpBps:   natHoleRespMsg.BrutalUpBps,
 			DownBps: natHoleRespMsg.BrutalDownBps,
 		},
 	}
 
-	var stream io.ReadWriteCloser
+	var sess dataplane.PeerSession
 	if len(attemptRes.TCPConns) > 0 {
 		dpCfg.Proto = dataplane.ProtocolTLS
-		stream, err = dataplane.ServeTLSStream(handshakeCtx, sid, []byte(local.SecretKey), attemptRes.TCPConns, nil)
+		sess, err = dataplane.ServeTLSSession(handshakeCtx, dpCfg, attemptRes.TCPConns, nil)
 	} else {
-		stream, err = dataplane.ServeStream(handshakeCtx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
+		sess, err = dataplane.ServeSession(handshakeCtx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
 	}
 	if err != nil {
 		return err
 	}
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	defer sess.Close(dataplane.CloseReasonDaemonShutdown)
 
+	for {
+		accepted, err := sess.AcceptStream(ctx)
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return err
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = serveAcceptedShellStream(ctx, stateDir, local, locks, lockTTL, accepted)
+		}()
+	}
+}
+
+func serveAcceptedShellStream(
+	ctx context.Context,
+	stateDir string,
+	local *pocstate.LocalConfig,
+	locks *shelllock.Manager,
+	lockTTL time.Duration,
+	accepted *dataplane.AcceptedStream,
+) error {
+	if accepted == nil || accepted.Stream == nil {
+		return errors.New("nil accepted stream")
+	}
+
+	stream := accepted.Stream
 	reader := shellproto.NewReader(stream)
 	writer := shellproto.NewWriter(stream)
 
@@ -204,62 +239,29 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 		}
 	}()
 
-	readControl := func(ctx context.Context) (shellproto.Control, error) {
-		type frameResult struct {
-			kind    shellproto.Kind
-			payload []byte
-			err     error
-		}
-		frameCh := make(chan frameResult, 1)
-		go func() {
-			kind, payload, err := reader.ReadFrame()
-			frameCh <- frameResult{kind: kind, payload: payload, err: err}
-		}()
-
-		var ctl shellproto.Control
-		select {
-		case res := <-frameCh:
-			if res.err != nil {
-				return shellproto.Control{}, res.err
-			}
-			if res.kind != shellproto.KindJSON {
-				return shellproto.Control{}, errors.New("frame must be JSON")
-			}
-			if err := json.Unmarshal(res.payload, &ctl); err != nil {
-				return shellproto.Control{}, err
-			}
-			return ctl, nil
-		case <-ctx.Done():
-			_ = stream.Close()
-			return shellproto.Control{}, ctx.Err()
-		}
+	if accepted.Open.Kind != dataplane.StreamKindShellV0 {
+		_ = writeHelloError(writer, shellproto.ReasonHelloInvalid, "unsupported stream kind", []string{"upgrade both ends"})
+		return fmt.Errorf("unsupported stream kind: %q", accepted.Open.Kind)
 	}
 
-	helloCtl, err := readControl(handshakeCtx)
-	if err != nil {
-		return err
+	helloCtl := shellproto.Control{
+		Op:     shellproto.OpHello,
+		PeerID: accepted.Open.Metadata["peer_id"],
+		SigB64: accepted.Open.Metadata["sig_b64"],
 	}
-	if strings.TrimSpace(helloCtl.Op) != shellproto.OpHello {
-		_ = writer.WriteJSON(shellproto.Control{
-			Op: shellproto.OpHello,
-			OK: false,
-			Error: &shellproto.ControlError{
-				ReasonCode: shellproto.ReasonHelloRequired,
-				Message:    "hello required",
-				Suggestions: []string{
-					"upgrade both ends to POC-06.5 hello handshake",
-					"ensure you have joined and are approved before ping/sh",
-				},
-			},
-		})
-		return errors.New("hello required")
+	if approveDecl := strings.TrimSpace(accepted.Open.Metadata["approve_decl"]); approveDecl != "" {
+		helloCtl.ApproveDecl = json.RawMessage(approveDecl)
 	}
-	if err := handleHello(handshakeCtx, stateDir, writer, helloCtl); err != nil {
+	if err := handleHello(ctx, stateDir, writer, helloCtl); err != nil {
 		return err
 	}
 
-	ctl, err := readControl(handshakeCtx)
+	ctl, err := readShellControl(ctx, stream, reader)
 	if err != nil {
+		return err
+	}
+	if err := checkStreamOpenMatchesControl(accepted.Open, ctl); err != nil {
+		_ = writeHelloError(writer, shellproto.ReasonHelloInvalid, err.Error(), []string{"retry"})
 		return err
 	}
 
@@ -267,17 +269,62 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 	case shellproto.OpPing:
 		return servePing(writer)
 	case shellproto.OpShLS:
-		return serveShLS(handshakeCtx, writer, ctl)
+		return serveShLS(ctx, writer, ctl)
 	case shellproto.OpShAttach:
 		closeStream = false
-		go func() {
-			_ = serveShAttach(ctx, local, locks, lockTTL, reader, writer, stream, ctl)
-			_ = stream.Close()
-		}()
-		return nil
+		err := serveShAttach(ctx, local, locks, lockTTL, reader, writer, stream, ctl)
+		_ = stream.Close()
+		return err
 	default:
 		return errors.New("unknown op")
 	}
+}
+
+func readShellControl(ctx context.Context, stream io.Closer, reader *shellproto.Reader) (shellproto.Control, error) {
+	type frameResult struct {
+		kind    shellproto.Kind
+		payload []byte
+		err     error
+	}
+	frameCh := make(chan frameResult, 1)
+	go func() {
+		kind, payload, err := reader.ReadFrame()
+		frameCh <- frameResult{kind: kind, payload: payload, err: err}
+	}()
+
+	var ctl shellproto.Control
+	select {
+	case res := <-frameCh:
+		if res.err != nil {
+			return shellproto.Control{}, res.err
+		}
+		if res.kind != shellproto.KindJSON {
+			return shellproto.Control{}, errors.New("frame must be JSON")
+		}
+		if err := json.Unmarshal(res.payload, &ctl); err != nil {
+			return shellproto.Control{}, err
+		}
+		return ctl, nil
+	case <-ctx.Done():
+		_ = stream.Close()
+		return shellproto.Control{}, ctx.Err()
+	}
+}
+
+func checkStreamOpenMatchesControl(open dataplane.StreamOpen, ctl shellproto.Control) error {
+	metaOp := strings.TrimSpace(open.Metadata["op"])
+	if metaOp != "" && strings.TrimSpace(ctl.Op) != metaOp {
+		return fmt.Errorf("stream-open op %q does not match payload op %q", metaOp, strings.TrimSpace(ctl.Op))
+	}
+	metaTarget := strings.TrimSpace(open.Metadata["target"])
+	if metaTarget != "" && strings.TrimSpace(ctl.Target) != metaTarget {
+		return fmt.Errorf("stream-open target %q does not match payload target %q", metaTarget, strings.TrimSpace(ctl.Target))
+	}
+	metaSession := strings.TrimSpace(open.Metadata["session"])
+	if metaSession != "" && strings.TrimSpace(ctl.Session) != metaSession {
+		return fmt.Errorf("stream-open session %q does not match payload session %q", metaSession, strings.TrimSpace(ctl.Session))
+	}
+	return nil
 }
 
 func handleHello(ctx context.Context, stateDir string, w *shellproto.Writer, req shellproto.Control) error {

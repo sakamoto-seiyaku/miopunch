@@ -12,7 +12,6 @@ import (
 	"github.com/miopunch/miopunch/event"
 	"github.com/miopunch/miopunch/internal/dataplane/congestion/bbr"
 	"github.com/miopunch/miopunch/internal/dataplane/congestion/brutal"
-	"github.com/miopunch/miopunch/internal/tlsutil"
 )
 
 const dataALPN = "miopunch-data"
@@ -21,36 +20,22 @@ func dialQUIC(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *n
 	if raddr == nil {
 		return fmt.Errorf("quic requires remote addr")
 	}
-	defer listenConn.Close()
 
-	tlsConfig, err := tlsutil.NewClientTLSConfig("", "", "", raddr.String())
+	sess, err := DialSession(ctx, cfg, listenConn, raddr, em)
 	if err != nil {
 		return err
 	}
-	tlsConfig.NextProtos = []string{dataALPN}
+	defer sess.Close(CloseReasonDaemonShutdown)
 
-	c, err := quic.Dial(ctx, listenConn, raddr, tlsConfig, &quic.Config{
-		HandshakeIdleTimeout: 20 * time.Second,
-		MaxIdleTimeout:       30 * time.Second,
-		KeepAlivePeriod:      10 * time.Second,
-	})
-	if err != nil {
-		return err
-	}
-	defer c.CloseWithError(0, "")
-
-	if err := applyQUICCC(cfg, c); err != nil {
-		return err
-	}
-
-	stream, err := c.OpenStreamSync(ctx)
+	stream, err := sess.OpenStream(ctx, StreamOpen{Kind: StreamKindPayloadV0})
 	if err != nil {
 		return err
 	}
 	defer stream.Close()
 
-	if err := stream.SetDeadline(time.Now().Add(15 * time.Second)); err != nil {
-		return err
+	if conn, ok := stream.(interface{ SetDeadline(time.Time) error }); ok {
+		_ = conn.SetDeadline(time.Now().Add(15 * time.Second))
+		defer conn.SetDeadline(time.Time{})
 	}
 	if err := writeFrame(stream, payload); err != nil {
 		return err
@@ -68,49 +53,31 @@ func dialQUIC(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *n
 }
 
 func serveQUIC(ctx context.Context, cfg Config, listenConn *net.UDPConn, em *event.Emitter) error {
-	defer listenConn.Close()
-
-	tlsConfig, err := tlsutil.NewServerTLSConfig("", "", "")
+	sess, err := ServeSession(ctx, cfg, listenConn, nil, em)
 	if err != nil {
 		return err
 	}
-	tlsConfig.NextProtos = []string{dataALPN}
+	defer sess.Close(CloseReasonDaemonShutdown)
 
-	quicListener, err := quic.Listen(listenConn, tlsConfig, &quic.Config{
-		HandshakeIdleTimeout: 20 * time.Second,
-		MaxIdleTimeout:       30 * time.Second,
-		KeepAlivePeriod:      10 * time.Second,
-	})
+	accepted, err := sess.AcceptStream(ctx)
 	if err != nil {
 		return err
 	}
-	defer quicListener.Close()
-
-	c, err := quicListener.Accept(ctx)
-	if err != nil {
-		return err
-	}
-	defer c.CloseWithError(0, "")
-
-	if err := applyQUICCC(cfg, c); err != nil {
-		return err
+	defer accepted.Stream.Close()
+	if accepted.Open.Kind != StreamKindPayloadV0 {
+		return fmt.Errorf("unexpected stream kind: %q", accepted.Open.Kind)
 	}
 
-	stream, err := c.AcceptStream(ctx)
-	if err != nil {
-		return err
+	if conn, ok := accepted.Stream.(interface{ SetDeadline(time.Time) error }); ok {
+		_ = conn.SetDeadline(time.Now().Add(15 * time.Second))
+		defer conn.SetDeadline(time.Time{})
 	}
-	defer stream.Close()
-
-	if err := stream.SetDeadline(time.Now().Add(15 * time.Second)); err != nil {
-		return err
-	}
-	req, err := readFrame(stream, 64*1024)
+	req, err := readFrame(accepted.Stream, 64*1024)
 	if err != nil {
 		return err
 	}
 	resp := append([]byte("ok:"), req...)
-	if err := writeFrame(stream, resp); err != nil {
+	if err := writeFrame(accepted.Stream, resp); err != nil {
 		return err
 	}
 
@@ -120,7 +87,6 @@ func serveQUIC(ctx context.Context, cfg Config, listenConn *net.UDPConn, em *eve
 	// Closing too early may surface as "Application error 0x0 (remote)" on the visitor.
 	select {
 	case <-ctx.Done():
-	case <-c.Context().Done():
 	case <-time.After(2 * time.Second):
 	}
 	return nil

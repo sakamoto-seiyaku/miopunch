@@ -1,6 +1,7 @@
 package dataplane
 
 import (
+	"bytes"
 	"context"
 	"net"
 	"sync"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/miopunch/miopunch/connectivity"
+	"github.com/miopunch/miopunch/event"
 )
 
 func TestConvergePinnedTLS_ConfigFailureClosesCandidates(t *testing.T) {
@@ -51,17 +53,22 @@ func TestTLSStream_ConvergesAndExchangesWithMultipleCandidates(t *testing.T) {
 
 	cfg := Config{Proto: ProtocolTLS}
 
+	var dialEvents bytes.Buffer
+	var serveEvents bytes.Buffer
+	dialEm := event.NewEmitter(&dialEvents, "dial")
+	serveEm := event.NewEmitter(&serveEvents, "serve")
+
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- ServeAndExchangeTLS(ctx, cfg, "sid-1", []byte("secret"), clientCandidates, nil)
+		errCh <- ServeAndExchangeTLS(ctx, cfg, "sid-1", []byte("secret"), clientCandidates, serveEm)
 	}()
 
-	if err := DialAndExchangeTLS(ctx, cfg, "sid-1", []byte("secret"), visitorCandidates, []byte("ping"), nil); err != nil {
-		t.Fatalf("DialAndExchangeTLS() error = %v, want nil", err)
+	if err := DialAndExchangeTLS(ctx, cfg, "sid-1", []byte("secret"), visitorCandidates, []byte("ping"), dialEm); err != nil {
+		t.Fatalf("DialAndExchangeTLS() error = %v, want nil\n--- dial events ---\n%s\n--- serve events ---\n%s", err, dialEvents.String(), serveEvents.String())
 	}
 
 	if err := <-errCh; err != nil {
-		t.Fatalf("ServeAndExchangeTLS() error = %v, want nil", err)
+		t.Fatalf("ServeAndExchangeTLS() error = %v, want nil\n--- dial events ---\n%s\n--- serve events ---\n%s", err, dialEvents.String(), serveEvents.String())
 	}
 }
 

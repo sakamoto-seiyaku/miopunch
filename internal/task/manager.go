@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/miopunch/miopunch/dataplane"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/pocstate"
 )
@@ -24,6 +25,8 @@ type Manager struct {
 	tasks map[string]*Task
 
 	attachByTask map[string]*attachState
+
+	sessions *dataplane.SessionManager
 
 	dialPeerStreamHook DialPeerStreamHook
 
@@ -54,6 +57,7 @@ func NewManagerWithStatePath(statePath string) *Manager {
 		cancel:       cancel,
 		tasks:        make(map[string]*Task),
 		attachByTask: make(map[string]*attachState),
+		sessions:     dataplane.NewSessionManager(),
 		statePath:    strings.TrimSpace(statePath),
 		subsAll:      make(map[int]chan Event),
 		subsByTask:   make(map[string]map[int]chan Event),
@@ -70,6 +74,9 @@ func (m *Manager) Close() {
 	}
 	if m.cancel != nil {
 		m.cancel()
+	}
+	if m.sessions != nil {
+		m.sessions.CloseAll(dataplane.CloseReasonDaemonShutdown)
 	}
 	m.wg.Wait()
 }

@@ -319,8 +319,12 @@ func RunVisitor(ctx context.Context, cfg VisitorConfig) error {
 	}
 
 	dpCfg := dataplane.Config{
-		Proto:  dataplane.Protocol(natHoleRespMsg.Protocol),
-		QuicCC: dataplane.QUICCC(natHoleRespMsg.QuicCC),
+		Proto:        dataplane.Protocol(natHoleRespMsg.Protocol),
+		QuicCC:       dataplane.QUICCC(natHoleRespMsg.QuicCC),
+		RemotePeerID: cfg.ProxyName,
+		SecurityID:   natHoleRespMsg.Sid,
+		SecretKey:    []byte(cfg.SecretKey),
+		PathFamily:   dataplane.PathFamilyFromAttemptPath(attemptRes.Path),
 		Brutal: dataplane.BrutalConfig{
 			UpBps:   natHoleRespMsg.BrutalUpBps,
 			DownBps: natHoleRespMsg.BrutalDownBps,

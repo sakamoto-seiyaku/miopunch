@@ -56,7 +56,11 @@ func (m *Manager) runPingTask(taskID string, rawArgs []byte) {
 		cfg.P2PNetwork = string(network)
 	}
 
-	res, err := m.dialPeerStream(ctx, taskID, args.PeerID, cfg)
+	open, ok := m.shellStreamOpen(taskID, shellproto.OpPing, "", "")
+	if !ok {
+		return
+	}
+	res, err := m.dialPeerStream(ctx, taskID, args.PeerID, cfg, open)
 	if err != nil {
 		m.addFact(taskID, poc.Fact{Message: "dial peer: " + err.Error()})
 		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
@@ -66,7 +70,7 @@ func (m *Manager) runPingTask(taskID string, rawArgs []byte) {
 	defer res.stream.Close()
 
 	m.setStage(taskID, poc.StageCapabilityHandshake, "hello handshake")
-	if !m.requireHello(ctx, taskID, res.stream) {
+	if !m.requirePeerStreamHello(ctx, taskID, res) {
 		return
 	}
 

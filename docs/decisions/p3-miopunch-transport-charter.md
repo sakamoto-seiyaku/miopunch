@@ -163,8 +163,8 @@ punching path
 
 协议模型：
 
-- TCP：`TCP carrier -> TLS 1.3 identity binding -> smux -> logical streams`。
-- KCP：`UDP punching path -> KCP carrier -> TLS 1.3 identity binding -> smux -> logical streams`。
+- TCP：`TCP carrier -> TLS 1.3 identity binding -> yamux -> logical streams`。
+- KCP：`UDP punching path -> KCP carrier -> TLS 1.3 identity binding -> yamux -> logical streams`。
 - QUIC：`QUIC native TLS 1.3 identity binding -> native QUIC streams`。
 
 安全口径：

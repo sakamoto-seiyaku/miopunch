@@ -136,7 +136,7 @@ Change 划分：
 - `dataplane` 抽象与最小验收：见 `openspec/changes/archive/2026-03-28-add-miopunch-dataplane/`。
 - 以 `KCP / QUIC` 为基线，并定义传输选项的协商/切换与测试基准。
 - 在传输层稳定后，引入 `HY2` 风格的 `QUIC` 调度/拥塞控制作为与 `KCP / QUIC` 同级的传输选项。
-- MNT-01/F-003 后续要求将早期“单会话、单流”模型升级为 `peer transport session -> generic logical stream`：TCP/KCP 使用 `TLS 1.3 + smux`，QUIC 使用 native streams；关闭 logical stream 不关闭 peer session。
+- MNT-01/F-003 后续要求将早期“单会话、单流”模型升级为 `peer transport session -> generic logical stream`：TCP/KCP 使用 `TLS 1.3 + yamux`，QUIC 使用 native streams；关闭 logical stream 不关闭 peer session。
 - 目标是把“能连上”与“传得好”拆成两个独立问题。
 
 ### P3.5 公网实验可达性补强

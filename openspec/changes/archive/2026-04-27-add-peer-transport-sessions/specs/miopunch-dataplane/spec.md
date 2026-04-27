@@ -11,15 +11,15 @@ Logical stream close SHALL NOT close the peer transport session. The session SHA
 - **THEN** the KCP peer transport session is not closed solely because the ping stream closed
 - **AND** a later operation can open a new logical stream while the session remains healthy
 
-### Requirement: TCP and KCP sessions use TLS 1.3 identity binding plus smux
-TCP and KCP peer transport sessions SHALL use TLS 1.3 identity binding before exposing multiplexed logical streams over smux.
+### Requirement: TCP and KCP sessions use TLS 1.3 identity binding plus yamux
+TCP and KCP peer transport sessions SHALL use TLS 1.3 identity binding before exposing multiplexed logical streams over yamux.
 
 KCP SHALL NOT rely on kcp-go block crypto as the primary security layer.
 
 #### Scenario: KCP session exposes multiplexed logical streams
 - **GIVEN** traversal establishes a UDP path and the selected data protocol is KCP
 - **WHEN** dataplane establishes the peer transport session
-- **THEN** it creates KCP, performs TLS 1.3 identity binding, and exposes logical streams through smux
+- **THEN** it creates KCP, performs TLS 1.3 identity binding, and exposes logical streams through yamux
 
 ### Requirement: QUIC sessions use native QUIC streams
 QUIC peer transport sessions SHALL use QUIC native TLS 1.3 and native QUIC streams for logical stream transport.

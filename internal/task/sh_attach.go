@@ -61,7 +61,16 @@ func (m *Manager) runShellAttachTask(taskID string, rawArgs []byte) {
 	handshakeCtx, cancel := context.WithTimeout(m.ctx, 2*time.Minute)
 	defer cancel()
 
-	res, err := m.dialPeerStream(handshakeCtx, taskID, args.PeerID, cfg)
+	session := strings.TrimSpace(args.Session)
+	if session == "" {
+		session = "main"
+	}
+
+	open, ok := m.shellStreamOpen(taskID, shellproto.OpShAttach, args.Target, session)
+	if !ok {
+		return
+	}
+	res, err := m.dialPeerStream(handshakeCtx, taskID, args.PeerID, cfg, open)
 	if err != nil {
 		m.addFact(taskID, poc.Fact{Message: "dial peer: " + err.Error()})
 		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
@@ -71,16 +80,12 @@ func (m *Manager) runShellAttachTask(taskID string, rawArgs []byte) {
 	defer res.stream.Close()
 
 	m.setStage(taskID, poc.StageCapabilityHandshake, "hello handshake")
-	if !m.requireHello(handshakeCtx, taskID, res.stream) {
+	if !m.requirePeerStreamHello(handshakeCtx, taskID, res) {
 		return
 	}
 
 	m.setStage(taskID, poc.StageCapabilityHandshake, "shell attach request")
 
-	session := strings.TrimSpace(args.Session)
-	if session == "" {
-		session = "main"
-	}
 	if err := shellproto.WriteJSON(res.stream, shellproto.Control{
 		Op:      shellproto.OpShAttach,
 		Target:  args.Target,

@@ -28,8 +28,8 @@ The daemon owns live peer sessions in memory. Operations open logical streams on
 
 ### 2. Transport mapping
 
-- TCP: carrier connection, then TLS 1.3 identity binding, then smux.
-- KCP: UDP path, then KCP carrier, then TLS 1.3 identity binding, then smux.
+- TCP: carrier connection, then TLS 1.3 identity binding, then yamux.
+- KCP: UDP path, then KCP carrier, then TLS 1.3 identity binding, then yamux.
 - QUIC: QUIC native TLS 1.3 identity binding and native streams.
 
 ### 3. Stream-open authorization is generic
@@ -43,5 +43,5 @@ Closing a logical stream ends one operation. Session manager closes the peer ses
 ## Risks / Trade-offs
 
 - [Risk] Session cache can create concurrency complexity. -> Keep in-memory only, keyed per peer/protocol/path, and close on uncertainty.
-- [Risk] smux close semantics need validation. -> Add focused tests around stream close versus session close.
+- [Risk] yamux close semantics need validation. -> Add focused tests around stream close versus session close.
 - [Risk] Existing shell hello migration can be large. -> Allow transitional shell hello payload while introducing generic stream-open auth.

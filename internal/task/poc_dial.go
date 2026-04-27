@@ -24,13 +24,14 @@ import (
 type dialResult struct {
 	stream io.ReadWriteCloser
 
-	sid        string
-	dataProto  string
-	quicCC     string
-	attemptWay string
+	sid         string
+	dataProto   string
+	quicCC      string
+	attemptWay  string
+	legacyHello bool
 }
 
-func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID string, cfg pocstate.PeerConfig) (*dialResult, error) {
+func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID string, cfg pocstate.PeerConfig, open dataplane.StreamOpen) (*dialResult, error) {
 	if m != nil {
 		m.mu.Lock()
 		hook := m.dialPeerStreamHook
@@ -40,7 +41,7 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 			if err != nil {
 				return nil, err
 			}
-			return &dialResult{stream: stream}, nil
+			return &dialResult{stream: stream, legacyHello: true}, nil
 		}
 	}
 
@@ -54,6 +55,42 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	}
 
 	sid := mqttsig.DeriveSID(cfg.ProxyName, cfg.SecretKey)
+	if open.Kind == "" {
+		open.Kind = dataplane.StreamKindShellV0
+	}
+
+	if m != nil && m.sessions != nil {
+		reuseKey := dataplane.SessionKey{
+			RemotePeerID: peerID,
+			Protocol:     dataplane.Protocol(cfg.DataProto),
+			SecurityID:   sid,
+		}
+		sess, ok := m.sessions.Find(reuseKey)
+		if !ok {
+			reuseKey.Protocol = dataplane.ProtocolTLS
+			sess, ok = m.sessions.Find(reuseKey)
+		}
+		if ok {
+			stream, err := sess.OpenStream(ctx, open)
+			if err == nil {
+				key := sess.Key()
+				m.addFact(taskID, poc.Fact{TermID: "peer_id", Message: "peer_id=" + peerID})
+				m.addFact(taskID, poc.Fact{TermID: "sid", Message: "sid=" + sid})
+				m.addFact(taskID, poc.Fact{TermID: "data_proto", Message: "data_proto=" + string(key.Protocol)})
+				m.addFact(taskID, poc.Fact{TermID: "session_reused", Message: "session_reused=true"})
+				if key.PathFamily != "" {
+					m.addFact(taskID, poc.Fact{TermID: "path_family", Message: "path_family=" + string(key.PathFamily)})
+				}
+				return &dialResult{
+					stream:     stream,
+					sid:        sid,
+					dataProto:  string(key.Protocol),
+					attemptWay: "session_reuse",
+				}, nil
+			}
+			m.sessions.Close(sess.Key(), dataplane.CloseReasonTransportFatal)
+		}
+	}
 
 	m.setStage(taskID, poc.StageCandidateExchange, "gather candidates")
 	gather, err := connectivity.Gather(ctx, sid, connectivity.GatherConfig{
@@ -264,8 +301,12 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	}
 
 	dpCfg := dataplane.Config{
-		Proto:  dataplane.Protocol(natHoleRespMsg.Protocol),
-		QuicCC: dataplane.QUICCC(natHoleRespMsg.QuicCC),
+		Proto:        dataplane.Protocol(natHoleRespMsg.Protocol),
+		QuicCC:       dataplane.QUICCC(natHoleRespMsg.QuicCC),
+		RemotePeerID: peerID,
+		SecurityID:   sid,
+		SecretKey:    []byte(cfg.SecretKey),
+		PathFamily:   dataplane.PathFamilyFromAttemptPath(attemptRes.Path),
 		Brutal: dataplane.BrutalConfig{
 			UpBps:   natHoleRespMsg.BrutalUpBps,
 			DownBps: natHoleRespMsg.BrutalDownBps,
@@ -273,14 +314,27 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	}
 
 	m.setStage(taskID, poc.StageDataplaneHandshake, "data plane dial stream")
-	var stream io.ReadWriteCloser
+	var sess dataplane.PeerSession
 	if len(attemptRes.TCPConns) > 0 {
 		dpCfg.Proto = dataplane.ProtocolTLS
-		stream, err = dataplane.DialTLSStream(ctx, sid, []byte(cfg.SecretKey), attemptRes.TCPConns, nil)
+		sess, err = dataplane.DialTLSSession(ctx, dpCfg, attemptRes.TCPConns, nil)
 	} else {
-		stream, err = dataplane.DialStream(ctx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
+		sess, err = dataplane.DialSession(ctx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
 	}
 	if err != nil {
+		return nil, err
+	}
+	if m != nil && m.sessions != nil {
+		m.sessions.Put(sess)
+	}
+
+	stream, err := sess.OpenStream(ctx, open)
+	if err != nil {
+		if m != nil && m.sessions != nil {
+			m.sessions.Close(sess.Key(), dataplane.CloseReasonTransportFatal)
+		} else {
+			_ = sess.Close(dataplane.CloseReasonTransportFatal)
+		}
 		return nil, err
 	}
 
@@ -299,6 +353,9 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	}
 	if strings.TrimSpace(attemptRes.Path) != "" {
 		m.addFact(taskID, poc.Fact{TermID: "attempt_path", Message: "attempt_path=" + attemptRes.Path})
+	}
+	if dpCfg.PathFamily != "" {
+		m.addFact(taskID, poc.Fact{TermID: "path_family", Message: "path_family=" + string(dpCfg.PathFamily)})
 	}
 
 	return &dialResult{

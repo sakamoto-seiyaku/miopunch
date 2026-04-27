@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/yamux"
 	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/event"
 	"github.com/miopunch/miopunch/internal/tlsutil"
@@ -36,41 +37,46 @@ type tlsCandidate struct {
 }
 
 func DialTLSStream(ctx context.Context, sid string, secretKey []byte, candidates []connectivity.TCPConn, em *event.Emitter) (io.ReadWriteCloser, error) {
-	tlsConn, err := convergePinnedTLS(ctx, sid, secretKey, tlsRoleVisitor, tlsRoleClient, true, candidates, em)
+	cfg := Config{
+		Proto:      ProtocolTLS,
+		SecurityID: sid,
+		SecretKey:  secretKey,
+		PathFamily: PathFamilyTCP4,
+	}
+	sess, err := DialTLSSession(ctx, cfg, candidates, em)
 	if err != nil {
 		return nil, err
 	}
-	if em != nil {
-		em.Emit(event.Event{
-			Stage: event.StageTransport,
-			Kind:  event.KindStart,
-			Name:  "transport.stream_open",
-			Msg:   "tls stream open",
-			KVs: map[string]any{
-				"data_proto": string(ProtocolTLS),
-			},
-		})
+	stream, err := sess.OpenStream(ctx, StreamOpen{Kind: StreamKindShellV0})
+	if err != nil {
+		_ = sess.Close(CloseReasonTransportFatal)
+		return nil, err
 	}
-	return tlsConn, nil
+	return &sessionOwnedStream{ReadWriteCloser: stream, session: sess}, nil
 }
 
 func ServeTLSStream(ctx context.Context, sid string, secretKey []byte, candidates []connectivity.TCPConn, em *event.Emitter) (io.ReadWriteCloser, error) {
-	tlsConn, err := convergePinnedTLS(ctx, sid, secretKey, tlsRoleClient, tlsRoleVisitor, false, candidates, em)
+	cfg := Config{
+		Proto:      ProtocolTLS,
+		SecurityID: sid,
+		SecretKey:  secretKey,
+		PathFamily: PathFamilyTCP4,
+	}
+	sess, err := ServeTLSSession(ctx, cfg, candidates, em)
 	if err != nil {
 		return nil, err
 	}
-	if em != nil {
-		em.Emit(event.Event{
-			Stage: event.StageTransport,
-			Kind:  event.KindStart,
-			Name:  "transport.stream_accept",
-			Msg:   "tls stream accepted",
-			KVs: map[string]any{
-				"data_proto": string(ProtocolTLS),
-			},
-		})
+	accepted, err := sess.AcceptStream(ctx)
+	if err != nil {
+		_ = sess.Close(CloseReasonTransportFatal)
+		return nil, err
 	}
-	return tlsConn, nil
+	if accepted.Open.Kind != StreamKindShellV0 {
+		_ = accepted.Stream.Close()
+		_ = sess.Close(CloseReasonStreamProtocolError)
+		return nil, fmt.Errorf("unexpected stream kind: %q", accepted.Open.Kind)
+	}
+	return &sessionOwnedStream{ReadWriteCloser: accepted.Stream, session: sess}, nil
 }
 
 func DialAndExchangeTLS(ctx context.Context, cfg Config, sid string, secretKey []byte, candidates []connectivity.TCPConn, payload []byte, em *event.Emitter) error {
@@ -81,9 +87,12 @@ func DialAndExchangeTLS(ctx context.Context, cfg Config, sid string, secretKey [
 		return fmt.Errorf("tls exchange requires data proto %q, got %q", ProtocolTLS, cfg.Proto)
 	}
 
-	stream, err := DialTLSStream(ctx, sid, secretKey, candidates, em)
+	cfg.SecurityID = sid
+	cfg.SecretKey = secretKey
+	cfg.PathFamily = PathFamilyTCP4
+	stream, err := dialPayloadTLSStream(ctx, cfg, candidates, em)
 	if err != nil {
-		return err
+		return fmt.Errorf("dial payload tls stream: %w", err)
 	}
 	defer stream.Close()
 
@@ -94,11 +103,17 @@ func DialAndExchangeTLS(ctx context.Context, cfg Config, sid string, secretKey [
 	}
 
 	if err := writeFrame(stream, payload); err != nil {
-		return err
+		// With yamux, it's possible for the peer to close the session after it has
+		// already received enough bytes to finish its read path. In that case the
+		// request may have been delivered even though the final write observes
+		// session shutdown due to a concurrent close.
+		if !errors.Is(err, yamux.ErrSessionShutdown) {
+			return fmt.Errorf("write request frame: %w", err)
+		}
 	}
 	resp, err := readFrame(stream, 64*1024)
 	if err != nil {
-		return err
+		return fmt.Errorf("read response frame: %w", err)
 	}
 	if string(resp) != "ok:"+string(payload) {
 		return fmt.Errorf("unexpected response: %q", string(resp))
@@ -116,9 +131,12 @@ func ServeAndExchangeTLS(ctx context.Context, cfg Config, sid string, secretKey 
 		return fmt.Errorf("tls exchange requires data proto %q, got %q", ProtocolTLS, cfg.Proto)
 	}
 
-	stream, err := ServeTLSStream(ctx, sid, secretKey, candidates, em)
+	cfg.SecurityID = sid
+	cfg.SecretKey = secretKey
+	cfg.PathFamily = PathFamilyTCP4
+	stream, err := servePayloadTLSStream(ctx, cfg, candidates, em)
 	if err != nil {
-		return err
+		return fmt.Errorf("serve payload tls stream: %w", err)
 	}
 	defer stream.Close()
 
@@ -130,15 +148,54 @@ func ServeAndExchangeTLS(ctx context.Context, cfg Config, sid string, secretKey 
 
 	req, err := readFrame(stream, 64*1024)
 	if err != nil {
-		return err
+		return fmt.Errorf("read request frame: %w", err)
 	}
 	resp := append([]byte("ok:"), req...)
 	if err := writeFrame(stream, resp); err != nil {
-		return err
+		// With yamux, it's possible for the peer to close the session immediately
+		// after it has already received enough bytes to finish its read path.
+		// In that case the response is effectively delivered, but the final write
+		// may observe session shutdown due to the session closing concurrently.
+		if errors.Is(err, yamux.ErrSessionShutdown) {
+			emitPayloadExchanged(em, cfg, len(req), "tls")
+			return nil
+		}
+		return fmt.Errorf("write response frame: %w", err)
 	}
 
 	emitPayloadExchanged(em, cfg, len(req), "tls")
 	return nil
+}
+
+func dialPayloadTLSStream(ctx context.Context, cfg Config, candidates []connectivity.TCPConn, em *event.Emitter) (io.ReadWriteCloser, error) {
+	sess, err := DialTLSSession(ctx, cfg, candidates, em)
+	if err != nil {
+		return nil, err
+	}
+	stream, err := sess.OpenStream(ctx, StreamOpen{Kind: StreamKindPayloadV0})
+	if err != nil {
+		_ = sess.Close(CloseReasonTransportFatal)
+		return nil, err
+	}
+	return &sessionOwnedStream{ReadWriteCloser: stream, session: sess}, nil
+}
+
+func servePayloadTLSStream(ctx context.Context, cfg Config, candidates []connectivity.TCPConn, em *event.Emitter) (io.ReadWriteCloser, error) {
+	sess, err := ServeTLSSession(ctx, cfg, candidates, em)
+	if err != nil {
+		return nil, err
+	}
+	accepted, err := sess.AcceptStream(ctx)
+	if err != nil {
+		_ = sess.Close(CloseReasonTransportFatal)
+		return nil, err
+	}
+	if accepted.Open.Kind != StreamKindPayloadV0 {
+		_ = accepted.Stream.Close()
+		_ = sess.Close(CloseReasonStreamProtocolError)
+		return nil, fmt.Errorf("unexpected stream kind: %q", accepted.Open.Kind)
+	}
+	return &sessionOwnedStream{ReadWriteCloser: accepted.Stream, session: sess}, nil
 }
 
 func convergePinnedTLS(ctx context.Context, sid string, secretKey []byte, selfRole string, peerRole string, asClient bool, candidates []connectivity.TCPConn, em *event.Emitter) (*tls.Conn, error) {

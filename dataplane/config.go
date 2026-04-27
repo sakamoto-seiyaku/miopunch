@@ -3,6 +3,7 @@ package dataplane
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 type Protocol string
@@ -30,6 +31,12 @@ type Config struct {
 	QuicCC QUICCC // only meaningful when Proto=quic
 
 	Brutal BrutalConfig // only meaningful when QuicCC=brutal
+
+	RemotePeerID string
+	SecurityID   string
+	SecretKey    []byte
+	PathFamily   PathFamily
+	IdleTimeout  time.Duration
 }
 
 func (c *Config) Normalize() {
@@ -41,6 +48,13 @@ func (c *Config) Normalize() {
 	c.QuicCC = QUICCC(strings.TrimSpace(string(c.QuicCC)))
 	if c.Proto == ProtocolQUIC && c.QuicCC == "" {
 		c.QuicCC = QUICCCBBR
+	}
+
+	c.RemotePeerID = strings.TrimSpace(c.RemotePeerID)
+	c.SecurityID = strings.TrimSpace(c.SecurityID)
+	c.PathFamily = PathFamily(strings.TrimSpace(string(c.PathFamily)))
+	if c.PathFamily == "" {
+		c.PathFamily = PathFamilyUnknown
 	}
 }
 
@@ -69,4 +83,25 @@ func (c Config) Validate() error {
 	default:
 		return fmt.Errorf("unsupported quic cc: %q", c.QuicCC)
 	}
+}
+
+func (c Config) sessionKey() SessionKey {
+	c.Normalize()
+	return SessionKey{
+		RemotePeerID: c.RemotePeerID,
+		Protocol:     c.Proto,
+		SecurityID:   c.SecurityID,
+		PathFamily:   c.PathFamily,
+	}.Normalize()
+}
+
+func (c Config) requirePinnedIdentity() error {
+	c.Normalize()
+	if strings.TrimSpace(c.SecurityID) == "" {
+		return fmt.Errorf("security_id is required")
+	}
+	if len(c.SecretKey) == 0 {
+		return fmt.Errorf("secret_key is required")
+	}
+	return nil
 }
