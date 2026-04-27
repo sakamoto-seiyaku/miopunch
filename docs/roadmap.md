@@ -6,7 +6,7 @@
 - 当前版本只定义主线，不锁死细节。
 - 后续按实验结果、实现成本、真实网络表现持续调整。
 
-## 当前进度（截至 2026-04-26）
+## 当前进度（截至 2026-04-27）
 
 - `P0`：NAT 实验台已落地，case 覆盖集可一键自测并导出 artifacts；见 `docs/decisions/p0-nat-lab-charter.md`、`openspec/changes/archive/2026-03-24-add-nat-lab-testbed/`、`docs/reports/2026-03-17-selftest.md`。
 - `P1`：打洞内核（from `frp xtcp`）抽离已落地，`core-01..core-10 × {kcp,quic}` 在 P0 VM 内完成实测并汇总；见 `docs/decisions/p1-xtcp-kernel-charter.md`、`openspec/changes/archive/2026-03-24-add-xtcp-kernel/`、`docs/reports/2026-03-18-xtcp-fulltest.md`。
@@ -14,7 +14,7 @@
 - `P3`：目录重组与命名收敛、`dataplane` 抽象与最小验收已完成并归档；见 `docs/decisions/p3-miopunch-transport-charter.md`、`openspec/changes/archive/2026-03-28-reorg-miopunch-layout/`、`openspec/changes/archive/2026-03-28-add-miopunch-dataplane/`。
 - `P3.5`：公网实验可达性补强保留为后续 backlog，目前未作为近期执行主线；其 charter 仍聚焦 `IPv4-only / IPv6-only`、内置 `DNS` 与内置默认 `STUN/MQTT` 名单、以及中国大陆 / 非中国大陆 `STUN` 观测分域；见 `docs/decisions/p3.5-public-network-charter.md`。
 - 主线/Lab：当前主线工作切换为“主线网络测试重构”，事实源为 `docs/decisions/mainline-network-test-charter.md`。近期目标是先彻底补齐场景 1（二节点连接性矩阵）和场景 2（主线控制面 e2e），二者通过后再拆分场景 3（12 节点 NAT 综合网络）。
-- MNT-01 复测后续：场景 1 已暴露三类需要先修正的产品设计缺口：F-001 punching phase scheduler、F-005/F-002 TCP assisted candidate、F-003 peer transport session/logical stream。正式设计同步由 `openspec/changes/formalize-mainline-connectivity-fixes/` 承接，后续实施拆为 `fix-punching-phase-scheduler`、`align-tcp-assisted-candidates`、`add-peer-transport-sessions`。
+- MNT-01 复测后续：场景 1 暴露的 F-001/F-005/F-003 已完成修复并归档（`fix-punching-phase-scheduler` / `align-tcp-assisted-candidates` / `add-peer-transport-sessions`），并于 2026-04-27 `mnt01-{smoke,selftest,fulltest}` 全绿。
 - Alpha/POC：原规划的最小产品面（`POC-01..POC-07`）已经按设计收口，并已全部归档；POC 作为“验证阶段”到此结束，后续工作不再沿用同一批 `POC-XX` 编号继续扩展。
 
 ## 定位
@@ -68,11 +68,11 @@
 
 ## 主线 Roadmap
 
-当前阶段判断（2026-04-26）：
+当前阶段判断（2026-04-27）：
 
 - 当前主线工作不再继续扩展旧 POC 编号，而是先把主线网络测试体系按 `docs/decisions/mainline-network-test-charter.md` 完整落地。
 - 推进顺序固定为：场景 1 先通过，场景 2 再通过，随后再讨论和拆分场景 3。
-- 场景 1 当前不再只是测试脚本重构问题。MNT-01 已经复现出基础打洞与数据面设计缺口，必须先完成 F-001/F-005/F-003 的正式化与实施修复，再把场景 1 required gate 收紧为稳定通过。
+- 场景 1 曾复现出基础打洞与数据面设计缺口；F-001/F-005/F-003 已完成正式化与实施修复，场景 1 required gate 当前可稳定通过。
 - `P3.5` 保留为公网实验增强 backlog；只有在真实网络验证重新暴露明确缺口时再继续推进。
 
 ### 主线网络测试重构
@@ -85,11 +85,11 @@
 
 Change 划分：
 
-- `MNT-01`：场景 1 主线连接性矩阵。补齐真实主线节点下的 UDP 15 类无向组合、TCP 49 类有向组合、MQTT-only 信令、自部署 broker、fixture 契约、证据链和 TCP hard 可解释失败口径。该 change 已完成测试矩阵建设；复测发现的问题记录于 `docs/notes/mainline-network-test-findings.md`，后续按独立产品修复 change 处理。
-- `formalize-mainline-connectivity-fixes`：将 MNT-01 暴露的产品设计结论同步到正式设计文档与 OpenSpec specs，不改代码。
-- `fix-punching-phase-scheduler`：修复 F-001。把 UDP/TCP punching 收敛为 backend-neutral、receive-first、bounded probe window 的 phase scheduler，并接入 success-only per-peer analyzer。
-- `align-tcp-assisted-candidates`：修复 F-005/F-002。引入 TCP assisted/private candidate 语义，避免私网 TCP listen 地址污染 `direct_tcp4`，并修正相关 MNT-01 case 期望。
-- `add-peer-transport-sessions`：修复 F-003。把 dataplane 从裸 stream 升级为 peer transport session + generic logical stream，并收紧 KCP transport specialty 为必须 `ping=ok`。
+- `MNT-01`：场景 1 主线连接性矩阵。（已实现并归档）补齐真实主线节点下的 UDP 15 类无向组合、TCP 49 类有向组合、MQTT-only 信令、自部署 broker、fixture 契约、证据链和 TCP hard 可解释失败口径。复测发现的问题记录于 `docs/notes/mainline-network-test-findings.md`。
+- `formalize-mainline-connectivity-fixes`：将 MNT-01 暴露的产品设计结论同步到正式设计文档与 OpenSpec specs，不改代码。（已实现并归档）
+- `fix-punching-phase-scheduler`：修复 F-001。把 UDP/TCP punching 收敛为 backend-neutral、receive-first、bounded probe window 的 phase scheduler，并接入 success-only per-peer analyzer。（已实现并归档）
+- `align-tcp-assisted-candidates`：修复 F-005/F-002。引入 TCP assisted/private candidate 语义，避免私网 TCP listen 地址污染 `direct_tcp4`，并修正相关 MNT-01 case 期望。（已实现并归档）
+- `add-peer-transport-sessions`：修复 F-003。把 dataplane 从裸 stream 升级为 peer transport session + generic logical stream，并收紧 KCP transport specialty 为必须 `ping=ok`。（已实现并归档）
 - `MNT-02`：场景 2 主线控制面 e2e。默认至少 6 节点，覆盖 blank `up`、`invite/approve/join`、多成员一致性、`ping`、`sh` smoke、restart、broker outage/recovery、revoke、失败合约、幂等性、并发和 report/redaction。
 - `MNT-03+`：场景 3 预留。12 节点 NAT 综合网络可能拆成一个或多个 change；具体拆法等 `MNT-01` 和 `MNT-02` 完成并通过后再定。
 
@@ -136,7 +136,7 @@ Change 划分：
 - `dataplane` 抽象与最小验收：见 `openspec/changes/archive/2026-03-28-add-miopunch-dataplane/`。
 - 以 `KCP / QUIC` 为基线，并定义传输选项的协商/切换与测试基准。
 - 在传输层稳定后，引入 `HY2` 风格的 `QUIC` 调度/拥塞控制作为与 `KCP / QUIC` 同级的传输选项。
-- MNT-01/F-003 后续要求将早期“单会话、单流”模型升级为 `peer transport session -> generic logical stream`：TCP/KCP 使用 `TLS 1.3 + yamux`，QUIC 使用 native streams；关闭 logical stream 不关闭 peer session。
+- MNT-01/F-003 已落地：早期“单会话、单流”模型升级为 `peer transport session -> generic logical stream`：TCP/KCP 使用 `TLS 1.3 + yamux`，QUIC 使用 native streams；关闭 logical stream 不关闭 peer session。
 - 目标是把“能连上”与“传得好”拆成两个独立问题。
 
 ### P3.5 公网实验可达性补强
@@ -285,7 +285,7 @@ Change 划分（按最初设计顺序回顾）：
   - 目标是把基于 `TCP` 的 candidate / attempt / session 建立流程融合进现有链路层抽象。
   - 这一方向应视为对现有 `UDP + QUIC/KCP` 路径的并列补充，而不是把 `QUIC/KCP` 强行承载到 `TCP` 之上。
   - 基线实现已通过 `door-2-stun-module-probe`、`door-2-wire-extension-tcp-info`、`door-2-tcp-direct-punching` 等 OpenSpec changes 落地；纲领仍以 `docs/decisions/door-2-tcp-punching-charter.md` 为事实源。
-  - MNT-01/F-005 后续修正重点是：TCP 私网 listen 地址进入 `tcp_assisted_addrs`，不再污染 `tcp_direct_addrs`；assisted-only fallback 成功仍记为 `punching_tcp4`，并输出 winning target source。
+- MNT-01/F-005 已完成修正：TCP 私网 listen 地址进入 `tcp_assisted_addrs`，不再污染 `tcp_direct_addrs`；assisted-only fallback 成功仍记为 `punching_tcp4`，并输出 winning target source。
   - 参考 `gonc` 的工程基线（用于校准预期，不代表照搬实现）：
     - 自动尝试优先级常见为：`tcp6 → tcp4 → udp6 → udp4`；并允许用户显式限制只使用 UDP 或只使用 TCP。
     - 非同 LAN 的 TCP punching 成功率仍需通过 analyzer、预算和诊断解释，不把“至少一端 easy NAT”作为硬 gating。
@@ -294,7 +294,7 @@ Change 划分（按最初设计顺序回顾）：
 - 第三方向：Signaling backend 插件化（去中心化入口 / 多 backend）。
   - 目标是把当前“网内优先 + MQTT 兜底”的外部入口，抽象成可插拔的 signaling backend，并允许主备（KISS，上限 2）。
   - 外部 backend 的正式定位：`bootstrap + fallback mailbox + exchange(realtime|scheduled)`；backend 一律不可信，控制面端到端加密+签名可验真。
-  - MNT-01/F-001 后续修正明确了边界：backend 只负责 exchange schedule（snapshot/start window/profile），不负责 punching phase schedule（role/delay/TTL/probe budget）。后续引入 NATS/DHT/Git/Email 等 backend 时不得复制 MQTT 专用 NAT timing。
+- MNT-01/F-001 已完成修正并明确了边界：backend 只负责 exchange schedule（snapshot/start window/profile），不负责 punching phase schedule（role/delay/TTL/probe budget）。后续引入 NATS/DHT/Git/Email 等 backend 时不得复制 MQTT 专用 NAT timing。
   - `V1` 目标：先落地 `MQTT + NATS(core)` 双 backend（主备）作为参考实现，把“拆分框架”跑通；`demo.nats.io` 仅用于 smoke/开发环境，不作为生产依赖。
   - `V2` 候选：`Git private repo`、`Email（SMTP + IMAP/POP3）` 等 `store-and-poll / store-and-forward` slow backend（更适合作兜底与 scheduled 交换）。
   - 纲领：`docs/decisions/door-3-signaling-backend-charter.md`。
