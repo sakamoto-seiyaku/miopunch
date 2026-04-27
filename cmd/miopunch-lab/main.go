@@ -53,6 +53,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return mqttBrokerCmd(ctx, args[1:], stdout, stderr)
 	case "mnt01-seed":
 		return mnt01SeedCmd(ctx, args[1:], stdout, stderr)
+	case "mnt02-seed":
+		return mnt02SeedCmd(ctx, args[1:], stdout, stderr)
 	case "peer":
 		return peerCmd(ctx, args[1:], stdout, stderr)
 	case "stun":
@@ -74,6 +76,7 @@ Usage:
   miopunch-lab coord  [flags]
   miopunch-lab mqtt-broker [flags]
   miopunch-lab mnt01-seed [flags]
+  miopunch-lab mnt02-seed [flags]
   miopunch-lab peer   <client|visitor> [flags]
   miopunch-lab stun   [flags]
   miopunch-lab stun probe [flags]
@@ -149,6 +152,15 @@ Commands:
     --p2p-network <auto|udp_only|tcp_only>
     --p2p-ip-family-a <auto|v4|v6> --p2p-ip-family-b <auto|v4|v6>
     --disable-portmap-a --disable-portmap-b
+    --out-env <path> --out-json <path>
+
+  mnt02-seed:
+    --state-root <dir>
+    --peers <n>
+    --mqtt-broker <host:port>
+    --stun <host:port,host:port> | --disable-stun
+    --p2p-port-base <port> --p2p-port-step <step>
+    --disable-portmap
     --out-env <path> --out-json <path>
 
   stun:

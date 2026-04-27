@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID:-0}" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+guest_root="$(cd -- "${script_dir}/.." && pwd)"
+runner="${script_dir}/mlab-mnt02-run"
+[[ -x "${runner}" ]] || { echo "error: missing runner: ${runner}" >&2; exit 1; }
+
+# shellcheck source=/dev/null
+source "${guest_root}/lib/mnt02_aggregate.sh"
+
+artifacts_root="${MLAB_ARTIFACTS_ROOT:-/opt/miopunch-lab/artifacts}"
+ts="$(date -u +%Y%m%dT%H%M%SZ)"
+aggregate_dir="${artifacts_root}/${ts}-mnt02-smoke-aggregate"
+mnt02_aggregate_init "${aggregate_dir}"
+
+peer_count="${MLAB_MNT02_PEER_COUNT:-6}"
+nat_profile="${MLAB_MNT02_NAT_PROFILE:-nat1}"
+disable_stun="${MLAB_MNT02_DISABLE_STUN:-0}"
+
+extra_args=()
+if [[ "${disable_stun}" -eq 1 ]]; then
+  extra_args+=(--disable-stun)
+fi
+
+mnt02_run_case "mnt02 smoke" --case-id mnt02-smoke-basic --peer-count "${peer_count}" --nat "${nat_profile}" "${extra_args[@]}"
+
+echo "summary: pass=${mnt02_pass} fail=${mnt02_fail}"
+mnt02_write_summary "${aggregate_dir}/summary.json" "mnt02-smoke"
+echo "aggregate=${aggregate_dir}"
+[[ "${mnt02_fail}" -eq 0 ]]
+

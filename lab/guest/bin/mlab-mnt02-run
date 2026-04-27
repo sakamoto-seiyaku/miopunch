@@ -1,0 +1,683 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID:-0}" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+guest_root="$(cd -- "${script_dir}/.." && pwd)"
+
+# shellcheck source=/dev/null
+source "${guest_root}/lib/common.sh"
+# shellcheck source=/dev/null
+source "${guest_root}/lib/topology_mnt02.sh"
+# shellcheck source=/dev/null
+source "${guest_root}/lib/profiles.sh"
+
+artifacts_root="${MLAB_ARTIFACTS_ROOT:-/opt/miopunch-lab/artifacts}"
+miopunch="${MLAB_MIOPUNCH_PRODUCT_BIN:-${MLAB_PRODUCT_BIN:-/opt/miopunch-lab/bin/miopunch}}"
+miopunch_lab="${MLAB_MIOPUNCH_LAB_BIN:-/opt/miopunch-lab/bin/miopunch-lab}"
+localapi_host="local-miopunch.localapi"
+
+run_dir=""
+socket_root=""
+
+case_id=""
+peer_count=6
+nat_profile="nat1"
+disable_stun=0
+
+p2p_port_base=5000
+p2p_port_step=1
+
+summary_written=0
+case_pass=0
+
+mqtt_pid=""
+stun_pid=""
+tcpdump_mqtt_pid=""
+
+declare -a daemon_pids=()
+
+usage() {
+  cat <<'EOF'
+Usage: mlab-mnt02-run --case-id <id> [flags]
+
+Flags:
+  --peer-count <n>     Number of peers to start (default: 6)
+  --nat <profile>      NAT profile (default: nat1)
+  --disable-stun       Explicitly disable STUN (avoid builtin/public STUN)
+EOF
+}
+
+preflight() {
+  need_cmd ip
+  need_cmd jq
+  need_cmd tcpdump
+  need_cmd curl
+  need_cmd strings
+  need_cmd tmux
+  [[ -x "${miopunch}" ]] || die "missing miopunch binary: ${miopunch}"
+  [[ -x "${miopunch_lab}" ]] || die "missing miopunch-lab binary: ${miopunch_lab}"
+}
+
+ensure_tmux_session() {
+  # The shell capability expects a tmux server/session on the controlled node.
+  # Use the default session name from the shell spec ("main").
+  tmux new-session -d -s main >/dev/null 2>&1 || true
+}
+
+peer_ns() {
+  mnt02_peer_ns "$1"
+}
+
+peer_sock() {
+  printf '%s/p%s.sock' "${socket_root}" "$1"
+}
+
+peer_state_path() {
+  printf '%s/state/p%s/state.json' "${run_dir}" "$1"
+}
+
+peer_p2p_port() {
+  printf '%d' "$((p2p_port_base + ( $1 - 1 ) * p2p_port_step))"
+}
+
+start_bg_in_netns() {
+  local namespace="$1"
+  local log_file="$2"
+  shift 2
+  ip netns exec "${namespace}" sh -c 'log="$1"; shift; "$@" >"$log" 2>&1 & echo $!' _ "${log_file}" "$@"
+}
+
+localapi_get_json() {
+  local namespace="$1" socket="$2" path="$3"
+  ip netns exec "${namespace}" curl -sS --fail \
+    --unix-socket "${socket}" \
+    -H "Host: ${localapi_host}" \
+    "http://${localapi_host}${path}"
+}
+
+stop_pid() {
+  local pid="$1"
+  if [[ -z "${pid}" ]]; then
+    return 0
+  fi
+  if kill -0 "${pid}" 2>/dev/null; then
+    kill "${pid}" 2>/dev/null || true
+    for _ in {1..40}; do
+      if ! kill -0 "${pid}" 2>/dev/null; then
+        return 0
+      fi
+      sleep 0.1
+    done
+    kill -9 "${pid}" 2>/dev/null || true
+  fi
+}
+
+stop_pid_int() {
+  local pid="$1"
+  if [[ -z "${pid}" ]]; then
+    return 0
+  fi
+  if kill -0 "${pid}" 2>/dev/null; then
+    kill -INT "${pid}" 2>/dev/null || true
+    for _ in {1..30}; do
+      if ! kill -0 "${pid}" 2>/dev/null; then
+        return 0
+      fi
+      sleep 0.1
+    done
+    stop_pid "${pid}"
+  fi
+}
+
+wait_localapi() {
+  local namespace="$1" socket="$2" label="$3"
+  local start now
+  start="$(date +%s)"
+  while true; do
+    if ip netns exec "${namespace}" "${miopunch}" --localapi "unix:${socket}" --format json ls >/dev/null 2>&1; then
+      return 0
+    fi
+    now="$(date +%s)"
+    if ((now - start > 30)); then
+      return 1
+    fi
+    sleep 0.2
+  done
+}
+
+step_out_dir() {
+  printf '%s/steps/%s' "${run_dir}" "$1"
+}
+
+step_report_dir() {
+  printf '%s/reports/%s' "${run_dir}" "$1"
+}
+
+record_step() {
+  local peer_label="$1" step="$2" rc="$3"
+  printf 'peer=%s\tstep=%s\trc=%s\n' "${peer_label}" "${step}" "${rc}" >>"${run_dir}/steps.tsv"
+}
+
+require_stage_reason() {
+  local json_file="$1"
+  local stage reason
+  stage="$(jq -r '.stage // ""' "${json_file}" 2>/dev/null || true)"
+  reason="$(jq -r '.reason_code // ""' "${json_file}" 2>/dev/null || true)"
+  [[ -n "${stage}" ]] || return 1
+  [[ -n "${reason}" ]] || return 1
+  return 0
+}
+
+require_reason_code() {
+  local json_file="$1" want="$2"
+  local got
+  got="$(jq -r '.reason_code // ""' "${json_file}" 2>/dev/null | tr -d '\r\n' || true)"
+  [[ "${got}" == "${want}" ]]
+}
+
+require_fact_contains() {
+  local json_file="$1" needle="$2"
+  jq -r '.facts[]?.message' "${json_file}" 2>/dev/null | grep -Fqx "${needle}"
+}
+
+run_ping_ok_retry_unavailable() {
+  local peer_idx="$1" step="$2" target_peer_id="$3" max_attempts="${4:-3}"
+  local attempt attempt_step json_file reason
+
+  for ((attempt=1; attempt<=max_attempts; attempt++)); do
+    attempt_step="${step}"
+    if [[ "${max_attempts}" -gt 1 ]]; then
+      attempt_step="${step}_a${attempt}"
+    fi
+
+    if run_peer_task "${peer_idx}" "${attempt_step}" ping "${target_peer_id}"; then
+      json_file="$(step_out_dir "p${peer_idx}")/${attempt_step}.json"
+      require_fact_contains "${json_file}" "ping=ok" || return 1
+      return 0
+    fi
+
+    json_file="$(step_out_dir "p${peer_idx}")/${attempt_step}.json"
+    reason="$(jq -r '.reason_code // ""' "${json_file}" 2>/dev/null | tr -d '\r\n' || true)"
+    if [[ "${reason}" != "UNAVAILABLE" ]]; then
+      return 1
+    fi
+
+    sleep 1
+  done
+
+  return 1
+}
+
+require_report_redacted() {
+  local report="$1"
+  [[ -f "${report}" ]] || return 1
+
+  if grep -q 'invite_code=' "${report}" && ! grep -q 'invite_code=<redacted>' "${report}"; then
+    return 1
+  fi
+  if grep -q 'secret_key=' "${report}" && ! grep -q 'secret_key=<redacted>' "${report}"; then
+    return 1
+  fi
+  if grep -q 'net_secret_b64=' "${report}" && ! grep -q 'net_secret_b64=<redacted>' "${report}"; then
+    return 1
+  fi
+  if grep -q 'invite_secret_b64=' "${report}" && ! grep -q 'invite_secret_b64=<redacted>' "${report}"; then
+    return 1
+  fi
+  return 0
+}
+
+extract_task_id() {
+  local json_file="$1"
+  jq -r '.task_id // ""' "${json_file}" 2>/dev/null | head -n 1 | tr -d '\r\n'
+}
+
+extract_task_fact_value() {
+  local peer_idx="$1" task_id="$2" prefix="$3"
+  local ns sock
+  ns="$(peer_ns "${peer_idx}")"
+  sock="$(peer_sock "${peer_idx}")"
+
+  local task_id_esc
+  task_id_esc="$(printf '%s' "${task_id}" | jq -sRr @uri)"
+  localapi_get_json "${ns}" "${sock}" "/api/v0/tasks/${task_id_esc}" |
+    jq -r --arg p "${prefix}" '.facts[]? | select(.message? | startswith($p)) | .message' |
+    sed -E "s/^${prefix}//" |
+    head -n 1
+}
+
+run_peer_task() {
+  local peer_idx="$1" step="$2"
+  shift 2
+
+  local ns sock out_dir report_dir json_file report_file
+  ns="$(peer_ns "${peer_idx}")"
+  sock="$(peer_sock "${peer_idx}")"
+  out_dir="$(step_out_dir "p${peer_idx}")"
+  report_dir="$(step_report_dir "p${peer_idx}")"
+  mkdir -p "${out_dir}" "${report_dir}"
+
+  json_file="${out_dir}/${step}.json"
+  report_file="${report_dir}/${step}.md"
+
+  set +e
+  ip netns exec "${ns}" "${miopunch}" \
+    --localapi "unix:${sock}" \
+    --format json \
+    --redact \
+    --report "${report_file}" \
+    "$@" \
+    >"${json_file}" 2>"${out_dir}/${step}.stderr"
+  local rc=$?
+  set -e
+
+  record_step "p${peer_idx}" "${step}" "${rc}"
+  require_stage_reason "${json_file}" || return 1
+  require_report_redacted "${report_file}" || return 1
+  return "${rc}"
+}
+
+write_summary() {
+  [[ -n "${run_dir}" ]] || return 0
+
+  local mqtt_pcap_ok="no"
+  if [[ -s "${run_dir}/mqtt.pcap" ]]; then
+    mqtt_pcap_ok="yes"
+  fi
+
+  cat >"${run_dir}/summary.json" <<EOF
+{
+  "case_id": "${case_id}",
+  "peer_count": ${peer_count},
+  "nat_profile": "${nat_profile}",
+  "disable_stun": ${disable_stun},
+  "pass": ${case_pass},
+  "mqtt_pcap_ok": "${mqtt_pcap_ok}",
+  "artifacts": "${run_dir}",
+  "steps_file": "${run_dir}/steps.tsv"
+}
+EOF
+  summary_written=1
+}
+
+finish() {
+  local rc=$?
+
+  local pid
+  for pid in "${daemon_pids[@]:-}"; do
+    stop_pid "${pid}" || true
+  done
+  stop_pid "${mqtt_pid:-}" || true
+  stop_pid "${stun_pid:-}" || true
+  stop_pid_int "${tcpdump_mqtt_pid:-}" || true
+
+  if [[ -n "${run_dir}" && "${summary_written}" -eq 0 ]]; then
+    # Preserve a minimal summary even on early failures.
+    if [[ "${rc}" -eq 0 ]]; then
+      case_pass=1
+    else
+      case_pass=0
+    fi
+    write_summary || true
+  fi
+
+  mnt02_topology_cleanup >/dev/null 2>&1 || true
+  [[ -n "${socket_root:-}" ]] && rm -rf "${socket_root}" || true
+  [[ -n "${run_dir:-}" ]] && chmod -R a+rX "${run_dir}" 2>/dev/null || true
+
+  if [[ -n "${run_dir}" && -n "${case_id}" ]]; then
+    echo "case=${case_id} pass=${case_pass} run_dir=${run_dir}"
+  fi
+
+  exit "${rc}"
+}
+
+start_broker() {
+  mqtt_pid="$(start_bg_in_netns "${NS_COORD}" "${run_dir}/mqtt.log" "${miopunch_lab}" mqtt-broker --listen "${COORD_IP}:1883")"
+  sleep 0.2
+  for _ in {1..100}; do
+    if grep -q '"msg":"mqtt broker listening"' "${run_dir}/mqtt.log" 2>/dev/null; then
+      return 0
+    fi
+    sleep 0.05
+  done
+  return 1
+}
+
+start_stun() {
+  stun_pid="$(start_bg_in_netns "${NS_STUN}" "${run_dir}/stun.log" "${miopunch_lab}" stun --listen "${STUN_IP}:3478" --listen "${STUN_IP}:3479")"
+  sleep 0.2
+}
+
+seed_states() {
+  local -a seed_flags=(
+    --state-root "${run_dir}/state"
+    --peers "${peer_count}"
+    --mqtt-broker "${COORD_IP}:1883"
+    --topic-prefix "miopunch/mnt02"
+    --p2p-port-base "${p2p_port_base}"
+    --p2p-port-step "${p2p_port_step}"
+    --disable-portmap
+    --out-env "${run_dir}/fixture.env"
+    --out-json "${run_dir}/fixture.json"
+  )
+  if [[ "${disable_stun}" -eq 1 ]]; then
+    seed_flags+=(--disable-stun)
+  else
+    seed_flags+=(--stun "${STUN_IP}:3478,${STUN_IP}:3479")
+  fi
+
+  "${miopunch_lab}" mnt02-seed "${seed_flags[@]}" >"${run_dir}/seed.stdout" 2>"${run_dir}/seed.stderr"
+  # shellcheck source=/dev/null
+  source "${run_dir}/fixture.env"
+}
+
+start_daemons() {
+  mkdir -p "${run_dir}/daemons"
+
+  local i ns sock st
+  for ((i=1; i<=peer_count; i++)); do
+    ns="$(peer_ns "${i}")"
+    sock="$(peer_sock "${i}")"
+    st="$(peer_state_path "${i}")"
+
+    daemon_pids+=("$(start_bg_in_netns "${ns}" "${run_dir}/daemons/p${i}.log" "${miopunch}" up --localapi "unix:${sock}" --state_path "${st}")")
+    if ! wait_localapi "${ns}" "${sock}" "p${i}"; then
+      return 1
+    fi
+  done
+  sleep 0.5
+}
+
+restart_daemon() {
+  local peer_idx="$1"
+  local ns sock st log
+  ns="$(peer_ns "${peer_idx}")"
+  sock="$(peer_sock "${peer_idx}")"
+  st="$(peer_state_path "${peer_idx}")"
+  log="${run_dir}/daemons/p${peer_idx}.restart.log"
+
+  stop_pid "${daemon_pids[$((peer_idx - 1))]}" || true
+  rm -f "${sock}" 2>/dev/null || true
+  daemon_pids[$((peer_idx - 1))]="$(start_bg_in_netns "${ns}" "${log}" "${miopunch}" up --localapi "unix:${sock}" --state_path "${st}")"
+  wait_localapi "${ns}" "${sock}" "p${peer_idx}-restart"
+  sleep 0.2
+}
+
+case_smoke_basic() {
+  [[ "${peer_count}" -ge 2 ]] || die "smoke requires --peer-count >= 2"
+
+  local invite_json invite_task invite_code issuer_peer_id
+  invite_json="$(step_out_dir p1)/invite.json"
+
+  run_peer_task 1 invite invite --mode approve --uses 1 --expires 60s || return 1
+  invite_task="$(extract_task_id "${invite_json}")"
+  [[ -n "${invite_task}" ]] || return 1
+  invite_code="$(extract_task_fact_value 1 "${invite_task}" "invite_code=" | tr -d '\r\n')"
+  issuer_peer_id="$(extract_task_fact_value 1 "${invite_task}" "peer_id=" | tr -d '\r\n')"
+  [[ -n "${invite_code}" ]] || return 1
+  [[ -n "${issuer_peer_id}" ]] || return 1
+
+  set +e
+  run_peer_task 1 approve approve "${invite_code}" &
+  local approve_pid=$!
+  set -e
+
+  run_peer_task 2 join join "${invite_code}" || { wait "${approve_pid}" || true; return 1; }
+  wait "${approve_pid}" || return 1
+
+  run_peer_task 2 ping ping "${issuer_peer_id}" || return 1
+  require_fact_contains "$(step_out_dir p2)/ping.json" "ping=ok" || return 1
+  run_peer_task 2 sh_ls sh ls "${issuer_peer_id}" local || return 1
+
+  return 0
+}
+
+case_selftest_happy() {
+  [[ "${peer_count}" -ge 4 ]] || die "selftest-happy requires --peer-count >= 4"
+
+  local invite_json invite_task invite_code issuer_peer_id
+  invite_json="$(step_out_dir p1)/invite.json"
+
+  run_peer_task 1 invite invite --mode approve --uses 3 --expires 90s || return 1
+  invite_task="$(extract_task_id "${invite_json}")"
+  [[ -n "${invite_task}" ]] || return 1
+  invite_code="$(extract_task_fact_value 1 "${invite_task}" "invite_code=" | tr -d '\r\n')"
+  issuer_peer_id="$(extract_task_fact_value 1 "${invite_task}" "peer_id=" | tr -d '\r\n')"
+  [[ -n "${invite_code}" ]] || return 1
+  [[ -n "${issuer_peer_id}" ]] || return 1
+
+  # Approve in background; allow concurrent joins (bounded).
+  set +e
+  run_peer_task 1 approve approve "${invite_code}" &
+  local approve_pid=$!
+  set -e
+
+  set +e
+  run_peer_task 2 join_a join "${invite_code}" &
+  local join2_pid=$!
+  run_peer_task 3 join_b join "${invite_code}" &
+  local join3_pid=$!
+  set -e
+
+  wait "${join2_pid}" || { wait "${join3_pid}" || true; wait "${approve_pid}" || true; return 1; }
+  wait "${join3_pid}" || { wait "${approve_pid}" || true; return 1; }
+  run_peer_task 4 join_c join "${invite_code}" || { wait "${approve_pid}" || true; return 1; }
+
+  # Approve should terminate after max uses.
+  wait "${approve_pid}" || return 1
+
+  # Members should have consistent seed peer list.
+  local peers2 peers3 peers4
+  local attempt
+  for attempt in {1..20}; do
+    set +e
+    peers2="$(localapi_get_json "$(peer_ns 2)" "$(peer_sock 2)" /api/v0/peers | jq -r '.peers[]?.peer_id' | sort | tr '\n' ',' | sed 's/,$//')"
+    local rc2=$?
+    peers3="$(localapi_get_json "$(peer_ns 3)" "$(peer_sock 3)" /api/v0/peers | jq -r '.peers[]?.peer_id' | sort | tr '\n' ',' | sed 's/,$//')"
+    local rc3=$?
+    peers4="$(localapi_get_json "$(peer_ns 4)" "$(peer_sock 4)" /api/v0/peers | jq -r '.peers[]?.peer_id' | sort | tr '\n' ',' | sed 's/,$//')"
+    local rc4=$?
+    set -e
+    if [[ "${rc2}" -eq 0 && "${rc3}" -eq 0 && "${rc4}" -eq 0 && -n "${peers2}" && "${peers2}" == "${peers3}" && "${peers2}" == "${peers4}" ]]; then
+      break
+    fi
+    sleep 0.5
+  done
+  [[ -n "${peers2}" && "${peers2}" == "${peers3}" && "${peers2}" == "${peers4}" ]] || return 1
+
+  # Ping is repeatable (practical idempotency signal).
+  run_peer_task 2 ping1 ping "${issuer_peer_id}" || return 1
+  require_fact_contains "$(step_out_dir p2)/ping1.json" "ping=ok" || return 1
+  run_peer_task 2 ping2 ping "${issuer_peer_id}" || return 1
+  require_fact_contains "$(step_out_dir p2)/ping2.json" "ping=ok" || return 1
+
+  # Restart one daemon and re-ping.
+  restart_daemon 2 || return 1
+  run_peer_task 2 ping_after_restart ping "${issuer_peer_id}" || return 1
+  require_fact_contains "$(step_out_dir p2)/ping_after_restart.json" "ping=ok" || return 1
+
+  # Revoke boundary: revoked member denied, non-revoked member still ok.
+  local member2_id
+  member2_id="$(jq -r '.facts[]? | select(.message? | startswith("peer_id=")) | .message' "$(step_out_dir p2)/join_a.json" | sed -E 's/^peer_id=//' | head -n 1 | tr -d '\r\n')"
+  [[ -n "${member2_id}" ]] || return 1
+  run_peer_task 1 revoke revoke "${member2_id}" --dangerous || return 1
+
+  set +e
+  run_peer_task 2 ping_denied ping "${issuer_peer_id}" >/dev/null 2>&1
+  local denied_rc=$?
+  set -e
+  [[ "${denied_rc}" -ne 0 ]] || return 1
+  require_reason_code "$(step_out_dir p2)/ping_denied.json" "FORBIDDEN" || return 1
+
+  # The current acceptor serves one peer session at a time. Terminate the revoked
+  # member daemon to free the acceptor loop so a different member can dial.
+  stop_pid "${daemon_pids[1]:-}" || true
+  sleep 0.5
+
+  run_ping_ok_retry_unavailable 3 ping_after_revoke "${issuer_peer_id}" 3 || return 1
+
+  return 0
+}
+
+case_selftest_broker_outage() {
+  [[ "${peer_count}" -ge 2 ]] || die "broker-outage requires --peer-count >= 2"
+
+  local invite_json invite_task invite_code issuer_peer_id
+  invite_json="$(step_out_dir p1)/invite.json"
+
+  run_peer_task 1 invite invite --mode approve --uses 1 --expires 90s || return 1
+  invite_task="$(extract_task_id "${invite_json}")"
+  [[ -n "${invite_task}" ]] || return 1
+  invite_code="$(extract_task_fact_value 1 "${invite_task}" "invite_code=" | tr -d '\r\n')"
+  issuer_peer_id="$(extract_task_fact_value 1 "${invite_task}" "peer_id=" | tr -d '\r\n')"
+  [[ -n "${invite_code}" ]] || return 1
+  [[ -n "${issuer_peer_id}" ]] || return 1
+
+  # Stop broker and ensure approve fails explainably.
+  stop_pid "${mqtt_pid}" || true
+  mqtt_pid=""
+
+  set +e
+  run_peer_task 1 approve_broker_down approve "${invite_code}"
+  local approve_down_rc=$?
+  set -e
+  [[ "${approve_down_rc}" -ne 0 ]] || return 1
+  require_reason_code "$(step_out_dir p1)/approve_broker_down.json" "UNAVAILABLE" || return 1
+
+  # Restart broker and retry approve/join.
+  start_broker || return 1
+
+  set +e
+  run_peer_task 1 approve_retry approve "${invite_code}" &
+  local approve_pid=$!
+  set -e
+
+  run_peer_task 2 join join "${invite_code}" || { wait "${approve_pid}" || true; return 1; }
+  wait "${approve_pid}" || return 1
+
+  run_peer_task 2 ping ping "${issuer_peer_id}" || return 1
+  require_fact_contains "$(step_out_dir p2)/ping.json" "ping=ok" || return 1
+
+  return 0
+}
+
+main() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --case-id)
+        case_id="${2:-}"
+        shift 2
+        ;;
+      --peer-count)
+        peer_count="${2:-}"
+        shift 2
+        ;;
+      --nat)
+        nat_profile="${2:-}"
+        shift 2
+        ;;
+      --disable-stun)
+        disable_stun=1
+        shift
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        echo "error: unknown arg: $1" >&2
+        usage >&2
+        exit 2
+        ;;
+    esac
+  done
+
+  if [[ -z "${case_id}" ]]; then
+    echo "error: missing --case-id" >&2
+    usage >&2
+    exit 2
+  fi
+
+  case "${peer_count}" in
+    ''|*[!0-9]*)
+      die "invalid --peer-count: ${peer_count}"
+      ;;
+  esac
+
+  preflight
+  ensure_tmux_session
+
+  local ts safe_case
+  ts="$(date -u +%Y%m%dT%H%M%SZ)"
+  safe_case="$(printf '%s' "${case_id}" | tr -c 'A-Za-z0-9_.-' '-')"
+  run_dir="${artifacts_root}/${ts}-mnt02-${safe_case}"
+  socket_root="/run/miopunch-lab/mnt02-${safe_case}-${RANDOM}${RANDOM}"
+  mkdir -p "${run_dir}" "${run_dir}/steps" "${run_dir}/reports" "${run_dir}/state" "${socket_root}"
+  : >"${run_dir}/steps.tsv"
+
+  {
+    echo "case_id=${case_id}"
+    echo "peer_count=${peer_count}"
+    echo "nat_profile=${nat_profile}"
+    echo "disable_stun=${disable_stun}"
+    echo "mqtt_broker=${COORD_IP}:1883"
+  } >"${run_dir}/case.env"
+
+  echo "run_dir=${run_dir}"
+
+  trap finish EXIT
+
+  mnt02_topology_cleanup >/dev/null 2>&1 || true
+  mnt02_topology_create "${peer_count}"
+
+  # Apply NAT profile: base once, then add per-port rules for remaining peers.
+  local first_ip first_port
+  first_ip="$(mnt02_peer_ip 1)"
+  first_port="$(peer_p2p_port 1)"
+  profiles_apply "${NS_NAT}" "${nat_profile}" "${LAN_CIDR}" "${WAN_NAT_IP}" "${first_ip}" "${first_port}"
+  local i ip port
+  for ((i=2; i<=peer_count; i++)); do
+    ip="$(mnt02_peer_ip "${i}")"
+    port="$(peer_p2p_port "${i}")"
+    profiles_apply_extra_port "${NS_NAT}" "${nat_profile}" "${LAN_CIDR}" "${WAN_NAT_IP}" "${ip}" "${port}"
+  done
+  # Allow intra-LAN peer traffic even if bridge netfilter is enabled.
+  ns_exec "${NS_NAT}" iptables -w -I FORWARD 1 -i lan0 -o lan0 -j ACCEPT || true
+
+  tcpdump_mqtt_pid="$(start_bg_in_netns "${NS_COORD}" /dev/null tcpdump -ni eth0 -w "${run_dir}/mqtt.pcap" tcp port 1883)"
+
+  if [[ "${disable_stun}" -eq 0 ]]; then
+    start_stun
+  fi
+  start_broker || die "mqtt broker not ready (run_dir=${run_dir})"
+
+  seed_states
+  start_daemons || die "daemon startup failed (run_dir=${run_dir})"
+
+  case_pass=0
+  case "${case_id}" in
+    mnt02-smoke-basic)
+      case_smoke_basic && case_pass=1 || case_pass=0
+      ;;
+    mnt02-selftest-happy)
+      case_selftest_happy && case_pass=1 || case_pass=0
+      ;;
+    mnt02-selftest-broker-outage)
+      case_selftest_broker_outage && case_pass=1 || case_pass=0
+      ;;
+    *)
+      die "unknown case-id: ${case_id}"
+      ;;
+  esac
+
+  write_summary
+
+  [[ "${case_pass}" -eq 1 ]]
+}
+
+main "$@"
