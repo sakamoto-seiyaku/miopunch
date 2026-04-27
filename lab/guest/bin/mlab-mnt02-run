@@ -159,7 +159,7 @@ step_report_dir() {
 
 record_step() {
   local peer_label="$1" step="$2" rc="$3"
-  printf 'peer=%s\tstep=%s\trc=%s\n' "${peer_label}" "${step}" "${rc}" >>"${run_dir}/steps.tsv"
+  printf 'peer=%s\tstep=%s\trc=%s\n' "${peer_label}" "${step}" "${rc}" >>"${run_dir}/attempts.tsv"
 }
 
 require_stage_reason() {
@@ -281,6 +281,40 @@ run_peer_task() {
   return "${rc}"
 }
 
+run_peer_ls_ids() {
+  local peer_idx="$1" step="$2"
+
+  local ns sock out_dir stdout_file stderr_file
+  ns="$(peer_ns "${peer_idx}")"
+  sock="$(peer_sock "${peer_idx}")"
+  out_dir="$(step_out_dir "p${peer_idx}")"
+  mkdir -p "${out_dir}"
+
+  stdout_file="${out_dir}/${step}.stdout"
+  stderr_file="${out_dir}/${step}.stderr"
+
+  set +e
+  ip netns exec "${ns}" "${miopunch}" \
+    --localapi "unix:${sock}" \
+    --format human \
+    --redact \
+    ls \
+    >"${stdout_file}" 2>"${stderr_file}"
+  local rc=$?
+  set -e
+
+  record_step "p${peer_idx}" "${step}" "${rc}"
+  if [[ "${rc}" -ne 0 ]]; then
+    return "${rc}"
+  fi
+
+  sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' "${stdout_file}" |
+    sed '/^$/d' |
+    sort |
+    tr '\n' ',' |
+    sed 's/,$//'
+}
+
 write_summary() {
   [[ -n "${run_dir}" ]] || return 0
 
@@ -298,7 +332,7 @@ write_summary() {
   "pass": ${case_pass},
   "mqtt_pcap_ok": "${mqtt_pcap_ok}",
   "artifacts": "${run_dir}",
-  "steps_file": "${run_dir}/steps.tsv"
+  "attempts_file": "${run_dir}/attempts.tsv"
 }
 EOF
   summary_written=1
@@ -476,11 +510,11 @@ case_selftest_happy() {
   local attempt
   for attempt in {1..20}; do
     set +e
-    peers2="$(localapi_get_json "$(peer_ns 2)" "$(peer_sock 2)" /api/v0/peers | jq -r '.peers[]?.peer_id' | sort | tr '\n' ',' | sed 's/,$//')"
+    peers2="$(run_peer_ls_ids 2 "ls_a${attempt}")"
     local rc2=$?
-    peers3="$(localapi_get_json "$(peer_ns 3)" "$(peer_sock 3)" /api/v0/peers | jq -r '.peers[]?.peer_id' | sort | tr '\n' ',' | sed 's/,$//')"
+    peers3="$(run_peer_ls_ids 3 "ls_a${attempt}")"
     local rc3=$?
-    peers4="$(localapi_get_json "$(peer_ns 4)" "$(peer_sock 4)" /api/v0/peers | jq -r '.peers[]?.peer_id' | sort | tr '\n' ',' | sed 's/,$//')"
+    peers4="$(run_peer_ls_ids 4 "ls_a${attempt}")"
     local rc4=$?
     set -e
     if [[ "${rc2}" -eq 0 && "${rc3}" -eq 0 && "${rc4}" -eq 0 && -n "${peers2}" && "${peers2}" == "${peers3}" && "${peers2}" == "${peers4}" ]]; then
@@ -489,6 +523,27 @@ case_selftest_happy() {
     sleep 0.5
   done
   [[ -n "${peers2}" && "${peers2}" == "${peers3}" && "${peers2}" == "${peers4}" ]] || return 1
+
+  # Repeating join: the second run may fail, but it must terminate with stage/reason_code evidence.
+  local idem_invite_json idem_invite_task idem_invite_code
+  idem_invite_json="$(step_out_dir p1)/invite_idem.json"
+  run_peer_task 1 invite_idem invite --mode approve --uses 1 --expires 20s || return 1
+  idem_invite_task="$(extract_task_id "${idem_invite_json}")"
+  [[ -n "${idem_invite_task}" ]] || return 1
+  idem_invite_code="$(extract_task_fact_value 1 "${idem_invite_task}" "invite_code=" | tr -d '\r\n')"
+  [[ -n "${idem_invite_code}" ]] || return 1
+
+  set +e
+  run_peer_task 1 approve_idem approve "${idem_invite_code}" &
+  local approve_idem_pid=$!
+  set -e
+
+  run_peer_task 2 join_idem_1 join "${idem_invite_code}" || { wait "${approve_idem_pid}" || true; return 1; }
+  wait "${approve_idem_pid}" || return 1
+
+  set +e
+  run_peer_task 2 join_idem_2 join "${idem_invite_code}"
+  set -e
 
   # Ping is repeatable (practical idempotency signal).
   run_peer_task 2 ping1 ping "${issuer_peer_id}" || return 1
@@ -618,7 +673,7 @@ main() {
   run_dir="${artifacts_root}/${ts}-mnt02-${safe_case}"
   socket_root="/run/miopunch-lab/mnt02-${safe_case}-${RANDOM}${RANDOM}"
   mkdir -p "${run_dir}" "${run_dir}/steps" "${run_dir}/reports" "${run_dir}/state" "${socket_root}"
-  : >"${run_dir}/steps.tsv"
+  : >"${run_dir}/attempts.tsv"
 
   {
     echo "case_id=${case_id}"

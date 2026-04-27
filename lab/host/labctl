@@ -308,6 +308,15 @@ cmd_guest() {
   cmd_ssh -- "$@"
 }
 
+ensure_guest_tmux() {
+  if cmd_guest command -v tmux >/dev/null 2>&1; then
+    return 0
+  fi
+  echo "info: tmux not found in guest; installing..."
+  cmd_guest sudo apt-get update
+  cmd_guest sudo apt-get install -y tmux
+}
+
 cmd_push_guest() {
   require_cmd rsync
   local src="${lab_dir}/guest/"
@@ -459,6 +468,7 @@ cmd_mnt02_smoke() {
   cmd_up
   cmd_wait
   cmd_wait_guest
+  ensure_guest_tmux
   cmd_push_guest
   cmd_push_bin
   set +e
@@ -473,6 +483,7 @@ cmd_mnt02_selftest() {
   cmd_up
   cmd_wait
   cmd_wait_guest
+  ensure_guest_tmux
   cmd_push_guest
   cmd_push_bin
   set +e

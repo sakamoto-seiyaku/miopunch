@@ -27,3 +27,12 @@
 - [x] 5.1 Run `go test ./...` and `go vet ./...` (host)
 - [x] 5.2 Run `./lab/host/labctl mnt02-smoke` and ensure gate passes with artifacts summary
 - [x] 5.3 Run `./lab/host/labctl mnt02-selftest` and ensure gate passes with artifacts summary
+
+## 6. Fixups (Should Fix + Nits)
+
+- [x] 6.1 Align multi-member consistency evidence with spec: use `miopunch ls` (not LocalAPI `/api/v0/peers`) with bounded stabilization window
+- [x] 6.2 Cover join idempotency: run `join` twice with a short-expiry invite and keep stage/reason_code evidence for both runs
+- [x] 6.3 Rename `steps.tsv` -> `attempts.tsv` and update `summary.json` pointer
+- [x] 6.4 Make MNT-02 gates robust on pre-existing VMs: ensure guest `tmux` is installed from `labctl` before running MNT-02 gates
+- [x] 6.5 Re-run `./lab/host/labctl mnt02-smoke` and `./lab/host/labctl mnt02-selftest`
+- [x] 6.6 Run the full mainline gate set: `bash .codex/skills/dev/scripts/run_test_gates.sh`
