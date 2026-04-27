@@ -76,6 +76,7 @@ The punching decision boundary SHALL apply the `+100` offset when deriving TCP a
 ### Requirement: Gather produces TCP candidates and TCP STUN observations (best-effort)
 When `p2p_network` permits TCP (`auto` or `tcp_only`), the system SHALL attempt to gather TCP-related inputs as a bounded-time best-effort snapshot:
 - `tcp_direct_addrs` for `tcp4/tcp6` at `L=P+100`
+- `tcp_assisted_addrs` for eligible private/local IPv4 listen addresses at `L=P+100` when assisted exchange is enabled
 - TCP port mapping helper candidates (UPnP/NAT-PMP) for `L=P+100` when available
 - TCP STUN observation bound to local port `P` and respecting endpoint scheme filters (`host:port` dual, `tcp://` TCP-only, `udp://` UDP-only)
 
@@ -88,19 +89,51 @@ When `p2p_network` permits TCP (`auto` or `tcp_only`), the system SHALL attempt 
 - **THEN** the gather snapshot may omit `tcp_mapped_addrs`
 - **AND** the system records explainable diagnostics for the failure
 
+### Requirement: TCP gather separates direct and assisted addresses
+When TCP is permitted, gather SHALL emit true TCP direct candidates separately from TCP assisted/private candidates.
+
+Private IPv4, loopback, link-local, unspecified, and other non-direct TCP listen addresses SHALL NOT be emitted as `tcp_direct_addrs`. Eligible private/local TCP listen addresses MAY be emitted as `tcp_assisted_addrs` when assisted exchange is enabled.
+
+#### Scenario: Private TCP address becomes assisted
+- **WHEN** a peer behind NAT listens on a private IPv4 TCP address
+- **THEN** gather does not include that address in `tcp_direct_addrs`
+- **AND** gather can include it in `tcp_assisted_addrs`
+
 ### Requirement: Decision boundary derives TCP punching enablement and behavior (mode0..4)
 When `p2p_network` permits TCP, the punching decision boundary SHALL derive TCP attempt inputs in `NatHoleResp`, including:
 - `tcp_candidate_addrs`
 - `tcp_punching_enabled` and `tcp_punching_error`
 - `tcp_detect_behavior` (mode0..4 semantics)
 
-The punching decision boundary SHALL set `tcp_punching_enabled=false` when there is insufficient TCP STUN evidence to make an explainable punching decision (e.g., fewer than 2 mapped samples per peer), and SHALL set `tcp_punching_error` to a concrete reason.
+The punching decision boundary SHALL set `tcp_punching_enabled=false` when there is insufficient TCP STUN evidence to make an explainable punching decision (e.g., fewer than 2 mapped samples per peer) and no `tcp_assisted_addrs` are available for bounded fallback. When `tcp_assisted_addrs` are available, the system SHALL support an explicit assisted-only fallback as specified below.
 
 #### Scenario: tcp_punching_enabled is false when TCP STUN evidence is insufficient
 - **GIVEN** at least one peer provides fewer than 2 TCP mapped address samples
+- **AND** neither peer provides `tcp_assisted_addrs`
 - **WHEN** the punching decision boundary produces `NatHoleResp`
 - **THEN** `tcp_punching_enabled=false`
 - **AND** `tcp_punching_error` explains the missing evidence
+
+### Requirement: TCP decision preserves direct and assisted buckets
+The punching decision boundary SHALL preserve separate TCP direct, assisted exact, candidate exact, and candidate-expanded target buckets.
+
+`direct_tcp4` SHALL consume only peer TCP direct addresses. `punching_tcp4` SHALL consume assisted exact targets and TCP candidate targets according to their bucket semantics.
+
+#### Scenario: Direct attempt skips assisted targets
+- **GIVEN** a response contains both peer TCP direct addresses and TCP assisted addresses
+- **WHEN** the attempt runs `direct_tcp4`
+- **THEN** it attempts only peer TCP direct addresses
+- **AND** assisted addresses remain available only to TCP punching
+
+### Requirement: Assisted-only TCP punching is bounded and explicit
+When TCP STUN evidence is insufficient but TCP assisted targets exist, the system SHALL support an explicit bounded assisted-only TCP punching fallback.
+
+The fallback SHALL use minimal mode0 behavior, SHALL NOT apply range/random port expansion to assisted targets, and SHALL emit diagnostics explaining that NAT analysis was unavailable.
+
+#### Scenario: Assisted-only fallback reports source
+- **WHEN** assisted-only TCP punching succeeds
+- **THEN** the selected path is `punching_tcp4`
+- **AND** diagnostics report that the winning target source was assisted (`assisted_exact`)
 
 ### Requirement: TCP punching uses simultaneous-open and converges to one winner
 When `tcp_punching_enabled=true`, the system SHALL implement TCP punching using simultaneous-open:
@@ -151,3 +184,13 @@ The system SHALL provide at least one NAT lab case that exercises TCP mode2/4 sp
 - **WHEN** the lab runs the TCP spraying regression case
 - **THEN** the visitor event stream contains `transport.payload_exchanged`
 - **AND** the ordered evidence chain includes TCP attempt/punching diagnostics consistent with mode2/4
+
+### Requirement: MNT-01 TCP direct cases require true direct candidates
+MNT-01 cases SHALL NOT assert `direct_tcp4` success unless the fixture produces true TCP direct candidates.
+
+Cases that validate fallback through private assisted targets SHALL be named and asserted as TCP punching fallback cases.
+
+#### Scenario: Existing double-NAT TCP fallback case is not direct
+- **WHEN** a double-NAT fixture provides only private TCP listen addresses
+- **THEN** the case does not require `direct_tcp4`
+- **AND** successful fallback is asserted as `punching_tcp4`

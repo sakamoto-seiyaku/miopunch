@@ -58,10 +58,11 @@ type GatherResult struct {
 	MappedAddrs   []string
 	AssistedAddrs []string
 
-	TCPDirectAddrs []string
-	TCPMappedAddrs []string
-	TCPSTUNCN      *wire.STUNViewObservation
-	TCPSTUNGlobal  *wire.STUNViewObservation
+	TCPDirectAddrs   []string
+	TCPAssistedAddrs []string
+	TCPMappedAddrs   []string
+	TCPSTUNCN        *wire.STUNViewObservation
+	TCPSTUNGlobal    *wire.STUNViewObservation
 
 	STUNCN     *wire.STUNViewObservation
 	STUNGlobal *wire.STUNViewObservation
@@ -340,6 +341,7 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 		v6Addrs             []netip.Addr
 		directCandidates    []netip.AddrPort
 		tcpDirectCandidates []netip.AddrPort
+		tcpAssistedAddrs    []string
 	)
 	if allowV6 && (udp6Conn != nil || tcp6Listener != nil) {
 		v6Addrs, err = GatherLocalIPv6Candidates()
@@ -374,12 +376,10 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 		}
 	}
 	if tcp4Listener != nil && tcpListenPort > 0 {
-		for _, ip := range localIPs {
-			addr, err := netip.ParseAddr(ip)
-			if err != nil || !addr.Is4() {
-				continue
-			}
-			tcpDirectCandidates = append(tcpDirectCandidates, netip.AddrPortFrom(addr, uint16(tcpListenPort)))
+		buckets := classifyTCP4ListenCandidates(localIPs, tcpListenPort)
+		tcpDirectCandidates = append(tcpDirectCandidates, buckets.DirectAddrs...)
+		if !cfg.DisableAssistedAddrs {
+			tcpAssistedAddrs = append(tcpAssistedAddrs, buckets.AssistedAddrs...)
 		}
 	}
 
@@ -1122,6 +1122,7 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 		tcpPMState.mu.Unlock()
 		close(tcpPMSnapshotDone)
 
+		included, dropped := filterTCPPortmapDirectAddrs(included)
 		included = TrimDirectAddrPorts(included)
 		tcpDirectCandidates = append(tcpDirectCandidates, included...)
 
@@ -1133,6 +1134,7 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 			KVs: map[string]any{
 				"included":     len(included) > 0,
 				"direct_v4":    len(included),
+				"dropped":      len(dropped),
 				"methods_done": done,
 				"deadline_ms":  cfg.GatherTimeout.Milliseconds(),
 			},
@@ -1142,7 +1144,7 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 	tcpDirectAddrs := TrimAndFormatDirectAddrs(tcpDirectCandidates)
 
 	udpExchangePossible := len(directAddrs) > 0 || len(mappedAddrs) > 0 || len(assistedAddrs) > 0
-	tcpExchangePossible := len(tcpDirectAddrs) > 0 || len(tcpMappedAddrs) > 0
+	tcpExchangePossible := len(tcpDirectAddrs) > 0 || len(tcpMappedAddrs) > 0 || len(tcpAssistedAddrs) > 0
 
 	switch {
 	case allowUDP && allowTCP:
@@ -1168,29 +1170,31 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 		Name:  "gather.done",
 		Msg:   "gather done",
 		KVs: map[string]any{
-			"direct_addrs":     len(directAddrs),
-			"mapped_addrs":     len(mappedAddrs),
-			"tcp_direct_addrs": len(tcpDirectAddrs),
-			"tcp_mapped_addrs": len(tcpMappedAddrs),
+			"direct_addrs":       len(directAddrs),
+			"mapped_addrs":       len(mappedAddrs),
+			"tcp_direct_addrs":   len(tcpDirectAddrs),
+			"tcp_mapped_addrs":   len(tcpMappedAddrs),
+			"tcp_assisted_addrs": len(tcpAssistedAddrs),
 		},
 	})
 
 	return &GatherResult{
-		UDP4Conn:       udp4Conn,
-		UDP6Conn:       udp6Conn,
-		TCPBasePort:    tcpBasePort,
-		TCPListenPort:  tcpListenPort,
-		TCP4Listener:   tcp4Listener,
-		TCP6Listener:   tcp6Listener,
-		DirectAddrs:    directAddrs,
-		MappedAddrs:    mappedAddrs,
-		AssistedAddrs:  assistedAddrs,
-		TCPDirectAddrs: tcpDirectAddrs,
-		TCPMappedAddrs: tcpMappedAddrs,
-		TCPSTUNCN:      tcpSTUNCN,
-		TCPSTUNGlobal:  tcpSTUNGlobal,
-		STUNCN:         stunCN,
-		STUNGlobal:     stunGlobal,
+		UDP4Conn:         udp4Conn,
+		UDP6Conn:         udp6Conn,
+		TCPBasePort:      tcpBasePort,
+		TCPListenPort:    tcpListenPort,
+		TCP4Listener:     tcp4Listener,
+		TCP6Listener:     tcp6Listener,
+		DirectAddrs:      directAddrs,
+		MappedAddrs:      mappedAddrs,
+		AssistedAddrs:    assistedAddrs,
+		TCPDirectAddrs:   tcpDirectAddrs,
+		TCPAssistedAddrs: tcpAssistedAddrs,
+		TCPMappedAddrs:   tcpMappedAddrs,
+		TCPSTUNCN:        tcpSTUNCN,
+		TCPSTUNGlobal:    tcpSTUNGlobal,
+		STUNCN:           stunCN,
+		STUNGlobal:       stunGlobal,
 	}, nil
 }
 

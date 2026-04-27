@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
@@ -235,11 +236,20 @@ func (e *Engine) analyze(sid string, scopeKey string, visitor *wire.NatHoleVisit
 	if len(invalid) > 0 {
 		logutil.Debugf("sid [%s] drop invalid client tcp_direct_addrs: %v", sid, invalid)
 	}
+	var dropped []string
+	vResp.PeerTCPDirectAddrs, dropped = filterTCPDirectIPv4Addrs(vResp.PeerTCPDirectAddrs)
+	if len(dropped) > 0 {
+		logutil.Debugf("sid [%s] drop non-direct client tcp_direct_addrs: %v", sid, dropped)
+	}
 	vResp.PeerTCPDirectAddrs = dedupStringsInOrder(vResp.PeerTCPDirectAddrs)
 
 	cResp.PeerTCPDirectAddrs, invalid = filterValidHostPorts(vm.TCPDirectAddrs)
 	if len(invalid) > 0 {
 		logutil.Debugf("sid [%s] drop invalid visitor tcp_direct_addrs: %v", sid, invalid)
+	}
+	cResp.PeerTCPDirectAddrs, dropped = filterTCPDirectIPv4Addrs(cResp.PeerTCPDirectAddrs)
+	if len(dropped) > 0 {
+		logutil.Debugf("sid [%s] drop non-direct visitor tcp_direct_addrs: %v", sid, dropped)
 	}
 	cResp.PeerTCPDirectAddrs = dedupStringsInOrder(cResp.PeerTCPDirectAddrs)
 
@@ -352,6 +362,18 @@ func (e *Engine) analyze(sid string, scopeKey string, visitor *wire.NatHoleVisit
 	}
 	cResp.AssistedAddrs = slices.Compact(cResp.AssistedAddrs)
 
+	vResp.TCPAssistedAddrs, invalid = filterValidHostPorts(cm.TCPAssistedAddrs)
+	if len(invalid) > 0 {
+		logutil.Debugf("sid [%s] drop invalid client tcp_assisted_addrs: %v", sid, invalid)
+	}
+	vResp.TCPAssistedAddrs = dedupStringsInOrder(vResp.TCPAssistedAddrs)
+
+	cResp.TCPAssistedAddrs, invalid = filterValidHostPorts(vm.TCPAssistedAddrs)
+	if len(invalid) > 0 {
+		logutil.Debugf("sid [%s] drop invalid visitor tcp_assisted_addrs: %v", sid, invalid)
+	}
+	cResp.TCPAssistedAddrs = dedupStringsInOrder(cResp.TCPAssistedAddrs)
+
 	// Candidate addrs are STUN-derived and therefore are the only part affected by
 	// cn/global selection. Compact a clone so NAT classification can still observe
 	// the original repeated mapped_addrs samples.
@@ -384,28 +406,100 @@ func (e *Engine) analyze(sid string, scopeKey string, visitor *wire.NatHoleVisit
 		vResp.TCPPunchingError = "tcp punching disabled by p2p_network=udp_only"
 		cResp.TCPPunchingError = vResp.TCPPunchingError
 	} else {
+		tcpBudgetMs := 5000
+		if effectiveNetwork == connectivity.P2PNetworkTCPOnly {
+			tcpBudgetMs = 10000
+		}
+
+		fallbackTCPPunching := func(msg string) {
+			visitorHasTargets := len(vResp.TCPCandidateAddrs) > 0 || len(vResp.TCPAssistedAddrs) > 0
+			clientHasTargets := len(cResp.TCPCandidateAddrs) > 0 || len(cResp.TCPAssistedAddrs) > 0
+			if !visitorHasTargets && !clientHasTargets {
+				vResp.TCPPunchingEnabled = false
+				cResp.TCPPunchingEnabled = false
+				vResp.TCPPunchingError = "tcp punching disabled: no tcp assisted or STUN candidates"
+				cResp.TCPPunchingError = vResp.TCPPunchingError
+				return
+			}
+
+			// Minimal, deterministic detect behavior when TCP NAT features cannot be analyzed.
+			// Prefer the peer that actually has targets as the sender.
+			visitorRole := "receiver"
+			clientRole := "sender"
+			if !clientHasTargets && visitorHasTargets {
+				visitorRole = "sender"
+				clientRole = "receiver"
+			}
+
+			vResp.TCPPunchingEnabled = true
+			cResp.TCPPunchingEnabled = true
+			vResp.TCPPunchingError = msg
+			cResp.TCPPunchingError = msg
+			vResp.TCPDetectBehavior = &wire.TcpDetectBehavior{
+				Mode:          0,
+				Role:          visitorRole,
+				SendDelayMs:   0,
+				ReadTimeoutMs: tcpBudgetMs,
+			}
+			cResp.TCPDetectBehavior = &wire.TcpDetectBehavior{
+				Mode:          0,
+				Role:          clientRole,
+				SendDelayMs:   0,
+				ReadTimeoutMs: tcpBudgetMs,
+			}
+			logutil.Infof(
+				"sid [%s] tcp punching fallback: %s (tcp_selected_view=%s reason=%s)",
+				sid,
+				msg,
+				tcpSelectedView,
+				tcpSelectedReason,
+			)
+		}
+
+		hasTCPAssisted := len(vResp.TCPAssistedAddrs) > 0 || len(cResp.TCPAssistedAddrs) > 0
+
 		if len(clientTCPMapped) < 2 || len(visitorTCPMapped) < 2 {
-			vResp.TCPPunchingError = fmt.Sprintf(
+			msg := fmt.Sprintf(
 				"tcp punching disabled: insufficient tcp_mapped_addrs samples (client=%d visitor=%d)",
 				len(clientTCPMapped),
 				len(visitorTCPMapped),
 			)
-			cResp.TCPPunchingError = vResp.TCPPunchingError
+			if hasTCPAssisted {
+				fallbackTCPPunching(strings.Replace(msg, "disabled", "fallback", 1))
+			} else {
+				vResp.TCPPunchingError = msg
+				cResp.TCPPunchingError = msg
+			}
 		} else if len(vResp.TCPCandidateAddrs) == 0 || len(cResp.TCPCandidateAddrs) == 0 {
-			vResp.TCPPunchingError = "tcp punching disabled: no usable tcp_candidate_addrs after +100 offset"
-			cResp.TCPPunchingError = vResp.TCPPunchingError
+			msg := "tcp punching disabled: no usable tcp_candidate_addrs after +100 offset"
+			if hasTCPAssisted {
+				fallbackTCPPunching(strings.Replace(msg, "disabled", "fallback", 1))
+			} else {
+				vResp.TCPPunchingError = msg
+				cResp.TCPPunchingError = msg
+			}
 		} else {
 			clientLocalIPs := parseIPs(vResp.AssistedAddrs)
 			cTCPNatFeature, err := ClassifyNATFeature(clientTCPMapped, clientLocalIPs)
 			if err != nil {
-				vResp.TCPPunchingError = fmt.Sprintf("tcp punching disabled: classify client nat feature error: %v", err)
-				cResp.TCPPunchingError = vResp.TCPPunchingError
+				msg := fmt.Sprintf("tcp punching disabled: classify client nat feature error: %v", err)
+				if hasTCPAssisted {
+					fallbackTCPPunching(strings.Replace(msg, "disabled", "fallback", 1))
+				} else {
+					vResp.TCPPunchingError = msg
+					cResp.TCPPunchingError = msg
+				}
 			} else {
 				visitorLocalIPs := parseIPs(cResp.AssistedAddrs)
 				vTCPNatFeature, err := ClassifyNATFeature(visitorTCPMapped, visitorLocalIPs)
 				if err != nil {
-					vResp.TCPPunchingError = fmt.Sprintf("tcp punching disabled: classify visitor nat feature error: %v", err)
-					cResp.TCPPunchingError = vResp.TCPPunchingError
+					msg := fmt.Sprintf("tcp punching disabled: classify visitor nat feature error: %v", err)
+					if hasTCPAssisted {
+						fallbackTCPPunching(strings.Replace(msg, "disabled", "fallback", 1))
+					} else {
+						vResp.TCPPunchingError = msg
+						cResp.TCPPunchingError = msg
+					}
 				} else {
 					tcpAnalysisKey := natAnalysisKey("tcp", visitorTCPMapped, vTCPNatFeature, clientTCPMapped, cTCPNatFeature)
 					tcpAnalyzerKey := scopedAnalyzerKey(scopeKey, "tcp", tcpAnalysisKey)
@@ -413,11 +507,6 @@ func (e *Engine) analyze(sid string, scopeKey string, visitor *wire.NatHoleVisit
 					result.TCPAnalyzerKey = tcpAnalyzerKey
 					result.TCPMode = tcpMode
 					result.TCPIndex = tcpIndex
-
-					tcpBudgetMs := 5000
-					if effectiveNetwork == connectivity.P2PNetworkTCPOnly {
-						tcpBudgetMs = 10000
-					}
 
 					vSendRandomPorts := 0
 					vListenRandomPorts := 0
@@ -756,6 +845,29 @@ func filterValidHostPorts(addrs []string) (valid []string, invalid []string) {
 		valid = append(valid, addr)
 	}
 	return valid, invalid
+}
+
+func filterTCPDirectIPv4Addrs(addrs []string) (valid []string, dropped []string) {
+	valid = make([]string, 0, len(addrs))
+	dropped = make([]string, 0)
+	for _, addr := range addrs {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			valid = append(valid, addr)
+			continue
+		}
+		ip, err := netip.ParseAddr(host)
+		if err != nil || !ip.Is4() {
+			valid = append(valid, addr)
+			continue
+		}
+		if ip.IsLoopback() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() || ip.IsMulticast() || ip.IsPrivate() {
+			dropped = append(dropped, addr)
+			continue
+		}
+		valid = append(valid, addr)
+	}
+	return valid, dropped
 }
 
 func dedupStringsInOrder(in []string) []string {

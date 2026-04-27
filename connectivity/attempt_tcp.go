@@ -7,7 +7,6 @@ import (
 	"math/rand/v2"
 	"net"
 	"net/netip"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -254,11 +253,11 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 		})
 		return nil, nil
 	}
-	if len(resp.TCPCandidateAddrs) == 0 {
+	if len(resp.TCPCandidateAddrs) == 0 && len(resp.TCPAssistedAddrs) == 0 {
 		if cfg.P2PNetwork == P2PNetworkTCPOnly {
-			return nil, errors.New("tcp punching enabled but tcp_candidate_addrs empty")
+			return nil, errors.New("tcp punching enabled but tcp candidate targets empty")
 		}
-		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindInfo, Name: "attempt.tcp_punching.skip", Msg: "tcp punching skipped", Err: "tcp_candidate_addrs empty"})
+		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindInfo, Name: "attempt.tcp_punching.skip", Msg: "tcp punching skipped", Err: "tcp candidate targets empty"})
 		return nil, nil
 	}
 	if resp.TCPDetectBehavior == nil {
@@ -280,7 +279,7 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 	settleWindow := 200 * time.Millisecond
 	sendRandomPorts := effectiveTCPSendRandomPorts(resp.TCPDetectBehavior.SendRandomPorts)
 	listenRandomPorts := effectiveTCPListenRandomPorts(resp.TCPDetectBehavior.ListenRandomPorts)
-	targets, err := buildTCPPunchTargets(resp.TCPCandidateAddrs, resp.TCPDetectBehavior.CandidatePorts, sendRandomPorts)
+	targets, err := buildTCPPunchTargets(resp.TCPCandidateAddrs, resp.TCPAssistedAddrs, resp.TCPDetectBehavior.CandidatePorts, sendRandomPorts)
 	if err != nil {
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.tcp_punching.fail", Msg: "tcp punching target build failed", Err: err.Error()})
 		return nil, err
@@ -297,6 +296,11 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 			"send_delay_ms":                 resp.TCPDetectBehavior.SendDelayMs,
 			"read_timeout_ms":               resp.TCPDetectBehavior.ReadTimeoutMs,
 			"candidate_addrs":               len(resp.TCPCandidateAddrs),
+			"assisted_addrs":                len(resp.TCPAssistedAddrs),
+			"assisted_exact_targets":        targets.AssistedExactCount,
+			"candidate_exact_targets":       targets.CandidateExactCount,
+			"candidate_expanded_targets":    targets.CandidateExpandedCount,
+			"targets":                       len(targets.Targets),
 			"candidate_ports":               len(resp.TCPDetectBehavior.CandidatePorts),
 			"send_random_ports_requested":   resp.TCPDetectBehavior.SendRandomPorts,
 			"send_random_ports":             sendRandomPorts,
@@ -338,13 +342,13 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 		dst     netip.AddrPort
 	}
 
-	dialJobs := make([]dialJob, 0, len(listeners)*len(targets))
+	dialJobs := make([]dialJob, 0, len(listeners)*len(targets.Targets))
 	for _, ln := range listeners {
 		addr, ok := ln.Addr().(*net.TCPAddr)
 		if !ok {
 			continue
 		}
-		for _, dst := range targets {
+		for _, dst := range targets.Targets {
 			dialJobs = append(dialJobs, dialJob{srcPort: addr.Port, dst: dst})
 		}
 	}
@@ -428,7 +432,7 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 			"listen_ports":        len(listeners),
 			"send_random_ports":   sendRandomPorts,
 			"listen_random_ports": listenRandomPorts,
-			"targets":             len(targets),
+			"targets":             len(targets.Targets),
 		},
 	})
 
@@ -543,6 +547,14 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 			continue
 		}
 		connFirstOnce.Do(func() {
+			winnerTargetSource := "unknown_accept"
+			if c.Origin == TCPConnOriginDial {
+				if remote, err := netip.ParseAddrPort(c.Conn.RemoteAddr().String()); err == nil {
+					winnerTargetSource = targets.Source(remote)
+				} else {
+					winnerTargetSource = "unknown_dial"
+				}
+			}
 			emit(event.Event{
 				Stage: event.StageAttempt,
 				Kind:  event.KindInfo,
@@ -560,8 +572,9 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 				Name:  "attempt.tcp_punching.winner",
 				Msg:   "tcp punching winner selected",
 				KVs: map[string]any{
-					"origin":     c.Origin,
-					"elapsed_ms": time.Since(stepStart).Milliseconds(),
+					"origin":               c.Origin,
+					"elapsed_ms":           time.Since(stepStart).Milliseconds(),
+					"winner_target_source": winnerTargetSource,
 				},
 			})
 		})
@@ -609,30 +622,89 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 	return &AttemptResult{Path: "punching_tcp4", TCPConns: tcpConns}, nil
 }
 
-func buildTCPPunchTargets(candidateAddrs []string, candidatePorts []wire.PortsRange, sendRandomPorts int) ([]netip.AddrPort, error) {
-	sendRandomPorts = effectiveTCPSendRandomPorts(sendRandomPorts)
+type tcpPunchTargets struct {
+	Targets []netip.AddrPort
 
-	parsed := ParseDirectAddrPorts(candidateAddrs)
-	if len(parsed.Invalid) > 0 {
-		return nil, fmt.Errorf("invalid tcp_candidate_addrs: %v", parsed.Invalid)
+	AssistedExactCount     int
+	CandidateExactCount    int
+	CandidateExpandedCount int
+
+	assistedExact     map[netip.AddrPort]struct{}
+	candidateExact    map[netip.AddrPort]struct{}
+	candidateExpanded map[netip.AddrPort]struct{}
+}
+
+func (t tcpPunchTargets) Source(dst netip.AddrPort) string {
+	if _, ok := t.assistedExact[dst]; ok {
+		return "assisted_exact"
 	}
-	targets := make([]netip.AddrPort, 0, len(parsed.Addrs))
-	ips := make([]netip.Addr, 0, len(parsed.Addrs))
-	for _, ap := range parsed.Addrs {
+	if _, ok := t.candidateExact[dst]; ok {
+		return "candidate_exact"
+	}
+	if _, ok := t.candidateExpanded[dst]; ok {
+		return "candidate_expanded"
+	}
+	return "unknown"
+}
+
+func buildTCPPunchTargets(candidateAddrs []string, assistedAddrs []string, candidatePorts []wire.PortsRange, sendRandomPorts int) (tcpPunchTargets, error) {
+	parsedCandidates := ParseDirectAddrPorts(candidateAddrs)
+	if len(parsedCandidates.Invalid) > 0 {
+		return tcpPunchTargets{}, fmt.Errorf("invalid tcp_candidate_addrs: %v", parsedCandidates.Invalid)
+	}
+	parsedAssisted := ParseDirectAddrPorts(assistedAddrs)
+	if len(parsedAssisted.Invalid) > 0 {
+		return tcpPunchTargets{}, fmt.Errorf("invalid tcp_assisted_addrs: %v", parsedAssisted.Invalid)
+	}
+
+	assistedExact := make([]netip.AddrPort, 0, len(parsedAssisted.Addrs))
+	for _, ap := range parsedAssisted.Addrs {
 		if ap.Addr().Is4() {
-			targets = append(targets, ap)
-			ips = append(ips, ap.Addr())
+			assistedExact = append(assistedExact, ap)
 		}
 	}
-	ips = slices.Compact(ips)
+	candidateExact := make([]netip.AddrPort, 0, len(parsedCandidates.Addrs))
+	for _, ap := range parsedCandidates.Addrs {
+		if ap.Addr().Is4() {
+			candidateExact = append(candidateExact, ap)
+		}
+	}
 
+	assistedExactSet := make(map[netip.AddrPort]struct{}, len(assistedExact))
+	assistedExactDedup := make([]netip.AddrPort, 0, len(assistedExact))
+	for _, ap := range assistedExact {
+		if _, ok := assistedExactSet[ap]; ok {
+			continue
+		}
+		assistedExactSet[ap] = struct{}{}
+		assistedExactDedup = append(assistedExactDedup, ap)
+	}
+
+	candidateExactSet := make(map[netip.AddrPort]struct{}, len(candidateExact))
+	candidateExactDedup := make([]netip.AddrPort, 0, len(candidateExact))
+	candidateIPs := make([]netip.Addr, 0, len(candidateExact))
+	seenIP := make(map[netip.Addr]struct{}, len(candidateExact))
+	for _, ap := range candidateExact {
+		if _, ok := candidateExactSet[ap]; ok {
+			continue
+		}
+		candidateExactSet[ap] = struct{}{}
+		candidateExactDedup = append(candidateExactDedup, ap)
+		if _, ok := seenIP[ap.Addr()]; ok {
+			continue
+		}
+		seenIP[ap.Addr()] = struct{}{}
+		candidateIPs = append(candidateIPs, ap.Addr())
+	}
+
+	expanded := make([]netip.AddrPort, 0, len(candidatePorts)*len(candidateIPs))
 	for _, pr := range candidatePorts {
 		for p := pr.From; p <= pr.To; p++ {
 			if p <= 0 || p > 65535 {
 				continue
 			}
-			for _, ip := range ips {
-				targets = append(targets, netip.AddrPortFrom(ip, uint16(p)))
+			for _, ip := range candidateIPs {
+				expanded = append(expanded, netip.AddrPortFrom(ip, uint16(p)))
 			}
 		}
 	}
@@ -655,22 +727,57 @@ func buildTCPPunchTargets(candidateAddrs []string, candidatePorts []wire.PortsRa
 			if port == 0 {
 				continue
 			}
-			for _, ip := range ips {
-				targets = append(targets, netip.AddrPortFrom(ip, uint16(port)))
+			for _, ip := range candidateIPs {
+				expanded = append(expanded, netip.AddrPortFrom(ip, uint16(port)))
 			}
 		}
 	}
 
-	seen := make(map[netip.AddrPort]struct{}, len(targets))
-	dedup := make([]netip.AddrPort, 0, len(targets))
-	for _, ap := range targets {
-		if _, ok := seen[ap]; ok {
+	expectedTargets := len(assistedExactDedup) + len(candidateExactDedup) + len(expanded)
+	combined := make([]netip.AddrPort, 0, expectedTargets)
+	seenCombined := make(map[netip.AddrPort]struct{}, expectedTargets)
+	add := func(ap netip.AddrPort) bool {
+		if _, ok := seenCombined[ap]; ok {
+			return false
+		}
+		seenCombined[ap] = struct{}{}
+		combined = append(combined, ap)
+		return true
+	}
+
+	for _, ap := range assistedExactDedup {
+		add(ap)
+	}
+	candidateExactCount := 0
+	for _, ap := range candidateExactDedup {
+		if add(ap) {
+			candidateExactCount++
+		}
+	}
+
+	candidateExpandedSet := make(map[netip.AddrPort]struct{}, len(expanded))
+	exactCount := len(combined)
+	for _, ap := range expanded {
+		if _, ok := assistedExactSet[ap]; ok {
 			continue
 		}
-		seen[ap] = struct{}{}
-		dedup = append(dedup, ap)
+		if _, ok := candidateExactSet[ap]; ok {
+			continue
+		}
+		if add(ap) {
+			candidateExpandedSet[ap] = struct{}{}
+		}
 	}
-	return dedup, nil
+
+	return tcpPunchTargets{
+		Targets:                combined,
+		AssistedExactCount:     len(assistedExactDedup),
+		CandidateExactCount:    candidateExactCount,
+		CandidateExpandedCount: len(combined) - exactCount,
+		assistedExact:          assistedExactSet,
+		candidateExact:         candidateExactSet,
+		candidateExpanded:      candidateExpandedSet,
+	}, nil
 }
 
 func effectiveTCPSendRandomPorts(requested int) int {

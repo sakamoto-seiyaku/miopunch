@@ -59,7 +59,7 @@ MQTT-specific code SHALL NOT add sender sleeps, receiver timing, or NAT role bra
 ### Requirement: Exchange Uses The Same Program-Defined Information
 MQTT signaling SHALL exchange the same program-defined information that the system already uses for traversal decisions:
 `direct_addrs`, `mapped_addrs`, `assisted_addrs`,
-`tcp_direct_addrs`, `tcp_mapped_addrs`, `tcp_stun_cn`, `tcp_stun_global`,
+`tcp_direct_addrs`, `tcp_assisted_addrs`, `tcp_mapped_addrs`, `tcp_stun_cn`, `tcp_stun_global`,
 `capabilities`, `p2p_network`,
 and selected transport options.
 

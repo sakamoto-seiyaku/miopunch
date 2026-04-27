@@ -54,6 +54,9 @@ func TestWriteReadMsg_RoundTrip_TCPFields(t *testing.T) {
 		TCPDirectAddrs: []string{
 			"192.0.2.1:1111",
 		},
+		TCPAssistedAddrs: []string{
+			"10.0.0.1:1111",
+		},
 		TCPMappedAddrs: []string{
 			"203.0.113.1:40000",
 		},
@@ -94,6 +97,9 @@ func TestWriteReadMsg_RoundTrip_TCPFields(t *testing.T) {
 	if !slices.Equal(got.TCPDirectAddrs, in.TCPDirectAddrs) {
 		t.Fatalf("TCPDirectAddrs = %v, want %v", got.TCPDirectAddrs, in.TCPDirectAddrs)
 	}
+	if !slices.Equal(got.TCPAssistedAddrs, in.TCPAssistedAddrs) {
+		t.Fatalf("TCPAssistedAddrs = %v, want %v", got.TCPAssistedAddrs, in.TCPAssistedAddrs)
+	}
 	if !slices.Equal(got.TCPMappedAddrs, in.TCPMappedAddrs) {
 		t.Fatalf("TCPMappedAddrs = %v, want %v", got.TCPMappedAddrs, in.TCPMappedAddrs)
 	}
@@ -131,6 +137,9 @@ func TestWriteReadMsg_RoundTrip_TCPClientFields(t *testing.T) {
 		P2PNetwork: "tcp_only",
 		TCPDirectAddrs: []string{
 			"192.0.2.2:2222",
+		},
+		TCPAssistedAddrs: []string{
+			"10.0.0.2:2222",
 		},
 		TCPMappedAddrs: []string{
 			"203.0.113.2:50000",
@@ -179,6 +188,9 @@ func TestWriteReadMsg_RoundTrip_TCPClientFields(t *testing.T) {
 	if !slices.Equal(got.TCPDirectAddrs, in.TCPDirectAddrs) {
 		t.Fatalf("ReadMsg(NatHoleClient).TCPDirectAddrs = %v, want %v", got.TCPDirectAddrs, in.TCPDirectAddrs)
 	}
+	if !slices.Equal(got.TCPAssistedAddrs, in.TCPAssistedAddrs) {
+		t.Fatalf("ReadMsg(NatHoleClient).TCPAssistedAddrs = %v, want %v", got.TCPAssistedAddrs, in.TCPAssistedAddrs)
+	}
 	if !slices.Equal(got.TCPMappedAddrs, in.TCPMappedAddrs) {
 		t.Fatalf("ReadMsg(NatHoleClient).TCPMappedAddrs = %v, want %v", got.TCPMappedAddrs, in.TCPMappedAddrs)
 	}
@@ -199,6 +211,10 @@ func TestWriteReadMsg_RoundTrip_TCPRespFields(t *testing.T) {
 		TCPCandidateAddrs: []string{
 			"203.0.113.1:40100",
 			"203.0.113.2:50100",
+		},
+		TCPAssistedAddrs: []string{
+			"10.0.0.1:1111",
+			"10.0.0.2:2222",
 		},
 		TCPSelectedView:    "global",
 		TCPSelectedReason:  "availability",
@@ -238,6 +254,9 @@ func TestWriteReadMsg_RoundTrip_TCPRespFields(t *testing.T) {
 	}
 	if !slices.Equal(got.TCPCandidateAddrs, in.TCPCandidateAddrs) {
 		t.Fatalf("ReadMsg(NatHoleResp).TCPCandidateAddrs = %v, want %v", got.TCPCandidateAddrs, in.TCPCandidateAddrs)
+	}
+	if !slices.Equal(got.TCPAssistedAddrs, in.TCPAssistedAddrs) {
+		t.Fatalf("ReadMsg(NatHoleResp).TCPAssistedAddrs = %v, want %v", got.TCPAssistedAddrs, in.TCPAssistedAddrs)
 	}
 	if got.TCPSelectedView != in.TCPSelectedView {
 		t.Fatalf("ReadMsg(NatHoleResp).TCPSelectedView = %q, want %q", got.TCPSelectedView, in.TCPSelectedView)

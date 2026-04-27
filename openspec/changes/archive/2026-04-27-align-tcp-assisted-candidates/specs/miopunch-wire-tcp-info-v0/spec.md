@@ -1,9 +1,4 @@
-# miopunch-wire-tcp-info-v0 Specification
-
-## Purpose
-`miopunch-wire-tcp-info-v0` defines NAT-hole control-plane wire extensions that allow peers to carry TCP candidate information and TCP STUN view observations, and defines the derived TCP fields returned in `NatHoleResp`.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: NAT-hole requests carry optional tcp_* candidate and observation fields
 The system SHALL support including the following optional fields in NAT-hole request messages (`NatHoleVisitor` and `NatHoleClient`):
@@ -41,17 +36,3 @@ When deriving `tcp_candidate_addrs`, the system SHALL:
 - **AND** the visitor request includes `tcp_mapped_addrs` with at least one valid entry
 - **WHEN** the system produces `NatHoleResp` for both sides
 - **THEN** each response includes `tcp_candidate_addrs` containing usable TCP attempt targets derived from the opposite peer's TCP mapped/view-source addresses
-
-### Requirement: TCP cn/global view selection mirrors the selected_view algorithm
-When both peers provide both `tcp_stun_cn` and `tcp_stun_global`, the system SHALL deterministically select exactly one `tcp_selected_view`.
-The arbitration order SHALL be:
-`availability` → `NAT feature difficulty` → `STUN RTT` → `ok_count` → `default global`.
-
-When view selection occurs, the system SHALL set `tcp_selected_reason` to the first factor that decided the outcome (e.g., `availability`).
-
-#### Scenario: Availability selects global when cn is unavailable
-- **GIVEN** `tcp_stun_cn.available=false`
-- **AND** `tcp_stun_global.available=true`
-- **WHEN** the system produces an exchange response
-- **THEN** `tcp_selected_view` is `global`
-- **AND** `tcp_selected_reason` is `availability`

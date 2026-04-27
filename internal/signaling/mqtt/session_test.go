@@ -20,6 +20,9 @@ func TestJSONRoundTrip_NatHoleClientPreservesTCPInfo(t *testing.T) {
 		TCPDirectAddrs: []string{
 			"192.0.2.10:41000",
 		},
+		TCPAssistedAddrs: []string{
+			"10.0.0.10:41000",
+		},
 		TCPMappedAddrs: []string{
 			"203.0.113.10:42000",
 		},
@@ -49,6 +52,7 @@ func TestJSONRoundTrip_NatHoleClientPreservesTCPInfo(t *testing.T) {
 		t.Fatalf("jsonRoundTrip(NatHoleClient).P2PNetwork = %q, want %q", got.P2PNetwork, in.P2PNetwork)
 	}
 	assertStringSlice(t, "jsonRoundTrip(NatHoleClient).TCPDirectAddrs", got.TCPDirectAddrs, in.TCPDirectAddrs)
+	assertStringSlice(t, "jsonRoundTrip(NatHoleClient).TCPAssistedAddrs", got.TCPAssistedAddrs, in.TCPAssistedAddrs)
 	assertStringSlice(t, "jsonRoundTrip(NatHoleClient).TCPMappedAddrs", got.TCPMappedAddrs, in.TCPMappedAddrs)
 	assertSTUNViewObservation(t, "jsonRoundTrip(NatHoleClient).TCPSTUNCN", got.TCPSTUNCN, in.TCPSTUNCN)
 	assertSTUNViewObservation(t, "jsonRoundTrip(NatHoleClient).TCPSTUNGlobal", got.TCPSTUNGlobal, in.TCPSTUNGlobal)
@@ -64,6 +68,9 @@ func TestJSONRoundTrip_NatHoleVisitorPreservesTCPInfo(t *testing.T) {
 		P2PNetwork: "auto",
 		TCPDirectAddrs: []string{
 			"192.0.2.20:51000",
+		},
+		TCPAssistedAddrs: []string{
+			"10.0.0.20:51000",
 		},
 		TCPMappedAddrs: []string{
 			"203.0.113.20:52000",
@@ -94,6 +101,7 @@ func TestJSONRoundTrip_NatHoleVisitorPreservesTCPInfo(t *testing.T) {
 		t.Fatalf("jsonRoundTrip(NatHoleVisitor).P2PNetwork = %q, want %q", got.P2PNetwork, in.P2PNetwork)
 	}
 	assertStringSlice(t, "jsonRoundTrip(NatHoleVisitor).TCPDirectAddrs", got.TCPDirectAddrs, in.TCPDirectAddrs)
+	assertStringSlice(t, "jsonRoundTrip(NatHoleVisitor).TCPAssistedAddrs", got.TCPAssistedAddrs, in.TCPAssistedAddrs)
 	assertStringSlice(t, "jsonRoundTrip(NatHoleVisitor).TCPMappedAddrs", got.TCPMappedAddrs, in.TCPMappedAddrs)
 	assertSTUNViewObservation(t, "jsonRoundTrip(NatHoleVisitor).TCPSTUNCN", got.TCPSTUNCN, in.TCPSTUNCN)
 	assertSTUNViewObservation(t, "jsonRoundTrip(NatHoleVisitor).TCPSTUNGlobal", got.TCPSTUNGlobal, in.TCPSTUNGlobal)
@@ -110,6 +118,10 @@ func TestJSONRoundTrip_NatHoleRespPreservesTCPInfo(t *testing.T) {
 		TCPCandidateAddrs: []string{
 			"203.0.113.10:42100",
 			"203.0.113.20:52100",
+		},
+		TCPAssistedAddrs: []string{
+			"10.0.0.10:41000",
+			"10.0.0.20:51000",
 		},
 		TCPSelectedView:    "global",
 		TCPSelectedReason:  "availability",
@@ -136,6 +148,7 @@ func TestJSONRoundTrip_NatHoleRespPreservesTCPInfo(t *testing.T) {
 	}
 	assertStringSlice(t, "jsonRoundTrip(NatHoleResp).PeerTCPDirectAddrs", got.PeerTCPDirectAddrs, in.PeerTCPDirectAddrs)
 	assertStringSlice(t, "jsonRoundTrip(NatHoleResp).TCPCandidateAddrs", got.TCPCandidateAddrs, in.TCPCandidateAddrs)
+	assertStringSlice(t, "jsonRoundTrip(NatHoleResp).TCPAssistedAddrs", got.TCPAssistedAddrs, in.TCPAssistedAddrs)
 	if got.TCPSelectedView != in.TCPSelectedView {
 		t.Fatalf("jsonRoundTrip(NatHoleResp).TCPSelectedView = %q, want %q", got.TCPSelectedView, in.TCPSelectedView)
 	}

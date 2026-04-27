@@ -237,6 +237,9 @@ func TestControllerAnalysis_EchoesAndDerivesTCPFields(t *testing.T) {
 			DirectAddrs:   []string{"[::1]:1"},
 			MappedAddrs:   []string{"203.0.113.1:40000", "203.0.113.1:40001"},
 			AssistedAddrs: []string{"192.168.0.10:11111"},
+			TCPAssistedAddrs: []string{
+				"10.0.0.10:1111",
+			},
 			TCPDirectAddrs: []string{
 				"192.0.2.1:1111",
 				"192.0.2.1:1111",
@@ -252,6 +255,9 @@ func TestControllerAnalysis_EchoesAndDerivesTCPFields(t *testing.T) {
 			DirectAddrs:   []string{"[::1]:2"},
 			MappedAddrs:   []string{"203.0.113.2:50000", "203.0.113.2:50001"},
 			AssistedAddrs: []string{"192.168.0.20:22222"},
+			TCPAssistedAddrs: []string{
+				"10.0.0.20:2222",
+			},
 			TCPDirectAddrs: []string{
 				"192.0.2.2:2222",
 			},
@@ -276,6 +282,13 @@ func TestControllerAnalysis_EchoesAndDerivesTCPFields(t *testing.T) {
 		t.Fatalf("analysis() client PeerTCPDirectAddrs = %#v, want %#v", cResp.PeerTCPDirectAddrs, []string{"192.0.2.2:2222"})
 	}
 
+	if !slices.Equal(vResp.TCPAssistedAddrs, []string{"10.0.0.10:1111"}) {
+		t.Fatalf("analysis() visitor TCPAssistedAddrs = %#v, want %#v", vResp.TCPAssistedAddrs, []string{"10.0.0.10:1111"})
+	}
+	if !slices.Equal(cResp.TCPAssistedAddrs, []string{"10.0.0.20:2222"}) {
+		t.Fatalf("analysis() client TCPAssistedAddrs = %#v, want %#v", cResp.TCPAssistedAddrs, []string{"10.0.0.20:2222"})
+	}
+
 	if !slices.Equal(vResp.TCPCandidateAddrs, []string{"203.0.113.10:41100"}) {
 		t.Fatalf("analysis() visitor TCPCandidateAddrs = %#v, want %#v", vResp.TCPCandidateAddrs, []string{"203.0.113.10:41100"})
 	}
@@ -288,6 +301,102 @@ func TestControllerAnalysis_EchoesAndDerivesTCPFields(t *testing.T) {
 	}
 	if cResp.TCPSelectedView != "" || cResp.TCPSelectedReason != "" {
 		t.Fatalf("analysis() client tcp_selected_view/reason = (%q,%q), want both empty", cResp.TCPSelectedView, cResp.TCPSelectedReason)
+	}
+}
+
+func TestControllerAnalysis_DropsPrivateTCPDirectAddrs(t *testing.T) {
+	c, err := NewController(time.Minute)
+	if err != nil {
+		t.Fatalf("NewController() error = %v, want nil", err)
+	}
+
+	session := &Session{
+		sid: "sid-tcp-private-direct-drop",
+		clientMsg: &wire.NatHoleClient{
+			TransactionID: "c-tx",
+			MappedAddrs:   []string{"203.0.113.1:40000", "203.0.113.1:40001"},
+			AssistedAddrs: []string{"192.168.0.10:11111"},
+			TCPDirectAddrs: []string{
+				"10.0.0.10:1111",
+				"192.0.2.1:1111",
+			},
+		},
+		visitorMsg: &wire.NatHoleVisitor{
+			TransactionID: "v-tx",
+			MappedAddrs:   []string{"203.0.113.2:50000", "203.0.113.2:50001"},
+			AssistedAddrs: []string{"192.168.0.20:22222"},
+			TCPDirectAddrs: []string{
+				"192.168.0.20:2222",
+				"192.0.2.2:2222",
+			},
+		},
+	}
+
+	vResp, cResp, err := c.analysis(session)
+	if err != nil {
+		t.Fatalf("analysis() error = %v, want nil", err)
+	}
+
+	if !slices.Equal(vResp.PeerTCPDirectAddrs, []string{"192.0.2.1:1111"}) {
+		t.Fatalf("analysis() visitor PeerTCPDirectAddrs = %#v, want %#v", vResp.PeerTCPDirectAddrs, []string{"192.0.2.1:1111"})
+	}
+	if !slices.Equal(cResp.PeerTCPDirectAddrs, []string{"192.0.2.2:2222"}) {
+		t.Fatalf("analysis() client PeerTCPDirectAddrs = %#v, want %#v", cResp.PeerTCPDirectAddrs, []string{"192.0.2.2:2222"})
+	}
+}
+
+func TestControllerAnalysis_TCPPunchingFallbackEnabledWhenAssistedPresent(t *testing.T) {
+	c, err := NewController(time.Minute)
+	if err != nil {
+		t.Fatalf("NewController() error = %v, want nil", err)
+	}
+
+	session := &Session{
+		sid: "sid-tcp-fallback",
+		clientMsg: &wire.NatHoleClient{
+			TransactionID: "c-tx",
+			P2PNetwork:    "tcp_only",
+			Capabilities:  []string{wire.CapabilityTCPP2PV0},
+			MappedAddrs:   []string{"203.0.113.1:40000", "203.0.113.1:40001"},
+			AssistedAddrs: []string{"192.168.0.10:11111"},
+			TCPAssistedAddrs: []string{
+				"10.0.0.10:1111",
+			},
+			TCPMappedAddrs: []string{
+				"203.0.113.10:41000",
+			},
+		},
+		visitorMsg: &wire.NatHoleVisitor{
+			TransactionID: "v-tx",
+			P2PNetwork:    "tcp_only",
+			Capabilities:  []string{wire.CapabilityTCPP2PV0},
+			MappedAddrs:   []string{"203.0.113.2:50000", "203.0.113.2:50001"},
+			AssistedAddrs: []string{"192.168.0.20:22222"},
+			TCPAssistedAddrs: []string{
+				"10.0.0.20:2222",
+			},
+			TCPMappedAddrs: []string{
+				"203.0.113.20:51000",
+			},
+		},
+	}
+
+	vResp, cResp, err := c.analysis(session)
+	if err != nil {
+		t.Fatalf("analysis() error = %v, want nil", err)
+	}
+
+	if !vResp.TCPPunchingEnabled || !cResp.TCPPunchingEnabled {
+		t.Fatalf("analysis() tcp punching enabled = (visitor=%v client=%v), want both true", vResp.TCPPunchingEnabled, cResp.TCPPunchingEnabled)
+	}
+	if vResp.TCPDetectBehavior == nil || cResp.TCPDetectBehavior == nil {
+		t.Fatalf("analysis() tcp detect behaviors = (visitor=%#v client=%#v), want both non-nil", vResp.TCPDetectBehavior, cResp.TCPDetectBehavior)
+	}
+	if vResp.TCPDetectBehavior.Mode != 0 || cResp.TCPDetectBehavior.Mode != 0 {
+		t.Fatalf("analysis() tcp detect mode = (visitor=%d client=%d), want both 0", vResp.TCPDetectBehavior.Mode, cResp.TCPDetectBehavior.Mode)
+	}
+	if !strings.Contains(vResp.TCPPunchingError, "fallback") || !strings.Contains(cResp.TCPPunchingError, "fallback") {
+		t.Fatalf("analysis() tcp punching errors = (visitor=%q client=%q), want both to contain \"fallback\"", vResp.TCPPunchingError, cResp.TCPPunchingError)
 	}
 }
 

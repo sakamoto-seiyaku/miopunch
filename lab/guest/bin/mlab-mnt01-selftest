@@ -28,8 +28,10 @@ for ((left = 0; left < ${#udp_profiles[@]}; left++)); do
 done
 
 mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp-v6-direct --matrix tcp --profile-a tcp6-direct --profile-b tcp6-direct --classification success-required
-mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp4-direct --matrix tcp --profile-a tcp4-direct --profile-b tcp4-direct --classification diag-fail-allowed
-mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp-portmap --matrix tcp --profile-a tcp4-portmap-direct --profile-b tcp4-portmap-direct --classification diag-fail-allowed
+# NOTE: F-002 fixtures currently provide only private IPv4 listen addresses (no true direct candidates).
+# These cases validate bounded TCP fallback coverage and assert the observed punching path when payload exchange succeeds.
+mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp4-fallback --matrix tcp --profile-a tcp4-direct --profile-b tcp4-direct --classification diag-fail-allowed --expect-path punching_tcp4
+mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp-portmap-fallback --matrix tcp --profile-a tcp4-portmap-direct --profile-b tcp4-portmap-direct --classification diag-fail-allowed --expect-path punching_tcp4
 mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp-hard --matrix tcp --profile-a tcp-easy-stable --profile-b tcp-hard-irregular --classification diag-fail-allowed --repeat "${MLAB_MNT01_HARD_REPEAT:-2}"
 mnt01_run_case "mnt01 selftest" --case-id mnt01-self-tcp-blocked --matrix tcp --profile-a tcp4-direct --profile-b tcp-blocked-unknown --classification fail-required
 mnt01_run_case "mnt01 selftest" --case-id mnt01-self-ipv6-udp4-fallback --matrix specialty --profile-a udp-nat1 --profile-b udp-nat1 --p2p-network udp_only --classification success-required --enable-ipv6 --block-forward-udp6

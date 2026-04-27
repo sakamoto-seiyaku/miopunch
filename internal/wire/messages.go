@@ -85,10 +85,11 @@ type NatHoleVisitor struct {
 	AssistedAddrs []string `json:"assisted_addrs,omitempty"`
 
 	// Door 2: TCP candidate and observation carry fields (best-effort).
-	TCPDirectAddrs []string             `json:"tcp_direct_addrs,omitempty"`
-	TCPMappedAddrs []string             `json:"tcp_mapped_addrs,omitempty"`
-	TCPSTUNCN      *STUNViewObservation `json:"tcp_stun_cn,omitempty"`
-	TCPSTUNGlobal  *STUNViewObservation `json:"tcp_stun_global,omitempty"`
+	TCPDirectAddrs   []string             `json:"tcp_direct_addrs,omitempty"`
+	TCPAssistedAddrs []string             `json:"tcp_assisted_addrs,omitempty"`
+	TCPMappedAddrs   []string             `json:"tcp_mapped_addrs,omitempty"`
+	TCPSTUNCN        *STUNViewObservation `json:"tcp_stun_cn,omitempty"`
+	TCPSTUNGlobal    *STUNViewObservation `json:"tcp_stun_global,omitempty"`
 
 	// P3.5: internal STUN cn/global sampling observations.
 	STUNCN     *STUNViewObservation `json:"stun_cn,omitempty"`
@@ -110,10 +111,11 @@ type NatHoleClient struct {
 	AssistedAddrs []string `json:"assisted_addrs,omitempty"`
 
 	// Door 2: TCP candidate and observation carry fields (best-effort).
-	TCPDirectAddrs []string             `json:"tcp_direct_addrs,omitempty"`
-	TCPMappedAddrs []string             `json:"tcp_mapped_addrs,omitempty"`
-	TCPSTUNCN      *STUNViewObservation `json:"tcp_stun_cn,omitempty"`
-	TCPSTUNGlobal  *STUNViewObservation `json:"tcp_stun_global,omitempty"`
+	TCPDirectAddrs   []string             `json:"tcp_direct_addrs,omitempty"`
+	TCPAssistedAddrs []string             `json:"tcp_assisted_addrs,omitempty"`
+	TCPMappedAddrs   []string             `json:"tcp_mapped_addrs,omitempty"`
+	TCPSTUNCN        *STUNViewObservation `json:"tcp_stun_cn,omitempty"`
+	TCPSTUNGlobal    *STUNViewObservation `json:"tcp_stun_global,omitempty"`
 
 	// P3.5: internal STUN cn/global sampling observations.
 	STUNCN     *STUNViewObservation `json:"stun_cn,omitempty"`
@@ -171,6 +173,7 @@ type NatHoleResp struct {
 	TCPSelectedView    string   `json:"tcp_selected_view,omitempty"`
 	TCPSelectedReason  string   `json:"tcp_selected_reason,omitempty"`
 	TCPCandidateAddrs  []string `json:"tcp_candidate_addrs,omitempty"`
+	TCPAssistedAddrs   []string `json:"tcp_assisted_addrs,omitempty"`
 
 	TCPPunchingEnabled bool               `json:"tcp_punching_enabled,omitempty"`
 	TCPPunchingError   string             `json:"tcp_punching_error,omitempty"`

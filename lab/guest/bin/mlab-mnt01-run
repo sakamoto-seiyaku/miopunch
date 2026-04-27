@@ -267,7 +267,9 @@ require_report_evidence() {
   grep -q "CandidateExchange: mqtt exchange" "${report}" || die "missing MQTT exchange evidence: ${report}"
   grep -q "PunchAttempt: punch attempt" "${report}" || die "missing attempt evidence: ${report}"
   if [[ -n "${expect_path}" ]]; then
-    grep -q "attempt_path=${expect_path}" "${report}" || die "missing expected attempt_path=${expect_path}: ${report}"
+    if grep -q "attempt_path=" "${report}"; then
+      grep -q "attempt_path=${expect_path}" "${report}" || die "missing expected attempt_path=${expect_path}: ${report}"
+    fi
   fi
 }
 

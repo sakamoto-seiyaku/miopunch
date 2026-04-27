@@ -424,11 +424,11 @@ func TestTCPPunchingRandomPortGuardrails(t *testing.T) {
 		t.Fatalf("effectiveTCPListenRandomPorts(-1) = %d, want 0", got)
 	}
 
-	targets, err := buildTCPPunchTargets([]string{"203.0.113.10:5100"}, nil, 10000)
+	targets, err := buildTCPPunchTargets([]string{"203.0.113.10:5100"}, nil, nil, effectiveTCPSendRandomPorts(10000))
 	if err != nil {
 		t.Fatalf("buildTCPPunchTargets() error = %v, want nil", err)
 	}
-	if len(targets) > 1+maxTCPSendRandomPorts {
-		t.Fatalf("buildTCPPunchTargets() targets = %d, want at most %d", len(targets), 1+maxTCPSendRandomPorts)
+	if len(targets.Targets) > 1+maxTCPSendRandomPorts {
+		t.Fatalf("buildTCPPunchTargets() targets = %d, want at most %d", len(targets.Targets), 1+maxTCPSendRandomPorts)
 	}
 }
