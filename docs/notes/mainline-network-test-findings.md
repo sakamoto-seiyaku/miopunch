@@ -32,6 +32,31 @@
 - `./lab/host/labctl mnt01-selftest`：通过，`pass=22 fail=0`。证据：`lab/_artifacts/20260427T110310Z-mnt01-selftest-aggregate/summary.json`。
 - `./lab/host/labctl mnt01-fulltest`：通过，`pass=64 fail=0`（UDP 15 + TCP 49）。证据：`lab/_artifacts/20260427T111200Z-mnt01-fulltest-aggregate/summary.json`。
 
+## Findings（open）
+
+### F-006：acceptor 只能长期服务第一个 peer transport session，导致后续 peer 横向访问失败
+
+- 场景：场景 2 / MNT-02（多成员控制面 e2e）
+- 影响：blocker
+- 状态：open
+- 复现条件：
+  - 3 节点：`p1` 被访问端，`p2/p3` 为已入网成员。
+  - `p2 -> p1` 先建立 dataplane session（例如执行一次 `ping` 或 `sh` 并保持进程常驻/不主动断开）。
+  - 随后 `p3 -> p1` 再执行 `ping` 或 `sh`。
+- 期望行为：
+  - `p1` 能同时/先后服务多个远端 peer 的访问，不应出现“谁先连上谁独占”的结构性限制。
+- 实际行为：
+  - 常见表现为 `p3` 建链超时或握手失败；即使 `p2-p1` 并未主动阻塞，也会出现 `p3` 无法建立自己的 session/stream 的情况。
+- 证据：
+  - 代码根因可直接定位（见“初步判断”）。
+- 初步判断：
+  - `internal/pocacceptor/acceptor.go` 的 `serveOnce(...)` 在建立第一条 `dataplane.PeerSession` 后进入 `for { sess.AcceptStream(...) }` 永不返回，导致 acceptor 无法继续处理其它 peer 的 session 建立。
+  - `dataplane/session_transport.go:serveQUICSession` 仅 `Accept()` 一次并关闭 listener，使 QUIC inbound 语义变成“只接第一条连接”。
+  - `internal/signaling/mqtt/session.go` 的 MQTT topics 以 `SID` 为粒度固定（`info/*/resp/*/ready/*/start`），同 SID 并发 attempt 会互相踩踏，进一步放大多 peer 并发失败概率。
+- 后续动作：
+  - 先把讨论结论落盘到 `docs/notes/2026-04-28-peer-transport-session-multiplexing.md`。
+  - 后续创建独立 OpenSpec fix change：引入 attempt 维度 topic（`dial_id/transaction_id`）、transport server accept loop（尤其 QUIC）、以及 acceptor 多 session serve 模型；并补齐 MNT-02 required gate 验收用例（p1 同时服务 p2/p3）。
+
 ## Findings（已关闭）
 
 ### F-001：MNT-01 真实双节点 UDP NAT2/NAT3 组合未稳定打通
