@@ -10,6 +10,8 @@ MNT-01 已落地主线二节点连接性矩阵（场景 1），并把 “真实 
 
 - 提供 MNT-02 场景 2 的主线控制面 e2e runner 与分层 gate（至少 smoke/selftest）。
 - 在“空白节点”上覆盖 `invite/approve/join`、多成员一致性、`ping`/`sh` smoke、restart、broker outage/recovery、revoke、幂等性与并发/竞态。
+- 明确覆盖 “多成员同时访问同一被访问端” 的数据面并发能力：同一被访问端在已有会话存在时，仍应能接受并服务后续成员的 `ping/sh`（不得出现“第一个 session 独占 acceptor”）。
+- 明确 revoke 的强语义边界：当某节点观察到有效 revoke tombstone 后，必须拒绝 revoked 节点的新操作，并主动切断其既有会话（不要求对端收到专门通知，允许对端被动观察到断开/失败）。
 - 输出可复盘 artifacts：任务 report、daemon 日志、broker 日志、网络抓包与关键状态快照，并在 gate 内做最小证据校验。
 - required gate 仅依赖测试环境自部署 MQTT broker；不引入 `coord`，不使用公网 broker。
 
@@ -47,4 +49,3 @@ Rationale: 场景 2 的验收主体是产品 CLI/任务合约（stage/reason_cod
 - [Risk] 多 peer netns 拓扑与进程编排复杂，容易引入 harness 误报。→ Mitigation: 先固定 N=6 的最小可用拓扑；每个 case 统一输出 “case.env + attempts.tsv + summary.json + logs/pcap”。
 - [Risk] 控制面任务存在真实时间窗口（invite expiry / backoff），导致用例不稳定。→ Mitigation: case 统一设置较短但足够的 expires/budget；避免依赖 wall-clock 偶然性；对并发用例使用 bounded retry 并记录事件。
 - [Risk] 场景 2 scope 膨胀导致 gate 过慢。→ Mitigation: 明确 smoke/selftest 边界；重 case（broker outage/recovery、并发）放入 selftest。
-
