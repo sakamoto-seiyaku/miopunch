@@ -84,6 +84,12 @@
 - 允许同时存在多条 session（包括同一 peer 的多条 session，不做“强制唯一”的硬约束）。
 - 真实上限只来自资源（fd、内存、CPU、带宽）与显式的预算控制（例如配置项/限流/idle timeout），并且需要可诊断。
 
+同时，我们确认 **不引入“每个操作都重建底层连接/重打洞”** 的复杂设计：
+
+- 对同一 `peer-pair`，默认推荐只有一条“主 session/载波”（坏了再重建）。
+- `ping/sh/...` 这类操作一律在 session 内通过 logical stream 多路复用完成（QUIC native streams 或 TLS+yamux）。
+- “一条 session 足够”是推荐路径与默认实现策略，而不是对外协议强制的硬限制。
+
 ### 4.2 revoke 语义选择
 
 我们选择 revoke 的 **语义 A（强）**，并且口径是：
@@ -106,7 +112,7 @@
 
 方向：
 
-- 引入 `dial_id`（可直接复用 visitor 已有的 `TransactionID`，或在其基础上再派生）。
+- 引入 `dial_id`（可直接复用 visitor 已有的 `TransactionID`，或在其基础上再派生）。**同一 `SID` 下必须按 `dial_id` 分桶**，否则并发 visitor 会踩踏 topic。
 - MQTT topic 从 “SID 固定槽位” 改为 “SID + dial_id 分槽位”，示例：
   - `<prefix>/<sid>/attempt/<dial_id>/info/{visitor,client}`
   - `<prefix>/<sid>/attempt/<dial_id>/resp/{visitor,client}`
@@ -153,4 +159,3 @@ TCP/TLS/KCP 侧也要确保 “serve one session” 的抽象不会在 acceptor 
 
 - revoke 生效后，revoked 节点的后续 `ping/sh` 必须失败（已有要求）。
 - 并且被撤销节点的**已有会话**不应继续可用（需要明确可验收动作，例如已有 `sh_attach` 被强制断开、或已有 session 无法再 open 新 stream）。
-
