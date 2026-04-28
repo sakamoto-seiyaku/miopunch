@@ -21,19 +21,25 @@
 - `P3` 聚焦 `miopunch transport`：将“打洞产出的可用 UDP 通道”与“后续数据传输会话”解耦。
 - `P3` 同时承担仓库结构与命名收敛任务；该迁移属于 `P3` 正式范围，而不是独立于 `P3` 的旁支整理工作。
 - `P3` 的结构与命名迁移必须先于 `brutal` 接入和传输层抽象落地执行，避免在旧命名与旧目录上继续叠加新能力。
-- `P3(v1)` 的数据面选择面收敛为：
+- `P3` 的数据面选择面收敛为：
   - `--data-proto kcp|quic`
   - `--quic-cc bbr|brutal`（仅 `data-proto=quic` 时生效；默认 `bbr`）
 - `brutal` 是对外名，表示“`QUIC` 下的 `brutal` 调度/拥塞控制模式”；它不是完整 `Hysteria2` 产品协议兼容层。
 - `P3` 采用方案 A：全仓 QUIC 统一迁移到 `HY2` 最新 release 对应的 QUIC fork，并在 `miopunch` 侧钉死版本（仅在我们显式变更或追随重大修复时升级）；`control plane` 与 `data plane` 共用同一 QUIC 栈。
-- `P3(v1)` 暂不引入配置文件与复杂 UX；实验台与回归优先通过 CLI 或代码常量写死参数，先闭环“能跑通 + 可回归”。
+- `P3` 暂不引入配置文件与复杂 UX；实验台与回归优先通过 CLI 或代码常量写死参数，先闭环“能跑通 + 可回归”。
 - 每次会话只选择一个传输协议；传输协议由本地配置或显式参数指定，不做“传输失败后自动切换协议”。
-- `connectivity` 层只负责 `gather / exchange / attempt` 并产出已打通的 UDP 通道；不负责后续传输层选择、切换与调度。
+- `connectivity` 层只负责 `gather / exchange / attempt` 并产出“可复用的已打通路径句柄”（UDP/TCP）；不负责后续传输层选择、切换与调度。
+  - 对 UDP 路径，“路径句柄”不得等价为裸 `UDPConn` 读写权；UDP 收包必须服从单一 socket owner/demux 的架构边界。
 - `dataplane`（传输层）负责：
   - 校验本次会话的传输选择与必要参数
   - 基于已打通的 UDP 通道建立数据会话
   - 输出传输层握手、收发与统计观测
-- `P3(v1)` 不做中途传输迁移、动态协商或自动降级；只做单次选择、单次建立、单次运行。
+- `P3` 不做中途传输迁移、动态协商或自动降级；只做单次选择、单次建立、单次运行。
+- `P3` 对 UDP 路径采用 “socket 共享 + 报文分流” 的硬约束：NAT traversal（`gather/attempt`）与数据面会话（`dataplane`）必须共享同一个本地 UDP socket/端口映射；不得以“打洞 socket”和“数据 socket”拆分来规避问题。
+- `P3` 必须在架构上固化 “单一 socket owner / demux” 边界：任何 UDP 收包只能在一个地方完成，并把报文分流给：
+  - 连通性层的探测/打洞事务（transaction）
+  - 数据面会话层的 QUIC/KCP session accept 与后续收包
+- `P3` 的 server/acceptor 必须支持同一端口下的多 peer 并发：能够同时 accept 并服务多个 peer transport session（每条 session 内再多路复用多个 logical streams），不得出现“第一个 session 长期占用 acceptor，后续 peer 无法建立 session”的单槽位语义。
 - `P3` 仍处于探索阶段，优先做“可运行 + 可回归 + 可分层”；不以对外兼容与长期 API 稳定为目标。
 - 命名收敛原则：
   - 新文档、新 change、新对外 CLI 文案统一使用 `miopunch`
@@ -95,14 +101,17 @@
 
 - `P3` 应形成最小且清晰的数据面边界：输入为打洞阶段产出的“可用 UDP 通道”，输出为“可读写的数据会话”及其可观测性。
 - 数据面必须支持显式选择 `data-proto=kcp|quic`；当 `data-proto=quic` 时必须支持 `quic-cc=bbr|brutal`（默认 `bbr`），并允许携带该模式所需的最小参数集合（具体 schema 在后续 OpenSpec change 中定义）。
-- `P3(v1)` 优先保持最小可用模型（单会话、单传输、单流），不预设复杂插件系统，也不提前承诺“完整多流框架”。
-- `P3(v1)` 允许不同传输在内部维持不同实现细节，但外层端侧流程必须通过统一入口接入，避免再把 `kcp / quic(bbr|brutal)` 写成散落分支。
+- `P3` 优先保持最小可用模型：
+  - 每次会话只选择一个传输（`kcp` 或 `quic`；`quic` 下再选 `bbr|brutal`）。
+  - 每个 peer-pair 默认复用一条 primary peer transport session，并在该 session 内通过 logical streams 多路复用业务流量。
+  - 预留 “同一 peer-pair 允许存在多条 session（aux session）” 的扩展空间，用于未来按业务类型/拥塞/路径差异进行优化，但不作为本阶段的硬验收前提。
+- `P3` 允许不同传输在内部维持不同实现细节，但外层端侧流程必须通过统一入口接入，避免再把 `kcp / quic(bbr|brutal)` 写成散落分支。
 
 ## 消息交换约束
 
-- `P3(v1)` 不单独增加新的传输协商往返；传输选择复用现有 `exchange` 消息流。
+- `P3` 不单独增加新的传输协商往返；传输选择复用现有 `exchange` 消息流。
 - `visitor` 与 `client` 两端都必须显式声明本次会话的传输选择（`data-proto` 与必要参数；当 `data-proto=quic` 时包含 `quic-cc` 与必要参数）；协调端负责校验并回传最终选定结果。
-- `P3(v1)` 不做 capability negotiation、优先级协商、自动降级或多候选传输列表交换；每次会话只有一个已选中的传输。
+- `P3` 不做 capability negotiation、优先级协商、自动降级或多候选传输列表交换；每次会话只有一个已选中的传输。
 - 消息层不再使用纯字符串协议字段表达数据面选择，应升级为结构化的“传输选择”表示；是否需要兼容旧字段由后续 OpenSpec change 决定并写入 `proposal / design`。
 - `visitor` 与 `client` 的传输选择在规范化后必须一致；不一致时应在 `exchange` 阶段直接失败，不进入 `attempt / transport`。
 - 协调端在 `exchange` 阶段至少需要区分：配置非法、对端不支持、双方不一致、已选定成功（具体事件名在 change 中固化）。
@@ -128,7 +137,7 @@
 
 ## 传输参数原则
 
-- `P3(v1)` 的目标是最小可用闭环：参数模型尽量小，避免过早优化。
+- `P3` 的目标是最小可用闭环：参数模型尽量小，避免过早优化。
 - `kcp` 与 `quic` 保持现有最小可用参数集合，不因为抽象层引入而扩展大量调优项。
 - `brutal` 在 `P3` 阶段只要求支持“显式速率上限”与可选的报文大小约束；不做带宽自动探测、自动学习或上下行分离配置。
 - `P3` 的实验台回归使用保守的最小参数集（强调联通性与可回归性，而不是吞吐极限）：
@@ -194,6 +203,31 @@ timeout 与诊断口径：
 - 每个 logical stream 必须有独立 deadline，不继承 punching round timeout。
 - close reason 必须可诊断，至少区分 idle timeout、daemon shutdown、identity/config change、auth revoked、stream protocol error 和 transport fatal error。
 
+## 2026-04-28 补充：UDP socket owner / demux（同端口复用）
+
+本节补齐 P3 传输层在 “UDP 同端口复用” 语义上的硬约束。该约束是为了解决以下类别问题：
+
+- 同一个被访问端在同一 UDP 端口上需要同时做 `attempt`（连通性探测/打洞）与 `dataplane`（会话协议收包）。
+- 在 mesh/多 peer 场景中，单一 peer transport session 不得独占 acceptor；必须允许同端口并发 accept 多个 peer session。
+
+语义要求：
+
+- 对 UDP 路径，NAT traversal 逻辑与主协议必须共享同一个网络 socket（同一个本地 UDP 端口/映射）；不得以拆分 socket 的方式规避 “收包冲突” 或 “多 peer 并发” 问题。参考：Tailscale 对 NAT traversal 的实现建议。  
+  - 这不是 “实现技巧”，而是正确性与成功率约束：拆分 socket 会导致 traversal 观测到的映射与数据面实际使用的映射不一致。
+- 参考资料：
+  - Tailscale: How NAT traversal works: `https://tailscale.com/blog/how-nat-traversal-works`
+- UDP socket 必须存在单一 “owner”：
+  - 只有 owner 负责读包（ReadFrom/recvmmsg 等）。
+  - owner 必须把报文分流给连通性层事务与数据面会话层。
+- QUIC/KCP 都必须在该约束下成立：
+  - QUIC 允许在同一个 UDP socket 上同时承载多个 QUIC 连接，并可通过 `Transport.ReadNonQUICPacket` 等机制与非 QUIC 报文共存。参考：quic-go Transport 文档。  
+    - quic-go Transport: `https://quic-go.net/docs/quic/transport/`
+  - KCP 也必须允许同一 UDP socket 并发多会话 accept；具体实现可以不同，但不能回退到 “单 raddr/单 conv 绑定成单会话” 的单槽位语义。
+
+验收口径：
+
+- 对任一 UDP 承载（KCP/QUIC），同一被访问端在同一端口上必须能并发服务多个远端 peer（多个 peer transport session），且每条 session 内可并发多 logical streams。
+
 ## 测试与验收
 
 - 结构迁移验收至少包括：
@@ -236,8 +270,8 @@ timeout 与诊断口径：
 ## 开放问题
 
 - `P3` 的新包路径如何命名与落位：是否引入新的 `dataplane/` 包，还是以其他目录表达 `miopunch transport` 抽象。
-- 传输选择在消息层中采用何种最小表示，才能既支持 `data-proto=kcp|quic` + `quic-cc=bbr|brutal`，又不把 `P3(v1)` 复杂化。
-- `brutal` 在 `P3(v1)` 中应开放哪些最小参数，哪些参数必须明确推迟到后续 change。
+- 传输选择在消息层中采用何种最小表示，才能既支持 `data-proto=kcp|quic` + `quic-cc=bbr|brutal`，又不把 `P3` 复杂化。
+- `brutal` 在 `P3` 中应开放哪些最小参数，哪些参数必须明确推迟到后续 change。
 - `connectivity`（打洞内核）与 `dataplane`（数据面）的能力归属是否要在 spec 层显式拆开：
   - 已决策：打洞内核只承诺“产出可用 UDP 通道 + UDP self-check”；所有传输协议选择与 `payload exchanged` 验收归属 `dataplane`。
   - 后续在 OpenSpec 中需要落实为：对 `xtcp-kernel` 的数据面 requirements 做移除/迁移，并由新的 `miopunch-dataplane` 承接。
