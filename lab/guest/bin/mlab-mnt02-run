@@ -556,6 +556,14 @@ case_selftest_happy() {
   run_peer_task 2 ping_after_restart ping "${issuer_peer_id}" || return 1
   require_fact_contains "$(step_out_dir p2)/ping_after_restart.json" "ping=ok" || return 1
 
+  # While p2 has an established peer session, p3 must still be able to dial and
+  # run ops against the same target (no acceptor single-slot behavior).
+  run_peer_task 2 ping_for_concurrency ping "${issuer_peer_id}" || return 1
+  require_fact_contains "$(step_out_dir p2)/ping_for_concurrency.json" "ping=ok" || return 1
+  run_peer_task 3 ping_while_p2 ping "${issuer_peer_id}" || return 1
+  require_fact_contains "$(step_out_dir p3)/ping_while_p2.json" "ping=ok" || return 1
+  run_peer_task 3 sh_ls_while_p2 sh ls "${issuer_peer_id}" local || return 1
+
   # Revoke boundary: revoked member denied, non-revoked member still ok.
   local member2_id
   member2_id="$(jq -r '.facts[]? | select(.message? | startswith("peer_id=")) | .message' "$(step_out_dir p2)/join_a.json" | sed -E 's/^peer_id=//' | head -n 1 | tr -d '\r\n')"
@@ -569,10 +577,16 @@ case_selftest_happy() {
   [[ "${denied_rc}" -ne 0 ]] || return 1
   require_reason_code "$(step_out_dir p2)/ping_denied.json" "FORBIDDEN" || return 1
 
-  # The current acceptor serves one peer session at a time. Terminate the revoked
-  # member daemon to free the acceptor loop so a different member can dial.
-  stop_pid "${daemon_pids[1]:-}" || true
-  sleep 0.5
+  # Existing peer session must be cut off after local revoke observation (no reuse).
+  set +e
+  run_peer_task 2 ping_denied_again ping "${issuer_peer_id}" >/dev/null 2>&1
+  local denied2_rc=$?
+  set -e
+  [[ "${denied2_rc}" -ne 0 ]] || return 1
+  require_reason_code "$(step_out_dir p2)/ping_denied_again.json" "FORBIDDEN" || return 1
+  if jq -r '.facts[]?.message' "$(step_out_dir p2)/ping_denied_again.json" 2>/dev/null | grep -Fqx "session_reused=true"; then
+    return 1
+  fi
 
   run_ping_ok_retry_unavailable 3 ping_after_revoke "${issuer_peer_id}" 3 || return 1
 

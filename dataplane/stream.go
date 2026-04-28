@@ -29,7 +29,6 @@ func DialStream(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr 
 // ServeStream accepts / serves the selected data plane over the already-working UDP path
 // and accepts a default shell logical stream.
 //
-// For KCP, raddr MUST be provided (the already-known remote UDP address).
 // The returned ReadWriteCloser owns the peer session and MUST be closed.
 func ServeStream(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *net.UDPAddr, em *event.Emitter) (io.ReadWriteCloser, error) {
 	sess, err := ServeSession(ctx, cfg, listenConn, raddr, em)

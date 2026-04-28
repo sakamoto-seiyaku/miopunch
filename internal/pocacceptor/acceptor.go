@@ -29,6 +29,92 @@ type Config struct {
 	LockTTL time.Duration
 }
 
+type peerSessionRegistry struct {
+	mu     sync.Mutex
+	byPeer map[string]map[dataplane.PeerSession]struct{}
+}
+
+func newPeerSessionRegistry() *peerSessionRegistry {
+	return &peerSessionRegistry{
+		byPeer: make(map[string]map[dataplane.PeerSession]struct{}),
+	}
+}
+
+func (r *peerSessionRegistry) Add(peerID string, sess dataplane.PeerSession) {
+	if r == nil || strings.TrimSpace(peerID) == "" || sess == nil {
+		return
+	}
+	peerID = strings.TrimSpace(peerID)
+	r.mu.Lock()
+	m := r.byPeer[peerID]
+	if m == nil {
+		m = make(map[dataplane.PeerSession]struct{})
+		r.byPeer[peerID] = m
+	}
+	m[sess] = struct{}{}
+	r.mu.Unlock()
+}
+
+func (r *peerSessionRegistry) Remove(peerID string, sess dataplane.PeerSession) {
+	if r == nil || strings.TrimSpace(peerID) == "" || sess == nil {
+		return
+	}
+	peerID = strings.TrimSpace(peerID)
+	r.mu.Lock()
+	m := r.byPeer[peerID]
+	delete(m, sess)
+	if len(m) == 0 {
+		delete(r.byPeer, peerID)
+	}
+	r.mu.Unlock()
+}
+
+func (r *peerSessionRegistry) ClosePeer(peerID string, reason dataplane.CloseReason) {
+	if r == nil || strings.TrimSpace(peerID) == "" {
+		return
+	}
+	peerID = strings.TrimSpace(peerID)
+
+	r.mu.Lock()
+	m := r.byPeer[peerID]
+	delete(r.byPeer, peerID)
+	sessions := make([]dataplane.PeerSession, 0, len(m))
+	for sess := range m {
+		sessions = append(sessions, sess)
+	}
+	r.mu.Unlock()
+
+	for _, sess := range sessions {
+		_ = sess.Close(reason)
+	}
+}
+
+func (r *peerSessionRegistry) Replace(peerID string, sess dataplane.PeerSession, closeReason dataplane.CloseReason) {
+	if r == nil || strings.TrimSpace(peerID) == "" || sess == nil {
+		return
+	}
+	peerID = strings.TrimSpace(peerID)
+
+	r.mu.Lock()
+	old := r.byPeer[peerID]
+	next := make(map[dataplane.PeerSession]struct{}, 1)
+	next[sess] = struct{}{}
+	r.byPeer[peerID] = next
+
+	toClose := make([]dataplane.PeerSession, 0, len(old))
+	for oldSess := range old {
+		if oldSess == nil || oldSess == sess {
+			continue
+		}
+		toClose = append(toClose, oldSess)
+	}
+	r.mu.Unlock()
+
+	for _, oldSess := range toClose {
+		_ = oldSess.Close(closeReason)
+	}
+}
+
 func Run(ctx context.Context, cfg Config) error {
 	if strings.TrimSpace(cfg.StatePath) == "" {
 		path, err := pocstate.DefaultStatePath()
@@ -73,9 +159,6 @@ func Run(ctx context.Context, cfg Config) error {
 }
 
 func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfig, locks *shelllock.Manager, lockTTL time.Duration) error {
-	handshakeCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
-
 	stateDir, err := pocstate.StateDir(statePath)
 	if err != nil {
 		return err
@@ -83,7 +166,13 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 
 	sid := mqttsig.DeriveSID(local.ProxyName, local.SecretKey)
 
-	gather, err := connectivity.Gather(handshakeCtx, sid, connectivity.GatherConfig{
+	serveCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	gatherCtx, cancelGather := context.WithTimeout(serveCtx, 2*time.Minute)
+	defer cancelGather()
+
+	gather, err := connectivity.Gather(gatherCtx, sid, connectivity.GatherConfig{
 		ListenPort:           local.P2PPort,
 		P2PNetwork:           connectivity.P2PNetwork(local.P2PNetwork),
 		P2PIPFamily:          connectivity.P2PIPFamily(local.P2PIPFamily),
@@ -111,16 +200,13 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 		}
 	}()
 
-	transactionID := time.Now().UTC().UnixNano()
-
 	var brutalUpBps, brutalDownBps uint64
 	if local.DataProto == "quic" && local.QUICCC == "brutal" {
 		brutalUpBps = 1_000_000
 		brutalDownBps = 1_000_000
 	}
 
-	natHoleClientMsg := &wire.NatHoleClient{
-		TransactionID:    fmt.Sprintf("tx-%d", transactionID),
+	natHoleClientTemplate := &wire.NatHoleClient{
 		ProxyName:        local.ProxyName,
 		Sid:              sid,
 		Protocol:         local.DataProto,
@@ -141,7 +227,7 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 		STUNGlobal:       gather.STUNGlobal,
 	}
 
-	mq, err := mqttsig.Open(handshakeCtx, mqttsig.Config{
+	mq, err := mqttsig.Open(serveCtx, mqttsig.Config{
 		BrokerURL:       mqttBrokerURL(local.MQTTBroker),
 		TopicPrefix:     local.TopicPrefix,
 		SID:             sid,
@@ -153,66 +239,197 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 	if err != nil {
 		return err
 	}
+	defer mq.Close()
 
-	natHoleRespMsg, err := mq.RunClient(handshakeCtx, natHoleClientMsg)
-	_ = mq.Close()
-	if err != nil {
-		return err
-	}
+	reg := newPeerSessionRegistry()
 
-	attemptRes, err := connectivity.Attempt(handshakeCtx, sid, []byte(local.SecretKey), gather.UDP4Conn, gather.UDP6Conn, gather.TCP4Listener, gather.TCP6Listener, natHoleRespMsg, connectivity.AttemptConfig{
-		P2PNetwork:  connectivity.P2PNetwork(local.P2PNetwork),
-		P2PIPFamily: connectivity.P2PIPFamily(local.P2PIPFamily),
-	})
-	if err != nil {
-		return err
-	}
-	if attemptRes.Conn == gather.UDP4Conn {
-		gather.UDP4Conn = nil
-	}
-	if attemptRes.Conn == gather.UDP6Conn {
-		gather.UDP6Conn = nil
-	}
-
-	dpCfg := dataplane.Config{
-		Proto:      dataplane.Protocol(natHoleRespMsg.Protocol),
-		QuicCC:     dataplane.QUICCC(natHoleRespMsg.QuicCC),
-		SecurityID: sid,
-		SecretKey:  []byte(local.SecretKey),
-		PathFamily: dataplane.PathFamilyFromAttemptPath(attemptRes.Path),
-		Brutal: dataplane.BrutalConfig{
-			UpBps:   natHoleRespMsg.BrutalUpBps,
-			DownBps: natHoleRespMsg.BrutalDownBps,
-		},
-	}
-
-	var sess dataplane.PeerSession
-	if len(attemptRes.TCPConns) > 0 {
-		dpCfg.Proto = dataplane.ProtocolTLS
-		sess, err = dataplane.ServeTLSSession(handshakeCtx, dpCfg, attemptRes.TCPConns, nil)
-	} else {
-		sess, err = dataplane.ServeSession(handshakeCtx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
-	}
-	if err != nil {
-		return err
-	}
 	var wg sync.WaitGroup
 	defer wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		watchRevocations(serveCtx, stateDir, reg)
+	}()
+
+	// Serialize connectivity attempts: Gather sockets are reused and the punching
+	// path reads from UDP listeners; concurrent attempts would race on reads.
+	var attemptMu sync.Mutex
+
+	attemptCfg := connectivity.AttemptConfig{
+		P2PNetwork:  connectivity.P2PNetwork(local.P2PNetwork),
+		P2PIPFamily: connectivity.P2PIPFamily(local.P2PIPFamily),
+	}
+
+	handleAttempt := func(at mqttsig.ClientAttempt) {
+		// Handler must be fast: do the heavy lifting in a goroutine.
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if at.Err != nil || at.ClientResp == nil {
+				return
+			}
+
+			attemptCtx, cancel := context.WithTimeout(serveCtx, 2*time.Minute)
+			defer cancel()
+
+			attemptMu.Lock()
+			attemptRes, err := connectivity.Attempt(attemptCtx, sid, []byte(local.SecretKey), gather.UDP4Conn, gather.UDP6Conn, gather.TCP4Listener, gather.TCP6Listener, at.ClientResp, attemptCfg)
+			attemptMu.Unlock()
+			if err != nil {
+				return
+			}
+			if attemptRes.Conn == gather.UDP4Conn {
+				gather.UDP4Conn = nil
+			}
+			if attemptRes.Conn == gather.UDP6Conn {
+				gather.UDP6Conn = nil
+			}
+
+			dpCfg := dataplane.Config{
+				Proto:      dataplane.Protocol(at.ClientResp.Protocol),
+				QuicCC:     dataplane.QUICCC(at.ClientResp.QuicCC),
+				SecurityID: sid,
+				SecretKey:  []byte(local.SecretKey),
+				PathFamily: dataplane.PathFamilyFromAttemptPath(attemptRes.Path),
+				Brutal: dataplane.BrutalConfig{
+					UpBps:   at.ClientResp.BrutalUpBps,
+					DownBps: at.ClientResp.BrutalDownBps,
+				},
+			}
+
+			var sess dataplane.PeerSession
+			if len(attemptRes.TCPConns) > 0 {
+				dpCfg.Proto = dataplane.ProtocolTLS
+				sess, err = dataplane.ServeTLSSession(attemptCtx, dpCfg, attemptRes.TCPConns, nil)
+			} else {
+				sess, err = dataplane.ServeSession(attemptCtx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
+			}
+			if err != nil {
+				return
+			}
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				servePeerSession(serveCtx, stateDir, local, locks, lockTTL, sess, reg)
+			}()
+		}()
+	}
+
+	if err := mq.ServeClient(serveCtx, natHoleClientTemplate, handleAttempt); err != nil {
+		cancel()
+		return err
+	}
+
+	return nil
+}
+
+func watchRevocations(ctx context.Context, stateDir string, reg *peerSessionRegistry) {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	prevRevoked := make(map[string]struct{})
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		head, err := pocstate.LoadGovernanceHeadSnapshot(stateDir)
+		if err != nil {
+			continue
+		}
+		declsFile, err := pocstate.EnsureDecls(stateDir)
+		if err != nil {
+			continue
+		}
+
+		revokedNow := make(map[string]struct{})
+		for _, d := range declsFile.Decls {
+			if strings.TrimSpace(d.Kind) != pocstate.DeclKindRevokeMember {
+				continue
+			}
+
+			issuerPub, ok, err := head.AdminEd25519Pub(d.IssuerPeerID)
+			if err != nil || !ok {
+				continue
+			}
+			if err := pocstate.VerifyDeclV0(issuerPub, d); err != nil {
+				continue
+			}
+
+			var body pocstate.RevokeMemberBodyV0
+			if err := json.Unmarshal(d.Body, &body); err != nil {
+				continue
+			}
+			memberID := strings.TrimSpace(body.MemberPeerID)
+			if memberID == "" {
+				continue
+			}
+			revokedNow[memberID] = struct{}{}
+		}
+
+		for peerID := range revokedNow {
+			if _, ok := prevRevoked[peerID]; ok {
+				continue
+			}
+			// Newly observed revocation: cut off sessions immediately.
+			reg.ClosePeer(peerID, dataplane.CloseReasonAuthorizationRevocation)
+		}
+		prevRevoked = revokedNow
+	}
+}
+
+func servePeerSession(
+	ctx context.Context,
+	stateDir string,
+	local *pocstate.LocalConfig,
+	locks *shelllock.Manager,
+	lockTTL time.Duration,
+	sess dataplane.PeerSession,
+	reg *peerSessionRegistry,
+) {
+	if sess == nil {
+		return
+	}
+
+	var streamWG sync.WaitGroup
+	defer streamWG.Wait()
 	defer sess.Close(dataplane.CloseReasonDaemonShutdown)
+
+	var (
+		peerOnce sync.Once
+		peerID   string
+	)
+
+	bindPeer := func(id string) {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return
+		}
+		peerOnce.Do(func() {
+			peerID = id
+			reg.Replace(id, sess, dataplane.CloseReasonSessionSuperseded)
+		})
+	}
+	defer func() {
+		if strings.TrimSpace(peerID) != "" {
+			reg.Remove(peerID, sess)
+		}
+	}()
 
 	for {
 		accepted, err := sess.AcceptStream(ctx)
 		if err != nil {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			return err
+			return
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_ = serveAcceptedShellStream(ctx, stateDir, local, locks, lockTTL, accepted)
-		}()
+		streamWG.Add(1)
+		go func(accepted *dataplane.AcceptedStream) {
+			defer streamWG.Done()
+			_ = serveAcceptedShellStream(ctx, stateDir, local, locks, lockTTL, sess, accepted, bindPeer, reg)
+		}(accepted)
 	}
 }
 
@@ -222,7 +439,10 @@ func serveAcceptedShellStream(
 	local *pocstate.LocalConfig,
 	locks *shelllock.Manager,
 	lockTTL time.Duration,
+	sess dataplane.PeerSession,
 	accepted *dataplane.AcceptedStream,
+	bindPeer func(string),
+	reg *peerSessionRegistry,
 ) error {
 	if accepted == nil || accepted.Stream == nil {
 		return errors.New("nil accepted stream")
@@ -253,7 +473,15 @@ func serveAcceptedShellStream(
 		helloCtl.ApproveDecl = json.RawMessage(approveDecl)
 	}
 	if err := handleHello(ctx, stateDir, writer, helloCtl); err != nil {
+		if errors.Is(err, errHelloRevoked) && reg != nil {
+			// Strong revoke semantics: once we observe revoke locally, cut off
+			// existing sessions for that peer.
+			reg.ClosePeer(strings.TrimSpace(helloCtl.PeerID), dataplane.CloseReasonAuthorizationRevocation)
+		}
 		return err
+	}
+	if bindPeer != nil {
+		bindPeer(helloCtl.PeerID)
 	}
 
 	ctl, err := readShellControl(ctx, stream, reader)
@@ -327,6 +555,8 @@ func checkStreamOpenMatchesControl(open dataplane.StreamOpen, ctl shellproto.Con
 	return nil
 }
 
+var errHelloRevoked = errors.New("hello revoked")
+
 func handleHello(ctx context.Context, stateDir string, w *shellproto.Writer, req shellproto.Control) error {
 	_ = ctx
 	if w == nil {
@@ -363,7 +593,7 @@ func handleHello(ctx context.Context, stateDir string, w *shellproto.Writer, req
 	}
 	if revoked && !head.IsAdmin(peerID) && !head.IsOwner(peerID) {
 		_ = writeHelloError(w, shellproto.ReasonHelloRevoked, "peer_id is revoked", []string{"re-join with a new identity"})
-		return errors.New("revoked peer")
+		return errHelloRevoked
 	}
 
 	approveMsgID := ""

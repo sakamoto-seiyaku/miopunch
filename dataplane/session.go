@@ -36,6 +36,7 @@ type CloseReason string
 const (
 	CloseReasonIdleTimeout             CloseReason = "idle_timeout"
 	CloseReasonDaemonShutdown          CloseReason = "daemon_shutdown"
+	CloseReasonSessionSuperseded       CloseReason = "session_superseded"
 	CloseReasonIdentityConfigChange    CloseReason = "identity_config_change"
 	CloseReasonAuthorizationRevocation CloseReason = "authorization_revocation"
 	CloseReasonStreamProtocolError     CloseReason = "stream_protocol_error"
@@ -409,7 +410,7 @@ func (m *SessionManager) Put(sess PeerSession) {
 	m.mu.Unlock()
 
 	if old != nil && old != sess {
-		_ = old.Close(CloseReasonIdentityConfigChange)
+		_ = old.Close(CloseReasonSessionSuperseded)
 	}
 }
 

@@ -50,9 +50,6 @@ func dialKCP(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *ne
 }
 
 func serveKCP(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *net.UDPAddr, em *event.Emitter) error {
-	if raddr == nil {
-		return fmt.Errorf("kcp requires remote addr")
-	}
 	if listenConn == nil {
 		return errors.New("kcp requires listen conn")
 	}

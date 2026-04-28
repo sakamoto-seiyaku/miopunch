@@ -29,6 +29,10 @@ func NewKCPConnFromUDP(conn *net.UDPConn, connected bool, raddr string) (net.Con
 	if connected {
 		pConn = &ConnectedUDPConn{conn}
 	}
+	// conv is part of the KCP header. For our current use (one session per peer
+	// pair), a fixed conv keeps both ends aligned without needing extra
+	// negotiation. Server-side multi-session support is handled by a listener
+	// (ServeConn + AcceptKCP), not by varying conv here.
 	kcpConn, err := kcp.NewConn3(1, udpAddr, nil, 10, 3, pConn)
 	if err != nil {
 		return nil, err

@@ -12,6 +12,7 @@ import (
 
 	"github.com/apernet/quic-go"
 	"github.com/hashicorp/yamux"
+	kcp "github.com/xtaci/kcp-go/v5"
 
 	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/event"
@@ -25,13 +26,16 @@ type ownedNetConn struct {
 }
 
 func (c *ownedNetConn) Close() error {
+	var firstErr error
 	for _, closer := range c.closers {
 		if closer == nil {
 			continue
 		}
-		_ = closer.Close()
+		if err := closer.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
 	}
-	return nil
+	return firstErr
 }
 
 type yamuxPeerSession struct {
@@ -148,13 +152,15 @@ type quicPeerSession struct {
 	sessionBase
 	conn *quic.Conn
 	udp  *net.UDPConn
+	ln   *quic.Listener
 }
 
-func newQUICPeerSession(key SessionKey, conn *quic.Conn, udp *net.UDPConn, em *event.Emitter, idleTimeout time.Duration) *quicPeerSession {
+func newQUICPeerSession(key SessionKey, conn *quic.Conn, udp *net.UDPConn, ln *quic.Listener, em *event.Emitter, idleTimeout time.Duration) *quicPeerSession {
 	s := &quicPeerSession{
 		sessionBase: newSessionBase(key, em),
 		conn:        conn,
 		udp:         udp,
+		ln:          ln,
 	}
 	emitSessionOpen(em, s.Key(), "quic-go")
 	s.startIdleCloser(idleTimeout)
@@ -230,6 +236,9 @@ func (s *quicPeerSession) Close(reason CloseReason) error {
 		if s.conn != nil {
 			s.conn.CloseWithError(0, string(reason))
 		}
+		if s.ln != nil {
+			_ = s.ln.Close()
+		}
 		if s.udp != nil {
 			_ = s.udp.Close()
 		}
@@ -301,7 +310,83 @@ func dialKCPSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, ra
 }
 
 func serveKCPSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *net.UDPAddr, em *event.Emitter) (PeerSession, error) {
-	return newKCPSession(ctx, cfg, listenConn, raddr, false, em)
+	_ = raddr
+	if listenConn == nil {
+		return nil, errors.New("kcp requires listen conn")
+	}
+	if err := cfg.requirePinnedIdentity(); err != nil {
+		_ = listenConn.Close()
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		_ = listenConn.Close()
+		return nil, err
+	}
+
+	ln, err := kcp.ServeConn(nil, 10, 3, listenConn)
+	if err != nil {
+		_ = listenConn.Close()
+		return nil, err
+	}
+
+	for {
+		if err := ctx.Err(); err != nil {
+			_ = ln.Close()
+			_ = listenConn.Close()
+			return nil, err
+		}
+
+		// AcceptKCP doesn't take a context. Use a short deadline to poll.
+		_ = ln.SetDeadline(time.Now().Add(250 * time.Millisecond))
+		kcpSess, err := ln.AcceptKCP()
+		if err != nil {
+			var ne net.Error
+			if errors.As(err, &ne) && ne.Timeout() {
+				continue
+			}
+			_ = ln.Close()
+			_ = listenConn.Close()
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			return nil, err
+		}
+		_ = ln.SetDeadline(time.Time{})
+
+		// Our dial path currently uses a fixed conv (see internal/netutil). The
+		// listener can accept arbitrary conv values from any UDP packet, so filter
+		// aggressively to avoid mistaking late punching traffic for a KCP session.
+		if kcpSess.GetConv() != 1 {
+			_ = kcpSess.Close()
+			continue
+		}
+
+		applyKCPDefaults(kcpSess)
+
+		// KCP is an inner framing transport: we still bind identity via pinned TLS.
+		tlsConn, err := pinnedTLSConn(kcpSess, cfg, false)
+		if err != nil {
+			_ = kcpSess.Close()
+			continue
+		}
+		if err := tlsConn.HandshakeContext(ctx); err != nil {
+			_ = tlsConn.Close()
+			_ = kcpSess.Close()
+			continue
+		}
+		_ = tlsConn.SetDeadline(time.Time{})
+
+		owned := &ownedNetConn{
+			Conn:    tlsConn,
+			closers: []io.Closer{tlsConn, kcpSess, ln, listenConn},
+		}
+		muxSession, err := yamuxForRole(owned, false)
+		if err != nil {
+			_ = owned.Close()
+			continue
+		}
+		return newYamuxPeerSession(cfg.sessionKey(), muxSession, em, "kcp+tls+yamux", cfg.IdleTimeout), nil
+	}
 }
 
 func newKCPSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *net.UDPAddr, asClient bool, em *event.Emitter) (PeerSession, error) {
@@ -332,6 +417,14 @@ func newKCPSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, rad
 	if err != nil {
 		_ = listenConn.Close()
 		return nil, err
+	}
+	// Best-effort "priming" packet:
+	// - KCP has no SYN. A server-side kcp.Listener only starts tracking a remote
+	//   once it sees any packet from it.
+	// - Sending a small OOB packet (bypasses the reliable stream) helps ensure
+	//   the listener Accept path can return promptly before TLS/yamux start.
+	if oob, ok := kcpConn.(interface{ SendOOB([]byte) error }); ok {
+		_ = oob.SendOOB([]byte{0})
 	}
 	if deadline, ok := ctx.Deadline(); ok {
 		if err := kcpConn.SetDeadline(deadline); err != nil {
@@ -426,7 +519,7 @@ func dialQUICSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, r
 		_ = listenConn.Close()
 		return nil, err
 	}
-	return newQUICPeerSession(cfg.sessionKey(), conn, listenConn, em, cfg.IdleTimeout), nil
+	return newQUICPeerSession(cfg.sessionKey(), conn, listenConn, nil, em, cfg.IdleTimeout), nil
 }
 
 func serveQUICSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, em *event.Emitter) (PeerSession, error) {
@@ -457,14 +550,14 @@ func serveQUICSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, 
 		_ = listenConn.Close()
 		return nil, err
 	}
-	_ = ln.Close()
 
 	if err := applyQUICCC(cfg, conn); err != nil {
 		conn.CloseWithError(0, "")
+		_ = ln.Close()
 		_ = listenConn.Close()
 		return nil, err
 	}
-	return newQUICPeerSession(cfg.sessionKey(), conn, listenConn, em, cfg.IdleTimeout), nil
+	return newQUICPeerSession(cfg.sessionKey(), conn, listenConn, ln, em, cfg.IdleTimeout), nil
 }
 
 func quicSessionConfig() *quic.Config {
