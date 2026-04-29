@@ -166,6 +166,22 @@ TCP hard NAT 口径：
 - 启动约 12 个真实 `miopunch` daemon 节点，每个节点位于不同可控 NAT 或链路画像后面。
 - 验证 bootstrap 推荐、reachability bucket、`k=max(2,ceil(ln(n)))` 邻居维护、active edge 打洞、不可达 pair 的可解释失败，以及最终扰动恢复。
 
+实现形态：
+
+- 第三场景采用“Docker/systemd 产品节点 + lab NAT 网络夹具”的组合形态。
+- Docker 只负责把每个被测节点变成独立 Linux/systemd/`miopunch` 主机；节点必须通过真实产品命令、system daemon 和 LocalAPI 运行。
+- lab 负责提供 NAT domain、WAN、MQTT、STUN、probe、pcap、conntrack、netem 和扰动注入；lab 不得替主线选择 bootstrap、维护邻居、判定 reachability、预置拓扑或注入成功结果。
+- harness 应通过容器 network namespace + veth 把 Docker/systemd 节点接入 lab-controlled NAT domain，避免 Docker 默认 bridge 平网绕过 NAT 验收。
+- 第三场景缺口能力必须落到主线产品行为和稳定观测接口中；不得以 lab-only helper 代替 `bootstrap_more`、presence、reachability hints、logN active neighbor 或 recovery evidence。
+
+Gate 分层：
+
+- MNT-03 实现必须小步递增：先跑 2 节点真实闭环，再扩到 3、4、6，最后扩到 12 节点完整网络；每一步都必须在 QEMU lab VM 内使用真实 Docker/systemd `miopunch` 节点和真实 NAT 夹具验证。
+- `mnt03-smoke`：覆盖 2 节点 substrate 与 3 节点 bootstrap 闭环，验证空白启动、真实建网/入网、基础拓扑快照和至少一条 successful payload edge。
+- `mnt03-selftest`：在 smoke 基础上扩到 4/6 节点，验证 reachability bucket、portmap、presence/online、`bootstrap_more`、logN active neighbor、hard 节点承接和 active edge payload / explainable failure。
+- `mnt03-fulltest`：扩到完整 12 节点，在稳定拓扑通过后加入 loss、offline/rejoin、revoke、IPv6 阻断、portmap 阻断、broker outage/recovery，并要求 pcap/conntrack/tc 证据。
+- 三层 gate 均应输出可机读 summary，并把 artifacts 拉回 `lab/_artifacts/`。
+
 ## 第三场景节点画像
 
 第三场景默认使用 12 个节点。12 不是协议常量，而是当前测试规模的合理点：当 `n≈12` 时，目标邻居数 `k≈3`，足以观察非平凡邻居选择、桶内随机/轮换、hard 节点承接和 admin 去中心化。
@@ -342,10 +358,24 @@ TCP hard NAT 口径：
 
 ## 实现缺口与后续 OpenSpec
 
-本文先固定测试目标和验收口径。后续 change 至少需要确认：
+本文先固定测试目标和验收口径。`mnt-03-mainline-nat-composite-network` change 应把第三场景补成完整可执行验收，而不是只记录 TODO。该 change 需要同时覆盖主线产品能力、稳定观测接口、Docker/systemd + NAT lab 拓扑、runner/gate 和 artifacts。
 
-- 主线是否已经完整接入 `bootstrap_more`、presence、reachability hints 和 logN 邻居维护。
-- 如果上述能力只在设计或实验工具中存在，应先补齐主线行为或明确降级验收。
-- 主线需要以稳定字段暴露 bootstrap、neighbor、attempt path 和 recovery evidence。
-- lab 拓扑需要从固定 A/B 扩展到多 NAT domain + 多 Docker product node 的可控形态。
-- docs-only charter 不要求运行完整 gate；进入代码、测试或 lab runtime 变更时再按代码影响级别执行验证。
+必须补齐的主线能力：
+
+- `bootstrap_more`：joiner 初始推荐失败后通过控制面请求更多候选；候选去重、分桶、轮次和失败边界必须可观测。
+- presence / online：节点周期性传播在线与 state head 摘要，用于 bootstrap、邻居维护和恢复排序。
+- reachability hints：节点报告 `v4_hint` / `v6_hint`，只用于排序，不携带 endpoint；分级采用既有产品讨论草案。
+- logN active neighbor：入网后按 `k=max(2,ceil(ln(n)))` 维护 active neighbors，12 节点规模目标约为 3。
+- recovery evidence：offline、rejoin、revoke、IPv6/portmap/broker 扰动后，主线必须报告拓扑变化、重连/换邻居结果和失败原因。
+
+稳定观测接口：
+
+- LocalAPI / CLI JSON 应稳定暴露 bootstrap candidate list、selected bucket、失败原因、reachability hints、active neighbor list、degree distribution、selected `attempt_path`、`data_proto`、payload evidence 和 recovery evidence。
+- daemon journal 和 pcap 是辅助证据，不得作为唯一稳定接口。
+- state snapshots 可用于事后诊断，但测试不得通过直接修改 state 文件驱动主线行为。
+
+OpenSpec change 口径：
+
+- 当前 change 使用 `mnt-03-mainline-nat-composite-network`。
+- OpenSpec 必须新增第三场景能力 spec，并修改 LocalAPI、control-plane mailbox/RPC、decl/reachability 和 mesh/neighbor 相关产品 spec。
+- 进入代码、测试或 lab runtime 变更时按代码影响级别执行验证；docs/OpenSpec-only 更新只需 OpenSpec 校验。
