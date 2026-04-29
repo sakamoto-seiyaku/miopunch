@@ -28,10 +28,10 @@ if [[ "${disable_stun}" -eq 1 ]]; then
 fi
 
 mnt02_run_case "mnt02 selftest" --case-id mnt02-selftest-happy --peer-count "${peer_count}" --nat "${nat_profile}" "${extra_args[@]}"
+mnt02_run_case "mnt02 selftest" --case-id mnt02-selftest-happy-kcp --peer-count "${peer_count}" --nat "${nat_profile}" "${extra_args[@]}"
 mnt02_run_case "mnt02 selftest" --case-id mnt02-selftest-broker-outage --peer-count "${peer_count}" --nat "${nat_profile}" "${extra_args[@]}"
 
 echo "summary: pass=${mnt02_pass} fail=${mnt02_fail}"
 mnt02_write_summary "${aggregate_dir}/summary.json" "mnt02-selftest"
 echo "aggregate=${aggregate_dir}"
 [[ "${mnt02_fail}" -eq 0 ]]
-

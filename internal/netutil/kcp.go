@@ -20,6 +20,31 @@ import (
 	kcp "github.com/xtaci/kcp-go/v5"
 )
 
+func NewKCPConnFromPacketConn(conn net.PacketConn, raddr string) (net.Conn, error) {
+	if conn == nil {
+		return nil, net.ErrClosed
+	}
+	udpAddr, err := net.ResolveUDPAddr("udp", raddr)
+	if err != nil {
+		return nil, err
+	}
+	// conv is part of the KCP header. For our current use (one session per peer
+	// pair), a fixed conv keeps both ends aligned without needing extra
+	// negotiation. Server-side multi-session support is handled by a listener
+	// (ServeConn + AcceptKCP), not by varying conv here.
+	kcpConn, err := kcp.NewConn3(1, udpAddr, nil, 10, 3, conn)
+	if err != nil {
+		return nil, err
+	}
+	kcpConn.SetStreamMode(true)
+	kcpConn.SetWriteDelay(true)
+	kcpConn.SetNoDelay(1, 20, 2, 1)
+	kcpConn.SetMtu(1350)
+	kcpConn.SetWindowSize(1024, 1024)
+	kcpConn.SetACKNoDelay(false)
+	return kcpConn, nil
+}
+
 func NewKCPConnFromUDP(conn *net.UDPConn, connected bool, raddr string) (net.Conn, error) {
 	udpAddr, err := net.ResolveUDPAddr("udp", raddr)
 	if err != nil {

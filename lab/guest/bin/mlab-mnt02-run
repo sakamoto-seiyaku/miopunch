@@ -27,6 +27,8 @@ case_id=""
 peer_count=6
 nat_profile="nat1"
 disable_stun=0
+seed_data_proto="quic"
+seed_quic_cc="bbr"
 
 p2p_port_base=5000
 p2p_port_step=1
@@ -396,9 +398,13 @@ seed_states() {
     --p2p-port-base "${p2p_port_base}"
     --p2p-port-step "${p2p_port_step}"
     --disable-portmap
+    --data-proto "${seed_data_proto}"
     --out-env "${run_dir}/fixture.env"
     --out-json "${run_dir}/fixture.json"
   )
+  if [[ "${seed_data_proto}" == "quic" ]]; then
+    seed_flags+=(--quic-cc "${seed_quic_cc}")
+  fi
   if [[ "${disable_stun}" -eq 1 ]]; then
     seed_flags+=(--disable-stun)
   else
@@ -678,6 +684,13 @@ main() {
       ;;
   esac
 
+  # Per-case seed overrides.
+  case "${case_id}" in
+    mnt02-smoke-basic-kcp|mnt02-selftest-happy-kcp)
+      seed_data_proto="kcp"
+      ;;
+  esac
+
   preflight
   ensure_tmux_session
 
@@ -694,6 +707,8 @@ main() {
     echo "peer_count=${peer_count}"
     echo "nat_profile=${nat_profile}"
     echo "disable_stun=${disable_stun}"
+    echo "data_proto=${seed_data_proto}"
+    echo "quic_cc=${seed_quic_cc}"
     echo "mqtt_broker=${COORD_IP}:1883"
   } >"${run_dir}/case.env"
 
@@ -733,7 +748,13 @@ main() {
     mnt02-smoke-basic)
       case_smoke_basic && case_pass=1 || case_pass=0
       ;;
+    mnt02-smoke-basic-kcp)
+      case_smoke_basic && case_pass=1 || case_pass=0
+      ;;
     mnt02-selftest-happy)
+      case_selftest_happy && case_pass=1 || case_pass=0
+      ;;
+    mnt02-selftest-happy-kcp)
       case_selftest_happy && case_pass=1 || case_pass=0
       ;;
     mnt02-selftest-broker-outage)

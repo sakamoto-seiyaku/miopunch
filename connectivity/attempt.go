@@ -12,6 +12,7 @@ import (
 	"github.com/miopunch/miopunch/event"
 	"github.com/miopunch/miopunch/internal/eventctx"
 	"github.com/miopunch/miopunch/internal/punching"
+	"github.com/miopunch/miopunch/internal/udpowner"
 	"github.com/miopunch/miopunch/internal/wire"
 )
 
@@ -27,6 +28,17 @@ type AttemptConfig struct {
 	DirectSendInterval time.Duration
 
 	Emitter *event.Emitter
+
+	// UDP4TraversalDemux / UDP6TraversalDemux, when set, provide the traversal
+	// I/O boundary for UDP direct handshake and punching.
+	//
+	// If unset, Attempt will create a temporary demux reading from the
+	// corresponding UDPConn and close it before returning.
+	//
+	// This allows callers to reuse a single UDP socket owner / demux (e.g. QUIC
+	// Transport or a KCP owner) while supporting concurrent attempts.
+	UDP4TraversalDemux *udpowner.TraversalDemux
+	UDP6TraversalDemux *udpowner.TraversalDemux
 }
 
 type TCPConnOrigin string
@@ -52,7 +64,7 @@ type AttemptResult struct {
 	TCPConns []TCPConn
 }
 
-type PunchFunc func(ctx context.Context, listenConn *net.UDPConn, resp *wire.NatHoleResp, key []byte) (*net.UDPConn, *net.UDPAddr, error)
+type PunchFunc func(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.TraversalDemux, resp *wire.NatHoleResp, key []byte) (*net.UDPConn, *net.UDPAddr, error)
 
 func Attempt(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, udp6Conn *net.UDPConn, tcp4Listener *net.TCPListener, tcp6Listener *net.TCPListener, resp *wire.NatHoleResp, cfg AttemptConfig) (*AttemptResult, error) {
 	return attemptWithPunch(ctx, sid, key, udp4Conn, udp6Conn, tcp4Listener, tcp6Listener, resp, cfg, punching.MakeHole)
@@ -106,6 +118,46 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 	allowV6 := cfg.P2PIPFamily != P2PIPFamilyV4
 	allowTCP := cfg.P2PNetwork != P2PNetworkUDPOnly
 	allowUDP := cfg.P2PNetwork != P2PNetworkTCPOnly
+
+	udp4Demux := cfg.UDP4TraversalDemux
+	udp6Demux := cfg.UDP6TraversalDemux
+	closeUDP4Demux := func() {}
+	closeUDP6Demux := func() {}
+	defer func() {
+		closeUDP4Demux()
+		closeUDP6Demux()
+	}()
+
+	getUDP4Demux := func() (*udpowner.TraversalDemux, error) {
+		if udp4Demux != nil {
+			return udp4Demux, nil
+		}
+		if udp4Conn == nil {
+			return nil, errors.New("udp4 conn is required")
+		}
+		d, err := udpowner.NewUDPTraversalDemux(udp4Conn, udpowner.DemuxConfig{Key: key})
+		if err != nil {
+			return nil, err
+		}
+		udp4Demux = d
+		closeUDP4Demux = func() { _ = d.Close() }
+		return d, nil
+	}
+	getUDP6Demux := func() (*udpowner.TraversalDemux, error) {
+		if udp6Demux != nil {
+			return udp6Demux, nil
+		}
+		if udp6Conn == nil {
+			return nil, errors.New("udp6 conn is required")
+		}
+		d, err := udpowner.NewUDPTraversalDemux(udp6Conn, udpowner.DemuxConfig{Key: key})
+		if err != nil {
+			return nil, err
+		}
+		udp6Demux = d
+		closeUDP6Demux = func() { _ = d.Close() }
+		return d, nil
+	}
 
 	if allowUDP && cfg.P2PIPFamily == P2PIPFamilyV6 && udp6Conn == nil {
 		return nil, errors.New("udp6 conn is required for p2p ip family v6")
@@ -204,7 +256,11 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 	}
 
 	if allowUDP && allowV6 && udp6Conn != nil && len(peerUDPV6) > 0 {
-		res, err := attemptUDPDirect(ctx, sid, key, udp6Conn, peerUDPV6, cfg, emit, "direct_ipv6")
+		d, err := getUDP6Demux()
+		if err != nil {
+			return nil, err
+		}
+		res, err := attemptUDPDirect(ctx, sid, key, udp6Conn, d, peerUDPV6, cfg, emit, "direct_ipv6")
 		if err == nil && res != nil {
 			return res, nil
 		}
@@ -212,7 +268,11 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 	}
 
 	if allowUDP && allowV4 && udp4Conn != nil && len(peerUDPV4) > 0 {
-		res, err := attemptUDPDirect(ctx, sid, key, udp4Conn, peerUDPV4, cfg, emit, "direct_ipv4")
+		d, err := getUDP4Demux()
+		if err != nil {
+			return nil, err
+		}
+		res, err := attemptUDPDirect(ctx, sid, key, udp4Conn, d, peerUDPV4, cfg, emit, "direct_ipv4")
 		if err == nil && res != nil {
 			return res, nil
 		}
@@ -241,10 +301,14 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 	}
 
 	// UDP4 punching fallback (P1 kernel).
-	return attemptUDPPunching(ctx, sid, key, udp4Conn, resp, cfg, emit, punch, attemptErr)
+	d, err := getUDP4Demux()
+	if err != nil {
+		return nil, err
+	}
+	return attemptUDPPunching(ctx, sid, key, udp4Conn, d, resp, cfg, emit, punch, attemptErr)
 }
 
-func attemptUDPDirect(ctx context.Context, sid string, key []byte, conn *net.UDPConn, candidates []netip.AddrPort, cfg AttemptConfig, emit func(event.Event), path string) (*AttemptResult, error) {
+func attemptUDPDirect(ctx context.Context, sid string, key []byte, conn *net.UDPConn, demux *udpowner.TraversalDemux, candidates []netip.AddrPort, cfg AttemptConfig, emit func(event.Event), path string) (*AttemptResult, error) {
 	if path == "direct_ipv6" {
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindStart, Name: "attempt.v6.start", Msg: "attempt ipv6 direct"})
 	} else {
@@ -271,7 +335,7 @@ func attemptUDPDirect(ctx context.Context, sid string, key []byte, conn *net.UDP
 	}
 
 	subCtx, cancel := context.WithTimeout(ctx, timeout)
-	raddr, winner, err := directHandshakeFanout(subCtx, conn, sid, key, candidates, cfg.DirectSendCount, cfg.DirectSendInterval)
+	raddr, winner, err := directHandshakeFanout(subCtx, demux, sid, key, candidates, cfg.DirectSendCount, cfg.DirectSendInterval)
 	cancel()
 	if err == nil {
 		for _, cand := range candidates {
@@ -337,7 +401,7 @@ func attemptUDPDirect(ctx context.Context, sid string, key []byte, conn *net.UDP
 	return nil, err
 }
 
-func attemptUDPPunching(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, resp *wire.NatHoleResp, cfg AttemptConfig, emit func(event.Event), punch PunchFunc, lastErr error) (*AttemptResult, error) {
+func attemptUDPPunching(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, demux *udpowner.TraversalDemux, resp *wire.NatHoleResp, cfg AttemptConfig, emit func(event.Event), punch PunchFunc, lastErr error) (*AttemptResult, error) {
 	punchingPossible := resp.PunchingEnabled || len(resp.CandidateAddrs) > 0 || len(resp.AssistedAddrs) > 0
 	if !punchingPossible {
 		err := fmt.Errorf("punching disabled: %s", resp.PunchingError)
@@ -355,7 +419,7 @@ func attemptUDPPunching(ctx context.Context, sid string, key []byte, udp4Conn *n
 
 	emit(event.Event{Stage: event.StageAttempt, Kind: event.KindStart, Name: "attempt.punching.start", Msg: "attempt punching"})
 	punchCtx := eventctx.WithEmitFunc(ctx, emit)
-	newConn, raddr, err := punch(punchCtx, udp4Conn, resp, key)
+	newConn, raddr, err := punch(punchCtx, udp4Conn, demux, resp, key)
 	if err != nil {
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.punching.fail", Msg: "punching failed", Err: err.Error()})
 		return nil, err
@@ -373,9 +437,12 @@ func attemptUDPPunching(ctx context.Context, sid string, key []byte, udp4Conn *n
 	return &AttemptResult{Path: "punching_ipv4", Conn: newConn, Remote: raddr}, nil
 }
 
-func directHandshakeFanout(ctx context.Context, conn *net.UDPConn, sid string, key []byte, candidates []netip.AddrPort, sendCount int, sendInterval time.Duration) (*net.UDPAddr, netip.AddrPort, error) {
+func directHandshakeFanout(ctx context.Context, demux *udpowner.TraversalDemux, sid string, key []byte, candidates []netip.AddrPort, sendCount int, sendInterval time.Duration) (*net.UDPAddr, netip.AddrPort, error) {
 	if len(candidates) == 0 {
 		return nil, netip.AddrPort{}, errors.New("no candidates")
+	}
+	if demux == nil {
+		return nil, netip.AddrPort{}, errors.New("nil traversal demux")
 	}
 
 	successCh := make(chan *net.UDPAddr, 1)
@@ -388,13 +455,15 @@ func directHandshakeFanout(ctx context.Context, conn *net.UDPConn, sid string, k
 		}
 	}
 
-	// Reader: MUST respond to request, and only accept response as "reachable".
+	tx := punching.NewTransactionID()
+	ep := demux.Open(tx, 8)
+	defer ep.Close()
+
+	// Reader: accept response as "reachable".
 	go func() {
 		buf := make([]byte, 2048)
 		for {
-			_ = conn.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
-			n, raddr, err := conn.ReadFromUDP(buf)
-			_ = conn.SetReadDeadline(time.Time{})
+			n, raddr, err := ep.Recv(ctx, buf)
 			if err != nil {
 				select {
 				case <-ctx.Done():
@@ -413,14 +482,7 @@ func directHandshakeFanout(ctx context.Context, conn *net.UDPConn, sid string, k
 			if in.Sid != sid {
 				continue
 			}
-
 			if !in.Response {
-				in.Response = true
-				resp, err := punching.EncodeMessage(&in, key)
-				if err == nil {
-					_, _ = conn.WriteToUDP(resp, raddr)
-				}
-				// Keep waiting: a request only proves inbound reachability.
 				continue
 			}
 
@@ -433,7 +495,6 @@ func directHandshakeFanout(ctx context.Context, conn *net.UDPConn, sid string, k
 		}
 	}()
 
-	tx := punching.NewTransactionID()
 	for _, ap := range candidates {
 		ap := ap
 		go func() {
@@ -455,7 +516,7 @@ func directHandshakeFanout(ctx context.Context, conn *net.UDPConn, sid string, k
 					return
 				default:
 				}
-				_, _ = conn.WriteToUDP(payload, udpAddr)
+				_ = ep.SendTo(ctx, payload, udpAddr, 0)
 				if i < sendCount-1 {
 					select {
 					case <-ctx.Done():
@@ -472,15 +533,15 @@ func directHandshakeFanout(ctx context.Context, conn *net.UDPConn, sid string, k
 	select {
 	case raddr := <-successCh:
 		winner := raddr.AddrPort()
-		sendDirectHandshakeResponses(conn, sid, key, raddr, sendCount, sendInterval)
+		sendDirectHandshakeResponses(ctx, ep, tx, sid, key, raddr, sendCount, sendInterval)
 		return raddr, winner, nil
 	case <-ctx.Done():
 		return nil, netip.AddrPort{}, ctx.Err()
 	}
 }
 
-func sendDirectHandshakeResponses(conn *net.UDPConn, sid string, key []byte, raddr *net.UDPAddr, sendCount int, sendInterval time.Duration) {
-	if conn == nil || raddr == nil {
+func sendDirectHandshakeResponses(ctx context.Context, ep udpowner.TraversalEndpoint, transactionID string, sid string, key []byte, raddr *net.UDPAddr, sendCount int, sendInterval time.Duration) {
+	if ep == nil || raddr == nil {
 		return
 	}
 	if sendCount <= 0 {
@@ -491,17 +552,22 @@ func sendDirectHandshakeResponses(conn *net.UDPConn, sid string, key []byte, rad
 	}
 
 	payload, err := punching.EncodeMessage(&wire.NatHoleSid{
-		Sid:      sid,
-		Response: true,
+		TransactionID: transactionID,
+		Sid:           sid,
+		Response:      true,
 	}, key)
 	if err != nil {
 		return
 	}
 
 	for i := 0; i < sendCount; i++ {
-		_, _ = conn.WriteToUDP(payload, raddr)
+		_ = ep.SendTo(ctx, payload, raddr, 0)
 		if i+1 < sendCount {
-			time.Sleep(sendInterval)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(sendInterval):
+			}
 		}
 	}
 }

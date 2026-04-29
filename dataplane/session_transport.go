@@ -290,6 +290,119 @@ func DialSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr
 	}
 }
 
+// DialSessionWithQUICTransport establishes a QUIC peer transport session using an
+// already-constructed quic.Transport (UDP socket owner).
+//
+// The returned session does NOT close the underlying UDP socket on Close(). The
+// caller owns the transport / UDPConn lifecycle.
+func DialSessionWithQUICTransport(ctx context.Context, cfg Config, tr *quic.Transport, raddr *net.UDPAddr, em *event.Emitter) (PeerSession, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	if cfg.Proto != ProtocolQUIC {
+		return nil, fmt.Errorf("DialSessionWithQUICTransport requires proto=quic, got %q", cfg.Proto)
+	}
+	if tr == nil {
+		return nil, errors.New("nil quic transport")
+	}
+	if err := cfg.requirePinnedIdentity(); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if raddr == nil {
+		return nil, errors.New("quic requires remote addr")
+	}
+
+	tlsConfig, err := tlsutil.NewPinnedClientTLSConfig(cfg.SecretKey, cfg.SecurityID, tlsRoleVisitor, tlsRoleClient)
+	if err != nil {
+		return nil, err
+	}
+	tlsConfig.NextProtos = []string{dataALPN}
+
+	conn, err := tr.Dial(ctx, raddr, tlsConfig, quicSessionConfig())
+	if err != nil {
+		return nil, err
+	}
+	if err := applyQUICCC(cfg, conn); err != nil {
+		conn.CloseWithError(0, "")
+		return nil, err
+	}
+	return newQUICPeerSession(cfg.sessionKey(), conn, nil, nil, em, cfg.IdleTimeout), nil
+}
+
+// DialSessionWithKCPPacketConn establishes a KCP peer transport session using an
+// already-constructed net.PacketConn (typically a socket-owner wrapper).
+//
+// The returned session does NOT close the underlying packetconn on Close(). The
+// caller owns the packetconn lifecycle.
+func DialSessionWithKCPPacketConn(ctx context.Context, cfg Config, pc net.PacketConn, raddr *net.UDPAddr, em *event.Emitter) (PeerSession, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	if cfg.Proto != ProtocolKCP {
+		return nil, fmt.Errorf("DialSessionWithKCPPacketConn requires proto=kcp, got %q", cfg.Proto)
+	}
+	if pc == nil {
+		return nil, errors.New("nil packetconn")
+	}
+	if err := cfg.requirePinnedIdentity(); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if raddr == nil {
+		return nil, errors.New("kcp requires remote addr")
+	}
+
+	clearPacketConnDeadline := func() {}
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = pc.SetDeadline(deadline)
+		clearPacketConnDeadline = func() { _ = pc.SetDeadline(time.Time{}) }
+		// pc may be backed by a long-lived UDP socket owner. Ensure we don't leak
+		// the handshake deadline to the established session.
+		defer clearPacketConnDeadline()
+	}
+
+	kcpConn, err := netutil.NewKCPConnFromPacketConn(pc, raddr.String())
+	if err != nil {
+		return nil, err
+	}
+	if oob, ok := kcpConn.(interface{ SendOOB([]byte) error }); ok {
+		_ = oob.SendOOB([]byte{0})
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = kcpConn.SetDeadline(deadline)
+	}
+
+	tlsConn, err := pinnedTLSConn(kcpConn, cfg, true)
+	if err != nil {
+		_ = kcpConn.Close()
+		return nil, err
+	}
+	if err := tlsConn.HandshakeContext(ctx); err != nil {
+		_ = tlsConn.Close()
+		_ = kcpConn.Close()
+		return nil, err
+	}
+	_ = tlsConn.SetDeadline(time.Time{})
+	clearPacketConnDeadline()
+	_ = kcpConn.SetDeadline(time.Time{})
+
+	owned := &ownedNetConn{
+		Conn:    tlsConn,
+		closers: []io.Closer{tlsConn, kcpConn},
+	}
+	muxSession, err := yamuxForRole(owned, true)
+	if err != nil {
+		_ = owned.Close()
+		return nil, err
+	}
+	return newYamuxPeerSession(cfg.sessionKey(), muxSession, em, "kcp+tls+yamux", cfg.IdleTimeout), nil
+}
+
 // ServeSession accepts a KCP or QUIC peer transport session.
 func ServeSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, raddr *net.UDPAddr, em *event.Emitter) (PeerSession, error) {
 	if err := cfg.Validate(); err != nil {
@@ -353,9 +466,9 @@ func serveKCPSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, r
 		}
 		_ = ln.SetDeadline(time.Time{})
 
-		// Our dial path currently uses a fixed conv (see internal/netutil). The
-		// listener can accept arbitrary conv values from any UDP packet, so filter
-		// aggressively to avoid mistaking late punching traffic for a KCP session.
+		// Defense-in-depth: our dial path currently uses a fixed conv (see internal/netutil).
+		// Traversal traffic should already be filtered out by the UDP socket owner / demux,
+		// but keep this check to avoid accepting unexpected KCP sessions.
 		if kcpSess.GetConv() != 1 {
 			_ = kcpSess.Close()
 			continue
@@ -509,7 +622,8 @@ func dialQUICSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, r
 	}
 	tlsConfig.NextProtos = []string{dataALPN}
 
-	conn, err := quic.Dial(ctx, listenConn, raddr, tlsConfig, quicSessionConfig())
+	tr := &quic.Transport{Conn: listenConn}
+	conn, err := tr.Dial(ctx, raddr, tlsConfig, quicSessionConfig())
 	if err != nil {
 		_ = listenConn.Close()
 		return nil, err
@@ -538,7 +652,8 @@ func serveQUICSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, 
 	}
 	tlsConfig.NextProtos = []string{dataALPN}
 
-	ln, err := quic.Listen(listenConn, tlsConfig, quicSessionConfig())
+	tr := &quic.Transport{Conn: listenConn}
+	ln, err := tr.Listen(tlsConfig, quicSessionConfig())
 	if err != nil {
 		_ = listenConn.Close()
 		return nil, err

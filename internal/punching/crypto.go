@@ -15,25 +15,21 @@
 package punching
 
 import (
-	"bytes"
-
-	"github.com/fatedier/golib/crypto"
-
+	"github.com/miopunch/miopunch/internal/punchwire"
 	"github.com/miopunch/miopunch/internal/wire"
 )
 
+var (
+	PunchTagV1        = punchwire.PunchTagV1
+	ErrNotPunchPacket = punchwire.ErrNotPunchPacket
+)
+
+func HasPunchTag(b []byte) bool { return punchwire.HasPunchTag(b) }
+
 func EncodeMessage(m wire.Message, key []byte) ([]byte, error) {
-	buffer := bytes.NewBuffer(nil)
-	if err := wire.WriteMsg(buffer, m); err != nil {
-		return nil, err
-	}
-	return crypto.Encode(buffer.Bytes(), key)
+	return punchwire.EncodeMessage(m, key)
 }
 
 func DecodeMessageInto(data, key []byte, m wire.Message) error {
-	buf, err := crypto.Decode(data, key)
-	if err != nil {
-		return err
-	}
-	return wire.ReadMsgInto(bytes.NewReader(buf), m)
+	return punchwire.DecodeMessageInto(data, key, m)
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/miopunch/miopunch/event"
 	"github.com/miopunch/miopunch/internal/eventctx"
+	"github.com/miopunch/miopunch/internal/udpowner"
 	"github.com/miopunch/miopunch/internal/wire"
 )
 
@@ -55,7 +56,8 @@ func TestMakeHole_ReceiveBeforeProbe_CanWinDuringDelay(t *testing.T) {
 	defer peerConn.Close()
 
 	resp := &wire.NatHoleResp{
-		Sid: "sid-1",
+		TransactionID: "tx",
+		Sid:           "sid-1",
 		DetectBehavior: wire.NatHoleDetectBehavior{
 			Role:          DetectRoleReceiver,
 			Mode:          0,
@@ -71,6 +73,12 @@ func TestMakeHole_ReceiveBeforeProbe_CanWinDuringDelay(t *testing.T) {
 	defer cancel()
 	ctx = eventctx.WithEmitFunc(ctx, rec.Emit)
 
+	demux, err := udpowner.NewUDPTraversalDemux(listenConn, udpowner.DemuxConfig{Key: key})
+	if err != nil {
+		t.Fatalf("NewUDPTraversalDemux error: %v", err)
+	}
+	defer demux.Close()
+
 	go func() {
 		time.Sleep(50 * time.Millisecond)
 		msg := &wire.NatHoleSid{TransactionID: "tx", Sid: resp.Sid, Response: false, Nonce: "0"}
@@ -81,7 +89,7 @@ func TestMakeHole_ReceiveBeforeProbe_CanWinDuringDelay(t *testing.T) {
 		_, _ = peerConn.WriteToUDP(data, listenConn.LocalAddr().(*net.UDPAddr))
 	}()
 
-	gotConn, gotAddr, err := MakeHole(ctx, listenConn, resp, key)
+	gotConn, gotAddr, err := MakeHole(ctx, listenConn, demux, resp, key)
 	if err != nil {
 		t.Fatalf("MakeHole error: %v", err)
 	}
@@ -116,7 +124,8 @@ func TestMakeHole_CancelBeforeProbe_EmitsCanceledAndReturnsContextError(t *testi
 	defer listenConn.Close()
 
 	resp := &wire.NatHoleResp{
-		Sid: "sid-2",
+		TransactionID: "tx",
+		Sid:           "sid-2",
 		DetectBehavior: wire.NatHoleDetectBehavior{
 			Role:          DetectRoleSender,
 			Mode:          0,
@@ -131,12 +140,18 @@ func TestMakeHole_CancelBeforeProbe_EmitsCanceledAndReturnsContextError(t *testi
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = eventctx.WithEmitFunc(ctx, rec.Emit)
 
+	demux, err := udpowner.NewUDPTraversalDemux(listenConn, udpowner.DemuxConfig{Key: key})
+	if err != nil {
+		t.Fatalf("NewUDPTraversalDemux error: %v", err)
+	}
+	defer demux.Close()
+
 	go func() {
 		time.Sleep(50 * time.Millisecond)
 		cancel()
 	}()
 
-	_, _, err = MakeHole(ctx, listenConn, resp, key)
+	_, _, err = MakeHole(ctx, listenConn, demux, resp, key)
 	if err == nil {
 		t.Fatalf("expected error")
 	}

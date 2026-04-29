@@ -8,18 +8,23 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/apernet/quic-go"
+
 	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/dataplane"
 	"github.com/miopunch/miopunch/internal/controlplane"
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/pocstate"
 	"github.com/miopunch/miopunch/internal/shelllock"
 	"github.com/miopunch/miopunch/internal/shellproto"
 	"github.com/miopunch/miopunch/internal/shelltarget"
 	mqttsig "github.com/miopunch/miopunch/internal/signaling/mqtt"
+	"github.com/miopunch/miopunch/internal/udpowner"
 	"github.com/miopunch/miopunch/internal/wire"
 )
 
@@ -113,6 +118,41 @@ func (r *peerSessionRegistry) Replace(peerID string, sess dataplane.PeerSession,
 	for _, oldSess := range toClose {
 		_ = oldSess.Close(closeReason)
 	}
+}
+
+// taskGroup is a small helper to avoid sync.WaitGroup "Add called concurrently with Wait"
+// panics during shutdown. It blocks new spawns once Wait is entered.
+//
+// goroutines MUST NOT call Go() after shutdown begins.
+type taskGroup struct {
+	mu      sync.Mutex
+	wg      sync.WaitGroup
+	waiting bool
+}
+
+func (g *taskGroup) Go(fn func()) {
+	if fn == nil {
+		return
+	}
+	g.mu.Lock()
+	if g.waiting {
+		g.mu.Unlock()
+		return
+	}
+	g.wg.Add(1)
+	g.mu.Unlock()
+
+	go func() {
+		defer g.wg.Done()
+		fn()
+	}()
+}
+
+func (g *taskGroup) Wait() {
+	g.mu.Lock()
+	g.waiting = true
+	g.mu.Unlock()
+	g.wg.Wait()
 }
 
 func Run(ctx context.Context, cfg Config) error {
@@ -243,29 +283,152 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 
 	reg := newPeerSessionRegistry()
 
-	var wg sync.WaitGroup
-	defer wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		watchRevocations(serveCtx, stateDir, reg)
+	var tg taskGroup
+	defer func() {
+		cancel()
+		tg.Wait()
 	}()
 
-	// Serialize connectivity attempts: Gather sockets are reused and the punching
-	// path reads from UDP listeners; concurrent attempts would race on reads.
-	var attemptMu sync.Mutex
+	tg.Go(func() {
+		watchRevocations(serveCtx, stateDir, reg)
+	})
+
+	// UDP data plane listeners are long-lived (multi-peer). Traversal is
+	// multiplexed on the same socket via a demux boundary.
+	var (
+		udp4Demux *udpowner.TraversalDemux
+		udp6Demux *udpowner.TraversalDemux
+
+		udp4Listener dataplane.PeerSessionListener
+		udp6Listener dataplane.PeerSessionListener
+
+		kcp4Owner *udpowner.KCPOwner
+		kcp6Owner *udpowner.KCPOwner
+	)
+
+	defer func() {
+		if udp4Listener != nil {
+			_ = udp4Listener.Close()
+		}
+		if udp6Listener != nil {
+			_ = udp6Listener.Close()
+		}
+		if udp4Demux != nil {
+			_ = udp4Demux.Close()
+		}
+		if udp6Demux != nil {
+			_ = udp6Demux.Close()
+		}
+		if kcp4Owner != nil {
+			_ = kcp4Owner.Close()
+		}
+		if kcp6Owner != nil {
+			_ = kcp6Owner.Close()
+		}
+	}()
+
+	startAcceptLoop := func(ln dataplane.PeerSessionListener) {
+		if ln == nil {
+			return
+		}
+		tg.Go(func() {
+			for {
+				sess, err := ln.Accept(serveCtx)
+				if err != nil {
+					return
+				}
+				s := sess
+				tg.Go(func() {
+					servePeerSession(serveCtx, stateDir, local, locks, lockTTL, s, reg)
+				})
+			}
+		})
+	}
+
+	secretKey := []byte(local.SecretKey)
+
+	setupUDP := func(conn *net.UDPConn, family dataplane.PathFamily) (*udpowner.TraversalDemux, dataplane.PeerSessionListener, error) {
+		if conn == nil {
+			return nil, nil, nil
+		}
+		dpCfg := dataplane.Config{
+			Proto:      dataplane.Protocol(local.DataProto),
+			QuicCC:     dataplane.QUICCC(local.QUICCC),
+			SecurityID: sid,
+			SecretKey:  secretKey,
+			PathFamily: family,
+			Brutal: dataplane.BrutalConfig{
+				UpBps:   brutalUpBps,
+				DownBps: brutalDownBps,
+			},
+		}
+
+		switch strings.TrimSpace(local.DataProto) {
+		case "quic":
+			tr := &quic.Transport{Conn: conn}
+			demux, err := udpowner.NewQUICTraversalDemux(tr, udpowner.DemuxConfig{Key: secretKey})
+			if err != nil {
+				return nil, nil, err
+			}
+			ln, err := dataplane.ListenSessionsWithQUICTransport(serveCtx, dpCfg, tr, conn, nil)
+			if err != nil {
+				_ = demux.Close()
+				return nil, nil, err
+			}
+			return demux, ln, nil
+		case "kcp":
+			owner, err := udpowner.NewKCPOwner(conn, udpowner.KCPOwnerConfig{
+				Traversal: udpowner.DemuxConfig{Key: secretKey},
+			})
+			if err != nil {
+				return nil, nil, err
+			}
+			ln, err := dataplane.ListenSessionsWithKCPPacketConn(serveCtx, dpCfg, owner.PacketConn(), nil)
+			if err != nil {
+				_ = owner.Close()
+				return nil, nil, err
+			}
+			// Keep owner reachable for Close() ordering (owner closes the UDPConn).
+			if family == dataplane.PathFamilyUDP6 {
+				kcp6Owner = owner
+			} else {
+				kcp4Owner = owner
+			}
+			return owner.TraversalDemux(), ln, nil
+		default:
+			return nil, nil, fmt.Errorf("unsupported udp data proto: %q", local.DataProto)
+		}
+	}
+
+	if gather.UDP4Conn != nil {
+		d, ln, err := setupUDP(gather.UDP4Conn, dataplane.PathFamilyUDP4)
+		if err != nil {
+			return err
+		}
+		udp4Demux = d
+		udp4Listener = ln
+		startAcceptLoop(udp4Listener)
+	}
+	if gather.UDP6Conn != nil {
+		d, ln, err := setupUDP(gather.UDP6Conn, dataplane.PathFamilyUDP6)
+		if err != nil {
+			return err
+		}
+		udp6Demux = d
+		udp6Listener = ln
+		startAcceptLoop(udp6Listener)
+	}
 
 	attemptCfg := connectivity.AttemptConfig{
-		P2PNetwork:  connectivity.P2PNetwork(local.P2PNetwork),
-		P2PIPFamily: connectivity.P2PIPFamily(local.P2PIPFamily),
+		P2PNetwork:         connectivity.P2PNetwork(local.P2PNetwork),
+		P2PIPFamily:        connectivity.P2PIPFamily(local.P2PIPFamily),
+		UDP4TraversalDemux: udp4Demux,
+		UDP6TraversalDemux: udp6Demux,
 	}
 
 	handleAttempt := func(at mqttsig.ClientAttempt) {
 		// Handler must be fast: do the heavy lifting in a goroutine.
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		tg.Go(func() {
 			if at.Err != nil || at.ClientResp == nil {
 				return
 			}
@@ -273,17 +436,9 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 			attemptCtx, cancel := context.WithTimeout(serveCtx, 2*time.Minute)
 			defer cancel()
 
-			attemptMu.Lock()
 			attemptRes, err := connectivity.Attempt(attemptCtx, sid, []byte(local.SecretKey), gather.UDP4Conn, gather.UDP6Conn, gather.TCP4Listener, gather.TCP6Listener, at.ClientResp, attemptCfg)
-			attemptMu.Unlock()
 			if err != nil {
 				return
-			}
-			if attemptRes.Conn == gather.UDP4Conn {
-				gather.UDP4Conn = nil
-			}
-			if attemptRes.Conn == gather.UDP6Conn {
-				gather.UDP6Conn = nil
 			}
 
 			dpCfg := dataplane.Config{
@@ -303,18 +458,15 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 				dpCfg.Proto = dataplane.ProtocolTLS
 				sess, err = dataplane.ServeTLSSession(attemptCtx, dpCfg, attemptRes.TCPConns, nil)
 			} else {
-				sess, err = dataplane.ServeSession(attemptCtx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
+				// UDP sessions are accepted by the long-lived UDP listener started above.
+				return
 			}
 			if err != nil {
 				return
 			}
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				servePeerSession(serveCtx, stateDir, local, locks, lockTTL, sess, reg)
-			}()
-		}()
+			servePeerSession(serveCtx, stateDir, local, locks, lockTTL, sess, reg)
+		})
 	}
 
 	if err := mq.ServeClient(serveCtx, natHoleClientTemplate, handleAttempt); err != nil {
@@ -394,6 +546,7 @@ func servePeerSession(
 	if sess == nil {
 		return
 	}
+	key := sess.Key()
 
 	var streamWG sync.WaitGroup
 	defer streamWG.Wait()
@@ -423,12 +576,25 @@ func servePeerSession(
 	for {
 		accepted, err := sess.AcceptStream(ctx)
 		if err != nil {
+			// AcceptStream errors are expected on shutdown, but should be surfaced
+			// in lab artifacts during debugging.
+			if ctx.Err() == nil {
+				logutil.Infof("accept stream error: proto=%s sid=%s path_family=%s err=%v", key.Protocol, key.SecurityID, key.PathFamily, err)
+			}
 			return
 		}
 		streamWG.Add(1)
 		go func(accepted *dataplane.AcceptedStream) {
 			defer streamWG.Done()
-			_ = serveAcceptedShellStream(ctx, stateDir, local, locks, lockTTL, sess, accepted, bindPeer, reg)
+			if err := serveAcceptedShellStream(ctx, stateDir, local, locks, lockTTL, sess, accepted, bindPeer, reg); err != nil && ctx.Err() == nil {
+				kind := ""
+				meta := map[string]string(nil)
+				if accepted != nil {
+					kind = string(accepted.Open.Kind)
+					meta = accepted.Open.Metadata
+				}
+				logutil.Infof("serve accepted stream error: proto=%s sid=%s path_family=%s kind=%s meta=%v err=%v", key.Protocol, key.SecurityID, key.PathFamily, kind, meta, err)
+			}
 		}(accepted)
 	}
 }

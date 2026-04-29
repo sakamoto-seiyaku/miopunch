@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apernet/quic-go"
+
 	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/dataplane"
 	"github.com/miopunch/miopunch/event"
@@ -18,6 +20,7 @@ import (
 	"github.com/miopunch/miopunch/internal/punchdecision"
 	"github.com/miopunch/miopunch/internal/punching"
 	mqttsig "github.com/miopunch/miopunch/internal/signaling/mqtt"
+	"github.com/miopunch/miopunch/internal/udpowner"
 	"github.com/miopunch/miopunch/internal/wire"
 )
 
@@ -30,6 +33,36 @@ type dialResult struct {
 	attemptWay  string
 	legacyHello bool
 }
+
+type ownedPeerSession struct {
+	sess    dataplane.PeerSession
+	closers []io.Closer
+}
+
+func (s *ownedPeerSession) Key() dataplane.SessionKey { return s.sess.Key() }
+func (s *ownedPeerSession) OpenStream(ctx context.Context, open dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+	return s.sess.OpenStream(ctx, open)
+}
+func (s *ownedPeerSession) AcceptStream(ctx context.Context) (*dataplane.AcceptedStream, error) {
+	return s.sess.AcceptStream(ctx)
+}
+func (s *ownedPeerSession) Close(reason dataplane.CloseReason) error {
+	var firstErr error
+	if err := s.sess.Close(reason); err != nil {
+		firstErr = err
+	}
+	for _, c := range s.closers {
+		if c == nil {
+			continue
+		}
+		if err := c.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+func (s *ownedPeerSession) CloseReason() dataplane.CloseReason { return s.sess.CloseReason() }
+func (s *ownedPeerSession) Healthy() bool                      { return s.sess.Healthy() }
 
 func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID string, cfg pocstate.PeerConfig, open dataplane.StreamOpen) (*dialResult, error) {
 	if m != nil {
@@ -248,11 +281,95 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	var attemptEvents bytes.Buffer
 	attemptEmitter := event.NewEmitter(&attemptEvents, "task")
 
+	// UDP socket owner / demux wiring (for UDP dataplane protocols).
+	// Traversal and dataplane MUST share the same UDP socket mapping.
+	var (
+		udp4Demux *udpowner.TraversalDemux
+		udp6Demux *udpowner.TraversalDemux
+
+		quicUDP4Transport *quic.Transport
+		quicUDP6Transport *quic.Transport
+
+		kcpUDP4Owner *udpowner.KCPOwner
+		kcpUDP6Owner *udpowner.KCPOwner
+	)
+	defer func() {
+		// If the session ends up owning these resources, they will be moved into
+		// an ownedPeerSession and shouldn't be closed here.
+		if quicUDP4Transport != nil {
+			_ = quicUDP4Transport.Close()
+		}
+		if quicUDP6Transport != nil {
+			_ = quicUDP6Transport.Close()
+		}
+		// For KCP mode, traversal demux is owned by the KCPOwner.
+		if udp4Demux != nil && kcpUDP4Owner == nil {
+			_ = udp4Demux.Close()
+		}
+		if udp6Demux != nil && kcpUDP6Owner == nil {
+			_ = udp6Demux.Close()
+		}
+		if kcpUDP4Owner != nil {
+			_ = kcpUDP4Owner.Close()
+		}
+		if kcpUDP6Owner != nil {
+			_ = kcpUDP6Owner.Close()
+		}
+	}()
+
+	keyBytes := []byte(cfg.SecretKey)
+	if natHoleRespMsg != nil {
+		switch dataplane.Protocol(natHoleRespMsg.Protocol) {
+		case dataplane.ProtocolQUIC:
+			if gather.UDP4Conn != nil {
+				tr := &quic.Transport{Conn: gather.UDP4Conn}
+				d, err := udpowner.NewQUICTraversalDemux(tr, udpowner.DemuxConfig{Key: keyBytes})
+				if err != nil {
+					return nil, err
+				}
+				quicUDP4Transport = tr
+				udp4Demux = d
+			}
+			if gather.UDP6Conn != nil {
+				tr := &quic.Transport{Conn: gather.UDP6Conn}
+				d, err := udpowner.NewQUICTraversalDemux(tr, udpowner.DemuxConfig{Key: keyBytes})
+				if err != nil {
+					return nil, err
+				}
+				quicUDP6Transport = tr
+				udp6Demux = d
+			}
+		case dataplane.ProtocolKCP:
+			if gather.UDP4Conn != nil {
+				o, err := udpowner.NewKCPOwner(gather.UDP4Conn, udpowner.KCPOwnerConfig{
+					Traversal: udpowner.DemuxConfig{Key: keyBytes},
+				})
+				if err != nil {
+					return nil, err
+				}
+				kcpUDP4Owner = o
+				udp4Demux = o.TraversalDemux()
+			}
+			if gather.UDP6Conn != nil {
+				o, err := udpowner.NewKCPOwner(gather.UDP6Conn, udpowner.KCPOwnerConfig{
+					Traversal: udpowner.DemuxConfig{Key: keyBytes},
+				})
+				if err != nil {
+					return nil, err
+				}
+				kcpUDP6Owner = o
+				udp6Demux = o.TraversalDemux()
+			}
+		}
+	}
+
 	m.setStage(taskID, poc.StagePunchAttempt, "punch attempt")
 	attemptRes, err := connectivity.Attempt(ctx, sid, []byte(cfg.SecretKey), gather.UDP4Conn, gather.UDP6Conn, gather.TCP4Listener, gather.TCP6Listener, natHoleRespMsg, connectivity.AttemptConfig{
-		P2PNetwork:  connectivity.P2PNetwork(cfg.P2PNetwork),
-		P2PIPFamily: connectivity.P2PIPFamily(cfg.P2PIPFamily),
-		Emitter:     attemptEmitter,
+		P2PNetwork:         connectivity.P2PNetwork(cfg.P2PNetwork),
+		P2PIPFamily:        connectivity.P2PIPFamily(cfg.P2PIPFamily),
+		Emitter:            attemptEmitter,
+		UDP4TraversalDemux: udp4Demux,
+		UDP6TraversalDemux: udp6Demux,
 	})
 	if err != nil {
 		for _, line := range strings.Split(attemptEvents.String(), "\n") {
@@ -293,10 +410,13 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	case "punching_tcp4":
 		punchdecision.ReportDaemonTCPSuccess(decisionRes)
 	}
-	if attemptRes.Conn == gather.UDP4Conn {
+
+	attemptUDP4 := attemptRes.Conn != nil && attemptRes.Conn == gather.UDP4Conn
+	attemptUDP6 := attemptRes.Conn != nil && attemptRes.Conn == gather.UDP6Conn
+	if attemptUDP4 {
 		gather.UDP4Conn = nil
 	}
-	if attemptRes.Conn == gather.UDP6Conn {
+	if attemptUDP6 {
 		gather.UDP6Conn = nil
 	}
 
@@ -319,7 +439,57 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 		dpCfg.Proto = dataplane.ProtocolTLS
 		sess, err = dataplane.DialTLSSession(ctx, dpCfg, attemptRes.TCPConns, nil)
 	} else {
-		sess, err = dataplane.DialSession(ctx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
+		switch dpCfg.Proto {
+		case dataplane.ProtocolQUIC:
+			var tr *quic.Transport
+			var demux *udpowner.TraversalDemux
+			switch {
+			case attemptUDP4:
+				tr, demux = quicUDP4Transport, udp4Demux
+			case attemptUDP6:
+				tr, demux = quicUDP6Transport, udp6Demux
+			}
+			if tr == nil || attemptRes.Remote == nil {
+				sess, err = dataplane.DialSession(ctx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
+				break
+			}
+			sess, err = dataplane.DialSessionWithQUICTransport(ctx, dpCfg, tr, attemptRes.Remote, nil)
+			if err == nil && sess != nil {
+				// Move ownership of the UDP conn / transport / demux to the session wrapper.
+				closers := []io.Closer{demux, tr, attemptRes.Conn}
+				sess = &ownedPeerSession{sess: sess, closers: closers}
+				if attemptUDP4 {
+					quicUDP4Transport, udp4Demux = nil, nil
+				}
+				if attemptUDP6 {
+					quicUDP6Transport, udp6Demux = nil, nil
+				}
+			}
+		case dataplane.ProtocolKCP:
+			var o *udpowner.KCPOwner
+			switch {
+			case attemptUDP4:
+				o = kcpUDP4Owner
+			case attemptUDP6:
+				o = kcpUDP6Owner
+			}
+			if o == nil || attemptRes.Remote == nil {
+				sess, err = dataplane.DialSession(ctx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
+				break
+			}
+			sess, err = dataplane.DialSessionWithKCPPacketConn(ctx, dpCfg, o.PacketConn(), attemptRes.Remote, nil)
+			if err == nil && sess != nil {
+				sess = &ownedPeerSession{sess: sess, closers: []io.Closer{o}}
+				if attemptUDP4 {
+					kcpUDP4Owner, udp4Demux = nil, nil
+				}
+				if attemptUDP6 {
+					kcpUDP6Owner, udp6Demux = nil, nil
+				}
+			}
+		default:
+			sess, err = dataplane.DialSession(ctx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
+		}
 	}
 	if err != nil {
 		return nil, err

@@ -13,6 +13,7 @@ import (
 	kcp "github.com/xtaci/kcp-go/v5"
 
 	"github.com/miopunch/miopunch/event"
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/tlsutil"
 )
 
@@ -38,24 +39,13 @@ func ListenSessions(ctx context.Context, cfg Config, listenConn *net.UDPConn, em
 
 	switch cfg.Proto {
 	case ProtocolQUIC:
-		tlsConfig, err := tlsutil.NewPinnedServerTLSConfig(cfg.SecretKey, cfg.SecurityID, tlsRoleClient, tlsRoleVisitor)
+		tr := &quic.Transport{Conn: listenConn}
+		ln, err := listenQUIC(ctx, cfg, tr, listenConn)
 		if err != nil {
 			_ = listenConn.Close()
 			return nil, err
 		}
-		tlsConfig.NextProtos = []string{dataALPN}
-
-		ln, err := quic.Listen(listenConn, tlsConfig, quicSessionConfig())
-		if err != nil {
-			_ = listenConn.Close()
-			return nil, err
-		}
-		return &quicSessionListener{
-			cfg: cfg,
-			ln:  ln,
-			udp: listenConn,
-			em:  em,
-		}, nil
+		return &quicSessionListener{cfg: cfg, ln: ln, udp: listenConn, em: em}, nil
 	case ProtocolKCP:
 		ln, err := kcp.ServeConn(nil, 10, 3, listenConn)
 		if err != nil {
@@ -65,13 +55,97 @@ func ListenSessions(ctx context.Context, cfg Config, listenConn *net.UDPConn, em
 		return &kcpSessionListener{
 			cfg: cfg,
 			ln:  ln,
-			udp: listenConn,
+			pc:  listenConn,
 			em:  em,
 		}, nil
 	default:
 		_ = listenConn.Close()
 		return nil, fmt.Errorf("listen does not support data proto: %q", cfg.Proto)
 	}
+}
+
+// ListenSessionsWithQUICTransport is a QUIC-only helper for wiring an already
+// constructed quic.Transport (socket owner) into a dataplane PeerSessionListener.
+//
+// The returned listener owns listenConn and will close it on Close().
+func ListenSessionsWithQUICTransport(ctx context.Context, cfg Config, tr *quic.Transport, listenConn *net.UDPConn, em *event.Emitter) (PeerSessionListener, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	if cfg.Proto != ProtocolQUIC {
+		return nil, fmt.Errorf("ListenSessionsWithQUICTransport requires proto=quic, got %q", cfg.Proto)
+	}
+	if listenConn == nil {
+		return nil, errors.New("listen conn is required")
+	}
+	if tr == nil {
+		_ = listenConn.Close()
+		return nil, errors.New("nil quic transport")
+	}
+	if err := cfg.requirePinnedIdentity(); err != nil {
+		_ = listenConn.Close()
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		_ = listenConn.Close()
+		return nil, err
+	}
+
+	ln, err := listenQUIC(ctx, cfg, tr, listenConn)
+	if err != nil {
+		_ = listenConn.Close()
+		return nil, err
+	}
+	return &quicSessionListener{cfg: cfg, ln: ln, udp: listenConn, em: em}, nil
+}
+
+func listenQUIC(ctx context.Context, cfg Config, tr *quic.Transport, _ *net.UDPConn) (*quic.Listener, error) {
+	_ = ctx
+
+	tlsConfig, err := tlsutil.NewPinnedServerTLSConfig(cfg.SecretKey, cfg.SecurityID, tlsRoleClient, tlsRoleVisitor)
+	if err != nil {
+		return nil, err
+	}
+	tlsConfig.NextProtos = []string{dataALPN}
+
+	return tr.Listen(tlsConfig, quicSessionConfig())
+}
+
+// ListenSessionsWithKCPPacketConn is a KCP-only helper for wiring an already
+// demultiplexed packetconn (e.g. a socket owner wrapper) into a dataplane
+// PeerSessionListener.
+//
+// The returned listener owns pc and will close it on Close().
+func ListenSessionsWithKCPPacketConn(ctx context.Context, cfg Config, pc net.PacketConn, em *event.Emitter) (PeerSessionListener, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	if cfg.Proto != ProtocolKCP {
+		return nil, fmt.Errorf("ListenSessionsWithKCPPacketConn requires proto=kcp, got %q", cfg.Proto)
+	}
+	if pc == nil {
+		return nil, errors.New("packetconn is required")
+	}
+	if err := cfg.requirePinnedIdentity(); err != nil {
+		_ = pc.Close()
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		_ = pc.Close()
+		return nil, err
+	}
+
+	ln, err := kcp.ServeConn(nil, 10, 3, pc)
+	if err != nil {
+		_ = pc.Close()
+		return nil, err
+	}
+	return &kcpSessionListener{
+		cfg: cfg,
+		ln:  ln,
+		pc:  pc,
+		em:  em,
+	}, nil
 }
 
 type quicSessionListener struct {
@@ -116,7 +190,7 @@ func (l *quicSessionListener) Close() error {
 type kcpSessionListener struct {
 	cfg Config
 	ln  *kcp.Listener
-	udp *net.UDPConn
+	pc  net.PacketConn
 	em  *event.Emitter
 }
 
@@ -146,11 +220,13 @@ func (l *kcpSessionListener) Accept(ctx context.Context) (PeerSession, error) {
 			return nil, err
 		}
 		_ = l.ln.SetDeadline(time.Time{})
+		logutil.Infof("kcp session accepted: sid=%s path_family=%s remote=%s conv=%d", l.cfg.SecurityID, l.cfg.PathFamily, sess.RemoteAddr(), sess.GetConv())
 
-		// Our dial path currently uses a fixed conv (see internal/netutil). The
-		// listener can accept arbitrary conv values from any UDP packet, so filter
-		// aggressively to avoid mistaking late punching traffic for a KCP session.
+		// Defense-in-depth: our dial path currently uses a fixed conv (see internal/netutil).
+		// Traversal traffic should already be filtered out by the UDP socket owner / demux,
+		// but keep this check to avoid accepting unexpected KCP sessions.
 		if sess.GetConv() != 1 {
+			logutil.Infof("kcp session dropped unexpected conv: sid=%s path_family=%s remote=%s conv=%d", l.cfg.SecurityID, l.cfg.PathFamily, sess.RemoteAddr(), sess.GetConv())
 			_ = sess.Close()
 			continue
 		}
@@ -160,15 +236,18 @@ func (l *kcpSessionListener) Accept(ctx context.Context) (PeerSession, error) {
 		// KCP is an inner framing transport: we still bind identity via pinned TLS.
 		tlsConn, err := pinnedTLSConn(sess, l.cfg, false)
 		if err != nil {
+			logutil.Infof("kcp tls setup error: sid=%s path_family=%s remote=%s err=%v", l.cfg.SecurityID, l.cfg.PathFamily, sess.RemoteAddr(), err)
 			_ = sess.Close()
 			continue
 		}
 		if err := tlsConn.HandshakeContext(ctx); err != nil {
+			logutil.Infof("kcp tls handshake error: sid=%s path_family=%s remote=%s err=%v", l.cfg.SecurityID, l.cfg.PathFamily, sess.RemoteAddr(), err)
 			_ = tlsConn.Close()
 			_ = sess.Close()
 			continue
 		}
 		_ = tlsConn.SetDeadline(time.Time{})
+		logutil.Infof("kcp tls handshake ok: sid=%s path_family=%s remote=%s", l.cfg.SecurityID, l.cfg.PathFamily, sess.RemoteAddr())
 
 		owned := &ownedNetConn{
 			Conn:    tlsConn,
@@ -176,9 +255,11 @@ func (l *kcpSessionListener) Accept(ctx context.Context) (PeerSession, error) {
 		}
 		muxSession, err := yamuxForRole(owned, false)
 		if err != nil {
+			logutil.Infof("kcp yamux setup error: sid=%s path_family=%s remote=%s err=%v", l.cfg.SecurityID, l.cfg.PathFamily, sess.RemoteAddr(), err)
 			_ = owned.Close()
 			continue
 		}
+		logutil.Infof("kcp yamux session ready: sid=%s path_family=%s remote=%s", l.cfg.SecurityID, l.cfg.PathFamily, sess.RemoteAddr())
 		return newYamuxPeerSession(l.cfg.sessionKey(), muxSession, l.em, "kcp+tls+yamux", l.cfg.IdleTimeout), nil
 	}
 }
@@ -190,8 +271,8 @@ func (l *kcpSessionListener) Close() error {
 	if l.ln != nil {
 		_ = l.ln.Close()
 	}
-	if l.udp != nil {
-		return l.udp.Close()
+	if l.pc != nil {
+		return l.pc.Close()
 	}
 	return nil
 }

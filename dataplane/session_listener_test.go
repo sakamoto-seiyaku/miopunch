@@ -6,7 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/apernet/quic-go"
+
 	"github.com/miopunch/miopunch/connectivity"
+	"github.com/miopunch/miopunch/internal/punching"
+	"github.com/miopunch/miopunch/internal/udpowner"
+	"github.com/miopunch/miopunch/internal/wire"
 )
 
 func TestPeerSessionListener_QUIC_AcceptTwiceAndServeStreams(t *testing.T) {
@@ -54,17 +59,76 @@ func TestPeerSessionListener_QUIC_AcceptTwiceAndServeStreams(t *testing.T) {
 	}
 }
 
-func TestPeerSessionListener_KCP_AcceptTwiceAndServeStreams(t *testing.T) {
+func TestPeerSessionListener_QUIC_TransportOwned_Brutal(t *testing.T) {
 	t.Parallel()
-	t.Skip("KCP PeerSessionListener is not stable yet; needs deeper investigation before locking semantics. QUIC/TLS listener coverage remains.")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	t.Cleanup(cancel)
+
+	serverUDP := listenLocalUDP(t)
+	cfg := testSessionConfig(ProtocolQUIC, PathFamilyUDP4)
+	cfg.QuicCC = QUICCCBrutal
+	cfg.Brutal.UpBps = 1_000_000
+	cfg.Brutal.DownBps = 1_000_000
+
+	serverTr := &quic.Transport{Conn: serverUDP}
+	ln, err := ListenSessionsWithQUICTransport(ctx, cfg, serverTr, serverUDP, nil)
+	if err != nil {
+		t.Fatalf("ListenSessionsWithQUICTransport(quic) error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		_ = ln.Close()
+		_ = serverTr.Close()
+	})
+
+	serverAddr := serverUDP.LocalAddr().(*net.UDPAddr)
+
+	acceptCh := make(chan sessionResult, 1)
+	go func() {
+		sess, err := ln.Accept(ctx)
+		acceptCh <- sessionResult{session: sess, err: err}
+	}()
+
+	clientUDP := listenLocalUDP(t)
+	clientTr := &quic.Transport{Conn: clientUDP}
+	clientSess, err := DialSessionWithQUICTransport(ctx, cfg, clientTr, serverAddr, nil)
+	if err != nil {
+		_ = clientTr.Close()
+		_ = clientUDP.Close()
+		t.Fatalf("DialSessionWithQUICTransport(quic brutal) error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		_ = clientSess.Close(CloseReasonDaemonShutdown)
+		_ = clientTr.Close()
+		_ = clientUDP.Close()
+	})
+
+	res := <-acceptCh
+	if res.err != nil {
+		t.Fatalf("listener.Accept(quic brutal) error = %v, want nil", res.err)
+	}
+	t.Cleanup(func() { _ = res.session.Close(CloseReasonDaemonShutdown) })
+
+	runShellPingStreams(t, ctx, clientSess, res.session, 1)
+}
+
+func TestPeerSessionListener_KCP_AcceptTwiceAndServeStreams(t *testing.T) {
+	// This test is timing-sensitive (KCP + TLS + yamux). Keep it non-parallel to
+	// reduce flakiness under load.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
 
 	serverUDP := listenLocalUDP(t)
 	cfg := testSessionConfig(ProtocolKCP, PathFamilyUDP4)
 
-	ln, err := ListenSessions(ctx, cfg, serverUDP, nil)
+	owner, err := udpowner.NewKCPOwner(serverUDP, udpowner.KCPOwnerConfig{
+		Traversal: udpowner.DemuxConfig{Key: cfg.SecretKey},
+	})
+	if err != nil {
+		t.Fatalf("NewKCPOwner error = %v, want nil", err)
+	}
+
+	ln, err := ListenSessionsWithKCPPacketConn(ctx, cfg, owner.PacketConn(), nil)
 	if err != nil {
 		t.Fatalf("ListenSessions(kcp) error = %v, want nil", err)
 	}
@@ -72,10 +136,31 @@ func TestPeerSessionListener_KCP_AcceptTwiceAndServeStreams(t *testing.T) {
 
 	serverAddr := serverUDP.LocalAddr().(*net.UDPAddr)
 
+	// Regression: punching packets must not reach the KCP listener accept path.
+	{
+		punchConn := listenLocalUDP(t)
+		defer punchConn.Close()
+
+		msg := &wire.NatHoleSid{TransactionID: "tx", Sid: "sid-1", Response: false, Nonce: "0"}
+		data, err := punching.EncodeMessage(msg, cfg.SecretKey)
+		if err != nil {
+			t.Fatalf("EncodeMessage error = %v, want nil", err)
+		}
+		if _, err := punchConn.WriteToUDP(data, serverAddr); err != nil {
+			t.Fatalf("WriteToUDP(punch) error = %v, want nil", err)
+		}
+
+		punchCtx, cancelPunch := context.WithTimeout(ctx, 300*time.Millisecond)
+		defer cancelPunch()
+		_, err = ln.Accept(punchCtx)
+		if err == nil {
+			t.Fatalf("unexpected Accept success after only punching packet")
+		}
+	}
+
 	for i := 0; i < 2; i++ {
 		clientUDP := listenLocalUDP(t)
-		attemptCtx, cancelAttempt := context.WithTimeout(ctx, 10*time.Second)
-		defer cancelAttempt()
+		attemptCtx, cancelAttempt := context.WithTimeout(ctx, 15*time.Second)
 
 		acceptCh := make(chan sessionResult, 1)
 		dialCh := make(chan sessionResult, 1)
@@ -102,12 +187,19 @@ func TestPeerSessionListener_KCP_AcceptTwiceAndServeStreams(t *testing.T) {
 			case clientRes = <-dialCh:
 				gotClient = true
 			case <-attemptCtx.Done():
-				t.Fatalf("kcp attempt timed out: dial_err=%v accept_err=%v", clientRes.err, serverRes.err)
+				cancelAttempt()
+				t.Fatalf(
+					"kcp attempt timed out: gotDial=%v gotAccept=%v dial_err=%v accept_err=%v owner=%+v",
+					gotClient, gotServer, clientRes.err, serverRes.err, owner.Stats(),
+				)
 			}
 		}
+		cancelAttempt()
 		if clientRes.err != nil || serverRes.err != nil {
 			if clientRes.session != nil {
 				_ = clientRes.session.Close(CloseReasonDaemonShutdown)
+			} else {
+				_ = clientUDP.Close()
 			}
 			if serverRes.session != nil {
 				_ = serverRes.session.Close(CloseReasonDaemonShutdown)
@@ -126,6 +218,73 @@ func TestPeerSessionListener_KCP_AcceptTwiceAndServeStreams(t *testing.T) {
 		_ = clientSess.Close(CloseReasonDaemonShutdown)
 		_ = serverSess.Close(CloseReasonDaemonShutdown)
 	}
+}
+
+func TestPeerSession_KCP_PacketConnDeadlineClearedAfterHandshake(t *testing.T) {
+	// This test protects against leaking the handshake context deadline into the
+	// long-lived packetconn used by kcp-go.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+
+	serverUDP := listenLocalUDP(t)
+	cfg := testSessionConfig(ProtocolKCP, PathFamilyUDP4)
+
+	serverOwner, err := udpowner.NewKCPOwner(serverUDP, udpowner.KCPOwnerConfig{
+		Traversal: udpowner.DemuxConfig{Key: cfg.SecretKey},
+	})
+	if err != nil {
+		t.Fatalf("NewKCPOwner(server) error = %v, want nil", err)
+	}
+
+	ln, err := ListenSessionsWithKCPPacketConn(ctx, cfg, serverOwner.PacketConn(), nil)
+	if err != nil {
+		t.Fatalf("ListenSessionsWithKCPPacketConn error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+
+	serverAddr := serverUDP.LocalAddr().(*net.UDPAddr)
+
+	acceptCh := make(chan sessionResult, 1)
+	go func() {
+		sess, err := ln.Accept(ctx)
+		acceptCh <- sessionResult{session: sess, err: err}
+	}()
+
+	clientUDP := listenLocalUDP(t)
+	clientOwner, err := udpowner.NewKCPOwner(clientUDP, udpowner.KCPOwnerConfig{
+		Traversal: udpowner.DemuxConfig{Key: cfg.SecretKey},
+	})
+	if err != nil {
+		t.Fatalf("NewKCPOwner(client) error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = clientOwner.Close() })
+
+	handshakeCtx, cancelHandshake := context.WithTimeout(ctx, 1*time.Second)
+	t.Cleanup(cancelHandshake)
+	handshakeDeadline, _ := handshakeCtx.Deadline()
+
+	clientSess, err := DialSessionWithKCPPacketConn(handshakeCtx, cfg, clientOwner.PacketConn(), serverAddr, nil)
+	if err != nil {
+		t.Fatalf("DialSessionWithKCPPacketConn error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = clientSess.Close(CloseReasonDaemonShutdown) })
+
+	res := <-acceptCh
+	if res.err != nil {
+		t.Fatalf("listener.Accept(kcp) error = %v, want nil", res.err)
+	}
+	serverSess := res.session
+	t.Cleanup(func() { _ = serverSess.Close(CloseReasonDaemonShutdown) })
+
+	// Wait until the handshake deadline elapses. If DialSessionWithKCPPacketConn
+	// leaked the deadline to the underlying packetconn, the session would start
+	// failing reads and become unusable here.
+	time.Sleep(time.Until(handshakeDeadline.Add(150 * time.Millisecond)))
+
+	runCtx, cancelRun := context.WithTimeout(ctx, 5*time.Second)
+	t.Cleanup(cancelRun)
+
+	runShellPingStreams(t, runCtx, clientSess, serverSess, 1)
 }
 
 func TestPeerSessionListener_TLS_AcceptTwiceAndServeStreams(t *testing.T) {

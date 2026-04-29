@@ -198,6 +198,10 @@ func (s *Session) RunClient(ctx context.Context, m *wire.NatHoleClient) (*wire.N
 	if err := s.waitJSON(exchCtx, s.attemptTopic(dialID, "resp/client"), &resp); err != nil {
 		return nil, err
 	}
+	// For traversal / dataplane, both sides must agree on a stable attempt key.
+	// The dial_id (visitor tx) is shared by both peers, while the client_tx is
+	// intentionally unique per attempt and only used for MQTT correlation.
+	resp.TransactionID = dialID
 
 	barCtx, cancel := context.WithTimeout(ctx, s.cfg.BarrierTimeout)
 	defer cancel()
@@ -637,6 +641,8 @@ func (s *Session) runClientAttempt(ctx context.Context, dialID string, visitor *
 	if err := waitJSONFromInbound(exchCtx, in, s.attemptTopic(dialID, "resp/client"), &resp); err != nil {
 		return nil, clientMsg, 0, err
 	}
+	// See RunClient: expose dial_id as the transaction_id for traversal / dataplane.
+	resp.TransactionID = dialID
 
 	barCtx, cancel := context.WithTimeout(ctx, s.cfg.BarrierTimeout)
 	defer cancel()

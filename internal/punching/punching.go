@@ -32,6 +32,7 @@ import (
 
 	"github.com/miopunch/miopunch/event"
 	"github.com/miopunch/miopunch/internal/eventctx"
+	"github.com/miopunch/miopunch/internal/udpowner"
 	"github.com/miopunch/miopunch/internal/wire"
 	"github.com/miopunch/miopunch/internal/xlog"
 	"github.com/miopunch/miopunch/nat"
@@ -409,11 +410,14 @@ func sleepWithContext(ctx context.Context, d time.Duration) bool {
 }
 
 // MakeHole is used to make a NAT hole between client and visitor.
-func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *wire.NatHoleResp, key []byte) (*net.UDPConn, *net.UDPAddr, error) {
+func MakeHole(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.TraversalDemux, m *wire.NatHoleResp, key []byte) (*net.UDPConn, *net.UDPAddr, error) {
 	xl := xlog.FromContextSafe(ctx)
 
 	if listenConn == nil {
 		return nil, nil, errors.New("listen udp conn is required")
+	}
+	if demux == nil {
+		return nil, nil, errors.New("nil traversal demux")
 	}
 	if m == nil {
 		return nil, nil, errors.New("nil NatHoleResp")
@@ -431,39 +435,12 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *wire.NatHoleResp,
 	subCtx, cancel := context.WithTimeout(ctx, plan.TotalBudget)
 	defer cancel()
 
-	transactionID := NewTransactionID()
-
-	listenConns := []*net.UDPConn{listenConn}
-	extraListenConns := make([]*net.UDPConn, 0, plan.ListenRandomPorts)
-	var winnerConn *net.UDPConn
-	defer func() {
-		for _, conn := range extraListenConns {
-			if conn == nil || conn == winnerConn {
-				continue
-			}
-			_ = conn.Close()
-		}
-	}()
-
-	if plan.Role == DetectRoleReceiver && plan.ListenRandomPorts > 0 {
-		for range plan.ListenRandomPorts {
-			tmpConn, err := net.ListenUDP("udp4", nil)
-			if err != nil {
-				xl.Warnf("listen random udp addr error: %v", err)
-				continue
-			}
-			extraListenConns = append(extraListenConns, tmpConn)
-			listenConns = append(listenConns, tmpConn)
-		}
+	transactionID := strings.TrimSpace(m.TransactionID)
+	if transactionID == "" {
+		transactionID = NewTransactionID()
 	}
-
-	writers := make(map[*net.UDPConn]*udpConnWriter, len(listenConns))
-	for _, conn := range listenConns {
-		if conn == nil {
-			continue
-		}
-		writers[conn] = newUDPConnWriter(conn)
-	}
+	ep := demux.Open(transactionID, 32)
+	defer ep.Close()
 
 	eventctx.Emit(ctx, event.Event{
 		Stage: event.StageAttempt,
@@ -474,13 +451,12 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *wire.NatHoleResp,
 			"mode":                plan.Mode,
 			"role":                plan.Role,
 			"ttl":                 plan.TTL,
-			"listen_ports":        len(listenConns),
-			"listen_random_ports": plan.ListenRandomPorts,
+			"listen_ports":        1,
+			"listen_random_ports": 0,
 		},
 	})
 
 	type detectResult struct {
-		conn  *net.UDPConn
 		raddr *net.UDPAddr
 		kind  string // request | response
 	}
@@ -490,28 +466,13 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *wire.NatHoleResp,
 	firstMsgOnce := sync.Once{}
 	firstSendOnce := sync.Once{}
 
-	recvLoop := func(w *udpConnWriter) {
+	recvLoop := func() {
 		defer wg.Done()
-		if w == nil || w.conn == nil {
-			return
-		}
-		conn := w.conn
 		for {
-			buf := pool.GetBuf(1024)
-			_ = conn.SetReadDeadline(time.Now().Add(udpPunchReadPollInterval))
-			n, raddr, err := conn.ReadFromUDP(buf)
-			_ = conn.SetReadDeadline(time.Time{})
+			buf := pool.GetBuf(2048)
+			n, raddr, err := ep.Recv(subCtx, buf)
 			if err != nil {
 				pool.PutBuf(buf)
-				select {
-				case <-subCtx.Done():
-					return
-				default:
-				}
-				var ne net.Error
-				if errors.As(err, &ne) && ne.Timeout() {
-					continue
-				}
 				return
 			}
 
@@ -545,21 +506,17 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *wire.NatHoleResp,
 			})
 
 			if !msg.Response {
-				// only wait for response messages if we are a sender
+				// Only respond to request messages if we are a receiver.
 				if plan.Role == DetectRoleSender {
 					continue
 				}
-
 				msg.Response = true
 				out, err := EncodeMessage(&msg, key)
 				if err != nil {
 					continue
 				}
-
 				for i := 0; i < udpPunchResponseBurstCount; i++ {
-					if err := w.WriteToUDP(subCtx, out, raddr, 0); err != nil {
-						break
-					}
+					_ = ep.SendTo(subCtx, out, raddr, 0)
 					if i+1 < udpPunchResponseBurstCount {
 						if !sleepWithContext(subCtx, udpPunchResponseBurstInterval) {
 							break
@@ -569,26 +526,22 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *wire.NatHoleResp,
 			}
 
 			select {
-			case resultCh <- detectResult{conn: conn, raddr: raddr, kind: msgKind}:
+			case resultCh <- detectResult{raddr: raddr, kind: msgKind}:
 			default:
 			}
 			return
 		}
 	}
 
-	for _, conn := range listenConns {
-		wg.Add(1)
-		go recvLoop(writers[conn])
-	}
+	wg.Add(1)
+	go recvLoop()
 
 	if plan.SendDelay > 0 {
 		timer := time.NewTimer(plan.SendDelay)
 		select {
 		case res := <-resultCh:
-			winnerConn = res.conn
 			cancel()
 			timer.Stop()
-			_ = closeNonWinnerUDPConns(listenConns, res.conn)
 			wg.Wait()
 			eventctx.Emit(ctx, event.Event{
 				Stage: event.StageAttempt,
@@ -601,7 +554,7 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *wire.NatHoleResp,
 					"elapsed_ms": time.Since(start).Milliseconds(),
 				},
 			})
-			return res.conn, res.raddr, nil
+			return listenConn, res.raddr, nil
 		case <-timer.C:
 		case <-subCtx.Done():
 			timer.Stop()
@@ -660,34 +613,36 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *wire.NatHoleResp,
 		firstSendErr := ""
 		firstSendAddr := ""
 		for _, detectAddr := range plan.DetectAddrs {
-			for _, conn := range listenConns {
-				if first {
-					firstSendOnce.Do(func() {
-						from := ""
-						if conn != nil && conn.LocalAddr() != nil {
-							from = conn.LocalAddr().String()
-						}
-						eventctx.Emit(ctx, event.Event{
-							Stage: event.StageAttempt,
-							Kind:  event.KindInfo,
-							Name:  "attempt.punching.probe.send.first",
-							Msg:   "punching first probe send attempt",
-							KVs: map[string]any{
-								"from": from,
-								"to":   detectAddr,
-								"ttl":  plan.TTL,
-							},
-						})
-					})
-				}
-				if err := sendSidMessage(subCtx, writers[conn], m.Sid, transactionID, detectAddr, key, plan.TTL); err != nil {
-					sendErrs++
-					if firstSendErr == "" {
-						firstSendErr = err.Error()
-						firstSendAddr = detectAddr
+			if first {
+				firstSendOnce.Do(func() {
+					from := ""
+					if listenConn != nil && listenConn.LocalAddr() != nil {
+						from = listenConn.LocalAddr().String()
 					}
-					xl.Tracef("send sid message from %s to %s error: %v", conn.LocalAddr(), detectAddr, err)
+					eventctx.Emit(ctx, event.Event{
+						Stage: event.StageAttempt,
+						Kind:  event.KindInfo,
+						Name:  "attempt.punching.probe.send.first",
+						Msg:   "punching first probe send attempt",
+						KVs: map[string]any{
+							"from": from,
+							"to":   detectAddr,
+							"ttl":  plan.TTL,
+						},
+					})
+				})
+			}
+			if err := sendSidMessage(subCtx, ep, m.Sid, transactionID, detectAddr, key, plan.TTL); err != nil {
+				sendErrs++
+				if firstSendErr == "" {
+					firstSendErr = err.Error()
+					firstSendAddr = detectAddr
 				}
+				from := ""
+				if listenConn != nil && listenConn.LocalAddr() != nil {
+					from = listenConn.LocalAddr().String()
+				}
+				xl.Tracef("send sid message from %s to %s error: %v", from, detectAddr, err)
 			}
 		}
 		if first && sendErrs > 0 {
@@ -705,26 +660,20 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *wire.NatHoleResp,
 		}
 
 		if first && len(plan.CandidatePorts) > 0 {
-			for _, conn := range listenConns {
-				w := writers[conn]
-				sendSidMessageToRangePorts(subCtx, plan.CandidateAddrs, plan.CandidatePorts, func(addr string) error {
-					return sendSidMessage(subCtx, w, m.Sid, transactionID, addr, key, plan.TTL)
-				})
-			}
+			sendSidMessageToRangePorts(subCtx, plan.CandidateAddrs, plan.CandidatePorts, func(addr string) error {
+				return sendSidMessage(subCtx, ep, m.Sid, transactionID, addr, key, plan.TTL)
+			})
 		}
 
 		if first && plan.SendRandomPorts > 0 && !didStartRandom {
 			didStartRandom = true
-			for _, conn := range listenConns {
-				w := writers[conn]
-				wg.Add(1)
-				go func(w *udpConnWriter) {
-					defer wg.Done()
-					sendSidMessageToRandomPorts(subCtx, plan.CandidateAddrs, plan.SendRandomPorts, func(addr string) error {
-						return sendSidMessage(subCtx, w, m.Sid, transactionID, addr, key, plan.TTL)
-					})
-				}(w)
-			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				sendSidMessageToRandomPorts(subCtx, plan.CandidateAddrs, plan.SendRandomPorts, func(addr string) error {
+					return sendSidMessage(subCtx, ep, m.Sid, transactionID, addr, key, plan.TTL)
+				})
+			}()
 		}
 	}
 
@@ -735,9 +684,7 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *wire.NatHoleResp,
 	for {
 		select {
 		case res := <-resultCh:
-			winnerConn = res.conn
 			cancel()
-			_ = closeNonWinnerUDPConns(listenConns, res.conn)
 			wg.Wait()
 			eventctx.Emit(ctx, event.Event{
 				Stage: event.StageAttempt,
@@ -750,7 +697,7 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *wire.NatHoleResp,
 					"elapsed_ms": time.Since(start).Milliseconds(),
 				},
 			})
-			return res.conn, res.raddr, nil
+			return listenConn, res.raddr, nil
 		case <-ticker.C:
 			sendProbeRound(false)
 		case <-subCtx.Done():
@@ -788,66 +735,19 @@ func closeNonWinnerUDPConns(conns []*net.UDPConn, winner *net.UDPConn) error {
 	return nil
 }
 
-func waitDetectMessage(
-	ctx context.Context, conn *net.UDPConn, sid string, key []byte,
-	timeout time.Duration, role string,
-) (*net.UDPAddr, error) {
-	xl := xlog.FromContextSafe(ctx)
-	for {
-		buf := pool.GetBuf(1024)
-		_ = conn.SetReadDeadline(time.Now().Add(timeout))
-		n, raddr, err := conn.ReadFromUDP(buf)
-		_ = conn.SetReadDeadline(time.Time{})
-		if err != nil {
-			pool.PutBuf(buf)
-			return nil, err
-		}
-		xl.Debugf("get udp message local %s, from %s", conn.LocalAddr(), raddr)
-		var m wire.NatHoleSid
-		if err := DecodeMessageInto(buf[:n], key, &m); err != nil {
-			pool.PutBuf(buf)
-			xl.Warnf("decode sid message error: %v", err)
-			continue
-		}
-		pool.PutBuf(buf)
-
-		if m.Sid != sid {
-			xl.Warnf("get sid message with wrong sid: %s, expect: %s", m.Sid, sid)
-			continue
-		}
-
-		if !m.Response {
-			// only wait for response messages if we are a sender
-			if role == DetectRoleSender {
-				continue
-			}
-
-			m.Response = true
-			buf2, err := EncodeMessage(&m, key)
-			if err != nil {
-				xl.Warnf("encode sid message error: %v", err)
-				continue
-			}
-			_, _ = conn.WriteToUDP(buf2, raddr)
-		}
-		return raddr, nil
-	}
-}
-
 func sendSidMessage(
-	ctx context.Context, w *udpConnWriter,
+	ctx context.Context, ep udpowner.TraversalEndpoint,
 	sid string, transactionID string, addr string, key []byte, ttl int,
 ) error {
 	xl := xlog.FromContextSafe(ctx)
-	if w == nil || w.conn == nil {
-		return errors.New("nil udp conn")
+	if ep == nil {
+		return errors.New("nil traversal endpoint")
 	}
-	conn := w.conn
 	ttlStr := ""
 	if ttl > 0 {
 		ttlStr = fmt.Sprintf(" with ttl %d", ttl)
 	}
-	xl.Tracef("send sid message from %s to %s%s", conn.LocalAddr(), addr, ttlStr)
+	xl.Tracef("send sid message to %s%s", addr, ttlStr)
 	raddr, err := net.ResolveUDPAddr("udp4", addr)
 	if err != nil {
 		return err
@@ -865,10 +765,7 @@ func sendSidMessage(
 	if err != nil {
 		return err
 	}
-	if err := w.WriteToUDP(ctx, buf, raddr, ttl); err != nil {
-		return err
-	}
-	return nil
+	return ep.SendTo(ctx, buf, raddr, ttl)
 }
 
 func sendSidMessageToRangePorts(

@@ -17,6 +17,7 @@ import (
 
 	"github.com/miopunch/miopunch/internal/http_panel"
 	"github.com/miopunch/miopunch/internal/localapi"
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/pocacceptor"
 	"github.com/miopunch/miopunch/internal/task"
@@ -24,6 +25,7 @@ import (
 
 func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int {
 	_ = stdout
+	logutil.InitLogger("console", "info", 0, true)
 
 	opt, _, err := parseUpOptions(args)
 	if err != nil {

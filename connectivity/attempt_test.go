@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/miopunch/miopunch/internal/udpowner"
 	"github.com/miopunch/miopunch/internal/wire"
 )
 
@@ -21,7 +22,7 @@ func TestAttempt_NilNatHoleRespReturnsError(t *testing.T) {
 		nil,
 		nil,
 		AttemptConfig{},
-		func(context.Context, *net.UDPConn, *wire.NatHoleResp, []byte) (*net.UDPConn, *net.UDPAddr, error) {
+		func(context.Context, *net.UDPConn, *udpowner.TraversalDemux, *wire.NatHoleResp, []byte) (*net.UDPConn, *net.UDPAddr, error) {
 			t.Fatalf("punch func should not be called for nil NatHoleResp")
 			return nil, nil, nil
 		},
@@ -180,7 +181,8 @@ func TestAttempt_AllowsPunchingWhenOnlyAssistedAddrsPresent(t *testing.T) {
 	defer cancel()
 
 	called := false
-	punch := func(ctx context.Context, listenConn *net.UDPConn, resp *wire.NatHoleResp, key []byte) (*net.UDPConn, *net.UDPAddr, error) {
+	punch := func(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.TraversalDemux, resp *wire.NatHoleResp, key []byte) (*net.UDPConn, *net.UDPAddr, error) {
+		_ = demux
 		called = true
 		return listenConn, &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 12345}, nil
 	}
