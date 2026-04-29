@@ -2,7 +2,6 @@
 
 ## Purpose
 `miopunch-dataplane` 定义并约束 `P3` 阶段“打洞成功后的数据面”能力边界与回归口径：在 `connectivity` / `xtcp-kernel` 已产出可用 UDP 或 TCP path 之后，建立数据面会话（UDP 使用 `kcp` / `quic`，TCP 使用 `tls`），提供 `quic` 下的拥塞控制选择（`bbr` / `brutal`），并输出可机读的 `payload exchanged` 证据链与统计信息。
-
 ## Requirements
 ### Requirement: Post-Connectivity Data Plane Boundary
 The system SHALL provide a post-connectivity `data plane` that starts only after traversal establishes a usable path (UDP or TCP).
@@ -207,3 +206,74 @@ handshake start, handshake success/failure, payload exchanged evidence, and tran
 - **WHEN** the peers exchange an application payload
 - **THEN** diagnostics include an explicit payload exchanged evidence event
 - **AND** transport statistics are recorded for the run
+
+### Requirement: UDP data plane complies with the socket owner / demux boundary
+When the selected connectivity path is `UDP`, the data plane SHALL be compatible with a single UDP socket owner / demux architecture:
+
+- The data plane MUST NOT require direct ownership of UDP packet receiving (`ReadFrom*`) when traversal is also active on the same UDP mapping.
+- The data plane implementation SHALL support coexistence with traversal packets on the same UDP socket / port mapping.
+
+#### Scenario: Data plane does not require exclusive UDP receive ownership
+- **GIVEN** traversal and data plane share a single UDP socket / port mapping
+- **WHEN** the system establishes a UDP-based peer transport session
+- **THEN** the session can run without violating the “single socket owner / demux” constraint
+- **AND** traversal packets do not corrupt or terminate an established data plane session
+
+### Requirement: UDP acceptor supports multi-peer concurrent session accept
+For UDP transports (`kcp` and `quic`), the server / acceptor side data plane SHALL support accepting multiple peer transport sessions over the same UDP port.
+
+The accept loop MUST NOT be single-shot. A long-lived session MUST NOT block other peers from establishing their own sessions to the same acceptor port.
+
+#### Scenario: Existing session does not block new inbound session
+- **GIVEN** an acceptor has already accepted and is serving a UDP peer transport session
+- **WHEN** another peer attempts to establish a new session to the same acceptor UDP port
+- **THEN** the acceptor accepts the new session without requiring the old session to close
+- **AND** both sessions can be used to open logical streams
+
+### Requirement: Data plane server accepts multiple inbound peer sessions concurrently
+On the controlled (server/acceptor) side, the data plane SHALL be able to accept and serve multiple inbound peer transport sessions concurrently.
+
+The system SHALL NOT exhibit "first session monopolizes acceptor" behavior where an already-established peer session prevents other peers from establishing their own sessions and opening logical streams.
+
+#### Scenario: Second peer can establish a session while the first session is active
+- **GIVEN** peer `p2` has an active healthy peer transport session to peer `p1`
+- **WHEN** another peer `p3` attempts to establish its own peer transport session to `p1`
+- **THEN** `p3` can establish the session and open a logical stream successfully
+- **AND** `p2` remaining connected does not require terminating `p2` to make progress
+
+### Requirement: QUIC server uses an accept loop for inbound connections
+When the selected data protocol is QUIC, the server side SHALL accept inbound QUIC connections using an accept loop.
+
+The server SHALL NOT accept only the first connection and then close the QUIC listener for the session lifetime.
+
+#### Scenario: QUIC server accepts multiple inbound connections
+- **WHEN** a QUIC data plane server is running for a peer
+- **AND** two different remote peers connect sequentially or concurrently
+- **THEN** the server accepts both inbound QUIC connections
+- **AND** each connection can open logical streams independently
+
+### Requirement: KCP server uses a listener/accept model over a packet connection
+When the selected data protocol is KCP, the server side SHALL support accepting multiple inbound KCP sessions over a packet connection.
+
+The implementation SHALL NOT bind the UDP socket to a single hard-coded KCP session (e.g., fixed conv) such that only one remote peer can be served.
+
+#### Scenario: KCP server accepts multiple inbound sessions
+- **WHEN** a KCP data plane server is running for a peer
+- **AND** two different remote peers connect sequentially or concurrently
+- **THEN** the server can accept a session from each peer
+- **AND** each accepted session can open logical streams independently
+
+### Requirement: Authorization revocation closes existing peer sessions on observation
+When a node observes an authorization revocation for a peer identity (for example, a valid `revoke_member` tombstone in its local view), it SHALL:
+
+1. Reject new logical stream opens from that revoked peer.
+2. Proactively close any existing peer transport sessions associated with that peer identity.
+
+The system SHALL NOT require a dedicated "revoke notification" message to the revoked peer for this behavior.
+
+#### Scenario: Revoked peer loses access immediately after tombstone observation
+- **GIVEN** a node has an existing peer transport session with a peer identity
+- **WHEN** the node observes a valid revocation tombstone for that identity
+- **THEN** the node closes the existing peer transport session(s) for that identity
+- **AND** subsequent logical stream opens from that identity are rejected with authorization/revocation diagnostics
+
