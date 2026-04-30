@@ -153,6 +153,62 @@ func EnsureDecls(stateDir string) (DeclsFileV0, error) {
 	return f, nil
 }
 
+func RawDeclMessages(decls []DeclV0) []json.RawMessage {
+	out := make([]json.RawMessage, 0, len(decls))
+	for _, decl := range decls {
+		data, err := json.Marshal(decl)
+		if err != nil {
+			continue
+		}
+		out = append(out, json.RawMessage(data))
+	}
+	return out
+}
+
+func MergeVerifiedDecls(stateDir string, head GovernanceHeadSnapshotV1, rawDecls []json.RawMessage) (DeclsFileV0, error) {
+	if len(rawDecls) == 0 {
+		return EnsureDecls(stateDir)
+	}
+
+	valid := make([]DeclV0, 0, len(rawDecls))
+	for _, raw := range rawDecls {
+		var decl DeclV0
+		if err := json.Unmarshal(raw, &decl); err != nil {
+			continue
+		}
+		if !isMergeableDeclKind(decl.Kind) {
+			continue
+		}
+		pub, ok, err := head.AdminEd25519Pub(decl.IssuerPeerID)
+		if err != nil || !ok {
+			continue
+		}
+		if err := VerifyDeclV0(pub, decl); err != nil {
+			continue
+		}
+		valid = append(valid, decl)
+	}
+	if len(valid) == 0 {
+		return EnsureDecls(stateDir)
+	}
+
+	return UpdateDecls(stateDir, func(f *DeclsFileV0) error {
+		for _, decl := range valid {
+			f.Decls = AddDeclSetUnionV0(f.Decls, decl)
+		}
+		return nil
+	})
+}
+
+func isMergeableDeclKind(kind string) bool {
+	switch strings.TrimSpace(kind) {
+	case DeclKindApproveMember, DeclKindRevokeMember:
+		return true
+	default:
+		return false
+	}
+}
+
 func loadDeclsFileUnlocked(path string) (DeclsFileV0, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -233,6 +289,8 @@ func NewApproveMemberDeclV0(now time.Time, issuer Identity, body ApproveMemberBo
 		return DeclV0{}, err
 	}
 	body.MemberPeerID = memberPeerID
+	body.V4Hint = NormalizeV4Hint(body.V4Hint)
+	body.V6Hint = NormalizeV6Hint(body.V6Hint)
 
 	issuerPeerID, err := controlplane.CanonicalizePeerID(issuer.PeerID)
 	if err != nil {

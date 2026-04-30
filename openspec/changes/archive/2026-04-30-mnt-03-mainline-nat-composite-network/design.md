@@ -16,6 +16,7 @@ MNT-01 validates real mainline two-node connectivity over controlled NAT profile
 **Non-Goals:**
 
 - Do not use lab-only helper state to choose bootstrap candidates, maintain neighbors, or determine success.
+- Do not let the lab write product semantic state. Lab writes are limited to audited infrastructure fixture fields needed to attach a real node to the controlled NAT/MQTT/STUN environment.
 - Do not require public MQTT brokers.
 - Do not expand GUI or shell feature matrices beyond minimal payload evidence needed by MNT-03.
 - Do not make Docker bridge networking the NAT model.
@@ -24,7 +25,7 @@ MNT-01 validates real mainline two-node connectivity over controlled NAT profile
 
 1. **Product-only group semantics**
 
-   Mainline `miopunch` owns bootstrap, presence, reachability hints, neighbor selection, active-edge validation, and recovery. Lab code may start nodes, attach networks, inject faults, and collect artifacts, but must not write product state or inject semantic conclusions.
+   Mainline `miopunch` owns bootstrap, presence, reachability hints, neighbor selection, active-edge validation, and recovery. Lab code may start nodes, attach networks, inject faults, collect artifacts, and set audited infrastructure fixture fields such as MQTT/STUN/P2P port and IP-family settings. It must not create peers, membership, governance, decls, bootstrap candidates, neighbor state, selected paths, payload success, or recovery conclusions.
 
 2. **Docker/systemd nodes attached to lab NAT**
 

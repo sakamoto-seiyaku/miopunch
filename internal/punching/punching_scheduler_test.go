@@ -56,7 +56,7 @@ func TestMakeHole_ReceiveBeforeProbe_CanWinDuringDelay(t *testing.T) {
 	defer peerConn.Close()
 
 	resp := &wire.NatHoleResp{
-		TransactionID: "tx",
+		TransactionID: "local-control-tx",
 		Sid:           "sid-1",
 		DetectBehavior: wire.NatHoleDetectBehavior{
 			Role:          DetectRoleReceiver,
@@ -81,7 +81,7 @@ func TestMakeHole_ReceiveBeforeProbe_CanWinDuringDelay(t *testing.T) {
 
 	go func() {
 		time.Sleep(50 * time.Millisecond)
-		msg := &wire.NatHoleSid{TransactionID: "tx", Sid: resp.Sid, Response: false, Nonce: "0"}
+		msg := &wire.NatHoleSid{TransactionID: resp.Sid, Sid: resp.Sid, Response: false, Nonce: "0"}
 		data, err := EncodeMessage(msg, key)
 		if err != nil {
 			return

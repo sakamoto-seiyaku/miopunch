@@ -41,6 +41,14 @@ func (m *Manager) runPingTask(taskID string, rawArgs []byte) {
 	if !ok {
 		m.addFact(taskID, poc.Fact{TermID: "peer_id", Message: "peer_id=" + args.PeerID})
 		m.addSuggestion(taskID, poc.Suggestion{Message: "join first: miopunch join <code>"})
+		m.recordTopologyAttempt(TopologyAttempt{
+			PeerID:        args.PeerID,
+			StartedAt:     time.Now().UTC().UnixMilli(),
+			Outcome:       "fail",
+			Stage:         string(poc.StagePeerContact),
+			ReasonCode:    string(poc.ReasonCodeNotFound),
+			StopCondition: "peer_config_missing",
+		})
 		m.done(taskID, poc.ReasonCodeNotFound, poc.ExitCodeNotFound)
 		return
 	}
@@ -64,6 +72,14 @@ func (m *Manager) runPingTask(taskID string, rawArgs []byte) {
 	if err != nil {
 		m.addFact(taskID, poc.Fact{Message: "dial peer: " + err.Error()})
 		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
+		m.recordTopologyAttempt(TopologyAttempt{
+			PeerID:        args.PeerID,
+			StartedAt:     time.Now().UTC().UnixMilli(),
+			Outcome:       "fail",
+			Stage:         string(poc.StagePeerContact),
+			ReasonCode:    string(poc.ReasonCodeUnavailable),
+			StopCondition: "dial_failed",
+		})
 		m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
 		return
 	}
@@ -121,5 +137,10 @@ func (m *Manager) runPingTask(taskID string, rawArgs []byte) {
 	}
 
 	m.addFact(taskID, poc.Fact{Message: "ping=ok"})
+	m.recordTopologyPayload(TopologyPayload{
+		PeerID:     args.PeerID,
+		Evidence:   "ping=ok",
+		ObservedAt: time.Now().UTC().UnixMilli(),
+	})
 	m.done(taskID, poc.ReasonCodeOK, poc.ExitCodeOK)
 }

@@ -27,13 +27,30 @@ type ControlError struct {
 	Suggestions []string `json:"suggestions,omitempty"`
 }
 
+type PeerSeed struct {
+	PeerID string `json:"peer_id"`
+
+	ProxyName   string `json:"proxy_name"`
+	SecretKey   string `json:"secret_key"`
+	MQTTBroker  string `json:"mqtt_broker"`
+	TopicPrefix string `json:"topic_prefix"`
+
+	V4Hint string `json:"v4_hint,omitempty"`
+	V6Hint string `json:"v6_hint,omitempty"`
+
+	DataProto string `json:"data_proto"`
+	QUICCC    string `json:"quic_cc"`
+}
+
 type Control struct {
 	Op string `json:"op"`
 
 	// POC-06.5: hello handshake (required before ping/sh_*).
-	PeerID      string          `json:"peer_id,omitempty"`
-	ApproveDecl json.RawMessage `json:"approve_decl,omitempty"`
-	SigB64      string          `json:"sig_b64,omitempty"`
+	PeerID      string            `json:"peer_id,omitempty"`
+	ApproveDecl json.RawMessage   `json:"approve_decl,omitempty"`
+	Decls       []json.RawMessage `json:"decls,omitempty"`
+	SeedPeer    *PeerSeed         `json:"seed_peer,omitempty"`
+	SigB64      string            `json:"sig_b64,omitempty"`
 
 	Target  string `json:"target,omitempty"`
 	Session string `json:"session,omitempty"`

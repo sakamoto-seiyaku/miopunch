@@ -25,6 +25,12 @@ type ownedNetConn struct {
 	closers []io.Closer
 }
 
+const kcpAcceptHandshakeTimeout = 5 * time.Second
+
+func kcpAcceptHandshakeContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, kcpAcceptHandshakeTimeout)
+}
+
 func (c *ownedNetConn) Close() error {
 	var firstErr error
 	for _, closer := range c.closers {
@@ -466,14 +472,6 @@ func serveKCPSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, r
 		}
 		_ = ln.SetDeadline(time.Time{})
 
-		// Defense-in-depth: our dial path currently uses a fixed conv (see internal/netutil).
-		// Traversal traffic should already be filtered out by the UDP socket owner / demux,
-		// but keep this check to avoid accepting unexpected KCP sessions.
-		if kcpSess.GetConv() != 1 {
-			_ = kcpSess.Close()
-			continue
-		}
-
 		applyKCPDefaults(kcpSess)
 
 		// KCP is an inner framing transport: we still bind identity via pinned TLS.
@@ -482,9 +480,17 @@ func serveKCPSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, r
 			_ = kcpSess.Close()
 			continue
 		}
-		if err := tlsConn.HandshakeContext(ctx); err != nil {
+		handshakeCtx, cancel := kcpAcceptHandshakeContext(ctx)
+		err = tlsConn.HandshakeContext(handshakeCtx)
+		cancel()
+		if err != nil {
 			_ = tlsConn.Close()
 			_ = kcpSess.Close()
+			if ctx.Err() != nil {
+				_ = ln.Close()
+				_ = listenConn.Close()
+				return nil, ctx.Err()
+			}
 			continue
 		}
 		_ = tlsConn.SetDeadline(time.Time{})

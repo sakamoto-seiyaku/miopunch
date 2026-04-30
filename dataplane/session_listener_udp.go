@@ -222,15 +222,6 @@ func (l *kcpSessionListener) Accept(ctx context.Context) (PeerSession, error) {
 		_ = l.ln.SetDeadline(time.Time{})
 		logutil.Infof("kcp session accepted: sid=%s path_family=%s remote=%s conv=%d", l.cfg.SecurityID, l.cfg.PathFamily, sess.RemoteAddr(), sess.GetConv())
 
-		// Defense-in-depth: our dial path currently uses a fixed conv (see internal/netutil).
-		// Traversal traffic should already be filtered out by the UDP socket owner / demux,
-		// but keep this check to avoid accepting unexpected KCP sessions.
-		if sess.GetConv() != 1 {
-			logutil.Infof("kcp session dropped unexpected conv: sid=%s path_family=%s remote=%s conv=%d", l.cfg.SecurityID, l.cfg.PathFamily, sess.RemoteAddr(), sess.GetConv())
-			_ = sess.Close()
-			continue
-		}
-
 		applyKCPDefaults(sess)
 
 		// KCP is an inner framing transport: we still bind identity via pinned TLS.
@@ -240,10 +231,16 @@ func (l *kcpSessionListener) Accept(ctx context.Context) (PeerSession, error) {
 			_ = sess.Close()
 			continue
 		}
-		if err := tlsConn.HandshakeContext(ctx); err != nil {
+		handshakeCtx, cancel := kcpAcceptHandshakeContext(ctx)
+		err = tlsConn.HandshakeContext(handshakeCtx)
+		cancel()
+		if err != nil {
 			logutil.Infof("kcp tls handshake error: sid=%s path_family=%s remote=%s err=%v", l.cfg.SecurityID, l.cfg.PathFamily, sess.RemoteAddr(), err)
 			_ = tlsConn.Close()
 			_ = sess.Close()
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 			continue
 		}
 		_ = tlsConn.SetDeadline(time.Time{})

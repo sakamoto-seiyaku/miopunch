@@ -29,6 +29,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /api/v0/status", s.handleStatus)
 	mux.HandleFunc("GET /api/v0/peers", s.handlePeers)
+	mux.HandleFunc("GET /api/v0/topology", s.handleTopology)
 	mux.HandleFunc("GET /api/v0/tasks", s.handleTasks)
 	mux.HandleFunc("GET /api/v0/tasks/{task_id}", s.handleTask)
 	mux.HandleFunc("POST /api/v0/tasks", s.handleCreateTask)

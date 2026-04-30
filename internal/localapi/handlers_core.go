@@ -65,6 +65,31 @@ func (s *Server) handlePeers(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, peersResponse{Peers: out})
 }
 
+func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
+	_ = r
+
+	snap, err := s.tasks.TopologySnapshot()
+	if err != nil {
+		reqID, _ := poc.NewRequestID()
+		writeError(w, ErrorResponse{
+			Stage:      "localapi",
+			ReasonCode: poc.ReasonCodeInternal,
+			ExitCode:   poc.ExitCodeInternal,
+			Message:    "failed to collect topology snapshot",
+			Facts: []poc.Fact{
+				{Message: "error=" + err.Error()},
+			},
+			Suggestions: []poc.Suggestion{
+				{Message: "retry"},
+			},
+			RequestID: reqID,
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, snap)
+}
+
 type tasksResponse struct {
 	Tasks []task.Task `json:"tasks"`
 }
@@ -215,7 +240,7 @@ func writeConflict(w http.ResponseWriter, requestID string, message string) {
 
 func isSupportedTaskKind(kind string) bool {
 	switch kind {
-	case "invite", "join", "approve", "ping", "sh_ls", "sh_attach", "revoke_member":
+	case "invite", "join", "approve", "ping", "bootstrap_more", "maintain_neighbors", "sh_ls", "sh_attach", "revoke_member":
 		return true
 	default:
 		return false

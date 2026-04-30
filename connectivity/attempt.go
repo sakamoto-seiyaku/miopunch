@@ -455,11 +455,14 @@ func directHandshakeFanout(ctx context.Context, demux *udpowner.TraversalDemux, 
 		}
 	}
 
-	tx := punching.NewTransactionID()
+	tx := strings.TrimSpace(sid)
+	if tx == "" {
+		tx = punching.NewTransactionID()
+	}
 	ep := demux.Open(tx, 8)
 	defer ep.Close()
 
-	// Reader: accept response as "reachable".
+	// Reader: respond to requests, and only accept responses as "reachable".
 	go func() {
 		buf := make([]byte, 2048)
 		for {
@@ -483,6 +486,11 @@ func directHandshakeFanout(ctx context.Context, demux *udpowner.TraversalDemux, 
 				continue
 			}
 			if !in.Response {
+				in.Response = true
+				resp, err := punching.EncodeMessage(&in, key)
+				if err == nil {
+					_ = ep.SendTo(ctx, resp, raddr, 0)
+				}
 				continue
 			}
 

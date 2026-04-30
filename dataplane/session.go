@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -160,6 +161,7 @@ type PeerSession interface {
 	Close(reason CloseReason) error
 	CloseReason() CloseReason
 	Healthy() bool
+	LastActivity() time.Time
 }
 
 type sessionBase struct {
@@ -197,6 +199,12 @@ func (b *sessionBase) Healthy() bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return !b.closed
+}
+
+func (b *sessionBase) LastActivity() time.Time {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.lastActivity
 }
 
 func (b *sessionBase) markActivity() {
@@ -389,8 +397,18 @@ func (s *logicalStream) SetWriteDeadline(t time.Time) error {
 
 // SessionManager stores in-memory peer sessions for a daemon/runtime.
 type SessionManager struct {
-	mu       sync.Mutex
-	sessions map[SessionKey]PeerSession
+	mu           sync.Mutex
+	sessions     map[SessionKey]PeerSession
+	recentClosed []SessionSummary
+}
+
+// SessionSummary is a stable subset of a live peer session, suitable for diagnostics.
+type SessionSummary struct {
+	Key                   SessionKey  `json:"key"`
+	Healthy               bool        `json:"healthy"`
+	LastActivityUnixMilli int64       `json:"last_activity_unix_ms,omitempty"`
+	ClosedAtUnixMilli     int64       `json:"closed_at_unix_ms,omitempty"`
+	CloseReason           CloseReason `json:"close_reason,omitempty"`
 }
 
 // NewSessionManager returns an empty in-memory peer session manager.
@@ -407,6 +425,9 @@ func (m *SessionManager) Put(sess PeerSession) {
 	m.mu.Lock()
 	old := m.sessions[key]
 	m.sessions[key] = sess
+	if old != nil && old != sess {
+		m.recordClosedLocked(old, CloseReasonSessionSuperseded)
+	}
 	m.mu.Unlock()
 
 	if old != nil && old != sess {
@@ -468,6 +489,9 @@ func (m *SessionManager) Close(key SessionKey, reason CloseReason) {
 	m.mu.Lock()
 	sess := m.sessions[key]
 	delete(m.sessions, key)
+	if sess != nil {
+		m.recordClosedLocked(sess, reason)
+	}
 	m.mu.Unlock()
 	if sess != nil {
 		_ = sess.Close(reason)
@@ -484,6 +508,7 @@ func (m *SessionManager) CloseAll(reason CloseReason) {
 	for key, sess := range m.sessions {
 		delete(m.sessions, key)
 		if sess != nil {
+			m.recordClosedLocked(sess, reason)
 			sessions = append(sessions, sess)
 		}
 	}
@@ -492,4 +517,82 @@ func (m *SessionManager) CloseAll(reason CloseReason) {
 	for _, sess := range sessions {
 		_ = sess.Close(reason)
 	}
+}
+
+const maxRecentClosedSessionSummaries = 32
+
+func (m *SessionManager) recordClosedLocked(sess PeerSession, reason CloseReason) {
+	if sess == nil {
+		return
+	}
+	if reason == "" {
+		reason = sess.CloseReason()
+	}
+	summary := SessionSummary{
+		Key:                   sess.Key().Normalize(),
+		Healthy:               false,
+		LastActivityUnixMilli: sess.LastActivity().UTC().UnixMilli(),
+		ClosedAtUnixMilli:     time.Now().UTC().UnixMilli(),
+		CloseReason:           normalizeCloseReason(reason),
+	}
+	m.recentClosed = append(m.recentClosed, summary)
+	if len(m.recentClosed) > maxRecentClosedSessionSummaries {
+		m.recentClosed = append([]SessionSummary(nil), m.recentClosed[len(m.recentClosed)-maxRecentClosedSessionSummaries:]...)
+	}
+}
+
+// ListSummaries returns stable summaries of currently stored healthy sessions.
+func (m *SessionManager) ListSummaries() []SessionSummary {
+	return filterSessionSummaries(m.ListAllSummaries(), true)
+}
+
+// ListAllSummaries returns summaries of stored sessions plus recent closures.
+func (m *SessionManager) ListAllSummaries() []SessionSummary {
+	if m == nil {
+		return nil
+	}
+	m.mu.Lock()
+	out := make([]SessionSummary, 0, len(m.sessions)+len(m.recentClosed))
+	for k, sess := range m.sessions {
+		if sess == nil {
+			continue
+		}
+		healthy := sess.Healthy()
+		out = append(out, SessionSummary{
+			Key:                   k.Normalize(),
+			Healthy:               healthy,
+			LastActivityUnixMilli: sess.LastActivity().UTC().UnixMilli(),
+			CloseReason:           sess.CloseReason(),
+		})
+	}
+	out = append(out, m.recentClosed...)
+	m.mu.Unlock()
+
+	sort.Slice(out, func(i, j int) bool {
+		a, b := out[i].Key, out[j].Key
+		if a.RemotePeerID != b.RemotePeerID {
+			return a.RemotePeerID < b.RemotePeerID
+		}
+		if a.Protocol != b.Protocol {
+			return string(a.Protocol) < string(b.Protocol)
+		}
+		if a.SecurityID != b.SecurityID {
+			return a.SecurityID < b.SecurityID
+		}
+		if a.PathFamily != b.PathFamily {
+			return string(a.PathFamily) < string(b.PathFamily)
+		}
+		return out[i].ClosedAtUnixMilli < out[j].ClosedAtUnixMilli
+	})
+	return out
+}
+
+func filterSessionSummaries(in []SessionSummary, healthy bool) []SessionSummary {
+	out := make([]SessionSummary, 0, len(in))
+	for _, summary := range in {
+		if summary.Healthy == healthy {
+			out = append(out, summary)
+		}
+	}
+	return out
 }

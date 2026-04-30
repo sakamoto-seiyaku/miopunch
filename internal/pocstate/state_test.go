@@ -8,6 +8,8 @@ func TestLocalConfigToPeerCarriesConnectivityOverrides(t *testing.T) {
 		SecretKey:            "secret",
 		MQTTBroker:           "broker:1883",
 		TopicPrefix:          "miopunch/mnt01",
+		V4Hint:               "direct",
+		V6Hint:               "none",
 		DataProto:            "quic",
 		QUICCC:               "bbr",
 		P2PNetwork:           "tcp_only",
@@ -23,6 +25,12 @@ func TestLocalConfigToPeerCarriesConnectivityOverrides(t *testing.T) {
 
 	if got.P2PNetwork != local.P2PNetwork {
 		t.Errorf("LocalConfig.ToPeer().P2PNetwork = %q, want %q", got.P2PNetwork, local.P2PNetwork)
+	}
+	if got.V4Hint != local.V4Hint {
+		t.Errorf("LocalConfig.ToPeer().V4Hint = %q, want %q", got.V4Hint, local.V4Hint)
+	}
+	if got.V6Hint != local.V6Hint {
+		t.Errorf("LocalConfig.ToPeer().V6Hint = %q, want %q", got.V6Hint, local.V6Hint)
 	}
 	if got.P2PIPFamily != local.P2PIPFamily {
 		t.Errorf("LocalConfig.ToPeer().P2PIPFamily = %q, want %q", got.P2PIPFamily, local.P2PIPFamily)

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID:-0}" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+guest_root="$(cd -- "${script_dir}/.." && pwd)"
+runner="${script_dir}/mlab-mnt03-run"
+[[ -x "${runner}" ]] || { echo "error: missing runner: ${runner}" >&2; exit 1; }
+
+# shellcheck source=/dev/null
+source "${guest_root}/lib/mnt03_aggregate.sh"
+
+artifacts_root="${MLAB_ARTIFACTS_ROOT:-/opt/miopunch-lab/artifacts}"
+ts="$(date -u +%Y%m%dT%H%M%SZ)"
+aggregate_dir="${artifacts_root}/${ts}-mnt03-smoke-aggregate"
+mnt03_aggregate_init "${aggregate_dir}"
+
+mnt03_run_case "mnt03 smoke" --case-id mnt03-smoke-2node-substrate --stage 2node-substrate --profile 2node-substrate
+mnt03_run_case "mnt03 smoke" --case-id mnt03-smoke-3node-bootstrap --stage 3node-bootstrap --profile 3node-bootstrap
+
+echo "summary: pass=${mnt03_pass} fail=${mnt03_fail} pending=${mnt03_pending}"
+mnt03_write_summary "${aggregate_dir}/summary.json" "mnt03-smoke"
+echo "aggregate=${aggregate_dir}"
+[[ "${mnt03_fail}" -eq 0 ]]

@@ -28,6 +28,20 @@ type PingArgs struct {
 	P2PNetwork string `json:"p2p_network,omitempty"` // auto | udp_only | tcp_only
 }
 
+type BootstrapMoreArgs struct {
+	Mode string `json:"mode,omitempty"` // request | respond_once
+
+	TargetPeerID     string   `json:"target_peer_id,omitempty"`
+	AttemptedPeerIDs []string `json:"attempted_peer_ids,omitempty"`
+	Round            int      `json:"round,omitempty"`
+	Timeout          string   `json:"timeout,omitempty"`
+}
+
+type MaintainNeighborsArgs struct {
+	// P2PNetwork overrides session policy for this maintenance cycle.
+	P2PNetwork string `json:"p2p_network,omitempty"` // auto | udp_only | tcp_only
+}
+
 type ShLSArgs struct {
 	PeerID string `json:"peer_id"`
 	Target string `json:"target,omitempty"`
@@ -82,6 +96,26 @@ func (a ApproveArgs) normalize() ApproveArgs {
 
 func (a PingArgs) normalize() PingArgs {
 	a.PeerID = strings.TrimSpace(a.PeerID)
+	a.P2PNetwork = strings.TrimSpace(a.P2PNetwork)
+	return a
+}
+
+func (a BootstrapMoreArgs) normalize() BootstrapMoreArgs {
+	a.Mode = strings.TrimSpace(a.Mode)
+	a.TargetPeerID = strings.TrimSpace(a.TargetPeerID)
+	a.Timeout = strings.TrimSpace(a.Timeout)
+	out := make([]string, 0, len(a.AttemptedPeerIDs))
+	for _, peerID := range a.AttemptedPeerIDs {
+		peerID = strings.TrimSpace(peerID)
+		if peerID != "" {
+			out = append(out, peerID)
+		}
+	}
+	a.AttemptedPeerIDs = out
+	return a
+}
+
+func (a MaintainNeighborsArgs) normalize() MaintainNeighborsArgs {
 	a.P2PNetwork = strings.TrimSpace(a.P2PNetwork)
 	return a
 }

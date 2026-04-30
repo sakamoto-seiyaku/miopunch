@@ -98,6 +98,14 @@ func (c *Client) GetPeers(ctx context.Context) (PeersResponse, error) {
 	return resp, nil
 }
 
+func (c *Client) GetTopology(ctx context.Context) (task.TopologySnapshot, error) {
+	var resp task.TopologySnapshot
+	if err := c.doJSON(ctx, http.MethodGet, "/api/v0/topology", nil, &resp); err != nil {
+		return task.TopologySnapshot{}, err
+	}
+	return resp, nil
+}
+
 func (c *Client) GetTasks(ctx context.Context) (TasksResponse, error) {
 	var resp TasksResponse
 	if err := c.doJSON(ctx, http.MethodGet, "/api/v0/tasks", nil, &resp); err != nil {

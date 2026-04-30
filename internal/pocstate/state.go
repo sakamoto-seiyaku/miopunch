@@ -33,6 +33,9 @@ type LocalConfig struct {
 	MQTTBroker  string `json:"mqtt_broker"`
 	TopicPrefix string `json:"topic_prefix"`
 
+	V4Hint string `json:"v4_hint,omitempty"`
+	V6Hint string `json:"v6_hint,omitempty"`
+
 	DataProto string `json:"data_proto"` // quic | kcp
 	QUICCC    string `json:"quic_cc"`    // bbr | brutal (only when data_proto=quic)
 
@@ -52,6 +55,9 @@ type PeerConfig struct {
 	SecretKey   string `json:"secret_key"`
 	MQTTBroker  string `json:"mqtt_broker"`
 	TopicPrefix string `json:"topic_prefix"`
+
+	V4Hint string `json:"v4_hint,omitempty"`
+	V6Hint string `json:"v6_hint,omitempty"`
 
 	DataProto string `json:"data_proto"` // quic | kcp
 	QUICCC    string `json:"quic_cc"`    // bbr | brutal (only when data_proto=quic)
@@ -166,6 +172,8 @@ func (c LocalConfig) ToPeer() PeerConfig {
 		SecretKey:   c.SecretKey,
 		MQTTBroker:  c.MQTTBroker,
 		TopicPrefix: c.TopicPrefix,
+		V4Hint:      NormalizeV4Hint(c.V4Hint),
+		V6Hint:      NormalizeV6Hint(c.V6Hint),
 		DataProto:   c.DataProto,
 		QUICCC:      c.QUICCC,
 		P2PNetwork:  c.P2PNetwork,
@@ -199,6 +207,8 @@ func (c *LocalConfig) NormalizeDefaults() {
 	if strings.TrimSpace(c.P2PNetwork) == "" {
 		c.P2PNetwork = defaultP2PNetwork
 	}
+	c.V4Hint = NormalizeV4Hint(c.V4Hint)
+	c.V6Hint = NormalizeV6Hint(c.V6Hint)
 	c.StunServers = normalizeBrokers(c.StunServers)
 }
 
@@ -221,5 +231,7 @@ func (c *PeerConfig) NormalizeDefaults() {
 	if strings.TrimSpace(c.P2PNetwork) == "" {
 		c.P2PNetwork = defaultP2PNetwork
 	}
+	c.V4Hint = NormalizeV4Hint(c.V4Hint)
+	c.V6Hint = NormalizeV6Hint(c.V6Hint)
 	c.StunServers = normalizeBrokers(c.StunServers)
 }

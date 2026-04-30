@@ -285,6 +285,249 @@ func runPing(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 	return runTaskKind(opt, "ping", pingArgs, stdout, stderr)
 }
 
+func runBootstrapMore(opt globalOptions, args []string, stdout, stderr io.Writer) int {
+	bootstrapArgs := task.BootstrapMoreArgs{
+		Mode:  "request",
+		Round: 1,
+	}
+
+	i := 0
+	for i < len(args) {
+		a := args[i]
+		if a == "--" {
+			i++
+			break
+		}
+
+		switch {
+		case a == "--respond-once":
+			bootstrapArgs.Mode = "respond_once"
+			i++
+			continue
+		case a == "--timeout":
+			if i+1 >= len(args) {
+				return exitWithFailure(opt, stdout, stderr, "bootstrap_more", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "missing value for --timeout"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch bootstrap-more --timeout 5s <peer_id>"},
+					},
+				})
+			}
+			bootstrapArgs.Timeout = args[i+1]
+			i += 2
+			continue
+		case strings.HasPrefix(a, "--timeout="):
+			bootstrapArgs.Timeout = strings.TrimPrefix(a, "--timeout=")
+			i++
+			continue
+		case a == "--round":
+			if i+1 >= len(args) {
+				return exitWithFailure(opt, stdout, stderr, "bootstrap_more", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "missing value for --round"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch bootstrap-more --round 1 <peer_id>"},
+					},
+				})
+			}
+			n, err := strconv.Atoi(strings.TrimSpace(args[i+1]))
+			if err != nil {
+				return exitWithFailure(opt, stdout, stderr, "bootstrap_more", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "invalid --round"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch bootstrap-more --round 1 <peer_id>"},
+					},
+				})
+			}
+			bootstrapArgs.Round = n
+			i += 2
+			continue
+		case strings.HasPrefix(a, "--round="):
+			n, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(a, "--round=")))
+			if err != nil {
+				return exitWithFailure(opt, stdout, stderr, "bootstrap_more", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "invalid --round"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch bootstrap-more --round 1 <peer_id>"},
+					},
+				})
+			}
+			bootstrapArgs.Round = n
+			i++
+			continue
+		case a == "--attempted":
+			if i+1 >= len(args) {
+				return exitWithFailure(opt, stdout, stderr, "bootstrap_more", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "missing value for --attempted"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch bootstrap-more --attempted peer1,peer2 <peer_id>"},
+					},
+				})
+			}
+			bootstrapArgs.AttemptedPeerIDs = append(bootstrapArgs.AttemptedPeerIDs, splitNonEmptyComma(args[i+1])...)
+			i += 2
+			continue
+		case strings.HasPrefix(a, "--attempted="):
+			bootstrapArgs.AttemptedPeerIDs = append(bootstrapArgs.AttemptedPeerIDs, splitNonEmptyComma(strings.TrimPrefix(a, "--attempted="))...)
+			i++
+			continue
+		case strings.HasPrefix(a, "-"):
+			return exitWithFailure(opt, stdout, stderr, "bootstrap_more", "", failureOutput{
+				Stage:      "cli",
+				ReasonCode: poc.ReasonCodeBadRequest,
+				ExitCode:   poc.ExitCodeBadRequest,
+				Facts:      []poc.Fact{{Message: "unknown arg: " + a}},
+				Suggestions: []poc.Suggestion{
+					{Message: "use: miopunch bootstrap-more [--respond-once] [--attempted peer1,peer2] <peer_id>"},
+				},
+			})
+		default:
+			if bootstrapArgs.TargetPeerID == "" {
+				bootstrapArgs.TargetPeerID = a
+			}
+			i++
+			continue
+		}
+	}
+
+	for ; i < len(args); i++ {
+		if bootstrapArgs.TargetPeerID == "" {
+			bootstrapArgs.TargetPeerID = args[i]
+		}
+	}
+
+	if bootstrapArgs.Mode != "respond_once" && strings.TrimSpace(bootstrapArgs.TargetPeerID) == "" {
+		return exitWithFailure(opt, stdout, stderr, "bootstrap_more", "", failureOutput{
+			Stage:      "cli",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts:      []poc.Fact{{Message: "missing target peer_id"}},
+			Suggestions: []poc.Suggestion{
+				{Message: "use: miopunch bootstrap-more <admin_peer_id>"},
+			},
+		})
+	}
+
+	return runTaskKind(opt, "bootstrap_more", bootstrapArgs, stdout, stderr)
+}
+
+func splitNonEmptyComma(raw string) []string {
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+func runMaintainNeighbors(opt globalOptions, args []string, stdout, stderr io.Writer) int {
+	p2pNetwork := "auto"
+	i := 0
+	for i < len(args) {
+		a := args[i]
+		if a == "--" {
+			i++
+			break
+		}
+
+		switch {
+		case a == "-u":
+			p2pNetwork = "udp_only"
+			i++
+			continue
+		case a == "-t":
+			p2pNetwork = "tcp_only"
+			i++
+			continue
+		case a == "--p2p-network":
+			if i+1 >= len(args) {
+				return exitWithFailure(opt, stdout, stderr, "maintain_neighbors", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "missing value for --p2p-network"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch maintain-neighbors --p2p-network auto|udp_only|tcp_only"},
+					},
+				})
+			}
+			p2pNetwork = args[i+1]
+			i += 2
+			continue
+		case strings.HasPrefix(a, "--p2p-network="):
+			p2pNetwork = strings.TrimPrefix(a, "--p2p-network=")
+			i++
+			continue
+		case strings.HasPrefix(a, "-"):
+			return exitWithFailure(opt, stdout, stderr, "maintain_neighbors", "", failureOutput{
+				Stage:      "cli",
+				ReasonCode: poc.ReasonCodeBadRequest,
+				ExitCode:   poc.ExitCodeBadRequest,
+				Facts:      []poc.Fact{{Message: "unknown arg: " + a}},
+				Suggestions: []poc.Suggestion{
+					{Message: "use: miopunch maintain-neighbors [-u|-t|--p2p-network ...]"},
+				},
+			})
+		default:
+			return exitWithFailure(opt, stdout, stderr, "maintain_neighbors", "", failureOutput{
+				Stage:      "cli",
+				ReasonCode: poc.ReasonCodeBadRequest,
+				ExitCode:   poc.ExitCodeBadRequest,
+				Facts:      []poc.Fact{{Message: "unexpected extra arg: " + a}},
+				Suggestions: []poc.Suggestion{
+					{Message: "use: miopunch maintain-neighbors [-u|-t|--p2p-network ...]"},
+				},
+			})
+		}
+	}
+
+	for ; i < len(args); i++ {
+		if strings.TrimSpace(args[i]) != "" {
+			return exitWithFailure(opt, stdout, stderr, "maintain_neighbors", "", failureOutput{
+				Stage:      "cli",
+				ReasonCode: poc.ReasonCodeBadRequest,
+				ExitCode:   poc.ExitCodeBadRequest,
+				Facts:      []poc.Fact{{Message: "unexpected extra args"}},
+				Suggestions: []poc.Suggestion{
+					{Message: "use: miopunch maintain-neighbors [-u|-t|--p2p-network ...]"},
+				},
+			})
+		}
+	}
+
+	network, err := connectivity.ParseP2PNetwork(p2pNetwork)
+	if err != nil {
+		return exitWithFailure(opt, stdout, stderr, "maintain_neighbors", "", failureOutput{
+			Stage:      "cli",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts:      []poc.Fact{{Message: err.Error()}},
+			Suggestions: []poc.Suggestion{
+				{Message: "use: miopunch maintain-neighbors --p2p-network auto|udp_only|tcp_only"},
+			},
+		})
+	}
+
+	return runTaskKind(opt, "maintain_neighbors", task.MaintainNeighborsArgs{P2PNetwork: string(network)}, stdout, stderr)
+}
+
 func runShLS(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 	peerID := ""
 	target := ""
@@ -581,6 +824,8 @@ func taskContextForKind(kind string, args any) (context.Context, context.CancelF
 	defaultTimeout := 2 * time.Minute
 	codeValue := ""
 	switch strings.TrimSpace(kind) {
+	case "maintain_neighbors":
+		defaultTimeout = 5 * time.Minute
 	case "join":
 		if v, ok := args.(task.JoinArgs); ok {
 			codeValue = strings.TrimSpace(v.Code)

@@ -30,6 +30,10 @@ type Manager struct {
 
 	dialPeerStreamHook DialPeerStreamHook
 
+	topologyMu       sync.Mutex
+	topologyAttempts []TopologyAttempt
+	topologyPayloads []TopologyPayload
+
 	stateMu   sync.Mutex
 	statePath string
 
@@ -352,6 +356,10 @@ func (m *Manager) runStub(ctx context.Context, taskID string, req CreateRequest)
 		m.runApproveTask(taskID, req.Args)
 	case "ping":
 		m.runPingTask(taskID, req.Args)
+	case "bootstrap_more":
+		m.runBootstrapMoreTask(taskID, req.Args)
+	case "maintain_neighbors":
+		m.runMaintainNeighborsTask(taskID, req.Args)
 	case "sh_ls":
 		m.runShellListTask(taskID, req.Args)
 	case "sh_attach":

@@ -1,0 +1,1797 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID:-0}" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+guest_root="$(cd -- "${script_dir}/.." && pwd)"
+
+# shellcheck source=/dev/null
+source "${guest_root}/lib/common.sh"
+# shellcheck source=/dev/null
+source "${guest_root}/lib/topology_mnt03.sh"
+# shellcheck source=/dev/null
+source "${guest_root}/lib/profiles.sh"
+# shellcheck source=/dev/null
+source "${guest_root}/lib/mnt03_artifacts.sh"
+# shellcheck source=/dev/null
+source "${guest_root}/lib/mnt03_docker.sh"
+# shellcheck source=/dev/null
+source "${guest_root}/lib/mnt03_profiles.sh"
+
+artifacts_root="${MLAB_ARTIFACTS_ROOT:-/opt/miopunch-lab/artifacts}"
+miopunch="${MLAB_MIOPUNCH_PRODUCT_BIN:-${MLAB_PRODUCT_BIN:-/opt/miopunch-lab/bin/miopunch}}"
+miopunch_lab="${MLAB_MIOPUNCH_LAB_BIN:-/opt/miopunch-lab/bin/miopunch-lab}"
+localapi="unix:/run/miopunch/localapi.sock"
+
+case_id=""
+stage=""
+profile=""
+run_dir=""
+run_id=""
+node_image=""
+summary_written=0
+case_pass=0
+declare -A mnt03_next_dial_port_by_node=()
+
+broker_pid=""
+stun_pid=""
+n05_natpmp_pid=""
+tcpdump_wan_pid=""
+tcpdump_mqtt_pid=""
+
+usage() {
+  cat <<'EOF'
+Usage: mlab-mnt03-run --case-id <id> [--stage <stage>] [--profile <profile>]
+
+Implemented stages:
+  2node-substrate
+  3node-bootstrap
+  4node-reachability
+  6node-bootstrap-more
+  12node-full
+EOF
+}
+
+default_stage_for_case() {
+  local id="$1"
+  case "${id}" in
+    *2node*|*substrate*) printf '2node-substrate' ;;
+    *3node*|*bootstrap*) printf '3node-bootstrap' ;;
+    *4node*|*reachability*) printf '4node-reachability' ;;
+    *6node*|*bootstrap-more*) printf '6node-bootstrap-more' ;;
+    *12node*|*full*) printf '12node-full' ;;
+    *) printf '2node-substrate' ;;
+  esac
+}
+
+preflight() {
+  need_cmd ip
+  need_cmd jq
+  need_cmd sed
+  need_cmd docker
+  need_cmd tcpdump
+  [[ -x "${miopunch}" ]] || die "missing miopunch binary: ${miopunch}"
+  [[ -x "${miopunch_lab}" ]] || die "missing miopunch-lab binary: ${miopunch_lab}"
+}
+
+redact_file() {
+  sed -E \
+    -e 's/(invite_code=)[^[:space:]]+/\1<redacted>/g' \
+    -e 's/(secret_key=)[^[:space:]]+/\1<redacted>/g' \
+    -e 's/(net_secret_b64=)[^[:space:]]+/\1<redacted>/g' \
+    -e 's/(invite_secret_b64=)[^[:space:]]+/\1<redacted>/g' \
+    "$1"
+}
+
+node_name() {
+  mnt03_node_container_name "$1"
+}
+
+node_dir() {
+  printf '%s/nodes/%s' "${run_dir}" "$1"
+}
+
+start_bg_in_netns() {
+  local namespace="$1"
+  local log_file="$2"
+  shift 2
+  ip netns exec "${namespace}" sh -c 'log="$1"; shift; "$@" >"$log" 2>&1 & echo $!' _ "${log_file}" "$@"
+}
+
+stop_pid() {
+  local pid="$1"
+  [[ -n "${pid}" ]] || return 0
+  if kill -0 "${pid}" 2>/dev/null; then
+    kill "${pid}" 2>/dev/null || true
+    for _ in {1..40}; do
+      if ! kill -0 "${pid}" 2>/dev/null; then
+        return 0
+      fi
+      sleep 0.1
+    done
+    kill -9 "${pid}" 2>/dev/null || true
+  fi
+}
+
+write_summary() {
+  local status="$1" pass="$2" fail="$3" reason="$4"
+  mnt03_write_summary "${run_dir}/summary.json" "mnt03-stage" "${case_id}" "${stage}" "${status}" "${pass}" "${fail}" "${reason}"
+  summary_written=1
+}
+
+write_pending_summary() {
+  write_summary "pending" 0 1 "$1"
+}
+
+finish() {
+  local rc=$?
+  set +e
+  mkdir -p "${run_dir}/cleanup"
+  {
+    printf 'cleanup_start_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'rc=%s\n' "${rc}"
+  } >>"${run_dir}/cleanup/cleanup.log" 2>/dev/null || true
+
+  collect_all_artifacts || true
+  stop_pid "${broker_pid:-}" || true
+  stop_pid "${stun_pid:-}" || true
+  stop_pid "${n05_natpmp_pid:-}" || true
+  stop_pid "${tcpdump_wan_pid:-}" || true
+  stop_pid "${tcpdump_mqtt_pid:-}" || true
+  for node in n01 n02 n03 n04 n05 n06 n07 n08 n09 n10 n11 n12; do
+    mnt03_remove_systemd_node "${node}" || true
+  done
+  mnt03_topology_cleanup || true
+
+  {
+    printf 'cleanup_end_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'leftover_containers=%s\n' "$(docker ps -a --filter label=miopunch.mnt03.run_id="${run_id}" --format '{{.Names}}' | tr '\n' ',' | sed 's/,$//')"
+  } >>"${run_dir}/cleanup/cleanup.log" 2>/dev/null || true
+
+  if [[ "${summary_written}" -eq 0 ]]; then
+    if [[ "${rc}" -eq 0 ]]; then
+      write_summary "pass" 1 0 ""
+    else
+      write_summary "fail" 0 1 "stage failed before summary"
+    fi
+  fi
+  chmod -R a+rX "${run_dir}" 2>/dev/null || true
+  set -e
+  exit "${rc}"
+}
+
+collect_network_artifacts() {
+  [[ -n "${run_dir}" ]] || return 0
+  mkdir -p "${run_dir}/network"
+  mnt03_collect_network_manifest "${run_dir}" || true
+
+  local ns
+  for ns in \
+    "${MNT03_NS_WAN}" \
+    "${MNT03_NS_NAT_N01}" \
+    "${MNT03_NS_NAT_N02}" \
+    "${MNT03_NS_NAT_N03}" \
+    "${MNT03_NS_NAT_N04}" \
+    "${MNT03_NS_NAT_N05}" \
+    "${MNT03_NS_NAT_N06}" \
+    "${MNT03_NS_NAT_N07}" \
+    "${MNT03_NS_NAT_N08}" \
+    "${MNT03_NS_NAT_N09}" \
+    "${MNT03_NS_NAT_N10}" \
+    "${MNT03_NS_NAT_N11}" \
+    "${MNT03_NS_NAT_N12}" \
+    "${MNT03_NS_COORD}" \
+    "${MNT03_NS_STUN}" \
+    "${MNT03_NS_PROBE}"; do
+    if ip netns list | awk '{print $1}' | grep -qx "${ns}"; then
+      ip -n "${ns}" -j addr >"${run_dir}/network/${ns}.addr.json" 2>/dev/null || true
+      ip -n "${ns}" -j route >"${run_dir}/network/${ns}.route.json" 2>/dev/null || true
+      ip -n "${ns}" -j -6 route >"${run_dir}/network/${ns}.route6.json" 2>/dev/null || true
+      ip netns exec "${ns}" iptables-save >"${run_dir}/network/${ns}.iptables" 2>/dev/null || true
+      ip netns exec "${ns}" sh -c 'command -v ip6tables-save >/dev/null 2>&1 && ip6tables-save || true' >"${run_dir}/network/${ns}.ip6tables" 2>/dev/null || true
+      ip netns exec "${ns}" conntrack -L >"${run_dir}/network/${ns}.conntrack" 2>/dev/null || true
+      ip netns exec "${ns}" tc -s qdisc show >"${run_dir}/network/${ns}.tc" 2>/dev/null || true
+    fi
+  done
+}
+
+collect_node_state() {
+  local node="$1" name out
+  name="$(node_name "${node}")"
+  out="$(node_dir "${node}")/state"
+  mkdir -p "${out}"
+  docker exec "${name}" bash -lc 'set -euo pipefail
+if [[ -f /var/lib/miopunch/state.json ]]; then
+  jq '\''(.local.secret_key? |= "<redacted>") | .peers = ((.peers // {}) | with_entries(.value.secret_key = "<redacted>"))'\'' /var/lib/miopunch/state.json
+fi' >"${out}/state.json" 2>"${out}/state.stderr" || true
+  docker exec "${name}" bash -lc 'set -euo pipefail
+if [[ -f /var/lib/miopunch/net.json ]]; then
+  jq '\''.net_secret_b64 = "<redacted>"'\'' /var/lib/miopunch/net.json
+fi' >"${out}/net.json" 2>"${out}/net.stderr" || true
+  docker exec "${name}" bash -lc 'set -euo pipefail
+if [[ -f /var/lib/miopunch/identity/identity.json ]]; then
+  jq '\''.ed25519_seed_b64 = "<redacted>" | .x25519_priv_b64 = "<redacted>"'\'' /var/lib/miopunch/identity/identity.json
+fi' >"${out}/identity.json" 2>"${out}/identity.stderr" || true
+  docker exec "${name}" bash -lc 'set -euo pipefail
+test ! -f /var/lib/miopunch/governance/head_snapshot.json || cat /var/lib/miopunch/governance/head_snapshot.json' >"${out}/head_snapshot.json" 2>/dev/null || true
+  docker exec "${name}" bash -lc 'set -euo pipefail
+test ! -f /var/lib/miopunch/decls/decls.json || cat /var/lib/miopunch/decls/decls.json' >"${out}/decls.json" 2>/dev/null || true
+  docker exec "${name}" bash -lc 'set -euo pipefail
+test ! -f /var/lib/miopunch/bootstrap/bootstrap.json || cat /var/lib/miopunch/bootstrap/bootstrap.json' >"${out}/bootstrap.json" 2>/dev/null || true
+}
+
+collect_all_artifacts() {
+  [[ -n "${run_dir}" ]] || return 0
+  collect_network_artifacts || true
+  local node
+  while read -r node; do
+    [[ -n "${node}" ]] || continue
+    if docker inspect "$(node_name "${node}")" >/dev/null 2>&1; then
+      mnt03_collect_docker_node "${node}" "${run_dir}/journals" || true
+      collect_node_state "${node}" || true
+    fi
+  done < <(mnt03_profile_nodes "${profile}")
+}
+
+run_node_cmd() {
+  local node="$1" step="$2"
+  shift 2
+  mnt03_run_artifact_cmd "${run_dir}" "${node}-${step}" docker exec "$(node_name "${node}")" "$@"
+}
+
+run_node_shell() {
+  local node="$1" step="$2" script="$3"
+  run_node_cmd "${node}" "${step}" bash -lc "${script}"
+}
+
+wait_daemon_active() {
+  local node="$1" name start now
+  name="$(node_name "${node}")"
+  start="$(date +%s)"
+  while true; do
+    if docker exec "${name}" systemctl is-active --quiet miopunch 2>/dev/null; then
+      return 0
+    fi
+    now="$(date +%s)"
+    if ((now - start > 30)); then
+      die "miopunch systemd service not active: node=${node}"
+    fi
+    sleep 0.2
+  done
+}
+
+wait_localapi() {
+  local node="$1" name start now
+  name="$(node_name "${node}")"
+  start="$(date +%s)"
+  while true; do
+    if docker exec "${name}" test -S /run/miopunch/localapi.sock 2>/dev/null; then
+      if docker exec "${name}" miopunch --localapi "${localapi}" --format json ls >/dev/null 2>&1; then
+        return 0
+      fi
+    fi
+    now="$(date +%s)"
+    if ((now - start > 30)); then
+      die "localapi not ready: node=${node}"
+    fi
+    sleep 0.2
+  done
+}
+
+assert_node_localapi_ready() {
+  local node="$1" step="$2"
+  wait_daemon_active "${node}"
+  wait_localapi "${node}"
+  run_node_shell "${node}" "${step}" "systemctl is-active miopunch && ls -la /run/miopunch && miopunch --localapi ${localapi} --format json ls"
+}
+
+mnt03_node_v4_hint_for_stage() {
+  local node="$1"
+  case "${node}" in
+    n01|n03|n05) printf 'direct' ;;
+    n02|n04|n12) printf 'easy' ;;
+    n06|n07|n08|n09) printf 'hard1' ;;
+    n10) printf 'hard2' ;;
+    n11) printf 'unknown' ;;
+    *) printf 'unknown' ;;
+  esac
+}
+
+mnt03_node_v6_hint_for_stage() {
+  local node="$1"
+  case "${node}" in
+    n01|n03|n06) printf 'direct' ;;
+    *) printf 'none' ;;
+  esac
+}
+
+mnt03_node_disable_portmap_for_stage() {
+  local node="$1"
+  case "${node}" in
+    n05) printf 'false' ;;
+    *) printf 'true' ;;
+  esac
+}
+
+mnt03_node_p2p_ip_family_for_stage() {
+  local node="$1"
+  case "${profile}:${node}" in
+    6node-bootstrap-more:n01|6node-bootstrap-more:n03|6node-bootstrap-more:n06|12node-full:n01|12node-full:n03|12node-full:n06)
+      printf 'auto'
+      ;;
+    *)
+      printf 'v4'
+      ;;
+  esac
+}
+
+mnt03_node_stun_json_for_stage() {
+  local node="$1"
+  case "${node}" in
+    n05)
+      printf '[]'
+      ;;
+    *)
+      jq -cn --arg stun_ip "${STUN_IP}" '[$stun_ip + ":3478", $stun_ip + ":3479"]'
+      ;;
+  esac
+}
+
+configure_node_state() {
+  local node="$1" port="$2" name topic stun_json v4_hint v6_hint disable_portmap p2p_ip_family
+  name="$(node_name "${node}")"
+  topic="miopunch/mnt03/${case_id}"
+  stun_json="$(mnt03_node_stun_json_for_stage "${node}")"
+  v4_hint="$(mnt03_node_v4_hint_for_stage "${node}")"
+  v6_hint="$(mnt03_node_v6_hint_for_stage "${node}")"
+  disable_portmap="$(mnt03_node_disable_portmap_for_stage "${node}")"
+  p2p_ip_family="$(mnt03_node_p2p_ip_family_for_stage "${node}")"
+  docker exec "${name}" bash -lc "set -euo pipefail
+mkdir -p /var/lib/miopunch
+src=/var/lib/miopunch/state.json
+tmp=/var/lib/miopunch/state.json.tmp
+if [[ ! -f \"\${src}\" ]]; then
+  printf '{\"format\":\"miopunch.state.poc.v0\",\"local\":{},\"peers\":{}}\\n' >\"\${src}\"
+fi
+jq --arg broker '${COORD_IP}:1883' \
+   --arg topic '${topic}' \
+   --argjson port '${port}' \
+   --argjson stun '${stun_json}' \
+   --arg v4_hint '${v4_hint}' \
+   --arg v6_hint '${v6_hint}' \
+   --argjson disable_portmap '${disable_portmap}' \
+   --arg p2p_ip_family '${p2p_ip_family}' \
+   '.format = \"miopunch.state.poc.v0\"
+    | .local = (.local // {})
+    | .peers = (.peers // {})
+    | .local.mqtt_broker = \$broker
+    | .local.topic_prefix = \$topic
+    | .local.v4_hint = \$v4_hint
+    | .local.v6_hint = \$v6_hint
+    | .local.p2p_network = \"auto\"
+    | .local.p2p_ip_family = \$p2p_ip_family
+    | .local.p2p_port = \$port
+    | .local.stun = \$stun
+    | .local.stun_explicit = true
+    | .local.disable_portmap = \$disable_portmap' \"\${src}\" >\"\${tmp}\"
+mv \"\${tmp}\" \"\${src}\"
+chmod 0600 \"\${src}\""
+}
+
+configure_joined_peer_dial_fixture() {
+  local node="$1" peer_id="$2" port="$3" name stun_json before after before_semantic after_semantic proof_path jq_filter disable_portmap p2p_ip_family
+  name="$(node_name "${node}")"
+  stun_json="$(mnt03_node_stun_json_for_stage "${node}")"
+  disable_portmap="$(mnt03_node_disable_portmap_for_stage "${node}")"
+  p2p_ip_family="$(mnt03_node_p2p_ip_family_for_stage "${node}")"
+  proof_path="${run_dir}/proof/${node}/post_join_peer_dial_fixture.json"
+  mkdir -p "$(dirname -- "${proof_path}")"
+  jq_filter='
+    if (((.peers // {}) | has($peer)) | not) then
+      error("missing product-created peer: " + $peer)
+    else
+      .peers[$peer].p2p_network = "auto"
+      | .peers[$peer].p2p_ip_family = $p2p_ip_family
+      | .peers[$peer].p2p_port = $port
+      | .peers[$peer].stun = $stun
+      | .peers[$peer].stun_explicit = true
+      | .peers[$peer].disable_portmap = $disable_portmap
+    end
+  '
+
+  before="$(docker exec "${name}" jq -r '(.peers // {}) | length' /var/lib/miopunch/state.json)"
+  before_semantic="$(docker exec "${name}" jq -c --arg peer "${peer_id}" '
+    (.peers[$peer] // {})
+    | del(.p2p_network, .p2p_ip_family, .p2p_port, .stun, .stun_explicit, .disable_portmap)
+  ' /var/lib/miopunch/state.json)"
+  docker exec \
+    -e PEER_ID="${peer_id}" \
+    -e P2P_PORT="${port}" \
+    -e P2P_IP_FAMILY="${p2p_ip_family}" \
+    -e STUN_SERVERS_JSON="${stun_json}" \
+    -e DISABLE_PORTMAP="${disable_portmap}" \
+    -e JQ_FILTER="${jq_filter}" \
+    "${name}" bash -lc 'set -euo pipefail
+src=/var/lib/miopunch/state.json
+tmp=/var/lib/miopunch/state.json.tmp
+jq --arg peer "${PEER_ID}" \
+   --argjson port "${P2P_PORT}" \
+   --arg p2p_ip_family "${P2P_IP_FAMILY}" \
+   --argjson stun "${STUN_SERVERS_JSON}" \
+   --argjson disable_portmap "${DISABLE_PORTMAP}" \
+   "${JQ_FILTER}" "${src}" >"${tmp}"
+mv "${tmp}" "${src}"
+chmod 0600 "${src}"'
+  after="$(docker exec "${name}" jq -r '(.peers // {}) | length' /var/lib/miopunch/state.json)"
+  after_semantic="$(docker exec "${name}" jq -c --arg peer "${peer_id}" '
+    (.peers[$peer] // {})
+    | del(.p2p_network, .p2p_ip_family, .p2p_port, .stun, .stun_explicit, .disable_portmap)
+  ' /var/lib/miopunch/state.json)"
+  [[ "${before}" == "${after}" ]] || die "peer dial fixture changed peer count: node=${node} before=${before} after=${after}"
+  [[ "${before_semantic}" == "${after_semantic}" ]] || die "peer dial fixture changed semantic peer state: node=${node} peer=${peer_id}"
+
+  jq -n \
+    --arg node "${node}" \
+    --arg peer_id "${peer_id}" \
+    --argjson semantic_before "${before_semantic}" \
+    --argjson semantic_after "${after_semantic}" \
+    --argjson peer_count_before "${before}" \
+    --argjson peer_count_after "${after}" \
+    --argjson p2p_port "${port}" \
+    --arg p2p_ip_family "${p2p_ip_family}" \
+    --argjson disable_portmap "${disable_portmap}" \
+    --argjson stun "${stun_json}" \
+    '{
+      node: $node,
+	      peer_id: $peer_id,
+	      peer_count_before: $peer_count_before,
+	      peer_count_after: $peer_count_after,
+	      semantic_before: $semantic_before,
+	      semantic_after: $semantic_after,
+	      semantic_unchanged: true,
+	      allowed_fixture_fields: ["p2p_network", "p2p_ip_family", "p2p_port", "stun", "stun_explicit", "disable_portmap"],
+	      not_injected: ["peer entry", "membership approval", "bootstrap candidate", "neighbor state", "payload success"],
+      p2p_port: $p2p_port,
+      p2p_ip_family: $p2p_ip_family,
+      disable_portmap: $disable_portmap,
+      stun: $stun
+	    }' >"${proof_path}"
+}
+
+configure_next_joined_peer_dial_fixture() {
+  local node="$1" peer_id="$2" port
+  port="${mnt03_next_dial_port_by_node[${node}]:-5001}"
+  mnt03_next_dial_port_by_node["${node}"]=$((port + 1))
+  configure_joined_peer_dial_fixture "${node}" "${peer_id}" "${port}"
+}
+
+select_existing_peer_for_dial_fixture() {
+  local node="$1" candidate name
+  shift
+  name="$(node_name "${node}")"
+  for candidate in "$@"; do
+    [[ -n "${candidate}" ]] || continue
+    if docker exec "${name}" jq -e --arg peer "${candidate}" '(.peers // {}) | has($peer)' /var/lib/miopunch/state.json >/dev/null; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+assert_no_semantic_injection() {
+  mkdir -p "${run_dir}/proof"
+  local node name out_dir
+  while read -r node; do
+    [[ -n "${node}" ]] || continue
+    name="$(node_name "${node}")"
+    out_dir="${run_dir}/proof/${node}"
+    mkdir -p "${out_dir}"
+    docker exec "${name}" find /var/lib/miopunch -maxdepth 4 -type f | sort >"${out_dir}/pre_invite_files.txt" 2>"${out_dir}/pre_invite_files.stderr" || true
+    docker exec "${name}" bash -lc 'set -euo pipefail
+test ! -f /var/lib/miopunch/net.json
+test ! -f /var/lib/miopunch/governance/head_snapshot.json
+test ! -f /var/lib/miopunch/decls/decls.json
+jq -e "(.peers // {}) | length == 0" /var/lib/miopunch/state.json >/dev/null' \
+      >"${out_dir}/pre_invite_no_semantics.stdout" \
+      2>"${out_dir}/pre_invite_no_semantics.stderr"
+  done < <(mnt03_profile_nodes "${profile}")
+
+  cat >"${run_dir}/proof/semantic_boundary.json" <<EOF
+{
+  "allowed_fixture_inputs": ["mqtt_broker", "topic_prefix", "stun", "stun_explicit", "p2p_network", "p2p_ip_family", "p2p_port", "disable_portmap", "v4_hint", "v6_hint"],
+  "not_injected": ["net.json", "governance/head_snapshot.json", "decls/decls.json", "remote peers", "membership approvals", "bootstrap candidates", "neighbor state", "payload success"],
+  "evidence": "proof/*/pre_invite_no_semantics.stdout"
+}
+EOF
+}
+
+start_services() {
+  broker_pid="$(start_bg_in_netns "${MNT03_NS_COORD}" "${run_dir}/broker/mqtt.log" "${miopunch_lab}" mqtt-broker --listen "${COORD_IP}:1883")"
+  for _ in {1..100}; do
+    if grep -q '"msg":"mqtt broker listening"' "${run_dir}/broker/mqtt.log" 2>/dev/null; then
+      break
+    fi
+    sleep 0.05
+  done
+  grep -q '"msg":"mqtt broker listening"' "${run_dir}/broker/mqtt.log" || die "mqtt broker not ready"
+
+  stun_pid="$(start_bg_in_netns "${MNT03_NS_STUN}" "${run_dir}/broker/stun.log" "${miopunch_lab}" stun --listen "${STUN_IP}:3478" --listen "${STUN_IP}:3479")"
+  sleep 0.2
+}
+
+start_fulltest_captures() {
+  mkdir -p "${run_dir}/pcap"
+  tcpdump_wan_pid="$(start_bg_in_netns "${MNT03_NS_WAN}" /dev/null tcpdump -ni br0 -w "${run_dir}/pcap/wan.pcap")"
+  tcpdump_mqtt_pid="$(start_bg_in_netns "${MNT03_NS_COORD}" /dev/null tcpdump -ni eth0 -w "${run_dir}/pcap/mqtt.pcap" tcp port 1883)"
+  sleep 0.2
+}
+
+stop_fulltest_captures() {
+  stop_pid "${tcpdump_wan_pid:-}" || true
+  stop_pid "${tcpdump_mqtt_pid:-}" || true
+  tcpdump_wan_pid=""
+  tcpdump_mqtt_pid=""
+}
+
+start_natpmp_for_node() {
+  local node="$1" natpmpd
+  natpmpd="${script_dir}/mlab-natpmpd"
+  need_cmd python3
+  [[ -x "${natpmpd}" ]] || die "missing natpmpd: ${natpmpd}"
+
+  case "${node}" in
+    n05) ;;
+    *) die "MNT-03 NAT-PMP fixture is not defined for node=${node}" ;;
+  esac
+
+  n05_natpmp_pid="$(start_bg_in_netns \
+    "$(mnt03_node_nat_ns "${node}")" \
+    "${run_dir}/broker/${node}.natpmpd.log" \
+    "${natpmpd}" --wan-if wan0 --lan-if lan0 --external-ip "$(mnt03_node_wan_ip "${node}")" --verbose)"
+  sleep 0.2
+}
+
+start_nodes() {
+  local build_ctx
+  build_ctx="${run_dir}/_image/node"
+  mnt03_build_node_image "${node_image}" "${build_ctx}" "${guest_root}"
+
+  local node node_v6_addr node_v6_gw
+  while read -r node; do
+    [[ -n "${node}" ]] || continue
+    node_v6_addr=""
+    node_v6_gw=""
+    if mnt03_node_has_ipv6 "${node}" && [[ "${profile}" == "6node-bootstrap-more" || "${profile}" == "12node-full" ]]; then
+      node_v6_addr="$(mnt03_node_v6_ip "${node}")/64"
+      node_v6_gw="$(mnt03_node_v6_gateway "${node}")"
+    fi
+    mnt03_start_systemd_node "${node}" "${node_image}" "$(node_dir "${node}")" "${run_id}"
+    mnt03_attach_node_veth \
+      "${node}" \
+      "$(mnt03_node_nat_ns "${node}")" \
+      lan0 \
+      "$(mnt03_node_ip "${node}")/24" \
+      "$(mnt03_node_gateway "${node}")" \
+      "${node_v6_addr}" \
+      "${node_v6_gw}"
+    mnt03_wait_systemd "${node}"
+  done < <(mnt03_profile_nodes "${profile}")
+}
+
+install_daemons() {
+  local node
+  while read -r node; do
+    [[ -n "${node}" ]] || continue
+    run_node_shell "${node}" blank_state_before_install "find /var/lib/miopunch -maxdepth 3 -type f | sort"
+    run_node_cmd "${node}" install_daemon miopunch install-system-daemon
+    wait_daemon_active "${node}"
+    wait_localapi "${node}"
+    configure_node_state "${node}" 5000
+  done < <(mnt03_profile_nodes "${profile}")
+  assert_no_semantic_injection
+}
+
+run_invite_join_ping() {
+  mkdir -p "${run_dir}/tasks" "$(node_dir n01)/reports/m1" "$(node_dir n03)/reports/m1"
+  assert_node_localapi_ready n01 pre_invite_localapi
+  assert_node_localapi_ready n03 pre_join_localapi
+
+  local invite_tmp invite_rc invite_code issuer_peer_id
+  invite_tmp="$(mktemp)"
+  set +e
+  docker exec "$(node_name n01)" bash -lc \
+    "miopunch --localapi ${localapi} --format json --report /artifacts/reports/m1/invite.md invite --mode approve --uses 1 --expires 15m" \
+    >"${invite_tmp}" 2>"${run_dir}/tasks/invite.stderr"
+  invite_rc=$?
+  set -e
+  printf '%s\n' "${invite_rc}" >"${run_dir}/tasks/invite.rc"
+  redact_file "${invite_tmp}" >"${run_dir}/tasks/invite.json"
+  invite_code="$(jq -r '.facts[]? | select(.message? | startswith("invite_code=")) | .message' "${invite_tmp}" | sed -E 's/^invite_code=//' | head -n 1 | tr -d '\r\n')"
+  issuer_peer_id="$(jq -r '.facts[]? | select(.message? | startswith("peer_id=")) | .message' "${invite_tmp}" | sed -E 's/^peer_id=//' | head -n 1 | tr -d '\r\n')"
+  rm -f "${invite_tmp}"
+  [[ "${invite_rc}" -eq 0 ]] || die "invite failed: rc=${invite_rc}"
+  [[ -n "${invite_code}" ]] || die "failed to extract invite code"
+  [[ -n "${issuer_peer_id}" ]] || die "failed to extract issuer peer id"
+  redact_file "$(node_dir n01)/reports/m1/invite.md" >"$(node_dir n01)/reports/m1/invite.redacted.md"
+  rm -f "$(node_dir n01)/reports/m1/invite.md"
+
+  set +e
+  docker exec "$(node_name n01)" bash -lc \
+    "miopunch --redact --localapi ${localapi} --format json --report /artifacts/reports/m1/approve.md approve '${invite_code}'" \
+    >"${run_dir}/tasks/approve.json" 2>"${run_dir}/tasks/approve.stderr" &
+  local approve_pid=$!
+  docker exec "$(node_name n03)" bash -lc \
+    "miopunch --redact --localapi ${localapi} --format json --report /artifacts/reports/m1/join.md join '${invite_code}'" \
+    >"${run_dir}/tasks/join.json" 2>"${run_dir}/tasks/join.stderr"
+  local join_rc=$?
+  wait "${approve_pid}"
+  local approve_rc=$?
+  set -e
+  printf '%s\n' "${join_rc}" >"${run_dir}/tasks/join.rc"
+  printf '%s\n' "${approve_rc}" >"${run_dir}/tasks/approve.rc"
+  [[ "${join_rc}" -eq 0 ]] || die "join failed: rc=${join_rc}"
+  [[ "${approve_rc}" -eq 0 ]] || die "approve failed: rc=${approve_rc}"
+  configure_joined_peer_dial_fixture n03 "${issuer_peer_id}" 5001
+  assert_node_localapi_ready n01 post_join_localapi
+  assert_node_localapi_ready n03 post_join_localapi
+
+  for node in n01 n03; do
+    docker exec "$(node_name "${node}")" bash -lc \
+      "miopunch --localapi ${localapi} --format json topology" \
+      >"${run_dir}/topology/${node}.json" 2>"${run_dir}/topology/${node}.stderr"
+    printf '%s\n' 0 >"${run_dir}/topology/${node}.rc"
+  done
+
+  set +e
+  docker exec "$(node_name n03)" bash -lc \
+    "miopunch --redact --localapi ${localapi} --format json --report /artifacts/reports/m1/ping.md ping '${issuer_peer_id}'" \
+    >"${run_dir}/tasks/ping.json" 2>"${run_dir}/tasks/ping.stderr"
+  local ping_rc=$?
+  set -e
+  printf '%s\n' "${ping_rc}" >"${run_dir}/tasks/ping.rc"
+  [[ "${ping_rc}" -eq 0 ]] || die "ping failed: rc=${ping_rc}"
+  jq -r '.facts[]?.message' "${run_dir}/tasks/ping.json" | grep -Fqx "ping=ok"
+}
+
+mnt03_node_nat_profile_for_stage() {
+  local node="$1"
+  case "${node}" in
+    n01|n03) printf 'nat1' ;;
+    n02|n04|n12) printf 'nat2' ;;
+    n05|n06) printf 'nat3' ;;
+    n07|n08|n09) printf 'nat4-regular' ;;
+    n10|n11) printf 'nat4-irregular' ;;
+    *) die "MNT-03 stage has no NAT profile for node: ${node}" ;;
+  esac
+}
+
+apply_nat_profiles_for_stage() {
+  local accept_port="$1" dial_port="$2" node nat_profile
+  while read -r node; do
+    [[ -n "${node}" ]] || continue
+    nat_profile="$(mnt03_node_nat_profile_for_stage "${node}")"
+    profiles_apply \
+      "$(mnt03_node_nat_ns "${node}")" \
+      "${nat_profile}" \
+      "$(mnt03_node_lan_cidr "${node}")" \
+      "$(mnt03_node_wan_ip "${node}")" \
+      "$(mnt03_node_ip "${node}")" \
+      "${accept_port}"
+    profiles_apply_extra_port \
+      "$(mnt03_node_nat_ns "${node}")" \
+      "${nat_profile}" \
+      "$(mnt03_node_lan_cidr "${node}")" \
+      "$(mnt03_node_wan_ip "${node}")" \
+      "$(mnt03_node_ip "${node}")" \
+      "${dial_port}"
+  done < <(mnt03_profile_nodes "${profile}")
+}
+
+apply_nat_profiles_extra_ports_for_stage() {
+  local port node nat_profile
+  for port in "$@"; do
+    while read -r node; do
+      [[ -n "${node}" ]] || continue
+      nat_profile="$(mnt03_node_nat_profile_for_stage "${node}")"
+      profiles_apply_extra_port \
+        "$(mnt03_node_nat_ns "${node}")" \
+        "${nat_profile}" \
+        "$(mnt03_node_lan_cidr "${node}")" \
+        "$(mnt03_node_wan_ip "${node}")" \
+        "$(mnt03_node_ip "${node}")" \
+        "${port}"
+    done < <(mnt03_profile_nodes "${profile}")
+  done
+}
+
+mnt03_last_issuer_peer_id=""
+mnt03_last_member_peer_id=""
+
+invite_join_member() {
+  local member="$1" label="$2"
+  mkdir -p "${run_dir}/tasks" "$(node_dir n01)/reports/${label}" "$(node_dir "${member}")/reports/${label}"
+  assert_node_localapi_ready n01 "${label}_pre_invite_localapi"
+  assert_node_localapi_ready "${member}" "${label}_pre_join_localapi"
+
+  local invite_tmp invite_rc invite_code issuer_peer_id
+  invite_tmp="$(mktemp)"
+  set +e
+  docker exec "$(node_name n01)" bash -lc \
+    "miopunch --localapi ${localapi} --format json --report /artifacts/reports/${label}/invite.md invite --mode approve --uses 1 --expires 15m" \
+    >"${invite_tmp}" 2>"${run_dir}/tasks/${label}_invite.stderr"
+  invite_rc=$?
+  set -e
+  printf '%s\n' "${invite_rc}" >"${run_dir}/tasks/${label}_invite.rc"
+  redact_file "${invite_tmp}" >"${run_dir}/tasks/${label}_invite.json"
+  invite_code="$(jq -r '.facts[]? | select(.message? | startswith("invite_code=")) | .message' "${invite_tmp}" | sed -E 's/^invite_code=//' | head -n 1 | tr -d '\r\n')"
+  issuer_peer_id="$(jq -r '.facts[]? | select(.message? | startswith("peer_id=")) | .message' "${invite_tmp}" | sed -E 's/^peer_id=//' | head -n 1 | tr -d '\r\n')"
+  rm -f "${invite_tmp}"
+  [[ "${invite_rc}" -eq 0 ]] || die "invite failed: label=${label} rc=${invite_rc}"
+  [[ -n "${invite_code}" ]] || die "failed to extract invite code: label=${label}"
+  [[ -n "${issuer_peer_id}" ]] || die "failed to extract issuer peer id: label=${label}"
+  redact_file "$(node_dir n01)/reports/${label}/invite.md" >"$(node_dir n01)/reports/${label}/invite.redacted.md"
+  rm -f "$(node_dir n01)/reports/${label}/invite.md"
+
+  set +e
+  docker exec "$(node_name n01)" bash -lc \
+    "miopunch --redact --localapi ${localapi} --format json --report /artifacts/reports/${label}/approve.md approve '${invite_code}'" \
+    >"${run_dir}/tasks/${label}_approve.json" 2>"${run_dir}/tasks/${label}_approve.stderr" &
+  local approve_pid=$!
+  docker exec "$(node_name "${member}")" bash -lc \
+    "miopunch --redact --localapi ${localapi} --format json --report /artifacts/reports/${label}/join.md join '${invite_code}'" \
+    >"${run_dir}/tasks/${label}_join.json" 2>"${run_dir}/tasks/${label}_join.stderr"
+  local join_rc=$?
+  wait "${approve_pid}"
+  local approve_rc=$?
+  set -e
+  printf '%s\n' "${join_rc}" >"${run_dir}/tasks/${label}_join.rc"
+  printf '%s\n' "${approve_rc}" >"${run_dir}/tasks/${label}_approve.rc"
+  [[ "${join_rc}" -eq 0 ]] || die "join failed: member=${member} rc=${join_rc}"
+  [[ "${approve_rc}" -eq 0 ]] || die "approve failed: member=${member} rc=${approve_rc}"
+
+  local member_peer_id
+  member_peer_id="$(jq -r '.facts[]? | select(.message? | startswith("member_peer_id=")) | .message' "${run_dir}/tasks/${label}_approve.json" | sed -E 's/^member_peer_id=//' | head -n 1 | tr -d '\r\n')"
+  [[ -n "${member_peer_id}" ]] || die "failed to extract member peer id: label=${label}"
+
+  configure_joined_peer_dial_fixture "${member}" "${issuer_peer_id}" 5001
+  assert_node_localapi_ready n01 "${label}_post_join_admin_localapi"
+  assert_node_localapi_ready "${member}" "${label}_post_join_member_localapi"
+
+  mnt03_last_issuer_peer_id="${issuer_peer_id}"
+  mnt03_last_member_peer_id="${member_peer_id}"
+}
+
+run_ping_between_nodes() {
+  local from_node="$1" peer_id="$2" label="$3"
+  mkdir -p "$(node_dir "${from_node}")/reports/${label}"
+  set +e
+  docker exec "$(node_name "${from_node}")" bash -lc \
+    "miopunch --redact --localapi ${localapi} --format json --report /artifacts/reports/${label}/ping.md ping '${peer_id}'" \
+    >"${run_dir}/tasks/${label}_ping.json" 2>"${run_dir}/tasks/${label}_ping.stderr"
+  local ping_rc=$?
+  set -e
+  printf '%s\n' "${ping_rc}" >"${run_dir}/tasks/${label}_ping.rc"
+  [[ "${ping_rc}" -eq 0 ]] || die "ping failed: label=${label} rc=${ping_rc}"
+  jq -r '.facts[]?.message' "${run_dir}/tasks/${label}_ping.json" | grep -Fqx "ping=ok"
+}
+
+run_ping_between_nodes_optional() {
+  local from_node="$1" peer_id="$2" label="$3" classification="$4"
+  mkdir -p "$(node_dir "${from_node}")/reports/${label}" "${run_dir}/proof/${label}"
+  local task_json="${run_dir}/tasks/${label}_ping.json"
+  set +e
+  docker exec "$(node_name "${from_node}")" bash -lc \
+    "miopunch --redact --localapi ${localapi} --format json --report /artifacts/reports/${label}/ping.md ping '${peer_id}'" \
+    >"${task_json}" 2>"${run_dir}/tasks/${label}_ping.stderr"
+  local ping_rc=$?
+  set -e
+  printf '%s\n' "${ping_rc}" >"${run_dir}/tasks/${label}_ping.rc"
+
+  if [[ "${ping_rc}" -eq 0 ]]; then
+    jq -r '.facts[]?.message' "${task_json}" | grep -Fqx "ping=ok"
+    jq -n \
+      --arg from_node "${from_node}" \
+      --arg peer_id "${peer_id}" \
+      --arg classification "${classification}" \
+      '{from_node: $from_node, peer_id: $peer_id, classification: $classification, outcome: "ok", evidence: "ping=ok"}' \
+      >"${run_dir}/proof/${label}/ping_result.json"
+    return 0
+  fi
+
+  local stage reason_code stop_condition
+  stage="$(jq -r '.stage // "unknown"' "${task_json}" 2>/dev/null || printf 'unknown')"
+  reason_code="$(jq -r '.reason_code // "UNAVAILABLE"' "${task_json}" 2>/dev/null || printf 'UNAVAILABLE')"
+  [[ -n "${stage}" && "${stage}" != "null" ]] || stage="unknown"
+  [[ -n "${reason_code}" && "${reason_code}" != "null" ]] || reason_code="UNAVAILABLE"
+  stop_condition="bounded_ping_failed"
+  if [[ "${reason_code}" == "FORBIDDEN" ]]; then
+    stop_condition="authorization_denied"
+  fi
+
+  jq -n \
+    --arg from_node "${from_node}" \
+    --arg peer_id "${peer_id}" \
+    --arg classification "${classification}" \
+    --arg stage "${stage}" \
+    --arg reason_code "${reason_code}" \
+    --arg stop_condition "${stop_condition}" \
+    --argjson rc "${ping_rc}" \
+    '{
+      from_node: $from_node,
+      peer_id: $peer_id,
+      classification: $classification,
+      outcome: "fail",
+      stage: $stage,
+      reason_code: $reason_code,
+      contacted_peers: [$peer_id],
+      retry_budget: {attempts: 1, command: "miopunch ping"},
+      stop_condition: $stop_condition,
+      exit_code: $rc
+    }' \
+    >"${run_dir}/proof/${label}/ping_result.json"
+  return 1
+}
+
+run_full_edge_candidates() {
+  local from_node="$1" label_prefix="$2" required_successes="$3"
+  shift 3
+  local successes=0 attempts=0 selected_count=0 skipped_missing=0 peer topology_path task_json maintain_rc
+  mkdir -p "${run_dir}/topology_pre_maintain" "${run_dir}/proof/${label_prefix}" "$(node_dir "${from_node}")/reports/${label_prefix}"
+
+  collect_topology_for_node_into "${from_node}" "${run_dir}/topology_pre_maintain"
+  topology_path="${run_dir}/topology_pre_maintain/${from_node}.json"
+  selected_count="$(jq -r '(.neighbors.selected // []) | length' "${topology_path}")"
+
+  while read -r peer; do
+    [[ -n "${peer}" ]] || continue
+    if ! docker exec "$(node_name "${from_node}")" jq -e --arg peer "${peer}" '(.peers // {}) | has($peer)' /var/lib/miopunch/state.json >/dev/null; then
+      skipped_missing=$((skipped_missing + 1))
+      continue
+    fi
+    configure_next_joined_peer_dial_fixture "${from_node}" "${peer}"
+  done < <(jq -r '.neighbors.selected[]?.peer_id' "${topology_path}")
+
+  task_json="${run_dir}/tasks/${label_prefix}_maintain_neighbors.json"
+  set +e
+  docker exec "$(node_name "${from_node}")" bash -lc \
+    "miopunch --redact --localapi ${localapi} --format json --report /artifacts/reports/${label_prefix}/maintain_neighbors.md maintain-neighbors" \
+    >"${task_json}" 2>"${run_dir}/tasks/${label_prefix}_maintain_neighbors.stderr"
+  maintain_rc=$?
+  set -e
+  printf '%s\n' "${maintain_rc}" >"${run_dir}/tasks/${label_prefix}_maintain_neighbors.rc"
+  [[ "${maintain_rc}" -eq 0 ]] || die "maintain-neighbors failed: label=${label_prefix} rc=${maintain_rc}"
+
+  attempts="$(jq -r '.facts[]?.message | select(startswith("maintain_neighbors_attempted="))' "${task_json}" | sed -E 's/^maintain_neighbors_attempted=//' | tail -n 1 | tr -d '\r\n')"
+  successes="$(jq -r '.facts[]?.message | select(startswith("maintain_neighbors_succeeded="))' "${task_json}" | sed -E 's/^maintain_neighbors_succeeded=//' | tail -n 1 | tr -d '\r\n')"
+  [[ -n "${attempts}" && "${attempts}" != "null" ]] || attempts=0
+  [[ -n "${successes}" && "${successes}" != "null" ]] || successes=0
+
+  jq -n \
+    --arg node "${from_node}" \
+    --arg command "miopunch maintain-neighbors" \
+    --arg topology_before "${topology_path}" \
+    --argjson required_successes "${required_successes}" \
+    --argjson selected_count "${selected_count}" \
+    --argjson skipped_missing_peer_config "${skipped_missing}" \
+    --argjson attempts "${attempts}" \
+    --argjson successes "${successes}" \
+    '{
+      node: $node,
+      command: $command,
+      topology_before: $topology_before,
+      required_successes: $required_successes,
+      selected_count: $selected_count,
+      skipped_missing_peer_config: $skipped_missing_peer_config,
+      attempts: $attempts,
+      successes: $successes
+    }' \
+    >"${run_dir}/proof/${label_prefix}_edge_summary.json"
+  ((successes >= required_successes)) || die "insufficient maintained neighbor successes: node=${from_node} successes=${successes} required=${required_successes}"
+}
+
+collect_topology_for_stage() {
+  local node
+  mkdir -p "${run_dir}/topology"
+  while read -r node; do
+    [[ -n "${node}" ]] || continue
+    collect_topology_for_node_into "${node}" "${run_dir}/topology"
+  done < <(mnt03_profile_nodes "${profile}")
+}
+
+collect_topology_for_node_into() {
+  local node="$1" out_dir="$2"
+  mkdir -p "${out_dir}"
+  docker exec "$(node_name "${node}")" bash -lc \
+    "miopunch --localapi ${localapi} --format json topology" \
+    >"${out_dir}/${node}.json" 2>"${out_dir}/${node}.stderr"
+  printf '%s\n' 0 >"${out_dir}/${node}.rc"
+}
+
+collect_stable_topology_for_node() {
+  collect_topology_for_node_into "$1" "${run_dir}/topology_stable"
+}
+
+assert_3node_bootstrap_evidence() {
+  local issuer_peer_id="$1" n03_peer_id="$2" node net_id gov_head decls_head
+  net_id="$(jq -r '.net.net_id' "${run_dir}/topology/n01.json")"
+  gov_head="$(jq -r '.state_head.governance_head_b64' "${run_dir}/topology/n01.json")"
+  decls_head="$(jq -r '.state_head.decls_head_b64' "${run_dir}/topology/n01.json")"
+  [[ -n "${net_id}" && "${net_id}" != "null" ]] || die "missing n01 net_id"
+  [[ -n "${gov_head}" && "${gov_head}" != "null" ]] || die "missing n01 governance head"
+  [[ -n "${decls_head}" && "${decls_head}" != "null" ]] || die "missing n01 decls head"
+
+  for node in n01 n03 n04; do
+    jq -e --arg net_id "${net_id}" --arg gov_head "${gov_head}" --arg decls_head "${decls_head}" '
+      .net.net_id == $net_id
+      and .state_head.governance_head_b64 == $gov_head
+      and .state_head.decls_head_b64 == $decls_head
+      and (.members | length) >= 2
+      and .presence.local.signed == true
+      and .presence.local.state_head.governance_head_b64 == $gov_head
+      and .presence.local.state_head.decls_head_b64 == $decls_head
+    ' "${run_dir}/topology/${node}.json" >/dev/null
+  done
+
+  jq -e --arg issuer "${issuer_peer_id}" --arg n03 "${n03_peer_id}" '
+    ([.bootstrap.recommendations[].peer_id] | index($issuer) != null and index($n03) != null)
+    and (.bootstrap.recommendations | length) >= 2
+  ' "${run_dir}/topology/n04.json" >/dev/null
+}
+
+assert_4node_reachability_evidence() {
+  local issuer_peer_id="$1" n03_peer_id="$2" n04_peer_id="$3" n05_peer_id="$4" node net_id gov_head decls_head
+  net_id="$(jq -r '.net.net_id' "${run_dir}/topology/n01.json")"
+  gov_head="$(jq -r '.state_head.governance_head_b64' "${run_dir}/topology/n01.json")"
+  decls_head="$(jq -r '.state_head.decls_head_b64' "${run_dir}/topology/n01.json")"
+  [[ -n "${net_id}" && "${net_id}" != "null" ]] || die "missing n01 net_id"
+  [[ -n "${gov_head}" && "${gov_head}" != "null" ]] || die "missing n01 governance head"
+  [[ -n "${decls_head}" && "${decls_head}" != "null" ]] || die "missing n01 decls head"
+
+  for node in n01 n03 n04 n05; do
+    jq -e '
+      .presence.local.signed == true
+      and (.presence.local.state_head.governance_head_b64 | type == "string")
+      and (.presence.local.state_head.decls_head_b64 | type == "string")
+      and (.self.v4_hint as $h | ["direct","easy","hard1","hard2","unknown","none"] | index($h) != null)
+      and (.self.v6_hint as $h | ["direct","easy","hard1","unknown","none"] | index($h) != null)
+      and (((.self.v4_hint | contains(".")) or (.self.v4_hint | contains(":"))) | not)
+      and (((.self.v6_hint | contains(".")) or (.self.v6_hint | contains(":"))) | not)
+    ' "${run_dir}/topology/${node}.json" >/dev/null
+  done
+
+  jq -e --arg net_id "${net_id}" --arg gov_head "${gov_head}" --arg n03 "${n03_peer_id}" --arg n04 "${n04_peer_id}" --arg n05 "${n05_peer_id}" '
+    .net.net_id == $net_id
+    and .state_head.governance_head_b64 == $gov_head
+    and ([.members[].peer_id] | index($n03) != null)
+    and ([.members[].peer_id] | index($n04) != null)
+    and ([.members[].peer_id] | index($n05) != null)
+    and (any(.members[]; .peer_id == $n05 and .v4_hint == "direct" and .v6_hint == "none"))
+  ' "${run_dir}/topology/n01.json" >/dev/null
+
+  jq -e --arg issuer "${issuer_peer_id}" --arg n03 "${n03_peer_id}" '
+    (.bootstrap.recommendations | length) >= 2
+    and .bootstrap.recommendations[0].peer_id == $issuer
+    and .bootstrap.recommendations[0].bucket == "direct"
+    and ([.bootstrap.recommendations[].peer_id] | index($n03) != null)
+    and (.neighbors.target_k == 2)
+    and ([.neighbors.active[].peer_id] | index($issuer) != null)
+    and ([.neighbors.active[].peer_id] | index($n03) != null)
+    and (all(.neighbors.active[]; .healthy == true and .data_proto != "" and .path_family != ""))
+    and (any(.attempts[]; .peer_id == $issuer and .outcome == "ok" and .attempt_path != "" and .data_proto == "quic"))
+    and (any(.attempts[]; .peer_id == $n03 and .outcome == "ok" and .attempt_path != "" and .data_proto == "quic"))
+    and (any(.attempts[]; .portmap.udp_included == true and .portmap.udp_direct_v4 > 0))
+    and (any(.payloads[]; .peer_id == $issuer and .evidence == "ping=ok"))
+    and (any(.payloads[]; .peer_id == $n03 and .evidence == "ping=ok"))
+  ' "${run_dir}/topology/n05.json" >/dev/null
+
+  jq -e --arg n05 "${n05_peer_id}" '
+    any(.attempts[]; .peer_id == $n05 and .outcome == "ok" and .attempt_path == "direct_ipv4" and .data_proto == "quic")
+    and any(.payloads[]; .peer_id == $n05 and .evidence == "ping=ok")
+  ' "${run_dir}/topology/n01.json" >/dev/null
+}
+
+run_bootstrap_more_between_nodes() {
+  local responder_node="$1" requester_node="$2" target_peer_id="$3" attempted_csv="$4" label="$5"
+  mkdir -p "$(node_dir "${responder_node}")/reports/${label}" "$(node_dir "${requester_node}")/reports/${label}"
+
+  set +e
+  docker exec "$(node_name "${responder_node}")" bash -lc \
+    "miopunch --redact --localapi ${localapi} --format json --report /artifacts/reports/${label}/bootstrap_more_respond.md bootstrap-more --respond-once --timeout 20s" \
+    >"${run_dir}/tasks/${label}_bootstrap_more_respond.json" 2>"${run_dir}/tasks/${label}_bootstrap_more_respond.stderr" &
+  local responder_pid=$!
+  sleep 1
+  docker exec "$(node_name "${requester_node}")" bash -lc \
+    "miopunch --redact --localapi ${localapi} --format json --report /artifacts/reports/${label}/bootstrap_more_request.md bootstrap-more --round 1 --timeout 5s --attempted '${attempted_csv}' '${target_peer_id}'" \
+    >"${run_dir}/tasks/${label}_bootstrap_more_request.json" 2>"${run_dir}/tasks/${label}_bootstrap_more_request.stderr"
+  local requester_rc=$?
+  wait "${responder_pid}"
+  local responder_rc=$?
+  set -e
+  printf '%s\n' "${requester_rc}" >"${run_dir}/tasks/${label}_bootstrap_more_request.rc"
+  printf '%s\n' "${responder_rc}" >"${run_dir}/tasks/${label}_bootstrap_more_respond.rc"
+  [[ "${requester_rc}" -eq 0 ]] || die "bootstrap_more request failed: label=${label} rc=${requester_rc}"
+  [[ "${responder_rc}" -eq 0 ]] || die "bootstrap_more responder failed: label=${label} rc=${responder_rc}"
+}
+
+run_bootstrap_more_request_optional() {
+  local requester_node="$1" target_peer_id="$2" attempted_csv="$3" label="$4"
+  mkdir -p "$(node_dir "${requester_node}")/reports/${label}" "${run_dir}/proof/${label}"
+  set +e
+  docker exec "$(node_name "${requester_node}")" bash -lc \
+    "miopunch --redact --localapi ${localapi} --format json --report /artifacts/reports/${label}/bootstrap_more_request.md bootstrap-more --round 1 --timeout 2s --attempted '${attempted_csv}' '${target_peer_id}'" \
+    >"${run_dir}/tasks/${label}_bootstrap_more_request.json" 2>"${run_dir}/tasks/${label}_bootstrap_more_request.stderr"
+  local requester_rc=$?
+  set -e
+  printf '%s\n' "${requester_rc}" >"${run_dir}/tasks/${label}_bootstrap_more_request.rc"
+  jq -n \
+    --arg requester_node "${requester_node}" \
+    --arg target_peer_id "${target_peer_id}" \
+    --arg attempted "${attempted_csv}" \
+    --argjson rc "${requester_rc}" \
+    '{requester_node: $requester_node, target_peer_id: $target_peer_id, attempted: $attempted, exit_code: $rc, expected_when_broker_down: "nonzero"}' \
+    >"${run_dir}/proof/${label}/bootstrap_more_result.json"
+  [[ "${requester_rc}" -ne 0 ]] || die "bootstrap_more unexpectedly succeeded during outage: label=${label}"
+}
+
+assert_6node_bootstrap_more_evidence() {
+  local issuer_peer_id="$1" n03_peer_id="$2" n04_peer_id="$3" n05_peer_id="$4" n06_peer_id="$5" n07_peer_id="$6"
+  local n06_seed_peer_id="$7" n07_seed_peer_id="$8"
+  local node net_id gov_head decls_head
+  net_id="$(jq -r '.net.net_id' "${run_dir}/topology/n01.json")"
+  gov_head="$(jq -r '.state_head.governance_head_b64' "${run_dir}/topology/n01.json")"
+  decls_head="$(jq -r '.state_head.decls_head_b64' "${run_dir}/topology/n01.json")"
+  [[ -n "${net_id}" && "${net_id}" != "null" ]] || die "missing n01 net_id"
+  [[ -n "${gov_head}" && "${gov_head}" != "null" ]] || die "missing n01 governance head"
+  [[ -n "${decls_head}" && "${decls_head}" != "null" ]] || die "missing n01 decls head"
+
+  for node in n01 n03 n04 n05 n06 n07; do
+    jq -e --arg net_id "${net_id}" --arg gov_head "${gov_head}" '
+      .net.net_id == $net_id
+      and .state_head.governance_head_b64 == $gov_head
+      and .presence.local.signed == true
+      and (.presence.local.state_head.governance_head_b64 | type == "string")
+      and (.presence.local.state_head.decls_head_b64 | type == "string")
+      and (.self.v4_hint as $h | ["direct","easy","hard1","hard2","unknown","none"] | index($h) != null)
+      and (.self.v6_hint as $h | ["direct","easy","hard1","unknown","none"] | index($h) != null)
+      and (((.self.v4_hint | contains(".")) or (.self.v4_hint | contains(":"))) | not)
+      and (((.self.v6_hint | contains(".")) or (.self.v6_hint | contains(":"))) | not)
+      and (.neighbors.target_k == 2)
+    ' "${run_dir}/topology/${node}.json" >/dev/null
+  done
+
+  jq -e \
+    --arg net_id "${net_id}" \
+    --arg gov_head "${gov_head}" \
+    --arg decls_head "${decls_head}" \
+    --arg n03 "${n03_peer_id}" \
+    --arg n04 "${n04_peer_id}" \
+    --arg n05 "${n05_peer_id}" \
+    --arg n06 "${n06_peer_id}" \
+    --arg n07 "${n07_peer_id}" '
+      .net.net_id == $net_id
+      and .state_head.governance_head_b64 == $gov_head
+      and .state_head.decls_head_b64 == $decls_head
+      and ([.members[].peer_id] | index($n03) != null)
+      and ([.members[].peer_id] | index($n04) != null)
+      and ([.members[].peer_id] | index($n05) != null)
+      and ([.members[].peer_id] | index($n06) != null)
+      and ([.members[].peer_id] | index($n07) != null)
+      and any(.members[]; .peer_id == $n06 and .v4_hint == "hard1" and .v6_hint == "direct")
+      and any(.members[]; .peer_id == $n07 and .v4_hint == "hard1" and .v6_hint == "none")
+    ' "${run_dir}/topology/n01.json" >/dev/null
+
+  jq -e --arg issuer "${issuer_peer_id}" --arg seed "${n06_seed_peer_id}" --arg n03 "${n03_peer_id}" --arg n04 "${n04_peer_id}" --arg n05 "${n05_peer_id}" '
+    .self.v6_hint == "direct"
+    and
+    (.bootstrap.more_rounds | length) >= 2
+    and ([.bootstrap.more_rounds[].peer_id] | unique | length) == (.bootstrap.more_rounds | length)
+    and ([.bootstrap.more_rounds[].peer_id] | index($issuer) == null)
+    and ([.bootstrap.more_rounds[].peer_id] | index($seed) == null)
+    and ([.bootstrap.more_rounds[].peer_id] | map(select(. == $n03 or . == $n04 or . == $n05)) | length >= 1)
+    and (all(.bootstrap.more_rounds[]; .bucket != "" and .reason == "bootstrap_more_response"))
+    and ([.neighbors.active[].peer_id] | index($issuer) != null)
+    and ([.neighbors.active[].peer_id] | index($seed) != null)
+    and (all(.neighbors.active[]; .healthy == true and .data_proto != "" and .path_family != ""))
+    and (any(.attempts[]; (.peer_id == $issuer or .peer_id == $seed) and .outcome == "ok" and (.path_family == "udp6" or .path_family == "tcp6")))
+    and (any(.payloads[]; .peer_id == $issuer and .evidence == "ping=ok"))
+    and (any(.payloads[]; .peer_id == $seed and .evidence == "ping=ok"))
+  ' "${run_dir}/topology/n06.json" >/dev/null
+
+  jq -e --arg issuer "${issuer_peer_id}" --arg seed "${n07_seed_peer_id}" '
+    .self.v4_hint == "hard1"
+    and .self.v6_hint == "none"
+    and ([.neighbors.active[].peer_id] | index($issuer) != null)
+    and ([.neighbors.active[].peer_id] | index($seed) != null)
+    and (all(.neighbors.active[]; .healthy == true and .data_proto != "" and .path_family != ""))
+    and (any(.payloads[]; .peer_id == $issuer and .evidence == "ping=ok"))
+    and (any(.payloads[]; .peer_id == $seed and .evidence == "ping=ok"))
+  ' "${run_dir}/topology/n07.json" >/dev/null
+
+}
+
+assert_12node_stable_topology_evidence() {
+  local issuer_peer_id="$1"
+  shift
+  local legal_nodes=(n01 n02 n03 n04 n05 n06 n07 n08 n09 n10 n11)
+  local node net_id gov_head n02_peer_id n03_peer_id n04_peer_id n05_peer_id n06_peer_id n07_peer_id n08_peer_id n09_peer_id n10_peer_id n11_peer_id
+  n02_peer_id="$1"
+  n03_peer_id="$2"
+  n04_peer_id="$3"
+  n05_peer_id="$4"
+  n06_peer_id="$5"
+  n07_peer_id="$6"
+  n08_peer_id="$7"
+  n09_peer_id="$8"
+  n10_peer_id="$9"
+  n11_peer_id="${10}"
+
+  net_id="$(jq -r '.net.net_id' "${run_dir}/topology_stable/n01.json")"
+  gov_head="$(jq -r '.state_head.governance_head_b64' "${run_dir}/topology_stable/n01.json")"
+  [[ -n "${net_id}" && "${net_id}" != "null" ]] || die "missing n01 net_id"
+  [[ -n "${gov_head}" && "${gov_head}" != "null" ]] || die "missing n01 governance head"
+
+  for node in "${legal_nodes[@]}"; do
+    jq -e --arg net_id "${net_id}" --arg gov_head "${gov_head}" '
+      .net.net_id == $net_id
+      and .state_head.governance_head_b64 == $gov_head
+      and .presence.local.signed == true
+      and (.neighbors.target_k >= 2)
+      and (.neighbors.selected | length) >= 1
+      and (all(.neighbors.selected[]; .bucket != "" and .reason == "reachability_bucket_rotation"))
+    ' "${run_dir}/topology_stable/${node}.json" >/dev/null
+  done
+
+  jq -e \
+    --arg n02 "${n02_peer_id}" \
+    --arg n03 "${n03_peer_id}" \
+    --arg n04 "${n04_peer_id}" \
+    --arg n05 "${n05_peer_id}" \
+    --arg n06 "${n06_peer_id}" \
+    --arg n07 "${n07_peer_id}" \
+    --arg n08 "${n08_peer_id}" \
+    --arg n09 "${n09_peer_id}" \
+    --arg n10 "${n10_peer_id}" \
+    --arg n11 "${n11_peer_id}" '
+      (.neighbors.target_k == 3)
+      and ([.members[].peer_id] | index($n02) != null)
+      and ([.members[].peer_id] | index($n03) != null)
+      and ([.members[].peer_id] | index($n04) != null)
+      and ([.members[].peer_id] | index($n05) != null)
+      and ([.members[].peer_id] | index($n06) != null)
+      and ([.members[].peer_id] | index($n07) != null)
+      and ([.members[].peer_id] | index($n08) != null)
+      and ([.members[].peer_id] | index($n09) != null)
+      and ([.members[].peer_id] | index($n10) != null)
+      and ([.members[].peer_id] | index($n11) != null)
+      and (.neighbors.selected | length) >= 3
+      and (.neighbors.active | length) >= 3
+      and (all(.neighbors.active[]; .healthy == true and .data_proto != "" and .path_family != ""))
+      and (any(.payloads[]; .evidence == "ping=ok"))
+    ' "${run_dir}/topology_stable/n01.json" >/dev/null
+
+  for node in n02 n03 n04 n05 n06; do
+    jq -e '
+      (.neighbors.active | length) >= 2
+      and (all(.neighbors.active[]; .healthy == true and .data_proto != "" and .path_family != ""))
+      and (any(.payloads[]; .evidence == "ping=ok"))
+    ' "${run_dir}/topology_stable/${node}.json" >/dev/null
+  done
+
+  for node in n07 n08 n09; do
+    jq -e '
+      (.neighbors.active | length) >= 1
+      and (all(.neighbors.active[]; .healthy == true and .data_proto != "" and .path_family != ""))
+      and (any(.payloads[]; .evidence == "ping=ok"))
+    ' "${run_dir}/topology_stable/${node}.json" >/dev/null
+  done
+
+  for node in n10 n11; do
+    jq -e '
+      ((.neighbors.active | length) >= 1 and any(.payloads[]; .evidence == "ping=ok"))
+      or ((.neighbors.failures | length) >= 1 and any(.recovery.events[]; .stop_condition != ""))
+    ' "${run_dir}/topology_stable/${node}.json" >/dev/null
+  done
+
+  for node in n07 n08 n09 n10 n11; do
+    jq -e --arg issuer "${issuer_peer_id}" --arg n03 "${n03_peer_id}" --arg n06 "${n06_peer_id}" '
+      ([.neighbors.active[].peer_id] | index($issuer) != null or index($n03) != null or index($n06) != null)
+      or (.neighbors.failures | length) >= 1
+    ' "${run_dir}/topology_stable/${node}.json" >/dev/null
+  done
+
+  jq -n \
+    --arg issuer_peer_id "${issuer_peer_id}" \
+    --arg n02_peer_id "${n02_peer_id}" \
+    --arg n03_peer_id "${n03_peer_id}" \
+    --arg n04_peer_id "${n04_peer_id}" \
+    --arg n05_peer_id "${n05_peer_id}" \
+    --arg n06_peer_id "${n06_peer_id}" \
+    --arg n07_peer_id "${n07_peer_id}" \
+    --arg n08_peer_id "${n08_peer_id}" \
+    --arg n09_peer_id "${n09_peer_id}" \
+    --arg n10_peer_id "${n10_peer_id}" \
+    --arg n11_peer_id "${n11_peer_id}" \
+    '{
+      issuer_peer_id: $issuer_peer_id,
+      legal_members: [$n02_peer_id, $n03_peer_id, $n04_peer_id, $n05_peer_id, $n06_peer_id, $n07_peer_id, $n08_peer_id, $n09_peer_id, $n10_peer_id, $n11_peer_id],
+      stable_pass_rate_excludes: ["n12"],
+      target_k_for_admin_view: 3,
+      hard_nodes_checked: ["n07", "n08", "n09", "n10", "n11"],
+      stable_topology_dir: "topology_stable",
+      admin_not_sole_hub: true
+    }' >"${run_dir}/proof/12node-stable-topology.json"
+}
+
+run_12node_perturbations() {
+  local issuer_peer_id="$1" n03_peer_id="$2" n05_peer_id="$3" n06_peer_id="$4" n09_peer_id="$5" n12_peer_id="$6"
+  mkdir -p "${run_dir}/topology_before_perturbation" "${run_dir}/topology_after_perturbation" "${run_dir}/proof/perturbation"
+  cp "${run_dir}/topology/"*.json "${run_dir}/topology_before_perturbation/" 2>/dev/null || true
+
+  ip netns exec "$(mnt03_node_nat_ns n09)" tc qdisc replace dev wan0 root netem delay 20ms loss 1% || true
+  configure_next_joined_peer_dial_fixture n09 "${n03_peer_id}"
+  run_ping_between_nodes_optional n09 "${n03_peer_id}" m6_loss_n09_to_n03 "explainable-failure-allowed" || true
+
+  stop_pid "${broker_pid:-}" || true
+  broker_pid=""
+  run_bootstrap_more_request_optional n08 "${issuer_peer_id}" "${issuer_peer_id},${n03_peer_id}" m6_broker_outage_bootstrap_more
+  broker_pid="$(start_bg_in_netns "${MNT03_NS_COORD}" "${run_dir}/broker/mqtt.recovered.log" "${miopunch_lab}" mqtt-broker --listen "${COORD_IP}:1883")"
+  for _ in {1..100}; do
+    if grep -q '"msg":"mqtt broker listening"' "${run_dir}/broker/mqtt.recovered.log" 2>/dev/null; then
+      break
+    fi
+    sleep 0.05
+  done
+  grep -q '"msg":"mqtt broker listening"' "${run_dir}/broker/mqtt.recovered.log" || die "mqtt broker did not recover"
+  configure_next_joined_peer_dial_fixture n08 "${n03_peer_id}"
+  run_ping_between_nodes_optional n08 "${n03_peer_id}" m6_broker_recovered_n08_to_n03 "required-success"
+
+  ip netns exec "$(mnt03_node_nat_ns n06)" sh -c 'command -v ip6tables >/dev/null 2>&1 && ip6tables -w -I FORWARD 1 -j DROP || true' || true
+  configure_next_joined_peer_dial_fixture n06 "${issuer_peer_id}"
+  run_ping_between_nodes_optional n06 "${issuer_peer_id}" m6_ipv6_block_n06_to_n01 "explainable-failure-allowed" || true
+
+  stop_pid "${n05_natpmp_pid:-}" || true
+  n05_natpmp_pid=""
+  docker exec "$(node_name n01)" systemctl restart miopunch
+  wait_localapi n01
+  configure_next_joined_peer_dial_fixture n01 "${n05_peer_id}"
+  run_ping_between_nodes_optional n01 "${n05_peer_id}" m6_portmap_block_n01_to_n05 "explainable-failure-allowed" || true
+
+  docker exec "$(node_name n12)" systemctl stop miopunch || true
+  sleep 1
+  docker exec "$(node_name n12)" systemctl start miopunch
+  wait_localapi n12
+  configure_next_joined_peer_dial_fixture n12 "${issuer_peer_id}"
+  run_ping_between_nodes_optional n12 "${issuer_peer_id}" m6_rejoin_n12_to_n01 "required-success"
+
+  mkdir -p "$(node_dir n01)/reports/m6"
+  run_node_cmd n01 m6_revoke_n12 miopunch --redact --localapi "${localapi}" --format json --report /artifacts/reports/m6/revoke_n12.md revoke "${n12_peer_id}" --dangerous
+  configure_next_joined_peer_dial_fixture n12 "${issuer_peer_id}"
+  run_ping_between_nodes_optional n12 "${issuer_peer_id}" m6_revoked_n12_to_n01 "explainable-failure-allowed" || true
+
+  collect_topology_for_stage
+  cp "${run_dir}/topology/"*.json "${run_dir}/topology_after_perturbation/" 2>/dev/null || true
+
+  jq -e --arg n12 "${n12_peer_id}" '
+    any(.recovery.events[]; .stage == "revoke" and (.contacted_peers | index($n12) != null))
+  ' "${run_dir}/topology/n01.json" >/dev/null
+  jq -e --arg issuer "${issuer_peer_id}" '
+    .classification == "explainable-failure-allowed"
+    and .outcome == "fail"
+    and .stage == "CapabilityHandshake"
+    and .reason_code == "FORBIDDEN"
+    and (.contacted_peers | index($issuer) != null)
+    and .stop_condition == "authorization_denied"
+  ' "${run_dir}/proof/m6_revoked_n12_to_n01/ping_result.json" >/dev/null
+
+  jq -n \
+    --arg n05_peer_id "${n05_peer_id}" \
+    --arg n06_peer_id "${n06_peer_id}" \
+    --arg n09_peer_id "${n09_peer_id}" \
+    --arg n12_peer_id "${n12_peer_id}" \
+    '{
+      perturbations: ["loss/netem", "broker_outage_recovery", "ipv6_block", "portmap_block", "offline_rejoin", "revoke"],
+      affected_peers: {
+        portmap: $n05_peer_id,
+        ipv6: $n06_peer_id,
+        lossy: $n09_peer_id,
+        lifecycle: $n12_peer_id
+      },
+      topology_before: "topology_before_perturbation",
+      topology_after: "topology_after_perturbation",
+      network_evidence: ["pcap/wan.pcap", "pcap/mqtt.pcap", "network/*.conntrack", "network/*.iptables", "network/*.tc"]
+    }' >"${run_dir}/proof/perturbation/summary.json"
+}
+
+run_2node_substrate() {
+  local accept_port=5000 dial_port=5001
+
+  mnt03_remove_systemd_node n01 || true
+  mnt03_remove_systemd_node n03 || true
+  mnt03_remove_systemd_node n04 || true
+  mnt03_remove_systemd_node n05 || true
+  mnt03_remove_systemd_node n06 || true
+  mnt03_remove_systemd_node n07 || true
+  mnt03_topology_cleanup >/dev/null 2>&1 || true
+  mnt03_topology_create_2node
+
+  apply_nat_profiles_for_stage "${accept_port}" "${dial_port}"
+
+  start_services
+  start_nodes
+  install_daemons
+  run_invite_join_ping
+  collect_all_artifacts
+
+  case_pass=1
+  write_summary "pass" 1 0 ""
+  echo "case=${case_id} stage=${stage} status=pass run_dir=${run_dir}"
+}
+
+run_3node_bootstrap() {
+  local accept_port=5000 dial_port=5001 n04_second_dial_port=5002 n03_peer_id n04_peer_id issuer_peer_id
+
+  mnt03_remove_systemd_node n01 || true
+  mnt03_remove_systemd_node n03 || true
+  mnt03_remove_systemd_node n04 || true
+  mnt03_remove_systemd_node n05 || true
+  mnt03_remove_systemd_node n06 || true
+  mnt03_remove_systemd_node n07 || true
+  mnt03_topology_cleanup >/dev/null 2>&1 || true
+  mnt03_topology_create_3node
+
+  apply_nat_profiles_for_stage "${accept_port}" "${dial_port}"
+  profiles_apply_extra_port \
+    "$(mnt03_node_nat_ns n04)" \
+    "$(mnt03_node_nat_profile_for_stage n04)" \
+    "$(mnt03_node_lan_cidr n04)" \
+    "$(mnt03_node_wan_ip n04)" \
+    "$(mnt03_node_ip n04)" \
+    "${n04_second_dial_port}"
+
+  start_services
+  start_nodes
+  install_daemons
+
+  invite_join_member n03 m2_n03
+  issuer_peer_id="${mnt03_last_issuer_peer_id}"
+  n03_peer_id="${mnt03_last_member_peer_id}"
+
+  invite_join_member n04 m2_n04
+  n04_peer_id="${mnt03_last_member_peer_id}"
+  configure_joined_peer_dial_fixture n04 "${n03_peer_id}" "${n04_second_dial_port}"
+
+  run_ping_between_nodes n03 "${issuer_peer_id}" m2_n03_to_n01
+  run_ping_between_nodes n04 "${issuer_peer_id}" m2_n04_to_n01
+  run_ping_between_nodes n04 "${n03_peer_id}" m2_n04_to_n03
+
+  collect_topology_for_stage
+  assert_3node_bootstrap_evidence "${issuer_peer_id}" "${n03_peer_id}"
+  collect_all_artifacts
+
+  jq -n \
+    --arg issuer_peer_id "${issuer_peer_id}" \
+    --arg n03_peer_id "${n03_peer_id}" \
+    --arg n04_peer_id "${n04_peer_id}" \
+    '{
+      issuer_peer_id: $issuer_peer_id,
+      joined_members: [$n03_peer_id, $n04_peer_id],
+      bootstrap_recommendations_checked_on: "n04",
+      presence_state_head_checked_on: ["n01", "n03", "n04"],
+      payload_edges: ["n03->n01", "n04->n01", "n04->n03"]
+    }' >"${run_dir}/proof/3node-bootstrap.json"
+
+  case_pass=1
+  write_summary "pass" 1 0 ""
+  echo "case=${case_id} stage=${stage} status=pass run_dir=${run_dir}"
+}
+
+run_4node_reachability() {
+  local accept_port=5000 dial_port=5001 n04_second_dial_port=5002 n05_second_dial_port=5002
+  local n03_peer_id n04_peer_id n05_peer_id issuer_peer_id
+
+  mnt03_remove_systemd_node n01 || true
+  mnt03_remove_systemd_node n03 || true
+  mnt03_remove_systemd_node n04 || true
+  mnt03_remove_systemd_node n05 || true
+  mnt03_topology_cleanup >/dev/null 2>&1 || true
+  mnt03_topology_create_4node
+
+  apply_nat_profiles_for_stage "${accept_port}" "${dial_port}"
+  profiles_apply_extra_port \
+    "$(mnt03_node_nat_ns n04)" \
+    "$(mnt03_node_nat_profile_for_stage n04)" \
+    "$(mnt03_node_lan_cidr n04)" \
+    "$(mnt03_node_wan_ip n04)" \
+    "$(mnt03_node_ip n04)" \
+    "${n04_second_dial_port}"
+  profiles_apply_extra_port \
+    "$(mnt03_node_nat_ns n05)" \
+    "$(mnt03_node_nat_profile_for_stage n05)" \
+    "$(mnt03_node_lan_cidr n05)" \
+    "$(mnt03_node_wan_ip n05)" \
+    "$(mnt03_node_ip n05)" \
+    "${n05_second_dial_port}"
+
+  start_services
+  start_natpmp_for_node n05
+  start_nodes
+  install_daemons
+
+  invite_join_member n03 m3_n03
+  issuer_peer_id="${mnt03_last_issuer_peer_id}"
+  n03_peer_id="${mnt03_last_member_peer_id}"
+
+  invite_join_member n04 m3_n04
+  n04_peer_id="${mnt03_last_member_peer_id}"
+  configure_joined_peer_dial_fixture n04 "${n03_peer_id}" "${n04_second_dial_port}"
+
+  invite_join_member n05 m3_n05
+  n05_peer_id="${mnt03_last_member_peer_id}"
+  configure_joined_peer_dial_fixture n01 "${n05_peer_id}" "${dial_port}"
+  configure_joined_peer_dial_fixture n05 "${n03_peer_id}" "${n05_second_dial_port}"
+
+  run_ping_between_nodes n03 "${issuer_peer_id}" m3_n03_to_n01
+  run_ping_between_nodes n04 "${issuer_peer_id}" m3_n04_to_n01
+  run_ping_between_nodes n04 "${n03_peer_id}" m3_n04_to_n03
+  run_ping_between_nodes n01 "${n05_peer_id}" m3_n01_to_n05
+  run_ping_between_nodes n05 "${issuer_peer_id}" m3_n05_to_n01
+  run_ping_between_nodes n05 "${n03_peer_id}" m3_n05_to_n03
+
+  collect_topology_for_stage
+  assert_4node_reachability_evidence "${issuer_peer_id}" "${n03_peer_id}" "${n04_peer_id}" "${n05_peer_id}"
+  collect_all_artifacts
+
+  jq -n \
+    --arg issuer_peer_id "${issuer_peer_id}" \
+    --arg n03_peer_id "${n03_peer_id}" \
+    --arg n04_peer_id "${n04_peer_id}" \
+    --arg n05_peer_id "${n05_peer_id}" \
+    '{
+      issuer_peer_id: $issuer_peer_id,
+      joined_members: [$n03_peer_id, $n04_peer_id, $n05_peer_id],
+      reachability_hints_checked_on: ["n01", "n03", "n04", "n05"],
+      portmap_candidate_checked_on: "n05",
+      portmap_direct_path_checked_on: "n01->n05",
+      active_neighbor_target_k: 2,
+      payload_edges: ["n03->n01", "n04->n01", "n04->n03", "n01->n05", "n05->n01", "n05->n03"]
+    }' >"${run_dir}/proof/4node-reachability.json"
+
+  case_pass=1
+  write_summary "pass" 1 0 ""
+  echo "case=${case_id} stage=${stage} status=pass run_dir=${run_dir}"
+}
+
+run_6node_bootstrap_more() {
+  local accept_port=5000 dial_port=5001 n04_second_dial_port=5002 n05_second_dial_port=5002 n06_second_dial_port=5002 n07_second_dial_port=5002
+  local n03_peer_id n04_peer_id n05_peer_id n06_peer_id n07_peer_id issuer_peer_id n06_seed_peer_id n07_seed_peer_id
+
+  mnt03_remove_systemd_node n01 || true
+  mnt03_remove_systemd_node n03 || true
+  mnt03_remove_systemd_node n04 || true
+  mnt03_remove_systemd_node n05 || true
+  mnt03_remove_systemd_node n06 || true
+  mnt03_remove_systemd_node n07 || true
+  mnt03_topology_cleanup >/dev/null 2>&1 || true
+  mnt03_topology_create_6node
+
+  apply_nat_profiles_for_stage "${accept_port}" "${dial_port}"
+  profiles_apply_extra_port \
+    "$(mnt03_node_nat_ns n04)" \
+    "$(mnt03_node_nat_profile_for_stage n04)" \
+    "$(mnt03_node_lan_cidr n04)" \
+    "$(mnt03_node_wan_ip n04)" \
+    "$(mnt03_node_ip n04)" \
+    "${n04_second_dial_port}"
+  profiles_apply_extra_port \
+    "$(mnt03_node_nat_ns n05)" \
+    "$(mnt03_node_nat_profile_for_stage n05)" \
+    "$(mnt03_node_lan_cidr n05)" \
+    "$(mnt03_node_wan_ip n05)" \
+    "$(mnt03_node_ip n05)" \
+    "${n05_second_dial_port}"
+  profiles_apply_extra_port \
+    "$(mnt03_node_nat_ns n06)" \
+    "$(mnt03_node_nat_profile_for_stage n06)" \
+    "$(mnt03_node_lan_cidr n06)" \
+    "$(mnt03_node_wan_ip n06)" \
+    "$(mnt03_node_ip n06)" \
+    "${n06_second_dial_port}"
+
+  start_services
+  start_natpmp_for_node n05
+  start_nodes
+  install_daemons
+
+  invite_join_member n03 m4_n03
+  issuer_peer_id="${mnt03_last_issuer_peer_id}"
+  n03_peer_id="${mnt03_last_member_peer_id}"
+
+  invite_join_member n04 m4_n04
+  n04_peer_id="${mnt03_last_member_peer_id}"
+  configure_joined_peer_dial_fixture n04 "${n03_peer_id}" "${n04_second_dial_port}"
+
+  invite_join_member n05 m4_n05
+  n05_peer_id="${mnt03_last_member_peer_id}"
+  configure_joined_peer_dial_fixture n01 "${n05_peer_id}" "${dial_port}"
+  configure_joined_peer_dial_fixture n05 "${n03_peer_id}" "${n05_second_dial_port}"
+
+  invite_join_member n06 m4_n06
+  n06_peer_id="${mnt03_last_member_peer_id}"
+  n06_seed_peer_id="$(select_existing_peer_for_dial_fixture n06 "${n03_peer_id}" "${n04_peer_id}" "${n05_peer_id}")" \
+    || die "n06 has no product-created non-admin seed peer"
+  configure_joined_peer_dial_fixture n06 "${n06_seed_peer_id}" "${n06_second_dial_port}"
+
+  invite_join_member n07 m4_n07
+  n07_peer_id="${mnt03_last_member_peer_id}"
+  n07_seed_peer_id="$(select_existing_peer_for_dial_fixture n07 "${n03_peer_id}" "${n04_peer_id}" "${n05_peer_id}")" \
+    || die "n07 has no product-created easy/direct seed peer"
+  configure_joined_peer_dial_fixture n07 "${n07_seed_peer_id}" "${n07_second_dial_port}"
+
+  run_bootstrap_more_between_nodes n01 n06 "${issuer_peer_id}" "${issuer_peer_id},${n06_seed_peer_id}" m4_n06_bootstrap_more
+
+  run_ping_between_nodes n03 "${issuer_peer_id}" m4_n03_to_n01
+  run_ping_between_nodes n04 "${issuer_peer_id}" m4_n04_to_n01
+  run_ping_between_nodes n04 "${n03_peer_id}" m4_n04_to_n03
+  run_ping_between_nodes n01 "${n05_peer_id}" m4_n01_to_n05
+  run_ping_between_nodes n05 "${issuer_peer_id}" m4_n05_to_n01
+  run_ping_between_nodes n05 "${n03_peer_id}" m4_n05_to_n03
+  run_ping_between_nodes n06 "${issuer_peer_id}" m4_n06_to_n01
+  run_ping_between_nodes n06 "${n06_seed_peer_id}" m4_n06_to_seed
+  run_ping_between_nodes n07 "${issuer_peer_id}" m4_n07_to_n01
+  run_ping_between_nodes n07 "${n07_seed_peer_id}" m4_n07_to_seed
+
+  collect_topology_for_stage
+  assert_6node_bootstrap_more_evidence "${issuer_peer_id}" "${n03_peer_id}" "${n04_peer_id}" "${n05_peer_id}" "${n06_peer_id}" "${n07_peer_id}" "${n06_seed_peer_id}" "${n07_seed_peer_id}"
+  collect_all_artifacts
+
+  jq -n \
+    --arg issuer_peer_id "${issuer_peer_id}" \
+    --arg n03_peer_id "${n03_peer_id}" \
+    --arg n04_peer_id "${n04_peer_id}" \
+    --arg n05_peer_id "${n05_peer_id}" \
+    --arg n06_peer_id "${n06_peer_id}" \
+    --arg n07_peer_id "${n07_peer_id}" \
+    --arg n06_seed_peer_id "${n06_seed_peer_id}" \
+    --arg n07_seed_peer_id "${n07_seed_peer_id}" \
+    '{
+      issuer_peer_id: $issuer_peer_id,
+      joined_members: [$n03_peer_id, $n04_peer_id, $n05_peer_id, $n06_peer_id, $n07_peer_id],
+      n06_seed_peer_id: $n06_seed_peer_id,
+      n07_seed_peer_id: $n07_seed_peer_id,
+      bootstrap_more_checked_on: "n06",
+      hard_carry_checked_on: "n07",
+      active_neighbor_target_k: 2,
+      payload_edges: ["n03->n01", "n04->n01", "n04->n03", "n01->n05", "n05->n01", "n05->n03", "n06->n01", "n06->seed", "n07->n01", "n07->seed"]
+    }' >"${run_dir}/proof/6node-bootstrap-more.json"
+
+  case_pass=1
+  write_summary "pass" 1 0 ""
+  echo "case=${case_id} stage=${stage} status=pass run_dir=${run_dir}"
+}
+
+run_12node_full() {
+  local accept_port=5000 dial_port=5001
+  local issuer_peer_id n02_peer_id n03_peer_id n04_peer_id n05_peer_id n06_peer_id n07_peer_id n08_peer_id n09_peer_id n10_peer_id n11_peer_id n12_peer_id
+
+  local node
+  for node in n01 n02 n03 n04 n05 n06 n07 n08 n09 n10 n11 n12; do
+    mnt03_remove_systemd_node "${node}" || true
+  done
+  mnt03_topology_cleanup >/dev/null 2>&1 || true
+  mnt03_topology_create_12node
+
+  apply_nat_profiles_for_stage "${accept_port}" "${dial_port}"
+  apply_nat_profiles_extra_ports_for_stage 5002 5003 5004 5005 5006 5007 5008
+
+  start_services
+  start_natpmp_for_node n05
+  start_fulltest_captures
+  start_nodes
+  install_daemons
+
+  invite_join_member n03 m5_n03
+  issuer_peer_id="${mnt03_last_issuer_peer_id}"
+  n03_peer_id="${mnt03_last_member_peer_id}"
+
+  invite_join_member n04 m5_n04
+  n04_peer_id="${mnt03_last_member_peer_id}"
+
+  invite_join_member n05 m5_n05
+  n05_peer_id="${mnt03_last_member_peer_id}"
+
+  invite_join_member n06 m5_n06
+  n06_peer_id="${mnt03_last_member_peer_id}"
+
+  invite_join_member n07 m5_n07
+  n07_peer_id="${mnt03_last_member_peer_id}"
+
+  invite_join_member n08 m5_n08
+  n08_peer_id="${mnt03_last_member_peer_id}"
+
+  invite_join_member n09 m5_n09
+  n09_peer_id="${mnt03_last_member_peer_id}"
+
+  invite_join_member n10 m5_n10
+  n10_peer_id="${mnt03_last_member_peer_id}"
+
+  invite_join_member n11 m5_n11
+  n11_peer_id="${mnt03_last_member_peer_id}"
+
+  invite_join_member n02 m5_n02
+  n02_peer_id="${mnt03_last_member_peer_id}"
+
+  run_full_edge_candidates n01 m5_n01_stable 3 "${n03_peer_id}" "${n04_peer_id}" "${n05_peer_id}" "${n06_peer_id}" "${n02_peer_id}"
+  collect_stable_topology_for_node n01
+
+  run_full_edge_candidates n02 m5_n02_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n03 m5_n03_seed 1 "${issuer_peer_id}" "${n04_peer_id}" "${n05_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n04 m5_n04_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n05 m5_n05_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n06 m5_n06_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n05_peer_id}"
+  run_full_edge_candidates n07 m5_n07_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n08 m5_n08_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n09 m5_n09_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n10 m5_n10_seed 0 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n11 m5_n11_seed 0 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+
+  run_full_edge_candidates n02 m5_n02_stable 2 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n04_peer_id}" "${n05_peer_id}"
+  collect_stable_topology_for_node n02
+  run_full_edge_candidates n03 m5_n03_stable 2 "${issuer_peer_id}" "${n04_peer_id}" "${n05_peer_id}" "${n06_peer_id}" "${n02_peer_id}"
+  collect_stable_topology_for_node n03
+  run_full_edge_candidates n04 m5_n04_stable 2 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n05_peer_id}" "${n02_peer_id}"
+  collect_stable_topology_for_node n04
+  run_full_edge_candidates n05 m5_n05_stable 2 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n04_peer_id}" "${n02_peer_id}"
+  collect_stable_topology_for_node n05
+  run_full_edge_candidates n06 m5_n06_stable 2 "${issuer_peer_id}" "${n03_peer_id}" "${n05_peer_id}" "${n04_peer_id}" "${n02_peer_id}"
+  collect_stable_topology_for_node n06
+  run_full_edge_candidates n07 m5_n07_stable 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n04_peer_id}" "${n05_peer_id}"
+  collect_stable_topology_for_node n07
+  run_full_edge_candidates n08 m5_n08_stable 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n04_peer_id}" "${n05_peer_id}"
+  collect_stable_topology_for_node n08
+  run_full_edge_candidates n09 m5_n09_stable 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n04_peer_id}" "${n05_peer_id}"
+  collect_stable_topology_for_node n09
+  run_full_edge_candidates n10 m5_n10_stable 0 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n04_peer_id}" "${n05_peer_id}"
+  collect_stable_topology_for_node n10
+  run_full_edge_candidates n11 m5_n11_stable 0 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n04_peer_id}" "${n05_peer_id}"
+  collect_stable_topology_for_node n11
+
+  assert_12node_stable_topology_evidence \
+    "${issuer_peer_id}" \
+    "${n02_peer_id}" \
+    "${n03_peer_id}" \
+    "${n04_peer_id}" \
+    "${n05_peer_id}" \
+    "${n06_peer_id}" \
+    "${n07_peer_id}" \
+    "${n08_peer_id}" \
+    "${n09_peer_id}" \
+    "${n10_peer_id}" \
+    "${n11_peer_id}"
+
+  invite_join_member n12 m6_n12_late
+  n12_peer_id="${mnt03_last_member_peer_id}"
+  run_full_edge_candidates n12 m6_n12_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+
+  collect_topology_for_stage
+  run_12node_perturbations "${issuer_peer_id}" "${n03_peer_id}" "${n05_peer_id}" "${n06_peer_id}" "${n09_peer_id}" "${n12_peer_id}"
+  stop_fulltest_captures
+  collect_all_artifacts
+
+  jq -n \
+    --arg issuer_peer_id "${issuer_peer_id}" \
+    --arg n02_peer_id "${n02_peer_id}" \
+    --arg n03_peer_id "${n03_peer_id}" \
+    --arg n04_peer_id "${n04_peer_id}" \
+    --arg n05_peer_id "${n05_peer_id}" \
+    --arg n06_peer_id "${n06_peer_id}" \
+    --arg n07_peer_id "${n07_peer_id}" \
+    --arg n08_peer_id "${n08_peer_id}" \
+    --arg n09_peer_id "${n09_peer_id}" \
+    --arg n10_peer_id "${n10_peer_id}" \
+    --arg n11_peer_id "${n11_peer_id}" \
+    --arg n12_peer_id "${n12_peer_id}" \
+    '{
+      issuer_peer_id: $issuer_peer_id,
+      legal_members: [$n02_peer_id, $n03_peer_id, $n04_peer_id, $n05_peer_id, $n06_peer_id, $n07_peer_id, $n08_peer_id, $n09_peer_id, $n10_peer_id, $n11_peer_id],
+      lifecycle_member: $n12_peer_id,
+      stable_topology: "proof/12node-stable-topology.json",
+      perturbation: "proof/perturbation/summary.json"
+    }' >"${run_dir}/proof/12node-full.json"
+
+  case_pass=1
+  write_summary "pass" 1 0 ""
+  echo "case=${case_id} stage=${stage} status=pass run_dir=${run_dir}"
+}
+
+run_pending_stage() {
+  write_pending_summary "MNT-03 stage execution is not implemented yet"
+  echo "case=${case_id} stage=${stage} status=pending run_dir=${run_dir}"
+  exit 1
+}
+
+main() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --case-id)
+        case_id="${2:-}"
+        shift 2
+        ;;
+      --stage)
+        stage="${2:-}"
+        shift 2
+        ;;
+      --profile)
+        profile="${2:-}"
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        echo "error: unknown arg: $1" >&2
+        usage >&2
+        exit 2
+        ;;
+    esac
+  done
+
+  [[ -n "${case_id}" ]] || die "missing --case-id"
+  if [[ -z "${stage}" ]]; then
+    stage="$(default_stage_for_case "${case_id}")"
+  fi
+  if [[ -z "${profile}" ]]; then
+    profile="${stage}"
+  fi
+
+  preflight
+
+  local ts safe_case rand
+  ts="$(date -u +%Y%m%dT%H%M%SZ)"
+  rand="${RANDOM}${RANDOM}"
+  safe_case="$(printf '%s' "${case_id}" | tr -c 'A-Za-z0-9_.-' '-')"
+  run_id="${ts}-mnt03-${safe_case}-${rand}"
+  run_dir="${artifacts_root}/${ts}-mnt03-${safe_case}"
+  node_image="miopunch-mnt03-node:${rand}"
+
+  mkdir -p "${run_dir}"
+  mnt03_artifacts_init "${run_dir}" "${case_id}" "${stage}" "${profile}"
+  mnt03_write_profile_manifest "${run_dir}" "${profile}"
+  {
+    printf 'run_id=%s\n' "${run_id}"
+    printf 'stage=%s\n' "${stage}"
+    printf 'profile=%s\n' "${profile}"
+    printf 'node_image=%s\n' "${node_image}"
+    printf 'miopunch=%s\n' "${miopunch}"
+    printf 'miopunch_lab=%s\n' "${miopunch_lab}"
+  } >"${run_dir}/run.env"
+
+  trap finish EXIT
+
+  case "${stage}" in
+    2node-substrate)
+      run_2node_substrate
+      ;;
+    3node-bootstrap)
+      run_3node_bootstrap
+      ;;
+    4node-reachability)
+      run_4node_reachability
+      ;;
+    6node-bootstrap-more)
+      run_6node_bootstrap_more
+      ;;
+    12node-full)
+      run_12node_full
+      ;;
+    *)
+      run_pending_stage
+      ;;
+  esac
+}
+
+main "$@"

@@ -27,6 +27,8 @@ type joinRequestBodyV0 struct {
 
 	Ed25519PubB64 string `json:"ed25519_pub_b64"`
 	X25519PubB64  string `json:"x25519_pub_b64"`
+
+	SeedPeer *seedPeerV0 `json:"seed_peer,omitempty"`
 }
 
 type membershipBundleV0 struct {
@@ -38,6 +40,8 @@ type membershipBundleV0 struct {
 	Decls                  []pocstate.DeclV0                 `json:"decls"`
 
 	SeedPeers []seedPeerV0 `json:"seed_peers,omitempty"`
+
+	BootstrapRecommendations []pocstate.BootstrapPeerEvidenceV0 `json:"bootstrap_recommendations,omitempty"`
 }
 
 type seedPeerV0 struct {
@@ -47,6 +51,9 @@ type seedPeerV0 struct {
 	SecretKey   string `json:"secret_key"`
 	MQTTBroker  string `json:"mqtt_broker"`
 	TopicPrefix string `json:"topic_prefix"`
+
+	V4Hint string `json:"v4_hint,omitempty"`
+	V6Hint string `json:"v6_hint,omitempty"`
 
 	DataProto string `json:"data_proto"`
 	QUICCC    string `json:"quic_cc"`
@@ -92,6 +99,13 @@ func (m *Manager) runJoinTask(taskID string, rawArgs []byte) {
 		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
 		return
 	}
+	localSeed, err := m.ensureLocalSeedPeer(selfID)
+	if err != nil {
+		m.addFact(taskID, poc.Fact{Message: "prepare local seed peer: " + err.Error()})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
+		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+		return
+	}
 
 	inviteSecret, err := decodeInviteSecretB64(code.InviteSecretB64)
 	if err != nil {
@@ -125,6 +139,7 @@ func (m *Manager) runJoinTask(taskID string, rawArgs []byte) {
 		ReplyTopic:    replyTopic,
 		Ed25519PubB64: selfID.Ed25519PubB64(),
 		X25519PubB64:  selfID.X25519PubB64(),
+		SeedPeer:      &localSeed,
 	}
 	bodyJSON, err := json.Marshal(body)
 	if err != nil {
@@ -344,6 +359,25 @@ func (m *Manager) runJoinTask(taskID string, rawArgs []byte) {
 		return
 	}
 
+	recommendations := append([]pocstate.BootstrapPeerEvidenceV0(nil), bundle.BootstrapRecommendations...)
+	if len(recommendations) == 0 {
+		for _, sp := range bundle.SeedPeers {
+			recommendations = append(recommendations, pocstate.BootstrapPeerEvidenceV0{
+				PeerID: strings.TrimSpace(sp.PeerID),
+				Bucket: "unknown",
+				Reason: "membership_seed",
+			})
+		}
+	}
+	if err := pocstate.SaveBootstrap(stateDir, pocstate.BootstrapFileV0{
+		Recommendations: recommendations,
+	}); err != nil {
+		m.addFact(taskID, poc.Fact{Message: "save bootstrap evidence: " + err.Error()})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
+		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+		return
+	}
+
 	// Bridge seeds into state.json for existing punching/dialer.
 	st, err := m.loadState()
 	if err != nil {
@@ -375,14 +409,11 @@ func (m *Manager) runJoinTask(taskID string, rawArgs []byte) {
 		if strings.TrimSpace(sp.PeerID) == "" {
 			continue
 		}
-		st.UpsertPeer(sp.PeerID, pocstate.PeerConfig{
-			ProxyName:   sp.ProxyName,
-			SecretKey:   sp.SecretKey,
-			MQTTBroker:  sp.MQTTBroker,
-			TopicPrefix: sp.TopicPrefix,
-			DataProto:   sp.DataProto,
-			QUICCC:      sp.QUICCC,
-		})
+		cfg, ok := sp.peerConfig()
+		if !ok {
+			continue
+		}
+		st.UpsertPeer(sp.PeerID, cfg)
 		seedCount++
 	}
 
@@ -396,6 +427,7 @@ func (m *Manager) runJoinTask(taskID string, rawArgs []byte) {
 	m.addFact(taskID, poc.Fact{TermID: "peer_id", Message: "peer_id=" + selfID.PeerID})
 	m.addFact(taskID, poc.Fact{TermID: "net_id", Message: "net_id=" + bundle.NetID})
 	m.addFact(taskID, poc.Fact{Message: fmt.Sprintf("seed_peers=%d", seedCount)})
+	m.addFact(taskID, poc.Fact{Message: fmt.Sprintf("bootstrap_recommendations=%d", len(recommendations))})
 	m.addSuggestion(taskID, poc.Suggestion{Message: "list peers via: miopunch ls"})
 	m.addSuggestion(taskID, poc.Suggestion{Message: "try: miopunch ping <peer_id>"})
 	m.addSuggestion(taskID, poc.Suggestion{Message: "try: miopunch sh <peer_id>"})

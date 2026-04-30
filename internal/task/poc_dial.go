@@ -63,6 +63,7 @@ func (s *ownedPeerSession) Close(reason dataplane.CloseReason) error {
 }
 func (s *ownedPeerSession) CloseReason() dataplane.CloseReason { return s.sess.CloseReason() }
 func (s *ownedPeerSession) Healthy() bool                      { return s.sess.Healthy() }
+func (s *ownedPeerSession) LastActivity() time.Time            { return s.sess.LastActivity() }
 
 func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID string, cfg pocstate.PeerConfig, open dataplane.StreamOpen) (*dialResult, error) {
 	if m != nil {
@@ -78,6 +79,7 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 		}
 	}
 
+	startedAt := time.Now().UTC().UnixMilli()
 	cfg.NormalizeDefaults()
 
 	if strings.TrimSpace(cfg.ProxyName) == "" {
@@ -114,6 +116,15 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 				if key.PathFamily != "" {
 					m.addFact(taskID, poc.Fact{TermID: "path_family", Message: "path_family=" + string(key.PathFamily)})
 				}
+				m.recordTopologyAttempt(TopologyAttempt{
+					PeerID:      peerID,
+					AttemptPath: "session_reuse",
+					AttemptWay:  "session_reuse",
+					DataProto:   string(key.Protocol),
+					PathFamily:  string(key.PathFamily),
+					StartedAt:   startedAt,
+					Outcome:     "ok",
+				})
 				return &dialResult{
 					stream:     stream,
 					sid:        sid,
@@ -125,6 +136,9 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 		}
 	}
 
+	var diagEvents bytes.Buffer
+	diagEmitter := event.NewEmitter(&diagEvents, "task")
+
 	m.setStage(taskID, poc.StageCandidateExchange, "gather candidates")
 	gather, err := connectivity.Gather(ctx, sid, connectivity.GatherConfig{
 		ListenPort:           cfg.P2PPort,
@@ -134,6 +148,7 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 		DisablePortMap:       cfg.DisablePortMap,
 		StunServers:          cfg.StunServers,
 		StunExplicit:         cfg.StunExplicit,
+		Emitter:              diagEmitter,
 	})
 	if err != nil {
 		return nil, err
@@ -278,9 +293,6 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 		}
 	}
 
-	var attemptEvents bytes.Buffer
-	attemptEmitter := event.NewEmitter(&attemptEvents, "task")
-
 	// UDP socket owner / demux wiring (for UDP dataplane protocols).
 	// Traversal and dataplane MUST share the same UDP socket mapping.
 	var (
@@ -367,12 +379,12 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	attemptRes, err := connectivity.Attempt(ctx, sid, []byte(cfg.SecretKey), gather.UDP4Conn, gather.UDP6Conn, gather.TCP4Listener, gather.TCP6Listener, natHoleRespMsg, connectivity.AttemptConfig{
 		P2PNetwork:         connectivity.P2PNetwork(cfg.P2PNetwork),
 		P2PIPFamily:        connectivity.P2PIPFamily(cfg.P2PIPFamily),
-		Emitter:            attemptEmitter,
+		Emitter:            diagEmitter,
 		UDP4TraversalDemux: udp4Demux,
 		UDP6TraversalDemux: udp6Demux,
 	})
 	if err != nil {
-		for _, line := range strings.Split(attemptEvents.String(), "\n") {
+		for _, line := range strings.Split(diagEvents.String(), "\n") {
 			line = strings.TrimSpace(line)
 			if line == "" {
 				continue
@@ -527,6 +539,16 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	if dpCfg.PathFamily != "" {
 		m.addFact(taskID, poc.Fact{TermID: "path_family", Message: "path_family=" + string(dpCfg.PathFamily)})
 	}
+	m.recordTopologyAttempt(TopologyAttempt{
+		PeerID:      peerID,
+		AttemptPath: attemptRes.Path,
+		AttemptWay:  attemptRes.Path,
+		DataProto:   dataProto,
+		PathFamily:  string(dpCfg.PathFamily),
+		Portmap:     topologyPortmapEvidenceFromEvents(diagEvents.String()),
+		StartedAt:   startedAt,
+		Outcome:     "ok",
+	})
 
 	return &dialResult{
 		stream:     stream,
@@ -546,8 +568,31 @@ func (m *Manager) loadPeerConfig(peerID string) (pocstate.PeerConfig, bool, erro
 	if !ok {
 		return pocstate.PeerConfig{}, false, nil
 	}
+	if st.Local != nil {
+		local := *st.Local
+		local.NormalizeDefaults()
+		cfg = peerConfigWithLocalDialDefaults(cfg, local)
+	}
 	cfg.NormalizeDefaults()
 	return cfg, true, nil
+}
+
+func peerConfigWithLocalDialDefaults(cfg pocstate.PeerConfig, local pocstate.LocalConfig) pocstate.PeerConfig {
+	if strings.TrimSpace(cfg.P2PNetwork) == "" && strings.TrimSpace(local.P2PNetwork) != "" {
+		cfg.P2PNetwork = local.P2PNetwork
+	}
+	if strings.TrimSpace(cfg.P2PIPFamily) == "" && strings.TrimSpace(local.P2PIPFamily) != "" {
+		cfg.P2PIPFamily = local.P2PIPFamily
+	}
+	if len(cfg.StunServers) == 0 && len(local.StunServers) > 0 {
+		cfg.StunServers = append([]string(nil), local.StunServers...)
+	}
+	if !cfg.StunExplicit && local.StunExplicit {
+		cfg.StunExplicit = true
+	}
+	cfg.DisablePortMap = cfg.DisablePortMap || local.DisablePortMap
+	cfg.DisableAssistedAddrs = cfg.DisableAssistedAddrs || local.DisableAssistedAddrs
+	return cfg
 }
 
 func mqttBrokerURL(broker string) string {

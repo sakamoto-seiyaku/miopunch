@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID:-0}" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+guest_root="$(cd -- "${script_dir}/.." && pwd)"
+runner="${script_dir}/mlab-mnt03-run"
+[[ -x "${runner}" ]] || { echo "error: missing runner: ${runner}" >&2; exit 1; }
+
+# shellcheck source=/dev/null
+source "${guest_root}/lib/mnt03_aggregate.sh"
+
+artifacts_root="${MLAB_ARTIFACTS_ROOT:-/opt/miopunch-lab/artifacts}"
+ts="$(date -u +%Y%m%dT%H%M%SZ)"
+aggregate_dir="${artifacts_root}/${ts}-mnt03-fulltest-aggregate"
+mnt03_aggregate_init "${aggregate_dir}"
+
+mnt03_run_case "mnt03 fulltest" --case-id mnt03-fulltest-12node-full --stage 12node-full --profile 12node-full
+
+echo "summary: pass=${mnt03_pass} fail=${mnt03_fail} pending=${mnt03_pending}"
+mnt03_write_summary "${aggregate_dir}/summary.json" "mnt03-fulltest"
+echo "aggregate=${aggregate_dir}"
+[[ "${mnt03_fail}" -eq 0 ]]

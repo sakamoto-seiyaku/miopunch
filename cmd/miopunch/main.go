@@ -79,6 +79,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runJoin(opt, cmdArgs, stdout, stderr)
 	case "ping":
 		return runPing(opt, cmdArgs, stdout, stderr)
+	case "bootstrap-more":
+		return runBootstrapMore(opt, cmdArgs, stdout, stderr)
+	case "maintain-neighbors":
+		return runMaintainNeighbors(opt, cmdArgs, stdout, stderr)
+	case "topology":
+		return runTopology(opt, cmdArgs, stdout, stderr)
 	case "sh":
 		if len(cmdArgs) > 0 && cmdArgs[0] == "ls" {
 			return runShLS(opt, cmdArgs[1:], stdout, stderr)
@@ -142,7 +148,10 @@ Commands (POC, work in progress):
   invite
   approve
   join
-  ping
+	  ping
+	  bootstrap-more
+	  maintain-neighbors
+	  topology
   sh
   revoke
   reset

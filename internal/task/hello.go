@@ -52,6 +52,12 @@ func (m *Manager) shellStreamOpen(taskID string, op string, target string, sessi
 	if len(approveDeclJSON) > 0 {
 		metadata["approve_decl"] = string(approveDeclJSON)
 	}
+	if declsJSON := localHelloDeclsJSON(stateDir); declsJSON != "" {
+		metadata["decls"] = declsJSON
+	}
+	if seedJSON := localHelloSeedJSON(m, selfID.PeerID); seedJSON != "" {
+		metadata["seed_peer"] = seedJSON
+	}
 	if target = strings.TrimSpace(target); target != "" {
 		metadata["target"] = target
 	}
@@ -117,6 +123,11 @@ func (m *Manager) waitStreamOpenHello(ctx context.Context, taskID string, stream
 		return false
 	}
 
+	if err := m.mergeHelloResponseDecls(resp); err != nil {
+		m.addFact(taskID, poc.Fact{Message: "merge hello decls: " + err.Error()})
+		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+		return false
+	}
 	m.addFact(taskID, poc.Fact{Message: "hello=ok"})
 	return true
 }
@@ -160,7 +171,9 @@ func (m *Manager) requireHello(ctx context.Context, taskID string, stream io.Rea
 		Op:     shellproto.OpHello,
 		PeerID: selfID.PeerID,
 		SigB64: sigB64,
+		Decls:  localHelloDeclsRaw(stateDir),
 	}
+	req.SeedPeer = localHelloSeed(m, selfID.PeerID)
 	if len(approveDeclJSON) > 0 {
 		req.ApproveDecl = approveDeclJSON
 	}
@@ -212,8 +225,86 @@ func (m *Manager) requireHello(ctx context.Context, taskID string, stream io.Rea
 		return false
 	}
 
+	if err := m.mergeHelloResponseDecls(resp); err != nil {
+		m.addFact(taskID, poc.Fact{Message: "merge hello decls: " + err.Error()})
+		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+		return false
+	}
 	m.addFact(taskID, poc.Fact{Message: "hello=ok"})
 	return true
+}
+
+func (m *Manager) mergeHelloResponseDecls(resp shellproto.Control) error {
+	if len(resp.Decls) == 0 {
+		return nil
+	}
+	stateDir, err := pocstate.StateDir(m.statePath)
+	if err != nil {
+		return err
+	}
+	head, err := pocstate.LoadGovernanceHeadSnapshot(stateDir)
+	if err != nil {
+		return err
+	}
+	_, err = pocstate.MergeVerifiedDecls(stateDir, head, resp.Decls)
+	return err
+}
+
+func localHelloDeclsJSON(stateDir string) string {
+	raw := localHelloDeclsRaw(stateDir)
+	if len(raw) == 0 {
+		return ""
+	}
+	data, err := json.Marshal(raw)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func localHelloDeclsRaw(stateDir string) []json.RawMessage {
+	f, err := pocstate.LoadDecls(stateDir)
+	if err != nil {
+		return nil
+	}
+	return pocstate.RawDeclMessages(f.Decls)
+}
+
+func localHelloSeedJSON(m *Manager, selfPeerID string) string {
+	seed := localHelloSeed(m, selfPeerID)
+	if seed == nil {
+		return ""
+	}
+	data, err := json.Marshal(seed)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func localHelloSeed(m *Manager, selfPeerID string) *shellproto.PeerSeed {
+	if m == nil {
+		return nil
+	}
+	st, err := m.loadState()
+	if err != nil || st.Local == nil {
+		return nil
+	}
+	sp := seedPeerFromLocalConfig(selfPeerID, *st.Local)
+	if !sp.validForSeed() {
+		return nil
+	}
+	return &shellproto.PeerSeed{
+		PeerID:      sp.PeerID,
+		ProxyName:   sp.ProxyName,
+		SecretKey:   sp.SecretKey,
+		MQTTBroker:  sp.MQTTBroker,
+		TopicPrefix: sp.TopicPrefix,
+		V4Hint:      sp.V4Hint,
+		V6Hint:      sp.V6Hint,
+		DataProto:   sp.DataProto,
+		QUICCC:      sp.QUICCC,
+	}
 }
 
 func findSelfApproveDeclJSON(stateDir string, selfPeerID string) (json.RawMessage, string) {

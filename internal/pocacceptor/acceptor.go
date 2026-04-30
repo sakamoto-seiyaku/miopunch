@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +29,8 @@ import (
 	"github.com/miopunch/miopunch/internal/udpowner"
 	"github.com/miopunch/miopunch/internal/wire"
 )
+
+const daemonPortMapSessionLease = 30 * time.Minute
 
 type Config struct {
 	StatePath string
@@ -209,7 +213,9 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 	serveCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	gatherCtx, cancelGather := context.WithTimeout(serveCtx, 2*time.Minute)
+	// Gather owns long-lived resources such as portmap cleanup hooks; tie it to
+	// the acceptor lifetime instead of a short discovery timeout.
+	gatherCtx, cancelGather := context.WithCancel(serveCtx)
 	defer cancelGather()
 
 	gather, err := connectivity.Gather(gatherCtx, sid, connectivity.GatherConfig{
@@ -220,6 +226,7 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 		DisablePortMap:       local.DisablePortMap,
 		StunServers:          local.StunServers,
 		StunExplicit:         local.StunExplicit,
+		SessionLease:         daemonPortMapSessionLease,
 	})
 	if err != nil {
 		return err
@@ -593,10 +600,32 @@ func servePeerSession(
 					kind = string(accepted.Open.Kind)
 					meta = accepted.Open.Metadata
 				}
-				logutil.Infof("serve accepted stream error: proto=%s sid=%s path_family=%s kind=%s meta=%v err=%v", key.Protocol, key.SecurityID, key.PathFamily, kind, meta, err)
+				logutil.Infof("serve accepted stream error: proto=%s sid=%s path_family=%s kind=%s metadata=%s err=%v", key.Protocol, key.SecurityID, key.PathFamily, kind, safeStreamMetadataSummary(meta), err)
 			}
 		}(accepted)
 	}
+}
+
+func safeStreamMetadataSummary(meta map[string]string) string {
+	if len(meta) == 0 {
+		return "keys=[]"
+	}
+	keys := make([]string, 0, len(meta))
+	for k := range meta {
+		keys = append(keys, strings.TrimSpace(k))
+	}
+	sort.Strings(keys)
+	return fmt.Sprintf(
+		"keys=%v op=%q peer_id=%q seed_peer_present=%t approve_decl_present=%t decls_present=%t target_present=%t session_present=%t",
+		keys,
+		strings.TrimSpace(meta["op"]),
+		strings.TrimSpace(meta["peer_id"]),
+		strings.TrimSpace(meta["seed_peer"]) != "",
+		strings.TrimSpace(meta["approve_decl"]) != "",
+		strings.TrimSpace(meta["decls"]) != "",
+		strings.TrimSpace(meta["target"]) != "",
+		strings.TrimSpace(meta["session"]) != "",
+	)
 }
 
 func serveAcceptedShellStream(
@@ -637,6 +666,15 @@ func serveAcceptedShellStream(
 	}
 	if approveDecl := strings.TrimSpace(accepted.Open.Metadata["approve_decl"]); approveDecl != "" {
 		helloCtl.ApproveDecl = json.RawMessage(approveDecl)
+	}
+	if declsRaw := strings.TrimSpace(accepted.Open.Metadata["decls"]); declsRaw != "" {
+		_ = json.Unmarshal([]byte(declsRaw), &helloCtl.Decls)
+	}
+	if seedRaw := strings.TrimSpace(accepted.Open.Metadata["seed_peer"]); seedRaw != "" {
+		var seed shellproto.PeerSeed
+		if err := json.Unmarshal([]byte(seedRaw), &seed); err == nil {
+			helloCtl.SeedPeer = &seed
+		}
 	}
 	if err := handleHello(ctx, stateDir, writer, helloCtl); err != nil {
 		if errors.Is(err, errHelloRevoked) && reg != nil {
@@ -751,6 +789,18 @@ func handleHello(ctx context.Context, stateDir string, w *shellproto.Writer, req
 		_ = writeHelloError(w, shellproto.ReasonHelloInternal, "failed to load decls", []string{"retry"})
 		return err
 	}
+	incomingDecls := append([]json.RawMessage(nil), req.Decls...)
+	if len(req.ApproveDecl) > 0 {
+		incomingDecls = append(incomingDecls, req.ApproveDecl)
+	}
+	if len(incomingDecls) > 0 {
+		merged, err := pocstate.MergeVerifiedDecls(stateDir, head, incomingDecls)
+		if err != nil {
+			_ = writeHelloError(w, shellproto.ReasonHelloInternal, "failed to persist decls", []string{"retry"})
+			return err
+		}
+		declsFile = merged
+	}
 
 	revoked, err := isRevokedV0(head, declsFile.Decls, peerID)
 	if err != nil {
@@ -850,6 +900,10 @@ func handleHello(ctx context.Context, stateDir string, w *shellproto.Writer, req
 		_ = writeHelloError(w, shellproto.ReasonHelloSigInvalid, "invalid hello signature", []string{"ensure you are using the correct identity"})
 		return err
 	}
+	if err := persistHelloSeedPeer(stateDir, peerID, req.SeedPeer); err != nil {
+		_ = writeHelloError(w, shellproto.ReasonHelloInternal, "failed to persist peer seed", []string{"retry"})
+		return err
+	}
 
 	if haveCandidateDecl {
 		if _, err := pocstate.UpdateDecls(stateDir, func(f *pocstate.DeclsFileV0) error {
@@ -861,7 +915,49 @@ func handleHello(ctx context.Context, stateDir string, w *shellproto.Writer, req
 		}
 	}
 
-	return w.WriteJSON(shellproto.Control{Op: shellproto.OpHello, OK: true})
+	return w.WriteJSON(shellproto.Control{
+		Op:    shellproto.OpHello,
+		OK:    true,
+		Decls: pocstate.RawDeclMessages(declsFile.Decls),
+	})
+}
+
+func persistHelloSeedPeer(stateDir string, peerID string, seed *shellproto.PeerSeed) error {
+	if seed == nil {
+		return nil
+	}
+	peerID, err := controlplane.CanonicalizePeerID(peerID)
+	if err != nil {
+		return nil
+	}
+	if strings.TrimSpace(seed.PeerID) != peerID {
+		return nil
+	}
+	if strings.TrimSpace(seed.ProxyName) == "" ||
+		strings.TrimSpace(seed.SecretKey) == "" ||
+		strings.TrimSpace(seed.MQTTBroker) == "" ||
+		strings.TrimSpace(seed.TopicPrefix) == "" {
+		return nil
+	}
+
+	statePath := filepath.Join(stateDir, "state.json")
+	st, err := pocstate.Load(statePath)
+	if err != nil {
+		return err
+	}
+	cfg := pocstate.PeerConfig{
+		ProxyName:   strings.TrimSpace(seed.ProxyName),
+		SecretKey:   strings.TrimSpace(seed.SecretKey),
+		MQTTBroker:  strings.TrimSpace(seed.MQTTBroker),
+		TopicPrefix: strings.TrimSpace(seed.TopicPrefix),
+		V4Hint:      pocstate.NormalizeV4Hint(seed.V4Hint),
+		V6Hint:      pocstate.NormalizeV6Hint(seed.V6Hint),
+		DataProto:   strings.TrimSpace(seed.DataProto),
+		QUICCC:      strings.TrimSpace(seed.QUICCC),
+	}
+	cfg.NormalizeDefaults()
+	st.UpsertPeer(peerID, cfg)
+	return pocstate.Save(statePath, st)
 }
 
 func writeHelloError(w *shellproto.Writer, reasonCode string, message string, suggestions []string) error {

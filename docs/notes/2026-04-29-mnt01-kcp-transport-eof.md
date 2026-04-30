@@ -96,3 +96,48 @@ Validation:
 - Full smoke:
   `20260429T073746Z-mnt01-smoke-aggregate`
   - `summary: pass=8 fail=0`
+
+## Related Follow-up: KCP Listener AcceptTwice Timeout
+
+While implementing `mnt-03-mainline-nat-composite-network`, `go test ./...`
+started failing in `dataplane`:
+
+- Test: `TestPeerSessionListener_KCP_AcceptTwiceAndServeStreams`
+- Focused repro:
+  `go test ./dataplane -run TestPeerSessionListener_KCP_AcceptTwiceAndServeStreams -count=1 -v`
+- Symptom:
+  - first KCP accept completed TLS and yamux setup
+  - second accept returned another server-side KCP session for the same
+    `remote`/`conv=1`
+  - server-side TLS handshake then timed out after the attempt deadline
+  - test failed with `gotDial=false gotAccept=false`
+
+Root cause:
+
+- `internal/netutil.NewKCPConnFromUDP` and
+  `internal/netutil.NewKCPConnFromPacketConn` still forced `conv=1`.
+- kcp-go's server listener keys sessions by remote address, not by
+  `(remote, conv)`.
+- After the first session closed, delayed packets from the same remote and same
+  fixed conv could create or feed a stale listener-side session before the new
+  dial attempt completed.
+- The accept path still had a `conv=1` defense-in-depth filter, which made the
+  fixed-conv assumption look intentional even though the archived concurrency
+  design had already moved the server side to `ServeConn + AcceptKCP`.
+
+Fix:
+
+- Change both miopunch KCP dial helpers to use kcp-go's random-conv
+  `NewConn2` path instead of `NewConn3(1, ...)`.
+- Remove the KCP accept-side `conv=1` filter; TLS pinned identity remains the
+  real acceptance/authentication boundary.
+- Add a short per-candidate KCP accept TLS handshake budget, so an old or
+  malformed accepted KCP candidate is dropped promptly instead of consuming the
+  whole outer attempt deadline.
+
+Validation:
+
+- `go test ./dataplane -run TestPeerSessionListener_KCP_AcceptTwiceAndServeStreams -count=1 -v`
+  passed with two different random conv IDs.
+- `go test ./dataplane -run TestPeerSessionListener_KCP_AcceptTwiceAndServeStreams -count=10`
+  passed.

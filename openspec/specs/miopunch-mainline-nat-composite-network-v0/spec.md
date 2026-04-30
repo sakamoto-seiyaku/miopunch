@@ -1,9 +1,14 @@
-## ADDED Requirements
+# miopunch-mainline-nat-composite-network-v0 Specification
+
+## Purpose
+`miopunch-mainline-nat-composite-network-v0` defines the MNT-03 mainline NAT composite network validation gate.
+
+## Requirements
 
 ### Requirement: MNT-03 uses real product nodes in controlled NAT domains
 MNT-03 SHALL run real `miopunch` product nodes as Docker/systemd Linux instances.
 
-The lab SHALL provide only infrastructure: NAT domains, WAN, MQTT broker, STUN/probe services, packet capture, conntrack snapshots, netem, and perturbation controls. The lab MUST NOT inject membership, peers, governance, decls, bootstrap candidates, active neighbors, reachability decisions, selected paths, payload success, or recovered topology state.
+The lab SHALL provide only infrastructure: NAT domains, WAN, MQTT broker, STUN/probe services, packet capture, conntrack snapshots, netem, and perturbation controls. The lab MAY write audited infrastructure fixture fields required to bind a real product node to that environment, such as MQTT/STUN/P2P port and IP-family settings. The lab MUST NOT inject membership, peer creation, governance, decls, bootstrap candidates, active neighbors, reachability decisions, selected paths, payload success, or recovered topology state.
 
 Docker SHALL be used for node lifecycle and systemd isolation. The harness SHALL attach each node container network namespace to a lab-controlled NAT domain via veth or equivalent network-namespace wiring, so Docker default bridge networking does not bypass the NAT fixture.
 
@@ -12,6 +17,7 @@ Docker SHALL be used for node lifecycle and systemd isolation. The harness SHALL
 - **THEN** `n01` runs a real `miopunch` system daemon
 - **AND** the lab provides only its network environment and control-plane endpoints
 - **AND** `n01` has no pre-populated membership, peer, governance, decl, bootstrap, or neighbor state
+- **AND** any lab-written local fixture fields are reported separately from product semantic state
 
 ### Requirement: MNT-03 validates 12-node blank formation and join
 MNT-03 SHALL use the 12-node profile defined by `docs/decisions/mainline-network-test-charter.md`.
@@ -40,7 +46,7 @@ MNT-03 SHALL validate that mainline nodes select bootstrap candidates from produ
 
 Initial bootstrap recommendations SHALL contain two candidates when enough eligible peers exist. If initial candidates fail, the joiner SHALL request more candidates through `bootstrap_more`. The system SHALL perform at most two `bootstrap_more` rounds and SHALL return two new de-duplicated candidates per successful round when enough eligible peers remain.
 
-Candidate selection SHALL prefer `direct/easy` reachability buckets and then progressively relax to `hard1`, `hard2`, and `unknown`. Attempts MUST be bounded and MUST report selected bucket, attempted peer IDs, rejected duplicates, and failure reasons.
+Candidate selection SHALL prefer `direct/easy` reachability buckets and then progressively relax to `hard1`, `hard2`, and `unknown`. When only some selected peers have local dial fixtures or peer config, locally dialable candidates MUST be attempted before report-only non-dialable candidates. Attempts MUST be bounded and MUST report selected bucket, attempted peer IDs, rejected duplicates, and failure reasons.
 
 #### Scenario: Joiner obtains more bootstrap candidates after failures
 - **WHEN** a joiner exhausts its initial bootstrap candidates

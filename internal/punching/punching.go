@@ -435,10 +435,7 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.Trav
 	subCtx, cancel := context.WithTimeout(ctx, plan.TotalBudget)
 	defer cancel()
 
-	transactionID := strings.TrimSpace(m.TransactionID)
-	if transactionID == "" {
-		transactionID = NewTransactionID()
-	}
+	transactionID := traversalTransactionID(m.Sid, m.TransactionID)
 	ep := demux.Open(transactionID, 32)
 	defer ep.Close()
 
@@ -766,6 +763,16 @@ func sendSidMessage(
 		return err
 	}
 	return ep.SendTo(ctx, buf, raddr, ttl)
+}
+
+func traversalTransactionID(sid string, fallback string) string {
+	if sid = strings.TrimSpace(sid); sid != "" {
+		return sid
+	}
+	if fallback = strings.TrimSpace(fallback); fallback != "" {
+		return fallback
+	}
+	return NewTransactionID()
 }
 
 func sendSidMessageToRangePorts(

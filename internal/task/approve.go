@@ -167,18 +167,6 @@ func (m *Manager) runApproveTask(taskID string, rawArgs []byte) {
 		return
 	}
 
-	seedPeers := []seedPeerV0{
-		{
-			PeerID:      selfID.PeerID,
-			ProxyName:   st.Local.ProxyName,
-			SecretKey:   st.Local.SecretKey,
-			MQTTBroker:  st.Local.MQTTBroker,
-			TopicPrefix: st.Local.TopicPrefix,
-			DataProto:   st.Local.DataProto,
-			QUICCC:      st.Local.QUICCC,
-		},
-	}
-
 	m.setStage(taskID, poc.StagePeerContact, "connect invite brokers")
 
 	mbs := make([]*mqttMailbox, 0, len(code.InviteBrokers))
@@ -285,11 +273,23 @@ func (m *Manager) runApproveTask(taskID string, rawArgs []byte) {
 			}
 
 			ct, hit, err := idem.Handle(req, code.InviteTopic, code.ExpiresAtUnixMs, code.MaxUses, func() ([]byte, error) {
+				if body.SeedPeer != nil {
+					body.SeedPeer.PeerID = memberPeerID
+					if cfg, ok := body.SeedPeer.peerConfig(); ok {
+						st.UpsertPeer(memberPeerID, cfg)
+						if err := m.saveState(st); err != nil {
+							return nil, err
+						}
+					}
+				}
+
 				decl, err := pocstate.NewApproveMemberDeclV0(time.Now().UTC(), selfID, pocstate.ApproveMemberBodyV0{
 					MemberPeerID:  memberPeerID,
 					MemberName:    body.MemberName,
 					Ed25519PubB64: strings.TrimSpace(body.Ed25519PubB64),
 					X25519PubB64:  strings.TrimSpace(body.X25519PubB64),
+					V4Hint:        body.SeedPeer.v4Hint(),
+					V6Hint:        body.SeedPeer.v6Hint(),
 					PlatformHint:  body.PlatformHint,
 				})
 				if err != nil {
@@ -304,13 +304,16 @@ func (m *Manager) runApproveTask(taskID string, rawArgs []byte) {
 					return nil, err
 				}
 
+				recommendations := bootstrapRecommendations(selfID.PeerID, memberPeerID, st)
+				seedPeers := seedPeersForRecommendations(recommendations, selfID.PeerID, st)
 				bundle := membershipBundleV0{
-					NetID:                  netState.NetID,
-					NetSecretB64:           base64.RawURLEncoding.EncodeToString(netState.NetSecret),
-					BrokersEffective:       netState.BrokersEffective,
-					GovernanceHeadSnapshot: head,
-					Decls:                  declsFile.Decls,
-					SeedPeers:              seedPeers,
+					NetID:                    netState.NetID,
+					NetSecretB64:             base64.RawURLEncoding.EncodeToString(netState.NetSecret),
+					BrokersEffective:         netState.BrokersEffective,
+					GovernanceHeadSnapshot:   head,
+					Decls:                    declsFile.Decls,
+					SeedPeers:                seedPeers,
+					BootstrapRecommendations: recommendations,
 				}
 				pt, err := json.Marshal(bundle)
 				if err != nil {
@@ -343,6 +346,7 @@ func (m *Manager) runApproveTask(taskID string, rawArgs []byte) {
 
 			m.addFact(taskID, poc.Fact{TermID: "member_peer_id", Message: "member_peer_id=" + memberPeerID})
 			m.addFact(taskID, poc.Fact{Message: fmt.Sprintf("idempotency_hit=%v", hit)})
+			m.addFact(taskID, poc.Fact{Message: fmt.Sprintf("known_seed_peers=%d", len(st.Peers)+1)})
 			if !hit {
 				approvedUnique++
 			}

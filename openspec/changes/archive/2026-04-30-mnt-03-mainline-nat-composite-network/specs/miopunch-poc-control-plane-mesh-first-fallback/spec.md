@@ -15,6 +15,8 @@ A node SHALL monitor active neighbor health through data-plane activity, keepali
 
 If an active neighbor becomes unhealthy, the node SHALL attempt bounded reconnect. If reconnect fails within budget, the node SHALL select a replacement candidate using the same reachability bucket policy.
 
+For MNT-03, the lab MAY trigger a bounded product neighbor-maintenance cycle, but candidate selection, dialing, health evidence, and failure reporting SHALL be produced by product code and exposed through topology diagnostics.
+
 #### Scenario: Unhealthy neighbor is replaced
 - **WHEN** an active neighbor is offline long enough to fail health checks
 - **THEN** the node attempts bounded reconnect

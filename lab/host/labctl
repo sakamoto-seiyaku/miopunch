@@ -63,6 +63,9 @@ Commands:
   mnt01-fulltest           Run guest MNT-01 full matrix gate and pull artifacts
   mnt02-smoke              Run guest MNT-02 smoke gate and pull artifacts
   mnt02-selftest           Run guest MNT-02 selftest gate and pull artifacts
+  mnt03-smoke              Run guest MNT-03 smoke gate and pull artifacts
+  mnt03-selftest           Run guest MNT-03 selftest gate and pull artifacts
+  mnt03-fulltest           Run guest MNT-03 full gate and pull artifacts
   poc-e2e-selftest         Run guest POC e2e selftest and pull artifacts
   poc-e2e-fulltest         Run guest POC e2e fulltest and pull artifacts
   down                     Stop the VM (graceful poweroff, then kill if needed)
@@ -494,6 +497,51 @@ cmd_mnt02_selftest() {
   return "${rc}"
 }
 
+cmd_mnt03_smoke() {
+  cmd_up
+  cmd_wait
+  cmd_wait_guest
+  ensure_guest_tmux
+  cmd_push_guest
+  cmd_push_bin
+  set +e
+  cmd_guest sudo /opt/miopunch-lab/guest/bin/mlab-mnt03-smoke
+  local rc=$?
+  set -e
+  cmd_pull_artifacts
+  return "${rc}"
+}
+
+cmd_mnt03_selftest() {
+  cmd_up
+  cmd_wait
+  cmd_wait_guest
+  ensure_guest_tmux
+  cmd_push_guest
+  cmd_push_bin
+  set +e
+  cmd_guest sudo /opt/miopunch-lab/guest/bin/mlab-mnt03-selftest
+  local rc=$?
+  set -e
+  cmd_pull_artifacts
+  return "${rc}"
+}
+
+cmd_mnt03_fulltest() {
+  cmd_up
+  cmd_wait
+  cmd_wait_guest
+  ensure_guest_tmux
+  cmd_push_guest
+  cmd_push_bin
+  set +e
+  cmd_guest sudo /opt/miopunch-lab/guest/bin/mlab-mnt03-fulltest
+  local rc=$?
+  set -e
+  cmd_pull_artifacts
+  return "${rc}"
+}
+
 cmd_poc_e2e_selftest() {
   cmd_up
   cmd_wait
@@ -617,6 +665,9 @@ main() {
     mnt01-fulltest) cmd_mnt01_fulltest "$@" ;;
     mnt02-smoke) cmd_mnt02_smoke "$@" ;;
     mnt02-selftest) cmd_mnt02_selftest "$@" ;;
+    mnt03-smoke) cmd_mnt03_smoke "$@" ;;
+    mnt03-selftest) cmd_mnt03_selftest "$@" ;;
+    mnt03-fulltest) cmd_mnt03_fulltest "$@" ;;
     poc-e2e-selftest) cmd_poc_e2e_selftest "$@" ;;
     poc-e2e-fulltest) cmd_poc_e2e_fulltest "$@" ;;
     down) cmd_down "$@" ;;
