@@ -18,10 +18,7 @@ ts="$(date -u +%Y%m%dT%H%M%SZ)"
 aggregate_dir="${artifacts_root}/${ts}-mnt03-selftest-aggregate"
 mnt03_aggregate_init "${aggregate_dir}"
 
-mnt03_run_case "mnt03 selftest" --case-id mnt03-selftest-2node-substrate --stage 2node-substrate --profile 2node-substrate
-mnt03_run_case "mnt03 selftest" --case-id mnt03-selftest-3node-bootstrap --stage 3node-bootstrap --profile 3node-bootstrap
-mnt03_run_case "mnt03 selftest" --case-id mnt03-selftest-4node-reachability --stage 4node-reachability --profile 4node-reachability
-mnt03_run_case "mnt03 selftest" --case-id mnt03-selftest-6node-bootstrap-more --stage 6node-bootstrap-more --profile 6node-bootstrap-more
+mnt03_run_case "mnt03 selftest" --case-id mnt03-selftest-progressive --stage progressive-growth --profile 12node-full --until-checkpoint 6node-bootstrap-more
 
 echo "summary: pass=${mnt03_pass} fail=${mnt03_fail} pending=${mnt03_pending}"
 mnt03_write_summary "${aggregate_dir}/summary.json" "mnt03-selftest"

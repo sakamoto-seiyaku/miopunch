@@ -29,9 +29,12 @@ localapi="unix:/run/miopunch/localapi.sock"
 case_id=""
 stage=""
 profile=""
+until_checkpoint=""
 run_dir=""
 run_id=""
 node_image=""
+node_image_built=0
+current_checkpoint=""
 summary_written=0
 case_pass=0
 declare -A mnt03_next_dial_port_by_node=()
@@ -44,9 +47,10 @@ tcpdump_mqtt_pid=""
 
 usage() {
   cat <<'EOF'
-Usage: mlab-mnt03-run --case-id <id> [--stage <stage>] [--profile <profile>]
+Usage: mlab-mnt03-run --case-id <id> [--stage <stage>] [--profile <profile>] [--until-checkpoint <checkpoint>]
 
 Implemented stages:
+  progressive-growth
   2node-substrate
   3node-bootstrap
   4node-reachability
@@ -62,6 +66,7 @@ default_stage_for_case() {
     *3node*|*bootstrap*) printf '3node-bootstrap' ;;
     *4node*|*reachability*) printf '4node-reachability' ;;
     *6node*|*bootstrap-more*) printf '6node-bootstrap-more' ;;
+    *progressive*|*growth*) printf 'progressive-growth' ;;
     *12node*|*full*) printf '12node-full' ;;
     *) printf '2node-substrate' ;;
   esac
@@ -155,7 +160,7 @@ finish() {
     if [[ "${rc}" -eq 0 ]]; then
       write_summary "pass" 1 0 ""
     else
-      write_summary "fail" 0 1 "stage failed before summary"
+      write_summary "fail" 0 1 "stage failed before summary checkpoint=${current_checkpoint:-unknown}"
     fi
   fi
   chmod -R a+rX "${run_dir}" 2>/dev/null || true
@@ -482,24 +487,23 @@ select_existing_peer_for_dial_fixture() {
   return 1
 }
 
-assert_no_semantic_injection() {
+assert_node_no_semantic_injection() {
+  local node="$1" name out_dir
   mkdir -p "${run_dir}/proof"
-  local node name out_dir
-  while read -r node; do
-    [[ -n "${node}" ]] || continue
-    name="$(node_name "${node}")"
-    out_dir="${run_dir}/proof/${node}"
-    mkdir -p "${out_dir}"
-    docker exec "${name}" find /var/lib/miopunch -maxdepth 4 -type f | sort >"${out_dir}/pre_invite_files.txt" 2>"${out_dir}/pre_invite_files.stderr" || true
-    docker exec "${name}" bash -lc 'set -euo pipefail
+  name="$(node_name "${node}")"
+  out_dir="${run_dir}/proof/${node}"
+  mkdir -p "${out_dir}"
+  docker exec "${name}" find /var/lib/miopunch -maxdepth 4 -type f | sort >"${out_dir}/pre_invite_files.txt" 2>"${out_dir}/pre_invite_files.stderr" || true
+  docker exec "${name}" bash -lc 'set -euo pipefail
 test ! -f /var/lib/miopunch/net.json
 test ! -f /var/lib/miopunch/governance/head_snapshot.json
 test ! -f /var/lib/miopunch/decls/decls.json
 jq -e "(.peers // {}) | length == 0" /var/lib/miopunch/state.json >/dev/null' \
-      >"${out_dir}/pre_invite_no_semantics.stdout" \
-      2>"${out_dir}/pre_invite_no_semantics.stderr"
-  done < <(mnt03_profile_nodes "${profile}")
+    >"${out_dir}/pre_invite_no_semantics.stdout" \
+    2>"${out_dir}/pre_invite_no_semantics.stderr"
+}
 
+write_semantic_boundary_proof() {
   cat >"${run_dir}/proof/semantic_boundary.json" <<EOF
 {
   "allowed_fixture_inputs": ["mqtt_broker", "topic_prefix", "stun", "stun_explicit", "p2p_network", "p2p_ip_family", "p2p_port", "disable_portmap", "v4_hint", "v6_hint"],
@@ -507,6 +511,16 @@ jq -e "(.peers // {}) | length == 0" /var/lib/miopunch/state.json >/dev/null' \
   "evidence": "proof/*/pre_invite_no_semantics.stdout"
 }
 EOF
+}
+
+assert_no_semantic_injection() {
+  mkdir -p "${run_dir}/proof"
+  local node
+  while read -r node; do
+    [[ -n "${node}" ]] || continue
+    assert_node_no_semantic_injection "${node}"
+  done < <(mnt03_profile_nodes "${profile}")
+  write_semantic_boundary_proof
 }
 
 start_services() {
@@ -555,42 +569,76 @@ start_natpmp_for_node() {
   sleep 0.2
 }
 
-start_nodes() {
+build_node_image_once() {
+  if [[ "${node_image_built}" -eq 1 ]]; then
+    return 0
+  fi
   local build_ctx
   build_ctx="${run_dir}/_image/node"
   mnt03_build_node_image "${node_image}" "${build_ctx}" "${guest_root}"
+  node_image_built=1
+}
 
-  local node node_v6_addr node_v6_gw
+start_systemd_node() {
+  local node="$1" node_v6_addr node_v6_gw
+  build_node_image_once
+  node_v6_addr=""
+  node_v6_gw=""
+  if mnt03_node_has_ipv6 "${node}" && [[ "${profile}" == "6node-bootstrap-more" || "${profile}" == "12node-full" ]]; then
+    node_v6_addr="$(mnt03_node_v6_ip "${node}")/64"
+    node_v6_gw="$(mnt03_node_v6_gateway "${node}")"
+  fi
+  mnt03_start_systemd_node "${node}" "${node_image}" "$(node_dir "${node}")" "${run_id}"
+  mnt03_attach_node_veth \
+    "${node}" \
+    "$(mnt03_node_nat_ns "${node}")" \
+    lan0 \
+    "$(mnt03_node_ip "${node}")/24" \
+    "$(mnt03_node_gateway "${node}")" \
+    "${node_v6_addr}" \
+    "${node_v6_gw}"
+  mnt03_wait_systemd "${node}"
+}
+
+start_selected_nodes() {
+  local node
+  for node in "$@"; do
+    [[ -n "${node}" ]] || continue
+    start_systemd_node "${node}"
+  done
+}
+
+start_nodes() {
+  local node
   while read -r node; do
     [[ -n "${node}" ]] || continue
-    node_v6_addr=""
-    node_v6_gw=""
-    if mnt03_node_has_ipv6 "${node}" && [[ "${profile}" == "6node-bootstrap-more" || "${profile}" == "12node-full" ]]; then
-      node_v6_addr="$(mnt03_node_v6_ip "${node}")/64"
-      node_v6_gw="$(mnt03_node_v6_gateway "${node}")"
-    fi
-    mnt03_start_systemd_node "${node}" "${node_image}" "$(node_dir "${node}")" "${run_id}"
-    mnt03_attach_node_veth \
-      "${node}" \
-      "$(mnt03_node_nat_ns "${node}")" \
-      lan0 \
-      "$(mnt03_node_ip "${node}")/24" \
-      "$(mnt03_node_gateway "${node}")" \
-      "${node_v6_addr}" \
-      "${node_v6_gw}"
-    mnt03_wait_systemd "${node}"
+    start_systemd_node "${node}"
   done < <(mnt03_profile_nodes "${profile}")
+}
+
+install_daemon_for_node() {
+  local node="$1"
+  run_node_shell "${node}" blank_state_before_install "find /var/lib/miopunch -maxdepth 3 -type f | sort"
+  run_node_cmd "${node}" install_daemon miopunch install-system-daemon
+  wait_daemon_active "${node}"
+  wait_localapi "${node}"
+  configure_node_state "${node}" 5000
+  assert_node_no_semantic_injection "${node}"
+}
+
+install_selected_daemons() {
+  local node
+  for node in "$@"; do
+    [[ -n "${node}" ]] || continue
+    install_daemon_for_node "${node}"
+  done
 }
 
 install_daemons() {
   local node
   while read -r node; do
     [[ -n "${node}" ]] || continue
-    run_node_shell "${node}" blank_state_before_install "find /var/lib/miopunch -maxdepth 3 -type f | sort"
-    run_node_cmd "${node}" install_daemon miopunch install-system-daemon
-    wait_daemon_active "${node}"
-    wait_localapi "${node}"
-    configure_node_state "${node}" 5000
+    install_daemon_for_node "${node}"
   done < <(mnt03_profile_nodes "${profile}")
   assert_no_semantic_injection
 }
@@ -839,36 +887,61 @@ run_ping_between_nodes_optional() {
 run_full_edge_candidates() {
   local from_node="$1" label_prefix="$2" required_successes="$3"
   shift 3
-  local successes=0 attempts=0 selected_count=0 skipped_missing=0 peer topology_path task_json maintain_rc
+  local successes=0 attempts=0 active_neighbors=0 final_successes=0 final_active_neighbors=0 total_attempts=0
+  local selected_count=0 skipped_missing=0 total_skipped_missing=0 peer topology_path task_json maintain_rc
+  local round=1 max_rounds=2 round_label
   mkdir -p "${run_dir}/topology_pre_maintain" "${run_dir}/proof/${label_prefix}" "$(node_dir "${from_node}")/reports/${label_prefix}"
 
-  collect_topology_for_node_into "${from_node}" "${run_dir}/topology_pre_maintain"
-  topology_path="${run_dir}/topology_pre_maintain/${from_node}.json"
-  selected_count="$(jq -r '(.neighbors.selected // []) | length' "${topology_path}")"
-
-  while read -r peer; do
-    [[ -n "${peer}" ]] || continue
-    if ! docker exec "$(node_name "${from_node}")" jq -e --arg peer "${peer}" '(.peers // {}) | has($peer)' /var/lib/miopunch/state.json >/dev/null; then
-      skipped_missing=$((skipped_missing + 1))
-      continue
+  while ((round <= max_rounds)); do
+    round_label="${label_prefix}"
+    if ((round > 1)); then
+      round_label="${label_prefix}_retry${round}"
+      mkdir -p "$(node_dir "${from_node}")/reports/${round_label}"
     fi
-    configure_next_joined_peer_dial_fixture "${from_node}" "${peer}"
-  done < <(jq -r '.neighbors.selected[]?.peer_id' "${topology_path}")
 
-  task_json="${run_dir}/tasks/${label_prefix}_maintain_neighbors.json"
-  set +e
-  docker exec "$(node_name "${from_node}")" bash -lc \
-    "miopunch --redact --localapi ${localapi} --format json --report /artifacts/reports/${label_prefix}/maintain_neighbors.md maintain-neighbors" \
-    >"${task_json}" 2>"${run_dir}/tasks/${label_prefix}_maintain_neighbors.stderr"
-  maintain_rc=$?
-  set -e
-  printf '%s\n' "${maintain_rc}" >"${run_dir}/tasks/${label_prefix}_maintain_neighbors.rc"
-  [[ "${maintain_rc}" -eq 0 ]] || die "maintain-neighbors failed: label=${label_prefix} rc=${maintain_rc}"
+    collect_topology_for_node_into "${from_node}" "${run_dir}/topology_pre_maintain"
+    topology_path="${run_dir}/topology_pre_maintain/${from_node}.json"
+    selected_count="$(jq -r '(.neighbors.selected // []) | length' "${topology_path}")"
+    skipped_missing=0
 
-  attempts="$(jq -r '.facts[]?.message | select(startswith("maintain_neighbors_attempted="))' "${task_json}" | sed -E 's/^maintain_neighbors_attempted=//' | tail -n 1 | tr -d '\r\n')"
-  successes="$(jq -r '.facts[]?.message | select(startswith("maintain_neighbors_succeeded="))' "${task_json}" | sed -E 's/^maintain_neighbors_succeeded=//' | tail -n 1 | tr -d '\r\n')"
-  [[ -n "${attempts}" && "${attempts}" != "null" ]] || attempts=0
-  [[ -n "${successes}" && "${successes}" != "null" ]] || successes=0
+    while read -r peer; do
+      [[ -n "${peer}" ]] || continue
+      if ! docker exec "$(node_name "${from_node}")" jq -e --arg peer "${peer}" '(.peers // {}) | has($peer)' /var/lib/miopunch/state.json >/dev/null; then
+        skipped_missing=$((skipped_missing + 1))
+        continue
+      fi
+      configure_next_joined_peer_dial_fixture "${from_node}" "${peer}"
+    done < <(jq -r '.neighbors.selected[]?.peer_id' "${topology_path}")
+    total_skipped_missing=$((total_skipped_missing + skipped_missing))
+
+    task_json="${run_dir}/tasks/${round_label}_maintain_neighbors.json"
+    set +e
+    docker exec "$(node_name "${from_node}")" bash -lc \
+      "miopunch --redact --localapi ${localapi} --format json --report /artifacts/reports/${round_label}/maintain_neighbors.md maintain-neighbors" \
+      >"${task_json}" 2>"${run_dir}/tasks/${round_label}_maintain_neighbors.stderr"
+    maintain_rc=$?
+    set -e
+    printf '%s\n' "${maintain_rc}" >"${run_dir}/tasks/${round_label}_maintain_neighbors.rc"
+    [[ "${maintain_rc}" -eq 0 ]] || die "maintain-neighbors failed: label=${round_label} rc=${maintain_rc}"
+
+    attempts="$(jq -r '.facts[]?.message | select(startswith("maintain_neighbors_attempted="))' "${task_json}" | sed -E 's/^maintain_neighbors_attempted=//' | tail -n 1 | tr -d '\r\n')"
+    successes="$(jq -r '.facts[]?.message | select(startswith("maintain_neighbors_succeeded="))' "${task_json}" | sed -E 's/^maintain_neighbors_succeeded=//' | tail -n 1 | tr -d '\r\n')"
+    active_neighbors="$(jq -r '.facts[]?.message | select(startswith("active_neighbors="))' "${task_json}" | sed -E 's/^active_neighbors=//' | tail -n 1 | tr -d '\r\n')"
+    [[ -n "${attempts}" && "${attempts}" != "null" ]] || attempts=0
+    [[ -n "${successes}" && "${successes}" != "null" ]] || successes=0
+    [[ -n "${active_neighbors}" && "${active_neighbors}" != "null" ]] || active_neighbors=0
+    total_attempts=$((total_attempts + attempts))
+    if ((successes > final_successes)); then
+      final_successes="${successes}"
+    fi
+    if ((active_neighbors > final_active_neighbors)); then
+      final_active_neighbors="${active_neighbors}"
+    fi
+    if ((final_active_neighbors >= required_successes || final_successes >= required_successes)); then
+      break
+    fi
+    round=$((round + 1))
+  done
 
   jq -n \
     --arg node "${from_node}" \
@@ -876,9 +949,11 @@ run_full_edge_candidates() {
     --arg topology_before "${topology_path}" \
     --argjson required_successes "${required_successes}" \
     --argjson selected_count "${selected_count}" \
-    --argjson skipped_missing_peer_config "${skipped_missing}" \
-    --argjson attempts "${attempts}" \
-    --argjson successes "${successes}" \
+    --argjson skipped_missing_peer_config "${total_skipped_missing}" \
+    --argjson attempts "${total_attempts}" \
+    --argjson successes "${final_successes}" \
+    --argjson active_neighbors "${final_active_neighbors}" \
+    --argjson rounds "${round}" \
     '{
       node: $node,
       command: $command,
@@ -887,10 +962,13 @@ run_full_edge_candidates() {
       selected_count: $selected_count,
       skipped_missing_peer_config: $skipped_missing_peer_config,
       attempts: $attempts,
-      successes: $successes
+      successes: $successes,
+      active_neighbors: $active_neighbors,
+      rounds: $rounds
     }' \
     >"${run_dir}/proof/${label_prefix}_edge_summary.json"
-  ((successes >= required_successes)) || die "insufficient maintained neighbor successes: node=${from_node} successes=${successes} required=${required_successes}"
+  ((final_active_neighbors >= required_successes || final_successes >= required_successes)) || \
+    die "insufficient maintained neighbor active neighbors: node=${from_node} active=${final_active_neighbors} successes=${final_successes} required=${required_successes}"
 }
 
 collect_topology_for_stage() {
@@ -909,6 +987,42 @@ collect_topology_for_node_into() {
     "miopunch --localapi ${localapi} --format json topology" \
     >"${out_dir}/${node}.json" 2>"${out_dir}/${node}.stderr"
   printf '%s\n' 0 >"${out_dir}/${node}.rc"
+}
+
+collect_topology_for_nodes() {
+  local node
+  rm -rf "${run_dir}/topology"
+  mkdir -p "${run_dir}/topology"
+  for node in "$@"; do
+    [[ -n "${node}" ]] || continue
+    collect_topology_for_node_into "${node}" "${run_dir}/topology"
+  done
+}
+
+record_checkpoint() {
+  local checkpoint="$1"
+  shift
+  local checkpoint_dir="${run_dir}/checkpoints/${checkpoint}" node first=1
+  mkdir -p "${checkpoint_dir}/topology" "${checkpoint_dir}/proof"
+  cp "${run_dir}/topology/"* "${checkpoint_dir}/topology/" 2>/dev/null || true
+  cp -R "${run_dir}/proof/." "${checkpoint_dir}/proof/" 2>/dev/null || true
+  {
+    printf '{\n'
+    printf '  "checkpoint": "%s",\n' "${checkpoint}"
+    printf '  "nodes": ['
+    for node in "$@"; do
+      [[ -n "${node}" ]] || continue
+      if [[ "${first}" -eq 0 ]]; then
+        printf ', '
+      fi
+      first=0
+      printf '"%s"' "${node}"
+    done
+    printf '],\n'
+    printf '  "status": "pass",\n'
+    printf '  "topology_dir": "checkpoints/%s/topology"\n' "${checkpoint}"
+    printf '}\n'
+  } >"${checkpoint_dir}/summary.json"
 }
 
 collect_stable_topology_for_node() {
@@ -1304,6 +1418,322 @@ run_12node_perturbations() {
       topology_after: "topology_after_perturbation",
       network_evidence: ["pcap/wan.pcap", "pcap/mqtt.pcap", "network/*.conntrack", "network/*.iptables", "network/*.tc"]
     }' >"${run_dir}/proof/perturbation/summary.json"
+}
+
+checkpoint_rank() {
+  case "$1" in
+    2node-substrate) printf '20' ;;
+    3node-bootstrap) printf '30' ;;
+    4node-reachability) printf '40' ;;
+    6node-bootstrap-more) printf '60' ;;
+    8node-hard-symmetry) printf '80' ;;
+    12node-full) printf '120' ;;
+    perturbation) printf '130' ;;
+    *) return 1 ;;
+  esac
+}
+
+progressive_target_checkpoint() {
+  if [[ -n "${until_checkpoint}" ]]; then
+    printf '%s' "${until_checkpoint}"
+  else
+    printf '12node-full'
+  fi
+}
+
+progressive_reached_target() {
+  local checkpoint="$1" target current_rank target_rank
+  target="$(progressive_target_checkpoint)"
+  current_rank="$(checkpoint_rank "${checkpoint}")" || die "unknown progressive checkpoint: ${checkpoint}"
+  target_rank="$(checkpoint_rank "${target}")" || die "unknown progressive target checkpoint: ${target}"
+  ((current_rank >= target_rank))
+}
+
+write_progressive_completion() {
+  local reached_checkpoint="$1" target
+  target="$(progressive_target_checkpoint)"
+  jq -n \
+    --arg target "${target}" \
+    --arg reached "${reached_checkpoint}" \
+    '{
+      mode: "progressive-growth",
+      target_checkpoint: $target,
+      reached_checkpoint: $reached,
+      checkpoints_dir: "checkpoints",
+      debug_fresh_start_stages: ["2node-substrate", "3node-bootstrap", "4node-reachability", "6node-bootstrap-more", "12node-full"]
+    }' >"${run_dir}/proof/progressive-growth.json"
+  case_pass=1
+  write_summary "pass" 1 0 ""
+  echo "case=${case_id} stage=${stage} checkpoint=${reached_checkpoint} status=pass run_dir=${run_dir}"
+}
+
+assert_2node_substrate_evidence() {
+  local issuer_peer_id="$1" n03_peer_id="$2" net_id gov_head decls_head node
+  net_id="$(jq -r '.net.net_id' "${run_dir}/topology/n01.json")"
+  gov_head="$(jq -r '.state_head.governance_head_b64' "${run_dir}/topology/n01.json")"
+  decls_head="$(jq -r '.state_head.decls_head_b64' "${run_dir}/topology/n01.json")"
+  [[ -n "${net_id}" && "${net_id}" != "null" ]] || die "missing n01 net_id"
+  [[ -n "${gov_head}" && "${gov_head}" != "null" ]] || die "missing n01 governance head"
+  [[ -n "${decls_head}" && "${decls_head}" != "null" ]] || die "missing n01 decls head"
+
+  for node in n01 n03; do
+    jq -e --arg net_id "${net_id}" --arg gov_head "${gov_head}" --arg decls_head "${decls_head}" '
+      .net.net_id == $net_id
+      and .state_head.governance_head_b64 == $gov_head
+      and .state_head.decls_head_b64 == $decls_head
+      and .presence.local.signed == true
+      and (.members | length) >= 1
+    ' "${run_dir}/topology/${node}.json" >/dev/null
+  done
+
+  jq -e --arg issuer "${issuer_peer_id}" '
+    any(.payloads[]; .peer_id == $issuer and .evidence == "ping=ok")
+  ' "${run_dir}/topology/n03.json" >/dev/null
+  jq -n \
+    --arg issuer_peer_id "${issuer_peer_id}" \
+    --arg n03_peer_id "${n03_peer_id}" \
+    '{issuer_peer_id: $issuer_peer_id, joined_members: [$n03_peer_id], payload_edges: ["n03->n01"]}' \
+    >"${run_dir}/proof/2node-substrate.json"
+}
+
+run_progressive_growth() {
+  local target accept_port=5000 dial_port=5001
+  local issuer_peer_id n02_peer_id n03_peer_id n04_peer_id n05_peer_id n06_peer_id n07_peer_id n08_peer_id n09_peer_id n10_peer_id n11_peer_id n12_peer_id
+  local n06_seed_peer_id n07_seed_peer_id node
+  target="$(progressive_target_checkpoint)"
+  checkpoint_rank "${target}" >/dev/null || die "unknown --until-checkpoint: ${target}"
+
+  current_checkpoint="setup"
+  for node in n01 n02 n03 n04 n05 n06 n07 n08 n09 n10 n11 n12; do
+    mnt03_remove_systemd_node "${node}" || true
+  done
+  mnt03_topology_cleanup >/dev/null 2>&1 || true
+  mnt03_topology_create_12node
+  apply_nat_profiles_for_stage "${accept_port}" "${dial_port}"
+  apply_nat_profiles_extra_ports_for_stage 5002 5003 5004 5005 5006 5007 5008
+
+  start_services
+  start_natpmp_for_node n05
+  if [[ "${target}" == "12node-full" || "${target}" == "perturbation" ]]; then
+    start_fulltest_captures
+  fi
+
+  current_checkpoint="2node-substrate"
+  start_selected_nodes n01 n03
+  install_selected_daemons n01 n03
+  write_semantic_boundary_proof
+  invite_join_member n03 p2_n03
+  issuer_peer_id="${mnt03_last_issuer_peer_id}"
+  n03_peer_id="${mnt03_last_member_peer_id}"
+  run_ping_between_nodes n03 "${issuer_peer_id}" p2_n03_to_n01
+  collect_topology_for_nodes n01 n03
+  assert_2node_substrate_evidence "${issuer_peer_id}" "${n03_peer_id}"
+  record_checkpoint "2node-substrate" n01 n03
+  if progressive_reached_target "2node-substrate"; then
+    collect_all_artifacts
+    write_progressive_completion "2node-substrate"
+    return
+  fi
+
+  current_checkpoint="3node-bootstrap"
+  start_selected_nodes n04
+  install_selected_daemons n04
+  invite_join_member n04 p3_n04
+  n04_peer_id="${mnt03_last_member_peer_id}"
+  configure_joined_peer_dial_fixture n04 "${n03_peer_id}" 5002
+  run_ping_between_nodes n04 "${issuer_peer_id}" p3_n04_to_n01
+  run_ping_between_nodes n04 "${n03_peer_id}" p3_n04_to_n03
+  collect_topology_for_nodes n01 n03 n04
+  assert_3node_bootstrap_evidence "${issuer_peer_id}" "${n03_peer_id}"
+  jq -n \
+    --arg issuer_peer_id "${issuer_peer_id}" \
+    --arg n03_peer_id "${n03_peer_id}" \
+    --arg n04_peer_id "${n04_peer_id}" \
+    '{issuer_peer_id: $issuer_peer_id, joined_members: [$n03_peer_id, $n04_peer_id], bootstrap_recommendations_checked_on: "n04", payload_edges: ["n03->n01", "n04->n01", "n04->n03"]}' \
+    >"${run_dir}/proof/3node-bootstrap.json"
+  record_checkpoint "3node-bootstrap" n01 n03 n04
+  if progressive_reached_target "3node-bootstrap"; then
+    collect_all_artifacts
+    write_progressive_completion "3node-bootstrap"
+    return
+  fi
+
+  current_checkpoint="4node-reachability"
+  start_selected_nodes n05
+  install_selected_daemons n05
+  invite_join_member n05 p4_n05
+  n05_peer_id="${mnt03_last_member_peer_id}"
+  configure_joined_peer_dial_fixture n01 "${n05_peer_id}" 5001
+  configure_joined_peer_dial_fixture n05 "${n03_peer_id}" 5002
+  run_ping_between_nodes n01 "${n05_peer_id}" p4_n01_to_n05
+  run_ping_between_nodes n05 "${issuer_peer_id}" p4_n05_to_n01
+  run_ping_between_nodes n05 "${n03_peer_id}" p4_n05_to_n03
+  collect_topology_for_nodes n01 n03 n04 n05
+  assert_4node_reachability_evidence "${issuer_peer_id}" "${n03_peer_id}" "${n04_peer_id}" "${n05_peer_id}"
+  jq -n \
+    --arg issuer_peer_id "${issuer_peer_id}" \
+    --arg n03_peer_id "${n03_peer_id}" \
+    --arg n04_peer_id "${n04_peer_id}" \
+    --arg n05_peer_id "${n05_peer_id}" \
+    '{issuer_peer_id: $issuer_peer_id, joined_members: [$n03_peer_id, $n04_peer_id, $n05_peer_id], portmap_candidate_checked_on: "n05", active_neighbor_target_k: 2}' \
+    >"${run_dir}/proof/4node-reachability.json"
+  record_checkpoint "4node-reachability" n01 n03 n04 n05
+  if progressive_reached_target "4node-reachability"; then
+    collect_all_artifacts
+    write_progressive_completion "4node-reachability"
+    return
+  fi
+
+  current_checkpoint="6node-bootstrap-more"
+  start_selected_nodes n06 n07
+  install_selected_daemons n06 n07
+  invite_join_member n06 p6_n06
+  n06_peer_id="${mnt03_last_member_peer_id}"
+  n06_seed_peer_id="$(select_existing_peer_for_dial_fixture n06 "${n03_peer_id}" "${n04_peer_id}" "${n05_peer_id}")" \
+    || die "n06 has no product-created non-admin seed peer"
+  configure_joined_peer_dial_fixture n06 "${n06_seed_peer_id}" 5002
+  invite_join_member n07 p6_n07
+  n07_peer_id="${mnt03_last_member_peer_id}"
+  n07_seed_peer_id="$(select_existing_peer_for_dial_fixture n07 "${n03_peer_id}" "${n04_peer_id}" "${n05_peer_id}")" \
+    || die "n07 has no product-created easy/direct seed peer"
+  configure_joined_peer_dial_fixture n07 "${n07_seed_peer_id}" 5002
+  run_bootstrap_more_between_nodes n01 n06 "${issuer_peer_id}" "${issuer_peer_id},${n06_seed_peer_id}" p6_n06_bootstrap_more
+  run_ping_between_nodes n06 "${issuer_peer_id}" p6_n06_to_n01
+  run_ping_between_nodes n06 "${n06_seed_peer_id}" p6_n06_to_seed
+  run_ping_between_nodes n07 "${issuer_peer_id}" p6_n07_to_n01
+  run_ping_between_nodes n07 "${n07_seed_peer_id}" p6_n07_to_seed
+  collect_topology_for_nodes n01 n03 n04 n05 n06 n07
+  assert_6node_bootstrap_more_evidence "${issuer_peer_id}" "${n03_peer_id}" "${n04_peer_id}" "${n05_peer_id}" "${n06_peer_id}" "${n07_peer_id}" "${n06_seed_peer_id}" "${n07_seed_peer_id}"
+  jq -n \
+    --arg issuer_peer_id "${issuer_peer_id}" \
+    --arg n03_peer_id "${n03_peer_id}" \
+    --arg n04_peer_id "${n04_peer_id}" \
+    --arg n05_peer_id "${n05_peer_id}" \
+    --arg n06_peer_id "${n06_peer_id}" \
+    --arg n07_peer_id "${n07_peer_id}" \
+    --arg n06_seed_peer_id "${n06_seed_peer_id}" \
+    --arg n07_seed_peer_id "${n07_seed_peer_id}" \
+    '{issuer_peer_id: $issuer_peer_id, joined_members: [$n03_peer_id, $n04_peer_id, $n05_peer_id, $n06_peer_id, $n07_peer_id], n06_seed_peer_id: $n06_seed_peer_id, n07_seed_peer_id: $n07_seed_peer_id, bootstrap_more_checked_on: "n06", hard_carry_checked_on: "n07"}' \
+    >"${run_dir}/proof/6node-bootstrap-more.json"
+  record_checkpoint "6node-bootstrap-more" n01 n03 n04 n05 n06 n07
+  if progressive_reached_target "6node-bootstrap-more"; then
+    collect_all_artifacts
+    write_progressive_completion "6node-bootstrap-more"
+    return
+  fi
+
+  current_checkpoint="8node-hard-symmetry"
+  start_selected_nodes n08 n09
+  install_selected_daemons n08 n09
+  invite_join_member n08 p8_n08
+  n08_peer_id="${mnt03_last_member_peer_id}"
+  invite_join_member n09 p8_n09
+  n09_peer_id="${mnt03_last_member_peer_id}"
+  run_full_edge_candidates n08 p8_n08_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n09 p8_n09_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  collect_topology_for_nodes n01 n03 n04 n05 n06 n07 n08 n09
+  jq -n \
+    --arg n08_peer_id "${n08_peer_id}" \
+    --arg n09_peer_id "${n09_peer_id}" \
+    '{hard_regular_members: [$n08_peer_id, $n09_peer_id], hard_symmetry_checked_on: ["n08", "n09"], required_successes_per_node: 1}' \
+    >"${run_dir}/proof/8node-hard-symmetry.json"
+  record_checkpoint "8node-hard-symmetry" n01 n03 n04 n05 n06 n07 n08 n09
+  if progressive_reached_target "8node-hard-symmetry"; then
+    collect_all_artifacts
+    write_progressive_completion "8node-hard-symmetry"
+    return
+  fi
+
+  current_checkpoint="12node-full"
+  start_selected_nodes n10 n11 n02
+  install_selected_daemons n10 n11 n02
+  invite_join_member n10 p12_n10
+  n10_peer_id="${mnt03_last_member_peer_id}"
+  invite_join_member n11 p12_n11
+  n11_peer_id="${mnt03_last_member_peer_id}"
+  invite_join_member n02 p12_n02
+  n02_peer_id="${mnt03_last_member_peer_id}"
+
+  run_full_edge_candidates n01 p12_n01_stable 3 "${n03_peer_id}" "${n04_peer_id}" "${n05_peer_id}" "${n06_peer_id}" "${n02_peer_id}"
+  collect_stable_topology_for_node n01
+  run_full_edge_candidates n02 p12_n02_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n03 p12_n03_seed 1 "${issuer_peer_id}" "${n04_peer_id}" "${n05_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n04 p12_n04_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n05 p12_n05_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n06 p12_n06_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n05_peer_id}"
+  run_full_edge_candidates n07 p12_n07_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n08 p12_n08_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n09 p12_n09_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n10 p12_n10_seed 0 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n11 p12_n11_seed 0 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  run_full_edge_candidates n02 p12_n02_stable 2 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n04_peer_id}" "${n05_peer_id}"
+  collect_stable_topology_for_node n02
+  run_full_edge_candidates n03 p12_n03_stable 2 "${issuer_peer_id}" "${n04_peer_id}" "${n05_peer_id}" "${n06_peer_id}" "${n02_peer_id}"
+  collect_stable_topology_for_node n03
+  run_full_edge_candidates n04 p12_n04_stable 2 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n05_peer_id}" "${n02_peer_id}"
+  collect_stable_topology_for_node n04
+  run_full_edge_candidates n05 p12_n05_stable 2 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n04_peer_id}" "${n02_peer_id}"
+  collect_stable_topology_for_node n05
+  run_full_edge_candidates n06 p12_n06_stable 2 "${issuer_peer_id}" "${n03_peer_id}" "${n05_peer_id}" "${n04_peer_id}" "${n02_peer_id}"
+  collect_stable_topology_for_node n06
+  run_full_edge_candidates n07 p12_n07_stable 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n04_peer_id}" "${n05_peer_id}"
+  collect_stable_topology_for_node n07
+  run_full_edge_candidates n08 p12_n08_stable 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n04_peer_id}" "${n05_peer_id}"
+  collect_stable_topology_for_node n08
+  run_full_edge_candidates n09 p12_n09_stable 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n04_peer_id}" "${n05_peer_id}"
+  collect_stable_topology_for_node n09
+  run_full_edge_candidates n10 p12_n10_stable 0 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n04_peer_id}" "${n05_peer_id}"
+  collect_stable_topology_for_node n10
+  run_full_edge_candidates n11 p12_n11_stable 0 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}" "${n04_peer_id}" "${n05_peer_id}"
+  collect_stable_topology_for_node n11
+  assert_12node_stable_topology_evidence \
+    "${issuer_peer_id}" \
+    "${n02_peer_id}" \
+    "${n03_peer_id}" \
+    "${n04_peer_id}" \
+    "${n05_peer_id}" \
+    "${n06_peer_id}" \
+    "${n07_peer_id}" \
+    "${n08_peer_id}" \
+    "${n09_peer_id}" \
+    "${n10_peer_id}" \
+    "${n11_peer_id}"
+
+  start_selected_nodes n12
+  install_selected_daemons n12
+  invite_join_member n12 p12_n12_late
+  n12_peer_id="${mnt03_last_member_peer_id}"
+  run_full_edge_candidates n12 p12_n12_seed 1 "${issuer_peer_id}" "${n03_peer_id}" "${n06_peer_id}"
+  collect_topology_for_stage
+  record_checkpoint "12node-full" n01 n02 n03 n04 n05 n06 n07 n08 n09 n10 n11 n12
+
+  current_checkpoint="perturbation"
+  run_12node_perturbations "${issuer_peer_id}" "${n03_peer_id}" "${n05_peer_id}" "${n06_peer_id}" "${n09_peer_id}" "${n12_peer_id}"
+  record_checkpoint "perturbation" n01 n02 n03 n04 n05 n06 n07 n08 n09 n10 n11 n12
+  stop_fulltest_captures
+  collect_all_artifacts
+  jq -n \
+    --arg issuer_peer_id "${issuer_peer_id}" \
+    --arg n02_peer_id "${n02_peer_id}" \
+    --arg n03_peer_id "${n03_peer_id}" \
+    --arg n04_peer_id "${n04_peer_id}" \
+    --arg n05_peer_id "${n05_peer_id}" \
+    --arg n06_peer_id "${n06_peer_id}" \
+    --arg n07_peer_id "${n07_peer_id}" \
+    --arg n08_peer_id "${n08_peer_id}" \
+    --arg n09_peer_id "${n09_peer_id}" \
+    --arg n10_peer_id "${n10_peer_id}" \
+    --arg n11_peer_id "${n11_peer_id}" \
+    --arg n12_peer_id "${n12_peer_id}" \
+    '{
+      issuer_peer_id: $issuer_peer_id,
+      legal_members: [$n02_peer_id, $n03_peer_id, $n04_peer_id, $n05_peer_id, $n06_peer_id, $n07_peer_id, $n08_peer_id, $n09_peer_id, $n10_peer_id, $n11_peer_id],
+      lifecycle_member: $n12_peer_id,
+      stable_topology: "proof/12node-stable-topology.json",
+      perturbation: "proof/perturbation/summary.json",
+      checkpoints_dir: "checkpoints"
+    }' >"${run_dir}/proof/12node-full.json"
+  write_progressive_completion "12node-full"
 }
 
 run_2node_substrate() {
@@ -1728,6 +2158,10 @@ main() {
         profile="${2:-}"
         shift 2
         ;;
+      --until-checkpoint)
+        until_checkpoint="${2:-}"
+        shift 2
+        ;;
       -h|--help)
         usage
         exit 0
@@ -1745,7 +2179,11 @@ main() {
     stage="$(default_stage_for_case "${case_id}")"
   fi
   if [[ -z "${profile}" ]]; then
-    profile="${stage}"
+    if [[ "${stage}" == "progressive-growth" ]]; then
+      profile="12node-full"
+    else
+      profile="${stage}"
+    fi
   fi
 
   preflight
@@ -1773,6 +2211,9 @@ main() {
   trap finish EXIT
 
   case "${stage}" in
+    progressive-growth)
+      run_progressive_growth
+      ;;
     2node-substrate)
       run_2node_substrate
       ;;

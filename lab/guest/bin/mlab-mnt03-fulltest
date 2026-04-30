@@ -18,7 +18,7 @@ ts="$(date -u +%Y%m%dT%H%M%SZ)"
 aggregate_dir="${artifacts_root}/${ts}-mnt03-fulltest-aggregate"
 mnt03_aggregate_init "${aggregate_dir}"
 
-mnt03_run_case "mnt03 fulltest" --case-id mnt03-fulltest-12node-full --stage 12node-full --profile 12node-full
+mnt03_run_case "mnt03 fulltest" --case-id mnt03-fulltest-progressive --stage progressive-growth --profile 12node-full --until-checkpoint 12node-full
 
 echo "summary: pass=${mnt03_pass} fail=${mnt03_fail} pending=${mnt03_pending}"
 mnt03_write_summary "${aggregate_dir}/summary.json" "mnt03-fulltest"

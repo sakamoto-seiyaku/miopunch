@@ -176,10 +176,11 @@ TCP hard NAT 口径：
 
 Gate 分层：
 
-- MNT-03 实现必须小步递增：先跑 2 节点真实闭环，再扩到 3、4、6，最后扩到 12 节点完整网络；每一步都必须在 QEMU lab VM 内使用真实 Docker/systemd `miopunch` 节点和真实 NAT 夹具验证。
-- `mnt03-smoke`：覆盖 2 节点 substrate 与 3 节点 bootstrap 闭环，验证空白启动、真实建网/入网、基础拓扑快照和至少一条 successful payload edge。
-- `mnt03-selftest`：在 smoke 基础上扩到 4/6 节点，验证 reachability bucket、portmap、presence/online、`bootstrap_more`、logN active neighbor、hard 节点承接和 active edge payload / explainable failure。
-- `mnt03-fulltest`：扩到完整 12 节点，在稳定拓扑通过后加入 loss、offline/rejoin、revoke、IPv6 阻断、portmap 阻断、broker outage/recovery，并要求 pcap/conntrack/tc 证据。
+- MNT-03 默认 gate 必须小步递增并使用同一个连续成长的网络：先跑 2 节点真实闭环，再在同一网络中扩到 3、4、6、8，最后扩到 12 节点完整网络；每一步都必须在 QEMU lab VM 内使用真实 Docker/systemd `miopunch` 节点和真实 NAT 夹具验证。
+- `mnt03-smoke`：执行一次 progressive run，覆盖 2 节点 substrate 与 3 节点 bootstrap checkpoint，验证空白启动、真实建网/入网、基础拓扑快照和至少一条 successful payload edge。
+- `mnt03-selftest`：执行一次 progressive run，在同一网络中继续扩到 4/6 节点 checkpoint，验证 reachability bucket、portmap、presence/online、`bootstrap_more`、logN active neighbor、hard 节点承接和 active edge payload / explainable failure。
+- `mnt03-fulltest`：执行一次 progressive run，在同一网络中扩到完整 12 节点，在稳定拓扑通过后加入 loss、offline/rejoin、revoke、IPv6 阻断、portmap 阻断、broker outage/recovery，并要求 pcap/conntrack/tc 证据。
+- 旧的 2/3/4/6/12 fresh-start stage 可作为手动调试入口保留，但不作为场景三默认 public gate 路径。
 - 三层 gate 均应输出可机读 summary，并把 artifacts 拉回 `lab/_artifacts/`。
 
 ## 第三场景节点画像
@@ -217,31 +218,33 @@ Gate 分层：
 
 每一步都必须定义进入条件、动作、通过条件和证据。扰动只在稳定拓扑通过后添加。
 
-### 1. 空白启动
+### 1. 空白启动与连续成长
 
 动作：
 
-- 启动 12 个节点的真实 `miopunch up`。
-- 节点 state 初始为空，允许 fixture 提供本机网络画像和自建 MQTT endpoint，但不得预置 peers、membership、decls 或邻居。
+- progressive run 先启动 `n01` 与第一个成员节点，再按 checkpoint 逐步启动后续节点，直到需要时扩展到 12 个真实 `miopunch up`。
+- 每个新启动节点的 state 初始为空，允许 fixture 提供本机网络画像和自建 MQTT endpoint，但不得预置 peers、membership、decls 或邻居。
+- 运行过程中不得重建已通过 checkpoint 的节点或产品网络状态。
 
 通过条件：
 
-- 每个节点 LocalAPI ready。
-- 每个节点生成独立 identity。
-- 合法节点没有预置 peer 关系。
+- 每个已启动节点 LocalAPI ready。
+- 每个已启动节点生成独立 identity。
+- 新加入节点没有预置 peer 关系，已有合法节点保持同一 `net_id`、governance head 和 decls head。
 
 证据：
 
 - `status` / LocalAPI readiness。
 - daemon journal。
 - state snapshot。
+- checkpoint summary。
 
 ### 2. 建网与入网
 
 动作：
 
 - `n01` 创建 invite。
-- `n02..n11` 通过真实 `approve/join` 流程入网。
+- `n03..n11` 与 `n02` 按 checkpoint 顺序通过真实 `approve/join` 流程入网。
 - `n12` 用于 wrong actor、late join 或后续 lifecycle 测试。
 
 通过条件：
