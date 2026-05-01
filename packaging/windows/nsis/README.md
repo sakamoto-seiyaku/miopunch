@@ -33,6 +33,14 @@ cp build/bin/miopunch-desktop.exe ../../packaging/windows/nsis/miopunch-desktop.
 makensis packaging/windows/nsis/miopunch.nsi
 ```
 
+The CI release path uses the repository helper, which builds the required
+Windows binaries in a temporary NSIS work directory and writes the installer to
+`dist/release/`:
+
+```bash
+MIOPUNCH_VERSION=v0.1.0-rc.1 bash scripts/release/build_windows_installer.sh
+```
+
 ## Runtime notes
 
 - Install directory: `%ProgramFiles%\\miopunch\\`

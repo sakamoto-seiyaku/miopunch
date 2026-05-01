@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+out_dir="${MIOPUNCH_RELEASE_OUT:-${repo_root}/dist/release}"
+build_dir="${MIOPUNCH_BUILD_DIR:-${repo_root}/dist/build/bundles}"
+version="${MIOPUNCH_VERSION:-}"
+
+if [[ -z "${version}" ]]; then
+  version="$(git -C "${repo_root}" describe --tags --exact-match 2>/dev/null || true)"
+fi
+if [[ -z "${version}" ]]; then
+  version="0.0.0-git$(git -C "${repo_root}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+fi
+
+ldflags="-s -w"
+if [[ -n "${MIOPUNCH_VERSION:-}" ]]; then
+  ldflags="${ldflags} -X github.com/miopunch/miopunch/internal/buildinfo.releaseVersion=${MIOPUNCH_VERSION}"
+fi
+
+go_bin="${GO:-go}"
+mkdir -p "${out_dir}" "${build_dir}"
+
+copy_notices() {
+  local dst="$1"
+  [[ -f "${repo_root}/LICENSE" ]] && cp "${repo_root}/LICENSE" "${dst}/"
+  [[ -f "${repo_root}/NOTICE" ]] && cp "${repo_root}/NOTICE" "${dst}/"
+}
+
+build_bundle() {
+  local goos="$1"
+  local goarch="$2"
+  local ext="$3"
+
+  local name="miopunch_${version}_${goos}_${goarch}"
+  local target_dir="${build_dir}/${name}"
+  rm -rf "${target_dir}"
+  mkdir -p "${target_dir}"
+
+  echo "building ${name}"
+  (
+    cd "${repo_root}"
+    GOOS="${goos}" GOARCH="${goarch}" CGO_ENABLED=0 "${go_bin}" build -trimpath -ldflags "${ldflags}" -o "${target_dir}/miopunch${ext}" ./cmd/miopunch
+    GOOS="${goos}" GOARCH="${goarch}" CGO_ENABLED=0 "${go_bin}" build -trimpath -ldflags "${ldflags}" -o "${target_dir}/miopunch-lab${ext}" ./cmd/miopunch-lab
+    GOOS="${goos}" GOARCH="${goarch}" CGO_ENABLED=0 "${go_bin}" build -trimpath -ldflags "${ldflags}" -o "${target_dir}/miopunch-poc-e2e${ext}" ./tools/miopunch-poc-e2e
+  )
+  copy_notices "${target_dir}"
+
+  case "${goos}" in
+    linux)
+      tar -C "${build_dir}" -czf "${out_dir}/${name}.tar.gz" "${name}"
+      ;;
+    windows)
+      (cd "${target_dir}" && zip -q -r "${out_dir}/${name}.zip" .)
+      ;;
+    *)
+      echo "unsupported bundle target: ${goos}/${goarch}" >&2
+      return 2
+      ;;
+  esac
+}
+
+build_bundle linux amd64 ""
+build_bundle windows amd64 ".exe"
+
+echo "bundles written to ${out_dir}"

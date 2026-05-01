@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"runtime/debug"
 	"strings"
 	"time"
 
+	"github.com/miopunch/miopunch/internal/buildinfo"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/task"
 )
@@ -248,36 +248,7 @@ func isSupportedTaskKind(kind string) bool {
 }
 
 func buildVersion() string {
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return "dev"
-	}
-
-	if info.Main.Version != "" && info.Main.Version != "(devel)" {
-		return info.Main.Version
-	}
-
-	var revision string
-	var modified string
-	for _, s := range info.Settings {
-		switch s.Key {
-		case "vcs.revision":
-			revision = s.Value
-		case "vcs.modified":
-			modified = s.Value
-		}
-	}
-	if revision == "" {
-		return "dev"
-	}
-
-	if len(revision) > 12 {
-		revision = revision[:12]
-	}
-	if modified == "true" {
-		return revision + "+dirty"
-	}
-	return revision
+	return buildinfo.Version()
 }
 
 var errLocalAPINotImplemented = errors.New("not implemented")

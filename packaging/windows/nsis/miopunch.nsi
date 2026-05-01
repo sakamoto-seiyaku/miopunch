@@ -12,13 +12,14 @@
 !include "nsDialogs.nsh"
 !include "FileFunc.nsh"
 
+Unicode true
 Name "miopunch"
 OutFile "miopunch-setup.exe"
 InstallDir "$PROGRAMFILES\\miopunch"
 RequestExecutionLevel admin
-Unicode true
 
 Var LogFile
+Var LogDir
 Var LogExportPath
 Var LogExportPathCtl
 
@@ -37,11 +38,20 @@ Page custom LogExportPage
 !insertmacro MUI_LANGUAGE "English"
 
 Function .onInit
-  StrCpy $LogFile "$COMMONAPPDATA\\miopunch\\install.log"
-  CreateDirectory "$COMMONAPPDATA\\miopunch"
+  Call SetLogPath
+  CreateDirectory "$LogDir"
   FileOpen $0 $LogFile a
   FileWrite $0 "=== miopunch installer start ===$\r$\n"
   FileClose $0
+FunctionEnd
+
+Function SetLogPath
+  ReadEnvStr $LogDir "ProgramData"
+  ${If} $LogDir == ""
+    StrCpy $LogDir "$APPDATA"
+  ${EndIf}
+  StrCpy $LogDir "$LogDir\\miopunch"
+  StrCpy $LogFile "$LogDir\\install.log"
 FunctionEnd
 
 Function LogLine
@@ -87,11 +97,11 @@ Section "Install"
 SectionEnd
 
 Section "Uninstall"
-  StrCpy $LogFile "$COMMONAPPDATA\\miopunch\\install.log"
-  CreateDirectory "$COMMONAPPDATA\\miopunch"
+  Call un.SetLogPath
+  CreateDirectory "$LogDir"
 
   Push "=== miopunch uninstall start ==="
-  Call LogLine
+  Call un.LogLine
 
   ; Best-effort daemon uninstall; continue even on failures.
   ExecWait '"$SYSDIR\\cmd.exe" /c ""$INSTDIR\\miopunch.exe" uninstall-system-daemon >> "$LogFile" 2>&1""' $0
@@ -111,8 +121,27 @@ Section "Uninstall"
   DeleteRegKey HKLM "Software\\miopunch"
 
   Push "=== miopunch uninstall done ==="
-  Call LogLine
+  Call un.LogLine
 SectionEnd
+
+Function un.SetLogPath
+  ReadEnvStr $LogDir "ProgramData"
+  ${If} $LogDir == ""
+    StrCpy $LogDir "$APPDATA"
+  ${EndIf}
+  StrCpy $LogDir "$LogDir\\miopunch"
+  StrCpy $LogFile "$LogDir\\install.log"
+FunctionEnd
+
+Function un.LogLine
+  Exch $0
+  Push $1
+  FileOpen $1 $LogFile a
+  FileWrite $1 "$0$\r$\n"
+  FileClose $1
+  Pop $1
+  Pop $0
+FunctionEnd
 
 Function LogExportPage
   nsDialogs::Create 1018

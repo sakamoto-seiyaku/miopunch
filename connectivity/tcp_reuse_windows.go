@@ -7,7 +7,7 @@ import "syscall"
 func tcpReuseControl(network, address string, c syscall.RawConn) error {
 	var controlErr error
 	if err := c.Control(func(fd uintptr) {
-		controlErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+		controlErr = syscall.SetsockoptInt(syscall.Handle(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
 	}); err != nil {
 		return err
 	}

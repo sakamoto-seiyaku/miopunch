@@ -1,0 +1,84 @@
+name: Go Checks
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: false
+        type: string
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to check
+        required: false
+        type: string
+  push:
+    branches:
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  host:
+    name: Host gates
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run Go tests
+        run: go test ./...
+
+      - name: Run Go vet
+        run: go vet ./...
+
+      - name: Check legacy import boundary
+        run: bash scripts/check_no_xtcp_imports.sh
+
+  cross-build:
+    name: Release cross-build sanity
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Linux desktop build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev pkg-config
+
+      - name: Build Linux release targets
+        run: |
+          mkdir -p /tmp/miopunch-build/linux
+          GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/miopunch-build/linux/miopunch ./cmd/miopunch
+          GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/miopunch-build/linux/miopunch-lab ./cmd/miopunch-lab
+          GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/miopunch-build/linux/miopunch-poc-e2e ./tools/miopunch-poc-e2e
+          GOOS=linux GOARCH=amd64 go build -trimpath -tags desktop -o /tmp/miopunch-build/linux/miopunch-desktop ./cmd/miopunch-desktop
+
+      - name: Build Windows release targets
+        run: |
+          mkdir -p /tmp/miopunch-build/windows
+          GOOS=windows GOARCH=amd64 go build -trimpath -o /tmp/miopunch-build/windows/miopunch.exe ./cmd/miopunch
+          GOOS=windows GOARCH=amd64 go build -trimpath -o /tmp/miopunch-build/windows/miopunch-lab.exe ./cmd/miopunch-lab
+          GOOS=windows GOARCH=amd64 go build -trimpath -o /tmp/miopunch-build/windows/miopunch-poc-e2e.exe ./tools/miopunch-poc-e2e
+          GOOS=windows GOARCH=amd64 go build -trimpath -tags desktop -o /tmp/miopunch-build/windows/miopunch-desktop.exe ./cmd/miopunch-desktop

@@ -40,3 +40,10 @@ MIOPUNCH_BIN=/path/to/miopunch \
 MIOPUNCH_DESKTOP_BIN=/path/to/miopunch-desktop \
   ./packaging/linux/deb/build_deb.sh
 ```
+
+Release builds can pass the public tag. The script converts release candidates
+to Debian ordering, for example `v0.1.0-rc.1` becomes `0.1.0~rc.1`.
+
+```bash
+MIOPUNCH_VERSION=v0.1.0-rc.1 ./packaging/linux/deb/build_deb.sh --all
+```

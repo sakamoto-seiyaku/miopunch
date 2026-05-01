@@ -11,6 +11,9 @@ Usage:
 Environment (optional):
   MIOPUNCH_BIN          Path to a prebuilt /usr/bin/miopunch binary
   MIOPUNCH_DESKTOP_BIN  Path to a prebuilt /usr/bin/miopunch-desktop binary
+  MIOPUNCH_VERSION      Release tag/version to embed and convert to Debian version
+  MIOPUNCH_DEB_VERSION  Debian package version override
+  MIOPUNCH_DEB_OUT      Output directory for generated .deb files
 EOF
 }
 
@@ -22,6 +25,18 @@ repo_root() {
 
 version_string() {
   local root sha dirty
+  if [[ -n "${MIOPUNCH_DEB_VERSION:-}" ]]; then
+    printf '%s\n' "${MIOPUNCH_DEB_VERSION}"
+    return
+  fi
+  if [[ -n "${MIOPUNCH_VERSION:-}" ]]; then
+    local version="${MIOPUNCH_VERSION#v}"
+    version="${version/-rc./~rc.}"
+    version="${version//_/.}"
+    printf '%s\n' "${version}"
+    return
+  fi
+
   root="$(repo_root)"
   sha="$(git -C "$root" rev-parse --short HEAD 2>/dev/null || echo unknown)"
   dirty=""
@@ -43,7 +58,7 @@ build_one() {
   go_tags="desktop"
   depends="libgtk-3-0, libwebkit2gtk-4.0-37"
   if [[ "$variant" == "webkit2_41" ]]; then
-    version="${version}+webkit2_41"
+    version="${version}+webkit2.41"
     webkit_suffix="_webkit2_41"
     go_tags="desktop,webkit2_41"
     depends="libgtk-3-0, libwebkit2gtk-4.1-0"
@@ -52,7 +67,7 @@ build_one() {
   local work pkgdir outdir outfile
   work="$(mktemp -d)"
   pkgdir="$work/pkg"
-  outdir="$root/packaging/linux/deb/out"
+  outdir="${MIOPUNCH_DEB_OUT:-$root/packaging/linux/deb/out}"
   mkdir -p "$pkgdir/DEBIAN"
   mkdir -p "$pkgdir/usr/bin"
   mkdir -p "$pkgdir/usr/share/applications"
@@ -78,13 +93,21 @@ EOF
   if [[ -n "${MIOPUNCH_BIN:-}" ]]; then
     install -m 0755 "$MIOPUNCH_BIN" "$pkgdir/usr/bin/miopunch"
   else
-    (cd "$root" && go build -o "$pkgdir/usr/bin/miopunch" ./cmd/miopunch)
+    local ldflags="-s -w"
+    if [[ -n "${MIOPUNCH_VERSION:-}" ]]; then
+      ldflags="${ldflags} -X github.com/miopunch/miopunch/internal/buildinfo.releaseVersion=${MIOPUNCH_VERSION}"
+    fi
+    (cd "$root" && go build -trimpath -ldflags "$ldflags" -o "$pkgdir/usr/bin/miopunch" ./cmd/miopunch)
   fi
 
   if [[ -n "${MIOPUNCH_DESKTOP_BIN:-}" ]]; then
     install -m 0755 "$MIOPUNCH_DESKTOP_BIN" "$pkgdir/usr/bin/miopunch-desktop"
   else
-    (cd "$root" && go build -tags "$go_tags" -o "$pkgdir/usr/bin/miopunch-desktop" ./cmd/miopunch-desktop)
+    local desktop_ldflags="-s -w"
+    if [[ -n "${MIOPUNCH_VERSION:-}" ]]; then
+      desktop_ldflags="${desktop_ldflags} -X github.com/miopunch/miopunch/internal/buildinfo.releaseVersion=${MIOPUNCH_VERSION}"
+    fi
+    (cd "$root" && go build -trimpath -tags "$go_tags" -ldflags "$desktop_ldflags" -o "$pkgdir/usr/bin/miopunch-desktop" ./cmd/miopunch-desktop)
   fi
 
   install -m 0644 "$root/packaging/linux/deb/miopunch.desktop" "$pkgdir/usr/share/applications/miopunch.desktop"
