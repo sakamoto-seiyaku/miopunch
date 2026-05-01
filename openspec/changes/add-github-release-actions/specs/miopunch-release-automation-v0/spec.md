@@ -10,8 +10,9 @@ The system SHALL keep host checks, artifact builds, core lab gates, scenario lab
 
 #### Scenario: Release workflow orchestrates required gates
 - **WHEN** a supported release tag triggers the release workflow
-- **THEN** the release workflow waits for host checks, artifact builds, core lab gates, and scenario lab gates before publishing
+- **THEN** the release workflow waits for host checks, artifact builds, and core lab gates before publishing
 - **AND** no GitHub Release is created if any required gate fails
+- **AND** the release workflow does not depend on scenario lab gates
 
 ### Requirement: Host checks validate Go quality before release
 The system SHALL run the repository host validation gates before a release can publish.
@@ -45,8 +46,8 @@ The system SHALL provide a pure build workflow that compiles and packages releas
 - **AND** it writes a machine-readable `release-manifest.json`
 - **AND** the checksums cover every published asset
 
-### Requirement: Lab gates cover core and scenario validation
-The system SHALL gate release publishing on both legacy/core lab tests and scenario 1/2/3 lab tests.
+### Requirement: Lab gates separate release-blocking core validation from scenario validation
+The system SHALL gate release publishing on legacy/core lab tests and SHALL keep scenario 1/2/3 lab tests available outside the release dependency path.
 
 #### Scenario: Core lab gates run before release
 - **WHEN** the core lab gate workflow runs for a release candidate commit
@@ -55,11 +56,18 @@ The system SHALL gate release publishing on both legacy/core lab tests and scena
 - **AND** it runs `./lab/host/labctl xtcp-connectivity-selftest`
 - **AND** it runs `./lab/host/labctl xtcp-fulltest`
 
-#### Scenario: Scenario lab gates run before release
+#### Scenario: Scenario lab gates remain available for manual diagnosis
 - **WHEN** the scenario lab gate workflow runs for a release candidate commit
 - **THEN** it runs scenario 1 through `./lab/host/labctl mnt01-fulltest`
 - **AND** it runs scenario 2 through `./lab/host/labctl mnt02-selftest`
 - **AND** it runs scenario 3 through `./lab/host/labctl mnt03-fulltest`
+- **AND** scenario workflow failure does not block GitHub Release publishing because the release workflow does not wait for it
+
+#### Scenario: Maintainer runs scenario gates locally before tagging
+- **WHEN** a maintainer prepares to push a release tag
+- **THEN** the maintainer runs scenario 1 through `./lab/host/labctl mnt01-fulltest` locally
+- **AND** the maintainer runs scenario 2 through `./lab/host/labctl mnt02-selftest` locally
+- **AND** the maintainer runs scenario 3 through `./lab/host/labctl mnt03-fulltest` locally
 
 #### Scenario: Lab artifacts are retained for failure diagnosis
 - **WHEN** any lab gate completes or fails
@@ -73,7 +81,7 @@ The system SHALL publish GitHub Releases only from supported `v*` tags and SHALL
 - **WHEN** a maintainer pushes annotated tag `v0.1.0-rc.1` to the configured `origin`
 - **THEN** the GitHub mirror receives the tag
 - **AND** the release workflow treats the tag as the release source
-- **AND** the workflow publishes a prerelease with `latest=false` after all required gates pass
+- **AND** the workflow publishes a prerelease with `latest=false` after host checks, artifact builds, and core lab gates pass
 
 #### Scenario: Unsupported tag does not publish
 - **WHEN** a tag does not match the supported release tag policy
@@ -93,10 +101,11 @@ The system SHALL publish release assets with provenance metadata and SHALL use l
 - **AND** only the publish job uses permissions needed to create the GitHub Release and attest assets
 
 ### Requirement: Lab workflows document hosted-runner constraints
-The system SHALL document that release lab gates run on GitHub-hosted Ubuntu runners for v0, despite nested virtualization limits.
+The system SHALL document that release-blocking core lab gates run on GitHub-hosted Ubuntu runners for v0 and that scenario gates are local pre-release validation because of hosted-runner limits.
 
 #### Scenario: Hosted runner lacks fast KVM
 - **WHEN** the hosted runner lacks usable `/dev/kvm`
-- **THEN** lab execution may fall back to QEMU TCG
-- **AND** the workflow still treats a timeout or gate failure as release-blocking
+- **THEN** core lab execution may fall back to QEMU TCG
+- **AND** the release workflow still treats a core lab timeout or gate failure as release-blocking
+- **AND** scenario gate timeout or failure in the standalone workflow does not block release publishing
 - **AND** uploaded artifacts identify the failing stage as far as the lab can report it

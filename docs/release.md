@@ -22,17 +22,28 @@ after the tag reaches GitHub.
 - `Lab Core Gates`: `selftest`, `xtcp-selftest`,
   `xtcp-connectivity-selftest`, and `xtcp-fulltest`.
 - `Lab Scenario Gates`: scenario 1 (`mnt01-fulltest`), scenario 2
-  (`mnt02-selftest`), and scenario 3 (`mnt03-fulltest`).
-- `Release`: tag-triggered orchestration that publishes only after all required
-  gates pass.
+  (`mnt02-selftest`), and scenario 3 (`mnt03-fulltest`). This workflow is
+  retained for manual diagnosis and is not a `Release` workflow dependency.
+- `Release`: tag-triggered orchestration that publishes only after Go checks,
+  artifact builds, and core lab gates pass.
 
 ## Hosted Lab Runner Constraint
 
-The v0 release gates use GitHub-hosted Ubuntu runners. The lab harness falls
-back to QEMU TCG when `/dev/kvm` is unavailable, which can be much slower than
-a dedicated KVM runner. A timeout or lab failure still blocks release
-publishing, and the workflows upload `lab/_artifacts/` plus QEMU logs for
-diagnosis.
+The v0 release-blocking core lab gates use GitHub-hosted Ubuntu runners. The
+lab harness falls back to QEMU TCG when `/dev/kvm` is unavailable, which can be
+much slower than a dedicated KVM runner. A core lab timeout or failure still
+blocks release publishing, and the workflows upload `lab/_artifacts/` plus QEMU
+logs for diagnosis.
+
+Scenario 1/2/3 gates are not release workflow dependencies because they are not
+reliable on GitHub-hosted runners. Run them locally before pushing a release
+tag:
+
+```bash
+./lab/host/labctl mnt01-fulltest
+./lab/host/labctl mnt02-selftest
+./lab/host/labctl mnt03-fulltest
+```
 
 ## Local Build Helpers
 

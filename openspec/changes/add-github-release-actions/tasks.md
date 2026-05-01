@@ -17,7 +17,8 @@
 - [x] 3.2 Add `build-artifacts.yml` for pure artifact builds and Actions artifact uploads.
 - [x] 3.3 Add `lab-core-gates.yml` for `selftest`, `xtcp-selftest`, `xtcp-connectivity-selftest`, and `xtcp-fulltest`.
 - [x] 3.4 Add `lab-scenarios.yml` for `mnt01-fulltest`, `mnt02-selftest`, and `mnt03-fulltest`.
-- [x] 3.5 Add `release.yml` for `v*` tag orchestration, prerelease publishing, checksums, manifest upload, and asset attestations.
+- [x] 3.5 Add `release.yml` for `v*` tag orchestration, prerelease publishing, checksums, manifest upload, asset attestations, and release-blocking host/build/core lab gates.
+- [x] 3.6 Keep `lab-scenarios.yml` runnable as a standalone manual workflow without making it a release dependency.
 
 ## 4. CI Diagnostics and Permissions
 
@@ -32,7 +33,8 @@
 - [x] 5.3 Run `export PATH=/usr/local/go/bin:$PATH && go vet ./...`.
 - [x] 5.4 Run `bash scripts/check_no_xtcp_imports.sh`.
 - [x] 5.5 Run the release build sanity commands locally or through `build-artifacts.yml`.
-- [ ] 5.6 Run required lab gates: `selftest`, `xtcp-selftest`, `xtcp-connectivity-selftest`, `xtcp-fulltest`, `mnt01-fulltest`, `mnt02-selftest`, and `mnt03-fulltest`.
-- [ ] 5.7 Push annotated tag `v0.1.0-rc.1` only after validation is green, then verify the GitHub Release assets and checksums.
+- [ ] 5.6 Run release-blocking core lab gates: `selftest`, `xtcp-selftest`, `xtcp-connectivity-selftest`, and `xtcp-fulltest`.
+- [ ] 5.7 Run scenario gates locally before tagging: `mnt01-fulltest`, `mnt02-selftest`, and `mnt03-fulltest`.
+- [ ] 5.8 Push annotated tag `v0.1.0-rc.1` only after validation is green, then verify the GitHub Release assets and checksums.
 
-Note: 5.6 and 5.7 are intentionally left for the release/operator pass; this apply session implemented the automation and completed host/build validation without publishing or archiving.
+Note: 5.6, 5.7, and 5.8 are intentionally left for the release/operator pass; this apply session implemented the automation and completed host/build validation without publishing or archiving.

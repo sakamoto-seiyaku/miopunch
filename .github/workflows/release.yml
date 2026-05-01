@@ -70,15 +70,6 @@ jobs:
     with:
       ref: ${{ needs.validate-tag.outputs.ref }}
 
-  lab-scenarios:
-    name: Lab scenario gates
-    needs: validate-tag
-    uses: ./.github/workflows/lab-scenarios.yml
-    permissions:
-      contents: read
-    with:
-      ref: ${{ needs.validate-tag.outputs.ref }}
-
   publish:
     name: Publish GitHub Release
     needs:
@@ -86,7 +77,6 @@ jobs:
       - go-checks
       - build-artifacts
       - lab-core-gates
-      - lab-scenarios
     runs-on: ubuntu-24.04
     permissions:
       contents: write

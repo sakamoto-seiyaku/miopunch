@@ -1,6 +1,6 @@
 ## Why
 
-The repository is now mirrored to GitHub and needs a repeatable release path for the first public candidate tag. A single monolithic workflow would hide failures and make slow lab gates hard to reason about, so release automation must split build, test, lab, and publish responsibilities while still preventing a release unless all required gates pass.
+The repository is now mirrored to GitHub and needs a repeatable release path for the first public candidate tag. A single monolithic workflow would hide failures and make slow lab gates hard to reason about, so release automation must split build, test, lab, and publish responsibilities while still preventing a release unless all release-blocking gates pass.
 
 ## What Changes
 
@@ -10,7 +10,8 @@ The repository is now mirrored to GitHub and needs a repeatable release path for
   - core lab gates;
   - scenario 1/2/3 lab gates;
   - tag-driven release orchestration.
-- Publish `v0.1.0-rc.1` as a prerelease only after all required gates complete successfully.
+- Publish `v0.1.0-rc.1` as a prerelease only after all release-blocking host, build, and core lab gates complete successfully.
+- Keep scenario 1/2/3 gates available as a standalone workflow for manual diagnosis, but run them locally before tagging instead of making GitHub Release publishing depend on them.
 - Release full desktop delivery artifacts:
   - Linux and Windows CLI/lab binary bundles;
   - Linux `.deb` WebKitGTK 4.0 and 4.1 variants;
@@ -39,7 +40,8 @@ The repository is now mirrored to GitHub and needs a repeatable release path for
   - Minimal build-version metadata hook if required for tagged release binaries to report the release version.
 - Affected validation:
   - Host checks remain `go test ./...`, `go vet ./...`, and `bash scripts/check_no_xtcp_imports.sh`.
-  - Release gate includes lab selftests and scenario gates before publishing.
+  - Release gate includes host checks, artifact builds, and core lab selftests before publishing.
+  - Scenario gates remain required operator validation before tagging, but are not GitHub Release workflow dependencies.
 - Out of scope:
   - Creating/pushing the release tag from CI.
   - Docker image publishing, Homebrew/RPM/macOS packages, signing certificates, and store distribution.
