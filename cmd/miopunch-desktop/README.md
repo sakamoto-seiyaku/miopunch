@@ -19,13 +19,15 @@ desktop executable without a Node toolchain.
 2. Run the desktop app:
 
    ```bash
-   go run -tags desktop ./cmd/miopunch-desktop
+   go run -tags desktop,production ./cmd/miopunch-desktop
    ```
 
 ## Notes
 
 - The real desktop build is behind build tag `desktop`.
-- Windows packaging uses Wails + WebView2 (`wails build -webview2 embed`) per spec.
+- Release desktop builds also require the Wails `production` tag.
+- Windows packaging uses Wails manual build tags with WebView2 embed
+  (`desktop,production,wv2runtime.embed`).
 
 ## Manual smoke checklist (v0)
 

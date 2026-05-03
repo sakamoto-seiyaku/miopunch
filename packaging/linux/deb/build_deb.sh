@@ -55,12 +55,12 @@ build_one() {
 
   version="$(version_string)"
   webkit_suffix=""
-  go_tags="desktop"
+  go_tags="desktop,production"
   depends="libgtk-3-0, libwebkit2gtk-4.0-37"
   if [[ "$variant" == "webkit2_41" ]]; then
     version="${version}+webkit2.41"
     webkit_suffix="_webkit2_41"
-    go_tags="desktop,webkit2_41"
+    go_tags="desktop,production,webkit2_41"
     depends="libgtk-3-0, libwebkit2gtk-4.1-0"
   fi
 

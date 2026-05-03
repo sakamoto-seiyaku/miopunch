@@ -74,6 +74,41 @@
 
   const canonicalTaskID = (raw) => String(raw || "").trim();
 
+  const mergeTask = (current, incoming) => {
+    if (!current) return incoming || null;
+    if (!incoming) return current;
+
+    const merged = { ...current, ...incoming };
+
+    const currentFacts = Array.isArray(current.facts) ? current.facts : [];
+    const incomingFacts = Array.isArray(incoming.facts) ? incoming.facts : [];
+    merged.facts = incomingFacts.length >= currentFacts.length ? incomingFacts : currentFacts;
+
+    const currentSuggestions = Array.isArray(current.suggestions) ? current.suggestions : [];
+    const incomingSuggestions = Array.isArray(incoming.suggestions) ? incoming.suggestions : [];
+    merged.suggestions =
+      incomingSuggestions.length >= currentSuggestions.length ? incomingSuggestions : currentSuggestions;
+
+    if (current.report_ready && !incoming.report_ready) merged.report_ready = true;
+    if (current.status === "done" && incoming.status !== "done") {
+      merged.status = current.status;
+      merged.reason_code = current.reason_code;
+      merged.exit_code = current.exit_code;
+    }
+    if (current.stage && !incoming.stage) merged.stage = current.stage;
+
+    return merged;
+  };
+
+  const upsertTask = (taskObj) => {
+    const taskID = canonicalTaskID(taskObj && taskObj.task_id);
+    if (!taskID) return "";
+
+    const merged = mergeTask(state.tasks.get(taskID), taskObj);
+    state.tasks.set(taskID, merged);
+    return taskID;
+  };
+
   const applyEventToTask = (taskObj, ev) => {
     if (!taskObj || !ev) return;
     const kind = String(ev.kind || "");
@@ -112,7 +147,13 @@
     const kind = String(ev.kind || "");
     if (kind === "snapshot") {
       const tasks = Array.isArray(ev.tasks) ? ev.tasks : [];
-      state.tasks = new Map(tasks.map((t) => [canonicalTaskID(t.task_id), t]));
+      const nextTasks = new Map();
+      for (const t of tasks) {
+        const taskID = canonicalTaskID(t.task_id);
+        if (!taskID) continue;
+        nextTasks.set(taskID, mergeTask(state.tasks.get(taskID), t));
+      }
+      state.tasks = nextTasks;
       scheduleRender();
       return;
     }
@@ -221,6 +262,12 @@
 
   const createTask = async (kind, args) => {
     const resp = await getBridge().CreateTask(kind, args || null);
+    if (!resp || !resp.ok) throw new Error(bridgeErrorSummary(resp && resp.error));
+    return resp.task;
+  };
+
+  const getTask = async (taskID) => {
+    const resp = await getBridge().GetTask(taskID);
     if (!resp || !resp.ok) throw new Error(bridgeErrorSummary(resp && resp.error));
     return resp.task;
   };
@@ -405,7 +452,7 @@
   };
 
   // Invite tab
-  const inviteState = { taskID: "" };
+  const inviteState = { taskID: "", busy: false, message: "" };
   const renderInvite = () => {
     const task = inviteState.taskID ? state.tasks.get(inviteState.taskID) : null;
     el("invite-task-id").textContent = task && task.task_id ? task.task_id : "—";
@@ -414,8 +461,10 @@
     const code = findInviteCode(task);
     const codeEl = el("invite-code");
     const copyBtn = el("btn-copy-invite");
+    const createBtn = el("btn-invite");
     if (codeEl) codeEl.value = code || "";
     if (copyBtn) copyBtn.disabled = !code;
+    if (createBtn) createBtn.disabled = inviteState.busy || !(lastConn && lastConn.connected);
 
     const qrEl = el("invite-qr");
     if (qrEl) {
@@ -435,8 +484,21 @@
     const hint = el("invite-hint");
     if (!hint) return;
     hint.textContent = "";
+    if (inviteState.message) {
+      hint.textContent = inviteState.message;
+      return;
+    }
+    if (!(lastConn && lastConn.connected)) {
+      hint.textContent = "LocalAPI is not connected.";
+      return;
+    }
     if (task && Array.isArray(task.suggestions) && task.suggestions.length > 0) {
       hint.textContent = task.suggestions.map((s) => s.message).filter(Boolean).join(" · ");
+      return;
+    }
+    if (!code && task && task.status === "done" && task.reason_code && task.reason_code !== "OK") {
+      const facts = Array.isArray(task.facts) ? task.facts.map((f) => f.message).filter(Boolean) : [];
+      hint.textContent = [`Failed: ${task.reason_code}`, ...facts].join(" · ");
     }
   };
 
@@ -457,19 +519,30 @@
     const copyBtn = el("btn-copy-invite");
     if (btn) {
       btn.addEventListener("click", async () => {
-        btn.disabled = true;
+        inviteState.busy = true;
+        inviteState.message = "Creating invite...";
+        renderInvite();
         try {
           inviteState.taskID = "";
           renderInvite();
 
           const created = await createTask("invite", null);
-          inviteState.taskID = canonicalTaskID(created.task_id);
-          state.tasks.set(inviteState.taskID, created);
+          const taskID = upsertTask(created);
+          if (!taskID) throw new Error("Create invite did not return task_id");
+
+          inviteState.taskID = taskID;
+          scheduleRender();
+
+          const latest = await getTask(taskID);
+          upsertTask(latest);
+          inviteState.message = "";
           scheduleRender();
         } catch (err) {
-          toast(String(err));
+          inviteState.message = `Create failed: ${String(err)}`;
+          toast(inviteState.message);
         } finally {
-          btn.disabled = false;
+          inviteState.busy = false;
+          renderInvite();
         }
       });
     }
@@ -537,9 +610,8 @@
 
       try {
         const created = await createTask("join", { code });
-        joinState.taskID = canonicalTaskID(created.task_id);
+        joinState.taskID = upsertTask(created);
         joinState.lastExportPath = "";
-        state.tasks.set(joinState.taskID, created);
         scheduleRender();
       } catch (err) {
         toast(String(err));

@@ -24,7 +24,8 @@ desktop shell.
 Two `.deb` variants are supported:
 
 - default: WebKitGTK 4.0 runtime dependency
-- `--webkit2_41`: build with `-tags webkit2_41` and depend on WebKitGTK 4.1
+- `--webkit2_41`: add the `webkit2_41` tag to the Wails
+  `desktop,production` build and depend on WebKitGTK 4.1
 
 ## Build (local)
 

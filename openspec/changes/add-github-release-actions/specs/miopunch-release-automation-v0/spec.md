@@ -38,7 +38,21 @@ The system SHALL provide a pure build workflow that compiles and packages releas
 - **AND** it builds Windows amd64 CLI/lab binary bundles
 - **AND** it builds Linux WebKitGTK 4.0 and 4.1 `.deb` packages
 - **AND** it builds a Windows NSIS installer
+- **AND** desktop release binaries use Wails production build tags
 - **AND** it uploads those outputs as GitHub Actions artifacts
+
+#### Scenario: Windows desktop asset uses Wails production mode
+- **WHEN** the Windows installer workflow builds `miopunch-desktop.exe`
+- **THEN** the binary is built with `desktop,production,wv2runtime.embed` tags
+- **AND** the binary is linked as a Windows GUI executable
+- **AND** the binary does not include Wails' missing build tags fallback app
+
+#### Scenario: Windows installer registers uninstall entry
+- **WHEN** the Windows installer completes successfully
+- **THEN** it writes a Windows uninstall entry for `miopunch`
+- **AND** Apps & Features or Programs and Features can launch the uninstaller
+- **AND** the Start menu contains an uninstall shortcut
+- **AND** uninstall removes installed binaries and shortcuts
 
 #### Scenario: Build workflow records integrity metadata
 - **WHEN** release candidate assets are produced

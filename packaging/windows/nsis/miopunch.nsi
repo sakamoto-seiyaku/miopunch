@@ -6,11 +6,17 @@
 ; - Call: miopunch install-system-daemon (fail-fast)
 ; - Append installer logs: %ProgramData%\miopunch\install.log
 ; - Provide "Export log" UI to copy installer log to a user-selected path
+; - Register a Windows uninstall entry and Start menu uninstall shortcut
 
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "nsDialogs.nsh"
 !include "FileFunc.nsh"
+
+!ifndef MIOPUNCH_VERSION
+!define MIOPUNCH_VERSION "0.0.0"
+!endif
+!define MIOPUNCH_UNINSTALL_KEY "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\miopunch"
 
 Unicode true
 Name "miopunch"
@@ -65,6 +71,7 @@ Function LogLine
 FunctionEnd
 
 Section "Install"
+  SetShellVarContext all
   SetOutPath "$INSTDIR"
 
   Push "install_dir=$INSTDIR"
@@ -78,9 +85,19 @@ Section "Install"
 
   CreateDirectory "$SMPROGRAMS\\miopunch"
   CreateShortcut "$SMPROGRAMS\\miopunch\\miopunch.lnk" "$INSTDIR\\miopunch-desktop.exe"
+  CreateShortcut "$SMPROGRAMS\\miopunch\\Uninstall miopunch.lnk" "$INSTDIR\\uninstall.exe"
   CreateShortcut "$DESKTOP\\miopunch.lnk" "$INSTDIR\\miopunch-desktop.exe"
 
   WriteUninstaller "$INSTDIR\\uninstall.exe"
+  WriteRegStr HKLM "${MIOPUNCH_UNINSTALL_KEY}" "DisplayName" "miopunch"
+  WriteRegStr HKLM "${MIOPUNCH_UNINSTALL_KEY}" "DisplayVersion" "${MIOPUNCH_VERSION}"
+  WriteRegStr HKLM "${MIOPUNCH_UNINSTALL_KEY}" "Publisher" "miopunch"
+  WriteRegStr HKLM "${MIOPUNCH_UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
+  WriteRegStr HKLM "${MIOPUNCH_UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\\miopunch-desktop.exe"
+  WriteRegStr HKLM "${MIOPUNCH_UNINSTALL_KEY}" "UninstallString" '"$INSTDIR\\uninstall.exe"'
+  WriteRegStr HKLM "${MIOPUNCH_UNINSTALL_KEY}" "QuietUninstallString" '"$INSTDIR\\uninstall.exe" /S'
+  WriteRegDWORD HKLM "${MIOPUNCH_UNINSTALL_KEY}" "NoModify" 1
+  WriteRegDWORD HKLM "${MIOPUNCH_UNINSTALL_KEY}" "NoRepair" 1
 
   Push "calling: miopunch install-system-daemon"
   Call LogLine
@@ -97,6 +114,7 @@ Section "Install"
 SectionEnd
 
 Section "Uninstall"
+  SetShellVarContext all
   Call un.SetLogPath
   CreateDirectory "$LogDir"
 
@@ -110,6 +128,7 @@ Section "Uninstall"
   ${EndIf}
 
   Delete "$DESKTOP\\miopunch.lnk"
+  Delete "$SMPROGRAMS\\miopunch\\Uninstall miopunch.lnk"
   Delete "$SMPROGRAMS\\miopunch\\miopunch.lnk"
   RMDir "$SMPROGRAMS\\miopunch"
 
@@ -119,6 +138,7 @@ Section "Uninstall"
   RMDir "$INSTDIR"
 
   DeleteRegKey HKLM "Software\\miopunch"
+  DeleteRegKey HKLM "${MIOPUNCH_UNINSTALL_KEY}"
 
   Push "=== miopunch uninstall done ==="
   Call un.LogLine

@@ -56,3 +56,36 @@ bash scripts/release/generate_manifest.sh dist/release
 
 The final release asset directory must include `checksums.txt` and
 `release-manifest.json`.
+
+Desktop release binaries must use Wails production build tags. Windows GUI
+release builds use `desktop,production,wv2runtime.embed` and `-H windowsgui`;
+Linux GUI release builds use `desktop,production` plus `webkit2_41` for the
+WebKitGTK 4.1 `.deb` variant.
+
+## Local Windows Installer Smoke
+
+The Windows package is not complete until the installer has been smoke-tested
+on a local Windows machine.
+
+Build the installer from this repository or use the matching CI artifact:
+
+```bash
+MIOPUNCH_VERSION=v0.1.0-rc.1 bash scripts/release/build_windows_installer.sh
+```
+
+Copy `dist/release/miopunch_v0.1.0-rc.1_windows_amd64_setup.exe` to Windows,
+then run it as Administrator. From an elevated PowerShell session:
+
+```powershell
+.\miopunch_v0.1.0-rc.1_windows_amd64_setup.exe
+```
+
+Smoke checklist:
+
+- Installer completes without error and writes `%ProgramData%\miopunch\install.log`.
+- `%ProgramFiles%\miopunch\miopunch.exe` and `miopunch-desktop.exe` exist.
+- `miopunch` service is installed and running.
+- Start menu shortcut launches the GUI without the Wails build-tags dialog.
+- GUI connects to LocalAPI and reports the selected endpoint.
+- Apps & Features / Programs and Features shows the `miopunch` uninstall entry.
+- Uninstall removes binaries and shortcuts; preserved state is acceptable.

@@ -22,6 +22,8 @@ ldflags="-s -w"
 if [[ -n "${MIOPUNCH_VERSION:-}" ]]; then
   ldflags="${ldflags} -X github.com/miopunch/miopunch/internal/buildinfo.releaseVersion=${MIOPUNCH_VERSION}"
 fi
+desktop_tags="desktop,production,wv2runtime.embed"
+desktop_ldflags="${ldflags} -H windowsgui"
 
 go_bin="${GO:-go}"
 rm -rf "${work_dir}"
@@ -32,10 +34,10 @@ cp "${repo_root}/packaging/windows/nsis/miopunch.nsi" "${work_dir}/miopunch.nsi"
 (
   cd "${repo_root}"
   GOOS=windows GOARCH=amd64 CGO_ENABLED=0 "${go_bin}" build -trimpath -ldflags "${ldflags}" -o "${work_dir}/miopunch.exe" ./cmd/miopunch
-  GOOS=windows GOARCH=amd64 "${go_bin}" build -trimpath -tags desktop -ldflags "${ldflags}" -o "${work_dir}/miopunch-desktop.exe" ./cmd/miopunch-desktop
+  GOOS=windows GOARCH=amd64 "${go_bin}" build -trimpath -tags "${desktop_tags}" -ldflags "${desktop_ldflags}" -o "${work_dir}/miopunch-desktop.exe" ./cmd/miopunch-desktop
 )
 
-(cd "${work_dir}" && makensis miopunch.nsi)
+(cd "${work_dir}" && makensis -DMIOPUNCH_VERSION="${version}" miopunch.nsi)
 mv "${work_dir}/miopunch-setup.exe" "${out_dir}/miopunch_${version}_windows_amd64_setup.exe"
 
 echo "installer written to ${out_dir}/miopunch_${version}_windows_amd64_setup.exe"

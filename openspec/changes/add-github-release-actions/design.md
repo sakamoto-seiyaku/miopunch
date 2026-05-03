@@ -6,7 +6,7 @@ The intended first tag is `v0.1.0-rc.1`. The local `origin` remote is intentiona
 
 Current implementation notes discovered during planning:
 
-- Linux desktop builds can compile with `go build -tags desktop ./cmd/miopunch-desktop`.
+- Linux desktop builds can compile with `go build -tags desktop,production ./cmd/miopunch-desktop`.
 - Windows cross-build currently fails in `connectivity/tcp_reuse_windows.go`; the apply phase must fix that before Windows assets can be produced.
 - Lab execution can run without `/dev/kvm` by falling back to QEMU TCG, but this can be slow on hosted runners.
 
@@ -81,6 +81,17 @@ If tagged release binaries do not report the tag through Go build info, add the 
 Rationale: release users need to identify the installed build, but this should not turn into an application versioning redesign.
 
 Alternative considered: rely only on VCS revision. Rejected because release assets should report the human release tag when available.
+
+### Wails desktop builds use production manual-build tags
+
+Build `miopunch-desktop` with Wails production tags in release scripts and
+cross-build sanity checks. Linux release desktop builds use
+`desktop,production`; Windows release desktop builds use
+`desktop,production,wv2runtime.embed` and `-H windowsgui`.
+
+Rationale: Wails compiles a fallback app when neither `dev` nor `production` is
+set. On Windows that fallback displays the "correct build tags" error dialog at
+startup, so release binaries must never be built with only `desktop`.
 
 ## Risks / Trade-offs
 

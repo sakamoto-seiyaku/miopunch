@@ -10,6 +10,8 @@
 - [x] 2.2 Update Linux `.deb` packaging so CI can set the package version from the release tag and build both WebKitGTK variants.
 - [x] 2.3 Add Windows NSIS installer build steps that prepare `miopunch.exe`, `miopunch-desktop.exe`, and `miopunch-setup.exe`.
 - [x] 2.4 Generate `checksums.txt` and `release-manifest.json` from the final release asset directory.
+- [x] 2.5 Fix Wails desktop release builds to use production tags and Windows WebView2 embed mode.
+- [x] 2.6 Register the Windows uninstaller in Apps & Features and add a Start menu uninstall shortcut.
 
 ## 3. GitHub Actions Workflows
 
@@ -33,8 +35,11 @@
 - [x] 5.3 Run `export PATH=/usr/local/go/bin:$PATH && go vet ./...`.
 - [x] 5.4 Run `bash scripts/check_no_xtcp_imports.sh`.
 - [x] 5.5 Run the release build sanity commands locally or through `build-artifacts.yml`.
-- [ ] 5.6 Run release-blocking core lab gates: `selftest`, `xtcp-selftest`, `xtcp-connectivity-selftest`, and `xtcp-fulltest`.
-- [ ] 5.7 Run scenario gates locally before tagging: `mnt01-fulltest`, `mnt02-selftest`, and `mnt03-fulltest`.
-- [ ] 5.8 Push annotated tag `v0.1.0-rc.1` only after validation is green, then verify the GitHub Release assets and checksums.
+- [x] 5.6 Verify the Windows Wails desktop production build no longer embeds the missing build tags fallback app.
+- [ ] 5.7 Run the Windows installer smoke on a local Windows machine: install as Administrator, verify service/GUI startup, verify LocalAPI connection, verify Apps & Features uninstall entry, and uninstall.
+- [x] 5.8 Run release-blocking core lab gates: `selftest`, `xtcp-selftest`, `xtcp-connectivity-selftest`, and `xtcp-fulltest`.
+- [ ] 5.9 Run scenario gates locally before tagging: `mnt01-fulltest`, `mnt02-selftest`, and `mnt03-fulltest`.
+- [ ] 5.10 Push annotated tag `v0.1.0-rc.1` only after validation is green, then verify the GitHub Release assets and checksums.
+- [x] 5.11 Run the Linux `.deb` desktop smoke locally: build/install the package, verify GUI startup and LocalAPI connection, and fix the Invite/Create stale task snapshot race found during smoke.
 
-Note: 5.6, 5.7, and 5.8 are intentionally left for the release/operator pass; this apply session implemented the automation and completed host/build validation without publishing or archiving.
+Note: 5.7, 5.8, 5.9, and 5.10 are intentionally left for the release/operator pass; this apply session implemented the automation and completed host/build/Linux desktop validation without publishing or archiving.
