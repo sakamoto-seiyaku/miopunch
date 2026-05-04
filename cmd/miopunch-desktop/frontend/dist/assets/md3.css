@@ -1,24 +1,24 @@
 :root {
   color-scheme: light dark;
 
-  --primary: #00658c;
-  --on-primary: #ffffff;
-  --primary-container: #c4e7ff;
-  --on-primary-container: #001e2d;
-  --secondary-container: #d5e4ef;
-  --on-secondary-container: #0e1d25;
-  --success: #1d6c4f;
-  --success-container: #bff0d9;
-  --warning: #7a5a00;
-  --warning-container: #ffdf91;
-  --surface: #f7f9fb;
+  --primary: #a4c1e3;
+  --on-primary: #102336;
+  --primary-container: #d9e9fa;
+  --on-primary-container: #13293f;
+  --secondary-container: #e1e9f3;
+  --on-secondary-container: #243241;
+  --success: #2d6d59;
+  --success-container: #c9eadc;
+  --warning: #735b00;
+  --warning-container: #ffe39b;
+  --surface: #f8fbff;
   --surface-low: #ffffff;
-  --surface-container: #edf2f6;
-  --surface-high: #e2e8ed;
-  --on-surface: #171c20;
-  --on-surface-variant: #41484d;
-  --outline: #71787d;
-  --outline-variant: #c1c8ce;
+  --surface-container: #eef4fb;
+  --surface-high: #e3edf7;
+  --on-surface: #17202a;
+  --on-surface-variant: #46515e;
+  --outline: #748290;
+  --outline-variant: #c5d0dc;
   --error: #ba1a1a;
   --radius: 8px;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
@@ -29,24 +29,24 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --primary: #82d2ff;
-    --on-primary: #00344c;
-    --primary-container: #004c6d;
-    --on-primary-container: #c4e7ff;
-    --secondary-container: #3a4851;
-    --on-secondary-container: #d5e4ef;
-    --success: #9bd3bb;
-    --success-container: #174f3a;
-    --warning: #e3c36f;
-    --warning-container: #5c4300;
-    --surface: #101418;
-    --surface-low: #171c20;
-    --surface-container: #1b2024;
-    --surface-high: #252b30;
-    --on-surface: #e0e3e7;
-    --on-surface-variant: #c1c8ce;
-    --outline: #8b9298;
-    --outline-variant: #41484d;
+    --primary: #a4c1e3;
+    --on-primary: #102336;
+    --primary-container: #3b526c;
+    --on-primary-container: #d9e9fa;
+    --secondary-container: #33404e;
+    --on-secondary-container: #dbe5f1;
+    --success: #9bd6bf;
+    --success-container: #194f3d;
+    --warning: #e7c878;
+    --warning-container: #5c4500;
+    --surface: #10151b;
+    --surface-low: #171d24;
+    --surface-container: #1d252e;
+    --surface-high: #28323d;
+    --on-surface: #e4e8ee;
+    --on-surface-variant: #c4ccd6;
+    --outline: #8d98a5;
+    --outline-variant: #414b57;
     --error: #ffb4ab;
     --shadow-1: none;
   }
@@ -153,7 +153,7 @@ button {
   min-width: 0;
   height: 100vh;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   overflow: hidden;
   padding: 22px clamp(22px, 3vw, 40px) 26px;
@@ -213,21 +213,6 @@ button {
   color: var(--on-surface);
   background: transparent;
   font-weight: 760;
-}
-
-.connection-pill {
-  width: fit-content;
-  max-width: 100%;
-  padding: 8px 12px;
-  border-radius: 999px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--on-surface-variant);
-  background: var(--surface-low);
-  border: 1px solid var(--outline-variant);
-  font-family: var(--mono);
-  font-size: 12px;
 }
 
 .page-host {
@@ -742,7 +727,7 @@ select:focus-visible {
   padding: 12px;
   border-radius: var(--radius);
   background: var(--error);
-  color: var(--on-primary);
+  color: #ffffff;
 }
 
 @media (max-width: 1120px) {
@@ -834,12 +819,6 @@ select:focus-visible {
   .topbar-actions > *,
   .preview-select {
     flex: 1 1 100%;
-  }
-
-  .connection-pill {
-    width: 100%;
-    margin: 12px 0;
-    white-space: normal;
   }
 
   .page-host {

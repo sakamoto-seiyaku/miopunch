@@ -451,16 +451,6 @@
 
   const renderConnection = (conn) => {
     lastConn = conn || null;
-    const origin = el("subtitle-origin");
-    if (origin) {
-      if (conn && conn.connected && conn.selected && conn.addr) {
-        origin.textContent = `localapi=${String(conn.selected)} ${String(conn.addr)}`;
-      } else if (conn && conn.failure) {
-        origin.textContent = `localapi=disconnected (${bridgeErrorSummary(conn.failure)})`;
-      } else {
-        origin.textContent = "localapi=disconnected";
-      }
-    }
   };
 
   const loadPreviewFixture = (name) => {
