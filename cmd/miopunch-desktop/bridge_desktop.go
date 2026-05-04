@@ -34,6 +34,12 @@ type TasksResult struct {
 	Tasks *localapi.TasksResponse    `json:"tasks,omitempty"`
 }
 
+type TopologyResult struct {
+	OK       bool                       `json:"ok"`
+	Error    *desktopbridge.BridgeError `json:"error,omitempty"`
+	Topology *task.TopologySnapshot     `json:"topology,omitempty"`
+}
+
 type TaskResult struct {
 	OK    bool                       `json:"ok"`
 	Error *desktopbridge.BridgeError `json:"error,omitempty"`
@@ -149,6 +155,23 @@ func (a *App) GetTasks() TasksResult {
 	}
 
 	return TasksResult{OK: true, Tasks: &tasksResp}
+}
+
+func (a *App) GetTopology() TopologyResult {
+	c, err := a.localAPIClient()
+	if err != nil {
+		return TopologyResult{OK: false, Error: err}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	topology, apiErr := c.GetTopology(ctx)
+	if apiErr != nil {
+		return TopologyResult{OK: false, Error: bridgeErrorFromErr(apiErr)}
+	}
+
+	return TopologyResult{OK: true, Topology: &topology}
 }
 
 func (a *App) GetTask(taskID string) TaskResult {
