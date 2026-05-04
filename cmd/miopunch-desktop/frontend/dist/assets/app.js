@@ -136,6 +136,27 @@
     toast("Copied");
   };
 
+  const normalizeTaskArgs = (args) => {
+    if (!args || typeof args !== "object" || Array.isArray(args)) return {};
+    return args;
+  };
+
+  const withTimeout = async (promise, label, timeoutMs = 12000) => {
+    const overrideMs = Number(window.__miopunchBridgeTimeoutMs || 0);
+    const effectiveTimeoutMs = Number.isFinite(overrideMs) && overrideMs > 0 ? overrideMs : timeoutMs;
+    let timer = 0;
+    try {
+      return await Promise.race([
+        Promise.resolve(promise),
+        new Promise((_, reject) => {
+          timer = window.setTimeout(() => reject(new Error(`${label} timed out`)), effectiveTimeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timer) window.clearTimeout(timer);
+    }
+  };
+
   const previewFixtures = {
     owner: {
       connection: {
@@ -301,6 +322,7 @@
 
   const self = () => (state.topology && state.topology.self ? state.topology.self : {});
   const selfRole = () => String(self().role || "unknown").toLowerCase();
+  const roleKnown = () => !!(state.topology && state.topology.self && state.topology.self.role);
   const isAdminRole = (role) => ["owner", "admin"].includes(String(role || "").toLowerCase());
   const adminVisible = () => isAdminRole(selfRole());
 
@@ -518,7 +540,7 @@
   };
 
   const renderAll = () => {
-    if (!adminVisible() && state.activeTab === "admin") {
+    if (roleKnown() && !adminVisible() && state.activeTab === "admin") {
       state.activeTab = "network";
       state.view = { type: "overview" };
     }
@@ -1249,15 +1271,16 @@
   };
 
   const createTask = async (kind, args) => {
-    if (state.previewMode) return createPreviewTask(kind, args || null);
-    const resp = await getBridge().CreateTask(kind, args || null);
+    const taskArgs = normalizeTaskArgs(args);
+    if (state.previewMode) return createPreviewTask(kind, taskArgs);
+    const resp = await withTimeout(getBridge().CreateTask(kind, taskArgs), `Create ${kind}`);
     if (!resp || !resp.ok) throw new Error(bridgeErrorSummary(resp && resp.error));
     return resp.task;
   };
 
   const getTask = async (taskID) => {
     if (state.previewMode) return state.tasks.get(taskID) || null;
-    const resp = await getBridge().GetTask(taskID);
+    const resp = await withTimeout(getBridge().GetTask(taskID), "Get task");
     if (!resp || !resp.ok) throw new Error(bridgeErrorSummary(resp && resp.error));
     return resp.task;
   };
@@ -1531,6 +1554,7 @@
       window.runtime.EventsOn("localapi:connection", (conn) => {
         try {
           renderConnection(conn);
+          scheduleRender();
         } catch {
           // ignore malformed connection payload
         }
@@ -1642,7 +1666,7 @@
     inviteState.message = "Creating invite...";
     scheduleRender();
     try {
-      const created = await createTask("invite", null);
+      const created = await createTask("invite", {});
       const taskID = upsertTask(created);
       inviteState.taskID = taskID;
       const latest = taskID ? await getTask(taskID) : null;
@@ -1738,7 +1762,7 @@
     }
 
     const tab = queryTab || localStorage.getItem("miopunch_desktop_tab") || "network";
-    state.activeTab = tab === "admin" && !adminVisible() ? "network" : tab;
+    state.activeTab = tab === "admin" && roleKnown() && !adminVisible() ? "network" : tab;
     state.view = queryView(query);
     scheduleRender();
   };

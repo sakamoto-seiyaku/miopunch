@@ -46,6 +46,35 @@ jobs:
       - name: Check legacy import boundary
         run: bash scripts/check_no_xtcp_imports.sh
 
+  desktop-ui-smoke:
+    name: Desktop UI smoke
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          submodules: recursive
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: cmd/miopunch-desktop/frontend/package-lock.json
+
+      - name: Install desktop frontend test dependencies
+        working-directory: cmd/miopunch-desktop/frontend
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: cmd/miopunch-desktop/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run desktop UI smoke tests
+        working-directory: cmd/miopunch-desktop/frontend
+        run: npm test
+
   cross-build:
     name: Release cross-build sanity
     runs-on: ubuntu-22.04
