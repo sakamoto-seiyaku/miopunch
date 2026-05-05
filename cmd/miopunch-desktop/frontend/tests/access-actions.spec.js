@@ -1,6 +1,7 @@
 const {
   calls,
   createTaskCalls,
+  emitRuntime,
   expect,
   expectCreateTaskCall,
   inviteCode,
@@ -46,7 +47,45 @@ test("Access invite Create calls bridge with object args and renders code", asyn
 
   await expect(page.locator("#invite-code")).toHaveValue(inviteCode);
   await expect(page.getByRole("button", { name: "Copy" })).toBeEnabled();
+  await expect(page.locator("#invite-qr svg")).toHaveCount(1);
   await expectCreateTaskCall(page, "invite", {});
+});
+
+test("Access invite Create waits for delayed task output", async ({ page }) => {
+  await openAccessFlow(page, "invite", { inviteCodeDelivery: "delayed-fetch" });
+
+  await page.getByRole("button", { name: "Create" }).click();
+
+  await expect(page.locator("#invite-code")).toHaveValue(inviteCode);
+  await expect(page.getByRole("button", { name: "Copy" })).toBeEnabled();
+  await expect(page.locator("#invite-qr svg")).toHaveCount(1);
+  await expect.poll(async () => (await calls(page)).filter((call) => call.method === "GetTask").length).toBeGreaterThanOrEqual(2);
+});
+
+test("Access invite flow renders code from runtime fact event", async ({ page }) => {
+  await openAccessFlow(page, "invite", { inviteCodeDelivery: "event" });
+
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator("#invite-code")).toHaveValue("");
+
+  await emitRuntime(page, "localapi:event", {
+    task_id: "ui-invite-001",
+    kind: "fact",
+    fact: { term_id: "invite_code", message: inviteCode },
+  });
+
+  await expect(page.locator("#invite-code")).toHaveValue(inviteCode);
+  await expect(page.getByRole("button", { name: "Copy" })).toBeEnabled();
+});
+
+test("Access invite Create shows a diagnostic when task completes without code", async ({ page }) => {
+  await openAccessFlow(page, "invite", { inviteCodeDelivery: "missing" });
+
+  await page.getByRole("button", { name: "Create" }).click();
+
+  await expect(page.locator("#invite-code")).toHaveValue("");
+  await expect(page.locator("#invite-hint")).toContainText("no invite code");
+  await expect(page.getByRole("button", { name: "Copy" })).toBeDisabled();
 });
 
 test("Access invite Create recovers from bridge failure", async ({ page }) => {

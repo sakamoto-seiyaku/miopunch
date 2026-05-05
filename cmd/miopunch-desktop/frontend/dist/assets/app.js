@@ -157,6 +157,8 @@
     }
   };
 
+  const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
   const previewFixtures = {
     owner: {
       connection: {
@@ -869,6 +871,7 @@
   const renderInviteFlow = () => {
     const taskObj = inviteState.taskID ? state.tasks.get(inviteState.taskID) : null;
     const code = findInviteCode(taskObj);
+    const hint = inviteState.message || (code ? "Ready" : inviteTaskMissingCode(taskObj) ? "Task completed with no invite code." : "");
     return `
       <section class="detail-grid">
         <div class="card">
@@ -883,7 +886,7 @@
             <label>Invite code<input class="textfield textfield-code" id="invite-code" readonly value="${esc(code)}" placeholder="Create an invite first" /></label>
             <div class="action-row">
               <button class="btn btn-tonal" data-copy-invite type="button" ${code ? "" : "disabled"}>Copy</button>
-              <div class="helper" id="invite-hint">${esc(inviteState.message || (code ? "Ready" : ""))}</div>
+              <div class="helper" id="invite-hint">${esc(hint)}</div>
             </div>
           </div>
         </div>
@@ -1144,13 +1147,26 @@
   const findInviteCode = (taskObj) => {
     if (!taskObj || !Array.isArray(taskObj.facts)) return "";
     for (const f of taskObj.facts) {
-      const msg = String(f.message || "");
+      const msg = String(f && f.message ? f.message : "").trim();
+      const termID = String(f && f.term_id ? f.term_id : "").trim();
       const prefix = "invite_code=";
+      if (termID === "invite_code") {
+        if (msg.startsWith(prefix)) return msg.slice(prefix.length).trim();
+        if (msg) return msg;
+      }
       if (msg.startsWith(prefix)) return msg.slice(prefix.length).trim();
       const idx = msg.indexOf(prefix);
       if (idx >= 0) return msg.slice(idx + prefix.length).trim();
     }
     return "";
+  };
+
+  const inviteTaskMissingCode = (taskObj) => {
+    if (!taskObj || String(taskObj.kind || "") !== "invite") return false;
+    if (findInviteCode(taskObj)) return false;
+    const status = String(taskObj.status || "").toLowerCase();
+    const reason = String(taskObj.reason_code || "").toLowerCase();
+    return status === "done" && (!reason || reason === "ok");
   };
 
   const renderPostDOM = () => {
@@ -1278,9 +1294,9 @@
     return resp.task;
   };
 
-  const getTask = async (taskID) => {
+  const getTask = async (taskID, timeoutMs = 12000) => {
     if (state.previewMode) return state.tasks.get(taskID) || null;
-    const resp = await withTimeout(getBridge().GetTask(taskID), "Get task");
+    const resp = await withTimeout(getBridge().GetTask(taskID), "Get task", timeoutMs);
     if (!resp || !resp.ok) throw new Error(bridgeErrorSummary(resp && resp.error));
     return resp.task;
   };
@@ -1661,6 +1677,28 @@
     }
   };
 
+  const waitForInviteTaskOutput = async (taskID) => {
+    const delays = [0, 150, 300, 500, 800, 1200, 1600];
+    let taskObj = taskID ? state.tasks.get(taskID) : null;
+    for (const delay of delays) {
+      taskObj = taskID ? state.tasks.get(taskID) || taskObj : taskObj;
+      if (findInviteCode(taskObj) || inviteTaskMissingCode(taskObj)) return taskObj;
+
+      if (delay > 0) await sleep(delay);
+
+      taskObj = taskID ? state.tasks.get(taskID) || taskObj : taskObj;
+      if (findInviteCode(taskObj) || inviteTaskMissingCode(taskObj)) return taskObj;
+
+      const latest = await getTask(taskID, 2500);
+      if (latest) {
+        upsertTask(latest);
+        taskObj = state.tasks.get(taskID) || latest;
+        scheduleRender();
+      }
+    }
+    return taskObj;
+  };
+
   const createInvite = async () => {
     inviteState.busy = true;
     inviteState.message = "Creating invite...";
@@ -1669,8 +1707,7 @@
       const created = await createTask("invite", {});
       const taskID = upsertTask(created);
       inviteState.taskID = taskID;
-      const latest = taskID ? await getTask(taskID) : null;
-      if (latest) upsertTask(latest);
+      if (taskID) await waitForInviteTaskOutput(taskID);
       inviteState.message = "";
       scheduleRender();
     } catch (err) {

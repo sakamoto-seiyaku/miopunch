@@ -138,6 +138,7 @@ async function installFakeBridge(page, options = {}) {
     createTaskModes: options.createTaskModes || {},
     getTaskModes: options.getTaskModes || {},
     initialTasks: options.initialTasks || [],
+    inviteCodeDelivery: options.inviteCodeDelivery || "immediate",
     timeoutMs: options.timeoutMs || 120,
     inviteCode,
     confirm: options.confirm !== false,
@@ -168,6 +169,18 @@ async function installFakeBridge(page, options = {}) {
 
     const record = (entry) => calls.push(JSON.parse(JSON.stringify(entry)));
     const nextTaskID = (kind) => `ui-${kind}-${String(taskSeq++).padStart(3, "0")}`;
+    const addInviteCodeFact = (task) => {
+      if (task.facts.some((fact) => fact && fact.term_id === "invite_code")) return;
+      task.facts.push({ term_id: "invite_code", message: init.inviteCode });
+    };
+    const completeInviteTask = (task, withCode) => {
+      task.status = "done";
+      task.stage = "invite code ready";
+      task.reason_code = "OK";
+      task.exit_code = 0;
+      task.report_ready = true;
+      if (withCode) addInviteCodeFact(task);
+    };
     const okTask = (kind, args) => {
       const task = {
         task_id: nextTaskID(kind),
@@ -182,8 +195,17 @@ async function installFakeBridge(page, options = {}) {
         suggestions: [],
       };
       if (kind === "invite") {
-        task.stage = "invite code ready";
-        task.facts.push({ message: `invite_code=${init.inviteCode}` });
+        if (init.inviteCodeDelivery === "immediate") {
+          completeInviteTask(task, true);
+        } else if (init.inviteCodeDelivery === "missing") {
+          completeInviteTask(task, false);
+        } else {
+          task.status = "running";
+          task.stage = "prepare invite code";
+          task.reason_code = "";
+          task.exit_code = undefined;
+          task.report_ready = false;
+        }
       } else if (kind === "join") {
         task.stage = "membership accepted";
         task.facts.push({ message: `invite_code=${String(args && args.code ? args.code : "")}` });
@@ -212,6 +234,7 @@ async function installFakeBridge(page, options = {}) {
       tasks.set(task.task_id, task);
       return task;
     };
+    const getTaskReads = new Map();
     const bridgeError = (kind) => ({
       ok: false,
       error: {
@@ -309,6 +332,13 @@ async function installFakeBridge(page, options = {}) {
             const mode = init.getTaskModes[taskID] || init.getTaskModes["*"] || "success";
             if (mode === "failure") return bridgeError("GetTask");
             if (mode === "timeout") return new Promise(() => {});
+            const key = String(taskID);
+            const task = tasks.get(key) || null;
+            if (task && task.kind === "invite" && init.inviteCodeDelivery === "delayed-fetch") {
+              const reads = (getTaskReads.get(key) || 0) + 1;
+              getTaskReads.set(key, reads);
+              if (reads >= 2) completeInviteTask(task, true);
+            }
             return { ok: true, task: tasks.get(String(taskID)) || null };
           },
           ExportTaskReport: async (taskID) => {
