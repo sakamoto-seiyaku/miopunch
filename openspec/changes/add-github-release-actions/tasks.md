@@ -12,6 +12,7 @@
 - [x] 2.4 Generate `checksums.txt` and `release-manifest.json` from the final release asset directory.
 - [x] 2.5 Fix Wails desktop release builds to use production tags and Windows WebView2 embed mode.
 - [x] 2.6 Register the Windows uninstaller in Apps & Features and add a Start menu uninstall shortcut.
+- [x] 2.7 Add a shared Docker `.deb` builder so local builds and CI use the same Ubuntu 22.04/24.04 WebKitGTK matrix.
 
 ## 3. GitHub Actions Workflows
 
@@ -41,5 +42,6 @@
 - [ ] 5.9 Run scenario gates locally before tagging: `mnt01-fulltest`, `mnt02-selftest`, and `mnt03-fulltest`.
 - [ ] 5.10 Push annotated tag `v0.1.0-rc.1` only after validation is green, then verify the GitHub Release assets and checksums.
 - [x] 5.11 Run the Linux `.deb` desktop smoke locally: build/install the package, verify GUI startup and LocalAPI connection, and fix the Invite/Create stale task snapshot race found during smoke.
+- [x] 5.12 Run Linux `.deb` installability smoke against the containerized Ubuntu 22.04/24.04 package matrix.
 
-Note: 5.7, 5.8, 5.9, and 5.10 are intentionally left for the release/operator pass; this apply session implemented the automation and completed host/build/Linux desktop validation without publishing or archiving.
+Note: 5.7, 5.9, and 5.10 are intentionally left for the release/operator pass; this apply session implemented the automation and completed host/build/Linux desktop validation without publishing or archiving.

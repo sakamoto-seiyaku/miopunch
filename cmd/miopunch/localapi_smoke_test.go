@@ -11,8 +11,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/256dpi/gomqtt/broker"
+	"github.com/256dpi/gomqtt/transport"
+
 	"github.com/miopunch/miopunch/internal/localapi"
 	"github.com/miopunch/miopunch/internal/poc"
+	"github.com/miopunch/miopunch/internal/pocstate"
 	"github.com/miopunch/miopunch/internal/task"
 )
 
@@ -26,7 +30,20 @@ func TestCLI_Smoke_LocalAPI_Invite_JSONEnvelope(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = ln.Close() })
 
+	brokerAddr := startTCPMQTTBroker(t)
 	statePath := filepath.Join(t.TempDir(), "state.json")
+	if err := pocstate.Save(statePath, pocstate.State{
+		Format: pocstate.FormatV0,
+		Local: &pocstate.LocalConfig{
+			MQTTBroker:  brokerAddr,
+			TopicPrefix: "miopunch/test",
+			DataProto:   "quic",
+			QUICCC:      "bbr",
+		},
+		Peers: map[string]pocstate.PeerConfig{},
+	}); err != nil {
+		t.Fatalf("seed state.json: %v", err)
+	}
 	mgr := task.NewManagerWithStatePath(statePath)
 	t.Cleanup(mgr.Close)
 
@@ -98,4 +115,24 @@ func TestCLI_Smoke_LocalAPI_Invite_JSONEnvelope(t *testing.T) {
 	if env.Suggestions == nil {
 		t.Fatalf("suggestions is nil, raw=%s", out)
 	}
+}
+
+func startTCPMQTTBroker(t *testing.T) string {
+	t.Helper()
+
+	server, err := transport.Launch("tcp://127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("transport.Launch(tcp://127.0.0.1:0) error = %v", err)
+	}
+	backend := broker.NewMemoryBackend()
+	engine := broker.NewEngine(backend)
+	engine.Accept(server)
+
+	t.Cleanup(func() {
+		_ = server.Close()
+		backend.Close(500 * time.Millisecond)
+		engine.Close()
+	})
+
+	return server.Addr().String()
 }

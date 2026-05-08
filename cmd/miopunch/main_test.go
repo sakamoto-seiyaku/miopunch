@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -63,7 +64,8 @@ func TestRun_DaemonNotRunning_HasFailureEnvelope(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
-	gotExitCode := run([]string{"join"}, &out, &out)
+	socketPath := filepath.Join(t.TempDir(), "missing-localapi.sock")
+	gotExitCode := run([]string{"--localapi", "unix:" + socketPath, "join"}, &out, &out)
 
 	if gotExitCode != 3 {
 		t.Fatalf("run(join) exitCode = %d, want %d", gotExitCode, 3)

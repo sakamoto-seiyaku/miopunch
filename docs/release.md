@@ -49,7 +49,7 @@ tag:
 
 ```bash
 MIOPUNCH_VERSION=v0.1.0-rc.1 bash scripts/release/build_bundles.sh
-MIOPUNCH_VERSION=v0.1.0-rc.1 bash packaging/linux/deb/build_deb.sh --all
+MIOPUNCH_VERSION=v0.1.0-rc.1 bash packaging/linux/deb/build_deb_docker.sh --all --smoke-install
 MIOPUNCH_VERSION=v0.1.0-rc.1 bash scripts/release/build_windows_installer.sh
 bash scripts/release/generate_manifest.sh dist/release
 ```
@@ -61,6 +61,12 @@ Desktop release binaries must use Wails production build tags. Windows GUI
 release builds use `desktop,production,wv2runtime.embed` and `-H windowsgui`;
 Linux GUI release builds use `desktop,production` plus `webkit2_41` for the
 WebKitGTK 4.1 `.deb` variant.
+
+Linux `.deb` release builds should use
+`packaging/linux/deb/build_deb_docker.sh` so local builds and CI share the same
+Ubuntu 22.04/24.04 WebKitGTK build matrix. Ubuntu 24.04 users need the
+`_webkit2_41` package; the default WebKitGTK 4.0 package is for older
+Debian/Ubuntu targets where `libwebkit2gtk-4.0-37` is installable.
 
 ## Local Windows Installer Smoke
 

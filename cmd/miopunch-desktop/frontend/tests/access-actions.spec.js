@@ -62,6 +62,41 @@ test("Access invite Create waits for delayed task output", async ({ page }) => {
   await expect.poll(async () => (await calls(page)).filter((call) => call.method === "GetTask").length).toBeGreaterThanOrEqual(2);
 });
 
+test("Access invite Create fetches code after partial done task response", async ({ page }) => {
+  await openAccessFlow(page, "invite", { inviteCodeDelivery: "partial-done-fetch" });
+
+  await page.getByRole("button", { name: "Create" }).click();
+
+  await expect(page.locator("#invite-code")).toHaveValue(inviteCode);
+  await expect(page.locator("#invite-hint")).not.toContainText("no invite code");
+  await expect(page.getByRole("button", { name: "Copy" })).toBeEnabled();
+  await expect(page.locator("#invite-qr svg")).toHaveCount(1);
+  await expect.poll(async () => (await calls(page)).filter((call) => call.method === "GetTask").length).toBeGreaterThanOrEqual(1);
+});
+
+test("Access invite Create fetches code after partial done runtime events", async ({ page }) => {
+  await openAccessFlow(page, "invite", { inviteCodeDelivery: "partial-event-fetch" });
+
+  await page.getByRole("button", { name: "Create" }).click();
+  await emitRuntime(page, "localapi:event", {
+    task_id: "ui-invite-001",
+    kind: "fact",
+    fact: { term_id: "peer_id", message: "peer_id=peer-ui-test-owner" },
+  });
+  await emitRuntime(page, "localapi:event", {
+    task_id: "ui-invite-001",
+    kind: "done",
+    reason_code: "OK",
+    exit_code: 0,
+  });
+
+  await expect(page.locator("#invite-code")).toHaveValue(inviteCode);
+  await expect(page.locator("#invite-hint")).not.toContainText("no invite code");
+  await expect(page.getByRole("button", { name: "Copy" })).toBeEnabled();
+  await expect(page.locator("#invite-qr svg")).toHaveCount(1);
+  await expect.poll(async () => (await calls(page)).filter((call) => call.method === "GetTask").length).toBeGreaterThanOrEqual(2);
+});
+
 test("Access invite flow renders code from runtime fact event", async ({ page }) => {
   await openAccessFlow(page, "invite", { inviteCodeDelivery: "event" });
 

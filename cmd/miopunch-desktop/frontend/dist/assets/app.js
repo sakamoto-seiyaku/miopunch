@@ -28,7 +28,7 @@
     previewFixture: "owner",
   };
 
-  const inviteState = { taskID: "", busy: false, message: "" };
+  const inviteState = { taskID: "", busy: false, message: "", missingTaskID: "" };
   const joinState = { taskID: "", lastExportPath: "" };
   const approveState = { taskID: "", message: "" };
   const shellState = { ws: null, term: null, resizeObs: null, taskID: "", fitTimer: 0 };
@@ -368,17 +368,31 @@
     return { label: "known", cls: "chip-muted" };
   };
 
+  const mergeItems = (current, incoming) => {
+    const out = [];
+    const seen = new Set();
+    for (const item of [...current, ...incoming]) {
+      if (!item) continue;
+      const termID = String(item.term_id || "").trim();
+      const message = String(item.message || "").trim();
+      const key = `${termID}\n${message}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(item);
+    }
+    return out;
+  };
+
   const mergeTask = (current, incoming) => {
     if (!current) return incoming || null;
     if (!incoming) return current;
     const merged = { ...current, ...incoming };
     const currentFacts = Array.isArray(current.facts) ? current.facts : [];
     const incomingFacts = Array.isArray(incoming.facts) ? incoming.facts : [];
-    merged.facts = incomingFacts.length >= currentFacts.length ? incomingFacts : currentFacts;
+    merged.facts = mergeItems(currentFacts, incomingFacts);
     const currentSuggestions = Array.isArray(current.suggestions) ? current.suggestions : [];
     const incomingSuggestions = Array.isArray(incoming.suggestions) ? incoming.suggestions : [];
-    merged.suggestions =
-      incomingSuggestions.length >= currentSuggestions.length ? incomingSuggestions : currentSuggestions;
+    merged.suggestions = mergeItems(currentSuggestions, incomingSuggestions);
     if (current.report_ready && !incoming.report_ready) merged.report_ready = true;
     if (current.status === "done" && incoming.status !== "done") {
       merged.status = current.status;
@@ -871,7 +885,8 @@
   const renderInviteFlow = () => {
     const taskObj = inviteState.taskID ? state.tasks.get(inviteState.taskID) : null;
     const code = findInviteCode(taskObj);
-    const hint = inviteState.message || (code ? "Ready" : inviteTaskMissingCode(taskObj) ? "Task completed with no invite code." : "");
+    const missingCode = taskObj && inviteState.missingTaskID === taskObj.task_id;
+    const hint = inviteState.message || (code ? "Ready" : missingCode ? "Task completed with no invite code." : "");
     return `
       <section class="detail-grid">
         <div class="card">
@@ -1682,18 +1697,32 @@
     let taskObj = taskID ? state.tasks.get(taskID) : null;
     for (const delay of delays) {
       taskObj = taskID ? state.tasks.get(taskID) || taskObj : taskObj;
-      if (findInviteCode(taskObj) || inviteTaskMissingCode(taskObj)) return taskObj;
+      if (findInviteCode(taskObj)) {
+        if (inviteState.missingTaskID === taskID) inviteState.missingTaskID = "";
+        return taskObj;
+      }
 
       if (delay > 0) await sleep(delay);
 
       taskObj = taskID ? state.tasks.get(taskID) || taskObj : taskObj;
-      if (findInviteCode(taskObj) || inviteTaskMissingCode(taskObj)) return taskObj;
+      if (findInviteCode(taskObj)) {
+        if (inviteState.missingTaskID === taskID) inviteState.missingTaskID = "";
+        return taskObj;
+      }
 
       const latest = await getTask(taskID, 2500);
       if (latest) {
         upsertTask(latest);
         taskObj = state.tasks.get(taskID) || latest;
         scheduleRender();
+        if (findInviteCode(taskObj)) {
+          if (inviteState.missingTaskID === taskID) inviteState.missingTaskID = "";
+          return taskObj;
+        }
+        if (inviteTaskMissingCode(latest)) {
+          inviteState.missingTaskID = taskID;
+          return taskObj;
+        }
       }
     }
     return taskObj;
@@ -1702,6 +1731,7 @@
   const createInvite = async () => {
     inviteState.busy = true;
     inviteState.message = "Creating invite...";
+    inviteState.missingTaskID = "";
     scheduleRender();
     try {
       const created = await createTask("invite", {});

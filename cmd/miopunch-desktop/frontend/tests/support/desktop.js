@@ -167,8 +167,22 @@ async function installFakeBridge(page, options = {}) {
       failure: init.fixture.failure || null,
     };
 
-    const record = (entry) => calls.push(JSON.parse(JSON.stringify(entry)));
+    const clone = (value) => (value == null ? value : JSON.parse(JSON.stringify(value)));
+    const record = (entry) => calls.push(clone(entry));
     const nextTaskID = (kind) => `ui-${kind}-${String(taskSeq++).padStart(3, "0")}`;
+    const addInvitePeerFact = (task) => {
+      if (task.facts.some((fact) => fact && fact.term_id === "peer_id")) return;
+      const peerID = String(topology.self && topology.self.peer_id ? topology.self.peer_id : "peer-ui-test-owner");
+      task.facts.push({ term_id: "peer_id", message: `peer_id=${peerID}` });
+    };
+    const addInviteNetFact = (task) => {
+      if (task.facts.some((fact) => fact && fact.term_id === "net_id")) return;
+      task.facts.push({ term_id: "net_id", message: "net_id=net-ui-test" });
+    };
+    const addInviteSuggestion = (task) => {
+      if (task.suggestions.some((s) => s && String(s.message || "").includes("miopunch join"))) return;
+      task.suggestions.push({ message: "on another machine: miopunch join <invite_code>" });
+    };
     const addInviteCodeFact = (task) => {
       if (task.facts.some((fact) => fact && fact.term_id === "invite_code")) return;
       task.facts.push({ term_id: "invite_code", message: init.inviteCode });
@@ -199,6 +213,11 @@ async function installFakeBridge(page, options = {}) {
           completeInviteTask(task, true);
         } else if (init.inviteCodeDelivery === "missing") {
           completeInviteTask(task, false);
+        } else if (init.inviteCodeDelivery === "partial-done-fetch") {
+          completeInviteTask(task, false);
+          task.stage = "SelfDiscovery";
+          addInvitePeerFact(task);
+          addInviteSuggestion(task);
         } else {
           task.status = "running";
           task.stage = "prepare invite code";
@@ -318,14 +337,14 @@ async function installFakeBridge(page, options = {}) {
           },
           GetTasks: async () => {
             record({ method: "GetTasks" });
-            return { ok: true, tasks: { tasks: Array.from(tasks.values()) } };
+            return { ok: true, tasks: { tasks: Array.from(tasks.values()).map(clone) } };
           },
           CreateTask: async (kind, args) => {
             record({ method: "CreateTask", kind, args });
             const mode = init.createTaskModes[kind] || "success";
             if (mode === "failure") return bridgeError(kind);
             if (mode === "timeout") return new Promise(() => {});
-            return { ok: true, task: okTask(kind, args || {}) };
+            return { ok: true, task: clone(okTask(kind, args || {})) };
           },
           GetTask: async (taskID) => {
             record({ method: "GetTask", taskID });
@@ -338,8 +357,19 @@ async function installFakeBridge(page, options = {}) {
               const reads = (getTaskReads.get(key) || 0) + 1;
               getTaskReads.set(key, reads);
               if (reads >= 2) completeInviteTask(task, true);
+            } else if (task && task.kind === "invite" && init.inviteCodeDelivery === "partial-done-fetch") {
+              addInviteNetFact(task);
+              completeInviteTask(task, true);
+            } else if (task && task.kind === "invite" && init.inviteCodeDelivery === "partial-event-fetch") {
+              const reads = (getTaskReads.get(key) || 0) + 1;
+              getTaskReads.set(key, reads);
+              if (reads >= 2) {
+                addInvitePeerFact(task);
+                addInviteNetFact(task);
+                completeInviteTask(task, true);
+              }
             }
-            return { ok: true, task: tasks.get(String(taskID)) || null };
+            return { ok: true, task: clone(tasks.get(String(taskID)) || null) };
           },
           ExportTaskReport: async (taskID) => {
             record({ method: "ExportTaskReport", taskID });

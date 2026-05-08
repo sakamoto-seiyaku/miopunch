@@ -14,10 +14,25 @@ Invite codes SHALL include `invite_brokers` with `1..2` broker endpoints in `hos
 
 During `invite/join/approve`, the system SHALL use only the endpoints provided by `invite_brokers`.
 
+`invite` SHALL verify that selected `invite_brokers` are reachable before emitting an invite code.
+
+If broker connection fails during `invite/join/approve`, the task SHALL fail with `UNAVAILABLE`, report the broker endpoint that failed, and provide broker reachability/configuration guidance.
+
 #### Scenario: Join uses brokers from the invite code
 - **WHEN** a joiner receives an invite code with `invite_brokers`
 - **THEN** it uses only those broker endpoints for the invite/join/approve exchange
 - **AND** each endpoint is in `host:port` form
+
+#### Scenario: Invite does not emit a code for an unreachable broker
+- **WHEN** invite broker verification cannot connect to the selected broker
+- **THEN** the invite task fails with `UNAVAILABLE`
+- **AND** no `invite_code` fact is emitted
+- **AND** task diagnostics identify the broker endpoint and broker reachability/configuration action
+
+#### Scenario: Join and approve report broker endpoint failures
+- **WHEN** join or approve cannot connect to an invite broker endpoint
+- **THEN** the task fails with `UNAVAILABLE`
+- **AND** task diagnostics identify the broker endpoint and broker reachability/configuration action
 
 ### Requirement: invite_topic and reply_topic are high entropy and non-enumerable
 `invite_topic` and `reply_topic` SHALL be generated as high entropy topic names (≥128 bits effective entropy) and MUST NOT include `peer_id` or user-visible names in plaintext.

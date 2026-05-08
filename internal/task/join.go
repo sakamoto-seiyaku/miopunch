@@ -196,26 +196,17 @@ func (m *Manager) runJoinTask(taskID string, rawArgs []byte) {
 	}
 
 	m.setStage(taskID, poc.StagePeerContact, "connect invite brokers")
+	m.addFact(taskID, poc.Fact{TermID: "invite_brokers", Message: "invite_brokers=" + strings.Join(code.InviteBrokers, ",")})
 
-	mbs := make([]*mqttMailbox, 0, len(code.InviteBrokers))
-	for _, ep := range code.InviteBrokers {
-		mb, err := openMQTTMailbox(ctx, ep, "miopunch-invite-join")
-		if err != nil {
-			for _, c := range mbs {
-				_ = c.Close()
-			}
-			m.addFact(taskID, poc.Fact{Message: "mqtt connect failed: " + err.Error()})
-			m.addSuggestion(taskID, poc.Suggestion{Message: "verify broker reachability and retry"})
-			m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
-			return
-		}
-		mbs = append(mbs, mb)
+	mbs, err := openMQTTMailboxes(ctx, code.InviteBrokers, "miopunch-invite-join")
+	if err != nil {
+		m.addFact(taskID, poc.Fact{Message: "mqtt connect failed: " + err.Error()})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "verify broker reachability and retry"})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "set local.mqtt_broker to a reachable broker shared by both machines"})
+		m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
+		return
 	}
-	defer func() {
-		for _, mb := range mbs {
-			_ = mb.Close()
-		}
-	}()
+	defer closeMQTTMailboxes(mbs)
 
 	subCtx, cancelSub := context.WithTimeout(ctx, 10*time.Second)
 	defer cancelSub()

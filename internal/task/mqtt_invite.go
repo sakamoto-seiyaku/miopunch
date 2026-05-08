@@ -23,6 +23,37 @@ type mqttMailbox struct {
 	errCh chan error
 }
 
+func openMQTTMailboxes(ctx context.Context, endpoints []string, clientIDPrefix string) ([]*mqttMailbox, error) {
+	mbs := make([]*mqttMailbox, 0, len(endpoints))
+	for _, ep := range endpoints {
+		mb, err := openMQTTMailbox(ctx, ep, clientIDPrefix)
+		if err != nil {
+			closeMQTTMailboxes(mbs)
+			return nil, fmt.Errorf("%s: %w", strings.TrimSpace(ep), err)
+		}
+		mbs = append(mbs, mb)
+	}
+	if len(mbs) == 0 {
+		return nil, errors.New("no broker mailboxes opened")
+	}
+	return mbs, nil
+}
+
+func checkMQTTBrokersReachable(ctx context.Context, endpoints []string, clientIDPrefix string) error {
+	mbs, err := openMQTTMailboxes(ctx, endpoints, clientIDPrefix)
+	if err != nil {
+		return err
+	}
+	closeMQTTMailboxes(mbs)
+	return nil
+}
+
+func closeMQTTMailboxes(mbs []*mqttMailbox) {
+	for _, mb := range mbs {
+		_ = mb.Close()
+	}
+}
+
 func openMQTTMailbox(ctx context.Context, endpoint string, clientIDPrefix string) (*mqttMailbox, error) {
 	endpoint = strings.TrimSpace(endpoint)
 	if endpoint == "" {

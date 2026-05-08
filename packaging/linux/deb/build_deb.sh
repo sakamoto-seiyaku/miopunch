@@ -6,7 +6,7 @@ usage() {
 build_deb.sh — build miopunch .deb packages
 
 Usage:
-  build_deb.sh [--webkit2_41] [--all]
+  build_deb.sh [--webkit2_40|--webkit2_41] [--all]
 
 Environment (optional):
   MIOPUNCH_BIN          Path to a prebuilt /usr/bin/miopunch binary
@@ -46,12 +46,72 @@ version_string() {
   printf '0.0.0+git%s%s' "$sha" "$dirty"
 }
 
+require_command() {
+  local command="$1"
+  local hint="$2"
+
+  if command -v "$command" >/dev/null 2>&1; then
+    return
+  fi
+
+  echo "missing required command: $command" >&2
+  echo "$hint" >&2
+  exit 1
+}
+
+require_pkg_config() {
+  local variant="$1"
+  shift
+
+  require_command "pkg-config" "Install pkg-config or use: bash packaging/linux/deb/build_deb_docker.sh --$variant"
+
+  local missing=()
+  local pkg
+  for pkg in "$@"; do
+    if ! pkg-config --exists "$pkg"; then
+      missing+=("$pkg")
+    fi
+  done
+
+  if [[ ${#missing[@]} -eq 0 ]]; then
+    return
+  fi
+
+  echo "missing pkg-config packages for $variant: ${missing[*]}" >&2
+  if [[ "$variant" == "webkit2_41" ]]; then
+    echo "WebKitGTK 4.1 builds need webkit2gtk-4.1 and libsoup-3.0 development files, normally from Ubuntu 24.04 or newer." >&2
+  else
+    echo "WebKitGTK 4.0 builds need webkit2gtk-4.0 development files, normally from Ubuntu 22.04/Debian 11-compatible hosts." >&2
+  fi
+  echo "Portable build command: bash packaging/linux/deb/build_deb_docker.sh --$variant" >&2
+  exit 1
+}
+
+require_build_deps() {
+  local variant="$1"
+
+  if [[ -z "${MIOPUNCH_BIN:-}" || -z "${MIOPUNCH_DESKTOP_BIN:-}" ]]; then
+    require_command "go" "Install Go matching go.mod or use: bash packaging/linux/deb/build_deb_docker.sh --$variant"
+  fi
+
+  if [[ -n "${MIOPUNCH_DESKTOP_BIN:-}" ]]; then
+    return
+  fi
+
+  if [[ "$variant" == "webkit2_41" ]]; then
+    require_pkg_config "$variant" "gtk+-3.0" "webkit2gtk-4.1" "libsoup-3.0"
+  else
+    require_pkg_config "$variant" "gtk+-3.0" "webkit2gtk-4.0"
+  fi
+}
+
 build_one() {
   local variant="$1"
 
   local root arch version depends webkit_suffix go_tags
   root="$(repo_root)"
   arch="$(dpkg --print-architecture)"
+  require_build_deps "$variant"
 
   version="$(version_string)"
   webkit_suffix=""
@@ -114,7 +174,7 @@ EOF
   install -m 0644 "$root/packaging/linux/deb/icons/miopunch.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/miopunch.svg"
 
   outfile="$outdir/miopunch_${version}${webkit_suffix}_${arch}.deb"
-  dpkg-deb --build "$pkgdir" "$outfile" >/dev/null
+  dpkg-deb -Zxz --build "$pkgdir" "$outfile" >/dev/null
 
   echo "built: $outfile"
   rm -rf "$work"
@@ -125,6 +185,10 @@ all=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --webkit2_40)
+      variant="webkit2_40"
+      shift
+      ;;
     --webkit2_41)
       variant="webkit2_41"
       shift

@@ -93,6 +93,23 @@ Rationale: Wails compiles a fallback app when neither `dev` nor `production` is
 set. On Windows that fallback displays the "correct build tags" error dialog at
 startup, so release binaries must never be built with only `desktop`.
 
+### Linux `.deb` builds use a containerized WebKitGTK matrix
+
+Build Linux `.deb` artifacts through a shared Docker wrapper that invokes the
+native packaging script inside distro-matched builders: Ubuntu 22.04 for the
+WebKitGTK 4.0 package and Ubuntu 24.04 for the WebKitGTK 4.1 package. CI and
+local release builds should call the same wrapper, while `build_deb.sh` remains
+the primitive used inside a host/container that already has the matching
+pkg-config dependencies.
+
+Rationale: WebKitGTK 4.1 requires `webkit2gtk-4.1` and `libsoup-3.0`
+development files that are not available on the current Debian 11 build host,
+and Ubuntu 24.04 users cannot install the 4.0 runtime dependency. The release
+matrix is therefore a build-environment concern, not a separate product design.
+The native packaging script also forces `xz` package compression so artifacts
+built on newer Ubuntu containers remain inspectable/installable by older `dpkg`
+versions such as Debian 11.
+
 ## Risks / Trade-offs
 
 - [Risk] GitHub-hosted core lab gates may be very slow or timeout without `/dev/kvm`. -> Mitigation: split lab workflows, cache the base image, upload artifacts/logs, and treat core lab timeout as release-blocking.

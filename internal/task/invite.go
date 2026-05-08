@@ -107,9 +107,9 @@ func (m *Manager) runInviteTask(taskID string, rawArgs []byte) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	inviteBrokers, warnings, err := controlplane.CanonicalizeInviteBrokers(ctx, nil, []string{inviteBroker})
+	resolveCtx, cancelResolve := context.WithTimeout(m.ctx, 2*time.Second)
+	defer cancelResolve()
+	inviteBrokers, warnings, err := controlplane.CanonicalizeInviteBrokers(resolveCtx, nil, []string{inviteBroker})
 	if err != nil {
 		m.addFact(taskID, poc.Fact{Message: "invite_brokers: " + err.Error()})
 		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
@@ -120,6 +120,18 @@ func (m *Manager) runInviteTask(taskID string, rawArgs []byte) {
 		if strings.TrimSpace(w) != "" {
 			m.addFact(taskID, poc.Fact{Message: "warning: " + w})
 		}
+	}
+	m.addFact(taskID, poc.Fact{TermID: "invite_brokers", Message: "invite_brokers=" + strings.Join(inviteBrokers, ",")})
+
+	m.setStage(taskID, poc.StagePeerContact, "verify invite brokers")
+	preflightCtx, cancelPreflight := context.WithTimeout(m.ctx, 5*time.Second)
+	defer cancelPreflight()
+	if err := checkMQTTBrokersReachable(preflightCtx, inviteBrokers, "miopunch-invite-preflight"); err != nil {
+		m.addFact(taskID, poc.Fact{Message: "mqtt connect failed: " + err.Error()})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "verify broker reachability and retry"})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "set local.mqtt_broker to a reachable broker shared by both machines"})
+		m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
+		return
 	}
 
 	netState, err := pocstate.EnsureNet(stateDir, inviteBrokers)
