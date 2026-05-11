@@ -1,12 +1,15 @@
 ; miopunch Windows installer (NSIS)
 ;
-; v0 contract:
+; Deferred D1a-privileged scaffold:
 ; - Install to %ProgramFiles%\miopunch\
 ; - Copy miopunch.exe + miopunch-desktop.exe
-; - Call: miopunch install-system-daemon (fail-fast)
+; - Optional privileged route can call miopunch install-system-daemon (fail-fast)
 ; - Append installer logs: %ProgramData%\miopunch\install.log
 ; - Provide "Export log" UI to copy installer log to a user-selected path
 ; - Register a Windows uninstall entry and Start menu uninstall shortcut
+;
+; Current Door 1 desktop smoke uses portable session bundles and must not require
+; this installer, Administrator elevation, or system service registration.
 
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
@@ -99,6 +102,7 @@ Section "Install"
   WriteRegDWORD HKLM "${MIOPUNCH_UNINSTALL_KEY}" "NoModify" 1
   WriteRegDWORD HKLM "${MIOPUNCH_UNINSTALL_KEY}" "NoRepair" 1
 
+!ifdef MIOPUNCH_ENABLE_PRIVILEGED_SERVICE
   Push "calling: miopunch install-system-daemon"
   Call LogLine
 
@@ -108,6 +112,10 @@ Section "Install"
     MessageBox MB_ICONSTOP "miopunch install failed (install-system-daemon rc=$0). See: $LogFile"
     Abort
   ${EndIf}
+!else
+  Push "D1a-privileged deferred: skipping miopunch install-system-daemon"
+  Call LogLine
+!endif
 
   Push "install ok"
   Call LogLine
@@ -121,11 +129,16 @@ Section "Uninstall"
   Push "=== miopunch uninstall start ==="
   Call un.LogLine
 
+!ifdef MIOPUNCH_ENABLE_PRIVILEGED_SERVICE
   ; Best-effort daemon uninstall; continue even on failures.
   ExecWait '"$SYSDIR\\cmd.exe" /c ""$INSTDIR\\miopunch.exe" uninstall-system-daemon >> "$LogFile" 2>&1""' $0
   ${If} $0 != 0
     MessageBox MB_ICONEXCLAMATION "Warning: miopunch uninstall-system-daemon failed (rc=$0). State is preserved. See: $LogFile"
   ${EndIf}
+!else
+  Push "D1a-privileged deferred: skipping miopunch uninstall-system-daemon"
+  Call un.LogLine
+!endif
 
   Delete "$DESKTOP\\miopunch.lnk"
   Delete "$SMPROGRAMS\\miopunch\\Uninstall miopunch.lnk"

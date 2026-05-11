@@ -40,12 +40,14 @@ run_and_log() {
 say "=== miopunch postinst ($1) $(stamp) ==="
 
 if [ "$1" = "configure" ]; then
-  run_and_log /usr/bin/miopunch install-system-daemon
+  if [ "${MIOPUNCH_ENABLE_PRIVILEGED_SERVICE:-0}" = "1" ]; then
+    run_and_log /usr/bin/miopunch install-system-daemon
+  else
+    say "D1a-privileged deferred: skipping miopunch install-system-daemon"
+  fi
 
   say ""
-  say "To use miopunch, ensure your user is in miopunch-operators and re-login:"
-  say "  sudo usermod -aG miopunch-operators <user>"
-  say "  log out and log back in"
+  say "Current Door 1 desktop smoke uses portable session bundles and same-user LocalAPI."
   say "installer_log=$LOG_FILE"
 fi
 

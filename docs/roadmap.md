@@ -273,12 +273,18 @@ Change 划分（按最初设计顺序回顾）：
 - 第一方向：客户端壳（桌面优先，移动端后续）。
   - 目标是把当前已验证完成的 POC 能力，收束成“可用的独立客户端”，但不再把“同一套壳一次性覆盖 `Linux / Android / Windows`”作为阶段性硬门槛。
   - 分阶段推进：
-    - `D1a`（优先）：用 `Wails` 快速覆盖桌面端 `Linux / Windows`（system WebView；非 Electron），优先实现“能用、能解释、能回归”。
+    - `D1a-session-first`（当前主线，优先）：用 `Wails` 快速覆盖桌面端 `Linux / Windows`（system WebView；非 Electron），以 `miopunch-desktop` 作为唯一用户入口，优先实现“打开即用、能解释、能真机回归”。
+    - `D1a-privileged`（后续补齐）：在 `session-first` 形态稳定后，再补 `NSIS` / `.deb`、system service、root/管理员安装、stable path 与未来虚拟组网所需的特权权限能力。
     - `D1b`（后续）：Android 端以“控制端”为主（不做被控端/agent），UI 生态与实现路径另行调研；必要时可切换/引入 `Flutter`。
-  - 这一方向优先解决 GUI、安装/更新、平台交互、daemon 托管、以及“operator/client”角色边界，而不是继续扩展打洞语义本身。
+  - `D1a-session-first` 的当前口径：
+    - 用户不再手动执行“先起 daemon 再开 GUI”的两步流程；`miopunch-desktop` 负责复用或无感拉起同用户会话内的 daemon。
+    - 真机 smoke 以桌面会话体验为验收标准：单入口、单实例、Windows 可缩到任务栏/托盘、Linux tray-first 且无 tray 时安全退化。
+    - 当前交付先以便携 bundle / 绿色软件式验证为主，不把 `NSIS` / `.deb`、root/管理员权限或 system service 作为当前阶段前提。
+  - 这一方向优先解决 GUI、平台交互、会话态 daemon 生命周期、以及“operator/client”角色边界，而不是继续扩展打洞语义本身；安装器与系统托管属于 `D1a-privileged`。
   - 关键体验约束：客户端与 daemon 交互只走 `LocalAPI`（unix socket / named pipe），排除 `Electron`；并且需要在 App 内承载交互式 `sh_attach` 终端（至少桌面端必须内嵌；移动端也以此为必备能力）。
   - 参考：
-    - 纲领：`docs/decisions/door-1-client-shell-charter.md`
+    - 当前主线纲领：`docs/decisions/door-1-pro-session-shell-charter.md`
+    - privileged 路线参考：`docs/decisions/door-1-client-shell-charter.md`
     - 选型调研：`docs/notes/2026-04-23-cross-platform-client-shell-survey.md`
 
 - 第二方向：`TCP` 打洞（Door 2，已进入主线，后续继续修正）。
@@ -328,3 +334,4 @@ Change 划分（按最初设计顺序回顾）：
 - `IPv6 NAT66 / 受限 IPv6`（例如教育网）：是否需要 `UDP6` 侧 STUN；是否需要把 `P1 IPv4 punching kernel(mode0..4)` 泛化到 `UDP6`。
 - `Prepare/Gather` 时间预算：在 no-trickle 前提下，gather 窗口如何平衡“成功率/时延”。
 - 全局代理/TUN 干扰：clash 等导致 STUN 得到的公网信息不一致、tun 网卡干扰、fakeip 等问题。
+- `App Mirror Session`（未来未定）：由 mio 在远端 peer 启动并管理一个 GUI app/window，本地以镜像窗口形式操作；输入和剪贴板同步是核心，音频后置。仅作为远期想法记录，见 `docs/notes/2026-05-06-app-mirror-session-idea.md`。

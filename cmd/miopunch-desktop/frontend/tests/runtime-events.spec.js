@@ -59,9 +59,9 @@ test("runtime connection events re-render the active Diagnostics view immediatel
     connected: false,
     failure: {
       reason_code: "daemon_not_running",
-      suggestions: [{ message: "Start the miopunch service, then refresh" }],
+      suggestions: [{ message: "retry desktop connection" }],
       facts: [],
     },
   });
-  await expect(page.getByText("Start the miopunch service, then refresh")).toBeVisible();
+  await expect(page.getByText("retry desktop connection")).toBeVisible();
 });

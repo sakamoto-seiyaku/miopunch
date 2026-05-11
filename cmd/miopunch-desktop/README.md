@@ -10,7 +10,7 @@ desktop executable without a Node toolchain.
 
 ## Developer run path (Linux)
 
-1. Start the daemon (LocalAPI):
+1. Optionally start a daemon for development:
 
    ```bash
    go run ./cmd/miopunch -- up
@@ -22,6 +22,9 @@ desktop executable without a Node toolchain.
    go run -tags desktop,production ./cmd/miopunch-desktop
    ```
 
+If no same-user LocalAPI is already reachable, the release app starts the
+sibling `miopunch up` process from the same extracted session bundle.
+
 ## Notes
 
 - The real desktop build is behind build tag `desktop`.
@@ -29,16 +32,17 @@ desktop executable without a Node toolchain.
 - Windows packaging uses Wails manual build tags with WebView2 embed
   (`desktop,production,wv2runtime.embed`).
 
-## Manual smoke checklist (v0)
+## Manual smoke checklist (session v0)
 
-1. Install + start daemon
-   - Windows: run the NSIS installer as Administrator (it calls `miopunch install-system-daemon`).
-   - Linux: install the `.deb` as root (postinst calls `miopunch install-system-daemon`).
-2. Launch the GUI
-   - Open `miopunch` from the desktop entry (Linux) / Start menu (Windows).
+1. Extract the current session bundle as a normal user.
+   - Windows: `miopunch_<version>_windows_amd64_session.zip`
+   - Linux: `miopunch_<version>_linux_amd64_session.tar.gz`
+2. Launch the GUI from the extracted directory.
+   - Windows: open `miopunch-desktop.exe`.
+   - Linux: run `./miopunch-desktop`.
 3. Connect (LocalAPI-only)
-   - Verify it connects and shows which endpoint is selected (system/user/override).
-   - If it shows `forbidden`, add your user to `miopunch-operators` (Linux) and re-login.
+   - Verify the GUI reuses an existing same-user LocalAPI or starts the sibling `miopunch up`.
+   - Verify the UI shows the selected endpoint and whether the daemon is desktop-managed.
 4. Core tasks
    - Run invite/join/ping tasks and observe task list updates from events.
 5. Embedded terminal
@@ -46,15 +50,11 @@ desktop executable without a Node toolchain.
 6. Reports
    - Open a completed task report and export it via the Save dialog.
 
-## Packaging notes (v0)
+## Packaging notes (session v0)
 
-- Windows
-  - Install dir: `%ProgramFiles%\\miopunch\\`
-  - Installer log: `%ProgramData%\\miopunch\\install.log` (exportable from installer UI)
-  - Install: fail-fast on `miopunch install-system-daemon` errors
-  - Uninstall: best-effort `miopunch uninstall-system-daemon`, then removes binaries/shortcuts; state preserved
-- Linux
-  - Binaries: `/usr/bin/miopunch`, `/usr/bin/miopunch-desktop`
-  - Installer log: `/var/log/miopunch/install.log`
-  - `apt remove`: preserves `/var/lib/miopunch`
-  - `apt purge`: removes `/var/lib/miopunch` and `/var/log/miopunch`
+- Current smoke artifacts are portable session bundles, not privileged installers.
+- Each session bundle contains `miopunch-desktop`, sibling `miopunch`, license/notice
+  files when present, and smoke instructions.
+- NSIS and `.deb` scaffolds remain in the repo for the deferred `D1a-privileged`
+  route. They are not the current session smoke gate and must not be required to
+  run `install-system-daemon` or `uninstall-system-daemon`.

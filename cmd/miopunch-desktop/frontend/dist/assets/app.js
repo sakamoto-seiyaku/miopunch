@@ -296,10 +296,10 @@
         user_addr: "unix:/tmp/miopunch-user.sock",
         failure: {
           stage: "desktop",
-          reason_code: "LOCALAPI_UNREACHABLE",
+          reason_code: "daemon_not_running",
           exit_code: 70,
           message: "LocalAPI is not reachable",
-          suggestions: [{ message: "Start the miopunch service, then refresh" }],
+          suggestions: [{ message: "retry desktop connection" }],
           facts: [{ message: "preview fixture simulates a disconnected daemon" }],
         },
       },
@@ -311,12 +311,12 @@
           kind: "connect",
           status: "done",
           stage: "desktop",
-          reason_code: "LOCALAPI_UNREACHABLE",
+          reason_code: "daemon_not_running",
           exit_code: 70,
           report_ready: true,
           created_at: "2026-05-04T00:00:00Z",
           facts: [{ message: "LocalAPI is not reachable" }],
-          suggestions: [{ message: "Start the daemon and retry" }],
+          suggestions: [{ message: "retry desktop connection" }],
         },
       ],
     },
@@ -1036,6 +1036,11 @@
           ${metricHTML("Tasks", state.tasks.size)}
         </section>
         <div class="grid grid-3">${sections}</div>
+        <section class="card">
+          <div class="action-row">
+            <button class="btn btn-tonal" id="btn-app-quit" type="button" ${state.previewMode ? "disabled" : ""}>Quit</button>
+          </div>
+        </section>
       </section>`);
   };
 
@@ -1045,17 +1050,31 @@
       const failure = lastConn && lastConn.failure ? lastConn.failure : null;
       const suggestions = failure && Array.isArray(failure.suggestions) ? failure.suggestions : [];
       const facts = failure && Array.isArray(failure.facts) ? failure.facts : [];
+      const diagnostics = lastConn && Array.isArray(lastConn.diagnostics) ? lastConn.diagnostics : [];
+      const bootstrap = lastConn && lastConn.bootstrap ? lastConn.bootstrap : null;
+      const daemonOwnership = lastConn && lastConn.desktop_managed ? "desktop-managed" : lastConn && lastConn.connected ? "reused" : "-";
       body = `
         <section class="detail-grid">
           <div class="card">
             <div class="card-header"><div><p class="eyebrow">Suggestions</p><h3 class="card-title">Connection</h3></div></div>
-            <div class="list">${suggestions.length ? suggestions.map((s) => listItemHTML(s.message || "")).join("") : listItemHTML(COPY.empty.errors, "empty")}</div>
+            <div class="list">
+              ${failure && failure.message ? listItemHTML(failure.message) : ""}
+              ${suggestions.length ? suggestions.map((s) => listItemHTML(s.message || "")).join("") : listItemHTML(COPY.empty.errors, "empty")}
+            </div>
           </div>
           <div class="card">
             <div class="card-header"><div><p class="eyebrow">Facts</p><h3 class="card-title">LocalAPI</h3></div></div>
             <div class="list">
               ${listItemHTML(`mode=${state.previewMode ? "static preview" : "connected"}`)}
+              ${lastConn ? listItemHTML(`selected=${lastConn.selected || "-"}`) : ""}
+              ${lastConn ? listItemHTML(`desktop_managed=${daemonOwnership}`) : ""}
+              ${lastConn && lastConn.bootstrap_state ? listItemHTML(`bootstrap_state=${lastConn.bootstrap_state}`) : ""}
               ${failure ? listItemHTML(`reason_code=${failure.reason_code || "-"}`) : ""}
+              ${bootstrap && bootstrap.stage ? listItemHTML(`bootstrap_stage=${bootstrap.stage}`) : ""}
+              ${bootstrap && bootstrap.daemon_path ? listItemHTML(`daemon_path=${bootstrap.daemon_path}`) : ""}
+              ${bootstrap && bootstrap.pid ? listItemHTML(`pid=${bootstrap.pid}`) : ""}
+              ${bootstrap && bootstrap.error ? listItemHTML(`bootstrap_error=${bootstrap.error}`) : ""}
+              ${diagnostics.map((f) => listItemHTML(f.message || "")).join("")}
               ${facts.map((f) => listItemHTML(f.message || "")).join("")}
             </div>
           </div>
@@ -1095,7 +1114,8 @@
     const sys = lastConn && lastConn.system_addr ? String(lastConn.system_addr) : "(unknown)";
     const user = lastConn && lastConn.user_addr ? String(lastConn.user_addr) : "(unknown)";
     const ov = lastConn && lastConn.override_addr ? String(lastConn.override_addr) : "";
-    return ov ? `override=${ov} | system=${sys} | user=${user}` : `system=${sys} | user=${user}`;
+    const managed = lastConn && lastConn.desktop_managed ? "desktop-managed" : "reused";
+    return ov ? `override=${ov} | system=${sys} | user=${user}` : `user=${user} | system=${sys} | daemon=${managed}`;
   };
 
   const renderTaskSummary = (taskObj) => `
@@ -1232,6 +1252,11 @@
       return;
     }
     try {
+      if (!lastConn || !lastConn.connected) {
+        const conn = await connectBridge();
+        if (!conn || !conn.connected) return;
+      }
+
       const b = getBridge();
       const sResp = await b.GetStatus();
       if (!sResp || !sResp.ok) throw new Error(bridgeErrorSummary(sResp && sResp.error));
@@ -1671,6 +1696,11 @@
     if (target.id === "btn-localapi-clear") {
       event.preventDefault();
       await clearLocalAPIOverride();
+      return;
+    }
+    if (target.id === "btn-app-quit") {
+      event.preventDefault();
+      if (!state.previewMode) await getBridge().Quit();
       return;
     }
     if (target.id === "btn-shell-disconnect") {

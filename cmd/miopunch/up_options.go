@@ -13,6 +13,7 @@ type upOptions struct {
 	HTTPPanel           bool
 	HTTPPanelListenAddr string
 	LocalAPIOverride    string
+	Session             bool
 	StatePath           string
 }
 
@@ -61,6 +62,15 @@ func parseUpOptions(args []string) (upOptions, []string, error) {
 			i++
 		case strings.HasPrefix(a, "--localapi="):
 			opt.LocalAPIOverride = strings.TrimSpace(strings.TrimPrefix(a, "--localapi="))
+			i++
+		case a == "--session":
+			opt.Session = true
+			i++
+		case a == "--session=true":
+			opt.Session = true
+			i++
+		case a == "--session=false":
+			opt.Session = false
 			i++
 		case a == "--state_path":
 			if i+1 >= len(args) {

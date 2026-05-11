@@ -11,6 +11,24 @@ const (
 	EndpointOverride Endpoint = "override"
 )
 
+type BootstrapState string
+
+const (
+	BootstrapNone   BootstrapState = "none"
+	BootstrapReady  BootstrapState = "ready"
+	BootstrapFailed BootstrapState = "failed"
+)
+
+type BootstrapDiagnostics struct {
+	Attempted  bool   `json:"attempted"`
+	Stage      string `json:"stage,omitempty"`
+	DaemonPath string `json:"daemon_path,omitempty"`
+	PID        int    `json:"pid,omitempty"`
+	Stdout     string `json:"stdout,omitempty"`
+	Stderr     string `json:"stderr,omitempty"`
+	Error      string `json:"error,omitempty"`
+}
+
 type BridgeError struct {
 	Stage       string           `json:"stage"`
 	ReasonCode  poc.ReasonCode   `json:"reason_code"`
@@ -29,5 +47,9 @@ type ConnectionState struct {
 	UserAddr     string `json:"user_addr,omitempty"`
 	OverrideAddr string `json:"override_addr,omitempty"`
 
-	Failure *BridgeError `json:"failure,omitempty"`
+	Bootstrap      BootstrapState        `json:"bootstrap_state,omitempty"`
+	DesktopManaged bool                  `json:"desktop_managed,omitempty"`
+	Diagnostics    []poc.Fact            `json:"diagnostics,omitempty"`
+	BootstrapInfo  *BootstrapDiagnostics `json:"bootstrap,omitempty"`
+	Failure        *BridgeError          `json:"failure,omitempty"`
 }

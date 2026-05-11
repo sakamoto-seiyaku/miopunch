@@ -1,8 +1,5 @@
-# miopunch-desktop-packaging-v0 Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change client-win-linux. Update Purpose after archive.
-## Requirements
 ### Requirement: Desktop delivery includes both daemon and GUI binaries
 The current session-first desktop delivery shape SHALL include:
 - `miopunch` (CLI + daemon)
@@ -53,6 +50,8 @@ If the sibling daemon/CLI binary is missing or not executable, the GUI SHALL sho
 - **THEN** the GUI reports that the bundle is incomplete
 - **AND** the default suggested fix is to re-extract or rebuild the session bundle
 
+## ADDED Requirements
+
 ### Requirement: Session bundle build automation publishes copyable artifacts
 The build automation SHALL create the current Windows and Linux session artifacts and expose them as build outputs suitable for copying to real test machines.
 
@@ -83,14 +82,40 @@ If existing NSIS or `.deb` scaffolding remains in the repository, service-instal
 - **THEN** it does not invoke `miopunch install-system-daemon`
 - **AND** it does not require root privileges
 
-### Requirement: Windows WebView2 runtime strategy uses embedded bootstrapper in v0
-The Windows desktop GUI SHALL be built with `-webview2 embed`.
+## REMOVED Requirements
 
-If WebView2 Runtime is missing and the runtime cannot be installed/bootstrapped, the GUI SHALL show actionable guidance and SHALL exit.
+### Requirement: Windows installer uses NSIS and delegates service install to miopunch
+**Reason**: The current desktop mainline is session-first and must not require Administrator privileges or system service registration for smoke validation.
+**Migration**: Move this requirement to a later `D1a-privileged` change when installer-first service management returns to scope.
 
-#### Scenario: Missing WebView2 runtime results in actionable guidance
-- **GIVEN** WebView2 Runtime is not installed on the machine
-- **AND** the machine cannot install the runtime
-- **WHEN** the user launches `miopunch-desktop`
-- **THEN** the app shows actionable guidance to install WebView2 Runtime
-- **AND** the app exits
+### Requirement: Windows uninstall is best-effort for daemon service and preserves state
+**Reason**: Current session-first smoke does not install a Windows system service.
+**Migration**: Restore or redefine this requirement in `D1a-privileged` together with the privileged Windows installer route.
+
+### Requirement: Windows installer writes install logs and supports exporting them
+**Reason**: Current session-first smoke is not gated on the NSIS installer.
+**Migration**: Keep runtime diagnostics in the session route; restore installer-log requirements when privileged installer delivery is reintroduced.
+
+### Requirement: Linux .deb package delegates service install to miopunch and is fail-fast on install
+**Reason**: The current Linux desktop mainline must be testable without root privileges or system service registration.
+**Migration**: Move `.deb` service-install requirements to `D1a-privileged`.
+
+### Requirement: Linux .deb provides WebKitGTK 4.0 and 4.1 variants
+**Reason**: `.deb` delivery is no longer the current acceptance gate for Session v0.
+**Migration**: Reintroduce `.deb` variant requirements in `D1a-privileged` or a later release-packaging change.
+
+### Requirement: Linux operator group guidance is always printed and is best-effort applied
+**Reason**: Session v0 does not depend on the `miopunch-operators` system group.
+**Migration**: Restore operator-group guidance when system daemon packaging returns.
+
+### Requirement: Linux uninstall semantics distinguish remove vs purge
+**Reason**: Current session-first smoke does not install or uninstall a system package.
+**Migration**: Restore package remove/purge semantics in the future privileged packaging change.
+
+### Requirement: Linux uninstall invokes uninstall-system-daemon with fail-fast semantics except not-installed
+**Reason**: Current session-first smoke must not call system daemon uninstall.
+**Migration**: Restore this requirement with `.deb` service management in `D1a-privileged`.
+
+### Requirement: Linux install/uninstall writes an installer log
+**Reason**: Current session-first smoke is not gated on `.deb` maintainer scripts.
+**Migration**: Restore installer-log requirements when `.deb` becomes a current delivery route again.

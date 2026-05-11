@@ -2,6 +2,8 @@
 
 ## 文档状态
 
+- 当前 Door 1 Pro 桌面主线已由 `docs/decisions/door-1-pro-session-shell-charter.md` 补充并收口；若与本文件中的 installer-first / system-daemon 默认交付口径冲突，以新文档为准。
+- 本文件继续保留为后续 privileged 路线的事实源，主要承接安装器、system service、root/管理员权限与未来虚拟组网相关能力。
 - 本文档定义 Door 1（客户端壳）的目标、边界、约束与关键原则。
 - 本文档不展开实现细节，不替代后续 OpenSpec change。
 - Door 1 的“已选定 / 待定 / 已知折中与风险”统一收敛在本文档中，避免分散到多个 decision 文档造成口径漂移。

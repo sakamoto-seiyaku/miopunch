@@ -49,49 +49,50 @@ tag:
 
 ```bash
 MIOPUNCH_VERSION=v0.1.0-rc.1 bash scripts/release/build_bundles.sh
-MIOPUNCH_VERSION=v0.1.0-rc.1 bash packaging/linux/deb/build_deb_docker.sh --all --smoke-install
-MIOPUNCH_VERSION=v0.1.0-rc.1 bash scripts/release/build_windows_installer.sh
 bash scripts/release/generate_manifest.sh dist/release
 ```
+
+By default, `build_bundles.sh` emits only the current portable session bundles.
+Set `MIOPUNCH_BUILD_LEGACY_BUNDLES=1` only when the older CLI/lab binary archives
+are explicitly needed.
 
 The final release asset directory must include `checksums.txt` and
 `release-manifest.json`.
 
-Desktop release binaries must use Wails production build tags. Windows GUI
-release builds use `desktop,production,wv2runtime.embed` and `-H windowsgui`;
-Linux GUI release builds use `desktop,production` plus `webkit2_41` for the
-WebKitGTK 4.1 `.deb` variant.
+Current desktop smoke uses portable session bundles:
 
-Linux `.deb` release builds should use
-`packaging/linux/deb/build_deb_docker.sh` so local builds and CI share the same
-Ubuntu 22.04/24.04 WebKitGTK build matrix. Ubuntu 24.04 users need the
-`_webkit2_41` package; the default WebKitGTK 4.0 package is for older
-Debian/Ubuntu targets where `libwebkit2gtk-4.0-37` is installable.
+- `miopunch_<version>_windows_amd64_session.zip`
+- `miopunch_<version>_linux_amd64_session.tar.gz`
 
-## Local Windows Installer Smoke
+Desktop release binaries use Wails production build tags. Windows GUI release
+builds use `desktop,production,wv2runtime.embed` and `-H windowsgui`; Linux GUI
+release builds use `desktop,production`.
 
-The Windows package is not complete until the installer has been smoke-tested
-on a local Windows machine.
+NSIS and `.deb` packaging remain deferred `D1a-privileged` scaffolding. They
+are not the current session smoke gate and are not required for release-candidate
+desktop smoke.
 
-Build the installer from this repository or use the matching CI artifact:
+## Local Windows Session Smoke
+
+The Windows desktop session artifact is not complete until it has been smoke
+tested on a local Windows machine as a normal user.
+
+Build the session bundle from this repository or use the matching CI artifact:
 
 ```bash
-MIOPUNCH_VERSION=v0.1.0-rc.1 bash scripts/release/build_windows_installer.sh
+MIOPUNCH_VERSION=v0.1.0-rc.1 bash scripts/release/build_bundles.sh
 ```
 
-Copy `dist/release/miopunch_v0.1.0-rc.1_windows_amd64_setup.exe` to Windows,
-then run it as Administrator. From an elevated PowerShell session:
+Copy `dist/release/miopunch_v0.1.0-rc.1_windows_amd64_session.zip` to Windows
+and extract it. From a normal PowerShell session in the extracted directory:
 
 ```powershell
-.\miopunch_v0.1.0-rc.1_windows_amd64_setup.exe
+.\miopunch-desktop.exe
 ```
 
 Smoke checklist:
 
-- Installer completes without error and writes `%ProgramData%\miopunch\install.log`.
-- `%ProgramFiles%\miopunch\miopunch.exe` and `miopunch-desktop.exe` exist.
-- `miopunch` service is installed and running.
-- Start menu shortcut launches the GUI without the Wails build-tags dialog.
-- GUI connects to LocalAPI and reports the selected endpoint.
-- Apps & Features / Programs and Features shows the `miopunch` uninstall entry.
-- Uninstall removes binaries and shortcuts; preserved state is acceptable.
+- The extracted directory contains `miopunch.exe`, `miopunch-desktop.exe`, and smoke instructions.
+- Launching `miopunch-desktop.exe` starts or reuses sibling `miopunch.exe`.
+- GUI connects to LocalAPI and reports the selected endpoint and daemon ownership.
+- Core desktop task flow works without an Administrator prompt.

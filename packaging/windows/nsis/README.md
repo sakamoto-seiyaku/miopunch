@@ -1,7 +1,11 @@
 # Windows installer (NSIS) — `miopunch`
 
-This directory contains the minimal NSIS installer script for the Door 1 desktop
-shell.
+This directory contains the minimal NSIS installer scaffold for the deferred
+`D1a-privileged` desktop route.
+
+Current Door 1 desktop smoke uses the portable session zip from
+`scripts/release/build_bundles.sh`. It does not require this installer,
+Administrator elevation, or system service registration.
 
 ## Build inputs
 
@@ -49,17 +53,17 @@ MIOPUNCH_VERSION=v0.1.0-rc.1 bash scripts/release/build_windows_installer.sh
 - Installer log: `%ProgramData%\\miopunch\\install.log`
 - Windows uninstall entry: Apps & Features / Programs and Features
 - Start menu uninstall shortcut: `miopunch\\Uninstall miopunch`
-- The installer delegates daemon install/uninstall to:
+- Service install/uninstall is disabled by default and reserved for
+  `D1a-privileged`. Define `MIOPUNCH_ENABLE_PRIVILEGED_SERVICE` only when
+  intentionally testing that later route:
   - `miopunch install-system-daemon` (install: fail-fast)
   - `miopunch uninstall-system-daemon` (uninstall: best-effort)
 - The GUI is built with Wails production tags and `wv2runtime.embed`, equivalent
   to Wails' WebView2 embed strategy.
 
-## Local smoke
+## Deferred privileged smoke
 
-Before considering Windows packaging complete, install the generated setup
-executable on a local Windows machine as Administrator. Verify that the service
-is installed and running, the Start menu shortcut launches `miopunch-desktop.exe`
-without the Wails build-tags dialog, the GUI connects to LocalAPI, Apps &
-Features shows the uninstall entry, and uninstall removes the installed binaries
-and shortcuts.
+This smoke belongs to the future privileged route, not current session smoke.
+When re-enabled, install the generated setup executable on a local Windows
+machine as Administrator, verify service registration, and verify uninstall
+behavior.

@@ -17,7 +17,7 @@ var embeddedAssets embed.FS
 func main() {
 	a := NewApp()
 
-	err := wails.Run(&options.App{
+	appOptions := &options.App{
 		Title:     "miopunch",
 		Width:     1280,
 		Height:    820,
@@ -29,7 +29,16 @@ func main() {
 		OnStartup:  a.startup,
 		OnShutdown: a.shutdown,
 		Bind:       []any{a},
-	})
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId: "miopunch-desktop",
+			OnSecondInstanceLaunch: func(options.SecondInstanceData) {
+				a.restoreWindow()
+			},
+		},
+	}
+	configurePlatformOptions(appOptions)
+
+	err := wails.Run(appOptions)
 	if err != nil {
 		reportStartupError(err)
 		os.Exit(1)

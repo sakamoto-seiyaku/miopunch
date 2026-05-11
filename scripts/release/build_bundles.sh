@@ -27,6 +27,85 @@ copy_notices() {
   [[ -f "${repo_root}/NOTICE" ]] && cp "${repo_root}/NOTICE" "${dst}/"
 }
 
+write_session_smoke_readme() {
+  local dst="$1"
+  local goos="$2"
+
+  case "${goos}" in
+    windows)
+      cat >"${dst}/SMOKE.md" <<EOF
+# miopunch Windows Session Smoke
+
+1. Extract this zip as a normal user.
+2. Run .\\miopunch-desktop.exe from the extracted directory.
+3. Verify the GUI starts or reuses sibling .\\miopunch.exe and connects to LocalAPI.
+4. Run the core desktop task flow.
+
+No installer, Administrator prompt, or system service install is required for this session smoke.
+EOF
+      ;;
+    linux)
+      cat >"${dst}/SMOKE.md" <<EOF
+# miopunch Linux Session Smoke
+
+1. Extract this tarball as a normal user.
+2. Run ./miopunch-desktop from the extracted directory.
+3. Verify the GUI starts or reuses sibling ./miopunch and connects to LocalAPI.
+4. Run the core desktop task flow.
+
+No package install, root prompt, or system service install is required for this session smoke.
+EOF
+      ;;
+    *)
+      echo "unsupported session smoke target: ${goos}" >&2
+      return 2
+      ;;
+  esac
+}
+
+verify_session_dir() {
+  local target_dir="$1"
+  local goos="$2"
+  local ext="$3"
+
+  test -s "${target_dir}/miopunch${ext}"
+  test -s "${target_dir}/miopunch-desktop${ext}"
+  test -s "${target_dir}/SMOKE.md"
+
+  if [[ "${goos}" == "linux" ]]; then
+    test -x "${target_dir}/miopunch"
+    test -x "${target_dir}/miopunch-desktop"
+  fi
+}
+
+verify_session_archive() {
+  local archive="$1"
+  local stem="$2"
+  local goos="$3"
+  local ext="$4"
+
+  case "${goos}" in
+    linux)
+      tar -tzf "${archive}" | grep -Fx "${stem}/miopunch${ext}" >/dev/null
+      tar -tzf "${archive}" | grep -Fx "${stem}/miopunch-desktop${ext}" >/dev/null
+      tar -tzf "${archive}" | grep -Fx "${stem}/SMOKE.md" >/dev/null
+      ;;
+    windows)
+      command -v unzip >/dev/null 2>&1 || {
+        echo "missing dependency: unzip" >&2
+        return 1
+      }
+      unzip -Z1 "${archive}" | grep -Fx "${stem}/miopunch${ext}" >/dev/null
+      unzip -Z1 "${archive}" | grep -Fx "${stem}/miopunch-desktop${ext}" >/dev/null
+      unzip -Z1 "${archive}" | grep -Fx "${stem}/SMOKE.md" >/dev/null
+      ;;
+    *)
+      echo "unsupported session archive target: ${goos}" >&2
+      return 2
+      ;;
+  esac
+}
+
 build_bundle() {
   local goos="$1"
   local goarch="$2"
@@ -60,7 +139,57 @@ build_bundle() {
   esac
 }
 
-build_bundle linux amd64 ""
-build_bundle windows amd64 ".exe"
+build_session_bundle() {
+  local goos="$1"
+  local goarch="$2"
+  local ext="$3"
+
+  local name="miopunch_${version}_${goos}_${goarch}_session"
+  local target_dir="${build_dir}/${name}"
+  rm -rf "${target_dir}"
+  mkdir -p "${target_dir}"
+
+  echo "building ${name}"
+  (
+    cd "${repo_root}"
+    GOOS="${goos}" GOARCH="${goarch}" CGO_ENABLED=0 "${go_bin}" build -trimpath -ldflags "${ldflags}" -o "${target_dir}/miopunch${ext}" ./cmd/miopunch
+    case "${goos}" in
+      linux)
+        GOOS="${goos}" GOARCH="${goarch}" "${go_bin}" build -trimpath -tags desktop,production -ldflags "${ldflags}" -o "${target_dir}/miopunch-desktop${ext}" ./cmd/miopunch-desktop
+        ;;
+      windows)
+        GOOS="${goos}" GOARCH="${goarch}" "${go_bin}" build -trimpath -tags desktop,production,wv2runtime.embed -ldflags "${ldflags} -H windowsgui" -o "${target_dir}/miopunch-desktop${ext}" ./cmd/miopunch-desktop
+        ;;
+      *)
+        echo "unsupported session bundle target: ${goos}/${goarch}" >&2
+        return 2
+        ;;
+    esac
+  )
+  copy_notices "${target_dir}"
+  write_session_smoke_readme "${target_dir}" "${goos}"
+  verify_session_dir "${target_dir}" "${goos}" "${ext}"
+
+  case "${goos}" in
+    linux)
+      local archive="${out_dir}/${name}.tar.gz"
+      tar -C "${build_dir}" -czf "${archive}" "${name}"
+      verify_session_archive "${archive}" "${name}" "${goos}" "${ext}"
+      ;;
+    windows)
+      local archive="${out_dir}/${name}.zip"
+      (cd "${build_dir}" && zip -q -r "${archive}" "${name}")
+      verify_session_archive "${archive}" "${name}" "${goos}" "${ext}"
+      ;;
+  esac
+}
+
+if [[ "${MIOPUNCH_BUILD_LEGACY_BUNDLES:-0}" == "1" ]]; then
+  build_bundle linux amd64 ""
+  build_bundle windows amd64 ".exe"
+fi
+
+build_session_bundle linux amd64 ""
+build_session_bundle windows amd64 ".exe"
 
 echo "bundles written to ${out_dir}"

@@ -25,8 +25,8 @@ permissions:
 
 jobs:
   binary-bundles:
-    name: Binary bundles
-    runs-on: ubuntu-24.04
+    name: Session bundles
+    runs-on: ubuntu-22.04
     env:
       MIOPUNCH_VERSION: ${{ inputs.version }}
     steps:
@@ -45,20 +45,21 @@ jobs:
       - name: Install packaging tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y zip
+          sudo apt-get install -y zip unzip libgtk-3-dev libwebkit2gtk-4.0-dev pkg-config
 
-      - name: Build binary bundles
+      - name: Build session bundles
         run: bash scripts/release/build_bundles.sh
 
-      - name: Upload binary bundles
+      - name: Upload session bundles
         uses: actions/upload-artifact@v7
         with:
-          name: binary-bundles
+          name: session-bundles
           path: dist/release/*
           if-no-files-found: error
 
   linux-deb-webkit2-40:
     name: Linux .deb WebKitGTK 4.0
+    if: ${{ vars.MIOPUNCH_BUILD_PRIVILEGED_ARTIFACTS == '1' }}
     runs-on: ubuntu-24.04
     env:
       MIOPUNCH_VERSION: ${{ inputs.version }}
@@ -82,6 +83,7 @@ jobs:
 
   linux-deb-webkit2-41:
     name: Linux .deb WebKitGTK 4.1
+    if: ${{ vars.MIOPUNCH_BUILD_PRIVILEGED_ARTIFACTS == '1' }}
     runs-on: ubuntu-24.04
     env:
       MIOPUNCH_VERSION: ${{ inputs.version }}
@@ -105,6 +107,7 @@ jobs:
 
   windows-installer:
     name: Windows NSIS installer
+    if: ${{ vars.MIOPUNCH_BUILD_PRIVILEGED_ARTIFACTS == '1' }}
     runs-on: ubuntu-24.04
     env:
       MIOPUNCH_VERSION: ${{ inputs.version }}
@@ -141,9 +144,6 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - binary-bundles
-      - linux-deb-webkit2-40
-      - linux-deb-webkit2-41
-      - windows-installer
     env:
       MIOPUNCH_VERSION: ${{ inputs.version }}
     steps:

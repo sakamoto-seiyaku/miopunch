@@ -86,63 +86,9 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 	userAddr, userAddrErr := localapi.DefaultUserAddr("")
 
 	if override == "" {
-		if err := probeLocalAPI(ctx, systemAddr); err == nil {
-			writeFailure(stderr, failureOutput{
-				Stage:      "daemon",
-				ReasonCode: poc.ReasonCodeConflict,
-				ExitCode:   poc.ExitCodeConflict,
-				Facts: []poc.Fact{
-					{Message: "system localapi is reachable: " + systemAddr.String()},
-				},
-				Suggestions: []poc.Suggestion{
-					{Message: "stop the existing daemon before starting a new one"},
-				},
-			})
-			return int(poc.ExitCodeConflict)
-		} else if isPermissionError(err) {
-			writeFailure(stderr, failureOutput{
-				Stage:      "daemon",
-				ReasonCode: poc.ReasonCodeForbidden,
-				ExitCode:   poc.ExitCodeForbidden,
-				Facts: []poc.Fact{
-					{Message: "permission denied probing system localapi: " + systemAddr.String()},
-				},
-				Suggestions: []poc.Suggestion{
-					{Message: "join the operator group: " + poc.LinuxOperatorGroup},
-					{Message: "or run: sudo miopunch up"},
-				},
-			})
-			return int(poc.ExitCodeForbidden)
-		}
-
-		if userAddrErr == nil {
-			if err := probeLocalAPI(ctx, userAddr); err == nil {
-				writeFailure(stderr, failureOutput{
-					Stage:      "daemon",
-					ReasonCode: poc.ReasonCodeConflict,
-					ExitCode:   poc.ExitCodeConflict,
-					Facts: []poc.Fact{
-						{Message: "user localapi is reachable: " + userAddr.String()},
-					},
-					Suggestions: []poc.Suggestion{
-						{Message: "stop the existing daemon before starting a new one"},
-					},
-				})
-				return int(poc.ExitCodeConflict)
-			} else if isPermissionError(err) {
-				writeFailure(stderr, failureOutput{
-					Stage:      "daemon",
-					ReasonCode: poc.ReasonCodeForbidden,
-					ExitCode:   poc.ExitCodeForbidden,
-					Facts: []poc.Fact{
-						{Message: "permission denied probing user localapi: " + userAddr.String()},
-					},
-					Suggestions: []poc.Suggestion{
-						{Message: "check socket permissions"},
-					},
-				})
-				return int(poc.ExitCodeForbidden)
-			}
+		if failure, ok := defaultLocalAPIConflict(ctx, systemAddr, userAddr, userAddrErr, stderr); ok {
+			writeFailure(stderr, failure)
+			return int(failure.ExitCode)
 		}
 	}
 
@@ -304,7 +250,58 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 	}
 }
 
-func probeLocalAPI(ctx context.Context, addr localapi.Addr) error {
+func defaultLocalAPIConflict(ctx context.Context, systemAddr, userAddr localapi.Addr, userAddrErr error, stderr io.Writer) (failureOutput, bool) {
+	if err := probeLocalAPI(ctx, systemAddr); err == nil {
+		return failureOutput{
+			Stage:      "daemon",
+			ReasonCode: poc.ReasonCodeConflict,
+			ExitCode:   poc.ExitCodeConflict,
+			Facts: []poc.Fact{
+				{Message: "system localapi is reachable: " + systemAddr.String()},
+			},
+			Suggestions: []poc.Suggestion{
+				{Message: "stop the existing daemon before starting a new one"},
+			},
+		}, true
+	} else if isPermissionError(err) {
+		fmt.Fprintf(stderr, "miopunch up: permission denied probing system LocalAPI; continuing with user session LocalAPI (%s)\n", systemAddr.String())
+	}
+
+	if userAddrErr != nil {
+		return failureOutput{}, false
+	}
+	if err := probeLocalAPI(ctx, userAddr); err == nil {
+		return failureOutput{
+			Stage:      "daemon",
+			ReasonCode: poc.ReasonCodeConflict,
+			ExitCode:   poc.ExitCodeConflict,
+			Facts: []poc.Fact{
+				{Message: "user localapi is reachable: " + userAddr.String()},
+			},
+			Suggestions: []poc.Suggestion{
+				{Message: "stop the existing daemon before starting a new one"},
+			},
+		}, true
+	} else if isPermissionError(err) {
+		return failureOutput{
+			Stage:      "daemon",
+			ReasonCode: poc.ReasonCodeForbidden,
+			ExitCode:   poc.ExitCodeForbidden,
+			Facts: []poc.Fact{
+				{Message: "permission denied probing user localapi: " + userAddr.String()},
+			},
+			Suggestions: []poc.Suggestion{
+				{Message: "check socket permissions"},
+			},
+		}, true
+	}
+
+	return failureOutput{}, false
+}
+
+var probeLocalAPI = realProbeLocalAPI
+
+func realProbeLocalAPI(ctx context.Context, addr localapi.Addr) error {
 	c, err := localapi.NewClient(addr)
 	if err != nil {
 		return err

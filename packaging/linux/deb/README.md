@@ -1,7 +1,11 @@
 # Linux `.deb` packaging (v0) — `miopunch`
 
-This directory contains a minimal `.deb` packaging scaffold for the Door 1
-desktop shell.
+This directory contains a minimal `.deb` packaging scaffold for the deferred
+`D1a-privileged` desktop route.
+
+Current Door 1 desktop smoke uses the portable session tarball from
+`scripts/release/build_bundles.sh`. It does not require `.deb` installation,
+root privileges, or system service registration.
 
 ## Contract (paths)
 
@@ -12,12 +16,15 @@ desktop shell.
 
 ## Installer scripts
 
-- `postinst`: calls `miopunch install-system-daemon` (fail-fast), appends logs to
-  `/var/log/miopunch/install.log`, and prints operator-group instructions.
-- `prerm`: calls `miopunch uninstall-system-daemon` (continue only on
-  ExitCodeNotFound=7; otherwise fail-fast) and appends logs to
+- `postinst`: skips service registration by default and appends logs to
+  `/var/log/miopunch/install.log`.
+- `prerm`: skips service unregistration by default and appends logs to
   `/var/log/miopunch/install.log`.
 - `postrm`: on `purge`, removes `/var/lib/miopunch` and `/var/log/miopunch`.
+
+Set `MIOPUNCH_ENABLE_PRIVILEGED_SERVICE=1` only when intentionally testing the
+future privileged route. In that mode the scripts call
+`miopunch install-system-daemon` and `miopunch uninstall-system-daemon`.
 
 ## Variants
 

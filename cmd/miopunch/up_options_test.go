@@ -5,6 +5,7 @@ import "testing"
 func TestParseUpOptions_LabOverrides(t *testing.T) {
 	got, rest, err := parseUpOptions([]string{
 		"--localapi", "unix:/tmp/miopunch-lab.sock",
+		"--session",
 		"--state_path", "/tmp/miopunch/state.json",
 	})
 	if err != nil {
@@ -18,6 +19,9 @@ func TestParseUpOptions_LabOverrides(t *testing.T) {
 	}
 	if got.StatePath != "/tmp/miopunch/state.json" {
 		t.Errorf("parseUpOptions(lab overrides).StatePath = %q, want %q", got.StatePath, "/tmp/miopunch/state.json")
+	}
+	if !got.Session {
+		t.Errorf("parseUpOptions(lab overrides).Session = false, want true")
 	}
 }
 

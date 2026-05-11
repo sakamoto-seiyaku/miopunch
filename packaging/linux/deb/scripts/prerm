@@ -45,7 +45,11 @@ say "=== miopunch prerm ($1) $(stamp) ==="
 
 case "$1" in
   remove|deconfigure)
-    run_and_log_uninstall
+    if [ "${MIOPUNCH_ENABLE_PRIVILEGED_SERVICE:-0}" = "1" ]; then
+      run_and_log_uninstall
+    else
+      say "D1a-privileged deferred: skipping miopunch uninstall-system-daemon"
+    fi
     ;;
 esac
 

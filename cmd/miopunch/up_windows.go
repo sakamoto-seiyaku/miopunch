@@ -78,14 +78,14 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 		}
 	}
 
-	if !service.Interactive() {
+	if !upOpt.Session && !service.Interactive() {
 		return runUpAsWindowsService(operatorSID, upOpt, stderr)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	return serveUpWindows(ctx, operatorSID, upOpt, stderr)
+	return serveUpWindows(ctx, operatorSID, upOpt, localapi.ListenModeUser, stderr)
 }
 
 type windowsUpProgram struct {
@@ -104,7 +104,7 @@ func (p *windowsUpProgram) Start(service.Service) error {
 
 	go func() {
 		defer close(p.done)
-		_ = serveUpWindows(ctx, p.operatorSID, p.upOpt, p.stderr)
+		_ = serveUpWindows(ctx, p.operatorSID, p.upOpt, localapi.ListenModeSystem, p.stderr)
 	}()
 
 	return nil
@@ -167,7 +167,7 @@ func runUpAsWindowsService(operatorSID string, upOpt upOptions, stderr io.Writer
 	return 0
 }
 
-func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, stderr io.Writer) int {
+func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, mode localapi.ListenMode, stderr io.Writer) int {
 	override := strings.TrimSpace(upOpt.LocalAPIOverride)
 	var overrideAddr localapi.Addr
 	var err error
@@ -206,32 +206,34 @@ func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, st
 	userAddr, _ := localapi.DefaultUserAddr(operatorSID)
 
 	if override == "" {
-		if err := probeLocalAPI(ctx, systemAddr); err == nil {
-			writeFailure(stderr, failureOutput{
-				Stage:      "daemon",
-				ReasonCode: poc.ReasonCodeConflict,
-				ExitCode:   poc.ExitCodeConflict,
-				Facts: []poc.Fact{
-					{Message: "system localapi is reachable: " + systemAddr.String()},
-				},
-				Suggestions: []poc.Suggestion{
-					{Message: "stop the existing daemon before starting a new one"},
-				},
-			})
-			return int(poc.ExitCodeConflict)
-		} else if isPermissionError(err) {
-			writeFailure(stderr, failureOutput{
-				Stage:      "daemon",
-				ReasonCode: poc.ReasonCodeForbidden,
-				ExitCode:   poc.ExitCodeForbidden,
-				Facts: []poc.Fact{
-					{Message: "permission denied probing system localapi: " + systemAddr.String()},
-				},
-				Suggestions: []poc.Suggestion{
-					{Message: "run from an elevated Administrator prompt"},
-				},
-			})
-			return int(poc.ExitCodeForbidden)
+		if mode == localapi.ListenModeSystem {
+			if err := probeLocalAPI(ctx, systemAddr); err == nil {
+				writeFailure(stderr, failureOutput{
+					Stage:      "daemon",
+					ReasonCode: poc.ReasonCodeConflict,
+					ExitCode:   poc.ExitCodeConflict,
+					Facts: []poc.Fact{
+						{Message: "system localapi is reachable: " + systemAddr.String()},
+					},
+					Suggestions: []poc.Suggestion{
+						{Message: "stop the existing daemon before starting a new one"},
+					},
+				})
+				return int(poc.ExitCodeConflict)
+			} else if isPermissionError(err) {
+				writeFailure(stderr, failureOutput{
+					Stage:      "daemon",
+					ReasonCode: poc.ReasonCodeForbidden,
+					ExitCode:   poc.ExitCodeForbidden,
+					Facts: []poc.Fact{
+						{Message: "permission denied probing system localapi: " + systemAddr.String()},
+					},
+					Suggestions: []poc.Suggestion{
+						{Message: "run from an elevated Administrator prompt"},
+					},
+				})
+				return int(poc.ExitCodeForbidden)
+			}
 		}
 
 		if err := probeLocalAPI(ctx, userAddr); err == nil {
@@ -247,15 +249,30 @@ func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, st
 				},
 			})
 			return int(poc.ExitCodeConflict)
+		} else if isPermissionError(err) {
+			writeFailure(stderr, failureOutput{
+				Stage:      "daemon",
+				ReasonCode: poc.ReasonCodeForbidden,
+				ExitCode:   poc.ExitCodeForbidden,
+				Facts: []poc.Fact{
+					{Message: "permission denied probing user localapi: " + userAddr.String()},
+				},
+				Suggestions: []poc.Suggestion{
+					{Message: "check pipe permissions and retry"},
+				},
+			})
+			return int(poc.ExitCodeForbidden)
 		}
 	}
 
-	addr := systemAddr
+	addr := userAddr
 	if override != "" {
 		addr = overrideAddr
+	} else if mode == localapi.ListenModeSystem {
+		addr = systemAddr
 	}
 
-	ln, err := localapi.Listen(addr, localapi.ListenModeSystem)
+	ln, err := localapi.Listen(addr, mode)
 	if err != nil {
 		writeFailure(stderr, failureOutput{
 			Stage:      "daemon",
@@ -322,7 +339,7 @@ func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, st
 		defer func() { _ = panelLn.Close() }()
 	}
 
-	api := localapi.NewServer(localapi.ListenModeSystem, mgr)
+	api := localapi.NewServer(mode, mgr)
 	httpServer := &http.Server{
 		Handler: api.Handler(),
 	}
@@ -342,7 +359,7 @@ func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, st
 		_ = pocacceptor.Run(ctx, pocacceptor.Config{StatePath: upOpt.StatePath})
 	}()
 
-	fmt.Fprintf(stderr, "miopunch up: serving LocalAPI (system) at %s\n", addr.String())
+	fmt.Fprintf(stderr, "miopunch up: serving LocalAPI (%s) at %s\n", mode, addr.String())
 	if panel != nil {
 		fmt.Fprintf(stderr, "miopunch up: serving HTTP panel at %s/\n", panel.Origin())
 	}

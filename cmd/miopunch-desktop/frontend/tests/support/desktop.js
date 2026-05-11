@@ -123,8 +123,110 @@ function fixtureData(name = "owner") {
         reason_code: "daemon_not_running",
         exit_code: 70,
         message: "LocalAPI is not reachable",
-        suggestions: [{ message: "Start the miopunch service, then refresh" }],
+        suggestions: [{ message: "retry desktop connection" }],
         facts: [{ message: "ui test fixture simulates a disconnected daemon" }],
+      },
+    };
+  }
+  if (name === "session-connected") {
+    return {
+      connected: true,
+      selected: "user",
+      addr: "unix:/tmp/miopunch-session.sock",
+      desktop_managed: false,
+      bootstrap_state: "none",
+      topology: ownerTopology(),
+      diagnostics: [{ message: "selected_endpoint=user" }],
+    };
+  }
+  if (name === "bootstrapping") {
+    return {
+      connected: false,
+      selected: "user",
+      addr: "unix:/tmp/miopunch-session.sock",
+      desktop_managed: true,
+      bootstrap_state: "starting",
+      topology: emptyTopology(),
+      diagnostics: [{ message: "bootstrap_stage=wait_ready" }],
+      bootstrap: {
+        attempted: true,
+        stage: "wait_ready",
+        daemon_path: "/tmp/miopunch",
+        pid: 4242,
+      },
+    };
+  }
+  if (name === "desktop-managed") {
+    return {
+      connected: true,
+      selected: "user",
+      addr: "unix:/tmp/miopunch-session.sock",
+      desktop_managed: true,
+      bootstrap_state: "ready",
+      topology: ownerTopology(),
+      diagnostics: [{ message: "selected_endpoint=user" }],
+      bootstrap: {
+        attempted: true,
+        stage: "ready",
+        daemon_path: "/tmp/miopunch",
+        pid: 4242,
+        stderr: "miopunch up: serving LocalAPI (user)",
+      },
+    };
+  }
+  if (name === "reused-daemon") {
+    return {
+      connected: true,
+      selected: "user",
+      addr: "unix:/tmp/miopunch-session.sock",
+      desktop_managed: false,
+      bootstrap_state: "none",
+      topology: ownerTopology(),
+      diagnostics: [{ message: "selected_endpoint=user" }],
+    };
+  }
+  if (name === "bootstrap-failure") {
+    return {
+      connected: false,
+      selected: "",
+      topology: emptyTopology(),
+      bootstrap_state: "failed",
+      bootstrap: {
+        attempted: true,
+        stage: "timeout",
+        daemon_path: "/tmp/miopunch",
+        stderr: "permission denied",
+        error: "timed out waiting for LocalAPI",
+      },
+      failure: {
+        stage: "desktop",
+        reason_code: "unavailable",
+        exit_code: 70,
+        message: "same-user session daemon bootstrap failed",
+        suggestions: [
+          { message: "retry desktop connection" },
+          { message: "check that ./miopunch is next to ./miopunch-desktop and executable" },
+          { message: "export runtime diagnostics" },
+        ],
+        facts: [
+          { message: "bootstrap_stage=timeout" },
+          { message: "error=timed out waiting for LocalAPI" },
+        ],
+      },
+    };
+  }
+  if (name === "reconnect-on-refresh") {
+    return {
+      connected: false,
+      reconnect_after_connects: 2,
+      topology: ownerTopology(),
+      failure: {
+        stage: "desktop",
+        reason_code: "daemon_not_running",
+        exit_code: 70,
+        message: "LocalAPI is not reachable",
+        suggestions: [{ message: "retry desktop connection" }],
+        facts: [{ message: "ui test fixture simulates reconnect on refresh" }],
       },
     };
   }
@@ -157,13 +259,18 @@ async function installFakeBridge(page, options = {}) {
       ? topology.members.map((m) => ({ peer_id: m.peer_id }))
       : [];
     let taskSeq = 1;
+    let connectSeq = 0;
     const tasks = new Map((init.initialTasks || []).map((task) => [String(task.task_id || ""), task]));
     let connection = {
       connected: !!init.fixture.connected,
-      selected: init.fixture.connected ? "system" : "",
-      addr: init.fixture.connected ? "unix:/tmp/miopunch-ui-test.sock" : "",
+      selected: init.fixture.selected || (init.fixture.connected ? "user" : ""),
+      addr: init.fixture.addr || (init.fixture.connected ? "unix:/tmp/miopunch-ui-test.sock" : ""),
       system_addr: "unix:/run/miopunch/localapi.sock",
       user_addr: "unix:/tmp/miopunch-user.sock",
+      bootstrap_state: init.fixture.bootstrap_state || "none",
+      desktop_managed: !!init.fixture.desktop_managed,
+      diagnostics: init.fixture.diagnostics || [],
+      bootstrap: init.fixture.bootstrap || null,
       failure: init.fixture.failure || null,
     };
 
@@ -321,6 +428,21 @@ async function installFakeBridge(page, options = {}) {
         App: {
           Connect: async () => {
             record({ method: "Connect" });
+            connectSeq += 1;
+            if (
+              init.fixture.reconnect_after_connects &&
+              connectSeq >= init.fixture.reconnect_after_connects
+            ) {
+              connection = {
+                ...connection,
+                connected: true,
+                selected: "user",
+                addr: connection.user_addr,
+                bootstrap_state: "ready",
+                desktop_managed: true,
+                failure: null,
+              };
+            }
             return connection;
           },
           GetStatus: async () => {
@@ -382,8 +504,11 @@ async function installFakeBridge(page, options = {}) {
           },
           ClearLocalAPIOverride: async () => {
             record({ method: "ClearLocalAPIOverride" });
-            connection = { ...connection, connected: true, selected: "system", addr: connection.system_addr, override_addr: "" };
+            connection = { ...connection, connected: true, selected: "user", addr: connection.user_addr, override_addr: "" };
             return connection;
+          },
+          Quit: async () => {
+            record({ method: "Quit" });
           },
           TerminalBridgeInfo: async () => {
             record({ method: "TerminalBridgeInfo" });

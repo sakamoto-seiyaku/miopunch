@@ -71,11 +71,14 @@ func (a *App) Connect() desktopbridge.ConnectionState {
 	override := a.overrideAddr
 	a.mu.Unlock()
 
-	client, selectedAddr, state := desktopbridge.Connect(ctx, override)
+	client, selectedAddr, state, managedDaemon := desktopbridge.Connect(ctx, override)
 
 	a.mu.Lock()
 	a.client = client
 	a.selectedAddr = selectedAddr
+	if managedDaemon != nil {
+		a.managedDaemon = managedDaemon
+	}
 	a.connState = state
 	a.mu.Unlock()
 
@@ -283,6 +286,21 @@ func (a *App) localAPIClient() (*localapi.Client, *desktopbridge.BridgeError) {
 			{Message: "retry connection"},
 		},
 	}
+}
+
+func (a *App) stopManagedDaemon() {
+	a.mu.Lock()
+	managedDaemon := a.managedDaemon
+	a.managedDaemon = nil
+	a.mu.Unlock()
+
+	if managedDaemon == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_ = managedDaemon.Stop(ctx)
 }
 
 func bridgeErrorFromErr(err error) *desktopbridge.BridgeError {

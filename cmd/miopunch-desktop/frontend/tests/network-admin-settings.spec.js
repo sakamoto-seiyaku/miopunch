@@ -123,8 +123,32 @@ test("Settings Diagnostics renders disconnected LocalAPI guidance", async ({ pag
   await openDesktop(page, { fixture: "disconnected", path: "/?tab=settings&section=diagnostics" });
 
   await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
-  await expect(page.getByText("Start the miopunch service, then refresh")).toBeVisible();
+  await expect(page.getByText("retry desktop connection")).toBeVisible();
   await expect(page.getByText("reason_code=daemon_not_running")).toBeVisible();
+});
+
+test("Settings Diagnostics renders desktop-managed session bootstrap facts", async ({ page }) => {
+  await openDesktop(page, { fixture: "desktop-managed", path: "/?tab=settings&section=diagnostics" });
+
+  await expect(page.getByText("desktop_managed=desktop-managed")).toBeVisible();
+  await expect(page.getByText("bootstrap_state=ready")).toBeVisible();
+  await expect(page.getByText("bootstrap_stage=ready")).toBeVisible();
+});
+
+test("Settings Diagnostics renders bootstrap failure guidance", async ({ page }) => {
+  await openDesktop(page, { fixture: "bootstrap-failure", path: "/?tab=settings&section=diagnostics" });
+
+  await expect(page.getByText("same-user session daemon bootstrap failed")).toBeVisible();
+  await expect(page.getByText("check that ./miopunch is next to ./miopunch-desktop and executable")).toBeVisible();
+  await expect(page.getByText("bootstrap_state=failed")).toBeVisible();
+});
+
+test("Settings explicit Quit calls bridge method", async ({ page }) => {
+  await openDesktop(page, { path: "/?tab=settings" });
+
+  await page.getByRole("button", { name: "Quit" }).click();
+
+  await expect.poll(() => calls(page)).toContainEqual({ method: "Quit" });
 });
 
 test("Refresh triggers a new snapshot load", async ({ page }) => {
@@ -133,4 +157,13 @@ test("Refresh triggers a new snapshot load", async ({ page }) => {
   await page.getByRole("button", { name: "Refresh" }).click();
 
   await expect.poll(async () => (await calls(page)).filter((call) => call.method === "GetStatus").length).toBeGreaterThan(1);
+});
+
+test("Refresh reconnects before loading snapshot when bridge is disconnected", async ({ page }) => {
+  await openDesktop(page, { fixture: "reconnect-on-refresh" });
+
+  await page.getByRole("button", { name: "Refresh" }).click();
+
+  await expect.poll(async () => (await calls(page)).filter((call) => call.method === "Connect").length).toBeGreaterThan(1);
+  await expect.poll(async () => (await calls(page)).filter((call) => call.method === "GetStatus").length).toBeGreaterThan(0);
 });

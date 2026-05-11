@@ -17,10 +17,11 @@ type App struct {
 
 	ctx context.Context
 
-	overrideAddr string
-	client       *localapi.Client
-	selectedAddr localapi.Addr
-	connState    desktopbridge.ConnectionState
+	overrideAddr  string
+	client        *localapi.Client
+	selectedAddr  localapi.Addr
+	connState     desktopbridge.ConnectionState
+	managedDaemon *desktopbridge.ManagedDaemon
 
 	eventsCancel context.CancelFunc
 	eventsDone   chan struct{}
@@ -49,4 +50,27 @@ func (a *App) startup(ctx context.Context) {
 func (a *App) shutdown(context.Context) {
 	a.stopEventsPump()
 	a.closeTerminalBridge()
+	a.stopManagedDaemon()
+}
+
+func (a *App) restoreWindow() {
+	a.mu.Lock()
+	ctx := a.ctx
+	a.mu.Unlock()
+	if ctx == nil {
+		return
+	}
+
+	runtime.WindowShow(ctx)
+	runtime.WindowUnminimise(ctx)
+}
+
+func (a *App) Quit() {
+	a.mu.Lock()
+	ctx := a.ctx
+	a.mu.Unlock()
+	if ctx == nil {
+		return
+	}
+	runtime.Quit(ctx)
 }
