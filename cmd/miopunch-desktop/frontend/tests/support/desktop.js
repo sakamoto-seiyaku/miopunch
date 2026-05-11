@@ -114,6 +114,35 @@ function emptyTopology() {
 function fixtureData(name = "owner") {
   if (name === "member") return { connected: true, topology: memberTopology() };
   if (name === "empty") return { connected: true, topology: emptyTopology() };
+  if (name === "selected-inactive") {
+    const top = ownerTopology();
+    top.neighbors.selected = [
+      ...top.neighbors.selected,
+      { peer_id: PEERS.traveler, role: "member", bucket: "hard", reason: "hard bucket coverage", dialable: true },
+    ];
+    top.neighbors.failures = [
+      {
+        peer_id: PEERS.traveler,
+        bucket: "hard",
+        stage: "peer_contact",
+        reason_code: "UNAVAILABLE",
+        retry_budget: 0,
+        stop_condition: "dial_failed",
+      },
+    ];
+    top.attempts = [
+      {
+        peer_id: PEERS.traveler,
+        attempt_path: "ping",
+        data_proto: "quic",
+        outcome: "fail",
+        stage: "peer_contact",
+        reason_code: "UNAVAILABLE",
+        stop_condition: "dial_failed",
+      },
+    ];
+    return { connected: true, topology: top };
+  }
   if (name === "disconnected") {
     return {
       connected: false,

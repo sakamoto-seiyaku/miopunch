@@ -113,6 +113,37 @@ test("Access invite flow renders code from runtime fact event", async ({ page })
   await expect(page.getByRole("button", { name: "Copy" })).toBeEnabled();
 });
 
+test("Access invite flow renders code from runtime task snapshot", async ({ page }) => {
+  await openAccessFlow(page, "invite", { inviteCodeDelivery: "event" });
+
+  await page.getByRole("button", { name: "Create" }).click();
+  await emitRuntime(page, "localapi:event", {
+    task_id: "ui-invite-001",
+    kind: "done",
+    reason_code: "OK",
+    exit_code: 0,
+    task: {
+      task_id: "ui-invite-001",
+      kind: "invite",
+      status: "done",
+      stage: "invite code ready",
+      reason_code: "OK",
+      exit_code: 0,
+      report_ready: true,
+      created_at: new Date().toISOString(),
+      facts: [
+        { term_id: "peer_id", message: "peer_id=peer-ui-test-owner" },
+        { term_id: "invite_code", message: inviteCode },
+      ],
+      suggestions: [{ message: "on another machine: miopunch join <invite_code>" }],
+    },
+  });
+
+  await expect(page.locator("#invite-code")).toHaveValue(inviteCode);
+  await expect(page.locator("#invite-hint")).not.toContainText("no invite code");
+  await expect(page.getByRole("button", { name: "Copy" })).toBeEnabled();
+});
+
 test("Access invite Create shows a diagnostic when task completes without code", async ({ page }) => {
   await openAccessFlow(page, "invite", { inviteCodeDelivery: "missing" });
 
@@ -168,6 +199,33 @@ test("Access hides admin-only flows for member role", async ({ page }) => {
   await expect(page.getByRole("button", { name: /Join network/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Create invite/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Approve request/ })).toHaveCount(0);
+});
+
+test("Access shows setup flows for first-run empty node", async ({ page }) => {
+  await openDesktop(page, { fixture: "empty", path: "/?tab=access" });
+
+  await expect(page.locator(".page-title")).toHaveText("Access");
+  await expect(page.locator('.grid [data-open-flow="join"]')).toBeVisible();
+  await expect(page.locator('.grid [data-open-flow="invite"]')).toBeVisible();
+  await expect(page.locator('.grid [data-open-flow="approve"]')).toBeVisible();
+});
+
+test("Access first-run invite Create calls bridge with object args", async ({ page }) => {
+  await openAccessFlow(page, "invite", { fixture: "empty" });
+
+  await page.getByRole("button", { name: "Create" }).click();
+
+  await expect(page.locator("#invite-code")).toHaveValue(inviteCode);
+  await expectCreateTaskCall(page, "invite", {});
+});
+
+test("Admin is available for first-run empty node", async ({ page }) => {
+  await openDesktop(page, { fixture: "empty", path: "/?tab=admin" });
+
+  await expect(page.getByRole("button", { name: "Admin", exact: true })).toBeVisible();
+  await expect(page.locator(".page-title")).toHaveText("Governance");
+  await expect(page.locator(".row-meta", { hasText: "peer-new-node-0000" })).toBeVisible();
+  await expect(page.getByText("owner", { exact: true }).first()).toBeVisible();
 });
 
 test("Access invite Create is disabled when the desktop bridge is disconnected", async ({ page }) => {

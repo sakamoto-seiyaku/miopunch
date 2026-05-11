@@ -56,13 +56,31 @@ test("member role cannot open the Admin primary tab", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Device network" })).toBeVisible();
 });
 
-test("empty network fixture renders no-network overview and hides admin controls", async ({ page }) => {
+test("selected inactive peer renders as target with recent failure evidence", async ({ page }) => {
+  await openDesktop(page, { fixture: "selected-inactive" });
+
+  const travelerTile = page.locator(`[data-open-peer="${PEERS.traveler}"]`).last();
+  const statusChip = travelerTile.locator(".chip").last();
+  await expect(statusChip).toHaveText("target");
+  await expect(statusChip).toHaveClass(/chip-muted/);
+  await expect(statusChip).not.toHaveClass(/chip-running/);
+
+  await travelerTile.click();
+  const peerDetails = page.locator(".detail-table").first();
+  await expect(peerDetails).toContainText("target");
+  await expect(peerDetails).toContainText("target candidate");
+  await expect(peerDetails).toContainText("stage=peer_contact");
+  await expect(peerDetails).toContainText("reason=UNAVAILABLE");
+  await expect(peerDetails).toContainText("stop=dial_failed");
+});
+
+test("empty network fixture renders first-run setup with admin controls", async ({ page }) => {
   await openDesktop(page, { fixture: "empty" });
 
   await expect(page.getByRole("heading", { name: "Device network" })).toBeVisible();
   await expect(page.locator(".tile-title", { hasText: "peer-new-node-0000" })).toBeVisible();
   await expect(page.getByText("Not joined").first()).toBeVisible();
-  await expect(page.locator("[data-admin-nav]")).toBeHidden();
+  await expect(page.locator("[data-admin-nav]")).toBeVisible();
 });
 
 test("owner Admin deep link lands on Admin after topology snapshot", async ({ page }) => {

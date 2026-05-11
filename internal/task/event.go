@@ -8,6 +8,12 @@ import (
 
 // Event is an SSE-friendly JSON event body.
 // The LocalAPI SSE endpoints stream these JSON objects as `data: <json>`.
+//
+// Task update events are coalesced state notifications, not a lossless event
+// log. A slow subscriber may miss intermediate stage/fact/diagnosis events, so
+// update events include the current Task snapshot when available. Clients that
+// need reliable final task output should merge Event.Task or fetch the task by
+// ID after observing completion.
 type Event struct {
 	Kind string `json:"kind"`
 

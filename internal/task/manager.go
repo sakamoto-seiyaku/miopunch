@@ -295,6 +295,7 @@ func (m *Manager) CreateAndRun(req CreateRequest) (Task, error) {
 	if req.Kind == "sh_attach" {
 		m.attachByTask[t.ID] = &attachState{wsCh: make(chan *websocket.Conn, 1)}
 	}
+	snapshot := t.Clone()
 	m.mu.Unlock()
 
 	// Emit an initial stage event.
@@ -302,6 +303,7 @@ func (m *Manager) CreateAndRun(req CreateRequest) (Task, error) {
 		Kind:       "stage",
 		TimeUnixMs: time.Now().UTC().UnixMilli(),
 		TaskID:     t.ID,
+		Task:       &snapshot,
 		Stage:      t.Stage,
 		Message:    "started",
 	})
@@ -379,53 +381,84 @@ func (m *Manager) setStage(taskID string, stage poc.Stage, message string) {
 		stage = poc.StageControlPlaneReady
 	}
 
+	kind := ""
+	var snapshot *Task
 	m.mu.Lock()
 	t, ok := m.tasks[taskID]
 	if ok {
+		kind = t.Kind
 		t.Stage = stage
 		t.Timeline = append(t.Timeline, TimelineEntry{
 			At:      time.Now().UTC(),
 			Stage:   stage,
 			Message: message,
 		})
+		snapshot = cloneTaskForEvent(t)
 	}
 	m.mu.Unlock()
+
+	if ok {
+		logTaskStage(taskID, kind, stage, message)
+	}
 
 	m.publish(Event{
 		Kind:       "stage",
 		TimeUnixMs: time.Now().UTC().UnixMilli(),
 		TaskID:     taskID,
+		Task:       snapshot,
 		Stage:      stage,
 		Message:    message,
 	})
 }
 
 func (m *Manager) addFact(taskID string, fact poc.Fact) {
+	kind := ""
+	ok := false
+	var snapshot *Task
 	m.mu.Lock()
-	if t, ok := m.tasks[taskID]; ok {
+	if t, found := m.tasks[taskID]; found {
+		kind = t.Kind
+		ok = true
 		t.Facts = append(t.Facts, fact)
+		snapshot = cloneTaskForEvent(t)
 	}
 	m.mu.Unlock()
+
+	if ok {
+		logTaskFact(taskID, kind, fact)
+	}
 
 	m.publish(Event{
 		Kind:       "fact",
 		TimeUnixMs: time.Now().UTC().UnixMilli(),
 		TaskID:     taskID,
+		Task:       snapshot,
 		Fact:       &fact,
 	})
 }
 
 func (m *Manager) addSuggestion(taskID string, suggestion poc.Suggestion) {
+	kind := ""
+	ok := false
+	var snapshot *Task
 	m.mu.Lock()
-	if t, ok := m.tasks[taskID]; ok {
+	if t, found := m.tasks[taskID]; found {
+		kind = t.Kind
+		ok = true
 		t.Suggestions = append(t.Suggestions, suggestion)
+		snapshot = cloneTaskForEvent(t)
 	}
 	m.mu.Unlock()
+
+	if ok {
+		logTaskSuggestion(taskID, kind, suggestion)
+	}
 
 	m.publish(Event{
 		Kind:       "diagnosis",
 		TimeUnixMs: time.Now().UTC().UnixMilli(),
 		TaskID:     taskID,
+		Task:       snapshot,
 		Suggestion: &suggestion,
 	})
 }
@@ -433,10 +466,13 @@ func (m *Manager) addSuggestion(taskID string, suggestion poc.Suggestion) {
 func (m *Manager) done(taskID string, reasonCode poc.ReasonCode, exitCode poc.ExitCode) {
 	var report string
 	var reportReady bool
+	kind := ""
+	var snapshot *Task
 
 	m.mu.Lock()
 	t, ok := m.tasks[taskID]
 	if ok {
+		kind = t.Kind
 		t.Status = StatusDone
 		t.ReasonCode = reasonCode
 		t.ExitCode = exitCode
@@ -444,6 +480,7 @@ func (m *Manager) done(taskID string, reasonCode poc.ReasonCode, exitCode poc.Ex
 		t.Report = report
 		t.ReportReady = true
 		reportReady = true
+		snapshot = cloneTaskForEvent(t)
 	}
 	delete(m.attachByTask, taskID)
 	m.mu.Unlock()
@@ -456,21 +493,36 @@ func (m *Manager) done(taskID string, reasonCode poc.ReasonCode, exitCode poc.Ex
 			m.mu.Lock()
 			if t, ok := m.tasks[taskID]; ok {
 				t.Report = buildReportMarkdown(t.Clone())
+				snapshot = cloneTaskForEvent(t)
 			}
 			m.mu.Unlock()
 		}
+	}
+
+	if ok {
+		logTaskDone(taskID, kind, reasonCode, exitCode)
 	}
 
 	m.publish(Event{
 		Kind:       "report_ready",
 		TimeUnixMs: time.Now().UTC().UnixMilli(),
 		TaskID:     taskID,
+		Task:       snapshot,
 	})
 	m.publish(Event{
 		Kind:       "done",
 		TimeUnixMs: time.Now().UTC().UnixMilli(),
 		TaskID:     taskID,
+		Task:       snapshot,
 		ReasonCode: reasonCode,
 		ExitCode:   exitCode,
 	})
+}
+
+func cloneTaskForEvent(t *Task) *Task {
+	if t == nil {
+		return nil
+	}
+	snapshot := t.Clone()
+	return &snapshot
 }

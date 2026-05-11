@@ -324,9 +324,24 @@
 
   const self = () => (state.topology && state.topology.self ? state.topology.self : {});
   const selfRole = () => String(self().role || "unknown").toLowerCase();
-  const roleKnown = () => !!(state.topology && state.topology.self && state.topology.self.role);
+  const hasText = (value) => String(value || "").trim() !== "";
+  const isFirstRunUninitialized = () => {
+    if (!state.topology || (!state.previewMode && !(lastConn && lastConn.connected))) return false;
+    const top = state.topology;
+    const role = String(top.self && top.self.role || "").toLowerCase();
+    const netID = top.net && top.net.net_id;
+    const stateHead = top.state_head || {};
+    const memberList = Array.isArray(top.members) ? top.members : [];
+    return (!role || role === "unknown")
+      && !hasText(netID)
+      && !hasText(stateHead.governance_head_b64)
+      && !hasText(stateHead.decls_head_b64)
+      && memberList.length === 0;
+  };
+  const effectiveSelfRole = () => isFirstRunUninitialized() ? "owner" : selfRole();
+  const roleKnown = () => !!(state.topology && state.topology.self && effectiveSelfRole());
   const isAdminRole = (role) => ["owner", "admin"].includes(String(role || "").toLowerCase());
-  const adminVisible = () => isAdminRole(selfRole());
+  const adminVisible = () => isAdminRole(effectiveSelfRole());
 
   const members = () => {
     const top = state.topology || {};
@@ -335,7 +350,7 @@
     if (selfPeerID && !list.some((m) => m.peer_id === selfPeerID)) {
       list.unshift({
         peer_id: selfPeerID,
-        role: self().role || "unknown",
+        role: effectiveSelfRole(),
         v4_hint: self().v4_hint || "",
         v6_hint: self().v6_hint || "",
       });
@@ -359,12 +374,46 @@
     return selected.find((n) => String(n.peer_id || "") === String(peerID || "")) || null;
   };
 
+  const recentPeerFailure = (peerID) => {
+    const id = String(peerID || "");
+    if (!id) return null;
+    const top = state.topology || {};
+    const failures = top.neighbors && Array.isArray(top.neighbors.failures)
+      ? top.neighbors.failures
+      : [];
+    for (let i = failures.length - 1; i >= 0; i -= 1) {
+      const failure = failures[i];
+      if (failure && String(failure.peer_id || "") === id) return failure;
+    }
+    const attempts = Array.isArray(top.attempts) ? top.attempts : [];
+    for (let i = attempts.length - 1; i >= 0; i -= 1) {
+      const attempt = attempts[i];
+      if (!attempt || String(attempt.peer_id || "") !== id) continue;
+      const outcome = String(attempt.outcome || "").toLowerCase();
+      if ((outcome && outcome !== "ok") || hasText(attempt.reason_code) || hasText(attempt.stop_condition)) {
+        return attempt;
+      }
+    }
+    return null;
+  };
+
+  const failureSummary = (failure) => {
+    if (!failure) return "-";
+    const parts = [];
+    if (hasText(failure.stage)) parts.push(`stage=${failure.stage}`);
+    if (hasText(failure.reason_code)) parts.push(`reason=${failure.reason_code}`);
+    if (hasText(failure.stop_condition)) parts.push(`stop=${failure.stop_condition}`);
+    if (hasText(failure.outcome)) parts.push(`outcome=${failure.outcome}`);
+    if (hasText(failure.bucket)) parts.push(`bucket=${failure.bucket}`);
+    return parts.length ? parts.join(" | ") : "-";
+  };
+
   const statusForMember = (mem) => {
     if (!mem) return { label: "none", cls: "chip-muted" };
     if (mem.revoked) return { label: "revoked", cls: "chip-revoked" };
     if (String(mem.peer_id || "") === String(self().peer_id || "")) return { label: "this node", cls: "chip-role" };
     if (activeNeighbor(mem.peer_id)) return { label: "active", cls: "chip-active" };
-    if (selectedNeighbor(mem.peer_id)) return { label: "selected", cls: "chip-running" };
+    if (selectedNeighbor(mem.peer_id)) return { label: "target", cls: "chip-muted" };
     return { label: "known", cls: "chip-muted" };
   };
 
@@ -465,19 +514,29 @@
   const handleGlobalEvent = (ev) => {
     const kind = String(ev.kind || "");
     if (kind === "snapshot") {
-      const tasks = Array.isArray(ev.tasks) ? ev.tasks : [];
-      const nextTasks = new Map();
-      for (const t of tasks) {
-        const taskID = canonicalTaskID(t.task_id);
-        if (!taskID) continue;
-        nextTasks.set(taskID, mergeTask(state.tasks.get(taskID), t));
+      if (Array.isArray(ev.tasks)) {
+        const nextTasks = new Map();
+        for (const t of ev.tasks) {
+          const taskID = canonicalTaskID(t.task_id);
+          if (!taskID) continue;
+          nextTasks.set(taskID, mergeTask(state.tasks.get(taskID), t));
+        }
+        state.tasks = nextTasks;
       }
-      state.tasks = nextTasks;
+      if (ev.task) {
+        const taskID = canonicalTaskID(ev.task.task_id || ev.task_id);
+        if (taskID) upsertTask({ ...ev.task, task_id: taskID });
+      }
       scheduleRender();
       return;
     }
     const taskID = canonicalTaskID(ev.task_id);
     if (!taskID) return;
+    if (ev.task) {
+      upsertTask({ ...ev.task, task_id: canonicalTaskID(ev.task.task_id) || taskID });
+      scheduleRender();
+      return;
+    }
     let taskObj = state.tasks.get(taskID);
     if (!taskObj) {
       taskObj = { task_id: taskID, kind: "", status: "running", stage: "", facts: [], suggestions: [] };
@@ -736,6 +795,8 @@
     const status = statusForMember(selected);
     const neighbor = selected ? activeNeighbor(selected.peer_id) : null;
     const selectedEdge = selected ? selectedNeighbor(selected.peer_id) : null;
+    const selectedInactive = !!(selectedEdge && !neighbor);
+    const recentFailure = selectedInactive ? recentPeerFailure(peerID) : null;
     const selfPeerID = String(self().peer_id || "");
     const isRemote = !!(selected && selected.peer_id && selected.peer_id !== selfPeerID);
     const canOperate = !!(selected && selected.peer_id && isRemote && !selected.revoked && (state.previewMode || lastConn && lastConn.connected));
@@ -780,11 +841,13 @@
             <div class="detail-table">
               ${detailRowHTML("Peer ID", peerID)}
               ${detailRowHTML("Status", status.label)}
+              ${detailRowHTML("Connection", neighbor ? "active edge" : selectedInactive ? "target candidate" : "-")}
               ${detailRowHTML("Role", role)}
               ${detailRowHTML("IPv4", selected.v4_hint || "-")}
               ${detailRowHTML("IPv6", selected.v6_hint || "-")}
               ${detailRowHTML("Path", neighbor ? `${neighbor.data_proto || "-"} / ${neighbor.path_family || "-"}` : "-")}
-              ${detailRowHTML("Selection", selectedEdge ? selectedEdge.reason || selectedEdge.bucket || "selected" : "-")}
+              ${detailRowHTML("Selection", selectedEdge ? selectedEdge.reason || selectedEdge.bucket || "target" : "-")}
+              ${recentFailure ? detailRowHTML("Recent failure", failureSummary(recentFailure)) : ""}
             </div>
           </div>
           <div class="grid">
