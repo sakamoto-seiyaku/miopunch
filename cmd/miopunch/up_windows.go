@@ -25,6 +25,7 @@ import (
 
 func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int {
 	_ = stdout
+	initDaemonLogger()
 
 	operatorSID, rest, err := parseOperatorSID(args)
 	if err != nil {
@@ -60,6 +61,12 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 	if strings.TrimSpace(globalOpt.LocalAPIOverride) != "" {
 		upOpt.LocalAPIOverride = strings.TrimSpace(globalOpt.LocalAPIOverride)
 	}
+	upOpt, err = applySessionStatePath(upOpt)
+	if err != nil {
+		writeFailure(stderr, sessionStatePathFailure(err))
+		return int(poc.ExitCodeUnavailable)
+	}
+	logDaemonStatePath(upOpt.StatePath)
 	if strings.TrimSpace(operatorSID) == "" {
 		operatorSID, err = poc.CurrentOperatorSID()
 		if err != nil {

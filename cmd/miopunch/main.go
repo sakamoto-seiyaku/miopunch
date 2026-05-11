@@ -161,6 +161,7 @@ Commands (POC, work in progress):
 Command flags:
   up --http_panel                    Enable loopback-only HTTP panel UI (MD3)
   up --http_panel_listen_addr <addr> HTTP panel listen address (default: 127.0.0.1:27400; host must be 127.0.0.1)
+  up --session                       Use portable session mode with ./data/state.json by default
   up --state_path <path>             Override daemon state path (lab/testing)
 
 Help:

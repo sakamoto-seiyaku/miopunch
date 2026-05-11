@@ -36,10 +36,36 @@ write_session_smoke_readme() {
       cat >"${dst}/SMOKE.md" <<EOF
 # miopunch Windows Session Smoke
 
-1. Extract this zip as a normal user.
+## Launch
+
+1. Extract this zip into a writable directory as a normal user.
 2. Run .\\miopunch-desktop.exe from the extracted directory.
-3. Verify the GUI starts or reuses sibling .\\miopunch.exe and connects to LocalAPI.
-4. Run the core desktop task flow.
+3. Verify Settings > Diagnostics shows a connected LocalAPI endpoint.
+4. If you want to start the daemon manually first, run .\\miopunch.exe up --session, then open .\\miopunch-desktop.exe.
+
+## Logs
+
+- GUI log: .\\logs\\miopunch-desktop.log
+- Daemon log: .\\logs\\miopunch.log
+
+## Data
+
+- Portable state: .\\data\\state.json
+- Derived state: .\\data\\net.json, .\\data\\identity\\, .\\data\\decls\\, .\\data\\bootstrap\\, .\\data\\reports\\
+
+Delete .\\data\\ to reset this extracted bundle to a clean node before a new smoke run.
+
+If startup fails, send both log files with the terminal output.
+
+## Two-machine smoke
+
+1. Start the GUI on both machines and verify both are connected locally.
+2. On the first/admin machine, open Access > Create invite, click Create, then copy the invite code.
+3. On the first/admin machine, open Access > Approve request, paste the same code, and click Start approval. Keep it running.
+4. On the second machine, open Access > Join network, paste the invite code, and click Join.
+5. After join and approval complete, click Refresh on both machines and verify each side can see the other peer in Network.
+6. Open the remote peer, click Ping, and verify the task reaches payload exchanged.
+7. Open the remote peer, click List sessions, then Shell > Connect, and verify the terminal attaches.
 
 No installer, Administrator prompt, or system service install is required for this session smoke.
 EOF
@@ -48,10 +74,41 @@ EOF
       cat >"${dst}/SMOKE.md" <<EOF
 # miopunch Linux Session Smoke
 
-1. Extract this tarball as a normal user.
+## Launch
+
+1. Extract this tarball into a writable directory as a normal user.
 2. Run ./miopunch-desktop from the extracted directory.
-3. Verify the GUI starts or reuses sibling ./miopunch and connects to LocalAPI.
-4. Run the core desktop task flow.
+3. Verify Settings > Diagnostics shows a connected LocalAPI endpoint.
+4. If you want to start the daemon manually first, run ./miopunch up --session, then open ./miopunch-desktop.
+
+## Logs
+
+- GUI log: ./logs/miopunch-desktop.log
+- Daemon log: ./logs/miopunch.log
+
+## Data
+
+- Portable state: ./data/state.json
+- Derived state: ./data/net.json, ./data/identity/, ./data/decls/, ./data/bootstrap/, ./data/reports/
+
+Delete ./data/ to reset this extracted bundle to a clean node before a new smoke run.
+
+If startup fails with GTK/display guidance:
+
+- Run from a local graphical desktop session, not a headless SSH shell.
+- Check: echo "\$DISPLAY \$WAYLAND_DISPLAY"
+- Check missing shared libraries: ldd ./miopunch-desktop | grep 'not found'
+- Send ./logs/miopunch-desktop.log with the terminal output.
+
+## Two-machine smoke
+
+1. Start the GUI on both machines and verify both are connected locally.
+2. On the first/admin machine, open Access > Create invite, click Create, then copy the invite code.
+3. On the first/admin machine, open Access > Approve request, paste the same code, and click Start approval. Keep it running.
+4. On the second machine, open Access > Join network, paste the invite code, and click Join.
+5. After join and approval complete, click Refresh on both machines and verify each side can see the other peer in Network.
+6. Open the remote peer, click Ping, and verify the task reaches payload exchanged.
+7. Open the remote peer, click List sessions, then Shell > Connect, and verify the terminal attaches.
 
 No package install, root prompt, or system service install is required for this session smoke.
 EOF
@@ -71,6 +128,8 @@ verify_session_dir() {
   test -s "${target_dir}/miopunch${ext}"
   test -s "${target_dir}/miopunch-desktop${ext}"
   test -s "${target_dir}/SMOKE.md"
+  test -d "${target_dir}/data"
+  test -d "${target_dir}/logs"
 
   if [[ "${goos}" == "linux" ]]; then
     test -x "${target_dir}/miopunch"
@@ -89,6 +148,8 @@ verify_session_archive() {
       tar -tzf "${archive}" | grep -Fx "${stem}/miopunch${ext}" >/dev/null
       tar -tzf "${archive}" | grep -Fx "${stem}/miopunch-desktop${ext}" >/dev/null
       tar -tzf "${archive}" | grep -Fx "${stem}/SMOKE.md" >/dev/null
+      tar -tzf "${archive}" | grep -Fx "${stem}/data/" >/dev/null
+      tar -tzf "${archive}" | grep -Fx "${stem}/logs/" >/dev/null
       ;;
     windows)
       command -v unzip >/dev/null 2>&1 || {
@@ -98,6 +159,8 @@ verify_session_archive() {
       unzip -Z1 "${archive}" | grep -Fx "${stem}/miopunch${ext}" >/dev/null
       unzip -Z1 "${archive}" | grep -Fx "${stem}/miopunch-desktop${ext}" >/dev/null
       unzip -Z1 "${archive}" | grep -Fx "${stem}/SMOKE.md" >/dev/null
+      unzip -Z1 "${archive}" | grep -Fx "${stem}/data/" >/dev/null
+      unzip -Z1 "${archive}" | grep -Fx "${stem}/logs/" >/dev/null
       ;;
     *)
       echo "unsupported session archive target: ${goos}" >&2
@@ -147,7 +210,8 @@ build_session_bundle() {
   local name="miopunch_${version}_${goos}_${goarch}_session"
   local target_dir="${build_dir}/${name}"
   rm -rf "${target_dir}"
-  mkdir -p "${target_dir}"
+  mkdir -p "${target_dir}" "${target_dir}/logs"
+  install -d -m 700 "${target_dir}/data"
 
   echo "building ${name}"
   (

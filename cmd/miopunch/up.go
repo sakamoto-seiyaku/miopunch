@@ -17,7 +17,6 @@ import (
 
 	"github.com/miopunch/miopunch/internal/http_panel"
 	"github.com/miopunch/miopunch/internal/localapi"
-	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/pocacceptor"
 	"github.com/miopunch/miopunch/internal/task"
@@ -25,7 +24,7 @@ import (
 
 func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int {
 	_ = stdout
-	logutil.InitLogger("console", "info", 0, true)
+	initDaemonLogger()
 
 	opt, _, err := parseUpOptions(args)
 	if err != nil {
@@ -45,6 +44,12 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 	if strings.TrimSpace(globalOpt.LocalAPIOverride) != "" {
 		opt.LocalAPIOverride = strings.TrimSpace(globalOpt.LocalAPIOverride)
 	}
+	opt, err = applySessionStatePath(opt)
+	if err != nil {
+		writeFailure(stderr, sessionStatePathFailure(err))
+		return int(poc.ExitCodeUnavailable)
+	}
+	logDaemonStatePath(opt.StatePath)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

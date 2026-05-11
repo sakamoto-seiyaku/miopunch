@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/miopunch/miopunch/internal/bundlepath"
 )
 
 const daemonOutputLimit = 16 * 1024
@@ -33,7 +35,11 @@ func StartManagedDaemon(daemonPath string) (*ManagedDaemon, error) {
 
 	stdout := newLimitedBuffer(daemonOutputLimit)
 	stderr := newLimitedBuffer(daemonOutputLimit)
-	cmd := exec.Command(daemonPath, managedDaemonArgs()...)
+	args, err := managedDaemonArgs(daemonPath)
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.Command(daemonPath, args...)
 	cmd.Dir = filepath.Dir(daemonPath)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
@@ -61,8 +67,12 @@ func StartManagedDaemon(daemonPath string) (*ManagedDaemon, error) {
 	return d, nil
 }
 
-func managedDaemonArgs() []string {
-	return []string{"up", "--session"}
+func managedDaemonArgs(daemonPath string) ([]string, error) {
+	statePath, err := bundlepath.StatePathForExecutable(daemonPath)
+	if err != nil {
+		return nil, fmt.Errorf("resolve session state path: %w", err)
+	}
+	return []string{"up", "--session", "--state_path", statePath}, nil
 }
 
 // PID returns the managed daemon process ID when available.
