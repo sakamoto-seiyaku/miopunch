@@ -8,17 +8,19 @@
 
 - Keep the Access invite panel responsive while the invite task is still producing output.
 - Render the code from the existing task fact contract once it arrives through either polling or runtime events.
+- Keep final task facts available to the UI even if the runtime event bridge coalesces several rapid task updates into one latest event.
 - Add regression tests for delayed output and missing-code completion.
 
 **Non-Goals:**
 
-- Do not change invite code encoding, LocalAPI task schema, or daemon task execution.
+- Do not change invite code encoding or daemon task execution.
 - Do not parse placeholder suggestions such as `miopunch join <invite_code>` as real codes.
 - Do not expose invite codes through topology diagnostics or redacted reports.
 
 ## Decisions
 
 - Use a short UI polling loop after invite task creation. Runtime SSE events are best-effort from the desktop bridge; polling `GetTask` makes the visible result deterministic even if the event pump starts late or reconnects.
+- Include the current task snapshot on task update events. The task manager already stores the canonical facts/suggestions, and shipping the snapshot with `done` lets the UI render the real `invite_code` even if the single-slot subscription buffer drops earlier fact events under bursty task completion.
 - Prefer structured facts with `term_id: "invite_code"` before falling back to the legacy `message` string prefix. This keeps compatibility with existing task JSON while reducing accidental parsing.
 - Treat `done/OK` with no invite code as an explicit UI diagnostic. A silent empty readonly field looks like a broken button and hides an invalid backend/task state from the user.
 - Keep the QR renderer tied to the rendered code. If no code is available, the QR area remains empty and Copy stays disabled.
@@ -26,5 +28,6 @@
 ## Risks / Trade-offs
 
 - Polling adds a small number of bridge calls after invite creation. Mitigation: stop as soon as the code appears, task fails, or the wait budget expires.
+- Task events become slightly larger because they can carry a task snapshot. Mitigation: task objects are small, and this is a local daemon-to-desktop stream rather than a wide network fanout.
 - A real backend regression could still omit `invite_code`. Mitigation: the UI now surfaces that condition and tests cover it.
 - Existing tests may still overuse fake immediate success. Mitigation: add dedicated delayed and event-driven cases while keeping the existing smoke path.

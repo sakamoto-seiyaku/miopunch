@@ -5,6 +5,7 @@ Access -> Invite -> Create can finish successfully without showing the generated
 ## What Changes
 
 - Make the desktop invite flow render the generated code when it arrives after task creation through either `GetTask` or runtime task events.
+- Preserve invite facts when runtime task events are coalesced by merging the task snapshot carried on the final event.
 - Add a visible diagnostic when an invite task completes successfully but no invite code is present in the task output.
 - Expand browser tests to cover delayed invite code delivery, event-delivered invite code facts, and missing-code diagnostics.
 
@@ -22,4 +23,4 @@ None.
 
 - Desktop static frontend under `cmd/miopunch-desktop/frontend/dist`.
 - Desktop Playwright smoke tests under `cmd/miopunch-desktop/frontend/tests`.
-- No intended LocalAPI or daemon task contract change.
+- LocalAPI task event payloads from the daemon now include a current task snapshot so desktop clients can recover facts even when intermediate events are dropped.

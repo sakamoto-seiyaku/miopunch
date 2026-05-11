@@ -241,3 +241,71 @@ When expanded desktop UI tests reveal product behavior defects, the defect SHALL
 - **WHEN** a new desktop UI test exposes a product UI behavior defect that is not already explicitly in scope for fixing
 - **THEN** the issue is recorded in `openspec/changes/expand-desktop-ui-test-coverage/findings.md`
 - **AND** product UI code is not changed for that defect unless explicitly requested
+
+### Requirement: First-run desktop exposes network setup entry points
+When the desktop GUI is connected to a blank uninitialized node, it SHALL expose
+both new-network and existing-network setup paths.
+
+A blank uninitialized node is one whose topology has no net ID, no governance
+head, no decls head, no members, and a missing or `unknown` self role.
+
+The GUI MAY treat that blank first-run node as an owner candidate for UI
+visibility only. This SHALL NOT require daemon startup to create network,
+governance, or declaration state.
+This SHALL NOT imply that runtime broker state such as `brokers_effective`
+already exists before the user starts `invite/create` or completes `join`.
+
+#### Scenario: Blank node can create or join from Access
+- **WHEN** the desktop GUI loads topology for a blank uninitialized node
+- **THEN** Access shows Join network
+- **AND** Access shows Create invite
+- **AND** Access shows Approve request
+
+#### Scenario: Blank node can open Admin before network creation
+- **WHEN** the desktop GUI loads topology for a blank uninitialized node
+- **THEN** Admin navigation is available
+- **AND** the local self row is displayed as an owner candidate
+
+#### Scenario: Joined member remains restricted
+- **WHEN** the desktop GUI loads topology for a node whose self role is `member`
+- **THEN** admin-only navigation and Access flows remain hidden
+
+### Requirement: Desktop invite creation handles asynchronous task output
+The desktop GUI SHALL render the generated invite code when an invite task produces the `invite_code` fact after the initial task creation response.
+
+#### Scenario: Invite code arrives through a later task fetch
+- **WHEN** the user triggers the invite Create action and the created task initially has no `invite_code` fact
+- **AND** a later task fetch includes the `invite_code` fact
+- **THEN** the GUI renders the invite code
+- **AND** the Copy action becomes available
+- **AND** the QR code area renders a QR representation of the invite code
+
+#### Scenario: Invite code arrives through a runtime task event
+- **WHEN** the user is viewing the invite flow for a created invite task
+- **AND** a runtime task event supplies an `invite_code` fact for that task
+- **THEN** the GUI renders the invite code without requiring a manual refresh
+
+#### Scenario: Invite code arrives through a runtime task snapshot
+- **WHEN** the user is viewing the invite flow for a created invite task
+- **AND** a final runtime task event includes a task snapshot containing an `invite_code` fact
+- **THEN** the GUI renders the invite code without requiring a manual refresh
+- **AND** placeholder suggestions such as `miopunch join <invite_code>` are not treated as a usable code
+
+#### Scenario: Successful invite completion without code is visible
+- **WHEN** an invite task reaches `done` with reason `OK` but no `invite_code` fact is available
+- **THEN** the GUI shows a visible diagnostic that the invite code is missing from task output
+- **AND** the Copy action remains unavailable
+
+### Requirement: Peer status distinguishes selected targets from active connections
+The desktop GUI SHALL distinguish a peer selected as a target neighbor candidate from a peer with an active connection.
+
+The GUI SHALL reserve `active` for peers that have an active topology edge. A selected but inactive peer SHALL be labeled as a target candidate or equivalent non-connected wording, and peer detail SHALL show recent failure evidence when available.
+
+#### Scenario: Selected peer is not shown as connected
+- **WHEN** topology contains a peer in `neighbors.selected` but not in `neighbors.active`
+- **THEN** the GUI does not label that peer as active or connected
+- **AND** the peer detail indicates it is only a selected target candidate
+
+#### Scenario: Recent failure is visible for inactive selected peer
+- **WHEN** topology contains a failed attempt for a selected peer and no active edge for that peer
+- **THEN** the peer detail shows the failure stage, reason code, or stop condition when available

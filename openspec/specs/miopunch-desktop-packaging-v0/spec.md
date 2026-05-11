@@ -94,3 +94,81 @@ If WebView2 Runtime is missing and the runtime cannot be installed/bootstrapped,
 - **WHEN** the user launches `miopunch-desktop`
 - **THEN** the app shows actionable guidance to install WebView2 Runtime
 - **AND** the app exits
+
+### Requirement: Portable session bundles keep runtime data beside the bundle
+The current Windows and Linux portable/session bundles SHALL store session runtime data under a `data` directory beside the extracted bundle binaries.
+
+The default portable session state path SHALL be `data/state.json` under the extracted bundle directory. State-derived files such as `net.json`, `identity/`, `decls/`, `bootstrap/`, and task `reports/` SHALL also reside under `data/`.
+
+When `miopunch-desktop` starts the sibling daemon from a session bundle, it SHALL start it with the bundle-local session state path.
+
+When a user manually runs `miopunch up --session` from the extracted bundle and does not provide `--state_path`, the daemon SHALL use the same bundle-local session state path.
+
+An explicit `--state_path` override SHALL continue to take precedence over the portable session default.
+
+#### Scenario: Desktop-managed daemon writes data into the extracted bundle
+- **WHEN** a user launches `miopunch-desktop` from an extracted session bundle
+- **AND** the GUI starts the sibling daemon
+- **THEN** the daemon uses `<bundle>/data/state.json` as its state path
+- **AND** identity, network, peer, bootstrap, and report files are written under `<bundle>/data/`
+
+#### Scenario: Manual session daemon writes data into the extracted bundle
+- **WHEN** a user runs `miopunch up --session` from an extracted session bundle
+- **AND** no `--state_path` override is provided
+- **THEN** the daemon uses `<bundle>/data/state.json` as its state path
+
+#### Scenario: Explicit state path override is preserved
+- **WHEN** a user runs `miopunch up --session --state_path <custom-state>`
+- **THEN** the daemon uses `<custom-state>`
+- **AND** it does not replace the custom path with `<bundle>/data/state.json`
+
+#### Scenario: Session bundle smoke docs identify local data
+- **WHEN** the session bundle is built
+- **THEN** its smoke instructions identify `data/state.json`
+- **AND** they state that removing `data/` resets the portable node for a clean smoke run
+
+### Requirement: Session bundles provide local runtime diagnostics
+The current Windows and Linux portable/session bundles SHALL write runtime logs
+into a `logs` directory beside the extracted bundle binaries.
+
+The desktop GUI runtime log SHALL be written to `logs/miopunch-desktop.log`.
+
+The session daemon runtime log SHALL be written to `logs/miopunch.log` when
+`miopunch up --session` is launched directly or by `miopunch-desktop`.
+
+The bundled smoke instructions SHALL identify these log paths and SHALL provide
+an ordered manual test sequence covering launch, LocalAPI connection,
+invite/join, peer visibility, ping, and shell attach.
+
+Desktop task event handling SHALL preserve the final task facts needed by the
+manual smoke sequence. In particular, a successful Create Invite task SHALL
+surface a concrete `invite_code` fact in the desktop UI even when intermediate
+task fact events are coalesced or missed by the runtime event stream.
+
+On Linux, if the desktop runtime cannot initialize GTK or no display session is
+available, `miopunch-desktop` SHALL report actionable guidance instead of
+showing only a Go panic stack. The failure SHALL also be written to
+`logs/miopunch-desktop.log` when the log path is writable.
+
+#### Scenario: Desktop session writes local logs
+- **WHEN** a user launches `miopunch-desktop` from an extracted session bundle
+- **THEN** the session bundle contains `logs/miopunch-desktop.log`
+- **AND** a desktop-managed daemon writes `logs/miopunch.log` in the same bundle
+
+#### Scenario: Bundle smoke instructions include diagnostics and peer tests
+- **WHEN** the session bundle is built
+- **THEN** its `SMOKE.md` identifies the local log files
+- **AND** it describes how to test two extracted bundles through invite/join,
+  peer refresh, ping, and shell attach without requiring a system service
+
+#### Scenario: Desktop invite code remains visible after coalesced task events
+- **WHEN** a successful invite task emits its final task event to the desktop UI
+- **THEN** the UI can render the real invite code from the task snapshot
+- **AND** it does not leave the invite input empty while only showing
+  `miopunch join <invite_code>` placeholder guidance
+
+#### Scenario: Linux GTK initialization failure is diagnosable
+- **WHEN** `miopunch-desktop` cannot initialize GTK on Linux
+- **THEN** the process prints guidance about display session and GTK/WebKitGTK
+  runtime checks
+- **AND** the failure is recorded in `logs/miopunch-desktop.log` when possible
