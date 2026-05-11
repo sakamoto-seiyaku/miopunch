@@ -123,21 +123,21 @@ func (m *Manager) runBootstrapMoreRequestTask(taskID string, args BootstrapMoreA
 		return
 	}
 
-	mbs, err := openBootstrapMoreMailboxes(ctx, netState.BrokersEffective, "miopunch-bootstrap-more-request")
+	mbs, brokerFailures, err := openMQTTMailboxes(ctx, netState.BrokersEffective, "miopunch-bootstrap-more-request")
+	m.addMQTTBrokerFailures(taskID, brokerFailures)
 	if err != nil {
 		m.addFact(taskID, poc.Fact{Message: "mqtt connect failed: " + err.Error()})
 		m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
 		return
 	}
-	defer closeMailboxes(mbs)
-
-	for _, mb := range mbs {
-		if err := mb.Subscribe(ctx, selfInbox); err != nil {
-			m.addFact(taskID, poc.Fact{Message: "subscribe self inbox failed: " + err.Error()})
-			m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
-			return
-		}
+	mbs, brokerFailures, err = subscribeMQTTMailboxes(ctx, mbs, selfInbox)
+	m.addMQTTBrokerFailures(taskID, brokerFailures)
+	if err != nil {
+		m.addFact(taskID, poc.Fact{Message: "subscribe self inbox failed: " + err.Error()})
+		m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
+		return
 	}
+	defer closeMQTTMailboxes(mbs)
 	evCh, stop := fanInMailboxEvents(ctx, mbs)
 	defer stop()
 
@@ -161,7 +161,7 @@ func (m *Manager) runBootstrapMoreRequestTask(taskID string, args BootstrapMoreA
 	}
 
 	m.setStage(taskID, poc.StagePeerContact, "send bootstrap_more_request")
-	if err := publishToAll(ctx, mbs, targetInbox, reqCipher); err != nil {
+	if err := publishMQTTAny(ctx, mbs, targetInbox, reqCipher); err != nil {
 		m.addFact(taskID, poc.Fact{Message: "publish bootstrap_more_request failed: " + err.Error()})
 		m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
 		return
@@ -229,21 +229,21 @@ func (m *Manager) runBootstrapMoreRespondOnceTask(taskID string, args BootstrapM
 		return
 	}
 
-	mbs, err := openBootstrapMoreMailboxes(ctx, netState.BrokersEffective, "miopunch-bootstrap-more-respond")
+	mbs, brokerFailures, err := openMQTTMailboxes(ctx, netState.BrokersEffective, "miopunch-bootstrap-more-respond")
+	m.addMQTTBrokerFailures(taskID, brokerFailures)
 	if err != nil {
 		m.addFact(taskID, poc.Fact{Message: "mqtt connect failed: " + err.Error()})
 		m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
 		return
 	}
-	defer closeMailboxes(mbs)
-
-	for _, mb := range mbs {
-		if err := mb.Subscribe(ctx, selfInbox); err != nil {
-			m.addFact(taskID, poc.Fact{Message: "subscribe self inbox failed: " + err.Error()})
-			m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
-			return
-		}
+	mbs, brokerFailures, err = subscribeMQTTMailboxes(ctx, mbs, selfInbox)
+	m.addMQTTBrokerFailures(taskID, brokerFailures)
+	if err != nil {
+		m.addFact(taskID, poc.Fact{Message: "subscribe self inbox failed: " + err.Error()})
+		m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
+		return
 	}
+	defer closeMQTTMailboxes(mbs)
 	evCh, stop := fanInMailboxEvents(ctx, mbs)
 	defer stop()
 
@@ -298,7 +298,7 @@ func (m *Manager) runBootstrapMoreRespondOnceTask(taskID string, args BootstrapM
 	}
 
 	m.setStage(taskID, poc.StagePeerContact, "send bootstrap_more_response")
-	if err := publishToAll(ctx, mbs, replyInbox, respCipher); err != nil {
+	if err := publishMQTTAny(ctx, mbs, replyInbox, respCipher); err != nil {
 		m.addFact(taskID, poc.Fact{Message: "publish bootstrap_more_response failed: " + err.Error()})
 		m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
 		return
@@ -335,6 +335,18 @@ func (m *Manager) bootstrapMoreState() (string, pocstate.Identity, pocstate.Net,
 	return stateDir, selfID, netState, nil
 }
 
+func (m *Manager) addMQTTBrokerFailures(taskID string, failures []string) {
+	if m == nil {
+		return
+	}
+	for _, failure := range failures {
+		if strings.TrimSpace(failure) == "" {
+			continue
+		}
+		m.addFact(taskID, poc.Fact{Message: "mqtt broker skipped: " + failure})
+	}
+}
+
 func parseBootstrapMoreTimeout(raw string, fallback time.Duration) (time.Duration, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -365,28 +377,6 @@ func canonicalBootstrapMorePeerIDs(in []string) ([]string, error) {
 		out = append(out, peerID)
 	}
 	return out, nil
-}
-
-func openBootstrapMoreMailboxes(ctx context.Context, brokers []string, clientIDPrefix string) ([]*mqttMailbox, error) {
-	mbs := make([]*mqttMailbox, 0, len(brokers))
-	for _, ep := range brokers {
-		mb, err := openMQTTMailbox(ctx, ep, clientIDPrefix)
-		if err != nil {
-			closeMailboxes(mbs)
-			return nil, err
-		}
-		mbs = append(mbs, mb)
-	}
-	if len(mbs) == 0 {
-		return nil, errors.New("no broker mailboxes opened")
-	}
-	return mbs, nil
-}
-
-func closeMailboxes(mbs []*mqttMailbox) {
-	for _, mb := range mbs {
-		_ = mb.Close()
-	}
 }
 
 func newBootstrapMoreRequest(selfID pocstate.Identity, targetPeerID string, round int, attempted []string, timeout time.Duration) (controlplane.Message, error) {

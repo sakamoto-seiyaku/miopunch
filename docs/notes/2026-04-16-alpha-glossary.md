@@ -196,21 +196,26 @@
 ### broker_profile（`broker_profile`）
 
 - 定义：Miopunch 的内置 broker “优先级视图”（例如 `global` / `cn`）。  
-- Miopunch/POC：仅在未显式配置 `control_plane.brokers` 时生效；用于决定默认连接顺序，不改变控制面 E2E 安全语义。  
-- refs：实现口径（POC 约定）
+- Miopunch/POC：仅在未显式配置 `local.mqtt_broker` 时生效；用于决定内置 broker 候选的默认顺序，不改变控制面 E2E 安全语义。
+- refs：`docs/decisions/poc-broker-selection-charter.md`
 
 ### 最终生效 brokers（`brokers_effective`）
 
-- 定义：本机最终会使用的 broker 列表：若配置了显式 `control_plane.brokers` 则以其为准；否则由 `broker_profile` 选择内置默认。  
-- Miopunch/POC：常驻 `up` 只会同时连接前 2 个；invite 生成 join code 时会把 `brokers_effective` 的前 1–2 个写入 code。  
-- refs：实现口径（POC 约定）
+- 定义：当前网络实际运行的 broker 主/备列表。
+- Miopunch/POC：
+  - 来源：若显式配置了 `local.mqtt_broker`，则只从该配置中选择；否则从内置 broker 列表中选择。
+  - 选择：先做规范化、去重与 reachability 探测，再按来源顺序选出最多 `2` 个。
+  - 运行时：第 `1` 个为 primary，第 `2` 个为 secondary；后续 acceptor、`ping`、`sh`、`bootstrap_more` 等都围绕这组 broker 工作。
+- refs：`docs/decisions/poc-broker-selection-charter.md`
 
 ### invite_brokers（`invite_brokers`）
 
 - 定义：join code 内携带的 1–2 个 broker 端点；joiner 与 approver 在 invite/join 阶段只使用这组 broker 做投递/回包。  
 - Miopunch/POC：用于避免 joiner/approver 因本地配置或 DNS/geo 分流导致“落到不同 broker 实例而互相看不见”。  
-  - POC：invite 会尽力将 broker 端点固定为确定性的 `ip:port`；若无法解析则保留 hostname 并输出强警告。  
-- refs：实现口径（POC 约定）
+  - 选择：优先避开当前 `brokers_effective`；若没有足够替代 broker，则允许回退复用当前主/备。
+  - 使用：只服务于 invite/join/approve 阶段；join 成功后，运行时 signaling 回到 `brokers_effective`。
+  - 端点：invite 会尽力将 broker 端点固定为确定性的 `ip:port`；若无法解析则保留 hostname 并输出强警告。
+- refs：`docs/decisions/poc-broker-selection-charter.md`
 
 ### msg_id（`msg_id`）
 
@@ -397,6 +402,15 @@
 - 定义：网络治理角色：owner 为超级权限签名 key；admin 为可管理权限 key。  
 - Miopunch/POC：任意 admin 节点在通过有效验证后，可执行管理员动作；关键动作必须二次确认。  
 - refs：实现口径（POC 约定）
+
+### Owner candidate（`owner_candidate`）
+
+- 定义：桌面端 first-run 空白节点的 UI 引导语义，表示“当前节点可以发起建网流程”。
+- Miopunch/POC：
+  - 这不是一个真实的网络治理角色。
+  - 该状态不代表本机已经拥有 `net.json`、governance head、decls 或 `brokers_effective`。
+  - 成功 `invite/create` 之后，本机才成为真实的 owner/admin；成功 `join` 之后，本机按 member/peer 语义工作。
+- refs：`docs/decisions/poc-broker-selection-charter.md`, `openspec/changes/improve-first-run-role-ux/specs/miopunch-desktop-gui-v0/spec.md`
 
 ### Revoke / Demote（`revoke` / `demote`）
 

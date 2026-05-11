@@ -159,6 +159,7 @@ func (m *Manager) runApproveTask(taskID string, rawArgs []byte) {
 		st.Local.SecretKey = secretKey
 	}
 	st.EnsureLocalDefaults()
+	st.Local.SetMQTTBrokers(netState.BrokersEffective)
 
 	if err := m.saveState(st); err != nil {
 		m.addFact(taskID, poc.Fact{Message: "save state: " + err.Error()})
@@ -170,7 +171,7 @@ func (m *Manager) runApproveTask(taskID string, rawArgs []byte) {
 	m.setStage(taskID, poc.StagePeerContact, "connect invite brokers")
 	m.addFact(taskID, poc.Fact{TermID: "invite_brokers", Message: "invite_brokers=" + strings.Join(code.InviteBrokers, ",")})
 
-	mbs, err := openMQTTMailboxes(ctx, code.InviteBrokers, "miopunch-invite-approve")
+	mbs, brokerFailures, err := openMQTTMailboxes(ctx, code.InviteBrokers, "miopunch-invite-approve")
 	if err != nil {
 		m.addFact(taskID, poc.Fact{Message: "mqtt connect failed: " + err.Error()})
 		m.addSuggestion(taskID, poc.Suggestion{Message: "verify broker reachability and retry"})
@@ -178,18 +179,23 @@ func (m *Manager) runApproveTask(taskID string, rawArgs []byte) {
 		m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
 		return
 	}
-	defer closeMQTTMailboxes(mbs)
+	for _, failure := range brokerFailures {
+		m.addFact(taskID, poc.Fact{Message: "mqtt broker skipped: " + failure})
+	}
 
 	subCtx, cancelSub := context.WithTimeout(ctx, 10*time.Second)
 	defer cancelSub()
-	for _, mb := range mbs {
-		if err := mb.Subscribe(subCtx, code.InviteTopic); err != nil {
-			m.addFact(taskID, poc.Fact{Message: "subscribe invite_topic failed: " + err.Error()})
-			m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
-			m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
-			return
-		}
+	mbs, brokerFailures, err = subscribeMQTTMailboxes(subCtx, mbs, code.InviteTopic)
+	if err != nil {
+		m.addFact(taskID, poc.Fact{Message: "subscribe invite_topic failed: " + err.Error()})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
+		m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
+		return
 	}
+	for _, failure := range brokerFailures {
+		m.addFact(taskID, poc.Fact{Message: "mqtt broker skipped: " + failure})
+	}
+	defer closeMQTTMailboxes(mbs)
 
 	evCh, stop := fanInMailboxEvents(ctx, mbs)
 	defer stop()
@@ -266,6 +272,7 @@ func (m *Manager) runApproveTask(taskID string, rawArgs []byte) {
 			ct, hit, err := idem.Handle(req, code.InviteTopic, code.ExpiresAtUnixMs, code.MaxUses, func() ([]byte, error) {
 				if body.SeedPeer != nil {
 					body.SeedPeer.PeerID = memberPeerID
+					body.SeedPeer.SetMQTTBrokers(netState.BrokersEffective)
 					if cfg, ok := body.SeedPeer.peerConfig(); ok {
 						st.UpsertPeer(memberPeerID, cfg)
 						if err := m.saveState(st); err != nil {
@@ -328,7 +335,7 @@ func (m *Manager) runApproveTask(taskID string, rawArgs []byte) {
 			}
 
 			pubCtx, cancelPub := context.WithTimeout(ctx, 10*time.Second)
-			pubErr := publishToAll(pubCtx, mbs, replyTopic, ct)
+			pubErr := publishMQTTAny(pubCtx, mbs, replyTopic, ct)
 			cancelPub()
 			if pubErr != nil {
 				m.addFact(taskID, poc.Fact{Message: "publish membership_bundle failed: " + pubErr.Error()})
@@ -354,16 +361,4 @@ func (m *Manager) runApproveTask(taskID string, rawArgs []byte) {
 			}
 		}
 	}
-}
-
-func publishToAll(ctx context.Context, mbs []*mqttMailbox, topic string, payload []byte) error {
-	for _, mb := range mbs {
-		if mb == nil {
-			continue
-		}
-		if err := mb.Publish(ctx, topic, payload); err != nil {
-			return err
-		}
-	}
-	return nil
 }

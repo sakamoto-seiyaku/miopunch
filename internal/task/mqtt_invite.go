@@ -23,28 +23,35 @@ type mqttMailbox struct {
 	errCh chan error
 }
 
-func openMQTTMailboxes(ctx context.Context, endpoints []string, clientIDPrefix string) ([]*mqttMailbox, error) {
+func openMQTTMailboxes(ctx context.Context, endpoints []string, clientIDPrefix string) ([]*mqttMailbox, []string, error) {
 	mbs := make([]*mqttMailbox, 0, len(endpoints))
+	failures := make([]string, 0, len(endpoints))
 	for _, ep := range endpoints {
 		mb, err := openMQTTMailbox(ctx, ep, clientIDPrefix)
 		if err != nil {
-			closeMQTTMailboxes(mbs)
-			return nil, fmt.Errorf("%s: %w", strings.TrimSpace(ep), err)
+			failures = append(failures, fmt.Sprintf("%s: %v", strings.TrimSpace(ep), err))
+			continue
 		}
 		mbs = append(mbs, mb)
 	}
 	if len(mbs) == 0 {
-		return nil, errors.New("no broker mailboxes opened")
+		if len(failures) > 0 {
+			return nil, failures, brokerFailuresError(failures, "no broker mailboxes opened")
+		}
+		return nil, nil, errors.New("no broker mailboxes opened")
 	}
-	return mbs, nil
+	return mbs, failures, nil
 }
 
 func checkMQTTBrokersReachable(ctx context.Context, endpoints []string, clientIDPrefix string) error {
-	mbs, err := openMQTTMailboxes(ctx, endpoints, clientIDPrefix)
+	mbs, failures, err := openMQTTMailboxes(ctx, endpoints, clientIDPrefix)
+	closeMQTTMailboxes(mbs)
 	if err != nil {
 		return err
 	}
-	closeMQTTMailboxes(mbs)
+	if len(failures) > 0 {
+		return brokerFailuresError(failures, "broker reachability check failed")
+	}
 	return nil
 }
 
@@ -52,6 +59,13 @@ func closeMQTTMailboxes(mbs []*mqttMailbox) {
 	for _, mb := range mbs {
 		_ = mb.Close()
 	}
+}
+
+func brokerFailuresError(failures []string, fallback string) error {
+	if len(failures) == 0 {
+		return errors.New(fallback)
+	}
+	return errors.New(strings.Join(failures, "; "))
 }
 
 func openMQTTMailbox(ctx context.Context, endpoint string, clientIDPrefix string) (*mqttMailbox, error) {
@@ -158,6 +172,57 @@ func (mb *mqttMailbox) Publish(ctx context.Context, topic string, payload []byte
 		return err
 	}
 	return waitMQTTFutureCtx(ctx, f, 5*time.Second)
+}
+
+func subscribeMQTTMailboxes(ctx context.Context, mbs []*mqttMailbox, topic string) ([]*mqttMailbox, []string, error) {
+	subscribed := make([]*mqttMailbox, 0, len(mbs))
+	failures := make([]string, 0, len(mbs))
+	for _, mb := range mbs {
+		if mb == nil {
+			continue
+		}
+		if err := mb.Subscribe(ctx, topic); err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %v", mb.endpoint, err))
+			_ = mb.Close()
+			continue
+		}
+		subscribed = append(subscribed, mb)
+	}
+	if len(subscribed) == 0 {
+		return nil, failures, brokerFailuresError(failures, "no broker subscriptions opened")
+	}
+	return subscribed, failures, nil
+}
+
+func publishMQTTAny(ctx context.Context, mbs []*mqttMailbox, topic string, payload []byte) error {
+	failures := make([]string, 0, len(mbs))
+	published := 0
+	for _, mb := range mbs {
+		if mb == nil {
+			continue
+		}
+		if err := mb.Publish(ctx, topic, payload); err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %v", mb.endpoint, err))
+			continue
+		}
+		published++
+	}
+	if published > 0 {
+		return nil
+	}
+	return brokerFailuresError(failures, "no broker publish succeeded")
+}
+
+func publishToAll(ctx context.Context, mbs []*mqttMailbox, topic string, payload []byte) error {
+	for _, mb := range mbs {
+		if mb == nil {
+			continue
+		}
+		if err := mb.Publish(ctx, topic, payload); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type mailboxEvent struct {

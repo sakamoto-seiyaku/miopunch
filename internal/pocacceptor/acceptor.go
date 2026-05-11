@@ -209,6 +209,13 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 	}
 
 	sid := mqttsig.DeriveSID(local.ProxyName, local.SecretKey)
+	localPeerID := strings.TrimSpace(local.PeerID)
+	logutil.Infof(
+		"pocacceptor starting: peer_id=%s sid=%s %s",
+		localPeerID,
+		sid,
+		safeAcceptorMQTTSummary(local),
+	)
 
 	serveCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -229,8 +236,24 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 		SessionLease:         daemonPortMapSessionLease,
 	})
 	if err != nil {
+		logutil.Warnf("pocacceptor gather failed: peer_id=%s sid=%s err=%v", localPeerID, sid, err)
 		return err
 	}
+	logutil.Infof(
+		"pocacceptor gather ready: peer_id=%s sid=%s udp4=%t udp6=%t tcp4=%t tcp6=%t direct=%d mapped=%d assisted=%d tcp_direct=%d tcp_mapped=%d tcp_assisted=%d",
+		localPeerID,
+		sid,
+		gather.UDP4Conn != nil,
+		gather.UDP6Conn != nil,
+		gather.TCP4Listener != nil,
+		gather.TCP6Listener != nil,
+		len(gather.DirectAddrs),
+		len(gather.MappedAddrs),
+		len(gather.AssistedAddrs),
+		len(gather.TCPDirectAddrs),
+		len(gather.TCPMappedAddrs),
+		len(gather.TCPAssistedAddrs),
+	)
 	// Ownership of UDPConn moves to the data plane (stream) on success.
 	defer func() {
 		if gather.UDP4Conn != nil {
@@ -274,19 +297,38 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 		STUNGlobal:       gather.STUNGlobal,
 	}
 
-	mq, err := mqttsig.Open(serveCtx, mqttsig.Config{
-		BrokerURL:       mqttBrokerURL(local.MQTTBroker),
-		TopicPrefix:     local.TopicPrefix,
-		SID:             sid,
-		Role:            mqttsig.RoleClient,
-		HelloTimeout:    10 * time.Second,
-		ExchangeTimeout: 10 * time.Second,
-		BarrierTimeout:  10 * time.Second,
-	})
-	if err != nil {
-		return err
+	runtimeBrokers := local.MQTTBrokerEndpoints()
+	if len(runtimeBrokers) == 0 {
+		return errors.New("missing mqtt_broker in local state")
+	}
+
+	var (
+		mq           *mqttsig.Session
+		activeBroker string
+		openFailures []string
+	)
+	for _, broker := range runtimeBrokers {
+		mq, err = mqttsig.Open(serveCtx, mqttsig.Config{
+			BrokerURL:       mqttBrokerURL(broker),
+			TopicPrefix:     local.TopicPrefix,
+			SID:             sid,
+			Role:            mqttsig.RoleClient,
+			HelloTimeout:    10 * time.Second,
+			ExchangeTimeout: 10 * time.Second,
+			BarrierTimeout:  10 * time.Second,
+		})
+		if err == nil {
+			activeBroker = broker
+			break
+		}
+		openFailures = append(openFailures, fmt.Sprintf("%s: %v", broker, err))
+	}
+	if mq == nil {
+		logutil.Warnf("pocacceptor mqtt open failed: peer_id=%s sid=%s brokers=%s err=%s", localPeerID, sid, strings.Join(runtimeBrokers, ","), strings.Join(openFailures, "; "))
+		return brokerFailuresErrorForLog(openFailures, "mqtt open failed")
 	}
 	defer mq.Close()
+	logutil.Infof("pocacceptor mqtt ready: peer_id=%s sid=%s broker=%s %s", localPeerID, sid, activeBroker, safeAcceptorMQTTSummary(local))
 
 	reg := newPeerSessionRegistry()
 
@@ -342,6 +384,9 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 			for {
 				sess, err := ln.Accept(serveCtx)
 				if err != nil {
+					if serveCtx.Err() == nil {
+						logutil.Warnf("pocacceptor session accept failed: peer_id=%s sid=%s err=%v", localPeerID, sid, err)
+					}
 					return
 				}
 				s := sess
@@ -410,20 +455,24 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 	if gather.UDP4Conn != nil {
 		d, ln, err := setupUDP(gather.UDP4Conn, dataplane.PathFamilyUDP4)
 		if err != nil {
+			logutil.Warnf("pocacceptor udp listener setup failed: peer_id=%s sid=%s path_family=udp4 err=%v", localPeerID, sid, err)
 			return err
 		}
 		udp4Demux = d
 		udp4Listener = ln
 		startAcceptLoop(udp4Listener)
+		logutil.Infof("pocacceptor udp listener ready: peer_id=%s sid=%s path_family=udp4", localPeerID, sid)
 	}
 	if gather.UDP6Conn != nil {
 		d, ln, err := setupUDP(gather.UDP6Conn, dataplane.PathFamilyUDP6)
 		if err != nil {
+			logutil.Warnf("pocacceptor udp listener setup failed: peer_id=%s sid=%s path_family=udp6 err=%v", localPeerID, sid, err)
 			return err
 		}
 		udp6Demux = d
 		udp6Listener = ln
 		startAcceptLoop(udp6Listener)
+		logutil.Infof("pocacceptor udp listener ready: peer_id=%s sid=%s path_family=udp6", localPeerID, sid)
 	}
 
 	attemptCfg := connectivity.AttemptConfig{
@@ -436,7 +485,18 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 	handleAttempt := func(at mqttsig.ClientAttempt) {
 		// Handler must be fast: do the heavy lifting in a goroutine.
 		tg.Go(func() {
-			if at.Err != nil || at.ClientResp == nil {
+			logutil.Infof(
+				"pocacceptor incoming attempt: peer_id=%s sid=%s dial_id=%s",
+				localPeerID,
+				sid,
+				strings.TrimSpace(at.DialID),
+			)
+			if at.Err != nil {
+				logutil.Warnf("pocacceptor incoming attempt failed: peer_id=%s sid=%s dial_id=%s err=%v", localPeerID, sid, strings.TrimSpace(at.DialID), at.Err)
+				return
+			}
+			if at.ClientResp == nil {
+				logutil.Warnf("pocacceptor incoming attempt failed: peer_id=%s sid=%s dial_id=%s err=nil client response", localPeerID, sid, strings.TrimSpace(at.DialID))
 				return
 			}
 
@@ -445,8 +505,29 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 
 			attemptRes, err := connectivity.Attempt(attemptCtx, sid, []byte(local.SecretKey), gather.UDP4Conn, gather.UDP6Conn, gather.TCP4Listener, gather.TCP6Listener, at.ClientResp, attemptCfg)
 			if err != nil {
+				logutil.Warnf(
+					"pocacceptor connectivity attempt failed: peer_id=%s sid=%s dial_id=%s protocol=%s selected_view=%s selected_reason=%s err=%v",
+					localPeerID,
+					sid,
+					strings.TrimSpace(at.DialID),
+					strings.TrimSpace(at.ClientResp.Protocol),
+					strings.TrimSpace(at.ClientResp.SelectedView),
+					strings.TrimSpace(at.ClientResp.SelectedReason),
+					err,
+				)
 				return
 			}
+			logutil.Infof(
+				"pocacceptor connectivity attempt ready: peer_id=%s sid=%s dial_id=%s path=%s tcp_conns=%d protocol=%s selected_view=%s selected_reason=%s",
+				localPeerID,
+				sid,
+				strings.TrimSpace(at.DialID),
+				strings.TrimSpace(attemptRes.Path),
+				len(attemptRes.TCPConns),
+				strings.TrimSpace(at.ClientResp.Protocol),
+				strings.TrimSpace(at.ClientResp.SelectedView),
+				strings.TrimSpace(at.ClientResp.SelectedReason),
+			)
 
 			dpCfg := dataplane.Config{
 				Proto:      dataplane.Protocol(at.ClientResp.Protocol),
@@ -466,9 +547,11 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 				sess, err = dataplane.ServeTLSSession(attemptCtx, dpCfg, attemptRes.TCPConns, nil)
 			} else {
 				// UDP sessions are accepted by the long-lived UDP listener started above.
+				logutil.Infof("pocacceptor connectivity attempt delegated: peer_id=%s sid=%s dial_id=%s path=%s", localPeerID, sid, strings.TrimSpace(at.DialID), strings.TrimSpace(attemptRes.Path))
 				return
 			}
 			if err != nil {
+				logutil.Warnf("pocacceptor tls session failed: peer_id=%s sid=%s dial_id=%s path=%s err=%v", localPeerID, sid, strings.TrimSpace(at.DialID), strings.TrimSpace(attemptRes.Path), err)
 				return
 			}
 
@@ -478,6 +561,9 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 
 	if err := mq.ServeClient(serveCtx, natHoleClientTemplate, handleAttempt); err != nil {
 		cancel()
+		if ctx.Err() == nil {
+			logutil.Warnf("pocacceptor mqtt serve failed: peer_id=%s sid=%s broker=%s err=%v", localPeerID, sid, activeBroker, err)
+		}
 		return err
 	}
 
@@ -586,7 +672,7 @@ func servePeerSession(
 			// AcceptStream errors are expected on shutdown, but should be surfaced
 			// in lab artifacts during debugging.
 			if ctx.Err() == nil {
-				logutil.Infof("accept stream error: proto=%s sid=%s path_family=%s err=%v", key.Protocol, key.SecurityID, key.PathFamily, err)
+				logutil.Warnf("pocacceptor accept stream failed: proto=%s sid=%s path_family=%s err=%v", key.Protocol, key.SecurityID, key.PathFamily, err)
 			}
 			return
 		}
@@ -600,7 +686,7 @@ func servePeerSession(
 					kind = string(accepted.Open.Kind)
 					meta = accepted.Open.Metadata
 				}
-				logutil.Infof("serve accepted stream error: proto=%s sid=%s path_family=%s kind=%s metadata=%s err=%v", key.Protocol, key.SecurityID, key.PathFamily, kind, safeStreamMetadataSummary(meta), err)
+				logutil.Warnf("pocacceptor accepted stream failed: proto=%s sid=%s path_family=%s kind=%s metadata=%s err=%v", key.Protocol, key.SecurityID, key.PathFamily, kind, safeStreamMetadataSummary(meta), err)
 			}
 		}(accepted)
 	}
@@ -625,6 +711,21 @@ func safeStreamMetadataSummary(meta map[string]string) string {
 		strings.TrimSpace(meta["decls"]) != "",
 		strings.TrimSpace(meta["target"]) != "",
 		strings.TrimSpace(meta["session"]) != "",
+	)
+}
+
+func safeAcceptorMQTTSummary(local *pocstate.LocalConfig) string {
+	if local == nil {
+		return "broker= data_proto= quic_cc= p2p_network= p2p_ip_family= p2p_port=0"
+	}
+	return fmt.Sprintf(
+		"broker=%s data_proto=%s quic_cc=%s p2p_network=%s p2p_ip_family=%s p2p_port=%d",
+		strings.TrimSpace(local.MQTTBroker),
+		strings.TrimSpace(local.DataProto),
+		strings.TrimSpace(local.QUICCC),
+		strings.TrimSpace(local.P2PNetwork),
+		strings.TrimSpace(local.P2PIPFamily),
+		local.P2PPort,
 	)
 }
 
@@ -935,8 +1036,10 @@ func persistHelloSeedPeer(stateDir string, peerID string, seed *shellproto.PeerS
 	}
 	if strings.TrimSpace(seed.ProxyName) == "" ||
 		strings.TrimSpace(seed.SecretKey) == "" ||
-		strings.TrimSpace(seed.MQTTBroker) == "" ||
 		strings.TrimSpace(seed.TopicPrefix) == "" {
+		return nil
+	}
+	if len(normalizeRuntimeSeedBrokers(seed)) == 0 {
 		return nil
 	}
 
@@ -948,16 +1051,40 @@ func persistHelloSeedPeer(stateDir string, peerID string, seed *shellproto.PeerS
 	cfg := pocstate.PeerConfig{
 		ProxyName:   strings.TrimSpace(seed.ProxyName),
 		SecretKey:   strings.TrimSpace(seed.SecretKey),
-		MQTTBroker:  strings.TrimSpace(seed.MQTTBroker),
 		TopicPrefix: strings.TrimSpace(seed.TopicPrefix),
 		V4Hint:      pocstate.NormalizeV4Hint(seed.V4Hint),
 		V6Hint:      pocstate.NormalizeV6Hint(seed.V6Hint),
 		DataProto:   strings.TrimSpace(seed.DataProto),
 		QUICCC:      strings.TrimSpace(seed.QUICCC),
 	}
+	cfg.SetMQTTBrokers(normalizeRuntimeSeedBrokers(seed))
 	cfg.NormalizeDefaults()
 	st.UpsertPeer(peerID, cfg)
 	return pocstate.Save(statePath, st)
+}
+
+func normalizeRuntimeSeedBrokers(seed *shellproto.PeerSeed) []string {
+	if seed == nil {
+		return nil
+	}
+	candidates := append([]string(nil), seed.MQTTBrokers...)
+	if strings.TrimSpace(seed.MQTTBroker) != "" {
+		candidates = append(candidates, seed.MQTTBroker)
+	}
+	out := make([]string, 0, len(candidates))
+	seen := make(map[string]struct{}, len(candidates))
+	for _, broker := range candidates {
+		broker = strings.TrimSpace(broker)
+		if broker == "" {
+			continue
+		}
+		if _, ok := seen[broker]; ok {
+			continue
+		}
+		seen[broker] = struct{}{}
+		out = append(out, broker)
+	}
+	return out
 }
 
 func writeHelloError(w *shellproto.Writer, reasonCode string, message string, suggestions []string) error {
@@ -1421,4 +1548,11 @@ func mqttBrokerURL(broker string) string {
 		return broker
 	}
 	return "tcp://" + broker
+}
+
+func brokerFailuresErrorForLog(failures []string, fallback string) error {
+	if len(failures) == 0 {
+		return errors.New(fallback)
+	}
+	return errors.New(strings.Join(failures, "; "))
 }

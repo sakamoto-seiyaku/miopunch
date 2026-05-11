@@ -114,6 +114,68 @@ func TestTopologySnapshotLoadsBootstrapEvidence(t *testing.T) {
 	}
 }
 
+func TestTopologySnapshotIncludesKnownSeedPeersMissingFromDecls(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	stateDir := filepath.Dir(statePath)
+	selfID, err := pocstate.EnsureIdentity(stateDir)
+	if err != nil {
+		t.Fatalf("pocstate.EnsureIdentity(self) error = %v", err)
+	}
+	issuerID, err := pocstate.EnsureIdentity(t.TempDir())
+	if err != nil {
+		t.Fatalf("pocstate.EnsureIdentity(issuer) error = %v", err)
+	}
+
+	netID, err := pocstate.NetIDFromSecret(bytes.Repeat([]byte{2}, 32))
+	if err != nil {
+		t.Fatalf("pocstate.NetIDFromSecret() error = %v", err)
+	}
+	if err := pocstate.SaveNet(stateDir, pocstate.Net{NetSecret: bytes.Repeat([]byte{2}, 32)}); err != nil {
+		t.Fatalf("pocstate.SaveNet() error = %v", err)
+	}
+	if _, err := pocstate.EnsureGovernanceHeadSnapshot(stateDir, netID, issuerID); err != nil {
+		t.Fatalf("pocstate.EnsureGovernanceHeadSnapshot() error = %v", err)
+	}
+	if _, err := pocstate.EnsureDecls(stateDir); err != nil {
+		t.Fatalf("pocstate.EnsureDecls() error = %v", err)
+	}
+	if _, err := pocstate.UpdateDecls(stateDir, func(f *pocstate.DeclsFileV0) error {
+		f.Decls = append(f.Decls, mustApproveDecl(t, issuerID, selfID, "unknown"))
+		return nil
+	}); err != nil {
+		t.Fatalf("pocstate.UpdateDecls() error = %v", err)
+	}
+	if err := pocstate.Save(statePath, pocstate.State{
+		Format: pocstate.FormatV0,
+		Local: &pocstate.LocalConfig{
+			PeerID:      selfID.PeerID,
+			ProxyName:   selfID.PeerID,
+			SecretKey:   "self-secret",
+			MQTTBroker:  "broker:1883",
+			TopicPrefix: "miopunch/test",
+		},
+		Peers: map[string]pocstate.PeerConfig{
+			issuerID.PeerID: testPeerConfig(),
+		},
+	}); err != nil {
+		t.Fatalf("pocstate.Save() error = %v", err)
+	}
+
+	m := NewManagerWithStatePath(statePath)
+	t.Cleanup(m.Close)
+
+	got, err := m.TopologySnapshot()
+	if err != nil {
+		t.Fatalf("TopologySnapshot() error = %v", err)
+	}
+	if !topologyMembersContain(got.Members, issuerID.PeerID) {
+		t.Fatalf("TopologySnapshot().Members = %#v, want known issuer seed peer %q", got.Members, issuerID.PeerID)
+	}
+	if !topologyMembersContain(got.Members, selfID.PeerID) {
+		t.Fatalf("TopologySnapshot().Members = %#v, want approved self peer %q", got.Members, selfID.PeerID)
+	}
+}
+
 func TestTopologyPortmapEvidenceFromEvents(t *testing.T) {
 	raw := `{"name":"gather.portmap.snapshot","kvs":{"included":true,"direct_v4":1,"methods_done":2}}` + "\n"
 
@@ -434,6 +496,15 @@ func taskFactsContain(task Task, needle string) bool {
 func topologySelectionsContain(selections []TopologyNeighborSelection, peerID string, dialable bool) bool {
 	for _, selection := range selections {
 		if selection.PeerID == peerID && selection.Dialable == dialable {
+			return true
+		}
+	}
+	return false
+}
+
+func topologyMembersContain(members []TopologyMember, peerID string) bool {
+	for _, member := range members {
+		if member.PeerID == peerID {
 			return true
 		}
 	}

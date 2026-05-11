@@ -1,10 +1,13 @@
 package task
 
 import (
+	"bytes"
 	"encoding/json"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/pocstate"
 )
 
@@ -255,4 +258,257 @@ func TestNewBootstrapMoreRequestIsBoundedAndMetadataOnly(t *testing.T) {
 		t.Errorf("newBootstrapMoreRequest() body.Failures = %#v, want coarse candidate_exhausted failure", body.Failures)
 	}
 
+}
+
+func TestRunBootstrapMoreUsesAvailableEffectiveBroker(t *testing.T) {
+	testCases := []struct {
+		name string
+		pair func(reachable string, unreachable string) []string
+	}{
+		{
+			name: "falls back to secondary effective broker",
+			pair: func(reachable string, unreachable string) []string {
+				return []string{unreachable, reachable}
+			},
+		},
+		{
+			name: "keeps primary when secondary is unreachable",
+			pair: func(reachable string, unreachable string) []string {
+				return []string{reachable, unreachable}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			reachable := startTCPMQTTBroker(t)
+			unreachable := unusedLocalTCPAddr(t)
+			brokers := tc.pair(reachable, unreachable)
+
+			requesterStatePath := filepath.Join(t.TempDir(), "requester", "state.json")
+			responderStatePath := filepath.Join(t.TempDir(), "responder", "state.json")
+
+			requesterStateDir, err := pocstate.StateDir(requesterStatePath)
+			if err != nil {
+				t.Fatalf("pocstate.StateDir(%q) error = %v", requesterStatePath, err)
+			}
+			requesterID, err := pocstate.EnsureIdentity(requesterStateDir)
+			if err != nil {
+				t.Fatalf("pocstate.EnsureIdentity(%q) error = %v", requesterStateDir, err)
+			}
+
+			responderStateDir, err := pocstate.StateDir(responderStatePath)
+			if err != nil {
+				t.Fatalf("pocstate.StateDir(%q) error = %v", responderStatePath, err)
+			}
+			responderID, err := pocstate.EnsureIdentity(responderStateDir)
+			if err != nil {
+				t.Fatalf("pocstate.EnsureIdentity(%q) error = %v", responderStateDir, err)
+			}
+
+			netSecret := bytes.Repeat([]byte{7}, 32)
+			approved := []pocstate.Identity{requesterID, responderID}
+
+			saveBootstrapMoreStateForTest(t, requesterStatePath, netSecret, requesterID, approved, brokers, nil)
+			saveBootstrapMoreStateForTest(t, responderStatePath, netSecret, requesterID, approved, brokers, map[string]pocstate.PeerConfig{
+				"peer-candidate": {
+					ProxyName:   "peer-candidate",
+					SecretKey:   "peer-candidate-secret",
+					MQTTBroker:  "broker:1883",
+					TopicPrefix: "miopunch/test",
+					V4Hint:      "easy",
+					V6Hint:      "none",
+				},
+			})
+
+			requester := NewManagerWithStatePath(requesterStatePath)
+			t.Cleanup(requester.Close)
+			responder := NewManagerWithStatePath(responderStatePath)
+			t.Cleanup(responder.Close)
+
+			responderRaw, err := json.Marshal(BootstrapMoreArgs{
+				Mode:    "respond_once",
+				Timeout: "10s",
+			})
+			if err != nil {
+				t.Fatalf("json.Marshal(responder args) error = %v", err)
+			}
+			responderTask, err := responder.CreateAndRun(CreateRequest{
+				Kind: "bootstrap_more",
+				Args: responderRaw,
+			})
+			if err != nil {
+				t.Fatalf("responder.CreateAndRun(bootstrap_more) error = %v", err)
+			}
+			waitTaskStageForTest(t, responder, responderTask.ID, poc.StagePeerContact)
+
+			requesterRaw, err := json.Marshal(BootstrapMoreArgs{
+				TargetPeerID: responderID.PeerID,
+				Round:        1,
+				Timeout:      "5s",
+			})
+			if err != nil {
+				t.Fatalf("json.Marshal(requester args) error = %v", err)
+			}
+			requesterTask, err := requester.CreateAndRun(CreateRequest{
+				Kind: "bootstrap_more",
+				Args: requesterRaw,
+			})
+			if err != nil {
+				t.Fatalf("requester.CreateAndRun(bootstrap_more) error = %v", err)
+			}
+
+			requesterFinal := waitTaskDoneForTest(t, requester, requesterTask.ID)
+			if requesterFinal.ReasonCode != poc.ReasonCodeOK {
+				t.Fatalf("request bootstrap_more ReasonCode = %q, want %q; facts=%v", requesterFinal.ReasonCode, poc.ReasonCodeOK, requesterFinal.Facts)
+			}
+			responderFinal := waitTaskDoneForTest(t, responder, responderTask.ID)
+			if responderFinal.ReasonCode != poc.ReasonCodeOK {
+				t.Fatalf("respond_once bootstrap_more ReasonCode = %q, want %q; facts=%v", responderFinal.ReasonCode, poc.ReasonCodeOK, responderFinal.Facts)
+			}
+
+			if !taskFactsContainSubstring(requesterFinal, "mqtt broker skipped: "+unreachable+":") {
+				t.Errorf("request bootstrap_more facts = %v, want skipped broker diagnostic for %q", requesterFinal.Facts, unreachable)
+			}
+			if !taskFactsContainSubstring(responderFinal, "mqtt broker skipped: "+unreachable+":") {
+				t.Errorf("respond_once bootstrap_more facts = %v, want skipped broker diagnostic for %q", responderFinal.Facts, unreachable)
+			}
+			if !taskFactsContain(requesterFinal, "bootstrap_more_candidates=1") {
+				t.Errorf("request bootstrap_more facts = %v, want bootstrap_more_candidates=1", requesterFinal.Facts)
+			}
+			if !taskFactsContain(responderFinal, "bootstrap_more_candidates=1") {
+				t.Errorf("respond_once bootstrap_more facts = %v, want bootstrap_more_candidates=1", responderFinal.Facts)
+			}
+		})
+	}
+}
+
+func TestRunBootstrapMoreFailsWhenAllEffectiveBrokersAreUnavailable(t *testing.T) {
+	unreachableA := unusedLocalTCPAddr(t)
+	unreachableB := unusedLocalTCPAddr(t)
+	statePath := filepath.Join(t.TempDir(), "requester", "state.json")
+
+	stateDir, err := pocstate.StateDir(statePath)
+	if err != nil {
+		t.Fatalf("pocstate.StateDir(%q) error = %v", statePath, err)
+	}
+	requesterID, err := pocstate.EnsureIdentity(stateDir)
+	if err != nil {
+		t.Fatalf("pocstate.EnsureIdentity(%q) error = %v", stateDir, err)
+	}
+
+	otherStateDir := t.TempDir()
+	targetID, err := pocstate.EnsureIdentity(otherStateDir)
+	if err != nil {
+		t.Fatalf("pocstate.EnsureIdentity(%q) error = %v", otherStateDir, err)
+	}
+
+	saveBootstrapMoreStateForTest(
+		t,
+		statePath,
+		bytes.Repeat([]byte{9}, 32),
+		requesterID,
+		[]pocstate.Identity{requesterID, targetID},
+		[]string{unreachableA, unreachableB},
+		nil,
+	)
+
+	m := NewManagerWithStatePath(statePath)
+	t.Cleanup(m.Close)
+
+	raw, err := json.Marshal(BootstrapMoreArgs{
+		TargetPeerID: targetID.PeerID,
+		Round:        1,
+		Timeout:      "5s",
+	})
+	if err != nil {
+		t.Fatalf("json.Marshal(BootstrapMoreArgs) error = %v", err)
+	}
+	created, err := m.CreateAndRun(CreateRequest{Kind: "bootstrap_more", Args: raw})
+	if err != nil {
+		t.Fatalf("Manager.CreateAndRun(bootstrap_more) error = %v", err)
+	}
+
+	final := waitTaskDoneForTest(t, m, created.ID)
+	if final.ReasonCode != poc.ReasonCodeUnavailable {
+		t.Fatalf("bootstrap_more ReasonCode = %q, want %q; facts=%v", final.ReasonCode, poc.ReasonCodeUnavailable, final.Facts)
+	}
+	if !taskFactsContainSubstring(final, "mqtt broker skipped: "+unreachableA+":") {
+		t.Errorf("bootstrap_more facts = %v, want skipped broker diagnostic for %q", final.Facts, unreachableA)
+	}
+	if !taskFactsContainSubstring(final, "mqtt broker skipped: "+unreachableB+":") {
+		t.Errorf("bootstrap_more facts = %v, want skipped broker diagnostic for %q", final.Facts, unreachableB)
+	}
+	if !taskFactsContainSubstring(final, "mqtt connect failed: "+unreachableA+":") {
+		t.Errorf("bootstrap_more facts = %v, want mqtt connect failed fact containing %q", final.Facts, unreachableA)
+	}
+	if taskFactsContainPrefix(final, "bootstrap_more_response_id=") {
+		t.Errorf("bootstrap_more facts = %v, want no response id when all effective brokers fail", final.Facts)
+	}
+}
+
+func saveBootstrapMoreStateForTest(
+	t *testing.T,
+	statePath string,
+	netSecret []byte,
+	issuer pocstate.Identity,
+	approved []pocstate.Identity,
+	brokers []string,
+	peers map[string]pocstate.PeerConfig,
+) {
+	t.Helper()
+
+	stateDir, err := pocstate.StateDir(statePath)
+	if err != nil {
+		t.Fatalf("pocstate.StateDir(%q) error = %v", statePath, err)
+	}
+
+	if err := pocstate.SaveNet(stateDir, pocstate.Net{
+		NetSecret:        append([]byte(nil), netSecret...),
+		BrokersEffective: append([]string(nil), brokers...),
+	}); err != nil {
+		t.Fatalf("pocstate.SaveNet(%q) error = %v", stateDir, err)
+	}
+	if _, err := pocstate.EnsureDecls(stateDir); err != nil {
+		t.Fatalf("pocstate.EnsureDecls(%q) error = %v", stateDir, err)
+	}
+	if _, err := pocstate.UpdateDecls(stateDir, func(f *pocstate.DeclsFileV0) error {
+		for _, member := range approved {
+			f.Decls = pocstate.AddDeclSetUnionV0(f.Decls, mustApproveDecl(t, issuer, member, "unknown"))
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("pocstate.UpdateDecls(%q) error = %v", stateDir, err)
+	}
+	if err := pocstate.Save(statePath, pocstate.State{
+		Format: pocstate.FormatV0,
+		Peers:  peers,
+	}); err != nil {
+		t.Fatalf("pocstate.Save(%q) error = %v", statePath, err)
+	}
+}
+
+func waitTaskStageForTest(t *testing.T, m *Manager, taskID string, want poc.Stage) Task {
+	t.Helper()
+
+	deadline := time.After(5 * time.Second)
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		if got, ok := m.Get(taskID); ok {
+			if got.Stage == want {
+				return got
+			}
+			if got.Status == StatusDone {
+				t.Fatalf("Manager.Get(%q) reached done before stage %q: %#v", taskID, want, got)
+			}
+		}
+
+		select {
+		case <-deadline:
+			t.Fatalf("Manager.Get(%q) did not reach stage %q", taskID, want)
+		case <-ticker.C:
+		}
+	}
 }

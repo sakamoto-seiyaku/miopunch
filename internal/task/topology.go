@@ -286,7 +286,7 @@ func (m *Manager) TopologySnapshot() (TopologySnapshot, error) {
 		return TopologySnapshot{}, err
 	}
 
-	out.Members = membersFromDecls(head, decls)
+	out.Members = mergeMembersWithKnownPeers(membersFromDecls(head, decls), st.Peers)
 	out.Neighbors.TargetK = targetNeighborK(len(out.Members))
 	for _, mem := range out.Members {
 		if mem.PeerID == out.Self.PeerID {
@@ -539,6 +539,45 @@ func membersFromDecls(head pocstate.GovernanceHeadSnapshotV1, f pocstate.DeclsFi
 		}
 		out = append(out, mem)
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i].PeerID < out[j].PeerID })
+	return out
+}
+
+func mergeMembersWithKnownPeers(members []TopologyMember, peers map[string]pocstate.PeerConfig) []TopologyMember {
+	out := append([]TopologyMember(nil), members...)
+	byPeerID := make(map[string]int, len(out)+len(peers))
+	for i, mem := range out {
+		peerID := strings.TrimSpace(mem.PeerID)
+		if peerID == "" {
+			continue
+		}
+		byPeerID[peerID] = i
+	}
+
+	for peerID, cfg := range peers {
+		peerID = strings.TrimSpace(peerID)
+		if peerID == "" {
+			continue
+		}
+		cfg.NormalizeDefaults()
+		if i, ok := byPeerID[peerID]; ok {
+			if out[i].V4Hint == "" {
+				out[i].V4Hint = cfg.V4Hint
+			}
+			if out[i].V6Hint == "" {
+				out[i].V6Hint = cfg.V6Hint
+			}
+			continue
+		}
+		byPeerID[peerID] = len(out)
+		out = append(out, TopologyMember{
+			PeerID: peerID,
+			Role:   "unknown",
+			V4Hint: cfg.V4Hint,
+			V6Hint: cfg.V6Hint,
+		})
+	}
+
 	sort.Slice(out, func(i, j int) bool { return out[i].PeerID < out[j].PeerID })
 	return out
 }

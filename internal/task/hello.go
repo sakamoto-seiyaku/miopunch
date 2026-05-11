@@ -299,6 +299,7 @@ func localHelloSeed(m *Manager, selfPeerID string) *shellproto.PeerSeed {
 		ProxyName:   sp.ProxyName,
 		SecretKey:   sp.SecretKey,
 		MQTTBroker:  sp.MQTTBroker,
+		MQTTBrokers: append([]string(nil), sp.MQTTBrokers...),
 		TopicPrefix: sp.TopicPrefix,
 		V4Hint:      sp.V4Hint,
 		V6Hint:      sp.V6Hint,

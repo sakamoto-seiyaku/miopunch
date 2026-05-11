@@ -30,10 +30,11 @@ type ControlError struct {
 type PeerSeed struct {
 	PeerID string `json:"peer_id"`
 
-	ProxyName   string `json:"proxy_name"`
-	SecretKey   string `json:"secret_key"`
-	MQTTBroker  string `json:"mqtt_broker"`
-	TopicPrefix string `json:"topic_prefix"`
+	ProxyName   string   `json:"proxy_name"`
+	SecretKey   string   `json:"secret_key"`
+	MQTTBroker  string   `json:"mqtt_broker"`
+	MQTTBrokers []string `json:"mqtt_brokers,omitempty"`
+	TopicPrefix string   `json:"topic_prefix"`
 
 	V4Hint string `json:"v4_hint,omitempty"`
 	V6Hint string `json:"v6_hint,omitempty"`

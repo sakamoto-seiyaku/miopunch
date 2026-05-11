@@ -199,31 +199,52 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	}
 
 	m.setStage(taskID, poc.StageCandidateExchange, "mqtt exchange")
-	mq, err := mqttsig.Open(ctx, mqttsig.Config{
-		BrokerURL:       mqttBrokerURL(cfg.MQTTBroker),
-		TopicPrefix:     cfg.TopicPrefix,
-		SID:             sid,
-		Role:            mqttsig.RoleVisitor,
-		HelloTimeout:    10 * time.Second,
-		ExchangeTimeout: 10 * time.Second,
-		BarrierTimeout:  10 * time.Second,
-	})
-	if err != nil {
-		return nil, err
+	var decisionRes *punchdecision.Result
+	runtimeBrokers := runtimeBrokerEndpointsForPeer(cfg)
+	if len(runtimeBrokers) == 0 {
+		return nil, errors.New("missing mqtt_broker in peer config")
 	}
 
-	var decisionRes *punchdecision.Result
-	natHoleRespMsg, err := mq.RunVisitor(ctx, natHoleVisitorMsg, func(sid string, visitor *wire.NatHoleVisitor, client *wire.NatHoleClient) (*wire.NatHoleResp, *wire.NatHoleResp, error) {
-		res, err := punchdecision.AnalyzeWithDaemonMemory(sid, peerID, visitor, client)
-		if err != nil {
-			return nil, nil, err
+	var (
+		natHoleRespMsg *wire.NatHoleResp
+		mqttFailures   []string
+	)
+	for _, broker := range runtimeBrokers {
+		mq, openErr := mqttsig.Open(ctx, mqttsig.Config{
+			BrokerURL:       mqttBrokerURL(broker),
+			TopicPrefix:     cfg.TopicPrefix,
+			SID:             sid,
+			Role:            mqttsig.RoleVisitor,
+			HelloTimeout:    10 * time.Second,
+			ExchangeTimeout: 10 * time.Second,
+			BarrierTimeout:  10 * time.Second,
+		})
+		if openErr != nil {
+			mqttFailures = append(mqttFailures, fmt.Sprintf("%s: %v", broker, openErr))
+			m.addFact(taskID, poc.Fact{Message: "mqtt broker skipped: " + broker + ": " + openErr.Error()})
+			continue
 		}
-		decisionRes = res
-		return res.VisitorResponse, res.ClientResponse, nil
-	})
-	_ = mq.Close()
+
+		natHoleRespMsg, err = mq.RunVisitor(ctx, natHoleVisitorMsg, func(sid string, visitor *wire.NatHoleVisitor, client *wire.NatHoleClient) (*wire.NatHoleResp, *wire.NatHoleResp, error) {
+			res, err := punchdecision.AnalyzeWithDaemonMemory(sid, peerID, visitor, client)
+			if err != nil {
+				return nil, nil, err
+			}
+			decisionRes = res
+			return res.VisitorResponse, res.ClientResponse, nil
+		})
+		_ = mq.Close()
+		if err == nil {
+			break
+		}
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		mqttFailures = append(mqttFailures, fmt.Sprintf("%s: %v", broker, err))
+		m.addFact(taskID, poc.Fact{Message: "mqtt broker skipped: " + broker + ": " + err.Error()})
+	}
 	if err != nil {
-		return nil, err
+		return nil, brokerFailuresError(mqttFailures, "mqtt exchange failed on all effective brokers")
 	}
 
 	if natHoleRespMsg != nil {

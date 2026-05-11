@@ -36,11 +36,13 @@ func (m *Manager) ensureLocalSeedPeer(selfID pocstate.Identity) (seedPeerV0, err
 }
 
 func seedPeerFromLocalConfig(peerID string, cfg pocstate.LocalConfig) seedPeerV0 {
+	endpoints := cfg.MQTTBrokerEndpoints()
 	return seedPeerV0{
 		PeerID:      strings.TrimSpace(peerID),
 		ProxyName:   strings.TrimSpace(cfg.ProxyName),
 		SecretKey:   strings.TrimSpace(cfg.SecretKey),
-		MQTTBroker:  strings.TrimSpace(cfg.MQTTBroker),
+		MQTTBroker:  firstEffectiveBrokerString(endpoints),
+		MQTTBrokers: append([]string(nil), endpoints...),
 		TopicPrefix: strings.TrimSpace(cfg.TopicPrefix),
 		V4Hint:      pocstate.NormalizeV4Hint(cfg.V4Hint),
 		V6Hint:      pocstate.NormalizeV6Hint(cfg.V6Hint),
@@ -51,11 +53,13 @@ func seedPeerFromLocalConfig(peerID string, cfg pocstate.LocalConfig) seedPeerV0
 
 func seedPeerFromPeerConfig(peerID string, cfg pocstate.PeerConfig) (seedPeerV0, bool) {
 	cfg.NormalizeDefaults()
+	endpoints := cfg.MQTTBrokerEndpoints()
 	sp := seedPeerV0{
 		PeerID:      strings.TrimSpace(peerID),
 		ProxyName:   strings.TrimSpace(cfg.ProxyName),
 		SecretKey:   strings.TrimSpace(cfg.SecretKey),
-		MQTTBroker:  strings.TrimSpace(cfg.MQTTBroker),
+		MQTTBroker:  firstEffectiveBrokerString(endpoints),
+		MQTTBrokers: append([]string(nil), endpoints...),
 		TopicPrefix: strings.TrimSpace(cfg.TopicPrefix),
 		V4Hint:      pocstate.NormalizeV4Hint(cfg.V4Hint),
 		V6Hint:      pocstate.NormalizeV6Hint(cfg.V6Hint),
@@ -65,11 +69,26 @@ func seedPeerFromPeerConfig(peerID string, cfg pocstate.PeerConfig) (seedPeerV0,
 	return sp, sp.validForSeed()
 }
 
+func firstEffectiveBroker(brokers []string) (string, bool) {
+	for _, raw := range brokers {
+		broker := normalizeBrokerEndpoint(raw)
+		if broker != "" {
+			return broker, true
+		}
+	}
+	return "", false
+}
+
+func firstEffectiveBrokerString(brokers []string) string {
+	broker, _ := firstEffectiveBroker(brokers)
+	return broker
+}
+
 func (sp seedPeerV0) validForSeed() bool {
 	return strings.TrimSpace(sp.PeerID) != "" &&
 		strings.TrimSpace(sp.ProxyName) != "" &&
 		strings.TrimSpace(sp.SecretKey) != "" &&
-		strings.TrimSpace(sp.MQTTBroker) != "" &&
+		len(sp.mqttBrokerEndpoints()) > 0 &&
 		strings.TrimSpace(sp.TopicPrefix) != ""
 }
 
@@ -77,16 +96,29 @@ func (sp seedPeerV0) peerConfig() (pocstate.PeerConfig, bool) {
 	if !sp.validForSeed() {
 		return pocstate.PeerConfig{}, false
 	}
-	return pocstate.PeerConfig{
+	cfg := pocstate.PeerConfig{
 		ProxyName:   strings.TrimSpace(sp.ProxyName),
 		SecretKey:   strings.TrimSpace(sp.SecretKey),
-		MQTTBroker:  strings.TrimSpace(sp.MQTTBroker),
 		TopicPrefix: strings.TrimSpace(sp.TopicPrefix),
 		V4Hint:      pocstate.NormalizeV4Hint(sp.V4Hint),
 		V6Hint:      pocstate.NormalizeV6Hint(sp.V6Hint),
 		DataProto:   strings.TrimSpace(sp.DataProto),
 		QUICCC:      strings.TrimSpace(sp.QUICCC),
-	}, true
+	}
+	cfg.SetMQTTBrokers(sp.mqttBrokerEndpoints())
+	return cfg, true
+}
+
+func (sp *seedPeerV0) SetMQTTBrokers(brokers []string) {
+	if sp == nil {
+		return
+	}
+	sp.MQTTBrokers = normalizeBrokerCandidates(brokers)
+	sp.MQTTBroker = firstEffectiveBrokerString(sp.MQTTBrokers)
+}
+
+func (sp seedPeerV0) mqttBrokerEndpoints() []string {
+	return normalizeBrokerCandidates(append(append([]string(nil), sp.MQTTBrokers...), sp.MQTTBroker))
 }
 
 func (sp *seedPeerV0) v4Hint() string {

@@ -1,6 +1,10 @@
 package pocstate
 
-import "testing"
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
 
 func TestLocalConfigToPeerCarriesConnectivityOverrides(t *testing.T) {
 	local := LocalConfig{
@@ -49,5 +53,46 @@ func TestLocalConfigToPeerCarriesConnectivityOverrides(t *testing.T) {
 	}
 	if !got.DisableAssistedAddrs {
 		t.Error("LocalConfig.ToPeer().DisableAssistedAddrs = false, want true")
+	}
+	if got.MQTTBroker != local.MQTTBroker {
+		t.Errorf("LocalConfig.ToPeer().MQTTBroker = %q, want %q", got.MQTTBroker, local.MQTTBroker)
+	}
+}
+
+func TestLocalConfigMQTTBrokerJSONCompatibility(t *testing.T) {
+	var legacy LocalConfig
+	if err := json.Unmarshal([]byte(`{"mqtt_broker":"broker-a:1883"}`), &legacy); err != nil {
+		t.Fatalf("json.Unmarshal(legacy mqtt_broker) error = %v", err)
+	}
+	if got := legacy.MQTTBrokerEndpoints(); len(got) != 1 || got[0] != "broker-a:1883" {
+		t.Fatalf("legacy MQTTBrokerEndpoints = %v, want [broker-a:1883]", got)
+	}
+
+	modern := LocalConfig{}
+	modern.SetMQTTBrokers([]string{"broker-a:1883", "broker-b:1883"})
+	data, err := json.Marshal(modern)
+	if err != nil {
+		t.Fatalf("json.Marshal(LocalConfig) error = %v", err)
+	}
+	if !strings.Contains(string(data), `"mqtt_broker":["broker-a:1883","broker-b:1883"]`) {
+		t.Fatalf("json.Marshal(LocalConfig) = %s, want mqtt_broker array", data)
+	}
+}
+
+func TestPeerConfigMQTTBrokerJSONCompatibility(t *testing.T) {
+	var cfg PeerConfig
+	if err := json.Unmarshal([]byte(`{"mqtt_broker":["broker-a:1883","broker-b:1883"]}`), &cfg); err != nil {
+		t.Fatalf("json.Unmarshal(peer mqtt_broker array) error = %v", err)
+	}
+	if got := cfg.MQTTBrokerEndpoints(); len(got) != 2 || got[0] != "broker-a:1883" || got[1] != "broker-b:1883" {
+		t.Fatalf("PeerConfig.MQTTBrokerEndpoints = %v, want [broker-a:1883 broker-b:1883]", got)
+	}
+
+	data, err := json.Marshal(PeerConfig{MQTTBroker: "broker-z:1883"})
+	if err != nil {
+		t.Fatalf("json.Marshal(PeerConfig) error = %v", err)
+	}
+	if !strings.Contains(string(data), `"mqtt_broker":["broker-z:1883"]`) {
+		t.Fatalf("json.Marshal(PeerConfig) = %s, want single-element mqtt_broker array", data)
 	}
 }

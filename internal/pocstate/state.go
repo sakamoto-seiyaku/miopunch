@@ -19,6 +19,15 @@ const (
 	defaultP2PNetwork  = "auto"
 )
 
+// DefaultMQTTBrokers returns the built-in public MQTT broker fallback list.
+func DefaultMQTTBrokers() []string {
+	return []string{
+		defaultMQTTBroker,
+		"broker.emqx.io:1883",
+		"broker.hivemq.com:1883",
+	}
+}
+
 type State struct {
 	Format string `json:"format"`
 
@@ -27,11 +36,12 @@ type State struct {
 }
 
 type LocalConfig struct {
-	PeerID      string `json:"peer_id"`
-	ProxyName   string `json:"proxy_name"`
-	SecretKey   string `json:"secret_key"`
-	MQTTBroker  string `json:"mqtt_broker"`
-	TopicPrefix string `json:"topic_prefix"`
+	PeerID      string   `json:"peer_id"`
+	ProxyName   string   `json:"proxy_name"`
+	SecretKey   string   `json:"secret_key"`
+	MQTTBroker  string   `json:"-"`
+	MQTTBrokers []string `json:"-"`
+	TopicPrefix string   `json:"topic_prefix"`
 
 	V4Hint string `json:"v4_hint,omitempty"`
 	V6Hint string `json:"v6_hint,omitempty"`
@@ -51,10 +61,11 @@ type LocalConfig struct {
 }
 
 type PeerConfig struct {
-	ProxyName   string `json:"proxy_name"`
-	SecretKey   string `json:"secret_key"`
-	MQTTBroker  string `json:"mqtt_broker"`
-	TopicPrefix string `json:"topic_prefix"`
+	ProxyName   string   `json:"proxy_name"`
+	SecretKey   string   `json:"secret_key"`
+	MQTTBroker  string   `json:"-"`
+	MQTTBrokers []string `json:"-"`
+	TopicPrefix string   `json:"topic_prefix"`
 
 	V4Hint string `json:"v4_hint,omitempty"`
 	V6Hint string `json:"v6_hint,omitempty"`
@@ -133,11 +144,15 @@ func (s State) Clone() State {
 	out := s
 	if s.Local != nil {
 		localCopy := *s.Local
+		localCopy.MQTTBrokers = append([]string(nil), s.Local.MQTTBrokerEndpoints()...)
+		localCopy.StunServers = append([]string(nil), s.Local.StunServers...)
 		out.Local = &localCopy
 	}
 	if s.Peers != nil {
 		out.Peers = make(map[string]PeerConfig, len(s.Peers))
 		for k, v := range s.Peers {
+			v.MQTTBrokers = append([]string(nil), v.MQTTBrokerEndpoints()...)
+			v.StunServers = append([]string(nil), v.StunServers...)
 			out.Peers[k] = v
 		}
 	}
@@ -167,10 +182,9 @@ func (s *State) EnsureLocalDefaults() {
 }
 
 func (c LocalConfig) ToPeer() PeerConfig {
-	return PeerConfig{
+	out := PeerConfig{
 		ProxyName:   c.ProxyName,
 		SecretKey:   c.SecretKey,
-		MQTTBroker:  c.MQTTBroker,
 		TopicPrefix: c.TopicPrefix,
 		V4Hint:      NormalizeV4Hint(c.V4Hint),
 		V6Hint:      NormalizeV6Hint(c.V6Hint),
@@ -186,15 +200,15 @@ func (c LocalConfig) ToPeer() PeerConfig {
 		DisablePortMap:       c.DisablePortMap,
 		DisableAssistedAddrs: c.DisableAssistedAddrs,
 	}
+	out.SetMQTTBrokers(c.MQTTBrokerEndpoints())
+	return out
 }
 
 func (c *LocalConfig) NormalizeDefaults() {
 	if c == nil {
 		return
 	}
-	if strings.TrimSpace(c.MQTTBroker) == "" {
-		c.MQTTBroker = defaultMQTTBroker
-	}
+	c.SetMQTTBrokers(c.MQTTBrokerEndpoints())
 	if strings.TrimSpace(c.TopicPrefix) == "" {
 		c.TopicPrefix = defaultTopicPrefix
 	}
@@ -216,9 +230,7 @@ func (c *PeerConfig) NormalizeDefaults() {
 	if c == nil {
 		return
 	}
-	if strings.TrimSpace(c.MQTTBroker) == "" {
-		c.MQTTBroker = defaultMQTTBroker
-	}
+	c.SetMQTTBrokers(c.MQTTBrokerEndpoints())
 	if strings.TrimSpace(c.TopicPrefix) == "" {
 		c.TopicPrefix = defaultTopicPrefix
 	}
