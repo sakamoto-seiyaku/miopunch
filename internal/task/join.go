@@ -281,6 +281,15 @@ func (m *Manager) runJoinTask(taskID string, rawArgs []byte) {
 			if err != nil {
 				continue
 			}
+			var rejection approvalRejectionV0
+			if err := json.Unmarshal(pt, &rejection); err == nil && strings.TrimSpace(rejection.Status) == controlplane.ApprovalStatusRejected {
+				m.addFact(taskID, poc.Fact{Message: "join_request rejected"})
+				if strings.TrimSpace(rejection.Reason) != "" {
+					m.addFact(taskID, poc.Fact{Message: "reason=" + strings.TrimSpace(rejection.Reason)})
+				}
+				m.done(taskID, poc.ReasonCodeForbidden, poc.ExitCodeForbidden)
+				return
+			}
 			if err := json.Unmarshal(pt, &bundle); err != nil {
 				continue
 			}

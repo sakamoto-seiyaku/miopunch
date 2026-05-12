@@ -34,6 +34,9 @@ type Manager struct {
 	topologyAttempts []TopologyAttempt
 	topologyPayloads []TopologyPayload
 
+	approvalMu       sync.Mutex
+	approvalRuntimes map[string]*approveRuntime
+
 	stateMu   sync.Mutex
 	statePath string
 
@@ -62,15 +65,16 @@ func NewManager() *Manager {
 func NewManagerWithStatePath(statePath string) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
 	m := &Manager{
-		ctx:          ctx,
-		cancel:       cancel,
-		tasks:        make(map[string]*Task),
-		attachByTask: make(map[string]*attachState),
-		sessions:     dataplane.NewSessionManager(),
-		statePath:    strings.TrimSpace(statePath),
-		subsAll:      make(map[int]chan Event),
-		subsByTask:   make(map[string]map[int]chan Event),
-		desktopSubs:  make(map[int]chan DesktopStateEvent),
+		ctx:              ctx,
+		cancel:           cancel,
+		tasks:            make(map[string]*Task),
+		attachByTask:     make(map[string]*attachState),
+		sessions:         dataplane.NewSessionManager(),
+		approvalRuntimes: make(map[string]*approveRuntime),
+		statePath:        strings.TrimSpace(statePath),
+		subsAll:          make(map[int]chan Event),
+		subsByTask:       make(map[string]map[int]chan Event),
+		desktopSubs:      make(map[int]chan DesktopStateEvent),
 	}
 	m.sessions.SetChangeHook(m.publishDesktopPeerSessionsChange)
 	return m
@@ -370,6 +374,8 @@ func (m *Manager) runStub(ctx context.Context, taskID string, req CreateRequest)
 		m.runJoinTask(taskID, req.Args)
 	case "approve":
 		m.runApproveTask(taskID, req.Args)
+	case "approve_decision":
+		m.runApproveDecisionTask(taskID, req.Args)
 	case "ping":
 		m.runPingTask(taskID, req.Args)
 	case "bootstrap_more":

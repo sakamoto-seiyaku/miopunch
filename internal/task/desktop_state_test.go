@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/miopunch/miopunch/internal/controlplane"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/pocstate"
 )
@@ -76,11 +77,6 @@ func TestPublishDesktopFromTaskEventPublishesDiagnosticsReplace(t *testing.T) {
 			}),
 			wantFact: "shell_sessions=1",
 		},
-		{
-			name:     "approval request count",
-			task:     desktopStateTestTask("task-desktop-diag-approval", "approve", nil),
-			wantFact: "approval_requests=1",
-		},
 	}
 
 	for _, tt := range tests {
@@ -112,6 +108,56 @@ func TestPublishDesktopFromTaskEventPublishesDiagnosticsReplace(t *testing.T) {
 			}
 			assertDesktopRuntimeRevFact(t, ev.Diagnostics, ev.Rev)
 		})
+	}
+}
+
+func TestDesktopStateIncludesPersistedApprovalRequests(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	m := NewManagerWithStatePath(statePath)
+	t.Cleanup(m.Close)
+
+	stateDir, err := pocstate.StateDir(statePath)
+	if err != nil {
+		t.Fatalf("pocstate.StateDir(%q) error = %v", statePath, err)
+	}
+	store, err := controlplane.NewInviteStore(stateDir)
+	if err != nil {
+		t.Fatalf("controlplane.NewInviteStore(%q) error = %v", stateDir, err)
+	}
+	expiresAt := time.Now().UTC().Add(time.Hour).UnixMilli()
+	if _, _, err := store.RecordApprovalRequest("miopunch/test/invite", expiresAt, 1, controlplane.ApprovalRequestRecord{
+		ApproveTaskID: "task-approve-review",
+		RequestMsgID:  "request-msg-review",
+		MemberPeerID:  "peer-reviewer",
+		MemberName:    "Review laptop",
+		PlatformHint:  "linux",
+		V4Hint:        "easy",
+	}); err != nil {
+		t.Fatalf("RecordApprovalRequest() error = %v", err)
+	}
+
+	snapshot, err := m.DesktopStateSnapshot()
+	if err != nil {
+		t.Fatalf("DesktopStateSnapshot() error = %v", err)
+	}
+	if len(snapshot.ApprovalRequests) != 1 {
+		t.Fatalf("DesktopStateSnapshot().ApprovalRequests length = %d, want 1", len(snapshot.ApprovalRequests))
+	}
+	got := snapshot.ApprovalRequests[0]
+	if got.ApproveTaskID != "task-approve-review" {
+		t.Errorf("ApprovalRequest.ApproveTaskID = %q, want %q", got.ApproveTaskID, "task-approve-review")
+	}
+	if got.RequestMsgID != "request-msg-review" {
+		t.Errorf("ApprovalRequest.RequestMsgID = %q, want %q", got.RequestMsgID, "request-msg-review")
+	}
+	if got.MemberName != "Review laptop" {
+		t.Errorf("ApprovalRequest.MemberName = %q, want %q", got.MemberName, "Review laptop")
+	}
+	if got.Status != controlplane.ApprovalStatusPending {
+		t.Errorf("ApprovalRequest.Status = %q, want %q", got.Status, controlplane.ApprovalStatusPending)
+	}
+	if !desktopFactsContain(snapshot.Diagnostics, "approval_requests=1") {
+		t.Fatalf("desktop diagnostics = %v, want approval_requests=1", snapshot.Diagnostics)
 	}
 }
 

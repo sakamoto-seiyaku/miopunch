@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/miopunch/miopunch/internal/controlplane"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/pocstate"
 )
@@ -85,12 +86,19 @@ type DesktopConfig struct {
 }
 
 type DesktopApprovalRequest struct {
-	TaskID       string    `json:"task_id"`
-	InviteID     string    `json:"invite_id,omitempty"`
-	MemberPeerID string    `json:"member_peer_id,omitempty"`
-	Status       Status    `json:"status,omitempty"`
-	Stage        poc.Stage `json:"stage,omitempty"`
-	CreatedAt    time.Time `json:"created_at,omitempty"`
+	ApproveTaskID string    `json:"approve_task_id"`
+	TaskID        string    `json:"task_id,omitempty"`
+	InviteID      string    `json:"invite_id,omitempty"`
+	RequestMsgID  string    `json:"request_msg_id"`
+	MemberPeerID  string    `json:"member_peer_id,omitempty"`
+	Status        string    `json:"status,omitempty"`
+	Decision      string    `json:"decision,omitempty"`
+	CreatedAt     time.Time `json:"created_at,omitempty"`
+	UpdatedAt     time.Time `json:"updated_at,omitempty"`
+	MemberName    string    `json:"member_name,omitempty"`
+	PlatformHint  string    `json:"platform,omitempty"`
+	V4Hint        string    `json:"v4_hint,omitempty"`
+	V6Hint        string    `json:"v6_hint,omitempty"`
 }
 
 type DesktopStateSnapshot struct {
@@ -200,7 +208,10 @@ func (m *Manager) desktopStateSnapshotLocked() (DesktopStateSnapshot, error) {
 	if err != nil {
 		return DesktopStateSnapshot{}, err
 	}
-	approvalRequests := buildDesktopApprovalRequests(tasks)
+	approvalRequests, err := m.buildDesktopApprovalRequests(tasks)
+	if err != nil {
+		return DesktopStateSnapshot{}, err
+	}
 
 	snapshot := DesktopStateSnapshot{
 		Rev:              m.desktopRev,
@@ -240,10 +251,13 @@ func (m *Manager) publishDesktopFromTaskEvent(ev Event) {
 			})
 		}
 		if taskSnapshot.Kind == "approve" {
-			m.publishDesktopStateEventLocked(DesktopStateEvent{
-				Kind:             DesktopStateEventApprovalRequestsReplace,
-				ApprovalRequests: buildDesktopApprovalRequests(tasks),
-			})
+			approvalRequests, err := m.buildDesktopApprovalRequests(tasks)
+			if err == nil {
+				m.publishDesktopStateEventLocked(DesktopStateEvent{
+					Kind:             DesktopStateEventApprovalRequestsReplace,
+					ApprovalRequests: approvalRequests,
+				})
+			}
 		}
 	}
 
@@ -279,6 +293,29 @@ func (m *Manager) publishDesktopConfigAndTopologyChange() {
 	m.publishDesktopStateEventLocked(DesktopStateEvent{
 		Kind:     DesktopStateEventTopologyReplace,
 		Topology: &topology,
+	})
+	nextRev := m.nextDesktopEventRevLocked()
+	m.publishDesktopStateEventLocked(DesktopStateEvent{
+		Kind:        DesktopStateEventDiagnosticsReplace,
+		Diagnostics: buildDesktopDiagnostics(snapshot, m.statePath, nextRev),
+	})
+}
+
+func (m *Manager) publishDesktopApprovalRequestsChange() {
+	if m == nil {
+		return
+	}
+
+	m.desktopMu.Lock()
+	defer m.desktopMu.Unlock()
+
+	snapshot, err := m.desktopStateSnapshotLocked()
+	if err != nil {
+		return
+	}
+	m.publishDesktopStateEventLocked(DesktopStateEvent{
+		Kind:             DesktopStateEventApprovalRequestsReplace,
+		ApprovalRequests: snapshot.ApprovalRequests,
 	})
 	nextRev := m.nextDesktopEventRevLocked()
 	m.publishDesktopStateEventLocked(DesktopStateEvent{
@@ -410,25 +447,89 @@ func buildDesktopShellSessions(tasks []Task) []DesktopShellSession {
 	return out
 }
 
-func buildDesktopApprovalRequests(tasks []Task) []DesktopApprovalRequest {
+func (m *Manager) buildDesktopApprovalRequests(tasks []Task) ([]DesktopApprovalRequest, error) {
 	out := make([]DesktopApprovalRequest, 0)
+	seen := make(map[string]bool)
+
+	stateDir, err := pocstate.StateDir(m.statePath)
+	if err == nil {
+		store, err := controlplane.NewInviteStore(stateDir)
+		if err != nil {
+			return nil, err
+		}
+		records, err := store.ListApprovalRequests()
+		if err != nil {
+			return nil, err
+		}
+		for _, rec := range records {
+			req := desktopApprovalRequestFromRecord(rec)
+			if req.ApproveTaskID == "" || req.RequestMsgID == "" {
+				continue
+			}
+			seen[req.ApproveTaskID+"/"+req.RequestMsgID] = true
+			out = append(out, req)
+		}
+	} else if strings.TrimSpace(m.statePath) != "" {
+		return nil, err
+	}
+
 	for _, taskSnapshot := range tasks {
 		if taskSnapshot.Kind != "approve" || taskSnapshot.Status == StatusDone {
 			continue
 		}
+		requestMsgID := desktopFactValue(taskSnapshot.Facts, "approval_request", "approval_request=")
+		if requestMsgID == "" {
+			continue
+		}
+		key := taskSnapshot.ID + "/" + requestMsgID
+		if seen[key] {
+			continue
+		}
 		out = append(out, DesktopApprovalRequest{
-			TaskID:       taskSnapshot.ID,
-			InviteID:     desktopFactValue(taskSnapshot.Facts, "invite_id", "invite_id="),
-			MemberPeerID: desktopFactValue(taskSnapshot.Facts, "member_peer_id", "member_peer_id="),
-			Status:       taskSnapshot.Status,
-			Stage:        taskSnapshot.Stage,
-			CreatedAt:    taskSnapshot.CreatedAt,
+			ApproveTaskID: taskSnapshot.ID,
+			TaskID:        taskSnapshot.ID,
+			InviteID:      desktopFactValue(taskSnapshot.Facts, "invite_id", "invite_id="),
+			RequestMsgID:  requestMsgID,
+			MemberPeerID:  desktopFactValue(taskSnapshot.Facts, "member_peer_id", "member_peer_id="),
+			Status:        controlplane.ApprovalStatusPending,
+			CreatedAt:     taskSnapshot.CreatedAt,
 		})
 	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].RequestMsgID < out[j].RequestMsgID
+		}
+		return out[i].CreatedAt.Before(out[j].CreatedAt)
+	})
 	if out == nil {
-		return []DesktopApprovalRequest{}
+		return []DesktopApprovalRequest{}, nil
 	}
-	return out
+	return out, nil
+}
+
+func desktopApprovalRequestFromRecord(rec controlplane.ApprovalRequestRecord) DesktopApprovalRequest {
+	return DesktopApprovalRequest{
+		ApproveTaskID: strings.TrimSpace(rec.ApproveTaskID),
+		TaskID:        strings.TrimSpace(rec.ApproveTaskID),
+		InviteID:      strings.TrimSpace(rec.InviteID),
+		RequestMsgID:  strings.TrimSpace(rec.RequestMsgID),
+		MemberPeerID:  strings.TrimSpace(rec.MemberPeerID),
+		Status:        strings.TrimSpace(rec.Status),
+		Decision:      strings.TrimSpace(rec.Decision),
+		CreatedAt:     timeFromUnixMilli(rec.CreatedAtUnixMs),
+		UpdatedAt:     timeFromUnixMilli(rec.UpdatedAtUnixMs),
+		MemberName:    strings.TrimSpace(rec.MemberName),
+		PlatformHint:  strings.TrimSpace(rec.PlatformHint),
+		V4Hint:        strings.TrimSpace(rec.V4Hint),
+		V6Hint:        strings.TrimSpace(rec.V6Hint),
+	}
+}
+
+func timeFromUnixMilli(unixMs int64) time.Time {
+	if unixMs <= 0 {
+		return time.Time{}
+	}
+	return time.UnixMilli(unixMs).UTC()
 }
 
 func (m *Manager) buildDesktopConfig(topology TopologySnapshot) (DesktopConfig, error) {

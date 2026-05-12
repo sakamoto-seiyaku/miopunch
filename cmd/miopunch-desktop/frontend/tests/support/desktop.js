@@ -269,6 +269,7 @@ async function installFakeBridge(page, options = {}) {
     createTaskModes: options.createTaskModes || {},
     getTaskModes: options.getTaskModes || {},
     initialTasks: options.initialTasks || [],
+    approvalRequests: options.approvalRequests || null,
     inviteCodeDelivery: options.inviteCodeDelivery || "immediate",
     runtimeStartDelayMs: options.runtimeStartDelayMs || 0,
     runtimeResyncDelayMs: options.runtimeResyncDelayMs || 0,
@@ -301,7 +302,7 @@ async function installFakeBridge(page, options = {}) {
       known_peers: peers.map((peer) => ({ peer_id: peer.peer_id })),
     });
     let runtimeDiagnostics = clone(init.fixture.runtime_diagnostics || init.fixture.diagnostics || []);
-    let runtimeApprovalRequests = clone(init.fixture.approval_requests || []);
+    let runtimeApprovalRequests = clone(init.approvalRequests || init.fixture.approval_requests || []);
     const tasks = new Map((init.initialTasks || []).map((task) => [String(task.task_id || ""), task]));
     let connection = {
       connected: !!init.fixture.connected,
@@ -401,6 +402,19 @@ async function installFakeBridge(page, options = {}) {
         task.status = "running";
         task.stage = "waiting for joiner";
         task.report_ready = false;
+      } else if (kind === "approve_decision") {
+        task.stage = `${String(args && args.decision ? args.decision : "decision")} submitted`;
+        task.facts.push({ message: `approve_task_id=${String(args && args.approve_task_id ? args.approve_task_id : "")}` });
+        task.facts.push({ message: `request_msg_id=${String(args && args.request_msg_id ? args.request_msg_id : "")}` });
+        const req = runtimeApprovalRequests.find((item) =>
+          String(item.approve_task_id || item.task_id || "") === String(args && args.approve_task_id || "") &&
+          String(item.request_msg_id || "") === String(args && args.request_msg_id || "")
+        );
+        if (req) {
+          req.status = String(args && args.decision || "") === "reject" ? "rejected" : "approved";
+          req.decision = String(args && args.decision || "");
+          req.updated_at = new Date().toISOString();
+        }
       } else if (kind === "ping") {
         task.stage = "payload exchanged";
         task.facts.push({ message: `peer_id=${String(args && args.peer_id ? args.peer_id : "")}` });
@@ -592,7 +606,18 @@ async function installFakeBridge(page, options = {}) {
             const mode = init.createTaskModes[kind] || "success";
             if (mode === "failure") return bridgeError(kind);
             if (mode === "timeout") return new Promise(() => {});
-            return { ok: true, task: clone(okTask(kind, args || {})) };
+            const approvalBefore = clone(runtimeApprovalRequests);
+            const task = okTask(kind, args || {});
+            if (mode === "task_failure") {
+              runtimeApprovalRequests = approvalBefore;
+              task.status = "done";
+              task.stage = "failed";
+              task.reason_code = "CONFLICT";
+              task.exit_code = 6;
+              task.report_ready = true;
+              task.facts.push({ message: `${kind} failed in fake task` });
+            }
+            return { ok: true, task: clone(task) };
           },
           GetTask: async (taskID) => {
             record({ method: "GetTask", taskID });

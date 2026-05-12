@@ -204,7 +204,7 @@ test("Access Approve submits object args and renders progress", async ({ page })
   await page.locator("#approve-code").fill("mp:v0.approve.test");
   await page.locator("#approve-form").getByRole("button", { name: "Start approval" }).click();
 
-  await expectCreateTaskCall(page, "approve", { code: "mp:v0.approve.test" });
+  await expectCreateTaskCall(page, "approve", { code: "mp:v0.approve.test", explicit_review: true });
   await expect(page.getByText("waiting for joiner")).toBeVisible();
 });
 
@@ -215,6 +215,90 @@ test("Access Approve validates missing invite code without creating a task", asy
 
   await expect(page.locator("#toast")).toContainText("Missing invite code");
   await expect.poll(() => createTaskCalls(page, "approve")).toEqual([]);
+});
+
+const pendingApprovalRequest = {
+  approve_task_id: "task-approve-ui-001",
+  invite_id: "invite-ui-001",
+  request_msg_id: "request-ui-001",
+  member_peer_id: "peer-new-tablet-06",
+  member_name: "New tablet",
+  platform: "linux",
+  v4_hint: "easy",
+  status: "pending",
+  created_at: "2026-05-04T00:02:00Z",
+};
+
+test("Access renders pending approval requests and submits approve decisions", async ({ page }) => {
+  await openAccessFlow(page, "approve", { approvalRequests: [pendingApprovalRequest] });
+
+  await expect(page.getByText("New tablet")).toBeVisible();
+  await expect(page.locator(".approval-row", { hasText: "peer-new-tablet-06" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Approve", exact: true }).click();
+
+  await expectCreateTaskCall(page, "approve_decision", {
+    approve_task_id: "task-approve-ui-001",
+    request_msg_id: "request-ui-001",
+    decision: "approve",
+  });
+});
+
+test("Access submits reject approval decisions", async ({ page }) => {
+  await openAccessFlow(page, "approve", { approvalRequests: [pendingApprovalRequest] });
+
+  await page.getByRole("button", { name: "Reject", exact: true }).click();
+
+  await expectCreateTaskCall(page, "approve_decision", {
+    approve_task_id: "task-approve-ui-001",
+    request_msg_id: "request-ui-001",
+    decision: "reject",
+  });
+});
+
+test("Access hides approval decision controls for member role", async ({ page }) => {
+  await openDesktop(page, { fixture: "member", path: "/?tab=access", approvalRequests: [pendingApprovalRequest] });
+
+  await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reject", exact: true })).toHaveCount(0);
+});
+
+test("Access approval requests update from runtime events", async ({ page }) => {
+  await openAccessFlow(page, "approve", { approvalRequests: [pendingApprovalRequest] });
+
+  await emitRuntime(page, "desktop:state", {
+    kind: "approval_requests.replace",
+    base_rev: 0,
+    rev: 1,
+    approval_requests: [{ ...pendingApprovalRequest, status: "approved", decision: "approve" }],
+  });
+
+  await expect(page.getByText("approved", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve", exact: true })).toBeDisabled();
+});
+
+test("Access approval decision bridge failures are visible and recoverable", async ({ page }) => {
+  await openAccessFlow(page, "approve", {
+    approvalRequests: [pendingApprovalRequest],
+    createTaskModes: { approve_decision: "failure" },
+  });
+
+  await page.getByRole("button", { name: "Reject", exact: true }).click();
+
+  await expect(page.locator(".helper-error", { hasText: "approve_decision failed in fake bridge" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reject", exact: true })).toBeEnabled();
+});
+
+test("Access approval decision task failures are visible and recoverable", async ({ page }) => {
+  await openAccessFlow(page, "approve", {
+    approvalRequests: [pendingApprovalRequest],
+    createTaskModes: { approve_decision: "task_failure" },
+  });
+
+  await page.getByRole("button", { name: "Approve", exact: true }).click();
+
+  await expect(page.locator(".helper-error", { hasText: "approve_decision failed in fake task" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve", exact: true })).toBeEnabled();
 });
 
 test("Access hides admin-only flows for member role", async ({ page }) => {

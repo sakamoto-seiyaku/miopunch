@@ -487,6 +487,19 @@ button {
   flex-wrap: wrap;
 }
 
+.approval-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.helper-error {
+  color: var(--error);
+  font-weight: 720;
+}
+
 .form-grid {
   display: grid;
   gap: 10px;

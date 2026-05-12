@@ -36,6 +36,8 @@
   const inviteState = { taskID: "", busy: false, message: "", missingTaskID: "" };
   const joinState = { taskID: "", lastExportPath: "" };
   const approveState = { taskID: "", message: "" };
+  const approvalDecisionState = new Map();
+  const approvalDecisionTasks = new Map();
   const shellState = { ws: null, term: null, resizeObs: null, taskID: "", fitTimer: 0 };
 
   let lastConn = null;
@@ -238,6 +240,18 @@
           suggestions: [],
         },
       ],
+      approval_requests: [
+        {
+          approve_task_id: "preview-approve-001",
+          invite_id: "preview-invite",
+          request_msg_id: "JBSWY3DPEHPK3PXPJBSWY3DPAA",
+          member_peer_id: "peer-new-tablet-06",
+          member_name: "New tablet",
+          platform: "linux",
+          status: "pending",
+          created_at: "2026-05-04T00:02:00Z",
+        },
+      ],
     },
     member: {
       connection: { connected: true, selected: "preview", addr: "static://member" },
@@ -351,6 +365,21 @@
   const roleKnown = () => !!(state.topology && state.topology.self && effectiveSelfRole());
   const isAdminRole = (role) => ["owner", "admin"].includes(String(role || "").toLowerCase());
   const adminVisible = () => isAdminRole(effectiveSelfRole());
+  const approvalRequestKey = (req) => {
+    const approveTaskID = String(req && (req.approve_task_id || req.task_id) || "").trim();
+    const requestMsgID = String(req && req.request_msg_id || "").trim();
+    return approveTaskID && requestMsgID ? `${approveTaskID}/${requestMsgID}` : "";
+  };
+  const approvalRequestStatus = (req) => String(req && req.status || "").toLowerCase();
+  const pendingApprovalRequests = () => (Array.isArray(state.approvalRequests) ? state.approvalRequests : [])
+    .filter((req) => approvalRequestKey(req));
+  const approvalStatusClass = (status) => {
+    const s = String(status || "").toLowerCase();
+    if (s === "approved") return "chip-done";
+    if (s === "rejected" || s === "expired") return "chip-error";
+    if (s === "pending") return "chip-running";
+    return "";
+  };
 
   const members = () => {
     const top = state.topology || {};
@@ -464,8 +493,33 @@
   const upsertTask = (taskObj) => {
     const taskID = canonicalTaskID(taskObj && taskObj.task_id);
     if (!taskID) return "";
-    state.tasks.set(taskID, mergeTask(state.tasks.get(taskID), taskObj));
+    const merged = mergeTask(state.tasks.get(taskID), taskObj);
+    state.tasks.set(taskID, merged);
+    syncApprovalDecisionTask(merged);
     return taskID;
+  };
+
+  const syncApprovalDecisionTask = (taskObj) => {
+    const taskID = canonicalTaskID(taskObj && taskObj.task_id);
+    const key = taskID ? approvalDecisionTasks.get(taskID) : "";
+    if (!key) return;
+    const current = approvalDecisionState.get(key) || {};
+    const status = String(taskObj && taskObj.status || "").toLowerCase();
+    const reason = String(taskObj && taskObj.reason_code || "").trim();
+    if (status !== "done") {
+      approvalDecisionState.set(key, { ...current, busy: true, taskID });
+      return;
+    }
+    if (reason && reason !== "OK") {
+      approvalDecisionState.set(key, {
+        ...current,
+        busy: false,
+        taskID,
+        failure: taskFailureSummary(taskObj),
+      });
+      return;
+    }
+    approvalDecisionState.set(key, { ...current, busy: false, taskID, failure: "", message: "Decision sent" });
   };
 
   const attachPeerFact = (taskObj, peerID) => {
@@ -486,6 +540,15 @@
     if (status === "done") return "chip-done";
     if (status === "running" || status === "pending") return "chip-running";
     return "";
+  };
+
+  const taskFailureSummary = (taskObj) => {
+    if (!taskObj) return "decision task failed";
+    const reason = String(taskObj.reason_code || "").trim();
+    const facts = Array.isArray(taskObj.facts) ? taskObj.facts : [];
+    const messages = facts.map((f) => String(f && f.message || "").trim()).filter(Boolean);
+    const detail = messages.find((msg) => /failed|error|invalid|conflict/i.test(msg)) || messages[0] || "";
+    return [reason, detail].filter(Boolean).join(": ") || "decision task failed";
   };
 
   const applyEventToTask = (taskObj, ev) => {
@@ -537,7 +600,9 @@
     for (const taskObj of tasks) {
       const taskID = canonicalTaskID(taskObj && taskObj.task_id);
       if (!taskID) continue;
-      nextTasks.set(taskID, mergeTask(state.tasks.get(taskID), taskObj));
+      const merged = mergeTask(state.tasks.get(taskID), taskObj);
+      nextTasks.set(taskID, merged);
+      syncApprovalDecisionTask(merged);
     }
     state.tasks = nextTasks;
   };
@@ -1001,6 +1066,7 @@
         ${accessSwitchHTML()}
         ${pageHeadingHTML("Access overview", "Access")}
         <div class="grid grid-3">${flowTiles}</div>
+        ${renderApprovalRequestsPanel()}
         ${renderTaskCard("Recent tasks")}
       </section>`);
   };
@@ -1074,7 +1140,52 @@
           </div>
         </form>
       </section>
+      ${renderApprovalRequestsPanel()}
       ${renderTaskSummary(taskObj)}`;
+  };
+
+  const renderApprovalRequestsPanel = () => {
+    if (!adminVisible()) return "";
+    const requests = pendingApprovalRequests();
+    const rows = requests.length ? requests.map((req) => {
+      const key = approvalRequestKey(req);
+      const approveTaskID = String(req.approve_task_id || req.task_id || "").trim();
+      const requestMsgID = String(req.request_msg_id || "").trim();
+      const status = approvalRequestStatus(req) || "pending";
+      const decision = approvalDecisionState.get(key) || {};
+      const busy = !!decision.busy && status === "pending";
+      const failure = String(decision.failure || "");
+      const displayName = String(req.member_name || "").trim();
+      const peerLabel = displayName ? `${displayName} | ${shortID(req.member_peer_id)}` : shortID(req.member_peer_id);
+      const hints = [
+        req.platform ? `platform=${req.platform}` : "",
+        req.v4_hint ? `v4=${req.v4_hint}` : "",
+        req.v6_hint ? `v6=${req.v6_hint}` : "",
+      ].filter(Boolean).join(" | ");
+      const canDecide = adminVisible() && status === "pending";
+      return `
+        <div class="row-card approval-row">
+          <div>
+            <div class="row-title">${esc(peerLabel)}</div>
+            <div class="row-meta">${esc(req.member_peer_id || "-")} | request=${esc(shortID(requestMsgID))}</div>
+            ${hints ? `<div class="helper">${esc(hints)}</div>` : ""}
+            ${failure ? `<div class="helper helper-error">${esc(failure)}</div>` : ""}
+          </div>
+          <div class="approval-actions">
+            ${chipHTML(status, approvalStatusClass(status))}
+            <button class="btn btn-tonal" type="button" data-approval-decision="reject" data-approve-task-id="${esc(approveTaskID)}" data-request-msg-id="${esc(requestMsgID)}" ${canDecide && !busy ? "" : "disabled"}>Reject</button>
+            <button class="btn btn-primary" type="button" data-approval-decision="approve" data-approve-task-id="${esc(approveTaskID)}" data-request-msg-id="${esc(requestMsgID)}" ${canDecide && !busy ? "" : "disabled"}>Approve</button>
+          </div>
+        </div>`;
+    }).join("") : listItemHTML("No pending approval requests", "empty");
+    return `
+      <section class="card">
+        <div class="card-header">
+          <div><p class="eyebrow">Review</p><h3 class="card-title">Approval requests</h3></div>
+          ${chipHTML(requests.length)}
+        </div>
+        <div class="row-list">${rows}</div>
+      </section>`;
   };
 
   const renderAdmin = () => {
@@ -1509,6 +1620,17 @@
       taskObj.facts.push({ message: `invite_code=${String((args && args.code) || "").slice(0, 40)}` });
     } else if (kind === "approve") {
       taskObj.stage = "waiting for joiner";
+    } else if (kind === "approve_decision") {
+      taskObj.stage = `${String(args && args.decision || "decision")} submitted`;
+      const req = pendingApprovalRequests().find((item) =>
+        String(item.approve_task_id || item.task_id || "").trim() === String(args && args.approve_task_id || "").trim() &&
+        String(item.request_msg_id || "").trim() === String(args && args.request_msg_id || "").trim()
+      );
+      if (req) {
+        req.status = String(args && args.decision || "") === "reject" ? "rejected" : "approved";
+        req.decision = String(args && args.decision || "");
+        req.updated_at = new Date().toISOString();
+      }
     } else if (kind === "ping") {
       taskObj.stage = "payload exchanged";
       taskObj.facts.push({ message: "path=quic/udp4 rtt_ms=18" });
@@ -1876,6 +1998,11 @@
       if (input && input.value) await copyToClipboard(input.value);
       return;
     }
+    if (target.dataset.approvalDecision) {
+      event.preventDefault();
+      await submitApprovalDecision(target.dataset.approveTaskId, target.dataset.requestMsgId, target.dataset.approvalDecision);
+      return;
+    }
     if (target.id === "btn-invite") {
       event.preventDefault();
       await createInvite();
@@ -2003,10 +2130,37 @@
     }
     approveState.message = "Starting approval listener...";
     scheduleRender();
-    const created = await createTask("approve", { code });
+    const created = await createTask("approve", { code, explicit_review: true });
     approveState.taskID = upsertTask(created);
     approveState.message = "";
     scheduleRender();
+  };
+
+  const submitApprovalDecision = async (approveTaskID, requestMsgID, decision) => {
+    const req = pendingApprovalRequests().find((item) =>
+      String(item.approve_task_id || item.task_id || "").trim() === String(approveTaskID || "").trim() &&
+      String(item.request_msg_id || "").trim() === String(requestMsgID || "").trim()
+    );
+    const key = approvalRequestKey(req || { approve_task_id: approveTaskID, request_msg_id: requestMsgID });
+    if (!key) return;
+    approvalDecisionState.set(key, { busy: true, decision, failure: "", message: "Submitting decision..." });
+    scheduleRender();
+    try {
+      const created = await createTask("approve_decision", {
+        approve_task_id: String(approveTaskID || "").trim(),
+        request_msg_id: String(requestMsgID || "").trim(),
+        decision,
+      });
+      const taskID = upsertTask(created);
+      if (taskID) approvalDecisionTasks.set(taskID, key);
+      syncApprovalDecisionTask(state.tasks.get(taskID));
+      toast(decision === "approve" ? "Approval submitted" : "Rejection submitted");
+    } catch (err) {
+      approvalDecisionState.set(key, { busy: false, decision, failure: String(err), message: "" });
+      toast(String(err));
+    } finally {
+      scheduleRender();
+    }
   };
 
   const applyLocalAPIOverride = async () => {

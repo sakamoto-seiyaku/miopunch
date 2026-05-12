@@ -18,7 +18,14 @@ type JoinArgs struct {
 }
 
 type ApproveArgs struct {
-	Code string `json:"code"`
+	Code           string `json:"code"`
+	ExplicitReview bool   `json:"explicit_review,omitempty"`
+}
+
+type ApproveDecisionArgs struct {
+	ApproveTaskID string `json:"approve_task_id"`
+	RequestMsgID  string `json:"request_msg_id"`
+	Decision      string `json:"decision"`
 }
 
 type PingArgs struct {
@@ -91,6 +98,13 @@ func (a JoinArgs) normalize() JoinArgs {
 
 func (a ApproveArgs) normalize() ApproveArgs {
 	a.Code = strings.TrimSpace(a.Code)
+	return a
+}
+
+func (a ApproveDecisionArgs) normalize() ApproveDecisionArgs {
+	a.ApproveTaskID = strings.TrimSpace(a.ApproveTaskID)
+	a.RequestMsgID = strings.TrimSpace(a.RequestMsgID)
+	a.Decision = strings.TrimSpace(a.Decision)
 	return a
 }
 
