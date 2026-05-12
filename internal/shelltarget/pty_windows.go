@@ -3,12 +3,14 @@
 package shelltarget
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"sync"
 	"unsafe"
 
+	"github.com/miopunch/miopunch/internal/logutil"
 	"golang.org/x/sys/windows"
 )
 
@@ -18,11 +20,22 @@ type conPTY struct {
 	in  *os.File
 	out *os.File
 
-	proc   windows.Handle
-	thread windows.Handle
+	proc    windows.Handle
+	thread  windows.Handle
+	procID  uint32
+	cmdline string
 
-	closeOnce sync.Once
+	readStartOnce  sync.Once
+	readReturnOnce sync.Once
+	writeOnce      sync.Once
+	resizeOnce     sync.Once
+	closeOnce      sync.Once
 }
+
+// Cursor inheritance requires a parent console host that can answer cursor queries.
+const conPTYCreatePseudoConsoleFlags uint32 = 0
+
+var procUpdateProcThreadAttribute = windows.NewLazySystemDLL("kernel32.dll").NewProc("UpdateProcThreadAttribute")
 
 func startConPTY(application string, args []string, cols, rows int) (*conPTY, error) {
 	if cols <= 0 {
@@ -44,7 +57,77 @@ func startConPTY(application string, args []string, cols, rows int) (*conPTY, er
 	}
 
 	var pcon windows.Handle
-	if err := windows.CreatePseudoConsole(windows.Coord{X: int16(cols), Y: int16(rows)}, inRead, outWrite, windows.PSEUDOCONSOLE_INHERIT_CURSOR, &pcon); err != nil {
+	logutil.Infof(
+		"conpty create start: application=%s size=%dx%d flags=%d",
+		application,
+		cols,
+		rows,
+		conPTYCreatePseudoConsoleFlags,
+	)
+	if err := windows.CreatePseudoConsole(
+		windows.Coord{X: int16(cols), Y: int16(rows)},
+		inRead,
+		outWrite,
+		conPTYCreatePseudoConsoleFlags,
+		&pcon,
+	); err != nil {
+		_ = windows.CloseHandle(inRead)
+		_ = windows.CloseHandle(inWrite)
+		_ = windows.CloseHandle(outRead)
+		_ = windows.CloseHandle(outWrite)
+		return nil, err
+	}
+
+	attrList, err := windows.NewProcThreadAttributeList(1)
+	if err != nil {
+		windows.ClosePseudoConsole(pcon)
+		_ = windows.CloseHandle(inRead)
+		_ = windows.CloseHandle(inWrite)
+		_ = windows.CloseHandle(outRead)
+		_ = windows.CloseHandle(outWrite)
+		return nil, err
+	}
+	defer attrList.Delete()
+
+	if err := updatePseudoConsoleAttribute(attrList, pcon); err != nil {
+		windows.ClosePseudoConsole(pcon)
+		_ = windows.CloseHandle(inRead)
+		_ = windows.CloseHandle(inWrite)
+		_ = windows.CloseHandle(outRead)
+		_ = windows.CloseHandle(outWrite)
+		return nil, err
+	}
+
+	cmdline := buildCommandLine(application, args)
+	cmdline16, err := windows.UTF16FromString(cmdline)
+	if err != nil {
+		windows.ClosePseudoConsole(pcon)
+		_ = windows.CloseHandle(inRead)
+		_ = windows.CloseHandle(inWrite)
+		_ = windows.CloseHandle(outRead)
+		_ = windows.CloseHandle(outWrite)
+		return nil, err
+	}
+	si := windows.StartupInfoEx{}
+	si.Cb = uint32(unsafe.Sizeof(si))
+	si.ProcThreadAttributeList = attrList.List()
+	// Empty std handles prevent console parents from bypassing the pseudoconsole pipes.
+	si.Flags = windows.STARTF_USESTDHANDLES
+
+	pi := windows.ProcessInformation{}
+	currentDir16, err := conPTYCurrentDir()
+	if err != nil {
+		windows.ClosePseudoConsole(pcon)
+		_ = windows.CloseHandle(inRead)
+		_ = windows.CloseHandle(inWrite)
+		_ = windows.CloseHandle(outRead)
+		_ = windows.CloseHandle(outWrite)
+		return nil, err
+	}
+
+	flags := uint32(windows.EXTENDED_STARTUPINFO_PRESENT | windows.CREATE_UNICODE_ENVIRONMENT)
+	if err := windows.CreateProcess(nil, &cmdline16[0], nil, nil, false, flags, nil, currentDir16, &si.StartupInfo, &pi); err != nil {
+		windows.ClosePseudoConsole(pcon)
 		_ = windows.CloseHandle(inRead)
 		_ = windows.CloseHandle(inWrite)
 		_ = windows.CloseHandle(outRead)
@@ -53,52 +136,54 @@ func startConPTY(application string, args []string, cols, rows int) (*conPTY, er
 	}
 	_ = windows.CloseHandle(inRead)
 	_ = windows.CloseHandle(outWrite)
-
-	attrList, err := windows.NewProcThreadAttributeList(1)
-	if err != nil {
-		windows.ClosePseudoConsole(pcon)
-		_ = windows.CloseHandle(inWrite)
-		_ = windows.CloseHandle(outRead)
-		return nil, err
-	}
-	defer attrList.Delete()
-
-	if err := attrList.Update(windows.PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, unsafe.Pointer(&pcon), unsafe.Sizeof(pcon)); err != nil {
-		windows.ClosePseudoConsole(pcon)
-		_ = windows.CloseHandle(inWrite)
-		_ = windows.CloseHandle(outRead)
-		return nil, err
-	}
-
-	cmdline := buildCommandLine(application, args)
-	cmdline16, err := windows.UTF16FromString(cmdline)
-	if err != nil {
-		windows.ClosePseudoConsole(pcon)
-		_ = windows.CloseHandle(inWrite)
-		_ = windows.CloseHandle(outRead)
-		return nil, err
-	}
-
-	si := windows.StartupInfoEx{}
-	si.Cb = uint32(unsafe.Sizeof(si))
-	si.ProcThreadAttributeList = attrList.List()
-
-	pi := windows.ProcessInformation{}
-	flags := uint32(windows.EXTENDED_STARTUPINFO_PRESENT | windows.CREATE_UNICODE_ENVIRONMENT | windows.CREATE_NO_WINDOW)
-	if err := windows.CreateProcess(nil, &cmdline16[0], nil, nil, false, flags, nil, nil, &si.StartupInfo, &pi); err != nil {
-		windows.ClosePseudoConsole(pcon)
-		_ = windows.CloseHandle(inWrite)
-		_ = windows.CloseHandle(outRead)
-		return nil, err
-	}
+	logutil.Infof(
+		"conpty process started: pid=%d application=%s create_flags=%d conpty_flags=%d command_line=%q",
+		pi.ProcessId,
+		application,
+		flags,
+		conPTYCreatePseudoConsoleFlags,
+		cmdline,
+	)
 
 	return &conPTY{
-		pcon:   pcon,
-		in:     os.NewFile(uintptr(inWrite), "conpty-in"),
-		out:    os.NewFile(uintptr(outRead), "conpty-out"),
-		proc:   pi.Process,
-		thread: pi.Thread,
+		pcon:    pcon,
+		in:      os.NewFile(uintptr(inWrite), "conpty-in"),
+		out:     os.NewFile(uintptr(outRead), "conpty-out"),
+		proc:    pi.Process,
+		thread:  pi.Thread,
+		procID:  pi.ProcessId,
+		cmdline: cmdline,
 	}, nil
+}
+
+func conPTYCurrentDir() (*uint16, error) {
+	systemRoot := strings.TrimSpace(os.Getenv("SystemRoot"))
+	if systemRoot == "" {
+		systemRoot = `C:\Windows`
+	}
+	return windows.UTF16PtrFromString(systemRoot + `\System32`)
+}
+
+func updatePseudoConsoleAttribute(attrList *windows.ProcThreadAttributeListContainer, pcon windows.Handle) error {
+	if attrList == nil || attrList.List() == nil {
+		return errors.New("nil process thread attribute list")
+	}
+	r1, _, err := procUpdateProcThreadAttribute.Call(
+		uintptr(unsafe.Pointer(attrList.List())),
+		0,
+		windows.PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
+		uintptr(pcon),
+		unsafe.Sizeof(pcon),
+		0,
+		0,
+	)
+	if r1 != 0 {
+		return nil
+	}
+	if err != windows.ERROR_SUCCESS {
+		return err
+	}
+	return errors.New("UpdateProcThreadAttribute failed")
 }
 
 func buildCommandLine(application string, args []string) string {
@@ -116,14 +201,25 @@ func (p *conPTY) Read(b []byte) (int, error) {
 	if p == nil || p.out == nil {
 		return 0, os.ErrClosed
 	}
-	return p.out.Read(b)
+	p.readStartOnce.Do(func() {
+		logutil.Infof("conpty read wait start: pid=%d command_line=%q", p.procID, p.cmdline)
+	})
+	n, err := p.out.Read(b)
+	p.readReturnOnce.Do(func() {
+		logutil.Infof("conpty first read returned: pid=%d bytes=%d err=%v", p.procID, n, err)
+	})
+	return n, err
 }
 
 func (p *conPTY) Write(b []byte) (int, error) {
 	if p == nil || p.in == nil {
 		return 0, os.ErrClosed
 	}
-	return p.in.Write(b)
+	n, err := p.in.Write(b)
+	p.writeOnce.Do(func() {
+		logutil.Infof("conpty first write returned: pid=%d bytes=%d requested=%d err=%v", p.procID, n, len(b), err)
+	})
+	return n, err
 }
 
 func (p *conPTY) Resize(cols, rows int) error {
@@ -133,7 +229,16 @@ func (p *conPTY) Resize(cols, rows int) error {
 	if cols <= 0 || rows <= 0 {
 		return nil
 	}
-	return windows.ResizePseudoConsole(p.pcon, windows.Coord{X: int16(cols), Y: int16(rows)})
+	logFirstResize := false
+	p.resizeOnce.Do(func() {
+		logFirstResize = true
+		logutil.Infof("conpty resize start: pid=%d size=%dx%d", p.procID, cols, rows)
+	})
+	err := windows.ResizePseudoConsole(p.pcon, windows.Coord{X: int16(cols), Y: int16(rows)})
+	if logFirstResize {
+		logutil.Infof("conpty resize done: pid=%d size=%dx%d err=%v", p.procID, cols, rows, err)
+	}
+	return err
 }
 
 func (p *conPTY) Wait() error {

@@ -104,6 +104,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 				{Message: "see: docs/roadmap.md (POC roadmap)"},
 			},
 		})
+	case "debug-conpty-smoke":
+		return runDebugConPTYSmoke(opt, cmdArgs, stdout, stderr)
 	case "install-system-daemon":
 		return runInstallSystemDaemon(opt, cmdArgs, stdout, stderr)
 	case "uninstall-system-daemon":
