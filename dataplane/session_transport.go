@@ -79,11 +79,11 @@ func (s *yamuxPeerSession) OpenStream(ctx context.Context, open StreamOpen) (io.
 	s.markActivity()
 	emitLogicalStream(s.em, s.Key(), open, false)
 	return &logicalStream{
-		rwc:     stream,
-		onClose: s.markActivity,
-		em:      s.em,
-		key:     s.Key(),
-		open:    open,
+		rwc:        stream,
+		onActivity: s.markActivity,
+		em:         s.em,
+		key:        s.Key(),
+		open:       open,
 	}, nil
 }
 
@@ -113,12 +113,12 @@ func (s *yamuxPeerSession) AcceptStream(ctx context.Context) (*AcceptedStream, e
 	emitLogicalStream(s.em, s.Key(), open, true)
 	return &AcceptedStream{
 		Stream: &logicalStream{
-			rwc:     stream,
-			onClose: s.markActivity,
-			em:      s.em,
-			key:     s.Key(),
-			open:    open,
-			accept:  true,
+			rwc:        stream,
+			onActivity: s.markActivity,
+			em:         s.em,
+			key:        s.Key(),
+			open:       open,
+			accept:     true,
 		},
 		Open: open,
 	}, nil
@@ -193,11 +193,11 @@ func (s *quicPeerSession) OpenStream(ctx context.Context, open StreamOpen) (io.R
 	s.markActivity()
 	emitLogicalStream(s.em, s.Key(), open, false)
 	return &logicalStream{
-		rwc:     stream,
-		onClose: s.markActivity,
-		em:      s.em,
-		key:     s.Key(),
-		open:    open,
+		rwc:        stream,
+		onActivity: s.markActivity,
+		em:         s.em,
+		key:        s.Key(),
+		open:       open,
 	}, nil
 }
 
@@ -226,12 +226,12 @@ func (s *quicPeerSession) AcceptStream(ctx context.Context) (*AcceptedStream, er
 	emitLogicalStream(s.em, s.Key(), open, true)
 	return &AcceptedStream{
 		Stream: &logicalStream{
-			rwc:     stream,
-			onClose: s.markActivity,
-			em:      s.em,
-			key:     s.Key(),
-			open:    open,
-			accept:  true,
+			rwc:        stream,
+			onActivity: s.markActivity,
+			em:         s.em,
+			key:        s.Key(),
+			open:       open,
+			accept:     true,
 		},
 		Open: open,
 	}, nil

@@ -342,29 +342,37 @@ func sessionEventKVs(key SessionKey) map[string]any {
 }
 
 type logicalStream struct {
-	rwc     io.ReadWriteCloser
-	onClose func()
-	em      *event.Emitter
-	key     SessionKey
-	open    StreamOpen
-	accept  bool
-	once    sync.Once
+	rwc        io.ReadWriteCloser
+	onActivity func()
+	em         *event.Emitter
+	key        SessionKey
+	open       StreamOpen
+	accept     bool
+	once       sync.Once
 }
 
 func (s *logicalStream) Read(p []byte) (int, error) {
-	return s.rwc.Read(p)
+	n, err := s.rwc.Read(p)
+	if n > 0 && s.onActivity != nil {
+		s.onActivity()
+	}
+	return n, err
 }
 
 func (s *logicalStream) Write(p []byte) (int, error) {
-	return s.rwc.Write(p)
+	n, err := s.rwc.Write(p)
+	if n > 0 && s.onActivity != nil {
+		s.onActivity()
+	}
+	return n, err
 }
 
 func (s *logicalStream) Close() error {
 	var err error
 	s.once.Do(func() {
 		err = s.rwc.Close()
-		if s.onClose != nil {
-			s.onClose()
+		if s.onActivity != nil {
+			s.onActivity()
 		}
 		emitLogicalStreamClose(s.em, s.key, s.open, s.accept, CloseReasonLogicalStreamComplete, err)
 	})
