@@ -78,16 +78,34 @@ test("Access invite Create fetches code after partial done runtime events", asyn
   await openAccessFlow(page, "invite", { inviteCodeDelivery: "partial-event-fetch" });
 
   await page.getByRole("button", { name: "Create" }).click();
-  await emitRuntime(page, "localapi:event", {
-    task_id: "ui-invite-001",
-    kind: "fact",
-    fact: { term_id: "peer_id", message: "peer_id=peer-ui-test-owner" },
+  await emitRuntime(page, "desktop:state", {
+    kind: "task.upsert",
+    base_rev: 0,
+    rev: 1,
+    task: {
+      task_id: "ui-invite-001",
+      kind: "invite",
+      status: "running",
+      stage: "prepare invite code",
+      facts: [{ term_id: "peer_id", message: "peer_id=peer-ui-test-owner" }],
+      suggestions: [],
+    },
   });
-  await emitRuntime(page, "localapi:event", {
-    task_id: "ui-invite-001",
-    kind: "done",
-    reason_code: "OK",
-    exit_code: 0,
+  await emitRuntime(page, "desktop:state", {
+    kind: "task.upsert",
+    base_rev: 1,
+    rev: 2,
+    task: {
+      task_id: "ui-invite-001",
+      kind: "invite",
+      status: "done",
+      stage: "invite code ready",
+      reason_code: "OK",
+      exit_code: 0,
+      report_ready: true,
+      facts: [{ term_id: "peer_id", message: "peer_id=peer-ui-test-owner" }],
+      suggestions: [],
+    },
   });
 
   await expect(page.locator("#invite-code")).toHaveValue(inviteCode);
@@ -103,10 +121,18 @@ test("Access invite flow renders code from runtime fact event", async ({ page })
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page.locator("#invite-code")).toHaveValue("");
 
-  await emitRuntime(page, "localapi:event", {
-    task_id: "ui-invite-001",
-    kind: "fact",
-    fact: { term_id: "invite_code", message: inviteCode },
+  await emitRuntime(page, "desktop:state", {
+    kind: "task.upsert",
+    base_rev: 0,
+    rev: 1,
+    task: {
+      task_id: "ui-invite-001",
+      kind: "invite",
+      status: "running",
+      stage: "prepare invite code",
+      facts: [{ term_id: "invite_code", message: inviteCode }],
+      suggestions: [],
+    },
   });
 
   await expect(page.locator("#invite-code")).toHaveValue(inviteCode);
@@ -117,11 +143,10 @@ test("Access invite flow renders code from runtime task snapshot", async ({ page
   await openAccessFlow(page, "invite", { inviteCodeDelivery: "event" });
 
   await page.getByRole("button", { name: "Create" }).click();
-  await emitRuntime(page, "localapi:event", {
-    task_id: "ui-invite-001",
-    kind: "done",
-    reason_code: "OK",
-    exit_code: 0,
+  await emitRuntime(page, "desktop:state", {
+    kind: "task.upsert",
+    base_rev: 0,
+    rev: 1,
     task: {
       task_id: "ui-invite-001",
       kind: "invite",

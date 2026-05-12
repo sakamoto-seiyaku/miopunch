@@ -26,6 +26,8 @@ type App struct {
 	eventsCancel context.CancelFunc
 	eventsDone   chan struct{}
 
+	runtimeEventHook func(DesktopRuntimeEvent)
+
 	termBridge *desktopbridge.TerminalWSBridge
 }
 
@@ -37,14 +39,15 @@ func (a *App) startup(ctx context.Context) {
 	a.mu.Lock()
 	a.ctx = ctx
 	a.mu.Unlock()
+}
 
+func (a *App) domReady(ctx context.Context) {
 	if err := a.ensureTerminalBridge(); err != nil && ctx != nil {
 		runtime.EventsEmit(ctx, "desktop:startup_error", map[string]any{
 			"component": "terminal_bridge",
 			"error":     err,
 		})
 	}
-	_ = a.Connect()
 }
 
 func (a *App) shutdown(context.Context) {

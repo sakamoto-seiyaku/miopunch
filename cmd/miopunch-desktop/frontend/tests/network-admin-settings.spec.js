@@ -156,7 +156,7 @@ test("Refresh triggers a new snapshot load", async ({ page }) => {
 
   await page.getByRole("button", { name: "Refresh" }).click();
 
-  await expect.poll(async () => (await calls(page)).filter((call) => call.method === "GetStatus").length).toBeGreaterThan(1);
+  await expect.poll(async () => (await calls(page)).filter((call) => call.method === "DesktopRuntimeResync").length).toBeGreaterThan(0);
 });
 
 test("Refresh reconnects before loading snapshot when bridge is disconnected", async ({ page }) => {
@@ -164,6 +164,5 @@ test("Refresh reconnects before loading snapshot when bridge is disconnected", a
 
   await page.getByRole("button", { name: "Refresh" }).click();
 
-  await expect.poll(async () => (await calls(page)).filter((call) => call.method === "Connect").length).toBeGreaterThan(1);
-  await expect.poll(async () => (await calls(page)).filter((call) => call.method === "GetStatus").length).toBeGreaterThan(0);
+  await expect.poll(async () => (await calls(page)).filter((call) => call.method === "DesktopRuntimeStart").length).toBeGreaterThan(1);
 });

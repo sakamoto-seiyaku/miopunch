@@ -37,10 +37,68 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	startSSE(w)
 	flusher.Flush()
 
-	_ = writeSSEEvent(w, task.Event{
+	_ = writeSSEJSON(w, task.Event{
 		Kind:       "snapshot",
 		TimeUnixMs: time.Now().UTC().UnixMilli(),
 		Tasks:      s.tasks.List(),
+	})
+	flusher.Flush()
+
+	serveSSELoop(r, w, flusher, sub.C)
+}
+
+func (s *Server) handleDesktopEvents(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		reqID, _ := poc.NewRequestID()
+		writeError(w, ErrorResponse{
+			Stage:      "localapi",
+			ReasonCode: poc.ReasonCodeInternal,
+			ExitCode:   poc.ExitCodeInternal,
+			Message:    "streaming not supported",
+			Facts:      []poc.Fact{},
+			Suggestions: []poc.Suggestion{
+				{Message: "retry with a client that supports HTTP streaming"},
+			},
+			RequestID: reqID,
+		})
+		return
+	}
+
+	sub, snapshot, err := s.tasks.SubscribeDesktopStateWithSnapshot()
+	if err != nil {
+		reqID, _ := poc.NewRequestID()
+		writeError(w, ErrorResponse{
+			Stage:      "localapi",
+			ReasonCode: poc.ReasonCodeInternal,
+			ExitCode:   poc.ExitCodeInternal,
+			Message:    "failed to collect desktop state snapshot",
+			Facts: []poc.Fact{
+				{Message: "error=" + err.Error()},
+			},
+			Suggestions: []poc.Suggestion{
+				{Message: "retry"},
+			},
+			RequestID: reqID,
+		})
+		return
+	}
+	defer sub.Close()
+
+	status := s.statusResponse()
+	snapshot.Status = task.DesktopStatus{
+		Version:   status.Version,
+		StartedAt: status.StartedAt,
+		UptimeMs:  status.UptimeMs,
+		Mode:      string(status.Mode),
+	}
+
+	startSSE(w)
+	flusher.Flush()
+
+	_ = writeSSEJSON(w, task.DesktopStateEvent{
+		Kind:     task.DesktopStateEventSnapshot,
+		Snapshot: &snapshot,
 	})
 	flusher.Flush()
 
@@ -84,7 +142,7 @@ func (s *Server) handleTaskEvents(w http.ResponseWriter, r *http.Request) {
 	startSSE(w)
 	flusher.Flush()
 
-	_ = writeSSEEvent(w, task.Event{
+	_ = writeSSEJSON(w, task.Event{
 		Kind:       "snapshot",
 		TimeUnixMs: time.Now().UTC().UnixMilli(),
 		TaskID:     taskID,
@@ -104,7 +162,7 @@ func startSSE(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func serveSSELoop(r *http.Request, w http.ResponseWriter, flusher http.Flusher, ch <-chan task.Event) {
+func serveSSELoop[T any](r *http.Request, w http.ResponseWriter, flusher http.Flusher, ch <-chan T) {
 	ticker := time.NewTicker(sseHeartbeatInterval)
 	defer ticker.Stop()
 
@@ -119,14 +177,14 @@ func serveSSELoop(r *http.Request, w http.ResponseWriter, flusher http.Flusher, 
 			if !ok {
 				return
 			}
-			_ = writeSSEEvent(w, ev)
+			_ = writeSSEJSON(w, ev)
 			flusher.Flush()
 		}
 	}
 }
 
-func writeSSEEvent(w http.ResponseWriter, ev task.Event) error {
-	b, err := json.Marshal(ev)
+func writeSSEJSON(w http.ResponseWriter, value any) error {
+	b, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}

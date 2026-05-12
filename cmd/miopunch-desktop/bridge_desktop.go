@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"time"
 
@@ -65,7 +66,91 @@ type ExportReportResult struct {
 	Path      string                     `json:"path,omitempty"`
 }
 
+type DesktopRuntimeResult struct {
+	OK         bool                           `json:"ok"`
+	Error      *desktopbridge.BridgeError     `json:"error,omitempty"`
+	Connection *desktopbridge.ConnectionState `json:"connection,omitempty"`
+	State      *task.DesktopStateSnapshot     `json:"state,omitempty"`
+}
+
+type DesktopRuntimeEvent struct {
+	Kind       string                         `json:"kind"`
+	Connection *desktopbridge.ConnectionState `json:"connection,omitempty"`
+	Error      *desktopbridge.BridgeError     `json:"error,omitempty"`
+}
+
+var errDesktopEventStreamClosed = errors.New("desktop event stream closed")
+
+type desktopEventsOpener interface {
+	OpenDesktopEvents(context.Context) (io.ReadCloser, error)
+}
+
 func (a *App) Connect() desktopbridge.ConnectionState {
+	_, state := a.connectLocalAPI()
+	a.emitConnectionState(state)
+	return state
+}
+
+func (a *App) DesktopRuntimeStart() DesktopRuntimeResult {
+	client, state := a.connectLocalAPI()
+	a.emitConnectionState(state)
+	if !state.Connected {
+		return DesktopRuntimeResult{
+			OK:         false,
+			Error:      state.Failure,
+			Connection: &state,
+		}
+	}
+
+	snapshot, err := a.startDesktopEventsPump(client)
+	if err != nil {
+		return DesktopRuntimeResult{
+			OK:         false,
+			Error:      err,
+			Connection: &state,
+		}
+	}
+
+	return DesktopRuntimeResult{
+		OK:         true,
+		Connection: &state,
+		State:      snapshot,
+	}
+}
+
+func (a *App) DesktopRuntimeResync() DesktopRuntimeResult {
+	c, err := a.localAPIClient()
+	if err != nil {
+		state := a.ConnectionState()
+		return DesktopRuntimeResult{
+			OK:         false,
+			Error:      err,
+			Connection: &state,
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	snapshot, apiErr := c.GetDesktopState(ctx)
+	if apiErr != nil {
+		state := a.ConnectionState()
+		return DesktopRuntimeResult{
+			OK:         false,
+			Error:      bridgeErrorFromErr(apiErr),
+			Connection: &state,
+		}
+	}
+
+	state := a.ConnectionState()
+	return DesktopRuntimeResult{
+		OK:         true,
+		Connection: &state,
+		State:      &snapshot,
+	}
+}
+
+func (a *App) connectLocalAPI() (*localapi.Client, desktopbridge.ConnectionState) {
 	a.mu.Lock()
 	ctx := a.ctx
 	override := a.overrideAddr
@@ -82,14 +167,11 @@ func (a *App) Connect() desktopbridge.ConnectionState {
 	a.connState = state
 	a.mu.Unlock()
 
-	if state.Connected {
-		a.startEventsPump(client)
-	} else {
+	if !state.Connected {
 		a.stopEventsPump()
 	}
 
-	a.emitConnectionState(state)
-	return state
+	return client, state
 }
 
 func (a *App) ConnectionState() desktopbridge.ConnectionState {
@@ -338,18 +420,38 @@ func (a *App) emitConnectionState(state desktopbridge.ConnectionState) {
 
 	if wailsCtx != nil {
 		runtime.EventsEmit(wailsCtx, "localapi:connection", state)
+		runtime.EventsEmit(wailsCtx, "desktop:runtime", DesktopRuntimeEvent{
+			Kind:       "connection",
+			Connection: &state,
+		})
 	}
 }
 
-func (a *App) startEventsPump(c *localapi.Client) {
+func (a *App) emitRuntimeEvent(ev DesktopRuntimeEvent) {
+	a.mu.Lock()
+	wailsCtx := a.ctx
+	hook := a.runtimeEventHook
+	a.mu.Unlock()
+
+	if hook != nil {
+		hook(ev)
+	}
+	if wailsCtx != nil {
+		runtime.EventsEmit(wailsCtx, "desktop:runtime", ev)
+	}
+}
+
+func (a *App) startDesktopEventsPump(c *localapi.Client) (*task.DesktopStateSnapshot, *desktopbridge.BridgeError) {
 	if c == nil {
-		return
+		return nil, bridgeErrorFromErr(errors.New("missing LocalAPI client"))
 	}
 
 	a.stopEventsPump()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
+	firstSnapshotCh := make(chan task.DesktopStateSnapshot, 1)
+	firstErrCh := make(chan error, 1)
 
 	a.mu.Lock()
 	a.eventsCancel = cancel
@@ -359,8 +461,19 @@ func (a *App) startEventsPump(c *localapi.Client) {
 
 	go func() {
 		defer close(done)
-		a.runEventsPump(ctx, wailsCtx, c)
+		a.runDesktopEventsPump(ctx, wailsCtx, c, firstSnapshotCh, firstErrCh)
 	}()
+
+	select {
+	case snapshot := <-firstSnapshotCh:
+		return &snapshot, nil
+	case err := <-firstErrCh:
+		a.stopEventsPump()
+		return nil, bridgeErrorFromErr(err)
+	case <-time.After(5 * time.Second):
+		a.stopEventsPump()
+		return nil, bridgeErrorFromErr(context.DeadlineExceeded)
+	}
 }
 
 func (a *App) stopEventsPump() {
@@ -379,16 +492,34 @@ func (a *App) stopEventsPump() {
 	}
 }
 
-func (a *App) runEventsPump(ctx context.Context, wailsCtx context.Context, c *localapi.Client) {
+func (a *App) runDesktopEventsPump(
+	ctx context.Context,
+	wailsCtx context.Context,
+	c desktopEventsOpener,
+	firstSnapshotCh chan<- task.DesktopStateSnapshot,
+	firstErrCh chan<- error,
+) {
 	const retryDelay = 750 * time.Millisecond
+	bootstrapPending := true
 
 	for {
 		if err := ctx.Err(); err != nil {
 			return
 		}
 
-		body, err := c.OpenEvents(ctx)
+		body, err := c.OpenDesktopEvents(ctx)
 		if err != nil {
+			if bootstrapPending {
+				select {
+				case firstErrCh <- err:
+				default:
+				}
+				return
+			}
+			a.emitRuntimeEvent(DesktopRuntimeEvent{
+				Kind:  "stream_retrying",
+				Error: bridgeErrorFromErr(err),
+			})
 			select {
 			case <-time.After(retryDelay):
 				continue
@@ -397,13 +528,47 @@ func (a *App) runEventsPump(ctx context.Context, wailsCtx context.Context, c *lo
 			}
 		}
 
-		_ = desktopbridge.ReadLocalAPITaskEvents(ctx, body, func(ev task.Event) error {
+		initialStreamSnapshot := true
+		readErr := desktopbridge.ReadLocalAPIDesktopStateEvents(ctx, body, func(ev task.DesktopStateEvent) error {
+			if initialStreamSnapshot {
+				initialStreamSnapshot = false
+				if ev.Kind != task.DesktopStateEventSnapshot || ev.Snapshot == nil {
+					return errors.New("desktop event stream did not begin with snapshot")
+				}
+				if bootstrapPending {
+					bootstrapPending = false
+					select {
+					case firstSnapshotCh <- *ev.Snapshot:
+					default:
+					}
+					return nil
+				}
+			}
 			if wailsCtx != nil {
-				runtime.EventsEmit(wailsCtx, "localapi:event", ev)
+				runtime.EventsEmit(wailsCtx, "desktop:state", ev)
 			}
 			return nil
 		})
 		_ = body.Close()
+		if err := ctx.Err(); err != nil {
+			return
+		}
+
+		streamErr := readErr
+		if streamErr == nil {
+			streamErr = errDesktopEventStreamClosed
+		}
+		if bootstrapPending {
+			select {
+			case firstErrCh <- streamErr:
+			default:
+			}
+			return
+		}
+		a.emitRuntimeEvent(DesktopRuntimeEvent{
+			Kind:  "stream_retrying",
+			Error: bridgeErrorFromErr(streamErr),
+		})
 
 		select {
 		case <-time.After(retryDelay):

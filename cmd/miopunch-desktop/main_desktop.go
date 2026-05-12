@@ -52,6 +52,7 @@ func runDesktop() (err error) {
 			Assets: embeddedAssets,
 		},
 		OnStartup:  a.startup,
+		OnDomReady: a.domReady,
 		OnShutdown: a.shutdown,
 		Bind:       []any{a},
 		SingleInstanceLock: &options.SingleInstanceLock{

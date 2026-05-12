@@ -270,6 +270,9 @@ async function installFakeBridge(page, options = {}) {
     getTaskModes: options.getTaskModes || {},
     initialTasks: options.initialTasks || [],
     inviteCodeDelivery: options.inviteCodeDelivery || "immediate",
+    runtimeStartDelayMs: options.runtimeStartDelayMs || 0,
+    runtimeResyncDelayMs: options.runtimeResyncDelayMs || 0,
+    runtimeStartFailures: Number(options.runtimeStartFailures || 0),
     timeoutMs: options.timeoutMs || 120,
     inviteCode,
     confirm: options.confirm !== false,
@@ -283,12 +286,22 @@ async function installFakeBridge(page, options = {}) {
     window.__miopunchWebSockets = [];
 
     const calls = window.__miopunchCalls;
-    const topology = init.fixture.topology;
+    const clone = (value) => (value == null ? value : JSON.parse(JSON.stringify(value)));
+    let topology = clone(init.fixture.topology);
     const peers = Array.isArray(topology.members)
       ? topology.members.map((m) => ({ peer_id: m.peer_id }))
       : [];
     let taskSeq = 1;
     let connectSeq = 0;
+    let runtimeStartSeq = 0;
+    let runtimeRev = 0;
+    let runtimePeerSessions = clone(init.fixture.peer_sessions || []);
+    let runtimeShellSessions = clone(init.fixture.shell_sessions || []);
+    let runtimeConfig = clone(init.fixture.config || {
+      known_peers: peers.map((peer) => ({ peer_id: peer.peer_id })),
+    });
+    let runtimeDiagnostics = clone(init.fixture.runtime_diagnostics || init.fixture.diagnostics || []);
+    let runtimeApprovalRequests = clone(init.fixture.approval_requests || []);
     const tasks = new Map((init.initialTasks || []).map((task) => [String(task.task_id || ""), task]));
     let connection = {
       connected: !!init.fixture.connected,
@@ -303,9 +316,29 @@ async function installFakeBridge(page, options = {}) {
       failure: init.fixture.failure || null,
     };
 
-    const clone = (value) => (value == null ? value : JSON.parse(JSON.stringify(value)));
     const record = (entry) => calls.push(clone(entry));
     const nextTaskID = (kind) => `ui-${kind}-${String(taskSeq++).padStart(3, "0")}`;
+    const runtimeSnapshot = () => ({
+      rev: runtimeRev,
+      status: { version: "ui-test", uptime_ms: 1000, mode: "user" },
+      topology: clone(topology),
+      tasks: Array.from(tasks.values()).map(clone),
+      peer_sessions: clone(runtimePeerSessions),
+      shell_sessions: clone(runtimeShellSessions),
+      config: clone(runtimeConfig),
+      diagnostics: clone(runtimeDiagnostics),
+      approval_requests: clone(runtimeApprovalRequests),
+    });
+    const waitRuntimeStart = async () => {
+      if (init.runtimeStartDelayMs > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, init.runtimeStartDelayMs));
+      }
+    };
+    const waitRuntimeResync = async () => {
+      if (init.runtimeResyncDelayMs > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, init.runtimeResyncDelayMs));
+      }
+    };
     const addInvitePeerFact = (task) => {
       if (task.facts.some((fact) => fact && fact.term_id === "peer_id")) return;
       const peerID = String(topology.self && topology.self.peer_id ? topology.self.peer_id : "peer-ui-test-owner");
@@ -418,6 +451,23 @@ async function installFakeBridge(page, options = {}) {
       const handler = window.__miopunchRuntimeHandlers[name];
       if (typeof handler === "function") handler(payload);
     };
+    window.__miopunchSetRuntimeSnapshot = (snapshot) => {
+      if (!snapshot || typeof snapshot !== "object") return;
+      if (typeof snapshot.rev !== "undefined") runtimeRev = Number(snapshot.rev || 0);
+      if (snapshot.topology) topology = clone(snapshot.topology);
+      if (Array.isArray(snapshot.tasks)) {
+        tasks.clear();
+        for (const task of snapshot.tasks) {
+          const taskID = String(task && task.task_id ? task.task_id : "");
+          if (taskID) tasks.set(taskID, clone(task));
+        }
+      }
+      if (Array.isArray(snapshot.peer_sessions)) runtimePeerSessions = clone(snapshot.peer_sessions);
+      if (Array.isArray(snapshot.shell_sessions)) runtimeShellSessions = clone(snapshot.shell_sessions);
+      if (snapshot.config) runtimeConfig = clone(snapshot.config);
+      if (Array.isArray(snapshot.diagnostics)) runtimeDiagnostics = clone(snapshot.diagnostics);
+      if (Array.isArray(snapshot.approval_requests)) runtimeApprovalRequests = clone(snapshot.approval_requests);
+    };
 
     class FakeWebSocket {
       static CONNECTING = 0;
@@ -473,6 +523,53 @@ async function installFakeBridge(page, options = {}) {
               };
             }
             return connection;
+          },
+          DesktopRuntimeStart: async () => {
+            record({ method: "DesktopRuntimeStart" });
+            connectSeq += 1;
+            runtimeStartSeq += 1;
+            if (
+              init.fixture.reconnect_after_connects &&
+              connectSeq >= init.fixture.reconnect_after_connects
+            ) {
+              connection = {
+                ...connection,
+                connected: true,
+                selected: "user",
+                addr: connection.user_addr,
+                bootstrap_state: "ready",
+                desktop_managed: true,
+                failure: null,
+              };
+            }
+            if (!connection.connected) {
+              await waitRuntimeStart();
+              return { ok: false, error: clone(connection.failure), connection: clone(connection) };
+            }
+            await waitRuntimeStart();
+            if (runtimeStartSeq <= init.runtimeStartFailures) {
+              return {
+                ok: false,
+                error: {
+                  stage: "desktop",
+                  reason_code: "unavailable",
+                  exit_code: 70,
+                  message: "desktop event stream did not begin with snapshot",
+                  suggestions: [{ message: "retry runtime start" }],
+                  facts: [],
+                },
+                connection: clone(connection),
+              };
+            }
+            return { ok: true, connection: clone(connection), state: runtimeSnapshot() };
+          },
+          DesktopRuntimeResync: async () => {
+            record({ method: "DesktopRuntimeResync" });
+            await waitRuntimeResync();
+            if (!connection.connected) {
+              return { ok: false, error: clone(connection.failure), connection: clone(connection) };
+            }
+            return { ok: true, connection: clone(connection), state: runtimeSnapshot() };
           },
           GetStatus: async () => {
             record({ method: "GetStatus" });
@@ -579,6 +676,10 @@ async function emitRuntime(page, name, payload) {
   );
 }
 
+async function setRuntimeSnapshot(page, snapshot) {
+  await page.evaluate((nextSnapshot) => window.__miopunchSetRuntimeSnapshot(nextSnapshot), snapshot);
+}
+
 module.exports = {
   PEERS,
   calls,
@@ -589,5 +690,6 @@ module.exports = {
   expectCreateTaskCall,
   inviteCode,
   openDesktop,
+  setRuntimeSnapshot,
   test,
 };

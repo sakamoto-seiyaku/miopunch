@@ -114,6 +114,14 @@ func (c *Client) GetTasks(ctx context.Context) (TasksResponse, error) {
 	return resp, nil
 }
 
+func (c *Client) GetDesktopState(ctx context.Context) (task.DesktopStateSnapshot, error) {
+	var resp task.DesktopStateSnapshot
+	if err := c.doJSON(ctx, http.MethodGet, "/api/v0/desktop/state", nil, &resp); err != nil {
+		return task.DesktopStateSnapshot{}, err
+	}
+	return resp, nil
+}
+
 func (c *Client) CreateTask(ctx context.Context, kind string, args any) (task.Task, error) {
 	reqBody := map[string]any{
 		"kind": kind,
@@ -178,6 +186,23 @@ func (c *Client) OpenTaskEvents(ctx context.Context, taskID string) (io.ReadClos
 
 func (c *Client) OpenEvents(ctx context.Context) (io.ReadCloser, error) {
 	resp, err := c.doRaw(ctx, http.MethodGet, "/api/v0/events", nil)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode/100 == 2 {
+		return resp.Body, nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	apiErr, err := decodeAPIError(resp)
+	if err != nil {
+		return nil, err
+	}
+	return nil, apiErr
+}
+
+func (c *Client) OpenDesktopEvents(ctx context.Context) (io.ReadCloser, error) {
+	resp, err := c.doRaw(ctx, http.MethodGet, "/api/v0/desktop/events", nil)
 	if err != nil {
 		return nil, err
 	}

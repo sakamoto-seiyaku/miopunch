@@ -14,12 +14,13 @@ func (m *Manager) recordTopologyAttempt(attempt TopologyAttempt) {
 		return
 	}
 	m.topologyMu.Lock()
-	defer m.topologyMu.Unlock()
-
 	m.topologyAttempts = append(m.topologyAttempts, attempt)
 	if len(m.topologyAttempts) > maxTopologyRuntimeEntries {
 		m.topologyAttempts = append([]TopologyAttempt(nil), m.topologyAttempts[len(m.topologyAttempts)-maxTopologyRuntimeEntries:]...)
 	}
+	m.topologyMu.Unlock()
+
+	m.publishDesktopTopologyChange()
 }
 
 func (m *Manager) recordTopologyPayload(payload TopologyPayload) {
@@ -27,12 +28,13 @@ func (m *Manager) recordTopologyPayload(payload TopologyPayload) {
 		return
 	}
 	m.topologyMu.Lock()
-	defer m.topologyMu.Unlock()
-
 	m.topologyPayloads = append(m.topologyPayloads, payload)
 	if len(m.topologyPayloads) > maxTopologyRuntimeEntries {
 		m.topologyPayloads = append([]TopologyPayload(nil), m.topologyPayloads[len(m.topologyPayloads)-maxTopologyRuntimeEntries:]...)
 	}
+	m.topologyMu.Unlock()
+
+	m.publishDesktopTopologyChange()
 }
 
 func (m *Manager) topologyRuntimeEvidence() ([]TopologyAttempt, []TopologyPayload) {

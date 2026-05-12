@@ -41,6 +41,11 @@ type Manager struct {
 	subsByTask map[string]map[int]chan Event
 	nextSubID  int
 
+	desktopMu        sync.Mutex
+	desktopSubs      map[int]chan DesktopStateEvent
+	nextDesktopSubID int
+	desktopRev       uint64
+
 	wg sync.WaitGroup
 }
 
@@ -56,7 +61,7 @@ func NewManager() *Manager {
 
 func NewManagerWithStatePath(statePath string) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Manager{
+	m := &Manager{
 		ctx:          ctx,
 		cancel:       cancel,
 		tasks:        make(map[string]*Task),
@@ -65,7 +70,10 @@ func NewManagerWithStatePath(statePath string) *Manager {
 		statePath:    strings.TrimSpace(statePath),
 		subsAll:      make(map[int]chan Event),
 		subsByTask:   make(map[string]map[int]chan Event),
+		desktopSubs:  make(map[int]chan DesktopStateEvent),
 	}
+	m.sessions.SetChangeHook(m.publishDesktopPeerSessionsChange)
+	return m
 }
 
 func (m *Manager) Wait() {
@@ -97,12 +105,18 @@ func (m *Manager) loadState() (pocstate.State, error) {
 
 func (m *Manager) saveState(st pocstate.State) error {
 	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
-
 	if strings.TrimSpace(m.statePath) == "" {
+		m.stateMu.Unlock()
 		return errors.New("missing state path")
 	}
-	return pocstate.Save(m.statePath, st)
+	err := pocstate.Save(m.statePath, st)
+	m.stateMu.Unlock()
+	if err != nil {
+		return err
+	}
+
+	m.publishDesktopConfigAndTopologyChange()
+	return nil
 }
 
 func (m *Manager) ListPeers() ([]string, error) {
@@ -232,18 +246,18 @@ func (m *Manager) SubscribeTask(taskID string) *Subscription {
 
 func (m *Manager) publish(ev Event) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	for _, ch := range m.subsAll {
 		sendLatest(ch, ev)
 	}
 
-	if ev.TaskID == "" {
-		return
+	if ev.TaskID != "" {
+		for _, ch := range m.subsByTask[ev.TaskID] {
+			sendLatest(ch, ev)
+		}
 	}
-	for _, ch := range m.subsByTask[ev.TaskID] {
-		sendLatest(ch, ev)
-	}
+	m.mu.Unlock()
+
+	m.publishDesktopFromTaskEvent(ev)
 }
 
 func sendLatest(ch chan Event, ev Event) {

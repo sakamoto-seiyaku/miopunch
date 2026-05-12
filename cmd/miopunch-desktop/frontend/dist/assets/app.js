@@ -18,10 +18,15 @@
   };
 
   const state = {
+    rev: 0,
     status: null,
     topology: null,
-    peers: [],
     tasks: new Map(),
+    peerSessions: [],
+    shellSessions: [],
+    config: { known_peers: [] },
+    diagnostics: [],
+    approvalRequests: [],
     activeTab: "network",
     view: { type: "overview" },
     previewMode: false,
@@ -34,8 +39,12 @@
   const shellState = { ws: null, term: null, resizeObs: null, taskID: "", fitTimer: 0 };
 
   let lastConn = null;
+  let runtimeStream = { ready: false, status: "idle", error: null };
   let renderQueued = false;
   let previewTaskSeq = 1;
+  let runtimeResyncInFlight = false;
+  let runtimeRecoveryInFlight = false;
+  let runtimeRecoveryQueue = [];
 
   const bridgeAvailable = () => !!(window.go && window.go.main && window.go.main.App);
 
@@ -511,39 +520,116 @@
     }
   };
 
-  const handleGlobalEvent = (ev) => {
+  const applyDesktopSnapshot = (snapshot) => {
+    if (!snapshot || typeof snapshot !== "object") return;
+
+    state.rev = Number(snapshot.rev || 0);
+    state.status = snapshot.status || null;
+    state.topology = snapshot.topology || null;
+    state.peerSessions = Array.isArray(snapshot.peer_sessions) ? snapshot.peer_sessions : [];
+    state.shellSessions = Array.isArray(snapshot.shell_sessions) ? snapshot.shell_sessions : [];
+    state.config = snapshot.config || { known_peers: [] };
+    state.diagnostics = Array.isArray(snapshot.diagnostics) ? snapshot.diagnostics : [];
+    state.approvalRequests = Array.isArray(snapshot.approval_requests) ? snapshot.approval_requests : [];
+
+    const nextTasks = new Map();
+    const tasks = Array.isArray(snapshot.tasks) ? snapshot.tasks : [];
+    for (const taskObj of tasks) {
+      const taskID = canonicalTaskID(taskObj && taskObj.task_id);
+      if (!taskID) continue;
+      nextTasks.set(taskID, mergeTask(state.tasks.get(taskID), taskObj));
+    }
+    state.tasks = nextTasks;
+  };
+
+  const applyDesktopStateUpdate = (ev) => {
+    const kind = String(ev.kind || "");
+    if (kind === "task.upsert") {
+      if (ev.task) {
+        upsertTask({
+          ...ev.task,
+          task_id: canonicalTaskID(ev.task.task_id),
+        });
+      }
+    } else if (kind === "topology.replace") {
+      state.topology = ev.topology || null;
+    } else if (kind === "peer_sessions.replace") {
+      state.peerSessions = Array.isArray(ev.peer_sessions) ? ev.peer_sessions : [];
+    } else if (kind === "shell_sessions.replace") {
+      state.shellSessions = Array.isArray(ev.shell_sessions) ? ev.shell_sessions : [];
+    } else if (kind === "config.replace") {
+      state.config = ev.config || { known_peers: [] };
+    } else if (kind === "diagnostics.replace") {
+      state.diagnostics = Array.isArray(ev.diagnostics) ? ev.diagnostics : [];
+    } else if (kind === "approval_requests.replace") {
+      state.approvalRequests = Array.isArray(ev.approval_requests) ? ev.approval_requests : [];
+    } else {
+      return false;
+    }
+
+    state.rev = Number(ev.rev || state.rev);
+    return true;
+  };
+
+  const replayRuntimeRecoveryQueue = () => {
+    const queued = runtimeRecoveryQueue;
+    runtimeRecoveryQueue = [];
+    for (const queuedEvent of queued) {
+      const baseRev = Number(queuedEvent && queuedEvent.base_rev);
+      if (!Number.isFinite(baseRev) || baseRev !== state.rev) continue;
+      applyDesktopStateUpdate(queuedEvent);
+    }
+  };
+
+  const markRuntimeStreamReady = () => {
+    runtimeStream = { ready: true, status: "live", error: null };
+  };
+
+  const markRuntimeStreamFailed = (error, status = "failed") => {
+    runtimeStream = { ready: false, status, error: error || null };
+  };
+
+  const markRuntimeStreamRetrying = (error) => {
+    const wasRetrying = runtimeStream.status === "retrying";
+    runtimeStream = { ready: runtimeStream.ready, status: "retrying", error: error || null };
+    if (!wasRetrying) toast(`Runtime stream retrying: ${bridgeErrorSummary(error)}`);
+  };
+
+  const handleDesktopStateEvent = (ev) => {
+    if (!ev || typeof ev !== "object") return;
+    if (runtimeRecoveryInFlight) {
+      runtimeRecoveryQueue.push(ev);
+      return;
+    }
+
+    markRuntimeStreamReady();
+
     const kind = String(ev.kind || "");
     if (kind === "snapshot") {
-      if (Array.isArray(ev.tasks)) {
-        const nextTasks = new Map();
-        for (const t of ev.tasks) {
-          const taskID = canonicalTaskID(t.task_id);
-          if (!taskID) continue;
-          nextTasks.set(taskID, mergeTask(state.tasks.get(taskID), t));
-        }
-        state.tasks = nextTasks;
-      }
-      if (ev.task) {
-        const taskID = canonicalTaskID(ev.task.task_id || ev.task_id);
-        if (taskID) upsertTask({ ...ev.task, task_id: taskID });
-      }
+      if (ev.snapshot) applyDesktopSnapshot(ev.snapshot);
       scheduleRender();
       return;
     }
-    const taskID = canonicalTaskID(ev.task_id);
-    if (!taskID) return;
-    if (ev.task) {
-      upsertTask({ ...ev.task, task_id: canonicalTaskID(ev.task.task_id) || taskID });
-      scheduleRender();
+
+    const baseRev = Number(ev.base_rev);
+    if (Number.isFinite(baseRev) && baseRev !== state.rev) {
+      void recoverDesktopRuntimeFromGap({ silent: true });
       return;
     }
-    let taskObj = state.tasks.get(taskID);
-    if (!taskObj) {
-      taskObj = { task_id: taskID, kind: "", status: "running", stage: "", facts: [], suggestions: [] };
-      state.tasks.set(taskID, taskObj);
-    }
-    applyEventToTask(taskObj, ev);
+
+    if (!applyDesktopStateUpdate(ev)) return;
     scheduleRender();
+  };
+
+  const handleDesktopRuntimeEvent = (ev) => {
+    if (!ev || typeof ev !== "object") return;
+    if (ev.connection) renderConnection(ev.connection);
+    const kind = String(ev.kind || "");
+    if (kind === "stream_retrying") {
+      markRuntimeStreamRetrying(ev.error || null);
+    } else if (kind === "connection" && ev.connection && !ev.connection.connected) {
+      markRuntimeStreamFailed(ev.connection.failure || null, "disconnected");
+    }
   };
 
   const renderConnection = (conn) => {
@@ -554,12 +640,15 @@
     const selected = previewFixtures[name] ? name : "owner";
     const fx = clone(previewFixtures[selected]);
     state.previewFixture = selected;
+    state.rev = 0;
     state.status = fx.status || null;
     state.topology = fx.topology || null;
-    state.peers = fx.topology && Array.isArray(fx.topology.members)
-      ? fx.topology.members.map((m) => ({ peer_id: m.peer_id }))
-      : [];
     state.tasks = new Map((fx.tasks || []).map((t) => [canonicalTaskID(t.task_id), t]));
+    state.peerSessions = Array.isArray(fx.peer_sessions) ? fx.peer_sessions : [];
+    state.shellSessions = Array.isArray(fx.shell_sessions) ? fx.shell_sessions : [];
+    state.config = fx.config || { known_peers: [] };
+    state.diagnostics = Array.isArray(fx.diagnostics) ? fx.diagnostics : [];
+    state.approvalRequests = Array.isArray(fx.approval_requests) ? fx.approval_requests : [];
     renderConnection(fx.connection || null);
     scheduleRender();
   };
@@ -1114,6 +1203,13 @@
       const suggestions = failure && Array.isArray(failure.suggestions) ? failure.suggestions : [];
       const facts = failure && Array.isArray(failure.facts) ? failure.facts : [];
       const diagnostics = lastConn && Array.isArray(lastConn.diagnostics) ? lastConn.diagnostics : [];
+      const runtimeDiagnostics = Array.isArray(state.diagnostics) ? state.diagnostics : [];
+      const runtimeStreamFacts = state.previewMode
+        ? []
+        : [
+          `desktop_stream=${runtimeStream.status}`,
+          runtimeStream.error ? `desktop_stream_error=${runtimeStream.error.reason_code || bridgeErrorSummary(runtimeStream.error)}` : "",
+        ].filter(Boolean);
       const bootstrap = lastConn && lastConn.bootstrap ? lastConn.bootstrap : null;
       const daemonOwnership = lastConn && lastConn.desktop_managed ? "desktop-managed" : lastConn && lastConn.connected ? "reused" : "-";
       body = `
@@ -1137,6 +1233,8 @@
               ${bootstrap && bootstrap.daemon_path ? listItemHTML(`daemon_path=${bootstrap.daemon_path}`) : ""}
               ${bootstrap && bootstrap.pid ? listItemHTML(`pid=${bootstrap.pid}`) : ""}
               ${bootstrap && bootstrap.error ? listItemHTML(`bootstrap_error=${bootstrap.error}`) : ""}
+              ${runtimeStreamFacts.map((message) => listItemHTML(message)).join("")}
+              ${runtimeDiagnostics.map((f) => listItemHTML(f.message || "")).join("")}
               ${diagnostics.map((f) => listItemHTML(f.message || "")).join("")}
               ${facts.map((f) => listItemHTML(f.message || "")).join("")}
             </div>
@@ -1298,52 +1396,93 @@
     recovery: { events: [] },
   });
 
-  const connectBridge = async () => {
+  const startDesktopRuntime = async (options = {}) => {
+    if (state.previewMode) {
+      scheduleRender();
+      return null;
+    }
+
+    let resp = null;
     try {
-      const conn = await getBridge().Connect();
-      renderConnection(conn);
-      return conn;
+      runtimeStream = { ready: false, status: "starting", error: null };
+      resp = await withTimeout(getBridge().DesktopRuntimeStart(), "Start runtime");
+      renderConnection(resp && resp.connection ? resp.connection : null);
+      if (!resp || !resp.ok) {
+        markRuntimeStreamFailed(resp && resp.error);
+        throw new Error(bridgeErrorSummary(resp && resp.error));
+      }
+      if (resp.state) applyDesktopSnapshot(resp.state);
+      markRuntimeStreamReady();
+      scheduleRender();
+      return resp;
     } catch (err) {
-      toast(`Connect failed: ${String(err)}`);
+      if (!resp) markRuntimeStreamFailed(err);
+      scheduleRender();
+      if (!options.silent) toast(`Connect failed: ${String(err)}`);
       return null;
     }
   };
 
-  const refreshSnapshot = async () => {
+  const resyncDesktopRuntime = async (options = {}) => {
     if (state.previewMode) {
       scheduleRender();
-      return;
+      return null;
     }
+    if (runtimeResyncInFlight || runtimeRecoveryInFlight) return null;
+
+    runtimeResyncInFlight = true;
     try {
-      if (!lastConn || !lastConn.connected) {
-        const conn = await connectBridge();
-        if (!conn || !conn.connected) return;
+      const bridge = getBridge();
+      const canResync = !!(lastConn && lastConn.connected && runtimeStream.ready);
+      const action = canResync
+        ? bridge.DesktopRuntimeResync()
+        : bridge.DesktopRuntimeStart();
+      const label = canResync ? "Refresh runtime" : "Start runtime";
+      const resp = await withTimeout(action, label);
+      renderConnection(resp && resp.connection ? resp.connection : null);
+      if (!resp || !resp.ok) {
+        if (!canResync) markRuntimeStreamFailed(resp && resp.error);
+        throw new Error(bridgeErrorSummary(resp && resp.error));
       }
-
-      const b = getBridge();
-      const sResp = await b.GetStatus();
-      if (!sResp || !sResp.ok) throw new Error(bridgeErrorSummary(sResp && sResp.error));
-      state.status = sResp.status || null;
-
-      const pResp = await b.GetPeers();
-      if (!pResp || !pResp.ok) throw new Error(bridgeErrorSummary(pResp && pResp.error));
-      state.peers = pResp.peers && Array.isArray(pResp.peers.peers) ? pResp.peers.peers : [];
-
-      if (typeof b.GetTopology === "function") {
-        const topResp = await b.GetTopology();
-        if (!topResp || !topResp.ok) throw new Error(bridgeErrorSummary(topResp && topResp.error));
-        state.topology = topResp.topology || topologyFromPeers(state.peers);
-      } else {
-        state.topology = topologyFromPeers(state.peers);
-      }
-
-      const tResp = await b.GetTasks();
-      if (!tResp || !tResp.ok) throw new Error(bridgeErrorSummary(tResp && tResp.error));
-      const tasks = tResp.tasks && Array.isArray(tResp.tasks.tasks) ? tResp.tasks.tasks : [];
-      state.tasks = new Map(tasks.map((t) => [canonicalTaskID(t.task_id), t]));
+      if (resp.state) applyDesktopSnapshot(resp.state);
+      if (!canResync) markRuntimeStreamReady();
       scheduleRender();
+      return resp;
     } catch (err) {
-      toast(`Refresh failed: ${String(err)}`);
+      scheduleRender();
+      if (!options.silent) toast(`Refresh failed: ${String(err)}`);
+      return null;
+    } finally {
+      runtimeResyncInFlight = false;
+    }
+  };
+
+  const recoverDesktopRuntimeFromGap = async (options = {}) => {
+    if (state.previewMode) {
+      scheduleRender();
+      return null;
+    }
+    if (runtimeRecoveryInFlight) return null;
+
+    runtimeRecoveryInFlight = true;
+    runtimeRecoveryQueue = [];
+    try {
+      const resp = await withTimeout(getBridge().DesktopRuntimeResync(), "Recover runtime");
+      renderConnection(resp && resp.connection ? resp.connection : null);
+      if (!resp || !resp.ok) throw new Error(bridgeErrorSummary(resp && resp.error));
+      if (resp.state) applyDesktopSnapshot(resp.state);
+      runtimeRecoveryInFlight = false;
+      replayRuntimeRecoveryQueue();
+      scheduleRender();
+      return resp;
+    } catch (err) {
+      if (!options.silent) toast(`Refresh failed: ${String(err)}`);
+      return null;
+    } finally {
+      if (runtimeRecoveryInFlight) {
+        runtimeRecoveryInFlight = false;
+        runtimeRecoveryQueue = [];
+      }
     }
   };
 
@@ -1638,7 +1777,7 @@
     const refreshBtn = el("btn-refresh");
     if (refreshBtn) refreshBtn.addEventListener("click", (event) => {
       event.preventDefault();
-      refreshSnapshot();
+      void resyncDesktopRuntime();
     });
 
     const select = el("preview-fixture");
@@ -1663,16 +1802,16 @@
           // ignore malformed runtime payload
         }
       });
-      window.runtime.EventsOn("localapi:event", (ev) => {
+      window.runtime.EventsOn("desktop:state", (ev) => {
         try {
-          handleGlobalEvent(ev);
+          handleDesktopStateEvent(ev);
         } catch {
           // ignore malformed event payload
         }
       });
-      window.runtime.EventsOn("localapi:connection", (conn) => {
+      window.runtime.EventsOn("desktop:runtime", (ev) => {
         try {
-          renderConnection(conn);
+          handleDesktopRuntimeEvent(ev);
           scheduleRender();
         } catch {
           // ignore malformed connection payload
@@ -1874,16 +2013,14 @@
     if (state.previewMode) return;
     const input = el("localapi-override");
     const value = input ? input.value.trim() : "";
-    const conn = await getBridge().SetLocalAPIOverride(value);
-    renderConnection(conn);
-    await refreshSnapshot();
+    renderConnection(await getBridge().SetLocalAPIOverride(value));
+    await startDesktopRuntime();
   };
 
   const clearLocalAPIOverride = async () => {
     if (state.previewMode) return;
-    const conn = await getBridge().ClearLocalAPIOverride();
-    renderConnection(conn);
-    await refreshSnapshot();
+    renderConnection(await getBridge().ClearLocalAPIOverride());
+    await startDesktopRuntime();
   };
 
   const submitShell = async () => {
@@ -1916,9 +2053,7 @@
       const fixtureWrap = el("preview-fixture-wrap");
       if (fixtureWrap) fixtureWrap.classList.add("is-hidden");
       renderConnection(null);
-      connectBridge().then((conn) => {
-        if (conn && conn.connected) refreshSnapshot();
-      });
+      void startDesktopRuntime({ silent: true });
     }
 
     const tab = queryTab || localStorage.getItem("miopunch_desktop_tab") || "network";

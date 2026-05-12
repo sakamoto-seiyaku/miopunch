@@ -13,21 +13,8 @@ import (
 	"github.com/miopunch/miopunch/internal/task"
 )
 
-type statusResponse struct {
-	Version   string     `json:"version"`
-	StartedAt time.Time  `json:"started_at"`
-	UptimeMs  int64      `json:"uptime_ms"`
-	Mode      ListenMode `json:"mode"`
-}
-
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
-	now := time.Now().UTC()
-	writeJSON(w, http.StatusOK, statusResponse{
-		Version:   buildVersion(),
-		StartedAt: s.startedAt,
-		UptimeMs:  now.Sub(s.startedAt).Milliseconds(),
-		Mode:      s.mode,
-	})
+	writeJSON(w, http.StatusOK, s.statusResponse())
 }
 
 type peersResponse struct {
@@ -252,3 +239,45 @@ func buildVersion() string {
 }
 
 var errLocalAPINotImplemented = errors.New("not implemented")
+
+func (s *Server) statusResponse() StatusResponse {
+	now := time.Now().UTC()
+	return StatusResponse{
+		Version:   buildVersion(),
+		StartedAt: s.startedAt,
+		UptimeMs:  now.Sub(s.startedAt).Milliseconds(),
+		Mode:      s.mode,
+	}
+}
+
+func (s *Server) handleDesktopState(w http.ResponseWriter, r *http.Request) {
+	_ = r
+
+	snapshot, err := s.tasks.DesktopStateSnapshot()
+	if err != nil {
+		reqID, _ := poc.NewRequestID()
+		writeError(w, ErrorResponse{
+			Stage:      "localapi",
+			ReasonCode: poc.ReasonCodeInternal,
+			ExitCode:   poc.ExitCodeInternal,
+			Message:    "failed to collect desktop state snapshot",
+			Facts: []poc.Fact{
+				{Message: "error=" + err.Error()},
+			},
+			Suggestions: []poc.Suggestion{
+				{Message: "retry"},
+			},
+			RequestID: reqID,
+		})
+		return
+	}
+
+	status := s.statusResponse()
+	snapshot.Status = task.DesktopStatus{
+		Version:   status.Version,
+		StartedAt: status.StartedAt,
+		UptimeMs:  status.UptimeMs,
+		Mode:      string(status.Mode),
+	}
+	writeJSON(w, http.StatusOK, snapshot)
+}

@@ -28,3 +28,7 @@ type Peer struct {
 type TasksResponse struct {
 	Tasks []task.Task `json:"tasks"`
 }
+
+type DesktopStateResponse = task.DesktopStateSnapshot
+
+type DesktopStateEvent = task.DesktopStateEvent

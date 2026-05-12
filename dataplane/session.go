@@ -400,6 +400,7 @@ type SessionManager struct {
 	mu           sync.Mutex
 	sessions     map[SessionKey]PeerSession
 	recentClosed []SessionSummary
+	changeHook   func()
 }
 
 // SessionSummary is a stable subset of a live peer session, suitable for diagnostics.
@@ -416,6 +417,15 @@ func NewSessionManager() *SessionManager {
 	return &SessionManager{sessions: make(map[SessionKey]PeerSession)}
 }
 
+func (m *SessionManager) SetChangeHook(fn func()) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	m.changeHook = fn
+	m.mu.Unlock()
+}
+
 // Put stores a session and closes any older session with the same key.
 func (m *SessionManager) Put(sess PeerSession) {
 	if m == nil || sess == nil {
@@ -428,10 +438,14 @@ func (m *SessionManager) Put(sess PeerSession) {
 	if old != nil && old != sess {
 		m.recordClosedLocked(old, CloseReasonSessionSuperseded)
 	}
+	changeHook := m.changeHook
 	m.mu.Unlock()
 
 	if old != nil && old != sess {
 		_ = old.Close(CloseReasonSessionSuperseded)
+	}
+	if changeHook != nil {
+		changeHook()
 	}
 }
 
@@ -492,9 +506,13 @@ func (m *SessionManager) Close(key SessionKey, reason CloseReason) {
 	if sess != nil {
 		m.recordClosedLocked(sess, reason)
 	}
+	changeHook := m.changeHook
 	m.mu.Unlock()
 	if sess != nil {
 		_ = sess.Close(reason)
+	}
+	if sess != nil && changeHook != nil {
+		changeHook()
 	}
 }
 
@@ -512,10 +530,14 @@ func (m *SessionManager) CloseAll(reason CloseReason) {
 			sessions = append(sessions, sess)
 		}
 	}
+	changeHook := m.changeHook
 	m.mu.Unlock()
 
 	for _, sess := range sessions {
 		_ = sess.Close(reason)
+	}
+	if len(sessions) > 0 && changeHook != nil {
+		changeHook()
 	}
 }
 
