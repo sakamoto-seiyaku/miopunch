@@ -75,6 +75,7 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 			if err != nil {
 				return nil, err
 			}
+			m.addFact(taskID, poc.Fact{TermID: "peer_id", Message: "peer_id=" + peerID})
 			return &dialResult{stream: stream, legacyHello: true}, nil
 		}
 	}

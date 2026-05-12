@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	"github.com/miopunch/miopunch/internal/logutil"
 )
 
 const ShellSubprotocolV0 = "miopunch.sh.v0"
@@ -130,10 +132,12 @@ func (b *TerminalWSBridge) handleTaskWS(w http.ResponseWriter, r *http.Request) 
 
 	backendConn, err := b.dial(dialCtx, taskID)
 	if err != nil {
+		logutil.Warnf("terminal bridge backend websocket dial failed: task_id=%s err=%v", taskID, err)
 		http.Error(w, "failed to dial localapi websocket: "+err.Error(), http.StatusBadGateway)
 		return
 	}
 	defer func() { _ = backendConn.Close() }()
+	logutil.Infof("terminal bridge backend websocket attached: task_id=%s", taskID)
 
 	upgrader := websocket.Upgrader{
 		Subprotocols: []string{ShellSubprotocolV0},
@@ -141,9 +145,11 @@ func (b *TerminalWSBridge) handleTaskWS(w http.ResponseWriter, r *http.Request) 
 	}
 	frontConn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		logutil.Warnf("terminal bridge frontend websocket upgrade failed: task_id=%s err=%v", taskID, err)
 		return
 	}
 	defer func() { _ = frontConn.Close() }()
+	logutil.Infof("terminal bridge frontend websocket attached: task_id=%s remote=%s", taskID, r.RemoteAddr)
 
 	if frontConn.Subprotocol() != ShellSubprotocolV0 {
 		_ = frontConn.WriteControl(
@@ -154,7 +160,7 @@ func (b *TerminalWSBridge) handleTaskWS(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	bridgeWebSockets(r.Context(), frontConn, backendConn)
+	bridgeWebSockets(r.Context(), taskID, frontConn, backendConn)
 }
 
 func parseTaskIDFromPath(path string) (string, bool) {
@@ -181,7 +187,7 @@ func clientOffersSubprotocol(r *http.Request, want string) bool {
 	return false
 }
 
-func bridgeWebSockets(ctx context.Context, frontConn *websocket.Conn, backendConn *websocket.Conn) {
+func bridgeWebSockets(ctx context.Context, taskID string, frontConn *websocket.Conn, backendConn *websocket.Conn) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -201,12 +207,24 @@ func bridgeWebSockets(ctx context.Context, frontConn *websocket.Conn, backendCon
 		defer wg.Done()
 		defer closeAll()
 
+		loggedFirstFrontToBackend := false
 		for {
 			mt, payload, err := frontConn.ReadMessage()
 			if err != nil {
+				logutil.Infof("terminal bridge frontend read closed: task_id=%s err=%v", taskID, err)
 				return
 			}
+			if !loggedFirstFrontToBackend {
+				loggedFirstFrontToBackend = true
+				logutil.Infof(
+					"terminal bridge first frontend to backend frame: task_id=%s message_type=%d bytes=%d",
+					taskID,
+					mt,
+					len(payload),
+				)
+			}
 			if err := backendConn.WriteMessage(mt, payload); err != nil {
+				logutil.Warnf("terminal bridge backend write failed: task_id=%s err=%v", taskID, err)
 				return
 			}
 		}
@@ -217,12 +235,24 @@ func bridgeWebSockets(ctx context.Context, frontConn *websocket.Conn, backendCon
 		defer wg.Done()
 		defer closeAll()
 
+		loggedFirstBackendToFront := false
 		for {
 			mt, payload, err := backendConn.ReadMessage()
 			if err != nil {
+				logutil.Infof("terminal bridge backend read closed: task_id=%s err=%v", taskID, err)
 				return
 			}
+			if !loggedFirstBackendToFront {
+				loggedFirstBackendToFront = true
+				logutil.Infof(
+					"terminal bridge first backend to frontend frame: task_id=%s message_type=%d bytes=%d",
+					taskID,
+					mt,
+					len(payload),
+				)
+			}
 			if err := frontConn.WriteMessage(mt, payload); err != nil {
+				logutil.Warnf("terminal bridge frontend write failed: task_id=%s err=%v", taskID, err)
 				return
 			}
 		}

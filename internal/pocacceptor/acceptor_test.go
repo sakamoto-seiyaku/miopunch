@@ -1,6 +1,7 @@
 package pocacceptor
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,6 +13,7 @@ import (
 func TestSafeStreamMetadataSummaryRedactsSensitiveValues(t *testing.T) {
 	got := safeStreamMetadataSummary(map[string]string{
 		"op":           "ping",
+		"task_id":      "task-sh-001",
 		"peer_id":      "peer-1",
 		"seed_peer":    `{"secret_key":"SECRET_SHOULD_NOT_LEAK"}`,
 		"approve_decl": `{"body":"DECL_SHOULD_NOT_LEAK"}`,
@@ -35,11 +37,75 @@ func TestSafeStreamMetadataSummaryRedactsSensitiveValues(t *testing.T) {
 		"approve_decl_present=true",
 		"decls_present=true",
 		`op="ping"`,
+		`task_id="task-sh-001"`,
 		`peer_id="peer-1"`,
 	} {
 		if !strings.Contains(got, needle) {
 			t.Fatalf("safeStreamMetadataSummary(...) = %q, want %q", got, needle)
 		}
+	}
+}
+
+func TestShellAttachWaitFailure_ClassifiesLayerAndReason(t *testing.T) {
+	t.Parallel()
+
+	err := errors.New("process exited: 255")
+	tests := []struct {
+		name       string
+		target     string
+		wantReason string
+		wantLayer  string
+		wantPrefix string
+	}{
+		{
+			name:       "local tmux",
+			target:     "local",
+			wantReason: "SH_TMUX_ATTACH_FAIL",
+			wantLayer:  "tmux",
+			wantPrefix: "tmux session exited:",
+		},
+		{
+			name:       "ssh target",
+			target:     "ssh:ops",
+			wantReason: "SH_CONNECTOR_FAIL",
+			wantLayer:  "ssh",
+			wantPrefix: "ssh process exited:",
+		},
+		{
+			name:       "wsl target",
+			target:     "wsl:Ubuntu",
+			wantReason: "SH_CONNECTOR_FAIL",
+			wantLayer:  "wsl",
+			wantPrefix: "wsl process exited:",
+		},
+		{
+			name:       "other target",
+			target:     "custom",
+			wantReason: "SH_CONNECTOR_FAIL",
+			wantLayer:  "shelltarget",
+			wantPrefix: "shell target exited:",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := shellAttachWaitFailure(tt.target, err)
+			if got.reasonCode != tt.wantReason {
+				t.Fatalf("shellAttachWaitFailure(%q).reasonCode = %q, want %q", tt.target, got.reasonCode, tt.wantReason)
+			}
+			if got.shellLayer != tt.wantLayer {
+				t.Fatalf("shellAttachWaitFailure(%q).shellLayer = %q, want %q", tt.target, got.shellLayer, tt.wantLayer)
+			}
+			if !strings.HasPrefix(got.message, tt.wantPrefix) {
+				t.Fatalf("shellAttachWaitFailure(%q).message = %q, want prefix %q", tt.target, got.message, tt.wantPrefix)
+			}
+			if len(got.suggestions) == 0 || got.suggestions[0] != "retry" {
+				t.Fatalf("shellAttachWaitFailure(%q).suggestions = %v, want retry", tt.target, got.suggestions)
+			}
+		})
 	}
 }
 

@@ -38,7 +38,30 @@
   const approveState = { taskID: "", message: "" };
   const approvalDecisionState = new Map();
   const approvalDecisionTasks = new Map();
-  const shellState = { ws: null, term: null, resizeObs: null, taskID: "", fitTimer: 0 };
+  const shellView = {
+    phase: "idle",
+    peerID: "",
+    target: "local",
+    session: "main",
+    targetOptions: [],
+    sessionOptions: [],
+    sessionTarget: "",
+    error: "",
+    detail: "",
+    taskID: "",
+    discoveryTaskID: "",
+  };
+  const shellSelections = new Map();
+  const shellState = {
+    ws: null,
+    term: null,
+    resizeObs: null,
+    taskID: "",
+    fitTimer: 0,
+    expectedClose: false,
+    wsError: "",
+    remoteDataSeen: false,
+  };
 
   let lastConn = null;
   let runtimeStream = { ready: false, status: "idle", error: null };
@@ -551,6 +574,273 @@
     return [reason, detail].filter(Boolean).join(": ") || "decision task failed";
   };
 
+  const compactStatusText = (value, max = 160) => {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    if (!text) return "";
+    if (text.length <= max) return text;
+    return `${text.slice(0, Math.max(0, max - 3)).trimEnd()}...`;
+  };
+
+  const latestShellRuntimeSession = (peerID) => {
+    const id = String(peerID || "").trim();
+    if (!id) return null;
+    const sessions = Array.isArray(state.shellSessions) ? state.shellSessions : [];
+    return sessions
+      .filter((item) => String(item && item.peer_id || "").trim() === id)
+      .sort((a, b) => String(b && b.created_at || "").localeCompare(String(a && a.created_at || "")))[0] || null;
+  };
+
+  const shellDefaultTarget = (peerID) => {
+    const runtime = latestShellRuntimeSession(peerID);
+    const target = runtime && runtime.target ? String(runtime.target).trim() : "";
+    return target || "local";
+  };
+
+  const shellDefaultSession = (peerID) => {
+    const runtime = latestShellRuntimeSession(peerID);
+    const session = runtime && runtime.session ? String(runtime.session).trim() : "";
+    return session || "main";
+  };
+
+  const rememberShellSelection = (peerID = shellView.peerID) => {
+    const id = String(peerID || "").trim();
+    if (!id) return;
+    shellSelections.set(id, {
+      target: shellView.target,
+      session: shellView.session,
+      targetOptions: Array.isArray(shellView.targetOptions) ? shellView.targetOptions.slice() : [],
+      sessionOptions: Array.isArray(shellView.sessionOptions) ? shellView.sessionOptions.slice() : [],
+      sessionTarget: shellView.sessionTarget,
+    });
+  };
+
+  const shellSeedForPeer = (peerID) => {
+    const runtime = latestShellRuntimeSession(peerID);
+    const target = shellDefaultTarget(peerID);
+    const session = shellDefaultSession(peerID);
+    return {
+      target,
+      session,
+      targetOptions: runtime && hasText(runtime.target) ? [String(runtime.target).trim()] : [],
+      sessionOptions: runtime && hasText(runtime.session) ? [String(runtime.session).trim()] : [],
+      sessionTarget: runtime && hasText(runtime.target) && hasText(runtime.session) ? String(runtime.target).trim() : "",
+    };
+  };
+
+  const syncShellSelectionForPeer = (peerID) => {
+    const id = String(peerID || "").trim();
+    if (!id) return;
+    if (shellView.peerID && shellView.peerID !== id) rememberShellSelection(shellView.peerID);
+
+    if (shellView.peerID === id) {
+      if (!hasText(shellView.target)) shellView.target = shellDefaultTarget(id);
+      if (!hasText(shellView.session)) shellView.session = shellDefaultSession(id);
+      rememberShellSelection(id);
+      return;
+    }
+
+    const saved = shellSelections.get(id);
+    const seed = saved || shellSeedForPeer(id);
+    shellView.peerID = id;
+    shellView.target = hasText(seed.target) ? String(seed.target).trim() : shellDefaultTarget(id);
+    shellView.session = hasText(seed.session) ? String(seed.session).trim() : shellDefaultSession(id);
+    shellView.targetOptions = Array.isArray(seed.targetOptions) ? seed.targetOptions.slice() : [];
+    shellView.sessionOptions = Array.isArray(seed.sessionOptions) ? seed.sessionOptions.slice() : [];
+    shellView.sessionTarget = hasText(seed.sessionTarget) ? String(seed.sessionTarget).trim() : "";
+    shellView.error = "";
+    shellView.detail = "";
+    shellView.phase = "idle";
+    shellView.taskID = "";
+    shellView.discoveryTaskID = "";
+    rememberShellSelection(id);
+  };
+
+  const shellPageActive = () => state.activeTab === "network" && state.view.type === "peer" && state.view.section === "shell";
+
+  const shellOperateEnabled = (peerID = shellView.peerID) => {
+    const mem = memberByPeerID(peerID);
+    const id = String(peerID || "").trim();
+    const selfPeerID = String(self().peer_id || "");
+    return !!(mem && id && id !== selfPeerID && !mem.revoked && (state.previewMode || lastConn && lastConn.connected));
+  };
+
+  const shellPhaseClass = (phase) => {
+    if (phase === "failed") return "chip-error";
+    if (phase === "connected") return "chip-done";
+    if (phase === "listing" || phase === "connecting") return "chip-running";
+    return "chip-muted";
+  };
+
+  const shellPhaseDefaultDetail = (phase) => {
+    if (phase === "listing") return "Listing shell choices...";
+    if (phase === "connecting") return "Connecting shell...";
+    if (phase === "connected") return "Shell connected.";
+    if (phase === "disconnected") return "Shell disconnected. Reconnect is available.";
+    if (phase === "failed") return "Shell action failed. Retry is available.";
+    return "Ready to discover or connect.";
+  };
+
+  const shellStatusText = () => shellView.detail || shellPhaseDefaultDetail(shellView.phase);
+
+  const shellCanDiscover = (peerID = shellView.peerID) => shellOperateEnabled(peerID)
+    && !["listing", "connecting", "connected"].includes(shellView.phase);
+
+  const shellCanConnect = (peerID = shellView.peerID) => shellOperateEnabled(peerID)
+    && !["listing", "connecting", "connected"].includes(shellView.phase);
+
+  const shellCanDisconnect = () => !!(shellState.ws || shellState.term);
+
+  const detachShellTerminalDOM = () => {
+    if (!shellPageActive() || !shellState.term) return null;
+    const container = el("terminal");
+    if (!container || !container.firstChild) return null;
+    const fragment = document.createDocumentFragment();
+    while (container.firstChild) fragment.appendChild(container.firstChild);
+    return { fragment };
+  };
+
+  const restoreShellTerminalDOM = (preserved) => {
+    if (!preserved || !shellPageActive() || !shellState.term) return;
+    const container = el("terminal");
+    if (!container) return;
+    container.textContent = "";
+    container.appendChild(preserved.fragment);
+    if (shellState.resizeObs) {
+      try {
+        shellState.resizeObs.disconnect();
+        shellState.resizeObs.observe(container);
+      } catch {
+        // ignore resize observer races while the shell view is rebuilding
+      }
+    }
+    try {
+      shellState.term.focus();
+    } catch {
+      // ignore focus races if xterm has already been disposed
+    }
+    if (shellState.fitTimer) window.clearTimeout(shellState.fitTimer);
+    shellState.fitTimer = window.setTimeout(fitAndSendWinSize, 80);
+  };
+
+  const shellTaskValues = (taskObj, termID, prefix) => {
+    const values = [];
+    const seen = new Set();
+    const facts = taskObj && Array.isArray(taskObj.facts) ? taskObj.facts : [];
+    for (const fact of facts) {
+      const message = String(fact && fact.message || "").trim();
+      const factTermID = String(fact && fact.term_id || "").trim();
+      let value = "";
+      if (factTermID === termID && hasText(message)) {
+        value = message.startsWith(prefix) ? message.slice(prefix.length).trim() : message;
+      } else if (message.startsWith(prefix)) {
+        value = message.slice(prefix.length).trim();
+      }
+      if (!value || seen.has(value)) continue;
+      seen.add(value);
+      values.push(value);
+    }
+    return values;
+  };
+
+  const shellTaskValue = (taskObj, termID, prefix) => shellTaskValues(taskObj, termID, prefix)[0] || "";
+
+  const shellTaskFailed = (taskObj) => {
+    const status = String(taskObj && taskObj.status || "").toLowerCase();
+    const reason = String(taskObj && taskObj.reason_code || "").trim().toUpperCase();
+    return status === "done" && !!reason && reason !== "OK";
+  };
+
+  const shellTaskDiagnosticSummary = (taskObj) => {
+    if (!taskObj) return "";
+    const reason = String(taskObj.reason_code || "").trim();
+    const layer = shellTaskValue(taskObj, "shell_layer", "shell_layer=");
+    let detail = shellTaskValue(taskObj, "shell_close", "shell_close=");
+    if (!detail) detail = taskFailureSummary(taskObj);
+    const lowerDetail = detail.toLowerCase();
+    const lowerLayer = String(layer || "").toLowerCase();
+    if (detail && layer && !lowerDetail.startsWith(`${lowerLayer} `) && !lowerDetail.startsWith(`${lowerLayer}:`)) {
+      detail = `${layer}: ${detail}`;
+    }
+    return compactStatusText([reason, detail].filter(Boolean).join(": ") || taskFailureSummary(taskObj));
+  };
+
+  const shellSocketCloseReason = (event, wsError = "") => compactStatusText(
+    String(wsError || "").trim()
+      || (event && event.reason ? String(event.reason) : "")
+      || (event && event.code ? `websocket closed (${event.code})` : "terminal websocket closed")
+  );
+
+  const closeShellTransport = (closeCode = 1000, reason = "bye") => {
+    if (shellState.resizeObs) {
+      shellState.resizeObs.disconnect();
+      shellState.resizeObs = null;
+    }
+    if (shellState.fitTimer) {
+      window.clearTimeout(shellState.fitTimer);
+      shellState.fitTimer = 0;
+    }
+    const ws = shellState.ws;
+    shellState.ws = null;
+    if (ws) {
+      const readyState = typeof ws.readyState === "number" ? ws.readyState : WebSocket.CLOSED;
+      if (readyState < WebSocket.CLOSING) {
+        shellState.expectedClose = true;
+        try {
+          ws.close(closeCode, reason);
+        } catch {
+          // ignore close race
+        }
+      } else {
+        shellState.expectedClose = false;
+      }
+    } else {
+      shellState.expectedClose = false;
+    }
+    if (shellState.term) {
+      try {
+        shellState.term.dispose();
+      } catch {
+        // ignore dispose race
+      }
+      shellState.term = null;
+    }
+    shellState.taskID = "";
+    shellState.wsError = "";
+    shellState.remoteDataSeen = false;
+  };
+
+  const syncShellDOM = () => {
+    if (!shellPageActive()) return;
+    const phase = el("shell-phase");
+    if (phase) {
+      phase.textContent = shellView.phase;
+      phase.className = `chip ${shellPhaseClass(shellView.phase)}`.trim();
+    }
+    const status = el("shell-status");
+    if (status) status.textContent = shellStatusText();
+    const error = el("shell-error");
+    if (error) {
+      error.textContent = shellView.error || "";
+      error.classList.toggle("is-hidden", !shellView.error);
+    }
+    const discover = el("btn-shell-discover");
+    if (discover) discover.disabled = !shellCanDiscover();
+    const connect = el("btn-shell-connect");
+    if (connect) connect.disabled = !shellCanConnect();
+    const disconnect = el("btn-shell-disconnect");
+    if (disconnect) disconnect.disabled = !shellCanDisconnect();
+  };
+
+  const failShellAction = (message, detail = "") => {
+    closeShellTransport();
+    shellView.phase = "failed";
+    shellView.detail = detail || shellPhaseDefaultDetail("failed");
+    shellView.error = String(message || "Shell action failed");
+    rememberShellSelection();
+    scheduleRender();
+    toast(shellView.error);
+  };
+
   const applyEventToTask = (taskObj, ev) => {
     if (!taskObj || !ev) return;
     const kind = String(ev.kind || "");
@@ -752,7 +1042,9 @@
   const navigate = (view) => {
     const leavingShell = state.activeTab === "network" && state.view.type === "peer" && state.view.section === "shell";
     const enteringShell = state.activeTab === "network" && view.type === "peer" && view.section === "shell";
-    if (leavingShell && !enteringShell) disconnectShell();
+    const changingShellPeer = leavingShell && enteringShell
+      && String(state.view.peerID || "") !== String(view.peerID || "");
+    if (leavingShell && (!enteringShell || changingShellPeer)) disconnectShell();
     state.view = view;
     scheduleRender();
   };
@@ -764,8 +1056,9 @@
   const setPage = (html) => {
     const host = el("page-host");
     if (!host) return;
+    const preservedTerminal = detachShellTerminalDOM();
     host.innerHTML = html;
-    renderPostDOM();
+    renderPostDOM(preservedTerminal);
   };
 
   const renderAll = () => {
@@ -959,6 +1252,14 @@
     if (!selected) {
       body = `<section class="card">${listItemHTML("Peer was not found", "empty")}</section>`;
     } else if (section === "shell") {
+      syncShellSelectionForPeer(peerID);
+      const shellTaskObj = state.tasks.get(shellView.taskID || shellView.discoveryTaskID) || null;
+      const targetChoices = shellView.targetOptions.length
+        ? `Discovered targets: ${shellView.targetOptions.join(", ")}`
+        : "Defaults to target local until discovery returns a richer choice.";
+      const sessionChoices = shellView.sessionOptions.length
+        ? `Discovered sessions for ${shellView.sessionTarget || shellView.target || "current target"}: ${shellView.sessionOptions.join(", ")}`
+        : "Defaults to session main until discovery returns a richer choice.";
       body = `
         <section class="card">
           <div class="card-header">
@@ -966,21 +1267,37 @@
               <p class="eyebrow">Remote session</p>
               <h3 class="card-title">Shell</h3>
             </div>
-            <button class="btn btn-tonal" id="btn-shell-disconnect" ${shellState.ws || shellState.term ? "" : "disabled"}>Disconnect</button>
+            <div class="action-row">
+              <span class="chip ${shellPhaseClass(shellView.phase)}" id="shell-phase">${esc(shellView.phase)}</span>
+              <button class="btn btn-tonal" id="btn-shell-disconnect" type="button" ${shellCanDisconnect() ? "" : "disabled"}>Disconnect</button>
+            </div>
           </div>
           <form class="form-grid" id="shell-form">
             <div class="grid grid-3">
-              <label>Peer ID<input class="textfield mono" id="shell-peer-id" value="${esc(peerID)}" autocomplete="off" /></label>
-              <label>Target<input class="textfield" id="shell-target" value="local" autocomplete="off" /></label>
-              <label>Session<input class="textfield" id="shell-session" value="main" autocomplete="off" /></label>
+              <label>Peer ID<input class="textfield mono" id="shell-peer-id" value="${esc(peerID)}" autocomplete="off" readonly /></label>
+              <label>Target<input class="textfield" id="shell-target" value="${esc(shellView.target || shellDefaultTarget(peerID))}" list="shell-target-options" autocomplete="off" /></label>
+              <label>Session<input class="textfield" id="shell-session" value="${esc(shellView.session || shellDefaultSession(peerID))}" list="shell-session-options" autocomplete="off" /></label>
+            </div>
+            <datalist id="shell-target-options">
+              ${shellView.targetOptions.map((value) => `<option value="${esc(value)}"></option>`).join("")}
+            </datalist>
+            <datalist id="shell-session-options">
+              ${shellView.sessionOptions.map((value) => `<option value="${esc(value)}"></option>`).join("")}
+            </datalist>
+            <div class="grid grid-2">
+              <div class="helper" id="shell-target-choices">${esc(targetChoices)}</div>
+              <div class="helper" id="shell-session-choices">${esc(sessionChoices)}</div>
             </div>
             <div class="action-row">
-              <button class="btn btn-primary" type="submit" ${canOperate ? "" : "disabled"}>Connect</button>
-              <div class="helper" id="shell-status">-</div>
+              <button class="btn btn-tonal" id="btn-shell-discover" type="button" ${shellCanDiscover(peerID) ? "" : "disabled"}>Discover</button>
+              <button class="btn btn-primary" id="btn-shell-connect" type="submit" ${shellCanConnect(peerID) ? "" : "disabled"}>Connect</button>
+              <div class="helper" id="shell-status">${esc(shellStatusText())}</div>
             </div>
+            <div class="helper helper-error ${shellView.error ? "" : "is-hidden"}" id="shell-error">${esc(shellView.error)}</div>
           </form>
           <div class="terminal mt" id="terminal"></div>
-        </section>`;
+        </section>
+        ${shellTaskObj ? renderTaskSummary(shellTaskObj) : ""}`;
     } else {
       body = `
         <section class="detail-grid">
@@ -1476,7 +1793,7 @@
     return status === "done" && (!reason || reason === "ok");
   };
 
-  const renderPostDOM = () => {
+  const renderPostDOM = (preservedTerminal = null) => {
     const qrEl = el("invite-qr");
     const taskObj = inviteState.taskID ? state.tasks.get(inviteState.taskID) : null;
     const code = findInviteCode(taskObj);
@@ -1490,6 +1807,8 @@
         qrEl.textContent = "(QR failed)";
       }
     }
+    restoreShellTerminalDOM(preservedTerminal);
+    syncShellDOM();
   };
 
   const topologyFromPeers = (peers) => ({
@@ -1635,8 +1954,15 @@
       taskObj.stage = "payload exchanged";
       taskObj.facts.push({ message: "path=quic/udp4 rtt_ms=18" });
     } else if (kind === "sh_ls") {
-      taskObj.stage = "sessions listed";
-      taskObj.facts.push({ message: "sessions=main, maintenance" });
+      const target = String(args && args.target || "").trim();
+      taskObj.stage = target ? "sessions listed" : "targets listed";
+      if (target) {
+        taskObj.facts.push({ term_id: "session", message: "session=main" });
+        taskObj.facts.push({ term_id: "session", message: "session=maintenance" });
+      } else {
+        taskObj.facts.push({ term_id: "target", message: "target=local" });
+        taskObj.facts.push({ term_id: "target", message: "target=ssh:ops" });
+      }
     } else if (kind === "revoke_member") {
       taskObj.stage = "decl written";
       taskObj.facts.push({ message: `revoked_peer_id=${args && args.peer_id ? args.peer_id : "-"}` });
@@ -1745,32 +2071,13 @@
     }
   };
 
-  const disconnectShell = () => {
-    if (shellState.resizeObs) {
-      shellState.resizeObs.disconnect();
-      shellState.resizeObs = null;
-    }
-    if (shellState.ws) {
-      try {
-        shellState.ws.close(1000, "bye");
-      } catch {
-        // ignore close race
-      }
-      shellState.ws = null;
-    }
-    if (shellState.term) {
-      try {
-        shellState.term.dispose();
-      } catch {
-        // ignore dispose race
-      }
-      shellState.term = null;
-    }
-    shellState.taskID = "";
-    const btn = el("btn-shell-disconnect");
-    if (btn) btn.disabled = true;
-    const status = el("shell-status");
-    if (status) status.textContent = "-";
+  const disconnectShell = (phase = shellView.peerID ? "disconnected" : "idle", detail = "") => {
+    closeShellTransport();
+    shellView.phase = phase;
+    shellView.detail = detail || shellPhaseDefaultDetail(phase);
+    shellView.error = "";
+    rememberShellSelection();
+    scheduleRender();
   };
 
   const openTerminal = () => {
@@ -1779,7 +2086,7 @@
     container.textContent = "";
     if (typeof window.Terminal !== "function") {
       container.textContent = "xterm.js failed to load";
-      return null;
+      throw new Error("xterm.js failed to load");
     }
     const term = new window.Terminal({
       cursorBlink: true,
@@ -1789,25 +2096,27 @@
     });
     shellState.term = term;
     term.open(container);
+    term.focus();
     return term;
   };
 
   const startPreviewShell = async (peerID, target, session) => {
     const created = await createTask("sh_attach", { peer_id: peerID, target, session });
     upsertTask(attachPeerFact(created, peerID));
+    shellView.taskID = created.task_id;
+    shellView.discoveryTaskID = "";
     shellState.taskID = created.task_id;
     const term = openTerminal();
-    const status = el("shell-status");
-    if (status) status.textContent = "preview connected";
-    const disconnectBtn = el("btn-shell-disconnect");
-    if (disconnectBtn) disconnectBtn.disabled = false;
-    if (term) {
-      term.writeln("miopunch preview shell");
-      term.writeln(`peer=${peerID}`);
-      term.writeln(`session=${session}`);
-      term.writeln("");
-      term.write("$ ");
-    }
+    term.writeln("miopunch preview shell");
+    term.writeln(`peer=${peerID}`);
+    term.writeln(`session=${session}`);
+    term.writeln("");
+    term.write("$ ");
+    shellView.phase = "connected";
+    shellView.detail = `Preview connected to ${target}/${session}.`;
+    shellView.error = "";
+    rememberShellSelection();
+    syncShellDOM();
   };
 
   const startLiveShell = async (peerID, target, session) => {
@@ -1815,64 +2124,105 @@
     const decoder = new TextDecoder("utf-8");
     const created = await createTask("sh_attach", { peer_id: peerID, target, session });
     upsertTask(attachPeerFact(created, peerID));
+    shellView.taskID = created.task_id;
+    shellView.discoveryTaskID = "";
     shellState.taskID = created.task_id;
-    const status = el("shell-status");
-    if (status) status.textContent = `task=${created.task_id}`;
-    const term = openTerminal();
-    if (!term) throw new Error("xterm.js failed to load");
-    term.writeln("Connecting...");
+    shellState.expectedClose = false;
+    shellState.wsError = "";
+    shellState.remoteDataSeen = false;
+    shellView.detail = `Task ${created.task_id} created. Waiting for terminal bridge...`;
+    syncShellDOM();
+    const container = el("terminal");
+    if (!container) throw new Error("terminal container is missing");
+    if (typeof window.Terminal !== "function") {
+      container.textContent = "xterm.js failed to load";
+      throw new Error("xterm.js failed to load");
+    }
 
-    const bridgeInfo = await getBridge().TerminalBridgeInfo();
+    const bridgeInfo = await withTimeout(getBridge().TerminalBridgeInfo(), "Load terminal bridge");
     if (!bridgeInfo || !bridgeInfo.ok) throw new Error(bridgeErrorSummary(bridgeInfo && bridgeInfo.error));
     const token = String(bridgeInfo.token || "");
     const baseURL = String(bridgeInfo.base_url || "");
     const subprotocol = String(bridgeInfo.subprotocol || "miopunch.sh.v0");
     if (!baseURL || !token) throw new Error("terminal bridge is not ready");
+    shellView.detail = `Connecting to ${target}/${session}...`;
+    syncShellDOM();
+    const term = openTerminal();
+    term.writeln("Connecting...");
+    syncShellDOM();
 
     const wsURL = `${baseURL}/api/v0/tasks/${encodeURIComponent(created.task_id)}/ws?token=${encodeURIComponent(token)}`;
-    let opened = false;
-    let retries = 0;
-    const maxRetries = 2;
-
-    const connectWS = () => {
-      const ws = new WebSocket(wsURL, [subprotocol]);
-      ws.binaryType = "arraybuffer";
-      shellState.ws = ws;
-      ws.onopen = () => {
-        opened = true;
-        const shellStatus = el("shell-status");
-        if (shellStatus) shellStatus.textContent = "connected";
-        const btn = el("btn-shell-disconnect");
-        if (btn) btn.disabled = false;
-        fitAndSendWinSize();
-      };
-      ws.onmessage = (msg) => {
-        if (!shellState.term) return;
-        if (typeof msg.data === "string") {
-          shellState.term.write(msg.data);
-          return;
-        }
-        shellState.term.write(decoder.decode(new Uint8Array(msg.data)));
-      };
-      ws.onclose = () => {
-        if (shellState.term) shellState.term.writeln("\r\n[disconnected]");
-        const shellStatus = el("shell-status");
-        if (shellStatus) shellStatus.textContent = "disconnected";
-        const btn = el("btn-shell-disconnect");
-        if (btn) btn.disabled = true;
-        if (!opened && shellState.taskID && retries < maxRetries) {
-          retries += 1;
-          if (shellStatus) shellStatus.textContent = `reconnecting (${retries}/${maxRetries})...`;
-          window.setTimeout(connectWS, 350 * retries);
-        }
-      };
-      ws.onerror = () => {
-        const shellStatus = el("shell-status");
-        if (shellStatus) shellStatus.textContent = "error";
-      };
+    const ws = new WebSocket(wsURL, [subprotocol]);
+    ws.binaryType = "arraybuffer";
+    shellState.ws = ws;
+    ws.onopen = () => {
+      if (shellState.ws !== ws) return;
+      shellView.phase = "connecting";
+      shellView.detail = `Terminal bridge connected. Waiting for shell output from ${target}/${session}...`;
+      shellView.error = "";
+      rememberShellSelection();
+      syncShellDOM();
+      fitAndSendWinSize();
+    };
+    ws.onmessage = (msg) => {
+      if (shellState.ws !== ws || !shellState.term) return;
+      let output = "";
+      let byteLength = 0;
+      if (typeof msg.data === "string") {
+        output = msg.data;
+        byteLength = output.length;
+      } else {
+        const bytes = new Uint8Array(msg.data);
+        byteLength = bytes.byteLength;
+        output = decoder.decode(bytes);
+      }
+      if (!shellState.remoteDataSeen && byteLength > 0) {
+        shellState.remoteDataSeen = true;
+        shellView.phase = "connected";
+        shellView.detail = `Connected to ${target}/${session}.`;
+        shellView.error = "";
+        rememberShellSelection();
+        syncShellDOM();
+      }
+      shellState.term.write(output);
+    };
+    ws.onerror = () => {
+      if (shellState.ws !== ws) return;
+      shellState.wsError = "terminal websocket error";
+      shellView.detail = "Terminal bridge reported an error.";
+      syncShellDOM();
+    };
+    ws.onclose = (event) => {
+      const expectedClose = shellState.expectedClose;
+      const wasConnected = shellView.phase === "connected";
+      const reason = shellSocketCloseReason(event, shellState.wsError);
+      const taskID = shellView.taskID;
+      shellState.expectedClose = false;
+      if (expectedClose) return;
+      closeShellTransport();
+      shellView.phase = wasConnected ? "disconnected" : "failed";
+      shellView.detail = wasConnected
+        ? shellPhaseDefaultDetail("disconnected")
+        : shellPhaseDefaultDetail("failed");
+      shellView.error = wasConnected ? `Disconnected: ${reason}` : `Connect failed: ${reason}`;
+      rememberShellSelection();
+      scheduleRender();
+      if (!taskID) return;
+      void (async () => {
+        const latest = await waitForShellTaskOutput(taskID);
+        if (shellView.taskID !== taskID || !shellTaskFailed(latest)) return;
+        const summary = shellTaskDiagnosticSummary(latest);
+        if (!summary) return;
+        shellView.phase = wasConnected ? "disconnected" : "failed";
+        shellView.detail = wasConnected
+          ? shellPhaseDefaultDetail("disconnected")
+          : shellPhaseDefaultDetail("failed");
+        shellView.error = wasConnected ? `Disconnected: ${summary}` : `Connect failed: ${summary}`;
+        rememberShellSelection();
+        scheduleRender();
+      })();
     };
 
-    connectWS();
     term.onData((data) => {
       const ws = shellState.ws;
       try {
@@ -1882,7 +2232,6 @@
       }
     });
 
-    const container = el("terminal");
     const ro = new ResizeObserver(() => {
       window.clearTimeout(shellState.fitTimer);
       shellState.fitTimer = window.setTimeout(fitAndSendWinSize, 80);
@@ -2032,9 +2381,15 @@
       if (!state.previewMode) await getBridge().Quit();
       return;
     }
+    if (target.id === "btn-shell-discover") {
+      event.preventDefault();
+      await discoverShell();
+      return;
+    }
     if (target.id === "btn-shell-disconnect") {
       event.preventDefault();
       disconnectShell();
+      return;
     }
   };
 
@@ -2082,6 +2437,29 @@
           inviteState.missingTaskID = taskID;
           return taskObj;
         }
+      }
+    }
+    return taskObj;
+  };
+
+  const waitForShellTaskOutput = async (taskID) => {
+    const delays = [0, 120, 240, 400, 650, 900, 1200];
+    let taskObj = taskID ? state.tasks.get(taskID) : null;
+    for (const delay of delays) {
+      taskObj = taskID ? state.tasks.get(taskID) || taskObj : taskObj;
+      if (taskObj && (shellTaskFailed(taskObj) || String(taskObj.status || "").toLowerCase() === "done")) return taskObj;
+
+      if (delay > 0) await sleep(delay);
+
+      taskObj = taskID ? state.tasks.get(taskID) || taskObj : taskObj;
+      if (taskObj && (shellTaskFailed(taskObj) || String(taskObj.status || "").toLowerCase() === "done")) return taskObj;
+
+      const latest = await getTask(taskID, 2500);
+      if (latest) {
+        upsertTask(latest);
+        taskObj = state.tasks.get(taskID) || latest;
+        scheduleRender();
+        if (shellTaskFailed(taskObj) || String(taskObj.status || "").toLowerCase() === "done") return taskObj;
       }
     }
     return taskObj;
@@ -2177,20 +2555,107 @@
     await startDesktopRuntime();
   };
 
-  const submitShell = async () => {
-    disconnectShell();
-    const peerInput = el("shell-peer-id");
+  const discoverShell = async () => {
+    const peerID = state.view.type === "peer" ? String(state.view.peerID || "").trim() : "";
     const targetInput = el("shell-target");
     const sessionInput = el("shell-session");
-    const peerID = peerInput ? peerInput.value.trim() : "";
-    const target = targetInput ? targetInput.value.trim() : "";
-    const session = sessionInput && sessionInput.value.trim() ? sessionInput.value.trim() : "main";
+    const typedTarget = targetInput ? targetInput.value.trim() : "";
+    const typedSession = sessionInput ? sessionInput.value.trim() : "";
     if (!peerID) {
-      toast("Missing peer_id");
+      failShellAction("Discover failed: missing peer_id");
       return;
     }
-    if (state.previewMode) await startPreviewShell(peerID, target, session);
-    else await startLiveShell(peerID, target, session);
+
+    syncShellSelectionForPeer(peerID);
+    shellView.peerID = peerID;
+    shellView.target = typedTarget || shellView.target || shellDefaultTarget(peerID);
+    shellView.session = typedSession || shellView.session || shellDefaultSession(peerID);
+
+    const discoverTargets = shellView.targetOptions.length === 0 || !typedTarget;
+    const target = discoverTargets ? "" : typedTarget;
+    const restingPhase = shellView.phase === "disconnected" ? "disconnected" : "idle";
+
+    shellView.phase = "listing";
+    shellView.detail = discoverTargets ? "Listing shell targets..." : `Listing sessions for ${target}...`;
+    shellView.error = "";
+    shellView.taskID = "";
+    shellView.discoveryTaskID = "";
+    rememberShellSelection();
+    scheduleRender();
+
+    try {
+      const created = await createTask("sh_ls", { peer_id: peerID, target });
+      const taskID = upsertTask(attachPeerFact(created, peerID));
+      shellView.taskID = taskID;
+      shellView.discoveryTaskID = taskID;
+      scheduleRender();
+
+      const latest = await waitForShellTaskOutput(taskID);
+      const taskObj = state.tasks.get(taskID) || latest || created;
+      if (shellTaskFailed(taskObj)) throw new Error(taskFailureSummary(taskObj));
+
+      if (discoverTargets) {
+        const targets = shellTaskValues(taskObj, "target", "target=");
+        shellView.targetOptions = targets;
+        shellView.sessionOptions = [];
+        shellView.sessionTarget = "";
+        if (!typedTarget) {
+          shellView.target = targets.includes("local") ? "local" : (targets[0] || shellDefaultTarget(peerID));
+        }
+        shellView.detail = targets.length ? "Targets discovered." : "No targets discovered.";
+      } else {
+        const sessions = shellTaskValues(taskObj, "session", "session=");
+        shellView.sessionOptions = sessions;
+        shellView.sessionTarget = target;
+        if (!typedSession) {
+          shellView.session = sessions.includes("main") ? "main" : (sessions[0] || shellDefaultSession(peerID));
+        }
+        shellView.detail = sessions.length ? `Sessions discovered for ${target}.` : `No sessions discovered for ${target}.`;
+      }
+
+      shellView.phase = restingPhase;
+      shellView.error = "";
+      rememberShellSelection();
+      scheduleRender();
+    } catch (err) {
+      shellView.phase = "failed";
+      shellView.detail = discoverTargets ? "Target discovery failed. Retry is available." : "Session discovery failed. Retry is available.";
+      shellView.error = `Discover failed: ${String(err)}`;
+      rememberShellSelection();
+      scheduleRender();
+      toast(shellView.error);
+    }
+  };
+
+  const submitShell = async () => {
+    const peerID = state.view.type === "peer" ? String(state.view.peerID || "").trim() : "";
+    const targetInput = el("shell-target");
+    const sessionInput = el("shell-session");
+    if (!peerID) {
+      failShellAction("Connect failed: missing peer_id");
+      return;
+    }
+    syncShellSelectionForPeer(peerID);
+    const target = targetInput && targetInput.value.trim() ? targetInput.value.trim() : shellDefaultTarget(peerID);
+    const session = sessionInput && sessionInput.value.trim() ? sessionInput.value.trim() : shellDefaultSession(peerID);
+
+    closeShellTransport();
+    shellView.peerID = peerID;
+    shellView.target = target;
+    shellView.session = session;
+    shellView.phase = "connecting";
+    shellView.detail = `Connecting to ${target}/${session}...`;
+    shellView.error = "";
+    shellView.discoveryTaskID = "";
+    rememberShellSelection();
+    scheduleRender();
+
+    try {
+      if (state.previewMode) await startPreviewShell(peerID, target, session);
+      else await startLiveShell(peerID, target, session);
+    } catch (err) {
+      failShellAction(`Connect failed: ${String(err)}`);
+    }
   };
 
   const initFromQuery = () => {

@@ -54,7 +54,7 @@ test("Network peer actions create expected task calls", async ({ page }) => {
 
   await page.getByRole("button", { name: "List sessions" }).click();
   await expectCreateTaskCall(page, "sh_ls", { peer_id: PEERS.member, target: "" });
-  await expect(page.getByText("sessions listed")).toBeVisible();
+  await expect(page.getByText("targets listed")).toBeVisible();
 });
 
 test("Network shell flow creates sh_attach and opens the terminal bridge", async ({ page }) => {
@@ -73,7 +73,7 @@ test("Network shell flow creates sh_attach and opens the terminal bridge", async
     session: "main",
   });
   await expect.poll(() => calls(page)).toContainEqual({ method: "TerminalBridgeInfo" });
-  await expect(page.locator("#shell-status")).toContainText(/connected|task=/);
+  await expect(page.locator("#shell-status")).toContainText(/Connected|connected|task=/);
 });
 
 test("Admin revoke is enabled only for revocable members", async ({ page }) => {

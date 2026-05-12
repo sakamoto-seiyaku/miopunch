@@ -268,6 +268,16 @@ async function installFakeBridge(page, options = {}) {
     fixture: fx,
     createTaskModes: options.createTaskModes || {},
     getTaskModes: options.getTaskModes || {},
+    terminalBridgeInfoModes: options.terminalBridgeInfoModes || options.terminalBridgeInfoMode || ["success"],
+    webSocketModes: options.webSocketModes || options.webSocketMode || ["success"],
+    shellDiscovery: options.shellDiscovery || {
+      defaultTargets: ["local", "ssh:ops"],
+      sessionsByTarget: {
+        local: ["main", "maintenance"],
+        "ssh:ops": ["ops-main"],
+      },
+    },
+    disableTerminal: !!options.disableTerminal,
     initialTasks: options.initialTasks || [],
     approvalRequests: options.approvalRequests || null,
     inviteCodeDelivery: options.inviteCodeDelivery || "immediate",
@@ -287,7 +297,92 @@ async function installFakeBridge(page, options = {}) {
     window.__miopunchWebSockets = [];
 
     const calls = window.__miopunchCalls;
+    const record = (entry) => calls.push(clone(entry));
+
+    if (init.disableTerminal) {
+      Object.defineProperty(window, "Terminal", {
+        configurable: true,
+        get: () => undefined,
+        set: () => true,
+      });
+    } else {
+      let wrappedTerminal = null;
+      Object.defineProperty(window, "Terminal", {
+        configurable: true,
+        get: () => wrappedTerminal,
+        set: (value) => {
+          if (typeof value !== "function") {
+            wrappedTerminal = value;
+            return true;
+          }
+          wrappedTerminal = class extends value {
+            constructor(...args) {
+              super(...args);
+              this.__miopunchOutput = "";
+            }
+
+            __recordOutput(data) {
+              this.__miopunchOutput += String(data ?? "");
+              record({ method: "Terminal.write", data: String(data ?? "") });
+              if (this.element) this.element.setAttribute("data-test-output", this.__miopunchOutput);
+            }
+
+            focus(...args) {
+              record({ method: "Terminal.focus" });
+              return super.focus(...args);
+            }
+
+            write(data, ...args) {
+              this.__recordOutput(data);
+              return super.write(data, ...args);
+            }
+
+            writeln(data, ...args) {
+              this.__recordOutput(`${String(data ?? "")}\r\n`);
+              return super.writeln(data, ...args);
+            }
+          };
+          return true;
+        },
+      });
+    }
+
     const clone = (value) => (value == null ? value : JSON.parse(JSON.stringify(value)));
+    const nextMode = (value, fallback = "success") => {
+      if (Array.isArray(value)) return value.length ? value.shift() : fallback;
+      return typeof value === "undefined" ? fallback : value;
+    };
+    const normalizeWebSocketMode = (value) => {
+      if (value && typeof value === "object" && !Array.isArray(value)) return clone(value);
+      return { mode: typeof value === "undefined" ? "success" : value };
+    };
+    const nextMapMode = (map, key, fallback = "success") => nextMode(map && Object.prototype.hasOwnProperty.call(map, key) ? map[key] : undefined, fallback);
+    const nextTaskMode = (map, key) => {
+      if (map && Object.prototype.hasOwnProperty.call(map, key)) return nextMode(map[key], "success");
+      if (map && Object.prototype.hasOwnProperty.call(map, "*")) return nextMode(map["*"], "success");
+      return "success";
+    };
+    const createTaskModes = clone(init.createTaskModes || {});
+    const getTaskModes = clone(init.getTaskModes || {});
+    const terminalBridgeInfoModes = clone(init.terminalBridgeInfoModes || ["success"]);
+    const webSocketModes = clone(init.webSocketModes || ["success"]);
+    const shellDiscovery = clone(init.shellDiscovery || {});
+    const defaultShellTargets = Array.isArray(shellDiscovery.defaultTargets) && shellDiscovery.defaultTargets.length
+      ? shellDiscovery.defaultTargets
+      : ["local", "ssh:ops"];
+    const shellTargetsByPeer = shellDiscovery.targetsByPeer || {};
+    const shellSessionsByTarget = shellDiscovery.sessionsByTarget || {
+      local: ["main", "maintenance"],
+      "ssh:ops": ["ops-main"],
+    };
+    const shellTargetsForPeer = (peerID) => {
+      const list = shellTargetsByPeer[peerID] || shellTargetsByPeer["*"];
+      return Array.isArray(list) && list.length ? list : defaultShellTargets;
+    };
+    const shellSessionsForTarget = (target) => {
+      const list = shellSessionsByTarget[target] || shellSessionsByTarget["*"];
+      return Array.isArray(list) && list.length ? list : ["main", "maintenance"];
+    };
     let topology = clone(init.fixture.topology);
     const peers = Array.isArray(topology.members)
       ? topology.members.map((m) => ({ peer_id: m.peer_id }))
@@ -317,7 +412,6 @@ async function installFakeBridge(page, options = {}) {
       failure: init.fixture.failure || null,
     };
 
-    const record = (entry) => calls.push(clone(entry));
     const nextTaskID = (kind) => `ui-${kind}-${String(taskSeq++).padStart(3, "0")}`;
     const runtimeSnapshot = () => ({
       rev: runtimeRev,
@@ -364,6 +458,16 @@ async function installFakeBridge(page, options = {}) {
       task.exit_code = 0;
       task.report_ready = true;
       if (withCode) addInviteCodeFact(task);
+    };
+    const applyTaskResult = (task, result) => {
+      if (!task || !result || typeof result !== "object") return;
+      task.status = String(result.status || "done");
+      if (Object.prototype.hasOwnProperty.call(result, "stage")) task.stage = String(result.stage || "");
+      if (Object.prototype.hasOwnProperty.call(result, "reason_code")) task.reason_code = String(result.reason_code || "");
+      if (Object.prototype.hasOwnProperty.call(result, "exit_code")) task.exit_code = result.exit_code;
+      if (Array.isArray(result.facts)) task.facts = task.facts.concat(clone(result.facts));
+      if (Array.isArray(result.suggestions)) task.suggestions = clone(result.suggestions);
+      task.report_ready = Object.prototype.hasOwnProperty.call(result, "report_ready") ? !!result.report_ready : true;
     };
     const okTask = (kind, args) => {
       const task = {
@@ -420,15 +524,37 @@ async function installFakeBridge(page, options = {}) {
         task.facts.push({ message: `peer_id=${String(args && args.peer_id ? args.peer_id : "")}` });
         task.facts.push({ message: "rtt_ms=18" });
       } else if (kind === "sh_ls") {
-        task.stage = "sessions listed";
-        task.facts.push({ message: `peer_id=${String(args && args.peer_id ? args.peer_id : "")}` });
-        task.facts.push({ message: "sessions=main, maintenance" });
+        const peerID = String(args && args.peer_id ? args.peer_id : "");
+        const target = String(args && args.target ? args.target : "");
+        task.stage = target ? "sessions listed" : "targets listed";
+        task.facts.push({ term_id: "peer_id", message: `peer_id=${peerID}` });
+        if (target) {
+          for (const session of shellSessionsForTarget(target)) {
+            task.facts.push({ term_id: "session", message: `session=${session}` });
+          }
+        } else {
+          for (const value of shellTargetsForPeer(peerID)) {
+            task.facts.push({ term_id: "target", message: `target=${value}` });
+          }
+        }
       } else if (kind === "sh_attach") {
         task.status = "running";
         task.stage = "attached";
         task.report_ready = false;
-        task.facts.push({ message: `peer_id=${String(args && args.peer_id ? args.peer_id : "")}` });
-        task.facts.push({ message: `session=${String(args && args.session ? args.session : "main")}` });
+        task.facts.push({ term_id: "peer_id", message: `peer_id=${String(args && args.peer_id ? args.peer_id : "")}` });
+        task.facts.push({ term_id: "target", message: `target=${String(args && args.target ? args.target : "local")}` });
+        task.facts.push({ term_id: "session", message: `session=${String(args && args.session ? args.session : "main")}` });
+        runtimeShellSessions = runtimeShellSessions.filter((item) => String(item && item.task_id || "") !== String(task.task_id));
+        runtimeShellSessions.push({
+          task_id: task.task_id,
+          peer_id: String(args && args.peer_id ? args.peer_id : ""),
+          target: String(args && args.target ? args.target : "local"),
+          session: String(args && args.session ? args.session : "main"),
+          status: "running",
+          stage: "attached",
+          created_at: task.created_at,
+          report_ready: false,
+        });
       } else if (kind === "revoke_member") {
         task.stage = "decl written";
         task.facts.push({ message: `revoked_peer_id=${String(args && args.peer_id ? args.peer_id : "")}` });
@@ -495,11 +621,45 @@ async function installFakeBridge(page, options = {}) {
         this.readyState = FakeWebSocket.CONNECTING;
         this.binaryType = "";
         this.sent = [];
+        this.taskID = "";
+        this.modeConfig = null;
+        const taskMatch = /\/tasks\/([^/?]+)\/ws/.exec(url);
+        if (taskMatch && taskMatch[1]) this.taskID = decodeURIComponent(taskMatch[1]);
         window.__miopunchWebSockets.push(this);
         record({ method: "WebSocket", url, protocols });
+        const modeConfig = normalizeWebSocketMode(nextMode(webSocketModes, "success"));
+        this.modeConfig = modeConfig;
+        const mode = String(modeConfig.mode || "success");
+        const deliverRemoteMessages = () => {
+          if (mode === "open_no_data" || modeConfig.remoteMessages === false) return;
+          const messages = Array.isArray(modeConfig.remoteMessages)
+            ? modeConfig.remoteMessages
+            : [Object.prototype.hasOwnProperty.call(modeConfig, "remoteMessage") ? modeConfig.remoteMessage : "__MIO_FAKE_REMOTE_OUTPUT__\r\n"];
+          for (const message of messages) {
+            const encoded = new TextEncoder().encode(String(message ?? ""));
+            if (typeof this.onmessage === "function") this.onmessage({ data: encoded.buffer });
+          }
+        };
         window.setTimeout(() => {
+          if (mode === "close_before_open") {
+            this.readyState = FakeWebSocket.CLOSED;
+            if (typeof this.onclose === "function") this.onclose({ code: 1011, reason: "connect failed in fake websocket" });
+            return;
+          }
+          if (mode === "error_before_open") {
+            if (typeof this.onerror === "function") this.onerror({ message: "fake websocket error" });
+            this.readyState = FakeWebSocket.CLOSED;
+            if (typeof this.onclose === "function") this.onclose({ code: 1011, reason: "connect failed in fake websocket" });
+            return;
+          }
           this.readyState = FakeWebSocket.OPEN;
           if (typeof this.onopen === "function") this.onopen({});
+          window.setTimeout(deliverRemoteMessages, 0);
+          if (mode === "close_after_open") {
+            const closeCode = Number(modeConfig.closeCode || 1011);
+            const closeReason = String(modeConfig.closeReason || "fake websocket transport lost");
+            window.setTimeout(() => this.close(closeCode, closeReason), 30);
+          }
         }, 0);
       }
 
@@ -511,6 +671,21 @@ async function installFakeBridge(page, options = {}) {
       close(code = 1000, reason = "") {
         this.readyState = FakeWebSocket.CLOSED;
         record({ method: "WebSocket.close", code, reason });
+        if (this.taskID) {
+          runtimeShellSessions = runtimeShellSessions.filter((item) => String(item && item.task_id || "") !== this.taskID);
+          const task = tasks.get(this.taskID);
+          if (task && task.kind === "sh_attach") {
+            if (this.modeConfig && this.modeConfig.taskResult) {
+              applyTaskResult(task, this.modeConfig.taskResult);
+            } else {
+              task.status = "done";
+              task.stage = "disconnected";
+              task.reason_code = "OK";
+              task.exit_code = 0;
+              task.report_ready = true;
+            }
+          }
+        }
         if (typeof this.onclose === "function") this.onclose({ code, reason });
       }
     }
@@ -603,7 +778,7 @@ async function installFakeBridge(page, options = {}) {
           },
           CreateTask: async (kind, args) => {
             record({ method: "CreateTask", kind, args });
-            const mode = init.createTaskModes[kind] || "success";
+            const mode = nextMapMode(createTaskModes, kind, "success");
             if (mode === "failure") return bridgeError(kind);
             if (mode === "timeout") return new Promise(() => {});
             const approvalBefore = clone(runtimeApprovalRequests);
@@ -621,7 +796,7 @@ async function installFakeBridge(page, options = {}) {
           },
           GetTask: async (taskID) => {
             record({ method: "GetTask", taskID });
-            const mode = init.getTaskModes[taskID] || init.getTaskModes["*"] || "success";
+            const mode = nextTaskMode(getTaskModes, taskID);
             if (mode === "failure") return bridgeError("GetTask");
             if (mode === "timeout") return new Promise(() => {});
             const key = String(taskID);
@@ -663,6 +838,17 @@ async function installFakeBridge(page, options = {}) {
           },
           TerminalBridgeInfo: async () => {
             record({ method: "TerminalBridgeInfo" });
+            const mode = nextMode(terminalBridgeInfoModes, "success");
+            if (mode && typeof mode === "object") return clone(mode);
+            if (mode === "failure") return bridgeError("TerminalBridgeInfo");
+            if (mode === "missing") {
+              return {
+                ok: true,
+                base_url: "",
+                token: "",
+                subprotocol: "miopunch.sh.v0",
+              };
+            }
             return {
               ok: true,
               base_url: "ws://127.0.0.1:9",

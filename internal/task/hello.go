@@ -49,6 +49,9 @@ func (m *Manager) shellStreamOpen(taskID string, op string, target string, sessi
 		"sig_b64": sigB64,
 		"op":      strings.TrimSpace(op),
 	}
+	if taskID = strings.TrimSpace(taskID); taskID != "" {
+		metadata["task_id"] = taskID
+	}
 	if len(approveDeclJSON) > 0 {
 		metadata["approve_decl"] = string(approveDeclJSON)
 	}

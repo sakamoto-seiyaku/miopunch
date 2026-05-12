@@ -702,9 +702,10 @@ func safeStreamMetadataSummary(meta map[string]string) string {
 	}
 	sort.Strings(keys)
 	return fmt.Sprintf(
-		"keys=%v op=%q peer_id=%q seed_peer_present=%t approve_decl_present=%t decls_present=%t target_present=%t session_present=%t",
+		"keys=%v op=%q task_id=%q peer_id=%q seed_peer_present=%t approve_decl_present=%t decls_present=%t target_present=%t session_present=%t",
 		keys,
 		strings.TrimSpace(meta["op"]),
+		strings.TrimSpace(meta["task_id"]),
 		strings.TrimSpace(meta["peer_id"]),
 		strings.TrimSpace(meta["seed_peer"]) != "",
 		strings.TrimSpace(meta["approve_decl"]) != "",
@@ -805,7 +806,18 @@ func serveAcceptedShellStream(
 		return serveShLS(ctx, writer, ctl)
 	case shellproto.OpShAttach:
 		closeStream = false
-		err := serveShAttach(ctx, local, locks, lockTTL, reader, writer, stream, ctl)
+		err := serveShAttach(
+			ctx,
+			local,
+			locks,
+			lockTTL,
+			reader,
+			writer,
+			stream,
+			ctl,
+			strings.TrimSpace(accepted.Open.Metadata["task_id"]),
+			strings.TrimSpace(accepted.Open.Metadata["peer_id"]),
+		)
 		_ = stream.Close()
 		return err
 	default:
@@ -1246,9 +1258,17 @@ func serveShAttach(
 	w *shellproto.Writer,
 	stream io.ReadWriteCloser,
 	req shellproto.Control,
+	taskID string,
+	peerID string,
 ) error {
+	requestedTarget := strings.TrimSpace(req.Target)
 	targets, err := shelltarget.ListTargets(ctx)
 	if err != nil {
+		logutil.Errorf(
+			"pocacceptor sh_attach setup failed: %s err=%v",
+			shellAttachLogContext(taskID, peerID, requestedTarget, req.Session),
+			err,
+		)
 		_ = w.WriteJSON(shellproto.Control{
 			Op: shellproto.OpShAttach,
 			OK: false,
@@ -1262,6 +1282,11 @@ func serveShAttach(
 
 	target, err := shelltarget.Resolve(req.Target, targets)
 	if err != nil {
+		logutil.Errorf(
+			"pocacceptor sh_attach target resolve failed: %s err=%v",
+			shellAttachLogContext(taskID, peerID, requestedTarget, req.Session),
+			err,
+		)
 		_ = w.WriteJSON(shellproto.Control{
 			Op: shellproto.OpShAttach,
 			OK: false,
@@ -1277,6 +1302,8 @@ func serveShAttach(
 	if session == "" {
 		session = "main"
 	}
+	logCtx := shellAttachLogContext(taskID, peerID, target, session)
+	logutil.Debugf("pocacceptor sh_attach start: %s", logCtx)
 
 	lock, err := locks.Acquire(shelllock.Key{
 		PeerID:  strings.TrimSpace(local.PeerID),
@@ -1284,6 +1311,7 @@ func serveShAttach(
 		Session: session,
 	})
 	if err != nil {
+		logutil.Errorf("pocacceptor sh_attach lock acquire failed: %s err=%v", logCtx, err)
 		if errors.Is(err, shelllock.ErrInUse) {
 			_ = w.WriteJSON(shellproto.Control{
 				Op: shellproto.OpShAttach,
@@ -1304,6 +1332,7 @@ func serveShAttach(
 
 	ptySess, err := shelltarget.Attach(ctx, target, session)
 	if err != nil {
+		logutil.Errorf("pocacceptor sh_attach backend attach failed: %s err=%v", logCtx, err)
 		reason := "SH_CONNECTOR_FAIL"
 		var suggestions []string
 		if errors.Is(err, shelltarget.ErrTmuxMissing) {
@@ -1327,89 +1356,48 @@ func serveShAttach(
 		_ = ptySess.Resize(req.WinSize.Cols, req.WinSize.Rows)
 	}
 
-	exitCh := make(chan error, 1)
-	go func() { exitCh <- ptySess.Wait() }()
-	select {
-	case err := <-exitCh:
-		_ = w.WriteJSON(shellproto.Control{
-			Op: shellproto.OpShAttach,
-			OK: false,
-			Error: &shellproto.ControlError{
-				ReasonCode: "SH_TMUX_ATTACH_FAIL",
-				Message:    err.Error(),
-			},
-		})
-		return err
-	case <-time.After(200 * time.Millisecond):
-	}
-
-	if err := w.WriteJSON(shellproto.Control{Op: shellproto.OpShAttach, OK: true, Target: target, Session: session}); err != nil {
-		return err
-	}
-	lock.Touch()
-
 	bridgeCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	var closeOnce sync.Once
-	closeAll := func(cause error) {
-		_ = cause
+	closeAll := func() {
 		closeOnce.Do(func() {
 			cancel()
 			_ = stream.Close()
 			_ = ptySess.Close()
 		})
 	}
+	defer closeAll()
 
-	type outFrame struct {
+	type shellAttachInputFrame struct {
 		kind    shellproto.Kind
 		payload []byte
+		err     error
 	}
-	outCh := make(chan outFrame, 32)
-
-	activityCh := make(chan struct{}, 1)
-	signalActivity := func() {
-		lock.Touch()
-		select {
-		case activityCh <- struct{}{}:
-		default:
-		}
+	type shellAttachPTYRead struct {
+		payload []byte
 	}
 
-	go func() {
-		timer := time.NewTimer(lockTTL)
-		defer timer.Stop()
-		for {
+	inputCh := make(chan shellAttachInputFrame, 1)
+	ptyReadCh := make(chan shellAttachPTYRead, 1)
+	runtimeFailCh := make(chan shellAttachRuntimeFailure, 1)
+
+	var runtimeFailOnce sync.Once
+	reportRuntimeFailure := func(failure shellAttachRuntimeFailure) {
+		runtimeFailOnce.Do(func() {
 			select {
-			case <-bridgeCtx.Done():
-				return
-			case <-timer.C:
-				closeAll(errors.New("idle timeout"))
-				return
-			case <-activityCh:
-				if !timer.Stop() {
-					select {
-					case <-timer.C:
-					default:
-					}
-				}
-				timer.Reset(lockTTL)
+			case runtimeFailCh <- failure:
+			default:
 			}
-		}
-	}()
+		})
+	}
 
 	go func() {
-		defer closeAll(nil)
-		buf := make([]byte, 32*1024)
 		for {
-			n, err := ptySess.Read(buf)
-			if n > 0 {
-				payload := append([]byte(nil), buf[:n]...)
-				select {
-				case outCh <- outFrame{kind: shellproto.KindData, payload: payload}:
-				case <-bridgeCtx.Done():
-					return
-				}
+			kind, payload, err := r.ReadFrame()
+			select {
+			case inputCh <- shellAttachInputFrame{kind: kind, payload: payload, err: err}:
+			case <-bridgeCtx.Done():
 			}
 			if err != nil {
 				return
@@ -1418,73 +1406,376 @@ func serveShAttach(
 	}()
 
 	go func() {
-		ticker := time.NewTicker(shellproto.DefaultHeartbeatInterval)
-		defer ticker.Stop()
+		buf := make([]byte, 32*1024)
 		for {
-			select {
-			case <-bridgeCtx.Done():
-				return
-			case <-ticker.C:
-				data, _ := json.Marshal(shellproto.Control{Op: shellproto.OpHeartbeat})
+			n, err := ptySess.Read(buf)
+			if n > 0 {
+				payload := append([]byte(nil), buf[:n]...)
 				select {
-				case outCh <- outFrame{kind: shellproto.KindJSON, payload: data}:
+				case ptyReadCh <- shellAttachPTYRead{payload: payload}:
 				case <-bridgeCtx.Done():
 					return
 				}
+			}
+			if err != nil {
+				if bridgeCtx.Err() == nil {
+					reportRuntimeFailure(shellAttachPTYReadFailure(err))
+				}
+				return
 			}
 		}
 	}()
 
 	go func() {
-		for {
-			select {
-			case <-bridgeCtx.Done():
-				return
-			case frame := <-outCh:
-				if err := shellproto.WriteFrame(stream, frame.kind, frame.payload); err != nil {
-					closeAll(err)
-					return
-				}
-				signalActivity()
-			}
+		if err := ptySess.Wait(); err != nil && bridgeCtx.Err() == nil {
+			reportRuntimeFailure(shellAttachWaitFailure(target, err))
 		}
 	}()
 
-	for {
-		kind, payload, err := r.ReadFrame()
-		if err != nil {
-			closeAll(err)
-			return err
+	writeFailureControl := func(event string, failure shellAttachRuntimeFailure) error {
+		logutil.Warnf(
+			"pocacceptor sh_attach %s: %s reason_code=%s shell_layer=%s err=%v",
+			event,
+			logCtx,
+			failure.reasonCode,
+			failure.shellLayer,
+			failure.err(),
+		)
+		if err := w.WriteJSON(failure.control()); err != nil {
+			logutil.Warnf(
+				"pocacceptor sh_attach %s control write failed: %s reason_code=%s shell_layer=%s err=%v",
+				event,
+				logCtx,
+				failure.reasonCode,
+				failure.shellLayer,
+				err,
+			)
 		}
-		switch kind {
-		case shellproto.KindData:
-			if _, err := ptySess.Write(payload); err != nil {
-				closeAll(err)
-				return err
-			}
-			signalActivity()
-		case shellproto.KindJSON:
-			var ctl shellproto.Control
-			if err := json.Unmarshal(payload, &ctl); err != nil {
-				continue
-			}
-			switch strings.TrimSpace(ctl.Op) {
-			case shellproto.OpWinSize:
-				if ctl.WinSize != nil {
-					_ = ptySess.Resize(ctl.WinSize.Cols, ctl.WinSize.Rows)
-				}
-				signalActivity()
-			case shellproto.OpHeartbeat:
-				signalActivity()
+		return failure.err()
+	}
+
+	select {
+	case failure := <-runtimeFailCh:
+		return writeFailureControl("setup runtime failed", failure)
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	if err := w.WriteJSON(shellproto.Control{Op: shellproto.OpShAttach, OK: true, Target: target, Session: session}); err != nil {
+		logutil.Errorf("pocacceptor sh_attach ok control write failed: %s err=%v", logCtx, err)
+		return err
+	}
+	logutil.Infof("pocacceptor sh_attach ready: %s", logCtx)
+
+	var (
+		idleTimer *time.Timer
+		idleC     <-chan time.Time
+	)
+	if lockTTL > 0 {
+		idleTimer = time.NewTimer(lockTTL)
+		idleC = idleTimer.C
+		defer idleTimer.Stop()
+	}
+	touch := func() {
+		lock.Touch()
+		if idleTimer == nil {
+			return
+		}
+		if !idleTimer.Stop() {
+			select {
+			case <-idleTimer.C:
 			default:
-				// Ignore unknown control operations for forward compatibility.
-				signalActivity()
 			}
-		default:
-			// Ignore unknown frame kinds.
-			signalActivity()
+		}
+		idleTimer.Reset(lockTTL)
+	}
+	touch()
+
+	heartbeat := time.NewTicker(shellproto.DefaultHeartbeatInterval)
+	defer heartbeat.Stop()
+
+	loggedFirstPTYRead := false
+	loggedFirstStreamDataWrite := false
+	loggedFirstVisitorData := false
+	loggedFirstVisitorJSON := false
+	loggedFirstPTYWrite := false
+
+	for {
+		select {
+		case <-bridgeCtx.Done():
+			return nil
+		case failure := <-runtimeFailCh:
+			return writeFailureControl("runtime failed", failure)
+		case ptyRead := <-ptyReadCh:
+			if !loggedFirstPTYRead {
+				loggedFirstPTYRead = true
+				logutil.Infof(
+					"pocacceptor sh_attach first pty read: %s bytes=%d",
+					logCtx,
+					len(ptyRead.payload),
+				)
+			}
+			if err := shellproto.WriteFrame(stream, shellproto.KindData, ptyRead.payload); err != nil {
+				streamFailure := shellAttachStreamWriteFailure(err)
+				logutil.Warnf(
+					"pocacceptor sh_attach stream write failed: %s reason_code=%s shell_layer=%s err=%v",
+					logCtx,
+					streamFailure.reasonCode,
+					streamFailure.shellLayer,
+					streamFailure.err(),
+				)
+				return streamFailure.err()
+			}
+			if !loggedFirstStreamDataWrite {
+				loggedFirstStreamDataWrite = true
+				logutil.Infof(
+					"pocacceptor sh_attach first stream data write: %s bytes=%d",
+					logCtx,
+					len(ptyRead.payload),
+				)
+			}
+			touch()
+		case input := <-inputCh:
+			if input.err != nil {
+				select {
+				case failure := <-runtimeFailCh:
+					return writeFailureControl("runtime failed after visitor close", failure)
+				default:
+				}
+				if isExpectedShellAttachVisitorClose(input.err) {
+					logutil.Infof("pocacceptor sh_attach visitor disconnected: %s err=%v", logCtx, input.err)
+					return nil
+				}
+				logutil.Warnf("pocacceptor sh_attach visitor stream failed: %s err=%v", logCtx, input.err)
+				return input.err
+			}
+			switch input.kind {
+			case shellproto.KindData:
+				if !loggedFirstVisitorData {
+					loggedFirstVisitorData = true
+					logutil.Infof(
+						"pocacceptor sh_attach first visitor data: %s bytes=%d",
+						logCtx,
+						len(input.payload),
+					)
+				}
+				if _, err := ptySess.Write(input.payload); err != nil {
+					return writeFailureControl("backend write failed", shellAttachPTYWriteFailure(err))
+				}
+				if !loggedFirstPTYWrite {
+					loggedFirstPTYWrite = true
+					logutil.Infof(
+						"pocacceptor sh_attach first pty write: %s bytes=%d",
+						logCtx,
+						len(input.payload),
+					)
+				}
+				touch()
+			case shellproto.KindJSON:
+				var ctl shellproto.Control
+				if err := json.Unmarshal(input.payload, &ctl); err != nil {
+					continue
+				}
+				if !loggedFirstVisitorJSON {
+					loggedFirstVisitorJSON = true
+					logutil.Infof(
+						"pocacceptor sh_attach first visitor json: %s bytes=%d op=%s",
+						logCtx,
+						len(input.payload),
+						strings.TrimSpace(ctl.Op),
+					)
+				}
+				switch strings.TrimSpace(ctl.Op) {
+				case shellproto.OpWinSize:
+					if ctl.WinSize != nil {
+						_ = ptySess.Resize(ctl.WinSize.Cols, ctl.WinSize.Rows)
+					}
+					touch()
+				case shellproto.OpHeartbeat:
+					touch()
+				default:
+					touch()
+				}
+			default:
+				touch()
+			}
+		case <-heartbeat.C:
+			data, _ := json.Marshal(shellproto.Control{Op: shellproto.OpHeartbeat})
+			if err := shellproto.WriteFrame(stream, shellproto.KindJSON, data); err != nil {
+				streamFailure := shellAttachStreamWriteFailure(err)
+				logutil.Warnf(
+					"pocacceptor sh_attach heartbeat write failed: %s reason_code=%s shell_layer=%s err=%v",
+					logCtx,
+					streamFailure.reasonCode,
+					streamFailure.shellLayer,
+					streamFailure.err(),
+				)
+				return streamFailure.err()
+			}
+			touch()
+		case <-idleC:
+			return writeFailureControl("idle timeout", shellAttachIdleTimeoutFailure(lockTTL))
 		}
 	}
+}
+
+type shellAttachRuntimeFailure struct {
+	reasonCode  string
+	message     string
+	suggestions []string
+	shellLayer  string
+	cause       error
+}
+
+func (f shellAttachRuntimeFailure) control() shellproto.Control {
+	return shellproto.Control{
+		Op: shellproto.OpShAttach,
+		OK: false,
+		Error: &shellproto.ControlError{
+			ReasonCode:  strings.TrimSpace(f.reasonCode),
+			Message:     strings.TrimSpace(f.message),
+			Suggestions: append([]string(nil), f.suggestions...),
+		},
+	}
+}
+
+func (f shellAttachRuntimeFailure) err() error {
+	if f.cause != nil {
+		return f.cause
+	}
+	return errors.New(strings.TrimSpace(f.message))
+}
+
+func newShellAttachRuntimeFailure(reasonCode string, shellLayer string, message string, cause error, suggestions ...string) shellAttachRuntimeFailure {
+	reasonCode = strings.TrimSpace(reasonCode)
+	if reasonCode == "" {
+		reasonCode = "SH_CONNECTOR_FAIL"
+	}
+	shellLayer = strings.TrimSpace(shellLayer)
+	if shellLayer == "" {
+		shellLayer = "acceptor"
+	}
+	message = strings.TrimSpace(message)
+	if message == "" {
+		message = "acceptor shell attach failed"
+	}
+	outSuggestions := make([]string, 0, len(suggestions))
+	for _, suggestion := range suggestions {
+		suggestion = strings.TrimSpace(suggestion)
+		if suggestion == "" {
+			continue
+		}
+		outSuggestions = append(outSuggestions, suggestion)
+	}
+	if len(outSuggestions) == 0 {
+		outSuggestions = append(outSuggestions, "retry")
+	}
+	if cause == nil {
+		cause = errors.New(message)
+	}
+	return shellAttachRuntimeFailure{
+		reasonCode:  reasonCode,
+		message:     message,
+		suggestions: outSuggestions,
+		shellLayer:  shellLayer,
+		cause:       cause,
+	}
+}
+
+func shellAttachLogContext(taskID string, peerID string, target string, session string) string {
+	return fmt.Sprintf(
+		"task_id=%s peer_id=%s target=%s session=%s",
+		strings.TrimSpace(taskID),
+		strings.TrimSpace(peerID),
+		strings.TrimSpace(target),
+		strings.TrimSpace(session),
+	)
+}
+
+func shellAttachTargetLayer(target string) string {
+	target = strings.TrimSpace(target)
+	switch {
+	case target == "local":
+		return "tmux"
+	case strings.HasPrefix(target, "ssh:"):
+		return "ssh"
+	case strings.HasPrefix(target, "wsl:"):
+		return "wsl"
+	default:
+		return "shelltarget"
+	}
+}
+
+func shellAttachWaitFailure(target string, err error) shellAttachRuntimeFailure {
+	layer := shellAttachTargetLayer(target)
+	reasonCode := "SH_CONNECTOR_FAIL"
+	messagePrefix := "shell target exited"
+	switch layer {
+	case "tmux":
+		reasonCode = "SH_TMUX_ATTACH_FAIL"
+		messagePrefix = "tmux session exited"
+	case "ssh":
+		messagePrefix = "ssh process exited"
+	case "wsl":
+		messagePrefix = "wsl process exited"
+	}
+	return newShellAttachRuntimeFailure(
+		reasonCode,
+		layer,
+		messagePrefix+": "+strings.TrimSpace(err.Error()),
+		err,
+		"retry",
+	)
+}
+
+func shellAttachPTYReadFailure(err error) shellAttachRuntimeFailure {
+	return newShellAttachRuntimeFailure(
+		"SH_CONNECTOR_FAIL",
+		"pty",
+		"pty read failed: "+strings.TrimSpace(err.Error()),
+		err,
+		"retry",
+	)
+}
+
+func shellAttachPTYWriteFailure(err error) shellAttachRuntimeFailure {
+	return newShellAttachRuntimeFailure(
+		"SH_CONNECTOR_FAIL",
+		"pty",
+		"pty write failed: "+strings.TrimSpace(err.Error()),
+		err,
+		"retry",
+	)
+}
+
+func shellAttachStreamWriteFailure(err error) shellAttachRuntimeFailure {
+	return newShellAttachRuntimeFailure(
+		"SH_CONNECTOR_FAIL",
+		"acceptor",
+		"acceptor write failed: "+strings.TrimSpace(err.Error()),
+		err,
+		"retry",
+	)
+}
+
+func shellAttachIdleTimeoutFailure(lockTTL time.Duration) shellAttachRuntimeFailure {
+	message := "acceptor idle timeout"
+	if lockTTL > 0 {
+		message = fmt.Sprintf("acceptor idle timeout after %s", lockTTL)
+	}
+	return newShellAttachRuntimeFailure(
+		"SH_CONNECTOR_FAIL",
+		"acceptor",
+		message,
+		errors.New(message),
+		"retry",
+	)
+}
+
+func isExpectedShellAttachVisitorClose(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, io.EOF) || errors.Is(err, io.ErrClosedPipe) || errors.Is(err, net.ErrClosed)
 }
 
 func reasonCodeForTargetErr(err error) string {

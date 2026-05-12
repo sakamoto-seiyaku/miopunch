@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/miopunch/miopunch/connectivity"
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/shellproto"
 )
@@ -150,8 +152,22 @@ func (m *Manager) runShellAttachTask(taskID string, rawArgs []byte) {
 
 	m.setStage(taskID, poc.StageSessionAttach, "shell websocket attached")
 
-	_ = bridgeShell(m.ctx, ws, res.stream)
-	m.done(taskID, poc.ReasonCodeOK, poc.ExitCodeOK)
+	bridgeResult := bridgeShell(
+		m.ctx,
+		taskID,
+		strings.TrimSpace(args.PeerID),
+		ws,
+		res.stream,
+		strings.TrimSpace(resp.Target),
+		session,
+	)
+	for _, fact := range bridgeResult.facts {
+		m.addFact(taskID, fact)
+	}
+	for _, suggestion := range bridgeResult.suggestions {
+		m.addSuggestion(taskID, suggestion)
+	}
+	m.done(taskID, bridgeResult.reasonCode, bridgeResult.exitCode)
 }
 
 func (m *Manager) awaitShellWS(taskID string) (*websocket.Conn, error) {
@@ -180,13 +196,31 @@ type wsWrite struct {
 	control bool
 }
 
-func bridgeShell(ctx context.Context, ws *websocket.Conn, stream io.ReadWriteCloser) error {
+type shellBridgeResult struct {
+	reasonCode  poc.ReasonCode
+	exitCode    poc.ExitCode
+	facts       []poc.Fact
+	suggestions []poc.Suggestion
+}
+
+func bridgeShell(ctx context.Context, taskID string, peerID string, ws *websocket.Conn, stream io.ReadWriteCloser, target string, session string) shellBridgeResult {
 	if ws == nil || stream == nil {
-		return errors.New("missing websocket or stream")
+		return shellBridgeFailure(
+			poc.ReasonCodeUnavailable,
+			poc.ExitCodeUnavailable,
+			"task_bridge",
+			"missing websocket or stream",
+			"retry",
+		)
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	var (
+		result    shellBridgeResult
+		resultSet bool
+	)
 
 	var closeOnce sync.Once
 	closeAll := func() {
@@ -197,12 +231,21 @@ func bridgeShell(ctx context.Context, ws *websocket.Conn, stream io.ReadWriteClo
 		})
 	}
 
+	var resultOnce sync.Once
+	setResult := func(next shellBridgeResult) {
+		resultOnce.Do(func() {
+			result = next
+			resultSet = true
+			closeAll()
+		})
+	}
+
 	remoteWriteCh := make(chan struct {
 		kind    shellproto.Kind
 		payload []byte
-	}, 32)
+	}, 1)
 
-	wsWriteCh := make(chan wsWrite, 32)
+	wsWriteCh := make(chan wsWrite, 1)
 
 	var wg sync.WaitGroup
 
@@ -210,16 +253,49 @@ func bridgeShell(ctx context.Context, ws *websocket.Conn, stream io.ReadWriteClo
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer closeAll()
 
+		loggedFirstLocalData := false
+		loggedFirstLocalWinSize := false
 		for {
 			mt, payload, err := ws.ReadMessage()
 			if err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				if isExpectedShellWebSocketClose(err) {
+					logutil.Infof(
+						"sh_attach bridge local websocket closed: %s err=%v",
+						shellBridgeLogContext(taskID, peerID, target, session),
+						err,
+					)
+					setResult(shellBridgeSuccess())
+					return
+				}
+				logutil.Warnf(
+					"sh_attach bridge local websocket closed abnormally: %s err=%v",
+					shellBridgeLogContext(taskID, peerID, target, session),
+					err,
+				)
+				setResult(shellBridgeFailure(
+					poc.ReasonCodeUnavailable,
+					poc.ExitCodeUnavailable,
+					"localapi_ws",
+					shellWebSocketCloseDetail(err),
+					"retry",
+				))
 				return
 			}
 
 			switch mt {
 			case websocket.BinaryMessage:
+				if !loggedFirstLocalData {
+					loggedFirstLocalData = true
+					logutil.Infof(
+						"sh_attach bridge first local websocket data: %s bytes=%d",
+						shellBridgeLogContext(taskID, peerID, target, session),
+						len(payload),
+					)
+				}
 				select {
 				case remoteWriteCh <- struct {
 					kind    shellproto.Kind
@@ -235,6 +311,21 @@ func bridgeShell(ctx context.Context, ws *websocket.Conn, stream io.ReadWriteClo
 				}
 				if strings.TrimSpace(ctl.Op) != shellproto.OpWinSize {
 					continue
+				}
+				if !loggedFirstLocalWinSize {
+					loggedFirstLocalWinSize = true
+					cols, rows := 0, 0
+					if ctl.WinSize != nil {
+						cols = ctl.WinSize.Cols
+						rows = ctl.WinSize.Rows
+					}
+					logutil.Infof(
+						"sh_attach bridge first local websocket winsize: %s bytes=%d size=%dx%d",
+						shellBridgeLogContext(taskID, peerID, target, session),
+						len(payload),
+						cols,
+						rows,
+					)
 				}
 				data, _ := json.Marshal(ctl)
 				select {
@@ -255,16 +346,40 @@ func bridgeShell(ctx context.Context, ws *websocket.Conn, stream io.ReadWriteClo
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer closeAll()
 
+		loggedFirstRemoteData := false
+		loggedFirstRemoteJSON := false
 		for {
 			kind, payload, err := shellproto.ReadFrame(stream)
 			if err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				logutil.Warnf(
+					"sh_attach bridge remote stream closed: %s err=%v",
+					shellBridgeLogContext(taskID, peerID, target, session),
+					err,
+				)
+				setResult(shellBridgeFailure(
+					poc.ReasonCodeSHConnectorFail,
+					poc.ExitCodeUnavailable,
+					"acceptor",
+					"read shell stream: "+strings.TrimSpace(err.Error()),
+					"retry",
+				))
 				return
 			}
 
 			switch kind {
 			case shellproto.KindData:
+				if !loggedFirstRemoteData {
+					loggedFirstRemoteData = true
+					logutil.Infof(
+						"sh_attach bridge first remote stream data: %s bytes=%d",
+						shellBridgeLogContext(taskID, peerID, target, session),
+						len(payload),
+					)
+				}
 				select {
 				case wsWriteCh <- wsWrite{msgType: websocket.BinaryMessage, data: payload}:
 				case <-ctx.Done():
@@ -275,8 +390,31 @@ func bridgeShell(ctx context.Context, ws *websocket.Conn, stream io.ReadWriteClo
 				if err := json.Unmarshal(payload, &ctl); err != nil {
 					continue
 				}
-				if strings.TrimSpace(ctl.Op) == shellproto.OpHeartbeat {
+				if !loggedFirstRemoteJSON {
+					loggedFirstRemoteJSON = true
+					logutil.Infof(
+						"sh_attach bridge first remote stream json: %s bytes=%d op=%s ok=%t",
+						shellBridgeLogContext(taskID, peerID, target, session),
+						len(payload),
+						strings.TrimSpace(ctl.Op),
+						ctl.OK,
+					)
+				}
+				switch strings.TrimSpace(ctl.Op) {
+				case shellproto.OpHeartbeat:
 					continue
+				case shellproto.OpShAttach:
+					if ctl.OK {
+						continue
+					}
+					logutil.Warnf(
+						"sh_attach bridge remote shell failure: %s reason_code=%s message=%s",
+						shellBridgeLogContext(taskID, peerID, target, session),
+						strings.TrimSpace(shellControlReasonCode(&ctl)),
+						strings.TrimSpace(shellControlMessage(&ctl)),
+					)
+					setResult(shellBridgeResultFromRemoteControl(target, &ctl))
+					return
 				}
 			default:
 				continue
@@ -288,14 +426,50 @@ func bridgeShell(ctx context.Context, ws *websocket.Conn, stream io.ReadWriteClo
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer closeAll()
 
+		loggedFirstDataWrite := false
+		loggedFirstJSONWrite := false
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case frame := <-remoteWriteCh:
+				switch frame.kind {
+				case shellproto.KindData:
+					if !loggedFirstDataWrite {
+						loggedFirstDataWrite = true
+						logutil.Infof(
+							"sh_attach bridge first remote stream data write: %s bytes=%d",
+							shellBridgeLogContext(taskID, peerID, target, session),
+							len(frame.payload),
+						)
+					}
+				case shellproto.KindJSON:
+					if !loggedFirstJSONWrite {
+						loggedFirstJSONWrite = true
+						logutil.Infof(
+							"sh_attach bridge first remote stream json write: %s bytes=%d",
+							shellBridgeLogContext(taskID, peerID, target, session),
+							len(frame.payload),
+						)
+					}
+				}
 				if err := shellproto.WriteFrame(stream, frame.kind, frame.payload); err != nil {
+					if ctx.Err() != nil {
+						return
+					}
+					logutil.Warnf(
+						"sh_attach bridge remote write failed: %s err=%v",
+						shellBridgeLogContext(taskID, peerID, target, session),
+						err,
+					)
+					setResult(shellBridgeFailure(
+						poc.ReasonCodeSHConnectorFail,
+						poc.ExitCodeUnavailable,
+						"acceptor",
+						"write shell stream: "+strings.TrimSpace(err.Error()),
+						"retry",
+					))
 					return
 				}
 			}
@@ -331,8 +505,8 @@ func bridgeShell(ctx context.Context, ws *websocket.Conn, stream io.ReadWriteClo
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer closeAll()
 
+		loggedFirstWSDataWrite := false
 		for {
 			select {
 			case <-ctx.Done():
@@ -340,12 +514,50 @@ func bridgeShell(ctx context.Context, ws *websocket.Conn, stream io.ReadWriteClo
 			case w := <-wsWriteCh:
 				if w.control {
 					if err := ws.WriteControl(w.msgType, w.data, time.Now().Add(2*time.Second)); err != nil {
+						if ctx.Err() != nil {
+							return
+						}
+						logutil.Warnf(
+							"sh_attach bridge local websocket control write failed: %s err=%v",
+							shellBridgeLogContext(taskID, peerID, target, session),
+							err,
+						)
+						setResult(shellBridgeFailure(
+							poc.ReasonCodeUnavailable,
+							poc.ExitCodeUnavailable,
+							"localapi_ws",
+							shellWebSocketCloseDetail(err),
+							"retry",
+						))
 						return
 					}
 					continue
 				}
 
+				if w.msgType == websocket.BinaryMessage && !loggedFirstWSDataWrite {
+					loggedFirstWSDataWrite = true
+					logutil.Infof(
+						"sh_attach bridge first local websocket data write: %s bytes=%d",
+						shellBridgeLogContext(taskID, peerID, target, session),
+						len(w.data),
+					)
+				}
 				if err := ws.WriteMessage(w.msgType, w.data); err != nil {
+					if ctx.Err() != nil {
+						return
+					}
+					logutil.Warnf(
+						"sh_attach bridge local websocket write failed: %s err=%v",
+						shellBridgeLogContext(taskID, peerID, target, session),
+						err,
+					)
+					setResult(shellBridgeFailure(
+						poc.ReasonCodeUnavailable,
+						poc.ExitCodeUnavailable,
+						"localapi_ws",
+						shellWebSocketCloseDetail(err),
+						"retry",
+					))
 					return
 				}
 			}
@@ -375,5 +587,165 @@ func bridgeShell(ctx context.Context, ws *websocket.Conn, stream io.ReadWriteClo
 
 	wg.Wait()
 	closeAll()
-	return nil
+	if resultSet {
+		return result
+	}
+	return shellBridgeFailure(
+		poc.ReasonCodeUnavailable,
+		poc.ExitCodeUnavailable,
+		"task_bridge",
+		"shell bridge ended without a close result",
+		"retry",
+	)
+}
+
+func shellBridgeSuccess() shellBridgeResult {
+	return shellBridgeResult{
+		reasonCode: poc.ReasonCodeOK,
+		exitCode:   poc.ExitCodeOK,
+	}
+}
+
+func shellBridgeFailure(reasonCode poc.ReasonCode, exitCode poc.ExitCode, layer string, detail string, suggestions ...string) shellBridgeResult {
+	facts := make([]poc.Fact, 0, 2)
+	layer = strings.TrimSpace(layer)
+	detail = strings.TrimSpace(detail)
+	if layer != "" {
+		facts = append(facts, poc.Fact{TermID: "shell_layer", Message: "shell_layer=" + layer})
+	}
+	if detail != "" {
+		facts = append(facts, poc.Fact{TermID: "shell_close", Message: "shell_close=" + detail})
+	}
+
+	outSuggestions := make([]poc.Suggestion, 0, len(suggestions))
+	for _, suggestion := range suggestions {
+		suggestion = strings.TrimSpace(suggestion)
+		if suggestion == "" {
+			continue
+		}
+		outSuggestions = append(outSuggestions, poc.Suggestion{Message: suggestion})
+	}
+
+	return shellBridgeResult{
+		reasonCode:  reasonCode,
+		exitCode:    exitCode,
+		facts:       facts,
+		suggestions: outSuggestions,
+	}
+}
+
+func shellBridgeLogContext(taskID string, peerID string, target string, session string) string {
+	return fmt.Sprintf(
+		"task_id=%s peer_id=%s target=%s session=%s",
+		strings.TrimSpace(taskID),
+		strings.TrimSpace(peerID),
+		strings.TrimSpace(target),
+		strings.TrimSpace(session),
+	)
+}
+
+func shellBridgeResultFromRemoteControl(target string, ctl *shellproto.Control) shellBridgeResult {
+	if ctl == nil || ctl.Error == nil {
+		return shellBridgeFailure(
+			poc.ReasonCodeSHConnectorFail,
+			poc.ExitCodeUnavailable,
+			"acceptor",
+			"remote shell attach failed without details",
+			"retry",
+		)
+	}
+
+	reason, exit := remoteReasonToPOC(ctl.Error.ReasonCode)
+	if reason == poc.ReasonCodeUnavailable && strings.TrimSpace(target) != "" {
+		reason = poc.ReasonCodeSHConnectorFail
+	}
+
+	layer := shellLayerFromMessage(ctl.Error.Message)
+	if layer == "" {
+		layer = shellLayerForTargetAndReason(target, ctl.Error.ReasonCode)
+	}
+
+	suggestions := ctl.Error.Suggestions
+	if len(suggestions) == 0 {
+		suggestions = []string{"retry"}
+	}
+	return shellBridgeFailure(reason, exit, layer, ctl.Error.Message, suggestions...)
+}
+
+func shellLayerFromMessage(message string) string {
+	msg := strings.ToLower(strings.TrimSpace(message))
+	switch {
+	case strings.HasPrefix(msg, "ssh "):
+		return "ssh"
+	case strings.HasPrefix(msg, "wsl "):
+		return "wsl"
+	case strings.HasPrefix(msg, "tmux "):
+		return "tmux"
+	case strings.HasPrefix(msg, "pty "):
+		return "pty"
+	case strings.HasPrefix(msg, "acceptor "):
+		return "acceptor"
+	case strings.HasPrefix(msg, "local websocket "):
+		return "localapi_ws"
+	default:
+		return ""
+	}
+}
+
+func shellLayerForTargetAndReason(target string, reason string) string {
+	switch strings.TrimSpace(reason) {
+	case "SH_TMUX_ATTACH_FAIL":
+		if strings.TrimSpace(target) == "local" {
+			return "tmux"
+		}
+	}
+
+	switch {
+	case strings.HasPrefix(strings.TrimSpace(target), "ssh:"):
+		return "ssh"
+	case strings.HasPrefix(strings.TrimSpace(target), "wsl:"):
+		return "wsl"
+	case strings.TrimSpace(target) == "local":
+		return "pty"
+	default:
+		return "acceptor"
+	}
+}
+
+func isExpectedShellWebSocketClose(err error) bool {
+	if err == nil {
+		return false
+	}
+	return websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) || errors.Is(err, io.EOF)
+}
+
+func shellWebSocketCloseDetail(err error) string {
+	if err == nil {
+		return "local websocket closed"
+	}
+
+	var closeErr *websocket.CloseError
+	if errors.As(err, &closeErr) {
+		reason := strings.TrimSpace(closeErr.Text)
+		if reason == "" {
+			return fmt.Sprintf("local websocket closed (%d)", closeErr.Code)
+		}
+		return fmt.Sprintf("local websocket closed (%d): %s", closeErr.Code, reason)
+	}
+
+	return "local websocket closed: " + strings.TrimSpace(err.Error())
+}
+
+func shellControlReasonCode(ctl *shellproto.Control) string {
+	if ctl == nil || ctl.Error == nil {
+		return ""
+	}
+	return ctl.Error.ReasonCode
+}
+
+func shellControlMessage(ctl *shellproto.Control) string {
+	if ctl == nil || ctl.Error == nil {
+		return ""
+	}
+	return ctl.Error.Message
 }
