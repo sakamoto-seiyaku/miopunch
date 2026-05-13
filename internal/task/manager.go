@@ -77,6 +77,7 @@ func NewManagerWithStatePath(statePath string) *Manager {
 		desktopSubs:      make(map[int]chan DesktopStateEvent),
 	}
 	m.sessions.SetChangeHook(m.publishDesktopPeerSessionsChange)
+	m.applyPersistedDesktopSettings()
 	return m
 }
 
@@ -108,19 +109,22 @@ func (m *Manager) loadState() (pocstate.State, error) {
 }
 
 func (m *Manager) saveState(st pocstate.State) error {
-	m.stateMu.Lock()
-	if strings.TrimSpace(m.statePath) == "" {
-		m.stateMu.Unlock()
-		return errors.New("missing state path")
-	}
-	err := pocstate.Save(m.statePath, st)
-	m.stateMu.Unlock()
-	if err != nil {
+	if err := m.saveStateFile(st); err != nil {
 		return err
 	}
 
 	m.publishDesktopConfigAndTopologyChange()
 	return nil
+}
+
+func (m *Manager) saveStateFile(st pocstate.State) error {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+
+	if strings.TrimSpace(m.statePath) == "" {
+		return errors.New("missing state path")
+	}
+	return pocstate.Save(m.statePath, st)
 }
 
 func (m *Manager) ListPeers() ([]string, error) {

@@ -387,15 +387,60 @@ async function installFakeBridge(page, options = {}) {
     const peers = Array.isArray(topology.members)
       ? topology.members.map((m) => ({ peer_id: m.peer_id }))
       : [];
+    const defaultRuntimeConfig = {
+      known_peers: peers.map((peer) => ({ peer_id: peer.peer_id })),
+      desired: {
+        runtime: {
+          mqtt_brokers: ["broker-1.miopunch.local:1883"],
+          p2p_network: "auto",
+          p2p_ip_family: "auto",
+          data_proto: "quic",
+          quic_cc: "bbr",
+          stun: ["stun-1.miopunch.local:3478"],
+          stun_explicit: true,
+          disable_portmap: false,
+          disable_assisted_addrs: false,
+        },
+        preferences: {
+          default_shell_target: "local",
+          default_shell_session: "main",
+          log_level: "info",
+        },
+      },
+      effective: {
+        runtime: {
+          mqtt_brokers: ["broker-1.miopunch.local:1883"],
+          p2p_network: "auto",
+          p2p_ip_family: "auto",
+          data_proto: "quic",
+          quic_cc: "bbr",
+          stun: ["stun-1.miopunch.local:3478"],
+          stun_explicit: true,
+          disable_portmap: false,
+          disable_assisted_addrs: false,
+        },
+        preferences: {
+          default_shell_target: "local",
+          default_shell_session: "main",
+          log_level: "info",
+        },
+      },
+      apply: {
+        runtime: "immediate",
+        preferences: "immediate",
+        active_peer_sessions: 0,
+        active_shell_sessions: 0,
+        requires_reconnect: false,
+        restart_required: false,
+      },
+    };
     let taskSeq = 1;
     let connectSeq = 0;
     let runtimeStartSeq = 0;
     let runtimeRev = 0;
     let runtimePeerSessions = clone(init.fixture.peer_sessions || []);
     let runtimeShellSessions = clone(init.fixture.shell_sessions || []);
-    let runtimeConfig = clone(init.fixture.config || {
-      known_peers: peers.map((peer) => ({ peer_id: peer.peer_id })),
-    });
+    let runtimeConfig = clone(init.fixture.config || defaultRuntimeConfig);
     let runtimeDiagnostics = clone(init.fixture.runtime_diagnostics || init.fixture.diagnostics || []);
     let runtimeApprovalRequests = clone(init.approvalRequests || init.fixture.approval_requests || []);
     const tasks = new Map((init.initialTasks || []).map((task) => [String(task.task_id || ""), task]));
@@ -760,6 +805,40 @@ async function installFakeBridge(page, options = {}) {
             }
             return { ok: true, connection: clone(connection), state: runtimeSnapshot() };
           },
+          SaveDesktopConfig: async (update) => {
+            record({ method: "SaveDesktopConfig", update });
+            if (!connection.connected) {
+              return { ok: false, error: clone(connection.failure), connection: clone(connection) };
+            }
+            if (update && update.runtime && Array.isArray(update.runtime.mqtt_brokers) && update.runtime.mqtt_brokers.includes("broker-without-port")) {
+              return {
+                ok: false,
+                error: {
+                  stage: "localapi",
+                  reason_code: "BAD_REQUEST",
+                  exit_code: 2,
+                  message: "invalid MQTT brokers",
+                  facts: [{ message: "invalid MQTT brokers" }],
+                  suggestions: [{ message: "use host:port" }],
+                },
+                connection: clone(connection),
+              };
+            }
+            const desired = runtimeConfig.desired || {};
+            const effective = runtimeConfig.effective || {};
+            runtimeConfig = {
+              ...runtimeConfig,
+              desired: {
+                runtime: { ...(desired.runtime || {}), ...(update && update.runtime ? update.runtime : {}) },
+                preferences: { ...(desired.preferences || {}), ...(update && update.preferences ? update.preferences : {}) },
+              },
+              effective: {
+                runtime: { ...(effective.runtime || {}), ...(update && update.runtime ? update.runtime : {}) },
+                preferences: { ...(effective.preferences || {}), ...(update && update.preferences ? update.preferences : {}) },
+              },
+            };
+            return { ok: true, connection: clone(connection), state: runtimeSnapshot() };
+          },
           GetStatus: async () => {
             record({ method: "GetStatus" });
             return { ok: true, status: { version: "ui-test", uptime_ms: 1000 } };
@@ -822,6 +901,10 @@ async function installFakeBridge(page, options = {}) {
           ExportTaskReport: async (taskID) => {
             record({ method: "ExportTaskReport", taskID });
             return { ok: true, path: `/tmp/${String(taskID || "task")}.md` };
+          },
+          ExportDiagnostics: async () => {
+            record({ method: "ExportDiagnostics" });
+            return { ok: true, path: "/tmp/miopunch-diagnostics.zip" };
           },
           SetLocalAPIOverride: async (addr) => {
             record({ method: "SetLocalAPIOverride", addr });

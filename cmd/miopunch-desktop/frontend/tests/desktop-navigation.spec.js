@@ -45,7 +45,7 @@ test("second-level views return to their primary tab overview", async ({ page })
 
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.locator('[data-open-setting="diagnostics"]').last().click();
-  await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
+  await expect(page.locator(".page-title")).toHaveText("Diagnostics");
   await returnToOverview(page, "Settings");
 });
 

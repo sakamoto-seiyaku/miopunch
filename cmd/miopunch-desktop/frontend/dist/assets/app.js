@@ -62,6 +62,7 @@
     wsError: "",
     remoteDataSeen: false,
   };
+  const settingsState = { saving: false, message: "", failure: null, exportPath: "" };
 
   let lastConn = null;
   let runtimeStream = { ready: false, status: "idle", error: null };
@@ -1147,6 +1148,7 @@
   };
 
   const settingSections = () => [
+    { id: "runtime", title: "Runtime config", meta: "settings" },
     { id: "localapi", title: "Local daemon", meta: "connection" },
     { id: "diagnostics", title: "Diagnostics", meta: "status" },
     { id: "preview", title: "Preview", meta: "fixture" },
@@ -1168,6 +1170,81 @@
       return;
     }
     renderNetworkOverview();
+  };
+
+  const topologyCircleHTML = (list, currentSelf) => {
+    const size = 420;
+    const center = size / 2;
+    const radius = 148;
+    const selfID = String(currentSelf.peer_id || "");
+    const peers = list.filter((mem) => String(mem.peer_id || "") !== selfID);
+    const outer = peers.length ? peers : list;
+    const nodeAt = (index, total) => {
+      const angle = total <= 1 ? -Math.PI / 2 : (-Math.PI / 2) + (index * 2 * Math.PI / total);
+      return {
+        x: center + Math.cos(angle) * radius,
+        y: center + Math.sin(angle) * radius,
+      };
+    };
+    const edgeClass = (peerID) => {
+      if (activeNeighbor(peerID)) return "is-active";
+      if (selectedNeighbor(peerID)) return "is-target";
+      return "is-muted";
+    };
+    const nodeClass = (mem) => {
+      if (!mem) return "is-self";
+      if (mem.revoked) return "is-revoked";
+      if (activeNeighbor(mem.peer_id)) return "is-active";
+      if (selectedNeighbor(mem.peer_id)) return "is-target";
+      return "is-known";
+    };
+    const edges = outer.map((mem, index) => {
+      const pos = nodeAt(index, outer.length);
+      return `<line class="topology-edge ${edgeClass(mem.peer_id)}" x1="${center}" y1="${center}" x2="${pos.x.toFixed(1)}" y2="${pos.y.toFixed(1)}" />`;
+    }).join("");
+    const outerNodes = outer.map((mem, index) => {
+      const pos = nodeAt(index, outer.length);
+      return `
+        <g class="topology-node ${nodeClass(mem)}">
+          <circle cx="${pos.x.toFixed(1)}" cy="${pos.y.toFixed(1)}" r="30" />
+          <text x="${pos.x.toFixed(1)}" y="${(pos.y - 42).toFixed(1)}">${esc(shortID(mem.peer_id))}</text>
+          <text class="topology-role" x="${pos.x.toFixed(1)}" y="${(pos.y + 48).toFixed(1)}">${esc(mem.role || "peer")}</text>
+        </g>`;
+    }).join("");
+    const legend = [
+      ["active", "active"],
+      ["target", "target"],
+      ["known", "known"],
+      ["revoked", "revoked"],
+    ].map(([label, cls]) => `<span class="topology-legend-item ${cls}">${esc(label)}</span>`).join("");
+    return `
+      <section class="topology-layout" aria-label="Network topology map">
+        <div class="topology-map">
+          <svg class="topology-svg" viewBox="0 0 ${size} ${size}" role="img" aria-label="Circular peer topology">
+            <circle class="topology-ring" cx="${center}" cy="${center}" r="${radius}" />
+            ${edges}
+            <g class="topology-node is-self">
+              <circle cx="${center}" cy="${center}" r="38" />
+              <text x="${center}" y="${center - 50}">${esc(shortID(currentSelf.peer_id))}</text>
+              <text class="topology-role" x="${center}" y="${center + 60}">${esc(currentSelf.role || "this node")}</text>
+            </g>
+            ${outerNodes}
+          </svg>
+        </div>
+        <div class="topology-side">
+          <div>
+            <p class="eyebrow">Topology</p>
+            <h3 class="card-title">Peer map</h3>
+          </div>
+          <div class="topology-legend">${legend}</div>
+          <div class="detail-table">
+            ${detailRowHTML("This node", currentSelf.peer_id || "-")}
+            ${detailRowHTML("Visible peers", list.length)}
+            ${detailRowHTML("Active edges", outer.filter((mem) => activeNeighbor(mem.peer_id)).length)}
+            ${detailRowHTML("Selected targets", outer.filter((mem) => selectedNeighbor(mem.peer_id)).length)}
+          </div>
+        </div>
+      </section>`;
   };
 
   const renderNetworkOverview = () => {
@@ -1201,6 +1278,7 @@
       <section class="page">
         ${networkSwitchHTML()}
         ${pageHeadingHTML("Network overview", "Device network")}
+        ${topologyCircleHTML(list, currentSelf)}
         <section class="card">
           <div class="card-header">
             <div>
@@ -1595,6 +1673,41 @@
       </section>`);
   };
 
+  const settingsDesired = () => {
+    const cfg = state.config || {};
+    const desired = cfg.desired || {};
+    const local = cfg.local || {};
+    const runtime = desired.runtime || {
+      mqtt_brokers: local.mqtt_brokers || [],
+      p2p_network: local.p2p_network || "auto",
+      p2p_ip_family: local.p2p_ip_family || "auto",
+      data_proto: local.data_proto || "quic",
+      quic_cc: local.quic_cc || "bbr",
+      stun: local.stun || [],
+      stun_explicit: !!local.stun_explicit,
+      disable_portmap: !!local.disable_portmap,
+      disable_assisted_addrs: !!local.disable_assisted_addrs,
+    };
+    const preferences = desired.preferences || { log_level: "info" };
+    return { runtime, preferences };
+  };
+
+  const settingsEffective = () => {
+    const cfg = state.config || {};
+    const effective = cfg.effective || settingsDesired();
+    return {
+      runtime: effective.runtime || settingsDesired().runtime,
+      preferences: effective.preferences || settingsDesired().preferences,
+    };
+  };
+
+  const csvValue = (value) => Array.isArray(value) ? value.join(", ") : "";
+
+  const selectHTML = (id, value, options, disabled = false) => `
+    <select class="textfield" id="${esc(id)}" ${disabled ? "disabled" : ""}>
+      ${options.map((opt) => `<option value="${esc(opt)}" ${String(value || "") === opt ? "selected" : ""}>${esc(opt)}</option>`).join("")}
+    </select>`;
+
   const renderSettings = () => {
     if (state.view.type === "section") {
       renderSettingsSection(state.view.section || "localapi");
@@ -1626,7 +1739,56 @@
 
   const renderSettingsSection = (section) => {
     let body = "";
-    if (section === "diagnostics") {
+    if (section === "runtime") {
+      const desired = settingsDesired();
+      const effective = settingsEffective();
+      const runtime = desired.runtime;
+      const prefs = desired.preferences;
+      const apply = state.config && state.config.apply ? state.config.apply : {};
+      const disabled = state.previewMode || settingsState.saving;
+      const failure = settingsState.failure;
+      const failureSuggestions = failure && Array.isArray(failure.suggestions) ? failure.suggestions : [];
+      body = `
+        <section class="detail-grid">
+          <div class="card">
+            <div class="card-header"><div><p class="eyebrow">Desired</p><h3 class="card-title">Runtime config</h3></div></div>
+            <form class="form-grid" id="runtime-config-form">
+              <label>MQTT brokers<input class="textfield" id="settings-mqtt-brokers" value="${esc(csvValue(runtime.mqtt_brokers))}" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
+              <label>P2P network${selectHTML("settings-p2p-network", runtime.p2p_network || "auto", ["auto", "udp_only", "tcp_only"], disabled)}</label>
+              <label>IP family${selectHTML("settings-p2p-ip-family", runtime.p2p_ip_family || "auto", ["auto", "v4", "v6"], disabled)}</label>
+              <label>Data protocol${selectHTML("settings-data-proto", runtime.data_proto || "quic", ["quic", "kcp"], disabled)}</label>
+              <label>QUIC CC${selectHTML("settings-quic-cc", runtime.quic_cc || "bbr", ["bbr", "brutal"], disabled)}</label>
+              <label>STUN<input class="textfield" id="settings-stun" value="${esc(csvValue(runtime.stun))}" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
+              <label>Default shell target<input class="textfield" id="settings-shell-target" value="${esc(prefs.default_shell_target || "")}" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
+              <label>Default shell session<input class="textfield" id="settings-shell-session" value="${esc(prefs.default_shell_session || "")}" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
+              <label>Log level${selectHTML("settings-log-level", prefs.log_level || "info", ["trace", "debug", "info", "warn", "error"], disabled)}</label>
+              <label><input type="checkbox" id="settings-disable-portmap" ${runtime.disable_portmap ? "checked" : ""} ${disabled ? "disabled" : ""} /> Disable portmap</label>
+              <label><input type="checkbox" id="settings-disable-assisted" ${runtime.disable_assisted_addrs ? "checked" : ""} ${disabled ? "disabled" : ""} /> Disable assisted addresses</label>
+              <div class="action-row">
+                <button class="btn btn-primary" type="submit" ${disabled ? "disabled" : ""}>Save</button>
+              </div>
+              ${settingsState.message ? `<div class="helper">${esc(settingsState.message)}</div>` : ""}
+              ${failure ? `<div class="helper">${esc(`Save failed: ${bridgeErrorSummary(failure)}`)}</div>` : ""}
+              ${failureSuggestions.length ? `<div class="list">${failureSuggestions.map((s) => listItemHTML(s.message || "")).join("")}</div>` : ""}
+            </form>
+          </div>
+          <div class="card">
+            <div class="card-header"><div><p class="eyebrow">Effective</p><h3 class="card-title">Runtime state</h3></div></div>
+            <div class="detail-table">
+              ${detailRowHTML("MQTT", csvValue(effective.runtime.mqtt_brokers))}
+              ${detailRowHTML("P2P", effective.runtime.p2p_network)}
+              ${detailRowHTML("IP family", effective.runtime.p2p_ip_family)}
+              ${detailRowHTML("Data", effective.runtime.data_proto)}
+              ${detailRowHTML("QUIC CC", effective.runtime.quic_cc)}
+              ${detailRowHTML("STUN", csvValue(effective.runtime.stun))}
+              ${detailRowHTML("Log level", effective.preferences.log_level)}
+              ${detailRowHTML("Runtime apply", apply.runtime || "-")}
+              ${detailRowHTML("Preferences apply", apply.preferences || "-")}
+              ${detailRowHTML("Reconnect", apply.requires_reconnect ? "required for active sessions" : "not required")}
+            </div>
+          </div>
+        </section>`;
+    } else if (section === "diagnostics") {
       const failure = lastConn && lastConn.failure ? lastConn.failure : null;
       const suggestions = failure && Array.isArray(failure.suggestions) ? failure.suggestions : [];
       const facts = failure && Array.isArray(failure.facts) ? failure.facts : [];
@@ -1667,6 +1829,13 @@
               ${facts.map((f) => listItemHTML(f.message || "")).join("")}
             </div>
           </div>
+          <div class="card">
+            <div class="card-header"><div><p class="eyebrow">Export</p><h3 class="card-title">Diagnostics archive</h3></div></div>
+            <div class="action-row">
+              <button class="btn btn-primary" id="btn-export-diagnostics" type="button" ${state.previewMode ? "disabled" : ""}>Export diagnostics</button>
+            </div>
+            <div class="helper">${esc(settingsState.exportPath || "")}</div>
+          </div>
         </section>`;
     } else if (section === "preview") {
       body = `
@@ -1693,7 +1862,7 @@
     setPage(`
       <section class="page">
         ${settingsSwitchHTML(section)}
-        ${pageHeadingHTML("Settings detail", section === "diagnostics" ? "Diagnostics" : section === "preview" ? "Preview" : "Local daemon")}
+        ${pageHeadingHTML("Settings detail", section === "diagnostics" ? "Diagnostics" : section === "preview" ? "Preview" : section === "runtime" ? "Runtime config" : "Local daemon")}
         ${body}
       </section>`);
   };
@@ -2376,6 +2545,11 @@
       await clearLocalAPIOverride();
       return;
     }
+    if (target.id === "btn-export-diagnostics") {
+      event.preventDefault();
+      await exportDiagnostics();
+      return;
+    }
     if (target.id === "btn-app-quit") {
       event.preventDefault();
       if (!state.previewMode) await getBridge().Quit();
@@ -2400,6 +2574,7 @@
       if (form.id === "join-form") await submitJoin();
       else if (form.id === "approve-form") await submitApprove();
       else if (form.id === "localapi-form") await applyLocalAPIOverride();
+      else if (form.id === "runtime-config-form") await submitRuntimeConfig();
       else if (form.id === "shell-form") await submitShell();
     } catch (err) {
       toast(String(err));
@@ -2553,6 +2728,73 @@
     if (state.previewMode) return;
     renderConnection(await getBridge().ClearLocalAPIOverride());
     await startDesktopRuntime();
+  };
+
+  const splitSettingList = (value) => String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const submitRuntimeConfig = async () => {
+    if (state.previewMode || settingsState.saving) return;
+    settingsState.saving = true;
+    settingsState.message = "Saving runtime config...";
+    settingsState.failure = null;
+    scheduleRender();
+    try {
+      const update = {
+        runtime: {
+          mqtt_brokers: splitSettingList(el("settings-mqtt-brokers") && el("settings-mqtt-brokers").value),
+          p2p_network: el("settings-p2p-network") ? el("settings-p2p-network").value : "auto",
+          p2p_ip_family: el("settings-p2p-ip-family") ? el("settings-p2p-ip-family").value : "auto",
+          data_proto: el("settings-data-proto") ? el("settings-data-proto").value : "quic",
+          quic_cc: el("settings-quic-cc") ? el("settings-quic-cc").value : "bbr",
+          stun: splitSettingList(el("settings-stun") && el("settings-stun").value),
+          stun_explicit: true,
+          disable_portmap: !!(el("settings-disable-portmap") && el("settings-disable-portmap").checked),
+          disable_assisted_addrs: !!(el("settings-disable-assisted") && el("settings-disable-assisted").checked),
+        },
+        preferences: {
+          default_shell_target: el("settings-shell-target") ? el("settings-shell-target").value.trim() : "",
+          default_shell_session: el("settings-shell-session") ? el("settings-shell-session").value.trim() : "",
+          log_level: el("settings-log-level") ? el("settings-log-level").value : "info",
+        },
+      };
+      const resp = await withTimeout(getBridge().SaveDesktopConfig(update), "Save runtime config");
+      renderConnection(resp && resp.connection ? resp.connection : null);
+      if (!resp || !resp.ok) {
+        const failure = resp && resp.error ? resp.error : { message: "unknown error" };
+        settingsState.message = "";
+        settingsState.failure = failure;
+        toast(`Save failed: ${bridgeErrorSummary(failure)}`);
+        return;
+      }
+      if (resp.state) applyDesktopSnapshot(resp.state);
+      settingsState.message = "Runtime config saved";
+      toast("Runtime config saved");
+    } catch (err) {
+      const failure = { message: String(err) };
+      settingsState.message = "";
+      settingsState.failure = failure;
+      toast(`Save failed: ${bridgeErrorSummary(failure)}`);
+    } finally {
+      settingsState.saving = false;
+      scheduleRender();
+    }
+  };
+
+  const exportDiagnostics = async () => {
+    if (state.previewMode) return;
+    try {
+      const resp = await withTimeout(getBridge().ExportDiagnostics(), "Export diagnostics");
+      if (!resp || !resp.ok) throw new Error(bridgeErrorSummary(resp && resp.error));
+      if (resp.cancelled) return;
+      settingsState.exportPath = resp.path || "";
+      toast("Diagnostics exported");
+      scheduleRender();
+    } catch (err) {
+      toast(`Export failed: ${String(err)}`);
+    }
   };
 
   const discoverShell = async () => {

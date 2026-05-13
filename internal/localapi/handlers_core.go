@@ -281,3 +281,54 @@ func (s *Server) handleDesktopState(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, snapshot)
 }
+
+func (s *Server) handleUpdateDesktopConfig(w http.ResponseWriter, r *http.Request) {
+	var req task.DesktopConfigUpdate
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeBadRequest(w, "invalid JSON body")
+		return
+	}
+
+	snapshot, err := s.tasks.UpdateDesktopConfig(req)
+	if err != nil {
+		var validationErr *task.DesktopConfigValidationError
+		if errors.As(err, &validationErr) {
+			reqID, _ := poc.NewRequestID()
+			writeError(w, ErrorResponse{
+				Stage:       "localapi",
+				ReasonCode:  poc.ReasonCodeBadRequest,
+				ExitCode:    poc.ExitCodeBadRequest,
+				Message:     validationErr.Error(),
+				Facts:       validationErr.Facts,
+				Suggestions: validationErr.Suggestions,
+				RequestID:   reqID,
+			})
+			return
+		}
+
+		reqID, _ := poc.NewRequestID()
+		writeError(w, ErrorResponse{
+			Stage:      "localapi",
+			ReasonCode: poc.ReasonCodeInternal,
+			ExitCode:   poc.ExitCodeInternal,
+			Message:    "failed to update desktop config",
+			Facts: []poc.Fact{
+				{Message: "error=" + err.Error()},
+			},
+			Suggestions: []poc.Suggestion{
+				{Message: "retry"},
+			},
+			RequestID: reqID,
+		})
+		return
+	}
+
+	status := s.statusResponse()
+	snapshot.Status = task.DesktopStatus{
+		Version:   status.Version,
+		StartedAt: status.StartedAt,
+		UptimeMs:  status.UptimeMs,
+		Mode:      string(status.Mode),
+	}
+	writeJSON(w, http.StatusOK, snapshot)
+}

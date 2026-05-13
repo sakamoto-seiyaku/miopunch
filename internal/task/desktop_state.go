@@ -74,15 +74,50 @@ type DesktopPeerConfig struct {
 	DisableAssistedAddrs bool     `json:"disable_assisted_addrs,omitempty"`
 }
 
+type DesktopRuntimeConfig struct {
+	MQTTBrokers          []string `json:"mqtt_brokers"`
+	P2PNetwork           string   `json:"p2p_network"`
+	P2PIPFamily          string   `json:"p2p_ip_family"`
+	DataProto            string   `json:"data_proto"`
+	QUICCC               string   `json:"quic_cc"`
+	StunServers          []string `json:"stun"`
+	StunExplicit         bool     `json:"stun_explicit"`
+	DisablePortMap       bool     `json:"disable_portmap"`
+	DisableAssistedAddrs bool     `json:"disable_assisted_addrs"`
+}
+
+type DesktopPreferences struct {
+	DefaultShellTarget  string `json:"default_shell_target,omitempty"`
+	DefaultShellSession string `json:"default_shell_session,omitempty"`
+	LogLevel            string `json:"log_level"`
+}
+
+type DesktopSettingsConfig struct {
+	Runtime     DesktopRuntimeConfig `json:"runtime"`
+	Preferences DesktopPreferences   `json:"preferences"`
+}
+
+type DesktopConfigApplyStatus struct {
+	Runtime             string `json:"runtime"`
+	Preferences         string `json:"preferences"`
+	ActivePeerSessions  int    `json:"active_peer_sessions"`
+	ActiveShellSessions int    `json:"active_shell_sessions"`
+	RequiresReconnect   bool   `json:"requires_reconnect"`
+	RestartRequired     bool   `json:"restart_required"`
+}
+
 type DesktopNetConfig struct {
 	NetID            string   `json:"net_id,omitempty"`
 	BrokersEffective []string `json:"brokers_effective,omitempty"`
 }
 
 type DesktopConfig struct {
-	Local      *DesktopPeerConfig  `json:"local,omitempty"`
-	KnownPeers []DesktopPeerConfig `json:"known_peers"`
-	Net        *DesktopNetConfig   `json:"net,omitempty"`
+	Local      *DesktopPeerConfig       `json:"local,omitempty"`
+	KnownPeers []DesktopPeerConfig      `json:"known_peers"`
+	Net        *DesktopNetConfig        `json:"net,omitempty"`
+	Desired    DesktopSettingsConfig    `json:"desired"`
+	Effective  DesktopSettingsConfig    `json:"effective"`
+	Apply      DesktopConfigApplyStatus `json:"apply"`
 }
 
 type DesktopApprovalRequest struct {
@@ -537,6 +572,10 @@ func (m *Manager) buildDesktopConfig(topology TopologySnapshot) (DesktopConfig, 
 	if err != nil {
 		return DesktopConfig{}, err
 	}
+	desktopSettings, err := m.loadDesktopSettings()
+	if err != nil {
+		return DesktopConfig{}, err
+	}
 
 	out := DesktopConfig{
 		KnownPeers: []DesktopPeerConfig{},
@@ -549,7 +588,14 @@ func (m *Manager) buildDesktopConfig(topology TopologySnapshot) (DesktopConfig, 
 			local.PeerID = strings.TrimSpace(topology.Self.PeerID)
 		}
 		out.Local = desktopPeerConfigFromLocal(local)
+		out.Desired.Runtime = desktopRuntimeConfigFromLocal(&local)
+		out.Effective.Runtime = desktopRuntimeConfigFromLocal(&local)
+	} else {
+		out.Desired.Runtime = desktopRuntimeConfigFromLocal(nil)
+		out.Effective.Runtime = desktopRuntimeConfigFromLocal(nil)
 	}
+	out.Desired.Preferences = desktopSettings.Preferences
+	out.Effective.Preferences = desktopSettings.Preferences
 
 	peerIDs := make([]string, 0, len(stateSnapshot.Peers))
 	for peerID := range stateSnapshot.Peers {
@@ -583,7 +629,41 @@ func (m *Manager) buildDesktopConfig(topology TopologySnapshot) (DesktopConfig, 
 		return DesktopConfig{}, err
 	}
 
+	out.Apply = m.desktopConfigApplyStatus()
 	return out, nil
+}
+
+func (m *Manager) desktopConfigApplyStatus() DesktopConfigApplyStatus {
+	activePeerSessions := 0
+	if m != nil && m.sessions != nil {
+		for _, summary := range m.sessions.ListAllSummaries() {
+			if summary.Healthy {
+				activePeerSessions++
+			}
+		}
+	}
+
+	activeShellSessions := 0
+	for _, taskSnapshot := range m.List() {
+		if isShellTaskKind(taskSnapshot.Kind) && taskSnapshot.Status != StatusDone {
+			activeShellSessions++
+		}
+	}
+
+	runtimeStatus := "immediate"
+	requiresReconnect := false
+	if activePeerSessions > 0 || activeShellSessions > 0 {
+		runtimeStatus = "future_connections"
+		requiresReconnect = true
+	}
+	return DesktopConfigApplyStatus{
+		Runtime:             runtimeStatus,
+		Preferences:         "immediate",
+		ActivePeerSessions:  activePeerSessions,
+		ActiveShellSessions: activeShellSessions,
+		RequiresReconnect:   requiresReconnect,
+		RestartRequired:     false,
+	}
 }
 
 func buildDesktopDiagnostics(snapshot DesktopStateSnapshot, statePath string, rev uint64) []poc.Fact {
@@ -706,6 +786,10 @@ func cloneDesktopConfig(cfg DesktopConfig) *DesktopConfig {
 		netSnapshot.BrokersEffective = append([]string(nil), cfg.Net.BrokersEffective...)
 		out.Net = &netSnapshot
 	}
+	out.Desired.Runtime.MQTTBrokers = append([]string(nil), cfg.Desired.Runtime.MQTTBrokers...)
+	out.Desired.Runtime.StunServers = append([]string(nil), cfg.Desired.Runtime.StunServers...)
+	out.Effective.Runtime.MQTTBrokers = append([]string(nil), cfg.Effective.Runtime.MQTTBrokers...)
+	out.Effective.Runtime.StunServers = append([]string(nil), cfg.Effective.Runtime.StunServers...)
 	return &out
 }
 

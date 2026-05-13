@@ -38,11 +38,12 @@ LocalAPI v0 SHALL expose the following routes under `/api/v0`:
 - `GET /api/v0/tasks/<task_id>/ws` (WebSocket, `sh_attach` only)
 - `GET /api/v0/desktop/state`
 - `GET /api/v0/desktop/events` (SSE)
+- `PATCH /api/v0/desktop/config`
 
-The route set remains versioned under `/api/v0`; `desktop/state` and
-`desktop/events` are the product-facing desktop runtime state contract for the
-desktop shell, while task routes remain available for compatibility, debug, and
-report flows.
+The route set remains versioned under `/api/v0`; `desktop/state`,
+`desktop/events`, and `desktop/config` are the product-facing desktop runtime
+contract for the desktop shell, while task routes remain available for
+compatibility, debug, and report flows.
 
 #### Scenario: A client can create and observe a task
 - **WHEN** a client calls `POST /api/v0/tasks` to create a task
@@ -59,6 +60,12 @@ report flows.
 - **THEN** the server returns one product-facing desktop runtime snapshot
 - **AND** the snapshot includes a monotonic `rev`
 - **AND** the client does not need to merge separate `status`, `peers`, `topology`, and `tasks` routes to establish initial runtime state
+
+#### Scenario: A desktop client saves runtime config
+- **WHEN** a desktop client calls `PATCH /api/v0/desktop/config` with valid supported fields
+- **THEN** the daemon persists the desired config
+- **AND** the response returns a fresh desktop runtime snapshot
+- **AND** desktop events publish updated config and diagnostics state
 
 ### Requirement: SSE streams are snapshot-first and use a single JSON event shape
 For global, per-task, and desktop SSE streams, the server SHALL:
@@ -114,6 +121,11 @@ The snapshot SHALL include:
 - `diagnostics`
 - `approval_requests`
 
+The `config` subtree SHALL include desired/effective runtime config and
+desktop-only preferences. It MUST NOT include secret material such as peer
+secret keys, invite secrets, net secrets, private keys, raw join codes, or raw
+membership bundles.
+
 The snapshot SHALL NOT require the desktop client to parse task facts as the
 primary way to derive peer sessions, config state, or diagnostics.
 
@@ -126,6 +138,33 @@ primary way to derive peer sessions, config state, or diagnostics.
 - **WHEN** a desktop client requests `GET /api/v0/desktop/state` before richer approval workflow support exists
 - **THEN** the response still includes `approval_requests`
 - **AND** the field is present as a typed list even when it is empty
+
+#### Scenario: Desktop config is redacted
+- **WHEN** a desktop client requests `GET /api/v0/desktop/state`
+- **THEN** config state includes supported non-secret settings
+- **AND** it omits secret keys, invite secrets, net secrets, private keys, and raw membership material
+
+### Requirement: LocalAPI supports desktop runtime config updates
+`PATCH /api/v0/desktop/config` SHALL accept partial updates for supported
+desktop Settings fields and SHALL validate values before persisting them.
+
+At minimum, invalid values for `p2p_network`, `p2p_ip_family`, `data_proto`,
+`quic_cc`, broker endpoints, STUN endpoints, and log level SHALL return a
+structured LocalAPI bad-request error with actionable facts and suggestions.
+
+Valid updates SHALL persist network runtime settings to the daemon state file
+and desktop-only preferences to the desktop settings file. Updates SHALL return
+a fresh desktop runtime snapshot.
+
+#### Scenario: Invalid desktop config update is rejected
+- **WHEN** a desktop client submits an unsupported `p2p_network`
+- **THEN** LocalAPI returns a non-2xx response with `reason_code=bad_request`
+- **AND** the existing persisted config is unchanged
+
+#### Scenario: Log level update applies immediately
+- **WHEN** a desktop client saves `log_level=debug`
+- **THEN** the daemon persists the preference
+- **AND** new daemon log output uses the saved level without requiring daemon restart
 
 ### Requirement: WebSocket is only available for `sh_attach` tasks and requires the `miopunch.sh.v0` subprotocol
 `GET /api/v0/tasks/<task_id>/ws` SHALL only be usable when the referenced task has `kind=sh_attach`.

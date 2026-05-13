@@ -3,14 +3,18 @@
 package main
 
 import (
+	"archive/zip"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"github.com/miopunch/miopunch/internal/bundlepath"
 	"github.com/miopunch/miopunch/internal/desktopbridge"
 	"github.com/miopunch/miopunch/internal/localapi"
 	"github.com/miopunch/miopunch/internal/poc"
@@ -66,6 +70,13 @@ type ExportReportResult struct {
 	Path      string                     `json:"path,omitempty"`
 }
 
+type ExportDiagnosticsResult struct {
+	OK        bool                       `json:"ok"`
+	Cancelled bool                       `json:"cancelled,omitempty"`
+	Error     *desktopbridge.BridgeError `json:"error,omitempty"`
+	Path      string                     `json:"path,omitempty"`
+}
+
 type DesktopRuntimeResult struct {
 	OK         bool                           `json:"ok"`
 	Error      *desktopbridge.BridgeError     `json:"error,omitempty"`
@@ -80,6 +91,10 @@ type DesktopRuntimeEvent struct {
 }
 
 var errDesktopEventStreamClosed = errors.New("desktop event stream closed")
+
+const daemonDiagnosticsLogFileName = "miopunch.log"
+
+var diagnosticsRedactor = regexp.MustCompile(`(?i)(secret_key|invite_code|join_code|net_secret_b64|invite_secret_b64|ed25519_seed_b64|x25519_priv_b64|private_key|password|token)(["=: ]+)([^"\s,}]+)`)
 
 type desktopEventsOpener interface {
 	OpenDesktopEvents(context.Context) (io.ReadCloser, error)
@@ -133,6 +148,38 @@ func (a *App) DesktopRuntimeResync() DesktopRuntimeResult {
 	defer cancel()
 
 	snapshot, apiErr := c.GetDesktopState(ctx)
+	if apiErr != nil {
+		state := a.ConnectionState()
+		return DesktopRuntimeResult{
+			OK:         false,
+			Error:      bridgeErrorFromErr(apiErr),
+			Connection: &state,
+		}
+	}
+
+	state := a.ConnectionState()
+	return DesktopRuntimeResult{
+		OK:         true,
+		Connection: &state,
+		State:      &snapshot,
+	}
+}
+
+func (a *App) SaveDesktopConfig(update task.DesktopConfigUpdate) DesktopRuntimeResult {
+	c, err := a.localAPIClient()
+	if err != nil {
+		state := a.ConnectionState()
+		return DesktopRuntimeResult{
+			OK:         false,
+			Error:      err,
+			Connection: &state,
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	snapshot, apiErr := c.UpdateDesktopConfig(ctx, update)
 	if apiErr != nil {
 		state := a.ConnectionState()
 		return DesktopRuntimeResult{
@@ -347,6 +394,108 @@ func (a *App) ExportTaskReport(taskID string) ExportReportResult {
 	}
 
 	return ExportReportResult{OK: true, Path: path}
+}
+
+func (a *App) ExportDiagnostics() ExportDiagnosticsResult {
+	c, err := a.localAPIClient()
+	if err != nil {
+		return ExportDiagnosticsResult{OK: false, Error: err}
+	}
+
+	a.mu.Lock()
+	wailsCtx := a.ctx
+	a.mu.Unlock()
+
+	path, dialogErr := runtime.SaveFileDialog(wailsCtx, runtime.SaveDialogOptions{
+		DefaultFilename: "miopunch-diagnostics.zip",
+		Title:           "Export diagnostics",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Zip archive", Pattern: "*.zip"},
+		},
+	})
+	if dialogErr != nil {
+		return ExportDiagnosticsResult{OK: false, Error: bridgeErrorFromErr(dialogErr)}
+	}
+	if path == "" {
+		return ExportDiagnosticsResult{OK: true, Cancelled: true}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	snapshot, apiErr := c.GetDesktopState(ctx)
+	if apiErr != nil {
+		return ExportDiagnosticsResult{OK: false, Error: bridgeErrorFromErr(apiErr)}
+	}
+	if err := a.writeDiagnosticsArchive(path, snapshot); err != nil {
+		return ExportDiagnosticsResult{OK: false, Error: bridgeErrorFromErr(err)}
+	}
+	return ExportDiagnosticsResult{OK: true, Path: path}
+}
+
+func (a *App) writeDiagnosticsArchive(path string, snapshot task.DesktopStateSnapshot) error {
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = out.Close() }()
+
+	zw := zip.NewWriter(out)
+	if err := writeZipJSON(zw, "desktop-state.json", snapshot); err != nil {
+		_ = zw.Close()
+		return err
+	}
+	if err := writeZipJSON(zw, "connection.json", a.ConnectionState()); err != nil {
+		_ = zw.Close()
+		return err
+	}
+	if err := writeDiagnosticsLog(zw, "logs/miopunch-desktop.log", desktopLogFileName); err != nil {
+		_ = zw.Close()
+		return err
+	}
+	if err := writeDiagnosticsLog(zw, "logs/miopunch.log", daemonDiagnosticsLogFileName); err != nil {
+		_ = zw.Close()
+		return err
+	}
+	return zw.Close()
+}
+
+func writeZipJSON(zw *zip.Writer, name string, value any) error {
+	w, err := zw.Create(name)
+	if err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	_, err = w.Write([]byte(redactDiagnosticsText(string(data))))
+	return err
+}
+
+func writeDiagnosticsLog(zw *zip.Writer, archiveName string, fileName string) error {
+	path, err := bundlepath.LogPath(fileName)
+	if err != nil {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	w, err := zw.Create(archiveName)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write([]byte(redactDiagnosticsText(string(data))))
+	return err
+}
+
+func redactDiagnosticsText(value string) string {
+	return diagnosticsRedactor.ReplaceAllString(value, `$1$2[REDACTED]`)
 }
 
 func (a *App) localAPIClient() (*localapi.Client, *desktopbridge.BridgeError) {

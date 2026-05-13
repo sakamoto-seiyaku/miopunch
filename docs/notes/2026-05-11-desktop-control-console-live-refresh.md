@@ -135,3 +135,23 @@ GUI 收到这些事件后，可以 debounce 并重新拉取对应快照；后续
 - `desktop-access-approval-workflow` 和 `desktop-shell-demo-loop` 共同构成最小演示闭环，应早于完整 Settings 和 UI 重构。
 - `desktop-settings-runtime-config-and-diagnostics` 放在 shell 演示闭环之后，避免先做成第二套 POC 配置面。
 - `desktop-control-console-ui-rework` 最后做，避免前置 change 改语义后反复返工。
+
+## 已发现但暂缓的问题：Win / WSL2 镜像网络方向性失败
+
+2026-05-13 在 `dist/release/extracted` 的 session smoke 包里观察到一个需要后续单独梳理的问题：
+
+- Windows 与 WSL2 处于 mirrored networking 模式时，Windows -> WSL2 的 miopunch ping 曾经成功。
+- 反向 WSL2 -> Windows 不稳定或失败。
+- 失败不是单一现象：早期日志表现为 UDP punching 等不到 detect message，后续又出现 `data plane protocol mismatch: visitor="quic" client="kcp"`。
+
+当前证据说明这里至少混着两类问题：
+
+- 可能存在 Windows / WSL2 mirrored networking 下的方向性连通性、Windows 入站 UDP 或防火墙问题。
+- 同时也证明 miopunch 的 peer runtime state / seed 同步存在不一致：一端认为对端是 `kcp`，另一端认为对端是 `quic`。
+
+本轮先不修、不绕过。后续重做 desktop access、runtime config、peer session、network diagnostics 流程时，需要把这条链路一起彻底掰开：
+
+- Settings 的 desired / effective runtime state 必须能解释当前实际运行的 `data_proto`。
+- peer seed 更新不能把本地配置和已知对端配置带到互相矛盾的状态。
+- acceptor / session 复用 / hello seed 持久化需要有清楚的诊断证据。
+- Win / WSL2 mirrored networking 的方向性失败需要单独收集系统层证据，而不是只看 task 结果。

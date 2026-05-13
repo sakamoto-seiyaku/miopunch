@@ -119,12 +119,63 @@ test("Settings Local daemon apply and clear call bridge methods", async ({ page 
   await expect.poll(() => calls(page)).toContainEqual({ method: "ClearLocalAPIOverride" });
 });
 
+test("Settings Runtime config saves through the desktop bridge", async ({ page }) => {
+  await openDesktop(page, { path: "/?tab=settings&section=runtime" });
+
+  await expect(page.locator(".page-title")).toHaveText("Runtime config");
+  await page.locator("#settings-mqtt-brokers").fill("broker-a:1883, broker-b:1883");
+  await page.locator("#settings-p2p-network").selectOption("tcp_only");
+  await page.locator("#settings-log-level").selectOption("debug");
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect.poll(() => calls(page)).toContainEqual(expect.objectContaining({
+    method: "SaveDesktopConfig",
+    update: expect.objectContaining({
+      runtime: expect.objectContaining({
+        mqtt_brokers: ["broker-a:1883", "broker-b:1883"],
+        p2p_network: "tcp_only",
+      }),
+      preferences: expect.objectContaining({ log_level: "debug" }),
+    }),
+  }));
+  await expect(page.locator("#toast")).toHaveText("Runtime config saved");
+  await expect(page.getByText("broker-a:1883, broker-b:1883")).toBeVisible();
+});
+
+test("Settings Runtime config shows validation suggestions after rejected save", async ({ page }) => {
+  await openDesktop(page, { path: "/?tab=settings&section=runtime" });
+
+  await page.locator("#settings-mqtt-brokers").fill("broker-without-port");
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect.poll(() => calls(page)).toContainEqual(expect.objectContaining({
+    method: "SaveDesktopConfig",
+    update: expect.objectContaining({
+      runtime: expect.objectContaining({
+        mqtt_brokers: ["broker-without-port"],
+      }),
+    }),
+  }));
+  await expect(page.locator("#runtime-config-form").getByText("Save failed: BAD_REQUEST: invalid MQTT brokers")).toBeVisible();
+  await expect(page.getByText("use host:port")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save" })).toBeEnabled();
+});
+
 test("Settings Diagnostics renders disconnected LocalAPI guidance", async ({ page }) => {
   await openDesktop(page, { fixture: "disconnected", path: "/?tab=settings&section=diagnostics" });
 
-  await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
+  await expect(page.locator(".page-title")).toHaveText("Diagnostics");
   await expect(page.getByText("retry desktop connection")).toBeVisible();
   await expect(page.getByText("reason_code=daemon_not_running")).toBeVisible();
+});
+
+test("Settings Diagnostics exports runtime diagnostics", async ({ page }) => {
+  await openDesktop(page, { path: "/?tab=settings&section=diagnostics" });
+
+  await page.getByRole("button", { name: "Export diagnostics" }).click();
+
+  await expect.poll(() => calls(page)).toContainEqual({ method: "ExportDiagnostics" });
+  await expect(page.getByText("/tmp/miopunch-diagnostics.zip")).toBeVisible();
 });
 
 test("Settings Diagnostics renders desktop-managed session bootstrap facts", async ({ page }) => {

@@ -122,6 +122,14 @@ func (c *Client) GetDesktopState(ctx context.Context) (task.DesktopStateSnapshot
 	return resp, nil
 }
 
+func (c *Client) UpdateDesktopConfig(ctx context.Context, update task.DesktopConfigUpdate) (task.DesktopStateSnapshot, error) {
+	var resp task.DesktopStateSnapshot
+	if err := c.doJSON(ctx, http.MethodPatch, "/api/v0/desktop/config", update, &resp); err != nil {
+		return task.DesktopStateSnapshot{}, err
+	}
+	return resp, nil
+}
+
 func (c *Client) CreateTask(ctx context.Context, kind string, args any) (task.Task, error) {
 	reqBody := map[string]any{
 		"kind": kind,

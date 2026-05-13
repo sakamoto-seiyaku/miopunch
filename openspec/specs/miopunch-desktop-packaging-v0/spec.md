@@ -136,9 +136,14 @@ The desktop GUI runtime log SHALL be written to `logs/miopunch-desktop.log`.
 The session daemon runtime log SHALL be written to `logs/miopunch.log` when
 `miopunch up --session` is launched directly or by `miopunch-desktop`.
 
+The desktop GUI SHALL be able to export a redacted diagnostics archive that
+includes available bundle-local logs and runtime snapshots. The archive MUST
+NOT include unredacted secret material, invite/join codes, private keys, net
+secrets, raw membership bundles, or raw daemon state files.
+
 The bundled smoke instructions SHALL identify these log paths and SHALL provide
 an ordered manual test sequence covering launch, LocalAPI connection,
-invite/join, peer visibility, ping, and shell attach.
+invite/join, peer visibility, ping, shell attach, and diagnostics export.
 
 Desktop task event handling SHALL preserve the final task facts needed by the
 manual smoke sequence. In particular, a successful Create Invite task SHALL
@@ -159,7 +164,14 @@ showing only a Go panic stack. The failure SHALL also be written to
 - **WHEN** the session bundle is built
 - **THEN** its `SMOKE.md` identifies the local log files
 - **AND** it describes how to test two extracted bundles through invite/join,
-  peer refresh, ping, and shell attach without requiring a system service
+  peer refresh, ping, shell attach, and diagnostics export without requiring a
+  system service
+
+#### Scenario: Desktop diagnostics export is redacted
+- **WHEN** the user exports desktop diagnostics from a session bundle
+- **THEN** the archive includes available runtime snapshots and log excerpts
+- **AND** it does not include raw `data/state.json` or unredacted secret
+  material
 
 #### Scenario: Desktop invite code remains visible after coalesced task events
 - **WHEN** a successful invite task emits its final task event to the desktop UI

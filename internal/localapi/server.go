@@ -35,6 +35,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v0/tasks", s.handleCreateTask)
 	mux.HandleFunc("GET /api/v0/tasks/{task_id}/report", s.handleTaskReport)
 	mux.HandleFunc("GET /api/v0/desktop/state", s.handleDesktopState)
+	mux.HandleFunc("PATCH /api/v0/desktop/config", s.handleUpdateDesktopConfig)
 	mux.HandleFunc("GET /api/v0/events", s.handleEvents)
 	mux.HandleFunc("GET /api/v0/desktop/events", s.handleDesktopEvents)
 	mux.HandleFunc("GET /api/v0/tasks/{task_id}/events", s.handleTaskEvents)
