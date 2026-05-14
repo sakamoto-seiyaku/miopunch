@@ -304,6 +304,7 @@ func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, mo
 		mgr = task.NewManager()
 	}
 	defer mgr.Close()
+	mgr.StartSessionKeepalive(ctx)
 
 	var panel *http_panel.Server
 	var panelLn net.Listener

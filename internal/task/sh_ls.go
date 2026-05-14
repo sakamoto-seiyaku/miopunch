@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/miopunch/miopunch/connectivity"
+	"github.com/miopunch/miopunch/dataplane"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/shellproto"
 )
@@ -67,7 +68,13 @@ func (m *Manager) runShellListTask(taskID string, rawArgs []byte) {
 		m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
 		return
 	}
-	defer res.stream.Close()
+	sessionOK := false
+	defer func() {
+		_ = res.stream.Close()
+		if !sessionOK {
+			m.closeDialedSession(res, dataplane.CloseReasonStreamProtocolError)
+		}
+	}()
 
 	m.setStage(taskID, poc.StageCapabilityHandshake, "hello handshake")
 	if !m.requirePeerStreamHello(ctx, taskID, res) {
@@ -119,6 +126,8 @@ func (m *Manager) runShellListTask(taskID string, rawArgs []byte) {
 		m.done(taskID, reason, exit)
 		return
 	}
+	m.markDialedSessionLive(res)
+	sessionOK = true
 
 	if args.Target == "" {
 		for _, t := range resp.Targets {

@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/miopunch/miopunch/connectivity"
+	"github.com/miopunch/miopunch/dataplane"
 	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/shellproto"
@@ -79,7 +80,13 @@ func (m *Manager) runShellAttachTask(taskID string, rawArgs []byte) {
 		m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
 		return
 	}
-	defer res.stream.Close()
+	sessionOK := false
+	defer func() {
+		_ = res.stream.Close()
+		if !sessionOK {
+			m.closeDialedSession(res, dataplane.CloseReasonStreamProtocolError)
+		}
+	}()
 
 	m.setStage(taskID, poc.StageCapabilityHandshake, "hello handshake")
 	if !m.requirePeerStreamHello(handshakeCtx, taskID, res) {
@@ -139,6 +146,8 @@ func (m *Manager) runShellAttachTask(taskID string, rawArgs []byte) {
 		m.addFact(taskID, poc.Fact{TermID: "target", Message: "target=" + strings.TrimSpace(resp.Target)})
 	}
 	m.addFact(taskID, poc.Fact{TermID: "session", Message: "session=" + session})
+	m.markDialedSessionLive(res)
+	sessionOK = true
 
 	m.setStage(taskID, poc.StageSessionAttach, "waiting for local websocket")
 

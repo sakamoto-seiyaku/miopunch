@@ -162,6 +162,7 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 		mgr = task.NewManager()
 	}
 	defer mgr.Close()
+	mgr.StartSessionKeepalive(ctx)
 
 	var panel *http_panel.Server
 	var panelLn net.Listener

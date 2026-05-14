@@ -26,12 +26,14 @@ import (
 
 type dialResult struct {
 	stream io.ReadWriteCloser
+	sess   dataplane.PeerSession
 
 	sid         string
 	dataProto   string
 	quicCC      string
 	attemptWay  string
 	legacyHello bool
+	sessionLive bool
 }
 
 type ownedPeerSession struct {
@@ -118,10 +120,12 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 					Outcome:     "ok",
 				})
 				return &dialResult{
-					stream:     stream,
-					sid:        sid,
-					dataProto:  string(key.Protocol),
-					attemptWay: "session_reuse",
+					stream:      stream,
+					sess:        sess,
+					sid:         sid,
+					dataProto:   string(key.Protocol),
+					attemptWay:  "session_reuse",
+					sessionLive: true,
 				}, nil
 			}
 			m.sessions.Close(sess.Key(), dataplane.CloseReasonTransportFatal)
@@ -553,17 +557,9 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	case "punching_tcp4":
 		punchdecision.ReportDaemonTCPSuccess(decisionRes)
 	}
-	if m != nil && m.sessions != nil {
-		m.sessions.Put(sess)
-	}
-
 	stream, err := sess.OpenStream(ctx, open)
 	if err != nil {
-		if m != nil && m.sessions != nil {
-			m.sessions.Close(sess.Key(), dataplane.CloseReasonTransportFatal)
-		} else {
-			_ = sess.Close(dataplane.CloseReasonTransportFatal)
-		}
+		_ = sess.Close(dataplane.CloseReasonTransportFatal)
 		return nil, err
 	}
 
@@ -595,11 +591,71 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 
 	return &dialResult{
 		stream:     stream,
+		sess:       sess,
 		sid:        sid,
 		dataProto:  dataProto,
 		quicCC:     quicCC,
 		attemptWay: attemptRes.Path,
 	}, nil
+}
+
+func (m *Manager) markDialedSessionLive(res *dialResult) {
+	if m == nil || m.sessions == nil || res == nil || res.sess == nil || res.sessionLive {
+		return
+	}
+	m.sessions.Put(res.sess)
+	res.sessionLive = true
+}
+
+func (m *Manager) closeDialedSession(res *dialResult, reason dataplane.CloseReason) {
+	if res == nil || res.sess == nil {
+		return
+	}
+	if res.sessionLive {
+		if m != nil && m.sessions != nil {
+			m.sessions.Close(res.sess.Key(), reason)
+			res.sessionLive = false
+			return
+		}
+	}
+	_ = res.sess.Close(reason)
+	res.sessionLive = false
+}
+
+func (m *Manager) recordDialedSessionFailure(peerID string, res *dialResult, stage poc.Stage, reasonCode poc.ReasonCode, stopCondition string) {
+	if m == nil {
+		return
+	}
+	attempt := TopologyAttempt{
+		PeerID:        strings.TrimSpace(peerID),
+		AttemptPath:   "unknown",
+		AttemptWay:    "unknown",
+		StartedAt:     time.Now().UTC().UnixMilli(),
+		Outcome:       "fail",
+		Stage:         string(stage),
+		ReasonCode:    string(reasonCode),
+		StopCondition: strings.TrimSpace(stopCondition),
+	}
+	if res != nil {
+		if strings.TrimSpace(res.attemptWay) != "" {
+			attempt.AttemptPath = res.attemptWay
+			attempt.AttemptWay = res.attemptWay
+		}
+		attempt.DataProto = strings.TrimSpace(res.dataProto)
+		if res.sess != nil {
+			key := res.sess.Key().Normalize()
+			if attempt.PeerID == "" {
+				attempt.PeerID = key.RemotePeerID
+			}
+			if attempt.DataProto == "" {
+				attempt.DataProto = string(key.Protocol)
+			}
+			if key.PathFamily != "" {
+				attempt.PathFamily = string(key.PathFamily)
+			}
+		}
+	}
+	m.recordTopologyAttempt(attempt)
 }
 
 func (m *Manager) loadPeerConfig(peerID string) (pocstate.PeerConfig, bool, error) {

@@ -2,13 +2,16 @@ package task
 
 import (
 	"context"
+	"encoding/json"
 	"io"
+	"net"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/miopunch/miopunch/dataplane"
 	"github.com/miopunch/miopunch/internal/pocstate"
+	"github.com/miopunch/miopunch/internal/shellproto"
 )
 
 func TestLoadPeerConfigUsesLocalDialDefaults(t *testing.T) {
@@ -264,15 +267,153 @@ func TestPassiveTopologyEvidenceRegistersSessionAndRuntime(t *testing.T) {
 	}
 }
 
+func TestDialedSessionIsActiveOnlyAfterApplicationSuccess(t *testing.T) {
+	const peerID = "peer-active"
+	key := dataplane.SessionKey{
+		RemotePeerID: peerID,
+		Protocol:     dataplane.ProtocolQUIC,
+		SecurityID:   "sid-active",
+		PathFamily:   dataplane.PathFamilyUDP4,
+	}
+	sess := &testPeerSession{key: key}
+	m := NewManagerWithStatePath(filepath.Join(t.TempDir(), "state.json"))
+	defer m.Close()
+
+	res := &dialResult{sess: sess}
+	m.closeDialedSession(res, dataplane.CloseReasonStreamProtocolError)
+	if !sess.closed {
+		t.Fatalf("closeDialedSession(unmarked) closed = false, want true")
+	}
+
+	sess = &testPeerSession{key: key}
+	res = &dialResult{sess: sess}
+	m.markDialedSessionLive(res)
+	if _, ok := m.sessions.Get(key); !ok {
+		t.Fatalf("markDialedSessionLive() session ok = false, want true")
+	}
+
+	m.closeDialedSession(res, dataplane.CloseReasonStreamProtocolError)
+	if _, ok := m.sessions.Get(key); ok {
+		t.Fatalf("closeDialedSession(marked) session ok = true, want false")
+	}
+	if sess.CloseReason() != dataplane.CloseReasonStreamProtocolError {
+		t.Fatalf("closeDialedSession(marked) close reason = %q, want %q", sess.CloseReason(), dataplane.CloseReasonStreamProtocolError)
+	}
+}
+
+func TestKeepaliveActiveSessionsRecordsPayloadOnSuccess(t *testing.T) {
+	const peerID = "peer-keepalive"
+	sess := &testPeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: peerID,
+			Protocol:     dataplane.ProtocolQUIC,
+			SecurityID:   "sid-keepalive",
+			PathFamily:   dataplane.PathFamilyUDP4,
+		},
+		openStream: newKeepaliveStream,
+	}
+	m := NewManagerWithStatePath(filepath.Join(t.TempDir(), "state.json"))
+	defer m.Close()
+	m.sessions.Put(sess)
+
+	m.keepaliveActiveSessions()
+
+	if _, ok := m.sessions.Get(sess.key); !ok {
+		t.Fatalf("keepaliveActiveSessions() session ok = false, want true")
+	}
+	_, payloads := m.topologyRuntimeEvidence()
+	if len(payloads) != 1 || payloads[0].PeerID != peerID || payloads[0].Evidence != "keepalive=ok" {
+		t.Fatalf("keepaliveActiveSessions() payloads = %#v, want keepalive evidence for %q", payloads, peerID)
+	}
+}
+
+func TestKeepaliveActiveSessionsClosesFailedSession(t *testing.T) {
+	const peerID = "peer-keepalive-fail"
+	sess := &testPeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: peerID,
+			Protocol:     dataplane.ProtocolQUIC,
+			SecurityID:   "sid-keepalive-fail",
+			PathFamily:   dataplane.PathFamilyUDP4,
+		},
+	}
+	m := NewManagerWithStatePath(filepath.Join(t.TempDir(), "state.json"))
+	defer m.Close()
+	m.sessions.Put(sess)
+
+	m.keepaliveActiveSessions()
+
+	if _, ok := m.sessions.Get(sess.key); ok {
+		t.Fatalf("keepaliveActiveSessions() session ok = true, want false")
+	}
+	if sess.CloseReason() != dataplane.CloseReasonTransportFatal {
+		t.Fatalf("keepaliveActiveSessions() close reason = %q, want %q", sess.CloseReason(), dataplane.CloseReasonTransportFatal)
+	}
+	attempts, _ := m.topologyRuntimeEvidence()
+	if len(attempts) != 1 || attempts[0].PeerID != peerID || attempts[0].AttemptPath != "keepalive" || attempts[0].Outcome != "fail" {
+		t.Fatalf("keepaliveActiveSessions() attempts = %#v, want keepalive failure for %q", attempts, peerID)
+	}
+}
+
+func TestKeepaliveActiveSessionsSkipsPassiveSessions(t *testing.T) {
+	const peerID = "peer-passive-keepalive"
+	sess := &testPeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: peerID,
+			Protocol:     dataplane.ProtocolQUIC,
+			SecurityID:   "sid-passive-keepalive",
+			PathFamily:   dataplane.PathFamilyUDP4,
+		},
+	}
+	m := NewManagerWithStatePath(filepath.Join(t.TempDir(), "state.json"))
+	defer m.Close()
+	m.sessions.Put(&passivePeerSession{PeerSession: sess, key: sess.key})
+
+	m.keepaliveActiveSessions()
+
+	if _, ok := m.sessions.Get(sess.key); !ok {
+		t.Fatalf("keepaliveActiveSessions() passive session ok = false, want true")
+	}
+	attempts, payloads := m.topologyRuntimeEvidence()
+	if len(attempts) != 0 || len(payloads) != 0 {
+		t.Fatalf("keepaliveActiveSessions() evidence = (%#v, %#v), want none for passive session", attempts, payloads)
+	}
+}
+
+func newKeepaliveStream(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+	client, server := net.Pipe()
+	go func() {
+		defer server.Close()
+		_ = shellproto.WriteJSON(server, shellproto.Control{Op: shellproto.OpHello, OK: true})
+		_, payload, err := shellproto.ReadFrame(server)
+		if err != nil {
+			return
+		}
+		var req shellproto.Control
+		if err := json.Unmarshal(payload, &req); err != nil {
+			return
+		}
+		if req.Op != shellproto.OpPing {
+			return
+		}
+		_ = shellproto.WriteJSON(server, shellproto.Control{Op: shellproto.OpPing, OK: true})
+	}()
+	return client, nil
+}
+
 type testPeerSession struct {
 	key         dataplane.SessionKey
 	closed      bool
 	closeReason dataplane.CloseReason
+	openStream  func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error)
 }
 
 func (s *testPeerSession) Key() dataplane.SessionKey { return s.key }
 
-func (s *testPeerSession) OpenStream(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+func (s *testPeerSession) OpenStream(ctx context.Context, open dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+	if s.openStream != nil {
+		return s.openStream(ctx, open)
+	}
 	return nil, io.ErrClosedPipe
 }
 

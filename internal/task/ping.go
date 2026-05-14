@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/miopunch/miopunch/connectivity"
+	"github.com/miopunch/miopunch/dataplane"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/shellproto"
 )
@@ -83,10 +84,17 @@ func (m *Manager) runPingTask(taskID string, rawArgs []byte) {
 		m.done(taskID, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable)
 		return
 	}
-	defer res.stream.Close()
+	sessionOK := false
+	defer func() {
+		_ = res.stream.Close()
+		if !sessionOK {
+			m.closeDialedSession(res, dataplane.CloseReasonStreamProtocolError)
+		}
+	}()
 
 	m.setStage(taskID, poc.StageCapabilityHandshake, "hello handshake")
 	if !m.requirePeerStreamHello(ctx, taskID, res) {
+		m.recordDialedSessionFailure(args.PeerID, res, poc.StageCapabilityHandshake, poc.ReasonCodeUnavailable, "hello_failed")
 		return
 	}
 
@@ -137,6 +145,8 @@ func (m *Manager) runPingTask(taskID string, rawArgs []byte) {
 	}
 
 	m.addFact(taskID, poc.Fact{Message: "ping=ok"})
+	m.markDialedSessionLive(res)
+	sessionOK = true
 	m.recordTopologyPayload(TopologyPayload{
 		PeerID:     args.PeerID,
 		Evidence:   "ping=ok",

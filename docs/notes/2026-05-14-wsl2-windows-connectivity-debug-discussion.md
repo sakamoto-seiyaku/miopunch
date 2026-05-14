@@ -3233,3 +3233,113 @@ selected neighbors
 
 - auto fallback 和被动侧 topology evidence 均已在真实 Windows/WSL2 mirrored 环境验证。
 - 未跑完整 gate；本批按本轮策略留到链路层修复完成后统一验证。
+
+### 9.4 Batch 4：运行时真相与应用层 keepalive
+
+本批开始处理剩余问题里的第一组：`maintain-neighbors` / topology active 状态分裂，以及应用层 keepalive / idle timeout。它们应放在同一条主线里看，因为 keepalive 的前提是 active 状态本身可信；如果 topology 继续把“transport 已建立但 hello 已失败”的 session 当作 active，后续 keepalive 只会把错误状态维持得更久。
+
+#### 9.4.1 当前问题边界
+
+已确认的问题：
+
+- fresh dial 建立 dataplane session 后，当前主动侧会先 `m.sessions.Put(sess)`，随后才 `OpenStream`、hello、ping。
+- 如果 hello / governance / capability handshake 失败，task 会失败，logical stream 会关闭，但刚放进 `Manager.sessions` 的 transport session 不一定立即关闭。
+- `TopologySnapshot()` 和 desktop active neighbors 来自 `Manager.sessions.ListAllSummaries()`，因此会短时间显示“active”，即使本次应用层握手已经失败。
+- `maintain-neighbors` 同时报告 child ping 成败与最终 topology active 数量，二者可能不一致。
+- QUIC 底层 keepalive 不会更新 miopunch 应用层 `lastActivity`；无逻辑 stream activity 时，session 仍会被 `DefaultSessionIdleTimeout=2m` 收掉。
+
+#### 9.4.2 修复原则
+
+本批先定义 runtime truth：
+
+- topology 的 active session 应表达“当前 transport session 仍 healthy，并且至少经过一次应用层握手 / payload 成功证明”。
+- hello / capability handshake / ping 失败时，不能留下一个会误导 topology 的 healthy session。
+- keepalive 必须是应用层行为，不能依赖 QUIC 底层 keepalive 来刷新 miopunch session activity。
+- keepalive 失败应关闭对应 session，并写入 topology / recovery evidence，让 UI 和 task report 看到同一个事实。
+
+#### 9.4.3 修复顺序
+
+第一步：收紧 session 写入和失败清理。
+
+- 主动 fresh dial 只有在 stream 打开并完成应用层 hello / payload 成功后，才应被 topology 视为可靠 active。
+- 如果当前代码结构需要先把 session 放入 manager 以支持 stream 生命周期，也必须在 hello / ping 失败路径显式关闭并移除该 session。
+- 被动侧 Batch 3 新增的 passive evidence 继续保留，但同样以 hello 成功后的 `bindPeer` 作为登记点，不提前记录未知 peer。
+- `maintain-neighbors` 的最终 active 数量应避免把本轮已失败 peer 误报为 active。
+
+第二步：实现应用层 keepalive / neighbor maintainer。
+
+- 对 selected 或 active neighbors 周期性打开轻量 `ping` stream。
+- 成功：记录 keepalive evidence，并通过逻辑 stream activity 刷新 session activity。
+- 失败：关闭 session，记录 close reason / recovery evidence。
+- 这个 maintainer 应有明确生命周期，随 daemon context 停止；不要启动无法停止的后台 goroutine。
+
+#### 9.4.4 实现记录
+
+- `internal/task/poc_dial.go` 调整 fresh dial lifecycle：
+  - fresh dataplane session 不再在 `OpenStream` 前直接进入 `Manager.sessions`；
+  - `dialResult` 带回底层 session；
+  - task 只有在应用层操作成功后调用 `markDialedSessionLive`；
+  - 失败路径调用 `closeDialedSession`，避免 topology 留下假 active。
+- `internal/task/ping.go` / `sh_ls.go` / `sh_attach.go` 接入上述生命周期：
+  - `ping` 只有 `hello=ok` + `ping=ok` 后登记 active；
+  - hello 失败会记录 `outcome=fail` / `stop_condition=hello_failed` 的 topology attempt；
+  - shell list / attach 只有远端应用层响应 OK 后登记 active。
+- `internal/task/session_keepalive.go` 新增 daemon-level application keepalive：
+  - `StartSessionKeepalive(ctx)` 由 `miopunch up` 启动，随 daemon context 停止；
+  - 每 30 秒扫描 active sessions，只对 idle 超过 45 秒的本地主动 dial session 打开轻量 ping stream；
+  - 成功记录 `keepalive=ok` payload，并通过 stream activity 刷新 session；
+  - 失败关闭 session 并记录 `attempt_path=keepalive` / `outcome=fail`；
+  - passive accepted session 不主动发 keepalive，避免被动侧对 inbound session 误判失败；它由对端 keepalive 的入站 ping 刷新 activity。
+- `internal/task/hello.go` 抽出 `buildShellStreamOpen`，让普通 task 和 keepalive 共享同一套 stream-open hello metadata。
+- 单测新增：
+  - dialed session 未标记 live 时失败会关闭，不进入 active；
+  - keepalive 成功记录 `keepalive=ok`；
+  - keepalive 失败关闭 active session；
+  - passive session 会被 keepalive loop 跳过。
+
+#### 9.4.5 验证记录
+
+focused validation：
+
+- 已通过：
+  - `go test ./connectivity ./dataplane`
+  - `go test ./internal/task ./internal/pocacceptor ./cmd/miopunch`
+  - `go build ./cmd/miopunch`
+
+真实 Windows/WSL2 mirrored 环境验证：
+
+- 成功 keepalive 样本：
+  - Windows -> Linux `ping -u UANSTBEARWBWOEMGHHY4454E5I` 成功；
+  - 等待 75 秒后，Windows topology 仍显示 active：
+    `peer_id=UANSTBEARWBWOEMGHHY4454E5I`、`data_proto=quic`、`path_family=udp4`、`healthy=true`；
+  - Windows payloads 出现 `keepalive=ok`；
+  - Linux passive topology 仍显示 active，并记录来自对端 keepalive 的入站 `ping=ok`；
+  - 验证文件：
+    `/tmp/miopunch-batch4/run/windows-topology-after-keepalive-02.json`、
+    `/tmp/miopunch-batch4/run/linux/topology-after-keepalive-02.json`。
+- 中间验证曾发现并修正一个 keepalive 方向问题：
+  - 第一版让 passive accepted session 也主动发 keepalive，Linux passive 侧误关闭 inbound session；
+  - 修正为 keepalive loop 跳过 `passivePeerSession` 后，第二轮真实样本通过。
+- hello failure cleanup 样本：
+  - Linux 使用临时 fault binary 拒绝 stream-open hello；该 fault code 未进入最终工作树；
+  - Windows -> Linux `ping -u` 返回 `reason_code=BAD_REQUEST`，fact 包含 `fault rejected hello`；
+  - Windows topology 之后显示 `active=[]`；
+  - attempts 同时包含 transport 成功样本和应用层失败样本：
+    `outcome=fail`、`stage=CapabilityHandshake`、`reason_code=UNAVAILABLE`、`stop_condition=hello_failed`；
+  - 验证文件：
+    `/mnt/c/Users/stati/AppData/Local/Temp/miopunch-batch4/run/windows/windows-to-linux-hello-reject-batch4-02.json`、
+    `/tmp/miopunch-batch4/run/windows-topology-after-hello-reject-02.json`。
+- `maintain-neighbors` 一致性样本：
+  - 同一 hello fault 环境下运行 Windows `maintain-neighbors -u`；
+  - 结果：
+    `maintain_neighbors_succeeded=0`、
+    `maintain_neighbors_failed=1`、
+    `active_neighbors=0`；
+  - 验证文件：
+    `/mnt/c/Users/stati/AppData/Local/Temp/miopunch-batch4/run/windows/windows-maintain-neighbors-hello-reject-batch4-01.json`。
+- 验证后已把两侧 daemon 恢复为非 fault 的当前二进制。
+
+当前状态：
+
+- 运行时 active truth 与应用层 keepalive 已在真实 Windows/WSL2 mirrored 环境验证。
+- 未跑完整 gate；本批按本轮策略留到链路层修复完成后统一验证。

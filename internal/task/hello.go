@@ -20,28 +20,31 @@ func (m *Manager) shellStreamOpen(taskID string, op string, target string, sessi
 		return dataplane.StreamOpen{}, false
 	}
 
-	stateDir, err := pocstate.StateDir(m.statePath)
+	open, err := m.buildShellStreamOpen(op, target, session, taskID)
 	if err != nil {
-		m.addFact(taskID, poc.Fact{Message: "state_dir: " + err.Error()})
+		m.addFact(taskID, poc.Fact{Message: err.Error()})
 		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
 		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
 		return dataplane.StreamOpen{}, false
 	}
+	return open, true
+}
+
+func (m *Manager) buildShellStreamOpen(op string, target string, session string, taskID string) (dataplane.StreamOpen, error) {
+	stateDir, err := pocstate.StateDir(m.statePath)
+	if err != nil {
+		return dataplane.StreamOpen{}, errors.New("state_dir: " + err.Error())
+	}
 
 	selfID, err := pocstate.EnsureIdentity(stateDir)
 	if err != nil {
-		m.addFact(taskID, poc.Fact{Message: "ensure identity: " + err.Error()})
-		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
-		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
-		return dataplane.StreamOpen{}, false
+		return dataplane.StreamOpen{}, errors.New("ensure identity: " + err.Error())
 	}
 
 	approveDeclJSON, approveMsgID := findSelfApproveDeclJSON(stateDir, selfID.PeerID)
 	sigB64, err := shellproto.SignHelloV0(selfID.Ed25519Priv, selfID.PeerID, approveMsgID)
 	if err != nil {
-		m.addFact(taskID, poc.Fact{Message: "sign hello: " + err.Error()})
-		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
-		return dataplane.StreamOpen{}, false
+		return dataplane.StreamOpen{}, errors.New("sign hello: " + err.Error())
 	}
 
 	metadata := map[string]string{
@@ -71,7 +74,7 @@ func (m *Manager) shellStreamOpen(taskID string, op string, target string, sessi
 	return dataplane.StreamOpen{
 		Kind:     dataplane.StreamKindShellV0,
 		Metadata: metadata,
-	}, true
+	}, nil
 }
 
 func (m *Manager) requirePeerStreamHello(ctx context.Context, taskID string, res *dialResult) bool {
