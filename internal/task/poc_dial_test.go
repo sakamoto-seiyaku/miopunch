@@ -216,9 +216,58 @@ func TestFindReusableSessionHonorsP2PNetwork(t *testing.T) {
 	}
 }
 
+func TestPassiveTopologyEvidenceRegistersSessionAndRuntime(t *testing.T) {
+	const peerID = "peer-passive"
+	startedAt := time.Unix(123, 456000000).UTC()
+	sess := &testPeerSession{key: dataplane.SessionKey{
+		Protocol:   dataplane.ProtocolQUIC,
+		SecurityID: "sid-passive",
+		PathFamily: dataplane.PathFamilyUDP4,
+	}}
+
+	m := NewManagerWithStatePath(filepath.Join(t.TempDir(), "state.json"))
+	defer m.Close()
+
+	m.RegisterPassivePeerSession(peerID, sess)
+	got, ok := m.sessions.Get(dataplane.SessionKey{
+		RemotePeerID: peerID,
+		Protocol:     dataplane.ProtocolQUIC,
+		SecurityID:   "sid-passive",
+		PathFamily:   dataplane.PathFamilyUDP4,
+	})
+	if !ok {
+		t.Fatalf("RegisterPassivePeerSession(%q) session ok = false, want true", peerID)
+	}
+	if got.Key().RemotePeerID != peerID {
+		t.Fatalf("RegisterPassivePeerSession(%q) key = %+v, want remote peer id", peerID, got.Key())
+	}
+
+	m.RecordPassiveTopologyAttempt(peerID, sess, "", startedAt, "ok")
+	m.RecordPassiveTopologyPayload(peerID, "ping=ok")
+	attempts, payloads := m.topologyRuntimeEvidence()
+	if len(attempts) != 1 {
+		t.Fatalf("topologyRuntimeEvidence() attempts length = %d, want 1: %#v", len(attempts), attempts)
+	}
+	if attempts[0].AttemptPath != "passive_accept_udp4" {
+		t.Errorf("RecordPassiveTopologyAttempt().AttemptPath = %q, want %q", attempts[0].AttemptPath, "passive_accept_udp4")
+	}
+	if attempts[0].PeerID != peerID || attempts[0].DataProto != "quic" || attempts[0].PathFamily != "udp4" || attempts[0].Outcome != "ok" {
+		t.Errorf("RecordPassiveTopologyAttempt() = %#v, want peer/proto/path/outcome evidence", attempts[0])
+	}
+	if len(payloads) != 1 || payloads[0].PeerID != peerID || payloads[0].Evidence != "ping=ok" {
+		t.Fatalf("RecordPassiveTopologyPayload() payloads = %#v, want ping evidence for %q", payloads, peerID)
+	}
+
+	m.ClosePassivePeerSession(peerID, sess, dataplane.CloseReasonDaemonShutdown)
+	if sess.CloseReason() != dataplane.CloseReasonDaemonShutdown {
+		t.Fatalf("ClosePassivePeerSession(%q) close reason = %q, want %q", peerID, sess.CloseReason(), dataplane.CloseReasonDaemonShutdown)
+	}
+}
+
 type testPeerSession struct {
-	key    dataplane.SessionKey
-	closed bool
+	key         dataplane.SessionKey
+	closed      bool
+	closeReason dataplane.CloseReason
 }
 
 func (s *testPeerSession) Key() dataplane.SessionKey { return s.key }
@@ -233,14 +282,12 @@ func (s *testPeerSession) AcceptStream(context.Context) (*dataplane.AcceptedStre
 
 func (s *testPeerSession) Close(reason dataplane.CloseReason) error {
 	s.closed = true
+	s.closeReason = reason
 	return nil
 }
 
 func (s *testPeerSession) CloseReason() dataplane.CloseReason {
-	if s.closed {
-		return dataplane.CloseReasonDaemonShutdown
-	}
-	return ""
+	return s.closeReason
 }
 
 func (s *testPeerSession) Healthy() bool { return !s.closed }

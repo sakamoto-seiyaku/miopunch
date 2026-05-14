@@ -191,52 +191,58 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	}
 
 	m.setStage(taskID, poc.StageCandidateExchange, "mqtt exchange")
-	var decisionRes *punchdecision.Result
 	runtimeBrokers := runtimeBrokerEndpointsForPeer(cfg)
 	if len(runtimeBrokers) == 0 {
 		return nil, errors.New("missing mqtt_broker in peer config")
 	}
 
-	var (
-		natHoleRespMsg *wire.NatHoleResp
-		mqttFailures   []string
-	)
-	for _, broker := range runtimeBrokers {
-		mq, openErr := mqttsig.Open(ctx, mqttsig.Config{
-			BrokerURL:       mqttBrokerURL(broker),
-			TopicPrefix:     cfg.TopicPrefix,
-			SID:             sid,
-			Role:            mqttsig.RoleVisitor,
-			HelloTimeout:    10 * time.Second,
-			ExchangeTimeout: 10 * time.Second,
-			BarrierTimeout:  10 * time.Second,
-		})
-		if openErr != nil {
-			mqttFailures = append(mqttFailures, fmt.Sprintf("%s: %v", broker, openErr))
-			m.addFact(taskID, poc.Fact{Message: "mqtt broker skipped: " + broker + ": " + openErr.Error()})
-			continue
-		}
-
-		natHoleRespMsg, err = mq.RunVisitor(ctx, natHoleVisitorMsg, func(sid string, visitor *wire.NatHoleVisitor, client *wire.NatHoleClient) (*wire.NatHoleResp, *wire.NatHoleResp, error) {
-			res, err := punchdecision.AnalyzeWithDaemonMemory(sid, peerID, visitor, client)
-			if err != nil {
-				return nil, nil, err
+	runVisitorExchange := func(visitorMsg *wire.NatHoleVisitor) (*wire.NatHoleResp, *punchdecision.Result, error) {
+		var (
+			exchangeResp     *wire.NatHoleResp
+			exchangeDecision *punchdecision.Result
+			mqttFailures     []string
+		)
+		for _, broker := range runtimeBrokers {
+			mq, openErr := mqttsig.Open(ctx, mqttsig.Config{
+				BrokerURL:       mqttBrokerURL(broker),
+				TopicPrefix:     cfg.TopicPrefix,
+				SID:             sid,
+				Role:            mqttsig.RoleVisitor,
+				HelloTimeout:    10 * time.Second,
+				ExchangeTimeout: 10 * time.Second,
+				BarrierTimeout:  10 * time.Second,
+			})
+			if openErr != nil {
+				mqttFailures = append(mqttFailures, fmt.Sprintf("%s: %v", broker, openErr))
+				m.addFact(taskID, poc.Fact{Message: "mqtt broker skipped: " + broker + ": " + openErr.Error()})
+				continue
 			}
-			decisionRes = res
-			return res.VisitorResponse, res.ClientResponse, nil
-		})
-		_ = mq.Close()
-		if err == nil {
-			break
+
+			var runErr error
+			exchangeResp, runErr = mq.RunVisitor(ctx, visitorMsg, func(sid string, visitor *wire.NatHoleVisitor, client *wire.NatHoleClient) (*wire.NatHoleResp, *wire.NatHoleResp, error) {
+				res, err := punchdecision.AnalyzeWithDaemonMemory(sid, peerID, visitor, client)
+				if err != nil {
+					return nil, nil, err
+				}
+				exchangeDecision = res
+				return res.VisitorResponse, res.ClientResponse, nil
+			})
+			_ = mq.Close()
+			if runErr == nil {
+				return exchangeResp, exchangeDecision, nil
+			}
+			if ctx.Err() != nil {
+				return nil, nil, ctx.Err()
+			}
+			mqttFailures = append(mqttFailures, fmt.Sprintf("%s: %v", broker, runErr))
+			m.addFact(taskID, poc.Fact{Message: "mqtt broker skipped: " + broker + ": " + runErr.Error()})
 		}
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		mqttFailures = append(mqttFailures, fmt.Sprintf("%s: %v", broker, err))
-		m.addFact(taskID, poc.Fact{Message: "mqtt broker skipped: " + broker + ": " + err.Error()})
+		return nil, nil, brokerFailuresError(mqttFailures, "mqtt exchange failed on all effective brokers")
 	}
+
+	natHoleRespMsg, decisionRes, err := runVisitorExchange(natHoleVisitorMsg)
 	if err != nil {
-		return nil, brokerFailuresError(mqttFailures, "mqtt exchange failed on all effective brokers")
+		return nil, err
 	}
 
 	if natHoleRespMsg != nil {
@@ -389,81 +395,65 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	}
 
 	m.setStage(taskID, poc.StagePunchAttempt, "punch attempt")
-	attemptRes, err := connectivity.Attempt(ctx, sid, []byte(cfg.SecretKey), gather.UDP4Conn, gather.UDP6Conn, gather.TCP4Listener, gather.TCP6Listener, natHoleRespMsg, connectivity.AttemptConfig{
+	attemptCfg := connectivity.AttemptConfig{
 		P2PNetwork:         connectivity.P2PNetwork(cfg.P2PNetwork),
 		P2PIPFamily:        connectivity.P2PIPFamily(cfg.P2PIPFamily),
 		Emitter:            diagEmitter,
 		UDP4TraversalDemux: udp4Demux,
 		UDP6TraversalDemux: udp6Demux,
-	})
+	}
+	attemptRes, err := connectivity.Attempt(ctx, sid, []byte(cfg.SecretKey), gather.UDP4Conn, gather.UDP6Conn, gather.TCP4Listener, gather.TCP6Listener, natHoleRespMsg, attemptCfg)
 	if err != nil {
-		for _, line := range strings.Split(diagEvents.String(), "\n") {
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-			var ev event.Event
-			if err := json.Unmarshal([]byte(line), &ev); err != nil {
-				continue
-			}
-			if !strings.HasPrefix(ev.Name, "attempt.punching.") && !strings.HasPrefix(ev.Name, "attempt.tcp_punching.") {
-				continue
-			}
-
-			errStr := ""
-			if strings.TrimSpace(ev.Err) != "" {
-				errStr = " err=" + strings.TrimSpace(ev.Err)
-			}
-			kvsStr := ""
-			if len(ev.KVs) > 0 {
-				if b, err := json.Marshal(ev.KVs); err == nil {
-					kvsStr = " kvs=" + string(b)
-				}
-			}
-
-			msg := strings.TrimSpace(ev.Msg)
-			if msg == "" {
-				msg = "-"
-			}
-			m.addFact(taskID, poc.Fact{Message: "attempt_diag: " + ev.Name + " msg=" + msg + errStr + kvsStr})
-		}
+		recordAttemptDiagnostics(m, taskID, diagEvents.String())
 		return nil, err
 	}
-	switch attemptRes.Path {
-	case "punching_ipv4":
-		punchdecision.ReportDaemonUDPSuccess(decisionRes)
-	case "punching_tcp4":
-		punchdecision.ReportDaemonTCPSuccess(decisionRes)
-	}
 
-	attemptUDP4 := attemptRes.Conn != nil && attemptRes.Conn == gather.UDP4Conn
-	attemptUDP6 := attemptRes.Conn != nil && attemptRes.Conn == gather.UDP6Conn
-	if attemptUDP4 {
-		gather.UDP4Conn = nil
+	type sessionDialResult struct {
+		sess      dataplane.PeerSession
+		dpCfg     dataplane.Config
+		dataProto string
+		quicCC    string
 	}
-	if attemptUDP6 {
-		gather.UDP6Conn = nil
-	}
+	dialAttemptSession := func(attemptRes *connectivity.AttemptResult) (sessionDialResult, error) {
+		if attemptRes == nil {
+			return sessionDialResult{}, errors.New("nil attempt result")
+		}
 
-	dpCfg := dataplane.Config{
-		Proto:        dataplane.Protocol(natHoleRespMsg.Protocol),
-		QuicCC:       dataplane.QUICCC(natHoleRespMsg.QuicCC),
-		RemotePeerID: peerID,
-		SecurityID:   sid,
-		SecretKey:    []byte(cfg.SecretKey),
-		PathFamily:   dataplane.PathFamilyFromAttemptPath(attemptRes.Path),
-		Brutal: dataplane.BrutalConfig{
-			UpBps:   natHoleRespMsg.BrutalUpBps,
-			DownBps: natHoleRespMsg.BrutalDownBps,
-		},
-	}
+		attemptUDP4 := attemptRes.Conn != nil && attemptRes.Conn == gather.UDP4Conn
+		attemptUDP6 := attemptRes.Conn != nil && attemptRes.Conn == gather.UDP6Conn
+		dpCfg := dataplane.Config{
+			Proto:        dataplane.Protocol(natHoleRespMsg.Protocol),
+			QuicCC:       dataplane.QUICCC(natHoleRespMsg.QuicCC),
+			RemotePeerID: peerID,
+			SecurityID:   sid,
+			SecretKey:    []byte(cfg.SecretKey),
+			PathFamily:   dataplane.PathFamilyFromAttemptPath(attemptRes.Path),
+			Brutal: dataplane.BrutalConfig{
+				UpBps:   natHoleRespMsg.BrutalUpBps,
+				DownBps: natHoleRespMsg.BrutalDownBps,
+			},
+		}
 
-	m.setStage(taskID, poc.StageDataplaneHandshake, "data plane dial stream")
-	var sess dataplane.PeerSession
-	if len(attemptRes.TCPConns) > 0 {
-		dpCfg.Proto = dataplane.ProtocolTLS
-		sess, err = dataplane.DialTLSSession(ctx, dpCfg, attemptRes.TCPConns, nil)
-	} else {
+		result := sessionDialResult{
+			dpCfg:     dpCfg,
+			dataProto: natHoleRespMsg.Protocol,
+			quicCC:    natHoleRespMsg.QuicCC,
+		}
+		var sess dataplane.PeerSession
+		var err error
+		if len(attemptRes.TCPConns) > 0 {
+			dpCfg.Proto = dataplane.ProtocolTLS
+			result.dpCfg = dpCfg
+			result.dataProto = string(dataplane.ProtocolTLS)
+			result.quicCC = ""
+			sess, err = dataplane.DialTLSSession(ctx, dpCfg, attemptRes.TCPConns, nil)
+			if err != nil {
+				return sessionDialResult{}, err
+			}
+			result.sess = sess
+			return result, nil
+		}
+
 		switch dpCfg.Proto {
 		case dataplane.ProtocolQUIC:
 			var tr *quic.Transport
@@ -484,10 +474,10 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 				closers := []io.Closer{demux, tr, attemptRes.Conn}
 				sess = &ownedPeerSession{sess: sess, closers: closers}
 				if attemptUDP4 {
-					quicUDP4Transport, udp4Demux = nil, nil
+					gather.UDP4Conn, quicUDP4Transport, udp4Demux = nil, nil, nil
 				}
 				if attemptUDP6 {
-					quicUDP6Transport, udp6Demux = nil, nil
+					gather.UDP6Conn, quicUDP6Transport, udp6Demux = nil, nil, nil
 				}
 			}
 		case dataplane.ProtocolKCP:
@@ -506,18 +496,62 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 			if err == nil && sess != nil {
 				sess = &ownedPeerSession{sess: sess, closers: []io.Closer{o}}
 				if attemptUDP4 {
-					kcpUDP4Owner, udp4Demux = nil, nil
+					gather.UDP4Conn, kcpUDP4Owner, udp4Demux = nil, nil, nil
 				}
 				if attemptUDP6 {
-					kcpUDP6Owner, udp6Demux = nil, nil
+					gather.UDP6Conn, kcpUDP6Owner, udp6Demux = nil, nil, nil
 				}
 			}
 		default:
 			sess, err = dataplane.DialSession(ctx, dpCfg, attemptRes.Conn, attemptRes.Remote, nil)
 		}
+		if err != nil {
+			return sessionDialResult{}, err
+		}
+		result.sess = sess
+		return result, nil
+	}
+
+	m.setStage(taskID, poc.StageDataplaneHandshake, "data plane dial stream")
+	dialed, err := dialAttemptSession(attemptRes)
+	if err != nil && shouldFallbackToUDPAfterTCPDataplaneError(cfg, attemptRes) {
+		m.addFact(taskID, poc.Fact{Message: "auto_fallback=udp_after_tcp_dataplane_error"})
+		m.addFact(taskID, poc.Fact{Message: "auto_fallback_tcp_error=" + err.Error()})
+		fallbackVisitor := *natHoleVisitorMsg
+		fallbackVisitor.TransactionID = punching.NewTransactionID()
+		fallbackVisitor.P2PNetwork = string(connectivity.P2PNetworkUDPOnly)
+		m.setStage(taskID, poc.StageCandidateExchange, "udp fallback exchange after tcp dataplane error")
+		fallbackResp, fallbackDecision, fallbackExchangeErr := runVisitorExchange(&fallbackVisitor)
+		if fallbackExchangeErr != nil {
+			return nil, fmt.Errorf("tcp dataplane failed: %w; udp fallback exchange failed: %v", err, fallbackExchangeErr)
+		}
+		if fallbackResp == nil {
+			return nil, fmt.Errorf("tcp dataplane failed: %w; udp fallback exchange returned nil response", err)
+		}
+		fallbackResp.P2PNetwork = string(connectivity.P2PNetworkUDPOnly)
+		fallbackCfg := attemptCfg
+		fallbackCfg.P2PNetwork = connectivity.P2PNetworkUDPOnly
+		m.setStage(taskID, poc.StagePunchAttempt, "udp fallback after tcp dataplane error")
+		fallbackRes, fallbackErr := connectivity.Attempt(ctx, sid, []byte(cfg.SecretKey), gather.UDP4Conn, gather.UDP6Conn, gather.TCP4Listener, gather.TCP6Listener, fallbackResp, fallbackCfg)
+		if fallbackErr != nil {
+			return nil, fmt.Errorf("tcp dataplane failed: %w; udp fallback failed: %v", err, fallbackErr)
+		}
+		natHoleRespMsg = fallbackResp
+		decisionRes = fallbackDecision
+		attemptRes = fallbackRes
+		m.setStage(taskID, poc.StageDataplaneHandshake, "data plane dial stream")
+		dialed, err = dialAttemptSession(attemptRes)
 	}
 	if err != nil {
 		return nil, err
+	}
+	sess := dialed.sess
+	dpCfg := dialed.dpCfg
+	switch attemptRes.Path {
+	case "punching_ipv4":
+		punchdecision.ReportDaemonUDPSuccess(decisionRes)
+	case "punching_tcp4":
+		punchdecision.ReportDaemonTCPSuccess(decisionRes)
 	}
 	if m != nil && m.sessions != nil {
 		m.sessions.Put(sess)
@@ -535,12 +569,8 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 
 	m.addFact(taskID, poc.Fact{TermID: "peer_id", Message: "peer_id=" + peerID})
 	m.addFact(taskID, poc.Fact{TermID: "sid", Message: "sid=" + sid})
-	dataProto := natHoleRespMsg.Protocol
-	quicCC := natHoleRespMsg.QuicCC
-	if len(attemptRes.TCPConns) > 0 {
-		dataProto = string(dataplane.ProtocolTLS)
-		quicCC = ""
-	}
+	dataProto := dialed.dataProto
+	quicCC := dialed.quicCC
 
 	m.addFact(taskID, poc.Fact{TermID: "data_proto", Message: "data_proto=" + dataProto})
 	if strings.TrimSpace(quicCC) != "" {
@@ -588,6 +618,53 @@ func (m *Manager) loadPeerConfig(peerID string) (pocstate.PeerConfig, bool, erro
 	}
 	cfg.NormalizeDefaults()
 	return cfg, true, nil
+}
+
+func recordAttemptDiagnostics(m *Manager, taskID string, raw string) {
+	if m == nil {
+		return
+	}
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var ev event.Event
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			continue
+		}
+		if !strings.HasPrefix(ev.Name, "attempt.punching.") && !strings.HasPrefix(ev.Name, "attempt.tcp_punching.") {
+			continue
+		}
+
+		errStr := ""
+		if strings.TrimSpace(ev.Err) != "" {
+			errStr = " err=" + strings.TrimSpace(ev.Err)
+		}
+		kvsStr := ""
+		if len(ev.KVs) > 0 {
+			if b, err := json.Marshal(ev.KVs); err == nil {
+				kvsStr = " kvs=" + string(b)
+			}
+		}
+
+		msg := strings.TrimSpace(ev.Msg)
+		if msg == "" {
+			msg = "-"
+		}
+		m.addFact(taskID, poc.Fact{Message: "attempt_diag: " + ev.Name + " msg=" + msg + errStr + kvsStr})
+	}
+}
+
+func shouldFallbackToUDPAfterTCPDataplaneError(cfg pocstate.PeerConfig, attemptRes *connectivity.AttemptResult) bool {
+	if attemptRes == nil || len(attemptRes.TCPConns) == 0 {
+		return false
+	}
+	network, err := connectivity.ParseP2PNetwork(cfg.P2PNetwork)
+	if err != nil {
+		return false
+	}
+	return network == connectivity.P2PNetworkAuto
 }
 
 func findReusableSession(sessions *dataplane.SessionManager, peerID string, sid string, cfg pocstate.PeerConfig) (dataplane.PeerSession, bool) {

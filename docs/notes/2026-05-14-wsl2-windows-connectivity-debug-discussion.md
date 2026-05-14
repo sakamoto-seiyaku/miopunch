@@ -3175,4 +3175,61 @@ selected neighbors
 - 真实环境已验证：
   - Windows -> Linux fresh TCP 成功；
   - Windows 同一 daemon 后续 `ping -u` 成功且未复用 TCP。
-- Batch 2 还没有最终 commit；等这轮文档同步后再把本批提交落盘。
+- 已提交：`e76698e fix tcp tls convergence timing`。
+- 未跑完整 gate；本批按本轮策略留到链路层修复完成后统一验证。
+
+### 9.3 Batch 3：auto fallback 与被动侧 topology evidence
+
+修复目标：
+
+- 被动 acceptor 接收到对端主动连入时，也要把 session、attempt、payload evidence 写进 `task.Manager` 的 runtime topology。
+- `auto` 模式下，如果 TCP punching 已经拿到 TCP conn，但 TCP/TLS dataplane handshake 失败，不能直接让任务失败；应退回 UDP 路径。
+- UDP fallback 不能只在主动侧本地重跑 `connectivity.Attempt`，必须重新走一轮 MQTT candidate exchange，让被动侧也进入 UDP-only attempt。
+
+代码方向：
+
+- 新增 `internal/task/passive_topology.go`，提供 `RegisterPassivePeerSession`、`ClosePassivePeerSession`、`RecordPassiveTopologyAttempt`、`RecordPassiveTopologyPayload`。
+- `internal/pocacceptor/acceptor.go` 增加 `RuntimeEvidenceSink`，在被动 session 通过 hello 后登记 active session，在 ping payload 通过后记录 `ping=ok`。
+- `cmd/miopunch/up*.go` 把当前 `Manager` 传给 acceptor，统一桌面/topology 的 runtime evidence 来源。
+- `internal/task/poc_dial.go` 的 auto fallback 改成：
+  - 先按 auto 正常 exchange / attempt；
+  - 如果 TCP dataplane 失败且本次是 `auto`，记录 `auto_fallback=udp_after_tcp_dataplane_error`；
+  - 重新发起一轮 `P2PNetwork=udp_only` 的 MQTT exchange；
+  - 用第二轮 response 再做 UDP punching 与 QUIC dataplane。
+
+验证记录：
+
+- focused validation 已通过：
+  - `go test ./connectivity ./dataplane`
+  - `go test ./internal/task ./internal/pocacceptor ./cmd/miopunch`
+  - `go build ./cmd/miopunch`
+- 真实 Windows/WSL2 mirrored 环境使用本地 MQTT broker `192.168.4.5:1883` 做稳定 signaling；这是验证基础设施替换，不改变被测链路层代码。
+- 被动侧 topology evidence 已在真实环境验证：
+  - Windows -> Linux `ping -u UANSTBEARWBWOEMGHHY4454E5I` 成功；
+  - Linux topology 文件 `/tmp/miopunch-batch3/run/linux/topology-after-w2l-udp-06.json` 显示 active session：
+    `peer_id=PCALYYSAMQFDPCBKRS4AOFVNIQ`、`data_proto=quic`、`path_family=udp4`、`healthy=true`；
+  - 同一 topology 显示 attempt：`attempt_path=passive_accept_udp4`、`outcome=ok`；
+  - payload 显示 `evidence=ping=ok`。
+- auto fallback 的第一版真实 fault 验证失败，暴露了关键因果：
+  - Windows 主动侧已记录 `auto_fallback=udp_after_tcp_dataplane_error`；
+  - 但 UDP fallback 失败为 `wait detect message error: context deadline exceeded`；
+  - 原因是只在主动侧本地重跑 UDP attempt，被动侧没有第二轮 UDP-only exchange。
+- 修正为第二轮 MQTT exchange 后，真实 fault 验证通过：
+  - fault 只用于验证：Linux 被动侧临时二进制在 TCP punching 成功后关闭 TCP dataplane candidates，UDP listener 保持正常；该临时代码未进入工作树最终 diff。
+  - Windows -> Linux plain `ping UANSTBEARWBWOEMGHHY4454E5I` 输出：
+    `auto_fallback=udp_after_tcp_dataplane_error`、
+    `auto_fallback_tcp_error=tls handshake failed for all candidates`、
+    `data_proto=quic`、
+    `quic_cc=bbr`、
+    `attempt_path=punching_ipv4`、
+    `path_family=udp4`、
+    `hello=ok`、
+    `ping=ok`。
+  - 主动侧报告：`/mnt/c/Users/stati/AppData/Local/Temp/miopunch-batch3/run/windows/windows-to-linux-auto-fallback-batch3-fault-02.json`。
+  - 被动侧 topology：`/tmp/miopunch-batch3/run/linux/topology-after-w2l-auto-fallback-fault-02.json`，显示 `passive_accept_udp4` 与 `ping=ok`。
+- 验证后已把两侧 daemon 恢复为非 fault 的当前二进制。
+
+当前状态：
+
+- auto fallback 和被动侧 topology evidence 均已在真实 Windows/WSL2 mirrored 环境验证。
+- 未跑完整 gate；本批按本轮策略留到链路层修复完成后统一验证。

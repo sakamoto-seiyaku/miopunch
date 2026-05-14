@@ -221,7 +221,7 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 		}()
 	}
 	go func() {
-		_ = pocacceptor.Run(ctx, pocacceptor.Config{StatePath: opt.StatePath})
+		_ = pocacceptor.Run(ctx, pocacceptor.Config{StatePath: opt.StatePath, RuntimeEvidence: mgr})
 	}()
 
 	fmt.Fprintf(stderr, "miopunch up: serving LocalAPI (%s) at %s\n", mode, addr.String())

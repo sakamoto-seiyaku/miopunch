@@ -36,6 +36,16 @@ type Config struct {
 	StatePath string
 
 	LockTTL time.Duration
+
+	RuntimeEvidence RuntimeEvidenceSink
+}
+
+// RuntimeEvidenceSink receives passive-side session and payload evidence.
+type RuntimeEvidenceSink interface {
+	RegisterPassivePeerSession(peerID string, sess dataplane.PeerSession)
+	ClosePassivePeerSession(peerID string, sess dataplane.PeerSession, reason dataplane.CloseReason)
+	RecordPassiveTopologyAttempt(peerID string, sess dataplane.PeerSession, attemptPath string, startedAt time.Time, outcome string)
+	RecordPassiveTopologyPayload(peerID string, evidence string)
 }
 
 type peerSessionRegistry struct {
@@ -195,14 +205,14 @@ func Run(ctx context.Context, cfg Config) error {
 			continue
 		}
 
-		if err := serveOnce(ctx, cfg.StatePath, st.Local, locks, cfg.LockTTL); err != nil {
+		if err := serveOnce(ctx, cfg.StatePath, st.Local, locks, cfg.LockTTL, cfg.RuntimeEvidence); err != nil {
 			// Best-effort: keep the daemon running; transient errors are expected.
 			continue
 		}
 	}
 }
 
-func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfig, locks *shelllock.Manager, lockTTL time.Duration) error {
+func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfig, locks *shelllock.Manager, lockTTL time.Duration, runtimeEvidence RuntimeEvidenceSink) error {
 	stateDir, err := pocstate.StateDir(statePath)
 	if err != nil {
 		return err
@@ -390,8 +400,9 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 					return
 				}
 				s := sess
+				startedAt := time.Now().UTC()
 				tg.Go(func() {
-					servePeerSession(serveCtx, stateDir, local, locks, lockTTL, s, reg)
+					servePeerSession(serveCtx, stateDir, local, locks, lockTTL, s, reg, runtimeEvidence, startedAt)
 				})
 			}
 		})
@@ -555,7 +566,7 @@ func serveOnce(ctx context.Context, statePath string, local *pocstate.LocalConfi
 				return
 			}
 
-			servePeerSession(serveCtx, stateDir, local, locks, lockTTL, sess, reg)
+			servePeerSession(serveCtx, stateDir, local, locks, lockTTL, sess, reg, runtimeEvidence, time.Now().UTC())
 		})
 	}
 
@@ -635,6 +646,8 @@ func servePeerSession(
 	lockTTL time.Duration,
 	sess dataplane.PeerSession,
 	reg *peerSessionRegistry,
+	runtimeEvidence RuntimeEvidenceSink,
+	startedAt time.Time,
 ) {
 	if sess == nil {
 		return
@@ -658,11 +671,22 @@ func servePeerSession(
 		peerOnce.Do(func() {
 			peerID = id
 			reg.Replace(id, sess, dataplane.CloseReasonSessionSuperseded)
+			if runtimeEvidence != nil {
+				runtimeEvidence.RegisterPassivePeerSession(id, sess)
+				runtimeEvidence.RecordPassiveTopologyAttempt(id, sess, "", startedAt, "ok")
+			}
 		})
 	}
 	defer func() {
 		if strings.TrimSpace(peerID) != "" {
 			reg.Remove(peerID, sess)
+			if runtimeEvidence != nil {
+				reason := sess.CloseReason()
+				if reason == "" {
+					reason = dataplane.CloseReasonDaemonShutdown
+				}
+				runtimeEvidence.ClosePassivePeerSession(peerID, sess, reason)
+			}
 		}
 	}()
 
@@ -679,7 +703,7 @@ func servePeerSession(
 		streamWG.Add(1)
 		go func(accepted *dataplane.AcceptedStream) {
 			defer streamWG.Done()
-			if err := serveAcceptedShellStream(ctx, stateDir, local, locks, lockTTL, sess, accepted, bindPeer, reg); err != nil && ctx.Err() == nil {
+			if err := serveAcceptedShellStream(ctx, stateDir, local, locks, lockTTL, sess, accepted, bindPeer, reg, runtimeEvidence); err != nil && ctx.Err() == nil {
 				kind := ""
 				meta := map[string]string(nil)
 				if accepted != nil {
@@ -740,6 +764,7 @@ func serveAcceptedShellStream(
 	accepted *dataplane.AcceptedStream,
 	bindPeer func(string),
 	reg *peerSessionRegistry,
+	runtimeEvidence RuntimeEvidenceSink,
 ) error {
 	if accepted == nil || accepted.Stream == nil {
 		return errors.New("nil accepted stream")
@@ -801,7 +826,13 @@ func serveAcceptedShellStream(
 
 	switch strings.TrimSpace(ctl.Op) {
 	case shellproto.OpPing:
-		return servePing(writer)
+		if err := servePing(writer); err != nil {
+			return err
+		}
+		if runtimeEvidence != nil {
+			runtimeEvidence.RecordPassiveTopologyPayload(helloCtl.PeerID, "ping=ok")
+		}
+		return nil
 	case shellproto.OpShLS:
 		return serveShLS(ctx, writer, ctl)
 	case shellproto.OpShAttach:

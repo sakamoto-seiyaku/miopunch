@@ -363,7 +363,7 @@ func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, mo
 		}()
 	}
 	go func() {
-		_ = pocacceptor.Run(ctx, pocacceptor.Config{StatePath: upOpt.StatePath})
+		_ = pocacceptor.Run(ctx, pocacceptor.Config{StatePath: upOpt.StatePath, RuntimeEvidence: mgr})
 	}()
 
 	fmt.Fprintf(stderr, "miopunch up: serving LocalAPI (%s) at %s\n", mode, addr.String())
