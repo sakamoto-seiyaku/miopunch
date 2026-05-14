@@ -51,20 +51,29 @@ sibling `miopunch up` process from the same extracted session bundle.
    - Derived state: `data/net.json`, `data/identity/`, `data/decls/`,
      `data/bootstrap/`, `data/reports/`
    - Delete `data/` before launch to reset this extracted bundle to a clean node.
-6. On Linux, if startup fails with GTK/display guidance:
+6. On Windows, check window and tray lifecycle.
+   - Closing the window should ask whether to keep miopunch running in the
+     system tray or quit.
+   - Choosing the tray option should hide the window while leaving a tray icon.
+   - Clicking or double-clicking the tray icon should restore the GUI.
+   - Right-clicking the tray icon should keep an `Open miopunch` /
+     `Quit miopunch` menu visible until the user chooses an item or dismisses it.
+   - `Quit miopunch` should fully exit the GUI and the GUI-managed session
+     daemon, but should not stop a daemon the GUI merely reused.
+7. On Linux, if startup fails with GTK/display guidance:
    - Run from a local graphical desktop session, not a headless SSH shell.
    - Check `echo "$DISPLAY $WAYLAND_DISPLAY"`.
    - Check `ldd ./miopunch-desktop | grep 'not found'`.
    - Send `logs/miopunch-desktop.log` with the terminal output.
-7. Run a two-machine access smoke.
+8. Run a two-machine access smoke.
    - Machine A: Access > Create invite > Create, then copy the invite code.
    - Machine A: Access > Approve request, paste the code, and start approval.
    - Machine B: Access > Join network, paste the code, and join.
    - Refresh both machines and verify each peer appears in Network.
-8. Run peer operations.
+9. Run peer operations.
    - Open the remote peer and run Ping; expect payload exchange.
    - Run List sessions, then Shell > Connect; verify terminal attach.
-9. Reports
+10. Reports
    - Open completed task reports and export them when diagnostics are needed.
 
 ## Packaging notes (session v0)

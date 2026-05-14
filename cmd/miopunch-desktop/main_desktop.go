@@ -62,7 +62,7 @@ func runDesktop() (err error) {
 			},
 		},
 	}
-	configurePlatformOptions(appOptions)
+	configurePlatformOptions(appOptions, a)
 
 	runErr := wails.Run(appOptions)
 	if runErr != nil {
