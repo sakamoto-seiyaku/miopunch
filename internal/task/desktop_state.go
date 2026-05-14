@@ -120,10 +120,25 @@ type DesktopNetConfig struct {
 	BrokersEffective []string `json:"brokers_effective,omitempty"`
 }
 
+type DesktopGovernanceConfig struct {
+	State               string `json:"state"`
+	SelfPeerID          string `json:"self_peer_id,omitempty"`
+	SelfRole            string `json:"self_role,omitempty"`
+	NetID               string `json:"net_id,omitempty"`
+	GovernanceHeadB64   string `json:"governance_head_b64,omitempty"`
+	DeclsHeadB64        string `json:"decls_head_b64,omitempty"`
+	Reason              string `json:"reason,omitempty"`
+	CanInitOwner        bool   `json:"can_init_owner"`
+	CanCreateNewNetwork bool   `json:"can_create_new_network"`
+	CanInvite           bool   `json:"can_invite"`
+	CanApprove          bool   `json:"can_approve"`
+}
+
 type DesktopConfig struct {
 	Local      *DesktopPeerConfig       `json:"local,omitempty"`
 	KnownPeers []DesktopPeerConfig      `json:"known_peers"`
 	Net        *DesktopNetConfig        `json:"net,omitempty"`
+	Governance DesktopGovernanceConfig  `json:"governance"`
 	Desired    DesktopSettingsConfig    `json:"desired"`
 	Effective  DesktopSettingsConfig    `json:"effective"`
 	Apply      DesktopConfigApplyStatus `json:"apply"`
@@ -654,6 +669,15 @@ func (m *Manager) buildDesktopConfig(topology TopologySnapshot) (DesktopConfig, 
 		return DesktopConfig{}, err
 	}
 
+	if selfID, err := pocstate.EnsureIdentity(stateDir); err == nil {
+		out.Governance = desktopGovernanceConfigFromCapability(m.localGovernanceCapability(stateDir, selfID))
+	} else {
+		out.Governance = DesktopGovernanceConfig{
+			State:  GovernanceStateForeignOrStaleNetwork,
+			Reason: "ensure identity: " + err.Error(),
+		}
+	}
+
 	out.Apply = m.desktopConfigApplyStatus()
 	return out, nil
 }
@@ -713,6 +737,7 @@ func buildDesktopDiagnostics(snapshot DesktopStateSnapshot, statePath string, re
 		{Message: "desktop_runtime_rev=" + uint64String(rev)},
 		{Message: "self_peer_id=" + strings.TrimSpace(snapshot.Topology.Self.PeerID)},
 		{Message: "self_role=" + strings.TrimSpace(snapshot.Topology.Self.Role)},
+		{Message: "governance_state=" + strings.TrimSpace(snapshot.Config.Governance.State)},
 		{Message: "known_peers=" + uint64String(uint64(len(snapshot.Config.KnownPeers)))},
 		{Message: "active_peer_sessions=" + uint64String(uint64(activePeerSessions))},
 		{Message: "closed_peer_sessions=" + uint64String(uint64(closedPeerSessions))},
@@ -750,6 +775,22 @@ func desktopPeerConfigFromLocal(cfg pocstate.LocalConfig) *DesktopPeerConfig {
 		StunExplicit:         cfg.StunExplicit,
 		DisablePortMap:       cfg.DisablePortMap,
 		DisableAssistedAddrs: cfg.DisableAssistedAddrs,
+	}
+}
+
+func desktopGovernanceConfigFromCapability(cap localGovernanceCapability) DesktopGovernanceConfig {
+	return DesktopGovernanceConfig{
+		State:               strings.TrimSpace(cap.State),
+		SelfPeerID:          strings.TrimSpace(cap.SelfPeerID),
+		SelfRole:            strings.TrimSpace(cap.SelfRole),
+		NetID:               strings.TrimSpace(cap.NetID),
+		GovernanceHeadB64:   strings.TrimSpace(cap.GovernanceHeadB64),
+		DeclsHeadB64:        strings.TrimSpace(cap.DeclsHeadB64),
+		Reason:              strings.TrimSpace(cap.Reason),
+		CanInitOwner:        cap.CanInitOwner,
+		CanCreateNewNetwork: cap.CanCreateNewNetwork,
+		CanInvite:           cap.CanInvite,
+		CanApprove:          cap.CanApprove,
 	}
 }
 

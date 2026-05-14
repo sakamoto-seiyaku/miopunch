@@ -1,4 +1,4 @@
-const { PEERS, expect, openDesktop, test } = require("./support/desktop");
+const { PEERS, expect, expectCreateTaskCall, openDesktop, test } = require("./support/desktop");
 
 async function returnToOverview(page, tabTitle) {
   await page.locator(".workspace-tabs [data-open-overview]").click();
@@ -104,9 +104,25 @@ test("empty network fixture can enable first-run owner admin mode from Settings"
 
   await page.getByRole("button", { name: "Enable Owner/Admin mode" }).click();
 
+  await expectCreateTaskCall(page, "init_network", { mode: "bootstrap" });
   await expect(page.locator("[data-admin-nav]")).toBeVisible();
   await expect(page.locator("#topbar-title")).toHaveText("Admin");
   await expect(page.locator(".page-title")).toHaveText("Governance");
+  await expect(page.getByRole("button", { name: /Create invite/ })).toBeVisible();
+});
+
+test("member network can create a distinct owner admin network from Settings", async ({ page }) => {
+  await openDesktop(page, { fixture: "member", path: "/?tab=settings" });
+
+  await expect(page.locator("[data-admin-nav]")).toBeHidden();
+  await expect(page.getByRole("button", { name: "Enable Owner/Admin mode" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Create new network" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Create new network" }).click();
+
+  await expectCreateTaskCall(page, "init_network", { mode: "create_new", confirm: "create-new-network" });
+  await expect(page.locator("[data-admin-nav]")).toBeVisible();
+  await expect(page.locator("#topbar-title")).toHaveText("Admin");
   await expect(page.getByRole("button", { name: /Create invite/ })).toBeVisible();
 });
 

@@ -34,6 +34,7 @@ func TestRunInviteTaskRejectsUnreachableBrokerBeforeEmittingCode(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("pocstate.Save(%q) error = %v", statePath, err)
 	}
+	initAdminNetworkForTest(t, statePath)
 
 	m := NewManagerWithStatePath(statePath)
 	t.Cleanup(m.Close)
@@ -86,6 +87,7 @@ func TestRunInviteTaskDoesNotMixBuiltinBrokerWhenExplicitConfigExists(t *testing
 	}); err != nil {
 		t.Fatalf("pocstate.Save(%q) error = %v", statePath, err)
 	}
+	initAdminNetworkForTest(t, statePath)
 
 	m := NewManagerWithStatePath(statePath)
 	t.Cleanup(m.Close)
@@ -121,6 +123,7 @@ func TestRunInviteTaskUsesReachableBuiltinBrokerWhenExplicitConfigAbsent(t *test
 
 	statePath := filepath.Join(t.TempDir(), "state.json")
 	saveLocalStateForInviteTest(t, statePath)
+	initAdminNetworkForTest(t, statePath)
 
 	m := NewManagerWithStatePath(statePath)
 	t.Cleanup(m.Close)
@@ -297,6 +300,7 @@ func TestJoinApprovePersistEffectiveBrokerForPostJoinSignaling(t *testing.T) {
 
 	saveLocalStateForInviteTest(t, approverStatePath)
 	saveLocalStateForInviteTest(t, joinerStatePath)
+	initAdminNetworkForTest(t, approverStatePath)
 
 	approver := NewManagerWithStatePath(approverStatePath)
 	t.Cleanup(approver.Close)
@@ -425,6 +429,30 @@ func saveLocalStateForInviteTest(t *testing.T, statePath string, brokers ...stri
 	}
 }
 
+func initAdminNetworkForTest(t *testing.T, statePath string, brokers ...string) pocstate.Identity {
+	t.Helper()
+
+	stateDir, err := pocstate.StateDir(statePath)
+	if err != nil {
+		t.Fatalf("pocstate.StateDir(%q) error = %v", statePath, err)
+	}
+	selfID, err := pocstate.EnsureIdentity(stateDir)
+	if err != nil {
+		t.Fatalf("pocstate.EnsureIdentity(%q) error = %v", stateDir, err)
+	}
+	netState, err := pocstate.EnsureNet(stateDir, brokers)
+	if err != nil {
+		t.Fatalf("pocstate.EnsureNet(%q) error = %v", stateDir, err)
+	}
+	if _, err := pocstate.EnsureGovernanceHeadSnapshot(stateDir, netState.NetID, selfID); err != nil {
+		t.Fatalf("pocstate.EnsureGovernanceHeadSnapshot(%q) error = %v", stateDir, err)
+	}
+	if _, err := pocstate.EnsureDecls(stateDir); err != nil {
+		t.Fatalf("pocstate.EnsureDecls(%q) error = %v", stateDir, err)
+	}
+	return selfID
+}
+
 func withBuiltinInviteBrokersForTest(t *testing.T, brokers []string) {
 	t.Helper()
 
@@ -447,6 +475,16 @@ func inviteCodeForTest(t *testing.T, statePath string, broker string) string {
 	issuer, err := pocstate.EnsureIdentity(stateDir)
 	if err != nil {
 		t.Fatalf("pocstate.EnsureIdentity(%q) error = %v", stateDir, err)
+	}
+	netState, err := pocstate.EnsureNet(stateDir, []string{broker})
+	if err != nil {
+		t.Fatalf("pocstate.EnsureNet(%q) error = %v", stateDir, err)
+	}
+	if _, err := pocstate.EnsureGovernanceHeadSnapshot(stateDir, netState.NetID, issuer); err != nil {
+		t.Fatalf("pocstate.EnsureGovernanceHeadSnapshot(%q) error = %v", stateDir, err)
+	}
+	if _, err := pocstate.EnsureDecls(stateDir); err != nil {
+		t.Fatalf("pocstate.EnsureDecls(%q) error = %v", stateDir, err)
 	}
 	inviteTopic, err := newRandomTopic()
 	if err != nil {

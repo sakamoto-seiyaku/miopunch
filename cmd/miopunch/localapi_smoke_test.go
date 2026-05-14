@@ -44,6 +44,7 @@ func TestCLI_Smoke_LocalAPI_Invite_JSONEnvelope(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("seed state.json: %v", err)
 	}
+	initAdminNetworkForSmokeTest(t, statePath, brokerAddr)
 	mgr := task.NewManagerWithStatePath(statePath)
 	t.Cleanup(mgr.Close)
 
@@ -114,6 +115,29 @@ func TestCLI_Smoke_LocalAPI_Invite_JSONEnvelope(t *testing.T) {
 	}
 	if env.Suggestions == nil {
 		t.Fatalf("suggestions is nil, raw=%s", out)
+	}
+}
+
+func initAdminNetworkForSmokeTest(t *testing.T, statePath string, brokers ...string) {
+	t.Helper()
+
+	stateDir, err := pocstate.StateDir(statePath)
+	if err != nil {
+		t.Fatalf("pocstate.StateDir(%q) error = %v", statePath, err)
+	}
+	selfID, err := pocstate.EnsureIdentity(stateDir)
+	if err != nil {
+		t.Fatalf("pocstate.EnsureIdentity(%q) error = %v", stateDir, err)
+	}
+	netState, err := pocstate.EnsureNet(stateDir, brokers)
+	if err != nil {
+		t.Fatalf("pocstate.EnsureNet(%q) error = %v", stateDir, err)
+	}
+	if _, err := pocstate.EnsureGovernanceHeadSnapshot(stateDir, netState.NetID, selfID); err != nil {
+		t.Fatalf("pocstate.EnsureGovernanceHeadSnapshot(%q) error = %v", stateDir, err)
+	}
+	if _, err := pocstate.EnsureDecls(stateDir); err != nil {
+		t.Fatalf("pocstate.EnsureDecls(%q) error = %v", stateDir, err)
 	}
 }
 

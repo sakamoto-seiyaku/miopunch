@@ -140,6 +140,62 @@ func TestDesktopStateRoute_ReturnsSnapshotWithRevisionedState(t *testing.T) {
 	}
 }
 
+func TestCreateTaskRoute_InitNetworkUpdatesDesktopGovernanceState(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	mgr := task.NewManagerWithStatePath(statePath)
+	t.Cleanup(mgr.Close)
+
+	srv := NewServer(ListenModeUser, mgr)
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	t.Cleanup(cancel)
+
+	body := bytes.NewBufferString(`{"kind":"init_network","args":{"mode":"bootstrap"}}`)
+	resp := mustDoRequest(t, ctx, http.MethodPost, ts.URL+"/api/v0/tasks", body)
+	if resp.StatusCode != http.StatusCreated {
+		b, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		t.Fatalf("POST /api/v0/tasks init_network status = %d, want %d, body=%s", resp.StatusCode, http.StatusCreated, b)
+	}
+	var created task.Task
+	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
+		_ = resp.Body.Close()
+		t.Fatalf("decode init_network task: %v", err)
+	}
+	_ = resp.Body.Close()
+
+	final := waitLocalAPITaskDoneForTest(t, mgr, created.ID)
+	if final.ReasonCode != poc.ReasonCodeOK {
+		t.Fatalf("init_network ReasonCode = %q, want %q; facts=%v", final.ReasonCode, poc.ReasonCodeOK, final.Facts)
+	}
+
+	stateResp := mustDoRequest(t, ctx, http.MethodGet, ts.URL+"/api/v0/desktop/state", nil)
+	if stateResp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(stateResp.Body)
+		_ = stateResp.Body.Close()
+		t.Fatalf("GET /api/v0/desktop/state status = %d, want %d, body=%s", stateResp.StatusCode, http.StatusOK, b)
+	}
+	defer func() { _ = stateResp.Body.Close() }()
+
+	var snapshot task.DesktopStateSnapshot
+	if err := json.NewDecoder(stateResp.Body).Decode(&snapshot); err != nil {
+		t.Fatalf("decode desktop state snapshot: %v", err)
+	}
+	got := snapshot.Config.Governance
+	if got.State != task.GovernanceStateAdminNetwork {
+		t.Fatalf("desktop governance state = %q, want %q", got.State, task.GovernanceStateAdminNetwork)
+	}
+	if !got.CanInvite || !got.CanApprove || got.CanInitOwner || got.CanCreateNewNetwork {
+		t.Fatalf("desktop governance capabilities = init:%v invite:%v approve:%v create_new:%v, want false/true/true/false",
+			got.CanInitOwner, got.CanInvite, got.CanApprove, got.CanCreateNewNetwork)
+	}
+	if snapshot.Config.Net == nil || strings.TrimSpace(snapshot.Config.Net.NetID) == "" {
+		t.Fatalf("desktop net config = %#v, want non-empty net_id", snapshot.Config.Net)
+	}
+}
+
 func TestDesktopStateRoute_ReturnsPersistedApprovalRequests(t *testing.T) {
 	t.Parallel()
 
@@ -414,6 +470,7 @@ func recordLocalAPIPersistedApprovalDecisionForTest(t *testing.T, statePath stri
 	if _, err := pocstate.EnsureIdentity(stateDir); err != nil {
 		t.Fatalf("pocstate.EnsureIdentity(%q) error = %v", stateDir, err)
 	}
+	initLocalAPIAdminNetworkForTest(t, stateDir, brokerAddr)
 	memberID, err := pocstate.EnsureIdentity(t.TempDir())
 	if err != nil {
 		t.Fatalf("pocstate.EnsureIdentity(member) error = %v", err)
@@ -453,6 +510,26 @@ func recordLocalAPIPersistedApprovalDecisionForTest(t *testing.T, statePath stri
 		t.Fatalf("RecordApprovalRequest() error = %v", err)
 	}
 	return approveTaskID, requestMsgID
+}
+
+func initLocalAPIAdminNetworkForTest(t *testing.T, stateDir string, brokers ...string) pocstate.Identity {
+	t.Helper()
+
+	selfID, err := pocstate.EnsureIdentity(stateDir)
+	if err != nil {
+		t.Fatalf("pocstate.EnsureIdentity(%q) error = %v", stateDir, err)
+	}
+	netState, err := pocstate.EnsureNet(stateDir, brokers)
+	if err != nil {
+		t.Fatalf("pocstate.EnsureNet(%q) error = %v", stateDir, err)
+	}
+	if _, err := pocstate.EnsureGovernanceHeadSnapshot(stateDir, netState.NetID, selfID); err != nil {
+		t.Fatalf("pocstate.EnsureGovernanceHeadSnapshot(%q) error = %v", stateDir, err)
+	}
+	if _, err := pocstate.EnsureDecls(stateDir); err != nil {
+		t.Fatalf("pocstate.EnsureDecls(%q) error = %v", stateDir, err)
+	}
+	return selfID
 }
 
 func localAPIInviteStoreForTest(t *testing.T, statePath string) *controlplane.InviteStore {

@@ -3343,3 +3343,125 @@ focused validation：
 
 - 运行时 active truth 与应用层 keepalive 已在真实 Windows/WSL2 mirrored 环境验证。
 - 未跑完整 gate；本批按本轮策略留到链路层修复完成后统一验证。
+
+### 9.5 Batch 5：governance bootstrap 与 admin access 前置校验
+
+本批处理 4.4 / 4.7 中暴露的治理状态问题：非 admin 节点可以生成 invite / approve material，但对端 hello 会按治理 head 拒绝，最终表现成 `approve_decl issuer is not an admin`。这不是链路层失败，但它会污染 TCP/UDP 验证样本，因此需要在继续实验前收紧。
+
+#### 9.5.1 问题因果
+
+已确认的因果链：
+
+- 本地存在一个旧 network / governance head，owner/admin 是旧 peer。
+- 当前 Windows peer 不是该 head 里的 owner/admin。
+- 旧实现里 `invite` / `approve` 会在操作路径里 `EnsureGovernanceHeadSnapshot`，并继续用当前 self identity 签发 membership material。
+- `NewApproveMemberDeclV0` 只负责签名和 canonicalization，不知道当前 issuer 是否是 governance admin。
+- 对端 acceptor 在 hello 阶段校验 approve decl issuer，发现 issuer 不在 head admin set，于是拒绝：
+  `HELLO_ISSUER_NOT_ADMIN` / `approve_decl issuer is not an admin`。
+
+因此正确修复不是让当前 peer 在旧 network 里“自升 admin”。旧 network 的 trust root 不能被本地单方改写。正确边界是：
+
+- 若本地是空白节点，允许显式初始化一个新的 owner/admin network。
+- 若本地已有旧 network 且当前 identity 不是 admin，禁止 invite/approve。
+- 若用户确实要把当前机器变成新 owner/admin，只能显式创建一个 distinct new network；这会换新 `net_id`，旧成员和旧 approvals 不迁移。
+
+#### 9.5.2 修复结构
+
+OpenSpec change：
+
+- `fix-governance-bootstrap-and-admin-access`
+
+后端修复：
+
+- 新增 local governance classification：
+  - `no_network`
+  - `admin_network`
+  - `member_network`
+  - `foreign_or_stale_network`
+- 新增 `init_network` task：
+  - `mode=bootstrap`：只允许空白节点创建本机 owner/admin trust root。
+  - `mode=create_new`：要求 `confirm=create-new-network`，保留本机 identity / runtime preferences，但重置 net、governance head、decls、known peers、bootstrap evidence 和 invite approval cache。
+- `invite` / `approve` / `approve_decision` 在发布任何 invite code、approval listener 或 membership material 前，先检查当前 identity 是否在本地 governance head 中具备 owner/admin capability。
+- `invite --mode auto` 先明确拒绝为 `NOT_IMPLEMENTED`，避免继续暴露一个没有完整 auto approve 语义的入口。
+
+CLI / LocalAPI / Desktop 修复：
+
+- CLI 增加：
+  - `miopunch init-network`
+  - `miopunch init-network --new --confirm create-new-network`
+- LocalAPI `POST /api/v0/tasks` 支持 `kind=init_network`。
+- Desktop state/config 暴露 daemon-backed governance capability：
+  - `state`
+  - `self_role`
+  - `can_init_owner`
+  - `can_create_new_network`
+  - `can_invite`
+  - `can_approve`
+- Desktop Settings 不再使用纯前端 first-run owner/admin 状态；空白节点通过 `init_network mode=bootstrap` 创建真实本地 trust root。
+- 非 admin / stale 状态下，Settings 只提供 confirmed create-new network，不提供对旧 network 的 self-promotion。
+- Admin invite / approve UI 只按 daemon capability 暴露。
+
+#### 9.5.3 当前实现状态
+
+已实现并通过 focused validation：
+
+- Go focused tests：
+  - `go test ./internal/task ./internal/localapi ./cmd/miopunch ./cmd/miopunch-desktop`
+- Browser focused tests：
+  - `npx playwright test tests/desktop-navigation.spec.js tests/access-actions.spec.js`
+- OpenSpec strict validation：
+  - `openspec validate fix-governance-bootstrap-and-admin-access --strict --no-interactive`
+
+新增/调整的重点覆盖：
+
+- `init_network bootstrap` 会创建 admin-capable network。
+- `init_network create_new` 会生成新 `net_id`，清空 known peers 与 bootstrap evidence。
+- 非 admin invite 失败为 `FORBIDDEN`，且不会输出 `invite_code`。
+- `invite --mode auto` 失败为 `NOT_IMPLEMENTED`。
+- LocalAPI 可创建 `init_network` task，并在 desktop state 中看到 admin governance capability。
+- Desktop 空白节点 Settings 会调用 `init_network {mode:"bootstrap"}`。
+- Desktop member/non-admin Settings 会调用 `init_network {mode:"create_new", confirm:"create-new-network"}`。
+- 非 admin invite deep link 会回到允许的视图，不创建 invite 控件或 invite task。
+
+#### 9.5.4 真实环境验证结果
+
+本批已在真实 Windows/WSL2 环境完成验证，关键样本如下：
+
+1. 空白 Windows state 的 bootstrap：
+   - `init-network` 成功创建本地 trust root。
+   - 证据：
+     - `.../run/windows/init-network.json`
+   - 结果：
+     - `reason_code=OK`
+     - `peer_id=UJBOCGI6LPJGGICFYHON3CUZP4`
+     - `net_id=BBDIMTM6XO3JBTGY7Q5IQXICE4`
+2. 旧 network / 非 admin Windows state 的前置校验：
+   - `invite --mode auto` 在真实 Windows daemon 上返回 `NOT_IMPLEMENTED`。
+   - 证据：
+     - `.../run/windows/invite-auto.json`
+   - Windows admin invite 与 Linux join 走通：
+     - `.../run/windows/approve.json`
+     - `.../run/linux/join-2.json`
+3. member state 的本地拒绝：
+   - Linux 成为 member 后，再跑 `invite`，本地直接返回 `FORBIDDEN`，且没有 `invite_code`。
+   - 证据：
+     - `.../run/linux/member-invite-forbidden.json`
+   - 结果：
+     - `governance_state=member_network`
+     - `self_peer_id=2LJ5IM3YTZPBBP6HUSIMXRC6VQ`
+4. confirmed create-new 路径：
+   - 未带 confirm 的 `init-network --new` 返回 `BAD_REQUEST`，没有替换旧 state。
+   - 证据：
+     - `.../run/linux/create-new-missing-confirm.json`
+   - 带 confirm 的 `init-network --new --confirm create-new-network` 成功生成新 `net_id`。
+   - 证据：
+     - `.../run/linux/create-new.json`
+   - 后续 `invite` 重新可用并生成 `invite_code`。
+   - 证据：
+     - `.../run/linux/invite-after-create-new.json`
+
+当前状态：
+
+- 本批的 governance bootstrap / admin access 修复已在真实 Windows/WSL2 环境验证通过。
+- `ping` 失败样本仍属于链路层 punching 现象，不作为本批 governance 修复的失败证据。
+- 这一批现在可以进入提交前的收尾阶段。

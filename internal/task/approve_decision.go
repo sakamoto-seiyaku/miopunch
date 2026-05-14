@@ -56,6 +56,9 @@ func (m *Manager) runApproveDecisionTask(taskID string, rawArgs []byte) {
 		m.done(taskID, reason, exit)
 		return
 	}
+	if _, ok := m.requireAdminCapability(taskID, stateDir, selfID); !ok {
+		return
+	}
 
 	ct, hit, rec, err := store.ResolveApprovalDecision(
 		lookup.InviteTopic,
@@ -219,13 +222,13 @@ func approvalDecisionRequestFromLookup(lookup controlplane.ApprovalRequestLookup
 }
 
 func (m *Manager) prepareApprovalDecisionState(stateDir string, selfID pocstate.Identity, inviteBrokers []string) (pocstate.Net, pocstate.GovernanceHeadSnapshotV1, error) {
-	netState, err := pocstate.EnsureNet(stateDir, inviteBrokers)
+	netState, err := pocstate.LoadNet(stateDir)
 	if err != nil {
-		return pocstate.Net{}, pocstate.GovernanceHeadSnapshotV1{}, fmt.Errorf("ensure net: %w", err)
+		return pocstate.Net{}, pocstate.GovernanceHeadSnapshotV1{}, fmt.Errorf("load net: %w", err)
 	}
-	head, err := pocstate.EnsureGovernanceHeadSnapshot(stateDir, netState.NetID, selfID)
+	head, err := pocstate.LoadGovernanceHeadSnapshot(stateDir)
 	if err != nil {
-		return pocstate.Net{}, pocstate.GovernanceHeadSnapshotV1{}, fmt.Errorf("ensure head snapshot: %w", err)
+		return pocstate.Net{}, pocstate.GovernanceHeadSnapshotV1{}, fmt.Errorf("load head snapshot: %w", err)
 	}
 	if _, err := pocstate.EnsureDecls(stateDir); err != nil {
 		return pocstate.Net{}, pocstate.GovernanceHeadSnapshotV1{}, fmt.Errorf("ensure decls: %w", err)

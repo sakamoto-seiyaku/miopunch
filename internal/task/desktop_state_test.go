@@ -58,6 +58,47 @@ func TestSubscribeDesktopStateWithSnapshotCleansUpOnSnapshotError(t *testing.T) 
 	}
 }
 
+func TestDesktopStateSnapshotExposesBlankGovernanceCapability(t *testing.T) {
+	m := NewManagerWithStatePath(filepath.Join(t.TempDir(), "state.json"))
+	t.Cleanup(m.Close)
+
+	snapshot, err := m.DesktopStateSnapshot()
+	if err != nil {
+		t.Fatalf("DesktopStateSnapshot() error = %v", err)
+	}
+	got := snapshot.Config.Governance
+	if got.State != GovernanceStateNoNetwork {
+		t.Fatalf("DesktopStateSnapshot().Config.Governance.State = %q, want %q", got.State, GovernanceStateNoNetwork)
+	}
+	if !got.CanInitOwner || got.CanInvite || got.CanApprove || got.CanCreateNewNetwork {
+		t.Fatalf("DesktopStateSnapshot().Config.Governance capabilities = init:%v invite:%v approve:%v create_new:%v, want true/false/false/false",
+			got.CanInitOwner, got.CanInvite, got.CanApprove, got.CanCreateNewNetwork)
+	}
+	if !desktopFactsContain(snapshot.Diagnostics, "governance_state="+GovernanceStateNoNetwork) {
+		t.Fatalf("DesktopStateSnapshot().Diagnostics = %v, want governance_state=%s", snapshot.Diagnostics, GovernanceStateNoNetwork)
+	}
+}
+
+func TestDesktopStateSnapshotExposesAdminGovernanceCapability(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	initAdminNetworkForTest(t, statePath)
+	m := NewManagerWithStatePath(statePath)
+	t.Cleanup(m.Close)
+
+	snapshot, err := m.DesktopStateSnapshot()
+	if err != nil {
+		t.Fatalf("DesktopStateSnapshot() error = %v", err)
+	}
+	got := snapshot.Config.Governance
+	if got.State != GovernanceStateAdminNetwork {
+		t.Fatalf("DesktopStateSnapshot().Config.Governance.State = %q, want %q", got.State, GovernanceStateAdminNetwork)
+	}
+	if got.CanInitOwner || !got.CanInvite || !got.CanApprove || got.CanCreateNewNetwork {
+		t.Fatalf("DesktopStateSnapshot().Config.Governance capabilities = init:%v invite:%v approve:%v create_new:%v, want false/true/true/false",
+			got.CanInitOwner, got.CanInvite, got.CanApprove, got.CanCreateNewNetwork)
+	}
+}
+
 func TestPublishDesktopFromTaskEventPublishesDiagnosticsReplace(t *testing.T) {
 	tests := []struct {
 		name     string

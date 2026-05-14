@@ -13,6 +13,11 @@ type InviteArgs struct {
 	Expires string `json:"expires,omitempty"`  // Go duration string (e.g. "15m")
 }
 
+type InitNetworkArgs struct {
+	Mode    string `json:"mode,omitempty"`    // bootstrap | create_new
+	Confirm string `json:"confirm,omitempty"` // create-new-network
+}
+
 type JoinArgs struct {
 	Code string `json:"code"`
 }
@@ -88,6 +93,12 @@ func decodeArgs(raw json.RawMessage, out any) error {
 func (a InviteArgs) normalize() InviteArgs {
 	a.Mode = strings.TrimSpace(a.Mode)
 	a.Expires = strings.TrimSpace(a.Expires)
+	return a
+}
+
+func (a InitNetworkArgs) normalize() InitNetworkArgs {
+	a.Mode = strings.TrimSpace(a.Mode)
+	a.Confirm = strings.TrimSpace(a.Confirm)
 	return a
 }
 

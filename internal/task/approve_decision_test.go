@@ -84,6 +84,7 @@ func recordPersistedApprovalDecisionForTest(t *testing.T) (string, string, strin
 	broker := startTCPMQTTBroker(t)
 	statePath := filepath.Join(t.TempDir(), "state.json")
 	saveLocalStateForInviteTest(t, statePath, broker)
+	initAdminNetworkForTest(t, statePath, broker)
 	stateDir, err := pocstate.StateDir(statePath)
 	if err != nil {
 		t.Fatalf("pocstate.StateDir(%q) error = %v", statePath, err)

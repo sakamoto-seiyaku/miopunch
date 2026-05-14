@@ -71,6 +71,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runUp(opt, cmdArgs, stdout, stderr)
 	case "ls":
 		return runLS(opt, cmdArgs, stdout, stderr)
+	case "init-network":
+		return runInitNetwork(opt, cmdArgs, stdout, stderr)
 	case "invite":
 		return runInvite(opt, cmdArgs, stdout, stderr)
 	case "approve":
@@ -147,6 +149,7 @@ Global flags:
 Commands (POC, work in progress):
   up
   ls
+  init-network
   invite
   approve
   join

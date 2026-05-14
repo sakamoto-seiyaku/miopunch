@@ -227,7 +227,7 @@ func writeConflict(w http.ResponseWriter, requestID string, message string) {
 
 func isSupportedTaskKind(kind string) bool {
 	switch kind {
-	case "invite", "join", "approve", "approve_decision", "ping", "bootstrap_more", "maintain_neighbors", "sh_ls", "sh_attach", "revoke_member":
+	case "init_network", "invite", "join", "approve", "approve_decision", "ping", "bootstrap_more", "maintain_neighbors", "sh_ls", "sh_attach", "revoke_member":
 		return true
 	default:
 		return false

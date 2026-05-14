@@ -34,6 +34,19 @@ func (m *Manager) runInviteTask(taskID string, rawArgs []byte) {
 	if strings.TrimSpace(args.Mode) != "" {
 		mode = controlplane.InviteMode(strings.TrimSpace(args.Mode))
 	}
+	switch mode {
+	case controlplane.InviteModeApprove:
+	case controlplane.InviteModeAuto:
+		m.addFact(taskID, poc.Fact{Message: "invite mode auto is not implemented"})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "use: miopunch invite --mode approve"})
+		m.done(taskID, poc.ReasonCodeNotImplemented, poc.ExitCodeBadRequest)
+		return
+	default:
+		m.addFact(taskID, poc.Fact{Message: fmt.Sprintf("invalid invite mode: %q", mode)})
+		m.addSuggestion(taskID, poc.Suggestion{Message: "use: miopunch invite --mode approve"})
+		m.done(taskID, poc.ReasonCodeBadRequest, poc.ExitCodeBadRequest)
+		return
+	}
 
 	maxUses := defaultInviteUses
 	if args.MaxUses > 0 {
@@ -75,6 +88,9 @@ func (m *Manager) runInviteTask(taskID string, rawArgs []byte) {
 		m.addFact(taskID, poc.Fact{Message: "ensure identity: " + err.Error()})
 		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
 		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
+		return
+	}
+	if _, ok := m.requireAdminCapability(taskID, stateDir, selfID); !ok {
 		return
 	}
 
@@ -142,9 +158,9 @@ func (m *Manager) runInviteTask(taskID string, rawArgs []byte) {
 	m.addFact(taskID, poc.Fact{TermID: "invite_brokers", Message: "invite_brokers=" + strings.Join(inviteBrokers, ",")})
 	m.addFact(taskID, poc.Fact{TermID: "brokers_effective", Message: "brokers_effective=" + strings.Join(effectiveBrokers, ",")})
 
-	netState, err := pocstate.EnsureNet(stateDir, effectiveBrokers)
+	netState, err := pocstate.LoadNet(stateDir)
 	if err != nil {
-		m.addFact(taskID, poc.Fact{Message: "ensure net: " + err.Error()})
+		m.addFact(taskID, poc.Fact{Message: "load net: " + err.Error()})
 		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
 		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
 		return
@@ -159,8 +175,8 @@ func (m *Manager) runInviteTask(taskID string, rawArgs []byte) {
 		}
 	}
 
-	if _, err := pocstate.EnsureGovernanceHeadSnapshot(stateDir, netState.NetID, selfID); err != nil {
-		m.addFact(taskID, poc.Fact{Message: "ensure head snapshot: " + err.Error()})
+	if _, err := pocstate.LoadGovernanceHeadSnapshot(stateDir); err != nil {
+		m.addFact(taskID, poc.Fact{Message: "load head snapshot: " + err.Error()})
 		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
 		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
 		return

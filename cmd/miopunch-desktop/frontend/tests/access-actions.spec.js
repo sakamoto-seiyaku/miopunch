@@ -328,6 +328,16 @@ test("Member role has Network and Shell but no Access or Admin primary tabs", as
   await expect(page.getByRole("button", { name: /Approve request/ })).toHaveCount(0);
 });
 
+test("Member invite deep link redirects without creating invite controls", async ({ page }) => {
+  await openDesktop(page, { fixture: "member", path: "/?tab=admin&flow=invite" });
+
+  await expect(page.locator("#topbar-title")).toHaveText("Network");
+  await expect(page.getByRole("button", { name: "Admin", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Create invite" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Create" })).toHaveCount(0);
+  await expect.poll(() => createTaskCalls(page, "invite")).toEqual([]);
+});
+
 test("Network shows join setup for first-run empty node", async ({ page }) => {
   await openDesktop(page, { fixture: "empty", path: "/?tab=access" });
 

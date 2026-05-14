@@ -406,6 +406,8 @@ func (m *Manager) runStub(ctx context.Context, taskID string, req CreateRequest)
 	}
 
 	switch req.Kind {
+	case "init_network":
+		m.runInitNetworkTask(taskID, req.Args)
 	case "invite":
 		m.runInviteTask(taskID, req.Args)
 	case "join":

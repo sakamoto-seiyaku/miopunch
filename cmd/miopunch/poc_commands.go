@@ -51,6 +51,50 @@ func runLS(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
+func runInitNetwork(opt globalOptions, args []string, stdout, stderr io.Writer) int {
+	initArgs := task.InitNetworkArgs{Mode: "bootstrap"}
+
+	i := 0
+	for i < len(args) {
+		a := args[i]
+		switch {
+		case a == "--new":
+			initArgs.Mode = "create_new"
+			i++
+		case a == "--confirm":
+			if i+1 >= len(args) {
+				return exitWithFailure(opt, stdout, stderr, "init-network", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "missing value for --confirm"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch init-network --new --confirm create-new-network"},
+					},
+				})
+			}
+			i++
+			initArgs.Confirm = strings.TrimSpace(args[i])
+			i++
+		case strings.HasPrefix(a, "--confirm="):
+			initArgs.Confirm = strings.TrimSpace(strings.TrimPrefix(a, "--confirm="))
+			i++
+		default:
+			return exitWithFailure(opt, stdout, stderr, "init-network", "", failureOutput{
+				Stage:      "cli",
+				ReasonCode: poc.ReasonCodeBadRequest,
+				ExitCode:   poc.ExitCodeBadRequest,
+				Facts:      []poc.Fact{{Message: "unknown arg: " + a}},
+				Suggestions: []poc.Suggestion{
+					{Message: "use: miopunch init-network [--new --confirm create-new-network]"},
+				},
+			})
+		}
+	}
+
+	return runTaskKind(opt, "init_network", initArgs, stdout, stderr)
+}
+
 func runInvite(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 	inviteArgs := task.InviteArgs{}
 

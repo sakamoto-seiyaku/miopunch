@@ -89,6 +89,9 @@ func (m *Manager) runApproveTask(taskID string, rawArgs []byte) {
 		m.done(taskID, poc.ReasonCodeForbidden, poc.ExitCodeForbidden)
 		return
 	}
+	if _, ok := m.requireAdminCapability(taskID, stateDir, selfID); !ok {
+		return
+	}
 
 	inviteSecret, err := decodeInviteSecretB64(code.InviteSecretB64)
 	if err != nil {
@@ -125,16 +128,16 @@ func (m *Manager) runApproveTask(taskID string, rawArgs []byte) {
 		return
 	}
 
-	netState, err := pocstate.EnsureNet(stateDir, code.InviteBrokers)
+	netState, err := pocstate.LoadNet(stateDir)
 	if err != nil {
-		m.addFact(taskID, poc.Fact{Message: "ensure net: " + err.Error()})
+		m.addFact(taskID, poc.Fact{Message: "load net: " + err.Error()})
 		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
 		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
 		return
 	}
-	head, err := pocstate.EnsureGovernanceHeadSnapshot(stateDir, netState.NetID, selfID)
+	head, err := pocstate.LoadGovernanceHeadSnapshot(stateDir)
 	if err != nil {
-		m.addFact(taskID, poc.Fact{Message: "ensure head snapshot: " + err.Error()})
+		m.addFact(taskID, poc.Fact{Message: "load head snapshot: " + err.Error()})
 		m.addSuggestion(taskID, poc.Suggestion{Message: "retry"})
 		m.done(taskID, poc.ReasonCodeInternal, poc.ExitCodeInternal)
 		return

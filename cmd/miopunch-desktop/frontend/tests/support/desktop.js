@@ -425,8 +425,41 @@ async function installFakeBridge(page, options = {}) {
     const peers = Array.isArray(topology.members)
       ? topology.members.map((m) => ({ peer_id: m.peer_id }))
       : [];
+    const governanceFromTopology = (top) => {
+      const role = String(top && top.self && top.self.role || "").toLowerCase();
+      const netID = String(top && top.net && top.net.net_id || "");
+      const head = String(top && top.state_head && top.state_head.governance_head_b64 || "");
+      const noNetwork = !netID && !head && !(Array.isArray(top && top.members) && top.members.length);
+      if (noNetwork) {
+        return {
+          state: "no_network",
+          self_peer_id: String(top && top.self && top.self.peer_id || ""),
+          self_role: "unknown",
+          reason: "no local network has been initialized",
+          can_init_owner: true,
+          can_create_new_network: false,
+          can_invite: false,
+          can_approve: false,
+        };
+      }
+      const admin = role === "owner" || role === "admin";
+      return {
+        state: admin ? "admin_network" : "member_network",
+        self_peer_id: String(top && top.self && top.self.peer_id || ""),
+        self_role: role || "unknown",
+        net_id: netID,
+        governance_head_b64: head,
+        decls_head_b64: String(top && top.state_head && top.state_head.decls_head_b64 || ""),
+        reason: admin ? "current identity is an owner/admin" : "current identity is a member, not an admin",
+        can_init_owner: false,
+        can_create_new_network: !admin,
+        can_invite: admin,
+        can_approve: admin,
+      };
+    };
     const defaultRuntimeConfig = {
       known_peers: peers.map((peer) => ({ peer_id: peer.peer_id })),
+      governance: governanceFromTopology(topology),
       desired: {
         runtime: {
           mqtt_brokers: ["broker-1.miopunch.local:1883"],
@@ -481,6 +514,7 @@ async function installFakeBridge(page, options = {}) {
     let runtimePeerSessions = clone(init.fixture.peer_sessions || []);
     let runtimeShellSessions = clone(init.initialShellSessions.length ? init.initialShellSessions : (init.fixture.shell_sessions || []));
     let runtimeConfig = clone(init.fixture.config || defaultRuntimeConfig);
+    if (!runtimeConfig.governance) runtimeConfig.governance = governanceFromTopology(topology);
     let runtimeDiagnostics = clone(init.fixture.runtime_diagnostics || init.fixture.diagnostics || []);
     let runtimeApprovalRequests = clone(init.approvalRequests || init.fixture.approval_requests || []);
     const tasks = new Map((init.initialTasks || []).map((task) => [String(task.task_id || ""), task]));
@@ -587,6 +621,17 @@ async function installFakeBridge(page, options = {}) {
       } else if (kind === "join") {
         task.stage = "membership accepted";
         task.facts.push({ message: `invite_code=${String(args && args.code ? args.code : "")}` });
+      } else if (kind === "init_network") {
+        const peerID = String(topology.self && topology.self.peer_id ? topology.self.peer_id : "peer-ui-test-owner");
+        const netID = String(args && args.mode || "") === "create_new" ? "net-ui-new-network" : "net-ui-bootstrap";
+        topology.self = { ...(topology.self || {}), peer_id: peerID, role: "owner" };
+        topology.net = { net_id: netID, brokers_effective: ["broker-1.miopunch.local:1883"] };
+        topology.state_head = { governance_head_b64: `gov-${netID}`, decls_head_b64: "decls-empty" };
+        topology.members = [{ peer_id: peerID, role: "owner", member_name: "This device", platform: "desktop", v4_hint: "unknown", v6_hint: "" }];
+        runtimeConfig.governance = governanceFromTopology(topology);
+        task.stage = "local network initialized";
+        task.facts.push({ term_id: "peer_id", message: `peer_id=${peerID}` });
+        task.facts.push({ term_id: "net_id", message: `net_id=${netID}` });
       } else if (kind === "approve") {
         task.status = "running";
         task.stage = "waiting for joiner";

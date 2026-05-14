@@ -33,7 +33,6 @@
     previewFixture: "owner",
     networkMapPeerID: "",
     localAliases: {},
-    firstRunAdminMode: false,
   };
 
   const inviteState = { taskID: "", busy: false, message: "", missingTaskID: "", approvalCode: "", approvalTaskID: "" };
@@ -381,8 +380,11 @@
 
   const self = () => (state.topology && state.topology.self ? state.topology.self : {});
   const selfRole = () => String(self().role || "unknown").toLowerCase();
+  const governanceConfig = () => (state.config && state.config.governance ? state.config.governance : {});
   const hasText = (value) => String(value || "").trim() !== "";
   const isFirstRunUninitialized = () => {
+    const gov = governanceConfig();
+    if (String(gov.state || "") === "no_network") return true;
     if (!state.topology || (!state.previewMode && !(lastConn && lastConn.connected))) return false;
     const top = state.topology;
     const role = String(top.self && top.self.role || "").toLowerCase();
@@ -395,7 +397,7 @@
       && !hasText(stateHead.decls_head_b64)
       && memberList.length === 0;
   };
-  const effectiveSelfRole = () => isFirstRunUninitialized() ? "owner" : selfRole();
+  const effectiveSelfRole = () => String(governanceConfig().self_role || "").trim() || selfRole();
   const roleKnown = () => !!(state.topology && state.topology.self && effectiveSelfRole());
   const isAdminRole = (role) => ["owner", "admin"].includes(String(role || "").toLowerCase());
   const networkJoined = () => {
@@ -406,8 +408,19 @@
     const memberList = Array.isArray(top.members) ? top.members : [];
     return !!(hasText(netID) || memberList.length > 0 || (role && role !== "unknown"));
   };
-  const firstRunAdminVisible = () => isFirstRunUninitialized() && state.firstRunAdminMode;
-  const adminVisible = () => firstRunAdminVisible() || (networkJoined() && isAdminRole(effectiveSelfRole()));
+  const canInvite = () => {
+    const gov = governanceConfig();
+    if (typeof gov.can_invite === "boolean") return gov.can_invite;
+    return networkJoined() && isAdminRole(effectiveSelfRole());
+  };
+  const canApprove = () => {
+    const gov = governanceConfig();
+    if (typeof gov.can_approve === "boolean") return gov.can_approve;
+    return networkJoined() && isAdminRole(effectiveSelfRole());
+  };
+  const canInitOwner = () => governanceConfig().can_init_owner === true;
+  const canCreateNewNetwork = () => governanceConfig().can_create_new_network === true;
+  const adminVisible = () => canInvite() || canApprove();
   const shellVisible = () => networkJoined();
   const approvalRequestKey = (req) => {
     const approveTaskID = String(req && (req.approve_task_id || req.task_id) || "").trim();
@@ -2405,20 +2418,20 @@
           <small>${esc(item.meta)}</small>
         </span>
       </button>`).join("");
-    const firstRunAdminPanel = isFirstRunUninitialized() ? `
+    const gov = governanceConfig();
+    const governancePanel = (canInitOwner() || canCreateNewNetwork()) ? `
         <section class="surface-panel">
           <div class="card-header">
             <div>
-              <p class="eyebrow">First run</p>
-              <h3 class="card-title">Owner/Admin mode</h3>
+              <p class="eyebrow">Governance</p>
+              <h3 class="card-title">${canInitOwner() ? "Owner/Admin mode" : "Create new network"}</h3>
             </div>
-            ${chipHTML(state.firstRunAdminMode ? "enabled" : "setup")}
+            ${chipHTML(gov.state || "setup")}
           </div>
-          <p class="page-subtitle">Show administrator controls on this blank node so it can create the first invite.</p>
+          <p class="page-subtitle">${esc(gov.reason || (canInitOwner() ? "Initialize this blank node before creating invites." : "Create a distinct local network for this node."))}</p>
           <div class="action-row">
-            <button class="btn btn-primary" id="btn-first-run-admin-mode" type="button">
-              ${state.firstRunAdminMode ? "Open Admin" : "Enable Owner/Admin mode"}
-            </button>
+            ${canInitOwner() ? `<button class="btn btn-primary" id="btn-init-network-bootstrap" type="button">Enable Owner/Admin mode</button>` : ""}
+            ${canCreateNewNetwork() ? `<button class="btn btn-tonal" id="btn-init-network-new" type="button">Create new network</button>` : ""}
           </div>
         </section>` : "";
     setPage(`
@@ -2431,7 +2444,7 @@
           ${metricHTML("Mode", state.previewMode ? "preview" : "desktop")}
           ${metricHTML("Activity", state.tasks.size)}
         </section>
-        ${firstRunAdminPanel}
+        ${governancePanel}
         <div class="action-card-grid grid">${sections}</div>
         <section class="surface-panel">
           <div class="action-row">
@@ -3375,11 +3388,16 @@
       await clearLocalAPIOverride();
       return;
     }
-    if (target.id === "btn-first-run-admin-mode") {
+    if (target.id === "btn-init-network-bootstrap") {
       event.preventDefault();
-      if (!isFirstRunUninitialized()) return;
-      state.firstRunAdminMode = true;
-      setActiveTab("admin");
+      if (!canInitOwner()) return;
+      await initNetwork("bootstrap");
+      return;
+    }
+    if (target.id === "btn-init-network-new") {
+      event.preventDefault();
+      if (!canCreateNewNetwork()) return;
+      await initNetwork("create_new");
       return;
     }
     if (target.id === "btn-export-diagnostics") {
@@ -3566,6 +3584,29 @@
       inviteState.approvalTaskID = "";
       inviteState.message = `Invite ready, but approval listener failed: ${String(err)}`;
       toast(inviteState.message);
+    } finally {
+      scheduleRender();
+    }
+  };
+
+  const initNetwork = async (mode) => {
+    const createNew = mode === "create_new";
+    if (createNew && !window.confirm("Create a new local network for this node? Existing members must be invited again.")) {
+      return;
+    }
+    const args = createNew
+      ? { mode: "create_new", confirm: "create-new-network" }
+      : { mode: "bootstrap" };
+    try {
+      const created = await createTask("init_network", args);
+      const taskID = upsertTask(created);
+      if (taskID) await getTask(taskID, 2500);
+      const resp = await getBridge().DesktopRuntimeResync();
+      if (resp && resp.state) applyDesktopSnapshot(resp.state);
+      if (adminVisible()) setActiveTab("admin");
+      toast(createNew ? "New network created" : "Owner/Admin mode enabled");
+    } catch (err) {
+      toast(`Network setup failed: ${String(err)}`);
     } finally {
       scheduleRender();
     }
