@@ -53,8 +53,8 @@ type Manager struct {
 }
 
 type attachState struct {
-	wsCh chan *websocket.Conn
-	once sync.Once
+	wsCh       chan *websocket.Conn
+	attachable bool
 }
 
 func NewManager() *Manager {
@@ -315,7 +315,10 @@ func (m *Manager) CreateAndRun(req CreateRequest) (Task, error) {
 	m.mu.Lock()
 	m.tasks[t.ID] = t
 	if req.Kind == "sh_attach" {
-		m.attachByTask[t.ID] = &attachState{wsCh: make(chan *websocket.Conn, 1)}
+		m.attachByTask[t.ID] = &attachState{
+			wsCh:       make(chan *websocket.Conn, 1),
+			attachable: true,
+		}
 	}
 	snapshot := t.Clone()
 	m.mu.Unlock()
@@ -348,17 +351,48 @@ func (m *Manager) AttachShellWS(taskID string, conn *websocket.Conn) bool {
 
 	m.mu.Lock()
 	state, ok := m.attachByTask[taskID]
-	m.mu.Unlock()
-	if !ok || state == nil {
+	if !ok || state == nil || !state.attachable {
+		m.mu.Unlock()
 		return false
 	}
+	state.attachable = false
+	wsCh := state.wsCh
+	m.mu.Unlock()
 
-	added := false
-	state.once.Do(func() {
-		state.wsCh <- conn
-		added = true
-	})
-	return added
+	select {
+	case wsCh <- conn:
+		m.publishDesktopShellSessionsChange()
+		return true
+	default:
+		m.publishDesktopShellSessionsChange()
+		return false
+	}
+}
+
+func (m *Manager) shellAttachable(taskID string) bool {
+	if m == nil {
+		return false
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	state, ok := m.attachByTask[taskID]
+	return ok && state != nil && state.attachable
+}
+
+func (m *Manager) setShellAttachable(taskID string, attachable bool) {
+	if m == nil {
+		return
+	}
+	changed := false
+	m.mu.Lock()
+	if state, ok := m.attachByTask[taskID]; ok && state != nil && state.attachable != attachable {
+		state.attachable = attachable
+		changed = true
+	}
+	m.mu.Unlock()
+	if changed {
+		m.publishDesktopShellSessionsChange()
+	}
 }
 
 func (m *Manager) runStub(ctx context.Context, taskID string, req CreateRequest) {

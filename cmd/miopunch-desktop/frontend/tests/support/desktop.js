@@ -41,11 +41,11 @@ function ownerTopology() {
     net: { net_id: "net_zima_blue_lab", brokers_effective: ["broker-1.miopunch.local:1883"] },
     state_head: { governance_head_b64: "gov_owner_head_test", decls_head_b64: "decls_owner_head_test" },
     members: [
-      { peer_id: PEERS.owner, role: "owner", v4_hint: "easy", v6_hint: "direct" },
-      { peer_id: PEERS.admin, role: "admin", v4_hint: "easy", v6_hint: "direct" },
-      { peer_id: PEERS.member, role: "member", v4_hint: "portmap", v6_hint: "" },
-      { peer_id: PEERS.traveler, role: "member", v4_hint: "hard", v6_hint: "" },
-      { peer_id: PEERS.revoked, role: "member", v4_hint: "easy", v6_hint: "", revoked: true },
+      { peer_id: PEERS.owner, role: "owner", member_name: "Owner Zima", platform: "linux", v4_hint: "easy", v6_hint: "direct" },
+      { peer_id: PEERS.admin, role: "admin", member_name: "Studio Workstation", platform: "windows", v4_hint: "easy", v6_hint: "direct" },
+      { peer_id: PEERS.member, role: "member", member_name: "Living Room Mini", platform: "linux", v4_hint: "portmap", v6_hint: "" },
+      { peer_id: PEERS.traveler, role: "member", member_name: "Travel Laptop", platform: "darwin", v4_hint: "hard", v6_hint: "" },
+      { peer_id: PEERS.revoked, role: "member", member_name: "Old Phone", platform: "android", v4_hint: "easy", v6_hint: "", revoked: true },
     ],
     presence: { online_window_sec: 120, hello_interval_sec: 30 },
     bootstrap: { recommendations: [], attempts: [], more_rounds: [] },
@@ -86,10 +86,10 @@ function memberTopology() {
   const top = ownerTopology();
   top.self = { peer_id: PEERS.traveler, role: "member", v4_hint: "hard", v6_hint: "" };
   top.members = [
-    { peer_id: PEERS.owner, role: "owner", v4_hint: "easy", v6_hint: "direct" },
-    { peer_id: PEERS.admin, role: "admin", v4_hint: "easy", v6_hint: "direct" },
-    { peer_id: PEERS.member, role: "member", v4_hint: "portmap", v6_hint: "" },
-    { peer_id: PEERS.traveler, role: "member", v4_hint: "hard", v6_hint: "" },
+      { peer_id: PEERS.owner, role: "owner", member_name: "Owner Zima", platform: "linux", v4_hint: "easy", v6_hint: "direct" },
+      { peer_id: PEERS.admin, role: "admin", member_name: "Studio Workstation", platform: "windows", v4_hint: "easy", v6_hint: "direct" },
+      { peer_id: PEERS.member, role: "member", member_name: "Living Room Mini", platform: "linux", v4_hint: "portmap", v6_hint: "" },
+      { peer_id: PEERS.traveler, role: "member", member_name: "Travel Laptop", platform: "darwin", v4_hint: "hard", v6_hint: "" },
   ];
   return top;
 }
@@ -142,6 +142,43 @@ function fixtureData(name = "owner") {
       },
     ];
     return { connected: true, topology: top };
+  }
+  if (name === "no-display-hints") {
+    const top = ownerTopology();
+    for (const member of top.members) {
+      delete member.member_name;
+      delete member.platform;
+    }
+    return { connected: true, topology: top };
+  }
+  if (name === "path-details") {
+    const top = ownerTopology();
+    const memberActive = top.neighbors.active.find((item) => item.peer_id === PEERS.member);
+    if (memberActive) {
+      memberActive.direct_ipv4 = "100.92.0.34";
+      memberActive.direct_ipv6 = "fd7a:115c:a1e0::34";
+      memberActive.local_endpoint = "192.168.31.42:49320";
+      memberActive.remote_endpoint = "10.0.0.12:55391";
+      memberActive.public_tuple = "203.0.113.21:49320 -> 198.51.100.91:55391";
+      memberActive.punch_status = "portmap assisted";
+      memberActive.port = "55391/udp";
+    }
+    return {
+      connected: true,
+      topology: top,
+      peer_sessions: [
+        {
+          remote_peer_id: PEERS.member,
+          direct_ipv4: "100.92.0.34",
+          direct_ipv6: "fd7a:115c:a1e0::34",
+          local_endpoint: "192.168.31.42:49320",
+          remote_endpoint: "10.0.0.12:55391",
+          public_tuple: "203.0.113.21:49320 -> 198.51.100.91:55391",
+          punch_status: "portmap assisted",
+          port: "55391/udp",
+        },
+      ],
+    };
   }
   if (name === "disconnected") {
     return {
@@ -279,6 +316,7 @@ async function installFakeBridge(page, options = {}) {
     },
     disableTerminal: !!options.disableTerminal,
     initialTasks: options.initialTasks || [],
+    initialShellSessions: options.initialShellSessions || [],
     approvalRequests: options.approvalRequests || null,
     inviteCodeDelivery: options.inviteCodeDelivery || "immediate",
     runtimeStartDelayMs: options.runtimeStartDelayMs || 0,
@@ -405,6 +443,7 @@ async function installFakeBridge(page, options = {}) {
           default_shell_target: "local",
           default_shell_session: "main",
           log_level: "info",
+          peer_aliases: {},
         },
       },
       effective: {
@@ -423,6 +462,7 @@ async function installFakeBridge(page, options = {}) {
           default_shell_target: "local",
           default_shell_session: "main",
           log_level: "info",
+          peer_aliases: {},
         },
       },
       apply: {
@@ -439,7 +479,7 @@ async function installFakeBridge(page, options = {}) {
     let runtimeStartSeq = 0;
     let runtimeRev = 0;
     let runtimePeerSessions = clone(init.fixture.peer_sessions || []);
-    let runtimeShellSessions = clone(init.fixture.shell_sessions || []);
+    let runtimeShellSessions = clone(init.initialShellSessions.length ? init.initialShellSessions : (init.fixture.shell_sessions || []));
     let runtimeConfig = clone(init.fixture.config || defaultRuntimeConfig);
     let runtimeDiagnostics = clone(init.fixture.runtime_diagnostics || init.fixture.diagnostics || []);
     let runtimeApprovalRequests = clone(init.approvalRequests || init.fixture.approval_requests || []);
@@ -599,6 +639,7 @@ async function installFakeBridge(page, options = {}) {
           stage: "attached",
           created_at: task.created_at,
           report_ready: false,
+          attachable: true,
         });
       } else if (kind === "revoke_member") {
         task.stage = "decl written";
@@ -826,15 +867,34 @@ async function installFakeBridge(page, options = {}) {
             }
             const desired = runtimeConfig.desired || {};
             const effective = runtimeConfig.effective || {};
+            const mergePreferences = (current, incoming) => {
+              const next = { ...(current || {}) };
+              const prefs = incoming && typeof incoming === "object" ? incoming : {};
+              for (const [key, value] of Object.entries(prefs)) {
+                if (key !== "peer_aliases") next[key] = value;
+              }
+              if (prefs.peer_aliases && typeof prefs.peer_aliases === "object") {
+                const aliases = { ...(next.peer_aliases || {}) };
+                for (const [peerID, alias] of Object.entries(prefs.peer_aliases)) {
+                  const id = String(peerID || "").trim();
+                  if (!id) continue;
+                  const value = String(alias || "").trim();
+                  if (value) aliases[id] = value;
+                  else delete aliases[id];
+                }
+                next.peer_aliases = aliases;
+              }
+              return next;
+            };
             runtimeConfig = {
               ...runtimeConfig,
               desired: {
                 runtime: { ...(desired.runtime || {}), ...(update && update.runtime ? update.runtime : {}) },
-                preferences: { ...(desired.preferences || {}), ...(update && update.preferences ? update.preferences : {}) },
+                preferences: mergePreferences(desired.preferences || {}, update && update.preferences),
               },
               effective: {
                 runtime: { ...(effective.runtime || {}), ...(update && update.runtime ? update.runtime : {}) },
-                preferences: { ...(effective.preferences || {}), ...(update && update.preferences ? update.preferences : {}) },
+                preferences: mergePreferences(effective.preferences || {}, update && update.preferences),
               },
             };
             return { ok: true, connection: clone(connection), state: runtimeSnapshot() };

@@ -37,9 +37,10 @@ type DesktopRuntimeConfigUpdate struct {
 
 // DesktopPreferencesUpdate is a partial update for desktop-only preferences.
 type DesktopPreferencesUpdate struct {
-	DefaultShellTarget  *string `json:"default_shell_target,omitempty"`
-	DefaultShellSession *string `json:"default_shell_session,omitempty"`
-	LogLevel            string  `json:"log_level,omitempty"`
+	DefaultShellTarget  *string           `json:"default_shell_target,omitempty"`
+	DefaultShellSession *string           `json:"default_shell_session,omitempty"`
+	LogLevel            string            `json:"log_level,omitempty"`
+	PeerAliases         map[string]string `json:"peer_aliases,omitempty"`
 }
 
 // DesktopConfigUpdate is the request body for desktop Settings saves.
@@ -265,6 +266,23 @@ func applyPreferencesUpdate(prefs *DesktopPreferences, update DesktopPreferences
 		}
 		prefs.LogLevel = value
 	}
+	if update.PeerAliases != nil {
+		if prefs.PeerAliases == nil {
+			prefs.PeerAliases = make(map[string]string, len(update.PeerAliases))
+		}
+		for peerID, alias := range update.PeerAliases {
+			peerID = strings.TrimSpace(peerID)
+			if peerID == "" {
+				continue
+			}
+			alias = strings.TrimSpace(alias)
+			if alias == "" {
+				delete(prefs.PeerAliases, peerID)
+				continue
+			}
+			prefs.PeerAliases[peerID] = alias
+		}
+	}
 	normalizeDesktopPreferences(prefs)
 	return nil
 }
@@ -279,6 +297,37 @@ func normalizeDesktopPreferences(prefs *DesktopPreferences) {
 	if prefs.LogLevel == "" {
 		prefs.LogLevel = defaultDesktopLogLevel
 	}
+	prefs.PeerAliases = normalizePeerAliases(prefs.PeerAliases)
+}
+
+func normalizePeerAliases(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for peerID, alias := range in {
+		peerID = strings.TrimSpace(peerID)
+		alias = strings.TrimSpace(alias)
+		if peerID == "" || alias == "" {
+			continue
+		}
+		out[peerID] = alias
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func cloneStringMap(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }
 
 func desktopConfigValidationError(message string, suggestion string) *DesktopConfigValidationError {

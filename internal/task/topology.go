@@ -61,8 +61,10 @@ type TopologyMember struct {
 	PeerID string `json:"peer_id"`
 	Role   string `json:"role"` // owner|admin|member|unknown
 
-	V4Hint string `json:"v4_hint,omitempty"`
-	V6Hint string `json:"v6_hint,omitempty"`
+	MemberName   string `json:"member_name,omitempty"`
+	PlatformHint string `json:"platform,omitempty"`
+	V4Hint       string `json:"v4_hint,omitempty"`
+	V6Hint       string `json:"v6_hint,omitempty"`
 
 	Revoked bool `json:"revoked,omitempty"`
 }
@@ -115,6 +117,13 @@ type TopologyNeighborEdge struct {
 	Bucket             string `json:"bucket,omitempty"`
 	DataProto          string `json:"data_proto,omitempty"`  // quic|kcp|tls
 	PathFamily         string `json:"path_family,omitempty"` // udp4|udp6|tcp4|tcp6|unknown
+	DirectIPv4         string `json:"direct_ipv4,omitempty"`
+	DirectIPv6         string `json:"direct_ipv6,omitempty"`
+	LocalEndpoint      string `json:"local_endpoint,omitempty"`
+	RemoteEndpoint     string `json:"remote_endpoint,omitempty"`
+	PublicTuple        string `json:"public_tuple,omitempty"`
+	PunchStatus        string `json:"punch_status,omitempty"`
+	Port               string `json:"port,omitempty"`
 	Healthy            bool   `json:"healthy"`
 	LastActivityUnixMs int64  `json:"last_activity_unix_ms,omitempty"`
 }
@@ -513,11 +522,13 @@ func membersFromDecls(head pocstate.GovernanceHeadSnapshotV1, f pocstate.DeclsFi
 			}
 
 			approved[peerID] = TopologyMember{
-				PeerID:  peerID,
-				Role:    role,
-				V4Hint:  strings.TrimSpace(body.V4Hint),
-				V6Hint:  strings.TrimSpace(body.V6Hint),
-				Revoked: false,
+				PeerID:       peerID,
+				Role:         role,
+				MemberName:   strings.TrimSpace(body.MemberName),
+				PlatformHint: strings.TrimSpace(body.PlatformHint),
+				V4Hint:       strings.TrimSpace(body.V4Hint),
+				V6Hint:       strings.TrimSpace(body.V6Hint),
+				Revoked:      false,
 			}
 		case pocstate.DeclKindRevokeMember:
 			var body pocstate.RevokeMemberBodyV0

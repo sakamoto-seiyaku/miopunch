@@ -10,9 +10,17 @@ const {
 } = require("./support/desktop");
 
 async function openAccessFlow(page, flow, options = {}) {
-  await openDesktop(page, { ...options, path: `/?tab=access&flow=${flow}` });
-  const title = flow === "invite" ? "Create invite" : flow === "approve" ? "Approve request" : "Join network";
+  const path = flow === "join" ? "/?tab=network" : `/?tab=admin&flow=${flow}`;
+  const fixture = flow === "join" ? (options.fixture || "empty") : options.fixture;
+  await openDesktop(page, { ...options, fixture, path });
+  const title = flow === "invite" ? "Create invite" : flow === "approve" ? "Approve request" : "Join a network";
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
+}
+
+async function openManualApproval(page) {
+  await expect(page.locator("#approve-code")).toBeHidden();
+  await page.getByText("Advanced manual approval").click();
+  await expect(page.locator("#approve-code")).toBeVisible();
 }
 
 test("Access Join submits object args and exports the completed report", async ({ page }) => {
@@ -22,7 +30,7 @@ test("Access Join submits object args and exports the completed report", async (
   await page.locator("#join-form").getByRole("button", { name: "Join" }).click();
 
   await expectCreateTaskCall(page, "join", { code: "mp:v0.join.test" });
-  await expect(page.getByText("membership accepted")).toBeVisible();
+  await expect(page.locator(".flow-layout aside .operation-status").getByText("membership accepted")).toBeVisible();
   await expect(page.getByRole("button", { name: "Export report" })).toBeEnabled();
 
   await page.getByRole("button", { name: "Export report" }).click();
@@ -49,6 +57,7 @@ test("Access invite Create calls bridge with object args and renders code", asyn
   await expect(page.getByRole("button", { name: "Copy" })).toBeEnabled();
   await expect(page.locator("#invite-qr svg")).toHaveCount(1);
   await expectCreateTaskCall(page, "invite", {});
+  await expectCreateTaskCall(page, "approve", { code: inviteCode, explicit_review: true });
 });
 
 test("Access invite Create waits for delayed task output", async ({ page }) => {
@@ -60,6 +69,7 @@ test("Access invite Create waits for delayed task output", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Copy" })).toBeEnabled();
   await expect(page.locator("#invite-qr svg")).toHaveCount(1);
   await expect.poll(async () => (await calls(page)).filter((call) => call.method === "GetTask").length).toBeGreaterThanOrEqual(2);
+  await expectCreateTaskCall(page, "approve", { code: inviteCode, explicit_review: true });
 });
 
 test("Access invite Create fetches code after partial done task response", async ({ page }) => {
@@ -72,6 +82,7 @@ test("Access invite Create fetches code after partial done task response", async
   await expect(page.getByRole("button", { name: "Copy" })).toBeEnabled();
   await expect(page.locator("#invite-qr svg")).toHaveCount(1);
   await expect.poll(async () => (await calls(page)).filter((call) => call.method === "GetTask").length).toBeGreaterThanOrEqual(1);
+  await expectCreateTaskCall(page, "approve", { code: inviteCode, explicit_review: true });
 });
 
 test("Access invite Create fetches code after partial done runtime events", async ({ page }) => {
@@ -113,6 +124,7 @@ test("Access invite Create fetches code after partial done runtime events", asyn
   await expect(page.getByRole("button", { name: "Copy" })).toBeEnabled();
   await expect(page.locator("#invite-qr svg")).toHaveCount(1);
   await expect.poll(async () => (await calls(page)).filter((call) => call.method === "GetTask").length).toBeGreaterThanOrEqual(2);
+  await expectCreateTaskCall(page, "approve", { code: inviteCode, explicit_review: true });
 });
 
 test("Access invite flow renders code from runtime fact event", async ({ page }) => {
@@ -200,16 +212,18 @@ test("Access invite Create recovers from bridge timeout", async ({ page }) => {
 
 test("Access Approve submits object args and renders progress", async ({ page }) => {
   await openAccessFlow(page, "approve");
+  await openManualApproval(page);
 
   await page.locator("#approve-code").fill("mp:v0.approve.test");
   await page.locator("#approve-form").getByRole("button", { name: "Start approval" }).click();
 
   await expectCreateTaskCall(page, "approve", { code: "mp:v0.approve.test", explicit_review: true });
-  await expect(page.getByText("waiting for joiner")).toBeVisible();
+  await expect(page.locator(".approval-listener .operation-status").getByText("waiting for joiner")).toBeVisible();
 });
 
 test("Access Approve validates missing invite code without creating a task", async ({ page }) => {
   await openAccessFlow(page, "approve");
+  await openManualApproval(page);
 
   await page.locator("#approve-form").getByRole("button", { name: "Start approval" }).click();
 
@@ -232,6 +246,7 @@ const pendingApprovalRequest = {
 test("Access renders pending approval requests and submits approve decisions", async ({ page }) => {
   await openAccessFlow(page, "approve", { approvalRequests: [pendingApprovalRequest] });
 
+  await expect(page.locator("#approve-code")).toBeHidden();
   await expect(page.getByText("New tablet")).toBeVisible();
   await expect(page.locator(".approval-row", { hasText: "peer-new-tablet-06" })).toBeVisible();
 
@@ -256,9 +271,10 @@ test("Access submits reject approval decisions", async ({ page }) => {
   });
 });
 
-test("Access hides approval decision controls for member role", async ({ page }) => {
-  await openDesktop(page, { fixture: "member", path: "/?tab=access", approvalRequests: [pendingApprovalRequest] });
+test("Member role cannot see approval decision controls", async ({ page }) => {
+  await openDesktop(page, { fixture: "member", path: "/?tab=admin", approvalRequests: [pendingApprovalRequest] });
 
+  await expect(page.getByRole("button", { name: "Admin", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Reject", exact: true })).toHaveCount(0);
 });
@@ -301,44 +317,36 @@ test("Access approval decision task failures are visible and recoverable", async
   await expect(page.getByRole("button", { name: "Approve", exact: true })).toBeEnabled();
 });
 
-test("Access hides admin-only flows for member role", async ({ page }) => {
+test("Member role has Network and Shell but no Access or Admin primary tabs", async ({ page }) => {
   await openDesktop(page, { fixture: "member", path: "/?tab=access" });
 
-  await expect(page.locator(".page-title")).toHaveText("Access");
-  await expect(page.getByRole("button", { name: /Join network/ })).toBeVisible();
+  await expect(page.locator("#topbar-title")).toHaveText("Network");
+  await expect(page.locator(".page-title", { hasText: "Device network" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Access", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Shell", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /Create invite/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Approve request/ })).toHaveCount(0);
 });
 
-test("Access shows setup flows for first-run empty node", async ({ page }) => {
+test("Network shows join setup for first-run empty node", async ({ page }) => {
   await openDesktop(page, { fixture: "empty", path: "/?tab=access" });
 
-  await expect(page.locator(".page-title")).toHaveText("Access");
-  await expect(page.locator('.grid [data-open-flow="join"]')).toBeVisible();
-  await expect(page.locator('.grid [data-open-flow="invite"]')).toBeVisible();
-  await expect(page.locator('.grid [data-open-flow="approve"]')).toBeVisible();
+  await expect(page.locator(".page-title")).toHaveText("Join a network");
+  await expect(page.locator("#join-form")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Access", exact: true })).toHaveCount(0);
+  await expect(page.locator("[data-admin-nav]")).toBeHidden();
 });
 
-test("Access first-run invite Create calls bridge with object args", async ({ page }) => {
-  await openAccessFlow(page, "invite", { fixture: "empty" });
-
-  await page.getByRole("button", { name: "Create" }).click();
-
-  await expect(page.locator("#invite-code")).toHaveValue(inviteCode);
-  await expectCreateTaskCall(page, "invite", {});
-});
-
-test("Admin is available for first-run empty node", async ({ page }) => {
+test("Admin is not available for first-run empty node", async ({ page }) => {
   await openDesktop(page, { fixture: "empty", path: "/?tab=admin" });
 
-  await expect(page.getByRole("button", { name: "Admin", exact: true })).toBeVisible();
-  await expect(page.locator(".page-title")).toHaveText("Governance");
-  await expect(page.locator(".row-meta", { hasText: "peer-new-node-0000" })).toBeVisible();
-  await expect(page.getByText("owner", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Admin", exact: true })).toHaveCount(0);
+  await expect(page.locator(".page-title")).toHaveText("Join a network");
 });
 
-test("Access invite Create is disabled when the desktop bridge is disconnected", async ({ page }) => {
-  await openAccessFlow(page, "invite", { fixture: "disconnected" });
+test("Admin invite is unavailable when the desktop bridge is disconnected", async ({ page }) => {
+  await openDesktop(page, { fixture: "disconnected", path: "/?tab=admin&flow=invite" });
 
-  await expect(page.getByRole("button", { name: "Create" })).toBeDisabled();
+  await expect(page.locator(".page-title")).not.toHaveText("Create invite");
+  await expect(page.getByRole("button", { name: "Create" })).toHaveCount(0);
 });

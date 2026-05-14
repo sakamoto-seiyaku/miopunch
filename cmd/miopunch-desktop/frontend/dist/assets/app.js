@@ -4,7 +4,7 @@
   const COPY = {
     tabs: {
       network: { title: "Network", eyebrow: "device network" },
-      access: { title: "Access", eyebrow: "join and share" },
+      shell: { title: "Shell", eyebrow: "remote sessions" },
       admin: { title: "Admin", eyebrow: "governance" },
       settings: { title: "Settings", eyebrow: "desktop client" },
     },
@@ -31,9 +31,12 @@
     view: { type: "overview" },
     previewMode: false,
     previewFixture: "owner",
+    networkMapPeerID: "",
+    localAliases: {},
+    firstRunAdminMode: false,
   };
 
-  const inviteState = { taskID: "", busy: false, message: "", missingTaskID: "" };
+  const inviteState = { taskID: "", busy: false, message: "", missingTaskID: "", approvalCode: "", approvalTaskID: "" };
   const joinState = { taskID: "", lastExportPath: "" };
   const approveState = { taskID: "", message: "" };
   const approvalDecisionState = new Map();
@@ -50,12 +53,19 @@
     detail: "",
     taskID: "",
     discoveryTaskID: "",
+    activeSessionTaskID: "",
+    optionsOpen: false,
+    leftCollapsed: false,
+    rightOpen: true,
+    zen: false,
   };
   const shellSelections = new Map();
+  let shellTargetContextMenu = null;
   const shellState = {
     ws: null,
     term: null,
     resizeObs: null,
+    scrollDispose: null,
     taskID: "",
     fitTimer: 0,
     expectedClose: false,
@@ -388,7 +398,17 @@
   const effectiveSelfRole = () => isFirstRunUninitialized() ? "owner" : selfRole();
   const roleKnown = () => !!(state.topology && state.topology.self && effectiveSelfRole());
   const isAdminRole = (role) => ["owner", "admin"].includes(String(role || "").toLowerCase());
-  const adminVisible = () => isAdminRole(effectiveSelfRole());
+  const networkJoined = () => {
+    if (!state.topology || isFirstRunUninitialized()) return false;
+    const top = state.topology;
+    const role = String(top.self && top.self.role || "").toLowerCase();
+    const netID = top.net && top.net.net_id;
+    const memberList = Array.isArray(top.members) ? top.members : [];
+    return !!(hasText(netID) || memberList.length > 0 || (role && role !== "unknown"));
+  };
+  const firstRunAdminVisible = () => isFirstRunUninitialized() && state.firstRunAdminMode;
+  const adminVisible = () => firstRunAdminVisible() || (networkJoined() && isAdminRole(effectiveSelfRole()));
+  const shellVisible = () => networkJoined();
   const approvalRequestKey = (req) => {
     const approveTaskID = String(req && (req.approve_task_id || req.task_id) || "").trim();
     const requestMsgID = String(req && req.request_msg_id || "").trim();
@@ -436,6 +456,15 @@
     return selected.find((n) => String(n.peer_id || "") === String(peerID || "")) || null;
   };
 
+  const peerSessionForPeer = (peerID) => {
+    const id = String(peerID || "").trim();
+    if (!id) return null;
+    const sessions = Array.isArray(state.peerSessions) ? state.peerSessions : [];
+    return sessions.find((item) => String(item && item.remote_peer_id || "").trim() === id) ||
+      sessions.find((item) => String(item && item.peer_id || "").trim() === id) ||
+      null;
+  };
+
   const recentPeerFailure = (peerID) => {
     const id = String(peerID || "");
     if (!id) return null;
@@ -473,7 +502,7 @@
   const statusForMember = (mem) => {
     if (!mem) return { label: "none", cls: "chip-muted" };
     if (mem.revoked) return { label: "revoked", cls: "chip-revoked" };
-    if (String(mem.peer_id || "") === String(self().peer_id || "")) return { label: "this node", cls: "chip-role" };
+    if (String(mem.peer_id || "") === String(self().peer_id || "")) return { label: "this device", cls: "chip-role" };
     if (activeNeighbor(mem.peer_id)) return { label: "active", cls: "chip-active" };
     if (selectedNeighbor(mem.peer_id)) return { label: "target", cls: "chip-muted" };
     return { label: "known", cls: "chip-muted" };
@@ -585,10 +614,57 @@
   const latestShellRuntimeSession = (peerID) => {
     const id = String(peerID || "").trim();
     if (!id) return null;
+    return shellSessionsForPeer(id)[0] || null;
+  };
+
+  const shellSessionsForPeer = (peerID) => {
+    const id = String(peerID || "").trim();
+    if (!id) return [];
     const sessions = Array.isArray(state.shellSessions) ? state.shellSessions : [];
-    return sessions
+    const out = sessions
       .filter((item) => String(item && item.peer_id || "").trim() === id)
-      .sort((a, b) => String(b && b.created_at || "").localeCompare(String(a && a.created_at || "")))[0] || null;
+      .filter((item) => String(item && item.status || "").toLowerCase() !== "done");
+    const seen = new Set(out.map((item) => String(item && item.task_id || "").trim()).filter(Boolean));
+    for (const taskObj of state.tasks.values()) {
+      const taskID = String(taskObj && taskObj.task_id || taskObj && taskObj.id || "").trim();
+      if (!taskID || seen.has(taskID)) continue;
+      if (String(taskObj && taskObj.kind || "").toLowerCase() !== "sh_attach") continue;
+      if (String(taskObj && taskObj.status || "").toLowerCase() === "done") continue;
+      if (shellTaskValue(taskObj, "peer_id", "peer_id=") !== id) continue;
+      out.push({
+        task_id: taskID,
+        peer_id: id,
+        target: shellTaskValue(taskObj, "target", "target=") || "local",
+        session: shellTaskValue(taskObj, "session", "session=") || "main",
+        status: taskObj.status || "running",
+        stage: taskObj.stage || "",
+        created_at: taskObj.created_at || "",
+        report_ready: !!taskObj.report_ready,
+        attachable: true,
+      });
+      seen.add(taskID);
+    }
+    return out.sort((a, b) => String(b && b.created_at || "").localeCompare(String(a && a.created_at || "")));
+  };
+
+  const activeShellSessionForPeer = (peerID) => {
+    const sessions = shellSessionsForPeer(peerID);
+    const activeTaskID = String(shellView.activeSessionTaskID || shellView.taskID || "").trim();
+    const target = String(shellView.target || "").trim();
+    if (activeTaskID) {
+      return sessions.find((item) => String(item && item.task_id || "").trim() === activeTaskID) || null;
+    }
+    if (target) {
+      return sessions.find((item) => String(item && item.target || "local").trim() === target) || null;
+    }
+    return sessions[0] || null;
+  };
+
+  const shellSessionLabel = (item) => {
+    if (!item) return "local / main";
+    const target = String(item.target || "local").trim() || "local";
+    const session = String(item.session || "main").trim() || "main";
+    return `${target} / ${session}`;
   };
 
   const shellDefaultTarget = (peerID) => {
@@ -612,6 +688,9 @@
       targetOptions: Array.isArray(shellView.targetOptions) ? shellView.targetOptions.slice() : [],
       sessionOptions: Array.isArray(shellView.sessionOptions) ? shellView.sessionOptions.slice() : [],
       sessionTarget: shellView.sessionTarget,
+      leftCollapsed: !!shellView.leftCollapsed,
+      rightOpen: !!shellView.rightOpen,
+      zen: !!shellView.zen,
     });
   };
 
@@ -625,6 +704,9 @@
       targetOptions: runtime && hasText(runtime.target) ? [String(runtime.target).trim()] : [],
       sessionOptions: runtime && hasText(runtime.session) ? [String(runtime.session).trim()] : [],
       sessionTarget: runtime && hasText(runtime.target) && hasText(runtime.session) ? String(runtime.target).trim() : "",
+      leftCollapsed: false,
+      rightOpen: true,
+      zen: false,
     };
   };
 
@@ -642,21 +724,26 @@
 
     const saved = shellSelections.get(id);
     const seed = saved || shellSeedForPeer(id);
+    const activeSession = activeShellSessionForPeer(id);
     shellView.peerID = id;
-    shellView.target = hasText(seed.target) ? String(seed.target).trim() : shellDefaultTarget(id);
-    shellView.session = hasText(seed.session) ? String(seed.session).trim() : shellDefaultSession(id);
+    shellView.target = activeSession && hasText(activeSession.target) ? String(activeSession.target).trim() : (hasText(seed.target) ? String(seed.target).trim() : shellDefaultTarget(id));
+    shellView.session = activeSession && hasText(activeSession.session) ? String(activeSession.session).trim() : (hasText(seed.session) ? String(seed.session).trim() : shellDefaultSession(id));
     shellView.targetOptions = Array.isArray(seed.targetOptions) ? seed.targetOptions.slice() : [];
     shellView.sessionOptions = Array.isArray(seed.sessionOptions) ? seed.sessionOptions.slice() : [];
     shellView.sessionTarget = hasText(seed.sessionTarget) ? String(seed.sessionTarget).trim() : "";
+    shellView.leftCollapsed = !!seed.leftCollapsed;
+    shellView.rightOpen = !!seed.rightOpen;
+    shellView.zen = !!seed.zen;
     shellView.error = "";
     shellView.detail = "";
     shellView.phase = "idle";
-    shellView.taskID = "";
+    shellView.taskID = activeSession ? String(activeSession.task_id || "") : "";
+    shellView.activeSessionTaskID = shellView.taskID;
     shellView.discoveryTaskID = "";
     rememberShellSelection(id);
   };
 
-  const shellPageActive = () => state.activeTab === "network" && state.view.type === "peer" && state.view.section === "shell";
+  const shellPageActive = () => state.activeTab === "shell";
 
   const shellOperateEnabled = (peerID = shellView.peerID) => {
     const mem = memberByPeerID(peerID);
@@ -676,9 +763,9 @@
     if (phase === "listing") return "Listing shell choices...";
     if (phase === "connecting") return "Connecting shell...";
     if (phase === "connected") return "Shell connected.";
-    if (phase === "disconnected") return "Shell disconnected. Reconnect is available.";
+    if (phase === "disconnected") return "Disconnected. Resume or start a new shell.";
     if (phase === "failed") return "Shell action failed. Retry is available.";
-    return "Ready to discover or connect.";
+    return "Ready to open a shell.";
   };
 
   const shellStatusText = () => shellView.detail || shellPhaseDefaultDetail(shellView.phase);
@@ -688,6 +775,9 @@
 
   const shellCanConnect = (peerID = shellView.peerID) => shellOperateEnabled(peerID)
     && !["listing", "connecting", "connected"].includes(shellView.phase);
+
+  const shellSessionAttachable = (session) => !!(session && session.attachable === true);
+  const shellCanResume = (session, peerID = shellView.peerID) => shellCanConnect(peerID) && shellSessionAttachable(session);
 
   const shellCanDisconnect = () => !!(shellState.ws || shellState.term);
 
@@ -706,6 +796,7 @@
     if (!container) return;
     container.textContent = "";
     container.appendChild(preserved.fragment);
+    installTerminalScroll(container, shellState.term);
     if (shellState.resizeObs) {
       try {
         shellState.resizeObs.disconnect();
@@ -780,6 +871,10 @@
       window.clearTimeout(shellState.fitTimer);
       shellState.fitTimer = 0;
     }
+    if (shellState.scrollDispose) {
+      shellState.scrollDispose();
+      shellState.scrollDispose = null;
+    }
     const ws = shellState.ws;
     shellState.ws = null;
     if (ws) {
@@ -815,7 +910,9 @@
     const phase = el("shell-phase");
     if (phase) {
       phase.textContent = shellView.phase;
-      phase.className = `chip ${shellPhaseClass(shellView.phase)}`.trim();
+      phase.className = shellView.phase === "idle"
+        ? "shell-phase-placeholder"
+        : `chip ${shellPhaseClass(shellView.phase)}`.trim();
     }
     const status = el("shell-status");
     if (status) status.textContent = shellStatusText();
@@ -826,10 +923,21 @@
     }
     const discover = el("btn-shell-discover");
     if (discover) discover.disabled = !shellCanDiscover();
+    const findSessions = el("btn-shell-find-sessions");
+    if (findSessions) findSessions.disabled = !shellCanDiscover();
     const connect = el("btn-shell-connect");
     if (connect) connect.disabled = !shellCanConnect();
-    const disconnect = el("btn-shell-disconnect");
-    if (disconnect) disconnect.disabled = !shellCanDisconnect();
+    for (const disconnect of document.querySelectorAll("[data-shell-disconnect]")) {
+      disconnect.disabled = !shellCanDisconnect();
+    }
+    const resume = el("btn-shell-resume");
+    if (resume) {
+      const taskID = String(resume.dataset.shellSessionTask || "").trim();
+      const peerID = state.view.type === "shell-peer" ? state.view.peerID : shellView.peerID;
+      const session = shellSessionsForPeer(peerID)
+        .find((item) => String(item && item.task_id || "").trim() === taskID);
+      resume.disabled = !(taskID && shellCanResume(session, peerID));
+    }
   };
 
   const failShellAction = (message, detail = "") => {
@@ -840,6 +948,23 @@
     rememberShellSelection();
     scheduleRender();
     toast(shellView.error);
+  };
+
+  const installTerminalScroll = (container, term) => {
+    if (shellState.scrollDispose) {
+      shellState.scrollDispose();
+      shellState.scrollDispose = null;
+    }
+    const onWheel = (event) => {
+      if (event.defaultPrevented) return;
+      if (!term || !term.buffer || !term.buffer.active || term.buffer.active.baseY <= 0) return;
+      const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 1 : 32;
+      const lines = Math.max(1, Math.ceil(Math.abs(event.deltaY) / unit));
+      term.scrollLines(event.deltaY > 0 ? lines : -lines);
+      event.preventDefault();
+    };
+    container.addEventListener("wheel", onWheel, { passive: false });
+    shellState.scrollDispose = () => container.removeEventListener("wheel", onWheel);
   };
 
   const applyEventToTask = (taskObj, ev) => {
@@ -1019,6 +1144,9 @@
     for (const node of document.querySelectorAll("[data-admin-nav]")) {
       node.classList.toggle("is-hidden", !adminVisible());
     }
+    for (const node of document.querySelectorAll("[data-shell-nav]")) {
+      node.classList.toggle("is-hidden", !shellVisible());
+    }
   };
 
   const renderTopbar = () => {
@@ -1032,8 +1160,10 @@
   };
 
   const setActiveTab = (name, opts = {}) => {
-    const next = name === "admin" && !adminVisible() ? "network" : (name || "network");
-    if (state.activeTab !== next) disconnectShell();
+    let next = name || "network";
+    if (next === "access") next = "network";
+    if (next === "admin" && !adminVisible()) next = "network";
+    if (next === "shell" && !shellVisible()) next = "network";
     state.activeTab = next;
     state.view = { type: "overview" };
     if (!opts.skipStore) localStorage.setItem("miopunch_desktop_tab", next);
@@ -1041,11 +1171,6 @@
   };
 
   const navigate = (view) => {
-    const leavingShell = state.activeTab === "network" && state.view.type === "peer" && state.view.section === "shell";
-    const enteringShell = state.activeTab === "network" && view.type === "peer" && view.section === "shell";
-    const changingShellPeer = leavingShell && enteringShell
-      && String(state.view.peerID || "") !== String(view.peerID || "");
-    if (leavingShell && (!enteringShell || changingShellPeer)) disconnectShell();
     state.view = view;
     scheduleRender();
   };
@@ -1063,14 +1188,22 @@
   };
 
   const renderAll = () => {
+    if (state.activeTab === "access") {
+      state.activeTab = "network";
+      state.view = { type: "overview" };
+    }
     if (roleKnown() && !adminVisible() && state.activeTab === "admin") {
+      state.activeTab = "network";
+      state.view = { type: "overview" };
+    }
+    if (!shellVisible() && state.activeTab === "shell") {
       state.activeTab = "network";
       state.view = { type: "overview" };
     }
     renderNav();
     renderTopbar();
     if (state.activeTab === "network") renderNetwork();
-    else if (state.activeTab === "access") renderAccess();
+    else if (state.activeTab === "shell") renderShell();
     else if (state.activeTab === "admin") renderAdmin();
     else renderSettings();
   };
@@ -1086,9 +1219,9 @@
     </div>`;
 
   const moduleSwitchHTML = (items) => `
-    <nav class="module-switch" aria-label="Workspace view">
+    <nav class="workspace-tabs" aria-label="Workspace view">
       ${items.map((item) => `
-        <button class="module-switch-item ${item.active ? "is-active" : ""}" type="button" ${item.attr || ""}>
+        <button class="workspace-tab ${item.active ? "is-active" : ""}" type="button" ${item.attr || ""}>
           <span>${esc(item.label)}</span>
           ${item.meta ? `<small>${esc(item.meta)}</small>` : ""}
         </button>`).join("")}
@@ -1106,8 +1239,8 @@
       const peerID = String(mem.peer_id || "");
       if (!peerID) continue;
       items.push({
-        label: shortID(peerID),
-        meta: mem.role || "peer",
+        label: deviceName(mem),
+        meta: [mem.role || "peer", healthTextForPeer(mem)].filter(Boolean).join(" · "),
         active: peerID === activeID,
         attr: `data-open-peer="${esc(peerID)}"`,
       });
@@ -1148,7 +1281,7 @@
   };
 
   const settingSections = () => [
-    { id: "runtime", title: "Runtime config", meta: "settings" },
+    { id: "runtime", title: "Connectivity", meta: "transport" },
     { id: "localapi", title: "Local daemon", meta: "connection" },
     { id: "diagnostics", title: "Diagnostics", meta: "status" },
     { id: "preview", title: "Preview", meta: "fixture" },
@@ -1165,152 +1298,401 @@
   ]);
 
   const renderNetwork = () => {
+    if (!networkJoined()) {
+      renderNetworkJoin();
+      return;
+    }
     if (state.view.type === "peer") {
+      if ((state.view.section || "overview") === "shell") {
+        state.activeTab = "shell";
+        syncShellSelectionForPeer(state.view.peerID);
+        state.view = { type: "overview" };
+        renderShell();
+        return;
+      }
       renderPeerDetail(memberByPeerID(state.view.peerID), state.view.section || "overview");
       return;
     }
     renderNetworkOverview();
   };
 
-  const topologyCircleHTML = (list, currentSelf) => {
-    const size = 420;
-    const center = size / 2;
-    const radius = 148;
+  const renderNetworkJoin = () => {
+    setPage(`
+      <section class="page">
+        ${pageHeadingHTML("Network setup", "Join a network", "Paste an invite code to connect this device.")}
+        ${renderJoinFlow()}
+      </section>`);
+  };
+
+  const previewDeviceNames = {
+    "peer-owner-zima-blue-0001": "This MacBook",
+    "peer-studio-workstation-02": "Studio PC",
+    "peer-livingroom-mini-03": "Living Room Mini",
+    "peer-travel-laptop-04": "Travel Laptop",
+    "peer-old-phone-05": "Old Phone",
+    "peer-new-node-0000": "This Device",
+  };
+
+  const remoteDeviceName = (mem) => {
+    const peerID = String(mem && mem.peer_id || "");
+    if (state.previewMode) {
+      return String(
+        (mem && (mem.display_name || mem.device_name || mem.member_name || mem.name)) ||
+        previewDeviceNames[peerID] ||
+        shortID(peerID)
+      );
+    }
+    return String((mem && mem.member_name) || peerID || "Unknown peer");
+  };
+
+  const localAliasForPeer = (peerID) => {
+    const id = String(peerID || "");
+    const prefs = settingsDesired().preferences || {};
+    const aliases = prefs.peer_aliases && typeof prefs.peer_aliases === "object" ? prefs.peer_aliases : {};
+    const alias = String(aliases[id] || "").trim();
+    if (alias || !state.previewMode) return alias;
+    return String(state.localAliases && state.localAliases[id] || "").trim();
+  };
+
+  const deviceName = (mem) => {
+    const peerID = String(mem && mem.peer_id || "");
+    return localAliasForPeer(peerID) || remoteDeviceName(mem);
+  };
+
+  const peerTitle = (peerID) => deviceName(memberByPeerID(peerID) || { peer_id: peerID });
+
+  const edgeLabel = (peerID) => {
+    const edge = activeNeighbor(peerID);
+    if (!edge) return selectedNeighbor(peerID) ? "target" : "known";
+    return [edge.data_proto, edge.path_family].filter(Boolean).join(" / ") || "connected";
+  };
+
+  const lastSeenText = (unixMs) => {
+    const n = Number(unixMs || 0);
+    if (!Number.isFinite(n) || n <= 0) return "-";
+    const age = Math.max(0, Date.now() - n);
+    if (age < 60000) return "just now";
+    if (age < 3600000) return `${Math.floor(age / 60000)}m ago`;
+    if (age < 86400000) return `${Math.floor(age / 3600000)}h ago`;
+    return `${Math.floor(age / 86400000)}d ago`;
+  };
+
+  const healthTextForPeer = (mem) => {
+    if (!mem) return "Unknown";
+    if (mem.revoked) return "Access revoked";
+    if (String(mem.peer_id || "") === String(self().peer_id || "")) return "This device";
+    const edge = activeNeighbor(mem.peer_id);
+    if (edge && edge.healthy !== false) return "Connected";
+    if (selectedNeighbor(mem.peer_id)) return "Ready to connect";
+    if (recentPeerFailure(mem.peer_id)) return "Needs attention";
+    return "Known device";
+  };
+
+  const mapNodeClass = (mem, selectedID) => {
+    const peerID = String(mem && mem.peer_id || "");
+    const classes = ["network-node"];
+    if (peerID === selectedID) classes.push("is-selected");
+    if (peerID === String(self().peer_id || "")) classes.push("is-self");
+    else if (mem && mem.revoked) classes.push("is-revoked");
+    else if (activeNeighbor(peerID)) classes.push("is-active");
+    else if (selectedNeighbor(peerID)) classes.push("is-target");
+    else classes.push("is-known");
+    return classes.join(" ");
+  };
+
+  const userTaskMessage = (taskObj, fallback = "Ready.") => {
+    if (!taskObj) return fallback;
+    const kind = String(taskObj.kind || "").toLowerCase();
+    const status = String(taskObj.status || "").toLowerCase();
+    const stage = String(taskObj.stage || "").trim();
+    const reason = String(taskObj.reason_code || "").trim();
+    if (reason && reason.toUpperCase() !== "OK") return taskFailureSummary(taskObj);
+    if (kind === "join" && status === "done") return stage || "This device joined the network.";
+    if (kind === "invite" && findInviteCode(taskObj)) return "Invite is ready. Copy it or scan the QR code on the new device.";
+    if (kind === "invite" && inviteTaskMissingCode(taskObj)) return "Invite finished, but no invite code was returned.";
+    if (kind === "approve" && status !== "done") return stage || "Waiting for a device to request access.";
+    if (kind === "approve_decision") return stage || "Access decision was sent.";
+    if (kind === "ping" && status === "done") return stage || "Ping succeeded.";
+    if (kind === "sh_ls" && status === "done") return stage || "Remote shell choices are ready.";
+    if (kind === "revoke_member" && status === "done") return stage || "Access change was written.";
+    if (kind === "sh_attach" && status !== "done") return "Opening remote shell.";
+    if (stage) return stage;
+    if (status === "running" || status === "pending") return "Working...";
+    if (status === "done") return "Done.";
+    return fallback;
+  };
+
+  const operationStatusHTML = (taskObj, title, idleText) => {
+    const cls = taskObj ? taskStatusClass(taskObj) : "chip-muted";
+    const chip = taskObj && taskObj.status ? taskObj.status : "ready";
+    return `
+      <section class="operation-status">
+        <div>
+          <p class="eyebrow">${esc(title || "Status")}</p>
+          <strong>${esc(userTaskMessage(taskObj, idleText || "Ready."))}</strong>
+        </div>
+        ${chipHTML(chip, cls)}
+      </section>`;
+  };
+
+  const technicalLogHTML = (taskObj, label = "Diagnostics") => {
+    if (!taskObj) return "";
+    return `
+      <details class="technical-log">
+        <summary>${esc(label)}</summary>
+        <div class="detail-table">
+          ${detailRowHTML("Task", taskObj.task_id || "-")}
+          ${detailRowHTML("Kind", taskObj.kind || "-")}
+          ${detailRowHTML("Stage", taskObj.stage || "-")}
+          ${detailRowHTML("Reason", taskObj.reason_code || "-")}
+        </div>
+        <div class="grid grid-2 mt">
+          <div class="list">${renderFactList(taskObj.suggestions, COPY.empty.suggestions)}</div>
+          <div class="list">${renderFactList(taskObj.facts, COPY.empty.facts)}</div>
+        </div>
+      </details>`;
+  };
+
+  const topologyMapHTML = (list, currentSelf) => {
+    const view = { w: 720, h: 396 };
     const selfID = String(currentSelf.peer_id || "");
+    const selectedID = state.networkMapPeerID && memberByPeerID(state.networkMapPeerID)
+      ? state.networkMapPeerID
+      : selfID;
+    const selected = memberByPeerID(selectedID) || currentSelf;
     const peers = list.filter((mem) => String(mem.peer_id || "") !== selfID);
-    const outer = peers.length ? peers : list;
-    const nodeAt = (index, total) => {
-      const angle = total <= 1 ? -Math.PI / 2 : (-Math.PI / 2) + (index * 2 * Math.PI / total);
-      return {
-        x: center + Math.cos(angle) * radius,
-        y: center + Math.sin(angle) * radius,
-      };
+    const selfBase = peers.length <= 1 ? { x: 360, y: 282 } : { x: 360, y: 250 };
+    const layout = [
+      { peerID: selfID, x: selfBase.x, y: selfBase.y },
+      { peerID: "peer-studio-workstation-02", x: 500, y: 112 },
+      { peerID: "peer-livingroom-mini-03", x: 570, y: 285 },
+      { peerID: "peer-travel-laptop-04", x: 175, y: 118 },
+      { peerID: "peer-old-phone-05", x: 145, y: 325 },
+    ];
+    const fallbackPos = (idx, total) => {
+      if (total <= 1) return { x: 360, y: 118 };
+      const angle = (-Math.PI / 2) + (idx * 2 * Math.PI / Math.max(1, total));
+      return { x: selfBase.x + Math.cos(angle) * 230, y: selfBase.y + Math.sin(angle) * 142 };
     };
+    const positionFor = (mem, idx) => {
+      const peerID = String(mem && mem.peer_id || "");
+      return layout.find((item) => item.peerID === peerID) || fallbackPos(idx, peers.length);
+    };
+    const selfPos = positionFor({ peer_id: selfID }, 0);
+    const peerPositions = new Map(peers.map((mem, idx) => [String(mem.peer_id || ""), positionFor(mem, idx)]));
     const edgeClass = (peerID) => {
       if (activeNeighbor(peerID)) return "is-active";
       if (selectedNeighbor(peerID)) return "is-target";
       return "is-muted";
     };
-    const nodeClass = (mem) => {
-      if (!mem) return "is-self";
-      if (mem.revoked) return "is-revoked";
-      if (activeNeighbor(mem.peer_id)) return "is-active";
-      if (selectedNeighbor(mem.peer_id)) return "is-target";
-      return "is-known";
-    };
-    const edges = outer.map((mem, index) => {
-      const pos = nodeAt(index, outer.length);
-      return `<line class="topology-edge ${edgeClass(mem.peer_id)}" x1="${center}" y1="${center}" x2="${pos.x.toFixed(1)}" y2="${pos.y.toFixed(1)}" />`;
-    }).join("");
-    const outerNodes = outer.map((mem, index) => {
-      const pos = nodeAt(index, outer.length);
+    const edges = peers.map((mem, idx) => {
+      const pos = peerPositions.get(String(mem.peer_id || "")) || positionFor(mem, idx);
+      const labelX = ((selfPos.x + pos.x) / 2).toFixed(1);
+      const labelY = (((selfPos.y + pos.y) / 2) - 8).toFixed(1);
+      const label = activeNeighbor(mem.peer_id) ? edgeLabel(mem.peer_id).toUpperCase() : "";
       return `
-        <g class="topology-node ${nodeClass(mem)}">
-          <circle cx="${pos.x.toFixed(1)}" cy="${pos.y.toFixed(1)}" r="30" />
-          <text x="${pos.x.toFixed(1)}" y="${(pos.y - 42).toFixed(1)}">${esc(shortID(mem.peer_id))}</text>
-          <text class="topology-role" x="${pos.x.toFixed(1)}" y="${(pos.y + 48).toFixed(1)}">${esc(mem.role || "peer")}</text>
+        <g class="network-edge ${edgeClass(mem.peer_id)}" data-edge-peer="${esc(mem.peer_id || "")}">
+          <line x1="${selfPos.x}" y1="${selfPos.y}" x2="${pos.x.toFixed(1)}" y2="${pos.y.toFixed(1)}" />
+          ${label ? `<text x="${labelX}" y="${labelY}">${esc(label)}</text>` : ""}
         </g>`;
     }).join("");
-    const legend = [
-      ["active", "active"],
-      ["target", "target"],
-      ["known", "known"],
-      ["revoked", "revoked"],
-    ].map(([label, cls]) => `<span class="topology-legend-item ${cls}">${esc(label)}</span>`).join("");
+    const nodes = list.map((mem, idx) => {
+      const peerID = String(mem.peer_id || "");
+      const pos = peerID === selfID ? selfPos : (peerPositions.get(peerID) || positionFor(mem, idx));
+      const label = deviceName(mem);
+      const health = healthTextForPeer(mem);
+      const x = ((pos.x / view.w) * 100).toFixed(3);
+      const y = ((pos.y / view.h) * 100).toFixed(3);
+      return `
+        <button class="${mapNodeClass(mem, selectedID).replace("network-node", "map-device-node")}" type="button" data-map-peer="${esc(mem.peer_id || "")}" style="--x:${x}%;--y:${y}%;" aria-label="${esc(label)}">
+          <span class="map-device-dot"></span>
+          <span class="map-device-label">
+            <strong>${esc(label)}</strong>
+            <small>${esc(health)}</small>
+          </span>
+        </button>`;
+    }).join("");
+    const edge = activeNeighbor(selectedID);
+    const selectedFailure = recentPeerFailure(selectedID);
+    const selectedIsSelf = selectedID === selfID;
+    const selectedCanShell = !selectedIsSelf && selected && !selected.revoked && (state.previewMode || lastConn && lastConn.connected);
+    const selectedLastSeen = edge ? lastSeenText(edge.last_activity_unix_ms) : "-";
+    const selectedStatus = statusForMember(selected);
+    const quickActions = selectedIsSelf
+      ? `
+        <button class="btn btn-tonal" type="button" disabled>Rename</button>
+        <button class="btn btn-tonal" type="button" disabled>Ping</button>`
+      : `
+        <button class="btn btn-primary" type="button" data-peer-section="shell" data-peer-id="${esc(selectedID)}" ${selectedCanShell ? "" : "disabled"}>Open shell</button>
+        <button class="btn btn-tonal" type="button" data-open-peer="${esc(selectedID)}">Details</button>`;
+    const deviceRows = list.map((mem) => {
+      const peerID = String(mem.peer_id || "");
+      const status = statusForMember(mem);
+      return `
+        <button class="device-row ${peerID === selectedID ? "is-selected" : ""}" type="button" data-map-peer="${esc(peerID)}">
+          <span>
+            <strong>${esc(deviceName(mem))}</strong>
+            <small>${esc(edgeLabel(peerID))}</small>
+          </span>
+          ${chipHTML(status.label, status.cls)}
+        </button>`;
+    }).join("");
     return `
-      <section class="topology-layout" aria-label="Network topology map">
-        <div class="topology-map">
-          <svg class="topology-svg" viewBox="0 0 ${size} ${size}" role="img" aria-label="Circular peer topology">
-            <circle class="topology-ring" cx="${center}" cy="${center}" r="${radius}" />
-            ${edges}
-            <g class="topology-node is-self">
-              <circle cx="${center}" cy="${center}" r="38" />
-              <text x="${center}" y="${center - 50}">${esc(shortID(currentSelf.peer_id))}</text>
-              <text class="topology-role" x="${center}" y="${center + 60}">${esc(currentSelf.role || "this node")}</text>
-            </g>
-            ${outerNodes}
-          </svg>
+      <section class="network-console" aria-label="Network map prototype">
+        <div class="network-map-panel">
+          <div class="network-map-head">
+            <div>
+              <p class="eyebrow">Network map</p>
+              <h3 class="card-title">Devices and direct links</h3>
+            </div>
+            <div class="network-map-legend">
+              <span class="legend-dot active">Direct</span>
+              <span class="legend-dot target">Ready</span>
+              <span class="legend-dot muted">Known</span>
+              <span class="legend-dot revoked">Revoked</span>
+            </div>
+          </div>
+          <div class="network-map-board">
+            <svg class="network-map-svg" viewBox="0 0 ${view.w} ${view.h}" role="img" aria-label="Device topology links">
+              <rect class="network-map-plane" x="14" y="14" width="${view.w - 28}" height="${view.h - 28}" rx="18" />
+              ${edges}
+            </svg>
+            <div class="network-map-nodes">${nodes}</div>
+          </div>
+          <div class="device-strip">${deviceRows}</div>
         </div>
-        <div class="topology-side">
+        <aside class="network-device-panel">
           <div>
-            <p class="eyebrow">Topology</p>
-            <h3 class="card-title">Peer map</h3>
+            <p class="eyebrow">${selectedIsSelf ? "This device" : "Selected device"}</p>
+            <h3 class="card-title">${esc(deviceName(selected))}</h3>
           </div>
-          <div class="topology-legend">${legend}</div>
+          <div class="device-status-line">
+            ${chipHTML(selectedStatus.label, selectedStatus.cls)}
+            <span>${esc(healthTextForPeer(selected))}</span>
+          </div>
           <div class="detail-table">
-            ${detailRowHTML("This node", currentSelf.peer_id || "-")}
-            ${detailRowHTML("Visible peers", list.length)}
-            ${detailRowHTML("Active edges", outer.filter((mem) => activeNeighbor(mem.peer_id)).length)}
-            ${detailRowHTML("Selected targets", outer.filter((mem) => selectedNeighbor(mem.peer_id)).length)}
+            ${detailRowHTML("Role", selected.role || "-")}
+            ${detailRowHTML("Connection", selectedIsSelf ? "local" : edge ? "direct" : selectedNeighbor(selectedID) ? "ready" : "not connected")}
+            ${detailRowHTML("Path", selectedIsSelf ? "this device" : edgeLabel(selectedID))}
+            ${detailRowHTML("Last activity", selectedLastSeen)}
+            ${selectedFailure ? detailRowHTML("Recent issue", failureSummary(selectedFailure)) : ""}
           </div>
-        </div>
+          <div class="action-row">${quickActions}</div>
+          <div class="helper">Peer ID: ${esc(shortID(selectedID))}</div>
+        </aside>
       </section>`;
   };
 
   const renderNetworkOverview = () => {
-    const top = state.topology || {};
     const currentSelf = self();
     const list = members();
-    const liveMembers = list.filter((m) => !m.revoked);
-    const active = top.neighbors && Array.isArray(top.neighbors.active) ? top.neighbors.active : [];
-    const targetK = top.neighbors && typeof top.neighbors.target_k !== "undefined" ? top.neighbors.target_k : "-";
-    const stateHead = top.state_head || {};
-    const net = top.net || {};
-    const peerCards = list.length
-      ? list.map((mem) => {
-        const status = statusForMember(mem);
-        const neighbor = activeNeighbor(mem.peer_id);
-        const path = neighbor ? `${neighbor.data_proto || "-"} / ${neighbor.path_family || "-"}` : (mem.v4_hint || "path unknown");
-        return `
-          <button class="tile" data-open-peer="${esc(mem.peer_id || "")}">
-            <div class="card-header">
-              <div>
-                <div class="tile-title">${esc(shortID(mem.peer_id))}</div>
-                <div class="tile-meta">${esc(mem.role || "unknown")} | ${esc(path)}</div>
-              </div>
-              ${chipHTML(status.label, status.cls)}
-            </div>
-          </button>`;
-      }).join("")
-      : `<div class="card">${listItemHTML(COPY.empty.devices, "empty")}</div>`;
+    if (!state.networkMapPeerID || !memberByPeerID(state.networkMapPeerID)) {
+      state.networkMapPeerID = currentSelf.peer_id || "";
+    }
 
     setPage(`
       <section class="page">
         ${networkSwitchHTML()}
-        ${pageHeadingHTML("Network overview", "Device network")}
-        ${topologyCircleHTML(list, currentSelf)}
-        <section class="card">
-          <div class="card-header">
-            <div>
-              <p class="eyebrow">This node</p>
-              <h3 class="card-title">${esc(shortID(currentSelf.peer_id))}</h3>
-            </div>
-            ${chipHTML(currentSelf.role || "unknown", "chip-role")}
-          </div>
-          <div class="detail-table">
-            ${detailRowHTML("Peer ID", currentSelf.peer_id || "-")}
-            ${detailRowHTML("Network", net.net_id || "Not joined")}
-            ${detailRowHTML("Version", state.status && state.status.version ? state.status.version : "-")}
-            ${detailRowHTML("Uptime", state.status && state.status.uptime_ms ? fmtUptime(state.status.uptime_ms) : "-")}
-          </div>
-        </section>
-        <section class="metric-grid">
-          ${metricHTML("Members", liveMembers.length)}
-          ${metricHTML("Active paths", active.filter((n) => n.healthy !== false).length)}
-          ${metricHTML("Target K", targetK)}
-          ${metricHTML("Decls head", headShort(stateHead.decls_head_b64))}
-        </section>
-        <section class="grid">
-          <div class="card-header">
-            <div>
-              <p class="eyebrow">Peers</p>
-              <h3 class="card-title">Members</h3>
-            </div>
-            ${chipHTML(list.length)}
-          </div>
-          <div class="peer-grid">${peerCards}</div>
-        </section>
+        ${topologyMapHTML(list, currentSelf)}
       </section>`);
+  };
+
+  const recentPeerTask = (peerID, kinds = []) => {
+    const kindSet = new Set(kinds.map((kind) => String(kind || "").toLowerCase()));
+    return [...state.tasks.values()].filter((taskObj) => {
+      if (kindSet.size && !kindSet.has(String(taskObj.kind || "").toLowerCase())) return false;
+      return taskMentionsPeer(taskObj, peerID);
+    }).sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))[0] || null;
+  };
+
+  const deviceConnectionKind = (mem) => {
+    const peerID = String(mem && mem.peer_id || "");
+    if (!mem) return "unknown";
+    if (mem.revoked) return "revoked";
+    if (peerID === String(self().peer_id || "")) return "local";
+    if (activeNeighbor(peerID)) return "direct";
+    if (selectedNeighbor(peerID)) return "ready";
+    if (recentPeerFailure(peerID)) return "issue";
+    return "known";
+  };
+
+  const deviceConnectionCopy = (mem) => {
+    const kind = deviceConnectionKind(mem);
+    if (kind === "local") return { title: "This device", detail: "Local machine in this network.", chip: "this device", cls: "chip-role" };
+    if (kind === "direct") return { title: "Direct connection ready", detail: `Connected through ${edgeLabel(mem.peer_id)}.`, chip: "direct", cls: "chip-active" };
+    if (kind === "ready") return { title: "Ready to try", detail: "This device is selected for connectivity but is not currently active.", chip: "ready", cls: "chip-running" };
+    if (kind === "revoked") return { title: "Access revoked", detail: "This device cannot be used until access is restored by an administrator.", chip: "revoked", cls: "chip-revoked" };
+    if (kind === "issue") return { title: "Needs attention", detail: "Recent connection attempts reported a problem.", chip: "issue", cls: "chip-error" };
+    return { title: "Known device", detail: "This device is in the network, but there is no active direct path right now.", chip: "known", cls: "chip-muted" };
+  };
+
+  const peerMetadataHTML = (peerID) => `
+    <div class="peer-metadata">
+      <span>Peer ID ${esc(shortID(peerID))}</span>
+      <button class="icon-btn compact-icon-btn" data-copy-peer="${esc(peerID)}" title="Copy Peer ID" aria-label="Copy Peer ID">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h10v12H8z" /><path d="M6 16H4V4h12v2" /></svg>
+      </button>
+    </div>`;
+
+  const previewPeerPaths = {
+    "peer-owner-zima-blue-0001": {
+      directIPv4: "100.92.0.10",
+      directIPv6: "fd7a:115c:a1e0::10",
+      localEndpoint: "192.168.31.42:49320",
+      remoteEndpoint: "192.168.31.42:49320",
+      publicTuple: "203.0.113.21:49320 -> 203.0.113.21:49320",
+      punch: "local loopback",
+      port: "49320/udp",
+    },
+    "peer-studio-workstation-02": {
+      directIPv4: "100.92.0.21",
+      directIPv6: "fd7a:115c:a1e0::21",
+      localEndpoint: "192.168.31.42:49320",
+      remoteEndpoint: "192.168.31.88:41877",
+      publicTuple: "203.0.113.21:49320 -> 198.51.100.44:41877",
+      punch: "udp6 direct",
+      port: "41877/udp",
+    },
+    "peer-livingroom-mini-03": {
+      directIPv4: "100.92.0.34",
+      directIPv6: "not advertised",
+      localEndpoint: "192.168.31.42:49320",
+      remoteEndpoint: "10.0.0.12:55391",
+      publicTuple: "203.0.113.21:49320 -> 198.51.100.91:55391",
+      punch: "portmap assisted",
+      port: "55391/udp",
+    },
+    "peer-travel-laptop-04": {
+      directIPv4: "pending",
+      directIPv6: "not advertised",
+      localEndpoint: "192.168.31.42:49320",
+      remoteEndpoint: "unknown",
+      publicTuple: "waiting for peer reflexive address",
+      punch: "last attempt timed out",
+      port: "unknown",
+    },
+  };
+
+  const firstText = (...values) => {
+    for (const value of values) {
+      const text = String(value || "").trim();
+      if (text) return text;
+    }
+    return "";
+  };
+
+  const peerPathFacts = (peerID, selected, neighbor, selectedEdge) => {
+    const preview = state.previewMode ? (previewPeerPaths[peerID] || {}) : {};
+    const session = peerSessionForPeer(peerID) || {};
+    return {
+      directIPv4: firstText(selected && selected.direct_ipv4, neighbor && neighbor.direct_ipv4, session.direct_ipv4, selected && selected.ipv4, preview.directIPv4, state.previewMode && selected && selected.v4_hint, "unknown"),
+      directIPv6: firstText(selected && selected.direct_ipv6, neighbor && neighbor.direct_ipv6, session.direct_ipv6, selected && selected.ipv6, preview.directIPv6, state.previewMode && selected && selected.v6_hint, "unknown"),
+      localEndpoint: firstText(neighbor && neighbor.local_endpoint, neighbor && neighbor.local_addr, selectedEdge && selectedEdge.local_endpoint, session.local_endpoint, preview.localEndpoint, "unknown"),
+      remoteEndpoint: firstText(neighbor && neighbor.remote_endpoint, neighbor && neighbor.remote_addr, selectedEdge && selectedEdge.remote_endpoint, session.remote_endpoint, preview.remoteEndpoint, "unknown"),
+      publicTuple: firstText(neighbor && neighbor.public_tuple, neighbor && neighbor.tuple, selectedEdge && selectedEdge.public_tuple, session.public_tuple, preview.publicTuple, "unknown"),
+      punch: firstText(neighbor && neighbor.punch_status, neighbor && neighbor.result, selectedEdge && selectedEdge.punch_status, session.punch_status, preview.punch, "unknown"),
+      port: firstText(neighbor && neighbor.port, selectedEdge && selectedEdge.port, session.port, preview.port, "unknown"),
+    };
   };
 
   const renderPeerDetail = (mem, section) => {
@@ -1328,117 +1710,366 @@
     let body = "";
 
     if (!selected) {
-      body = `<section class="card">${listItemHTML("Peer was not found", "empty")}</section>`;
+      body = `<section class="surface-panel">${listItemHTML("Device was not found", "empty")}</section>`;
     } else if (section === "shell") {
       syncShellSelectionForPeer(peerID);
       const shellTaskObj = state.tasks.get(shellView.taskID || shellView.discoveryTaskID) || null;
+      const activeSession = activeShellSessionForPeer(peerID);
+      if (activeSession && !shellView.activeSessionTaskID) {
+        shellView.activeSessionTaskID = String(activeSession.task_id || "");
+        shellView.taskID = shellView.activeSessionTaskID;
+      }
+      const sessions = shellSessionsForPeer(peerID);
       const targetChoices = shellView.targetOptions.length
-        ? `Discovered targets: ${shellView.targetOptions.join(", ")}`
-        : "Defaults to target local until discovery returns a richer choice.";
+        ? shellView.targetOptions.join(", ")
+        : "local";
       const sessionChoices = shellView.sessionOptions.length
-        ? `Discovered sessions for ${shellView.sessionTarget || shellView.target || "current target"}: ${shellView.sessionOptions.join(", ")}`
-        : "Defaults to session main until discovery returns a richer choice.";
+        ? shellView.sessionOptions.join(", ")
+        : "main";
+      const currentTarget = activeSession && activeSession.target ? String(activeSession.target) : (shellView.target || shellDefaultTarget(peerID));
+      const currentSession = activeSession && activeSession.session ? String(activeSession.session) : (shellView.session || shellDefaultSession(peerID));
+      const sessionCards = sessions.length ? sessions.map((item) => {
+        const taskID = String(item.task_id || "");
+        const isActive = taskID && taskID === String(shellView.activeSessionTaskID || shellView.taskID || "");
+        const attachable = shellSessionAttachable(item);
+        return `
+          <button class="shell-session-card ${isActive ? "is-active" : ""}" type="button" data-shell-session-task="${esc(taskID)}">
+            <span>
+              <strong>${esc(shellSessionLabel(item))}</strong>
+              <small>${esc(item.stage || item.status || "running")}</small>
+            </span>
+            ${chipHTML(isActive ? "foreground" : attachable ? "available" : "unavailable", isActive ? "chip-role" : "chip-muted")}
+          </button>`;
+      }).join("") : `<div class="shell-session-empty">No active shell sessions for this device.</div>`;
       body = `
-        <section class="card">
-          <div class="card-header">
+        <section class="shell-focus-workspace">
+          <div class="shell-focus-header surface-panel">
             <div>
-              <p class="eyebrow">Remote session</p>
-              <h3 class="card-title">Shell</h3>
+              <p class="eyebrow">Shell</p>
+              <h3 class="device-hero-title">${esc(deviceName(selected))}</h3>
+              ${peerMetadataHTML(peerID)}
             </div>
-            <div class="action-row">
+            <div class="shell-status-cluster">
               <span class="chip ${shellPhaseClass(shellView.phase)}" id="shell-phase">${esc(shellView.phase)}</span>
               <button class="btn btn-tonal" id="btn-shell-disconnect" type="button" ${shellCanDisconnect() ? "" : "disabled"}>Disconnect</button>
             </div>
           </div>
-          <form class="form-grid" id="shell-form">
-            <div class="grid grid-3">
-              <label>Peer ID<input class="textfield mono" id="shell-peer-id" value="${esc(peerID)}" autocomplete="off" readonly /></label>
-              <label>Target<input class="textfield" id="shell-target" value="${esc(shellView.target || shellDefaultTarget(peerID))}" list="shell-target-options" autocomplete="off" /></label>
-              <label>Session<input class="textfield" id="shell-session" value="${esc(shellView.session || shellDefaultSession(peerID))}" list="shell-session-options" autocomplete="off" /></label>
-            </div>
-            <datalist id="shell-target-options">
-              ${shellView.targetOptions.map((value) => `<option value="${esc(value)}"></option>`).join("")}
-            </datalist>
-            <datalist id="shell-session-options">
-              ${shellView.sessionOptions.map((value) => `<option value="${esc(value)}"></option>`).join("")}
-            </datalist>
-            <div class="grid grid-2">
-              <div class="helper" id="shell-target-choices">${esc(targetChoices)}</div>
-              <div class="helper" id="shell-session-choices">${esc(sessionChoices)}</div>
-            </div>
-            <div class="action-row">
-              <button class="btn btn-tonal" id="btn-shell-discover" type="button" ${shellCanDiscover(peerID) ? "" : "disabled"}>Discover</button>
-              <button class="btn btn-primary" id="btn-shell-connect" type="submit" ${shellCanConnect(peerID) ? "" : "disabled"}>Connect</button>
-              <div class="helper" id="shell-status">${esc(shellStatusText())}</div>
-            </div>
-            <div class="helper helper-error ${shellView.error ? "" : "is-hidden"}" id="shell-error">${esc(shellView.error)}</div>
-          </form>
-          <div class="terminal mt" id="terminal"></div>
-        </section>
-        ${shellTaskObj ? renderTaskSummary(shellTaskObj) : ""}`;
-    } else {
-      body = `
-        <section class="detail-grid">
-          <div class="card">
-            <div class="card-header">
+          <div class="shell-focus-grid">
+            <aside class="shell-session-panel surface-panel">
               <div>
-                <p class="eyebrow">Peer</p>
-                <h3 class="card-title">${esc(shortID(peerID))}</h3>
+                <p class="eyebrow">Sessions</p>
+                <h3 class="card-title">Resume or start fresh</h3>
               </div>
-              ${chipHTML(status.label, status.cls)}
-            </div>
-            <div class="detail-table">
-              ${detailRowHTML("Peer ID", peerID)}
-              ${detailRowHTML("Status", status.label)}
-              ${detailRowHTML("Connection", neighbor ? "active edge" : selectedInactive ? "target candidate" : "-")}
-              ${detailRowHTML("Role", role)}
-              ${detailRowHTML("IPv4", selected.v4_hint || "-")}
-              ${detailRowHTML("IPv6", selected.v6_hint || "-")}
-              ${detailRowHTML("Path", neighbor ? `${neighbor.data_proto || "-"} / ${neighbor.path_family || "-"}` : "-")}
-              ${detailRowHTML("Selection", selectedEdge ? selectedEdge.reason || selectedEdge.bucket || "target" : "-")}
-              ${recentFailure ? detailRowHTML("Recent failure", failureSummary(recentFailure)) : ""}
+              <div class="shell-session-list">${sessionCards}</div>
+              <form class="form-grid shell-options-form" id="shell-form">
+                <input class="textfield mono is-hidden" id="shell-peer-id" value="${esc(peerID)}" autocomplete="off" readonly />
+                <div class="shell-primary-actions">
+                  <button class="btn btn-primary" id="btn-shell-resume" type="button" data-shell-session-task="${esc(activeSession && activeSession.task_id ? activeSession.task_id : "")}" ${shellCanResume(activeSession, peerID) ? "" : "disabled"}>Resume session</button>
+                  <button class="btn btn-tonal" id="btn-shell-connect" type="submit" ${shellCanConnect(peerID) ? "" : "disabled"}>${activeSession ? "New shell" : "Open shell"}</button>
+                </div>
+                <div class="helper" id="shell-status">${esc(shellStatusText())}</div>
+                <div class="helper helper-error ${shellView.error ? "" : "is-hidden"}" id="shell-error">${esc(shellView.error)}</div>
+                <details class="advanced-panel shell-options-panel" ${shellView.optionsOpen ? "open" : ""}>
+                  <summary>Shell options</summary>
+                  <div class="shell-target-grid">
+                    <label>Target<input class="textfield" id="shell-target" value="${esc(currentTarget)}" list="shell-target-options" autocomplete="off" /></label>
+                    <label>Session<input class="textfield" id="shell-session" value="${esc(currentSession)}" list="shell-session-options" autocomplete="off" /></label>
+                  </div>
+                  <datalist id="shell-target-options">
+                    ${shellView.targetOptions.map((value) => `<option value="${esc(value)}"></option>`).join("")}
+                  </datalist>
+                  <datalist id="shell-session-options">
+                    ${shellView.sessionOptions.map((value) => `<option value="${esc(value)}"></option>`).join("")}
+                  </datalist>
+                  <div class="choice-row">
+                    <span id="shell-target-choices">Targets: ${esc(targetChoices)}</span>
+                    <span id="shell-session-choices">Sessions: ${esc(sessionChoices)}</span>
+                  </div>
+                  <button class="btn btn-tonal" id="btn-shell-discover" type="button" ${shellCanDiscover(peerID) ? "" : "disabled"}>Find available shells</button>
+                </details>
+              </form>
+            </aside>
+            <div class="terminal-shell shell-terminal-panel">
+              <div class="terminal" id="terminal"></div>
             </div>
           </div>
-          <div class="grid">
-            <div class="card">
+          ${technicalLogHTML(shellTaskObj, "Diagnostics")}
+        </section>`;
+    } else {
+      const pathText = neighbor ? `${neighbor.data_proto || "-"} / ${neighbor.path_family || "-"}` : edgeLabel(peerID);
+      const recentTask = recentPeerTask(peerID);
+      const shellSessions = shellSessionsForPeer(peerID);
+      const connection = deviceConnectionCopy(selected);
+      const remoteName = remoteDeviceName(selected);
+      const localAlias = localAliasForPeer(peerID);
+      const visibleName = deviceName(selected);
+      const remoteNameMeta = remoteName && remoteName !== visibleName && remoteName !== peerID
+        ? `<span>Remote name: ${esc(remoteName)}</span>`
+        : "";
+      const bucket = neighbor && neighbor.bucket || selectedEdge && selectedEdge.bucket || "-";
+      const lastActivity = neighbor ? lastSeenText(neighbor.last_activity_unix_ms) : "-";
+      const pathFacts = peerPathFacts(peerID, selected, neighbor, selectedEdge);
+      body = `
+        <section class="device-workspace redesigned-device-workspace">
+          <section class="network-identity-panel">
+            <div class="device-identity-card surface-panel">
+              <p class="eyebrow">${isRemote ? "Remote device" : "This device"}</p>
+              <h3 class="device-hero-title">${esc(visibleName)}</h3>
+              <div class="identity-meta-row">
+                ${remoteNameMeta}
+                <span>Role: ${esc(role)}</span>
+              </div>
+              ${peerMetadataHTML(peerID)}
+            </div>
+            <div class="device-action-card surface-panel">
+              <form class="device-name-editor" id="alias-form">
+                <input type="hidden" id="alias-peer-id" value="${esc(peerID)}" />
+                <label>Local alias<input class="textfield" id="alias-name" value="${esc(localAlias)}" placeholder="${esc(remoteName)}" autocomplete="off" /></label>
+                <button class="btn btn-tonal" type="submit">Save alias</button>
+              </form>
+              <div class="device-action-stack">
+                <div class="device-chip-row">
+                  ${chipHTML(status.label, status.cls)}
+                  ${chipHTML(connection.chip, connection.cls)}
+                </div>
+                <div class="device-command-row">
+                  <button class="btn btn-primary" data-peer-section="shell" data-peer-id="${esc(peerID)}" ${canOperate ? "" : "disabled"}>Open shell</button>
+                  <button class="btn btn-tonal" data-run-peer-task="ping" ${canOperate ? "" : "disabled"}>Ping</button>
+                </div>
+                <div class="identity-meta-row device-action-meta">
+                  <span>${esc(pathText)}</span>
+                  <span>${esc(lastActivity)}</span>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section class="node-insight-layout">
+            <div class="surface-panel node-path-panel">
               <div class="card-header">
                 <div>
                   <p class="eyebrow">Path</p>
-                  <h3 class="card-title">Current edge</h3>
+                  <h3 class="card-title">Reachability facts</h3>
                 </div>
               </div>
-              <div class="detail-table">
-                ${detailRowHTML("Bucket", neighbor ? neighbor.bucket || "-" : selectedEdge ? selectedEdge.bucket || "-" : "-")}
-                ${detailRowHTML("Dialable", selectedEdge && typeof selectedEdge.dialable !== "undefined" ? String(selectedEdge.dialable) : "-")}
-                ${detailRowHTML("Healthy", neighbor && typeof neighbor.healthy !== "undefined" ? String(neighbor.healthy) : "-")}
+              <div class="network-fact-grid">
+                <div><span>Path</span><strong>${esc(pathText)}</strong></div>
+                <div><span>Bucket</span><strong>${esc(bucket)}</strong></div>
+                <div><span>Last activity</span><strong>${esc(lastActivity)}</strong></div>
+                <div><span>Shell sessions</span><strong>${esc(shellSessions.length ? `${shellSessions.length} live` : "none")}</strong></div>
+              </div>
+              <div class="path-detail-grid" aria-label="Addresses and path">
+                <div><span>Direct IPv4</span><strong>${esc(pathFacts.directIPv4)}</strong></div>
+                <div><span>Direct IPv6</span><strong>${esc(pathFacts.directIPv6)}</strong></div>
+                <div><span>Local endpoint</span><strong>${esc(pathFacts.localEndpoint)}</strong></div>
+                <div><span>Remote endpoint</span><strong>${esc(pathFacts.remoteEndpoint)}</strong></div>
+                <div><span>Public tuple</span><strong>${esc(pathFacts.publicTuple)}</strong></div>
+                <div><span>Port</span><strong>${esc(pathFacts.port)}</strong></div>
+                <div><span>Punch result</span><strong>${esc(pathFacts.punch)}</strong></div>
+                <div><span>Peer ID</span><strong>${esc(shortID(peerID))}</strong></div>
               </div>
             </div>
-            <div class="card">
+            <div class="surface-panel node-facts-panel">
               <div class="card-header">
                 <div>
-                  <p class="eyebrow">Actions</p>
-                  <h3 class="card-title">Operate</h3>
+                  <p class="eyebrow">Node facts</p>
+                  <h3 class="card-title">Reported metadata</h3>
                 </div>
               </div>
-              <div class="action-row">
-                <button class="icon-btn" data-copy-peer="${esc(peerID)}" title="Copy Peer ID" aria-label="Copy Peer ID">
-                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h10v12H8z" /><path d="M6 16H4V4h12v2" /></svg>
-                </button>
-                <button class="btn btn-tonal" data-run-peer-task="ping" ${canOperate ? "" : "disabled"}>Ping</button>
-                <button class="btn btn-tonal" data-run-peer-task="sh_ls" ${canOperate ? "" : "disabled"}>List sessions</button>
-                <button class="btn btn-primary" data-peer-section="shell" data-peer-id="${esc(peerID)}" ${canOperate ? "" : "disabled"}>Shell</button>
+              <div class="connection-stat-grid">
+                <div><span>Role</span><strong>${esc(role)}</strong></div>
+                <div><span>IPv4</span><strong>${esc(selected.v4_hint || "-")}</strong></div>
+                <div><span>IPv6</span><strong>${esc(selected.v6_hint || "-")}</strong></div>
+                <div><span>Peer ID</span><strong>${esc(shortID(peerID))}</strong></div>
+                <div><span>Selected</span><strong>${esc(selectedEdge ? "yes" : "no")}</strong></div>
+                <div><span>Active</span><strong>${esc(neighbor ? "yes" : "no")}</strong></div>
               </div>
+              ${recentFailure ? `<div class="connection-issue">${esc(failureSummary(recentFailure))}</div>` : ""}
             </div>
-          </div>
-        </section>
-        ${renderPeerTaskCard(peerID)}`;
+            ${recentTask ? `<div class="surface-panel node-status-panel">
+              ${operationStatusHTML(recentTask, "Progress", "Ready.")}
+              ${technicalLogHTML(recentTask, "Diagnostics")}
+            </div>` : ""}
+          </section>
+        </section>`;
     }
 
     setPage(`
       <section class="page">
         ${networkSwitchHTML(peerID)}
-        ${pageHeadingHTML(section === "shell" ? "Peer shell" : "Peer detail", selected ? shortID(peerID) : "Peer")}
         ${body}
+      </section>`);
+  };
+
+  const renderShell = () => {
+    if (!networkJoined()) {
+      setPage(`
+        <section class="page">
+          ${pageHeadingHTML("Shell", "Join a network first", "Remote shell sessions become available after this device joins a network.")}
+          ${renderJoinFlow()}
+        </section>`);
+      return;
+    }
+    const selfPeerID = String(self().peer_id || "");
+    const candidates = members().filter((mem) => String(mem.peer_id || "") && String(mem.peer_id || "") !== selfPeerID && !mem.revoked);
+    const shellPeerMode = state.view.type === "shell-peer";
+    const selected = shellPeerMode ? (memberByPeerID(state.view.peerID) || memberByPeerID(shellView.peerID) || candidates[0] || null) : null;
+    const peerID = selected && selected.peer_id ? String(selected.peer_id) : "";
+    if (peerID) syncShellSelectionForPeer(peerID);
+    if (shellTargetContextMenu && shellTargetContextMenu.peerID !== peerID) shellTargetContextMenu = null;
+    const shellSwitch = moduleSwitchHTML([
+      { label: "Overview", meta: "sessions", active: !shellPeerMode, attr: "data-open-overview" },
+      ...candidates.map((mem) => {
+        const id = String(mem.peer_id || "");
+        const count = shellSessionsForPeer(id).length;
+        return {
+          label: deviceName(mem),
+          meta: count ? `${count} live` : edgeLabel(id),
+          active: shellPeerMode && id === peerID,
+          attr: `data-shell-peer="${esc(id)}"`,
+        };
+      }),
+    ]);
+
+    if (!shellPeerMode) {
+      const liveSessions = candidates.flatMap((mem) => shellSessionsForPeer(mem.peer_id)
+        .map((session) => ({ mem, session })));
+      const liveItems = liveSessions.length ? liveSessions.map(({ mem, session }) => {
+        const target = String(session.target || "local").trim() || "local";
+        return `
+          <button class="shell-overview-card" type="button" data-shell-peer="${esc(mem.peer_id)}" data-shell-session-task="${esc(session.task_id || "")}">
+            <span>
+              <strong>${esc(deviceName(mem))}</strong>
+              <small>${esc(shellSessionLabel(session))}</small>
+            </span>
+            ${chipHTML(shellSessionAttachable(session) ? session.stage || session.status || "running" : "unavailable", shellSessionAttachable(session) ? "chip-running" : "chip-muted")}
+          </button>`;
+      }).join("") : `<div class="shell-session-empty">No live shell sessions are available.</div>`;
+      const recentTargets = candidates.slice(0, 4).map((mem) => {
+        const id = String(mem.peer_id || "");
+        const session = shellSessionsForPeer(id)[0] || null;
+        const target = session && session.target ? String(session.target) : shellDefaultTarget(id);
+        return `
+          <button class="shell-overview-card" type="button" data-shell-peer="${esc(id)}" data-shell-target="${esc(target)}">
+            <span>
+              <strong>${esc(deviceName(mem))}</strong>
+              <small>${esc(target)}</small>
+            </span>
+            ${chipHTML(edgeLabel(id), activeNeighbor(id) ? "chip-active" : "chip-muted")}
+          </button>`;
+      }).join("");
+      setPage(`
+        <section class="page shell-page">
+          ${shellSwitch}
+          <section class="shell-overview-grid">
+            <section class="surface-panel shell-overview-panel">
+              <div class="shell-section-title">
+                <span>Live sessions</span>
+                <small>live sessions</small>
+              </div>
+              <div class="shell-overview-list">${liveItems}</div>
+            </section>
+            <section class="surface-panel shell-overview-panel">
+              <div class="shell-section-title">
+                <span>Targets</span>
+                <small>recent and ready</small>
+              </div>
+              <div class="shell-overview-list">${recentTargets || `<div class="shell-session-empty">No shell targets are available.</div>`}</div>
+            </section>
+          </section>
+        </section>`);
+      return;
+    }
+
+    const shellTaskObj = state.tasks.get(shellView.taskID || shellView.discoveryTaskID) || null;
+    const sessions = peerID ? shellSessionsForPeer(peerID) : [];
+    const activeSession = peerID ? activeShellSessionForPeer(peerID) : null;
+    if (activeSession && !shellView.activeSessionTaskID) {
+      shellView.activeSessionTaskID = String(activeSession.task_id || "");
+      shellView.taskID = shellView.activeSessionTaskID;
+    }
+    const currentTarget = shellView.target || (activeSession && activeSession.target ? String(activeSession.target) : shellDefaultTarget(peerID));
+    const currentSession = shellView.session || (activeSession && activeSession.session ? String(activeSession.session) : shellDefaultSession(peerID));
+    const targetOptions = [...new Set([
+      currentTarget,
+      "local",
+      ...shellView.targetOptions,
+      ...sessions.map((item) => String(item.target || "local").trim() || "local"),
+    ].filter(Boolean))];
+    const sessionOptionsForTarget = shellView.sessionTarget === currentTarget ? shellView.sessionOptions : [];
+    const sessionOptions = [...new Set([
+      currentSession,
+      "main",
+      ...sessionOptionsForTarget,
+      ...sessions
+        .filter((item) => String(item.target || "local").trim() === currentTarget)
+        .map((item) => String(item.session || "main").trim() || "main"),
+    ].filter(Boolean))];
+    const matchingSession = sessions.find((item) =>
+      String(item.target || "local").trim() === currentTarget &&
+      String(item.session || "main").trim() === currentSession
+    ) || null;
+    const canResumeMatch = shellCanResume(matchingSession, peerID);
+    const showDisconnect = ["connecting", "connected"].includes(shellView.phase) && shellCanDisconnect();
+    const showPhase = shellView.phase && shellView.phase !== "idle";
+    const liveSessionStrip = sessions.length ? `
+      <section class="shell-live-panel" aria-label="Live shell sessions">
+        <div class="shell-section-title shell-live-title">
+          <span>Live sessions</span>
+          <small>${esc(`${sessions.length} ${sessions.length === 1 ? "session" : "sessions"}`)}</small>
+        </div>
+        <div class="shell-live-strip">
+          ${sessions.map((item) => {
+          const taskID = String(item.task_id || "");
+          const isActive = taskID && taskID === String(shellView.activeSessionTaskID || shellView.taskID || "");
+          const attachable = shellSessionAttachable(item);
+          return `
+            <button class="shell-live-chip ${isActive ? "is-active" : ""}" type="button" data-shell-session-task="${esc(taskID)}">
+              <span>${esc(shellSessionLabel(item))}</span>
+              ${chipHTML(isActive ? "open" : attachable ? "resume" : "unavailable", isActive ? "chip-role" : attachable ? "chip-running" : "chip-muted")}
+            </button>`;
+          }).join("")}
+        </div>
+      </section>` : "";
+    const primaryAction = showDisconnect
+      ? `<button class="btn btn-tonal shell-connect-primary" type="button" data-shell-disconnect>Disconnect</button>`
+      : canResumeMatch
+        ? `<button class="btn btn-primary shell-connect-primary" type="button" data-shell-session-task="${esc(matchingSession.task_id || "")}">Resume</button>`
+        : `<button class="btn btn-primary shell-connect-primary" id="btn-shell-connect" type="submit" ${shellCanConnect(peerID) ? "" : "disabled"}>Open</button>`;
+
+    setPage(`
+      <section class="page shell-page">
+        ${shellSwitch}
+        <section class="shell-focus-layout ${shellView.zen ? "is-zen" : ""}">
+          <form class="surface-panel shell-connect-panel" id="shell-form" data-shell-session-form="true">
+            <input class="textfield mono is-hidden" id="shell-peer-id" value="${esc(peerID)}" autocomplete="off" readonly />
+            <div class="shell-connect-identity">
+              <strong>${esc(selected ? deviceName(selected) : "No peer selected")}</strong>
+              <span>${esc(currentTarget)} / ${esc(currentSession)}</span>
+            </div>
+            <label>Target<input class="textfield" id="shell-target" value="${esc(currentTarget)}" list="shell-target-options" autocomplete="off" /></label>
+            <button class="btn btn-tonal btn-compact" id="btn-shell-discover" type="button" ${shellCanDiscover(peerID) ? "" : "disabled"}>Find targets</button>
+            <label>Session<input class="textfield" id="shell-session" value="${esc(currentSession)}" list="shell-session-options" autocomplete="off" /></label>
+            <button class="btn btn-tonal btn-compact" id="btn-shell-find-sessions" type="button" ${shellCanDiscover(peerID) ? "" : "disabled"}>Find sessions</button>
+            ${primaryAction}
+            <button class="btn btn-tonal btn-compact" type="button" data-shell-toggle="zen">${shellView.zen ? "Exit Zen" : "Zen"}</button>
+            ${showPhase ? `<span class="chip ${shellPhaseClass(shellView.phase)}" id="shell-phase">${esc(shellView.phase)}</span>` : `<span class="shell-phase-placeholder" id="shell-phase">idle</span>`}
+            <datalist id="shell-target-options">
+              ${targetOptions.map((value) => `<option value="${esc(value)}"></option>`).join("")}
+            </datalist>
+            <datalist id="shell-session-options">
+              ${sessionOptions.map((value) => `<option value="${esc(value)}"></option>`).join("")}
+            </datalist>
+            <div class="helper shell-connect-status" id="shell-status">${esc(shellStatusText())}</div>
+            <div class="helper helper-error ${shellView.error ? "" : "is-hidden"}" id="shell-error">${esc(shellView.error)}</div>
+          </form>
+          ${liveSessionStrip}
+          <section class="shell-terminal-workspace">
+            <div class="terminal-shell shell-terminal-panel">
+              <div class="terminal" id="terminal"></div>
+            </div>
+            ${technicalLogHTML(shellTaskObj, "Diagnostics")}
+          </section>
+        </section>
       </section>`);
   };
 
@@ -1447,22 +2078,25 @@
       renderAccessFlow(state.view.flow || "join");
       return;
     }
-    const flowTiles = [
-      { id: "join", title: "Join network", meta: "Accept access on this device", admin: false },
-      { id: "invite", title: "Create invite", meta: "Add another device", admin: true },
-      { id: "approve", title: "Approve request", meta: "Process a join request", admin: true },
+    const cards = [
+      { id: "join", title: "Join network", meta: "Paste an invite and connect this computer to a network.", admin: false, tone: "primary" },
+      { id: "invite", title: "Create invite", meta: "Generate a short code for another computer or phone.", admin: true, tone: "success" },
+      { id: "approve", title: "Approve request", meta: "Approve devices that are waiting to enter this network.", admin: true, tone: "warning" },
     ].filter((flow) => !flow.admin || adminVisible()).map((flow) => `
-      <button class="tile" data-open-flow="${flow.id}">
-        <div class="tile-title">${esc(flow.title)}</div>
-        <div class="tile-meta">${esc(flow.meta)}</div>
+      <button class="action-card ${flow.tone}" data-open-flow="${flow.id}" type="button">
+        <span class="action-card-mark"></span>
+        <span>
+          <strong>${esc(flow.title)}</strong>
+          <small>${esc(flow.meta)}</small>
+        </span>
       </button>`).join("");
     setPage(`
       <section class="page">
         ${accessSwitchHTML()}
         ${pageHeadingHTML("Access overview", "Access")}
-        <div class="grid grid-3">${flowTiles}</div>
+        <div class="action-card-grid grid">${cards}</div>
         ${renderApprovalRequestsPanel()}
-        ${renderTaskCard("Recent tasks")}
+        ${renderTaskCard("Recent activity")}
       </section>`);
   };
 
@@ -1482,61 +2116,85 @@
   const renderJoinFlow = () => {
     const taskObj = joinState.taskID ? state.tasks.get(joinState.taskID) : null;
     return `
-      <section class="card">
-        <form class="form-grid" id="join-form">
-          <label>Invite code or URL<input class="textfield" id="join-code" placeholder="Paste invite code here" autocomplete="off" /></label>
-          <div class="action-row">
-            <button class="btn btn-primary" type="submit">Join</button>
-            <button class="btn btn-tonal" id="join-report-export" type="button" ${taskObj && taskObj.report_ready ? "" : "disabled"}>Export report</button>
+      <section class="flow-layout">
+        <div class="surface-panel flow-primary">
+          <div class="card-header">
+            <div>
+              <p class="eyebrow">Join</p>
+              <h3 class="card-title">Connect this device</h3>
+            </div>
           </div>
-          <div class="helper" id="join-report-path">${esc(joinState.lastExportPath || "")}</div>
-        </form>
-      </section>
-      ${renderTaskSummary(taskObj)}`;
+          <form class="form-grid" id="join-form">
+            <label>Invite code or URL<input class="textfield textfield-code" id="join-code" placeholder="mp:v0..." autocomplete="off" /></label>
+            <div class="action-row">
+              <button class="btn btn-primary" type="submit">Join</button>
+              <button class="btn btn-tonal" id="join-report-export" type="button" ${taskObj && taskObj.report_ready ? "" : "disabled"}>Export report</button>
+            </div>
+            <div class="helper" id="join-report-path">${esc(joinState.lastExportPath || "")}</div>
+          </form>
+        </div>
+        <aside class="surface-panel">
+          ${operationStatusHTML(taskObj, "Progress", "Paste an invite code to join.")}
+          ${technicalLogHTML(taskObj)}
+        </aside>
+      </section>`;
   };
 
   const renderInviteFlow = () => {
     const taskObj = inviteState.taskID ? state.tasks.get(inviteState.taskID) : null;
     const code = findInviteCode(taskObj);
     const missingCode = taskObj && inviteState.missingTaskID === taskObj.task_id;
-    const hint = inviteState.message || (code ? "Ready" : missingCode ? "Task completed with no invite code." : "");
+    const hint = inviteState.message || (code ? "Invite ready" : missingCode ? "no invite code was returned." : "Create an invite when the new device is nearby.");
     return `
-      <section class="detail-grid">
-        <div class="card">
+      <section class="flow-layout invite-layout">
+        <div class="surface-panel flow-primary">
           <div class="card-header">
             <div>
               <p class="eyebrow">Invite</p>
-              <h3 class="card-title">Code</h3>
+              <h3 class="card-title">Add another device</h3>
             </div>
             <button class="btn btn-primary" id="btn-invite" type="button" ${inviteState.busy || (!state.previewMode && !(lastConn && lastConn.connected)) ? "disabled" : ""}>Create</button>
           </div>
           <div class="form-grid">
-            <label>Invite code<input class="textfield textfield-code" id="invite-code" readonly value="${esc(code)}" placeholder="Create an invite first" /></label>
+            <label>Invite code<input class="textfield textfield-code invite-code-field" id="invite-code" readonly value="${esc(code)}" placeholder="Create an invite first" /></label>
             <div class="action-row">
               <button class="btn btn-tonal" data-copy-invite type="button" ${code ? "" : "disabled"}>Copy</button>
               <div class="helper" id="invite-hint">${esc(hint)}</div>
             </div>
           </div>
         </div>
-        <div class="qr-wrap" id="invite-qr"></div>
-      </section>
-      ${renderTaskSummary(taskObj)}`;
+        <aside class="surface-panel invite-side">
+          <div class="qr-wrap" id="invite-qr"></div>
+          ${operationStatusHTML(taskObj, "Progress", "No invite has been created yet.")}
+          ${technicalLogHTML(taskObj)}
+        </aside>
+      </section>`;
   };
 
   const renderApproveFlow = () => {
     const taskObj = approveState.taskID ? state.tasks.get(approveState.taskID) : null;
     return `
-      <section class="card">
-        <form class="form-grid" id="approve-form">
-          <label>Invite code<input class="textfield" id="approve-code" placeholder="Paste the invite code to approve" autocomplete="off" /></label>
-          <div class="action-row">
-            <button class="btn btn-primary" type="submit">Start approval</button>
-            <div class="helper" id="approve-hint">${esc(approveState.message || "")}</div>
-          </div>
-        </form>
-      </section>
       ${renderApprovalRequestsPanel()}
-      ${renderTaskSummary(taskObj)}`;
+      <section class="surface-panel approval-listener">
+        <div class="card-header">
+          <div>
+            <p class="eyebrow">Approval</p>
+            <h3 class="card-title">Approval listener</h3>
+          </div>
+        </div>
+        <p class="page-subtitle">Visible requests can be approved above. Manual code approval is only for recovery or older join flows.</p>
+        ${operationStatusHTML(taskObj, "Listener", "Ready to receive incoming requests.")}
+        ${technicalLogHTML(taskObj)}
+        <details class="advanced-panel">
+          <summary>Advanced manual approval</summary>
+          <form class="form-grid compact-form" id="approve-form">
+            <label>Invite code<input class="textfield textfield-code" id="approve-code" placeholder="Optional manual approval code" autocomplete="off" /></label>
+            <button class="btn btn-tonal" type="submit">Start approval</button>
+            <div class="helper" id="approve-hint">${esc(approveState.message || "Use this only when a request is not visible in the review list.")}</div>
+          </form>
+        </details>
+      </section>
+      `;
   };
 
   const renderApprovalRequestsPanel = () => {
@@ -1551,18 +2209,18 @@
       const busy = !!decision.busy && status === "pending";
       const failure = String(decision.failure || "");
       const displayName = String(req.member_name || "").trim();
-      const peerLabel = displayName ? `${displayName} | ${shortID(req.member_peer_id)}` : shortID(req.member_peer_id);
+      const peerLabel = displayName || shortID(req.member_peer_id);
       const hints = [
-        req.platform ? `platform=${req.platform}` : "",
-        req.v4_hint ? `v4=${req.v4_hint}` : "",
-        req.v6_hint ? `v6=${req.v6_hint}` : "",
-      ].filter(Boolean).join(" | ");
+        req.platform ? req.platform : "",
+        req.v4_hint ? `IPv4 ${req.v4_hint}` : "",
+        req.v6_hint ? `IPv6 ${req.v6_hint}` : "",
+      ].filter(Boolean).join(" · ");
       const canDecide = adminVisible() && status === "pending";
       return `
-        <div class="row-card approval-row">
+        <div class="approval-request-card approval-row">
           <div>
             <div class="row-title">${esc(peerLabel)}</div>
-            <div class="row-meta">${esc(req.member_peer_id || "-")} | request=${esc(shortID(requestMsgID))}</div>
+            <div class="row-meta">${esc(req.member_peer_id || "-")}</div>
             ${hints ? `<div class="helper">${esc(hints)}</div>` : ""}
             ${failure ? `<div class="helper helper-error">${esc(failure)}</div>` : ""}
           </div>
@@ -1574,9 +2232,9 @@
         </div>`;
     }).join("") : listItemHTML("No pending approval requests", "empty");
     return `
-      <section class="card">
+      <section class="surface-panel">
         <div class="card-header">
-          <div><p class="eyebrow">Review</p><h3 class="card-title">Approval requests</h3></div>
+          <div><p class="eyebrow">Review</p><h3 class="card-title">Devices waiting to join</h3></div>
           ${chipHTML(requests.length)}
         </div>
         <div class="row-list">${rows}</div>
@@ -1586,6 +2244,10 @@
   const renderAdmin = () => {
     if (!adminVisible()) {
       setPage(`<section class="page">${pageHeadingHTML("Admin", "Unavailable")}<section class="card">${listItemHTML("Administrator controls are available only on owner or admin nodes", "empty")}</section></section>`);
+      return;
+    }
+    if (state.view.type === "flow") {
+      renderAdminFlow(state.view.flow || "invite");
       return;
     }
     if (state.view.type === "member") {
@@ -1600,10 +2262,10 @@
     const memberRows = list.length ? list.map((mem) => {
       const status = statusForMember(mem);
       return `
-        <button class="row-card" data-open-member="${esc(mem.peer_id || "")}">
+        <button class="member-card" data-open-member="${esc(mem.peer_id || "")}">
           <div>
-            <div class="row-title">${esc(shortID(mem.peer_id))}</div>
-            <div class="row-meta">${esc(mem.peer_id || "-")} | ${esc(mem.v4_hint || "path unknown")}</div>
+            <div class="row-title">${esc(deviceName(mem))}</div>
+            <div class="row-meta">${esc(mem.peer_id || "-")} | ${esc(mem.v4_hint || mem.v6_hint || "path unknown")}</div>
           </div>
           <div class="action-row">
             ${chipHTML(mem.role || "unknown", mem.role === "owner" || mem.role === "admin" ? "chip-role" : "")}
@@ -1615,22 +2277,44 @@
       <section class="page">
         ${adminSwitchHTML()}
         ${pageHeadingHTML("Admin overview", "Governance")}
-        <section class="metric-grid">
+        <section class="admin-summary">
           ${metricHTML("Owners", owners)}
           ${metricHTML("Admins", admins)}
           ${metricHTML("Revoked", revoked)}
-          ${metricHTML("Governance head", headShort(stateHead.governance_head_b64))}
+          ${metricHTML("Governance", headShort(stateHead.governance_head_b64))}
         </section>
-        <section class="grid">
+        <section class="action-card-grid grid">
+          <button class="action-card success" data-open-flow="invite" type="button">
+            <span class="action-card-mark"></span>
+            <span><strong>Create invite</strong><small>Generate a join code for another device.</small></span>
+          </button>
+          <button class="action-card warning" data-open-flow="approve" type="button">
+            <span class="action-card-mark"></span>
+            <span><strong>Approve request</strong><small>Review devices waiting to enter this network.</small></span>
+          </button>
+        </section>
+        ${renderApprovalRequestsPanel()}
+        <section class="surface-panel">
           <div class="card-header">
             <div>
               <p class="eyebrow">Members</p>
-              <h3 class="card-title">Access control</h3>
+              <h3 class="card-title">Who can access this network</h3>
             </div>
             ${chipHTML(list.length)}
           </div>
           <div class="row-list">${memberRows}</div>
         </section>
+      </section>`);
+  };
+
+  const renderAdminFlow = (flow) => {
+    const title = flow === "approve" ? "Approve request" : "Create invite";
+    const body = flow === "approve" ? renderApproveFlow() : renderInviteFlow();
+    setPage(`
+      <section class="page">
+        ${adminSwitchHTML()}
+        ${pageHeadingHTML("Admin", title)}
+        ${body}
       </section>`);
   };
 
@@ -1641,13 +2325,13 @@
     setPage(`
       <section class="page">
         ${adminSwitchHTML(mem && mem.peer_id)}
-        ${pageHeadingHTML("Member detail", mem ? shortID(mem.peer_id) : "Member")}
-        <section class="detail-grid">
-          <div class="card">
+        ${pageHeadingHTML("Member detail", mem ? deviceName(mem) : "Member")}
+        <section class="workspace-grid">
+          <div class="surface-panel">
             <div class="card-header">
               <div>
                 <p class="eyebrow">Member</p>
-                <h3 class="card-title">${esc(mem ? shortID(mem.peer_id) : "-")}</h3>
+                <h3 class="card-title">${esc(mem ? deviceName(mem) : "-")}</h3>
               </div>
               ${chipHTML(status.label, status.cls)}
             </div>
@@ -1659,17 +2343,17 @@
               ${detailRowHTML("Status", status.label)}
             </div>
           </div>
-          <div class="card">
+          <div class="danger-panel">
             <div class="card-header">
               <div>
-                <p class="eyebrow">Governance</p>
-                <h3 class="card-title">Access</h3>
+                <p class="eyebrow">Danger zone</p>
+                <h3 class="card-title">Remove access</h3>
               </div>
             </div>
             <button class="btn btn-tonal" data-revoke-member="${esc(mem && mem.peer_id ? mem.peer_id : "")}" ${canRevoke ? "" : "disabled"}>Revoke</button>
           </div>
         </section>
-        ${renderTaskCard("Recent tasks")}
+        ${renderTaskCard("Recent activity")}
       </section>`);
   };
 
@@ -1714,22 +2398,42 @@
       return;
     }
     const sections = settingSections().map((item) => `
-      <button class="tile" data-open-setting="${item.id}">
-        <div class="tile-title">${esc(item.title)}</div>
-        <div class="tile-meta">${esc(item.meta)}</div>
+      <button class="action-card" data-open-setting="${item.id}" type="button">
+        <span class="action-card-mark"></span>
+        <span>
+          <strong>${esc(item.title)}</strong>
+          <small>${esc(item.meta)}</small>
+        </span>
       </button>`).join("");
+    const firstRunAdminPanel = isFirstRunUninitialized() ? `
+        <section class="surface-panel">
+          <div class="card-header">
+            <div>
+              <p class="eyebrow">First run</p>
+              <h3 class="card-title">Owner/Admin mode</h3>
+            </div>
+            ${chipHTML(state.firstRunAdminMode ? "enabled" : "setup")}
+          </div>
+          <p class="page-subtitle">Show administrator controls on this blank node so it can create the first invite.</p>
+          <div class="action-row">
+            <button class="btn btn-primary" id="btn-first-run-admin-mode" type="button">
+              ${state.firstRunAdminMode ? "Open Admin" : "Enable Owner/Admin mode"}
+            </button>
+          </div>
+        </section>` : "";
     setPage(`
       <section class="page">
         ${settingsSwitchHTML()}
         ${pageHeadingHTML("Settings overview", "Settings")}
-        <section class="metric-grid">
+        <section class="admin-summary">
           ${metricHTML("Version", state.status && state.status.version ? state.status.version : "-")}
           ${metricHTML("Uptime", state.status && state.status.uptime_ms ? fmtUptime(state.status.uptime_ms) : "-")}
           ${metricHTML("Mode", state.previewMode ? "preview" : "desktop")}
-          ${metricHTML("Tasks", state.tasks.size)}
+          ${metricHTML("Activity", state.tasks.size)}
         </section>
-        <div class="grid grid-3">${sections}</div>
-        <section class="card">
+        ${firstRunAdminPanel}
+        <div class="action-card-grid grid">${sections}</div>
+        <section class="surface-panel">
           <div class="action-row">
             <button class="btn btn-tonal" id="btn-app-quit" type="button" ${state.previewMode ? "disabled" : ""}>Quit</button>
           </div>
@@ -1749,31 +2453,49 @@
       const failure = settingsState.failure;
       const failureSuggestions = failure && Array.isArray(failure.suggestions) ? failure.suggestions : [];
       body = `
-        <section class="detail-grid">
-          <div class="card">
-            <div class="card-header"><div><p class="eyebrow">Desired</p><h3 class="card-title">Runtime config</h3></div></div>
-            <form class="form-grid" id="runtime-config-form">
-              <label>MQTT brokers<input class="textfield" id="settings-mqtt-brokers" value="${esc(csvValue(runtime.mqtt_brokers))}" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
-              <label>P2P network${selectHTML("settings-p2p-network", runtime.p2p_network || "auto", ["auto", "udp_only", "tcp_only"], disabled)}</label>
-              <label>IP family${selectHTML("settings-p2p-ip-family", runtime.p2p_ip_family || "auto", ["auto", "v4", "v6"], disabled)}</label>
-              <label>Data protocol${selectHTML("settings-data-proto", runtime.data_proto || "quic", ["quic", "kcp"], disabled)}</label>
-              <label>QUIC CC${selectHTML("settings-quic-cc", runtime.quic_cc || "bbr", ["bbr", "brutal"], disabled)}</label>
-              <label>STUN<input class="textfield" id="settings-stun" value="${esc(csvValue(runtime.stun))}" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
-              <label>Default shell target<input class="textfield" id="settings-shell-target" value="${esc(prefs.default_shell_target || "")}" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
-              <label>Default shell session<input class="textfield" id="settings-shell-session" value="${esc(prefs.default_shell_session || "")}" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
-              <label>Log level${selectHTML("settings-log-level", prefs.log_level || "info", ["trace", "debug", "info", "warn", "error"], disabled)}</label>
-              <label><input type="checkbox" id="settings-disable-portmap" ${runtime.disable_portmap ? "checked" : ""} ${disabled ? "disabled" : ""} /> Disable portmap</label>
-              <label><input type="checkbox" id="settings-disable-assisted" ${runtime.disable_assisted_addrs ? "checked" : ""} ${disabled ? "disabled" : ""} /> Disable assisted addresses</label>
-              <div class="action-row">
-                <button class="btn btn-primary" type="submit" ${disabled ? "disabled" : ""}>Save</button>
+        <section class="settings-layout runtime-layout">
+          <form class="surface-panel settings-form" id="runtime-config-form">
+            <div class="card-header">
+              <div><p class="eyebrow">Connectivity</p><h3 class="card-title">How this device connects</h3></div>
+              <button class="btn btn-primary" type="submit" ${disabled ? "disabled" : ""}>Save</button>
+            </div>
+            <div class="settings-group settings-group-wide">
+              <div>
+                <p class="setting-group-title">Discovery and relay</p>
+                <p class="helper">Use defaults when possible. Add brokers or STUN servers only when your network needs them.</p>
               </div>
-              ${settingsState.message ? `<div class="helper">${esc(settingsState.message)}</div>` : ""}
-              ${failure ? `<div class="helper">${esc(`Save failed: ${bridgeErrorSummary(failure)}`)}</div>` : ""}
-              ${failureSuggestions.length ? `<div class="list">${failureSuggestions.map((s) => listItemHTML(s.message || "")).join("")}</div>` : ""}
-            </form>
-          </div>
-          <div class="card">
-            <div class="card-header"><div><p class="eyebrow">Effective</p><h3 class="card-title">Runtime state</h3></div></div>
+              <label>MQTT brokers<input class="textfield" id="settings-mqtt-brokers" value="${esc(csvValue(runtime.mqtt_brokers))}" placeholder="host:port, host:port" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
+              <label>STUN<input class="textfield" id="settings-stun" value="${esc(csvValue(runtime.stun))}" placeholder="stun.example.net:3478" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
+            </div>
+            <div class="settings-form-grid">
+              <div class="settings-group">
+                <p class="setting-group-title">Path preference</p>
+                <label>P2P network${selectHTML("settings-p2p-network", runtime.p2p_network || "auto", ["auto", "udp_only", "tcp_only"], disabled)}</label>
+                <label>IP family${selectHTML("settings-p2p-ip-family", runtime.p2p_ip_family || "auto", ["auto", "v4", "v6"], disabled)}</label>
+              </div>
+              <div class="settings-group">
+                <p class="setting-group-title">Transport</p>
+                <label>Data protocol${selectHTML("settings-data-proto", runtime.data_proto || "quic", ["quic", "kcp"], disabled)}</label>
+                <label>QUIC CC${selectHTML("settings-quic-cc", runtime.quic_cc || "bbr", ["bbr", "brutal"], disabled)}</label>
+              </div>
+              <div class="settings-group">
+                <p class="setting-group-title">Remote shell defaults</p>
+                <label>Default shell target<input class="textfield" id="settings-shell-target" value="${esc(prefs.default_shell_target || "")}" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
+                <label>Default shell session<input class="textfield" id="settings-shell-session" value="${esc(prefs.default_shell_session || "")}" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
+              </div>
+              <div class="settings-group">
+                <p class="setting-group-title">Advanced behavior</p>
+                <label>Log level${selectHTML("settings-log-level", prefs.log_level || "info", ["trace", "debug", "info", "warn", "error"], disabled)}</label>
+                <label class="checkbox-row"><input type="checkbox" id="settings-disable-portmap" ${runtime.disable_portmap ? "checked" : ""} ${disabled ? "disabled" : ""} /> Disable portmap</label>
+                <label class="checkbox-row"><input type="checkbox" id="settings-disable-assisted" ${runtime.disable_assisted_addrs ? "checked" : ""} ${disabled ? "disabled" : ""} /> Disable assisted addresses</label>
+              </div>
+            </div>
+            ${settingsState.message ? `<div class="helper">${esc(settingsState.message)}</div>` : ""}
+            ${failure ? `<div class="helper helper-error">${esc(`Save failed: ${bridgeErrorSummary(failure)}`)}</div>` : ""}
+            ${failureSuggestions.length ? `<div class="list">${failureSuggestions.map((s) => listItemHTML(s.message || "")).join("")}</div>` : ""}
+          </form>
+          <aside class="surface-panel">
+            <div class="card-header"><div><p class="eyebrow">Current</p><h3 class="card-title">Active settings</h3></div></div>
             <div class="detail-table">
               ${detailRowHTML("MQTT", csvValue(effective.runtime.mqtt_brokers))}
               ${detailRowHTML("P2P", effective.runtime.p2p_network)}
@@ -1786,7 +2508,7 @@
               ${detailRowHTML("Preferences apply", apply.preferences || "-")}
               ${detailRowHTML("Reconnect", apply.requires_reconnect ? "required for active sessions" : "not required")}
             </div>
-          </div>
+          </aside>
         </section>`;
     } else if (section === "diagnostics") {
       const failure = lastConn && lastConn.failure ? lastConn.failure : null;
@@ -1803,17 +2525,19 @@
       const bootstrap = lastConn && lastConn.bootstrap ? lastConn.bootstrap : null;
       const daemonOwnership = lastConn && lastConn.desktop_managed ? "desktop-managed" : lastConn && lastConn.connected ? "reused" : "-";
       body = `
-        <section class="detail-grid">
-          <div class="card">
-            <div class="card-header"><div><p class="eyebrow">Suggestions</p><h3 class="card-title">Connection</h3></div></div>
+        <section class="settings-layout">
+          <div class="surface-panel">
+            <div class="card-header"><div><p class="eyebrow">Suggestions</p><h3 class="card-title">Connection guidance</h3></div></div>
             <div class="list">
               ${failure && failure.message ? listItemHTML(failure.message) : ""}
               ${suggestions.length ? suggestions.map((s) => listItemHTML(s.message || "")).join("") : listItemHTML(COPY.empty.errors, "empty")}
             </div>
           </div>
-          <div class="card">
-            <div class="card-header"><div><p class="eyebrow">Facts</p><h3 class="card-title">LocalAPI</h3></div></div>
-            <div class="list">
+          <aside class="surface-panel">
+            <div class="card-header"><div><p class="eyebrow">Diagnostics</p><h3 class="card-title">Local daemon</h3></div></div>
+            <details class="technical-log" open>
+              <summary>Technical details</summary>
+              <div class="list">
               ${listItemHTML(`mode=${state.previewMode ? "static preview" : "connected"}`)}
               ${lastConn ? listItemHTML(`selected=${lastConn.selected || "-"}`) : ""}
               ${lastConn ? listItemHTML(`desktop_managed=${daemonOwnership}`) : ""}
@@ -1827,9 +2551,10 @@
               ${runtimeDiagnostics.map((f) => listItemHTML(f.message || "")).join("")}
               ${diagnostics.map((f) => listItemHTML(f.message || "")).join("")}
               ${facts.map((f) => listItemHTML(f.message || "")).join("")}
-            </div>
-          </div>
-          <div class="card">
+              </div>
+            </details>
+          </aside>
+          <div class="surface-panel">
             <div class="card-header"><div><p class="eyebrow">Export</p><h3 class="card-title">Diagnostics archive</h3></div></div>
             <div class="action-row">
               <button class="btn btn-primary" id="btn-export-diagnostics" type="button" ${state.previewMode ? "disabled" : ""}>Export diagnostics</button>
@@ -1839,7 +2564,7 @@
         </section>`;
     } else if (section === "preview") {
       body = `
-        <section class="card">
+        <section class="surface-panel">
           <div class="detail-table">
             ${detailRowHTML("Preview mode", state.previewMode ? "enabled" : "disabled")}
             ${detailRowHTML("Fixture", state.previewFixture)}
@@ -1848,7 +2573,7 @@
     } else {
       const override = lastConn && typeof lastConn.override_addr === "string" ? lastConn.override_addr : "";
       body = `
-        <section class="card">
+        <section class="surface-panel">
           <form class="form-grid" id="localapi-form">
             <label>Override address<input class="textfield" id="localapi-override" value="${esc(override)}" placeholder="unix:/path/to/localapi.sock" autocomplete="off" ${state.previewMode ? "disabled" : ""} /></label>
             <div class="action-row">
@@ -1876,21 +2601,9 @@
     return ov ? `override=${ov} | system=${sys} | user=${user}` : `user=${user} | system=${sys} | daemon=${managed}`;
   };
 
-  const renderTaskSummary = (taskObj) => `
-    <section class="card">
-      <div class="card-header">
-        <div><p class="eyebrow">Task</p><h3 class="card-title">${esc(taskObj && taskObj.task_id ? taskObj.task_id : "-")}</h3></div>
-        ${chipHTML(taskObj && taskObj.status ? taskObj.status : "-", taskStatusClass(taskObj))}
-      </div>
-      <div class="detail-table">
-        ${detailRowHTML("Stage", taskObj && taskObj.stage)}
-        ${detailRowHTML("Reason", taskObj && taskObj.reason_code)}
-      </div>
-      <div class="grid grid-2 mt">
-        <div class="list">${renderFactList(taskObj && taskObj.suggestions, COPY.empty.suggestions)}</div>
-        <div class="list">${renderFactList(taskObj && taskObj.facts, COPY.empty.facts)}</div>
-      </div>
-    </section>`;
+  const renderTaskSummary = (taskObj) => taskObj
+    ? `${operationStatusHTML(taskObj, "Progress", "Ready.")}${technicalLogHTML(taskObj)}`
+    : operationStatusHTML(null, "Progress", "Ready.");
 
   const renderFactList = (arr, emptyText) => {
     const list = Array.isArray(arr) ? arr : [];
@@ -1920,15 +2633,15 @@
       String(b.created_at || "").localeCompare(String(a.created_at || ""))
     );
     const body = tasks.length ? tasks.map((t) => `
-      <div class="row-card">
+      <div class="activity-row">
         <div>
           <div class="row-title">${esc(t.kind || "(unknown)")}</div>
-          <div class="row-meta">${esc(t.task_id || "")} | stage=${esc(t.stage || "-")}</div>
+          <div class="row-meta">${esc(userTaskMessage(t, "Ready."))}</div>
         </div>
         ${chipHTML(t.status || "-", taskStatusClass(t))}
       </div>`).join("") : listItemHTML(COPY.empty.tasks, "empty");
     return `
-      <section class="card">
+      <section class="surface-panel">
         <div class="card-header">
           <div><p class="eyebrow">Activity</p><h3 class="card-title">${esc(title)}</h3></div>
           ${chipHTML(tasks.length)}
@@ -2182,7 +2895,7 @@
     try {
       const created = await createTask(kind, args);
       upsertTask(attachPeerFact(created, peerID));
-      toast(`${kind} started`);
+      toast(kind === "ping" ? "Ping started" : "Task started");
       scheduleRender();
     } catch (err) {
       toast(String(err));
@@ -2261,45 +2974,53 @@
       cursorBlink: true,
       fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
       fontSize: 13,
+      scrollback: 5000,
       theme: { background: "#0b1014", foreground: "#e8edf2", cursor: "#82d2ff" },
     });
     shellState.term = term;
     term.open(container);
+    installTerminalScroll(container, term);
     term.focus();
     return term;
   };
 
-  const startPreviewShell = async (peerID, target, session) => {
-    const created = await createTask("sh_attach", { peer_id: peerID, target, session });
-    upsertTask(attachPeerFact(created, peerID));
-    shellView.taskID = created.task_id;
+  const openPreviewShellTask = (taskID, peerID, target, session, mode = "connected") => {
+    shellView.taskID = taskID;
+    shellView.activeSessionTaskID = taskID;
     shellView.discoveryTaskID = "";
-    shellState.taskID = created.task_id;
+    shellState.taskID = taskID;
     const term = openTerminal();
-    term.writeln("miopunch preview shell");
-    term.writeln(`peer=${peerID}`);
+    term.writeln(mode === "resumed" ? "miopunch preview shell resumed" : "miopunch preview shell");
+    term.writeln(`device=${peerTitle(peerID)}`);
     term.writeln(`session=${session}`);
     term.writeln("");
     term.write("$ ");
     shellView.phase = "connected";
-    shellView.detail = `Preview connected to ${target}/${session}.`;
+    shellView.detail = mode === "resumed"
+      ? `Resumed ${target}/${session}.`
+      : `Connected to ${target}/${session}.`;
     shellView.error = "";
     rememberShellSelection();
     syncShellDOM();
   };
 
-  const startLiveShell = async (peerID, target, session) => {
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder("utf-8");
+  const startPreviewShell = async (peerID, target, session) => {
     const created = await createTask("sh_attach", { peer_id: peerID, target, session });
     upsertTask(attachPeerFact(created, peerID));
-    shellView.taskID = created.task_id;
+    openPreviewShellTask(created.task_id, peerID, target, session);
+  };
+
+  const attachLiveShellTask = async (taskID, peerID, target, session, mode = "new") => {
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder("utf-8");
+    shellView.taskID = taskID;
+    shellView.activeSessionTaskID = taskID;
     shellView.discoveryTaskID = "";
-    shellState.taskID = created.task_id;
+    shellState.taskID = taskID;
     shellState.expectedClose = false;
     shellState.wsError = "";
     shellState.remoteDataSeen = false;
-    shellView.detail = `Task ${created.task_id} created. Waiting for terminal bridge...`;
+    shellView.detail = mode === "resume" ? "Resuming shell session..." : "Opening shell...";
     syncShellDOM();
     const container = el("terminal");
     if (!container) throw new Error("terminal container is missing");
@@ -2314,20 +3035,20 @@
     const baseURL = String(bridgeInfo.base_url || "");
     const subprotocol = String(bridgeInfo.subprotocol || "miopunch.sh.v0");
     if (!baseURL || !token) throw new Error("terminal bridge is not ready");
-    shellView.detail = `Connecting to ${target}/${session}...`;
+    shellView.detail = mode === "resume" ? `Resuming ${target}/${session}...` : `Connecting to ${target}/${session}...`;
     syncShellDOM();
     const term = openTerminal();
-    term.writeln("Connecting...");
+    term.writeln(mode === "resume" ? "Resuming..." : "Connecting...");
     syncShellDOM();
 
-    const wsURL = `${baseURL}/api/v0/tasks/${encodeURIComponent(created.task_id)}/ws?token=${encodeURIComponent(token)}`;
+    const wsURL = `${baseURL}/api/v0/tasks/${encodeURIComponent(taskID)}/ws?token=${encodeURIComponent(token)}`;
     const ws = new WebSocket(wsURL, [subprotocol]);
     ws.binaryType = "arraybuffer";
     shellState.ws = ws;
     ws.onopen = () => {
       if (shellState.ws !== ws) return;
       shellView.phase = "connecting";
-      shellView.detail = `Terminal bridge connected. Waiting for shell output from ${target}/${session}...`;
+      shellView.detail = `Waiting for remote shell output from ${target}/${session}...`;
       shellView.error = "";
       rememberShellSelection();
       syncShellDOM();
@@ -2348,7 +3069,7 @@
       if (!shellState.remoteDataSeen && byteLength > 0) {
         shellState.remoteDataSeen = true;
         shellView.phase = "connected";
-        shellView.detail = `Connected to ${target}/${session}.`;
+        shellView.detail = mode === "resume" ? `Resumed ${target}/${session}.` : `Connected to ${target}/${session}.`;
         shellView.error = "";
         rememberShellSelection();
         syncShellDOM();
@@ -2409,6 +3130,12 @@
     shellState.resizeObs = ro;
   };
 
+  const startLiveShell = async (peerID, target, session) => {
+    const created = await createTask("sh_attach", { peer_id: peerID, target, session });
+    upsertTask(attachPeerFact(created, peerID));
+    await attachLiveShellTask(created.task_id, peerID, target, session, "new");
+  };
+
   const wireEvents = () => {
     document.querySelectorAll(".nav-tab").forEach((btn) => {
       btn.addEventListener("click", () => setActiveTab(btn.dataset.tab));
@@ -2429,8 +3156,12 @@
     const host = el("page-host");
     if (host) {
       host.addEventListener("click", handlePageClick);
+      host.addEventListener("contextmenu", handlePageContextMenu);
+      host.addEventListener("keydown", handlePageKeydown);
       host.addEventListener("submit", handlePageSubmit);
+      host.addEventListener("toggle", handlePageToggle, true);
     }
+    document.addEventListener("keydown", handleGlobalKeydown);
 
     if (window.runtime && typeof window.runtime.EventsOn === "function") {
       window.runtime.EventsOn("desktop:startup_error", (payload) => {
@@ -2460,10 +3191,60 @@
     }
   };
 
-  const handlePageClick = async (event) => {
-    const target = event.target.closest("button, a");
+  const handlePageKeydown = (event) => {
+    if (event.key === "Escape" && shellTargetContextMenu) {
+      shellTargetContextMenu = null;
+      scheduleRender();
+      return;
+    }
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const target = event.target.closest("[data-map-peer]");
     if (!target) return;
+    event.preventDefault();
+    state.networkMapPeerID = target.dataset.mapPeer;
+    scheduleRender();
+  };
 
+  const handleGlobalKeydown = (event) => {
+    if (event.key !== "Escape" || !shellTargetContextMenu) return;
+    shellTargetContextMenu = null;
+    scheduleRender();
+  };
+
+  const handlePageToggle = (event) => {
+    const details = event.target && event.target.closest ? event.target.closest(".shell-options-panel") : null;
+    if (!details) return;
+    shellView.optionsOpen = !!details.open;
+  };
+
+  const handlePageContextMenu = (event) => {
+    const target = event.target && event.target.closest ? event.target.closest("[data-shell-target]") : null;
+    if (!target) return;
+    event.preventDefault();
+    const peerID = target.dataset.shellPeer || shellView.peerID;
+    const targetName = String(target.dataset.shellTarget || "").trim();
+    if (!peerID || !targetName) return;
+    shellTargetContextMenu = { peerID, target: targetName, x: event.clientX, y: event.clientY };
+    scheduleRender();
+  };
+
+  const handlePageClick = async (event) => {
+    const target = event.target.closest("button, a, [data-map-peer]");
+    if (!target) {
+      if (shellTargetContextMenu) {
+        shellTargetContextMenu = null;
+        scheduleRender();
+      }
+      return;
+    }
+    if (!target.dataset.shellTarget && !target.dataset.shellDeleteTarget) shellTargetContextMenu = null;
+
+    if (target.dataset.mapPeer) {
+      event.preventDefault();
+      state.networkMapPeerID = target.dataset.mapPeer;
+      scheduleRender();
+      return;
+    }
     if (target.dataset.openOverview !== undefined) {
       event.preventDefault();
       backToOverview();
@@ -2482,7 +3263,56 @@
     if (target.dataset.peerSection) {
       event.preventDefault();
       const peerID = target.dataset.peerId || (state.view.type === "peer" ? state.view.peerID : "");
+      if (target.dataset.peerSection === "shell") {
+        if (peerID) syncShellSelectionForPeer(peerID);
+        state.activeTab = "shell";
+        state.view = { type: "shell-peer", peerID };
+        localStorage.setItem("miopunch_desktop_tab", "shell");
+        scheduleRender();
+        return;
+      }
       navigate({ type: "peer", peerID, section: target.dataset.peerSection });
+      return;
+    }
+    if (target.dataset.shellTarget !== undefined) {
+      event.preventDefault();
+      const peerID = target.dataset.shellPeer || shellView.peerID;
+      const targetName = String(target.dataset.shellTarget || "").trim() || shellDefaultTarget(peerID);
+      syncShellSelectionForPeer(peerID);
+      state.view = { type: "shell-peer", peerID };
+      await openShellTarget(peerID, targetName, shellDefaultSession(peerID));
+      return;
+    }
+    if (target.dataset.shellSessionName !== undefined) {
+      event.preventDefault();
+      const value = String(target.dataset.shellSessionName || "").trim();
+      if (!value) return;
+      const peerID = state.view.type === "shell-peer" ? state.view.peerID : shellView.peerID;
+      syncShellSelectionForPeer(peerID);
+      await openShellTarget(peerID, shellView.target || shellDefaultTarget(peerID), value);
+      return;
+    }
+    if (target.dataset.shellPeer) {
+      event.preventDefault();
+      syncShellSelectionForPeer(target.dataset.shellPeer);
+      state.view = { type: "shell-peer", peerID: target.dataset.shellPeer };
+      scheduleRender();
+      return;
+    }
+    if (target.dataset.shellSessionTask && target.id !== "btn-shell-resume") {
+      event.preventDefault();
+      const taskID = String(target.dataset.shellSessionTask || "").trim();
+      if (!taskID) return;
+      const peerID = target.dataset.shellPeer || (state.view.type === "shell-peer" ? state.view.peerID : shellView.peerID);
+      const session = shellSessionsForPeer(peerID)
+        .find((item) => String(item && item.task_id || "") === taskID);
+      if (session) {
+        if (!shellSessionAttachable(session)) {
+          failShellAction("Resume failed: shell session is not attachable. Create another session instead.");
+        } else {
+          await resumeShellSession(taskID);
+        }
+      }
       return;
     }
     if (target.dataset.openFlow) {
@@ -2545,6 +3375,13 @@
       await clearLocalAPIOverride();
       return;
     }
+    if (target.id === "btn-first-run-admin-mode") {
+      event.preventDefault();
+      if (!isFirstRunUninitialized()) return;
+      state.firstRunAdminMode = true;
+      setActiveTab("admin");
+      return;
+    }
     if (target.id === "btn-export-diagnostics") {
       event.preventDefault();
       await exportDiagnostics();
@@ -2560,7 +3397,43 @@
       await discoverShell();
       return;
     }
-    if (target.id === "btn-shell-disconnect") {
+    if (target.id === "btn-shell-find-sessions") {
+      event.preventDefault();
+      await discoverShell("sessions");
+      return;
+    }
+    if (target.id === "btn-shell-add-target") {
+      event.preventDefault();
+      addShellTargetFromInput();
+      return;
+    }
+    if (target.dataset.shellDeleteTarget !== undefined) {
+      event.preventDefault();
+      deleteShellTarget(target.dataset.shellDeleteTarget);
+      return;
+    }
+    if (target.dataset.shellToggle) {
+      event.preventDefault();
+      const pane = String(target.dataset.shellToggle || "");
+      if (pane === "left") {
+        if (shellView.zen) shellView.zen = false;
+        shellView.leftCollapsed = !shellView.leftCollapsed;
+      } else if (pane === "right") {
+        if (shellView.zen) shellView.zen = false;
+        shellView.rightOpen = !shellView.rightOpen;
+      } else if (pane === "zen") {
+        shellView.zen = !shellView.zen;
+      }
+      rememberShellSelection();
+      scheduleRender();
+      return;
+    }
+    if (target.id === "btn-shell-resume") {
+      event.preventDefault();
+      await resumeShellSession(target.dataset.shellSessionTask || shellView.activeSessionTaskID || shellView.taskID);
+      return;
+    }
+    if (target.id === "btn-shell-disconnect" || target.dataset.shellDisconnect !== undefined) {
       event.preventDefault();
       disconnectShell();
       return;
@@ -2576,8 +3449,42 @@
       else if (form.id === "localapi-form") await applyLocalAPIOverride();
       else if (form.id === "runtime-config-form") await submitRuntimeConfig();
       else if (form.id === "shell-form") await submitShell();
+      else if (form.id === "shell-target-form") await submitShell();
+      else if (form.id === "alias-form") await submitAlias();
     } catch (err) {
       toast(String(err));
+    }
+  };
+
+  const submitAlias = async () => {
+    const peerID = el("alias-peer-id") ? el("alias-peer-id").value.trim() : "";
+    const value = el("alias-name") ? el("alias-name").value.trim() : "";
+    if (!peerID) return;
+    if (state.previewMode) {
+      state.localAliases = { ...(state.localAliases || {}), [peerID]: value };
+      toast(value ? "Alias saved" : "Alias cleared");
+      scheduleRender();
+      return;
+    }
+
+    try {
+      const resp = await withTimeout(getBridge().SaveDesktopConfig({
+        preferences: {
+          peer_aliases: { [peerID]: value },
+        },
+      }), "Save peer alias");
+      renderConnection(resp && resp.connection ? resp.connection : null);
+      if (!resp || !resp.ok) {
+        const failure = resp && resp.error ? resp.error : { message: "unknown error" };
+        toast(`Alias save failed: ${bridgeErrorSummary(failure)}`);
+        return;
+      }
+      if (resp.state) applyDesktopSnapshot(resp.state);
+      toast(value ? "Alias saved" : "Alias cleared");
+    } catch (err) {
+      toast(`Alias save failed: ${String(err)}`);
+    } finally {
+      scheduleRender();
     }
   };
 
@@ -2640,6 +3547,30 @@
     return taskObj;
   };
 
+  const startInviteApprovalListener = async (code) => {
+    const inviteCode = String(code || "").trim();
+    if (!inviteCode) return;
+    if (inviteState.approvalCode === inviteCode && inviteState.approvalTaskID) return;
+
+    inviteState.approvalCode = inviteCode;
+    inviteState.message = "Invite ready. Listening for join requests...";
+    scheduleRender();
+    try {
+      const created = await createTask("approve", { code: inviteCode, explicit_review: true });
+      const taskID = upsertTask(created);
+      inviteState.approvalTaskID = taskID;
+      approveState.taskID = taskID;
+      approveState.message = "";
+      inviteState.message = "Invite ready. Approval listener is running.";
+    } catch (err) {
+      inviteState.approvalTaskID = "";
+      inviteState.message = `Invite ready, but approval listener failed: ${String(err)}`;
+      toast(inviteState.message);
+    } finally {
+      scheduleRender();
+    }
+  };
+
   const createInvite = async () => {
     inviteState.busy = true;
     inviteState.message = "Creating invite...";
@@ -2649,8 +3580,10 @@
       const created = await createTask("invite", {});
       const taskID = upsertTask(created);
       inviteState.taskID = taskID;
-      if (taskID) await waitForInviteTaskOutput(taskID);
-      inviteState.message = "";
+      const finalTask = taskID ? await waitForInviteTaskOutput(taskID) : null;
+      const code = findInviteCode(finalTask || (taskID ? state.tasks.get(taskID) : null));
+      if (code) await startInviteApprovalListener(code);
+      else inviteState.message = "";
       scheduleRender();
     } catch (err) {
       inviteState.message = `Create failed: ${String(err)}`;
@@ -2797,38 +3730,37 @@
     }
   };
 
-  const discoverShell = async () => {
-    const peerID = state.view.type === "peer" ? String(state.view.peerID || "").trim() : "";
+  const discoverShell = async (mode = "targets") => {
+    const peerID = state.view.type === "shell-peer" ? String(state.view.peerID || "").trim() : String(shellView.peerID || "").trim();
     const targetInput = el("shell-target");
-    const sessionInput = el("shell-session");
     const typedTarget = targetInput ? targetInput.value.trim() : "";
-    const typedSession = sessionInput ? sessionInput.value.trim() : "";
+    const discoverSessions = mode === "sessions";
     if (!peerID) {
-      failShellAction("Discover failed: missing peer_id");
+      failShellAction("Shell lookup failed: missing device");
       return;
     }
 
     syncShellSelectionForPeer(peerID);
+    state.view = { type: "shell-peer", peerID };
     shellView.peerID = peerID;
     shellView.target = typedTarget || shellView.target || shellDefaultTarget(peerID);
-    shellView.session = typedSession || shellView.session || shellDefaultSession(peerID);
+    shellView.session = shellView.session || shellDefaultSession(peerID);
 
-    const discoverTargets = shellView.targetOptions.length === 0 || !typedTarget;
-    const target = discoverTargets ? "" : typedTarget;
+    const target = discoverSessions ? shellView.target : "";
     const restingPhase = shellView.phase === "disconnected" ? "disconnected" : "idle";
 
     shellView.phase = "listing";
-    shellView.detail = discoverTargets ? "Listing shell targets..." : `Listing sessions for ${target}...`;
+    shellView.detail = discoverSessions ? `Listing sessions for ${target}...` : "Listing shell targets...";
     shellView.error = "";
     shellView.taskID = "";
     shellView.discoveryTaskID = "";
+    shellView.optionsOpen = true;
     rememberShellSelection();
     scheduleRender();
 
     try {
       const created = await createTask("sh_ls", { peer_id: peerID, target });
       const taskID = upsertTask(attachPeerFact(created, peerID));
-      shellView.taskID = taskID;
       shellView.discoveryTaskID = taskID;
       scheduleRender();
 
@@ -2836,7 +3768,15 @@
       const taskObj = state.tasks.get(taskID) || latest || created;
       if (shellTaskFailed(taskObj)) throw new Error(taskFailureSummary(taskObj));
 
-      if (discoverTargets) {
+      if (discoverSessions) {
+        const sessions = shellTaskValues(taskObj, "session", "session=");
+        shellView.sessionOptions = sessions;
+        shellView.sessionTarget = target;
+        if (!el("shell-session") || !el("shell-session").value.trim()) {
+          shellView.session = sessions.includes("main") ? "main" : (sessions[0] || shellDefaultSession(peerID));
+        }
+        shellView.detail = sessions.length ? `Session names discovered for ${target}.` : `No session names discovered for ${target}.`;
+      } else {
         const targets = shellTaskValues(taskObj, "target", "target=");
         shellView.targetOptions = targets;
         shellView.sessionOptions = [];
@@ -2845,32 +3785,139 @@
           shellView.target = targets.includes("local") ? "local" : (targets[0] || shellDefaultTarget(peerID));
         }
         shellView.detail = targets.length ? "Targets discovered." : "No targets discovered.";
-      } else {
-        const sessions = shellTaskValues(taskObj, "session", "session=");
-        shellView.sessionOptions = sessions;
-        shellView.sessionTarget = target;
-        if (!typedSession) {
-          shellView.session = sessions.includes("main") ? "main" : (sessions[0] || shellDefaultSession(peerID));
-        }
-        shellView.detail = sessions.length ? `Sessions discovered for ${target}.` : `No sessions discovered for ${target}.`;
       }
 
       shellView.phase = restingPhase;
       shellView.error = "";
+      shellView.optionsOpen = true;
       rememberShellSelection();
       scheduleRender();
     } catch (err) {
       shellView.phase = "failed";
-      shellView.detail = discoverTargets ? "Target discovery failed. Retry is available." : "Session discovery failed. Retry is available.";
-      shellView.error = `Discover failed: ${String(err)}`;
+      shellView.detail = discoverSessions ? "Session discovery failed. Retry is available." : "Target discovery failed. Retry is available.";
+      shellView.error = `Shell lookup failed: ${String(err)}`;
+      shellView.optionsOpen = true;
       rememberShellSelection();
       scheduleRender();
       toast(shellView.error);
     }
   };
 
+  const addShellTargetFromInput = () => {
+    const peerID = state.view.type === "shell-peer" ? String(state.view.peerID || "").trim() : String(shellView.peerID || "").trim();
+    const targetInput = el("shell-target");
+    const target = targetInput && targetInput.value.trim() ? targetInput.value.trim() : "";
+    if (!peerID || !target) {
+      failShellAction("Add target failed: enter a target name first.");
+      return;
+    }
+    syncShellSelectionForPeer(peerID);
+    shellView.target = target;
+    shellView.targetOptions = [...new Set([...(shellView.targetOptions || []), target])];
+    shellView.detail = `${target} added. Click the target to open it.`;
+    shellView.error = "";
+    shellTargetContextMenu = null;
+    rememberShellSelection(peerID);
+    scheduleRender();
+  };
+
+  const deleteShellTarget = (value) => {
+    const peerID = state.view.type === "shell-peer" ? String(state.view.peerID || "").trim() : String(shellView.peerID || "").trim();
+    const target = String(value || "").trim();
+    if (!peerID || !target || target === "local") return;
+    const hasLiveSession = shellSessionsForPeer(peerID).some((item) => String(item.target || "local").trim() === target);
+    if (hasLiveSession) {
+      failShellAction("Delete target failed: close or resume live sessions for this target first.");
+      return;
+    }
+    shellView.targetOptions = (shellView.targetOptions || []).filter((item) => String(item || "").trim() !== target);
+    if (shellView.target === target) shellView.target = shellDefaultTarget(peerID);
+    shellView.detail = `${target} deleted.`;
+    shellView.error = "";
+    shellTargetContextMenu = null;
+    rememberShellSelection(peerID);
+    scheduleRender();
+  };
+
+  const resumeShellSession = async (taskID) => {
+    const peerID = state.view.type === "shell-peer" ? String(state.view.peerID || "").trim() : String(shellView.peerID || "").trim();
+    const id = String(taskID || "").trim();
+    if (!peerID || !id) {
+      failShellAction("Resume failed: no shell session is available");
+      return;
+    }
+    const session = shellSessionsForPeer(peerID).find((item) => String(item && item.task_id || "").trim() === id);
+    if (!session) {
+      failShellAction("Resume failed: shell session is no longer available");
+      return;
+    }
+    if (!shellSessionAttachable(session)) {
+      failShellAction("Resume failed: shell session is not attachable. Open another shell instead.");
+      return;
+    }
+    const target = String(session.target || "local").trim() || "local";
+    const shellSession = String(session.session || "main").trim() || "main";
+
+    closeShellTransport();
+    state.view = { type: "shell-peer", peerID };
+    shellView.peerID = peerID;
+    shellView.target = target;
+    shellView.session = shellSession;
+    shellView.taskID = id;
+    shellView.activeSessionTaskID = id;
+    shellView.phase = "connecting";
+    shellView.detail = `Resuming ${target}/${shellSession}...`;
+    shellView.error = "";
+    shellView.discoveryTaskID = "";
+    rememberShellSelection();
+    scheduleRender();
+
+    try {
+      if (state.previewMode) openPreviewShellTask(id, peerID, target, shellSession, "resumed");
+      else await attachLiveShellTask(id, peerID, target, shellSession, "resume");
+    } catch (err) {
+      failShellAction(`Resume failed: ${String(err)}`);
+    }
+  };
+
+  const openShellTarget = async (peerID, target, session) => {
+    const id = String(peerID || "").trim();
+    const shellTarget = String(target || "").trim() || shellDefaultTarget(id);
+    const shellSession = String(session || "").trim() || shellDefaultSession(id);
+    if (!id) {
+      failShellAction("Connect failed: missing peer_id");
+      return;
+    }
+    syncShellSelectionForPeer(id);
+    if (!shellCanConnect(id)) {
+      failShellAction("Connect failed: shell is not ready for a new session.");
+      return;
+    }
+    shellView.targetOptions = [...new Set([...(shellView.targetOptions || []), shellTarget])];
+    closeShellTransport();
+    state.view = { type: "shell-peer", peerID: id };
+    shellView.peerID = id;
+    shellView.target = shellTarget;
+    shellView.session = shellSession;
+    shellView.phase = "connecting";
+    shellView.detail = `Connecting to ${shellTarget}/${shellSession}...`;
+    shellView.error = "";
+    shellView.activeSessionTaskID = "";
+    shellView.discoveryTaskID = "";
+    shellTargetContextMenu = null;
+    rememberShellSelection(id);
+    scheduleRender();
+
+    try {
+      if (state.previewMode) await startPreviewShell(id, shellTarget, shellSession);
+      else await startLiveShell(id, shellTarget, shellSession);
+    } catch (err) {
+      failShellAction(`Connect failed: ${String(err)}`);
+    }
+  };
+
   const submitShell = async () => {
-    const peerID = state.view.type === "peer" ? String(state.view.peerID || "").trim() : "";
+    const peerID = state.view.type === "shell-peer" ? String(state.view.peerID || "").trim() : String(shellView.peerID || "").trim();
     const targetInput = el("shell-target");
     const sessionInput = el("shell-session");
     if (!peerID) {
@@ -2878,26 +3925,19 @@
       return;
     }
     syncShellSelectionForPeer(peerID);
-    const target = targetInput && targetInput.value.trim() ? targetInput.value.trim() : shellDefaultTarget(peerID);
-    const session = sessionInput && sessionInput.value.trim() ? sessionInput.value.trim() : shellDefaultSession(peerID);
-
-    closeShellTransport();
-    shellView.peerID = peerID;
-    shellView.target = target;
-    shellView.session = session;
-    shellView.phase = "connecting";
-    shellView.detail = `Connecting to ${target}/${session}...`;
-    shellView.error = "";
-    shellView.discoveryTaskID = "";
-    rememberShellSelection();
-    scheduleRender();
-
-    try {
-      if (state.previewMode) await startPreviewShell(peerID, target, session);
-      else await startLiveShell(peerID, target, session);
-    } catch (err) {
-      failShellAction(`Connect failed: ${String(err)}`);
+    const target = targetInput && targetInput.value.trim() ? targetInput.value.trim() : (shellView.target || shellDefaultTarget(peerID));
+    const session = sessionInput && sessionInput.value.trim() ? sessionInput.value.trim() : (shellView.session || shellDefaultSession(peerID));
+    const matchingSession = shellSessionsForPeer(peerID)
+      .find((item) => String(item.target || "local").trim() === target && String(item.session || "main").trim() === session) || null;
+    if (matchingSession) {
+      if (!shellSessionAttachable(matchingSession)) {
+        failShellAction("Resume failed: shell session is not attachable. Open another shell instead.");
+        return;
+      }
+      await resumeShellSession(matchingSession.task_id);
+      return;
     }
+    await openShellTarget(peerID, target, session);
   };
 
   const initFromQuery = () => {
@@ -2918,7 +3958,7 @@
     }
 
     const tab = queryTab || localStorage.getItem("miopunch_desktop_tab") || "network";
-    state.activeTab = tab === "admin" && roleKnown() && !adminVisible() ? "network" : tab;
+    state.activeTab = tab === "access" ? "network" : tab === "admin" && roleKnown() && !adminVisible() ? "network" : tab === "shell" && !shellVisible() ? "network" : tab;
     state.view = queryView(query);
     scheduleRender();
   };

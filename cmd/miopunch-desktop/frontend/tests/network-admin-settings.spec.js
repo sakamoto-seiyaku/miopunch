@@ -23,49 +23,165 @@ async function openAdmin(page) {
   await expect(page.locator(".page-title")).toHaveText("Governance");
 }
 
+async function expectMapEdgeTargetsDotCenters(page, peerID) {
+  const result = await page.evaluate((id) => {
+    const svg = document.querySelector(".network-map-svg");
+    const line = document.querySelector(`[data-edge-peer="${id}"] line`);
+    const selfDot = document.querySelector(".map-device-node.is-self .map-device-dot");
+    const peerDot = document.querySelector(`[data-map-peer="${id}"] .map-device-dot`);
+    if (!svg || !line || !selfDot || !peerDot) return null;
+
+    const center = (node) => {
+      const box = node.getBoundingClientRect();
+      return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+    };
+    const endpoint = (xAttr, yAttr) => {
+      const point = svg.createSVGPoint();
+      point.x = Number(line.getAttribute(xAttr));
+      point.y = Number(line.getAttribute(yAttr));
+      const screen = point.matrixTransform(line.getScreenCTM());
+      return { x: screen.x, y: screen.y };
+    };
+    const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+    return {
+      start: distance(endpoint("x1", "y1"), center(selfDot)),
+      end: distance(endpoint("x2", "y2"), center(peerDot)),
+    };
+  }, peerID);
+
+  expect(result).not.toBeNull();
+  expect(result.start).toBeLessThan(3);
+  expect(result.end).toBeLessThan(3);
+}
+
+test("Network map edges terminate at node dot centers", async ({ page }) => {
+  await openDesktop(page);
+
+  await expectMapEdgeTargetsDotCenters(page, PEERS.admin);
+  await expectMapEdgeTargetsDotCenters(page, PEERS.member);
+});
+
 test("Network peer actions are enabled only for valid remote peers", async ({ page }) => {
   await openDesktop(page);
 
   await openPeer(page, PEERS.owner);
-  await expect(page.getByRole("button", { name: "Ping" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "List sessions" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Shell" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Open shell/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /^Ping$/ })).toBeDisabled();
+  await expect(page.getByText("Connection health")).toHaveCount(0);
+  await expect(page.locator(".node-status-panel")).toHaveCount(0);
 
   await page.locator(`[data-open-peer="${PEERS.revoked}"]`).click();
   await expect(page.locator(`[data-copy-peer="${PEERS.revoked}"]`)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Ping" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "List sessions" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Shell" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Open shell/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /^Ping$/ })).toBeDisabled();
+  await expect(page.getByText("Connection health")).toHaveCount(0);
+  await expect(page.locator(".node-status-panel")).toHaveCount(0);
 
   await page.locator(`[data-open-peer="${PEERS.member}"]`).click();
   await expect(page.locator(`[data-copy-peer="${PEERS.member}"]`)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Ping" })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "List sessions" })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Shell" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: /Open shell/ })).toBeEnabled();
+  await expect(page.getByRole("button", { name: /^Ping$/ })).toBeEnabled();
+  await expect(page.getByText("Connection health")).toHaveCount(0);
+  await expect(page.locator(".node-status-panel")).toHaveCount(0);
+  await expect(page.getByText("List sessions")).toHaveCount(0);
 });
 
-test("Network peer actions create expected task calls", async ({ page }) => {
+test("Network ping creates expected task call", async ({ page }) => {
   await openDesktop(page);
   await openPeer(page, PEERS.member);
 
-  await page.getByRole("button", { name: "Ping" }).click();
+  await page.getByRole("button", { name: /^Ping$/ }).click();
   await expectCreateTaskCall(page, "ping", { peer_id: PEERS.member });
-  await expect(page.getByText("payload exchanged")).toBeVisible();
+  await expect(page.locator(".node-status-panel .operation-status")).toBeVisible();
+  await expect(page.locator(".node-status-panel .operation-status").getByText("payload exchanged")).toBeVisible();
+  await expect(page.locator(".node-status-panel").getByText("Diagnostics")).toBeVisible();
+  await page.locator(".node-status-panel summary").click();
+  await expect(page.locator(".node-status-panel .technical-log").getByText("payload exchanged")).toBeVisible();
+  await expect(page.getByText("rtt_ms=18")).toBeVisible();
+});
 
-  await page.getByRole("button", { name: "List sessions" }).click();
-  await expectCreateTaskCall(page, "sh_ls", { peer_id: PEERS.member, target: "" });
-  await expect(page.getByText("targets listed")).toBeVisible();
+test("Network device detail saves a local alias without replacing Peer ID", async ({ page }) => {
+  await openDesktop(page);
+  await openPeer(page, PEERS.member);
+
+  await page.locator("#alias-name").fill("Media Box");
+  await page.getByRole("button", { name: "Save alias" }).click();
+
+  await expect.poll(() => calls(page)).toContainEqual({
+    method: "SaveDesktopConfig",
+    update: { preferences: { peer_aliases: { [PEERS.member]: "Media Box" } } },
+  });
+  await expect(page.locator(".device-hero-title")).toHaveText("Media Box");
+  await expect(page.getByText("Remote name: Living Room Mini")).toBeVisible();
+  await expect(page.locator(`[data-copy-peer="${PEERS.member}"]`)).toBeVisible();
+  await expect(page.getByText("Direct IPv4")).toBeVisible();
+  await expect(page.getByText("Remote endpoint")).toBeVisible();
+  await expect(page.getByText("Public tuple")).toBeVisible();
+
+  await page.locator("#alias-name").fill("");
+  await page.getByRole("button", { name: "Save alias" }).click();
+  await expect.poll(() => calls(page)).toContainEqual({
+    method: "SaveDesktopConfig",
+    update: { preferences: { peer_aliases: { [PEERS.member]: "" } } },
+  });
+  await expect(page.locator(".device-hero-title")).toHaveText("Living Room Mini");
+});
+
+test("Network device action card keeps controls compact and aligned", async ({ page }) => {
+  await openDesktop(page);
+  await openPeer(page, PEERS.member);
+
+  const layout = await page.evaluate(() => {
+    const box = (selector) => {
+      const node = document.querySelector(selector);
+      const rect = node.getBoundingClientRect();
+      return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height };
+    };
+    return {
+      alias: box(".device-name-editor"),
+      save: box(".device-name-editor .btn"),
+      open: box(".device-command-row [data-peer-section='shell']"),
+      ping: box(".device-command-row [data-run-peer-task='ping']"),
+      chips: box(".device-chip-row"),
+      commands: box(".device-command-row"),
+      meta: box(".device-action-meta"),
+    };
+  });
+
+  expect(layout.save.height).toBeLessThanOrEqual(40);
+  expect(layout.open.height).toBeLessThanOrEqual(40);
+  expect(layout.ping.height).toBeLessThanOrEqual(40);
+  expect(layout.chips.bottom).toBeLessThanOrEqual(layout.commands.top + 2);
+  expect(layout.commands.bottom).toBeLessThanOrEqual(layout.meta.top + 4);
+  expect(layout.save.left).toBeGreaterThan(layout.alias.left);
+});
+
+test("Network live peer detail does not use preview names, path facts, or metrics", async ({ page }) => {
+  await openDesktop(page, { fixture: "no-display-hints" });
+  await openPeer(page, PEERS.member);
+
+  await expect(page.locator(".device-hero-title")).toHaveText(PEERS.member);
+  await expect(page.getByText("Living Room Mini")).toHaveCount(0);
+  await expect(page.locator(".node-metrics-panel")).toHaveCount(0);
+  await expect(page.locator(".network-metric-grid")).toHaveCount(0);
+  await expect(page.locator(".node-status-panel")).toHaveCount(0);
+  await expect(page.locator(".path-detail-grid")).toContainText("unknown");
+  await expect(page.locator(".path-detail-grid")).not.toContainText("100.92.0.34");
+  await expect(page.locator(".path-detail-grid")).not.toContainText("203.0.113");
 });
 
 test("Network shell flow creates sh_attach and opens the terminal bridge", async ({ page }) => {
   await openDesktop(page);
   await openPeer(page, PEERS.member);
 
-  await page.getByRole("button", { name: "Shell" }).click();
-  await expect(page.locator(".page-title")).toContainText("peer-livingr");
+  await page.getByRole("button", { name: /Open shell/ }).click();
+  await expect(page.locator("#topbar-title")).toHaveText("Shell");
+  await expect(page.locator(".shell-connect-identity")).toContainText("Living Room Mini");
+  await expect(page.locator("#shell-target")).toHaveValue("local");
   await expect(page.locator("#shell-form")).toBeVisible();
 
-  await page.locator("#shell-form").getByRole("button", { name: "Connect" }).click();
+  await page.locator("#shell-form").getByRole("button", { name: "Open", exact: true }).click();
 
   await expectCreateTaskCall(page, "sh_attach", {
     peer_id: PEERS.member,

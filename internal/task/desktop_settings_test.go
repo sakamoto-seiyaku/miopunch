@@ -81,6 +81,86 @@ func TestUpdateDesktopConfigPersistsRuntimeAndPreferences(t *testing.T) {
 	}
 }
 
+func TestUpdateDesktopConfigPersistsAndClearsPeerAliasesOnlyInDesktopSettings(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	stateDir := filepath.Dir(statePath)
+	if _, err := pocstate.EnsureDecls(stateDir); err != nil {
+		t.Fatalf("pocstate.EnsureDecls(%q) error = %v", stateDir, err)
+	}
+	beforeDecls, err := pocstate.LoadDecls(stateDir)
+	if err != nil {
+		t.Fatalf("pocstate.LoadDecls(%q) before update error = %v", stateDir, err)
+	}
+	if err := pocstate.Save(statePath, pocstate.State{
+		Format: pocstate.FormatV0,
+		Local: &pocstate.LocalConfig{
+			MQTTBroker: "broker-old:1883",
+		},
+		Peers: map[string]pocstate.PeerConfig{
+			"peer-livingroom-mini-03": {ProxyName: "livingroom", MQTTBroker: "broker-old:1883"},
+		},
+	}); err != nil {
+		t.Fatalf("pocstate.Save(%q) error = %v", statePath, err)
+	}
+
+	m := NewManagerWithStatePath(statePath)
+	t.Cleanup(m.Close)
+
+	snapshot, err := m.UpdateDesktopConfig(DesktopConfigUpdate{
+		Preferences: &DesktopPreferencesUpdate{
+			PeerAliases: map[string]string{
+				"peer-livingroom-mini-03": " Media Box ",
+				"peer-empty":              "",
+				" ":                       "ignored",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("UpdateDesktopConfig(peer alias) error = %v", err)
+	}
+	if got := snapshot.Config.Desired.Preferences.PeerAliases["peer-livingroom-mini-03"]; got != "Media Box" {
+		t.Fatalf("snapshot peer alias = %q, want %q", got, "Media Box")
+	}
+	if _, ok := snapshot.Config.Desired.Preferences.PeerAliases["peer-empty"]; ok {
+		t.Fatalf("snapshot peer aliases contains empty alias key, want cleared: %#v", snapshot.Config.Desired.Preferences.PeerAliases)
+	}
+
+	settings, err := m.loadDesktopSettings()
+	if err != nil {
+		t.Fatalf("loadDesktopSettings() error = %v", err)
+	}
+	if got := settings.Preferences.PeerAliases["peer-livingroom-mini-03"]; got != "Media Box" {
+		t.Fatalf("desktop settings peer alias = %q, want %q", got, "Media Box")
+	}
+
+	st, err := pocstate.Load(statePath)
+	if err != nil {
+		t.Fatalf("pocstate.Load(%q) error = %v", statePath, err)
+	}
+	if got := st.Peers["peer-livingroom-mini-03"].ProxyName; got != "livingroom" {
+		t.Fatalf("known peer ProxyName = %q, want %q", got, "livingroom")
+	}
+	afterDecls, err := pocstate.LoadDecls(stateDir)
+	if err != nil {
+		t.Fatalf("pocstate.LoadDecls(%q) after update error = %v", stateDir, err)
+	}
+	if beforeDecls.DeclsHeadB64 != afterDecls.DeclsHeadB64 || len(beforeDecls.Decls) != len(afterDecls.Decls) {
+		t.Fatalf("decls changed after peer alias update: before=%#v after=%#v", beforeDecls, afterDecls)
+	}
+
+	snapshot, err = m.UpdateDesktopConfig(DesktopConfigUpdate{
+		Preferences: &DesktopPreferencesUpdate{
+			PeerAliases: map[string]string{"peer-livingroom-mini-03": "  "},
+		},
+	})
+	if err != nil {
+		t.Fatalf("UpdateDesktopConfig(clear peer alias) error = %v", err)
+	}
+	if _, ok := snapshot.Config.Desired.Preferences.PeerAliases["peer-livingroom-mini-03"]; ok {
+		t.Fatalf("snapshot peer alias remained after clear: %#v", snapshot.Config.Desired.Preferences.PeerAliases)
+	}
+}
+
 func TestUpdateDesktopConfigClearsShellPreferences(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "state.json")
 	if err := pocstate.Save(statePath, pocstate.State{

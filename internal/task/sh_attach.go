@@ -181,10 +181,12 @@ func (m *Manager) awaitShellWS(taskID string) (*websocket.Conn, error) {
 	select {
 	case conn := <-state.wsCh:
 		if conn == nil {
+			m.setShellAttachable(taskID, false)
 			return nil, errors.New("websocket attach cancelled")
 		}
 		return conn, nil
 	case <-time.After(30 * time.Second):
+		m.setShellAttachable(taskID, false)
 		return nil, errors.New("no websocket attach within 30s")
 	}
 }

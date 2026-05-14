@@ -108,6 +108,55 @@ func TestDesktopConfigRouteClearsShellPreferences(t *testing.T) {
 	}
 }
 
+func TestDesktopConfigRoutePersistsPeerAliases(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	if err := pocstate.Save(statePath, pocstate.State{
+		Format: pocstate.FormatV0,
+		Local: &pocstate.LocalConfig{
+			MQTTBroker: "broker-old:1883",
+		},
+		Peers: map[string]pocstate.PeerConfig{
+			"peer-livingroom-mini-03": {ProxyName: "livingroom", MQTTBroker: "broker-old:1883"},
+		},
+	}); err != nil {
+		t.Fatalf("pocstate.Save(%q) error = %v", statePath, err)
+	}
+
+	mgr := task.NewManagerWithStatePath(statePath)
+	t.Cleanup(mgr.Close)
+
+	srv := NewServer(ListenModeUser, mgr)
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	t.Cleanup(cancel)
+
+	body := bytes.NewBufferString(`{"preferences":{"peer_aliases":{"peer-livingroom-mini-03":"Media Box"}}}`)
+	resp := mustDoRequest(t, ctx, http.MethodPatch, ts.URL+"/api/v0/desktop/config", body)
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("PATCH /api/v0/desktop/config peer alias status = %d, want %d, body=%s", resp.StatusCode, http.StatusOK, b)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var snapshot task.DesktopStateSnapshot
+	if err := json.NewDecoder(resp.Body).Decode(&snapshot); err != nil {
+		t.Fatalf("decode desktop config peer alias response: %v", err)
+	}
+	if got := snapshot.Config.Desired.Preferences.PeerAliases["peer-livingroom-mini-03"]; got != "Media Box" {
+		t.Fatalf("response desired peer alias = %q, want %q", got, "Media Box")
+	}
+
+	st, err := pocstate.Load(statePath)
+	if err != nil {
+		t.Fatalf("pocstate.Load(%q) error = %v", statePath, err)
+	}
+	if got := st.Peers["peer-livingroom-mini-03"].ProxyName; got != "livingroom" {
+		t.Fatalf("known peer ProxyName = %q, want %q", got, "livingroom")
+	}
+}
+
 func TestDesktopConfigRouteRejectsInvalidUpdate(t *testing.T) {
 	mgr := task.NewManagerWithStatePath(filepath.Join(t.TempDir(), "state.json"))
 	t.Cleanup(mgr.Close)

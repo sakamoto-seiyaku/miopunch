@@ -19,7 +19,7 @@ test("runtime task snapshot and events update visible peer task state", async ({
     },
   });
 
-  await expect(page.getByText("runtime-peer-task | stage=started")).toBeVisible();
+  await expect(page.locator(".node-status-panel .operation-status").getByText("started")).toBeVisible();
 
   await emitRuntime(page, "desktop:state", {
     kind: "task.upsert",
@@ -35,7 +35,7 @@ test("runtime task snapshot and events update visible peer task state", async ({
     },
   });
 
-  await expect(page.getByText("runtime-peer-task | stage=payload exchanged")).toBeVisible();
+  await expect(page.locator(".node-status-panel .operation-status").getByText("payload exchanged")).toBeVisible();
 
   await emitRuntime(page, "desktop:state", {
     kind: "task.upsert",
@@ -54,7 +54,7 @@ test("runtime task snapshot and events update visible peer task state", async ({
     },
   });
 
-  await expect(page.locator(".row-card").filter({ hasText: "runtime-peer-task" }).getByText("done")).toBeVisible();
+  await expect(page.locator(".node-status-panel .operation-status").getByText("done")).toBeVisible();
 });
 
 test("startup error runtime event shows a visible toast", async ({ page }) => {
@@ -129,7 +129,7 @@ test("revision gap resyncs runtime snapshot and applies caught-up state", async 
 
   await expect.poll(async () => (await calls(page)).filter((call) => call.method === "DesktopRuntimeResync").length).toBeGreaterThan(initialResyncs);
   await expect.poll(async () => (await calls(page)).filter((call) => call.method === "DesktopRuntimeStart").length).toBe(initialStarts);
-  await expect(page.getByText("gap-recovered-task | stage=caught up after restart")).toBeVisible();
+  await expect(page.locator(".node-status-panel .operation-status").getByText("caught up after restart")).toBeVisible();
 });
 
 test("runtime connection events re-render the active Diagnostics view immediately", async ({ page }) => {

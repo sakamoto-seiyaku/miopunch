@@ -111,6 +111,67 @@ func TestPublishDesktopFromTaskEventPublishesDiagnosticsReplace(t *testing.T) {
 	}
 }
 
+func TestBuildDesktopShellSessionsReportsAttachability(t *testing.T) {
+	m := NewManagerWithStatePath(filepath.Join(t.TempDir(), "state.json"))
+	t.Cleanup(m.Close)
+
+	waiting := desktopStateTestTask("task-waiting-shell", "sh_attach", []poc.Fact{
+		{TermID: "peer_id", Message: "peer_id=peer-test"},
+		{TermID: "target", Message: "target=local"},
+		{TermID: "session", Message: "session=main"},
+	})
+	completed := desktopStateTestTask("task-completed-shell", "sh_attach", []poc.Fact{
+		{TermID: "peer_id", Message: "peer_id=peer-test"},
+	})
+	completed.Status = StatusDone
+
+	m.mu.Lock()
+	m.attachByTask[waiting.ID] = &attachState{attachable: true}
+	m.mu.Unlock()
+
+	got := m.buildDesktopShellSessions([]Task{waiting, completed})
+	if len(got) != 1 {
+		t.Fatalf("buildDesktopShellSessions() length = %d, want 1: %#v", len(got), got)
+	}
+	if got[0].TaskID != waiting.ID {
+		t.Fatalf("buildDesktopShellSessions()[0].TaskID = %q, want %q", got[0].TaskID, waiting.ID)
+	}
+	if !got[0].Attachable {
+		t.Fatalf("buildDesktopShellSessions()[0].Attachable = false, want true")
+	}
+}
+
+func TestSetShellAttachablePublishesShellSessionsReplace(t *testing.T) {
+	m := NewManagerWithStatePath(filepath.Join(t.TempDir(), "state.json"))
+	t.Cleanup(m.Close)
+
+	taskSnapshot := desktopStateTestTask("task-shell-attachable-event", "sh_attach", []poc.Fact{
+		{TermID: "peer_id", Message: "peer_id=peer-test"},
+		{TermID: "target", Message: "target=local"},
+		{TermID: "session", Message: "session=main"},
+	})
+	m.mu.Lock()
+	m.tasks[taskSnapshot.ID] = &taskSnapshot
+	m.attachByTask[taskSnapshot.ID] = &attachState{attachable: true}
+	m.mu.Unlock()
+
+	sub, _, err := m.SubscribeDesktopStateWithSnapshot()
+	if err != nil {
+		t.Fatalf("SubscribeDesktopStateWithSnapshot() error = %v", err)
+	}
+	t.Cleanup(sub.Close)
+
+	m.setShellAttachable(taskSnapshot.ID, false)
+
+	ev := readDesktopStateEventForTest(t, sub.C, DesktopStateEventShellSessionsReplace)
+	if len(ev.ShellSessions) != 1 {
+		t.Fatalf("shell_sessions.replace length = %d, want 1: %#v", len(ev.ShellSessions), ev.ShellSessions)
+	}
+	if ev.ShellSessions[0].Attachable {
+		t.Fatalf("shell_sessions.replace session Attachable = true, want false")
+	}
+}
+
 func TestDesktopStateIncludesPersistedApprovalRequests(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "state.json")
 	m := NewManagerWithStatePath(statePath)

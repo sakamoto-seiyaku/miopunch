@@ -176,6 +176,83 @@ func TestTopologySnapshotIncludesKnownSeedPeersMissingFromDecls(t *testing.T) {
 	}
 }
 
+func TestTopologySnapshotIncludesApprovedMemberDisplayHints(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	stateDir := filepath.Dir(statePath)
+	issuerID, err := pocstate.EnsureIdentity(stateDir)
+	if err != nil {
+		t.Fatalf("pocstate.EnsureIdentity(issuer) error = %v", err)
+	}
+	namedMember, err := pocstate.EnsureIdentity(t.TempDir())
+	if err != nil {
+		t.Fatalf("pocstate.EnsureIdentity(named member) error = %v", err)
+	}
+	plainMember, err := pocstate.EnsureIdentity(t.TempDir())
+	if err != nil {
+		t.Fatalf("pocstate.EnsureIdentity(plain member) error = %v", err)
+	}
+
+	netID, err := pocstate.NetIDFromSecret(bytes.Repeat([]byte{3}, 32))
+	if err != nil {
+		t.Fatalf("pocstate.NetIDFromSecret() error = %v", err)
+	}
+	if err := pocstate.SaveNet(stateDir, pocstate.Net{NetSecret: bytes.Repeat([]byte{3}, 32)}); err != nil {
+		t.Fatalf("pocstate.SaveNet() error = %v", err)
+	}
+	if _, err := pocstate.EnsureGovernanceHeadSnapshot(stateDir, netID, issuerID); err != nil {
+		t.Fatalf("pocstate.EnsureGovernanceHeadSnapshot() error = %v", err)
+	}
+	if _, err := pocstate.EnsureDecls(stateDir); err != nil {
+		t.Fatalf("pocstate.EnsureDecls() error = %v", err)
+	}
+	if _, err := pocstate.UpdateDecls(stateDir, func(f *pocstate.DeclsFileV0) error {
+		f.Decls = append(
+			f.Decls,
+			mustApproveDeclWithDisplay(t, issuerID, namedMember, "Living Room Mini", "linux"),
+			mustApproveDecl(t, issuerID, plainMember, "easy"),
+		)
+		return nil
+	}); err != nil {
+		t.Fatalf("pocstate.UpdateDecls() error = %v", err)
+	}
+	if err := pocstate.Save(statePath, pocstate.State{
+		Format: pocstate.FormatV0,
+		Local: &pocstate.LocalConfig{
+			PeerID:      issuerID.PeerID,
+			ProxyName:   issuerID.PeerID,
+			SecretKey:   "issuer-secret",
+			MQTTBroker:  "broker:1883",
+			TopicPrefix: "miopunch/test",
+		},
+		Peers: map[string]pocstate.PeerConfig{
+			namedMember.PeerID: testPeerConfig(),
+			plainMember.PeerID: testPeerConfig(),
+		},
+	}); err != nil {
+		t.Fatalf("pocstate.Save() error = %v", err)
+	}
+
+	m := NewManagerWithStatePath(statePath)
+	t.Cleanup(m.Close)
+
+	got, err := m.TopologySnapshot()
+	if err != nil {
+		t.Fatalf("TopologySnapshot() error = %v", err)
+	}
+	byPeerID := topologyMembersByPeerID(got.Members)
+	named := byPeerID[namedMember.PeerID]
+	if named.MemberName != "Living Room Mini" {
+		t.Fatalf("TopologySnapshot named member MemberName = %q, want %q", named.MemberName, "Living Room Mini")
+	}
+	if named.PlatformHint != "linux" {
+		t.Fatalf("TopologySnapshot named member PlatformHint = %q, want %q", named.PlatformHint, "linux")
+	}
+	plain := byPeerID[plainMember.PeerID]
+	if plain.MemberName != "" || plain.PlatformHint != "" {
+		t.Fatalf("TopologySnapshot plain member display hints = (%q,%q), want empty", plain.MemberName, plain.PlatformHint)
+	}
+}
+
 func TestTopologyPortmapEvidenceFromEvents(t *testing.T) {
 	raw := `{"name":"gather.portmap.snapshot","kvs":{"included":true,"direct_v4":1,"methods_done":2}}` + "\n"
 
@@ -429,12 +506,38 @@ func TestRunMaintainNeighborsPingsSelectedPeers(t *testing.T) {
 
 func mustApproveDecl(t *testing.T, issuer pocstate.Identity, member pocstate.Identity, v4Hint string) pocstate.DeclV0 {
 	t.Helper()
-	decl, err := pocstate.NewApproveMemberDeclV0(time.Now().UTC(), issuer, pocstate.ApproveMemberBodyV0{
+	return mustApproveDeclWithBody(t, issuer, member, pocstate.ApproveMemberBodyV0{
 		MemberPeerID:  member.PeerID,
 		Ed25519PubB64: member.Ed25519PubB64(),
 		X25519PubB64:  member.X25519PubB64(),
 		V4Hint:        v4Hint,
 		V6Hint:        "none",
+	})
+}
+
+func mustApproveDeclWithDisplay(t *testing.T, issuer pocstate.Identity, member pocstate.Identity, memberName string, platform string) pocstate.DeclV0 {
+	t.Helper()
+	return mustApproveDeclWithBody(t, issuer, member, pocstate.ApproveMemberBodyV0{
+		MemberPeerID:  member.PeerID,
+		MemberName:    memberName,
+		Ed25519PubB64: member.Ed25519PubB64(),
+		X25519PubB64:  member.X25519PubB64(),
+		V4Hint:        "easy",
+		V6Hint:        "none",
+		PlatformHint:  platform,
+	})
+}
+
+func mustApproveDeclWithBody(t *testing.T, issuer pocstate.Identity, member pocstate.Identity, body pocstate.ApproveMemberBodyV0) pocstate.DeclV0 {
+	t.Helper()
+	decl, err := pocstate.NewApproveMemberDeclV0(time.Now().UTC(), issuer, pocstate.ApproveMemberBodyV0{
+		MemberPeerID:  body.MemberPeerID,
+		MemberName:    body.MemberName,
+		Ed25519PubB64: body.Ed25519PubB64,
+		X25519PubB64:  body.X25519PubB64,
+		V4Hint:        body.V4Hint,
+		V6Hint:        body.V6Hint,
+		PlatformHint:  body.PlatformHint,
 	})
 	if err != nil {
 		t.Fatalf("pocstate.NewApproveMemberDeclV0(%q) error = %v", member.PeerID, err)

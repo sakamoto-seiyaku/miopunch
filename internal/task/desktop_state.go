@@ -37,6 +37,13 @@ type DesktopPeerSession struct {
 	DataProto          string `json:"data_proto,omitempty"`
 	SecurityID         string `json:"security_id,omitempty"`
 	PathFamily         string `json:"path_family,omitempty"`
+	DirectIPv4         string `json:"direct_ipv4,omitempty"`
+	DirectIPv6         string `json:"direct_ipv6,omitempty"`
+	LocalEndpoint      string `json:"local_endpoint,omitempty"`
+	RemoteEndpoint     string `json:"remote_endpoint,omitempty"`
+	PublicTuple        string `json:"public_tuple,omitempty"`
+	PunchStatus        string `json:"punch_status,omitempty"`
+	Port               string `json:"port,omitempty"`
 	Healthy            bool   `json:"healthy"`
 	LastActivityUnixMs int64  `json:"last_activity_unix_ms,omitempty"`
 	ClosedAtUnixMilli  int64  `json:"closed_at_unix_ms,omitempty"`
@@ -54,6 +61,7 @@ type DesktopShellSession struct {
 	ExitCode    poc.ExitCode   `json:"exit_code,omitempty"`
 	CreatedAt   time.Time      `json:"created_at,omitempty"`
 	ReportReady bool           `json:"report_ready,omitempty"`
+	Attachable  bool           `json:"attachable"`
 }
 
 type DesktopPeerConfig struct {
@@ -87,9 +95,10 @@ type DesktopRuntimeConfig struct {
 }
 
 type DesktopPreferences struct {
-	DefaultShellTarget  string `json:"default_shell_target,omitempty"`
-	DefaultShellSession string `json:"default_shell_session,omitempty"`
-	LogLevel            string `json:"log_level"`
+	DefaultShellTarget  string            `json:"default_shell_target,omitempty"`
+	DefaultShellSession string            `json:"default_shell_session,omitempty"`
+	LogLevel            string            `json:"log_level"`
+	PeerAliases         map[string]string `json:"peer_aliases,omitempty"`
 }
 
 type DesktopSettingsConfig struct {
@@ -238,7 +247,7 @@ func (m *Manager) desktopStateSnapshotLocked() (DesktopStateSnapshot, error) {
 
 	tasks := m.List()
 	peerSessions := m.buildDesktopPeerSessions()
-	shellSessions := buildDesktopShellSessions(tasks)
+	shellSessions := m.buildDesktopShellSessions(tasks)
 	config, err := m.buildDesktopConfig(topology)
 	if err != nil {
 		return DesktopStateSnapshot{}, err
@@ -282,7 +291,7 @@ func (m *Manager) publishDesktopFromTaskEvent(ev Event) {
 		if isShellTaskKind(taskSnapshot.Kind) {
 			m.publishDesktopStateEventLocked(DesktopStateEvent{
 				Kind:          DesktopStateEventShellSessionsReplace,
-				ShellSessions: buildDesktopShellSessions(tasks),
+				ShellSessions: m.buildDesktopShellSessions(tasks),
 			})
 		}
 		if taskSnapshot.Kind == "approve" {
@@ -413,6 +422,21 @@ func (m *Manager) publishDesktopPeerSessionsChange() {
 	})
 }
 
+func (m *Manager) publishDesktopShellSessionsChange() {
+	if m == nil {
+		return
+	}
+
+	m.desktopMu.Lock()
+	defer m.desktopMu.Unlock()
+
+	tasks := m.List()
+	m.publishDesktopStateEventLocked(DesktopStateEvent{
+		Kind:          DesktopStateEventShellSessionsReplace,
+		ShellSessions: m.buildDesktopShellSessions(tasks),
+	})
+}
+
 func (m *Manager) publishDesktopStateEventLocked(ev DesktopStateEvent) {
 	baseRev := m.desktopRev
 	m.desktopRev++
@@ -457,7 +481,7 @@ func (m *Manager) buildDesktopPeerSessions() []DesktopPeerSession {
 	return out
 }
 
-func buildDesktopShellSessions(tasks []Task) []DesktopShellSession {
+func (m *Manager) buildDesktopShellSessions(tasks []Task) []DesktopShellSession {
 	out := make([]DesktopShellSession, 0)
 	for _, taskSnapshot := range tasks {
 		if !isShellTaskKind(taskSnapshot.Kind) || taskSnapshot.Status == StatusDone {
@@ -474,6 +498,7 @@ func buildDesktopShellSessions(tasks []Task) []DesktopShellSession {
 			ExitCode:    taskSnapshot.ExitCode,
 			CreatedAt:   taskSnapshot.CreatedAt,
 			ReportReady: taskSnapshot.ReportReady,
+			Attachable:  m.shellAttachable(taskSnapshot.ID),
 		})
 	}
 	if out == nil {
@@ -788,8 +813,10 @@ func cloneDesktopConfig(cfg DesktopConfig) *DesktopConfig {
 	}
 	out.Desired.Runtime.MQTTBrokers = append([]string(nil), cfg.Desired.Runtime.MQTTBrokers...)
 	out.Desired.Runtime.StunServers = append([]string(nil), cfg.Desired.Runtime.StunServers...)
+	out.Desired.Preferences.PeerAliases = cloneStringMap(cfg.Desired.Preferences.PeerAliases)
 	out.Effective.Runtime.MQTTBrokers = append([]string(nil), cfg.Effective.Runtime.MQTTBrokers...)
 	out.Effective.Runtime.StunServers = append([]string(nil), cfg.Effective.Runtime.StunServers...)
+	out.Effective.Preferences.PeerAliases = cloneStringMap(cfg.Effective.Preferences.PeerAliases)
 	return &out
 }
 
