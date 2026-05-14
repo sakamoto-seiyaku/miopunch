@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/event"
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/tlsutil"
 )
 
@@ -29,11 +30,30 @@ const (
 	tlsElectionKeepPrefix = "miopunch/tls-election/v0:keep:"
 	tlsElectionMaxFrame   = 512
 	tlsElectionTimeout    = 2 * time.Second
+	tlsHandshakeTimeout   = 6 * time.Second
+	tlsHandshakeSettle    = 200 * time.Millisecond
 )
 
 type tlsCandidate struct {
 	Conn   *tls.Conn
 	Origin connectivity.TCPConnOrigin
+	Index  int
+}
+
+func tlsConnSummary(conn net.Conn) (local string, remote string) {
+	if conn == nil {
+		return "", ""
+	}
+	return conn.LocalAddr().String(), conn.RemoteAddr().String()
+}
+
+func tlsContextDeadlineSummary(ctx context.Context) (hasDeadline bool, deadline string, remainingMS int64, err error) {
+	err = ctx.Err()
+	d, ok := ctx.Deadline()
+	if !ok {
+		return false, "", 0, err
+	}
+	return true, d.Format(time.RFC3339Nano), time.Until(d).Milliseconds(), err
 }
 
 func DialTLSStream(ctx context.Context, sid string, secretKey []byte, candidates []connectivity.TCPConn, em *event.Emitter) (io.ReadWriteCloser, error) {
@@ -205,6 +225,14 @@ func convergePinnedTLS(ctx context.Context, sid string, secretKey []byte, selfRo
 	if len(candidates) == 0 {
 		return nil, errors.New("no tcp connections for tls")
 	}
+	logutil.Infof(
+		"tcp tls converge start: sid=%s self_role=%s peer_role=%s as_client=%v candidates=%d",
+		sid,
+		selfRole,
+		peerRole,
+		asClient,
+		len(candidates),
+	)
 
 	var tlsConfig *tls.Config
 	var err error
@@ -218,20 +246,48 @@ func convergePinnedTLS(ctx context.Context, sid string, secretKey []byte, selfRo
 		return nil, err
 	}
 
-	handshakeCtx, cancel := context.WithTimeout(ctx, 6*time.Second)
+	handshakeCtx, cancel := context.WithTimeout(ctx, tlsHandshakeTimeout)
 	defer cancel()
+	parentHasDeadline, parentDeadline, parentRemainingMS, parentErr := tlsContextDeadlineSummary(ctx)
+	handshakeHasDeadline, handshakeDeadline, handshakeRemainingMS, handshakeErr := tlsContextDeadlineSummary(handshakeCtx)
+	logutil.Infof(
+		"tcp tls converge deadlines: sid=%s role=%s parent_has_deadline=%v parent_deadline=%s parent_remaining_ms=%d parent_err=%v handshake_has_deadline=%v handshake_deadline=%s handshake_remaining_ms=%d handshake_err=%v",
+		sid,
+		selfRole,
+		parentHasDeadline,
+		parentDeadline,
+		parentRemainingMS,
+		parentErr,
+		handshakeHasDeadline,
+		handshakeDeadline,
+		handshakeRemainingMS,
+		handshakeErr,
+	)
 
 	resultCh := make(chan tlsCandidate, len(candidates))
+	doneCh := make(chan struct{})
+	convergeStarted := time.Now()
 
 	var wg sync.WaitGroup
-	for _, cand := range candidates {
-		cand := cand
+	for i, cand := range candidates {
+		i, cand := i, cand
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
 			base := tlsConfig.Clone()
 			var tlsConn *tls.Conn
+			local, remote := tlsConnSummary(cand.Conn)
+			started := time.Now()
+			logutil.Infof(
+				"tcp tls handshake start: sid=%s role=%s origin=%s local=%s remote=%s as_client=%v",
+				sid,
+				selfRole,
+				cand.Origin,
+				local,
+				remote,
+				asClient,
+			)
 			if asClient {
 				tlsConn = tls.Client(cand.Conn, base)
 			} else {
@@ -239,13 +295,41 @@ func convergePinnedTLS(ctx context.Context, sid string, secretKey []byte, selfRo
 			}
 
 			if err := tlsConn.HandshakeContext(handshakeCtx); err != nil {
+				logutil.Warnf(
+					"tcp tls handshake failed: sid=%s role=%s origin=%s local=%s remote=%s elapsed_ms=%d err=%v",
+					sid,
+					selfRole,
+					cand.Origin,
+					local,
+					remote,
+					time.Since(started).Milliseconds(),
+					err,
+				)
 				_ = tlsConn.Close()
 				return
 			}
+			local, remote = tlsConnSummary(tlsConn)
+			logutil.Infof(
+				"tcp tls handshake ok: sid=%s role=%s origin=%s local=%s remote=%s elapsed_ms=%d",
+				sid,
+				selfRole,
+				cand.Origin,
+				local,
+				remote,
+				time.Since(started).Milliseconds(),
+			)
 
 			select {
-			case resultCh <- tlsCandidate{Conn: tlsConn, Origin: cand.Origin}:
+			case resultCh <- tlsCandidate{Conn: tlsConn, Origin: cand.Origin, Index: i}:
 			default:
+				logutil.Warnf(
+					"tcp tls handshake result dropped: sid=%s role=%s origin=%s local=%s remote=%s",
+					sid,
+					selfRole,
+					cand.Origin,
+					local,
+					remote,
+				)
 				_ = tlsConn.Close()
 			}
 		}()
@@ -253,29 +337,64 @@ func convergePinnedTLS(ctx context.Context, sid string, secretKey []byte, selfRo
 
 	go func() {
 		wg.Wait()
-		close(resultCh)
+		close(doneCh)
 	}()
 
-	successes := make([]tlsCandidate, 0, len(candidates))
-	for res := range resultCh {
-		if res.Conn == nil {
-			continue
-		}
-		successes = append(successes, res)
-	}
+	successes, firstSuccessElapsedMS := collectTLSHandshakeSuccesses(
+		handshakeCtx,
+		cancel,
+		doneCh,
+		resultCh,
+		len(candidates),
+		convergeStarted,
+	)
 	if len(successes) == 0 {
 		err := handshakeCtx.Err()
 		if err == nil {
 			err = errors.New("tls handshake failed for all candidates")
 		}
+		logutil.Warnf(
+			"tcp tls converge failed: sid=%s role=%s candidates=%d successes=0 err=%v",
+			sid,
+			selfRole,
+			len(candidates),
+			err,
+		)
 		return nil, err
 	}
+	closePendingTCPCandidates(candidates, successes)
+	logutil.Infof(
+		"tcp tls converge handshakes ready: sid=%s role=%s candidates=%d successes=%d first_success_elapsed_ms=%d settle_window_ms=%d",
+		sid,
+		selfRole,
+		len(candidates),
+		len(successes),
+		firstSuccessElapsedMS,
+		tlsHandshakeSettle.Milliseconds(),
+	)
 
 	electionCtx, cancelElection := context.WithTimeout(ctx, tlsElectionTimeout)
 	defer cancelElection()
+	electionHasDeadline, electionDeadline, electionRemainingMS, electionErr := tlsContextDeadlineSummary(electionCtx)
+	logutil.Infof(
+		"tcp tls election deadlines: sid=%s role=%s election_has_deadline=%v election_deadline=%s election_remaining_ms=%d election_err=%v",
+		sid,
+		selfRole,
+		electionHasDeadline,
+		electionDeadline,
+		electionRemainingMS,
+		electionErr,
+	)
 
-	winner, winnerOrigin, err := convergePinnedTLSElection(electionCtx, successes, selfRole)
+	winner, winnerOrigin, err := convergePinnedTLSElection(electionCtx, sid, successes, selfRole)
 	if err != nil {
+		logutil.Warnf(
+			"tcp tls election failed: sid=%s role=%s successes=%d err=%v",
+			sid,
+			selfRole,
+			len(successes),
+			err,
+		)
 		for _, c := range successes {
 			_ = c.Conn.Close()
 		}
@@ -289,11 +408,13 @@ func convergePinnedTLS(ctx context.Context, sid string, secretKey []byte, selfRo
 			Name:  "transport.tls_converge",
 			Msg:   "tls winner converged",
 			KVs: map[string]any{
-				"candidates": len(candidates),
-				"successes":  len(successes),
-				"strategy":   "leader_follower",
-				"role":       selfRole,
-				"winner":     string(winnerOrigin),
+				"candidates":               len(candidates),
+				"successes":                len(successes),
+				"strategy":                 "leader_follower",
+				"role":                     selfRole,
+				"winner":                   string(winnerOrigin),
+				"first_success_elapsed_ms": firstSuccessElapsedMS,
+				"settle_window_ms":         int(tlsHandshakeSettle.Milliseconds()),
 			},
 		})
 	}
@@ -309,18 +430,110 @@ func closeTCPCandidates(candidates []connectivity.TCPConn) {
 	}
 }
 
-func convergePinnedTLSElection(ctx context.Context, successes []tlsCandidate, selfRole string) (*tls.Conn, connectivity.TCPConnOrigin, error) {
+func closePendingTCPCandidates(candidates []connectivity.TCPConn, successes []tlsCandidate) {
+	if len(candidates) == 0 {
+		return
+	}
+	keep := make(map[int]struct{}, len(successes))
+	for _, success := range successes {
+		keep[success.Index] = struct{}{}
+	}
+	for i, cand := range candidates {
+		if _, ok := keep[i]; ok {
+			continue
+		}
+		if cand.Conn != nil {
+			_ = cand.Conn.Close()
+		}
+	}
+}
+
+func collectTLSHandshakeSuccesses(
+	ctx context.Context,
+	cancel context.CancelFunc,
+	doneCh <-chan struct{},
+	resultCh <-chan tlsCandidate,
+	total int,
+	started time.Time,
+) ([]tlsCandidate, int64) {
+	successes := make([]tlsCandidate, 0, total)
+	var firstSuccessElapsedMS int64
+	var settleTimer *time.Timer
+	var settleC <-chan time.Time
+
+	drain := func() bool {
+		drained := false
+		for {
+			select {
+			case res := <-resultCh:
+				if res.Conn == nil {
+					continue
+				}
+				successes = append(successes, res)
+				if len(successes) == 1 {
+					firstSuccessElapsedMS = time.Since(started).Milliseconds()
+					settleTimer = time.NewTimer(tlsHandshakeSettle)
+					settleC = settleTimer.C
+				}
+				drained = true
+			default:
+				return drained
+			}
+		}
+	}
+
+	for {
+		if len(successes) > 0 && settleC == nil {
+			firstSuccessElapsedMS = time.Since(started).Milliseconds()
+			settleTimer = time.NewTimer(tlsHandshakeSettle)
+			settleC = settleTimer.C
+		}
+		select {
+		case res := <-resultCh:
+			if res.Conn == nil {
+				continue
+			}
+			successes = append(successes, res)
+			if len(successes) == 1 {
+				firstSuccessElapsedMS = time.Since(started).Milliseconds()
+				settleTimer = time.NewTimer(tlsHandshakeSettle)
+				settleC = settleTimer.C
+			}
+		case <-settleC:
+			if settleTimer != nil {
+				settleTimer.Stop()
+			}
+			cancel()
+			drain()
+			return successes, firstSuccessElapsedMS
+		case <-doneCh:
+			if settleTimer != nil {
+				settleTimer.Stop()
+			}
+			drain()
+			return successes, firstSuccessElapsedMS
+		case <-ctx.Done():
+			if settleTimer != nil {
+				settleTimer.Stop()
+			}
+			drain()
+			return successes, firstSuccessElapsedMS
+		}
+	}
+}
+
+func convergePinnedTLSElection(ctx context.Context, sid string, successes []tlsCandidate, selfRole string) (*tls.Conn, connectivity.TCPConnOrigin, error) {
 	switch selfRole {
 	case tlsRoleVisitor:
-		return convergePinnedTLSLeader(ctx, successes)
+		return convergePinnedTLSLeader(ctx, sid, successes)
 	case tlsRoleClient:
-		return convergePinnedTLSFollower(ctx, successes)
+		return convergePinnedTLSFollower(ctx, sid, successes)
 	default:
 		return nil, "", fmt.Errorf("unknown tls role: %q", selfRole)
 	}
 }
 
-func convergePinnedTLSLeader(ctx context.Context, successes []tlsCandidate) (*tls.Conn, connectivity.TCPConnOrigin, error) {
+func convergePinnedTLSLeader(ctx context.Context, sid string, successes []tlsCandidate) (*tls.Conn, connectivity.TCPConnOrigin, error) {
 	token := make([]byte, 16)
 	if _, err := rand.Read(token); err != nil {
 		return nil, "", fmt.Errorf("tls election token: %w", err)
@@ -334,17 +547,50 @@ func convergePinnedTLSLeader(ctx context.Context, successes []tlsCandidate) (*tl
 	} else {
 		deadline = time.Now().Add(tlsElectionTimeout)
 	}
+	logutil.Infof(
+		"tcp tls election leader deadline selected: sid=%s deadline=%s remaining_ms=%d ctx_err=%v",
+		sid,
+		deadline.Format(time.RFC3339Nano),
+		time.Until(deadline).Milliseconds(),
+		ctx.Err(),
+	)
 
 	var winnerConn *tls.Conn
 	var winnerOrigin connectivity.TCPConnOrigin
 	for _, c := range successes {
 		_ = c.Conn.SetWriteDeadline(deadline)
+		local, remote := tlsConnSummary(c.Conn)
+		logutil.Infof(
+			"tcp tls election leader signal start: sid=%s origin=%s local=%s remote=%s frame_len=%d deadline=%s remaining_ms=%d",
+			sid,
+			c.Origin,
+			local,
+			remote,
+			len(keepMsg),
+			deadline.Format(time.RFC3339Nano),
+			time.Until(deadline).Milliseconds(),
+		)
 		err := writeFrame(c.Conn, keepMsg)
 		_ = c.Conn.SetWriteDeadline(time.Time{})
 		if err != nil {
+			logutil.Warnf(
+				"tcp tls election leader signal failed: sid=%s origin=%s local=%s remote=%s err=%v",
+				sid,
+				c.Origin,
+				local,
+				remote,
+				err,
+			)
 			_ = c.Conn.Close()
 			continue
 		}
+		logutil.Infof(
+			"tcp tls election leader signal ok: sid=%s origin=%s local=%s remote=%s",
+			sid,
+			c.Origin,
+			local,
+			remote,
+		)
 		winnerConn = c.Conn
 		winnerOrigin = c.Origin
 		break
@@ -363,13 +609,20 @@ func convergePinnedTLSLeader(ctx context.Context, successes []tlsCandidate) (*tl
 	return winnerConn, winnerOrigin, nil
 }
 
-func convergePinnedTLSFollower(ctx context.Context, successes []tlsCandidate) (*tls.Conn, connectivity.TCPConnOrigin, error) {
+func convergePinnedTLSFollower(ctx context.Context, sid string, successes []tlsCandidate) (*tls.Conn, connectivity.TCPConnOrigin, error) {
 	var deadline time.Time
 	if d, ok := ctx.Deadline(); ok {
 		deadline = d
 	} else {
 		deadline = time.Now().Add(tlsElectionTimeout)
 	}
+	logutil.Infof(
+		"tcp tls election follower deadline selected: sid=%s deadline=%s remaining_ms=%d ctx_err=%v",
+		sid,
+		deadline.Format(time.RFC3339Nano),
+		time.Until(deadline).Milliseconds(),
+		ctx.Err(),
+	)
 
 	type outcome struct {
 		cand  tlsCandidate
@@ -384,8 +637,38 @@ func convergePinnedTLSFollower(ctx context.Context, successes []tlsCandidate) (*
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			local, remote := tlsConnSummary(cand.Conn)
+			logutil.Infof(
+				"tcp tls election follower read start: sid=%s origin=%s local=%s remote=%s deadline=%s remaining_ms=%d",
+				sid,
+				cand.Origin,
+				local,
+				remote,
+				deadline.Format(time.RFC3339Nano),
+				time.Until(deadline).Milliseconds(),
+			)
 			_ = cand.Conn.SetReadDeadline(deadline)
 			frame, err := readFrame(cand.Conn, tlsElectionMaxFrame)
+			if err != nil {
+				logutil.Warnf(
+					"tcp tls election follower read failed: sid=%s origin=%s local=%s remote=%s err=%v",
+					sid,
+					cand.Origin,
+					local,
+					remote,
+					err,
+				)
+			} else {
+				logutil.Infof(
+					"tcp tls election follower read ok: sid=%s origin=%s local=%s remote=%s frame_len=%d keep_prefix=%v",
+					sid,
+					cand.Origin,
+					local,
+					remote,
+					len(frame),
+					strings.HasPrefix(string(frame), tlsElectionKeepPrefix),
+				)
+			}
 			outCh <- outcome{cand: cand, frame: frame, err: err}
 		}()
 	}

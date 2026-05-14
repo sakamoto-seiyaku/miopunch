@@ -3146,3 +3146,33 @@ selected neighbors
   - Linux -> Windows：先 `ping -t` 成功得到 `punching_tcp4` / `tcp4` / `tls`，随后同一 daemon 执行 `ping -u`，未出现 `session_reused=true`，而是 fresh `punching_ipv4` / `udp4` / `quic` 并 `hello=ok` / `ping=ok`。
   - 额外观察：Windows -> Linux fresh TCP 在一次重启后仍复现过旧的 `dial peer: session shutdown`，说明 TCP TLS election 问题仍需 Batch 2 单独修复。
 - 未跑完整 gate；本批按本轮策略留到链路层修复完成后统一验证。
+
+### 9.2 Batch 2：修正 TCP TLS converge / election 的时序
+
+修复目标：
+
+- 不再等待所有 TCP candidate 的 TLS handshake 全部结束才进入 election。
+- 允许首个成功 TLS conn 先触发一个短 settle window，然后尽快发 winner signal。
+- 对仍在握手中的慢失败 candidate，settle 到期后取消并关闭，避免拖过 follower election 窗口。
+- 保持 `punching_tcp4` / `direct_tcp4` 的诊断可读性，但不再依赖调大 election timeout 来掩盖时序问题。
+
+代码方向：
+
+- 在 `dataplane/tls_stream.go` 引入 handshake timeout 与短 settle window。
+- 收集到首个成功 TLS conn 后，取消剩余慢握手的继续等待。
+- `transport.tls_converge` 事件补充 `first_success_elapsed_ms` 与 `settle_window_ms`，便于后续排查。
+- 新增单测覆盖“好 conn + 慢 conn”场景，确保不会再被慢候选拖死。
+
+验证目标：
+
+- `go test ./dataplane` 通过。
+- 真实 Windows/WSL2 mirrored 环境里，Windows -> Linux fresh TCP 从 `dial peer: session shutdown` 变成 `attempt_path=punching_tcp4` / `path_family=tcp4` / `hello=ok` / `ping=ok`。
+- 同一 daemon 后续 `ping -u` 不再复用 TCP session，而是 fresh UDP path。
+
+当前状态：
+
+- `go test ./dataplane` 已通过。
+- 真实环境已验证：
+  - Windows -> Linux fresh TCP 成功；
+  - Windows 同一 daemon 后续 `ping -u` 成功且未复用 TCP。
+- Batch 2 还没有最终 commit；等这轮文档同步后再把本批提交落盘。

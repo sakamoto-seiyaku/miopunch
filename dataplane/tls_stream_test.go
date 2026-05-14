@@ -72,6 +72,42 @@ func TestTLSStream_ConvergesAndExchangesWithMultipleCandidates(t *testing.T) {
 	}
 }
 
+func TestTLSStream_ConvergesBeforeSlowCandidateFails(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	visitorFast, clientFast := net.Pipe()
+	visitorSlow, slowPeer := net.Pipe()
+	defer slowPeer.Close()
+
+	visitorCandidates := []connectivity.TCPConn{
+		{Conn: visitorFast, Origin: connectivity.TCPConnOriginDial},
+		{Conn: visitorSlow, Origin: connectivity.TCPConnOriginDial},
+	}
+	clientCandidates := []connectivity.TCPConn{
+		{Conn: clientFast, Origin: connectivity.TCPConnOriginAccept},
+	}
+
+	cfg := Config{Proto: ProtocolTLS}
+	var dialEvents bytes.Buffer
+	var serveEvents bytes.Buffer
+	dialEm := event.NewEmitter(&dialEvents, "dial")
+	serveEm := event.NewEmitter(&serveEvents, "serve")
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ServeAndExchangeTLS(ctx, cfg, "sid-fast-settle", []byte("secret"), clientCandidates, serveEm)
+	}()
+
+	if err := DialAndExchangeTLS(ctx, cfg, "sid-fast-settle", []byte("secret"), visitorCandidates, []byte("ping"), dialEm); err != nil {
+		t.Fatalf("DialAndExchangeTLS() error = %v, want nil\n--- dial events ---\n%s\n--- serve events ---\n%s", err, dialEvents.String(), serveEvents.String())
+	}
+
+	if err := <-errCh; err != nil {
+		t.Fatalf("ServeAndExchangeTLS() error = %v, want nil\n--- dial events ---\n%s\n--- serve events ---\n%s", err, dialEvents.String(), serveEvents.String())
+	}
+}
+
 type closeTrackingConn struct {
 	net.Conn
 
