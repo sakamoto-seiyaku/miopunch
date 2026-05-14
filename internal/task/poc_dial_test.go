@@ -1,9 +1,13 @@
 package task
 
 import (
+	"context"
+	"io"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/miopunch/miopunch/dataplane"
 	"github.com/miopunch/miopunch/internal/pocstate"
 )
 
@@ -119,3 +123,126 @@ func TestLoadPeerConfigKeepsPeerDialOverrides(t *testing.T) {
 		t.Errorf("loadPeerConfig(peer-a).StunServers = %v, want [100.65.0.99:3478]", cfg.StunServers)
 	}
 }
+
+func TestFindReusableSessionHonorsP2PNetwork(t *testing.T) {
+	const (
+		peerID = "peer-a"
+		sid    = "sid-a"
+	)
+
+	udpSession := &testPeerSession{key: dataplane.SessionKey{
+		RemotePeerID: peerID,
+		Protocol:     dataplane.ProtocolQUIC,
+		SecurityID:   sid,
+		PathFamily:   dataplane.PathFamilyUDP4,
+	}}
+	tcpSession := &testPeerSession{key: dataplane.SessionKey{
+		RemotePeerID: peerID,
+		Protocol:     dataplane.ProtocolTLS,
+		SecurityID:   sid,
+		PathFamily:   dataplane.PathFamilyTCP4,
+	}}
+
+	tests := []struct {
+		name      string
+		cfg       pocstate.PeerConfig
+		wantPath  dataplane.PathFamily
+		wantProto dataplane.Protocol
+		wantFound bool
+		onlyUDP   bool
+		onlyTCP   bool
+	}{
+		{
+			name:      "tcp_only selects tcp session",
+			cfg:       pocstate.PeerConfig{DataProto: "quic", P2PNetwork: "tcp_only"},
+			wantPath:  dataplane.PathFamilyTCP4,
+			wantProto: dataplane.ProtocolTLS,
+			wantFound: true,
+		},
+		{
+			name:      "udp_only selects udp session",
+			cfg:       pocstate.PeerConfig{DataProto: "quic", P2PNetwork: "udp_only"},
+			wantPath:  dataplane.PathFamilyUDP4,
+			wantProto: dataplane.ProtocolQUIC,
+			wantFound: true,
+		},
+		{
+			name:      "auto can still reuse tls fallback",
+			cfg:       pocstate.PeerConfig{DataProto: "kcp", P2PNetwork: "auto"},
+			wantPath:  dataplane.PathFamilyTCP4,
+			wantProto: dataplane.ProtocolTLS,
+			wantFound: true,
+			onlyTCP:   true,
+		},
+		{
+			name:      "tcp_only rejects udp session",
+			cfg:       pocstate.PeerConfig{DataProto: "quic", P2PNetwork: "tcp_only"},
+			wantFound: false,
+			onlyUDP:   true,
+		},
+		{
+			name:      "udp_only rejects tcp session",
+			cfg:       pocstate.PeerConfig{DataProto: "quic", P2PNetwork: "udp_only"},
+			wantFound: false,
+			onlyTCP:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := dataplane.NewSessionManager()
+			if !tt.onlyTCP {
+				manager.Put(udpSession)
+			}
+			if !tt.onlyUDP {
+				manager.Put(tcpSession)
+			}
+
+			got, ok := findReusableSession(manager, peerID, sid, tt.cfg)
+			if ok != tt.wantFound {
+				t.Fatalf("findReusableSession(%+v) ok = %v, want %v", tt.cfg, ok, tt.wantFound)
+			}
+			if !tt.wantFound {
+				return
+			}
+			key := got.Key()
+			if key.PathFamily != tt.wantPath {
+				t.Errorf("findReusableSession(%+v).PathFamily = %q, want %q", tt.cfg, key.PathFamily, tt.wantPath)
+			}
+			if key.Protocol != tt.wantProto {
+				t.Errorf("findReusableSession(%+v).Protocol = %q, want %q", tt.cfg, key.Protocol, tt.wantProto)
+			}
+		})
+	}
+}
+
+type testPeerSession struct {
+	key    dataplane.SessionKey
+	closed bool
+}
+
+func (s *testPeerSession) Key() dataplane.SessionKey { return s.key }
+
+func (s *testPeerSession) OpenStream(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+	return nil, io.ErrClosedPipe
+}
+
+func (s *testPeerSession) AcceptStream(context.Context) (*dataplane.AcceptedStream, error) {
+	return nil, io.ErrClosedPipe
+}
+
+func (s *testPeerSession) Close(reason dataplane.CloseReason) error {
+	s.closed = true
+	return nil
+}
+
+func (s *testPeerSession) CloseReason() dataplane.CloseReason {
+	if s.closed {
+		return dataplane.CloseReasonDaemonShutdown
+	}
+	return ""
+}
+
+func (s *testPeerSession) Healthy() bool { return !s.closed }
+
+func (s *testPeerSession) LastActivity() time.Time { return time.Unix(0, 0).UTC() }

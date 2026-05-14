@@ -96,16 +96,7 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 	}
 
 	if m != nil && m.sessions != nil {
-		reuseKey := dataplane.SessionKey{
-			RemotePeerID: peerID,
-			Protocol:     dataplane.Protocol(cfg.DataProto),
-			SecurityID:   sid,
-		}
-		sess, ok := m.sessions.Find(reuseKey)
-		if !ok {
-			reuseKey.Protocol = dataplane.ProtocolTLS
-			sess, ok = m.sessions.Find(reuseKey)
-		}
+		sess, ok := findReusableSession(m.sessions, peerID, sid, cfg)
 		if ok {
 			stream, err := sess.OpenStream(ctx, open)
 			if err == nil {
@@ -597,6 +588,52 @@ func (m *Manager) loadPeerConfig(peerID string) (pocstate.PeerConfig, bool, erro
 	}
 	cfg.NormalizeDefaults()
 	return cfg, true, nil
+}
+
+func findReusableSession(sessions *dataplane.SessionManager, peerID string, sid string, cfg pocstate.PeerConfig) (dataplane.PeerSession, bool) {
+	if sessions == nil {
+		return nil, false
+	}
+	for _, protocol := range reusableSessionProtocols(cfg) {
+		for _, pathFamily := range reusableSessionPathFamilies(cfg.P2PNetwork) {
+			key := dataplane.SessionKey{
+				RemotePeerID: peerID,
+				Protocol:     protocol,
+				SecurityID:   sid,
+				PathFamily:   pathFamily,
+			}
+			if sess, ok := sessions.Find(key); ok {
+				return sess, true
+			}
+		}
+	}
+	return nil, false
+}
+
+func reusableSessionProtocols(cfg pocstate.PeerConfig) []dataplane.Protocol {
+	switch connectivity.P2PNetwork(strings.TrimSpace(cfg.P2PNetwork)) {
+	case connectivity.P2PNetworkTCPOnly:
+		return []dataplane.Protocol{dataplane.ProtocolTLS}
+	case connectivity.P2PNetworkUDPOnly:
+		return []dataplane.Protocol{dataplane.Protocol(strings.TrimSpace(cfg.DataProto))}
+	default:
+		protocol := dataplane.Protocol(strings.TrimSpace(cfg.DataProto))
+		if protocol == "" || protocol == dataplane.ProtocolTLS {
+			return []dataplane.Protocol{dataplane.ProtocolTLS}
+		}
+		return []dataplane.Protocol{protocol, dataplane.ProtocolTLS}
+	}
+}
+
+func reusableSessionPathFamilies(p2pNetwork string) []dataplane.PathFamily {
+	switch connectivity.P2PNetwork(strings.TrimSpace(p2pNetwork)) {
+	case connectivity.P2PNetworkTCPOnly:
+		return []dataplane.PathFamily{dataplane.PathFamilyTCP6, dataplane.PathFamilyTCP4}
+	case connectivity.P2PNetworkUDPOnly:
+		return []dataplane.PathFamily{dataplane.PathFamilyUDP6, dataplane.PathFamilyUDP4}
+	default:
+		return []dataplane.PathFamily{dataplane.PathFamilyUnknown}
+	}
 }
 
 func peerConfigWithLocalDialDefaults(cfg pocstate.PeerConfig, local pocstate.LocalConfig) pocstate.PeerConfig {
