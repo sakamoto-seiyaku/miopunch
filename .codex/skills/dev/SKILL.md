@@ -22,6 +22,14 @@ Use this skill as the default workflow for development work in this repo.
 5. Archive:
    - Use `$openspec-archive-change` only after the required validation level passes
 
+## Real Environment Debugging
+
+- Use this repo's real Windows/WSL2 environment as the source of truth for mirrored-network, daemon, LocalAPI, and governance-state issues.
+- Break connectivity failures into stages before assigning root cause: signaling, candidate gather, punching, dataplane, hello/governance, payload, and session lifecycle.
+- Validate in small batches when a failure spans multiple linked problems; keep the batch boundary explicit in notes and commits.
+- For live debug batches, collect focused validation and real-environment evidence before committing; do not treat this as replacing required gates unless the user explicitly narrows scope.
+- If validation scope is narrowed, do so only because the user explicitly requested it, and record that override in the task notes or change log.
+
 ## Go Companion Skills (Router)
 
 When changing Go code in this repo, treat the `go-*` skills as a router. **At
@@ -73,6 +81,7 @@ addition to `$dev`, then add the rest based on what the diff touches.
 - **Run the full gate set** when a code-affecting change enters the mainline branch, whether by direct commit or merge.
 - **Code-affecting** includes Go code, tests, lab/runtime scripts, and other execution-affecting files.
 - **Docs-only / notes-only / OpenSpec-only** changes do not require the full gate set unless explicitly requested.
+- If the user explicitly narrows verification for a debug batch, treat that as a user override, not a default policy change.
 - For non-mainline iteration work, prefer focused validation that matches the touched code.
 
 ## Required Test Gates
