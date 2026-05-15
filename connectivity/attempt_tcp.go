@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/miopunch/miopunch/event"
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/wire"
 )
 
@@ -45,6 +46,7 @@ func attemptTCPDirect(ctx context.Context, sid string, key []byte, listener *net
 		timeout = cfg.AttemptV6Timeout
 	}
 
+	logutil.Debugf("diagnostic tcp direct start: sid=%s path=%s timeout_ms=%d candidate_count=%d", sid, path, int(timeout.Milliseconds()), len(candidates))
 	emit(event.Event{Stage: event.StageAttempt, Kind: event.KindStart, Name: evStart, Msg: evStartMsg})
 	for _, cand := range candidates {
 		emit(event.Event{
@@ -206,6 +208,7 @@ func attemptTCPDirect(ctx context.Context, sid string, key []byte, listener *net
 	}
 
 	if len(tcpConns) > 0 {
+		logutil.Debugf("diagnostic tcp direct ok: sid=%s path=%s conns=%d elapsed_ms=%d", sid, path, len(tcpConns), time.Since(stepStart).Milliseconds())
 		emit(event.Event{
 			Stage: event.StageAttempt,
 			Kind:  event.KindOK,
@@ -223,6 +226,7 @@ func attemptTCPDirect(ctx context.Context, sid string, key []byte, listener *net
 	if err == nil {
 		err = errors.New("no tcp connections established")
 	}
+	logutil.Debugf("diagnostic tcp direct failed: sid=%s path=%s elapsed_ms=%d err=%v", sid, path, time.Since(stepStart).Milliseconds(), err)
 	emit(event.Event{Stage: event.StageAttempt, Kind: event.KindInfo, Name: evFail, Msg: evFailMsg, Err: err.Error()})
 	return nil, err
 }
@@ -284,6 +288,18 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.tcp_punching.fail", Msg: "tcp punching target build failed", Err: err.Error()})
 		return nil, err
 	}
+	logutil.Debugf(
+		"diagnostic tcp punching targets: sid=%s candidate_addrs=%v assisted_addrs=%v candidate_ports=%v assisted_exact=%d candidate_exact=%d candidate_expanded=%d target_count=%d targets=%v",
+		sid,
+		resp.TCPCandidateAddrs,
+		resp.TCPAssistedAddrs,
+		resp.TCPDetectBehavior.CandidatePorts,
+		targets.AssistedExactCount,
+		targets.CandidateExactCount,
+		targets.CandidateExpandedCount,
+		len(targets.Targets),
+		targets.Targets,
+	)
 
 	emit(event.Event{
 		Stage: event.StageAttempt,
@@ -577,6 +593,15 @@ func attemptTCPPunching(ctx context.Context, sid string, key []byte, baseListene
 					"winner_target_source": winnerTargetSource,
 				},
 			})
+			logutil.Debugf(
+				"diagnostic tcp punching winner: sid=%s origin=%s elapsed_ms=%d winner_target_source=%s laddr=%s raddr=%s",
+				sid,
+				c.Origin,
+				time.Since(stepStart).Milliseconds(),
+				winnerTargetSource,
+				c.Conn.LocalAddr().String(),
+				c.Conn.RemoteAddr().String(),
+			)
 		})
 		if len(tcpConns) < 8 {
 			tcpConns = append(tcpConns, c)

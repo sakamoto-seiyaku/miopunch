@@ -11,6 +11,7 @@ import (
 
 	"github.com/miopunch/miopunch/event"
 	"github.com/miopunch/miopunch/internal/eventctx"
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/punching"
 	"github.com/miopunch/miopunch/internal/udpowner"
 	"github.com/miopunch/miopunch/internal/wire"
@@ -205,6 +206,16 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 
 	peerUDPV6, peerUDPV4 := SplitAddrPortsByFamily(parsedUDP.Addrs)
 	peerTCPV6, peerTCPV4 := SplitAddrPortsByFamily(parsedTCP.Addrs)
+	logutil.Debugf(
+		"diagnostic attempt candidate summary: sid=%s p2p_network=%s p2p_ip_family=%s peer_udp_v6=%d peer_udp_v4=%d peer_tcp_v6=%d peer_tcp_v4=%d",
+		sid,
+		cfg.P2PNetwork,
+		cfg.P2PIPFamily,
+		len(peerUDPV6),
+		len(peerUDPV4),
+		len(peerTCPV6),
+		len(peerTCPV4),
+	)
 	emit(event.Event{
 		Stage: event.StageAttempt,
 		Kind:  event.KindStart,
@@ -239,11 +250,14 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 
 	if allowTCP && allowV4 && tcp4Listener != nil {
 		if len(peerTCPV4) > 0 {
+			logutil.Debugf("diagnostic direct tcp4 attempt start: sid=%s candidate_count=%d", sid, len(peerTCPV4))
 			res, err := attemptTCPDirect(ctx, sid, key, tcp4Listener, peerTCPV4, cfg, emit, "direct_tcp4")
 			if err == nil && res != nil {
 				return res, nil
 			}
 			attemptErr = err
+		} else {
+			logutil.Debugf("diagnostic direct tcp4 skipped: sid=%s reason=no_peer_tcp_v4_candidates", sid)
 		}
 
 		res, err := attemptTCPPunching(ctx, sid, key, tcp4Listener, resp, cfg, emit)

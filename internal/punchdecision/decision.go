@@ -390,6 +390,18 @@ func (e *Engine) analyze(sid string, scopeKey string, visitor *wire.NatHoleVisit
 	}
 	vResp.TCPCandidateAddrs = dedupStringsInOrder(clientTCPCandidates)
 	cResp.TCPCandidateAddrs = dedupStringsInOrder(visitorTCPCandidates)
+	logutil.Debugf(
+		"diagnostic tcp decision material: sid=%s visitor_peer_tcp_direct=%v visitor_tcp_candidate_addrs=%v visitor_tcp_assisted_addrs=%v client_peer_tcp_direct=%v client_tcp_candidate_addrs=%v client_tcp_assisted_addrs=%v tcp_selected_view=%s tcp_selected_reason=%s",
+		sid,
+		vResp.PeerTCPDirectAddrs,
+		vResp.TCPCandidateAddrs,
+		vResp.TCPAssistedAddrs,
+		cResp.PeerTCPDirectAddrs,
+		cResp.TCPCandidateAddrs,
+		cResp.TCPAssistedAddrs,
+		tcpSelectedView,
+		tcpSelectedReason,
+	)
 
 	// Door 2 (TCP): derive punching enablement and detect behavior independently
 	// from UDP punching analysis. When evidence is insufficient, disable TCP
