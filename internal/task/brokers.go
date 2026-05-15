@@ -84,45 +84,31 @@ func (m *Manager) selectReachableInviteSubset(candidates []string, limit int) ([
 			break
 		}
 
-		resolveCtx, cancelResolve := context.WithTimeout(m.ctx, 2*time.Second)
-		canonical, warnings, err := controlplane.CanonicalizeInviteBrokers(resolveCtx, nil, []string{candidate})
-		cancelResolve()
-		if err != nil {
+		broker := normalizeBrokerEndpoint(candidate)
+		if broker == "" {
+			continue
+		}
+		if err := (controlplane.JoinCode{InviteBrokers: []string{broker}}).Validate(); err != nil {
 			failure := fmt.Sprintf("%s: %v", candidate, err)
 			diagnostics = append(diagnostics, "mqtt broker skipped: "+failure)
 			failures = append(failures, failure)
 			continue
 		}
-		for _, warning := range warnings {
-			if strings.TrimSpace(warning) != "" {
-				diagnostics = append(diagnostics, "warning: "+warning)
-			}
+		if _, ok := seen[broker]; ok {
+			continue
 		}
+		seen[broker] = struct{}{}
 
-		for _, broker := range canonical {
-			if len(selected) >= limit {
-				break
-			}
-			broker = normalizeBrokerEndpoint(broker)
-			if broker == "" {
-				continue
-			}
-			if _, ok := seen[broker]; ok {
-				continue
-			}
-			seen[broker] = struct{}{}
-
-			probeCtx, cancel := context.WithTimeout(m.ctx, brokerReachabilityProbeTimeout)
-			err := checkMQTTBrokersReachable(probeCtx, []string{broker}, "miopunch-invite-preflight")
-			cancel()
-			if err != nil {
-				failure := fmt.Sprintf("%s: %v", broker, err)
-				diagnostics = append(diagnostics, "mqtt broker skipped: "+failure)
-				failures = append(failures, failure)
-				continue
-			}
-			selected = append(selected, broker)
+		probeCtx, cancel := context.WithTimeout(m.ctx, brokerReachabilityProbeTimeout)
+		err := checkMQTTBrokersReachable(probeCtx, []string{broker}, "miopunch-invite-preflight")
+		cancel()
+		if err != nil {
+			failure := fmt.Sprintf("%s: %v", broker, err)
+			diagnostics = append(diagnostics, "mqtt broker skipped: "+failure)
+			failures = append(failures, failure)
+			continue
 		}
+		selected = append(selected, broker)
 	}
 
 	if len(selected) == 0 {

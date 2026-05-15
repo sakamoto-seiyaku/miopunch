@@ -10,6 +10,7 @@ const (
 	OpPing      = "ping"
 	OpShLS      = "sh_ls"
 	OpShAttach  = "sh_attach"
+	OpShellExit = "shell_exit"
 	OpWinSize   = "winsize"
 	OpHeartbeat = "heartbeat"
 )

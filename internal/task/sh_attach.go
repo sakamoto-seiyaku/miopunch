@@ -414,6 +414,15 @@ func bridgeShell(ctx context.Context, taskID string, peerID string, ws *websocke
 				switch strings.TrimSpace(ctl.Op) {
 				case shellproto.OpHeartbeat:
 					continue
+				case shellproto.OpShellExit:
+					if ctl.OK {
+						logutil.Infof(
+							"sh_attach bridge remote shell exited: %s",
+							shellBridgeLogContext(taskID, peerID, target, session),
+						)
+						setResult(shellBridgeSuccess())
+						return
+					}
 				case shellproto.OpShAttach:
 					if ctl.OK {
 						continue

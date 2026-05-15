@@ -3,13 +3,11 @@
 package shelltarget
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
-	"sort"
 	"strings"
 )
 
@@ -28,29 +26,13 @@ func ListSessions(ctx context.Context, target string) ([]string, error) {
 	if err != nil {
 		// tmux returns exit code 1 when no server is running (no sessions).
 		msg := string(out)
-		if strings.Contains(msg, "failed to connect to server") ||
-			strings.Contains(msg, "no server running") {
+		if looksLikeNoTmuxServer(msg) {
 			return []string{}, nil
 		}
 		return nil, fmt.Errorf("tmux list-sessions: %w: %s", err, strings.TrimSpace(msg))
 	}
 
-	lines := bytes.Split(out, []byte("\n"))
-	seen := map[string]struct{}{}
-	sessions := make([]string, 0, len(lines))
-	for _, line := range lines {
-		s := strings.TrimSpace(string(line))
-		if s == "" {
-			continue
-		}
-		if _, ok := seen[s]; ok {
-			continue
-		}
-		seen[s] = struct{}{}
-		sessions = append(sessions, s)
-	}
-	sort.Strings(sessions)
-	return sessions, nil
+	return parsePlainTmuxSessionNames(out), nil
 }
 
 func Attach(ctx context.Context, target string, session string) (PTY, error) {

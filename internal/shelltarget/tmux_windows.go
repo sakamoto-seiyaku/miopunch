@@ -3,12 +3,10 @@
 package shelltarget
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os/exec"
-	"sort"
 	"strings"
 )
 
@@ -29,12 +27,12 @@ func ListSessions(ctx context.Context, target string) ([]string, error) {
 		if _, err := exec.LookPath("wsl.exe"); err != nil {
 			return nil, err
 		}
-		cmd = exec.CommandContext(ctx, "wsl.exe", "-d", name, "--", "tmux", "list-sessions", "-F", "#S")
+		cmd = exec.CommandContext(ctx, "wsl.exe", windowsWSLListSessionsArgs(name)...)
 	case "ssh":
 		if _, err := exec.LookPath("ssh"); err != nil {
 			return nil, err
 		}
-		cmd = exec.CommandContext(ctx, "ssh", name, "--", "tmux", "list-sessions", "-F", "#S")
+		cmd = exec.CommandContext(ctx, "ssh", windowsSSHListSessionsArgs(name)...)
 	default:
 		return nil, TargetNotFoundError{Input: target, Targets: []string{}}
 	}
@@ -42,8 +40,7 @@ func ListSessions(ctx context.Context, target string) ([]string, error) {
 	out, runErr := cmd.CombinedOutput()
 	if runErr != nil {
 		msg := string(out)
-		if strings.Contains(msg, "failed to connect to server") ||
-			strings.Contains(msg, "no server running") {
+		if looksLikeNoTmuxServer(msg) {
 			return []string{}, nil
 		}
 		if looksLikeTmuxMissing(msg) {
@@ -52,22 +49,10 @@ func ListSessions(ctx context.Context, target string) ([]string, error) {
 		return nil, fmt.Errorf("tmux list-sessions: %w: %s", runErr, strings.TrimSpace(msg))
 	}
 
-	lines := bytes.Split(out, []byte("\n"))
-	seen := map[string]struct{}{}
-	sessions := make([]string, 0, len(lines))
-	for _, line := range lines {
-		s := strings.TrimSpace(string(line))
-		if s == "" {
-			continue
-		}
-		if _, ok := seen[s]; ok {
-			continue
-		}
-		seen[s] = struct{}{}
-		sessions = append(sessions, s)
+	if kind == "wsl" {
+		return parseDefaultTmuxSessionNames(out), nil
 	}
-	sort.Strings(sessions)
-	return sessions, nil
+	return parsePlainTmuxSessionNames(out), nil
 }
 
 func Attach(ctx context.Context, target string, session string) (PTY, error) {
@@ -91,15 +76,46 @@ func Attach(ctx context.Context, target string, session string) (PTY, error) {
 		if _, err := exec.LookPath("wsl.exe"); err != nil {
 			return nil, err
 		}
-		return startConPTY("wsl.exe", []string{"-d", name, "--", "tmux", "new", "-A", "-s", session}, 80, 24)
+		if err := ensureWindowsTargetTmux(ctx, kind, name); err != nil {
+			return nil, err
+		}
+		return startConPTY("wsl.exe", windowsWSLAttachArgs(name, session), 80, 24)
 	case "ssh":
 		if _, err := exec.LookPath("ssh"); err != nil {
 			return nil, err
 		}
-		return startConPTY("ssh", []string{"-tt", name, "tmux", "new", "-A", "-s", session}, 80, 24)
+		if err := ensureWindowsTargetTmux(ctx, kind, name); err != nil {
+			return nil, err
+		}
+		return startConPTY("ssh", windowsSSHAttachArgs(name, session), 80, 24)
 	default:
 		return nil, TargetNotFoundError{Input: target, Targets: []string{}}
 	}
+}
+
+func ensureWindowsTargetTmux(ctx context.Context, kind string, name string) error {
+	var cmd *exec.Cmd
+	switch kind {
+	case "wsl":
+		cmd = exec.CommandContext(ctx, "wsl.exe", windowsWSLPreflightTmuxArgs(name)...)
+	case "ssh":
+		cmd = exec.CommandContext(ctx, "ssh", windowsSSHPreflightTmuxArgs(name)...)
+	default:
+		return TargetNotFoundError{Input: kind + ":" + name, Targets: []string{}}
+	}
+
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	msg := strings.TrimSpace(string(out))
+	if looksLikeTmuxMissing(msg) {
+		return ErrTmuxMissing
+	}
+	if msg == "" {
+		return fmt.Errorf("%s tmux preflight: %w", kind, err)
+	}
+	return fmt.Errorf("%s tmux preflight: %w: %s", kind, err, msg)
 }
 
 func parseWindowsTarget(target string) (kind string, name string, err error) {
@@ -123,11 +139,4 @@ func parseWindowsTarget(target string) (kind string, name string, err error) {
 		return "ssh", name, nil
 	}
 	return "", "", TargetNotFoundError{Input: target, Targets: []string{}}
-}
-
-func looksLikeTmuxMissing(out string) bool {
-	out = strings.ToLower(out)
-	return strings.Contains(out, "tmux: not found") ||
-		strings.Contains(out, "tmux: command not found") ||
-		strings.Contains(out, "'tmux' is not recognized")
 }

@@ -2,6 +2,7 @@ package pocacceptor
 
 import (
 	"errors"
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -107,6 +108,117 @@ func TestShellAttachWaitFailure_ClassifiesLayerAndReason(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestIsExpectedShellAttachPTYReadClose(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "eof",
+			err:  io.EOF,
+			want: true,
+		},
+		{
+			name: "unix pty eio",
+			err:  errors.New("read /dev/ptmx: input/output error"),
+			want: true,
+		},
+		{
+			name: "arbitrary read failure",
+			err:  errors.New("read failed: permission denied"),
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := isExpectedShellAttachPTYReadClose(tt.err)
+			if got != tt.want {
+				t.Fatalf("isExpectedShellAttachPTYReadClose(%v) = %t, want %t", tt.err, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestShellAttachSetupFailure(t *testing.T) {
+	t.Parallel()
+
+	t.Run("runtime failure", func(t *testing.T) {
+		t.Parallel()
+
+		runtimeFailCh := make(chan shellAttachRuntimeFailure, 1)
+		ptyWaitCh := make(chan shellAttachWaitResult, 1)
+		runtimeFailCh <- shellAttachPTYReadFailure(errors.New("read failed"))
+
+		event, failure, ok := shellAttachSetupFailure("local", runtimeFailCh, ptyWaitCh)
+		if !ok {
+			t.Fatalf("shellAttachSetupFailure(runtime failure) ok = false, want true")
+		}
+		if event != "setup runtime failed" {
+			t.Fatalf("shellAttachSetupFailure(runtime failure) event = %q, want %q", event, "setup runtime failed")
+		}
+		if failure.reasonCode != "SH_CONNECTOR_FAIL" || failure.shellLayer != "pty" {
+			t.Fatalf("shellAttachSetupFailure(runtime failure) failure = %#v, want pty SH_CONNECTOR_FAIL", failure)
+		}
+	})
+
+	t.Run("wait error", func(t *testing.T) {
+		t.Parallel()
+
+		runtimeFailCh := make(chan shellAttachRuntimeFailure, 1)
+		ptyWaitCh := make(chan shellAttachWaitResult, 1)
+		ptyWaitCh <- shellAttachWaitResult{err: errors.New("process exited: 1")}
+
+		event, failure, ok := shellAttachSetupFailure("ssh:ale", runtimeFailCh, ptyWaitCh)
+		if !ok {
+			t.Fatalf("shellAttachSetupFailure(wait error) ok = false, want true")
+		}
+		if event != "setup runtime failed" {
+			t.Fatalf("shellAttachSetupFailure(wait error) event = %q, want %q", event, "setup runtime failed")
+		}
+		if failure.reasonCode != "SH_CONNECTOR_FAIL" || failure.shellLayer != "ssh" {
+			t.Fatalf("shellAttachSetupFailure(wait error) failure = %#v, want ssh SH_CONNECTOR_FAIL", failure)
+		}
+	})
+
+	t.Run("early normal exit", func(t *testing.T) {
+		t.Parallel()
+
+		runtimeFailCh := make(chan shellAttachRuntimeFailure, 1)
+		ptyWaitCh := make(chan shellAttachWaitResult, 1)
+		ptyWaitCh <- shellAttachWaitResult{}
+
+		event, failure, ok := shellAttachSetupFailure("local", runtimeFailCh, ptyWaitCh)
+		if !ok {
+			t.Fatalf("shellAttachSetupFailure(early normal exit) ok = false, want true")
+		}
+		if event != "setup runtime exited" {
+			t.Fatalf("shellAttachSetupFailure(early normal exit) event = %q, want %q", event, "setup runtime exited")
+		}
+		if failure.reasonCode != "SH_CONNECTOR_FAIL" || !strings.Contains(failure.message, "before attach ready") {
+			t.Fatalf("shellAttachSetupFailure(early normal exit) failure = %#v, want early exit failure", failure)
+		}
+	})
+
+	t.Run("no immediate result", func(t *testing.T) {
+		t.Parallel()
+
+		runtimeFailCh := make(chan shellAttachRuntimeFailure, 1)
+		ptyWaitCh := make(chan shellAttachWaitResult, 1)
+
+		event, failure, ok := shellAttachSetupFailure("local", runtimeFailCh, ptyWaitCh)
+		if ok {
+			t.Fatalf("shellAttachSetupFailure(no result) = (%q, %#v, true), want ok false", event, failure)
+		}
+	})
 }
 
 func TestSafeAcceptorMQTTSummaryRedactsTopicPrefix(t *testing.T) {

@@ -55,10 +55,14 @@ type HostnameResolver interface {
 }
 
 // CanonicalizeInviteBrokers attempts to produce deterministic connectable
-// addresses for join code output:
+// addresses by resolving hostnames to IPs:
 // - ip:port stays as-is (normalized with net.JoinHostPort)
 // - hostname:port resolves the first A record and outputs ip:port
 // - unresolved hostname keeps hostname:port, and returns a warning
+//
+// Do not use this helper for emitted invite-code brokers. Invite codes must
+// preserve selected reachable hostname endpoints so joiners use the same broker
+// endpoint that invite reachability probing validated.
 func CanonicalizeInviteBrokers(ctx context.Context, resolver HostnameResolver, inviteBrokers []string) ([]string, []string, error) {
 	if err := validateInviteBrokers(inviteBrokers); err != nil {
 		return nil, nil, err

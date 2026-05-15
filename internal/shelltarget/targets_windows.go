@@ -54,7 +54,7 @@ func listWSLDistros(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 
-	sc := bufio.NewScanner(strings.NewReader(string(out)))
+	sc := bufio.NewScanner(strings.NewReader(decodeWindowsCommandOutput(out)))
 	var distros []string
 	for sc.Scan() {
 		line := strings.TrimSpace(sc.Text())

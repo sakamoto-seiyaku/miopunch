@@ -1411,6 +1411,7 @@ func serveShAttach(
 
 	inputCh := make(chan shellAttachInputFrame, 1)
 	ptyReadCh := make(chan shellAttachPTYRead, 1)
+	ptyWaitCh := make(chan shellAttachWaitResult, 1)
 	runtimeFailCh := make(chan shellAttachRuntimeFailure, 1)
 
 	var runtimeFailOnce sync.Once
@@ -1450,6 +1451,9 @@ func serveShAttach(
 			}
 			if err != nil {
 				if bridgeCtx.Err() == nil {
+					if isExpectedShellAttachPTYReadClose(err) {
+						return
+					}
 					reportRuntimeFailure(shellAttachPTYReadFailure(err))
 				}
 				return
@@ -1458,8 +1462,10 @@ func serveShAttach(
 	}()
 
 	go func() {
-		if err := ptySess.Wait(); err != nil && bridgeCtx.Err() == nil {
-			reportRuntimeFailure(shellAttachWaitFailure(target, err))
+		err := ptySess.Wait()
+		select {
+		case ptyWaitCh <- shellAttachWaitResult{err: err}:
+		case <-bridgeCtx.Done():
 		}
 	}()
 
@@ -1485,10 +1491,11 @@ func serveShAttach(
 		return failure.err()
 	}
 
-	select {
-	case failure := <-runtimeFailCh:
-		return writeFailureControl("setup runtime failed", failure)
-	case <-time.After(200 * time.Millisecond):
+	if event, failure, ok := shellAttachSetupFailure(target, runtimeFailCh, ptyWaitCh); ok {
+		if event == "setup runtime exited" {
+			logutil.Infof("pocacceptor sh_attach backend exited before ready: %s", logCtx)
+		}
+		return writeFailureControl(event, failure)
 	}
 
 	if err := w.WriteJSON(shellproto.Control{Op: shellproto.OpShAttach, OK: true, Target: target, Session: session}); err != nil {
@@ -1536,6 +1543,23 @@ func serveShAttach(
 			return nil
 		case failure := <-runtimeFailCh:
 			return writeFailureControl("runtime failed", failure)
+		case wait := <-ptyWaitCh:
+			if wait.err != nil {
+				return writeFailureControl("runtime failed", shellAttachWaitFailure(target, wait.err))
+			}
+			logutil.Infof("pocacceptor sh_attach backend exited: %s", logCtx)
+			if err := w.WriteJSON(shellproto.Control{Op: shellproto.OpShellExit, OK: true}); err != nil {
+				streamFailure := shellAttachStreamWriteFailure(err)
+				logutil.Warnf(
+					"pocacceptor sh_attach exit control write failed: %s reason_code=%s shell_layer=%s err=%v",
+					logCtx,
+					streamFailure.reasonCode,
+					streamFailure.shellLayer,
+					streamFailure.err(),
+				)
+				return streamFailure.err()
+			}
+			return nil
 		case ptyRead := <-ptyReadCh:
 			if !loggedFirstPTYRead {
 				loggedFirstPTYRead = true
@@ -1657,6 +1681,28 @@ type shellAttachRuntimeFailure struct {
 	cause       error
 }
 
+type shellAttachWaitResult struct {
+	err error
+}
+
+func shellAttachSetupFailure(
+	target string,
+	runtimeFailCh <-chan shellAttachRuntimeFailure,
+	ptyWaitCh <-chan shellAttachWaitResult,
+) (string, shellAttachRuntimeFailure, bool) {
+	select {
+	case failure := <-runtimeFailCh:
+		return "setup runtime failed", failure, true
+	case wait := <-ptyWaitCh:
+		if wait.err != nil {
+			return "setup runtime failed", shellAttachWaitFailure(target, wait.err), true
+		}
+		return "setup runtime exited", shellAttachEarlyExitFailure(target), true
+	default:
+		return "", shellAttachRuntimeFailure{}, false
+	}
+}
+
 func (f shellAttachRuntimeFailure) control() shellproto.Control {
 	return shellproto.Control{
 		Op: shellproto.OpShAttach,
@@ -1758,6 +1804,17 @@ func shellAttachWaitFailure(target string, err error) shellAttachRuntimeFailure 
 	)
 }
 
+func shellAttachEarlyExitFailure(target string) shellAttachRuntimeFailure {
+	message := "shell target exited before attach ready"
+	return newShellAttachRuntimeFailure(
+		"SH_CONNECTOR_FAIL",
+		shellAttachTargetLayer(target),
+		message,
+		errors.New(message),
+		"retry",
+	)
+}
+
 func shellAttachPTYReadFailure(err error) shellAttachRuntimeFailure {
 	return newShellAttachRuntimeFailure(
 		"SH_CONNECTOR_FAIL",
@@ -1766,6 +1823,16 @@ func shellAttachPTYReadFailure(err error) shellAttachRuntimeFailure {
 		err,
 		"retry",
 	)
+}
+
+func isExpectedShellAttachPTYReadClose(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrClosedPipe) || errors.Is(err, net.ErrClosed) {
+		return true
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "input/output error")
 }
 
 func shellAttachPTYWriteFailure(err error) shellAttachRuntimeFailure {

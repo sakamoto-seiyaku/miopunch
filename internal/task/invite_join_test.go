@@ -157,6 +157,57 @@ func TestRunInviteTaskUsesReachableBuiltinBrokerWhenExplicitConfigAbsent(t *test
 	}
 }
 
+func TestRunInviteTaskKeepsReachableHostnameBrokerInInviteCode(t *testing.T) {
+	reachable := startTCPMQTTBroker(t)
+	_, port, err := net.SplitHostPort(reachable)
+	if err != nil {
+		t.Fatalf("net.SplitHostPort(%q) error = %v", reachable, err)
+	}
+	hostnameBroker := net.JoinHostPort("localhost", port)
+	withBuiltinInviteBrokersForTest(t, []string{hostnameBroker})
+
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	saveLocalStateForInviteTest(t, statePath)
+	initAdminNetworkForTest(t, statePath)
+
+	m := NewManagerWithStatePath(statePath)
+	t.Cleanup(m.Close)
+
+	raw, err := json.Marshal(InviteArgs{Expires: "1m"})
+	if err != nil {
+		t.Fatalf("json.Marshal(InviteArgs) error = %v", err)
+	}
+	created, err := m.CreateAndRun(CreateRequest{Kind: "invite", Args: raw})
+	if err != nil {
+		t.Fatalf("Manager.CreateAndRun(invite) error = %v", err)
+	}
+
+	final := waitTaskDoneForTest(t, m, created.ID)
+	if final.ReasonCode != poc.ReasonCodeOK {
+		t.Fatalf("invite ReasonCode = %q, want %q; facts=%v", final.ReasonCode, poc.ReasonCodeOK, final.Facts)
+	}
+	if !taskFactsContainSubstring(final, "invite_brokers="+hostnameBroker) {
+		t.Errorf("invite facts = %v, want invite_brokers fact containing %q", final.Facts, hostnameBroker)
+	}
+
+	code := inviteCodeFromTaskForTest(t, final)
+	decoded, err := controlplane.DecodeInviteCodeV0(code)
+	if err != nil {
+		t.Fatalf("controlplane.DecodeInviteCodeV0(%q) error = %v", code, err)
+	}
+	if got := decoded.InviteBrokers; len(got) != 1 || got[0] != hostnameBroker {
+		t.Errorf("DecodeInviteCodeV0(%q).InviteBrokers = %v, want [%q]", code, got, hostnameBroker)
+	}
+
+	st, err := pocstate.Load(statePath)
+	if err != nil {
+		t.Fatalf("pocstate.Load(%q) error = %v", statePath, err)
+	}
+	if got := st.Local.MQTTBrokerEndpoints(); len(got) != 1 || got[0] != hostnameBroker {
+		t.Errorf("saved local.mqtt_broker = %v, want [%q]", got, hostnameBroker)
+	}
+}
+
 func TestOpenMQTTMailboxesSkipsUnreachableBroker(t *testing.T) {
 	reachable := startTCPMQTTBroker(t)
 	unreachable := unusedLocalTCPAddr(t)
