@@ -11,7 +11,9 @@ import (
 
 	"github.com/miopunch/miopunch/dataplane"
 	"github.com/miopunch/miopunch/internal/pocstate"
+	"github.com/miopunch/miopunch/internal/punchdecision"
 	"github.com/miopunch/miopunch/internal/shellproto"
+	"github.com/miopunch/miopunch/internal/wire"
 )
 
 func TestLoadPeerConfigUsesLocalDialDefaults(t *testing.T) {
@@ -226,6 +228,9 @@ func TestPassiveTopologyEvidenceRegistersSessionAndRuntime(t *testing.T) {
 		Protocol:   dataplane.ProtocolQUIC,
 		SecurityID: "sid-passive",
 		PathFamily: dataplane.PathFamilyUDP4,
+	}, pathFacts: dataplane.SessionPathFacts{
+		LocalEndpoint:  "192.0.2.10:5000",
+		RemoteEndpoint: "198.51.100.20:6000",
 	}}
 
 	m := NewManagerWithStatePath(filepath.Join(t.TempDir(), "state.json"))
@@ -243,6 +248,13 @@ func TestPassiveTopologyEvidenceRegistersSessionAndRuntime(t *testing.T) {
 	}
 	if got.Key().RemotePeerID != peerID {
 		t.Fatalf("RegisterPassivePeerSession(%q) key = %+v, want remote peer id", peerID, got.Key())
+	}
+	gotFacts := dataplane.PathFactsFromSession(got)
+	if gotFacts.LocalEndpoint != "192.0.2.10:5000" || gotFacts.RemoteEndpoint != "198.51.100.20:6000" {
+		t.Fatalf("RegisterPassivePeerSession(%q) path facts = %+v, want wrapped endpoints", peerID, gotFacts)
+	}
+	if gotFacts.PunchStatus != "passive_accept_udp4" {
+		t.Fatalf("RegisterPassivePeerSession(%q) punch status = %q, want passive_accept_udp4", peerID, gotFacts.PunchStatus)
 	}
 
 	m.RecordPassiveTopologyAttempt(peerID, sess, "", startedAt, "ok")
@@ -264,6 +276,53 @@ func TestPassiveTopologyEvidenceRegistersSessionAndRuntime(t *testing.T) {
 	m.ClosePassivePeerSession(peerID, sess, dataplane.CloseReasonDaemonShutdown)
 	if sess.CloseReason() != dataplane.CloseReasonDaemonShutdown {
 		t.Fatalf("ClosePassivePeerSession(%q) close reason = %q, want %q", peerID, sess.CloseReason(), dataplane.CloseReasonDaemonShutdown)
+	}
+}
+
+func TestOwnedPeerSessionForwardsPathFacts(t *testing.T) {
+	sess := &testPeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: "peer-owned",
+			Protocol:     dataplane.ProtocolQUIC,
+			SecurityID:   "sid-owned",
+			PathFamily:   dataplane.PathFamilyUDP4,
+		},
+		pathFacts: dataplane.SessionPathFacts{
+			LocalEndpoint:  "192.0.2.11:5001",
+			RemoteEndpoint: "198.51.100.21:6001",
+		},
+	}
+
+	manager := dataplane.NewSessionManager()
+	manager.Put(&ownedPeerSession{sess: sess})
+	summaries := manager.ListAllSummaries()
+	if len(summaries) != 1 {
+		t.Fatalf("ListAllSummaries() length = %d, want 1: %#v", len(summaries), summaries)
+	}
+	got := summaries[0].PathFacts.Normalize()
+	if got.LocalEndpoint != "192.0.2.11:5001" || got.RemoteEndpoint != "198.51.100.21:6001" {
+		t.Fatalf("ListAllSummaries()[0].PathFacts = %+v, want owned wrapped endpoints", got)
+	}
+}
+
+func TestSelectedTopologyViewReasonUsesTCPDecisionFields(t *testing.T) {
+	res := &punchdecision.Result{
+		VisitorResponse: &wire.NatHoleResp{
+			SelectedView:      "cn",
+			SelectedReason:    "udp",
+			TCPSelectedView:   "global",
+			TCPSelectedReason: "availability",
+		},
+	}
+
+	gotView, gotReason := selectedTopologyViewReason(res, "punching_tcp4")
+	if gotView != "global" || gotReason != "availability" {
+		t.Fatalf("selectedTopologyViewReason(tcp) = (%q, %q), want (global, availability)", gotView, gotReason)
+	}
+
+	gotView, gotReason = selectedTopologyViewReason(res, "punching_ipv4")
+	if gotView != "cn" || gotReason != "udp" {
+		t.Fatalf("selectedTopologyViewReason(udp) = (%q, %q), want (cn, udp)", gotView, gotReason)
 	}
 }
 
@@ -406,6 +465,7 @@ type testPeerSession struct {
 	closed      bool
 	closeReason dataplane.CloseReason
 	openStream  func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error)
+	pathFacts   dataplane.SessionPathFacts
 }
 
 func (s *testPeerSession) Key() dataplane.SessionKey { return s.key }
@@ -434,3 +494,7 @@ func (s *testPeerSession) CloseReason() dataplane.CloseReason {
 func (s *testPeerSession) Healthy() bool { return !s.closed }
 
 func (s *testPeerSession) LastActivity() time.Time { return time.Unix(0, 0).UTC() }
+
+func (s *testPeerSession) SessionPathFacts() dataplane.SessionPathFacts {
+	return s.pathFacts
+}

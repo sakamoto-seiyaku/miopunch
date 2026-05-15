@@ -175,17 +175,19 @@ type TopologyDegree struct {
 }
 
 type TopologyAttempt struct {
-	PeerID        string                   `json:"peer_id,omitempty"`
-	AttemptPath   string                   `json:"attempt_path,omitempty"`
-	AttemptWay    string                   `json:"attempt_way,omitempty"`
-	DataProto     string                   `json:"data_proto,omitempty"`
-	PathFamily    string                   `json:"path_family,omitempty"`
-	Portmap       *TopologyPortmapEvidence `json:"portmap,omitempty"`
-	StartedAt     int64                    `json:"started_at_unix_ms,omitempty"`
-	Outcome       string                   `json:"outcome,omitempty"` // ok|fail|timeout|unknown
-	Stage         string                   `json:"stage,omitempty"`
-	ReasonCode    string                   `json:"reason_code,omitempty"`
-	StopCondition string                   `json:"stop_condition,omitempty"`
+	PeerID         string                   `json:"peer_id,omitempty"`
+	AttemptPath    string                   `json:"attempt_path,omitempty"`
+	AttemptWay     string                   `json:"attempt_way,omitempty"`
+	DataProto      string                   `json:"data_proto,omitempty"`
+	PathFamily     string                   `json:"path_family,omitempty"`
+	Portmap        *TopologyPortmapEvidence `json:"portmap,omitempty"`
+	SelectedView   string                   `json:"selected_view,omitempty"`
+	SelectedReason string                   `json:"selected_reason,omitempty"`
+	StartedAt      int64                    `json:"started_at_unix_ms,omitempty"`
+	Outcome        string                   `json:"outcome,omitempty"` // ok|fail|timeout|unknown
+	Stage          string                   `json:"stage,omitempty"`
+	ReasonCode     string                   `json:"reason_code,omitempty"`
+	StopCondition  string                   `json:"stop_condition,omitempty"`
 }
 
 type TopologyPortmapEvidence struct {
@@ -339,11 +341,16 @@ func (m *Manager) TopologySnapshot() (TopologySnapshot, error) {
 				continue
 			}
 			if s.Healthy {
+				pathFacts := s.PathFacts.Normalize()
 				out.Neighbors.Active = append(out.Neighbors.Active, TopologyNeighborEdge{
 					PeerID:             key.RemotePeerID,
 					Bucket:             topologyBucketForPeer(memberByPeerID, key.RemotePeerID),
 					DataProto:          string(key.Protocol),
 					PathFamily:         string(key.PathFamily),
+					LocalEndpoint:      pathFacts.LocalEndpoint,
+					RemoteEndpoint:     pathFacts.RemoteEndpoint,
+					PunchStatus:        pathFacts.PunchStatus,
+					Port:               pathFacts.Port,
 					Healthy:            true,
 					LastActivityUnixMs: s.LastActivityUnixMilli,
 				})

@@ -254,3 +254,139 @@ The task SHALL support pending requests that were persisted before daemon restar
 - **WHEN** a client creates an `approve_decision` task with an invalid decision value
 - **THEN** the task fails without changing any approval request
 - **AND** diagnostics identify the invalid decision
+
+### Requirement: Desktop config supports local peer aliases
+`PATCH /api/v0/desktop/config` SHALL accept desktop-local peer aliases under desktop preferences.
+
+`GET /api/v0/desktop/state` and desktop config events SHALL return the persisted alias map in the config preferences subtree. Aliases SHALL be keyed by peer ID and SHALL NOT be written to governance declarations, member declarations, invite material, or known-peer network config.
+
+#### Scenario: Desktop client saves a peer alias
+- **WHEN** a desktop client saves `preferences.peer_aliases` for a peer
+- **THEN** LocalAPI persists the alias in desktop settings
+- **AND** the returned desktop runtime snapshot includes the alias
+- **AND** the alias is not written to governance or declaration state
+
+#### Scenario: Desktop client clears a peer alias
+- **WHEN** a desktop client saves an empty alias for a peer
+- **THEN** LocalAPI persists the cleared alias state
+- **AND** later desktop snapshots do not return a non-empty alias for that peer
+
+### Requirement: Desktop topology exposes member display hints
+Desktop topology member objects SHALL include optional remote display hints derived from approved member declarations when available.
+
+At minimum, topology members SHALL expose `member_name` and `platform` when those fields exist in the approved member declaration. These fields SHALL be non-secret display metadata and SHALL NOT replace `peer_id`.
+
+#### Scenario: Approved member name appears in topology
+- **WHEN** an approved member declaration contains `member_name` and `platform`
+- **THEN** `GET /api/v0/desktop/state` includes those values on the corresponding topology member
+- **AND** the member still includes its peer ID
+
+#### Scenario: Missing member display hints are omitted
+- **WHEN** an approved member declaration does not contain a member name or platform
+- **THEN** desktop topology omits those optional fields
+- **AND** clients can still identify the member by peer ID
+
+### Requirement: Desktop shell sessions report local attachability
+Desktop shell-session summaries SHALL report whether a local WebSocket attach can currently resume the represented `sh_attach` task.
+
+`attachable=true` SHALL mean the task can accept or resume the foreground LocalAPI WebSocket attach. `attachable=false` SHALL mean clients must not attempt Resume for that task and should create another shell task if the user wants a new foreground terminal.
+
+Desktop SSE SHALL publish `shell_sessions.replace` when attachability changes.
+
+#### Scenario: Waiting shell task is attachable
+- **WHEN** a `sh_attach` task is waiting for a local WebSocket attach
+- **THEN** desktop runtime state includes a shell-session summary for that task
+- **AND** the summary has `attachable=true`
+
+#### Scenario: Completed shell task is not attachable
+- **WHEN** a `sh_attach` task completes or its attach window is gone
+- **THEN** desktop runtime state does not report it as attachable
+- **AND** a desktop shell-session update is streamed when visible state changes
+
+### Requirement: Desktop runtime exposes optional connection path details
+Desktop topology and peer-session runtime state SHALL expose connection path details only when the daemon has reliable evidence for the value.
+
+Supported optional fields include direct IPv4/IPv6 hints, local endpoint, remote endpoint, public tuple, punch status, and port. The daemon SHALL omit unknown fields instead of fabricating preview values.
+
+#### Scenario: Reliable path details are returned
+- **WHEN** the daemon has reliable endpoint or punch-status evidence for an active peer path
+- **THEN** desktop runtime state includes the corresponding optional path detail fields
+- **AND** the fields are available through the desktop snapshot and relevant desktop state updates
+
+#### Scenario: Unknown path details are omitted
+- **WHEN** the daemon has no reliable endpoint, tuple, punch, or metric evidence for a peer
+- **THEN** desktop runtime state omits those optional fields
+- **AND** it does not synthesize RTT, throughput, loss, endpoint, or tuple values
+
+### Requirement: LocalAPI supports local network initialization task
+`POST /api/v0/tasks` SHALL support task kind `init_network`.
+
+The task args SHALL include `mode`, where supported values are `bootstrap` and
+`create_new`. `create_new` SHALL require confirmation value
+`create-new-network`.
+
+#### Scenario: Desktop client initializes blank network through a task
+- **WHEN** a desktop or CLI client creates `init_network` with `mode=bootstrap`
+  on a blank node
+- **THEN** LocalAPI creates a task
+- **AND** the completed task reports the new local `net_id` and `peer_id`
+
+#### Scenario: Missing confirmation rejects create-new
+- **WHEN** a client creates `init_network` with `mode=create_new` without the
+  required confirmation
+- **THEN** the task fails with `BAD_REQUEST`
+- **AND** existing local governance state is preserved
+
+### Requirement: Desktop state exposes local governance capabilities
+`GET /api/v0/desktop/state` and desktop runtime events SHALL expose non-secret
+local governance capability state under the desktop config/state model.
+
+The state SHALL include the governance classification, self role, whether the
+node can initialize owner mode, whether it can create a new network, and whether
+invite/approve actions are available.
+
+#### Scenario: Blank node exposes initialization capability
+- **WHEN** a desktop client loads state for a blank node
+- **THEN** the desktop state reports governance state `no_network`
+- **AND** `can_init_owner=true`
+- **AND** admin invite/approve capabilities are false until initialization
+
+#### Scenario: Admin node exposes invite approval capability
+- **WHEN** a desktop client loads state for an admin network
+- **THEN** the desktop state reports governance state `admin_network`
+- **AND** invite and approve capabilities are true
+
+#### Scenario: Non-admin node exposes create-new capability
+- **WHEN** a desktop client loads state for member, foreign, or stale local
+  governance state
+- **THEN** invite and approve capabilities are false
+- **AND** create-new-network capability is true
+
+### Requirement: Desktop Runtime State Exposes Selected Session Path Facts
+`GET /api/v0/desktop/state` SHALL include safe selected session path facts in `peer_sessions` when a live or recent peer session has that evidence.
+
+Supported optional facts include `local_endpoint`, `remote_endpoint`, `punch_status`, and `port`. The daemon MUST omit unknown fields instead of fabricating values from reachability hints or logs.
+
+#### Scenario: Active peer session includes endpoint facts
+- **WHEN** a peer session is active and the daemon knows its selected local and remote endpoints
+- **THEN** `GET /api/v0/desktop/state` includes those endpoint facts on the matching `peer_sessions` entry
+- **AND** the entry still includes `remote_peer_id`, `data_proto`, `path_family`, `healthy`, and `last_activity_unix_ms`
+
+#### Scenario: Unknown path facts remain omitted
+- **WHEN** a peer session has no validated endpoint or punch-status evidence
+- **THEN** `GET /api/v0/desktop/state` omits the corresponding optional fields
+
+### Requirement: Topology Active Neighbors Mirror Session Path Facts
+`GET /api/v0/topology` SHALL expose the same safe selected session path facts for active neighbors that are available in desktop peer sessions.
+
+#### Scenario: Active neighbor includes matching session facts
+- **WHEN** an active peer session has selected endpoint facts
+- **THEN** the matching `topology.neighbors.active` entry includes those facts
+- **AND** the facts match the `peer_sessions` entry for the same peer, protocol, and path family
+
+### Requirement: Topology Attempts Include Selected View Evidence
+Topology attempt evidence SHALL include selected STUN/TCP view and reason fields when the decision path produced them.
+
+#### Scenario: TCP punching records selected view
+- **WHEN** a TCP punching attempt succeeds and decision output includes `tcp_selected_view` and `tcp_selected_reason`
+- **THEN** topology attempt evidence includes the selected view and reason for that attempt

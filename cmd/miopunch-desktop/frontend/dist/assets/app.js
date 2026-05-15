@@ -1890,8 +1890,8 @@
               </div>
               <div class="connection-stat-grid">
                 <div><span>Role</span><strong>${esc(role)}</strong></div>
-                <div><span>IPv4</span><strong>${esc(selected.v4_hint || "-")}</strong></div>
-                <div><span>IPv6</span><strong>${esc(selected.v6_hint || "-")}</strong></div>
+                <div><span>IPv4 hint</span><strong>${esc(selected.v4_hint || "-")}</strong></div>
+                <div><span>IPv6 hint</span><strong>${esc(selected.v6_hint || "-")}</strong></div>
                 <div><span>Peer ID</span><strong>${esc(shortID(peerID))}</strong></div>
                 <div><span>Selected</span><strong>${esc(selectedEdge ? "yes" : "no")}</strong></div>
                 <div><span>Active</span><strong>${esc(neighbor ? "yes" : "no")}</strong></div>

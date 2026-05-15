@@ -66,6 +66,97 @@ func (s *ownedPeerSession) Close(reason dataplane.CloseReason) error {
 func (s *ownedPeerSession) CloseReason() dataplane.CloseReason { return s.sess.CloseReason() }
 func (s *ownedPeerSession) Healthy() bool                      { return s.sess.Healthy() }
 func (s *ownedPeerSession) LastActivity() time.Time            { return s.sess.LastActivity() }
+func (s *ownedPeerSession) SessionPathFacts() dataplane.SessionPathFacts {
+	return dataplane.PathFactsFromSession(s.sess)
+}
+
+type pathFactsPeerSession struct {
+	dataplane.PeerSession
+	facts dataplane.SessionPathFacts
+}
+
+func (s *pathFactsPeerSession) SessionPathFacts() dataplane.SessionPathFacts {
+	if s == nil {
+		return dataplane.SessionPathFacts{}
+	}
+	return dataplane.PathFactsFromSession(s.PeerSession).Merge(s.facts)
+}
+
+func withSessionPathFacts(sess dataplane.PeerSession, facts dataplane.SessionPathFacts) dataplane.PeerSession {
+	if sess == nil || facts.Empty() {
+		return sess
+	}
+	return &pathFactsPeerSession{PeerSession: sess, facts: facts}
+}
+
+func sessionPathFactsForAttempt(attemptPath string) dataplane.SessionPathFacts {
+	return dataplane.SessionPathFacts{PunchStatus: punchStatusFromAttemptPath(attemptPath)}
+}
+
+func punchStatusFromAttemptPath(attemptPath string) string {
+	attemptPath = strings.TrimSpace(attemptPath)
+	switch {
+	case attemptPath == "":
+		return ""
+	case strings.HasPrefix(attemptPath, "punching_"):
+		return "punching"
+	case strings.HasPrefix(attemptPath, "direct_"):
+		return "direct"
+	case strings.HasPrefix(attemptPath, "passive_accept_"):
+		return attemptPath
+	case attemptPath == "session_reuse":
+		return "session_reuse"
+	default:
+		return ""
+	}
+}
+
+func selectedTopologyView(res *punchdecision.Result, attemptPath string) string {
+	view, _ := selectedTopologyViewReason(res, attemptPath)
+	return view
+}
+
+func selectedTopologyReason(res *punchdecision.Result, attemptPath string) string {
+	_, reason := selectedTopologyViewReason(res, attemptPath)
+	return reason
+}
+
+func selectedTopologyViewReason(res *punchdecision.Result, attemptPath string) (string, string) {
+	if res == nil {
+		return "", ""
+	}
+	viewValue := func(r *wire.NatHoleResp) string {
+		return r.SelectedView
+	}
+	reasonValue := func(r *wire.NatHoleResp) string {
+		return r.SelectedReason
+	}
+	if strings.Contains(strings.TrimSpace(attemptPath), "tcp") {
+		viewValue = func(r *wire.NatHoleResp) string {
+			return r.TCPSelectedView
+		}
+		reasonValue = func(r *wire.NatHoleResp) string {
+			return r.TCPSelectedReason
+		}
+	}
+	return firstNatHoleRespText(res.VisitorResponse, res.ClientResponse, viewValue),
+		firstNatHoleRespText(res.VisitorResponse, res.ClientResponse, reasonValue)
+}
+
+func firstNatHoleRespText(a *wire.NatHoleResp, b *wire.NatHoleResp, value func(*wire.NatHoleResp) string) string {
+	if value == nil {
+		return ""
+	}
+	if a != nil {
+		if out := strings.TrimSpace(value(a)); out != "" {
+			return out
+		}
+	}
+	if b != nil {
+		return strings.TrimSpace(value(b))
+	}
+	return ""
+}
 
 func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID string, cfg pocstate.PeerConfig, open dataplane.StreamOpen) (*dialResult, error) {
 	if m != nil {
@@ -512,7 +603,7 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 		if err != nil {
 			return sessionDialResult{}, err
 		}
-		result.sess = sess
+		result.sess = withSessionPathFacts(sess, sessionPathFactsForAttempt(attemptRes.Path))
 		return result, nil
 	}
 
@@ -579,14 +670,16 @@ func (m *Manager) dialPeerStream(ctx context.Context, taskID string, peerID stri
 		m.addFact(taskID, poc.Fact{TermID: "path_family", Message: "path_family=" + string(dpCfg.PathFamily)})
 	}
 	m.recordTopologyAttempt(TopologyAttempt{
-		PeerID:      peerID,
-		AttemptPath: attemptRes.Path,
-		AttemptWay:  attemptRes.Path,
-		DataProto:   dataProto,
-		PathFamily:  string(dpCfg.PathFamily),
-		Portmap:     topologyPortmapEvidenceFromEvents(diagEvents.String()),
-		StartedAt:   startedAt,
-		Outcome:     "ok",
+		PeerID:         peerID,
+		AttemptPath:    attemptRes.Path,
+		AttemptWay:     attemptRes.Path,
+		DataProto:      dataProto,
+		PathFamily:     string(dpCfg.PathFamily),
+		Portmap:        topologyPortmapEvidenceFromEvents(diagEvents.String()),
+		SelectedView:   selectedTopologyView(decisionRes, attemptRes.Path),
+		SelectedReason: selectedTopologyReason(decisionRes, attemptRes.Path),
+		StartedAt:      startedAt,
+		Outcome:        "ok",
 	})
 
 	return &dialResult{

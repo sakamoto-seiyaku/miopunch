@@ -85,6 +85,114 @@ func TestKCPSession_StreamOpenHelloPingSequential(t *testing.T) {
 	runShellPingStreams(t, ctx, clientSess, serverRes.session, 2)
 }
 
+func TestSessionSummaryIncludesTLSEndpointFacts(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	t.Cleanup(cancel)
+
+	ln, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Listen(tcp4, 127.0.0.1:0) error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+
+	cfg := testSessionConfig(ProtocolTLS, PathFamilyTCP4)
+	serverCh := make(chan sessionResult, 1)
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			serverCh <- sessionResult{err: err}
+			return
+		}
+		sess, err := ServeTLSSession(ctx, cfg, []connectivity.TCPConn{
+			{Conn: conn, Origin: connectivity.TCPConnOriginAccept},
+		}, nil)
+		serverCh <- sessionResult{session: sess, err: err}
+	}()
+
+	clientConn, err := net.Dial("tcp4", ln.Addr().String())
+	if err != nil {
+		t.Fatalf("Dial(tcp4, %s) error = %v, want nil", ln.Addr(), err)
+	}
+	wantLocal := clientConn.LocalAddr().String()
+	wantRemote := clientConn.RemoteAddr().String()
+
+	clientSess, err := DialTLSSession(ctx, cfg, []connectivity.TCPConn{
+		{Conn: clientConn, Origin: connectivity.TCPConnOriginDial},
+	}, nil)
+	if err != nil {
+		t.Fatalf("DialTLSSession() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = clientSess.Close(CloseReasonDaemonShutdown) })
+
+	serverRes := <-serverCh
+	if serverRes.err != nil {
+		t.Fatalf("ServeTLSSession() error = %v, want nil", serverRes.err)
+	}
+	t.Cleanup(func() { _ = serverRes.session.Close(CloseReasonDaemonShutdown) })
+
+	manager := NewSessionManager()
+	manager.Put(clientSess)
+	summaries := manager.ListAllSummaries()
+	if len(summaries) != 1 {
+		t.Fatalf("ListAllSummaries() length = %d, want 1: %#v", len(summaries), summaries)
+	}
+	got := summaries[0].PathFacts.Normalize()
+	if got.LocalEndpoint != wantLocal || got.RemoteEndpoint != wantRemote {
+		t.Fatalf("ListAllSummaries()[0].PathFacts = %+v, want local %q remote %q", got, wantLocal, wantRemote)
+	}
+	if got.Port == "" {
+		t.Fatalf("ListAllSummaries()[0].PathFacts.Port = empty, want remote endpoint port")
+	}
+}
+
+func TestSessionSummaryIncludesUDPEndpointFacts(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	t.Cleanup(cancel)
+
+	clientUDP := listenLocalUDP(t)
+	serverUDP := listenLocalUDP(t)
+
+	clientRemote := serverUDP.LocalAddr().(*net.UDPAddr)
+	serverRemote := clientUDP.LocalAddr().(*net.UDPAddr)
+
+	cfg := testSessionConfig(ProtocolKCP, PathFamilyUDP4)
+	serverCh := make(chan sessionResult, 1)
+	go func() {
+		sess, err := ServeSession(ctx, cfg, serverUDP, serverRemote, nil)
+		serverCh <- sessionResult{session: sess, err: err}
+	}()
+
+	clientSess, err := DialSession(ctx, cfg, clientUDP, clientRemote, nil)
+	if err != nil {
+		t.Fatalf("DialSession(kcp) error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = clientSess.Close(CloseReasonDaemonShutdown) })
+
+	serverRes := <-serverCh
+	if serverRes.err != nil {
+		t.Fatalf("ServeSession(kcp) error = %v, want nil", serverRes.err)
+	}
+	t.Cleanup(func() { _ = serverRes.session.Close(CloseReasonDaemonShutdown) })
+
+	manager := NewSessionManager()
+	manager.Put(clientSess)
+	summaries := manager.ListAllSummaries()
+	if len(summaries) != 1 {
+		t.Fatalf("ListAllSummaries() length = %d, want 1: %#v", len(summaries), summaries)
+	}
+	got := summaries[0].PathFacts.Normalize()
+	if got.LocalEndpoint != clientUDP.LocalAddr().String() || got.RemoteEndpoint != clientRemote.String() {
+		t.Fatalf("ListAllSummaries()[0].PathFacts = %+v, want local %q remote %q", got, clientUDP.LocalAddr(), clientRemote)
+	}
+	if got.Port == "" {
+		t.Fatalf("ListAllSummaries()[0].PathFacts.Port = empty, want remote endpoint port")
+	}
+}
+
 func TestTLSSession_LogicalStreamActivityKeepsSessionHealthy(t *testing.T) {
 	t.Parallel()
 

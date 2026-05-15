@@ -16,6 +16,15 @@ func (s *passivePeerSession) Key() dataplane.SessionKey {
 	return s.key.Normalize()
 }
 
+func (s *passivePeerSession) SessionPathFacts() dataplane.SessionPathFacts {
+	if s == nil {
+		return dataplane.SessionPathFacts{}
+	}
+	return dataplane.PathFactsFromSession(s.PeerSession).Merge(
+		dataplane.SessionPathFacts{PunchStatus: punchStatusFromAttemptPath(passiveAttemptPath(s.key.PathFamily))},
+	)
+}
+
 // RegisterPassivePeerSession exposes an accepted inbound session to topology.
 func (m *Manager) RegisterPassivePeerSession(peerID string, sess dataplane.PeerSession) {
 	if m == nil || m.sessions == nil || sess == nil {

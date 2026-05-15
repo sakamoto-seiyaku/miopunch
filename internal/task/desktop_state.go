@@ -479,11 +479,16 @@ func (m *Manager) buildDesktopPeerSessions() []DesktopPeerSession {
 		if key.RemotePeerID == "" {
 			continue
 		}
+		pathFacts := summary.PathFacts.Normalize()
 		out = append(out, DesktopPeerSession{
 			RemotePeerID:       key.RemotePeerID,
 			DataProto:          string(key.Protocol),
 			SecurityID:         key.SecurityID,
 			PathFamily:         string(key.PathFamily),
+			LocalEndpoint:      pathFacts.LocalEndpoint,
+			RemoteEndpoint:     pathFacts.RemoteEndpoint,
+			PunchStatus:        pathFacts.PunchStatus,
+			Port:               pathFacts.Port,
 			Healthy:            summary.Healthy,
 			LastActivityUnixMs: summary.LastActivityUnixMilli,
 			ClosedAtUnixMilli:  summary.ClosedAtUnixMilli,

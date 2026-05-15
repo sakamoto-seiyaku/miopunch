@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"sort"
 	"strings"
 	"sync"
@@ -413,11 +414,77 @@ type SessionManager struct {
 
 // SessionSummary is a stable subset of a live peer session, suitable for diagnostics.
 type SessionSummary struct {
-	Key                   SessionKey  `json:"key"`
-	Healthy               bool        `json:"healthy"`
-	LastActivityUnixMilli int64       `json:"last_activity_unix_ms,omitempty"`
-	ClosedAtUnixMilli     int64       `json:"closed_at_unix_ms,omitempty"`
-	CloseReason           CloseReason `json:"close_reason,omitempty"`
+	Key                   SessionKey       `json:"key"`
+	Healthy               bool             `json:"healthy"`
+	LastActivityUnixMilli int64            `json:"last_activity_unix_ms,omitempty"`
+	ClosedAtUnixMilli     int64            `json:"closed_at_unix_ms,omitempty"`
+	CloseReason           CloseReason      `json:"close_reason,omitempty"`
+	PathFacts             SessionPathFacts `json:"path_facts,omitempty"`
+}
+
+// SessionPathFacts contains safe selected-path facts for a peer session.
+type SessionPathFacts struct {
+	LocalEndpoint  string `json:"local_endpoint,omitempty"`
+	RemoteEndpoint string `json:"remote_endpoint,omitempty"`
+	PunchStatus    string `json:"punch_status,omitempty"`
+	Port           string `json:"port,omitempty"`
+}
+
+// SessionPathReporter is implemented by sessions that can report selected-path facts.
+type SessionPathReporter interface {
+	SessionPathFacts() SessionPathFacts
+}
+
+// Normalize returns a trimmed copy of f and derives Port from RemoteEndpoint when possible.
+func (f SessionPathFacts) Normalize() SessionPathFacts {
+	f.LocalEndpoint = strings.TrimSpace(f.LocalEndpoint)
+	f.RemoteEndpoint = strings.TrimSpace(f.RemoteEndpoint)
+	f.PunchStatus = strings.TrimSpace(f.PunchStatus)
+	f.Port = strings.TrimSpace(f.Port)
+	if f.Port == "" && f.RemoteEndpoint != "" {
+		_, port, err := net.SplitHostPort(f.RemoteEndpoint)
+		if err == nil {
+			f.Port = strings.TrimSpace(port)
+		}
+	}
+	return f
+}
+
+// Empty reports whether f contains no selected-path facts.
+func (f SessionPathFacts) Empty() bool {
+	f = f.Normalize()
+	return f.LocalEndpoint == "" &&
+		f.RemoteEndpoint == "" &&
+		f.PunchStatus == "" &&
+		f.Port == ""
+}
+
+// Merge returns f with non-empty fields from override applied.
+func (f SessionPathFacts) Merge(override SessionPathFacts) SessionPathFacts {
+	f = f.Normalize()
+	override = override.Normalize()
+	if override.LocalEndpoint != "" {
+		f.LocalEndpoint = override.LocalEndpoint
+	}
+	if override.RemoteEndpoint != "" {
+		f.RemoteEndpoint = override.RemoteEndpoint
+	}
+	if override.PunchStatus != "" {
+		f.PunchStatus = override.PunchStatus
+	}
+	if override.Port != "" {
+		f.Port = override.Port
+	}
+	return f.Normalize()
+}
+
+// PathFactsFromSession returns selected-path facts reported by sess, if any.
+func PathFactsFromSession(sess PeerSession) SessionPathFacts {
+	reporter, ok := sess.(SessionPathReporter)
+	if !ok || reporter == nil {
+		return SessionPathFacts{}
+	}
+	return reporter.SessionPathFacts().Normalize()
 }
 
 // NewSessionManager returns an empty in-memory peer session manager.
@@ -564,6 +631,7 @@ func (m *SessionManager) recordClosedLocked(sess PeerSession, reason CloseReason
 		LastActivityUnixMilli: sess.LastActivity().UTC().UnixMilli(),
 		ClosedAtUnixMilli:     time.Now().UTC().UnixMilli(),
 		CloseReason:           normalizeCloseReason(reason),
+		PathFacts:             PathFactsFromSession(sess),
 	}
 	m.recentClosed = append(m.recentClosed, summary)
 	if len(m.recentClosed) > maxRecentClosedSessionSummaries {
@@ -593,6 +661,7 @@ func (m *SessionManager) ListAllSummaries() []SessionSummary {
 			Healthy:               healthy,
 			LastActivityUnixMilli: sess.LastActivity().UTC().UnixMilli(),
 			CloseReason:           sess.CloseReason(),
+			PathFacts:             PathFactsFromSession(sess),
 		})
 	}
 	out = append(out, m.recentClosed...)

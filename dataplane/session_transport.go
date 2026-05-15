@@ -46,17 +46,26 @@ func (c *ownedNetConn) Close() error {
 
 type yamuxPeerSession struct {
 	sessionBase
-	sess *yamux.Session
+	sess      *yamux.Session
+	pathFacts SessionPathFacts
 }
 
-func newYamuxPeerSession(key SessionKey, sess *yamux.Session, em *event.Emitter, impl string, idleTimeout time.Duration) *yamuxPeerSession {
+func newYamuxPeerSession(key SessionKey, sess *yamux.Session, em *event.Emitter, impl string, idleTimeout time.Duration, facts SessionPathFacts) *yamuxPeerSession {
 	s := &yamuxPeerSession{
 		sessionBase: newSessionBase(key, em),
 		sess:        sess,
+		pathFacts:   facts.Normalize(),
 	}
 	emitSessionOpen(em, s.Key(), impl)
 	s.startIdleCloser(idleTimeout)
 	return s
+}
+
+func (s *yamuxPeerSession) SessionPathFacts() SessionPathFacts {
+	if s == nil {
+		return SessionPathFacts{}
+	}
+	return s.pathFacts.Normalize()
 }
 
 func (s *yamuxPeerSession) OpenStream(ctx context.Context, open StreamOpen) (io.ReadWriteCloser, error) {
@@ -156,21 +165,34 @@ func (s *yamuxPeerSession) startIdleCloser(timeout time.Duration) {
 
 type quicPeerSession struct {
 	sessionBase
-	conn *quic.Conn
-	udp  *net.UDPConn
-	ln   *quic.Listener
+	conn      *quic.Conn
+	udp       *net.UDPConn
+	ln        *quic.Listener
+	pathFacts SessionPathFacts
 }
 
 func newQUICPeerSession(key SessionKey, conn *quic.Conn, udp *net.UDPConn, ln *quic.Listener, em *event.Emitter, idleTimeout time.Duration) *quicPeerSession {
+	var facts SessionPathFacts
+	if conn != nil {
+		facts = sessionPathFactsFromAddrs(conn.LocalAddr(), conn.RemoteAddr())
+	}
 	s := &quicPeerSession{
 		sessionBase: newSessionBase(key, em),
 		conn:        conn,
 		udp:         udp,
 		ln:          ln,
+		pathFacts:   facts,
 	}
 	emitSessionOpen(em, s.Key(), "quic-go")
 	s.startIdleCloser(idleTimeout)
 	return s
+}
+
+func (s *quicPeerSession) SessionPathFacts() SessionPathFacts {
+	if s == nil {
+		return SessionPathFacts{}
+	}
+	return s.pathFacts.Normalize()
 }
 
 func (s *quicPeerSession) OpenStream(ctx context.Context, open StreamOpen) (io.ReadWriteCloser, error) {
@@ -406,7 +428,8 @@ func DialSessionWithKCPPacketConn(ctx context.Context, cfg Config, pc net.Packet
 		_ = owned.Close()
 		return nil, err
 	}
-	return newYamuxPeerSession(cfg.sessionKey(), muxSession, em, "kcp+tls+yamux", cfg.IdleTimeout), nil
+	facts := sessionPathFactsFromAddrs(tlsConn.LocalAddr(), tlsConn.RemoteAddr())
+	return newYamuxPeerSession(cfg.sessionKey(), muxSession, em, "kcp+tls+yamux", cfg.IdleTimeout, facts), nil
 }
 
 // ServeSession accepts a KCP or QUIC peer transport session.
@@ -504,7 +527,8 @@ func serveKCPSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, r
 			_ = owned.Close()
 			continue
 		}
-		return newYamuxPeerSession(cfg.sessionKey(), muxSession, em, "kcp+tls+yamux", cfg.IdleTimeout), nil
+		facts := sessionPathFactsFromAddrs(tlsConn.LocalAddr(), tlsConn.RemoteAddr())
+		return newYamuxPeerSession(cfg.sessionKey(), muxSession, em, "kcp+tls+yamux", cfg.IdleTimeout, facts), nil
 	}
 }
 
@@ -577,7 +601,8 @@ func newKCPSession(ctx context.Context, cfg Config, listenConn *net.UDPConn, rad
 		_ = owned.Close()
 		return nil, err
 	}
-	return newYamuxPeerSession(cfg.sessionKey(), muxSession, em, "kcp+tls+yamux", cfg.IdleTimeout), nil
+	facts := sessionPathFactsFromAddrs(tlsConn.LocalAddr(), tlsConn.RemoteAddr())
+	return newYamuxPeerSession(cfg.sessionKey(), muxSession, em, "kcp+tls+yamux", cfg.IdleTimeout, facts), nil
 }
 
 func pinnedTLSConn(conn net.Conn, cfg Config, asClient bool) (*tls.Conn, error) {
@@ -722,7 +747,19 @@ func newTLSSession(ctx context.Context, cfg Config, candidates []connectivity.TC
 		_ = tlsConn.Close()
 		return nil, err
 	}
-	return newYamuxPeerSession(cfg.sessionKey(), muxSession, em, "tls+yamux", cfg.IdleTimeout), nil
+	facts := sessionPathFactsFromAddrs(tlsConn.LocalAddr(), tlsConn.RemoteAddr())
+	return newYamuxPeerSession(cfg.sessionKey(), muxSession, em, "tls+yamux", cfg.IdleTimeout, facts), nil
+}
+
+func sessionPathFactsFromAddrs(local net.Addr, remote net.Addr) SessionPathFacts {
+	var facts SessionPathFacts
+	if local != nil {
+		facts.LocalEndpoint = local.String()
+	}
+	if remote != nil {
+		facts.RemoteEndpoint = remote.String()
+	}
+	return facts.Normalize()
 }
 
 type sessionOwnedStream struct {

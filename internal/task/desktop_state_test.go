@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/miopunch/miopunch/dataplane"
 	"github.com/miopunch/miopunch/internal/controlplane"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/pocstate"
@@ -96,6 +97,53 @@ func TestDesktopStateSnapshotExposesAdminGovernanceCapability(t *testing.T) {
 	if got.CanInitOwner || !got.CanInvite || !got.CanApprove || got.CanCreateNewNetwork {
 		t.Fatalf("DesktopStateSnapshot().Config.Governance capabilities = init:%v invite:%v approve:%v create_new:%v, want false/true/true/false",
 			got.CanInitOwner, got.CanInvite, got.CanApprove, got.CanCreateNewNetwork)
+	}
+}
+
+func TestDesktopStateSnapshotExposesSessionPathFacts(t *testing.T) {
+	const peerID = "peer-path-facts"
+	m := NewManagerWithStatePath(filepath.Join(t.TempDir(), "state.json"))
+	t.Cleanup(m.Close)
+
+	m.sessions.Put(&testPeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: peerID,
+			Protocol:     dataplane.ProtocolTLS,
+			SecurityID:   "sid-path-facts",
+			PathFamily:   dataplane.PathFamilyTCP4,
+		},
+		pathFacts: dataplane.SessionPathFacts{
+			LocalEndpoint:  "192.0.2.10:46309",
+			RemoteEndpoint: "198.51.100.20:61463",
+			PunchStatus:    "punching",
+		},
+	})
+
+	snapshot, err := m.DesktopStateSnapshot()
+	if err != nil {
+		t.Fatalf("DesktopStateSnapshot() error = %v", err)
+	}
+	if len(snapshot.PeerSessions) != 1 {
+		t.Fatalf("DesktopStateSnapshot().PeerSessions length = %d, want 1: %#v", len(snapshot.PeerSessions), snapshot.PeerSessions)
+	}
+	gotSession := snapshot.PeerSessions[0]
+	if gotSession.RemotePeerID != peerID ||
+		gotSession.LocalEndpoint != "192.0.2.10:46309" ||
+		gotSession.RemoteEndpoint != "198.51.100.20:61463" ||
+		gotSession.PunchStatus != "punching" ||
+		gotSession.Port != "61463" {
+		t.Fatalf("DesktopStateSnapshot().PeerSessions[0] = %+v, want selected path facts", gotSession)
+	}
+	if len(snapshot.Topology.Neighbors.Active) != 1 {
+		t.Fatalf("DesktopStateSnapshot().Topology.Neighbors.Active length = %d, want 1: %#v", len(snapshot.Topology.Neighbors.Active), snapshot.Topology.Neighbors.Active)
+	}
+	gotNeighbor := snapshot.Topology.Neighbors.Active[0]
+	if gotNeighbor.PeerID != peerID ||
+		gotNeighbor.LocalEndpoint != gotSession.LocalEndpoint ||
+		gotNeighbor.RemoteEndpoint != gotSession.RemoteEndpoint ||
+		gotNeighbor.PunchStatus != gotSession.PunchStatus ||
+		gotNeighbor.Port != gotSession.Port {
+		t.Fatalf("DesktopStateSnapshot().Topology.Neighbors.Active[0] = %+v, want peer session path facts %+v", gotNeighbor, gotSession)
 	}
 }
 

@@ -6,9 +6,7 @@
 - `invite` generates an invite code with `invite_topic`, `invite_secret`, `invite_brokers`, and expiry/uses policy
 - `join` publishes an encrypted `join_request` and waits for `membership_bundle`
 - `approve` listens on `invite_topic`, applies idempotency + uses accounting, and delivers `membership_bundle`
-
 ## Requirements
-
 ### Requirement: invite code pins broker endpoints
 Invite codes SHALL include `invite_brokers` with `1..2` broker endpoints in `host:port` form.
 
@@ -198,3 +196,78 @@ After a request reaches a terminal decision, repeating the same decision SHALL r
 - **WHEN** another decision task submits the opposite decision for the same `request_msg_id`
 - **THEN** the task fails without changing the prior decision
 - **AND** invite uses remain unchanged
+
+### Requirement: Invite and approve require local admin capability
+An `invite`, `approve`, or `approve_decision` task SHALL verify that the current
+local identity is an owner or admin in the local governance head before it emits
+an invite code, listens for join requests, records approval requests, or
+publishes membership material.
+
+The task SHALL fail locally with `FORBIDDEN` when the current identity lacks
+admin capability. It SHALL include diagnostic facts identifying the self peer ID
+and local governance state.
+
+#### Scenario: Non-admin invite fails before emitting a code
+- **GIVEN** a local network exists and the current identity is not owner/admin
+- **WHEN** the user starts an invite task
+- **THEN** the task fails with `FORBIDDEN`
+- **AND** no `invite_code` fact is emitted
+
+#### Scenario: Non-admin approve fails before publishing membership
+- **GIVEN** a local network exists and the current identity is not owner/admin
+- **WHEN** the user starts approve or approval-decision handling
+- **THEN** the task fails with `FORBIDDEN`
+- **AND** no approval declaration is added for the joiner
+
+### Requirement: Auto invite mode is rejected until implemented
+The system SHALL reject `invite --mode auto` until a complete auto-approval
+design is implemented.
+
+The task SHALL fail with `NOT_IMPLEMENTED`, SHALL NOT emit an invite code, and
+SHALL suggest using approve mode.
+
+#### Scenario: Auto invite mode is not accepted
+- **WHEN** the user starts `invite` with `mode=auto`
+- **THEN** the task fails with `NOT_IMPLEMENTED`
+- **AND** no `invite_code` fact is emitted
+- **AND** diagnostics suggest `--mode approve`
+
+### Requirement: invite preserves reachable hostname broker endpoints
+The system SHALL preserve selected reachable hostname broker endpoints in the emitted invite code.
+
+The invite task SHALL still normalize, validate, de-duplicate, and probe
+selected endpoints for reachability before emitting the invite code.
+
+#### Scenario: Reachable hostname broker is emitted as hostname
+- **WHEN** an invite broker candidate is provided as `host:port`
+- **AND** the endpoint passes broker reachability probing
+- **THEN** the invite code contains the same normalized `host:port` endpoint
+- **AND** the invite code does not replace the hostname with a resolved IP
+  address
+
+#### Scenario: Unreachable hostname broker is not emitted
+- **WHEN** an invite broker candidate is provided as `host:port`
+- **AND** the endpoint fails broker reachability probing
+- **THEN** the invite task does not emit that endpoint in `invite_brokers`
+- **AND** task diagnostics identify the skipped broker endpoint
+
+### Requirement: Invite broker emission uses hostname-preserving broker selection
+The invite task SHALL use a hostname-preserving broker selection path when
+emitting `invite_brokers` in invite codes.
+
+The invite task SHALL NOT use a helper that resolves reachable hostname broker
+endpoints to A-record IP addresses for invite-code output.
+
+#### Scenario: Reachable hostname broker is not IP-canonicalized for invite code output
+- **WHEN** an invite broker candidate is provided as a reachable `host:port`
+- **THEN** the emitted invite code contains the selected normalized `host:port`
+- **AND** the emitted invite code does not replace that hostname with a resolved
+  IP address
+
+#### Scenario: IP-canonicalizing helper is not used by invite emission
+- **WHEN** the invite task selects reachable broker endpoints for invite-code
+  output
+- **THEN** the implementation path preserves the selected endpoint string after
+  validation and reachability probing
+- **AND** helpers that resolve hostnames to IP addresses are not used for the
+  emitted `invite_brokers` value

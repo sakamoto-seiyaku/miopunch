@@ -257,7 +257,8 @@ func (l *kcpSessionListener) Accept(ctx context.Context) (PeerSession, error) {
 			continue
 		}
 		logutil.Infof("kcp yamux session ready: sid=%s path_family=%s remote=%s", l.cfg.SecurityID, l.cfg.PathFamily, sess.RemoteAddr())
-		return newYamuxPeerSession(l.cfg.sessionKey(), muxSession, l.em, "kcp+tls+yamux", l.cfg.IdleTimeout), nil
+		facts := sessionPathFactsFromAddrs(tlsConn.LocalAddr(), tlsConn.RemoteAddr())
+		return newYamuxPeerSession(l.cfg.sessionKey(), muxSession, l.em, "kcp+tls+yamux", l.cfg.IdleTimeout, facts), nil
 	}
 }
 
