@@ -12,8 +12,8 @@ fi
 
 binary_job="$(
   awk '
-    /^  binary-bundles:/ { in_job=1 }
-    /^  linux-deb-webkit2-40:/ { in_job=0 }
+    /^  session-bundles:/ { in_job=1 }
+    /^  assemble:/ { in_job=0 }
     in_job { print }
   ' "${repo_root}/.github/workflows/build-artifacts.yml"
 )"

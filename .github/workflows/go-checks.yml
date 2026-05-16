@@ -96,18 +96,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev pkg-config
 
-      - name: Build Linux release targets
+      - name: Build Linux session release targets
         run: |
           mkdir -p /tmp/miopunch-build/linux
           GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/miopunch-build/linux/miopunch ./cmd/miopunch
-          GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/miopunch-build/linux/miopunch-lab ./cmd/miopunch-lab
-          GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/miopunch-build/linux/miopunch-poc-e2e ./tools/miopunch-poc-e2e
           GOOS=linux GOARCH=amd64 go build -trimpath -tags desktop,production -o /tmp/miopunch-build/linux/miopunch-desktop ./cmd/miopunch-desktop
 
-      - name: Build Windows release targets
+      - name: Build Windows session release targets
         run: |
           mkdir -p /tmp/miopunch-build/windows
           GOOS=windows GOARCH=amd64 go build -trimpath -o /tmp/miopunch-build/windows/miopunch.exe ./cmd/miopunch
-          GOOS=windows GOARCH=amd64 go build -trimpath -o /tmp/miopunch-build/windows/miopunch-lab.exe ./cmd/miopunch-lab
-          GOOS=windows GOARCH=amd64 go build -trimpath -o /tmp/miopunch-build/windows/miopunch-poc-e2e.exe ./tools/miopunch-poc-e2e
           GOOS=windows GOARCH=amd64 go build -trimpath -tags desktop,production,wv2runtime.embed -ldflags "-H windowsgui" -o /tmp/miopunch-build/windows/miopunch-desktop.exe ./cmd/miopunch-desktop

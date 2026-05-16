@@ -22,7 +22,7 @@ The system SHALL run the repository host validation gates before a release can p
 - **THEN** it runs `go test ./...`
 - **AND** it runs `go vet ./...`
 - **AND** it runs `bash scripts/check_no_xtcp_imports.sh`
-- **AND** it performs release cross-build sanity for supported release targets
+- **AND** it performs release cross-build sanity for the current Linux and Windows session bundle binaries
 
 #### Scenario: Host checks fail
 - **WHEN** any host validation command or cross-build sanity command fails
@@ -30,35 +30,32 @@ The system SHALL run the repository host validation gates before a release can p
 - **AND** the release workflow cannot publish a release for that commit
 
 ### Requirement: Build workflow produces release candidate assets
-The system SHALL provide a pure build workflow that compiles and packages release candidate assets without publishing a GitHub Release.
+The system SHALL provide a pure build workflow that compiles and packages the current session-first release assets without publishing a GitHub Release.
 
 #### Scenario: Build workflow creates CI artifacts
 - **WHEN** the artifact build workflow runs
-- **THEN** it builds Linux amd64 CLI/lab binary bundles
-- **AND** it builds Windows amd64 CLI/lab binary bundles
-- **AND** it builds Linux WebKitGTK 4.0 and 4.1 `.deb` packages
-- **AND** it builds a Windows NSIS installer
+- **THEN** it builds `miopunch_<version>_linux_amd64_session.tar.gz`
+- **AND** it builds `miopunch_<version>_windows_amd64_session.zip`
 - **AND** desktop release binaries use Wails production build tags
 - **AND** it uploads those outputs as GitHub Actions artifacts
 
 #### Scenario: Windows desktop asset uses Wails production mode
-- **WHEN** the Windows installer workflow builds `miopunch-desktop.exe`
+- **WHEN** the Windows session bundle workflow builds `miopunch-desktop.exe`
 - **THEN** the binary is built with `desktop,production,wv2runtime.embed` tags
 - **AND** the binary is linked as a Windows GUI executable
 - **AND** the binary does not include Wails' missing build tags fallback app
-
-#### Scenario: Windows installer registers uninstall entry
-- **WHEN** the Windows installer completes successfully
-- **THEN** it writes a Windows uninstall entry for `miopunch`
-- **AND** Apps & Features or Programs and Features can launch the uninstaller
-- **AND** the Start menu contains an uninstall shortcut
-- **AND** uninstall removes installed binaries and shortcuts
 
 #### Scenario: Build workflow records integrity metadata
 - **WHEN** release candidate assets are produced
 - **THEN** the workflow writes `checksums.txt`
 - **AND** it writes a machine-readable `release-manifest.json`
 - **AND** the checksums cover every published asset
+
+#### Scenario: Deferred privileged packaging stays out of the default release path
+- **WHEN** the default artifact build workflow runs
+- **THEN** it does not build Linux `.deb` packages
+- **AND** it does not build a Windows NSIS installer
+- **AND** the default GitHub artifact contract matches the local `build_bundles.sh` session bundle flow
 
 ### Requirement: Lab gates separate release-blocking core validation from scenario validation
 The system SHALL gate release publishing on legacy/core lab tests and SHALL keep scenario 1/2/3 lab tests available outside the release dependency path.

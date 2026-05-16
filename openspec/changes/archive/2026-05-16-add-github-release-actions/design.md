@@ -1,6 +1,12 @@
 ## Context
 
-The root repository currently has no `.github/workflows` directory and no root release automation. Existing packaging scaffolds already exist under `packaging/linux/deb` and `packaging/windows/nsis`; the release change should reuse them rather than invent a parallel packaging path.
+The repository now carries root GitHub workflows for release automation. The
+current local release helpers are centered on `scripts/release/build_bundles.sh`
+and `scripts/release/generate_manifest.sh`, which by default emit only the
+Linux and Windows portable session bundles plus integrity metadata. Existing
+packaging scaffolds under `packaging/linux/deb` and `packaging/windows/nsis`
+remain deferred `D1a-privileged` routes and should not define the default
+GitHub release contract.
 
 The intended first tag is `v0.1.0-rc.1`. The local `origin` remote is intentionally a local SSH mirror endpoint; the maintainer will push tags there and let the mirror chain synchronize to GitHub.
 
@@ -15,16 +21,17 @@ Current implementation notes discovered during planning:
 **Goals:**
 
 - Add split GitHub Actions workflows for build, host checks, core lab gates, scenario lab gates, and release publishing.
-- Make release publishing depend on required host checks, artifact builds, and core lab gates.
+- Make release publishing depend on required host checks, session bundle artifact builds, and core lab gates.
 - Keep scenario 1/2/3 gates runnable as a standalone diagnostic workflow while treating them as local pre-release operator validation.
-- Produce the full v0 desktop release surface: raw binary bundles, Linux `.deb` variants, Windows NSIS installer, checksums, manifest, and attestations.
+- Produce the current Door 1 Pro release surface: Linux and Windows session bundles, checksums, manifest, and attestations.
 - Keep tag ownership manual and explicit.
 
 **Non-Goals:**
 
 - Do not create or push Git tags from CI.
 - Do not add Docker image publishing, Homebrew, RPM, macOS artifacts, store distribution, or signing certificate workflows.
-- Do not replace the existing lab harness or packaging scripts unless a small compatibility fix is needed for CI.
+- Do not add the deferred `.deb` or NSIS packaging routes to the default GitHub release path.
+- Do not replace the existing lab harness or current session bundle scripts unless a small compatibility fix is needed for CI.
 
 ## Decisions
 
@@ -74,6 +81,44 @@ Rationale: `gh` is available in GitHub Actions and avoids adding a release actio
 
 Alternative considered: third-party release actions. Rejected to keep the trust surface small.
 
+### Default GitHub release assets match the local session bundle flow
+
+The default GitHub build/release path should use the same commands and asset
+shape as the current local Pro flow. `build-artifacts.yml` should call
+`scripts/release/build_bundles.sh`, then assemble and publish only:
+
+- `miopunch_<version>_windows_amd64_session.zip`
+- `miopunch_<version>_linux_amd64_session.tar.gz`
+- `checksums.txt`
+- `release-manifest.json`
+
+The workflow should not invoke `packaging/linux/deb/build_deb*.sh` or
+`scripts/release/build_windows_installer.sh` in its default path. Those remain
+deferred `D1a-privileged` scaffolding.
+
+Rationale: the current product contract is `session-first`, and the local
+release helper already encodes that contract. GitHub CI should not quietly
+expand the published asset surface beyond what the local operator flow treats as
+the current release.
+
+Alternative considered: keep the larger asset matrix behind CI-only toggles.
+Rejected because it still leaves the default GitHub release path out of sync
+with the current local Pro flow and the published desktop packaging spec.
+
+### Host cross-build sanity follows the current session bundle targets
+
+The host cross-build sanity job should build only the binaries that ship in the
+current session bundles:
+
+- Linux amd64: `cmd/miopunch`, `cmd/miopunch-desktop`
+- Windows amd64: `cmd/miopunch`, `cmd/miopunch-desktop`
+
+It should not treat `cmd/miopunch-lab`, `tools/miopunch-poc-e2e`, `.deb`, or
+NSIS outputs as required release targets in the default path.
+
+Rationale: release-cross-build sanity should prove the current release
+deliverables compile, not preserve an older wider artifact contract.
+
 ### Build metadata remains minimal
 
 If tagged release binaries do not report the tag through Go build info, add the smallest project-local build metadata hook needed for the release version to appear in LocalAPI/panel version output. Avoid broad version package refactors.
@@ -93,29 +138,12 @@ Rationale: Wails compiles a fallback app when neither `dev` nor `production` is
 set. On Windows that fallback displays the "correct build tags" error dialog at
 startup, so release binaries must never be built with only `desktop`.
 
-### Linux `.deb` builds use a containerized WebKitGTK matrix
-
-Build Linux `.deb` artifacts through a shared Docker wrapper that invokes the
-native packaging script inside distro-matched builders: Ubuntu 22.04 for the
-WebKitGTK 4.0 package and Ubuntu 24.04 for the WebKitGTK 4.1 package. CI and
-local release builds should call the same wrapper, while `build_deb.sh` remains
-the primitive used inside a host/container that already has the matching
-pkg-config dependencies.
-
-Rationale: WebKitGTK 4.1 requires `webkit2gtk-4.1` and `libsoup-3.0`
-development files that are not available on the current Debian 11 build host,
-and Ubuntu 24.04 users cannot install the 4.0 runtime dependency. The release
-matrix is therefore a build-environment concern, not a separate product design.
-The native packaging script also forces `xz` package compression so artifacts
-built on newer Ubuntu containers remain inspectable/installable by older `dpkg`
-versions such as Debian 11.
-
 ## Risks / Trade-offs
 
 - [Risk] GitHub-hosted core lab gates may be very slow or timeout without `/dev/kvm`. -> Mitigation: split lab workflows, cache the base image, upload artifacts/logs, and treat core lab timeout as release-blocking.
 - [Risk] Scenario 1/2/3 gates may fail or timeout on GitHub-hosted runners even when they pass locally. -> Mitigation: keep `lab-scenarios.yml` as a manually runnable diagnostic workflow and require maintainers to run scenario gates locally before pushing a release tag.
-- [Risk] Windows desktop installer build may require more Wails/NSIS setup than the current README documents. -> Mitigation: implement CI setup explicitly and keep Windows build sanity in `go-checks.yml` so failures block release early.
-- [Risk] Packaging scripts may emit non-deterministic version strings. -> Mitigation: pass the release tag into package version metadata in CI instead of relying only on `0.0.0+git<sha>`.
+- [Risk] GitHub CI can drift from the current session-first product contract and accidentally republish deferred privileged assets. -> Mitigation: keep the default path on `build_bundles.sh`, document the contract in spec/docs, and enforce the session-bundle guard script.
+- [Risk] Session bundle builds may emit fallback version strings when the release tag is not passed through. -> Mitigation: pass the validated tag into the build workflow and manifest generation instead of relying only on `0.0.0-git<sha>`.
 - [Risk] Artifact fan-in across jobs can drift from release asset expectations. -> Mitigation: generate `release-manifest.json` from the final upload directory and verify every listed asset has a checksum before publishing.
 
 ## Migration Plan
@@ -124,11 +152,11 @@ versions such as Debian 11.
 2. Apply code changes in a later step:
    - fix Windows cross-build;
    - add minimal build metadata hook;
-   - add workflows and any small packaging script switches needed for CI.
+   - add workflows and any small session-bundle script switches needed for CI.
 3. Run local host validation.
 4. Push a non-release branch and manually run build/core lab workflows for diagnosis; use the scenario workflow only as best-effort hosted-runner diagnostics.
 5. Run scenario 1/2/3 gates locally before tagging.
-6. Push annotated tag `v0.1.0-rc.1` to the current `origin`; verify the mirror syncs to GitHub and the release workflow publishes only after host, build, and core lab gates pass.
+6. Push annotated tag `v0.1.0-rc.1` to the current `origin`; verify the mirror syncs to GitHub and the release workflow publishes only after host, session-bundle build, and core lab gates pass.
 
 Rollback is tag-level: delete the failed GitHub Release and tag from GitHub/current mirror only if the tag was published incorrectly. Do not move a public release tag silently; create a later RC tag for fixes.
 

@@ -56,6 +56,10 @@ By default, `build_bundles.sh` emits only the current portable session bundles.
 Set `MIOPUNCH_BUILD_LEGACY_BUNDLES=1` only when the older CLI/lab binary archives
 are explicitly needed.
 
+GitHub CI and the tag-driven `Release` workflow follow this same default path.
+They do not enable `MIOPUNCH_BUILD_LEGACY_BUNDLES=1`, and they do not build the
+deferred `.deb` or NSIS packaging routes.
+
 The final release asset directory must include `checksums.txt` and
 `release-manifest.json`.
 
@@ -63,6 +67,13 @@ Current desktop smoke uses portable session bundles:
 
 - `miopunch_<version>_windows_amd64_session.zip`
 - `miopunch_<version>_linux_amd64_session.tar.gz`
+
+The current GitHub Release asset contract is exactly:
+
+- the Windows session bundle
+- the Linux session bundle
+- `checksums.txt`
+- `release-manifest.json`
 
 Desktop release binaries use Wails production build tags. Windows GUI release
 builds use `desktop,production,wv2runtime.embed` and `-H windowsgui`; Linux GUI

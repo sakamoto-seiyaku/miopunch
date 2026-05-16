@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 jobs:
-  binary-bundles:
+  session-bundles:
     name: Session bundles
     runs-on: ubuntu-22.04
     env:
@@ -57,93 +57,11 @@ jobs:
           path: dist/release/*
           if-no-files-found: error
 
-  linux-deb-webkit2-40:
-    name: Linux .deb WebKitGTK 4.0
-    if: ${{ vars.MIOPUNCH_BUILD_PRIVILEGED_ARTIFACTS == '1' }}
-    runs-on: ubuntu-24.04
-    env:
-      MIOPUNCH_VERSION: ${{ inputs.version }}
-      MIOPUNCH_DEB_OUT: ${{ github.workspace }}/dist/release
-    steps:
-      - name: Check out
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.ref || github.ref }}
-          submodules: recursive
-
-      - name: Build Debian package
-        run: bash packaging/linux/deb/build_deb_docker.sh --webkit2_40 --smoke-install
-
-      - name: Upload Debian package
-        uses: actions/upload-artifact@v7
-        with:
-          name: linux-deb-webkit2-40
-          path: dist/release/*.deb
-          if-no-files-found: error
-
-  linux-deb-webkit2-41:
-    name: Linux .deb WebKitGTK 4.1
-    if: ${{ vars.MIOPUNCH_BUILD_PRIVILEGED_ARTIFACTS == '1' }}
-    runs-on: ubuntu-24.04
-    env:
-      MIOPUNCH_VERSION: ${{ inputs.version }}
-      MIOPUNCH_DEB_OUT: ${{ github.workspace }}/dist/release
-    steps:
-      - name: Check out
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.ref || github.ref }}
-          submodules: recursive
-
-      - name: Build Debian package
-        run: bash packaging/linux/deb/build_deb_docker.sh --webkit2_41 --smoke-install
-
-      - name: Upload Debian package
-        uses: actions/upload-artifact@v7
-        with:
-          name: linux-deb-webkit2-41
-          path: dist/release/*.deb
-          if-no-files-found: error
-
-  windows-installer:
-    name: Windows NSIS installer
-    if: ${{ vars.MIOPUNCH_BUILD_PRIVILEGED_ARTIFACTS == '1' }}
-    runs-on: ubuntu-24.04
-    env:
-      MIOPUNCH_VERSION: ${{ inputs.version }}
-    steps:
-      - name: Check out
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.ref || github.ref }}
-          submodules: recursive
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Install NSIS
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y nsis
-
-      - name: Build Windows installer
-        run: bash scripts/release/build_windows_installer.sh
-
-      - name: Upload Windows installer
-        uses: actions/upload-artifact@v7
-        with:
-          name: windows-installer
-          path: dist/release/*.exe
-          if-no-files-found: error
-
   assemble:
     name: Assemble release assets
     runs-on: ubuntu-24.04
     needs:
-      - binary-bundles
+      - session-bundles
     env:
       MIOPUNCH_VERSION: ${{ inputs.version }}
     steps:
