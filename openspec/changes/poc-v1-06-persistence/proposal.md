@@ -22,4 +22,4 @@ Hard-Min 选择 7B：多网络最小化目录结构，明文落盘但权限收�
 
 ## Impact
 
-- 预计主要修改：state/persist 模块、first-run 初始化、以及 GUI/CLI 的加载路径。
+- 预计主要修改：state/persist 模块与 first-run 初始化；后续 changes 通过统一 persist API 接入。

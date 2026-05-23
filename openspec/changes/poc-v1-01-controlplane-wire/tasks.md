@@ -7,8 +7,8 @@
 ## 2. Wire v1 (TLV)
 
 - [ ] 2.1 Add TLV codec helpers (uvarint tag/len) with bounds checks
-- [ ] 2.2 Define v1 outer header / inner message / body field tables (tags + required/optional)
-- [ ] 2.3 Add roundtrip tests for each message type (golden vectors)
+- [ ] 2.2 Define v1 outer header / inner message field tables and `body_bytes` framing; leave concrete business body schemas to later changes
+- [ ] 2.3 Add roundtrip tests for outer header / inner message / ciphertext envelope (golden vectors)
 
 ## 3. Transcript v1
 

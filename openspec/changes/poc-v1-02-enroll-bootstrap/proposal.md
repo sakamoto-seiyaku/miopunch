@@ -6,7 +6,7 @@ POC v1 的最小闭环必须包含 `Create/Join Network -> Approve/Enroll`。当
 
 ## What Changes
 
-- 定义并实现 v1 `InviteCapability`（MPINV1 编码）与 `join_request/enroll_response` 的最小字段集。
+- 定义并实现 v1 `InviteCapability`（MPINV1 编码；包含 `invite_id`）与 `join_request/enroll_response` 的最小字段集。
 - 固定 join/approve/enroll 的时序与幂等口径（基于 `msg_id` 去重）。
 - 入网后持久化：`networks/<network_id>/` 写入 `MemberCredential + mailbox_secret + broker`。
 

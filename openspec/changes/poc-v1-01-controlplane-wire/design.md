@@ -5,13 +5,14 @@ POC v1 的硬约束是：闭环必须可演示、作者能讲清楚、并且 Rul
 ## Goals / Non-Goals
 
 **Goals:**
-- 控制面 peer-targeted 消息统一 TLV wire（outer/inner/body 全部是 bytes）。
+- 控制面 peer-targeted 消息统一 TLV wire（outer header / inner message / body bytes framing）。
 - 签名输入（transcript）固定为 `domain-sep + TLV(fields...)`，字段顺序写死。
 - `peer_e2e_v1` 固定为 sign-then-encrypt（recipient-only），不提供可配置矩阵。
 - 错误语义固定为：丢弃 + 聚合（用于 GUI reason_code 映射）。
 
 **Non-Goals:**
 - 不实现 join/enroll/dial/punch 的业务流程。
+- 不定义 invite/join/dial 等具体业务 body schema。
 - 不实现 group-scoped 广播/治理类控制消息。
 - 不引入 HPKE 标准化库或多套 E2E scheme。
 
@@ -21,6 +22,7 @@ POC v1 的硬约束是：闭环必须可演示、作者能讲清楚、并且 Rul
 
 - `TLV = tag(uvarint) || len(uvarint) || value(bytes)`。
 - MQTT payload 直接传输 bytes；JSON 只用于 GUI/日志，不进入签名输入。
+- 本 change 只拥有 outer header / inner message / `body_bytes` framing；具体 body 字段集由后续业务 changes 冻结。
 
 ### 2) Transcript（签名输入）固定
 
