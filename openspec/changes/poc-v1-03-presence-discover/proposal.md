@@ -1,20 +1,21 @@
 ## Why
 
-POC v1 需要“对用户友好”的 Discover：用户必须能看到 peer 列表与在线状态，并且后续 dial/punch 能直接拿到对端的控制面公钥。
+当前仓库里“发现 peer”既混着 topology/neighbor 语义，又混着 GUI 状态组装。对于这轮 `poc-v1` 抽离，这样的 Discover 不可解释，也无法独立验收。
 
-Hard-Min 选择 presence-only（不引入目录查询 kind），用 retained + LWT 给 GUI 提供即时快照。
+03 的职责是把 Discover 收敛成一件单纯的事：用 retained + LWT presence 形成一份最小在线成员快照，再和 `02/06` 持久化的 trusted roster 合并，供 `04` 与 `07` 使用。
 
 ## What Changes
 
-- 定义并实现 `presence_topic`：上线 retained online + LWT retained offline。
-- payload 固定为可读 JSON（不进入签名/安全语义），包含 peer_id + ed25519/x25519 pub。
-- `Discover` 输入契约固定为订阅 `.../presence/+` 的结果；具体渲染归 `poc-v1-07-gui-wizard`。
+- 将 03 重写为 `internal/pocv1/presence` 的抽离蓝图。
+- 定义并后续实现 `net_root` 下的 presence topic、retained/LWT 生命周期与固定 JSON payload。
+- 明确 Discover 的在线态 source of truth 只有 `.../presence/+` 订阅结果；成员身份与拨号所需信任材料来自 `02/06` persisted roster，而不是 presence payload。
+- 给 03 增加独立的 reconnect / retained snapshot / offline LWT 验收项。
 
 ## Capabilities
 
 ### New Capabilities
 
-- `miopunch-poc-v1-presence-discover`: presence-only discover 的 v1 口径。
+- `miopunch-poc-v1-presence-discover`: 当前 POC v1 的 presence-only discover 合同。
 
 ### Modified Capabilities
 
@@ -22,4 +23,6 @@ Hard-Min 选择 presence-only（不引入目录查询 kind），用 retained + L
 
 ## Impact
 
-- 预计主要修改：MQTT client 连接生命周期、presence publish/subscribe、以及 discover 数据契约。
+- 计划新增代码：`internal/pocv1/presence/*`
+- 计划参考的 legacy 行为：`internal/controlplane/inbox_topic.go`、现有 MQTT 会话生命周期、`internal/task/desktop_state.go` 中对 peer 快照的消费方式
+- 不包含 mailbox/enroll 流程、dial/punch、session recipe 或 GUI stage runtime。

@@ -1,34 +1,34 @@
 ## Why
 
-当前主线的控制面消息、招引/批准、以及 punching 协商经常被“JSON + 口头约定”黏在一起，导致：
+当前仓库里与控制面相关的语义散落在 `internal/controlplane`、`internal/task` 与历史 POC v0 contract 之间：JSON wire、签名输入、MQTT topic、invite/enroll 以及 dial 协商都纠缠在一起。结果是：
 
-- 签名输入/验签口径不够稳定（字段顺序、编码差异容易踩雷）。
-- 很难把“安全语义”讲清楚：relay/broker 能看什么、不能看什么。
-- 后续重组最小闭环分支时，接口与实现容易再次跑飞。
+- 旧实现能跑，但已经不适合作为“可解释、可独立实现”的 v1 主干。
+- v0 JSON/AES-GCM 与这轮 v1 TLV/peer_e2e_v1 的 source of truth 混在一起，后续实现很容易再漂移。
+- 如果不先把 01 改成真正的抽离蓝图，后面的 `02/03/04/05` 只会继续往旧栈上补。
 
-本 change 的目的不是新增功能，而是先把 **POC v1 控制面 wire 与安全语义** 烧死成“只有一种正确做法”，为后续 join/enroll/dial/punch 的 changes 提供稳定地基。
+本 change 的职责不再只是“冻结口径”，而是把 **POC v1 的 peer-targeted control-plane wire/security contract** 变成第一块可实施的抽离地基。
 
 ## What Changes
 
-- 冻结 v1 控制面 peer-targeted envelope：outer relay header（明文，仅用于投递/观测）+ inner peer message（密文，安全语义来源）+ `body_bytes`（业务负载，后续 changes 冻结具体 schema）。
-- 冻结 v1 TLV wire：所有 peer-targeted 控制消息统一使用二进制 TLV 编码（MQTT payload 直接发 bytes），并定义 canonical/拒绝规则（unknown/dup/non-canonical/order 均拒绝）。
-- 冻结 v1 transcript：签名输入固定为 `domain-sep + TLV(fields...)`（字段顺序写死；不允许 JSON canonicalization）。
-- 冻结 `peer_e2e_v1`：sign-then-encrypt 的 sealed-box 语义（Ed25519 + X25519 + HKDF-SHA256 + XChaCha20-Poly1305），并绑定 AAD 到 outer header（不含 `ct`）。
-- 冻结 v1 kind allowlist：仅允许 `join_request/enroll_response/dial_offer/dial_answer` 四种 kind（Rule-of-One）。
-- 冻结错误语义：解密/验签/过期/重放等一律丢弃 + reason 聚合（不引入错误回包）。
-- 冻结 golden vectors：为 outer/inner/ct/transcript 提供字节级 fixtures（hex），用于跨语言一致性校验。
+- 将 01 重写为并行抽离蓝图：新语义进入 `internal/pocv1/wire` 与 `internal/pocv1/peere2e`，legacy `internal/controlplane` 只保留参考地位。
+- 定义并实现 v1 唯一 wire/security contract：TLV bytes、outer/inner envelope、固定 transcript、`peer_e2e_v1`、drop-only errors、golden vectors。
+- 明确 01 只拥有顶层 `kind` 名字集合，不拥有 `join_request/enroll_response/dial_offer/dial_answer` 的 body schema；这些分别交给 `02` 与 `04`。
+- 通过 delta spec 明确旧 `miopunch-poc-control-plane-wire-format` 仅是 `legacy/v0` 历史合同，不再约束当前 v1 peer-targeted 消息。
+- 给 01 增加真实实施任务、测试与验收项，而不是继续保留“Done/Freeze”式占位文档。
 
 ## Capabilities
 
 ### New Capabilities
 
-- `miopunch-poc-v1-controlplane-wire`: v1 TLV wire + transcript + peer_e2e_v1 的固定口径。
+- `miopunch-poc-v1-controlplane-wire`: 当前 POC v1 peer-targeted 控制面 wire/security 的唯一事实源。
 
 ### Modified Capabilities
 
-- (none)
+- `miopunch-poc-control-plane-wire-format`: 明确其仅保留给已归档的 POC v0 JSON/AES-GCM 历史语境，不再作为当前 v1 的 source of truth。
 
 ## Impact
 
-- 预计新增/收敛的代码落点：`internal/controlplane/` 下的 v1 wire/crypto 封装与单元测试。
-- 不包含 join/enroll/dial/punch 的业务流程（由后续 changes 负责）。
+- 计划新增代码：`internal/pocv1/wire/*`、`internal/pocv1/peere2e/*`、相关 `testdata` / golden vectors。
+- 计划保留的 legacy 参考：`internal/controlplane/message.go`、`sign.go`、`encoding.go`、`msg_id.go` 等历史实现。
+- 不包含 invite/enroll body、presence、dial/punch 策略、session recipe 或 GUI/runtime 编排；这些由后续 `02/03/04/05/07` 拥有。
+- 本次改动是 OpenSpec/docs-only；代码实现与测试在后续 apply 阶段按新的 tasks 执行。

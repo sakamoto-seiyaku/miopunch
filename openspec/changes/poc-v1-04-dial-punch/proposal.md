@@ -1,19 +1,19 @@
 ## Why
 
-POC v1 的核心体验在于：点对点连上并打开 shell。dial/punch 是闭环里最容易“卡住但说不清”的一段，因此必须强收敛：只做 UDP punching + 5B 有上限并发矩阵，并给 GUI 提供可解释的 Evidence。
+`dial/punch` 是这轮最容易再次被旧实现拖乱的部分：当前仓库已经有 punching、connectivity、session、task 编排的混合物。如果 04 不把“协商层”和“尝试层”抽成一条干净的 UDP-only 主线，后面只会继续在旧栈里缝合。
 
 ## What Changes
 
-- 定义并实现 `dial_offer/dial_answer` 的 v1 最小字段集（dial_id/punch_token/candidates/member_credential）。
-- 定义 `PathResult` 边界：本 change 只产出选中的 UDP path、资源所有权、以及 punch evidence；session upgrade 归 `poc-v1-05-secure-session`。
-- punch attempt 策略固定：最多并发 4 对 candidate pair，总预算 10s，先成功先收敛。
-- Evidence 输出：candidate 表、尝试矩阵、超时原因聚合。
+- 将 04 重写为 `internal/pocv1/punch` 的抽离蓝图。
+- 定义并后续实现 `dial_offer/dial_answer` body、基于 trusted roster + `TopicScope` 的 inbox topic 投递、固定 5B attempt matrix、punch evidence 与 `PathResult`。
+- 明确允许复用 legacy `internal/punching` / `internal/punchwire` / `connectivity` 的叶子机制，但不允许把 legacy task/runtime/orchestration 整包搬入 v1。
+- 为 04 增加独立的两节点 MQTT+UDP smoke 与 evidence 验收项。
 
 ## Capabilities
 
 ### New Capabilities
 
-- `miopunch-poc-v1-dial-punch`: v1 dial/punch 的收敛口径（UDP only）。
+- `miopunch-poc-v1-dial-punch`: 当前 POC v1 的 UDP-only dial/punch 合同。
 
 ### Modified Capabilities
 
@@ -21,4 +21,6 @@ POC v1 的核心体验在于：点对点连上并打开 shell。dial/punch 是�
 
 ## Impact
 
-- 预计主要修改：`internal/task/poc_dial.go` 的拆分与收敛、`internal/punching/*` 的 attempt 策略、以及到 `PathResult` 的交接面。
+- 计划新增代码：`internal/pocv1/punch/*`
+- 计划参考或窄复用的 legacy 叶子实现：`internal/punching/*`、`internal/punchwire/*`、`connectivity/*`
+- 不包含 KCP/TLS/yamux 建会话、GUI stage runtime 或 topology/neighbor maintenance。

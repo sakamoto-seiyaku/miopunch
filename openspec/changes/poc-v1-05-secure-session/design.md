@@ -1,25 +1,46 @@
 ## Context
 
-POC v1 的闭环必须能讲清楚“我连到的对端是谁”。因此数据面 secure channel 必须绑定到入网 credential，而不是绑定到一段临时 secret 或日志里才看得懂的 sid。
+05 承接的是 04 的 `PathResult`，向上交付的是 `PeerSession`。为了保证这轮 POC v1 真正“能解释”，05 必须只负责 session recipe 与身份 pin，不再回头掺 candidate/punch 或 GUI/runtime。
 
-依赖：`poc-v1-04-dial-punch`（提供 `PathResult` 与对端 `MemberCredential`）。
+## Extraction Strategy
+
+- 新实现进入 `internal/pocv1/session`。
+- 可窄适配 legacy `dataplane` 与 `internal/tlsutil`，但 v1 的 recipe、pin contract 与 handoff types 由 05 拥有。
+- `PeerSession` 继续作为上层业务边界保留；`sh/ping` 只能看见 `PeerSession/OpenStream/AcceptStream`。
 
 ## Scope
 
-- 本 change 拥有 `SessionRecipe`：消费 `PathResult`，升级为 `PeerSession`，并向上提供 `OpenStream/AcceptStream`。
-- recipe 固定为 `UDP + KCP + TLS1.3 + yamux`。
-- TLS pin 固定为 6A：对端证书 Ed25519 pub 必须与 `MemberCredential.subject_ed25519_pub` 一致，且 credential 必须可被 authority 验签。
-- 证书使用本机 Ed25519 身份自签，仅作为携带公钥的容器。
-- 不拥有 candidate gather、attempt matrix、selected endpoint 或任何 punching 策略。
+**05 owns:**
+
+- `SessionRecipe`
+- `PeerSession`
+- `OpenStream/AcceptStream`
+- 唯一 recipe：`UDP + KCP + TLS1.3 + yamux`
+- 6A pin：
+  - 对端证书 Ed25519 pub 必须等于 `MemberCredential.subject_ed25519_pub`
+  - 该 credential 必须能被 authority 验签
+- 本机使用 Ed25519 自签证书承载公钥
+
+**05 does not own:**
+
+- candidate gather、attempt matrix、selected endpoint（`04`）
+- QUIC/TCP/多 recipe 自动协商
+- shell/protocol-specific stream framing（上层业务）
 
 ## Owned Paths (planned)
 
-- `dataplane/session_transport.go`
-- `dataplane/session_listener_udp.go`
-- `internal/tlsutil/*`
+- `internal/pocv1/session/*`
+- `internal/pocv1/session/*_test.go`
 
-## Done
+## Task Breakdown
 
-- `PathResult -> SessionRecipe -> PeerSession` 主干中的 `SessionRecipe` 契约冻结完成。
-- 6A pin 口径冻结完成，不引入第二套 pin 机制。
-- 上层业务只依赖 `PeerSession/OpenStream`，不再知道 KCP/TLS/yamux 细节。
+1. 定义 `SessionRecipe`、`PeerSession` 以及 `PathResult -> PeerSession` adapter。
+2. 复用或窄适配 legacy KCP/TLS/yamux 实现，建立 v1 单一 recipe。
+3. 实现 6A pin 与 authority-backed credential verification。
+4. 增加 `OpenStream/AcceptStream`、pin fail、credential fail、timeout 等测试。
+
+## Acceptance
+
+- 05 只能从 `PathResult` 开始建会话，不再读取 punch/candidate internals。
+- 成功握手后，`PeerSession` 成为上层唯一依赖边界。
+- pin 失败或 credential 验签失败时，会话被拒绝，不会默默降级到另一条 recipe。

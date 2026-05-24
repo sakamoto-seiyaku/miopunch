@@ -1,25 +1,59 @@
 ## Context
 
-POC v1 的 GUI 不是“把内部状态机都画出来”，而是让用户完成闭环：建网/入网 -> 发现 -> 打洞 -> 建会话 -> ping/shell。
+07 是整套 `poc-v1` 的最终闭环入口，但不是“兜底把所有前序语义重新做一遍”的大杂烩。它只消费前序 typed contracts，把它们按固定六阶段组织成用户能理解的流程。
 
-依赖：前面所有 v1 changes（控制面/入网/发现/punch/session）。
+## Extraction Strategy
+
+- 新的 stage/runtime authority 进入 `internal/pocv1/runtime`。
+- `internal/pocv1/runtime` 是从前序 typed failures 到 12 个 `UserReasonCode` bucket 的唯一最终映射者。
+- `internal/localapi` 为当前提取态暴露平行 `/api/v1/poc/runtime` 与 `/api/v1/poc/runtime/events`。
+- `cmd/miopunch-desktop`、`internal/localapi`、`internal/desktopbridge` 可继续作为桌面壳与 IPC/plumbing。
+- legacy `internal/task/desktop_state.go` 不再是 v1 GUI 的最终事实源；它只可作为旧行为对照。
 
 ## Scope
 
-- GUI 独占 Wizard stage model、stage transitions、`UserSummary`、`Evidence`、`reason_code`。
-- stage 固定为 6 个：`Network / Enroll / Discover / Punch / SecureSession / Shell`。
-- 每个 stage 默认只展示三行人话总结；证据/细节进入 Evidence 面板，并支持导出。
-- 本 change 消费 03/04/05/06 提供的数据契约，但不回头定义 presence、persist、punch、session 的底层语义。
-- 不做多导航层级，不把全量 debug 面板当产品 UI。
+**07 owns:**
+
+- 六阶段 Wizard：
+  - `Network`
+  - `Enroll`
+  - `Discover`
+  - `Punch`
+  - `SecureSession`
+  - `Shell`
+- stage transitions
+- `SecureSession` 只有在一次成功的 identity-bound `ping/hello` 之后才允许转入 `Shell`
+- `UserSummary`（每阶段最多三行）
+- `Evidence`（可折叠/可导出，且至少包含 `facts[]` / `suggestions[]`，可附带额外 diagnostics）
+- `UserReasonCode`（固定 12 个用户面 bucket，以及从前序 typed failures 到这些 bucket 的最终映射）
+- 平行 v1 runtime DTO / API
+- 从前序 change 消费 typed contracts 组装 runtime state
+
+**07 does not own:**
+
+- wire/security 语义（`01`）
+- bootstrap 对象与 authority 流程（`02`）
+- presence source-of-truth（`03`）
+- punch attempt runtime（`04`）
+- secure session recipe（`05`）
+- persist layout authority（`06`）
+- 前序 capability 的底层 failure 语义本体；它们只提供 typed failure/evidence 输入，不直接拥有最终用户面 bucket 决策。
 
 ## Owned Paths (planned)
 
-- `internal/task/desktop_state.go`（或迁移到新的 desktop model 包）
+- `internal/pocv1/runtime/*`
 - `cmd/miopunch-desktop/*`
-- `desktop/*`
+- `cmd/miopunch-desktop/frontend/*`
 
-## Done
+## Task Breakdown
 
-- 6-stage wizard、summary/evidence contract、reason_code budget 冻结完成。
-- GUI 成为 peer list、punch evidence、session state 的唯一渲染归口。
-- 底层控制面、持久化、打洞、会话边界继续由前序 changes 拥有。
+1. 在 `internal/pocv1/runtime` 中建立 stage model、summary/evidence model（显式 `facts[]` / `suggestions[]`）与 reason-code budget/final mapping。
+2. 将 desktop runtime 改为通过平行 `/api/v1/poc/runtime` 读取 `02/03/04/05/06` typed contracts，而不是直接拼 legacy task internals。
+3. 复用现有 desktop/localapi/desktopbridge 作为 transport/plumbing 壳。
+4. 增加 Linux/Windows 桌面 smoke、stage progression、`SecureSession` ping gate、Evidence export 测试。
+
+## Acceptance
+
+- 用户可从 `Network -> Enroll -> Discover -> Punch -> SecureSession -> Shell` 线性完成闭环，且 `SecureSession` 必须先完成一次成功 ping/hello。
+- 每阶段默认只看到 <=3 行 summary；详细信息只在结构化 Evidence（至少有 `facts[]` / `suggestions[]`）。
+- GUI 不再把全量 debug/task internals 当作默认产品状态展示。
