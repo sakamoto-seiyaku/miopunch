@@ -27,6 +27,7 @@
 - `Evidence`（可折叠/可导出，且至少包含 `facts[]` / `suggestions[]`，可附带额外 diagnostics）
 - `UserReasonCode`（固定 12 个用户面 bucket，以及从前序 typed failures 到这些 bucket 的最终映射）
 - 平行 v1 runtime DTO / API
+- wizard-local `ui_state` shape（如果 07 选择持久化该状态）
 - 从前序 change 消费 typed contracts 组装 runtime state
 
 **07 does not own:**
