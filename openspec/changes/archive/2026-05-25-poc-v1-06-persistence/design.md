@@ -42,7 +42,7 @@
   - `presence_topic(peer_id)`
   - `inbox_topic(peer_id)`
 - 原子写：`tmp + rename`
-- 权限：目录 `0700`，文件 `0600`
+- 权限：POSIX 目录 `0700`，POSIX 文件 `0600`；Windows 保持 restrictive intent，但权限修复允许 best-effort
 - typed store APIs
 
 **06 does not own:**

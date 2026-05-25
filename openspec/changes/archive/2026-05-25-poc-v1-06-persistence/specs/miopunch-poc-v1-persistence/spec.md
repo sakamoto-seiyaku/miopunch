@@ -104,9 +104,19 @@ The system SHALL write current v1 state files atomically using temporary files p
 - **AND** readers never observe a partial final file
 
 ### Requirement: Current v1 state permissions are restrictive
-The system SHALL create current v1 state directories with `0700` and state files with `0600`.
+On POSIX platforms, the system SHALL create current v1 state directories with
+`0700` and state files with `0600`.
+
+On Windows, this capability SHALL preserve the same restrictive intent, but MAY
+apply permission repair on a best-effort basis because the portable Go file API
+does not expose direct POSIX-mode enforcement.
 
 #### Scenario: Persisted secrets stay permission-locked
-- **WHEN** the runtime creates or repairs a current v1 state directory or file
+- **WHEN** the runtime creates or repairs a current v1 state directory or file on POSIX
 - **THEN** directories use `0700`
 - **AND** files use `0600`
+
+#### Scenario: Windows permission repair remains best-effort
+- **WHEN** the runtime creates or repairs current v1 state on Windows
+- **THEN** it keeps restrictive-permission intent
+- **AND** it is not required to enforce POSIX `0700` / `0600` mode bits directly
