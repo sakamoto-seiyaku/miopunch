@@ -66,3 +66,13 @@ The system SHALL use a 12-byte nonce for AES-256-GCM.
 #### Scenario: Unsupported ciphertext version is rejected
 - **WHEN** a receiver receives a ciphertext frame whose `v` is not supported
 - **THEN** it rejects the ciphertext frame
+
+### Requirement: POC v0 control-plane wire is legacy-only after v1 extraction
+The system SHALL treat the JSON/AES-GCM control-plane wire defined by `miopunch-poc-control-plane-wire-format` as a legacy POC v0 contract only.
+
+Current POC v1 peer-targeted control-plane messages SHALL use `miopunch-poc-v1-controlplane-wire` as their source of truth and SHALL NOT reuse this legacy capability as the runtime contract for current v1 extraction work.
+
+#### Scenario: Current v1 implementation chooses the v1 wire contract
+- **WHEN** a developer implements or reviews the current POC v1 peer-targeted control-plane path
+- **THEN** they use `miopunch-poc-v1-controlplane-wire` as the governing contract
+- **AND** they treat the JSON/AES-GCM capability as historical reference for archived POC v0 only
