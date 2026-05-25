@@ -5,6 +5,16 @@
 
 ## ADDED Requirements
 
+### Requirement: Current v1 persistence root is caller-supplied
+The system SHALL open current v1 persistence from an explicit root directory supplied by the caller.
+
+This capability SHALL NOT infer its root from legacy `state.json` paths or other POC v0 global discovery rules.
+
+#### Scenario: Persistence opens against an explicit root
+- **WHEN** a current v1 runtime initializes persistence
+- **THEN** it receives an explicit root directory from its caller
+- **AND** it does not derive that root by reusing legacy v0 state-path rules
+
 ### Requirement: Current v1 state layout is device plus per-network roots
 The system SHALL store current v1 device-global state under `device/` and network-scoped state under `networks/<network_id>/`.
 
@@ -24,13 +34,36 @@ The system SHALL assign these responsibilities to the current v1 layout:
 - `networks/<network_id>/mailbox_secret.bin`
 - `networks/<network_id>/roster_snapshot.json`
 - `networks/<network_id>/broker.json`
-- `networks/<network_id>/last_seen_peers.json`
-- `networks/<network_id>/ui_state.json`
 
 #### Scenario: Bootstrap and runtime state land in predictable files
 - **WHEN** current v1 enroll, discover, or GUI state is persisted
 - **THEN** each object is written to its fixed file role
 - **AND** callers do not invent per-feature ad hoc files
+
+### Requirement: Current v1 joined bootstrap persistence is grouped and atomic
+The system SHALL persist bootstrap success for one joined network through one persistence-owned grouped write operation containing:
+
+- `member_credential.bin`
+- `mailbox_secret.bin`
+- `broker.json`
+- `roster_snapshot.json`
+
+The grouped write SHALL make the joined network either fully visible or absent after failure or restart.
+
+#### Scenario: Failed bootstrap persistence does not expose a partially joined network
+- **WHEN** the runtime fails during the grouped write for one joined network
+- **THEN** later readers do not observe a network directory that contains only a strict subset of the bootstrap files
+- **AND** restart either sees the complete joined state or no joined state at all
+
+### Requirement: Current v1 trusted roster is stored as a whole snapshot
+The system SHALL persist `roster_snapshot.json` as one whole trusted roster payload.
+
+This capability SHALL provide whole-read and whole-replace behavior for `roster_snapshot` and SHALL NOT define per-entry patch or merge semantics inside persistence.
+
+#### Scenario: Trusted roster replacement is whole-snapshot only
+- **WHEN** a current v1 component updates the trusted roster
+- **THEN** it replaces the whole persisted roster snapshot for that network
+- **AND** persistence does not reinterpret the update as an incremental per-peer merge
 
 ### Requirement: Current v1 runtime broker config is singular
 The system SHALL persist exactly one current v1 runtime broker endpoint per joined network in `broker.json`.
