@@ -62,9 +62,10 @@ func defaultFileOps() fileOps {
 }
 
 type devicePaths struct {
-	dir        string
-	ed25519Key string
-	x25519Key  string
+	dir               string
+	ed25519Key        string
+	x25519Key         string
+	enrollHandledRoot string
 }
 
 type networkPaths struct {
@@ -74,6 +75,12 @@ type networkPaths struct {
 	mailboxSecret    string
 	broker           string
 	rosterSnapshot   string
+}
+
+type enrollHandledPaths struct {
+	networkID string
+	dir       string
+	file      string
 }
 
 // Store owns the current v1 persistence root and typed state APIs below it.
@@ -284,6 +291,77 @@ func (s *Store) ReplaceRosterSnapshot(networkID string, snapshot RosterSnapshot)
 	return nil
 }
 
+// LoadEnrollHandledRequest loads one authority-side enroll replay record.
+func (s *Store) LoadEnrollHandledRequest(networkID string, msgID string) (EnrollHandledRequest, error) {
+	paths, err := s.resolveEnrollHandledPaths(networkID, msgID)
+	if err != nil {
+		return EnrollHandledRequest{}, err
+	}
+	if err := s.repairDir(s.devicePaths().enrollHandledRoot); err != nil {
+		return EnrollHandledRequest{}, err
+	}
+	if err := s.repairDir(paths.dir); err != nil {
+		return EnrollHandledRequest{}, err
+	}
+
+	data, err := s.readFile(paths.file)
+	if err != nil {
+		return EnrollHandledRequest{}, err
+	}
+
+	var record enrollHandledRecord
+	if err := json.Unmarshal(data, &record); err != nil {
+		return EnrollHandledRequest{}, fmt.Errorf("unmarshal enroll handled request: %w", err)
+	}
+
+	requestFingerprint, err := base64.RawURLEncoding.DecodeString(record.RequestFingerprint)
+	if err != nil {
+		return EnrollHandledRequest{}, fmt.Errorf("decode request fingerprint: %w", err)
+	}
+	responseCiphertext, err := base64.RawURLEncoding.DecodeString(record.ResponseCiphertext)
+	if err != nil {
+		return EnrollHandledRequest{}, fmt.Errorf("decode response ciphertext: %w", err)
+	}
+
+	return normalizeEnrollHandledRequest(EnrollHandledRequest{
+		MsgID:              record.MsgID,
+		RequestFingerprint: requestFingerprint,
+		ResponseCiphertext: responseCiphertext,
+	})
+}
+
+// StoreEnrollHandledRequest atomically stores one authority-side enroll replay
+// record under the device-scoped authority replay-cache directory.
+func (s *Store) StoreEnrollHandledRequest(networkID string, record EnrollHandledRequest) error {
+	normalizedRecord, err := normalizeEnrollHandledRequest(record)
+	if err != nil {
+		return err
+	}
+
+	paths, err := s.resolveEnrollHandledPaths(networkID, normalizedRecord.MsgID)
+	if err != nil {
+		return err
+	}
+	if err := s.ensureDir(paths.dir); err != nil {
+		return fmt.Errorf("ensure enroll handled dir: %w", err)
+	}
+	if err := s.repairDir(s.devicePaths().enrollHandledRoot); err != nil {
+		return fmt.Errorf("repair enroll handled root: %w", err)
+	}
+	if err := s.repairDir(paths.dir); err != nil {
+		return fmt.Errorf("repair enroll handled dir: %w", err)
+	}
+
+	data, err := marshalEnrollHandledRequest(normalizedRecord)
+	if err != nil {
+		return err
+	}
+	if err := s.writeFile(paths.file, data); err != nil {
+		return fmt.Errorf("write enroll handled request: %w", err)
+	}
+	return nil
+}
+
 // PersistJoinedBootstrap atomically makes joined bootstrap state visible for one
 // network or leaves that network absent after failure.
 func (s *Store) PersistJoinedBootstrap(joined JoinedBootstrap) error {
@@ -365,6 +443,12 @@ type rosterEntryRecord struct {
 	Platform         string `json:"platform,omitempty"`
 }
 
+type enrollHandledRecord struct {
+	MsgID              string `json:"msg_id"`
+	RequestFingerprint string `json:"request_fingerprint"`
+	ResponseCiphertext string `json:"response_ciphertext"`
+}
+
 func newDeviceKeys() (DeviceKeys, error) {
 	edSeed := make([]byte, deviceKeySize)
 	if _, err := rand.Read(edSeed); err != nil {
@@ -385,9 +469,10 @@ func newDeviceKeys() (DeviceKeys, error) {
 func (s *Store) devicePaths() devicePaths {
 	deviceDir := filepath.Join(s.root, "device")
 	return devicePaths{
-		dir:        deviceDir,
-		ed25519Key: filepath.Join(deviceDir, "ed25519.key"),
-		x25519Key:  filepath.Join(deviceDir, "x25519.key"),
+		dir:               deviceDir,
+		ed25519Key:        filepath.Join(deviceDir, "ed25519.key"),
+		x25519Key:         filepath.Join(deviceDir, "x25519.key"),
+		enrollHandledRoot: filepath.Join(deviceDir, "enroll_handled"),
 	}
 }
 
@@ -409,6 +494,24 @@ func (s *Store) resolveNetworkPaths(networkID string) (networkPaths, error) {
 		mailboxSecret:    filepath.Join(networkDir, "mailbox_secret.bin"),
 		broker:           filepath.Join(networkDir, "broker.json"),
 		rosterSnapshot:   filepath.Join(networkDir, "roster_snapshot.json"),
+	}, nil
+}
+
+func (s *Store) resolveEnrollHandledPaths(networkID string, msgID string) (enrollHandledPaths, error) {
+	canonicalNetworkID, err := wire.CanonicalizeNetworkID(networkID)
+	if err != nil {
+		return enrollHandledPaths{}, fmt.Errorf("canonicalize network_id: %w", err)
+	}
+	canonicalMsgID, err := wire.CanonicalizeMsgID(msgID)
+	if err != nil {
+		return enrollHandledPaths{}, fmt.Errorf("canonicalize msg_id: %w", err)
+	}
+
+	dir := filepath.Join(s.devicePaths().enrollHandledRoot, canonicalNetworkID)
+	return enrollHandledPaths{
+		networkID: canonicalNetworkID,
+		dir:       dir,
+		file:      filepath.Join(dir, canonicalMsgID+".json"),
 	}, nil
 }
 
@@ -580,6 +683,23 @@ func marshalRosterSnapshot(snapshot RosterSnapshot) ([]byte, error) {
 	data, err := json.MarshalIndent(records, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("marshal roster snapshot: %w", err)
+	}
+	return append(data, '\n'), nil
+}
+
+func marshalEnrollHandledRequest(record EnrollHandledRequest) ([]byte, error) {
+	normalizedRecord, err := normalizeEnrollHandledRequest(record)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := json.MarshalIndent(enrollHandledRecord{
+		MsgID:              normalizedRecord.MsgID,
+		RequestFingerprint: base64.RawURLEncoding.EncodeToString(normalizedRecord.RequestFingerprint),
+		ResponseCiphertext: base64.RawURLEncoding.EncodeToString(normalizedRecord.ResponseCiphertext),
+	}, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal enroll handled request: %w", err)
 	}
 	return append(data, '\n'), nil
 }

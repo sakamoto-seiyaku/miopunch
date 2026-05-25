@@ -218,6 +218,83 @@ func TestPersistJoinedBootstrapFailureLeavesNoVisiblePartialNetwork(t *testing.T
 	}
 }
 
+func TestEnrollHandledRequestRoundTripWithoutJoinedNetwork(t *testing.T) {
+	t.Parallel()
+
+	store := mustOpenStore(t)
+	fixture := mustJoinedBootstrapFixture(t)
+	record := EnrollHandledRequest{
+		MsgID:              mustMsgID(t, "MFRGGZDFMZTWQ2LKNNWG23TPOI"),
+		RequestFingerprint: []byte("fingerprint"),
+		ResponseCiphertext: []byte("ciphertext"),
+	}
+
+	if err := store.StoreEnrollHandledRequest(fixture.NetworkID, record); err != nil {
+		t.Fatalf("StoreEnrollHandledRequest() error = %v, want nil", err)
+	}
+
+	loaded, err := store.LoadEnrollHandledRequest(fixture.NetworkID, record.MsgID)
+	if err != nil {
+		t.Fatalf("LoadEnrollHandledRequest() error = %v, want nil", err)
+	}
+	if loaded.MsgID != record.MsgID {
+		t.Fatalf("LoadEnrollHandledRequest().MsgID = %q, want %q", loaded.MsgID, record.MsgID)
+	}
+	if !bytes.Equal(loaded.RequestFingerprint, record.RequestFingerprint) {
+		t.Fatalf("LoadEnrollHandledRequest().RequestFingerprint mismatch")
+	}
+	if !bytes.Equal(loaded.ResponseCiphertext, record.ResponseCiphertext) {
+		t.Fatalf("LoadEnrollHandledRequest().ResponseCiphertext mismatch")
+	}
+}
+
+func TestEnrollHandledRequestFailureLeavesNoPartialRecord(t *testing.T) {
+	t.Parallel()
+
+	store := mustOpenStore(t)
+	fixture := mustJoinedBootstrapFixture(t)
+	record := EnrollHandledRequest{
+		MsgID:              mustMsgID(t, "MFRGGZDFMZTWQ2LKNNWG23TPOI"),
+		RequestFingerprint: []byte("fingerprint"),
+		ResponseCiphertext: []byte("ciphertext"),
+	}
+
+	realWriteFile := store.ops.writeFile
+	store.ops.writeFile = func(path string, data []byte, perm os.FileMode) error {
+		if filepath.Base(path) != record.MsgID+".json" {
+			return realWriteFile(path, data, perm)
+		}
+		return errors.New("forced enroll handled write failure")
+	}
+
+	err := store.StoreEnrollHandledRequest(fixture.NetworkID, record)
+	if err == nil || !strings.Contains(err.Error(), "forced enroll handled write failure") {
+		t.Fatalf("StoreEnrollHandledRequest() error = %v, want forced enroll handled write failure", err)
+	}
+
+	cachePath := filepath.Join(store.root, "device", "enroll_handled", fixture.NetworkID, record.MsgID+".json")
+	assertPathMissing(t, cachePath)
+}
+
+func TestEnrollHandledRequestDoesNotExposeJoinedNetwork(t *testing.T) {
+	t.Parallel()
+
+	store := mustOpenStore(t)
+	fixture := mustJoinedBootstrapFixture(t)
+	record := EnrollHandledRequest{
+		MsgID:              mustMsgID(t, "MFRGGZDFMZTWQ2LKNNWG23TPOI"),
+		RequestFingerprint: []byte("fingerprint"),
+		ResponseCiphertext: []byte("ciphertext"),
+	}
+
+	if err := store.StoreEnrollHandledRequest(fixture.NetworkID, record); err != nil {
+		t.Fatalf("StoreEnrollHandledRequest() error = %v, want nil", err)
+	}
+	if _, err := store.LoadSelfMemberCredential(fixture.NetworkID); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("LoadSelfMemberCredential() error = %v, want %v", err, os.ErrNotExist)
+	}
+}
+
 func TestReloadAndTopicScopeRemainStableAcrossRestart(t *testing.T) {
 	t.Parallel()
 
@@ -288,6 +365,14 @@ func TestPermissionDriftIsCorrectedOnTouchedPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EnsureDeviceKeys() error = %v, want nil", err)
 	}
+	record := EnrollHandledRequest{
+		MsgID:              mustMsgID(t, "MFRGGZDFMZTWQ2LKNNWG23TPOI"),
+		RequestFingerprint: []byte("fingerprint"),
+		ResponseCiphertext: []byte("ciphertext"),
+	}
+	if err := store.StoreEnrollHandledRequest(fixture.NetworkID, record); err != nil {
+		t.Fatalf("StoreEnrollHandledRequest() error = %v, want nil", err)
+	}
 	if err := store.PersistJoinedBootstrap(fixture); err != nil {
 		t.Fatalf("PersistJoinedBootstrap() error = %v, want nil", err)
 	}
@@ -297,6 +382,9 @@ func TestPermissionDriftIsCorrectedOnTouchedPaths(t *testing.T) {
 		filepath.Join(store.root, "device"),
 		filepath.Join(store.root, "device", "ed25519.key"),
 		filepath.Join(store.root, "device", "x25519.key"),
+		filepath.Join(store.root, "device", "enroll_handled"),
+		filepath.Join(store.root, "device", "enroll_handled", fixture.NetworkID),
+		filepath.Join(store.root, "device", "enroll_handled", fixture.NetworkID, record.MsgID+".json"),
 		filepath.Join(store.root, "networks", fixture.NetworkID),
 		filepath.Join(store.root, "networks", fixture.NetworkID, "member_credential.bin"),
 		filepath.Join(store.root, "networks", fixture.NetworkID, "mailbox_secret.bin"),
@@ -322,11 +410,17 @@ func TestPermissionDriftIsCorrectedOnTouchedPaths(t *testing.T) {
 	if _, err := store.LoadRosterSnapshot(fixture.NetworkID); err != nil {
 		t.Fatalf("LoadRosterSnapshot() error = %v, want nil", err)
 	}
+	if _, err := store.LoadEnrollHandledRequest(fixture.NetworkID, record.MsgID); err != nil {
+		t.Fatalf("LoadEnrollHandledRequest() error = %v, want nil", err)
+	}
 
 	assertMode(t, store.root, dirPerm)
 	assertMode(t, filepath.Join(store.root, "device"), dirPerm)
 	assertMode(t, filepath.Join(store.root, "device", "ed25519.key"), filePerm)
 	assertMode(t, filepath.Join(store.root, "device", "x25519.key"), filePerm)
+	assertMode(t, filepath.Join(store.root, "device", "enroll_handled"), dirPerm)
+	assertMode(t, filepath.Join(store.root, "device", "enroll_handled", fixture.NetworkID), dirPerm)
+	assertMode(t, filepath.Join(store.root, "device", "enroll_handled", fixture.NetworkID, record.MsgID+".json"), filePerm)
 	assertMode(t, filepath.Join(store.root, "networks", fixture.NetworkID), dirPerm)
 	assertMode(t, filepath.Join(store.root, "networks", fixture.NetworkID, "member_credential.bin"), filePerm)
 	assertMode(t, filepath.Join(store.root, "networks", fixture.NetworkID, "mailbox_secret.bin"), filePerm)
@@ -435,6 +529,16 @@ func mustPeerID(t *testing.T, seedByte byte) string {
 		t.Fatalf("PeerIDFromEd25519Pub(%x) error = %v, want nil", pub, err)
 	}
 	return peerID
+}
+
+func mustMsgID(t *testing.T, value string) string {
+	t.Helper()
+
+	msgID, err := wire.CanonicalizeMsgID(value)
+	if err != nil {
+		t.Fatalf("CanonicalizeMsgID(%q) error = %v, want nil", value, err)
+	}
+	return msgID
 }
 
 func diffRosterSnapshot(want, got RosterSnapshot) string {

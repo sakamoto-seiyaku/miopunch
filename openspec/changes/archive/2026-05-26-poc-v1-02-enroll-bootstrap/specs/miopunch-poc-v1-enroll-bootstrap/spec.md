@@ -53,10 +53,19 @@ The system SHALL NOT add a second bootstrap-specific request id beyond the outer
 ### Requirement: JoinRequest is sealed to the authority using current v1 wire/security
 The system SHALL publish `JoinRequest` to `join_topic` and SHALL encrypt it to `authority_x25519_pub` using `miopunch-poc-v1-controlplane-wire`.
 
+After the current v1 wire/security layer admits a `JoinRequest`, the authority SHALL bind the admitted sender identity to the request body:
+
+- `opened.Inner.SenderEd25519` MUST equal `requester_ed25519_pub`
+- `opened.Inner.SenderPeerID` MUST equal the `peer_id` derived from `requester_ed25519_pub`
+
 #### Scenario: Authority is the only intended reader of JoinRequest
 - **WHEN** a joiner publishes `JoinRequest`
 - **THEN** the message is sealed to `authority_x25519_pub`
 - **AND** relays or brokers can route it without reading the request body
+
+#### Scenario: Admitted sender must match the requester identity in the body
+- **WHEN** a current v1 authority admits a `JoinRequest`
+- **THEN** it rejects the request if the admitted sender key or peer_id differs from the body's requester identity
 
 ### Requirement: MemberCredential binds keys, not peer_id storage
 The system SHALL define `MemberCredential` so that membership is bound to:
@@ -125,7 +134,14 @@ Current v1 consumers MAY use presence to determine online state, but SHALL NOT d
 ### Requirement: Authority idempotency is keyed by message identity
 After `miopunch-poc-v1-controlplane-wire` admits a `JoinRequest` at the wire and security boundary, this capability SHALL own authority-side deduplication of the approve/enroll side effect by current v1 message identity (`msg_id`) and SHALL be able to replay a cached response for the same handled request.
 
+The replay cache backing that deduplication SHALL be durable across authority restart, and replay-cache load failures SHALL fail closed instead of being treated as cache misses.
+
 #### Scenario: Replayed JoinRequest does not duplicate enrollment
 - **WHEN** the authority receives the same handled current v1 `JoinRequest` again
 - **THEN** it does not create a second enrollment side effect
 - **AND** it may return the cached enrollment response for that `msg_id`
+
+#### Scenario: Corrupt replay cache does not trigger a second side effect
+- **WHEN** authority replay-cache state for one handled `msg_id` is unreadable or malformed
+- **THEN** authority returns an error
+- **AND** it does not regenerate or overwrite the cached response for that `msg_id`

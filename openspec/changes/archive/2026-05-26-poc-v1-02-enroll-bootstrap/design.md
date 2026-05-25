@@ -59,6 +59,8 @@
   - `device_name`（可选）
   - `platform`（可选）
 - authority 侧基于 `msg_id` 的去重与 cached response 语义
+- authority 侧 replay cache 必须 durable across restart，且 cache read failure 必须 fail-closed
+- authority 在 approve/enroll 前必须把 admitted sender (`SenderEd25519` / `SenderPeerID`) 与 `JoinRequest` body 的 requester 长期身份绑定
 
 **02 does not own:**
 

@@ -108,6 +108,13 @@ type JoinedBootstrap struct {
 	RosterSnapshot       RosterSnapshot
 }
 
+// EnrollHandledRequest is one persisted authority-side enroll replay record.
+type EnrollHandledRequest struct {
+	MsgID              string
+	RequestFingerprint []byte
+	ResponseCiphertext []byte
+}
+
 func validateDeviceKeys(keys DeviceKeys) error {
 	if len(keys.Ed25519Seed) != deviceKeySize {
 		return fmt.Errorf("invalid ed25519 seed length: %d", len(keys.Ed25519Seed))
@@ -181,5 +188,23 @@ func normalizeJoinedBootstrap(joined JoinedBootstrap) (JoinedBootstrap, error) {
 		MailboxSecret:        append([]byte(nil), joined.MailboxSecret...),
 		RuntimeBroker:        broker,
 		RosterSnapshot:       snapshot,
+	}, nil
+}
+
+func normalizeEnrollHandledRequest(record EnrollHandledRequest) (EnrollHandledRequest, error) {
+	msgID, err := wire.CanonicalizeMsgID(record.MsgID)
+	if err != nil {
+		return EnrollHandledRequest{}, fmt.Errorf("canonicalize msg_id: %w", err)
+	}
+	if len(record.RequestFingerprint) == 0 {
+		return EnrollHandledRequest{}, fmt.Errorf("request fingerprint is required")
+	}
+	if len(record.ResponseCiphertext) == 0 {
+		return EnrollHandledRequest{}, fmt.Errorf("response ciphertext is required")
+	}
+	return EnrollHandledRequest{
+		MsgID:              msgID,
+		RequestFingerprint: append([]byte(nil), record.RequestFingerprint...),
+		ResponseCiphertext: append([]byte(nil), record.ResponseCiphertext...),
 	}, nil
 }
