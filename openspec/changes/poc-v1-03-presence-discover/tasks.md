@@ -7,7 +7,7 @@
 ## 2. Snapshot Consumption
 
 - [ ] 2.1 Build the discover view by joining `.../presence/+` online/offline state with the persisted `roster_snapshot`.
-- [ ] 2.2 Persist `last_seen_peers` through `06` APIs only.
+- [ ] 2.2 Define the minimal `last_seen_peers` object model in `03`; only wire persistence after that model is frozen instead of inventing it inside `06` foundation.
 - [ ] 2.3 Keep presence observation-only; do not route trust, remote `x25519`, inbox authority, or dial state through it.
 
 ## 3. Acceptance

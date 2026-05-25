@@ -5,7 +5,7 @@
 依赖：
 
 - `02`：拿到 `mailbox_secret`、`network_id` 与初始 `roster_snapshot`
-- `06`：读写 `roster_snapshot` 与 `last_seen_peers` 的持久化 authority
+- `06`：提供 `roster_snapshot` 与 `TopicScope` 的 foundation authority；如果 `last_seen_peers` 需要落盘，03 先冻结自己的 object model
 
 ## Extraction Strategy
 
@@ -25,10 +25,10 @@
   - `peer_id`
   - `device_name`
   - `platform`
-  - `app_ver`
-  - `ts_unix_ms`
+- `app_ver`
+- `ts_unix_ms`
 - Discover 输入契约：订阅 `.../presence/+` 得到 `peer_id -> online/offline` 观测，再与 06 的 `roster_snapshot` 合并成 discover view
-- `last_seen_peers` 的最小更新模型（通过 06 persist API）
+- `last_seen_peers` 的最小 object model（先在 03 冻结；不要求 06 foundation 先替它定 typed schema）
 
 **03 does not own:**
 
@@ -45,7 +45,7 @@
 
 1. 实现 presence topic 派生、connect publish、disconnect LWT 配置。
 2. 实现固定 JSON payload encode/decode 与 `peer_id` keyed 的 observation model。
-3. 实现 retained snapshot + live update 与 06 `roster_snapshot` 的合并逻辑，并通过 06 持久化 `last_seen_peers`。
+3. 实现 retained snapshot + live update 与 06 `roster_snapshot` 的合并逻辑；如需持久化 `last_seen_peers`，先在 03 冻结该 object model，再接入后续 persist store。
 4. 为 reconnect、offline、duplicate retained/live update 增加测试。
 
 ## Acceptance
@@ -54,4 +54,5 @@
 - 非正常断连时 retained LWT 能把状态更新为 `offline`。
 - `04` 只把 Discover view 当作在线态输入；远端 `x25519` / inbox 定位仍来自 06 `roster_snapshot + TopicScope`。
 - `07` 能直接读取同一 discover view 做 GUI 展示，而不必拼 legacy task state。
+- 03 不再要求 06 foundation 先替 `last_seen_peers` 定 typed schema。
 - presence payload 不进入任何签名、授权或路由信任链。
