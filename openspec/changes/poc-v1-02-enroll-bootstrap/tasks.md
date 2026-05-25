@@ -12,6 +12,6 @@
 
 ## 3. Persistence Handoff + Acceptance
 
-- [ ] 3.1 Persist bootstrap success through `06` APIs only: `self_member_credential + mailbox_secret + runtime_broker + roster_snapshot`.
+- [ ] 3.1 Persist bootstrap success through one `06` atomic grouped-bootstrap API only: `self_member_credential + mailbox_secret + runtime_broker + roster_snapshot`.
 - [ ] 3.2 Add tests for InviteCode roundtrip, JoinRequest PoP verification, MemberCredential verification, and authority restart idempotency.
 - [ ] 3.3 Add a local MQTT smoke proving `invite -> join_request -> approve -> enroll_response -> persist` completes and seeds the trusted member roster without touching presence, punch, or session logic.

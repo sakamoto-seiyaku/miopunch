@@ -95,6 +95,16 @@ Consumers SHALL treat `self_member_credential.network_id` as the authoritative j
 - **THEN** the joiner receives `EnrollResponse` on `reply_topic`
 - **AND** the response body contains only `self_member_credential + mailbox_secret + runtime_broker + roster_snapshot`
 
+### Requirement: Enrollment handoff to persistence is atomic
+The system SHALL hand `self_member_credential + mailbox_secret + runtime_broker + roster_snapshot` to current v1 persistence as one grouped bootstrap write for the joined network.
+
+Joiners SHALL NOT expose joined-network state after persisting only a strict subset of that four-field package.
+
+#### Scenario: Crash during persistence does not expose a partially joined network
+- **WHEN** a joiner crashes or fails while persisting the accepted enrollment package
+- **THEN** later startup either sees the complete joined bootstrap state or no joined bootstrap state
+- **AND** it does not treat a subset of the four persisted objects as a successful joined network
+
 ### Requirement: Initial trusted member roster is bootstrapped during enrollment
 The system SHALL treat `roster_snapshot` from `EnrollResponse` as the initial trusted member roster for current v1.
 

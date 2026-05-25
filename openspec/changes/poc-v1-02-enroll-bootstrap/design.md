@@ -50,6 +50,9 @@
   - `mailbox_secret`
   - `runtime_broker`
   - `roster_snapshot`
+- bootstrap handoff contract：
+  - joiner 将上面四项作为一个 grouped package 交给 06
+  - 06 负责把该 package 作为单个 joined-state write 落盘
 - `roster_snapshot` 的最小 entry：
   - `peer_id`
   - `member_credential`
@@ -75,7 +78,7 @@
 1. 实现 `InviteCapability` / `InviteCode (MPINV1)` 的 TLV encode/decode、签名与显示格式。
 2. 实现 `JoinRequest` encode/decode、PoP 验证与 `reply_topic` 预订阅前置条件。
 3. 实现 authority 侧 approve/enroll 逻辑：`msg_id` 去重、cached response、`EnrollResponse` peer_e2e_v1 投递。
-4. 实现 `MemberCredential` 验签、`peer_id` 推导一致性、`roster_snapshot` 组装与 bootstrap handoff 到 06 persist API。
+4. 实现 `MemberCredential` 验签、`peer_id` 推导一致性、`roster_snapshot` 组装与 grouped bootstrap handoff 到 06 persist API。
 5. 增加本地 MQTT smoke 与 authority restart/idempotency 测试。
 
 ## Acceptance
@@ -83,4 +86,4 @@
 - 邀请码只包含 entry-ticket 字段，不夹带运行时状态。
 - `JoinRequest` 与 `EnrollResponse` 都通过 `01` 的 v1 wire/security 路径传输。
 - authority 重放同一 `msg_id` 不重复副作用，并能返回 cached response。
-- joiner 成功入网后只写入 `self_member_credential + mailbox_secret + runtime_broker + roster_snapshot`，且写入通过 06 persist API 完成。
+- joiner 成功入网后只写入 `self_member_credential + mailbox_secret + runtime_broker + roster_snapshot`，且写入通过 06 的 grouped bootstrap persist API 作为单个 joined-state handoff 完成。
