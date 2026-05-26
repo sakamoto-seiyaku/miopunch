@@ -37,10 +37,19 @@ The system MAY use current v1 presence to decide whether a peer appears online.
 
 The system SHALL NOT use presence as the authority for remote `MemberCredential`, remote X25519 identity, or inbox topic derivation.
 
+For the default current v1 discover path, this capability SHALL consume only `DiscoverPeer.online_state` from `miopunch-poc-v1-presence-discover` as its presence-owned input surface.
+
+Presence-only observations that stay outside `DiscoverView.peers[]` SHALL NOT become dial targets through this capability.
+
 #### Scenario: Presence does not supply trusted recipient identity
 - **WHEN** a current v1 dialer sees a peer as `online` in Discover
 - **THEN** it still resolves the remote credential and inbox topic from the persisted trusted roster and topic scope
 - **AND** it does not treat presence as sufficient proof of dial recipient identity
+
+#### Scenario: Unknown presence-only peer does not become a dial target
+- **WHEN** a runtime observes presence for a `peer_id` that is absent from the trusted current v1 `DiscoverView`
+- **THEN** current v1 dial/punch does not treat that observation as a discover-owned dial target
+- **AND** trust resolution still requires the persisted roster
 
 ### Requirement: Attempt scheduling is bounded by the fixed 5B matrix
 The system SHALL schedule at most 4 concurrent candidate-pair attempts and SHALL enforce a fixed 10 second total budget.

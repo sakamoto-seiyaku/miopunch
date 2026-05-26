@@ -96,9 +96,18 @@ The system SHALL build the current v1 desktop runtime by consuming typed contrac
 - `miopunch-poc-v1-secure-session`
 - `miopunch-poc-v1-persistence`
 
+For the Discover stage, the runtime SHALL project the single domain `DiscoverView` owned by `miopunch-poc-v1-presence-discover` into `/api/v1/poc/runtime`.
+
+The runtime and GUI SHALL NOT re-join roster and presence independently, and SHALL NOT reconstruct discover semantics from legacy `/api/v0/desktop/state`.
+
 The GUI SHALL NOT treat legacy task internals as its long-term source of truth for the extracted v1 path.
 
 #### Scenario: Desktop runtime reads extracted v1 state instead of legacy internals
 - **WHEN** the current v1 desktop flow renders peer, punch, session, or shell state
 - **THEN** it reads typed contracts from the extracted v1 path
 - **AND** legacy task internals are not the governing runtime model
+
+#### Scenario: Discover stage projects the single presence-owned view
+- **WHEN** the current v1 runtime prepares Discover-stage data for `/api/v1/poc/runtime`
+- **THEN** it projects the one `DiscoverView` produced by `miopunch-poc-v1-presence-discover`
+- **AND** it does not rebuild peer rows by separately merging legacy desktop snapshots with roster and presence data
