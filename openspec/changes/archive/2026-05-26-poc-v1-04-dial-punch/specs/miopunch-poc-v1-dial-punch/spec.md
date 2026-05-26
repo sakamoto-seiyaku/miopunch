@@ -27,10 +27,30 @@ The fixed body field set SHALL be:
 - `candidates`
 - `member_credential`
 
+The receiving peer SHALL treat body `member_credential` as an asserted identity that still requires validation.
+It SHALL accept that credential only when:
+
+- inner `sender_peer_id` matches the credential-derived `peer_id`
+- inner `sender_ed25519` matches `member_credential.subject_ed25519_pub`
+- the credential matches the trusted roster entry for that `peer_id`
+- the credential verifies under the network authority Ed25519 public key
+
 #### Scenario: Candidate exchange stays within the fixed two-message flow
 - **WHEN** two enrolled peers coordinate a current v1 punch attempt
 - **THEN** they exchange only `dial_offer` and `dial_answer`
 - **AND** those messages carry only the fixed body fields
+
+#### Scenario: Candidate exchange rejects invalid asserted identity
+- **WHEN** a receiving peer opens a `dial_offer` or `dial_answer`
+- **AND** the asserted `member_credential` disagrees with inner sender identity, trusted roster bytes, or authority verification
+- **THEN** current v1 dial/punch rejects that message
+- **AND** the remote identity does not enter `PathResult`
+
+#### Scenario: Dial answer stays bound to the current exchange
+- **WHEN** a dialer receives a `dial_answer`
+- **AND** its `dial_id`, `punch_token`, `in_reply_to`, or responder `peer_id` does not match the in-flight offer
+- **THEN** current v1 dial/punch rejects that answer
+- **AND** it does not bind that answer to the current punch attempt
 
 ### Requirement: Presence is advisory for dial target selection only
 The system MAY use current v1 presence to decide whether a peer appears online.
@@ -61,6 +81,11 @@ The system SHALL stop at the first successful selected path.
 - **THEN** the runtime attempts candidate pairs within the fixed 5B bounds
 - **AND** it records evidence for attempted pairs, timeouts, and the selected result
 
+#### Scenario: Attempt evidence records failure modes and convergence
+- **WHEN** multiple current v1 candidate-pair attempts run in parallel
+- **THEN** each failed attempt records `timeout`, `canceled`, or `failed`
+- **AND** once one attempt selects the path, the remaining attempts converge and stop
+
 ### Requirement: PathResult is the only output of this capability
 The system SHALL output `PathResult` from current v1 dial/punch.
 
@@ -78,3 +103,4 @@ The system SHALL NOT embed KCP/TLS/yamux or session-recipe selection into `PathR
 - **WHEN** current v1 dial/punch succeeds
 - **THEN** the result is a `PathResult`
 - **AND** the session layer still chooses how to upgrade that path without re-reading roster authority
+- **AND** the remote identity in that result has already passed sender, roster, and authority validation
