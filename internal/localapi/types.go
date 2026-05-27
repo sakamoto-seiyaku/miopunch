@@ -1,12 +1,12 @@
 package localapi
 
 import (
+	"encoding/json"
 	"time"
 
-	"github.com/miopunch/miopunch/internal/task"
+	pocruntime "github.com/miopunch/miopunch/internal/pocv1/runtime"
 )
 
-// StatusResponse is the JSON response body for GET /api/v0/status.
 type StatusResponse struct {
 	Version   string     `json:"version"`
 	StartedAt time.Time  `json:"started_at"`
@@ -14,21 +14,13 @@ type StatusResponse struct {
 	Mode      ListenMode `json:"mode"`
 }
 
-// PeersResponse is the JSON response body for GET /api/v0/peers.
-type PeersResponse struct {
-	Peers []Peer `json:"peers"`
+type Snapshot = pocruntime.Snapshot
+
+type Event = pocruntime.Event
+
+type ActionResult = pocruntime.ActionResult
+
+type ActionRequest struct {
+	Action string          `json:"action"`
+	Args   json.RawMessage `json:"args,omitempty"`
 }
-
-// Peer is a minimal peer descriptor returned by GET /api/v0/peers.
-type Peer struct {
-	PeerID string `json:"peer_id"`
-}
-
-// TasksResponse is the JSON response body for GET /api/v0/tasks.
-type TasksResponse struct {
-	Tasks []task.Task `json:"tasks"`
-}
-
-type DesktopStateResponse = task.DesktopStateSnapshot
-
-type DesktopStateEvent = task.DesktopStateEvent

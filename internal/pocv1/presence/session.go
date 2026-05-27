@@ -26,6 +26,7 @@ import (
 	mqttclient "github.com/256dpi/gomqtt/client"
 	"github.com/256dpi/gomqtt/client/future"
 	"github.com/256dpi/gomqtt/packet"
+	"github.com/miopunch/miopunch/internal/pocv1/persist"
 )
 
 const defaultTimeout = 5 * time.Second
@@ -145,6 +146,13 @@ func (s *Session) Diagnostics() []Diagnostic {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.engine.Diagnostics()
+}
+
+// ReloadRosterSnapshot refreshes the trusted roster used by this session.
+func (s *Session) ReloadRosterSnapshot(snapshot persist.RosterSnapshot) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.engine.ReloadRosterSnapshot(snapshot)
 }
 
 // WaitForPeerState waits until the discover view contains peerID in wantState.

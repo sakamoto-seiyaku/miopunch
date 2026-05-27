@@ -1,3 +1,5 @@
+//go:build !windows
+
 package main
 
 import (
@@ -5,78 +7,56 @@ import (
 	"context"
 	"encoding/json"
 	"net"
-	"net/http"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/256dpi/gomqtt/broker"
-	"github.com/256dpi/gomqtt/transport"
-
 	"github.com/miopunch/miopunch/internal/localapi"
 	"github.com/miopunch/miopunch/internal/poc"
-	"github.com/miopunch/miopunch/internal/pocstate"
-	"github.com/miopunch/miopunch/internal/task"
+	pocruntime "github.com/miopunch/miopunch/internal/pocv1/runtime"
 )
 
-func TestCLI_Smoke_LocalAPI_Invite_JSONEnvelope(t *testing.T) {
+func TestCLI_Smoke_LocalAPI_InitNetwork_JSONEnvelope(t *testing.T) {
 	t.Parallel()
 
-	socketPath := filepath.Join(t.TempDir(), "localapi.sock")
-	ln, err := net.Listen("unix", socketPath)
+	runtimeInstance, err := pocruntime.Open(pocruntime.Options{Root: t.TempDir()})
 	if err != nil {
-		t.Fatalf("listen unix: %v", err)
+		t.Fatalf("runtime.Open() error = %v, want nil", err)
 	}
-	t.Cleanup(func() { _ = ln.Close() })
+	t.Cleanup(func() { _ = runtimeInstance.Close() })
 
-	brokerAddr := startTCPMQTTBroker(t)
-	statePath := filepath.Join(t.TempDir(), "state.json")
-	if err := pocstate.Save(statePath, pocstate.State{
-		Format: pocstate.FormatV0,
-		Local: &pocstate.LocalConfig{
-			MQTTBroker:  brokerAddr,
-			TopicPrefix: "miopunch/test",
-			DataProto:   "quic",
-			QUICCC:      "bbr",
-		},
-		Peers: map[string]pocstate.PeerConfig{},
-	}); err != nil {
-		t.Fatalf("seed state.json: %v", err)
+	socketPath := filepath.Join(t.TempDir(), "localapi.sock")
+	listener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		t.Fatalf("net.Listen(unix) error = %v, want nil", err)
 	}
-	initAdminNetworkForSmokeTest(t, statePath, brokerAddr)
-	mgr := task.NewManagerWithStatePath(statePath)
-	t.Cleanup(mgr.Close)
+	t.Cleanup(func() { _ = listener.Close() })
 
-	api := localapi.NewServer(localapi.ListenModeUser, mgr)
-	srv := &http.Server{Handler: api.Handler()}
-	go func() { _ = srv.Serve(ln) }()
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		_ = srv.Shutdown(ctx)
-	})
+	server := localapi.NewServer(localapi.ListenModeUser, runtimeInstance)
+	t.Cleanup(func() { _ = server.Close() })
+	go func() { _ = server.Serve(listener) }()
 
 	client, err := localapi.NewClient(localapi.Addr{Transport: localapi.TransportUnix, Path: socketPath})
 	if err != nil {
-		t.Fatalf("new localapi client: %v", err)
+		t.Fatalf("localapi.NewClient() error = %v, want nil", err)
 	}
-	deadline := time.Now().Add(1 * time.Second)
+	deadline := time.Now().Add(2 * time.Second)
 	for {
 		if err := client.ProbeStatus(context.Background()); err == nil {
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("localapi status not reachable within deadline")
+			t.Fatalf("ProbeStatus() did not succeed before deadline")
 		}
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(20 * time.Millisecond)
 	}
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	exitCode := run([]string{"--format", "json", "--localapi", "unix:" + socketPath, "invite"}, &stdout, &stderr)
+	exitCode := run([]string{"--format", "json", "--localapi", "unix:" + socketPath, "init-network"}, &stdout, &stderr)
 	if exitCode != 0 {
-		t.Fatalf("run(invite --format json) exitCode=%d want %d, stderr=%s", exitCode, 0, stderr.String())
+		t.Fatalf("run(init-network --format json) exitCode = %d, want 0, stderr=%s", exitCode, stderr.String())
 	}
 
 	out := stdout.String()
@@ -86,77 +66,30 @@ func TestCLI_Smoke_LocalAPI_Invite_JSONEnvelope(t *testing.T) {
 
 	var env poc.EnvelopeJSONV0
 	if err := json.Unmarshal([]byte(out), &env); err != nil {
-		t.Fatalf("decode JSON envelope: %v\nraw=%s", err, out)
+		t.Fatalf("json.Unmarshal(envelope) error = %v, raw=%s", err, out)
 	}
-
 	if env.Format != poc.JSONFormatV0 {
-		t.Fatalf("format=%q want %q", env.Format, poc.JSONFormatV0)
+		t.Fatalf("env.Format = %q, want %q", env.Format, poc.JSONFormatV0)
 	}
-	if env.TaskID == "" {
-		t.Fatalf("task_id is empty, raw=%s", out)
-	}
-	if env.Kind != "invite" {
-		t.Fatalf("kind=%q want %q", env.Kind, "invite")
+	if env.Kind != "init-network" {
+		t.Fatalf("env.Kind = %q, want %q", env.Kind, "init-network")
 	}
 	if env.Status != "done" {
-		t.Fatalf("status=%q want %q", env.Status, "done")
-	}
-	if env.Stage == "" {
-		t.Fatalf("stage is empty, raw=%s", out)
+		t.Fatalf("env.Status = %q, want %q", env.Status, "done")
 	}
 	if env.ReasonCode != poc.ReasonCodeOK {
-		t.Fatalf("reason_code=%q want %q", env.ReasonCode, poc.ReasonCodeOK)
+		t.Fatalf("env.ReasonCode = %q, want %q", env.ReasonCode, poc.ReasonCodeOK)
 	}
 	if env.ExitCode != poc.ExitCodeOK {
-		t.Fatalf("exit_code=%d want %d", env.ExitCode, poc.ExitCodeOK)
+		t.Fatalf("env.ExitCode = %d, want %d", env.ExitCode, poc.ExitCodeOK)
+	}
+	if env.Stage == "" {
+		t.Fatalf("env.Stage = empty, want non-empty")
 	}
 	if len(env.Facts) == 0 {
-		t.Fatalf("facts is empty, raw=%s", out)
+		t.Fatalf("env.Facts = empty, want non-empty")
 	}
 	if env.Suggestions == nil {
-		t.Fatalf("suggestions is nil, raw=%s", out)
+		t.Fatalf("env.Suggestions = nil, want non-nil")
 	}
-}
-
-func initAdminNetworkForSmokeTest(t *testing.T, statePath string, brokers ...string) {
-	t.Helper()
-
-	stateDir, err := pocstate.StateDir(statePath)
-	if err != nil {
-		t.Fatalf("pocstate.StateDir(%q) error = %v", statePath, err)
-	}
-	selfID, err := pocstate.EnsureIdentity(stateDir)
-	if err != nil {
-		t.Fatalf("pocstate.EnsureIdentity(%q) error = %v", stateDir, err)
-	}
-	netState, err := pocstate.EnsureNet(stateDir, brokers)
-	if err != nil {
-		t.Fatalf("pocstate.EnsureNet(%q) error = %v", stateDir, err)
-	}
-	if _, err := pocstate.EnsureGovernanceHeadSnapshot(stateDir, netState.NetID, selfID); err != nil {
-		t.Fatalf("pocstate.EnsureGovernanceHeadSnapshot(%q) error = %v", stateDir, err)
-	}
-	if _, err := pocstate.EnsureDecls(stateDir); err != nil {
-		t.Fatalf("pocstate.EnsureDecls(%q) error = %v", stateDir, err)
-	}
-}
-
-func startTCPMQTTBroker(t *testing.T) string {
-	t.Helper()
-
-	server, err := transport.Launch("tcp://127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("transport.Launch(tcp://127.0.0.1:0) error = %v", err)
-	}
-	backend := broker.NewMemoryBackend()
-	engine := broker.NewEngine(backend)
-	engine.Accept(server)
-
-	t.Cleanup(func() {
-		_ = server.Close()
-		backend.Close(500 * time.Millisecond)
-		engine.Close()
-	})
-
-	return server.Addr().String()
 }

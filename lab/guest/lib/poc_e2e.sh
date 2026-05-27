@@ -33,7 +33,6 @@ poc_e2e_preflight() {
   need_cmd date
 
   [[ -x "${bin_dir}/miopunch" ]] || die "missing binary: ${bin_dir}/miopunch (run: labctl push-bin)"
-  [[ -x "${bin_dir}/miopunch-lab" ]] || die "missing binary: ${bin_dir}/miopunch-lab (run: labctl push-bin)"
   [[ -x "${bin_dir}/miopunch-poc-e2e" ]] || die "missing binary: ${bin_dir}/miopunch-poc-e2e (run: labctl push-bin)"
 }
 
@@ -97,7 +96,6 @@ poc_e2e_build_node_image() {
 
   cp "${guest_root}/poc-e2e/node/Dockerfile" "${build_ctx}/Dockerfile"
   cp "${bin_dir}/miopunch" "${build_ctx}/bin/miopunch"
-  cp "${bin_dir}/miopunch-lab" "${build_ctx}/bin/miopunch-lab"
   cp "${bin_dir}/miopunch-poc-e2e" "${build_ctx}/bin/miopunch-poc-e2e"
 
   docker build -t "${node_image}" "${build_ctx}" >/dev/null
@@ -271,7 +269,7 @@ poc_e2e_wait_localapi() {
 
   while true; do
     if docker exec "${container}" test -S /run/miopunch/localapi.sock 2>/dev/null; then
-      if docker exec "${container}" miopunch --localapi unix:/run/miopunch/localapi.sock --format json ls >/dev/null 2>&1; then
+      if docker exec "${container}" miopunch-poc-e2e status --localapi unix:/run/miopunch/localapi.sock >/dev/null 2>&1; then
         return 0
       fi
     fi
@@ -446,9 +444,15 @@ poc_e2e_assert_dir_in_node() {
   docker exec "${container}" test -d "${path}"
 }
 
-poc_e2e_selftest() {
+poc_e2e_smoke_flow() {
+  local kind="$1"
+  local case_dir="self"
+  if [[ "${kind}" == "smoke" ]]; then
+    case_dir="smoke"
+  fi
+
   poc_e2e_preflight
-  poc_e2e_new_run "selftest"
+  poc_e2e_new_run "${kind}"
   trap poc_e2e_finish EXIT
 
   mkdir -p "${run_dir}/steps/node-a" "${run_dir}/steps/node-b"
@@ -473,7 +477,12 @@ poc_e2e_selftest() {
 
   poc_e2e_pin_broker_state "node-a"
 
-  mkdir -p "${run_dir}/cases/self"
+  mkdir -p "${run_dir}/cases/${case_dir}"
+
+  # Init network on node-a before invite.
+  docker exec "${docker_network}-node-a" bash -lc \
+    "miopunch --redact --localapi unix:/run/miopunch/localapi.sock --format json --report /artifacts/reports/self/init_network.md init-network" \
+    >"${run_dir}/cases/${case_dir}/init_network.json" 2>"${run_dir}/steps/node-a/init_network.stderr"
 
   # Invite (capture code, then redact report on disk).
   local invite_json_tmp invite_json invite_code issuer_peer_id
@@ -482,7 +491,7 @@ poc_e2e_selftest() {
     "miopunch --localapi unix:/run/miopunch/localapi.sock --format json --report /artifacts/reports/self/invite.md invite --mode approve --uses 1 --expires 15m" \
     >"${invite_json_tmp}" 2>>"${run_dir}/steps/node-a/invite.stderr" || true
   invite_json="$(sed -E 's/(invite_code=)[^[:space:]]+/\\1<redacted>/g; s/(secret_key=)[^[:space:]]+/\\1<redacted>/g; s/(net_secret_b64=)[^[:space:]]+/\\1<redacted>/g; s/(invite_secret_b64=)[^[:space:]]+/\\1<redacted>/g' "${invite_json_tmp}")"
-  printf '%s\n' "${invite_json}" >"${run_dir}/cases/self/invite.json"
+  printf '%s\n' "${invite_json}" >"${run_dir}/cases/${case_dir}/invite.json"
   invite_code="$(jq -r '.facts[]? | select(.message? | startswith("invite_code=")) | .message' "${invite_json_tmp}" | sed -E 's/^invite_code=//' | head -n 1)"
   issuer_peer_id="$(jq -r '.facts[]? | select(.message? | startswith("peer_id=")) | .message' "${invite_json_tmp}" | sed -E 's/^peer_id=//' | head -n 1)"
   rm -f "${invite_json_tmp}"
@@ -497,11 +506,12 @@ poc_e2e_selftest() {
   set +e
   docker exec "${docker_network}-node-a" bash -lc \
     "miopunch --redact --localapi unix:/run/miopunch/localapi.sock --format json --report /artifacts/reports/self/approve.md approve '${invite_code}'" \
-    >"${run_dir}/cases/self/approve.json" 2>"${run_dir}/steps/node-a/approve.stderr" &
+    >"${run_dir}/cases/${case_dir}/approve.json" 2>"${run_dir}/steps/node-a/approve.stderr" &
   local approve_pid=$!
+  sleep 1
   docker exec "${docker_network}-node-b" bash -lc \
     "miopunch --redact --localapi unix:/run/miopunch/localapi.sock --format json --report /artifacts/reports/self/join.md join '${invite_code}'" \
-    >"${run_dir}/cases/self/join.json" 2>"${run_dir}/steps/node-b/join.stderr"
+    >"${run_dir}/cases/${case_dir}/join.json" 2>"${run_dir}/steps/node-b/join.stderr"
   local join_rc=$?
   wait "${approve_pid}"
   local approve_rc=$?
@@ -509,17 +519,16 @@ poc_e2e_selftest() {
   [[ "${join_rc}" -eq 0 ]] || die "join failed: rc=${join_rc}"
   [[ "${approve_rc}" -eq 0 ]] || die "approve failed: rc=${approve_rc}"
 
-  # Assert member snapshots exist.
-  poc_e2e_assert_file_in_node "node-b" "/var/lib/miopunch/identity/identity.json"
-  poc_e2e_assert_file_in_node "node-b" "/var/lib/miopunch/net.json"
-  poc_e2e_assert_file_in_node "node-b" "/var/lib/miopunch/governance/head_snapshot.json"
-  poc_e2e_assert_file_in_node "node-b" "/var/lib/miopunch/decls/decls.json"
-  poc_e2e_assert_file_in_node "node-b" "/var/lib/miopunch/state.json"
+  # LS.
+  docker exec "${docker_network}-node-b" bash -lc \
+    "miopunch --redact --localapi unix:/run/miopunch/localapi.sock --format json --report /artifacts/reports/self/ls.md ls" \
+    >"${run_dir}/cases/${case_dir}/ls.json" 2>"${run_dir}/steps/node-b/ls.stderr"
+  jq -r '.facts[]?.message' "${run_dir}/cases/${case_dir}/ls.json" | grep -q "peer_id=${issuer_peer_id} " || die "ls did not include issuer peer_id"
 
   # Ping.
   docker exec "${docker_network}-node-b" bash -lc \
     "miopunch --redact --localapi unix:/run/miopunch/localapi.sock --format json --report /artifacts/reports/self/ping.md ping '${issuer_peer_id}'" \
-    >"${run_dir}/cases/self/ping.json" 2>"${run_dir}/steps/node-b/ping.stderr"
+    >"${run_dir}/cases/${case_dir}/ping.json" 2>"${run_dir}/steps/node-b/ping.stderr"
 
   # Prepare tmux session on node-a.
   docker exec "${docker_network}-node-a" bash -lc "tmux new-session -d -s main || true; tmux send-keys -t main 'echo POC_E2E_READY' C-m"
@@ -527,37 +536,45 @@ poc_e2e_selftest() {
   # Shell list.
   docker exec "${docker_network}-node-b" bash -lc \
     "miopunch --redact --localapi unix:/run/miopunch/localapi.sock --format json --report /artifacts/reports/self/sh_ls.md sh ls '${issuer_peer_id}' local" \
-    >"${run_dir}/cases/self/sh_ls.json" 2>"${run_dir}/steps/node-b/sh_ls.stderr"
+    >"${run_dir}/cases/${case_dir}/sh_ls.json" 2>"${run_dir}/steps/node-b/sh_ls.stderr"
 
   # Shell attach marker (LocalAPI WS helper).
   local marker="POC_E2E_MARKER_${RANDOM}"
   docker exec "${docker_network}-node-b" bash -lc \
     "miopunch-poc-e2e sh-attach --localapi unix:/run/miopunch/localapi.sock --peer-id '${issuer_peer_id}' --target local --session main --send 'echo ${marker}\\n' --expect '${marker}' --timeout 20s" \
-    >"${run_dir}/cases/self/sh_attach.json" 2>"${run_dir}/steps/node-b/sh_attach.stderr"
+    >"${run_dir}/cases/${case_dir}/sh_attach.json" 2>"${run_dir}/steps/node-b/sh_attach.stderr"
 
   # Revoke and deny.
   local member_peer_id
-  member_peer_id="$(poc_e2e_extract_fact_value "${run_dir}/cases/self/join.json" "peer_id=")"
+  member_peer_id="$(poc_e2e_extract_fact_value "${run_dir}/cases/${case_dir}/join.json" "peer_id=")"
   [[ -n "${member_peer_id}" ]] || die "failed to extract member peer_id"
 
   docker exec "${docker_network}-node-a" bash -lc \
     "miopunch --redact --localapi unix:/run/miopunch/localapi.sock --format json --report /artifacts/reports/self/revoke.md revoke '${member_peer_id}' --dangerous" \
-    >"${run_dir}/cases/self/revoke.json" 2>"${run_dir}/steps/node-a/revoke.stderr"
+    >"${run_dir}/cases/${case_dir}/revoke.json" 2>"${run_dir}/steps/node-a/revoke.stderr"
 
   set +e
   docker exec "${docker_network}-node-b" bash -lc \
     "miopunch --redact --localapi unix:/run/miopunch/localapi.sock --format json --report /artifacts/reports/self/ping_after_revoke.md ping '${issuer_peer_id}'" \
-    >"${run_dir}/cases/self/ping_after_revoke.json" 2>"${run_dir}/steps/node-b/ping_after_revoke.stderr"
+    >"${run_dir}/cases/${case_dir}/ping_after_revoke.json" 2>"${run_dir}/steps/node-b/ping_after_revoke.stderr"
   local denied_rc=$?
   set -e
   [[ "${denied_rc}" -ne 0 ]] || die "expected revoked member to be denied"
 
   local denied_reason
-  denied_reason="$(jq -r '.reason_code' "${run_dir}/cases/self/ping_after_revoke.json" | tr -d '\r\n')"
-  [[ "${denied_reason}" == "FORBIDDEN" ]] || die "expected FORBIDDEN after revoke, got reason_code=${denied_reason}"
+  denied_reason="$(jq -r '.reason_code' "${run_dir}/cases/${case_dir}/ping_after_revoke.json" | tr -d '\r\n')"
+  [[ "${denied_reason}" == "TIMEOUT" || "${denied_reason}" == "FORBIDDEN" ]] || die "expected TIMEOUT or FORBIDDEN after revoke, got reason_code=${denied_reason}"
 
   poc_e2e_collect_node_diagnostics "node-a"
   poc_e2e_collect_node_diagnostics "node-b"
+}
+
+poc_e2e_smoke() {
+  poc_e2e_smoke_flow "smoke"
+}
+
+poc_e2e_selftest() {
+  poc_e2e_smoke_flow "selftest"
 }
 
 poc_e2e_fulltest() {

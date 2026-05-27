@@ -111,6 +111,38 @@ func (e *Engine) ApplyObservation(obs Observation, rawPayload []byte) bool {
 	return true
 }
 
+// ReloadRosterSnapshot replaces the trusted roster while preserving observed state.
+func (e *Engine) ReloadRosterSnapshot(snapshot persist.RosterSnapshot) error {
+	nextCfg := e.cfg
+	nextCfg.RosterSnapshot = snapshot
+	normalizedCfg, err := normalizeConfig(nextCfg)
+	if err != nil {
+		return err
+	}
+
+	rosterByPeer := make(map[string]persist.RosterEntry, len(normalizedCfg.RosterSnapshot.Entries))
+	rosterOrder := make([]persist.RosterEntry, 0, len(normalizedCfg.RosterSnapshot.Entries))
+	for _, entry := range normalizedCfg.RosterSnapshot.Entries {
+		rosterByPeer[entry.PeerID] = persist.RosterEntry{
+			PeerID:           entry.PeerID,
+			MemberCredential: append([]byte(nil), entry.MemberCredential...),
+			DeviceName:       entry.DeviceName,
+			Platform:         entry.Platform,
+		}
+		rosterOrder = append(rosterOrder, persist.RosterEntry{
+			PeerID:           entry.PeerID,
+			MemberCredential: append([]byte(nil), entry.MemberCredential...),
+			DeviceName:       entry.DeviceName,
+			Platform:         entry.Platform,
+		})
+	}
+
+	e.cfg = normalizedCfg
+	e.rosterByPeer = rosterByPeer
+	e.rosterOrder = rosterOrder
+	return nil
+}
+
 // View materializes the current roster-bounded discover view.
 func (e *Engine) View(now time.Time) DiscoverView {
 	observedAtUnixMs := uint64(now.UTC().UnixMilli())

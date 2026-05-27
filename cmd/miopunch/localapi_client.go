@@ -2,12 +2,19 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/miopunch/miopunch/internal/localapi"
 	"github.com/miopunch/miopunch/internal/poc"
 )
+
+const defaultDaemonBootstrapTimeout = 10 * time.Second
 
 type localAPIConnectionError struct {
 	Failure failureOutput
@@ -17,7 +24,30 @@ func (e *localAPIConnectionError) Error() string {
 	return string(e.Failure.ReasonCode)
 }
 
+type localAPIConnectorDeps struct {
+	currentOperatorSID func() (string, error)
+	defaultSystemAddr  func(string) (localapi.Addr, error)
+	defaultUserAddr    func(string) (localapi.Addr, error)
+	probe              func(context.Context, localapi.Addr) (*localapi.Client, error)
+	bootstrap          func(localapi.Addr) error
+}
+
 func connectLocalAPI(ctx context.Context, override string) (*localapi.Client, localapi.Addr, error) {
+	return connectLocalAPIWithDeps(ctx, override, localAPIConnectorDeps{
+		currentOperatorSID: poc.CurrentOperatorSID,
+		defaultSystemAddr:  localapi.DefaultSystemAddr,
+		defaultUserAddr:    localapi.DefaultUserAddr,
+		probe:              probeLocalAPIClient,
+		bootstrap:          bootstrapDaemonAndWait,
+	})
+}
+
+func connectLocalAPIWithDeps(ctx context.Context, override string, deps localAPIConnectorDeps) (*localapi.Client, localapi.Addr, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	deps = deps.withDefaults()
+
 	if strings.TrimSpace(override) != "" {
 		addr, err := localapi.ParseAddr(override)
 		if err != nil {
@@ -36,47 +66,14 @@ func connectLocalAPI(ctx context.Context, override string) (*localapi.Client, lo
 				},
 			}
 		}
-		c, err := localapi.NewClient(addr)
+		client, err := deps.probe(ctx, addr)
 		if err != nil {
-			return nil, localapi.Addr{}, err
+			return nil, localapi.Addr{}, unreachableLocalAPIFailure(addr, err)
 		}
-		if err := c.ProbeStatus(ctx); err != nil {
-			if isPermissionError(err) {
-				return nil, localapi.Addr{}, &localAPIConnectionError{
-					Failure: failureOutput{
-						Stage:      "cli",
-						ReasonCode: poc.ReasonCodeForbidden,
-						ExitCode:   poc.ExitCodeForbidden,
-						Facts: []poc.Fact{
-							{Message: "permission denied connecting to localapi"},
-							{Message: "addr=" + addr.String()},
-						},
-						Suggestions: []poc.Suggestion{
-							{Message: "check operator permissions"},
-						},
-					},
-				}
-			}
-
-			return nil, localapi.Addr{}, &localAPIConnectionError{
-				Failure: failureOutput{
-					Stage:      "cli",
-					ReasonCode: poc.ReasonCodeDaemonNotRunning,
-					ExitCode:   poc.ExitCodeUnavailable,
-					Facts: []poc.Fact{
-						{Message: "localapi is not reachable"},
-						{Message: "addr=" + addr.String()},
-					},
-					Suggestions: []poc.Suggestion{
-						{Message: "start the daemon: miopunch up"},
-					},
-				},
-			}
-		}
-		return c, addr, nil
+		return client, addr, nil
 	}
 
-	operatorSID, err := poc.CurrentOperatorSID()
+	operatorSID, err := deps.currentOperatorSID()
 	if err != nil {
 		return nil, localapi.Addr{}, &localAPIConnectionError{
 			Failure: failureOutput{
@@ -93,63 +90,47 @@ func connectLocalAPI(ctx context.Context, override string) (*localapi.Client, lo
 		}
 	}
 
-	systemAddr, err := localapi.DefaultSystemAddr(operatorSID)
-	if err == nil {
-		c, err := localapi.NewClient(systemAddr)
-		if err != nil {
-			return nil, localapi.Addr{}, err
+	systemAddr, systemAddrErr := deps.defaultSystemAddr(operatorSID)
+	userAddr, userAddrErr := deps.defaultUserAddr(operatorSID)
+
+	primaryAddr, primaryName := choosePrimaryLocalAPI(systemAddr, systemAddrErr, userAddr, userAddrErr)
+	if primaryName != "" {
+		client, err := deps.probe(ctx, primaryAddr)
+		if err == nil {
+			return client, primaryAddr, nil
 		}
-		if err := c.ProbeStatus(ctx); err == nil {
-			return c, systemAddr, nil
-		} else if isPermissionError(err) {
-			return nil, localapi.Addr{}, &localAPIConnectionError{
-				Failure: failureOutput{
-					Stage:      "cli",
-					ReasonCode: poc.ReasonCodeForbidden,
-					ExitCode:   poc.ExitCodeForbidden,
-					Facts: []poc.Fact{
-						{Message: "permission denied connecting to system localapi"},
-						{Message: "addr=" + systemAddr.String()},
-					},
-					Suggestions: systemLocalAPIPermissionSuggestions(),
-				},
-			}
+		if isPermissionError(err) {
+			return nil, localapi.Addr{}, permissionLocalAPIFailure(primaryName, primaryAddr)
 		}
 	}
 
-	userAddr, userAddrErr := localapi.DefaultUserAddr(operatorSID)
-	if userAddrErr == nil {
-		c, err := localapi.NewClient(userAddr)
-		if err != nil {
-			return nil, localapi.Addr{}, err
+	if primaryName == "user" && systemAddrErr == nil {
+		client, err := deps.probe(ctx, systemAddr)
+		if err == nil {
+			return client, systemAddr, nil
 		}
-		if err := c.ProbeStatus(ctx); err == nil {
-			return c, userAddr, nil
-		} else if isPermissionError(err) {
-			return nil, localapi.Addr{}, &localAPIConnectionError{
-				Failure: failureOutput{
-					Stage:      "cli",
-					ReasonCode: poc.ReasonCodeForbidden,
-					ExitCode:   poc.ExitCodeForbidden,
-					Facts: []poc.Fact{
-						{Message: "permission denied connecting to user localapi"},
-						{Message: "addr=" + userAddr.String()},
-					},
-					Suggestions: userLocalAPIPermissionSuggestions(),
-				},
-			}
+		if isPermissionError(err) {
+			return nil, localapi.Addr{}, permissionLocalAPIFailure("system", systemAddr)
 		}
 	}
 
-	facts := []poc.Fact{}
-	if err == nil {
-		facts = append(facts, poc.Fact{Message: "system_addr=" + systemAddr.String()})
-	}
-	if userAddrErr == nil {
-		facts = append(facts, poc.Fact{Message: "user_addr=" + userAddr.String()})
-	}
-	if userAddrErr != nil {
-		facts = append(facts, poc.Fact{Message: "user_addr_error=" + userAddrErr.Error()})
+	facts := localAPIResolutionFacts(systemAddr, systemAddrErr, userAddr, userAddrErr)
+	if primaryName != "" {
+		bootstrapErr := deps.bootstrap(primaryAddr)
+		if bootstrapErr == nil {
+			client, err := deps.probe(ctx, primaryAddr)
+			if err == nil {
+				return client, primaryAddr, nil
+			}
+			if isPermissionError(err) {
+				return nil, localapi.Addr{}, permissionLocalAPIFailure(primaryName, primaryAddr)
+			}
+			bootstrapErr = err
+		}
+		facts = append(facts,
+			poc.Fact{Message: "bootstrap_addr=" + primaryAddr.String()},
+			poc.Fact{Message: "bootstrap_error=" + bootstrapErr.Error()},
+		)
 	}
 
 	return nil, localapi.Addr{}, &localAPIConnectionError{
@@ -160,8 +141,147 @@ func connectLocalAPI(ctx context.Context, override string) (*localapi.Client, lo
 			Facts:      facts,
 			Suggestions: []poc.Suggestion{
 				{Message: "start the daemon: miopunch up"},
-				{Message: "or install system service: miopunch install-system-daemon"},
 			},
+		},
+	}
+}
+
+func (deps localAPIConnectorDeps) withDefaults() localAPIConnectorDeps {
+	if deps.currentOperatorSID == nil {
+		deps.currentOperatorSID = poc.CurrentOperatorSID
+	}
+	if deps.defaultSystemAddr == nil {
+		deps.defaultSystemAddr = localapi.DefaultSystemAddr
+	}
+	if deps.defaultUserAddr == nil {
+		deps.defaultUserAddr = localapi.DefaultUserAddr
+	}
+	if deps.probe == nil {
+		deps.probe = probeLocalAPIClient
+	}
+	if deps.bootstrap == nil {
+		deps.bootstrap = bootstrapDaemonAndWait
+	}
+	return deps
+}
+
+func localAPIResolutionFacts(
+	systemAddr localapi.Addr,
+	systemAddrErr error,
+	userAddr localapi.Addr,
+	userAddrErr error,
+) []poc.Fact {
+	facts := []poc.Fact{}
+	if systemAddrErr == nil {
+		facts = append(facts, poc.Fact{Message: "system_addr=" + systemAddr.String()})
+	} else {
+		facts = append(facts, poc.Fact{Message: "system_addr_error=" + systemAddrErr.Error()})
+	}
+	if userAddrErr == nil {
+		facts = append(facts, poc.Fact{Message: "user_addr=" + userAddr.String()})
+	} else {
+		facts = append(facts, poc.Fact{Message: "user_addr_error=" + userAddrErr.Error()})
+	}
+	return facts
+}
+
+func choosePrimaryLocalAPI(
+	systemAddr localapi.Addr,
+	systemAddrErr error,
+	userAddr localapi.Addr,
+	userAddrErr error,
+) (localapi.Addr, string) {
+	if isRootOperator() {
+		if systemAddrErr == nil {
+			return systemAddr, "system"
+		}
+		if userAddrErr == nil {
+			return userAddr, "user"
+		}
+		return localapi.Addr{}, ""
+	}
+	if userAddrErr == nil {
+		return userAddr, "user"
+	}
+	if systemAddrErr == nil {
+		return systemAddr, "system"
+	}
+	return localapi.Addr{}, ""
+}
+
+func bootstrapDaemonAndWait(addr localapi.Addr) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.Command(exe, "up")
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+	configureBootstrapCommand(cmd)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	deadline := time.Now().Add(defaultDaemonBootstrapTimeout)
+	for time.Now().Before(deadline) {
+		client, err := probeLocalAPIClient(context.Background(), addr)
+		if err == nil {
+			return client.ProbeStatus(context.Background())
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return fmt.Errorf("timed out waiting for localapi at %s", addr.String())
+}
+
+func probeLocalAPIClient(ctx context.Context, addr localapi.Addr) (*localapi.Client, error) {
+	client, err := localapi.NewClient(addr)
+	if err != nil {
+		return nil, err
+	}
+	if err := client.ProbeStatus(ctx); err != nil {
+		return nil, err
+	}
+	return client, nil
+}
+
+func unreachableLocalAPIFailure(addr localapi.Addr, err error) error {
+	if isPermissionError(err) {
+		return permissionLocalAPIFailure("override", addr)
+	}
+	return &localAPIConnectionError{
+		Failure: failureOutput{
+			Stage:      "cli",
+			ReasonCode: poc.ReasonCodeDaemonNotRunning,
+			ExitCode:   poc.ExitCodeUnavailable,
+			Facts: []poc.Fact{
+				{Message: "localapi is not reachable"},
+				{Message: "addr=" + addr.String()},
+			},
+			Suggestions: []poc.Suggestion{
+				{Message: "start the daemon: miopunch up"},
+			},
+		},
+	}
+}
+
+func permissionLocalAPIFailure(endpoint string, addr localapi.Addr) error {
+	facts := []poc.Fact{
+		{Message: "permission denied connecting to localapi"},
+		{Message: "endpoint=" + endpoint},
+		{Message: "addr=" + addr.String()},
+	}
+	suggestions := userLocalAPIPermissionSuggestions()
+	if endpoint == "system" {
+		suggestions = systemLocalAPIPermissionSuggestions()
+	}
+	return &localAPIConnectionError{
+		Failure: failureOutput{
+			Stage:       "cli",
+			ReasonCode:  poc.ReasonCodeForbidden,
+			ExitCode:    poc.ExitCodeForbidden,
+			Facts:       facts,
+			Suggestions: suggestions,
 		},
 	}
 }

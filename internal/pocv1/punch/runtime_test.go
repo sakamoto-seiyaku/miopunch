@@ -161,3 +161,19 @@ func TestRunPunchReturnsSelectedPathEvidence(t *testing.T) {
 		t.Fatalf("runPunch().Evidence.AttemptedPairs[0].Result = %q, want %q", got.Evidence.AttemptedPairs[0].Result, "selected")
 	}
 }
+
+func TestRunPunchUsesSymmetricPairSID(t *testing.T) {
+	localA := Candidate{Kind: CandidateKindHost, Addr: "127.0.0.1:4001"}
+	remoteA := Candidate{Kind: CandidateKindHost, Addr: "127.0.0.1:5001"}
+	remoteB := Candidate{Kind: CandidateKindHost, Addr: "172.25.0.3:5001"}
+
+	gotAB := sidForDialPair("dial-1", localA, remoteB)
+	gotBA := sidForDialPair("dial-1", remoteB, localA)
+	if gotAB != gotBA {
+		t.Fatalf("sidForDialPair() symmetry mismatch: gotAB=%q gotBA=%q", gotAB, gotBA)
+	}
+
+	if sidForDialPair("dial-1", localA, remoteA) == gotAB {
+		t.Fatalf("sidForDialPair() collision between distinct pairs")
+	}
+}

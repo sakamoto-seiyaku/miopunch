@@ -1,296 +1,238 @@
 package localapi
 
 import (
-	"bytes"
+	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"net/http"
-	"net/url"
+	"net"
 	"strings"
 	"time"
+)
 
-	"github.com/gorilla/websocket"
+const (
+	rpcVersion = "2.0"
 
-	"github.com/miopunch/miopunch/internal/poc"
-	"github.com/miopunch/miopunch/internal/task"
+	channelRPC    = "rpc"
+	channelEvents = "events"
+	channelShell  = "shell"
 )
 
 type Client struct {
-	addr       Addr
-	httpClient *http.Client
-}
-
-type APIError struct {
-	StatusCode int
-	Response   ErrorResponse
-}
-
-func (e *APIError) Error() string {
-	msg := strings.TrimSpace(e.Response.Message)
-	if msg == "" {
-		msg = "localapi error"
-	}
-	return fmt.Sprintf("%s (http=%d exit_code=%d reason_code=%s)", msg, e.StatusCode, e.Response.ExitCode, e.Response.ReasonCode)
-}
-
-type UnexpectedStatusError struct {
-	StatusCode int
-}
-
-func (e *UnexpectedStatusError) Error() string {
-	return fmt.Sprintf("unexpected status: %d", e.StatusCode)
+	addr Addr
 }
 
 func NewClient(addr Addr) (*Client, error) {
-	dial, err := dialContextForAddr(addr)
-	if err != nil {
-		return nil, err
+	if addr.Transport == "" {
+		return nil, fmt.Errorf("localapi transport is required")
 	}
-
-	tr := &http.Transport{
-		DialContext: dial,
+	if strings.TrimSpace(addr.Path) == "" {
+		return nil, fmt.Errorf("localapi path is required")
 	}
-
-	return &Client{
-		addr:       addr,
-		httpClient: &http.Client{Transport: tr},
-	}, nil
+	return &Client{addr: addr}, nil
 }
 
 func (c *Client) ProbeStatus(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
 	defer cancel()
+	_, err := c.GetStatus(ctx)
+	return err
+}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+poc.LocalAPIHost+"/api/v0/status", nil)
+func (c *Client) GetStatus(ctx context.Context) (StatusResponse, error) {
+	var status StatusResponse
+	if err := c.call(ctx, "status", nil, &status); err != nil {
+		return StatusResponse{}, err
+	}
+	return status, nil
+}
+
+func (c *Client) GetSnapshot(ctx context.Context) (Snapshot, error) {
+	var snapshot Snapshot
+	if err := c.call(ctx, "snapshot", nil, &snapshot); err != nil {
+		return Snapshot{}, err
+	}
+	return snapshot, nil
+}
+
+func (c *Client) Action(ctx context.Context, action string, args any) (ActionResult, error) {
+	req := ActionRequest{Action: strings.TrimSpace(action)}
+	if args != nil {
+		data, err := json.Marshal(args)
+		if err != nil {
+			return ActionResult{}, fmt.Errorf("marshal action args: %w", err)
+		}
+		req.Args = data
+	}
+	var result ActionResult
+	if err := c.call(ctx, "action", req, &result); err != nil {
+		return ActionResult{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) OpenEvents(ctx context.Context) (io.ReadCloser, error) {
+	conn, reader, err := c.openChannel(ctx, channelPreface{
+		Version: protocolVersion,
+		Channel: channelEvents,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &bufferedConn{Conn: conn, reader: reader}, nil
+}
+
+func (c *Client) DialShell(ctx context.Context, shellSessionID string) (io.ReadWriteCloser, error) {
+	conn, reader, err := c.openChannel(ctx, channelPreface{
+		Version:        protocolVersion,
+		Channel:        channelShell,
+		ShellSessionID: strings.TrimSpace(shellSessionID),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &bufferedConn{Conn: conn, reader: reader}, nil
+}
+
+func (c *Client) call(ctx context.Context, method string, params any, out any) error {
+	conn, reader, err := c.openChannel(ctx, channelPreface{
+		Version: protocolVersion,
+		Channel: channelRPC,
+	})
 	if err != nil {
 		return err
 	}
-	req.Host = poc.LocalAPIHost
+	defer func() { _ = conn.Close() }()
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
+	request := rpcRequest{
+		JSONRPC: rpcVersion,
+		ID:      mustMarshalRaw("1"),
+		Method:  method,
 	}
-	_, _ = io.Copy(io.Discard, resp.Body)
-	_ = resp.Body.Close()
+	if params != nil {
+		request.Params = mustMarshalRaw(params)
+	}
+	if err := setConnDeadline(conn, ctx); err != nil {
+		return fmt.Errorf("set rpc deadline: %w", err)
+	}
+	defer clearConnDeadline(conn)
+	if err := json.NewEncoder(conn).Encode(request); err != nil {
+		return fmt.Errorf("write rpc request: %w", err)
+	}
 
-	if resp.StatusCode != http.StatusOK {
-		return &UnexpectedStatusError{StatusCode: resp.StatusCode}
+	var response rpcResponse
+	if err := json.NewDecoder(reader).Decode(&response); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil && isConnDeadlineError(err) {
+			return ctxErr
+		}
+		return protocolError(err, "decode rpc response")
+	}
+	if response.JSONRPC != rpcVersion {
+		return &UnexpectedStatusError{Problem: "unsupported rpc version"}
+	}
+	if response.Error != nil {
+		return decodeRPCError(response.Error)
+	}
+	if out == nil {
+		return nil
+	}
+	if len(response.Result) == 0 {
+		return &UnexpectedStatusError{Problem: "missing rpc result"}
+	}
+	if err := json.Unmarshal(response.Result, out); err != nil {
+		return protocolError(err, "decode rpc result")
 	}
 	return nil
 }
 
-func (c *Client) GetStatus(ctx context.Context) (StatusResponse, error) {
-	var resp StatusResponse
-	if err := c.doJSON(ctx, http.MethodGet, "/api/v0/status", nil, &resp); err != nil {
-		return StatusResponse{}, err
-	}
-	return resp, nil
-}
-
-func (c *Client) GetPeers(ctx context.Context) (PeersResponse, error) {
-	var resp PeersResponse
-	if err := c.doJSON(ctx, http.MethodGet, "/api/v0/peers", nil, &resp); err != nil {
-		return PeersResponse{}, err
-	}
-	return resp, nil
-}
-
-func (c *Client) GetTopology(ctx context.Context) (task.TopologySnapshot, error) {
-	var resp task.TopologySnapshot
-	if err := c.doJSON(ctx, http.MethodGet, "/api/v0/topology", nil, &resp); err != nil {
-		return task.TopologySnapshot{}, err
-	}
-	return resp, nil
-}
-
-func (c *Client) GetTasks(ctx context.Context) (TasksResponse, error) {
-	var resp TasksResponse
-	if err := c.doJSON(ctx, http.MethodGet, "/api/v0/tasks", nil, &resp); err != nil {
-		return TasksResponse{}, err
-	}
-	return resp, nil
-}
-
-func (c *Client) GetDesktopState(ctx context.Context) (task.DesktopStateSnapshot, error) {
-	var resp task.DesktopStateSnapshot
-	if err := c.doJSON(ctx, http.MethodGet, "/api/v0/desktop/state", nil, &resp); err != nil {
-		return task.DesktopStateSnapshot{}, err
-	}
-	return resp, nil
-}
-
-func (c *Client) UpdateDesktopConfig(ctx context.Context, update task.DesktopConfigUpdate) (task.DesktopStateSnapshot, error) {
-	var resp task.DesktopStateSnapshot
-	if err := c.doJSON(ctx, http.MethodPatch, "/api/v0/desktop/config", update, &resp); err != nil {
-		return task.DesktopStateSnapshot{}, err
-	}
-	return resp, nil
-}
-
-func (c *Client) CreateTask(ctx context.Context, kind string, args any) (task.Task, error) {
-	reqBody := map[string]any{
-		"kind": kind,
-	}
-	if args != nil {
-		reqBody["args"] = args
-	}
-
-	var created task.Task
-	if err := c.doJSON(ctx, http.MethodPost, "/api/v0/tasks", reqBody, &created); err != nil {
-		return task.Task{}, err
-	}
-	return created, nil
-}
-
-func (c *Client) GetTask(ctx context.Context, taskID string) (task.Task, error) {
-	var t task.Task
-	if err := c.doJSON(ctx, http.MethodGet, "/api/v0/tasks/"+url.PathEscape(taskID), nil, &t); err != nil {
-		return task.Task{}, err
-	}
-	return t, nil
-}
-
-func (c *Client) GetTaskReport(ctx context.Context, taskID string) (string, error) {
-	resp, err := c.doRaw(ctx, http.MethodGet, "/api/v0/tasks/"+url.PathEscape(taskID)+"/report", nil)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode/100 == 2 {
-		b, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return "", err
-		}
-		return string(b), nil
-	}
-
-	apiErr, err := decodeAPIError(resp)
-	if err != nil {
-		return "", err
-	}
-	return "", apiErr
-}
-
-func (c *Client) OpenTaskEvents(ctx context.Context, taskID string) (io.ReadCloser, error) {
-	resp, err := c.doRaw(ctx, http.MethodGet, "/api/v0/tasks/"+url.PathEscape(taskID)+"/events", nil)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode/100 == 2 {
-		return resp.Body, nil
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	apiErr, err := decodeAPIError(resp)
-	if err != nil {
-		return nil, err
-	}
-	return nil, apiErr
-}
-
-func (c *Client) OpenEvents(ctx context.Context) (io.ReadCloser, error) {
-	resp, err := c.doRaw(ctx, http.MethodGet, "/api/v0/events", nil)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode/100 == 2 {
-		return resp.Body, nil
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	apiErr, err := decodeAPIError(resp)
-	if err != nil {
-		return nil, err
-	}
-	return nil, apiErr
-}
-
-func (c *Client) OpenDesktopEvents(ctx context.Context) (io.ReadCloser, error) {
-	resp, err := c.doRaw(ctx, http.MethodGet, "/api/v0/desktop/events", nil)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode/100 == 2 {
-		return resp.Body, nil
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	apiErr, err := decodeAPIError(resp)
-	if err != nil {
-		return nil, err
-	}
-	return nil, apiErr
-}
-
-func (c *Client) DialTaskWS(ctx context.Context, taskID string) (*websocket.Conn, *http.Response, error) {
-	dial, err := dialContextForAddr(c.addr)
+func (c *Client) openChannel(ctx context.Context, preface channelPreface) (net.Conn, *bufio.Reader, error) {
+	conn, err := c.dial(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	d := websocket.Dialer{
-		NetDialContext: dial,
-		Subprotocols:   []string{shSubprotocolV0},
+	reader := bufio.NewReader(conn)
+	if err := json.NewEncoder(conn).Encode(preface); err != nil {
+		_ = conn.Close()
+		return nil, nil, fmt.Errorf("write channel preface: %w", err)
 	}
-	u := url.URL{
-		Scheme: "ws",
-		Host:   poc.LocalAPIHost,
-		Path:   "/api/v0/tasks/" + url.PathEscape(taskID) + "/ws",
-	}
-	return d.DialContext(ctx, u.String(), nil)
+	return conn, reader, nil
 }
 
-func (c *Client) doJSON(ctx context.Context, method string, path string, reqBody any, respBody any) error {
-	var body io.Reader
-	if reqBody != nil {
-		b, err := json.Marshal(reqBody)
-		if err != nil {
-			return err
-		}
-		body = bytes.NewReader(b)
-	}
-
-	resp, err := c.doRaw(ctx, method, path, body)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode/100 == 2 {
-		return json.NewDecoder(resp.Body).Decode(respBody)
-	}
-
-	apiErr, err := decodeAPIError(resp)
-	if err != nil {
-		return err
-	}
-	return apiErr
-}
-
-func (c *Client) doRaw(ctx context.Context, method string, path string, body io.Reader) (*http.Response, error) {
-	u := "http://" + poc.LocalAPIHost + path
-	req, err := http.NewRequestWithContext(ctx, method, u, body)
+func (c *Client) dial(ctx context.Context) (net.Conn, error) {
+	dial, err := dialContextForAddr(c.addr)
 	if err != nil {
 		return nil, err
 	}
-	req.Host = poc.LocalAPIHost
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	return c.httpClient.Do(req)
+	return dial(ctx, "", "")
 }
 
-func decodeAPIError(resp *http.Response) (*APIError, error) {
-	var er ErrorResponse
-	if err := json.NewDecoder(resp.Body).Decode(&er); err != nil {
-		return nil, err
+func decodeRPCError(in *rpcError) error {
+	if in == nil {
+		return &UnexpectedStatusError{Problem: "missing rpc error"}
 	}
-	return &APIError{
-		StatusCode: resp.StatusCode,
-		Response:   er,
-	}, nil
+	if len(in.Data) == 0 {
+		return &UnexpectedStatusError{Problem: in.Message}
+	}
+	var resp ErrorResponse
+	if err := json.Unmarshal(in.Data, &resp); err != nil {
+		return protocolError(err, "decode rpc error data")
+	}
+	return &APIError{Response: resp}
+}
+
+func protocolError(err error, problem string) error {
+	if err == nil {
+		return &UnexpectedStatusError{Problem: problem}
+	}
+	if strings.TrimSpace(problem) == "" {
+		return &UnexpectedStatusError{Problem: err.Error()}
+	}
+	return &UnexpectedStatusError{Problem: problem + ": " + err.Error()}
+}
+
+func setConnDeadline(conn net.Conn, ctx context.Context) error {
+	if conn == nil || ctx == nil {
+		return nil
+	}
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		return nil
+	}
+	return conn.SetDeadline(deadline)
+}
+
+func clearConnDeadline(conn net.Conn) {
+	if conn == nil {
+		return
+	}
+	_ = conn.SetDeadline(time.Time{})
+}
+
+func isConnDeadlineError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
+}
+
+func trimJSONLine(line []byte) []byte {
+	return []byte(strings.TrimSpace(string(line)))
+}
+
+type bufferedConn struct {
+	net.Conn
+	reader *bufio.Reader
+}
+
+func (c *bufferedConn) Read(p []byte) (int, error) {
+	if c == nil || c.reader == nil {
+		return 0, io.EOF
+	}
+	return c.reader.Read(p)
 }

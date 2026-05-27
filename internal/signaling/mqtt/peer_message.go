@@ -168,6 +168,18 @@ func (s *PeerMessageSession) PublishInner(
 	return sealedOuter, nil
 }
 
+// PublishPayload publishes an already-sealed peer-message payload to the given topic.
+func (s *PeerMessageSession) PublishPayload(ctx context.Context, topic string, payload []byte) error {
+	topic = strings.TrimSpace(topic)
+	if topic == "" {
+		return errors.New("mqtt topic is required")
+	}
+	if len(payload) == 0 {
+		return errors.New("mqtt payload is required")
+	}
+	return s.publishPayload(ctx, topic, payload)
+}
+
 // WaitOpened waits for the next valid current v1 peer-targeted payload, drops
 // malformed or unauthenticated inputs locally, and returns the first opened
 // message.

@@ -8,37 +8,33 @@ import (
 	"io"
 	"strings"
 
-	"github.com/miopunch/miopunch/internal/task"
+	"github.com/miopunch/miopunch/internal/localapi"
 )
 
-// ReadLocalAPITaskEvents consumes an SSE stream where each event is streamed as:
-//
-//	data: <json>
-//
-// The LocalAPI uses this format for /api/v0/events and /api/v0/tasks/<id>/events.
-func ReadLocalAPITaskEvents(ctx context.Context, r io.Reader, onEvent func(task.Event) error) error {
+// ReadLocalAPITaskEvents consumes a newline-delimited LocalAPI runtime event stream.
+func ReadLocalAPITaskEvents(ctx context.Context, r io.Reader, onEvent func(localapi.Event) error) error {
 	if onEvent == nil {
 		return fmt.Errorf("onEvent is nil")
 	}
 
-	return readLocalAPIEvents(ctx, r, func(data []byte) (task.Event, error) {
-		var ev task.Event
+	return readLocalAPIEvents(ctx, r, func(data []byte) (localapi.Event, error) {
+		var ev localapi.Event
 		if err := json.Unmarshal(data, &ev); err != nil {
-			return task.Event{}, fmt.Errorf("decode task event: %w", err)
+			return localapi.Event{}, fmt.Errorf("decode task event: %w", err)
 		}
 		return ev, nil
 	}, onEvent)
 }
 
-func ReadLocalAPIDesktopStateEvents(ctx context.Context, r io.Reader, onEvent func(task.DesktopStateEvent) error) error {
+func ReadLocalAPIDesktopStateEvents(ctx context.Context, r io.Reader, onEvent func(localapi.Event) error) error {
 	if onEvent == nil {
 		return fmt.Errorf("onEvent is nil")
 	}
 
-	return readLocalAPIEvents(ctx, r, func(data []byte) (task.DesktopStateEvent, error) {
-		var ev task.DesktopStateEvent
+	return readLocalAPIEvents(ctx, r, func(data []byte) (localapi.Event, error) {
+		var ev localapi.Event
 		if err := json.Unmarshal(data, &ev); err != nil {
-			return task.DesktopStateEvent{}, fmt.Errorf("decode desktop state event: %w", err)
+			return localapi.Event{}, fmt.Errorf("decode desktop state event: %w", err)
 		}
 		return ev, nil
 	}, onEvent)
@@ -52,50 +48,26 @@ func readLocalAPIEvents[T any](ctx context.Context, r io.Reader, decode func([]b
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
-	var dataLines []string
-
-	flush := func() error {
-		if len(dataLines) == 0 {
-			return nil
-		}
-
-		data := strings.TrimSpace(strings.Join(dataLines, "\n"))
-		dataLines = dataLines[:0]
-		if data == "" {
-			return nil
-		}
-
-		ev, err := decode([]byte(data))
-		if err != nil {
-			return err
-		}
-		return onEvent(ev)
-	}
-
 	for sc.Scan() {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 
 		line := strings.TrimRight(sc.Text(), "\r")
+		line = strings.TrimSpace(line)
 		if line == "" {
-			if err := flush(); err != nil {
-				return err
-			}
 			continue
 		}
-
-		if strings.HasPrefix(line, ":") {
-			continue
+		ev, err := decode([]byte(line))
+		if err != nil {
+			return err
 		}
-
-		const prefix = "data:"
-		if strings.HasPrefix(line, prefix) {
-			dataLines = append(dataLines, strings.TrimSpace(strings.TrimPrefix(line, prefix)))
+		if err := onEvent(ev); err != nil {
+			return err
 		}
 	}
 	if err := sc.Err(); err != nil {
 		return err
 	}
-	return flush()
+	return nil
 }

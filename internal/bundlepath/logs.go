@@ -31,6 +31,20 @@ func StatePathForExecutable(exePath string) (string, error) {
 	return dataPathForExecutable(exePath, "state.json")
 }
 
+// LocalAPIPath returns a path under the current executable directory's data folder.
+func LocalAPIPath() (string, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("resolve executable: %w", err)
+	}
+	return LocalAPIPathForExecutable(exe)
+}
+
+// LocalAPIPathForExecutable returns the portable session localapi socket path for exePath.
+func LocalAPIPathForExecutable(exePath string) (string, error) {
+	return dataPathForExecutable(exePath, "localapi.sock")
+}
+
 func logPathForExecutable(exePath string, fileName string) (string, error) {
 	if strings.TrimSpace(exePath) == "" {
 		return "", fmt.Errorf("empty executable path")

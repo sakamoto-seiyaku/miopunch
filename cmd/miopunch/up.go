@@ -15,16 +15,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/miopunch/miopunch/internal/bundlepath"
 	"github.com/miopunch/miopunch/internal/http_panel"
 	"github.com/miopunch/miopunch/internal/localapi"
 	"github.com/miopunch/miopunch/internal/poc"
-	"github.com/miopunch/miopunch/internal/pocacceptor"
-	"github.com/miopunch/miopunch/internal/task"
+	pocruntime "github.com/miopunch/miopunch/internal/pocv1/runtime"
 )
 
 func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int {
 	_ = stdout
-	initDaemonLogger()
 
 	opt, _, err := parseUpOptions(args)
 	if err != nil {
@@ -32,9 +31,7 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 			Stage:      "daemon",
 			ReasonCode: poc.ReasonCodeBadRequest,
 			ExitCode:   poc.ExitCodeBadRequest,
-			Facts: []poc.Fact{
-				{Message: err.Error()},
-			},
+			Facts:      []poc.Fact{{Message: err.Error()}},
 			Suggestions: []poc.Suggestion{
 				{Message: "retry with valid flags"},
 			},
@@ -44,12 +41,27 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 	if strings.TrimSpace(globalOpt.LocalAPIOverride) != "" {
 		opt.LocalAPIOverride = strings.TrimSpace(globalOpt.LocalAPIOverride)
 	}
+	initDaemonLogger(opt.LogLevel)
 	opt, err = applySessionStatePath(opt)
 	if err != nil {
 		writeFailure(stderr, sessionStatePathFailure(err))
 		return int(poc.ExitCodeUnavailable)
 	}
 	logDaemonStatePath(opt.StatePath)
+
+	runtimeRoot, err := resolveRuntimeRoot(opt.StatePath)
+	if err != nil {
+		writeFailure(stderr, failureOutput{
+			Stage:      "daemon",
+			ReasonCode: poc.ReasonCodeUnavailable,
+			ExitCode:   poc.ExitCodeUnavailable,
+			Facts:      []poc.Fact{{Message: "failed to resolve runtime root: " + err.Error()}},
+			Suggestions: []poc.Suggestion{
+				{Message: "retry"},
+			},
+		})
+		return int(poc.ExitCodeUnavailable)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -63,9 +75,7 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 				Stage:      "daemon",
 				ReasonCode: poc.ReasonCodeBadRequest,
 				ExitCode:   poc.ExitCodeBadRequest,
-				Facts: []poc.Fact{
-					{Message: "invalid --localapi: " + err.Error()},
-				},
+				Facts:      []poc.Fact{{Message: "invalid --localapi: " + err.Error()}},
 				Suggestions: []poc.Suggestion{
 					{Message: "retry with a unix: localapi address"},
 				},
@@ -101,7 +111,25 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 	addr := userAddr
 	if override != "" {
 		addr = overrideAddr
-	} else if os.Geteuid() == 0 {
+	} else if opt.Session {
+		sessionAddr, sessionErr := sessionLocalAPIAddr()
+		if sessionErr != nil {
+			writeFailure(stderr, failureOutput{
+				Stage:      "daemon",
+				ReasonCode: poc.ReasonCodeUnavailable,
+				ExitCode:   poc.ExitCodeUnavailable,
+				Facts: []poc.Fact{
+					{Message: "failed to resolve portable localapi address: " + sessionErr.Error()},
+				},
+				Suggestions: []poc.Suggestion{
+					{Message: "extract the session bundle into a writable directory and retry"},
+					{Message: "or pass --localapi unix:/path/to/localapi.sock explicitly"},
+				},
+			})
+			return int(poc.ExitCodeUnavailable)
+		}
+		addr = sessionAddr
+	} else if isRootOperator() {
 		mode = localapi.ListenModeSystem
 		addr = systemAddr
 	} else if userAddrErr != nil {
@@ -155,17 +183,33 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 	}
 	defer func() { _ = ln.Close() }()
 
-	var mgr *task.Manager
-	if strings.TrimSpace(opt.StatePath) != "" {
-		mgr = task.NewManagerWithStatePath(opt.StatePath)
-	} else {
-		mgr = task.NewManager()
+	runtimeInstance, err := pocruntime.Open(pocruntime.Options{
+		Root:      runtimeRoot,
+		BrokerURL: strings.TrimSpace(opt.BrokerOverride),
+	})
+	if err != nil {
+		writeFailure(stderr, failureOutput{
+			Stage:      "daemon",
+			ReasonCode: poc.ReasonCodeUnavailable,
+			ExitCode:   poc.ExitCodeUnavailable,
+			Facts: []poc.Fact{
+				{Message: "failed to open runtime: " + err.Error()},
+				{Message: "root=" + runtimeRoot},
+			},
+			Suggestions: []poc.Suggestion{
+				{Message: "retry"},
+			},
+		})
+		return int(poc.ExitCodeUnavailable)
 	}
-	defer mgr.Close()
-	mgr.StartSessionKeepalive(ctx)
+	defer func() { _ = runtimeInstance.Close() }()
+
+	api := localapi.NewServer(mode, runtimeInstance)
+	defer func() { _ = api.Close() }()
 
 	var panel *http_panel.Server
 	var panelLn net.Listener
+	panelHTTPServer := &http.Server{}
 	if opt.HTTPPanel {
 		var listenErr error
 		panelLn, _, listenErr = http_panel.Listen(opt.HTTPPanelListenAddr)
@@ -192,49 +236,40 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 				Stage:      "daemon",
 				ReasonCode: poc.ReasonCodeUnavailable,
 				ExitCode:   poc.ExitCodeUnavailable,
-				Facts: []poc.Fact{
-					{Message: "failed to listen http panel: " + listenErr.Error()},
-				},
+				Facts:      []poc.Fact{{Message: "failed to listen http panel: " + listenErr.Error()}},
 				Suggestions: []poc.Suggestion{
 					{Message: "change the port via --http_panel_listen_addr and retry"},
 				},
 			})
 			return int(poc.ExitCodeUnavailable)
 		}
-		panel = http_panel.NewServer(panelLn.Addr().String(), mgr)
+		panel = http_panel.NewServer(panelLn.Addr().String(), addr)
+		panelHTTPServer.Handler = panel.Handler()
 		defer func() { _ = panelLn.Close() }()
 	}
 
-	api := localapi.NewServer(mode, mgr)
-	httpServer := &http.Server{
-		Handler: api.Handler(),
-	}
-
-	panelHTTPServer := &http.Server{}
 	errCh := make(chan error, 2)
 	go func() {
-		errCh <- fmt.Errorf("localapi serve: %w", httpServer.Serve(ln))
+		errCh <- fmt.Errorf("localapi serve: %w", api.Serve(ln))
 	}()
 	if panel != nil && panelLn != nil {
-		panelHTTPServer.Handler = panel.Handler()
 		go func() {
 			errCh <- fmt.Errorf("http panel serve: %w", panelHTTPServer.Serve(panelLn))
 		}()
 	}
-	go func() {
-		_ = pocacceptor.Run(ctx, pocacceptor.Config{StatePath: opt.StatePath, RuntimeEvidence: mgr})
-	}()
 
 	fmt.Fprintf(stderr, "miopunch up: serving LocalAPI (%s) at %s\n", mode, addr.String())
+	fmt.Fprintf(stderr, "miopunch up: runtime root %s\n", runtimeRoot)
 	if panel != nil {
 		fmt.Fprintf(stderr, "miopunch up: serving HTTP panel at %s/\n", panel.Origin())
 	}
 
 	select {
 	case <-ctx.Done():
+		_ = ln.Close()
+		_ = api.Close()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		_ = httpServer.Shutdown(shutdownCtx)
 		_ = panelHTTPServer.Shutdown(shutdownCtx)
 		return 0
 	case err := <-errCh:
@@ -245,15 +280,24 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 			Stage:      "daemon",
 			ReasonCode: poc.ReasonCodeInternal,
 			ExitCode:   poc.ExitCodeInternal,
-			Facts: []poc.Fact{
-				{Message: "server error: " + err.Error()},
-			},
+			Facts:      []poc.Fact{{Message: "server error: " + err.Error()}},
 			Suggestions: []poc.Suggestion{
 				{Message: "retry"},
 			},
 		})
 		return int(poc.ExitCodeInternal)
 	}
+}
+
+func sessionLocalAPIAddr() (localapi.Addr, error) {
+	path, err := bundlepath.LocalAPIPath()
+	if err != nil {
+		return localapi.Addr{}, err
+	}
+	return localapi.Addr{
+		Transport: localapi.TransportUnix,
+		Path:      path,
+	}, nil
 }
 
 func defaultLocalAPIConflict(ctx context.Context, systemAddr, userAddr localapi.Addr, userAddrErr error, stderr io.Writer) (failureOutput, bool) {
@@ -308,11 +352,11 @@ func defaultLocalAPIConflict(ctx context.Context, systemAddr, userAddr localapi.
 var probeLocalAPI = realProbeLocalAPI
 
 func realProbeLocalAPI(ctx context.Context, addr localapi.Addr) error {
-	c, err := localapi.NewClient(addr)
+	client, err := localapi.NewClient(addr)
 	if err != nil {
 		return err
 	}
-	return c.ProbeStatus(ctx)
+	return client.ProbeStatus(ctx)
 }
 
 func cleanupStaleLocalAPI(ctx context.Context, addr localapi.Addr) error {
@@ -333,7 +377,6 @@ func cleanupStaleUnixSocket(ctx context.Context, path string) error {
 		return statErr
 	}
 
-	// If the socket is reachable, keep it.
 	addr := localapi.Addr{Transport: localapi.TransportUnix, Path: path}
 	err := probeLocalAPI(ctx, addr)
 	if err == nil {

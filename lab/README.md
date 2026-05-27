@@ -61,6 +61,19 @@ Run POC e2e closure selftest (builds `cmd/miopunch`, `cmd/miopunch-lab`, and `to
 ./lab/host/labctl poc-e2e-selftest
 ```
 
+Run the lightweight POC v1 CLI pre-gate (single VM, two Docker nodes, host-supplied remote broker, positive path through `sh ls` only):
+
+```bash
+export MIOPUNCH_POC_V1_CLI_SMOKE_BROKER_URL=tcp://your-broker-host:1883
+./lab/host/labctl poc-v1-cli-smoke
+```
+
+The `poc-v1-cli-smoke` gate:
+- requires `MIOPUNCH_POC_V1_CLI_SMOKE_BROKER_URL`
+- uses one VM with two Docker node containers
+- validates `up -> init-network -> invite -> approve -> join -> ls -> ping -> sh ls`
+- does not cover `sh attach` or `revoke`
+
 Run POC e2e full diagnostic suite (slower; includes packet capture artifacts):
 
 ```bash

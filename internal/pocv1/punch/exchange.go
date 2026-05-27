@@ -19,7 +19,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/pocv1/peere2e"
+	"github.com/miopunch/miopunch/internal/pocv1/persist"
 	pocwire "github.com/miopunch/miopunch/internal/pocv1/wire"
 )
 
@@ -34,6 +36,12 @@ func exchangeOffer(
 	if err != nil {
 		return DialAnswer{}, trustedRemote{}, "", err
 	}
+	logutil.Debugf(
+		"punch offer publish: dial_id=%s target_peer_id=%s local_candidates=%s",
+		offer.DialID,
+		target.PeerID,
+		formatCandidates(offer.Candidates),
+	)
 	msgID, err := cfg.NewMsgID()
 	if err != nil {
 		return DialAnswer{}, trustedRemote{}, "", fmt.Errorf("new msg_id: %w", err)
@@ -77,6 +85,12 @@ func exchangeOffer(
 		if remote.PeerID != target.PeerID {
 			return DialAnswer{}, trustedRemote{}, "", fmt.Errorf("%w: remote peer_id mismatch", ErrInvalidAnswer)
 		}
+		logutil.Debugf(
+			"punch answer received: dial_id=%s target_peer_id=%s remote_candidates=%s",
+			answer.DialID,
+			remote.PeerID,
+			formatCandidates(answer.Candidates),
+		)
 		return answer, remote, msgID, nil
 	}
 }
@@ -89,46 +103,78 @@ func waitAndAnswerOffer(ctx context.Context, cfg LoadedConfig, session peerMessa
 		if err != nil {
 			return PathResult{}, fmt.Errorf("wait dial offer: %w", err)
 		}
-		offer, remote, err := verifyOffer(cfg, opened)
+		currentCfg, err := reloadOfferConfig(cfg)
+		if err != nil {
+			return PathResult{}, err
+		}
+		offer, remote, err := verifyOffer(currentCfg, opened)
 		if err != nil {
 			continue
 		}
+		logutil.Debugf(
+			"punch offer received: dial_id=%s remote_peer_id=%s remote_candidates=%s",
+			offer.DialID,
+			remote.PeerID,
+			formatCandidates(offer.Candidates),
+		)
 		answer := DialAnswer{
 			DialID:           offer.DialID,
 			PunchToken:       append([]byte(nil), offer.PunchToken...),
-			Candidates:       append([]Candidate(nil), cfg.LocalCandidates...),
-			MemberCredential: append([]byte(nil), cfg.SelfCredential...),
+			Candidates:       append([]Candidate(nil), currentCfg.LocalCandidates...),
+			MemberCredential: append([]byte(nil), currentCfg.SelfCredential...),
 		}
 		body, err := answer.MarshalBinary()
 		if err != nil {
 			return PathResult{}, err
 		}
-		replyMsgID, err := cfg.NewMsgID()
+		replyMsgID, err := currentCfg.NewMsgID()
 		if err != nil {
 			return PathResult{}, fmt.Errorf("new msg_id: %w", err)
 		}
-		replyTopic, err := cfg.TopicScope.InboxTopic(remote.PeerID)
+		replyTopic, err := currentCfg.TopicScope.InboxTopic(remote.PeerID)
 		if err != nil {
 			return PathResult{}, fmt.Errorf("derive reply inbox topic: %w", err)
 		}
-		now := cfg.NowUnixMs()
+		now := currentCfg.NowUnixMs()
 		inner := pocwire.InnerMessage{
 			DstPeerID:       remote.PeerID,
 			MsgID:           replyMsgID,
 			CreatedAtUnixMs: now,
 			ExpiresAtUnixMs: now + uint64(defaultInnerTTL.Milliseconds()),
-			SenderPeerID:    cfg.LocalPeerID,
-			SenderEd25519:   append([]byte(nil), cfg.LocalEd25519Pub...),
+			SenderPeerID:    currentCfg.LocalPeerID,
+			SenderEd25519:   append([]byte(nil), currentCfg.LocalEd25519Pub...),
 			Kind:            pocwire.KindDialAnswer,
 			InReplyTo:       opened.Inner.MsgID,
 			Body:            body,
 		}
-		if err := pocwire.SignInner(cfg.LocalEd25519Priv, &inner); err != nil {
+		if err := pocwire.SignInner(currentCfg.LocalEd25519Priv, &inner); err != nil {
 			return PathResult{}, fmt.Errorf("sign dial answer: %w", err)
 		}
 		if _, err := session.PublishInner(ctx, replyTopic, inner, remote.X25519PublicKey, peere2e.SealOptions{}); err != nil {
 			return PathResult{}, fmt.Errorf("publish dial answer: %w", err)
 		}
-		return runPunch(ctx, cfg, remote, offer.DialID, offer.PunchToken, offer.Candidates, false)
+		logutil.Debugf(
+			"punch answer publish: dial_id=%s remote_peer_id=%s local_candidates=%s",
+			answer.DialID,
+			remote.PeerID,
+			formatCandidates(answer.Candidates),
+		)
+		return runPunch(ctx, currentCfg, remote, offer.DialID, offer.PunchToken, offer.Candidates, false)
 	}
+}
+
+func reloadOfferConfig(cfg LoadedConfig) (LoadedConfig, error) {
+	rosterSnapshot, err := cfg.Store.LoadRosterSnapshot(cfg.NetworkID)
+	if err != nil {
+		return LoadedConfig{}, fmt.Errorf("reload roster snapshot: %w", err)
+	}
+
+	trustedRosterByID := make(map[string]persist.RosterEntry, len(rosterSnapshot.Entries))
+	for _, entry := range rosterSnapshot.Entries {
+		trustedRosterByID[entry.PeerID] = entry
+	}
+
+	cfg.RosterSnapshot = rosterSnapshot
+	cfg.TrustedRosterByID = trustedRosterByID
+	return cfg, nil
 }

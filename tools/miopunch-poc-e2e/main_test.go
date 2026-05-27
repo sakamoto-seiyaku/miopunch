@@ -1,12 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"io"
 	"net"
-	"net/http"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,15 +14,22 @@ import (
 
 	"github.com/miopunch/miopunch/internal/localapi"
 	"github.com/miopunch/miopunch/internal/poc"
-	"github.com/miopunch/miopunch/internal/pocstate"
+	pocruntime "github.com/miopunch/miopunch/internal/pocv1/runtime"
 	"github.com/miopunch/miopunch/internal/shellproto"
-	"github.com/miopunch/miopunch/internal/task"
 )
 
 func TestShAttach_SendsAndObservesMarker(t *testing.T) {
 	t.Parallel()
 
-	socketPath := startLocalAPIServer(t, serveEchoShell)
+	socketPath := startFakeLocalAPIServer(t, fakeLocalAPIConfig{
+		actionResult: pocruntime.ActionResult{
+			Stage:          pocruntime.StageShell,
+			ReasonCode:     poc.ReasonCodeOK,
+			ExitCode:       poc.ExitCodeOK,
+			ShellSessionID: "shell-1",
+		},
+		shellHandler: serveEchoShell,
+	})
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -47,8 +54,8 @@ func TestShAttach_SendsAndObservesMarker(t *testing.T) {
 	if !got.OK {
 		t.Fatalf("result.OK = false, want true, result=%+v stderr=%s", got, stderr.String())
 	}
-	if got.TaskID == "" {
-		t.Fatalf("result.TaskID is empty, result=%+v", got)
+	if got.ShellSessionID != "shell-1" {
+		t.Fatalf("result.ShellSessionID = %q, want %q", got.ShellSessionID, "shell-1")
 	}
 	if got.PeerID != "peer1" {
 		t.Fatalf("result.PeerID = %q, want %q", got.PeerID, "peer1")
@@ -93,7 +100,14 @@ func TestShAttach_ValidatesRequiredArgs(t *testing.T) {
 func TestShAttach_PropagatesTaskFailureReason(t *testing.T) {
 	t.Parallel()
 
-	socketPath := startLocalAPIServer(t, serveRejectSHInUseShell)
+	socketPath := startFakeLocalAPIServer(t, fakeLocalAPIConfig{
+		actionError: &localapi.ErrorResponse{
+			Stage:      string(pocruntime.StageShell),
+			ReasonCode: poc.ReasonCodeSHInUse,
+			ExitCode:   poc.ExitCodeConflict,
+			Message:    "shell already in use",
+		},
+	})
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -123,26 +137,44 @@ func TestShAttach_PropagatesTaskFailureReason(t *testing.T) {
 	}
 }
 
-func startLocalAPIServer(t *testing.T, serveShell func(conn io.ReadWriteCloser)) string {
-	t.Helper()
+func TestStatus_ReportsHealthyLocalAPI(t *testing.T) {
+	t.Parallel()
 
-	statePath := filepath.Join(t.TempDir(), "state.json")
-	if err := pocstate.Save(statePath, pocstate.State{
-		Format: pocstate.FormatV0,
-		Peers: map[string]pocstate.PeerConfig{
-			"peer1": {},
-		},
-	}); err != nil {
-		t.Fatalf("pocstate.Save(%q) error = %v", statePath, err)
+	socketPath := startFakeLocalAPIServer(t, fakeLocalAPIConfig{})
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := run([]string{
+		"status",
+		"--localapi", "unix:" + socketPath,
+	}, &stdout, &stderr)
+	if exitCode != 0 {
+		t.Fatalf("run(status) exitCode=%d, want 0, stderr=%s stdout=%s", exitCode, stderr.String(), stdout.String())
 	}
 
-	mgr := task.NewManagerWithStatePath(statePath)
-	t.Cleanup(mgr.Close)
-	mgr.SetDialPeerStreamHook(func(ctx context.Context, taskID string, peerID string, cfg pocstate.PeerConfig) (io.ReadWriteCloser, error) {
-		clientConn, serverConn := net.Pipe()
-		go serveShell(serverConn)
-		return clientConn, nil
-	})
+	var got statusResult
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("json.Unmarshal(stdout) error = %v, stdout=%s", err, stdout.String())
+	}
+	if !got.OK {
+		t.Fatalf("result.OK = false, want true, result=%+v stderr=%s", got, stderr.String())
+	}
+	if got.ReasonCode != poc.ReasonCodeOK {
+		t.Fatalf("result.ReasonCode = %q, want %q", got.ReasonCode, poc.ReasonCodeOK)
+	}
+	if got.Mode != "user" {
+		t.Fatalf("result.Mode = %q, want %q", got.Mode, "user")
+	}
+}
+
+type fakeLocalAPIConfig struct {
+	actionResult pocruntime.ActionResult
+	actionError  *localapi.ErrorResponse
+	shellHandler func(io.ReadWriteCloser)
+}
+
+func startFakeLocalAPIServer(t *testing.T, cfg fakeLocalAPIConfig) string {
+	t.Helper()
 
 	socketPath := filepath.Join(t.TempDir(), "localapi.sock")
 	ln, err := net.Listen("unix", socketPath)
@@ -151,37 +183,121 @@ func startLocalAPIServer(t *testing.T, serveShell func(conn io.ReadWriteCloser))
 	}
 	t.Cleanup(func() { _ = ln.Close() })
 
-	api := localapi.NewServer(localapi.ListenModeUser, mgr)
-	srv := &http.Server{Handler: api.Handler()}
-	go func() { _ = srv.Serve(ln) }()
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		_ = srv.Shutdown(ctx)
-	})
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go serveFakeLocalAPI(ctx, ln, cfg)
+
+	client, err := localapi.NewClient(localapi.Addr{Transport: localapi.TransportUnix, Path: socketPath})
+	if err != nil {
+		t.Fatalf("localapi.NewClient() error = %v, want nil", err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if err := client.ProbeStatus(context.Background()); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("ProbeStatus() did not succeed before deadline")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 
 	return socketPath
 }
 
-func serveEchoShell(conn io.ReadWriteCloser) {
+func serveFakeLocalAPI(ctx context.Context, ln net.Listener, cfg fakeLocalAPIConfig) {
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				return
+			}
+		}
+		go handleFakeLocalAPIConn(conn, cfg)
+	}
+}
+
+func handleFakeLocalAPIConn(conn net.Conn, cfg fakeLocalAPIConfig) {
 	defer conn.Close()
 
-	var hello shellproto.Control
-	if err := shellproto.ReadJSON(conn, &hello); err != nil {
+	reader := bufio.NewReader(conn)
+	var preface struct {
+		Version        int    `json:"version"`
+		Channel        string `json:"channel"`
+		ShellSessionID string `json:"shell_session_id,omitempty"`
+	}
+	prefaceLine, err := reader.ReadBytes('\n')
+	if err != nil {
 		return
 	}
-	_ = shellproto.WriteJSON(conn, shellproto.Control{Op: shellproto.OpHello, OK: true})
+	if err := json.Unmarshal(bytes.TrimSpace(prefaceLine), &preface); err != nil {
+		return
+	}
+	if preface.Version != 1 {
+		return
+	}
 
-	var req shellproto.Control
-	if err := shellproto.ReadJSON(conn, &req); err != nil {
+	switch strings.TrimSpace(preface.Channel) {
+	case "rpc":
+		handleFakeRPC(conn, reader, cfg)
+	case "shell":
+		if cfg.shellHandler != nil {
+			cfg.shellHandler(&bufferedConn{Conn: conn, reader: reader})
+		}
+	}
+}
+
+func handleFakeRPC(conn net.Conn, reader *bufio.Reader, cfg fakeLocalAPIConfig) {
+	var request struct {
+		JSONRPC string          `json:"jsonrpc"`
+		ID      json.RawMessage `json:"id"`
+		Method  string          `json:"method"`
+		Params  json.RawMessage `json:"params,omitempty"`
+	}
+	requestLine, err := reader.ReadBytes('\n')
+	if err != nil {
 		return
 	}
-	_ = shellproto.WriteJSON(conn, shellproto.Control{
-		Op:      shellproto.OpShAttach,
-		OK:      true,
-		Target:  strings.TrimSpace(req.Target),
-		Session: strings.TrimSpace(req.Session),
-	})
+	if err := json.Unmarshal(bytes.TrimSpace(requestLine), &request); err != nil {
+		return
+	}
+
+	response := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      request.ID,
+	}
+	switch strings.TrimSpace(request.Method) {
+	case "status":
+		response["result"] = map[string]any{
+			"version":    "test",
+			"started_at": time.Now().UTC(),
+			"uptime_ms":  1,
+			"mode":       "user",
+		}
+	case "action":
+		if cfg.actionError != nil {
+			response["error"] = map[string]any{
+				"code":    -int(cfg.actionError.ExitCode),
+				"message": cfg.actionError.Message,
+				"data":    cfg.actionError,
+			}
+		} else {
+			response["result"] = cfg.actionResult
+		}
+	default:
+		response["error"] = map[string]any{
+			"code":    -32601,
+			"message": "method not found",
+		}
+	}
+	_ = json.NewEncoder(conn).Encode(response)
+}
+
+func serveEchoShell(conn io.ReadWriteCloser) {
+	defer conn.Close()
 
 	for {
 		kind, payload, err := shellproto.ReadFrame(conn)
@@ -197,25 +313,14 @@ func serveEchoShell(conn io.ReadWriteCloser) {
 	}
 }
 
-func serveRejectSHInUseShell(conn io.ReadWriteCloser) {
-	defer conn.Close()
+type bufferedConn struct {
+	net.Conn
+	reader *bufio.Reader
+}
 
-	var hello shellproto.Control
-	if err := shellproto.ReadJSON(conn, &hello); err != nil {
-		return
+func (c *bufferedConn) Read(p []byte) (int, error) {
+	if c == nil || c.reader == nil {
+		return 0, io.EOF
 	}
-	_ = shellproto.WriteJSON(conn, shellproto.Control{Op: shellproto.OpHello, OK: true})
-
-	var req shellproto.Control
-	if err := shellproto.ReadJSON(conn, &req); err != nil {
-		return
-	}
-	_ = shellproto.WriteJSON(conn, shellproto.Control{
-		Op: shellproto.OpShAttach,
-		OK: false,
-		Error: &shellproto.ControlError{
-			ReasonCode: "SH_IN_USE",
-			Message:    "shell already in use",
-		},
-	})
+	return c.reader.Read(p)
 }

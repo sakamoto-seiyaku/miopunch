@@ -12,9 +12,9 @@ import (
 	"github.com/miopunch/miopunch/internal/pocv1/peere2e"
 	"github.com/miopunch/miopunch/internal/pocv1/persist"
 	"github.com/miopunch/miopunch/internal/pocv1/presence"
-	"github.com/miopunch/miopunch/internal/udpowner"
-	signalmqtt "github.com/miopunch/miopunch/internal/signaling/mqtt"
 	pocwire "github.com/miopunch/miopunch/internal/pocv1/wire"
+	signalmqtt "github.com/miopunch/miopunch/internal/signaling/mqtt"
+	"github.com/miopunch/miopunch/internal/udpowner"
 )
 
 func TestVerifyOfferRejectsWrongInnerKind(t *testing.T) {
@@ -172,6 +172,53 @@ func TestWaitAndAnswerOfferIgnoresInvalidOfferBeforeValidOne(t *testing.T) {
 	}
 }
 
+func TestWaitAndAnswerOfferReloadsRosterSnapshotForNewPeer(t *testing.T) {
+	t.Parallel()
+
+	fx := mustExchangeFixture(t)
+	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
+	if err != nil {
+		t.Fatalf("net.ListenUDP() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
+	cfg := fx.cfg
+	cfg.UDPConn = conn
+	cfg.LocalCandidates = []Candidate{{Kind: CandidateKindHost, Addr: conn.LocalAddr().String()}}
+	cfg.AttemptConcurrency = 1
+	cfg.AttemptPair = func(ctx context.Context, demux *udpowner.TraversalDemux, plan pairPlan, key []byte) (*net.UDPAddr, error) {
+		return mustUDPAddr(t, plan.remote.Addr), nil
+	}
+
+	delete(cfg.TrustedRosterByID, fx.remoteTrusted.PeerID)
+	cfg.RosterSnapshot = persist.RosterSnapshot{}
+	if err := cfg.Store.ReplaceRosterSnapshot(cfg.NetworkID, persist.RosterSnapshot{}); err != nil {
+		t.Fatalf("ReplaceRosterSnapshot(empty) error = %v, want nil", err)
+	}
+	if err := cfg.Store.ReplaceRosterSnapshot(cfg.NetworkID, persist.RosterSnapshot{
+		Entries: []persist.RosterEntry{
+			{PeerID: fx.remoteTrusted.PeerID, MemberCredential: fx.remoteTrusted.MemberCredential},
+		},
+	}); err != nil {
+		t.Fatalf("ReplaceRosterSnapshot(updated) error = %v, want nil", err)
+	}
+
+	session := &fakePeerMessageSession{
+		waitOpened: []signalmqtt.OpenedPeerMessage{fx.offerOpened},
+	}
+
+	got, err := waitAndAnswerOffer(context.Background(), cfg, session)
+	if err != nil {
+		t.Fatalf("waitAndAnswerOffer(reload roster) error = %v, want nil", err)
+	}
+	if got.RemoteIdentity.PeerID != fx.remoteTrusted.PeerID {
+		t.Fatalf("waitAndAnswerOffer(reload roster).RemoteIdentity.PeerID = %q, want %q", got.RemoteIdentity.PeerID, fx.remoteTrusted.PeerID)
+	}
+	if len(session.published) != 1 {
+		t.Fatalf("waitAndAnswerOffer(reload roster) published count = %d, want 1", len(session.published))
+	}
+}
+
 type fakePeerMessageSession struct {
 	waitOpened []signalmqtt.OpenedPeerMessage
 	waitErr    error
@@ -223,7 +270,7 @@ type exchangeFixture struct {
 	answer                DialAnswer
 	remoteTrusted         trustedRemote
 	offerOpened           signalmqtt.OpenedPeerMessage
-	answerOpened         signalmqtt.OpenedPeerMessage
+	answerOpened          signalmqtt.OpenedPeerMessage
 	unrelatedAnswerOpened signalmqtt.OpenedPeerMessage
 	nonTargetAnswerOpened signalmqtt.OpenedPeerMessage
 	invalidOfferOpened    signalmqtt.OpenedPeerMessage
@@ -328,8 +375,8 @@ func mustExchangeFixture(t *testing.T) exchangeFixture {
 			MemberCredential: otherSigned.Raw,
 		}),
 		invalidOfferOpened: mustOpenedDialMessage(t, remoteSigned.Signer.PrivateKey, remoteInboxTopic, loaded.LocalPeerID, mustMsgIDFromSeed(t, 0x35), "", pocwire.KindDialOffer, []byte{0x01, 0x02}),
-		offerMsgID:        offerMsgID,
-		remoteInboxTopic:  remoteInboxTopic,
+		offerMsgID:         offerMsgID,
+		remoteInboxTopic:   remoteInboxTopic,
 	}
 }
 

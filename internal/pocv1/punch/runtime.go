@@ -24,6 +24,7 @@ import (
 	"net"
 	"sync"
 
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/punching"
 	"github.com/miopunch/miopunch/internal/udpowner"
 	legacywire "github.com/miopunch/miopunch/internal/wire"
@@ -40,21 +41,72 @@ func runPunch(
 ) (PathResult, error) {
 	plans, err := buildPairPlans(cfg.UDPConn, cfg.LocalCandidates, remoteCandidates, dialID, initiator)
 	if err != nil {
-		return PathResult{}, err
+		return PathResult{}, wrapDiagnosticError(Diagnostic{
+			DialID:             dialID,
+			RemotePeerID:       remote.PeerID,
+			LocalCandidates:    cfg.LocalCandidates,
+			RemoteCandidates:   remoteCandidates,
+			AttemptConcurrency: cfg.AttemptConcurrency,
+			AttemptBudget:      cfg.AttemptBudget,
+		}, err)
 	}
+	logutil.Debugf(
+		"punch run start: dial_id=%s remote_peer_id=%s local_candidates=%d remote_candidates=%d planned_pairs=%d attempt_concurrency=%d attempt_budget_ms=%d initiator=%t",
+		dialID,
+		remote.PeerID,
+		len(cfg.LocalCandidates),
+		len(remoteCandidates),
+		len(plans),
+		cfg.AttemptConcurrency,
+		cfg.AttemptBudget.Milliseconds(),
+		initiator,
+	)
 	attemptCtx, cancel := withAttemptBudget(ctx, cfg.AttemptBudget)
 	defer cancel()
 
 	demux, err := udpowner.NewUDPTraversalDemux(cfg.UDPConn, udpowner.DemuxConfig{Key: punchToken})
 	if err != nil {
-		return PathResult{}, fmt.Errorf("open udp traversal demux: %w", err)
+		return PathResult{}, wrapDiagnosticError(Diagnostic{
+			DialID:             dialID,
+			RemotePeerID:       remote.PeerID,
+			LocalCandidates:    cfg.LocalCandidates,
+			RemoteCandidates:   remoteCandidates,
+			PlannedPairCount:   len(plans),
+			AttemptConcurrency: cfg.AttemptConcurrency,
+			AttemptBudget:      cfg.AttemptBudget,
+		}, fmt.Errorf("open udp traversal demux: %w", err))
 	}
 	defer demux.Close()
 
 	selected, evidence, err := executePairPlans(attemptCtx, cfg, demux, plans, punchToken)
 	if err != nil {
-		return PathResult{}, err
+		logutil.Warnf(
+			"punch run failed: dial_id=%s remote_peer_id=%s err=%v attempted_pairs=%s",
+			dialID,
+			remote.PeerID,
+			err,
+			summarizeAttemptResults(evidence),
+		)
+		return PathResult{}, wrapDiagnosticError(Diagnostic{
+			DialID:             dialID,
+			RemotePeerID:       remote.PeerID,
+			LocalCandidates:    cfg.LocalCandidates,
+			RemoteCandidates:   remoteCandidates,
+			PlannedPairCount:   len(plans),
+			AttemptConcurrency: cfg.AttemptConcurrency,
+			AttemptBudget:      cfg.AttemptBudget,
+			AttemptedPairs:     evidence,
+		}, err)
 	}
+	logutil.Infof(
+		"punch run selected: dial_id=%s remote_peer_id=%s local_candidate=%s remote_candidate=%s remote_udp=%s attempted_pairs=%s",
+		dialID,
+		remote.PeerID,
+		selected.LocalCandidate.Addr,
+		selected.RemoteCandidate.Addr,
+		selected.RemoteAddr.String(),
+		summarizeAttemptResults(evidence),
+	)
 
 	return PathResult{
 		Conn:       selected.Conn,
@@ -130,12 +182,27 @@ func executePairPlans(
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			logutil.Debugf(
+				"punch attempt start: sid=%s local_candidate=%s remote_candidate=%s index=%d",
+				plan.sid,
+				plan.local.Addr,
+				plan.remote.Addr,
+				plan.index,
+			)
 			select {
 			case sem <- struct{}{}:
 			case <-attemptCtx.Done():
 				err := attemptCtx.Err()
 				evidence[plan.index].Result = attemptResultForError(err)
 				evidence[plan.index].Detail = err.Error()
+				logutil.Debugf(
+					"punch attempt skipped: sid=%s local_candidate=%s remote_candidate=%s result=%s detail=%s",
+					plan.sid,
+					plan.local.Addr,
+					plan.remote.Addr,
+					evidence[plan.index].Result,
+					evidence[plan.index].Detail,
+				)
 				errCh <- err
 				return
 			}
@@ -145,12 +212,27 @@ func executePairPlans(
 			if err != nil {
 				evidence[plan.index].Result = attemptResultForError(err)
 				evidence[plan.index].Detail = err.Error()
+				logutil.Debugf(
+					"punch attempt failed: sid=%s local_candidate=%s remote_candidate=%s result=%s detail=%s",
+					plan.sid,
+					plan.local.Addr,
+					plan.remote.Addr,
+					evidence[plan.index].Result,
+					evidence[plan.index].Detail,
+				)
 				errCh <- err
 				return
 			}
 
 			evidence[plan.index].Result = "selected"
 			evidence[plan.index].Detail = raddr.String()
+			logutil.Infof(
+				"punch attempt selected: sid=%s local_candidate=%s remote_candidate=%s remote_udp=%s",
+				plan.sid,
+				plan.local.Addr,
+				plan.remote.Addr,
+				raddr.String(),
+			)
 			select {
 			case resultCh <- SelectedAttempt{
 				LocalCandidate:  plan.local,
@@ -199,6 +281,12 @@ func executePairPlans(
 						firstErr = ErrAttemptBudgetExceeded
 					}
 				}
+				logutil.Warnf(
+					"punch attempts exhausted: planned_pairs=%d summary=%s err=%v",
+					len(plans),
+					summarizeAttemptResults(evidence),
+					firstErr,
+				)
 				return SelectedAttempt{}, evidence, firstErr
 			}
 			if err != nil && firstErr == nil && !errors.Is(err, context.Canceled) {
@@ -262,7 +350,16 @@ func attemptResultForError(err error) string {
 }
 
 func sidForDialPair(dialID string, local Candidate, remote Candidate) string {
-	base := dialID + "|" + string(local.Kind) + "|" + local.Addr + "|" + string(remote.Kind) + "|" + remote.Addr
+	left := candidateSIDKey(local)
+	right := candidateSIDKey(remote)
+	if left > right {
+		left, right = right, left
+	}
+	base := dialID + "|" + left + "|" + right
 	sum := sha256.Sum256([]byte(base))
 	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(sum[:16])
+}
+
+func candidateSIDKey(candidate Candidate) string {
+	return string(candidate.Kind) + "|" + candidate.Addr
 }
