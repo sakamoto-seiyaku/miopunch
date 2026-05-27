@@ -1054,7 +1054,7 @@ InviteCapability transcript（不含 `sig`）字段顺序固定为：
 - `dial_id`：16B 随机。
 - `punch_token`：16B 随机。
 - 尝试策略：最多并发 4 个 candidate pair；总预算 10s；先成功先收敛到唯一 endpoint。
-- 成功口径：以“收到有效 punch 包 + KCP 建链成功 + TLS 验证成功”为最终成功（不以单纯 punch 收包作为成功）。
+- 成功口径：以“收敛到一个经过验证的可用 UDP path，并产出 `PathResult`”为最终成功；KCP 建链和 TLS 验证属于后续 `SecureSession`。
 
 `dial_offer/dial_answer` 的 body（v1 固定最小集）：
 

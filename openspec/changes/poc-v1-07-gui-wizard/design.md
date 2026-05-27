@@ -1,14 +1,13 @@
 ## Context
 
-07 是整套 `poc-v1` 的最终闭环入口，但不是“兜底把所有前序语义重新做一遍”的大杂烩。它只消费前序 typed contracts，把它们按固定六阶段组织成用户能理解的流程。
+07 是 `POCv1` 的默认 GUI/desktop 入口，但不再是 runtime authority 的落地点。它只消费 pre-07 headless runtime 提供的 snapshot / events / actions，把固定六阶段组织成用户能理解的桌面流程。
 
 ## Extraction Strategy
 
-- 新的 stage/runtime authority 进入 `internal/pocv1/runtime`。
-- `internal/pocv1/runtime` 是从前序 typed failures 到 12 个 `UserReasonCode` bucket 的唯一最终映射者。
-- `internal/localapi` 为当前提取态暴露平行 `/api/v1/poc/runtime` 与 `/api/v1/poc/runtime/events`。
+- `internal/pocv1/runtime` 与 shared daemon `localapi` RPC / stream contract 已由 `miopunch-poc-v1-headless-runtime` 拥有。
+- 07 只消费 pre-07 runtime 的 snapshot / events / actions，不再重新定义 stage model、final reason-code mapping、DiscoverView projection 或 shell gate authority。
 - `cmd/miopunch-desktop`、`internal/localapi`、`internal/desktopbridge` 可继续作为桌面壳与 IPC/plumbing。
-- legacy `internal/task/desktop_state.go` 不再是 v1 GUI 的最终事实源；它只可作为旧行为对照。
+- legacy `internal/task/desktop_state.go` 与 `/api/v0/desktop/state` 不再是 extracted-v1 GUI 的最终事实源；它们只可作为旧行为对照或兼容壳。
 
 ## Scope
 
@@ -21,14 +20,12 @@
   - `Punch`
   - `SecureSession`
   - `Shell`
-- stage transitions
-- `SecureSession` 只有在一次成功的 identity-bound `ping/hello` 之后才允许转入 `Shell`
-- `UserSummary`（每阶段最多三行）
-- `Evidence`（可折叠/可导出，且至少包含 `facts[]` / `suggestions[]`，可附带额外 diagnostics）
-- `UserReasonCode`（固定 12 个用户面 bucket，以及从前序 typed failures 到这些 bucket 的最终映射）
-- 平行 v1 runtime DTO / API
+- GUI wizard rendering and desktop flow composition
+- desktop consumption of runtime snapshot / events / actions as presentation inputs
 - wizard-local `ui_state` shape（如果 07 选择持久化该状态）
-- 从前序 change 消费 typed contracts 组装 runtime state
+- desktop shell workspace and attach UX
+- 从 pre-07 runtime 消费 typed contracts 的投影结果，并转换成 GUI view state
+- direct GUI-to-daemon connection over `localapi` IPC
 
 **07 does not own:**
 
@@ -38,23 +35,24 @@
 - punch attempt runtime（`04`）
 - secure session recipe（`05`）
 - persist layout authority（`06`）
-- 前序 capability 的底层 failure 语义本体；它们只提供 typed failure/evidence 输入，不直接拥有最终用户面 bucket 决策。
+- headless runtime authority、stage transitions、`SecureSession -> Shell` gate、本体 `UserSummary` / `Evidence` / final user-facing `reason_code` mapping（`06x`）
+- 前序 capability 的底层 failure 语义本体；它们只提供 typed failure/evidence 输入。
 
 ## Owned Paths (planned)
 
-- `internal/pocv1/runtime/*`
 - `cmd/miopunch-desktop/*`
 - `cmd/miopunch-desktop/frontend/*`
+- `internal/desktopbridge/*`
 
 ## Task Breakdown
 
-1. 在 `internal/pocv1/runtime` 中建立 stage model、summary/evidence model（显式 `facts[]` / `suggestions[]`）与 reason-code budget/final mapping。
-2. 将 desktop runtime 改为通过平行 `/api/v1/poc/runtime` 读取 `02/03/04/05/06` typed contracts，而不是直接拼 legacy task internals。
+1. 将 desktop runtime 改为通过 shared daemon `localapi` 的 RPC / event / shell stream 通道消费 headless runtime，而不是直接拼 legacy task internals 或经 CLI 桥接。
+2. 在桌面端实现六阶段 wizard、summary/evidence 呈现、peer/shell view state 与 desktop attach UX。
 3. 复用现有 desktop/localapi/desktopbridge 作为 transport/plumbing 壳。
-4. 增加 Linux/Windows 桌面 smoke、stage progression、`SecureSession` ping gate、Evidence export 测试。
+4. 增加 Linux 桌面 smoke，验证 GUI 通过 headless runtime 完成 stage progression、`SecureSession` ping gate 之后的 shell attach 与 Evidence export；Windows 桌面 smoke 只验证 GUI 启动、daemon 连接与 runtime contract consumption，不把 Windows/Linux 真机互连作为 07 的补偿职责。
 
 ## Acceptance
 
-- 用户可从 `Network -> Enroll -> Discover -> Punch -> SecureSession -> Shell` 线性完成闭环，且 `SecureSession` 必须先完成一次成功 ping/hello。
-- 每阶段默认只看到 <=3 行 summary；详细信息只在结构化 Evidence（至少有 `facts[]` / `suggestions[]`）。
-- GUI 不再把全量 debug/task internals 当作默认产品状态展示。
+- 用户可从 `Network -> Enroll -> Discover -> Punch -> SecureSession -> Shell` 线性完成 GUI 闭环，且 shell attach 只在 headless runtime gate 成功后发生。
+- GUI 默认只展示简短 summary；详细信息通过 runtime 提供的结构化 Evidence 呈现。
+- GUI 不再把全量 debug/task internals 当作默认产品状态展示，也不再自己拥有 runtime authority。

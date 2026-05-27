@@ -1,7 +1,7 @@
 # miopunch-poc-v1-gui-wizard Specification
 
 ## Purpose
-定义当前 POC v1 的 desktop wizard：固定六阶段、summary/evidence 输出契约，以及最终可运行闭环入口。
+定义当前 POC v1 的 desktop wizard：消费 headless runtime 的固定六阶段 GUI 呈现与默认桌面入口。
 
 ## ADDED Requirements
 
@@ -16,6 +16,7 @@ The system SHALL implement exactly these six current v1 GUI stages:
 - Shell
 
 The `SecureSession` stage SHALL NOT transition to `Shell` until one successful identity-bound `ping` or `hello` exchange has completed over the newly established session.
+The GUI SHALL consume that gate state from `miopunch-poc-v1-headless-runtime` rather than defining a competing gate locally.
 
 #### Scenario: Desktop flow stays on the fixed six-stage path
 - **WHEN** a user runs the current v1 desktop flow from network setup to shell
@@ -41,64 +42,47 @@ The system SHALL represent stage diagnostics as structured `Evidence`.
 
 `facts[]` SHALL capture concrete observed facts.
 `suggestions[]` SHALL contain at least one concrete user action when a stage is blocked or failed.
-The runtime API at `GET /api/v1/poc/runtime` and `GET /api/v1/poc/runtime/events` SHALL preserve this structure rather than flattening it into a single text blob.
+The shared daemon `localapi` RPC and runtime-event stream contracts SHALL preserve this structure rather than flattening it into a single text blob, and the GUI SHALL consume that structure without redefining it.
 
 #### Scenario: Runtime API returns structured evidence
 - **WHEN** the current v1 runtime exposes stage diagnostics through the desktop API
 - **THEN** `Evidence.facts` and `Evidence.suggestions` remain separately addressable
 - **AND** optional deeper diagnostics may be attached without changing the summary surface
 
-### Requirement: Current v1 reason_code set is bounded
-The system SHALL bound the current v1 user-facing `UserReasonCode` set to exactly these 12 values:
+### Requirement: Current v1 GUI consumes the bounded runtime reason_code surface
+The system SHALL consume the bounded current v1 user-facing `reason_code` surface provided by `miopunch-poc-v1-headless-runtime`.
 
-- `OK`
-- `BAD_INPUT`
-- `BROKER_UNAVAILABLE`
-- `ENROLL_REJECTED`
-- `DISCOVER_EMPTY`
-- `PEER_OFFLINE`
-- `PEER_UNTRUSTED`
-- `PUNCH_FAILED`
-- `SESSION_PIN_FAILED`
-- `PING_FAILED`
-- `SHELL_FAILED`
-- `INTERNAL`
+Current v1 GUI implementations MAY keep richer GUI-local presentation detail, but they SHALL NOT define a competing final user-facing reason-code taxonomy.
 
-Current v1 GUI implementations MAY keep more detailed internal diagnostics, but they SHALL map the default user-facing failure surface into this bounded set.
-`internal/pocv1/runtime` SHALL be the only final owner of mapping stage-local typed failures into this bounded `UserReasonCode` set.
-Earlier extracted-v1 capabilities SHALL emit typed failures and evidence, but SHALL NOT each define their own competing final user-facing bucket mapping.
+#### Scenario: GUI does not fork the runtime failure taxonomy
+- **WHEN** the current v1 runtime exposes a user-facing `reason_code`
+- **THEN** the GUI presents that bounded failure surface
+- **AND** it does not replace it with a second independent reason-code contract
 
-#### Scenario: Reason code growth is explicitly constrained
-- **WHEN** a new failure category is proposed for the current v1 GUI
-- **THEN** the total `reason_code` set stays at or below 12 values
-- **AND** the new category replaces or merges with an existing code if necessary
+### Requirement: Current v1 GUI uses the shared daemon localapi contract
+The system SHALL expose the current v1 desktop runtime through the shared daemon `localapi` contract.
 
-### Requirement: Current v1 GUI uses a parallel runtime API
-The system SHALL expose a parallel current v1 desktop runtime API at:
-
-- `GET /api/v1/poc/runtime`
-- `GET /api/v1/poc/runtime/events`
-
-The current v1 GUI SHALL use this API as its runtime source of truth instead of aliasing the legacy desktop task snapshot API.
-This API SHALL carry the structured `Evidence` contract without flattening `facts[]` or `suggestions[]`.
+The current v1 GUI SHALL use that RPC plus dedicated stream channels as its runtime source of truth instead of aliasing the legacy desktop task snapshot API or routing through a CLI bridge.
+This contract SHALL carry the structured `Evidence` contract without flattening `facts[]` or `suggestions[]`.
 
 #### Scenario: Current v1 GUI does not bind to the legacy runtime snapshot
 - **WHEN** the current v1 desktop GUI starts its runtime bootstrap and event stream
-- **THEN** it reads from `/api/v1/poc/runtime` and `/api/v1/poc/runtime/events`
+- **THEN** it reads from the shared daemon `localapi` RPC and stream contracts
 - **AND** it does not treat `/api/v0/desktop/state` as the governing extracted-v1 runtime contract
 
 ### Requirement: Current v1 GUI consumes typed contracts from earlier changes
-The system SHALL build the current v1 desktop runtime by consuming typed contracts from:
+The system SHALL build the current v1 desktop flow by consuming typed contracts from:
 
+- `miopunch-poc-v1-headless-runtime`
 - `miopunch-poc-v1-enroll-bootstrap`
 - `miopunch-poc-v1-presence-discover`
 - `miopunch-poc-v1-dial-punch`
 - `miopunch-poc-v1-secure-session`
 - `miopunch-poc-v1-persistence`
 
-For the Discover stage, the runtime SHALL project the single domain `DiscoverView` owned by `miopunch-poc-v1-presence-discover` into `/api/v1/poc/runtime`.
+For the Discover stage, the runtime SHALL project the single domain `DiscoverView` owned by `miopunch-poc-v1-presence-discover` into the shared daemon runtime snapshot contract.
 
-The runtime and GUI SHALL NOT re-join roster and presence independently, and SHALL NOT reconstruct discover semantics from legacy `/api/v0/desktop/state`.
+The GUI SHALL consume the runtime-owned `DiscoverView` projection instead of re-joining roster and presence independently, and SHALL NOT reconstruct discover semantics from legacy `/api/v0/desktop/state`.
 
 The GUI SHALL NOT treat legacy task internals as its long-term source of truth for the extracted v1 path.
 
@@ -108,6 +92,6 @@ The GUI SHALL NOT treat legacy task internals as its long-term source of truth f
 - **AND** legacy task internals are not the governing runtime model
 
 #### Scenario: Discover stage projects the single presence-owned view
-- **WHEN** the current v1 runtime prepares Discover-stage data for `/api/v1/poc/runtime`
+- **WHEN** the current v1 runtime prepares Discover-stage data for the shared daemon runtime snapshot contract
 - **THEN** it projects the one `DiscoverView` produced by `miopunch-poc-v1-presence-discover`
 - **AND** it does not rebuild peer rows by separately merging legacy desktop snapshots with roster and presence data
