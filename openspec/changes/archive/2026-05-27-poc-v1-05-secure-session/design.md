@@ -6,6 +6,7 @@
 
 - 新实现进入 `internal/pocv1/session`。
 - 可窄适配 legacy `dataplane` 与 `internal/tlsutil`，但 v1 的 recipe、pin contract 与 handoff types 由 05 拥有。
+- `05` 从 `Store` 读取本机 device keys 与 self member credential，并用 `AuthorityEd25519Pub` 验证本机/远端 credential。
 - `PeerSession` 继续作为上层业务边界保留；`sh/ping` 只能看见 `PeerSession/OpenStream/AcceptStream`。
 
 ## Scope
@@ -19,6 +20,7 @@
 - 6A pin：
   - 对端证书 Ed25519 pub 必须等于 `MemberCredential.subject_ed25519_pub`
   - 该 credential 必须能被 authority 验签
+  - 不再复用旧的 `secretKey + sid + role` 生成 pin 的规则作为 05 的事实来源
 - 本机使用 Ed25519 自签证书承载公钥
 
 **05 does not own:**
@@ -37,7 +39,7 @@
 1. 定义 `SessionRecipe`、`PeerSession` 以及 `PathResult -> PeerSession` adapter。
 2. 复用或窄适配 legacy KCP/TLS/yamux 实现，建立 v1 单一 recipe。
 3. 实现 6A pin 与 authority-backed credential verification。
-4. 增加 `OpenStream/AcceptStream`、pin fail、credential fail、timeout 等测试。
+4. 增加 `OpenStream/AcceptStream`、stream-open metadata 保留、pin fail、credential fail、timeout 等测试。
 
 ## Acceptance
 

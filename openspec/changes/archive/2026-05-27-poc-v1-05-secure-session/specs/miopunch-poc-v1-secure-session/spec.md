@@ -34,6 +34,7 @@ The system SHALL NOT branch to QUIC, TCP, or any alternative recipe inside this 
 ### Requirement: PeerSession is the only upper-layer session boundary
 The system SHALL expose `PeerSession` with stream-oriented operations such as `OpenStream` and `AcceptStream` as the upper-layer contract of this capability.
 
+`AcceptStream` SHALL preserve the stream-open envelope, including `kind` and `metadata`, in the returned `AcceptedStream`.
 Upper layers SHALL NOT depend on KCP/TLS/yamux internals directly.
 
 #### Scenario: Upper layers consume only PeerSession
@@ -47,6 +48,7 @@ The system SHALL pin the TLS peer identity to the remote `MemberCredential`.
 The presented certificate Ed25519 public key MUST match `MemberCredential.subject_ed25519_pub`.
 The credential MUST verify under the network authority before the session is accepted.
 The remote `MemberCredential` consumed here SHALL come from `PathResult`, not from a second roster lookup reopened by this capability.
+The local session certificate SHALL be a self-signed Ed25519 certificate created from the local device key material.
 
 #### Scenario: Session is rejected when credential and certificate disagree
 - **WHEN** a TLS handshake completes but the presented Ed25519 key does not match the remote `MemberCredential.subject_ed25519_pub`

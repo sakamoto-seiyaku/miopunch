@@ -54,7 +54,14 @@ func NewPinnedTLSCertificate(secretKey []byte, sid string, role string) (tls.Cer
 	if err != nil {
 		return tls.Certificate{}, err
 	}
+	return NewEd25519SelfSignedTLSCertificate(priv, role)
+}
 
+// NewEd25519SelfSignedTLSCertificate returns a self-signed TLS certificate for priv.
+func NewEd25519SelfSignedTLSCertificate(priv ed25519.PrivateKey, role string) (tls.Certificate, error) {
+	if len(priv) != ed25519.PrivateKeySize {
+		return tls.Certificate{}, fmt.Errorf("invalid ed25519 private key length: %d", len(priv))
+	}
 	now := time.Now()
 	template := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
@@ -77,6 +84,27 @@ func NewPinnedTLSCertificate(secretKey []byte, sid string, role string) (tls.Cer
 		Certificate: [][]byte{der},
 		PrivateKey:  priv,
 	}, nil
+}
+
+// PeerEd25519PublicKey parses rawCerts[0] and returns a copy of its Ed25519 public key.
+func PeerEd25519PublicKey(rawCerts [][]byte) (ed25519.PublicKey, error) {
+	if len(rawCerts) == 0 {
+		return nil, errors.New("peer cert missing")
+	}
+
+	cert, err := x509.ParseCertificate(rawCerts[0])
+	if err != nil {
+		return nil, fmt.Errorf("parse peer cert: %w", err)
+	}
+
+	pub, ok := cert.PublicKey.(ed25519.PublicKey)
+	if !ok {
+		return nil, errors.New("peer public key must be ed25519")
+	}
+	if len(pub) != ed25519.PublicKeySize {
+		return nil, fmt.Errorf("unexpected peer public key length: %d", len(pub))
+	}
+	return append(ed25519.PublicKey(nil), pub...), nil
 }
 
 func NewPinnedClientTLSConfig(secretKey []byte, sid string, selfRole string, peerRole string) (*tls.Config, error) {
@@ -130,21 +158,9 @@ func NewPinnedServerTLSConfig(secretKey []byte, sid string, selfRole string, pee
 func pinnedVerifyPeerCertificate(expected ed25519.PublicKey) func(rawCerts [][]byte) error {
 	expected = append(ed25519.PublicKey(nil), expected...)
 	return func(rawCerts [][]byte) error {
-		if len(rawCerts) == 0 {
-			return errors.New("peer cert missing")
-		}
-
-		cert, err := x509.ParseCertificate(rawCerts[0])
+		pub, err := PeerEd25519PublicKey(rawCerts)
 		if err != nil {
-			return fmt.Errorf("parse peer cert: %w", err)
-		}
-
-		pub, ok := cert.PublicKey.(ed25519.PublicKey)
-		if !ok {
-			return errors.New("peer public key must be ed25519")
-		}
-		if len(pub) != ed25519.PublicKeySize {
-			return fmt.Errorf("unexpected peer public key length: %d", len(pub))
+			return err
 		}
 
 		if subtle.ConstantTimeCompare(pub, expected) != 1 {

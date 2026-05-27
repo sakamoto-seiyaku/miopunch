@@ -117,16 +117,9 @@ func (o StreamOpen) Normalize() StreamOpen {
 
 // WriteStreamOpen writes the logical stream-open envelope.
 func WriteStreamOpen(w io.Writer, open StreamOpen) error {
-	open = open.Normalize()
-	if open.Kind == "" {
-		return errors.New("stream kind is required")
-	}
-	data, err := json.Marshal(open)
+	data, err := marshalStreamOpen(open)
 	if err != nil {
-		return fmt.Errorf("marshal stream open: %w", err)
-	}
-	if len(data) > maxStreamOpenFrame {
-		return fmt.Errorf("stream open frame too large: %d", len(data))
+		return err
 	}
 	return writeFrame(w, data)
 }
@@ -137,6 +130,25 @@ func ReadStreamOpen(r io.Reader) (StreamOpen, error) {
 	if err != nil {
 		return StreamOpen{}, err
 	}
+	return unmarshalStreamOpen(data)
+}
+
+func marshalStreamOpen(open StreamOpen) ([]byte, error) {
+	open = open.Normalize()
+	if open.Kind == "" {
+		return nil, errors.New("stream kind is required")
+	}
+	data, err := json.Marshal(open)
+	if err != nil {
+		return nil, fmt.Errorf("marshal stream open: %w", err)
+	}
+	if len(data) > maxStreamOpenFrame {
+		return nil, fmt.Errorf("stream open frame too large: %d", len(data))
+	}
+	return data, nil
+}
+
+func unmarshalStreamOpen(data []byte) (StreamOpen, error) {
 	var open StreamOpen
 	if err := json.Unmarshal(data, &open); err != nil {
 		return StreamOpen{}, fmt.Errorf("unmarshal stream open: %w", err)
