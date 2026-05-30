@@ -21,7 +21,16 @@ Repeat the same sequence with the WSL session bundle.
 - `--report`
 - daemon log
 - state snapshot
+- run metadata
 
 ## Failure rule
 
 If `join` fails, record `stage`, `reason_code`, `facts`, and `suggestions`.
+
+## Executability validation
+
+1. Confirm the Windows and WSL bundle roots are isolated and writable.
+2. Start `miopunch up --session` on both sides and capture stdout/stderr plus daemon logs.
+3. Run Windows -> WSL and WSL -> Windows with fresh state roots for each direction.
+4. Save CLI stdout/stderr, `--report`, daemon logs, runtime/state snapshots, and run metadata for every step.
+5. Treat the smoke as executable only after both directions have a complete artifact set, even if one direction fails at `join`.

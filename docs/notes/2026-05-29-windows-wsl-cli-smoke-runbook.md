@@ -40,7 +40,18 @@
   - 相关 CLI stderr
 - 不允许只用“return code != 0”结束排查。
 
-## 5. 下一步
+## 5. 可执行性验证步骤
+
+在真实 Windows/WSL 环境确认这个 smoke 可执行时，按以下顺序记录证据：
+
+1. 分别确认 Windows bundle root 和 WSL bundle root 是独立目录，且每侧 `data/`、`logs/`、artifacts 目录可写。
+2. 分别启动两侧 `miopunch up --session`，记录 daemon stdout/stderr 和 `logs/miopunch.log`。
+3. 对 Windows -> WSL 方向运行 `init-network -> invite --mode approve --uses 1 --expires 15m -> approve <invite_code> -> join <invite_code>`，每一步保存 stdout、stderr 和 `--report`。
+4. 对 WSL -> Windows 方向重复同一序列，使用新的隔离 state root，避免复用上一轮 membership 状态。
+5. 每轮结束后保存 `data/state.json`、`data/runtime_v1.json`（若存在）和 run metadata，记录命令、时间、bundle commit、host 标识。
+6. 如果任一 `join` 失败，按本文失败判定记录 `stage`、`reason_code`、`facts`、`suggestions`，然后按 signaling / broker / membership / session 分层继续拆。
+
+## 6. 下一步
 
 - 用 Windows + WSL 真实环境跑第一轮正向闭环。
 - 如果失败，再按 signaling / broker / membership / session 分层继续拆。

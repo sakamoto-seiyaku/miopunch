@@ -13,4 +13,4 @@
 
 - [x] 3.1 Require CLI stdout/stderr, `--report`, daemon logs, and runtime/state snapshots for each side.
 - [x] 3.2 Ensure join failures record stage, `reason_code`, `facts`, and `suggestions` so they can be debugged without GUI.
-- [ ] 3.3 Add the focused validation steps used to confirm the smoke is executable in the real Windows/WSL environment.
+- [x] 3.3 Add the focused validation steps used to confirm the smoke is executable in the real Windows/WSL environment.
