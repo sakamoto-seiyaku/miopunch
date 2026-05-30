@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -20,19 +21,23 @@ import (
 
 const ShellSubprotocolV0 = "miopunch.sh.v0"
 
-type DialTaskWSFunc func(ctx context.Context, taskID string) (*websocket.Conn, error)
+type ShellStream interface {
+	io.ReadWriteCloser
+}
+
+type DialShellFunc func(ctx context.Context, shellSessionID string) (ShellStream, error)
 
 type TerminalWSBridge struct {
 	token string
 	addr  string
 
-	dial DialTaskWSFunc
+	dial DialShellFunc
 
 	ln  net.Listener
 	srv *http.Server
 }
 
-func NewTerminalWSBridge(dial DialTaskWSFunc) (*TerminalWSBridge, error) {
+func NewTerminalWSBridge(dial DialShellFunc) (*TerminalWSBridge, error) {
 	if dial == nil {
 		return nil, errors.New("dial is nil")
 	}
@@ -55,7 +60,7 @@ func NewTerminalWSBridge(dial DialTaskWSFunc) (*TerminalWSBridge, error) {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v0/tasks/", b.handleTaskWS)
+	mux.HandleFunc("/api/v1/shell/", b.handleShellWS)
 
 	b.srv = &http.Server{
 		Handler: mux,
@@ -89,11 +94,16 @@ func (b *TerminalWSBridge) BaseURL() string {
 	return "ws://" + b.addr
 }
 
-func (b *TerminalWSBridge) TaskURL(taskID string) string {
+func (b *TerminalWSBridge) ShellURL(shellSessionID string) string {
 	if b == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s/api/v0/tasks/%s/ws?token=%s", b.BaseURL(), url.PathEscape(taskID), url.QueryEscape(b.token))
+	return fmt.Sprintf(
+		"%s/api/v1/shell/%s/ws?token=%s",
+		b.BaseURL(),
+		url.PathEscape(shellSessionID),
+		url.QueryEscape(b.token),
+	)
 }
 
 func (b *TerminalWSBridge) Close() error {
@@ -105,7 +115,7 @@ func (b *TerminalWSBridge) Close() error {
 	return err
 }
 
-func (b *TerminalWSBridge) handleTaskWS(w http.ResponseWriter, r *http.Request) {
+func (b *TerminalWSBridge) handleShellWS(w http.ResponseWriter, r *http.Request) {
 	if !isLoopbackRemote(r.RemoteAddr) {
 		http.Error(w, "loopback required", http.StatusForbidden)
 		return
@@ -116,7 +126,7 @@ func (b *TerminalWSBridge) handleTaskWS(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	taskID, ok := parseTaskIDFromPath(r.URL.Path)
+	shellSessionID, ok := parseShellSessionIDFromPath(r.URL.Path)
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -130,14 +140,14 @@ func (b *TerminalWSBridge) handleTaskWS(w http.ResponseWriter, r *http.Request) 
 	dialCtx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	backendConn, err := b.dial(dialCtx, taskID)
+	backendStream, err := b.dial(dialCtx, shellSessionID)
 	if err != nil {
-		logutil.Warnf("terminal bridge backend websocket dial failed: task_id=%s err=%v", taskID, err)
-		http.Error(w, "failed to dial localapi websocket: "+err.Error(), http.StatusBadGateway)
+		logutil.Warnf("terminal bridge backend dial failed: shell_session_id=%s err=%v", shellSessionID, err)
+		http.Error(w, "failed to dial localapi shell stream: "+err.Error(), http.StatusBadGateway)
 		return
 	}
-	defer func() { _ = backendConn.Close() }()
-	logutil.Infof("terminal bridge backend websocket attached: task_id=%s", taskID)
+	defer func() { _ = backendStream.Close() }()
+	logutil.Infof("terminal bridge backend attached: shell_session_id=%s", shellSessionID)
 
 	upgrader := websocket.Upgrader{
 		Subprotocols: []string{ShellSubprotocolV0},
@@ -145,11 +155,11 @@ func (b *TerminalWSBridge) handleTaskWS(w http.ResponseWriter, r *http.Request) 
 	}
 	frontConn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		logutil.Warnf("terminal bridge frontend websocket upgrade failed: task_id=%s err=%v", taskID, err)
+		logutil.Warnf("terminal bridge frontend websocket upgrade failed: shell_session_id=%s err=%v", shellSessionID, err)
 		return
 	}
 	defer func() { _ = frontConn.Close() }()
-	logutil.Infof("terminal bridge frontend websocket attached: task_id=%s remote=%s", taskID, r.RemoteAddr)
+	logutil.Infof("terminal bridge frontend websocket attached: shell_session_id=%s remote=%s", shellSessionID, r.RemoteAddr)
 
 	if frontConn.Subprotocol() != ShellSubprotocolV0 {
 		_ = frontConn.WriteControl(
@@ -160,22 +170,22 @@ func (b *TerminalWSBridge) handleTaskWS(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	bridgeWebSockets(r.Context(), taskID, frontConn, backendConn)
+	bridgeShellStream(r.Context(), shellSessionID, frontConn, backendStream)
 }
 
-func parseTaskIDFromPath(path string) (string, bool) {
-	const prefix = "/api/v0/tasks/"
+func parseShellSessionIDFromPath(path string) (string, bool) {
+	const prefix = "/api/v1/shell/"
 	const suffix = "/ws"
 
 	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
 		return "", false
 	}
-	taskID := strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
-	taskID = strings.Trim(taskID, "/")
-	if taskID == "" || strings.Contains(taskID, "/") {
+	shellSessionID := strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
+	shellSessionID = strings.Trim(shellSessionID, "/")
+	if shellSessionID == "" || strings.Contains(shellSessionID, "/") {
 		return "", false
 	}
-	return taskID, true
+	return shellSessionID, true
 }
 
 func clientOffersSubprotocol(r *http.Request, want string) bool {
@@ -187,7 +197,7 @@ func clientOffersSubprotocol(r *http.Request, want string) bool {
 	return false
 }
 
-func bridgeWebSockets(ctx context.Context, taskID string, frontConn *websocket.Conn, backendConn *websocket.Conn) {
+func bridgeShellStream(ctx context.Context, shellSessionID string, frontConn *websocket.Conn, backendStream ShellStream) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -196,7 +206,7 @@ func bridgeWebSockets(ctx context.Context, taskID string, frontConn *websocket.C
 		closeOnce.Do(func() {
 			cancel()
 			_ = frontConn.Close()
-			_ = backendConn.Close()
+			_ = backendStream.Close()
 		})
 	}
 
@@ -211,20 +221,26 @@ func bridgeWebSockets(ctx context.Context, taskID string, frontConn *websocket.C
 		for {
 			mt, payload, err := frontConn.ReadMessage()
 			if err != nil {
-				logutil.Infof("terminal bridge frontend read closed: task_id=%s err=%v", taskID, err)
+				logutil.Infof("terminal bridge frontend read closed: shell_session_id=%s err=%v", shellSessionID, err)
 				return
+			}
+			if mt != websocket.BinaryMessage && mt != websocket.TextMessage {
+				continue
 			}
 			if !loggedFirstFrontToBackend {
 				loggedFirstFrontToBackend = true
 				logutil.Infof(
-					"terminal bridge first frontend to backend frame: task_id=%s message_type=%d bytes=%d",
-					taskID,
+					"terminal bridge first frontend to backend frame: shell_session_id=%s message_type=%d bytes=%d",
+					shellSessionID,
 					mt,
 					len(payload),
 				)
 			}
-			if err := backendConn.WriteMessage(mt, payload); err != nil {
-				logutil.Warnf("terminal bridge backend write failed: task_id=%s err=%v", taskID, err)
+			if len(payload) == 0 {
+				continue
+			}
+			if _, err := backendStream.Write(payload); err != nil {
+				logutil.Warnf("terminal bridge backend write failed: shell_session_id=%s err=%v", shellSessionID, err)
 				return
 			}
 		}
@@ -235,24 +251,29 @@ func bridgeWebSockets(ctx context.Context, taskID string, frontConn *websocket.C
 		defer wg.Done()
 		defer closeAll()
 
+		buf := make([]byte, 32*1024)
 		loggedFirstBackendToFront := false
 		for {
-			mt, payload, err := backendConn.ReadMessage()
+			n, err := backendStream.Read(buf)
+			if n > 0 {
+				payload := append([]byte(nil), buf[:n]...)
+				if !loggedFirstBackendToFront {
+					loggedFirstBackendToFront = true
+					logutil.Infof(
+						"terminal bridge first backend to frontend frame: shell_session_id=%s bytes=%d",
+						shellSessionID,
+						len(payload),
+					)
+				}
+				if writeErr := frontConn.WriteMessage(websocket.BinaryMessage, payload); writeErr != nil {
+					logutil.Warnf("terminal bridge frontend write failed: shell_session_id=%s err=%v", shellSessionID, writeErr)
+					return
+				}
+			}
 			if err != nil {
-				logutil.Infof("terminal bridge backend read closed: task_id=%s err=%v", taskID, err)
-				return
-			}
-			if !loggedFirstBackendToFront {
-				loggedFirstBackendToFront = true
-				logutil.Infof(
-					"terminal bridge first backend to frontend frame: task_id=%s message_type=%d bytes=%d",
-					taskID,
-					mt,
-					len(payload),
-				)
-			}
-			if err := frontConn.WriteMessage(mt, payload); err != nil {
-				logutil.Warnf("terminal bridge frontend write failed: task_id=%s err=%v", taskID, err)
+				if !errors.Is(err, io.EOF) {
+					logutil.Infof("terminal bridge backend read closed: shell_session_id=%s err=%v", shellSessionID, err)
+				}
 				return
 			}
 		}

@@ -2,21 +2,85 @@ const base = require("@playwright/test");
 
 const { expect } = base;
 
+const RUNTIME_STAGES = ["Network", "Enroll", "Discover", "Punch", "SecureSession", "Shell"];
 const PEERS = {
-  owner: "peer-owner-zima-blue-0001",
-  admin: "peer-studio-workstation-02",
-  member: "peer-livingroom-mini-03",
-  traveler: "peer-travel-laptop-04",
-  revoked: "peer-old-phone-05",
+  self: "peer-self-alpha-0001",
+  remote: "peer-remote-bravo-0002",
 };
-
-const inviteCode = "miopunch1inviteuismoketest000000000000000000000000000000000000";
+const inviteCode = "miopunch1inviteconsole00000000000000000000000000000000000000";
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
+
+function mergeDeep(baseValue, patchValue) {
+  if (Array.isArray(patchValue)) return clone(patchValue);
+  if (!patchValue || typeof patchValue !== "object") return patchValue;
+
+  const baseObject = baseValue && typeof baseValue === "object" && !Array.isArray(baseValue) ? baseValue : {};
+  const out = { ...baseObject };
+  for (const [key, value] of Object.entries(patchValue)) {
+    if (Array.isArray(value)) {
+      out[key] = clone(value);
+      continue;
+    }
+    if (value && typeof value === "object") {
+      out[key] = mergeDeep(baseObject[key], value);
+      continue;
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
+function defaultSnapshot(stage = "Network") {
+  return {
+    stage,
+    reason_code: "OK",
+    summary: {
+      text: `runtime stage: ${stage}`,
+    },
+    evidence: {
+      facts: [{ message: `stage=${stage}` }],
+      suggestions: [{ message: "inspect the runtime console" }],
+    },
+    discover_view: {
+      network_id: "net_console_lab",
+      self_peer_id: PEERS.self,
+      peers: [{
+        peer_id: PEERS.remote,
+        online_state: "online",
+        device_name: "Remote Bravo",
+        platform: "linux",
+        app_ver: "0.1.0",
+      }],
+    },
+    peer_sessions: [],
+    shell_sessions: [],
+  };
+}
+
+function snapshotFor(stage = "Network", patch = {}) {
+  const safeStage = RUNTIME_STAGES.includes(stage) ? stage : "Network";
+  return mergeDeep(defaultSnapshot(safeStage), patch);
+}
+
+function defaultConnection() {
+  return {
+    connected: true,
+    selected: "user",
+    addr: "unix:/tmp/miopunch-localapi.sock",
+    user_addr: "unix:/tmp/miopunch-localapi.sock",
+    system_addr: "",
+    override_addr: "",
+    bootstrap_state: "ready",
+    desktop_managed: false,
+    diagnostics: [{ message: "selected_endpoint=user" }],
+  };
+}
 
 const test = base.test.extend({
   page: async ({ page }, use) => {
     const browserErrors = [];
+
     page.on("pageerror", (err) => {
       browserErrors.push(`pageerror: ${err.message}`);
     });
@@ -33,712 +97,160 @@ const test = base.test.extend({
   },
 });
 
-function ownerTopology() {
-  return {
-    format: "miopunch.topology.ui-test",
-    observed_at: "2026-05-04T00:00:00Z",
-    self: { peer_id: PEERS.owner, role: "owner", v4_hint: "easy", v6_hint: "direct" },
-    net: { net_id: "net_zima_blue_lab", brokers_effective: ["broker-1.miopunch.local:1883"] },
-    state_head: { governance_head_b64: "gov_owner_head_test", decls_head_b64: "decls_owner_head_test" },
-    members: [
-      { peer_id: PEERS.owner, role: "owner", member_name: "Owner Zima", platform: "linux", v4_hint: "easy", v6_hint: "direct" },
-      { peer_id: PEERS.admin, role: "admin", member_name: "Studio Workstation", platform: "windows", v4_hint: "easy", v6_hint: "direct" },
-      { peer_id: PEERS.member, role: "member", member_name: "Living Room Mini", platform: "linux", v4_hint: "portmap", v6_hint: "" },
-      { peer_id: PEERS.traveler, role: "member", member_name: "Travel Laptop", platform: "darwin", v4_hint: "hard", v6_hint: "" },
-      { peer_id: PEERS.revoked, role: "member", member_name: "Old Phone", platform: "android", v4_hint: "easy", v6_hint: "", revoked: true },
-    ],
-    presence: { online_window_sec: 120, hello_interval_sec: 30 },
-    bootstrap: { recommendations: [], attempts: [], more_rounds: [] },
-    neighbors: {
-      target_k: 2,
-      selected: [
-        { peer_id: PEERS.admin, role: "admin", bucket: "easy", reason: "stable admin", dialable: true },
-        { peer_id: PEERS.member, role: "member", bucket: "portmap", reason: "bucket diversity", dialable: true },
-      ],
-      active: [
-        {
-          peer_id: PEERS.admin,
-          bucket: "easy",
-          data_proto: "quic",
-          path_family: "udp6",
-          healthy: true,
-          last_activity_unix_ms: 1777824000000,
-        },
-        {
-          peer_id: PEERS.member,
-          bucket: "portmap",
-          data_proto: "kcp",
-          path_family: "udp4",
-          healthy: true,
-          last_activity_unix_ms: 1777823980000,
-        },
-      ],
-      unhealthy: [{ peer_id: PEERS.traveler, close_reason: "idle timeout" }],
-      degree_distribution: [],
-    },
-    attempts: [],
-    payloads: [],
-    recovery: { events: [] },
-  };
-}
-
-function memberTopology() {
-  const top = ownerTopology();
-  top.self = { peer_id: PEERS.traveler, role: "member", v4_hint: "hard", v6_hint: "" };
-  top.members = [
-      { peer_id: PEERS.owner, role: "owner", member_name: "Owner Zima", platform: "linux", v4_hint: "easy", v6_hint: "direct" },
-      { peer_id: PEERS.admin, role: "admin", member_name: "Studio Workstation", platform: "windows", v4_hint: "easy", v6_hint: "direct" },
-      { peer_id: PEERS.member, role: "member", member_name: "Living Room Mini", platform: "linux", v4_hint: "portmap", v6_hint: "" },
-      { peer_id: PEERS.traveler, role: "member", member_name: "Travel Laptop", platform: "darwin", v4_hint: "hard", v6_hint: "" },
-  ];
-  return top;
-}
-
-function emptyTopology() {
-  return {
-    format: "miopunch.topology.ui-test",
-    observed_at: "2026-05-04T00:00:00Z",
-    self: { peer_id: "peer-new-node-0000", role: "unknown", v4_hint: "unknown", v6_hint: "" },
-    net: { net_id: "", brokers_effective: [] },
-    state_head: {},
-    members: [],
-    presence: {},
-    bootstrap: { recommendations: [], attempts: [], more_rounds: [] },
-    neighbors: { target_k: 0, selected: [], active: [], unhealthy: [], degree_distribution: [] },
-    attempts: [],
-    payloads: [],
-    recovery: { events: [] },
-  };
-}
-
-function fixtureData(name = "owner") {
-  if (name === "member") return { connected: true, topology: memberTopology() };
-  if (name === "empty") return { connected: true, topology: emptyTopology() };
-  if (name === "selected-inactive") {
-    const top = ownerTopology();
-    top.neighbors.selected = [
-      ...top.neighbors.selected,
-      { peer_id: PEERS.traveler, role: "member", bucket: "hard", reason: "hard bucket coverage", dialable: true },
-    ];
-    top.neighbors.failures = [
-      {
-        peer_id: PEERS.traveler,
-        bucket: "hard",
-        stage: "peer_contact",
-        reason_code: "UNAVAILABLE",
-        retry_budget: 0,
-        stop_condition: "dial_failed",
-      },
-    ];
-    top.attempts = [
-      {
-        peer_id: PEERS.traveler,
-        attempt_path: "ping",
-        data_proto: "quic",
-        outcome: "fail",
-        stage: "peer_contact",
-        reason_code: "UNAVAILABLE",
-        stop_condition: "dial_failed",
-      },
-    ];
-    return { connected: true, topology: top };
-  }
-  if (name === "no-display-hints") {
-    const top = ownerTopology();
-    for (const member of top.members) {
-      delete member.member_name;
-      delete member.platform;
-    }
-    return { connected: true, topology: top };
-  }
-  if (name === "path-details") {
-    const top = ownerTopology();
-    const memberActive = top.neighbors.active.find((item) => item.peer_id === PEERS.member);
-    if (memberActive) {
-      memberActive.direct_ipv4 = "100.92.0.34";
-      memberActive.direct_ipv6 = "fd7a:115c:a1e0::34";
-      memberActive.local_endpoint = "192.168.31.42:49320";
-      memberActive.remote_endpoint = "10.0.0.12:55391";
-      memberActive.public_tuple = "203.0.113.21:49320 -> 198.51.100.91:55391";
-      memberActive.punch_status = "portmap assisted";
-      memberActive.port = "55391/udp";
-    }
-    return {
-      connected: true,
-      topology: top,
-      peer_sessions: [
-        {
-          remote_peer_id: PEERS.member,
-          direct_ipv4: "100.92.0.34",
-          direct_ipv6: "fd7a:115c:a1e0::34",
-          local_endpoint: "192.168.31.42:49320",
-          remote_endpoint: "10.0.0.12:55391",
-          public_tuple: "203.0.113.21:49320 -> 198.51.100.91:55391",
-          punch_status: "portmap assisted",
-          port: "55391/udp",
-        },
-      ],
-    };
-  }
-  if (name === "disconnected") {
-    return {
-      connected: false,
-      topology: emptyTopology(),
-      failure: {
-        stage: "desktop",
-        reason_code: "daemon_not_running",
-        exit_code: 70,
-        message: "LocalAPI is not reachable",
-        suggestions: [{ message: "retry desktop connection" }],
-        facts: [{ message: "ui test fixture simulates a disconnected daemon" }],
-      },
-    };
-  }
-  if (name === "session-connected") {
-    return {
-      connected: true,
-      selected: "user",
-      addr: "unix:/tmp/miopunch-session.sock",
-      desktop_managed: false,
-      bootstrap_state: "none",
-      topology: ownerTopology(),
-      diagnostics: [{ message: "selected_endpoint=user" }],
-    };
-  }
-  if (name === "bootstrapping") {
-    return {
-      connected: false,
-      selected: "user",
-      addr: "unix:/tmp/miopunch-session.sock",
-      desktop_managed: true,
-      bootstrap_state: "starting",
-      topology: emptyTopology(),
-      diagnostics: [{ message: "bootstrap_stage=wait_ready" }],
-      bootstrap: {
-        attempted: true,
-        stage: "wait_ready",
-        daemon_path: "/tmp/miopunch",
-        pid: 4242,
-      },
-    };
-  }
-  if (name === "desktop-managed") {
-    return {
-      connected: true,
-      selected: "user",
-      addr: "unix:/tmp/miopunch-session.sock",
-      desktop_managed: true,
-      bootstrap_state: "ready",
-      topology: ownerTopology(),
-      diagnostics: [{ message: "selected_endpoint=user" }],
-      bootstrap: {
-        attempted: true,
-        stage: "ready",
-        daemon_path: "/tmp/miopunch",
-        pid: 4242,
-        stderr: "miopunch up: serving LocalAPI (user)",
-      },
-    };
-  }
-  if (name === "reused-daemon") {
-    return {
-      connected: true,
-      selected: "user",
-      addr: "unix:/tmp/miopunch-session.sock",
-      desktop_managed: false,
-      bootstrap_state: "none",
-      topology: ownerTopology(),
-      diagnostics: [{ message: "selected_endpoint=user" }],
-    };
-  }
-  if (name === "bootstrap-failure") {
-    return {
-      connected: false,
-      selected: "",
-      topology: emptyTopology(),
-      bootstrap_state: "failed",
-      bootstrap: {
-        attempted: true,
-        stage: "timeout",
-        daemon_path: "/tmp/miopunch",
-        stderr: "permission denied",
-        error: "timed out waiting for LocalAPI",
-      },
-      failure: {
-        stage: "desktop",
-        reason_code: "unavailable",
-        exit_code: 70,
-        message: "same-user session daemon bootstrap failed",
-        suggestions: [
-          { message: "retry desktop connection" },
-          { message: "check that ./miopunch is next to ./miopunch-desktop and executable" },
-          { message: "export runtime diagnostics" },
-        ],
-        facts: [
-          { message: "bootstrap_stage=timeout" },
-          { message: "error=timed out waiting for LocalAPI" },
-        ],
-      },
-    };
-  }
-  if (name === "reconnect-on-refresh") {
-    return {
-      connected: false,
-      reconnect_after_connects: 2,
-      topology: ownerTopology(),
-      failure: {
-        stage: "desktop",
-        reason_code: "daemon_not_running",
-        exit_code: 70,
-        message: "LocalAPI is not reachable",
-        suggestions: [{ message: "retry desktop connection" }],
-        facts: [{ message: "ui test fixture simulates reconnect on refresh" }],
-      },
-    };
-  }
-  return { connected: true, topology: ownerTopology() };
-}
-
 async function installFakeBridge(page, options = {}) {
-  const fx = fixtureData(options.fixture || "owner");
-  const data = {
-    fixture: fx,
-    createTaskModes: options.createTaskModes || {},
-    getTaskModes: options.getTaskModes || {},
-    terminalBridgeInfoModes: options.terminalBridgeInfoModes || options.terminalBridgeInfoMode || ["success"],
-    webSocketModes: options.webSocketModes || options.webSocketMode || ["success"],
-    shellDiscovery: options.shellDiscovery || {
-      defaultTargets: ["local", "ssh:ops"],
-      sessionsByTarget: {
-        local: ["main", "maintenance"],
-        "ssh:ops": ["ops-main"],
-      },
-    },
-    disableTerminal: !!options.disableTerminal,
-    initialTasks: options.initialTasks || [],
-    initialShellSessions: options.initialShellSessions || [],
-    approvalRequests: options.approvalRequests || null,
-    inviteCodeDelivery: options.inviteCodeDelivery || "immediate",
-    runtimeStartDelayMs: options.runtimeStartDelayMs || 0,
-    runtimeResyncDelayMs: options.runtimeResyncDelayMs || 0,
+  const init = {
+    snapshot: clone(options.snapshot || snapshotFor("Network")),
+    connection: clone(mergeDeep(defaultConnection(), options.connection || {})),
     runtimeStartFailures: Number(options.runtimeStartFailures || 0),
-    timeoutMs: options.timeoutMs || 120,
+    diagnosticsPath: String(options.diagnosticsPath || "/tmp/miopunch-diagnostics.zip"),
     inviteCode,
-    confirm: options.confirm !== false,
+    inviteDataMode: String(options.inviteDataMode || "object"),
+    terminalBridgeInfo: clone(options.terminalBridgeInfo || {
+      ok: true,
+      base_url: "ws://127.0.0.1:4173",
+      token: "ui-test-token",
+      subprotocol: "miopunch.sh.v0",
+    }),
+    websocketMessages: clone(options.websocketMessages || {
+      "shell-session-01": ["welcome to miopunch shell\n"],
+    }),
   };
 
-  await page.addInitScript((init) => {
-    window.localStorage.clear();
-    window.__miopunchBridgeTimeoutMs = init.timeoutMs;
-    window.__miopunchCalls = [];
-    window.__miopunchRuntimeHandlers = {};
-    window.__miopunchWebSockets = [];
+  await page.addInitScript((data) => {
+    const clone = (value) => JSON.parse(JSON.stringify(value));
 
-    const calls = window.__miopunchCalls;
-    const record = (entry) => calls.push(clone(entry));
+    const mergeDeep = (baseValue, patchValue) => {
+      if (Array.isArray(patchValue)) return clone(patchValue);
+      if (!patchValue || typeof patchValue !== "object") return patchValue;
 
-    if (init.disableTerminal) {
-      Object.defineProperty(window, "Terminal", {
-        configurable: true,
-        get: () => undefined,
-        set: () => true,
-      });
-    } else {
-      let wrappedTerminal = null;
-      Object.defineProperty(window, "Terminal", {
-        configurable: true,
-        get: () => wrappedTerminal,
-        set: (value) => {
-          if (typeof value !== "function") {
-            wrappedTerminal = value;
-            return true;
-          }
-          wrappedTerminal = class extends value {
-            constructor(...args) {
-              super(...args);
-              this.__miopunchOutput = "";
-            }
-
-            __recordOutput(data) {
-              this.__miopunchOutput += String(data ?? "");
-              record({ method: "Terminal.write", data: String(data ?? "") });
-              if (this.element) this.element.setAttribute("data-test-output", this.__miopunchOutput);
-            }
-
-            focus(...args) {
-              record({ method: "Terminal.focus" });
-              return super.focus(...args);
-            }
-
-            write(data, ...args) {
-              this.__recordOutput(data);
-              return super.write(data, ...args);
-            }
-
-            writeln(data, ...args) {
-              this.__recordOutput(`${String(data ?? "")}\r\n`);
-              return super.writeln(data, ...args);
-            }
-          };
-          return true;
-        },
-      });
-    }
-
-    const clone = (value) => (value == null ? value : JSON.parse(JSON.stringify(value)));
-    const nextMode = (value, fallback = "success") => {
-      if (Array.isArray(value)) return value.length ? value.shift() : fallback;
-      return typeof value === "undefined" ? fallback : value;
-    };
-    const normalizeWebSocketMode = (value) => {
-      if (value && typeof value === "object" && !Array.isArray(value)) return clone(value);
-      return { mode: typeof value === "undefined" ? "success" : value };
-    };
-    const nextMapMode = (map, key, fallback = "success") => nextMode(map && Object.prototype.hasOwnProperty.call(map, key) ? map[key] : undefined, fallback);
-    const nextTaskMode = (map, key) => {
-      if (map && Object.prototype.hasOwnProperty.call(map, key)) return nextMode(map[key], "success");
-      if (map && Object.prototype.hasOwnProperty.call(map, "*")) return nextMode(map["*"], "success");
-      return "success";
-    };
-    const createTaskModes = clone(init.createTaskModes || {});
-    const getTaskModes = clone(init.getTaskModes || {});
-    const terminalBridgeInfoModes = clone(init.terminalBridgeInfoModes || ["success"]);
-    const webSocketModes = clone(init.webSocketModes || ["success"]);
-    const shellDiscovery = clone(init.shellDiscovery || {});
-    const defaultShellTargets = Array.isArray(shellDiscovery.defaultTargets) && shellDiscovery.defaultTargets.length
-      ? shellDiscovery.defaultTargets
-      : ["local", "ssh:ops"];
-    const shellTargetsByPeer = shellDiscovery.targetsByPeer || {};
-    const shellSessionsByTarget = shellDiscovery.sessionsByTarget || {
-      local: ["main", "maintenance"],
-      "ssh:ops": ["ops-main"],
-    };
-    const shellTargetsForPeer = (peerID) => {
-      const list = shellTargetsByPeer[peerID] || shellTargetsByPeer["*"];
-      return Array.isArray(list) && list.length ? list : defaultShellTargets;
-    };
-    const shellSessionsForTarget = (target) => {
-      const list = shellSessionsByTarget[target] || shellSessionsByTarget["*"];
-      return Array.isArray(list) && list.length ? list : ["main", "maintenance"];
-    };
-    let topology = clone(init.fixture.topology);
-    const peers = Array.isArray(topology.members)
-      ? topology.members.map((m) => ({ peer_id: m.peer_id }))
-      : [];
-    const governanceFromTopology = (top) => {
-      const role = String(top && top.self && top.self.role || "").toLowerCase();
-      const netID = String(top && top.net && top.net.net_id || "");
-      const head = String(top && top.state_head && top.state_head.governance_head_b64 || "");
-      const noNetwork = !netID && !head && !(Array.isArray(top && top.members) && top.members.length);
-      if (noNetwork) {
-        return {
-          state: "no_network",
-          self_peer_id: String(top && top.self && top.self.peer_id || ""),
-          self_role: "unknown",
-          reason: "no local network has been initialized",
-          can_init_owner: true,
-          can_create_new_network: false,
-          can_invite: false,
-          can_approve: false,
-        };
+      const baseObject = baseValue && typeof baseValue === "object" && !Array.isArray(baseValue) ? baseValue : {};
+      const out = { ...baseObject };
+      for (const [key, value] of Object.entries(patchValue)) {
+        if (Array.isArray(value)) {
+          out[key] = clone(value);
+          continue;
+        }
+        if (value && typeof value === "object") {
+          out[key] = mergeDeep(baseObject[key], value);
+          continue;
+        }
+        out[key] = value;
       }
-      const admin = role === "owner" || role === "admin";
-      return {
-        state: admin ? "admin_network" : "member_network",
-        self_peer_id: String(top && top.self && top.self.peer_id || ""),
-        self_role: role || "unknown",
-        net_id: netID,
-        governance_head_b64: head,
-        decls_head_b64: String(top && top.state_head && top.state_head.decls_head_b64 || ""),
-        reason: admin ? "current identity is an owner/admin" : "current identity is a member, not an admin",
-        can_init_owner: false,
-        can_create_new_network: !admin,
-        can_invite: admin,
-        can_approve: admin,
+      return out;
+    };
+
+    const calls = [];
+    const eventHandlers = new Map();
+    const sockets = new Set();
+    let connection = clone(data.connection);
+    let snapshot = clone(data.snapshot);
+    let runtimeStartCount = 0;
+    let shellSessionSeq = 0;
+
+    const record = (entry) => {
+      calls.push(clone(entry));
+    };
+    const emit = (name, payload) => {
+      const handlers = eventHandlers.get(name) || [];
+      for (const handler of handlers) {
+        handler(clone(payload));
+      }
+    };
+    const buildInviteData = () => {
+      const payload = { invite_code: data.inviteCode };
+      if (data.inviteDataMode === "string") return JSON.stringify(payload);
+      if (data.inviteDataMode === "bytes") {
+        return Array.from(new TextEncoder().encode(JSON.stringify(payload)));
+      }
+      return payload;
+    };
+    const actionResult = (extra = {}) => ({
+      stage: snapshot.stage,
+      reason_code: snapshot.reason_code,
+      exit_code: 0,
+      summary: clone(snapshot.summary),
+      evidence: clone(snapshot.evidence),
+      snapshot: clone(snapshot),
+      ...extra,
+    });
+    const upsertPeerSession = (peerID, patch) => {
+      const current = Array.isArray(snapshot.peer_sessions) ? snapshot.peer_sessions.slice() : [];
+      const index = current.findIndex((item) => String(item && item.peer_id || "") === peerID);
+      const next = {
+        peer_id: peerID,
+        healthy: true,
+        path_family: "udp4",
+        protocol: "kcp",
+        ping_gate_satisfied: false,
+        ...patch,
       };
+      if (index >= 0) current[index] = { ...current[index], ...next };
+      else current.push(next);
+      snapshot.peer_sessions = current;
     };
-    const defaultRuntimeConfig = {
-      known_peers: peers.map((peer) => ({ peer_id: peer.peer_id })),
-      governance: governanceFromTopology(topology),
-      desired: {
-        runtime: {
-          mqtt_brokers: ["broker-1.miopunch.local:1883"],
-          p2p_network: "auto",
-          p2p_ip_family: "auto",
-          data_proto: "quic",
-          quic_cc: "bbr",
-          stun: ["stun-1.miopunch.local:3478"],
-          stun_explicit: true,
-          disable_portmap: false,
-          disable_assisted_addrs: false,
-        },
-        preferences: {
-          default_shell_target: "local",
-          default_shell_session: "main",
-          log_level: "info",
-          peer_aliases: {},
-        },
-      },
-      effective: {
-        runtime: {
-          mqtt_brokers: ["broker-1.miopunch.local:1883"],
-          p2p_network: "auto",
-          p2p_ip_family: "auto",
-          data_proto: "quic",
-          quic_cc: "bbr",
-          stun: ["stun-1.miopunch.local:3478"],
-          stun_explicit: true,
-          disable_portmap: false,
-          disable_assisted_addrs: false,
-        },
-        preferences: {
-          default_shell_target: "local",
-          default_shell_session: "main",
-          log_level: "info",
-          peer_aliases: {},
-        },
-      },
-      apply: {
-        runtime: "immediate",
-        preferences: "immediate",
-        active_peer_sessions: 0,
-        active_shell_sessions: 0,
-        requires_reconnect: false,
-        restart_required: false,
-      },
-    };
-    let taskSeq = 1;
-    let connectSeq = 0;
-    let runtimeStartSeq = 0;
-    let runtimeRev = 0;
-    let runtimePeerSessions = clone(init.fixture.peer_sessions || []);
-    let runtimeShellSessions = clone(init.initialShellSessions.length ? init.initialShellSessions : (init.fixture.shell_sessions || []));
-    let runtimeConfig = clone(init.fixture.config || defaultRuntimeConfig);
-    if (!runtimeConfig.governance) runtimeConfig.governance = governanceFromTopology(topology);
-    let runtimeDiagnostics = clone(init.fixture.runtime_diagnostics || init.fixture.diagnostics || []);
-    let runtimeApprovalRequests = clone(init.approvalRequests || init.fixture.approval_requests || []);
-    const tasks = new Map((init.initialTasks || []).map((task) => [String(task.task_id || ""), task]));
-    let connection = {
-      connected: !!init.fixture.connected,
-      selected: init.fixture.selected || (init.fixture.connected ? "user" : ""),
-      addr: init.fixture.addr || (init.fixture.connected ? "unix:/tmp/miopunch-ui-test.sock" : ""),
-      system_addr: "unix:/run/miopunch/localapi.sock",
-      user_addr: "unix:/tmp/miopunch-user.sock",
-      bootstrap_state: init.fixture.bootstrap_state || "none",
-      desktop_managed: !!init.fixture.desktop_managed,
-      diagnostics: init.fixture.diagnostics || [],
-      bootstrap: init.fixture.bootstrap || null,
-      failure: init.fixture.failure || null,
-    };
-
-    const nextTaskID = (kind) => `ui-${kind}-${String(taskSeq++).padStart(3, "0")}`;
-    const runtimeSnapshot = () => ({
-      rev: runtimeRev,
-      status: { version: "ui-test", uptime_ms: 1000, mode: "user" },
-      topology: clone(topology),
-      tasks: Array.from(tasks.values()).map(clone),
-      peer_sessions: clone(runtimePeerSessions),
-      shell_sessions: clone(runtimeShellSessions),
-      config: clone(runtimeConfig),
-      diagnostics: clone(runtimeDiagnostics),
-      approval_requests: clone(runtimeApprovalRequests),
-    });
-    const waitRuntimeStart = async () => {
-      if (init.runtimeStartDelayMs > 0) {
-        await new Promise((resolve) => window.setTimeout(resolve, init.runtimeStartDelayMs));
-      }
-    };
-    const waitRuntimeResync = async () => {
-      if (init.runtimeResyncDelayMs > 0) {
-        await new Promise((resolve) => window.setTimeout(resolve, init.runtimeResyncDelayMs));
-      }
-    };
-    const addInvitePeerFact = (task) => {
-      if (task.facts.some((fact) => fact && fact.term_id === "peer_id")) return;
-      const peerID = String(topology.self && topology.self.peer_id ? topology.self.peer_id : "peer-ui-test-owner");
-      task.facts.push({ term_id: "peer_id", message: `peer_id=${peerID}` });
-    };
-    const addInviteNetFact = (task) => {
-      if (task.facts.some((fact) => fact && fact.term_id === "net_id")) return;
-      task.facts.push({ term_id: "net_id", message: "net_id=net-ui-test" });
-    };
-    const addInviteSuggestion = (task) => {
-      if (task.suggestions.some((s) => s && String(s.message || "").includes("miopunch join"))) return;
-      task.suggestions.push({ message: "on another machine: miopunch join <invite_code>" });
-    };
-    const addInviteCodeFact = (task) => {
-      if (task.facts.some((fact) => fact && fact.term_id === "invite_code")) return;
-      task.facts.push({ term_id: "invite_code", message: init.inviteCode });
-    };
-    const completeInviteTask = (task, withCode) => {
-      task.status = "done";
-      task.stage = "invite code ready";
-      task.reason_code = "OK";
-      task.exit_code = 0;
-      task.report_ready = true;
-      if (withCode) addInviteCodeFact(task);
-    };
-    const applyTaskResult = (task, result) => {
-      if (!task || !result || typeof result !== "object") return;
-      task.status = String(result.status || "done");
-      if (Object.prototype.hasOwnProperty.call(result, "stage")) task.stage = String(result.stage || "");
-      if (Object.prototype.hasOwnProperty.call(result, "reason_code")) task.reason_code = String(result.reason_code || "");
-      if (Object.prototype.hasOwnProperty.call(result, "exit_code")) task.exit_code = result.exit_code;
-      if (Array.isArray(result.facts)) task.facts = task.facts.concat(clone(result.facts));
-      if (Array.isArray(result.suggestions)) task.suggestions = clone(result.suggestions);
-      task.report_ready = Object.prototype.hasOwnProperty.call(result, "report_ready") ? !!result.report_ready : true;
-    };
-    const okTask = (kind, args) => {
-      const task = {
-        task_id: nextTaskID(kind),
-        kind,
-        status: "done",
-        stage: "complete",
-        reason_code: "OK",
-        exit_code: 0,
-        report_ready: true,
-        created_at: new Date().toISOString(),
-        facts: [],
-        suggestions: [],
+    const upsertShellSession = (sessionID, peerID, patch) => {
+      const current = Array.isArray(snapshot.shell_sessions) ? snapshot.shell_sessions.slice() : [];
+      const index = current.findIndex((item) => String(item && item.id || "") === sessionID);
+      const now = Date.now();
+      const next = {
+        id: sessionID,
+        peer_id: peerID,
+        status: "attached",
+        created_at_unix_ms: now,
+        attached_unix_ms: now,
+        ...patch,
       };
-      if (kind === "invite") {
-        if (init.inviteCodeDelivery === "immediate") {
-          completeInviteTask(task, true);
-        } else if (init.inviteCodeDelivery === "missing") {
-          completeInviteTask(task, false);
-        } else if (init.inviteCodeDelivery === "partial-done-fetch") {
-          completeInviteTask(task, false);
-          task.stage = "SelfDiscovery";
-          addInvitePeerFact(task);
-          addInviteSuggestion(task);
-        } else {
-          task.status = "running";
-          task.stage = "prepare invite code";
-          task.reason_code = "";
-          task.exit_code = undefined;
-          task.report_ready = false;
-        }
-      } else if (kind === "join") {
-        task.stage = "membership accepted";
-        task.facts.push({ message: `invite_code=${String(args && args.code ? args.code : "")}` });
-      } else if (kind === "init_network") {
-        const peerID = String(topology.self && topology.self.peer_id ? topology.self.peer_id : "peer-ui-test-owner");
-        const netID = String(args && args.mode || "") === "create_new" ? "net-ui-new-network" : "net-ui-bootstrap";
-        topology.self = { ...(topology.self || {}), peer_id: peerID, role: "owner" };
-        topology.net = { net_id: netID, brokers_effective: ["broker-1.miopunch.local:1883"] };
-        topology.state_head = { governance_head_b64: `gov-${netID}`, decls_head_b64: "decls-empty" };
-        topology.members = [{ peer_id: peerID, role: "owner", member_name: "This device", platform: "desktop", v4_hint: "unknown", v6_hint: "" }];
-        runtimeConfig.governance = governanceFromTopology(topology);
-        task.stage = "local network initialized";
-        task.facts.push({ term_id: "peer_id", message: `peer_id=${peerID}` });
-        task.facts.push({ term_id: "net_id", message: `net_id=${netID}` });
-      } else if (kind === "approve") {
-        task.status = "running";
-        task.stage = "waiting for joiner";
-        task.report_ready = false;
-      } else if (kind === "approve_decision") {
-        task.stage = `${String(args && args.decision ? args.decision : "decision")} submitted`;
-        task.facts.push({ message: `approve_task_id=${String(args && args.approve_task_id ? args.approve_task_id : "")}` });
-        task.facts.push({ message: `request_msg_id=${String(args && args.request_msg_id ? args.request_msg_id : "")}` });
-        const req = runtimeApprovalRequests.find((item) =>
-          String(item.approve_task_id || item.task_id || "") === String(args && args.approve_task_id || "") &&
-          String(item.request_msg_id || "") === String(args && args.request_msg_id || "")
-        );
-        if (req) {
-          req.status = String(args && args.decision || "") === "reject" ? "rejected" : "approved";
-          req.decision = String(args && args.decision || "");
-          req.updated_at = new Date().toISOString();
-        }
-      } else if (kind === "ping") {
-        task.stage = "payload exchanged";
-        task.facts.push({ message: `peer_id=${String(args && args.peer_id ? args.peer_id : "")}` });
-        task.facts.push({ message: "rtt_ms=18" });
-      } else if (kind === "sh_ls") {
-        const peerID = String(args && args.peer_id ? args.peer_id : "");
-        const target = String(args && args.target ? args.target : "");
-        task.stage = target ? "sessions listed" : "targets listed";
-        task.facts.push({ term_id: "peer_id", message: `peer_id=${peerID}` });
-        if (target) {
-          for (const session of shellSessionsForTarget(target)) {
-            task.facts.push({ term_id: "session", message: `session=${session}` });
-          }
-        } else {
-          for (const value of shellTargetsForPeer(peerID)) {
-            task.facts.push({ term_id: "target", message: `target=${value}` });
-          }
-        }
-      } else if (kind === "sh_attach") {
-        task.status = "running";
-        task.stage = "attached";
-        task.report_ready = false;
-        task.facts.push({ term_id: "peer_id", message: `peer_id=${String(args && args.peer_id ? args.peer_id : "")}` });
-        task.facts.push({ term_id: "target", message: `target=${String(args && args.target ? args.target : "local")}` });
-        task.facts.push({ term_id: "session", message: `session=${String(args && args.session ? args.session : "main")}` });
-        runtimeShellSessions = runtimeShellSessions.filter((item) => String(item && item.task_id || "") !== String(task.task_id));
-        runtimeShellSessions.push({
-          task_id: task.task_id,
-          peer_id: String(args && args.peer_id ? args.peer_id : ""),
-          target: String(args && args.target ? args.target : "local"),
-          session: String(args && args.session ? args.session : "main"),
-          status: "running",
-          stage: "attached",
-          created_at: task.created_at,
-          report_ready: false,
-          attachable: true,
-        });
-      } else if (kind === "revoke_member") {
-        task.stage = "decl written";
-        task.facts.push({ message: `revoked_peer_id=${String(args && args.peer_id ? args.peer_id : "")}` });
-      }
-      tasks.set(task.task_id, task);
-      return task;
+      if (index >= 0) current[index] = { ...current[index], ...next };
+      else current.push(next);
+      snapshot.shell_sessions = current;
     };
-    const getTaskReads = new Map();
-    const bridgeError = (kind) => ({
-      ok: false,
-      error: {
-        stage: "desktop",
-        reason_code: "bridge_failure",
-        exit_code: 70,
-        message: `${kind} failed in fake bridge`,
-      },
-    });
+    const firstPeerID = () => {
+      const peers = snapshot.discover_view && Array.isArray(snapshot.discover_view.peers)
+        ? snapshot.discover_view.peers
+        : [];
+      return String(peers[0] && peers[0].peer_id || "peer-remote-bravo-0002");
+    };
 
-    window.confirm = () => init.confirm;
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: {
-        writeText: async (text) => record({ method: "Clipboard.writeText", text }),
-      },
-    });
+    window.__miopunchCalls = calls;
+    window.__miopunchShellLog = [];
+    window.__miopunchClipboard = "";
+    window.__miopunchEmit = (name, payload) => emit(name, payload);
+    window.__miopunchSetRuntimeSnapshot = (nextSnapshot) => {
+      snapshot = clone(nextSnapshot);
+      return clone(snapshot);
+    };
+    window.__miopunchMergeRuntimeSnapshot = (nextSnapshot) => {
+      snapshot = mergeDeep(snapshot, nextSnapshot || {});
+      return clone(snapshot);
+    };
+    window.__miopunchSetConnection = (nextConnection) => {
+      connection = mergeDeep(connection, nextConnection || {});
+      emit("localapi:connection", connection);
+      return clone(connection);
+    };
+    window.__miopunchPushShellData = (sessionID, text) => {
+      for (const socket of sockets) {
+        if (socket.__sessionID !== sessionID) continue;
+        socket.__emitMessage(String(text || ""));
+      }
+    };
 
     window.runtime = {
-      EventsOn: (name, cb) => {
-        record({ method: "EventsOn", name });
-        window.__miopunchRuntimeHandlers[name] = cb;
+      EventsOn: (name, handler) => {
+        const handlers = eventHandlers.get(name) || [];
+        handlers.push(handler);
+        eventHandlers.set(name, handlers);
       },
     };
-    window.__miopunchEmit = (name, payload) => {
-      const handler = window.__miopunchRuntimeHandlers[name];
-      if (typeof handler === "function") handler(payload);
-    };
-    window.__miopunchSetRuntimeSnapshot = (snapshot) => {
-      if (!snapshot || typeof snapshot !== "object") return;
-      if (typeof snapshot.rev !== "undefined") runtimeRev = Number(snapshot.rev || 0);
-      if (snapshot.topology) topology = clone(snapshot.topology);
-      if (Array.isArray(snapshot.tasks)) {
-        tasks.clear();
-        for (const task of snapshot.tasks) {
-          const taskID = String(task && task.task_id ? task.task_id : "");
-          if (taskID) tasks.set(taskID, clone(task));
-        }
-      }
-      if (Array.isArray(snapshot.peer_sessions)) runtimePeerSessions = clone(snapshot.peer_sessions);
-      if (Array.isArray(snapshot.shell_sessions)) runtimeShellSessions = clone(snapshot.shell_sessions);
-      if (snapshot.config) runtimeConfig = clone(snapshot.config);
-      if (Array.isArray(snapshot.diagnostics)) runtimeDiagnostics = clone(snapshot.diagnostics);
-      if (Array.isArray(snapshot.approval_requests)) runtimeApprovalRequests = clone(snapshot.approval_requests);
-    };
+
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (text) => {
+          window.__miopunchClipboard = String(text || "");
+        },
+      },
+    });
 
     class FakeWebSocket {
       static CONNECTING = 0;
@@ -746,308 +258,255 @@ async function installFakeBridge(page, options = {}) {
       static CLOSING = 2;
       static CLOSED = 3;
 
-      constructor(url, protocols) {
-        this.url = url;
-        this.protocols = protocols;
+      constructor(url, protocol) {
+        this.url = String(url || "");
+        this.protocol = protocol;
         this.readyState = FakeWebSocket.CONNECTING;
-        this.binaryType = "";
-        this.sent = [];
-        this.taskID = "";
-        this.modeConfig = null;
-        const taskMatch = /\/tasks\/([^/?]+)\/ws/.exec(url);
-        if (taskMatch && taskMatch[1]) this.taskID = decodeURIComponent(taskMatch[1]);
-        window.__miopunchWebSockets.push(this);
-        record({ method: "WebSocket", url, protocols });
-        const modeConfig = normalizeWebSocketMode(nextMode(webSocketModes, "success"));
-        this.modeConfig = modeConfig;
-        const mode = String(modeConfig.mode || "success");
-        const deliverRemoteMessages = () => {
-          if (mode === "open_no_data" || modeConfig.remoteMessages === false) return;
-          const messages = Array.isArray(modeConfig.remoteMessages)
-            ? modeConfig.remoteMessages
-            : [Object.prototype.hasOwnProperty.call(modeConfig, "remoteMessage") ? modeConfig.remoteMessage : "__MIO_FAKE_REMOTE_OUTPUT__\r\n"];
-          for (const message of messages) {
-            const encoded = new TextEncoder().encode(String(message ?? ""));
-            if (typeof this.onmessage === "function") this.onmessage({ data: encoded.buffer });
-          }
-        };
+        this.binaryType = "blob";
+        this.__sessionID = "";
+
+        const match = this.url.match(/\/api\/v1\/shell\/([^/?]+)\/ws\?token=([^&]+)/);
+        if (match) this.__sessionID = decodeURIComponent(match[1]);
+        sockets.add(this);
+
         window.setTimeout(() => {
-          if (mode === "close_before_open") {
-            this.readyState = FakeWebSocket.CLOSED;
-            if (typeof this.onclose === "function") this.onclose({ code: 1011, reason: "connect failed in fake websocket" });
-            return;
-          }
-          if (mode === "error_before_open") {
-            if (typeof this.onerror === "function") this.onerror({ message: "fake websocket error" });
-            this.readyState = FakeWebSocket.CLOSED;
-            if (typeof this.onclose === "function") this.onclose({ code: 1011, reason: "connect failed in fake websocket" });
-            return;
-          }
+          if (this.readyState !== FakeWebSocket.CONNECTING) return;
           this.readyState = FakeWebSocket.OPEN;
-          if (typeof this.onopen === "function") this.onopen({});
-          window.setTimeout(deliverRemoteMessages, 0);
-          if (mode === "close_after_open") {
-            const closeCode = Number(modeConfig.closeCode || 1011);
-            const closeReason = String(modeConfig.closeReason || "fake websocket transport lost");
-            window.setTimeout(() => this.close(closeCode, closeReason), 30);
-          }
+          window.__miopunchShellLog.push(clone({
+            type: "open",
+            url: this.url,
+            protocol: this.protocol,
+            sessionID: this.__sessionID,
+          }));
+          if (typeof this.onopen === "function") this.onopen();
+          const lines = data.websocketMessages[this.__sessionID] || [];
+          for (const line of lines) this.__emitMessage(line);
         }, 0);
       }
 
-      send(data) {
-        this.sent.push(typeof data === "string" ? data : `[binary:${data.byteLength || 0}]`);
-        record({ method: "WebSocket.send", data: this.sent[this.sent.length - 1] });
+      send(payload) {
+        window.__miopunchShellLog.push(clone({
+          type: "send",
+          url: this.url,
+          sessionID: this.__sessionID,
+          data: String(payload || ""),
+        }));
       }
 
       close(code = 1000, reason = "") {
+        if (this.readyState === FakeWebSocket.CLOSED) return;
         this.readyState = FakeWebSocket.CLOSED;
-        record({ method: "WebSocket.close", code, reason });
-        if (this.taskID) {
-          runtimeShellSessions = runtimeShellSessions.filter((item) => String(item && item.task_id || "") !== this.taskID);
-          const task = tasks.get(this.taskID);
-          if (task && task.kind === "sh_attach") {
-            if (this.modeConfig && this.modeConfig.taskResult) {
-              applyTaskResult(task, this.modeConfig.taskResult);
-            } else {
-              task.status = "done";
-              task.stage = "disconnected";
-              task.reason_code = "OK";
-              task.exit_code = 0;
-              task.report_ready = true;
-            }
-          }
-        }
+        sockets.delete(this);
+        window.__miopunchShellLog.push(clone({
+          type: "close",
+          url: this.url,
+          sessionID: this.__sessionID,
+          code,
+          reason: String(reason || ""),
+        }));
         if (typeof this.onclose === "function") this.onclose({ code, reason });
       }
+
+      __emitMessage(text) {
+        if (this.readyState !== FakeWebSocket.OPEN) return;
+        window.__miopunchShellLog.push(clone({
+          type: "message",
+          url: this.url,
+          sessionID: this.__sessionID,
+          data: String(text || ""),
+        }));
+        if (typeof this.onmessage === "function") this.onmessage({ data: String(text || "") });
+      }
     }
+
     window.WebSocket = FakeWebSocket;
 
     window.go = {
       main: {
         App: {
-          Connect: async () => {
-            record({ method: "Connect" });
-            connectSeq += 1;
-            if (
-              init.fixture.reconnect_after_connects &&
-              connectSeq >= init.fixture.reconnect_after_connects
-            ) {
-              connection = {
-                ...connection,
-                connected: true,
-                selected: "user",
-                addr: connection.user_addr,
-                bootstrap_state: "ready",
-                desktop_managed: true,
-                failure: null,
-              };
-            }
-            return connection;
-          },
           DesktopRuntimeStart: async () => {
             record({ method: "DesktopRuntimeStart" });
-            connectSeq += 1;
-            runtimeStartSeq += 1;
-            if (
-              init.fixture.reconnect_after_connects &&
-              connectSeq >= init.fixture.reconnect_after_connects
-            ) {
-              connection = {
-                ...connection,
-                connected: true,
-                selected: "user",
-                addr: connection.user_addr,
-                bootstrap_state: "ready",
-                desktop_managed: true,
-                failure: null,
-              };
-            }
-            if (!connection.connected) {
-              await waitRuntimeStart();
-              return { ok: false, error: clone(connection.failure), connection: clone(connection) };
-            }
-            await waitRuntimeStart();
-            if (runtimeStartSeq <= init.runtimeStartFailures) {
+            runtimeStartCount += 1;
+            if (runtimeStartCount <= data.runtimeStartFailures) {
               return {
                 ok: false,
+                connection: clone(connection),
                 error: {
                   stage: "desktop",
-                  reason_code: "unavailable",
-                  exit_code: 70,
-                  message: "desktop event stream did not begin with snapshot",
-                  suggestions: [{ message: "retry runtime start" }],
-                  facts: [],
+                  reason_code: "UNAVAILABLE",
+                  exit_code: 69,
+                  message: "fake runtime start failure",
                 },
-                connection: clone(connection),
-              };
-            }
-            return { ok: true, connection: clone(connection), state: runtimeSnapshot() };
-          },
-          DesktopRuntimeResync: async () => {
-            record({ method: "DesktopRuntimeResync" });
-            await waitRuntimeResync();
-            if (!connection.connected) {
-              return { ok: false, error: clone(connection.failure), connection: clone(connection) };
-            }
-            return { ok: true, connection: clone(connection), state: runtimeSnapshot() };
-          },
-          SaveDesktopConfig: async (update) => {
-            record({ method: "SaveDesktopConfig", update });
-            if (!connection.connected) {
-              return { ok: false, error: clone(connection.failure), connection: clone(connection) };
-            }
-            if (update && update.runtime && Array.isArray(update.runtime.mqtt_brokers) && update.runtime.mqtt_brokers.includes("broker-without-port")) {
-              return {
-                ok: false,
-                error: {
-                  stage: "localapi",
-                  reason_code: "BAD_REQUEST",
-                  exit_code: 2,
-                  message: "invalid MQTT brokers",
-                  facts: [{ message: "invalid MQTT brokers" }],
-                  suggestions: [{ message: "use host:port" }],
-                },
-                connection: clone(connection),
-              };
-            }
-            const desired = runtimeConfig.desired || {};
-            const effective = runtimeConfig.effective || {};
-            const mergePreferences = (current, incoming) => {
-              const next = { ...(current || {}) };
-              const prefs = incoming && typeof incoming === "object" ? incoming : {};
-              for (const [key, value] of Object.entries(prefs)) {
-                if (key !== "peer_aliases") next[key] = value;
-              }
-              if (prefs.peer_aliases && typeof prefs.peer_aliases === "object") {
-                const aliases = { ...(next.peer_aliases || {}) };
-                for (const [peerID, alias] of Object.entries(prefs.peer_aliases)) {
-                  const id = String(peerID || "").trim();
-                  if (!id) continue;
-                  const value = String(alias || "").trim();
-                  if (value) aliases[id] = value;
-                  else delete aliases[id];
-                }
-                next.peer_aliases = aliases;
-              }
-              return next;
-            };
-            runtimeConfig = {
-              ...runtimeConfig,
-              desired: {
-                runtime: { ...(desired.runtime || {}), ...(update && update.runtime ? update.runtime : {}) },
-                preferences: mergePreferences(desired.preferences || {}, update && update.preferences),
-              },
-              effective: {
-                runtime: { ...(effective.runtime || {}), ...(update && update.runtime ? update.runtime : {}) },
-                preferences: mergePreferences(effective.preferences || {}, update && update.preferences),
-              },
-            };
-            return { ok: true, connection: clone(connection), state: runtimeSnapshot() };
-          },
-          GetStatus: async () => {
-            record({ method: "GetStatus" });
-            return { ok: true, status: { version: "ui-test", uptime_ms: 1000 } };
-          },
-          GetPeers: async () => {
-            record({ method: "GetPeers" });
-            return { ok: true, peers: { peers } };
-          },
-          GetTopology: async () => {
-            record({ method: "GetTopology" });
-            return { ok: true, topology };
-          },
-          GetTasks: async () => {
-            record({ method: "GetTasks" });
-            return { ok: true, tasks: { tasks: Array.from(tasks.values()).map(clone) } };
-          },
-          CreateTask: async (kind, args) => {
-            record({ method: "CreateTask", kind, args });
-            const mode = nextMapMode(createTaskModes, kind, "success");
-            if (mode === "failure") return bridgeError(kind);
-            if (mode === "timeout") return new Promise(() => {});
-            const approvalBefore = clone(runtimeApprovalRequests);
-            const task = okTask(kind, args || {});
-            if (mode === "task_failure") {
-              runtimeApprovalRequests = approvalBefore;
-              task.status = "done";
-              task.stage = "failed";
-              task.reason_code = "CONFLICT";
-              task.exit_code = 6;
-              task.report_ready = true;
-              task.facts.push({ message: `${kind} failed in fake task` });
-            }
-            return { ok: true, task: clone(task) };
-          },
-          GetTask: async (taskID) => {
-            record({ method: "GetTask", taskID });
-            const mode = nextTaskMode(getTaskModes, taskID);
-            if (mode === "failure") return bridgeError("GetTask");
-            if (mode === "timeout") return new Promise(() => {});
-            const key = String(taskID);
-            const task = tasks.get(key) || null;
-            if (task && task.kind === "invite" && init.inviteCodeDelivery === "delayed-fetch") {
-              const reads = (getTaskReads.get(key) || 0) + 1;
-              getTaskReads.set(key, reads);
-              if (reads >= 2) completeInviteTask(task, true);
-            } else if (task && task.kind === "invite" && init.inviteCodeDelivery === "partial-done-fetch") {
-              addInviteNetFact(task);
-              completeInviteTask(task, true);
-            } else if (task && task.kind === "invite" && init.inviteCodeDelivery === "partial-event-fetch") {
-              const reads = (getTaskReads.get(key) || 0) + 1;
-              getTaskReads.set(key, reads);
-              if (reads >= 2) {
-                addInvitePeerFact(task);
-                addInviteNetFact(task);
-                completeInviteTask(task, true);
-              }
-            }
-            return { ok: true, task: clone(tasks.get(String(taskID)) || null) };
-          },
-          ExportTaskReport: async (taskID) => {
-            record({ method: "ExportTaskReport", taskID });
-            return { ok: true, path: `/tmp/${String(taskID || "task")}.md` };
-          },
-          ExportDiagnostics: async () => {
-            record({ method: "ExportDiagnostics" });
-            return { ok: true, path: "/tmp/miopunch-diagnostics.zip" };
-          },
-          SetLocalAPIOverride: async (addr) => {
-            record({ method: "SetLocalAPIOverride", addr });
-            connection = { ...connection, connected: true, selected: "override", addr, override_addr: addr };
-            return connection;
-          },
-          ClearLocalAPIOverride: async () => {
-            record({ method: "ClearLocalAPIOverride" });
-            connection = { ...connection, connected: true, selected: "user", addr: connection.user_addr, override_addr: "" };
-            return connection;
-          },
-          Quit: async () => {
-            record({ method: "Quit" });
-          },
-          TerminalBridgeInfo: async () => {
-            record({ method: "TerminalBridgeInfo" });
-            const mode = nextMode(terminalBridgeInfoModes, "success");
-            if (mode && typeof mode === "object") return clone(mode);
-            if (mode === "failure") return bridgeError("TerminalBridgeInfo");
-            if (mode === "missing") {
-              return {
-                ok: true,
-                base_url: "",
-                token: "",
-                subprotocol: "miopunch.sh.v0",
               };
             }
             return {
               ok: true,
-              base_url: "ws://127.0.0.1:9",
-              token: "ui-test-token",
-              subprotocol: "miopunch.sh.v0",
+              connection: clone(connection),
+              state: clone(snapshot),
             };
+          },
+          DesktopRuntimeResync: async () => {
+            record({ method: "DesktopRuntimeResync" });
+            return {
+              ok: true,
+              connection: clone(connection),
+              state: clone(snapshot),
+            };
+          },
+          RuntimeAction: async (action, args = {}) => {
+            record({ method: "RuntimeAction", action, args: clone(args) });
+
+            switch (String(action || "")) {
+              case "init-network":
+                snapshot = mergeDeep(snapshot, {
+                  stage: "Enroll",
+                  summary: { text: "network bootstrapped" },
+                  evidence: {
+                    facts: [{ message: "network_id=net_console_lab" }],
+                    suggestions: [{ message: "open Admin to create or use an invite" }],
+                  },
+                  discover_view: { network_id: "net_console_lab" },
+                });
+                return { ok: true, result: actionResult() };
+              case "invite":
+                return {
+                  ok: true,
+                  result: actionResult({
+                    data: buildInviteData(),
+                    evidence: {
+                      facts: [{ message: `invite_code=${data.inviteCode}` }],
+                      suggestions: [{ message: "share the invite code with the joiner" }],
+                    },
+                  }),
+                };
+              case "approve":
+                snapshot = mergeDeep(snapshot, {
+                  stage: "Discover",
+                  summary: { text: "approval completed" },
+                  evidence: {
+                    facts: [{ message: `approved_code=${String(args.code || "")}` }],
+                    suggestions: [{ message: "return to Network and wait for the peer projection" }],
+                  },
+                });
+                return { ok: true, result: actionResult() };
+              case "join":
+                snapshot = mergeDeep(snapshot, {
+                  stage: "Discover",
+                  summary: { text: "join completed" },
+                  evidence: {
+                    facts: [{ message: "join_status=complete" }],
+                    suggestions: [{ message: "return to Network and refresh peer presence" }],
+                  },
+                });
+                return { ok: true, result: actionResult() };
+              case "ping": {
+                const peerID = String(args.peer_id || firstPeerID());
+                snapshot = mergeDeep(snapshot, {
+                  stage: "SecureSession",
+                  summary: { text: "identity-bound ping succeeded" },
+                  evidence: {
+                    facts: [
+                      { message: `ping_peer=${peerID}` },
+                      { message: "ping_gate=satisfied" },
+                    ],
+                    suggestions: [{ message: "open Shell and attach the console" }],
+                  },
+                });
+                upsertPeerSession(peerID, {
+                  ping_gate_satisfied: true,
+                  shell_ready_unix_ms: Date.now(),
+                });
+                return { ok: true, result: actionResult() };
+              }
+              case "sh_ls":
+                if (args && args.target) {
+                  return {
+                    ok: true,
+                    result: actionResult({
+                      data: { sessions: ["main", "ops"] },
+                    }),
+                  };
+                }
+                return {
+                  ok: true,
+                  result: actionResult({
+                    data: { targets: ["local", "logs"] },
+                  }),
+                };
+              case "sh": {
+                const peerID = String(args.peer_id || firstPeerID());
+                shellSessionSeq += 1;
+                const shellSessionID = `shell-session-${String(shellSessionSeq).padStart(2, "0")}`;
+                snapshot = mergeDeep(snapshot, {
+                  stage: "Shell",
+                  summary: { text: "shell session attached" },
+                  evidence: {
+                    facts: [{ message: `shell_session_id=${shellSessionID}` }],
+                    suggestions: [{ message: "use the remote console" }],
+                  },
+                });
+                upsertShellSession(shellSessionID, peerID, {
+                  target: String(args.target || "local"),
+                  session: String(args.session || "main"),
+                });
+                return {
+                  ok: true,
+                  result: actionResult({
+                    shell_session_id: shellSessionID,
+                  }),
+                };
+              }
+              default:
+                return {
+                  ok: false,
+                  error: {
+                    stage: "desktop",
+                    reason_code: "BAD_REQUEST",
+                    exit_code: 64,
+                    message: `unsupported fake action: ${String(action || "")}`,
+                  },
+                };
+            }
+          },
+          TerminalBridgeInfo: async () => {
+            record({ method: "TerminalBridgeInfo" });
+            return clone(data.terminalBridgeInfo);
+          },
+          SetLocalAPIOverride: async (addr) => {
+            record({ method: "SetLocalAPIOverride", addr });
+            connection = mergeDeep(connection, {
+              connected: true,
+              selected: "override",
+              addr,
+              override_addr: addr,
+            });
+            return clone(connection);
+          },
+          ClearLocalAPIOverride: async () => {
+            record({ method: "ClearLocalAPIOverride" });
+            connection = mergeDeep(connection, {
+              connected: true,
+              selected: "user",
+              addr: connection.user_addr || connection.addr || "",
+              override_addr: "",
+            });
+            return clone(connection);
+          },
+          ExportDiagnostics: async () => {
+            record({ method: "ExportDiagnostics" });
+            return {
+              ok: true,
+              path: data.diagnosticsPath,
+            };
+          },
+          Quit: async () => {
+            record({ method: "Quit" });
+            return null;
           },
         },
       },
     };
-  }, data);
+  }, init);
 }
 
 async function openDesktop(page, options = {}) {
@@ -1058,14 +517,6 @@ async function openDesktop(page, options = {}) {
 
 async function calls(page) {
   return page.evaluate(() => window.__miopunchCalls || []);
-}
-
-async function createTaskCalls(page, kind) {
-  return (await calls(page)).filter((call) => call.method === "CreateTask" && (!kind || call.kind === kind));
-}
-
-async function expectCreateTaskCall(page, kind, args) {
-  await expect.poll(async () => createTaskCalls(page, kind)).toContainEqual({ method: "CreateTask", kind, args });
 }
 
 async function emitRuntime(page, name, payload) {
@@ -1079,16 +530,24 @@ async function setRuntimeSnapshot(page, snapshot) {
   await page.evaluate((nextSnapshot) => window.__miopunchSetRuntimeSnapshot(nextSnapshot), snapshot);
 }
 
+async function shellLog(page) {
+  return page.evaluate(() => window.__miopunchShellLog || []);
+}
+
+async function clipboardText(page) {
+  return page.evaluate(() => window.__miopunchClipboard || "");
+}
+
 module.exports = {
   PEERS,
+  clipboardText,
   calls,
-  clone,
-  createTaskCalls,
   emitRuntime,
   expect,
-  expectCreateTaskCall,
   inviteCode,
   openDesktop,
   setRuntimeSnapshot,
+  shellLog,
+  snapshotFor,
   test,
 };

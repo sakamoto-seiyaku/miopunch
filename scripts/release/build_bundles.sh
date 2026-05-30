@@ -57,15 +57,15 @@ Delete .\\data\\ to reset this extracted bundle to a clean node before a new smo
 
 If startup fails, send both log files with the terminal output.
 
-## Two-machine smoke
+## Desktop smoke
 
-1. Start the GUI on both machines and verify both are connected locally.
-2. On the first/admin machine, open Access > Create invite, click Create, then copy the invite code.
-3. On the first/admin machine, open Access > Approve request, paste the same code, and click Start approval. Keep it running.
-4. On the second machine, open Access > Join network, paste the invite code, and click Join.
-5. After join and approval complete, click Refresh on both machines and verify each side can see the other peer in Network.
-6. Open the remote peer, click Ping, and verify the task reaches payload exchanged.
-7. Open the remote peer, click List sessions, then Shell > Connect, and verify the terminal attaches.
+1. Verify the six-stage wizard starts and the top-right chip reports a connected LocalAPI endpoint.
+2. Click Refresh and confirm runtime summary/evidence continue to render without falling back to the legacy task UI.
+3. Export diagnostics and confirm the archive is written.
+4. If a same-user runtime already has peers, optionally verify Punch > SecureSession > Shell locally.
+
+Windows startup, daemon connection, and runtime contract consumption are the blocker checks here.
+Windows/Linux real-machine interoperability is explicitly optional for this smoke bundle.
 
 No installer, Administrator prompt, or system service install is required for this session smoke.
 EOF
@@ -103,12 +103,12 @@ If startup fails with GTK/display guidance:
 ## Two-machine smoke
 
 1. Start the GUI on both machines and verify both are connected locally.
-2. On the first/admin machine, open Access > Create invite, click Create, then copy the invite code.
-3. On the first/admin machine, open Access > Approve request, paste the same code, and click Start approval. Keep it running.
-4. On the second machine, open Access > Join network, paste the invite code, and click Join.
-5. After join and approval complete, click Refresh on both machines and verify each side can see the other peer in Network.
-6. Open the remote peer, click Ping, and verify the task reaches payload exchanged.
-7. Open the remote peer, click List sessions, then Shell > Connect, and verify the terminal attaches.
+2. On the first/admin machine, use Network to bootstrap the current network or create a new one.
+3. On the first/admin machine, use Enroll > Create invite, then copy the invite code.
+4. On the first/admin machine, use Enroll > Approve a joiner, paste the same code, and keep approval running.
+5. On the second machine, use Enroll > Join a network, paste the invite code, and click Join.
+6. After join and approval complete, click Refresh on both machines and verify each side can see the other peer in Discover.
+7. Use Punch to run Ping on the remote peer, confirm SecureSession reports gate satisfied, then use Shell > Open shell and verify the terminal attaches.
 
 No package install, root prompt, or system service install is required for this session smoke.
 EOF

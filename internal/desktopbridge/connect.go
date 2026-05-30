@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/miopunch/miopunch/internal/bundlepath"
 	"github.com/miopunch/miopunch/internal/localapi"
 	"github.com/miopunch/miopunch/internal/poc"
 )
@@ -20,9 +21,10 @@ const (
 type connectOptions struct {
 	overrideAddr string
 
-	probeLocalAPI     func(context.Context, localapi.Addr) (*localapi.Client, probeFailure)
-	resolveDaemonPath func() (string, error)
-	startDaemon       func(string) (*ManagedDaemon, error)
+	probeLocalAPI             func(context.Context, localapi.Addr) (*localapi.Client, probeFailure)
+	resolveDaemonPath         func() (string, error)
+	resolveBootstrapProbeAddr func(string, localapi.Addr) (localapi.Addr, error)
+	startDaemon               func(string) (*ManagedDaemon, error)
 
 	bootstrapTimeout  time.Duration
 	bootstrapInterval time.Duration
@@ -41,6 +43,9 @@ func connectWithOptions(ctx context.Context, opt connectOptions) (*localapi.Clie
 	}
 	if opt.resolveDaemonPath == nil {
 		opt.resolveDaemonPath = resolveSiblingDaemonPath
+	}
+	if opt.resolveBootstrapProbeAddr == nil {
+		opt.resolveBootstrapProbeAddr = resolveBootstrapProbeAddr
 	}
 	if opt.startDaemon == nil {
 		opt.startDaemon = StartManagedDaemon
@@ -241,6 +246,12 @@ func bootstrapSessionDaemon(ctx context.Context, userAddr localapi.Addr, userAdd
 		return nil, localapi.Addr{}, nil, info, probeFailure{kind: probeFailureUnreachable, err: err}
 	}
 	info.DaemonPath = daemonPath
+	probeAddr, err := opt.resolveBootstrapProbeAddr(daemonPath, userAddr)
+	if err != nil {
+		info.Error = err.Error()
+		return nil, localapi.Addr{}, nil, info, probeFailure{kind: probeFailureUnreachable, err: err}
+	}
+	info.ProbeAddr = probeAddr.String()
 	info.Stage = "start_daemon"
 
 	managed, err := opt.startDaemon(daemonPath)
@@ -258,12 +269,12 @@ func bootstrapSessionDaemon(ctx context.Context, userAddr localapi.Addr, userAdd
 	defer ticker.Stop()
 
 	for {
-		c, probe := opt.probeLocalAPI(ctx, userAddr)
+		c, probe := opt.probeLocalAPI(ctx, probeAddr)
 		if probe.kind == probeFailureOK {
 			info.Stage = "ready"
 			info.Stdout = managed.Stdout()
 			info.Stderr = managed.Stderr()
-			return c, userAddr, managed, info, probe
+			return c, probeAddr, managed, info, probe
 		}
 
 		if err, exited := managed.Exited(); exited {
@@ -287,7 +298,7 @@ func bootstrapSessionDaemon(ctx context.Context, userAddr localapi.Addr, userAdd
 			return nil, localapi.Addr{}, nil, info, probeFailure{kind: probeFailureUnreachable, err: ctx.Err()}
 		case <-deadline.C:
 			_ = managed.Stop(context.Background())
-			err := fmt.Errorf("timed out waiting for LocalAPI at %s", userAddr.String())
+			err := fmt.Errorf("timed out waiting for LocalAPI at %s", probeAddr.String())
 			info.Stage = "timeout"
 			info.Stdout = managed.Stdout()
 			info.Stderr = managed.Stderr()
@@ -296,6 +307,21 @@ func bootstrapSessionDaemon(ctx context.Context, userAddr localapi.Addr, userAdd
 		case <-ticker.C:
 		}
 	}
+}
+
+func resolveBootstrapProbeAddr(daemonPath string, fallback localapi.Addr) (localapi.Addr, error) {
+	if runtime.GOOS == "windows" {
+		return fallback, nil
+	}
+
+	path, err := bundlepath.LocalAPIPathForExecutable(daemonPath)
+	if err != nil {
+		return localapi.Addr{}, fmt.Errorf("resolve session LocalAPI path: %w", err)
+	}
+	return localapi.Addr{
+		Transport: localapi.TransportUnix,
+		Path:      path,
+	}, nil
 }
 
 func classifyProbeFailure(addr localapi.Addr, endpoint string, probe probeFailure) *BridgeError {
@@ -357,6 +383,9 @@ func classifyBootstrapFailure(
 	}
 	if info.DaemonPath != "" {
 		facts = append(facts, poc.Fact{Message: "daemon_path=" + info.DaemonPath})
+	}
+	if info.ProbeAddr != "" {
+		facts = append(facts, poc.Fact{Message: "bootstrap_addr=" + info.ProbeAddr})
 	}
 	if info.PID != 0 {
 		facts = append(facts, poc.Fact{Message: fmt.Sprintf("pid=%d", info.PID)})

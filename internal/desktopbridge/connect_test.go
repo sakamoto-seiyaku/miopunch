@@ -108,18 +108,22 @@ func TestConnectWithOptions_BootstrapsSameUserDaemon(t *testing.T) {
 	t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
 
 	started := false
+	const bootstrapAddr = "unix:/tmp/session-bundle/data/localapi.sock"
 	_, _, state, managed := connectWithOptions(context.Background(), connectOptions{
 		probeLocalAPI: func(_ context.Context, addr localapi.Addr) (*localapi.Client, probeFailure) {
 			if strings.Contains(addr.String(), "/run/miopunch") {
 				return nil, probeFailure{kind: probeFailurePermission, err: errors.New("permission denied")}
 			}
-			if started {
+			if started && addr.String() == bootstrapAddr {
 				return nil, probeFailure{kind: probeFailureOK}
 			}
 			return nil, probeFailure{kind: probeFailureUnreachable, err: errors.New("not ready")}
 		},
 		resolveDaemonPath: func() (string, error) {
 			return "/tmp/miopunch", nil
+		},
+		resolveBootstrapProbeAddr: func(string, localapi.Addr) (localapi.Addr, error) {
+			return localapi.ParseAddr(bootstrapAddr)
 		},
 		startDaemon: func(string) (*ManagedDaemon, error) {
 			started = true
@@ -146,6 +150,44 @@ func TestConnectWithOptions_BootstrapsSameUserDaemon(t *testing.T) {
 	}
 	if !hasFact(state.Diagnostics, "system_probe_error=permission denied") {
 		t.Fatalf("connectWithOptions() diagnostics = %#v, want system permission fact", state.Diagnostics)
+	}
+	if state.BootstrapInfo == nil {
+		t.Fatalf("connectWithOptions() BootstrapInfo = nil, want non-nil")
+	}
+	if state.BootstrapInfo.ProbeAddr != bootstrapAddr {
+		t.Fatalf("connectWithOptions() BootstrapInfo.ProbeAddr = %q, want %q", state.BootstrapInfo.ProbeAddr, bootstrapAddr)
+	}
+}
+
+func TestConnectWithOptions_BootstrapFailureIncludesProbeAddrFact(t *testing.T) {
+	t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
+
+	const bootstrapAddr = "unix:/tmp/session-bundle/data/localapi.sock"
+	_, _, state, _ := connectWithOptions(context.Background(), connectOptions{
+		probeLocalAPI: func(_ context.Context, addr localapi.Addr) (*localapi.Client, probeFailure) {
+			if strings.Contains(addr.String(), "/run/miopunch") {
+				return nil, probeFailure{kind: probeFailurePermission, err: errors.New("permission denied")}
+			}
+			return nil, probeFailure{kind: probeFailureUnreachable, err: errors.New("not ready")}
+		},
+		resolveDaemonPath: func() (string, error) {
+			return "/tmp/miopunch", nil
+		},
+		resolveBootstrapProbeAddr: func(string, localapi.Addr) (localapi.Addr, error) {
+			return localapi.ParseAddr(bootstrapAddr)
+		},
+		startDaemon: func(string) (*ManagedDaemon, error) {
+			return &ManagedDaemon{done: make(chan error)}, nil
+		},
+		bootstrapTimeout:  time.Millisecond,
+		bootstrapInterval: time.Millisecond,
+	})
+
+	if state.Failure == nil {
+		t.Fatalf("connectWithOptions() Failure = nil, want non-nil")
+	}
+	if !hasFact(state.Failure.Facts, "bootstrap_addr="+bootstrapAddr) {
+		t.Fatalf("connectWithOptions() Failure.Facts = %#v, want bootstrap_addr fact", state.Failure.Facts)
 	}
 }
 
