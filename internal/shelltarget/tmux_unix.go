@@ -35,6 +35,19 @@ func ListSessions(ctx context.Context, target string) ([]string, error) {
 	return parsePlainTmuxSessionNames(out), nil
 }
 
+func ProbeReadiness(ctx context.Context, target string) (TargetReadiness, error) {
+	target = strings.TrimSpace(target)
+	if target != "local" {
+		return TargetReadiness{}, TargetNotFoundError{Input: target, Targets: []string{"local"}}
+	}
+	if _, err := exec.LookPath("tmux"); err != nil {
+		return classifyTargetReadiness(target, ErrTmuxMissing, ""), nil
+	}
+	cmd := exec.CommandContext(ctx, "tmux", "-V")
+	out, err := cmd.CombinedOutput()
+	return classifyTargetReadiness(target, err, string(out)), nil
+}
+
 func Attach(ctx context.Context, target string, session string) (PTY, error) {
 	target = strings.TrimSpace(target)
 	if target != "local" {

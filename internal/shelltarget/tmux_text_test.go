@@ -1,6 +1,12 @@
 package shelltarget
 
-import "testing"
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/miopunch/miopunch/internal/poc"
+)
 
 func TestLooksLikeTmuxMissing(t *testing.T) {
 	tests := []struct {
@@ -78,6 +84,39 @@ func TestLooksLikeNoTmuxServer(t *testing.T) {
 	}
 }
 
+func TestLooksLikeTimeout(t *testing.T) {
+	tests := []struct {
+		name string
+		out  string
+		want bool
+	}{
+		{
+			name: "ssh connect timeout",
+			out:  "ssh: connect to host ale port 22: Connection timed out",
+			want: true,
+		},
+		{
+			name: "io timeout",
+			out:  "dial tcp 10.0.0.1:22: i/o timeout",
+			want: true,
+		},
+		{
+			name: "auth failure",
+			out:  "Permission denied (publickey).",
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := looksLikeTimeout(tt.out)
+			if got != tt.want {
+				t.Errorf("looksLikeTimeout(%q) = %t, want %t", tt.out, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParsePlainTmuxSessionNames(t *testing.T) {
 	got := parsePlainTmuxSessionNames([]byte("main\nops\nmain\n\n"))
 	want := []string{"main", "ops"}
@@ -145,6 +184,18 @@ func TestWindowsSSHtmuxCommandArgs(t *testing.T) {
 			got:  windowsSSHAttachArgs("ale", "main"),
 			want: []string{"-tt", "ale", "tmux", "new", "-A", "-s", "main"},
 		},
+		{
+			name: "ready probe",
+			got:  windowsSSHReadyProbeArgs("ale"),
+			want: []string{
+				"-o", "BatchMode=yes",
+				"-o", "StrictHostKeyChecking=yes",
+				"-o", "ConnectTimeout=3",
+				"-o", "NumberOfPasswordPrompts=0",
+				"ale",
+				"tmux", "-V",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -156,6 +207,64 @@ func TestWindowsSSHtmuxCommandArgs(t *testing.T) {
 				if i > 0 && arg == "--" {
 					t.Fatalf("%s args = %v, want no remote -- token", tt.name, tt.got)
 				}
+			}
+		})
+	}
+}
+
+func TestClassifyTargetReadiness(t *testing.T) {
+	tests := []struct {
+		name           string
+		target         string
+		err            error
+		out            string
+		wantStatus     string
+		wantReasonCode string
+	}{
+		{
+			name:       "success is ready",
+			target:     "wsl:Debian",
+			out:        "tmux 3.4",
+			wantStatus: TargetStatusReady,
+		},
+		{
+			name:           "missing tmux is unsupported",
+			target:         "ssh:ale",
+			err:            ErrTmuxMissing,
+			wantStatus:     TargetStatusUnsupported,
+			wantReasonCode: string(poc.ReasonCodeSHTmuxMissing),
+		},
+		{
+			name:           "probe timeout is unknown timeout",
+			target:         "ssh:ale",
+			err:            context.DeadlineExceeded,
+			wantStatus:     TargetStatusUnknown,
+			wantReasonCode: string(poc.ReasonCodeTimeout),
+		},
+		{
+			name:           "auth failure is unknown unavailable",
+			target:         "ssh:ale",
+			err:            errors.New("exit status 255"),
+			out:            "Permission denied (publickey).",
+			wantStatus:     TargetStatusUnknown,
+			wantReasonCode: string(poc.ReasonCodeUnavailable),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := classifyTargetReadiness(tt.target, tt.err, tt.out)
+			if got.Target != tt.target || got.Status != tt.wantStatus || got.ReasonCode != tt.wantReasonCode {
+				t.Fatalf(
+					"classifyTargetReadiness(%q, %v, %q) = %#v, want target=%q status=%q reasonCode=%q",
+					tt.target,
+					tt.err,
+					tt.out,
+					got,
+					tt.target,
+					tt.wantStatus,
+					tt.wantReasonCode,
+				)
 			}
 		})
 	}

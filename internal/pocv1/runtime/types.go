@@ -112,6 +112,7 @@ type ShellArgs struct {
 	Target     string `json:"target,omitempty"`
 	Session    string `json:"session,omitempty"`
 	P2PNetwork string `json:"p2p_network,omitempty"`
+	ReadyOnly  bool   `json:"ready_only,omitempty"`
 }
 
 type RevokeArgs struct {

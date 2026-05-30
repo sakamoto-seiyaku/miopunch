@@ -23,3 +23,14 @@ func windowsWSLPreflightTmuxArgs(distro string) []string {
 func windowsSSHPreflightTmuxArgs(host string) []string {
 	return []string{host, "tmux", "-V"}
 }
+
+func windowsSSHReadyProbeArgs(host string) []string {
+	return []string{
+		"-o", "BatchMode=yes",
+		"-o", "StrictHostKeyChecking=yes",
+		"-o", "ConnectTimeout=3",
+		"-o", "NumberOfPasswordPrompts=0",
+		host,
+		"tmux", "-V",
+	}
+}

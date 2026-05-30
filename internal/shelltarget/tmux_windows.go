@@ -55,6 +55,36 @@ func ListSessions(ctx context.Context, target string) ([]string, error) {
 	return parsePlainTmuxSessionNames(out), nil
 }
 
+func ProbeReadiness(ctx context.Context, target string) (TargetReadiness, error) {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return TargetReadiness{}, TargetNotFoundError{Input: target, Targets: []string{}}
+	}
+	kind, name, err := parseWindowsTarget(target)
+	if err != nil {
+		return TargetReadiness{}, err
+	}
+
+	var cmd *exec.Cmd
+	switch kind {
+	case "wsl":
+		if _, err := exec.LookPath("wsl.exe"); err != nil {
+			return classifyTargetReadiness(target, err, ""), nil
+		}
+		cmd = exec.CommandContext(ctx, "wsl.exe", windowsWSLPreflightTmuxArgs(name)...)
+	case "ssh":
+		if _, err := exec.LookPath("ssh"); err != nil {
+			return classifyTargetReadiness(target, err, ""), nil
+		}
+		cmd = exec.CommandContext(ctx, "ssh", windowsSSHReadyProbeArgs(name)...)
+	default:
+		return TargetReadiness{}, TargetNotFoundError{Input: target, Targets: []string{}}
+	}
+
+	out, runErr := cmd.CombinedOutput()
+	return classifyTargetReadiness(target, runErr, string(out)), nil
+}
+
 func Attach(ctx context.Context, target string, session string) (PTY, error) {
 	target = strings.TrimSpace(target)
 	if target == "" {

@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -28,6 +29,7 @@ type localAPIConnectorDeps struct {
 	currentOperatorSID func() (string, error)
 	defaultSystemAddr  func(string) (localapi.Addr, error)
 	defaultUserAddr    func(string) (localapi.Addr, error)
+	bundleProbeAddr    func() (localapi.Addr, bool)
 	probe              func(context.Context, localapi.Addr) (*localapi.Client, error)
 	bootstrap          func(localapi.Addr) error
 }
@@ -71,6 +73,16 @@ func connectLocalAPIWithDeps(ctx context.Context, override string, deps localAPI
 			return nil, localapi.Addr{}, unreachableLocalAPIFailure(addr, err)
 		}
 		return client, addr, nil
+	}
+
+	if bundleAddr, ok := deps.bundleProbeAddr(); ok {
+		client, err := deps.probe(ctx, bundleAddr)
+		if err == nil {
+			return client, bundleAddr, nil
+		}
+		if isPermissionError(err) {
+			return nil, localapi.Addr{}, permissionLocalAPIFailure("bundle", bundleAddr)
+		}
 	}
 
 	operatorSID, err := deps.currentOperatorSID()
@@ -156,6 +168,9 @@ func (deps localAPIConnectorDeps) withDefaults() localAPIConnectorDeps {
 	if deps.defaultUserAddr == nil {
 		deps.defaultUserAddr = localapi.DefaultUserAddr
 	}
+	if deps.bundleProbeAddr == nil {
+		deps.bundleProbeAddr = bundleLocalAPIProbeAddr
+	}
 	if deps.probe == nil {
 		deps.probe = probeLocalAPIClient
 	}
@@ -183,6 +198,26 @@ func localAPIResolutionFacts(
 		facts = append(facts, poc.Fact{Message: "user_addr_error=" + userAddrErr.Error()})
 	}
 	return facts
+}
+
+func bundleLocalAPIProbeAddr() (localapi.Addr, bool) {
+	if runtime.GOOS == "windows" {
+		return localapi.Addr{}, false
+	}
+
+	exe, err := os.Executable()
+	if err != nil {
+		return localapi.Addr{}, false
+	}
+	exe = strings.TrimSpace(exe)
+	if exe == "" {
+		return localapi.Addr{}, false
+	}
+
+	return localapi.Addr{
+		Transport: localapi.TransportUnix,
+		Path:      filepath.Join(filepath.Dir(exe), "data", "localapi.sock"),
+	}, true
 }
 
 func choosePrimaryLocalAPI(

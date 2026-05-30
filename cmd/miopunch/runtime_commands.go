@@ -152,7 +152,12 @@ func runPing(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 }
 
 func runShLS(opt globalOptions, args []string, stdout, stderr io.Writer) int {
-	peerID, target, p2pNetwork, failure := parseShellArgs(opt, "sh ls", args, "use: miopunch sh ls <peer_id> [target] [-u|-t|--p2p-network ...]")
+	peerID, target, p2pNetwork, readyOnly, failure := parseShellArgs(
+		opt,
+		"sh ls",
+		args,
+		"use: miopunch sh ls <peer_id> [target] [--ready] [-u|-t|--p2p-network ...]",
+	)
 	if failure != nil {
 		return exitWithFailure(opt, stdout, stderr, "sh ls", "", *failure)
 	}
@@ -160,6 +165,7 @@ func runShLS(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 		PeerID:     peerID,
 		Target:     target,
 		P2PNetwork: p2pNetwork,
+		ReadyOnly:  readyOnly,
 	}, stdout, stderr)
 }
 
@@ -363,16 +369,19 @@ func parseShellArgs(
 	kind string,
 	args []string,
 	usage string,
-) (string, string, string, *failureOutput) {
+) (string, string, string, bool, *failureOutput) {
 	_ = opt
 	_ = kind
 	peerID := ""
 	target := ""
 	p2pNetwork := "auto"
+	readyOnly := false
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch {
+		case arg == "--ready":
+			readyOnly = true
 		case arg == "-u":
 			p2pNetwork = "udp_only"
 		case arg == "-t":
@@ -388,7 +397,7 @@ func parseShellArgs(
 						{Message: usage},
 					},
 				}
-				return "", "", "", &failure
+				return "", "", "", false, &failure
 			}
 			i++
 			p2pNetwork = args[i]
@@ -404,7 +413,7 @@ func parseShellArgs(
 					{Message: usage},
 				},
 			}
-			return "", "", "", &failure
+			return "", "", "", false, &failure
 		default:
 			if peerID == "" {
 				peerID = arg
@@ -420,9 +429,22 @@ func parseShellArgs(
 						{Message: usage},
 					},
 				}
-				return "", "", "", &failure
+				return "", "", "", false, &failure
 			}
 		}
+	}
+	if readyOnly && strings.TrimSpace(target) != "" {
+		failure := failureOutput{
+			Stage:      "cli",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts:      []poc.Fact{{Message: "--ready cannot be combined with a concrete target"}},
+			Suggestions: []poc.Suggestion{
+				{Message: "use: miopunch sh ls <peer_id> --ready"},
+				{Message: "or: miopunch sh ls <peer_id> <target>"},
+			},
+		}
+		return "", "", "", false, &failure
 	}
 
 	network, err := connectivity.ParseP2PNetwork(p2pNetwork)
@@ -436,7 +458,7 @@ func parseShellArgs(
 				{Message: usage},
 			},
 		}
-		return "", "", "", &failure
+		return "", "", "", false, &failure
 	}
-	return peerID, target, string(network), nil
+	return peerID, target, string(network), readyOnly, nil
 }

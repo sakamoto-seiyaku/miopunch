@@ -22,6 +22,7 @@ import (
 	"github.com/miopunch/miopunch/internal/pocv1/session"
 	"github.com/miopunch/miopunch/internal/pocv1/wire"
 	"github.com/miopunch/miopunch/internal/shellproto"
+	"github.com/miopunch/miopunch/internal/shelltarget"
 	signalmqtt "github.com/miopunch/miopunch/internal/signaling/mqtt"
 )
 
@@ -123,6 +124,26 @@ func (r *Runtime) Action(ctx context.Context, action string, raw json.RawMessage
 	}
 	r.clearStatus()
 	return result, nil
+}
+
+func appendDiagnosticFacts(base []poc.Fact, values ...string) []poc.Fact {
+	out := append([]poc.Fact(nil), base...)
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		out = append(out, poc.Fact{Message: value})
+	}
+	return out
+}
+
+func appendProblemFacts(prob *problem, values ...string) *problem {
+	if prob == nil {
+		return nil
+	}
+	prob.facts = appendDiagnosticFacts(prob.facts, values...)
+	return prob
 }
 
 func (r *Runtime) doLS(ctx context.Context) (ActionResult, *problem) {
@@ -387,6 +408,7 @@ func (r *Runtime) doInvite(ctx context.Context, args InviteArgs) (ActionResult, 
 	peerID, _ := deviceKeys.PeerID()
 	facts := []poc.Fact{
 		{Message: "invite_code=" + code},
+		{Message: "invite_id=" + invite.InviteID},
 		{Message: "network_id=" + networkID},
 		{Message: "peer_id=" + peerID},
 		{Message: "join_topic=" + invite.JoinTopic},
@@ -457,7 +479,13 @@ func (r *Runtime) doApprove(ctx context.Context, args ApproveArgs) (ActionResult
 		SubscribeTopics: []string{invite.JoinTopic},
 	})
 	if err != nil {
-		return ActionResult{}, wrapProblem(StageEnroll, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "failed to open approval signaling session", err, "check broker reachability and retry")
+		return ActionResult{}, appendProblemFacts(
+			wrapProblem(StageEnroll, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "failed to open approval signaling session", err, "check broker reachability and retry"),
+			"network_id="+networkID,
+			"invite_id="+invite.InviteID,
+			"join_topic="+invite.JoinTopic,
+			"broker_endpoint="+normalizeBrokerEndpoint(invite.BrokerEndpoint),
+		)
 	}
 	defer peerSession.Close()
 
@@ -551,6 +579,9 @@ func (r *Runtime) doApprove(ctx context.Context, args ApproveArgs) (ActionResult
 	}
 
 	facts := []poc.Fact{
+		{Message: "network_id=" + networkID},
+		{Message: "invite_id=" + invite.InviteID},
+		{Message: "broker_endpoint=" + normalizeBrokerEndpoint(invite.BrokerEndpoint)},
 		{Message: "approved_peer_id=" + requestPeerID},
 		{Message: "reply_topic=" + joinRequest.ReplyTopic},
 		{Message: "replay_cache_hit=" + fmt.Sprintf("%t", hit)},
@@ -677,16 +708,39 @@ func (r *Runtime) doJoin(ctx context.Context, args JoinArgs) (ActionResult, *pro
 		SubscribeTopics: []string{replyTopic},
 	})
 	if err != nil {
-		return ActionResult{}, wrapProblem(StageEnroll, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "failed to open join signaling session", err, "check broker reachability and retry")
+		return ActionResult{}, appendProblemFacts(
+			wrapProblem(StageEnroll, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "failed to open join signaling session", err, "check broker reachability and retry"),
+			"network_id="+networkID,
+			"invite_id="+invite.InviteID,
+			"peer_id="+localPeerID,
+			"join_topic="+invite.JoinTopic,
+			"broker_endpoint="+normalizeBrokerEndpoint(invite.BrokerEndpoint),
+		)
 	}
 	defer signaling.Close()
 
 	if _, err := signaling.PublishInner(ctx, invite.JoinTopic, inner, invite.AuthorityX25519Pub, peere2e.SealOptions{}); err != nil {
-		return ActionResult{}, wrapProblem(StageEnroll, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "failed to publish join request", err, "check broker reachability and retry")
+		return ActionResult{}, appendProblemFacts(
+			wrapProblem(StageEnroll, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "failed to publish join request", err, "check broker reachability and retry"),
+			"network_id="+networkID,
+			"invite_id="+invite.InviteID,
+			"peer_id="+localPeerID,
+			"join_topic="+invite.JoinTopic,
+			"reply_topic="+replyTopic,
+			"broker_endpoint="+normalizeBrokerEndpoint(invite.BrokerEndpoint),
+		)
 	}
 	opened, err := signaling.WaitOpened(ctx, deviceKeys.X25519PrivateKey, peere2e.OpenOptions{})
 	if err != nil {
-		return ActionResult{}, wrapProblem(StageEnroll, poc.ReasonCodeTimeout, poc.ExitCodeTimeout, "timed out waiting for enroll response", err, "retry after the admin approves the invite")
+		return ActionResult{}, appendProblemFacts(
+			wrapProblem(StageEnroll, poc.ReasonCodeTimeout, poc.ExitCodeTimeout, "timed out waiting for enroll response", err, "retry after the admin approves the invite"),
+			"network_id="+networkID,
+			"invite_id="+invite.InviteID,
+			"peer_id="+localPeerID,
+			"join_topic="+invite.JoinTopic,
+			"reply_topic="+replyTopic,
+			"broker_endpoint="+normalizeBrokerEndpoint(invite.BrokerEndpoint),
+		)
 	}
 
 	response, err := enroll.UnmarshalEnrollResponse(opened.Inner.Body)
@@ -723,8 +777,10 @@ func (r *Runtime) doJoin(ctx context.Context, args JoinArgs) (ActionResult, *pro
 
 	facts := []poc.Fact{
 		{Message: "network_id=" + networkID},
+		{Message: "invite_id=" + invite.InviteID},
 		{Message: "peer_id=" + localPeerID},
 		{Message: "role=member"},
+		{Message: "reply_topic=" + replyTopic},
 		{Message: "broker_endpoint=" + meta.BrokerEndpoint},
 	}
 	lines := []string{
@@ -782,7 +838,21 @@ func (r *Runtime) doShellList(ctx context.Context, args ShellArgs) (ActionResult
 			poc.ExitCodeBadRequest,
 			"missing peer_id",
 			nil,
-			[]poc.Suggestion{{Message: "use: miopunch sh ls <peer_id> [target]"}},
+			[]poc.Suggestion{{Message: "use: miopunch sh ls <peer_id> [target] [--ready]"}},
+		)
+	}
+	target := strings.TrimSpace(args.Target)
+	if args.ReadyOnly && target != "" {
+		return ActionResult{}, newProblem(
+			StageShell,
+			poc.ReasonCodeBadRequest,
+			poc.ExitCodeBadRequest,
+			"--ready cannot be combined with a concrete target",
+			nil,
+			[]poc.Suggestion{
+				{Message: "use: miopunch sh ls <peer_id> --ready"},
+				{Message: "or: miopunch sh ls <peer_id> <target>"},
+			},
 		)
 	}
 	sess, problem := r.ensurePeerSession(ctx, peerID)
@@ -790,8 +860,9 @@ func (r *Runtime) doShellList(ctx context.Context, args ShellArgs) (ActionResult
 		return ActionResult{}, problem
 	}
 	reply, problem := r.exchangeShellControl(ctx, sess, shellproto.Control{
-		Op:     shellproto.OpShLS,
-		Target: strings.TrimSpace(args.Target),
+		Op:        shellproto.OpShLS,
+		Target:    target,
+		ReadyOnly: args.ReadyOnly,
 	})
 	if problem != nil {
 		return ActionResult{}, problem
@@ -803,23 +874,104 @@ func (r *Runtime) doShellList(ctx context.Context, args ShellArgs) (ActionResult
 	} else {
 		lines = append(lines, reply.Sessions...)
 	}
-	facts := []poc.Fact{
-		{Message: "peer_id=" + peerID},
+	facts := []poc.Fact{{Message: "peer_id=" + peerID}}
+	if strings.TrimSpace(reply.Target) == "" {
+		if args.ReadyOnly {
+			readyCount, unsupportedCount, unknownCount := readyStatusCounts(reply.TargetStatuses)
+			targetCount := len(reply.TargetStatuses)
+			if targetCount == 0 {
+				targetCount = len(reply.Targets)
+			}
+			for _, status := range reply.TargetStatuses {
+				if fact := readinessFact(status); fact != "" {
+					facts = append(facts, poc.Fact{Message: fact})
+				}
+				if detail := readinessDetailFact(status); detail != "" {
+					facts = append(facts, poc.Fact{Message: detail})
+				}
+			}
+			facts = append(facts,
+				poc.Fact{Message: fmt.Sprintf("target_count=%d", targetCount)},
+				poc.Fact{Message: fmt.Sprintf("ready_target_count=%d", readyCount)},
+				poc.Fact{Message: fmt.Sprintf("unsupported_target_count=%d", unsupportedCount)},
+				poc.Fact{Message: fmt.Sprintf("unknown_target_count=%d", unknownCount)},
+			)
+		} else {
+			for _, target := range reply.Targets {
+				target = strings.TrimSpace(target)
+				if target == "" {
+					continue
+				}
+				facts = append(facts, poc.Fact{Message: "target=" + target})
+			}
+			facts = append(facts, poc.Fact{Message: fmt.Sprintf("target_count=%d", len(reply.Targets))})
+		}
+	} else {
+		for _, sessionName := range reply.Sessions {
+			sessionName = strings.TrimSpace(sessionName)
+			if sessionName == "" {
+				continue
+			}
+			facts = append(facts, poc.Fact{Message: "session=" + sessionName})
+		}
 	}
-	data := mustJSONMarshal(map[string]any{
+	dataMap := map[string]any{
 		"peer_id":  peerID,
 		"target":   reply.Target,
 		"targets":  reply.Targets,
 		"sessions": reply.Sessions,
-	})
-	if strings.TrimSpace(reply.Target) == "" {
-		facts = append(facts, poc.Fact{Message: fmt.Sprintf("target_count=%d", len(reply.Targets))})
-	} else {
+	}
+	if args.ReadyOnly {
+		dataMap["target_statuses"] = reply.TargetStatuses
+	}
+	data := mustJSONMarshal(dataMap)
+	if strings.TrimSpace(reply.Target) != "" {
 		facts = append(facts, poc.Fact{Message: "target=" + reply.Target})
 		facts = append(facts, poc.Fact{Message: fmt.Sprintf("session_count=%d", len(reply.Sessions))})
 	}
 	report := markdownReport("sh ls", facts, nil)
 	return r.successResult(lines, facts, nil, data, report), nil
+}
+
+func readyStatusCounts(statuses []shellproto.TargetStatus) (int, int, int) {
+	var readyCount int
+	var unsupportedCount int
+	var unknownCount int
+	for _, status := range statuses {
+		switch strings.TrimSpace(status.Status) {
+		case shelltarget.TargetStatusReady:
+			readyCount++
+		case shelltarget.TargetStatusUnsupported:
+			unsupportedCount++
+		case shelltarget.TargetStatusUnknown:
+			unknownCount++
+		}
+	}
+	return readyCount, unsupportedCount, unknownCount
+}
+
+func readinessFact(status shellproto.TargetStatus) string {
+	target := strings.TrimSpace(status.Target)
+	if target == "" {
+		return ""
+	}
+	result := "target=" + target
+	if value := strings.TrimSpace(status.Status); value != "" {
+		result += " status=" + value
+	}
+	if value := strings.TrimSpace(status.ReasonCode); value != "" {
+		result += " reason_code=" + value
+	}
+	return result
+}
+
+func readinessDetailFact(status shellproto.TargetStatus) string {
+	target := strings.TrimSpace(status.Target)
+	message := strings.TrimSpace(status.Message)
+	if target == "" || message == "" {
+		return ""
+	}
+	return "target=" + target + " detail=" + message
 }
 
 func (r *Runtime) doShell(ctx context.Context, args ShellArgs) (ActionResult, *problem) {

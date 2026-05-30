@@ -21,6 +21,13 @@ func looksLikeNoTmuxServer(out string) bool {
 			strings.Contains(out, "no such file or directory"))
 }
 
+func looksLikeTimeout(out string) bool {
+	out = strings.ToLower(out)
+	return strings.Contains(out, "connection timed out") ||
+		strings.Contains(out, "operation timed out") ||
+		strings.Contains(out, "i/o timeout")
+}
+
 func parsePlainTmuxSessionNames(out []byte) []string {
 	return collectTmuxSessionNames(out, func(line string) string {
 		return line

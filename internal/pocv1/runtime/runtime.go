@@ -29,9 +29,12 @@ import (
 )
 
 const (
-	defaultApprovalWait   = 2 * time.Minute
-	defaultInviteLifetime = 15 * time.Minute
-	defaultIdleTimeout    = 2 * time.Minute
+	defaultApprovalWait      = 2 * time.Minute
+	defaultInviteLifetime    = 15 * time.Minute
+	defaultIdleTimeout       = 2 * time.Minute
+	sessionKeepaliveInterval = 30 * time.Second
+	sessionKeepaliveMinIdle  = 45 * time.Second
+	sessionKeepaliveTimeout  = 15 * time.Second
 )
 
 type Options struct {
@@ -73,6 +76,7 @@ type Runtime struct {
 	presence          *presence.Session
 	udpConn           *net.UDPConn
 	acceptLoopStarted bool
+	keepaliveStarted  bool
 	pingGate          map[string]int64
 	shellSessions     map[string]*shellSessionState
 	subscribers       map[int]chan Event
@@ -533,6 +537,7 @@ func (r *Runtime) ensureWorkers(ctx context.Context) error {
 	presenceSession := r.presence
 	udpConn := r.udpConn
 	acceptLoopStarted := r.acceptLoopStarted
+	keepaliveStarted := r.keepaliveStarted
 	r.mu.Unlock()
 
 	if networkID == "" {
@@ -600,6 +605,15 @@ func (r *Runtime) ensureWorkers(ctx context.Context) error {
 			r.acceptLoopStarted = true
 			r.wg.Add(1)
 			go r.acceptLoop()
+		}
+		r.mu.Unlock()
+	}
+	if !keepaliveStarted {
+		r.mu.Lock()
+		if !r.keepaliveStarted {
+			r.keepaliveStarted = true
+			r.wg.Add(1)
+			go r.keepaliveLoop()
 		}
 		r.mu.Unlock()
 	}
@@ -704,6 +718,69 @@ func (r *Runtime) registerPeerSession(peerID string, sess session.PeerSession) {
 	}()
 }
 
+func (r *Runtime) keepaliveLoop() {
+	defer r.wg.Done()
+
+	ticker := time.NewTicker(sessionKeepaliveInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-r.ctx.Done():
+			return
+		case <-ticker.C:
+			r.keepaliveValidatedSessions()
+		}
+	}
+}
+
+func (r *Runtime) keepaliveValidatedSessions() {
+	now := time.Now().UTC()
+	for _, summary := range r.peerSessions.ListSummaries() {
+		key := summary.Key.Normalize()
+		if key.RemotePeerID == "" || !summary.Healthy {
+			continue
+		}
+		if !r.hasPingGate(key.RemotePeerID) {
+			continue
+		}
+
+		lastActivity := time.UnixMilli(summary.LastActivityUnixMilli).UTC()
+		if !lastActivity.IsZero() && now.Sub(lastActivity) < sessionKeepaliveMinIdle {
+			continue
+		}
+
+		sess, ok := r.peerSessions.Get(key)
+		if !ok {
+			continue
+		}
+		if err := r.keepaliveSession(sess, key.RemotePeerID); err != nil {
+			logutil.Warnf(
+				"runtime session keepalive failed: peer_id=%s proto=%s path_family=%s err=%v",
+				key.RemotePeerID,
+				key.Protocol,
+				key.PathFamily,
+				err,
+			)
+			r.peerSessions.Close(key, dataplane.CloseReasonTransportFatal)
+		}
+	}
+}
+
+func (r *Runtime) keepaliveSession(sess session.PeerSession, peerID string) error {
+	if sess == nil {
+		return errors.New("nil peer session")
+	}
+
+	ctx, cancel := context.WithTimeout(r.ctx, sessionKeepaliveTimeout)
+	defer cancel()
+
+	if problem := r.exchangePing(ctx, sess, peerID); problem != nil {
+		return problem
+	}
+	return nil
+}
+
 func (r *Runtime) servePeerSession(peerID string, sess session.PeerSession) {
 	defer r.notifyChange("snapshot.updated")
 
@@ -763,7 +840,7 @@ func (r *Runtime) handleAcceptedStream(peerID string, accepted *session.Accepted
 }
 
 func (r *Runtime) handleRemoteShellList(stream io.ReadWriteCloser, control shellproto.Control) {
-	ctx, cancel := context.WithTimeout(r.ctx, 15*time.Second)
+	ctx, cancel := context.WithTimeout(r.ctx, 30*time.Second)
 	defer cancel()
 
 	targets, err := shelltarget.ListTargets(ctx)
@@ -779,6 +856,20 @@ func (r *Runtime) handleRemoteShellList(stream io.ReadWriteCloser, control shell
 	}
 
 	resolved := strings.TrimSpace(control.Target)
+	if control.ReadyOnly && resolved != "" {
+		_ = shellproto.WriteJSON(stream, shellproto.Control{
+			Op: shellproto.OpShLS,
+			Error: &shellproto.ControlError{
+				ReasonCode: string(poc.ReasonCodeBadRequest),
+				Message:    "--ready cannot be combined with a concrete target",
+				Suggestions: []string{
+					"use: miopunch sh ls <peer_id> --ready",
+					"or: miopunch sh ls <peer_id> <target>",
+				},
+			},
+		})
+		return
+	}
 	if resolved != "" {
 		resolved, err = shelltarget.Resolve(control.Target, targets)
 		if err != nil {
@@ -791,6 +882,7 @@ func (r *Runtime) handleRemoteShellList(stream io.ReadWriteCloser, control shell
 	}
 
 	sessions := []string{}
+	targetStatuses := []shellproto.TargetStatus{}
 	if resolved != "" {
 		sessions, err = shelltarget.ListSessions(ctx, resolved)
 		if err != nil {
@@ -800,15 +892,97 @@ func (r *Runtime) handleRemoteShellList(stream io.ReadWriteCloser, control shell
 			})
 			return
 		}
+	} else if control.ReadyOnly {
+		targets, targetStatuses = probeReadyTargets(ctx, targets, shelltarget.ProbeReadiness)
 	}
 
 	_ = shellproto.WriteJSON(stream, shellproto.Control{
-		Op:       shellproto.OpShLS,
-		OK:       true,
-		Targets:  targets,
-		Sessions: sessions,
-		Target:   resolved,
+		Op:             shellproto.OpShLS,
+		OK:             true,
+		Targets:        targets,
+		Sessions:       sessions,
+		Target:         resolved,
+		ReadyOnly:      control.ReadyOnly,
+		TargetStatuses: targetStatuses,
 	})
+}
+
+type shellTargetReadinessProbe func(context.Context, string) (shelltarget.TargetReadiness, error)
+
+func probeReadyTargets(ctx context.Context, targets []string, probe shellTargetReadinessProbe) ([]string, []shellproto.TargetStatus) {
+	filteredTargets := make([]string, 0, len(targets))
+	for _, target := range targets {
+		target = strings.TrimSpace(target)
+		if target == "" {
+			continue
+		}
+		filteredTargets = append(filteredTargets, target)
+	}
+	if len(filteredTargets) == 0 {
+		return []string{}, []shellproto.TargetStatus{}
+	}
+
+	type probeOutcome struct {
+		status shellproto.TargetStatus
+		ready  bool
+	}
+
+	outcomes := make([]probeOutcome, len(filteredTargets))
+	var wg sync.WaitGroup
+	wg.Add(len(filteredTargets))
+	for idx, target := range filteredTargets {
+		idx, target := idx, target
+		go func() {
+			defer wg.Done()
+
+			readiness, err := probe(ctx, target)
+			if err != nil {
+				outcomes[idx].status = readinessStatusFromError(target, err)
+				return
+			}
+
+			status := shellproto.TargetStatus{
+				Target:     target,
+				Status:     readiness.Status,
+				ReasonCode: readiness.ReasonCode,
+				Message:    readiness.Message,
+			}
+			if strings.TrimSpace(status.Target) == "" {
+				status.Target = target
+			}
+			outcomes[idx].status = status
+			outcomes[idx].ready = status.Status == shelltarget.TargetStatusReady
+		}()
+	}
+	wg.Wait()
+
+	readyTargets := make([]string, 0, len(filteredTargets))
+	targetStatuses := make([]shellproto.TargetStatus, 0, len(filteredTargets))
+	for idx, target := range filteredTargets {
+		status := outcomes[idx].status
+		if strings.TrimSpace(status.Target) == "" {
+			status.Target = target
+		}
+		targetStatuses = append(targetStatuses, status)
+		if outcomes[idx].ready {
+			readyTargets = append(readyTargets, target)
+		}
+	}
+	return readyTargets, targetStatuses
+}
+
+func readinessStatusFromError(target string, err error) shellproto.TargetStatus {
+	status := shellproto.TargetStatus{
+		Target:     target,
+		Status:     shelltarget.TargetStatusUnknown,
+		ReasonCode: string(poc.ReasonCodeUnavailable),
+		Message:    strings.TrimSpace(err.Error()),
+	}
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		status.ReasonCode = string(poc.ReasonCodeTimeout)
+		status.Message = context.DeadlineExceeded.Error()
+	}
+	return status
 }
 
 func (r *Runtime) handleRemoteShellAttach(peerID string, stream io.ReadWriteCloser, control shellproto.Control) {

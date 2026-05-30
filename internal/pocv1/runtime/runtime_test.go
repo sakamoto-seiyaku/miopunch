@@ -3,10 +3,12 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/miopunch/miopunch/internal/pocv1/presence"
 	"github.com/miopunch/miopunch/internal/pocv1/punch"
 	"github.com/miopunch/miopunch/internal/shellproto"
+	"github.com/miopunch/miopunch/internal/shelltarget"
 )
 
 func TestSnapshotStageProgression(t *testing.T) {
@@ -61,7 +64,7 @@ func TestSnapshotStageProgression(t *testing.T) {
 	}
 
 	rt.peerSessions.SetChangeHook(nil)
-	rt.peerSessions.Put(fakePeerSession{
+	rt.peerSessions.Put(&fakePeerSession{
 		key: dataplane.SessionKey{
 			RemotePeerID: "peer-a",
 			Protocol:     dataplane.ProtocolQUIC,
@@ -133,6 +136,9 @@ func TestDoShell_PingGateRejectedStopsBeforeAttach(t *testing.T) {
 		t.Fatalf("Open() error = %v, want nil", err)
 	}
 	t.Cleanup(func() { _ = rt.Close() })
+	if _, problem := rt.doInitNetwork(context.Background(), InitNetworkArgs{}); problem != nil {
+		t.Fatalf("doInitNetwork() problem = %v, want nil", problem)
+	}
 
 	var (
 		mu        sync.Mutex
@@ -141,7 +147,7 @@ func TestDoShell_PingGateRejectedStopsBeforeAttach(t *testing.T) {
 		remoteErr = make(chan error, 1)
 	)
 
-	rt.peerSessions.Put(fakePeerSession{
+	rt.peerSessions.Put(&fakePeerSession{
 		key: dataplane.SessionKey{
 			RemotePeerID: "peer-a",
 			Protocol:     dataplane.ProtocolQUIC,
@@ -218,6 +224,457 @@ func TestDoShell_PingGateRejectedStopsBeforeAttach(t *testing.T) {
 	}
 }
 
+func TestDoShellList_OutputsTargetsInFactsAndData(t *testing.T) {
+	t.Parallel()
+
+	rt, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+	if _, problem := rt.doInitNetwork(context.Background(), InitNetworkArgs{}); problem != nil {
+		t.Fatalf("doInitNetwork() problem = %v, want nil", problem)
+	}
+
+	rt.peerSessions.Put(&fakePeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: "peer-a",
+			Protocol:     dataplane.ProtocolQUIC,
+			PathFamily:   dataplane.PathFamilyUDP4,
+		},
+		lastActivity: time.Now().UTC(),
+		healthy:      true,
+		openStream: func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+			clientSide, remoteSide := net.Pipe()
+			go func() {
+				defer remoteSide.Close()
+
+				var control shellproto.Control
+				if err := shellproto.ReadJSON(remoteSide, &control); err != nil {
+					return
+				}
+				if control.Op != shellproto.OpShLS {
+					return
+				}
+				_ = shellproto.WriteJSON(remoteSide, shellproto.Control{
+					Op:      shellproto.OpShLS,
+					OK:      true,
+					Targets: []string{"ssh:git", "wsl:Debian"},
+				})
+			}()
+			return clientSide, nil
+		},
+	})
+	rt.markPingGate("peer-a")
+
+	result, problem := rt.doShellList(context.Background(), ShellArgs{PeerID: "peer-a"})
+	if problem != nil {
+		t.Fatalf("doShellList() problem = %v, want nil", problem)
+	}
+	if !hasFact(result.Evidence.Facts, "peer_id=peer-a") {
+		t.Fatalf("doShellList() facts = %#v, want peer fact", result.Evidence.Facts)
+	}
+	if !hasFact(result.Evidence.Facts, "target=ssh:git") {
+		t.Fatalf("doShellList() facts = %#v, want ssh target fact", result.Evidence.Facts)
+	}
+	if !hasFact(result.Evidence.Facts, "target=wsl:Debian") {
+		t.Fatalf("doShellList() facts = %#v, want wsl target fact", result.Evidence.Facts)
+	}
+	if got := string(result.Data); !strings.Contains(got, `"targets":["ssh:git","wsl:Debian"]`) {
+		t.Fatalf("doShellList() data = %s, want targets array", got)
+	}
+	if got := string(result.ReportMarkdown); !strings.Contains(got, "- target=ssh:git") || !strings.Contains(got, "- target=wsl:Debian") {
+		t.Fatalf("doShellList() report = %s, want target facts", got)
+	}
+	if len(result.Lines) != 2 || result.Lines[0] != "ssh:git" || result.Lines[1] != "wsl:Debian" {
+		t.Fatalf("doShellList() lines = %#v, want target lines", result.Lines)
+	}
+}
+
+func TestDoShellList_OutputsSessionsWhenTargetResolved(t *testing.T) {
+	t.Parallel()
+
+	rt, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+	if _, problem := rt.doInitNetwork(context.Background(), InitNetworkArgs{}); problem != nil {
+		t.Fatalf("doInitNetwork() problem = %v, want nil", problem)
+	}
+
+	rt.peerSessions.Put(&fakePeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: "peer-a",
+			Protocol:     dataplane.ProtocolQUIC,
+			PathFamily:   dataplane.PathFamilyUDP4,
+		},
+		lastActivity: time.Now().UTC(),
+		healthy:      true,
+		openStream: func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+			clientSide, remoteSide := net.Pipe()
+			go func() {
+				defer remoteSide.Close()
+
+				var control shellproto.Control
+				if err := shellproto.ReadJSON(remoteSide, &control); err != nil {
+					return
+				}
+				if control.Op != shellproto.OpShLS || control.Target != "wsl:Debian" {
+					return
+				}
+				_ = shellproto.WriteJSON(remoteSide, shellproto.Control{
+					Op:       shellproto.OpShLS,
+					OK:       true,
+					Target:   "wsl:Debian",
+					Sessions: []string{"main", "recovery"},
+				})
+			}()
+			return clientSide, nil
+		},
+	})
+	rt.markPingGate("peer-a")
+
+	result, problem := rt.doShellList(context.Background(), ShellArgs{PeerID: "peer-a", Target: "wsl:Debian"})
+	if problem != nil {
+		t.Fatalf("doShellList(target) problem = %v, want nil", problem)
+	}
+	if !hasFact(result.Evidence.Facts, "peer_id=peer-a") {
+		t.Fatalf("doShellList(target) facts = %#v, want peer fact", result.Evidence.Facts)
+	}
+	if !hasFact(result.Evidence.Facts, "target=wsl:Debian") {
+		t.Fatalf("doShellList(target) facts = %#v, want target fact", result.Evidence.Facts)
+	}
+	if !hasFact(result.Evidence.Facts, "session=main") {
+		t.Fatalf("doShellList(target) facts = %#v, want session fact", result.Evidence.Facts)
+	}
+	if !hasFact(result.Evidence.Facts, "session=recovery") {
+		t.Fatalf("doShellList(target) facts = %#v, want session fact", result.Evidence.Facts)
+	}
+	if got := string(result.Data); !strings.Contains(got, `"target":"wsl:Debian"`) || !strings.Contains(got, `"sessions":["main","recovery"]`) {
+		t.Fatalf("doShellList(target) data = %s, want sessions array", got)
+	}
+	if got := string(result.ReportMarkdown); !strings.Contains(got, "- session=main") || !strings.Contains(got, "- session=recovery") {
+		t.Fatalf("doShellList(target) report = %s, want session facts", got)
+	}
+	if len(result.Lines) != 2 || result.Lines[0] != "main" || result.Lines[1] != "recovery" {
+		t.Fatalf("doShellList(target) lines = %#v, want session lines", result.Lines)
+	}
+}
+
+func TestDoShellList_OutputsReadyTargetsAndStatuses(t *testing.T) {
+	t.Parallel()
+
+	rt, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+	if _, problem := rt.doInitNetwork(context.Background(), InitNetworkArgs{}); problem != nil {
+		t.Fatalf("doInitNetwork() problem = %v, want nil", problem)
+	}
+
+	rt.peerSessions.Put(&fakePeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: "peer-a",
+			Protocol:     dataplane.ProtocolQUIC,
+			PathFamily:   dataplane.PathFamilyUDP4,
+		},
+		lastActivity: time.Now().UTC(),
+		healthy:      true,
+		openStream: func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+			clientSide, remoteSide := net.Pipe()
+			go func() {
+				defer remoteSide.Close()
+
+				var control shellproto.Control
+				if err := shellproto.ReadJSON(remoteSide, &control); err != nil {
+					return
+				}
+				if control.Op != shellproto.OpShLS || !control.ReadyOnly || strings.TrimSpace(control.Target) != "" {
+					return
+				}
+				_ = shellproto.WriteJSON(remoteSide, shellproto.Control{
+					Op:        shellproto.OpShLS,
+					OK:        true,
+					ReadyOnly: true,
+					Targets:   []string{"wsl:Debian"},
+					TargetStatuses: []shellproto.TargetStatus{
+						{Target: "wsl:Debian", Status: "ready"},
+						{Target: "ssh:ale", Status: "unknown", ReasonCode: "UNAVAILABLE", Message: "Host key verification failed."},
+						{Target: "ssh:ops", Status: "unsupported", ReasonCode: "SH_TMUX_MISSING", Message: "tmux missing"},
+					},
+				})
+			}()
+			return clientSide, nil
+		},
+	})
+	rt.markPingGate("peer-a")
+
+	result, problem := rt.doShellList(context.Background(), ShellArgs{PeerID: "peer-a", ReadyOnly: true})
+	if problem != nil {
+		t.Fatalf("doShellList(ready) problem = %v, want nil", problem)
+	}
+	if len(result.Lines) != 1 || result.Lines[0] != "wsl:Debian" {
+		t.Fatalf("doShellList(ready) lines = %#v, want ready target only", result.Lines)
+	}
+	for _, fact := range []string{
+		"target=wsl:Debian status=ready",
+		"target=ssh:ale status=unknown reason_code=UNAVAILABLE",
+		"target=ssh:ops status=unsupported reason_code=SH_TMUX_MISSING",
+		"target_count=3",
+		"ready_target_count=1",
+		"unsupported_target_count=1",
+		"unknown_target_count=1",
+	} {
+		if !hasFact(result.Evidence.Facts, fact) {
+			t.Fatalf("doShellList(ready) facts missing %q: %#v", fact, result.Evidence.Facts)
+		}
+	}
+	if got := string(result.Data); !strings.Contains(got, `"targets":["wsl:Debian"]`) || !strings.Contains(got, `"target_statuses":[`) {
+		t.Fatalf("doShellList(ready) data = %s, want ready targets and target_statuses", got)
+	}
+	if got := string(result.ReportMarkdown); !strings.Contains(got, "- target=ssh:ale status=unknown reason_code=UNAVAILABLE") {
+		t.Fatalf("doShellList(ready) report = %s, want target status facts", got)
+	}
+}
+
+func TestProbeReadyTargetsRunsConcurrently(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	t.Cleanup(cancel)
+
+	targets := []string{"ssh:ale", "wsl:Debian", "ssh:ops"}
+	wslCalled := make(chan struct{}, 1)
+	releaseSlow := make(chan struct{})
+
+	probe := func(ctx context.Context, target string) (shelltarget.TargetReadiness, error) {
+		switch target {
+		case "ssh:ale", "ssh:ops":
+			select {
+			case <-releaseSlow:
+			case <-ctx.Done():
+				return shelltarget.TargetReadiness{}, ctx.Err()
+			}
+			return shelltarget.TargetReadiness{
+				Target:     target,
+				Status:     shelltarget.TargetStatusUnknown,
+				ReasonCode: string(poc.ReasonCodeUnavailable),
+				Message:    "slow probe",
+			}, nil
+		case "wsl:Debian":
+			select {
+			case wslCalled <- struct{}{}:
+			default:
+			}
+			return shelltarget.TargetReadiness{
+				Target: target,
+				Status: shelltarget.TargetStatusReady,
+			}, nil
+		default:
+			return shelltarget.TargetReadiness{}, errors.New("unexpected target: " + target)
+		}
+	}
+
+	done := make(chan struct {
+		readyTargets []string
+		statuses     []shellproto.TargetStatus
+	}, 1)
+	go func() {
+		readyTargets, statuses := probeReadyTargets(ctx, targets, probe)
+		done <- struct {
+			readyTargets []string
+			statuses     []shellproto.TargetStatus
+		}{
+			readyTargets: readyTargets,
+			statuses:     statuses,
+		}
+	}()
+
+	select {
+	case <-wslCalled:
+	case <-time.After(100 * time.Millisecond):
+		close(releaseSlow)
+		t.Fatal("probeReadyTargets() did not start wsl:Debian before slow ssh probes finished")
+	}
+
+	close(releaseSlow)
+
+	var result struct {
+		readyTargets []string
+		statuses     []shellproto.TargetStatus
+	}
+	select {
+	case result = <-done:
+	case <-time.After(time.Second):
+		t.Fatal("probeReadyTargets() timed out waiting for results")
+	}
+
+	wantReadyTargets := []string{"wsl:Debian"}
+	if len(result.readyTargets) != len(wantReadyTargets) || result.readyTargets[0] != wantReadyTargets[0] {
+		t.Fatalf("probeReadyTargets() readyTargets = %#v, want %#v", result.readyTargets, wantReadyTargets)
+	}
+
+	wantStatuses := []shellproto.TargetStatus{
+		{Target: "ssh:ale", Status: shelltarget.TargetStatusUnknown, ReasonCode: string(poc.ReasonCodeUnavailable), Message: "slow probe"},
+		{Target: "wsl:Debian", Status: shelltarget.TargetStatusReady},
+		{Target: "ssh:ops", Status: shelltarget.TargetStatusUnknown, ReasonCode: string(poc.ReasonCodeUnavailable), Message: "slow probe"},
+	}
+	if len(result.statuses) != len(wantStatuses) {
+		t.Fatalf("probeReadyTargets() statuses = %#v, want %#v", result.statuses, wantStatuses)
+	}
+	for i := range wantStatuses {
+		got := result.statuses[i]
+		want := wantStatuses[i]
+		if got.Target != want.Target || got.Status != want.Status || got.ReasonCode != want.ReasonCode || got.Message != want.Message {
+			t.Fatalf("probeReadyTargets() statuses[%d] = %#v, want %#v", i, got, want)
+		}
+	}
+}
+
+func TestDoShellList_RejectsReadyWithConcreteTarget(t *testing.T) {
+	t.Parallel()
+
+	rt, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	_, problem := rt.doShellList(context.Background(), ShellArgs{
+		PeerID:    "peer-a",
+		Target:    "ssh:ale",
+		ReadyOnly: true,
+	})
+	if problem == nil {
+		t.Fatal("doShellList(ready+target) problem = nil, want non-nil")
+	}
+	if problem.reasonCode != poc.ReasonCodeBadRequest {
+		t.Fatalf("doShellList(ready+target) reasonCode = %q, want %q", problem.reasonCode, poc.ReasonCodeBadRequest)
+	}
+	if problem.exitCode != poc.ExitCodeBadRequest {
+		t.Fatalf("doShellList(ready+target) exitCode = %d, want %d", problem.exitCode, poc.ExitCodeBadRequest)
+	}
+}
+
+func TestKeepaliveValidatedSessionsSkipsUnvalidatedSession(t *testing.T) {
+	t.Parallel()
+
+	rt, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	var openCount atomic.Int64
+	sess := &fakePeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: "peer-a",
+			Protocol:     dataplane.ProtocolQUIC,
+			PathFamily:   dataplane.PathFamilyUDP4,
+		},
+		lastActivity: time.Now().UTC().Add(-sessionKeepaliveMinIdle - time.Second),
+		healthy:      true,
+		openStream: func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+			openCount.Add(1)
+			return nil, errors.New("unexpected keepalive attempt")
+		},
+	}
+	rt.peerSessions.Put(sess)
+
+	rt.keepaliveValidatedSessions()
+
+	if got := openCount.Load(); got != 0 {
+		t.Fatalf("keepaliveValidatedSessions() open count = %d, want 0", got)
+	}
+	if !sess.Healthy() {
+		t.Fatal("keepaliveValidatedSessions() closed unvalidated session, want healthy")
+	}
+}
+
+func TestKeepaliveValidatedSessionsKeepsValidatedSessionAlive(t *testing.T) {
+	t.Parallel()
+
+	rt, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	var openCount atomic.Int64
+	sess := &fakePeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: "peer-a",
+			Protocol:     dataplane.ProtocolQUIC,
+			PathFamily:   dataplane.PathFamilyUDP4,
+		},
+		lastActivity: time.Now().UTC().Add(-sessionKeepaliveMinIdle - time.Second),
+		healthy:      true,
+		openStream: func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+			openCount.Add(1)
+			clientSide, remoteSide := net.Pipe()
+			go func() {
+				defer remoteSide.Close()
+				var control shellproto.Control
+				if err := shellproto.ReadJSON(remoteSide, &control); err != nil {
+					return
+				}
+				_ = shellproto.WriteJSON(remoteSide, shellproto.Control{
+					Op: control.Op,
+					OK: true,
+				})
+			}()
+			return clientSide, nil
+		},
+	}
+	rt.peerSessions.Put(sess)
+	rt.markPingGate("peer-a")
+
+	rt.keepaliveValidatedSessions()
+
+	if got := openCount.Load(); got != 1 {
+		t.Fatalf("keepaliveValidatedSessions() open count = %d, want 1", got)
+	}
+	if !sess.Healthy() {
+		t.Fatal("keepaliveValidatedSessions() healthy = false, want true")
+	}
+}
+
+func TestKeepaliveValidatedSessionsClosesFailedSession(t *testing.T) {
+	t.Parallel()
+
+	rt, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	sess := &fakePeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: "peer-a",
+			Protocol:     dataplane.ProtocolQUIC,
+			PathFamily:   dataplane.PathFamilyUDP4,
+		},
+		lastActivity: time.Now().UTC().Add(-sessionKeepaliveMinIdle - time.Second),
+		healthy:      true,
+		openStream: func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+			return nil, io.ErrClosedPipe
+		},
+	}
+	rt.peerSessions.Put(sess)
+	rt.markPingGate("peer-a")
+
+	rt.keepaliveValidatedSessions()
+
+	if _, ok := rt.peerSessions.Get(sess.key); ok {
+		t.Fatal("keepaliveValidatedSessions() session still present, want closed")
+	}
+	if got := sess.CloseReason(); got != dataplane.CloseReasonTransportFatal {
+		t.Fatalf("keepaliveValidatedSessions() close reason = %q, want %q", got, dataplane.CloseReasonTransportFatal)
+	}
+}
+
 func TestPunchProblemIncludesDiagnosticFacts(t *testing.T) {
 	t.Parallel()
 
@@ -256,6 +713,27 @@ func hasFact(facts []poc.Fact, want string) bool {
 		}
 	}
 	return false
+}
+
+func hasFactPrefix(facts []poc.Fact, prefix string) bool {
+	for _, fact := range facts {
+		if strings.HasPrefix(fact.Message, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func mustFactValue(t *testing.T, facts []poc.Fact, key string) string {
+	t.Helper()
+	prefix := key + "="
+	for _, fact := range facts {
+		if strings.HasPrefix(fact.Message, prefix) {
+			return strings.TrimPrefix(fact.Message, prefix)
+		}
+	}
+	t.Fatalf("facts = %#v, want key %q", facts, key)
+	return ""
 }
 
 func TestLocalCandidatesForPortPrefersNonLoopbackIPv4(t *testing.T) {
@@ -733,40 +1211,115 @@ func TestApproveRefreshesPresenceRosterForNewPeer(t *testing.T) {
 	t.Fatalf("adminRT.Snapshot().DiscoverView = %#v, want joined peer %q online; roster=%s", adminRT.Snapshot().DiscoverView.Peers, joinedPeerID, string(rosterJSON))
 }
 
+func TestDoJoinTimeoutIncludesBrokerAndTopicFacts(t *testing.T) {
+	t.Parallel()
+
+	adminRT, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open(admin) error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = adminRT.Close() })
+
+	if _, initProblem := adminRT.doInitNetwork(context.Background(), InitNetworkArgs{}); initProblem != nil {
+		t.Fatalf("doInitNetwork(admin) problem = %v, want nil", initProblem)
+	}
+
+	inviteResult, inviteProblem := adminRT.doInvite(context.Background(), InviteArgs{})
+	if inviteProblem != nil {
+		t.Fatalf("doInvite(admin) problem = %v, want nil", inviteProblem)
+	}
+
+	inviteCode := mustFactValue(t, inviteResult.Evidence.Facts, "invite_code")
+	memberRT, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open(member) error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = memberRT.Close() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+
+	joinResult, joinProblem := memberRT.Action(ctx, "join", mustJSONMarshal(JoinArgs{Code: inviteCode}))
+	if joinProblem == nil {
+		t.Fatal("Action(join) problem = nil, want timeout problem")
+	}
+	if joinProblem.reasonCode != poc.ReasonCodeTimeout && joinProblem.reasonCode != poc.ReasonCodeUnavailable {
+		t.Fatalf("Action(join) reasonCode = %q, want %q or %q", joinProblem.reasonCode, poc.ReasonCodeTimeout, poc.ReasonCodeUnavailable)
+	}
+	requireFacts := []string{
+		"invite_id=" + mustFactValue(t, inviteResult.Evidence.Facts, "invite_id"),
+		"network_id=" + mustFactValue(t, inviteResult.Evidence.Facts, "network_id"),
+		"join_topic=" + mustFactValue(t, inviteResult.Evidence.Facts, "join_topic"),
+		"broker_endpoint=" + mustFactValue(t, inviteResult.Evidence.Facts, "broker_endpoint"),
+		"peer_id=",
+	}
+	switch {
+	case strings.Contains(joinResult.Summary.Text, "failed to open join signaling session"):
+	case strings.Contains(joinResult.Summary.Text, "failed to publish join request"),
+		strings.Contains(joinResult.Summary.Text, "timed out waiting for enroll response"):
+		requireFacts = append(requireFacts, "reply_topic=mp/v1/reply/")
+	default:
+		t.Fatalf("Action(join) Summary.Text = %q, want signaling-stage join failure", joinResult.Summary.Text)
+	}
+	for _, fact := range requireFacts {
+		if strings.HasSuffix(fact, "=") {
+			if !hasFactPrefix(joinResult.Evidence.Facts, fact) {
+				t.Fatalf("Action(join) facts = %#v, want fact prefix %q", joinResult.Evidence.Facts, fact)
+			}
+			continue
+		}
+		if !hasFact(joinResult.Evidence.Facts, fact) {
+			t.Fatalf("Action(join) facts = %#v, want %q", joinResult.Evidence.Facts, fact)
+		}
+	}
+}
+
 type fakePeerSession struct {
 	key          dataplane.SessionKey
 	lastActivity time.Time
 	healthy      bool
 	openStream   func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error)
+	closeReason  dataplane.CloseReason
+	mu           sync.Mutex
 }
 
-func (s fakePeerSession) Key() dataplane.SessionKey {
+func (s *fakePeerSession) Key() dataplane.SessionKey {
 	return s.key
 }
 
-func (s fakePeerSession) OpenStream(ctx context.Context, open dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+func (s *fakePeerSession) OpenStream(ctx context.Context, open dataplane.StreamOpen) (io.ReadWriteCloser, error) {
 	if s.openStream != nil {
 		return s.openStream(ctx, open)
 	}
 	return nil, nil
 }
 
-func (s fakePeerSession) AcceptStream(context.Context) (*dataplane.AcceptedStream, error) {
+func (s *fakePeerSession) AcceptStream(context.Context) (*dataplane.AcceptedStream, error) {
 	return nil, nil
 }
 
-func (s fakePeerSession) Close(dataplane.CloseReason) error {
+func (s *fakePeerSession) Close(reason dataplane.CloseReason) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.healthy = false
+	s.closeReason = reason
 	return nil
 }
 
-func (s fakePeerSession) CloseReason() dataplane.CloseReason {
-	return ""
+func (s *fakePeerSession) CloseReason() dataplane.CloseReason {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.closeReason
 }
 
-func (s fakePeerSession) Healthy() bool {
+func (s *fakePeerSession) Healthy() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.healthy
 }
 
-func (s fakePeerSession) LastActivity() time.Time {
+func (s *fakePeerSession) LastActivity() time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.lastActivity
 }

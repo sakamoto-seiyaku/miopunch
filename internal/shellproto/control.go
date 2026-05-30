@@ -28,6 +28,13 @@ type ControlError struct {
 	Suggestions []string `json:"suggestions,omitempty"`
 }
 
+type TargetStatus struct {
+	Target     string `json:"target,omitempty"`
+	Status     string `json:"status,omitempty"`
+	ReasonCode string `json:"reason_code,omitempty"`
+	Message    string `json:"message,omitempty"`
+}
+
 type PeerSeed struct {
 	PeerID string `json:"peer_id"`
 
@@ -54,11 +61,13 @@ type Control struct {
 	SeedPeer    *PeerSeed         `json:"seed_peer,omitempty"`
 	SigB64      string            `json:"sig_b64,omitempty"`
 
-	Target  string `json:"target,omitempty"`
-	Session string `json:"session,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Session   string `json:"session,omitempty"`
+	ReadyOnly bool   `json:"ready_only,omitempty"`
 
-	Targets  []string `json:"targets,omitempty"`
-	Sessions []string `json:"sessions,omitempty"`
+	Targets        []string       `json:"targets,omitempty"`
+	Sessions       []string       `json:"sessions,omitempty"`
+	TargetStatuses []TargetStatus `json:"target_statuses,omitempty"`
 
 	WinSize *WinSize `json:"winsize,omitempty"`
 
