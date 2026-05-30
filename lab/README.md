@@ -74,6 +74,12 @@ The `poc-v1-cli-smoke` gate:
 - validates `up -> init-network -> invite -> approve -> join -> ls -> ping -> sh ls`
 - does not cover `sh attach` or `revoke`
 
+For direct Windows/WSL CLI smoke work, use the bidirectional runbook at:
+
+- `docs/notes/2026-05-29-windows-wsl-cli-smoke-runbook.md`
+
+That runbook keeps the test CLI-only, requires isolated bundle roots per side, and records stdout/stderr, `--report`, daemon logs, and state snapshots.
+
 Run POC e2e full diagnostic suite (slower; includes packet capture artifacts):
 
 ```bash
