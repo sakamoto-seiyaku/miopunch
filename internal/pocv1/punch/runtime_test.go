@@ -177,3 +177,39 @@ func TestRunPunchUsesSymmetricPairSID(t *testing.T) {
 		t.Fatalf("sidForDialPair() collision between distinct pairs")
 	}
 }
+
+func TestMirroredHostRemoteAddrReturnsRemoteUDPAddr(t *testing.T) {
+	plan := pairPlan{
+		local:  Candidate{Kind: CandidateKindHost, Addr: "192.168.4.5:4001"},
+		remote: Candidate{Kind: CandidateKindHost, Addr: "192.168.4.5:5001"},
+	}
+
+	got, ok, err := mirroredHostRemoteAddr(plan)
+	if err != nil {
+		t.Fatalf("mirroredHostRemoteAddr() error = %v, want nil", err)
+	}
+	if !ok {
+		t.Fatal("mirroredHostRemoteAddr() ok = false, want true")
+	}
+	if got == nil || got.String() != "192.168.4.5:5001" {
+		t.Fatalf("mirroredHostRemoteAddr() = %#v, want 192.168.4.5:5001", got)
+	}
+}
+
+func TestMirroredHostRemoteAddrRejectsDifferentIPs(t *testing.T) {
+	plan := pairPlan{
+		local:  Candidate{Kind: CandidateKindHost, Addr: "192.168.4.5:4001"},
+		remote: Candidate{Kind: CandidateKindHost, Addr: "192.168.4.6:5001"},
+	}
+
+	got, ok, err := mirroredHostRemoteAddr(plan)
+	if err != nil {
+		t.Fatalf("mirroredHostRemoteAddr() error = %v, want nil", err)
+	}
+	if ok {
+		t.Fatal("mirroredHostRemoteAddr() ok = true, want false")
+	}
+	if got != nil {
+		t.Fatalf("mirroredHostRemoteAddr() = %#v, want nil", got)
+	}
+}

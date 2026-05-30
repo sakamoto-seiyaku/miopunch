@@ -302,6 +302,17 @@ func defaultAttemptPair(
 	plan pairPlan,
 	key []byte,
 ) (*net.UDPAddr, error) {
+	if directAddr, ok, err := mirroredHostRemoteAddr(plan); err != nil {
+		return nil, fmt.Errorf("resolve mirrored host path for %s -> %s: %w", plan.local.Addr, plan.remote.Addr, err)
+	} else if ok {
+		logutil.Infof(
+			"punch mirrored host path selected: local_candidate=%s remote_candidate=%s remote_udp=%s",
+			plan.local.Addr,
+			plan.remote.Addr,
+			directAddr.String(),
+		)
+		return directAddr, nil
+	}
 	if demux == nil {
 		return nil, errors.New("nil traversal demux")
 	}
@@ -314,6 +325,33 @@ func defaultAttemptPair(
 		return nil, fmt.Errorf("make hole for %s -> %s: %w", plan.local.Addr, plan.remote.Addr, err)
 	}
 	return raddr, nil
+}
+
+func mirroredHostRemoteAddr(plan pairPlan) (*net.UDPAddr, bool, error) {
+	if plan.local.Kind != CandidateKindHost || plan.remote.Kind != CandidateKindHost {
+		return nil, false, nil
+	}
+
+	localAddr, err := net.ResolveUDPAddr("udp4", plan.local.Addr)
+	if err != nil {
+		return nil, false, err
+	}
+	remoteAddr, err := net.ResolveUDPAddr("udp4", plan.remote.Addr)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if localAddr == nil || remoteAddr == nil || localAddr.IP == nil || remoteAddr.IP == nil {
+		return nil, false, nil
+	}
+	if !localAddr.IP.Equal(remoteAddr.IP) {
+		return nil, false, nil
+	}
+	if localAddr.Port == 0 || remoteAddr.Port == 0 || localAddr.Port == remoteAddr.Port {
+		return nil, false, nil
+	}
+
+	return remoteAddr, true, nil
 }
 
 func natHoleRespForPair(remote Candidate, sid string, initiator bool) *legacywire.NatHoleResp {
