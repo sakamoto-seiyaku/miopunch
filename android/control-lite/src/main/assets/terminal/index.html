@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <link rel="stylesheet" href="vendor/xterm/xterm.css">
+  <style>
+    html,
+    body,
+    #terminal {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #0b0b0f;
+    }
+
+    .xterm {
+      height: 100%;
+      padding: 6px;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div id="terminal"></div>
+  <script src="vendor/xterm/xterm.js"></script>
+  <script>
+    (() => {
+      const terminalElement = document.getElementById("terminal");
+      const term = new window.Terminal({
+        cols: 80,
+        rows: 12,
+        cursorBlink: true,
+        fontFamily: "monospace",
+        fontSize: 13,
+        scrollback: 1000,
+        theme: {
+          background: "#0b0b0f",
+          foreground: "#e8e6ea"
+        }
+      });
+
+      const resizeToVisibleHeight = () => {
+        const xtermElement = terminalElement.querySelector(".xterm");
+        const rowElement = terminalElement.querySelector(".xterm-rows > div");
+        const style = xtermElement ? window.getComputedStyle(xtermElement) : null;
+        const padding = style
+          ? parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+          : 0;
+        const rowHeight = rowElement ? rowElement.getBoundingClientRect().height : 18;
+        const rows = Math.max(6, Math.floor((terminalElement.clientHeight - padding) / rowHeight));
+        if (Number.isFinite(rows) && rows > 0 && rows !== term.rows) {
+          term.resize(80, rows);
+          term.scrollToBottom();
+        }
+      };
+
+      term.open(terminalElement);
+      term.focus();
+      window.requestAnimationFrame(resizeToVisibleHeight);
+
+      window.miopunchWrite = (data) => {
+        term.write(data);
+        term.scrollToBottom();
+      };
+
+      window.miopunchClear = () => {
+        term.clear();
+      };
+
+      term.onData((data) => {
+        if (window.MiopunchTerminal) {
+          window.MiopunchTerminal.send(data);
+        }
+      });
+
+      window.addEventListener("resize", () => {
+        resizeToVisibleHeight();
+        term.refresh(0, term.rows - 1);
+      });
+
+      if (window.MiopunchTerminal) {
+        window.MiopunchTerminal.ready();
+      }
+    })();
+  </script>
+</body>
+</html>
