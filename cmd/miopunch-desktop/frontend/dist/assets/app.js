@@ -1061,6 +1061,17 @@
       || (event && event.code ? `websocket closed (${event.code})` : "terminal websocket closed")
   );
 
+  const disposeShellTerminal = (term) => {
+    if (!term) return;
+    window.setTimeout(() => {
+      try {
+        term.dispose();
+      } catch {
+        // ignore dispose races from xterm internals
+      }
+    }, 0);
+  };
+
   const closeShellTransport = (closeCode = 1000, reason = "bye", options = {}) => {
     const keepTerminal = !!(options && options.keepTerminal);
     if (shellState.resizeObs) {
@@ -1093,12 +1104,9 @@
       shellState.expectedClose = false;
     }
     if (!keepTerminal && shellState.term) {
-      try {
-        shellState.term.dispose();
-      } catch {
-        // ignore dispose race
-      }
+      const term = shellState.term;
       shellState.term = null;
+      disposeShellTerminal(term);
     }
     shellState.taskID = "";
     shellState.wsError = "";
@@ -3469,6 +3477,11 @@
   const openTerminal = () => {
     const container = el("terminal");
     if (!container) throw new Error("terminal container is missing");
+    if (shellState.term) {
+      const term = shellState.term;
+      shellState.term = null;
+      disposeShellTerminal(term);
+    }
     container.textContent = "";
     if (typeof window.Terminal !== "function") {
       container.textContent = "xterm.js failed to load";
@@ -3644,7 +3657,7 @@
         scheduleRender();
         return;
       }
-      closeShellTransport();
+      closeShellTransport(1000, "shell closed", { keepTerminal: wasConnected });
       shellView.phase = wasConnected ? "disconnected" : "failed";
       shellView.detail = wasConnected
         ? shellPhaseDefaultDetail("disconnected")

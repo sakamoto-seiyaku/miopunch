@@ -350,7 +350,9 @@ async function installFakeBridge(page, options = {}) {
           code,
           reason: String(reason || ""),
         }));
-        if (typeof this.onclose === "function") this.onclose({ code, reason });
+        window.setTimeout(() => {
+          if (typeof this.onclose === "function") this.onclose({ code, reason });
+        }, 0);
       }
 
       __emitMessage(text) {
