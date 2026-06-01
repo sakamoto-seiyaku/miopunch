@@ -6,8 +6,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gorilla/websocket"
-
 	"github.com/miopunch/miopunch/internal/desktopbridge"
 )
 
@@ -55,17 +53,17 @@ func (a *App) ensureTerminalBridge() *desktopbridge.BridgeError {
 		return nil
 	}
 
-	bridge, err := desktopbridge.NewTerminalWSBridge(func(ctx context.Context, taskID string) (*websocket.Conn, error) {
+	bridge, err := desktopbridge.NewTerminalWSBridge(func(ctx context.Context, shellSessionID string) (desktopbridge.ShellStream, error) {
 		c, berr := a.localAPIClient()
 		if berr != nil {
 			return nil, fmt.Errorf("localapi not connected: %s", berr.ReasonCode)
 		}
 
-		conn, resp, err := c.DialTaskWS(ctx, taskID)
-		if resp != nil {
-			_ = resp.Body.Close()
+		stream, err := c.DialShell(ctx, shellSessionID)
+		if err != nil {
+			return nil, err
 		}
-		return conn, err
+		return stream, nil
 	})
 	if err != nil {
 		return bridgeErrorFromErr(err)

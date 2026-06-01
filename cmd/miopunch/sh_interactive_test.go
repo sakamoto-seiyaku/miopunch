@@ -5,14 +5,13 @@ import (
 	"context"
 	"errors"
 	"io"
-	"net/http"
 	"testing"
 	"time"
 
 	"golang.org/x/term"
 
 	"github.com/miopunch/miopunch/internal/poc"
-	"github.com/miopunch/miopunch/internal/task"
+	pocruntime "github.com/miopunch/miopunch/internal/pocv1/runtime"
 )
 
 func TestRunShellInteractive_RemoteCloseDoesNotWaitForIdleStdin(t *testing.T) {
@@ -20,17 +19,16 @@ func TestRunShellInteractive_RemoteCloseDoesNotWaitForIdleStdin(t *testing.T) {
 	t.Cleanup(func() { _ = stdinReader.Close() })
 	t.Cleanup(func() { _ = stdinWriter.Close() })
 
-	client := &fakeShellTaskClient{
-		task: task.Task{
-			ID:       "task-1",
-			Kind:     "sh_attach",
-			Status:   task.StatusDone,
-			ExitCode: poc.ExitCodeOK,
+	client := &fakeShellClient{
+		result: pocruntime.ActionResult{
+			ExitCode:       poc.ExitCodeOK,
+			ReasonCode:     poc.ReasonCodeOK,
+			ShellSessionID: "shell-1",
 		},
-		ws: fakeShellWSConn{readErr: io.EOF},
+		stream: fakeShellStream{readErr: io.EOF},
 	}
 	deps := shellInteractiveDeps{
-		connect: func(context.Context, string) (shellTaskClient, error) {
+		connect: func(context.Context, string) (shellClient, error) {
 			return client, nil
 		},
 		stdin:       stdinReader,
@@ -48,7 +46,7 @@ func TestRunShellInteractive_RemoteCloseDoesNotWaitForIdleStdin(t *testing.T) {
 	go func() {
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
-		done <- runShellInteractiveWithDeps(globalOptions{}, task.ShAttachArgs{PeerID: "peer"}, &stdout, &stderr, deps)
+		done <- runShellInteractiveWithDeps(globalOptions{}, pocruntime.ShellArgs{PeerID: "peer"}, &stdout, &stderr, deps)
 	}()
 
 	select {
@@ -61,39 +59,31 @@ func TestRunShellInteractive_RemoteCloseDoesNotWaitForIdleStdin(t *testing.T) {
 	}
 }
 
-type fakeShellTaskClient struct {
-	task task.Task
-	ws   shellWSConn
+type fakeShellClient struct {
+	result pocruntime.ActionResult
+	stream io.ReadWriteCloser
 }
 
-func (c *fakeShellTaskClient) CreateTask(context.Context, string, any) (task.Task, error) {
-	return c.task, nil
+func (c *fakeShellClient) Action(context.Context, string, any) (pocruntime.ActionResult, error) {
+	return c.result, nil
 }
 
-func (c *fakeShellTaskClient) DialTaskWS(context.Context, string) (shellWSConn, *http.Response, error) {
-	return c.ws, nil, nil
+func (c *fakeShellClient) DialShell(context.Context, string) (io.ReadWriteCloser, error) {
+	return c.stream, nil
 }
 
-func (c *fakeShellTaskClient) GetTask(context.Context, string) (task.Task, error) {
-	return c.task, nil
-}
-
-func (c *fakeShellTaskClient) GetTaskReport(context.Context, string) (string, error) {
-	return "", nil
-}
-
-type fakeShellWSConn struct {
+type fakeShellStream struct {
 	readErr error
 }
 
-func (c fakeShellWSConn) ReadMessage() (int, []byte, error) {
-	return 0, nil, c.readErr
+func (s fakeShellStream) Read([]byte) (int, error) {
+	return 0, s.readErr
 }
 
-func (c fakeShellWSConn) WriteMessage(int, []byte) error {
-	return nil
+func (s fakeShellStream) Write(p []byte) (int, error) {
+	return len(p), nil
 }
 
-func (c fakeShellWSConn) Close() error {
+func (s fakeShellStream) Close() error {
 	return nil
 }

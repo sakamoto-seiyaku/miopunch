@@ -28,10 +28,9 @@ RUN apt-get update \
   && ln -sf /dev/null /etc/systemd/system/getty@.service
 
 COPY bin/miopunch /usr/local/bin/miopunch
-COPY bin/miopunch-lab /usr/local/bin/miopunch-lab
 COPY bin/miopunch-poc-e2e /usr/local/bin/miopunch-poc-e2e
 
-RUN chmod 0755 /usr/local/bin/miopunch /usr/local/bin/miopunch-lab /usr/local/bin/miopunch-poc-e2e \
+RUN chmod 0755 /usr/local/bin/miopunch /usr/local/bin/miopunch-poc-e2e \
   && mkdir -p /var/lib/miopunch /run/miopunch /artifacts
 
 STOPSIGNAL SIGRTMIN+3

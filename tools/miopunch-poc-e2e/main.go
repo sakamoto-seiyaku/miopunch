@@ -13,14 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/websocket"
-
 	"github.com/miopunch/miopunch/internal/localapi"
 	"github.com/miopunch/miopunch/internal/poc"
-	"github.com/miopunch/miopunch/internal/task"
+	pocruntime "github.com/miopunch/miopunch/internal/pocv1/runtime"
+	"github.com/miopunch/miopunch/internal/shellproto"
 )
-
-const shSubprotocolV0 = "miopunch.sh.v0"
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
@@ -38,6 +35,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "sh-attach":
 		return shAttachCmd(ctx, args[1:], stdout, stderr)
+	case "status":
+		return statusCmd(ctx, args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		usage(stdout)
 		return 0
@@ -53,6 +52,7 @@ func usage(w io.Writer) {
 
 Usage:
   miopunch-poc-e2e sh-attach [flags]
+  miopunch-poc-e2e status [flags]
 
 Commands:
   sh-attach:
@@ -63,7 +63,9 @@ Commands:
     --send <bytes>
     --expect <substring>
     --timeout <duration>    (default: 10s)
-    --hold <duration>       keep the websocket open after observing --expect
+    --hold <duration>       keep the shell channel open after observing --expect
+  status:
+    --localapi unix:/run/miopunch/localapi.sock
 
 Output:
   Always emits a single-line JSON result to stdout.
@@ -82,18 +84,33 @@ type shAttachConfig struct {
 }
 
 type shAttachResult struct {
-	OK            bool           `json:"ok"`
-	TaskID        string         `json:"task_id,omitempty"`
-	PeerID        string         `json:"peer_id,omitempty"`
-	Target        string         `json:"target,omitempty"`
-	Session       string         `json:"session,omitempty"`
-	SentBytes     int            `json:"sent_bytes,omitempty"`
-	ObservedBytes int            `json:"observed_bytes,omitempty"`
-	Expect        string         `json:"expect,omitempty"`
-	Stage         string         `json:"stage,omitempty"`
-	ReasonCode    poc.ReasonCode `json:"reason_code,omitempty"`
-	ExitCode      poc.ExitCode   `json:"exit_code,omitempty"`
-	Error         string         `json:"error,omitempty"`
+	OK             bool           `json:"ok"`
+	ShellSessionID string         `json:"shell_session_id,omitempty"`
+	PeerID         string         `json:"peer_id,omitempty"`
+	Target         string         `json:"target,omitempty"`
+	Session        string         `json:"session,omitempty"`
+	SentBytes      int            `json:"sent_bytes,omitempty"`
+	ObservedBytes  int            `json:"observed_bytes,omitempty"`
+	Expect         string         `json:"expect,omitempty"`
+	Stage          string         `json:"stage,omitempty"`
+	ReasonCode     poc.ReasonCode `json:"reason_code,omitempty"`
+	ExitCode       poc.ExitCode   `json:"exit_code,omitempty"`
+	Error          string         `json:"error,omitempty"`
+}
+
+type statusConfig struct {
+	LocalAPI string
+	Timeout  time.Duration
+}
+
+type statusResult struct {
+	OK         bool           `json:"ok"`
+	Mode       string         `json:"mode,omitempty"`
+	Version    string         `json:"version,omitempty"`
+	Stage      string         `json:"stage,omitempty"`
+	ReasonCode poc.ReasonCode `json:"reason_code,omitempty"`
+	ExitCode   poc.ExitCode   `json:"exit_code,omitempty"`
+	Error      string         `json:"error,omitempty"`
 }
 
 func shAttachCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -122,97 +139,101 @@ func shAttachCmd(ctx context.Context, args []string, stdout, stderr io.Writer) i
 		return writeShAttachFailure(stdout, stderr, cfg, "", "setup", poc.ReasonCodeBadRequest, poc.ExitCodeBadRequest, err)
 	}
 
-	c, err := localapi.NewClient(addr)
+	client, err := localapi.NewClient(addr)
 	if err != nil {
 		return writeShAttachFailure(stdout, stderr, cfg, "", "setup", poc.ReasonCodeInternal, poc.ExitCodeInternal, err)
 	}
-	if err := c.ProbeStatus(runCtx); err != nil {
+	if err := client.ProbeStatus(runCtx); err != nil {
 		return writeShAttachFailure(stdout, stderr, cfg, "", "setup", poc.ReasonCodeDaemonNotRunning, poc.ExitCodeUnavailable, err)
 	}
 
-	created, err := c.CreateTask(runCtx, "sh_attach", task.ShAttachArgs{
+	result, err := client.Action(runCtx, "sh", pocruntime.ShellArgs{
 		PeerID:  cfg.PeerID,
 		Target:  cfg.Target,
 		Session: cfg.Session,
 	})
 	if err != nil {
-		return writeShAttachFailure(stdout, stderr, cfg, "", "create_task", poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, err)
+		reason, exitCode, message := localAPIFailure(err)
+		return writeShAttachFailure(stdout, stderr, cfg, "", "create_shell", reason, exitCode, message)
+	}
+	if strings.TrimSpace(result.ShellSessionID) == "" {
+		return writeShAttachFailure(stdout, stderr, cfg, "", "create_shell", poc.ReasonCodeInternal, poc.ExitCodeInternal, errors.New("missing shell_session_id"))
 	}
 
-	conn, resp, err := c.DialTaskWS(runCtx, created.ID)
-	if resp != nil && resp.Body != nil {
-		_ = resp.Body.Close()
-	}
+	stream, err := client.DialShell(runCtx, result.ShellSessionID)
 	if err != nil {
-		if t, ok := getDoneTask(runCtx, c, created.ID); ok && t.ExitCode != poc.ExitCodeOK {
-			return writeShAttachFailure(stdout, stderr, cfg, created.ID, string(t.Stage), t.ReasonCode, t.ExitCode, fmt.Errorf("websocket dial: %w", err))
-		}
-		return writeShAttachFailure(stdout, stderr, cfg, created.ID, "websocket", poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, err)
+		return writeShAttachFailure(stdout, stderr, cfg, result.ShellSessionID, "attach_shell", poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer func() { _ = stream.Close() }()
 
-	if conn.Subprotocol() != shSubprotocolV0 {
-		err := fmt.Errorf("websocket subprotocol = %q, want %q", conn.Subprotocol(), shSubprotocolV0)
-		return writeShAttachFailure(stdout, stderr, cfg, created.ID, "websocket", poc.ReasonCodeBadRequest, poc.ExitCodeBadRequest, err)
+	if err := shellproto.WriteFrame(stream, shellproto.KindData, []byte(cfg.Send)); err != nil {
+		return writeShAttachFailure(stdout, stderr, cfg, result.ShellSessionID, "send", poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, err)
 	}
 
-	if err := conn.WriteMessage(websocket.BinaryMessage, []byte(cfg.Send)); err != nil {
-		if t, ok := getDoneTask(runCtx, c, created.ID); ok && t.ExitCode != poc.ExitCodeOK {
-			return writeShAttachFailure(stdout, stderr, cfg, created.ID, string(t.Stage), t.ReasonCode, t.ExitCode, fmt.Errorf("websocket send: %w", err))
-		}
-		return writeShAttachFailure(stdout, stderr, cfg, created.ID, "send", poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, err)
-	}
-
-	observed, err := waitForOutputWithTask(runCtx, c, created.ID, conn, []byte(cfg.Expect))
+	observed, err := waitForOutput(runCtx, stream, []byte(cfg.Expect))
 	if err != nil {
-		var taskErr *taskFailureError
-		if errors.As(err, &taskErr) {
-			t := taskErr.Task
-			return writeShAttachFailure(stdout, stderr, cfg, created.ID, string(t.Stage), t.ReasonCode, t.ExitCode, err)
-		}
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			return writeShAttachFailure(stdout, stderr, cfg, created.ID, "read", poc.ReasonCodeTimeout, poc.ExitCodeTimeout, err)
+			return writeShAttachFailure(stdout, stderr, cfg, result.ShellSessionID, "read", poc.ReasonCodeTimeout, poc.ExitCodeTimeout, err)
 		}
-		if t, ok := getDoneTask(runCtx, c, created.ID); ok && t.ExitCode != poc.ExitCodeOK {
-			return writeShAttachFailure(stdout, stderr, cfg, created.ID, string(t.Stage), t.ReasonCode, t.ExitCode, fmt.Errorf("websocket read: %w", err))
-		}
-		return writeShAttachFailure(stdout, stderr, cfg, created.ID, "read", poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, err)
+		return writeShAttachFailure(stdout, stderr, cfg, result.ShellSessionID, "read", poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, err)
 	}
 
 	if cfg.Hold > 0 {
 		if err := hold(runCtx, cfg.Hold); err != nil {
-			return writeShAttachFailure(stdout, stderr, cfg, created.ID, "hold", poc.ReasonCodeTimeout, poc.ExitCodeTimeout, err)
+			return writeShAttachFailure(stdout, stderr, cfg, result.ShellSessionID, "hold", poc.ReasonCodeTimeout, poc.ExitCodeTimeout, err)
 		}
 	}
 
-	_ = conn.WriteControl(
-		websocket.CloseMessage,
-		websocket.FormatCloseMessage(websocket.CloseNormalClosure, "miopunch-poc-e2e done"),
-		time.Now().Add(2*time.Second),
-	)
-	_ = conn.Close()
-
-	finalTask, err := waitTaskDone(runCtx, c, created.ID)
-	if err != nil {
-		return writeShAttachFailure(stdout, stderr, cfg, created.ID, "task_done", poc.ReasonCodeTimeout, poc.ExitCodeTimeout, err)
-	}
-	if finalTask.ExitCode != poc.ExitCodeOK {
-		err := fmt.Errorf("task failed: reason_code=%s exit_code=%d", finalTask.ReasonCode, finalTask.ExitCode)
-		return writeShAttachFailure(stdout, stderr, cfg, created.ID, string(finalTask.Stage), finalTask.ReasonCode, finalTask.ExitCode, err)
-	}
-
+	_ = stream.Close()
 	writeShAttachJSON(stdout, shAttachResult{
-		OK:            true,
-		TaskID:        created.ID,
-		PeerID:        cfg.PeerID,
-		Target:        cfg.Target,
-		Session:       cfg.Session,
-		SentBytes:     len([]byte(cfg.Send)),
-		ObservedBytes: len(observed),
-		Expect:        cfg.Expect,
-		Stage:         string(finalTask.Stage),
-		ReasonCode:    finalTask.ReasonCode,
-		ExitCode:      finalTask.ExitCode,
+		OK:             true,
+		ShellSessionID: result.ShellSessionID,
+		PeerID:         cfg.PeerID,
+		Target:         cfg.Target,
+		Session:        cfg.Session,
+		SentBytes:      len([]byte(cfg.Send)),
+		ObservedBytes:  len(observed),
+		Expect:         cfg.Expect,
+		Stage:          string(result.Stage),
+		ReasonCode:     result.ReasonCode,
+		ExitCode:       result.ExitCode,
+	})
+	return 0
+}
+
+func statusCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	cfg, err := parseStatusFlags(args, stderr)
+	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return writeStatusFailure(stdout, stderr, "args", poc.ReasonCodeBadRequest, poc.ExitCodeBadRequest, err)
+	}
+
+	runCtx, cancel := context.WithTimeout(ctx, cfg.Timeout)
+	defer cancel()
+
+	addr, err := parseLocalAPIAddr(cfg.LocalAPI)
+	if err != nil {
+		return writeStatusFailure(stdout, stderr, "setup", poc.ReasonCodeBadRequest, poc.ExitCodeBadRequest, err)
+	}
+	client, err := localapi.NewClient(addr)
+	if err != nil {
+		return writeStatusFailure(stdout, stderr, "setup", poc.ReasonCodeInternal, poc.ExitCodeInternal, err)
+	}
+
+	status, err := client.GetStatus(runCtx)
+	if err != nil {
+		reason, exitCode, message := localAPIFailure(err)
+		return writeStatusFailure(stdout, stderr, "status", reason, exitCode, message)
+	}
+
+	writeStatusJSON(stdout, statusResult{
+		OK:         true,
+		Mode:       string(status.Mode),
+		Version:    status.Version,
+		ReasonCode: poc.ReasonCodeOK,
+		ExitCode:   poc.ExitCodeOK,
 	})
 	return 0
 }
@@ -231,10 +252,22 @@ func parseShAttachFlags(args []string, stderr io.Writer) (shAttachConfig, error)
 	fs.StringVar(&cfg.PeerID, "peer-id", "", "peer id to attach")
 	fs.StringVar(&cfg.Target, "target", cfg.Target, "shell target")
 	fs.StringVar(&cfg.Session, "session", cfg.Session, "tmux session")
-	fs.StringVar(&cfg.Send, "send", "", "bytes to send as a websocket binary message")
-	fs.StringVar(&cfg.Expect, "expect", "", "substring expected in websocket binary output")
+	fs.StringVar(&cfg.Send, "send", "", "bytes to send as shell input")
+	fs.StringVar(&cfg.Expect, "expect", "", "substring expected in shell output")
 	fs.DurationVar(&cfg.Timeout, "timeout", cfg.Timeout, "overall timeout")
-	fs.DurationVar(&cfg.Hold, "hold", 0, "keep websocket open after observing --expect")
+	fs.DurationVar(&cfg.Hold, "hold", 0, "keep shell open after observing --expect")
+	return cfg, fs.Parse(args)
+}
+
+func parseStatusFlags(args []string, stderr io.Writer) (statusConfig, error) {
+	cfg := statusConfig{
+		LocalAPI: "unix:/run/miopunch/localapi.sock",
+		Timeout:  5 * time.Second,
+	}
+	fs := flag.NewFlagSet("status", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	fs.StringVar(&cfg.LocalAPI, "localapi", cfg.LocalAPI, "LocalAPI address")
+	fs.DurationVar(&cfg.Timeout, "timeout", cfg.Timeout, "request timeout")
 	return cfg, fs.Parse(args)
 }
 
@@ -274,144 +307,54 @@ func decodeEscapes(value string) (string, error) {
 }
 
 func parseLocalAPIAddr(value string) (localapi.Addr, error) {
-	v := strings.TrimSpace(value)
-	switch {
-	case strings.HasPrefix(v, "unix:"):
-		path := strings.TrimSpace(strings.TrimPrefix(v, "unix:"))
-		if path == "" {
-			return localapi.Addr{}, errors.New("empty unix socket path")
-		}
-		return localapi.Addr{Transport: localapi.TransportUnix, Path: path}, nil
-	case strings.HasPrefix(v, "npipe:"):
-		path := strings.TrimSpace(strings.TrimPrefix(v, "npipe:"))
-		if path == "" {
-			return localapi.Addr{}, errors.New("empty npipe path")
-		}
-		return localapi.Addr{Transport: localapi.TransportNpipe, Path: path}, nil
-	default:
-		return localapi.Addr{}, fmt.Errorf("unsupported localapi address: %q", value)
-	}
+	return localapi.ParseAddr(value)
 }
 
-func waitForOutput(ctx context.Context, conn *websocket.Conn, expect []byte) ([]byte, error) {
+func localAPIFailure(err error) (poc.ReasonCode, poc.ExitCode, error) {
+	var apiErr *localapi.APIError
+	if errors.As(err, &apiErr) {
+		response := apiErr.Response
+		message := strings.TrimSpace(response.Message)
+		if message == "" {
+			message = apiErr.Error()
+		}
+		return response.ReasonCode, response.ExitCode, errors.New(message)
+	}
+	return poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, err
+}
+
+func waitForOutput(ctx context.Context, stream io.ReadWriteCloser, expect []byte) ([]byte, error) {
 	var observed []byte
-
-	if conn == nil {
-		return nil, errors.New("nil websocket conn")
+	if stream == nil {
+		return nil, errors.New("nil shell stream")
 	}
 
-	if deadline, ok := ctx.Deadline(); ok {
-		_ = conn.SetReadDeadline(deadline)
-	}
-
-	stopCh := make(chan struct{})
-	defer close(stopCh)
+	doneCh := make(chan struct{})
+	defer close(doneCh)
 	go func() {
 		select {
-		case <-stopCh:
+		case <-doneCh:
 		case <-ctx.Done():
-			_ = conn.Close()
+			_ = stream.Close()
 		}
 	}()
 
 	for {
-		msgType, payload, err := conn.ReadMessage()
+		kind, payload, err := shellproto.ReadFrame(stream)
 		if err != nil {
 			if ctx.Err() != nil {
 				return observed, ctx.Err()
 			}
 			return observed, err
 		}
-		if msgType != websocket.BinaryMessage {
+		if kind != shellproto.KindData {
 			continue
 		}
-
 		observed = append(observed, payload...)
 		if bytes.Contains(observed, expect) {
 			return observed, nil
 		}
 	}
-}
-
-type taskFailureError struct {
-	Task task.Task
-}
-
-func (e *taskFailureError) Error() string {
-	return fmt.Sprintf("task failed: stage=%s reason_code=%s exit_code=%d", e.Task.Stage, e.Task.ReasonCode, e.Task.ExitCode)
-}
-
-func waitForOutputWithTask(ctx context.Context, c *localapi.Client, taskID string, conn *websocket.Conn, expect []byte) ([]byte, error) {
-	if c == nil {
-		return waitForOutput(ctx, conn, expect)
-	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	type outputResult struct {
-		observed []byte
-		err      error
-	}
-
-	outputCh := make(chan outputResult, 1)
-	taskCh := make(chan task.Task, 1)
-
-	go func() {
-		observed, err := waitForOutput(ctx, conn, expect)
-		outputCh <- outputResult{observed: observed, err: err}
-	}()
-
-	go func() {
-		ticker := time.NewTicker(100 * time.Millisecond)
-		defer ticker.Stop()
-
-		for {
-			t, ok := getDoneTask(ctx, c, taskID)
-			if ok && t.ExitCode != poc.ExitCodeOK {
-				select {
-				case taskCh <- t:
-				default:
-				}
-				return
-			}
-
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-			}
-		}
-	}()
-
-	select {
-	case t := <-taskCh:
-		cancel()
-		_ = conn.Close()
-		return nil, &taskFailureError{Task: t}
-	case res := <-outputCh:
-		if res.err != nil {
-			if t, ok := getDoneTask(ctx, c, taskID); ok && t.ExitCode != poc.ExitCodeOK {
-				return res.observed, &taskFailureError{Task: t}
-			}
-		}
-		return res.observed, res.err
-	case <-ctx.Done():
-		_ = conn.Close()
-		return nil, ctx.Err()
-	}
-}
-
-func getDoneTask(ctx context.Context, c *localapi.Client, taskID string) (task.Task, bool) {
-	if c == nil || strings.TrimSpace(taskID) == "" {
-		return task.Task{}, false
-	}
-
-	t, err := c.GetTask(ctx, taskID)
-	if err != nil || t.Status != task.StatusDone {
-		return task.Task{}, false
-	}
-	return t, true
 }
 
 func hold(ctx context.Context, d time.Duration) error {
@@ -426,33 +369,35 @@ func hold(ctx context.Context, d time.Duration) error {
 	}
 }
 
-func waitTaskDone(ctx context.Context, c *localapi.Client, taskID string) (task.Task, error) {
-	for {
-		t, err := c.GetTask(ctx, taskID)
-		if err == nil && t.Status == task.StatusDone {
-			return t, nil
-		}
-		if err != nil && ctx.Err() != nil {
-			return task.Task{}, ctx.Err()
-		}
+func writeShAttachFailure(stdout, stderr io.Writer, cfg shAttachConfig, shellSessionID string, stage string, reason poc.ReasonCode, exit poc.ExitCode, err error) int {
+	fmt.Fprintf(stderr, "sh-attach %s: %v\n", stage, err)
+	writeShAttachJSON(stdout, shAttachResult{
+		OK:             false,
+		ShellSessionID: shellSessionID,
+		PeerID:         cfg.PeerID,
+		Target:         cfg.Target,
+		Session:        cfg.Session,
+		Expect:         cfg.Expect,
+		Stage:          stage,
+		ReasonCode:     reason,
+		ExitCode:       exit,
+		Error:          err.Error(),
+	})
+	return int(exit)
+}
 
-		select {
-		case <-ctx.Done():
-			return task.Task{}, ctx.Err()
-		case <-time.After(50 * time.Millisecond):
-		}
+func writeShAttachJSON(w io.Writer, result shAttachResult) {
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(result); err != nil {
+		fmt.Fprintf(w, `{"ok":false,"error":%q}`+"\n", err.Error())
 	}
 }
 
-func writeShAttachFailure(stdout, stderr io.Writer, cfg shAttachConfig, taskID string, stage string, reason poc.ReasonCode, exit poc.ExitCode, err error) int {
-	fmt.Fprintf(stderr, "sh-attach %s: %v\n", stage, err)
-	writeShAttachJSON(stdout, shAttachResult{
+func writeStatusFailure(stdout, stderr io.Writer, stage string, reason poc.ReasonCode, exit poc.ExitCode, err error) int {
+	fmt.Fprintf(stderr, "status %s: %v\n", stage, err)
+	writeStatusJSON(stdout, statusResult{
 		OK:         false,
-		TaskID:     taskID,
-		PeerID:     cfg.PeerID,
-		Target:     cfg.Target,
-		Session:    cfg.Session,
-		Expect:     cfg.Expect,
 		Stage:      stage,
 		ReasonCode: reason,
 		ExitCode:   exit,
@@ -461,7 +406,7 @@ func writeShAttachFailure(stdout, stderr io.Writer, cfg shAttachConfig, taskID s
 	return int(exit)
 }
 
-func writeShAttachJSON(w io.Writer, result shAttachResult) {
+func writeStatusJSON(w io.Writer, result statusResult) {
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
 	if err := enc.Encode(result); err != nil {

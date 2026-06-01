@@ -23,6 +23,7 @@ type BootstrapDiagnostics struct {
 	Attempted  bool   `json:"attempted"`
 	Stage      string `json:"stage,omitempty"`
 	DaemonPath string `json:"daemon_path,omitempty"`
+	ProbeAddr  string `json:"probe_addr,omitempty"`
 	PID        int    `json:"pid,omitempty"`
 	Stdout     string `json:"stdout,omitempty"`
 	Stderr     string `json:"stderr,omitempty"`

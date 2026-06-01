@@ -25,6 +25,7 @@
     peerSessions: [],
     shellSessions: [],
     config: { known_peers: [] },
+    runtimeSnapshot: null,
     diagnostics: [],
     approvalRequests: [],
     activeTab: "network",
@@ -70,6 +71,8 @@
     expectedClose: false,
     wsError: "",
     remoteDataSeen: false,
+    remoteExit: null,
+    frameBuffer: new Uint8Array(0),
   };
   const settingsState = { saving: false, message: "", failure: null, exportPath: "" };
 
@@ -382,6 +385,174 @@
   const selfRole = () => String(self().role || "unknown").toLowerCase();
   const governanceConfig = () => (state.config && state.config.governance ? state.config.governance : {});
   const hasText = (value) => String(value || "").trim() !== "";
+
+  const pickField = (obj, ...names) => {
+    if (!obj || typeof obj !== "object") return "";
+    for (const name of names) {
+      if (typeof obj[name] !== "undefined" && obj[name] !== null) {
+        const value = String(obj[name]).trim();
+        if (value) return value;
+      }
+    }
+    return "";
+  };
+
+  const evidenceFacts = (snapshot = state.runtimeSnapshot) => {
+    const evidence = snapshot && snapshot.evidence ? snapshot.evidence : {};
+    return Array.isArray(evidence.facts) ? evidence.facts : [];
+  };
+
+  const evidenceSuggestions = (snapshot = state.runtimeSnapshot) => {
+    const evidence = snapshot && snapshot.evidence ? snapshot.evidence : {};
+    return Array.isArray(evidence.suggestions) ? evidence.suggestions : [];
+  };
+
+  const factValue = (facts, key) => {
+    const prefix = `${key}=`;
+    for (const fact of Array.isArray(facts) ? facts : []) {
+      const message = String(fact && fact.message || "").trim();
+      const termID = String(fact && fact.term_id || "").trim();
+      if (termID === key) return message.startsWith(prefix) ? message.slice(prefix.length).trim() : message;
+      if (message.startsWith(prefix)) return message.slice(prefix.length).trim();
+    }
+    return "";
+  };
+
+  const runtimeNetworkID = (snapshot = state.runtimeSnapshot) => {
+    const discover = snapshot && snapshot.discover_view ? snapshot.discover_view : {};
+    return pickField(discover, "network_id", "NetworkID") || factValue(evidenceFacts(snapshot), "network_id");
+  };
+
+  const runtimeRole = (snapshot = state.runtimeSnapshot) => {
+    const explicitRole = factValue(evidenceFacts(snapshot), "role").toLowerCase();
+    if (explicitRole) return explicitRole;
+    if (!runtimeNetworkID(snapshot)) return "";
+    const gov = state.config && state.config.governance && typeof state.config.governance === "object"
+      ? state.config.governance
+      : {};
+    const currentRole = String(
+      gov.self_role
+      || (state.topology && state.topology.self && state.topology.self.role)
+      || "",
+    ).toLowerCase();
+    return ["owner", "admin", "member"].includes(currentRole) ? currentRole : "";
+  };
+
+  const normalizeRuntimeShellSession = (item) => {
+    if (!item || typeof item !== "object") return item;
+    const taskID = pickField(item, "task_id", "id", "ID");
+    return {
+      ...item,
+      task_id: taskID,
+      id: pickField(item, "id", "ID") || taskID,
+      peer_id: pickField(item, "peer_id", "PeerID"),
+      target: pickField(item, "target", "Target"),
+      session: pickField(item, "session", "Session"),
+      status: pickField(item, "status", "Status") || "pending",
+    };
+  };
+
+  const topologyFromRuntimeSnapshot = (snapshot) => {
+    if (!snapshot || typeof snapshot !== "object") return null;
+    if (snapshot.topology) return snapshot.topology;
+
+    const discover = snapshot.discover_view || {};
+    const facts = [
+      ...evidenceFacts(snapshot),
+      ...((lastConn && lastConn.failure && Array.isArray(lastConn.failure.facts)) ? lastConn.failure.facts : []),
+    ];
+    const networkID = runtimeNetworkID(snapshot);
+    const selfPeerID = pickField(discover, "self_peer_id", "SelfPeerID") || factValue(facts, "peer_id");
+    const role = runtimeRole(snapshot) || (networkID ? "member" : "unknown");
+    const rawPeers = Array.isArray(discover.peers) ? discover.peers : Array.isArray(discover.Peers) ? discover.Peers : [];
+    if (!networkID && !selfPeerID && rawPeers.length === 0) return null;
+
+    const members = [];
+    if (selfPeerID) {
+      members.push({
+        peer_id: selfPeerID,
+        role,
+        member_name: "This device",
+        platform: "",
+      });
+    }
+    for (const peer of rawPeers) {
+      const peerID = pickField(peer, "peer_id", "PeerID");
+      if (!peerID || peerID === selfPeerID) continue;
+      members.push({
+        peer_id: peerID,
+        role: "member",
+        member_name: pickField(peer, "device_name", "DeviceName"),
+        platform: pickField(peer, "platform", "Platform"),
+        app_ver: pickField(peer, "app_ver", "AppVer"),
+        online_state: pickField(peer, "online_state", "OnlineState"),
+        last_activity_unix_ms: Number(peer.last_observed_unix_ms || peer.LastObservedUnixMs || 0),
+      });
+    }
+
+    const peerSessions = Array.isArray(snapshot.peer_sessions) ? snapshot.peer_sessions : [];
+    const active = peerSessions
+      .map((session) => ({
+        peer_id: pickField(session, "peer_id", "remote_peer_id", "PeerID", "RemotePeerID"),
+        healthy: session.healthy !== false,
+        path_family: pickField(session, "path_family", "PathFamily"),
+        data_proto: pickField(session, "protocol", "Protocol"),
+        selected_path: pickField(session, "selected_path", "SelectedPath"),
+        local_endpoint: pickField(session, "local_endpoint", "LocalEndpoint"),
+        remote_endpoint: pickField(session, "remote_endpoint", "RemoteEndpoint"),
+        last_activity_unix_ms: Number(session.last_activity_unix_ms || session.LastActivityUnixMs || session.last_proven_unix_ms || session.LastProvenUnixMs || 0),
+      }))
+      .filter((session) => session.peer_id && session.healthy);
+    const activeIDs = new Set(active.map((session) => session.peer_id));
+    const selected = members
+      .filter((mem) => mem.peer_id && mem.peer_id !== selfPeerID && !activeIDs.has(mem.peer_id))
+      .map((mem) => ({
+        peer_id: mem.peer_id,
+        healthy: String(mem.online_state || "").toLowerCase() === "online",
+        path_family: "presence",
+        data_proto: "discover",
+        last_activity_unix_ms: Number(mem.last_activity_unix_ms || 0),
+      }));
+
+    return {
+      format: "miopunch.runtime.v1.projection",
+      observed_at: new Date().toISOString(),
+      self: { peer_id: selfPeerID, role },
+      net: { net_id: networkID },
+      state_head: {},
+      members,
+      neighbors: { target_k: selected.length + active.length, selected, active, unhealthy: [], failures: [], degree_distribution: [] },
+      attempts: [],
+      payloads: [],
+      recovery: { events: [] },
+    };
+  };
+
+  const configFromRuntimeSnapshot = (snapshot) => {
+    const base = snapshot && snapshot.config && typeof snapshot.config === "object" ? snapshot.config : state.config || {};
+    const networkID = runtimeNetworkID(snapshot);
+    const role = runtimeRole(snapshot);
+    const admin = ["owner", "admin"].includes(role);
+    const governance = base.governance && typeof base.governance === "object" ? base.governance : {};
+    const derived = networkID
+      ? {
+        state: admin ? "admin_network" : "member_network",
+        self_role: role || "member",
+        can_invite: admin,
+        can_approve: admin,
+        can_init_owner: false,
+        can_create_new_network: true,
+      }
+      : {
+        state: "no_network",
+        self_role: "",
+        can_invite: false,
+        can_approve: false,
+        can_init_owner: true,
+        can_create_new_network: true,
+      };
+    return { ...base, governance: { ...governance, ...derived } };
+  };
   const isFirstRunUninitialized = () => {
     const gov = governanceConfig();
     if (String(gov.state || "") === "no_network") return true;
@@ -641,7 +812,8 @@
     for (const taskObj of state.tasks.values()) {
       const taskID = String(taskObj && taskObj.task_id || taskObj && taskObj.id || "").trim();
       if (!taskID || seen.has(taskID)) continue;
-      if (String(taskObj && taskObj.kind || "").toLowerCase() !== "sh_attach") continue;
+      const kind = String(taskObj && taskObj.kind || "").toLowerCase();
+      if (kind !== "sh_attach" && kind !== "sh") continue;
       if (String(taskObj && taskObj.status || "").toLowerCase() === "done") continue;
       if (shellTaskValue(taskObj, "peer_id", "peer_id=") !== id) continue;
       out.push({
@@ -765,6 +937,11 @@
     return !!(mem && id && id !== selfPeerID && !mem.revoked && (state.previewMode || lastConn && lastConn.connected));
   };
 
+  const shellGateSatisfied = (peerID = shellView.peerID) => {
+    const session = peerSessionForPeer(peerID);
+    return !!(session && (session.ping_gate_satisfied === true || session.PingGateSatisfied === true || Number(session.shell_ready_unix_ms || session.ShellReadyUnixMs || 0) > 0));
+  };
+
   const shellPhaseClass = (phase) => {
     if (phase === "failed") return "chip-error";
     if (phase === "connected") return "chip-done";
@@ -787,9 +964,18 @@
     && !["listing", "connecting", "connected"].includes(shellView.phase);
 
   const shellCanConnect = (peerID = shellView.peerID) => shellOperateEnabled(peerID)
+    && shellGateSatisfied(peerID)
     && !["listing", "connecting", "connected"].includes(shellView.phase);
 
-  const shellSessionAttachable = (session) => !!(session && session.attachable === true);
+  const shellNeedsPing = (peerID = shellView.peerID) =>
+    !!(String(peerID || "").trim() && shellOperateEnabled(peerID) && !shellGateSatisfied(peerID));
+
+  const shellSessionAttachable = (session) => {
+    if (!session) return false;
+    if (typeof session.attachable === "boolean") return session.attachable;
+    const status = String(session.status || "").toLowerCase();
+    return status === "pending" || status === "running" || status === "available";
+  };
   const shellCanResume = (session, peerID = shellView.peerID) => shellCanConnect(peerID) && shellSessionAttachable(session);
 
   const shellCanDisconnect = () => !!(shellState.ws || shellState.term);
@@ -875,7 +1061,8 @@
       || (event && event.code ? `websocket closed (${event.code})` : "terminal websocket closed")
   );
 
-  const closeShellTransport = (closeCode = 1000, reason = "bye") => {
+  const closeShellTransport = (closeCode = 1000, reason = "bye", options = {}) => {
+    const keepTerminal = !!(options && options.keepTerminal);
     if (shellState.resizeObs) {
       shellState.resizeObs.disconnect();
       shellState.resizeObs = null;
@@ -905,7 +1092,7 @@
     } else {
       shellState.expectedClose = false;
     }
-    if (shellState.term) {
+    if (!keepTerminal && shellState.term) {
       try {
         shellState.term.dispose();
       } catch {
@@ -916,10 +1103,13 @@
     shellState.taskID = "";
     shellState.wsError = "";
     shellState.remoteDataSeen = false;
+    shellState.remoteExit = null;
+    shellState.frameBuffer = new Uint8Array(0);
   };
 
   const syncShellDOM = () => {
     if (!shellPageActive()) return;
+    const peerID = state.view.type === "shell-peer" ? state.view.peerID : shellView.peerID;
     const phase = el("shell-phase");
     if (phase) {
       phase.textContent = shellView.phase;
@@ -928,7 +1118,9 @@
         : `chip ${shellPhaseClass(shellView.phase)}`.trim();
     }
     const status = el("shell-status");
-    if (status) status.textContent = shellStatusText();
+    if (status) status.textContent = shellNeedsPing(peerID)
+      ? "Run Ping first to prove the secure session before opening shell."
+      : shellStatusText();
     const error = el("shell-error");
     if (error) {
       error.textContent = shellView.error || "";
@@ -939,14 +1131,13 @@
     const findSessions = el("btn-shell-find-sessions");
     if (findSessions) findSessions.disabled = !shellCanDiscover();
     const connect = el("btn-shell-connect");
-    if (connect) connect.disabled = !shellCanConnect();
+    if (connect) connect.disabled = !shellCanConnect(peerID);
     for (const disconnect of document.querySelectorAll("[data-shell-disconnect]")) {
       disconnect.disabled = !shellCanDisconnect();
     }
     const resume = el("btn-shell-resume");
     if (resume) {
       const taskID = String(resume.dataset.shellSessionTask || "").trim();
-      const peerID = state.view.type === "shell-peer" ? state.view.peerID : shellView.peerID;
       const session = shellSessionsForPeer(peerID)
         .find((item) => String(item && item.task_id || "").trim() === taskID);
       resume.disabled = !(taskID && shellCanResume(session, peerID));
@@ -1016,24 +1207,27 @@
     if (!snapshot || typeof snapshot !== "object") return;
 
     state.rev = Number(snapshot.rev || 0);
+    state.runtimeSnapshot = snapshot;
     state.status = snapshot.status || null;
-    state.topology = snapshot.topology || null;
+    state.topology = topologyFromRuntimeSnapshot(snapshot);
     state.peerSessions = Array.isArray(snapshot.peer_sessions) ? snapshot.peer_sessions : [];
-    state.shellSessions = Array.isArray(snapshot.shell_sessions) ? snapshot.shell_sessions : [];
-    state.config = snapshot.config || { known_peers: [] };
+    state.shellSessions = Array.isArray(snapshot.shell_sessions) ? snapshot.shell_sessions.map(normalizeRuntimeShellSession) : [];
+    state.config = configFromRuntimeSnapshot(snapshot);
     state.diagnostics = Array.isArray(snapshot.diagnostics) ? snapshot.diagnostics : [];
     state.approvalRequests = Array.isArray(snapshot.approval_requests) ? snapshot.approval_requests : [];
 
-    const nextTasks = new Map();
     const tasks = Array.isArray(snapshot.tasks) ? snapshot.tasks : [];
-    for (const taskObj of tasks) {
-      const taskID = canonicalTaskID(taskObj && taskObj.task_id);
-      if (!taskID) continue;
-      const merged = mergeTask(state.tasks.get(taskID), taskObj);
-      nextTasks.set(taskID, merged);
-      syncApprovalDecisionTask(merged);
+    if (tasks.length) {
+      const nextTasks = new Map();
+      for (const taskObj of tasks) {
+        const taskID = canonicalTaskID(taskObj && taskObj.task_id);
+        if (!taskID) continue;
+        const merged = mergeTask(state.tasks.get(taskID), taskObj);
+        nextTasks.set(taskID, merged);
+        syncApprovalDecisionTask(merged);
+      }
+      state.tasks = nextTasks;
     }
-    state.tasks = nextTasks;
   };
 
   const applyDesktopStateUpdate = (ev) => {
@@ -1050,7 +1244,7 @@
     } else if (kind === "peer_sessions.replace") {
       state.peerSessions = Array.isArray(ev.peer_sessions) ? ev.peer_sessions : [];
     } else if (kind === "shell_sessions.replace") {
-      state.shellSessions = Array.isArray(ev.shell_sessions) ? ev.shell_sessions : [];
+      state.shellSessions = Array.isArray(ev.shell_sessions) ? ev.shell_sessions.map(normalizeRuntimeShellSession) : [];
     } else if (kind === "config.replace") {
       state.config = ev.config || { known_peers: [] };
     } else if (kind === "diagnostics.replace") {
@@ -1099,7 +1293,7 @@
     markRuntimeStreamReady();
 
     const kind = String(ev.kind || "");
-    if (kind === "snapshot") {
+    if (kind === "snapshot" || kind === "snapshot.updated" || ev.snapshot) {
       if (ev.snapshot) applyDesktopSnapshot(ev.snapshot);
       scheduleRender();
       return;
@@ -1139,7 +1333,7 @@
     state.topology = fx.topology || null;
     state.tasks = new Map((fx.tasks || []).map((t) => [canonicalTaskID(t.task_id), t]));
     state.peerSessions = Array.isArray(fx.peer_sessions) ? fx.peer_sessions : [];
-    state.shellSessions = Array.isArray(fx.shell_sessions) ? fx.shell_sessions : [];
+    state.shellSessions = Array.isArray(fx.shell_sessions) ? fx.shell_sessions.map(normalizeRuntimeShellSession) : [];
     state.config = fx.config || { known_peers: [] };
     state.diagnostics = Array.isArray(fx.diagnostics) ? fx.diagnostics : [];
     state.approvalRequests = Array.isArray(fx.approval_requests) ? fx.approval_requests : [];
@@ -1168,6 +1362,33 @@
     const eyebrow = el("topbar-eyebrow");
     if (title) title.textContent = copy.title;
     if (eyebrow) eyebrow.textContent = copy.eyebrow;
+    const actions = document.querySelector(".topbar-actions");
+    if (actions) {
+      let chip = el("connection-chip");
+      if (!chip) {
+        chip = document.createElement("span");
+        chip.id = "connection-chip";
+        chip.className = "chip chip-muted";
+        actions.prepend(chip);
+      }
+      let addr = el("connection-addr");
+      if (!addr) {
+        addr = document.createElement("span");
+        addr.id = "connection-addr";
+        addr.className = "helper";
+        actions.insertBefore(addr, chip.nextSibling);
+      }
+      if (lastConn && lastConn.connected) {
+        const selected = lastConn.selected || (lastConn.override_addr ? "override" : "user");
+        chip.textContent = `Connected via ${selected}`;
+        chip.className = "chip chip-done";
+        addr.textContent = String(lastConn.override_addr || lastConn.addr || lastConn.user_addr || "");
+      } else {
+        chip.textContent = "Disconnected";
+        chip.className = "chip chip-error";
+        addr.textContent = lastConn && lastConn.failure ? String(lastConn.failure.message || "") : "";
+      }
+    }
     const fixtureWrap = el("preview-fixture-wrap");
     if (fixtureWrap) fixtureWrap.classList.toggle("is-hidden", !state.previewMode);
   };
@@ -1333,6 +1554,7 @@
     setPage(`
       <section class="page">
         ${pageHeadingHTML("Network setup", "Join a network", "Paste an invite code to connect this device.")}
+        ${runtimeStatusHTML()}
         ${renderJoinFlow()}
       </section>`);
   };
@@ -1464,6 +1686,44 @@
           <div class="list">${renderFactList(taskObj.facts, COPY.empty.facts)}</div>
         </div>
       </details>`;
+  };
+
+  const runtimeStatusHTML = () => {
+    const snapshot = state.runtimeSnapshot || {};
+    const stage = String(snapshot.stage || "Network");
+    const summary = snapshot.summary && snapshot.summary.text ? String(snapshot.summary.text) : "Runtime state is loading.";
+    const failure = lastConn && lastConn.failure ? lastConn.failure : null;
+    const facts = [
+      ...evidenceFacts(snapshot),
+      ...((failure && Array.isArray(failure.facts)) ? failure.facts : []),
+    ];
+    const suggestions = [
+      ...evidenceSuggestions(snapshot),
+      ...((failure && Array.isArray(failure.suggestions)) ? failure.suggestions : []),
+    ];
+    const networkID = runtimeNetworkID(snapshot);
+    const failureText = failure ? `${failure.reason_code || "ERROR"}: ${failure.message || bridgeErrorSummary(failure)}` : "";
+    const inviteCode = latestInviteCode();
+    return `
+      <section class="surface-panel runtime-status-panel">
+        <div class="card-header">
+          <div>
+            <p class="eyebrow">Runtime</p>
+            <h3 class="card-title">${esc(summary)}</h3>
+          </div>
+          <span class="chip chip-role" id="stage-chip">${esc(`Stage ${stage}`)}</span>
+        </div>
+        ${networkID ? `<div class="helper">Network ${esc(networkID)}</div>` : ""}
+        ${failureText ? `<div class="helper helper-error">${esc(failureText)}</div>` : ""}
+        ${inviteCode ? `<label class="recent-invite">Recent invite<input class="textfield textfield-code" id="recent-invite-code" readonly value="${esc(inviteCode)}" /></label>` : ""}
+        <details class="technical-log" open>
+          <summary>Evidence</summary>
+          <div class="grid grid-2 mt">
+            <div class="list">${renderFactList(facts, COPY.empty.facts)}</div>
+            <div class="list">${renderFactList(suggestions, COPY.empty.suggestions)}</div>
+          </div>
+        </details>
+      </section>`;
   };
 
   const topologyMapHTML = (list, currentSelf) => {
@@ -1606,6 +1866,7 @@
     setPage(`
       <section class="page">
         ${networkSwitchHTML()}
+        ${runtimeStatusHTML()}
         ${topologyMapHTML(list, currentSelf)}
       </section>`);
   };
@@ -1918,6 +2179,7 @@
       setPage(`
         <section class="page">
           ${pageHeadingHTML("Shell", "Join a network first", "Remote shell sessions become available after this device joins a network.")}
+          ${runtimeStatusHTML()}
           ${renderJoinFlow()}
         </section>`);
       return;
@@ -1973,6 +2235,7 @@
       setPage(`
         <section class="page shell-page">
           ${shellSwitch}
+          ${runtimeStatusHTML()}
           <section class="shell-overview-grid">
             <section class="surface-panel shell-overview-panel">
               <div class="shell-section-title">
@@ -2043,7 +2306,11 @@
           }).join("")}
         </div>
       </section>` : "";
-    const primaryAction = showDisconnect
+    const needsPing = shellNeedsPing(peerID);
+    const primaryAction = needsPing
+      ? `<button class="btn btn-primary shell-connect-primary" id="btn-ping" type="button" data-run-peer-task="ping">Ping first</button>
+         <button class="btn btn-tonal shell-connect-primary" type="submit" disabled>Open</button>`
+      : showDisconnect
       ? `<button class="btn btn-tonal shell-connect-primary" type="button" data-shell-disconnect>Disconnect</button>`
       : canResumeMatch
         ? `<button class="btn btn-primary shell-connect-primary" type="button" data-shell-session-task="${esc(matchingSession.task_id || "")}">Resume</button>`
@@ -2052,6 +2319,7 @@
     setPage(`
       <section class="page shell-page">
         ${shellSwitch}
+        ${runtimeStatusHTML()}
         <section class="shell-focus-layout ${shellView.zen ? "is-zen" : ""}">
           <form class="surface-panel shell-connect-panel" id="shell-form" data-shell-session-form="true">
             <input class="textfield mono is-hidden" id="shell-peer-id" value="${esc(peerID)}" autocomplete="off" readonly />
@@ -2072,7 +2340,7 @@
             <datalist id="shell-session-options">
               ${sessionOptions.map((value) => `<option value="${esc(value)}"></option>`).join("")}
             </datalist>
-            <div class="helper shell-connect-status" id="shell-status">${esc(shellStatusText())}</div>
+            <div class="helper shell-connect-status" id="shell-status">${esc(needsPing ? "Run Ping first to prove the secure session before opening shell." : shellStatusText())}</div>
             <div class="helper helper-error ${shellView.error ? "" : "is-hidden"}" id="shell-error">${esc(shellView.error)}</div>
           </form>
           ${liveSessionStrip}
@@ -2128,6 +2396,7 @@
 
   const renderJoinFlow = () => {
     const taskObj = joinState.taskID ? state.tasks.get(joinState.taskID) : null;
+    const disabled = !state.previewMode && !(lastConn && lastConn.connected);
     return `
       <section class="flow-layout">
         <div class="surface-panel flow-primary">
@@ -2138,10 +2407,10 @@
             </div>
           </div>
           <form class="form-grid" id="join-form">
-            <label>Invite code or URL<input class="textfield textfield-code" id="join-code" placeholder="mp:v0..." autocomplete="off" /></label>
+            <label>Invite code or URL<input class="textfield textfield-code" id="join-code" placeholder="mp:v0..." autocomplete="off" ${disabled ? "disabled" : ""} /></label>
             <div class="action-row">
-              <button class="btn btn-primary" type="submit">Join</button>
-              <button class="btn btn-tonal" id="join-report-export" type="button" ${taskObj && taskObj.report_ready ? "" : "disabled"}>Export report</button>
+              <button class="btn btn-primary" type="submit" ${disabled ? "disabled" : ""}>Join</button>
+              <button class="btn btn-tonal" id="join-report-export" type="button" ${!disabled && taskObj && taskObj.report_ready ? "" : "disabled"}>Export report</button>
             </div>
             <div class="helper" id="join-report-path">${esc(joinState.lastExportPath || "")}</div>
           </form>
@@ -2186,6 +2455,7 @@
 
   const renderApproveFlow = () => {
     const taskObj = approveState.taskID ? state.tasks.get(approveState.taskID) : null;
+    const disabled = !state.previewMode && !(lastConn && lastConn.connected);
     return `
       ${renderApprovalRequestsPanel()}
       <section class="surface-panel approval-listener">
@@ -2201,8 +2471,8 @@
         <details class="advanced-panel">
           <summary>Advanced manual approval</summary>
           <form class="form-grid compact-form" id="approve-form">
-            <label>Invite code<input class="textfield textfield-code" id="approve-code" placeholder="Optional manual approval code" autocomplete="off" /></label>
-            <button class="btn btn-tonal" type="submit">Start approval</button>
+            <label>Invite code<input class="textfield textfield-code" id="approve-code" placeholder="Optional manual approval code" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
+            <button class="btn btn-tonal" type="submit" ${disabled ? "disabled" : ""}>Start approval</button>
             <div class="helper" id="approve-hint">${esc(approveState.message || "Use this only when a request is not visible in the review list.")}</div>
           </form>
         </details>
@@ -2256,7 +2526,7 @@
 
   const renderAdmin = () => {
     if (!adminVisible()) {
-      setPage(`<section class="page">${pageHeadingHTML("Admin", "Unavailable")}<section class="card">${listItemHTML("Administrator controls are available only on owner or admin nodes", "empty")}</section></section>`);
+      setPage(`<section class="page">${pageHeadingHTML("Admin", "Unavailable")}${runtimeStatusHTML()}<section class="card">${listItemHTML("Administrator controls are available only on owner or admin nodes", "empty")}</section></section>`);
       return;
     }
     if (state.view.type === "flow") {
@@ -2290,6 +2560,7 @@
       <section class="page">
         ${adminSwitchHTML()}
         ${pageHeadingHTML("Admin overview", "Governance")}
+        ${runtimeStatusHTML()}
         <section class="admin-summary">
           ${metricHTML("Owners", owners)}
           ${metricHTML("Admins", admins)}
@@ -2327,6 +2598,7 @@
       <section class="page">
         ${adminSwitchHTML()}
         ${pageHeadingHTML("Admin", title)}
+        ${runtimeStatusHTML()}
         ${body}
       </section>`);
   };
@@ -2463,6 +2735,7 @@
       const prefs = desired.preferences;
       const apply = state.config && state.config.apply ? state.config.apply : {};
       const disabled = state.previewMode || settingsState.saving;
+      const pendingSupportDisabled = true;
       const failure = settingsState.failure;
       const failureSuggestions = failure && Array.isArray(failure.suggestions) ? failure.suggestions : [];
       body = `
@@ -2477,30 +2750,30 @@
                 <p class="setting-group-title">Discovery and relay</p>
                 <p class="helper">Use defaults when possible. Add brokers or STUN servers only when your network needs them.</p>
               </div>
-              <label>MQTT brokers<input class="textfield" id="settings-mqtt-brokers" value="${esc(csvValue(runtime.mqtt_brokers))}" placeholder="host:port, host:port" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
-              <label>STUN<input class="textfield" id="settings-stun" value="${esc(csvValue(runtime.stun))}" placeholder="stun.example.net:3478" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
+              <label>MQTT brokers<input class="textfield" id="settings-mqtt-brokers" value="${esc(csvValue(runtime.mqtt_brokers))}" placeholder="host:port, host:port" autocomplete="off" ${disabled || pendingSupportDisabled ? "disabled" : ""} /></label>
+              <label>STUN<input class="textfield" id="settings-stun" value="${esc(csvValue(runtime.stun))}" placeholder="stun.example.net:3478" autocomplete="off" ${disabled || pendingSupportDisabled ? "disabled" : ""} /></label>
             </div>
             <div class="settings-form-grid">
               <div class="settings-group">
                 <p class="setting-group-title">Path preference</p>
-                <label>P2P network${selectHTML("settings-p2p-network", runtime.p2p_network || "auto", ["auto", "udp_only", "tcp_only"], disabled)}</label>
-                <label>IP family${selectHTML("settings-p2p-ip-family", runtime.p2p_ip_family || "auto", ["auto", "v4", "v6"], disabled)}</label>
+                <label>P2P network${selectHTML("settings-p2p-network", runtime.p2p_network || "auto", ["auto", "udp_only", "tcp_only"], disabled || pendingSupportDisabled)}</label>
+                <label>IP family${selectHTML("settings-p2p-ip-family", runtime.p2p_ip_family || "auto", ["auto", "v4", "v6"], disabled || pendingSupportDisabled)}</label>
               </div>
               <div class="settings-group">
                 <p class="setting-group-title">Transport</p>
-                <label>Data protocol${selectHTML("settings-data-proto", runtime.data_proto || "quic", ["quic", "kcp"], disabled)}</label>
-                <label>QUIC CC${selectHTML("settings-quic-cc", runtime.quic_cc || "bbr", ["bbr", "brutal"], disabled)}</label>
+                <label>Data protocol${selectHTML("settings-data-proto", runtime.data_proto || "quic", ["quic", "kcp"], disabled || pendingSupportDisabled)}</label>
+                <label>QUIC CC${selectHTML("settings-quic-cc", runtime.quic_cc || "bbr", ["bbr", "brutal"], disabled || pendingSupportDisabled)}</label>
               </div>
               <div class="settings-group">
                 <p class="setting-group-title">Remote shell defaults</p>
-                <label>Default shell target<input class="textfield" id="settings-shell-target" value="${esc(prefs.default_shell_target || "")}" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
-                <label>Default shell session<input class="textfield" id="settings-shell-session" value="${esc(prefs.default_shell_session || "")}" autocomplete="off" ${disabled ? "disabled" : ""} /></label>
+                <label>Default shell target<input class="textfield" id="settings-shell-target" value="${esc(prefs.default_shell_target || "")}" autocomplete="off" ${disabled || pendingSupportDisabled ? "disabled" : ""} /></label>
+                <label>Default shell session<input class="textfield" id="settings-shell-session" value="${esc(prefs.default_shell_session || "")}" autocomplete="off" ${disabled || pendingSupportDisabled ? "disabled" : ""} /></label>
               </div>
               <div class="settings-group">
                 <p class="setting-group-title">Advanced behavior</p>
                 <label>Log level${selectHTML("settings-log-level", prefs.log_level || "info", ["trace", "debug", "info", "warn", "error"], disabled)}</label>
-                <label class="checkbox-row"><input type="checkbox" id="settings-disable-portmap" ${runtime.disable_portmap ? "checked" : ""} ${disabled ? "disabled" : ""} /> Disable portmap</label>
-                <label class="checkbox-row"><input type="checkbox" id="settings-disable-assisted" ${runtime.disable_assisted_addrs ? "checked" : ""} ${disabled ? "disabled" : ""} /> Disable assisted addresses</label>
+                <label class="checkbox-row"><input type="checkbox" id="settings-disable-portmap" ${runtime.disable_portmap ? "checked" : ""} ${disabled || pendingSupportDisabled ? "disabled" : ""} /> Disable portmap</label>
+                <label class="checkbox-row"><input type="checkbox" id="settings-disable-assisted" ${runtime.disable_assisted_addrs ? "checked" : ""} ${disabled || pendingSupportDisabled ? "disabled" : ""} /> Disable assisted addresses</label>
               </div>
             </div>
             ${settingsState.message ? `<div class="helper">${esc(settingsState.message)}</div>` : ""}
@@ -2680,6 +2953,21 @@
     return "";
   };
 
+  const latestInviteCode = () => {
+    if (inviteState.taskID) {
+      const code = findInviteCode(state.tasks.get(inviteState.taskID));
+      if (code) return code;
+    }
+    const invites = [...state.tasks.values()]
+      .filter((taskObj) => String(taskObj && taskObj.kind || "") === "invite")
+      .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+    for (const taskObj of invites) {
+      const code = findInviteCode(taskObj);
+      if (code) return code;
+    }
+    return "";
+  };
+
   const inviteTaskMissingCode = (taskObj) => {
     if (!taskObj || String(taskObj.kind || "") !== "invite") return false;
     if (findInviteCode(taskObj)) return false;
@@ -2848,6 +3136,23 @@
     } else if (kind === "ping") {
       taskObj.stage = "payload exchanged";
       taskObj.facts.push({ message: "path=quic/udp4 rtt_ms=18" });
+      const peerID = String(args && args.peer_id || "").trim();
+      if (peerID) {
+        const current = Array.isArray(state.peerSessions) ? state.peerSessions.slice() : [];
+        const index = current.findIndex((item) => String(item && (item.peer_id || item.remote_peer_id) || "").trim() === peerID);
+        const next = {
+          ...(index >= 0 ? current[index] : {}),
+          peer_id: peerID,
+          healthy: true,
+          path_family: "udp4",
+          protocol: "quic",
+          ping_gate_satisfied: true,
+          shell_ready_unix_ms: Date.now(),
+        };
+        if (index >= 0) current[index] = next;
+        else current.push(next);
+        state.peerSessions = current;
+      }
     } else if (kind === "sh_ls") {
       const target = String(args && args.target || "").trim();
       taskObj.stage = target ? "sessions listed" : "targets listed";
@@ -2871,19 +3176,153 @@
     return taskObj;
   };
 
+  const runtimeActionName = (kind) => ({
+    init_network: "init-network",
+    sh_attach: "sh",
+    revoke_member: "revoke",
+  }[kind] || kind);
+
+  const runtimeActionTimeout = (action) => {
+    if (action === "approve" || action === "join") return 185000;
+    if (action === "sh") return 125000;
+    return 30000;
+  };
+
+  const runtimeActionArgs = (kind, args) => {
+    const taskArgs = normalizeTaskArgs(args);
+    if (kind === "init_network") {
+      return taskArgs.create_new ? { create_new: true, confirm: taskArgs.confirm || "create-new-network" } : {};
+    }
+    return taskArgs;
+  };
+
+  const parseActionData = (value) => {
+    if (!value) return {};
+    if (typeof value === "object" && !Array.isArray(value)) return value;
+    if (Array.isArray(value)) {
+      try {
+        return JSON.parse(new TextDecoder("utf-8").decode(new Uint8Array(value)));
+      } catch {
+        return {};
+      }
+    }
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return {};
+      }
+    }
+    return {};
+  };
+
+  const taskFromActionResult = (kind, args, result) => {
+    const actionResult = result || {};
+    const evidence = actionResult.evidence || {};
+    const data = parseActionData(actionResult.data);
+    const shellSessionID = String(actionResult.shell_session_id || data.shell_session_id || "").trim();
+    const taskID = shellSessionID || `${kind}-${Date.now()}-${String(previewTaskSeq++).padStart(3, "0")}`;
+    const facts = Array.isArray(evidence.facts) ? evidence.facts.slice() : [];
+    const suggestions = Array.isArray(evidence.suggestions) ? evidence.suggestions.slice() : [];
+    if (shellSessionID && !facts.some((f) => String(f && f.message || "").startsWith("shell_session_id="))) {
+      facts.push({ message: `shell_session_id=${shellSessionID}` });
+    }
+    const taskObj = {
+      task_id: taskID,
+      kind,
+      status: "done",
+      stage: actionResult.stage || "",
+      reason_code: actionResult.reason_code || "OK",
+      exit_code: typeof actionResult.exit_code === "number" ? actionResult.exit_code : 0,
+      report_ready: hasText(actionResult.report_markdown),
+      report_markdown: actionResult.report_markdown || "",
+      created_at: new Date().toISOString(),
+      facts,
+      suggestions,
+      data,
+    };
+    attachPeerFact(taskObj, args && args.peer_id);
+    return taskObj;
+  };
+
+  const createRunningTask = (kind, args) => {
+    const taskObj = {
+      task_id: `${kind}-${Date.now()}-${String(previewTaskSeq++).padStart(3, "0")}`,
+      kind,
+      status: "running",
+      stage: "running",
+      reason_code: "",
+      exit_code: 0,
+      report_ready: false,
+      created_at: new Date().toISOString(),
+      facts: [],
+      suggestions: [],
+    };
+    attachPeerFact(taskObj, args && args.peer_id);
+    upsertTask(taskObj);
+    return taskObj;
+  };
+
+  const updateRunningTaskFromResult = (taskID, kind, args, result) => {
+    const taskObj = taskFromActionResult(kind, args, result);
+    taskObj.task_id = taskID || taskObj.task_id;
+    taskObj.status = "done";
+    upsertTask(taskObj);
+    if (result && result.snapshot) applyDesktopSnapshot(result.snapshot);
+    scheduleRender();
+    return taskObj;
+  };
+
+  const updateRunningTaskFromError = (taskID, kind, message) => {
+    const taskObj = state.tasks.get(taskID) || { task_id: taskID, kind, facts: [], suggestions: [] };
+    taskObj.status = "done";
+    taskObj.reason_code = "ERROR";
+    taskObj.exit_code = 1;
+    taskObj.stage = "failed";
+    taskObj.facts = mergeItems(Array.isArray(taskObj.facts) ? taskObj.facts : [], [{ message: String(message || "action failed") }]);
+    upsertTask(taskObj);
+    scheduleRender();
+    return taskObj;
+  };
+
   const createTask = async (kind, args) => {
     const taskArgs = normalizeTaskArgs(args);
     if (state.previewMode) return createPreviewTask(kind, taskArgs);
-    const resp = await withTimeout(getBridge().CreateTask(kind, taskArgs), `Create ${kind}`);
+    const bridge = getBridge();
+    if (typeof bridge.RuntimeAction !== "function") throw new Error("desktop bridge does not expose RuntimeAction");
+    const action = runtimeActionName(kind);
+    const resp = await withTimeout(bridge.RuntimeAction(action, runtimeActionArgs(kind, taskArgs)), `Run ${action}`, runtimeActionTimeout(action));
     if (!resp || !resp.ok) throw new Error(bridgeErrorSummary(resp && resp.error));
-    return resp.task;
+    if (resp.result && resp.result.snapshot) applyDesktopSnapshot(resp.result.snapshot);
+    return taskFromActionResult(kind, taskArgs, resp.result);
+  };
+
+  const startBackgroundTask = (kind, args, callbacks = {}) => {
+    const taskArgs = normalizeTaskArgs(args);
+    if (state.previewMode) {
+      const taskObj = createPreviewTask(kind, taskArgs);
+      if (typeof callbacks.done === "function") callbacks.done(taskObj);
+      return taskObj;
+    }
+    const taskObj = createRunningTask(kind, taskArgs);
+    const action = runtimeActionName(kind);
+    void (async () => {
+      try {
+        const resp = await withTimeout(getBridge().RuntimeAction(action, runtimeActionArgs(kind, taskArgs)), `Run ${action}`, runtimeActionTimeout(action));
+        if (!resp || !resp.ok) throw new Error(bridgeErrorSummary(resp && resp.error));
+        const done = updateRunningTaskFromResult(taskObj.task_id, kind, taskArgs, resp.result);
+        if (typeof callbacks.done === "function") callbacks.done(done);
+      } catch (err) {
+        const failed = updateRunningTaskFromError(taskObj.task_id, kind, String(err));
+        if (typeof callbacks.error === "function") callbacks.error(err, failed);
+      }
+    })();
+    return taskObj;
   };
 
   const getTask = async (taskID, timeoutMs = 12000) => {
     if (state.previewMode) return state.tasks.get(taskID) || null;
-    const resp = await withTimeout(getBridge().GetTask(taskID), "Get task", timeoutMs);
-    if (!resp || !resp.ok) throw new Error(bridgeErrorSummary(resp && resp.error));
-    return resp.task;
+    return state.tasks.get(taskID) || null;
   };
 
   const exportReport = async (taskID, onSavedPath) => {
@@ -2893,16 +3332,27 @@
       toast(`Preview report: ${fakePath}`);
       return { path: fakePath };
     }
-    const resp = await getBridge().ExportTaskReport(taskID);
-    if (!resp || !resp.ok) throw new Error(bridgeErrorSummary(resp && resp.error));
-    if (resp.cancelled) return { cancelled: true };
-    if (resp.path && typeof onSavedPath === "function") onSavedPath(String(resp.path));
-    toast(resp.path ? `Saved: ${String(resp.path)}` : "Saved");
-    return resp;
+    const taskObj = state.tasks.get(taskID);
+    if (!taskObj || !hasText(taskObj.report_markdown)) throw new Error("report is not available for this action");
+    const blob = new Blob([taskObj.report_markdown], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${taskID}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    const path = `download:${taskID}.md`;
+    if (typeof onSavedPath === "function") onSavedPath(path);
+    toast("Report downloaded");
+    return { path };
   };
 
   const runPeerTask = async (kind) => {
-    const peerID = state.view.type === "peer" ? String(state.view.peerID || "") : "";
+    const peerID = state.view.type === "peer" || state.view.type === "shell-peer"
+      ? String(state.view.peerID || "")
+      : String(shellView.peerID || "");
     if (!peerID) return;
     const args = kind === "sh_ls" ? { peer_id: peerID, target: "" } : { peer_id: peerID };
     try {
@@ -2943,6 +3393,47 @@
     return { w: Math.max(6, rect.width), h: Math.max(10, rect.height) };
   };
 
+  const concatBytes = (a, b) => {
+    const left = a instanceof Uint8Array ? a : new Uint8Array(0);
+    const right = b instanceof Uint8Array ? b : new Uint8Array(0);
+    const out = new Uint8Array(left.length + right.length);
+    out.set(left, 0);
+    out.set(right, left.length);
+    return out;
+  };
+
+  const encodeShellFrame = (kind, payload) => {
+    const body = payload instanceof Uint8Array ? payload : new Uint8Array(payload || []);
+    const out = new Uint8Array(5 + body.length);
+    out[0] = kind & 0xff;
+    const view = new DataView(out.buffer);
+    view.setUint32(1, body.length, false);
+    out.set(body, 5);
+    return out;
+  };
+
+  const encodeShellJSON = (value) => encodeShellFrame(1, new TextEncoder().encode(JSON.stringify(value || {})));
+
+  const consumeShellFrames = (incoming, onFrame) => {
+    shellState.frameBuffer = concatBytes(shellState.frameBuffer, incoming);
+    const maxFrame = 4 << 20;
+    for (;;) {
+      const buf = shellState.frameBuffer;
+      if (buf.length < 5) return;
+      const kind = buf[0];
+      const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+      const length = view.getUint32(1, false);
+      if ((kind !== 0 && kind !== 1) || length > maxFrame) {
+        shellState.frameBuffer = new Uint8Array(0);
+        onFrame(0, buf);
+        return;
+      }
+      if (buf.length < 5 + length) return;
+      onFrame(kind, buf.slice(5, 5 + length));
+      shellState.frameBuffer = buf.slice(5 + length);
+    }
+  };
+
   const fitAndSendWinSize = () => {
     const container = el("terminal");
     const ws = shellState.ws;
@@ -2960,7 +3451,7 @@
       // ignore resize failures from xterm internals
     }
     try {
-      ws.send(JSON.stringify({ op: "winsize", winsize: { cols, rows } }));
+      ws.send(encodeShellJSON({ op: "winsize", winsize: { cols, rows } }));
     } catch {
       // ignore closed websocket race
     }
@@ -3033,6 +3524,7 @@
     shellState.expectedClose = false;
     shellState.wsError = "";
     shellState.remoteDataSeen = false;
+    shellState.remoteExit = null;
     shellView.detail = mode === "resume" ? "Resuming shell session..." : "Opening shell...";
     syncShellDOM();
     const container = el("terminal");
@@ -3054,7 +3546,7 @@
     term.writeln(mode === "resume" ? "Resuming..." : "Connecting...");
     syncShellDOM();
 
-    const wsURL = `${baseURL}/api/v0/tasks/${encodeURIComponent(taskID)}/ws?token=${encodeURIComponent(token)}`;
+    const wsURL = `${baseURL}/api/v1/shell/${encodeURIComponent(taskID)}/ws?token=${encodeURIComponent(token)}`;
     const ws = new WebSocket(wsURL, [subprotocol]);
     ws.binaryType = "arraybuffer";
     shellState.ws = ws;
@@ -3069,25 +3561,46 @@
     };
     ws.onmessage = (msg) => {
       if (shellState.ws !== ws || !shellState.term) return;
-      let output = "";
-      let byteLength = 0;
+      let incoming = new Uint8Array(0);
       if (typeof msg.data === "string") {
-        output = msg.data;
-        byteLength = output.length;
+        incoming = new TextEncoder().encode(msg.data);
       } else {
-        const bytes = new Uint8Array(msg.data);
-        byteLength = bytes.byteLength;
-        output = decoder.decode(bytes);
+        incoming = new Uint8Array(msg.data);
       }
-      if (!shellState.remoteDataSeen && byteLength > 0) {
-        shellState.remoteDataSeen = true;
-        shellView.phase = "connected";
-        shellView.detail = mode === "resume" ? `Resumed ${target}/${session}.` : `Connected to ${target}/${session}.`;
-        shellView.error = "";
-        rememberShellSelection();
-        syncShellDOM();
-      }
-      shellState.term.write(output);
+      consumeShellFrames(incoming, (kind, payload) => {
+        if (kind === 1) {
+          try {
+            const control = JSON.parse(decoder.decode(payload));
+            if (control && control.op === "shell_exit") {
+              const controlError = control.error && (control.error.message || control.error.reason_code)
+                ? compactStatusText([control.error.reason_code, control.error.message].filter(Boolean).join(": "))
+                : "";
+              const ok = control.ok !== false && !controlError;
+              const detail = ok
+                ? "Remote shell exited."
+                : compactStatusText(controlError || "Remote shell exited with an error.");
+              shellState.remoteExit = { ok, detail };
+              shellView.phase = ok ? "disconnected" : "failed";
+              shellView.detail = detail;
+              shellView.error = ok ? "" : detail;
+              syncShellDOM();
+            }
+          } catch {
+            // ignore malformed shell control frames
+          }
+          return;
+        }
+        const output = decoder.decode(payload);
+        if (!shellState.remoteDataSeen && payload.byteLength > 0) {
+          shellState.remoteDataSeen = true;
+          shellView.phase = "connected";
+          shellView.detail = mode === "resume" ? `Resumed ${target}/${session}.` : `Connected to ${target}/${session}.`;
+          shellView.error = "";
+          rememberShellSelection();
+          syncShellDOM();
+        }
+        shellState.term.write(output);
+      });
     };
     ws.onerror = () => {
       if (shellState.ws !== ws) return;
@@ -3097,11 +3610,40 @@
     };
     ws.onclose = (event) => {
       const expectedClose = shellState.expectedClose;
-      const wasConnected = shellView.phase === "connected";
+      const remoteExit = shellState.remoteExit;
+      const normalSocketClose = event && event.code === 1000 && !shellState.wsError;
+      const wasConnected = shellView.phase === "connected" || !!remoteExit || normalSocketClose;
       const reason = shellSocketCloseReason(event, shellState.wsError);
       const taskID = shellView.taskID;
       shellState.expectedClose = false;
       if (expectedClose) return;
+      if (remoteExit && remoteExit.ok) {
+        closeShellTransport(1000, "shell exited", { keepTerminal: true });
+        shellView.phase = "disconnected";
+        shellView.detail = remoteExit.detail || "Remote shell exited.";
+        shellView.error = "";
+        rememberShellSelection();
+        scheduleRender();
+        return;
+      }
+      if (remoteExit && !remoteExit.ok) {
+        closeShellTransport();
+        shellView.phase = "failed";
+        shellView.detail = shellPhaseDefaultDetail("failed");
+        shellView.error = remoteExit.detail || "Remote shell exited with an error.";
+        rememberShellSelection();
+        scheduleRender();
+        return;
+      }
+      if (normalSocketClose) {
+        closeShellTransport(1000, "shell closed", { keepTerminal: true });
+        shellView.phase = "disconnected";
+        shellView.detail = event && event.reason ? compactStatusText(event.reason) : "Terminal connection closed.";
+        shellView.error = "";
+        rememberShellSelection();
+        scheduleRender();
+        return;
+      }
       closeShellTransport();
       shellView.phase = wasConnected ? "disconnected" : "failed";
       shellView.detail = wasConnected
@@ -3129,7 +3671,7 @@
     term.onData((data) => {
       const ws = shellState.ws;
       try {
-        if (ws && ws.readyState === WebSocket.OPEN) ws.send(encoder.encode(data));
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(encodeShellFrame(0, encoder.encode(data)));
       } catch {
         // ignore closed websocket race
       }
@@ -3196,6 +3738,14 @@
       window.runtime.EventsOn("desktop:runtime", (ev) => {
         try {
           handleDesktopRuntimeEvent(ev);
+          scheduleRender();
+        } catch {
+          // ignore malformed connection payload
+        }
+      });
+      window.runtime.EventsOn("localapi:connection", (conn) => {
+        try {
+          renderConnection(conn);
           scheduleRender();
         } catch {
           // ignore malformed connection payload
@@ -3478,32 +4028,9 @@
     const peerID = el("alias-peer-id") ? el("alias-peer-id").value.trim() : "";
     const value = el("alias-name") ? el("alias-name").value.trim() : "";
     if (!peerID) return;
-    if (state.previewMode) {
-      state.localAliases = { ...(state.localAliases || {}), [peerID]: value };
-      toast(value ? "Alias saved" : "Alias cleared");
-      scheduleRender();
-      return;
-    }
-
-    try {
-      const resp = await withTimeout(getBridge().SaveDesktopConfig({
-        preferences: {
-          peer_aliases: { [peerID]: value },
-        },
-      }), "Save peer alias");
-      renderConnection(resp && resp.connection ? resp.connection : null);
-      if (!resp || !resp.ok) {
-        const failure = resp && resp.error ? resp.error : { message: "unknown error" };
-        toast(`Alias save failed: ${bridgeErrorSummary(failure)}`);
-        return;
-      }
-      if (resp.state) applyDesktopSnapshot(resp.state);
-      toast(value ? "Alias saved" : "Alias cleared");
-    } catch (err) {
-      toast(`Alias save failed: ${String(err)}`);
-    } finally {
-      scheduleRender();
-    }
+    state.localAliases = { ...(state.localAliases || {}), [peerID]: value };
+    toast(value ? "Alias saved locally" : "Alias cleared locally");
+    scheduleRender();
   };
 
   const waitForInviteTaskOutput = async (taskID) => {
@@ -3574,7 +4101,19 @@
     inviteState.message = "Invite ready. Listening for join requests...";
     scheduleRender();
     try {
-      const created = await createTask("approve", { code: inviteCode, explicit_review: true });
+      const created = startBackgroundTask("approve", { code: inviteCode }, {
+        done: () => {
+          inviteState.message = "Invite ready. Approval completed.";
+          approveState.message = "";
+          scheduleRender();
+        },
+        error: (err) => {
+          inviteState.approvalTaskID = "";
+          inviteState.message = `Invite ready, but approval listener failed: ${String(err)}`;
+          toast(inviteState.message);
+          scheduleRender();
+        },
+      });
       const taskID = upsertTask(created);
       inviteState.approvalTaskID = taskID;
       approveState.taskID = taskID;
@@ -3595,8 +4134,8 @@
       return;
     }
     const args = createNew
-      ? { mode: "create_new", confirm: "create-new-network" }
-      : { mode: "bootstrap" };
+      ? { create_new: true, confirm: "create-new-network" }
+      : {};
     try {
       const created = await createTask("init_network", args);
       const taskID = upsertTask(created);
@@ -3623,7 +4162,7 @@
       inviteState.taskID = taskID;
       const finalTask = taskID ? await waitForInviteTaskOutput(taskID) : null;
       const code = findInviteCode(finalTask || (taskID ? state.tasks.get(taskID) : null));
-      if (code) await startInviteApprovalListener(code);
+      if (code) void startInviteApprovalListener(code);
       else inviteState.message = "";
       scheduleRender();
     } catch (err) {
@@ -3657,9 +4196,19 @@
     }
     approveState.message = "Starting approval listener...";
     scheduleRender();
-    const created = await createTask("approve", { code, explicit_review: true });
+    const created = startBackgroundTask("approve", { code }, {
+      done: () => {
+        approveState.message = "Approval completed.";
+        scheduleRender();
+      },
+      error: (err) => {
+        approveState.message = `Approval failed: ${String(err)}`;
+        toast(approveState.message);
+        scheduleRender();
+      },
+    });
     approveState.taskID = upsertTask(created);
-    approveState.message = "";
+    approveState.message = "Approval listener is running.";
     scheduleRender();
   };
 
@@ -3704,37 +4253,25 @@
     await startDesktopRuntime();
   };
 
-  const splitSettingList = (value) => String(value || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
   const submitRuntimeConfig = async () => {
     if (state.previewMode || settingsState.saving) return;
     settingsState.saving = true;
-    settingsState.message = "Saving runtime config...";
+    settingsState.message = "Saving log level...";
     settingsState.failure = null;
     scheduleRender();
     try {
+      if (typeof getBridge().SaveDesktopConfig !== "function") {
+        settingsState.message = "";
+        settingsState.failure = { message: "Log level save is not supported by this LocalAPI bridge." };
+        toast("Log level save is not supported by this bridge");
+        return;
+      }
       const update = {
-        runtime: {
-          mqtt_brokers: splitSettingList(el("settings-mqtt-brokers") && el("settings-mqtt-brokers").value),
-          p2p_network: el("settings-p2p-network") ? el("settings-p2p-network").value : "auto",
-          p2p_ip_family: el("settings-p2p-ip-family") ? el("settings-p2p-ip-family").value : "auto",
-          data_proto: el("settings-data-proto") ? el("settings-data-proto").value : "quic",
-          quic_cc: el("settings-quic-cc") ? el("settings-quic-cc").value : "bbr",
-          stun: splitSettingList(el("settings-stun") && el("settings-stun").value),
-          stun_explicit: true,
-          disable_portmap: !!(el("settings-disable-portmap") && el("settings-disable-portmap").checked),
-          disable_assisted_addrs: !!(el("settings-disable-assisted") && el("settings-disable-assisted").checked),
-        },
         preferences: {
-          default_shell_target: el("settings-shell-target") ? el("settings-shell-target").value.trim() : "",
-          default_shell_session: el("settings-shell-session") ? el("settings-shell-session").value.trim() : "",
           log_level: el("settings-log-level") ? el("settings-log-level").value : "info",
         },
       };
-      const resp = await withTimeout(getBridge().SaveDesktopConfig(update), "Save runtime config");
+      const resp = await withTimeout(getBridge().SaveDesktopConfig(update), "Save log level");
       renderConnection(resp && resp.connection ? resp.connection : null);
       if (!resp || !resp.ok) {
         const failure = resp && resp.error ? resp.error : { message: "unknown error" };
@@ -3744,8 +4281,8 @@
         return;
       }
       if (resp.state) applyDesktopSnapshot(resp.state);
-      settingsState.message = "Runtime config saved";
-      toast("Runtime config saved");
+      settingsState.message = "Log level saved";
+      toast("Log level saved");
     } catch (err) {
       const failure = { message: String(err) };
       settingsState.message = "";

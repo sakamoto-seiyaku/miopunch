@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -17,57 +18,15 @@ import (
 	"github.com/miopunch/miopunch/internal/bundlepath"
 	"github.com/miopunch/miopunch/internal/desktopbridge"
 	"github.com/miopunch/miopunch/internal/localapi"
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/poc"
-	"github.com/miopunch/miopunch/internal/task"
+	"github.com/miopunch/miopunch/internal/sessionconfig"
 )
 
-type StatusResult struct {
+type RuntimeActionResult struct {
 	OK     bool                       `json:"ok"`
 	Error  *desktopbridge.BridgeError `json:"error,omitempty"`
-	Status *localapi.StatusResponse   `json:"status,omitempty"`
-}
-
-type PeersResult struct {
-	OK    bool                       `json:"ok"`
-	Error *desktopbridge.BridgeError `json:"error,omitempty"`
-	Peers *localapi.PeersResponse    `json:"peers,omitempty"`
-}
-
-type TasksResult struct {
-	OK    bool                       `json:"ok"`
-	Error *desktopbridge.BridgeError `json:"error,omitempty"`
-	Tasks *localapi.TasksResponse    `json:"tasks,omitempty"`
-}
-
-type TopologyResult struct {
-	OK       bool                       `json:"ok"`
-	Error    *desktopbridge.BridgeError `json:"error,omitempty"`
-	Topology *task.TopologySnapshot     `json:"topology,omitempty"`
-}
-
-type TaskResult struct {
-	OK    bool                       `json:"ok"`
-	Error *desktopbridge.BridgeError `json:"error,omitempty"`
-	Task  *task.Task                 `json:"task,omitempty"`
-}
-
-type ReportResult struct {
-	OK     bool                       `json:"ok"`
-	Error  *desktopbridge.BridgeError `json:"error,omitempty"`
-	Report string                     `json:"report,omitempty"`
-}
-
-type CreateTaskResult struct {
-	OK    bool                       `json:"ok"`
-	Error *desktopbridge.BridgeError `json:"error,omitempty"`
-	Task  *task.Task                 `json:"task,omitempty"`
-}
-
-type ExportReportResult struct {
-	OK        bool                       `json:"ok"`
-	Cancelled bool                       `json:"cancelled,omitempty"`
-	Error     *desktopbridge.BridgeError `json:"error,omitempty"`
-	Path      string                     `json:"path,omitempty"`
+	Result *localapi.ActionResult     `json:"result,omitempty"`
 }
 
 type ExportDiagnosticsResult struct {
@@ -81,7 +40,25 @@ type DesktopRuntimeResult struct {
 	OK         bool                           `json:"ok"`
 	Error      *desktopbridge.BridgeError     `json:"error,omitempty"`
 	Connection *desktopbridge.ConnectionState `json:"connection,omitempty"`
-	State      *task.DesktopStateSnapshot     `json:"state,omitempty"`
+	State      *localapi.Snapshot             `json:"state,omitempty"`
+}
+
+// SaveDesktopConfigResult is returned after saving desktop runtime config.
+type SaveDesktopConfigResult struct {
+	OK         bool                           `json:"ok"`
+	Error      *desktopbridge.BridgeError     `json:"error,omitempty"`
+	Connection *desktopbridge.ConnectionState `json:"connection,omitempty"`
+	State      *localapi.Snapshot             `json:"state,omitempty"`
+}
+
+// DesktopConfigUpdate contains desktop settings changes from the GUI.
+type DesktopConfigUpdate struct {
+	Preferences DesktopConfigPreferences `json:"preferences,omitempty"`
+}
+
+// DesktopConfigPreferences contains user preference updates.
+type DesktopConfigPreferences struct {
+	LogLevel string `json:"log_level,omitempty"`
 }
 
 type DesktopRuntimeEvent struct {
@@ -90,26 +67,49 @@ type DesktopRuntimeEvent struct {
 	Error      *desktopbridge.BridgeError     `json:"error,omitempty"`
 }
 
-var errDesktopEventStreamClosed = errors.New("desktop event stream closed")
+var errDesktopEventStreamClosed = errors.New("runtime event stream closed")
 
-const daemonDiagnosticsLogFileName = "miopunch.log"
+const (
+	daemonDiagnosticsLogFileName = "miopunch.log"
+	eventPumpStopTimeout         = 2 * time.Second
+)
 
 var diagnosticsRedactor = regexp.MustCompile(`(?i)(secret_key|invite_code|join_code|net_secret_b64|invite_secret_b64|ed25519_seed_b64|x25519_priv_b64|private_key|password|token)(["=: ]+)([^"\s,}]+)`)
 
-type desktopEventsOpener interface {
-	OpenDesktopEvents(context.Context) (io.ReadCloser, error)
+type runtimeEventsOpener interface {
+	OpenEvents(context.Context) (io.ReadCloser, error)
+}
+
+type runtimeEventStream struct {
+	body io.Closer
 }
 
 func (a *App) Connect() desktopbridge.ConnectionState {
+	startedAt := time.Now()
+	logutil.Debugf("desktop connect start")
 	_, state := a.connectLocalAPI()
 	a.emitConnectionState(state)
+	logutil.Debugf(
+		"desktop connect done: elapsed_ms=%d connected=%t selected=%s addr=%s",
+		time.Since(startedAt).Milliseconds(),
+		state.Connected,
+		state.Selected,
+		state.Addr,
+	)
 	return state
 }
 
 func (a *App) DesktopRuntimeStart() DesktopRuntimeResult {
+	startedAt := time.Now()
+	logutil.Debugf("desktop runtime start begin")
 	client, state := a.connectLocalAPI()
 	a.emitConnectionState(state)
 	if !state.Connected {
+		logutil.Debugf(
+			"desktop runtime start done: elapsed_ms=%d connected=false reason_code=%s",
+			time.Since(startedAt).Milliseconds(),
+			bridgeReasonCode(state.Failure),
+		)
 		return DesktopRuntimeResult{
 			OK:         false,
 			Error:      state.Failure,
@@ -117,8 +117,13 @@ func (a *App) DesktopRuntimeStart() DesktopRuntimeResult {
 		}
 	}
 
-	snapshot, err := a.startDesktopEventsPump(client)
+	snapshot, err := a.startRuntimeEventsPump(client)
 	if err != nil {
+		logutil.Debugf(
+			"desktop runtime start done: elapsed_ms=%d connected=true reason_code=%s",
+			time.Since(startedAt).Milliseconds(),
+			err.ReasonCode,
+		)
 		return DesktopRuntimeResult{
 			OK:         false,
 			Error:      err,
@@ -126,6 +131,11 @@ func (a *App) DesktopRuntimeStart() DesktopRuntimeResult {
 		}
 	}
 
+	logutil.Debugf(
+		"desktop runtime start done: elapsed_ms=%d connected=true stage=%s",
+		time.Since(startedAt).Milliseconds(),
+		snapshotStage(snapshot),
+	)
 	return DesktopRuntimeResult{
 		OK:         true,
 		Connection: &state,
@@ -134,9 +144,16 @@ func (a *App) DesktopRuntimeStart() DesktopRuntimeResult {
 }
 
 func (a *App) DesktopRuntimeResync() DesktopRuntimeResult {
+	startedAt := time.Now()
+	logutil.Debugf("desktop runtime resync start")
 	c, err := a.localAPIClient()
 	if err != nil {
 		state := a.ConnectionState()
+		logutil.Debugf(
+			"desktop runtime resync done: elapsed_ms=%d reason_code=%s",
+			time.Since(startedAt).Milliseconds(),
+			err.ReasonCode,
+		)
 		return DesktopRuntimeResult{
 			OK:         false,
 			Error:      err,
@@ -147,17 +164,28 @@ func (a *App) DesktopRuntimeResync() DesktopRuntimeResult {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	snapshot, apiErr := c.GetDesktopState(ctx)
+	snapshot, apiErr := c.GetSnapshot(ctx)
 	if apiErr != nil {
 		state := a.ConnectionState()
+		bridgeErr := bridgeErrorFromErr(apiErr)
+		logutil.Debugf(
+			"desktop runtime resync done: elapsed_ms=%d reason_code=%s",
+			time.Since(startedAt).Milliseconds(),
+			bridgeReasonCode(bridgeErr),
+		)
 		return DesktopRuntimeResult{
 			OK:         false,
-			Error:      bridgeErrorFromErr(apiErr),
+			Error:      bridgeErr,
 			Connection: &state,
 		}
 	}
 
 	state := a.ConnectionState()
+	logutil.Debugf(
+		"desktop runtime resync done: elapsed_ms=%d stage=%s",
+		time.Since(startedAt).Milliseconds(),
+		snapshot.Stage,
+	)
 	return DesktopRuntimeResult{
 		OK:         true,
 		Connection: &state,
@@ -165,35 +193,130 @@ func (a *App) DesktopRuntimeResync() DesktopRuntimeResult {
 	}
 }
 
-func (a *App) SaveDesktopConfig(update task.DesktopConfigUpdate) DesktopRuntimeResult {
+func (a *App) RuntimeAction(action string, args any) RuntimeActionResult {
+	action = strings.TrimSpace(action)
+	startedAt := time.Now()
+	logutil.Debugf("desktop runtime action start: action=%s", action)
 	c, err := a.localAPIClient()
 	if err != nil {
-		state := a.ConnectionState()
-		return DesktopRuntimeResult{
-			OK:         false,
-			Error:      err,
-			Connection: &state,
-		}
+		logutil.Debugf(
+			"desktop runtime action done: action=%s elapsed_ms=%d reason_code=%s",
+			action,
+			time.Since(startedAt).Milliseconds(),
+			err.ReasonCode,
+		)
+		return RuntimeActionResult{OK: false, Error: err}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout(action))
 	defer cancel()
 
-	snapshot, apiErr := c.UpdateDesktopConfig(ctx, update)
+	result, apiErr := c.Action(ctx, action, args)
+	if apiErr != nil {
+		bridgeErr := bridgeErrorFromErr(apiErr)
+		logutil.Debugf(
+			"desktop runtime action done: action=%s elapsed_ms=%d reason_code=%s",
+			action,
+			time.Since(startedAt).Milliseconds(),
+			bridgeReasonCode(bridgeErr),
+		)
+		return RuntimeActionResult{OK: false, Error: bridgeErr}
+	}
+	logutil.Debugf(
+		"desktop runtime action done: action=%s elapsed_ms=%d stage=%s reason_code=%s exit_code=%d",
+		action,
+		time.Since(startedAt).Milliseconds(),
+		result.Stage,
+		result.ReasonCode,
+		result.ExitCode,
+	)
+	return RuntimeActionResult{OK: true, Result: &result}
+}
+
+// SaveDesktopConfig persists supported desktop settings and applies them now.
+func (a *App) SaveDesktopConfig(update DesktopConfigUpdate) SaveDesktopConfigResult {
+	startedAt := time.Now()
+	rawLevel := strings.TrimSpace(update.Preferences.LogLevel)
+	if rawLevel == "" {
+		return SaveDesktopConfigResult{OK: false, Error: &desktopbridge.BridgeError{
+			Stage:      "desktop",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Message:    "missing log level",
+			Suggestions: []poc.Suggestion{
+				{Message: "choose a log level before saving"},
+			},
+		}}
+	}
+	level, err := sessionconfig.NormalizeLogLevel(rawLevel)
+	if err != nil {
+		return SaveDesktopConfigResult{OK: false, Error: &desktopbridge.BridgeError{
+			Stage:      "desktop",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Message:    "invalid log level",
+			Facts:      []poc.Fact{{Message: "log_level=" + rawLevel}},
+			Suggestions: []poc.Suggestion{
+				{Message: "use trace, debug, info, warn, or error"},
+			},
+		}}
+	}
+
+	path, err := desktopSessionConfigPath()
+	if err != nil {
+		return SaveDesktopConfigResult{OK: false, Error: bridgeErrorFromErr(err)}
+	}
+	config, err := sessionconfig.ReadFile(path)
+	if err != nil {
+		return SaveDesktopConfigResult{OK: false, Error: bridgeErrorFromErr(err)}
+	}
+	config.Preferences.LogLevel = level
+	if err := sessionconfig.WriteFile(path, config); err != nil {
+		return SaveDesktopConfigResult{OK: false, Error: bridgeErrorFromErr(err)}
+	}
+	logutil.SetLevel(level)
+	logutil.Infof("desktop log level changed: log_level=%s", level)
+
+	c, bridgeErr := a.localAPIClient()
+	if bridgeErr != nil {
+		state := a.ConnectionState()
+		return SaveDesktopConfigResult{OK: false, Error: bridgeErr, Connection: &state}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	snapshot, apiErr := c.SetLogLevel(ctx, level)
 	if apiErr != nil {
 		state := a.ConnectionState()
-		return DesktopRuntimeResult{
-			OK:         false,
-			Error:      bridgeErrorFromErr(apiErr),
-			Connection: &state,
-		}
+		errResp := bridgeErrorFromErr(apiErr)
+		logutil.Debugf(
+			"desktop config save done: elapsed_ms=%d reason_code=%s",
+			time.Since(startedAt).Milliseconds(),
+			bridgeReasonCode(errResp),
+		)
+		return SaveDesktopConfigResult{OK: false, Error: errResp, Connection: &state}
 	}
 
 	state := a.ConnectionState()
-	return DesktopRuntimeResult{
+	logutil.Debugf(
+		"desktop config save done: elapsed_ms=%d log_level=%s",
+		time.Since(startedAt).Milliseconds(),
+		level,
+	)
+	return SaveDesktopConfigResult{
 		OK:         true,
 		Connection: &state,
 		State:      &snapshot,
+	}
+}
+
+func actionTimeout(action string) time.Duration {
+	switch action {
+	case "approve", "join":
+		return 3 * time.Minute
+	case "sh":
+		return 2 * time.Minute
+	default:
+		return 30 * time.Second
 	}
 }
 
@@ -238,164 +361,6 @@ func (a *App) ClearLocalAPIOverride() desktopbridge.ConnectionState {
 	return a.SetLocalAPIOverride("")
 }
 
-func (a *App) GetStatus() StatusResult {
-	c, err := a.localAPIClient()
-	if err != nil {
-		return StatusResult{OK: false, Error: err}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	status, apiErr := c.GetStatus(ctx)
-	if apiErr != nil {
-		return StatusResult{OK: false, Error: bridgeErrorFromErr(apiErr)}
-	}
-
-	return StatusResult{OK: true, Status: &status}
-}
-
-func (a *App) GetPeers() PeersResult {
-	c, err := a.localAPIClient()
-	if err != nil {
-		return PeersResult{OK: false, Error: err}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	peers, apiErr := c.GetPeers(ctx)
-	if apiErr != nil {
-		return PeersResult{OK: false, Error: bridgeErrorFromErr(apiErr)}
-	}
-
-	return PeersResult{OK: true, Peers: &peers}
-}
-
-func (a *App) GetTasks() TasksResult {
-	c, err := a.localAPIClient()
-	if err != nil {
-		return TasksResult{OK: false, Error: err}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	tasksResp, apiErr := c.GetTasks(ctx)
-	if apiErr != nil {
-		return TasksResult{OK: false, Error: bridgeErrorFromErr(apiErr)}
-	}
-
-	return TasksResult{OK: true, Tasks: &tasksResp}
-}
-
-func (a *App) GetTopology() TopologyResult {
-	c, err := a.localAPIClient()
-	if err != nil {
-		return TopologyResult{OK: false, Error: err}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	topology, apiErr := c.GetTopology(ctx)
-	if apiErr != nil {
-		return TopologyResult{OK: false, Error: bridgeErrorFromErr(apiErr)}
-	}
-
-	return TopologyResult{OK: true, Topology: &topology}
-}
-
-func (a *App) GetTask(taskID string) TaskResult {
-	c, err := a.localAPIClient()
-	if err != nil {
-		return TaskResult{OK: false, Error: err}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	t, apiErr := c.GetTask(ctx, taskID)
-	if apiErr != nil {
-		return TaskResult{OK: false, Error: bridgeErrorFromErr(apiErr)}
-	}
-
-	return TaskResult{OK: true, Task: &t}
-}
-
-func (a *App) GetTaskReport(taskID string) ReportResult {
-	c, err := a.localAPIClient()
-	if err != nil {
-		return ReportResult{OK: false, Error: err}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	report, apiErr := c.GetTaskReport(ctx, taskID)
-	if apiErr != nil {
-		return ReportResult{OK: false, Error: bridgeErrorFromErr(apiErr)}
-	}
-
-	return ReportResult{OK: true, Report: report}
-}
-
-func (a *App) CreateTask(kind string, args any) CreateTaskResult {
-	c, err := a.localAPIClient()
-	if err != nil {
-		return CreateTaskResult{OK: false, Error: err}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	t, apiErr := c.CreateTask(ctx, kind, args)
-	if apiErr != nil {
-		return CreateTaskResult{OK: false, Error: bridgeErrorFromErr(apiErr)}
-	}
-
-	return CreateTaskResult{OK: true, Task: &t}
-}
-
-func (a *App) ExportTaskReport(taskID string) ExportReportResult {
-	c, err := a.localAPIClient()
-	if err != nil {
-		return ExportReportResult{OK: false, Error: err}
-	}
-
-	a.mu.Lock()
-	wailsCtx := a.ctx
-	a.mu.Unlock()
-
-	path, dialogErr := runtime.SaveFileDialog(wailsCtx, runtime.SaveDialogOptions{
-		DefaultFilename: taskID + ".md",
-		Title:           "Export report",
-		Filters: []runtime.FileFilter{
-			{DisplayName: "Markdown", Pattern: "*.md"},
-		},
-	})
-	if dialogErr != nil {
-		return ExportReportResult{OK: false, Error: bridgeErrorFromErr(dialogErr)}
-	}
-	if path == "" {
-		return ExportReportResult{OK: true, Cancelled: true}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	report, apiErr := c.GetTaskReport(ctx, taskID)
-	if apiErr != nil {
-		return ExportReportResult{OK: false, Error: bridgeErrorFromErr(apiErr)}
-	}
-
-	if err := os.WriteFile(path, []byte(report), 0o644); err != nil {
-		return ExportReportResult{OK: false, Error: bridgeErrorFromErr(err)}
-	}
-
-	return ExportReportResult{OK: true, Path: path}
-}
-
 func (a *App) ExportDiagnostics() ExportDiagnosticsResult {
 	c, err := a.localAPIClient()
 	if err != nil {
@@ -423,7 +388,7 @@ func (a *App) ExportDiagnostics() ExportDiagnosticsResult {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	snapshot, apiErr := c.GetDesktopState(ctx)
+	snapshot, apiErr := c.GetSnapshot(ctx)
 	if apiErr != nil {
 		return ExportDiagnosticsResult{OK: false, Error: bridgeErrorFromErr(apiErr)}
 	}
@@ -433,7 +398,7 @@ func (a *App) ExportDiagnostics() ExportDiagnosticsResult {
 	return ExportDiagnosticsResult{OK: true, Path: path}
 }
 
-func (a *App) writeDiagnosticsArchive(path string, snapshot task.DesktopStateSnapshot) error {
+func (a *App) writeDiagnosticsArchive(path string, snapshot localapi.Snapshot) error {
 	out, err := os.Create(path)
 	if err != nil {
 		return err
@@ -441,7 +406,7 @@ func (a *App) writeDiagnosticsArchive(path string, snapshot task.DesktopStateSna
 	defer func() { _ = out.Close() }()
 
 	zw := zip.NewWriter(out)
-	if err := writeZipJSON(zw, "desktop-state.json", snapshot); err != nil {
+	if err := writeZipJSON(zw, "runtime-snapshot.json", snapshot); err != nil {
 		_ = zw.Close()
 		return err
 	}
@@ -562,6 +527,20 @@ func bridgeErrorFromErr(err error) *desktopbridge.BridgeError {
 	}
 }
 
+func bridgeReasonCode(err *desktopbridge.BridgeError) poc.ReasonCode {
+	if err == nil {
+		return poc.ReasonCodeOK
+	}
+	return err.ReasonCode
+}
+
+func snapshotStage(snapshot *localapi.Snapshot) string {
+	if snapshot == nil {
+		return ""
+	}
+	return string(snapshot.Stage)
+}
+
 func (a *App) emitConnectionState(state desktopbridge.ConnectionState) {
 	a.mu.Lock()
 	wailsCtx := a.ctx
@@ -590,7 +569,7 @@ func (a *App) emitRuntimeEvent(ev DesktopRuntimeEvent) {
 	}
 }
 
-func (a *App) startDesktopEventsPump(c *localapi.Client) (*task.DesktopStateSnapshot, *desktopbridge.BridgeError) {
+func (a *App) startRuntimeEventsPump(c runtimeEventsOpener) (*localapi.Snapshot, *desktopbridge.BridgeError) {
 	if c == nil {
 		return nil, bridgeErrorFromErr(errors.New("missing LocalAPI client"))
 	}
@@ -599,7 +578,7 @@ func (a *App) startDesktopEventsPump(c *localapi.Client) (*task.DesktopStateSnap
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
-	firstSnapshotCh := make(chan task.DesktopStateSnapshot, 1)
+	firstSnapshotCh := make(chan localapi.Snapshot, 1)
 	firstErrCh := make(chan error, 1)
 
 	a.mu.Lock()
@@ -610,7 +589,7 @@ func (a *App) startDesktopEventsPump(c *localapi.Client) (*task.DesktopStateSnap
 
 	go func() {
 		defer close(done)
-		a.runDesktopEventsPump(ctx, wailsCtx, c, firstSnapshotCh, firstErrCh)
+		a.runRuntimeEventsPump(ctx, wailsCtx, c, firstSnapshotCh, firstErrCh)
 	}()
 
 	select {
@@ -629,23 +608,56 @@ func (a *App) stopEventsPump() {
 	a.mu.Lock()
 	cancel := a.eventsCancel
 	done := a.eventsDone
+	stream := a.eventsBody
 	a.eventsCancel = nil
 	a.eventsDone = nil
+	a.eventsBody = nil
 	a.mu.Unlock()
 
 	if cancel != nil {
 		cancel()
 	}
+	if stream != nil && stream.body != nil {
+		_ = stream.body.Close()
+	}
 	if done != nil {
-		<-done
+		select {
+		case <-done:
+		case <-time.After(eventPumpStopTimeout):
+			logutil.Warnf("desktop runtime event pump did not stop before timeout")
+		}
 	}
 }
 
-func (a *App) runDesktopEventsPump(
+func (a *App) registerEventStream(body io.Closer) *runtimeEventStream {
+	if body == nil {
+		return nil
+	}
+	stream := &runtimeEventStream{body: body}
+
+	a.mu.Lock()
+	a.eventsBody = stream
+	a.mu.Unlock()
+	return stream
+}
+
+func (a *App) clearEventStream(stream *runtimeEventStream) {
+	if stream == nil {
+		return
+	}
+
+	a.mu.Lock()
+	if a.eventsBody == stream {
+		a.eventsBody = nil
+	}
+	a.mu.Unlock()
+}
+
+func (a *App) runRuntimeEventsPump(
 	ctx context.Context,
 	wailsCtx context.Context,
-	c desktopEventsOpener,
-	firstSnapshotCh chan<- task.DesktopStateSnapshot,
+	c runtimeEventsOpener,
+	firstSnapshotCh chan<- localapi.Snapshot,
 	firstErrCh chan<- error,
 ) {
 	const retryDelay = 750 * time.Millisecond
@@ -656,7 +668,7 @@ func (a *App) runDesktopEventsPump(
 			return
 		}
 
-		body, err := c.OpenDesktopEvents(ctx)
+		body, err := c.OpenEvents(ctx)
 		if err != nil {
 			if bootstrapPending {
 				select {
@@ -676,18 +688,27 @@ func (a *App) runDesktopEventsPump(
 				return
 			}
 		}
+		if err := ctx.Err(); err != nil {
+			_ = body.Close()
+			return
+		}
+		stream := a.registerEventStream(body)
+		if stream == nil {
+			_ = body.Close()
+			return
+		}
 
 		initialStreamSnapshot := true
-		readErr := desktopbridge.ReadLocalAPIDesktopStateEvents(ctx, body, func(ev task.DesktopStateEvent) error {
+		readErr := desktopbridge.ReadLocalAPITaskEvents(ctx, body, func(ev localapi.Event) error {
 			if initialStreamSnapshot {
 				initialStreamSnapshot = false
-				if ev.Kind != task.DesktopStateEventSnapshot || ev.Snapshot == nil {
-					return errors.New("desktop event stream did not begin with snapshot")
+				if ev.Kind != "snapshot" {
+					return errors.New("runtime event stream did not begin with snapshot")
 				}
 				if bootstrapPending {
 					bootstrapPending = false
 					select {
-					case firstSnapshotCh <- *ev.Snapshot:
+					case firstSnapshotCh <- ev.Snapshot:
 					default:
 					}
 					return nil
@@ -698,6 +719,7 @@ func (a *App) runDesktopEventsPump(
 			}
 			return nil
 		})
+		a.clearEventStream(stream)
 		_ = body.Close()
 		if err := ctx.Err(); err != nil {
 			return

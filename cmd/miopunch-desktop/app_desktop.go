@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -26,6 +27,7 @@ type App struct {
 
 	eventsCancel context.CancelFunc
 	eventsDone   chan struct{}
+	eventsBody   *runtimeEventStream
 
 	runtimeEventHook func(DesktopRuntimeEvent)
 
@@ -39,10 +41,15 @@ type App struct {
 	unminimise    func(context.Context)
 	alwaysOnTop   func(context.Context, bool)
 	quitRuntime   func(context.Context)
+	exitProcess   func(int)
+	exitOnce      sync.Once
 }
 
 func NewApp() *App {
-	return &App{tray: newPlatformTray()}
+	return &App{
+		tray:        newPlatformTray(),
+		exitProcess: os.Exit,
+	}
 }
 
 func (a *App) startup(ctx context.Context) {
@@ -240,4 +247,16 @@ func (a *App) isQuitRequested() bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.quitRequested
+}
+
+func (a *App) exitNow(code int) {
+	a.exitOnce.Do(func() {
+		a.shutdown(context.Background())
+
+		exitProcess := a.exitProcess
+		if exitProcess == nil {
+			exitProcess = os.Exit
+		}
+		exitProcess(code)
+	})
 }

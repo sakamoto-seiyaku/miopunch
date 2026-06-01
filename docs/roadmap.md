@@ -168,6 +168,51 @@ Change 划分：
 - 下列条目当前主要作为“已完成范围 + 验收口径”记录，不再作为一份待实现清单。
 - 后续若继续推进产品化，将按新的方向拆分，不再简单续写为下一号 `POC-XX`。
 
+### POCv1 当前主线（进行中）
+
+事实源：
+
+- 当前总纲：`docs/decisions/poc-v1-charter.md`
+- 旧栈审计：`docs/notes/2026-05-24-poc-v1-legacy-stack-audit.md`
+- 最终 POC 完整验收边界：`openspec/specs/miopunch-poc-scope/spec.md`
+
+当前判断（截至 2026-05-26）：
+
+- `POCv1` 不是延续旧 `POC-01..07` 编号的线性补丁，而是围绕 `internal/pocv1/{wire,enroll,persist,presence,punch,session,runtime}` 重新建立 source of truth 的产品抽离主线。
+- 截至当前，`wire / enroll / persist / presence / punch / session` 已基本形成模块级闭环；真正缺的不是 GUI 皮肤，而是 headless runtime、产品 daemon、LocalAPI v1 和 CLI wiring。
+- 当前 repo 还不能作为 `POCv1` headless 产品闭环独立运行：`go list ./...` 仍暴露 `internal/task`、`internal/pocacceptor`、`internal/pocstate`、`internal/controlplane` 等 legacy/missing package 依赖；因此 `06x` 必须先修 build graph 和入口 authority。
+- 共享后端路线已经固定为：
+  - shared daemon
+  - `localapi` 名字保留
+  - `JSON-RPC` over Unix socket / named pipe
+  - 独立 runtime event 流通道
+  - 独立 shell attach 流通道
+- 因此当前实现顺序固定为：
+  1. `poc-v1-01..06` 的模块级抽离
+  2. pre-07 的 headless runtime + Linux CLI 真闭环
+  3. `07` 作为 GUI/desktop 默认入口层直连同一 shared daemon
+- `poc-v1-07-gui-wizard` 不应再继续拥有 runtime authority；后续应收缩为 GUI wizard、desktop bridge、frontend 和默认入口壳。
+- 当前实现优先级已固定为 `CLI-first`：
+  - `up` 保留为显式 daemon 启动/托管命令
+  - 其余 CLI 动作通过 `localapi` 自动连接或自动拉起 shared daemon
+  - `07` 只做展示/编排，不再拥有运行态决策
+- 当前阶段的必须通过门槛先是 Linux CLI 真闭环：
+
+```text
+miopunch up
+-> init-network / invite / approve / join
+-> ls
+-> ping
+-> sh ls
+-> sh
+-> revoke
+```
+
+- 最终 `POCv1 done` 的完整验收边界仍保持 GUI-led 六阶段产品流；CLI-first 是当前实现顺序与 pre-GUI 门槛，不是另一套最终产品定义。
+- 迁移方式固定为一次性切换：不保留长期 `/api/v0 desktop/task` 与新 runtime RPC 双栈。
+- Windows/Linux 真机互连不进入当前 `06x` required gate；先把 Linux CLI 真闭环做成可验证事实，再作为后续真实环境 change 补齐跨平台互连。
+- 外部设计校准：Tailscale、ZeroTier、NetBird 都采用 CLI/GUI 连接本机 daemon/service/API 的 shared-backend 形态；Wails 的 binding/events 模型适合作为 GUI 到 Go 侧的桥接，不要求 GUI 经 CLI 转发。
+
 Change 划分（按最初设计顺序回顾）：
 
 - 约束：每个 change 都应（尽量）包含：单元测试、集成测试、真实环境 smoke test；并把“验收口径/失败口径/用户动作建议”写清楚。
@@ -225,7 +270,7 @@ Change 划分（按最初设计顺序回顾）：
 - 目标：把“常驻进程 + CLI”跑通；为 UI/面板与未来扩展预留稳定接口。
 - 交付：
   - `up` 常驻 + task 框架：`invite/join/approve/ping/sh_ls/sh_attach/revoke_member`（先闭环，后扩展）。
-  - LocalAPI：HTTP/JSON + SSE + WS（shell 字节流）；冻结 `stage/reason_code/exit_code` 输出契约（顶层 envelope 稳定）。
+  - LocalAPI：当前归档口径仍是 `HTTP/JSON + SSE + WS`（shell 字节流）；其稳定输出 envelope 将在 POCv1 当前主线中收敛为 shared daemon `localapi` 的 `JSON-RPC + dedicated streams` 契约。
   - 本地 state/密钥落盘最低口径：threat model + state 目录权限/ACL + system service/用户态两种最小权限运行方式（不自研加密落盘）。
 - 测试：
   - 单元：handler/task 状态机；输出 envelope 稳定性测试。

@@ -13,6 +13,8 @@ type upOptions struct {
 	HTTPPanel           bool
 	HTTPPanelListenAddr string
 	LocalAPIOverride    string
+	BrokerOverride      string
+	LogLevel            string
 	Session             bool
 	StatePath           string
 }
@@ -63,6 +65,26 @@ func parseUpOptions(args []string) (upOptions, []string, error) {
 		case strings.HasPrefix(a, "--localapi="):
 			opt.LocalAPIOverride = strings.TrimSpace(strings.TrimPrefix(a, "--localapi="))
 			i++
+		case a == "--broker":
+			if i+1 >= len(args) {
+				return upOptions{}, nil, errors.New("missing value for --broker")
+			}
+			i++
+			opt.BrokerOverride = strings.TrimSpace(args[i])
+			i++
+		case strings.HasPrefix(a, "--broker="):
+			opt.BrokerOverride = strings.TrimSpace(strings.TrimPrefix(a, "--broker="))
+			i++
+		case a == "--log-level":
+			if i+1 >= len(args) {
+				return upOptions{}, nil, errors.New("missing value for --log-level")
+			}
+			i++
+			opt.LogLevel = strings.ToLower(strings.TrimSpace(args[i]))
+			i++
+		case strings.HasPrefix(a, "--log-level="):
+			opt.LogLevel = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(a, "--log-level=")))
+			i++
 		case a == "--session":
 			opt.Session = true
 			i++
@@ -99,6 +121,11 @@ func parseUpOptions(args []string) (upOptions, []string, error) {
 		if _, err := localapi.ParseAddr(opt.LocalAPIOverride); err != nil {
 			return upOptions{}, nil, fmt.Errorf("invalid --localapi: %w", err)
 		}
+	}
+	switch strings.TrimSpace(opt.LogLevel) {
+	case "", "trace", "debug", "info", "warn", "error":
+	default:
+		return upOptions{}, nil, fmt.Errorf("invalid --log-level: %q", opt.LogLevel)
 	}
 
 	return opt, rest, nil

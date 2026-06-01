@@ -96,21 +96,21 @@ func (l *Logger) Spawn() *Logger {
 }
 
 func (l *Logger) Errorf(format string, v ...any) {
-	logutil.Logger.Errorf(l.prefixString+format, v...)
+	logutil.Errorf(l.prefixString+format, v...)
 }
 
 func (l *Logger) Warnf(format string, v ...any) {
-	logutil.Logger.Warnf(l.prefixString+format, v...)
+	logutil.Warnf(l.prefixString+format, v...)
 }
 
 func (l *Logger) Infof(format string, v ...any) {
-	logutil.Logger.Infof(l.prefixString+format, v...)
+	logutil.Infof(l.prefixString+format, v...)
 }
 
 func (l *Logger) Debugf(format string, v ...any) {
-	logutil.Logger.Debugf(l.prefixString+format, v...)
+	logutil.Debugf(l.prefixString+format, v...)
 }
 
 func (l *Logger) Tracef(format string, v ...any) {
-	logutil.Logger.Tracef(l.prefixString+format, v...)
+	logutil.Tracef(l.prefixString+format, v...)
 }

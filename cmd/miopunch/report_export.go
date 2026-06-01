@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,22 +9,10 @@ import (
 	"github.com/miopunch/miopunch/internal/atomicfile"
 )
 
-type taskReportGetter interface {
-	GetTaskReport(ctx context.Context, taskID string) (string, error)
-}
-
-func exportTaskReport(ctx context.Context, c taskReportGetter, taskID string, path string, redact bool) error {
+func exportReportMarkdown(path string, report string, redact bool) error {
 	path = strings.TrimSpace(path)
-	if path == "" {
+	if path == "" || strings.TrimSpace(report) == "" {
 		return nil
-	}
-	if c == nil {
-		return errors.New("nil localapi client")
-	}
-
-	report, err := c.GetTaskReport(ctx, taskID)
-	if err != nil {
-		return err
 	}
 	if redact {
 		report = redactString(report)
@@ -42,4 +28,39 @@ func exportTaskReport(ctx context.Context, c taskReportGetter, taskID string, pa
 		return fmt.Errorf("write report: %w", err)
 	}
 	return nil
+}
+
+func failureReportMarkdown(kind string, taskID string, failure failureOutput) string {
+	var b strings.Builder
+	b.WriteString("# miopunch task report\n\n")
+	b.WriteString("- status: `failed`\n")
+	if kind = strings.TrimSpace(kind); kind != "" {
+		fmt.Fprintf(&b, "- kind: `%s`\n", kind)
+	}
+	if taskID = strings.TrimSpace(taskID); taskID != "" {
+		fmt.Fprintf(&b, "- task_id: `%s`\n", taskID)
+	}
+	fmt.Fprintf(&b, "- stage: `%s`\n", strings.TrimSpace(failure.Stage))
+	fmt.Fprintf(&b, "- reason_code: `%s`\n", failure.ReasonCode)
+	fmt.Fprintf(&b, "- exit_code: `%d`\n\n", failure.ExitCode)
+
+	b.WriteString("## Facts\n")
+	for _, fact := range failure.Facts {
+		msg := strings.TrimSpace(fact.Message)
+		if msg == "" {
+			continue
+		}
+		fmt.Fprintf(&b, "- %s\n", msg)
+	}
+
+	b.WriteString("\n## Suggestions\n")
+	for _, suggestion := range failure.Suggestions {
+		msg := strings.TrimSpace(suggestion.Message)
+		if msg == "" {
+			continue
+		}
+		fmt.Fprintf(&b, "- %s\n", msg)
+	}
+
+	return b.String()
 }

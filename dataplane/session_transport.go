@@ -80,8 +80,11 @@ func (s *yamuxPeerSession) OpenStream(ctx context.Context, open StreamOpen) (io.
 		_ = s.Close(CloseReasonTransportFatal)
 		return nil, err
 	}
-	if err := WriteStreamOpen(stream, open); err != nil {
+	if err := writeStreamOpenWithContext(ctx, stream, open); err != nil {
 		_ = stream.Close()
+		if ctxErr := ctx.Err(); ctxErr != nil && errors.Is(err, ctxErr) {
+			return nil, err
+		}
 		_ = s.Close(CloseReasonStreamProtocolError)
 		return nil, err
 	}
@@ -112,9 +115,12 @@ func (s *yamuxPeerSession) AcceptStream(ctx context.Context) (*AcceptedStream, e
 		_ = s.Close(CloseReasonTransportFatal)
 		return nil, err
 	}
-	open, err := ReadStreamOpen(stream)
+	open, err := readStreamOpenWithContext(ctx, stream)
 	if err != nil {
 		_ = stream.Close()
+		if ctxErr := ctx.Err(); ctxErr != nil && errors.Is(err, ctxErr) {
+			return nil, err
+		}
 		_ = s.Close(CloseReasonStreamProtocolError)
 		return nil, err
 	}
@@ -207,8 +213,11 @@ func (s *quicPeerSession) OpenStream(ctx context.Context, open StreamOpen) (io.R
 		_ = s.Close(CloseReasonTransportFatal)
 		return nil, err
 	}
-	if err := WriteStreamOpen(stream, open); err != nil {
+	if err := writeStreamOpenWithContext(ctx, stream, open); err != nil {
 		_ = stream.Close()
+		if ctxErr := ctx.Err(); ctxErr != nil && errors.Is(err, ctxErr) {
+			return nil, err
+		}
 		_ = s.Close(CloseReasonStreamProtocolError)
 		return nil, err
 	}
@@ -238,9 +247,12 @@ func (s *quicPeerSession) AcceptStream(ctx context.Context) (*AcceptedStream, er
 		_ = s.Close(CloseReasonTransportFatal)
 		return nil, err
 	}
-	open, err := ReadStreamOpen(stream)
+	open, err := readStreamOpenWithContext(ctx, stream)
 	if err != nil {
 		_ = stream.Close()
+		if ctxErr := ctx.Err(); ctxErr != nil && errors.Is(err, ctxErr) {
+			return nil, err
+		}
 		_ = s.Close(CloseReasonStreamProtocolError)
 		return nil, err
 	}

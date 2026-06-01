@@ -4,9 +4,8 @@ This binary is the Windows/Linux desktop shell for `miopunch`.
 
 ## Frontend assets
 
-For `v0`, the desktop UI is a fork of `internal/http_panel/assets/` (MD3 + xterm.js),
-copied into `cmd/miopunch-desktop/frontend/dist/` so it can be embedded into the
-desktop executable without a Node toolchain.
+The current desktop UI is committed under `cmd/miopunch-desktop/frontend/dist/`
+so it can be embedded into the desktop executable without a Node toolchain.
 
 ## Developer run path (Linux)
 
@@ -32,7 +31,7 @@ sibling `miopunch up` process from the same extracted session bundle.
 - Windows packaging uses Wails manual build tags with WebView2 embed
   (`desktop,production,wv2runtime.embed`).
 
-## Manual smoke checklist (session v0)
+## Manual smoke checklist (current v1 wizard)
 
 1. Extract the current session bundle as a normal user.
    - Windows: `miopunch_<version>_windows_amd64_session.zip`
@@ -41,7 +40,7 @@ sibling `miopunch up` process from the same extracted session bundle.
    - Windows: open `miopunch-desktop.exe`.
    - Linux: run `./miopunch-desktop`.
 3. Verify local connection.
-   - Settings > Diagnostics should show a connected LocalAPI endpoint.
+   - The top-right status chip should show a connected LocalAPI endpoint.
    - The GUI should reuse an existing same-user daemon or start the sibling `miopunch up --session`.
 4. Check local logs in the extracted bundle.
    - GUI: `logs/miopunch-desktop.log`
@@ -65,16 +64,23 @@ sibling `miopunch up` process from the same extracted session bundle.
    - Check `echo "$DISPLAY $WAYLAND_DISPLAY"`.
    - Check `ldd ./miopunch-desktop | grep 'not found'`.
    - Send `logs/miopunch-desktop.log` with the terminal output.
-8. Run a two-machine access smoke.
-   - Machine A: Access > Create invite > Create, then copy the invite code.
-   - Machine A: Access > Approve request, paste the code, and start approval.
-   - Machine B: Access > Join network, paste the code, and join.
-   - Refresh both machines and verify each peer appears in Network.
-9. Run peer operations.
-   - Open the remote peer and run Ping; expect payload exchange.
-   - Run List sessions, then Shell > Connect; verify terminal attach.
-10. Reports
-   - Open completed task reports and export them when diagnostics are needed.
+8. Run the Linux two-machine wizard smoke.
+   - Machine A: `Network` > bootstrap the current network or create a new one.
+   - Machine A: `Enroll` > Create invite, then copy the invite code.
+   - Machine A: `Enroll` > Approve a joiner, paste the same code, and keep approval running.
+   - Machine B: `Enroll` > Join a network, paste the invite code, and join.
+   - Refresh both machines and verify each peer appears in `Discover`.
+9. Run the secure-session path.
+   - `Punch` > select the remote peer and run Ping.
+   - `SecureSession` > confirm the ping gate is satisfied.
+   - `Shell` > Find targets or sessions if needed, then Open shell and verify terminal attach.
+10. Run the Windows desktop smoke.
+   - Verify GUI startup, daemon connection, and runtime contract rendering through the six-stage wizard.
+   - Validate summary/evidence rendering and diagnostics export locally.
+   - Treat Windows/Linux real-machine interoperability as optional follow-up, not a 07 blocker.
+11. Diagnostics
+   - Verify the runtime summary stays short while facts/suggestions remain visible under Evidence.
+   - Export diagnostics when evidence or logs are needed.
 
 ## Packaging notes (session v0)
 
@@ -83,5 +89,5 @@ sibling `miopunch up` process from the same extracted session bundle.
   `data/` and `logs/` directories, license/notice files when present, and smoke
   instructions.
 - NSIS and `.deb` scaffolds remain in the repo for the deferred `D1a-privileged`
-  route. They are not the current session smoke gate and must not be required to
+  route. They are not the current wizard smoke gate and must not be required to
   run `install-system-daemon` or `uninstall-system-daemon`.

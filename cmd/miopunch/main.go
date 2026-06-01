@@ -81,12 +81,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runJoin(opt, cmdArgs, stdout, stderr)
 	case "ping":
 		return runPing(opt, cmdArgs, stdout, stderr)
-	case "bootstrap-more":
-		return runBootstrapMore(opt, cmdArgs, stdout, stderr)
-	case "maintain-neighbors":
-		return runMaintainNeighbors(opt, cmdArgs, stdout, stderr)
-	case "topology":
-		return runTopology(opt, cmdArgs, stdout, stderr)
 	case "sh":
 		if len(cmdArgs) > 0 && cmdArgs[0] == "ls" {
 			return runShLS(opt, cmdArgs[1:], stdout, stderr)
@@ -94,18 +88,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runSh(opt, cmdArgs, stdout, stderr)
 	case "revoke":
 		return runRevoke(opt, cmdArgs, stdout, stderr)
-	case "reset":
-		return exitWithFailure(opt, stdout, stderr, "reset", "", failureOutput{
-			Stage:      "cli",
-			ReasonCode: poc.ReasonCodeNotImplemented,
-			ExitCode:   poc.ExitCodeBadRequest,
-			Facts: []poc.Fact{
-				{Message: "cmd: reset"},
-			},
-			Suggestions: []poc.Suggestion{
-				{Message: "see: docs/roadmap.md (POC roadmap)"},
-			},
-		})
 	case "debug-conpty-smoke":
 		return runDebugConPTYSmoke(opt, cmdArgs, stdout, stderr)
 	case "install-system-daemon":
@@ -153,19 +135,18 @@ Commands (POC, work in progress):
   invite
   approve
   join
-	  ping
-	  bootstrap-more
-	  maintain-neighbors
-	  topology
+  ping
   sh
   revoke
-  reset
   install-system-daemon
   uninstall-system-daemon
 
 Command flags:
   up --http_panel                    Enable loopback-only HTTP panel UI (MD3)
   up --http_panel_listen_addr <addr> HTTP panel listen address (default: 127.0.0.1:27400; host must be 127.0.0.1)
+  up --broker <endpoint>            Use an explicit MQTT broker endpoint for init-network
+  up --log-level trace|debug|info|warn|error
+                                    Set daemon log level (default: info)
   up --session                       Use portable session mode with ./data/state.json by default
   up --state_path <path>             Override daemon state path (lab/testing)
 

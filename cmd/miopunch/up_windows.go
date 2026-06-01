@@ -18,14 +18,13 @@ import (
 
 	"github.com/miopunch/miopunch/internal/http_panel"
 	"github.com/miopunch/miopunch/internal/localapi"
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/poc"
-	"github.com/miopunch/miopunch/internal/pocacceptor"
-	"github.com/miopunch/miopunch/internal/task"
+	pocruntime "github.com/miopunch/miopunch/internal/pocv1/runtime"
 )
 
 func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int {
 	_ = stdout
-	initDaemonLogger()
 
 	operatorSID, rest, err := parseOperatorSID(args)
 	if err != nil {
@@ -60,6 +59,12 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 	}
 	if strings.TrimSpace(globalOpt.LocalAPIOverride) != "" {
 		upOpt.LocalAPIOverride = strings.TrimSpace(globalOpt.LocalAPIOverride)
+	}
+	var logLevelErr error
+	upOpt, logLevelErr = applySessionLogLevel(upOpt)
+	initDaemonLogger(upOpt.LogLevel)
+	if logLevelErr != nil {
+		logutil.Warnf("session log config unavailable: %v", logLevelErr)
 	}
 	upOpt, err = applySessionStatePath(upOpt)
 	if err != nil {
@@ -297,14 +302,40 @@ func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, mo
 	}
 	defer func() { _ = ln.Close() }()
 
-	var mgr *task.Manager
-	if strings.TrimSpace(upOpt.StatePath) != "" {
-		mgr = task.NewManagerWithStatePath(upOpt.StatePath)
-	} else {
-		mgr = task.NewManager()
+	runtimeRoot, err := resolveRuntimeRoot(upOpt.StatePath)
+	if err != nil {
+		writeFailure(stderr, failureOutput{
+			Stage:      "daemon",
+			ReasonCode: poc.ReasonCodeUnavailable,
+			ExitCode:   poc.ExitCodeUnavailable,
+			Facts:      []poc.Fact{{Message: "failed to resolve runtime root: " + err.Error()}},
+			Suggestions: []poc.Suggestion{
+				{Message: "retry"},
+			},
+		})
+		return int(poc.ExitCodeUnavailable)
 	}
-	defer mgr.Close()
-	mgr.StartSessionKeepalive(ctx)
+	runtimeInstance, err := pocruntime.Open(pocruntime.Options{
+		Root:      runtimeRoot,
+		BrokerURL: strings.TrimSpace(upOpt.BrokerOverride),
+		LogLevel:  upOpt.LogLevel,
+	})
+	if err != nil {
+		writeFailure(stderr, failureOutput{
+			Stage:      "daemon",
+			ReasonCode: poc.ReasonCodeUnavailable,
+			ExitCode:   poc.ExitCodeUnavailable,
+			Facts: []poc.Fact{
+				{Message: "failed to open runtime: " + err.Error()},
+				{Message: "root=" + runtimeRoot},
+			},
+			Suggestions: []poc.Suggestion{
+				{Message: "retry"},
+			},
+		})
+		return int(poc.ExitCodeUnavailable)
+	}
+	defer func() { _ = runtimeInstance.Close() }()
 
 	var panel *http_panel.Server
 	var panelLn net.Listener
@@ -343,19 +374,17 @@ func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, mo
 			})
 			return int(poc.ExitCodeUnavailable)
 		}
-		panel = http_panel.NewServer(panelLn.Addr().String(), mgr)
+		panel = http_panel.NewServer(panelLn.Addr().String(), addr)
 		defer func() { _ = panelLn.Close() }()
 	}
 
-	api := localapi.NewServer(mode, mgr)
-	httpServer := &http.Server{
-		Handler: api.Handler(),
-	}
+	api := localapi.NewServer(mode, runtimeInstance)
+	defer func() { _ = api.Close() }()
 
 	panelHTTPServer := &http.Server{}
 	errCh := make(chan error, 2)
 	go func() {
-		errCh <- fmt.Errorf("localapi serve: %w", httpServer.Serve(ln))
+		errCh <- fmt.Errorf("localapi serve: %w", api.Serve(ln))
 	}()
 	if panel != nil && panelLn != nil {
 		panelHTTPServer.Handler = panel.Handler()
@@ -363,11 +392,9 @@ func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, mo
 			errCh <- fmt.Errorf("http panel serve: %w", panelHTTPServer.Serve(panelLn))
 		}()
 	}
-	go func() {
-		_ = pocacceptor.Run(ctx, pocacceptor.Config{StatePath: upOpt.StatePath, RuntimeEvidence: mgr})
-	}()
 
 	fmt.Fprintf(stderr, "miopunch up: serving LocalAPI (%s) at %s\n", mode, addr.String())
+	fmt.Fprintf(stderr, "miopunch up: runtime root %s\n", runtimeRoot)
 	if panel != nil {
 		fmt.Fprintf(stderr, "miopunch up: serving HTTP panel at %s/\n", panel.Origin())
 	}
@@ -376,7 +403,8 @@ func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, mo
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		_ = httpServer.Shutdown(shutdownCtx)
+		_ = ln.Close()
+		_ = api.Close()
 		_ = panelHTTPServer.Shutdown(shutdownCtx)
 		return 0
 	case err := <-errCh:

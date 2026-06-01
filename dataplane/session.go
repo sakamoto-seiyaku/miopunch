@@ -117,16 +117,9 @@ func (o StreamOpen) Normalize() StreamOpen {
 
 // WriteStreamOpen writes the logical stream-open envelope.
 func WriteStreamOpen(w io.Writer, open StreamOpen) error {
-	open = open.Normalize()
-	if open.Kind == "" {
-		return errors.New("stream kind is required")
-	}
-	data, err := json.Marshal(open)
+	data, err := marshalStreamOpen(open)
 	if err != nil {
-		return fmt.Errorf("marshal stream open: %w", err)
-	}
-	if len(data) > maxStreamOpenFrame {
-		return fmt.Errorf("stream open frame too large: %d", len(data))
+		return err
 	}
 	return writeFrame(w, data)
 }
@@ -137,6 +130,25 @@ func ReadStreamOpen(r io.Reader) (StreamOpen, error) {
 	if err != nil {
 		return StreamOpen{}, err
 	}
+	return unmarshalStreamOpen(data)
+}
+
+func marshalStreamOpen(open StreamOpen) ([]byte, error) {
+	open = open.Normalize()
+	if open.Kind == "" {
+		return nil, errors.New("stream kind is required")
+	}
+	data, err := json.Marshal(open)
+	if err != nil {
+		return nil, fmt.Errorf("marshal stream open: %w", err)
+	}
+	if len(data) > maxStreamOpenFrame {
+		return nil, fmt.Errorf("stream open frame too large: %d", len(data))
+	}
+	return data, nil
+}
+
+func unmarshalStreamOpen(data []byte) (StreamOpen, error) {
 	var open StreamOpen
 	if err := json.Unmarshal(data, &open); err != nil {
 		return StreamOpen{}, fmt.Errorf("unmarshal stream open: %w", err)
@@ -426,6 +438,7 @@ type SessionSummary struct {
 type SessionPathFacts struct {
 	LocalEndpoint  string `json:"local_endpoint,omitempty"`
 	RemoteEndpoint string `json:"remote_endpoint,omitempty"`
+	SelectedPath   string `json:"selected_path,omitempty"`
 	PunchStatus    string `json:"punch_status,omitempty"`
 	Port           string `json:"port,omitempty"`
 }
@@ -439,6 +452,7 @@ type SessionPathReporter interface {
 func (f SessionPathFacts) Normalize() SessionPathFacts {
 	f.LocalEndpoint = strings.TrimSpace(f.LocalEndpoint)
 	f.RemoteEndpoint = strings.TrimSpace(f.RemoteEndpoint)
+	f.SelectedPath = strings.TrimSpace(f.SelectedPath)
 	f.PunchStatus = strings.TrimSpace(f.PunchStatus)
 	f.Port = strings.TrimSpace(f.Port)
 	if f.Port == "" && f.RemoteEndpoint != "" {
@@ -455,6 +469,7 @@ func (f SessionPathFacts) Empty() bool {
 	f = f.Normalize()
 	return f.LocalEndpoint == "" &&
 		f.RemoteEndpoint == "" &&
+		f.SelectedPath == "" &&
 		f.PunchStatus == "" &&
 		f.Port == ""
 }
@@ -468,6 +483,9 @@ func (f SessionPathFacts) Merge(override SessionPathFacts) SessionPathFacts {
 	}
 	if override.RemoteEndpoint != "" {
 		f.RemoteEndpoint = override.RemoteEndpoint
+	}
+	if override.SelectedPath != "" {
+		f.SelectedPath = override.SelectedPath
 	}
 	if override.PunchStatus != "" {
 		f.PunchStatus = override.PunchStatus
@@ -587,6 +605,30 @@ func (m *SessionManager) Close(key SessionKey, reason CloseReason) {
 		_ = sess.Close(reason)
 	}
 	if sess != nil && changeHook != nil {
+		changeHook()
+	}
+}
+
+// CloseIfMatch closes and removes sess only if it is still the current session
+// for its key.
+func (m *SessionManager) CloseIfMatch(sess PeerSession, reason CloseReason) {
+	if m == nil || sess == nil {
+		return
+	}
+	key := sess.Key().Normalize()
+	m.mu.Lock()
+	current := m.sessions[key]
+	if current != sess {
+		m.mu.Unlock()
+		return
+	}
+	delete(m.sessions, key)
+	m.recordClosedLocked(sess, reason)
+	changeHook := m.changeHook
+	m.mu.Unlock()
+
+	_ = sess.Close(reason)
+	if changeHook != nil {
 		changeHook()
 	}
 }

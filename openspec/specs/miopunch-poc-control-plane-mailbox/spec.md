@@ -1,10 +1,22 @@
 # miopunch-poc-control-plane-mailbox Specification
 
 ## Purpose
-`miopunch-poc-control-plane-mailbox` defines control-plane delivery via an untrusted MQTT broker mailbox in POC.
+`miopunch-poc-control-plane-mailbox` defines legacy POC v0 control-plane delivery via an untrusted MQTT broker mailbox.
 It specifies how peer inbox topics are derived from `net_secret` and `peer_id`, and how join codes pin broker endpoints via `invite_brokers`.
 
+Current extracted `poc-v1` uses dedicated capabilities for single-broker bootstrap, persistence-owned topic derivation, and observation-only presence. This spec is no longer the source of truth for the extracted v1 path.
+
 ## Requirements
+### Requirement: Current extracted v1 treats this capability as legacy/v0 only
+The system SHALL treat this capability as the governing mailbox contract only for legacy/v0 paths.
+
+Current extracted `poc-v1` SHALL use `miopunch-poc-v1-enroll-bootstrap`, `miopunch-poc-v1-persistence`, and `miopunch-poc-v1-presence-discover` as the governing contracts for bootstrap broker selection, topic derivation, and presence semantics.
+
+#### Scenario: Extracted v1 implementers do not import mailbox semantics from this legacy spec
+- **WHEN** a developer implements or reviews the extracted `poc-v1` path
+- **THEN** they treat this mailbox capability as legacy/v0 reference material only
+- **AND** they do not use its multi-broker or signed-presence semantics as extracted-v1 source of truth
+
 ### Requirement: Peer inbox topics are deterministically derived and non-enumerable
 The system SHALL treat an MQTT broker as an untrusted mailbox for control-plane delivery.
 To avoid topic enumeration, the system SHALL derive each peer inbox topic as a high-entropy value (≥128 bits effective entropy) from `net_secret` and `peer_id`, without requiring centralized topic allocation.
@@ -59,8 +71,8 @@ If hostname resolution fails, the system SHALL keep the hostname in the join cod
 - **THEN** the system either writes a deterministic `ip:port` into `invite_brokers`
 - **OR** it keeps the hostname and emits a warning explaining the DNS/geo-splitting risk and remediation options
 
-### Requirement: invite_brokers are selected separately from runtime effective brokers
-Invite code broker endpoints SHALL come from the same broker candidate source as
+### Requirement: For legacy POC v0, invite_brokers are selected separately from runtime effective brokers
+Legacy POC v0 invite code broker endpoints SHALL come from the same broker candidate source as
 runtime broker selection:
 
 - if explicit `local.mqtt_broker` configuration exists, select only from that
@@ -88,8 +100,8 @@ reuse the current effective brokers rather than fail invite generation.
 - **AND** invite generation does not fail solely because separate invite brokers
   are unavailable
 
-### Requirement: Presence is delivered as signed control-plane state
-After a node joins a net, it SHALL publish signed presence state to active neighbors and to bootstrap/recovery contacts when no active neighbor is available.
+### Requirement: For legacy POC v0, presence is delivered as signed control-plane state
+After a legacy POC v0 node joins a net, it SHALL publish signed presence state to active neighbors and to bootstrap/recovery contacts when no active neighbor is available.
 
 Presence SHALL include sender identity, message ID, timestamp, state-head summaries, and reachability hints. Presence SHALL NOT include raw endpoint addresses, secret material, or data-plane payload.
 
@@ -111,8 +123,8 @@ The responder SHALL return a signed `bootstrap_more_response` with up to two de-
 - **AND** it does not include endpoint addresses or ports
 - **AND** the response returns de-duplicated peer candidates
 
-### Requirement: Joined peer signaling uses the net effective broker set
-The system SHALL use the net's pinned effective broker set for peer seed
+### Requirement: For legacy POC v0, joined peer signaling uses the net effective broker set
+The legacy POC v0 system SHALL use the net's pinned effective broker set for peer seed
 configs and runtime control-plane tasks after a node has joined a net, rather
 than each node's pre-join default broker or invite-only brokers.
 

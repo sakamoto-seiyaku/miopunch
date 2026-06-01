@@ -3,22 +3,20 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
-	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"golang.org/x/term"
 
 	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/internal/localapi"
 	"github.com/miopunch/miopunch/internal/poc"
+	pocruntime "github.com/miopunch/miopunch/internal/pocv1/runtime"
 	"github.com/miopunch/miopunch/internal/shellproto"
-	"github.com/miopunch/miopunch/internal/task"
 )
 
 func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
@@ -27,9 +25,7 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 			Stage:      "cli",
 			ReasonCode: poc.ReasonCodeBadRequest,
 			ExitCode:   poc.ExitCodeBadRequest,
-			Facts: []poc.Fact{
-				{Message: "--format json is not supported for interactive sh"},
-			},
+			Facts:      []poc.Fact{{Message: "--format json is not supported for interactive sh"}},
 			Suggestions: []poc.Suggestion{
 				{Message: "retry without --format json"},
 			},
@@ -38,19 +34,13 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 
 	peerID := ""
 	target := ""
-	session := "main"
+	sessionName := "main"
 	p2pNetwork := "auto"
 
-	i := 0
-	for i < len(args) {
-		a := args[i]
-		if a == "--" {
-			i++
-			break
-		}
-
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
 		switch {
-		case a == "-s" || a == "-session" || a == "--session":
+		case arg == "-s" || arg == "-session" || arg == "--session":
 			if i+1 >= len(args) {
 				return exitWithFailure(opt, stdout, stderr, "sh", "", failureOutput{
 					Stage:      "cli",
@@ -62,30 +52,19 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 					},
 				})
 			}
-			session = args[i+1]
-			i += 2
-			continue
-		case strings.HasPrefix(a, "-s="):
-			session = strings.TrimPrefix(a, "-s=")
 			i++
-			continue
-		case strings.HasPrefix(a, "--session="):
-			session = strings.TrimPrefix(a, "--session=")
-			i++
-			continue
-		case strings.HasPrefix(a, "-session="):
-			session = strings.TrimPrefix(a, "-session=")
-			i++
-			continue
-		case a == "-u":
+			sessionName = strings.TrimSpace(args[i])
+		case strings.HasPrefix(arg, "-s="):
+			sessionName = strings.TrimSpace(strings.TrimPrefix(arg, "-s="))
+		case strings.HasPrefix(arg, "--session="):
+			sessionName = strings.TrimSpace(strings.TrimPrefix(arg, "--session="))
+		case strings.HasPrefix(arg, "-session="):
+			sessionName = strings.TrimSpace(strings.TrimPrefix(arg, "-session="))
+		case arg == "-u":
 			p2pNetwork = "udp_only"
-			i++
-			continue
-		case a == "-t":
+		case arg == "-t":
 			p2pNetwork = "tcp_only"
-			i++
-			continue
-		case a == "--p2p-network":
+		case arg == "--p2p-network":
 			if i+1 >= len(args) {
 				return exitWithFailure(opt, stdout, stderr, "sh", "", failureOutput{
 					Stage:      "cli",
@@ -97,42 +76,36 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 					},
 				})
 			}
-			p2pNetwork = args[i+1]
-			i += 2
-			continue
-		case strings.HasPrefix(a, "--p2p-network="):
-			p2pNetwork = strings.TrimPrefix(a, "--p2p-network=")
 			i++
-			continue
-		case strings.HasPrefix(a, "-"):
+			p2pNetwork = strings.TrimSpace(args[i])
+		case strings.HasPrefix(arg, "--p2p-network="):
+			p2pNetwork = strings.TrimSpace(strings.TrimPrefix(arg, "--p2p-network="))
+		case strings.HasPrefix(arg, "-"):
 			return exitWithFailure(opt, stdout, stderr, "sh", "", failureOutput{
 				Stage:      "cli",
 				ReasonCode: poc.ReasonCodeBadRequest,
 				ExitCode:   poc.ExitCodeBadRequest,
-				Facts:      []poc.Fact{{Message: "unknown arg: " + a}},
+				Facts:      []poc.Fact{{Message: "unknown arg: " + arg}},
 				Suggestions: []poc.Suggestion{
 					{Message: "use: miopunch sh <peer_id> [target] [-s session] [-u|-t|--p2p-network ...]"},
 				},
 			})
 		default:
 			if peerID == "" {
-				peerID = a
+				peerID = arg
 			} else if target == "" {
-				target = a
+				target = arg
+			} else {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "unexpected extra arg: " + arg}},
+					Suggestions: []poc.Suggestion{
+						{Message: "use: miopunch sh <peer_id> [target] [-s session]"},
+					},
+				})
 			}
-			i++
-			continue
-		}
-	}
-
-	for ; i < len(args); i++ {
-		if peerID == "" {
-			peerID = args[i]
-			continue
-		}
-		if target == "" {
-			target = args[i]
-			continue
 		}
 	}
 
@@ -141,9 +114,7 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 			Stage:      "cli",
 			ReasonCode: poc.ReasonCodeBadRequest,
 			ExitCode:   poc.ExitCodeBadRequest,
-			Facts: []poc.Fact{
-				{Message: "missing peer_id"},
-			},
+			Facts:      []poc.Fact{{Message: "missing peer_id"}},
 			Suggestions: []poc.Suggestion{
 				{Message: "use: miopunch sh <peer_id> [target] [-s session]"},
 			},
@@ -163,54 +134,38 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 		})
 	}
 
-	return runShellInteractive(opt, task.ShAttachArgs{
+	return runShellInteractive(opt, pocruntime.ShellArgs{
 		PeerID:     peerID,
 		Target:     target,
-		Session:    strings.TrimSpace(session),
+		Session:    sessionName,
 		P2PNetwork: string(network),
 	}, stdout, stderr)
 }
 
-type wsWrite struct {
-	msgType int
-	data    []byte
+type shellFrame struct {
+	kind    string
+	payload []byte
 }
 
-type shellWSConn interface {
-	ReadMessage() (messageType int, p []byte, err error)
-	WriteMessage(messageType int, data []byte) error
-	Close() error
-}
-
-type shellTaskClient interface {
-	CreateTask(ctx context.Context, kind string, args any) (task.Task, error)
-	DialTaskWS(ctx context.Context, taskID string) (shellWSConn, *http.Response, error)
-	GetTask(ctx context.Context, taskID string) (task.Task, error)
-	GetTaskReport(ctx context.Context, taskID string) (string, error)
+type shellClient interface {
+	Action(context.Context, string, any) (pocruntime.ActionResult, error)
+	DialShell(context.Context, string) (io.ReadWriteCloser, error)
 }
 
 type localAPIShellClient struct {
 	client *localapi.Client
 }
 
-func (c localAPIShellClient) CreateTask(ctx context.Context, kind string, args any) (task.Task, error) {
-	return c.client.CreateTask(ctx, kind, args)
+func (c localAPIShellClient) Action(ctx context.Context, action string, args any) (pocruntime.ActionResult, error) {
+	return c.client.Action(ctx, action, args)
 }
 
-func (c localAPIShellClient) DialTaskWS(ctx context.Context, taskID string) (shellWSConn, *http.Response, error) {
-	return c.client.DialTaskWS(ctx, taskID)
-}
-
-func (c localAPIShellClient) GetTask(ctx context.Context, taskID string) (task.Task, error) {
-	return c.client.GetTask(ctx, taskID)
-}
-
-func (c localAPIShellClient) GetTaskReport(ctx context.Context, taskID string) (string, error) {
-	return c.client.GetTaskReport(ctx, taskID)
+func (c localAPIShellClient) DialShell(ctx context.Context, shellSessionID string) (io.ReadWriteCloser, error) {
+	return c.client.DialShell(ctx, shellSessionID)
 }
 
 type shellInteractiveDeps struct {
-	connect     func(context.Context, string) (shellTaskClient, error)
+	connect     func(context.Context, string) (shellClient, error)
 	stdin       io.Reader
 	stdinFD     func() int
 	isTerminal  func(int) bool
@@ -222,12 +177,12 @@ type shellInteractiveDeps struct {
 
 func defaultShellInteractiveDeps() shellInteractiveDeps {
 	return shellInteractiveDeps{
-		connect: func(ctx context.Context, override string) (shellTaskClient, error) {
-			c, _, err := connectLocalAPI(ctx, override)
+		connect: func(ctx context.Context, override string) (shellClient, error) {
+			client, _, err := connectLocalAPI(ctx, override)
 			if err != nil {
 				return nil, err
 			}
-			return localAPIShellClient{client: c}, nil
+			return localAPIShellClient{client: client}, nil
 		},
 		stdin:       os.Stdin,
 		stdinFD:     func() int { return int(os.Stdin.Fd()) },
@@ -239,64 +194,65 @@ func defaultShellInteractiveDeps() shellInteractiveDeps {
 	}
 }
 
-func runShellInteractive(opt globalOptions, args task.ShAttachArgs, stdout, stderr io.Writer) int {
+func runShellInteractive(opt globalOptions, args pocruntime.ShellArgs, stdout, stderr io.Writer) int {
 	return runShellInteractiveWithDeps(opt, args, stdout, stderr, defaultShellInteractiveDeps())
 }
 
-func runShellInteractiveWithDeps(opt globalOptions, args task.ShAttachArgs, stdout, stderr io.Writer, deps shellInteractiveDeps) int {
+func runShellInteractiveWithDeps(
+	opt globalOptions,
+	args pocruntime.ShellArgs,
+	stdout io.Writer,
+	stderr io.Writer,
+	deps shellInteractiveDeps,
+) int {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	apiCtx, cancelAPI := context.WithTimeout(ctx, 5*time.Second)
 	defer cancelAPI()
 
-	c, err := deps.connect(apiCtx, opt.LocalAPIOverride)
+	client, err := deps.connect(apiCtx, opt.LocalAPIOverride)
 	if err != nil {
 		return exitWithError(opt, stdout, stderr, "sh", "", err)
 	}
 
-	createCtx, cancelCreate := context.WithTimeout(ctx, 10*time.Second)
-	defer cancelCreate()
+	actionCtx, cancelAction := context.WithTimeout(ctx, actionTimeout("sh"))
+	defer cancelAction()
 
-	created, err := c.CreateTask(createCtx, "sh_attach", args)
+	result, err := client.Action(actionCtx, "sh", args)
 	if err != nil {
-		return exitWithError(opt, stdout, stderr, "sh_attach", "", err)
+		return exitWithError(opt, stdout, stderr, "sh", "", err)
 	}
-	fmt.Fprintf(stderr, "task_id=%s\n", created.ID)
-
-	wsCtx, cancelWS := context.WithTimeout(ctx, 10*time.Second)
-	defer cancelWS()
-
-	conn, resp, err := c.DialTaskWS(wsCtx, created.ID)
-	if resp != nil && resp.Body != nil {
-		_ = resp.Body.Close()
-	}
-	if err != nil {
-		return exitWithFailure(opt, stdout, stderr, "sh_attach", created.ID, failureOutput{
+	if err := exportReportMarkdown(opt.ReportPath, result.ReportMarkdown, opt.Redact); err != nil {
+		return exitWithFailure(opt, stdout, stderr, "sh", result.ShellSessionID, failureOutput{
 			Stage:      "cli",
-			ReasonCode: poc.ReasonCodeUnavailable,
-			ExitCode:   poc.ExitCodeUnavailable,
-			Facts: []poc.Fact{
-				{Message: "websocket connect failed: " + err.Error()},
-			},
+			ReasonCode: poc.ReasonCodeInternal,
+			ExitCode:   poc.ExitCodeInternal,
+			Facts:      []poc.Fact{{Message: "export report: " + err.Error()}},
 			Suggestions: []poc.Suggestion{
-				{Message: "retry"},
+				{Message: "check --report path and retry"},
 			},
 		})
 	}
-	defer func() { _ = conn.Close() }()
+
+	attachCtx, cancelAttach := context.WithTimeout(ctx, 10*time.Second)
+	defer cancelAttach()
+
+	stream, err := client.DialShell(attachCtx, result.ShellSessionID)
+	if err != nil {
+		return exitWithError(opt, stdout, stderr, "sh", result.ShellSessionID, err)
+	}
+	defer func() { _ = stream.Close() }()
 
 	stdinFD := deps.stdinFD()
-	var restoreTerm func()
 	if deps.isTerminal(stdinFD) {
 		oldState, err := deps.makeRaw(stdinFD)
 		if err == nil {
-			restoreTerm = func() { _ = deps.restoreTerm(stdinFD, oldState) }
-			defer restoreTerm()
+			defer func() { _ = deps.restoreTerm(stdinFD, oldState) }()
 		}
 	}
 
-	wsWriteCh := make(chan wsWrite, 64)
+	writeCh := make(chan shellFrame, 64)
 	var writerWG sync.WaitGroup
 
 	writerWG.Add(1)
@@ -308,9 +264,16 @@ func runShellInteractiveWithDeps(opt globalOptions, args task.ShAttachArgs, stdo
 			select {
 			case <-ctx.Done():
 				return
-			case msg := <-wsWriteCh:
-				if err := conn.WriteMessage(msg.msgType, msg.data); err != nil {
-					return
+			case frame := <-writeCh:
+				switch frame.kind {
+				case "json":
+					if err := shellproto.WriteFrame(stream, shellproto.KindJSON, frame.payload); err != nil {
+						return
+					}
+				default:
+					if err := shellproto.WriteFrame(stream, shellproto.KindData, frame.payload); err != nil {
+						return
+					}
 				}
 			}
 		}
@@ -325,7 +288,7 @@ func runShellInteractiveWithDeps(opt globalOptions, args task.ShAttachArgs, stdo
 			WinSize: &shellproto.WinSize{Cols: cols, Rows: rows},
 		})
 		select {
-		case wsWriteCh <- wsWrite{msgType: websocket.TextMessage, data: payload}:
+		case writeCh <- shellFrame{kind: "json", payload: payload}:
 		case <-ctx.Done():
 		}
 	}
@@ -344,7 +307,7 @@ func runShellInteractiveWithDeps(opt globalOptions, args task.ShAttachArgs, stdo
 			if n > 0 {
 				payload := append([]byte(nil), buf[:n]...)
 				select {
-				case wsWriteCh <- wsWrite{msgType: websocket.BinaryMessage, data: payload}:
+				case writeCh <- shellFrame{kind: "data", payload: payload}:
 				case <-ctx.Done():
 					return
 				}
@@ -356,83 +319,62 @@ func runShellInteractiveWithDeps(opt globalOptions, args task.ShAttachArgs, stdo
 	}()
 
 	for {
-		mt, payload, err := conn.ReadMessage()
+		kind, payload, err := shellproto.ReadFrame(stream)
 		if err != nil {
-			break
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			cancel()
+			writerWG.Wait()
+			return exitWithFailure(opt, stdout, stderr, "sh", result.ShellSessionID, failureOutput{
+				Stage:      "Shell",
+				ReasonCode: poc.ReasonCodeUnavailable,
+				ExitCode:   poc.ExitCodeUnavailable,
+				Facts:      []poc.Fact{{Message: "shell stream failed: " + err.Error()}},
+				Suggestions: []poc.Suggestion{
+					{Message: "retry"},
+				},
+			})
 		}
-		if mt == websocket.BinaryMessage {
+
+		switch kind {
+		case shellproto.KindData:
 			_, _ = stdout.Write(payload)
+		case shellproto.KindJSON:
+			var control shellproto.Control
+			if err := json.Unmarshal(payload, &control); err != nil {
+				cancel()
+				writerWG.Wait()
+				return exitWithFailure(opt, stdout, stderr, "sh", result.ShellSessionID, failureOutput{
+					Stage:      "Shell",
+					ReasonCode: poc.ReasonCodeInternal,
+					ExitCode:   poc.ExitCodeInternal,
+					Facts:      []poc.Fact{{Message: "decode shell control: " + err.Error()}},
+					Suggestions: []poc.Suggestion{
+						{Message: "retry"},
+					},
+				})
+			}
+			if control.Op == shellproto.OpShellExit {
+				cancel()
+				writerWG.Wait()
+				if control.OK {
+					return 0
+				}
+				return exitWithFailure(opt, stdout, stderr, "sh", result.ShellSessionID, failureOutput{
+					Stage:      "Shell",
+					ReasonCode: poc.ReasonCodeUnavailable,
+					ExitCode:   poc.ExitCodeUnavailable,
+					Facts:      []poc.Fact{{Message: "remote shell exited with failure"}},
+					Suggestions: []poc.Suggestion{
+						{Message: "retry"},
+					},
+				})
+			}
 		}
 	}
 
 	cancel()
 	writerWG.Wait()
-
-	finalCtx, cancelFinal := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancelFinal()
-
-	finalTask, err := waitForTaskDone(finalCtx, c, created.ID)
-	if err != nil {
-		return 0
-	}
-
-	if strings.TrimSpace(opt.ReportPath) != "" {
-		reportCtx, cancelReport := context.WithTimeout(context.Background(), 5*time.Second)
-		err := exportTaskReport(reportCtx, c, created.ID, opt.ReportPath, opt.Redact)
-		cancelReport()
-		if err != nil {
-			writeFailure(stderr, failureOutput{
-				Stage:      "cli",
-				ReasonCode: poc.ReasonCodeInternal,
-				ExitCode:   poc.ExitCodeInternal,
-				Facts: []poc.Fact{
-					{Message: "export report: " + err.Error()},
-				},
-				Suggestions: []poc.Suggestion{
-					{Message: "check --report path and retry"},
-				},
-			})
-			return int(poc.ExitCodeInternal)
-		}
-	}
-
-	if finalTask.ExitCode != poc.ExitCodeOK {
-		facts := finalTask.Facts
-		suggestions := finalTask.Suggestions
-		if opt.Redact {
-			facts = redactFacts(facts)
-			suggestions = redactSuggestions(suggestions)
-		}
-		writeFailure(stderr, failureOutput{
-			Stage:       string(finalTask.Stage),
-			ReasonCode:  finalTask.ReasonCode,
-			ExitCode:    finalTask.ExitCode,
-			Facts:       facts,
-			Suggestions: suggestions,
-		})
-	}
-	return int(finalTask.ExitCode)
-}
-
-func waitForTaskDone(ctx context.Context, c interface {
-	GetTask(context.Context, string) (task.Task, error)
-}, taskID string) (task.Task, error) {
-	deadline := time.Now().Add(4 * time.Second)
-	for {
-		t, err := c.GetTask(ctx, taskID)
-		if err == nil && t.Status == task.StatusDone {
-			return t, nil
-		}
-		if time.Now().After(deadline) {
-			if err != nil {
-				return task.Task{}, err
-			}
-			return t, fmt.Errorf("task not done")
-		}
-		select {
-		case <-ctx.Done():
-			return task.Task{}, ctx.Err()
-		case <-time.After(50 * time.Millisecond):
-		}
-	}
+	return 0
 }

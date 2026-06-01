@@ -1,178 +1,97 @@
-const { PEERS, calls, emitRuntime, expect, openDesktop, setRuntimeSnapshot, test } = require("./support/desktop");
+const { emitRuntime, expect, openDesktop, snapshotFor, test } = require("./support/desktop");
 
-test("runtime task snapshot and events update visible peer task state", async ({ page }) => {
-  await openDesktop(page);
-  await page.locator(`[data-open-peer="${PEERS.member}"]`).last().click();
-  await expect(page.locator(`[data-copy-peer="${PEERS.member}"]`)).toBeVisible();
+test("desktop runtime snapshot events refresh the active console view while preserving runtime stage state", async ({ page }) => {
+  await openDesktop(page, { snapshot: snapshotFor("Enroll") });
 
   await emitRuntime(page, "desktop:state", {
-    kind: "task.upsert",
-    base_rev: 0,
-    rev: 1,
-    task: {
-      task_id: "runtime-peer-task",
-      kind: "ping",
-      status: "running",
-      stage: "started",
-      facts: [{ message: `peer_id=${PEERS.member}` }],
-      suggestions: [],
-    },
-  });
-
-  await expect(page.locator(".node-status-panel .operation-status").getByText("started")).toBeVisible();
-
-  await emitRuntime(page, "desktop:state", {
-    kind: "task.upsert",
-    base_rev: 1,
-    rev: 2,
-    task: {
-      task_id: "runtime-peer-task",
-      kind: "ping",
-      status: "running",
-      stage: "payload exchanged",
-      facts: [{ message: `peer_id=${PEERS.member}` }],
-      suggestions: [],
-    },
-  });
-
-  await expect(page.locator(".node-status-panel .operation-status").getByText("payload exchanged")).toBeVisible();
-
-  await emitRuntime(page, "desktop:state", {
-    kind: "task.upsert",
-    base_rev: 2,
-    rev: 3,
-    task: {
-      task_id: "runtime-peer-task",
-      kind: "ping",
-      status: "done",
-      stage: "payload exchanged",
-      reason_code: "OK",
-      exit_code: 0,
-      report_ready: true,
-      facts: [{ message: `peer_id=${PEERS.member}` }],
-      suggestions: [],
-    },
-  });
-
-  await expect(page.locator(".node-status-panel .operation-status").getByText("done")).toBeVisible();
-});
-
-test("startup error runtime event shows a visible toast", async ({ page }) => {
-  await openDesktop(page);
-
-  await emitRuntime(page, "desktop:startup_error", {
-    component: "desktop",
-    error: {
-      reason_code: "daemon_not_running",
-      message: "LocalAPI is not reachable",
-    },
-  });
-
-  await expect(page.locator("#toast")).toContainText("desktop: daemon_not_running: LocalAPI is not reachable");
-});
-
-test("refresh restarts runtime stream after connected bootstrap failure", async ({ page }) => {
-  await openDesktop(page, { runtimeStartFailures: 1, path: "/?tab=settings&section=diagnostics" });
-
-  await expect(page.getByText("desktop_stream=failed")).toBeVisible();
-  const initialStarts = (await calls(page)).filter((call) => call.method === "DesktopRuntimeStart").length;
-  const initialResyncs = (await calls(page)).filter((call) => call.method === "DesktopRuntimeResync").length;
-
-  await page.getByRole("button", { name: "Refresh" }).click();
-
-  await expect.poll(async () => (await calls(page)).filter((call) => call.method === "DesktopRuntimeStart").length).toBeGreaterThan(initialStarts);
-  await expect.poll(async () => (await calls(page)).filter((call) => call.method === "DesktopRuntimeResync").length).toBe(initialResyncs);
-  await expect(page.getByText("desktop_stream=live")).toBeVisible();
-});
-
-test("revision gap resyncs runtime snapshot and applies caught-up state", async ({ page }) => {
-  await openDesktop(page, { runtimeResyncDelayMs: 40, timeoutMs: 500 });
-  await page.locator(`[data-open-peer="${PEERS.member}"]`).last().click();
-  await expect(page.locator(`[data-copy-peer="${PEERS.member}"]`)).toBeVisible();
-
-  const initialStarts = (await calls(page)).filter((call) => call.method === "DesktopRuntimeStart").length;
-  const initialResyncs = (await calls(page)).filter((call) => call.method === "DesktopRuntimeResync").length;
-
-  await setRuntimeSnapshot(page, {
-    rev: 3,
-    tasks: [],
-    diagnostics: [{ message: "desktop_runtime_rev=3" }],
-  });
-
-  await emitRuntime(page, "desktop:state", {
-    kind: "task.upsert",
-    base_rev: 2,
-    rev: 3,
-    task: {
-      task_id: "gap-trigger-task",
-      kind: "ping",
-      status: "running",
-      stage: "missed event",
-      facts: [{ message: `peer_id=${PEERS.member}` }],
-      suggestions: [],
-    },
-  });
-
-  await emitRuntime(page, "desktop:state", {
-    kind: "task.upsert",
-    base_rev: 3,
-    rev: 4,
-    task: {
-      task_id: "gap-recovered-task",
-      kind: "ping",
-      status: "running",
-      stage: "caught up after restart",
-      facts: [{ message: `peer_id=${PEERS.member}` }],
-      suggestions: [],
-    },
-  });
-
-  await expect.poll(async () => (await calls(page)).filter((call) => call.method === "DesktopRuntimeResync").length).toBeGreaterThan(initialResyncs);
-  await expect.poll(async () => (await calls(page)).filter((call) => call.method === "DesktopRuntimeStart").length).toBe(initialStarts);
-  await expect(page.locator(".node-status-panel .operation-status").getByText("caught up after restart")).toBeVisible();
-});
-
-test("runtime connection events re-render the active Diagnostics view immediately", async ({ page }) => {
-  await openDesktop(page, { path: "/?tab=settings&section=diagnostics" });
-  await emitRuntime(page, "desktop:runtime", {
-    kind: "connection",
-    connection: {
-      connected: false,
-      failure: {
-        reason_code: "daemon_not_running",
-        suggestions: [{ message: "retry desktop connection" }],
-        facts: [],
+    kind: "snapshot.updated",
+    snapshot: snapshotFor("Punch", {
+      summary: { text: "payload exchange is running" },
+      evidence: {
+        facts: [{ message: "attempt=1" }],
+        suggestions: [{ message: "wait for the secure-session gate" }],
       },
-    },
+    }),
   });
-  await expect(page.getByText("retry desktop connection")).toBeVisible();
+
+  await expect(page.locator("#topbar-title")).toHaveText("Network");
+  await expect(page.locator("#stage-chip")).toHaveText("Stage Punch");
+  await expect(page.getByText("payload exchange is running")).toBeVisible();
+  await expect(page.getByText("attempt=1")).toBeVisible();
+  await expect(page.getByText("wait for the secure-session gate")).toBeVisible();
 });
 
-test("runtime stream retrying event shows toast and diagnostics", async ({ page }) => {
-  await openDesktop(page, { path: "/?tab=settings&section=diagnostics" });
+test("manual tab selection stays pinned across snapshot refreshes", async ({ page }) => {
+  await openDesktop(page, { snapshot: snapshotFor("Enroll") });
+
+  await page.getByRole("button", { name: "Admin", exact: true }).click();
+  await expect(page.locator("#topbar-title")).toHaveText("Admin");
+
+  await emitRuntime(page, "desktop:state", {
+    kind: "snapshot.updated",
+    snapshot: snapshotFor("Punch", {
+      summary: { text: "payload exchange is running" },
+      evidence: {
+        facts: [{ message: "attempt=1" }],
+        suggestions: [{ message: "wait for the secure-session gate" }],
+      },
+    }),
+  });
+
+  await expect(page.locator("#topbar-title")).toHaveText("Admin");
+  await expect(page.locator("#stage-chip")).toHaveText("Stage Punch");
+  await expect(page.getByText("payload exchange is running")).toBeVisible();
+  await expect(page.getByText("attempt=1")).toBeVisible();
+});
+
+test("runtime transport events and connection events re-render the active view", async ({ page }) => {
+  await openDesktop(page, { snapshot: snapshotFor("Network") });
 
   await emitRuntime(page, "desktop:runtime", {
     kind: "stream_retrying",
     error: {
-      reason_code: "unavailable",
-      message: "desktop events disconnected",
+      stage: "desktop",
+      reason_code: "UNAVAILABLE",
+      exit_code: 69,
+      message: "event stream retrying",
+    },
+  });
+  await expect(page.getByText("UNAVAILABLE: event stream retrying")).toBeVisible();
+
+  await emitRuntime(page, "localapi:connection", {
+    connected: true,
+    selected: "override",
+    addr: "unix:/tmp/custom-localapi.sock",
+    user_addr: "unix:/tmp/miopunch-localapi.sock",
+    override_addr: "unix:/tmp/custom-localapi.sock",
+    desktop_managed: false,
+  });
+
+  await expect(page.locator("#connection-chip")).toHaveText("Connected via override");
+  await expect(page.getByText("unix:/tmp/custom-localapi.sock")).toBeVisible();
+});
+
+test("connection failure facts are rendered for diagnostics", async ({ page }) => {
+  await openDesktop(page, {
+    connection: {
+      connected: false,
+      selected: "none",
+      failure: {
+        stage: "Enroll",
+        reason_code: "TIMEOUT",
+        exit_code: 70,
+        message: "timed out waiting for enroll response",
+        facts: [
+          { message: "broker_endpoint=tcp://203.0.113.10:1883" },
+          { message: "join_topic=mp/v1/join/net-01" },
+          { message: "reply_topic=mp/v1/reply/peer-a/msg-01" },
+        ],
+      },
     },
   });
 
-  await expect(page.locator("#toast")).toContainText("Runtime stream retrying: unavailable: desktop events disconnected");
-  await expect(page.getByText("desktop_stream=retrying")).toBeVisible();
-  await expect(page.getByText("desktop_stream_error=unavailable")).toBeVisible();
-});
-
-test("runtime diagnostics replace re-renders the active Diagnostics view immediately", async ({ page }) => {
-  await openDesktop(page, { path: "/?tab=settings&section=diagnostics" });
-
-  await emitRuntime(page, "desktop:state", {
-    kind: "diagnostics.replace",
-    base_rev: 0,
-    rev: 1,
-    diagnostics: [{ message: "running_tasks=1" }],
-  });
-
-  await expect(page.getByText("running_tasks=1")).toBeVisible();
+  await expect(page.locator(".helper.helper-error").filter({ hasText: "TIMEOUT: timed out waiting for enroll response" }).first()).toBeVisible();
+  await expect(page.getByText("broker_endpoint=tcp://203.0.113.10:1883")).toBeVisible();
+  await expect(page.getByText("join_topic=mp/v1/join/net-01")).toBeVisible();
+  await expect(page.getByText("reply_topic=mp/v1/reply/peer-a/msg-01")).toBeVisible();
 });
