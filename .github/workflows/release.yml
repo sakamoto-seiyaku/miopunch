@@ -61,22 +61,12 @@ jobs:
       ref: ${{ needs.validate-tag.outputs.ref }}
       version: ${{ needs.validate-tag.outputs.tag }}
 
-  lab-core-gates:
-    name: Lab core gates
-    needs: validate-tag
-    uses: ./.github/workflows/lab-core-gates.yml
-    permissions:
-      contents: read
-    with:
-      ref: ${{ needs.validate-tag.outputs.ref }}
-
   publish:
     name: Publish GitHub Release
     needs:
       - validate-tag
       - go-checks
       - build-artifacts
-      - lab-core-gates
     runs-on: ubuntu-24.04
     permissions:
       contents: write

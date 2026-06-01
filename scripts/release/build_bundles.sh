@@ -183,7 +183,6 @@ build_bundle() {
   (
     cd "${repo_root}"
     GOOS="${goos}" GOARCH="${goarch}" CGO_ENABLED=0 "${go_bin}" build -trimpath -ldflags "${ldflags}" -o "${target_dir}/miopunch${ext}" ./cmd/miopunch
-    GOOS="${goos}" GOARCH="${goarch}" CGO_ENABLED=0 "${go_bin}" build -trimpath -ldflags "${ldflags}" -o "${target_dir}/miopunch-lab${ext}" ./cmd/miopunch-lab
     GOOS="${goos}" GOARCH="${goarch}" CGO_ENABLED=0 "${go_bin}" build -trimpath -ldflags "${ldflags}" -o "${target_dir}/miopunch-poc-e2e${ext}" ./tools/miopunch-poc-e2e
   )
   copy_notices "${target_dir}"

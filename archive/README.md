@@ -13,3 +13,5 @@ the active design path.
     `poc-v1-01..07` changes are extracting away from.
   - The active root module no longer carries those live source paths; this
     archive is now the retained reference copy.
+  - Retired lab/control-plane smoke commands live under `live_removed/` so
+    root-module `go test ./...` stays focused on the current POC product path.

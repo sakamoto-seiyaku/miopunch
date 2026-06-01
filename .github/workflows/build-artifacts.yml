@@ -16,7 +16,7 @@ on:
         required: false
         type: string
       version:
-        description: Release version to embed, for example v0.1.0-rc.1
+        description: Release version to embed, for example v0.0.3
         required: false
         type: string
 
@@ -57,11 +57,56 @@ jobs:
           path: dist/release/*
           if-no-files-found: error
 
+  android-control-lite:
+    name: Android control-lite APK
+    runs-on: ubuntu-24.04
+    env:
+      MIOPUNCH_VERSION: ${{ inputs.version }}
+      ANDROID_PLATFORM: android-36
+      ANDROID_BUILD_TOOLS_VERSION: 36.0.0
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Build Android control-lite APK
+        run: bash scripts/release/build_android_control_lite.sh
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-control-lite-apk
+          path: dist/release/*.apk
+          if-no-files-found: error
+
   assemble:
     name: Assemble release assets
     runs-on: ubuntu-24.04
     needs:
       - session-bundles
+      - android-control-lite
     env:
       MIOPUNCH_VERSION: ${{ inputs.version }}
     steps:
