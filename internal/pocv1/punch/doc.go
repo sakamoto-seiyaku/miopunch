@@ -13,8 +13,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-// Package punch owns the extracted current v1 UDP-only dial/punch contract,
-// roster-backed identity validation, bounded runtime, and PathResult handoff.
+// Package punch owns the extracted current v1 UDP direct-first dial/punch
+// contract, roster-backed identity validation, bounded runtime, and PathResult
+// handoff.
 //
 // The current v1 runtime uses one caller-owned UDP socket and one shared
 // traversal demux for the full attempt matrix. Local candidates are therefore a

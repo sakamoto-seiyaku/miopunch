@@ -7,15 +7,20 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/miopunch/miopunch/internal/desktopbridge"
 	"github.com/miopunch/miopunch/internal/localapi"
 	"github.com/miopunch/miopunch/internal/poc"
 	pocruntime "github.com/miopunch/miopunch/internal/pocv1/runtime"
+	"github.com/miopunch/miopunch/internal/sessionconfig"
 )
 
 func TestRunRuntimeEventsPumpClosedBeforeSnapshotFailsBootstrap(t *testing.T) {
@@ -94,6 +99,59 @@ func TestRunRuntimeEventsPumpClosedAfterSnapshotEmitsRetrying(t *testing.T) {
 	waitDesktopPumpDone(t, done)
 }
 
+func TestStopEventsPumpClosesActiveEventStream(t *testing.T) {
+	body := newBlockingRuntimeEventsBody()
+	app := NewApp()
+
+	snapshot, err := app.startRuntimeEventsPump(&scriptRuntimeEventsOpener{
+		bodies: []io.ReadCloser{body},
+	})
+	if err != nil {
+		t.Fatalf("startRuntimeEventsPump() error = %v, want nil", err)
+	}
+	if snapshot.Stage != pocruntime.StageNetwork {
+		t.Fatalf("startRuntimeEventsPump() snapshot Stage = %q, want %q", snapshot.Stage, pocruntime.StageNetwork)
+	}
+
+	app.stopEventsPump()
+
+	if got := body.closeCalls(); got != 1 {
+		t.Fatalf("stopEventsPump() stream close calls = %d, want 1", got)
+	}
+	app.mu.Lock()
+	active := app.eventsBody
+	done := app.eventsDone
+	app.mu.Unlock()
+	if active != nil {
+		t.Fatalf("stopEventsPump() active stream = %v, want nil", active)
+	}
+	if done != nil {
+		t.Fatalf("stopEventsPump() eventsDone = %v, want nil", done)
+	}
+}
+
+func TestShutdownStopsEventPumpAndManagedDaemon(t *testing.T) {
+	body := newBlockingRuntimeEventsBody()
+	managed := &fakeManagedDaemon{}
+	app := NewApp()
+	app.managedDaemon = managed
+
+	if _, err := app.startRuntimeEventsPump(&scriptRuntimeEventsOpener{
+		bodies: []io.ReadCloser{body},
+	}); err != nil {
+		t.Fatalf("startRuntimeEventsPump() error = %v, want nil", err)
+	}
+
+	app.shutdown(context.Background())
+
+	if got := body.closeCalls(); got != 1 {
+		t.Fatalf("shutdown() stream close calls = %d, want 1", got)
+	}
+	if managed.stopCalls != 1 {
+		t.Fatalf("shutdown() managed daemon stop calls = %d, want 1", managed.stopCalls)
+	}
+}
+
 func TestRedactDiagnosticsText(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -128,6 +186,94 @@ func TestRedactDiagnosticsText(t *testing.T) {
 				t.Fatalf("redactDiagnosticsText(%q) = %q, want %q", tt.value, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSaveDesktopConfigRequiresLogLevel(t *testing.T) {
+	app := NewApp()
+
+	got := app.SaveDesktopConfig(DesktopConfigUpdate{})
+	if got.OK {
+		t.Fatalf("SaveDesktopConfig(empty).OK = true, want false")
+	}
+	if got.Error == nil {
+		t.Fatalf("SaveDesktopConfig(empty).Error = nil, want error")
+	}
+	if got.Error.ReasonCode != poc.ReasonCodeBadRequest {
+		t.Fatalf("SaveDesktopConfig(empty).Error.ReasonCode = %q, want %q", got.Error.ReasonCode, poc.ReasonCodeBadRequest)
+	}
+}
+
+func TestSaveDesktopConfigPersistsAndAppliesLogLevel(t *testing.T) {
+	if goruntime.GOOS == "windows" {
+		t.Skip("unix listener test")
+	}
+
+	configPath := filepath.Join(t.TempDir(), "data", "session_config.json")
+	oldSessionConfigPath := desktopSessionConfigPath
+	desktopSessionConfigPath = func() (string, error) {
+		return configPath, nil
+	}
+	t.Cleanup(func() { desktopSessionConfigPath = oldSessionConfigPath })
+
+	runtimeInstance, err := pocruntime.Open(pocruntime.Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("runtime.Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = runtimeInstance.Close() })
+
+	socketPath := filepath.Join(t.TempDir(), "localapi.sock")
+	listener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		t.Fatalf("net.Listen(unix) error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+
+	server := localapi.NewServer(localapi.ListenModeUser, runtimeInstance)
+	t.Cleanup(func() { _ = server.Close() })
+	go func() { _ = server.Serve(listener) }()
+
+	client, err := localapi.NewClient(localapi.Addr{Transport: localapi.TransportUnix, Path: socketPath})
+	if err != nil {
+		t.Fatalf("localapi.NewClient() error = %v, want nil", err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if err := client.ProbeStatus(context.Background()); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("ProbeStatus() did not succeed before deadline")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	app := NewApp()
+	app.client = client
+	app.connState = desktopbridge.ConnectionState{
+		Connected: true,
+		Selected:  desktopbridge.EndpointUser,
+		Addr:      "unix:" + socketPath,
+	}
+
+	got := app.SaveDesktopConfig(DesktopConfigUpdate{
+		Preferences: DesktopConfigPreferences{LogLevel: "debug"},
+	})
+	if !got.OK {
+		t.Fatalf("SaveDesktopConfig(debug).OK = false, error = %+v", got.Error)
+	}
+	if got.State == nil {
+		t.Fatalf("SaveDesktopConfig(debug).State = nil, want snapshot")
+	}
+	if got.State.Config.Effective.Preferences.LogLevel != "debug" {
+		t.Fatalf("SaveDesktopConfig(debug).State.Config.Effective.Preferences.LogLevel = %q, want debug", got.State.Config.Effective.Preferences.LogLevel)
+	}
+	config, err := sessionconfig.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("sessionconfig.ReadFile(%q) error = %v, want nil", configPath, err)
+	}
+	if config.Preferences.LogLevel != "debug" {
+		t.Fatalf("sessionconfig.ReadFile(%q).Preferences.LogLevel = %q, want debug", configPath, config.Preferences.LogLevel)
 	}
 }
 
@@ -214,6 +360,51 @@ func (o *scriptRuntimeEventsOpener) OpenEvents(ctx context.Context) (io.ReadClos
 	}
 	<-ctx.Done()
 	return nil, ctx.Err()
+}
+
+type blockingRuntimeEventsBody struct {
+	mu     sync.Mutex
+	once   sync.Once
+	data   []byte
+	closed chan struct{}
+	closes int
+}
+
+func newBlockingRuntimeEventsBody() *blockingRuntimeEventsBody {
+	return &blockingRuntimeEventsBody{
+		data:   []byte(`{"kind":"snapshot","snapshot":{"stage":"Network","summary":{"text":"ready"},"evidence":{"facts":[],"suggestions":[]},"discover_view":{},"peer_sessions":[],"shell_sessions":[]}}` + "\n"),
+		closed: make(chan struct{}),
+	}
+}
+
+func (b *blockingRuntimeEventsBody) Read(p []byte) (int, error) {
+	b.mu.Lock()
+	if len(b.data) > 0 {
+		n := copy(p, b.data)
+		b.data = b.data[n:]
+		b.mu.Unlock()
+		return n, nil
+	}
+	b.mu.Unlock()
+
+	<-b.closed
+	return 0, io.ErrClosedPipe
+}
+
+func (b *blockingRuntimeEventsBody) Close() error {
+	b.once.Do(func() {
+		b.mu.Lock()
+		b.closes++
+		b.mu.Unlock()
+		close(b.closed)
+	})
+	return nil
+}
+
+func (b *blockingRuntimeEventsBody) closeCalls() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.closes
 }
 
 func receiveRuntimeSnapshot(t *testing.T, ch <-chan localapi.Snapshot) localapi.Snapshot {

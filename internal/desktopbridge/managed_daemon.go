@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/miopunch/miopunch/internal/bundlepath"
+	"github.com/miopunch/miopunch/internal/sessionconfig"
 )
 
 const daemonOutputLimit = 16 * 1024
@@ -72,7 +73,20 @@ func managedDaemonArgs(daemonPath string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resolve session state path: %w", err)
 	}
-	return []string{"up", "--session", "--state_path", statePath}, nil
+	args := []string{"up", "--session", "--state_path", statePath}
+
+	configPath, err := bundlepath.SessionConfigPathForExecutable(daemonPath)
+	if err != nil {
+		return nil, fmt.Errorf("resolve session config path: %w", err)
+	}
+	config, ok, err := sessionconfig.ReadFileIfExists(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("read session config: %w", err)
+	}
+	if ok {
+		args = append(args, "--log-level", config.Preferences.LogLevel)
+	}
+	return args, nil
 }
 
 // PID returns the managed daemon process ID when available.

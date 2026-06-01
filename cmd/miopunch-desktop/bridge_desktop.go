@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -17,7 +18,9 @@ import (
 	"github.com/miopunch/miopunch/internal/bundlepath"
 	"github.com/miopunch/miopunch/internal/desktopbridge"
 	"github.com/miopunch/miopunch/internal/localapi"
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/poc"
+	"github.com/miopunch/miopunch/internal/sessionconfig"
 )
 
 type RuntimeActionResult struct {
@@ -40,6 +43,24 @@ type DesktopRuntimeResult struct {
 	State      *localapi.Snapshot             `json:"state,omitempty"`
 }
 
+// SaveDesktopConfigResult is returned after saving desktop runtime config.
+type SaveDesktopConfigResult struct {
+	OK         bool                           `json:"ok"`
+	Error      *desktopbridge.BridgeError     `json:"error,omitempty"`
+	Connection *desktopbridge.ConnectionState `json:"connection,omitempty"`
+	State      *localapi.Snapshot             `json:"state,omitempty"`
+}
+
+// DesktopConfigUpdate contains desktop settings changes from the GUI.
+type DesktopConfigUpdate struct {
+	Preferences DesktopConfigPreferences `json:"preferences,omitempty"`
+}
+
+// DesktopConfigPreferences contains user preference updates.
+type DesktopConfigPreferences struct {
+	LogLevel string `json:"log_level,omitempty"`
+}
+
 type DesktopRuntimeEvent struct {
 	Kind       string                         `json:"kind"`
 	Connection *desktopbridge.ConnectionState `json:"connection,omitempty"`
@@ -48,7 +69,10 @@ type DesktopRuntimeEvent struct {
 
 var errDesktopEventStreamClosed = errors.New("runtime event stream closed")
 
-const daemonDiagnosticsLogFileName = "miopunch.log"
+const (
+	daemonDiagnosticsLogFileName = "miopunch.log"
+	eventPumpStopTimeout         = 2 * time.Second
+)
 
 var diagnosticsRedactor = regexp.MustCompile(`(?i)(secret_key|invite_code|join_code|net_secret_b64|invite_secret_b64|ed25519_seed_b64|x25519_priv_b64|private_key|password|token)(["=: ]+)([^"\s,}]+)`)
 
@@ -56,16 +80,36 @@ type runtimeEventsOpener interface {
 	OpenEvents(context.Context) (io.ReadCloser, error)
 }
 
+type runtimeEventStream struct {
+	body io.Closer
+}
+
 func (a *App) Connect() desktopbridge.ConnectionState {
+	startedAt := time.Now()
+	logutil.Debugf("desktop connect start")
 	_, state := a.connectLocalAPI()
 	a.emitConnectionState(state)
+	logutil.Debugf(
+		"desktop connect done: elapsed_ms=%d connected=%t selected=%s addr=%s",
+		time.Since(startedAt).Milliseconds(),
+		state.Connected,
+		state.Selected,
+		state.Addr,
+	)
 	return state
 }
 
 func (a *App) DesktopRuntimeStart() DesktopRuntimeResult {
+	startedAt := time.Now()
+	logutil.Debugf("desktop runtime start begin")
 	client, state := a.connectLocalAPI()
 	a.emitConnectionState(state)
 	if !state.Connected {
+		logutil.Debugf(
+			"desktop runtime start done: elapsed_ms=%d connected=false reason_code=%s",
+			time.Since(startedAt).Milliseconds(),
+			bridgeReasonCode(state.Failure),
+		)
 		return DesktopRuntimeResult{
 			OK:         false,
 			Error:      state.Failure,
@@ -75,6 +119,11 @@ func (a *App) DesktopRuntimeStart() DesktopRuntimeResult {
 
 	snapshot, err := a.startRuntimeEventsPump(client)
 	if err != nil {
+		logutil.Debugf(
+			"desktop runtime start done: elapsed_ms=%d connected=true reason_code=%s",
+			time.Since(startedAt).Milliseconds(),
+			err.ReasonCode,
+		)
 		return DesktopRuntimeResult{
 			OK:         false,
 			Error:      err,
@@ -82,6 +131,11 @@ func (a *App) DesktopRuntimeStart() DesktopRuntimeResult {
 		}
 	}
 
+	logutil.Debugf(
+		"desktop runtime start done: elapsed_ms=%d connected=true stage=%s",
+		time.Since(startedAt).Milliseconds(),
+		snapshotStage(snapshot),
+	)
 	return DesktopRuntimeResult{
 		OK:         true,
 		Connection: &state,
@@ -90,9 +144,16 @@ func (a *App) DesktopRuntimeStart() DesktopRuntimeResult {
 }
 
 func (a *App) DesktopRuntimeResync() DesktopRuntimeResult {
+	startedAt := time.Now()
+	logutil.Debugf("desktop runtime resync start")
 	c, err := a.localAPIClient()
 	if err != nil {
 		state := a.ConnectionState()
+		logutil.Debugf(
+			"desktop runtime resync done: elapsed_ms=%d reason_code=%s",
+			time.Since(startedAt).Milliseconds(),
+			err.ReasonCode,
+		)
 		return DesktopRuntimeResult{
 			OK:         false,
 			Error:      err,
@@ -106,14 +167,25 @@ func (a *App) DesktopRuntimeResync() DesktopRuntimeResult {
 	snapshot, apiErr := c.GetSnapshot(ctx)
 	if apiErr != nil {
 		state := a.ConnectionState()
+		bridgeErr := bridgeErrorFromErr(apiErr)
+		logutil.Debugf(
+			"desktop runtime resync done: elapsed_ms=%d reason_code=%s",
+			time.Since(startedAt).Milliseconds(),
+			bridgeReasonCode(bridgeErr),
+		)
 		return DesktopRuntimeResult{
 			OK:         false,
-			Error:      bridgeErrorFromErr(apiErr),
+			Error:      bridgeErr,
 			Connection: &state,
 		}
 	}
 
 	state := a.ConnectionState()
+	logutil.Debugf(
+		"desktop runtime resync done: elapsed_ms=%d stage=%s",
+		time.Since(startedAt).Milliseconds(),
+		snapshot.Stage,
+	)
 	return DesktopRuntimeResult{
 		OK:         true,
 		Connection: &state,
@@ -122,8 +194,17 @@ func (a *App) DesktopRuntimeResync() DesktopRuntimeResult {
 }
 
 func (a *App) RuntimeAction(action string, args any) RuntimeActionResult {
+	action = strings.TrimSpace(action)
+	startedAt := time.Now()
+	logutil.Debugf("desktop runtime action start: action=%s", action)
 	c, err := a.localAPIClient()
 	if err != nil {
+		logutil.Debugf(
+			"desktop runtime action done: action=%s elapsed_ms=%d reason_code=%s",
+			action,
+			time.Since(startedAt).Milliseconds(),
+			err.ReasonCode,
+		)
 		return RuntimeActionResult{OK: false, Error: err}
 	}
 
@@ -132,9 +213,100 @@ func (a *App) RuntimeAction(action string, args any) RuntimeActionResult {
 
 	result, apiErr := c.Action(ctx, action, args)
 	if apiErr != nil {
-		return RuntimeActionResult{OK: false, Error: bridgeErrorFromErr(apiErr)}
+		bridgeErr := bridgeErrorFromErr(apiErr)
+		logutil.Debugf(
+			"desktop runtime action done: action=%s elapsed_ms=%d reason_code=%s",
+			action,
+			time.Since(startedAt).Milliseconds(),
+			bridgeReasonCode(bridgeErr),
+		)
+		return RuntimeActionResult{OK: false, Error: bridgeErr}
 	}
+	logutil.Debugf(
+		"desktop runtime action done: action=%s elapsed_ms=%d stage=%s reason_code=%s exit_code=%d",
+		action,
+		time.Since(startedAt).Milliseconds(),
+		result.Stage,
+		result.ReasonCode,
+		result.ExitCode,
+	)
 	return RuntimeActionResult{OK: true, Result: &result}
+}
+
+// SaveDesktopConfig persists supported desktop settings and applies them now.
+func (a *App) SaveDesktopConfig(update DesktopConfigUpdate) SaveDesktopConfigResult {
+	startedAt := time.Now()
+	rawLevel := strings.TrimSpace(update.Preferences.LogLevel)
+	if rawLevel == "" {
+		return SaveDesktopConfigResult{OK: false, Error: &desktopbridge.BridgeError{
+			Stage:      "desktop",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Message:    "missing log level",
+			Suggestions: []poc.Suggestion{
+				{Message: "choose a log level before saving"},
+			},
+		}}
+	}
+	level, err := sessionconfig.NormalizeLogLevel(rawLevel)
+	if err != nil {
+		return SaveDesktopConfigResult{OK: false, Error: &desktopbridge.BridgeError{
+			Stage:      "desktop",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Message:    "invalid log level",
+			Facts:      []poc.Fact{{Message: "log_level=" + rawLevel}},
+			Suggestions: []poc.Suggestion{
+				{Message: "use trace, debug, info, warn, or error"},
+			},
+		}}
+	}
+
+	path, err := desktopSessionConfigPath()
+	if err != nil {
+		return SaveDesktopConfigResult{OK: false, Error: bridgeErrorFromErr(err)}
+	}
+	config, err := sessionconfig.ReadFile(path)
+	if err != nil {
+		return SaveDesktopConfigResult{OK: false, Error: bridgeErrorFromErr(err)}
+	}
+	config.Preferences.LogLevel = level
+	if err := sessionconfig.WriteFile(path, config); err != nil {
+		return SaveDesktopConfigResult{OK: false, Error: bridgeErrorFromErr(err)}
+	}
+	logutil.SetLevel(level)
+	logutil.Infof("desktop log level changed: log_level=%s", level)
+
+	c, bridgeErr := a.localAPIClient()
+	if bridgeErr != nil {
+		state := a.ConnectionState()
+		return SaveDesktopConfigResult{OK: false, Error: bridgeErr, Connection: &state}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	snapshot, apiErr := c.SetLogLevel(ctx, level)
+	if apiErr != nil {
+		state := a.ConnectionState()
+		errResp := bridgeErrorFromErr(apiErr)
+		logutil.Debugf(
+			"desktop config save done: elapsed_ms=%d reason_code=%s",
+			time.Since(startedAt).Milliseconds(),
+			bridgeReasonCode(errResp),
+		)
+		return SaveDesktopConfigResult{OK: false, Error: errResp, Connection: &state}
+	}
+
+	state := a.ConnectionState()
+	logutil.Debugf(
+		"desktop config save done: elapsed_ms=%d log_level=%s",
+		time.Since(startedAt).Milliseconds(),
+		level,
+	)
+	return SaveDesktopConfigResult{
+		OK:         true,
+		Connection: &state,
+		State:      &snapshot,
+	}
 }
 
 func actionTimeout(action string) time.Duration {
@@ -355,6 +527,20 @@ func bridgeErrorFromErr(err error) *desktopbridge.BridgeError {
 	}
 }
 
+func bridgeReasonCode(err *desktopbridge.BridgeError) poc.ReasonCode {
+	if err == nil {
+		return poc.ReasonCodeOK
+	}
+	return err.ReasonCode
+}
+
+func snapshotStage(snapshot *localapi.Snapshot) string {
+	if snapshot == nil {
+		return ""
+	}
+	return string(snapshot.Stage)
+}
+
 func (a *App) emitConnectionState(state desktopbridge.ConnectionState) {
 	a.mu.Lock()
 	wailsCtx := a.ctx
@@ -422,16 +608,49 @@ func (a *App) stopEventsPump() {
 	a.mu.Lock()
 	cancel := a.eventsCancel
 	done := a.eventsDone
+	stream := a.eventsBody
 	a.eventsCancel = nil
 	a.eventsDone = nil
+	a.eventsBody = nil
 	a.mu.Unlock()
 
 	if cancel != nil {
 		cancel()
 	}
-	if done != nil {
-		<-done
+	if stream != nil && stream.body != nil {
+		_ = stream.body.Close()
 	}
+	if done != nil {
+		select {
+		case <-done:
+		case <-time.After(eventPumpStopTimeout):
+			logutil.Warnf("desktop runtime event pump did not stop before timeout")
+		}
+	}
+}
+
+func (a *App) registerEventStream(body io.Closer) *runtimeEventStream {
+	if body == nil {
+		return nil
+	}
+	stream := &runtimeEventStream{body: body}
+
+	a.mu.Lock()
+	a.eventsBody = stream
+	a.mu.Unlock()
+	return stream
+}
+
+func (a *App) clearEventStream(stream *runtimeEventStream) {
+	if stream == nil {
+		return
+	}
+
+	a.mu.Lock()
+	if a.eventsBody == stream {
+		a.eventsBody = nil
+	}
+	a.mu.Unlock()
 }
 
 func (a *App) runRuntimeEventsPump(
@@ -469,6 +688,15 @@ func (a *App) runRuntimeEventsPump(
 				return
 			}
 		}
+		if err := ctx.Err(); err != nil {
+			_ = body.Close()
+			return
+		}
+		stream := a.registerEventStream(body)
+		if stream == nil {
+			_ = body.Close()
+			return
+		}
 
 		initialStreamSnapshot := true
 		readErr := desktopbridge.ReadLocalAPITaskEvents(ctx, body, func(ev localapi.Event) error {
@@ -491,6 +719,7 @@ func (a *App) runRuntimeEventsPump(
 			}
 			return nil
 		})
+		a.clearEventStream(stream)
 		_ = body.Close()
 		if err := ctx.Err(); err != nil {
 			return

@@ -146,6 +146,56 @@ func appendProblemFacts(prob *problem, values ...string) *problem {
 	return prob
 }
 
+func selectedPathFromSession(sess session.PeerSession) string {
+	return strings.TrimSpace(dataplane.PathFactsFromSession(sess).SelectedPath)
+}
+
+func appendSessionPathProblemFacts(prob *problem, sess session.PeerSession) *problem {
+	if prob == nil {
+		return nil
+	}
+	selectedPath := selectedPathFromSession(sess)
+	if selectedPath == "" {
+		return prob
+	}
+	return appendProblemFacts(prob, "selected_path="+selectedPath)
+}
+
+func appendPathResultProblemFacts(prob *problem, result punch.PathResult) *problem {
+	if prob == nil {
+		return nil
+	}
+	values := []string{}
+	if selectedPath := strings.TrimSpace(result.Evidence.SelectedPath); selectedPath != "" {
+		values = append(values, "selected_path="+selectedPath)
+	}
+	if value := candidateFact("selected_local_candidate", result.Evidence.SelectedLocal); value != "" {
+		values = append(values, value)
+	}
+	if value := candidateFact("selected_remote_candidate", result.Evidence.SelectedRemote); value != "" {
+		values = append(values, value)
+	}
+	if remoteUDP := strings.TrimSpace(result.Evidence.SelectedRemoteUDP); remoteUDP != "" {
+		values = append(values, "selected_remote_udp="+remoteUDP)
+	} else if result.RemoteAddr != nil {
+		values = append(values, "selected_remote_udp="+result.RemoteAddr.String())
+	}
+	return appendProblemFacts(prob, values...)
+}
+
+func candidateFact(name string, candidate punch.Candidate) string {
+	name = strings.TrimSpace(name)
+	addr := strings.TrimSpace(candidate.Addr)
+	if name == "" || addr == "" {
+		return ""
+	}
+	kind := strings.TrimSpace(string(candidate.Kind))
+	if kind == "" {
+		return name + "=" + addr
+	}
+	return name + "=" + kind + "@" + addr
+}
+
 func (r *Runtime) doLS(ctx context.Context) (ActionResult, *problem) {
 	if err := r.ensureWorkers(ctx); err != nil {
 		return ActionResult{}, wrapProblem(StageDiscover, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "failed to start discover runtime", err, "retry")
@@ -814,17 +864,26 @@ func (r *Runtime) doPing(ctx context.Context, args PingArgs) (ActionResult, *pro
 		return ActionResult{}, problem
 	}
 	if problem := r.exchangePing(ctx, sess, peerID); problem != nil {
-		return ActionResult{}, problem
+		r.closePeerSessionOnTransportProblem(sess, problem)
+		return ActionResult{}, appendSessionPathProblemFacts(problem, sess)
 	}
+	selectedPath := selectedPathFromSession(sess)
 	facts := []poc.Fact{
 		{Message: "peer_id=" + peerID},
 		{Message: "ping=ok"},
 	}
-	lines := []string{"peer_id=" + peerID, "ping=ok"}
-	data := mustJSONMarshal(map[string]any{
+	lines := []string{"peer_id=" + peerID}
+	dataMap := map[string]any{
 		"peer_id": peerID,
 		"ok":      true,
-	})
+	}
+	if selectedPath != "" {
+		facts = append(facts, poc.Fact{Message: "selected_path=" + selectedPath})
+		lines = append(lines, "selected_path="+selectedPath)
+		dataMap["selected_path"] = selectedPath
+	}
+	lines = append(lines, "ping=ok")
+	data := mustJSONMarshal(dataMap)
 	report := markdownReport("ping", facts, nil)
 	return r.successResult(lines, facts, nil, data, report), nil
 }
@@ -865,7 +924,8 @@ func (r *Runtime) doShellList(ctx context.Context, args ShellArgs) (ActionResult
 		ReadyOnly: args.ReadyOnly,
 	})
 	if problem != nil {
-		return ActionResult{}, problem
+		r.closePeerSessionOnTransportProblem(sess, problem)
+		return ActionResult{}, appendSessionPathProblemFacts(problem, sess)
 	}
 
 	lines := []string{}
@@ -874,7 +934,11 @@ func (r *Runtime) doShellList(ctx context.Context, args ShellArgs) (ActionResult
 	} else {
 		lines = append(lines, reply.Sessions...)
 	}
+	selectedPath := selectedPathFromSession(sess)
 	facts := []poc.Fact{{Message: "peer_id=" + peerID}}
+	if selectedPath != "" {
+		facts = append(facts, poc.Fact{Message: "selected_path=" + selectedPath})
+	}
 	if strings.TrimSpace(reply.Target) == "" {
 		if args.ReadyOnly {
 			readyCount, unsupportedCount, unknownCount := readyStatusCounts(reply.TargetStatuses)
@@ -920,6 +984,9 @@ func (r *Runtime) doShellList(ctx context.Context, args ShellArgs) (ActionResult
 		"target":   reply.Target,
 		"targets":  reply.Targets,
 		"sessions": reply.Sessions,
+	}
+	if selectedPath != "" {
+		dataMap["selected_path"] = selectedPath
 	}
 	if args.ReadyOnly {
 		dataMap["target_statuses"] = reply.TargetStatuses
@@ -991,20 +1058,25 @@ func (r *Runtime) doShell(ctx context.Context, args ShellArgs) (ActionResult, *p
 		return ActionResult{}, problem
 	}
 	if problem := r.exchangePing(ctx, sess, peerID); problem != nil {
-		return ActionResult{}, problem
+		r.closePeerSessionOnTransportProblem(sess, problem)
+		return ActionResult{}, appendSessionPathProblemFacts(problem, sess)
 	}
 
 	target := strings.TrimSpace(args.Target)
 	sessionName := defaultShellSessionName(args.Session)
 	stream, reply, problem := r.openRemoteShellAttach(ctx, sess, target, sessionName)
 	if problem != nil {
-		return ActionResult{}, problem
+		r.closePeerSessionOnTransportProblem(sess, problem)
+		return ActionResult{}, appendSessionPathProblemFacts(problem, sess)
 	}
 
 	shellSessionID, err := wire.NewMsgID()
 	if err != nil {
 		_ = stream.Close()
-		return ActionResult{}, wrapProblem(StageShell, poc.ReasonCodeInternal, poc.ExitCodeInternal, "failed to allocate shell session id", err, "retry")
+		return ActionResult{}, appendSessionPathProblemFacts(
+			wrapProblem(StageShell, poc.ReasonCodeInternal, poc.ExitCodeInternal, "failed to allocate shell session id", err, "retry"),
+			sess,
+		)
 	}
 	nowUnixMs := time.Now().UTC().UnixMilli()
 	r.mu.Lock()
@@ -1022,18 +1094,24 @@ func (r *Runtime) doShell(ctx context.Context, args ShellArgs) (ActionResult, *p
 	r.mu.Unlock()
 	r.notifyChange("snapshot.updated")
 
+	selectedPath := selectedPathFromSession(sess)
 	facts := []poc.Fact{
 		{Message: "peer_id=" + peerID},
 		{Message: "shell_session_id=" + shellSessionID},
 		{Message: "target=" + reply.Target},
 		{Message: "session=" + reply.Session},
 	}
-	data := mustJSONMarshal(map[string]any{
+	dataMap := map[string]any{
 		"peer_id":          peerID,
 		"shell_session_id": shellSessionID,
 		"target":           reply.Target,
 		"session":          reply.Session,
-	})
+	}
+	if selectedPath != "" {
+		facts = append(facts, poc.Fact{Message: "selected_path=" + selectedPath})
+		dataMap["selected_path"] = selectedPath
+	}
+	data := mustJSONMarshal(dataMap)
 	report := markdownReport("sh", facts, nil)
 	result := r.successResult(nil, facts, nil, data, report)
 	result.ShellSessionID = shellSessionID
@@ -1218,7 +1296,10 @@ func (r *Runtime) ensurePeerSession(ctx context.Context, peerID string) (session
 	sess, err := session.Dial(ctx, r.sessionConfig(), result)
 	if err != nil {
 		_ = result.Close()
-		return nil, wrapProblem(StageSecureSession, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "failed to establish secure session", err, "retry")
+		return nil, appendPathResultProblemFacts(
+			wrapProblem(StageSecureSession, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "failed to establish secure session", err, "retry"),
+			result,
+		)
 	}
 	r.registerPeerSession(peerID, sess)
 	return sess, nil
@@ -1298,6 +1379,36 @@ func (r *Runtime) openShellStream(ctx context.Context, sess session.PeerSession)
 		return nil, wrapProblem(StageShell, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "failed to open shell stream", err, "retry")
 	}
 	return stream, nil
+}
+
+func (r *Runtime) closePeerSessionOnTransportProblem(sess session.PeerSession, problem *problem) {
+	if r == nil || sess == nil || !isPeerSessionTransportProblem(problem) {
+		return
+	}
+	r.peerSessions.CloseIfMatch(sess, dataplane.CloseReasonTransportFatal)
+}
+
+func isPeerSessionTransportProblem(problem *problem) bool {
+	if problem == nil {
+		return false
+	}
+	switch problem.reasonCode {
+	case poc.ReasonCodeUnavailable, poc.ReasonCodeTimeout:
+	default:
+		return false
+	}
+	if problem.stage == StageSecureSession {
+		return true
+	}
+	if problem.stage != StageShell {
+		return false
+	}
+	message := strings.TrimSpace(problem.message)
+	return strings.HasPrefix(message, "failed to open shell stream") ||
+		strings.HasPrefix(message, "failed to send shell control request") ||
+		strings.HasPrefix(message, "failed to read shell control response") ||
+		strings.HasPrefix(message, "failed to send shell attach request") ||
+		strings.HasPrefix(message, "failed to read shell attach response")
 }
 
 func (r *Runtime) currentBrokerEndpoint() string {

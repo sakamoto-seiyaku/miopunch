@@ -24,7 +24,7 @@ test("desktop runtime snapshot events refresh the active console view while pres
 test("manual tab selection stays pinned across snapshot refreshes", async ({ page }) => {
   await openDesktop(page, { snapshot: snapshotFor("Enroll") });
 
-  await page.getByRole("button", { name: "Admin" }).click();
+  await page.getByRole("button", { name: "Admin", exact: true }).click();
   await expect(page.locator("#topbar-title")).toHaveText("Admin");
 
   await emitRuntime(page, "desktop:state", {

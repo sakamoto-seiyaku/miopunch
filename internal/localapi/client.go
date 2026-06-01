@@ -57,6 +57,15 @@ func (c *Client) GetSnapshot(ctx context.Context) (Snapshot, error) {
 	return snapshot, nil
 }
 
+// SetLogLevel changes the daemon log level and returns the updated snapshot.
+func (c *Client) SetLogLevel(ctx context.Context, level string) (Snapshot, error) {
+	var snapshot Snapshot
+	if err := c.call(ctx, "set_log_level", LogLevelRequest{LogLevel: strings.TrimSpace(level)}, &snapshot); err != nil {
+		return Snapshot{}, err
+	}
+	return snapshot, nil
+}
+
 func (c *Client) Action(ctx context.Context, action string, args any) (ActionResult, error) {
 	req := ActionRequest{Action: strings.TrimSpace(action)}
 	if args != nil {

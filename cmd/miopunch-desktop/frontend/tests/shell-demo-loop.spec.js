@@ -1,14 +1,15 @@
-const { calls, expect, openDesktop, shellLog, snapshotFor, test } = require("./support/desktop");
+const { calls, closeShell, expect, openDesktop, shellLog, snapshotFor, test } = require("./support/desktop");
 
 test("shell attach stays gated on ping success and bridges with shell_session_id", async ({ page }) => {
   await openDesktop(page, { snapshot: snapshotFor("SecureSession") });
 
-  await page.getByRole("button", { name: "Shell" }).click();
+  await page.getByRole("button", { name: "Shell", exact: true }).click();
   await expect(page.locator("#topbar-title")).toHaveText("Shell");
   await expect(page.locator("#stage-chip")).toHaveText("Stage SecureSession");
-  await expect(page.locator(".helper.mt").filter({ hasText: "Run Ping first" })).toBeVisible();
+  await page.locator("[data-shell-peer]").first().click();
+  await expect(page.locator("#shell-status")).toContainText("Run Ping first");
   await expect(page.locator("#btn-ping")).toBeVisible();
-  await expect(page.locator("#btn-shell-open")).toBeDisabled();
+  await expect(page.locator("#btn-shell-connect")).toHaveCount(0);
 
   await page.locator("#btn-ping").click();
 
@@ -17,11 +18,8 @@ test("shell attach stays gated on ping success and bridges with shell_session_id
     return runtimeCalls.some((call) => call.action === "ping");
   }).toBe(true);
 
-  await expect(page.locator("#btn-shell-open")).toBeEnabled();
-  await page.locator("#btn-shell-open").click();
-
-  await expect(page.locator("#shell-output")).toContainText("[attached shell-session-01]");
-  await expect(page.locator("#shell-output")).toContainText("welcome to miopunch shell");
+  await expect(page.locator("#btn-shell-connect")).toBeEnabled();
+  await page.locator("#btn-shell-connect").click();
 
   await expect.poll(async () => shellLog(page)).toContainEqual(expect.objectContaining({
     type: "open",
@@ -29,12 +27,49 @@ test("shell attach stays gated on ping success and bridges with shell_session_id
     url: expect.stringContaining("/api/v1/shell/shell-session-01/ws?token=ui-test-token"),
   }));
 
-  await page.locator("#shell-input").fill("uname -a");
-  await page.locator("#form-shell-input button[type='submit']").click();
-
   await expect.poll(async () => shellLog(page)).toContainEqual(expect.objectContaining({
-    type: "send",
+    type: "message",
     sessionID: "shell-session-01",
-    data: "uname -a\n",
+    data: "welcome to miopunch shell\n",
   }));
 });
+
+test("remote shell exit closes without showing a websocket error", async ({ page }) => {
+  await openDesktop(page, { snapshot: snapshotFor("SecureSession") });
+
+  await openLiveShellAfterPing(page);
+  await closeShell(page, "shell-session-01", {
+    control: { op: "shell_exit", ok: true },
+    code: 1006,
+  });
+
+  await expect(page.locator("#shell-phase")).toHaveText("disconnected");
+  await expect(page.locator("#shell-status")).toContainText("Remote shell exited.");
+  await expect(page.locator("#shell-error")).toBeHidden();
+});
+
+test("unexpected shell websocket close remains visible as an error", async ({ page }) => {
+  await openDesktop(page, { snapshot: snapshotFor("SecureSession") });
+
+  await openLiveShellAfterPing(page);
+  await closeShell(page, "shell-session-01", { code: 1006 });
+
+  await expect(page.locator("#shell-phase")).toHaveText("disconnected");
+  await expect(page.locator("#shell-error")).toContainText("Disconnected: websocket closed (1006)");
+});
+
+async function openLiveShellAfterPing(page) {
+  await page.getByRole("button", { name: "Shell", exact: true }).click();
+  await page.locator("[data-shell-peer]").first().click();
+  await page.locator("#btn-ping").click();
+  await expect(page.locator("#btn-shell-connect")).toBeEnabled();
+  await page.locator("#btn-shell-connect").click();
+  await expect.poll(async () => shellLog(page)).toContainEqual(expect.objectContaining({
+    type: "open",
+    sessionID: "shell-session-01",
+  }));
+  await expect.poll(async () => shellLog(page)).toContainEqual(expect.objectContaining({
+    type: "message",
+    sessionID: "shell-session-01",
+  }));
+}

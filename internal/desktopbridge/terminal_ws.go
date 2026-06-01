@@ -271,7 +271,9 @@ func bridgeShellStream(ctx context.Context, shellSessionID string, frontConn *we
 				}
 			}
 			if err != nil {
-				if !errors.Is(err, io.EOF) {
+				if cleanShellStreamClose(err) {
+					writeFrontendClose(frontConn, websocket.CloseNormalClosure, "shell exited")
+				} else {
 					logutil.Infof("terminal bridge backend read closed: shell_session_id=%s err=%v", shellSessionID, err)
 				}
 				return
@@ -281,6 +283,18 @@ func bridgeShellStream(ctx context.Context, shellSessionID string, frontConn *we
 
 	wg.Wait()
 	closeAll()
+}
+
+func cleanShellStreamClose(err error) bool {
+	return err == nil || errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed)
+}
+
+func writeFrontendClose(frontConn *websocket.Conn, code int, reason string) {
+	_ = frontConn.WriteControl(
+		websocket.CloseMessage,
+		websocket.FormatCloseMessage(code, reason),
+		time.Now().Add(2*time.Second),
+	)
 }
 
 func isLoopbackRemote(remoteAddr string) bool {

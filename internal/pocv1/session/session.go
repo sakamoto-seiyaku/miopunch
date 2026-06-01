@@ -46,6 +46,7 @@ type peerSession struct {
 	key          dataplane.SessionKey
 	sess         *yamux.Session
 	transport    net.Conn
+	pathFacts    dataplane.SessionPathFacts
 	lastActivity time.Time
 	closeReason  dataplane.CloseReason
 	closed       bool
@@ -76,6 +77,12 @@ func (s *peerSession) Key() dataplane.SessionKey {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.key
+}
+
+func (s *peerSession) SessionPathFacts() dataplane.SessionPathFacts {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.pathFacts.Normalize()
 }
 
 func (s *peerSession) OpenStream(ctx context.Context, open StreamOpen) (io.ReadWriteCloser, error) {
@@ -434,11 +441,24 @@ func upgrade(ctx context.Context, cfg Config, result punch.PathResult, asClient 
 		key:          dataplane.SessionKey{RemotePeerID: result.RemoteIdentity.PeerID, Protocol: dataplane.ProtocolKCP, SecurityID: result.RemoteIdentity.PeerID, PathFamily: pathFamilyFromRemoteAddr(result.RemoteAddr)}.Normalize(),
 		sess:         mux,
 		transport:    transport,
+		pathFacts:    sessionPathFactsFromResult(result),
 		lastActivity: time.Now(),
 		done:         make(chan struct{}),
 	}
 	sess.startIdleCloser(cfg.IdleTimeout)
 	return sess, nil
+}
+
+func sessionPathFactsFromResult(result punch.PathResult) dataplane.SessionPathFacts {
+	var facts dataplane.SessionPathFacts
+	if result.Conn != nil && result.Conn.LocalAddr() != nil {
+		facts.LocalEndpoint = result.Conn.LocalAddr().String()
+	}
+	if result.RemoteAddr != nil {
+		facts.RemoteEndpoint = result.RemoteAddr.String()
+	}
+	facts.SelectedPath = result.Evidence.SelectedPath
+	return facts.Normalize()
 }
 
 func upgradeTransport(ctx context.Context, result punch.PathResult, tlsConfig *tls.Config, asClient bool) (*ownedConn, error) {
@@ -466,7 +486,7 @@ func dialTransport(ctx context.Context, result punch.PathResult, tlsConfig *tls.
 	tlsConn := tls.Client(kcpConn, tlsConfig)
 	return &ownedConn{
 		Conn:    tlsConn,
-		closers: []io.Closer{tlsConn, result.Conn},
+		closers: []io.Closer{tlsConn},
 	}, nil
 }
 
@@ -507,7 +527,7 @@ func acceptTransport(ctx context.Context, result punch.PathResult, tlsConfig *tl
 		tlsConn := tls.Server(kcpSess, tlsConfig)
 		return &ownedConn{
 			Conn:    tlsConn,
-			closers: []io.Closer{tlsConn, kcpSess, ln, result.Conn},
+			closers: []io.Closer{tlsConn, kcpSess, ln},
 		}, nil
 	}
 }

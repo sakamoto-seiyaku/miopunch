@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/poc"
 	pocruntime "github.com/miopunch/miopunch/internal/pocv1/runtime"
 )
@@ -145,8 +146,25 @@ func (s *Server) serveRPC(conn net.Conn, reader *bufio.Reader) {
 	}
 }
 
-func (s *Server) handleRPCRequest(request rpcRequest) rpcResponse {
-	response := rpcResponse{
+func (s *Server) handleRPCRequest(request rpcRequest) (response rpcResponse) {
+	method := strings.TrimSpace(request.Method)
+	startedAt := time.Now()
+	logutil.Debugf("localapi rpc start: method=%s", method)
+	defer func() {
+		elapsedMs := time.Since(startedAt).Milliseconds()
+		if response.Error != nil {
+			logutil.Debugf(
+				"localapi rpc done: method=%s elapsed_ms=%d error=%s",
+				method,
+				elapsedMs,
+				response.Error.Message,
+			)
+			return
+		}
+		logutil.Debugf("localapi rpc done: method=%s elapsed_ms=%d", method, elapsedMs)
+	}()
+
+	response = rpcResponse{
 		JSONRPC: rpcVersion,
 		ID:      request.ID,
 	}
@@ -177,6 +195,27 @@ func (s *Server) handleRPCRequest(request rpcRequest) rpcResponse {
 		})
 	case "snapshot":
 		response.Result = mustMarshalRaw(s.runtime.Snapshot())
+	case "set_log_level":
+		var params LogLevelRequest
+		if err := json.Unmarshal(request.Params, &params); err != nil {
+			response.Error = &rpcError{
+				Code:    -32602,
+				Message: "invalid params",
+				Data:    mustMarshalRaw(newProtocolProblem("decode log level params", err)),
+			}
+			return response
+		}
+		snapshot, problem := s.runtime.SetLogLevel(params.LogLevel)
+		if problem != nil {
+			resp := problem.ErrorResponse()
+			response.Error = &rpcError{
+				Code:    int(resp.ExitCode) * -1,
+				Message: problem.Error(),
+				Data:    mustMarshalRaw(resp),
+			}
+			return response
+		}
+		response.Result = mustMarshalRaw(snapshot)
 	case "action":
 		var params ActionRequest
 		if err := json.Unmarshal(request.Params, &params); err != nil {
@@ -187,9 +226,19 @@ func (s *Server) handleRPCRequest(request rpcRequest) rpcResponse {
 			}
 			return response
 		}
+		actionStartedAt := time.Now()
+		logutil.Debugf("localapi action start: action=%s", strings.TrimSpace(params.Action))
 		result, problem := s.runtime.Action(s.ctx, params.Action, params.Args)
 		if problem != nil {
 			resp := problem.ErrorResponse()
+			logutil.Debugf(
+				"localapi action done: action=%s elapsed_ms=%d stage=%s reason_code=%s exit_code=%d",
+				strings.TrimSpace(params.Action),
+				time.Since(actionStartedAt).Milliseconds(),
+				resp.Stage,
+				resp.ReasonCode,
+				resp.ExitCode,
+			)
 			response.Error = &rpcError{
 				Code:    int(resp.ExitCode) * -1,
 				Message: problem.Error(),
@@ -197,6 +246,14 @@ func (s *Server) handleRPCRequest(request rpcRequest) rpcResponse {
 			}
 			return response
 		}
+		logutil.Debugf(
+			"localapi action done: action=%s elapsed_ms=%d stage=%s reason_code=%s exit_code=%d",
+			strings.TrimSpace(params.Action),
+			time.Since(actionStartedAt).Milliseconds(),
+			result.Stage,
+			result.ReasonCode,
+			result.ExitCode,
+		)
 		response.Result = mustMarshalRaw(result)
 	default:
 		response.Error = &rpcError{

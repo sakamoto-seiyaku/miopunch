@@ -11,6 +11,7 @@ import (
 	"github.com/apernet/quic-go"
 	"golang.org/x/net/ipv4"
 
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/punchwire"
 	"github.com/miopunch/miopunch/internal/wire"
 )
@@ -260,13 +261,16 @@ func (d *TraversalDemux) run() {
 		if !punchwire.HasPunchTag(buf[:n]) {
 			continue
 		}
+		logutil.Tracef("udp traversal packet received: remote=%s bytes=%d", raddr.String(), n)
 
 		var m wire.NatHoleSid
 		if err := punchwire.DecodeMessageInto(buf[:n], d.key, &m); err != nil {
+			logutil.Tracef("udp traversal decode failed: remote=%s bytes=%d err=%v", raddr.String(), n, err)
 			continue
 		}
 		tx := strings.TrimSpace(m.TransactionID)
 		if tx == "" {
+			logutil.Tracef("udp traversal missing transaction: remote=%s sid=%s response=%t", raddr.String(), m.Sid, m.Response)
 			continue
 		}
 
@@ -277,20 +281,29 @@ func (d *TraversalDemux) run() {
 		ch := d.byTx[tx]
 		d.mu.Unlock()
 		if ch == nil {
+			logutil.Tracef("udp traversal unknown transaction: tx=%s sid=%s response=%t remote=%s", tx, m.Sid, m.Response, raddr.String())
 			// For unknown transaction IDs, best-effort respond to requests so the
 			// peer's attempt can still progress (the peer will correlate by its tx).
 			if !m.Response {
 				m.Response = true
 				if out, err := punchwire.EncodeMessage(&m, d.key); err == nil {
-					_ = d.send(context.Background(), out, raddr, 0)
+					if err := d.send(context.Background(), out, raddr, 0); err != nil {
+						logutil.Tracef("udp traversal unknown transaction auto-response failed: tx=%s sid=%s remote=%s err=%v", tx, m.Sid, raddr.String(), err)
+					} else {
+						logutil.Tracef("udp traversal unknown transaction auto-response sent: tx=%s sid=%s remote=%s", tx, m.Sid, raddr.String())
+					}
+				} else {
+					logutil.Tracef("udp traversal unknown transaction auto-response encode failed: tx=%s sid=%s remote=%s err=%v", tx, m.Sid, raddr.String(), err)
 				}
 			}
 			continue
 		}
 		select {
 		case ch <- packet{data: data, addr: raddr}:
+			logutil.Tracef("udp traversal routed packet: tx=%s sid=%s response=%t remote=%s", tx, m.Sid, m.Response, raddr.String())
 		default:
 			// Drop when full to keep owner recv loop unblocked.
+			logutil.Tracef("udp traversal endpoint queue full: tx=%s sid=%s response=%t remote=%s", tx, m.Sid, m.Response, raddr.String())
 		}
 	}
 }

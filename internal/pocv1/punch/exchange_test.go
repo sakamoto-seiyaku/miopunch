@@ -129,8 +129,8 @@ func TestWaitAndAnswerOfferIgnoresInvalidOfferBeforeValidOne(t *testing.T) {
 	cfg.UDPConn = conn
 	cfg.LocalCandidates = []Candidate{localCandidate}
 	cfg.AttemptConcurrency = 1
-	cfg.AttemptPair = func(ctx context.Context, demux *udpowner.TraversalDemux, plan pairPlan, key []byte) (*net.UDPAddr, error) {
-		return mustUDPAddr(t, plan.remote.Addr), nil
+	cfg.AttemptPair = func(ctx context.Context, demux *udpowner.TraversalDemux, plan pairPlan, key []byte) (AttemptPairResult, error) {
+		return AttemptPairResult{RemoteAddr: mustUDPAddr(t, plan.remote.Addr), Path: PathPunchingIPv4}, nil
 	}
 	session := &fakePeerMessageSession{
 		waitOpened: []signalmqtt.OpenedPeerMessage{
@@ -186,8 +186,8 @@ func TestWaitAndAnswerOfferReloadsRosterSnapshotForNewPeer(t *testing.T) {
 	cfg.UDPConn = conn
 	cfg.LocalCandidates = []Candidate{{Kind: CandidateKindHost, Addr: conn.LocalAddr().String()}}
 	cfg.AttemptConcurrency = 1
-	cfg.AttemptPair = func(ctx context.Context, demux *udpowner.TraversalDemux, plan pairPlan, key []byte) (*net.UDPAddr, error) {
-		return mustUDPAddr(t, plan.remote.Addr), nil
+	cfg.AttemptPair = func(ctx context.Context, demux *udpowner.TraversalDemux, plan pairPlan, key []byte) (AttemptPairResult, error) {
+		return AttemptPairResult{RemoteAddr: mustUDPAddr(t, plan.remote.Addr), Path: PathPunchingIPv4}, nil
 	}
 
 	delete(cfg.TrustedRosterByID, fx.remoteTrusted.PeerID)

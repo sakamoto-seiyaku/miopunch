@@ -74,6 +74,8 @@ func (d Diagnostic) Facts() []poc.Fact {
 		{Message: "local_candidates=" + formatCandidates(d.LocalCandidates)},
 		{Message: "remote_candidates=" + formatCandidates(d.RemoteCandidates)},
 		{Message: "attempt_results=" + summarizeAttemptResults(d.AttemptedPairs)},
+		{Message: "attempt_paths=" + summarizeAttemptPaths(d.AttemptedPairs)},
+		{Message: "attempt_details=" + formatAttemptDetails(d.AttemptedPairs)},
 	}
 	return facts
 }
@@ -110,4 +112,50 @@ func summarizeAttemptResults(attempts []AttemptEvidence) string {
 		parts = append(parts, fmt.Sprintf("%s=%d", result, counts[result]))
 	}
 	return strings.Join(parts, ",")
+}
+
+func summarizeAttemptPaths(attempts []AttemptEvidence) string {
+	if len(attempts) == 0 {
+		return "-"
+	}
+	counts := map[string]int{}
+	order := make([]string, 0, len(attempts))
+	for _, attempt := range attempts {
+		path := strings.TrimSpace(attempt.Path)
+		if path == "" {
+			path = "unknown"
+		}
+		if _, ok := counts[path]; !ok {
+			order = append(order, path)
+		}
+		counts[path]++
+	}
+	parts := make([]string, 0, len(order))
+	for _, path := range order {
+		parts = append(parts, fmt.Sprintf("%s=%d", path, counts[path]))
+	}
+	return strings.Join(parts, ",")
+}
+
+func formatAttemptDetails(attempts []AttemptEvidence) string {
+	if len(attempts) == 0 {
+		return "-"
+	}
+	parts := make([]string, 0, len(attempts))
+	for _, attempt := range attempts {
+		path := strings.TrimSpace(attempt.Path)
+		if path == "" {
+			path = "unknown"
+		}
+		result := strings.TrimSpace(attempt.Result)
+		if result == "" {
+			result = "unknown"
+		}
+		detail := strings.TrimSpace(attempt.Detail)
+		if detail == "" {
+			detail = "-"
+		}
+		parts = append(parts, fmt.Sprintf("%s:%s:%s->%s:%s", path, result, attempt.LocalCandidate.Addr, attempt.RemoteCandidate.Addr, detail))
+	}
+	return strings.Join(parts, "|")
 }

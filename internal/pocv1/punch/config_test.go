@@ -129,8 +129,8 @@ func TestWithAttemptBudgetCancelReturnsContextCanceled(t *testing.T) {
 func TestExecutePairPlansMarksGeneralFailure(t *testing.T) {
 	cfg := LoadedConfig{
 		AttemptConcurrency: 1,
-		AttemptPair: func(ctx context.Context, demux *udpowner.TraversalDemux, plan pairPlan, key []byte) (*net.UDPAddr, error) {
-			return nil, errors.New("boom")
+		AttemptPair: func(ctx context.Context, demux *udpowner.TraversalDemux, plan pairPlan, key []byte) (AttemptPairResult, error) {
+			return AttemptPairResult{}, errors.New("boom")
 		},
 	}
 	plans := []pairPlan{
@@ -151,18 +151,18 @@ func TestExecutePairPlansCancelsLosersAfterWinner(t *testing.T) {
 	loserDone := make(chan struct{}, 1)
 	cfg := LoadedConfig{
 		AttemptConcurrency: 2,
-		AttemptPair: func(ctx context.Context, demux *udpowner.TraversalDemux, plan pairPlan, key []byte) (*net.UDPAddr, error) {
+		AttemptPair: func(ctx context.Context, demux *udpowner.TraversalDemux, plan pairPlan, key []byte) (AttemptPairResult, error) {
 			if plan.index == 1 {
 				started <- struct{}{}
 				<-ctx.Done()
 				loserDone <- struct{}{}
-				return nil, ctx.Err()
+				return AttemptPairResult{}, ctx.Err()
 			}
 			<-allowWinner
 			if plan.index == 0 {
-				return &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 5002}, nil
+				return AttemptPairResult{RemoteAddr: &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 5002}, Path: PathPunchingIPv4}, nil
 			}
-			return nil, errors.New("unexpected attempt index")
+			return AttemptPairResult{}, errors.New("unexpected attempt index")
 		},
 	}
 	plans := []pairPlan{

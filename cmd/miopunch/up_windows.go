@@ -18,6 +18,7 @@ import (
 
 	"github.com/miopunch/miopunch/internal/http_panel"
 	"github.com/miopunch/miopunch/internal/localapi"
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/poc"
 	pocruntime "github.com/miopunch/miopunch/internal/pocv1/runtime"
 )
@@ -59,7 +60,12 @@ func runUp(globalOpt globalOptions, args []string, stdout, stderr io.Writer) int
 	if strings.TrimSpace(globalOpt.LocalAPIOverride) != "" {
 		upOpt.LocalAPIOverride = strings.TrimSpace(globalOpt.LocalAPIOverride)
 	}
+	var logLevelErr error
+	upOpt, logLevelErr = applySessionLogLevel(upOpt)
 	initDaemonLogger(upOpt.LogLevel)
+	if logLevelErr != nil {
+		logutil.Warnf("session log config unavailable: %v", logLevelErr)
+	}
 	upOpt, err = applySessionStatePath(upOpt)
 	if err != nil {
 		writeFailure(stderr, sessionStatePathFailure(err))
@@ -312,6 +318,7 @@ func serveUpWindows(ctx context.Context, operatorSID string, upOpt upOptions, mo
 	runtimeInstance, err := pocruntime.Open(pocruntime.Options{
 		Root:      runtimeRoot,
 		BrokerURL: strings.TrimSpace(upOpt.BrokerOverride),
+		LogLevel:  upOpt.LogLevel,
 	})
 	if err != nil {
 		writeFailure(stderr, failureOutput{

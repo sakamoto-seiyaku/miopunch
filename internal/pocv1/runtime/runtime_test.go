@@ -128,6 +128,47 @@ func TestSnapshotPreservesStatusEvidence(t *testing.T) {
 	}
 }
 
+func TestIsPeerSessionTransportProblem(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		problem *problem
+		want    bool
+	}{
+		{
+			name:    "shell stream open unavailable",
+			problem: wrapProblem(StageShell, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "failed to open shell stream", errors.New("closed"), "retry"),
+			want:    true,
+		},
+		{
+			name:    "shell control error is logical",
+			problem: newProblem(StageShell, poc.ReasonCodeSHTargetNotFound, poc.ExitCodeNotFound, "target not found", nil, nil),
+			want:    false,
+		},
+		{
+			name:    "ping gate rejection is logical",
+			problem: newProblem(StageShell, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "ping gate was rejected by the remote peer", nil, nil),
+			want:    false,
+		},
+		{
+			name:    "secure session unavailable",
+			problem: wrapProblem(StageSecureSession, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "failed to establish secure session", errors.New("closed"), "retry"),
+			want:    true,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := isPeerSessionTransportProblem(tc.problem); got != tc.want {
+				t.Fatalf("isPeerSessionTransportProblem(%q) = %t, want %t", tc.name, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestDoShell_PingGateRejectedStopsBeforeAttach(t *testing.T) {
 	t.Parallel()
 
@@ -155,6 +196,9 @@ func TestDoShell_PingGateRejectedStopsBeforeAttach(t *testing.T) {
 		},
 		lastActivity: time.Now().UTC(),
 		healthy:      true,
+		pathFacts: dataplane.SessionPathFacts{
+			SelectedPath: punch.PathDirectIPv4,
+		},
 		openStream: func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error) {
 			mu.Lock()
 			openCount++
@@ -196,6 +240,9 @@ func TestDoShell_PingGateRejectedStopsBeforeAttach(t *testing.T) {
 	if problem.reasonCode != poc.ReasonCodeUnavailable {
 		t.Fatalf("doShell() reasonCode = %q, want %q", problem.reasonCode, poc.ReasonCodeUnavailable)
 	}
+	if !hasFact(problem.facts, "selected_path="+punch.PathDirectIPv4) {
+		t.Fatalf("doShell() facts = %#v, want selected_path fact", problem.facts)
+	}
 	if result.ShellSessionID != "" {
 		t.Fatalf("doShell() shellSessionID = %q, want empty", result.ShellSessionID)
 	}
@@ -224,6 +271,146 @@ func TestDoShell_PingGateRejectedStopsBeforeAttach(t *testing.T) {
 	}
 }
 
+func TestDoShellAttachFailureReportsSelectedPath(t *testing.T) {
+	t.Parallel()
+
+	rt, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	var openCount atomic.Int64
+	rt.peerSessions.Put(&fakePeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: "peer-a",
+			Protocol:     dataplane.ProtocolKCP,
+			PathFamily:   dataplane.PathFamilyUDP4,
+		},
+		lastActivity: time.Now().UTC(),
+		healthy:      true,
+		pathFacts: dataplane.SessionPathFacts{
+			SelectedPath: punch.PathDirectIPv4,
+		},
+		openStream: func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+			if openCount.Add(1) == 2 {
+				return nil, io.ErrClosedPipe
+			}
+
+			clientSide, remoteSide := net.Pipe()
+			go func() {
+				defer remoteSide.Close()
+				var control shellproto.Control
+				if err := shellproto.ReadJSON(remoteSide, &control); err != nil {
+					return
+				}
+				_ = shellproto.WriteJSON(remoteSide, shellproto.Control{
+					Op: control.Op,
+					OK: true,
+				})
+			}()
+			return clientSide, nil
+		},
+	})
+
+	_, problem := rt.doShell(context.Background(), ShellArgs{PeerID: "peer-a"})
+	if problem == nil {
+		t.Fatal("doShell() problem = nil, want non-nil")
+	}
+	if !hasFact(problem.facts, "selected_path="+punch.PathDirectIPv4) {
+		t.Fatalf("doShell() facts = %#v, want selected_path fact", problem.facts)
+	}
+	if got := openCount.Load(); got != 2 {
+		t.Fatalf("doShell() stream open count = %d, want 2", got)
+	}
+}
+
+func TestDoPingReportsSelectedPath(t *testing.T) {
+	t.Parallel()
+
+	rt, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	rt.peerSessions.Put(&fakePeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: "peer-a",
+			Protocol:     dataplane.ProtocolKCP,
+			PathFamily:   dataplane.PathFamilyUDP4,
+		},
+		lastActivity: time.Now().UTC(),
+		healthy:      true,
+		pathFacts: dataplane.SessionPathFacts{
+			SelectedPath: punch.PathDirectIPv4,
+		},
+		openStream: func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+			clientSide, remoteSide := net.Pipe()
+			go func() {
+				defer remoteSide.Close()
+				var control shellproto.Control
+				if err := shellproto.ReadJSON(remoteSide, &control); err != nil {
+					return
+				}
+				_ = shellproto.WriteJSON(remoteSide, shellproto.Control{
+					Op: control.Op,
+					OK: true,
+				})
+			}()
+			return clientSide, nil
+		},
+	})
+
+	result, problem := rt.doPing(context.Background(), PingArgs{PeerID: "peer-a"})
+	if problem != nil {
+		t.Fatalf("doPing() problem = %v, want nil", problem)
+	}
+	if !hasFact(result.Evidence.Facts, "selected_path="+punch.PathDirectIPv4) {
+		t.Fatalf("doPing() facts = %#v, want selected_path fact", result.Evidence.Facts)
+	}
+	if got := string(result.Data); !strings.Contains(got, `"selected_path":"`+punch.PathDirectIPv4+`"`) {
+		t.Fatalf("doPing() data = %s, want selected_path", got)
+	}
+	if got := string(result.ReportMarkdown); !strings.Contains(got, "- selected_path="+punch.PathDirectIPv4) {
+		t.Fatalf("doPing() report = %s, want selected_path fact", got)
+	}
+}
+
+func TestDoPingFailureReportsSelectedPath(t *testing.T) {
+	t.Parallel()
+
+	rt, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	rt.peerSessions.Put(&fakePeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: "peer-a",
+			Protocol:     dataplane.ProtocolKCP,
+			PathFamily:   dataplane.PathFamilyUDP4,
+		},
+		lastActivity: time.Now().UTC(),
+		healthy:      true,
+		pathFacts: dataplane.SessionPathFacts{
+			SelectedPath: punch.PathDirectIPv4,
+		},
+		openStream: func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+			return nil, io.ErrClosedPipe
+		},
+	})
+
+	_, problem := rt.doPing(context.Background(), PingArgs{PeerID: "peer-a"})
+	if problem == nil {
+		t.Fatal("doPing() problem = nil, want non-nil")
+	}
+	if !hasFact(problem.facts, "selected_path="+punch.PathDirectIPv4) {
+		t.Fatalf("doPing() facts = %#v, want selected_path fact", problem.facts)
+	}
+}
+
 func TestDoShellList_OutputsTargetsInFactsAndData(t *testing.T) {
 	t.Parallel()
 
@@ -244,6 +431,9 @@ func TestDoShellList_OutputsTargetsInFactsAndData(t *testing.T) {
 		},
 		lastActivity: time.Now().UTC(),
 		healthy:      true,
+		pathFacts: dataplane.SessionPathFacts{
+			SelectedPath: punch.PathPunchingIPv4,
+		},
 		openStream: func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error) {
 			clientSide, remoteSide := net.Pipe()
 			go func() {
@@ -274,6 +464,9 @@ func TestDoShellList_OutputsTargetsInFactsAndData(t *testing.T) {
 	if !hasFact(result.Evidence.Facts, "peer_id=peer-a") {
 		t.Fatalf("doShellList() facts = %#v, want peer fact", result.Evidence.Facts)
 	}
+	if !hasFact(result.Evidence.Facts, "selected_path="+punch.PathPunchingIPv4) {
+		t.Fatalf("doShellList() facts = %#v, want selected_path fact", result.Evidence.Facts)
+	}
 	if !hasFact(result.Evidence.Facts, "target=ssh:git") {
 		t.Fatalf("doShellList() facts = %#v, want ssh target fact", result.Evidence.Facts)
 	}
@@ -283,11 +476,51 @@ func TestDoShellList_OutputsTargetsInFactsAndData(t *testing.T) {
 	if got := string(result.Data); !strings.Contains(got, `"targets":["ssh:git","wsl:Debian"]`) {
 		t.Fatalf("doShellList() data = %s, want targets array", got)
 	}
+	if got := string(result.Data); !strings.Contains(got, `"selected_path":"`+punch.PathPunchingIPv4+`"`) {
+		t.Fatalf("doShellList() data = %s, want selected_path", got)
+	}
 	if got := string(result.ReportMarkdown); !strings.Contains(got, "- target=ssh:git") || !strings.Contains(got, "- target=wsl:Debian") {
 		t.Fatalf("doShellList() report = %s, want target facts", got)
 	}
+	if got := string(result.ReportMarkdown); !strings.Contains(got, "- selected_path="+punch.PathPunchingIPv4) {
+		t.Fatalf("doShellList() report = %s, want selected_path fact", got)
+	}
 	if len(result.Lines) != 2 || result.Lines[0] != "ssh:git" || result.Lines[1] != "wsl:Debian" {
 		t.Fatalf("doShellList() lines = %#v, want target lines", result.Lines)
+	}
+}
+
+func TestDoShellListFailureReportsSelectedPath(t *testing.T) {
+	t.Parallel()
+
+	rt, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	rt.peerSessions.Put(&fakePeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: "peer-a",
+			Protocol:     dataplane.ProtocolKCP,
+			PathFamily:   dataplane.PathFamilyUDP4,
+		},
+		lastActivity: time.Now().UTC(),
+		healthy:      true,
+		pathFacts: dataplane.SessionPathFacts{
+			SelectedPath: punch.PathPunchingIPv4,
+		},
+		openStream: func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error) {
+			return nil, io.ErrClosedPipe
+		},
+	})
+
+	_, problem := rt.doShellList(context.Background(), ShellArgs{PeerID: "peer-a"})
+	if problem == nil {
+		t.Fatal("doShellList() problem = nil, want non-nil")
+	}
+	if !hasFact(problem.facts, "selected_path="+punch.PathPunchingIPv4) {
+		t.Fatalf("doShellList() facts = %#v, want selected_path fact", problem.facts)
 	}
 }
 
@@ -687,7 +920,13 @@ func TestPunchProblemIncludesDiagnosticFacts(t *testing.T) {
 		AttemptConcurrency: 2,
 		AttemptBudget:      time.Second,
 		AttemptedPairs: []punch.AttemptEvidence{
-			{LocalCandidate: punch.Candidate{Kind: punch.CandidateKindHost, Addr: "127.0.0.1:4001"}, RemoteCandidate: punch.Candidate{Kind: punch.CandidateKindHost, Addr: "127.0.0.1:5001"}, Result: "timeout", Detail: "deadline exceeded"},
+			{
+				LocalCandidate:  punch.Candidate{Kind: punch.CandidateKindHost, Addr: "127.0.0.1:4001"},
+				RemoteCandidate: punch.Candidate{Kind: punch.CandidateKindHost, Addr: "127.0.0.1:5001"},
+				Path:            punch.PathDirectIPv4,
+				Result:          "timeout",
+				Detail:          "deadline exceeded",
+			},
 		},
 	}, Err: context.DeadlineExceeded}
 
@@ -703,6 +942,47 @@ func TestPunchProblemIncludesDiagnosticFacts(t *testing.T) {
 	}
 	if !hasFact(problem.facts, "attempt_results=timeout=1") {
 		t.Fatalf("punchProblem().facts = %#v, want attempt_results fact", problem.facts)
+	}
+	if !hasFact(problem.facts, "attempt_paths="+punch.PathDirectIPv4+"=1") {
+		t.Fatalf("punchProblem().facts = %#v, want attempt_paths fact", problem.facts)
+	}
+	wantDetails := "attempt_details=direct_ipv4:timeout:127.0.0.1:4001->127.0.0.1:5001:deadline exceeded"
+	if !hasFact(problem.facts, wantDetails) {
+		t.Fatalf("punchProblem().facts = %#v, want %q", problem.facts, wantDetails)
+	}
+}
+
+func TestAppendPathResultProblemFactsPreservesSelectedPath(t *testing.T) {
+	t.Parallel()
+
+	problem := wrapProblem(
+		StageSecureSession,
+		poc.ReasonCodeUnavailable,
+		poc.ExitCodeUnavailable,
+		"failed to establish secure session",
+		errors.New("dial failed"),
+		"retry",
+	)
+	result := punch.PathResult{
+		RemoteAddr: &net.UDPAddr{IP: net.IPv4(127, 0, 0, 2), Port: 5002},
+		Evidence: punch.PunchEvidence{
+			SelectedPath:      punch.PathDirectIPv4,
+			SelectedLocal:     punch.Candidate{Kind: punch.CandidateKindHost, Addr: "127.0.0.1:4001"},
+			SelectedRemote:    punch.Candidate{Kind: punch.CandidateKindHost, Addr: "127.0.0.2:5002"},
+			SelectedRemoteUDP: "127.0.0.2:5002",
+		},
+	}
+
+	got := appendPathResultProblemFacts(problem, result)
+	for _, fact := range []string{
+		"selected_path=" + punch.PathDirectIPv4,
+		"selected_local_candidate=host@127.0.0.1:4001",
+		"selected_remote_candidate=host@127.0.0.2:5002",
+		"selected_remote_udp=127.0.0.2:5002",
+	} {
+		if !hasFact(got.facts, fact) {
+			t.Fatalf("appendPathResultProblemFacts() facts = %#v, want %q", got.facts, fact)
+		}
 	}
 }
 
@@ -848,6 +1128,102 @@ func TestOpenAppliesBrokerOverride(t *testing.T) {
 	rt.mu.Unlock()
 	if got != "tcp://broker.example:1883" {
 		t.Fatalf("rt.meta.RuntimeBrokerOverride = %q, want %q", got, "tcp://broker.example:1883")
+	}
+}
+
+func TestOpenUsesDefaultRuntimeBrokerWhenUnconfigured(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	rt, err := Open(Options{Root: root})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	if got := rt.currentBrokerEndpoint(); got != defaultRuntimeBrokerEndpoint {
+		t.Fatalf("currentBrokerEndpoint() = %q, want %q", got, defaultRuntimeBrokerEndpoint)
+	}
+	rt.mu.Lock()
+	got := rt.meta.RuntimeBrokerOverride
+	rt.mu.Unlock()
+	if got != defaultRuntimeBrokerEndpoint {
+		t.Fatalf("rt.meta.RuntimeBrokerOverride = %q, want %q", got, defaultRuntimeBrokerEndpoint)
+	}
+}
+
+func TestOpenKeepsJoinedBrokerWhenUnconfigured(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	meta := metadata{
+		ActiveNetworkID: "joined-network",
+		Role:            "admin",
+		BrokerEndpoint:  "tcp://persisted.example:1883",
+	}
+	if err := saveMetadata(root, meta); err != nil {
+		t.Fatalf("saveMetadata() error = %v, want nil", err)
+	}
+	rt, err := Open(Options{Root: root})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	if got := rt.currentBrokerEndpoint(); got != meta.BrokerEndpoint {
+		t.Fatalf("currentBrokerEndpoint() = %q, want %q", got, meta.BrokerEndpoint)
+	}
+	rt.mu.Lock()
+	got := rt.meta.RuntimeBrokerOverride
+	rt.mu.Unlock()
+	if got != "" {
+		t.Fatalf("rt.meta.RuntimeBrokerOverride = %q, want empty", got)
+	}
+}
+
+func TestDoInitNetworkUsesDefaultRuntimeBrokerWithoutEmbeddedBroker(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	rt, err := Open(Options{Root: root})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, problem := rt.doInitNetwork(ctx, InitNetworkArgs{})
+	if problem != nil {
+		if problem.stage != StageEnroll || problem.reasonCode != poc.ReasonCodeUnavailable {
+			t.Fatalf("doInitNetwork() problem = %v, want runtime-workers unavailable", problem)
+		}
+	}
+
+	rt.mu.Lock()
+	networkID := rt.meta.ActiveNetworkID
+	currentEmbeddedBroker := rt.broker
+	currentBrokerOverride := rt.meta.RuntimeBrokerOverride
+	currentBrokerEndpoint := rt.meta.BrokerEndpoint
+	rt.mu.Unlock()
+	if networkID == "" {
+		t.Fatalf("rt.meta.ActiveNetworkID = empty, want non-empty")
+	}
+	if currentEmbeddedBroker != nil {
+		t.Fatalf("rt.broker = %#v, want nil when using default runtime broker", currentEmbeddedBroker)
+	}
+	if currentBrokerOverride != defaultRuntimeBrokerEndpoint {
+		t.Fatalf("rt.meta.RuntimeBrokerOverride = %q, want %q", currentBrokerOverride, defaultRuntimeBrokerEndpoint)
+	}
+	if currentBrokerEndpoint != defaultRuntimeBrokerEndpoint {
+		t.Fatalf("rt.meta.BrokerEndpoint = %q, want %q", currentBrokerEndpoint, defaultRuntimeBrokerEndpoint)
+	}
+	broker, err := rt.store.LoadRuntimeBroker(networkID)
+	if err != nil {
+		t.Fatalf("LoadRuntimeBroker() error = %v, want nil", err)
+	}
+	if broker.Endpoint != defaultRuntimeBrokerEndpoint {
+		t.Fatalf("LoadRuntimeBroker().Endpoint = %q, want %q", broker.Endpoint, defaultRuntimeBrokerEndpoint)
 	}
 }
 
@@ -1257,7 +1633,7 @@ func TestDoJoinTimeoutIncludesBrokerAndTopicFacts(t *testing.T) {
 	case strings.Contains(joinResult.Summary.Text, "failed to open join signaling session"):
 	case strings.Contains(joinResult.Summary.Text, "failed to publish join request"),
 		strings.Contains(joinResult.Summary.Text, "timed out waiting for enroll response"):
-		requireFacts = append(requireFacts, "reply_topic=mp/v1/reply/")
+		requireFacts = append(requireFacts, "reply_topic=")
 	default:
 		t.Fatalf("Action(join) Summary.Text = %q, want signaling-stage join failure", joinResult.Summary.Text)
 	}
@@ -1278,6 +1654,7 @@ type fakePeerSession struct {
 	key          dataplane.SessionKey
 	lastActivity time.Time
 	healthy      bool
+	pathFacts    dataplane.SessionPathFacts
 	openStream   func(context.Context, dataplane.StreamOpen) (io.ReadWriteCloser, error)
 	closeReason  dataplane.CloseReason
 	mu           sync.Mutex
@@ -1285,6 +1662,12 @@ type fakePeerSession struct {
 
 func (s *fakePeerSession) Key() dataplane.SessionKey {
 	return s.key
+}
+
+func (s *fakePeerSession) SessionPathFacts() dataplane.SessionPathFacts {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.pathFacts.Normalize()
 }
 
 func (s *fakePeerSession) OpenStream(ctx context.Context, open dataplane.StreamOpen) (io.ReadWriteCloser, error) {

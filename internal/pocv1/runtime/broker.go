@@ -11,6 +11,8 @@ import (
 	"github.com/256dpi/gomqtt/transport"
 )
 
+const defaultRuntimeBrokerEndpoint = "tcp://broker.emqx.io:1883"
+
 type embeddedBroker struct {
 	endpoint string
 	server   transport.Server

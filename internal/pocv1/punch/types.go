@@ -32,7 +32,17 @@ const (
 	defaultAttemptConcurrency = 4
 	defaultAttemptBudget      = 10 * time.Second
 	defaultInnerTTL           = 30 * time.Second
+	defaultDirectTimeout      = 800 * time.Millisecond
+	defaultDirectSendCount    = 3
+	defaultDirectSendInterval = 100 * time.Millisecond
 	defaultPunchReadTimeout   = 2 * time.Second
+)
+
+const (
+	// PathDirectIPv4 identifies a selected host-to-host UDP IPv4 path.
+	PathDirectIPv4 = "direct_ipv4"
+	// PathPunchingIPv4 identifies a selected UDP IPv4 punching path.
+	PathPunchingIPv4 = "punching_ipv4"
 )
 
 // CandidateKind is the fixed current v1 UDP candidate kind set.
@@ -80,6 +90,7 @@ type TrustedRemoteIdentity struct {
 type AttemptEvidence struct {
 	LocalCandidate  Candidate
 	RemoteCandidate Candidate
+	Path            string
 	Result          string
 	Detail          string
 }
@@ -88,12 +99,16 @@ type AttemptEvidence struct {
 type PunchEvidence struct {
 	DialID            string
 	AttemptedPairs    []AttemptEvidence
+	SelectedPath      string
 	SelectedLocal     Candidate
 	SelectedRemote    Candidate
 	SelectedRemoteUDP string
 }
 
 // PathResult is the only output of current v1 dial/punch.
+//
+// Conn is borrowed from the runtime UDP owner. PathResult does not own it and
+// must not close it; the runtime closes the socket when the daemon stops.
 type PathResult struct {
 	Conn           *net.UDPConn
 	RemoteAddr     *net.UDPAddr
@@ -101,12 +116,11 @@ type PathResult struct {
 	Evidence       PunchEvidence
 }
 
-// Close releases the owned UDP path.
+// Close is retained for compatibility with callers that clean up failed
+// handoffs. The selected UDP socket is runtime-owned, so there is no socket to
+// release here.
 func (r PathResult) Close() error {
-	if r.Conn == nil {
-		return nil
-	}
-	return r.Conn.Close()
+	return nil
 }
 
 // Target is one current v1 dial target.
@@ -168,7 +182,14 @@ type AttemptPairFunc func(
 	demux *udpowner.TraversalDemux,
 	plan pairPlan,
 	key []byte,
-) (*net.UDPAddr, error)
+) (AttemptPairResult, error)
+
+// AttemptPairResult reports one successful candidate-pair attempt result.
+type AttemptPairResult struct {
+	RemoteAddr *net.UDPAddr
+	Path       string
+	Detail     string
+}
 
 // SelectedAttempt is one successful attempt winner.
 type SelectedAttempt struct {
@@ -176,6 +197,7 @@ type SelectedAttempt struct {
 	RemoteCandidate Candidate
 	Conn            *net.UDPConn
 	RemoteAddr      *net.UDPAddr
+	Path            string
 }
 
 // pairPlan is one bounded candidate-pair runtime unit.

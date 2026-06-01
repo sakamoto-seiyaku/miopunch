@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"testing"
 
 	"github.com/miopunch/miopunch/internal/poc"
+	pocruntime "github.com/miopunch/miopunch/internal/pocv1/runtime"
 )
 
 func TestParseShellArgs(t *testing.T) {
@@ -80,5 +83,38 @@ func TestParseShellArgs(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+
+func TestExitWithActionSuccessJSONPreservesSelectedPathFact(t *testing.T) {
+	t.Parallel()
+
+	var stdout, stderr bytes.Buffer
+	exitCode := exitWithActionSuccess(
+		globalOptions{Format: outputFormatJSON},
+		&stdout,
+		&stderr,
+		"ping",
+		pocruntime.ActionResult{
+			Stage:      pocruntime.StageShell,
+			ReasonCode: poc.ReasonCodeOK,
+			ExitCode:   poc.ExitCodeOK,
+			Evidence: pocruntime.Evidence{
+				Facts: []poc.Fact{{Message: "selected_path=direct_ipv4"}},
+			},
+		},
+	)
+	if exitCode != 0 {
+		t.Fatalf("exitWithActionSuccess() exitCode = %d, want 0", exitCode)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("exitWithActionSuccess() stderr = %q, want empty", stderr.String())
+	}
+	var env poc.EnvelopeJSONV0
+	if err := json.Unmarshal(stdout.Bytes(), &env); err != nil {
+		t.Fatalf("json.Unmarshal(stdout) error = %v, stdout=%q", err, stdout.String())
+	}
+	if len(env.Facts) != 1 || env.Facts[0].Message != "selected_path=direct_ipv4" {
+		t.Fatalf("exitWithActionSuccess() facts = %#v, want selected_path fact", env.Facts)
 	}
 }

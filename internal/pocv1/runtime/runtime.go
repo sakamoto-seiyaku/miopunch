@@ -24,6 +24,7 @@ import (
 	"github.com/miopunch/miopunch/internal/pocv1/punch"
 	"github.com/miopunch/miopunch/internal/pocv1/session"
 	"github.com/miopunch/miopunch/internal/pocv1/wire"
+	"github.com/miopunch/miopunch/internal/sessionconfig"
 	"github.com/miopunch/miopunch/internal/shellproto"
 	"github.com/miopunch/miopunch/internal/shelltarget"
 )
@@ -43,6 +44,7 @@ type Options struct {
 	Platform   string
 	AppVersion string
 	BrokerURL  string
+	LogLevel   string
 }
 
 type StatusResponse struct {
@@ -64,6 +66,7 @@ type Runtime struct {
 	deviceName string
 	platform   string
 	appVersion string
+	logLevel   string
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -100,6 +103,11 @@ func Open(opts Options) (*Runtime, error) {
 		return nil, err
 	}
 
+	logLevel, err := sessionconfig.NormalizeLogLevel(opts.LogLevel)
+	if err != nil {
+		return nil, err
+	}
+
 	meta, err := loadMetadata(root)
 	if err != nil {
 		return nil, err
@@ -113,6 +121,7 @@ func Open(opts Options) (*Runtime, error) {
 		deviceName:    defaultDeviceName(opts.DeviceName),
 		platform:      defaultPlatform(opts.Platform),
 		appVersion:    strings.TrimSpace(opts.AppVersion),
+		logLevel:      logLevel,
 		ctx:           ctx,
 		cancel:        cancel,
 		meta:          meta,
@@ -124,8 +133,8 @@ func Open(opts Options) (*Runtime, error) {
 	if rt.appVersion == "" {
 		rt.appVersion = buildinfo.Version()
 	}
-	if strings.TrimSpace(opts.BrokerURL) != "" {
-		rt.meta.RuntimeBrokerOverride = normalizeBrokerEndpoint(opts.BrokerURL)
+	if brokerOverride := initialRuntimeBrokerOverride(opts.BrokerURL, meta); brokerOverride != "" {
+		rt.meta.RuntimeBrokerOverride = brokerOverride
 	}
 	rt.peerSessions.SetChangeHook(func() {
 		rt.notifyChange("snapshot.updated")
@@ -144,6 +153,16 @@ func Open(opts Options) (*Runtime, error) {
 		}
 	}
 	return rt, nil
+}
+
+func initialRuntimeBrokerOverride(brokerURL string, meta metadata) string {
+	if strings.TrimSpace(brokerURL) != "" {
+		return normalizeBrokerEndpoint(brokerURL)
+	}
+	if strings.TrimSpace(meta.ActiveNetworkID) != "" || strings.TrimSpace(meta.RuntimeBrokerOverride) != "" {
+		return ""
+	}
+	return defaultRuntimeBrokerEndpoint
 }
 
 func (r *Runtime) Close() error {
@@ -347,7 +366,53 @@ func (r *Runtime) snapshotLocked() Snapshot {
 		DiscoverView:  discover,
 		PeerSessions:  peerSessions,
 		ShellSessions: shellSessions,
+		Config:        r.configSnapshotLocked(),
 	}
+}
+
+func (r *Runtime) configSnapshotLocked() SnapshotConfig {
+	level := strings.TrimSpace(r.logLevel)
+	if level == "" {
+		level = sessionconfig.DefaultLogLevel
+	}
+	config := RuntimeConfig{
+		Preferences: RuntimePreferences{
+			LogLevel: level,
+		},
+	}
+	return SnapshotConfig{
+		Desired:   config,
+		Effective: config,
+		Apply: ConfigApply{
+			Preferences: "immediate",
+		},
+	}
+}
+
+// SetLogLevel changes the runtime log level immediately.
+func (r *Runtime) SetLogLevel(level string) (Snapshot, *problem) {
+	normalized, err := sessionconfig.NormalizeLogLevel(level)
+	if err != nil {
+		prob := newProblem(
+			StageNetwork,
+			poc.ReasonCodeBadRequest,
+			poc.ExitCodeBadRequest,
+			"invalid log level",
+			[]poc.Fact{{Message: "log_level=" + strings.TrimSpace(level)}},
+			[]poc.Suggestion{{Message: "use trace, debug, info, warn, or error"}},
+		)
+		r.setStatus(prob)
+		return r.Snapshot(), prob
+	}
+
+	logutil.SetLevel(normalized)
+	r.mu.Lock()
+	r.logLevel = normalized
+	r.status = nil
+	r.mu.Unlock()
+	logutil.Infof("runtime log level changed: log_level=%s", normalized)
+	r.notifyChange("snapshot.updated")
+	return r.Snapshot(), nil
 }
 
 func (r *Runtime) contextFactsLocked(discover presence.DiscoverProjection, peers []PeerSession, shells []ShellSession) []poc.Fact {
@@ -460,6 +525,7 @@ func (r *Runtime) peerSessionSummariesLocked() []PeerSession {
 			Healthy:            summary.Healthy,
 			PathFamily:         string(summary.Key.PathFamily),
 			Protocol:           string(summary.Key.Protocol),
+			SelectedPath:       summary.PathFacts.SelectedPath,
 			LocalEndpoint:      summary.PathFacts.LocalEndpoint,
 			RemoteEndpoint:     summary.PathFacts.RemoteEndpoint,
 			LastActivityUnixMs: summary.LastActivityUnixMilli,
@@ -690,8 +756,9 @@ func (r *Runtime) acceptLoop() {
 			continue
 		}
 		logutil.Infof(
-			"punch accept selected: remote_peer_id=%s remote_udp=%s",
+			"punch accept selected: remote_peer_id=%s selected_path=%s remote_udp=%s",
 			result.RemoteIdentity.PeerID,
+			result.Evidence.SelectedPath,
 			result.Evidence.SelectedRemoteUDP,
 		)
 		r.registerPeerSession(result.RemoteIdentity.PeerID, sess)
@@ -793,6 +860,7 @@ func (r *Runtime) servePeerSession(peerID string, sess session.PeerSession) {
 			if r.ctx.Err() != nil {
 				return
 			}
+			r.peerSessions.CloseIfMatch(sess, dataplane.CloseReasonTransportFatal)
 			return
 		}
 		r.wg.Add(1)

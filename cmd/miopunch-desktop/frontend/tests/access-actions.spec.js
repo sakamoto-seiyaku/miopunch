@@ -6,22 +6,19 @@ test("admin invite action uses the runtime action surface and keeps the invite v
     inviteDataMode: "string",
   });
 
-  await page.getByRole("button", { name: "Admin" }).click();
-  await page.locator("#invite-mode").selectOption("auto");
-  await page.locator("#invite-uses").fill("3");
-  await page.locator("#invite-expires").fill("30m");
-  await page.locator("#form-invite button[type='submit']").click();
+  await page.getByRole("button", { name: "Admin", exact: true }).click();
+  await page.locator('[data-open-flow="invite"]').click();
+  await page.locator("#btn-invite").click();
 
-  await expect(page.locator("#invite-code-output")).toHaveValue(inviteCode);
-  await expect(page.locator("#invite-result-card")).toBeVisible();
-  await expect(page.locator("#approve-code")).toHaveValue(inviteCode);
-  await expect(page.getByRole("button", { name: "Copy invite code" })).toBeVisible();
+  await expect(page.locator("#invite-code")).toHaveValue(inviteCode);
+  await expect(page.locator("#invite-qr")).toBeVisible();
+  await expect(page.locator("[data-copy-invite]")).toBeVisible();
   await expect(page.locator("#topbar-title")).toHaveText("Admin");
 
-  await page.getByRole("button", { name: "Copy invite code" }).click();
+  await page.locator("[data-copy-invite]").click();
   await expect.poll(async () => clipboardText(page)).toBe(inviteCode);
 
-  await page.getByRole("button", { name: "Network" }).click();
+  await page.getByRole("button", { name: "Network", exact: true }).click();
   await expect(page.locator("#topbar-title")).toHaveText("Network");
   await expect(page.locator("#recent-invite-code")).toHaveValue(inviteCode);
 
@@ -31,11 +28,7 @@ test("admin invite action uses the runtime action surface and keeps the invite v
   }).toContainEqual({
     method: "RuntimeAction",
     action: "invite",
-    args: {
-      mode: "auto",
-      max_uses: 3,
-      expires: "30m",
-    },
+    args: {},
   });
 });
 
@@ -57,10 +50,10 @@ test("runtime actions stay disabled while LocalAPI is disconnected", async ({ pa
   });
 
   await expect(page.locator(".helper.helper-error").filter({ hasText: "LocalAPI is not connected" }).first()).toBeVisible();
-  await expect(page.locator("#btn-init-network-new")).toBeDisabled();
-
-  await page.getByRole("button", { name: "Admin" }).click();
-  await expect(page.getByRole("button", { name: "Create invite" })).toBeDisabled();
+  await page.getByRole("button", { name: "Admin", exact: true }).click();
+  await page.locator('[data-open-flow="invite"]').click();
+  await expect(page.locator("#btn-invite")).toBeDisabled();
+  await page.locator("[data-open-overview]").click();
+  await page.locator('[data-open-flow="approve"]').click();
   await expect(page.locator("#approve-code")).toBeDisabled();
-  await expect(page.locator("#join-code")).toBeDisabled();
 });

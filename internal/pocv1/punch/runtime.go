@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/miopunch/miopunch/internal/logutil"
@@ -99,9 +100,10 @@ func runPunch(
 		}, err)
 	}
 	logutil.Infof(
-		"punch run selected: dial_id=%s remote_peer_id=%s local_candidate=%s remote_candidate=%s remote_udp=%s attempted_pairs=%s",
+		"punch run selected: dial_id=%s remote_peer_id=%s selected_path=%s local_candidate=%s remote_candidate=%s remote_udp=%s attempted_pairs=%s",
 		dialID,
 		remote.PeerID,
+		selected.Path,
 		selected.LocalCandidate.Addr,
 		selected.RemoteCandidate.Addr,
 		selected.RemoteAddr.String(),
@@ -118,6 +120,7 @@ func runPunch(
 		Evidence: PunchEvidence{
 			DialID:            dialID,
 			AttemptedPairs:    evidence,
+			SelectedPath:      selected.Path,
 			SelectedLocal:     selected.LocalCandidate,
 			SelectedRemote:    selected.RemoteCandidate,
 			SelectedRemoteUDP: selected.RemoteAddr.String(),
@@ -208,7 +211,7 @@ func executePairPlans(
 			}
 			defer func() { <-sem }()
 
-			raddr, err := cfg.AttemptPair(attemptCtx, demux, plan, key)
+			attemptResult, err := cfg.AttemptPair(attemptCtx, demux, plan, key)
 			if err != nil {
 				evidence[plan.index].Result = attemptResultForError(err)
 				evidence[plan.index].Detail = err.Error()
@@ -223,22 +226,33 @@ func executePairPlans(
 				errCh <- err
 				return
 			}
+			attemptResult = normalizeAttemptPairResult(attemptResult)
+			if attemptResult.RemoteAddr == nil {
+				err := errors.New("attempt selected nil remote addr")
+				evidence[plan.index].Result = "failed"
+				evidence[plan.index].Detail = err.Error()
+				errCh <- err
+				return
+			}
 
+			evidence[plan.index].Path = attemptResult.Path
 			evidence[plan.index].Result = "selected"
-			evidence[plan.index].Detail = raddr.String()
+			evidence[plan.index].Detail = attemptResult.Detail
 			logutil.Infof(
-				"punch attempt selected: sid=%s local_candidate=%s remote_candidate=%s remote_udp=%s",
+				"punch attempt selected: sid=%s local_candidate=%s remote_candidate=%s selected_path=%s remote_udp=%s",
 				plan.sid,
 				plan.local.Addr,
 				plan.remote.Addr,
-				raddr.String(),
+				attemptResult.Path,
+				attemptResult.RemoteAddr.String(),
 			)
 			select {
 			case resultCh <- SelectedAttempt{
 				LocalCandidate:  plan.local,
 				RemoteCandidate: plan.remote,
 				Conn:            plan.conn,
-				RemoteAddr:      raddr,
+				RemoteAddr:      attemptResult.RemoteAddr,
+				Path:            attemptResult.Path,
 			}:
 			default:
 			}
@@ -301,30 +315,80 @@ func defaultAttemptPair(
 	demux *udpowner.TraversalDemux,
 	plan pairPlan,
 	key []byte,
-) (*net.UDPAddr, error) {
+) (AttemptPairResult, error) {
+	return attemptPairWithPunch(ctx, demux, plan, key, punching.MakeHole)
+}
+
+type makeHoleFunc func(
+	ctx context.Context,
+	listenConn *net.UDPConn,
+	demux *udpowner.TraversalDemux,
+	m *legacywire.NatHoleResp,
+	key []byte,
+) (*net.UDPConn, *net.UDPAddr, error)
+
+func attemptPairWithPunch(
+	ctx context.Context,
+	demux *udpowner.TraversalDemux,
+	plan pairPlan,
+	key []byte,
+	makeHole makeHoleFunc,
+) (AttemptPairResult, error) {
+	traceCtx := withAttemptTraceLogger(ctx, plan.sid)
 	if directAddr, ok, err := mirroredHostRemoteAddr(plan); err != nil {
-		return nil, fmt.Errorf("resolve mirrored host path for %s -> %s: %w", plan.local.Addr, plan.remote.Addr, err)
+		return AttemptPairResult{}, fmt.Errorf("resolve mirrored host path for %s -> %s: %w", plan.local.Addr, plan.remote.Addr, err)
 	} else if ok {
 		logutil.Infof(
-			"punch mirrored host path selected: local_candidate=%s remote_candidate=%s remote_udp=%s",
+			"punch mirrored host path selected: local_candidate=%s remote_candidate=%s selected_path=%s remote_udp=%s",
 			plan.local.Addr,
 			plan.remote.Addr,
+			PathDirectIPv4,
 			directAddr.String(),
 		)
-		return directAddr, nil
+		return AttemptPairResult{RemoteAddr: directAddr, Path: PathDirectIPv4, Detail: directAddr.String()}, nil
 	}
 	if demux == nil {
-		return nil, errors.New("nil traversal demux")
+		return AttemptPairResult{}, errors.New("nil traversal demux")
 	}
 	if plan.resp == nil {
-		return nil, errors.New("nil pair response")
+		return AttemptPairResult{}, errors.New("nil pair response")
+	}
+	if makeHole == nil {
+		return AttemptPairResult{}, errors.New("nil make hole func")
 	}
 
-	_, raddr, err := punching.MakeHole(ctx, plan.conn, demux, plan.resp, key)
-	if err != nil {
-		return nil, fmt.Errorf("make hole for %s -> %s: %w", plan.local.Addr, plan.remote.Addr, err)
+	var directErr error
+	if raddr, err := attemptDirectIPv4(traceCtx, demux, plan, key); err == nil {
+		return AttemptPairResult{RemoteAddr: raddr, Path: PathDirectIPv4, Detail: raddr.String()}, nil
+	} else if !errors.Is(err, errDirectIPv4NotApplicable) {
+		directErr = err
 	}
-	return raddr, nil
+
+	_, raddr, err := makeHole(traceCtx, plan.conn, demux, plan.resp, key)
+	if err != nil {
+		if directErr != nil {
+			return AttemptPairResult{}, fmt.Errorf("direct_ipv4 failed: %v; punching_ipv4 failed: %w", directErr, err)
+		}
+		return AttemptPairResult{}, fmt.Errorf("make hole for %s -> %s: %w", plan.local.Addr, plan.remote.Addr, err)
+	}
+
+	detail := raddr.String()
+	if directErr != nil {
+		detail = fmt.Sprintf("direct_ipv4=%s: %v; punching_ipv4=%s", attemptResultForError(directErr), directErr, raddr.String())
+	}
+	return AttemptPairResult{RemoteAddr: raddr, Path: PathPunchingIPv4, Detail: detail}, nil
+}
+
+func normalizeAttemptPairResult(result AttemptPairResult) AttemptPairResult {
+	result.Path = strings.TrimSpace(result.Path)
+	result.Detail = strings.TrimSpace(result.Detail)
+	if result.Path == "" {
+		result.Path = PathPunchingIPv4
+	}
+	if result.Detail == "" && result.RemoteAddr != nil {
+		result.Detail = result.RemoteAddr.String()
+	}
+	return result
 }
 
 func mirroredHostRemoteAddr(plan pairPlan) (*net.UDPAddr, bool, error) {

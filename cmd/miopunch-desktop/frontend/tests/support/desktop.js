@@ -39,7 +39,7 @@ function defaultSnapshot(stage = "Network") {
       text: `runtime stage: ${stage}`,
     },
     evidence: {
-      facts: [{ message: `stage=${stage}` }],
+      facts: [{ message: `stage=${stage}` }, { message: "role=admin" }],
       suggestions: [{ message: "inspect the runtime console" }],
     },
     discover_view: {
@@ -55,6 +55,21 @@ function defaultSnapshot(stage = "Network") {
     },
     peer_sessions: [],
     shell_sessions: [],
+    config: {
+      desired: {
+        preferences: {
+          log_level: "info",
+        },
+      },
+      effective: {
+        preferences: {
+          log_level: "info",
+        },
+      },
+      apply: {
+        preferences: "immediate",
+      },
+    },
   };
 }
 
@@ -210,6 +225,30 @@ async function installFakeBridge(page, options = {}) {
         : [];
       return String(peers[0] && peers[0].peer_id || "peer-remote-bravo-0002");
     };
+    const textEncoder = new TextEncoder();
+    const textDecoder = new TextDecoder("utf-8");
+    const encodeFrame = (kind, text) => {
+      const body = textEncoder.encode(String(text || ""));
+      const out = new Uint8Array(5 + body.length);
+      out[0] = kind & 0xff;
+      new DataView(out.buffer).setUint32(1, body.length, false);
+      out.set(body, 5);
+      return out.buffer;
+    };
+    const decodeFramePayload = (payload) => {
+      const bytes = payload instanceof ArrayBuffer
+        ? new Uint8Array(payload)
+        : ArrayBuffer.isView(payload)
+          ? new Uint8Array(payload.buffer, payload.byteOffset, payload.byteLength)
+          : textEncoder.encode(String(payload || ""));
+      if (bytes.length < 5) return String(payload || "");
+      const kind = bytes[0];
+      const length = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(1, false);
+      if (length > bytes.length - 5) return textDecoder.decode(bytes);
+      const body = bytes.slice(5, 5 + length);
+      if (kind === 1) return `json:${textDecoder.decode(body)}`;
+      return textDecoder.decode(body);
+    };
 
     window.__miopunchCalls = calls;
     window.__miopunchShellLog = [];
@@ -232,6 +271,13 @@ async function installFakeBridge(page, options = {}) {
       for (const socket of sockets) {
         if (socket.__sessionID !== sessionID) continue;
         socket.__emitMessage(String(text || ""));
+      }
+    };
+    window.__miopunchCloseShell = (sessionID, options = {}) => {
+      for (const socket of Array.from(sockets)) {
+        if (socket.__sessionID !== sessionID) continue;
+        if (options.control) socket.__emitControl(options.control);
+        socket.close(Number(options.code || 1000), String(options.reason || ""));
       }
     };
 
@@ -289,7 +335,7 @@ async function installFakeBridge(page, options = {}) {
           type: "send",
           url: this.url,
           sessionID: this.__sessionID,
-          data: String(payload || ""),
+          data: decodeFramePayload(payload),
         }));
       }
 
@@ -315,7 +361,19 @@ async function installFakeBridge(page, options = {}) {
           sessionID: this.__sessionID,
           data: String(text || ""),
         }));
-        if (typeof this.onmessage === "function") this.onmessage({ data: String(text || "") });
+        if (typeof this.onmessage === "function") this.onmessage({ data: encodeFrame(0, text) });
+      }
+
+      __emitControl(value) {
+        if (this.readyState !== FakeWebSocket.OPEN) return;
+        const data = JSON.stringify(value || {});
+        window.__miopunchShellLog.push(clone({
+          type: "control",
+          url: this.url,
+          sessionID: this.__sessionID,
+          data,
+        }));
+        if (typeof this.onmessage === "function") this.onmessage({ data: encodeFrame(1, data) });
       }
     }
 
@@ -492,6 +550,44 @@ async function installFakeBridge(page, options = {}) {
             });
             return clone(connection);
           },
+          SaveDesktopConfig: async (update = {}) => {
+            record({ method: "SaveDesktopConfig", update: clone(update) });
+            const logLevel = String(update?.preferences?.log_level || "").trim();
+            if (!logLevel) {
+              return {
+                ok: false,
+                connection: clone(connection),
+                error: {
+                  stage: "desktop",
+                  reason_code: "BAD_REQUEST",
+                  exit_code: 64,
+                  message: "missing log level",
+                },
+              };
+            }
+            snapshot = mergeDeep(snapshot, {
+              config: {
+                desired: {
+                  preferences: {
+                    log_level: logLevel,
+                  },
+                },
+                effective: {
+                  preferences: {
+                    log_level: logLevel,
+                  },
+                },
+                apply: {
+                  preferences: "immediate",
+                },
+              },
+            });
+            return {
+              ok: true,
+              connection: clone(connection),
+              state: clone(snapshot),
+            };
+          },
           ExportDiagnostics: async () => {
             record({ method: "ExportDiagnostics" });
             return {
@@ -534,6 +630,13 @@ async function shellLog(page) {
   return page.evaluate(() => window.__miopunchShellLog || []);
 }
 
+async function closeShell(page, sessionID, options = {}) {
+  await page.evaluate(
+    ({ id, closeOptions }) => window.__miopunchCloseShell(id, closeOptions),
+    { id: sessionID, closeOptions: options }
+  );
+}
+
 async function clipboardText(page) {
   return page.evaluate(() => window.__miopunchClipboard || "");
 }
@@ -542,6 +645,7 @@ module.exports = {
   PEERS,
   clipboardText,
   calls,
+  closeShell,
   emitRuntime,
   expect,
   inviteCode,

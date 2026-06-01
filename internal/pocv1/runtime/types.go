@@ -35,6 +35,7 @@ type PeerSession struct {
 	Healthy            bool   `json:"healthy"`
 	PathFamily         string `json:"path_family,omitempty"`
 	Protocol           string `json:"protocol,omitempty"`
+	SelectedPath       string `json:"selected_path,omitempty"`
 	LocalEndpoint      string `json:"local_endpoint,omitempty"`
 	RemoteEndpoint     string `json:"remote_endpoint,omitempty"`
 	LastActivityUnixMs int64  `json:"last_activity_unix_ms,omitempty"`
@@ -54,6 +55,28 @@ type ShellSession struct {
 	ClosedAtUnixMs  int64  `json:"closed_at_unix_ms,omitempty"`
 }
 
+// SnapshotConfig describes desired and effective runtime configuration.
+type SnapshotConfig struct {
+	Desired   RuntimeConfig `json:"desired"`
+	Effective RuntimeConfig `json:"effective"`
+	Apply     ConfigApply   `json:"apply"`
+}
+
+// RuntimeConfig contains the runtime config subset exposed to clients.
+type RuntimeConfig struct {
+	Preferences RuntimePreferences `json:"preferences"`
+}
+
+// RuntimePreferences contains user-facing runtime preferences.
+type RuntimePreferences struct {
+	LogLevel string `json:"log_level"`
+}
+
+// ConfigApply describes when saved config values take effect.
+type ConfigApply struct {
+	Preferences string `json:"preferences,omitempty"`
+}
+
 type Snapshot struct {
 	Stage         Stage                       `json:"stage"`
 	ReasonCode    poc.ReasonCode              `json:"reason_code,omitempty"`
@@ -62,6 +85,7 @@ type Snapshot struct {
 	DiscoverView  presence.DiscoverProjection `json:"discover_view"`
 	PeerSessions  []PeerSession               `json:"peer_sessions"`
 	ShellSessions []ShellSession              `json:"shell_sessions"`
+	Config        SnapshotConfig              `json:"config"`
 }
 
 type Event struct {

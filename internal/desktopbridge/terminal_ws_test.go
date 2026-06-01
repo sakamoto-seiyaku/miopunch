@@ -155,3 +155,52 @@ func TestTerminalWSBridgeProxiesBinaryAndTextToShellStream(t *testing.T) {
 		}
 	}
 }
+
+func TestTerminalWSBridgeNormalCloseWhenShellStreamEnds(t *testing.T) {
+	t.Parallel()
+
+	b, err := NewTerminalWSBridge(func(context.Context, string) (ShellStream, error) {
+		return eofShellStream{}, nil
+	})
+	if err != nil {
+		t.Fatalf("NewTerminalWSBridge() error = %v", err)
+	}
+	t.Cleanup(func() { _ = b.Close() })
+
+	d := websocket.Dialer{Subprotocols: []string{ShellSubprotocolV0}}
+	clientConn, resp, err := d.Dial(b.ShellURL("shell-1"), nil)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+	if err != nil {
+		t.Fatalf("Dial(bridge) error = %v", err)
+	}
+	t.Cleanup(func() { _ = clientConn.Close() })
+
+	_ = clientConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_, _, err = clientConn.ReadMessage()
+	var closeErr *websocket.CloseError
+	if !errors.As(err, &closeErr) {
+		t.Fatalf("ReadMessage() error = %v, want websocket close error", err)
+	}
+	if closeErr.Code != websocket.CloseNormalClosure {
+		t.Fatalf("ReadMessage() close code = %d, want %d", closeErr.Code, websocket.CloseNormalClosure)
+	}
+	if closeErr.Text != "shell exited" {
+		t.Fatalf("ReadMessage() close reason = %q, want %q", closeErr.Text, "shell exited")
+	}
+}
+
+type eofShellStream struct{}
+
+func (eofShellStream) Read([]byte) (int, error) {
+	return 0, io.EOF
+}
+
+func (eofShellStream) Write(p []byte) (int, error) {
+	return len(p), nil
+}
+
+func (eofShellStream) Close() error {
+	return nil
+}

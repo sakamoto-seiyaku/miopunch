@@ -61,6 +61,32 @@ func TestStatePathForExecutableRejectsEmptyInput(t *testing.T) {
 	}
 }
 
+func TestSessionConfigPathForExecutable(t *testing.T) {
+	dir := t.TempDir()
+	exe := filepath.Join(dir, "miopunch")
+
+	got, err := SessionConfigPathForExecutable(exe)
+	if err != nil {
+		t.Fatalf("SessionConfigPathForExecutable() error = %v", err)
+	}
+
+	want := filepath.Join(dir, "data", "session_config.json")
+	if got != want {
+		t.Fatalf("SessionConfigPathForExecutable() = %q, want %q", got, want)
+	}
+	if info, err := os.Stat(filepath.Join(dir, "data")); err != nil {
+		t.Fatalf("data dir stat error = %v", err)
+	} else if !info.IsDir() {
+		t.Fatalf("data path is not a directory")
+	}
+}
+
+func TestSessionConfigPathForExecutableRejectsEmptyInput(t *testing.T) {
+	if _, err := SessionConfigPathForExecutable(""); err == nil {
+		t.Fatalf("SessionConfigPathForExecutable(empty exe) error = nil, want error")
+	}
+}
+
 func TestLocalAPIPathForExecutable(t *testing.T) {
 	dir := t.TempDir()
 	exe := filepath.Join(dir, "miopunch")

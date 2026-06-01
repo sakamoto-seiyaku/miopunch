@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/punchwire"
 )
 
@@ -198,9 +199,11 @@ func (o *KCPOwner) run() {
 				return
 			case o.traversalIn <- p:
 				o.traversalEnqueued.Add(1)
+				logutil.Tracef("udp owner routed tagged traversal packet: remote=%s bytes=%d", raddr.String(), n)
 			default:
 				// Drop tagged traversal packets on backpressure.
 				o.traversalDropped.Add(1)
+				logutil.Tracef("udp owner traversal queue full drop: remote=%s bytes=%d", raddr.String(), n)
 			}
 			continue
 		}

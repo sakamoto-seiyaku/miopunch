@@ -327,3 +327,236 @@ Start Runtime
 - `miopunch sh` 当前以传统终端 stdin/stdout 为核心；APK 内终端需要验证 raw mode、控制字符和输入法行为。
 - 手机网络下 STUN / broker DNS 与超时预算仍可能影响稳定性；必要时固定 broker 或使用已验证的网络。
 - 现场演示不要临时生成全新复杂网络。优先使用预先验证过的 home peer、target、session。
+
+## 2026-05-31 APK lite 实机操作复盘
+
+本轮目标是把 Android 手机作为真实控制端，连接 Linux/WSL peer 并在 App 内看到远端 shell 输出。最终路径已经跑通：
+
+```text
+Docker broker
+-> Linux/WSL miopunch up
+-> Android control-lite Start Runtime
+-> Ping Linux peer
+-> Open Shell
+-> whoami 返回 js
+```
+
+实测环境：
+
+- Android：Pixel 6a，package `com.miopunch.controlite`。
+- Linux/WSL peer binary：`/tmp/miopunch-control-lite-demo-final/miopunch`。
+- Broker：Docker `eclipse-mosquitto:2`，host 侧监听 `127.0.0.1:18883`。
+- Android 访问 broker：`adb reverse tcp:18883 tcp:18883`。
+- 证据目录：`/tmp/miopunch-control-lite-demo-final/evidence/`。
+
+最终证据：
+
+```text
+/tmp/miopunch-control-lite-demo-final/evidence/2026-05-31-android-wsl-ping-ok.png
+/tmp/miopunch-control-lite-demo-final/evidence/2026-05-31-android-wsl-shell-whoami-js.png
+```
+
+### 实机操作顺序
+
+1. 启动本地 broker，并确认 Android 有 adb reverse：
+
+```bash
+docker ps --filter name=miopunch-control-lite-broker
+adb reverse tcp:18883 tcp:18883
+adb reverse --list
+```
+
+2. Linux/WSL 端启动本地 peer：
+
+```bash
+DEMO=/tmp/miopunch-control-lite-demo-final
+M=$DEMO/miopunch
+
+$M up \
+  --localapi unix:$DEMO/linux/localapi.sock \
+  --broker tcp://127.0.0.1:18883 \
+  --state_path $DEMO/linux/state.json \
+  --log-level trace
+```
+
+3. Android 端启动 App，并预填已知 peer id：
+
+```bash
+adb shell am start -W -S \
+  -n com.miopunch.controlite/.MainActivity \
+  --es peer DXG2AQAP4Z7EDO3ZEV3AOXAXNI
+```
+
+4. App 内按顺序操作：
+
+```text
+Start Runtime
+-> Ping
+-> Open Shell
+-> 输入或注入 whoami
+```
+
+为了稳定复现 shell 输入，可以用 intent 走同一条 App shell-send 路径：
+
+```bash
+adb shell am start -W \
+  -n com.miopunch.controlite/.MainActivity \
+  --es line whoami
+```
+
+### 问题和解决
+
+1. ADB 输入长 invite code 不稳定。
+
+现象：通过 `adb shell input text` 输入长 invite 时，字符串会被输入法或 shell 转义破坏，导致 Join 失败。
+
+解决：debug APK 支持 intent extra 预填字段：
+
+```bash
+adb shell am start -W \
+  -n com.miopunch.controlite/.MainActivity \
+  --es invite "$INVITE_CODE" \
+  --es peer "$PEER_ID"
+```
+
+这只解决调试输入问题，不绕过 App 的 Join/Ping/Open Shell 行为。
+
+2. 操作输出只在 ADB/logcat，App 界面没有反馈。
+
+现象：点击 `Start Runtime`、`LS`、`Ping`、`Open Shell` 后，ADB 能看到进程输出，但 App 日志区不刷新，现场演示不可解释。
+
+解决：把 runtime stderr、CLI stdout/stderr、exit code、`reason_code`、`facts`、`suggestions` 都写入 App 内 `Logs` 区。这样现场不用切到 logcat，也能看到失败阶段。
+
+3. 顶部状态块误显示成杂乱日志。
+
+现象：界面顶部出现类似 `runtime=running shell=stopped network=not joined` 的块，和已有 Logs 区重复，且容易误导。
+
+解决：移除顶部状态摘要，只保留按钮状态和 Logs 区。必要状态直接从操作输出里看。
+
+4. TextView 无法正确显示远端 shell。
+
+现象：远端 shell 是 tmux/zsh/PTY 输出，包含 ANSI escape、光标移动和颜色控制。TextView 会显示一堆乱码，不能作为交互式 shell 展示。
+
+解决：APK 内置 xterm.js 和 CSS，用 WebView 渲染 shell：
+
+```text
+assets/terminal/index.html
+assets/terminal/vendor/xterm/xterm.js
+assets/terminal/vendor/xterm/xterm.css
+```
+
+App 把 `miopunch sh` 子进程 stdout 写入 xterm，把 xterm 输入回写到子进程 stdin。
+
+5. xterm 输出底部被裁掉。
+
+现象：xterm 默认行数大于 WebView 可见区域，新的 `whoami` 输出可能落到不可见底部。
+
+解决：`terminal/index.html` 按 WebView 实际高度动态调整 xterm rows，写入后 `scrollToBottom()`。
+
+6. shell 输入换行不生效。
+
+现象：发送命令后远端 tmux/PTY 没有按 Enter 执行。
+
+解决：交互式 shell 输入必须发送 carriage return：
+
+```text
+\r
+```
+
+不能只发送 line feed：
+
+```text
+\n
+```
+
+7. Join/approve 有时错过。
+
+现象：Android 端 Join 发出后，Linux 端后启动 approve 可能错过非 retained join request。
+
+解决：Linux 端先启动 `approve <invite_code>` 等待，再点 Android `Join`。
+
+8. Android 接口枚举有权限限制。
+
+现象：Android App 沙箱内 runtime trace 出现：
+
+```text
+netlinkrib: permission denied
+candidate=127.0.0.1 reason=no_usable_ipv4
+```
+
+影响：日志里会看到 loopback fallback，不应只凭这条判断演示失败。
+
+处理：现场以最终 `Ping` facts 为准。成功时会显示：
+
+```text
+reason_code=OK
+selected_path=direct_ipv4
+```
+
+9. APK 重装后首次 punch 可能 timeout。
+
+现象：APK reinstall 后 Android peer online，但连续 Ping 超时，facts 显示 direct/punching deadline exceeded。
+
+本次处理：重启 Linux/WSL peer 后恢复，随后 Ping 和 Open Shell 成功。
+
+现场排障顺序：
+
+```text
+确认 broker running
+-> 确认 adb reverse
+-> 确认 Linux peer 进程和 localapi.sock
+-> Linux ls 看 Android peer online
+-> Android retry Ping
+-> 如果仍 timeout，重启 Linux peer 后重试
+```
+
+### 下次演示前检查
+
+1. 检查 broker：
+
+```bash
+docker ps --filter name=miopunch-control-lite-broker
+```
+
+2. 检查 adb reverse：
+
+```bash
+adb reverse --list
+```
+
+必须看到：
+
+```text
+tcp:18883 tcp:18883
+```
+
+3. 检查 Linux peer：
+
+```bash
+ps -p "$(cat /tmp/miopunch-control-lite-demo-final/linux/miopunch.live.pid)" -o pid,stat,cmd
+/tmp/miopunch-control-lite-demo-final/miopunch \
+  --localapi unix:/tmp/miopunch-control-lite-demo-final/linux/localapi.sock \
+  --format json --redact ls
+```
+
+4. 检查 APK：
+
+```bash
+android/control-lite/scripts/build-debug-apk.sh
+android/control-lite/scripts/install-debug-apk.sh
+```
+
+5. 检查最终 App 内证据：
+
+```text
+Ping: reason_code=OK, selected_path=direct_ipv4
+Shell: whoami -> js
+```
+
+### 复盘结论
+
+- Android 不是只能通过 CLI/ADB 展示；极薄 APK 壳已经能支撑手机端现场演示。
+- 当前 APK 仍复用同一个 `miopunch` binary/runtime，没有引入 HTTP bridge。
+- 演示时应先用 `Ping` 证明路径与 session 可用，再 `Open Shell` 展示远端 shell。
+- 当前证据是同 LAN/WSL 场景；跨 NAT 或移动网络展示需要另行固定 broker、host 和超时参数。
+- 这条路线的优先级应继续保持“可运行、可解释、可复现”，不要在演示前扩成完整 Android 产品。

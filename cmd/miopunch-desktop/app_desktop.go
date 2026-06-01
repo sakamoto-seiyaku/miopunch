@@ -27,6 +27,7 @@ type App struct {
 
 	eventsCancel context.CancelFunc
 	eventsDone   chan struct{}
+	eventsBody   *runtimeEventStream
 
 	runtimeEventHook func(DesktopRuntimeEvent)
 

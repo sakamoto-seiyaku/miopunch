@@ -24,3 +24,8 @@ type ActionRequest struct {
 	Action string          `json:"action"`
 	Args   json.RawMessage `json:"args,omitempty"`
 }
+
+// LogLevelRequest changes the daemon log level through LocalAPI.
+type LogLevelRequest struct {
+	LogLevel string `json:"log_level"`
+}

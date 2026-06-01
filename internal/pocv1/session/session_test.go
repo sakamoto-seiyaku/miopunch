@@ -115,6 +115,9 @@ func TestPathResultUpgradePreservesStreamOpenEnvelope(t *testing.T) {
 	if !bytes.Equal(buf, payload) {
 		t.Fatalf("accepted stream payload = %q, want %q", string(buf), string(payload))
 	}
+	if got := dataplane.PathFactsFromSession(clientSess).SelectedPath; got != punch.PathDirectIPv4 {
+		t.Fatalf("Dial() SessionPathFacts().SelectedPath = %q, want %q", got, punch.PathDirectIPv4)
+	}
 }
 
 func TestDialRejectsPinMismatch(t *testing.T) {
@@ -207,6 +210,39 @@ func TestDialHandshakeFailsWhenPeerNeverAccepts(t *testing.T) {
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("Dial() error = %v, want wrapped context deadline exceeded", err)
 	}
+	assertUDPConnOpen(t, fx.dialerConn, "dialer UDPConn after failed Dial")
+}
+
+func TestPeerSessionCloseDoesNotCloseBorrowedUDPConns(t *testing.T) {
+	t.Parallel()
+
+	fx := mustSessionFixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	t.Cleanup(cancel)
+
+	serverCh := make(chan sessionResult, 1)
+	go func() {
+		sess, err := Accept(ctx, fx.responderConfig(), fx.responderPath())
+		serverCh <- sessionResult{session: sess, err: err}
+	}()
+
+	clientSess, err := Dial(ctx, fx.dialerConfig(), fx.dialerPath())
+	if err != nil {
+		t.Fatalf("Dial() error = %v, want nil", err)
+	}
+	serverRes := <-serverCh
+	if serverRes.err != nil {
+		t.Fatalf("Accept() error = %v, want nil", serverRes.err)
+	}
+
+	if err := clientSess.Close(dataplane.CloseReasonDaemonShutdown); err != nil {
+		t.Fatalf("client PeerSession.Close() error = %v, want nil", err)
+	}
+	if err := serverRes.session.Close(dataplane.CloseReasonDaemonShutdown); err != nil {
+		t.Fatalf("server PeerSession.Close() error = %v, want nil", err)
+	}
+	assertUDPConnOpen(t, fx.dialerConn, "dialer UDPConn after PeerSession.Close")
+	assertUDPConnOpen(t, fx.responderConn, "responder UDPConn after PeerSession.Close")
 }
 
 type sessionFixture struct {
@@ -314,6 +350,7 @@ func (f sessionFixture) dialerPath() punch.PathResult {
 			PeerID:           f.responderPeerID,
 			MemberCredential: append([]byte(nil), f.responderCredential...),
 		},
+		Evidence: punch.PunchEvidence{SelectedPath: punch.PathDirectIPv4},
 	}
 }
 
@@ -325,6 +362,7 @@ func (f sessionFixture) responderPath() punch.PathResult {
 			PeerID:           f.dialerPeerID,
 			MemberCredential: append([]byte(nil), f.dialerCredential...),
 		},
+		Evidence: punch.PunchEvidence{SelectedPath: punch.PathDirectIPv4},
 	}
 }
 
@@ -389,6 +427,15 @@ func mustListenUDP(t *testing.T) *net.UDPConn {
 	}
 	t.Cleanup(func() { _ = conn.Close() })
 	return conn
+}
+
+func assertUDPConnOpen(t *testing.T, conn *net.UDPConn, label string) {
+	t.Helper()
+
+	receiver := mustListenUDP(t)
+	if _, err := conn.WriteToUDP([]byte("still-open"), receiver.LocalAddr().(*net.UDPAddr)); err != nil {
+		t.Fatalf("%s WriteToUDP() error = %v, want nil", label, err)
+	}
 }
 
 func udpAddrClone(addr *net.UDPAddr) *net.UDPAddr {

@@ -71,6 +71,26 @@ func TestClientServer_StatusSnapshotEventsAndActionFailure(t *testing.T) {
 	if snapshot.Stage != pocruntime.StageNetwork {
 		t.Fatalf("GetSnapshot().Stage = %q, want %q", snapshot.Stage, pocruntime.StageNetwork)
 	}
+	if snapshot.Config.Effective.Preferences.LogLevel != "info" {
+		t.Fatalf("GetSnapshot().Config.Effective.Preferences.LogLevel = %q, want info", snapshot.Config.Effective.Preferences.LogLevel)
+	}
+
+	snapshot, err = client.SetLogLevel(context.Background(), "debug")
+	if err != nil {
+		t.Fatalf("SetLogLevel(debug) error = %v, want nil", err)
+	}
+	if snapshot.Config.Effective.Preferences.LogLevel != "debug" {
+		t.Fatalf("SetLogLevel(debug).Config.Effective.Preferences.LogLevel = %q, want debug", snapshot.Config.Effective.Preferences.LogLevel)
+	}
+
+	var apiErr *APIError
+	_, err = client.SetLogLevel(context.Background(), "verbose")
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("SetLogLevel(verbose) error type = %T, want *APIError", err)
+	}
+	if apiErr.Response.ReasonCode != poc.ReasonCodeBadRequest {
+		t.Fatalf("SetLogLevel(verbose) reason_code = %q, want %q", apiErr.Response.ReasonCode, poc.ReasonCodeBadRequest)
+	}
 
 	events, err := client.OpenEvents(context.Background())
 	if err != nil {
@@ -91,7 +111,6 @@ func TestClientServer_StatusSnapshotEventsAndActionFailure(t *testing.T) {
 	}
 
 	_, err = client.Action(context.Background(), "join", pocruntime.JoinArgs{})
-	var apiErr *APIError
 	if !errors.As(err, &apiErr) {
 		t.Fatalf("Action(join) error type = %T, want *APIError", err)
 	}

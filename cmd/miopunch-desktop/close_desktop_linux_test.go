@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 func TestBeforeCloseLinuxExitsProcessAndPreventsDefaultClose(t *testing.T) {
@@ -12,11 +13,9 @@ func TestBeforeCloseLinuxExitsProcessAndPreventsDefaultClose(t *testing.T) {
 	app := NewApp()
 	app.managedDaemon = managed
 
-	exitCalls := 0
-	exitCode := -1
+	exitCh := make(chan int, 1)
 	app.exitProcess = func(code int) {
-		exitCalls++
-		exitCode = code
+		exitCh <- code
 	}
 
 	prevent := app.beforeCloseLinux(context.Background())
@@ -26,11 +25,13 @@ func TestBeforeCloseLinuxExitsProcessAndPreventsDefaultClose(t *testing.T) {
 	if !app.isQuitRequested() {
 		t.Fatal("beforeCloseLinux() quitRequested = false, want true")
 	}
-	if exitCalls != 1 {
-		t.Fatalf("beforeCloseLinux() exit calls = %d, want 1", exitCalls)
-	}
-	if exitCode != 0 {
-		t.Fatalf("beforeCloseLinux() exit code = %d, want 0", exitCode)
+	select {
+	case exitCode := <-exitCh:
+		if exitCode != 0 {
+			t.Fatalf("beforeCloseLinux() exit code = %d, want 0", exitCode)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("beforeCloseLinux() did not call exitProcess")
 	}
 	if managed.stopCalls != 1 {
 		t.Fatalf("beforeCloseLinux() managed daemon stop calls = %d, want 1", managed.stopCalls)

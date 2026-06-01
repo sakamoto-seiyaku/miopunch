@@ -143,6 +143,9 @@ func assertSmokePathResult(
 	if got.Evidence.SelectedRemoteUDP != wantRemoteAddr {
 		t.Fatalf("%s Evidence.SelectedRemoteUDP = %q, want %q", label, got.Evidence.SelectedRemoteUDP, wantRemoteAddr)
 	}
+	if got.Evidence.SelectedPath != PathDirectIPv4 {
+		t.Fatalf("%s Evidence.SelectedPath = %q, want %q", label, got.Evidence.SelectedPath, PathDirectIPv4)
+	}
 }
 
 func launchPunchSmokeBroker(t *testing.T) (string, func()) {
