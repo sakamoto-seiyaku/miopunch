@@ -34,6 +34,44 @@ test("shell attach stays gated on ping success and bridges with shell_session_id
   }));
 });
 
+test("shell actions pass the selected p2p path policy", async ({ page }) => {
+  await openDesktop(page, { snapshot: snapshotFor("SecureSession") });
+
+  await page.getByRole("button", { name: "Shell", exact: true }).click();
+  await page.locator("[data-shell-peer]").first().click();
+  await page.locator('[data-p2p-policy="p2p_network"]').selectOption("udp_only");
+  await page.locator('[data-p2p-policy="p2p_ip_family"]').selectOption("v4");
+
+  await page.locator("#btn-ping").click();
+  await expectRuntimeAction(page, "ping", {
+    p2p_network: "udp_only",
+    p2p_ip_family: "v4",
+  });
+
+  await page.locator("#btn-shell-discover").click();
+  await expectRuntimeAction(page, "sh_ls", {
+    target: "",
+    p2p_network: "udp_only",
+    p2p_ip_family: "v4",
+  });
+
+  await page.locator("#btn-shell-find-sessions").click();
+  await expectRuntimeAction(page, "sh_ls", {
+    target: "local",
+    p2p_network: "udp_only",
+    p2p_ip_family: "v4",
+  });
+
+  await expect(page.locator("#btn-shell-connect")).toBeEnabled();
+  await page.locator("#btn-shell-connect").click();
+  await expectRuntimeAction(page, "sh", {
+    target: "local",
+    session: "main",
+    p2p_network: "udp_only",
+    p2p_ip_family: "v4",
+  });
+});
+
 test("remote shell exit closes without showing a websocket error", async ({ page }) => {
   await openDesktop(page, { snapshot: snapshotFor("SecureSession") });
 
@@ -72,4 +110,11 @@ async function openLiveShellAfterPing(page) {
     type: "message",
     sessionID: "shell-session-01",
   }));
+}
+
+async function expectRuntimeAction(page, action, expectedArgs) {
+  await expect.poll(async () => {
+    const runtimeCalls = (await calls(page)).filter((call) => call.method === "RuntimeAction" && call.action === action);
+    return runtimeCalls.some((call) => Object.entries(expectedArgs).every(([key, value]) => String(call.args && call.args[key] || "") === String(value)));
+  }).toBe(true);
 }

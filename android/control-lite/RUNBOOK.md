@@ -155,10 +155,12 @@ Open `Miopunch Control Lite` on the phone:
 4. Tap `Join`
 5. Tap `LS`
 6. Enter the Linux peer ID
-7. Tap `Ping`
-8. Tap `Shell LS`
-9. Tap `Open Shell`
-10. Send these commands from the phone:
+7. Keep `P2P path` as `auto / auto` for the normal demo, or select a diagnostic
+   override such as `udp_only / v4` before P2P actions
+8. Tap `Ping`
+9. Tap `Shell LS`
+10. Tap `Open Shell`
+11. Send these commands from the phone:
 
 ```text
 date
@@ -169,13 +171,18 @@ ls
 
 Successful `Ping` / `Shell LS` output should include `reason_code=OK`. On the
 same-LAN Android/WSL path, the expected selected path is `selected_path=direct_ipv4`.
+The `P2P path` selectors affect only `Ping`, `Shell LS`, and `Open Shell`.
+They do not constrain runtime startup, invite/join/approve, roster `LS`, MQTT
+signaling, or STUN discovery. Current POC v1 exposes `tcp_only` as a diagnostic
+choice but rejects it explicitly because TCP punching is not implemented.
 
 For repeatable ADB-driven evidence, the debug Activity accepts intent extras that
-prefill UI fields without changing the backend path:
+prefill UI fields and the same path controls used by the buttons:
 
 ```bash
 adb shell am start -n com.miopunch.controlite/.MainActivity --es invite "<invite_code>"
 adb shell am start -n com.miopunch.controlite/.MainActivity --es peer "<linux_peer_id>"
+adb shell am start -n com.miopunch.controlite/.MainActivity --es p2p_network udp_only --es p2p_ip_family v4
 adb shell am start -n com.miopunch.controlite/.MainActivity --es line date
 ```
 

@@ -71,9 +71,14 @@ sibling `miopunch up` process from the same extracted session bundle.
    - Machine B: `Enroll` > Join a network, paste the invite code, and join.
    - Refresh both machines and verify each peer appears in `Discover`.
 9. Run the secure-session path.
-   - `Punch` > select the remote peer and run Ping.
+   - `Punch` or device detail > keep `P2P network` / `IP family` as `auto` for
+     the normal smoke, or select a diagnostic override such as `udp_only` / `v4`.
+   - Select the remote peer and run Ping.
    - `SecureSession` > confirm the ping gate is satisfied.
    - `Shell` > Find targets or sessions if needed, then Open shell and verify terminal attach.
+   - Path policy controls apply only to Ping, Shell target/session discovery,
+     and shell attach. They do not change network creation, invite/join,
+     roster discovery, MQTT signaling, or STUN discovery.
 10. Run the Windows desktop smoke.
    - Verify GUI startup, daemon connection, and runtime contract rendering through the six-stage wizard.
    - Validate summary/evidence rendering and diagnostics export locally.

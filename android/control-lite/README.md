@@ -48,6 +48,11 @@ Set `MIOPUNCH_ADB=/path/to/adb` to override ADB discovery.
 - The APK does not expose Android as a remote shell target.
 - The APK starts a local `miopunch up` process only for the app lifetime.
 - Control actions and shell attach are still the existing CLI behavior.
+- The `P2P path` selectors apply only to `Ping`, `Shell LS`, and `Open Shell`.
+  They do not change runtime startup, join/invite, roster `LS`, MQTT signaling,
+  or STUN discovery.
+- `tcp_only` is exposed as the current CLI diagnostic mode. POC v1 rejects it
+  explicitly because TCP punching is out of scope for this demo path.
 
 ## Confirmed Evidence
 

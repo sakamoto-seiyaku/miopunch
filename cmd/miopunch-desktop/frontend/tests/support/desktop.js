@@ -179,6 +179,17 @@ async function installFakeBridge(page, options = {}) {
       }
       return payload;
     };
+    const selectedPathForArgs = (args = {}) => {
+      const family = String(args.p2p_ip_family || "auto");
+      if (family === "v4") return "direct_ipv4";
+      if (family === "v6") return "direct_ipv6";
+      return "auto";
+    };
+    const pathFactsForArgs = (args = {}) => [
+      { message: `selected_path=${selectedPathForArgs(args)}` },
+      { message: `p2p_network=${String(args.p2p_network || "auto")}` },
+      { message: `p2p_ip_family=${String(args.p2p_ip_family || "auto")}` },
+    ];
     const actionResult = (extra = {}) => ({
       stage: snapshot.stage,
       reason_code: snapshot.reason_code,
@@ -468,6 +479,7 @@ async function installFakeBridge(page, options = {}) {
                     facts: [
                       { message: `ping_peer=${peerID}` },
                       { message: "ping_gate=satisfied" },
+                      ...pathFactsForArgs(args),
                     ],
                     suggestions: [{ message: "open Shell and attach the console" }],
                   },
@@ -484,6 +496,13 @@ async function installFakeBridge(page, options = {}) {
                     ok: true,
                     result: actionResult({
                       data: { sessions: ["main", "ops"] },
+                      evidence: {
+                        facts: [
+                          { message: `target=${String(args.target || "local")}` },
+                          ...pathFactsForArgs(args),
+                        ],
+                        suggestions: [{ message: "choose a session and open shell" }],
+                      },
                     }),
                   };
                 }
@@ -491,6 +510,13 @@ async function installFakeBridge(page, options = {}) {
                   ok: true,
                   result: actionResult({
                     data: { targets: ["local", "logs"] },
+                    evidence: {
+                      facts: [
+                        { message: `peer_id=${String(args.peer_id || firstPeerID())}` },
+                        ...pathFactsForArgs(args),
+                      ],
+                      suggestions: [{ message: "choose a target and list sessions" }],
+                    },
                   }),
                 };
               case "sh": {
@@ -501,7 +527,10 @@ async function installFakeBridge(page, options = {}) {
                   stage: "Shell",
                   summary: { text: "shell session attached" },
                   evidence: {
-                    facts: [{ message: `shell_session_id=${shellSessionID}` }],
+                    facts: [
+                      { message: `shell_session_id=${shellSessionID}` },
+                      ...pathFactsForArgs(args),
+                    ],
                     suggestions: [{ message: "use the remote console" }],
                   },
                 });

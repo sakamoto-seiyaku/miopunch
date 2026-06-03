@@ -1492,10 +1492,42 @@ button {
   gap: 14px;
 }
 
+.path-policy-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+
+.path-policy-grid label {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  color: var(--on-surface-variant);
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.2;
+}
+
+.path-policy-grid .textfield {
+  height: 40px;
+  min-height: 40px;
+  border-radius: 12px;
+  background: var(--surface-container);
+}
+
+.device-path-policy {
+  margin-top: 4px;
+}
+
+.shell-path-policy-grid {
+  margin-top: 8px;
+}
+
 .shell-connect-panel {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(210px, 1.3fr) minmax(170px, 0.9fr) auto minmax(170px, 0.9fr) auto minmax(84px, auto) minmax(70px, auto) minmax(96px, auto);
+  grid-template-columns: minmax(160px, 1.1fr) minmax(120px, 0.75fr) auto minmax(120px, 0.75fr) auto minmax(104px, 0.65fr) minmax(92px, 0.55fr) minmax(84px, auto) minmax(70px, auto) minmax(96px, auto);
   gap: 8px 10px;
   align-items: end;
   padding: 12px 14px;
@@ -2637,6 +2669,7 @@ select:focus-visible {
 	  .settings-form-grid,
 	  .settings-group-wide,
 	  .shell-target-grid,
+	  .path-policy-grid,
 	  .alias-grid,
   .device-name-editor,
   .compact-form {

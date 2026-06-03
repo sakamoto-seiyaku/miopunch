@@ -12,10 +12,12 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import java.io.BufferedWriter;
@@ -49,6 +51,8 @@ public final class MainActivity extends Activity {
     private EditText targetInput;
     private EditText sessionInput;
     private EditText shellInput;
+    private Spinner p2pNetworkInput;
+    private Spinner p2pIPFamilyInput;
     private TextView logView;
     private ScrollView logScroll;
     private WebView shellTerminal;
@@ -122,6 +126,14 @@ public final class MainActivity extends Activity {
         root.addView(peerInput, fillWrap());
         root.addView(targetInput, fillWrap());
         root.addView(sessionInput, fillWrap());
+
+        root.addView(label("P2P path"), fillWrap());
+        LinearLayout pathRow = row();
+        p2pNetworkInput = spinner("auto", "udp_only", "tcp_only");
+        p2pIPFamilyInput = spinner("auto", "v4", "v6");
+        pathRow.addView(p2pNetworkInput, weight());
+        pathRow.addView(p2pIPFamilyInput, weight());
+        root.addView(pathRow, fillWrap());
 
         LinearLayout row1 = row();
         startButton = button("Start Runtime", v -> startRuntime());
@@ -230,6 +242,14 @@ public final class MainActivity extends Activity {
         return b;
     }
 
+    private Spinner spinner(String... values) {
+        Spinner s = new Spinner(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, values);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        s.setAdapter(adapter);
+        return s;
+    }
+
     private LinearLayout row() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -263,6 +283,8 @@ public final class MainActivity extends Activity {
         setTextExtra(peerInput, intent, "peer");
         setTextExtra(targetInput, intent, "target");
         setTextExtra(sessionInput, intent, "session");
+        setSpinnerExtra(p2pNetworkInput, intent, "p2p_network");
+        setSpinnerExtra(p2pIPFamilyInput, intent, "p2p_ip_family");
         if (intent.getBooleanExtra("open_shell", false)) {
             appendLog("intent open_shell=true");
             main.postDelayed(() -> openShell(), 100);
@@ -275,6 +297,28 @@ public final class MainActivity extends Activity {
             appendLog("intent shell_line: " + shellLine);
             shellInput.setText(shellLine);
             main.postDelayed(() -> sendShellLine(), 100);
+        }
+    }
+
+    private void setSpinnerExtra(Spinner input, Intent intent, String key) {
+        String value = intent.getStringExtra(key);
+        if (value == null) {
+            return;
+        }
+        selectSpinner(input, value);
+    }
+
+    private void selectSpinner(Spinner input, String value) {
+        if (input == null) {
+            return;
+        }
+        String wanted = value == null ? "" : value.trim();
+        for (int i = 0; i < input.getCount(); i++) {
+            Object item = input.getItemAtPosition(i);
+            if (item != null && wanted.equals(item.toString())) {
+                input.setSelection(i);
+                return;
+            }
         }
     }
 
@@ -370,7 +414,9 @@ public final class MainActivity extends Activity {
             appendLog("missing peer id");
             return;
         }
-        runAction("ping", "ping", peer);
+        List<String> args = new ArrayList<>(Arrays.asList("ping", peer));
+        args.addAll(p2pArgs());
+        runAction("ping", args);
     }
 
     private void runShellLS() {
@@ -379,10 +425,16 @@ public final class MainActivity extends Activity {
             appendLog("missing peer id");
             return;
         }
-        runAction("sh ls", "sh", "ls", peer, target());
+        List<String> args = new ArrayList<>(Arrays.asList("sh", "ls", peer, target()));
+        args.addAll(p2pArgs());
+        runAction("sh ls", args);
     }
 
     private void runAction(String label, String... args) {
+        runAction(label, Arrays.asList(args));
+    }
+
+    private void runAction(String label, List<String> args) {
         if (!runtimeRunning()) {
             appendLog("runtime is stopped");
             updateControls();
@@ -422,6 +474,7 @@ public final class MainActivity extends Activity {
         cmd.add(target());
         cmd.add("-s");
         cmd.add(sessionName());
+        cmd.addAll(p2pArgs());
 
         try {
             ProcessBuilder pb = new ProcessBuilder(cmd);
@@ -604,6 +657,10 @@ public final class MainActivity extends Activity {
     }
 
     private List<String> cliCommand(String... args) {
+        return cliCommand(Arrays.asList(args));
+    }
+
+    private List<String> cliCommand(List<String> args) {
         List<String> cmd = new ArrayList<>();
         cmd.add(miopunchPath());
         cmd.add("--localapi");
@@ -611,8 +668,33 @@ public final class MainActivity extends Activity {
         cmd.add("--format");
         cmd.add("json");
         cmd.add("--redact");
-        cmd.addAll(Arrays.asList(args));
+        cmd.addAll(args);
         return cmd;
+    }
+
+    private List<String> p2pArgs() {
+        List<String> args = new ArrayList<>();
+        String network = selected(p2pNetworkInput);
+        if ("udp_only".equals(network)) {
+            args.add("-u");
+        } else if ("tcp_only".equals(network)) {
+            args.add("-t");
+        }
+        String family = selected(p2pIPFamilyInput);
+        if ("v4".equals(family)) {
+            args.add("-4");
+        } else if ("v6".equals(family)) {
+            args.add("-6");
+        }
+        return args;
+    }
+
+    private String selected(Spinner input) {
+        if (input == null) {
+            return "";
+        }
+        Object value = input.getSelectedItem();
+        return value == null ? "" : value.toString().trim();
     }
 
     private String miopunchPath() {

@@ -60,6 +60,42 @@
     zen: false,
   };
   const shellSelections = new Map();
+  const pathPolicyStorageKey = "miopunch_desktop_path_policy";
+  const pathPolicyOptions = {
+    p2p_network: ["auto", "udp_only", "tcp_only"],
+    p2p_ip_family: ["auto", "v4", "v6"],
+  };
+  const defaultPathPolicy = { p2p_network: "auto", p2p_ip_family: "auto" };
+  const validPathPolicyValue = (name, value) => {
+    const options = pathPolicyOptions[name] || [];
+    const normalized = String(value || "");
+    return options.includes(normalized) ? normalized : defaultPathPolicy[name];
+  };
+  const loadPathPolicy = () => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(pathPolicyStorageKey) || "{}");
+      return {
+        p2p_network: validPathPolicyValue("p2p_network", raw.p2p_network),
+        p2p_ip_family: validPathPolicyValue("p2p_ip_family", raw.p2p_ip_family),
+      };
+    } catch {
+      return { ...defaultPathPolicy };
+    }
+  };
+  const pathPolicy = loadPathPolicy();
+  const savePathPolicy = () => {
+    try {
+      localStorage.setItem(pathPolicyStorageKey, JSON.stringify(pathPolicy));
+    } catch {
+      // Ignore storage failures; the current page state still applies.
+    }
+  };
+  const setPathPolicy = (name, value) => {
+    if (!Object.prototype.hasOwnProperty.call(pathPolicy, name)) return;
+    pathPolicy[name] = validPathPolicyValue(name, value);
+    savePathPolicy();
+    scheduleRender();
+  };
   let shellTargetContextMenu = null;
   const shellState = {
     ws: null,
@@ -2057,6 +2093,9 @@
                     <label>Target<input class="textfield" id="shell-target" value="${esc(currentTarget)}" list="shell-target-options" autocomplete="off" /></label>
                     <label>Session<input class="textfield" id="shell-session" value="${esc(currentSession)}" list="shell-session-options" autocomplete="off" /></label>
                   </div>
+                  <div class="path-policy-grid shell-path-policy-grid">
+                    ${pathPolicyControlsHTML("peer-shell", !shellCanDiscover(peerID) && !shellCanConnect(peerID))}
+                  </div>
                   <datalist id="shell-target-options">
                     ${shellView.targetOptions.map((value) => `<option value="${esc(value)}"></option>`).join("")}
                   </datalist>
@@ -2117,6 +2156,9 @@
                 <div class="device-command-row">
                   <button class="btn btn-primary" data-peer-section="shell" data-peer-id="${esc(peerID)}" ${canOperate ? "" : "disabled"}>Open shell</button>
                   <button class="btn btn-tonal" data-run-peer-task="ping" ${canOperate ? "" : "disabled"}>Ping</button>
+                </div>
+                <div class="path-policy-grid device-path-policy">
+                  ${pathPolicyControlsHTML("device", !canOperate)}
                 </div>
                 <div class="identity-meta-row device-action-meta">
                   <span>${esc(pathText)}</span>
@@ -2339,6 +2381,7 @@
             <button class="btn btn-tonal btn-compact" id="btn-shell-discover" type="button" ${shellCanDiscover(peerID) ? "" : "disabled"}>Find targets</button>
             <label>Session<input class="textfield" id="shell-session" value="${esc(currentSession)}" list="shell-session-options" autocomplete="off" /></label>
             <button class="btn btn-tonal btn-compact" id="btn-shell-find-sessions" type="button" ${shellCanDiscover(peerID) ? "" : "disabled"}>Find sessions</button>
+            ${pathPolicyControlsHTML("shell", false)}
             ${primaryAction}
             <button class="btn btn-tonal btn-compact" type="button" data-shell-toggle="zen">${shellView.zen ? "Exit Zen" : "Zen"}</button>
             ${showPhase ? `<span class="chip ${shellPhaseClass(shellView.phase)}" id="shell-phase">${esc(shellView.phase)}</span>` : `<span class="shell-phase-placeholder" id="shell-phase">idle</span>`}
@@ -2680,10 +2723,34 @@
 
   const csvValue = (value) => Array.isArray(value) ? value.join(", ") : "";
 
-  const selectHTML = (id, value, options, disabled = false) => `
-    <select class="textfield" id="${esc(id)}" ${disabled ? "disabled" : ""}>
+  const selectHTML = (id, value, options, disabled = false, attrs = "") => `
+    <select class="textfield" id="${esc(id)}" ${attrs} ${disabled ? "disabled" : ""}>
       ${options.map((opt) => `<option value="${esc(opt)}" ${String(value || "") === opt ? "selected" : ""}>${esc(opt)}</option>`).join("")}
     </select>`;
+
+  const pathPolicyArgs = () => ({
+    p2p_network: validPathPolicyValue("p2p_network", pathPolicy.p2p_network),
+    p2p_ip_family: validPathPolicyValue("p2p_ip_family", pathPolicy.p2p_ip_family),
+  });
+
+  const withPathPolicy = (args) => ({ ...(args || {}), ...pathPolicyArgs() });
+
+  const selectedPathForPolicyArgs = (args) => {
+    const family = String(args && args.p2p_ip_family || "auto");
+    if (family === "v4") return "direct_ipv4";
+    if (family === "v6") return "direct_ipv6";
+    return "auto";
+  };
+
+  const pathPolicyFactsFromArgs = (args) => [
+    { message: `selected_path=${selectedPathForPolicyArgs(args)}` },
+    { message: `p2p_network=${String(args && args.p2p_network || "auto")}` },
+    { message: `p2p_ip_family=${String(args && args.p2p_ip_family || "auto")}` },
+  ];
+
+  const pathPolicyControlsHTML = (prefix, disabled = false) => `
+    <label>P2P network${selectHTML(`${prefix}-p2p-network-policy`, pathPolicy.p2p_network, pathPolicyOptions.p2p_network, disabled, 'data-p2p-policy="p2p_network"')}</label>
+    <label>IP family${selectHTML(`${prefix}-p2p-ip-family-policy`, pathPolicy.p2p_ip_family, pathPolicyOptions.p2p_ip_family, disabled, 'data-p2p-policy="p2p_ip_family"')}</label>`;
 
   const renderSettings = () => {
     if (state.view.type === "section") {
@@ -3143,6 +3210,7 @@
       }
     } else if (kind === "ping") {
       taskObj.stage = "payload exchanged";
+      taskObj.facts.push(...pathPolicyFactsFromArgs(args));
       taskObj.facts.push({ message: "path=quic/udp4 rtt_ms=18" });
       const peerID = String(args && args.peer_id || "").trim();
       if (peerID) {
@@ -3164,6 +3232,7 @@
     } else if (kind === "sh_ls") {
       const target = String(args && args.target || "").trim();
       taskObj.stage = target ? "sessions listed" : "targets listed";
+      taskObj.facts.push(...pathPolicyFactsFromArgs(args));
       if (target) {
         taskObj.facts.push({ term_id: "session", message: "session=main" });
         taskObj.facts.push({ term_id: "session", message: "session=maintenance" });
@@ -3171,6 +3240,10 @@
         taskObj.facts.push({ term_id: "target", message: "target=local" });
         taskObj.facts.push({ term_id: "target", message: "target=ssh:ops" });
       }
+    } else if (kind === "sh_attach") {
+      taskObj.stage = "shell attached";
+      taskObj.facts.push(...pathPolicyFactsFromArgs(args));
+      taskObj.facts.push({ message: `shell_session_id=${taskID}` });
     } else if (kind === "revoke_member") {
       taskObj.stage = "decl written";
       taskObj.facts.push({ message: `revoked_peer_id=${args && args.peer_id ? args.peer_id : "-"}` });
@@ -3362,7 +3435,7 @@
       ? String(state.view.peerID || "")
       : String(shellView.peerID || "");
     if (!peerID) return;
-    const args = kind === "sh_ls" ? { peer_id: peerID, target: "" } : { peer_id: peerID };
+    const args = withPathPolicy(kind === "sh_ls" ? { peer_id: peerID, target: "" } : { peer_id: peerID });
     try {
       const created = await createTask(kind, args);
       upsertTask(attachPeerFact(created, peerID));
@@ -3522,7 +3595,7 @@
   };
 
   const startPreviewShell = async (peerID, target, session) => {
-    const created = await createTask("sh_attach", { peer_id: peerID, target, session });
+    const created = await createTask("sh_attach", withPathPolicy({ peer_id: peerID, target, session }));
     upsertTask(attachPeerFact(created, peerID));
     openPreviewShellTask(created.task_id, peerID, target, session);
   };
@@ -3699,7 +3772,7 @@
   };
 
   const startLiveShell = async (peerID, target, session) => {
-    const created = await createTask("sh_attach", { peer_id: peerID, target, session });
+    const created = await createTask("sh_attach", withPathPolicy({ peer_id: peerID, target, session }));
     upsertTask(attachPeerFact(created, peerID));
     await attachLiveShellTask(created.task_id, peerID, target, session, "new");
   };
@@ -3727,6 +3800,7 @@
       host.addEventListener("contextmenu", handlePageContextMenu);
       host.addEventListener("keydown", handlePageKeydown);
       host.addEventListener("submit", handlePageSubmit);
+      host.addEventListener("change", handlePageChange);
       host.addEventListener("toggle", handlePageToggle, true);
     }
     document.addEventListener("keydown", handleGlobalKeydown);
@@ -3765,6 +3839,12 @@
         }
       });
     }
+  };
+
+  const handlePageChange = (event) => {
+    const target = event.target && event.target.closest ? event.target.closest("[data-p2p-policy]") : null;
+    if (!target) return;
+    setPathPolicy(String(target.dataset.p2pPolicy || ""), target.value);
   };
 
   const handlePageKeydown = (event) => {
@@ -4350,7 +4430,7 @@
     scheduleRender();
 
     try {
-      const created = await createTask("sh_ls", { peer_id: peerID, target });
+      const created = await createTask("sh_ls", withPathPolicy({ peer_id: peerID, target }));
       const taskID = upsertTask(attachPeerFact(created, peerID));
       shellView.discoveryTaskID = taskID;
       scheduleRender();
