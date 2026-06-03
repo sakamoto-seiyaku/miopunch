@@ -1,9 +1,4 @@
-# miopunch-poc-v1-secure-session Specification
-
-## Purpose
-定义当前 POC v1 的 secure session recipe：`PathResult -> PeerSession`，以及固定的 6A identity pin 规则。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Current v1 secure session consumes a closed PathResult handoff
 The system SHALL accept `PathResult` as the only dial or punch handoff into this capability.
@@ -69,6 +64,8 @@ The system SHALL NOT branch to QUIC, TCP, or any alternative recipe inside this 
 - **THEN** it accepts that KCP session for TLS peer identity validation
 - **AND** it still rejects endpoints outside the handoff set
 
+## ADDED Requirements
+
 ### Requirement: Secure session cleanup respects selected UDP ownership
 The current v1 secure-session implementation SHALL close only resources owned by the session attempt/session.
 
@@ -90,27 +87,3 @@ It SHALL close temporary selected UDP sockets on failed handoff and on session c
 - **WHEN** a secure session established over a temporary selected UDP socket is closed
 - **THEN** the session close path closes that temporary UDP socket
 - **AND** non-winning temporary sockets are already closed by punching cleanup
-
-### Requirement: PeerSession is the only upper-layer session boundary
-The system SHALL expose `PeerSession` with stream-oriented operations such as `OpenStream` and `AcceptStream` as the upper-layer contract of this capability.
-
-`AcceptStream` SHALL preserve the stream-open envelope, including `kind` and `metadata`, in the returned `AcceptedStream`.
-Upper layers SHALL NOT depend on KCP/TLS/yamux internals directly.
-
-#### Scenario: Upper layers consume only PeerSession
-- **WHEN** a current v1 shell or ping workflow uses an established session
-- **THEN** it interacts with `PeerSession`
-- **AND** it does not need to know the underlying recipe details
-
-### Requirement: TLS identity is pinned to MemberCredential
-The system SHALL pin the TLS peer identity to the remote `MemberCredential`.
-
-The presented certificate Ed25519 public key MUST match `MemberCredential.subject_ed25519_pub`.
-The credential MUST verify under the network authority before the session is accepted.
-The remote `MemberCredential` consumed here SHALL come from `PathResult`, not from a second roster lookup reopened by this capability.
-The local session certificate SHALL be a self-signed Ed25519 certificate created from the local device key material.
-
-#### Scenario: Session is rejected when credential and certificate disagree
-- **WHEN** a TLS handshake completes but the presented Ed25519 key does not match the remote `MemberCredential.subject_ed25519_pub`
-- **THEN** the session is rejected
-- **AND** no alternate recipe is tried as a fallback

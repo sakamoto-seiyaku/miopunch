@@ -58,6 +58,7 @@ The current v1 runtime SHALL expose the selected UDP path in structured success 
 The exposed path value SHALL distinguish at least:
 
 - `direct_ipv4`
+- `direct_ipv6`
 - `punching_ipv4`
 
 The CLI JSON output and report output SHALL preserve this evidence so an operator can tell whether an Android/WSL demo succeeded by LAN-direct UDP or by UDP punching.
@@ -76,6 +77,67 @@ The CLI JSON output and report output SHALL preserve this evidence so an operato
 - **WHEN** current v1 peer session establishment fails after trying UDP direct reachability and UDP punching
 - **THEN** the failure output includes `stage`, `reason_code`, `facts`, and `suggestions`
 - **AND** the facts identify candidate-pair evidence well enough to distinguish direct timeout from punching timeout
+
+### Requirement: Current v1 runtime owns UDP owner lifecycle
+The current v1 Runtime SHALL own the lifecycle of its long-lived UDP owner and the underlying Runtime UDP socket.
+
+Runtime SHALL create, retain, and close the long-lived UDP owner as a Runtime resource.
+
+Punch and secure-session layers MAY borrow owner-provided traversal or packet transport views, but SHALL NOT close the Runtime UDP owner.
+
+#### Scenario: Runtime closes UDP owner only at runtime shutdown
+- **WHEN** a current v1 peer session closes after a successful Runtime-owned UDP handoff
+- **THEN** Runtime's UDP owner remains open
+- **AND** the owner is closed only when Runtime itself shuts down or explicitly replaces the UDP owner
+
+#### Scenario: Failed handoff leaves Runtime UDP owner usable
+- **WHEN** secure-session establishment fails after a Runtime-owned UDP punch succeeds
+- **THEN** Runtime keeps the UDP owner usable for the next dial or accept attempt
+- **AND** subsequent local candidates do not advertise a closed UDP file descriptor
+
+### Requirement: Current v1 runtime exposes punch-to-secure-session failure evidence
+The current v1 Runtime SHALL expose and log actionable evidence when a selected UDP path fails during secure-session handoff.
+
+The evidence SHALL include:
+
+- `remote_peer_id`
+- `selected_path`
+- selected remote UDP endpoint
+- whether the selected UDP path was Runtime-owned or temporary
+- secure-session error stage
+
+#### Scenario: Accept-side secure-session failure is visible
+- **WHEN** inbound punch handling selects a UDP path
+- **AND** secure-session accept fails
+- **THEN** Runtime logs or exposes failure evidence with the selected path and remote UDP endpoint
+- **AND** the failure is distinguishable from punch failure
+
+#### Scenario: Dial-side secure-session failure remains stage-locatable
+- **WHEN** outbound punch succeeds but secure-session dial fails
+- **THEN** CLI/runtime failure output identifies `SecureSession` as the failing stage
+- **AND** facts include selected UDP path evidence from the preceding punch
+
+### Requirement: Current v1 runtime reports UDP6 selected path evidence
+When current v1 Runtime establishes a UDP6 direct path, it SHALL expose selected path evidence consistently with UDP4 paths.
+
+#### Scenario: UDP6 direct path is operator-visible
+- **WHEN** `miopunch ping <peer>` establishes a new peer session through UDP6 direct reachability
+- **THEN** the command succeeds
+- **AND** its structured facts or report data include `selected_path=direct_ipv6`
+
+### Requirement: Android candidate diagnostics are stage-locatable
+The current v1 runtime SHALL expose trace diagnostics that identify Android local candidate sources, candidate counts, and candidate filtering outcomes during peer session establishment.
+
+Diagnostics SHALL distinguish at least Android provider enumeration, route-source derivation, STUN mapped address gathering, direct path selection, UDP punching fallback, and secure-session upgrade.
+
+#### Scenario: Android direct candidates are visible in logs
+- **WHEN** Android Control Lite starts the current v1 runtime with trace logging
+- **AND** it attempts a P2P action against a Linux peer
+- **THEN** logs identify the final Android direct candidate set and its source
+
+#### Scenario: Downstream secure session failure preserves candidate evidence
+- **WHEN** P2P path establishment succeeds but secure-session upgrade fails
+- **THEN** logs preserve the selected path, selected endpoints, candidate source evidence, and secure-session failure stage
 
 ### Requirement: Current v1 localapi RPC is the extracted runtime contract
 The system SHALL expose the current v1 runtime through `localapi` over Unix socket / named pipe.
@@ -151,6 +213,66 @@ For non-interactive commands, the system SHALL preserve `--format json`, `--repo
 - **THEN** the command still supports `--format json`, `--report`, and `--redact`
 - **AND** the output shape remains suitable for automation and artifact export
 
+### Requirement: Current v1 peer actions carry per-command P2P path policy
+The current v1 runtime SHALL accept per-command P2P path policy on peer actions that establish or reuse a peer session.
+
+The policy SHALL include:
+
+- `p2p_network`: `auto`, `udp_only`, or `tcp_only`
+- `p2p_ip_family`: `auto`, `v4`, or `v6`
+
+The current v1 CLI SHALL expose this policy for `ping`, `sh ls`, and `sh` through short flags and long options.
+
+The runtime SHALL treat an omitted policy as `auto` and preserve existing default behavior.
+
+#### Scenario: Ping carries IPv4-only policy into runtime
+- **WHEN** a user runs current v1 `miopunch ping <peer> -4`
+- **THEN** the action arguments carry `p2p_ip_family=v4`
+- **AND** peer session establishment receives that policy instead of using the default family behavior
+
+#### Scenario: Shell list carries UDP-only policy into runtime
+- **WHEN** a user runs current v1 `miopunch sh ls <peer> -u`
+- **THEN** the action arguments carry `p2p_network=udp_only`
+- **AND** peer session establishment receives that policy instead of ignoring the CLI option
+
+#### Scenario: Omitted policy remains automatic
+- **WHEN** a user runs current v1 `miopunch ping <peer>` without `-u`, `-t`, `-4`, `-6`, `--p2p-network`, or `--p2p-ip-family`
+- **THEN** the runtime uses automatic P2P path behavior
+- **AND** existing default command behavior is preserved
+
+### Requirement: Explicit P2P path policy constrains peer session reuse
+The current v1 runtime SHALL NOT reuse an existing peer session for a command with explicit P2P path policy unless the existing session satisfies that policy.
+
+If an existing session does not satisfy the explicit policy, the runtime SHALL establish a fresh peer session under the requested policy.
+
+If no explicit P2P path policy is supplied, the runtime MAY reuse a healthy existing peer session as before.
+
+#### Scenario: IPv4-only command does not reuse IPv6 session
+- **GIVEN** a healthy peer session already exists with selected path `direct_ipv6`
+- **WHEN** a user runs current v1 `miopunch ping <peer> -4`
+- **THEN** the runtime does not reuse the existing IPv6 peer session
+- **AND** it establishes a fresh session under IPv4-only P2P policy
+
+#### Scenario: Default command may reuse healthy session
+- **GIVEN** a healthy peer session already exists for a peer
+- **WHEN** a user runs current v1 `miopunch ping <peer>` without explicit P2P path policy
+- **THEN** the runtime may reuse the existing healthy peer session
+
+### Requirement: Current v1 reports unsupported explicit TCP-only path policy
+The current v1 runtime SHALL reject an explicit `tcp_only` P2P path policy with an actionable unsupported-path failure.
+
+The runtime SHALL NOT silently fall back to UDP when the command explicitly requested `tcp_only`.
+
+#### Scenario: TCP-only ping fails explicitly
+- **WHEN** a user runs current v1 `miopunch ping <peer> -t`
+- **THEN** the command fails before UDP path establishment
+- **AND** the failure explains that current POC v1 does not support TCP-only P2P path establishment
+
+#### Scenario: TCP-only shell fails explicitly
+- **WHEN** a user runs current v1 `miopunch sh <peer> -t`
+- **THEN** the command fails before shell attach
+- **AND** the failure explains that current POC v1 does not support TCP-only P2P path establishment
+
 ### Requirement: Current v1 headless runtime gate is Linux-first
 The system SHALL treat Linux two-node CLI execution as the required current v1 headless runtime gate.
 
@@ -160,6 +282,17 @@ Windows CLI execution and Windows/Linux real-machine interoperability MAY be sup
 - **WHEN** the current v1 headless runtime is accepted
 - **THEN** the required smoke path runs through Linux `up`, `init-network`, `invite`, `approve`, `join`, `ls`, `ping`, `sh ls`, `sh`, and `revoke`
 - **AND** Windows/Linux real-machine interoperability is tracked as follow-up scope rather than a blocker for this capability
+
+### Requirement: Android Control Lite validation uses rebuilt shared runtime
+Android Control Lite validation SHALL rebuild the APK payload and the Linux CLI from the same source tree before judging Android/Linux P2P behavior.
+
+Validation SHALL use fresh app data, fresh Linux state, trace logs on both sides, and SHALL verify Android-to-Linux `ping` plus `sh ls` when Android remains a control-side demo client.
+
+#### Scenario: Rebuilt Android demo proves P2P path
+- **WHEN** the Android APK and Linux CLI are rebuilt from the changed tree
+- **AND** the app joins the same network as the Linux peer using fresh state
+- **THEN** Android-to-Linux `ping` succeeds or logs enough stage evidence to identify the failing layer
+- **AND** Android-to-Linux `sh ls` is run as the shell demo acceptance check
 
 ### Requirement: Current v1 failures remain actionable across CLI and runtime APIs
 The system SHALL provide actionable failure output for current v1 runtime-driven commands and APIs.

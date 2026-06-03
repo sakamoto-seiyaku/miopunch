@@ -35,6 +35,11 @@
 - `internal/punching/*`, `internal/punchwire/*`, `connectivity/*`
   - 继续可作为 UDP punching 叶子机制参考。
   - `poc-v1-04` 只允许复用“叶子 mechanics”，不允许把 legacy runtime orchestration 原样搬入 v1。
+  - 2026-06-02 复盘校正：这条规则不能被解释为“只保留
+    `internal/punching.MakeHole`”。如果目标是保留 XTCP 风格 UDP 打洞，
+    `connectivity.Gather + punchdecision.Analyze + connectivity.Attempt`
+    属于算法核心链路，不是普通 legacy runtime 噪音。见
+    `docs/notes/2026-06-02-pocv1-xtcp-decision-regression.md`。
 - `dataplane/*` 与 `internal/tlsutil/*`
   - 继续可作为 `PeerSession` / TLS pin / KCP+TLS+yamux 的参考或窄适配层。
   - `poc-v1-05` 不再接受 QUIC/TCP/多 recipe 重新污染 v1 主路径。
@@ -54,6 +59,9 @@
   - 阅读/对照旧行为。
   - 作为叶子机制复用。
   - 作为 desktop/localapi 的薄壳 plumbing 复用。
+- 抽离 legacy 时必须先标注“算法核心”与“产品编排”的边界。不得把
+  NAT/STUN gather、punch decision、attempt-ready `NatHoleResp` 这类算法决策链路
+  误归类为可丢弃的 legacy orchestration。
 - 不允许继续在 `internal/controlplane`、`internal/task`、`internal/pocstate` 上直接叠加新的 v1 领域模型。
 - 不允许把 “能跑的旧逻辑” 直接等价为 v1 source of truth；v1 的 source of truth 只来自 `poc-v1-01/06/02/03/04/05/06x/07`。
 

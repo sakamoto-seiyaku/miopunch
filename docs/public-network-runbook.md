@@ -13,7 +13,9 @@
 
 ## 关键开关（P3.5）
 
-- `-4` / `-6`：只约束 **P2P/打洞** 地址族（不限制 signaling）。
+- `-4` / `-6`：只约束 **P2P/打洞** 地址族（不限制 signaling / MQTT / enroll / invite / approve）。
+- `-u` / `-t`：只约束 **P2P 路径建立** 的网络族；当前 POC v1 是 UDP-only，显式 `-t` / `tcp_only` 会返回 unsupported，不会静默回落到 UDP。
+- `--p2p-network auto|udp_only|tcp_only`、`--p2p-ip-family auto|v4|v6`：分别是 `-u/-t`、`-4/-6` 的长参数形式。
 - `--builtin-dns-mode auto|on|off`：仅用于 **STUN/MQTT hostname 解析**；默认 `auto`（系统失败才 fallback）。
 - `--builtin-dns <ip[:port],...>`：内置 resolver 列表（默认：`1.1.1.1,8.8.8.8,223.5.5.5,119.29.29.29`），查询协议为 `TCP/53`。
 - `--stun <addr,...>`：显式指定 STUN 时：
@@ -80,7 +82,8 @@ adb shell /data/local/tmp/miopunch-lab peer visitor \
 说明：
 
 - 若 Android（ADB shell）系统 DNS 不可用，可把两端都改为 `--builtin-dns-mode on`（允许直接使用 hostname）。
-- 若想强制只走 IPv4 punching：加 `-4`；若想固定不走 punching：加 `--stun ''`。
+- 若想排除 IPv6 P2P 路径：加 `-4`。注意 `-4` 只能保证不选 `direct_ipv6`，同一局域网或同机测试仍可能先成功为 `direct_ipv4`，不等同于强制 `punching_ipv4`。
+- 若想固定不走 punching：加 `--stun ''`。
 
 ## Case1：Android 移动网络 ↔ Host（公网 punching）
 

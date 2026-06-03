@@ -72,6 +72,12 @@ miopunch up
   - 阅读与对照旧行为。
   - 作为叶子机制窄复用。
   - 作为 desktop / LocalAPI / shell transport 的薄壳 plumbing 复用。
+- 抽离旧栈时必须显式区分“产品编排噪音”和“算法核心”。例如，
+  `internal/task/poc_dial.go` 的 GUI/task/session 拼装可以移出 v1 主干，
+  但 XTCP 风格 UDP 打洞依赖的 `connectivity.Gather`、`punchdecision.Analyze`
+  和 attempt-ready `NatHoleResp` 决策链路不能被误当成普通 legacy
+  orchestration 丢弃。见
+  `docs/notes/2026-06-02-pocv1-xtcp-decision-regression.md`。
 - 不允许继续在 `internal/controlplane`、`internal/task`、`internal/pocstate` 上直接叠加新的 `POC v1` 领域模型。
 
 ### 5) 唯一 runtime authority 属于 `internal/pocv1/runtime`
