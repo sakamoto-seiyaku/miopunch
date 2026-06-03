@@ -1,22 +1,22 @@
 # miopunch-release-automation-v0 Specification
 
 ## Purpose
-Define the current GitHub Actions release automation contract for the session-first Door 1 Pro release path.
+Define the current GitHub Actions release automation contract for the POC v1 session/demo release path.
 
 ## Requirements
 ### Requirement: Release automation uses separated workflows
-The system SHALL keep host checks, artifact builds, core lab gates, scenario lab gates, and release publishing in separate GitHub Actions workflows.
+The system SHALL keep host checks, artifact builds, optional lab/debug gates, and release publishing in separate GitHub Actions workflows.
 
 #### Scenario: Workflows are independently runnable
 - **WHEN** a maintainer opens the GitHub Actions workflow list
-- **THEN** host checks, artifact builds, core lab gates, scenario lab gates, and release publishing are exposed as distinct workflows
+- **THEN** host checks, artifact builds, optional lab/debug gates, and release publishing are exposed as distinct workflows
 - **AND** each non-release workflow can be run independently for diagnosis
 
 #### Scenario: Release workflow orchestrates required gates
 - **WHEN** a supported release tag triggers the release workflow
-- **THEN** the release workflow waits for host checks, artifact builds, and core lab gates before publishing
+- **THEN** the release workflow waits for host checks and artifact builds before publishing
 - **AND** no GitHub Release is created if any required gate fails
-- **AND** the release workflow does not depend on scenario lab gates
+- **AND** the release workflow does not depend on historical VM lab gates
 
 ### Requirement: Host checks validate Go quality before release
 The system SHALL run the repository host validation gates before a release can publish.
@@ -26,7 +26,7 @@ The system SHALL run the repository host validation gates before a release can p
 - **THEN** it runs `go test ./...`
 - **AND** it runs `go vet ./...`
 - **AND** it runs `bash scripts/check_no_xtcp_imports.sh`
-- **AND** it performs release cross-build sanity for the current Linux and Windows session bundle binaries
+- **AND** it performs release cross-build sanity for the current Linux, Windows, and Android POC v1 assets when those build paths are available
 
 #### Scenario: Host checks fail
 - **WHEN** any host validation command or cross-build sanity command fails
@@ -34,12 +34,13 @@ The system SHALL run the repository host validation gates before a release can p
 - **AND** the release workflow cannot publish a release for that commit
 
 ### Requirement: Build workflow produces release candidate assets
-The system SHALL provide a pure build workflow that compiles and packages the current session-first release assets without publishing a GitHub Release.
+The system SHALL provide a pure build workflow that compiles and packages the current POC v1 release assets without publishing a GitHub Release.
 
 #### Scenario: Build workflow creates CI artifacts
 - **WHEN** the artifact build workflow runs
 - **THEN** it builds `miopunch_<version>_linux_amd64_session.tar.gz`
 - **AND** it builds `miopunch_<version>_windows_amd64_session.zip`
+- **AND** it builds `miopunch_<version>_android_arm64_control-lite-debug.apk` when the Android build path is available
 - **AND** desktop release binaries use Wails production build tags
 - **AND** it uploads those outputs as GitHub Actions artifacts
 
@@ -61,28 +62,15 @@ The system SHALL provide a pure build workflow that compiles and packages the cu
 - **AND** it does not build a Windows NSIS installer
 - **AND** the default GitHub artifact contract matches the local `build_bundles.sh` session bundle flow
 
-### Requirement: Lab gates separate release-blocking core validation from scenario validation
-The system SHALL gate release publishing on legacy/core lab tests and SHALL keep scenario 1/2/3 lab tests available outside the release dependency path.
+### Requirement: Lab gates are optional debug validation for current POC v1 releases
+The current POC v1 release path SHALL NOT gate release publishing on legacy/core VM lab gates.
 
-#### Scenario: Core lab gates run before release
-- **WHEN** the core lab gate workflow runs for a release candidate commit
-- **THEN** it runs `./lab/host/labctl selftest`
-- **AND** it runs `./lab/host/labctl xtcp-selftest`
-- **AND** it runs `./lab/host/labctl xtcp-connectivity-selftest`
-- **AND** it runs `./lab/host/labctl xtcp-fulltest`
+Historical lab commands MAY remain available for manual diagnosis, but they SHALL NOT be described as required current POC v1 release gates until a future POC v1 lab capability redefines them.
 
-#### Scenario: Scenario lab gates remain available for manual diagnosis
-- **WHEN** the scenario lab gate workflow runs for a release candidate commit
-- **THEN** it runs scenario 1 through `./lab/host/labctl mnt01-fulltest`
-- **AND** it runs scenario 2 through `./lab/host/labctl mnt02-selftest`
-- **AND** it runs scenario 3 through `./lab/host/labctl mnt03-fulltest`
-- **AND** scenario workflow failure does not block GitHub Release publishing because the release workflow does not wait for it
-
-#### Scenario: Maintainer runs scenario gates locally before tagging
-- **WHEN** a maintainer prepares to push a release tag
-- **THEN** the maintainer runs scenario 1 through `./lab/host/labctl mnt01-fulltest` locally
-- **AND** the maintainer runs scenario 2 through `./lab/host/labctl mnt02-selftest` locally
-- **AND** the maintainer runs scenario 3 through `./lab/host/labctl mnt03-fulltest` locally
+#### Scenario: Current release gate skips legacy VM lab commands
+- **WHEN** a current POC v1 release candidate is validated
+- **THEN** required validation does not run `labctl selftest`, `xtcp-selftest`, `xtcp-connectivity-selftest`, `xtcp-fulltest`, `mnt01-fulltest`, `mnt02-selftest`, or `mnt03-fulltest`
+- **AND** maintainers may still run those commands manually for historical/debug investigation
 
 #### Scenario: Lab artifacts are retained for failure diagnosis
 - **WHEN** any lab gate completes or fails
@@ -96,7 +84,7 @@ The system SHALL publish GitHub Releases only from supported `v*` tags and SHALL
 - **WHEN** a maintainer pushes annotated tag `v0.1.0-rc.1` to the configured `origin`
 - **THEN** the GitHub mirror receives the tag
 - **AND** the release workflow treats the tag as the release source
-- **AND** the workflow publishes a prerelease with `latest=false` after host checks, artifact builds, and core lab gates pass
+- **AND** the workflow publishes a prerelease with `latest=false` after host checks and artifact builds pass
 
 #### Scenario: Unsupported tag does not publish
 - **WHEN** a tag does not match the supported release tag policy
@@ -115,12 +103,11 @@ The system SHALL publish release assets with provenance metadata and SHALL use l
 - **THEN** they use read-only repository permissions unless a stronger permission is required for artifact handling
 - **AND** only the publish job uses permissions needed to create the GitHub Release and attest assets
 
-### Requirement: Lab workflows document hosted-runner constraints
-The system SHALL document that release-blocking core lab gates run on GitHub-hosted Ubuntu runners for v0 and that scenario gates are local pre-release validation because of hosted-runner limits.
+### Requirement: Lab workflows document historical/debug constraints
+The system SHALL document that legacy VM lab gates are historical/debug validation for current POC v1 until a future POC v1 lab capability redefines them.
 
-#### Scenario: Hosted runner lacks fast KVM
-- **WHEN** the hosted runner lacks usable `/dev/kvm`
-- **THEN** core lab execution may fall back to QEMU TCG
-- **AND** the release workflow still treats a core lab timeout or gate failure as release-blocking
-- **AND** scenario gate timeout or failure in the standalone workflow does not block release publishing
+#### Scenario: Hosted runner lacks fast KVM for manual lab debugging
+- **WHEN** a maintainer runs historical VM lab commands on a hosted runner without usable `/dev/kvm`
+- **THEN** lab execution may fall back to QEMU TCG
+- **AND** timeout or gate failure does not block current POC v1 release publishing
 - **AND** uploaded artifacts identify the failing stage as far as the lab can report it

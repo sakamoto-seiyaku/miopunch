@@ -73,7 +73,7 @@ The GUI SHALL show a short summary and 2-3 suggested next actions by default, an
 ### Requirement: Desktop GUI owns only desktop-managed daemon shutdown
 When `miopunch-desktop` starts a same-user session daemon, it SHALL track that daemon as desktop-managed.
 
-The GUI SHALL stop a desktop-managed daemon on explicit application quit or Windows full close. The GUI SHALL NOT stop a daemon that it merely reused.
+The GUI SHALL stop a desktop-managed daemon on explicit application quit, Linux full close, or Windows full close. The GUI SHALL NOT stop a daemon that it merely reused.
 
 #### Scenario: Explicit quit stops desktop-managed daemon
 - **GIVEN** the GUI started a same-user session daemon
@@ -84,6 +84,13 @@ The GUI SHALL stop a desktop-managed daemon on explicit application quit or Wind
 - **GIVEN** the GUI started a same-user session daemon
 - **WHEN** a Windows user closes the window and chooses to quit
 - **THEN** the GUI best-effort stops the desktop-managed daemon
+
+#### Scenario: Full close stops desktop-managed daemon after event stream cleanup
+- **GIVEN** the GUI started a same-user session daemon
+- **AND** the desktop runtime event stream is active
+- **WHEN** the user fully closes the desktop application
+- **THEN** the GUI best-effort stops the desktop-managed daemon
+- **AND** the close path does not wait indefinitely for the event stream reader
 
 #### Scenario: Tray quit stops desktop-managed daemon
 - **GIVEN** the GUI started a same-user session daemon
@@ -105,6 +112,8 @@ On Windows, closing the main window SHALL ask the user whether to keep the GUI r
 
 Linux close semantics SHALL prefer tray-backed hide/resident behavior when a reliable tray is available; if no reliable tray is available, closing the window SHALL exit the application.
 
+Full desktop shutdown SHALL NOT remain blocked waiting for a LocalAPI runtime event stream that was active when close was requested.
+
 #### Scenario: Second launch restores existing window
 - **GIVEN** `miopunch-desktop` is already running
 - **WHEN** the user launches `miopunch-desktop` again
@@ -123,6 +132,18 @@ Linux close semantics SHALL prefer tray-backed hide/resident behavior when a rel
 - **AND** chooses to quit
 - **THEN** the GUI exits instead of remaining hidden
 - **AND** normal desktop shutdown handling runs
+
+#### Scenario: Windows close can fully quit while events are streaming
+- **GIVEN** the Windows desktop GUI has an active LocalAPI runtime event stream
+- **WHEN** the user closes the window and chooses to quit
+- **THEN** the GUI exits instead of remaining hidden or resident
+- **AND** normal desktop shutdown handling runs
+
+#### Scenario: Linux close exits while events are streaming
+- **GIVEN** the Linux desktop GUI has an active LocalAPI runtime event stream
+- **AND** no reliable tray affordance is available
+- **WHEN** the user closes the desktop window
+- **THEN** the application exits instead of waiting for terminal Ctrl+C
 
 #### Scenario: Windows tray quit fully exits
 - **GIVEN** the Windows desktop GUI is resident in the tray

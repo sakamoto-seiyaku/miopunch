@@ -20,13 +20,12 @@ The decision boundary SHALL be reusable by MQTT-led exchange, future mailbox/ove
 - **AND** the lab coord service remains available for experiments and regression runs
 
 ### Requirement: Decision outputs preserve the attempt contract
-The punching decision boundary SHALL preserve the existing attempt-ready response contract:
-- data plane selection consistency (`Protocol`, `QuicCC`, and brutal limits)
+The punching decision boundary SHALL preserve the current POC v1 UDP attempt-ready response contract:
 - effective `p2p_network`
-- peer direct, assisted, UDP candidate, and TCP candidate addresses
-- STUN view selection metadata when available
+- peer direct, assisted, and UDP mapped candidate addresses
+- ordinary STUN mapped-address metadata when available
 - UDP punching enablement and detect behavior
-- TCP punching enablement, error attribution, and detect behavior
+- UDP mode, role, TTL, candidate ports, random send count, and random listen count
 
 The boundary SHALL continue to use a single exchanged gather snapshot per side and SHALL NOT introduce trickle candidate updates.
 

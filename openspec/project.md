@@ -1,94 +1,88 @@
 # Project Context
 
 ## Purpose
-`miopunch` 是一个以 `frp xtcp` 为起点、持续演进的 `Go NAT traversal` 项目。
 
-项目当前目标：
-- 抽离一个最小可运行、可独立演进的 NAT traversal 内核。
-- 在经典 UDP 打洞基础上补齐辅助连通性能力。
-- 将“打洞成功”与“数据传输”解耦。
-- 建立可复现的 NAT 测试与回归体系。
+`miopunch` 当前主线是 `POC v1`：一个面试/demo-ready 的 P2P remote-control POC，通过不可信 MQTT 控制面协助两端发现/协商，并在 punched UDP path 上建立 secure session 和远程 shell。
 
-项目当前聚焦工程与技术演进，不以 GUI、包装和产品化表达为当前重点。
+当前项目目标：
+
+- 让当前 POC v1 形成可解释、可演示、可复测的产品闭环。
+- 保持 `control plane`、`UDP path establishment`、`secure session`、`shell/session lifecycle` 的边界清晰。
+- 明确当前 gate：host checks + Android/Linux/GUI 真实 demo evidence。
+- 保留旧 P0/P1/P2/MNT/XTCP/TCP Door-2 资料为历史/延期参考，但不把它们当作当前 active specs 或当前验证 gate。
 
 ## Tech Stack
-- `Go`：主语言；生产代码、测试代码、CLI 工具默认都优先使用 Go。
+
+- `Go`：主语言；CLI、daemon、runtime、tests 默认优先使用 Go。
 - `OpenSpec`：用于需求、变更、约束和实施顺序管理。
-- `Linux networking tools`：`netns`、`veth`、`nftables/iptables`、`tc`，用于 NAT 仿真和回归环境。
-- `Virtualization`：`P0` 优先使用单个 `QEMU VM` 作为隔离实验母机。
-- `Linux lab networking`：在 VM 内使用 `netns`、`veth`、`nftables/iptables`、`tc` 构建实验拓扑。
-- `Containerization`：`Docker` 可作为后续进程打包手段，但不作为 `P0` 的拓扑主控。
-- `STUN`：用于地址发现与 NAT 相关信息获取。
-- `UDP connectivity helpers`：`UPnP`、`NAT-PMP`（`P2(v1)`）；`PCP`（deferred）。
-- `Transport protocols`：P2P 数据面基线支持 `KCP / QUIC`；后续引入 `HY2` 风格的 `QUIC` 调度与进一步拥塞控制优化。
-- `Target platforms`：优先 `Linux`，后续扩展到 `Android`、`Windows`。
+- `MQTT`：当前 POC v1 控制面/信令承载；broker 不可信，peer-targeted payload 由 v1 wire/security 保护。
+- `UDP`：当前 POC v1 唯一 P2P carrier；先 direct reachability，再 UDP punching fallback。
+- `KCP + TLS 1.3 + yamux`：当前 POC v1 secure session recipe。
+- `Desktop GUI`：当前默认桌面入口，消费 shared daemon LocalAPI/runtime contracts。
+- `Android control-lite`：当前 phone-side control-only demo APK，包装 Android arm64 CLI payload。
+- `Linux/Windows session bundles`：当前可发布/可演示资产。
 
 ## Project Conventions
 
 ### Code Style
+
 - 遵循 Go 最佳实践与 idiomatic Go，优先简单、直接、可读的实现。
-- 能不用抽象就先不用抽象；先把协议流程、状态机和边界条件写清楚。
 - 包、类型、函数命名必须贴合网络语义，避免模糊缩写。
 - 错误处理必须显式，错误信息必须能帮助定位建链阶段和失败原因。
-- 可观测性优先：用户在打洞失败后应能知道失败发生在哪个环节、看到了什么网络条件、系统做过哪些重试或回退。
+- 可观测性优先：用户在失败后应能知道失败发生在哪个阶段、看到了什么网络条件、系统做过哪些尝试。
 - 涉及超时、取消、重试的接口优先使用 `context.Context`。
-- 优先依赖标准库；引入第三方库前要有明确收益。
-- 注释只解释协议原因、网络假设和实现取舍，不解释显而易见的代码。
 - 文档默认使用中文；代码标识符、包名、spec/change ID 使用英文。
 
 ### Architecture Patterns
-- 明确区分 `control plane`、`connectivity`、`transport`，不要早期耦合成单体设计。
-- `NAT traversal` 是项目内核；`overlay / mesh`、`VPP`、`TCP punching` 都属于后续方向，不应反向污染早期核心抽象。
-- 优先拆成可测试的阶段：`discovery/classification`、`signaling`、`make hole`、`fallback`、`transport`。
-- `frp xtcp` 是起点和参考实现，不是必须完全复制的最终架构；任何偏离都应在 spec 或设计文档里说明。
-- 在核心模型稳定前，不要过早做“大而全”的平台层、插件系统或通用框架。
-- `docs/roadmap.md` 描述阶段主线；OpenSpec change 负责描述具体变更。
+
+- 当前 POC v1 的事实源在 `internal/pocv1/*`，尤其是 `internal/pocv1/runtime`。
+- `internal/localapi` 是 shared daemon IPC/plumbing，不是独立产品语义事实源。
+- GUI 和 CLI 是同一 runtime 的不同入口，不得重新定义独立 stage/reason/evidence 模型。
+- `connectivity/` 和 `internal/punching/` 可作为 UDP punching 语义来源，但当前 POC v1 不恢复 TCP Door-2 或旧 XTCP gate。
+- Runtime-owned UDP socket / owner / demux 是硬边界；punch/session 只能借用，不得关闭 Runtime UDP owner。
 
 ### Testing Strategy
-- 坚持 `测试先行 / 测试优先`。
-- 接受“测试代码多于功能代码”。
-- 单元测试覆盖：协议编码、消息交换、NAT 分类、状态机、重试、回退、双栈地址选择。
-- 集成测试覆盖：基于单 VM 实验母机内部的 NAT 拓扑、链路质量扰动、回归基线。
-- 真实环境验证覆盖：独立于虚拟实验台，使用安卓蜂窝、本地宽带、云服务器等真实网络组合。
-- 每个阶段至少要有可重复的成功率、建链时延、吞吐、回退率指标。
-- 新能力进入主线前，先证明可复现、可回归、可解释。
+
+- Docs-only / OpenSpec-only 变更至少跑 `openspec validate --all --strict`。
+- 当前 POC v1 主线 host checks：
+  - `go test ./...`
+  - `go vet ./...`
+  - `bash scripts/check_no_xtcp_imports.sh`
+- 当前 POC v1 真实验证优先使用 Android/Linux/GUI demo evidence：
+  - network create/join/approve
+  - `ls`
+  - `ping`
+  - `sh ls`
+  - interactive `sh`
+  - selected UDP path facts and daemon/app logs
+- VM lab gates 暂缓，不作为当前主线必过项；如需恢复，必须先用新的 POC v1 lab OpenSpec change 重定义。
 
 ### Git Workflow
-- 对新增能力或较大变化，先在 `docs/` 下创建纲领文档，先说明目标、范围、约束、边界和关键原则，不急于展开实现细节。
-- 在纲领文档基础上，结合 `roadmap`、`project context` 和其他相关文档创建 OpenSpec change。
-- OpenSpec change 阶段用于反复讨论、补齐和收敛约束、边界与细节；change 未收敛、未批准前，不进入实现阶段。
-- 功能、架构、能力变更优先走 OpenSpec：先写 proposal，再讨论，再实现。
-- 未经批准的 OpenSpec proposal，不进入实现阶段。
-- 分支尽量短生命周期，分支名优先对齐 OpenSpec `change-id`。
-- 提交应小而聚焦，不混入无关改动。
-- 提交信息保持简洁明确，直接说明改了什么；spec、docs、code 可以分开提交。
-- 如果只是整理讨论或路线图，也应优先更新文档而不是抢先写实现。
+
+- 非平凡能力或验证口径变化优先走 OpenSpec。
+- 分支和提交应小而聚焦，不混入无关改动。
+- 已完成并同步进 main specs 的 OpenSpec changes 应及时 archive，避免 active changes 与 main specs 分裂。
+- 代码影响变更进入 mainline 时按当前 `AGENTS.md` 和 `$dev` 规则执行验证。
 
 ## Domain Context
-- 本项目讨论的“打洞”默认指 `UDP NAT traversal / UDP hole punching`。
-- `frp xtcp` 提供的是“中心协调 + P2P 数据面”的起点，不等于完全去中心化。
-- `fallback` 是受控降级机制，不应掩盖失败原因；失败路径同样要可观测、可测试。
-- `UPnP`、`NAT-PMP` 属于连通性增强与端口映射辅助，不是经典打洞的替代（`PCP` deferred）。
-- `IPv6` 是一等公民能力；设计时默认考虑 `IPv4 / IPv6 / dual-stack`，而不是把 IPv6 当附属功能。
-- 当前明确主线只有 `P0` 到 `P3`：测试台、XTCP 内核抽离、连通性增强、传输层抽象。
-- `overlay / mesh`、`VPP`、`TCP punching`、`udp2raw` 风格伪装属于后续方向，现阶段只保留接口空间和设计余地，不提前承诺实现。
+
+- 当前“打洞”默认指 current POC v1 的 UDP direct-first + UDP punching fallback。
+- 当前 POC v1 不承诺 TCP punching、centralized data-plane relay、VPP、完整虚拟局域网或完整产品安装体验。
+- `frp xtcp`、P0/P1/P2、MNT-01/02/03、TCP Door-2 是重要历史和参考，但不是当前 active OpenSpec gate。
+- MQTT 是控制面/信令，不是数据面 relay。
+- Android control-lite 是控制端 demo，不是 Android shell target 产品线。
 
 ## Important Constraints
-- 当前项目首先是工程探索项目，不是面向终端用户的成品。
-- 早期阶段不以完整产品体验为目标，而以真实 NAT 场景下的成功率、稳定性、可解释性为目标。
-- 早期不承诺完整虚拟局域网能力，不承诺 `TCP punching`，不承诺 `VPP`，不承诺全平台完整支持。
-- 开源许可证：仓库默认以 `GPLv3` 发布；复制自 `frp` 的文件保留并遵循其上游许可证与归因要求（例如 `Apache-2.0` 头部与归因文件）。
-- 优先做 `Linux-first` 的可复现测试台；`P0` 以单个 `QEMU VM` 作为实验母机，再逐步扩展真实设备与跨平台验证。
-- 对新增能力或较大变化，必须先有 `docs/` 下的纲领文档，再创建并收敛对应的 OpenSpec change；未经收敛和批准，不进入实现。
-- 架构讨论必须服从实验结果；没有测试和测量支撑的设计，不应直接进入主线。
-- 可观测性是硬约束：失败必须可定位、可解释、可复盘，系统应向用户暴露足够的阶段信息、诊断信息和回退信息。
-- 不假设用户缺乏理解能力；诊断信息应尽量准确、具体、面向排障，而不是只给出模糊失败提示。
-- 项目当前根目录尚未形成最终代码结构；在目录稳定前，不要过早固化大规模工程脚手架。
+
+- 当前项目首先服务面试/demo-ready POC，而不是完整终端用户产品。
+- 不允许因为实现方便偏离已记录的 POC v1 决策；偏离必须进入 docs/specs 并可追溯。
+- 当前 POC v1 pathing 是 UDP-only；`tcp_only` 必须 explicit unsupported，不能静默 UDP fallback。
+- 当前验证不运行旧 VM lab gates，直到新的 POC v1 lab spec 定义并恢复它们。
 
 ## External Dependencies
-- `frp/`（git submodule）：参考实现，尤其是 `xtcp` 与 `pkg/nathole` 相关逻辑。
-- `STUN servers`：用于公网地址发现和 NAT 相关信息获取。
-- `UPnP / NAT-PMP` capable routers or emulators（`PCP` optional）：用于辅助连通性实验。
-- `Cloud coordination server`：用于信令协调、真实网络回归和中继/回退实验。
-- `Android device + cellular network + home broadband`：用于真实环境验证。
-- `Linux kernel networking features`：网络命名空间、路由、NAT、流量控制等实验基础设施。
+
+- MQTT broker：当前 POC v1 控制面信令入口。
+- STUN servers：用于 UDP mapped address discovery。
+- Android device + Linux/WSL host：当前真实 demo/evidence 关键环境。
+- Desktop runtime/Wails stack：当前 GUI presentation/bridge 入口。
+- Historical references: `frp/`, archived OpenSpec specs, and old lab artifacts remain available for comparison and future redesign.

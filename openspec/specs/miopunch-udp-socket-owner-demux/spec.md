@@ -1,7 +1,7 @@
 # miopunch-udp-socket-owner-demux Specification
 
 ## Purpose
-TBD - created by archiving change udp-socket-owner-demux. Update Purpose after archive.
+Defines the current POC v1 UDP socket owner/demux boundary that keeps traversal packets and KCP session traffic on the correct runtime-owned or temporary UDP socket.
 ## Requirements
 ### Requirement: POC v1 Runtime-owned UDP paths use one owner for traversal and KCP
 For current POC v1 Runtime-owned UDP paths, the system SHALL use one Runtime-owned UDP owner/demux boundary for both traversal and KCP.
@@ -42,14 +42,25 @@ The temporary selected UDP socket SHALL be owned by the selected path/session af
 - **THEN** Runtime keeps its long-lived UDP owner open
 - **AND** the temporary winner is handed to the selected path/session as a separate owned resource
 
+### Requirement: Runtime-owned UDP sockets are not closed by borrowed views
+The system SHALL treat the POC v1 daemon UDP socket as owned by the runtime or its socket-owner abstraction.
+
+Borrowed views, demux endpoints, path results, and secure-session transports SHALL NOT close the runtime UDP socket. They MAY close their own in-memory session, listener, or endpoint state.
+
+#### Scenario: Session close leaves runtime UDP available
+- **GIVEN** a runtime-owned UDP socket has been handed to punch/session code
+- **WHEN** a path result, secure-session attempt, or peer session is closed
+- **THEN** the runtime UDP socket remains usable
+- **AND** later punch/session attempts do not fail because the same UDP pointer references a closed file descriptor
+
 ### Requirement: UDP socket owner / demux is a hard boundary
 For any UDP-based session establishment, the system SHALL enforce a single UDP socket owner / demux boundary:
 
-- NAT traversal (`gather / attempt / direct handshake / punching`) and data plane sessions (QUIC / KCP) MUST share the same local UDP socket / port mapping.
+- NAT traversal (`gather / attempt / direct handshake / punching`) and KCP data-plane sessions MUST share the same selected local UDP socket / port mapping.
 - Only the socket owner is allowed to receive UDP packets from the underlying socket (`ReadFrom*`).
 - The owner SHALL demultiplex packets to:
   - traversal transactions (direct handshake / punching), and
-  - data plane session protocols (QUIC or KCP).
+  - KCP session traffic.
 
 #### Scenario: Traversal and dataplane share one UDP mapping
 - **GIVEN** a peer has gathered a UDP socket on a fixed local port
@@ -57,23 +68,21 @@ For any UDP-based session establishment, the system SHALL enforce a single UDP s
 - **THEN** traversal and data plane both reuse that same local UDP socket / port mapping
 - **AND** the implementation does not open a second UDP socket solely for the data plane
 
-### Requirement: Punching packets are tag-prefixed and non-QUIC demuxable
+### Requirement: Punching packets are tag-prefixed and KCP-demuxable
 All UDP traversal packets (direct handshake + punching messages) SHALL be prefixed with a fixed tag (PunchTagV1):
 
 - `00 4D 50 00 01` (5 bytes)
 
-When QUIC is the selected data plane protocol, the QUIC socket owner SHALL read traversal packets via `quic.Transport.ReadNonQUICPacket`.
+The Runtime UDP owner SHALL classify tag-prefixed traversal packets before routing non-traversal packets to the KCP packet transport view.
 
-The first byte of PunchTagV1 MUST have its first and second bit set to `0`, so that `ReadNonQUICPacket` can reliably classify the packet as non-QUIC.
-
-#### Scenario: QUIC transport exposes traversal packets via ReadNonQUICPacket
-- **GIVEN** a QUIC socket owner is running on a UDP socket
+#### Scenario: KCP transport does not receive traversal packets
+- **GIVEN** the current POC v1 Runtime UDP owner is running on a UDP socket
 - **WHEN** a tag-prefixed traversal packet arrives on that socket
-- **THEN** the packet can be read via `ReadNonQUICPacket`
-- **AND** it is not delivered to an established QUIC connection as QUIC payload
+- **THEN** the packet is routed to traversal demux handling
+- **AND** it is not delivered to KCP as session payload
 
 ### Requirement: Server accepts multiple peer sessions concurrently on one UDP port
-For UDP transports (QUIC or KCP), a server / acceptor SHALL be able to accept and serve multiple peer transport sessions concurrently on the same UDP port.
+For current POC v1 KCP transport, a server / acceptor SHALL be able to accept and serve multiple peer transport sessions concurrently on the same UDP port.
 
 Each accepted peer transport session SHALL support multiplexing multiple logical streams (independent of how the transport implements multiplexing).
 

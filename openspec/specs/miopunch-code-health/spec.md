@@ -1,29 +1,15 @@
 # miopunch-code-health Specification
 
 ## Purpose
-TBD - created by archiving change go-code-review-fixups. Update Purpose after archive.
+Defines repository-level code health constraints that remain active for the current POC v1 mainline.
 ## Requirements
-### Requirement: QUIC control Close releases underlying connection
-The system SHALL ensure that the `io.ReadWriteCloser` returned by the control plane (`internal/control`) for `quic` releases all underlying QUIC resources when `Close()` is invoked (including the QUIC connection, not only the stream), so repeated experiment runs do not leak goroutines or file descriptors.
-
-#### Scenario: Closing a QUIC control session
-- **WHEN** a peer establishes a control plane session using `control-proto=quic`
-- **AND** the peer closes the returned session handle
-- **THEN** the underlying QUIC connection is closed and no further stream/conn IO is possible
-
 ### Requirement: No stdout/stderr output from library packages
 The system SHALL NOT write debug or operational logs directly to stdout/stderr from non-`cmd/` packages. Non-CLI packages MUST use the repo logging facility (e.g. `internal/logutil`) and/or structured event output (`event.Emitter`) so that machine-parsed event streams are not polluted by arbitrary text.
 
 #### Scenario: Event output remains machine-parseable
-- **WHEN** a user runs `miopunch peer ...` and captures stdout as an event stream
-- **THEN** stdout contains only newline-delimited JSON `event.Event` records (no `fmt.Printf` debug lines)
-
-### Requirement: QUIC ALPN naming converges to miopunch
-The system SHALL use `miopunch` namespaced QUIC ALPN strings for both control plane and data plane, and MUST NOT introduce new `xtcp` naming into runtime protocol identifiers.
-
-#### Scenario: QUIC handshake uses miopunch ALPN
-- **WHEN** a user establishes control/data plane sessions via QUIC
-- **THEN** the negotiated ALPN contains `miopunch` and does not contain `xtcp`
+- **WHEN** a user runs current POC v1 CLI commands with machine-readable output
+- **THEN** stdout contains only the requested CLI response or structured event records
+- **AND** library debug output does not pollute stdout or stderr
 
 ### Requirement: Dispatcher handler access is race-free and terminal errors are observable
 The system SHALL ensure internal asynchronous message dispatchers provide concurrency-safe handler registration and lookup. Dispatcher handler registration MUST be safe before and after `Run()`. Dispatcher `Send` MUST mean the message was accepted for asynchronous sending, not that the underlying wire write completed. When dispatcher read or write loops terminate because of an error, that terminal error MUST be observable by callers after the dispatcher is done.
@@ -48,17 +34,17 @@ The system SHALL ensure structured event emission returns JSON encode or writer 
 - **AND** the caller can distinguish that event output failed
 
 ### Requirement: Reviewed runtime resources are bounded and cleaned up
-The system SHALL ensure reviewed connectivity and dataplane paths do not leave goroutines, wait paths, or owned network connections stuck after early failure. TCP punching workers MUST have a deterministic stop path when target construction fails. TLS stream setup MUST close owned TCP candidates if TLS configuration fails before handshakes begin.
+The system SHALL ensure current POC v1 runtime, UDP traversal, KCP/TLS/yamux session, LocalAPI, and shell paths do not leave goroutines, wait paths, or owned network resources stuck after early failure.
 
-#### Scenario: Invalid TCP punching targets do not strand workers
-- **WHEN** TCP punching cannot build attempt targets from the punching decision response
-- **THEN** the attempt returns the target-build error
-- **AND** no TCP punching worker remains blocked waiting for jobs
+#### Scenario: Failed POC v1 session establishment cleans up owned resources
+- **WHEN** UDP path establishment or secure-session upgrade fails before a peer session is live
+- **THEN** owned temporary sockets, transports, streams, and wait paths are closed or canceled
+- **AND** runtime-owned UDP sockets remain open until the runtime owner closes them
 
-#### Scenario: TLS config failure closes candidate connections
-- **WHEN** TCP dataplane convergence receives candidate TCP connections
-- **AND** pinned TLS configuration fails before handshakes start
-- **THEN** all owned candidate TCP connections are closed before returning the error
+#### Scenario: Shell attach failure does not strand process or stream state
+- **WHEN** a current POC v1 shell attach or remote shell command fails during setup
+- **THEN** the shell/session setup returns an observable error
+- **AND** any subprocess, stream, or session resource owned by that attempt is cleaned up
 
 ### Requirement: Reviewed boundary failures fail closed
 The system SHALL fail reviewed security and boundary-validation errors closed instead of panicking or falling back to predictable values. Attempt setup MUST return an error for a nil exchange response. Session ID generation MUST NOT produce timestamp-only IDs when cryptographic random generation fails.

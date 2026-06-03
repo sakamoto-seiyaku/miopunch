@@ -1,7 +1,8 @@
 # miopunch-public-reachability Specification
 
 ## Purpose
-TBD - created by archiving change p35-public-reachability. Update Purpose after archive.
+Defines current POC v1 public-network reachability controls for P2P IP-family policy, P2P network policy, DNS fallback for STUN/MQTT hostnames, STUN endpoint syntax, and ordinary built-in STUN defaults.
+
 ## Requirements
 ### Requirement: P2P IP Family Override Flags
 The system SHALL support short flags `-4` and `-6` on peer commands to constrain the `P2P/打洞` address family.
@@ -52,6 +53,30 @@ The system SHALL support a configurable DNS mode with the following semantics:
 - **THEN** the system uses the built-in resolver for STUN/MQTT endpoints
 - **AND** it does not change DNS behavior for non-STUN/MQTT networking
 
+### Requirement: P2P Network Override Flags
+The system SHALL support short flags `-u` and `-t` on current POC v1 peer commands that establish or reuse P2P peer sessions.
+
+The `-u` flag SHALL select `p2p_network=udp_only`.
+The `-t` flag SHALL select `p2p_network=tcp_only`.
+The system SHALL also support a long-form `--p2p-network` option with at least `auto`, `udp_only`, and `tcp_only` values.
+
+Current POC v1 is UDP-only. When `p2p_network=tcp_only` is requested, the system SHALL fail with an explicit unsupported-path result and SHALL NOT silently run UDP fallback.
+
+#### Scenario: UDP-only policy is accepted
+- **WHEN** a current POC v1 peer command is run with `-u`
+- **THEN** peer session establishment uses UDP direct-first and UDP punching fallback
+- **AND** signaling remains unconstrained by the P2P network policy
+
+#### Scenario: TCP-only policy is rejected in current POC v1
+- **WHEN** a current POC v1 peer command is run with `-t`
+- **THEN** peer session establishment fails with an unsupported-path result
+- **AND** the system does not silently run UDP path establishment
+
+#### Scenario: Conflicting P2P network flags fail early
+- **WHEN** a peer command is run with both `-u` and `-t`
+- **THEN** the command fails with an argument error
+- **AND** no P2P path establishment is attempted
+
 ### Requirement: STUN Endpoint Scheme Prefixes
 The system SHALL accept STUN endpoints in the following forms:
 - `host:port`: a dual endpoint that MAY be used for both UDP and TCP STUN
@@ -72,51 +97,29 @@ When the system performs TCP STUN sampling, it SHALL ignore `udp://` endpoints.
 - **AND** after applying the UDP/TCP scheme filter, no endpoints remain usable for the configured STUN sampling protocol
 - **THEN** the system fails with a configuration error
 
-### Requirement: Internal STUN Defaults With cn/global Buckets
-When the user does not explicitly configure STUN servers, the system SHALL use an internal default STUN list.
-The internal STUN list SHALL be partitioned into `cn` and `global(!cn)` buckets.
+### Requirement: Internal STUN Defaults For Current POC v1
+When the user does not explicitly configure STUN servers, the system SHALL use the current POC v1 internal default STUN endpoint list.
 
-#### Scenario: Explicit STUN disables internal STUN and cn/global arbitration
+The current POC v1 internal list SHALL be treated as one ordinary best-effort STUN source set for UDP mapped address discovery.
+
+The system SHALL NOT require cn/global bucket arbitration for current POC v1 path establishment.
+
+#### Scenario: Explicit STUN disables internal STUN
 - **WHEN** the user explicitly configures STUN servers (CLI `--stun` or YAML `stun:`)
 - **THEN** the system uses only the user-provided STUN servers
 - **AND** the system does not use internal STUN defaults
-- **AND** the system does not perform cn/global bucket arbitration
 
-#### Scenario: Internal STUN buckets are sampled when STUN is not explicitly configured
+#### Scenario: Internal STUN list is sampled when STUN is not explicitly configured
 - **WHEN** the user does not configure any STUN servers
-- **THEN** the system samples both `cn` and `global` buckets (best-effort)
-- **AND** it records a per-bucket observation summary for later selection
+- **THEN** the system samples the internal STUN endpoint list best-effort
+- **AND** current POC v1 does not require cn/global selected-view arbitration evidence
 
-### Requirement: Deterministic View Arbitration Produces A Single Selected View
-When both `cn` and `global` bucket observations are available, the system SHALL deterministically select exactly one final `selected_view` for attempt/punching.
-The arbitration order SHALL be:
-`availability` → `NAT feature difficulty` → `STUN RTT` → `ok_count` → `default global`.
-`STUN RTT` SHALL be derived from the `STUN binding request` round-trip time.
-The RTT tie threshold SHALL be `30ms`.
+### Requirement: Observability Of STUN Discovery
+The system SHALL record STUN discovery outcomes needed to diagnose current POC v1 UDP path establishment.
 
-#### Scenario: Availability is the highest priority
-- **WHEN** `cn` has no usable observation
-- **AND** `global` has a usable observation
-- **THEN** `selected_view` is `global`
+At `debug` log level, the system SHALL record which configured or internal STUN endpoints were attempted and whether usable mapped addresses were gathered.
 
-#### Scenario: RTT is considered only when NAT difficulty ties
-- **WHEN** both `cn` and `global` are available
-- **AND** NAT feature difficulty is tied between `cn` and `global`
-- **AND** `global` RTT is lower than `cn` RTT by more than `30ms`
-- **THEN** `selected_view` is `global`
-
-#### Scenario: Hard ties fall back to global
-- **WHEN** both `cn` and `global` are available
-- **AND** NAT feature difficulty is tied
-- **AND** RTT difference is within `30ms`
-- **AND** ok_count is tied
-- **THEN** `selected_view` is `global`
-
-### Requirement: Observability Of View Selection
-The system SHALL record the final `selected_view` and the key reason for the selection.
-At `debug` log level, the system SHALL record the full evidence chain for both views and each arbitration step.
-
-#### Scenario: Debug logs include both observations and arbitration reasons
+#### Scenario: Debug logs include STUN attempt results
 - **WHEN** log level is `debug`
-- **THEN** logs include `cn` and `global` observation summaries
-- **AND** logs include the ordered reasons that produced the final `selected_view`
+- **THEN** logs include STUN endpoint attempt results and mapped address availability
+- **AND** logs do not require cn/global arbitration reasons for current POC v1

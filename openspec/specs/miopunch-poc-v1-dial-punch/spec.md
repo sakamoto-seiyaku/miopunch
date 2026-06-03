@@ -216,7 +216,7 @@ The system SHALL schedule at most 4 concurrent candidate-pair attempts and SHALL
 
 The system SHALL stop at the first successful selected path.
 
-Each candidate-pair attempt SHALL record whether it selected `direct_ipv4`, selected `punching_ipv4`, timed out, was canceled, or failed.
+Each candidate-pair attempt SHALL record whether it selected `direct_ipv4`, selected `direct_ipv6`, selected `punching_ipv4`, timed out, was canceled, or failed.
 
 #### Scenario: Attempt budget is bounded and explainable
 - **WHEN** a current v1 punch run starts

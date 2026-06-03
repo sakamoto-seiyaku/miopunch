@@ -1,6 +1,21 @@
-# NAT Lab Testbed (P0)
+# NAT Lab Testbed (historical/debug)
 
-This directory contains the implementation scaffolding for the `nat-lab-testbed` capability.
+This directory contains the historical VM/netns lab runtime that supported the
+old P0/P1/P2/XTCP/MNT validation tracks.
+
+Current POC v1 does **not** use these VM lab gates as required validation.
+They remain available for manual debugging, archaeology, and future redesign.
+Before any command here becomes a current POC v1 gate again, a new OpenSpec
+change must define the POC v1 lab scope, expected evidence, and acceptance
+criteria.
+
+Current POC v1 validation is documented by:
+
+- `openspec/specs/miopunch-poc-v1-current-mainline/spec.md`
+- `AGENTS.md`
+
+Current required checks are host checks plus real Android/Linux/GUI demo
+evidence, not the legacy `selftest`, `xtcp-*`, or `mnt*` VM gates.
 
 Key documents:
 - Charter: `docs/decisions/p0-nat-lab-charter.md`
@@ -49,19 +64,19 @@ Or run everything end-to-end:
 Example selftest report (captured runs + artifacts pointers):
 - `docs/reports/2026-03-17-selftest.md`
 
-Run P1 `xtcp-kernel` integration regression (builds `cmd/miopunch-lab` on host, pushes into VM, runs guest matrix, pulls artifacts):
+Historical/debug only: run P1 `xtcp-kernel` integration regression (builds `cmd/miopunch-lab` on host, pushes into VM, runs guest matrix, pulls artifacts):
 
 ```bash
 ./lab/host/labctl xtcp-selftest
 ```
 
-Run POC e2e closure selftest (builds `cmd/miopunch`, `cmd/miopunch-lab`, and `tools/miopunch-poc-e2e` on host, pushes into VM, runs Docker+systemd multi-node harness inside the VM, pulls artifacts):
+Historical/debug only: run POC e2e closure selftest (builds `cmd/miopunch`, `cmd/miopunch-lab`, and `tools/miopunch-poc-e2e` on host, pushes into VM, runs Docker+systemd multi-node harness inside the VM, pulls artifacts):
 
 ```bash
 ./lab/host/labctl poc-e2e-selftest
 ```
 
-Run the lightweight POC v1 CLI pre-gate (single VM, two Docker nodes, host-supplied remote broker, positive path through `sh ls` only):
+Historical/debug only: run the lightweight POC v1 CLI pre-gate (single VM, two Docker nodes, host-supplied remote broker, positive path through `sh ls` only):
 
 ```bash
 export MIOPUNCH_POC_V1_CLI_SMOKE_BROKER_URL=tcp://your-broker-host:1883
@@ -80,13 +95,13 @@ For direct Windows/WSL CLI smoke work, use the bidirectional runbook at:
 
 That runbook keeps the test CLI-only, requires isolated bundle roots per side, and records stdout/stderr, `--report`, daemon logs, and state snapshots.
 
-Run POC e2e full diagnostic suite (slower; includes packet capture artifacts):
+Historical/debug only: run POC e2e full diagnostic suite (slower; includes packet capture artifacts):
 
 ```bash
 ./lab/host/labctl poc-e2e-fulltest
 ```
 
-Run MNT-01 mainline connectivity gates (real `miopunch up` daemons, self-hosted MQTT signaling, no `coord` fallback):
+Historical/debug only: run MNT-01 mainline connectivity gates (real `miopunch up` daemons, self-hosted MQTT signaling, no `coord` fallback):
 
 ```bash
 ./lab/host/labctl mnt01-smoke
@@ -106,7 +121,7 @@ MNT-01 fixture scope:
 - The fixture must not seed NAT results, candidate paths, selected paths, neighbor state, success cache, or payload results.
 - Product issues found while running MNT-01 should be recorded in `docs/notes/mainline-network-test-findings.md`, not fixed inside the test change.
 
-Run P1 `xtcp-kernel` against all `core-01..core-10` cases (non-NAT4 cases MUST succeed; NAT4-involved cases are allowed to fail but must emit diagnostics):
+Historical/debug only: run P1 `xtcp-kernel` against all `core-01..core-10` cases (non-NAT4 cases MUST succeed; NAT4-involved cases are allowed to fail but must emit diagnostics):
 
 ```bash
 ./lab/host/labctl xtcp-fulltest
