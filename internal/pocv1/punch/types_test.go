@@ -5,17 +5,31 @@ import (
 	"testing"
 )
 
-func TestPathResultCloseDoesNotCloseBorrowedUDPConn(t *testing.T) {
+func TestPathResultCloseDoesNotCloseRuntimeOwnedUDPConn(t *testing.T) {
 	t.Parallel()
 
 	conn := mustListenUDPForPathResult(t)
 	receiver := mustListenUDPForPathResult(t)
 
-	if err := (PathResult{Conn: conn}).Close(); err != nil {
+	if err := (PathResult{Conn: conn, UDPOwnership: SelectedUDPOwnershipRuntime}).Close(); err != nil {
 		t.Fatalf("PathResult.Close() error = %v, want nil", err)
 	}
 	if _, err := conn.WriteToUDP([]byte("still-open"), receiver.LocalAddr().(*net.UDPAddr)); err != nil {
 		t.Fatalf("UDPConn.WriteToUDP() after PathResult.Close() error = %v, want nil", err)
+	}
+}
+
+func TestPathResultCloseClosesTemporaryUDPConn(t *testing.T) {
+	t.Parallel()
+
+	conn := mustListenUDPForPathResult(t)
+	receiver := mustListenUDPForPathResult(t)
+
+	if err := (PathResult{Conn: conn, UDPOwnership: SelectedUDPOwnershipTemporary}).Close(); err != nil {
+		t.Fatalf("PathResult.Close() error = %v, want nil", err)
+	}
+	if _, err := conn.WriteToUDP([]byte("closed"), receiver.LocalAddr().(*net.UDPAddr)); err == nil {
+		t.Fatalf("UDPConn.WriteToUDP() after PathResult.Close() error = nil, want closed error")
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/dataplane"
 	"github.com/miopunch/miopunch/internal/buildinfo"
 	"github.com/miopunch/miopunch/internal/logutil"
@@ -27,6 +28,8 @@ import (
 	"github.com/miopunch/miopunch/internal/sessionconfig"
 	"github.com/miopunch/miopunch/internal/shellproto"
 	"github.com/miopunch/miopunch/internal/shelltarget"
+	"github.com/miopunch/miopunch/internal/udpowner"
+	"github.com/miopunch/miopunch/nat"
 )
 
 const (
@@ -78,6 +81,9 @@ type Runtime struct {
 	broker            *embeddedBroker
 	presence          *presence.Session
 	udpConn           *net.UDPConn
+	udpOwner          *udpowner.KCPOwner
+	udp6Conn          *net.UDPConn
+	udp6Owner         *udpowner.KCPOwner
 	acceptLoopStarted bool
 	keepaliveStarted  bool
 	pingGate          map[string]int64
@@ -188,6 +194,12 @@ func (r *Runtime) Close() error {
 	r.presence = nil
 	udpConn := r.udpConn
 	r.udpConn = nil
+	udpOwner := r.udpOwner
+	r.udpOwner = nil
+	udp6Conn := r.udp6Conn
+	r.udp6Conn = nil
+	udp6Owner := r.udp6Owner
+	r.udp6Owner = nil
 	broker := r.broker
 	r.broker = nil
 	r.mu.Unlock()
@@ -206,8 +218,15 @@ func (r *Runtime) Close() error {
 		_ = presenceSession.Close(ctx)
 		cancel()
 	}
-	if udpConn != nil {
+	if udpOwner != nil {
+		_ = udpOwner.Close()
+	} else if udpConn != nil {
 		_ = udpConn.Close()
+	}
+	if udp6Owner != nil {
+		_ = udp6Owner.Close()
+	} else if udp6Conn != nil {
+		_ = udp6Conn.Close()
 	}
 	if broker != nil {
 		_ = broker.Close()
@@ -602,6 +621,9 @@ func (r *Runtime) ensureWorkers(ctx context.Context) error {
 	brokerOverride := strings.TrimSpace(r.meta.RuntimeBrokerOverride)
 	presenceSession := r.presence
 	udpConn := r.udpConn
+	udpOwner := r.udpOwner
+	udp6Conn := r.udp6Conn
+	udp6Owner := r.udp6Owner
 	acceptLoopStarted := r.acceptLoopStarted
 	keepaliveStarted := r.keepaliveStarted
 	r.mu.Unlock()
@@ -656,13 +678,73 @@ func (r *Runtime) ensureWorkers(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("listen udp: %w", err)
 		}
+		owner, err := udpowner.NewKCPOwner(conn, udpowner.KCPOwnerConfig{})
+		if err != nil {
+			_ = conn.Close()
+			return fmt.Errorf("open udp owner: %w", err)
+		}
 		r.mu.Lock()
 		if r.udpConn == nil {
 			r.udpConn = conn
+			r.udpOwner = owner
+			udpConn = conn
+			udpOwner = owner
 		} else {
-			_ = conn.Close()
+			_ = owner.Close()
 		}
 		r.mu.Unlock()
+	}
+	if udpConn != nil && udpOwner == nil {
+		owner, err := udpowner.NewKCPOwner(udpConn, udpowner.KCPOwnerConfig{})
+		if err != nil {
+			return fmt.Errorf("open udp owner: %w", err)
+		}
+		r.mu.Lock()
+		if r.udpOwner == nil {
+			r.udpOwner = owner
+			udpOwner = owner
+		} else {
+			_ = owner.Close()
+		}
+		r.mu.Unlock()
+	}
+
+	if udp6Conn == nil {
+		conn, err := net.ListenUDP("udp6", &net.UDPAddr{IP: net.IPv6zero, Port: 0})
+		if err != nil {
+			logutil.Debugf("udp6 runtime unavailable: err=%v", err)
+		} else {
+			owner, err := udpowner.NewKCPOwner(conn, udpowner.KCPOwnerConfig{})
+			if err != nil {
+				_ = conn.Close()
+				logutil.Debugf("udp6 owner unavailable: err=%v", err)
+			} else {
+				r.mu.Lock()
+				if r.udp6Conn == nil {
+					r.udp6Conn = conn
+					r.udp6Owner = owner
+					udp6Conn = conn
+					udp6Owner = owner
+				} else {
+					_ = owner.Close()
+				}
+				r.mu.Unlock()
+			}
+		}
+	}
+	if udp6Conn != nil && udp6Owner == nil {
+		owner, err := udpowner.NewKCPOwner(udp6Conn, udpowner.KCPOwnerConfig{})
+		if err != nil {
+			logutil.Debugf("udp6 owner unavailable: err=%v", err)
+		} else {
+			r.mu.Lock()
+			if r.udp6Owner == nil {
+				r.udp6Owner = owner
+			} else {
+				_ = owner.Close()
+			}
+			r.mu.Unlock()
+		}
 	}
 
 	if !acceptLoopStarted {
@@ -716,7 +798,7 @@ func (r *Runtime) acceptLoop() {
 			return
 		}
 
-		cfg, problem := r.punchConfig()
+		cfg, problem := r.punchConfig(defaultPeerPathPolicy())
 		if problem != nil {
 			r.setStatus(problem)
 			select {
@@ -753,6 +835,14 @@ func (r *Runtime) acceptLoop() {
 			if r.ctx.Err() != nil {
 				return
 			}
+			logutil.Warnf(
+				"secure session accept failed after punch: remote_peer_id=%s selected_path=%s ownership=%s remote_udp=%s err=%v",
+				result.RemoteIdentity.PeerID,
+				result.Evidence.SelectedPath,
+				result.Ownership(),
+				result.Evidence.SelectedRemoteUDP,
+				err,
+			)
 			continue
 		}
 		logutil.Infof(
@@ -1179,7 +1269,7 @@ func (r *Runtime) sessionConfig() session.Config {
 	}
 }
 
-func (r *Runtime) punchConfig() (punch.Config, *problem) {
+func (r *Runtime) punchConfig(policy peerPathPolicy) (punch.Config, *problem) {
 	pub, err := r.authorityEd25519()
 	if err != nil || len(pub) == 0 {
 		return punch.Config{}, wrapProblem(StagePunch, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "authority key is unavailable", err, "re-run init-network or join")
@@ -1189,6 +1279,9 @@ func (r *Runtime) punchConfig() (punch.Config, *problem) {
 	networkID := strings.TrimSpace(r.meta.ActiveNetworkID)
 	presenceSession := r.presence
 	udpConn := r.udpConn
+	udpOwner := r.udpOwner
+	udp6Conn := r.udp6Conn
+	udp6Owner := r.udp6Owner
 	r.mu.Unlock()
 	if networkID == "" {
 		return punch.Config{}, newProblem(
@@ -1210,6 +1303,20 @@ func (r *Runtime) punchConfig() (punch.Config, *problem) {
 			[]poc.Suggestion{{Message: "retry"}},
 		)
 	}
+	if udpOwner == nil {
+		return punch.Config{}, newProblem(
+			StagePunch,
+			poc.ReasonCodeUnavailable,
+			poc.ExitCodeUnavailable,
+			"udp owner is unavailable",
+			nil,
+			[]poc.Suggestion{{Message: "retry"}},
+		)
+	}
+	runtimeBroker, err := r.store.LoadRuntimeBroker(networkID)
+	if err != nil {
+		return punch.Config{}, wrapProblem(StagePunch, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "runtime broker is unavailable", err, "re-run init-network or join")
+	}
 
 	discover := presence.DiscoverProjection{}
 	if presenceSession != nil {
@@ -1220,8 +1327,14 @@ func (r *Runtime) punchConfig() (punch.Config, *problem) {
 		AuthorityEd25519Pub: pub,
 		Store:               r.store,
 		Discover:            discover,
-		LocalCandidates:     localCandidates(udpConn),
+		LocalCandidates:     localCandidatesForRuntimeUDP(udpConn, udp6Conn),
 		UDPConn:             udpConn,
+		UDPOwner:            udpOwner,
+		UDP6Conn:            udp6Conn,
+		UDP6Owner:           udp6Owner,
+		StunServers:         runtimeBroker.StunServers,
+		P2PNetwork:          policy.P2PNetwork,
+		P2PIPFamily:         policy.P2PIPFamily,
 	}, nil
 }
 
@@ -1252,7 +1365,7 @@ func localCandidates(conn *net.UDPConn) []punch.Candidate {
 	}
 
 	ifaceAddrs := collectLocalInterfaceAddrs()
-	candidates := localCandidatesForPort(port, ifaceAddrs)
+	candidates := localCandidatesForPortWithFallback(port, ifaceAddrs, goruntime.GOOS != "android")
 	logutil.Debugf(
 		"punch local candidate gather complete: port=%d candidate_count=%d candidates=%s",
 		port,
@@ -1262,6 +1375,42 @@ func localCandidates(conn *net.UDPConn) []punch.Candidate {
 	return candidates
 }
 
+func localCandidatesForRuntimeUDP(udp4Conn *net.UDPConn, udp6Conn *net.UDPConn) []punch.Candidate {
+	candidates := localCandidates(udp4Conn)
+	if udp6Conn == nil {
+		return candidates
+	}
+
+	localAddr, ok := udp6Conn.LocalAddr().(*net.UDPAddr)
+	if !ok || localAddr == nil || localAddr.Port <= 0 {
+		return candidates
+	}
+	candidates = append(candidates, localIPv6CandidatesForPort(localAddr.Port)...)
+	return candidates
+}
+
+func localIPv6CandidatesForPort(port int) []punch.Candidate {
+	if port <= 0 {
+		return nil
+	}
+	addrs, err := connectivity.GatherLocalIPv6Candidates()
+	if err != nil {
+		logutil.Debugf("punch local ipv6 candidate gather failed: port=%d err=%v", port, err)
+		return nil
+	}
+	out := make([]punch.Candidate, 0, len(addrs))
+	for _, addr := range addrs {
+		if !addr.Is6() {
+			continue
+		}
+		out = append(out, punch.Candidate{
+			Kind: punch.CandidateKindHost,
+			Addr: net.JoinHostPort(addr.String(), fmt.Sprintf("%d", port)),
+		})
+	}
+	return out
+}
+
 type localInterfaceAddr struct {
 	Name  string
 	Flags net.Flags
@@ -1269,6 +1418,10 @@ type localInterfaceAddr struct {
 }
 
 func collectLocalInterfaceAddrs() []localInterfaceAddr {
+	if goruntime.GOOS == "android" {
+		return collectAndroidSafeLocalInterfaceAddrs()
+	}
+
 	interfaces, err := net.Interfaces()
 	if err != nil {
 		logutil.Debugf("punch local candidate gather fallback: list interfaces err=%v", err)
@@ -1303,6 +1456,27 @@ func collectLocalInterfaceAddrs() []localInterfaceAddr {
 	return out
 }
 
+func collectAndroidSafeLocalInterfaceAddrs() []localInterfaceAddr {
+	ips, err := nat.ListAllLocalIPs()
+	if err != nil {
+		logutil.Debugf("punch local candidate android provider failed: err=%v", err)
+		return nil
+	}
+
+	out := make([]localInterfaceAddr, 0, len(ips))
+	for _, ip := range ips {
+		if ip == nil {
+			continue
+		}
+		out = append(out, localInterfaceAddr{
+			Name: "android-netlink",
+			Addr: &net.IPAddr{IP: ip},
+		})
+	}
+	logutil.Debugf("punch local candidate android provider complete: ip_count=%d", len(out))
+	return out
+}
+
 func collectUnnamedInterfaceAddrs() []localInterfaceAddr {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
@@ -1317,6 +1491,14 @@ func collectUnnamedInterfaceAddrs() []localInterfaceAddr {
 }
 
 func localCandidatesForPort(port int, ifaceAddrs []localInterfaceAddr) []punch.Candidate {
+	return localCandidatesForPortWithFallback(port, ifaceAddrs, true)
+}
+
+func localCandidatesForPortWithFallback(
+	port int,
+	ifaceAddrs []localInterfaceAddr,
+	allowLoopbackFallback bool,
+) []punch.Candidate {
 	if port <= 0 {
 		return nil
 	}
@@ -1372,13 +1554,16 @@ func localCandidatesForPort(port int, ifaceAddrs []localInterfaceAddr) []punch.C
 		}
 		appendAddr(ip.String(), source)
 	}
-	if len(out) == 0 {
+	if len(out) == 0 && allowLoopbackFallback {
 		logutil.Debugf(
 			"punch local candidate fallback: port=%d candidate=%s reason=no_usable_ipv4",
 			port,
 			net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", port)),
 		)
 		appendAddr("127.0.0.1", localInterfaceAddr{Name: "loopback-fallback", Flags: net.FlagLoopback})
+	}
+	if len(out) == 0 && !allowLoopbackFallback {
+		logutil.Debugf("punch local candidate fallback skipped: port=%d reason=no_usable_ipv4_android", port)
 	}
 	return out
 }
@@ -1416,33 +1601,7 @@ func allowLocalCandidate(source localInterfaceAddr, ip net.IP) (bool, string) {
 	if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
 		return false, "link_local_ip"
 	}
-	if isRejectedLocalInterface(source.Name) {
-		return false, "virtual_iface"
-	}
 	return true, "usable_ipv4"
-}
-
-func isRejectedLocalInterface(name string) bool {
-	lowerName := strings.ToLower(strings.TrimSpace(name))
-	if lowerName == "" {
-		return false
-	}
-	switch {
-	case strings.HasPrefix(lowerName, "docker"):
-		return true
-	case strings.HasPrefix(lowerName, "br-"):
-		return true
-	case strings.HasPrefix(lowerName, "veth"):
-		return true
-	case strings.HasPrefix(lowerName, "virbr"):
-		return true
-	case strings.HasPrefix(lowerName, "cni"):
-		return true
-	case strings.Contains(lowerName, "default switch"):
-		return true
-	default:
-		return false
-	}
 }
 
 func formatLocalCandidates(candidates []punch.Candidate) string {

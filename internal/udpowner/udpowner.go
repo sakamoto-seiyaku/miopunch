@@ -62,6 +62,8 @@ type TraversalDemux struct {
 
 	closed chan struct{}
 	wg     sync.WaitGroup
+
+	onClose func()
 }
 
 type DemuxConfig struct {
@@ -144,8 +146,11 @@ func NewUDPTraversalDemux(conn *net.UDPConn, cfg DemuxConfig) (*TraversalDemux, 
 				n, addr, err := conn.ReadFromUDP(b)
 				_ = conn.SetReadDeadline(time.Time{})
 				if err != nil {
-					var ne net.Error
-					if errors.As(err, &ne) && ne.Timeout() {
+					if udpReadTimeoutError(err) {
+						continue
+					}
+					if recoverableUDPReadError(err) {
+						logutil.Tracef("udp traversal recovered from read error: err=%v", err)
 						continue
 					}
 					return 0, nil, err
@@ -179,6 +184,9 @@ func (d *TraversalDemux) Close() error {
 	}
 	if d.cancel != nil {
 		d.cancel()
+	}
+	if d.onClose != nil {
+		d.onClose()
 	}
 
 	d.mu.Lock()

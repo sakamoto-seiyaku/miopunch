@@ -10,6 +10,8 @@ import (
 	kcp "github.com/xtaci/kcp-go/v5"
 
 	"github.com/miopunch/miopunch/internal/netutil"
+	"github.com/miopunch/miopunch/internal/punchwire"
+	"github.com/miopunch/miopunch/internal/wire"
 )
 
 func TestKCPOwner_PacketConnReceivesNonTaggedDatagram(t *testing.T) {
@@ -146,5 +148,93 @@ func TestKCPOwner_KCPServeConnAcceptsSession(t *testing.T) {
 		}
 	case <-ctx.Done():
 		t.Fatalf("accept timed out: %v", ctx.Err())
+	}
+}
+
+func TestKCPOwner_BorrowPacketConnCloseDoesNotCloseOwner(t *testing.T) {
+	key := []byte("0123456789abcdef")
+
+	serverConn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
+	if err != nil {
+		t.Fatalf("listen udp: %v", err)
+	}
+	owner, err := NewKCPOwner(serverConn, KCPOwnerConfig{
+		Traversal: DemuxConfig{Key: key},
+	})
+	if err != nil {
+		t.Fatalf("NewKCPOwner: %v", err)
+	}
+	t.Cleanup(func() { _ = owner.Close() })
+
+	pc := owner.BorrowPacketConn()
+	if err := pc.Close(); err != nil {
+		t.Fatalf("BorrowPacketConn().Close() error = %v, want nil", err)
+	}
+	peerConn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
+	if err != nil {
+		t.Fatalf("peer listen udp: %v", err)
+	}
+	t.Cleanup(func() { _ = peerConn.Close() })
+
+	if _, err := peerConn.WriteToUDP([]byte{0x01}, serverConn.LocalAddr().(*net.UDPAddr)); err != nil {
+		t.Fatalf("peer WriteToUDP() error = %v, want nil", err)
+	}
+	freshPC := owner.BorrowPacketConn()
+	t.Cleanup(func() { _ = freshPC.Close() })
+	_ = freshPC.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	buf := make([]byte, 16)
+	if _, _, err := freshPC.ReadFrom(buf); err != nil {
+		t.Fatalf("fresh borrowed PacketConn ReadFrom() error = %v, want nil", err)
+	}
+}
+
+func TestKCPOwner_TaggedTraversalPacketDoesNotEnterKCPPacketConn(t *testing.T) {
+	key := []byte("0123456789abcdef")
+
+	serverConn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
+	if err != nil {
+		t.Fatalf("listen udp: %v", err)
+	}
+	owner, err := NewKCPOwner(serverConn, KCPOwnerConfig{})
+	if err != nil {
+		t.Fatalf("NewKCPOwner: %v", err)
+	}
+	t.Cleanup(func() { _ = owner.Close() })
+
+	demux, err := owner.OpenTraversalDemux(DemuxConfig{Key: key})
+	if err != nil {
+		t.Fatalf("OpenTraversalDemux() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = demux.Close() })
+	ep := demux.Open("tx-01", 1)
+	t.Cleanup(func() { _ = ep.Close() })
+
+	peerConn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
+	if err != nil {
+		t.Fatalf("peer listen udp: %v", err)
+	}
+	t.Cleanup(func() { _ = peerConn.Close() })
+
+	msg := &wire.NatHoleSid{TransactionID: "tx-01", Sid: "sid-01"}
+	tagged, err := punchwire.EncodeMessage(msg, key)
+	if err != nil {
+		t.Fatalf("EncodeMessage() error = %v, want nil", err)
+	}
+	if _, err := peerConn.WriteToUDP(tagged, serverConn.LocalAddr().(*net.UDPAddr)); err != nil {
+		t.Fatalf("peer WriteToUDP(tagged) error = %v, want nil", err)
+	}
+
+	recvCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	t.Cleanup(cancel)
+	buf := make([]byte, 2048)
+	if _, _, err := ep.Recv(recvCtx, buf); err != nil {
+		t.Fatalf("TraversalEndpoint.Recv() error = %v, want nil", err)
+	}
+
+	pc := owner.BorrowPacketConn()
+	t.Cleanup(func() { _ = pc.Close() })
+	_ = pc.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+	if _, _, err := pc.ReadFrom(buf); err == nil {
+		t.Fatalf("PacketConn.ReadFrom() error = nil, want timeout because tagged packet stays out of KCP")
 	}
 }

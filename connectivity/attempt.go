@@ -54,6 +54,15 @@ type TCPConn struct {
 	Origin TCPConnOrigin
 }
 
+// AttemptEvidence is one bounded path/candidate attempt record returned with a
+// selected path.
+type AttemptEvidence struct {
+	Path      string
+	Candidate string
+	Result    string
+	Detail    string
+}
+
 type AttemptResult struct {
 	Path   string
 	Conn   *net.UDPConn
@@ -63,6 +72,8 @@ type AttemptResult struct {
 	// simultaneously successful connections; the data plane is responsible for
 	// selecting a single winner and closing non-winners.
 	TCPConns []TCPConn
+
+	Evidence []AttemptEvidence
 }
 
 type PunchFunc func(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.TraversalDemux, resp *wire.NatHoleResp, key []byte) (*net.UDPConn, *net.UDPAddr, error)
@@ -94,6 +105,17 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 			ev.SID = sid
 			cfg.Emitter.Emit(ev)
 		}
+	}
+	var evidence []AttemptEvidence
+	record := func(ev AttemptEvidence) {
+		evidence = append(evidence, ev)
+	}
+	withEvidence := func(res *AttemptResult) *AttemptResult {
+		if res == nil {
+			return nil
+		}
+		res.Evidence = append([]AttemptEvidence(nil), evidence...)
+		return res
 	}
 
 	network, err := ParseP2PNetwork(string(cfg.P2PNetwork))
@@ -207,7 +229,22 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 	peerUDPV6, peerUDPV4 := SplitAddrPortsByFamily(parsedUDP.Addrs)
 	peerTCPV6, peerTCPV4 := SplitAddrPortsByFamily(parsedTCP.Addrs)
 	logutil.Debugf(
-		"diagnostic attempt candidate summary: sid=%s p2p_network=%s p2p_ip_family=%s peer_udp_v6=%d peer_udp_v4=%d peer_tcp_v6=%d peer_tcp_v4=%d",
+		"diagnostic attempt response input: sid=%s peer_direct_addrs=%v parsed_udp_addrs=%v invalid_udp_addrs=%v peer_tcp_direct_addrs=%v parsed_tcp_addrs=%v invalid_tcp_addrs=%v candidate_addrs=%v assisted_addrs=%v punching_enabled=%t punching_error=%q detect_behavior=%+v",
+		sid,
+		resp.PeerDirectAddrs,
+		parsedUDP.Addrs,
+		parsedUDP.Invalid,
+		resp.PeerTCPDirectAddrs,
+		parsedTCP.Addrs,
+		parsedTCP.Invalid,
+		resp.CandidateAddrs,
+		resp.AssistedAddrs,
+		resp.PunchingEnabled,
+		resp.PunchingError,
+		resp.DetectBehavior,
+	)
+	logutil.Debugf(
+		"diagnostic attempt candidate summary: sid=%s p2p_network=%s p2p_ip_family=%s peer_udp_v6=%d peer_udp_v4=%d peer_tcp_v6=%d peer_tcp_v4=%d peer_udp_v6_addrs=%v peer_udp_v4_addrs=%v peer_tcp_v6_addrs=%v peer_tcp_v4_addrs=%v",
 		sid,
 		cfg.P2PNetwork,
 		cfg.P2PIPFamily,
@@ -215,6 +252,10 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 		len(peerUDPV4),
 		len(peerTCPV6),
 		len(peerTCPV4),
+		peerUDPV6,
+		peerUDPV4,
+		peerTCPV6,
+		peerTCPV4,
 	)
 	emit(event.Event{
 		Stage: event.StageAttempt,
@@ -274,9 +315,9 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 		if err != nil {
 			return nil, err
 		}
-		res, err := attemptUDPDirect(ctx, sid, key, udp6Conn, d, peerUDPV6, cfg, emit, "direct_ipv6")
+		res, err := attemptUDPDirect(ctx, sid, key, udp6Conn, d, peerUDPV6, cfg, emit, record, "direct_ipv6")
 		if err == nil && res != nil {
-			return res, nil
+			return withEvidence(res), nil
 		}
 		attemptErr = err
 	}
@@ -286,9 +327,9 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 		if err != nil {
 			return nil, err
 		}
-		res, err := attemptUDPDirect(ctx, sid, key, udp4Conn, d, peerUDPV4, cfg, emit, "direct_ipv4")
+		res, err := attemptUDPDirect(ctx, sid, key, udp4Conn, d, peerUDPV4, cfg, emit, record, "direct_ipv4")
 		if err == nil && res != nil {
-			return res, nil
+			return withEvidence(res), nil
 		}
 		attemptErr = err
 	}
@@ -319,10 +360,21 @@ func attemptWithPunch(ctx context.Context, sid string, key []byte, udp4Conn *net
 	if err != nil {
 		return nil, err
 	}
-	return attemptUDPPunching(ctx, sid, key, udp4Conn, d, resp, cfg, emit, punch, attemptErr)
+	res, err := attemptUDPPunching(ctx, sid, key, udp4Conn, d, resp, cfg, emit, record, punch, attemptErr)
+	return withEvidence(res), err
 }
 
-func attemptUDPDirect(ctx context.Context, sid string, key []byte, conn *net.UDPConn, demux *udpowner.TraversalDemux, candidates []netip.AddrPort, cfg AttemptConfig, emit func(event.Event), path string) (*AttemptResult, error) {
+func attemptUDPDirect(ctx context.Context, sid string, key []byte, conn *net.UDPConn, demux *udpowner.TraversalDemux, candidates []netip.AddrPort, cfg AttemptConfig, emit func(event.Event), record func(AttemptEvidence), path string) (*AttemptResult, error) {
+	logutil.Debugf(
+		"diagnostic direct udp attempt start: sid=%s path=%s local_addr=%s candidate_count=%d candidates=%v send_count=%d send_interval=%s",
+		sid,
+		path,
+		udpLocalAddrString(conn),
+		len(candidates),
+		candidates,
+		cfg.DirectSendCount,
+		cfg.DirectSendInterval,
+	)
 	if path == "direct_ipv6" {
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindStart, Name: "attempt.v6.start", Msg: "attempt ipv6 direct"})
 	} else {
@@ -352,6 +404,14 @@ func attemptUDPDirect(ctx context.Context, sid string, key []byte, conn *net.UDP
 	raddr, winner, err := directHandshakeFanout(subCtx, demux, sid, key, candidates, cfg.DirectSendCount, cfg.DirectSendInterval)
 	cancel()
 	if err == nil {
+		logutil.Debugf(
+			"diagnostic direct udp attempt selected: sid=%s path=%s winner=%s raddr=%s elapsed_ms=%d",
+			sid,
+			path,
+			winner.String(),
+			raddr.String(),
+			time.Since(stepStart).Milliseconds(),
+		)
 		for _, cand := range candidates {
 			ev := event.Event{
 				Stage: event.StageAttempt,
@@ -369,6 +429,12 @@ func attemptUDPDirect(ctx context.Context, sid string, key []byte, conn *net.UDP
 				ev.Kind = event.KindOK
 				ev.Msg = "candidate ok"
 				ev.KVs["reason"] = "reachable"
+				record(AttemptEvidence{
+					Path:      path,
+					Candidate: cand.String(),
+					Result:    "selected",
+					Detail:    raddr.String(),
+				})
 			}
 			emit(ev)
 		}
@@ -393,7 +459,22 @@ func attemptUDPDirect(ctx context.Context, sid string, key []byte, conn *net.UDP
 		return &AttemptResult{Path: path, Conn: conn, Remote: raddr}, nil
 	}
 
+	result := attemptEvidenceResult(err)
+	logutil.Debugf(
+		"diagnostic direct udp attempt failed: sid=%s path=%s candidate_count=%d elapsed_ms=%d err=%v",
+		sid,
+		path,
+		len(candidates),
+		time.Since(stepStart).Milliseconds(),
+		err,
+	)
 	for _, cand := range candidates {
+		record(AttemptEvidence{
+			Path:      path,
+			Candidate: cand.String(),
+			Result:    result,
+			Detail:    err.Error(),
+		})
 		emit(event.Event{
 			Stage: event.StageAttempt,
 			Kind:  event.KindInfo,
@@ -415,8 +496,20 @@ func attemptUDPDirect(ctx context.Context, sid string, key []byte, conn *net.UDP
 	return nil, err
 }
 
-func attemptUDPPunching(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, demux *udpowner.TraversalDemux, resp *wire.NatHoleResp, cfg AttemptConfig, emit func(event.Event), punch PunchFunc, lastErr error) (*AttemptResult, error) {
+func attemptUDPPunching(ctx context.Context, sid string, key []byte, udp4Conn *net.UDPConn, demux *udpowner.TraversalDemux, resp *wire.NatHoleResp, cfg AttemptConfig, emit func(event.Event), record func(AttemptEvidence), punch PunchFunc, lastErr error) (*AttemptResult, error) {
 	punchingPossible := resp.PunchingEnabled || len(resp.CandidateAddrs) > 0 || len(resp.AssistedAddrs) > 0
+	logutil.Debugf(
+		"diagnostic punching fallback input: sid=%s udp4_local_addr=%s punching_possible=%t punching_enabled=%t punching_error=%q candidate_addrs=%v assisted_addrs=%v detect_behavior=%+v last_err=%v",
+		sid,
+		udpLocalAddrString(udp4Conn),
+		punchingPossible,
+		resp.PunchingEnabled,
+		resp.PunchingError,
+		resp.CandidateAddrs,
+		resp.AssistedAddrs,
+		resp.DetectBehavior,
+		lastErr,
+	)
 	if !punchingPossible {
 		err := fmt.Errorf("punching disabled: %s", resp.PunchingError)
 		emit(event.Event{Stage: event.StageAttempt, Kind: event.KindFail, Name: "attempt.punching.disabled", Msg: "punching disabled", Err: err.Error()})
@@ -448,7 +541,24 @@ func attemptUDPPunching(ctx context.Context, sid string, key []byte, udp4Conn *n
 			"raddr": raddr.String(),
 		},
 	})
+	record(AttemptEvidence{
+		Path:      "punching_ipv4",
+		Candidate: raddr.String(),
+		Result:    "selected",
+		Detail:    raddr.String(),
+	})
 	return &AttemptResult{Path: "punching_ipv4", Conn: newConn, Remote: raddr}, nil
+}
+
+func attemptEvidenceResult(err error) string {
+	switch {
+	case errors.Is(err, context.Canceled):
+		return "canceled"
+	case errors.Is(err, context.DeadlineExceeded):
+		return "timeout"
+	default:
+		return "failed"
+	}
 }
 
 func directHandshakeFanout(ctx context.Context, demux *udpowner.TraversalDemux, sid string, key []byte, candidates []netip.AddrPort, sendCount int, sendInterval time.Duration) (*net.UDPAddr, netip.AddrPort, error) {
@@ -475,6 +585,14 @@ func directHandshakeFanout(ctx context.Context, demux *udpowner.TraversalDemux, 
 	}
 	ep := demux.Open(tx, 8)
 	defer ep.Close()
+	logutil.Debugf(
+		"diagnostic direct udp fanout opened: sid=%s transaction_id=%s candidate_count=%d send_count=%d send_interval=%s",
+		sid,
+		tx,
+		len(candidates),
+		sendCount,
+		sendInterval,
+	)
 
 	// Reader: respond to requests, and only accept responses as "reachable".
 	go func() {
@@ -499,11 +617,30 @@ func directHandshakeFanout(ctx context.Context, demux *udpowner.TraversalDemux, 
 			if in.Sid != sid {
 				continue
 			}
+			logutil.Debugf(
+				"diagnostic direct udp fanout received sid message: sid=%s raddr=%s response=%t",
+				sid,
+				raddr.String(),
+				in.Response,
+			)
 			if !in.Response {
 				in.Response = true
 				resp, err := punching.EncodeMessage(&in, key)
 				if err == nil {
-					_ = ep.SendTo(ctx, resp, raddr, 0)
+					if err := ep.SendTo(ctx, resp, raddr, 0); err != nil {
+						logutil.Debugf(
+							"diagnostic direct udp fanout send response failed: sid=%s to=%s err=%v",
+							sid,
+							raddr.String(),
+							err,
+						)
+					} else {
+						logutil.Debugf(
+							"diagnostic direct udp fanout sent response: sid=%s to=%s",
+							sid,
+							raddr.String(),
+						)
+					}
 				}
 				continue
 			}
@@ -538,7 +675,24 @@ func directHandshakeFanout(ctx context.Context, demux *udpowner.TraversalDemux, 
 					return
 				default:
 				}
-				_ = ep.SendTo(ctx, payload, udpAddr, 0)
+				if err := ep.SendTo(ctx, payload, udpAddr, 0); err != nil {
+					logutil.Debugf(
+						"diagnostic direct udp fanout send request failed: sid=%s to=%s attempt=%d/%d err=%v",
+						sid,
+						udpAddr.String(),
+						i+1,
+						sendCount,
+						err,
+					)
+				} else {
+					logutil.Debugf(
+						"diagnostic direct udp fanout sent request: sid=%s to=%s attempt=%d/%d",
+						sid,
+						udpAddr.String(),
+						i+1,
+						sendCount,
+					)
+				}
 				if i < sendCount-1 {
 					select {
 					case <-ctx.Done():
@@ -583,7 +737,26 @@ func sendDirectHandshakeResponses(ctx context.Context, ep udpowner.TraversalEndp
 	}
 
 	for i := 0; i < sendCount; i++ {
-		_ = ep.SendTo(ctx, payload, raddr, 0)
+		if err := ep.SendTo(ctx, payload, raddr, 0); err != nil {
+			logutil.Debugf(
+				"diagnostic direct udp fanout send winner response failed: sid=%s transaction_id=%s to=%s attempt=%d/%d err=%v",
+				sid,
+				transactionID,
+				raddr.String(),
+				i+1,
+				sendCount,
+				err,
+			)
+		} else {
+			logutil.Debugf(
+				"diagnostic direct udp fanout sent winner response: sid=%s transaction_id=%s to=%s attempt=%d/%d",
+				sid,
+				transactionID,
+				raddr.String(),
+				i+1,
+				sendCount,
+			)
+		}
 		if i+1 < sendCount {
 			select {
 			case <-ctx.Done():
@@ -592,4 +765,11 @@ func sendDirectHandshakeResponses(ctx context.Context, ep udpowner.TraversalEndp
 			}
 		}
 	}
+}
+
+func udpLocalAddrString(conn *net.UDPConn) string {
+	if conn == nil || conn.LocalAddr() == nil {
+		return ""
+	}
+	return conn.LocalAddr().String()
 }

@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/internal/pocv1/peere2e"
 	"github.com/miopunch/miopunch/internal/pocv1/persist"
 	"github.com/miopunch/miopunch/internal/pocv1/presence"
@@ -47,10 +48,6 @@ func loadConfig(cfg Config) (LoadedConfig, error) {
 	if len(cfg.AuthorityEd25519Pub) != ed25519.PublicKeySize {
 		return LoadedConfig{}, fmt.Errorf("%w: invalid authority ed25519 key length: %d", ErrInvalidConfig, len(cfg.AuthorityEd25519Pub))
 	}
-	if len(cfg.LocalCandidates) == 0 {
-		return LoadedConfig{}, fmt.Errorf("%w: at least one local candidate is required", ErrInvalidConfig)
-	}
-
 	attemptConcurrency := cfg.AttemptConcurrency
 	if attemptConcurrency <= 0 {
 		attemptConcurrency = defaultAttemptConcurrency
@@ -58,6 +55,18 @@ func loadConfig(cfg Config) (LoadedConfig, error) {
 	attemptBudget := cfg.AttemptBudget
 	if attemptBudget <= 0 {
 		attemptBudget = defaultAttemptBudget
+	}
+	stunTimeout := cfg.StunTimeout
+	if stunTimeout <= 0 {
+		stunTimeout = 3 * time.Second
+	}
+	p2pNetwork, err := normalizePOCV1P2PNetwork(cfg.P2PNetwork)
+	if err != nil {
+		return LoadedConfig{}, err
+	}
+	p2pIPFamily, err := normalizePOCV1P2PIPFamily(cfg.P2PIPFamily, cfg.UDP6Conn)
+	if err != nil {
+		return LoadedConfig{}, err
 	}
 
 	nowUnixMs := cfg.NowUnixMs
@@ -80,6 +89,11 @@ func loadConfig(cfg Config) (LoadedConfig, error) {
 	if openPeerMessage == nil {
 		openPeerMessage = defaultPeerMessageOpener
 	}
+	gatherUDPSnapshot := cfg.GatherUDPSnapshot
+	if gatherUDPSnapshot == nil {
+		gatherUDPSnapshot = gatherUDPSnapshotDefault
+	}
+	attemptUDP := cfg.AttemptUDP
 	attemptPair := cfg.AttemptPair
 	if attemptPair == nil {
 		attemptPair = defaultAttemptPair
@@ -126,7 +140,7 @@ func loadConfig(cfg Config) (LoadedConfig, error) {
 		trustedRosterByID[entry.PeerID] = entry
 	}
 
-	localCandidates, err := normalizeCandidates(cfg.LocalCandidates)
+	localCandidates, err := normalizeOptionalCandidatesForIPFamily(cfg.LocalCandidates, p2pIPFamily)
 	if err != nil {
 		return LoadedConfig{}, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
 	}
@@ -138,6 +152,14 @@ func loadConfig(cfg Config) (LoadedConfig, error) {
 		Discover:            cfg.Discover,
 		LocalCandidates:     localCandidates,
 		UDPConn:             cfg.UDPConn,
+		UDPOwner:            cfg.UDPOwner,
+		UDP6Conn:            cfg.UDP6Conn,
+		UDP6Owner:           cfg.UDP6Owner,
+		P2PNetwork:          p2pNetwork,
+		P2PIPFamily:         p2pIPFamily,
+		StunServers:         append([]string(nil), cfg.StunServers...),
+		StunExplicit:        cfg.StunExplicit,
+		StunTimeout:         stunTimeout,
 		AttemptConcurrency:  attemptConcurrency,
 		AttemptBudget:       attemptBudget,
 		NowUnixMs:           nowUnixMs,
@@ -145,6 +167,8 @@ func loadConfig(cfg Config) (LoadedConfig, error) {
 		NewDialID:           newDialID,
 		NewPunchToken:       newPunchToken,
 		OpenPeerMessage:     openPeerMessage,
+		GatherUDPSnapshot:   gatherUDPSnapshot,
+		AttemptUDP:          attemptUDP,
 		AttemptPair:         attemptPair,
 		DeviceKeys:          deviceKeys,
 		LocalPeerID:         localPeerID,
@@ -158,6 +182,32 @@ func loadConfig(cfg Config) (LoadedConfig, error) {
 		RosterSnapshot:      rosterSnapshot,
 		TrustedRosterByID:   trustedRosterByID,
 	}, nil
+}
+
+func normalizePOCV1P2PNetwork(value connectivity.P2PNetwork) (connectivity.P2PNetwork, error) {
+	network, err := connectivity.ParseP2PNetwork(string(value))
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+	}
+	switch network {
+	case connectivity.P2PNetworkAuto, connectivity.P2PNetworkUDPOnly:
+		return connectivity.P2PNetworkUDPOnly, nil
+	case connectivity.P2PNetworkTCPOnly:
+		return "", fmt.Errorf("%w: tcp_only is not supported by current POC v1", ErrUnsupportedP2PNetwork)
+	default:
+		return "", fmt.Errorf("%w: invalid p2p network %q", ErrInvalidConfig, network)
+	}
+}
+
+func normalizePOCV1P2PIPFamily(value connectivity.P2PIPFamily, udp6Conn *net.UDPConn) (connectivity.P2PIPFamily, error) {
+	family, err := connectivity.ParseP2PIPFamily(string(value))
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+	}
+	if family == connectivity.P2PIPFamilyAuto && udp6Conn == nil {
+		return connectivity.P2PIPFamilyV4, nil
+	}
+	return family, nil
 }
 
 func randomPunchToken() ([]byte, error) {
@@ -204,6 +254,57 @@ func normalizeCandidates(in []Candidate) ([]Candidate, error) {
 		return strings.Compare(a.Addr, b.Addr)
 	})
 	return out, nil
+}
+
+func normalizeOptionalCandidates(in []Candidate) ([]Candidate, error) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+	return normalizeCandidates(in)
+}
+
+func normalizeCandidatesForIPFamily(in []Candidate, family connectivity.P2PIPFamily) ([]Candidate, error) {
+	candidates, err := normalizeCandidates(in)
+	if err != nil {
+		return nil, err
+	}
+	if family == connectivity.P2PIPFamilyAuto {
+		return candidates, nil
+	}
+	out := make([]Candidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		host, _, err := net.SplitHostPort(candidate.Addr)
+		if err != nil {
+			return nil, err
+		}
+		ip := net.ParseIP(host)
+		if ip == nil {
+			return nil, fmt.Errorf("candidate addr %q has invalid ip", candidate.Addr)
+		}
+		switch family {
+		case connectivity.P2PIPFamilyV4:
+			if ip.To4() != nil {
+				out = append(out, candidate)
+			}
+		case connectivity.P2PIPFamilyV6:
+			if ip.To4() == nil {
+				out = append(out, candidate)
+			}
+		default:
+			return nil, fmt.Errorf("invalid p2p ip family %q", family)
+		}
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no candidates for p2p ip family %s", family)
+	}
+	return out, nil
+}
+
+func normalizeOptionalCandidatesForIPFamily(in []Candidate, family connectivity.P2PIPFamily) ([]Candidate, error) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+	return normalizeCandidatesForIPFamily(in, family)
 }
 
 func targetOnline(discover presence.DiscoverProjection, peerID string) bool {

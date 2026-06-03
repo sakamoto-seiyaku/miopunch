@@ -430,6 +430,24 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.Trav
 	if err != nil {
 		return nil, nil, err
 	}
+	xl.Debugf(
+		"punching udp phase plan: sid=%s transaction_id=%s mode=%d role=%s ttl=%d send_delay_ms=%d total_budget_ms=%d probe_interval_ms=%d detect_addrs=%v candidate_addrs=%v candidate_ports=%v send_random_ports=%d listen_random_ports=%d peer_direct_addrs=%v assisted_addrs=%v",
+		m.Sid,
+		m.TransactionID,
+		plan.Mode,
+		plan.Role,
+		plan.TTL,
+		plan.SendDelay.Milliseconds(),
+		plan.TotalBudget.Milliseconds(),
+		plan.ProbeInterval.Milliseconds(),
+		plan.DetectAddrs,
+		plan.CandidateAddrs,
+		plan.CandidatePorts,
+		plan.SendRandomPorts,
+		plan.ListenRandomPorts,
+		m.PeerDirectAddrs,
+		m.AssistedAddrs,
+	)
 
 	start := time.Now()
 	subCtx, cancel := context.WithTimeout(ctx, plan.TotalBudget)
@@ -438,6 +456,50 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.Trav
 	transactionID := traversalTransactionID(m.Sid, m.TransactionID)
 	ep := demux.Open(transactionID, 32)
 	defer ep.Close()
+
+	type listenEndpoint struct {
+		conn    *net.UDPConn
+		demux   *udpowner.TraversalDemux
+		ep      udpowner.TraversalEndpoint
+		primary bool
+	}
+	listenEndpoints := []listenEndpoint{{conn: listenConn, ep: ep, primary: true}}
+	for i := 0; i < plan.ListenRandomPorts; i++ {
+		tmpConn, err := net.ListenUDP("udp4", nil)
+		if err != nil {
+			xl.Warnf("listen random udp addr error: %v", err)
+			continue
+		}
+		tmpDemux, err := udpowner.NewUDPTraversalDemux(tmpConn, udpowner.DemuxConfig{Key: key})
+		if err != nil {
+			_ = tmpConn.Close()
+			xl.Warnf("open random udp traversal demux error: %v", err)
+			continue
+		}
+		tmpEP := tmpDemux.Open(transactionID, 32)
+		listenEndpoints = append(listenEndpoints, listenEndpoint{
+			conn:  tmpConn,
+			demux: tmpDemux,
+			ep:    tmpEP,
+		})
+	}
+	closeListenEndpoints := func(winner *net.UDPConn) {
+		for _, lep := range listenEndpoints {
+			if lep.ep != nil && !lep.primary {
+				_ = lep.ep.Close()
+			}
+			if lep.demux != nil {
+				_ = lep.demux.Close()
+			}
+			if !lep.primary && lep.conn != nil && lep.conn != winner {
+				_ = lep.conn.Close()
+			}
+		}
+	}
+	var endpointWinner *net.UDPConn
+	defer func() {
+		closeListenEndpoints(endpointWinner)
+	}()
 
 	eventctx.Emit(ctx, event.Event{
 		Stage: event.StageAttempt,
@@ -448,12 +510,13 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.Trav
 			"mode":                plan.Mode,
 			"role":                plan.Role,
 			"ttl":                 plan.TTL,
-			"listen_ports":        1,
-			"listen_random_ports": 0,
+			"listen_ports":        len(listenEndpoints),
+			"listen_random_ports": max(len(listenEndpoints)-1, 0),
 		},
 	})
 
 	type detectResult struct {
+		conn  *net.UDPConn
 		raddr *net.UDPAddr
 		kind  string // request | response
 	}
@@ -463,11 +526,11 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.Trav
 	firstMsgOnce := sync.Once{}
 	firstSendOnce := sync.Once{}
 
-	recvLoop := func() {
+	recvLoop := func(lep listenEndpoint) {
 		defer wg.Done()
 		for {
 			buf := pool.GetBuf(2048)
-			n, raddr, err := ep.Recv(subCtx, buf)
+			n, raddr, err := lep.ep.Recv(subCtx, buf)
 			if err != nil {
 				pool.PutBuf(buf)
 				return
@@ -490,14 +553,32 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.Trav
 			}
 
 			firstMsgOnce.Do(func() {
+				localAddr := ""
+				if lep.conn != nil && lep.conn.LocalAddr() != nil {
+					localAddr = lep.conn.LocalAddr().String()
+				}
+				xl.Debugf(
+					"punching first sid message observed: sid=%s transaction_id=%s role=%s kind=%s local_listen_addr=%s raddr=%s response=%t primary=%t",
+					m.Sid,
+					transactionID,
+					plan.Role,
+					msgKind,
+					localAddr,
+					raddr.String(),
+					msg.Response,
+					lep.primary,
+				)
 				eventctx.Emit(ctx, event.Event{
 					Stage: event.StageAttempt,
 					Kind:  event.KindInfo,
 					Name:  "attempt.punching.msg.first",
 					Msg:   "first sid message observed",
 					KVs: map[string]any{
-						"kind":  msgKind,
-						"raddr": raddr.String(),
+						"kind":              msgKind,
+						"raddr":             raddr.String(),
+						"local_listen_addr": localAddr,
+						"role":              plan.Role,
+						"primary":           lep.primary,
 					},
 				})
 			})
@@ -513,7 +594,16 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.Trav
 					continue
 				}
 				for i := 0; i < udpPunchResponseBurstCount; i++ {
-					_ = ep.SendTo(subCtx, out, raddr, 0)
+					_ = lep.ep.SendTo(subCtx, out, raddr, 0)
+					xl.Debugf(
+						"punching sid response sent: sid=%s transaction_id=%s from=%s to=%s attempt=%d/%d",
+						m.Sid,
+						transactionID,
+						udpConnAddrString(lep.conn),
+						raddr.String(),
+						i+1,
+						udpPunchResponseBurstCount,
+					)
 					if i+1 < udpPunchResponseBurstCount {
 						if !sleepWithContext(subCtx, udpPunchResponseBurstInterval) {
 							break
@@ -523,15 +613,18 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.Trav
 			}
 
 			select {
-			case resultCh <- detectResult{raddr: raddr, kind: msgKind}:
+			case resultCh <- detectResult{conn: lep.conn, raddr: raddr, kind: msgKind}:
 			default:
 			}
 			return
 		}
 	}
 
-	wg.Add(1)
-	go recvLoop()
+	for _, lep := range listenEndpoints {
+		lep := lep
+		wg.Add(1)
+		go recvLoop(lep)
+	}
 
 	if plan.SendDelay > 0 {
 		timer := time.NewTimer(plan.SendDelay)
@@ -540,6 +633,16 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.Trav
 			cancel()
 			timer.Stop()
 			wg.Wait()
+			endpointWinner = res.conn
+			xl.Debugf(
+				"punching winner selected before probe start: sid=%s transaction_id=%s kind=%s winner_local_addr=%s winner_remote_addr=%s elapsed_ms=%d",
+				m.Sid,
+				transactionID,
+				res.kind,
+				udpConnAddrString(res.conn),
+				res.raddr.String(),
+				time.Since(start).Milliseconds(),
+			)
 			eventctx.Emit(ctx, event.Event{
 				Stage: event.StageAttempt,
 				Kind:  event.KindOK,
@@ -551,7 +654,7 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.Trav
 					"elapsed_ms": time.Since(start).Milliseconds(),
 				},
 			})
-			return listenConn, res.raddr, nil
+			return res.conn, res.raddr, nil
 		case <-timer.C:
 		case <-subCtx.Done():
 			timer.Stop()
@@ -629,17 +732,30 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.Trav
 					})
 				})
 			}
-			if err := sendSidMessage(subCtx, ep, m.Sid, transactionID, detectAddr, key, plan.TTL); err != nil {
-				sendErrs++
-				if firstSendErr == "" {
-					firstSendErr = err.Error()
-					firstSendAddr = detectAddr
+			for _, lep := range listenEndpoints {
+				xl.Debugf(
+					"punching sid probe send: sid=%s transaction_id=%s from=%s to=%s ttl=%d role=%s primary=%t first=%t",
+					m.Sid,
+					transactionID,
+					udpConnAddrString(lep.conn),
+					detectAddr,
+					plan.TTL,
+					plan.Role,
+					lep.primary,
+					first,
+				)
+				if err := sendSidMessage(subCtx, lep.ep, m.Sid, transactionID, detectAddr, key, plan.TTL); err != nil {
+					sendErrs++
+					if firstSendErr == "" {
+						firstSendErr = err.Error()
+						firstSendAddr = detectAddr
+					}
+					from := ""
+					if lep.conn != nil && lep.conn.LocalAddr() != nil {
+						from = lep.conn.LocalAddr().String()
+					}
+					xl.Tracef("send sid message from %s to %s error: %v", from, detectAddr, err)
 				}
-				from := ""
-				if listenConn != nil && listenConn.LocalAddr() != nil {
-					from = listenConn.LocalAddr().String()
-				}
-				xl.Tracef("send sid message from %s to %s error: %v", from, detectAddr, err)
 			}
 		}
 		if first && sendErrs > 0 {
@@ -657,20 +773,42 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.Trav
 		}
 
 		if first && len(plan.CandidatePorts) > 0 {
-			sendSidMessageToRangePorts(subCtx, plan.CandidateAddrs, plan.CandidatePorts, func(addr string) error {
-				return sendSidMessage(subCtx, ep, m.Sid, transactionID, addr, key, plan.TTL)
-			})
+			xl.Debugf(
+				"punching sid range probe start: sid=%s transaction_id=%s candidate_addrs=%v candidate_ports=%v endpoint_count=%d",
+				m.Sid,
+				transactionID,
+				plan.CandidateAddrs,
+				plan.CandidatePorts,
+				len(listenEndpoints),
+			)
+			for _, lep := range listenEndpoints {
+				lep := lep
+				sendSidMessageToRangePorts(subCtx, plan.CandidateAddrs, plan.CandidatePorts, func(addr string) error {
+					return sendSidMessage(subCtx, lep.ep, m.Sid, transactionID, addr, key, plan.TTL)
+				})
+			}
 		}
 
 		if first && plan.SendRandomPorts > 0 && !didStartRandom {
 			didStartRandom = true
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				sendSidMessageToRandomPorts(subCtx, plan.CandidateAddrs, plan.SendRandomPorts, func(addr string) error {
-					return sendSidMessage(subCtx, ep, m.Sid, transactionID, addr, key, plan.TTL)
-				})
-			}()
+			xl.Debugf(
+				"punching sid random probe start: sid=%s transaction_id=%s candidate_addrs=%v send_random_ports=%d endpoint_count=%d",
+				m.Sid,
+				transactionID,
+				plan.CandidateAddrs,
+				plan.SendRandomPorts,
+				len(listenEndpoints),
+			)
+			for _, lep := range listenEndpoints {
+				lep := lep
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					sendSidMessageToRandomPorts(subCtx, plan.CandidateAddrs, plan.SendRandomPorts, func(addr string) error {
+						return sendSidMessage(subCtx, lep.ep, m.Sid, transactionID, addr, key, plan.TTL)
+					})
+				}()
+			}
 		}
 	}
 
@@ -683,6 +821,16 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.Trav
 		case res := <-resultCh:
 			cancel()
 			wg.Wait()
+			endpointWinner = res.conn
+			xl.Debugf(
+				"punching winner selected: sid=%s transaction_id=%s kind=%s winner_local_addr=%s winner_remote_addr=%s elapsed_ms=%d",
+				m.Sid,
+				transactionID,
+				res.kind,
+				udpConnAddrString(res.conn),
+				res.raddr.String(),
+				time.Since(start).Milliseconds(),
+			)
 			eventctx.Emit(ctx, event.Event{
 				Stage: event.StageAttempt,
 				Kind:  event.KindOK,
@@ -694,7 +842,7 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, demux *udpowner.Trav
 					"elapsed_ms": time.Since(start).Milliseconds(),
 				},
 			})
-			return listenConn, res.raddr, nil
+			return res.conn, res.raddr, nil
 		case <-ticker.C:
 			sendProbeRound(false)
 		case <-subCtx.Done():
@@ -752,6 +900,7 @@ func sendSidMessage(
 	if transactionID == "" {
 		transactionID = NewTransactionID()
 	}
+	xl.Debugf("punching sid message send target: sid=%s transaction_id=%s to=%s ttl=%d", sid, transactionID, addr, ttl)
 	m := &wire.NatHoleSid{
 		TransactionID: transactionID,
 		Sid:           sid,
@@ -763,6 +912,13 @@ func sendSidMessage(
 		return err
 	}
 	return ep.SendTo(ctx, buf, raddr, ttl)
+}
+
+func udpConnAddrString(conn *net.UDPConn) string {
+	if conn == nil || conn.LocalAddr() == nil {
+		return ""
+	}
+	return conn.LocalAddr().String()
 }
 
 func traversalTransactionID(sid string, fallback string) string {

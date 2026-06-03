@@ -56,6 +56,11 @@ func AnalyzeWithDaemonMemory(sid string, remotePeerID string, visitor *wire.NatH
 	return daemonEngineInstance().AnalyzeWithScope(sid, scopeKey, visitor, client)
 }
 
+// UDPAnalyzerKey derives the daemon-lifetime UDP analyzer key for a local peer scope.
+func UDPAnalyzerKey(remotePeerID string, analysisKey string) string {
+	return scopedAnalyzerKey(remotePeerID, "udp", analysisKey)
+}
+
 // ReportDaemonUDPSuccess records a successful UDP punching mode/index into the
 // daemon-lifetime analyzer memory.
 func ReportDaemonUDPSuccess(res *Result) {

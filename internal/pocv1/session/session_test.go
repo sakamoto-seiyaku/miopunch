@@ -30,6 +30,7 @@ import (
 	"github.com/miopunch/miopunch/internal/pocv1/persist"
 	"github.com/miopunch/miopunch/internal/pocv1/punch"
 	"github.com/miopunch/miopunch/internal/pocv1/wire"
+	"github.com/miopunch/miopunch/internal/udpowner"
 )
 
 func TestPathResultUpgradePreservesStreamOpenEnvelope(t *testing.T) {
@@ -117,6 +118,44 @@ func TestPathResultUpgradePreservesStreamOpenEnvelope(t *testing.T) {
 	}
 	if got := dataplane.PathFactsFromSession(clientSess).SelectedPath; got != punch.PathDirectIPv4 {
 		t.Fatalf("Dial() SessionPathFacts().SelectedPath = %q, want %q", got, punch.PathDirectIPv4)
+	}
+}
+
+func TestRemoteUDPAddrAllowedForDirectIPv6(t *testing.T) {
+	t.Parallel()
+
+	exact := mustResolveUDPAddr(t, "[fd00::1]:4000")
+	alternate := mustResolveUDPAddr(t, "[fd00::2]:4000")
+	unknown := mustResolveUDPAddr(t, "[fd00::3]:4000")
+
+	directIPv6 := punch.PathResult{
+		RemoteAddr: exact,
+		AllowedRemoteUDPAddrs: []string{
+			exact.String(),
+			alternate.String(),
+		},
+		Evidence: punch.PunchEvidence{SelectedPath: punch.PathDirectIPv6},
+	}
+	if !remoteUDPAddrAllowed(directIPv6, alternate) {
+		t.Fatalf("remoteUDPAddrAllowed(direct_ipv6, %q) = false, want true", alternate.String())
+	}
+	if remoteUDPAddrAllowed(directIPv6, unknown) {
+		t.Fatalf("remoteUDPAddrAllowed(direct_ipv6, %q) = true, want false", unknown.String())
+	}
+
+	punchingIPv4 := punch.PathResult{
+		RemoteAddr: exact,
+		AllowedRemoteUDPAddrs: []string{
+			exact.String(),
+			alternate.String(),
+		},
+		Evidence: punch.PunchEvidence{SelectedPath: punch.PathPunchingIPv4},
+	}
+	if remoteUDPAddrAllowed(punchingIPv4, alternate) {
+		t.Fatalf("remoteUDPAddrAllowed(punching_ipv4, %q) = true, want false", alternate.String())
+	}
+	if !remoteUDPAddrAllowed(punchingIPv4, exact) {
+		t.Fatalf("remoteUDPAddrAllowed(punching_ipv4, %q) = false, want true", exact.String())
 	}
 }
 
@@ -210,10 +249,10 @@ func TestDialHandshakeFailsWhenPeerNeverAccepts(t *testing.T) {
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("Dial() error = %v, want wrapped context deadline exceeded", err)
 	}
-	assertUDPConnOpen(t, fx.dialerConn, "dialer UDPConn after failed Dial")
+	assertUDPConnClosed(t, fx.dialerConn, "dialer UDPConn after failed Dial")
 }
 
-func TestPeerSessionCloseDoesNotCloseBorrowedUDPConns(t *testing.T) {
+func TestPeerSessionCloseClosesTemporaryUDPConns(t *testing.T) {
 	t.Parallel()
 
 	fx := mustSessionFixture(t)
@@ -241,8 +280,62 @@ func TestPeerSessionCloseDoesNotCloseBorrowedUDPConns(t *testing.T) {
 	if err := serverRes.session.Close(dataplane.CloseReasonDaemonShutdown); err != nil {
 		t.Fatalf("server PeerSession.Close() error = %v, want nil", err)
 	}
-	assertUDPConnOpen(t, fx.dialerConn, "dialer UDPConn after PeerSession.Close")
-	assertUDPConnOpen(t, fx.responderConn, "responder UDPConn after PeerSession.Close")
+	assertUDPConnClosed(t, fx.dialerConn, "dialer UDPConn after PeerSession.Close")
+	assertUDPConnClosed(t, fx.responderConn, "responder UDPConn after PeerSession.Close")
+}
+
+func TestPeerSessionCloseDoesNotCloseRuntimeOwnedUDPConns(t *testing.T) {
+	t.Parallel()
+
+	fx := mustSessionFixture(t)
+	dialerOwner, err := udpowner.NewKCPOwner(fx.dialerConn, udpowner.KCPOwnerConfig{})
+	if err != nil {
+		t.Fatalf("NewKCPOwner(dialer) error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = dialerOwner.Close() })
+	responderOwner, err := udpowner.NewKCPOwner(fx.responderConn, udpowner.KCPOwnerConfig{})
+	if err != nil {
+		t.Fatalf("NewKCPOwner(responder) error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = responderOwner.Close() })
+
+	dialerPath := fx.dialerPath()
+	dialerPath.Evidence.SelectedPath = punch.PathPunchingIPv4
+	dialerPath.UDPOwnership = punch.SelectedUDPOwnershipRuntime
+	dialerPath.RuntimeKCPPacket = dialerOwner.BorrowPacketConn()
+	responderPath := fx.responderPath()
+	responderPath.Evidence.SelectedPath = punch.PathPunchingIPv4
+	responderPath.UDPOwnership = punch.SelectedUDPOwnershipRuntime
+	responderPath.RuntimeKCPPacket = responderOwner.BorrowPacketConn()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	t.Cleanup(cancel)
+	serverCh := make(chan sessionResult, 1)
+	go func() {
+		sess, err := Accept(ctx, fx.responderConfig(), responderPath)
+		serverCh <- sessionResult{session: sess, err: err}
+	}()
+
+	clientSess, err := Dial(ctx, fx.dialerConfig(), dialerPath)
+	if err != nil {
+		t.Fatalf("Dial() error = %v, want nil", err)
+	}
+	serverRes := <-serverCh
+	if serverRes.err != nil {
+		t.Fatalf("Accept() error = %v, want nil", serverRes.err)
+	}
+	if got := dataplane.PathFactsFromSession(clientSess).SelectedPath; got != punch.PathPunchingIPv4 {
+		t.Fatalf("Dial() SessionPathFacts().SelectedPath = %q, want %q", got, punch.PathPunchingIPv4)
+	}
+
+	if err := clientSess.Close(dataplane.CloseReasonDaemonShutdown); err != nil {
+		t.Fatalf("client PeerSession.Close() error = %v, want nil", err)
+	}
+	if err := serverRes.session.Close(dataplane.CloseReasonDaemonShutdown); err != nil {
+		t.Fatalf("server PeerSession.Close() error = %v, want nil", err)
+	}
+	assertUDPConnOpen(t, fx.dialerConn, "dialer Runtime UDPConn after PeerSession.Close")
+	assertUDPConnOpen(t, fx.responderConn, "responder Runtime UDPConn after PeerSession.Close")
 }
 
 type sessionFixture struct {
@@ -350,7 +443,8 @@ func (f sessionFixture) dialerPath() punch.PathResult {
 			PeerID:           f.responderPeerID,
 			MemberCredential: append([]byte(nil), f.responderCredential...),
 		},
-		Evidence: punch.PunchEvidence{SelectedPath: punch.PathDirectIPv4},
+		Evidence:     punch.PunchEvidence{SelectedPath: punch.PathDirectIPv4},
+		UDPOwnership: punch.SelectedUDPOwnershipTemporary,
 	}
 }
 
@@ -362,7 +456,8 @@ func (f sessionFixture) responderPath() punch.PathResult {
 			PeerID:           f.dialerPeerID,
 			MemberCredential: append([]byte(nil), f.dialerCredential...),
 		},
-		Evidence: punch.PunchEvidence{SelectedPath: punch.PathDirectIPv4},
+		Evidence:     punch.PunchEvidence{SelectedPath: punch.PathDirectIPv4},
+		UDPOwnership: punch.SelectedUDPOwnershipTemporary,
 	}
 }
 
@@ -429,12 +524,32 @@ func mustListenUDP(t *testing.T) *net.UDPConn {
 	return conn
 }
 
+func mustResolveUDPAddr(t *testing.T, value string) *net.UDPAddr {
+	t.Helper()
+
+	addr, err := net.ResolveUDPAddr("udp", value)
+	if err != nil {
+		t.Fatalf("ResolveUDPAddr(%q) error = %v, want nil", value, err)
+	}
+	return addr
+}
+
 func assertUDPConnOpen(t *testing.T, conn *net.UDPConn, label string) {
 	t.Helper()
 
 	receiver := mustListenUDP(t)
 	if _, err := conn.WriteToUDP([]byte("still-open"), receiver.LocalAddr().(*net.UDPAddr)); err != nil {
 		t.Fatalf("%s WriteToUDP() error = %v, want nil", label, err)
+	}
+}
+
+func assertUDPConnClosed(t *testing.T, conn *net.UDPConn, label string) {
+	t.Helper()
+
+	receiver := mustListenUDP(t)
+	_, err := conn.WriteToUDP([]byte("closed"), receiver.LocalAddr().(*net.UDPAddr))
+	if err == nil {
+		t.Fatalf("%s WriteToUDP() error = nil, want closed error", label)
 	}
 }
 

@@ -20,6 +20,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -68,6 +69,7 @@ const (
 	enrollResponseTagMailboxSecret        = 2
 	enrollResponseTagRuntimeBroker        = 3
 	enrollResponseTagRosterSnapshot       = 4
+	enrollResponseTagStunServers          = 5
 
 	rosterEntryTagPeerID           = 1
 	rosterEntryTagMemberCredential = 2
@@ -112,6 +114,7 @@ var (
 		enrollResponseTagMailboxSecret,
 		enrollResponseTagRuntimeBroker,
 		enrollResponseTagRosterSnapshot,
+		enrollResponseTagStunServers,
 	}
 	rosterEntryAllowedTags = []uint64{
 		rosterEntryTagPeerID,
@@ -507,12 +510,19 @@ func UnmarshalEnrollResponse(data []byte) (EnrollResponse, error) {
 	if err != nil {
 		return EnrollResponse{}, err
 	}
+	stunServers, err := optionalStringListField(index, enrollResponseTagStunServers, "stun_servers")
+	if err != nil {
+		return EnrollResponse{}, err
+	}
 
 	return normalizeEnrollResponse(EnrollResponse{
 		SelfMemberCredential: memberCredential,
 		MailboxSecret:        mailboxSecret,
-		RuntimeBroker:        RuntimeBroker{Endpoint: brokerEndpoint},
-		RosterSnapshot:       rosterSnapshot,
+		RuntimeBroker: RuntimeBroker{
+			Endpoint:    brokerEndpoint,
+			StunServers: stunServers,
+		},
+		RosterSnapshot: rosterSnapshot,
 	})
 }
 
@@ -641,6 +651,13 @@ func marshalEnrollResponse(response EnrollResponse) ([]byte, error) {
 		return nil, err
 	}
 	out = wire.AppendBytesField(out, enrollResponseTagRosterSnapshot, rosterBytes)
+	if len(response.RuntimeBroker.StunServers) > 0 {
+		stunServers, err := json.Marshal(response.RuntimeBroker.StunServers)
+		if err != nil {
+			return nil, fmt.Errorf("marshal stun_servers: %w", err)
+		}
+		out = wire.AppendBytesField(out, enrollResponseTagStunServers, stunServers)
+	}
 	return out, nil
 }
 
@@ -823,6 +840,18 @@ func requireBytesField(index map[uint64]wire.DecodedField, tag uint64, name stri
 		return nil, fmt.Errorf("%w: missing %s", wire.ErrInvalidFieldValue, name)
 	}
 	return append([]byte(nil), field.Value...), nil
+}
+
+func optionalStringListField(index map[uint64]wire.DecodedField, tag uint64, name string) ([]string, error) {
+	field, ok := index[tag]
+	if !ok {
+		return nil, nil
+	}
+	var values []string
+	if err := json.Unmarshal(field.Value, &values); err != nil {
+		return nil, fmt.Errorf("%w: invalid %s", wire.ErrInvalidFieldValue, name)
+	}
+	return values, nil
 }
 
 func appendLengthPrefixed(dst []byte, value []byte) []byte {

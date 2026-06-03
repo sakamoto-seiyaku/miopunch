@@ -18,9 +18,12 @@ package punch
 import (
 	"context"
 	"crypto/ed25519"
+	"errors"
+	"io"
 	"net"
 	"time"
 
+	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/internal/udpowner"
 	legacywire "github.com/miopunch/miopunch/internal/wire"
 
@@ -41,8 +44,20 @@ const (
 const (
 	// PathDirectIPv4 identifies a selected host-to-host UDP IPv4 path.
 	PathDirectIPv4 = "direct_ipv4"
+	// PathDirectIPv6 identifies a selected host-to-host UDP IPv6 path.
+	PathDirectIPv6 = "direct_ipv6"
 	// PathPunchingIPv4 identifies a selected UDP IPv4 punching path.
 	PathPunchingIPv4 = "punching_ipv4"
+)
+
+// SelectedUDPOwnership identifies who owns the selected UDP socket.
+type SelectedUDPOwnership string
+
+const (
+	// SelectedUDPOwnershipRuntime means the selected UDP path uses Runtime's owner.
+	SelectedUDPOwnershipRuntime SelectedUDPOwnership = "runtime"
+	// SelectedUDPOwnershipTemporary means the selected UDP socket is session-owned.
+	SelectedUDPOwnershipTemporary SelectedUDPOwnership = "temporary"
 )
 
 // CandidateKind is the fixed current v1 UDP candidate kind set.
@@ -63,11 +78,32 @@ type Candidate struct {
 	Addr string
 }
 
+// UDPSnapshot is the current v1 UDP-only decision material exchanged by
+// dial_offer and dial_answer.
+type UDPSnapshot struct {
+	DirectAddrs   []string `json:"direct_addrs,omitempty"`
+	MappedAddrs   []string `json:"mapped_addrs,omitempty"`
+	AssistedAddrs []string `json:"assisted_addrs,omitempty"`
+}
+
+// UDPDecision carries the answer-side decision output shared by both peers.
+type UDPDecision struct {
+	LocalResponse  legacywire.NatHoleResp `json:"local_response,omitempty"`
+	RemoteResponse legacywire.NatHoleResp `json:"remote_response,omitempty"`
+	AnalysisKey    string                 `json:"analysis_key,omitempty"`
+	AnalyzerKey    string                 `json:"analyzer_key,omitempty"`
+	Mode           int                    `json:"decision_mode"`
+	Index          int                    `json:"decision_index"`
+}
+
 // DialOffer is the fixed current v1 dial_offer body.
 type DialOffer struct {
 	DialID           string
 	PunchToken       []byte
 	Candidates       []Candidate
+	UDPSnapshot      UDPSnapshot
+	P2PNetwork       connectivity.P2PNetwork
+	P2PIPFamily      connectivity.P2PIPFamily
 	MemberCredential []byte
 }
 
@@ -76,6 +112,8 @@ type DialAnswer struct {
 	DialID           string
 	PunchToken       []byte
 	Candidates       []Candidate
+	UDPSnapshot      UDPSnapshot
+	Decision         UDPDecision
 	MemberCredential []byte
 }
 
@@ -106,21 +144,43 @@ type PunchEvidence struct {
 }
 
 // PathResult is the only output of current v1 dial/punch.
-//
-// Conn is borrowed from the runtime UDP owner. PathResult does not own it and
-// must not close it; the runtime closes the socket when the daemon stops.
 type PathResult struct {
-	Conn           *net.UDPConn
-	RemoteAddr     *net.UDPAddr
-	RemoteIdentity TrustedRemoteIdentity
-	Evidence       PunchEvidence
+	Conn                  *net.UDPConn
+	RemoteAddr            *net.UDPAddr
+	AllowedRemoteUDPAddrs []string
+	RemoteIdentity        TrustedRemoteIdentity
+	Evidence              PunchEvidence
+	UDPOwnership          SelectedUDPOwnership
+	RuntimeKCPPacket      net.PacketConn
+	TemporaryUDPCloser    io.Closer
 }
 
-// Close is retained for compatibility with callers that clean up failed
-// handoffs. The selected UDP socket is runtime-owned, so there is no socket to
-// release here.
+// Ownership returns the selected UDP ownership kind.
+func (r PathResult) Ownership() SelectedUDPOwnership {
+	if r.UDPOwnership != "" {
+		return r.UDPOwnership
+	}
+	if r.Conn != nil || r.RuntimeKCPPacket != nil {
+		return SelectedUDPOwnershipRuntime
+	}
+	return ""
+}
+
+// Close releases resources owned by a failed PathResult handoff.
 func (r PathResult) Close() error {
-	return nil
+	if r.Ownership() != SelectedUDPOwnershipTemporary {
+		return nil
+	}
+	var err error
+	if r.TemporaryUDPCloser != nil {
+		err = r.TemporaryUDPCloser.Close()
+	} else if r.Conn != nil {
+		err = r.Conn.Close()
+	}
+	if errors.Is(err, net.ErrClosed) {
+		return nil
+	}
+	return err
 }
 
 // Target is one current v1 dial target.
@@ -136,6 +196,14 @@ type Config struct {
 	Discover            presence.DiscoverProjection
 	LocalCandidates     []Candidate
 	UDPConn             *net.UDPConn
+	UDPOwner            *udpowner.KCPOwner
+	UDP6Conn            *net.UDPConn
+	UDP6Owner           *udpowner.KCPOwner
+	P2PNetwork          connectivity.P2PNetwork
+	P2PIPFamily         connectivity.P2PIPFamily
+	StunServers         []string
+	StunExplicit        bool
+	StunTimeout         time.Duration
 	AttemptConcurrency  int
 	AttemptBudget       time.Duration
 	NowUnixMs           func() uint64
@@ -143,6 +211,8 @@ type Config struct {
 	NewDialID           func() (string, error)
 	NewPunchToken       func() ([]byte, error)
 	OpenPeerMessage     peerMessageOpener
+	GatherUDPSnapshot   UDPSnapshotGatherer
+	AttemptUDP          UDPAttemptFunc
 	AttemptPair         AttemptPairFunc
 }
 
@@ -154,6 +224,14 @@ type LoadedConfig struct {
 	Discover            presence.DiscoverProjection
 	LocalCandidates     []Candidate
 	UDPConn             *net.UDPConn
+	UDPOwner            *udpowner.KCPOwner
+	UDP6Conn            *net.UDPConn
+	UDP6Owner           *udpowner.KCPOwner
+	P2PNetwork          connectivity.P2PNetwork
+	P2PIPFamily         connectivity.P2PIPFamily
+	StunServers         []string
+	StunExplicit        bool
+	StunTimeout         time.Duration
 	AttemptConcurrency  int
 	AttemptBudget       time.Duration
 	NowUnixMs           func() uint64
@@ -161,6 +239,8 @@ type LoadedConfig struct {
 	NewDialID           func() (string, error)
 	NewPunchToken       func() ([]byte, error)
 	OpenPeerMessage     peerMessageOpener
+	GatherUDPSnapshot   UDPSnapshotGatherer
+	AttemptUDP          UDPAttemptFunc
 	AttemptPair         AttemptPairFunc
 
 	DeviceKeys        persist.DeviceKeys
@@ -175,6 +255,22 @@ type LoadedConfig struct {
 	RosterSnapshot    persist.RosterSnapshot
 	TrustedRosterByID map[string]persist.RosterEntry
 }
+
+// UDPSnapshotGatherer captures the local runtime UDP address snapshot for one
+// dial session.
+type UDPSnapshotGatherer func(ctx context.Context, cfg LoadedConfig, sid string) (UDPSnapshot, error)
+
+// UDPAttemptFunc executes one decision-ready UDP traversal attempt.
+type UDPAttemptFunc func(
+	ctx context.Context,
+	sid string,
+	key []byte,
+	udp4Conn *net.UDPConn,
+	udp6Conn *net.UDPConn,
+	resp *legacywire.NatHoleResp,
+	udp4Demux *udpowner.TraversalDemux,
+	udp6Demux *udpowner.TraversalDemux,
+) (*connectivity.AttemptResult, error)
 
 // AttemptPairFunc is the narrow leaf seam for one UDP candidate-pair attempt.
 type AttemptPairFunc func(

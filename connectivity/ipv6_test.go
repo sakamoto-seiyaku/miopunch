@@ -17,14 +17,23 @@ func TestFilterIPv6Candidates_FiltersObviousBadAddrs(t *testing.T) {
 	}
 }
 
-func TestFilterIPv6Candidates_PrefersGlobalOverULA(t *testing.T) {
+func TestFilterIPv6Candidates_PreservesGlobalAndULA(t *testing.T) {
 	in := []IPv6IfaceAddr{
 		{IfIndex: 1, Prefix: netip.MustParsePrefix("fc00::/7"), Addr: netip.MustParseAddr("fc00::1")},
 		{IfIndex: 1, Prefix: netip.MustParsePrefix("2001:db8::/64"), Addr: netip.MustParseAddr("2001:db8::1")},
 	}
 	got := FilterIPv6Candidates(in)
-	if len(got) != 1 || got[0] != netip.MustParseAddr("2001:db8::1") {
-		t.Fatalf("unexpected candidates: %v", got)
+	want := []netip.Addr{
+		netip.MustParseAddr("2001:db8::1"),
+		netip.MustParseAddr("fc00::1"),
+	}
+	if len(got) != len(want) {
+		t.Fatalf("FilterIPv6Candidates(%v) length = %d (%v), want %d", in, len(got), got, len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("FilterIPv6Candidates(%v)[%d] = %v, want %v (full=%v)", in, i, got[i], want[i], got)
+		}
 	}
 }
 

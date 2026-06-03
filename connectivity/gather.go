@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/miopunch/miopunch/event"
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/netutil"
 	"github.com/miopunch/miopunch/internal/stunclient"
 	"github.com/miopunch/miopunch/internal/wire"
@@ -21,12 +22,22 @@ import (
 type GatherConfig struct {
 	ListenPort int
 
+	// UDP4Conn / UDP6Conn, when provided, are observed and reused for gather
+	// instead of binding new sockets. Gather does not close caller-owned sockets
+	// on error.
+	UDP4Conn *net.UDPConn
+	UDP6Conn *net.UDPConn
+
 	P2PNetwork P2PNetwork
 
 	P2PIPFamily P2PIPFamily
 
 	DisableAssistedAddrs bool
 	DisablePortMap       bool
+	// DisableSTUNViewArbitration makes built-in STUN use the archived endpoint
+	// list as ordinary samples instead of splitting cn/global views for
+	// arbitration. Explicit StunServers are unaffected.
+	DisableSTUNViewArbitration bool
 
 	// StunServers is the user-provided STUN server list (host:port).
 	StunServers []string
@@ -106,24 +117,40 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 	var udp4Conn *net.UDPConn
 	var udp4Port int
 	if allowUDP && allowV4 {
-		udp4Conn, udp4Port, err = bindUDP4(cfg.ListenPort)
-		if err != nil {
-			return nil, err
+		if cfg.UDP4Conn != nil {
+			udp4Conn = cfg.UDP4Conn
+			udp4Port, err = udpPort(udp4Conn.LocalAddr())
+			if err != nil {
+				return nil, fmt.Errorf("udp4 conn local addr: %w", err)
+			}
+		} else {
+			udp4Conn, udp4Port, err = bindUDP4(cfg.ListenPort)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
 	var udp6Conn *net.UDPConn
 	var udp6Port int
 	if allowUDP && allowV6 {
-		udp6Conn, udp6Port, err = bindUDP6(cfg.ListenPort, udp4Port)
-		if err != nil {
-			emit(event.Event{
-				Stage: event.StageGather,
-				Kind:  event.KindInfo,
-				Name:  "gather.udp6.unavailable",
-				Msg:   "udp6 bind failed",
-				Err:   err.Error(),
-			})
+		if cfg.UDP6Conn != nil {
+			udp6Conn = cfg.UDP6Conn
+			udp6Port, err = udpPort(udp6Conn.LocalAddr())
+			if err != nil {
+				return nil, fmt.Errorf("udp6 conn local addr: %w", err)
+			}
+		} else {
+			udp6Conn, udp6Port, err = bindUDP6(cfg.ListenPort, udp4Port)
+			if err != nil {
+				emit(event.Event{
+					Stage: event.StageGather,
+					Kind:  event.KindInfo,
+					Name:  "gather.udp6.unavailable",
+					Msg:   "udp6 bind failed",
+					Err:   err.Error(),
+				})
+			}
 		}
 	}
 
@@ -136,10 +163,10 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 		if retErr == nil {
 			return
 		}
-		if udp4Conn != nil {
+		if udp4Conn != nil && cfg.UDP4Conn == nil {
 			_ = udp4Conn.Close()
 		}
-		if udp6Conn != nil {
+		if udp6Conn != nil && cfg.UDP6Conn == nil {
 			_ = udp6Conn.Close()
 		}
 		if tcp4Listener != nil {
@@ -334,7 +361,28 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 
 	gatherStart := time.Now()
 
-	localIPs, _ := nat.ListLocalIPsForNatHole(10)
+	localIPs, localIPErr := nat.ListLocalIPsForNatHole(10)
+	if localIPErr != nil {
+		logutil.Debugf("gather local ipv4 provider failed: sid=%s err=%v", sid, localIPErr)
+		emit(event.Event{
+			Stage: event.StageGather,
+			Kind:  event.KindInfo,
+			Name:  "gather.local_ipv4.error",
+			Msg:   "local ipv4 provider failed",
+			Err:   localIPErr.Error(),
+		})
+	} else {
+		logutil.Debugf("gather local ipv4 provider result: sid=%s count=%d ips=%v", sid, len(localIPs), localIPs)
+		emit(event.Event{
+			Stage: event.StageGather,
+			Kind:  event.KindInfo,
+			Name:  "gather.local_ipv4.result",
+			Msg:   "local ipv4 provider result",
+			KVs: map[string]any{
+				"count": len(localIPs),
+			},
+		})
+	}
 
 	// 1) Local candidates (non-blocking).
 	var (
@@ -762,6 +810,43 @@ func Gather(ctx context.Context, sid string, cfg GatherConfig) (res *GatherResul
 						},
 					})
 				default:
+					if cfg.DisableSTUNViewArbitration {
+						start := time.Now()
+						servers := internalSTUNServers()
+						client := stunclient.NewUDPClient(udp4Conn)
+						defer client.Close()
+
+						resolved, resolveErrors := resolveInternalSTUNPlainServers(stunCtx, resolver, servers)
+						stunRes := discoverInternalSTUN(stunCtx, client, resolved)
+						stunRes.Errors = append(stunRes.Errors, resolveErrors...)
+						mappedAddrs = stunRes.MappedAddrs
+
+						kind := event.KindOK
+						msg := "builtin stun ok"
+						errText := ""
+						if len(stunRes.Errors) > 0 {
+							kind = event.KindInfo
+							msg = "builtin stun finished with errors"
+							errText = fmt.Sprintf("%v", stunRes.Errors)
+						}
+						emit(event.Event{
+							Stage: event.StageGather,
+							Kind:  kind,
+							Name:  "gather.stun.result",
+							Msg:   msg,
+							Err:   errText,
+							KVs: map[string]any{
+								"configured": false,
+								"builtin":    true,
+								"count":      len(mappedAddrs),
+								"ok_count":   stunRes.OkCount,
+								"rtt_ms":     stunRes.RTTMs,
+								"ms":         time.Since(start).Milliseconds(),
+							},
+						})
+						return
+					}
+
 					// P3.5: internal STUN cn/global sampling (best-effort). Selection happens in exchange.
 					start := time.Now()
 					cnServers, globalServers := internalSTUNBuckets()
@@ -1210,6 +1295,17 @@ func bindUDP4(requestedPort int) (*net.UDPConn, int, error) {
 		return nil, 0, errors.New("udp4 local addr is not UDPAddr")
 	}
 	return conn, ua.Port, nil
+}
+
+func udpPort(addr net.Addr) (int, error) {
+	ua, ok := addr.(*net.UDPAddr)
+	if !ok || ua == nil {
+		return 0, errors.New("local addr is not UDPAddr")
+	}
+	if ua.Port <= 0 {
+		return 0, fmt.Errorf("invalid local udp port: %d", ua.Port)
+	}
+	return ua.Port, nil
 }
 
 func bindUDP6(requestedPort int, udp4Port int) (*net.UDPConn, int, error) {

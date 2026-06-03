@@ -128,6 +128,17 @@ func (e *Engine) analyze(sid string, scopeKey string, visitor *wire.NatHoleVisit
 
 	cm := client
 	vm := visitor
+	logutil.Debugf(
+		"punchdecision udp input: sid=%s scope_key=%s visitor_direct_addrs=%v visitor_mapped_addrs=%v visitor_assisted_addrs=%v client_direct_addrs=%v client_mapped_addrs=%v client_assisted_addrs=%v",
+		sid,
+		scopeKey,
+		vm.DirectAddrs,
+		vm.MappedAddrs,
+		vm.AssistedAddrs,
+		cm.DirectAddrs,
+		cm.MappedAddrs,
+		cm.AssistedAddrs,
+	)
 
 	// P3 transport: data plane config must match on both peers. No negotiation or downgrade.
 	visitorProto := strings.TrimSpace(vm.Protocol)
@@ -361,6 +372,8 @@ func (e *Engine) analyze(sid string, scopeKey string, visitor *wire.NatHoleVisit
 		logutil.Debugf("sid [%s] drop invalid visitor assisted_addrs: %v", sid, invalid)
 	}
 	cResp.AssistedAddrs = slices.Compact(cResp.AssistedAddrs)
+	vResp.PeerDirectAddrs = udpDirectAddrsWithAssisted(vResp.PeerDirectAddrs, vResp.AssistedAddrs)
+	cResp.PeerDirectAddrs = udpDirectAddrsWithAssisted(cResp.PeerDirectAddrs, cResp.AssistedAddrs)
 
 	vResp.TCPAssistedAddrs, invalid = filterValidHostPorts(cm.TCPAssistedAddrs)
 	if len(invalid) > 0 {
@@ -379,6 +392,18 @@ func (e *Engine) analyze(sid string, scopeKey string, visitor *wire.NatHoleVisit
 	// the original repeated mapped_addrs samples.
 	vResp.CandidateAddrs = slices.Compact(slices.Clone(clientMapped))
 	cResp.CandidateAddrs = slices.Compact(slices.Clone(visitorMapped))
+	logutil.Debugf(
+		"punchdecision udp response material: sid=%s visitor_peer_direct_addrs=%v visitor_candidate_addrs=%v visitor_assisted_addrs=%v client_peer_direct_addrs=%v client_candidate_addrs=%v client_assisted_addrs=%v selected_view=%s selected_reason=%s",
+		sid,
+		vResp.PeerDirectAddrs,
+		vResp.CandidateAddrs,
+		vResp.AssistedAddrs,
+		cResp.PeerDirectAddrs,
+		cResp.CandidateAddrs,
+		cResp.AssistedAddrs,
+		selectedView,
+		selectedReason,
+	)
 
 	clientTCPCandidates, invalidTCP := offsetHostPorts(clientTCPMapped, 100)
 	if len(invalidTCP) > 0 {
@@ -634,6 +659,24 @@ func (e *Engine) analyze(sid string, scopeKey string, visitor *wire.NatHoleVisit
 			SendDelayMs:   0,
 			ReadTimeoutMs: 5000,
 		}
+		logutil.Debugf(
+			"punchdecision udp fallback detail: sid=%s reason=%s nat_analysis_possible=%t client_mapped_count=%d visitor_mapped_count=%d visitor_has_targets=%t client_has_targets=%t visitor_role=%s client_role=%s visitor_peer_direct_addrs=%v client_peer_direct_addrs=%v visitor_candidate_addrs=%v client_candidate_addrs=%v visitor_assisted_addrs=%v client_assisted_addrs=%v",
+			sid,
+			msg,
+			natAnalysisPossible,
+			len(clientMapped),
+			len(visitorMapped),
+			visitorHasTargets,
+			clientHasTargets,
+			visitorRole,
+			clientRole,
+			vResp.PeerDirectAddrs,
+			cResp.PeerDirectAddrs,
+			vResp.CandidateAddrs,
+			cResp.CandidateAddrs,
+			vResp.AssistedAddrs,
+			cResp.AssistedAddrs,
+		)
 		logutil.Infof("sid [%s] punching fallback: %s (selected_view=%s reason=%s)", sid, msg, selectedView, selectedReason)
 		return result
 	}
@@ -857,6 +900,14 @@ func filterValidHostPorts(addrs []string) (valid []string, invalid []string) {
 		valid = append(valid, addr)
 	}
 	return valid, invalid
+}
+
+func udpDirectAddrsWithAssisted(directAddrs []string, assistedAddrs []string) []string {
+	merged := make([]string, 0, len(directAddrs)+len(assistedAddrs))
+	merged = append(merged, directAddrs...)
+	merged = append(merged, assistedAddrs...)
+	valid, _ := filterValidHostPorts(merged)
+	return dedupStringsInOrder(valid)
 }
 
 func filterTCPDirectIPv4Addrs(addrs []string) (valid []string, dropped []string) {

@@ -92,6 +92,12 @@ func TestControllerAnalysis_AllowsPunchingFallbackWithAssistedAddrs(t *testing.T
 	if len(cResp.AssistedAddrs) != 1 || cResp.AssistedAddrs[0] != "192.168.0.20:22222" {
 		t.Fatalf("analysis() client AssistedAddrs = %#v, want visitor assisted addrs preserved", cResp.AssistedAddrs)
 	}
+	if !slices.Contains(vResp.PeerDirectAddrs, "192.168.0.10:11111") {
+		t.Fatalf("analysis() visitor PeerDirectAddrs = %#v, want client assisted addr included", vResp.PeerDirectAddrs)
+	}
+	if !slices.Contains(cResp.PeerDirectAddrs, "192.168.0.20:22222") {
+		t.Fatalf("analysis() client PeerDirectAddrs = %#v, want visitor assisted addr included", cResp.PeerDirectAddrs)
+	}
 	if vResp.DetectBehavior.ReadTimeoutMs != 5000 || cResp.DetectBehavior.ReadTimeoutMs != 5000 {
 		t.Fatalf("analysis() ReadTimeoutMs = (visitor=%d client=%d), want both 5000", vResp.DetectBehavior.ReadTimeoutMs, cResp.DetectBehavior.ReadTimeoutMs)
 	}

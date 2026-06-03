@@ -125,8 +125,38 @@ func internalSTUNBuckets() (cn []string, global []string) {
 	return cn, global
 }
 
+func internalSTUNServers() []string {
+	cn, global := internalSTUNBuckets()
+	servers := make([]string, 0, len(cn)+len(global))
+	seen := make(map[string]struct{}, len(cn)+len(global))
+	add := func(server string) {
+		if _, ok := seen[server]; ok {
+			return
+		}
+		seen[server] = struct{}{}
+		servers = append(servers, server)
+	}
+
+	for i := 0; i < len(cn) || i < len(global); i++ {
+		if i < len(cn) {
+			add(cn[i])
+		}
+		if i < len(global) {
+			add(global[i])
+		}
+	}
+	return servers
+}
+
 // BuiltinSTUNBuckets returns cloned built-in STUN endpoint buckets.
 // The returned slices are safe to mutate by the caller.
 func BuiltinSTUNBuckets() (cn []string, global []string) {
 	return internalSTUNBuckets()
+}
+
+// BuiltinSTUNServers returns cloned built-in STUN endpoints as one ordinary
+// sample set. It preserves per-bucket order while interleaving the archived cn
+// and global buckets so bounded sampling still covers both groups.
+func BuiltinSTUNServers() []string {
+	return internalSTUNServers()
 }

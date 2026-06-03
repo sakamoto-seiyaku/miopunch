@@ -44,9 +44,10 @@ func TestDialAndHandleOneSmokeProduceRosterBackedPathResult(t *testing.T) {
 			LocalCandidates: []Candidate{
 				{Kind: CandidateKindHost, Addr: fx.responderConn.LocalAddr().String()},
 			},
-			UDPConn:         fx.responderConn,
-			AttemptBudget:   3 * time.Second,
-			OpenPeerMessage: openerWithReady(ready),
+			UDPConn:           fx.responderConn,
+			AttemptBudget:     3 * time.Second,
+			OpenPeerMessage:   openerWithReady(ready),
+			GatherUDPSnapshot: testGatherUDPSnapshot,
 		})
 		if err != nil {
 			handleErrCh <- err
@@ -75,8 +76,9 @@ func TestDialAndHandleOneSmokeProduceRosterBackedPathResult(t *testing.T) {
 		LocalCandidates: []Candidate{
 			{Kind: CandidateKindHost, Addr: fx.dialerConn.LocalAddr().String()},
 		},
-		UDPConn:       fx.dialerConn,
-		AttemptBudget: 3 * time.Second,
+		UDPConn:           fx.dialerConn,
+		AttemptBudget:     3 * time.Second,
+		GatherUDPSnapshot: testGatherUDPSnapshot,
 	}, Target{PeerID: fx.responderPeerID})
 	if err != nil {
 		t.Fatalf("Dial() error = %v, want nil", err)

@@ -112,6 +112,9 @@ func TestPersistJoinedBootstrapUsesCanonicalNetworkIDAndRoundTrips(t *testing.T)
 	if broker.Endpoint != fixture.RuntimeBroker.Endpoint {
 		t.Fatalf("LoadRuntimeBroker(%q) endpoint = %q, want %q", lowerNetworkID, broker.Endpoint, fixture.RuntimeBroker.Endpoint)
 	}
+	if strings.Join(broker.StunServers, ",") != strings.Join(fixture.RuntimeBroker.StunServers, ",") {
+		t.Fatalf("LoadRuntimeBroker(%q) stun_servers = %#v, want %#v", lowerNetworkID, broker.StunServers, fixture.RuntimeBroker.StunServers)
+	}
 
 	roster, err := store.LoadRosterSnapshot(lowerNetworkID)
 	if err != nil {
@@ -494,7 +497,8 @@ func mustJoinedBootstrapFixture(t *testing.T) JoinedBootstrap {
 		SelfMemberCredential: []byte("self-member-credential"),
 		MailboxSecret:        bytes.Repeat([]byte{0x33}, mailboxSecretSize),
 		RuntimeBroker: RuntimeBroker{
-			Endpoint: "broker.example.net:1883",
+			Endpoint:    "broker.example.net:1883",
+			StunServers: []string{"stun1.example.net:3478", "stun2.example.net:3478"},
 		},
 		RosterSnapshot: RosterSnapshot{
 			Entries: []RosterEntry{

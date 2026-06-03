@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,14 +13,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/dataplane"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/pocv1/enroll"
 	"github.com/miopunch/miopunch/internal/pocv1/persist"
 	"github.com/miopunch/miopunch/internal/pocv1/presence"
 	"github.com/miopunch/miopunch/internal/pocv1/punch"
+	pocwire "github.com/miopunch/miopunch/internal/pocv1/wire"
 	"github.com/miopunch/miopunch/internal/shellproto"
 	"github.com/miopunch/miopunch/internal/shelltarget"
+	"github.com/miopunch/miopunch/internal/udpowner"
 )
 
 func TestSnapshotStageProgression(t *testing.T) {
@@ -125,6 +129,135 @@ func TestSnapshotPreservesStatusEvidence(t *testing.T) {
 	}
 	if len(snapshot.Evidence.Suggestions) != 1 || snapshot.Evidence.Suggestions[0].Message != "retry after ping" {
 		t.Fatalf("Snapshot().Evidence.Suggestions = %#v, want retry suggestion", snapshot.Evidence.Suggestions)
+	}
+}
+
+func TestPunchConfigUsesPersistedStunServers(t *testing.T) {
+	rt, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	networkID, err := pocwire.EncodeNetworkID(bytes.Repeat([]byte{0x44}, pocwire.RawIDLen))
+	if err != nil {
+		t.Fatalf("EncodeNetworkID() error = %v, want nil", err)
+	}
+	stunServers := []string{"stun1.example.net:3478", "stun2.example.net:3478"}
+	if err := rt.store.PersistJoinedBootstrap(persist.JoinedBootstrap{
+		NetworkID:            networkID,
+		SelfMemberCredential: []byte("self-member-credential"),
+		MailboxSecret:        bytes.Repeat([]byte{0x33}, 32),
+		RuntimeBroker: persist.RuntimeBroker{
+			Endpoint:    "broker.example.net:1883",
+			StunServers: stunServers,
+		},
+		RosterSnapshot: persist.RosterSnapshot{},
+	}); err != nil {
+		t.Fatalf("PersistJoinedBootstrap() error = %v, want nil", err)
+	}
+	keys, err := rt.store.EnsureDeviceKeys()
+	if err != nil {
+		t.Fatalf("EnsureDeviceKeys() error = %v, want nil", err)
+	}
+	pub, err := keys.Ed25519PublicKey()
+	if err != nil {
+		t.Fatalf("Ed25519PublicKey() error = %v, want nil", err)
+	}
+	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
+	if err != nil {
+		t.Fatalf("net.ListenUDP() error = %v, want nil", err)
+	}
+	owner, err := udpowner.NewKCPOwner(conn, udpowner.KCPOwnerConfig{})
+	if err != nil {
+		t.Fatalf("NewKCPOwner() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = owner.Close() })
+
+	rt.mu.Lock()
+	rt.meta.ActiveNetworkID = networkID
+	rt.meta.AuthorityEd25519PubB64 = encodeKeyB64(pub)
+	rt.udpConn = conn
+	rt.udpOwner = owner
+	rt.mu.Unlock()
+
+	cfg, problem := rt.punchConfig(peerPathPolicy{
+		P2PNetwork:  connectivity.P2PNetworkUDPOnly,
+		P2PIPFamily: connectivity.P2PIPFamilyV4,
+	})
+	if problem != nil {
+		t.Fatalf("punchConfig() problem = %v, want nil", problem)
+	}
+	if strings.Join(cfg.StunServers, ",") != strings.Join(stunServers, ",") {
+		t.Fatalf("punchConfig().StunServers = %#v, want %#v", cfg.StunServers, stunServers)
+	}
+	if cfg.P2PNetwork != connectivity.P2PNetworkUDPOnly {
+		t.Fatalf("punchConfig().P2PNetwork = %q, want %q", cfg.P2PNetwork, connectivity.P2PNetworkUDPOnly)
+	}
+	if cfg.P2PIPFamily != connectivity.P2PIPFamilyV4 {
+		t.Fatalf("punchConfig().P2PIPFamily = %q, want %q", cfg.P2PIPFamily, connectivity.P2PIPFamilyV4)
+	}
+}
+
+func TestEnsurePeerSessionExplicitIPv4DoesNotReuseIPv6Session(t *testing.T) {
+	t.Parallel()
+
+	rt, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	oldSession := &fakePeerSession{
+		key: dataplane.SessionKey{
+			RemotePeerID: "peer-a",
+			Protocol:     dataplane.ProtocolKCP,
+			PathFamily:   dataplane.PathFamilyUDP6,
+		},
+		lastActivity: time.Now().UTC(),
+		healthy:      true,
+		pathFacts: dataplane.SessionPathFacts{
+			SelectedPath: punch.PathDirectIPv6,
+		},
+	}
+	rt.peerSessions.Put(oldSession)
+
+	_, problem := rt.ensurePeerSession(context.Background(), "peer-a", peerPathPolicy{
+		P2PNetwork:  connectivity.P2PNetworkAuto,
+		P2PIPFamily: connectivity.P2PIPFamilyV4,
+	})
+	if problem == nil {
+		t.Fatal("ensurePeerSession(ipv4 policy) problem = nil, want setup failure after closing incompatible session")
+	}
+	if oldSession.Healthy() {
+		t.Fatal("ensurePeerSession(ipv4 policy) left old IPv6 session healthy, want closed")
+	}
+	if got := oldSession.CloseReason(); got != dataplane.CloseReasonSessionSuperseded {
+		t.Fatalf("oldSession.CloseReason() = %q, want %q", got, dataplane.CloseReasonSessionSuperseded)
+	}
+}
+
+func TestDoPingTCPOnlyFailsBeforeUDPEstablishment(t *testing.T) {
+	t.Parallel()
+
+	rt, err := Open(Options{Root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Open() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = rt.Close() })
+
+	_, problem := rt.doPing(context.Background(), PingArgs{
+		PeerID:     "peer-a",
+		P2PNetwork: string(connectivity.P2PNetworkTCPOnly),
+	})
+	if problem == nil {
+		t.Fatal("doPing(tcp_only) problem = nil, want unsupported-path problem")
+	}
+	if problem.reasonCode != poc.ReasonCodeNotImplemented {
+		t.Fatalf("doPing(tcp_only) reasonCode = %q, want %q", problem.reasonCode, poc.ReasonCodeNotImplemented)
+	}
+	if !hasFact(problem.facts, "p2p_network=tcp_only") {
+		t.Fatalf("doPing(tcp_only) facts = %#v, want p2p_network fact", problem.facts)
 	}
 }
 
@@ -1067,7 +1200,22 @@ func TestLocalCandidatesForPortFallsBackToLoopback(t *testing.T) {
 	}
 }
 
-func TestLocalCandidatesForPortFiltersVirtualAndLinkLocalAddrs(t *testing.T) {
+func TestLocalCandidatesForPortCanSkipLoopbackFallback(t *testing.T) {
+	t.Parallel()
+
+	got := localCandidatesForPortWithFallback(4242, []localInterfaceAddr{
+		{
+			Name:  "lo",
+			Flags: net.FlagUp | net.FlagLoopback,
+			Addr:  &net.IPNet{IP: net.ParseIP("127.0.0.1"), Mask: net.CIDRMask(8, 32)},
+		},
+	}, false)
+	if len(got) != 0 {
+		t.Fatalf("localCandidatesForPortWithFallback(allowLoopbackFallback=false) = %#v, want empty", got)
+	}
+}
+
+func TestLocalCandidatesForPortKeepsVirtualNamesAndFiltersLoopbackLinkLocal(t *testing.T) {
 	t.Parallel()
 
 	got := localCandidatesForPort(4242, []localInterfaceAddr{
@@ -1102,11 +1250,19 @@ func TestLocalCandidatesForPortFiltersVirtualAndLinkLocalAddrs(t *testing.T) {
 			Addr:  &net.IPNet{IP: net.ParseIP("192.168.4.5"), Mask: net.CIDRMask(24, 32)},
 		},
 	})
-	if len(got) != 1 {
-		t.Fatalf("localCandidatesForPort() length = %d, want 1", len(got))
+	want := []string{
+		"172.17.0.1:4242",
+		"172.18.0.1:4242",
+		"192.168.144.1:4242",
+		"192.168.4.5:4242",
 	}
-	if got[0].Addr != "192.168.4.5:4242" {
-		t.Fatalf("localCandidatesForPort() addr = %q, want %q", got[0].Addr, "192.168.4.5:4242")
+	if len(got) != len(want) {
+		t.Fatalf("localCandidatesForPort() length = %d, want %d: %#v", len(got), len(want), got)
+	}
+	for i, candidate := range got {
+		if candidate.Addr != want[i] {
+			t.Fatalf("localCandidatesForPort()[%d].Addr = %q, want %q", i, candidate.Addr, want[i])
+		}
 	}
 }
 

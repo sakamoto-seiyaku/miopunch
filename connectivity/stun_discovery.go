@@ -10,6 +10,7 @@ import (
 const (
 	internalSTUNMaxConcurrency        = 3
 	internalSTUNResolvedEndpointLimit = internalSTUNMaxConcurrency * 2
+	internalSTUNPlainEndpointLimit    = internalSTUNResolvedEndpointLimit * 2
 	internalSTUNMinMappedAddrs        = 2
 	internalSTUNPreferredAddrs        = 3
 )

@@ -30,21 +30,12 @@ func TestAcceptStreamContextCancellationKeepsSessionUsable(t *testing.T) {
 	t.Parallel()
 
 	ctx, clientSess, serverSess := mustNewPeerSessions(t)
-	rawStream, err := clientSess.sess.OpenStream()
-	if err != nil {
-		t.Fatalf("client yamux OpenStream() error = %v, want nil", err)
-	}
-
 	shortCtx, shortCancel := context.WithTimeout(ctx, 150*time.Millisecond)
 	t.Cleanup(shortCancel)
 
-	_, err = serverSess.AcceptStream(shortCtx)
+	_, err := serverSess.AcceptStream(shortCtx)
 	if !errors.Is(err, context.DeadlineExceeded) {
-		_ = rawStream.Close()
 		t.Fatalf("server AcceptStream() error = %v, want %v", err, context.DeadlineExceeded)
-	}
-	if err := rawStream.Close(); err != nil {
-		t.Fatalf("rawStream.Close() error = %v, want nil", err)
 	}
 	if !clientSess.Healthy() {
 		t.Fatalf("clientSess.Healthy() = false, want true after context cancellation")

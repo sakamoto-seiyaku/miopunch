@@ -229,7 +229,10 @@ func (s *Store) LoadRuntimeBroker(networkID string) (RuntimeBroker, error) {
 	if err := json.Unmarshal(data, &record); err != nil {
 		return RuntimeBroker{}, fmt.Errorf("unmarshal runtime broker: %w", err)
 	}
-	return normalizeBroker(RuntimeBroker{Endpoint: record.Endpoint})
+	return normalizeBroker(RuntimeBroker{
+		Endpoint:    record.Endpoint,
+		StunServers: record.StunServers,
+	})
 }
 
 // LoadRosterSnapshot loads the whole trusted roster snapshot for networkID.
@@ -433,7 +436,8 @@ type deviceKeyState struct {
 }
 
 type brokerRecord struct {
-	Endpoint string `json:"endpoint"`
+	Endpoint    string   `json:"endpoint"`
+	StunServers []string `json:"stun_servers,omitempty"`
 }
 
 type rosterEntryRecord struct {
@@ -657,7 +661,10 @@ func marshalBroker(broker RuntimeBroker) ([]byte, error) {
 		return nil, err
 	}
 
-	data, err := json.MarshalIndent(brokerRecord{Endpoint: normalizedBroker.Endpoint}, "", "  ")
+	data, err := json.MarshalIndent(brokerRecord{
+		Endpoint:    normalizedBroker.Endpoint,
+		StunServers: normalizedBroker.StunServers,
+	}, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("marshal runtime broker: %w", err)
 	}

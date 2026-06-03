@@ -97,9 +97,11 @@ type RosterSnapshot struct {
 	Entries []RosterEntry
 }
 
-// RuntimeBroker carries the single runtime broker endpoint.
+// RuntimeBroker carries the single runtime broker endpoint and optional
+// ordinary STUN servers for runtime candidate gathering.
 type RuntimeBroker struct {
-	Endpoint string
+	Endpoint    string
+	StunServers []string
 }
 
 // EnrollResponse is the sealed bootstrap package delivered after approval.
@@ -149,8 +151,11 @@ func (r EnrollResponse) JoinedBootstrap() (persist.JoinedBootstrap, error) {
 		NetworkID:            normalized.SelfMemberCredential.NetworkID,
 		SelfMemberCredential: credential,
 		MailboxSecret:        append([]byte(nil), normalized.MailboxSecret...),
-		RuntimeBroker:        persist.RuntimeBroker{Endpoint: normalized.RuntimeBroker.Endpoint},
-		RosterSnapshot:       roster,
+		RuntimeBroker: persist.RuntimeBroker{
+			Endpoint:    normalized.RuntimeBroker.Endpoint,
+			StunServers: normalized.RuntimeBroker.StunServers,
+		},
+		RosterSnapshot: roster,
 	}, nil
 }
 
@@ -193,7 +198,27 @@ func normalizeRuntimeBroker(b RuntimeBroker) (RuntimeBroker, error) {
 	if endpoint == "" {
 		return RuntimeBroker{}, fmt.Errorf("%w: empty runtime broker endpoint", ErrInvalidBrokerEndpoint)
 	}
-	return RuntimeBroker{Endpoint: endpoint}, nil
+	return RuntimeBroker{
+		Endpoint:    endpoint,
+		StunServers: normalizeStunServers(b.StunServers),
+	}, nil
+}
+
+func normalizeStunServers(servers []string) []string {
+	normalized := make([]string, 0, len(servers))
+	seen := make(map[string]struct{}, len(servers))
+	for _, server := range servers {
+		trimmed := strings.TrimSpace(server)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
+	return normalized
 }
 
 func normalizeInviteCapability(i InviteCapability) (InviteCapability, error) {

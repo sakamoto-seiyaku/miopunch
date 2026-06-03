@@ -141,31 +141,35 @@ func runJoin(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 }
 
 func runPing(opt globalOptions, args []string, stdout, stderr io.Writer) int {
-	peerID, p2pNetwork, failure := parsePeerAndP2PArgs(opt, "ping", args, "use: miopunch ping <peer_id> [-u|-t|--p2p-network ...]")
+	usage := "use: miopunch ping <peer_id> [-u|-t] [-4|-6] [--p2p-network auto|udp_only|tcp_only] [--p2p-ip-family auto|v4|v6]"
+	peerID, p2pNetwork, p2pIPFamily, failure := parsePeerAndP2PArgs(opt, "ping", args, usage)
 	if failure != nil {
 		return exitWithFailure(opt, stdout, stderr, "ping", "", *failure)
 	}
 	return runRuntimeAction(opt, "ping", "ping", pocruntime.PingArgs{
-		PeerID:     peerID,
-		P2PNetwork: p2pNetwork,
+		PeerID:      peerID,
+		P2PNetwork:  p2pNetwork,
+		P2PIPFamily: p2pIPFamily,
 	}, stdout, stderr)
 }
 
 func runShLS(opt globalOptions, args []string, stdout, stderr io.Writer) int {
-	peerID, target, p2pNetwork, readyOnly, failure := parseShellArgs(
+	usage := "use: miopunch sh ls <peer_id> [target] [--ready] [-u|-t] [-4|-6] [--p2p-network auto|udp_only|tcp_only] [--p2p-ip-family auto|v4|v6]"
+	peerID, target, p2pNetwork, p2pIPFamily, readyOnly, failure := parseShellArgs(
 		opt,
 		"sh ls",
 		args,
-		"use: miopunch sh ls <peer_id> [target] [--ready] [-u|-t|--p2p-network ...]",
+		usage,
 	)
 	if failure != nil {
 		return exitWithFailure(opt, stdout, stderr, "sh ls", "", *failure)
 	}
 	return runRuntimeAction(opt, "sh ls", "sh_ls", pocruntime.ShellArgs{
-		PeerID:     peerID,
-		Target:     target,
-		P2PNetwork: p2pNetwork,
-		ReadyOnly:  readyOnly,
+		PeerID:      peerID,
+		Target:      target,
+		P2PNetwork:  p2pNetwork,
+		P2PIPFamily: p2pIPFamily,
+		ReadyOnly:   readyOnly,
 	}, stdout, stderr)
 }
 
@@ -291,17 +295,40 @@ func parsePeerAndP2PArgs(
 	kind string,
 	args []string,
 	usage string,
-) (string, string, *failureOutput) {
+) (string, string, string, *failureOutput) {
 	peerID := ""
 	p2pNetwork := "auto"
+	p2pIPFamily := "auto"
+	var networkSet bool
+	var ipFamilySet bool
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch {
 		case arg == "-u":
+			if networkSet && p2pNetwork != "udp_only" {
+				return "", "", "", badArgFailure("conflicting p2p network flags", usage)
+			}
 			p2pNetwork = "udp_only"
+			networkSet = true
 		case arg == "-t":
+			if networkSet && p2pNetwork != "tcp_only" {
+				return "", "", "", badArgFailure("conflicting p2p network flags", usage)
+			}
 			p2pNetwork = "tcp_only"
+			networkSet = true
+		case arg == "-4":
+			if ipFamilySet && p2pIPFamily != "v4" {
+				return "", "", "", badArgFailure("conflicting p2p ip family flags", usage)
+			}
+			p2pIPFamily = "v4"
+			ipFamilySet = true
+		case arg == "-6":
+			if ipFamilySet && p2pIPFamily != "v6" {
+				return "", "", "", badArgFailure("conflicting p2p ip family flags", usage)
+			}
+			p2pIPFamily = "v6"
+			ipFamilySet = true
 		case arg == "--p2p-network":
 			if i+1 >= len(args) {
 				failure := failureOutput{
@@ -313,12 +340,69 @@ func parsePeerAndP2PArgs(
 						{Message: usage},
 					},
 				}
-				return "", "", &failure
+				return "", "", "", &failure
 			}
 			i++
-			p2pNetwork = args[i]
+			network, err := connectivity.ParseP2PNetwork(args[i])
+			if err != nil {
+				return "", "", "", badArgFailure(err.Error(), usage)
+			}
+			if networkSet && p2pNetwork != string(network) && network != connectivity.P2PNetworkAuto {
+				return "", "", "", badArgFailure("conflicting p2p network flags", usage)
+			}
+			p2pNetwork = string(network)
+			if network != connectivity.P2PNetworkAuto {
+				networkSet = true
+			}
 		case strings.HasPrefix(arg, "--p2p-network="):
-			p2pNetwork = strings.TrimPrefix(arg, "--p2p-network=")
+			network, err := connectivity.ParseP2PNetwork(strings.TrimPrefix(arg, "--p2p-network="))
+			if err != nil {
+				return "", "", "", badArgFailure(err.Error(), usage)
+			}
+			if networkSet && p2pNetwork != string(network) && network != connectivity.P2PNetworkAuto {
+				return "", "", "", badArgFailure("conflicting p2p network flags", usage)
+			}
+			p2pNetwork = string(network)
+			if network != connectivity.P2PNetworkAuto {
+				networkSet = true
+			}
+		case arg == "--p2p-ip-family":
+			if i+1 >= len(args) {
+				failure := failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "missing value for --p2p-ip-family"}},
+					Suggestions: []poc.Suggestion{
+						{Message: usage},
+					},
+				}
+				return "", "", "", &failure
+			}
+			i++
+			family, err := connectivity.ParseP2PIPFamily(args[i])
+			if err != nil {
+				return "", "", "", badArgFailure(err.Error(), usage)
+			}
+			if ipFamilySet && p2pIPFamily != string(family) && family != connectivity.P2PIPFamilyAuto {
+				return "", "", "", badArgFailure("conflicting p2p ip family flags", usage)
+			}
+			p2pIPFamily = string(family)
+			if family != connectivity.P2PIPFamilyAuto {
+				ipFamilySet = true
+			}
+		case strings.HasPrefix(arg, "--p2p-ip-family="):
+			family, err := connectivity.ParseP2PIPFamily(strings.TrimPrefix(arg, "--p2p-ip-family="))
+			if err != nil {
+				return "", "", "", badArgFailure(err.Error(), usage)
+			}
+			if ipFamilySet && p2pIPFamily != string(family) && family != connectivity.P2PIPFamilyAuto {
+				return "", "", "", badArgFailure("conflicting p2p ip family flags", usage)
+			}
+			p2pIPFamily = string(family)
+			if family != connectivity.P2PIPFamilyAuto {
+				ipFamilySet = true
+			}
 		case strings.HasPrefix(arg, "-"):
 			failure := failureOutput{
 				Stage:      "cli",
@@ -329,7 +413,7 @@ func parsePeerAndP2PArgs(
 					{Message: usage},
 				},
 			}
-			return "", "", &failure
+			return "", "", "", &failure
 		default:
 			if peerID == "" {
 				peerID = arg
@@ -344,7 +428,7 @@ func parsePeerAndP2PArgs(
 					{Message: usage},
 				},
 			}
-			return "", "", &failure
+			return "", "", "", &failure
 		}
 	}
 
@@ -359,9 +443,22 @@ func parsePeerAndP2PArgs(
 				{Message: usage},
 			},
 		}
-		return "", "", &failure
+		return "", "", "", &failure
 	}
-	return peerID, string(network), nil
+	family, err := connectivity.ParseP2PIPFamily(p2pIPFamily)
+	if err != nil {
+		failure := failureOutput{
+			Stage:      "cli",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts:      []poc.Fact{{Message: err.Error()}},
+			Suggestions: []poc.Suggestion{
+				{Message: usage},
+			},
+		}
+		return "", "", "", &failure
+	}
+	return peerID, string(network), string(family), nil
 }
 
 func parseShellArgs(
@@ -369,13 +466,16 @@ func parseShellArgs(
 	kind string,
 	args []string,
 	usage string,
-) (string, string, string, bool, *failureOutput) {
+) (string, string, string, string, bool, *failureOutput) {
 	_ = opt
 	_ = kind
 	peerID := ""
 	target := ""
 	p2pNetwork := "auto"
+	p2pIPFamily := "auto"
 	readyOnly := false
+	var networkSet bool
+	var ipFamilySet bool
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -383,9 +483,29 @@ func parseShellArgs(
 		case arg == "--ready":
 			readyOnly = true
 		case arg == "-u":
+			if networkSet && p2pNetwork != "udp_only" {
+				return "", "", "", "", false, badArgFailure("conflicting p2p network flags", usage)
+			}
 			p2pNetwork = "udp_only"
+			networkSet = true
 		case arg == "-t":
+			if networkSet && p2pNetwork != "tcp_only" {
+				return "", "", "", "", false, badArgFailure("conflicting p2p network flags", usage)
+			}
 			p2pNetwork = "tcp_only"
+			networkSet = true
+		case arg == "-4":
+			if ipFamilySet && p2pIPFamily != "v4" {
+				return "", "", "", "", false, badArgFailure("conflicting p2p ip family flags", usage)
+			}
+			p2pIPFamily = "v4"
+			ipFamilySet = true
+		case arg == "-6":
+			if ipFamilySet && p2pIPFamily != "v6" {
+				return "", "", "", "", false, badArgFailure("conflicting p2p ip family flags", usage)
+			}
+			p2pIPFamily = "v6"
+			ipFamilySet = true
 		case arg == "--p2p-network":
 			if i+1 >= len(args) {
 				failure := failureOutput{
@@ -397,12 +517,69 @@ func parseShellArgs(
 						{Message: usage},
 					},
 				}
-				return "", "", "", false, &failure
+				return "", "", "", "", false, &failure
 			}
 			i++
-			p2pNetwork = args[i]
+			network, err := connectivity.ParseP2PNetwork(args[i])
+			if err != nil {
+				return "", "", "", "", false, badArgFailure(err.Error(), usage)
+			}
+			if networkSet && p2pNetwork != string(network) && network != connectivity.P2PNetworkAuto {
+				return "", "", "", "", false, badArgFailure("conflicting p2p network flags", usage)
+			}
+			p2pNetwork = string(network)
+			if network != connectivity.P2PNetworkAuto {
+				networkSet = true
+			}
 		case strings.HasPrefix(arg, "--p2p-network="):
-			p2pNetwork = strings.TrimPrefix(arg, "--p2p-network=")
+			network, err := connectivity.ParseP2PNetwork(strings.TrimPrefix(arg, "--p2p-network="))
+			if err != nil {
+				return "", "", "", "", false, badArgFailure(err.Error(), usage)
+			}
+			if networkSet && p2pNetwork != string(network) && network != connectivity.P2PNetworkAuto {
+				return "", "", "", "", false, badArgFailure("conflicting p2p network flags", usage)
+			}
+			p2pNetwork = string(network)
+			if network != connectivity.P2PNetworkAuto {
+				networkSet = true
+			}
+		case arg == "--p2p-ip-family":
+			if i+1 >= len(args) {
+				failure := failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "missing value for --p2p-ip-family"}},
+					Suggestions: []poc.Suggestion{
+						{Message: usage},
+					},
+				}
+				return "", "", "", "", false, &failure
+			}
+			i++
+			family, err := connectivity.ParseP2PIPFamily(args[i])
+			if err != nil {
+				return "", "", "", "", false, badArgFailure(err.Error(), usage)
+			}
+			if ipFamilySet && p2pIPFamily != string(family) && family != connectivity.P2PIPFamilyAuto {
+				return "", "", "", "", false, badArgFailure("conflicting p2p ip family flags", usage)
+			}
+			p2pIPFamily = string(family)
+			if family != connectivity.P2PIPFamilyAuto {
+				ipFamilySet = true
+			}
+		case strings.HasPrefix(arg, "--p2p-ip-family="):
+			family, err := connectivity.ParseP2PIPFamily(strings.TrimPrefix(arg, "--p2p-ip-family="))
+			if err != nil {
+				return "", "", "", "", false, badArgFailure(err.Error(), usage)
+			}
+			if ipFamilySet && p2pIPFamily != string(family) && family != connectivity.P2PIPFamilyAuto {
+				return "", "", "", "", false, badArgFailure("conflicting p2p ip family flags", usage)
+			}
+			p2pIPFamily = string(family)
+			if family != connectivity.P2PIPFamilyAuto {
+				ipFamilySet = true
+			}
 		case strings.HasPrefix(arg, "-"):
 			failure := failureOutput{
 				Stage:      "cli",
@@ -413,7 +590,7 @@ func parseShellArgs(
 					{Message: usage},
 				},
 			}
-			return "", "", "", false, &failure
+			return "", "", "", "", false, &failure
 		default:
 			if peerID == "" {
 				peerID = arg
@@ -429,7 +606,7 @@ func parseShellArgs(
 						{Message: usage},
 					},
 				}
-				return "", "", "", false, &failure
+				return "", "", "", "", false, &failure
 			}
 		}
 	}
@@ -444,7 +621,7 @@ func parseShellArgs(
 				{Message: "or: miopunch sh ls <peer_id> <target>"},
 			},
 		}
-		return "", "", "", false, &failure
+		return "", "", "", "", false, &failure
 	}
 
 	network, err := connectivity.ParseP2PNetwork(p2pNetwork)
@@ -458,7 +635,32 @@ func parseShellArgs(
 				{Message: usage},
 			},
 		}
-		return "", "", "", false, &failure
+		return "", "", "", "", false, &failure
 	}
-	return peerID, target, string(network), readyOnly, nil
+	family, err := connectivity.ParseP2PIPFamily(p2pIPFamily)
+	if err != nil {
+		failure := failureOutput{
+			Stage:      "cli",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts:      []poc.Fact{{Message: err.Error()}},
+			Suggestions: []poc.Suggestion{
+				{Message: usage},
+			},
+		}
+		return "", "", "", "", false, &failure
+	}
+	return peerID, target, string(network), string(family), readyOnly, nil
+}
+
+func badArgFailure(message string, usage string) *failureOutput {
+	return &failureOutput{
+		Stage:      "cli",
+		ReasonCode: poc.ReasonCodeBadRequest,
+		ExitCode:   poc.ExitCodeBadRequest,
+		Facts:      []poc.Fact{{Message: message}},
+		Suggestions: []poc.Suggestion{
+			{Message: usage},
+		},
+	}
 }

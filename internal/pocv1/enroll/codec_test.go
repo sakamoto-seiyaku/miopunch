@@ -232,6 +232,9 @@ func TestEnrollResponseRoundTripAndPersistHandoff(t *testing.T) {
 	if !bytes.Equal(joined.MailboxSecret, fx.enrollResponse.MailboxSecret) {
 		t.Fatalf("JoinedBootstrap().MailboxSecret mismatch")
 	}
+	if strings.Join(joined.RuntimeBroker.StunServers, ",") != strings.Join(fx.enrollResponse.RuntimeBroker.StunServers, ",") {
+		t.Fatalf("JoinedBootstrap().RuntimeBroker.StunServers = %#v, want %#v", joined.RuntimeBroker.StunServers, fx.enrollResponse.RuntimeBroker.StunServers)
+	}
 }
 
 func TestEnrollResponseValidationRejectsInvalidFields(t *testing.T) {
@@ -418,7 +421,10 @@ func mustEnrollFixture(t *testing.T) enrollFixture {
 	enrollResponse := EnrollResponse{
 		SelfMemberCredential: memberCredential,
 		MailboxSecret:        bytes.Repeat([]byte{0x33}, mailboxSecretSize),
-		RuntimeBroker:        RuntimeBroker{Endpoint: "broker.example.net:1883"},
+		RuntimeBroker: RuntimeBroker{
+			Endpoint:    "broker.example.net:1883",
+			StunServers: []string{"stun1.example.net:3478", "stun2.example.net:3478"},
+		},
 		RosterSnapshot: RosterSnapshot{
 			Entries: []RosterEntry{
 				{
@@ -542,6 +548,9 @@ func diffEnrollResponse(want, got EnrollResponse) string {
 	}
 	if want.RuntimeBroker.Endpoint != got.RuntimeBroker.Endpoint {
 		return "runtime_broker mismatch"
+	}
+	if strings.Join(want.RuntimeBroker.StunServers, ",") != strings.Join(got.RuntimeBroker.StunServers, ",") {
+		return "stun_servers mismatch"
 	}
 	if len(want.RosterSnapshot.Entries) != len(got.RosterSnapshot.Entries) {
 		return "roster entry count mismatch"

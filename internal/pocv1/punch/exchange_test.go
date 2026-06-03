@@ -128,6 +128,8 @@ func TestWaitAndAnswerOfferIgnoresInvalidOfferBeforeValidOne(t *testing.T) {
 	cfg := fx.cfg
 	cfg.UDPConn = conn
 	cfg.LocalCandidates = []Candidate{localCandidate}
+	cfg.GatherUDPSnapshot = testGatherUDPSnapshot
+	cfg.AttemptUDP = testUDPAttempt
 	cfg.AttemptConcurrency = 1
 	cfg.AttemptPair = func(ctx context.Context, demux *udpowner.TraversalDemux, plan pairPlan, key []byte) (AttemptPairResult, error) {
 		return AttemptPairResult{RemoteAddr: mustUDPAddr(t, plan.remote.Addr), Path: PathPunchingIPv4}, nil
@@ -185,6 +187,8 @@ func TestWaitAndAnswerOfferReloadsRosterSnapshotForNewPeer(t *testing.T) {
 	cfg := fx.cfg
 	cfg.UDPConn = conn
 	cfg.LocalCandidates = []Candidate{{Kind: CandidateKindHost, Addr: conn.LocalAddr().String()}}
+	cfg.GatherUDPSnapshot = testGatherUDPSnapshot
+	cfg.AttemptUDP = testUDPAttempt
 	cfg.AttemptConcurrency = 1
 	cfg.AttemptPair = func(ctx context.Context, demux *udpowner.TraversalDemux, plan pairPlan, key []byte) (AttemptPairResult, error) {
 		return AttemptPairResult{RemoteAddr: mustUDPAddr(t, plan.remote.Addr), Path: PathPunchingIPv4}, nil
@@ -311,8 +315,10 @@ func mustExchangeFixture(t *testing.T) exchangeFixture {
 				{PeerID: otherSigned.Signer.PeerID, OnlineState: presence.OnlineStateOnline},
 			},
 		},
-		LocalCandidates: []Candidate{{Kind: CandidateKindHost, Addr: "127.0.0.1:4001"}},
-		UDPConn:         mustListenUDP(t),
+		LocalCandidates:   []Candidate{{Kind: CandidateKindHost, Addr: "127.0.0.1:4001"}},
+		UDPConn:           mustListenUDP(t),
+		GatherUDPSnapshot: testGatherUDPSnapshot,
+		AttemptUDP:        testUDPAttempt,
 		NewMsgID: func() (string, error) {
 			return offerMsgID, nil
 		},
@@ -332,18 +338,22 @@ func mustExchangeFixture(t *testing.T) exchangeFixture {
 		DialID:           mustCanonicalMsgID(t, "JBSWY3DPEHPK3PXPJBSWY3DPAA"),
 		PunchToken:       bytes.Repeat([]byte{0x42}, 16),
 		Candidates:       []Candidate{{Kind: CandidateKindHost, Addr: "127.0.0.1:4101"}},
+		UDPSnapshot:      testUDPSnapshot("127.0.0.1:4101"),
 		MemberCredential: localSigned.Raw,
 	}
 	answer := DialAnswer{
 		DialID:           offer.DialID,
 		PunchToken:       append([]byte(nil), offer.PunchToken...),
 		Candidates:       []Candidate{{Kind: CandidateKindHost, Addr: "127.0.0.1:4102"}},
+		UDPSnapshot:      testUDPSnapshot("127.0.0.1:4102"),
+		Decision:         testUDPDecision(offer.DialID, "127.0.0.1:4101", "127.0.0.1:4102"),
 		MemberCredential: remoteSigned.Raw,
 	}
 	inboundOffer := DialOffer{
 		DialID:           offer.DialID,
 		PunchToken:       append([]byte(nil), offer.PunchToken...),
 		Candidates:       append([]Candidate(nil), answer.Candidates...),
+		UDPSnapshot:      testUDPSnapshot("127.0.0.1:4102"),
 		MemberCredential: remoteSigned.Raw,
 	}
 	remoteInboxTopic, err := loaded.TopicScope.InboxTopic(remoteSigned.Signer.PeerID)
@@ -372,6 +382,8 @@ func mustExchangeFixture(t *testing.T) exchangeFixture {
 			DialID:           offer.DialID,
 			PunchToken:       append([]byte(nil), offer.PunchToken...),
 			Candidates:       []Candidate{{Kind: CandidateKindHost, Addr: "127.0.0.1:4103"}},
+			UDPSnapshot:      testUDPSnapshot("127.0.0.1:4103"),
+			Decision:         testUDPDecision(offer.DialID, "127.0.0.1:4101", "127.0.0.1:4103"),
 			MemberCredential: otherSigned.Raw,
 		}),
 		invalidOfferOpened: mustOpenedDialMessage(t, remoteSigned.Signer.PrivateKey, remoteInboxTopic, loaded.LocalPeerID, mustMsgIDFromSeed(t, 0x35), "", pocwire.KindDialOffer, []byte{0x01, 0x02}),

@@ -29,4 +29,5 @@ var (
 	ErrTargetNotInRoster        = errors.New("dial target not found in trusted roster")
 	ErrNoCandidatePairs         = errors.New("no candidate pairs available")
 	ErrAttemptBudgetExceeded    = errors.New("attempt budget exceeded")
+	ErrUnsupportedP2PNetwork    = errors.New("unsupported p2p network")
 )

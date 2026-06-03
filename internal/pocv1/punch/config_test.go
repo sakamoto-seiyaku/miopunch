@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/miopunch/miopunch/connectivity"
 	"github.com/miopunch/miopunch/internal/udpowner"
 )
 
@@ -59,6 +60,139 @@ func TestNormalizeCandidatesRejectsInvalidInput(t *testing.T) {
 				t.Fatalf("normalizeCandidates(%#v) error = nil, want non-nil", tt.candidates)
 			}
 		})
+	}
+}
+
+func TestLoadConfigKeepsImplicitBuiltinSTUNEnabled(t *testing.T) {
+	fx := mustExchangeFixture(t)
+
+	if fx.cfg.StunExplicit {
+		t.Fatal("loadConfig().StunExplicit = true, want false for implicit built-in STUN")
+	}
+	if len(fx.cfg.StunServers) != 0 {
+		t.Fatalf("loadConfig().StunServers = %v, want empty implicit built-in list", fx.cfg.StunServers)
+	}
+}
+
+func TestLoadConfigAppliesP2PPathPolicy(t *testing.T) {
+	fx := mustExchangeFixture(t)
+	candidates := []Candidate{
+		{Kind: CandidateKindHost, Addr: "127.0.0.1:4001"},
+		{Kind: CandidateKindHost, Addr: "[::1]:4002"},
+	}
+
+	cfg := Config{
+		NetworkID:           fx.cfg.NetworkID,
+		AuthorityEd25519Pub: fx.cfg.AuthorityEd25519Pub,
+		Store:               fx.cfg.Store,
+		Discover:            fx.cfg.Discover,
+		LocalCandidates:     candidates,
+		UDPConn:             fx.cfg.UDPConn,
+		P2PNetwork:          connectivity.P2PNetworkUDPOnly,
+		P2PIPFamily:         connectivity.P2PIPFamilyV4,
+		GatherUDPSnapshot:   testGatherUDPSnapshot,
+		AttemptUDP:          testUDPAttempt,
+	}
+
+	loaded, err := loadConfig(cfg)
+	if err != nil {
+		t.Fatalf("loadConfig(v4 policy) error = %v, want nil", err)
+	}
+	if loaded.P2PNetwork != connectivity.P2PNetworkUDPOnly {
+		t.Fatalf("loadConfig(v4 policy).P2PNetwork = %q, want %q", loaded.P2PNetwork, connectivity.P2PNetworkUDPOnly)
+	}
+	if loaded.P2PIPFamily != connectivity.P2PIPFamilyV4 {
+		t.Fatalf("loadConfig(v4 policy).P2PIPFamily = %q, want %q", loaded.P2PIPFamily, connectivity.P2PIPFamilyV4)
+	}
+	if len(loaded.LocalCandidates) != 1 || loaded.LocalCandidates[0].Addr != "127.0.0.1:4001" {
+		t.Fatalf("loadConfig(v4 policy).LocalCandidates = %#v, want only IPv4 candidate", loaded.LocalCandidates)
+	}
+
+	cfg.P2PIPFamily = connectivity.P2PIPFamilyV6
+	loaded, err = loadConfig(cfg)
+	if err != nil {
+		t.Fatalf("loadConfig(v6 policy) error = %v, want nil", err)
+	}
+	if loaded.P2PIPFamily != connectivity.P2PIPFamilyV6 {
+		t.Fatalf("loadConfig(v6 policy).P2PIPFamily = %q, want %q", loaded.P2PIPFamily, connectivity.P2PIPFamilyV6)
+	}
+	if len(loaded.LocalCandidates) != 1 || loaded.LocalCandidates[0].Addr != "[::1]:4002" {
+		t.Fatalf("loadConfig(v6 policy).LocalCandidates = %#v, want only IPv6 candidate", loaded.LocalCandidates)
+	}
+}
+
+func TestLoadConfigAutoIPFamilyDefaultsToV4WithoutUDP6(t *testing.T) {
+	fx := mustExchangeFixture(t)
+
+	loaded, err := loadConfig(Config{
+		NetworkID:           fx.cfg.NetworkID,
+		AuthorityEd25519Pub: fx.cfg.AuthorityEd25519Pub,
+		Store:               fx.cfg.Store,
+		Discover:            fx.cfg.Discover,
+		LocalCandidates:     []Candidate{{Kind: CandidateKindHost, Addr: "127.0.0.1:4001"}},
+		UDPConn:             fx.cfg.UDPConn,
+		P2PIPFamily:         connectivity.P2PIPFamilyAuto,
+		GatherUDPSnapshot:   testGatherUDPSnapshot,
+		AttemptUDP:          testUDPAttempt,
+	})
+	if err != nil {
+		t.Fatalf("loadConfig(auto family without udp6) error = %v, want nil", err)
+	}
+	if loaded.P2PIPFamily != connectivity.P2PIPFamilyV4 {
+		t.Fatalf("loadConfig(auto family without udp6).P2PIPFamily = %q, want %q", loaded.P2PIPFamily, connectivity.P2PIPFamilyV4)
+	}
+}
+
+func TestLoadConfigRejectsTCPOnlyP2PNetwork(t *testing.T) {
+	fx := mustExchangeFixture(t)
+
+	_, err := loadConfig(Config{
+		NetworkID:           fx.cfg.NetworkID,
+		AuthorityEd25519Pub: fx.cfg.AuthorityEd25519Pub,
+		Store:               fx.cfg.Store,
+		Discover:            fx.cfg.Discover,
+		LocalCandidates:     []Candidate{{Kind: CandidateKindHost, Addr: "127.0.0.1:4001"}},
+		UDPConn:             fx.cfg.UDPConn,
+		P2PNetwork:          connectivity.P2PNetworkTCPOnly,
+		GatherUDPSnapshot:   testGatherUDPSnapshot,
+		AttemptUDP:          testUDPAttempt,
+	})
+	if !errors.Is(err, ErrUnsupportedP2PNetwork) {
+		t.Fatalf("loadConfig(tcp_only) error = %v, want %v", err, ErrUnsupportedP2PNetwork)
+	}
+}
+
+func TestConfigForDialOfferPolicyAppliesOfferFamily(t *testing.T) {
+	fx := mustExchangeFixture(t)
+	cfg := fx.cfg
+	cfg.LocalCandidates = []Candidate{
+		{Kind: CandidateKindHost, Addr: "127.0.0.1:4001"},
+		{Kind: CandidateKindHost, Addr: "[::1]:4002"},
+	}
+
+	got, err := configForDialOfferPolicy(cfg, DialOffer{
+		P2PNetwork:  connectivity.P2PNetworkUDPOnly,
+		P2PIPFamily: connectivity.P2PIPFamilyV4,
+	})
+	if err != nil {
+		t.Fatalf("configForDialOfferPolicy(v4) error = %v, want nil", err)
+	}
+	if got.P2PIPFamily != connectivity.P2PIPFamilyV4 {
+		t.Fatalf("configForDialOfferPolicy(v4).P2PIPFamily = %q, want %q", got.P2PIPFamily, connectivity.P2PIPFamilyV4)
+	}
+	if len(got.LocalCandidates) != 1 || got.LocalCandidates[0].Addr != "127.0.0.1:4001" {
+		t.Fatalf("configForDialOfferPolicy(v4).LocalCandidates = %#v, want only IPv4", got.LocalCandidates)
+	}
+
+	got, err = configForDialOfferPolicy(cfg, DialOffer{
+		P2PNetwork:  connectivity.P2PNetworkUDPOnly,
+		P2PIPFamily: connectivity.P2PIPFamilyV6,
+	})
+	if err != nil {
+		t.Fatalf("configForDialOfferPolicy(v6) error = %v, want nil", err)
+	}
+	if len(got.LocalCandidates) != 1 || got.LocalCandidates[0].Addr != "[::1]:4002" {
+		t.Fatalf("configForDialOfferPolicy(v6).LocalCandidates = %#v, want only IPv6", got.LocalCandidates)
 	}
 }
 

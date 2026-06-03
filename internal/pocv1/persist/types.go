@@ -80,9 +80,11 @@ func (k DeviceKeys) PeerID() (string, error) {
 	return wire.PeerIDFromEd25519Pub(pub)
 }
 
-// RuntimeBroker describes the current v1 single runtime broker endpoint.
+// RuntimeBroker describes the current v1 single runtime broker endpoint and
+// optional ordinary STUN servers distributed with joined bootstrap state.
 type RuntimeBroker struct {
-	Endpoint string
+	Endpoint    string
+	StunServers []string
 }
 
 // RosterEntry is one trusted current v1 member roster entry.
@@ -130,7 +132,27 @@ func normalizeBroker(broker RuntimeBroker) (RuntimeBroker, error) {
 	if endpoint == "" {
 		return RuntimeBroker{}, fmt.Errorf("empty runtime broker endpoint")
 	}
-	return RuntimeBroker{Endpoint: endpoint}, nil
+	return RuntimeBroker{
+		Endpoint:    endpoint,
+		StunServers: normalizeStunServers(broker.StunServers),
+	}, nil
+}
+
+func normalizeStunServers(servers []string) []string {
+	normalized := make([]string, 0, len(servers))
+	seen := make(map[string]struct{}, len(servers))
+	for _, server := range servers {
+		trimmed := strings.TrimSpace(server)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
+	return normalized
 }
 
 func normalizeSnapshot(snapshot RosterSnapshot) (RosterSnapshot, error) {

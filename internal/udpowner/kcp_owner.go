@@ -26,11 +26,15 @@ type KCPOwner struct {
 	chCloseOnce sync.Once
 	wg          sync.WaitGroup
 
-	traversalIn chan packet
-	kcpIn       chan packet
+	traversalMu       sync.Mutex
+	traversalSeq      uint64
+	traversalSubs     map[uint64]chan packet
+	traversalConfig   DemuxConfig
+	traversalQueueLen int
 
-	traversal *TraversalDemux
-	kcpPC     *kcpPacketConn
+	kcpIn chan packet
+
+	kcpPC *kcpPacketConn
 
 	kcpEnqueued       atomic.Uint64
 	kcpDequeued       atomic.Uint64
@@ -75,19 +79,14 @@ func NewKCPOwner(conn *net.UDPConn, cfg KCPOwnerConfig) (*KCPOwner, error) {
 	cfg.normalize()
 
 	o := &KCPOwner{
-		conn:        conn,
-		closed:      make(chan struct{}),
-		traversalIn: make(chan packet, cfg.TraversalQueueLen),
-		kcpIn:       make(chan packet, cfg.KCPQueueLen),
+		conn:              conn,
+		closed:            make(chan struct{}),
+		traversalSubs:     make(map[uint64]chan packet),
+		traversalConfig:   cfg.Traversal,
+		traversalQueueLen: cfg.TraversalQueueLen,
+		kcpIn:             make(chan packet, cfg.KCPQueueLen),
 	}
-	o.kcpPC = newKCPPacketConn(o, conn.LocalAddr())
-
-	// Traversal demux reads from traversalIn channel (fed by the owner read loop).
-	d, err := newChanTraversalDemux(o.traversalIn, conn, cfg.Traversal)
-	if err != nil {
-		return nil, err
-	}
-	o.traversal = d
+	o.kcpPC = newKCPPacketConn(o, conn.LocalAddr(), true)
 
 	o.wg.Add(1)
 	go func() {
@@ -100,7 +99,38 @@ func NewKCPOwner(conn *net.UDPConn, cfg KCPOwnerConfig) (*KCPOwner, error) {
 
 func (o *KCPOwner) PacketConn() net.PacketConn { return o.kcpPC }
 
-func (o *KCPOwner) TraversalDemux() *TraversalDemux { return o.traversal }
+// BorrowPacketConn returns a KCP PacketConn view whose Close method does not
+// close the owner or the underlying UDP socket.
+func (o *KCPOwner) BorrowPacketConn() net.PacketConn {
+	if o == nil {
+		return nil
+	}
+	return newKCPPacketConn(o, o.conn.LocalAddr(), false)
+}
+
+// OpenTraversalDemux opens one keyed traversal demux view over the owner.
+func (o *KCPOwner) OpenTraversalDemux(cfg DemuxConfig) (*TraversalDemux, error) {
+	if o == nil {
+		return nil, errors.New("nil kcp owner")
+	}
+	cfg.normalize()
+	id, in, err := o.subscribeTraversal()
+	if err != nil {
+		return nil, err
+	}
+	return newChanTraversalDemux(in, o.conn, cfg, func() {
+		o.unsubscribeTraversal(id)
+	})
+}
+
+// TraversalDemux opens a traversal demux using the owner default config.
+func (o *KCPOwner) TraversalDemux() *TraversalDemux {
+	d, err := o.OpenTraversalDemux(o.traversalConfig)
+	if err != nil {
+		return nil
+	}
+	return d
+}
 
 type KCPOwnerStats struct {
 	KCPEnqueued       uint64
@@ -154,18 +184,17 @@ func (o *KCPOwner) Close() error {
 	})
 	o.wg.Wait()
 
-	if o.traversal != nil {
-		_ = o.traversal.Close()
-	}
-
 	// Close channels after the owner loop stops sending.
 	//
 	// Note: owner Close() may be reached via multiple closers (e.g. a listener
 	// closing its PacketConn, plus an explicit owner Close). Make it idempotent.
 	o.chCloseOnce.Do(func() {
-		if o.traversalIn != nil {
-			close(o.traversalIn)
+		o.traversalMu.Lock()
+		for id, ch := range o.traversalSubs {
+			delete(o.traversalSubs, id)
+			close(ch)
 		}
+		o.traversalMu.Unlock()
 		if o.kcpIn != nil {
 			close(o.kcpIn)
 		}
@@ -183,6 +212,14 @@ func (o *KCPOwner) run() {
 				return
 			default:
 			}
+			if recoverableUDPReadError(err) {
+				logutil.Tracef("udp owner recovered from read error: err=%v", err)
+				if udpReadTimeoutError(err) {
+					time.Sleep(10 * time.Millisecond)
+				}
+				continue
+			}
+			logutil.Debugf("udp owner read loop stopped: err=%v", err)
 			return
 		}
 		if n <= 0 || raddr == nil {
@@ -194,17 +231,7 @@ func (o *KCPOwner) run() {
 		p := packet{data: data, addr: raddr}
 
 		if punchwire.HasPunchTag(data) {
-			select {
-			case <-o.closed:
-				return
-			case o.traversalIn <- p:
-				o.traversalEnqueued.Add(1)
-				logutil.Tracef("udp owner routed tagged traversal packet: remote=%s bytes=%d", raddr.String(), n)
-			default:
-				// Drop tagged traversal packets on backpressure.
-				o.traversalDropped.Add(1)
-				logutil.Tracef("udp owner traversal queue full drop: remote=%s bytes=%d", raddr.String(), n)
-			}
+			o.routeTraversalPacket(p)
 			continue
 		}
 
@@ -260,7 +287,72 @@ func (o *KCPOwner) run() {
 	}
 }
 
-func newChanTraversalDemux(in <-chan packet, conn *net.UDPConn, cfg DemuxConfig) (*TraversalDemux, error) {
+func (o *KCPOwner) subscribeTraversal() (uint64, <-chan packet, error) {
+	if o == nil {
+		return 0, nil, errors.New("nil kcp owner")
+	}
+	select {
+	case <-o.closed:
+		return 0, nil, net.ErrClosed
+	default:
+	}
+
+	o.traversalMu.Lock()
+	defer o.traversalMu.Unlock()
+
+	select {
+	case <-o.closed:
+		return 0, nil, net.ErrClosed
+	default:
+	}
+
+	o.traversalSeq++
+	id := o.traversalSeq
+	ch := make(chan packet, o.traversalQueueLen)
+	o.traversalSubs[id] = ch
+	return id, ch, nil
+}
+
+func (o *KCPOwner) unsubscribeTraversal(id uint64) {
+	if o == nil || id == 0 {
+		return
+	}
+	o.traversalMu.Lock()
+	ch := o.traversalSubs[id]
+	delete(o.traversalSubs, id)
+	o.traversalMu.Unlock()
+	if ch != nil {
+		close(ch)
+	}
+}
+
+func (o *KCPOwner) routeTraversalPacket(p packet) {
+	o.traversalMu.Lock()
+	defer o.traversalMu.Unlock()
+
+	if len(o.traversalSubs) == 0 {
+		o.traversalDropped.Add(1)
+		logutil.Tracef(
+			"udp owner dropped tagged traversal packet without subscriber: remote=%s bytes=%d",
+			p.addr.String(),
+			len(p.data),
+		)
+		return
+	}
+
+	for _, ch := range o.traversalSubs {
+		select {
+		case ch <- p:
+			o.traversalEnqueued.Add(1)
+			logutil.Tracef("udp owner routed tagged traversal packet: remote=%s bytes=%d", p.addr.String(), len(p.data))
+		default:
+			o.traversalDropped.Add(1)
+			logutil.Tracef("udp owner traversal subscriber queue full drop: remote=%s bytes=%d", p.addr.String(), len(p.data))
+		}
+	}
+}
+
+func newChanTraversalDemux(in <-chan packet, conn *net.UDPConn, cfg DemuxConfig, onClose func()) (*TraversalDemux, error) {
 	if conn == nil {
 		return nil, errors.New("nil udp conn")
 	}
@@ -273,6 +365,7 @@ func newChanTraversalDemux(in <-chan packet, conn *net.UDPConn, cfg DemuxConfig)
 		ttlConn: conn,
 		ctx:     ctx,
 		cancel:  cancel,
+		onClose: onClose,
 		recv: func(ctx context.Context, b []byte) (int, *net.UDPAddr, error) {
 			select {
 			case <-ctx.Done():
@@ -305,14 +398,23 @@ type kcpPacketConn struct {
 	o     *KCPOwner
 	local net.Addr
 
+	closeOwner bool
+	closed     chan struct{}
+	closeOnce  sync.Once
+
 	mu         sync.Mutex
 	deadline   time.Time
 	rdDeadline time.Time
 	wrDeadline time.Time
 }
 
-func newKCPPacketConn(o *KCPOwner, local net.Addr) *kcpPacketConn {
-	return &kcpPacketConn{o: o, local: local}
+func newKCPPacketConn(o *KCPOwner, local net.Addr, closeOwner bool) *kcpPacketConn {
+	return &kcpPacketConn{
+		o:          o,
+		local:      local,
+		closeOwner: closeOwner,
+		closed:     make(chan struct{}),
+	}
 }
 
 func (c *kcpPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
@@ -329,6 +431,8 @@ func (c *kcpPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 		timer := time.NewTimer(d)
 		defer timer.Stop()
 		select {
+		case <-c.closed:
+			return 0, nil, net.ErrClosed
 		case <-c.o.closed:
 			return 0, nil, net.ErrClosed
 		case pkt, ok := <-c.o.kcpIn:
@@ -344,6 +448,8 @@ func (c *kcpPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 	}
 
 	select {
+	case <-c.closed:
+		return 0, nil, net.ErrClosed
 	case <-c.o.closed:
 		return 0, nil, net.ErrClosed
 	case pkt, ok := <-c.o.kcpIn:
@@ -359,6 +465,11 @@ func (c *kcpPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 func (c *kcpPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 	if c == nil || c.o == nil || c.o.conn == nil {
 		return 0, net.ErrClosed
+	}
+	select {
+	case <-c.closed:
+		return 0, net.ErrClosed
+	default:
 	}
 	if addr == nil {
 		return 0, errors.New("nil addr")
@@ -383,7 +494,13 @@ func (c *kcpPacketConn) Close() error {
 	if c == nil || c.o == nil {
 		return nil
 	}
-	return c.o.Close()
+	if c.closeOwner {
+		return c.o.Close()
+	}
+	c.closeOnce.Do(func() {
+		close(c.closed)
+	})
+	return nil
 }
 
 func (c *kcpPacketConn) LocalAddr() net.Addr { return c.local }

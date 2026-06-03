@@ -36,19 +36,7 @@ func (s *ChangedAddress) String() string {
 }
 
 func ListAllLocalIPs() ([]net.IP, error) {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return nil, err
-	}
-	ips := make([]net.IP, 0, len(addrs))
-	for _, addr := range addrs {
-		ip, _, err := net.ParseCIDR(addr.String())
-		if err != nil {
-			continue
-		}
-		ips = append(ips, ip)
-	}
-	return ips, nil
+	return listAllLocalIPs()
 }
 
 func ListLocalIPsForNatHole(maxItems int) ([]string, error) {

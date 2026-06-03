@@ -81,6 +81,16 @@ func resolveInternalSTUNServers(ctx context.Context, resolver *netutil.DNSResolv
 	return resolved, errors
 }
 
+func resolveInternalSTUNPlainServers(ctx context.Context, resolver *netutil.DNSResolver, servers []string) (resolved []string, errors []string) {
+	usable, _, filterErrors := stunclient.FilterHostPorts(servers, stunclient.EndpointSchemeUDP)
+	resolved, resolveErrors := stunclient.ResolveHostPortsIP4(ctx, resolver, usable, internalSTUNPlainEndpointLimit)
+
+	errors = make([]string, 0, len(filterErrors)+len(resolveErrors))
+	errors = append(errors, filterErrors...)
+	errors = append(errors, resolveErrors...)
+	return resolved, errors
+}
+
 func natDifficulty(f *nat.NatFeature) int {
 	if f == nil {
 		return 999

@@ -36,6 +36,10 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 	target := ""
 	sessionName := "main"
 	p2pNetwork := "auto"
+	p2pIPFamily := "auto"
+	networkSet := false
+	ipFamilySet := false
+	usage := "use: miopunch sh <peer_id> [target] [-s session] [-u|-t] [-4|-6] [--p2p-network auto|udp_only|tcp_only] [--p2p-ip-family auto|v4|v6]"
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -48,7 +52,7 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 					ExitCode:   poc.ExitCodeBadRequest,
 					Facts:      []poc.Fact{{Message: "missing value for --session"}},
 					Suggestions: []poc.Suggestion{
-						{Message: "use: miopunch sh <peer_id> [target] [-s session]"},
+						{Message: usage},
 					},
 				})
 			}
@@ -61,9 +65,29 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 		case strings.HasPrefix(arg, "-session="):
 			sessionName = strings.TrimSpace(strings.TrimPrefix(arg, "-session="))
 		case arg == "-u":
+			if networkSet && p2pNetwork != "udp_only" {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", *badArgFailure("conflicting p2p network flags", usage))
+			}
 			p2pNetwork = "udp_only"
+			networkSet = true
 		case arg == "-t":
+			if networkSet && p2pNetwork != "tcp_only" {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", *badArgFailure("conflicting p2p network flags", usage))
+			}
 			p2pNetwork = "tcp_only"
+			networkSet = true
+		case arg == "-4":
+			if ipFamilySet && p2pIPFamily != "v4" {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", *badArgFailure("conflicting p2p ip family flags", usage))
+			}
+			p2pIPFamily = "v4"
+			ipFamilySet = true
+		case arg == "-6":
+			if ipFamilySet && p2pIPFamily != "v6" {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", *badArgFailure("conflicting p2p ip family flags", usage))
+			}
+			p2pIPFamily = "v6"
+			ipFamilySet = true
 		case arg == "--p2p-network":
 			if i+1 >= len(args) {
 				return exitWithFailure(opt, stdout, stderr, "sh", "", failureOutput{
@@ -72,14 +96,70 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 					ExitCode:   poc.ExitCodeBadRequest,
 					Facts:      []poc.Fact{{Message: "missing value for --p2p-network"}},
 					Suggestions: []poc.Suggestion{
-						{Message: "use: miopunch sh <peer_id> [target] --p2p-network auto|udp_only|tcp_only"},
+						{Message: usage},
 					},
 				})
 			}
 			i++
-			p2pNetwork = strings.TrimSpace(args[i])
+			network, err := connectivity.ParseP2PNetwork(args[i])
+			if err != nil {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", *badArgFailure(err.Error(), usage))
+			}
+			if networkSet && p2pNetwork != string(network) && network != connectivity.P2PNetworkAuto {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", *badArgFailure("conflicting p2p network flags", usage))
+			}
+			p2pNetwork = string(network)
+			if network != connectivity.P2PNetworkAuto {
+				networkSet = true
+			}
 		case strings.HasPrefix(arg, "--p2p-network="):
-			p2pNetwork = strings.TrimSpace(strings.TrimPrefix(arg, "--p2p-network="))
+			network, err := connectivity.ParseP2PNetwork(strings.TrimPrefix(arg, "--p2p-network="))
+			if err != nil {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", *badArgFailure(err.Error(), usage))
+			}
+			if networkSet && p2pNetwork != string(network) && network != connectivity.P2PNetworkAuto {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", *badArgFailure("conflicting p2p network flags", usage))
+			}
+			p2pNetwork = string(network)
+			if network != connectivity.P2PNetworkAuto {
+				networkSet = true
+			}
+		case arg == "--p2p-ip-family":
+			if i+1 >= len(args) {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", failureOutput{
+					Stage:      "cli",
+					ReasonCode: poc.ReasonCodeBadRequest,
+					ExitCode:   poc.ExitCodeBadRequest,
+					Facts:      []poc.Fact{{Message: "missing value for --p2p-ip-family"}},
+					Suggestions: []poc.Suggestion{
+						{Message: usage},
+					},
+				})
+			}
+			i++
+			family, err := connectivity.ParseP2PIPFamily(args[i])
+			if err != nil {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", *badArgFailure(err.Error(), usage))
+			}
+			if ipFamilySet && p2pIPFamily != string(family) && family != connectivity.P2PIPFamilyAuto {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", *badArgFailure("conflicting p2p ip family flags", usage))
+			}
+			p2pIPFamily = string(family)
+			if family != connectivity.P2PIPFamilyAuto {
+				ipFamilySet = true
+			}
+		case strings.HasPrefix(arg, "--p2p-ip-family="):
+			family, err := connectivity.ParseP2PIPFamily(strings.TrimPrefix(arg, "--p2p-ip-family="))
+			if err != nil {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", *badArgFailure(err.Error(), usage))
+			}
+			if ipFamilySet && p2pIPFamily != string(family) && family != connectivity.P2PIPFamilyAuto {
+				return exitWithFailure(opt, stdout, stderr, "sh", "", *badArgFailure("conflicting p2p ip family flags", usage))
+			}
+			p2pIPFamily = string(family)
+			if family != connectivity.P2PIPFamilyAuto {
+				ipFamilySet = true
+			}
 		case strings.HasPrefix(arg, "-"):
 			return exitWithFailure(opt, stdout, stderr, "sh", "", failureOutput{
 				Stage:      "cli",
@@ -87,7 +167,7 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 				ExitCode:   poc.ExitCodeBadRequest,
 				Facts:      []poc.Fact{{Message: "unknown arg: " + arg}},
 				Suggestions: []poc.Suggestion{
-					{Message: "use: miopunch sh <peer_id> [target] [-s session] [-u|-t|--p2p-network ...]"},
+					{Message: usage},
 				},
 			})
 		default:
@@ -102,7 +182,7 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 					ExitCode:   poc.ExitCodeBadRequest,
 					Facts:      []poc.Fact{{Message: "unexpected extra arg: " + arg}},
 					Suggestions: []poc.Suggestion{
-						{Message: "use: miopunch sh <peer_id> [target] [-s session]"},
+						{Message: usage},
 					},
 				})
 			}
@@ -116,7 +196,7 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 			ExitCode:   poc.ExitCodeBadRequest,
 			Facts:      []poc.Fact{{Message: "missing peer_id"}},
 			Suggestions: []poc.Suggestion{
-				{Message: "use: miopunch sh <peer_id> [target] [-s session]"},
+				{Message: usage},
 			},
 		})
 	}
@@ -129,16 +209,29 @@ func runSh(opt globalOptions, args []string, stdout, stderr io.Writer) int {
 			ExitCode:   poc.ExitCodeBadRequest,
 			Facts:      []poc.Fact{{Message: err.Error()}},
 			Suggestions: []poc.Suggestion{
-				{Message: "use: miopunch sh <peer_id> [target] --p2p-network auto|udp_only|tcp_only"},
+				{Message: usage},
+			},
+		})
+	}
+	family, err := connectivity.ParseP2PIPFamily(p2pIPFamily)
+	if err != nil {
+		return exitWithFailure(opt, stdout, stderr, "sh", "", failureOutput{
+			Stage:      "cli",
+			ReasonCode: poc.ReasonCodeBadRequest,
+			ExitCode:   poc.ExitCodeBadRequest,
+			Facts:      []poc.Fact{{Message: err.Error()}},
+			Suggestions: []poc.Suggestion{
+				{Message: usage},
 			},
 		})
 	}
 
 	return runShellInteractive(opt, pocruntime.ShellArgs{
-		PeerID:     peerID,
-		Target:     target,
-		Session:    sessionName,
-		P2PNetwork: string(network),
+		PeerID:      peerID,
+		Target:      target,
+		Session:     sessionName,
+		P2PNetwork:  string(network),
+		P2PIPFamily: string(family),
 	}, stdout, stderr)
 }
 

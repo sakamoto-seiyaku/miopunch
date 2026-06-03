@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	kcp "github.com/xtaci/kcp-go/v5"
 
 	"github.com/miopunch/miopunch/dataplane"
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/netutil"
 	"github.com/miopunch/miopunch/internal/pocv1/enroll"
 	"github.com/miopunch/miopunch/internal/pocv1/punch"
@@ -317,8 +319,8 @@ func upgrade(ctx context.Context, cfg Config, result punch.PathResult, asClient 
 	if err != nil {
 		return nil, fmt.Errorf("canonicalize network id: %w", err)
 	}
-	if result.Conn == nil {
-		return nil, errors.New("path result connection is required")
+	if result.Conn == nil && result.RuntimeKCPPacket == nil {
+		return nil, errors.New("path result udp transport is required")
 	}
 	if result.RemoteAddr == nil {
 		return nil, errors.New("path result remote address is required")
@@ -405,8 +407,24 @@ func upgrade(ctx context.Context, cfg Config, result punch.PathResult, asClient 
 		tlsConfig.InsecureSkipVerify = true
 	}
 
+	logutil.Debugf(
+		"secure session upgrade start: as_client=%t remote_peer_id=%s ownership=%s conn_local_addr=%s path_remote_addr=%s selected_path=%s",
+		asClient,
+		result.RemoteIdentity.PeerID,
+		result.Ownership(),
+		pathLocalAddrString(result),
+		result.RemoteAddr.String(),
+		result.Evidence.SelectedPath,
+	)
 	transport, err := upgradeTransport(ctx, result, tlsConfig, asClient)
 	if err != nil {
+		logutil.Debugf(
+			"secure session transport upgrade failed: as_client=%t remote_peer_id=%s path_remote_addr=%s err=%v",
+			asClient,
+			result.RemoteIdentity.PeerID,
+			result.RemoteAddr.String(),
+			err,
+		)
 		return nil, err
 	}
 	tlsConn, ok := transport.Conn.(*tls.Conn)
@@ -416,11 +434,28 @@ func upgrade(ctx context.Context, cfg Config, result punch.PathResult, asClient 
 	}
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
 		_ = transport.Close()
+		logutil.Debugf(
+			"secure session tls handshake failed: as_client=%t remote_peer_id=%s path_remote_addr=%s err=%v ctx_err=%v",
+			asClient,
+			result.RemoteIdentity.PeerID,
+			result.RemoteAddr.String(),
+			err,
+			ctx.Err(),
+		)
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
+		if handshakeTimedOutAfterContextDeadline(ctx, err) {
+			return nil, context.DeadlineExceeded
+		}
 		return nil, fmt.Errorf("tls handshake: %w", err)
 	}
+	logutil.Debugf(
+		"secure session tls handshake ok: as_client=%t remote_peer_id=%s path_remote_addr=%s",
+		asClient,
+		result.RemoteIdentity.PeerID,
+		result.RemoteAddr.String(),
+	)
 	_ = tlsConn.SetDeadline(time.Time{})
 
 	muxCfg := yamux.DefaultConfig()
@@ -453,6 +488,8 @@ func sessionPathFactsFromResult(result punch.PathResult) dataplane.SessionPathFa
 	var facts dataplane.SessionPathFacts
 	if result.Conn != nil && result.Conn.LocalAddr() != nil {
 		facts.LocalEndpoint = result.Conn.LocalAddr().String()
+	} else if result.RuntimeKCPPacket != nil && result.RuntimeKCPPacket.LocalAddr() != nil {
+		facts.LocalEndpoint = result.RuntimeKCPPacket.LocalAddr().String()
 	}
 	if result.RemoteAddr != nil {
 		facts.RemoteEndpoint = result.RemoteAddr.String()
@@ -469,10 +506,26 @@ func upgradeTransport(ctx context.Context, result punch.PathResult, tlsConfig *t
 }
 
 func dialTransport(ctx context.Context, result punch.PathResult, tlsConfig *tls.Config) (*ownedConn, error) {
-	kcpConn, err := netutil.NewKCPConnFromUDP(result.Conn, false, result.RemoteAddr.String())
+	logutil.Debugf(
+		"secure session kcp dial start: ownership=%s local_addr=%s remote_addr=%s",
+		result.Ownership(),
+		pathLocalAddrString(result),
+		result.RemoteAddr.String(),
+	)
+	pc, err := kcpPacketConnForResult(result)
 	if err != nil {
+		return nil, err
+	}
+	kcpConn, err := netutil.NewKCPConnFromPacketConn(pc, result.RemoteAddr.String())
+	if err != nil {
+		_ = pc.Close()
 		return nil, fmt.Errorf("open kcp conn: %w", err)
 	}
+	logutil.Debugf(
+		"secure session kcp dial opened: local_addr=%s remote_addr=%s",
+		kcpConn.LocalAddr().String(),
+		kcpConn.RemoteAddr().String(),
+	)
 	applyKCPDefaultsToConn(kcpConn)
 	if oob, ok := kcpConn.(interface{ SendOOB([]byte) error }); ok {
 		_ = oob.SendOOB([]byte{0})
@@ -480,24 +533,38 @@ func dialTransport(ctx context.Context, result punch.PathResult, tlsConfig *tls.
 	if deadline, ok := ctx.Deadline(); ok {
 		if err := kcpConn.SetDeadline(deadline); err != nil {
 			_ = kcpConn.Close()
+			_ = pc.Close()
 			return nil, err
 		}
 	}
 	tlsConn := tls.Client(kcpConn, tlsConfig)
 	return &ownedConn{
 		Conn:    tlsConn,
-		closers: []io.Closer{tlsConn},
+		closers: []io.Closer{tlsConn, kcpConn, pc},
 	}, nil
 }
 
 func acceptTransport(ctx context.Context, result punch.PathResult, tlsConfig *tls.Config) (*ownedConn, error) {
-	ln, err := kcp.ServeConn(nil, 10, 3, result.Conn)
+	logutil.Debugf(
+		"secure session kcp accept start: ownership=%s local_addr=%s expected_remote_addr=%s allowed_remote_addrs=%v",
+		result.Ownership(),
+		pathLocalAddrString(result),
+		pathRemoteAddrString(result),
+		result.AllowedRemoteUDPAddrs,
+	)
+	pc, err := kcpPacketConnForResult(result)
 	if err != nil {
+		return nil, err
+	}
+	ln, err := kcp.ServeConn(nil, 10, 3, pc)
+	if err != nil {
+		_ = pc.Close()
 		return nil, fmt.Errorf("serve kcp conn: %w", err)
 	}
 	for {
 		if err := ctx.Err(); err != nil {
 			_ = ln.Close()
+			_ = pc.Close()
 			return nil, err
 		}
 
@@ -509,9 +576,23 @@ func acceptTransport(ctx context.Context, result punch.PathResult, tlsConfig *tl
 				continue
 			}
 			_ = ln.Close()
+			_ = pc.Close()
 			return nil, err
 		}
-		if result.RemoteAddr != nil && kcpSess.RemoteAddr().String() != result.RemoteAddr.String() {
+		logutil.Debugf(
+			"secure session kcp accept observed: expected_remote_addr=%s actual_remote_addr=%s allowed_remote_addrs=%v",
+			pathRemoteAddrString(result),
+			kcpSess.RemoteAddr().String(),
+			result.AllowedRemoteUDPAddrs,
+		)
+		if !remoteUDPAddrAllowed(result, kcpSess.RemoteAddr()) {
+			logutil.Debugf(
+				"secure session kcp accept rejected remote mismatch: expected_remote_addr=%s actual_remote_addr=%s selected_path=%s allowed_remote_addrs=%v",
+				pathRemoteAddrString(result),
+				kcpSess.RemoteAddr().String(),
+				result.Evidence.SelectedPath,
+				result.AllowedRemoteUDPAddrs,
+			)
 			_ = kcpSess.Close()
 			continue
 		}
@@ -521,15 +602,96 @@ func acceptTransport(ctx context.Context, result punch.PathResult, tlsConfig *tl
 			if err := kcpSess.SetDeadline(deadline); err != nil {
 				_ = kcpSess.Close()
 				_ = ln.Close()
+				_ = pc.Close()
 				return nil, err
 			}
 		}
 		tlsConn := tls.Server(kcpSess, tlsConfig)
+		logutil.Debugf(
+			"secure session kcp accept selected: expected_remote_addr=%s actual_remote_addr=%s selected_path=%s",
+			pathRemoteAddrString(result),
+			kcpSess.RemoteAddr().String(),
+			result.Evidence.SelectedPath,
+		)
 		return &ownedConn{
 			Conn:    tlsConn,
-			closers: []io.Closer{tlsConn, kcpSess, ln},
+			closers: []io.Closer{tlsConn, kcpSess, ln, pc},
 		}, nil
 	}
+}
+
+func remoteUDPAddrAllowed(result punch.PathResult, actual net.Addr) bool {
+	if actual == nil {
+		return false
+	}
+
+	actualAddr := strings.TrimSpace(actual.String())
+	if actualAddr == "" {
+		return false
+	}
+	if result.RemoteAddr != nil && actualAddr == result.RemoteAddr.String() {
+		return true
+	}
+	if result.Evidence.SelectedPath != punch.PathDirectIPv6 {
+		return false
+	}
+	for _, allowed := range result.AllowedRemoteUDPAddrs {
+		if actualAddr == strings.TrimSpace(allowed) {
+			return true
+		}
+	}
+	return false
+}
+
+func handshakeTimedOutAfterContextDeadline(ctx context.Context, err error) bool {
+	deadline, ok := ctx.Deadline()
+	if !ok || time.Now().Before(deadline) {
+		return false
+	}
+
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
+}
+
+func kcpPacketConnForResult(result punch.PathResult) (net.PacketConn, error) {
+	switch result.Ownership() {
+	case punch.SelectedUDPOwnershipRuntime:
+		if result.RuntimeKCPPacket == nil {
+			return nil, errors.New("runtime-owned path missing kcp packet transport")
+		}
+		return result.RuntimeKCPPacket, nil
+	case punch.SelectedUDPOwnershipTemporary:
+		if result.Conn == nil {
+			return nil, errors.New("temporary path missing selected udp socket")
+		}
+		return result.Conn, nil
+	default:
+		return nil, errors.New("path result udp ownership is required")
+	}
+}
+
+func pathLocalAddrString(result punch.PathResult) string {
+	if result.Conn != nil && result.Conn.LocalAddr() != nil {
+		return result.Conn.LocalAddr().String()
+	}
+	if result.RuntimeKCPPacket != nil && result.RuntimeKCPPacket.LocalAddr() != nil {
+		return result.RuntimeKCPPacket.LocalAddr().String()
+	}
+	return ""
+}
+
+func pathRemoteAddrString(result punch.PathResult) string {
+	if result.RemoteAddr == nil {
+		return ""
+	}
+	return result.RemoteAddr.String()
+}
+
+func udpConnLocalAddrString(conn *net.UDPConn) string {
+	if conn == nil || conn.LocalAddr() == nil {
+		return ""
+	}
+	return conn.LocalAddr().String()
 }
 
 func applyKCPDefaults(sess *kcp.UDPSession) {

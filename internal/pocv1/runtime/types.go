@@ -127,16 +127,18 @@ type JoinArgs struct {
 }
 
 type PingArgs struct {
-	PeerID     string `json:"peer_id"`
-	P2PNetwork string `json:"p2p_network,omitempty"`
+	PeerID      string `json:"peer_id"`
+	P2PNetwork  string `json:"p2p_network,omitempty"`
+	P2PIPFamily string `json:"p2p_ip_family,omitempty"`
 }
 
 type ShellArgs struct {
-	PeerID     string `json:"peer_id"`
-	Target     string `json:"target,omitempty"`
-	Session    string `json:"session,omitempty"`
-	P2PNetwork string `json:"p2p_network,omitempty"`
-	ReadyOnly  bool   `json:"ready_only,omitempty"`
+	PeerID      string `json:"peer_id"`
+	Target      string `json:"target,omitempty"`
+	Session     string `json:"session,omitempty"`
+	P2PNetwork  string `json:"p2p_network,omitempty"`
+	P2PIPFamily string `json:"p2p_ip_family,omitempty"`
+	ReadyOnly   bool   `json:"ready_only,omitempty"`
 }
 
 type RevokeArgs struct {

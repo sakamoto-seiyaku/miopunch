@@ -150,6 +150,16 @@ Command flags:
   up --session                       Use portable session mode with ./data/state.json by default
   up --state_path <path>             Override daemon state path (lab/testing)
 
+Peer path overrides:
+  ping <peer_id> [-u|-t] [-4|-6]
+  sh ls <peer_id> [target] [--ready] [-u|-t] [-4|-6]
+  sh <peer_id> [target] [-s session] [-u|-t] [-4|-6]
+  --p2p-network auto|udp_only|tcp_only
+  --p2p-ip-family auto|v4|v6
+
+  These flags constrain only P2P path establishment, not MQTT/control-plane signaling.
+  Current POC v1 is UDP-only: explicit -t / tcp_only returns an unsupported-path error.
+
 Help:
   miopunch --help
 `)

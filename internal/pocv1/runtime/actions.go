@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/miopunch/miopunch/dataplane"
+	"github.com/miopunch/miopunch/internal/logutil"
 	"github.com/miopunch/miopunch/internal/poc"
 	"github.com/miopunch/miopunch/internal/pocv1/enroll"
 	"github.com/miopunch/miopunch/internal/pocv1/peere2e"
@@ -168,6 +169,9 @@ func appendPathResultProblemFacts(prob *problem, result punch.PathResult) *probl
 	values := []string{}
 	if selectedPath := strings.TrimSpace(result.Evidence.SelectedPath); selectedPath != "" {
 		values = append(values, "selected_path="+selectedPath)
+	}
+	if ownership := strings.TrimSpace(string(result.Ownership())); ownership != "" {
+		values = append(values, "selected_udp_ownership="+ownership)
 	}
 	if value := candidateFact("selected_local_candidate", result.Evidence.SelectedLocal); value != "" {
 		values = append(values, value)
@@ -538,15 +542,37 @@ func (r *Runtime) doApprove(ctx context.Context, args ApproveArgs) (ActionResult
 		)
 	}
 	defer peerSession.Close()
+	logutil.Debugf(
+		"enroll approve signaling ready: network_id=%s invite_id=%s broker=%s join_topic=%s",
+		networkID,
+		invite.InviteID,
+		normalizeBrokerEndpoint(invite.BrokerEndpoint),
+		invite.JoinTopic,
+	)
 
 	deviceKeys, err := r.store.LoadDeviceKeys()
 	if err != nil {
 		return ActionResult{}, wrapProblem(StageEnroll, poc.ReasonCodeInternal, poc.ExitCodeInternal, "failed to load device keys", err, "retry")
 	}
+	logutil.Debugf(
+		"enroll approve waiting for join request: network_id=%s invite_id=%s join_topic=%s",
+		networkID,
+		invite.InviteID,
+		invite.JoinTopic,
+	)
 	opened, err := peerSession.WaitOpened(sessionCtx, deviceKeys.X25519PrivateKey, peere2e.OpenOptions{})
 	if err != nil {
 		return ActionResult{}, wrapProblem(StageEnroll, poc.ReasonCodeTimeout, poc.ExitCodeTimeout, "timed out waiting for join request", err, "retry after the joiner starts")
 	}
+	logutil.Debugf(
+		"enroll approve received peer message: network_id=%s invite_id=%s topic=%s msg_id=%s sender_peer_id=%s kind=%s",
+		networkID,
+		invite.InviteID,
+		opened.Topic,
+		opened.Outer.MsgID,
+		opened.Inner.SenderPeerID,
+		opened.Inner.Kind,
+	)
 	joinRequest, err := enroll.UnmarshalJoinRequest(opened.Inner.Body)
 	if err != nil {
 		return ActionResult{}, wrapProblem(StageEnroll, poc.ReasonCodeBadRequest, poc.ExitCodeBadRequest, "failed to decode join request", err, "retry")
@@ -614,6 +640,14 @@ func (r *Runtime) doApprove(ctx context.Context, args ApproveArgs) (ActionResult
 	if err := peerSession.PublishPayload(sessionCtx, joinRequest.ReplyTopic, sealed); err != nil {
 		return ActionResult{}, wrapProblem(StageEnroll, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "failed to publish enroll response", err, "check broker reachability and retry")
 	}
+	logutil.Debugf(
+		"enroll approve published response: network_id=%s invite_id=%s approved_peer_id=%s reply_topic=%s replay_cache_hit=%t",
+		networkID,
+		invite.InviteID,
+		requestPeerID,
+		joinRequest.ReplyTopic,
+		hit,
+	)
 
 	if !hit {
 		persistRoster, err := enrollRoster.ToPersist()
@@ -768,6 +802,15 @@ func (r *Runtime) doJoin(ctx context.Context, args JoinArgs) (ActionResult, *pro
 		)
 	}
 	defer signaling.Close()
+	logutil.Debugf(
+		"enroll join signaling ready: network_id=%s invite_id=%s peer_id=%s broker=%s join_topic=%s reply_topic=%s",
+		networkID,
+		invite.InviteID,
+		localPeerID,
+		normalizeBrokerEndpoint(invite.BrokerEndpoint),
+		invite.JoinTopic,
+		replyTopic,
+	)
 
 	if _, err := signaling.PublishInner(ctx, invite.JoinTopic, inner, invite.AuthorityX25519Pub, peere2e.SealOptions{}); err != nil {
 		return ActionResult{}, appendProblemFacts(
@@ -780,6 +823,22 @@ func (r *Runtime) doJoin(ctx context.Context, args JoinArgs) (ActionResult, *pro
 			"broker_endpoint="+normalizeBrokerEndpoint(invite.BrokerEndpoint),
 		)
 	}
+	logutil.Debugf(
+		"enroll join published request: network_id=%s invite_id=%s peer_id=%s join_topic=%s reply_topic=%s msg_id=%s",
+		networkID,
+		invite.InviteID,
+		localPeerID,
+		invite.JoinTopic,
+		replyTopic,
+		msgID,
+	)
+	logutil.Debugf(
+		"enroll join waiting for response: network_id=%s invite_id=%s peer_id=%s reply_topic=%s",
+		networkID,
+		invite.InviteID,
+		localPeerID,
+		replyTopic,
+	)
 	opened, err := signaling.WaitOpened(ctx, deviceKeys.X25519PrivateKey, peere2e.OpenOptions{})
 	if err != nil {
 		return ActionResult{}, appendProblemFacts(
@@ -792,6 +851,16 @@ func (r *Runtime) doJoin(ctx context.Context, args JoinArgs) (ActionResult, *pro
 			"broker_endpoint="+normalizeBrokerEndpoint(invite.BrokerEndpoint),
 		)
 	}
+	logutil.Debugf(
+		"enroll join received response: network_id=%s invite_id=%s peer_id=%s topic=%s msg_id=%s sender_peer_id=%s kind=%s",
+		networkID,
+		invite.InviteID,
+		localPeerID,
+		opened.Topic,
+		opened.Outer.MsgID,
+		opened.Inner.SenderPeerID,
+		opened.Inner.Kind,
+	)
 
 	response, err := enroll.UnmarshalEnrollResponse(opened.Inner.Body)
 	if err != nil {
@@ -859,7 +928,11 @@ func (r *Runtime) doPing(ctx context.Context, args PingArgs) (ActionResult, *pro
 			[]poc.Suggestion{{Message: "use: miopunch ping <peer_id>"}},
 		)
 	}
-	sess, problem := r.ensurePeerSession(ctx, peerID)
+	policy, problem := normalizePeerPathPolicy(args.P2PNetwork, args.P2PIPFamily)
+	if problem != nil {
+		return ActionResult{}, problem
+	}
+	sess, problem := r.ensurePeerSession(ctx, peerID, policy)
 	if problem != nil {
 		return ActionResult{}, problem
 	}
@@ -914,7 +987,11 @@ func (r *Runtime) doShellList(ctx context.Context, args ShellArgs) (ActionResult
 			},
 		)
 	}
-	sess, problem := r.ensurePeerSession(ctx, peerID)
+	policy, problem := normalizePeerPathPolicy(args.P2PNetwork, args.P2PIPFamily)
+	if problem != nil {
+		return ActionResult{}, problem
+	}
+	sess, problem := r.ensurePeerSession(ctx, peerID, policy)
 	if problem != nil {
 		return ActionResult{}, problem
 	}
@@ -1053,7 +1130,11 @@ func (r *Runtime) doShell(ctx context.Context, args ShellArgs) (ActionResult, *p
 			[]poc.Suggestion{{Message: "use: miopunch sh <peer_id> [target] [-s session]"}},
 		)
 	}
-	sess, problem := r.ensurePeerSession(ctx, peerID)
+	policy, problem := normalizePeerPathPolicy(args.P2PNetwork, args.P2PIPFamily)
+	if problem != nil {
+		return ActionResult{}, problem
+	}
+	sess, problem := r.ensurePeerSession(ctx, peerID, policy)
 	if problem != nil {
 		return ActionResult{}, problem
 	}
@@ -1268,12 +1349,28 @@ func (r *Runtime) requireAdminAuthority() (persist.DeviceKeys, string, ed25519.P
 	return deviceKeys, meta.ActiveNetworkID, localPriv, authorityPub, authorityX25519Pub, nil
 }
 
-func (r *Runtime) ensurePeerSession(ctx context.Context, peerID string) (session.PeerSession, *problem) {
+func (r *Runtime) ensurePeerSession(ctx context.Context, peerID string, policy peerPathPolicy) (session.PeerSession, *problem) {
 	if err := r.ensureWorkers(ctx); err != nil {
 		return nil, wrapProblem(StageDiscover, poc.ReasonCodeUnavailable, poc.ExitCodeUnavailable, "failed to start runtime workers", err, "retry")
 	}
 	if existing, ok := r.peerSessions.Find(dataplane.SessionKey{RemotePeerID: peerID}); ok {
-		return existing, nil
+		if policy.matchesSession(existing) {
+			return existing, nil
+		}
+		if policy.explicit() {
+			logutil.Debugf(
+				"runtime peer session policy mismatch: peer_id=%s requested_p2p_network=%s requested_p2p_ip_family=%s existing_key=%+v existing_selected_path=%s",
+				peerID,
+				policy.P2PNetwork,
+				policy.P2PIPFamily,
+				existing.Key().Normalize(),
+				selectedPathFromSession(existing),
+			)
+			r.peerSessions.CloseIfMatch(existing, dataplane.CloseReasonSessionSuperseded)
+		}
+	}
+	if problem := policy.unsupportedTCPOnlyProblem(); problem != nil {
+		return nil, problem
 	}
 
 	r.mu.Lock()
@@ -1285,10 +1382,16 @@ func (r *Runtime) ensurePeerSession(ctx context.Context, peerID string) (session
 		_, _ = presenceSession.WaitForPeerState(waitCtx, peerID, presence.OnlineStateOnline)
 	}
 
-	punchCfg, problem := r.punchConfig()
+	punchCfg, problem := r.punchConfig(policy)
 	if problem != nil {
 		return nil, problem
 	}
+	logutil.Debugf(
+		"runtime peer session dial start: peer_id=%s p2p_network=%s p2p_ip_family=%s",
+		peerID,
+		policy.P2PNetwork,
+		policy.P2PIPFamily,
+	)
 	result, err := punch.Dial(ctx, punchCfg, punch.Target{PeerID: peerID})
 	if err != nil {
 		return nil, punchProblem("failed to establish punched path", peerID, err)
@@ -1301,6 +1404,14 @@ func (r *Runtime) ensurePeerSession(ctx context.Context, peerID string) (session
 			result,
 		)
 	}
+	logutil.Debugf(
+		"runtime peer session dial selected: peer_id=%s p2p_network=%s p2p_ip_family=%s selected_path=%s remote_udp=%s",
+		peerID,
+		policy.P2PNetwork,
+		policy.P2PIPFamily,
+		result.Evidence.SelectedPath,
+		result.Evidence.SelectedRemoteUDP,
+	)
 	r.registerPeerSession(peerID, sess)
 	return sess, nil
 }

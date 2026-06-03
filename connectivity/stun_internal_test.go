@@ -146,6 +146,48 @@ func TestInternalSTUNBucketsCNContainsVerifiedPublicEndpoints(t *testing.T) {
 	}
 }
 
+func TestInternalSTUNServersMergesBucketsAndReturnsClone(t *testing.T) {
+	cn, global := internalSTUNBuckets()
+	got := internalSTUNServers()
+
+	wantCount := 0
+	seenWant := make(map[string]struct{}, len(cn)+len(global))
+	for _, server := range append(cn, global...) {
+		if _, ok := seenWant[server]; ok {
+			continue
+		}
+		seenWant[server] = struct{}{}
+		wantCount++
+	}
+	if len(got) != wantCount {
+		t.Fatalf("internalSTUNServers() length = %d, want %d unique cn+global endpoints", len(got), wantCount)
+	}
+	if got[0] != cn[0] {
+		t.Fatalf("internalSTUNServers()[0] = %q, want cn prefix %q", got[0], cn[0])
+	}
+	if got[1] != global[0] {
+		t.Fatalf("internalSTUNServers()[1] = %q, want global prefix %q", got[1], global[0])
+	}
+
+	seen := make(map[string]struct{}, len(got))
+	for _, server := range got {
+		if _, ok := seen[server]; ok {
+			t.Fatalf("internalSTUNServers() contains duplicate %q", server)
+		}
+		seen[server] = struct{}{}
+	}
+	for _, server := range append(cn, global...) {
+		if _, ok := seen[server]; !ok {
+			t.Fatalf("internalSTUNServers() missing bucket endpoint %q", server)
+		}
+	}
+
+	got[0] = "mutated"
+	if internalSTUNServers()[0] == "mutated" {
+		t.Fatal("internalSTUNServers() should return a cloned list")
+	}
+}
+
 func TestResolveInternalSTUNServersStopsAtEndpointLimit(t *testing.T) {
 	servers := []string{
 		"1.1.1.1:3478",

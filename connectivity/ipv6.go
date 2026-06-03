@@ -1,10 +1,8 @@
 package connectivity
 
 import (
-	"net"
 	"net/netip"
 	"slices"
-	"strings"
 )
 
 var ulaPrefix = netip.MustParsePrefix("fc00::/7")
@@ -64,25 +62,6 @@ func FilterIPv6Candidates(in []IPv6IfaceAddr) []netip.Addr {
 		trimmed = append(trimmed, addrs...)
 	}
 
-	// Prefer global unicast; only keep ULA when no global address exists.
-	hasGlobal := false
-	for _, addr := range trimmed {
-		if !isIPv6ULA(addr) {
-			hasGlobal = true
-			break
-		}
-	}
-	if hasGlobal {
-		tmp := trimmed[:0]
-		for _, addr := range trimmed {
-			if isIPv6ULA(addr) {
-				continue
-			}
-			tmp = append(tmp, addr)
-		}
-		trimmed = tmp
-	}
-
 	slices.SortFunc(trimmed, func(a, b netip.Addr) int {
 		if a.Less(b) {
 			return -1
@@ -99,60 +78,9 @@ func FilterIPv6Candidates(in []IPv6IfaceAddr) []netip.Addr {
 }
 
 func GatherLocalIPv6Candidates() ([]netip.Addr, error) {
-	ifaces, err := net.Interfaces()
+	out, err := gatherLocalIPv6IfaceAddrs()
 	if err != nil {
 		return nil, err
 	}
-
-	out := make([]IPv6IfaceAddr, 0, 16)
-	for _, iface := range ifaces {
-		if (iface.Flags & net.FlagUp) == 0 {
-			continue
-		}
-		if (iface.Flags & net.FlagLoopback) != 0 {
-			continue
-		}
-		if strings.HasPrefix(iface.Name, "zt") || iface.Name == "wt0" {
-			continue
-		}
-
-		addrs, err := iface.Addrs()
-		if err != nil {
-			continue
-		}
-
-		for _, addr := range addrs {
-			var (
-				ip   net.IP
-				ones int
-			)
-			switch v := addr.(type) {
-			case *net.IPNet:
-				ip = v.IP
-				ones, _ = v.Mask.Size()
-			case *net.IPAddr:
-				ip = v.IP
-				ones = 128
-			default:
-				continue
-			}
-
-			na, ok := netip.AddrFromSlice(ip)
-			if !ok || !na.Is6() {
-				continue
-			}
-			if na.Is4In6() {
-				continue
-			}
-			pfx := netip.PrefixFrom(na, ones)
-			out = append(out, IPv6IfaceAddr{
-				IfName:  iface.Name,
-				IfIndex: iface.Index,
-				Prefix:  pfx,
-				Addr:    na,
-			})
-		}
-	}
-
 	return FilterIPv6Candidates(out), nil
 }
