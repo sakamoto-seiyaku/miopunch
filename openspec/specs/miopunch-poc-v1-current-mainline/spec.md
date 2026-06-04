@@ -18,7 +18,7 @@ Historical P0/P1/P2/MNT/XTCP/TCP Door-2 and POC v0 specs SHALL NOT be active cur
 - **AND** old MNT, XTCP, TCP Door-2, and POC v0 specs are not present as active current gates
 
 ### Requirement: Current POC v1 validation uses host checks and real demo evidence
-The current POC v1 validation gate SHALL use host checks plus real Android/Linux/GUI demo evidence.
+The current POC v1 validation gate SHALL use host checks, the VM NAT profile substrate selftest, and real Android/Linux/GUI demo evidence.
 
 The host checks SHALL include:
 
@@ -27,14 +27,17 @@ The host checks SHALL include:
 - `bash scripts/check_no_xtcp_imports.sh`
 - `openspec validate --all --strict`
 
+The VM NAT profile substrate selftest SHALL be `./lab/host/labctl nat-profile-selftest`.
+
 Real demo evidence SHALL cover the current POC v1 flow with logs or reports for network creation or join, peer discovery, `ping`, `sh ls`, and interactive shell over a selected UDP path.
 
-VM lab gates SHALL remain historical/debug-only until a future POC v1 lab capability redefines them.
+Historical `xtcp-*`, `poc-e2e-*`, `mnt01-*`, `mnt02-*`, and `mnt03-*` VM lab suites SHALL remain historical/debug-only and SHALL NOT be current required validation gates.
 
-#### Scenario: VM lab gates are not required for current POC v1 validation
-- **WHEN** a docs-only or OpenSpec-only POC v1 mainline realignment is verified
-- **THEN** validation does not require `labctl selftest`, `xtcp-selftest`, `xtcp-connectivity-selftest`, or `xtcp-fulltest`
-- **AND** current validation records host checks and real-demo evidence instead
+#### Scenario: Current POC v1 validation uses named NAT profile lab gate
+- **WHEN** a code-affecting POC v1 mainline change is verified
+- **THEN** validation includes the host checks
+- **AND** validation includes `./lab/host/labctl nat-profile-selftest`
+- **AND** validation does not require `labctl selftest`, `xtcp-selftest`, `xtcp-connectivity-selftest`, `xtcp-fulltest`, `poc-e2e-*`, `mnt01-*`, `mnt02-*`, or `mnt03-*`
 
 ### Requirement: Current POC v1 pathing is UDP-only direct-first
 Current POC v1 peer session establishment SHALL use UDP carrier semantics only.

@@ -100,13 +100,13 @@ bash scripts/check_no_xtcp_imports.sh
 ### Lab checks (VM, full gate set)
 
 ```bash
-./lab/host/labctl selftest
-./lab/host/labctl xtcp-selftest
-./lab/host/labctl xtcp-connectivity-selftest
-./lab/host/labctl xtcp-fulltest
+./lab/host/labctl nat-profile-selftest
 ```
 
 Artifacts are pulled into `lab/_artifacts/`.
+
+Historical/debug suites such as `xtcp-*`, `poc-e2e-*`, `mnt01-*`, `mnt02-*`,
+and `mnt03-*` are not current required gates.
 
 Optional cleanup:
 

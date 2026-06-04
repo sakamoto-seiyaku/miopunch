@@ -48,6 +48,8 @@
   - `go test ./...`
   - `go vet ./...`
   - `bash scripts/check_no_xtcp_imports.sh`
+- 当前 POC v1 主线 VM substrate check：
+  - `./lab/host/labctl nat-profile-selftest`
 - 当前 POC v1 真实验证优先使用 Android/Linux/GUI demo evidence：
   - network create/join/approve
   - `ls`
@@ -55,7 +57,7 @@
   - `sh ls`
   - interactive `sh`
   - selected UDP path facts and daemon/app logs
-- VM lab gates 暂缓，不作为当前主线必过项；如需恢复，必须先用新的 POC v1 lab OpenSpec change 重定义。
+- 旧 `xtcp-*`、`poc-e2e-*`、`mnt01-*`、`mnt02-*`、`mnt03-*` VM suites 仍是历史/调试项，不是当前主线必过项。
 
 ### Git Workflow
 
@@ -77,7 +79,7 @@
 - 当前项目首先服务面试/demo-ready POC，而不是完整终端用户产品。
 - 不允许因为实现方便偏离已记录的 POC v1 决策；偏离必须进入 docs/specs 并可追溯。
 - 当前 POC v1 pathing 是 UDP-only；`tcp_only` 必须 explicit unsupported，不能静默 UDP fallback。
-- 当前验证不运行旧 VM lab gates，直到新的 POC v1 lab spec 定义并恢复它们。
+- 当前验证只恢复 `nat-profile-selftest` 这个 VM NAT profile substrate gate；旧 XTCP/MNT/POC e2e VM suites 不作为当前必过项。
 
 ## External Dependencies
 

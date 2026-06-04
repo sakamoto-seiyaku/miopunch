@@ -1,21 +1,26 @@
-# NAT Lab Testbed (historical/debug)
+# NAT Lab Testbed
 
-This directory contains the historical VM/netns lab runtime that supported the
+This directory contains the VM/netns lab runtime that originally supported the
 old P0/P1/P2/XTCP/MNT validation tracks.
 
-Current POC v1 does **not** use these VM lab gates as required validation.
-They remain available for manual debugging, archaeology, and future redesign.
-Before any command here becomes a current POC v1 gate again, a new OpenSpec
-change must define the POC v1 lab scope, expected evidence, and acceptance
-criteria.
+Current POC v1 restores only the P0 NAT profile substrate gate as required VM
+validation:
+
+- `./lab/host/labctl nat-profile-selftest`
+
+That command runs the baseline `core-01..core-10` NAT profile cases inside the
+VM/netns lab and expects `pass=10 fail=0`. The old `xtcp-*`, `poc-e2e-*`,
+`mnt01-*`, `mnt02-*`, and `mnt03-*` suites remain available for manual
+debugging, archaeology, and future redesign, but they are not current required
+gates.
 
 Current POC v1 validation is documented by:
 
 - `openspec/specs/miopunch-poc-v1-current-mainline/spec.md`
 - `AGENTS.md`
 
-Current required checks are host checks plus real Android/Linux/GUI demo
-evidence, not the legacy `selftest`, `xtcp-*`, or `mnt*` VM gates.
+Current required checks are host checks, `nat-profile-selftest`, and real
+Android/Linux/GUI demo evidence.
 
 Key documents:
 - Charter: `docs/decisions/p0-nat-lab-charter.md`
@@ -37,7 +42,7 @@ Prereqs on the host:
 - `qemu-system-x86_64`, `qemu-img`
 - `cloud-localds` (cloud-init seed generator)
 - `ssh`, `ssh-keygen`, `rsync`, `curl`
-- `go` (only required for `labctl push-bin` / `labctl xtcp-selftest`)
+- `go` (only required for `labctl push-bin` and product-driven historical/debug gates)
 
 Install (Debian/Ubuntu):
 
@@ -55,13 +60,13 @@ Bring up the single VM:
 ./lab/host/labctl wait
 ```
 
-Or run everything end-to-end:
+Run the current NAT profile substrate gate end-to-end:
 
 ```bash
-./lab/host/labctl selftest
+./lab/host/labctl nat-profile-selftest
 ```
 
-Example selftest report (captured runs + artifacts pointers):
+Historical P0 selftest report (captured runs + artifacts pointers):
 - `docs/reports/2026-03-17-selftest.md`
 
 Historical/debug only: run P1 `xtcp-kernel` integration regression (builds `cmd/miopunch-lab` on host, pushes into VM, runs guest matrix, pulls artifacts):
@@ -142,7 +147,7 @@ Artifacts (from MNT-01) are pulled into `lab/_artifacts/` on the host. Each case
 
 Each MNT-01 aggregate directory contains `cases.txt` and `summary.json`; the summary includes pass/fail counts plus `required_pass`, `preferred_success`, `allowed_diag_fail`, `required_fail`, and `unexpected_fail`.
 
-Artifacts (from `selftest`) are also pulled into `lab/_artifacts/`. Each run dir contains:
+Artifacts (from `nat-profile-selftest`) are pulled into `lab/_artifacts/`. Each run dir contains:
 - `validate.log`: observed `RFC 4787` mapping/filtering + `NAT1-4` labels.
 - `mlab-map-*`, `mlab-mapped-*`: tcpdump lines used by the validator (per-side, per-try).
 - `wan.pcap`, `natA/natB` snapshots, `run.env`, `case.env`.
@@ -171,10 +176,10 @@ sudo /opt/miopunch-lab/guest/bin/mlab validate case
 sudo /opt/miopunch-lab/guest/bin/mlab case deactivate
 ```
 
-Run a full self-test (runs all core cases and stores artifacts):
+Run the NAT profile selftest inside the guest (runs all core cases and stores artifacts):
 
 ```bash
-sudo /opt/miopunch-lab/guest/bin/mlab-selftest
+sudo /opt/miopunch-lab/guest/bin/mlab-nat-profile-selftest
 ```
 
 Pull artifacts back to the host:

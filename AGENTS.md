@@ -8,7 +8,8 @@
 - Full validation for mainline code-affecting changes:
   - `export PATH=/usr/local/go/bin:$PATH`
   - `go test ./...`, `go vet ./...`, `bash scripts/check_no_xtcp_imports.sh`
-  - Current POC v1 mainline validation does not run VM lab gates; they remain historical/debug until a future POC v1 lab change redefines them.
-  <!-- - `./lab/host/labctl selftest`, `./lab/host/labctl xtcp-selftest`, `./lab/host/labctl xtcp-connectivity-selftest`, `./lab/host/labctl xtcp-fulltest` -->
+  - VM test is required: `./lab/host/labctl nat-profile-selftest`
+    - Current VM test scope is the NAT-type / punching baseline (`core-01..core-10`), not the old full XTCP/MNT suites.
+  - Historical/debug VM suites such as `xtcp-*`, `poc-e2e-*`, and `mnt*` are not current required gates.
 - Docs-only / notes-only / OpenSpec-only changes do not require the full validation set unless explicitly requested.
 - Prefer `miopunch` naming; avoid introducing new `xtcp` names/paths/imports.

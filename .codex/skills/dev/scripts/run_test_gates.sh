@@ -19,17 +19,8 @@ go vet ./...
 echo "== scripts/check_no_xtcp_imports.sh =="
 bash scripts/check_no_xtcp_imports.sh
 
-echo "== lab/host/labctl selftest =="
-./lab/host/labctl selftest
-
-echo "== lab/host/labctl xtcp-selftest =="
-./lab/host/labctl xtcp-selftest
-
-echo "== lab/host/labctl xtcp-connectivity-selftest =="
-./lab/host/labctl xtcp-connectivity-selftest
-
-echo "== lab/host/labctl xtcp-fulltest =="
-./lab/host/labctl xtcp-fulltest
+echo "== lab/host/labctl nat-profile-selftest =="
+./lab/host/labctl nat-profile-selftest
 
 if [[ "${LAB_DOWN_AFTER:-0}" == "1" ]]; then
   echo "== lab/host/labctl down =="
