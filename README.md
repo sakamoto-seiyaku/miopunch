@@ -9,8 +9,10 @@ Start with [CONTEXT.md](CONTEXT.md), the [product direction draft](docs/notes/20
 
 The former Go/Android prototype, OpenSpec artifacts, lab, scripts, and local
 agent prompts are retained in [the legacy archive](archive/legacy-go-openspec-2026-09-28/README.md).
-Do not treat the archived implementation or its test commands as the new
-baseline. Existing local build output in `dist/` is retained but not tracked.
+The archived implementation and test commands are not automatically the new
+baseline. Whether to reuse, adapt, or replace the old validation tooling is
+still undecided. Existing local build output in `dist/` is retained but not
+tracked.
 
 Work items and decision tickets live in the Plane `MIOPUNCH` project. See
 [the agent tracker guide](docs/agents/issue-tracker.md).

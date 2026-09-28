@@ -4,8 +4,10 @@
 
 The repository root is a new design baseline. The former Go/Android code,
 OpenSpec material, and project-local development skills are under
-`archive/legacy-go-openspec-2026-09-28/` for reference only. Do not apply the
-old Go/OpenSpec workflow or its test gates to new work by default.
+`archive/legacy-go-openspec-2026-09-28/` without a current implementation
+role. Do not apply the old Go/OpenSpec workflow or its test gates to new work
+by default. Whether old tests and scripts should be reused, adapted, or
+replaced is undecided.
 
 Do not turn research suggestions into product decisions. Read the current
 design entry points before planning implementation, and record new decisions

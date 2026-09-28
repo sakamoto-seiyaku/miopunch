@@ -32,7 +32,8 @@ clearly. Official facilities must not become an inescapable dependency.
 
 The invitation and membership-proof flow, pre-connection signaling protection,
 state synchronization choice, resource policy, service ACL, and concrete iroh
-and p2panda integration are not settled. Research in `docs/notes/` informs
+and p2panda integration are not settled. Reuse or replacement of the archived
+tests and lab scripts is also undecided. Research in `docs/notes/` informs
 these decisions but does not decide them. Record accepted, hard-to-reverse
 decisions in `docs/adr/`; track unresolved decisions in Plane.
 
