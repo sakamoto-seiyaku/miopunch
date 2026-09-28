@@ -8,10 +8,11 @@ the active design path.
 
 ## Current Entries
 
-- `archive/_legacy_poc_v0/`
-  - Removed legacy POC implementation that current
-    `poc-v1-01..07` changes are extracting away from.
-  - The active root module no longer carries those live source paths; this
-    archive is now the retained reference copy.
-  - Retired lab/control-plane smoke commands live under `live_removed/` so
-    root-module `go test ./...` stays focused on the current POC product path.
+- `archive/_legacy_poc_v0/`: an earlier retired POC implementation.
+- `archive/openspec-specs/`: an earlier OpenSpec snapshot.
+- `archive/legacy-go-openspec-2026-09-28/`: the final Go/Android prototype,
+  OpenSpec workspace, lab, build tooling, and local agent prompts retired
+  when the September 2026 redesign became the repository's new baseline.
+
+Archived code and documents may describe obsolete paths and workflows. The
+current design entry points are in the root README and `CONTEXT.md`.

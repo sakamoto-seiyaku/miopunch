@@ -1,0 +1,18 @@
+{
+  "base_url": "http://192.168.4.22:2080",
+  "workspace_slug": "work",
+  "secret_service": "plane-plus",
+  "secret_username": "api_key",
+  "default_project": {
+    "name": "miopunch",
+    "identifier": "MIOPUNCH",
+    "id": "aa58cd82-2afc-404b-a097-58ef553c7ca4"
+  },
+  "unsupported_operations": [
+    "work-item.relations.remove"
+  ],
+  "defaults": {
+    "per_page": 100,
+    "priority": "none"
+  }
+}

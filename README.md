@@ -1,50 +1,16 @@
 # miopunch
 
-miopunch is currently a POC for peer-to-peer remote control over a punched UDP
-path. The present goal is an interview/demo-ready system, not a polished product
-or installer.
+miopunch is being redesigned as an identity-based private network for personal
+and small-group use. The September 2026 work is product and architecture
+discussion, not an implementation release. There is no active runtime in the
+repository root yet.
 
-The validated POC surface is:
+Start with [CONTEXT.md](CONTEXT.md), the [product direction draft](docs/notes/2026-09-27-product-mainline-draft.md), and the [scenario walkthrough](docs/notes/2026-09-28-network-scenario-walkthrough.md). These documents distinguish confirmed behavior from open design questions. Research reports in `docs/notes/` are evidence, not approved implementation plans.
 
-- portable Linux and Windows desktop session bundles
-- a desktop GUI that starts or reuses the bundled `miopunch` runtime
-- CLI/runtime commands for network init, invite/join/approve, peer discovery,
-  ping, and remote shell
-- an Android control-lite debug APK that can join the POC network, ping a
-  Linux/WSL peer, and open the remote shell from a phone
+The former Go/Android prototype, OpenSpec artifacts, lab, scripts, and local
+agent prompts are retained in [the legacy archive](archive/legacy-go-openspec-2026-09-28/README.md).
+Do not treat the archived implementation or its test commands as the new
+baseline. Existing local build output in `dist/` is retained but not tracked.
 
-## Release Artifacts
-
-The current release tag is `v0.0.3`. The release workflow publishes:
-
-- `miopunch_v0.0.3_linux_amd64_session.tar.gz`
-- `miopunch_v0.0.3_windows_amd64_session.zip`
-- `miopunch_v0.0.3_android_arm64_control-lite-debug.apk`
-- `checksums.txt`
-- `release-manifest.json`
-
-## Local Checks
-
-```bash
-export PATH=/usr/local/go/bin:$PATH
-go test ./...
-go vet ./...
-bash scripts/check_no_xtcp_imports.sh
-```
-
-Desktop UI smoke:
-
-```bash
-cd cmd/miopunch-desktop/frontend
-npm test
-```
-
-Build release artifacts locally:
-
-```bash
-MIOPUNCH_VERSION=v0.0.3 bash scripts/release/build_bundles.sh
-MIOPUNCH_VERSION=v0.0.3 bash scripts/release/build_android_control_lite.sh
-bash scripts/release/generate_manifest.sh dist/release
-```
-
-Android build requirements are documented in `android/control-lite/README.md`.
+Work items and decision tickets live in the Plane `MIOPUNCH` project. See
+[the agent tracker guide](docs/agents/issue-tracker.md).

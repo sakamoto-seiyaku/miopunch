@@ -1,15 +1,30 @@
+@/home/js/.codex/RTK.md
+
 # miopunch agent rules
 
-- Before making any code/spec/test changes, read and follow the `$dev` skill at `.codex/skills/dev`.
-- When Go work touches goroutines, channels, mutexes, WaitGroups, shared state, or parallel execution, explicitly read and follow the `$go-concurrency` skill in addition to `$dev`.
-- Prefer the OpenSpec workflow for non-trivial work: propose/new-change → apply → verify → archive.
-- Full validation is required when a code-affecting change enters the mainline branch, whether by direct commit or merge.
-- Code-affecting changes include Go code, tests, lab/runtime scripts, and other execution-affecting files.
-- Full validation for mainline code-affecting changes:
-  - `export PATH=/usr/local/go/bin:$PATH`
-  - `go test ./...`, `go vet ./...`, `bash scripts/check_no_xtcp_imports.sh`
-  - VM test is required: `./lab/host/labctl nat-profile-selftest`
-    - Current VM test scope is the NAT-type / punching baseline (`core-01..core-10`), not the old full XTCP/MNT suites.
-  - Historical/debug VM suites such as `xtcp-*`, `poc-e2e-*`, and `mnt*` are not current required gates.
-- Docs-only / notes-only / OpenSpec-only changes do not require the full validation set unless explicitly requested.
-- Prefer `miopunch` naming; avoid introducing new `xtcp` names/paths/imports.
+The repository root is a new design baseline. The former Go/Android code,
+OpenSpec material, and project-local development skills are under
+`archive/legacy-go-openspec-2026-09-28/` for reference only. Do not apply the
+old Go/OpenSpec workflow or its test gates to new work by default.
+
+Do not turn research suggestions into product decisions. Read the current
+design entry points before planning implementation, and record new decisions
+explicitly. Use Plane for tasks; never use Plane MCP.
+
+## Agent skills
+
+### Issue tracker
+
+Issues, PRDs, and decision tickets live in Plane's `MIOPUNCH` project. Use the
+global `plane-ops` skill with this repo's defaults, not Plane MCP. See
+`docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the five default triage roles in Plane. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repo. Read `CONTEXT.md`, the current design notes,
+and relevant ADRs before architectural work. Archived Go/OpenSpec material is
+historical only. See `docs/agents/domain.md`.
