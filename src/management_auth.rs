@@ -9,7 +9,9 @@ use std::collections::{HashMap, HashSet};
 use p2panda_auth::group::resolver::StrongRemove;
 use p2panda_auth::group::{GroupAction, GroupCrdt, GroupCrdtError, GroupCrdtState, GroupMember};
 use p2panda_auth::{Access, GroupsExtensionArgs, GroupsOperation};
-use p2panda_core::{Hash, Header, HeaderError, VerifyingKey};
+use p2panda_core::{
+    Body, Hash, Header, HeaderError, Operation, OperationError, VerifyingKey, validate_operation,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -41,8 +43,12 @@ pub struct ManagementExtension {
 pub enum AuthError {
     #[error("invalid signed p2panda header: {0}")]
     Header(#[from] HeaderError),
-    #[error("wrong network, version, or non-empty management payload")]
+    #[error("wrong network or management record version")]
     InvalidEnvelope,
+    #[error("signed management record requires a body that has not arrived")]
+    IncompleteBody,
+    #[error("invalid management operation: {0}")]
+    Operation(#[from] OperationError),
     #[error("the operation depends on unavailable history")]
     MissingHistory,
     #[error("author log sequence or backlink is invalid")]
@@ -53,8 +59,8 @@ pub enum AuthError {
     Group(#[from] CrdtError),
 }
 
-/// Volatile verification graph for the narrow authorization experiment.
-/// Durable storage, ingest transactions, and recovery bootstrap are later tickets.
+/// Verification graph shared by live receipt and durable replay.
+#[derive(Clone)]
 pub struct ManagementAuth {
     anchor: NetworkAnchor,
     state: State,
@@ -76,14 +82,14 @@ impl ManagementAuth {
     /// Ed25519 signature; the action and dependencies are inside that signature.
     /// Failed operations leave this view and its retained history untouched.
     pub fn accept(&mut self, bytes: &[u8]) -> Result<Hash, AuthError> {
-        let header = Header::<ManagementExtension>::decode(bytes)?;
+        self.accept_record(bytes, None)
+    }
+
+    /// Require a complete signed operation before it can enter the graph.
+    /// A header claiming a non-empty body is never accepted without its bytes.
+    pub fn accept_record(&mut self, bytes: &[u8], body: Option<&[u8]>) -> Result<Hash, AuthError> {
+        let header = decode_complete(bytes, body, self.anchor)?;
         let extension = &header.extensions;
-        if extension.version != 1
-            || extension.group.group_id != self.anchor.root
-            || header.payload_size != 0
-        {
-            return Err(AuthError::InvalidEnvelope);
-        }
 
         let operation = GroupsOperation {
             id: header.hash(),
@@ -132,6 +138,33 @@ impl ManagementAuth {
         Ok(auth)
     }
 
+    pub fn replay_records(
+        anchor: NetworkAnchor,
+        records: &[(Vec<u8>, Option<Vec<u8>>)],
+    ) -> Result<Self, AuthError> {
+        let mut auth = Self::new(anchor);
+        for (header, body) in records {
+            auth.accept_record(header, body.as_deref())?;
+        }
+        Ok(auth)
+    }
+
+    pub(crate) fn state_bytes(&self) -> Result<Vec<u8>, p2panda_core::cbor::EncodeError> {
+        p2panda_core::cbor::encode_cbor(&self.state)
+    }
+
+    pub(crate) fn matches_member_view_bytes(
+        &self,
+        bytes: &[u8],
+    ) -> Result<bool, p2panda_core::cbor::DecodeError> {
+        let persisted: State = p2panda_core::cbor::decode_cbor(bytes)?;
+        let mut persisted_nodes = persisted.members(self.anchor.root);
+        let mut replayed_nodes = self.state.members(self.anchor.root);
+        persisted_nodes.sort_by_key(|(id, _)| *id.as_bytes());
+        replayed_nodes.sort_by_key(|(id, _)| *id.as_bytes());
+        Ok(persisted_nodes == replayed_nodes)
+    }
+
     pub fn headers(&self) -> &[Vec<u8>] {
         &self.headers
     }
@@ -152,6 +185,27 @@ impl ManagementAuth {
     pub fn filtered_operation(&self, id: Hash) -> bool {
         self.state.inner.ignore.contains(&id)
     }
+}
+
+pub(crate) fn decode_complete(
+    bytes: &[u8],
+    body: Option<&[u8]>,
+    anchor: NetworkAnchor,
+) -> Result<Header<ManagementExtension>, AuthError> {
+    let header = Header::<ManagementExtension>::decode(bytes)?;
+    if header.extensions.version != 1 || header.extensions.group.group_id != anchor.root {
+        return Err(AuthError::InvalidEnvelope);
+    }
+    if header.payload_size > 0 && body.is_none() {
+        return Err(AuthError::IncompleteBody);
+    }
+    let operation = Operation {
+        hash: header.hash(),
+        header: header.clone(),
+        body: body.map(Body::from_bytes),
+    };
+    validate_operation(&operation)?;
+    Ok(header)
 }
 
 fn has_ancestor(target: Hash, dependencies: &[Hash], state: &State) -> bool {
