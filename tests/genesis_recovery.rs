@@ -420,3 +420,77 @@ async fn same_root_alternate_create_cannot_replace_saved_network_history() {
     client_endpoint.close().await;
     server_endpoint.close().await;
 }
+
+#[tokio::test]
+async fn revoked_old_grant_cannot_be_replayed_as_a_completed_recovery() {
+    let (_path, root, _old_admin, ordinary, anchor, mut store) = prepared_member().await;
+    let recovering = SigningKey::generate();
+    let credential = GenesisCredential::from_saved(*root.as_bytes(), anchor.genesis);
+    let secret = AdmissionSecret::generate();
+    let scope = AdmissionScope::new(*anchor.root.as_bytes(), 3);
+
+    let (client_endpoint, server_endpoint, client, server) = pair(&ordinary, &recovering).await;
+    let (recovered, served) = tokio::join!(
+        recover_client(&client_endpoint, &client, &credential, server_endpoint.id()),
+        serve_recovery(&server_endpoint, &server, &mut store, &scope, &secret),
+    );
+    let recovered = recovered.unwrap();
+    assert_eq!(served.unwrap(), recovered.grant_id);
+    let old_grant = recovered.records.last().unwrap().clone();
+    client_endpoint.close().await;
+    server_endpoint.close().await;
+
+    let removal = signed(
+        &root,
+        anchor.root,
+        GroupAction::Remove {
+            member: GroupMember::Individual(recovering.verifying_key()),
+        },
+        vec![recovered.grant_id],
+        9,
+    );
+    store.ingest(&removal).await.unwrap();
+    assert_eq!(store.apply_ready().await.unwrap(), 1);
+    assert!(
+        !store
+            .nodes()
+            .iter()
+            .any(|(node, _)| *node == recovering.verifying_key())
+    );
+
+    let (client_endpoint, server_endpoint, client, server) = pair(&ordinary, &recovering).await;
+    let signature = proof_signature(
+        &root,
+        &client,
+        anchor,
+        client_endpoint.id(),
+        server_endpoint.id(),
+    );
+    let (received, served) = tokio::join!(
+        async {
+            let (mut send, mut recv) = client.open_bi().await.unwrap();
+            send.write_all(&signature).await.unwrap();
+            let mut len = [0; 4];
+            recv.read_exact(&mut len).await.unwrap();
+            let mut history = vec![0; u32::from_be_bytes(len) as usize];
+            recv.read_exact(&mut history).await.unwrap();
+            send.write_all(&(old_grant.header().len() as u32).to_be_bytes())
+                .await
+                .unwrap();
+            send.write_all(old_grant.header()).await.unwrap();
+            let mut acknowledgment = [0; 32];
+            recv.read_exact(&mut acknowledgment).await
+        },
+        serve_recovery(&server_endpoint, &server, &mut store, &scope, &secret),
+    );
+    assert!(received.is_err(), "stale grant was acknowledged");
+    assert!(served.is_err(), "stale grant completed recovery");
+    assert!(
+        !store
+            .nodes()
+            .iter()
+            .any(|(node, _)| *node == recovering.verifying_key())
+    );
+    client_endpoint.close().await;
+    server_endpoint.close().await;
+}

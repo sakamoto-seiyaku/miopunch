@@ -375,11 +375,16 @@ pub async fn serve_recovery(
         let grant = ManagementRecord::new(read_frame(&mut recv, MAX_GRANT_BYTES).await?, None);
         let header = Header::<ManagementExtension>::decode(grant.header())
             .map_err(|_| RecoveryError::Rejected)?;
+        let recovering_node = endpoint_key(connection.remote_id())?;
         if header.verifying_key != anchor.root
+            || header.seq_num != 0
+            || header.backlink.is_some()
+            || store.has_author_log_id(anchor.root, header.extensions.log_id)
+            || header.extensions.group.dependencies != store.tips()
             || !matches!(
                 &header.extensions.group.action,
                 GroupAction::Add { member: GroupMember::Individual(node), access }
-                    if *node == endpoint_key(connection.remote_id())? && *access == Access::manage()
+                    if *node == recovering_node && *access == Access::manage()
             )
         {
             return Err(RecoveryError::Rejected);
@@ -387,6 +392,9 @@ pub async fn serve_recovery(
         let grant_id = store.ingest(&grant).await?;
         store.apply_ready().await?;
         if store.get_record(grant_id).await?.is_none() {
+            return Err(RecoveryError::Rejected);
+        }
+        if !store.nodes().contains(&(recovering_node, Access::manage())) {
             return Err(RecoveryError::Rejected);
         }
         send.write_all(grant_id.as_bytes())

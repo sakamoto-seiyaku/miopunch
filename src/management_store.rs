@@ -299,6 +299,14 @@ impl ManagementStore {
         self.anchor
     }
 
+    pub fn tips(&self) -> Vec<Hash> {
+        self.auth.tips()
+    }
+
+    pub fn has_author_log_id(&self, author: VerifyingKey, log_id: [u8; 16]) -> bool {
+        self.auth.has_author_log_id(author, log_id)
+    }
+
     /// Only committed, authorized records are supplied as control history.
     pub async fn get_record(&self, id: Hash) -> Result<Option<ManagementRecord>, StoreError> {
         let row = sqlx::query(

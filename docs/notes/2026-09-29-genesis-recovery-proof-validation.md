@@ -18,6 +18,8 @@ Run `cargo test --locked --test genesis_recovery` with loopback sockets permitte
 
 The priority failure test supplies a wrong root signature, the correct root signing a different Create hash, the wrong target node ID, and a signature copied from a previous TLS connection. Each is rejected before the member sends even the first history byte; no authorization record is applied. Calling the public recovery entry with a saved but wrong Create hash also fails. This verifies the actual root signature and exporter-bound peer/session context through real TLS, rather than a mocked proof result.
 
+A further real TLS regression first grants management to the recovering node, then removes that node and replays its old signed grant in a fresh recovery session. The ordinary member rejects the replay without acknowledging recovery. Its server entry requires a sequence-zero root grant with a previously unused root log ID, dependencies on the current applied graph heads, and effective `Manage` access after durable application; an old applied record cannot stand in for a new recovery grant.
+
 ## Limits for follow-on implementation
 
 The serving member proves what its **local** authorized history and configured secret generation contain. Neither party proves that this is the network's globally latest state; a later synchronization may correct it. The fixed Create hash prevents a different root-signed history from being mistaken for the original network, even when both histories use the same root public key. Losing that hash makes this recovery credential incomplete; the implementation does not silently adopt a new peer-selected anchor.
