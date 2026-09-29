@@ -15,6 +15,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{Span, error, trace};
 
 pub(crate) use self::remote_state::PathStateReceiver;
+pub(crate) use self::remote_state::PATH_IDENTIFIERS_UNAVAILABLE;
 use self::remote_state::RemoteStateActor;
 pub(super) use self::remote_state::RemoteStateMessage;
 pub use self::remote_state::{

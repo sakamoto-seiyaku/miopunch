@@ -656,6 +656,12 @@ async fn real_mqtt_control_connection_upgrades_to_udp_without_redial() {
     .expect("remote custom path packet did not reach the pre-QUIC ingress gate");
     assert!(server_traffic.received_packets() > adapter_before_reopen);
     client.commit_data_path(&client_conn).await.unwrap();
+    assert!(
+        client
+            .prime_udp_path(&client_conn, server_udp)
+            .await
+            .is_err()
+    );
     wait_control_closed(client_events).await;
     wait_control_closed(server_events).await;
     assert_eq!(client_conn.stable_id(), client_id);

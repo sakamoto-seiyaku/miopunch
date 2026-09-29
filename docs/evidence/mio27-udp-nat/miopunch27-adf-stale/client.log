@@ -1,0 +1,2 @@
+CANDIDATE id=24d4544cc6decf8dfbf545074f7f359d483136c2dfaa14437a29bbc5c4047ebe sockets=[0.0.0.0:42027, [::]:40488] observed=100.64.27.2:42027 mapping_varies=None
+STALE_CANDIDATE rejected_before_exchange stable_id=94616725872928

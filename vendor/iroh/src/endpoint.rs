@@ -982,6 +982,20 @@ pub enum ConnectError {
 }
 
 impl Endpoint {
+    /// Test-only hook: make the next explicit data-path open on this restricted
+    /// connection return the same transient path-ID result as noq exhaustion.
+    /// The following attempt uses the real QUIC and UDP data path.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub async fn test_force_path_id_retry_once(
+        &self,
+        connection: &connection::Connection,
+    ) -> std::io::Result<()> {
+        self.inner
+            .test_force_path_id_retry_once(connection.remote_id(), connection.stable_id())
+            .await
+    }
+
     /// Test-only hook that simulates a peer reopening a custom QUIC path
     /// while the other side has already committed to data-only traffic.
     #[cfg(feature = "miopunch-test-hooks")]
@@ -1005,6 +1019,22 @@ impl Endpoint {
     ) -> std::io::Result<()> {
         self.inner
             .open_data_path(connection.remote_id(), connection.stable_id(), remote)
+            .await
+    }
+
+    /// Send a small non-QUIC UDP datagram from this endpoint's actual QUIC socket.
+    ///
+    /// The connection must still be in its authenticated, restricted control
+    /// phase. Callers supply an authorized peer candidate; this only opens a
+    /// local NAT mapping and does not establish a QUIC path or grant data use.
+    #[cfg(not(wasm_browser))]
+    pub async fn prime_udp_path(
+        &self,
+        connection: &connection::Connection,
+        remote: SocketAddr,
+    ) -> std::io::Result<()> {
+        self.inner
+            .prime_udp_path(connection.remote_id(), connection.stable_id(), remote)
             .await
     }
 

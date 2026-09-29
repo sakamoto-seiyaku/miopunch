@@ -14,6 +14,9 @@ exclude = ["vendor/iroh", "vendor/noq", "vendor/noq-proto"]
 unused_async = "warn"
 needless_pass_by_ref_mut = "warn"
 
+[features]
+nat-lab-test-hooks = ["iroh/miopunch-test-hooks"]
+
 [workspace.dependencies]
 blake3 = "1.8.5"
 futures-channel = "0.3.32"

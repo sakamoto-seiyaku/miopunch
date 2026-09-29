@@ -1,0 +1,4 @@
+CANDIDATE id=e32de3b9862e851ce45749e1e6efcbe51bb5de0466b24529af492ad223600560 sockets=[0.0.0.0:42027, [::]:52233] observed=100.64.27.2:42027 mapping_varies=None
+CONTROL_READY stable_id=93946912074768
+MQTT_CLOSE result=Mqtt state: Connection closed by peer abruptly
+CONTROL_UNAVAILABLE reason=Ok(Err(Elapsed(()))) mqtt=MQTT_TRAFFIC sent_packets=22 sent_bytes=10041 received_packets=11 received_bytes=8435 rejected_packets=0 max_datagram=2048 queue_depth=64

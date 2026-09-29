@@ -50,6 +50,10 @@ mod remote_info;
 /// attempted more frequently than at this interval.
 const HOLEPUNCH_ATTEMPTS_INTERVAL: Duration = Duration::from_secs(5);
 
+/// A connection-specific retry is needed after noq issues further path IDs.
+pub(crate) const PATH_IDENTIFIERS_UNAVAILABLE: &str =
+    "path identifiers unavailable; retry explicit path";
+
 /// The latency at or under which we don't try to upgrade to a better path.
 const GOOD_ENOUGH_LATENCY: Duration = Duration::from_millis(10);
 
@@ -98,6 +102,8 @@ type AddrEvents = MergeUnbounded<
 pub(super) struct RemoteStateActor {
     /// All connections we have to this remote endpoint.
     connections: FxHashMap<ConnId, ConnectionState>,
+    #[cfg(feature = "miopunch-test-hooks")]
+    force_path_id_retry_once: Option<ConnId>,
     /// State of the actor and hooks into the rest of the remote endpoint.
     ///
     /// This is on a separate struct so that we can have parallel mutable borrows to
@@ -181,6 +187,8 @@ impl RemoteStateActor {
     ) -> Self {
         Self {
             connections: FxHashMap::default(),
+            #[cfg(feature = "miopunch-test-hooks")]
+            force_path_id_retry_once: None,
             state: State {
                 endpoint_id,
                 metrics: metrics.clone(),
@@ -369,6 +377,12 @@ impl RemoteStateActor {
                         Err("data path opening requires a restricted control connection")
                     } else if let Some(conn) = state.handle.upgrade() {
                         if conn.side().is_client() {
+                            #[cfg(feature = "miopunch-test-hooks")]
+                            if self.force_path_id_retry_once == Some(ConnId(conn_id)) {
+                                self.force_path_id_retry_once = None;
+                                let _ = tx.send(Err(PATH_IDENTIFIERS_UNAVAILABLE));
+                                return;
+                            }
                             let path =
                                 transports::FourTuple::from_remote(transports::Addr::Ip(remote));
                             self.state
@@ -381,6 +395,37 @@ impl RemoteStateActor {
                     }
                 } else {
                     Err("connection not registered")
+                };
+                let _ = tx.send(result);
+            }
+            RemoteStateMessage::AuthorizeUdpProbe { conn_id, tx } => {
+                let result = match self.connections.get(&ConnId(conn_id)) {
+                    Some(state)
+                        if state.purpose == ConnectionPurpose::Control
+                            && state.handle.upgrade().is_some() =>
+                    {
+                        Ok(())
+                    }
+                    _ => Err("UDP probe requires a live restricted control connection"),
+                };
+                let _ = tx.send(result);
+            }
+            #[cfg(feature = "miopunch-test-hooks")]
+            RemoteStateMessage::TestForcePathIdRetry { conn_id, tx } => {
+                let result = match self.connections.get(&ConnId(conn_id)) {
+                    Some(state) if state.purpose == ConnectionPurpose::Control => {
+                        if state
+                            .handle
+                            .upgrade()
+                            .is_some_and(|conn| conn.side().is_client())
+                        {
+                            self.force_path_id_retry_once = Some(ConnId(conn_id));
+                            Ok(())
+                        } else {
+                            Err("test retry requires a live dialing connection")
+                        }
+                    }
+                    _ => Err("test retry requires a restricted control connection"),
                 };
                 let _ = tx.send(result);
             }
@@ -1260,7 +1305,7 @@ impl State {
                         if explicit_request {
                             // A peer-wide retry queue has no connection/attempt binding.
                             // The caller must retry this explicit request instead.
-                            return Err("path identifiers unavailable; retry explicit path");
+                            return Err(PATH_IDENTIFIERS_UNAVAILABLE);
                         }
                         self.scheduled_open_path =
                             Some(Instant::now() + Duration::from_millis(333));
@@ -1369,6 +1414,16 @@ pub(crate) enum RemoteStateMessage {
     OpenDataPath {
         conn_id: usize,
         remote: SocketAddr,
+        tx: oneshot::Sender<Result<(), &'static str>>,
+    },
+    /// Permit a same-socket UDP NAT probe while this connection is restricted.
+    AuthorizeUdpProbe {
+        conn_id: usize,
+        tx: oneshot::Sender<Result<(), &'static str>>,
+    },
+    #[cfg(feature = "miopunch-test-hooks")]
+    TestForcePathIdRetry {
+        conn_id: usize,
         tx: oneshot::Sender<Result<(), &'static str>>,
     },
     /// Attempts to open an additional control route on a restricted connection.

@@ -1,0 +1,4 @@
+CANDIDATE id=121fc7722305408c34f920aac752fac5c2e275d35c4fe06b1fd6734d7bdaca2b sockets=[0.0.0.0:43027, [::]:45478] observed=100.64.27.6:43027 mapping_varies=None
+READY id=121fc7722305408c34f920aac752fac5c2e275d35c4fe06b1fd6734d7bdaca2b route=f90aaec9fe6c232cc17571540b0717c2
+MQTT_CLOSE result=Mqtt state: Connection closed by peer abruptly
+CONTROL_UNAVAILABLE reason=Err(Elapsed(())) mqtt=MQTT_TRAFFIC sent_packets=11 sent_bytes=8435 received_packets=22 received_bytes=10041 rejected_packets=0 max_datagram=2048 queue_depth=64

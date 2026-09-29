@@ -2,15 +2,23 @@
 //! transport. Ordinary callers receive the QUIC connection only after its
 //! data-path gate is installed.
 
-use std::{collections::VecDeque, io, net::SocketAddr};
+use std::{collections::VecDeque, io, net::SocketAddr, time::Duration};
 
 use iroh::{
     Endpoint, EndpointAddr,
     endpoint::{AcceptBi, ConnectError, Connection, OpenBi, PathEventStream},
 };
+use iroh_base::PublicKey;
 
 const MAX_PENDING_BUSINESS_BYTES: usize = 1024 * 1024;
 const MAX_PENDING_BUSINESS_MESSAGES: usize = 64;
+
+/// Result of requesting an explicit data path on the current control connection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DataPathOpen {
+    /// How many times the remote QUIC path identifiers were not yet available.
+    pub path_id_retries: u32,
+}
 
 /// Owns a restricted connection while it can still use the message carrier.
 #[derive(Debug)]
@@ -60,6 +68,11 @@ impl ControlSession {
         self.connection.stable_id()
     }
 
+    /// Authenticated peer identity for the restricted bootstrap exchange.
+    pub fn remote_id(&self) -> PublicKey {
+        self.connection.remote_id()
+    }
+
     /// Opens a stream reserved for the bootstrap control protocol.
     pub fn open_control_bi(&self) -> OpenBi<'_> {
         self.connection.open_bi()
@@ -86,8 +99,42 @@ impl ControlSession {
     }
 
     /// Begins validating a known, authorized UDP data address on this connection.
+    /// A newly authenticated QUIC connection may still be receiving spare path
+    /// identifiers, so retry that one transient error within a two-second bound.
     pub async fn open_data_path(&self, remote: SocketAddr) -> io::Result<()> {
-        self.endpoint.open_data_path(&self.connection, remote).await
+        self.open_data_path_report(remote).await.map(|_| ())
+    }
+
+    /// The same bounded attempt with a retry count for diagnostics.
+    pub async fn open_data_path_report(&self, remote: SocketAddr) -> io::Result<DataPathOpen> {
+        let mut path_id_retries = 0;
+        tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                match self.endpoint.open_data_path(&self.connection, remote).await {
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                        path_id_retries += 1;
+                        tokio::time::sleep(Duration::from_millis(50)).await;
+                    }
+                    result => return result.map(|_| DataPathOpen { path_id_retries }),
+                }
+            }
+        })
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "UDP path identifiers unavailable"))?
+    }
+
+    /// Deterministically exercise the path-ID retry branch in a real data-path lab.
+    #[cfg(feature = "nat-lab-test-hooks")]
+    #[doc(hidden)]
+    pub async fn test_force_path_id_retry_once(&self) -> io::Result<()> {
+        self.endpoint
+            .test_force_path_id_retry_once(&self.connection)
+            .await
+    }
+
+    /// Send a small UDP mapping probe from the authenticated endpoint's QUIC socket.
+    pub async fn prime_udp_path(&self, remote: SocketAddr) -> io::Result<()> {
+        self.endpoint.prime_udp_path(&self.connection, remote).await
     }
 
     /// Whether a validated IP path is visible to this connection.

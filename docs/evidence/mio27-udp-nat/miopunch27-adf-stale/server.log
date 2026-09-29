@@ -1,0 +1,3 @@
+CANDIDATE id=58302b53854a1314ff44e3ec2d74aeaf5511732555c5903d3f1c76a3d4eebbe1 sockets=[0.0.0.0:43027, [::]:52919] observed=100.64.27.6:43027 mapping_varies=None
+READY id=58302b53854a1314ff44e3ec2d74aeaf5511732555c5903d3f1c76a3d4eebbe1 route=b687dada00791eeccd751ce588314db4
+CONTROL_UNAVAILABLE reason=Ok(Err(ApplicationClosed(ApplicationClose { error_code: 0, reason: b"" }))) mqtt=MQTT_TRAFFIC sent_packets=16 sent_bytes=4385 received_packets=17 received_bytes=6723 rejected_packets=0 max_datagram=2048 queue_depth=64

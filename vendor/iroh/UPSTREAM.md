@@ -45,3 +45,22 @@ and remaining boundaries are in
 The `miopunch-test-hooks` feature adds a test-only forced custom-path reopen
 to exercise the receive gate against a fresh authenticated remote attempt;
 the normal dependency does not enable this feature.
+
+## MIOPUNCH-27 dual-NAT validation delta
+
+`Endpoint::prime_udp_path` sends one 11-byte non-QUIC packet from the same
+UDP socket that QAD observed and QUIC uses. The per-peer actor permits this
+only while the supplied authenticated connection is live and restricted to
+control. This lets the accepting side open an address-dependent NAT filter
+for its peer before the dialing side validates an IP path; the accepting side
+cannot initiate noq's new QUIC path on that connection. A paired no-prime
+run demonstrates the filter blocking that path. The call does not establish
+a data path or authorize business traffic. `open_data_path` reports unavailable
+path identifiers as `WouldBlock`, allowing the caller to retry that exact
+connection and address within a bounded window. The optional
+`miopunch-test-hooks` feature can inject one such transient result for a
+deterministic branch check while subsequent QUIC/UDP behavior remains real.
+That injected error is distinct from a naturally exhausted CID pool. No QUIC
+wire format or generic hole-punch policy is changed. The real dual-NAT
+reproduction and remaining NAT classes are recorded in
+`docs/notes/2026-09-29-udp-nat-validation.md`.

@@ -1,0 +1,5 @@
+Chain FORWARD (policy DROP 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+   26 16518 ACCEPT     17   --  wan0   lan0    0.0.0.0/0            0.0.0.0/0            udp dpt:43027 recent: CHECK seconds: 60 name: mio27allow side: source mask: 255.255.255.255
+   59 28232 ACCEPT     0    --  lan0   wan0    0.0.0.0/0            0.0.0.0/0           
+   29 13285 ACCEPT     0    --  wan0   lan0    0.0.0.0/0            0.0.0.0/0            ctstate RELATED,ESTABLISHED

@@ -17,8 +17,10 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Display,
+    future::poll_fn,
     io,
     net::{IpAddr, SocketAddr},
+    pin::Pin,
     sync::{
         Arc, Mutex, RwLock,
         atomic::{AtomicBool, Ordering},
@@ -366,6 +368,9 @@ pub(crate) struct Socket {
     /// Currently bound IP addresses of all sockets
     #[cfg(not(wasm_browser))]
     ip_bind_addrs: Vec<SocketAddr>,
+    /// A sender on the same UDP sockets as QUIC, for a bounded NAT mapping probe.
+    #[cfg(not(wasm_browser))]
+    udp_probe_sender: AsyncMutex<transports::TransportsSender>,
     /// The DNS resolver to be used in this socket.
     #[cfg(not(wasm_browser))]
     dns_resolver: DnsResolver,
@@ -388,6 +393,23 @@ pub(crate) struct Socket {
 }
 
 impl Socket {
+    #[cfg(not(wasm_browser))]
+    async fn send_udp_probe(&self, remote: SocketAddr) -> io::Result<()> {
+        // The fixed bit is clear, so the peer's QUIC stack discards this packet.
+        // It only opens a UDP mapping for a candidate approved over control.
+        let mut sender = self.udp_probe_sender.lock().await;
+        let path = transports::FourTuple::Ip {
+            remote,
+            local: None,
+        };
+        let packet = transports::Transmit {
+            ecn: None,
+            contents: b"\0MIOPUNCH27",
+            segment_size: None,
+        };
+        poll_fn(|cx| Pin::new(&mut *sender).poll_send(cx, &path, &packet)).await
+    }
+
     /// Returns the relay endpoint we are connected to, that has the best latency.
     ///
     /// If `None`, then we are not connected to any relay endpoints.
@@ -909,6 +931,24 @@ pub enum BindError {
 
 impl EndpointInner {
     #[cfg(feature = "miopunch-test-hooks")]
+    pub(crate) async fn test_force_path_id_retry_once(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+    ) -> io::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.sock
+            .try_send_remote_state_msg(
+                remote,
+                RemoteStateMessage::TestForcePathIdRetry { conn_id, tx },
+            )
+            .map_err(|_| io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| io::Error::other("remote state stopped"))?
+            .map_err(io::Error::other)
+    }
+
+    #[cfg(feature = "miopunch-test-hooks")]
     pub(crate) async fn test_reopen_control_path(
         &self,
         remote: EndpointId,
@@ -956,7 +996,33 @@ impl EndpointInner {
             .map_err(|_| std::io::Error::other("remote state unavailable"))?;
         rx.await
             .map_err(|_| std::io::Error::other("remote state stopped"))?
-            .map_err(std::io::Error::other)
+            .map_err(|message| {
+                if message == remote_map::PATH_IDENTIFIERS_UNAVAILABLE {
+                    std::io::Error::new(std::io::ErrorKind::WouldBlock, message)
+                } else {
+                    std::io::Error::other(message)
+                }
+            })
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) async fn prime_udp_path(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        addr: SocketAddr,
+    ) -> io::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.sock
+            .try_send_remote_state_msg(
+                remote,
+                RemoteStateMessage::AuthorizeUdpProbe { conn_id, tx },
+            )
+            .map_err(|_| io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| io::Error::other("remote state stopped"))?
+            .map_err(io::Error::other)?;
+        self.sock.send_udp_probe(addr).await
     }
 
     pub(crate) async fn open_control_path(
@@ -1150,6 +1216,8 @@ impl EndpointInner {
             home_relay_watch,
             #[cfg(not(wasm_browser))]
             ip_bind_addrs: transports.ip_bind_addrs(),
+            #[cfg(not(wasm_browser))]
+            udp_probe_sender: AsyncMutex::new(transports.create_sender()),
             tls_config: tls_config.clone(),
             hooks,
             span: span.clone(),
