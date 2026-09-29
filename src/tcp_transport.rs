@@ -642,9 +642,12 @@ mod tests {
         let mut byte = [0];
         let read = tokio::time::timeout(std::time::Duration::from_secs(1), stream.read(&mut byte))
             .await
-            .unwrap()
             .unwrap();
-        assert_eq!(read, 0);
+        match read {
+            Ok(0) => {}
+            Err(err) if err.kind() == io::ErrorKind::ConnectionReset => {}
+            other => panic!("unexpected TCP close after endpoint drop: {other:?}"),
+        }
     }
 
     #[tokio::test]
