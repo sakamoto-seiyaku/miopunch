@@ -50,6 +50,7 @@ tokio = { version = "1.52.3", features = ["full"] }
 
 [dev-dependencies]
 tempfile = "3.22.0"
+iroh-relay = { version = "=1.2.0", features = ["server", "test-utils"] }
 
 [[bin]]
 name = "browser-probe-native"
@@ -57,3 +58,8 @@ path = "src/bin/browser_probe_native.rs"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 iroh-relay = { version = "=1.2.0", features = ["server"] }
+rcgen = "0.14.7"
+rustls = { version = "0.23.45", default-features = false, features = ["ring", "std"] }
+
+[patch.crates-io]
+iroh = { path = "vendor/iroh" }
