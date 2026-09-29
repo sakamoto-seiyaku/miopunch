@@ -2225,10 +2225,14 @@ dependencies = [
 name = "miopunch-native-probe"
 version = "0.1.0"
 dependencies = [
+ "futures-channel",
+ "futures-util",
  "iroh",
  "iroh-base",
  "iroh-relay",
+ "n0-watcher",
  "noq-proto",
+ "noq-udp",
  "p2panda-core",
  "p2panda-net",
  "tempfile",

@@ -1,4 +1,5 @@
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::{Shutdown, TcpStream};
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
 use std::time::Duration;
@@ -26,7 +27,7 @@ fn start_server_on(
         .arg(data_dir)
         .args(bind_ip)
         .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
+        .stderr(Stdio::piped())
         .spawn()
         .unwrap();
     let stdout = child.stdout.take().unwrap();
@@ -98,6 +99,97 @@ fn two_native_identities_exchange_a_message_over_udp() {
 #[test]
 fn p2panda_endpoint_reaches_iroh_lookup_without_an_address_book_entry() {
     assert_two_nodes_exchange_a_message("wrapped");
+}
+
+#[test]
+fn two_native_identities_exchange_a_message_over_framed_tcp() {
+    assert_two_nodes_exchange_a_message("tcp");
+}
+
+fn send_tcp_fault(addr: &str, frame: &[u8], half_close: bool) {
+    let mut stream = TcpStream::connect(addr).unwrap();
+    stream
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    let mut preface = [0; 6];
+    stream.read_exact(&mut preface).unwrap();
+    stream.write_all(&[127, 0, 0, 1, 0x40, 0x01]).unwrap();
+    stream.write_all(frame).unwrap();
+    if half_close {
+        stream.shutdown(Shutdown::Write).unwrap();
+    }
+}
+
+fn assert_tcp_fault_is_bounded(frame: &[u8], half_close: bool, expected_error: &str) {
+    let root = tempfile::tempdir().unwrap();
+    let (mut server, server_id, address) = start_server("tcp", &root.path().join("server"));
+    send_tcp_fault(&address, frame, half_close);
+    std::thread::sleep(Duration::from_millis(100));
+    assert!(
+        server.0.try_wait().unwrap().is_none(),
+        "malformed peer ended the server"
+    );
+    let result = Command::new(env!("CARGO_BIN_EXE_miopunch-native-probe"))
+        .args(["send", "tcp"])
+        .arg(root.path().join("client"))
+        .arg(server_id)
+        .arg(address)
+        .output()
+        .unwrap();
+    assert!(result.status.success(), "{result:?}");
+    assert_eq!(result.stdout, b"PONG\n");
+    assert!(server.0.wait().unwrap().success());
+    let mut stderr = String::new();
+    server
+        .0
+        .stderr
+        .take()
+        .unwrap()
+        .read_to_string(&mut stderr)
+        .unwrap();
+    assert!(stderr.contains(expected_error), "{stderr}");
+    let failed = stderr
+        .lines()
+        .find_map(|line| line.strip_prefix("TCP_TRAFFIC "))
+        .and_then(|line| {
+            line.split_whitespace()
+                .find_map(|part| part.strip_prefix("failed="))
+        })
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap();
+    assert!(failed >= 1, "{stderr}");
+}
+
+#[test]
+fn truncated_tcp_frame_closes_without_reporting_echo_success() {
+    assert_tcp_fault_is_bounded(&[0, 8, 1, 2, 3], true, "TCP_CLOSE result=early eof");
+}
+
+#[test]
+fn oversized_tcp_frame_is_rejected_before_allocating_its_body() {
+    assert_tcp_fault_is_bounded(&[8, 1], false, "invalid TCP frame length");
+}
+
+#[test]
+fn sudden_tcp_disconnect_does_not_stop_future_connections() {
+    assert_tcp_fault_is_bounded(&[0], false, "TCP_CLOSE result=early eof");
+}
+
+#[test]
+fn wrong_target_identity_fails_on_reachable_tcp_carrier() {
+    let root = tempfile::tempdir().unwrap();
+    let (_real_server, real_id, address) = start_server("tcp", &root.path().join("real"));
+    let (_other_server, wrong_id, _) = start_server("tcp", &root.path().join("other"));
+    assert_ne!(real_id, wrong_id);
+    let result = Command::new(env!("CARGO_BIN_EXE_miopunch-native-probe"))
+        .args(["send", "tcp"])
+        .arg(root.path().join("client"))
+        .arg(wrong_id)
+        .arg(address)
+        .output()
+        .unwrap();
+    assert!(!result.status.success(), "{result:?}");
+    assert!(!result.stdout.windows(4).any(|part| part == b"PONG"));
 }
 
 #[test]

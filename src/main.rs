@@ -20,10 +20,13 @@ use p2panda_net::{AddressBook, Endpoint as PandaEndpoint};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
+mod tcp_transport;
+use tcp_transport::{TcpOnly, TcpTransport, Traffic};
+
 const PROBE_ALPN: &[u8] = b"miopunch/probe/1";
 const PING: &[u8] = b"PING";
 const PONG: &[u8] = b"PONG";
-const USAGE: &str = "usage: miopunch-native-probe serve raw|wrapped DATA_DIR [BIND_IPV4] | send raw|wrapped DATA_DIR TARGET_ID TARGET_UDP_ADDR [BIND_IPV4]";
+const USAGE: &str = "usage: miopunch-native-probe serve raw|wrapped|tcp DATA_DIR [BIND_IPV4] | send raw|wrapped|tcp DATA_DIR TARGET_ID TARGET_ADDR [BIND_IPV4]";
 
 #[derive(Debug, Clone)]
 struct Echo(mpsc::UnboundedSender<()>);
@@ -105,6 +108,68 @@ async fn serve_raw(key: &SigningKey, bind_ip: Ipv4Addr) -> Result<(), Box<dyn Er
     );
     done_rx.recv().await.ok_or("server stopped before echo")?;
     router.shutdown().await?;
+    Ok(())
+}
+
+async fn tcp_endpoint(
+    key: &SigningKey,
+    transport: Arc<TcpTransport>,
+) -> Result<Endpoint, Box<dyn Error>> {
+    Ok(Endpoint::builder(presets::Minimal)
+        .secret_key(iroh_secret(key))
+        .transport_config(quic_config())
+        .clear_ip_transports()
+        .clear_relay_transports()
+        .add_custom_transport(transport)
+        .path_selector(Arc::new(TcpOnly))
+        .bind()
+        .await?)
+}
+
+async fn serve_tcp(key: &SigningKey, bind_ip: Ipv4Addr) -> Result<(), Box<dyn Error>> {
+    let traffic = Arc::new(Traffic::default());
+    let transport = Arc::new(TcpTransport::new(bind_ip, traffic.clone()));
+    let endpoint = tcp_endpoint(key, transport.clone()).await?;
+    let addr = transport.bound_addr().ok_or("no TCP carrier address")?;
+    let (done_tx, mut done_rx) = mpsc::unbounded_channel();
+    let router = Router::builder(endpoint)
+        .accept(PROBE_ALPN, Echo(done_tx))
+        .spawn();
+    println!("READY {} {}", iroh_secret(key).public(), addr);
+    tokio::time::timeout(Duration::from_secs(20), done_rx.recv())
+        .await?
+        .ok_or("server stopped before echo")?;
+    router.shutdown().await?;
+    eprintln!("{}", traffic.report());
+    Ok(())
+}
+
+async fn send_tcp(
+    key: &SigningKey,
+    target: PublicKey,
+    addr: SocketAddr,
+    bind_ip: Ipv4Addr,
+) -> Result<(), Box<dyn Error>> {
+    let SocketAddr::V4(addr) = addr else {
+        return Err("TCP probe requires IPv4".into());
+    };
+    let traffic = Arc::new(Traffic::default());
+    let transport = Arc::new(TcpTransport::new(bind_ip, traffic.clone()));
+    let endpoint = tcp_endpoint(key, transport).await?;
+    let target = EndpointAddr::new(target).with_addrs([iroh_base::TransportAddr::Custom(
+        TcpTransport::address(addr),
+    )]);
+    let connection =
+        tokio::time::timeout(Duration::from_secs(8), endpoint.connect(target, PROBE_ALPN))
+            .await??;
+    if !connection.paths().iter().any(|path| {
+        path.is_selected() && matches!(path.remote_addr(), iroh_base::TransportAddr::Custom(_))
+    }) {
+        return Err("TCP custom path was not selected".into());
+    }
+    tokio::time::timeout(Duration::from_secs(8), ping(connection)).await??;
+    endpoint.close().await;
+    eprintln!("{}", traffic.report());
     Ok(())
 }
 
@@ -207,7 +272,10 @@ fn optional_bind_ip(args: &[String]) -> Result<Ipv4Addr, Box<dyn Error>> {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = std::env::args().collect();
-    if !matches!(args.get(2).map(String::as_str), Some("raw" | "wrapped")) {
+    if !matches!(
+        args.get(2).map(String::as_str),
+        Some("raw" | "wrapped" | "tcp")
+    ) {
         return Err(USAGE.into());
     }
     match args.as_slice() {
@@ -217,6 +285,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             match mode.as_str() {
                 "raw" => serve_raw(&key, bind_ip).await,
                 "wrapped" => serve_wrapped(&key, bind_ip).await,
+                "tcp" => serve_tcp(&key, bind_ip).await,
                 _ => Err(USAGE.into()),
             }
         }
@@ -228,6 +297,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             match mode.as_str() {
                 "raw" => send_raw(&key, target, addr, bind_ip).await,
                 "wrapped" => send_wrapped(&key, target, addr, bind_ip).await,
+                "tcp" => send_tcp(&key, target, addr, bind_ip).await,
                 _ => Err(USAGE.into()),
             }
         }
