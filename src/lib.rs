@@ -6,3 +6,4 @@ pub mod management_store;
 pub mod member_bootstrap;
 pub mod mqtt_discovery;
 pub mod mqtt_transport;
+pub mod native_network;

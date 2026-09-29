@@ -22,13 +22,28 @@ use tokio::sync::mpsc;
 
 mod tcp_transport;
 use miopunch_native_probe::mqtt_transport::{MqttTransport, Traffic as MqttTraffic};
+use miopunch_native_probe::native_network::{NativeNetwork, NodeStatus};
 use tcp_transport::{TcpOnly, TcpTransport, Traffic};
 
 const PROBE_ALPN: &[u8] = b"miopunch/probe/1";
 const MQTT_CONTROL_ALPN: &[u8] = b"miopunch/control-probe/1";
 const PING: &[u8] = b"PING";
 const PONG: &[u8] = b"PONG";
-const USAGE: &str = "usage: miopunch-native-probe identity DATA_DIR | serve raw|wrapped|tcp DATA_DIR [BIND_IPV4] | send raw|wrapped|tcp DATA_DIR TARGET_ID TARGET_ADDR [BIND_IPV4] | serve mqtt DATA_DIR BROKER_ADDR EXPECTED_PEER_ID | send mqtt DATA_DIR TARGET_ID TARGET_ROUTE BROKER_ADDR | cancel mqtt DATA_DIR BROKER_ADDR";
+const USAGE: &str = "usage: miopunch-native-probe network create|status DATA_DIR | network run DATA_DIR [BIND_IPV4] | identity DATA_DIR | serve raw|wrapped|tcp DATA_DIR [BIND_IPV4] | send raw|wrapped|tcp DATA_DIR TARGET_ID TARGET_ADDR [BIND_IPV4] | serve mqtt DATA_DIR BROKER_ADDR EXPECTED_PEER_ID | send mqtt DATA_DIR TARGET_ID TARGET_ROUTE BROKER_ADDR | cancel mqtt DATA_DIR BROKER_ADDR";
+
+fn print_network_status(status: &NodeStatus) {
+    println!("NETWORK {} {}", status.anchor.root, status.anchor.genesis);
+    println!("NODE {}", status.node_id);
+    for (node, access) in &status.members {
+        let role = if *access == p2panda_auth::Access::manage() {
+            "admin"
+        } else {
+            "member"
+        };
+        println!("MEMBER {node} {role}");
+    }
+    println!("RECORDS {}", status.applied_count);
+}
 
 #[derive(Debug, Clone)]
 struct ProbeEcho {
@@ -390,6 +405,35 @@ fn optional_bind_ip(args: &[String]) -> Result<Ipv4Addr, Box<dyn Error>> {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = std::env::args().collect();
+    match args.as_slice() {
+        [_, network, action, data_dir] if network == "network" && action == "create" => {
+            let node = NativeNetwork::create(data_dir).await?;
+            print_network_status(&node.status());
+            node.close().await;
+            return Ok(());
+        }
+        [_, network, action, data_dir] if network == "network" && action == "status" => {
+            let node = NativeNetwork::open(data_dir).await?;
+            print_network_status(&node.status());
+            node.close().await;
+            return Ok(());
+        }
+        [_, network, action, data_dir, bind @ ..] if network == "network" && action == "run" => {
+            let bind_ip = optional_bind_ip(bind)?;
+            let node = NativeNetwork::open(data_dir).await?;
+            let endpoint = node.bind_endpoint(bind_ip).await?;
+            println!(
+                "READY {} {}",
+                node.status().node_id,
+                local_udp_addr(&endpoint)?
+            );
+            tokio::signal::ctrl_c().await?;
+            endpoint.close().await;
+            node.close().await;
+            return Ok(());
+        }
+        _ => {}
+    }
     if let [_, action, data_dir] = args.as_slice() {
         if action == "identity" {
             println!(
