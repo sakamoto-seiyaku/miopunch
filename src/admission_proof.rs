@@ -89,12 +89,24 @@ impl AdmissionSecret {
     fn scram_password(&self) -> String {
         hex::encode(self.0)
     }
+
+    /// A non-reversible local tag for checking the credential generation used
+    /// by a completed proof against the currently saved admission credential.
+    pub(crate) fn fingerprint(&self, scope: &AdmissionScope) -> [u8; 32] {
+        let mut hash = Sha256::new();
+        hash.update(b"miopunch/admission-credential/1\0");
+        hash.update(scope.network_id());
+        hash.update(scope.secret_generation().to_be_bytes());
+        hash.update(self.0);
+        hash.finalize().into()
+    }
 }
 
 #[derive(Debug)]
 pub struct BootstrapProof {
     connection: Connection,
     scope: AdmissionScope,
+    credential_fingerprint: [u8; 32],
     _attempt_token: Arc<()>,
 }
 
@@ -118,6 +130,10 @@ impl BootstrapProof {
         self.scope == *scope
             && self.connection.stable_id() == connection.stable_id()
             && self.connection.close_reason().is_none()
+    }
+
+    pub(crate) fn credential_fingerprint(&self) -> &[u8; 32] {
+        &self.credential_fingerprint
     }
 
     /// End the proved protocol session, for example after admission-secret rotation.
@@ -257,13 +273,18 @@ struct AttemptGuard {
 }
 
 impl AttemptGuard {
-    fn succeed(mut self, scope: &AdmissionScope) -> Result<BootstrapProof, ProofError> {
+    fn succeed(
+        mut self,
+        scope: &AdmissionScope,
+        secret: &AdmissionSecret,
+    ) -> Result<BootstrapProof, ProofError> {
         if self.connection.close_reason().is_some() {
             return Err(ProofError::Transport);
         }
         Ok(BootstrapProof {
             connection: self.connection.clone(),
             scope: scope.clone(),
+            credential_fingerprint: secret.fingerprint(scope),
             _attempt_token: self.token.take().expect("attempt token present"),
         })
     }
@@ -404,7 +425,7 @@ pub async fn prove_client(
     })
     .await
     .map_err(|_| ProofError::Timeout)??;
-    attempt.succeed(scope)
+    attempt.succeed(scope, secret)
 }
 
 pub async fn prove_server(
@@ -461,7 +482,7 @@ pub async fn prove_server(
     })
     .await
     .map_err(|_| ProofError::Timeout)??;
-    attempt.succeed(scope)
+    attempt.succeed(scope, secret)
 }
 
 #[cfg(test)]

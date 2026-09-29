@@ -178,6 +178,29 @@ impl ManagementAuth {
             .collect()
     }
 
+    /// A previously recorded identity absent from the current member view.
+    /// Unknown identities remain eligible for restricted bootstrap proof;
+    /// known removed identities are rejected before requesting history.
+    pub fn known_removed(&self, target: VerifyingKey) -> bool {
+        let observed =
+            self.state
+                .inner
+                .operations
+                .values()
+                .any(|operation| match &operation.action {
+                    GroupAction::Create { initial_members } => initial_members
+                        .iter()
+                        .any(|(member, _)| *member == GroupMember::Individual(target)),
+                    GroupAction::Add { member, .. }
+                    | GroupAction::Remove { member }
+                    | GroupAction::Promote { member, .. }
+                    | GroupAction::Demote { member, .. } => {
+                        *member == GroupMember::Individual(target)
+                    }
+                });
+        observed && !self.nodes().iter().any(|(id, _)| *id == target)
+    }
+
     pub fn contains_operation(&self, id: Hash) -> bool {
         self.state.inner.operations.contains_key(&id)
     }

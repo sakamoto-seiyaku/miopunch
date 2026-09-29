@@ -13,6 +13,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, S
 use sqlx::{Row, SqlitePool};
 use thiserror::Error;
 
+use crate::admission_proof::{AdmissionScope, AdmissionSecret};
 use crate::management_auth::{AuthError, ManagementAuth, NetworkAnchor, decode_complete};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -50,6 +51,8 @@ pub enum StoreError {
     Decode(#[from] p2panda_core::cbor::DecodeError),
     #[error("database is pinned to a different network anchor")]
     WrongAnchor,
+    #[error("admission generation is older, reused with a different secret, or invalid")]
+    InvalidAdmission,
     #[error("durable management state is inconsistent: {0}")]
     Corrupt(&'static str),
     #[error("simulated process interruption")]
@@ -102,6 +105,15 @@ impl ManagementStore {
                 singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
                 applied_count INTEGER NOT NULL,
                 state BLOB NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS management_admission (
+                singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+                generation INTEGER NOT NULL,
+                credential_fingerprint BLOB NOT NULL
             )",
         )
         .execute(&pool)
@@ -165,6 +177,70 @@ impl ManagementStore {
             auth,
             applied_count,
         })
+    }
+
+    /// Pin the active local admission credential before accepting bootstrap
+    /// sessions. Reopening the database cannot silently restore an older
+    /// generation or substitute another secret for the same generation.
+    pub async fn set_current_admission(
+        &mut self,
+        scope: &AdmissionScope,
+        secret: &AdmissionSecret,
+    ) -> Result<(), StoreError> {
+        if scope.network_id() != self.anchor.root.as_bytes() {
+            return Err(StoreError::WrongAnchor);
+        }
+        let generation: i64 = scope
+            .secret_generation()
+            .try_into()
+            .map_err(|_| StoreError::InvalidAdmission)?;
+        let fingerprint = secret.fingerprint(scope);
+        let mut tx = self.pool.begin().await?;
+        let row = sqlx::query("SELECT generation, credential_fingerprint FROM management_admission WHERE singleton = 1")
+            .fetch_optional(&mut *tx).await?;
+        match row {
+            Some(row) => {
+                let old_generation: i64 = row.try_get("generation")?;
+                let old_fingerprint: Vec<u8> = row.try_get("credential_fingerprint")?;
+                if generation < old_generation
+                    || (generation == old_generation && old_fingerprint != fingerprint)
+                {
+                    return Err(StoreError::InvalidAdmission);
+                }
+                if generation > old_generation {
+                    let updated = sqlx::query("UPDATE management_admission SET generation = ?, credential_fingerprint = ? WHERE singleton = 1 AND generation < ?")
+                        .bind(generation).bind(fingerprint.as_slice()).bind(generation).execute(&mut *tx).await?;
+                    if updated.rows_affected() != 1 {
+                        return Err(StoreError::InvalidAdmission);
+                    }
+                }
+            }
+            None => {
+                sqlx::query("INSERT INTO management_admission VALUES (1, ?, ?)")
+                    .bind(generation)
+                    .bind(fingerprint.as_slice())
+                    .execute(&mut *tx)
+                    .await?;
+            }
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub(crate) async fn current_admission_matches(
+        &self,
+        scope: &AdmissionScope,
+        fingerprint: &[u8; 32],
+    ) -> Result<bool, StoreError> {
+        let row = sqlx::query("SELECT generation, credential_fingerprint FROM management_admission WHERE singleton = 1")
+            .fetch_optional(&self.pool).await?;
+        let Some(row) = row else { return Ok(false) };
+        let generation: i64 = row.try_get("generation")?;
+        let tag: Vec<u8> = row.try_get("credential_fingerprint")?;
+        Ok(scope.network_id() == self.anchor.root.as_bytes()
+            && generation >= 0
+            && scope.secret_generation() == generation as u64
+            && tag == fingerprint)
     }
 
     /// The returned hash means the complete record is durable, not yet applied.
@@ -289,6 +365,10 @@ impl ManagementStore {
 
     pub fn nodes(&self) -> Vec<(VerifyingKey, Access)> {
         self.auth.nodes()
+    }
+
+    pub fn known_removed(&self, target: VerifyingKey) -> bool {
+        self.auth.known_removed(target)
     }
 
     pub fn applied_count(&self) -> i64 {
