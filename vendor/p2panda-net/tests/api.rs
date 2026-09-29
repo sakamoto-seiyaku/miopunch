@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+use futures_util::StreamExt;
+use p2panda_core::SigningKey;
+use p2panda_net::iroh_mdns::MdnsDiscoveryMode;
+use p2panda_net::sync::SyncSubscription;
+use p2panda_net::{AddressBook, Discovery, Endpoint, Gossip, LogSync, MdnsDiscovery};
+use p2panda_store::SqliteStore;
+use p2panda_sync::protocols::TopicLogSyncEvent;
+
+#[tokio::test]
+async fn modular_api() {
+    let signing_key = SigningKey::generate();
+
+    let address_book = AddressBook::builder().spawn().await.unwrap();
+
+    let endpoint = Endpoint::builder(address_book.clone())
+        .signing_key(signing_key)
+        .network_id([42; 32])
+        .spawn()
+        .await
+        .unwrap();
+
+    let _mdns = MdnsDiscovery::builder(address_book.clone(), endpoint.clone())
+        .mode(MdnsDiscoveryMode::Active)
+        .spawn()
+        .await
+        .unwrap();
+
+    let _discovery = Discovery::builder(address_book.clone(), endpoint.clone())
+        .spawn()
+        .await
+        .unwrap();
+
+    let gossip = Gossip::builder(address_book, endpoint.clone())
+        .spawn()
+        .await
+        .unwrap();
+
+    let handle = gossip.stream([1; 32].into()).await.unwrap();
+    handle.publish(b"Hello, Panda!").await.unwrap();
+    let mut rx = handle.subscribe();
+
+    tokio::spawn(async move {
+        while let Some(_bytes) = rx.next().await {
+            // ...
+        }
+    });
+
+    let store = SqliteStore::temporary().await;
+
+    let sync = LogSync::<_, u64, _>::builder(store, endpoint, gossip)
+        .spawn()
+        .await
+        .unwrap();
+
+    let handle = sync.stream([1; 32].into(), true).await.unwrap();
+    let mut rx: SyncSubscription<TopicLogSyncEvent<()>> = handle.subscribe().await.unwrap();
+
+    tokio::spawn(async move {
+        while let Some(_event) = rx.next().await {
+            // ...
+        }
+    });
+}
