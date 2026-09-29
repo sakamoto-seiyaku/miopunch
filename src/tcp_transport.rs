@@ -22,6 +22,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
 const TRANSPORT_ID: u64 = 0x6d696f746370; // "miotcp", local to this experiment.
+/// Current custom carrier that is eligible for admitted member data.
+pub const DATA_TRANSPORT_ID: u64 = TRANSPORT_ID;
 const MAX_FRAME: usize = 2048;
 const QUEUE_DEPTH: usize = 32;
 const MAX_CIRCUITS: usize = 64;

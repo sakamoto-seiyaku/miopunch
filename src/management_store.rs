@@ -371,6 +371,10 @@ impl ManagementStore {
         self.auth.known_removed(target)
     }
 
+    pub fn removed_nodes(&self) -> Vec<VerifyingKey> {
+        self.auth.removed_nodes()
+    }
+
     pub fn applied_count(&self) -> i64 {
         self.applied_count
     }

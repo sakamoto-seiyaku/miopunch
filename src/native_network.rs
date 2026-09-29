@@ -19,6 +19,7 @@ use p2panda_auth::{Access, GroupsExtensionArgs};
 use p2panda_core::{Hash, Header, SigningKey, VerifyingKey};
 use thiserror::Error;
 
+use crate::admission_gate::AdmissionGate;
 use crate::admission_proof::{AdmissionScope, AdmissionSecret};
 use crate::genesis_recovery::GenesisCredential;
 use crate::management_auth::{ManagementExtension, NetworkAnchor};
@@ -101,6 +102,7 @@ pub struct NativeNetwork {
     node_key: SigningKey,
     anchor: NetworkAnchor,
     store: ManagementStore,
+    gate: AdmissionGate,
 }
 
 impl NativeNetwork {
@@ -222,10 +224,18 @@ impl NativeNetwork {
         {
             return Err(NodeError::InvalidData);
         }
+        let node_id = SecretKey::from_bytes(node_key.as_bytes()).public();
+        let gate = AdmissionGate::new(node_id, scope, Some(admission_secret));
+        gate.register_p2panda_defaults(*anchor.root.as_bytes());
+        gate.update_authorization(
+            store.nodes().into_iter().map(|(id, _)| *id.as_bytes()),
+            store.removed_nodes().into_iter().map(|id| *id.as_bytes()),
+        );
         Ok(Self {
             node_key,
             anchor,
             store,
+            gate,
         })
     }
 
@@ -243,12 +253,20 @@ impl NativeNetwork {
     /// Bind only after loading the durable device key; the endpoint can never
     /// silently generate a new identity on process restart.
     pub async fn bind_endpoint(&self, bind_ip: Ipv4Addr) -> Result<Endpoint, NodeError> {
-        Ok(Endpoint::builder(presets::Minimal)
+        Ok(self
+            .gate
+            .configure(Endpoint::builder(presets::Minimal))
             .secret_key(SecretKey::from_bytes(self.node_key.as_bytes()))
             .bind_addr(SocketAddr::from((bind_ip, 0)))
             .map_err(|_| NodeError::InvalidData)?
             .bind()
             .await?)
+    }
+
+    /// The same policy handle can be installed through p2panda's endpoint
+    /// builder hook and used to classify any additional protocol ALPN.
+    pub fn admission_gate(&self) -> AdmissionGate {
+        self.gate.clone()
     }
 
     /// Ingest and apply a complete signed management record through the same
@@ -266,6 +284,13 @@ impl NativeNetwork {
         if self.store.get_record(id).await?.is_none() {
             return Err(NodeError::NotApplied);
         }
+        self.gate.update_authorization(
+            self.store.nodes().into_iter().map(|(id, _)| *id.as_bytes()),
+            self.store
+                .removed_nodes()
+                .into_iter()
+                .map(|id| *id.as_bytes()),
+        );
         Ok(id)
     }
 

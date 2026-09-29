@@ -1,3 +1,4 @@
+pub mod admission_gate;
 pub mod admission_proof;
 pub mod control_session;
 pub mod genesis_recovery;
@@ -7,3 +8,4 @@ pub mod member_bootstrap;
 pub mod mqtt_discovery;
 pub mod mqtt_transport;
 pub mod native_network;
+pub mod tcp_transport;

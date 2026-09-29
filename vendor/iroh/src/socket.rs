@@ -236,6 +236,7 @@ impl Drop for EndpointInner {
 #[derive(derive_more::Debug)]
 pub(crate) struct StaticConfig {
     pub(crate) control_only_alpns: Vec<Vec<u8>>,
+    pub(crate) admission_gated: bool,
     pub(crate) tls_config: tls::TlsConfig,
     #[debug("QuicServerConifg")]
     pub(crate) server_config: QuicServerConfig,
@@ -931,6 +932,29 @@ pub enum BindError {
 
 impl EndpointInner {
     #[cfg(feature = "miopunch-test-hooks")]
+    pub(crate) async fn test_open_admitted_custom_path(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        addr: iroh_base::CustomAddr,
+    ) -> io::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.sock
+            .try_send_remote_state_msg(
+                remote,
+                RemoteStateMessage::TestOpenAdmittedCustomPath {
+                    conn_id,
+                    remote: addr,
+                    tx,
+                },
+            )
+            .map_err(|_| io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| io::Error::other("remote state stopped"))?
+            .map_err(io::Error::other)
+    }
+
+    #[cfg(feature = "miopunch-test-hooks")]
     pub(crate) async fn test_force_path_id_retry_once(
         &self,
         remote: EndpointId,
@@ -1055,6 +1079,28 @@ impl EndpointInner {
         let (tx, rx) = oneshot::channel();
         self.sock
             .try_send_remote_state_msg(remote, RemoteStateMessage::CommitDataPath { conn_id, tx })
+            .map_err(|_| std::io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| std::io::Error::other("remote state stopped"))?
+            .map_err(std::io::Error::other)
+    }
+    /// Release QNT candidates only after an endpoint admission hook succeeds.
+    pub(crate) async fn authorize_candidates(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        allowed_data_custom_ids: Vec<u64>,
+    ) -> std::io::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.sock
+            .try_send_remote_state_msg(
+                remote,
+                RemoteStateMessage::AuthorizeCandidates {
+                    conn_id,
+                    allowed_data_custom_ids,
+                    tx,
+                },
+            )
             .map_err(|_| std::io::Error::other("remote state unavailable"))?;
         rx.await
             .map_err(|_| std::io::Error::other("remote state stopped"))?
@@ -2486,6 +2532,7 @@ mod tests {
         );
         let static_config = StaticConfig {
             control_only_alpns: Vec::new(),
+            admission_gated: false,
             server_config: tls_config.make_server_config(false).unwrap(),
             client_config: tls_config.make_client_config(false).unwrap(),
             tls_config,
@@ -2903,6 +2950,7 @@ mod tests {
         let keylog = true;
         let static_config = StaticConfig {
             control_only_alpns: Vec::new(),
+            admission_gated: false,
             server_config: tls_config.make_server_config(keylog).unwrap(),
             client_config: tls_config.make_client_config(keylog).unwrap(),
             tls_config,

@@ -201,6 +201,35 @@ impl ManagementAuth {
         observed && !self.nodes().iter().any(|(id, _)| *id == target)
     }
 
+    /// Device identities present in verified history but absent from the
+    /// current authorization view. A later valid re-add removes the identity
+    /// from this list.
+    pub fn removed_nodes(&self) -> Vec<VerifyingKey> {
+        let current = self.nodes();
+        let mut removed = Vec::new();
+        for operation in self.state.inner.operations.values() {
+            let members: Vec<_> = match &operation.action {
+                GroupAction::Create { initial_members } => {
+                    initial_members.iter().map(|(member, _)| member).collect()
+                }
+                GroupAction::Add { member, .. }
+                | GroupAction::Remove { member }
+                | GroupAction::Promote { member, .. }
+                | GroupAction::Demote { member, .. } => vec![member],
+            };
+            for member in members {
+                if let GroupMember::Individual(node) = member
+                    && *node != self.anchor.root
+                    && !current.iter().any(|(id, _)| id == node)
+                    && !removed.contains(node)
+                {
+                    removed.push(*node);
+                }
+            }
+        }
+        removed
+    }
+
     pub fn contains_operation(&self, id: Hash) -> bool {
         self.state.inner.operations.contains_key(&id)
     }

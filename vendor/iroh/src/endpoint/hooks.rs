@@ -1,4 +1,4 @@
-use std::pin::Pin;
+use std::{collections::BTreeSet, pin::Pin};
 
 use iroh_base::EndpointAddr;
 
@@ -20,6 +20,14 @@ pub enum BeforeConnectOutcome {
 pub enum AfterHandshakeOutcome {
     /// Accept the connection.
     Accept,
+    /// Accept normal protocol use while allowing only the listed custom
+    /// carrier IDs for member data. IP and relay paths remain eligible.
+    AcceptData {
+        /// Custom transport IDs eligible for member data.
+        allowed_data_custom_ids: Vec<u64>,
+    },
+    /// Accept only the restricted protocol; keep NAT candidates undisclosed.
+    AcceptRestricted,
     /// Reject and close the connection.
     ///
     /// See [`Connection::close`] for details on `error_code` and `reason`.
@@ -37,6 +45,11 @@ impl AfterHandshakeOutcome {
     /// Returns [`Self::Accept`].
     pub fn accept() -> Self {
         Self::Accept
+    }
+
+    /// Accept a restricted bootstrap connection without enabling QNT.
+    pub fn accept_restricted() -> Self {
+        Self::AcceptRestricted
     }
 
     /// Returns [`Self::Reject`].
@@ -158,14 +171,42 @@ impl EndpointHooksList {
     }
 
     pub(super) async fn after_handshake(&self, conn: &Connection) -> AfterHandshakeOutcome {
+        let mut restricted = false;
+        let mut data_policy = false;
+        let mut allowed_data_custom_ids = BTreeSet::new();
         for hook in self.inner.iter() {
             match hook.after_handshake(conn).await {
                 AfterHandshakeOutcome::Accept => continue,
+                AfterHandshakeOutcome::AcceptData {
+                    allowed_data_custom_ids: ids,
+                } => {
+                    let ids: BTreeSet<_> = ids.into_iter().collect();
+                    if data_policy {
+                        allowed_data_custom_ids.retain(|id| ids.contains(id));
+                    } else {
+                        allowed_data_custom_ids = ids;
+                    }
+                    data_policy = true;
+                }
+                AfterHandshakeOutcome::AcceptRestricted => restricted = true,
                 reject @ AfterHandshakeOutcome::Reject { .. } => {
                     return reject;
                 }
             }
         }
-        AfterHandshakeOutcome::Accept
+        if restricted && data_policy {
+            AfterHandshakeOutcome::Reject {
+                error_code: 0u32.into(),
+                reason: b"conflicting admission scopes".to_vec(),
+            }
+        } else if restricted {
+            AfterHandshakeOutcome::AcceptRestricted
+        } else if data_policy {
+            AfterHandshakeOutcome::AcceptData {
+                allowed_data_custom_ids: allowed_data_custom_ids.into_iter().collect(),
+            }
+        } else {
+            AfterHandshakeOutcome::Accept
+        }
     }
 }

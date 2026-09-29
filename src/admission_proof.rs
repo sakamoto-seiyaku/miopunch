@@ -1,7 +1,7 @@
 //! A bounded SCRAM-SHA-256-PLUS qualification on one authenticated iroh connection.
 //! Successful proof grants only bootstrap eligibility; membership remains a separate decision.
 
-use iroh::endpoint::Connection;
+use iroh::endpoint::{Connection, WeakConnectionHandle};
 use iroh_base::EndpointId;
 use rsasl::callback::{Context, Request, SessionCallback, SessionData};
 use rsasl::config::SASLConfig;
@@ -24,8 +24,13 @@ const PROOF_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_ACTIVE_PROOFS: usize = 32;
 const MAX_LIVE_PROOFS: usize = 4096;
 static ACTIVE_PROOFS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(MAX_ACTIVE_PROOFS);
-static ATTEMPTED_CONNECTIONS: LazyLock<Mutex<HashMap<usize, Weak<()>>>> =
+static ATTEMPTED_CONNECTIONS: LazyLock<Mutex<HashMap<usize, AttemptedConnection>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+
+struct AttemptedConnection {
+    token: Weak<()>,
+    connection: WeakConnectionHandle,
+}
 
 struct FixedBinding([u8; 32]);
 impl ChannelBindingCallback for FixedBinding {
@@ -104,7 +109,9 @@ impl AdmissionSecret {
 
 #[derive(Debug)]
 pub struct BootstrapProof {
-    connection: Connection,
+    connection: WeakConnectionHandle,
+    connection_id: usize,
+    peer: EndpointId,
     scope: AdmissionScope,
     credential_fingerprint: [u8; 32],
     _attempt_token: Arc<()>,
@@ -112,13 +119,15 @@ pub struct BootstrapProof {
 
 impl Drop for BootstrapProof {
     fn drop(&mut self) {
-        self.connection.close(0u32.into(), b"admission proof ended");
+        if let Some(connection) = self.connection.upgrade() {
+            connection.close(0u32.into(), b"admission proof ended");
+        }
     }
 }
 
 impl BootstrapProof {
     pub fn peer(&self) -> EndpointId {
-        self.connection.remote_id()
+        self.peer
     }
 
     pub fn scope(&self) -> &AdmissionScope {
@@ -128,8 +137,11 @@ impl BootstrapProof {
     /// A proof only applies to its original live connection and credential generation.
     pub fn applies_to(&self, connection: &Connection, scope: &AdmissionScope) -> bool {
         self.scope == *scope
-            && self.connection.stable_id() == connection.stable_id()
-            && self.connection.close_reason().is_none()
+            && self.connection_id == connection.stable_id()
+            && self
+                .connection
+                .upgrade()
+                .is_some_and(|connection| connection.close_reason().is_none())
     }
 
     pub(crate) fn credential_fingerprint(&self) -> &[u8; 32] {
@@ -138,8 +150,9 @@ impl BootstrapProof {
 
     /// End the proved protocol session, for example after admission-secret rotation.
     pub fn invalidate(&self) {
-        self.connection
-            .close(0u32.into(), b"admission proof invalidated");
+        if let Some(connection) = self.connection.upgrade() {
+            connection.close(0u32.into(), b"admission proof invalidated");
+        }
     }
 }
 
@@ -282,7 +295,9 @@ impl AttemptGuard {
             return Err(ProofError::Transport);
         }
         Ok(BootstrapProof {
-            connection: self.connection.clone(),
+            connection: self.connection.weak_handle(),
+            connection_id: self.connection.stable_id(),
+            peer: self.connection.remote_id(),
             scope: scope.clone(),
             credential_fingerprint: secret.fingerprint(scope),
             _attempt_token: self.token.take().expect("attempt token present"),
@@ -307,7 +322,13 @@ fn reserve_once(connection: &Connection) -> Result<AttemptGuard, ProofError> {
     let mut attempts = ATTEMPTED_CONNECTIONS
         .lock()
         .map_err(|_| ProofError::Rejected)?;
-    attempts.retain(|_, token| token.strong_count() > 0);
+    attempts.retain(|_, attempt| {
+        attempt.token.strong_count() > 0
+            && attempt
+                .connection
+                .upgrade()
+                .is_some_and(|connection| connection.close_reason().is_none())
+    });
     if attempts.contains_key(&id) {
         return Err(ProofError::AlreadyAttempted);
     }
@@ -315,7 +336,13 @@ fn reserve_once(connection: &Connection) -> Result<AttemptGuard, ProofError> {
         return Err(ProofError::Busy);
     }
     let token = Arc::new(());
-    attempts.insert(id, Arc::downgrade(&token));
+    attempts.insert(
+        id,
+        AttemptedConnection {
+            token: Arc::downgrade(&token),
+            connection: connection.weak_handle(),
+        },
+    );
     Ok(AttemptGuard {
         connection: connection.clone(),
         token: Some(token),

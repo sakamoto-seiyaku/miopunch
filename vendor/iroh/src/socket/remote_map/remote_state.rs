@@ -367,6 +367,30 @@ impl RemoteStateActor {
             RemoteStateMessage::AddConnection(handle, restricted, tx) => {
                 self.handle_msg_add_connection(handle, restricted, tx);
             }
+            RemoteStateMessage::AuthorizeCandidates {
+                conn_id,
+                allowed_data_custom_ids,
+                tx,
+            } => {
+                let result = self.authorize_candidates(ConnId(conn_id), allowed_data_custom_ids);
+                let _ = tx.send(result);
+            }
+            #[cfg(feature = "miopunch-test-hooks")]
+            RemoteStateMessage::TestOpenAdmittedCustomPath { conn_id, remote, tx } => {
+                let result = if let Some(state) = self.connections.get(&ConnId(conn_id)) {
+                    if state.purpose != ConnectionPurpose::Ordinary {
+                        Err("test requires an admitted connection")
+                    } else if let Some(conn) = state.handle.upgrade() {
+                        let path = transports::FourTuple::from_remote(transports::Addr::Custom(remote));
+                        self.state.open_path_on_conn(ConnId(conn_id), state, &conn, &path, true)
+                    } else {
+                        Err("connection closed")
+                    }
+                } else {
+                    Err("connection not registered")
+                };
+                let _ = tx.send(result);
+            }
             RemoteStateMessage::OpenDataPath {
                 conn_id,
                 remote,
@@ -554,6 +578,8 @@ impl RemoteStateActor {
                 } else {
                     ConnectionPurpose::Ordinary
                 },
+                allowed_data_custom_ids: BTreeSet::new(),
+                custom_data_policy: false,
             })
             .into_mut();
 
@@ -601,6 +627,9 @@ impl RemoteStateActor {
             .get_mut(&conn_id)
             .ok_or("connection not registered")?;
         let conn = state.handle.upgrade().ok_or("connection closed")?;
+        if conn.close_reason().is_some() {
+            return Err("connection closed");
+        }
         if state.purpose == ConnectionPurpose::Data {
             return Ok(());
         }
@@ -638,6 +667,47 @@ impl RemoteStateActor {
         }
         let local_candidates = self.state.local_candidates();
         update_qnt_candidates(&conn, &local_candidates);
+        self.select_path();
+        Ok(())
+    }
+
+    /// Release QNT only after the application hook has granted normal scope.
+    fn authorize_candidates(
+        &mut self,
+        conn_id: ConnId,
+        allowed_data_custom_ids: Vec<u64>,
+    ) -> Result<(), &'static str> {
+        let state = self.connections.get_mut(&conn_id).ok_or("connection not registered")?;
+        if state.purpose != ConnectionPurpose::Control {
+            return Err("connection is not restricted");
+        }
+        let conn = state.handle.upgrade().ok_or("connection closed")?;
+        if conn.close_reason().is_some() {
+            return Err("connection closed");
+        }
+        let allowed: BTreeSet<_> = allowed_data_custom_ids.into_iter().collect();
+        let mapped = self.state.mapped_addrs.clone();
+        let packet_allowed = allowed.clone();
+        conn.restrict_paths(move |addr| match mapped.to_transport_addr(addr) {
+            Some(transports::Addr::Custom(custom)) => packet_allowed.contains(&custom.id()),
+            Some(_) => true,
+            None => false,
+        });
+        state.allowed_data_custom_ids = allowed;
+        state.custom_data_policy = true;
+        for (id, path_addr) in &state.paths {
+            if state.forbids(path_addr)
+                && let Some(path) = conn.path(*id)
+                && path.close().is_err()
+            {
+                conn.close(0u32.into(), b"signaling path close failed");
+                return Err("could not close signaling path");
+            }
+        }
+        state.purpose = ConnectionPurpose::Ordinary;
+        let local_candidates = self.state.local_candidates();
+        update_qnt_candidates(&conn, &local_candidates);
+        self.trigger_holepunching();
         self.select_path();
         Ok(())
     }
@@ -902,6 +972,11 @@ impl RemoteStateActor {
                     .values()
                     .find(|path| path.is_custom())
                     .cloned(),
+                ConnectionPurpose::Ordinary if conn_state.forbids(&selected) => conn_state
+                    .paths
+                    .values()
+                    .find(|path| !conn_state.forbids(path))
+                    .cloned(),
                 _ => Some(selected.clone()),
             };
             // Never propagate a control-only route into a data connection.
@@ -915,7 +990,9 @@ impl RemoteStateActor {
                 let Some(path) = conn.path(*path_id) else {
                     continue;
                 };
-                if conn_state.purpose == ConnectionPurpose::Data && path_fourtuple.is_custom() {
+                if (conn_state.purpose == ConnectionPurpose::Data && path_fourtuple.is_custom())
+                    || conn_state.forbids(path_fourtuple)
+                {
                     let _ = path.close();
                     continue;
                 }
@@ -1274,6 +1351,9 @@ impl State {
         if conn_state.purpose == ConnectionPurpose::Data && open_4tuple.is_custom() {
             return Err("control path forbidden on data connection");
         }
+        if conn_state.forbids(open_4tuple) {
+            return Err("signaling-only path forbidden on admitted connection");
+        }
         // Only the client opens paths; the server receives them via
         // QUIC frames and reacts to PathOpened events.
         if conn.side().is_server() {
@@ -1410,6 +1490,18 @@ pub(crate) enum RemoteStateMessage {
     /// The actor will actively manage paths on the connection and start holepunching as needed.
     #[debug("AddConnection({})", _0.stable_id())]
     AddConnection(noq::Connection, bool, oneshot::Sender<PathStateReceiver>),
+    /// Enable candidate exchange after a full admission decision.
+    AuthorizeCandidates {
+        conn_id: usize,
+        allowed_data_custom_ids: Vec<u64>,
+        tx: oneshot::Sender<Result<(), &'static str>>,
+    },
+    #[cfg(feature = "miopunch-test-hooks")]
+    TestOpenAdmittedCustomPath {
+        conn_id: usize,
+        remote: iroh_base::CustomAddr,
+        tx: oneshot::Sender<Result<(), &'static str>>,
+    },
     /// Opens a known UDP path on an already authenticated connection.
     OpenDataPath {
         conn_id: usize,
@@ -1522,6 +1614,8 @@ struct ConnectionState {
     /// Used for recording metrics.
     has_been_direct: bool,
     purpose: ConnectionPurpose,
+    allowed_data_custom_ids: BTreeSet<u64>,
+    custom_data_policy: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1534,6 +1628,12 @@ enum ConnectionPurpose {
 }
 
 impl ConnectionState {
+    fn forbids(&self, path: &transports::FourTuple) -> bool {
+        self.custom_data_policy
+            && matches!(path, transports::FourTuple::Custom { remote, .. }
+            if !self.allowed_data_custom_ids.contains(&remote.id()))
+    }
+
     /// Tracks an open path for the connection.
     fn add_open_path(
         &mut self,

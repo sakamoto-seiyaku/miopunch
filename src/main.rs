@@ -20,9 +20,9 @@ use p2panda_net::{AddressBook, Endpoint as PandaEndpoint};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
-mod tcp_transport;
 use miopunch_native_probe::mqtt_transport::{MqttTransport, Traffic as MqttTraffic};
 use miopunch_native_probe::native_network::{NativeNetwork, NodeStatus};
+use miopunch_native_probe::tcp_transport;
 use tcp_transport::{TcpOnly, TcpTransport, Traffic};
 
 const PROBE_ALPN: &[u8] = b"miopunch/probe/1";

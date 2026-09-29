@@ -132,6 +132,7 @@ pub struct Builder {
     secret_key: Option<SecretKey>,
     alpn_protocols: Vec<Vec<u8>>,
     control_only_alpns: Vec<Vec<u8>>,
+    admission_gated: bool,
     transport_config: QuicTransportConfig,
     keylog: bool,
     address_lookup: Vec<Box<dyn DynAddressLookupBuilder>>,
@@ -204,6 +205,7 @@ impl Builder {
             secret_key: Default::default(),
             alpn_protocols: Default::default(),
             control_only_alpns: Default::default(),
+            admission_gated: false,
             transport_config: QuicTransportConfig::default(),
             keylog: Default::default(),
             address_lookup: Default::default(),
@@ -251,15 +253,16 @@ impl Builder {
         let static_config = StaticConfig {
             server_config: tls_config.make_server_config_with_early_data(
                 self.keylog,
-                self.control_only_alpns.is_empty(),
+                self.control_only_alpns.is_empty() && !self.admission_gated,
             )?,
             client_config: tls_config.make_client_config_with_early_data(
                 self.keylog,
-                self.control_only_alpns.is_empty(),
+                self.control_only_alpns.is_empty() && !self.admission_gated,
             )?,
             tls_config,
             transport_config: self.transport_config.clone(),
             control_only_alpns: self.control_only_alpns,
+            admission_gated: self.admission_gated,
             token_key,
             token_store: Arc::new(noq::TokenMemoryCache::default()),
         };
@@ -561,6 +564,15 @@ impl Builder {
     /// application explicitly begins a data path for that connection.
     pub fn control_only_alpns(mut self, alpns: Vec<Vec<u8>>) -> Self {
         self.control_only_alpns = alpns;
+        self
+    }
+
+    /// Gate every connection before QNT candidates and automatic path probes.
+    /// The hook must explicitly return `Accept` to enable candidates or
+    /// `AcceptRestricted` for a bootstrap-only connection. Early data is off.
+    pub fn admission_gate(mut self, hook: impl EndpointHooks + 'static) -> Self {
+        self.admission_gated = true;
+        self.hooks.push(hook);
         self
     }
 
@@ -1007,6 +1019,18 @@ impl Endpoint {
     ) -> std::io::Result<()> {
         self.inner
             .test_reopen_control_path(connection.remote_id(), connection.stable_id(), remote)
+            .await
+    }
+    /// Test-only request for a custom path after ordinary admission.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub async fn test_open_admitted_custom_path(
+        &self,
+        connection: &connection::Connection,
+        remote: iroh_base::CustomAddr,
+    ) -> std::io::Result<()> {
+        self.inner
+            .test_open_admitted_custom_path(connection.remote_id(), connection.stable_id(), remote)
             .await
     }
     /// Start validating a known UDP address on an existing authenticated

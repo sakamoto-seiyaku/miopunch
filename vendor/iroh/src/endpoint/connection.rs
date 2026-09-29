@@ -343,12 +343,13 @@ fn conn_from_noq_conn(
     );
 
     // Register this connection with the socket.
-    let restricted = ep
+    let control_only = ep
         .inner
         .static_config
         .control_only_alpns
         .iter()
         .any(|alpn| alpn == &info.alpn);
+    let restricted = control_only || ep.inner.static_config.admission_gated;
     let fut = ep
         .inner
         .register_connection(info.endpoint_id, conn.clone(), restricted);
@@ -362,10 +363,35 @@ fn conn_from_noq_conn(
             inner: conn,
         };
 
-        if let AfterHandshakeOutcome::Reject { error_code, reason } =
-            inner.hooks.after_handshake(&conn).await
+        let release = match inner.hooks.after_handshake(&conn).await {
+            AfterHandshakeOutcome::Reject { error_code, reason } => {
+                conn.close(error_code, &reason);
+                return Err(e!(ConnectingError::LocallyRejected));
+            }
+            AfterHandshakeOutcome::AcceptData { allowed_data_custom_ids } => {
+                if !inner.static_config.admission_gated || control_only {
+                    conn.close(0u32.into(), b"incompatible admission path policy");
+                    return Err(e!(ConnectingError::LocallyRejected));
+                }
+                Some(allowed_data_custom_ids)
+            }
+            AfterHandshakeOutcome::Accept => {
+                if inner.static_config.admission_gated {
+                    conn.close(0u32.into(), b"admission decision missing");
+                    return Err(e!(ConnectingError::LocallyRejected));
+                }
+                None
+            }
+            AfterHandshakeOutcome::AcceptRestricted => None,
+        };
+        if inner.static_config.admission_gated && !control_only
+            && let Some(allowed_data_custom_ids) = release
+            && inner
+                .authorize_candidates(conn.remote_id(), conn.stable_id(), allowed_data_custom_ids)
+                .await
+                .is_err()
         {
-            conn.close(error_code, &reason);
+            conn.close(0u32.into(), b"admission path release failed");
             return Err(e!(ConnectingError::LocallyRejected));
         }
 
@@ -539,7 +565,9 @@ impl Connecting {
     /// [`RecvStream::is_0rtt`]: noq::RecvStream::is_0rtt
     #[allow(clippy::result_large_err)]
     pub fn into_0rtt(self) -> Result<OutgoingZeroRttConnection, Connecting> {
-        if !self.ep.inner.static_config.control_only_alpns.is_empty() {
+        if !self.ep.inner.static_config.control_only_alpns.is_empty()
+            || self.ep.inner.static_config.admission_gated
+        {
             return Err(self);
         }
         match self.inner.into_0rtt() {
@@ -634,7 +662,9 @@ impl Accepting {
     ///
     /// [`RecvStream::is_0rtt`]: crate::endpoint::RecvStream::is_0rtt
     pub fn into_0rtt(self) -> Result<IncomingZeroRttConnection, Accepting> {
-        if !self.ep.inner.static_config.control_only_alpns.is_empty() {
+        if !self.ep.inner.static_config.control_only_alpns.is_empty()
+            || self.ep.inner.static_config.admission_gated
+        {
             return Err(self);
         }
         let (noq_conn, zrtt_accepted) = self
@@ -1155,6 +1185,16 @@ impl Connection<HandshakeCompleted> {
     /// [`PublicKey`]: iroh_base::PublicKey
     pub fn remote_id(&self) -> EndpointId {
         self.data.info.endpoint_id
+    }
+
+    /// Test-only observation of candidates released to QNT on this connection.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_local_qnt_candidate_count(&self) -> usize {
+        self.inner
+            .get_local_nat_traversal_addresses()
+            .map(|addrs| addrs.len())
+            .unwrap_or(0)
     }
 
     /// Returns the currently open network paths for this connection.

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use iroh::endpoint::{ConnectOptions, QuicTransportConfig};
+use iroh::endpoint::{ConnectOptions, ConnectWithOptsError, ConnectingError, QuicTransportConfig};
 use ractor::thread_local::ThreadLocalActor;
 use ractor::{ActorProcessingErr, ActorRef, RpcReplyPort};
 use thiserror::Error;
@@ -107,14 +107,20 @@ async fn establish_connection(
 
             let connecting = endpoint
                 .connect_with_opts(endpoint_addr.clone(), &alpn, connect_options)
-                .await
-                .map_err(|err| ConnectionActorError::Iroh(err.into()));
+                .await;
 
-            let connection = match connecting {
-                Ok(connecting) => connecting
-                    .await
-                    .map_err(|err| ConnectionActorError::Iroh(err.into())),
-                Err(err) => Err(err),
+            let (connection, policy_rejected) = match connecting {
+                Ok(connecting) => match connecting.await {
+                    Ok(connection) => (Ok(connection), false),
+                    Err(err) => {
+                        let rejected = matches!(err, ConnectingError::LocallyRejected { .. });
+                        (Err(ConnectionActorError::Iroh(err.into())), rejected)
+                    }
+                },
+                Err(err) => {
+                    let rejected = matches!(err, ConnectWithOptsError::LocallyRejected { .. });
+                    (Err(ConnectionActorError::Iroh(err.into())), rejected)
+                }
             };
 
             match connection {
@@ -135,13 +141,17 @@ async fn establish_connection(
                 Err(err) => {
                     warn!("connection establishment failed: {err:#}");
 
-                    let _ = endpoint_ref.send_message(ToIrohEndpoint::Report {
-                        remote_node_id,
-                        role: ConnectionRole::Connect {
-                            remote_address: endpoint_addr,
-                        },
-                        outcome: ConnectionOutcome::Failed,
-                    });
+                    // A local admission decision is not evidence that an
+                    // address or carrier failed to reach the peer.
+                    if !policy_rejected {
+                        let _ = endpoint_ref.send_message(ToIrohEndpoint::Report {
+                            remote_node_id,
+                            role: ConnectionRole::Connect {
+                                remote_address: endpoint_addr,
+                            },
+                            outcome: ConnectionOutcome::Failed,
+                        });
+                    }
 
                     // Inform caller about what went wrong and shut down actor with a failure.
                     // Since the error types do not implement `Clone` we're helping ourselves with
