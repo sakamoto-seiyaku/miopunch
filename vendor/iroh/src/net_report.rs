@@ -822,6 +822,67 @@ impl Client {
     }
 }
 
+/// A single, ordered QAD result from the same noq endpoint as application QUIC.
+#[cfg(not(wasm_browser))]
+pub(crate) struct MappingProbeSample {
+    pub observer: String,
+    pub destination: SocketAddr,
+    pub mapped: SocketAddr,
+    pub observed_at: Instant,
+}
+
+/// Run one observer at a time. Net report's parallel results and aggregate
+/// `mapping_varies_by_dest` cannot establish port allocation order.
+#[cfg(not(wasm_browser))]
+pub(crate) async fn observe_mapping_sequence(
+    servers: &RelayMap,
+    endpoint: noq::Endpoint,
+    tls_config: rustls::ClientConfig,
+    dns_resolver: DnsResolver,
+    cancel: CancellationToken,
+) -> std::io::Result<Vec<MappingProbeSample>> {
+    use std::io;
+
+    let relays = servers.relays::<Vec<_>>();
+    if relays.len() != 4 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "four configured QAD observers required",
+        ));
+    }
+    let client = QuicClient::new(endpoint, tls_config);
+    let mut results = Vec::with_capacity(relays.len());
+    for relay in relays {
+        if cancel.is_cancelled() {
+            return Err(io::Error::new(
+                io::ErrorKind::Interrupted,
+                "mapping observation cancelled",
+            ));
+        }
+        let (report, conn) = time::timeout(
+            PROBES_TIMEOUT,
+            run_probe_v4(
+                relay.clone(),
+                client.clone(),
+                dns_resolver.clone(),
+                cancel.child_token(),
+            ),
+        )
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "mapping observation timed out"))?
+        .map_err(|error| io::Error::other(format!("QAD mapping observation: {error:#}")))?;
+        results.push(MappingProbeSample {
+            observer: relay.url.to_string(),
+            destination: report.destination,
+            mapped: report.addr,
+            observed_at: Instant::now(),
+        });
+        conn.conn
+            .close(QUIC_ADDR_DISC_CLOSE_CODE, QUIC_ADDR_DISC_CLOSE_REASON);
+    }
+    Ok(results)
+}
+
 #[cfg(not(wasm_browser))]
 async fn run_probe_v4(
     relay: Arc<RelayConfig>,
@@ -855,6 +916,7 @@ async fn run_probe_v4(
     let report = QadProbeReport {
         relay: relay.url.clone(),
         addr: SocketAddr::new(addr.ip().to_canonical(), addr.port()),
+        destination: relay_addr.into(),
         latency: conn.rtt(PathId::ZERO).unwrap_or_default(),
     };
 
@@ -873,6 +935,7 @@ async fn run_probe_v4(
                     .set(Some(QadProbeReport {
                         relay: endpoint.clone(),
                         addr: val,
+                        destination: relay_addr.into(),
                         latency,
                     }))
                     .ok();
@@ -924,6 +987,7 @@ async fn run_probe_v6(
     let report = QadProbeReport {
         relay: relay.url.clone(),
         addr: SocketAddr::new(addr.ip().to_canonical(), addr.port()),
+        destination: relay_addr.into(),
         latency: conn.rtt(PathId::ZERO).unwrap_or_default(),
     };
 
@@ -942,6 +1006,7 @@ async fn run_probe_v6(
                     .set(Some(QadProbeReport {
                         relay: endpoint.clone(),
                         addr: val,
+                        destination: relay_addr.into(),
                         latency,
                     }))
                     .ok();

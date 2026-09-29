@@ -458,6 +458,8 @@ pub(super) struct QadProbeReport {
     pub(super) latency: Duration,
     /// The discovered public address.
     pub(super) addr: SocketAddr,
+    /// The actual resolved UDP destination used by this QAD connection.
+    pub(super) destination: SocketAddr,
 }
 
 #[derive(Debug, Clone)]

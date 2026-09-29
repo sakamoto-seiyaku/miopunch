@@ -931,6 +931,50 @@ pub enum BindError {
 }
 
 impl EndpointInner {
+    #[cfg(not(wasm_browser))]
+    pub(crate) async fn observe_udp_mapping_sequence(
+        &self,
+        observers: &RelayMap,
+    ) -> io::Result<UdpMappingSequence> {
+        if self.sock.shutdown.is_closed() {
+            return Err(io::Error::other("endpoint closed"));
+        }
+        let generation = *self.sock.observation_generation.lock().expect("poisoned");
+        let samples = net_report::observe_mapping_sequence(
+            observers,
+            self.endpoint.clone(),
+            self.sock.tls_config.clone(),
+            self.sock.dns_resolver.clone(),
+            self.sock.shutdown.at_close_start.child_token(),
+        )
+        .await?;
+        if *self.sock.observation_generation.lock().expect("poisoned") != generation {
+            return Err(io::Error::other(
+                "network changed during mapping observation",
+            ));
+        }
+        let last = samples
+            .last()
+            .ok_or_else(|| io::Error::other("empty mapping observation"))?
+            .observed_at;
+        Ok(UdpMappingSequence {
+            samples: samples
+                .into_iter()
+                .map(|sample| UdpMappingSample {
+                    observer: sample.observer,
+                    destination: sample.destination,
+                    mapped: sample.mapped,
+                    observed_at: sample.observed_at,
+                })
+                .collect(),
+            valid_until: last + Duration::from_secs(2),
+            validity: ObservationValidity {
+                generation: self.sock.observation_generation.clone(),
+                observed_generation: generation,
+            },
+        })
+    }
+
     #[cfg(feature = "miopunch-test-hooks")]
     pub(crate) async fn test_open_admitted_custom_path(
         &self,
@@ -2299,6 +2343,39 @@ fn new_re_stun_timer(initial_delay: bool) -> time::Interval {
             d.as_secs()
         );
         time::interval(d)
+    }
+}
+
+/// An ordered reflection from a configured QAD destination through the
+/// endpoint's real QUIC UDP socket.
+#[cfg(not(wasm_browser))]
+#[derive(Debug, Clone)]
+pub struct UdpMappingSample {
+    /// Configured observer URL; each sample must have a distinct destination.
+    pub observer: String,
+    /// Resolved IP:port used by the QAD connection (not merely the URL name).
+    pub destination: SocketAddr,
+    /// Public address reflected by that observer.
+    pub mapped: SocketAddr,
+    /// Local time at which the QAD result was received.
+    pub observed_at: Instant,
+}
+
+/// A short-lived sequential QAD observation for mapping allocation analysis.
+#[cfg(not(wasm_browser))]
+#[derive(Debug, Clone)]
+pub struct UdpMappingSequence {
+    /// Results in request order, each to a distinct configured destination.
+    pub samples: Vec<UdpMappingSample>,
+    valid_until: Instant,
+    validity: ObservationValidity,
+}
+
+#[cfg(not(wasm_browser))]
+impl UdpMappingSequence {
+    /// Network changes invalidate all copies of the observation.
+    pub fn is_fresh(&self) -> bool {
+        Instant::now() < self.valid_until && self.validity.is_current()
     }
 }
 

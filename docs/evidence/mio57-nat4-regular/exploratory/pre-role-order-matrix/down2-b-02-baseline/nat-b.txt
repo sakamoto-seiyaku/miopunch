@@ -1,0 +1,5 @@
+Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+    2    80 ACCEPT     17   --  *      wan0    100.64.27.6          0.0.0.0/0
+    3  1303 SNAT       17   --  *      wan0    10.27.2.2            0.0.0.0/0            udp spt:43027 to:100.64.27.6:43027
+    1    60 MASQUERADE  0    --  *      wan0    0.0.0.0/0            0.0.0.0/0

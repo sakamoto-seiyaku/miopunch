@@ -56,6 +56,8 @@ pub use super::socket::{
     },
     transports::LocalTransportAddr,
 };
+#[cfg(not(wasm_browser))]
+pub use super::socket::{UdpMappingSample, UdpMappingSequence};
 #[cfg(wasm_browser)]
 use crate::address_lookup::PkarrResolver;
 #[cfg(not(wasm_browser))]
@@ -1613,6 +1615,17 @@ impl Endpoint {
     /// The advertised direct addresses remain available through [`Self::addr`].
     pub fn udp_observation(&self) -> impl Watcher<Value = UdpObservation> + use<> {
         self.inner.udp_observation()
+    }
+
+    /// Observe four configured QAD destinations in sequence using this
+    /// endpoint's QUIC UDP socket. The caller must still classify the results,
+    /// check freshness and gate any peer-directed probing.
+    #[cfg(not(wasm_browser))]
+    pub async fn observe_udp_mapping_sequence(
+        &self,
+        observers: &RelayMap,
+    ) -> std::io::Result<UdpMappingSequence> {
+        self.inner.observe_udp_mapping_sequence(observers).await
     }
 
     /// Returns the local socket addresses on which the underlying sockets are bound.

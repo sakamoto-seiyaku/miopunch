@@ -1,0 +1,13 @@
+CANDIDATE id=3f2ea958bc7ed413991433d91dc78199e349fbd96d0c2debbe3beca4b9d203c4 sockets=[0.0.0.0:43027, [::]:58438] observed=100.64.27.6:43027 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.6:43027 t_ms=0 age_ms=19
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.6:43027 t_ms=5 age_ms=14
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.6:43027 t_ms=12 age_ms=6
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.6:43027 t_ms=19 age_ms=0
+MAPPING_CLASS pattern=Stable { address: 100.64.27.6:43027 } confidence=consistent_3/3_transitions fresh=true
+AUTO_SELECTED role=StableSideReceiver target=100.64.27.2:42041 round=27a7be71c93c60ec89cdfac375ef599c stable_id=110970127146752
+EXCHANGED peer=511349102b9cadb4767abc6e1bb9c5aae9daffc3a9c78ddbf54736f9d2862055 peer_candidate=100.64.27.2:42041 attempted=100.64.27.2:42041 stable_id=110970127146752
+CONTROL_MSGS sent=2 received=2
+AUTO_PROBES_SENT count=2 distinct_targets=1 role=StableSideReceiver target=100.64.27.2:42041 elapsed_ms=52
+PATH_OPEN path_id_retries=0
+UDP_COMMIT_ACK round=27a7be71c93c60ec89cdfac375ef599c stable_id=110970127146752
+DATA_OK stable_id=110970127146752 peer=511349102b9cadb4767abc6e1bb9c5aae9daffc3a9c78ddbf54736f9d2862055 path_ms=385 paths=PathList { snapshot: State { list: [PathData(1, ip:100.64.27.2:42041)], selected: Some(PathId(1)), closed: true }, .. } mqtt_after_commit=32

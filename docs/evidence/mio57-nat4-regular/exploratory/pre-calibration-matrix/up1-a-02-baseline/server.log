@@ -1,0 +1,6 @@
+CANDIDATE id=4687bc6069b9628a7cc9ac8495266acd03ecdb420c67d8ca074a4d5c986f21cd sockets=[0.0.0.0:43027, [::]:37951] observed=100.64.27.6:43027 mapping_varies=None
+READY id=4687bc6069b9628a7cc9ac8495266acd03ecdb420c67d8ca074a4d5c986f21cd route=0b8ec3cb06c48c77582f44444e7a7380
+PROBES_SENT count=1 distinct_targets=1
+EXCHANGED peer=887a23a03d202c68a5dec93ad4db0826563232bf0d3ef294f6a9944361a9ea49 peer_candidate=100.64.27.2:42031 stable_id=102358550153840
+CONTROL_MSGS sent=1 received=1
+PATH_UNAVAILABLE reason=deadline has elapsed mqtt=MQTT_TRAFFIC sent_packets=25 sent_bytes=9064 received_packets=30 received_bytes=10440 rejected_packets=0 max_datagram=2048 queue_depth=64

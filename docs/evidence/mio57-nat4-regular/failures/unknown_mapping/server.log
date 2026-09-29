@@ -1,0 +1,8 @@
+CANDIDATE id=4f86aaebce683e6118e8f1b0074f79e7230c5499a51c51bf5a25ecaca1ddb402 sockets=[0.0.0.0:43027, [::]:48369] observed=100.64.27.6:43027 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.6:43027 t_ms=0 age_ms=12
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.6:43027 t_ms=4 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.6:43027 t_ms=8 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.6:43027 t_ms=11 age_ms=0
+MAPPING_CLASS pattern=Stable { address: 100.64.27.6:43027 } confidence=consistent_3/3_transitions fresh=true
+READY id=4f86aaebce683e6118e8f1b0074f79e7230c5499a51c51bf5a25ecaca1ddb402 route=7018a47510fb79813309712a3548b067
+COORD_UNAVAILABLE reason=invalid NAT3 control frame mqtt=MQTT_TRAFFIC sent_packets=20 sent_bytes=8887 received_packets=27 received_bytes=10525 rejected_packets=0 max_datagram=2048 queue_depth=64

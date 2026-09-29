@@ -19,6 +19,9 @@ use miopunch_native_probe::admission_proof::{
 use miopunch_native_probe::genesis_recovery::RECOVERY_ALPN;
 use miopunch_native_probe::member_bootstrap::MEMBER_BOOTSTRAP_ALPN;
 use miopunch_native_probe::mqtt_transport::{MqttTransport, Traffic};
+use miopunch_native_probe::nat_mapping::{
+    MappingPattern, NodeProbeBudget, choose_single_sequential,
+};
 use miopunch_native_probe::native_network::NativeNetwork;
 use miopunch_native_probe::tcp_transport::{TcpOnly, TcpTransport, Traffic as TcpTraffic};
 use p2panda_core::Hash;
@@ -800,7 +803,7 @@ async fn signaling_carrier_allows_scoped_control_but_refuses_business() {
 }
 
 #[tokio::test]
-async fn a_data_capable_custom_tcp_carrier_remains_eligible_for_members() {
+async fn an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy() {
     let client_key = SecretKey::generate();
     let server_key = SecretKey::generate();
     let scope = AdmissionScope::new(NETWORK, 0);
@@ -870,6 +873,34 @@ async fn a_data_capable_custom_tcp_carrier_remains_eligible_for_members() {
     send.finish().unwrap();
     let (_, mut recv) = incoming.accept_bi().await.unwrap();
     assert_eq!(recv.read_to_end(16).await.unwrap(), b"TCP DATA");
+
+    // A failed UDP mapping choice and exhausted enhancement budget do not
+    // revoke another already-admitted data path or its current QUIC session.
+    let stable_id = out.stable_id();
+    assert!(
+        choose_single_sequential(
+            MappingPattern::Unknown,
+            MappingPattern::Stable {
+                address: "127.0.0.1:42027".parse().unwrap(),
+            }
+        )
+        .is_none()
+    );
+    let budget = NodeProbeBudget::new(0, 0);
+    assert!(!budget.reserve_observations(4));
+    assert!(!budget.spend_peer_datagram());
+    let (mut send, _) = out.open_bi().await.unwrap();
+    send.write_all(b"TCP AFTER UDP DECISION FAILURE")
+        .await
+        .unwrap();
+    send.finish().unwrap();
+    let (_, mut recv) = incoming.accept_bi().await.unwrap();
+    assert_eq!(
+        recv.read_to_end(64).await.unwrap(),
+        b"TCP AFTER UDP DECISION FAILURE"
+    );
+    assert_eq!(out.stable_id(), stable_id);
+    assert!(server_gate.allows(&incoming, ProtocolScope::Member));
     out.close(0u32.into(), b"done");
     incoming.close(0u32.into(), b"done");
     client.close().await;

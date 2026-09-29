@@ -1,0 +1,128 @@
+[
+  {
+    "case": "wrong",
+    "wall_ms": 9434,
+    "client_probes": 1,
+    "server_probes": 1,
+    "client_outcome": "PATH_UNAVAILABLE",
+    "server_outcome": "PATH_UNAVAILABLE",
+    "evidence": "wrong"
+  },
+  {
+    "case": "stale",
+    "wall_ms": 6227,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "STALE_CANDIDATE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "stale"
+  },
+  {
+    "case": "expire_mapping",
+    "wall_ms": 8382,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "expire_mapping"
+  },
+  {
+    "case": "late_control",
+    "wall_ms": 10236,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "late_control"
+  },
+  {
+    "case": "cancel",
+    "wall_ms": 6327,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "cancel"
+  },
+  {
+    "case": "unknown_mapping",
+    "wall_ms": 6227,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "unknown_mapping"
+  },
+  {
+    "case": "reversal",
+    "wall_ms": 9283,
+    "client_probes": 1,
+    "server_probes": 1,
+    "client_outcome": "PATH_UNAVAILABLE",
+    "server_outcome": "PATH_UNAVAILABLE",
+    "evidence": "reversal"
+  },
+  {
+    "case": "out_of_window",
+    "wall_ms": 9434,
+    "client_probes": 1,
+    "server_probes": 1,
+    "client_outcome": "PATH_UNAVAILABLE",
+    "server_outcome": "PATH_UNAVAILABLE",
+    "evidence": "out_of_window"
+  },
+  {
+    "case": "wide_claim",
+    "wall_ms": 6227,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "wide_claim"
+  },
+  {
+    "case": "blocked",
+    "wall_ms": 9543,
+    "client_probes": 1,
+    "server_probes": 1,
+    "client_outcome": "PATH_UNAVAILABLE",
+    "server_outcome": "PATH_UNAVAILABLE",
+    "evidence": "blocked"
+  },
+  {
+    "case": "nonmember",
+    "wall_ms": 6387,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "ADMISSION_REJECTED",
+    "server_outcome": "ADMISSION_REJECTED",
+    "evidence": "nonmember"
+  },
+  {
+    "case": "revoked",
+    "wall_ms": 10887,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "Error:",
+    "server_outcome": "Error:",
+    "evidence": "revoked"
+  },
+  {
+    "case": "no_secret",
+    "wall_ms": 10888,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "Error:",
+    "server_outcome": "Error:",
+    "evidence": "no_secret"
+  },
+  {
+    "case": "wrong_secret",
+    "wall_ms": 6228,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "Error:",
+    "server_outcome": "Error:",
+    "evidence": "wrong_secret"
+  }
+]

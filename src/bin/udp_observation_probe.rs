@@ -19,8 +19,13 @@ fn usage() -> &'static str {
 }
 
 async fn serve(cert_path: &Path, bind_addr: SocketAddr) -> Result<(), Box<dyn Error>> {
-    let cert =
-        rcgen::generate_simple_self_signed(vec!["localhost".into(), "qad.miopunch.test".into()])?;
+    let cert = rcgen::generate_simple_self_signed(vec![
+        "localhost".into(),
+        "qad.miopunch.test".into(),
+        "qad2.miopunch.test".into(),
+        "qad3.miopunch.test".into(),
+        "qad4.miopunch.test".into(),
+    ])?;
     std::fs::write(cert_path, cert.cert.der().as_ref())?;
     let key = rustls::pki_types::PrivatePkcs8KeyDer::from(cert.signing_key.serialize_der());
     let tls = rustls::ServerConfig::builder_with_provider(Arc::new(
@@ -29,12 +34,22 @@ async fn serve(cert_path: &Path, bind_addr: SocketAddr) -> Result<(), Box<dyn Er
     .with_safe_default_protocol_versions()?
     .with_no_client_auth()
     .with_single_cert(vec![cert.cert.der().clone()], key.into())?;
-    let mut quic = server::QuicConfig::new(bind_addr);
-    quic.server_config = Some(tls);
-    let mut config = server::ServerConfig::default();
-    config.quic = Some(quic);
-    let server = server::Server::spawn(config).await?;
-    println!("QAD_READY {}", server.quic_addr().ok_or("no QAD socket")?);
+    let mut bind_addrs = vec![bind_addr];
+    if let Ok(extra) = std::env::var("MIOPUNCH_QAD_EXTRA_PORTS") {
+        for port in extra.split(',') {
+            bind_addrs.push(SocketAddr::new(bind_addr.ip(), port.parse()?));
+        }
+    }
+    let mut servers = Vec::new();
+    for addr in bind_addrs {
+        let mut quic = server::QuicConfig::new(addr);
+        quic.server_config = Some(tls.clone());
+        let mut config = server::ServerConfig::default();
+        config.quic = Some(quic);
+        let server = server::Server::spawn(config).await?;
+        println!("QAD_READY {}", server.quic_addr().ok_or("no QAD socket")?);
+        servers.push(server);
+    }
     tokio::signal::ctrl_c().await?;
     Ok(())
 }

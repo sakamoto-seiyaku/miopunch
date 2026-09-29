@@ -1,0 +1,13 @@
+CANDIDATE id=4c2abbb4526e02ca600341061c79062224836e08acc65daa040c787402ecb9f5 sockets=[0.0.0.0:43027, [::]:56929] observed=100.64.27.6:43027 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.6:43027 t_ms=0 age_ms=13
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.6:43027 t_ms=5 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.6:43027 t_ms=9 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.6:43027 t_ms=13 age_ms=0
+MAPPING_CLASS pattern=Stable { address: 100.64.27.6:43027 } confidence=consistent_3/3_transitions fresh=true
+READY id=4c2abbb4526e02ca600341061c79062224836e08acc65daa040c787402ecb9f5 route=b1e91d8355e50c5a7b62c59ef4cf1e40
+AUTO_SELECTED role=StableSideReceiver target=100.64.27.2:42035 round=a4aad8169b743b88a982509a8a49c870 stable_id=110506977596272
+EXCHANGED peer=d26214de8640859d84d95d25e7ed212a9e55f157369384968456fa96d3f099c2 peer_candidate=100.64.27.2:42035 stable_id=110506977596272
+CONTROL_MSGS sent=3 received=3
+AUTO_PROBES_SENT count=1 distinct_targets=1 role=StableSideReceiver target=100.64.27.2:42035 elapsed_ms=111
+PATH_UNAVAILABLE reason=deadline has elapsed mqtt=MQTT_TRAFFIC sent_packets=27 sent_bytes=9255 received_packets=33 received_bytes=10838 rejected_packets=0 max_datagram=2048 queue_depth=64
+CONTROL_ALIVE_AFTER_UDP_FAILURE stable_id=110506977596272

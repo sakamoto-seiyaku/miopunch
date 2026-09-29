@@ -1,0 +1,4 @@
+Chain FORWARD (policy DROP 1 packets, 39 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+   72 33524 ACCEPT     0    --  lan0   wan0    0.0.0.0/0            0.0.0.0/0
+   56 21447 ACCEPT     0    --  wan0   lan0    0.0.0.0/0            0.0.0.0/0            ctstate RELATED,ESTABLISHED

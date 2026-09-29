@@ -76,3 +76,17 @@ that one error as idempotent completion. `LastOpenPath` and
 `MultipathNotNegotiated` still fail the commit and close the connection.
 The repeated real APDF trials and the observed race are recorded in
 `docs/notes/2026-09-29-nat3-apdf-validation.md`. No wire format changes.
+
+## MIOPUNCH-57 ordered QAD mapping delta
+
+`Endpoint::observe_udp_mapping_sequence` accepts four locally configured
+QAD destinations and contacts them one at a time through the existing noq
+endpoint and its QUIC UDP socket. Each result records the resolved UDP
+destination, reflected address, and local observation time; network changes
+invalidate all copies. The existing `UdpObservation` remains the aggregate
+candidate API. The ordered result lets the caller distinguish stable and
+signed fixed-step mappings without treating the aggregate
+`mapping_varies_by_dest` bit as a predictor. The method does not classify
+filter behavior, select a punch strategy, or add a data socket. Its real
+APDM+APDF validation is in
+`docs/notes/2026-09-29-nat4-regular-validation.md`.
