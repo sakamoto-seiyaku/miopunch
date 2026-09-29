@@ -48,6 +48,14 @@ impl AdmissionScope {
         }
     }
 
+    pub const fn network_id(&self) -> &[u8; 32] {
+        &self.network_id
+    }
+
+    pub const fn secret_generation(&self) -> u64 {
+        self.secret_generation
+    }
+
     fn auth_id(&self) -> String {
         format!(
             "miopunch:{}:{}",

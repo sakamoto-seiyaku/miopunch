@@ -295,6 +295,10 @@ impl ManagementStore {
         self.applied_count
     }
 
+    pub fn anchor(&self) -> NetworkAnchor {
+        self.anchor
+    }
+
     /// Only committed, authorized records are supplied as control history.
     pub async fn get_record(&self, id: Hash) -> Result<Option<ManagementRecord>, StoreError> {
         let row = sqlx::query(
@@ -311,6 +315,24 @@ impl ManagementStore {
             })
         })
         .transpose()
+    }
+
+    /// Complete locally applied history, in the order accepted by this store.
+    pub async fn applied_records(&self) -> Result<Vec<ManagementRecord>, StoreError> {
+        let rows = sqlx::query(
+            "SELECT header, body FROM management_records
+             WHERE applied_order IS NOT NULL ORDER BY applied_order",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| {
+                Ok(ManagementRecord {
+                    header: row.try_get("header")?,
+                    body: row.try_get("body")?,
+                })
+            })
+            .collect()
     }
 
     pub async fn close(self) {

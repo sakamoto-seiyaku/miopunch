@@ -185,6 +185,21 @@ impl ManagementAuth {
     pub fn filtered_operation(&self, id: Hash) -> bool {
         self.state.inner.ignore.contains(&id)
     }
+
+    /// Current causal heads, including filtered operations retained in the graph.
+    pub fn tips(&self) -> Vec<Hash> {
+        let mut tips: HashSet<Hash> = self.state.inner.operations.keys().copied().collect();
+        for operation in self.state.inner.operations.values() {
+            tips.retain(|id| !operation.dependencies.contains(id));
+        }
+        let mut tips: Vec<_> = tips.into_iter().collect();
+        tips.sort_by_key(|id| *id.as_bytes());
+        tips
+    }
+
+    pub fn has_author_log_id(&self, author: VerifyingKey, log_id: [u8; 16]) -> bool {
+        self.log_heads.contains_key(&(author, log_id))
+    }
 }
 
 pub(crate) fn decode_complete(
