@@ -13,9 +13,18 @@ impl Drop for Server {
 }
 
 fn start_server(mode: &str, data_dir: &std::path::Path) -> (Server, String, String) {
+    start_server_on(mode, data_dir, None)
+}
+
+fn start_server_on(
+    mode: &str,
+    data_dir: &std::path::Path,
+    bind_ip: Option<&str>,
+) -> (Server, String, String) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_miopunch-native-probe"))
         .args(["serve", mode])
         .arg(data_dir)
+        .args(bind_ip)
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .spawn()
@@ -33,6 +42,36 @@ fn start_server(mode: &str, data_dir: &std::path::Path) -> (Server, String, Stri
     assert_eq!(fields.len(), 3, "server readiness: {line:?}");
     assert_eq!(fields[0], "READY");
     (Server(child), fields[1].into(), fields[2].into())
+}
+
+#[test]
+fn wrapped_probe_accepts_a_wildcard_bind_for_a_lan_peer() {
+    let root = tempfile::tempdir().unwrap();
+    let (_server, server_id, address) =
+        start_server_on("wrapped", &root.path().join("server"), Some("0.0.0.0"));
+    let port = address.parse::<std::net::SocketAddr>().unwrap().port();
+    let result = Command::new(env!("CARGO_BIN_EXE_miopunch-native-probe"))
+        .args(["send", "wrapped"])
+        .arg(root.path().join("client"))
+        .arg(server_id)
+        .arg(format!("127.0.0.1:{port}"))
+        .output()
+        .unwrap();
+    assert!(result.status.success(), "{result:?}");
+    assert_eq!(result.stdout, b"PONG\n");
+}
+
+#[test]
+fn invalid_mode_does_not_create_an_identity() {
+    let root = tempfile::tempdir().unwrap();
+    let data_dir = root.path().join("unused");
+    let result = Command::new(env!("CARGO_BIN_EXE_miopunch-native-probe"))
+        .args(["serve", "invalid"])
+        .arg(&data_dir)
+        .output()
+        .unwrap();
+    assert!(!result.status.success());
+    assert!(!data_dir.exists());
 }
 
 fn assert_two_nodes_exchange_a_message(mode: &str) {

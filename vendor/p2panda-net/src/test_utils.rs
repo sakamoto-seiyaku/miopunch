@@ -22,6 +22,11 @@ use crate::{AddressBook, Discovery, Endpoint, Gossip, LogSync, MdnsDiscovery, Ne
 
 pub const TEST_NETWORK_ID: NetworkId = [1; 32];
 
+// Keep seeded test listeners out of the usual OS ephemeral-client port range.
+// Otherwise a client socket from an earlier case can occupy the next random
+// listener port, causing unrelated actor-startup failures.
+const TEST_LISTENER_PORTS: std::ops::Range<u16> = 20_000..30_000;
+
 #[derive(Clone, Debug)]
 pub struct ApplicationArguments {
     pub network_id: NetworkId,
@@ -130,9 +135,9 @@ pub fn test_args_from_seed(seed: [u8; 32]) -> ApplicationArguments {
         .with_signing_key(SigningKey::from_bytes(&signing_key_bytes))
         .with_iroh_config(IrohConfig {
             bind_ip_v4: Ipv4Addr::LOCALHOST,
-            bind_port_v4: rng.random_range(49152..65535),
+            bind_port_v4: rng.random_range(TEST_LISTENER_PORTS),
             bind_ip_v6: Ipv6Addr::LOCALHOST,
-            bind_port_v6: rng.random_range(49152..65535),
+            bind_port_v6: rng.random_range(TEST_LISTENER_PORTS),
         })
         .with_rng(rng)
         .with_mdns_mode(MdnsDiscoveryMode::Passive)
