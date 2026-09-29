@@ -7,7 +7,7 @@ publish = false
 
 [workspace]
 resolver = "2"
-members = ["vendor/p2panda-net"]
+members = ["browser-probe", "vendor/p2panda-net"]
 
 [workspace.lints.clippy]
 unused_async = "warn"
@@ -46,3 +46,10 @@ tokio = { version = "1.52.3", features = ["full"] }
 
 [dev-dependencies]
 tempfile = "3.22.0"
+
+[[bin]]
+name = "browser-probe-native"
+path = "src/bin/browser_probe_native.rs"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+iroh-relay = { version = "=1.2.0", features = ["server"] }

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>miopunch browser relay probe</title>
+<link rel="icon" href="data:,">
+<body>
+<p id="status">Starting browser node…</p>
+<script type="module">
+  import init, { BrowserNode } from '/pkg/miopunch_browser_probe.js';
+  window.ready = (async () => {
+    await init();
+    const relay = new URLSearchParams(location.search).get('relay');
+    if (!relay) throw new Error('missing relay URL');
+    window.node = await BrowserNode.start(relay);
+    document.querySelector('#status').textContent = `Ready: ${window.node.id()}`;
+    return window.node.id();
+  })();
+</script>
+</body>
+</html>

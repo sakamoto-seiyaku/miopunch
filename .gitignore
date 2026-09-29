@@ -1,3 +1,5 @@
 /dist/
 /target/
+/browser-probe/pkg/
+/browser-probe/harness/node_modules/
 /archive/legacy-go-openspec-2026-09-28/packaging/linux/deb/out/
