@@ -21,18 +21,30 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 
 mod tcp_transport;
+use miopunch_native_probe::mqtt_transport::{MqttTransport, Traffic as MqttTraffic};
 use tcp_transport::{TcpOnly, TcpTransport, Traffic};
 
 const PROBE_ALPN: &[u8] = b"miopunch/probe/1";
+const MQTT_CONTROL_ALPN: &[u8] = b"miopunch/control-probe/1";
 const PING: &[u8] = b"PING";
 const PONG: &[u8] = b"PONG";
-const USAGE: &str = "usage: miopunch-native-probe serve raw|wrapped|tcp DATA_DIR [BIND_IPV4] | send raw|wrapped|tcp DATA_DIR TARGET_ID TARGET_ADDR [BIND_IPV4]";
+const USAGE: &str = "usage: miopunch-native-probe identity DATA_DIR | serve raw|wrapped|tcp DATA_DIR [BIND_IPV4] | send raw|wrapped|tcp DATA_DIR TARGET_ID TARGET_ADDR [BIND_IPV4] | serve mqtt DATA_DIR BROKER_ADDR EXPECTED_PEER_ID | send mqtt DATA_DIR TARGET_ID TARGET_ROUTE BROKER_ADDR | cancel mqtt DATA_DIR BROKER_ADDR";
 
 #[derive(Debug, Clone)]
-struct Echo(mpsc::UnboundedSender<()>);
+struct ProbeEcho {
+    done: mpsc::UnboundedSender<()>,
+    expected_peer: Option<PublicKey>,
+}
 
-impl ProtocolHandler for Echo {
+impl ProtocolHandler for ProbeEcho {
     async fn accept(&self, connection: iroh::endpoint::Connection) -> Result<(), AcceptError> {
+        if self
+            .expected_peer
+            .is_some_and(|expected| connection.remote_id() != expected)
+        {
+            connection.close(0u32.into(), b"unexpected peer");
+            return Ok(());
+        }
         let (mut send, mut recv) = connection.accept_bi().await?;
         let request = recv.read_to_end(64).await.map_err(std::io::Error::other)?;
         if request == PING {
@@ -40,7 +52,7 @@ impl ProtocolHandler for Echo {
         }
         send.finish()?;
         connection.closed().await;
-        let _ = self.0.send(());
+        let _ = self.done.send(());
         Ok(())
     }
 }
@@ -99,7 +111,13 @@ async fn serve_raw(key: &SigningKey, bind_ip: Ipv4Addr) -> Result<(), Box<dyn Er
     let endpoint = raw_endpoint(key, bind_ip).await?;
     let (done_tx, mut done_rx) = mpsc::unbounded_channel();
     let router = Router::builder(endpoint.clone())
-        .accept(PROBE_ALPN, Echo(done_tx))
+        .accept(
+            PROBE_ALPN,
+            ProbeEcho {
+                done: done_tx,
+                expected_peer: None,
+            },
+        )
         .spawn();
     println!(
         "READY {} {}",
@@ -133,7 +151,13 @@ async fn serve_tcp(key: &SigningKey, bind_ip: Ipv4Addr) -> Result<(), Box<dyn Er
     let addr = transport.bound_addr().ok_or("no TCP carrier address")?;
     let (done_tx, mut done_rx) = mpsc::unbounded_channel();
     let router = Router::builder(endpoint)
-        .accept(PROBE_ALPN, Echo(done_tx))
+        .accept(
+            PROBE_ALPN,
+            ProbeEcho {
+                done: done_tx,
+                expected_peer: None,
+            },
+        )
         .spawn();
     println!("READY {} {}", iroh_secret(key).public(), addr);
     tokio::time::timeout(Duration::from_secs(20), done_rx.recv())
@@ -170,6 +194,92 @@ async fn send_tcp(
     tokio::time::timeout(Duration::from_secs(8), ping(connection)).await??;
     endpoint.close().await;
     eprintln!("{}", traffic.report());
+    Ok(())
+}
+
+async fn mqtt_endpoint(
+    key: &SigningKey,
+    transport: Arc<MqttTransport>,
+) -> Result<Endpoint, Box<dyn Error>> {
+    Ok(Endpoint::builder(presets::Minimal)
+        .secret_key(iroh_secret(key))
+        .transport_config(quic_config())
+        .clear_ip_transports()
+        .clear_relay_transports()
+        .add_custom_transport(transport)
+        .bind()
+        .await?)
+}
+
+async fn serve_mqtt(
+    key: &SigningKey,
+    broker: SocketAddr,
+    expected_peer: PublicKey,
+) -> Result<(), Box<dyn Error>> {
+    let traffic = Arc::new(MqttTraffic::default());
+    let transport = Arc::new(MqttTransport::new(broker, traffic.clone()));
+    let endpoint = mqtt_endpoint(key, transport.clone()).await?;
+    transport.wait_ready().await?;
+    let (done_tx, mut done_rx) = mpsc::unbounded_channel();
+    let router = Router::builder(endpoint)
+        .accept(
+            MQTT_CONTROL_ALPN,
+            ProbeEcho {
+                done: done_tx,
+                expected_peer: Some(expected_peer),
+            },
+        )
+        .spawn();
+    println!("READY {} {}", iroh_secret(key).public(), transport.route()?);
+    tokio::select! {
+        result = done_rx.recv() => { result.ok_or("server stopped before control exchange")?; }
+        _ = transport.wait_closed() => return Err("MQTT carrier closed before control exchange".into()),
+        _ = tokio::time::sleep(Duration::from_secs(20)) => return Err("MQTT control exchange timed out".into()),
+    }
+    router.shutdown().await?;
+    eprintln!("{}", traffic.report());
+    Ok(())
+}
+
+async fn send_mqtt(
+    key: &SigningKey,
+    target: PublicKey,
+    route: &str,
+    broker: SocketAddr,
+) -> Result<(), Box<dyn Error>> {
+    let traffic = Arc::new(MqttTraffic::default());
+    let transport = Arc::new(MqttTransport::new(broker, traffic.clone()));
+    let endpoint = mqtt_endpoint(key, transport.clone()).await?;
+    transport.wait_ready().await?;
+    let target = EndpointAddr::new(target).with_addrs([iroh_base::TransportAddr::Custom(
+        MqttTransport::address(route)?,
+    )]);
+    let connection = tokio::select! {
+        result = tokio::time::timeout(Duration::from_secs(8), endpoint.connect(target, MQTT_CONTROL_ALPN)) => result??,
+        _ = transport.wait_closed() => return Err("MQTT carrier closed during handshake".into()),
+    };
+    if !connection.paths().iter().any(|path| {
+        path.is_selected() && matches!(path.remote_addr(), iroh_base::TransportAddr::Custom(_))
+    }) {
+        return Err("MQTT custom path was not selected".into());
+    }
+    tokio::select! {
+        result = tokio::time::timeout(Duration::from_secs(8), ping(connection)) => result??,
+        _ = transport.wait_closed() => return Err("MQTT carrier closed during control exchange".into()),
+    }
+    endpoint.close().await;
+    eprintln!("{}", traffic.report());
+    Ok(())
+}
+
+async fn cancel_mqtt(key: &SigningKey, broker: SocketAddr) -> Result<(), Box<dyn Error>> {
+    let transport = Arc::new(MqttTransport::new(broker, Arc::new(MqttTraffic::default())));
+    let endpoint = mqtt_endpoint(key, transport.clone()).await?;
+    transport.wait_ready().await?;
+    endpoint.close().await;
+    drop(endpoint);
+    tokio::time::timeout(Duration::from_secs(2), transport.wait_closed()).await??;
+    println!("CANCELLED");
     Ok(())
 }
 
@@ -221,7 +331,15 @@ async fn serve_wrapped(key: &SigningKey, bind_ip: Ipv4Addr) -> Result<(), Box<dy
         .spawn()
         .await?;
     let (done_tx, mut done_rx) = mpsc::unbounded_channel();
-    endpoint.accept(PROBE_ALPN, Echo(done_tx)).await?;
+    endpoint
+        .accept(
+            PROBE_ALPN,
+            ProbeEcho {
+                done: done_tx,
+                expected_peer: None,
+            },
+        )
+        .await?;
     let iroh_endpoint = endpoint.endpoint().await?;
     assert_eq!(endpoint.node_id().as_bytes(), iroh_endpoint.id().as_bytes());
     println!(
@@ -272,6 +390,40 @@ fn optional_bind_ip(args: &[String]) -> Result<Ipv4Addr, Box<dyn Error>> {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = std::env::args().collect();
+    if let [_, action, data_dir] = args.as_slice() {
+        if action == "identity" {
+            println!(
+                "{}",
+                iroh_secret(&signing_key(Path::new(data_dir))?).public()
+            );
+            return Ok(());
+        }
+    }
+    match args.as_slice() {
+        [_, action, mode, data_dir, broker] if action == "cancel" && mode == "mqtt" => {
+            return cancel_mqtt(&signing_key(Path::new(data_dir))?, broker.parse()?).await;
+        }
+        [_, action, mode, data_dir, broker, expected] if action == "serve" && mode == "mqtt" => {
+            return serve_mqtt(
+                &signing_key(Path::new(data_dir))?,
+                broker.parse()?,
+                expected.parse()?,
+            )
+            .await;
+        }
+        [_, action, mode, data_dir, target, route, broker]
+            if action == "send" && mode == "mqtt" =>
+        {
+            return send_mqtt(
+                &signing_key(Path::new(data_dir))?,
+                target.parse()?,
+                route,
+                broker.parse()?,
+            )
+            .await;
+        }
+        _ => {}
+    }
     if !matches!(
         args.get(2).map(String::as_str),
         Some("raw" | "wrapped" | "tcp")

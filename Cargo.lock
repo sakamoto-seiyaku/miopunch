@@ -2225,6 +2225,7 @@ version = "0.1.0"
 dependencies = [
  "futures-channel",
  "futures-util",
+ "hex",
  "iroh",
  "iroh-base",
  "iroh-relay",
@@ -2233,7 +2234,9 @@ dependencies = [
  "noq-udp",
  "p2panda-core",
  "p2panda-net",
+ "rand 0.10.3",
  "rcgen",
+ "rumqttc",
  "rustls",
  "tempfile",
  "tokio",
@@ -3408,6 +3411,23 @@ dependencies = [
  "spki 0.7.3",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "rumqttc"
+version = "0.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0feff8d882bff0b2fddaf99355a10336d43dd3ed44204f85ece28cf9626ab519"
+dependencies = [
+ "bytes",
+ "fixedbitset",
+ "flume",
+ "futures-util",
+ "log",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
 ]
 
 [[package]]
