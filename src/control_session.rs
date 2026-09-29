@@ -10,6 +10,8 @@ use iroh::{
 };
 use iroh_base::PublicKey;
 
+use crate::admission_gate::AdmissionGate;
+
 const MAX_PENDING_BUSINESS_BYTES: usize = 1024 * 1024;
 const MAX_PENDING_BUSINESS_MESSAGES: usize = 64;
 
@@ -71,6 +73,12 @@ impl ControlSession {
     /// Authenticated peer identity for the restricted bootstrap exchange.
     pub fn remote_id(&self) -> PublicKey {
         self.connection.remote_id()
+    }
+
+    /// Recheck membership on this exact admitted control connection before
+    /// disclosing a candidate or spending a direct-path probe budget.
+    pub fn may_upgrade_member_path(&self, gate: &AdmissionGate) -> bool {
+        gate.allows_member_path_upgrade(&self.connection)
     }
 
     /// Opens a stream reserved for the bootstrap control protocol.

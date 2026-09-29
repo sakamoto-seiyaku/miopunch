@@ -234,6 +234,24 @@ impl AdmissionGate {
             })
     }
 
+    /// An admitted control connection may coordinate a data-path upgrade only
+    /// while both identities are current members. This does not grant the
+    /// control ALPN general member-protocol access: callers must still verify
+    /// the IP path and close the control carrier before releasing business.
+    pub fn allows_member_path_upgrade(&self, connection: &Connection) -> bool {
+        let state = self.state.lock().expect("admission policy lock");
+        state
+            .sessions
+            .get(&connection.stable_id())
+            .is_some_and(|session| {
+                session.peer == *connection.remote_id().as_bytes()
+                    && session.scope == ProtocolScope::Bootstrap
+                    && session.valid(&state.policy)
+                    && state.policy.members.contains(&session.peer)
+                    && state.policy.members.contains(&state.policy.local_id)
+            })
+    }
+
     /// Borrow the exact connection's completed SCRAM fact for a restricted
     /// history handler. It cannot be transferred to another connection, and a
     /// policy change removes the fact and closes its session.

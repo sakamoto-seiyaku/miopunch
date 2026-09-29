@@ -1,0 +1,7 @@
+CANDIDATE id=fbd507e6aaef499dbb6f6257af6802d7d431d4bb70360777d5fc2bc6e09f19ee sockets=[0.0.0.0:43027, [::]:55781] observed=100.64.27.6:43027 mapping_varies=None
+COORD_START peer=6854ce897ce88a3e076c19c940d90a133fe59b135405f10c2d674064418aa9cf round=153de39b9f24810334c941a149d1dcbc stable_id=94301906952512
+EXCHANGED peer=6854ce897ce88a3e076c19c940d90a133fe59b135405f10c2d674064418aa9cf peer_candidate=100.64.27.2:42027 attempted=100.64.27.2:42027 stable_id=94301906952512
+CONTROL_MSGS sent=2 received=2
+PROBES_SENT count=8 distinct_targets=1 elapsed_ms=535
+PATH_OPEN path_id_retries=0
+PATH_UNAVAILABLE reason=Ok(Err(Read(ConnectionLost(LocallyClosed)))) mqtt=MQTT_TRAFFIC sent_packets=39 sent_bytes=11041 received_packets=28 received_bytes=9306 rejected_packets=0 max_datagram=2048 queue_depth=64

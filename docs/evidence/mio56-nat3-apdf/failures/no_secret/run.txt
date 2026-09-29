@@ -1,0 +1,1 @@
+case=no_secret strategy=coordinated topology=nat3_nat3 dialer=a client_rc=1 server_rc=1

@@ -1,0 +1,6 @@
+CANDIDATE id=4e4eda8b6f3f9f55ecf600276cd37fb086e53e4e1699ecb9ce02641870a72a6c sockets=[0.0.0.0:43027, [::]:44711] observed=100.64.27.6:43027 mapping_varies=None
+READY id=4e4eda8b6f3f9f55ecf600276cd37fb086e53e4e1699ecb9ce02641870a72a6c route=aa9418ec9e530f48ca79dee2196f761b
+COORD_START peer=780bbf7214694e4f3a2a8ae5a8c6df69d846acbd2cee81bf37a04d76598c83a4 round=ce64bdeddeec141776ba14777a3026ad stable_id=139716158605664
+EXCHANGED peer=780bbf7214694e4f3a2a8ae5a8c6df69d846acbd2cee81bf37a04d76598c83a4 peer_candidate=100.64.27.2:42027 stable_id=139716158605664
+CONTROL_MSGS sent=2 received=2
+COORD_UNAVAILABLE reason=duplicate NAT3 control stream mqtt=MQTT_TRAFFIC sent_packets=23 sent_bytes=9067 received_packets=29 received_bytes=10701 rejected_packets=0 max_datagram=2048 queue_depth=64

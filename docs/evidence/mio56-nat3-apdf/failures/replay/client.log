@@ -1,0 +1,3 @@
+CANDIDATE id=780bbf7214694e4f3a2a8ae5a8c6df69d846acbd2cee81bf37a04d76598c83a4 sockets=[0.0.0.0:42027, [::]:47180] observed=100.64.27.2:42027 mapping_varies=None
+REPLAY_SENT round=ce64bdeddeec141776ba14777a3026ad
+COORD_UNAVAILABLE reason=duplicate NAT3 start submitted mqtt=MQTT_TRAFFIC sent_packets=28 sent_bytes=10631 received_packets=22 received_bytes=9034 rejected_packets=0 max_datagram=2048 queue_depth=64

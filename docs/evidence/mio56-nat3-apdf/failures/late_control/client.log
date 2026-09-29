@@ -1,0 +1,2 @@
+CANDIDATE id=780bbf7214694e4f3a2a8ae5a8c6df69d846acbd2cee81bf37a04d76598c83a4 sockets=[0.0.0.0:42027, [::]:41872] observed=100.64.27.2:42027 mapping_varies=None
+COORD_UNAVAILABLE reason=closed mqtt=MQTT_TRAFFIC sent_packets=25 sent_bytes=10502 received_packets=19 received_bytes=8917 rejected_packets=0 max_datagram=2048 queue_depth=64

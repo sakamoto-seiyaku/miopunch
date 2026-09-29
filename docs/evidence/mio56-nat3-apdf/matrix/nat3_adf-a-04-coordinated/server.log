@@ -1,0 +1,10 @@
+CANDIDATE id=dedff2fd78f67076550d4584df5711c440c852da11776cbbc36ee616e8740d29 sockets=[0.0.0.0:43027, [::]:41422] observed=100.64.27.6:43027 mapping_varies=None
+READY id=dedff2fd78f67076550d4584df5711c440c852da11776cbbc36ee616e8740d29 route=231f066f919cbbea3d386707136f7566
+COORD_START peer=5b15f1f37753fef4b4fafecc03239ac9328591ae4e4811ca7beee420c45ca3d1 round=e3a5b591dd82de0873eae56929b322ad stable_id=140101095019040
+EXCHANGED peer=5b15f1f37753fef4b4fafecc03239ac9328591ae4e4811ca7beee420c45ca3d1 peer_candidate=100.64.27.2:42027 stable_id=140101095019040
+CONTROL_MSGS sent=2 received=2
+PROBES_SENT count=8 distinct_targets=1 elapsed_ms=535
+UDP_PROMOTION_RECEIVED round=e3a5b591dd82de0873eae56929b322ad stable_id=140101095019040
+PATH_OBSERVED peer=5b15f1f37753fef4b4fafecc03239ac9328591ae4e4811ca7beee420c45ca3d1 stable_id=140101095019040
+UDP_COMMIT_ACK round=e3a5b591dd82de0873eae56929b322ad stable_id=140101095019040
+DATA_OK stable_id=140101095019040 peer=5b15f1f37753fef4b4fafecc03239ac9328591ae4e4811ca7beee420c45ca3d1 path_ms=1010 paths=PathList { snapshot: State { list: [PathData(1, ip:100.64.27.2:42027)], selected: Some(PathId(1)), closed: false }, .. } mqtt_after_commit=30

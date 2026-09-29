@@ -658,9 +658,16 @@ impl RemoteStateActor {
         for (id, addr) in &state.paths {
             if addr.is_custom() {
                 if let Some(path) = conn.path(*id) {
-                    if path.close().is_err() {
-                        conn.close(0u32.into(), b"control path close failed");
-                        return Err("could not close control path; connection closed");
+                    match path.close() {
+                        Ok(()) | Err(noq_proto::ClosePathError::ClosedPath) => {
+                            // The peer may have committed first and abandoned
+                            // this exact control path. Local closure is then
+                            // already complete; preserve the validated IP path.
+                        }
+                        Err(_) => {
+                            conn.close(0u32.into(), b"control path close failed");
+                            return Err("could not close control path; connection closed");
+                        }
                     }
                 }
             }

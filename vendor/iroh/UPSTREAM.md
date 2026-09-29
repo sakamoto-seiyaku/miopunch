@@ -64,3 +64,15 @@ That injected error is distinct from a naturally exhausted CID pool. No QUIC
 wire format or generic hole-punch policy is changed. The real dual-NAT
 reproduction and remaining NAT classes are recorded in
 `docs/notes/2026-09-29-udp-nat-validation.md`.
+
+## MIOPUNCH-56 NAT3 promotion race delta
+
+When both endpoints upgrade one authenticated QUIC connection from the
+restricted MQTT path to a validated UDP path, the first endpoint can abandon
+the custom path before the second calls `commit_data_path`. The second
+endpoint's `path.close()` then returns `ClosePathError::ClosedPath`; the path
+is already closed, so this is a successful final state. The fork now treats
+that one error as idempotent completion. `LastOpenPath` and
+`MultipathNotNegotiated` still fail the commit and close the connection.
+The repeated real APDF trials and the observed race are recorded in
+`docs/notes/2026-09-29-nat3-apdf-validation.md`. No wire format changes.

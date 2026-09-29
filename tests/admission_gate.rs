@@ -10,7 +10,9 @@ use iroh::protocol::{AcceptError, ProtocolHandler};
 use iroh::{Endpoint, EndpointAddr};
 use iroh_base::SecretKey;
 use iroh_base::TransportAddr;
-use miopunch_native_probe::admission_gate::{ADMISSION_REQUEST_ALPN, AdmissionGate, ProtocolScope};
+use miopunch_native_probe::admission_gate::{
+    ADMISSION_REQUEST_ALPN, AdmissionGate, CONTROL_ALPN, ProtocolScope,
+};
 use miopunch_native_probe::admission_proof::{
     AdmissionScope, AdmissionSecret, ProofError, prove_server,
 };
@@ -85,6 +87,7 @@ impl Pair {
             ADMISSION_REQUEST_ALPN.to_vec(),
             RECOVERY_ALPN.to_vec(),
             MEMBER_BOOTSTRAP_ALPN.to_vec(),
+            CONTROL_ALPN.to_vec(),
             mixed(DISCOVERY),
             mixed(GOSSIP),
             mixed(LOG_SYNC),
@@ -137,6 +140,33 @@ impl Pair {
         self.client.close().await;
         self.server.close().await;
     }
+}
+
+#[tokio::test]
+async fn admitted_control_path_upgrade_requires_current_membership() {
+    let pair = Pair::new(Some(SECRET), SECRET, true).await;
+    let (client, server) = pair.connect(CONTROL_ALPN).await;
+    let (client, server) = (client.unwrap(), server.unwrap());
+    assert!(pair.client_gate.allows_member_path_upgrade(&client));
+    assert!(pair.server_gate.allows_member_path_upgrade(&server));
+    assert!(!pair.server_gate.allows(&server, ProtocolScope::Member));
+
+    pair.server_gate.update_authorization(
+        [*pair.server.id().as_bytes()],
+        [*pair.client.id().as_bytes()],
+    );
+    assert!(!pair.server_gate.allows_member_path_upgrade(&server));
+    tokio::time::timeout(Duration::from_secs(2), server.closed())
+        .await
+        .unwrap();
+    pair.close().await;
+
+    let pair = Pair::new(Some(SECRET), SECRET, false).await;
+    let (client, server) = pair.connect(CONTROL_ALPN).await;
+    let (client, server) = (client.unwrap(), server.unwrap());
+    assert!(!pair.client_gate.allows_member_path_upgrade(&client));
+    assert!(!pair.server_gate.allows_member_path_upgrade(&server));
+    pair.close().await;
 }
 
 #[tokio::test]

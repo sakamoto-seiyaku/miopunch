@@ -1,0 +1,3 @@
+CANDIDATE id=4e4eda8b6f3f9f55ecf600276cd37fb086e53e4e1699ecb9ce02641870a72a6c sockets=[0.0.0.0:43027, [::]:60182] observed=100.64.27.6:43027 mapping_varies=None
+READY id=4e4eda8b6f3f9f55ecf600276cd37fb086e53e4e1699ecb9ce02641870a72a6c route=381a2b5562e623acdfc3536ad7539e7f
+COORD_UNAVAILABLE reason=NAT3 round cancelled mqtt=MQTT_TRAFFIC sent_packets=24 sent_bytes=9060 received_packets=30 received_bytes=10701 rejected_packets=0 max_datagram=2048 queue_depth=64

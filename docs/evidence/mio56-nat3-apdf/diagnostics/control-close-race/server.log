@@ -1,0 +1,9 @@
+CANDIDATE id=6854ce897ce88a3e076c19c940d90a133fe59b135405f10c2d674064418aa9cf sockets=[0.0.0.0:42027, [::]:32985] observed=100.64.27.2:42027 mapping_varies=None
+READY id=6854ce897ce88a3e076c19c940d90a133fe59b135405f10c2d674064418aa9cf route=370cbe284ad9ae4848a587a0880baf41
+COORD_START peer=fbd507e6aaef499dbb6f6257af6802d7d431d4bb70360777d5fc2bc6e09f19ee round=153de39b9f24810334c941a149d1dcbc stable_id=139792327193344
+EXCHANGED peer=fbd507e6aaef499dbb6f6257af6802d7d431d4bb70360777d5fc2bc6e09f19ee peer_candidate=100.64.27.6:43027 stable_id=139792327193344
+CONTROL_MSGS sent=2 received=2
+PROBES_SENT count=8 distinct_targets=1 elapsed_ms=539
+UDP_PROMOTION_RECEIVED round=153de39b9f24810334c941a149d1dcbc stable_id=139792327193344
+PATH_OBSERVED peer=fbd507e6aaef499dbb6f6257af6802d7d431d4bb70360777d5fc2bc6e09f19ee stable_id=139792327193344
+PATH_UNAVAILABLE reason=could not close control path; connection closed mqtt=MQTT_TRAFFIC sent_packets=28 sent_bytes=9306 received_packets=39 received_bytes=11041 rejected_packets=0 max_datagram=2048 queue_depth=64

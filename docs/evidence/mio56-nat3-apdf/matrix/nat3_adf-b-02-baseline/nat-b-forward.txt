@@ -1,0 +1,5 @@
+Chain FORWARD (policy DROP 1 packets, 39 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+   20 16051 ACCEPT     17   --  wan0   lan0    0.0.0.0/0            0.0.0.0/0            udp dpt:43027 recent: CHECK seconds: 60 name: mio56adf side: source mask: 255.255.255.255
+   66 33269 ACCEPT     0    --  lan0   wan0    0.0.0.0/0            0.0.0.0/0
+   36 12858 ACCEPT     0    --  wan0   lan0    0.0.0.0/0            0.0.0.0/0            ctstate RELATED,ESTABLISHED

@@ -1,0 +1,101 @@
+[
+  {
+    "case": "wrong",
+    "wall_ms": 15873,
+    "client_outcome": "PATH_UNAVAILABLE",
+    "server_outcome": "PATH_UNAVAILABLE",
+    "client_probes": 8,
+    "server_probes": 8,
+    "evidence": "wrong"
+  },
+  {
+    "case": "stale",
+    "wall_ms": 3428,
+    "client_outcome": "STALE_CANDIDATE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "client_probes": 0,
+    "server_probes": 0,
+    "evidence": "stale"
+  },
+  {
+    "case": "late_control",
+    "wall_ms": 7142,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "client_probes": 0,
+    "server_probes": 0,
+    "evidence": "late_control"
+  },
+  {
+    "case": "cancel",
+    "wall_ms": 3225,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "client_probes": 0,
+    "server_probes": 0,
+    "evidence": "cancel"
+  },
+  {
+    "case": "old_round",
+    "wall_ms": 3331,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "client_probes": 0,
+    "server_probes": 0,
+    "evidence": "old_round"
+  },
+  {
+    "case": "replay",
+    "wall_ms": 3178,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "client_probes": 0,
+    "server_probes": 0,
+    "evidence": "replay"
+  },
+  {
+    "case": "blocked",
+    "wall_ms": 15863,
+    "client_outcome": "PATH_UNAVAILABLE",
+    "server_outcome": "PATH_UNAVAILABLE",
+    "client_probes": 8,
+    "server_probes": 8,
+    "evidence": "blocked"
+  },
+  {
+    "case": "nonmember",
+    "wall_ms": 3178,
+    "client_outcome": "ADMISSION_REJECTED",
+    "server_outcome": "ADMISSION_REJECTED",
+    "client_probes": 0,
+    "server_probes": 0,
+    "evidence": "nonmember"
+  },
+  {
+    "case": "revoked",
+    "wall_ms": 7741,
+    "client_outcome": "Error:",
+    "server_outcome": "Error:",
+    "client_probes": 0,
+    "server_probes": 0,
+    "evidence": "revoked"
+  },
+  {
+    "case": "no_secret",
+    "wall_ms": 7689,
+    "client_outcome": "Error:",
+    "server_outcome": "Error:",
+    "client_probes": 0,
+    "server_probes": 0,
+    "evidence": "no_secret"
+  },
+  {
+    "case": "wrong_secret",
+    "wall_ms": 3124,
+    "client_outcome": "Error:",
+    "server_outcome": "Error:",
+    "client_probes": 0,
+    "server_probes": 0,
+    "evidence": "wrong_secret"
+  }
+]

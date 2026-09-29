@@ -1,0 +1,6 @@
+CANDIDATE id=5b15f1f37753fef4b4fafecc03239ac9328591ae4e4811ca7beee420c45ca3d1 sockets=[0.0.0.0:42027, [::]:57819] observed=100.64.27.2:42027 mapping_varies=None
+EXCHANGED peer=dedff2fd78f67076550d4584df5711c440c852da11776cbbc36ee616e8740d29 peer_candidate=100.64.27.6:43027 attempted=100.64.27.6:43027 stable_id=94360320064768
+CONTROL_MSGS sent=1 received=1
+PROBES_SENT count=1 distinct_targets=1
+PATH_OPEN path_id_retries=0
+DATA_OK stable_id=94360320064768 peer=dedff2fd78f67076550d4584df5711c440c852da11776cbbc36ee616e8740d29 path_ms=278 paths=PathList { snapshot: State { list: [PathData(1, ip:100.64.27.6:43027)], selected: Some(PathId(1)), closed: true }, .. } mqtt_after_commit=36

@@ -1,0 +1,58 @@
+[
+  {
+    "topology": "nat3_nat3",
+    "dialer": "a",
+    "strategy": "baseline",
+    "success": 2,
+    "attempts": 4
+  },
+  {
+    "topology": "nat3_nat3",
+    "dialer": "a",
+    "strategy": "coordinated",
+    "success": 4,
+    "attempts": 4
+  },
+  {
+    "topology": "nat3_nat3",
+    "dialer": "b",
+    "strategy": "baseline",
+    "success": 3,
+    "attempts": 4
+  },
+  {
+    "topology": "nat3_nat3",
+    "dialer": "b",
+    "strategy": "coordinated",
+    "success": 3,
+    "attempts": 4
+  },
+  {
+    "topology": "nat3_adf",
+    "dialer": "a",
+    "strategy": "baseline",
+    "success": 4,
+    "attempts": 4
+  },
+  {
+    "topology": "nat3_adf",
+    "dialer": "a",
+    "strategy": "coordinated",
+    "success": 4,
+    "attempts": 4
+  },
+  {
+    "topology": "nat3_adf",
+    "dialer": "b",
+    "strategy": "baseline",
+    "success": 4,
+    "attempts": 4
+  },
+  {
+    "topology": "nat3_adf",
+    "dialer": "b",
+    "strategy": "coordinated",
+    "success": 4,
+    "attempts": 4
+  }
+]
