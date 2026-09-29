@@ -1,0 +1,317 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+use std::collections::HashSet;
+use std::fmt::Display;
+
+use p2panda_core::traits::{Author, OperationId};
+use petgraph::algo::toposort;
+use petgraph::dot::{Config, Dot};
+use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::visit::IntoNodeReferences;
+
+use crate::group::crdt::StateChangeResult;
+use crate::group::{GroupAction, GroupCrdtState, GroupMember, apply_action};
+use crate::traits::{Conditions, Operation};
+
+const OP_FILTER_NODE: &str = "#E63C3F";
+const OP_MUTUAL_REMOVE_NODE: &str = "#9a0aad";
+const OP_OK_NODE: &str = "#BFC6C77F";
+const OP_ERR_NODE: &str = "#FFA142";
+const OP_ROOT_NODE: &str = "#EDD7B17F";
+const INDIVIDUAL_NODE: &str = "#EDD7B17F";
+const ADD_MEMBER_EDGE: &str = "#0091187F";
+const DEPENDENCIES_EDGE: &str = "#B748E37F";
+
+impl<ID, OP, M, C> GroupCrdtState<ID, OP, M, C>
+where
+    ID: Author + Ord + Display,
+    OP: OperationId + Ord + Display,
+    M: Operation<ID, OP, C>,
+    C: Conditions,
+{
+    /// Print an auth group graph in DOT format for visualizing the group operation DAG.
+    pub fn display(&self, group_id: ID) -> String {
+        let mut graph = DiGraph::new();
+        graph = self.add_nodes_and_previous_edges(graph);
+
+        graph.add_node((None, self.format_final_members(group_id)));
+
+        let dag_graphviz = Dot::with_attr_getters(
+            &graph,
+            &[Config::NodeNoLabel, Config::EdgeNoLabel],
+            &|_, edge| {
+                let weight = edge.weight();
+                if weight == "member" || weight == "sub group" {
+                    return format!("color=\"{ADD_MEMBER_EDGE}\"");
+                }
+
+                format!("color=\"{DEPENDENCIES_EDGE}\"")
+            },
+            &|_, (_, (_, s))| format!("label = {s}"),
+        );
+
+        let mut s = format!("{dag_graphviz:?}");
+        s = s.replace("digraph {", "digraph {\n    splines=polyline\n");
+        s
+    }
+
+    fn add_nodes_and_previous_edges(
+        &self,
+        mut graph: DiGraph<(Option<OP>, String), String>,
+    ) -> DiGraph<(Option<OP>, String), String> {
+        let sorted = toposort(&self.inner.graph, None).expect("topo sort graph");
+        for id in sorted {
+            let operation = self
+                .inner
+                .operations
+                .get(&id)
+                .expect("operation is present");
+            graph.add_node((Some(operation.id()), self.format_operation(operation)));
+
+            let (operation_idx, _) = graph
+                .node_references()
+                .find(|(_, (op, _))| {
+                    if let Some(op) = op {
+                        *op == operation.id()
+                    } else {
+                        false
+                    }
+                })
+                .unwrap();
+
+            if let GroupAction::Add { member, .. } = operation.action() {
+                graph = self.add_member_to_graph(operation_idx, member, graph);
+            }
+
+            if let GroupAction::Create {
+                initial_members, ..
+            } = operation.action()
+            {
+                for (member, _access) in initial_members {
+                    graph = self.add_member_to_graph(operation_idx, member, graph);
+                }
+            }
+
+            for dependency in operation.dependencies() {
+                let (idx, _) = graph
+                    .node_references()
+                    .find(|(_, (op, _))| {
+                        if let Some(op) = op {
+                            *op == dependency
+                        } else {
+                            false
+                        }
+                    })
+                    .unwrap();
+
+                // @TODO: only add edges for nodes which exist in the graph.
+                graph.add_edge(operation_idx, idx, "dependency".to_string());
+            }
+        }
+
+        graph
+    }
+
+    fn format_operation(&self, operation: &M) -> String {
+        let mut s = String::new();
+
+        let color = if operation.action().is_create() {
+            OP_ROOT_NODE
+        } else {
+            let groups_y = self
+                .inner
+                .state_at(&HashSet::from_iter(operation.dependencies()))
+                .unwrap();
+
+            if self.inner.mutual_removes.contains(&operation.id()) {
+                OP_MUTUAL_REMOVE_NODE
+            } else {
+                match apply_action(
+                    groups_y,
+                    operation.group_id(),
+                    operation.id(),
+                    operation.author(),
+                    &operation.action(),
+                    &self.inner.ignore,
+                ) {
+                    StateChangeResult::Ok { .. } => OP_OK_NODE,
+                    StateChangeResult::Error { .. } => OP_ERR_NODE,
+                    StateChangeResult::Filtered { .. } => OP_FILTER_NODE,
+                }
+            }
+        };
+
+        s += &format!(
+            "<<TABLE BGCOLOR=\"{color}\" BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\">"
+        );
+        s += &format!("<TR><TD>group</TD><TD>{}</TD></TR>", operation.group_id());
+        s += &format!("<TR><TD>operation id</TD><TD>{}</TD></TR>", operation.id());
+        s += &format!("<TR><TD>actor</TD><TD>{}</TD></TR>", operation.author());
+        let dependencies = operation.dependencies().clone();
+        if !dependencies.is_empty() {
+            s += &format!(
+                "<TR><TD>dependencies</TD><TD>{}</TD></TR>",
+                self.format_dependencies(&dependencies)
+            );
+        }
+        s += &format!(
+            "<TR><TD COLSPAN=\"2\">{}</TD></TR>",
+            self.format_control_message(operation)
+        );
+        s += &format!(
+            "<TR><TD COLSPAN=\"2\">{}</TD></TR>",
+            self.format_members(operation)
+        );
+        s += "</TABLE>>";
+        s
+    }
+
+    fn format_final_members(&self, group_id: ID) -> String {
+        let mut s = String::new();
+        s += "<<TABLE BGCOLOR=\"#00E30F7F\" BORDER=\"1\" CELLBORDER=\"1\" CELLSPACING=\"2\">";
+
+        let members = self.members(group_id);
+        s += "<TR><TD>GROUP MEMBERS</TD></TR>";
+        for (id, access) in members {
+            s += &format!("<TR><TD> {id} : {access} </TD></TR>");
+        }
+        s += "</TABLE>>";
+        s
+    }
+
+    fn format_control_message(&self, message: &M) -> String {
+        let mut s = String::new();
+        s += "<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\">";
+
+        match &message.action() {
+            GroupAction::Create { initial_members } => {
+                s += "<TR><TD>CREATE</TD></TR>";
+                s += "<TR><TD>initial members</TD></TR>";
+                for (member, access) in initial_members {
+                    match member {
+                        GroupMember::Individual(id) => {
+                            s += &format!("<TR><TD>individual : {id} : {access}</TD></TR>")
+                        }
+                        GroupMember::Group(id) => {
+                            s += &format!("<TR><TD>group : {id} : {access}</TD></TR>")
+                        }
+                    }
+                }
+            }
+            GroupAction::Add { member, access } => {
+                s += "<TR><TD>ADD</TD></TR>";
+                match member {
+                    GroupMember::Individual(id) => {
+                        s += &format!("<TR><TD>individual : {id} : {access}</TD></TR>")
+                    }
+                    GroupMember::Group(id) => {
+                        s += &format!("<TR><TD>group : {id} : {access}</TD></TR>")
+                    }
+                }
+            }
+            GroupAction::Remove { member } => {
+                s += "<TR><TD>REMOVE</TD></TR>";
+                match member {
+                    GroupMember::Individual(id) => {
+                        s += &format!("<TR><TD>individual : {id}</TD></TR>")
+                    }
+                    GroupMember::Group(id) => s += &format!("<TR><TD>group : {id}</TD></TR>"),
+                }
+            }
+            GroupAction::Promote { member, access } => {
+                s += "<TR><TD>PROMOTE</TD></TR>";
+                match member {
+                    GroupMember::Individual(id) => {
+                        s += &format!("<TR><TD>individual : {id} : {access}</TD></TR>")
+                    }
+                    GroupMember::Group(id) => {
+                        s += &format!("<TR><TD>group : {id} : {access}</TD></TR>")
+                    }
+                }
+            }
+            GroupAction::Demote { member, access } => {
+                s += "<TR><TD>DEMOTE</TD></TR>";
+                match member {
+                    GroupMember::Individual(id) => {
+                        s += &format!("<TR><TD>individual : {id} : {access}</TD></TR>")
+                    }
+                    GroupMember::Group(id) => {
+                        s += &format!("<TR><TD>group : {id} : {access}</TD></TR>")
+                    }
+                }
+            }
+        }
+        s += "</TABLE>";
+        s
+    }
+
+    fn format_members(&self, operation: &M) -> String {
+        let mut dependencies = HashSet::from_iter(operation.dependencies().clone());
+        dependencies.insert(operation.id());
+        let mut members = self
+            .inner
+            .state_at(&dependencies)
+            .unwrap()
+            .get(&operation.group_id())
+            .unwrap()
+            .access_levels();
+        members.sort_by_key(|(id_a, _)| *id_a);
+
+        let mut s = String::new();
+        s += "<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\">";
+        s += "<TR><TD>MEMBERS</TD></TR>";
+
+        for (member, access) in members {
+            s += &format!("<TR><TD>{member:?} : {access}</TD></TR>")
+        }
+
+        s += "</TABLE>";
+        s
+    }
+
+    fn format_dependencies(&self, dependencies: &Vec<OP>) -> String {
+        let mut s = String::new();
+        s += "<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\">";
+
+        for id in dependencies {
+            s += &format!("<TR><TD>{id}</TD></TR>")
+        }
+
+        s += "</TABLE>";
+        s
+    }
+
+    fn add_member_to_graph(
+        &self,
+        operation_idx: NodeIndex,
+        member: GroupMember<ID>,
+        mut graph: DiGraph<(Option<OP>, String), String>,
+    ) -> DiGraph<(Option<OP>, String), String> {
+        match member {
+            GroupMember::Individual(id) => {
+                let table = format!(
+                    "<<TABLE BGCOLOR=\"{INDIVIDUAL_NODE}\" BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\"><TR><TD>individual</TD><TD>{id}</TD></TR></TABLE>>"
+                );
+                let idx = match graph.node_references().find(|(_, (_, t))| t == &table) {
+                    Some((idx, _)) => idx,
+                    None => graph.add_node((None, table)),
+                };
+                graph.add_edge(operation_idx, idx, "member".to_string());
+            }
+            GroupMember::Group(group_id) => {
+                let (create_group_id, _) = self
+                    .inner
+                    .operations
+                    .iter()
+                    .find(|(_, op)| op.action().is_create() && op.group_id() == group_id)
+                    .unwrap();
+                let (idx, _) = graph
+                    .node_references()
+                    .find(|(_, (op, _))| *op == Some(*create_group_id))
+                    .unwrap();
+                graph.add_edge(operation_idx, idx, "member".to_string());
+            }
+        }
+        graph
+    }
+}
