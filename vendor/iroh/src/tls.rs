@@ -74,9 +74,18 @@ impl TlsConfig {
     /// If *keylog* is `true` this will enable logging of the pre-master key to the file in the
     /// `SSLKEYLOGFILE` environment variable.  This can be used to inspect the traffic for
     /// debugging purposes.
+    #[cfg(test)]
     pub(crate) fn make_client_config(
         &self,
         keylog: bool,
+    ) -> Result<QuicClientConfig, TlsConfigError> {
+        self.make_client_config_with_early_data(keylog, true)
+    }
+
+    pub(crate) fn make_client_config_with_early_data(
+        &self,
+        keylog: bool,
+        early_data: bool,
     ) -> Result<QuicClientConfig, TlsConfigError> {
         let mut crypto = rustls::ClientConfig::builder_with_provider(self.crypto_provider.clone())
             .with_protocol_versions(verifier::PROTOCOL_VERSIONS)?
@@ -86,7 +95,7 @@ impl TlsConfig {
 
         // TODO: enable/disable 0-RTT/storing tickets
         crypto.resumption = rustls::client::Resumption::store(self.session_store.clone());
-        crypto.enable_early_data = true;
+        crypto.enable_early_data = early_data;
 
         // The synthetic server name is used locally to select the expected endpoint ID
         // and to partition the session cache. Iroh servers do not use SNI, so do not
@@ -107,9 +116,18 @@ impl TlsConfig {
     /// If *keylog* is `true` this will enable logging of the pre-master key to the file in the
     /// `SSLKEYLOGFILE` environment variable.  This can be used to inspect the traffic for
     /// debugging purposes.
+    #[cfg(test)]
     pub(crate) fn make_server_config(
         &self,
         keylog: bool,
+    ) -> Result<QuicServerConfig, TlsConfigError> {
+        self.make_server_config_with_early_data(keylog, true)
+    }
+
+    pub(crate) fn make_server_config_with_early_data(
+        &self,
+        keylog: bool,
+        early_data: bool,
     ) -> Result<QuicServerConfig, TlsConfigError> {
         let mut crypto = rustls::ServerConfig::builder_with_provider(self.crypto_provider.clone())
             .with_protocol_versions(verifier::PROTOCOL_VERSIONS)?
@@ -122,7 +140,7 @@ impl TlsConfig {
 
         // must be u32::MAX or 0 (the default). Any other value panics with QUIC
         // This is specified in RFC 9001: https://www.rfc-editor.org/rfc/rfc9001#section-4.6.1
-        crypto.max_early_data_size = u32::MAX;
+        crypto.max_early_data_size = if early_data { u32::MAX } else { 0 };
         let quic = QuicServerConfig::try_from(crypto)?;
         Ok(quic)
     }

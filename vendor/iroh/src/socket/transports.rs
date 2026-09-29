@@ -913,6 +913,11 @@ impl FourTuple {
         matches!(self, Self::Relay { .. })
     }
 
+    /// Returns `true` if this is a custom transport path.
+    pub fn is_custom(&self) -> bool {
+        matches!(self, Self::Custom { .. })
+    }
+
     /// Returns the kind of address, for configuring bias.
     pub fn addr_kind(&self) -> AddrKind {
         match self {

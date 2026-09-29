@@ -61,6 +61,16 @@ pub struct Traffic {
 }
 
 impl Traffic {
+    /// Actual datagrams handed to the MQTT publish queue by this endpoint.
+    pub fn sent_packets(&self) -> u64 {
+        self.sent_packets.load(Ordering::Relaxed)
+    }
+
+    /// Datagrams accepted by the adapter before QUIC's connection policy.
+    pub fn received_packets(&self) -> u64 {
+        self.received_packets.load(Ordering::Relaxed)
+    }
+
     pub fn report(&self) -> String {
         format!(
             "MQTT_TRAFFIC sent_packets={} sent_bytes={} received_packets={} received_bytes={} rejected_packets={} max_datagram={} queue_depth={}",

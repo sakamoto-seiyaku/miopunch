@@ -343,7 +343,15 @@ fn conn_from_noq_conn(
     );
 
     // Register this connection with the socket.
-    let fut = ep.inner.register_connection(info.endpoint_id, conn.clone());
+    let restricted = ep
+        .inner
+        .static_config
+        .control_only_alpns
+        .iter()
+        .any(|alpn| alpn == &info.alpn);
+    let fut = ep
+        .inner
+        .register_connection(info.endpoint_id, conn.clone(), restricted);
 
     // Check hooks
     let inner = ep.inner.clone();
@@ -531,6 +539,9 @@ impl Connecting {
     /// [`RecvStream::is_0rtt`]: noq::RecvStream::is_0rtt
     #[allow(clippy::result_large_err)]
     pub fn into_0rtt(self) -> Result<OutgoingZeroRttConnection, Connecting> {
+        if !self.ep.inner.static_config.control_only_alpns.is_empty() {
+            return Err(self);
+        }
         match self.inner.into_0rtt() {
             Ok((noq_conn, zrtt_accepted)) => {
                 let accepted: BoxFuture<_> = Box::pin({
@@ -622,7 +633,10 @@ impl Accepting {
     /// See also documentation for [`Connecting::into_0rtt`].
     ///
     /// [`RecvStream::is_0rtt`]: crate::endpoint::RecvStream::is_0rtt
-    pub fn into_0rtt(self) -> IncomingZeroRttConnection {
+    pub fn into_0rtt(self) -> Result<IncomingZeroRttConnection, Accepting> {
+        if !self.ep.inner.static_config.control_only_alpns.is_empty() {
+            return Err(self);
+        }
         let (noq_conn, zrtt_accepted) = self
             .inner
             .into_0rtt()
@@ -638,10 +652,10 @@ impl Accepting {
         });
         let accepted = accepted.shared();
 
-        IncomingZeroRttConnection {
+        Ok(IncomingZeroRttConnection {
             inner: noq_conn,
             data: IncomingZeroRttData { accepted },
-        }
+        })
     }
 
     /// Returns the remote address of this connection.
@@ -1073,6 +1087,11 @@ impl<T: ConnectionState> Connection<T> {
         self.inner.stable_id()
     }
 
+    /// Packets blocked by this connection's transport path policy.
+    pub fn path_filter_stats(&self) -> noq::PathFilterStats {
+        self.inner.path_filter_stats()
+    }
+
     /// Derives keying material from this connection's TLS session secrets.
     ///
     /// When both peers call this method with the same `label` and `context`
@@ -1365,7 +1384,9 @@ mod tests {
                 .std_context("Failed to accept incoming connection")?;
 
             // accept a possible 0-RTT connection
-            let zrtt_conn = accepting.into_0rtt();
+            let zrtt_conn = accepting
+                .into_0rtt()
+                .expect("0-RTT allowed for this endpoint");
 
             let (mut send, mut recv) = zrtt_conn
                 .accept_bi()

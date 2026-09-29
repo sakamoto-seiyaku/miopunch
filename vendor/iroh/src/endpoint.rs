@@ -131,6 +131,7 @@ pub use crate::{net_report::NetReportConfig, portmapper::PortmapperConfig};
 pub struct Builder {
     secret_key: Option<SecretKey>,
     alpn_protocols: Vec<Vec<u8>>,
+    control_only_alpns: Vec<Vec<u8>>,
     transport_config: QuicTransportConfig,
     keylog: bool,
     address_lookup: Vec<Box<dyn DynAddressLookupBuilder>>,
@@ -202,6 +203,7 @@ impl Builder {
         Self {
             secret_key: Default::default(),
             alpn_protocols: Default::default(),
+            control_only_alpns: Default::default(),
             transport_config: QuicTransportConfig::default(),
             keylog: Default::default(),
             address_lookup: Default::default(),
@@ -247,10 +249,17 @@ impl Builder {
             crypto_provider.clone(),
         );
         let static_config = StaticConfig {
-            server_config: tls_config.make_server_config(self.keylog)?,
-            client_config: tls_config.make_client_config(self.keylog)?,
+            server_config: tls_config.make_server_config_with_early_data(
+                self.keylog,
+                self.control_only_alpns.is_empty(),
+            )?,
+            client_config: tls_config.make_client_config_with_early_data(
+                self.keylog,
+                self.control_only_alpns.is_empty(),
+            )?,
             tls_config,
             transport_config: self.transport_config.clone(),
+            control_only_alpns: self.control_only_alpns,
             token_key,
             token_store: Arc::new(noq::TokenMemoryCache::default()),
         };
@@ -544,6 +553,14 @@ impl Builder {
     /// [ALPN]: https://en.wikipedia.org/wiki/Application-Layer_Protocol_Negotiation
     pub fn alpns(mut self, alpn_protocols: Vec<Vec<u8>>) -> Self {
         self.alpn_protocols = alpn_protocols;
+        self
+    }
+
+    /// Marks protocols whose initial custom path may carry control only.
+    /// Automatic candidate sharing and hole punching start only after the
+    /// application explicitly begins a data path for that connection.
+    pub fn control_only_alpns(mut self, alpns: Vec<Vec<u8>>) -> Self {
+        self.control_only_alpns = alpns;
         self
     }
 
@@ -925,6 +942,8 @@ pub struct Endpoint {
 #[non_exhaustive]
 #[allow(private_interfaces)]
 pub enum ConnectWithOptsError {
+    #[error("Control-only connect requires exactly one explicit custom route")]
+    InvalidControlRoute,
     #[error("Connecting to ourself is not supported")]
     SelfConnect,
     #[error("No addressing information available")]
@@ -963,6 +982,56 @@ pub enum ConnectError {
 }
 
 impl Endpoint {
+    /// Test-only hook that simulates a peer reopening a custom QUIC path
+    /// while the other side has already committed to data-only traffic.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub async fn test_reopen_control_path(
+        &self,
+        connection: &connection::Connection,
+        remote: iroh_base::CustomAddr,
+    ) -> std::io::Result<()> {
+        self.inner
+            .test_reopen_control_path(connection.remote_id(), connection.stable_id(), remote)
+            .await
+    }
+    /// Start validating a known UDP address on an existing authenticated
+    /// connection. The dialing side opens the path; callers must observe an
+    /// established IP path before allowing ordinary traffic.
+    pub async fn open_data_path(
+        &self,
+        connection: &connection::Connection,
+        remote: SocketAddr,
+    ) -> std::io::Result<()> {
+        self.inner
+            .open_data_path(connection.remote_id(), connection.stable_id(), remote)
+            .await
+    }
+
+    /// Open a further custom control path while a connection remains in its
+    /// restricted phase. A data connection rejects this before touching QUIC.
+    pub async fn open_control_path(
+        &self,
+        connection: &connection::Connection,
+        remote: iroh_base::CustomAddr,
+    ) -> std::io::Result<()> {
+        self.inner
+            .open_control_path(connection.remote_id(), connection.stable_id(), remote)
+            .await
+    }
+
+    /// Permanently disallow custom control paths on this connection, after a
+    /// data path has been established. This installs a packet admission rule
+    /// before closing the old paths, including for queued transmits and new
+    /// remote path attempts.
+    pub async fn commit_data_path(
+        &self,
+        connection: &connection::Connection,
+    ) -> std::io::Result<()> {
+        self.inner
+            .commit_data_path(connection.remote_id(), connection.stable_id())
+            .await
+    }
     // The ordering of public methods is reflected directly in the documentation.  This is
     // roughly ordered by what is most commonly needed by users, but grouped in similar
     // items.
@@ -1122,6 +1191,24 @@ impl Endpoint {
 
         let endpoint_addr: EndpointAddr = endpoint_addr.into();
         let endpoint_id = endpoint_addr.id;
+        let control_route = if self
+            .inner
+            .static_config
+            .control_only_alpns
+            .iter()
+            .any(|allowed| allowed == alpn)
+        {
+            ensure!(
+                options.additional_alpns.is_empty(),
+                ConnectWithOptsError::InvalidControlRoute
+            );
+            match endpoint_addr.addrs.iter().collect::<Vec<_>>().as_slice() {
+                [TransportAddr::Custom(route)] => Some((*route).clone()),
+                _ => return Err(e!(ConnectWithOptsError::InvalidControlRoute)),
+            }
+        } else {
+            None
+        };
 
         Span::current().record("remote", tracing::field::display(endpoint_id.fmt_short()));
 
@@ -1165,7 +1252,12 @@ impl Endpoint {
             .static_config
             .create_client_config(alpn_protocols, transport_config.clone());
 
-        let dest_addr = mapped_addr.private_socket_addr();
+        // A restricted attempt must use its own explicit MQTT route even if
+        // the peer actor has a selected IP path from another connection.
+        let dest_addr = control_route
+            .as_ref()
+            .map(|route| self.inner.custom_mapped_addr(route))
+            .unwrap_or_else(|| mapped_addr.private_socket_addr());
         let server_name = &tls::name::encode(endpoint_id);
         let connect =
             self.inner

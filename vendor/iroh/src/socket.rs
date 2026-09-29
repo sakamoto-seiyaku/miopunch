@@ -233,6 +233,7 @@ impl Drop for EndpointInner {
 /// Configuration for a [`noq::Endpoint`] that cannot be changed at runtime.
 #[derive(derive_more::Debug)]
 pub(crate) struct StaticConfig {
+    pub(crate) control_only_alpns: Vec<Vec<u8>>,
     pub(crate) tls_config: tls::TlsConfig,
     #[debug("QuicServerConifg")]
     pub(crate) server_config: QuicServerConfig,
@@ -506,11 +507,8 @@ impl Socket {
     fn publish_observation_report(&self, report: &Report) {
         let mut generation = self.observation_generation.lock().expect("poisoned");
         *generation = generation.wrapping_add(1);
-        let state = UdpObservation::from_report(
-            report,
-            self.observation_generation.clone(),
-            *generation,
-        );
+        let state =
+            UdpObservation::from_report(report, self.observation_generation.clone(), *generation);
         self.udp_observation.set(state).ok();
     }
 
@@ -830,7 +828,8 @@ impl DirectAddrUpdateState {
         self.port_mapper.procure_mapping();
         if self.observation_servers.is_empty() {
             debug!("skipping net_report, no observation servers");
-            self.sock.publish_observation_unavailable(UdpObservation::Disabled, why, None);
+            self.sock
+                .publish_observation_unavailable(UdpObservation::Disabled, why, None);
             return;
         }
 
@@ -909,6 +908,92 @@ pub enum BindError {
 }
 
 impl EndpointInner {
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub(crate) async fn test_reopen_control_path(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        addr: iroh_base::CustomAddr,
+    ) -> std::io::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.sock
+            .try_send_remote_state_msg(
+                remote,
+                RemoteStateMessage::TestReopenControlPath {
+                    conn_id,
+                    remote: addr,
+                    tx,
+                },
+            )
+            .map_err(|_| std::io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| std::io::Error::other("remote state stopped"))?
+            .map_err(std::io::Error::other)
+    }
+    pub(crate) fn custom_mapped_addr(&self, route: &iroh_base::CustomAddr) -> SocketAddr {
+        self.sock
+            .mapped_addrs
+            .custom_addrs
+            .get(route)
+            .private_socket_addr()
+    }
+    pub(crate) async fn open_data_path(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        addr: SocketAddr,
+    ) -> std::io::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.sock
+            .try_send_remote_state_msg(
+                remote,
+                RemoteStateMessage::OpenDataPath {
+                    conn_id,
+                    remote: addr,
+                    tx,
+                },
+            )
+            .map_err(|_| std::io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| std::io::Error::other("remote state stopped"))?
+            .map_err(std::io::Error::other)
+    }
+
+    pub(crate) async fn open_control_path(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        addr: iroh_base::CustomAddr,
+    ) -> std::io::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.sock
+            .try_send_remote_state_msg(
+                remote,
+                RemoteStateMessage::OpenControlPath {
+                    conn_id,
+                    remote: addr,
+                    tx,
+                },
+            )
+            .map_err(|_| std::io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| std::io::Error::other("remote state stopped"))?
+            .map_err(std::io::Error::other)
+    }
+
+    pub(crate) async fn commit_data_path(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+    ) -> std::io::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.sock
+            .try_send_remote_state_msg(remote, RemoteStateMessage::CommitDataPath { conn_id, tx })
+            .map_err(|_| std::io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| std::io::Error::other("remote state stopped"))?
+            .map_err(std::io::Error::other)
+    }
     /// Creates a [`EndpointInner`].
     pub(crate) async fn bind(opts: Options) -> Result<Self, BindError> {
         // Use the current span as the main span for all tasks spawned in this endpoint.
@@ -1423,13 +1508,14 @@ impl EndpointInner {
         &self,
         remote: EndpointId,
         conn: noq::Connection,
+        restricted: bool,
     ) -> impl Future<Output = Result<PathStateReceiver, RemoteStateActorStoppedError>> + Send + 'static
     {
         let (tx, rx) = oneshot::channel();
         let sender = self.actor_sender.clone();
         async move {
             sender
-                .send(ActorMessage::AddConnection(remote, conn, tx))
+                .send(ActorMessage::AddConnection(remote, conn, restricted, tx))
                 .await
                 .map_err(|_| RemoteStateActorStoppedError::new())?;
             rx.await.map_err(|_| RemoteStateActorStoppedError::new())
@@ -1451,6 +1537,7 @@ enum ActorMessage {
     AddConnection(
         EndpointId,
         noq::Connection,
+        bool,
         oneshot::Sender<PathStateReceiver>,
     ),
     /// Re-evaluate direct addresses, e.g. after configured external addresses changed.
@@ -1856,8 +1943,10 @@ impl Actor {
             ActorMessage::ResolveRemote(addr, tx) => {
                 self.remote_map.resolve_remote(addr, tx).await;
             }
-            ActorMessage::AddConnection(remote, conn, tx) => {
-                self.remote_map.add_connection(remote, conn, tx).await;
+            ActorMessage::AddConnection(remote, conn, restricted, tx) => {
+                self.remote_map
+                    .add_connection(remote, conn, restricted, tx)
+                    .await;
             }
             ActorMessage::DirectAddrRefresh => {
                 #[cfg(not(wasm_browser))]
@@ -2328,6 +2417,7 @@ mod tests {
             crypto_provider.clone(),
         );
         let static_config = StaticConfig {
+            control_only_alpns: Vec::new(),
             server_config: tls_config.make_server_config(false).unwrap(),
             client_config: tls_config.make_client_config(false).unwrap(),
             tls_config,
@@ -2744,6 +2834,7 @@ mod tests {
         );
         let keylog = true;
         let static_config = StaticConfig {
+            control_only_alpns: Vec::new(),
             server_config: tls_config.make_server_config(keylog).unwrap(),
             client_config: tls_config.make_client_config(keylog).unwrap(),
             tls_config,

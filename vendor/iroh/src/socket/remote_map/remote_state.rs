@@ -356,8 +356,97 @@ impl RemoteStateActor {
             RemoteStateMessage::SendDatagram(sender, transmit) => {
                 self.state.handle_msg_send_datagram(sender, transmit).await;
             }
-            RemoteStateMessage::AddConnection(handle, tx) => {
-                self.handle_msg_add_connection(handle, tx);
+            RemoteStateMessage::AddConnection(handle, restricted, tx) => {
+                self.handle_msg_add_connection(handle, restricted, tx);
+            }
+            RemoteStateMessage::OpenDataPath {
+                conn_id,
+                remote,
+                tx,
+            } => {
+                let result = if let Some(state) = self.connections.get(&ConnId(conn_id)) {
+                    if state.purpose != ConnectionPurpose::Control {
+                        Err("data path opening requires a restricted control connection")
+                    } else if let Some(conn) = state.handle.upgrade() {
+                        if conn.side().is_client() {
+                            let path =
+                                transports::FourTuple::from_remote(transports::Addr::Ip(remote));
+                            self.state
+                                .open_path_on_conn(ConnId(conn_id), state, &conn, &path, true)
+                        } else {
+                            Err("only the dialing side can open a data path")
+                        }
+                    } else {
+                        Err("connection closed")
+                    }
+                } else {
+                    Err("connection not registered")
+                };
+                let _ = tx.send(result);
+            }
+            RemoteStateMessage::OpenControlPath {
+                conn_id,
+                remote,
+                tx,
+            } => {
+                let result = if let Some(state) = self.connections.get(&ConnId(conn_id)) {
+                    if state.purpose != ConnectionPurpose::Control {
+                        Err("control path requires a restricted control connection")
+                    } else if let Some(conn) = state.handle.upgrade() {
+                        if conn.side().is_client() {
+                            let path = transports::FourTuple::from_remote(
+                                transports::Addr::Custom(remote),
+                            );
+                            self.state
+                                .open_path_on_conn(ConnId(conn_id), state, &conn, &path, true)
+                        } else {
+                            Err("only the dialing side can open a control path")
+                        }
+                    } else {
+                        Err("connection closed")
+                    }
+                } else {
+                    Err("connection not registered")
+                };
+                let _ = tx.send(result);
+            }
+            #[cfg(feature = "miopunch-test-hooks")]
+            RemoteStateMessage::TestReopenControlPath {
+                conn_id,
+                remote,
+                tx,
+            } => {
+                let result = if let Some(state) = self.connections.get(&ConnId(conn_id)) {
+                    if state.purpose != ConnectionPurpose::Control {
+                        Err("test peer must still be in control phase")
+                    } else if let Some(conn) = state.handle.upgrade() {
+                        for (id, addr) in &state.paths {
+                            if addr.is_custom() {
+                                if let Some(path) = conn.path(*id) {
+                                    let _ = path.close();
+                                }
+                            }
+                        }
+                        let tuple =
+                            transports::FourTuple::from_remote(transports::Addr::Custom(remote));
+                        let mapped = self.state.mapped_addrs.to_mapped_tuple(&tuple);
+                        let attempt = conn.open_path_ensure(mapped, PathStatus::Available);
+                        if attempt.path_id().is_some() {
+                            Ok(())
+                        } else {
+                            Err("test path did not open")
+                        }
+                    } else {
+                        Err("connection closed")
+                    }
+                } else {
+                    Err("connection not registered")
+                };
+                let _ = tx.send(result);
+            }
+            RemoteStateMessage::CommitDataPath { conn_id, tx } => {
+                let result = self.commit_data_path(ConnId(conn_id));
+                let _ = tx.send(result);
             }
             RemoteStateMessage::ResolveRemote(addrs, tx) => {
                 self.state.handle_msg_resolve_remote(addrs, tx);
@@ -382,6 +471,7 @@ impl RemoteStateActor {
     fn handle_msg_add_connection(
         &mut self,
         conn: noq::Connection,
+        restricted: bool,
         tx: oneshot::Sender<PathStateReceiver>,
     ) {
         let (path_state_sender, path_state_receiver) = PathStateSender::new();
@@ -400,8 +490,10 @@ impl RemoteStateActor {
         self.state.connections_close.push(OnClosed::new(&conn));
 
         // Add local addrs to the connection
-        let local_addrs = self.state.local_candidates();
-        update_qnt_candidates(&conn, &local_addrs);
+        if !restricted {
+            let local_addrs = self.state.local_candidates();
+            update_qnt_candidates(&conn, &local_addrs);
+        }
 
         // Store the connection
         let conn_state = self
@@ -412,6 +504,11 @@ impl RemoteStateActor {
                 path_state: path_state_sender,
                 paths: Default::default(),
                 has_been_direct: false,
+                purpose: if restricted {
+                    ConnectionPurpose::Control
+                } else {
+                    ConnectionPurpose::Ordinary
+                },
             })
             .into_mut();
 
@@ -422,7 +519,8 @@ impl RemoteStateActor {
                 .state
                 .register_and_configure_path(conn_id, conn_state, &path);
 
-            if let Some(path_remote) = path_remote
+            if !restricted
+                && let Some(path_remote) = path_remote
                 && !path_remote.is_relay()
                 && conn.side().is_client()
             {
@@ -436,14 +534,67 @@ impl RemoteStateActor {
                     .map(|addr| transports::FourTuple::from_remote(addr.clone()))
                     .collect::<Vec<_>>();
                 for open_addr in relays {
-                    self.state
-                        .open_path_on_conn(conn_id, conn_state, &conn, &open_addr);
+                    let _ = self
+                        .state
+                        .open_path_on_conn(conn_id, conn_state, &conn, &open_addr, false);
                 }
             }
         }
-        self.trigger_holepunching();
+        if !restricted {
+            self.trigger_holepunching();
+        }
         self.select_path();
         tx.send(path_state_receiver).ok();
+    }
+
+    /// Atomically forbids custom packet I/O on this connection before any
+    /// application handle is allowed to send business traffic. The noq gate
+    /// also covers packets queued by QUIC and remote path-open races.
+    fn commit_data_path(&mut self, conn_id: ConnId) -> Result<(), &'static str> {
+        let state = self
+            .connections
+            .get_mut(&conn_id)
+            .ok_or("connection not registered")?;
+        let conn = state.handle.upgrade().ok_or("connection closed")?;
+        if state.purpose == ConnectionPurpose::Data {
+            return Ok(());
+        }
+        if state.purpose != ConnectionPurpose::Control {
+            return Err("only a restricted control connection can become data-only");
+        }
+        let Some((data_path_id, _)) = state
+            .paths
+            .iter()
+            .find(|(id, addr)| addr.is_ip() && conn.path(**id).is_some())
+        else {
+            return Err("no established UDP data path");
+        };
+        let data_path_id = *data_path_id;
+        let mapped = self.state.mapped_addrs.clone();
+        conn.restrict_paths(move |addr| {
+            matches!(
+                mapped.to_transport_addr(addr),
+                Some(transports::Addr::Ip(_))
+            )
+        });
+        state.purpose = ConnectionPurpose::Data;
+        if let Some(path) = conn.path(data_path_id) {
+            let _ = path.set_status(PathStatus::Available);
+        }
+        for (id, addr) in &state.paths {
+            if addr.is_custom() {
+                if let Some(path) = conn.path(*id) {
+                    if path.close().is_err() {
+                        conn.close(0u32.into(), b"control path close failed");
+                        return Err("could not close control path; connection closed");
+                    }
+                }
+            }
+        }
+        let local_candidates = self.state.local_candidates();
+        update_qnt_candidates(&conn, &local_candidates);
+        self.select_path();
+        Ok(())
     }
 
     /// Handles [`RemoteStateMessage::NetworkChange`].
@@ -492,8 +643,14 @@ impl RemoteStateActor {
     /// candidates.
     fn update_local_direct_address(&mut self) {
         let local_addrs = self.state.local_candidates();
-        for conn in self.connections.values().filter_map(|s| s.handle.upgrade()) {
-            update_qnt_candidates(&conn, &local_addrs);
+        for state in self
+            .connections
+            .values()
+            .filter(|state| state.purpose != ConnectionPurpose::Control)
+        {
+            if let Some(conn) = state.handle.upgrade() {
+                update_qnt_candidates(&conn, &local_addrs);
+            }
         }
         // todo: trace
     }
@@ -518,6 +675,7 @@ impl RemoteStateActor {
         let Some(conn) = self
             .connections
             .iter()
+            .filter(|(_, state)| state.purpose != ConnectionPurpose::Control)
             .filter_map(|(id, state)| state.handle.upgrade().map(|conn| (*id, conn)))
             .filter(|(_, conn)| conn.side().is_client())
             .min_by_key(|(id, _)| *id)
@@ -690,14 +848,32 @@ impl RemoteStateActor {
                 continue;
             };
 
-            // Open path if it doesn't exist yet.
-            self.state
-                .open_path_on_conn(*conn_id, conn_state, &conn, &selected);
+            let selected_for_conn = match conn_state.purpose {
+                ConnectionPurpose::Data if !selected.is_ip() => {
+                    conn_state.paths.values().find(|path| path.is_ip()).cloned()
+                }
+                ConnectionPurpose::Control if !selected.is_custom() => conn_state
+                    .paths
+                    .values()
+                    .find(|path| path.is_custom())
+                    .cloned(),
+                _ => Some(selected.clone()),
+            };
+            // Never propagate a control-only route into a data connection.
+            if let Some(addr) = selected_for_conn.as_ref() {
+                let _ = self
+                    .state
+                    .open_path_on_conn(*conn_id, conn_state, &conn, addr, false);
+            }
 
             for (path_id, path_fourtuple) in conn_state.paths.iter() {
                 let Some(path) = conn.path(*path_id) else {
                     continue;
                 };
+                if conn_state.purpose == ConnectionPurpose::Data && path_fourtuple.is_custom() {
+                    let _ = path.close();
+                    continue;
+                }
 
                 // Closes redundant IP paths so that at most one remains per connection.
                 //
@@ -727,11 +903,18 @@ impl RemoteStateActor {
 
                 // Set path status: The selected path becomes Available, all other paths
                 // become Backup.
-                self.state.set_path_status(*conn_id, &path, path_fourtuple);
+                let status = if selected_for_conn.as_ref() == Some(path_fourtuple) {
+                    PathStatus::Available
+                } else {
+                    PathStatus::Backup
+                };
+                let _ = path.set_status(status);
             }
 
             // Record the new selected path in the path watcher.
-            conn_state.path_state.record_selected(&selected);
+            if let Some(addr) = selected_for_conn.as_ref() {
+                conn_state.path_state.record_selected(addr);
+            }
         }
     }
 
@@ -740,8 +923,9 @@ impl RemoteStateActor {
             let Some(conn) = conn_state.handle.upgrade() else {
                 continue;
             };
-            self.state
-                .open_path_on_conn(*conn_id, conn_state, &conn, open_addr);
+            let _ = self
+                .state
+                .open_path_on_conn(*conn_id, conn_state, &conn, open_addr, false);
         }
     }
 
@@ -1034,15 +1218,29 @@ impl State {
         conn_state: &ConnectionState,
         conn: &noq::Connection,
         open_4tuple: &transports::FourTuple,
-    ) {
+        explicit_request: bool,
+    ) -> Result<(), &'static str> {
+        if conn_state.purpose == ConnectionPurpose::Control
+            && !open_4tuple.is_custom()
+            && !explicit_request
+        {
+            return Ok(());
+        }
+        if conn_state.purpose == ConnectionPurpose::Data && open_4tuple.is_custom() {
+            return Err("control path forbidden on data connection");
+        }
         // Only the client opens paths; the server receives them via
         // QUIC frames and reacts to PathOpened events.
         if conn.side().is_server() {
-            return;
+            return if explicit_request {
+                Err("only the dialing side can open a path")
+            } else {
+                Ok(())
+            };
         }
         // Already open on this connection; nothing to do.
         if conn_state.paths.values().any(|a| a == open_4tuple) {
-            return;
+            return Ok(());
         }
 
         let mapped_4tuple = self.mapped_addrs.to_mapped_tuple(open_4tuple);
@@ -1052,18 +1250,29 @@ impl State {
         match fut.path_id() {
             Some(path_id) => {
                 trace!(%conn_id, %path_id, ?path_status, "opening new path");
+                Ok(())
             }
             None => {
                 let ret = now_or_never(fut);
                 match ret {
                     Some(Err(PathError::RemoteCidsExhausted))
                     | Some(Err(PathError::MaxPathIdReached)) => {
+                        if explicit_request {
+                            // A peer-wide retry queue has no connection/attempt binding.
+                            // The caller must retry this explicit request instead.
+                            return Err("path identifiers unavailable; retry explicit path");
+                        }
                         self.scheduled_open_path =
                             Some(Instant::now() + Duration::from_millis(333));
                         self.pending_open_paths.push_back(open_4tuple.clone());
                         trace!(?open_4tuple, ?ret, "scheduling open_path");
+                        Ok(())
                     }
-                    _ => warn!(?ret, "Opening path failed"),
+                    Some(Ok(_)) => Ok(()),
+                    _ => {
+                        warn!(?ret, "Opening path failed");
+                        Err("opening path failed")
+                    }
                 }
             }
         }
@@ -1155,7 +1364,30 @@ pub(crate) enum RemoteStateMessage {
     ///
     /// The actor will actively manage paths on the connection and start holepunching as needed.
     #[debug("AddConnection({})", _0.stable_id())]
-    AddConnection(noq::Connection, oneshot::Sender<PathStateReceiver>),
+    AddConnection(noq::Connection, bool, oneshot::Sender<PathStateReceiver>),
+    /// Opens a known UDP path on an already authenticated connection.
+    OpenDataPath {
+        conn_id: usize,
+        remote: SocketAddr,
+        tx: oneshot::Sender<Result<(), &'static str>>,
+    },
+    /// Attempts to open an additional control route on a restricted connection.
+    OpenControlPath {
+        conn_id: usize,
+        remote: iroh_base::CustomAddr,
+        tx: oneshot::Sender<Result<(), &'static str>>,
+    },
+    #[cfg(feature = "miopunch-test-hooks")]
+    TestReopenControlPath {
+        conn_id: usize,
+        remote: iroh_base::CustomAddr,
+        tx: oneshot::Sender<Result<(), &'static str>>,
+    },
+    /// Removes control-only paths after a data path has been established.
+    CommitDataPath {
+        conn_id: usize,
+        tx: oneshot::Sender<Result<(), &'static str>>,
+    },
     /// Asks if there is any possible path that could be used.
     ///
     /// This adds the provided transport addresses to the list of potential paths for this
@@ -1234,6 +1466,16 @@ struct ConnectionState {
     ///
     /// Used for recording metrics.
     has_been_direct: bool,
+    purpose: ConnectionPurpose,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ConnectionPurpose {
+    Ordinary,
+    /// Only a control ALPN is available; no automatic candidates or data.
+    Control,
+    /// Custom paths are forbidden by the per-connection packet gate.
+    Data,
 }
 
 impl ConnectionState {

@@ -322,10 +322,14 @@ impl RemoteMap {
         &mut self,
         remote: EndpointId,
         conn: noq::Connection,
+        restricted: bool,
         tx: oneshot::Sender<PathStateReceiver>,
     ) {
-        self.send_to_actor(remote, RemoteStateMessage::AddConnection(conn, tx))
-            .await
+        self.send_to_actor(
+            remote,
+            RemoteStateMessage::AddConnection(conn, restricted, tx),
+        )
+        .await
     }
 
     /// Sends a message to a `RemoteStateActor`, starting it if not running already.
