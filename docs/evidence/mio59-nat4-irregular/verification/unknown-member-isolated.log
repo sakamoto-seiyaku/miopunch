@@ -21,4 +21,3 @@ test false_candidates_and_former_secret_holders_do_not_receive_history ... ok
 test offline_known_contact_does_not_block_unknown_member_bootstrap ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 21.30s
-
