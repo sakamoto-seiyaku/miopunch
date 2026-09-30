@@ -67,6 +67,20 @@ pub struct ManagementStore {
     anchor: NetworkAnchor,
     auth: ManagementAuth,
     applied_count: i64,
+    #[cfg(feature = "replica-test-hooks")]
+    checkpoint_observer: Option<fn(RecordCheckpoint)>,
+}
+
+/// Real durability boundaries available only to explicit fault-injection
+/// builds. Observers can terminate the test process without altering storage.
+#[cfg(feature = "replica-test-hooks")]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RecordCheckpoint {
+    BeforeStorageCommit,
+    AfterStorageCommit,
+    AfterOrdererSelect,
+    BeforeGroupsCommit,
+    AfterGroupsCommit,
 }
 
 impl ManagementStore {
@@ -189,7 +203,21 @@ impl ManagementStore {
             anchor,
             auth,
             applied_count,
+            #[cfg(feature = "replica-test-hooks")]
+            checkpoint_observer: None,
         })
+    }
+
+    #[cfg(feature = "replica-test-hooks")]
+    pub fn set_checkpoint_observer(&mut self, observer: fn(RecordCheckpoint)) {
+        self.checkpoint_observer = Some(observer);
+    }
+
+    #[cfg(feature = "replica-test-hooks")]
+    fn observe(&self, checkpoint: RecordCheckpoint) {
+        if let Some(observer) = self.checkpoint_observer {
+            observer(checkpoint);
+        }
     }
 
     /// Pin the active local admission credential before accepting bootstrap
@@ -383,12 +411,26 @@ impl ManagementStore {
     pub async fn ingest(&self, record: &ManagementRecord) -> Result<Hash, StoreError> {
         let header = decode_complete(record.header(), record.body(), self.anchor)?;
         let id = header.hash();
-        sqlx::query("INSERT OR IGNORE INTO management_records (id, header, body) VALUES (?, ?, ?)")
-            .bind(id.as_bytes().as_slice())
-            .bind(record.header())
-            .bind(record.body())
-            .execute(&self.pool)
-            .await?;
+        let mut tx = self.pool.begin().await?;
+        let inserted = sqlx::query(
+            "INSERT OR IGNORE INTO management_records (id, header, body) VALUES (?, ?, ?)",
+        )
+        .bind(id.as_bytes().as_slice())
+        .bind(record.header())
+        .bind(record.body())
+        .execute(&mut *tx)
+        .await?;
+        #[cfg(feature = "replica-test-hooks")]
+        if inserted.rows_affected() != 0 {
+            self.observe(RecordCheckpoint::BeforeStorageCommit);
+        }
+        tx.commit().await?;
+        #[cfg(feature = "replica-test-hooks")]
+        if inserted.rows_affected() != 0 {
+            self.observe(RecordCheckpoint::AfterStorageCommit);
+        }
+        #[cfg(not(feature = "replica-test-hooks"))]
+        let _ = inserted;
         Ok(id)
     }
 
@@ -433,6 +475,8 @@ impl ManagementStore {
             let Some((id, header, body)) = ready else {
                 break;
             };
+            #[cfg(feature = "replica-test-hooks")]
+            self.observe(RecordCheckpoint::AfterOrdererSelect);
             if interrupted(Checkpoint::AfterOrdererSelect) {
                 return Err(StoreError::Interrupted);
             }
@@ -488,7 +532,11 @@ impl ManagementStore {
             if interrupted(Checkpoint::BeforeGroupsCommit) {
                 return Err(StoreError::Interrupted);
             }
+            #[cfg(feature = "replica-test-hooks")]
+            self.observe(RecordCheckpoint::BeforeGroupsCommit);
             tx.commit().await?;
+            #[cfg(feature = "replica-test-hooks")]
+            self.observe(RecordCheckpoint::AfterGroupsCommit);
             if interrupted(Checkpoint::AfterGroupsCommit) {
                 return Err(StoreError::Interrupted);
             }

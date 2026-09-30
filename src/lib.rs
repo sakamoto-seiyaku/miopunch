@@ -15,4 +15,5 @@ pub mod nat_punch;
 pub mod nat_scheduler;
 pub mod nat_selector;
 pub mod native_network;
+pub mod offline_replica;
 pub mod tcp_transport;

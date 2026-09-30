@@ -2237,6 +2237,8 @@ dependencies = [
  "p2panda-auth",
  "p2panda-core",
  "p2panda-net",
+ "p2panda-store",
+ "p2panda-sync",
  "rand 0.10.3",
  "rcgen",
  "rsasl",
@@ -2250,6 +2252,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]

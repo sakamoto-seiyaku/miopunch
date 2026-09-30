@@ -1,0 +1,131 @@
+{
+  "preserved_byte_for_byte": true,
+  "logs": [
+    {
+      "original_path": "docs/evidence/mio31-offline-replica/all-durability-boundaries.log",
+      "stored_path": "docs/evidence/mio31-offline-replica/all-durability-boundaries.log.gz",
+      "original_bytes": 2344,
+      "original_sha256": "d884565d314637ac9faf5ad755d29fe1d9af4f3d16396728e26823961eaec3f4",
+      "compressed_bytes": 794,
+      "compressed_sha256": "8df384a2f56a3d484db550d06bb3abd9c383999feb50ca9fba381ee604ee402a",
+      "roundtrip_sha256": "d884565d314637ac9faf5ad755d29fe1d9af4f3d16396728e26823961eaec3f4"
+    },
+    {
+      "original_path": "docs/evidence/mio31-offline-replica/final-generation1/browser-wasm.log",
+      "stored_path": "docs/evidence/mio31-offline-replica/final-generation1/browser-wasm.log.gz",
+      "original_bytes": 72,
+      "original_sha256": "dccad65a474a0e64d7c677fc96c87f30265067841005a793f4d82605fea6fe77",
+      "compressed_bytes": 91,
+      "compressed_sha256": "923b831437524e79b03fd56c02b2544bd694bfff238361379a4031e330e8eae2",
+      "roundtrip_sha256": "dccad65a474a0e64d7c677fc96c87f30265067841005a793f4d82605fea6fe77"
+    },
+    {
+      "original_path": "docs/evidence/mio31-offline-replica/final-generation1/fault-build-typecheck.log",
+      "stored_path": "docs/evidence/mio31-offline-replica/final-generation1/fault-build-typecheck.log.gz",
+      "original_bytes": 138,
+      "original_sha256": "8df48b0be01a590bfbcd38a7a978b50b721b0cbcb0985272cf95c8fdfeb4e89c",
+      "compressed_bytes": 137,
+      "compressed_sha256": "32597f846dd5bb909efade649cd53776005288736cd53e79d23135963ba93f1b",
+      "roundtrip_sha256": "8df48b0be01a590bfbcd38a7a978b50b721b0cbcb0985272cf95c8fdfeb4e89c"
+    },
+    {
+      "original_path": "docs/evidence/mio31-offline-replica/final-generation1/format.log",
+      "stored_path": "docs/evidence/mio31-offline-replica/final-generation1/format.log.gz",
+      "original_bytes": 0,
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compressed_bytes": 20,
+      "compressed_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "roundtrip_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original_path": "docs/evidence/mio31-offline-replica/final-generation1/full-real-broker-suite.log",
+      "stored_path": "docs/evidence/mio31-offline-replica/final-generation1/full-real-broker-suite.log.gz",
+      "original_bytes": 74305,
+      "original_sha256": "a53b9b5286381b67b7bde76f620926550122718abe3b72bf90292a7537605e9e",
+      "compressed_bytes": 12056,
+      "compressed_sha256": "b95246b5cf1e23f6208961d0e5a0ddaed12cc10bbe6e8b7314e12df3f9132ca3",
+      "roundtrip_sha256": "a53b9b5286381b67b7bde76f620926550122718abe3b72bf90292a7537605e9e"
+    },
+    {
+      "original_path": "docs/evidence/mio31-offline-replica/final-generation1/workspace-typecheck.log",
+      "stored_path": "docs/evidence/mio31-offline-replica/final-generation1/workspace-typecheck.log.gz",
+      "original_bytes": 138,
+      "original_sha256": "ca44a894c3bcd704dc87911090b57a6abaa08ee1e1e3c871c136fb988a288cd4",
+      "compressed_bytes": 136,
+      "compressed_sha256": "4df12da2ba40b3283fd8c108f54cd10f1dac09a6f1fbf363509ca6b69535fe09",
+      "roundtrip_sha256": "ca44a894c3bcd704dc87911090b57a6abaa08ee1e1e3c871c136fb988a288cd4"
+    },
+    {
+      "original_path": "docs/evidence/mio31-offline-replica/first-real-check.log",
+      "stored_path": "docs/evidence/mio31-offline-replica/first-real-check.log.gz",
+      "original_bytes": 863,
+      "original_sha256": "ec514a45c24ccf0f4cd85dfcbbc8094574e9fb37036797d97406eff31ce430b6",
+      "compressed_bytes": 534,
+      "compressed_sha256": "067c0e3e60d0541c51611c2edb278f3979f38a9daf50dab0496cfdd1427b5e3c",
+      "roundtrip_sha256": "ec514a45c24ccf0f4cd85dfcbbc8094574e9fb37036797d97406eff31ce430b6"
+    },
+    {
+      "original_path": "docs/evidence/mio31-offline-replica/missing-body-retry.log",
+      "stored_path": "docs/evidence/mio31-offline-replica/missing-body-retry.log.gz",
+      "original_bytes": 849,
+      "original_sha256": "7926c1197636decffe9f8e37523520ae57e7df9c3766ad0f91f676b6954f2cc2",
+      "compressed_bytes": 528,
+      "compressed_sha256": "502e528e7777d28938f1d349d0980a59a6ddd080b3d80bac0e89fb2f35e685ed",
+      "roundtrip_sha256": "7926c1197636decffe9f8e37523520ae57e7df9c3766ad0f91f676b6954f2cc2"
+    },
+    {
+      "original_path": "docs/evidence/mio31-offline-replica/missing-dependency-replay.log",
+      "stored_path": "docs/evidence/mio31-offline-replica/missing-dependency-replay.log.gz",
+      "original_bytes": 875,
+      "original_sha256": "34b39b6648a0c9b55e9029d2486c1991d0ad91166d1eb016cf173ca635c3477a",
+      "compressed_bytes": 545,
+      "compressed_sha256": "26e0316e10bf41045359ff5e64e8c317f2149b3f7b6edd222cfeeaaf10f289f7",
+      "roundtrip_sha256": "34b39b6648a0c9b55e9029d2486c1991d0ad91166d1eb016cf173ca635c3477a"
+    },
+    {
+      "original_path": "docs/evidence/mio31-offline-replica/no-body-action.log",
+      "stored_path": "docs/evidence/mio31-offline-replica/no-body-action.log.gz",
+      "original_bytes": 850,
+      "original_sha256": "a3b31ef6ef81c2248946e995d0011368a3bfb0465459dceae6df18ba3f8f15f0",
+      "compressed_bytes": 527,
+      "compressed_sha256": "67844178e1609011badf495112a1cedadfc0b74029c3997ead65ab6379204905",
+      "roundtrip_sha256": "a3b31ef6ef81c2248946e995d0011368a3bfb0465459dceae6df18ba3f8f15f0"
+    },
+    {
+      "original_path": "docs/evidence/mio31-offline-replica/priority-causal-selection-crash.log",
+      "stored_path": "docs/evidence/mio31-offline-replica/priority-causal-selection-crash.log.gz",
+      "original_bytes": 1531,
+      "original_sha256": "ad65db226541aa06d4fa32aa11c4948ccde17bc0fb60d960875774496e976174",
+      "compressed_bytes": 779,
+      "compressed_sha256": "7064ef504234c883bc7d3b49cde2ae2fd5a7af576bdc9806fe83ea84f74d2930",
+      "roundtrip_sha256": "ad65db226541aa06d4fa32aa11c4948ccde17bc0fb60d960875774496e976174"
+    },
+    {
+      "original_path": "docs/evidence/mio31-offline-replica/priority-crash-protocol-diagnosis.log",
+      "stored_path": "docs/evidence/mio31-offline-replica/priority-crash-protocol-diagnosis.log.gz",
+      "original_bytes": 1767,
+      "original_sha256": "25a9b10d60eb8ec2988ee2c68a62d684ffe815acf77e1d1bc5dfc4288a819c71",
+      "compressed_bytes": 918,
+      "compressed_sha256": "37b7d62129b107042096f3215e6774fcf0df1a82504d14edf08c3cc29685aab2",
+      "roundtrip_sha256": "25a9b10d60eb8ec2988ee2c68a62d684ffe815acf77e1d1bc5dfc4288a819c71"
+    },
+    {
+      "original_path": "docs/evidence/mio31-offline-replica/priority-crash-recovered.log",
+      "stored_path": "docs/evidence/mio31-offline-replica/priority-crash-recovered.log.gz",
+      "original_bytes": 1100,
+      "original_sha256": "e1640a5cec3f54130659f93cfa5221f1ffd7f2becfdddd28fce5635cb15ec43f",
+      "compressed_bytes": 645,
+      "compressed_sha256": "5b0f8b00913114837af6d53512948d8e83b682d1e26ecd9c0a1a5f1407a6a4f9",
+      "roundtrip_sha256": "e1640a5cec3f54130659f93cfa5221f1ffd7f2becfdddd28fce5635cb15ec43f"
+    },
+    {
+      "original_path": "docs/evidence/mio31-offline-replica/unauthorized-private-boundary.log",
+      "stored_path": "docs/evidence/mio31-offline-replica/unauthorized-private-boundary.log.gz",
+      "original_bytes": 867,
+      "original_sha256": "c1ad50039d091435c907c37fb955c8ddfb1fb4c3a7a055bf74fa26e7ff31faa1",
+      "compressed_bytes": 539,
+      "compressed_sha256": "82d79628686f55fac34d298bfd1f4456da51f655afe32f430f7dca3ce0d720d4",
+      "roundtrip_sha256": "c1ad50039d091435c907c37fb955c8ddfb1fb4c3a7a055bf74fa26e7ff31faa1"
+    }
+  ]
+}

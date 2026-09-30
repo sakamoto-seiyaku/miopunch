@@ -1,0 +1,112 @@
+{
+  "baseline": "84f4bf933a6fc39044508e799fc00bab9e0014ca",
+  "started_utc": "2026-09-30T20:47:06.732717+00:00",
+  "source_sha256": {
+    "Cargo.toml": "68e7d344c3def61f23346622b371fd5777aaf6cc21e651ecd2c7d610b8f01978",
+    "Cargo.lock": "da76af7eb98d7972eeb7bc6973166b88abfd110f99159ba39873f3bf31054590",
+    "src/lib.rs": "44b60dad6b642ebedd187e9a23d68cae535e35b6da2d1ff2763b8b7f1789ca8e",
+    "src/management_auth.rs": "c619ffb47f0914004bcedbfe668b07f3d2da1bfac190cc0587bbc735e68849ad",
+    "src/management_store.rs": "abcf1e0e5bdcdbca61fa944948aa7ca4cd1ce8c35aa67f22307ef6afac7bb4e6",
+    "src/offline_replica.rs": "0008545ecb53f302a23b6fa912cb1cf8e29832f108400777fec64808d5df802a",
+    "tests/offline_replica.rs": "4abe2fa58b39a31e173808835f06218d3ab3a30ad19e80700122b6fd285f5dc2"
+  },
+  "commands": [
+    {
+      "name": "full-real-broker-suite",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--workspace",
+        "--features",
+        "replica-test-hooks",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "started_utc": "2026-09-30T20:47:07.280788+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-30T20:54:18.356524+00:00",
+      "wall_seconds": 431.07651111704763
+    },
+    {
+      "name": "browser-wasm",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "started_utc": "2026-09-30T20:54:18.358452+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-30T20:54:19.033560+00:00",
+      "wall_seconds": 0.6750862519256771
+    },
+    {
+      "name": "workspace-typecheck",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--workspace",
+        "--tests"
+      ],
+      "started_utc": "2026-09-30T20:54:19.034201+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-30T20:54:23.567318+00:00",
+      "wall_seconds": 4.533083880902268
+    },
+    {
+      "name": "fault-build-typecheck",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--workspace",
+        "--tests",
+        "--features",
+        "replica-test-hooks"
+      ],
+      "started_utc": "2026-09-30T20:54:23.567918+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-30T20:54:26.237650+00:00",
+      "wall_seconds": 2.6697232930455357
+    },
+    {
+      "name": "format",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "started_utc": "2026-09-30T20:54:26.238284+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-30T20:54:26.622295+00:00",
+      "wall_seconds": 0.3839855290716514
+    }
+  ],
+  "owned_container_id": "7b0c6aba7c48b4de10d6bac39996190458d7a12779b7383836a3f945ce18415c",
+  "mqtt_broker": "127.0.0.1:43265",
+  "broker_tcp_preflight": true,
+  "source_unchanged_through_checks": true,
+  "suite_totals": {
+    "passed": 268,
+    "failed": 0,
+    "ignored": 4
+  },
+  "broker_tests_not_skipped": true,
+  "actual_mqtt_capture": "MIO30_MQTT_CIPHERTEXT publishes=106 max_bytes=1472 long_lived_secret_in_invitation=false independent_holder_received_approved_result=false",
+  "owned_container_cleanup_exit": 0,
+  "owned_container_removed": true,
+  "finished_utc": "2026-09-30T20:54:27.285565+00:00",
+  "success": true
+}

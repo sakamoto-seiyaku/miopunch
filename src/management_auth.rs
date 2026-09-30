@@ -22,7 +22,7 @@ type CrdtError = GroupCrdtError<VerifyingKey, Hash, GroupsOperation, (), Resolve
 
 /// The trusted, immutable identity of one network and its one canonical Create.
 /// It must be obtained from a trusted invitation or previously verified state.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NetworkAnchor {
     pub root: VerifyingKey,
     pub genesis: Hash,

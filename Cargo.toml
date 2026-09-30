@@ -16,6 +16,7 @@ needless_pass_by_ref_mut = "warn"
 
 [features]
 nat-lab-test-hooks = ["iroh/miopunch-test-hooks"]
+replica-test-hooks = []
 
 [workspace.dependencies]
 blake3 = "1.8.5"
@@ -55,6 +56,9 @@ futures-channel = "0.3.32"
 futures-util = { version = "0.3.32", features = ["sink"] }
 p2panda-core = "=0.7.1"
 p2panda-auth = { workspace = true, features = ["serde"] }
+p2panda-store.workspace = true
+p2panda-sync.workspace = true
+tokio-util = { version = "0.7.18", features = ["codec"] }
 p2panda-net = { path = "vendor/p2panda-net", default-features = false, features = ["iroh_endpoint"] }
 rsasl.workspace = true
 sha2.workspace = true
