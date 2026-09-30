@@ -1,0 +1,17 @@
+{
+  "Cargo.toml": "78aae279ccabea0ab47b9ed3b5cc5dbb2c55511eb86ae982bd679bd7bf17edd8",
+  "Cargo.lock": "6f6307c0d5474f01548746163e35297d894b44e5bc765a8fbeb2d58e343af005",
+  "src/nat_punch.rs": "f1fc555d44bdca83f2f6905670da6585218a492380b3db01d22d5a567d2e8922",
+  "src/nat_scheduler.rs": "67a108cc9ddfa43147f3f302155ddb6f18c0389777d959315f9511ea34563aab",
+  "src/control_session.rs": "851324f5f7f075b81e69fac4f1a635a2704aca94cfbc94144335dcd42b1d0a35",
+  "src/bin/udp_nat_probe.rs": "2954d58279a17862a05c5e9f87527e8aae3c1c5b9739286be02d016375d34572",
+  "vendor/iroh/Cargo.toml": "f24835c6d4f4fde9179792df15243daadf0d5c95f096c8a177eb2ea627fca870",
+  "vendor/iroh/src/socket.rs": "7f95410e90ed72de3a506cf2712df8cb8e2fb1fdeaa30ea115f6b96a38dca3bc",
+  "vendor/iroh/src/endpoint.rs": "7be8052b157cab71bf4a37c8026827d78f003ff66b4629c421f9839422b9d0da",
+  "vendor/iroh/src/socket/transports.rs": "4c70433c5f7c90b1300736ce177084114d1de6e0b31a0864cdb8c7ee9c471b68",
+  "vendor/iroh/src/socket/transports/ip.rs": "8f5b301eabd97d1e682373005ca97cc9f9d3aa2eafd02b7242d39a421c47fe6a",
+  "vendor/netwatch/Cargo.toml": "16bbb581e4b347bb31cedb6b26178e09f409e15b017ec55d85dba44a570fb2b7",
+  "vendor/netwatch/src/udp.rs": "0ab23b1f669301defe36a8de165a5efab63618740a1272709ee1662b3375e09a",
+  "scripts/legacy_nat_scheduler_lab.py": "48193dc9bc76857c2b55c2d3562ebbc78da35d18664ca7a9dc69dbfdd81e97b0",
+  "scripts/legacy_nat_scheduler_matrix.py": "a25ac4291ebb404fa9aa4694278a27f0d3f76122116078db603302d5bbc32a6d"
+}

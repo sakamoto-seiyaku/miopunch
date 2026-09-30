@@ -262,6 +262,7 @@ impl IpTransport {
         IpSender {
             config: self.config,
             sender,
+            socket: self.socket.clone(),
             metrics: self.metrics.clone(),
         }
     }
@@ -295,6 +296,7 @@ pub(super) struct IpSender {
     config: Config,
     #[pin]
     sender: UdpSender,
+    socket: Arc<UdpSocket>,
     metrics: Arc<SocketMetrics>,
 }
 
@@ -305,6 +307,21 @@ impl IpSender {
 
     pub(super) fn is_valid_default_addr(&self, src: Option<IpAddr>, dst: &SocketAddr) -> bool {
         self.config.is_valid_default_addr(src, *dst)
+    }
+
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub(super) fn test_force_ttl_unavailable(&self) {
+        self.socket.test_force_ttl_unavailable();
+    }
+
+    pub(super) fn poll_send_probe(
+        &self,
+        cx: &mut Context<'_>,
+        remote: SocketAddr,
+        data: &[u8],
+        ttl: u8,
+    ) -> Poll<io::Result<bool>> {
+        self.socket.poll_send_datagram(cx, remote, data, ttl)
     }
 
     /// Creates a canonical socket address.

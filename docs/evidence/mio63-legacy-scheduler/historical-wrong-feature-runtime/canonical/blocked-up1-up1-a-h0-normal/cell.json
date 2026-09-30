@@ -1,0 +1,9 @@
+{
+  "case": "blocked",
+  "topology": "up1-up1",
+  "dialer": "a",
+  "history": 0,
+  "mode": 3,
+  "index": 0,
+  "variant": "normal"
+}

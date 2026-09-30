@@ -9,6 +9,7 @@ pub mod mqtt_discovery;
 pub mod mqtt_transport;
 pub mod nat_mapping;
 pub mod nat_punch;
+pub mod nat_scheduler;
 pub mod nat_selector;
 pub mod native_network;
 pub mod tcp_transport;

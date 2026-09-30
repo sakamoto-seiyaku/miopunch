@@ -1,0 +1,24 @@
+CANDIDATE id=dadd2b39de0a43eaf054d941d48a2bfbf9ab889fba66c240515d7004542f8713 sockets=[0.0.0.0:42027, [::]:55453] observed=100.64.27.2:42031 mapping_varies=None
+READY id=dadd2b39de0a43eaf054d941d48a2bfbf9ab889fba66c240515d7004542f8713 route=dd98cf9c24b7c7a7f61ad1516a43b254
+LEGACY_SAMPLE order=0 destination=100.64.27.1:46761 mapped=100.64.27.2:42031
+LEGACY_SAMPLE order=1 destination=100.64.27.1:46762 mapped=100.64.27.2:42032
+LEGACY_SAMPLE order=2 destination=100.64.27.1:46763 mapped=100.64.27.2:42033
+LEGACY_SAMPLE order=3 destination=100.64.27.1:46764 mapped=100.64.27.2:42034
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Hard, behavior: PortChanged, ports_difference: 3, regular_ports_change: true, public_network: false }) socket_generation_current=true
+LEGACY_SELECTED mode=1 index=0 c=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 1, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 1, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 1, index: 2 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 1, index: 3 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 1, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 1, index: 5 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 2, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 2, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 2, index: 2 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 2 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 3 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 5 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 6 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 7 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 8 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 9 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 10 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 11 }, score: 0 }] round=684ef4b4c7d7668466e362f94e946fa3 stable_id=135297039865440 execution=Ready fallback=false
+EXCHANGED peer=4854d5d84086b7b3efe3b7aca094dbd9168531ff57d3971beb1f05f5dd13cffd peer_candidate=100.64.27.6:43027 stable_id=135297039865440
+LEGACY_RECV_START round=684ef4b4c7d7668466e362f94e946fa3 stable_id=135297039865440 phase=PhasePlan { behavior: Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [100.64.27.6:43027], candidates: [100.64.27.6:43027], range: None, total_budget_ms: 5000, read_budget_ms: 5000 }
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false
+LEGACY_PHASE_STOP round=684ef4b4c7d7668466e362f94e946fa3 stable_id=135297039865440 elapsed_ms=202 outcome=winner
+LEGACY_WINNER round=684ef4b4c7d7668466e362f94e946fa3 stable_id=135297039865440 remote=100.64.27.6:43027 response=true before_probe=false probes=2 responses=0 ttl_degraded=0
+LEGACY_EXECUTION status=CompleteExecution target=Some(100.64.27.6:43027) stable_id=135297039865440
+PROBES_SENT count=2 distinct_targets=1 complete_execution=1
+LEGACY_SENDER_PATH result=Ok(Err(Custom { kind: Other, error: "only the dialing side can open a data path" })) stable_id=135297039865440
+CONTROL_FRAME_RECEIVED kind=PROMOTED bytes=41
+UDP_PROMOTION_RECEIVED round=684ef4b4c7d7668466e362f94e946fa3 stable_id=135297039865440
+PATH_OBSERVED peer=4854d5d84086b7b3efe3b7aca094dbd9168531ff57d3971beb1f05f5dd13cffd stable_id=135297039865440
+CONTROL_FRAME_SENT kind=COMMITTED bytes=42
+UDP_COMMIT_ACK round=684ef4b4c7d7668466e362f94e946fa3 stable_id=135297039865440
+LEGACY_RESULT outcome=confirmed_business learned=true score_delta=2 stable_id=135297039865440
+DATA_OK stable_id=135297039865440 peer=4854d5d84086b7b3efe3b7aca094dbd9168531ff57d3971beb1f05f5dd13cffd path_ms=337 paths=PathList { snapshot: State { list: [PathData(1, ip:100.64.27.6:43027)], selected: Some(PathId(1)), closed: false }, .. } mqtt_after_commit=37

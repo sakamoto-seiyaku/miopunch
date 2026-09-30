@@ -1,0 +1,76 @@
+{
+  "result": "PASS",
+  "rejected": 14,
+  "rows": [
+    {
+      "case": "unexpected_exit",
+      "result": "REJECT",
+      "reason": "unexpected run/exit provenance"
+    },
+    {
+      "case": "unrelated_runtime_error",
+      "result": "REJECT",
+      "reason": "unexpected runtime error is not an accepted outcome"
+    },
+    {
+      "case": "wrong_selected_index",
+      "result": "REJECT",
+      "reason": "wrong plan"
+    },
+    {
+      "case": "missing_sample",
+      "result": "REJECT",
+      "reason": "missing ordered S evidence"
+    },
+    {
+      "case": "missing_capture_drain",
+      "result": "REJECT",
+      "reason": "incomplete/dropped capture: /tmp/mio63-checker-negatives-pp1fd8c0/missing_capture_drain/wan.pcap"
+    },
+    {
+      "case": "header_only_pcap",
+      "result": "REJECT",
+      "reason": "pcap record count differs from capture shutdown"
+    },
+    {
+      "case": "truncated_pcap",
+      "result": "REJECT",
+      "reason": "truncated captured packet"
+    },
+    {
+      "case": "wrong_logged_ttl",
+      "result": "REJECT",
+      "reason": "requested per-packet TTL not executed"
+    },
+    {
+      "case": "wrong_packet_ttl",
+      "result": "REJECT",
+      "reason": "requested per-packet TTL not executed"
+    },
+    {
+      "case": "missing_raw_ttl_rule",
+      "result": "REJECT",
+      "reason": "missing pre-conntrack low TTL loss"
+    },
+    {
+      "case": "missing_wrong_ip_proof",
+      "result": "REJECT",
+      "reason": "missing independent filter proof"
+    },
+    {
+      "case": "changed_connection_id",
+      "result": "REJECT",
+      "reason": "connection stable identity changed"
+    },
+    {
+      "case": "missing_phase_cleanup",
+      "result": "REJECT",
+      "reason": "missing/unbounded phase cleanup result"
+    },
+    {
+      "case": "wrong_business_peer",
+      "result": "REJECT",
+      "reason": "business peer differs from protected pair"
+    }
+  ]
+}

@@ -152,6 +152,27 @@ impl ControlSession {
         self.endpoint.prime_udp_path(&self.connection, remote).await
     }
 
+    pub(crate) fn traversal_key(&self, round: &[u8; 16]) -> io::Result<[u8; 32]> {
+        let mut key = [0; 32];
+        self.connection
+            .export_keying_material(&mut key, b"miopunch-nat-traversal-v1", round)
+            .map_err(|e| io::Error::other(format!("{e:?}")))?;
+        Ok(key)
+    }
+
+    pub(crate) fn is_closed(&self) -> bool {
+        self.connection.close_reason().is_some()
+    }
+
+    pub async fn register_udp_traversal(
+        &self,
+        round: [u8; 16],
+    ) -> io::Result<iroh::endpoint::UdpTraversalLease> {
+        self.endpoint
+            .register_udp_traversal(&self.connection, round)
+            .await
+    }
+
     /// Whether a validated IP path is visible to this connection.
     pub fn has_data_path(&self) -> bool {
         self.connection

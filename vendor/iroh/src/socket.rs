@@ -15,7 +15,7 @@
 //! however, read any packets that come off the UDP sockets.
 
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     fmt::Display,
     future::poll_fn,
     io,
@@ -374,6 +374,8 @@ pub(crate) struct Socket {
     /// A sender on the same UDP sockets as QUIC, for a bounded NAT mapping probe.
     #[cfg(not(wasm_browser))]
     udp_probe_sender: AsyncMutex<transports::TransportsSender>,
+    #[cfg(not(wasm_browser))]
+    udp_traversal: Mutex<HashMap<[u8; 16], mpsc::Sender<UdpTraversalPacket>>>,
     /// The DNS resolver to be used in this socket.
     #[cfg(not(wasm_browser))]
     dns_resolver: DnsResolver,
@@ -393,6 +395,121 @@ pub(crate) struct Socket {
     pub(crate) hooks: EndpointHooksList,
     /// Tracing span for this endpoint.
     pub(crate) span: Span,
+}
+
+/// A raw traversal receive event from the original Endpoint UDP socket.
+#[cfg(not(wasm_browser))]
+#[derive(Debug)]
+pub struct UdpTraversalPacket {
+    /// Actual observed remote source.
+    pub remote: SocketAddr,
+    /// Bounded raw round payload; the caller authenticates it.
+    pub payload: Vec<u8>,
+}
+
+/// Round registration, removed synchronously on drop. This grants no QUIC path.
+#[cfg(not(wasm_browser))]
+#[derive(Debug)]
+pub struct UdpTraversalLease {
+    socket: Arc<Socket>,
+    remote: EndpointId,
+    connection_id: usize,
+    round: [u8; 16],
+    rx: mpsc::Receiver<UdpTraversalPacket>,
+    live: Arc<Mutex<bool>>,
+}
+
+/// Sender tied to a live round registration and original connection.
+#[cfg(not(wasm_browser))]
+#[derive(Debug, Clone)]
+pub struct UdpTraversalSender {
+    socket: Arc<Socket>,
+    remote: EndpointId,
+    connection_id: usize,
+    round: [u8; 16],
+    live: Arc<Mutex<bool>>,
+}
+
+#[cfg(not(wasm_browser))]
+impl UdpTraversalLease {
+    /// Wait for the next packet registered for this round.
+    pub async fn recv(&mut self) -> Option<UdpTraversalPacket> {
+        self.rx.recv().await
+    }
+    /// Obtain a sender; sends fail after the lease is dropped.
+    pub fn sender(&self) -> UdpTraversalSender {
+        UdpTraversalSender {
+            socket: self.socket.clone(),
+            remote: self.remote,
+            connection_id: self.connection_id,
+            round: self.round,
+            live: self.live.clone(),
+        }
+    }
+}
+#[cfg(not(wasm_browser))]
+impl UdpTraversalSender {
+    /// Returns true when a requested TTL was unavailable and default was used.
+    pub async fn send(&self, remote: SocketAddr, payload: &[u8], ttl: u8) -> io::Result<bool> {
+        self.send_checked(remote, payload, ttl, &|| Ok(())).await
+    }
+
+    /// Revalidate caller scope at each actual socket submission after awaits.
+    pub async fn send_checked(
+        &self,
+        remote: SocketAddr,
+        payload: &[u8],
+        ttl: u8,
+        check: &(dyn Fn() -> io::Result<()> + Sync),
+    ) -> io::Result<bool> {
+        if !remote.is_ipv4() || payload.len() > 256 {
+            return Err(io::Error::other("invalid traversal datagram"));
+        }
+        if !*self.live.lock().expect("traversal lease") {
+            return Err(io::Error::other("traversal round closed"));
+        }
+        let (tx, rx) = oneshot::channel();
+        self.socket
+            .try_send_remote_state_msg(
+                self.remote,
+                RemoteStateMessage::AuthorizeUdpProbe {
+                    conn_id: self.connection_id,
+                    tx,
+                },
+            )
+            .map_err(|_| io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| io::Error::other("remote state stopped"))?
+            .map_err(io::Error::other)?;
+        let mut bytes = b"\0MIOPUNCH63".to_vec();
+        bytes.extend_from_slice(&self.round);
+        bytes.extend_from_slice(payload);
+        let mut sender = self.socket.udp_probe_sender.lock().await;
+        poll_fn(|cx| {
+            let live = self.live.lock().expect("traversal lease");
+            if !*live {
+                return std::task::Poll::Ready(Err(io::Error::other("traversal round closed")));
+            }
+            if let Err(error) = check() {
+                return std::task::Poll::Ready(Err(error));
+            }
+            // Drop holds the same lock, so a revoked lease cannot submit even
+            // after waiting for actor authorization or socket readiness.
+            sender.poll_send_probe(cx, remote, &bytes, ttl)
+        })
+        .await
+    }
+}
+#[cfg(not(wasm_browser))]
+impl Drop for UdpTraversalLease {
+    fn drop(&mut self) {
+        *self.live.lock().expect("traversal lease") = false;
+        self.socket
+            .udp_traversal
+            .lock()
+            .expect("traversal registry")
+            .remove(&self.round);
+    }
 }
 
 impl Socket {
@@ -678,6 +795,27 @@ impl Socket {
                 self.metrics.socket.recv_gro_datagrams.inc();
             } else {
                 trace!(src = ?remote_addr, len = noq_meta.len, "datagram received");
+            }
+            #[cfg(not(wasm_browser))]
+            if let transports::Addr::Ip(remote) = remote_addr {
+                for bytes in bufs[i][..noq_meta.len].chunks(noq_meta.stride.max(1)) {
+                    if bytes.starts_with(b"\0MIOPUNCH63") && (27..=283).contains(&bytes.len()) {
+                        let round: [u8; 16] = bytes[11..27].try_into().expect("round length");
+                        if let Some(tx) = self
+                            .udp_traversal
+                            .lock()
+                            .expect("traversal registry")
+                            .get(&round)
+                        {
+                            let _ = tx.try_send(UdpTraversalPacket {
+                                remote: *remote,
+                                payload: bytes[27..].to_vec(),
+                            });
+                        }
+                        // Fixed bit clear: Noq ignores these bytes, including
+                        // stale rounds, without dropping a mixed GRO batch.
+                    }
+                }
             }
             match remote_addr {
                 transports::Addr::Ip(SocketAddr::V4(..)) => {
@@ -1113,6 +1251,51 @@ impl EndpointInner {
         self.sock.send_udp_probe(addr).await
     }
 
+    #[cfg(all(not(wasm_browser), feature = "miopunch-test-hooks"))]
+    pub(crate) async fn test_force_traversal_ttl_unavailable(&self) {
+        self.sock
+            .udp_probe_sender
+            .lock()
+            .await
+            .test_force_ttl_unavailable();
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) async fn register_udp_traversal(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        round: [u8; 16],
+    ) -> io::Result<UdpTraversalLease> {
+        if !self.sock.ip_bind_addrs.iter().any(SocketAddr::is_ipv4) {
+            return Err(io::Error::other("IPv4 traversal disabled"));
+        }
+        let (tx, rx) = oneshot::channel();
+        self.sock
+            .try_send_remote_state_msg(
+                remote,
+                RemoteStateMessage::AuthorizeUdpProbe { conn_id, tx },
+            )
+            .map_err(|_| io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| io::Error::other("remote state stopped"))?
+            .map_err(io::Error::other)?;
+        let (tx, rx) = mpsc::channel(32);
+        let mut registrations = self.sock.udp_traversal.lock().expect("traversal registry");
+        if registrations.contains_key(&round) {
+            return Err(io::Error::other("traversal round already registered"));
+        }
+        registrations.insert(round, tx);
+        Ok(UdpTraversalLease {
+            socket: self.sock.clone(),
+            remote,
+            connection_id: conn_id,
+            round,
+            rx,
+            live: Arc::new(Mutex::new(true)),
+        })
+    }
+
     pub(crate) async fn open_control_path(
         &self,
         remote: EndpointId,
@@ -1328,6 +1511,8 @@ impl EndpointInner {
             ip_bind_addrs: transports.ip_bind_addrs(),
             #[cfg(not(wasm_browser))]
             udp_probe_sender: AsyncMutex::new(transports.create_sender()),
+            #[cfg(not(wasm_browser))]
+            udp_traversal: Mutex::new(HashMap::new()),
             tls_config: tls_config.clone(),
             hooks,
             span: span.clone(),

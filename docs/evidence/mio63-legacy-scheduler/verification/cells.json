@@ -1,0 +1,668 @@
+[
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 0,
+    "mode": 0,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 1,
+    "mode": 0,
+    "index": 1,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 2,
+    "mode": 0,
+    "index": 2,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 3,
+    "mode": 0,
+    "index": 3,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 4,
+    "mode": 0,
+    "index": 4,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 5,
+    "mode": 0,
+    "index": 5,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 6,
+    "mode": 0,
+    "index": 6,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 7,
+    "mode": 0,
+    "index": 7,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 8,
+    "mode": 0,
+    "index": 8,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 9,
+    "mode": 0,
+    "index": 9,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 10,
+    "mode": 0,
+    "index": 10,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 11,
+    "mode": 0,
+    "index": 11,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "b",
+    "history": 0,
+    "mode": 0,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "b",
+    "history": 1,
+    "mode": 0,
+    "index": 1,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "b",
+    "history": 2,
+    "mode": 0,
+    "index": 2,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "b",
+    "history": 3,
+    "mode": 0,
+    "index": 3,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "b",
+    "history": 4,
+    "mode": 0,
+    "index": 4,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "b",
+    "history": 5,
+    "mode": 0,
+    "index": 5,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "b",
+    "history": 6,
+    "mode": 0,
+    "index": 6,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "b",
+    "history": 7,
+    "mode": 0,
+    "index": 7,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "b",
+    "history": 8,
+    "mode": 0,
+    "index": 8,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "b",
+    "history": 9,
+    "mode": 0,
+    "index": 9,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "b",
+    "history": 10,
+    "mode": 0,
+    "index": 10,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "b",
+    "history": 11,
+    "mode": 0,
+    "index": 11,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1",
+    "dialer": "a",
+    "history": 0,
+    "mode": 1,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1",
+    "dialer": "a",
+    "history": 1,
+    "mode": 1,
+    "index": 1,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1",
+    "dialer": "a",
+    "history": 2,
+    "mode": 1,
+    "index": 2,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1",
+    "dialer": "a",
+    "history": 3,
+    "mode": 1,
+    "index": 3,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1",
+    "dialer": "a",
+    "history": 4,
+    "mode": 1,
+    "index": 4,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1",
+    "dialer": "a",
+    "history": 5,
+    "mode": 1,
+    "index": 5,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1",
+    "dialer": "b",
+    "history": 0,
+    "mode": 1,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1",
+    "dialer": "b",
+    "history": 1,
+    "mode": 1,
+    "index": 1,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1",
+    "dialer": "b",
+    "history": 2,
+    "mode": 1,
+    "index": 2,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1",
+    "dialer": "b",
+    "history": 3,
+    "mode": 1,
+    "index": 3,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1",
+    "dialer": "b",
+    "history": 4,
+    "mode": 1,
+    "index": 4,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1",
+    "dialer": "b",
+    "history": 5,
+    "mode": 1,
+    "index": 5,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "a",
+    "history": 0,
+    "mode": 3,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "a",
+    "history": 1,
+    "mode": 3,
+    "index": 1,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "a",
+    "history": 2,
+    "mode": 3,
+    "index": 2,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "a",
+    "history": 3,
+    "mode": 3,
+    "index": 3,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "a",
+    "history": 4,
+    "mode": 3,
+    "index": 4,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "a",
+    "history": 5,
+    "mode": 3,
+    "index": 5,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "b",
+    "history": 0,
+    "mode": 3,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "b",
+    "history": 1,
+    "mode": 3,
+    "index": 1,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "b",
+    "history": 2,
+    "mode": 3,
+    "index": 2,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "b",
+    "history": 3,
+    "mode": 3,
+    "index": 3,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "b",
+    "history": 4,
+    "mode": 3,
+    "index": 4,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "b",
+    "history": 5,
+    "mode": 3,
+    "index": 5,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up2-up2",
+    "dialer": "a",
+    "history": 0,
+    "mode": 0,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up2-up2",
+    "dialer": "a",
+    "history": 12,
+    "mode": 1,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up2-up2",
+    "dialer": "a",
+    "history": 18,
+    "mode": 3,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "down1",
+    "dialer": "a",
+    "history": 0,
+    "mode": 1,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "nonmonotone",
+    "dialer": "a",
+    "history": 0,
+    "mode": 1,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "spread5",
+    "dialer": "a",
+    "history": 0,
+    "mode": 1,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "lowedge",
+    "dialer": "a",
+    "history": 0,
+    "mode": 1,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "highedge",
+    "dialer": "a",
+    "history": 0,
+    "mode": 1,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "fallback",
+    "dialer": "a",
+    "history": 0,
+    "mode": 0,
+    "index": 6,
+    "variant": "normal"
+  },
+  {
+    "case": "blocked",
+    "topology": "up1-up1",
+    "dialer": "a",
+    "history": 0,
+    "mode": 3,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 0,
+    "mode": 0,
+    "index": 0,
+    "variant": "ttl_unavailable"
+  },
+  {
+    "case": "positive",
+    "topology": "up2-up2",
+    "dialer": "b",
+    "history": 0,
+    "mode": 0,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up2-up2",
+    "dialer": "b",
+    "history": 12,
+    "mode": 1,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up2-up2",
+    "dialer": "b",
+    "history": 18,
+    "mode": 3,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "down1",
+    "dialer": "b",
+    "history": 0,
+    "mode": 1,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "nonmonotone",
+    "dialer": "b",
+    "history": 0,
+    "mode": 1,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "spread5",
+    "dialer": "b",
+    "history": 0,
+    "mode": 1,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "lowedge",
+    "dialer": "b",
+    "history": 0,
+    "mode": 1,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "highedge",
+    "dialer": "b",
+    "history": 0,
+    "mode": 1,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "fallback",
+    "dialer": "b",
+    "history": 0,
+    "mode": 0,
+    "index": 6,
+    "variant": "normal"
+  },
+  {
+    "case": "blocked",
+    "topology": "up1-up1",
+    "dialer": "b",
+    "history": 0,
+    "mode": 3,
+    "index": 0,
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim",
+    "dialer": "b",
+    "history": 0,
+    "mode": 0,
+    "index": 0,
+    "variant": "ttl_unavailable"
+  },
+  {
+    "case": "nonmember",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 0,
+    "mode": null,
+    "index": null,
+    "variant": "normal"
+  },
+  {
+    "case": "revoked",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 0,
+    "mode": null,
+    "index": null,
+    "variant": "normal"
+  },
+  {
+    "case": "no_secret",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 0,
+    "mode": null,
+    "index": null,
+    "variant": "normal"
+  },
+  {
+    "case": "wrong_secret",
+    "topology": "eim",
+    "dialer": "a",
+    "history": 0,
+    "mode": null,
+    "index": null,
+    "variant": "normal"
+  }
+]

@@ -1,0 +1,133 @@
+CANDIDATE id=00635433edc9d737c2337e71e777fbcc2ac9d9891f872e255868d17ac1930775 sockets=[0.0.0.0:43027, [::]:35201] observed=100.64.27.6:43031 mapping_varies=None
+LEGACY_SAMPLE order=0 destination=100.64.27.1:46761 mapped=100.64.27.6:43031
+LEGACY_SAMPLE order=1 destination=100.64.27.1:46762 mapped=100.64.27.6:43032
+LEGACY_SAMPLE order=2 destination=100.64.27.1:46763 mapped=100.64.27.6:43033
+LEGACY_SAMPLE order=3 destination=100.64.27.1:46764 mapped=100.64.27.6:43034
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Hard, behavior: PortChanged, ports_difference: 3, regular_ports_change: true, public_network: false }) socket_generation_current=true
+LEGACY_SELECTED mode=3 index=5 c=Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 } v=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 3, index: 0 }, score: -1 }, BehaviorScore { id: BehaviorId { mode: 3, index: 1 }, score: -1 }, BehaviorScore { id: BehaviorId { mode: 3, index: 2 }, score: -1 }, BehaviorScore { id: BehaviorId { mode: 3, index: 3 }, score: -1 }, BehaviorScore { id: BehaviorId { mode: 3, index: 4 }, score: -1 }, BehaviorScore { id: BehaviorId { mode: 3, index: 5 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 4, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 4, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 4, index: 2 }, score: 0 }] round=801945a4f9572244b75632b3219dfe7c stable_id=110644433272816 execution=Ready fallback=false
+EXCHANGED peer=0030ab40cee9906a481048fe95775880b900a268e254cb4f72dcb7780eae06ef peer_candidate=100.64.27.2:42034 attempted=100.64.27.2:42034 stable_id=110644433272816
+LEGACY_RECV_START round=801945a4f9572244b75632b3219dfe7c stable_id=110644433272816 phase=PhasePlan { behavior: Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 }, explicit: [100.64.27.2:42031, 100.64.27.2:42032, 100.64.27.2:42033, 100.64.27.2:42034], candidates: [100.64.27.2:42031, 100.64.27.2:42032, 100.64.27.2:42033, 100.64.27.2:42034], range: Some((42026, 42042)), total_budget_ms: 5000, read_budget_ms: 5000 }
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42026 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42027 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42028 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42029 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42030 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42035 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42036 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42037 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42038 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42039 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42040 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42041 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42042 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_PHASE_STOP round=801945a4f9572244b75632b3219dfe7c stable_id=110644433272816 elapsed_ms=5001 outcome=failed
+PATH_UNAVAILABLE reason=legacy NAT phase budget elapsed mqtt=MQTT_TRAFFIC sent_packets=33 sent_bytes=11256 received_packets=29 received_bytes=10324 rejected_packets=0 max_datagram=2048 queue_depth=64
+CONTROL_FRAME_SENT kind=PATH_FAILED bytes=44
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED_ACK bytes=48
+CONTROL_FRAME_SENT kind=PATH_FAILED_DONE bytes=49
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED_DONE_ACK bytes=53
+CONTROL_ALIVE_AFTER_UDP_FAILURE stable_id=110644433272816

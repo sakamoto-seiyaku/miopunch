@@ -1,0 +1,35 @@
+CANDIDATE id=6dfe087576343d0e37eb5bbe76cfc785fef01bf04c03c6dc3294358ba6b84900 sockets=[0.0.0.0:43027, [::]:37883] observed=100.64.27.6:43031 mapping_varies=None
+READY id=6dfe087576343d0e37eb5bbe76cfc785fef01bf04c03c6dc3294358ba6b84900 route=83d7be83a19aa66bd3542aac9c7a3c38
+LEGACY_SAMPLE order=0 destination=100.64.27.1:46761 mapped=100.64.27.6:43031
+LEGACY_SAMPLE order=1 destination=100.64.27.1:46762 mapped=100.64.27.6:43032
+LEGACY_SAMPLE order=2 destination=100.64.27.1:46763 mapped=100.64.27.6:43033
+LEGACY_SAMPLE order=3 destination=100.64.27.1:46764 mapped=100.64.27.6:43034
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Hard, behavior: PortChanged, ports_difference: 3, regular_ports_change: true, public_network: false }) socket_generation_current=true
+LEGACY_TEST_HISTORY previous_selections=5
+LEGACY_SELECTED mode=3 index=5 c=Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 } v=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 3, index: 0 }, score: -1 }, BehaviorScore { id: BehaviorId { mode: 3, index: 1 }, score: -1 }, BehaviorScore { id: BehaviorId { mode: 3, index: 2 }, score: -1 }, BehaviorScore { id: BehaviorId { mode: 3, index: 3 }, score: -1 }, BehaviorScore { id: BehaviorId { mode: 3, index: 4 }, score: -1 }, BehaviorScore { id: BehaviorId { mode: 3, index: 5 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 4, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 4, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 4, index: 2 }, score: 0 }] round=207177d8f84ad1f2abb3eaea5cff2999 stable_id=129682376758880 execution=Ready fallback=false
+EXCHANGED peer=5f6b935726956b36135fc6c98a2599947504657a065d8bc3ea9b9a513342d668 peer_candidate=100.64.27.2:42034 stable_id=129682376758880
+LEGACY_RECV_START round=207177d8f84ad1f2abb3eaea5cff2999 stable_id=129682376758880 phase=PhasePlan { behavior: Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 }, explicit: [], candidates: [100.64.27.2:42031, 100.64.27.2:42032, 100.64.27.2:42033, 100.64.27.2:42034], range: Some((42026, 42042)), total_budget_ms: 5000, read_budget_ms: 5000 }
+LEGACY_DATAGRAM target=100.64.27.2:42026 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42027 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42028 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42029 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42030 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42035 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42036 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42037 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42038 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42039 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42040 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42041 ttl=0 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.2:42042 ttl=0 response=false degraded=false
+LEGACY_PHASE_STOP round=207177d8f84ad1f2abb3eaea5cff2999 stable_id=129682376758880 elapsed_ms=5001 outcome=failed
+PATH_UNAVAILABLE reason=legacy NAT phase budget elapsed mqtt=MQTT_TRAFFIC sent_packets=33 sent_bytes=10460 received_packets=39 received_bytes=11090 rejected_packets=0 max_datagram=2048 queue_depth=64
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED bytes=44
+CONTROL_FRAME_SENT kind=PATH_FAILED_ACK bytes=48
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED_DONE bytes=49
+CONTROL_FRAME_SENT kind=PATH_FAILED_DONE_ACK bytes=53
+CONTROL_ALIVE_AFTER_UDP_FAILURE stable_id=129682376758880

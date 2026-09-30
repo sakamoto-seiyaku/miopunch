@@ -65,7 +65,7 @@ allowed_external_types = [
 ]
 
 [features]
-miopunch-test-hooks = []
+miopunch-test-hooks = ["netwatch/miopunch-test-hooks"]
 default = [
     "metrics",
     "fast-apple-datapath",

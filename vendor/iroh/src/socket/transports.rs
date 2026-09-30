@@ -966,6 +966,34 @@ pub(crate) struct TransportsSender {
 }
 
 impl TransportsSender {
+    #[cfg(all(not(wasm_browser), feature = "miopunch-test-hooks"))]
+    pub(crate) fn test_force_ttl_unavailable(&mut self) {
+        for sender in self.ip.v4_iter_mut() {
+            sender.test_force_ttl_unavailable();
+        }
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn poll_send_probe(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+        remote: SocketAddr,
+        data: &[u8],
+        ttl: u8,
+    ) -> Poll<io::Result<bool>> {
+        if let Some(sender) = self
+            .ip
+            .v4_iter_mut()
+            .find(|s| s.is_valid_send_addr(None, &remote))
+        {
+            return sender.poll_send_probe(cx, remote, data, ttl);
+        }
+        if let Some(sender) = self.ip.v4_default_mut() {
+            return sender.poll_send_probe(cx, remote, data, ttl);
+        }
+        Poll::Ready(Err(io::Error::other("no IPv4 traversal transport")))
+    }
+
     #[instrument(name = "poll_send", skip(self, cx, transmit), fields(len = transmit.contents.len()))]
     pub(crate) fn poll_send(
         mut self: Pin<&mut Self>,

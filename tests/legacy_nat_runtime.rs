@@ -471,3 +471,351 @@ async fn existing_verified_path_cannot_learn_when_budget_was_denied_or_credentia
         pair.close().await;
     }
 }
+
+#[tokio::test]
+async fn complete_scheduler_preserves_original_tls_connection_business_and_one_feedback() {
+    let pair = Pair::new().await;
+    let (cs, vs) = pair.snapshots().await;
+    let (c, v) = pair.connect().await;
+    let stable = c.stable_id();
+    let analyzer = Arc::new(Mutex::new(Analyzer::new(Instant::now())));
+    let (ca, va) = tokio::join!(
+        nat_punch::coordinate_server(&c, &pair.c_gate, &cs, &analyzer),
+        nat_punch::coordinate_client(&v, &pair.v_gate, &vs)
+    );
+    let mut ca = ca.unwrap();
+    let mut va = va.unwrap();
+    let cb = NodeProbeBudget::new(0, 200);
+    let vb = NodeProbeBudget::new(0, 200);
+    let (cr, vr) = tokio::join!(
+        ca.execute(&c, &pair.c_gate, &cb),
+        va.execute(&v, &pair.v_gate, &vb)
+    );
+    assert_eq!(cr.unwrap(), ExecutionStatus::CompleteExecution);
+    assert_eq!(vr.unwrap(), ExecutionStatus::CompleteExecution);
+    assert_eq!(ca.remote_target(), Some(pair.v.bound_sockets()[0]));
+    assert_eq!(va.remote_target(), Some(pair.c.bound_sockets()[0]));
+    assert_eq!(ca.execution_trace().unwrap().responses, 3);
+    assert!(va.execution_trace().unwrap().probes > 0);
+    let cd = c.commit_data_path().await.unwrap();
+    let vd = v.commit_data_path().await.unwrap();
+    assert_eq!(cd.connection().stable_id(), stable);
+    let (mut send, mut recv) = vd.connection().open_bi().await.unwrap();
+    send.write_all(b"complete-scheduler-business")
+        .await
+        .unwrap();
+    send.finish().unwrap();
+    let (mut reply, mut request) = cd.connection().accept_bi().await.unwrap();
+    assert_eq!(
+        request.read_to_end(64).await.unwrap(),
+        b"complete-scheduler-business"
+    );
+    reply.write_all(b"confirmed").await.unwrap();
+    reply.finish().unwrap();
+    assert_eq!(recv.read_to_end(64).await.unwrap(), b"confirmed");
+    assert!(ca.confirm_success(&cd, &pair.c_gate, &analyzer));
+    assert!(!ca.confirm_success(&cd, &pair.c_gate, &analyzer));
+    pair.close().await;
+}
+
+fn raw_auth(
+    local: &Endpoint,
+    remote: &Endpoint,
+) -> miopunch_native_probe::nat_scheduler::PacketAuth {
+    miopunch_native_probe::nat_scheduler::PacketAuth {
+        key: [63; 32],
+        local: *local.id().as_bytes(),
+        remote: *remote.id().as_bytes(),
+    }
+}
+fn raw_phase(
+    role: Role,
+    delay: u32,
+    targets: &[std::net::SocketAddr],
+) -> miopunch_native_probe::nat_scheduler::PhasePlan {
+    let b = miopunch_native_probe::nat_selector::Behavior {
+        role,
+        ttl: 7,
+        send_delay_ms: delay,
+        ports_range: 0,
+        ports_random: 0,
+        listen_random: 0,
+    };
+    miopunch_native_probe::nat_scheduler::PhasePlan::new(b, delay, targets, &[], 0)
+}
+
+#[tokio::test]
+async fn receiver_can_win_before_delay_without_sending_a_probe_and_lease_closes() {
+    use miopunch_native_probe::nat_scheduler;
+    let pair = Pair::new().await;
+    let (c, v) = pair.connect().await;
+    let mut cl = c.register_udp_traversal([1; 16]).await.unwrap();
+    let old_sender = cl.sender();
+    let mut vl = v.register_udp_traversal([1; 16]).await.unwrap();
+    let cp = raw_phase(Role::Receiver, 500, &pair.v.bound_sockets());
+    let vp = raw_phase(Role::Sender, 0, &pair.c.bound_sockets());
+    let cb = NodeProbeBudget::new(0, 3);
+    let vb = NodeProbeBudget::new(0, 2);
+    let ca = raw_auth(&pair.c, &pair.v);
+    let va = raw_auth(&pair.v, &pair.c);
+    let started = Instant::now();
+    let (cr, vr) = tokio::join!(
+        nat_scheduler::run(&cp, &mut cl, &ca, &cb, &|| Ok(())),
+        nat_scheduler::run(&vp, &mut vl, &va, &vb, &|| Ok(()))
+    );
+    let (cw, trace) = cr.unwrap();
+    let (vw, _) = vr.unwrap();
+    assert!(cw.before_probe);
+    assert_eq!(trace.probes, 0);
+    assert_eq!(trace.responses, 3);
+    assert!(vw.response);
+    assert!(started.elapsed() < Duration::from_millis(500));
+    drop(cl);
+    // Registering the same opaque round cannot revive an old sender clone.
+    let _new = c.register_udp_traversal([1; 16]).await.unwrap();
+    assert!(
+        old_sender
+            .send(pair.v.bound_sockets()[0], &[0; 49], 0)
+            .await
+            .is_err()
+    );
+    pair.close().await;
+}
+
+#[tokio::test]
+async fn dropping_attempt_during_sender_delay_spends_nothing_and_cannot_learn() {
+    let pair = Pair::new().await;
+    let (cs, vs) = pair.snapshots().await;
+    let (c, v) = pair.connect().await;
+    let analyzer = Arc::new(Mutex::new(Analyzer::new(Instant::now())));
+    let (ca, va) = tokio::join!(
+        nat_punch::coordinate_server(&c, &pair.c_gate, &cs, &analyzer),
+        nat_punch::coordinate_client(&v, &pair.v_gate, &vs)
+    );
+    let mut ca = ca.unwrap();
+    let mut va = va.unwrap();
+    assert_eq!(va.local_behavior().role, Role::Sender);
+    let budget = NodeProbeBudget::new(0, 1);
+    assert!(
+        tokio::time::timeout(
+            Duration::from_millis(50),
+            va.execute(&v, &pair.v_gate, &budget)
+        )
+        .await
+        .is_err()
+    );
+    assert!(budget.spend_peer_datagram());
+    let lease = v
+        .register_udp_traversal(
+            hex::decode(va.round().encoded())
+                .unwrap()
+                .try_into()
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    drop(lease);
+    let vd = v.commit_data_path().await.unwrap();
+    let cd = c.commit_data_path().await.unwrap();
+    assert!(!va.confirm_success(&vd, &pair.v_gate, &analyzer));
+    assert!(!ca.confirm_success(&cd, &pair.c_gate, &analyzer));
+    pair.close().await;
+}
+
+#[tokio::test]
+async fn scope_and_network_changes_during_delay_stop_before_submission() {
+    for network_change in [false, true] {
+        let pair = Pair::new().await;
+        let (cs, vs) = pair.snapshots().await;
+        let (c, v) = pair.connect().await;
+        let analyzer = Arc::new(Mutex::new(Analyzer::new(Instant::now())));
+        let (ca, va) = tokio::join!(
+            nat_punch::coordinate_server(&c, &pair.c_gate, &cs, &analyzer),
+            nat_punch::coordinate_client(&v, &pair.v_gate, &vs)
+        );
+        let mut ca = ca.unwrap();
+        let mut va = va.unwrap();
+        let budget = NodeProbeBudget::new(0, 1);
+        let mutation = async {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            if network_change {
+                pair.v.network_change().await;
+            } else {
+                pair.v_gate
+                    .update_authorization([*pair.v.id().as_bytes()], []);
+            }
+        };
+        let (result, _) = tokio::join!(va.execute(&v, &pair.v_gate, &budget), mutation);
+        assert!(result.is_err());
+        assert!(budget.spend_peer_datagram());
+        ca.finish_failure();
+        va.finish_failure();
+        pair.close().await;
+    }
+}
+
+#[tokio::test]
+async fn exhaustion_stops_full_phase_and_existing_authorized_control_remains_usable() {
+    let pair = Pair::new().await;
+    let (cs, vs) = pair.snapshots().await;
+    let (c, v) = pair.connect().await;
+    let analyzer = Arc::new(Mutex::new(Analyzer::new(Instant::now())));
+    let (ca, va) = tokio::join!(
+        nat_punch::coordinate_server(&c, &pair.c_gate, &cs, &analyzer),
+        nat_punch::coordinate_client(&v, &pair.v_gate, &vs)
+    );
+    let mut ca = ca.unwrap();
+    let mut va = va.unwrap();
+    let result = va
+        .execute(&v, &pair.v_gate, &NodeProbeBudget::new(0, 0))
+        .await
+        .unwrap_err();
+    assert!(result.to_string().contains("budget exhausted"));
+    let (mut send, mut recv) = v.open_control_bi().await.unwrap();
+    send.write_all(b"still-control").await.unwrap();
+    send.finish().unwrap();
+    let (mut reply, mut request) = c.accept_control_bi().await.unwrap();
+    assert_eq!(request.read_to_end(64).await.unwrap(), b"still-control");
+    reply.write_all(b"alive").await.unwrap();
+    reply.finish().unwrap();
+    assert_eq!(recv.read_to_end(64).await.unwrap(), b"alive");
+    let vd = v.commit_data_path().await.unwrap();
+    let cd = c.commit_data_path().await.unwrap();
+    assert!(!va.confirm_success(&vd, &pair.v_gate, &analyzer));
+    assert!(!ca.confirm_success(&cd, &pair.c_gate, &analyzer));
+    pair.close().await;
+}
+
+#[tokio::test]
+async fn low_ttl_and_unsupported_ttl_do_not_change_parallel_connection_business() {
+    for degraded in [false, true] {
+        let pair = Pair::new().await;
+        let (cs, vs) = pair.snapshots().await;
+        let (c, v) = pair.connect().await;
+        let (c2, v2) = pair.connect().await;
+        let cd2 = c2.commit_data_path().await.unwrap();
+        let vd2 = v2.commit_data_path().await.unwrap();
+        if degraded {
+            pair.c.test_force_traversal_ttl_unavailable().await;
+            pair.v.test_force_traversal_ttl_unavailable().await;
+        }
+        let analyzer = Arc::new(Mutex::new(Analyzer::new(Instant::now())));
+        let (ca, va) = tokio::join!(
+            nat_punch::coordinate_server(&c, &pair.c_gate, &cs, &analyzer),
+            nat_punch::coordinate_client(&v, &pair.v_gate, &vs)
+        );
+        let mut ca = ca.unwrap();
+        let mut va = va.unwrap();
+        let cb = NodeProbeBudget::new(0, 200);
+        let vb = NodeProbeBudget::new(0, 200);
+        let business = async {
+            let (send, mut recv) = vd2.connection().open_bi().await.unwrap();
+            let receive = async {
+                let (mut reply, mut request) = cd2.connection().accept_bi().await.unwrap();
+                let data = request.read_to_end(262144).await.unwrap();
+                assert_eq!(data, vec![0x63; 262144]);
+                reply.write_all(b"parallel-authorized").await.unwrap();
+                reply.finish().unwrap();
+            };
+            let transmit = async {
+                let mut send = send;
+                send.write_all(&vec![0x63; 262144]).await.unwrap();
+                send.finish().unwrap();
+                assert_eq!(recv.read_to_end(64).await.unwrap(), b"parallel-authorized");
+            };
+            tokio::join!(receive, transmit);
+        };
+        let (cr, vr, _) = tokio::join!(
+            ca.execute(&c, &pair.c_gate, &cb),
+            va.execute(&v, &pair.v_gate, &vb),
+            business
+        );
+        assert_eq!(cr.unwrap(), ExecutionStatus::CompleteExecution);
+        assert_eq!(vr.unwrap(), ExecutionStatus::CompleteExecution);
+        assert_eq!(ca.execution_trace().unwrap().ttl_degraded > 0, degraded);
+        assert_eq!(cd2.connection().remote_id(), pair.v.id());
+        assert_eq!(vd2.connection().remote_id(), pair.c.id());
+        pair.close().await;
+    }
+}
+
+#[tokio::test]
+async fn stale_round_and_foreign_connection_authentication_cannot_select_a_winner() {
+    use miopunch_native_probe::nat_scheduler;
+    let pair = Pair::new().await;
+    let (c, v) = pair.connect().await;
+    let mut cl = c.register_udp_traversal([3; 16]).await.unwrap();
+    let mut old = v.register_udp_traversal([2; 16]).await.unwrap();
+    let cp = raw_phase(Role::Receiver, 500, &[]);
+    let vp = raw_phase(Role::Sender, 0, &pair.c.bound_sockets());
+    let ca = raw_auth(&pair.c, &pair.v);
+    let va = raw_auth(&pair.v, &pair.c);
+    let cb = NodeProbeBudget::new(0, 3);
+    let vb = NodeProbeBudget::new(0, 2);
+    let receiver = tokio::time::timeout(
+        Duration::from_millis(100),
+        nat_scheduler::run(&cp, &mut cl, &ca, &cb, &|| Ok(())),
+    );
+    let stale = tokio::time::timeout(
+        Duration::from_millis(100),
+        nat_scheduler::run(&vp, &mut old, &va, &vb, &|| Ok(())),
+    );
+    let (cr, vr) = tokio::join!(receiver, stale);
+    assert!(cr.is_err());
+    assert!(vr.is_err());
+    drop(old);
+    let (_c2, v2) = pair.connect().await;
+    let mut foreign = v2.register_udp_traversal([3; 16]).await.unwrap();
+    let mut foreign_auth = va.clone();
+    foreign_auth.key = [64; 32];
+    let vb = NodeProbeBudget::new(0, 2);
+    let (cr, vr) = tokio::join!(
+        tokio::time::timeout(
+            Duration::from_millis(100),
+            nat_scheduler::run(&cp, &mut cl, &ca, &cb, &|| Ok(()))
+        ),
+        tokio::time::timeout(
+            Duration::from_millis(100),
+            nat_scheduler::run(&vp, &mut foreign, &foreign_auth, &vb, &|| Ok(()))
+        )
+    );
+    assert!(cr.is_err());
+    assert!(vr.is_err());
+    drop(foreign);
+    // Correct connection/round authentication still wins before the delay.
+    let mut valid = v.register_udp_traversal([3; 16]).await.unwrap();
+    let vb = NodeProbeBudget::new(0, 2);
+    let (cr, vr) = tokio::join!(
+        nat_scheduler::run(&cp, &mut cl, &ca, &cb, &|| Ok(())),
+        nat_scheduler::run(&vp, &mut valid, &va, &vb, &|| Ok(()))
+    );
+    assert!(cr.unwrap().0.before_probe);
+    assert!(vr.unwrap().0.response);
+    assert!(!cb.spend_peer_datagram());
+    pair.close().await;
+}
+
+#[tokio::test]
+async fn fallback_retains_a_freshly_acquired_candidate_for_its_phase() {
+    let pair = Pair::new().await;
+    let original = UdpObservation::Fresh {
+        addresses: pair.c.bound_sockets(),
+        observed_at: Instant::now() - Duration::from_secs(39),
+        valid_until: Instant::now() + Duration::from_millis(100),
+        mapping_varies_by_dest: None,
+        validity: pair.c.udp_observation_generation(),
+    };
+    let snapshot = MappingSnapshot::fallback(&pair.c, original.clone()).unwrap();
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    assert!(!original.is_fresh());
+    assert!(snapshot.is_current());
+    pair.c.network_change().await;
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while snapshot.is_current() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    pair.close().await;
+}

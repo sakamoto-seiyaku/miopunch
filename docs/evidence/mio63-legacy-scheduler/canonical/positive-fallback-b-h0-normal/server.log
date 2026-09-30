@@ -1,0 +1,19 @@
+CANDIDATE id=981aa3a9e4b28b4d10c8e3bcf91f6c3411c8b7f92422c242dac02719287b7289 sockets=[0.0.0.0:42027, [::]:46574] observed=100.64.27.2:42027 mapping_varies=None
+READY id=981aa3a9e4b28b4d10c8e3bcf91f6c3411c8b7f92422c242dac02719287b7289 route=7cb5d3fa6e9cc61a78adf2b83ce73812
+LEGACY_FEATURE feature=None socket_generation_current=true
+LEGACY_SELECTED mode=0 index=6 c=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[] round=372e2eff4f87ba3c9005398e8c3d9826 stable_id=104495943165040 execution=Ready fallback=true
+EXCHANGED peer=c83aa8b2dc9e39ebac738396e510f344357193342458fdb4b73b247cdb12894c peer_candidate=100.64.27.6:43027 stable_id=104495943165040
+LEGACY_RECV_START round=372e2eff4f87ba3c9005398e8c3d9826 stable_id=104495943165040 phase=PhasePlan { behavior: Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [100.64.27.6:43027], candidates: [100.64.27.6:43027], range: None, total_budget_ms: 5000, read_budget_ms: 5000 }
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false
+LEGACY_PHASE_STOP round=372e2eff4f87ba3c9005398e8c3d9826 stable_id=104495943165040 elapsed_ms=0 outcome=winner
+LEGACY_WINNER round=372e2eff4f87ba3c9005398e8c3d9826 stable_id=104495943165040 remote=100.64.27.6:43027 response=true before_probe=false probes=1 responses=0 ttl_degraded=0
+LEGACY_EXECUTION status=CompleteExecution target=Some(100.64.27.6:43027) stable_id=104495943165040
+PROBES_SENT count=1 distinct_targets=1 complete_execution=1
+LEGACY_SENDER_PATH result=Ok(Err(Custom { kind: Other, error: "only the dialing side can open a data path" })) stable_id=104495943165040
+CONTROL_FRAME_RECEIVED kind=PROMOTED bytes=41
+UDP_PROMOTION_RECEIVED round=372e2eff4f87ba3c9005398e8c3d9826 stable_id=104495943165040
+PATH_OBSERVED peer=c83aa8b2dc9e39ebac738396e510f344357193342458fdb4b73b247cdb12894c stable_id=104495943165040
+CONTROL_FRAME_SENT kind=COMMITTED bytes=42
+UDP_COMMIT_ACK round=372e2eff4f87ba3c9005398e8c3d9826 stable_id=104495943165040
+LEGACY_RESULT outcome=confirmed_business learned=false score_delta=0 stable_id=104495943165040
+DATA_OK stable_id=104495943165040 peer=c83aa8b2dc9e39ebac738396e510f344357193342458fdb4b73b247cdb12894c path_ms=136 paths=PathList { snapshot: State { list: [PathData(1, ip:100.64.27.6:43027)], selected: Some(PathId(1)), closed: false }, .. } mqtt_after_commit=31

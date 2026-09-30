@@ -8,7 +8,7 @@ publish = false
 [workspace]
 resolver = "2"
 members = ["browser-probe", "vendor/p2panda-auth", "vendor/p2panda-net"]
-exclude = ["vendor/iroh", "vendor/noq", "vendor/noq-proto"]
+exclude = ["vendor/iroh", "vendor/noq", "vendor/noq-proto", "vendor/netwatch"]
 
 [workspace.lints.clippy]
 unused_async = "warn"
@@ -45,6 +45,7 @@ p2panda-store = { version = "=0.7.1", default-features = false }
 p2panda-sync = { version = "=0.7.1", default-features = false }
 
 [dependencies]
+blake3.workspace = true
 iroh = { version = "=1.2.0", default-features = false, features = ["tls-ring", "unstable-custom-transports"] }
 iroh-base = { version = "=1.2.0", features = ["key"] }
 n0-watcher = "1.0.0"
@@ -87,3 +88,4 @@ iroh = { path = "vendor/iroh" }
 noq = { path = "vendor/noq" }
 noq-proto = { path = "vendor/noq-proto" }
 p2panda-auth = { path = "vendor/p2panda-auth" }
+netwatch = { path = "vendor/netwatch" }

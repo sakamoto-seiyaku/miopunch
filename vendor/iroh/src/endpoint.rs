@@ -1064,6 +1064,26 @@ impl Endpoint {
             .await
     }
 
+    /// Test-only unsupported TTL metadata on raw traversal datagrams.
+    #[cfg(all(not(wasm_browser), feature = "miopunch-test-hooks"))]
+    #[doc(hidden)]
+    pub async fn test_force_traversal_ttl_unavailable(&self) {
+        self.inner.test_force_traversal_ttl_unavailable().await;
+    }
+
+    /// Register a bounded raw traversal round on this authenticated connection.
+    /// The lease receives on and sends from the Endpoint's existing UDP socket.
+    #[cfg(not(wasm_browser))]
+    pub async fn register_udp_traversal(
+        &self,
+        connection: &connection::Connection,
+        round: [u8; 16],
+    ) -> std::io::Result<crate::socket::UdpTraversalLease> {
+        self.inner
+            .register_udp_traversal(connection.remote_id(), connection.stable_id(), round)
+            .await
+    }
+
     /// Open a further custom control path while a connection remains in its
     /// restricted phase. A data connection rejects this before touching QUIC.
     pub async fn open_control_path(
@@ -4408,3 +4428,6 @@ mod tests {
         Ok(())
     }
 }
+
+#[cfg(not(wasm_browser))]
+pub use crate::socket::{UdpTraversalLease, UdpTraversalPacket, UdpTraversalSender};

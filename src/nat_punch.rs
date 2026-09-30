@@ -1,4 +1,4 @@
-//! Protected legacy-plan exchange and the explicitly partial MIOPUNCH-62 adapter.
+//! Protected legacy-plan exchange and guarded legacy mode0/1/3 execution.
 //!
 //! The coordinator owns the directed c/v selector: c is the accepting node,
 //! v the visitor. One round chooses one behavior. Full legacy execution is a
@@ -71,10 +71,7 @@ impl SnapshotWire {
 #[derive(Debug, Clone)]
 enum Validity {
     Sequence(UdpMappingSequence),
-    Fallback {
-        observation: UdpObservation,
-        generation: ObservationValidity,
-    },
+    Fallback { generation: ObservationValidity },
 }
 
 /// Local validity is never replaced by a remote claim or a copied timestamp.
@@ -143,7 +140,6 @@ impl MappingSnapshot {
         Ok(Self {
             wire,
             validity: Validity::Fallback {
-                observation,
                 generation: endpoint.udp_observation_generation(),
             },
             observed_at: Instant::now(),
@@ -166,10 +162,7 @@ impl MappingSnapshot {
         }
         match &self.validity {
             Validity::Sequence(sequence) => sequence.is_current_generation(),
-            Validity::Fallback {
-                observation,
-                generation,
-            } => generation.is_current() && (self.wire.mapped.is_empty() || observation.is_fresh()),
+            Validity::Fallback { generation } => generation.is_current(),
         }
     }
 }
@@ -357,6 +350,8 @@ pub struct Attempt {
     recommendation: Option<Recommendation>,
     submitted: bool,
     finished: bool,
+    execution_trace: Option<crate::nat_scheduler::ExecutionTrace>,
+    feedback_ready: bool,
 }
 
 pub async fn coordinate_server(
@@ -405,6 +400,26 @@ pub async fn coordinate_server(
     }
     remote.validate()?;
     check_scope(control, gate, &scope, snapshot)?;
+    #[cfg(feature = "nat-lab-test-hooks")]
+    if let Ok(value) = std::env::var("MIOPUNCH_LEGACY_PREVIOUS_FAILURES") {
+        let count = value
+            .parse::<usize>()
+            .map_err(|_| invalid("invalid test history count"))?;
+        if count > 128 {
+            return Err(invalid("test history count too large"));
+        }
+        if let (Some(c), Some(v)) = (snapshot.wire.view(), remote.view()) {
+            for _ in 0..count {
+                analyzer.lock().expect("NAT analyzer lock").recommend(
+                    scope.clone(),
+                    &c,
+                    &v,
+                    Instant::now(),
+                );
+            }
+            println!("LEGACY_TEST_HISTORY previous_selections={count}");
+        }
+    }
     let (plan, recommendation) = make_plan(
         &mut analyzer.lock().expect("NAT analyzer lock"),
         scope.clone(),
@@ -452,6 +467,8 @@ pub async fn coordinate_server(
         recommendation,
         submitted: false,
         finished: false,
+        execution_trace: None,
+        feedback_ready: false,
     })
 }
 
@@ -560,12 +577,16 @@ pub async fn coordinate_client(
         recommendation: None,
         submitted: false,
         finished: false,
+        execution_trace: None,
+        feedback_ready: false,
     })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutionStatus {
     PartialExecution,
+    Ready,
+    CompleteExecution,
     ExecutionUnavailable,
     Disabled,
 }
@@ -603,7 +624,7 @@ impl Attempt {
         {
             ExecutionStatus::ExecutionUnavailable
         } else {
-            ExecutionStatus::PartialExecution
+            ExecutionStatus::Ready
         }
     }
 
@@ -619,14 +640,15 @@ impl Attempt {
             return Err(invalid("old, submitted or finished NAT attempt"));
         }
         let status = self.execution_status();
-        if status != ExecutionStatus::PartialExecution {
+        if status != ExecutionStatus::Ready {
             return Ok(status);
         }
         check_scope(control, gate, &self.scope, &self.snapshot)?;
         let Some(target) = self.remote_target else {
             if self.local.role == crate::nat_selector::Role::Receiver {
                 self.submitted = true;
-                return Ok(status);
+                self.feedback_ready = true;
+                return Ok(ExecutionStatus::PartialExecution);
             }
             return Err(invalid(
                 "sender has no peer candidate for partial execution",
@@ -638,7 +660,104 @@ impl Attempt {
         self.submitted = true;
         check_scope(control, gate, &self.scope, &self.snapshot)?;
         control.prime_udp_path(target).await?;
-        Ok(status)
+        self.feedback_ready = true;
+        Ok(ExecutionStatus::PartialExecution)
+    }
+
+    /// Execute the complete old single-socket phase with continuous scope checks.
+    /// A provisional raw winner never grants business or updates learning.
+    pub async fn execute(
+        &mut self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+        budget: &NodeProbeBudget,
+    ) -> io::Result<ExecutionStatus> {
+        if self.submitted || self.finished || control.stable_id() != self.connection_id {
+            return Err(invalid("old, submitted or finished NAT attempt"));
+        }
+        let status = self.execution_status();
+        if status != ExecutionStatus::Ready {
+            return Ok(status);
+        }
+        check_scope(control, gate, &self.scope, &self.snapshot)?;
+        let peer_delay = if self.local == self.plan.c {
+            self.plan.v.send_delay_ms
+        } else {
+            self.plan.c.send_delay_ms
+        };
+        let phase = crate::nat_scheduler::PhasePlan::new(
+            self.local,
+            peer_delay,
+            &self.remote_snapshot.mapped,
+            &self.remote_snapshot.assisted,
+            self.remote_feature().map_or(0, |f| f.ports_difference),
+        );
+        let key = control.traversal_key(&self.round.0)?;
+        let auth = crate::nat_scheduler::PacketAuth {
+            key,
+            local: self.scope.local,
+            remote: self.scope.remote,
+        };
+        let mut lease = control.register_udp_traversal(self.round.0).await?;
+        self.submitted = true;
+        println!(
+            "LEGACY_RECV_START round={} stable_id={} phase={phase:?}",
+            self.round.encoded(),
+            self.connection_id
+        );
+        let check = || {
+            check_scope(control, gate, &self.scope, &self.snapshot)?;
+            if control.is_closed() {
+                return Err(io::Error::other("NAT connection closed"));
+            }
+            Ok(())
+        };
+        let guard = async {
+            loop {
+                check_scope(control, gate, &self.scope, &self.snapshot)?;
+                if control.is_closed() {
+                    return Err(io::Error::other("NAT connection closed"));
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            #[allow(unreachable_code)]
+            Ok::<(), io::Error>(())
+        };
+        let started = Instant::now();
+        let result = tokio::select! {
+            result=tokio::time::timeout(Duration::from_millis(phase.total_budget_ms.into()),crate::nat_scheduler::run(&phase,&mut lease,&auth,budget,&check))=>result.unwrap_or_else(|_|Err(io::Error::new(io::ErrorKind::TimedOut,"legacy NAT phase budget elapsed"))),
+            result=guard=> match result { Err(error)=>Err(error),Ok(())=>unreachable!() }
+        };
+        // Lease drop unregisters raw reception; no spawned tasks survive it.
+        drop(lease);
+        println!(
+            "LEGACY_PHASE_STOP round={} stable_id={} elapsed_ms={} outcome={}",
+            self.round.encoded(),
+            self.connection_id,
+            started.elapsed().as_millis(),
+            if result.is_ok() { "winner" } else { "failed" }
+        );
+        let (winner, trace) = result?;
+        check_scope(control, gate, &self.scope, &self.snapshot)?;
+        println!(
+            "LEGACY_WINNER round={} stable_id={} remote={} response={} before_probe={} probes={} responses={} ttl_degraded={}",
+            self.round.encoded(),
+            self.connection_id,
+            winner.remote,
+            winner.response,
+            winner.before_probe,
+            trace.probes,
+            trace.responses,
+            trace.ttl_degraded
+        );
+        self.remote_target = Some(winner.remote);
+        self.execution_trace = Some(trace);
+        self.feedback_ready = true;
+        Ok(ExecutionStatus::CompleteExecution)
+    }
+
+    pub fn execution_trace(&self) -> Option<&crate::nat_scheduler::ExecutionTrace> {
+        self.execution_trace.as_ref()
     }
 
     /// Invoke after authorized business confirmation. DataSession can only be
@@ -655,6 +774,7 @@ impl Attempt {
         self.finished = true;
         if data.connection().stable_id() != self.connection_id
             || !self.submitted
+            || !self.feedback_ready
             || gate.nat_learning_scope(data.connection()).as_ref() != Some(&self.scope)
             || !self.snapshot.is_current()
             || data.connection().close_reason().is_some()

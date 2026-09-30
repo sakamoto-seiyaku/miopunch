@@ -1,0 +1,307 @@
+[
+  {
+    "cell": "positive-eim-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7452
+  },
+  {
+    "cell": "positive-eim-a-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 7418
+  },
+  {
+    "cell": "positive-eim-a-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 7508
+  },
+  {
+    "cell": "positive-eim-a-h3-normal",
+    "exit": 0,
+    "elapsed_ms": 7319
+  },
+  {
+    "cell": "positive-eim-a-h4-normal",
+    "exit": 0,
+    "elapsed_ms": 7389
+  },
+  {
+    "cell": "positive-eim-a-h5-normal",
+    "exit": 0,
+    "elapsed_ms": 7535
+  },
+  {
+    "cell": "positive-eim-a-h6-normal",
+    "exit": 0,
+    "elapsed_ms": 7536
+  },
+  {
+    "cell": "positive-eim-a-h7-normal",
+    "exit": 0,
+    "elapsed_ms": 7644
+  },
+  {
+    "cell": "positive-eim-a-h8-normal",
+    "exit": 0,
+    "elapsed_ms": 7869
+  },
+  {
+    "cell": "positive-eim-a-h9-normal",
+    "exit": 0,
+    "elapsed_ms": 8083
+  },
+  {
+    "cell": "positive-eim-a-h10-normal",
+    "exit": 0,
+    "elapsed_ms": 10988
+  },
+  {
+    "cell": "positive-eim-a-h11-normal",
+    "exit": 0,
+    "elapsed_ms": 10604
+  },
+  {
+    "cell": "positive-eim-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 9453
+  },
+  {
+    "cell": "positive-eim-b-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 7682
+  },
+  {
+    "cell": "positive-eim-b-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 7660
+  },
+  {
+    "cell": "positive-eim-b-h3-normal",
+    "exit": 0,
+    "elapsed_ms": 7955
+  },
+  {
+    "cell": "positive-eim-b-h4-normal",
+    "exit": 0,
+    "elapsed_ms": 7472
+  },
+  {
+    "cell": "positive-eim-b-h5-normal",
+    "exit": 0,
+    "elapsed_ms": 9015
+  },
+  {
+    "cell": "positive-eim-b-h6-normal",
+    "exit": 0,
+    "elapsed_ms": 8755
+  },
+  {
+    "cell": "positive-eim-b-h7-normal",
+    "exit": 0,
+    "elapsed_ms": 7960
+  },
+  {
+    "cell": "positive-eim-b-h8-normal",
+    "exit": 0,
+    "elapsed_ms": 7971
+  },
+  {
+    "cell": "positive-eim-b-h9-normal",
+    "exit": 0,
+    "elapsed_ms": 8257
+  },
+  {
+    "cell": "positive-eim-b-h10-normal",
+    "exit": 0,
+    "elapsed_ms": 8173
+  },
+  {
+    "cell": "positive-eim-b-h11-normal",
+    "exit": 0,
+    "elapsed_ms": 7441
+  },
+  {
+    "cell": "positive-up1-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7309
+  },
+  {
+    "cell": "positive-up1-a-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 7539
+  },
+  {
+    "cell": "positive-up1-a-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 7390
+  },
+  {
+    "cell": "positive-up1-a-h3-normal",
+    "exit": 0,
+    "elapsed_ms": 7499
+  },
+  {
+    "cell": "positive-up1-a-h4-normal",
+    "exit": 0,
+    "elapsed_ms": 8068
+  },
+  {
+    "cell": "positive-up1-a-h5-normal",
+    "exit": 0,
+    "elapsed_ms": 7968
+  },
+  {
+    "cell": "positive-up1-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7520
+  },
+  {
+    "cell": "positive-up1-b-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 7525
+  },
+  {
+    "cell": "positive-up1-b-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 7605
+  },
+  {
+    "cell": "positive-up1-b-h3-normal",
+    "exit": 0,
+    "elapsed_ms": 7489
+  },
+  {
+    "cell": "positive-up1-b-h4-normal",
+    "exit": 0,
+    "elapsed_ms": 7302
+  },
+  {
+    "cell": "positive-up1-b-h5-normal",
+    "exit": 0,
+    "elapsed_ms": 7332
+  },
+  {
+    "cell": "positive-up1-up1-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7836
+  },
+  {
+    "cell": "positive-up1-up1-a-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 7871
+  },
+  {
+    "cell": "positive-up1-up1-a-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 8026
+  },
+  {
+    "cell": "positive-up1-up1-a-h3-normal",
+    "exit": 0,
+    "elapsed_ms": 7899
+  },
+  {
+    "cell": "positive-up1-up1-a-h4-normal",
+    "exit": 0,
+    "elapsed_ms": 8073
+  },
+  {
+    "cell": "positive-up1-up1-a-h5-normal",
+    "exit": 0,
+    "elapsed_ms": 7997
+  },
+  {
+    "cell": "positive-up1-up1-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 8066
+  },
+  {
+    "cell": "positive-up1-up1-b-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 7895
+  },
+  {
+    "cell": "positive-up1-up1-b-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 7848
+  },
+  {
+    "cell": "positive-up1-up1-b-h3-normal",
+    "exit": 0,
+    "elapsed_ms": 7920
+  },
+  {
+    "cell": "positive-up1-up1-b-h4-normal",
+    "exit": 0,
+    "elapsed_ms": 7916
+  },
+  {
+    "cell": "positive-up1-up1-b-h5-normal",
+    "exit": 0,
+    "elapsed_ms": 8179
+  },
+  {
+    "cell": "positive-up2-up2-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 12750
+  },
+  {
+    "cell": "positive-up2-up2-a-h12-normal",
+    "exit": 0,
+    "elapsed_ms": 12712
+  },
+  {
+    "cell": "positive-up2-up2-a-h18-normal",
+    "exit": 0,
+    "elapsed_ms": 12822
+  },
+  {
+    "cell": "positive-down1-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7407
+  },
+  {
+    "cell": "positive-nonmonotone-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7398
+  },
+  {
+    "cell": "positive-spread5-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7413
+  },
+  {
+    "cell": "positive-lowedge-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7521
+  },
+  {
+    "cell": "positive-highedge-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7260
+  },
+  {
+    "cell": "positive-fallback-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7159
+  },
+  {
+    "cell": "blocked-up1-up1-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 12607
+  },
+  {
+    "cell": "positive-eim-a-h0-ttl_unavailable",
+    "exit": 0,
+    "elapsed_ms": 7655
+  },
+  {
+    "cell": "positive-up2-up2-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 12788
+  },
+  {
+    "cell": "positive-up2-up2-b-h12-normal",
+    "exit": 0,
+    "elapsed_ms": 12695
+  }
+]

@@ -1,0 +1,372 @@
+[
+  {
+    "cell": "positive-eim-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7402
+  },
+  {
+    "cell": "positive-eim-a-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 7090
+  },
+  {
+    "cell": "positive-eim-a-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 7281
+  },
+  {
+    "cell": "positive-eim-a-h3-normal",
+    "exit": 0,
+    "elapsed_ms": 7510
+  },
+  {
+    "cell": "positive-eim-a-h4-normal",
+    "exit": 0,
+    "elapsed_ms": 7167
+  },
+  {
+    "cell": "positive-eim-a-h5-normal",
+    "exit": 0,
+    "elapsed_ms": 7389
+  },
+  {
+    "cell": "positive-eim-a-h6-normal",
+    "exit": 0,
+    "elapsed_ms": 7243
+  },
+  {
+    "cell": "positive-eim-a-h7-normal",
+    "exit": 0,
+    "elapsed_ms": 7476
+  },
+  {
+    "cell": "positive-eim-a-h8-normal",
+    "exit": 0,
+    "elapsed_ms": 12198
+  },
+  {
+    "cell": "positive-eim-a-h9-normal",
+    "exit": 0,
+    "elapsed_ms": 17216
+  },
+  {
+    "cell": "positive-eim-a-h10-normal",
+    "exit": 0,
+    "elapsed_ms": 12170
+  },
+  {
+    "cell": "positive-eim-a-h11-normal",
+    "exit": 0,
+    "elapsed_ms": 17201
+  },
+  {
+    "cell": "positive-eim-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7352
+  },
+  {
+    "cell": "positive-eim-b-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 7186
+  },
+  {
+    "cell": "positive-eim-b-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 7484
+  },
+  {
+    "cell": "positive-eim-b-h3-normal",
+    "exit": 0,
+    "elapsed_ms": 7266
+  },
+  {
+    "cell": "positive-eim-b-h4-normal",
+    "exit": 0,
+    "elapsed_ms": 7291
+  },
+  {
+    "cell": "positive-eim-b-h5-normal",
+    "exit": 0,
+    "elapsed_ms": 7296
+  },
+  {
+    "cell": "positive-eim-b-h6-normal",
+    "exit": 0,
+    "elapsed_ms": 7277
+  },
+  {
+    "cell": "positive-eim-b-h7-normal",
+    "exit": 0,
+    "elapsed_ms": 7389
+  },
+  {
+    "cell": "positive-eim-b-h8-normal",
+    "exit": 0,
+    "elapsed_ms": 12216
+  },
+  {
+    "cell": "positive-eim-b-h9-normal",
+    "exit": 0,
+    "elapsed_ms": 17194
+  },
+  {
+    "cell": "positive-eim-b-h10-normal",
+    "exit": 0,
+    "elapsed_ms": 12166
+  },
+  {
+    "cell": "positive-eim-b-h11-normal",
+    "exit": 0,
+    "elapsed_ms": 17365
+  },
+  {
+    "cell": "positive-up1-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7352
+  },
+  {
+    "cell": "positive-up1-a-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 9410
+  },
+  {
+    "cell": "positive-up1-a-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 7577
+  },
+  {
+    "cell": "positive-up1-a-h3-normal",
+    "exit": 0,
+    "elapsed_ms": 9350
+  },
+  {
+    "cell": "positive-up1-a-h4-normal",
+    "exit": 0,
+    "elapsed_ms": 7313
+  },
+  {
+    "cell": "positive-up1-a-h5-normal",
+    "exit": 0,
+    "elapsed_ms": 9227
+  },
+  {
+    "cell": "positive-up1-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7296
+  },
+  {
+    "cell": "positive-up1-b-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 9176
+  },
+  {
+    "cell": "positive-up1-b-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 7274
+  },
+  {
+    "cell": "positive-up1-b-h3-normal",
+    "exit": 0,
+    "elapsed_ms": 9068
+  },
+  {
+    "cell": "positive-up1-b-h4-normal",
+    "exit": 0,
+    "elapsed_ms": 7369
+  },
+  {
+    "cell": "positive-up1-b-h5-normal",
+    "exit": 0,
+    "elapsed_ms": 9143
+  },
+  {
+    "cell": "positive-up1-up1-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7944
+  },
+  {
+    "cell": "positive-up1-up1-a-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 8059
+  },
+  {
+    "cell": "positive-up1-up1-a-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 8000
+  },
+  {
+    "cell": "positive-up1-up1-a-h3-normal",
+    "exit": 0,
+    "elapsed_ms": 12595
+  },
+  {
+    "cell": "positive-up1-up1-a-h4-normal",
+    "exit": 0,
+    "elapsed_ms": 12725
+  },
+  {
+    "cell": "positive-up1-up1-a-h5-normal",
+    "exit": 0,
+    "elapsed_ms": 12435
+  },
+  {
+    "cell": "positive-up1-up1-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7841
+  },
+  {
+    "cell": "positive-up1-up1-b-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 7951
+  },
+  {
+    "cell": "positive-up1-up1-b-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 7902
+  },
+  {
+    "cell": "positive-up1-up1-b-h3-normal",
+    "exit": 0,
+    "elapsed_ms": 7918
+  },
+  {
+    "cell": "positive-up1-up1-b-h4-normal",
+    "exit": 0,
+    "elapsed_ms": 12622
+  },
+  {
+    "cell": "positive-up1-up1-b-h5-normal",
+    "exit": 0,
+    "elapsed_ms": 12611
+  },
+  {
+    "cell": "positive-up2-up2-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 12747
+  },
+  {
+    "cell": "positive-up2-up2-a-h12-normal",
+    "exit": 0,
+    "elapsed_ms": 12663
+  },
+  {
+    "cell": "positive-up2-up2-a-h18-normal",
+    "exit": 0,
+    "elapsed_ms": 7861
+  },
+  {
+    "cell": "positive-down1-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7391
+  },
+  {
+    "cell": "positive-nonmonotone-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7207
+  },
+  {
+    "cell": "positive-spread5-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7326
+  },
+  {
+    "cell": "positive-lowedge-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7421
+  },
+  {
+    "cell": "positive-highedge-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7445
+  },
+  {
+    "cell": "positive-fallback-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7172
+  },
+  {
+    "cell": "blocked-up1-up1-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 12682
+  },
+  {
+    "cell": "positive-eim-a-h0-ttl_unavailable",
+    "exit": 0,
+    "elapsed_ms": 7406
+  },
+  {
+    "cell": "positive-up2-up2-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 12923
+  },
+  {
+    "cell": "positive-up2-up2-b-h12-normal",
+    "exit": 0,
+    "elapsed_ms": 12597
+  },
+  {
+    "cell": "positive-up2-up2-b-h18-normal",
+    "exit": 0,
+    "elapsed_ms": 7862
+  },
+  {
+    "cell": "positive-down1-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7359
+  },
+  {
+    "cell": "positive-nonmonotone-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7463
+  },
+  {
+    "cell": "positive-spread5-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7379
+  },
+  {
+    "cell": "positive-lowedge-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7074
+  },
+  {
+    "cell": "positive-highedge-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7305
+  },
+  {
+    "cell": "positive-fallback-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 7132
+  },
+  {
+    "cell": "blocked-up1-up1-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 12524
+  },
+  {
+    "cell": "positive-eim-b-h0-ttl_unavailable",
+    "exit": 0,
+    "elapsed_ms": 7354
+  },
+  {
+    "cell": "nonmember-eim-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 6876
+  },
+  {
+    "cell": "revoked-eim-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 11179
+  },
+  {
+    "cell": "no_secret-eim-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 6195
+  },
+  {
+    "cell": "wrong_secret-eim-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 6577
+  }
+]

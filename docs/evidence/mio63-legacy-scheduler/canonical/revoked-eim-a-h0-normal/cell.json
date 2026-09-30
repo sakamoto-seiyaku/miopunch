@@ -1,0 +1,9 @@
+{
+  "case": "revoked",
+  "topology": "eim",
+  "dialer": "a",
+  "history": 0,
+  "mode": null,
+  "index": null,
+  "variant": "normal"
+}

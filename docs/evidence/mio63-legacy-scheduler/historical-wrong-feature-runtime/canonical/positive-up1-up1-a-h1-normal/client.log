@@ -1,0 +1,39 @@
+CANDIDATE id=7e7f58107d3e26a101d56cbbba1ef5c101c0a77124a524acfbcbe587acd799a4 sockets=[0.0.0.0:42027, [::]:51659] observed=100.64.27.2:42031 mapping_varies=None
+LEGACY_SAMPLE order=0 destination=100.64.27.1:46761 mapped=100.64.27.2:42031
+LEGACY_SAMPLE order=1 destination=100.64.27.1:46762 mapped=100.64.27.2:42032
+LEGACY_SAMPLE order=2 destination=100.64.27.1:46763 mapped=100.64.27.2:42033
+LEGACY_SAMPLE order=3 destination=100.64.27.1:46764 mapped=100.64.27.2:42034
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Hard, behavior: PortChanged, ports_difference: 3, regular_ports_change: true, public_network: false }) socket_generation_current=true
+LEGACY_SELECTED mode=3 index=0 c=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 } v=Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 3, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 3, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 3, index: 2 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 3, index: 3 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 3, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 3, index: 5 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 4, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 4, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 4, index: 2 }, score: 0 }] round=05ec6bb2226fc3f6f74fee72aa15ea5a stable_id=95072671340000 execution=Ready fallback=false
+EXCHANGED peer=e1e8dd631bff49f4b1cccf485ff05953a56bdfddb60e7d751b662c96aa35b7ee peer_candidate=100.64.27.6:43034 attempted=100.64.27.6:43034 stable_id=95072671340000
+LEGACY_RECV_START round=05ec6bb2226fc3f6f74fee72aa15ea5a stable_id=95072671340000 phase=PhasePlan { behavior: Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 }, explicit: [], candidates: [100.64.27.6:43031, 100.64.27.6:43032, 100.64.27.6:43033, 100.64.27.6:43034], range: Some((43026, 43042)), total_budget_ms: 5000, read_budget_ms: 5000 }
+LEGACY_DATAGRAM target=100.64.27.6:43026 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43028 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43029 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43030 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43031 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43032 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43033 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43034 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43035 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43035 ttl=0 response=true degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43036 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43037 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43038 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43039 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43040 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43041 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43042 ttl=7 response=false degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43035 ttl=0 response=true degraded=false
+LEGACY_DATAGRAM target=100.64.27.6:43035 ttl=0 response=true degraded=false
+LEGACY_PHASE_STOP round=05ec6bb2226fc3f6f74fee72aa15ea5a stable_id=95072671340000 elapsed_ms=136 outcome=winner
+LEGACY_WINNER round=05ec6bb2226fc3f6f74fee72aa15ea5a stable_id=95072671340000 remote=100.64.27.6:43035 response=false before_probe=false probes=17 responses=3 ttl_degraded=0
+LEGACY_EXECUTION status=CompleteExecution target=Some(100.64.27.6:43035) stable_id=95072671340000
+PROBES_SENT count=17 distinct_targets=17 complete_execution=1
+PATH_OPEN path_id_retries=0
+CONTROL_FRAME_SENT kind=PROMOTED bytes=41
+CONTROL_FRAME_RECEIVED kind=COMMITTED bytes=42
+UDP_COMMIT_ACK round=05ec6bb2226fc3f6f74fee72aa15ea5a stable_id=95072671340000
+DATA_OK stable_id=95072671340000 peer=e1e8dd631bff49f4b1cccf485ff05953a56bdfddb60e7d751b662c96aa35b7ee path_ms=419 paths=PathList { snapshot: State { list: [PathData(1, ip:100.64.27.6:43035)], selected: Some(PathId(1)), closed: true }, .. } mqtt_after_commit=37
+LEGACY_RESULT outcome=business_sent feedback_owner=coordinator stable_id=95072671340000

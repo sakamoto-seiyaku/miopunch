@@ -112,7 +112,7 @@ async fn legacy_probe(
     attempt: &mut Attempt,
 ) -> Result<(), Box<dyn Error>> {
     let status = attempt
-        .execute_partial(
+        .execute(
             control,
             gate.as_ref().ok_or("legacy requires member gate")?,
             &context.budget,
@@ -123,13 +123,17 @@ async fn legacy_probe(
         attempt.remote_target(),
         control.stable_id()
     );
-    if status != ExecutionStatus::PartialExecution {
-        return Err(format!("legacy {status:?}; full executor belongs to 63/61").into());
+    if status != ExecutionStatus::CompleteExecution {
+        return Err(format!("legacy {status:?}; random/pool executor belongs to 61").into());
     }
     println!(
-        "PROBES_SENT count={} distinct_targets={} partial_execution=1",
-        usize::from(attempt.remote_target().is_some()),
-        usize::from(attempt.remote_target().is_some())
+        "PROBES_SENT count={} distinct_targets={} complete_execution=1",
+        attempt.execution_trace().map_or(0, |trace| trace.probes),
+        attempt.execution_trace().map_or(0, |trace| trace
+            .targets
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+            .len())
     );
     Ok(())
 }
@@ -1098,6 +1102,14 @@ async fn run_server(
         };
         if let Err(error) = result {
             println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
+            if let Some(attempt) = legacy_attempt.as_mut() {
+                attempt.finish_failure();
+            }
+            if let Some(round) = active_round {
+                if let Err(reason) = report_auto_path_failure_server(&control, round).await {
+                    println!("CONTROL_LIVENESS_FAILED reason={reason}");
+                }
+            }
             endpoint.close().await;
             return Ok(());
         }
@@ -1105,7 +1117,7 @@ async fn run_server(
     if legacy_attempt.as_ref().is_some_and(|a| {
         a.local_behavior().role == miopunch_native_probe::nat_selector::Role::Sender
     }) {
-        if let Some(remote) = remote {
+        if let Some(remote) = legacy_attempt.as_ref().and_then(Attempt::remote_target) {
             let opened =
                 tokio::time::timeout(AUTO_PATH_WAIT, control.open_data_path_report(remote)).await;
             println!("LEGACY_SENDER_PATH result={opened:?} stable_id={stable}");
@@ -1169,6 +1181,9 @@ async fn run_server(
         Ok(data) => data,
         Err(CommitError::Retryable { error, .. } | CommitError::Terminal { error }) => {
             println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
+            if let Some(attempt) = legacy_attempt.as_mut() {
+                attempt.finish_failure();
+            }
             endpoint.close().await;
             return Ok(());
         }
@@ -1393,10 +1408,18 @@ async fn run_client(
             legacy_probe(&control, &gate, context, legacy_attempt.as_mut().unwrap()).await
         {
             println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
+            if let Some(attempt) = legacy_attempt.as_mut() {
+                attempt.finish_failure();
+            }
+            if let Some(round) = active_round {
+                if let Err(reason) = report_auto_path_failure_client(&control, round).await {
+                    println!("CONTROL_LIVENESS_FAILED reason={reason}");
+                }
+            }
             endpoint.close().await;
             return Ok(());
         }
-        if let Some(remote) = remote {
+        if let Some(remote) = legacy_attempt.as_ref().and_then(Attempt::remote_target) {
             tokio::time::timeout(AUTO_PATH_WAIT, control.open_data_path_report(remote)).await
         } else {
             tokio::time::timeout(AUTO_PATH_WAIT, async {
@@ -1607,11 +1630,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Path::new(cert_path),
     )
     .await?;
+    #[cfg(feature = "nat-lab-test-hooks")]
+    if std::env::var("MIOPUNCH_LEGACY_TTL_UNAVAILABLE").as_deref() == Ok("1") {
+        endpoint.test_force_traversal_ttl_unavailable().await;
+    }
     let own_candidate = observed_addr(&endpoint).await?;
     let legacy = if legacy_selected {
         let budget = Arc::new(NodeProbeBudget::new(
             mapping_observers.as_ref().map_or(0, RelayMap::len),
-            1,
+            12000,
         ));
         Some(LegacyResources {
             observers: mapping_observers.clone(),

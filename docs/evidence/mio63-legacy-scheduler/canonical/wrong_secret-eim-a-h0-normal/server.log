@@ -1,0 +1,3 @@
+CANDIDATE id=fc67d64e6db87997cda2b00909853d08125ab080a3e540ff697a1375a43abd81 sockets=[0.0.0.0:43027, [::]:40011] observed=100.64.27.6:43027 mapping_varies=None
+READY id=fc67d64e6db87997cda2b00909853d08125ab080a3e540ff697a1375a43abd81 route=aa0daeb62b1f25d6f0358c7df003ecbf
+Error: Custom { kind: Other, error: Connection was rejected locally }

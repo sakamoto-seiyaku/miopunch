@@ -1,0 +1,2 @@
+CANDIDATE id=ffaa9da8c98fa6c086cb0359f47ab308d47c31f17ab1aff5f89b6cfd5c83f1ff sockets=[0.0.0.0:42027, [::]:42350] observed=100.64.27.2:42027 mapping_varies=None
+ADMISSION_REJECTED peer=4a70c6bfc153d33ae3a69d373d94753b852e3c2774aa1b2de9d28a30146d7416 stable_id=109413973446736 probes=0

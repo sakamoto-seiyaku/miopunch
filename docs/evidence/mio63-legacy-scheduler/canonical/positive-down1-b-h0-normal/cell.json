@@ -1,0 +1,9 @@
+{
+  "case": "positive",
+  "topology": "down1",
+  "dialer": "b",
+  "history": 0,
+  "mode": 1,
+  "index": 0,
+  "variant": "normal"
+}

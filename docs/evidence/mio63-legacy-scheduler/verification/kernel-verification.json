@@ -1,0 +1,1383 @@
+{
+  "result": "PASS",
+  "gate_cases": 74,
+  "connection_success": 59,
+  "bounded_misses": 11,
+  "admission_rejections": 4,
+  "rows": [
+    {
+      "cell": "positive-eim-a-h0-normal",
+      "captured_packets": {
+        "wan": 211,
+        "a": 101,
+        "b": 98
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 3,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 0,
+      "stable": {
+        "server": "131174139813360",
+        "client": "98411417566144"
+      },
+      "round": "f0dae376947db4bbb20e95715e862070",
+      "phase_budget_ms": 5200
+    },
+    {
+      "cell": "positive-eim-a-h1-normal",
+      "captured_packets": {
+        "wan": 203,
+        "a": 93,
+        "b": 99
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 2,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 1,
+      "stable": {
+        "server": "127291489261152",
+        "client": "109628613731968"
+      },
+      "round": "7155d7bb1cd8d718800cd6fb4cfdad97",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-eim-a-h2-normal",
+      "captured_packets": {
+        "wan": 200,
+        "a": 93,
+        "b": 95
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 3,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 2,
+      "stable": {
+        "server": "135256573290208",
+        "client": "96211760932320"
+      },
+      "round": "e6d4b51221343f88d1569db8bfa6cf59",
+      "phase_budget_ms": 5200
+    },
+    {
+      "cell": "positive-eim-a-h3-normal",
+      "captured_packets": {
+        "wan": 200,
+        "a": 94,
+        "b": 93
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 4,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 3,
+      "stable": {
+        "server": "95542846658160",
+        "client": "102122421536224"
+      },
+      "round": "a6f7509b733be876ab1871d68aaa5b32",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-eim-a-h4-normal",
+      "captured_packets": {
+        "wan": 206,
+        "a": 99,
+        "b": 96
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 2,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 4,
+      "stable": {
+        "server": "137301246088016",
+        "client": "110434596869600"
+      },
+      "round": "b08d94670f7e84c5e1a3da6c7b1f5577",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-eim-a-h5-normal",
+      "captured_packets": {
+        "wan": 207,
+        "a": 98,
+        "b": 96
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 4,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 5,
+      "stable": {
+        "server": "108885446579312",
+        "client": "106683542537696"
+      },
+      "round": "67946a8995a4d26b69080d1ca8051491",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-eim-a-h6-normal",
+      "captured_packets": {
+        "wan": 200,
+        "a": 96,
+        "b": 93
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 2,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 6,
+      "stable": {
+        "server": "124580693806432",
+        "client": "109998013535264"
+      },
+      "round": "038f44df67df62d5b5160e82bbceb03c",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-eim-a-h7-normal",
+      "captured_packets": {
+        "wan": 206,
+        "a": 101,
+        "b": 94
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 4,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 7,
+      "stable": {
+        "server": "140267592095328",
+        "client": "109081589794272"
+      },
+      "round": "ea73cfbb1f3f4c1730250e304d3f6a72",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-eim-a-h8-normal",
+      "captured_packets": {
+        "wan": 245,
+        "a": 118,
+        "b": 91
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 27,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 8,
+      "stable": {
+        "server": "137223735350880",
+        "client": "109251744470496"
+      },
+      "round": "0e7b3982f28193b89d3ae77076dbc2bd",
+      "phase_budget_ms": 10000
+    },
+    {
+      "cell": "positive-eim-a-h9-normal",
+      "captured_packets": {
+        "wan": 303,
+        "a": 149,
+        "b": 93
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 52,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 9,
+      "stable": {
+        "server": "139243108177504",
+        "client": "107199557066736"
+      },
+      "round": "7870d039a59e032f0e706ed7a1fd1a45",
+      "phase_budget_ms": 15000
+    },
+    {
+      "cell": "positive-eim-a-h10-normal",
+      "captured_packets": {
+        "wan": 250,
+        "a": 96,
+        "b": 119
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 27,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 10,
+      "stable": {
+        "server": "138387000397504",
+        "client": "95872855320032"
+      },
+      "round": "d7b5242fe9ddc04aa86eb363b1b0b944",
+      "phase_budget_ms": 10000
+    },
+    {
+      "cell": "positive-eim-a-h11-normal",
+      "captured_packets": {
+        "wan": 297,
+        "a": 93,
+        "b": 144
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 52,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 11,
+      "stable": {
+        "server": "137830667986656",
+        "client": "111335089030624"
+      },
+      "round": "50ccd66c85e71fe8d944d3b8388f5840",
+      "phase_budget_ms": 15000
+    },
+    {
+      "cell": "positive-eim-b-h0-normal",
+      "captured_packets": {
+        "wan": 202,
+        "a": 93,
+        "b": 97
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 3,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 0,
+      "stable": {
+        "server": "133006211683936",
+        "client": "95988562302432"
+      },
+      "round": "de3a17ab32aa3fb0d95063fdafa71e32",
+      "phase_budget_ms": 5200
+    },
+    {
+      "cell": "positive-eim-b-h1-normal",
+      "captured_packets": {
+        "wan": 209,
+        "a": 100,
+        "b": 98
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 2,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 1,
+      "stable": {
+        "server": "132204596303456",
+        "client": "94479305903184"
+      },
+      "round": "c7fd16c066f1e676fbf6264ff9b9fc9c",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-eim-b-h2-normal",
+      "captured_packets": {
+        "wan": 213,
+        "a": 104,
+        "b": 97
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 3,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 2,
+      "stable": {
+        "server": "124792757886496",
+        "client": "110900082083296"
+      },
+      "round": "8bae3435f228788a1c570d1e3710da68",
+      "phase_budget_ms": 5200
+    },
+    {
+      "cell": "positive-eim-b-h3-normal",
+      "captured_packets": {
+        "wan": 209,
+        "a": 96,
+        "b": 100
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 4,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 3,
+      "stable": {
+        "server": "138136013356128",
+        "client": "104578699374816"
+      },
+      "round": "cb81357eca4b1e2759e1a0f9566aa457",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-eim-b-h4-normal",
+      "captured_packets": {
+        "wan": 205,
+        "a": 99,
+        "b": 95
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 2,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 4,
+      "stable": {
+        "server": "140394092420704",
+        "client": "110731711740624"
+      },
+      "round": "e6aae9914f159ec818f74357674915b2",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-eim-b-h5-normal",
+      "captured_packets": {
+        "wan": 206,
+        "a": 97,
+        "b": 96
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 4,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 5,
+      "stable": {
+        "server": "138612419161232",
+        "client": "98049633758144"
+      },
+      "round": "ddcc48bbc431e21baf869a9c016b745f",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-eim-b-h6-normal",
+      "captured_packets": {
+        "wan": 201,
+        "a": 94,
+        "b": 96
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 2,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 6,
+      "stable": {
+        "server": "124756317706784",
+        "client": "102915608252640"
+      },
+      "round": "299c6a1e06bb475822f41a801b76e3e3",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-eim-b-h7-normal",
+      "captured_packets": {
+        "wan": 208,
+        "a": 99,
+        "b": 98
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 4,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 7,
+      "stable": {
+        "server": "134163101481856",
+        "client": "109702215027184"
+      },
+      "round": "ef4002f4b405991941f10481a98d50d8",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-eim-b-h8-normal",
+      "captured_packets": {
+        "wan": 262,
+        "a": 100,
+        "b": 126
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 27,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 8,
+      "stable": {
+        "server": "99197639930608",
+        "client": "107586014631392"
+      },
+      "round": "5bc36e01981ae1242497bd55af5f0a00",
+      "phase_budget_ms": 10000
+    },
+    {
+      "cell": "positive-eim-b-h9-normal",
+      "captured_packets": {
+        "wan": 299,
+        "a": 98,
+        "b": 140
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 52,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 9,
+      "stable": {
+        "server": "131966896712576",
+        "client": "110628542179696"
+      },
+      "round": "b13ef58213254c01d68e3bcff7547240",
+      "phase_budget_ms": 15000
+    },
+    {
+      "cell": "positive-eim-b-h10-normal",
+      "captured_packets": {
+        "wan": 255,
+        "a": 121,
+        "b": 99
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 27,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 10,
+      "stable": {
+        "server": "138009580149280",
+        "client": "108802919365632"
+      },
+      "round": "ee7d3c763b5e26fb19597aa197cd0272",
+      "phase_budget_ms": 10000
+    },
+    {
+      "cell": "positive-eim-b-h11-normal",
+      "captured_packets": {
+        "wan": 298,
+        "a": 147,
+        "b": 91
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 52,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 11,
+      "stable": {
+        "server": "133324710352480",
+        "client": "109492796835424"
+      },
+      "round": "d8964b0cef12ee2ca6192a63420ec5ff",
+      "phase_budget_ms": 15000
+    },
+    {
+      "cell": "positive-up1-a-h0-normal",
+      "captured_packets": {
+        "wan": 231,
+        "a": 94,
+        "b": 108
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 19,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 0,
+      "stable": {
+        "server": "137893750249056",
+        "client": "110909088839136"
+      },
+      "round": "46986a49d140969425ca9d766c1e290c",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-a-h1-normal",
+      "captured_packets": {
+        "wan": 241,
+        "a": 97,
+        "b": 116
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 18,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 1,
+      "stable": {
+        "server": "128074985268880",
+        "client": "108025995079120"
+      },
+      "round": "f67643a0ccc0bab41c594a4cda75117c",
+      "phase_budget_ms": 7000
+    },
+    {
+      "cell": "positive-up1-a-h2-normal",
+      "captured_packets": {
+        "wan": 230,
+        "a": 94,
+        "b": 107
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 19,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 2,
+      "stable": {
+        "server": "124770343456096",
+        "client": "104741806188528"
+      },
+      "round": "9c8e4a671eebf2bca89256209c0b1d8e",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-a-h3-normal",
+      "captured_packets": {
+        "wan": 238,
+        "a": 97,
+        "b": 113
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 18,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 3,
+      "stable": {
+        "server": "136411315459856",
+        "client": "111004976188256"
+      },
+      "round": "fa0dd7e43f9adcfbe226efa75ceda639",
+      "phase_budget_ms": 7000
+    },
+    {
+      "cell": "positive-up1-a-h4-normal",
+      "captured_packets": {
+        "wan": 237,
+        "a": 96,
+        "b": 113
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 19,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 4,
+      "stable": {
+        "server": "133387725577696",
+        "client": "111066856837344"
+      },
+      "round": "e8091ac23825366518733dca29065f15",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-a-h5-normal",
+      "captured_packets": {
+        "wan": 226,
+        "a": 92,
+        "b": 106
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 18,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 5,
+      "stable": {
+        "server": "96891377219312",
+        "client": "94905354708448"
+      },
+      "round": "223edae5ada9322cf6b8b77dd41e7f1f",
+      "phase_budget_ms": 7000
+    },
+    {
+      "cell": "positive-up1-b-h0-normal",
+      "captured_packets": {
+        "wan": 234,
+        "a": 90,
+        "b": 115
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 19,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 0,
+      "stable": {
+        "server": "139366387160160",
+        "client": "100128883103392"
+      },
+      "round": "9cd5eff808333b4871cb49918f5877a3",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-b-h1-normal",
+      "captured_packets": {
+        "wan": 236,
+        "a": 97,
+        "b": 111
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 18,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 1,
+      "stable": {
+        "server": "126925209125712",
+        "client": "108635774544288"
+      },
+      "round": "d373c616040141d1059e5c4c6bb9a1c3",
+      "phase_budget_ms": 7000
+    },
+    {
+      "cell": "positive-up1-b-h2-normal",
+      "captured_packets": {
+        "wan": 240,
+        "a": 98,
+        "b": 113
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 19,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 2,
+      "stable": {
+        "server": "108187554902768",
+        "client": "99804864239072"
+      },
+      "round": "3f07540289da7e12f1f536a00500beeb",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-b-h3-normal",
+      "captured_packets": {
+        "wan": 236,
+        "a": 93,
+        "b": 115
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 18,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 3,
+      "stable": {
+        "server": "131307820553824",
+        "client": "103672991334048"
+      },
+      "round": "09bfa46f9e067fb01604e5261297f8fd",
+      "phase_budget_ms": 7000
+    },
+    {
+      "cell": "positive-up1-b-h4-normal",
+      "captured_packets": {
+        "wan": 234,
+        "a": 99,
+        "b": 107
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 19,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 4,
+      "stable": {
+        "server": "136069798434400",
+        "client": "105132708443616"
+      },
+      "round": "e2d11405437d4b087eadae22ef5a48c6",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-b-h5-normal",
+      "captured_packets": {
+        "wan": 240,
+        "a": 96,
+        "b": 116
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 18,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 5,
+      "stable": {
+        "server": "124893421114976",
+        "client": "110896419780224"
+      },
+      "round": "5d154e761e47ff0b8c1010de03061644",
+      "phase_budget_ms": 7000
+    },
+    {
+      "cell": "positive-up1-up1-a-h0-normal",
+      "captured_packets": {
+        "wan": 283,
+        "a": 116,
+        "b": 116
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 38,
+      "peer_responses": 3,
+      "mode": 3,
+      "index": 0,
+      "stable": {
+        "server": "131666584540768",
+        "client": "99823905154656"
+      },
+      "round": "39d13638ffa5d6dd7b9f64c22a8dc9e2",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-up1-a-h1-normal",
+      "captured_packets": {
+        "wan": 271,
+        "a": 109,
+        "b": 111
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 38,
+      "peer_responses": 3,
+      "mode": 3,
+      "index": 1,
+      "stable": {
+        "server": "138727913498224",
+        "client": "95697133784320"
+      },
+      "round": "f406bb0a2a6dc6369f3929c39f862532",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-up1-a-h2-normal",
+      "captured_packets": {
+        "wan": 283,
+        "a": 116,
+        "b": 116
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 38,
+      "peer_responses": 3,
+      "mode": 3,
+      "index": 2,
+      "stable": {
+        "server": "124664982541168",
+        "client": "111365633017312"
+      },
+      "round": "f1cfa2bfa99b605f542e6837eec70b8d",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-up1-a-h3-normal",
+      "captured_packets": {
+        "wan": 408,
+        "a": 181,
+        "b": 80
+      },
+      "outcome": "bounded_miss",
+      "peer_probes": 134,
+      "peer_responses": 0,
+      "mode": 3,
+      "index": 3,
+      "stable": {
+        "server": "139170362171376",
+        "client": "98150637853040"
+      },
+      "round": "be825853cfdd1b2a66b03184384a39f1",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-up1-a-h4-normal",
+      "captured_packets": {
+        "wan": 402,
+        "a": 178,
+        "b": 77
+      },
+      "outcome": "bounded_miss",
+      "peer_probes": 134,
+      "peer_responses": 0,
+      "mode": 3,
+      "index": 4,
+      "stable": {
+        "server": "130481240792672",
+        "client": "108290619558352"
+      },
+      "round": "74bcdf4fc43d604909bf05c9aca8e43b",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-up1-a-h5-normal",
+      "captured_packets": {
+        "wan": 402,
+        "a": 179,
+        "b": 78
+      },
+      "outcome": "bounded_miss",
+      "peer_probes": 134,
+      "peer_responses": 0,
+      "mode": 3,
+      "index": 5,
+      "stable": {
+        "server": "129682376758880",
+        "client": "95008869088512"
+      },
+      "round": "207177d8f84ad1f2abb3eaea5cff2999",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-up1-b-h0-normal",
+      "captured_packets": {
+        "wan": 282,
+        "a": 116,
+        "b": 115
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 38,
+      "peer_responses": 3,
+      "mode": 3,
+      "index": 0,
+      "stable": {
+        "server": "100297339140208",
+        "client": "97782565865952"
+      },
+      "round": "271fcbd888d4ba2a01249b28be4cf816",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-up1-b-h1-normal",
+      "captured_packets": {
+        "wan": 278,
+        "a": 113,
+        "b": 114
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 38,
+      "peer_responses": 3,
+      "mode": 3,
+      "index": 1,
+      "stable": {
+        "server": "133174386613744",
+        "client": "104155963195296"
+      },
+      "round": "ebb3992feeb7f1baf0166d6b9eeb6fab",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-up1-b-h2-normal",
+      "captured_packets": {
+        "wan": 276,
+        "a": 115,
+        "b": 110
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 38,
+      "peer_responses": 3,
+      "mode": 3,
+      "index": 2,
+      "stable": {
+        "server": "134587967608416",
+        "client": "105837551528144"
+      },
+      "round": "86370e547dfbf6b19bf419922363a430",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-up1-b-h3-normal",
+      "captured_packets": {
+        "wan": 279,
+        "a": 113,
+        "b": 115
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 38,
+      "peer_responses": 3,
+      "mode": 3,
+      "index": 3,
+      "stable": {
+        "server": "132486050882112",
+        "client": "104461430838752"
+      },
+      "round": "1d9cecaf4aefacc924c124b8a4a2c635",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-up1-b-h4-normal",
+      "captured_packets": {
+        "wan": 400,
+        "a": 76,
+        "b": 177
+      },
+      "outcome": "bounded_miss",
+      "peer_probes": 134,
+      "peer_responses": 0,
+      "mode": 3,
+      "index": 4,
+      "stable": {
+        "server": "140573608515168",
+        "client": "104812961740384"
+      },
+      "round": "aea5f77001b5d02e8d1ebc7e988b185d",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up1-up1-b-h5-normal",
+      "captured_packets": {
+        "wan": 398,
+        "a": 78,
+        "b": 175
+      },
+      "outcome": "bounded_miss",
+      "peer_probes": 134,
+      "peer_responses": 0,
+      "mode": 3,
+      "index": 5,
+      "stable": {
+        "server": "130109524678240",
+        "client": "110644433272816"
+      },
+      "round": "801945a4f9572244b75632b3219dfe7c",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up2-up2-a-h0-normal",
+      "captured_packets": {
+        "wan": 539,
+        "a": 162,
+        "b": 160
+      },
+      "outcome": "bounded_miss",
+      "peer_probes": 204,
+      "peer_responses": 0,
+      "mode": 0,
+      "index": 0,
+      "stable": {
+        "server": "140253566342752",
+        "client": "107693559976880"
+      },
+      "round": "7d1d5ab93744d08245489f1f8b3e25e3",
+      "phase_budget_ms": 5200
+    },
+    {
+      "cell": "positive-up2-up2-a-h12-normal",
+      "captured_packets": {
+        "wan": 377,
+        "a": 83,
+        "b": 160
+      },
+      "outcome": "bounded_miss",
+      "peer_probes": 121,
+      "peer_responses": 0,
+      "mode": 1,
+      "index": 0,
+      "stable": {
+        "server": "136790816069216",
+        "client": "105010648421856"
+      },
+      "round": "fbafe5ba915fd00758ef9047f93398d9",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up2-up2-a-h18-normal",
+      "captured_packets": {
+        "wan": 298,
+        "a": 114,
+        "b": 125
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 46,
+      "peer_responses": 3,
+      "mode": 3,
+      "index": 0,
+      "stable": {
+        "server": "131447004337760",
+        "client": "97199506329712"
+      },
+      "round": "84fdbe06ec5ced327a8da5dbb1585828",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-down1-a-h0-normal",
+      "captured_packets": {
+        "wan": 236,
+        "a": 97,
+        "b": 110
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 19,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 0,
+      "stable": {
+        "server": "129271133640288",
+        "client": "101248371635680"
+      },
+      "round": "b45915486021ba01e8662c7ed393eb45",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-nonmonotone-a-h0-normal",
+      "captured_packets": {
+        "wan": 231,
+        "a": 94,
+        "b": 110
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 17,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 0,
+      "stable": {
+        "server": "126854006593296",
+        "client": "109050474595808"
+      },
+      "round": "24598990ad7e80e35701531a02a578f5",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-spread5-a-h0-normal",
+      "captured_packets": {
+        "wan": 238,
+        "a": 91,
+        "b": 114
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 23,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 0,
+      "stable": {
+        "server": "125851131710736",
+        "client": "101287816680928"
+      },
+      "round": "db7809ada4324246e68a55acafc6ea7d",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-lowedge-a-h0-normal",
+      "captured_packets": {
+        "wan": 215,
+        "a": 94,
+        "b": 100
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 11,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 0,
+      "stable": {
+        "server": "127384099520768",
+        "client": "94602492057712"
+      },
+      "round": "e10317bf60593ab3cb5c4bc72a621ff0",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-highedge-a-h0-normal",
+      "captured_packets": {
+        "wan": 219,
+        "a": 92,
+        "b": 106
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 11,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 0,
+      "stable": {
+        "server": "124294004811760",
+        "client": "107190979950048"
+      },
+      "round": "281538fab550c09bd1effdf31e37e255",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-fallback-a-h0-normal",
+      "captured_packets": {
+        "wan": 136,
+        "a": 63,
+        "b": 62
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 2,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 6,
+      "stable": {
+        "server": "131864891235856",
+        "client": "103425779267984"
+      },
+      "round": "0236a35957003bf0d49efd2ad652fde3",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "blocked-up1-up1-a-h0-normal",
+      "captured_packets": {
+        "wan": 263,
+        "a": 73,
+        "b": 177
+      },
+      "outcome": "bounded_miss",
+      "peer_probes": 134,
+      "peer_responses": 0,
+      "mode": 3,
+      "index": 0,
+      "stable": {
+        "server": "138560141295904",
+        "client": "103993687561696"
+      },
+      "round": "149b7e2d043093bce2b1581606daccd1",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-eim-a-h0-ttl_unavailable",
+      "captured_packets": {
+        "wan": 210,
+        "a": 100,
+        "b": 98
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 3,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 0,
+      "stable": {
+        "server": "137561964093296",
+        "client": "111289099662224"
+      },
+      "round": "2421f7413bf2cecab745f1c259405016",
+      "phase_budget_ms": 5200
+    },
+    {
+      "cell": "positive-up2-up2-b-h0-normal",
+      "captured_packets": {
+        "wan": 534,
+        "a": 156,
+        "b": 161
+      },
+      "outcome": "bounded_miss",
+      "peer_probes": 204,
+      "peer_responses": 0,
+      "mode": 0,
+      "index": 0,
+      "stable": {
+        "server": "136080737193248",
+        "client": "109099133934688"
+      },
+      "round": "67d5d89f17f0fd68bd9fcc8dc49a612d",
+      "phase_budget_ms": 5200
+    },
+    {
+      "cell": "positive-up2-up2-b-h12-normal",
+      "captured_packets": {
+        "wan": 372,
+        "a": 159,
+        "b": 79
+      },
+      "outcome": "bounded_miss",
+      "peer_probes": 121,
+      "peer_responses": 0,
+      "mode": 1,
+      "index": 0,
+      "stable": {
+        "server": "136537480110752",
+        "client": "100395357562336"
+      },
+      "round": "eae8156d00a2a6bd52862a2412023ebc",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-up2-up2-b-h18-normal",
+      "captured_packets": {
+        "wan": 296,
+        "a": 121,
+        "b": 116
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 46,
+      "peer_responses": 3,
+      "mode": 3,
+      "index": 0,
+      "stable": {
+        "server": "131618266269424",
+        "client": "101020919944832"
+      },
+      "round": "360dc3b0c93f0800af5ec67b24cb7280",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-down1-b-h0-normal",
+      "captured_packets": {
+        "wan": 240,
+        "a": 97,
+        "b": 114
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 19,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 0,
+      "stable": {
+        "server": "131391840850384",
+        "client": "100978471351776"
+      },
+      "round": "c12fc3e000df1547a48471a17003915b",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-nonmonotone-b-h0-normal",
+      "captured_packets": {
+        "wan": 232,
+        "a": 93,
+        "b": 112
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 17,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 0,
+      "stable": {
+        "server": "134144914904848",
+        "client": "105277202671104"
+      },
+      "round": "5a07c03f33dc8488ab297d34ca105df0",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-spread5-b-h0-normal",
+      "captured_packets": {
+        "wan": 238,
+        "a": 91,
+        "b": 115
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 22,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 0,
+      "stable": {
+        "server": "136412187927856",
+        "client": "104900546448272"
+      },
+      "round": "7b7c88896ca7c02832c5de36289dc83e",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-lowedge-b-h0-normal",
+      "captured_packets": {
+        "wan": 217,
+        "a": 93,
+        "b": 104
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 10,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 0,
+      "stable": {
+        "server": "102319884367728",
+        "client": "96337861096928"
+      },
+      "round": "c24351d94ac1338dcc54974370d10f46",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-highedge-b-h0-normal",
+      "captured_packets": {
+        "wan": 221,
+        "a": 97,
+        "b": 103
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 11,
+      "peer_responses": 3,
+      "mode": 1,
+      "index": 0,
+      "stable": {
+        "server": "95169370682864",
+        "client": "110708474263008"
+      },
+      "round": "c2a7990932b086bf9ea567633b37e5b3",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-fallback-b-h0-normal",
+      "captured_packets": {
+        "wan": 142,
+        "a": 65,
+        "b": 66
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 2,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 6,
+      "stable": {
+        "server": "104495943165040",
+        "client": "95492895023872"
+      },
+      "round": "372e2eff4f87ba3c9005398e8c3d9826",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "blocked-up1-up1-b-h0-normal",
+      "captured_packets": {
+        "wan": 273,
+        "a": 181,
+        "b": 79
+      },
+      "outcome": "bounded_miss",
+      "peer_probes": 134,
+      "peer_responses": 0,
+      "mode": 3,
+      "index": 0,
+      "stable": {
+        "server": "134626756576080",
+        "client": "98335129433568"
+      },
+      "round": "4c0cdc6538e1bc275ee83abd886f8b83",
+      "phase_budget_ms": 5000
+    },
+    {
+      "cell": "positive-eim-b-h0-ttl_unavailable",
+      "captured_packets": {
+        "wan": 212,
+        "a": 100,
+        "b": 100
+      },
+      "outcome": "confirmed_business",
+      "peer_probes": 3,
+      "peer_responses": 3,
+      "mode": 0,
+      "index": 0,
+      "stable": {
+        "server": "134464688627088",
+        "client": "102388283340400"
+      },
+      "round": "31fcc7fc902a67755b95fb347d2c8372",
+      "phase_budget_ms": 5200
+    },
+    {
+      "cell": "nonmember-eim-a-h0-normal",
+      "captured_packets": {
+        "wan": 60,
+        "a": 25,
+        "b": 25
+      },
+      "outcome": "admission_rejection",
+      "peer_probes": 0,
+      "peer_responses": 0
+    },
+    {
+      "cell": "revoked-eim-a-h0-normal",
+      "captured_packets": {
+        "wan": 55,
+        "a": 22,
+        "b": 23
+      },
+      "outcome": "admission_rejection",
+      "peer_probes": 0,
+      "peer_responses": 0
+    },
+    {
+      "cell": "no_secret-eim-a-h0-normal",
+      "captured_packets": {
+        "wan": 56,
+        "a": 23,
+        "b": 23
+      },
+      "outcome": "admission_rejection",
+      "peer_probes": 0,
+      "peer_responses": 0
+    },
+    {
+      "cell": "wrong_secret-eim-a-h0-normal",
+      "captured_packets": {
+        "wan": 56,
+        "a": 23,
+        "b": 23
+      },
+      "outcome": "admission_rejection",
+      "peer_probes": 0,
+      "peer_responses": 0
+    }
+  ]
+}

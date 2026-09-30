@@ -1,0 +1,1 @@
+case=no_secret strategy=legacy topology=eim dialer=a client_rc=1 server_rc=1

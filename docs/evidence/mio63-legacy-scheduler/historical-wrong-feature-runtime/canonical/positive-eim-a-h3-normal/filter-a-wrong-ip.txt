@@ -1,0 +1,2 @@
+Chain INPUT (policy DROP 1 packets, 38 bytes)
+ pkts bytes target     prot opt in     out     source               destination

@@ -1,0 +1,15 @@
+conntrack v1.4.7 (conntrack-tools): 14 flow entries have been shown.
+udp      17 28 src=10.27.2.2 dst=100.64.27.1 sport=43027 dport=46762 src=100.64.27.1 dst=100.64.27.6 sport=46762 dport=43027 mark=0 use=1
+udp      17 28 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=65528 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=65528 dport=43027 mark=0 use=1
+udp      17 28 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=65535 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=65535 dport=43027 mark=0 use=1
+udp      17 29 src=10.27.2.2 dst=100.64.27.1 sport=43027 dport=46761 src=100.64.27.1 dst=100.64.27.6 sport=46761 dport=43027 mark=0 use=1
+udp      17 28 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=65530 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=65530 dport=43027 mark=0 use=1
+udp      17 28 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=65527 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=65527 dport=43027 mark=0 use=1
+udp      17 28 src=10.27.2.2 dst=100.64.27.1 sport=43027 dport=46764 src=100.64.27.1 dst=100.64.27.6 sport=46764 dport=43027 mark=0 use=1
+udp      17 28 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=65531 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=65531 dport=43027 mark=0 use=1
+udp      17 28 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=65532 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=65532 dport=43027 mark=0 use=1
+udp      17 28 src=10.27.2.2 dst=100.64.27.1 sport=43027 dport=46763 src=100.64.27.1 dst=100.64.27.6 sport=46763 dport=43027 mark=0 use=1
+udp      17 28 src=10.27.2.2 dst=10.27.1.2 sport=43027 dport=42027 [UNREPLIED] src=10.27.1.2 dst=100.64.27.6 sport=42027 dport=43027 mark=0 use=1
+udp      17 28 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=65534 src=100.64.27.2 dst=100.64.27.6 sport=65534 dport=43027 mark=0 use=1
+udp      17 28 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=65529 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=65529 dport=43027 mark=0 use=1
+udp      17 28 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=65533 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=65533 dport=43027 mark=0 use=1
