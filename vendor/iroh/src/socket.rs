@@ -218,6 +218,8 @@ pub(crate) struct EndpointInner {
     runtime: Arc<Runtime>,
     /// Static configuration for the endpoint.
     pub(crate) static_config: StaticConfig,
+    #[cfg(not(wasm_browser))]
+    local_interfaces_watcher: n0_watcher::Direct<netmon::State>,
 }
 
 impl Drop for EndpointInner {
@@ -958,6 +960,16 @@ impl EndpointInner {
             .ok_or_else(|| io::Error::other("empty mapping observation"))?
             .observed_at;
         Ok(UdpMappingSequence {
+            local_ips: {
+                let interfaces = self.local_interfaces_watcher.clone().get();
+                interfaces
+                    .local_addresses
+                    .regular
+                    .iter()
+                    .chain(interfaces.local_addresses.loopback.iter())
+                    .copied()
+                    .collect()
+            },
             samples: samples
                 .into_iter()
                 .map(|sample| UdpMappingSample {
@@ -1390,7 +1402,7 @@ impl EndpointInner {
             remote_map,
             periodic_re_stun_timer: new_re_stun_timer(false),
             network_monitor,
-            local_interfaces_watcher,
+            local_interfaces_watcher: local_interfaces_watcher.clone(),
             direct_addr_update_state,
             explicit_qad_servers,
             transports_network_change,
@@ -1420,6 +1432,8 @@ impl EndpointInner {
             endpoint,
             runtime,
             static_config,
+            #[cfg(not(wasm_browser))]
+            local_interfaces_watcher,
         })
     }
 
@@ -2367,6 +2381,9 @@ pub struct UdpMappingSample {
 pub struct UdpMappingSequence {
     /// Results in request order, each to a distinct configured destination.
     pub samples: Vec<UdpMappingSample>,
+    /// Real interface IPs at observation time, excluding reflected candidates.
+    /// Used for the legacy PublicNetwork feature even with wildcard bindings.
+    pub local_ips: Vec<IpAddr>,
     valid_until: Instant,
     validity: ObservationValidity,
 }
@@ -2376,6 +2393,13 @@ impl UdpMappingSequence {
     /// Network changes invalidate all copies of the observation.
     pub fn is_fresh(&self) -> bool {
         Instant::now() < self.valid_until && self.validity.is_current()
+    }
+
+    /// Whether the socket/network generation that produced these samples is
+    /// still current. A traversal adapter may apply a longer bounded lifetime
+    /// when its legacy plan includes delays beyond the two-second predictor.
+    pub fn is_current_generation(&self) -> bool {
+        self.validity.is_current()
     }
 }
 

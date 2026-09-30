@@ -4,7 +4,7 @@ use std::{
     io,
     net::{Ipv4Addr, SocketAddr},
     path::Path,
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
@@ -20,6 +20,8 @@ use miopunch_native_probe::{
     control_session::{CommitError, ControlSession},
     mqtt_transport::{MqttTransport, Traffic},
     nat_mapping::{self, MappingPattern, MappingSample, NodeProbeBudget, PunchRole},
+    nat_punch::{self, Attempt, ExecutionStatus, MappingSnapshot},
+    nat_selector::Analyzer,
 };
 
 const ALPN: &[u8] = b"miopunch/nat-probe/1";
@@ -35,6 +37,97 @@ struct MappingEvidence {
     pattern: MappingPattern,
     budget: Arc<NodeProbeBudget>,
     peer_probe_limit: usize,
+}
+
+struct LegacyContext {
+    snapshot: MappingSnapshot,
+    analyzer: Arc<Mutex<Analyzer>>,
+    budget: Arc<NodeProbeBudget>,
+}
+
+struct LegacyResources {
+    observers: Option<RelayMap>,
+    analyzer: Arc<Mutex<Analyzer>>,
+    budget: Arc<NodeProbeBudget>,
+}
+
+async fn prepare_legacy(
+    endpoint: &Endpoint,
+    own_candidate: &ObservedCandidate,
+    resources: LegacyResources,
+) -> Result<LegacyContext, Box<dyn Error>> {
+    let snapshot = if let Some(observers) = &resources.observers {
+        if !resources.budget.reserve_observations(observers.len()) {
+            return Err("legacy observation budget exhausted".into());
+        }
+        match endpoint.observe_udp_mapping_sequence(observers).await {
+            Ok(sequence) => {
+                for (index, sample) in sequence.samples.iter().enumerate() {
+                    println!(
+                        "LEGACY_SAMPLE order={index} destination={} mapped={}",
+                        sample.destination, sample.mapped
+                    );
+                }
+                MappingSnapshot::from_sequence(sequence)?
+            }
+            Err(error) => {
+                println!("LEGACY_OBSERVATION_FALLBACK reason={error}");
+                MappingSnapshot::fallback(own_candidate.observation.clone())?
+            }
+        }
+    } else {
+        MappingSnapshot::fallback(own_candidate.observation.clone())?
+    };
+    println!(
+        "LEGACY_FEATURE feature={:?} socket_generation_current={}",
+        snapshot.feature(),
+        snapshot.is_current()
+    );
+    Ok(LegacyContext {
+        snapshot,
+        analyzer: resources.analyzer,
+        budget: resources.budget,
+    })
+}
+
+fn trace_legacy(attempt: &Attempt, stable: usize) {
+    println!(
+        "LEGACY_SELECTED mode={} index={} c={:?} v={:?} scores_before={:?} round={} stable_id={} execution={:?} fallback={}",
+        attempt.plan().id.mode,
+        attempt.plan().id.index,
+        attempt.plan().c,
+        attempt.plan().v,
+        attempt.plan().scores_before,
+        attempt.round().encoded(),
+        stable,
+        attempt.execution_status(),
+        attempt.plan().fallback
+    );
+}
+
+async fn legacy_probe(
+    control: &ControlSession,
+    gate: &Option<AdmissionGate>,
+    context: &LegacyContext,
+    attempt: &mut Attempt,
+) -> Result<(), Box<dyn Error>> {
+    let status = attempt
+        .execute_partial(
+            control,
+            gate.as_ref().ok_or("legacy requires member gate")?,
+            &context.budget,
+        )
+        .await?;
+    println!(
+        "LEGACY_EXECUTION status={status:?} target={:?} stable_id={}",
+        attempt.remote_target(),
+        control.stable_id()
+    );
+    if status != ExecutionStatus::PartialExecution {
+        return Err(format!("legacy {status:?}; full executor belongs to 63/61").into());
+    }
+    println!("PROBES_SENT count=1 distinct_targets=1 partial_execution=1");
+    Ok(())
 }
 
 fn mapping_samples(sequence: &iroh::endpoint::UdpMappingSequence) -> Vec<MappingSample> {
@@ -116,7 +209,7 @@ fn auto_probe_limit() -> Result<usize, Box<dyn Error>> {
 
 fn automatic_strategy(has_mapping_observers: bool) -> Result<bool, Box<dyn Error>> {
     match std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref() {
-        Ok("baseline" | "coordinated") => Ok(false),
+        Ok("baseline" | "coordinated" | "legacy") => Ok(false),
         Ok("auto") => Ok(true),
         Err(_) => Ok(has_mapping_observers),
         _ => Err("invalid NAT strategy".into()),
@@ -183,8 +276,8 @@ async fn endpoint(
                 Ok::<_, Box<dyn Error>>(RelayConfig::new(url, Some(RelayQuicConfig::new(port))))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        if entries.len() != 4 {
-            return Err("four QAD observers required".into());
+        if entries.len() < 2 || entries.len() > 64 {
+            return Err("two to 64 QAD observers required".into());
         }
         Some(RelayMap::from_iter(entries))
     } else {
@@ -826,6 +919,7 @@ async fn run_server(
     peer: PublicKey,
     own_candidate: ObservedCandidate,
     mapping: Option<MappingEvidence>,
+    legacy: Option<LegacyResources>,
 ) -> Result<(), Box<dyn Error>> {
     println!("READY id={} route={}", endpoint.id(), carrier.route()?);
     let control = tokio::time::timeout(WAIT, ControlSession::accept(&endpoint)).await??;
@@ -838,12 +932,44 @@ async fn run_server(
         endpoint.close().await;
         return Ok(());
     }
+    let legacy = match legacy {
+        Some(resources) => Some(prepare_legacy(&endpoint, &own_candidate, resources).await?),
+        None => None,
+    };
     let coordinated = std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref() == Ok("coordinated");
     let automatic = automatic_strategy(mapping.is_some())?;
-    let advanced = coordinated || automatic;
+    let advanced = coordinated || automatic || legacy.is_some();
     let mut active_round = None;
     let mut auto_role = None;
-    let remote = if automatic {
+    let mut legacy_attempt = None;
+    let remote = if let Some(context) = &legacy {
+        match nat_punch::coordinate_server(
+            &control,
+            gate.as_ref().ok_or("legacy requires member gate")?,
+            &context.snapshot,
+            &context.analyzer,
+        )
+        .await
+        {
+            Ok(attempt) => {
+                trace_legacy(&attempt, stable);
+                active_round = Some(Round::parse(&attempt.round().encoded())?);
+                let target = attempt
+                    .remote_target()
+                    .ok_or("legacy peer has no candidate")?;
+                legacy_attempt = Some(attempt);
+                target
+            }
+            Err(error) => {
+                println!(
+                    "COORD_UNAVAILABLE reason={error} probes=0 mqtt={}",
+                    traffic.report()
+                );
+                endpoint.close().await;
+                return Ok(());
+            }
+        }
+    } else if automatic {
         let evidence = mapping
             .as_ref()
             .ok_or("missing ordered QAD mapping evidence")?;
@@ -943,7 +1069,9 @@ async fn run_server(
                 return Ok(());
             }
         }
-        let result = if automatic {
+        let result = if let Some(context) = &legacy {
+            legacy_probe(&control, &gate, context, legacy_attempt.as_mut().unwrap()).await
+        } else if automatic {
             auto_probe_window(
                 &control,
                 &gate,
@@ -962,9 +1090,20 @@ async fn run_server(
             return Ok(());
         }
     }
-    if let Err(error) = wait_ip(&control, if automatic { AUTO_PATH_WAIT } else { WAIT }).await {
+    if let Err(error) = wait_ip(
+        &control,
+        if automatic || legacy.is_some() {
+            AUTO_PATH_WAIT
+        } else {
+            WAIT
+        },
+    )
+    .await
+    {
         println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
-        if automatic && let Some(round) = active_round {
+        if (automatic || legacy.is_some())
+            && let Some(round) = active_round
+        {
             if let Err(reason) = report_auto_path_failure_server(&control, round).await {
                 println!("CONTROL_LIVENESS_FAILED reason={reason}");
             }
@@ -1044,6 +1183,13 @@ async fn run_server(
     if business != b"NAT_DATA" || traffic.sent_packets() != before {
         return Err("business crossed MQTT or had wrong content".into());
     }
+    if let (Some(context), Some(attempt)) = (&legacy, legacy_attempt.as_mut()) {
+        let learned = attempt.confirm_success(&data, gate.as_ref().unwrap(), &context.analyzer);
+        println!(
+            "LEGACY_RESULT outcome=confirmed_business learned={learned} score_delta={} stable_id={stable}",
+            if learned { 2 } else { 0 }
+        );
+    }
     println!(
         "DATA_OK stable_id={stable} peer={peer} path_ms={} paths={:?} mqtt_after_commit={before}",
         path_started.elapsed().as_millis(),
@@ -1062,6 +1208,7 @@ async fn run_client(
     own_candidate: ObservedCandidate,
     override_candidate: Option<SocketAddr>,
     mapping: Option<MappingEvidence>,
+    legacy: Option<LegacyResources>,
 ) -> Result<(), Box<dyn Error>> {
     let target =
         EndpointAddr::new(peer).with_addrs([TransportAddr::Custom(MqttTransport::address(route)?)]);
@@ -1077,6 +1224,10 @@ async fn run_client(
         endpoint.close().await;
         return Ok(());
     }
+    let legacy = match legacy {
+        Some(resources) => Some(prepare_legacy(&endpoint, &own_candidate, resources).await?),
+        None => None,
+    };
     if std::env::var("MIOPUNCH_NAT_FAULT").as_deref() == Ok("stale") {
         endpoint.network_change().await;
         tokio::time::timeout(Duration::from_secs(2), async {
@@ -1100,10 +1251,37 @@ async fn run_client(
     }
     let coordinated = std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref() == Ok("coordinated");
     let automatic = automatic_strategy(mapping.is_some())?;
-    let advanced = coordinated || automatic;
+    let advanced = coordinated || automatic || legacy.is_some();
     let mut active_round = None;
     let mut auto_role = None;
-    let reported = if automatic {
+    let mut legacy_attempt = None;
+    let reported = if let Some(context) = &legacy {
+        match nat_punch::coordinate_client(
+            &control,
+            gate.as_ref().ok_or("legacy requires member gate")?,
+            &context.snapshot,
+        )
+        .await
+        {
+            Ok(attempt) => {
+                trace_legacy(&attempt, stable);
+                active_round = Some(Round::parse(&attempt.round().encoded())?);
+                let target = attempt
+                    .remote_target()
+                    .ok_or("legacy peer has no candidate")?;
+                legacy_attempt = Some(attempt);
+                target
+            }
+            Err(error) => {
+                println!(
+                    "COORD_UNAVAILABLE reason={error} probes=0 mqtt={}",
+                    traffic.report()
+                );
+                endpoint.close().await;
+                return Ok(());
+            }
+        }
+    } else if automatic {
         let evidence = mapping
             .as_ref()
             .ok_or("missing ordered QAD mapping evidence")?;
@@ -1185,7 +1363,16 @@ async fn run_client(
         #[cfg(not(feature = "nat-lab-test-hooks"))]
         return Err("path_id_retry requires the nat-lab-test-hooks feature".into());
     }
-    let result = if automatic {
+    let result = if let Some(context) = &legacy {
+        if let Err(error) =
+            legacy_probe(&control, &gate, context, legacy_attempt.as_mut().unwrap()).await
+        {
+            println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
+            endpoint.close().await;
+            return Ok(());
+        }
+        tokio::time::timeout(AUTO_PATH_WAIT, control.open_data_path_report(remote)).await
+    } else if automatic {
         let probes = auto_probe_window(
             &control,
             &gate,
@@ -1224,7 +1411,9 @@ async fn run_client(
                 "PATH_UNAVAILABLE reason={other:?} mqtt={}",
                 traffic.report()
             );
-            if automatic && let Some(round) = active_round {
+            if (automatic || legacy.is_some())
+                && let Some(round) = active_round
+            {
                 if let Err(reason) = report_auto_path_failure_client(&control, round).await {
                     println!("CONTROL_LIVENESS_FAILED reason={reason}");
                 }
@@ -1233,9 +1422,20 @@ async fn run_client(
             return Ok(());
         }
     }
-    if let Err(error) = wait_ip(&control, if automatic { AUTO_PATH_WAIT } else { WAIT }).await {
+    if let Err(error) = wait_ip(
+        &control,
+        if automatic || legacy.is_some() {
+            AUTO_PATH_WAIT
+        } else {
+            WAIT
+        },
+    )
+    .await
+    {
         println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
-        if automatic && let Some(round) = active_round {
+        if (automatic || legacy.is_some())
+            && let Some(round) = active_round
+        {
             if let Err(reason) = report_auto_path_failure_client(&control, round).await {
                 println!("CONTROL_LIVENESS_FAILED reason={reason}");
             }
@@ -1294,6 +1494,11 @@ async fn run_client(
                 path_started.elapsed().as_millis(),
                 data.connection().paths()
             );
+            if legacy.is_some() {
+                println!(
+                    "LEGACY_RESULT outcome=business_sent feedback_owner=coordinator stable_id={stable}"
+                );
+            }
             endpoint.close().await;
             return Ok(());
         }
@@ -1333,7 +1538,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let has_mapping_observers =
         std::env::var("MIOPUNCH_NAT_OBSERVERS").is_ok_and(|value| !value.is_empty());
     let automatic = automatic_strategy(has_mapping_observers)?;
-    if (automatic || std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref() == Ok("coordinated"))
+    let legacy_selected = std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref() == Ok("legacy");
+    if (automatic
+        || legacy_selected
+        || std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref() == Ok("coordinated"))
         && std::env::var("MIOPUNCH_NAT_SECRET_FILE").is_err()
     {
         return Err("enhanced UDP strategy requires an admission-gated control connection".into());
@@ -1349,6 +1557,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .await?;
     let own_candidate = observed_addr(&endpoint).await?;
+    let legacy = if legacy_selected {
+        let budget = Arc::new(NodeProbeBudget::new(
+            mapping_observers.as_ref().map_or(0, RelayMap::len),
+            1,
+        ));
+        Some(LegacyResources {
+            observers: mapping_observers.clone(),
+            analyzer: Arc::new(Mutex::new(Analyzer::new(Instant::now()))),
+            budget,
+        })
+    } else {
+        None
+    };
     let mapping = if automatic {
         // The endpoint's baseline QAD observation remains available to all
         // strategies; this allowance covers only the four additional QAD
@@ -1386,6 +1607,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 peer,
                 own_candidate,
                 mapping,
+                legacy,
             )
             .await
         }
@@ -1399,6 +1621,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 own_candidate,
                 None,
                 mapping,
+                legacy,
             )
             .await
         }
@@ -1412,6 +1635,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 own_candidate,
                 Some(override_addr.parse()?),
                 mapping,
+                legacy,
             )
             .await
         }

@@ -17,6 +17,7 @@ use crate::admission_proof::{
 };
 use crate::genesis_recovery::RECOVERY_ALPN;
 use crate::member_bootstrap::MEMBER_BOOTSTRAP_ALPN;
+use crate::nat_selector::{LearningScope, ProbeProtocol};
 use crate::tcp_transport::DATA_TRANSPORT_ID;
 
 pub const ADMISSION_REQUEST_ALPN: &[u8] = b"miopunch/admission-request/1";
@@ -90,6 +91,7 @@ struct Policy {
     secret: Option<AdmissionSecret>,
     members: HashSet<[u8; 32]>,
     removed: HashSet<[u8; 32]>,
+    authorization_epoch: u64,
 }
 
 #[derive(Debug)]
@@ -131,6 +133,7 @@ impl AdmissionGate {
                     secret,
                     members: HashSet::new(),
                     removed: HashSet::new(),
+                    authorization_epoch: 0,
                 },
                 protocols,
                 allowed_data_custom_ids: BTreeSet::from([DATA_TRANSPORT_ID]),
@@ -203,8 +206,17 @@ impl AdmissionGate {
         removed: impl IntoIterator<Item = [u8; 32]>,
     ) {
         let mut state = self.state.lock().expect("admission policy lock");
-        state.policy.members = members.into_iter().collect();
-        state.policy.removed = removed.into_iter().collect();
+        let members = members.into_iter().collect();
+        let removed = removed.into_iter().collect();
+        if state.policy.members != members || state.policy.removed != removed {
+            state.policy.authorization_epoch = state
+                .policy
+                .authorization_epoch
+                .checked_add(1)
+                .expect("authorization epoch exhausted");
+        }
+        state.policy.members = members;
+        state.policy.removed = removed;
         let policy = state.policy.clone();
         state.sessions.retain(|_, session| session.valid(&policy));
     }
@@ -250,6 +262,34 @@ impl AdmissionGate {
                     && state.policy.members.contains(&session.peer)
                     && state.policy.members.contains(&state.policy.local_id)
             })
+    }
+
+    /// An opaque learning scope derives from this exact proved connection and
+    /// current member view. Candidate claims never supply identity or epochs.
+    pub(crate) fn nat_learning_scope(&self, connection: &Connection) -> Option<LearningScope> {
+        let state = self.state.lock().expect("admission policy lock");
+        let session = state.sessions.get(&connection.stable_id())?;
+        if session.peer != *connection.remote_id().as_bytes()
+            || !matches!(
+                session.scope,
+                ProtocolScope::Bootstrap | ProtocolScope::Member
+            )
+            || !session.valid(&state.policy)
+            || !state.policy.members.contains(&session.peer)
+            || !state.policy.members.contains(&state.policy.local_id)
+        {
+            return None;
+        }
+        let proof = session.proof.as_ref()?;
+        Some(LearningScope {
+            local: state.policy.local_id,
+            remote: session.peer,
+            network: *proof.scope().network_id(),
+            secret_generation: proof.scope().secret_generation(),
+            credential: *proof.credential_fingerprint(),
+            authorization_epoch: state.policy.authorization_epoch,
+            protocol: ProbeProtocol::Udp,
+        })
     }
 
     /// Borrow the exact connection's completed SCRAM fact for a restricted

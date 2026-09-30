@@ -844,10 +844,10 @@ pub(crate) async fn observe_mapping_sequence(
     use std::io;
 
     let relays = servers.relays::<Vec<_>>();
-    if relays.len() != 4 {
+    if relays.len() < 2 {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "four configured QAD observers required",
+            "at least two configured QAD observers required",
         ));
     }
     let client = QuicClient::new(endpoint, tls_config);

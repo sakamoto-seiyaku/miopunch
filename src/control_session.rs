@@ -81,6 +81,13 @@ impl ControlSession {
         gate.allows_member_path_upgrade(&self.connection)
     }
 
+    pub(crate) fn nat_learning_scope(
+        &self,
+        gate: &AdmissionGate,
+    ) -> Option<crate::nat_selector::LearningScope> {
+        gate.nat_learning_scope(&self.connection)
+    }
+
     /// Opens a stream reserved for the bootstrap control protocol.
     pub fn open_control_bi(&self) -> OpenBi<'_> {
         self.connection.open_bi()
