@@ -1,3 +1,0 @@
-Chain INPUT (policy ACCEPT 90 packets, 47947 bytes)
-    pkts      bytes target     prot opt in     out     source               destination         
-      51     5304 DROP       17   --  lo     *       0.0.0.0/0            0.0.0.0/0            STRING match  "|004d494f50554e43483633|" ALGO name bm

@@ -1,10 +1,11 @@
 {
   "result": "PASS",
-  "compressed_streams": 312,
+  "compressed_streams": 324,
   "strict_38_before_after_byte_identical": true,
   "fault_16_before_after_identical_except_temporary_path": true,
   "cpu_3_original_log_hashes_after_compression_valid": true,
   "strict_sha256": "4cdd2bd397756c0ed5418d235c34bc1f1fdcbd9803f427f9b118953cb8141cbb",
   "faults_sha256": "6ff89099ca946c039ac3dd0e551c30f64e957900f2f54b6d85fc7ede78fef76d",
-  "runtime_reexecuted": false
+  "runtime_reexecuted": false,
+  "all_raw_verification_logs_preserved_without_whitespace_edits": true
 }
