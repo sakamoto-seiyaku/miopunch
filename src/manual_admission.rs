@@ -133,21 +133,24 @@ fn tls_key(id: EndpointId) -> Result<VerifyingKey, ManualAdmissionError> {
 }
 
 impl NativeNetwork {
-    async fn recover_admission_state(&mut self) -> Result<(), ManualAdmissionError> {
+    pub(crate) async fn recover_admission_state(&mut self) -> Result<(), ManualAdmissionError> {
         self.store.apply_ready().await?;
         self.refresh_authorization();
         Ok(())
     }
 
-    fn is_admin(&self, key: VerifyingKey) -> bool {
+    pub(crate) fn is_admin(&self, key: VerifyingKey) -> bool {
         self.store.nodes().contains(&(key, Access::manage()))
     }
 
-    fn is_member(&self, key: VerifyingKey) -> bool {
+    pub(crate) fn is_member(&self, key: VerifyingKey) -> bool {
         self.store.nodes().iter().any(|(node, _)| *node == key)
     }
 
-    fn restricted_connection(&self, connection: &Connection) -> Result<(), ManualAdmissionError> {
+    pub(crate) fn restricted_connection(
+        &self,
+        connection: &Connection,
+    ) -> Result<(), ManualAdmissionError> {
         if connection.alpn() != ADMISSION_REQUEST_ALPN
             || !self
                 .gate
@@ -223,6 +226,25 @@ impl NativeNetwork {
             self.valid_approval(&approved)?;
             return Ok(approved);
         }
+        let record = self.admission_record(request).await?;
+        self.store.save_admission_approval(request, &record).await?;
+        self.store.apply_ready().await?;
+        self.refresh_authorization();
+        let approved = self
+            .store
+            .approved_admission(request)
+            .await?
+            .ok_or(ManualAdmissionError::Rejected)?;
+        self.valid_approval(&approved)?;
+        Ok(approved)
+    }
+
+    /// Shared authoring seam for manual approval and precode consumption.
+    /// The caller commits this signed result with its own durable request.
+    pub(crate) async fn admission_record(
+        &self,
+        request: &AdmissionRequest,
+    ) -> Result<ManagementRecord, ManualAdmissionError> {
         let record = if self.is_member(request.applicant) {
             // A new delivery request for a valid member reuses signed material,
             // rather than issuing a duplicate membership Add.
@@ -269,19 +291,16 @@ impl NativeNetwork {
                 None,
             )
         };
-        self.store.save_admission_approval(request, &record).await?;
-        self.store.apply_ready().await?;
-        self.refresh_authorization();
-        let approved = self
-            .store
-            .approved_admission(request)
-            .await?
-            .ok_or(ManualAdmissionError::Rejected)?;
-        self.valid_approval(&approved)?;
-        Ok(approved)
+        if !self.is_member(request.applicant) {
+            self.store.validate_local_record(&record)?;
+        }
+        Ok(record)
     }
 
-    fn valid_approval(&self, approved: &ApprovedAdmission) -> Result<(), ManualAdmissionError> {
+    pub(crate) fn valid_approval(
+        &self,
+        approved: &ApprovedAdmission,
+    ) -> Result<(), ManualAdmissionError> {
         if !self.is_admin(self.node_key.verifying_key())
             || !self
                 .store
@@ -299,7 +318,7 @@ impl NativeNetwork {
         &mut self,
         connection: &Connection,
     ) -> Result<AdmissionStage, ManualAdmissionError> {
-        let result = tokio::time::timeout(TIMEOUT, self.serve_manual_inner(connection))
+        let result = tokio::time::timeout(TIMEOUT, self.serve_admission_inner(connection, false))
             .await
             .unwrap_or(Err(ManualAdmissionError::PathUnavailable));
         if result.is_err() {
@@ -308,9 +327,10 @@ impl NativeNetwork {
         result
     }
 
-    async fn serve_manual_inner(
+    pub(crate) async fn serve_admission_inner(
         &mut self,
         connection: &Connection,
+        precode: bool,
     ) -> Result<AdmissionStage, ManualAdmissionError> {
         self.restricted_connection(connection)?;
         self.recover_admission_state().await?;
@@ -338,14 +358,23 @@ impl NativeNetwork {
             applicant: claimed,
             request_id: binding.request_id,
         };
-        self.store.record_admission_request(&request).await?;
-        let Some(approved) = self.store.approved_admission(&request).await? else {
-            send.write_all(&[0])
+        let approved = if precode {
+            let mut token = [0; 32];
+            recv.read_exact(&mut token)
                 .await
                 .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-            send.finish()
-                .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-            return Ok(AdmissionStage::AwaitingApproval);
+            self.redeem_precode(token, &request).await?
+        } else {
+            self.store.record_admission_request(&request).await?;
+            let Some(approved) = self.store.approved_admission(&request).await? else {
+                send.write_all(&[0])
+                    .await
+                    .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+                send.finish()
+                    .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+                return Ok(AdmissionStage::AwaitingApproval);
+            };
+            approved
         };
         self.store.apply_ready().await?;
         self.refresh_authorization();
@@ -419,7 +448,7 @@ impl NativeNetwork {
         &mut self,
         connection: &Connection,
     ) -> Result<ManualExchange, ManualAdmissionError> {
-        let result = tokio::time::timeout(TIMEOUT, self.request_manual_inner(connection))
+        let result = tokio::time::timeout(TIMEOUT, self.request_admission_inner(connection, None))
             .await
             .unwrap_or(Err(ManualAdmissionError::PathUnavailable));
         if result.is_err() {
@@ -428,9 +457,10 @@ impl NativeNetwork {
         result
     }
 
-    async fn request_manual_inner(
+    pub(crate) async fn request_admission_inner(
         &mut self,
         connection: &Connection,
+        token: Option<[u8; 32]>,
     ) -> Result<ManualExchange, ManualAdmissionError> {
         self.recover_admission_state().await?;
         self.restricted_connection(connection)?;
@@ -444,8 +474,24 @@ impl NativeNetwork {
             .open_bi()
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        let mut wire = binding.encode().to_vec();
+        // A fresh code is a distinct redemption even when this joining node
+        // retains its stable persisted admission attempt. Manual requests keep
+        // their original namespace. The opaque delivery handle retains the
+        // original local binding for the second-material verification.
+        let mut wire_binding = binding;
+        if let Some(token) = token {
+            let mut hash = blake3::Hasher::new_derive_key("miopunch precode redemption id v1");
+            hash.update(&binding.request_id);
+            hash.update(&token);
+            wire_binding
+                .request_id
+                .copy_from_slice(&hash.finalize().as_bytes()[..16]);
+        }
+        let mut wire = wire_binding.encode().to_vec();
         wire.extend_from_slice(self.node_key.verifying_key().as_bytes());
+        if let Some(token) = token {
+            wire.extend_from_slice(&token);
+        }
         send.write_all(&wire)
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;

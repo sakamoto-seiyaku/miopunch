@@ -1,0 +1,7 @@
+Standards axis clear: **0 required findings; 1 optional maintenance observation**.
+
+No documented-standard breach found against AGENTS.md, `docs/agents/domain.md`, CONTEXT.md, or ADRs 0002/0003/0004/0007/0008. The implementation retains designated-node ownership, causal authorization correction, independent identities, separate admission secrets, and the explicitly documented backup boundary.
+
+Optional — **possible Duplicated Code** (judgment call): [precode.rs:208](/home/js/Git/miopunch/src/precode.rs:208) and [precode.rs:228](/home/js/Git/miopunch/src/precode.rs:228) repeat `Duration::from_secs(12)` and the timeout/error/connection-close shape used by [manual_admission.rs:321](/home/js/Git/miopunch/src/manual_admission.rs:321) and [manual_admission.rs:451](/home/js/Git/miopunch/src/manual_admission.rs:451). Manual admission already defines this duration at line 20. Sharing the timeout constant would prevent the two admission paths drifting during later maintenance. This is nonblocking and does not justify changing the frozen implementation or rerunning its successful checks.
+
+Reviewed the actual 42-path staged whitelist against baseline `b8f40efc…`; no ticket commits yet. Confirmed all twelve recorded source hashes match, all 29 retained logs round-trip losslessly, and the final raw evidence supports 288 passed / 0 failed / 4 ignored, real MQTT capture, and both process-exit commit boundaries. No tests rerun, files edited, resources changed, or tracker writes performed.

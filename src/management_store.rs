@@ -54,6 +54,10 @@ pub enum StoreError {
     WrongAnchor,
     #[error("admission generation is older, reused with a different secret, or invalid")]
     InvalidAdmission,
+    #[error(
+        "precode is stopped, expired, exhausted, revoked, or has inconsistent consumption evidence"
+    )]
+    PrecodeStopped,
     #[error("durable management state is inconsistent: {0}")]
     Corrupt(&'static str),
     #[error("simulated process interruption")]
@@ -63,7 +67,7 @@ pub enum StoreError {
 /// One network's complete signed history and locally committed authority view.
 /// The caller must supply an anchor obtained from a trusted source.
 pub struct ManagementStore {
-    pool: SqlitePool,
+    pub(crate) pool: SqlitePool,
     anchor: NetworkAnchor,
     auth: ManagementAuth,
     applied_count: i64,
@@ -76,6 +80,8 @@ pub struct ManagementStore {
 #[cfg(feature = "replica-test-hooks")]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RecordCheckpoint {
+    BeforePrecodeCommit,
+    AfterPrecodeCommit,
     BeforeStorageCommit,
     AfterStorageCommit,
     AfterOrdererSelect,
@@ -112,6 +118,24 @@ impl ManagementStore {
                 phase INTEGER NOT NULL DEFAULT 0 CHECK (phase BETWEEN 0 AND 3),
                 PRIMARY KEY (applicant, request_id)
             )",
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS precodes (
+            token BLOB PRIMARY KEY, origin BLOB NOT NULL, expires INTEGER NOT NULL,
+            max_uses INTEGER, used INTEGER NOT NULL DEFAULT 0,
+            stopped INTEGER NOT NULL DEFAULT 0,
+            revoked INTEGER NOT NULL DEFAULT 0
+        )",
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS precode_redemptions (
+            token BLOB NOT NULL, applicant BLOB NOT NULL, request_id BLOB NOT NULL,
+            PRIMARY KEY(token, applicant, request_id)
+        )",
         )
         .execute(&pool)
         .await?;
@@ -214,7 +238,7 @@ impl ManagementStore {
     }
 
     #[cfg(feature = "replica-test-hooks")]
-    fn observe(&self, checkpoint: RecordCheckpoint) {
+    pub(crate) fn observe(&self, checkpoint: RecordCheckpoint) {
         if let Some(observer) = self.checkpoint_observer {
             observer(checkpoint);
         }
@@ -564,6 +588,18 @@ impl ManagementStore {
             .membership_authorization_valid(authorization, target)
     }
 
+    pub(crate) fn administrator_authorization_origin(&self, target: VerifyingKey) -> Option<Hash> {
+        self.auth.administrator_authorization_origin(target)
+    }
+
+    pub(crate) fn administrator_authorization_valid(
+        &self,
+        origin: Hash,
+        target: VerifyingKey,
+    ) -> bool {
+        self.auth.administrator_authorization_valid(origin, target)
+    }
+
     pub fn removed_nodes(&self) -> Vec<VerifyingKey> {
         self.auth.removed_nodes()
     }
@@ -630,6 +666,17 @@ impl ManagementStore {
                 })
             })
             .collect()
+    }
+
+    pub(crate) async fn checkpoint_backup(&self) -> Result<(), StoreError> {
+        let checkpoint = sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
+            .fetch_one(&self.pool)
+            .await?;
+        let busy: i64 = checkpoint.try_get(0)?;
+        if busy != 0 {
+            return Err(StoreError::Corrupt("backup checkpoint is busy"));
+        }
+        Ok(())
     }
 
     pub async fn close(self) {

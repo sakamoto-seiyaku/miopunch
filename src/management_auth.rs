@@ -263,6 +263,58 @@ impl ManagementAuth {
         })
     }
 
+    /// Bind precode issuance to a verified administrator authorization episode.
+    /// A later or concurrent effective loss of Manage invalidates this origin,
+    /// even if another root-signed grant subsequently restores Manage. Losses
+    /// already in a new grant's ancestry belong to an earlier episode.
+    pub fn administrator_authorization_valid(&self, id: Hash, target: VerifyingKey) -> bool {
+        if !self.nodes().contains(&(target, Access::manage())) || self.filtered_operation(id) {
+            return false;
+        }
+        let Some(grant) = self.state.inner.operations.get(&id) else {
+            return false;
+        };
+        let grants_manage = match &grant.action {
+            GroupAction::Add { member, access } | GroupAction::Promote { member, access } => {
+                *member == GroupMember::Individual(target) && *access == Access::manage()
+            }
+            GroupAction::Create { initial_members } => {
+                initial_members.iter().any(|(member, access)| {
+                    *member == GroupMember::Individual(target) && *access == Access::manage()
+                })
+            }
+            _ => false,
+        };
+        grants_manage
+            && !self.state.inner.operations.values().any(|operation| {
+                !self.filtered_operation(operation.id)
+                    && match &operation.action {
+                        GroupAction::Remove { member } => {
+                            *member == GroupMember::Individual(target)
+                        }
+                        GroupAction::Demote { member, access } => {
+                            *member == GroupMember::Individual(target)
+                                && *access != Access::manage()
+                        }
+                        _ => false,
+                    }
+                    && !has_ancestor(operation.id, &grant.dependencies, &self.state)
+            })
+    }
+
+    pub fn administrator_authorization_origin(&self, target: VerifyingKey) -> Option<Hash> {
+        let mut origins: Vec<_> = self
+            .state
+            .inner
+            .operations
+            .keys()
+            .copied()
+            .filter(|id| self.administrator_authorization_valid(*id, target))
+            .collect();
+        origins.sort_by_key(|id| *id.as_bytes());
+        origins.into_iter().next()
+    }
+
     /// Current causal heads, including filtered operations retained in the graph.
     pub fn tips(&self) -> Vec<Hash> {
         let mut tips: HashSet<Hash> = self.state.inner.operations.keys().copied().collect();

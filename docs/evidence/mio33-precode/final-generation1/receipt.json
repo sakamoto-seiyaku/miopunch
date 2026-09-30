@@ -1,0 +1,121 @@
+{
+  "baseline": "b8f40efc9e7e4d2125cfc504e8724c06b53d7a9d",
+  "started_utc": "2026-09-30T22:29:03.548788+00:00",
+  "source_sha256": {
+    "Cargo.toml": "68e7d344c3def61f23346622b371fd5777aaf6cc21e651ecd2c7d610b8f01978",
+    "Cargo.lock": "da76af7eb98d7972eeb7bc6973166b88abfd110f99159ba39873f3bf31054590",
+    "src/lib.rs": "3c6dbc1389b22e115bad8c880a861b6ff0f89d37735456d214b9c39f08d34ee5",
+    "src/management_auth.rs": "c2d6750d325a83d071f0061a125b102e6fd0f6a54caa2e1887f1eff26b37e34f",
+    "src/management_store.rs": "16bb75dc31e671dda2cdf00779cd14c1ff934abd35f51ae95b16bb5539468bb7",
+    "src/native_network.rs": "57a73048632c7fdbc9845e6442c93b6edf1a58197e333f75fda1432a8be09ca7",
+    "src/genesis_recovery.rs": "a845ee1a9397fb8c94316390b36416a55de6037fbc044d90008597d744c8f25c",
+    "src/daily_management.rs": "8d698590ed1bd3786fe1297d92ade4fac39d7ef75373cafa0d378ee785c77cad",
+    "src/manual_admission.rs": "df99024175ed636a0a7001abcbc2ae7a526a6f3ccf43b23b53d0ff20d0b539e3",
+    "src/precode.rs": "0add6ad5256b5f75d57fae9babd05fd1d6f1f244ada35bc6cc6997c5b61da655",
+    "tests/precode.rs": "e1b6382e60584c274687a2089986c635164d1e0fb74e2d9424d562499c11e283",
+    "scripts/check_precode.py": "23dc01ab5475f4ce72b482236726dbef75f8960de65cc04c21c9d9c1294cbc9d"
+  },
+  "commands": [
+    {
+      "name": "full-real-broker-suite",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--workspace",
+        "--features",
+        "replica-test-hooks",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "started_utc": "2026-09-30T22:29:03.927862+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-30T22:37:29.625885+00:00",
+      "wall_seconds": 505.6980344110634
+    },
+    {
+      "name": "browser-wasm",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "started_utc": "2026-09-30T22:37:29.627522+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-30T22:37:30.301101+00:00",
+      "wall_seconds": 0.6735359650338069
+    },
+    {
+      "name": "workspace-typecheck",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--tests"
+      ],
+      "started_utc": "2026-09-30T22:37:30.301905+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-30T22:37:35.126507+00:00",
+      "wall_seconds": 4.824554844992235
+    },
+    {
+      "name": "fault-build-typecheck",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--tests",
+        "--features",
+        "replica-test-hooks"
+      ],
+      "started_utc": "2026-09-30T22:37:35.127284+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-30T22:37:39.546271+00:00",
+      "wall_seconds": 4.418975489912555
+    },
+    {
+      "name": "format",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "started_utc": "2026-09-30T22:37:39.547059+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-30T22:37:39.940238+00:00",
+      "wall_seconds": 0.39317007397767156
+    }
+  ],
+  "owned_container_id": "b4376eab354ca3a3f7c12713f567b0fa596cb172e68c7825fc9bd0c4d560e2ce",
+  "mqtt_broker": "127.0.0.1:43267",
+  "broker_tcp_preflight": true,
+  "source_unchanged_through_checks": true,
+  "suite_totals": {
+    "passed": 288,
+    "failed": 0,
+    "ignored": 4
+  },
+  "broker_tests_not_skipped": true,
+  "actual_mqtt_capture": "MIO30_MQTT_CIPHERTEXT publishes=97 max_bytes=1472 long_lived_secret_in_invitation=false independent_holder_received_approved_result=false",
+  "owned_container_cleanup_exit": 0,
+  "owned_container_removed": true,
+  "finished_utc": "2026-09-30T22:37:40.296451+00:00",
+  "success": true
+}

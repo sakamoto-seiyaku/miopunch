@@ -1,0 +1,33 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--features",
+    "replica-test-hooks",
+    "--test",
+    "precode",
+    "--test",
+    "manual_admission",
+    "--test",
+    "daily_management",
+    "--test",
+    "management_auth",
+    "--test",
+    "management_store",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "exit_code": 0,
+  "totals": {
+    "passed": 47,
+    "failed": 0,
+    "ignored": 0
+  },
+  "mqtt_broker_supplied": false,
+  "mqtt_fixture_skipped_in_short": true,
+  "scope": "affected short checks; real MQTT is required in the final full suite"
+}

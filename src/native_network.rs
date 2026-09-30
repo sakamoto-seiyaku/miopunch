@@ -247,6 +247,34 @@ impl NativeNetwork {
     /// Replay a created network or an applicant's durable progress. Creators
     /// pin the Create with their private recovery credential; applicants use
     /// their trusted invitation and do not become successful members early.
+    /// Capture a coherent, trusted local backup after stopping this node.
+    /// Callers must close their bound endpoints and avoid concurrently opening
+    /// the same data directory. This consumes the node and closes SQLite before
+    /// copying its checkpointed main database and private durable materials.
+    pub async fn create_backup(self, target: impl AsRef<Path>) -> Result<(), NodeError> {
+        let source = self.directory.clone();
+        self.store.checkpoint_backup().await?;
+        self.close().await;
+        copy_node_backup(&source, target.as_ref(), false).await
+    }
+
+    /// Restore into a new directory, never over a running node. The trusted
+    /// backup may predate consumption, so every restored code is stopped before
+    /// atomic publication. This explicit recovery event supplies the boundary;
+    /// no flag inside a rolled-back database proves counter continuity. Fresh
+    /// codes can be issued normally. Undisclosed whole-disk rollback detection
+    /// is intentionally not claimed.
+    pub async fn restore_backup(
+        backup: impl AsRef<Path>,
+        target: impl AsRef<Path>,
+    ) -> Result<Self, NodeError> {
+        if fs::read(backup.as_ref().join("backup.version"))? != b"miopunch node backup 1\n" {
+            return Err(NodeError::InvalidData);
+        }
+        copy_node_backup(backup.as_ref(), target.as_ref(), true).await?;
+        Self::open(target).await
+    }
+
     pub async fn open(path: impl AsRef<Path>) -> Result<Self, NodeError> {
         let path = path.as_ref();
         let node_key = SigningKey::from_bytes(&read_array::<32>(&path.join(NODE_KEY))?);
@@ -470,6 +498,58 @@ impl NativeNetwork {
     pub async fn close(self) {
         self.store.close().await;
     }
+}
+
+async fn copy_node_backup(source: &Path, target: &Path, restoring: bool) -> Result<(), NodeError> {
+    ensure_absent(target)?;
+    let parent = target
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    fs::create_dir_all(parent)?;
+    let staging = parent.join(format!(".miopunch-backup-{:032x}", rand::random::<u128>()));
+    let mut builder = fs::DirBuilder::new();
+    #[cfg(unix)]
+    builder.mode(0o700);
+    builder.create(&staging)?;
+    let prepare = async {
+        for name in [
+            NODE_KEY,
+            GENESIS_CREDENTIAL,
+            ANCHOR,
+            ADMISSION_SECRET,
+            MANAGEMENT_DB,
+            JOIN_BINDING,
+            ADMISSION_MATERIAL,
+        ] {
+            let path = source.join(name);
+            if path.exists() {
+                write_private(&staging.join(name), &fs::read(path)?)?;
+            }
+        }
+        // Replay verifies the copied signed history/anchor/material before
+        // publishing anything; restoration's stop is committed in this copy.
+        let node = NativeNetwork::open(&staging).await?;
+        if restoring {
+            sqlx::query("UPDATE precodes SET stopped=1")
+                .execute(&node.store.pool)
+                .await
+                .map_err(StoreError::from)?;
+        } else {
+            write_private(&staging.join("backup.version"), b"miopunch node backup 1\n")?;
+        }
+        node.close().await;
+        File::open(&staging)?.sync_all()?;
+        ensure_absent(target)?;
+        publish_new_directory(&staging, target, parent)?;
+        File::open(parent)?.sync_all()?;
+        Ok::<_, NodeError>(())
+    }
+    .await;
+    if prepare.is_err() {
+        let _ = fs::remove_dir_all(&staging);
+    }
+    prepare
 }
 
 fn write_private(path: &Path, bytes: &[u8]) -> Result<(), NodeError> {
