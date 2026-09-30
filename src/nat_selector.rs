@@ -172,15 +172,19 @@ const MODE4: [(Behavior, Behavior); 3] = [
     ),
 ];
 
-pub fn behaviors(id: BehaviorId, c: NatFeature, v: NatFeature) -> Option<(Behavior, Behavior)> {
-    let table = match id.mode {
-        0 => &MODE0[..],
-        1 => &MODE1[..],
-        2 => &MODE2[..],
-        3 => &MODE3[..],
-        4 => &MODE4[..],
-        _ => return None,
-    };
+fn behavior_table(mode: u8) -> Option<&'static [(Behavior, Behavior)]> {
+    match mode {
+        0 => Some(&MODE0),
+        1 => Some(&MODE1),
+        2 => Some(&MODE2),
+        3 => Some(&MODE3),
+        4 => Some(&MODE4),
+        _ => None,
+    }
+}
+
+pub fn behaviors(id: BehaviorId, c: NatFeature, _v: NatFeature) -> Option<(Behavior, Behavior)> {
+    let table = behavior_table(id.mode)?;
     let (c_behavior, v_behavior) = *table.get(usize::from(id.index))?;
     let swap = match id.mode {
         1 => c.nat_type == NatType::Easy,
@@ -190,7 +194,6 @@ pub fn behaviors(id: BehaviorId, c: NatFeature, v: NatFeature) -> Option<(Behavi
     };
     // v is deliberately not consulted: the old role adjustment tests c only,
     // including fallback modes in a cached scene.
-    let _ = v;
     Some(if swap {
         (v_behavior, c_behavior)
     } else {
@@ -229,13 +232,7 @@ impl Records {
         };
         let mut scores = Vec::new();
         for &mode in modes {
-            let table = match mode {
-                0 => &MODE0[..],
-                1 => &MODE1[..],
-                2 => &MODE2[..],
-                3 => &MODE3[..],
-                _ => &MODE4[..],
-            };
+            let table = behavior_table(mode).expect("scene contains only legacy modes");
             for (index, (c_behavior, _)) in table.iter().enumerate() {
                 let score = if hard == 2 && regular == 0 {
                     1

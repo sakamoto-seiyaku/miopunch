@@ -72,11 +72,11 @@ async fn prepare_legacy(
             }
             Err(error) => {
                 println!("LEGACY_OBSERVATION_FALLBACK reason={error}");
-                MappingSnapshot::fallback(own_candidate.observation.clone())?
+                MappingSnapshot::fallback(endpoint, own_candidate.observation.clone())?
             }
         }
     } else {
-        MappingSnapshot::fallback(own_candidate.observation.clone())?
+        MappingSnapshot::fallback(endpoint, own_candidate.observation.clone())?
     };
     println!(
         "LEGACY_FEATURE feature={:?} socket_generation_current={}",
@@ -126,7 +126,11 @@ async fn legacy_probe(
     if status != ExecutionStatus::PartialExecution {
         return Err(format!("legacy {status:?}; full executor belongs to 63/61").into());
     }
-    println!("PROBES_SENT count=1 distinct_targets=1 partial_execution=1");
+    println!(
+        "PROBES_SENT count={} distinct_targets={} partial_execution=1",
+        usize::from(attempt.remote_target().is_some()),
+        usize::from(attempt.remote_target().is_some())
+    );
     Ok(())
 }
 
@@ -954,9 +958,7 @@ async fn run_server(
             Ok(attempt) => {
                 trace_legacy(&attempt, stable);
                 active_round = Some(Round::parse(&attempt.round().encoded())?);
-                let target = attempt
-                    .remote_target()
-                    .ok_or("legacy peer has no candidate")?;
+                let target = attempt.remote_target();
                 legacy_attempt = Some(attempt);
                 target
             }
@@ -981,7 +983,7 @@ async fn run_server(
                     "AUTO_SELECTED role={role:?} target={remote} round={} stable_id={stable}",
                     round.encoded()
                 );
-                remote
+                Some(remote)
             }
             Err(error) => {
                 println!("COORD_UNAVAILABLE reason={error} mqtt={}", traffic.report());
@@ -997,7 +999,7 @@ async fn run_server(
                     "COORD_START peer={peer} round={} stable_id={stable}",
                     round.encoded()
                 );
-                remote
+                Some(remote)
             }
             Err(error) => {
                 println!("COORD_UNAVAILABLE reason={error} mqtt={}", traffic.report());
@@ -1046,9 +1048,13 @@ async fn run_server(
             "CONTROL_FRAME_RECEIVED kind=CANDIDATE bytes={}",
             remote.to_string().len()
         );
-        remote
+        Some(remote)
     };
-    println!("EXCHANGED peer={peer} peer_candidate={remote} stable_id={stable}");
+    if let Some(remote) = remote {
+        println!("EXCHANGED peer={peer} peer_candidate={remote} stable_id={stable}");
+    } else {
+        println!("EXCHANGED peer={peer} peer_candidate=none receive_only=1 stable_id={stable}");
+    }
     let path_started = Instant::now();
     if advanced {
         // The auto branch's next control stream is the authenticated
@@ -1076,18 +1082,33 @@ async fn run_server(
                 &control,
                 &gate,
                 mapping.as_ref().unwrap(),
-                remote,
+                remote.expect("auto target"),
                 auto_role.unwrap(),
                 active_round.unwrap(),
             )
             .await
         } else {
-            probe_window(&control, &gate, &own_candidate, remote).await
+            probe_window(
+                &control,
+                &gate,
+                &own_candidate,
+                remote.expect("coordinated target"),
+            )
+            .await
         };
         if let Err(error) = result {
             println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
             endpoint.close().await;
             return Ok(());
+        }
+    }
+    if legacy_attempt.as_ref().is_some_and(|a| {
+        a.local_behavior().role == miopunch_native_probe::nat_selector::Role::Sender
+    }) {
+        if let Some(remote) = remote {
+            let opened =
+                tokio::time::timeout(AUTO_PATH_WAIT, control.open_data_path_report(remote)).await;
+            println!("LEGACY_SENDER_PATH result={opened:?} stable_id={stable}");
         }
     }
     if let Err(error) = wait_ip(
@@ -1266,9 +1287,7 @@ async fn run_client(
             Ok(attempt) => {
                 trace_legacy(&attempt, stable);
                 active_round = Some(Round::parse(&attempt.round().encoded())?);
-                let target = attempt
-                    .remote_target()
-                    .ok_or("legacy peer has no candidate")?;
+                let target = attempt.remote_target();
                 legacy_attempt = Some(attempt);
                 target
             }
@@ -1293,7 +1312,7 @@ async fn run_client(
                     "AUTO_SELECTED role={role:?} target={remote} round={} stable_id={stable}",
                     round.encoded()
                 );
-                remote
+                Some(remote)
             }
             Err(error) => {
                 println!("COORD_UNAVAILABLE reason={error} mqtt={}", traffic.report());
@@ -1309,7 +1328,7 @@ async fn run_client(
                     "COORD_START peer={peer} round={} stable_id={stable}",
                     round.encoded()
                 );
-                remote
+                Some(remote)
             }
             Err(error) => {
                 println!("COORD_UNAVAILABLE reason={error} mqtt={}", traffic.report());
@@ -1336,7 +1355,7 @@ async fn run_client(
         })
         .await
         {
-            Ok(Ok(addr)) => addr,
+            Ok(Ok(addr)) => Some(addr),
             other => {
                 let error = format!("{other:?}");
                 println!(
@@ -1348,13 +1367,19 @@ async fn run_client(
             }
         }
     };
-    let remote = override_candidate.unwrap_or(reported);
-    println!(
-        "EXCHANGED peer={peer} peer_candidate={reported} attempted={remote} stable_id={stable}"
-    );
+    let remote = override_candidate.or(reported);
+    if let (Some(reported), Some(remote)) = (reported, remote) {
+        println!(
+            "EXCHANGED peer={peer} peer_candidate={reported} attempted={remote} stable_id={stable}"
+        );
+    } else {
+        println!("EXCHANGED peer={peer} peer_candidate=none receive_only=1 stable_id={stable}");
+    }
     let path_started = Instant::now();
     if !advanced {
-        control.prime_udp_path(remote).await?;
+        control
+            .prime_udp_path(remote.expect("baseline target"))
+            .await?;
         println!("PROBES_SENT count=1 distinct_targets=1");
     }
     if std::env::var("MIOPUNCH_NAT_FAULT").as_deref() == Ok("path_id_retry") {
@@ -1371,13 +1396,23 @@ async fn run_client(
             endpoint.close().await;
             return Ok(());
         }
-        tokio::time::timeout(AUTO_PATH_WAIT, control.open_data_path_report(remote)).await
+        if let Some(remote) = remote {
+            tokio::time::timeout(AUTO_PATH_WAIT, control.open_data_path_report(remote)).await
+        } else {
+            tokio::time::timeout(AUTO_PATH_WAIT, async {
+                wait_ip(&control, AUTO_PATH_WAIT)
+                    .await
+                    .map_err(|e| io::Error::other(e.to_string()))?;
+                Ok(miopunch_native_probe::control_session::DataPathOpen { path_id_retries: 0 })
+            })
+            .await
+        }
     } else if automatic {
         let probes = auto_probe_window(
             &control,
             &gate,
             mapping.as_ref().unwrap(),
-            remote,
+            remote.expect("auto target"),
             auto_role.unwrap(),
             active_round.unwrap(),
         )
@@ -1387,11 +1422,23 @@ async fn run_client(
             endpoint.close().await;
             return Ok(());
         }
-        tokio::time::timeout(AUTO_PATH_WAIT, control.open_data_path_report(remote)).await
+        tokio::time::timeout(
+            AUTO_PATH_WAIT,
+            control.open_data_path_report(remote.expect("outbound target")),
+        )
+        .await
     } else if coordinated {
         let (probes, opened) = tokio::join!(
-            probe_window(&control, &gate, &own_candidate, remote),
-            tokio::time::timeout(WAIT, control.open_data_path_report(remote))
+            probe_window(
+                &control,
+                &gate,
+                &own_candidate,
+                remote.expect("coordinated target")
+            ),
+            tokio::time::timeout(
+                WAIT,
+                control.open_data_path_report(remote.expect("outbound target"))
+            )
         );
         if let Err(error) = probes {
             println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
@@ -1400,7 +1447,11 @@ async fn run_client(
         }
         opened
     } else {
-        tokio::time::timeout(WAIT, control.open_data_path_report(remote)).await
+        tokio::time::timeout(
+            WAIT,
+            control.open_data_path_report(remote.expect("outbound target")),
+        )
+        .await
     };
     match result {
         Ok(Ok(report)) => {

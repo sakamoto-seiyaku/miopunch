@@ -934,6 +934,14 @@ pub enum BindError {
 
 impl EndpointInner {
     #[cfg(not(wasm_browser))]
+    pub(crate) fn udp_observation_generation(&self) -> ObservationValidity {
+        ObservationValidity {
+            generation: self.sock.observation_generation.clone(),
+            observed_generation: *self.sock.observation_generation.lock().expect("poisoned"),
+        }
+    }
+
+    #[cfg(not(wasm_browser))]
     pub(crate) async fn observe_udp_mapping_sequence(
         &self,
         observers: &RelayMap,
@@ -2458,7 +2466,8 @@ impl PartialEq for ObservationValidity {
 impl Eq for ObservationValidity {}
 
 impl ObservationValidity {
-    fn is_current(&self) -> bool {
+    /// Whether the exact endpoint socket/network generation is still current.
+    pub fn is_current(&self) -> bool {
         *self.generation.lock().expect("poisoned") == self.observed_generation
     }
 }

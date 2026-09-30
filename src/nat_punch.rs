@@ -12,7 +12,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use iroh::endpoint::{UdpMappingSequence, UdpObservation};
+use iroh::endpoint::{
+    ObservationValidity, UdpMappingSequence, UdpObservation, UdpObservationFailure,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -59,17 +61,20 @@ impl SnapshotWire {
         FeatureView::new(self.mapped.clone(), &self.local_ips)
     }
     fn target(&self) -> Option<SocketAddr> {
-        self.mapped
-            .last()
+        self.assisted
+            .first()
             .copied()
-            .or_else(|| self.assisted.first().copied())
+            .or_else(|| self.mapped.last().copied())
     }
 }
 
 #[derive(Debug, Clone)]
 enum Validity {
     Sequence(UdpMappingSequence),
-    Fallback(UdpObservation),
+    Fallback {
+        observation: UdpObservation,
+        generation: ObservationValidity,
+    },
 }
 
 /// Local validity is never replaced by a remote claim or a copied timestamp.
@@ -113,7 +118,13 @@ impl MappingSnapshot {
 
     /// Missing classification evidence still permits the legacy basic attempt
     /// at an observed candidate. No candidate means an explicitly disabled plan.
-    pub fn fallback(observation: UdpObservation) -> io::Result<Self> {
+    pub fn fallback(endpoint: &iroh::Endpoint, observation: UdpObservation) -> io::Result<Self> {
+        if matches!(
+            observation,
+            UdpObservation::Failed(UdpObservationFailure::NetworkChanged)
+        ) {
+            return Err(invalid("cannot use a network-invalidated fallback"));
+        }
         let mapped = match &observation {
             UdpObservation::Fresh { addresses, .. } if observation.is_fresh() => addresses
                 .iter()
@@ -131,7 +142,10 @@ impl MappingSnapshot {
         wire.validate()?;
         Ok(Self {
             wire,
-            validity: Validity::Fallback(observation),
+            validity: Validity::Fallback {
+                observation,
+                generation: endpoint.udp_observation_generation(),
+            },
             observed_at: Instant::now(),
         })
     }
@@ -152,9 +166,10 @@ impl MappingSnapshot {
         }
         match &self.validity {
             Validity::Sequence(sequence) => sequence.is_current_generation(),
-            Validity::Fallback(observation) => {
-                self.wire.mapped.is_empty() || observation.is_fresh()
-            }
+            Validity::Fallback {
+                observation,
+                generation,
+            } => generation.is_current() && (self.wire.mapped.is_empty() || observation.is_fresh()),
         }
     }
 }
@@ -200,8 +215,13 @@ fn make_plan(
             Some(rec),
         )
     } else {
+        let c_is_receiver = v.target().is_none() && c.target().is_some();
         let c_behavior = Behavior {
-            role: crate::nat_selector::Role::Receiver,
+            role: if c_is_receiver {
+                crate::nat_selector::Role::Receiver
+            } else {
+                crate::nat_selector::Role::Sender
+            },
             ttl: 0,
             send_delay_ms: 0,
             ports_range: 0,
@@ -209,12 +229,19 @@ fn make_plan(
             listen_random: 0,
         };
         let v_behavior = Behavior {
-            role: crate::nat_selector::Role::Sender,
+            role: if c_is_receiver {
+                crate::nat_selector::Role::Sender
+            } else {
+                crate::nat_selector::Role::Receiver
+            },
             ..c_behavior
         };
         (
             Plan {
-                id: BehaviorId { mode: 0, index: 7 },
+                id: BehaviorId {
+                    mode: 0,
+                    index: if c_is_receiver { 7 } else { 6 },
+                },
                 c: c_behavior,
                 v: v_behavior,
                 scores_before: Vec::new(),
@@ -251,6 +278,9 @@ enum Frame {
         round: Round,
     },
     Ack {
+        round: Round,
+    },
+    Established {
         round: Round,
     },
 }
@@ -303,6 +333,15 @@ async fn receive(recv: &mut iroh::endpoint::RecvStream) -> io::Result<Frame> {
     serde_json::from_slice(&bytes).map_err(io::Error::other)
 }
 
+async fn open(
+    control: &ControlSession,
+) -> io::Result<(iroh::endpoint::SendStream, iroh::endpoint::RecvStream)> {
+    tokio::time::timeout(EXCHANGE_WAIT, control.open_control_bi())
+        .await
+        .map_err(io::Error::other)?
+        .map_err(io::Error::other)
+}
+
 /// The exact original connection, round and scope remain attached to the
 /// attempt. Taking a successful result consumes feedback once.
 #[derive(Debug)]
@@ -311,6 +350,7 @@ pub struct Attempt {
     plan: Plan,
     local: Behavior,
     remote_target: Option<SocketAddr>,
+    remote_snapshot: SnapshotWire,
     scope: LearningScope,
     connection_id: usize,
     snapshot: MappingSnapshot,
@@ -389,11 +429,23 @@ pub async fn coordinate_server(
     }
     check_scope(control, gate, &scope, snapshot)?;
     send(&mut reply, Frame::Ack { round }).await?;
+    // The visitor has checked the final scope and received the plan before an
+    // unavailable executor can close the coordinator's connection.
+    let (_, mut request) = tokio::time::timeout(EXCHANGE_WAIT, control.accept_control_bi())
+        .await
+        .map_err(io::Error::other)?
+        .map_err(io::Error::other)?;
+    if !matches!(receive(&mut request).await?,Frame::Established {round:received} if received==round)
+    {
+        return Err(invalid("NAT plan receipt mismatch"));
+    }
+    check_scope(control, gate, &scope, snapshot)?;
     Ok(Attempt {
         round,
         local: plan.c,
         plan,
         remote_target: remote.target(),
+        remote_snapshot: remote,
         scope,
         connection_id: control.stable_id(),
         snapshot: snapshot.clone(),
@@ -410,7 +462,7 @@ pub async fn coordinate_client(
 ) -> io::Result<Attempt> {
     let scope = current_scope(control, gate)?;
     check_scope(control, gate, &scope, snapshot)?;
-    let (mut send_stream, mut recv) = control.open_control_bi().await.map_err(io::Error::other)?;
+    let (mut send_stream, mut recv) = open(control).await?;
     send(
         &mut send_stream,
         Frame::Hello {
@@ -431,7 +483,8 @@ pub async fn coordinate_client(
         return Err(invalid("wrong NAT challenge scope"));
     }
     check_scope(control, gate, &scope, snapshot)?;
-    let (mut send_stream, mut recv) = control.open_control_bi().await.map_err(io::Error::other)?;
+    let (mut send_stream, mut recv) = open(control).await?;
+    check_scope(control, gate, &scope, snapshot)?;
     send(
         &mut send_stream,
         Frame::Offer {
@@ -487,17 +540,20 @@ pub async fn coordinate_client(
         }
     }
     check_scope(control, gate, &scope, snapshot)?;
-    let (mut send_stream, mut recv) = control.open_control_bi().await.map_err(io::Error::other)?;
+    let (mut send_stream, mut recv) = open(control).await?;
     send(&mut send_stream, Frame::Start { round }).await?;
     if !matches!(receive(&mut recv).await?,Frame::Ack {round:acked} if acked == round) {
         return Err(invalid("NAT ack mismatch"));
     }
     check_scope(control, gate, &scope, snapshot)?;
+    let (mut send_stream, _) = open(control).await?;
+    send(&mut send_stream, Frame::Established { round }).await?;
     Ok(Attempt {
         round,
         local: plan.v,
         plan,
         remote_target: remote.target(),
+        remote_snapshot: remote,
         scope,
         connection_id: control.stable_id(),
         snapshot: snapshot.clone(),
@@ -527,6 +583,15 @@ impl Attempt {
     pub fn remote_target(&self) -> Option<SocketAddr> {
         self.remote_target
     }
+    pub fn remote_feature(&self) -> Option<crate::nat_selector::NatFeature> {
+        self.remote_snapshot.view().map(|v| v.feature())
+    }
+    pub fn mapped_candidates(&self) -> &[SocketAddr] {
+        &self.remote_snapshot.mapped
+    }
+    pub fn assisted_candidates(&self) -> &[SocketAddr] {
+        &self.remote_snapshot.assisted
+    }
 
     pub fn execution_status(&self) -> ExecutionStatus {
         if self.plan.disabled {
@@ -553,14 +618,20 @@ impl Attempt {
         if self.submitted || self.finished || control.stable_id() != self.connection_id {
             return Err(invalid("old, submitted or finished NAT attempt"));
         }
-        check_scope(control, gate, &self.scope, &self.snapshot)?;
         let status = self.execution_status();
         if status != ExecutionStatus::PartialExecution {
             return Ok(status);
         }
-        let target = self
-            .remote_target
-            .ok_or_else(|| invalid("no peer candidate for partial execution"))?;
+        check_scope(control, gate, &self.scope, &self.snapshot)?;
+        let Some(target) = self.remote_target else {
+            if self.local.role == crate::nat_selector::Role::Receiver {
+                self.submitted = true;
+                return Ok(status);
+            }
+            return Err(invalid(
+                "sender has no peer candidate for partial execution",
+            ));
+        };
         if !budget.spend_peer_datagram() {
             return Err(io::Error::other("NAT probe budget exhausted"));
         }
@@ -601,5 +672,64 @@ impl Attempt {
     pub fn finish_failure(&mut self) {
         self.finished = true;
         self.recommendation = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::nat_selector::{ProbeProtocol, Role};
+
+    #[test]
+    fn incomplete_samples_keep_legacy_fallback_sender_target_preference() {
+        let with_target = SnapshotWire {
+            mapped: vec!["192.0.2.1:41000".parse().unwrap()],
+            local_ips: Vec::new(),
+            assisted: Vec::new(),
+        };
+        let empty = SnapshotWire {
+            mapped: Vec::new(),
+            local_ips: Vec::new(),
+            assisted: Vec::new(),
+        };
+        let scope = LearningScope {
+            local: [1; 32],
+            remote: [2; 32],
+            network: [3; 32],
+            secret_generation: 1,
+            credential: [4; 32],
+            authorization_epoch: 1,
+            protocol: ProbeProtocol::Udp,
+        };
+        let mut analyzer = Analyzer::new(Instant::now());
+        for (c, v, c_role, v_role, disabled) in [
+            (
+                &with_target,
+                &with_target,
+                Role::Sender,
+                Role::Receiver,
+                false,
+            ),
+            (&empty, &with_target, Role::Sender, Role::Receiver, false),
+            (&with_target, &empty, Role::Receiver, Role::Sender, false),
+            (&empty, &empty, Role::Sender, Role::Receiver, true),
+        ] {
+            let (plan, recommendation) = make_plan(&mut analyzer, scope.clone(), c, v);
+            assert_eq!(
+                (plan.c.role, plan.v.role, plan.disabled),
+                (c_role, v_role, disabled)
+            );
+            assert!(plan.fallback);
+            assert!(recommendation.is_none());
+            assert_eq!(
+                (
+                    plan.c.ttl,
+                    plan.v.ttl,
+                    plan.c.send_delay_ms,
+                    plan.v.send_delay_ms
+                ),
+                (0, 0, 0, 0)
+            );
+        }
     }
 }

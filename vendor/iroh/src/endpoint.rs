@@ -57,7 +57,7 @@ pub use super::socket::{
     transports::LocalTransportAddr,
 };
 #[cfg(not(wasm_browser))]
-pub use super::socket::{UdpMappingSample, UdpMappingSequence};
+pub use super::socket::{ObservationValidity, UdpMappingSample, UdpMappingSequence};
 #[cfg(wasm_browser)]
 use crate::address_lookup::PkarrResolver;
 #[cfg(not(wasm_browser))]
@@ -1626,6 +1626,14 @@ impl Endpoint {
         observers: &RelayMap,
     ) -> std::io::Result<UdpMappingSequence> {
         self.inner.observe_udp_mapping_sequence(observers).await
+    }
+
+    /// A local generation token for a candidate-only traversal snapshot when
+    /// multi-observer classification is unavailable. It is not reachability or
+    /// admission proof, and network changes invalidate every copy.
+    #[cfg(not(wasm_browser))]
+    pub fn udp_observation_generation(&self) -> ObservationValidity {
+        self.inner.udp_observation_generation()
     }
 
     /// Returns the local socket addresses on which the underlying sockets are bound.
