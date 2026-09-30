@@ -1,0 +1,22 @@
+CANDIDATE id=b4e6cbae2655d248a0f69acba4a0ae8544c14a4a19cd4b67bf4b73cce1d28c1a sockets=[0.0.0.0:42027, [::]:36632] observed=100.64.27.2:42032 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.2:42032 t_ms=0 age_ms=13
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.2:42036 t_ms=5 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.2:42031 t_ms=9 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.2:42044 t_ms=13 age_ms=0
+MAPPING_CLASS pattern=Irregular { last: 100.64.27.2:42044, low: 42031, high: 42044 } confidence=fresh_irregular_no_prediction fresh=true
+READY id=b4e6cbae2655d248a0f69acba4a0ae8544c14a4a19cd4b67bf4b73cce1d28c1a route=06d46d739ac0145468ca81f839f53391
+CONTROL_FRAME_RECEIVED kind=AUTO_OFFER bytes=32
+CONTROL_FRAME_SENT kind=AUTO_READY bytes=75
+CONTROL_FRAME_RECEIVED kind=START bytes=38
+CONTROL_FRAME_SENT kind=ACK bytes=36
+AUTO_SELECTED role=IrregularReceiver target=100.64.27.6:43027 round=f762a32d2103b4be8f76c7b48d9d4b1f stable_id=108575111626096
+EXCHANGED peer=a00e899c1c99b41fec745d57b7893194dcee95894faf69d5551b9c129b30b8af peer_candidate=100.64.27.6:43027 stable_id=108575111626096
+CONTROL_FRAME_SENT kind=SENDER_PRIMED bytes=46
+CONTROL_FRAME_RECEIVED kind=SENDER_PRIMED_ACK bytes=50
+AUTO_PROBES_SENT count=1 distinct_targets=1 role=IrregularReceiver target=100.64.27.6:43027 elapsed_ms=68
+PATH_UNAVAILABLE reason=deadline has elapsed mqtt=MQTT_TRAFFIC sent_packets=27 sent_bytes=9273 received_packets=32 received_bytes=10811 rejected_packets=0 max_datagram=2048 queue_depth=64
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED bytes=44
+CONTROL_FRAME_SENT kind=PATH_FAILED_ACK bytes=48
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED_DONE bytes=49
+CONTROL_FRAME_SENT kind=PATH_FAILED_DONE_ACK bytes=53
+CONTROL_ALIVE_AFTER_UDP_FAILURE stable_id=108575111626096

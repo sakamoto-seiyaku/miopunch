@@ -1,0 +1,10 @@
+{
+  "case": "positive",
+  "topology": "random-random",
+  "dialer": "b",
+  "strategy": "baseline",
+  "seed": "mio59-20260930:random-random:b:1",
+  "runner_rc": 0,
+  "wall_ms": 44812,
+  "fixture_cpu_ms": 1764
+}

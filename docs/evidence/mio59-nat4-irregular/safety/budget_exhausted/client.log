@@ -1,0 +1,14 @@
+CANDIDATE id=001cd762382685f03d970e229f78e4caec2fffefd99d3f5e2209720cb3fb6606 sockets=[0.0.0.0:42027, [::]:34619] observed=100.64.27.2:42042 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.2:42042 t_ms=0 age_ms=14
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.2:42034 t_ms=4 age_ms=10
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.2:42033 t_ms=8 age_ms=5
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.2:42036 t_ms=14 age_ms=0
+MAPPING_CLASS pattern=Irregular { last: 100.64.27.2:42036, low: 42033, high: 42042 } confidence=fresh_irregular_no_prediction fresh=true
+CONTROL_FRAME_SENT kind=AUTO_OFFER bytes=42
+CONTROL_FRAME_RECEIVED kind=AUTO_READY bytes=65
+CONTROL_FRAME_SENT kind=START bytes=38
+CONTROL_FRAME_RECEIVED kind=ACK bytes=36
+AUTO_SELECTED role=IrregularRegularReceiver target=100.64.27.6:43035 round=ce95e81e54b847a75d11dcff1ad5d0d3 stable_id=103613024852064
+EXCHANGED peer=53309f1249d0ebfe693bf326b907590d87e6f96e7f226f9e056e09b9df235d7c peer_candidate=100.64.27.6:43035 attempted=100.64.27.6:43035 stable_id=103613024852064
+PATH_UNAVAILABLE reason=node maintenance peer-datagram budget exhausted mqtt=MQTT_TRAFFIC sent_packets=33 sent_bytes=10788 received_packets=25 received_bytes=9145 rejected_packets=0 max_datagram=2048 queue_depth=64
+EARLY_FAILURE_CONTROL_ALIVE stable_id=103613024852064

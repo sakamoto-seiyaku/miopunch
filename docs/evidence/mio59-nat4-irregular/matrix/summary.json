@@ -1,0 +1,66 @@
+[
+  {
+    "topology": "random-eim",
+    "dialer": "a",
+    "strategy": "auto",
+    "success": 2,
+    "attempts": 32,
+    "bounded_fallback": 0
+  },
+  {
+    "topology": "random-eim",
+    "dialer": "a",
+    "strategy": "baseline",
+    "success": 0,
+    "attempts": 32,
+    "bounded_fallback": 0
+  },
+  {
+    "topology": "random-eim",
+    "dialer": "b",
+    "strategy": "auto",
+    "success": 2,
+    "attempts": 32,
+    "bounded_fallback": 0
+  },
+  {
+    "topology": "random-eim",
+    "dialer": "b",
+    "strategy": "baseline",
+    "success": 0,
+    "attempts": 32,
+    "bounded_fallback": 0
+  },
+  {
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "success": 1,
+    "attempts": 32,
+    "bounded_fallback": 0
+  },
+  {
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "baseline",
+    "success": 0,
+    "attempts": 32,
+    "bounded_fallback": 0
+  },
+  {
+    "topology": "random-up1",
+    "dialer": "b",
+    "strategy": "auto",
+    "success": 0,
+    "attempts": 32,
+    "bounded_fallback": 0
+  },
+  {
+    "topology": "random-up1",
+    "dialer": "b",
+    "strategy": "baseline",
+    "success": 0,
+    "attempts": 32,
+    "bounded_fallback": 0
+  }
+]

@@ -1,0 +1,22 @@
+CANDIDATE id=d68333aea701f1228253b97011847541a4596d860bf459cd8d52b288e1d21869 sockets=[0.0.0.0:42027, [::]:39296] observed=100.64.27.2:3575 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.2:3575 t_ms=0 age_ms=14
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.2:28919 t_ms=4 age_ms=10
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.2:50184 t_ms=9 age_ms=5
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.2:19682 t_ms=14 age_ms=0
+MAPPING_CLASS pattern=Irregular { last: 100.64.27.2:19682, low: 3575, high: 50184 } confidence=fresh_irregular_no_prediction fresh=true
+READY id=d68333aea701f1228253b97011847541a4596d860bf459cd8d52b288e1d21869 route=80dceae15989f62a0ce6e77bea848067
+CONTROL_FRAME_RECEIVED kind=AUTO_OFFER bytes=32
+CONTROL_FRAME_SENT kind=AUTO_READY bytes=74
+CONTROL_FRAME_RECEIVED kind=START bytes=38
+CONTROL_FRAME_SENT kind=ACK bytes=36
+AUTO_SELECTED role=IrregularReceiver target=100.64.27.6:43027 round=6593632e1f8b01ce495bd3b60266b760 stable_id=100651862038160
+EXCHANGED peer=2f2f4f25566f01f6cfe184bcd9d64355d455fcb5cea2f643fa90ec2e625621c0 peer_candidate=100.64.27.6:43027 stable_id=100651862038160
+CONTROL_FRAME_SENT kind=SENDER_PRIMED bytes=46
+CONTROL_FRAME_RECEIVED kind=SENDER_PRIMED_ACK bytes=50
+AUTO_PROBES_SENT count=1 distinct_targets=1 role=IrregularReceiver target=100.64.27.6:43027 elapsed_ms=117
+PATH_UNAVAILABLE reason=deadline has elapsed mqtt=MQTT_TRAFFIC sent_packets=31 sent_bytes=9375 received_packets=33 received_bytes=10882 rejected_packets=0 max_datagram=2048 queue_depth=64
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED bytes=44
+CONTROL_FRAME_SENT kind=PATH_FAILED_ACK bytes=48
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED_DONE bytes=49
+CONTROL_FRAME_SENT kind=PATH_FAILED_DONE_ACK bytes=53
+CONTROL_ALIVE_AFTER_UDP_FAILURE stable_id=100651862038160

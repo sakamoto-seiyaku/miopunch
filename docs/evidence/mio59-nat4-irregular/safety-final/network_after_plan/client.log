@@ -1,0 +1,15 @@
+CANDIDATE id=a67acfda4d4c79227a715c5ba1a373e98432df6f27c86fd138d3a6cbcc97aa1f sockets=[0.0.0.0:42027, [::]:44398] observed=100.64.27.2:42039 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.2:42039 t_ms=0 age_ms=13
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.2:42042 t_ms=5 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.2:42031 t_ms=9 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.2:42034 t_ms=13 age_ms=0
+MAPPING_CLASS pattern=Irregular { last: 100.64.27.2:42034, low: 42031, high: 42042 } confidence=fresh_irregular_no_prediction fresh=true
+CONTROL_FRAME_SENT kind=AUTO_OFFER bytes=42
+CONTROL_FRAME_RECEIVED kind=AUTO_READY bytes=65
+CONTROL_FRAME_SENT kind=START bytes=38
+CONTROL_FRAME_RECEIVED kind=ACK bytes=36
+AUTO_SELECTED role=IrregularRegularReceiver target=100.64.27.6:43035 round=e81a6b4f2f45666ff179ec303a3f44e6 stable_id=108850217215104
+EXCHANGED peer=eb4b5de8c22356d3d1e8c690109d818becdc7755ecf975612f6238e9577d227b peer_candidate=100.64.27.6:43035 attempted=100.64.27.6:43035 stable_id=108850217215104
+FAULT_INJECTED network_changed_after_plan stable_id=108850217215104
+PATH_UNAVAILABLE reason=ordered QAD mapping evidence expired mqtt=MQTT_TRAFFIC sent_packets=31 sent_bytes=10730 received_packets=26 received_bytes=9168 rejected_packets=0 max_datagram=2048 queue_depth=64
+EARLY_FAILURE_CONTROL_ALIVE stable_id=108850217215104

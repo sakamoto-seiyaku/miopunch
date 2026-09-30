@@ -1,0 +1,1 @@
+case=wide_claim strategy=auto topology=random-up1 dialer=a client_rc=0 server_rc=0 seed=mio59-safety-20260930:wide_claim

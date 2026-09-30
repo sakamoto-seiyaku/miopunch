@@ -1,0 +1,9 @@
+CANDIDATE id=0650e3467c2d6a14b025380873c0fd1ac1871d40e5043de73fa99cd521b96232 sockets=[0.0.0.0:43027, [::]:60186] observed=100.64.27.6:43031 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.6:43031 t_ms=0 age_ms=12
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.6:43032 t_ms=4 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.6:43033 t_ms=7 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.6:43034 t_ms=12 age_ms=0
+MAPPING_CLASS pattern=Sequential { last: 100.64.27.6:43034, step: 1 } confidence=consistent_3/3_transitions fresh=true
+READY id=0650e3467c2d6a14b025380873c0fd1ac1871d40e5043de73fa99cd521b96232 route=42208374ca95fe09cd7f5f49636b660e
+COORD_UNAVAILABLE reason=invalid or over-budget mapping claim mqtt=MQTT_TRAFFIC sent_packets=21 sent_bytes=8927 received_packets=27 received_bytes=10563 rejected_packets=0 max_datagram=2048 queue_depth=64
+EARLY_FAILURE_CONTROL_ALIVE stable_id=98753223568368

@@ -1,0 +1,23 @@
+CANDIDATE id=2f2f4f25566f01f6cfe184bcd9d64355d455fcb5cea2f643fa90ec2e625621c0 sockets=[0.0.0.0:43027, [::]:35745] observed=100.64.27.6:43027 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.6:43027 t_ms=0 age_ms=12
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.6:43027 t_ms=3 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.6:43027 t_ms=7 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.6:43027 t_ms=11 age_ms=0
+MAPPING_CLASS pattern=Stable { address: 100.64.27.6:43027 } confidence=consistent_3/3_transitions fresh=true
+CONTROL_FRAME_SENT kind=AUTO_OFFER bytes=32
+CONTROL_FRAME_RECEIVED kind=AUTO_READY bytes=74
+RANDOM_CANDIDATE observed_last=100.64.27.2:19682 low=1 high=65535 draws=1 ports=1 sockets=0
+CONTROL_FRAME_SENT kind=START bytes=38
+CONTROL_FRAME_RECEIVED kind=ACK bytes=36
+AUTO_SELECTED role=RandomTargetSender target=100.64.27.2:36824 round=6593632e1f8b01ce495bd3b60266b760 stable_id=107982106926480
+EXCHANGED peer=d68333aea701f1228253b97011847541a4596d860bf459cd8d52b288e1d21869 peer_candidate=100.64.27.2:36824 attempted=100.64.27.2:36824 stable_id=107982106926480
+CONTROL_FRAME_RECEIVED kind=SENDER_PRIMED bytes=46
+CONTROL_FRAME_SENT kind=SENDER_PRIMED_ACK bytes=50
+AUTO_PROBES_SENT count=1 distinct_targets=1 role=RandomTargetSender target=100.64.27.2:36824 elapsed_ms=0
+PATH_OPEN path_id_retries=0
+PATH_UNAVAILABLE reason=deadline has elapsed mqtt=MQTT_TRAFFIC sent_packets=32 sent_bytes=10809 received_packets=30 received_bytes=9342 rejected_packets=0 max_datagram=2048 queue_depth=64
+CONTROL_FRAME_SENT kind=PATH_FAILED bytes=44
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED_ACK bytes=48
+CONTROL_FRAME_SENT kind=PATH_FAILED_DONE bytes=49
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED_DONE_ACK bytes=53
+CONTROL_ALIVE_AFTER_UDP_FAILURE stable_id=107982106926480

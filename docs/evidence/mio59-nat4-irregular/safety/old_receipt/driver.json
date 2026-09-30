@@ -1,0 +1,10 @@
+{
+  "case": "old_receipt",
+  "topology": "random-up1",
+  "dialer": "a",
+  "strategy": "auto",
+  "seed": "mio59-safety-20260930:old_receipt",
+  "runner_rc": 0,
+  "wall_ms": 20358,
+  "fixture_cpu_ms": 1699
+}

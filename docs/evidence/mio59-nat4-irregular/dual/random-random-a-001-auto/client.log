@@ -1,0 +1,8 @@
+CANDIDATE id=7945381dc4044e7cef9cd5dee20761e7e9118508b6d8adbf32860a1935d3d5aa sockets=[0.0.0.0:42027, [::]:48577] observed=100.64.27.2:42043 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.2:42043 t_ms=0 age_ms=16
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.2:42046 t_ms=5 age_ms=11
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.2:42038 t_ms=10 age_ms=5
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.2:42032 t_ms=16 age_ms=0
+MAPPING_CLASS pattern=Irregular { last: 100.64.27.2:42032, low: 42032, high: 42046 } confidence=fresh_irregular_no_prediction fresh=true
+CONTROL_FRAME_SENT kind=AUTO_OFFER bytes=42
+COORD_UNAVAILABLE reason=read error: connection lost mqtt=MQTT_TRAFFIC sent_packets=28 sent_bytes=10616 received_packets=24 received_bytes=9025 rejected_packets=0 max_datagram=2048 queue_depth=64

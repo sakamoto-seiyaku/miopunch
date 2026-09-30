@@ -191,11 +191,11 @@ async fn mapping_evidence(
     }
     let pattern = nat_mapping::classify(&mapping_samples(&sequence), Instant::now());
     println!(
-        "MAPPING_CLASS pattern={pattern:?} confidence=consistent_{}/3_transitions fresh={}",
-        if matches!(pattern, MappingPattern::Unknown) {
-            0
-        } else {
-            3
+        "MAPPING_CLASS pattern={pattern:?} confidence={} fresh={}",
+        match pattern {
+            MappingPattern::Unknown => "invalid_or_unsupported",
+            MappingPattern::Irregular { .. } => "fresh_irregular_no_prediction",
+            _ => "consistent_3/3_transitions",
         },
         sequence.is_fresh()
     );
@@ -221,6 +221,14 @@ fn automatic_strategy(has_mapping_observers: bool) -> Result<bool, Box<dyn Error
         Ok("auto") => Ok(true),
         Err(_) => Ok(has_mapping_observers),
         _ => Err("invalid NAT strategy".into()),
+    }
+}
+
+fn data_path_wait(automatic: bool) -> Result<Duration, Box<dyn Error>> {
+    match std::env::var("MIOPUNCH_NAT_LAB_PATH_WAIT").as_deref() {
+        Ok("3") => Ok(AUTO_PATH_WAIT),
+        Err(_) => Ok(if automatic { AUTO_PATH_WAIT } else { WAIT }),
+        _ => Err("lab path wait must be 3 seconds".into()),
     }
 }
 
@@ -517,12 +525,25 @@ fn encode_pattern(pattern: MappingPattern) -> String {
     match pattern {
         MappingPattern::Stable { address } => format!("S {address} 0"),
         MappingPattern::Sequential { last, step } => format!("Q {last} {step}"),
+        MappingPattern::Irregular { last, low, high } => format!("I {last} {low}:{high}"),
         MappingPattern::Unknown => "U 0.0.0.0:0 0".into(),
     }
 }
 
 fn parse_pattern(kind: &str, addr: &str, step: &str) -> Result<MappingPattern, Box<dyn Error>> {
     let address: SocketAddr = addr.parse()?;
+    if kind == "I" {
+        let (low, high) = step.split_once(':').ok_or("invalid irregular span")?;
+        let pattern = MappingPattern::Irregular {
+            last: address,
+            low: low.parse()?,
+            high: high.parse()?,
+        };
+        if nat_mapping::irregular_window(pattern).is_none() {
+            return Err("invalid irregular mapping claim".into());
+        }
+        return Ok(pattern);
+    }
     let step: i16 = step.parse()?;
     let pattern = match kind {
         "S" if step == 0 && address.is_ipv4() && address.port() != 0 => {
@@ -628,6 +649,84 @@ async fn report_auto_path_failure_client(
     Ok(())
 }
 
+/// A dedicated protected lab stream, opened before fault injection. It proves
+/// early rejection leaves this original control connection usable even when
+/// the rejected strategy never completed a round. It never carries business.
+struct FailureLiveness {
+    send: iroh::endpoint::SendStream,
+    recv: iroh::endpoint::RecvStream,
+    server: bool,
+}
+
+impl FailureLiveness {
+    async fn open(control: &ControlSession, server: bool) -> Result<Option<Self>, Box<dyn Error>> {
+        if std::env::var("MIOPUNCH_NAT_LAB_FAILURE_LIVENESS").as_deref() != Ok("1") {
+            return Ok(None);
+        }
+        let (mut send, mut recv) = if server {
+            tokio::time::timeout(COORD_WAIT, control.accept_control_bi()).await??
+        } else {
+            tokio::time::timeout(COORD_WAIT, control.open_control_bi()).await??
+        };
+        tokio::time::timeout(COORD_WAIT, async {
+            let mut marker = [0; 5];
+            if server {
+                recv.read_exact(&mut marker).await?;
+                if &marker != b"MIO59" {
+                    return Err("invalid failure-check stream".into());
+                }
+                send.write_all(b"READY").await?;
+            } else {
+                send.write_all(b"MIO59").await?;
+                recv.read_exact(&mut marker).await?;
+                if &marker != b"READY" {
+                    return Err("invalid failure-check acknowledgment".into());
+                }
+            }
+            Ok::<_, Box<dyn Error>>(())
+        })
+        .await??;
+        Ok(Some(Self { send, recv, server }))
+    }
+
+    async fn finish(mut self, stable: usize) -> Result<(), Box<dyn Error>> {
+        tokio::time::timeout(WAIT, async {
+            if self.server {
+                if self.recv.read_to_end(4).await? != b"PING" {
+                    return Err("invalid failure-check ping".into());
+                }
+                self.send.write_all(b"PONG").await?;
+                self.send.finish()?;
+                if self.send.stopped().await?.is_some() {
+                    return Err("failure-check reply stopped".into());
+                }
+            } else {
+                self.send.write_all(b"PING").await?;
+                self.send.finish()?;
+                if self.recv.read_to_end(4).await? != b"PONG" {
+                    return Err("invalid failure-check pong".into());
+                }
+            }
+            Ok::<_, Box<dyn Error>>(())
+        })
+        .await??;
+        println!("EARLY_FAILURE_CONTROL_ALIVE stable_id={stable}");
+        Ok(())
+    }
+}
+
+async fn close_failed_lab_attempt(
+    endpoint: &Endpoint,
+    stable: usize,
+    safety: &mut Option<FailureLiveness>,
+) -> Result<(), Box<dyn Error>> {
+    if let Some(check) = safety.take() {
+        check.finish(stable).await?;
+    }
+    endpoint.close().await;
+    Ok(())
+}
+
 fn member_eligible(control: &ControlSession, gate: &Option<AdmissionGate>) -> bool {
     gate.as_ref()
         .is_none_or(|gate| control.may_upgrade_member_path(gate))
@@ -707,11 +806,26 @@ fn auto_target(
     is_server: bool,
 ) -> Result<(SocketAddr, PunchRole), Box<dyn Error>> {
     let role = nat_mapping::choose_regular_pair(local, remote, is_server)
-        .ok_or("no supported regular mapping pair")?;
+        .or_else(|| nat_mapping::choose_irregular_pair(local, remote))
+        .ok_or("unsupported mapping pair: bounded fallback, no peer probe")?;
     let target = match remote {
         MappingPattern::Stable { address } => address,
         MappingPattern::Sequential { .. } => {
             nat_mapping::predicted_peer_address(remote).ok_or("predicted mapping port overflow")?
+        }
+        MappingPattern::Irregular { .. } => {
+            let padding = match std::env::var("MIOPUNCH_NAT_LAB_RANDOM_PADDING").as_deref() {
+                Ok("0") => 0,
+                Ok("4") | Err(_) => 4,
+                _ => return Err("lab random padding must be 0 or 4".into()),
+            };
+            let (last, low, high) = nat_mapping::irregular_window_with_padding(remote, padding)
+                .ok_or("invalid irregular evidence")?;
+            let port = rand::random_range(low..=high);
+            println!(
+                "RANDOM_CANDIDATE observed_last={last} low={low} high={high} draws=1 ports=1 sockets=0"
+            );
+            SocketAddr::new(last.ip(), port)
         }
         MappingPattern::Unknown => return Err("unknown peer mapping".into()),
     };
@@ -756,6 +870,7 @@ async fn coordinate_auto_client(
         let address = match local {
             MappingPattern::Stable { address } => address,
             MappingPattern::Sequential { last, .. } => last,
+            MappingPattern::Irregular { last, .. } => last,
             MappingPattern::Unknown => return Err("unknown local mapping".into()),
         };
         send.write_all(format!("AUTO_OFFER Q {address} 100").as_bytes())
@@ -804,19 +919,28 @@ async fn auto_probe_window(
         Ok("2") => 2,
         _ => return Err("lab dual-first packet count must be 1 or 2".into()),
     };
+    let signal_round = if std::env::var("MIOPUNCH_NAT_FAULT").as_deref() == Ok("old_receipt") {
+        Round([0; 16])
+    } else {
+        round
+    };
     match role {
-        PunchRole::MappingSideSender => {
+        PunchRole::MappingSideSender
+        | PunchRole::IrregularReceiver
+        | PunchRole::IrregularRegularReceiver => {
             auto_probe_once(control, gate, evidence, remote).await?;
-            // A protected, round-bound signal proves the Hard-side socket
-            // actually sent before the Stable side tries its predicted port.
+            // A protected round-bound barrier orders the irregular/Hard
+            // prime before the peer sends to its selected candidate.
             let (mut send, mut recv) =
                 tokio::time::timeout(COORD_WAIT, control.open_control_bi()).await??;
-            send_frame(&mut send, &CoordFrame::SenderPrimed(round)).await?;
+            send_frame(&mut send, &CoordFrame::SenderPrimed(signal_round)).await?;
             if recv_frame(&mut recv).await? != CoordFrame::SenderPrimedAck(round) {
                 return Err("sender-prime acknowledgment mismatch".into());
             }
         }
-        PunchRole::StableSideReceiver => {
+        PunchRole::StableSideReceiver
+        | PunchRole::RandomTargetSender
+        | PunchRole::RegularRandomTargetSender => {
             let (mut reply, mut request) =
                 tokio::time::timeout(COORD_WAIT, control.accept_control_bi()).await??;
             if recv_frame(&mut request).await? != CoordFrame::SenderPrimed(round) {
@@ -860,7 +984,10 @@ async fn auto_probe_window(
         }
     }
     if evidence.peer_probe_limit == 2
-        && !matches!(role, PunchRole::DualFirst | PunchRole::DualSecond)
+        && matches!(
+            role,
+            PunchRole::MappingSideSender | PunchRole::StableSideReceiver
+        )
     {
         tokio::time::sleep(Duration::from_millis(50)).await;
         auto_probe_once(control, gate, evidence, remote).await?;
@@ -868,6 +995,10 @@ async fn auto_probe_window(
     let probes = match role {
         PunchRole::DualFirst => dual_first_packets,
         PunchRole::DualSecond => 1,
+        PunchRole::IrregularReceiver
+        | PunchRole::IrregularRegularReceiver
+        | PunchRole::RandomTargetSender
+        | PunchRole::RegularRandomTargetSender => 1,
         _ => evidence.peer_probe_limit,
     };
     println!(
@@ -940,6 +1071,7 @@ async fn run_server(
         endpoint.close().await;
         return Ok(());
     }
+    let mut safety = FailureLiveness::open(&control, true).await?;
     let legacy = match legacy {
         Some(resources) => Some(prepare_legacy(&endpoint, &own_candidate, resources).await?),
         None => None,
@@ -971,7 +1103,7 @@ async fn run_server(
                     "COORD_UNAVAILABLE reason={error} probes=0 mqtt={}",
                     traffic.report()
                 );
-                endpoint.close().await;
+                close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
                 return Ok(());
             }
         }
@@ -991,7 +1123,7 @@ async fn run_server(
             }
             Err(error) => {
                 println!("COORD_UNAVAILABLE reason={error} mqtt={}", traffic.report());
-                endpoint.close().await;
+                close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
                 return Ok(());
             }
         }
@@ -1007,7 +1139,7 @@ async fn run_server(
             }
             Err(error) => {
                 println!("COORD_UNAVAILABLE reason={error} mqtt={}", traffic.report());
-                endpoint.close().await;
+                close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
                 return Ok(());
             }
         }
@@ -1020,7 +1152,7 @@ async fn run_server(
                         "CONTROL_UNAVAILABLE reason={other:?} mqtt={}",
                         traffic.report()
                     );
-                    endpoint.close().await;
+                    close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
                     return Ok(());
                 }
             };
@@ -1031,7 +1163,7 @@ async fn run_server(
                     "CONTROL_UNAVAILABLE reason={error} mqtt={}",
                     traffic.report()
                 );
-                endpoint.close().await;
+                close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
                 return Ok(());
             }
         };
@@ -1075,7 +1207,7 @@ async fn run_server(
                     "COORD_UNAVAILABLE reason=duplicate control stream mqtt={}",
                     traffic.report()
                 );
-                endpoint.close().await;
+                close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
                 return Ok(());
             }
         }
@@ -1105,12 +1237,14 @@ async fn run_server(
             if let Some(attempt) = legacy_attempt.as_mut() {
                 attempt.finish_failure();
             }
-            if let Some(round) = active_round {
+            if safety.is_none()
+                && let Some(round) = active_round
+            {
                 if let Err(reason) = report_auto_path_failure_server(&control, round).await {
                     println!("CONTROL_LIVENESS_FAILED reason={reason}");
                 }
             }
-            endpoint.close().await;
+            close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
             return Ok(());
         }
     }
@@ -1123,30 +1257,22 @@ async fn run_server(
             println!("LEGACY_SENDER_PATH result={opened:?} stable_id={stable}");
         }
     }
-    if let Err(error) = wait_ip(
-        &control,
-        if automatic || legacy.is_some() {
-            AUTO_PATH_WAIT
-        } else {
-            WAIT
-        },
-    )
-    .await
-    {
+    if let Err(error) = wait_ip(&control, data_path_wait(automatic || legacy.is_some())?).await {
         println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
-        if (automatic || legacy.is_some())
+        if safety.is_none()
+            && (automatic || legacy.is_some())
             && let Some(round) = active_round
         {
             if let Err(reason) = report_auto_path_failure_server(&control, round).await {
                 println!("CONTROL_LIVENESS_FAILED reason={reason}");
             }
         }
-        endpoint.close().await;
+        close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
         return Ok(());
     }
     if !member_eligible(&control, &gate) {
         println!("ADMISSION_REJECTED peer={peer} stable_id={stable} before_commit=1");
-        endpoint.close().await;
+        close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
         return Ok(());
     }
     let mut promotion_reply = if let Some(round) = active_round {
@@ -1169,7 +1295,7 @@ async fn run_server(
                     "PATH_UNAVAILABLE reason=promotion missing or wrong: {other:?} mqtt={}",
                     traffic.report()
                 );
-                endpoint.close().await;
+                close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
                 return Ok(());
             }
         }
@@ -1184,14 +1310,14 @@ async fn run_server(
             if let Some(attempt) = legacy_attempt.as_mut() {
                 attempt.finish_failure();
             }
-            endpoint.close().await;
+            close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
             return Ok(());
         }
     };
     if let (Some(mut send), Some(round)) = (promotion_reply.take(), active_round) {
         if let Err(error) = send_frame(&mut send, &CoordFrame::Committed(round)).await {
             println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
-            endpoint.close().await;
+            close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
             return Ok(());
         }
         println!(
@@ -1212,7 +1338,7 @@ async fn run_server(
                 "PATH_UNAVAILABLE reason={other:?} mqtt={}",
                 traffic.report()
             );
-            endpoint.close().await;
+            close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
             return Ok(());
         }
     };
@@ -1260,6 +1386,7 @@ async fn run_client(
         endpoint.close().await;
         return Ok(());
     }
+    let mut safety = FailureLiveness::open(&control, false).await?;
     let legacy = match legacy {
         Some(resources) => Some(prepare_legacy(&endpoint, &own_candidate, resources).await?),
         None => None,
@@ -1273,7 +1400,7 @@ async fn run_client(
         })
         .await?;
         println!("STALE_CANDIDATE rejected_before_exchange stable_id={stable}");
-        endpoint.close().await;
+        close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
         return Ok(());
     }
     if std::env::var("MIOPUNCH_NAT_FAULT").as_deref() == Ok("control_cut") {
@@ -1311,7 +1438,7 @@ async fn run_client(
                     "COORD_UNAVAILABLE reason={error} probes=0 mqtt={}",
                     traffic.report()
                 );
-                endpoint.close().await;
+                close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
                 return Ok(());
             }
         }
@@ -1331,7 +1458,7 @@ async fn run_client(
             }
             Err(error) => {
                 println!("COORD_UNAVAILABLE reason={error} mqtt={}", traffic.report());
-                endpoint.close().await;
+                close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
                 return Ok(());
             }
         }
@@ -1347,7 +1474,7 @@ async fn run_client(
             }
             Err(error) => {
                 println!("COORD_UNAVAILABLE reason={error} mqtt={}", traffic.report());
-                endpoint.close().await;
+                close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
                 return Ok(());
             }
         }
@@ -1377,7 +1504,7 @@ async fn run_client(
                     "CONTROL_UNAVAILABLE reason={error} mqtt={}",
                     traffic.report()
                 );
-                endpoint.close().await;
+                close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
                 return Ok(());
             }
         }
@@ -1389,6 +1516,30 @@ async fn run_client(
         );
     } else {
         println!("EXCHANGED peer={peer} peer_candidate=none receive_only=1 stable_id={stable}");
+    }
+    if automatic {
+        match std::env::var("MIOPUNCH_NAT_FAULT").as_deref() {
+            Ok("network_after_plan") => {
+                endpoint.network_change().await;
+                // network_change queues a notification; synchronize this
+                // fault with actual invalidation, rather than testing the
+                // interval before the Endpoint actor processes it.
+                tokio::time::timeout(Duration::from_secs(2), async {
+                    while mapping.as_ref().unwrap().sequence.is_current_generation() {
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    }
+                })
+                .await?;
+                println!("FAULT_INJECTED network_changed_after_plan stable_id={stable}");
+            }
+            Ok("revoke_after_plan") => {
+                gate.as_ref()
+                    .ok_or("missing lab member gate")?
+                    .update_authorization([*endpoint.id().as_bytes()], [*peer.as_bytes()]);
+                println!("FAULT_INJECTED peer_revoked_after_plan stable_id={stable}");
+            }
+            _ => {}
+        }
     }
     let path_started = Instant::now();
     if !advanced {
@@ -1411,12 +1562,14 @@ async fn run_client(
             if let Some(attempt) = legacy_attempt.as_mut() {
                 attempt.finish_failure();
             }
-            if let Some(round) = active_round {
+            if safety.is_none()
+                && let Some(round) = active_round
+            {
                 if let Err(reason) = report_auto_path_failure_client(&control, round).await {
                     println!("CONTROL_LIVENESS_FAILED reason={reason}");
                 }
             }
-            endpoint.close().await;
+            close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
             return Ok(());
         }
         if let Some(remote) = legacy_attempt.as_ref().and_then(Attempt::remote_target) {
@@ -1442,7 +1595,7 @@ async fn run_client(
         .await;
         if let Err(error) = probes {
             println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
-            endpoint.close().await;
+            close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
             return Ok(());
         }
         tokio::time::timeout(
@@ -1459,19 +1612,19 @@ async fn run_client(
                 remote.expect("coordinated target")
             ),
             tokio::time::timeout(
-                WAIT,
+                data_path_wait(false)?,
                 control.open_data_path_report(remote.expect("outbound target"))
             )
         );
         if let Err(error) = probes {
             println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
-            endpoint.close().await;
+            close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
             return Ok(());
         }
         opened
     } else {
         tokio::time::timeout(
-            WAIT,
+            data_path_wait(false)?,
             control.open_data_path_report(remote.expect("outbound target")),
         )
         .await
@@ -1485,41 +1638,34 @@ async fn run_client(
                 "PATH_UNAVAILABLE reason={other:?} mqtt={}",
                 traffic.report()
             );
-            if (automatic || legacy.is_some())
+            if safety.is_none()
+                && (automatic || legacy.is_some())
                 && let Some(round) = active_round
             {
                 if let Err(reason) = report_auto_path_failure_client(&control, round).await {
                     println!("CONTROL_LIVENESS_FAILED reason={reason}");
                 }
             }
-            endpoint.close().await;
+            close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
             return Ok(());
         }
     }
-    if let Err(error) = wait_ip(
-        &control,
-        if automatic || legacy.is_some() {
-            AUTO_PATH_WAIT
-        } else {
-            WAIT
-        },
-    )
-    .await
-    {
+    if let Err(error) = wait_ip(&control, data_path_wait(automatic || legacy.is_some())?).await {
         println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
-        if (automatic || legacy.is_some())
+        if safety.is_none()
+            && (automatic || legacy.is_some())
             && let Some(round) = active_round
         {
             if let Err(reason) = report_auto_path_failure_client(&control, round).await {
                 println!("CONTROL_LIVENESS_FAILED reason={reason}");
             }
         }
-        endpoint.close().await;
+        close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
         return Ok(());
     }
     if !member_eligible(&control, &gate) {
         println!("ADMISSION_REJECTED peer={peer} stable_id={stable} before_commit=1");
-        endpoint.close().await;
+        close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
         return Ok(());
     }
     match control.commit_data_path().await {
@@ -1542,7 +1688,7 @@ async fn run_client(
                             "PATH_UNAVAILABLE reason={other:?} mqtt={}",
                             traffic.report()
                         );
-                        endpoint.close().await;
+                        close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
                         return Ok(());
                     }
                 }
@@ -1583,7 +1729,7 @@ async fn run_client(
             println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
         }
     }
-    endpoint.close().await;
+    close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
     Ok(())
 }
 
@@ -1660,7 +1806,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             Ok("1") | Err(_) => 1,
             _ => return Err("lab dual-first packet count must be 1 or 2".into()),
         };
-        let budget = Arc::new(NodeProbeBudget::new(4, probe_limit.max(dual_limit)));
+        let peer_budget =
+            if std::env::var("MIOPUNCH_NAT_FAULT").as_deref() == Ok("budget_exhausted") {
+                0
+            } else {
+                probe_limit.max(dual_limit)
+            };
+        let budget = Arc::new(NodeProbeBudget::new(4, peer_budget));
         Some(
             mapping_evidence(
                 &endpoint,
@@ -1738,6 +1890,11 @@ mod tests {
                 step: -2,
             }),
             CoordFrame::AutoReady(round, MappingPattern::Stable { address: addr }),
+            CoordFrame::AutoOffer(MappingPattern::Irregular {
+                last: addr,
+                low: 42020,
+                high: 42030,
+            }),
             CoordFrame::Start(round),
             CoordFrame::Ack(round),
             CoordFrame::Cancel(round),
@@ -1761,6 +1918,15 @@ mod tests {
         assert!(CoordFrame::parse(b"AUTO_OFFER Q 100.64.27.2:42027 3").is_err());
         assert!(CoordFrame::parse(b"AUTO_OFFER Q 100.64.27.2:65535 1").is_err());
         assert!(CoordFrame::parse(b"AUTO_OFFER S 100.64.27.2:42027 1").is_err());
+        for invalid in [
+            b"AUTO_OFFER I 100.64.27.2:42027 0:42030".as_slice(),
+            b"AUTO_OFFER I 100.64.27.2:42027 42030:42020".as_slice(),
+            b"AUTO_OFFER I 100.64.27.2:42027 42020:42025".as_slice(),
+            b"AUTO_OFFER I [::1]:42027 42020:42030".as_slice(),
+            b"AUTO_OFFER I 100.64.27.2:42027 42020:42030 extra".as_slice(),
+        ] {
+            assert!(CoordFrame::parse(invalid).is_err());
+        }
         assert_ne!(CoordFrame::Start(round), CoordFrame::Start(Round([0; 16])));
     }
 }

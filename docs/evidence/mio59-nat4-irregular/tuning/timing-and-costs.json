@@ -1,0 +1,58 @@
+[
+  {
+    "topology": "random-eim",
+    "strategy": "padding0",
+    "attempts": 16,
+    "success": 0,
+    "hits": 0,
+    "median_path_ms": null,
+    "median_fixture_cpu_ms": 1573.0,
+    "median_application_primes": 2.0,
+    "median_peer_udp_datagrams": 5.0,
+    "median_qad_udp_datagrams": 108.0,
+    "median_peer_udp_payload_bytes": 3622.0,
+    "median_qad_udp_payload_bytes": 79683.0
+  },
+  {
+    "topology": "random-eim",
+    "strategy": "padding4",
+    "attempts": 16,
+    "success": 1,
+    "hits": 1,
+    "median_path_ms": 411,
+    "median_fixture_cpu_ms": 1578.5,
+    "median_application_primes": 2.0,
+    "median_peer_udp_datagrams": 5.0,
+    "median_qad_udp_datagrams": 106.0,
+    "median_peer_udp_payload_bytes": 3622.0,
+    "median_qad_udp_payload_bytes": 79413.5
+  },
+  {
+    "topology": "random-up1",
+    "strategy": "padding0",
+    "attempts": 16,
+    "success": 0,
+    "hits": 0,
+    "median_path_ms": null,
+    "median_fixture_cpu_ms": 1568.0,
+    "median_application_primes": 2.0,
+    "median_peer_udp_datagrams": 5.0,
+    "median_qad_udp_datagrams": 109.5,
+    "median_peer_udp_payload_bytes": 3622.0,
+    "median_qad_udp_payload_bytes": 80637.5
+  },
+  {
+    "topology": "random-up1",
+    "strategy": "padding4",
+    "attempts": 16,
+    "success": 0,
+    "hits": 0,
+    "median_path_ms": null,
+    "median_fixture_cpu_ms": 1572.5,
+    "median_application_primes": 2.0,
+    "median_peer_udp_datagrams": 5.0,
+    "median_qad_udp_datagrams": 110.0,
+    "median_peer_udp_payload_bytes": 3622.0,
+    "median_qad_udp_payload_bytes": 81477.0
+  }
+]

@@ -1,0 +1,22 @@
+CANDIDATE id=13b5ea363946b09456abfd4027e0fcce9b8fe0aa600dec683316a046cb5e56b5 sockets=[0.0.0.0:42027, [::]:42709] observed=100.64.27.2:42041 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.2:42041 t_ms=0 age_ms=13
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.2:42036 t_ms=5 age_ms=7
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.2:42031 t_ms=9 age_ms=3
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.2:42034 t_ms=13 age_ms=0
+MAPPING_CLASS pattern=Irregular { last: 100.64.27.2:42034, low: 42031, high: 42041 } confidence=fresh_irregular_no_prediction fresh=true
+READY id=13b5ea363946b09456abfd4027e0fcce9b8fe0aa600dec683316a046cb5e56b5 route=ccdfb9cc35237c4f68241a524d9f21b9
+CONTROL_FRAME_RECEIVED kind=AUTO_OFFER bytes=32
+CONTROL_FRAME_SENT kind=AUTO_READY bytes=75
+CONTROL_FRAME_RECEIVED kind=START bytes=38
+CONTROL_FRAME_SENT kind=ACK bytes=36
+AUTO_SELECTED role=IrregularRegularReceiver target=100.64.27.6:43035 round=2793561395ae90e57623ec134bc61868 stable_id=95755468430064
+EXCHANGED peer=102303ac4a65ebf19bb16793cadaf35a404657e9b8e5887f9c3a4a6980c490c3 peer_candidate=100.64.27.6:43035 stable_id=95755468430064
+CONTROL_FRAME_SENT kind=SENDER_PRIMED bytes=46
+CONTROL_FRAME_RECEIVED kind=SENDER_PRIMED_ACK bytes=50
+AUTO_PROBES_SENT count=1 distinct_targets=1 role=IrregularRegularReceiver target=100.64.27.6:43035 elapsed_ms=27
+PATH_UNAVAILABLE reason=deadline has elapsed mqtt=MQTT_TRAFFIC sent_packets=34 sent_bytes=9469 received_packets=36 received_bytes=10928 rejected_packets=0 max_datagram=2048 queue_depth=64
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED bytes=44
+CONTROL_FRAME_SENT kind=PATH_FAILED_ACK bytes=48
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED_DONE bytes=49
+CONTROL_FRAME_SENT kind=PATH_FAILED_DONE_ACK bytes=53
+CONTROL_ALIVE_AFTER_UDP_FAILURE stable_id=95755468430064

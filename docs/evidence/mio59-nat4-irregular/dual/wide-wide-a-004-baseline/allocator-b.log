@@ -1,0 +1,5 @@
+ALLOCATOR_READY
+{"allocation": 4, "destination": "100.64.27.2:5822", "source": "100.64.27.6:48297"}
+{"allocation": 5, "destination": "100.64.27.2:5823", "source": "100.64.27.6:58619"}
+ALLOCATOR_RESET
+{"allocation": 4, "destination": "100.64.27.2:30019", "source": "100.64.27.6:48297"}

@@ -1,0 +1,22 @@
+CANDIDATE id=cbf1ffd26d1972533d74236f4858ddd587f5e9cabbb73ff9609a3963c1a73f23 sockets=[0.0.0.0:42027, [::]:50089] observed=100.64.27.2:42046 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.2:42046 t_ms=0 age_ms=13
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.2:42035 t_ms=4 age_ms=9
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.2:42044 t_ms=9 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.2:42043 t_ms=13 age_ms=0
+MAPPING_CLASS pattern=Irregular { last: 100.64.27.2:42043, low: 42035, high: 42046 } confidence=fresh_irregular_no_prediction fresh=true
+READY id=cbf1ffd26d1972533d74236f4858ddd587f5e9cabbb73ff9609a3963c1a73f23 route=b254449fe981fe4efae79d4df626c5d3
+CONTROL_FRAME_RECEIVED kind=AUTO_OFFER bytes=32
+CONTROL_FRAME_SENT kind=AUTO_READY bytes=75
+CONTROL_FRAME_RECEIVED kind=START bytes=38
+CONTROL_FRAME_SENT kind=ACK bytes=36
+AUTO_SELECTED role=IrregularRegularReceiver target=100.64.27.6:43035 round=d514691c8e75f4793e98d41285fcf976 stable_id=100238687696032
+EXCHANGED peer=7c3b17a4adcea665d50b1e97c13d511addc85a928c82cbc0c5795417c4538bed peer_candidate=100.64.27.6:43035 stable_id=100238687696032
+CONTROL_FRAME_SENT kind=SENDER_PRIMED bytes=46
+CONTROL_FRAME_RECEIVED kind=SENDER_PRIMED_ACK bytes=50
+AUTO_PROBES_SENT count=1 distinct_targets=1 role=IrregularRegularReceiver target=100.64.27.6:43035 elapsed_ms=110
+PATH_UNAVAILABLE reason=deadline has elapsed mqtt=MQTT_TRAFFIC sent_packets=28 sent_bytes=9293 received_packets=33 received_bytes=10886 rejected_packets=0 max_datagram=2048 queue_depth=64
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED bytes=44
+CONTROL_FRAME_SENT kind=PATH_FAILED_ACK bytes=48
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED_DONE bytes=49
+CONTROL_FRAME_SENT kind=PATH_FAILED_DONE_ACK bytes=53
+CONTROL_ALIVE_AFTER_UDP_FAILURE stable_id=100238687696032

@@ -1,7 +1,8 @@
-//! Mapping evidence for choosing a bounded UDP punch strategy.
+//! Frozen single-candidate experimental mapping policy for MIOPUNCH-56–59.
 //!
 //! A QAD observation reports a public mapping, not the peer's filter rules.
 //! In particular, this module never infers APDF from a mapping sequence.
+//! The formal legacy classifier and complete mode selector live in `nat_selector`.
 
 use std::{
     collections::HashSet,
@@ -21,8 +22,20 @@ pub struct MappingSample {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MappingPattern {
-    Stable { address: SocketAddr },
-    Sequential { last: SocketAddr, step: i16 },
+    Stable {
+        address: SocketAddr,
+    },
+    Sequential {
+        last: SocketAddr,
+        step: i16,
+    },
+    /// Fresh, same-IP samples with inconsistent signed transitions. This is
+    /// allocation evidence, never a claim that the next mapping is in the span.
+    Irregular {
+        last: SocketAddr,
+        low: u16,
+        high: u16,
+    },
     Unknown,
 }
 
@@ -37,11 +50,22 @@ pub enum PunchRole {
     DualFirst,
     /// Both mappings advance: send after DualFirst has opened its filter.
     DualSecond,
+    /// The experimental irregular receiver primes before one peer draw.
+    IrregularReceiver,
+    /// The experimental stable sender samples one irregular peer port.
+    RandomTargetSender,
+    /// The experimental irregular receiver primes one regular prediction.
+    IrregularRegularReceiver,
+    /// The experimental regular sender samples one irregular peer port.
+    RegularRandomTargetSender,
 }
 
 /// A local policy ceiling, not an assertion about real NAT allocation.
 pub const MAX_ABS_STEP: i16 = 2;
 pub const MAX_EVIDENCE_AGE: Duration = Duration::from_secs(2);
+/// The controlled irregular allocator has sixteen available ports. Broader
+/// spans have no measured local-window benefit in this slice.
+pub const MAX_IRREGULAR_SAMPLE_SPAN: u16 = 15;
 
 /// Share one instance across strategy attempts on a node. Failed operations
 /// still consume their reservation, so retrying cannot refill the allowance.
@@ -77,7 +101,7 @@ impl NodeProbeBudget {
 }
 
 /// Require four ordered, independent destinations so three transitions agree.
-/// A direction reversal, changed public IP, repeated destination, stale sample,
+/// A changed public IP, repeated destination, stale sample,
 /// or invalid next port makes the result unknown rather than widening the scan.
 pub fn classify(samples: &[MappingSample], now: Instant) -> MappingPattern {
     if samples.len() != 4 {
@@ -114,10 +138,14 @@ pub fn classify(samples: &[MappingSample], now: Instant) -> MappingPattern {
         };
     }
     let step = deltas[0];
-    if step == 0
-        || step.unsigned_abs() > MAX_ABS_STEP as u32
-        || deltas.iter().any(|delta| *delta != step)
-    {
+    if deltas.iter().any(|delta| *delta != step) {
+        return MappingPattern::Irregular {
+            last: samples[3].mapped,
+            low: *ports.iter().min().unwrap() as u16,
+            high: *ports.iter().max().unwrap() as u16,
+        };
+    }
+    if step == 0 || step.unsigned_abs() > MAX_ABS_STEP as u32 {
         return MappingPattern::Unknown;
     }
     if !(1..=65535).contains(&(ports[3] + step)) {
@@ -126,6 +154,55 @@ pub fn classify(samples: &[MappingSample], now: Instant) -> MappingPattern {
     MappingPattern::Sequential {
         last: samples[3].mapped,
         step: step as i16,
+    }
+}
+
+/// One random destination per round: fresh narrow allocation evidence allows
+/// a local window hypothesis; broad evidence permits only one whole-port draw.
+/// Neither Unknown nor a second socket provides permission for a scan.
+pub fn irregular_window(pattern: MappingPattern) -> Option<(SocketAddr, u16, u16)> {
+    irregular_window_with_padding(pattern, 4)
+}
+
+/// Keep the observed-only comparison under the same validity and span policy.
+/// Only the measured zero/four-port padding arms are available.
+pub fn irregular_window_with_padding(
+    pattern: MappingPattern,
+    padding: u16,
+) -> Option<(SocketAddr, u16, u16)> {
+    if !matches!(padding, 0 | 4) {
+        return None;
+    }
+    let MappingPattern::Irregular { last, low, high } = pattern else {
+        return None;
+    };
+    if !last.is_ipv4() || low == 0 || low >= high || !(low..=high).contains(&last.port()) {
+        return None;
+    }
+    let (low, high) = if high - low <= MAX_IRREGULAR_SAMPLE_SPAN {
+        (
+            low.saturating_sub(padding).max(1),
+            high.saturating_add(padding),
+        )
+    } else {
+        (1, u16::MAX)
+    };
+    Some((last, low, high))
+}
+
+/// A single-candidate comparison inspired by old mode2/4 roles. The
+/// irregular side submits its UDP prime before the protected signal permits
+/// the peer's submission. A gateway can still delay/reorder WAN forwarding;
+/// only the later QUIC validation establishes reachability. Unsupported pairs
+/// stop without peer packets.
+pub fn choose_irregular_pair(local: MappingPattern, remote: MappingPattern) -> Option<PunchRole> {
+    use MappingPattern::{Irregular, Sequential, Stable};
+    match (local, remote) {
+        (Irregular { .. }, Stable { .. }) => Some(PunchRole::IrregularReceiver),
+        (Stable { .. }, Irregular { .. }) => Some(PunchRole::RandomTargetSender),
+        (Irregular { .. }, Sequential { .. }) => Some(PunchRole::IrregularRegularReceiver),
+        (Sequential { .. }, Irregular { .. }) => Some(PunchRole::RegularRandomTargetSender),
+        _ => None,
     }
 }
 
@@ -233,9 +310,22 @@ mod tests {
     }
 
     #[test]
-    fn rejects_reversal_old_or_reused_evidence() {
+    fn fresh_irregular_evidence_is_distinct_from_missing_or_invalid_evidence() {
+        let (samples, now) = samples([42031, 42039, 42035, 42037]);
+        assert!(matches!(
+            classify(&samples, now),
+            MappingPattern::Irregular { .. }
+        ));
+        assert_eq!(classify(&samples[..3], now), MappingPattern::Unknown);
+    }
+
+    #[test]
+    fn distinguishes_reversal_from_old_or_reused_evidence() {
         let (mut samples, now) = samples([42031, 42033, 42035, 42034]);
-        assert_eq!(classify(&samples, now), MappingPattern::Unknown);
+        assert!(matches!(
+            classify(&samples, now),
+            MappingPattern::Irregular { .. }
+        ));
         let (too_wide, now) = self::samples([42031, 42034, 42037, 42040]);
         assert_eq!(classify(&too_wide, now), MappingPattern::Unknown);
         samples[3].mapped.set_port(42037);
@@ -267,6 +357,61 @@ mod tests {
         assert_eq!(
             predicted_peer_address(sequential),
             Some("100.64.27.2:42039".parse().unwrap())
+        );
+    }
+
+    #[test]
+    fn irregular_roles_and_targets_require_fresh_allocation_evidence() {
+        let (samples, now) = samples([42031, 42039, 42035, 42037]);
+        let irregular = classify(&samples, now);
+        let stable = MappingPattern::Stable {
+            address: "100.64.27.6:43027".parse().unwrap(),
+        };
+        let regular = MappingPattern::Sequential {
+            last: "100.64.27.6:43037".parse().unwrap(),
+            step: 2,
+        };
+        assert_eq!(
+            choose_irregular_pair(irregular, stable),
+            Some(PunchRole::IrregularReceiver)
+        );
+        assert_eq!(
+            choose_irregular_pair(stable, irregular),
+            Some(PunchRole::RandomTargetSender)
+        );
+        assert_eq!(
+            choose_irregular_pair(regular, irregular),
+            Some(PunchRole::RegularRandomTargetSender)
+        );
+        assert_eq!(
+            choose_irregular_pair(irregular, regular),
+            Some(PunchRole::IrregularRegularReceiver)
+        );
+        assert_eq!(choose_irregular_pair(irregular, irregular), None);
+        assert_eq!(
+            choose_irregular_pair(MappingPattern::Unknown, regular),
+            None
+        );
+        assert_eq!(choose_irregular_pair(regular, regular), None);
+        assert_eq!(choose_irregular_pair(stable, stable), None);
+        assert_eq!(
+            irregular_window(irregular).map(|(_, low, high)| (low, high)),
+            Some((42027, 42043))
+        );
+        assert_eq!(irregular_window(MappingPattern::Unknown), None);
+        assert_eq!(
+            irregular_window_with_padding(irregular, 0).map(|(_, low, high)| (low, high)),
+            Some((42031, 42039))
+        );
+        assert_eq!(irregular_window_with_padding(irregular, 5), None);
+        let broader = MappingPattern::Irregular {
+            last: "100.64.27.2:42039".parse().unwrap(),
+            low: 42031,
+            high: 42047,
+        };
+        assert_eq!(
+            irregular_window(broader).map(|(_, low, high)| (low, high)),
+            Some((1, u16::MAX))
         );
     }
 

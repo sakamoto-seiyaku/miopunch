@@ -1,0 +1,10 @@
+{
+  "case": "positive",
+  "topology": "wide-eim",
+  "dialer": "b",
+  "strategy": "auto",
+  "seed": "mio59-20260930:wide-eim:b:1",
+  "runner_rc": 0,
+  "wall_ms": 44555,
+  "fixture_cpu_ms": 1798
+}

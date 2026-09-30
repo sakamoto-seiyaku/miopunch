@@ -1,0 +1,10 @@
+{
+  "case": "network_after_plan",
+  "topology": "random-up1",
+  "dialer": "a",
+  "strategy": "auto",
+  "seed": "mio59-safety-20260930:network_after_plan",
+  "runner_rc": 0,
+  "wall_ms": 42113,
+  "fixture_cpu_ms": 1817
+}

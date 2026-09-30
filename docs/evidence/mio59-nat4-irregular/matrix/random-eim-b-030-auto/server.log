@@ -1,0 +1,22 @@
+CANDIDATE id=14784a84ebc5efff31fc3f970d8f42b20d54ff28c57f520fd833a58829731261 sockets=[0.0.0.0:42027, [::]:41439] observed=100.64.27.2:42041 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.2:42041 t_ms=0 age_ms=15
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.2:42042 t_ms=5 age_ms=9
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.2:42039 t_ms=10 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.2:42031 t_ms=14 age_ms=0
+MAPPING_CLASS pattern=Irregular { last: 100.64.27.2:42031, low: 42031, high: 42042 } confidence=fresh_irregular_no_prediction fresh=true
+READY id=14784a84ebc5efff31fc3f970d8f42b20d54ff28c57f520fd833a58829731261 route=569a706cf6f77e6b238161a31e99190e
+CONTROL_FRAME_RECEIVED kind=AUTO_OFFER bytes=32
+CONTROL_FRAME_SENT kind=AUTO_READY bytes=75
+CONTROL_FRAME_RECEIVED kind=START bytes=38
+CONTROL_FRAME_SENT kind=ACK bytes=36
+AUTO_SELECTED role=IrregularReceiver target=100.64.27.6:43027 round=764c7368b4b2e36572fc331dd80b0b93 stable_id=103082218766880
+EXCHANGED peer=852aec89e9883f19b465f90204371b06eaa6a6c8a665704726f02e3f24594df0 peer_candidate=100.64.27.6:43027 stable_id=103082218766880
+CONTROL_FRAME_SENT kind=SENDER_PRIMED bytes=46
+CONTROL_FRAME_RECEIVED kind=SENDER_PRIMED_ACK bytes=50
+AUTO_PROBES_SENT count=1 distinct_targets=1 role=IrregularReceiver target=100.64.27.6:43027 elapsed_ms=120
+PATH_UNAVAILABLE reason=deadline has elapsed mqtt=MQTT_TRAFFIC sent_packets=28 sent_bytes=9294 received_packets=33 received_bytes=10882 rejected_packets=0 max_datagram=2048 queue_depth=64
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED bytes=44
+CONTROL_FRAME_SENT kind=PATH_FAILED_ACK bytes=48
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED_DONE bytes=49
+CONTROL_FRAME_SENT kind=PATH_FAILED_DONE_ACK bytes=53
+CONTROL_ALIVE_AFTER_UDP_FAILURE stable_id=103082218766880

@@ -1,0 +1,3 @@
+conntrack v1.4.7 (conntrack-tools): 2 flow entries have been shown.
+udp      17 29 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=39002 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=39002 dport=49854 mark=0 use=1
+udp      17 29 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=39001 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=39001 dport=21770 mark=0 use=1

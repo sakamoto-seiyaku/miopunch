@@ -1,0 +1,64 @@
+{
+  "core": {
+    "snapshot": "/tmp/mio59-final-runtime",
+    "sha256": {
+      "nat4_irregular_allocator.py": "1beac708788b369defdc4e0e8985029dfea47a1d3efc025394c16c5ab6f814d8",
+      "nat4_irregular_lab.sh": "59d9227b4c7d10c2cc82353fd9610b852130b1bc892d1360b4dab8c4356f4f8f",
+      "nat4_irregular_matrix.py": "0ae4830454cf7f0487c8ac9efaf473ca60c2cd589d40daa87985a591270f750f",
+      "nat4_pair_matrix.py": "f3b8894f4c97e786cc5e92025cf46ce4a9cece39cf71dbcd972d8ee88d71a204",
+      "udp_nat_probe": "03477aac35c525d2854324ac5c789fd1cba5f2215ac501d76a124ce866e5e4e2",
+      "udp_observation_probe": "b6f751ab41a280fafe17b9c469c6fea2e7a0d20318678b807edbca92e6573cc6"
+    }
+  },
+  "supplement": {
+    "snapshot": "/tmp/mio59-supplement-runtime",
+    "sha256": {
+      "nat4_irregular_allocator.py": "1beac708788b369defdc4e0e8985029dfea47a1d3efc025394c16c5ab6f814d8",
+      "nat4_irregular_lab.sh": "f341c24eed5bf2a58c880f11019c105db4186ff8d0e5fb2c0c1b9bd0378d75cd",
+      "nat4_irregular_matrix.py": "0ae4830454cf7f0487c8ac9efaf473ca60c2cd589d40daa87985a591270f750f",
+      "nat4_pair_matrix.py": "f3b8894f4c97e786cc5e92025cf46ce4a9cece39cf71dbcd972d8ee88d71a204",
+      "udp_nat_probe": "75d388b515985d897a69f7d24e4a10b2ef8f355ad39f2eff01a7fbb58c2730a1",
+      "udp_observation_probe": "b6f751ab41a280fafe17b9c469c6fea2e7a0d20318678b807edbca92e6573cc6"
+    }
+  },
+  "tuning": {
+    "snapshot": "/tmp/mio59-tuning-runtime2",
+    "sha256": {
+      "nat4_irregular_allocator.py": "1beac708788b369defdc4e0e8985029dfea47a1d3efc025394c16c5ab6f814d8",
+      "nat4_irregular_lab.sh": "054cc04906d4da1a7495b479ba76bdaf73b8fe6184d3114760692b81644d387d",
+      "nat4_irregular_matrix.py": "0ae4830454cf7f0487c8ac9efaf473ca60c2cd589d40daa87985a591270f750f",
+      "nat4_pair_matrix.py": "f3b8894f4c97e786cc5e92025cf46ce4a9cece39cf71dbcd972d8ee88d71a204",
+      "udp_nat_probe": "af6794d70a8469021b6175e56018c833ab98e17181b3359deec3abf5916ecfe3",
+      "udp_observation_probe": "e1e70646f3b610cfbc7d5118d1f3ad9291a4d2eefd8d31a8893914bed47e8898"
+    }
+  },
+  "resume_smoke": {
+    "snapshot": "/tmp/mio59-resume-runtime-smoke",
+    "sha256": {
+      "nat4_irregular_allocator.py": "1beac708788b369defdc4e0e8985029dfea47a1d3efc025394c16c5ab6f814d8",
+      "nat4_irregular_lab.sh": "3b30a4e3667fb399908ce80808874ef9f32647f175116379d7a1ddabfce21e42",
+      "udp_nat_probe": "2ac11c82e8471721c75bb6807fe68d78c8f9197e8d1dc5d8732f949afbc88567",
+      "udp_observation_probe": "d105290ac1d92dcc6f7049a50d077f111bad50ed516a55d6c68d7b1a210ba90e"
+    }
+  },
+  "resume": {
+    "snapshot": "/tmp/mio59-resume-runtime-final",
+    "sha256": {
+      "nat4_irregular_acceptance.py": "12017db1d1d56c3898f0d2d0429fe1881de522a0047674d4d0c1db1cae3ce843",
+      "nat4_irregular_allocator.py": "1beac708788b369defdc4e0e8985029dfea47a1d3efc025394c16c5ab6f814d8",
+      "nat4_irregular_lab.sh": "c6ce8822e56e0f2650bc137dc13e499029ab33165de554796f0f1a6d36f5a3e7",
+      "udp_nat_probe": "66c942bd8e17c223047b7a7f49bd4998ab470016946db38df8a6348fb0cdd2cf",
+      "udp_observation_probe": "d105290ac1d92dcc6f7049a50d077f111bad50ed516a55d6c68d7b1a210ba90e"
+    }
+  },
+  "resume_capturefix": {
+    "snapshot": "/tmp/mio59-resume-runtime-capturefix",
+    "sha256": {
+      "nat4_irregular_acceptance.py": "12017db1d1d56c3898f0d2d0429fe1881de522a0047674d4d0c1db1cae3ce843",
+      "nat4_irregular_allocator.py": "1beac708788b369defdc4e0e8985029dfea47a1d3efc025394c16c5ab6f814d8",
+      "nat4_irregular_lab.sh": "2dfd7ea2fb496955265d345b36a8a31c64d34fcc2d27c628565fc521eba1517b",
+      "udp_nat_probe": "66c942bd8e17c223047b7a7f49bd4998ab470016946db38df8a6348fb0cdd2cf",
+      "udp_observation_probe": "d105290ac1d92dcc6f7049a50d077f111bad50ed516a55d6c68d7b1a210ba90e"
+    }
+  }
+}

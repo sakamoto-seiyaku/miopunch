@@ -1,0 +1,10 @@
+{
+  "case": "wrong_identity",
+  "topology": "random-up1",
+  "dialer": "a",
+  "strategy": "auto",
+  "seed": "mio59-safety-20260930:wrong_identity",
+  "runner_rc": 0,
+  "wall_ms": 40598,
+  "fixture_cpu_ms": 1699
+}

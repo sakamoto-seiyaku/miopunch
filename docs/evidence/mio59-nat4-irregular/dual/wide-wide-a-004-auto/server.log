@@ -1,0 +1,9 @@
+CANDIDATE id=87455f6901020be7092d2a1c8b618da3493fa4e926f3561089c25fa19e09cffa sockets=[0.0.0.0:43027, [::]:42728] observed=100.64.27.6:33540 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.6:33540 t_ms=0 age_ms=12
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.6:43217 t_ms=3 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.6:24031 t_ms=8 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.6:53817 t_ms=12 age_ms=0
+MAPPING_CLASS pattern=Irregular { last: 100.64.27.6:53817, low: 24031, high: 53817 } confidence=fresh_irregular_no_prediction fresh=true
+READY id=87455f6901020be7092d2a1c8b618da3493fa4e926f3561089c25fa19e09cffa route=651010f35bb1c78049e73b4c498f2ae5
+CONTROL_FRAME_RECEIVED kind=AUTO_OFFER bytes=42
+COORD_UNAVAILABLE reason=unsupported mapping pair: bounded fallback, no peer probe mqtt=MQTT_TRAFFIC sent_packets=20 sent_bytes=8889 received_packets=26 received_bytes=10537 rejected_packets=0 max_datagram=2048 queue_depth=64

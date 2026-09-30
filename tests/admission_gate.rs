@@ -877,6 +877,10 @@ async fn an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy()
     // A failed UDP mapping choice and exhausted enhancement budget do not
     // revoke another already-admitted data path or its current QUIC session.
     let stable_id = out.stable_id();
+    assert!(client.bound_sockets().is_empty());
+    let disabled = client.register_udp_traversal(&out, [59; 16]).await;
+    assert_eq!(disabled.unwrap_err().to_string(), "IPv4 traversal disabled");
+    assert_eq!(out.stable_id(), stable_id);
     assert!(
         choose_single_sequential(
             MappingPattern::Unknown,

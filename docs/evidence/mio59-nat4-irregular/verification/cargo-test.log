@@ -1,0 +1,393 @@
+   Compiling iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+   Compiling iroh-gossip v0.101.0
+   Compiling iroh-mdns-address-lookup v0.5.0
+   Compiling miopunch-browser-probe v0.1.0 (/home/js/Git/miopunch/browser-probe)
+   Compiling p2panda-net v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-net)
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 25.35s
+     Running unittests src/lib.rs (target/debug/deps/miopunch_browser_probe-d266f353086bf9d0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/miopunch_native_probe-e6a16d4a3840b7ee)
+
+running 25 tests
+test admission_proof::tests::scram_sha256_matches_rfc_7677_server_verifier ... ok
+test management_store::tests::each_commit_boundary_recovers_from_disk_without_double_apply ... ok
+test nat_mapping::tests::bilateral_first_side_cannot_spend_a_third_datagram ... ok
+test nat_mapping::tests::bilateral_regular_branch_is_distinct_from_stable_and_single_regular ... ok
+test nat_mapping::tests::derives_stable_and_signed_steps_from_ordered_destinations ... ok
+test nat_mapping::tests::distinguishes_reversal_from_old_or_reused_evidence ... ok
+test nat_mapping::tests::fresh_irregular_evidence_is_distinct_from_missing_or_invalid_evidence ... ok
+test nat_mapping::tests::irregular_roles_and_targets_require_fresh_allocation_evidence ... ok
+test nat_mapping::tests::one_node_budget_cannot_be_refilled_by_a_second_attempt ... ok
+test nat_mapping::tests::selects_old_mode_one_roles_only_for_one_regular_and_one_stable ... ok
+test nat_punch::tests::incomplete_samples_keep_legacy_fallback_sender_target_preference ... ok
+test nat_selector::tests::all_six_scenes_preserve_complete_order_for_two_cycles ... ok
+test nat_selector::tests::all_thirty_parameter_pairs_match_the_executed_archived_go_oracle ... ok
+test nat_selector::tests::cache_reuses_port_changes_and_expires_only_after_two_idle_hours ... ok
+test nat_selector::tests::classification_matches_legacy_boundaries_ip_changes_and_public_detection ... ok
+test nat_selector::tests::easy_pair_recommends_every_behavior_in_insertion_order_before_repeating ... ok
+test nat_selector::tests::every_security_dimension_and_directed_feature_key_isolates_learning ... ok
+test nat_selector::tests::legacy_regular_feature_uses_spread_instead_of_signed_steps ... ok
+test nat_selector::tests::public_and_span_changes_reuse_existing_scene_and_opportunistic_clean_refreshes_activity ... ok
+test nat_selector::tests::public_preference_retains_c_priority_and_does_not_change_irregular_fallback ... ok
+test nat_selector::tests::role_adjustment_uses_current_c_feature_without_changing_mode_index ... ok
+test nat_selector::tests::scoring_is_unbounded_downward_success_adds_two_caps_ten_and_refreshes_unknown_index ... ok
+test native_network::tests::publishing_never_replaces_an_existing_empty_directory ... ok
+test tcp_transport::tests::dropping_endpoint_cancels_an_open_tcp_carrier ... ok
+test tcp_transport::tests::unread_inbound_queue_closes_in_bounded_time ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.51s
+
+     Running unittests src/bin/browser_probe_native.rs (target/debug/deps/browser_probe_native-b874595a6f694643)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/miopunch_native_probe-c628b683fa3dac8c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/udp_nat_probe.rs (target/debug/deps/udp_nat_probe-7d2d8e5db0e717e1)
+
+running 1 test
+test tests::control_frames_are_exact_and_round_bound ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/udp_observation_probe.rs (target/debug/deps/udp_observation_probe-203f59948a3e7890)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/admission_gate.rs (target/debug/deps/admission_gate-6331a91cfd2f64cd)
+
+running 17 tests
+test a_connection_to_an_uninvited_tls_identity_cannot_enter_application ... ok
+test a_gated_endpoint_never_treats_a_default_hook_as_admission ... ok
+test a_wrong_secret_cannot_be_reused_from_another_member_connection ... ok
+test admitted_control_path_upgrade_requires_current_membership ... ok
+test an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy ... ok
+test cancelled_proof_does_not_authorize_a_later_connection ... ok
+test genesis_recovery_stays_restricted_and_early_handles_are_unavailable ... ok
+test known_removed_identity_cannot_use_any_exception_or_normal_protocol ... ok
+test no_secret_applicant_only_reaches_the_restricted_application_protocol ... ok
+test p2panda_endpoint_builder_hook_gates_the_actual_protocol_actor ... ok
+test proof_is_bound_to_each_connection_and_credential_generation ... ok
+test secret_holder_without_membership_gets_bootstrap_but_no_normal_protocol ... ok
+test signaling_carrier_allows_scoped_control_but_refuses_business ... ok
+test stale_member_view_does_not_return_an_outgoing_business_handle ... ok
+test stalled_proof_times_out_and_fresh_connection_can_still_prove ... ok
+test the_persisted_native_network_installs_the_same_gate ... ok
+test verified_members_reach_every_normal_protocol_and_revocation_closes_existing_sessions ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.89s
+
+     Running tests/admission_proof.rs (target/debug/deps/admission_proof-0cd5b8943384db08)
+
+running 10 tests
+test cancelling_a_pending_proof_closes_its_connection ... ok
+test changed_server_final_is_not_mutual_success ... ok
+test correct_secret_proves_both_sides_on_real_tls ... ok
+test exporter_is_equal_at_both_tls_ends_and_changes_on_reconnect ... ok
+test previous_valid_client_transcript_cannot_be_replayed_on_a_new_connection ... ok
+test proof_forwarded_to_a_different_tls_connection_fails ... ok
+test unbound_or_downgraded_first_message_is_rejected ... ok
+test untrusted_iteration_count_is_rejected_before_expensive_work ... ok
+test wrong_exporter_value_on_a_real_tls_connection_fails ... ok
+test wrong_secret_network_and_secret_generation_do_not_prove_admission ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.95s
+
+     Running tests/genesis_recovery.rs (target/debug/deps/genesis_recovery-3b669f5abb18945c)
+
+running 5 tests
+test pinned_root_credential_recovers_from_ordinary_member_without_secret_or_old_admin ... ok
+test revoked_old_grant_cannot_be_replayed_as_a_completed_recovery ... ok
+test same_root_alternate_create_cannot_replace_saved_network_history ... ok
+test wrong_root_network_target_and_replayed_connection_get_no_material ... ok
+test wrong_saved_create_hash_cannot_start_recovery ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.48s
+
+     Running tests/legacy_nat_runtime.rs (target/debug/deps/legacy_nat_runtime-eb94d211b6b3a6c9)
+
+running 15 tests
+test assisted_only_fallback_receives_without_an_outbound_target_and_sender_keeps_lan_first ... ok
+test cancelled_or_revoked_round_has_no_peer_budget_or_learning_feedback ... ok
+test complete_scheduler_preserves_original_tls_connection_business_and_one_feedback ... ok
+test dropping_attempt_during_sender_delay_spends_nothing_and_cannot_learn ... ok
+test exhaustion_stops_full_phase_and_existing_authorized_control_remains_usable ... ok
+test existing_verified_path_cannot_learn_when_budget_was_denied_or_credential_changed ... ok
+test fallback_retains_a_freshly_acquired_candidate_for_its_phase ... ok
+test low_ttl_and_unsupported_ttl_do_not_change_parallel_connection_business ... ok
+test old_prediction_age_does_not_expire_a_legacy_plan_but_network_change_does ... ok
+test receiver_can_win_before_delay_without_sending_a_probe_and_lease_closes ... ok
+test scope_and_network_changes_during_delay_stop_before_submission ... ok
+test stale_round_and_foreign_connection_authentication_cannot_select_a_winner ... ok
+test two_real_qad_observers_public_preference_original_business_and_learning ... ok
+test wrong_gate_and_empty_fallback_cannot_disclose_candidates_or_spend_peer_budget ... ok
+test wrong_network_and_old_round_are_rejected_before_snapshot_disclosure_or_selection ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.11s
+
+     Running tests/legacy_nat_scheduler.rs (target/debug/deps/legacy_nat_scheduler-0a9c023ba6881a14)
+
+running 2 tests
+test legacy_range_is_inclusive_and_clips_to_valid_udp_ports ... ok
+test sender_assisted_first_and_only_adjacent_duplicates_compact ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/management_auth.rs (target/debug/deps/management_auth-43828c5a31817a33)
+
+running 7 tests
+test alternate_create_wrong_root_and_tampered_signature_never_enter_graph ... ok
+test concurrent_root_demote_filters_daily_remove_in_both_arrival_orders ... ok
+test daily_manager_cannot_change_admins_or_exit_without_root_authority ... ok
+test restored_root_uses_new_author_log_without_old_device_tail ... ok
+test same_author_log_requires_contiguous_sequence_and_backlink ... ok
+test same_log_backlink_must_also_be_a_causal_predecessor ... ok
+test signed_daily_approval_succeeds_but_admin_appointment_is_rejected ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.79s
+
+     Running tests/management_store.rs (target/debug/deps/management_store-b2d9825d8698f201)
+
+running 6 tests
+test full_signed_record_survives_process_restart_with_body_intact ... ok
+test missing_body_does_not_claim_hash_before_complete_retransmission ... ok
+test no_body_management_record_is_applied_and_saved ... ok
+test out_of_order_and_duplicate_ingest_converges_after_restart ... ok
+test rejected_signed_record_does_not_block_later_valid_history ... ok
+test write_record_in_child_process ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.92s
+
+     Running tests/mqtt_probe.rs (target/debug/deps/mqtt_probe-ef8db5a30c5ebcd0)
+
+running 4 tests
+test cancelling_a_subscribed_mqtt_endpoint_completes ... ok
+test known_nodes_exchange_control_over_a_real_mqtt_broker ... ok
+test rebinding_the_adapter_gets_a_fresh_delivery_route ... ok
+test wrong_identity_and_other_subscriber_cannot_get_control_or_plaintext ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.81s
+
+     Running tests/mqtt_upgrade.rs (target/debug/deps/mqtt_upgrade-96f1c7663df55dd9)
+
+running 5 tests
+test closed_control_session_never_releases_queued_business ... ok
+test queued_business_and_retransmission_never_fall_back_to_mqtt ... ok
+test real_mqtt_control_connection_upgrades_to_udp_without_redial ... ok
+test reordered_real_mqtt_datagrams_preserve_control_stream_bytes ... ok
+test restricted_mqtt_endpoint_refuses_early_connection_handles ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.15s
+
+     Running tests/native_network.rs (target/debug/deps/native_network-ec8d1ca8deb12cc4)
+
+running 5 tests
+test create_and_restart_through_public_node_entry ... ok
+test invalid_record_cannot_create_a_valid_view ... ok
+test new_credential_is_new_network_and_secrets_are_not_status ... ok
+test relative_data_directory_is_a_public_entry ... ok
+test wrong_root_and_alternate_create_cannot_replace_pinned_network ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.42s
+
+     Running tests/native_probe.rs (target/debug/deps/native_probe-8b77d23032556b79)
+
+running 11 tests
+test invalid_mode_does_not_create_an_identity ... ok
+test oversized_tcp_frame_is_rejected_before_allocating_its_body ... ok
+test p2panda_endpoint_reaches_iroh_lookup_without_an_address_book_entry ... ok
+test restarting_a_node_keeps_its_identity ... ok
+test sudden_tcp_disconnect_does_not_stop_future_connections ... ok
+test truncated_tcp_frame_closes_without_reporting_echo_success ... ok
+test two_native_identities_exchange_a_message_over_framed_tcp ... ok
+test two_native_identities_exchange_a_message_over_udp ... ok
+test wrapped_probe_accepts_a_wildcard_bind_for_a_lan_peer ... ok
+test wrong_target_identity_fails_even_at_a_reachable_udp_address ... ok
+test wrong_target_identity_fails_on_reachable_tcp_carrier ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.88s
+
+     Running tests/udp_observation.rs (target/debug/deps/udp_observation-c47a4a12890ec416)
+
+running 6 tests
+test changed_nat_mapping_replaces_the_old_candidate_after_network_change ... ok
+test destination_dependent_nat_reports_mapping_variance ... ok
+test disabled_observation_endpoint_never_contacts_the_observer ... ok
+test failed_periodic_observation_withdraws_the_old_udp_candidate ... ok
+test mixed_observation_and_data_relay_configuration_fails_at_bind ... ok
+test relay_disabled_observes_the_real_quic_socket_through_a_controlled_nat ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 29.81s
+
+     Running tests/unknown_member_bootstrap.rs (target/debug/deps/unknown_member_bootstrap-c60c912b116e0d7f)
+
+running 2 tests
+test false_candidates_and_former_secret_holders_do_not_receive_history ... ok
+test offline_known_contact_does_not_block_unknown_member_bootstrap ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.62s
+
+     Running unittests src/lib.rs (target/debug/deps/p2panda_auth-46b359b81e96588f)
+
+running 50 tests
+test access::tests::expiry_timestamp_access_ordering ... ok
+test access::tests::path_condition_comparators ... ok
+test graph::tests::complex_bubble ... ok
+test graph::tests::test_bubble ... ok
+test graph::tests::test_linear_chain_no_concurrency ... ok
+test graph::tests::test_two_bubbles ... ok
+test group::authority_graphs::tests::graph_builds ... ok
+test group::authority_graphs::tests::multi_delegate_chains ... ok
+test group::authority_graphs::tests::removal_cycle ... ok
+test group::authority_graphs::tests::remove_delegate_cycle ... ok
+test group::crdt::state::tests::add_errors ... ok
+test group::crdt::state::tests::create_add_remove ... ok
+test group::crdt::state::tests::demote_errors ... ok
+test group::crdt::state::tests::merge_state_access ... ok
+test group::crdt::state::tests::merge_state_access_counter ... ok
+test group::crdt::state::tests::merge_state_counter ... ok
+test group::crdt::state::tests::merge_state_member ... ok
+test group::crdt::state::tests::promote_demote_modify ... ok
+test group::crdt::state::tests::promote_errors ... ok
+test group::crdt::state::tests::remove_errors ... ok
+test group::crdt::state::tests::self_remove ... ok
+test group::crdt::tests::add_group_with_concurrent_change ... ok
+test group::crdt::tests::concurrent_add_with_insufficient_access ... ok
+test group::crdt::tests::concurrent_removal ... ok
+test group::crdt::tests::concurrent_removal_ooo_processing ... ok
+test group::crdt::tests::deeply_nested_groups_with_removals ... ok
+test group::crdt::tests::error_on_add_existing_member ... ok
+test group::crdt::tests::error_on_add_manager_group ... ok
+test group::crdt::tests::error_on_demote_non_member ... ok
+test group::crdt::tests::error_on_promote_non_member ... ok
+test group::crdt::tests::error_on_remove_non_member ... ok
+test group::crdt::tests::error_on_remove_nonexistent_subgroup ... ok
+test group::crdt::tests::error_on_unauthorized_add ... ok
+test group::crdt::tests::group_operations ... ok
+test group::crdt::tests::mutual_concurrent_removal ... ok
+test group::crdt::tests::nested_group_cycle_error ... ok
+test group::crdt::tests::nested_groups ... ok
+test group::crdt::tests::nested_groups_with_concurrent_removal_and_promotion ... ok
+test group::crdt::tests::self_remove ... ok
+test group::crdt::tests::serde_to_from_bytes ... ok
+test group::resolver::tests::concurrent_readds_filtered ... ok
+test group::resolver::tests::demote_add_filter ... ok
+test group::resolver::tests::demote_remove_filter ... ok
+test group::resolver::tests::filter_only_concurrent_operations ... ok
+test group::resolver::tests::mutual_removal_filter ... ok
+test group::resolver::tests::mutual_remove_cycle_with_delegation ... ok
+test group::resolver::tests::mutual_remove_cycles_detected ... ok
+test group::resolver::tests::remove_dependencies_filter ... ok
+test group::resolver::tests::remove_readd_dependencies_filter ... ok
+test group::resolver::tests::two_bubbles ... ok
+
+test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/lib.rs (target/debug/deps/p2panda_net-ea4e8d22a7fe27cd)
+
+running 41 tests
+test address_book::actor::tests::insert_node_and_transport_info ... ok
+test address_book::tests::add_topic_bug ... ok
+test addrs::tests::authenticate_address_infos ... ok
+test addrs::tests::deduplicate_transport_address ... ok
+test addrs::tests::latest_transport_info_wins ... ok
+test addrs::tests::node_id_mismatch ... ok
+test addrs::tests::stale_nodes ... ok
+test codec::tests::decoding_exactly_one_frame ... ok
+test codec::tests::decoding_incomplete_frame ... ok
+test codec::tests::decoding_more_than_one_frame ... ok
+test codec::tests::decoding_too_large_message ... ok
+test codec::tests::encoding ... ok
+test codec::tests::encoding_too_large_message ... ok
+test codec::tests::operations_stream ... ok
+test discovery::backoff::tests::increment ... ok
+test discovery::backoff::tests::reset ... ok
+test discovery::tests::smoke_test ... ok
+test gossip::api::tests::topic_drop_guard ... ok
+test gossip::tests::join_without_bootstrap ... ok
+test gossip::tests::joined_and_left_events_are_received ... ok
+test gossip::tests::large_message_error ... ok
+test gossip::tests::leave_overlay_on_drop ... ok
+test gossip::tests::third_peer_joins_non_bootstrap ... ignored, flaky
+test gossip::tests::three_peer_gossip_with_rejoin ... ok
+test gossip::tests::two_peer_gossip ... ok
+test iroh_endpoint::tests::configure_authentication_per_relay ... ok
+test iroh_endpoint::tests::establish_connection ... ok
+test iroh_endpoint::tests::relay_authentication_is_optional ... ok
+test iroh_endpoint::user_data::tests::transport_info_to_user_data ... ok
+test iroh_endpoint::user_data::tests::transport_info_to_user_data_with_relay_url ... ok
+test iroh_mdns::tests::mdns_discovery ... ok
+test supervisor::tests::nested_supervisors ... ok
+test supervisor::tests::restart_after_failure ... ok
+test sync::log_sync::tests::e2e_log_sync ... ok
+test sync::log_sync::tests::e2e_three_party_sync ... ok
+test sync::log_sync::tests::panic_on_sink_closure_after_error_regression ... ok
+test sync::log_sync::tests::unsubscribe_from_gossip_after_drop ... ok
+test sync::tests::failed_sync_session_retry ... ok
+test test_utils::deterministic_args ... ok
+test utils::tests::order ... ok
+test watchers::tests::subscribe_to_changes ... ok
+
+test result: ok. 40 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 33.14s
+
+     Running tests/api.rs (target/debug/deps/api-713d5c9e97e8cf96)
+
+running 1 test
+test modular_api ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/e2e.rs (target/debug/deps/e2e-3b20cfadcefe757f)
+
+running 1 test
+test gossip_and_sync_with_same_topic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.26s
+
+   Doc-tests miopunch_browser_probe
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests miopunch_native_probe
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests p2panda_auth
+
+running 2 tests
+test vendor/p2panda-auth/src/group/authority_graphs.rs - group::authority_graphs::AuthorityGraphs (line 35) ... ignored
+test vendor/p2panda-auth/src/group/authority_graphs.rs - group::authority_graphs::AuthorityGraphs (line 52) ... ignored
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests p2panda_net
+
+running 7 tests
+test vendor/p2panda-net/src/address_book/api.rs - address_book::api::AddressBook (line 27) ... ok
+test vendor/p2panda-net/src/addrs.rs - addrs (line 9) ... ok
+test vendor/p2panda-net/src/gossip/api.rs - gossip::api::Gossip (line 43) ... ok
+test vendor/p2panda-net/src/iroh_endpoint/api.rs - iroh_endpoint::api::Endpoint (line 19) ... ok
+test vendor/p2panda-net/src/iroh_mdns/api.rs - iroh_mdns::api::MdnsDiscovery (line 19) ... ok
+test vendor/p2panda-net/src/lib.rs - (line 25) ... ok
+test vendor/p2panda-net/src/supervisor/api.rs - supervisor::api::Supervisor (line 19) ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+all doctests ran in 4.19s; merged doctests compilation took 3.84s

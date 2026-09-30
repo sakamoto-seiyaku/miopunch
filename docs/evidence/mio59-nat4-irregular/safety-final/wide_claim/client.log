@@ -1,0 +1,8 @@
+CANDIDATE id=33dfd58450e52cc1b2a8e66017dacdc9246e8819a2fa6b15d224d6b812ae993b sockets=[0.0.0.0:42027, [::]:37159] observed=100.64.27.2:42045 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.2:42045 t_ms=0 age_ms=75
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.2:42031 t_ms=18 age_ms=56
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.2:42046 t_ms=28 age_ms=46
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.2:42044 t_ms=75 age_ms=0
+MAPPING_CLASS pattern=Irregular { last: 100.64.27.2:42044, low: 42031, high: 42046 } confidence=fresh_irregular_no_prediction fresh=true
+COORD_UNAVAILABLE reason=invalid NAT3 control frame mqtt=MQTT_TRAFFIC sent_packets=28 sent_bytes=10218 received_packets=25 received_bytes=9025 rejected_packets=0 max_datagram=2048 queue_depth=64
+EARLY_FAILURE_CONTROL_ALIVE stable_id=107752573104256

@@ -1,0 +1,8 @@
+CANDIDATE id=9545714c883eeb0be7ae1ee754400e34f32fad4e6e6092d891e0a78f507f92ca sockets=[0.0.0.0:43027, [::]:43819] observed=100.64.27.6:43031 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.6:43031 t_ms=0 age_ms=12
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.6:43032 t_ms=4 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.6:43033 t_ms=8 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.6:43034 t_ms=12 age_ms=0
+MAPPING_CLASS pattern=Sequential { last: 100.64.27.6:43034, step: 1 } confidence=consistent_3/3_transitions fresh=true
+READY id=9545714c883eeb0be7ae1ee754400e34f32fad4e6e6092d891e0a78f507f92ca route=e2efcfe96efd724030ce1ab727d45aa8
+Error: Custom { kind: Other, error: Connection was rejected locally }

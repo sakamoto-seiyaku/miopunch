@@ -1,0 +1,15 @@
+CANDIDATE id=0b4536b95ddfa04d7b8473909466a0ab40455fe7a15b0ad666ee676ecf4c4883 sockets=[0.0.0.0:42027, [::]:47886] observed=100.64.27.2:42037 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.2:42037 t_ms=0 age_ms=18
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.2:42035 t_ms=5 age_ms=12
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.2:42043 t_ms=12 age_ms=5
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.2:42046 t_ms=18 age_ms=0
+MAPPING_CLASS pattern=Irregular { last: 100.64.27.2:42046, low: 42035, high: 42046 } confidence=fresh_irregular_no_prediction fresh=true
+CONTROL_FRAME_SENT kind=AUTO_OFFER bytes=42
+CONTROL_FRAME_RECEIVED kind=AUTO_READY bytes=65
+CONTROL_FRAME_SENT kind=START bytes=38
+CONTROL_FRAME_RECEIVED kind=ACK bytes=36
+AUTO_SELECTED role=IrregularRegularReceiver target=100.64.27.6:43035 round=bb602574db3404d1bc0e308f2e2a4a71 stable_id=95801712752992
+EXCHANGED peer=ff04ddecfe704aa6045b6cd7bea226850634db2629edf815b772e400eace9b47 peer_candidate=100.64.27.6:43035 attempted=100.64.27.6:43035 stable_id=95801712752992
+FAULT_INJECTED peer_revoked_after_plan stable_id=95801712752992
+PATH_UNAVAILABLE reason=member path upgrade no longer authorized mqtt=MQTT_TRAFFIC sent_packets=33 sent_bytes=10805 received_packets=24 received_bytes=9118 rejected_packets=0 max_datagram=2048 queue_depth=64
+Error: ConnectionLost(LocallyClosed)

@@ -1,0 +1,8 @@
+CANDIDATE id=2227d1856dd6ca150530fde26e03ab0e3cd9172af76e0c01c32e9d0441b2901b sockets=[0.0.0.0:43027, [::]:57870] observed=100.64.27.6:43031 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.6:43031 t_ms=0 age_ms=13
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.6:43032 t_ms=4 age_ms=9
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.6:43033 t_ms=8 age_ms=5
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.6:43034 t_ms=13 age_ms=0
+MAPPING_CLASS pattern=Sequential { last: 100.64.27.6:43034, step: 1 } confidence=consistent_3/3_transitions fresh=true
+READY id=2227d1856dd6ca150530fde26e03ab0e3cd9172af76e0c01c32e9d0441b2901b route=0ce532f1f9ef468c6aa19807c28751af
+Error: "unexpected authenticated peer"

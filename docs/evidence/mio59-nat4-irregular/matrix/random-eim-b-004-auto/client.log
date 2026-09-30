@@ -1,0 +1,21 @@
+CANDIDATE id=ba4a2349913a2dc80f07d06c3d4237b144d5b6729a03e12e5f0c8bb948c64392 sockets=[0.0.0.0:43027, [::]:47262] observed=100.64.27.6:43027 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.6:43027 t_ms=0 age_ms=13
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.6:43027 t_ms=5 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.6:43027 t_ms=9 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.6:43027 t_ms=13 age_ms=0
+MAPPING_CLASS pattern=Stable { address: 100.64.27.6:43027 } confidence=consistent_3/3_transitions fresh=true
+CONTROL_FRAME_SENT kind=AUTO_OFFER bytes=32
+CONTROL_FRAME_RECEIVED kind=AUTO_READY bytes=75
+RANDOM_CANDIDATE observed_last=100.64.27.2:42031 low=42027 high=42050 draws=1 ports=1 sockets=0
+CONTROL_FRAME_SENT kind=START bytes=38
+CONTROL_FRAME_RECEIVED kind=ACK bytes=36
+AUTO_SELECTED role=RandomTargetSender target=100.64.27.2:42034 round=3f655256e1b6dfe17f913b409c311861 stable_id=101469668028912
+EXCHANGED peer=06f28d1d56c4084dd93634af2abcde06f4c1829d58d0fec5266fa07f3d2e3e19 peer_candidate=100.64.27.2:42034 attempted=100.64.27.2:42034 stable_id=101469668028912
+CONTROL_FRAME_RECEIVED kind=SENDER_PRIMED bytes=46
+CONTROL_FRAME_SENT kind=SENDER_PRIMED_ACK bytes=50
+AUTO_PROBES_SENT count=1 distinct_targets=1 role=RandomTargetSender target=100.64.27.2:42034 elapsed_ms=0
+PATH_OPEN path_id_retries=0
+CONTROL_FRAME_SENT kind=PROMOTED bytes=41
+CONTROL_FRAME_RECEIVED kind=COMMITTED bytes=42
+UDP_COMMIT_ACK round=3f655256e1b6dfe17f913b409c311861 stable_id=101469668028912
+DATA_OK stable_id=101469668028912 peer=06f28d1d56c4084dd93634af2abcde06f4c1829d58d0fec5266fa07f3d2e3e19 path_ms=490 paths=PathList { snapshot: State { list: [PathData(1, ip:100.64.27.2:42034)], selected: Some(PathId(1)), closed: true }, .. } mqtt_after_commit=40

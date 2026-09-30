@@ -1,0 +1,10 @@
+{
+  "case": "late_control",
+  "topology": "random-up1",
+  "dialer": "a",
+  "strategy": "auto",
+  "seed": "mio59-safety-20260930:late_control",
+  "runner_rc": 0,
+  "wall_ms": 48866,
+  "fixture_cpu_ms": 1756
+}

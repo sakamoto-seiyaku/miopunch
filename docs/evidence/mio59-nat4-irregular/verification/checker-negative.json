@@ -1,0 +1,42 @@
+[
+  {
+    "fault": "missing LAN",
+    "result": "REJECTED",
+    "reason": "[Errno 2] No such file or directory: '/tmp/standards59-acceptance-fault-15w3zkj3/cancel/lan-a.pcap'"
+  },
+  {
+    "fault": "runtime exit",
+    "result": "REJECTED",
+    "reason": "unexpected endpoint exits/provenance in /tmp/standards59-acceptance-fault-6fngk5el/cancel"
+  },
+  {
+    "fault": "protected ACK",
+    "result": "REJECTED",
+    "reason": "deterministic authorized original-Connection business missing"
+  },
+  {
+    "fault": "mapping invalidation",
+    "result": "REJECTED",
+    "reason": "network mutation absent"
+  },
+  {
+    "fault": "wrong negative reason",
+    "result": "REJECTED",
+    "reason": "wrong negative stage/reason in /tmp/standards59-acceptance-fault-ua2lh1g1/cancel/client: expected COORD_UNAVAILABLE reason=mapping round cancelled"
+  },
+  {
+    "fault": "unrelated error",
+    "result": "REJECTED",
+    "reason": "unrelated endpoint error in /tmp/standards59-acceptance-fault-5o5xazlr/cancel/client"
+  },
+  {
+    "fault": "liveness missing",
+    "result": "REJECTED",
+    "reason": "original protected control liveness missing in /tmp/standards59-acceptance-fault-o2j6upcn/old_receipt/client"
+  },
+  {
+    "fault": "canonical retry seed drift",
+    "result": "REJECTED",
+    "reason": "driver failure/provenance mismatch in /tmp/standards59-acceptance-fault-7ntonxaz/budget_exhausted"
+  }
+]

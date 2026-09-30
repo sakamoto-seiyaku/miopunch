@@ -1,0 +1,16 @@
+CANDIDATE id=53309f1249d0ebfe693bf326b907590d87e6f96e7f226f9e056e09b9df235d7c sockets=[0.0.0.0:43027, [::]:37926] observed=100.64.27.6:43031 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.6:43031 t_ms=0 age_ms=12
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.6:43032 t_ms=3 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.6:43033 t_ms=7 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.6:43034 t_ms=12 age_ms=0
+MAPPING_CLASS pattern=Sequential { last: 100.64.27.6:43034, step: 1 } confidence=consistent_3/3_transitions fresh=true
+READY id=53309f1249d0ebfe693bf326b907590d87e6f96e7f226f9e056e09b9df235d7c route=75fbd8f5e639a3a8b2d5d9237deecd74
+CONTROL_FRAME_RECEIVED kind=AUTO_OFFER bytes=42
+RANDOM_CANDIDATE observed_last=100.64.27.2:42036 low=42029 high=42046 draws=1 ports=1 sockets=0
+CONTROL_FRAME_SENT kind=AUTO_READY bytes=65
+CONTROL_FRAME_RECEIVED kind=START bytes=38
+CONTROL_FRAME_SENT kind=ACK bytes=36
+AUTO_SELECTED role=RegularRandomTargetSender target=100.64.27.2:42029 round=ce95e81e54b847a75d11dcff1ad5d0d3 stable_id=132380085983680
+EXCHANGED peer=001cd762382685f03d970e229f78e4caec2fffefd99d3f5e2209720cb3fb6606 peer_candidate=100.64.27.2:42029 stable_id=132380085983680
+PATH_UNAVAILABLE reason=deadline has elapsed mqtt=MQTT_TRAFFIC sent_packets=31 sent_bytes=9335 received_packets=39 received_bytes=10979 rejected_packets=0 max_datagram=2048 queue_depth=64
+EARLY_FAILURE_CONTROL_ALIVE stable_id=132380085983680

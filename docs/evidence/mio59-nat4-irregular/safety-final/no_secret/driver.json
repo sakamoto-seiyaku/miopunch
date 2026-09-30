@@ -1,0 +1,10 @@
+{
+  "case": "no_secret",
+  "topology": "random-up1",
+  "dialer": "a",
+  "strategy": "auto",
+  "seed": "mio59-safety-20260930:no_secret",
+  "runner_rc": 0,
+  "wall_ms": 47663,
+  "fixture_cpu_ms": 1501
+}

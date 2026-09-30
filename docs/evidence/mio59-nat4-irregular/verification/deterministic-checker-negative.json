@@ -1,0 +1,12 @@
+[
+  {
+    "fault": "deterministic bypass",
+    "result": "REJECTED",
+    "reason": "missing/extra experimental samples in /tmp/standards59-deterministic-final-skag2dlm/eim-up1-a-auto/server"
+  },
+  {
+    "fault": "missing selected IP path",
+    "result": "REJECTED",
+    "reason": "original QUIC business not proven /tmp/standards59-deterministic-final-nf0mv87n/eim-up1-a-auto"
+  }
+]

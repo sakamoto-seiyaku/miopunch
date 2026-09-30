@@ -1,0 +1,22 @@
+Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+    7  3836 DNAT       17   --  wan0   *       0.0.0.0/0            100.64.27.2          to:10.27.1.2:42027
+
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+    4   150 MIO59_PEER  17   --  *      wan0    10.27.1.2            100.64.27.6          udp spt:42027
+    1  1228 SNAT       17   --  *      wan0    10.27.1.2            100.64.27.1          udp spt:42027 dpt:46764 to:100.64.27.2:3099
+    1  1228 SNAT       17   --  *      wan0    10.27.1.2            100.64.27.1          udp spt:42027 dpt:46763 to:100.64.27.2:6835
+    1  1228 SNAT       17   --  *      wan0    10.27.1.2            100.64.27.1          udp spt:42027 dpt:46762 to:100.64.27.2:65393
+    1  1228 SNAT       17   --  *      wan0    10.27.1.2            100.64.27.1          udp spt:42027 dpt:46761 to:100.64.27.2:35089
+    3   140 MASQUERADE  0    --  *      wan0    0.0.0.0/0            0.0.0.0/0
+
+Chain MIO59_PEER (1 references)
+ pkts bytes target     prot opt in     out     source               destination
+    1    39 SNAT       17   --  *      *       10.27.1.2            100.64.27.6          udp spt:42027 dpt:43035 to:100.64.27.2:2877

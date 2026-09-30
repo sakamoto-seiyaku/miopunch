@@ -1,0 +1,10 @@
+{
+  "case": "budget_exhausted",
+  "topology": "random-up1",
+  "dialer": "a",
+  "strategy": "auto",
+  "seed": "mio59-safety-20260930:budget_exhausted",
+  "runner_rc": 1,
+  "wall_ms": 23251,
+  "fixture_cpu_ms": 2737
+}

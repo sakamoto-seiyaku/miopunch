@@ -1,0 +1,192 @@
+[
+  {
+    "case": "nonmember",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:nonmember",
+    "runner_rc": 0,
+    "wall_ms": 19155,
+    "fixture_cpu_ms": 1671
+  },
+  {
+    "case": "revoked",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:revoked",
+    "runner_rc": 0,
+    "wall_ms": 25318,
+    "fixture_cpu_ms": 1263
+  },
+  {
+    "case": "no_secret",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:no_secret",
+    "runner_rc": 0,
+    "wall_ms": 26620,
+    "fixture_cpu_ms": 1463
+  },
+  {
+    "case": "wrong_secret",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:wrong_secret",
+    "runner_rc": 0,
+    "wall_ms": 20056,
+    "fixture_cpu_ms": 1647
+  },
+  {
+    "case": "wrong_identity",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:wrong_identity",
+    "runner_rc": 1,
+    "wall_ms": 20157,
+    "fixture_cpu_ms": 1624
+  },
+  {
+    "case": "stale",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:stale",
+    "runner_rc": 0,
+    "wall_ms": 21810,
+    "fixture_cpu_ms": 1714
+  },
+  {
+    "case": "expire_mapping",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:expire_mapping",
+    "runner_rc": 0,
+    "wall_ms": 20658,
+    "fixture_cpu_ms": 1649
+  },
+  {
+    "case": "late_control",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:late_control",
+    "runner_rc": 0,
+    "wall_ms": 25769,
+    "fixture_cpu_ms": 1672
+  },
+  {
+    "case": "cancel",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:cancel",
+    "runner_rc": 0,
+    "wall_ms": 17902,
+    "fixture_cpu_ms": 1689
+  },
+  {
+    "case": "old_round",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:old_round",
+    "runner_rc": 0,
+    "wall_ms": 19154,
+    "fixture_cpu_ms": 1685
+  },
+  {
+    "case": "old_receipt",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:old_receipt",
+    "runner_rc": 0,
+    "wall_ms": 20358,
+    "fixture_cpu_ms": 1699
+  },
+  {
+    "case": "network_after_plan",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:network_after_plan",
+    "runner_rc": 0,
+    "wall_ms": 23263,
+    "fixture_cpu_ms": 1772
+  },
+  {
+    "case": "revoke_after_plan",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:revoke_after_plan",
+    "runner_rc": 1,
+    "wall_ms": 33735,
+    "fixture_cpu_ms": 1638
+  },
+  {
+    "case": "unknown_mapping",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:unknown_mapping",
+    "runner_rc": 0,
+    "wall_ms": 19004,
+    "fixture_cpu_ms": 1689
+  },
+  {
+    "case": "wide_claim",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:wide_claim",
+    "runner_rc": 0,
+    "wall_ms": 17250,
+    "fixture_cpu_ms": 1676
+  },
+  {
+    "case": "budget_exhausted",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:budget_exhausted",
+    "runner_rc": 0,
+    "wall_ms": 19104,
+    "fixture_cpu_ms": 1690
+  },
+  {
+    "case": "blocked",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:blocked",
+    "runner_rc": 0,
+    "wall_ms": 19104,
+    "fixture_cpu_ms": 1742
+  },
+  {
+    "case": "wrong",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:wrong",
+    "runner_rc": 0,
+    "wall_ms": 17400,
+    "fixture_cpu_ms": 1699
+  },
+  {
+    "case": "out_of_window",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:out_of_window",
+    "runner_rc": 0,
+    "wall_ms": 15547,
+    "fixture_cpu_ms": 1726
+  }
+]

@@ -1,0 +1,121 @@
+[
+  {
+    "case": "positive",
+    "topology": "random-eim",
+    "dialer": "a",
+    "strategy": "baseline",
+    "seed": "mio59-20260930:random-eim:a:1"
+  },
+  {
+    "case": "positive",
+    "topology": "random-eim",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-20260930:random-eim:a:1"
+  },
+  {
+    "case": "positive",
+    "topology": "random-eim",
+    "dialer": "b",
+    "strategy": "baseline",
+    "seed": "mio59-20260930:random-eim:b:1"
+  },
+  {
+    "case": "positive",
+    "topology": "random-eim",
+    "dialer": "b",
+    "strategy": "auto",
+    "seed": "mio59-20260930:random-eim:b:1"
+  },
+  {
+    "case": "positive",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "baseline",
+    "seed": "mio59-20260930:random-up1:a:1"
+  },
+  {
+    "case": "positive",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-20260930:random-up1:a:1"
+  },
+  {
+    "case": "positive",
+    "topology": "random-up1",
+    "dialer": "b",
+    "strategy": "baseline",
+    "seed": "mio59-20260930:random-up1:b:1"
+  },
+  {
+    "case": "positive",
+    "topology": "random-up1",
+    "dialer": "b",
+    "strategy": "auto",
+    "seed": "mio59-20260930:random-up1:b:1"
+  },
+  {
+    "case": "positive",
+    "topology": "wide-eim",
+    "dialer": "a",
+    "strategy": "baseline",
+    "seed": "mio59-20260930:wide-eim:a:1"
+  },
+  {
+    "case": "positive",
+    "topology": "wide-eim",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-20260930:wide-eim:a:1"
+  },
+  {
+    "case": "positive",
+    "topology": "wide-eim",
+    "dialer": "b",
+    "strategy": "baseline",
+    "seed": "mio59-20260930:wide-eim:b:1"
+  },
+  {
+    "case": "positive",
+    "topology": "wide-eim",
+    "dialer": "b",
+    "strategy": "auto",
+    "seed": "mio59-20260930:wide-eim:b:1"
+  },
+  {
+    "case": "positive",
+    "topology": "random-random",
+    "dialer": "a",
+    "strategy": "baseline",
+    "seed": "mio59-20260930:random-random:a:1"
+  },
+  {
+    "case": "positive",
+    "topology": "random-random",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-20260930:random-random:a:1"
+  },
+  {
+    "case": "positive",
+    "topology": "random-random",
+    "dialer": "b",
+    "strategy": "baseline",
+    "seed": "mio59-20260930:random-random:b:1"
+  },
+  {
+    "case": "positive",
+    "topology": "random-random",
+    "dialer": "b",
+    "strategy": "auto",
+    "seed": "mio59-20260930:random-random:b:1"
+  },
+  {
+    "case": "positive",
+    "topology": "eim-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-compat-deterministic-20260930"
+  }
+]

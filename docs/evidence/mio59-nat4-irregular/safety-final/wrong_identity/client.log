@@ -1,0 +1,7 @@
+CANDIDATE id=a526980d5ebd3e5ccf340b303fd3959814af08a1491683378dc9c46113ffd3d5 sockets=[0.0.0.0:42027, [::]:40430] observed=100.64.27.2:42034 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.2:42034 t_ms=0 age_ms=13
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.2:42044 t_ms=4 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.2:42041 t_ms=9 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.2:42033 t_ms=13 age_ms=0
+MAPPING_CLASS pattern=Irregular { last: 100.64.27.2:42033, low: 42033, high: 42044 } confidence=fresh_irregular_no_prediction fresh=true
+Error: Elapsed(())

@@ -1,0 +1,10 @@
+{
+  "case": "wide_claim",
+  "topology": "random-up1",
+  "dialer": "a",
+  "strategy": "auto",
+  "seed": "mio59-safety-20260930:wide_claim",
+  "runner_rc": 0,
+  "wall_ms": 28587,
+  "fixture_cpu_ms": 2631
+}

@@ -1,0 +1,7 @@
+CANDIDATE id=baa51b0635dd7f092d0c7f4ce2843d4e1b2b8173921220980c019d2fef731d52 sockets=[0.0.0.0:42027, [::]:45037] observed=100.64.27.2:42038 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.2:42038 t_ms=0 age_ms=12
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.2:42033 t_ms=3 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.2:42040 t_ms=7 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.2:42042 t_ms=12 age_ms=0
+MAPPING_CLASS pattern=Irregular { last: 100.64.27.2:42042, low: 42033, high: 42042 } confidence=fresh_irregular_no_prediction fresh=true
+Error: Connection was rejected locally

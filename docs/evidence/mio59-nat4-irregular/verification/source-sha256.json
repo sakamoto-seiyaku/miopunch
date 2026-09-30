@@ -1,0 +1,22 @@
+{
+  "Cargo.lock": "6f6307c0d5474f01548746163e35297d894b44e5bc765a8fbeb2d58e343af005",
+  "Cargo.toml": "78aae279ccabea0ab47b9ed3b5cc5dbb2c55511eb86ae982bd679bd7bf17edd8",
+  "scripts/nat4_irregular_acceptance.py": "12017db1d1d56c3898f0d2d0429fe1881de522a0047674d4d0c1db1cae3ce843",
+  "scripts/nat4_irregular_acceptance_verify.py": "ee8d7f2e76f55eafa7d521dca0609255b8856fda48903e714f9511852b6e5387",
+  "scripts/nat4_irregular_allocator.py": "8e559a5c61c3cc8a0778ad4e99531d1c625eda7363ce835733f1d2d874ade879",
+  "scripts/nat4_irregular_lab.Dockerfile": "1d0b14f29ea25f986d87c3e6ec373c613a3abb6b04c586ed90cb49c00c96b22c",
+  "scripts/nat4_irregular_lab.sh": "2dfd7ea2fb496955265d345b36a8a31c64d34fcc2d27c628565fc521eba1517b",
+  "scripts/nat4_irregular_matrix.py": "9099ead69e6a7fed12c8527a807f44c9a7fd73e9d96a5b3d216e87d9dbecc065",
+  "scripts/nat4_irregular_verify.py": "72de4bb8d580d45316038905dd38e94a84aacb13a92e52cc055da9203ebc1f72",
+  "src/bin/udp_nat_probe.rs": "d0072d0c05bbd7e231cce378b2d667a1715fd326c78fe9d826e396d05f1029d9",
+  "src/control_session.rs": "851324f5f7f075b81e69fac4f1a635a2704aca94cfbc94144335dcd42b1d0a35",
+  "src/nat_mapping.rs": "a33d45f74ef02659c4b1b0a46f070b03809a94d336de2c5773532808645dcd7c",
+  "src/nat_punch.rs": "f1fc555d44bdca83f2f6905670da6585218a492380b3db01d22d5a567d2e8922",
+  "src/nat_scheduler.rs": "67a108cc9ddfa43147f3f302155ddb6f18c0389777d959315f9511ea34563aab",
+  "src/nat_selector.rs": "7a57155e8f2d83f30f041865ad1e269aa5a274f3e2534ea4c7f2f9cfe86abcd9",
+  "tests/admission_gate.rs": "2ca76d525971d4d4c24ba73139ba5b47b100292a489db33c144482dfef917826",
+  "vendor/iroh/src/socket.rs": "7f95410e90ed72de3a506cf2712df8cb8e2fb1fdeaa30ea115f6b96a38dca3bc",
+  "vendor/iroh/src/socket/transports.rs": "4c70433c5f7c90b1300736ce177084114d1de6e0b31a0864cdb8c7ee9c471b68",
+  "vendor/iroh/src/socket/transports/ip.rs": "8f5b301eabd97d1e682373005ca97cc9f9d3aa2eafd02b7242d39a421c47fe6a",
+  "vendor/netwatch/src/udp.rs": "0ab23b1f669301defe36a8de165a5efab63618740a1272709ee1662b3375e09a"
+}

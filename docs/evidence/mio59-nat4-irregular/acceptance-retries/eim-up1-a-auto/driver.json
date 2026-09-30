@@ -1,0 +1,10 @@
+{
+  "case": "positive",
+  "topology": "eim-up1",
+  "dialer": "a",
+  "strategy": "auto",
+  "seed": "mio59-compat-deterministic-20260930",
+  "runner_rc": 0,
+  "wall_ms": 8532,
+  "fixture_cpu_ms": 1669
+}

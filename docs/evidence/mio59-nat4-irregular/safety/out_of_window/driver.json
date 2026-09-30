@@ -1,0 +1,10 @@
+{
+  "case": "out_of_window",
+  "topology": "random-up1",
+  "dialer": "a",
+  "strategy": "auto",
+  "seed": "mio59-safety-20260930:out_of_window",
+  "runner_rc": 0,
+  "wall_ms": 15547,
+  "fixture_cpu_ms": 1726
+}

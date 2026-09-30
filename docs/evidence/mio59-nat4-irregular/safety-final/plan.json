@@ -1,0 +1,135 @@
+[
+  {
+    "case": "nonmember",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:nonmember"
+  },
+  {
+    "case": "revoked",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:revoked"
+  },
+  {
+    "case": "no_secret",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:no_secret"
+  },
+  {
+    "case": "wrong_secret",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:wrong_secret"
+  },
+  {
+    "case": "wrong_identity",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:wrong_identity"
+  },
+  {
+    "case": "stale",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:stale"
+  },
+  {
+    "case": "expire_mapping",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:expire_mapping"
+  },
+  {
+    "case": "late_control",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:late_control"
+  },
+  {
+    "case": "cancel",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:cancel"
+  },
+  {
+    "case": "old_round",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:old_round"
+  },
+  {
+    "case": "old_receipt",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:old_receipt"
+  },
+  {
+    "case": "network_after_plan",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:network_after_plan"
+  },
+  {
+    "case": "revoke_after_plan",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:revoke_after_plan"
+  },
+  {
+    "case": "unknown_mapping",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:unknown_mapping"
+  },
+  {
+    "case": "wide_claim",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:wide_claim"
+  },
+  {
+    "case": "budget_exhausted",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:budget_exhausted"
+  },
+  {
+    "case": "blocked",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:blocked"
+  },
+  {
+    "case": "wrong",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:wrong"
+  },
+  {
+    "case": "out_of_window",
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "seed": "mio59-safety-20260930:out_of_window"
+  }
+]

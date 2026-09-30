@@ -1,0 +1,11 @@
+1790754017: mosquitto version 2.0.11 starting
+1790754017: Config loaded from /tmp/miopunch59.rtbOBS/mosquitto.conf.
+1790754017: Opening ipv4 listen socket on port 1883.
+1790754017: mosquitto version 2.0.11 running
+1790754024: New connection from 100.64.27.6:60394 on port 1883.
+1790754024: New client connected from 100.64.27.6:60394 as mio20-d1e00278782f3789926faf33e5797d37 (p2, c1, k5).
+1790754024: New connection from 100.64.27.2:33598 on port 1883.
+1790754024: New client connected from 100.64.27.2:33598 as mio20-ad4d05c5f4d2827f694a66abcaf6a68c (p2, c1, k5).
+1790754024: Client mio20-d1e00278782f3789926faf33e5797d37 disconnected: Broken pipe.
+1790754029: Client mio20-ad4d05c5f4d2827f694a66abcaf6a68c closed its connection.
+1790754030: mosquitto version 2.0.11 terminating

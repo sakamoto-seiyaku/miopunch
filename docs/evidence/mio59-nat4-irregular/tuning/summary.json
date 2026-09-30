@@ -1,0 +1,66 @@
+[
+  {
+    "topology": "random-eim",
+    "dialer": "a",
+    "strategy": "padding0",
+    "success": 0,
+    "attempts": 8,
+    "bounded_fallback": 0
+  },
+  {
+    "topology": "random-eim",
+    "dialer": "a",
+    "strategy": "padding4",
+    "success": 0,
+    "attempts": 8,
+    "bounded_fallback": 0
+  },
+  {
+    "topology": "random-eim",
+    "dialer": "b",
+    "strategy": "padding0",
+    "success": 0,
+    "attempts": 8,
+    "bounded_fallback": 0
+  },
+  {
+    "topology": "random-eim",
+    "dialer": "b",
+    "strategy": "padding4",
+    "success": 1,
+    "attempts": 8,
+    "bounded_fallback": 0
+  },
+  {
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "padding0",
+    "success": 0,
+    "attempts": 8,
+    "bounded_fallback": 0
+  },
+  {
+    "topology": "random-up1",
+    "dialer": "a",
+    "strategy": "padding4",
+    "success": 0,
+    "attempts": 8,
+    "bounded_fallback": 0
+  },
+  {
+    "topology": "random-up1",
+    "dialer": "b",
+    "strategy": "padding0",
+    "success": 0,
+    "attempts": 8,
+    "bounded_fallback": 0
+  },
+  {
+    "topology": "random-up1",
+    "dialer": "b",
+    "strategy": "padding4",
+    "success": 0,
+    "attempts": 8,
+    "bounded_fallback": 0
+  }
+]
