@@ -34,6 +34,7 @@ def adapted_fixture(repo, topology, dialer):
   fi
   if [[ $topology == ipchange && $((index % 2)) -eq 1 ]]; then mapped_ip=100.64.27.10; fi''')
     source = replace_once(source, '"100.64.27.2:$mapped_port"', '"$mapped_ip:$mapped_port"')
+    source = replace_once(source, "host 100.64.27.2 or host 100.64.27.6", "host 100.64.27.2 or host 100.64.27.6 or host 100.64.27.10")
     source = replace_once(source, "for index in 0 1 2 3; do", '''if [[ $topology == ipchange ]]; then
   ip -n "$nat_a" addr add 100.64.27.10/32 dev wan0
   ip -n "$wan" route add 100.64.27.10/32 via 100.64.27.2

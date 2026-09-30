@@ -1,0 +1,17 @@
+CANDIDATE id=bb94534fd9816ca3a42f1201670041e8a2235fbabe733c77fb09667ec65ccfc1 sockets=[0.0.0.0:43027, [::]:44865] observed=100.64.27.6:43027 mapping_varies=None
+LEGACY_SAMPLE order=0 destination=100.64.27.1:46761 mapped=100.64.27.6:43027
+LEGACY_SAMPLE order=1 destination=100.64.27.1:46762 mapped=100.64.27.6:43027
+LEGACY_SAMPLE order=2 destination=100.64.27.1:46763 mapped=100.64.27.6:43027
+LEGACY_SAMPLE order=3 destination=100.64.27.1:46764 mapped=100.64.27.6:43027
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Easy, behavior: NoChange, ports_difference: 0, regular_ports_change: false, public_network: false }) socket_generation_current=true
+LEGACY_SELECTED mode=1 index=0 c=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 1, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 1, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 1, index: 2 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 1, index: 3 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 1, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 1, index: 5 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 2, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 2, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 2, index: 2 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 2 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 3 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 5 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 6 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 7 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 8 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 9 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 10 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 11 }, score: 0 }] round=f1b32c677a5558d2f222e83c91d87b7a stable_id=98280761658192 execution=PartialExecution fallback=false
+EXCHANGED peer=eb0c33dffd94bd0fb0edd216565a5fc6b71c9a178e9d6e0bb3811acb626aaa08 peer_candidate=100.64.27.2:42031 attempted=100.64.27.2:42031 stable_id=98280761658192
+LEGACY_EXECUTION status=PartialExecution target=Some(100.64.27.2:42031) stable_id=98280761658192
+PROBES_SENT count=1 distinct_targets=1 partial_execution=1
+PATH_OPEN path_id_retries=0
+PATH_UNAVAILABLE reason=deadline has elapsed mqtt=MQTT_TRAFFIC sent_packets=35 sent_bytes=11226 received_packets=28 received_bytes=10745 rejected_packets=0 max_datagram=2048 queue_depth=64
+CONTROL_FRAME_SENT kind=PATH_FAILED bytes=44
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED_ACK bytes=48
+CONTROL_FRAME_SENT kind=PATH_FAILED_DONE bytes=49
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED_DONE_ACK bytes=53
+CONTROL_ALIVE_AFTER_UDP_FAILURE stable_id=98280761658192

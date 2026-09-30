@@ -1,0 +1,223 @@
+{
+  "verified_cases": 11,
+  "rows": [
+    {
+      "evidence": "verified-eim-a",
+      "case": "positive",
+      "topology": "eim",
+      "dialer": "a",
+      "peer_prime_capture_occurrences": 4,
+      "samples": {
+        "client": [
+          "100.64.27.2:42027",
+          "100.64.27.2:42027",
+          "100.64.27.2:42027",
+          "100.64.27.2:42027"
+        ],
+        "server": [
+          "100.64.27.6:43027",
+          "100.64.27.6:43027",
+          "100.64.27.6:43027",
+          "100.64.27.6:43027"
+        ]
+      },
+      "client_stable_id": "107249174460144",
+      "client_round": "d78581ccf0aaaaed8ee22a59026cfe94",
+      "server_stable_id": "129543058756224",
+      "server_round": "d78581ccf0aaaaed8ee22a59026cfe94",
+      "result": "PASS"
+    },
+    {
+      "evidence": "final-eim-b",
+      "case": "positive",
+      "topology": "eim",
+      "dialer": "b",
+      "peer_prime_capture_occurrences": 4,
+      "samples": {
+        "client": [
+          "100.64.27.6:43027",
+          "100.64.27.6:43027",
+          "100.64.27.6:43027",
+          "100.64.27.6:43027"
+        ],
+        "server": [
+          "100.64.27.2:42027",
+          "100.64.27.2:42027",
+          "100.64.27.2:42027",
+          "100.64.27.2:42027"
+        ]
+      },
+      "client_stable_id": "99491948316384",
+      "client_round": "8a931ef0ed367d30dad9d586d2b55a2e",
+      "server_stable_id": "138311435817808",
+      "server_round": "8a931ef0ed367d30dad9d586d2b55a2e",
+      "result": "PASS"
+    },
+    {
+      "evidence": "verified-nonmonotone-a",
+      "case": "positive",
+      "topology": "nonmonotone",
+      "dialer": "a",
+      "peer_prime_capture_occurrences": 4,
+      "samples": {
+        "client": [
+          "100.64.27.2:42031",
+          "100.64.27.2:42033",
+          "100.64.27.2:42032",
+          "100.64.27.2:42031"
+        ],
+        "server": [
+          "100.64.27.6:43027",
+          "100.64.27.6:43027",
+          "100.64.27.6:43027",
+          "100.64.27.6:43027"
+        ]
+      },
+      "client_stable_id": "104023085739648",
+      "client_round": "4ed05dcc72527ef0367415ce55d9ae18",
+      "server_stable_id": "126635433004976",
+      "server_round": "4ed05dcc72527ef0367415ce55d9ae18",
+      "result": "PASS"
+    },
+    {
+      "evidence": "final-nonmonotone-b",
+      "case": "positive",
+      "topology": "nonmonotone",
+      "dialer": "b",
+      "peer_prime_capture_occurrences": 4,
+      "samples": {
+        "client": [
+          "100.64.27.6:43027",
+          "100.64.27.6:43027",
+          "100.64.27.6:43027",
+          "100.64.27.6:43027"
+        ],
+        "server": [
+          "100.64.27.2:42031",
+          "100.64.27.2:42033",
+          "100.64.27.2:42032",
+          "100.64.27.2:42031"
+        ]
+      },
+      "client_stable_id": "98280761658192",
+      "client_round": "f1b32c677a5558d2f222e83c91d87b7a",
+      "server_stable_id": "135538967337152",
+      "server_round": "f1b32c677a5558d2f222e83c91d87b7a",
+      "result": "PASS"
+    },
+    {
+      "evidence": "verified-ipchange-capture-b",
+      "case": "positive",
+      "topology": "ipchange",
+      "dialer": "b",
+      "peer_prime_capture_occurrences": 0,
+      "samples": {
+        "client": [
+          "100.64.27.6:43027",
+          "100.64.27.6:43027",
+          "100.64.27.6:43027",
+          "100.64.27.6:43027"
+        ],
+        "server": [
+          "100.64.27.2:42031",
+          "100.64.27.10:42031",
+          "100.64.27.2:42031",
+          "100.64.27.10:42031"
+        ]
+      },
+      "client_stable_id": "107364524895872",
+      "client_round": "4558136b5b9d1e3ce7898b4e3281a7f0",
+      "server_stable_id": "108094646254144",
+      "server_round": "4558136b5b9d1e3ce7898b4e3281a7f0",
+      "result": "PASS"
+    },
+    {
+      "evidence": "verified-blocked",
+      "case": "blocked",
+      "topology": "eim",
+      "dialer": "a",
+      "peer_prime_capture_occurrences": 2,
+      "samples": {
+        "client": [
+          "100.64.27.2:42027",
+          "100.64.27.2:42027",
+          "100.64.27.2:42027",
+          "100.64.27.2:42027"
+        ],
+        "server": [
+          "100.64.27.6:43027",
+          "100.64.27.6:43027",
+          "100.64.27.6:43027",
+          "100.64.27.6:43027"
+        ]
+      },
+      "client_stable_id": "94664274589856",
+      "client_round": "5a580e7874be0969adf568e72f68c633",
+      "server_stable_id": "128536224571408",
+      "server_round": "5a580e7874be0969adf568e72f68c633",
+      "result": "PASS"
+    },
+    {
+      "evidence": "verified-wrong",
+      "case": "wrong",
+      "topology": "eim",
+      "dialer": "a",
+      "peer_prime_capture_occurrences": 4,
+      "samples": {
+        "client": [
+          "100.64.27.2:42027",
+          "100.64.27.2:42027",
+          "100.64.27.2:42027",
+          "100.64.27.2:42027"
+        ],
+        "server": [
+          "100.64.27.6:43027",
+          "100.64.27.6:43027",
+          "100.64.27.6:43027",
+          "100.64.27.6:43027"
+        ]
+      },
+      "client_stable_id": "99446744957040",
+      "client_round": "f8e4cb9d2e51690e9f262d350b6e57bc",
+      "server_stable_id": "139104327184352",
+      "server_round": "f8e4cb9d2e51690e9f262d350b6e57bc",
+      "result": "PASS"
+    },
+    {
+      "evidence": "verified-nonmember",
+      "case": "nonmember",
+      "topology": "eim",
+      "dialer": "a",
+      "peer_prime_capture_occurrences": 0,
+      "samples": {},
+      "result": "PASS"
+    },
+    {
+      "evidence": "verified-revoked",
+      "case": "revoked",
+      "topology": "eim",
+      "dialer": "a",
+      "peer_prime_capture_occurrences": 0,
+      "samples": {},
+      "result": "PASS"
+    },
+    {
+      "evidence": "verified-no_secret",
+      "case": "no_secret",
+      "topology": "eim",
+      "dialer": "a",
+      "peer_prime_capture_occurrences": 0,
+      "samples": {},
+      "result": "PASS"
+    },
+    {
+      "evidence": "verified-wrong_secret",
+      "case": "wrong_secret",
+      "topology": "eim",
+      "dialer": "a",
+      "peer_prime_capture_occurrences": 0,
+      "samples": {},
+      "result": "PASS"
+    }
+  ]
+}

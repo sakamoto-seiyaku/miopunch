@@ -1,0 +1,16 @@
+CANDIDATE id=22b4e38aed9d2c5d3de4b9ca91ea881bc13b81befc8e52112ef7e35d128e7181 sockets=[0.0.0.0:42027, [::]:49662] observed=100.64.27.2:42027 mapping_varies=None
+LEGACY_SAMPLE order=0 destination=100.64.27.1:46761 mapped=100.64.27.2:42027
+LEGACY_SAMPLE order=1 destination=100.64.27.1:46762 mapped=100.64.27.2:42027
+LEGACY_SAMPLE order=2 destination=100.64.27.1:46763 mapped=100.64.27.2:42027
+LEGACY_SAMPLE order=3 destination=100.64.27.1:46764 mapped=100.64.27.2:42027
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Easy, behavior: NoChange, ports_difference: 0, regular_ports_change: false, public_network: false }) socket_generation_current=true
+LEGACY_SELECTED mode=0 index=0 c=Behavior { role: Sender, ttl: 0, send_delay_ms: 200, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 0, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 2 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 3 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 5 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 6 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 7 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 8 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 9 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 10 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 11 }, score: 0 }] round=d78581ccf0aaaaed8ee22a59026cfe94 stable_id=107249174460144 execution=PartialExecution fallback=false
+EXCHANGED peer=a56574b836f59f3ab2de3d5796de7461da7cf3c814644c92761accf2570f1257 peer_candidate=100.64.27.6:43027 attempted=100.64.27.6:43027 stable_id=107249174460144
+LEGACY_EXECUTION status=PartialExecution target=Some(100.64.27.6:43027) stable_id=107249174460144
+PROBES_SENT count=1 distinct_targets=1 partial_execution=1
+PATH_OPEN path_id_retries=0
+CONTROL_FRAME_SENT kind=PROMOTED bytes=41
+CONTROL_FRAME_RECEIVED kind=COMMITTED bytes=42
+UDP_COMMIT_ACK round=d78581ccf0aaaaed8ee22a59026cfe94 stable_id=107249174460144
+DATA_OK stable_id=107249174460144 peer=a56574b836f59f3ab2de3d5796de7461da7cf3c814644c92761accf2570f1257 path_ms=1273 paths=PathList { snapshot: State { list: [PathData(1, ip:100.64.27.6:43027)], selected: Some(PathId(1)), closed: true }, .. } mqtt_after_commit=44
+LEGACY_RESULT outcome=business_sent feedback_owner=coordinator stable_id=107249174460144

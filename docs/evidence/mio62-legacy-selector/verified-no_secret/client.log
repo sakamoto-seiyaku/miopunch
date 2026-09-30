@@ -1,0 +1,2 @@
+CANDIDATE id=b6b83032e28475d82cab6f772c740006d94f19570b681a0539952b0364930075 sockets=[0.0.0.0:42027, [::]:55643] observed=100.64.27.2:42027 mapping_varies=None
+Error: Connection was rejected locally

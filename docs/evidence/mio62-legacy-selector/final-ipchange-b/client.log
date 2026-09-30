@@ -1,0 +1,7 @@
+CANDIDATE id=829e9fa60c567f0f1e5fafae41f4a56a39977063815106f06845e8ec49278ee6 sockets=[0.0.0.0:43027, [::]:49028] observed=100.64.27.6:43027 mapping_varies=None
+LEGACY_SAMPLE order=0 destination=100.64.27.1:46761 mapped=100.64.27.6:43027
+LEGACY_SAMPLE order=1 destination=100.64.27.1:46762 mapped=100.64.27.6:43027
+LEGACY_SAMPLE order=2 destination=100.64.27.1:46763 mapped=100.64.27.6:43027
+LEGACY_SAMPLE order=3 destination=100.64.27.1:46764 mapped=100.64.27.6:43027
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Easy, behavior: NoChange, ports_difference: 0, regular_ports_change: false, public_network: false }) socket_generation_current=true
+COORD_UNAVAILABLE reason=current member proof required for NAT planning probes=0 mqtt=MQTT_TRAFFIC sent_packets=30 sent_bytes=11078 received_packets=30 received_bytes=10812 rejected_packets=0 max_datagram=2048 queue_depth=64

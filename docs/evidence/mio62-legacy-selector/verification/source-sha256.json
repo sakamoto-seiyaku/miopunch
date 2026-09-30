@@ -1,0 +1,10 @@
+{
+  "src/nat_punch.rs": "d19212c2ab48adb45a5405de4e39c7ae9f003e76dcc41e7f68b6a61bb03028c8",
+  "src/nat_selector.rs": "7a57155e8f2d83f30f041865ad1e269aa5a274f3e2534ea4c7f2f9cfe86abcd9",
+  "src/bin/udp_nat_probe.rs": "2ded41e545f24b5fd654fe154c8ee7ec1d19ea5c4badf19130fc96864bab8ee9",
+  "src/admission_gate.rs": "203d38f88da3f389ea7464594fc45a2b397be1214b715850794dbd47354d031c",
+  "src/control_session.rs": "43aca5de6ec566250ce7db088124a7b98d3aedd9b20fff5479f3addc125cc400",
+  "vendor/iroh/src/socket.rs": "2f17e857aeef799c9ca50c0e317ace7e8320c4b7088253e517a091f2a3fb845a",
+  "vendor/iroh/src/net_report.rs": "0d50b791dde813a796e60e4f2598caff66f0cd2fd895ce758ad9789430536e6d",
+  "vendor/iroh/src/endpoint.rs": "b354cc6d7e0b99eb7e28cbdfc91a4e621d577e705f8a36f1649954982794ac15"
+}
