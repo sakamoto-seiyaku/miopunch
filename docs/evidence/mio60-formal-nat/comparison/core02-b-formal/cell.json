@@ -1,0 +1,10 @@
+{
+  "id": "core02-b-formal",
+  "core": 2,
+  "case": "positive",
+  "topology": "eif-adf",
+  "dialer": "b",
+  "strategy": "formal",
+  "rounds": 1,
+  "seed": "mio60-frozen-core02-b"
+}

@@ -98,6 +98,18 @@ impl NodeProbeBudget {
             })
             .is_ok()
     }
+
+    /// Admit a complete plan atomically. Its envelope stays spent even if a
+    /// winner or cancellation stops early, so simultaneous rounds cannot borrow
+    /// the same maintenance allowance or refill it on failure.
+    pub(crate) fn reserve_peer_allowance(&self, count: usize) -> Option<Self> {
+        self.peer_datagrams
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |left| {
+                left.checked_sub(count)
+            })
+            .ok()
+            .map(|_| Self::new(0, count))
+    }
 }
 
 /// Require four ordered, independent destinations so three transitions agree.

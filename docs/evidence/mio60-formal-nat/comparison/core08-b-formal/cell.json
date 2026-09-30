@@ -1,0 +1,10 @@
+{
+  "id": "core08-b-formal",
+  "core": 8,
+  "case": "positive",
+  "topology": "up1-up1",
+  "dialer": "b",
+  "strategy": "formal",
+  "rounds": 1,
+  "seed": "mio60-frozen-core08-b"
+}

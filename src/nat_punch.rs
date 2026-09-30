@@ -875,6 +875,29 @@ impl Attempt {
         }
     }
 
+    pub(crate) fn peer_datagram_bound(&self) -> usize {
+        let peer_delay = if self.local == self.plan.c {
+            self.plan.v.send_delay_ms
+        } else {
+            self.plan.c.send_delay_ms
+        };
+        crate::nat_scheduler::PhasePlan::new(
+            self.local,
+            peer_delay,
+            &self.remote_snapshot.mapped,
+            &self.remote_snapshot.assisted,
+            self.remote_feature().map_or(0, |f| f.ports_difference),
+        )
+        .peer_datagram_bound(usize::from(self.local.listen_random) + 1)
+    }
+
+    pub(crate) fn check_execution(&self, control: &ControlSession) -> io::Result<()> {
+        if self.submitted || self.finished || control.stable_id() != self.connection_id {
+            return Err(invalid("old, submitted or finished NAT attempt"));
+        }
+        Ok(())
+    }
+
     /// Existing same-socket primitive only: one guarded UDP submission to the
     /// observed peer. Does not implement range, TTL, delay or repeat scheduling.
     pub async fn execute_partial(
@@ -926,6 +949,17 @@ impl Attempt {
         gate: &AdmissionGate,
         budget: &NodeProbeBudget,
     ) -> io::Result<ExecutionStatus> {
+        self.execute_checked(control, gate, budget, &|| Ok(()))
+            .await
+    }
+
+    pub(crate) async fn execute_checked(
+        &mut self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+        budget: &NodeProbeBudget,
+        permission: &(dyn Fn() -> io::Result<()> + Sync),
+    ) -> io::Result<ExecutionStatus> {
         if self.submitted || self.finished || control.stable_id() != self.connection_id {
             return Err(invalid("old, submitted or finished NAT attempt"));
         }
@@ -961,6 +995,7 @@ impl Attempt {
             tokio::time::Instant::now() + Duration::from_millis(phase.total_budget_ms.into());
         self.phase_deadline = Some(deadline);
         let check = || {
+            permission()?;
             if tokio::time::Instant::now() >= deadline {
                 return Err(io::Error::new(
                     io::ErrorKind::TimedOut,
@@ -1025,6 +1060,7 @@ impl Attempt {
         }
         let guard = async {
             loop {
+                permission()?;
                 check_scope(control, gate, &self.scope, &self.snapshot)?;
                 if control.is_closed() {
                     return Err(io::Error::other("NAT connection closed"));

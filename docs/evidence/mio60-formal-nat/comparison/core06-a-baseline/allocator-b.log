@@ -1,0 +1,8 @@
+ALLOCATOR_READY
+{"tuple": ["10.27.2.2", 43027, "100.64.27.2", 50000], "mapped": ["100.64.27.6", 43027], "allocation": 1, "collisions": 0}
+{"tuple": ["10.27.2.2", 43027, "100.64.27.2", 50001], "mapped": ["100.64.27.6", 43027], "allocation": 2, "collisions": 0}
+{"tuple": ["10.27.2.2", 43127, "100.64.27.2", 50000], "mapped": ["100.64.27.6", 43127], "allocation": 3, "collisions": 0}
+ALLOCATOR_RESET
+{"tuple": ["10.27.2.2", 43027, "100.64.27.2", 42031], "mapped": ["100.64.27.6", 43027], "allocation": 1, "collisions": 0}
+{"tuple": ["10.27.2.2", 43027, "100.64.27.2", 42035], "mapped": ["100.64.27.6", 43027], "allocation": 2, "collisions": 0}
+{"summary": true, "tuples": 2, "collisions": 0, "exhausted": 0}

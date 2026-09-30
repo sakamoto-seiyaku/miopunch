@@ -1,0 +1,6 @@
+Chain FORWARD (policy DROP 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+    0     0 ACCEPT     17   --  wan0   lan0    0.0.0.0/0            0.0.0.0/0            udp dpt:42127 recent: CHECK seconds: 120 name: m60adf42127 side: source mask: 255.255.255.255
+   40 26007 ACCEPT     17   --  wan0   lan0    0.0.0.0/0            0.0.0.0/0            udp dpt:42027 recent: CHECK seconds: 120 name: m60adf42027 side: source mask: 255.255.255.255
+  141 60573 ACCEPT     0    --  lan0   wan0    0.0.0.0/0            0.0.0.0/0
+   70 20319 ACCEPT     0    --  wan0   lan0    0.0.0.0/0            0.0.0.0/0            ctstate RELATED,ESTABLISHED

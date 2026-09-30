@@ -19,6 +19,7 @@ use miopunch_native_probe::{
     admission_proof::{AdmissionScope, AdmissionSecret},
     control_session::{CommitError, ControlSession},
     mqtt_transport::{MqttTransport, Traffic},
+    nat_connection::{NatConnector, UdpPolicy},
     nat_mapping::{self, MappingPattern, MappingSample, NodeProbeBudget, PunchRole},
     nat_punch::{self, Attempt, ExecutionStatus, MappingSnapshot},
     nat_selector::Analyzer,
@@ -269,11 +270,11 @@ fn auto_probe_limit() -> Result<usize, Box<dyn Error>> {
     }
 }
 
-fn automatic_strategy(has_mapping_observers: bool) -> Result<bool, Box<dyn Error>> {
+fn automatic_strategy(_has_mapping_observers: bool) -> Result<bool, Box<dyn Error>> {
     match std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref() {
-        Ok("baseline" | "coordinated" | "legacy") => Ok(false),
-        Ok("auto") => Ok(true),
-        Err(_) => Ok(has_mapping_observers),
+        Ok("baseline" | "coordinated" | "legacy" | "auto" | "formal") => Ok(false),
+        Ok("single-candidate") => Ok(true),
+        Err(_) => Ok(false),
         _ => Err("invalid NAT strategy".into()),
     }
 }
@@ -357,6 +358,14 @@ async fn endpoint(
         url,
         Some(RelayQuicConfig::new(observer_port)),
     ));
+    // A resource-absence fixture, never a selector or behavior override.
+    #[cfg(feature = "nat-lab-test-hooks")]
+    let (mapping_observers, qad) =
+        if std::env::var("MIOPUNCH_NAT_LAB_NO_OBSERVERS").as_deref() == Ok("1") {
+            (None, RelayMap::empty())
+        } else {
+            (mapping_observers, qad)
+        };
     let bind_port: u16 = std::env::var("MIOPUNCH_NAT_BIND_PORT")
         .unwrap_or_else(|_| "0".to_string())
         .parse()?;
@@ -1869,6 +1878,119 @@ async fn run_client(
     Ok(())
 }
 
+/// The normal entry delegates all selection, bounded rounds and physical path
+/// ownership to the node connector. Experiment branches below remain explicit.
+async fn run_formal(
+    endpoint: Endpoint,
+    carrier: Arc<MqttTransport>,
+    traffic: Arc<Traffic>,
+    gate: Option<AdmissionGate>,
+    peer: PublicKey,
+    mode: &str,
+    route: Option<&str>,
+    observers: Option<RelayMap>,
+) -> Result<(), Box<dyn Error>> {
+    let accepting = mode == "server";
+    let control = if accepting {
+        println!("READY id={} route={}", endpoint.id(), carrier.route()?);
+        tokio::time::timeout(WAIT, ControlSession::accept(&endpoint)).await??
+    } else {
+        let route = route.ok_or("client requires control route")?;
+        let target = EndpointAddr::new(peer)
+            .with_addrs([TransportAddr::Custom(MqttTransport::address(route)?)]);
+        tokio::time::timeout(WAIT, ControlSession::connect(&endpoint, target, ALPN)).await??
+    };
+    let stable = control.stable_id();
+    if control.remote_id() != peer || !member_eligible(&control, &gate) {
+        println!("ADMISSION_REJECTED peer={peer} stable_id={stable} probes=0");
+        endpoint.close().await;
+        return Ok(());
+    }
+    let gate = gate.ok_or("formal member gate required")?;
+    println!(
+        "NODE_SESSION local={} peer={peer} stable_id={stable} dialing={}",
+        endpoint.id(),
+        !accepting
+    );
+    let mut safety = FailureLiveness::open(&control, accepting).await?;
+    let policy = UdpPolicy::default();
+    #[cfg(feature = "nat-lab-test-hooks")]
+    let policy = {
+        let mut policy = policy;
+        if let Ok(rounds) = std::env::var("MIOPUNCH_NAT_LAB_ROUNDS") {
+            policy.max_rounds = rounds.parse()?;
+            policy.additional_observations =
+                usize::from(policy.max_rounds) * observers.as_ref().map_or(0, RelayMap::len);
+        }
+        match std::env::var("MIOPUNCH_NAT_FAULT").as_deref() {
+            Ok("budget_exhausted") => policy.peer_datagrams = 0,
+            Ok("udp_disabled") => policy.enabled = false,
+            _ => (),
+        }
+        policy
+    };
+    let connector = NatConnector::new(observers, policy);
+    let upgrade = match connector.upgrade(control, &gate).await {
+        Ok(upgrade) => upgrade,
+        Err(CommitError::Retryable { error, session }) => {
+            println!(
+                "PATH_UNAVAILABLE reason={error} stable_id={} stop=bounded_original_session",
+                session.stable_id()
+            );
+            close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
+            return Ok(());
+        }
+        Err(CommitError::Terminal { error }) => return Err(error.into()),
+    };
+    let mut upgrade = upgrade;
+    let before = traffic.sent_packets();
+    let payload: &[u8] = if accepting { b"NAT_ACK" } else { b"NAT_DATA" };
+    let received = connector
+        .exchange_upgrade_business(&mut upgrade, &gate, payload)
+        .await?;
+    let mut data = upgrade.data;
+    let attempt = upgrade.attempt;
+    if received
+        != (if accepting {
+            b"NAT_DATA".as_slice()
+        } else {
+            b"NAT_ACK".as_slice()
+        })
+        || traffic.sent_packets() != before
+    {
+        return Err("wrong business payload or MQTT business transmission".into());
+    }
+    if let Some(attempt) = attempt.as_ref() {
+        let binding = attempt.local_winner().ok_or("missing physical winner")?;
+        let paths = data.connection().paths();
+        let path = paths
+            .iter()
+            .find(|path| path.is_selected())
+            .ok_or("missing selected winner path")?;
+        println!(
+            "LEGACY_BUSINESS_BINDING stable_id={stable} peer={peer} path_id={} local_socket_id={} local_addr={} remote={}",
+            path.id(),
+            binding.id.get(),
+            binding.local_addr,
+            path.remote_addr()
+        );
+    }
+    println!(
+        "DATA_OK stable_id={stable} peer={peer} kind={} paths={:?} mqtt_after_commit={before}",
+        if upgrade.direct.is_some() {
+            "direct"
+        } else {
+            "punching"
+        },
+        data.connection().paths()
+    );
+    data.take_pending_business();
+    // Both original peers finish their receipts before disposable lab teardown.
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    endpoint.close().await;
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
@@ -1894,6 +2016,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let has_mapping_observers =
         std::env::var("MIOPUNCH_NAT_OBSERVERS").is_ok_and(|value| !value.is_empty());
     let automatic = automatic_strategy(has_mapping_observers)?;
+    let formal = matches!(
+        std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref(),
+        Err(_) | Ok("auto" | "formal")
+    );
     let legacy_selected = std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref() == Ok("legacy");
     if (automatic
         || legacy_selected
@@ -1915,6 +2041,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
     #[cfg(feature = "nat-lab-test-hooks")]
     if std::env::var("MIOPUNCH_LEGACY_TTL_UNAVAILABLE").as_deref() == Ok("1") {
         endpoint.test_force_traversal_ttl_unavailable().await;
+    }
+    if formal {
+        let route = match (mode.as_str(), tail) {
+            ("server", []) => None,
+            ("client", [route]) => Some(route.as_str()),
+            _ => return Err("normal entry accepts server or client with one control route".into()),
+        };
+        return run_formal(
+            endpoint,
+            carrier,
+            traffic,
+            gate,
+            peer,
+            mode,
+            route,
+            mapping_observers,
+        )
+        .await;
     }
     let own_candidate = observed_addr(&endpoint).await?;
     let legacy = if legacy_selected {

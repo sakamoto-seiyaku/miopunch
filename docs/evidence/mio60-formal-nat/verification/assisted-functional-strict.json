@@ -1,0 +1,148 @@
+{
+  "result": "PASS",
+  "probability_samples_added": 0,
+  "final_generation": 3,
+  "functional_checked": 2,
+  "cells": [
+    {
+      "cell": "assisted-with-s-blocked",
+      "generation": 3,
+      "outcome": "complete_bounded_miss",
+      "captures": {
+        "wan": 221,
+        "a": 93,
+        "b": 106
+      },
+      "nodes": {
+        "client": {
+          "cpu": {
+            "schema": 1,
+            "scope": "actual native node process",
+            "collector": "namespace-local wait4",
+            "pid": 323,
+            "exit": 0,
+            "timed_out": false,
+            "executable": "/runtime/udp_nat_probe",
+            "executable_sha256": "2e6901d6d037ea44841ae8ea5d5da3950952f03b9df337cc36efa34a914a7861",
+            "user_cpu_seconds": 0.47513,
+            "system_cpu_seconds": 0.05989,
+            "wall_seconds": 8.024514735094272,
+            "max_rss_kib": 28928,
+            "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+            "sampled_exec_vm_hwm_kib": 29652,
+            "exec_samples": 769,
+            "sampled_maximum_fd": 13,
+            "voluntary_context_switches": 2726,
+            "involuntary_context_switches": 5
+          },
+          "assisted": "10.27.2.2:43027",
+          "mapped": "100.64.27.6:43027, 100.64.27.6:43027, 100.64.27.6:43027, 100.64.27.6:43027",
+          "probes": 26,
+          "phase_ms": 5201,
+          "udp_datagrams": 67,
+          "udp_payload_bytes": 37915,
+          "qad_datagrams": 31
+        },
+        "server": {
+          "cpu": {
+            "schema": 1,
+            "scope": "actual native node process",
+            "collector": "namespace-local wait4",
+            "pid": 305,
+            "exit": 0,
+            "timed_out": false,
+            "executable": "/runtime/udp_nat_probe",
+            "executable_sha256": "2e6901d6d037ea44841ae8ea5d5da3950952f03b9df337cc36efa34a914a7861",
+            "user_cpu_seconds": 0.461891,
+            "system_cpu_seconds": 0.091463,
+            "wall_seconds": 8.233713791007176,
+            "max_rss_kib": 29184,
+            "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+            "sampled_exec_vm_hwm_kib": 29944,
+            "exec_samples": 789,
+            "sampled_maximum_fd": 13,
+            "voluntary_context_switches": 3177,
+            "involuntary_context_switches": 4
+          },
+          "assisted": "10.27.1.2:42027",
+          "mapped": "100.64.27.2:42027, 100.64.27.2:42027, 100.64.27.2:42027, 100.64.27.2:42027",
+          "probes": 50,
+          "phase_ms": 5201,
+          "udp_datagrams": 79,
+          "udp_payload_bytes": 27463,
+          "qad_datagrams": 29
+        }
+      }
+    },
+    {
+      "cell": "assisted-without-s-blocked",
+      "generation": 3,
+      "outcome": "complete_bounded_miss",
+      "captures": {
+        "wan": 64,
+        "a": 31,
+        "b": 11
+      },
+      "nodes": {
+        "client": {
+          "cpu": {
+            "schema": 1,
+            "scope": "actual native node process",
+            "collector": "namespace-local wait4",
+            "pid": 734,
+            "exit": 0,
+            "timed_out": false,
+            "executable": "/runtime/udp_nat_probe",
+            "executable_sha256": "2e6901d6d037ea44841ae8ea5d5da3950952f03b9df337cc36efa34a914a7861",
+            "user_cpu_seconds": 0.340453,
+            "system_cpu_seconds": 0.07209499999999999,
+            "wall_seconds": 7.592532464070246,
+            "max_rss_kib": 28160,
+            "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+            "sampled_exec_vm_hwm_kib": 28764,
+            "exec_samples": 729,
+            "sampled_maximum_fd": 13,
+            "voluntary_context_switches": 2403,
+            "involuntary_context_switches": 4
+          },
+          "assisted": "10.27.1.2:42027",
+          "mapped": "",
+          "probes": 0,
+          "phase_ms": 5000,
+          "udp_datagrams": 5,
+          "udp_payload_bytes": 6000,
+          "qad_datagrams": 0
+        },
+        "server": {
+          "cpu": {
+            "schema": 1,
+            "scope": "actual native node process",
+            "collector": "namespace-local wait4",
+            "pid": 712,
+            "exit": 0,
+            "timed_out": false,
+            "executable": "/runtime/udp_nat_probe",
+            "executable_sha256": "2e6901d6d037ea44841ae8ea5d5da3950952f03b9df337cc36efa34a914a7861",
+            "user_cpu_seconds": 0.39117999999999997,
+            "system_cpu_seconds": 0.07112299999999999,
+            "wall_seconds": 7.799197716056369,
+            "max_rss_kib": 28544,
+            "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+            "sampled_exec_vm_hwm_kib": 29232,
+            "exec_samples": 749,
+            "sampled_maximum_fd": 13,
+            "voluntary_context_switches": 2741,
+            "involuntary_context_switches": 3
+          },
+          "assisted": "10.27.2.2:43027",
+          "mapped": "",
+          "probes": 25,
+          "phase_ms": 5000,
+          "udp_datagrams": 25,
+          "udp_payload_bytes": 1900,
+          "qad_datagrams": 0
+        }
+      }
+    }
+  ]
+}

@@ -127,3 +127,13 @@ cancel an already admitted legacy phase. `UdpMappingSequence` and the legacy
 fallback snapshot retain the physical epoch; actual network-change handling
 increments that epoch before invalidating pending traversal bindings. The
 existing short freshness test remains required when a prediction is acquired.
+
+## MIOPUNCH-60 local assisted candidates
+
+`Endpoint::udp_local_ipv4_candidates` pairs actual primary IPv4 socket ports
+with their bound local addresses or the current interface addresses for a
+wildcard bind. The bounded list excludes reflected, configured and portmapped
+addresses and remains available without QAD observations. The formal connector
+exchanges it as local assisted candidates, preserving sender assisted-before-
+mapped order and the old basic fallback when classification is unavailable.
+No additional socket, endpoint or wire-format change is introduced.

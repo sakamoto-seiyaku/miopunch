@@ -1,0 +1,5 @@
+NODE_SESSION local=72b06cff909648764d4d41e5d369b874dc11873145ce9e05738ddb964d359f8e peer=a62ed0cf347c8b799b1ac38277ce7fc9aff3e43a00478f5d3e8190159a5557b3 stable_id=111336395121120 dialing=true
+NAT_DIRECT_CANDIDATE stable_id=111336395121120 target=10.27.2.2:43027
+NAT_DIRECT_CANDIDATE stable_id=111336395121120 target=100.64.27.6:43027
+NAT_DIRECT_SUCCESS stable_id=111336395121120 target=100.64.27.6:43027 punching_recommendations=0
+DATA_OK stable_id=111336395121120 peer=a62ed0cf347c8b799b1ac38277ce7fc9aff3e43a00478f5d3e8190159a5557b3 kind=direct paths=PathList { snapshot: State { list: [PathData(2, ip:100.64.27.6:43027)], selected: Some(PathId(2)), closed: false }, .. } mqtt_after_commit=39

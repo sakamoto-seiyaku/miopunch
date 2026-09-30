@@ -1404,6 +1404,37 @@ pub enum BindError {
 }
 
 impl EndpointInner {
+    /// Actual interface addresses paired with the primary bound IPv4 ports.
+    /// This intentionally excludes reflected, portmapped and configured addresses.
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn udp_local_ipv4_candidates(&self) -> Vec<SocketAddr> {
+        let interfaces = self.local_interfaces_watcher.clone().get();
+        let local_ips = if interfaces.local_addresses.regular.is_empty() {
+            &interfaces.local_addresses.loopback
+        } else {
+            &interfaces.local_addresses.regular
+        };
+        self.sock
+            .ip_local_addrs()
+            .into_iter()
+            .filter(|addr| addr.is_ipv4() && addr.port() != 0)
+            .flat_map(|addr| {
+                if addr.ip().is_unspecified() {
+                    local_ips
+                        .iter()
+                        .copied()
+                        .filter(IpAddr::is_ipv4)
+                        .map(|ip| SocketAddr::new(ip, addr.port()))
+                        .collect::<Vec<_>>()
+                } else {
+                    vec![addr]
+                }
+            })
+            .filter(|addr| !addr.ip().is_unspecified() && !addr.ip().is_multicast())
+            .take(64)
+            .collect()
+    }
+
     #[cfg(not(wasm_browser))]
     pub(crate) fn udp_observation_generation(&self) -> ObservationValidity {
         ObservationValidity {

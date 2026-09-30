@@ -1,0 +1,147 @@
+{
+  "result": "PASS",
+  "comparison_gate": {
+    "passed": 40,
+    "declared": 40
+  },
+  "per_arm": {
+    "baseline": {
+      "declared": 20,
+      "confirmed_original_business": 10,
+      "bounded_miss": 10,
+      "kinds": {
+        "baseline": 20
+      }
+    },
+    "formal": {
+      "declared": 20,
+      "confirmed_original_business": 14,
+      "bounded_miss": 6,
+      "kinds": {
+        "punching": 15,
+        "direct": 5
+      }
+    }
+  },
+  "per_core": {
+    "core01": {
+      "baseline": {
+        "business": 2,
+        "declared": 2
+      },
+      "formal": {
+        "business": 2,
+        "declared": 2
+      }
+    },
+    "core02": {
+      "baseline": {
+        "business": 2,
+        "declared": 2
+      },
+      "formal": {
+        "business": 2,
+        "declared": 2
+      }
+    },
+    "core03": {
+      "baseline": {
+        "business": 2,
+        "declared": 2
+      },
+      "formal": {
+        "business": 2,
+        "declared": 2
+      }
+    },
+    "core04": {
+      "baseline": {
+        "business": 2,
+        "declared": 2
+      },
+      "formal": {
+        "business": 2,
+        "declared": 2
+      }
+    },
+    "core05": {
+      "baseline": {
+        "business": 1,
+        "declared": 2
+      },
+      "formal": {
+        "business": 2,
+        "declared": 2
+      }
+    },
+    "core06": {
+      "baseline": {
+        "business": 1,
+        "declared": 2
+      },
+      "formal": {
+        "business": 2,
+        "declared": 2
+      }
+    },
+    "core07": {
+      "baseline": {
+        "business": 0,
+        "declared": 2
+      },
+      "formal": {
+        "business": 2,
+        "declared": 2
+      }
+    },
+    "core08": {
+      "baseline": {
+        "business": 0,
+        "declared": 2
+      },
+      "formal": {
+        "business": 0,
+        "declared": 2
+      }
+    },
+    "core09": {
+      "baseline": {
+        "business": 0,
+        "declared": 2
+      },
+      "formal": {
+        "business": 0,
+        "declared": 2
+      }
+    },
+    "core10": {
+      "baseline": {
+        "business": 0,
+        "declared": 2
+      },
+      "formal": {
+        "business": 0,
+        "declared": 2
+      }
+    }
+  },
+  "functional": {
+    "chains": 3,
+    "new_rounds": 54,
+    "all_behaviors": 30,
+    "probability_samples_added": 0
+  },
+  "actual_generations": {
+    "1": 8,
+    "2": 32
+  },
+  "scope": "fixed Linux NFQUEUE/kernel/conntrack fixture; two comparisons per core per arm, not a router/population success-rate estimate",
+  "suite": {
+    "passed": 240,
+    "failed": 0,
+    "ignored": 4,
+    "exit": 0,
+    "real_mqtt": true,
+    "serial": true
+  }
+}

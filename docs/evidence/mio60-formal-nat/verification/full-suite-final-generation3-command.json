@@ -1,0 +1,24 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--workspace",
+    "--target-dir",
+    "/tmp/mio60-build",
+    "--config",
+    "profile.dev.debug=0",
+    "--config",
+    "profile.dev.incremental=false",
+    "--jobs",
+    "4",
+    "--",
+    "--test-threads=1"
+  ],
+  "broker": "dedicated miopunch60-mqtt loopback127.0.0.1:43263",
+  "started_at": "2026-09-30T17:43:44.824190+00:00",
+  "no_broker_skip": true,
+  "generation": 3,
+  "exit": 0,
+  "completed_at": "2026-09-30T17:48:25.016411+00:00"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "hh-irregular-24-rounds",
+  "case": "blocked",
+  "topology": "wide-wide",
+  "dialer": "a",
+  "strategy": "formal",
+  "rounds": 24,
+  "seed": "mio60-chain-hhi"
+}

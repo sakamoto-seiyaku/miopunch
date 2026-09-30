@@ -1,0 +1,1 @@
+case=positive strategy=baseline topology=adf-up1 dialer=b client_rc=0 server_rc=0 seed=mio60-frozen-core05-b

@@ -1,0 +1,12 @@
+NODE_SESSION local=72b06cff909648764d4d41e5d369b874dc11873145ce9e05738ddb964d359f8e peer=a62ed0cf347c8b799b1ac38277ce7fc9aff3e43a00478f5d3e8190159a5557b3 stable_id=105707467500176 dialing=true
+NAT_DIRECT_CANDIDATE stable_id=105707467500176 target=10.27.1.2:42027
+NAT_CONNECTION_ROUND number=1 stable_id=105707467500176
+LEGACY_FEATURE feature=None socket_generation_current=true
+LEGACY_SELECTED mode=0 index=6 c=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[] round=104c8a344d92b6e12409d3089fc6c40d stable_id=105707467500176 execution=Ready fallback=true
+LEGACY_CANDIDATES round=104c8a344d92b6e12409d3089fc6c40d stable_id=105707467500176 assisted=[10.27.1.2:42027] mapped=[]
+LEGACY_RECV_START round=104c8a344d92b6e12409d3089fc6c40d stable_id=105707467500176 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [], candidates: [], range: None, total_budget_ms: 5000, read_budget_ms: 5000 }
+LEGACY_LISTENER round=104c8a344d92b6e12409d3089fc6c40d stable_id=105707467500176 local_socket_id=0 local_addr=0.0.0.0:43027 primary=true
+LEGACY_PHASE_STOP round=104c8a344d92b6e12409d3089fc6c40d stable_id=105707467500176 elapsed_ms=5000 outcome=failed
+LEGACY_TRACE round=104c8a344d92b6e12409d3089fc6c40d stable_id=105707467500176 probes=0 responses=0 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=0 send_errors=0 send_aborted=0 rejected_receipts=0
+PATH_UNAVAILABLE reason=legacy NAT phase budget elapsed stable_id=105707467500176 stop=bounded_original_session
+EARLY_FAILURE_CONTROL_ALIVE stable_id=105707467500176

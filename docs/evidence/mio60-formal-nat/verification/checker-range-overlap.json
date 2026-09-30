@@ -1,0 +1,7 @@
+{
+  "red": "hh-irregular-24-rounds: target-outer/socket-inner repeats differ",
+  "cause": "first range burst may overlap just one unsorted explicit candidate; filtering all range targets into ordinary repeats invents an extra repetition",
+  "fix": "separate initial explicit+range blocks before checking actual ordinary repeats",
+  "runtime_changed": false,
+  "chains_repeated": 0
+}

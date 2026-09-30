@@ -1,0 +1,7 @@
+Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+   17  1768 DROP       17   --  wan0   *       0.0.0.0/0            0.0.0.0/0            TTL match TTL < 8
+
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+    4   214 CT         17   --  *      *       100.64.27.6          0.0.0.0/0            NOTRACK

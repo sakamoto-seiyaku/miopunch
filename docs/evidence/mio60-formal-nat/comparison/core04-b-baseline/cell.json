@@ -1,0 +1,10 @@
+{
+  "id": "core04-b-baseline",
+  "core": 4,
+  "case": "positive",
+  "topology": "eim-eim",
+  "dialer": "b",
+  "strategy": "baseline",
+  "rounds": 1,
+  "seed": "mio60-frozen-core04-b"
+}

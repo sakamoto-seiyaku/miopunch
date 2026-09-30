@@ -1,0 +1,38 @@
+READY id=a62ed0cf347c8b799b1ac38277ce7fc9aff3e43a00478f5d3e8190159a5557b3 route=0c3269f4a2e8f14ea09e54fcd74d1aef
+NODE_SESSION local=a62ed0cf347c8b799b1ac38277ce7fc9aff3e43a00478f5d3e8190159a5557b3 peer=72b06cff909648764d4d41e5d369b874dc11873145ce9e05738ddb964d359f8e stable_id=132477662387696 dialing=false
+NAT_CONNECTION_ROUND number=1 stable_id=132477662387696
+LEGACY_SAMPLE order=0 destination=100.64.27.1:46761 mapped=100.64.27.2:42027
+LEGACY_SAMPLE order=1 destination=100.64.27.1:46762 mapped=100.64.27.2:42027
+LEGACY_SAMPLE order=2 destination=100.64.27.1:46763 mapped=100.64.27.2:42027
+LEGACY_SAMPLE order=3 destination=100.64.27.1:46764 mapped=100.64.27.2:42027
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Easy, behavior: NoChange, ports_difference: 0, regular_ports_change: false, public_network: false }) socket_generation_current=true
+LEGACY_SELECTED mode=1 index=0 c=Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 } v=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 1, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 1, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 1, index: 2 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 1, index: 3 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 1, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 1, index: 5 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 2, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 2, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 2, index: 2 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 2 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 3 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 5 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 6 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 7 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 8 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 9 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 10 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 11 }, score: 0 }] round=6f8f9a466d440368b66476aab615729a stable_id=132477662387696 execution=Ready fallback=false
+LEGACY_RECV_START round=6f8f9a466d440368b66476aab615729a stable_id=132477662387696 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 }, explicit: [], candidates: [100.64.27.6:43031, 100.64.27.6:43032, 100.64.27.6:43033, 100.64.27.6:43034], range: Some((43026, 43042)), total_budget_ms: 5000, read_budget_ms: 5000 }
+LEGACY_LISTENER round=6f8f9a466d440368b66476aab615729a stable_id=132477662387696 local_socket_id=0 local_addr=0.0.0.0:42027 primary=true
+LEGACY_DATAGRAM target=100.64.27.6:43026 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43028 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43029 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43030 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43031 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43032 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43033 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43034 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43035 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43036 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43037 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43038 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43039 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43040 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43041 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43042 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43035 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43035 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43035 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_PHASE_STOP round=6f8f9a466d440368b66476aab615729a stable_id=132477662387696 elapsed_ms=282 outcome=winner
+LEGACY_WINNER round=6f8f9a466d440368b66476aab615729a stable_id=132477662387696 remote=100.64.27.6:43035 response=false before_probe=false probes=17 responses=3 ttl_degraded=0 local_socket_id=0 local_addr=10.27.1.2:42027
+LEGACY_TRACE round=6f8f9a466d440368b66476aab615729a stable_id=132477662387696 probes=17 responses=3 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=20 send_errors=0 send_aborted=0 rejected_receipts=0
+LEGACY_WINNER_READY round=6f8f9a466d440368b66476aab615729a stable_id=132477662387696 remaining_ms=4711
+LEGACY_RESULT outcome=confirmed_business learned=true score_delta=2 stable_id=132477662387696
+LEGACY_BUSINESS_BINDING stable_id=132477662387696 peer=72b06cff909648764d4d41e5d369b874dc11873145ce9e05738ddb964d359f8e path_id=3 local_socket_id=0 local_addr=10.27.1.2:42027 remote=ip:100.64.27.6:43035
+DATA_OK stable_id=132477662387696 peer=72b06cff909648764d4d41e5d369b874dc11873145ce9e05738ddb964d359f8e kind=punching paths=PathList { snapshot: State { list: [PathData(3, ip:100.64.27.6:43035)], selected: Some(PathId(3)), closed: false }, .. } mqtt_after_commit=46

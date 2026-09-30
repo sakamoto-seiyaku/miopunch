@@ -24,6 +24,7 @@ use crate::admission_proof::{AdmissionScope, AdmissionSecret};
 use crate::genesis_recovery::GenesisCredential;
 use crate::management_auth::{ManagementExtension, NetworkAnchor};
 use crate::management_store::{ManagementRecord, ManagementStore, StoreError};
+use crate::nat_connection::{NatConnector, UdpPolicy, UdpUpgrade};
 
 const NODE_KEY: &str = "node.key";
 const GENESIS_CREDENTIAL: &str = "genesis.credential";
@@ -103,6 +104,7 @@ pub struct NativeNetwork {
     anchor: NetworkAnchor,
     store: ManagementStore,
     gate: AdmissionGate,
+    udp: NatConnector,
 }
 
 impl NativeNetwork {
@@ -236,6 +238,7 @@ impl NativeNetwork {
             anchor,
             store,
             gate,
+            udp: NatConnector::new(None, UdpPolicy::default()),
         })
     }
 
@@ -267,6 +270,32 @@ impl NativeNetwork {
     /// builder hook and used to classify any additional protocol ALPN.
     pub fn admission_gate(&self) -> AdmissionGate {
         self.gate.clone()
+    }
+
+    /// Supply the node's explicitly configured observation resources and UDP
+    /// maintenance policy when reopening. The connector is retained by the
+    /// node across connection attempts rather than recreated after failures.
+    pub async fn open_with_udp_resources(
+        path: impl AsRef<Path>,
+        observers: Option<iroh::RelayMap>,
+        policy: UdpPolicy,
+    ) -> Result<Self, NodeError> {
+        let mut node = Self::open(path).await?;
+        node.udp = NatConnector::new(observers, policy);
+        Ok(node)
+    }
+
+    pub fn udp_connector(&self) -> &NatConnector {
+        &self.udp
+    }
+
+    /// Upgrade an admitted control session using direct candidates first, then
+    /// a bounded sequence of complete automatically selected old UDP plans.
+    pub async fn upgrade_udp(
+        &self,
+        control: crate::control_session::ControlSession,
+    ) -> Result<UdpUpgrade, crate::control_session::CommitError> {
+        self.udp.upgrade(control, &self.gate).await
     }
 
     /// Ingest and apply a complete signed management record through the same

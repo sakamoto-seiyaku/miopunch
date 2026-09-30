@@ -1,0 +1,103 @@
+{
+  "result": "PASS",
+  "canonical_strict_sha256": "11cb5f62099ace81b7e3838e099847d8d426fca40689ad726bb884242ea98ed4",
+  "rejected": 16,
+  "rows": [
+    {
+      "fault": "missing-S",
+      "cell": "core07-b-formal",
+      "rejected": true,
+      "reason": "fresh per-round actual S observations missing"
+    },
+    {
+      "fault": "wrong-mode",
+      "cell": "core07-b-formal",
+      "rejected": true,
+      "reason": "selected mode/index differs"
+    },
+    {
+      "fault": "wrong-score",
+      "cell": "core07-b-formal",
+      "rejected": true,
+      "reason": "first-max recommendation/one penalty/cache sequence differs"
+    },
+    {
+      "fault": "wrong-physical-source",
+      "cell": "core07-b-formal",
+      "rejected": true,
+      "reason": "physical four-tuple source mapping differs"
+    },
+    {
+      "fault": "wrong-business-socket",
+      "cell": "core07-b-formal",
+      "rejected": true,
+      "reason": "business/original TLS peer/exact physical winner path differs"
+    },
+    {
+      "fault": "wrong-TLS-peer",
+      "cell": "core07-b-formal",
+      "rejected": true,
+      "reason": "TLS peer changed"
+    },
+    {
+      "fault": "wrong-winner-path",
+      "cell": "core07-b-formal",
+      "rejected": true,
+      "reason": "selected pathID differs from business path"
+    },
+    {
+      "fault": "CPU-parent-scope",
+      "cell": "core07-b-formal",
+      "rejected": true,
+      "reason": "wrong process CPU scope/version/exit"
+    },
+    {
+      "fault": "missing-CPU",
+      "cell": "core07-b-formal",
+      "rejected": true,
+      "reason": "'user_cpu_seconds'"
+    },
+    {
+      "fault": "changed-runtime",
+      "cell": "core07-b-formal",
+      "rejected": true,
+      "reason": "wrong process CPU scope/version/exit"
+    },
+    {
+      "fault": "dropped-capture",
+      "cell": "core07-b-formal",
+      "rejected": true,
+      "reason": "incomplete/dropped capture: /tmp/mio60-verifier-faults-fn506etz/dropped-capture/lan-a.pcap"
+    },
+    {
+      "fault": "truncated-capture",
+      "cell": "core07-b-formal",
+      "rejected": true,
+      "reason": "truncated captured packet"
+    },
+    {
+      "fault": "early-bounded-miss",
+      "cell": "core10-b-formal",
+      "rejected": true,
+      "reason": "early/infrastructure failure masquerades as bounded NAT miss"
+    },
+    {
+      "fault": "lost-original-control",
+      "cell": "core10-b-formal",
+      "rejected": true,
+      "reason": "miss lost original authorized control or learned"
+    },
+    {
+      "fault": "listener-attempts-shrunk",
+      "cell": "core07-b-formal",
+      "rejected": true,
+      "reason": "old256 bind attempts shrunk or unaccounted"
+    },
+    {
+      "fault": "wrong-seed",
+      "cell": "core07-b-formal",
+      "rejected": true,
+      "reason": "exact exit/seed/provenance mismatch"
+    }
+  ]
+}

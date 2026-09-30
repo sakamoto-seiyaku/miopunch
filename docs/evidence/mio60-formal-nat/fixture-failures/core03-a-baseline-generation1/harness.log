@@ -1,0 +1,8 @@
+# Warning: table ip filter is managed by iptables-nft, do not touch!
+# Warning: table ip raw is managed by iptables-nft, do not touch!
+# Warning: table ip nat is managed by iptables-nft, do not touch!
+# Warning: table ip mangle is managed by iptables-nft, do not touch!
+# Warning: table ip filter is managed by iptables-nft, do not touch!
+# Warning: table ip raw is managed by iptables-nft, do not touch!
+# Warning: table ip nat is managed by iptables-nft, do not touch!
+# Warning: table ip mangle is managed by iptables-nft, do not touch!

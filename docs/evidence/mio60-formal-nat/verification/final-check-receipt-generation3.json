@@ -1,0 +1,30 @@
+{
+  "generation": 3,
+  "workspace_suite": {
+    "passed": 241,
+    "failed": 0,
+    "ignored": 4,
+    "exit": 0,
+    "real_mqtt": true,
+    "serial": true
+  },
+  "browser_wasm": {
+    "result": "PASS",
+    "exit": 0,
+    "command": "cargo check --locked -p miopunch-browser-probe --target wasm32-unknown-unknown"
+  },
+  "source49_matches": true,
+  "strict_sha256": "11cb5f62099ace81b7e3838e099847d8d426fca40689ad726bb884242ea98ed4",
+  "historical_comparison": 40,
+  "historical_functional_rounds": 54,
+  "assisted_functional_checks": 2,
+  "probability_samples_added": 0,
+  "verifier_faults": 16,
+  "assisted_verifier_faults": 6,
+  "compressed_streams": 192,
+  "reviews": {
+    "standards_required": 0,
+    "standards_optional": 2,
+    "spec_required": 0
+  }
+}

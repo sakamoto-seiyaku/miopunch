@@ -1,0 +1,10 @@
+{
+  "id": "core02-a-baseline",
+  "core": 2,
+  "case": "positive",
+  "topology": "eif-adf",
+  "dialer": "a",
+  "strategy": "baseline",
+  "rounds": 1,
+  "seed": "mio60-frozen-core02-a"
+}

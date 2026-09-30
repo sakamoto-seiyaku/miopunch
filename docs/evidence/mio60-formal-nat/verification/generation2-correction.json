@@ -1,0 +1,17 @@
+{
+  "old_plan_sha256": "b489f1db345599b2afc063d47a4d09a7954a2642ae62f592d7a2025e03085dbe",
+  "new_plan_sha256": "c64b06d99db8841143963874d474cb67d291b48642d845f6dcbd16c003ff1fb2",
+  "changed_inputs": [
+    "scripts/nat_connection_lab.py",
+    "src/nat_connection.rs"
+  ],
+  "fixture_cause": "gateway-local preflight source was rewritten by MASQUERADE after an EIF-created conntrack collision; retained WAN31552 differs from intended50000",
+  "fixture_fix": "raw OUTPUT NOTRACK only on gateway-local public UDP, never forwarded node product packets; independent same-seed eif/eim preflight PASS",
+  "runtime_change": "deterministic already-disabled permission check before polling business stream IO; continuous guard retained",
+  "runtime_test": "new public disabled business test PASS before/after; code-inspection polling-order hardening, not claimed reproduced packet leak",
+  "retained_completed": 8,
+  "unstarted_failed_cell": "core03-a-baseline",
+  "retry": "same declared cell/seed/identities/order; no node process ran in prior failed preflight",
+  "comparison_denominator": 40,
+  "old_probability_samples_repeated": 0
+}

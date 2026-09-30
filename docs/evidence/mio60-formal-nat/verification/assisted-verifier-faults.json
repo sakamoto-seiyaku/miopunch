@@ -1,0 +1,37 @@
+{
+  "result": "PASS",
+  "rejected": 6,
+  "canonical_strict_sha256": "6af9cfc8306e958c23968e5aafd01b922bea55273c5170c9379a87667421ab86",
+  "rows": [
+    {
+      "fault": "missing-assisted",
+      "rejected": true,
+      "reason": "actual local assisted candidate missing/wrong"
+    },
+    {
+      "fault": "mapped-before-assisted",
+      "rejected": true,
+      "reason": "assisted-before-mapped sequence changed"
+    },
+    {
+      "fault": "invented-no-S-mapped",
+      "rejected": true,
+      "reason": "no-S fallback contains invented mapped observations"
+    },
+    {
+      "fault": "no-S-low-TTL",
+      "rejected": true,
+      "reason": "old default TTL/delay/role behavior changed"
+    },
+    {
+      "fault": "no-S-disabled",
+      "rejected": true,
+      "reason": "basic fallback disabled or repeated recommendation"
+    },
+    {
+      "fault": "no-S-early-stop",
+      "rejected": true,
+      "reason": "early/unbounded phase stop"
+    }
+  ]
+}

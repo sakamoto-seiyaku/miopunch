@@ -1681,6 +1681,13 @@ impl Endpoint {
         self.inner.udp_network_generation()
     }
 
+    /// Bounded actual local IPv4 candidates on the primary UDP sockets.
+    /// Reflected and configured external addresses are not local candidates.
+    #[cfg(not(wasm_browser))]
+    pub fn udp_local_ipv4_candidates(&self) -> Vec<SocketAddr> {
+        self.inner.udp_local_ipv4_candidates()
+    }
+
     /// Returns the local socket addresses on which the underlying sockets are bound.
     ///
     /// The [`Endpoint`] always binds on an IPv4 address and also tries to bind on an IPv6

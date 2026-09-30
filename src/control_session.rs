@@ -32,6 +32,13 @@ pub struct ControlSession {
 }
 
 impl ControlSession {
+    pub(crate) fn endpoint(&self) -> &Endpoint {
+        &self.endpoint
+    }
+
+    pub(crate) fn scope_connection(&self) -> Connection {
+        self.connection.clone()
+    }
     /// Accepts a full-handshake control connection without exposing its raw
     /// application handle. The endpoint must be configured for a control-only
     /// ALPN and must not enable early connection handles.
@@ -254,6 +261,14 @@ impl ControlSession {
             .paths()
             .iter()
             .any(|path| matches!(path.remote_addr(), iroh_base::TransportAddr::Ip(_)))
+    }
+
+    pub(crate) fn connection_paths(&self) -> Vec<iroh_base::TransportAddr> {
+        self.connection
+            .paths()
+            .iter()
+            .map(|path| path.remote_addr().clone())
+            .collect()
     }
 
     pub(crate) fn has_data_path_from(

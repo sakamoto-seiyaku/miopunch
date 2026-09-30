@@ -1,0 +1,5780 @@
+{
+  "result": "PARTIAL",
+  "comparison_denominator": 40,
+  "functional_probability_samples_added": 0,
+  "comparison": [
+    {
+      "cell": "core07-b-baseline",
+      "generation": 1,
+      "captures": {
+        "wan": 97,
+        "a": 30,
+        "b": 36
+      },
+      "outcome": "bounded_miss",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 297,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.380501,
+          "system_cpu_seconds": 0.055682999999999996,
+          "wall_seconds": 12.931760339997709,
+          "max_rss_kib": 28544,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29612,
+          "exec_samples": 1226,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1882,
+          "involuntary_context_switches": 3
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 319,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.36905,
+          "system_cpu_seconds": 0.069196,
+          "wall_seconds": 12.715659416979179,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29624,
+          "exec_samples": 1205,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1896,
+          "involuntary_context_switches": 0
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 14,
+          "udp_payload_bytes": 8366,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 0
+        },
+        "client": {
+          "udp_datagrams": 20,
+          "udp_payload_bytes": 16740,
+          "qad_datagrams": 12,
+          "quic_peer_datagrams": 7
+        }
+      }
+    },
+    {
+      "cell": "core07-b-formal",
+      "generation": 1,
+      "captures": {
+        "wan": 1426,
+        "a": 682,
+        "b": 117
+      },
+      "outcome": "confirmed_business",
+      "phases": [
+        {
+          "mode": 2,
+          "index": 0,
+          "round": "3fd73a6ddd36e07b4fa68264b63c951d",
+          "costs": {
+            "server": {
+              "probes": 588,
+              "responses": 3,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 256,
+              "listener_bound": 256,
+              "listener_failed": 0,
+              "send_attempts": 592,
+              "send_errors": 0,
+              "send_aborted": 1,
+              "rejected_receipts": 0,
+              "elapsed_ms": 3234,
+              "local_sockets": 257
+            },
+            "client": {
+              "probes": 14,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 10,
+              "random_draws": 10,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 14,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 3157,
+              "local_sockets": 1
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 702,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.807978,
+          "system_cpu_seconds": 0.232034,
+          "wall_seconds": 6.541144407005049,
+          "max_rss_kib": 29952,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 30664,
+          "exec_samples": 616,
+          "sampled_maximum_fd": 269,
+          "voluntary_context_switches": 5240,
+          "involuntary_context_switches": 3
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 720,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.443525,
+          "system_cpu_seconds": 0.09419999999999999,
+          "wall_seconds": 6.148397248936817,
+          "max_rss_kib": 29440,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29932,
+          "exec_samples": 584,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 2207,
+          "involuntary_context_switches": 4
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 635,
+          "udp_payload_bytes": 76006,
+          "qad_datagrams": 30,
+          "quic_peer_datagrams": 14
+        },
+        "client": {
+          "udp_datagrams": 72,
+          "udp_payload_bytes": 43324,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 22
+        }
+      }
+    },
+    {
+      "cell": "core02-b-formal",
+      "generation": 1,
+      "captures": {
+        "wan": 145,
+        "a": 68,
+        "b": 64
+      },
+      "outcome": "confirmed_business",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 1115,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.284558,
+          "system_cpu_seconds": 0.027285999999999998,
+          "wall_seconds": 1.1278955889865756,
+          "max_rss_kib": 28544,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29368,
+          "exec_samples": 107,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 501,
+          "involuntary_context_switches": 1
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 1134,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.264776,
+          "system_cpu_seconds": 0.036105,
+          "wall_seconds": 0.9068815980572253,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29520,
+          "exec_samples": 86,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 438,
+          "involuntary_context_switches": 2
+        }
+      },
+      "kind": "direct",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 31,
+          "udp_payload_bytes": 16957,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 15
+        },
+        "client": {
+          "udp_datagrams": 31,
+          "udp_payload_bytes": 19275,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 14
+        }
+      }
+    },
+    {
+      "cell": "core02-b-baseline",
+      "generation": 1,
+      "captures": {
+        "wan": 136,
+        "a": 64,
+        "b": 58
+      },
+      "outcome": "confirmed_business",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 1527,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.2741,
+          "system_cpu_seconds": 0.025696,
+          "wall_seconds": 0.9572625500150025,
+          "max_rss_kib": 28928,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29512,
+          "exec_samples": 90,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 366,
+          "involuntary_context_switches": 2
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 1545,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.264148,
+          "system_cpu_seconds": 0.03154,
+          "wall_seconds": 0.9989600010449067,
+          "max_rss_kib": 28928,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29544,
+          "exec_samples": 95,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 372,
+          "involuntary_context_switches": 0
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 28,
+          "udp_payload_bytes": 16824,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 13
+        },
+        "client": {
+          "udp_datagrams": 27,
+          "udp_payload_bytes": 17808,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 12
+        }
+      }
+    },
+    {
+      "cell": "core10-b-baseline",
+      "generation": 1,
+      "captures": {
+        "wan": 98,
+        "a": 30,
+        "b": 37
+      },
+      "outcome": "bounded_miss",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 1926,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.38265299999999997,
+          "system_cpu_seconds": 0.073764,
+          "wall_seconds": 12.963713921024464,
+          "max_rss_kib": 28800,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29660,
+          "exec_samples": 1230,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1873,
+          "involuntary_context_switches": 3
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 1944,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.39864299999999997,
+          "system_cpu_seconds": 0.09099399999999999,
+          "wall_seconds": 12.749457544996403,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29692,
+          "exec_samples": 1210,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1890,
+          "involuntary_context_switches": 0
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 14,
+          "udp_payload_bytes": 8366,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 0
+        },
+        "client": {
+          "udp_datagrams": 21,
+          "udp_payload_bytes": 16775,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 7
+        }
+      }
+    },
+    {
+      "cell": "core10-b-formal",
+      "generation": 1,
+      "captures": {
+        "wan": 568,
+        "a": 161,
+        "b": 176
+      },
+      "outcome": "bounded_miss",
+      "phases": [
+        {
+          "mode": 0,
+          "index": 0,
+          "round": "b8b150c0e6f5493341f44b2399b5b32f",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5200,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 104,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 104,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5201,
+              "local_sockets": 1
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 2327,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.5710879999999999,
+          "system_cpu_seconds": 0.122376,
+          "wall_seconds": 8.226610646001063,
+          "max_rss_kib": 29184,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29880,
+          "exec_samples": 780,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 3351,
+          "involuntary_context_switches": 4
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 2345,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.474967,
+          "system_cpu_seconds": 0.156945,
+          "wall_seconds": 8.00332650297787,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29984,
+          "exec_samples": 759,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 2943,
+          "involuntary_context_switches": 2
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 131,
+          "udp_payload_bytes": 31539,
+          "qad_datagrams": 31,
+          "quic_peer_datagrams": 0
+        },
+        "client": {
+          "udp_datagrams": 146,
+          "udp_payload_bytes": 43981,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 5
+        }
+      }
+    },
+    {
+      "cell": "core01-a-formal",
+      "generation": 1,
+      "captures": {
+        "wan": 146,
+        "a": 69,
+        "b": 69
+      },
+      "outcome": "confirmed_business",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 2738,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.280796,
+          "system_cpu_seconds": 0.036625,
+          "wall_seconds": 1.150333060999401,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29432,
+          "exec_samples": 109,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 502,
+          "involuntary_context_switches": 2
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 2756,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.276497,
+          "system_cpu_seconds": 0.045395,
+          "wall_seconds": 0.9412040589377284,
+          "max_rss_kib": 28672,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29480,
+          "exec_samples": 89,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 455,
+          "involuntary_context_switches": 3
+        }
+      },
+      "kind": "direct",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 32,
+          "udp_payload_bytes": 19300,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 15
+        },
+        "server": {
+          "udp_datagrams": 30,
+          "udp_payload_bytes": 16920,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 14
+        }
+      }
+    },
+    {
+      "cell": "core01-a-baseline",
+      "generation": 1,
+      "captures": {
+        "wan": 132,
+        "a": 62,
+        "b": 62
+      },
+      "outcome": "confirmed_business",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 3147,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.279482,
+          "system_cpu_seconds": 0.038285,
+          "wall_seconds": 1.0058236890472472,
+          "max_rss_kib": 28544,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29460,
+          "exec_samples": 95,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 408,
+          "involuntary_context_switches": 2
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 3165,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "41670b7f4a1285977117cb2f9ea3273bf9df2c29d168c6c73ca3db965295f527",
+          "user_cpu_seconds": 0.27882999999999997,
+          "system_cpu_seconds": 0.024246,
+          "wall_seconds": 1.02280420192983,
+          "max_rss_kib": 28672,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29676,
+          "exec_samples": 96,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 390,
+          "involuntary_context_switches": 0
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 26,
+          "udp_payload_bytes": 16733,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 12
+        },
+        "server": {
+          "udp_datagrams": 26,
+          "udp_payload_bytes": 15579,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 12
+        }
+      }
+    },
+    {
+      "cell": "core03-a-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 138,
+        "a": 65,
+        "b": 58
+      },
+      "outcome": "confirmed_business",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 300,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.268071,
+          "system_cpu_seconds": 0.019424999999999998,
+          "wall_seconds": 0.9379259110428393,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29584,
+          "exec_samples": 89,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 381,
+          "involuntary_context_switches": 1
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 322,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.25942899999999997,
+          "system_cpu_seconds": 0.031446,
+          "wall_seconds": 0.9772092700004578,
+          "max_rss_kib": 28672,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29448,
+          "exec_samples": 93,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 374,
+          "involuntary_context_switches": 1
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 29,
+          "udp_payload_bytes": 18023,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 14
+        },
+        "server": {
+          "udp_datagrams": 27,
+          "udp_payload_bytes": 16786,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 12
+        }
+      }
+    },
+    {
+      "cell": "core03-a-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 232,
+        "a": 113,
+        "b": 100
+      },
+      "outcome": "confirmed_business",
+      "phases": [
+        {
+          "mode": 0,
+          "index": 0,
+          "round": "ee932205ef174ba47b0618572deee687",
+          "costs": {
+            "server": {
+              "probes": 1,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 1,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 203,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 2,
+              "responses": 3,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 5,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 332,
+              "local_sockets": 1
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 704,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.411613,
+          "system_cpu_seconds": 0.057537,
+          "wall_seconds": 3.5322523940121755,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29924,
+          "exec_samples": 335,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1767,
+          "involuntary_context_switches": 0
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 726,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.374714,
+          "system_cpu_seconds": 0.067719,
+          "wall_seconds": 3.3238318900112063,
+          "max_rss_kib": 29440,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29988,
+          "exec_samples": 316,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1392,
+          "involuntary_context_switches": 1
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 61,
+          "udp_payload_bytes": 39076,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 19
+        },
+        "server": {
+          "udp_datagrams": 50,
+          "udp_payload_bytes": 32727,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 14
+        }
+      }
+    },
+    {
+      "cell": "core06-b-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 265,
+        "a": 97,
+        "b": 131
+      },
+      "outcome": "confirmed_business",
+      "phases": [
+        {
+          "mode": 1,
+          "index": 0,
+          "round": "7e11a9e23f5fffc168eb6df703a71cf9",
+          "costs": {
+            "server": {
+              "probes": 1,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 1,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 1,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 17,
+              "responses": 3,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 20,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 130,
+              "local_sockets": 1
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 1110,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.39732799999999996,
+          "system_cpu_seconds": 0.048272999999999996,
+          "wall_seconds": 3.2266157569829375,
+          "max_rss_kib": 29184,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29928,
+          "exec_samples": 307,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1640,
+          "involuntary_context_switches": 3
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 1132,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.407729,
+          "system_cpu_seconds": 0.040771999999999996,
+          "wall_seconds": 3.0174213520949706,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 30008,
+          "exec_samples": 287,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1435,
+          "involuntary_context_switches": 2
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 51,
+          "udp_payload_bytes": 31585,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 15
+        },
+        "client": {
+          "udp_datagrams": 76,
+          "udp_payload_bytes": 40346,
+          "qad_datagrams": 33,
+          "quic_peer_datagrams": 18
+        }
+      }
+    },
+    {
+      "cell": "core06-b-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 98,
+        "a": 30,
+        "b": 45
+      },
+      "outcome": "bounded_miss",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 1518,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.38854099999999997,
+          "system_cpu_seconds": 0.047487999999999995,
+          "wall_seconds": 12.938976893085055,
+          "max_rss_kib": 28672,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29488,
+          "exec_samples": 1230,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1886,
+          "involuntary_context_switches": 1
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 1540,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.34477199999999997,
+          "system_cpu_seconds": 0.105113,
+          "wall_seconds": 12.724846756085753,
+          "max_rss_kib": 28800,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29652,
+          "exec_samples": 1210,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1889,
+          "involuntary_context_switches": 1
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 14,
+          "udp_payload_bytes": 8367,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 0
+        },
+        "client": {
+          "udp_datagrams": 21,
+          "udp_payload_bytes": 16766,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 7
+        }
+      }
+    },
+    {
+      "cell": "core04-b-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 132,
+        "a": 55,
+        "b": 54
+      },
+      "outcome": "confirmed_business",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 1925,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.247355,
+          "system_cpu_seconds": 0.034249,
+          "wall_seconds": 0.9685492119751871,
+          "max_rss_kib": 28672,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29408,
+          "exec_samples": 92,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 373,
+          "involuntary_context_switches": 2
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 1947,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.27227999999999997,
+          "system_cpu_seconds": 0.028877999999999997,
+          "wall_seconds": 1.0102985879639164,
+          "max_rss_kib": 28672,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29324,
+          "exec_samples": 95,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 387,
+          "involuntary_context_switches": 0
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 26,
+          "udp_payload_bytes": 15564,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 12
+        },
+        "client": {
+          "udp_datagrams": 26,
+          "udp_payload_bytes": 16720,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 12
+        }
+      }
+    },
+    {
+      "cell": "core04-b-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 237,
+        "a": 104,
+        "b": 107
+      },
+      "outcome": "confirmed_business",
+      "phases": [
+        {
+          "mode": 0,
+          "index": 0,
+          "round": "b0276c772e1f02a1dbeac7fefac4254a",
+          "costs": {
+            "server": {
+              "probes": 1,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 1,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 202,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 2,
+              "responses": 3,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 5,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 331,
+              "local_sockets": 1
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 2330,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.39305799999999996,
+          "system_cpu_seconds": 0.064834,
+          "wall_seconds": 3.5102788399672136,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29888,
+          "exec_samples": 334,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1725,
+          "involuntary_context_switches": 2
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 2352,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.34088599999999997,
+          "system_cpu_seconds": 0.077474,
+          "wall_seconds": 3.2969777330290526,
+          "max_rss_kib": 29312,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29928,
+          "exec_samples": 314,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1344,
+          "involuntary_context_switches": 1
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 53,
+          "udp_payload_bytes": 32923,
+          "qad_datagrams": 33,
+          "quic_peer_datagrams": 16
+        },
+        "client": {
+          "udp_datagrams": 62,
+          "udp_payload_bytes": 39112,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 20
+        }
+      }
+    },
+    {
+      "cell": "core01-b-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 156,
+        "a": 73,
+        "b": 75
+      },
+      "outcome": "confirmed_business",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 2741,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.263397,
+          "system_cpu_seconds": 0.042483,
+          "wall_seconds": 1.1108989600325003,
+          "max_rss_kib": 28800,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29328,
+          "exec_samples": 105,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 525,
+          "involuntary_context_switches": 3
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 2763,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.268738,
+          "system_cpu_seconds": 0.038946999999999996,
+          "wall_seconds": 0.8945853320183232,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29684,
+          "exec_samples": 85,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 490,
+          "involuntary_context_switches": 2
+        }
+      },
+      "kind": "direct",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 34,
+          "udp_payload_bytes": 17048,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 18
+        },
+        "client": {
+          "udp_datagrams": 33,
+          "udp_payload_bytes": 19340,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 16
+        }
+      }
+    },
+    {
+      "cell": "core01-b-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 133,
+        "a": 62,
+        "b": 63
+      },
+      "outcome": "confirmed_business",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 3152,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.26950399999999997,
+          "system_cpu_seconds": 0.028156999999999998,
+          "wall_seconds": 0.9498906789813191,
+          "max_rss_kib": 28672,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29476,
+          "exec_samples": 90,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 392,
+          "involuntary_context_switches": 1
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 3174,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.27638999999999997,
+          "system_cpu_seconds": 0.012015999999999999,
+          "wall_seconds": 0.9897331170504913,
+          "max_rss_kib": 28800,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29384,
+          "exec_samples": 94,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 397,
+          "involuntary_context_switches": 2
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 26,
+          "udp_payload_bytes": 15579,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 12
+        },
+        "client": {
+          "udp_datagrams": 27,
+          "udp_payload_bytes": 16760,
+          "qad_datagrams": 14,
+          "quic_peer_datagrams": 12
+        }
+      }
+    },
+    {
+      "cell": "core08-b-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 97,
+        "a": 30,
+        "b": 36
+      },
+      "outcome": "bounded_miss",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 3557,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.39336499999999996,
+          "system_cpu_seconds": 0.054401,
+          "wall_seconds": 12.958815790014341,
+          "max_rss_kib": 28544,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29520,
+          "exec_samples": 1226,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1877,
+          "involuntary_context_switches": 2
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 3575,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.430672,
+          "system_cpu_seconds": 0.049219,
+          "wall_seconds": 12.74703491688706,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29684,
+          "exec_samples": 1206,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1874,
+          "involuntary_context_switches": 3
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 14,
+          "udp_payload_bytes": 8366,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 0
+        },
+        "client": {
+          "udp_datagrams": 20,
+          "udp_payload_bytes": 16740,
+          "qad_datagrams": 12,
+          "quic_peer_datagrams": 7
+        }
+      }
+    },
+    {
+      "cell": "core08-b-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 424,
+        "a": 180,
+        "b": 83
+      },
+      "outcome": "bounded_miss",
+      "phases": [
+        {
+          "mode": 3,
+          "index": 0,
+          "round": "19a53048cdc9e463b6441583ad71fda2",
+          "costs": {
+            "server": {
+              "probes": 117,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 117,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 17,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 17,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 3960,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.5347529999999999,
+          "system_cpu_seconds": 0.11484599999999999,
+          "wall_seconds": 8.0204278009478,
+          "max_rss_kib": 29184,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 30004,
+          "exec_samples": 763,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 3419,
+          "involuntary_context_switches": 3
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 3978,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.46199199999999996,
+          "system_cpu_seconds": 0.100433,
+          "wall_seconds": 7.8125297609949484,
+          "max_rss_kib": 29184,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29856,
+          "exec_samples": 743,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 2605,
+          "involuntary_context_switches": 5
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 149,
+          "udp_payload_bytes": 32969,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 0
+        },
+        "client": {
+          "udp_datagrams": 56,
+          "udp_payload_bytes": 37068,
+          "qad_datagrams": 29,
+          "quic_peer_datagrams": 5
+        }
+      }
+    },
+    {
+      "cell": "core03-b-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 145,
+        "a": 68,
+        "b": 62
+      },
+      "outcome": "confirmed_business",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 4370,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.264017,
+          "system_cpu_seconds": 0.034943,
+          "wall_seconds": 1.1506794199813157,
+          "max_rss_kib": 28928,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29412,
+          "exec_samples": 108,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 510,
+          "involuntary_context_switches": 4
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 4388,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.32184799999999997,
+          "system_cpu_seconds": 0.032591999999999996,
+          "wall_seconds": 0.9287702220026404,
+          "max_rss_kib": 28800,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29536,
+          "exec_samples": 88,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 471,
+          "involuntary_context_switches": 8
+        }
+      },
+      "kind": "direct",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 31,
+          "udp_payload_bytes": 16813,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 15
+        },
+        "client": {
+          "udp_datagrams": 31,
+          "udp_payload_bytes": 19275,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 14
+        }
+      }
+    },
+    {
+      "cell": "core03-b-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 136,
+        "a": 64,
+        "b": 56
+      },
+      "outcome": "confirmed_business",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 4772,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.211884,
+          "system_cpu_seconds": 0.028522,
+          "wall_seconds": 0.7803602879866958,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29520,
+          "exec_samples": 75,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 386,
+          "involuntary_context_switches": 0
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 4794,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.222962,
+          "system_cpu_seconds": 0.025172999999999997,
+          "wall_seconds": 0.8313415730372071,
+          "max_rss_kib": 28928,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29400,
+          "exec_samples": 80,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 364,
+          "involuntary_context_switches": 4
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 28,
+          "udp_payload_bytes": 16831,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 13
+        },
+        "client": {
+          "udp_datagrams": 27,
+          "udp_payload_bytes": 17798,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 12
+        }
+      }
+    },
+    {
+      "cell": "core10-a-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 98,
+        "a": 37,
+        "b": 30
+      },
+      "outcome": "bounded_miss",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 5171,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.308718,
+          "system_cpu_seconds": 0.044101999999999995,
+          "wall_seconds": 12.786821902962402,
+          "max_rss_kib": 28928,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29704,
+          "exec_samples": 1230,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1895,
+          "involuntary_context_switches": 4
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 5193,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.297195,
+          "system_cpu_seconds": 0.057894999999999995,
+          "wall_seconds": 12.57647544296924,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29660,
+          "exec_samples": 1210,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1913,
+          "involuntary_context_switches": 0
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 21,
+          "udp_payload_bytes": 16774,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 7
+        },
+        "server": {
+          "udp_datagrams": 14,
+          "udp_payload_bytes": 8366,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 0
+        }
+      }
+    },
+    {
+      "cell": "core10-a-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 563,
+        "a": 170,
+        "b": 162
+      },
+      "outcome": "bounded_miss",
+      "phases": [
+        {
+          "mode": 0,
+          "index": 0,
+          "round": "f6c3fbdad2edb99c59276be52d817cd6",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5200,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 104,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 104,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5200,
+              "local_sockets": 1
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 5572,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.445805,
+          "system_cpu_seconds": 0.083116,
+          "wall_seconds": 8.143426817958243,
+          "max_rss_kib": 29312,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29796,
+          "exec_samples": 784,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 3419,
+          "involuntary_context_switches": 1
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 5594,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.39896699999999996,
+          "system_cpu_seconds": 0.08448699999999999,
+          "wall_seconds": 7.9310428550234064,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29940,
+          "exec_samples": 764,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 2978,
+          "involuntary_context_switches": 1
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 144,
+          "udp_payload_bytes": 43705,
+          "qad_datagrams": 30,
+          "quic_peer_datagrams": 5
+        },
+        "server": {
+          "udp_datagrams": 132,
+          "udp_payload_bytes": 31677,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 0
+        }
+      }
+    },
+    {
+      "cell": "core02-a-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 223,
+        "a": 108,
+        "b": 98
+      },
+      "outcome": "confirmed_business",
+      "phases": [
+        {
+          "mode": 0,
+          "index": 0,
+          "round": "6b8d2129168db066fbd4cd44f15fc31e",
+          "costs": {
+            "server": {
+              "probes": 1,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 1,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 202,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 2,
+              "responses": 3,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 5,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 305,
+              "local_sockets": 1
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 5986,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.309593,
+          "system_cpu_seconds": 0.069658,
+          "wall_seconds": 3.352124521974474,
+          "max_rss_kib": 29312,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29952,
+          "exec_samples": 322,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1671,
+          "involuntary_context_switches": 2
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 6008,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.31134999999999996,
+          "system_cpu_seconds": 0.039466999999999995,
+          "wall_seconds": 3.1432977409567684,
+          "max_rss_kib": 29184,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 30016,
+          "exec_samples": 302,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1296,
+          "involuntary_context_switches": 0
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 57,
+          "udp_payload_bytes": 37774,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 18
+        },
+        "server": {
+          "udp_datagrams": 48,
+          "udp_payload_bytes": 31468,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 15
+        }
+      }
+    },
+    {
+      "cell": "core02-a-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 133,
+        "a": 63,
+        "b": 57
+      },
+      "outcome": "confirmed_business",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 6398,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.20732099999999998,
+          "system_cpu_seconds": 0.034553,
+          "wall_seconds": 0.8432551230071113,
+          "max_rss_kib": 28544,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29380,
+          "exec_samples": 81,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 367,
+          "involuntary_context_switches": 3
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 6420,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.224038,
+          "system_cpu_seconds": 0.017571,
+          "wall_seconds": 0.882273148978129,
+          "max_rss_kib": 28928,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29488,
+          "exec_samples": 85,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 371,
+          "involuntary_context_switches": 1
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 27,
+          "udp_payload_bytes": 16782,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 12
+        },
+        "server": {
+          "udp_datagrams": 26,
+          "udp_payload_bytes": 15605,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 12
+        }
+      }
+    },
+    {
+      "cell": "core08-a-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 98,
+        "a": 37,
+        "b": 30
+      },
+      "outcome": "bounded_miss",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 6797,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.299683,
+          "system_cpu_seconds": 0.061577999999999994,
+          "wall_seconds": 12.770970187033527,
+          "max_rss_kib": 28672,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29468,
+          "exec_samples": 1220,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1890,
+          "involuntary_context_switches": 3
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 6819,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.315096,
+          "system_cpu_seconds": 0.05729,
+          "wall_seconds": 12.562572324066423,
+          "max_rss_kib": 28800,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29612,
+          "exec_samples": 1200,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1874,
+          "involuntary_context_switches": 2
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 21,
+          "udp_payload_bytes": 16766,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 7
+        },
+        "server": {
+          "udp_datagrams": 14,
+          "udp_payload_bytes": 8374,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 0
+        }
+      }
+    },
+    {
+      "cell": "core08-a-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 428,
+        "a": 87,
+        "b": 180
+      },
+      "outcome": "bounded_miss",
+      "phases": [
+        {
+          "mode": 3,
+          "index": 0,
+          "round": "f5a4d44fc1c0357f4bf6cad7eb674fd2",
+          "costs": {
+            "server": {
+              "probes": 117,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 117,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 17,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 17,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 7198,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.40009999999999996,
+          "system_cpu_seconds": 0.13336599999999998,
+          "wall_seconds": 7.8258510469459,
+          "max_rss_kib": 29184,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29712,
+          "exec_samples": 750,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 3260,
+          "involuntary_context_switches": 2
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 7220,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.378334,
+          "system_cpu_seconds": 0.087895,
+          "wall_seconds": 7.606954563991167,
+          "max_rss_kib": 29184,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29756,
+          "exec_samples": 729,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 2604,
+          "involuntary_context_switches": 1
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 59,
+          "udp_payload_bytes": 37369,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 5
+        },
+        "server": {
+          "udp_datagrams": 148,
+          "udp_payload_bytes": 32944,
+          "qad_datagrams": 31,
+          "quic_peer_datagrams": 0
+        }
+      }
+    },
+    {
+      "cell": "core04-a-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 240,
+        "a": 113,
+        "b": 101
+      },
+      "outcome": "confirmed_business",
+      "phases": [
+        {
+          "mode": 0,
+          "index": 0,
+          "round": "c9e82d5c194fed177ba594bb22227abf",
+          "costs": {
+            "server": {
+              "probes": 1,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 1,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 202,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 2,
+              "responses": 3,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 5,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 306,
+              "local_sockets": 1
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 7607,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.346217,
+          "system_cpu_seconds": 0.046443,
+          "wall_seconds": 3.3960210849763826,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29680,
+          "exec_samples": 325,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1725,
+          "involuntary_context_switches": 1
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 7629,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.294078,
+          "system_cpu_seconds": 0.061106999999999995,
+          "wall_seconds": 3.1878567578969523,
+          "max_rss_kib": 29184,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 30004,
+          "exec_samples": 305,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1368,
+          "involuntary_context_switches": 5
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 64,
+          "udp_payload_bytes": 39270,
+          "qad_datagrams": 33,
+          "quic_peer_datagrams": 21
+        },
+        "server": {
+          "udp_datagrams": 53,
+          "udp_payload_bytes": 32727,
+          "qad_datagrams": 31,
+          "quic_peer_datagrams": 18
+        }
+      }
+    },
+    {
+      "cell": "core04-a-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 140,
+        "a": 58,
+        "b": 59
+      },
+      "outcome": "confirmed_business",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 8012,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.22358299999999998,
+          "system_cpu_seconds": 0.026983999999999998,
+          "wall_seconds": 0.8255262969760224,
+          "max_rss_kib": 28928,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29452,
+          "exec_samples": 78,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 361,
+          "involuntary_context_switches": 2
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 8034,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.23799199999999998,
+          "system_cpu_seconds": 0.016701,
+          "wall_seconds": 0.8652182560181245,
+          "max_rss_kib": 28928,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29572,
+          "exec_samples": 82,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 373,
+          "involuntary_context_switches": 1
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 29,
+          "udp_payload_bytes": 18040,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 14
+        },
+        "server": {
+          "udp_datagrams": 28,
+          "udp_payload_bytes": 16828,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 13
+        }
+      }
+    },
+    {
+      "cell": "core09-b-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 98,
+        "a": 30,
+        "b": 37
+      },
+      "outcome": "bounded_miss",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 8411,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.29445299999999996,
+          "system_cpu_seconds": 0.06827899999999999,
+          "wall_seconds": 12.82579476898536,
+          "max_rss_kib": 28800,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29624,
+          "exec_samples": 1230,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1879,
+          "involuntary_context_switches": 1
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 8433,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.295554,
+          "system_cpu_seconds": 0.061757,
+          "wall_seconds": 12.608215922024101,
+          "max_rss_kib": 28928,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29512,
+          "exec_samples": 1210,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1894,
+          "involuntary_context_switches": 0
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 14,
+          "udp_payload_bytes": 8366,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 0
+        },
+        "client": {
+          "udp_datagrams": 21,
+          "udp_payload_bytes": 16766,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 7
+        }
+      }
+    },
+    {
+      "cell": "core09-b-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 6187,
+        "a": 1371,
+        "b": 1801
+      },
+      "outcome": "bounded_miss",
+      "phases": [
+        {
+          "mode": 4,
+          "index": 0,
+          "round": "4e1d4804cbe4c0afb7de3b973c2c3af9",
+          "costs": {
+            "server": {
+              "probes": 1285,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 256,
+              "listener_bound": 256,
+              "listener_failed": 0,
+              "send_attempts": 1285,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38001,
+              "local_sockets": 257
+            },
+            "client": {
+              "probes": 1700,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 1000,
+              "random_draws": 1007,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 1700,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38001,
+              "local_sockets": 1
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 8812,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 2.380115,
+          "system_cpu_seconds": 0.618672,
+          "wall_seconds": 40.885207614977844,
+          "max_rss_kib": 30080,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 31020,
+          "exec_samples": 3802,
+          "sampled_maximum_fd": 269,
+          "voluntary_context_switches": 20196,
+          "involuntary_context_switches": 9
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 8834,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 1.7750789999999999,
+          "system_cpu_seconds": 0.6872739999999999,
+          "wall_seconds": 40.66114480502438,
+          "max_rss_kib": 29568,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 30444,
+          "exec_samples": 3886,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 19116,
+          "involuntary_context_switches": 8
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 1330,
+          "udp_payload_bytes": 129998,
+          "qad_datagrams": 45,
+          "quic_peer_datagrams": 0
+        },
+        "client": {
+          "udp_datagrams": 1761,
+          "udp_payload_bytes": 180841,
+          "qad_datagrams": 45,
+          "quic_peer_datagrams": 8
+        }
+      }
+    },
+    {
+      "cell": "core05-a-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 254,
+        "a": 119,
+        "b": 96
+      },
+      "outcome": "confirmed_business",
+      "phases": [
+        {
+          "mode": 1,
+          "index": 0,
+          "round": "5c64893e946f5d352a26a883b6c6c2a3",
+          "costs": {
+            "server": {
+              "probes": 1,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 1,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 1,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 17,
+              "responses": 3,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 20,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 131,
+              "local_sockets": 1
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 9235,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.401318,
+          "system_cpu_seconds": 0.06421,
+          "wall_seconds": 3.3272406350588426,
+          "max_rss_kib": 29184,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29832,
+          "exec_samples": 316,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1688,
+          "involuntary_context_switches": 2
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 9253,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.402184,
+          "system_cpu_seconds": 0.053899999999999997,
+          "wall_seconds": 3.1282363469945267,
+          "max_rss_kib": 29056,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29992,
+          "exec_samples": 297,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1447,
+          "involuntary_context_switches": 4
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 71,
+          "udp_payload_bytes": 38852,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 17
+        },
+        "server": {
+          "udp_datagrams": 48,
+          "udp_payload_bytes": 31461,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 15
+        }
+      }
+    },
+    {
+      "cell": "core05-a-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 98,
+        "a": 39,
+        "b": 30
+      },
+      "outcome": "bounded_miss",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 9645,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.356087,
+          "system_cpu_seconds": 0.06702799999999999,
+          "wall_seconds": 12.904233661014587,
+          "max_rss_kib": 28928,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29664,
+          "exec_samples": 1226,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1878,
+          "involuntary_context_switches": 1
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 9664,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.335981,
+          "system_cpu_seconds": 0.085007,
+          "wall_seconds": 12.688749013934284,
+          "max_rss_kib": 29184,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29564,
+          "exec_samples": 1205,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1914,
+          "involuntary_context_switches": 2
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 21,
+          "udp_payload_bytes": 16778,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 7
+        },
+        "server": {
+          "udp_datagrams": 14,
+          "udp_payload_bytes": 8366,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 0
+        }
+      }
+    },
+    {
+      "cell": "core05-b-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 143,
+        "a": 63,
+        "b": 58
+      },
+      "outcome": "confirmed_business",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 10051,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.22863599999999998,
+          "system_cpu_seconds": 0.055188,
+          "wall_seconds": 0.8558615581132472,
+          "max_rss_kib": 28544,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29288,
+          "exec_samples": 81,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 370,
+          "involuntary_context_switches": 0
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 10073,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.259424,
+          "system_cpu_seconds": 0.026382,
+          "wall_seconds": 0.8847724810475484,
+          "max_rss_kib": 28672,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29480,
+          "exec_samples": 84,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 379,
+          "involuntary_context_switches": 3
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 29,
+          "udp_payload_bytes": 16743,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 14
+        },
+        "client": {
+          "udp_datagrams": 29,
+          "udp_payload_bytes": 16867,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 14
+        }
+      }
+    },
+    {
+      "cell": "core05-b-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 254,
+        "a": 112,
+        "b": 102
+      },
+      "outcome": "confirmed_business",
+      "phases": [
+        {
+          "mode": 1,
+          "index": 0,
+          "round": "6f8f9a466d440368b66476aab615729a",
+          "costs": {
+            "server": {
+              "probes": 17,
+              "responses": 3,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 20,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 282,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 2,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 2,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 204,
+              "local_sockets": 1
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 10458,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.361938,
+          "system_cpu_seconds": 0.09626,
+          "wall_seconds": 3.44844208995346,
+          "max_rss_kib": 29312,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29936,
+          "exec_samples": 328,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1718,
+          "involuntary_context_switches": 7
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 10480,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.37413399999999997,
+          "system_cpu_seconds": 0.054647999999999995,
+          "wall_seconds": 3.235616058926098,
+          "max_rss_kib": 29184,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29992,
+          "exec_samples": 308,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1350,
+          "involuntary_context_switches": 2
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 66,
+          "udp_payload_bytes": 32884,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 14
+        },
+        "client": {
+          "udp_datagrams": 53,
+          "udp_payload_bytes": 37503,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 17
+        }
+      }
+    },
+    {
+      "cell": "core07-a-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 28751,
+        "a": 13560,
+        "b": 905
+      },
+      "outcome": "confirmed_business",
+      "phases": [
+        {
+          "mode": 2,
+          "index": 0,
+          "round": "2831ac95204cc150a7dc87fd604b7ae1",
+          "costs": {
+            "server": {
+              "probes": 808,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 604,
+              "random_draws": 606,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 808,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 13141,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 13443,
+              "responses": 3,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 256,
+              "listener_bound": 256,
+              "listener_failed": 0,
+              "send_attempts": 13447,
+              "send_errors": 0,
+              "send_aborted": 1,
+              "rejected_receipts": 0,
+              "elapsed_ms": 13271,
+              "local_sockets": 257
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 10869,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 1.026629,
+          "system_cpu_seconds": 0.389411,
+          "wall_seconds": 16.47679545392748,
+          "max_rss_kib": 29312,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 30036,
+          "exec_samples": 1566,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 8833,
+          "involuntary_context_switches": 14
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 10887,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 5.817903,
+          "system_cpu_seconds": 2.457174,
+          "wall_seconds": 19.349033806938678,
+          "max_rss_kib": 31104,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 31896,
+          "exec_samples": 1802,
+          "sampled_maximum_fd": 269,
+          "voluntary_context_switches": 53025,
+          "involuntary_context_switches": 66
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 13515,
+          "udp_payload_bytes": 1073968,
+          "qad_datagrams": 33,
+          "quic_peer_datagrams": 25
+        },
+        "server": {
+          "udp_datagrams": 858,
+          "udp_payload_bytes": 92923,
+          "qad_datagrams": 32,
+          "quic_peer_datagrams": 15
+        }
+      }
+    },
+    {
+      "cell": "core07-a-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 98,
+        "a": 37,
+        "b": 30
+      },
+      "outcome": "bounded_miss",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 11282,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.376778,
+          "system_cpu_seconds": 0.059941999999999995,
+          "wall_seconds": 12.944540079915896,
+          "max_rss_kib": 28928,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29524,
+          "exec_samples": 1230,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1871,
+          "involuntary_context_switches": 4
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 11304,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.376751,
+          "system_cpu_seconds": 0.068135,
+          "wall_seconds": 12.72947490005754,
+          "max_rss_kib": 28800,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29544,
+          "exec_samples": 1210,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1895,
+          "involuntary_context_switches": 5
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 21,
+          "udp_payload_bytes": 16766,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 7
+        },
+        "server": {
+          "udp_datagrams": 14,
+          "udp_payload_bytes": 8366,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 0
+        }
+      }
+    },
+    {
+      "cell": "core09-a-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 97,
+        "a": 36,
+        "b": 30
+      },
+      "outcome": "bounded_miss",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 11686,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.376476,
+          "system_cpu_seconds": 0.061465,
+          "wall_seconds": 12.920064130914398,
+          "max_rss_kib": 28672,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29476,
+          "exec_samples": 1229,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1874,
+          "involuntary_context_switches": 0
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 11708,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.366037,
+          "system_cpu_seconds": 0.07625699999999999,
+          "wall_seconds": 12.69583571900148,
+          "max_rss_kib": 28928,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29420,
+          "exec_samples": 1209,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 1891,
+          "involuntary_context_switches": 2
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 20,
+          "udp_payload_bytes": 16740,
+          "qad_datagrams": 12,
+          "quic_peer_datagrams": 7
+        },
+        "server": {
+          "udp_datagrams": 14,
+          "udp_payload_bytes": 8366,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 0
+        }
+      }
+    },
+    {
+      "cell": "core09-a-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 6182,
+        "a": 1385,
+        "b": 1782
+      },
+      "outcome": "bounded_miss",
+      "phases": [
+        {
+          "mode": 4,
+          "index": 0,
+          "round": "3806c62e93378852f1413a5f52cdd2c6",
+          "costs": {
+            "server": {
+              "probes": 1700,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 1000,
+              "random_draws": 1005,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 1700,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 1285,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 256,
+              "listener_bound": 256,
+              "listener_failed": 0,
+              "send_attempts": 1285,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38000,
+              "local_sockets": 257
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 12089,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 2.107963,
+          "system_cpu_seconds": 0.7858299999999999,
+          "wall_seconds": 41.05798150901683,
+          "max_rss_kib": 29568,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 30508,
+          "exec_samples": 3899,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 19377,
+          "involuntary_context_switches": 25
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 12111,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 2.844379,
+          "system_cpu_seconds": 0.7341519999999999,
+          "wall_seconds": 40.8441532299621,
+          "max_rss_kib": 30080,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 31044,
+          "exec_samples": 3774,
+          "sampled_maximum_fd": 269,
+          "voluntary_context_switches": 19573,
+          "involuntary_context_switches": 19
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 1345,
+          "udp_payload_bytes": 149287,
+          "qad_datagrams": 44,
+          "quic_peer_datagrams": 8
+        },
+        "server": {
+          "udp_datagrams": 1744,
+          "udp_payload_bytes": 161502,
+          "qad_datagrams": 44,
+          "quic_peer_datagrams": 0
+        }
+      }
+    },
+    {
+      "cell": "core06-a-formal",
+      "generation": 2,
+      "captures": {
+        "wan": 149,
+        "a": 61,
+        "b": 70
+      },
+      "outcome": "confirmed_business",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 12500,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.25834799999999997,
+          "system_cpu_seconds": 0.036906,
+          "wall_seconds": 1.1267780279740691,
+          "max_rss_kib": 28800,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29448,
+          "exec_samples": 107,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 484,
+          "involuntary_context_switches": 0
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 12522,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.259372,
+          "system_cpu_seconds": 0.026376,
+          "wall_seconds": 0.9135405319975689,
+          "max_rss_kib": 28928,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29340,
+          "exec_samples": 87,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 433,
+          "involuntary_context_switches": 0
+        }
+      },
+      "kind": "direct",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 32,
+          "udp_payload_bytes": 18167,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 15
+        },
+        "server": {
+          "udp_datagrams": 32,
+          "udp_payload_bytes": 16973,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 16
+        }
+      }
+    },
+    {
+      "cell": "core06-a-baseline",
+      "generation": 2,
+      "captures": {
+        "wan": 140,
+        "a": 57,
+        "b": 66
+      },
+      "outcome": "confirmed_business",
+      "phases": [],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 12906,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.269826,
+          "system_cpu_seconds": 0.040271999999999995,
+          "wall_seconds": 0.9213621389353648,
+          "max_rss_kib": 28672,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29388,
+          "exec_samples": 87,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 371,
+          "involuntary_context_switches": 1
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 12928,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 0.28392999999999996,
+          "system_cpu_seconds": 0.037579,
+          "wall_seconds": 0.9642128760460764,
+          "max_rss_kib": 28928,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 29468,
+          "exec_samples": 90,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 346,
+          "involuntary_context_switches": 0
+        }
+      },
+      "kind": "baseline",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 29,
+          "udp_payload_bytes": 16854,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 14
+        },
+        "server": {
+          "udp_datagrams": 28,
+          "udp_payload_bytes": 16823,
+          "qad_datagrams": 13,
+          "quic_peer_datagrams": 13
+        }
+      }
+    }
+  ],
+  "functional": [
+    {
+      "cell": "hh-irregular-24-rounds",
+      "generation": 2,
+      "captures": {
+        "wan": 6532,
+        "a": 3018,
+        "b": 3492
+      },
+      "outcome": "bounded_miss",
+      "phases": [
+        {
+          "mode": 0,
+          "index": 0,
+          "round": "38c9aef510b355675158bbaccb12fdd7",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5201,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 104,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 104,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5200,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 1,
+          "round": "c7ae8462ab7cec8bab1137175888d484",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5002,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 2,
+          "round": "b0a91db7f18bd28c1c19079ba0b81df4",
+          "costs": {
+            "server": {
+              "probes": 104,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 104,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5201,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5201,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 3,
+          "round": "d4decfe4f54ca28f1f078869143aa187",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 4,
+          "round": "6662d7b2a22acbc7ddcceed867b8dead",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 5,
+          "round": "9fc9c6938c905b301da0afe38c89f1ef",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 6,
+          "round": "b7d743f0ffce69ef92d5ccb1a0554ad1",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 7,
+          "round": "b2e635c0ef2dfb31ca8dec3e451ba3da",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 8,
+          "round": "af89df313f71d9bbdcacf706c65a7c2f",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 10001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 200,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 200,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 10001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 9,
+          "round": "2421278705fa258a9d13956a09223bd7",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 15000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 300,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 300,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 15001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 10,
+          "round": "6fa53d7ef530877da1fcdfcd7f118975",
+          "costs": {
+            "server": {
+              "probes": 200,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 200,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 10000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 10000,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 11,
+          "round": "8acf57de82812e68ca1b10108bc3b388",
+          "costs": {
+            "server": {
+              "probes": 300,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 300,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 15000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 15002,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 1,
+          "index": 0,
+          "round": "71693b0426da54483b25f4388e2fa599",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 1,
+          "index": 1,
+          "round": "71c3d285e9d3a2e650ed32d512926a2a",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 7001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 7001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 1,
+          "index": 2,
+          "round": "a8a6d24c8ed959665f05340031fd6940",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 1,
+          "index": 3,
+          "round": "772d7ff5f19c150e4f30d8d35d2f8079",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 7001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 7001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 1,
+          "index": 4,
+          "round": "ce530a3b353b646885b9761117894d38",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5002,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 1,
+          "index": 5,
+          "round": "409e0d32a98588e4c6d88010eaf05ddf",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 7000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 7001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 3,
+          "index": 0,
+          "round": "323c847ebcfd0b8cf992d143cf484f6a",
+          "costs": {
+            "server": {
+              "probes": 121,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 121,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 3,
+          "index": 1,
+          "round": "20db91109ae1baec209cb7bbd7e75b5a",
+          "costs": {
+            "server": {
+              "probes": 121,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 121,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 3,
+          "index": 2,
+          "round": "819c6dec18e24c732f80684301378233",
+          "costs": {
+            "server": {
+              "probes": 121,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 121,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 3,
+          "index": 3,
+          "round": "c40022458b30e6830399893761f6f7c2",
+          "costs": {
+            "server": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 121,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 121,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 3,
+          "index": 4,
+          "round": "c0f36e5169acc2cad9bbde47c7b322b2",
+          "costs": {
+            "server": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 121,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 121,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 3,
+          "index": 5,
+          "round": "daaee84fda562b8b9c64e2204fc95842",
+          "costs": {
+            "server": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 121,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 121,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 13311,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 5.312003,
+          "system_cpu_seconds": 1.708932,
+          "wall_seconds": 161.5390240169363,
+          "max_rss_kib": 29824,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 30732,
+          "exec_samples": 15403,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 59689,
+          "involuntary_context_switches": 21
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 13333,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 5.034375,
+          "system_cpu_seconds": 1.755858,
+          "wall_seconds": 161.3175395539729,
+          "max_rss_kib": 29696,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 30900,
+          "exec_samples": 15382,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 57467,
+          "involuntary_context_switches": 30
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 2630,
+          "udp_payload_bytes": 619298,
+          "qad_datagrams": 558,
+          "quic_peer_datagrams": 8
+        },
+        "server": {
+          "udp_datagrams": 3092,
+          "udp_payload_bytes": 636785,
+          "qad_datagrams": 562,
+          "quic_peer_datagrams": 0
+        }
+      }
+    },
+    {
+      "cell": "hh-regular-9-rounds",
+      "generation": 2,
+      "captures": {
+        "wan": 10713,
+        "a": 5957,
+        "b": 4734
+      },
+      "outcome": "bounded_miss",
+      "phases": [
+        {
+          "mode": 3,
+          "index": 0,
+          "round": "a13f0b7d810b98fa6144d9012d3e7867",
+          "costs": {
+            "server": {
+              "probes": 117,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 117,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 17,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 17,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 3,
+          "index": 1,
+          "round": "bc0ff82c326fc6fda63dbd45bc5eb074",
+          "costs": {
+            "server": {
+              "probes": 117,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 117,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 17,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 17,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 3,
+          "index": 2,
+          "round": "3ed9df8f3fae4e525f38d9fa7d612b60",
+          "costs": {
+            "server": {
+              "probes": 117,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 117,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 17,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 17,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 3,
+          "index": 3,
+          "round": "69c37803bd9506e84fc5564a75c4583e",
+          "costs": {
+            "server": {
+              "probes": 17,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 17,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 117,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 117,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 3,
+          "index": 4,
+          "round": "4c912397c1fd576787a540c5b905a67e",
+          "costs": {
+            "server": {
+              "probes": 17,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 17,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 117,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 117,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 3,
+          "index": 5,
+          "round": "1cd454b436a409ed52012c7ccc39aedf",
+          "costs": {
+            "server": {
+              "probes": 17,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 17,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 117,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 117,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 4,
+          "index": 0,
+          "round": "d6d5354ec4b0d7c487d3476079d19d58",
+          "costs": {
+            "server": {
+              "probes": 1700,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 1000,
+              "random_draws": 1009,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 1700,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 1285,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 256,
+              "listener_bound": 256,
+              "listener_failed": 0,
+              "send_attempts": 1285,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38001,
+              "local_sockets": 257
+            }
+          }
+        },
+        {
+          "mode": 4,
+          "index": 1,
+          "round": "5f83a14a168973bb79186baba9e66c1f",
+          "costs": {
+            "server": {
+              "probes": 1700,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 1000,
+              "random_draws": 1015,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 1700,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 1285,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 256,
+              "listener_bound": 256,
+              "listener_failed": 0,
+              "send_attempts": 1285,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38001,
+              "local_sockets": 257
+            }
+          }
+        },
+        {
+          "mode": 4,
+          "index": 2,
+          "round": "169f95d255c3943297d1f185ba922a90",
+          "costs": {
+            "server": {
+              "probes": 1700,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 1000,
+              "random_draws": 1009,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 1700,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 1285,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 256,
+              "listener_bound": 256,
+              "listener_failed": 0,
+              "send_attempts": 1285,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38000,
+              "local_sockets": 257
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 13720,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 4.924834,
+          "system_cpu_seconds": 2.025628,
+          "wall_seconds": 147.57785424496979,
+          "max_rss_kib": 29824,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 30768,
+          "exec_samples": 14223,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 67326,
+          "involuntary_context_switches": 39
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 13742,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 6.470117,
+          "system_cpu_seconds": 1.9785,
+          "wall_seconds": 147.37253071495797,
+          "max_rss_kib": 30592,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 31680,
+          "exec_samples": 13931,
+          "sampled_maximum_fd": 269,
+          "voluntary_context_switches": 68758,
+          "involuntary_context_switches": 31
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "server": {
+          "udp_datagrams": 5761,
+          "udp_payload_bytes": 617771,
+          "qad_datagrams": 259,
+          "quic_peer_datagrams": 0
+        },
+        "client": {
+          "udp_datagrams": 4535,
+          "udp_payload_bytes": 542583,
+          "qad_datagrams": 262,
+          "quic_peer_datagrams": 8
+        }
+      }
+    },
+    {
+      "cell": "single-irregular-21-rounds",
+      "generation": 2,
+      "captures": {
+        "wan": 145446,
+        "a": 137743,
+        "b": 7681
+      },
+      "outcome": "bounded_miss",
+      "phases": [
+        {
+          "mode": 2,
+          "index": 0,
+          "round": "2957de9ddc8dc898ea6a2fd215a3ada3",
+          "costs": {
+            "server": {
+              "probes": 1700,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 1000,
+              "random_draws": 1008,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 1700,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 45399,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 256,
+              "listener_bound": 256,
+              "listener_failed": 0,
+              "send_attempts": 45400,
+              "send_errors": 0,
+              "send_aborted": 1,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38000,
+              "local_sockets": 257
+            }
+          }
+        },
+        {
+          "mode": 2,
+          "index": 1,
+          "round": "f35219d072f9c6ded03c8bdc32f1294d",
+          "costs": {
+            "server": {
+              "probes": 1700,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 1000,
+              "random_draws": 1006,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 1700,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 45489,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 256,
+              "listener_bound": 256,
+              "listener_failed": 0,
+              "send_attempts": 45489,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38001,
+              "local_sockets": 257
+            }
+          }
+        },
+        {
+          "mode": 2,
+          "index": 2,
+          "round": "c9b781955470f70194e00dbd724d7212",
+          "costs": {
+            "server": {
+              "probes": 1700,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 1000,
+              "random_draws": 1006,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 1700,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 45489,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 256,
+              "listener_bound": 256,
+              "listener_failed": 0,
+              "send_attempts": 45489,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 38001,
+              "local_sockets": 257
+            }
+          }
+        },
+        {
+          "mode": 1,
+          "index": 0,
+          "round": "d0d1c56b5ed87b1d6dbf0f50272c86f2",
+          "costs": {
+            "server": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 25,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 25,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 1,
+          "index": 1,
+          "round": "94c7683da14bd258531f071fb6985827",
+          "costs": {
+            "server": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 7002,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 25,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 25,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 7001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 1,
+          "index": 2,
+          "round": "e87870ac8824ae13d069ff2fbd884025",
+          "costs": {
+            "server": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 25,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 25,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 1,
+          "index": 3,
+          "round": "889801003964fd572a7661e0b50e1c6d",
+          "costs": {
+            "server": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 7000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 25,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 25,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 7001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 1,
+          "index": 4,
+          "round": "c020aad65e4da6a8d89ad4698aa252ad",
+          "costs": {
+            "server": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 25,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 25,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 1,
+          "index": 5,
+          "round": "67d94ac59ea2fb2529fccab7696ba95c",
+          "costs": {
+            "server": {
+              "probes": 21,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 21,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 7000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 25,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 25,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 7001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 0,
+          "round": "81fd098a7e8ec26c2f35cb461c65ae77",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5201,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 26,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 26,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5200,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 1,
+          "round": "092a14a481370b3c6ab6d026e2777ed5",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 25,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 25,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 2,
+          "round": "9d8c6f4f514fce02fc5d18bddd5fe8f9",
+          "costs": {
+            "server": {
+              "probes": 104,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 104,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5201,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 25,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 25,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5200,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 3,
+          "round": "3c7b2b421b5daa1eac7dbf93dda75e8d",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 25,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 25,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 4,
+          "round": "6ed3799f28b0d03275d0967444f0e88e",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 25,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 25,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 5,
+          "round": "82188b0bf95d900adee29d9d59aadd5d",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 25,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 25,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 6,
+          "round": "f0cefa8d4f9abfc4fd20e53d6dde7dc8",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 25,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 25,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 7,
+          "round": "e1df7fa9976c36e0431ed45d7e1e1fda",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 25,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 25,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 5001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 8,
+          "round": "e6186f66e572a48488ba2e48111b1adf",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 10000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 50,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 50,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 10001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 9,
+          "round": "826fc30dae2860114df2cc2b5f5529fe",
+          "costs": {
+            "server": {
+              "probes": 100,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 100,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 15001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 75,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 75,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 15000,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 10,
+          "round": "a24a1d85062eb4aee55997ea4b9316ce",
+          "costs": {
+            "server": {
+              "probes": 200,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 200,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 10001,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 25,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 25,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 10001,
+              "local_sockets": 1
+            }
+          }
+        },
+        {
+          "mode": 0,
+          "index": 11,
+          "round": "e69927d3c5befac8601ea173d1d8e6c8",
+          "costs": {
+            "server": {
+              "probes": 300,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 300,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 15000,
+              "local_sockets": 1
+            },
+            "client": {
+              "probes": 25,
+              "responses": 0,
+              "ttl_degraded": 0,
+              "random_iterations": 0,
+              "random_draws": 0,
+              "random_skipped": 0,
+              "listener_attempted": 0,
+              "listener_bound": 0,
+              "listener_failed": 0,
+              "send_attempts": 25,
+              "send_errors": 0,
+              "send_aborted": 0,
+              "rejected_receipts": 0,
+              "elapsed_ms": 15001,
+              "local_sockets": 1
+            }
+          }
+        }
+      ],
+      "cpu": {
+        "server": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 14151,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 8.003357,
+          "system_cpu_seconds": 3.032049,
+          "wall_seconds": 245.0290972639341,
+          "max_rss_kib": 29952,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 30944,
+          "exec_samples": 23444,
+          "sampled_maximum_fd": 13,
+          "voluntary_context_switches": 101278,
+          "involuntary_context_switches": 81
+        },
+        "client": {
+          "schema": 1,
+          "scope": "actual native node process",
+          "collector": "namespace-local wait4",
+          "pid": 14173,
+          "exit": 0,
+          "timed_out": false,
+          "executable": "/runtime/udp_nat_probe",
+          "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+          "user_cpu_seconds": 48.167655,
+          "system_cpu_seconds": 22.557387,
+          "wall_seconds": 244.83145817299373,
+          "max_rss_kib": 35512,
+          "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+          "sampled_exec_vm_hwm_kib": 36508,
+          "exec_samples": 23145,
+          "sampled_maximum_fd": 269,
+          "voluntary_context_switches": 558373,
+          "involuntary_context_switches": 592
+        }
+      },
+      "kind": "punching",
+      "packet_costs": {
+        "client": {
+          "udp_datagrams": 137414,
+          "udp_payload_bytes": 10839515,
+          "qad_datagrams": 495,
+          "quic_peer_datagrams": 8
+        },
+        "server": {
+          "udp_datagrams": 7278,
+          "udp_payload_bytes": 934255,
+          "qad_datagrams": 548,
+          "quic_peer_datagrams": 0
+        }
+      }
+    }
+  ]
+}

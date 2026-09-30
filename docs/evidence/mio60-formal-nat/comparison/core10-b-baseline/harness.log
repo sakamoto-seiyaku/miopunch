@@ -1,0 +1,11 @@
+conntrack v1.4.7 (conntrack-tools): connection tracking table has been emptied.
+conntrack v1.4.7 (conntrack-tools): connection tracking table has been emptied.
+PASS baseline case=positive topology=wide-wide dialer=b seed=mio60-frozen-core10-b
+# Warning: table ip filter is managed by iptables-nft, do not touch!
+# Warning: table ip raw is managed by iptables-nft, do not touch!
+# Warning: table ip nat is managed by iptables-nft, do not touch!
+# Warning: table ip mangle is managed by iptables-nft, do not touch!
+# Warning: table ip filter is managed by iptables-nft, do not touch!
+# Warning: table ip raw is managed by iptables-nft, do not touch!
+# Warning: table ip nat is managed by iptables-nft, do not touch!
+# Warning: table ip mangle is managed by iptables-nft, do not touch!

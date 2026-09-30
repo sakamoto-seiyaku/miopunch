@@ -1,0 +1,47 @@
+[
+  {
+    "cell": "core07-b-baseline",
+    "exit": 0,
+    "wall_seconds": 24.67183537397068
+  },
+  {
+    "cell": "core07-b-formal",
+    "exit": 0,
+    "wall_seconds": 18.127162490040064
+  },
+  {
+    "cell": "core02-b-formal",
+    "exit": 0,
+    "wall_seconds": 13.396904440014623
+  },
+  {
+    "cell": "core02-b-baseline",
+    "exit": 0,
+    "wall_seconds": 13.574228547047824
+  },
+  {
+    "cell": "core10-b-baseline",
+    "exit": 0,
+    "wall_seconds": 24.79336128302384
+  },
+  {
+    "cell": "core10-b-formal",
+    "exit": 0,
+    "wall_seconds": 19.97801278391853
+  },
+  {
+    "cell": "core01-a-formal",
+    "exit": 0,
+    "wall_seconds": 13.201053540920839
+  },
+  {
+    "cell": "core01-a-baseline",
+    "exit": 0,
+    "wall_seconds": 13.155144963995554
+  },
+  {
+    "cell": "core03-a-baseline",
+    "exit": 1,
+    "wall_seconds": 10.13397787802387
+  }
+]

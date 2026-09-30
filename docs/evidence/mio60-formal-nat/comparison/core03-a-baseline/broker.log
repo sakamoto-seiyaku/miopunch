@@ -1,0 +1,11 @@
+1790784659: mosquitto version 2.0.11 starting
+1790784659: Config loaded from /tmp/miopunch60.KplaWV/mosquitto.conf.
+1790784659: Opening ipv4 listen socket on port 1883.
+1790784659: mosquitto version 2.0.11 running
+1790784664: New connection from 100.64.27.6:38438 on port 1883.
+1790784664: New client connected from 100.64.27.6:38438 as mio20-920e12c2a5cb9ac8bfa7ac377393cc59 (p2, c1, k5).
+1790784664: New connection from 100.64.27.2:50752 on port 1883.
+1790784664: New client connected from 100.64.27.2:50752 as mio20-4ab11d5aa3d0adfe5baeac569261a9c4 (p2, c1, k5).
+1790784665: Client mio20-920e12c2a5cb9ac8bfa7ac377393cc59 closed its connection.
+1790784665: Client mio20-4ab11d5aa3d0adfe5baeac569261a9c4 closed its connection.
+1790784665: mosquitto version 2.0.11 terminating

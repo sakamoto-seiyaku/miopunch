@@ -1,0 +1,132 @@
+READY id=a62ed0cf347c8b799b1ac38277ce7fc9aff3e43a00478f5d3e8190159a5557b3 route=578dfd226f7959f3fa18e3833adf2381
+NODE_SESSION local=a62ed0cf347c8b799b1ac38277ce7fc9aff3e43a00478f5d3e8190159a5557b3 peer=72b06cff909648764d4d41e5d369b874dc11873145ce9e05738ddb964d359f8e stable_id=129799548835424 dialing=false
+NAT_CONNECTION_ROUND number=1 stable_id=129799548835424
+LEGACY_SAMPLE order=0 destination=100.64.27.1:46761 mapped=100.64.27.6:43031
+LEGACY_SAMPLE order=1 destination=100.64.27.1:46762 mapped=100.64.27.6:43032
+LEGACY_SAMPLE order=2 destination=100.64.27.1:46763 mapped=100.64.27.6:43033
+LEGACY_SAMPLE order=3 destination=100.64.27.1:46764 mapped=100.64.27.6:43034
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Hard, behavior: PortChanged, ports_difference: 3, regular_ports_change: true, public_network: false }) socket_generation_current=true
+LEGACY_SELECTED mode=3 index=0 c=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 } v=Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 3, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 3, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 3, index: 2 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 3, index: 3 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 3, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 3, index: 5 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 4, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 4, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 4, index: 2 }, score: 0 }] round=f5a4d44fc1c0357f4bf6cad7eb674fd2 stable_id=129799548835424 execution=Ready fallback=false
+LEGACY_RECV_START round=f5a4d44fc1c0357f4bf6cad7eb674fd2 stable_id=129799548835424 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 10, ports_random: 0, listen_random: 0 }, explicit: [100.64.27.2:42031, 100.64.27.2:42032, 100.64.27.2:42033, 100.64.27.2:42034], candidates: [100.64.27.2:42031, 100.64.27.2:42032, 100.64.27.2:42033, 100.64.27.2:42034], range: Some((42026, 42042)), total_budget_ms: 5000, read_budget_ms: 5000 }
+LEGACY_LISTENER round=f5a4d44fc1c0357f4bf6cad7eb674fd2 stable_id=129799548835424 local_socket_id=0 local_addr=0.0.0.0:43027 primary=true
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42026 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42028 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42029 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42030 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42035 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42036 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42037 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42038 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42039 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42040 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42041 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42042 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42031 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42032 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.2:42034 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_PHASE_STOP round=f5a4d44fc1c0357f4bf6cad7eb674fd2 stable_id=129799548835424 elapsed_ms=5000 outcome=failed
+LEGACY_TRACE round=f5a4d44fc1c0357f4bf6cad7eb674fd2 stable_id=129799548835424 probes=117 responses=0 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=117 send_errors=0 send_aborted=0 rejected_receipts=0
+PATH_UNAVAILABLE reason=legacy NAT phase budget elapsed stable_id=129799548835424 stop=bounded_original_session
+EARLY_FAILURE_CONTROL_ALIVE stable_id=129799548835424

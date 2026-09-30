@@ -7,6 +7,8 @@ pub mod management_store;
 pub mod member_bootstrap;
 pub mod mqtt_discovery;
 pub mod mqtt_transport;
+pub mod nat_connection;
+mod nat_direct;
 pub mod nat_mapping;
 pub mod nat_punch;
 pub mod nat_scheduler;

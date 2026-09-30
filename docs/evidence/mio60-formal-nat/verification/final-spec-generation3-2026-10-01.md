@@ -1,0 +1,13 @@
+# MIOPUNCH-60 final Spec review — generation3
+
+**No substantive Spec findings remain.** No scope creep or optional adjacent change is requested.
+
+The prior P2 is resolved: `src/nat_connection.rs:169` attaches bounded actual local IPv4 candidates to both sequence and fallback snapshots. `vendor/iroh/src/socket.rs:1407` derives them from primary bound ports/current interfaces, excluding reflected/configured/portmapped candidates. This satisfies “sender先Assisted后Candidate” and missing-analysis assisted basic fallback in `docs/notes/2026-09-30-legacy-nat-behavior-and-acceptance-alignment.md:67` and `:73`; the original archived decision's always-retained assisted input is preserved. The public no-S RED reproduces the original Disabled failure; the GREEN and final suite prove basic0/6, defaultTTL, no delay, and authorized business on the original stable Connection. The real-S regression retains assisted input as well.
+
+Independent read-only verification exactly matched stored results for all40 historical comparison cells, all three functional chains (54 rounds/all30 behavior IDs), and both separately declared generation3 blocked assisted checks. All49 generation3 frozen source hashes match current inputs. Both new checks preserve original TLS identities/control, physical primary ports, full absolute phase deadlines, actual node wait4 CPU and complete zero-drop three-sided captures; they add0 probability samples. All191 compressed artifacts independently round-trip to their original SHA256 and byte counts.
+
+The report honestly identifies the40 comparison trials as actual8generation1+32generation2 and explicitly excludes their14/20 outcome from generation3 success-rate claims. Completed natural trials and their seeds/denominators were not repeated or relabelled. Retained final real-MQTT workspace evidence records241PASS/0FAIL/4existing ignored and actualexit0; browserWASM passes. The16 original and6 assisted corruption-rejection receipts are retained. Linux controlled-only/two samples per profile per arm, absent logical MQTT bytes left null, sampled FD/RSS scope, and untouched old61 CPU limitations remain explicit.
+
+Review scope: authorized WIP against `91b37a50fd509dd47c221059718406feafa8ab3a`, including source, tests, vendor notes, harness, evidence and validation reports. No source/tracker/index changes or runtime/natural trials were performed.
+
+Packaging addendum: no required issue. Stream192 preserves the exact GREEN log, including trailing blank line; original/compressed/roundtrip hashes and byte counts verified. All49 frozen sources remain unchanged. The new assisted fault script mutates unpacked temporary copies, reproduces the same six corruptions, checks canonical strict preservation, and is documented in the README.

@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "scope": "actual native node process",
+  "collector": "namespace-local wait4",
+  "pid": 330,
+  "exit": 0,
+  "timed_out": false,
+  "executable": "/runtime/udp_nat_probe",
+  "executable_sha256": "e5a3eb04954a784cde4c397cdea00e4feabc5e16fddc1adf359e076ad1323d75",
+  "user_cpu_seconds": 0.36083099999999996,
+  "system_cpu_seconds": 0.052804,
+  "wall_seconds": 3.3633264140225947,
+  "max_rss_kib": 346752,
+  "sampled_maximum_fd": 13,
+  "voluntary_context_switches": 1347,
+  "involuntary_context_switches": 32
+}

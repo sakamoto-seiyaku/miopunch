@@ -1,0 +1,17 @@
+[
+  {
+    "cell": "hh-irregular-24-rounds",
+    "exit": 0,
+    "wall_seconds": 172.50314272998367
+  },
+  {
+    "cell": "hh-regular-9-rounds",
+    "exit": 0,
+    "wall_seconds": 158.31482534005772
+  },
+  {
+    "cell": "single-irregular-21-rounds",
+    "exit": 0,
+    "wall_seconds": 256.19663295301143
+  }
+]

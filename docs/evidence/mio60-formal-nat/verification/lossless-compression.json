@@ -1,0 +1,1734 @@
+{
+  "result": "PASS",
+  "algorithm": "gzip9 deterministic mtime0; every decompressed stream SHA256 equals original",
+  "files": [
+    {
+      "original_path": "assisted-functional/assisted-with-s-blocked/nft-a.txt",
+      "original_bytes": 1386668,
+      "original_sha256": "777c9138aceccb769230ebdb9d1d9cbc1d123814bcfa74017c1733a34c091d70",
+      "compressed_path": "assisted-functional/assisted-with-s-blocked/nft-a.txt.gz",
+      "compressed_bytes": 304285,
+      "compressed_sha256": "1393ceab7abd89915268b23e1aafe4b12fe1ab96994b4859df6daa29d03f0e2a",
+      "roundtrip_sha256": "777c9138aceccb769230ebdb9d1d9cbc1d123814bcfa74017c1733a34c091d70"
+    },
+    {
+      "original_path": "assisted-functional/assisted-with-s-blocked/nft-b.txt",
+      "original_bytes": 1386667,
+      "original_sha256": "28bf5d17216c6ae6d4a3f01bd7be1e9a9c03dbd2e49d0ea971839ea18241ee33",
+      "compressed_path": "assisted-functional/assisted-with-s-blocked/nft-b.txt.gz",
+      "compressed_bytes": 304284,
+      "compressed_sha256": "82e838dc133b32c5439e7aaa7e4b0ab17ccbb25d1fab2074972ee1b30baee265",
+      "roundtrip_sha256": "28bf5d17216c6ae6d4a3f01bd7be1e9a9c03dbd2e49d0ea971839ea18241ee33"
+    },
+    {
+      "original_path": "assisted-functional/assisted-with-s-blocked/wan.pcap",
+      "original_bytes": 108476,
+      "original_sha256": "38d1e64695de62021f3c12951951a511bde66f290788d7514bc1ac300d22c728",
+      "compressed_path": "assisted-functional/assisted-with-s-blocked/wan.pcap.gz",
+      "compressed_bytes": 94263,
+      "compressed_sha256": "830145c4c8f63bd8671f9f0fce8ba03e00e35b0484173696644a95f1e122c7b8",
+      "roundtrip_sha256": "38d1e64695de62021f3c12951951a511bde66f290788d7514bc1ac300d22c728"
+    },
+    {
+      "original_path": "assisted-functional/assisted-without-s-blocked/nft-a.txt",
+      "original_bytes": 1386653,
+      "original_sha256": "561fa14863877c70293a21aab24cdb78df2ced5f200da88361cfbeeec36a86cd",
+      "compressed_path": "assisted-functional/assisted-without-s-blocked/nft-a.txt.gz",
+      "compressed_bytes": 304277,
+      "compressed_sha256": "c5370382c9399816c836f2e3608d2901a883639edd87b8d8c11e26c9132d2bf4",
+      "roundtrip_sha256": "561fa14863877c70293a21aab24cdb78df2ced5f200da88361cfbeeec36a86cd"
+    },
+    {
+      "original_path": "assisted-functional/assisted-without-s-blocked/nft-b.txt",
+      "original_bytes": 1386654,
+      "original_sha256": "1f60c7bf54220abc71a08e183b729ad6af398cffc22bedc5d1cfd06a7dff54ce",
+      "compressed_path": "assisted-functional/assisted-without-s-blocked/nft-b.txt.gz",
+      "compressed_bytes": 304276,
+      "compressed_sha256": "194ac556b5109afd6ba0111fcd7e277c6d75d70f3721b8c3015b9b38badc2e08",
+      "roundtrip_sha256": "1f60c7bf54220abc71a08e183b729ad6af398cffc22bedc5d1cfd06a7dff54ce"
+    },
+    {
+      "original_path": "comparison/core01-a-baseline/nft-a.txt",
+      "original_bytes": 1386594,
+      "original_sha256": "f7611da901e388b1a57848879b03c4c21a5e99cf51ee740856722c4867dd2be9",
+      "compressed_path": "comparison/core01-a-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304273,
+      "compressed_sha256": "9c0dbeca16dfa512d9ee24d49d735223f92c3b8993686fc568cba7b44bcd125a",
+      "roundtrip_sha256": "f7611da901e388b1a57848879b03c4c21a5e99cf51ee740856722c4867dd2be9"
+    },
+    {
+      "original_path": "comparison/core01-a-baseline/nft-b.txt",
+      "original_bytes": 1386593,
+      "original_sha256": "8e2adb60c110103358536a4e4aa478fbed69daa28190317efd4af41a7e796ded",
+      "compressed_path": "comparison/core01-a-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304264,
+      "compressed_sha256": "0df23e9893d0a82942c01a438c21d36334d5a4b9a37c5471e92a429e00b6b654",
+      "roundtrip_sha256": "8e2adb60c110103358536a4e4aa478fbed69daa28190317efd4af41a7e796ded"
+    },
+    {
+      "original_path": "comparison/core01-a-baseline/wan.pcap",
+      "original_bytes": 71898,
+      "original_sha256": "3d6899aff7ae6eddb57aef5aa665a0fd3441f72d9740c498193a92994e97da55",
+      "compressed_path": "comparison/core01-a-baseline/wan.pcap.gz",
+      "compressed_bytes": 49700,
+      "compressed_sha256": "ca104667beeb51c84ca7b6e31371e5c8941c381dbc24c35b7e82272e0c15b1ad",
+      "roundtrip_sha256": "3d6899aff7ae6eddb57aef5aa665a0fd3441f72d9740c498193a92994e97da55"
+    },
+    {
+      "original_path": "comparison/core01-a-formal/nft-a.txt",
+      "original_bytes": 1386595,
+      "original_sha256": "378a75ed6c8e929b657cf4b1fd025e6c8a7172c9738b8b11baf4ad8c9e320c52",
+      "compressed_path": "comparison/core01-a-formal/nft-a.txt.gz",
+      "compressed_bytes": 304271,
+      "compressed_sha256": "41ef9a6562a656cccc72f320bd2a8fa16ebe0dd44c96ab10fd12eac57521192c",
+      "roundtrip_sha256": "378a75ed6c8e929b657cf4b1fd025e6c8a7172c9738b8b11baf4ad8c9e320c52"
+    },
+    {
+      "original_path": "comparison/core01-a-formal/nft-b.txt",
+      "original_bytes": 1386595,
+      "original_sha256": "a1618ab5dc31fdb8644570556852818650b1e14b599cd43698b39a57c0e3139d",
+      "compressed_path": "comparison/core01-a-formal/nft-b.txt.gz",
+      "compressed_bytes": 304265,
+      "compressed_sha256": "b2cb21635d9e25ca2b4471a0638ed6acfc8a1312e41bd34571f79f41d4d00269",
+      "roundtrip_sha256": "a1618ab5dc31fdb8644570556852818650b1e14b599cd43698b39a57c0e3139d"
+    },
+    {
+      "original_path": "comparison/core01-a-formal/wan.pcap",
+      "original_bytes": 79240,
+      "original_sha256": "4e457c437dedf36831ae7a697d39d00643b241291580e8a1c534db07217c1ad7",
+      "compressed_path": "comparison/core01-a-formal/wan.pcap.gz",
+      "compressed_bytes": 53869,
+      "compressed_sha256": "586f036ea2e1fd8a8ead4f625b55dccec3fb454fbce47434a6c22d9948322b4e",
+      "roundtrip_sha256": "4e457c437dedf36831ae7a697d39d00643b241291580e8a1c534db07217c1ad7"
+    },
+    {
+      "original_path": "comparison/core01-b-baseline/nft-a.txt",
+      "original_bytes": 1386743,
+      "original_sha256": "b288daa723f8450c6c8fa0322a6675cda13c11821f80c9fb8327d7dd73a880bc",
+      "compressed_path": "comparison/core01-b-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304298,
+      "compressed_sha256": "57e0856873630b17bcb1b6ae79ceb3cbb7eee861f9b0a207bb575307e8e57725",
+      "roundtrip_sha256": "b288daa723f8450c6c8fa0322a6675cda13c11821f80c9fb8327d7dd73a880bc"
+    },
+    {
+      "original_path": "comparison/core01-b-baseline/nft-b.txt",
+      "original_bytes": 1386743,
+      "original_sha256": "f42ef9fe731b08703bb36b5b9b08637f4864e696c994b2df40ec2ca6ad8f97c9",
+      "compressed_path": "comparison/core01-b-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304298,
+      "compressed_sha256": "b171a17f9ef95b1d6ec76edb5fb7ff6346116797f21a7f89ff0fe2464c7ed427",
+      "roundtrip_sha256": "f42ef9fe731b08703bb36b5b9b08637f4864e696c994b2df40ec2ca6ad8f97c9"
+    },
+    {
+      "original_path": "comparison/core01-b-baseline/wan.pcap",
+      "original_bytes": 71989,
+      "original_sha256": "df711f7faff3a8f87694d959b2068df2dd1b81bbdc2d01d630b7c7b66337afff",
+      "compressed_path": "comparison/core01-b-baseline/wan.pcap.gz",
+      "compressed_bytes": 49717,
+      "compressed_sha256": "3cd391518c6c97327bd3739beb7de5c84513da6e91c6b7c33963e1eb78ac9bb4",
+      "roundtrip_sha256": "df711f7faff3a8f87694d959b2068df2dd1b81bbdc2d01d630b7c7b66337afff"
+    },
+    {
+      "original_path": "comparison/core01-b-formal/nft-a.txt",
+      "original_bytes": 1386745,
+      "original_sha256": "dffa3dc931d1f6a4d2175f12809abf801ed9b88774eaabe3e99f800b98f1f0ea",
+      "compressed_path": "comparison/core01-b-formal/nft-a.txt.gz",
+      "compressed_bytes": 304295,
+      "compressed_sha256": "b27a03f1848f7017b02b401c3f82f85385ba0e678799d5a4e30376d1922746cf",
+      "roundtrip_sha256": "dffa3dc931d1f6a4d2175f12809abf801ed9b88774eaabe3e99f800b98f1f0ea"
+    },
+    {
+      "original_path": "comparison/core01-b-formal/nft-b.txt",
+      "original_bytes": 1386746,
+      "original_sha256": "3ba5dcf97316c09059d84279178d3abbbc776371db9a3e2a7b47f67b9d140366",
+      "compressed_path": "comparison/core01-b-formal/nft-b.txt.gz",
+      "compressed_bytes": 304293,
+      "compressed_sha256": "c9f69ba91a38df74381d7abba624f4ce372820e5146b66962559e45784cea3c1",
+      "roundtrip_sha256": "3ba5dcf97316c09059d84279178d3abbbc776371db9a3e2a7b47f67b9d140366"
+    },
+    {
+      "original_path": "comparison/core01-b-formal/wan.pcap",
+      "original_bytes": 80216,
+      "original_sha256": "a16f595aab59f422261d54bf78e2bd4401d9684e430c9eb77785772e1877819f",
+      "compressed_path": "comparison/core01-b-formal/wan.pcap.gz",
+      "compressed_bytes": 54162,
+      "compressed_sha256": "8e824be647475d9bea2b8053b2289ae5d7178c06eeee962d0d552ac61bed234b",
+      "roundtrip_sha256": "a16f595aab59f422261d54bf78e2bd4401d9684e430c9eb77785772e1877819f"
+    },
+    {
+      "original_path": "comparison/core02-a-baseline/nft-a.txt",
+      "original_bytes": 1386744,
+      "original_sha256": "20d54197d0460317970e3cf8d31ad5d6f17d2777ff6d54a4e0e8507f612d5a1e",
+      "compressed_path": "comparison/core02-a-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304295,
+      "compressed_sha256": "9f6684209fca9256cd02bbe7fcf314186019da0af8e453fce009f171928e20c0",
+      "roundtrip_sha256": "20d54197d0460317970e3cf8d31ad5d6f17d2777ff6d54a4e0e8507f612d5a1e"
+    },
+    {
+      "original_path": "comparison/core02-a-baseline/nft-b.txt",
+      "original_bytes": 1387041,
+      "original_sha256": "d6934bb7959fe80615fd2ad86d7924e4a1271307b4720450ce6a0dc1e0efad5d",
+      "compressed_path": "comparison/core02-a-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304354,
+      "compressed_sha256": "8f1a2c938867b5bc4a3c786cc323e51037c01ee3f2e7724d911c4391297e9f43",
+      "roundtrip_sha256": "d6934bb7959fe80615fd2ad86d7924e4a1271307b4720450ce6a0dc1e0efad5d"
+    },
+    {
+      "original_path": "comparison/core02-a-baseline/wan.pcap",
+      "original_bytes": 72085,
+      "original_sha256": "5db5f7a7d9c7bedd96daefca4644e12d08df4f8888e293270c64ab5a4d30c5c9",
+      "compressed_path": "comparison/core02-a-baseline/wan.pcap.gz",
+      "compressed_bytes": 49758,
+      "compressed_sha256": "409f4a21eb28385222ca2dad499c11a93c4a01a3b74f17e090dcd4c8abbf9fdb",
+      "roundtrip_sha256": "5db5f7a7d9c7bedd96daefca4644e12d08df4f8888e293270c64ab5a4d30c5c9"
+    },
+    {
+      "original_path": "comparison/core02-a-formal/lan-a.pcap",
+      "original_bytes": 68186,
+      "original_sha256": "a9d46f444a30a16f4fcec9e85e68a14618c462734f5c1c80564c7f65d7fa07e0",
+      "compressed_path": "comparison/core02-a-formal/lan-a.pcap.gz",
+      "compressed_bytes": 62333,
+      "compressed_sha256": "f9d044f271caf2cb91ce3ed7ca17dae599e1c4240c65e8415dcf8bdedc91a3e9",
+      "roundtrip_sha256": "a9d46f444a30a16f4fcec9e85e68a14618c462734f5c1c80564c7f65d7fa07e0"
+    },
+    {
+      "original_path": "comparison/core02-a-formal/nft-a.txt",
+      "original_bytes": 1386756,
+      "original_sha256": "f76faa0a2783463f19f9406a1cbf3b23b4205e3d41a080719d524f3d05936f09",
+      "compressed_path": "comparison/core02-a-formal/nft-a.txt.gz",
+      "compressed_bytes": 304299,
+      "compressed_sha256": "4b71ca5afcebe461c11750bada1bf94c49b2c8c415a8f5969761c3e3c59554b5",
+      "roundtrip_sha256": "f76faa0a2783463f19f9406a1cbf3b23b4205e3d41a080719d524f3d05936f09"
+    },
+    {
+      "original_path": "comparison/core02-a-formal/nft-b.txt",
+      "original_bytes": 1387054,
+      "original_sha256": "a422e89b543448cc122b5d19fd1a1b05d50025951f30027379b3b7c7dbe6e45f",
+      "compressed_path": "comparison/core02-a-formal/nft-b.txt.gz",
+      "compressed_bytes": 304356,
+      "compressed_sha256": "41d3130803330d7c2b00d774c5863803000c7482f54794af098b4cd169ccc220",
+      "roundtrip_sha256": "a422e89b543448cc122b5d19fd1a1b05d50025951f30027379b3b7c7dbe6e45f"
+    },
+    {
+      "original_path": "comparison/core02-a-formal/wan.pcap",
+      "original_bytes": 134627,
+      "original_sha256": "3826e8aa95f3c15c8c24caa6255f75cec2df510497b0a12bf428c87b86a4fd59",
+      "compressed_path": "comparison/core02-a-formal/wan.pcap.gz",
+      "compressed_bytes": 103907,
+      "compressed_sha256": "e3a2d026eb4ebf8d345f07dc937cd8e284d2bbcb06f9af3a7482bdee2611fa30",
+      "roundtrip_sha256": "3826e8aa95f3c15c8c24caa6255f75cec2df510497b0a12bf428c87b86a4fd59"
+    },
+    {
+      "original_path": "comparison/core02-b-baseline/nft-a.txt",
+      "original_bytes": 1386593,
+      "original_sha256": "cae8ff6865a552caeb14df8cdd879e8e16520d1628f5628d37af9764e8a0fc74",
+      "compressed_path": "comparison/core02-b-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304269,
+      "compressed_sha256": "a1e2409841501b777201fb232adbc30d80f1204d2890047529727abb031dc249",
+      "roundtrip_sha256": "cae8ff6865a552caeb14df8cdd879e8e16520d1628f5628d37af9764e8a0fc74"
+    },
+    {
+      "original_path": "comparison/core02-b-baseline/nft-b.txt",
+      "original_bytes": 1386892,
+      "original_sha256": "eb890441d09f0bb169b6ee78c94ba032ed09ba236c596442957495ce9bb205c1",
+      "compressed_path": "comparison/core02-b-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304324,
+      "compressed_sha256": "6df12f298fd82e42205d597bce934f3431e75f58d0cf98e358c37435bade9064",
+      "roundtrip_sha256": "eb890441d09f0bb169b6ee78c94ba032ed09ba236c596442957495ce9bb205c1"
+    },
+    {
+      "original_path": "comparison/core02-b-baseline/wan.pcap",
+      "original_bytes": 76733,
+      "original_sha256": "579a7704378c9b6559790eebfb4af378e25c2394cfe19f1ab293bf974b60a2e5",
+      "compressed_path": "comparison/core02-b-baseline/wan.pcap.gz",
+      "compressed_bytes": 52125,
+      "compressed_sha256": "7e483b6b4b26456f7d55e5eff5cc7b3819876067eb373629fb439a7367312762",
+      "roundtrip_sha256": "579a7704378c9b6559790eebfb4af378e25c2394cfe19f1ab293bf974b60a2e5"
+    },
+    {
+      "original_path": "comparison/core02-b-formal/nft-a.txt",
+      "original_bytes": 1386594,
+      "original_sha256": "90e4291ec7e1ecbb68239573260e2d92c2c712d36378105e09b9ed3442e25c5c",
+      "compressed_path": "comparison/core02-b-formal/nft-a.txt.gz",
+      "compressed_bytes": 304267,
+      "compressed_sha256": "a2651b6c73a42735494db73646f77c177f94ca6bf2e57cf2c9938aa4549e2aad",
+      "roundtrip_sha256": "90e4291ec7e1ecbb68239573260e2d92c2c712d36378105e09b9ed3442e25c5c"
+    },
+    {
+      "original_path": "comparison/core02-b-formal/nft-b.txt",
+      "original_bytes": 1386893,
+      "original_sha256": "3e7391d0ff2fabad255ca87c23b35f9d6db70fa95ac07e41651fc2240c02187c",
+      "compressed_path": "comparison/core02-b-formal/nft-b.txt.gz",
+      "compressed_bytes": 304329,
+      "compressed_sha256": "2a5754a926993c9586488b1d5b8358c55297c46205207bb5d2b2e25dd7d82637",
+      "roundtrip_sha256": "3e7391d0ff2fabad255ca87c23b35f9d6db70fa95ac07e41651fc2240c02187c"
+    },
+    {
+      "original_path": "comparison/core02-b-formal/wan.pcap",
+      "original_bytes": 79166,
+      "original_sha256": "65ef10cc0bc21cd408cdb773c73bd8e8895186b95bcbdd43181f1ea36b998063",
+      "compressed_path": "comparison/core02-b-formal/wan.pcap.gz",
+      "compressed_bytes": 53843,
+      "compressed_sha256": "57ff4d3beabd3821235d9005cf40fddfde0131c0b56de9c14812c96a1eb9e1f7",
+      "roundtrip_sha256": "65ef10cc0bc21cd408cdb773c73bd8e8895186b95bcbdd43181f1ea36b998063"
+    },
+    {
+      "original_path": "comparison/core03-a-baseline/nft-a.txt",
+      "original_bytes": 1386745,
+      "original_sha256": "8927b16828ad164cf7e13b175ffea2e7c53b91de0f9bfd73918e7eea8edc18a5",
+      "compressed_path": "comparison/core03-a-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304295,
+      "compressed_sha256": "b7c98c74f490e8d43404a8a98e214907ce30830535632042eb43be3b0bd540ca",
+      "roundtrip_sha256": "8927b16828ad164cf7e13b175ffea2e7c53b91de0f9bfd73918e7eea8edc18a5"
+    },
+    {
+      "original_path": "comparison/core03-a-baseline/nft-b.txt",
+      "original_bytes": 1386657,
+      "original_sha256": "dcc4a0867f211c23400a60710ac41532a9a32e021cec62de8ccb62fb0c0c9bf1",
+      "compressed_path": "comparison/core03-a-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304276,
+      "compressed_sha256": "bec83712d9c65c252f6b3fb2212660d6416326a9dafeb3185417c4b36d68963a",
+      "roundtrip_sha256": "dcc4a0867f211c23400a60710ac41532a9a32e021cec62de8ccb62fb0c0c9bf1"
+    },
+    {
+      "original_path": "comparison/core03-a-baseline/wan.pcap",
+      "original_bytes": 77214,
+      "original_sha256": "57144894b5d26e46e247e3e4beedcbf18ea2a8ea02345e3d75f50092a3c29cd7",
+      "compressed_path": "comparison/core03-a-baseline/wan.pcap.gz",
+      "compressed_bytes": 52318,
+      "compressed_sha256": "ac6515d85db2c2c062f6a92cd5e8ab15fbe17ee21e3af5ca7c6b9659b38cab2d",
+      "roundtrip_sha256": "57144894b5d26e46e247e3e4beedcbf18ea2a8ea02345e3d75f50092a3c29cd7"
+    },
+    {
+      "original_path": "comparison/core03-a-formal/lan-a.pcap",
+      "original_bytes": 72698,
+      "original_sha256": "3ac2940321aac8c6d5e43a6589150be7e071c102d84c444039bc64137b484da7",
+      "compressed_path": "comparison/core03-a-formal/lan-a.pcap.gz",
+      "compressed_bytes": 66634,
+      "compressed_sha256": "9411888d280c2b726241b1b5a6853ee2c9415583ca3fbaf7c16cd885bc2ed5db",
+      "roundtrip_sha256": "3ac2940321aac8c6d5e43a6589150be7e071c102d84c444039bc64137b484da7"
+    },
+    {
+      "original_path": "comparison/core03-a-formal/lan-b.pcap",
+      "original_bytes": 66734,
+      "original_sha256": "02731042066f313ac29afe51379773e429fc74bc09b5c32168af626240432e40",
+      "compressed_path": "comparison/core03-a-formal/lan-b.pcap.gz",
+      "compressed_bytes": 61433,
+      "compressed_sha256": "0ce580c7c7fc8b9b8f8d954e60323d9b0d95ab8b3367db914ac2252c5208e24d",
+      "roundtrip_sha256": "02731042066f313ac29afe51379773e429fc74bc09b5c32168af626240432e40"
+    },
+    {
+      "original_path": "comparison/core03-a-formal/nft-a.txt",
+      "original_bytes": 1386756,
+      "original_sha256": "610f3ae244b2d6264e841359fdfbec4b7314b5924384d025551412b908dd28c7",
+      "compressed_path": "comparison/core03-a-formal/nft-a.txt.gz",
+      "compressed_bytes": 304301,
+      "compressed_sha256": "4e31ab9720f9c1537bcacb3468889261909a5128c6c40b1c8c3d82cd1ca96dfb",
+      "roundtrip_sha256": "610f3ae244b2d6264e841359fdfbec4b7314b5924384d025551412b908dd28c7"
+    },
+    {
+      "original_path": "comparison/core03-a-formal/nft-b.txt",
+      "original_bytes": 1386671,
+      "original_sha256": "f7a4a982d909ebbe56192c98a623a040d1ed9da185f552c69643bd5d75d09edc",
+      "compressed_path": "comparison/core03-a-formal/nft-b.txt.gz",
+      "compressed_bytes": 304287,
+      "compressed_sha256": "5b48799af170d4d8b946f4b941a2c11f9946b2936cd5583c65807fedaf1646b7",
+      "roundtrip_sha256": "f7a4a982d909ebbe56192c98a623a040d1ed9da185f552c69643bd5d75d09edc"
+    },
+    {
+      "original_path": "comparison/core03-a-formal/wan.pcap",
+      "original_bytes": 143561,
+      "original_sha256": "6f74fc9438aef0d222603dd8eecfa43d10a731fef5f1718fa13b8976a8c2594b",
+      "compressed_path": "comparison/core03-a-formal/wan.pcap.gz",
+      "compressed_bytes": 110023,
+      "compressed_sha256": "91619496824b5a80b9cacf6a328e9018d826ac34b306aaca734dd87ead019b6a",
+      "roundtrip_sha256": "6f74fc9438aef0d222603dd8eecfa43d10a731fef5f1718fa13b8976a8c2594b"
+    },
+    {
+      "original_path": "comparison/core03-b-baseline/nft-a.txt",
+      "original_bytes": 1386744,
+      "original_sha256": "4be3700025c9c3e51e853dc34d290a0f1e31a121fd1b11f222e345d48e9a2882",
+      "compressed_path": "comparison/core03-b-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304295,
+      "compressed_sha256": "7b6e089c3b3bb5d5a578c832583927641afae7f93505f9f2803a93cb46ec3839",
+      "roundtrip_sha256": "4be3700025c9c3e51e853dc34d290a0f1e31a121fd1b11f222e345d48e9a2882"
+    },
+    {
+      "original_path": "comparison/core03-b-baseline/nft-b.txt",
+      "original_bytes": 1386657,
+      "original_sha256": "569d4299ae3ecc77ec7d35de520bdb0c3109be5a27e43cc52192957a547b8d97",
+      "compressed_path": "comparison/core03-b-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304276,
+      "compressed_sha256": "5a2a30f291cf0ee43bbbea419330cc9a44db11de498e2a83ab4b4023515066c9",
+      "roundtrip_sha256": "569d4299ae3ecc77ec7d35de520bdb0c3109be5a27e43cc52192957a547b8d97"
+    },
+    {
+      "original_path": "comparison/core03-b-baseline/wan.pcap",
+      "original_bytes": 76726,
+      "original_sha256": "9461d16c56a84a49cf36ccdd746399c802fba6801dc9a1e62dd1d5da5eff7aad",
+      "compressed_path": "comparison/core03-b-baseline/wan.pcap.gz",
+      "compressed_bytes": 52109,
+      "compressed_sha256": "3729ab8cf2a72d349a5fd0c7e4d1644af4f99b02ee6e7b579dd99efa99a80839",
+      "roundtrip_sha256": "9461d16c56a84a49cf36ccdd746399c802fba6801dc9a1e62dd1d5da5eff7aad"
+    },
+    {
+      "original_path": "comparison/core03-b-formal/nft-a.txt",
+      "original_bytes": 1386745,
+      "original_sha256": "4247cd23dfd7632c3a231747042de0c891a57d2c342f810a84f3badc02af731a",
+      "compressed_path": "comparison/core03-b-formal/nft-a.txt.gz",
+      "compressed_bytes": 304290,
+      "compressed_sha256": "e9b24b222613ba31fbd50d2f16907a6b06093bf76a1b6dc3c884fae521440f37",
+      "roundtrip_sha256": "4247cd23dfd7632c3a231747042de0c891a57d2c342f810a84f3badc02af731a"
+    },
+    {
+      "original_path": "comparison/core03-b-formal/nft-b.txt",
+      "original_bytes": 1386659,
+      "original_sha256": "bd7c5e23b9cd07009893178a2d2a2c9c84f7042033cf51699623f03ff66b2b62",
+      "compressed_path": "comparison/core03-b-formal/nft-b.txt.gz",
+      "compressed_bytes": 304274,
+      "compressed_sha256": "35151da8fe2de2477900485d3c5509e328645835361f1c9b64fc63dd0acee2d6",
+      "roundtrip_sha256": "bd7c5e23b9cd07009893178a2d2a2c9c84f7042033cf51699623f03ff66b2b62"
+    },
+    {
+      "original_path": "comparison/core03-b-formal/wan.pcap",
+      "original_bytes": 78877,
+      "original_sha256": "c611832fdfb7d569d5e87d35c34817e4e9578a5ce3cff11b8a0bd372eb5094eb",
+      "compressed_path": "comparison/core03-b-formal/wan.pcap.gz",
+      "compressed_bytes": 53674,
+      "compressed_sha256": "41dbe9fd3c823fbc185de40d1dbba01d4e1073d9f8fafd35e5eae0f4ecaa7a04",
+      "roundtrip_sha256": "c611832fdfb7d569d5e87d35c34817e4e9578a5ce3cff11b8a0bd372eb5094eb"
+    },
+    {
+      "original_path": "comparison/core04-a-baseline/nft-a.txt",
+      "original_bytes": 1386658,
+      "original_sha256": "5cc40553034263d66976ef82207cfef0a6a7fbb4a88b1d2fb2e5a7a7c349904b",
+      "compressed_path": "comparison/core04-a-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304275,
+      "compressed_sha256": "4169254a1913ceff236d8e79f1425f7f4131e9e11573d8cb9078dec9ddee9f2e",
+      "roundtrip_sha256": "5cc40553034263d66976ef82207cfef0a6a7fbb4a88b1d2fb2e5a7a7c349904b"
+    },
+    {
+      "original_path": "comparison/core04-a-baseline/nft-b.txt",
+      "original_bytes": 1386657,
+      "original_sha256": "e05ece8d8f49e3ed66231af6a13a3b90e91d69aba6a7dc90b6b6e7ac7c052b45",
+      "compressed_path": "comparison/core04-a-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304272,
+      "compressed_sha256": "2d5498af959560abdd2932a46f19855ebe2788bda538e47a6bf1e4c3ebef437e",
+      "roundtrip_sha256": "e05ece8d8f49e3ed66231af6a13a3b90e91d69aba6a7dc90b6b6e7ac7c052b45"
+    },
+    {
+      "original_path": "comparison/core04-a-baseline/wan.pcap",
+      "original_bytes": 77464,
+      "original_sha256": "62d54d0b13bf0c1a5b43318c91a91c9461f280ce5422764d32133c0517e9811a",
+      "compressed_path": "comparison/core04-a-baseline/wan.pcap.gz",
+      "compressed_bytes": 52456,
+      "compressed_sha256": "482c83ffa77939058a1f67423acd60b2c908890790b1fcfb980f1babfac38840",
+      "roundtrip_sha256": "62d54d0b13bf0c1a5b43318c91a91c9461f280ce5422764d32133c0517e9811a"
+    },
+    {
+      "original_path": "comparison/core04-a-formal/lan-a.pcap",
+      "original_bytes": 72851,
+      "original_sha256": "17487d79610449ff0d487831f8a4fcb41d8b67859bb0848c16934e92cd5da81a",
+      "compressed_path": "comparison/core04-a-formal/lan-a.pcap.gz",
+      "compressed_bytes": 66838,
+      "compressed_sha256": "a362c30a255031cb29b589cad762635c1f46427663b62aef3a7048154b37c0fb",
+      "roundtrip_sha256": "17487d79610449ff0d487831f8a4fcb41d8b67859bb0848c16934e92cd5da81a"
+    },
+    {
+      "original_path": "comparison/core04-a-formal/nft-a.txt",
+      "original_bytes": 1386670,
+      "original_sha256": "11ceea589e61a153a89da2482aa03c0a5175979562033b99b5411eaeeead9695",
+      "compressed_path": "comparison/core04-a-formal/nft-a.txt.gz",
+      "compressed_bytes": 304286,
+      "compressed_sha256": "74ad3e752b451cfe405272b7bb69b84a2797df433548a1fc33ca4900b02b95d0",
+      "roundtrip_sha256": "11ceea589e61a153a89da2482aa03c0a5175979562033b99b5411eaeeead9695"
+    },
+    {
+      "original_path": "comparison/core04-a-formal/nft-b.txt",
+      "original_bytes": 1386671,
+      "original_sha256": "4604e3afd54c68271c6bca483811fd237fc22dcc89afa7131cee712990300c89",
+      "compressed_path": "comparison/core04-a-formal/nft-b.txt.gz",
+      "compressed_bytes": 304285,
+      "compressed_sha256": "62e52f467bdb6bedc285a78e7e877d7a63cfc9e7632eb0582fc2b0b33f05af28",
+      "roundtrip_sha256": "4604e3afd54c68271c6bca483811fd237fc22dcc89afa7131cee712990300c89"
+    },
+    {
+      "original_path": "comparison/core04-a-formal/wan.pcap",
+      "original_bytes": 140985,
+      "original_sha256": "b89705347a23e43e3ec82d846fa968800523293531421f894c39c47553bd863a",
+      "compressed_path": "comparison/core04-a-formal/wan.pcap.gz",
+      "compressed_bytes": 106931,
+      "compressed_sha256": "116ecd6c6fc54890107c7cc910a96bec9a30f36a9af68459098371635c6d90ac",
+      "roundtrip_sha256": "b89705347a23e43e3ec82d846fa968800523293531421f894c39c47553bd863a"
+    },
+    {
+      "original_path": "comparison/core04-b-baseline/nft-a.txt",
+      "original_bytes": 1386656,
+      "original_sha256": "ccd81d4c267418e03dce6f65d9f78248b39237fc6acff95b55c81596da7045e4",
+      "compressed_path": "comparison/core04-b-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304281,
+      "compressed_sha256": "4f8e590133c81a80026013cc8aa39bfee27020b9970bff0d5b3afeb0187e853f",
+      "roundtrip_sha256": "ccd81d4c267418e03dce6f65d9f78248b39237fc6acff95b55c81596da7045e4"
+    },
+    {
+      "original_path": "comparison/core04-b-baseline/nft-b.txt",
+      "original_bytes": 1386656,
+      "original_sha256": "4c0af9883454947ef8c98d2f287d08362269ffe97ad85a385cac9e2074543ba4",
+      "compressed_path": "comparison/core04-b-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304280,
+      "compressed_sha256": "89928bac0a85c9abd4f92a5762ce3137d00c69f40c3c6842234f591b08a9f432",
+      "roundtrip_sha256": "4c0af9883454947ef8c98d2f287d08362269ffe97ad85a385cac9e2074543ba4"
+    },
+    {
+      "original_path": "comparison/core04-b-baseline/wan.pcap",
+      "original_bytes": 71847,
+      "original_sha256": "f213ad580a8cb539c7b663803a4c83f85dd99ea9702f8d0091e0fea5fe87ff06",
+      "compressed_path": "comparison/core04-b-baseline/wan.pcap.gz",
+      "compressed_bytes": 49652,
+      "compressed_sha256": "44ccf0842a9293dd1bc71f3bc1b1e8391c05fead389d9a27254dd91d3d03529f",
+      "roundtrip_sha256": "f213ad580a8cb539c7b663803a4c83f85dd99ea9702f8d0091e0fea5fe87ff06"
+    },
+    {
+      "original_path": "comparison/core04-b-formal/lan-a.pcap",
+      "original_bytes": 67220,
+      "original_sha256": "fd718dcf9bc090917f06204fbeefaf9f18253c0b2402f49947db0416dc6d8a7d",
+      "compressed_path": "comparison/core04-b-formal/lan-a.pcap.gz",
+      "compressed_bytes": 61689,
+      "compressed_sha256": "03b4db63333ba5779fcecfa0719eb0955b33bc06bd844f38b5b9780e64e397c9",
+      "roundtrip_sha256": "fd718dcf9bc090917f06204fbeefaf9f18253c0b2402f49947db0416dc6d8a7d"
+    },
+    {
+      "original_path": "comparison/core04-b-formal/lan-b.pcap",
+      "original_bytes": 70495,
+      "original_sha256": "fda1be7b524e57f068a4ed28e040b968ef4d0254f5b95a26944ac6cb4015ce44",
+      "compressed_path": "comparison/core04-b-formal/lan-b.pcap.gz",
+      "compressed_bytes": 64856,
+      "compressed_sha256": "ae035a101e0333fb4bfadee20a1c4b2d92c8d90b62a2858bc65b1d0b812dd714",
+      "roundtrip_sha256": "fda1be7b524e57f068a4ed28e040b968ef4d0254f5b95a26944ac6cb4015ce44"
+    },
+    {
+      "original_path": "comparison/core04-b-formal/nft-a.txt",
+      "original_bytes": 1386671,
+      "original_sha256": "d41b378cbcf197137eefdea53cdce7200cc5120078c4e7d86f638d972bcccc87",
+      "compressed_path": "comparison/core04-b-formal/nft-a.txt.gz",
+      "compressed_bytes": 304283,
+      "compressed_sha256": "87c092f97c7c549661500a4649a59d80b2ece512bbd2c6088fa6f127fb81511a",
+      "roundtrip_sha256": "d41b378cbcf197137eefdea53cdce7200cc5120078c4e7d86f638d972bcccc87"
+    },
+    {
+      "original_path": "comparison/core04-b-formal/nft-b.txt",
+      "original_bytes": 1386670,
+      "original_sha256": "bc33515c2a17eeec772157d50ac38b2e5028dbaabe80ae9b62f5575beff136ca",
+      "compressed_path": "comparison/core04-b-formal/nft-b.txt.gz",
+      "compressed_bytes": 304283,
+      "compressed_sha256": "a627fbcb519f25925e72d982df47bffdee1499d25672f8f8932a15185549c340",
+      "roundtrip_sha256": "bc33515c2a17eeec772157d50ac38b2e5028dbaabe80ae9b62f5575beff136ca"
+    },
+    {
+      "original_path": "comparison/core04-b-formal/wan.pcap",
+      "original_bytes": 142473,
+      "original_sha256": "70d92114a55abd7008d765db98c5d8fa36fa03400814eefdb620a4d7a8331566",
+      "compressed_path": "comparison/core04-b-formal/wan.pcap.gz",
+      "compressed_bytes": 108629,
+      "compressed_sha256": "2924d650803136f7ad759fe5e733d7308cf1b03d5de3e8874ce51065f96d0da9",
+      "roundtrip_sha256": "70d92114a55abd7008d765db98c5d8fa36fa03400814eefdb620a4d7a8331566"
+    },
+    {
+      "original_path": "comparison/core05-a-baseline/nft-a.txt",
+      "original_bytes": 1387040,
+      "original_sha256": "03dc6e9bb612426fe0c00127d5cdb2236a5264dcf08251275ab38aa0af926208",
+      "compressed_path": "comparison/core05-a-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304352,
+      "compressed_sha256": "55794dafd7f498ed04b2b34da5a26033627b801a9255c5166b6371eb9cda266c",
+      "roundtrip_sha256": "03dc6e9bb612426fe0c00127d5cdb2236a5264dcf08251275ab38aa0af926208"
+    },
+    {
+      "original_path": "comparison/core05-a-baseline/nft-b.txt",
+      "original_bytes": 1386662,
+      "original_sha256": "0f578117010b3231bbf5b2529178cc986b1e98f9438c2d9d246db9283bbf6d8c",
+      "compressed_path": "comparison/core05-a-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304291,
+      "compressed_sha256": "68e81a997febb5a191599bd335bc6918cf8550c45fb085411fa4e81f7c4effc2",
+      "roundtrip_sha256": "0f578117010b3231bbf5b2529178cc986b1e98f9438c2d9d246db9283bbf6d8c"
+    },
+    {
+      "original_path": "comparison/core05-a-formal/lan-a.pcap",
+      "original_bytes": 71574,
+      "original_sha256": "dda838c04379d9526db6c6a91f890c4a0486765fc47dde63e289dd9532a7734e",
+      "compressed_path": "comparison/core05-a-formal/lan-a.pcap.gz",
+      "compressed_bytes": 64825,
+      "compressed_sha256": "82234667fae69fb40893a3b6d4f51fce50b02f9b4d2659bb36be1c218fa88ba9",
+      "roundtrip_sha256": "dda838c04379d9526db6c6a91f890c4a0486765fc47dde63e289dd9532a7734e"
+    },
+    {
+      "original_path": "comparison/core05-a-formal/nft-a.txt",
+      "original_bytes": 1387054,
+      "original_sha256": "2de36a609f0c91e8fcdf5e9d6e8b1ec73754e817935ab4be9b59c3b59ca7e678",
+      "compressed_path": "comparison/core05-a-formal/nft-a.txt.gz",
+      "compressed_bytes": 304355,
+      "compressed_sha256": "841ba4169aaa9cc09a817d4e6a61c1f75468f95fa793bfd34785564ccac37889",
+      "roundtrip_sha256": "2de36a609f0c91e8fcdf5e9d6e8b1ec73754e817935ab4be9b59c3b59ca7e678"
+    },
+    {
+      "original_path": "comparison/core05-a-formal/nft-b.txt",
+      "original_bytes": 1386678,
+      "original_sha256": "093440eb4fadd4972ef4810310e2641345e7cd474c183e89d52e2a40ed2d6845",
+      "compressed_path": "comparison/core05-a-formal/nft-b.txt.gz",
+      "compressed_bytes": 304302,
+      "compressed_sha256": "8c2fa8ef68d25ab78ce11f8b0bfc8ef39211fdb86e3183985f01a184382aa1ca",
+      "roundtrip_sha256": "093440eb4fadd4972ef4810310e2641345e7cd474c183e89d52e2a40ed2d6845"
+    },
+    {
+      "original_path": "comparison/core05-a-formal/wan.pcap",
+      "original_bytes": 142197,
+      "original_sha256": "7cf98008369b32e537dc2a85e551fd1c6b588d96dcff355325e2acb84605a3bc",
+      "compressed_path": "comparison/core05-a-formal/wan.pcap.gz",
+      "compressed_bytes": 108392,
+      "compressed_sha256": "ba52465490e622f69f7fc550369e0233fdf94f7fb7ef9b7a000ff5502512aa95",
+      "roundtrip_sha256": "7cf98008369b32e537dc2a85e551fd1c6b588d96dcff355325e2acb84605a3bc"
+    },
+    {
+      "original_path": "comparison/core05-b-baseline/nft-a.txt",
+      "original_bytes": 1387042,
+      "original_sha256": "0947ffba4ce4d777e4146839cf0bc98b5a22927d55670c93aa29c748e436f0cb",
+      "compressed_path": "comparison/core05-b-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304352,
+      "compressed_sha256": "4d8fb806475aea3e66ed086c6fa5b5d0f552d34940e386d6179b3b0a180fbea3",
+      "roundtrip_sha256": "0947ffba4ce4d777e4146839cf0bc98b5a22927d55670c93aa29c748e436f0cb"
+    },
+    {
+      "original_path": "comparison/core05-b-baseline/nft-b.txt",
+      "original_bytes": 1386663,
+      "original_sha256": "0b87055faddaaa604a5997763a0e85548b994313b204c938e1b0844a8dad7bbd",
+      "compressed_path": "comparison/core05-b-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304288,
+      "compressed_sha256": "67711b80d7d9991d35ef097bd29a8ec681695718d4d75bc1030558afbb0e7553",
+      "roundtrip_sha256": "0b87055faddaaa604a5997763a0e85548b994313b204c938e1b0844a8dad7bbd"
+    },
+    {
+      "original_path": "comparison/core05-b-baseline/wan.pcap",
+      "original_bytes": 75159,
+      "original_sha256": "5b4d26a6645c768c84da62b04ac4cdcf12c1a0034196f6dcdf2d21020a5d4abf",
+      "compressed_path": "comparison/core05-b-baseline/wan.pcap.gz",
+      "compressed_bytes": 51212,
+      "compressed_sha256": "94a3271df7511a65bb71b5632e25cf43e215315e4237f8beaa6358d030b65451",
+      "roundtrip_sha256": "5b4d26a6645c768c84da62b04ac4cdcf12c1a0034196f6dcdf2d21020a5d4abf"
+    },
+    {
+      "original_path": "comparison/core05-b-formal/lan-b.pcap",
+      "original_bytes": 70945,
+      "original_sha256": "ffc1ccc13b4419bebc11599c60ee0123b70b38f132763f67a2e68bf50a002cee",
+      "compressed_path": "comparison/core05-b-formal/lan-b.pcap.gz",
+      "compressed_bytes": 65571,
+      "compressed_sha256": "2c41d797c4d4c5cbfabd0d6775080712b433a869b598ba18b1c49e0deb2c1d1b",
+      "roundtrip_sha256": "ffc1ccc13b4419bebc11599c60ee0123b70b38f132763f67a2e68bf50a002cee"
+    },
+    {
+      "original_path": "comparison/core05-b-formal/nft-a.txt",
+      "original_bytes": 1387053,
+      "original_sha256": "b372121081523361027c6bfdcc11a7032b1bcf044086abb597fb1007116a51e4",
+      "compressed_path": "comparison/core05-b-formal/nft-a.txt.gz",
+      "compressed_bytes": 304361,
+      "compressed_sha256": "bb00a6215e1a8f2de3fdd467ac07c471727221403abb2bf632d45f1cc34eafdc",
+      "roundtrip_sha256": "b372121081523361027c6bfdcc11a7032b1bcf044086abb597fb1007116a51e4"
+    },
+    {
+      "original_path": "comparison/core05-b-formal/nft-b.txt",
+      "original_bytes": 1386680,
+      "original_sha256": "8dcc51ef45d211405f0f846f79deff120fa1691b2e4e9833c6fcb96ac2f81a24",
+      "compressed_path": "comparison/core05-b-formal/nft-b.txt.gz",
+      "compressed_bytes": 304302,
+      "compressed_sha256": "0c604ec8c3b1a1312f30d208949c1dbdae17326641e4381f75e724a4b009c0cf",
+      "roundtrip_sha256": "8dcc51ef45d211405f0f846f79deff120fa1691b2e4e9833c6fcb96ac2f81a24"
+    },
+    {
+      "original_path": "comparison/core05-b-formal/wan.pcap",
+      "original_bytes": 142346,
+      "original_sha256": "19c7bc8010d47c106b233b5fd58f073f31ab97dc661f34db52df8e4effd0d4a3",
+      "compressed_path": "comparison/core05-b-formal/wan.pcap.gz",
+      "compressed_bytes": 108547,
+      "compressed_sha256": "ecb70c92956e9db8618d16953ca2f2e1e4a2deb91c49205d2836ad799be05e83",
+      "roundtrip_sha256": "19c7bc8010d47c106b233b5fd58f073f31ab97dc661f34db52df8e4effd0d4a3"
+    },
+    {
+      "original_path": "comparison/core06-a-baseline/nft-a.txt",
+      "original_bytes": 1386663,
+      "original_sha256": "a0bc22a76da917712c6cdd398e09409c039cf66561d089cf49a7557bc6e3919a",
+      "compressed_path": "comparison/core06-a-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304290,
+      "compressed_sha256": "28c6659fb263c4c67b8fb58a8721e7125243c8f3ce53ff87037e7b45c225fb84",
+      "roundtrip_sha256": "a0bc22a76da917712c6cdd398e09409c039cf66561d089cf49a7557bc6e3919a"
+    },
+    {
+      "original_path": "comparison/core06-a-baseline/nft-b.txt",
+      "original_bytes": 1386744,
+      "original_sha256": "eec27db68a7e443bab4c2d1a0a0fb631c659dbc36d8216c6c73998d4c759b867",
+      "compressed_path": "comparison/core06-a-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304295,
+      "compressed_sha256": "d0e4360fc76e0e481a5aedbfa16348d461d7aed9d508832964fa2ffb5aa500d2",
+      "roundtrip_sha256": "eec27db68a7e443bab4c2d1a0a0fb631c659dbc36d8216c6c73998d4c759b867"
+    },
+    {
+      "original_path": "comparison/core06-a-baseline/wan.pcap",
+      "original_bytes": 75080,
+      "original_sha256": "93568a4596ccf1e1dc8ddeada70349696300ed6f34e76aa705a56df76736fa0d",
+      "compressed_path": "comparison/core06-a-baseline/wan.pcap.gz",
+      "compressed_bytes": 51241,
+      "compressed_sha256": "2e337edce10ff40407dc8698d3e73a250e070ac10a10452b03351ac96e8b41b2",
+      "roundtrip_sha256": "93568a4596ccf1e1dc8ddeada70349696300ed6f34e76aa705a56df76736fa0d"
+    },
+    {
+      "original_path": "comparison/core06-a-formal/nft-a.txt",
+      "original_bytes": 1386665,
+      "original_sha256": "8fc10e99b618ef6ce698a7123fcfd79b9ae63a1a2eddcd8163ba24826878d2e6",
+      "compressed_path": "comparison/core06-a-formal/nft-a.txt.gz",
+      "compressed_bytes": 304288,
+      "compressed_sha256": "d59832c514f6ae60d5b1e014b0c31bb8fbfd0213f76b9fa2e24342fba4977267",
+      "roundtrip_sha256": "8fc10e99b618ef6ce698a7123fcfd79b9ae63a1a2eddcd8163ba24826878d2e6"
+    },
+    {
+      "original_path": "comparison/core06-a-formal/nft-b.txt",
+      "original_bytes": 1386745,
+      "original_sha256": "a1b7082843516f967221ee881a124a83871af7e90d3c8920725a290a73ad6a52",
+      "compressed_path": "comparison/core06-a-formal/nft-b.txt.gz",
+      "compressed_bytes": 304293,
+      "compressed_sha256": "115fd7827c036eca70373f6ce85bfe23a2b078df4a98d4017714a9d53b4bef32",
+      "roundtrip_sha256": "a1b7082843516f967221ee881a124a83871af7e90d3c8920725a290a73ad6a52"
+    },
+    {
+      "original_path": "comparison/core06-a-formal/wan.pcap",
+      "original_bytes": 77242,
+      "original_sha256": "49085f67a7d6e6591a7b8591b04af1cfb04aa35182566fb23fc35bdfd62a4212",
+      "compressed_path": "comparison/core06-a-formal/wan.pcap.gz",
+      "compressed_bytes": 52702,
+      "compressed_sha256": "9ae818c41593648fb92f095ae3936b0a559c9dc4bb64154e56d21374f2b4a4b6",
+      "roundtrip_sha256": "49085f67a7d6e6591a7b8591b04af1cfb04aa35182566fb23fc35bdfd62a4212"
+    },
+    {
+      "original_path": "comparison/core06-b-baseline/nft-a.txt",
+      "original_bytes": 1386662,
+      "original_sha256": "20c527782e5636e16b635b353c320cdfcf6d46f6e7a3a6e06fd2c9a03adb5ac7",
+      "compressed_path": "comparison/core06-b-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304294,
+      "compressed_sha256": "105be3edfb09172056b1f1317dd740e68bf35d7322cad46afcfbf4af259984af",
+      "roundtrip_sha256": "20c527782e5636e16b635b353c320cdfcf6d46f6e7a3a6e06fd2c9a03adb5ac7"
+    },
+    {
+      "original_path": "comparison/core06-b-baseline/nft-b.txt",
+      "original_bytes": 1386742,
+      "original_sha256": "80839d0d45c572a30c64e6b5ea6970bea7bd8a22b8cdd40c1ff52dd84685cacb",
+      "compressed_path": "comparison/core06-b-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304295,
+      "compressed_sha256": "70d4b703554a04529952e7c4c6eaf4132097426c80b8a8ef49a88872df6483ea",
+      "roundtrip_sha256": "80839d0d45c572a30c64e6b5ea6970bea7bd8a22b8cdd40c1ff52dd84685cacb"
+    },
+    {
+      "original_path": "comparison/core06-b-formal/lan-b.pcap",
+      "original_bytes": 75715,
+      "original_sha256": "10d65e86cdd5be0426576cf26524935639fa9d3cf653394cf1ca715533f94314",
+      "compressed_path": "comparison/core06-b-formal/lan-b.pcap.gz",
+      "compressed_bytes": 68284,
+      "compressed_sha256": "637288c8c2eddf02e7094800f8688c40d2ad882439f8db129764791b866d2a74",
+      "roundtrip_sha256": "10d65e86cdd5be0426576cf26524935639fa9d3cf653394cf1ca715533f94314"
+    },
+    {
+      "original_path": "comparison/core06-b-formal/nft-a.txt",
+      "original_bytes": 1386680,
+      "original_sha256": "234494b2d1d40dd6952487495e204ba0657d5d35e42fdc103bf44c8bb8d48dce",
+      "compressed_path": "comparison/core06-b-formal/nft-a.txt.gz",
+      "compressed_bytes": 304304,
+      "compressed_sha256": "45f6c0a2a814ac01be1c09afe14539036d4589f8659bc4433698ba28d68ab9cf",
+      "roundtrip_sha256": "234494b2d1d40dd6952487495e204ba0657d5d35e42fdc103bf44c8bb8d48dce"
+    },
+    {
+      "original_path": "comparison/core06-b-formal/nft-b.txt",
+      "original_bytes": 1386756,
+      "original_sha256": "b0a46874f656905a7ba9e729408e65b3994082483fdff9d398cd9e9d73002a1d",
+      "compressed_path": "comparison/core06-b-formal/nft-b.txt.gz",
+      "compressed_bytes": 304300,
+      "compressed_sha256": "ea801737d1073b1cedf666242919702f020b85a52ea99332b53582347c2d7ed9",
+      "roundtrip_sha256": "b0a46874f656905a7ba9e729408e65b3994082483fdff9d398cd9e9d73002a1d"
+    },
+    {
+      "original_path": "comparison/core06-b-formal/wan.pcap",
+      "original_bytes": 147527,
+      "original_sha256": "6d039f1c2d86a28d8b56c9288390b66c46a2d77c0bdee8561b1c10c13f3596ac",
+      "compressed_path": "comparison/core06-b-formal/wan.pcap.gz",
+      "compressed_bytes": 111816,
+      "compressed_sha256": "b6df6daa708ae7f2c343fdb00c95b035355b35fab9f2cd7b6674d3c6b0522a3b",
+      "roundtrip_sha256": "6d039f1c2d86a28d8b56c9288390b66c46a2d77c0bdee8561b1c10c13f3596ac"
+    },
+    {
+      "original_path": "comparison/core07-a-baseline/nft-a.txt",
+      "original_bytes": 1386662,
+      "original_sha256": "9fc673d3ecdeb0e4dcf07c90f3baa7b36c33b106fdff38765f0f9329c62e7959",
+      "compressed_path": "comparison/core07-a-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304298,
+      "compressed_sha256": "d4ee81b4617ad765d70ae83c6c400c717a3736a4392f56436f8944f872ad89b5",
+      "roundtrip_sha256": "9fc673d3ecdeb0e4dcf07c90f3baa7b36c33b106fdff38765f0f9329c62e7959"
+    },
+    {
+      "original_path": "comparison/core07-a-baseline/nft-b.txt",
+      "original_bytes": 1386656,
+      "original_sha256": "496fcac8a0003d4db9469731a3944e956cb20f71bc318080c5235534ba517a18",
+      "compressed_path": "comparison/core07-a-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304279,
+      "compressed_sha256": "f4b3e383fa95e4597237e3c8c3facdf8b55d1bc683cc1a6fa40259a9758eb13f",
+      "roundtrip_sha256": "496fcac8a0003d4db9469731a3944e956cb20f71bc318080c5235534ba517a18"
+    },
+    {
+      "original_path": "comparison/core07-a-formal/allocator-b.log",
+      "original_bytes": 75673,
+      "original_sha256": "91a101d20f80acd458346874919cc33a9271f9146ed8e1b9ad38936d495c2d29",
+      "compressed_path": "comparison/core07-a-formal/allocator-b.log.gz",
+      "compressed_bytes": 4273,
+      "compressed_sha256": "cf94037f1348b8a9551458471393340aa089dde316a532fce7f2087e592c1b1b",
+      "roundtrip_sha256": "91a101d20f80acd458346874919cc33a9271f9146ed8e1b9ad38936d495c2d29"
+    },
+    {
+      "original_path": "comparison/core07-a-formal/client.log",
+      "original_bytes": 1338632,
+      "original_sha256": "6225cc41862f527cd5b2f1461eb47fd0fc4d7a8657c38234a363370c07d96930",
+      "compressed_path": "comparison/core07-a-formal/client.log.gz",
+      "compressed_bytes": 13930,
+      "compressed_sha256": "615a5cccfc90bb7de28a910378e7ae4c481fa7cfa67993c70929b42c7a8cec55",
+      "roundtrip_sha256": "6225cc41862f527cd5b2f1461eb47fd0fc4d7a8657c38234a363370c07d96930"
+    },
+    {
+      "original_path": "comparison/core07-a-formal/lan-a.pcap",
+      "original_bytes": 1968516,
+      "original_sha256": "0affbccb5a72875999cc0c0f6812a6ee503ae0d6ed1a00cc20507cc612bec366",
+      "compressed_path": "comparison/core07-a-formal/lan-a.pcap.gz",
+      "compressed_bytes": 870667,
+      "compressed_sha256": "322ddbf0553e0ceb90c4a56e7a09188147b113de422cd34181e3fb11c5336e2d",
+      "roundtrip_sha256": "0affbccb5a72875999cc0c0f6812a6ee503ae0d6ed1a00cc20507cc612bec366"
+    },
+    {
+      "original_path": "comparison/core07-a-formal/lan-b.pcap",
+      "original_bytes": 177181,
+      "original_sha256": "1633c0ae451ef29ed7b8e7a9c0343cd2a2e71b804ab26d16e00fa790bd66f972",
+      "compressed_path": "comparison/core07-a-formal/lan-b.pcap.gz",
+      "compressed_bytes": 105909,
+      "compressed_sha256": "f7fbd5abeffcf455792b723622ac4f5648650fbb7fa5a943431a271104b53a03",
+      "roundtrip_sha256": "1633c0ae451ef29ed7b8e7a9c0343cd2a2e71b804ab26d16e00fa790bd66f972"
+    },
+    {
+      "original_path": "comparison/core07-a-formal/nat-b-conntrack.txt",
+      "original_bytes": 91817,
+      "original_sha256": "389634382c7c0f30a9909bf3b9d3d9cdd4e30e5e4648a1c9820a7bccf914badd",
+      "compressed_path": "comparison/core07-a-formal/nat-b-conntrack.txt.gz",
+      "compressed_bytes": 5208,
+      "compressed_sha256": "88756bc4166997378c1193827701c10a59846ab0e93c5db1c0a15d2d98c4198e",
+      "roundtrip_sha256": "389634382c7c0f30a9909bf3b9d3d9cdd4e30e5e4648a1c9820a7bccf914badd"
+    },
+    {
+      "original_path": "comparison/core07-a-formal/nft-a.txt",
+      "original_bytes": 1386689,
+      "original_sha256": "89804ce3f3e3486972a910da132845602071f1db658a9007d6fea86ecee4e487",
+      "compressed_path": "comparison/core07-a-formal/nft-a.txt.gz",
+      "compressed_bytes": 304313,
+      "compressed_sha256": "712616ce35c15363797223c35b7033eab1576b04205358c0165d417b76d56fee",
+      "roundtrip_sha256": "89804ce3f3e3486972a910da132845602071f1db658a9007d6fea86ecee4e487"
+    },
+    {
+      "original_path": "comparison/core07-a-formal/nft-b.txt",
+      "original_bytes": 1386684,
+      "original_sha256": "989fe5fb11a487303b04347bc11be5e08fa4859732873da2653488b38f11e0ac",
+      "compressed_path": "comparison/core07-a-formal/nft-b.txt.gz",
+      "compressed_bytes": 304293,
+      "compressed_sha256": "9f96166f48e7a5923ddbdbccc96cb04b50354c82bdde7beddd1135475838d6f0",
+      "roundtrip_sha256": "989fe5fb11a487303b04347bc11be5e08fa4859732873da2653488b38f11e0ac"
+    },
+    {
+      "original_path": "comparison/core07-a-formal/server.log",
+      "original_bytes": 81201,
+      "original_sha256": "c0082b074ee4ea7a6e63e7ff7ccd9ab732b5c1e926c02a507a2b23b2c60a8dad",
+      "compressed_path": "comparison/core07-a-formal/server.log.gz",
+      "compressed_bytes": 4212,
+      "compressed_sha256": "a8c610724fe1ff439edf9bb95d5844c4fa29121e40df8bd44b1233677f55eb21",
+      "roundtrip_sha256": "c0082b074ee4ea7a6e63e7ff7ccd9ab732b5c1e926c02a507a2b23b2c60a8dad"
+    },
+    {
+      "original_path": "comparison/core07-a-formal/wan.pcap",
+      "original_bytes": 4153353,
+      "original_sha256": "c57380c1db28c744b9ee662ff68c048d916e7d6d02045fa9fa0ace142a760624",
+      "compressed_path": "comparison/core07-a-formal/wan.pcap.gz",
+      "compressed_bytes": 1120098,
+      "compressed_sha256": "38a62887530f92887cfefafa1fb02351b23de687a344ed245d86724be6ed33a0",
+      "roundtrip_sha256": "c57380c1db28c744b9ee662ff68c048d916e7d6d02045fa9fa0ace142a760624"
+    },
+    {
+      "original_path": "comparison/core07-b-baseline/nft-a.txt",
+      "original_bytes": 1386512,
+      "original_sha256": "2d14dc6fc585562743c6b96def1e0a53e999f05a7d65e8945771922ff800181a",
+      "compressed_path": "comparison/core07-b-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304272,
+      "compressed_sha256": "48dccc9080d2464373970fc2bd1b17630cbf18a629836e11cb79a206ec496934",
+      "roundtrip_sha256": "2d14dc6fc585562743c6b96def1e0a53e999f05a7d65e8945771922ff800181a"
+    },
+    {
+      "original_path": "comparison/core07-b-baseline/nft-b.txt",
+      "original_bytes": 1386506,
+      "original_sha256": "7a2869856c60c4155b7881c239d8f40cf3ed781637ce2989a6abd4809ecd5cc7",
+      "compressed_path": "comparison/core07-b-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304249,
+      "compressed_sha256": "00755d6e1815dd498b5fd9bcd8938e593c523f6ce899d5f6f4c3a098607be199",
+      "roundtrip_sha256": "7a2869856c60c4155b7881c239d8f40cf3ed781637ce2989a6abd4809ecd5cc7"
+    },
+    {
+      "original_path": "comparison/core07-b-formal/lan-a.pcap",
+      "original_bytes": 144239,
+      "original_sha256": "5aed3b282f12d31c1467356b5549522be12d54399f6261285fa4160089c8a494",
+      "compressed_path": "comparison/core07-b-formal/lan-a.pcap.gz",
+      "compressed_bytes": 91653,
+      "compressed_sha256": "e4cbc05b53f36dee45ad4df6060378f4d3236bac8b65af914367e038fab76591",
+      "roundtrip_sha256": "5aed3b282f12d31c1467356b5549522be12d54399f6261285fa4160089c8a494"
+    },
+    {
+      "original_path": "comparison/core07-b-formal/lan-b.pcap",
+      "original_bytes": 74257,
+      "original_sha256": "dbbe049dd08cfa747a8b59558519835c5a683dda61d8277c9d4f4d5f431d7980",
+      "compressed_path": "comparison/core07-b-formal/lan-b.pcap.gz",
+      "compressed_bytes": 67698,
+      "compressed_sha256": "e1a9f449f2db7b00188c20356a8b062248233971a812f0f91beb526c3780608c",
+      "roundtrip_sha256": "dbbe049dd08cfa747a8b59558519835c5a683dda61d8277c9d4f4d5f431d7980"
+    },
+    {
+      "original_path": "comparison/core07-b-formal/nft-a.txt",
+      "original_bytes": 1386527,
+      "original_sha256": "0e9e3483ebc9193be683180bc83ff922e75bab4f1ff8eb9d07d377d922d86455",
+      "compressed_path": "comparison/core07-b-formal/nft-a.txt.gz",
+      "compressed_bytes": 304282,
+      "compressed_sha256": "7ac2c8214425121f1be8342c65f07267b35911703b516940a09c2a485c5dcd8c",
+      "roundtrip_sha256": "0e9e3483ebc9193be683180bc83ff922e75bab4f1ff8eb9d07d377d922d86455"
+    },
+    {
+      "original_path": "comparison/core07-b-formal/nft-b.txt",
+      "original_bytes": 1386524,
+      "original_sha256": "4a8a33d7f09a64354b28d147a4d3879065bc9905f6dc3793f0a07a3097088ca9",
+      "compressed_path": "comparison/core07-b-formal/nft-b.txt.gz",
+      "compressed_bytes": 304262,
+      "compressed_sha256": "2f9608c83715f992c2400caf4984c47f57a95499b81cff93a8adcf076cb80469",
+      "roundtrip_sha256": "4a8a33d7f09a64354b28d147a4d3879065bc9905f6dc3793f0a07a3097088ca9"
+    },
+    {
+      "original_path": "comparison/core07-b-formal/server.log",
+      "original_bytes": 97161,
+      "original_sha256": "99918e4a803ba4bb57910bf1639a881bb285112e72ab14fc8b935de427355693",
+      "compressed_path": "comparison/core07-b-formal/server.log.gz",
+      "compressed_bytes": 4560,
+      "compressed_sha256": "021ccba60a9406c525e904622b978ea5bb16d7fa7f3c8bc85fab2d8d0b909795",
+      "roundtrip_sha256": "99918e4a803ba4bb57910bf1639a881bb285112e72ab14fc8b935de427355693"
+    },
+    {
+      "original_path": "comparison/core07-b-formal/wan.pcap",
+      "original_bytes": 309642,
+      "original_sha256": "4c2912b8b588e2e60fc8b88ac3fd0f646995cb100aedb540cc06dca7f32deb57",
+      "compressed_path": "comparison/core07-b-formal/wan.pcap.gz",
+      "compressed_bytes": 150674,
+      "compressed_sha256": "f196fa1fd7b0424dbaf8a4803544724cfe290c6c7ad94f665abf8a931a30ceff",
+      "roundtrip_sha256": "4c2912b8b588e2e60fc8b88ac3fd0f646995cb100aedb540cc06dca7f32deb57"
+    },
+    {
+      "original_path": "comparison/core08-a-baseline/nft-a.txt",
+      "original_bytes": 1386662,
+      "original_sha256": "5a8bc802d1363d1501469b45c763f7c1bd4ff319a3bac17124e0ddc245efee58",
+      "compressed_path": "comparison/core08-a-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304296,
+      "compressed_sha256": "e5087547f431b8df588b293faa6b31adb06ce623d6667b9702877e97d49ba08d",
+      "roundtrip_sha256": "5a8bc802d1363d1501469b45c763f7c1bd4ff319a3bac17124e0ddc245efee58"
+    },
+    {
+      "original_path": "comparison/core08-a-baseline/nft-b.txt",
+      "original_bytes": 1386662,
+      "original_sha256": "234fca5f8356c3a07fd556986429019e7dd33fba8060049e3007372519e5ddcc",
+      "compressed_path": "comparison/core08-a-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304291,
+      "compressed_sha256": "9ebf946238b8d7a9e2ec034cd447b66ff09cbc5619f225c557fe1ea5f32299aa",
+      "roundtrip_sha256": "234fca5f8356c3a07fd556986429019e7dd33fba8060049e3007372519e5ddcc"
+    },
+    {
+      "original_path": "comparison/core08-a-formal/nft-a.txt",
+      "original_bytes": 1386678,
+      "original_sha256": "bbd6a4ebf19e4876504d5637f68ce86636dca4eb6c975dcabcded44ef3e1888f",
+      "compressed_path": "comparison/core08-a-formal/nft-a.txt.gz",
+      "compressed_bytes": 304298,
+      "compressed_sha256": "9e186a516915a9a743b60a8ab60998f0aa5e817721c8bc9d15ec17aeb53e340b",
+      "roundtrip_sha256": "bbd6a4ebf19e4876504d5637f68ce86636dca4eb6c975dcabcded44ef3e1888f"
+    },
+    {
+      "original_path": "comparison/core08-a-formal/nft-b.txt",
+      "original_bytes": 1386680,
+      "original_sha256": "5fd35230969425ad4d9d70a1986c4bd8d888aa08fee5791f04072c41434b9840",
+      "compressed_path": "comparison/core08-a-formal/nft-b.txt.gz",
+      "compressed_bytes": 304304,
+      "compressed_sha256": "7dce0a8e0caad654e0a3db64b3875fffd869291be9efbd9c899295b1c5151975",
+      "roundtrip_sha256": "5fd35230969425ad4d9d70a1986c4bd8d888aa08fee5791f04072c41434b9840"
+    },
+    {
+      "original_path": "comparison/core08-a-formal/wan.pcap",
+      "original_bytes": 149747,
+      "original_sha256": "a9453ff229b31d3a7907f9829f3e581ec95fc9eb6fb82cfe71df660641b13093",
+      "compressed_path": "comparison/core08-a-formal/wan.pcap.gz",
+      "compressed_bytes": 106840,
+      "compressed_sha256": "8bd65ab108dd69ae335d63b16f63c71261dccad870af2918a3def4ea87ca9230",
+      "roundtrip_sha256": "a9453ff229b31d3a7907f9829f3e581ec95fc9eb6fb82cfe71df660641b13093"
+    },
+    {
+      "original_path": "comparison/core08-b-baseline/nft-a.txt",
+      "original_bytes": 1386662,
+      "original_sha256": "6016490a0ecd823a6f173c625cf9643b2008d0dfa530150f8b567e41b8a82f14",
+      "compressed_path": "comparison/core08-b-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304290,
+      "compressed_sha256": "ceb1ab99b84b79d2f249abf34471a54185110b35120ed1f7a2f475378e9e354a",
+      "roundtrip_sha256": "6016490a0ecd823a6f173c625cf9643b2008d0dfa530150f8b567e41b8a82f14"
+    },
+    {
+      "original_path": "comparison/core08-b-baseline/nft-b.txt",
+      "original_bytes": 1386662,
+      "original_sha256": "84fabcb87e8a00f4135fe025f4e19ad226ed9dc65dfe343781a910f84e55ebda",
+      "compressed_path": "comparison/core08-b-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304298,
+      "compressed_sha256": "862fd1efa0aa0758d04676b6bd7a4f8b43876b3603ef679d6bc69964ba6e3622",
+      "roundtrip_sha256": "84fabcb87e8a00f4135fe025f4e19ad226ed9dc65dfe343781a910f84e55ebda"
+    },
+    {
+      "original_path": "comparison/core08-b-formal/nft-a.txt",
+      "original_bytes": 1386680,
+      "original_sha256": "a0f360cadb67af4721820cd3a3a3ceadd2b287d5af7fbbe4a3a85055f38aa5e2",
+      "compressed_path": "comparison/core08-b-formal/nft-a.txt.gz",
+      "compressed_bytes": 304305,
+      "compressed_sha256": "169c7de3c37eb4992c9caf1bd099cc40f2e07e34f833fc33470829a37c587cae",
+      "roundtrip_sha256": "a0f360cadb67af4721820cd3a3a3ceadd2b287d5af7fbbe4a3a85055f38aa5e2"
+    },
+    {
+      "original_path": "comparison/core08-b-formal/nft-b.txt",
+      "original_bytes": 1386678,
+      "original_sha256": "d3f633d0a6aa1a6ba9a40d49084448341e139312472039829a5fabcc6b7e9892",
+      "compressed_path": "comparison/core08-b-formal/nft-b.txt.gz",
+      "compressed_bytes": 304298,
+      "compressed_sha256": "b950bd34ae9ef9fc05ac9c83b258975a5a7911602137b7d36aa408fa4a5d8957",
+      "roundtrip_sha256": "d3f633d0a6aa1a6ba9a40d49084448341e139312472039829a5fabcc6b7e9892"
+    },
+    {
+      "original_path": "comparison/core08-b-formal/wan.pcap",
+      "original_bytes": 145812,
+      "original_sha256": "630963e648be2985ae4eb84172877b6b7f592659d42dba392de619748b030e7c",
+      "compressed_path": "comparison/core08-b-formal/wan.pcap.gz",
+      "compressed_bytes": 103109,
+      "compressed_sha256": "2dd27fc7f17a6a98e0a446140e31e39ae5dd499244e28cb300ab93ca9108d2ff",
+      "roundtrip_sha256": "630963e648be2985ae4eb84172877b6b7f592659d42dba392de619748b030e7c"
+    },
+    {
+      "original_path": "comparison/core09-a-baseline/nft-a.txt",
+      "original_bytes": 1386661,
+      "original_sha256": "2679dc651924ea8d649f4d54a6c505df65a8d176fea21525819214a65cd9367b",
+      "compressed_path": "comparison/core09-a-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304300,
+      "compressed_sha256": "524c9bd69edfbe10e0f7e1f215dbbc9b24457eb84b7563297c7d9a2423f0db9c",
+      "roundtrip_sha256": "2679dc651924ea8d649f4d54a6c505df65a8d176fea21525819214a65cd9367b"
+    },
+    {
+      "original_path": "comparison/core09-a-baseline/nft-b.txt",
+      "original_bytes": 1386662,
+      "original_sha256": "6f2e5db3357e720f39337ccdba639ab297337e9a457e1432b50cc3dea36e2792",
+      "compressed_path": "comparison/core09-a-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304293,
+      "compressed_sha256": "5494537f588859f309ee6735d0a810a71f6bac71d7d59a1816531eb16bfd0c5e",
+      "roundtrip_sha256": "6f2e5db3357e720f39337ccdba639ab297337e9a457e1432b50cc3dea36e2792"
+    },
+    {
+      "original_path": "comparison/core09-a-formal/allocator-a.log",
+      "original_bytes": 159925,
+      "original_sha256": "0561b74ceebd0975ff352ae3c49da5dcd72697979c8bcbf15feddb0125cecd24",
+      "compressed_path": "comparison/core09-a-formal/allocator-a.log.gz",
+      "compressed_bytes": 12674,
+      "compressed_sha256": "a5168516e88e4d62c22946542e54177e93033e8003b0e6cde591f00275799063",
+      "roundtrip_sha256": "0561b74ceebd0975ff352ae3c49da5dcd72697979c8bcbf15feddb0125cecd24"
+    },
+    {
+      "original_path": "comparison/core09-a-formal/allocator-b.log",
+      "original_bytes": 124571,
+      "original_sha256": "c8bc52135b1b83ab119ca981a81cf7619d3f70eaae6109caf73caed086b736f1",
+      "compressed_path": "comparison/core09-a-formal/allocator-b.log.gz",
+      "compressed_bytes": 9826,
+      "compressed_sha256": "0680e52a48e0c92821fea7e6d9f9457dfc708298948520749d675ef4c5fbf357",
+      "roundtrip_sha256": "c8bc52135b1b83ab119ca981a81cf7619d3f70eaae6109caf73caed086b736f1"
+    },
+    {
+      "original_path": "comparison/core09-a-formal/client.log",
+      "original_bytes": 162144,
+      "original_sha256": "701a476efea08baa528bb9d58f60d284f48048bc5121d497319e69a701f45872",
+      "compressed_path": "comparison/core09-a-formal/client.log.gz",
+      "compressed_bytes": 6851,
+      "compressed_sha256": "3fc4643ab9c93b53fbb78b15a8041c91ec3ae116417f25f3240c1f0145869367",
+      "roundtrip_sha256": "701a476efea08baa528bb9d58f60d284f48048bc5121d497319e69a701f45872"
+    },
+    {
+      "original_path": "comparison/core09-a-formal/lan-a.pcap",
+      "original_bytes": 262931,
+      "original_sha256": "a453e5555751567db70ac2938d602156d95e9c05cd12f7de425f03f7801b1dd6",
+      "compressed_path": "comparison/core09-a-formal/lan-a.pcap.gz",
+      "compressed_bytes": 151817,
+      "compressed_sha256": "6bafa3e4435d8e7b1f8b68fca79f7c9bcddbb959591c4a49a772c434f9f53087",
+      "roundtrip_sha256": "a453e5555751567db70ac2938d602156d95e9c05cd12f7de425f03f7801b1dd6"
+    },
+    {
+      "original_path": "comparison/core09-a-formal/lan-b.pcap",
+      "original_bytes": 298816,
+      "original_sha256": "f3ebe4e8812747e56e802998e1f8c43277038434f4c5f9ea970020a877e43626",
+      "compressed_path": "comparison/core09-a-formal/lan-b.pcap.gz",
+      "compressed_bytes": 153956,
+      "compressed_sha256": "24b01058c415b03b5052183af1b8935de6e40c33d723df9216178eaa6def1e8d",
+      "roundtrip_sha256": "f3ebe4e8812747e56e802998e1f8c43277038434f4c5f9ea970020a877e43626"
+    },
+    {
+      "original_path": "comparison/core09-a-formal/nat-b-conntrack.txt",
+      "original_bytes": 79033,
+      "original_sha256": "3f9f640faa7b50e70c2d8f8d7739b2fa9aca461ad998c84d252ce8c876d104eb",
+      "compressed_path": "comparison/core09-a-formal/nat-b-conntrack.txt.gz",
+      "compressed_bytes": 6137,
+      "compressed_sha256": "731b6dde648fdee51db4be4da653520df1ab1f86755b0d31d1b1f26bfb91c7ba",
+      "roundtrip_sha256": "3f9f640faa7b50e70c2d8f8d7739b2fa9aca461ad998c84d252ce8c876d104eb"
+    },
+    {
+      "original_path": "comparison/core09-a-formal/nft-a.txt",
+      "original_bytes": 1386686,
+      "original_sha256": "8ea28185b55c71e1ef6e8b4d736f02c100d5c1669b4ad0946331bc87d44e4591",
+      "compressed_path": "comparison/core09-a-formal/nft-a.txt.gz",
+      "compressed_bytes": 304311,
+      "compressed_sha256": "4ac5532ccac28bc524b1f80399c8ac555571507ef9f3b8e56f825efac6dbd148",
+      "roundtrip_sha256": "8ea28185b55c71e1ef6e8b4d736f02c100d5c1669b4ad0946331bc87d44e4591"
+    },
+    {
+      "original_path": "comparison/core09-a-formal/nft-b.txt",
+      "original_bytes": 1386690,
+      "original_sha256": "7530f2fb1e5d0fc65efb1196534130b6d80707bc7c7e7a2fac85d49e842bea94",
+      "compressed_path": "comparison/core09-a-formal/nft-b.txt.gz",
+      "compressed_bytes": 304306,
+      "compressed_sha256": "3fd18d09795a4f76ee90c90173638dfc3a8c7e456e4baeea63152460c5b197b6",
+      "roundtrip_sha256": "7530f2fb1e5d0fc65efb1196534130b6d80707bc7c7e7a2fac85d49e842bea94"
+    },
+    {
+      "original_path": "comparison/core09-a-formal/server.log",
+      "original_bytes": 163773,
+      "original_sha256": "ce2f00fd5a9560cde013f2fa1ddfe2afb2524201c0ab04055b8f834a6cfcb902",
+      "compressed_path": "comparison/core09-a-formal/server.log.gz",
+      "compressed_bytes": 5828,
+      "compressed_sha256": "d2e808682d2553c54fd8c17ad10d0cebe9396aca75d23e571c220515532e5191",
+      "roundtrip_sha256": "ce2f00fd5a9560cde013f2fa1ddfe2afb2524201c0ab04055b8f834a6cfcb902"
+    },
+    {
+      "original_path": "comparison/core09-a-formal/wan.pcap",
+      "original_bytes": 991709,
+      "original_sha256": "5036152533d70d02a5bd6fa195911cf25eb8aee52b92e96ab412306b58c17ab5",
+      "compressed_path": "comparison/core09-a-formal/wan.pcap.gz",
+      "compressed_bytes": 344778,
+      "compressed_sha256": "1c1b0cf9c957c60302a63a7fef7c8c898c9a929b42a1a3c0e7db8f8c1bab3be2",
+      "roundtrip_sha256": "5036152533d70d02a5bd6fa195911cf25eb8aee52b92e96ab412306b58c17ab5"
+    },
+    {
+      "original_path": "comparison/core09-b-baseline/nft-a.txt",
+      "original_bytes": 1386662,
+      "original_sha256": "62007f284c9a265c645df8df36b391b3ba1edb1620bbe6831eb6f06bc1e36ede",
+      "compressed_path": "comparison/core09-b-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304299,
+      "compressed_sha256": "ef999b374293e5845881c95de654fca7e816798c701425324f6d591fc0f62bf7",
+      "roundtrip_sha256": "62007f284c9a265c645df8df36b391b3ba1edb1620bbe6831eb6f06bc1e36ede"
+    },
+    {
+      "original_path": "comparison/core09-b-baseline/nft-b.txt",
+      "original_bytes": 1386662,
+      "original_sha256": "c0310c963535e6123324bc897f454f5fa7f106af570f03dc2c9ee2b0befe3ef0",
+      "compressed_path": "comparison/core09-b-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304291,
+      "compressed_sha256": "4660985d33c34fbadc2c1ed4284dba3f287cbd2710ab2faf727fa11d16013282",
+      "roundtrip_sha256": "c0310c963535e6123324bc897f454f5fa7f106af570f03dc2c9ee2b0befe3ef0"
+    },
+    {
+      "original_path": "comparison/core09-b-formal/allocator-a.log",
+      "original_bytes": 159812,
+      "original_sha256": "01a6b67ab8f8ae65620e22f9eac0778a113f93d6fe8d2eba3dcb58f50e915945",
+      "compressed_path": "comparison/core09-b-formal/allocator-a.log.gz",
+      "compressed_bytes": 12754,
+      "compressed_sha256": "ffc30cd278e4c0a121430cad0688764a269db80b61fb55bee3d45b97991bc48b",
+      "roundtrip_sha256": "01a6b67ab8f8ae65620e22f9eac0778a113f93d6fe8d2eba3dcb58f50e915945"
+    },
+    {
+      "original_path": "comparison/core09-b-formal/allocator-b.log",
+      "original_bytes": 124719,
+      "original_sha256": "01c87713490ba7ffe8cbcf6c484ad59ca043d820f6b1582801af508c640c0e0b",
+      "compressed_path": "comparison/core09-b-formal/allocator-b.log.gz",
+      "compressed_bytes": 9870,
+      "compressed_sha256": "7c2e51b077a5ca4de0f3fe80ff18b268ed326f23e9ea20df0a9e69618bf23877",
+      "roundtrip_sha256": "01c87713490ba7ffe8cbcf6c484ad59ca043d820f6b1582801af508c640c0e0b"
+    },
+    {
+      "original_path": "comparison/core09-b-formal/client.log",
+      "original_bytes": 164000,
+      "original_sha256": "6e12fbf31a99272516c519e82055b2fe065e18e9bc0f7862b71d7cc584f17d03",
+      "compressed_path": "comparison/core09-b-formal/client.log.gz",
+      "compressed_bytes": 5869,
+      "compressed_sha256": "bd63ad0d3b43b8ae06ce3e5e238ce04adf1ceb4d52661c56ae0e29781e0d8f5e",
+      "roundtrip_sha256": "6e12fbf31a99272516c519e82055b2fe065e18e9bc0f7862b71d7cc584f17d03"
+    },
+    {
+      "original_path": "comparison/core09-b-formal/lan-a.pcap",
+      "original_bytes": 242771,
+      "original_sha256": "404e841bc3ff71cd46b3b2a6de46ed937c4450c0d4d59e4f8e41c971fa73d945",
+      "compressed_path": "comparison/core09-b-formal/lan-a.pcap.gz",
+      "compressed_bytes": 132269,
+      "compressed_sha256": "f2f91dda6379be5984a9ebfcf314504cece6d51998235db76f033442516405a0",
+      "roundtrip_sha256": "404e841bc3ff71cd46b3b2a6de46ed937c4450c0d4d59e4f8e41c971fa73d945"
+    },
+    {
+      "original_path": "comparison/core09-b-formal/lan-b.pcap",
+      "original_bytes": 321114,
+      "original_sha256": "5aaac8dff9ce0c29dc907af28fa6c3a567d564eb4becaa8308fe175ea700f4e2",
+      "compressed_path": "comparison/core09-b-formal/lan-b.pcap.gz",
+      "compressed_bytes": 175360,
+      "compressed_sha256": "f395c59445b978eb64d97b2e63975dfa3b7808c981f1e5b62193bc17a76ada99",
+      "roundtrip_sha256": "5aaac8dff9ce0c29dc907af28fa6c3a567d564eb4becaa8308fe175ea700f4e2"
+    },
+    {
+      "original_path": "comparison/core09-b-formal/nat-b-conntrack.txt",
+      "original_bytes": 79186,
+      "original_sha256": "ce439f996156789368ae9fb2f4679644c88e5ce94d000df6db4e11f3708278de",
+      "compressed_path": "comparison/core09-b-formal/nat-b-conntrack.txt.gz",
+      "compressed_bytes": 6173,
+      "compressed_sha256": "2d487343dfa54a1199c9f344448cdbfc1b367d809b13e0c08dc2d7271d2eb47f",
+      "roundtrip_sha256": "ce439f996156789368ae9fb2f4679644c88e5ce94d000df6db4e11f3708278de"
+    },
+    {
+      "original_path": "comparison/core09-b-formal/nft-a.txt",
+      "original_bytes": 1386685,
+      "original_sha256": "74d11fb16c344d2bf3347bd0c1fcad6f59a0ccf7dda0c61727c8ce45ad6f3ed6",
+      "compressed_path": "comparison/core09-b-formal/nft-a.txt.gz",
+      "compressed_bytes": 304310,
+      "compressed_sha256": "a10e2c272bb8de184d1a2bb08fa0ddbc6ae779960445729809fb0713925d48c3",
+      "roundtrip_sha256": "74d11fb16c344d2bf3347bd0c1fcad6f59a0ccf7dda0c61727c8ce45ad6f3ed6"
+    },
+    {
+      "original_path": "comparison/core09-b-formal/nft-b.txt",
+      "original_bytes": 1386689,
+      "original_sha256": "74af42ae3951eaf2ae1e6853edeb5b5d61432ff4771f23c7403ac31957efc073",
+      "compressed_path": "comparison/core09-b-formal/nft-b.txt.gz",
+      "compressed_bytes": 304307,
+      "compressed_sha256": "44702f89312f281124604e9f02bf461882df5299125d2bd3da2e730f7fe6c0f8",
+      "roundtrip_sha256": "74af42ae3951eaf2ae1e6853edeb5b5d61432ff4771f23c7403ac31957efc073"
+    },
+    {
+      "original_path": "comparison/core09-b-formal/server.log",
+      "original_bytes": 162384,
+      "original_sha256": "e23075d3b10bb71f98592f8a8e63f3622659306c41117810fe95834d84eb2536",
+      "compressed_path": "comparison/core09-b-formal/server.log.gz",
+      "compressed_bytes": 6871,
+      "compressed_sha256": "028d87c0f6e6a454d54cdfe233e0833b8a284ca4cfd2078134c904d9e216015d",
+      "roundtrip_sha256": "e23075d3b10bb71f98592f8a8e63f3622659306c41117810fe95834d84eb2536"
+    },
+    {
+      "original_path": "comparison/core09-b-formal/wan.pcap",
+      "original_bytes": 993847,
+      "original_sha256": "17d74a8247bfbc2cc2fbf4e1c84497d780bd9215620a8329fc1530f44ea5b410",
+      "compressed_path": "comparison/core09-b-formal/wan.pcap.gz",
+      "compressed_bytes": 346724,
+      "compressed_sha256": "0520b86493eb3d686887990302937e5f73037db2c444d144479fb1f590dda2d2",
+      "roundtrip_sha256": "17d74a8247bfbc2cc2fbf4e1c84497d780bd9215620a8329fc1530f44ea5b410"
+    },
+    {
+      "original_path": "comparison/core10-a-baseline/nft-a.txt",
+      "original_bytes": 1386662,
+      "original_sha256": "5a25e11678250c3e3a35dd2e2446c10a12b11c23ecb1919729de6615794c1463",
+      "compressed_path": "comparison/core10-a-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304295,
+      "compressed_sha256": "4cbc4e43f562f7fd35d3a55931c403df4212a7e25fda2264dde8b547900ebb0e",
+      "roundtrip_sha256": "5a25e11678250c3e3a35dd2e2446c10a12b11c23ecb1919729de6615794c1463"
+    },
+    {
+      "original_path": "comparison/core10-a-baseline/nft-b.txt",
+      "original_bytes": 1386662,
+      "original_sha256": "e72fb3c3795aa71e27b4eff368706270d2b9ea75c6ffa5c23a3288bf2063824a",
+      "compressed_path": "comparison/core10-a-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304293,
+      "compressed_sha256": "3917bd6e2d95cbf43ca3f782b604cddb164e6958d2235cf9468ce58ba0a59240",
+      "roundtrip_sha256": "e72fb3c3795aa71e27b4eff368706270d2b9ea75c6ffa5c23a3288bf2063824a"
+    },
+    {
+      "original_path": "comparison/core10-a-formal/lan-a.pcap",
+      "original_bytes": 68777,
+      "original_sha256": "6eb976d034fc7b4e5a7b116279fecdf1b5dbdcd8b3f418559f0a52bca2ace2e9",
+      "compressed_path": "comparison/core10-a-formal/lan-a.pcap.gz",
+      "compressed_bytes": 56518,
+      "compressed_sha256": "e2738504bee60a72c1eaa4742a5b3bbef01e89df7f6e6c7f82df71a2caa3ba5e",
+      "roundtrip_sha256": "6eb976d034fc7b4e5a7b116279fecdf1b5dbdcd8b3f418559f0a52bca2ace2e9"
+    },
+    {
+      "original_path": "comparison/core10-a-formal/nft-a.txt",
+      "original_bytes": 1386680,
+      "original_sha256": "21039522e13beaf4a4ea673d0200ddf4c0930531858c6c8af81ddf3e3b687e5f",
+      "compressed_path": "comparison/core10-a-formal/nft-a.txt.gz",
+      "compressed_bytes": 304304,
+      "compressed_sha256": "d5ee6b8b859a70fe9d41271f9faa03e68b795f2981a0358c52fce1ac9e0d94d7",
+      "roundtrip_sha256": "21039522e13beaf4a4ea673d0200ddf4c0930531858c6c8af81ddf3e3b687e5f"
+    },
+    {
+      "original_path": "comparison/core10-a-formal/nft-b.txt",
+      "original_bytes": 1386682,
+      "original_sha256": "05b4f9cfd8412a791d5b233577ccf345db57395996aecb84931d23ca47243fac",
+      "compressed_path": "comparison/core10-a-formal/nft-b.txt.gz",
+      "compressed_bytes": 304308,
+      "compressed_sha256": "f25697c647d02e78a1c39729ba6deb55ca95744cdebcdc3715a4a759d3de47ef",
+      "roundtrip_sha256": "05b4f9cfd8412a791d5b233577ccf345db57395996aecb84931d23ca47243fac"
+    },
+    {
+      "original_path": "comparison/core10-a-formal/wan.pcap",
+      "original_bytes": 165306,
+      "original_sha256": "ec9b84bd4fafb67d9c214ea6a345095f6aaa9ee251b7d636b9ba9d7fba4d02aa",
+      "compressed_path": "comparison/core10-a-formal/wan.pcap.gz",
+      "compressed_bytes": 107521,
+      "compressed_sha256": "3227a3af419c072fc1cb04f12396f1539fec1d99829edeada8697b5985e8a7be",
+      "roundtrip_sha256": "ec9b84bd4fafb67d9c214ea6a345095f6aaa9ee251b7d636b9ba9d7fba4d02aa"
+    },
+    {
+      "original_path": "comparison/core10-b-baseline/nft-a.txt",
+      "original_bytes": 1386512,
+      "original_sha256": "2bb9b34bddbda9ad6d0f10313ba4ea35df6b75558075002dd6e4b2c8b8202167",
+      "compressed_path": "comparison/core10-b-baseline/nft-a.txt.gz",
+      "compressed_bytes": 304270,
+      "compressed_sha256": "35ba86bda37e902b81cbe86684599a0adfc3c3edef5994a589663fe0b23f38ea",
+      "roundtrip_sha256": "2bb9b34bddbda9ad6d0f10313ba4ea35df6b75558075002dd6e4b2c8b8202167"
+    },
+    {
+      "original_path": "comparison/core10-b-baseline/nft-b.txt",
+      "original_bytes": 1386512,
+      "original_sha256": "428fc9f688fec7b98b38ed1c350cd2b9cad9597f03827e28bf1b7c9f144da035",
+      "compressed_path": "comparison/core10-b-baseline/nft-b.txt.gz",
+      "compressed_bytes": 304265,
+      "compressed_sha256": "2dbbde3ae57459621c9dfa6e377f20cb4039db3f5aa6761c7cef67e1fc4ce237",
+      "roundtrip_sha256": "428fc9f688fec7b98b38ed1c350cd2b9cad9597f03827e28bf1b7c9f144da035"
+    },
+    {
+      "original_path": "comparison/core10-b-formal/lan-b.pcap",
+      "original_bytes": 72913,
+      "original_sha256": "c228a50017e2f60707c0949796938a51e514f28186663c9e0ca2bdfed2c33dde",
+      "compressed_path": "comparison/core10-b-formal/lan-b.pcap.gz",
+      "compressed_bytes": 60395,
+      "compressed_sha256": "cd488d04736209be6bc87604c4744b656bba928531b1d80a6f811b222bf11cad",
+      "roundtrip_sha256": "c228a50017e2f60707c0949796938a51e514f28186663c9e0ca2bdfed2c33dde"
+    },
+    {
+      "original_path": "comparison/core10-b-formal/nft-a.txt",
+      "original_bytes": 1386532,
+      "original_sha256": "e1f378ef771571caaba215ae51eac845cddd915738d81850ad48dae259cb6644",
+      "compressed_path": "comparison/core10-b-formal/nft-a.txt.gz",
+      "compressed_bytes": 304283,
+      "compressed_sha256": "7c3c58a0ccb3ab3a17aab66ed75f66910373beec174eb6eb1237000656be0e13",
+      "roundtrip_sha256": "e1f378ef771571caaba215ae51eac845cddd915738d81850ad48dae259cb6644"
+    },
+    {
+      "original_path": "comparison/core10-b-formal/nft-b.txt",
+      "original_bytes": 1386529,
+      "original_sha256": "fc0810092a9a84d78d46685b07fe5fa52e5ea13a9adc5671ac2dd91ef50695b9",
+      "compressed_path": "comparison/core10-b-formal/nft-b.txt.gz",
+      "compressed_bytes": 304279,
+      "compressed_sha256": "89c1af2a77bc89af49ca4f3816fbe82ae4592459bb4fecce0d9cecf81a80e3f9",
+      "roundtrip_sha256": "fc0810092a9a84d78d46685b07fe5fa52e5ea13a9adc5671ac2dd91ef50695b9"
+    },
+    {
+      "original_path": "comparison/core10-b-formal/wan.pcap",
+      "original_bytes": 169249,
+      "original_sha256": "0ee44302efdb82a4148e5f4a43c70fea472a933512d215f611366efb32f91859",
+      "compressed_path": "comparison/core10-b-formal/wan.pcap.gz",
+      "compressed_bytes": 111300,
+      "compressed_sha256": "ee2be90a2fc85c98d8709c27d18d1e9d3f6d570cf6799eec45aad6e40149d052",
+      "roundtrip_sha256": "0ee44302efdb82a4148e5f4a43c70fea472a933512d215f611366efb32f91859"
+    },
+    {
+      "original_path": "fixture-failures/core03-a-baseline-generation1/nft-a.txt",
+      "original_bytes": 1386578,
+      "original_sha256": "4317fa05909f497e8df96a426abe1dcc66cbc1c13d2f2cb83a2d2bceeae73e54",
+      "compressed_path": "fixture-failures/core03-a-baseline-generation1/nft-a.txt.gz",
+      "compressed_bytes": 304257,
+      "compressed_sha256": "654180d5aba6149175deb2e1f0845b4dd476b8531efacad5d0c82672a493d180",
+      "roundtrip_sha256": "4317fa05909f497e8df96a426abe1dcc66cbc1c13d2f2cb83a2d2bceeae73e54"
+    },
+    {
+      "original_path": "fixture-failures/core03-a-baseline-generation1/nft-b.txt",
+      "original_bytes": 1386492,
+      "original_sha256": "c5474377eb170ac8869f0ea3724b985b71032f8424197fdb4c4af7f13d322aad",
+      "compressed_path": "fixture-failures/core03-a-baseline-generation1/nft-b.txt.gz",
+      "compressed_bytes": 304229,
+      "compressed_sha256": "164d1fe8ccc195f481ae27163d979cfabadc74ab7d5b3ef6954761000f05dd4d",
+      "roundtrip_sha256": "c5474377eb170ac8869f0ea3724b985b71032f8424197fdb4c4af7f13d322aad"
+    },
+    {
+      "original_path": "functional/hh-irregular-24-rounds/client.log",
+      "original_bytes": 279572,
+      "original_sha256": "6768c739db590d6096ca14dc634ed042a3e16e75951e3e7183133aa8b237d703",
+      "compressed_path": "functional/hh-irregular-24-rounds/client.log.gz",
+      "compressed_bytes": 4758,
+      "compressed_sha256": "32f254acb2e3a9f16ae9fc9e3064b480d0ad1ed79fba511b90023e463643d852",
+      "roundtrip_sha256": "6768c739db590d6096ca14dc634ed042a3e16e75951e3e7183133aa8b237d703"
+    },
+    {
+      "original_path": "functional/hh-irregular-24-rounds/lan-a.pcap",
+      "original_bytes": 1084036,
+      "original_sha256": "a10f8d60745cf8b7c0a30144397512659e97b6a2b6777301669c814559aa1666",
+      "compressed_path": "functional/hh-irregular-24-rounds/lan-a.pcap.gz",
+      "compressed_bytes": 854031,
+      "compressed_sha256": "e411c0729e74197e5c18822a60d9b8d3816cf917a61f099da570aad13c17e1b8",
+      "roundtrip_sha256": "a10f8d60745cf8b7c0a30144397512659e97b6a2b6777301669c814559aa1666"
+    },
+    {
+      "original_path": "functional/hh-irregular-24-rounds/lan-b.pcap",
+      "original_bytes": 1143964,
+      "original_sha256": "7c9dc80f620378ba6df65f63b482033bc577e8ee9e97d1b52b9365a903fbb8d8",
+      "compressed_path": "functional/hh-irregular-24-rounds/lan-b.pcap.gz",
+      "compressed_bytes": 873959,
+      "compressed_sha256": "8aa645bac0b66771c81ef967f7e7f745e152c5350fa9ea902c136f4ecf2f3f02",
+      "roundtrip_sha256": "7c9dc80f620378ba6df65f63b482033bc577e8ee9e97d1b52b9365a903fbb8d8"
+    },
+    {
+      "original_path": "functional/hh-irregular-24-rounds/nft-a.txt",
+      "original_bytes": 1386681,
+      "original_sha256": "51aff22a3c52cb5701087ee89dee4cd87194a6b26aec31fbc7e6b57f0dafa719",
+      "compressed_path": "functional/hh-irregular-24-rounds/nft-a.txt.gz",
+      "compressed_bytes": 304308,
+      "compressed_sha256": "47ab36eebe4bdad76527cd607c338b964ccf5a56519cf608cd3130c1afd08f61",
+      "roundtrip_sha256": "51aff22a3c52cb5701087ee89dee4cd87194a6b26aec31fbc7e6b57f0dafa719"
+    },
+    {
+      "original_path": "functional/hh-irregular-24-rounds/nft-b.txt",
+      "original_bytes": 1386680,
+      "original_sha256": "4a4b293ec58c1b34cb28c947688398804fcde12d2122998f6da175f5b4b5497c",
+      "compressed_path": "functional/hh-irregular-24-rounds/nft-b.txt.gz",
+      "compressed_bytes": 304304,
+      "compressed_sha256": "7d2614c4420f35ff2ebdd823287b13f8eeb254cc997483ba948c3be9ba6f049a",
+      "roundtrip_sha256": "4a4b293ec58c1b34cb28c947688398804fcde12d2122998f6da175f5b4b5497c"
+    },
+    {
+      "original_path": "functional/hh-irregular-24-rounds/server.log",
+      "original_bytes": 324303,
+      "original_sha256": "0adbc5202023d427f4b8a84efc7d95e7ffbc206df7954b4658b9792a319042fd",
+      "compressed_path": "functional/hh-irregular-24-rounds/server.log.gz",
+      "compressed_bytes": 4945,
+      "compressed_sha256": "26919d140b7219f65a20e7e69eb253c26fbcb1f9e9c2c8fba6793813553b7d8c",
+      "roundtrip_sha256": "0adbc5202023d427f4b8a84efc7d95e7ffbc206df7954b4658b9792a319042fd"
+    },
+    {
+      "original_path": "functional/hh-irregular-24-rounds/wan.pcap",
+      "original_bytes": 2229950,
+      "original_sha256": "e69e9a8451cdd35efedcc81a4a2e6397c7b6b3db7f15085ad9ad3ccae52d75ae",
+      "compressed_path": "functional/hh-irregular-24-rounds/wan.pcap.gz",
+      "compressed_bytes": 1755472,
+      "compressed_sha256": "92b640f1a23c53842910e9232fbf441ef36b275e9d5cbe34ed1618bba9888a7e",
+      "roundtrip_sha256": "e69e9a8451cdd35efedcc81a4a2e6397c7b6b3db7f15085ad9ad3ccae52d75ae"
+    },
+    {
+      "original_path": "functional/hh-regular-9-rounds/allocator-a.log",
+      "original_bytes": 369097,
+      "original_sha256": "29b56121db48f06de0fdf436e1c1b6fc40ffe96390a5cdefeaf69c313f241dc3",
+      "compressed_path": "functional/hh-regular-9-rounds/allocator-a.log.gz",
+      "compressed_bytes": 28220,
+      "compressed_sha256": "6d7be9c93e8b72a706b62d2db701c0c54f9835c06cbaa6fb3270bff001c3082e",
+      "roundtrip_sha256": "29b56121db48f06de0fdf436e1c1b6fc40ffe96390a5cdefeaf69c313f241dc3"
+    },
+    {
+      "original_path": "functional/hh-regular-9-rounds/allocator-b.log",
+      "original_bytes": 474608,
+      "original_sha256": "34cd0496ca243f0fb18fd5dd133813cd855df3ed388acf0b5fe7a19843eb45c3",
+      "compressed_path": "functional/hh-regular-9-rounds/allocator-b.log.gz",
+      "compressed_bytes": 33227,
+      "compressed_sha256": "00e1914a81390ca455e95c80799292221223cad30aefacf93802a33c57cfd187",
+      "roundtrip_sha256": "34cd0496ca243f0fb18fd5dd133813cd855df3ed388acf0b5fe7a19843eb45c3"
+    },
+    {
+      "original_path": "functional/hh-regular-9-rounds/client.log",
+      "original_bytes": 541875,
+      "original_sha256": "eab2434d78657d6011eb10ce855a5990eddf8f3d61e930c3e1ddd9a0a9ff08c7",
+      "compressed_path": "functional/hh-regular-9-rounds/client.log.gz",
+      "compressed_bytes": 21190,
+      "compressed_sha256": "d56e9e7dddf159c247b3d766586165f3d29b1377ee34e8ebcb05316815361e81",
+      "roundtrip_sha256": "eab2434d78657d6011eb10ce855a5990eddf8f3d61e930c3e1ddd9a0a9ff08c7"
+    },
+    {
+      "original_path": "functional/hh-regular-9-rounds/lan-a.pcap",
+      "original_bytes": 1135118,
+      "original_sha256": "50d8156b0471e2cfb514739b6dc72a8520bd27585af22832a7d59338765cf4dd",
+      "compressed_path": "functional/hh-regular-9-rounds/lan-a.pcap.gz",
+      "compressed_bytes": 654153,
+      "compressed_sha256": "47a0f1c912a378d62aac459f403df1116d75e87bc3c68d5dcdda9804ffe96d83",
+      "roundtrip_sha256": "50d8156b0471e2cfb514739b6dc72a8520bd27585af22832a7d59338765cf4dd"
+    },
+    {
+      "original_path": "functional/hh-regular-9-rounds/lan-b.pcap",
+      "original_bytes": 981759,
+      "original_sha256": "6917bef9eb25219e8b16d643e1fb0573ac87add94b892a95e98777de3b491de6",
+      "compressed_path": "functional/hh-regular-9-rounds/lan-b.pcap.gz",
+      "compressed_bytes": 602903,
+      "compressed_sha256": "60b16c4497b41ae86458cf629fad2d4a29ebd6baa35662868c72c1ba9a3a3427",
+      "roundtrip_sha256": "6917bef9eb25219e8b16d643e1fb0573ac87add94b892a95e98777de3b491de6"
+    },
+    {
+      "original_path": "functional/hh-regular-9-rounds/nat-a-conntrack.txt",
+      "original_bytes": 92468,
+      "original_sha256": "eb683264dcdaa02d523fe376e0a5aeede2a260edb8512f4b9bcceb26ffe369da",
+      "compressed_path": "functional/hh-regular-9-rounds/nat-a-conntrack.txt.gz",
+      "compressed_bytes": 7264,
+      "compressed_sha256": "9f47d5ea38512a17e0fd6000ece8536802c9962ecfe386b301b6303c3b07b016",
+      "roundtrip_sha256": "eb683264dcdaa02d523fe376e0a5aeede2a260edb8512f4b9bcceb26ffe369da"
+    },
+    {
+      "original_path": "functional/hh-regular-9-rounds/nft-a.txt",
+      "original_bytes": 1386680,
+      "original_sha256": "bcc56b26c21fa7a8ccc5e1f1508cc864122e81fcc5dd03d30f61f5abec85e607",
+      "compressed_path": "functional/hh-regular-9-rounds/nft-a.txt.gz",
+      "compressed_bytes": 304304,
+      "compressed_sha256": "a8df8320df0d323ae206205fe19966e84a86e08afe3278cbebc256bf12decb65",
+      "roundtrip_sha256": "bcc56b26c21fa7a8ccc5e1f1508cc864122e81fcc5dd03d30f61f5abec85e607"
+    },
+    {
+      "original_path": "functional/hh-regular-9-rounds/nft-b.txt",
+      "original_bytes": 1386682,
+      "original_sha256": "ca26ff62587ff9bb6c74aa1d511cda078a71adcd140b929e1752a164e2d09ed4",
+      "compressed_path": "functional/hh-regular-9-rounds/nft-b.txt.gz",
+      "compressed_bytes": 304302,
+      "compressed_sha256": "e5d038b0b23ca21221ae37243d0186f4bb1371d93c1e8b4a6b5197baf98a0303",
+      "roundtrip_sha256": "ca26ff62587ff9bb6c74aa1d511cda078a71adcd140b929e1752a164e2d09ed4"
+    },
+    {
+      "original_path": "functional/hh-regular-9-rounds/server.log",
+      "original_bytes": 545354,
+      "original_sha256": "2a4aa22991e6c5e38aeaf0c310df4398566ec6c92623f83ad4498485e93b475e",
+      "compressed_path": "functional/hh-regular-9-rounds/server.log.gz",
+      "compressed_bytes": 17736,
+      "compressed_sha256": "906ce155b8124b8d54abb330656d27d6242859ca501dcf0898ae676a4817a8c8",
+      "roundtrip_sha256": "2a4aa22991e6c5e38aeaf0c310df4398566ec6c92623f83ad4498485e93b475e"
+    },
+    {
+      "original_path": "functional/hh-regular-9-rounds/wan.pcap",
+      "original_bytes": 2118827,
+      "original_sha256": "7c036d7185ef5991400ad6463905f22ed43e2fdf710557e4f4e9bc4540352f1e",
+      "compressed_path": "functional/hh-regular-9-rounds/wan.pcap.gz",
+      "compressed_bytes": 1306005,
+      "compressed_sha256": "da353fef0a01e86b446450bf28914db2b18765b99ac520602d780d47baf7d96b",
+      "roundtrip_sha256": "7c036d7185ef5991400ad6463905f22ed43e2fdf710557e4f4e9bc4540352f1e"
+    },
+    {
+      "original_path": "functional/single-irregular-21-rounds/allocator-a.log",
+      "original_bytes": 94979,
+      "original_sha256": "eedd57555c8887b745774632d697fd24789d12332377bee4a83df79c37bda287",
+      "compressed_path": "functional/single-irregular-21-rounds/allocator-a.log.gz",
+      "compressed_bytes": 8344,
+      "compressed_sha256": "f98f25aa094a2b04eb0f2cf75797f0bc16c8c5f06b54b14dc99cd5dfc515fb79",
+      "roundtrip_sha256": "eedd57555c8887b745774632d697fd24789d12332377bee4a83df79c37bda287"
+    },
+    {
+      "original_path": "functional/single-irregular-21-rounds/allocator-b.log",
+      "original_bytes": 372700,
+      "original_sha256": "0a27513a332092e11aaca33f7e447040908558ab8e56165c4ae87d8cdd0988b4",
+      "compressed_path": "functional/single-irregular-21-rounds/allocator-b.log.gz",
+      "compressed_bytes": 19796,
+      "compressed_sha256": "22c2cc69535428488a1e4916b4715f07e95a7320c261ec9079c2f1cee0070f89",
+      "roundtrip_sha256": "0a27513a332092e11aaca33f7e447040908558ab8e56165c4ae87d8cdd0988b4"
+    },
+    {
+      "original_path": "functional/single-irregular-21-rounds/client.log",
+      "original_bytes": 13433687,
+      "original_sha256": "06f9aeb2c80f8cd3f12274419631abef41382bb30e5aa8128be5098b27fd5b25",
+      "compressed_path": "functional/single-irregular-21-rounds/client.log.gz",
+      "compressed_bytes": 110537,
+      "compressed_sha256": "6534522e2a23af435efebbba10bad2cbf1bafb3d8011870ebc14abbbfa35cbad",
+      "roundtrip_sha256": "06f9aeb2c80f8cd3f12274419631abef41382bb30e5aa8128be5098b27fd5b25"
+    },
+    {
+      "original_path": "functional/single-irregular-21-rounds/lan-a.pcap",
+      "original_bytes": 19874813,
+      "original_sha256": "10a9d703226c1adfac6f4dab5d013426418b74a9e242595bbbc13c2257f574d1",
+      "compressed_path": "functional/single-irregular-21-rounds/lan-a.pcap.gz",
+      "compressed_bytes": 8700237,
+      "compressed_sha256": "57ed704ee34a7a53a4373a9d82dcbc170ab31638495a39646c4bb5340d43f3bd",
+      "roundtrip_sha256": "10a9d703226c1adfac6f4dab5d013426418b74a9e242595bbbc13c2257f574d1"
+    },
+    {
+      "original_path": "functional/single-irregular-21-rounds/lan-b.pcap",
+      "original_bytes": 1711566,
+      "original_sha256": "9db99d8301d775715e0260933e85ff88b944d38b11889d25f93ee78534ac984d",
+      "compressed_path": "functional/single-irregular-21-rounds/lan-b.pcap.gz",
+      "compressed_bytes": 1097350,
+      "compressed_sha256": "132b0e921be4be61878fea6e84234374fb77f7aa0db26cfd03c5e876b2ba27aa",
+      "roundtrip_sha256": "9db99d8301d775715e0260933e85ff88b944d38b11889d25f93ee78534ac984d"
+    },
+    {
+      "original_path": "functional/single-irregular-21-rounds/nft-a.txt",
+      "original_bytes": 1386690,
+      "original_sha256": "945bb64b95f9e0b6acb8ba9b71d83b095cff0cef1ac3d97ea38f9454fdeb77a8",
+      "compressed_path": "functional/single-irregular-21-rounds/nft-a.txt.gz",
+      "compressed_bytes": 304307,
+      "compressed_sha256": "c9ef34aef3fd9c7870995fb2969476c0ef8e65aed3f7562b83f1561982a9d125",
+      "roundtrip_sha256": "945bb64b95f9e0b6acb8ba9b71d83b095cff0cef1ac3d97ea38f9454fdeb77a8"
+    },
+    {
+      "original_path": "functional/single-irregular-21-rounds/nft-b.txt",
+      "original_bytes": 1386675,
+      "original_sha256": "00e2f3d93addc07151a44462a82ee29a0a90559ba6e44075d59972d031ebdaab",
+      "compressed_path": "functional/single-irregular-21-rounds/nft-b.txt.gz",
+      "compressed_bytes": 304288,
+      "compressed_sha256": "bd12278c102e2afe3808ab535194e7f55778652b5d5dc5a5ce3607aee859f261",
+      "roundtrip_sha256": "00e2f3d93addc07151a44462a82ee29a0a90559ba6e44075d59972d031ebdaab"
+    },
+    {
+      "original_path": "functional/single-irregular-21-rounds/server.log",
+      "original_bytes": 708754,
+      "original_sha256": "3847c457c6e115107e5af6e92089c58daed3fdce2ce88d24bdcef436b1e1e9aa",
+      "compressed_path": "functional/single-irregular-21-rounds/server.log.gz",
+      "compressed_bytes": 20487,
+      "compressed_sha256": "4bd77bb843a96bcd228bb72928fa350980b1a2f4165975b1ff54ac525dc2e773",
+      "roundtrip_sha256": "3847c457c6e115107e5af6e92089c58daed3fdce2ce88d24bdcef436b1e1e9aa"
+    },
+    {
+      "original_path": "functional/single-irregular-21-rounds/wan.pcap",
+      "original_bytes": 21588329,
+      "original_sha256": "56613661219bf2df6f86c322e6deefd41fa6abdbb702bd84686ced5a897c3cfa",
+      "compressed_path": "functional/single-irregular-21-rounds/wan.pcap.gz",
+      "compressed_bytes": 10335571,
+      "compressed_sha256": "07a563b0073a42b3242c733e7a584a3a8e86665078c28666d0c50f9d69cc1e2c",
+      "roundtrip_sha256": "56613661219bf2df6f86c322e6deefd41fa6abdbb702bd84686ced5a897c3cfa"
+    },
+    {
+      "original_path": "functional-blocked-core04/nft-a.txt",
+      "original_bytes": 1386517,
+      "original_sha256": "1be6e26154250adda874206f342dcca7f3ef40fc1c3d811be7a546e82f866908",
+      "compressed_path": "functional-blocked-core04/nft-a.txt.gz",
+      "compressed_bytes": 304261,
+      "compressed_sha256": "4596b011229d9157d6d7dc15024133de4d82cfe41e6483d23961371180f18d14",
+      "roundtrip_sha256": "1be6e26154250adda874206f342dcca7f3ef40fc1c3d811be7a546e82f866908"
+    },
+    {
+      "original_path": "functional-blocked-core04/nft-b.txt",
+      "original_bytes": 1386516,
+      "original_sha256": "1000008936f9e808888116d5f340ab60bb8cb67d1bc20aa22e587118b4fd4c82",
+      "compressed_path": "functional-blocked-core04/nft-b.txt.gz",
+      "compressed_bytes": 304250,
+      "compressed_sha256": "4386bfebe7c79d420c30107e1c2a1de7b2de2894e323f1312f4b61dea4f264e0",
+      "roundtrip_sha256": "1000008936f9e808888116d5f340ab60bb8cb67d1bc20aa22e587118b4fd4c82"
+    },
+    {
+      "original_path": "functional-blocked-core04/wan.pcap",
+      "original_bytes": 113148,
+      "original_sha256": "851b70c43288a987d2ec4098a465a124bd58d3a9819513421db781bb8918216b",
+      "compressed_path": "functional-blocked-core04/wan.pcap.gz",
+      "compressed_bytes": 100322,
+      "compressed_sha256": "ea7a5cf51725b9610694467935a43796ea914b094ebc0448c8fc662039cd99f0",
+      "roundtrip_sha256": "851b70c43288a987d2ec4098a465a124bd58d3a9819513421db781bb8918216b"
+    },
+    {
+      "original_path": "functional-core04/lan-a.pcap",
+      "original_bytes": 70331,
+      "original_sha256": "8052e06246c0120fe18eb8d94c714ad4f63a704e1635f0863c5de4c155f7c9ef",
+      "compressed_path": "functional-core04/lan-a.pcap.gz",
+      "compressed_bytes": 64968,
+      "compressed_sha256": "c499a8b9fcdd16fb6ef8e2bf5856d45a293a210507b43266d17d2c7d4aaeda80",
+      "roundtrip_sha256": "8052e06246c0120fe18eb8d94c714ad4f63a704e1635f0863c5de4c155f7c9ef"
+    },
+    {
+      "original_path": "functional-core04/lan-b.pcap",
+      "original_bytes": 67369,
+      "original_sha256": "e966371d8f8981bd8a20df7695c8d6e53f414432967dba543893341f927362bb",
+      "compressed_path": "functional-core04/lan-b.pcap.gz",
+      "compressed_bytes": 62275,
+      "compressed_sha256": "bb82593c638c2400e86e5cb24e482c1c17695af18c609194e20c5bbcef48bc50",
+      "roundtrip_sha256": "e966371d8f8981bd8a20df7695c8d6e53f414432967dba543893341f927362bb"
+    },
+    {
+      "original_path": "functional-core04/nft-a.txt",
+      "original_bytes": 1386525,
+      "original_sha256": "6a05a65b63d7f30be54dc2e2964356e758fb1d939e67d7c389750f5f08acc45d",
+      "compressed_path": "functional-core04/nft-a.txt.gz",
+      "compressed_bytes": 304262,
+      "compressed_sha256": "e81982b8c83a67984e38e11b4307acd48d7d0670cd0a2bfba80397c28da641eb",
+      "roundtrip_sha256": "6a05a65b63d7f30be54dc2e2964356e758fb1d939e67d7c389750f5f08acc45d"
+    },
+    {
+      "original_path": "functional-core04/nft-b.txt",
+      "original_bytes": 1386526,
+      "original_sha256": "b8a16fa3b4744cb163fb69cc886c4e28534752472db090762fd70da1943e4654",
+      "compressed_path": "functional-core04/nft-b.txt.gz",
+      "compressed_bytes": 304263,
+      "compressed_sha256": "039929d8ad39f109c83f3d820212273f8e797e44a5a8c0eb6a2564e95bbfefb0",
+      "roundtrip_sha256": "b8a16fa3b4744cb163fb69cc886c4e28534752472db090762fd70da1943e4654"
+    },
+    {
+      "original_path": "functional-core04/wan.pcap",
+      "original_bytes": 142458,
+      "original_sha256": "2b0a2fb118ee8d376b319aca2d3f0ab5bc7256538ef97b31b5918dad8cc23da7",
+      "compressed_path": "functional-core04/wan.pcap.gz",
+      "compressed_bytes": 111916,
+      "compressed_sha256": "6bfed18f4244a6148785175db784816b47f28b037f36b95e087c8689ceda19aa",
+      "roundtrip_sha256": "2b0a2fb118ee8d376b319aca2d3f0ab5bc7256538ef97b31b5918dad8cc23da7"
+    },
+    {
+      "original_path": "profile-preflight/nft-a.txt",
+      "original_bytes": 1386577,
+      "original_sha256": "2bf237e5f60692af92cd3af3433a8faec409394ac5f6a3a8054da7b4957110aa",
+      "compressed_path": "profile-preflight/nft-a.txt.gz",
+      "compressed_bytes": 304249,
+      "compressed_sha256": "d8b9db94838dc28605d17d006469c1fc21cc9330a09f55608001be9b9a9d083f",
+      "roundtrip_sha256": "2bf237e5f60692af92cd3af3433a8faec409394ac5f6a3a8054da7b4957110aa"
+    },
+    {
+      "original_path": "profile-preflight/nft-b.txt",
+      "original_bytes": 1386867,
+      "original_sha256": "516fedf6501e7784e2caca683da1d0c6257dc6f2935ec2626025821298ac1477",
+      "compressed_path": "profile-preflight/nft-b.txt.gz",
+      "compressed_bytes": 304277,
+      "compressed_sha256": "904ac6e248c01a95c496b70f66b5a51b08a5dd0b678e508f0895e3d014c8f722",
+      "roundtrip_sha256": "516fedf6501e7784e2caca683da1d0c6257dc6f2935ec2626025821298ac1477"
+    },
+    {
+      "original_path": "profile-preflight-fixed/nft-a.txt",
+      "original_bytes": 1386574,
+      "original_sha256": "4c3d7c85dd39d9698ac93b025798e9a585f098db974345c8c1ac2292465b7143",
+      "compressed_path": "profile-preflight-fixed/nft-a.txt.gz",
+      "compressed_bytes": 304240,
+      "compressed_sha256": "4d94fc2e57bc3dfb13e757554626bba849561aab8039b87d52283054b1ed9753",
+      "roundtrip_sha256": "4c3d7c85dd39d9698ac93b025798e9a585f098db974345c8c1ac2292465b7143"
+    },
+    {
+      "original_path": "profile-preflight-fixed/nft-b.txt",
+      "original_bytes": 1386869,
+      "original_sha256": "c558768a805359503eb421367ee38ce3fbb8c83ee70b1429c9e32514e298e757",
+      "compressed_path": "profile-preflight-fixed/nft-b.txt.gz",
+      "compressed_bytes": 304288,
+      "compressed_sha256": "46922cb9ac94c071ac527b5da65f8d419517eebf7b585c988114d53a137bf0f0",
+      "roundtrip_sha256": "c558768a805359503eb421367ee38ce3fbb8c83ee70b1429c9e32514e298e757"
+    },
+    {
+      "original_path": "profile-source-preservation/nft-a.txt",
+      "original_bytes": 1386723,
+      "original_sha256": "7e2d9483f0471fd907080a20bc2781149e11a2b45e00a0a7108ad2d12b2f202c",
+      "compressed_path": "profile-source-preservation/nft-a.txt.gz",
+      "compressed_bytes": 304261,
+      "compressed_sha256": "e02156547d523cb7dbb016f2936f3b0d5940941c3326526e99c9d429aa9e4b14",
+      "roundtrip_sha256": "7e2d9483f0471fd907080a20bc2781149e11a2b45e00a0a7108ad2d12b2f202c"
+    },
+    {
+      "original_path": "profile-source-preservation/nft-b.txt",
+      "original_bytes": 1386641,
+      "original_sha256": "9f9b8b60edf48888617234e5f72e8722d7bd213f728b3840af78fb92e555af2f",
+      "compressed_path": "profile-source-preservation/nft-b.txt.gz",
+      "compressed_bytes": 304251,
+      "compressed_sha256": "ed1aff10a181369573b227f43b7fcad0834640625f5be862d59598313be3c533",
+      "roundtrip_sha256": "9f9b8b60edf48888617234e5f72e8722d7bd213f728b3840af78fb92e555af2f"
+    },
+    {
+      "original_path": "verification/mio60-assisted-green.log",
+      "original_bytes": 17864,
+      "original_sha256": "888e501ee3043394124f33ed79a1d76f06b9329d4f2dab289f6ded96213ebfbd",
+      "compressed_path": "verification/mio60-assisted-green.log.gz",
+      "compressed_bytes": 2121,
+      "compressed_sha256": "0a2c41d5f8beeef9460f33ba7e145bb9413b39208b7e7f713c5579ba716476fc",
+      "roundtrip_sha256": "888e501ee3043394124f33ed79a1d76f06b9329d4f2dab289f6ded96213ebfbd"
+    }
+  ]
+}

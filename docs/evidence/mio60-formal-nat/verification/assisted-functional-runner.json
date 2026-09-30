@@ -1,0 +1,14 @@
+[
+  {
+    "cell": "assisted-with-s-blocked",
+    "exit": 0,
+    "wall_seconds": 19.86472800199408,
+    "probability_samples_added": 0
+  },
+  {
+    "cell": "assisted-without-s-blocked",
+    "exit": 0,
+    "wall_seconds": 19.61216342204716,
+    "probability_samples_added": 0
+  }
+]

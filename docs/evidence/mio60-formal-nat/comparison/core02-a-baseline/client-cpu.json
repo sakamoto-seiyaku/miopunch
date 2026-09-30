@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "scope": "actual native node process",
+  "collector": "namespace-local wait4",
+  "pid": 6420,
+  "exit": 0,
+  "timed_out": false,
+  "executable": "/runtime/udp_nat_probe",
+  "executable_sha256": "cb940772f5413ccc6f538380f718a105bf41576dc05fe1a1d54d2582abd93fac",
+  "user_cpu_seconds": 0.224038,
+  "system_cpu_seconds": 0.017571,
+  "wall_seconds": 0.882273148978129,
+  "max_rss_kib": 28928,
+  "max_rss_scope": "wait4 child fork/exec lifetime; streamed launcher hash",
+  "sampled_exec_vm_hwm_kib": 29488,
+  "exec_samples": 85,
+  "sampled_maximum_fd": 13,
+  "voluntary_context_switches": 371,
+  "involuntary_context_switches": 1
+}

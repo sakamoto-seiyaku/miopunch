@@ -1,0 +1,9 @@
+{
+  "id": "single-irregular-21-rounds",
+  "case": "blocked",
+  "topology": "wide-eim",
+  "dialer": "a",
+  "strategy": "formal",
+  "rounds": 21,
+  "seed": "mio60-chain-single"
+}

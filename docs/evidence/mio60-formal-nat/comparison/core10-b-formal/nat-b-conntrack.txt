@@ -1,0 +1,10 @@
+conntrack v1.4.7 (conntrack-tools): 9 flow entries have been shown.
+udp      17 21 src=10.27.2.2 dst=100.64.27.1 sport=43027 dport=46763 src=100.64.27.1 dst=100.64.27.6 sport=46763 dport=21397 mark=0 use=1
+udp      17 117 src=10.27.2.2 dst=100.64.27.1 sport=43027 dport=46761 src=100.64.27.1 dst=100.64.27.6 sport=46761 dport=46574 [ASSURED] mark=0 use=1
+udp      17 21 src=10.27.2.2 dst=100.64.27.1 sport=43027 dport=46764 src=100.64.27.1 dst=100.64.27.6 sport=46764 dport=29548 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=27974 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=27974 dport=54716 mark=0 use=1
+udp      17 21 src=10.27.2.2 dst=100.64.27.1 sport=43027 dport=46762 src=100.64.27.1 dst=100.64.27.6 sport=46762 dport=15989 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=25259 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=25259 dport=51980 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=10.27.1.2 sport=43027 dport=42027 [UNREPLIED] src=10.27.1.2 dst=100.64.27.6 sport=42027 dport=46574 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=40761 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=40761 dport=11202 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=21386 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=21386 dport=10828 mark=0 use=1

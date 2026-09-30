@@ -1,0 +1,43 @@
+NODE_SESSION local=72b06cff909648764d4d41e5d369b874dc11873145ce9e05738ddb964d359f8e peer=a62ed0cf347c8b799b1ac38277ce7fc9aff3e43a00478f5d3e8190159a5557b3 stable_id=102561087064656 dialing=true
+NAT_DIRECT_CANDIDATE stable_id=102561087064656 target=10.27.2.2:43027
+NAT_DIRECT_CANDIDATE stable_id=102561087064656 target=100.64.27.6:43027
+NAT_CONNECTION_ROUND number=1 stable_id=102561087064656
+LEGACY_SAMPLE order=0 destination=100.64.27.1:46761 mapped=100.64.27.2:42027
+LEGACY_SAMPLE order=1 destination=100.64.27.1:46762 mapped=100.64.27.2:42027
+LEGACY_SAMPLE order=2 destination=100.64.27.1:46763 mapped=100.64.27.2:42027
+LEGACY_SAMPLE order=3 destination=100.64.27.1:46764 mapped=100.64.27.2:42027
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Easy, behavior: NoChange, ports_difference: 0, regular_ports_change: false, public_network: false }) socket_generation_current=true
+LEGACY_SELECTED mode=0 index=0 c=Behavior { role: Sender, ttl: 0, send_delay_ms: 200, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 0, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 2 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 3 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 5 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 6 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 7 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 8 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 9 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 10 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 11 }, score: 0 }] round=00ab944f401b8431fdb9876c274fcc77 stable_id=102561087064656 execution=Ready fallback=false
+LEGACY_CANDIDATES round=00ab944f401b8431fdb9876c274fcc77 stable_id=102561087064656 assisted=[10.27.2.2:43027] mapped=[100.64.27.6:43027, 100.64.27.6:43027, 100.64.27.6:43027, 100.64.27.6:43027]
+LEGACY_RECV_START round=00ab944f401b8431fdb9876c274fcc77 stable_id=102561087064656 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [100.64.27.6:43027], candidates: [100.64.27.6:43027], range: None, total_budget_ms: 5200, read_budget_ms: 5200 }
+LEGACY_LISTENER round=00ab944f401b8431fdb9876c274fcc77 stable_id=102561087064656 local_socket_id=0 local_addr=0.0.0.0:42027 primary=true
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_PHASE_STOP round=00ab944f401b8431fdb9876c274fcc77 stable_id=102561087064656 elapsed_ms=5201 outcome=failed
+LEGACY_TRACE round=00ab944f401b8431fdb9876c274fcc77 stable_id=102561087064656 probes=26 responses=0 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=26 send_errors=0 send_aborted=0 rejected_receipts=0
+PATH_UNAVAILABLE reason=legacy NAT phase budget elapsed stable_id=102561087064656 stop=bounded_original_session
+EARLY_FAILURE_CONTROL_ALIVE stable_id=102561087064656

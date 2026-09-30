@@ -1,0 +1,1 @@
+case=positive strategy=baseline topology=eif-eim dialer=b client_rc=0 server_rc=0 seed=mio60-frozen-core03-b

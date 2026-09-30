@@ -1,0 +1,16 @@
+{
+  "source": "frozen runtime/fixture manifests retained; canonical8gen1+32gen2 explicitly mapped",
+  "workspace_suite": {
+    "passed": 240,
+    "failed": 0,
+    "ignored": 4,
+    "exit": 0,
+    "real_mqtt": true,
+    "serial": true
+  },
+  "browser_wasm": "PASS cargo check --locked -p miopunch-browser-probe --target wasm32-unknown-unknown",
+  "strict_sha256": "11cb5f62099ace81b7e3838e099847d8d426fca40689ad726bb884242ea98ed4",
+  "verifier_faults": 16,
+  "cpu": "actual namespace-local child wait4, streamed executable hash, separately sampled post-exec VmHWM/FD peak",
+  "functional_initial_rss": "original functional-core04 wait4 RSS may include inherited launcher high-water; retained unchanged and not copied into canonical trials"
+}

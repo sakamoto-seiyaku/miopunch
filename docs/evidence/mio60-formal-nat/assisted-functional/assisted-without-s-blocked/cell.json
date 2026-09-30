@@ -1,0 +1,10 @@
+{
+  "id": "assisted-without-s-blocked",
+  "case": "blocked",
+  "topology": "eim-eim",
+  "dialer": "b",
+  "seed": "mio60-assisted-without-s-v1",
+  "strategy": "formal",
+  "rounds": 1,
+  "no_observers": true
+}
