@@ -5849,7 +5849,8 @@ impl Connection {
         if self.highest_space < SpaceKind::Data {
             for path in self.paths.values_mut() {
                 // Clear the local address for it to be obtained from the socket again.
-                path.data.network_path.local_ip = None;
+                path.data.network_path.local_ip =
+                    hint.and_then(|h| h.local_ip_for_recovery(path.data.network_path));
             }
 
             self.update_remote_cid(PathId::ZERO);
@@ -5880,7 +5881,8 @@ impl Connection {
 
             // Clear the local address for it to be obtained from the socket again. This applies to
             // all paths, regardless of being considered recoverable or not
-            path.data.network_path.local_ip = None;
+            path.data.network_path.local_ip =
+                hint.and_then(|h| h.local_ip_for_recovery(network_path));
             let remote = network_path.remote;
 
             // Without multipath, the connection tries to recover the single path, whereas with
@@ -7247,6 +7249,11 @@ impl AbandonedPaths {
 
 /// Hints when the caller identifies a network change.
 pub trait NetworkChangeHint: fmt::Debug + 'static {
+    /// Keep a transport's internal physical-binding token while rechecking liveness.
+    /// Ordinary interface IPs default to rediscovery from receive metadata.
+    fn local_ip_for_recovery(&self, _network_path: FourTuple) -> Option<std::net::IpAddr> {
+        None
+    }
     /// Inform the connection if a path may recover after a network change.
     ///
     /// After network changes, paths may not be recoverable. In this case, waiting for the path to

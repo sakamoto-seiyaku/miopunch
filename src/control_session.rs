@@ -75,6 +75,17 @@ impl ControlSession {
         self.connection.remote_id()
     }
 
+    pub(crate) fn is_dialing_side(&self) -> bool {
+        self.connection.side().is_client()
+    }
+
+    pub(crate) fn cancellation_guard(&self) -> CommitCancellationGuard {
+        CommitCancellationGuard {
+            connection: self.connection.clone(),
+            armed: true,
+        }
+    }
+
     /// Recheck membership on this exact admitted control connection before
     /// disclosing a candidate or spending a direct-path probe budget.
     pub fn may_upgrade_member_path(&self, gate: &AdmissionGate) -> bool {
@@ -122,15 +133,79 @@ impl ControlSession {
 
     /// The same bounded attempt with a retry count for diagnostics.
     pub async fn open_data_path_report(&self, remote: SocketAddr) -> io::Result<DataPathOpen> {
+        self.open_data_path_on(
+            None,
+            remote,
+            tokio::time::Instant::now() + Duration::from_secs(2),
+            &|| Ok(()),
+        )
+        .await
+    }
+
+    /// Validate a path through the winner's actual retained physical UDP socket.
+    pub async fn open_data_path_from(
+        &self,
+        local: iroh::endpoint::LocalSocketBinding,
+        remote: SocketAddr,
+    ) -> io::Result<()> {
+        self.open_data_path_from_report(local, remote)
+            .await
+            .map(|_| ())
+    }
+
+    pub async fn open_data_path_from_report(
+        &self,
+        local: iroh::endpoint::LocalSocketBinding,
+        remote: SocketAddr,
+    ) -> io::Result<DataPathOpen> {
+        self.open_data_path_on(
+            Some(local),
+            remote,
+            tokio::time::Instant::now() + Duration::from_secs(2),
+            &|| Ok(()),
+        )
+        .await
+    }
+
+    pub(crate) async fn open_data_path_from_until(
+        &self,
+        local: iroh::endpoint::LocalSocketBinding,
+        remote: SocketAddr,
+        deadline: tokio::time::Instant,
+        check: &(dyn Fn() -> io::Result<()> + Sync),
+    ) -> io::Result<DataPathOpen> {
+        self.open_data_path_on(Some(local), remote, deadline, check)
+            .await
+    }
+
+    async fn open_data_path_on(
+        &self,
+        local: Option<iroh::endpoint::LocalSocketBinding>,
+        remote: SocketAddr,
+        deadline: tokio::time::Instant,
+        check: &(dyn Fn() -> io::Result<()> + Sync),
+    ) -> io::Result<DataPathOpen> {
         let mut path_id_retries = 0;
-        tokio::time::timeout(Duration::from_secs(2), async {
+        tokio::time::timeout_at(deadline, async {
             loop {
-                match self.endpoint.open_data_path(&self.connection, remote).await {
+                check()?;
+                let result = match local {
+                    Some(local) => {
+                        self.endpoint
+                            .open_data_path_from(&self.connection, local, remote)
+                            .await
+                    }
+                    None => self.endpoint.open_data_path(&self.connection, remote).await,
+                };
+                match result {
                     Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
                         path_id_retries += 1;
                         tokio::time::sleep(Duration::from_millis(50)).await;
                     }
-                    result => return result.map(|_| DataPathOpen { path_id_retries }),
+                    result => {
+                        check()?;
+                        return result.map(|_| DataPathOpen { path_id_retries });
+                    }
                 }
             }
         })
@@ -181,6 +256,15 @@ impl ControlSession {
             .any(|path| matches!(path.remote_addr(), iroh_base::TransportAddr::Ip(_)))
     }
 
+    pub(crate) fn has_data_path_from(
+        &self,
+        local: iroh::endpoint::LocalSocketBinding,
+        remote: SocketAddr,
+    ) -> bool {
+        self.connection.paths().iter().any(|path| path.local_socket_id() == Some(local.id)
+            && matches!(path.remote_addr(), iroh_base::TransportAddr::Ip(addr) if *addr == remote))
+    }
+
     /// Observes path closure before the data handle is released.
     pub fn path_events(&self) -> PathEventStream {
         self.connection.path_events()
@@ -228,6 +312,27 @@ pub enum CommitError {
         /// Why the connection could not be promoted.
         error: io::Error,
     },
+}
+
+/// A canceled actor commitment must close even if live streams retain handles.
+pub(crate) struct CommitCancellationGuard {
+    connection: Connection,
+    armed: bool,
+}
+impl CommitCancellationGuard {
+    pub(crate) fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+impl Drop for CommitCancellationGuard {
+    fn drop(&mut self) {
+        if self.armed {
+            self.connection.close(
+                iroh::endpoint::VarInt::from_u32(0),
+                b"canceled NAT path commitment",
+            );
+        }
+    }
 }
 
 /// A connection whose custom control paths have been forbidden.

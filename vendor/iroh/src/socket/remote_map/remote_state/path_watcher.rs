@@ -166,6 +166,10 @@ impl PathStateSender {
         (sender, receiver)
     }
 
+    pub(super) fn selected_id(&self) -> Option<PathId> {
+        self.shared.state.lock().expect("path state").selected
+    }
+
     /// Records a newly-opened path and emits [`PathEvent::Opened`].
     pub(super) fn record_opened(
         &self,
@@ -464,6 +468,28 @@ impl<'conn> Path<'conn> {
     /// Returns the path's local address, if known.
     pub fn local_addr(&self) -> &LocalTransportAddr {
         &self.data.local_addr
+    }
+
+    /// Physical local UDP binding on this original Connection's IP path.
+    #[cfg(not(wasm_browser))]
+    pub fn local_socket_id(&self) -> Option<crate::socket::transports::LocalSocketId> {
+        use crate::socket::transports::{LocalSocketId, LocalTransportAddr};
+        match self.local_addr() {
+            LocalTransportAddr::Ip(local) => Some(
+                local
+                    .and_then(LocalSocketId::from_token)
+                    .unwrap_or(LocalSocketId::PRIMARY),
+            ),
+            _ => None,
+        }
+    }
+
+    /// Abandon this physical path while preserving any other paths of this Connection.
+    pub fn close(&self) -> std::io::Result<()> {
+        self.data
+            .upgrade(self.conn)
+            .close()
+            .map_err(std::io::Error::other)
     }
 
     /// Returns `true` if this path is currently selected for application data transmission.

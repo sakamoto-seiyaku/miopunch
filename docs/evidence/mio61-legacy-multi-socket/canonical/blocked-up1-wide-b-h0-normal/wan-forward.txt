@@ -1,0 +1,4 @@
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+ 1700  177K DROP       17   --  *      *       100.64.27.2          100.64.27.6
+ 1285  134K DROP       17   --  *      *       100.64.27.6          100.64.27.2

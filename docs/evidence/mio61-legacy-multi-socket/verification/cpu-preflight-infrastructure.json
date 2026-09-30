@@ -1,0 +1,6 @@
+{
+  "prior_OUTPUT_drop_preflights": "Raw send returned PermissionError [Errno 1] Operation not permitted at local OUTPUT; no CPU child ran",
+  "repair": "Drop raw packets at loopback INPUT after successful UDP send, leaving QAD/QUIC/control unaffected; preserve normal lab unconfined settings",
+  "final_preflight": "PASS: raw send returned20 bytes, raw INPUT counter1, receive timed out, ordinary UDP received",
+  "product_measurements_executed_at_repair": 0
+}

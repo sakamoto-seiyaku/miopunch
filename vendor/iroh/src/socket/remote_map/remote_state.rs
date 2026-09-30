@@ -376,13 +376,19 @@ impl RemoteStateActor {
                 let _ = tx.send(result);
             }
             #[cfg(feature = "miopunch-test-hooks")]
-            RemoteStateMessage::TestOpenAdmittedCustomPath { conn_id, remote, tx } => {
+            RemoteStateMessage::TestOpenAdmittedCustomPath {
+                conn_id,
+                remote,
+                tx,
+            } => {
                 let result = if let Some(state) = self.connections.get(&ConnId(conn_id)) {
                     if state.purpose != ConnectionPurpose::Ordinary {
                         Err("test requires an admitted connection")
                     } else if let Some(conn) = state.handle.upgrade() {
-                        let path = transports::FourTuple::from_remote(transports::Addr::Custom(remote));
-                        self.state.open_path_on_conn(ConnId(conn_id), state, &conn, &path, true)
+                        let path =
+                            transports::FourTuple::from_remote(transports::Addr::Custom(remote));
+                        self.state
+                            .open_path_on_conn(ConnId(conn_id), state, &conn, &path, true)
                     } else {
                         Err("connection closed")
                     }
@@ -394,6 +400,8 @@ impl RemoteStateActor {
             RemoteStateMessage::OpenDataPath {
                 conn_id,
                 remote,
+                #[cfg(not(wasm_browser))]
+                local,
                 tx,
             } => {
                 let result = if let Some(state) = self.connections.get(&ConnId(conn_id)) {
@@ -407,8 +415,32 @@ impl RemoteStateActor {
                                 let _ = tx.send(Err(PATH_IDENTIFIERS_UNAVAILABLE));
                                 return;
                             }
-                            let path =
-                                transports::FourTuple::from_remote(transports::Addr::Ip(remote));
+                            #[cfg(not(wasm_browser))]
+                            if let Some(binding) = local.filter(|binding| !binding.id.is_primary())
+                                && !state.udp_sockets.iter().any(|socket| {
+                                    socket.id == binding.id
+                                        && socket.is_live()
+                                        && socket.binding() == binding
+                                })
+                            {
+                                let _ = tx.send(Err(
+                                    "UDP binding does not belong to original connection",
+                                ));
+                                return;
+                            }
+                            let path = transports::FourTuple::Ip {
+                                remote,
+                                #[cfg(not(wasm_browser))]
+                                local: local.map(|binding| {
+                                    if binding.id.is_primary() {
+                                        binding.local_addr.ip()
+                                    } else {
+                                        binding.id.token()
+                                    }
+                                }),
+                                #[cfg(wasm_browser)]
+                                local: None,
+                            };
                             self.state
                                 .open_path_on_conn(ConnId(conn_id), state, &conn, &path, true)
                         } else {
@@ -419,6 +451,31 @@ impl RemoteStateActor {
                     }
                 } else {
                     Err("connection not registered")
+                };
+                let _ = tx.send(result);
+            }
+            #[cfg(not(wasm_browser))]
+            RemoteStateMessage::RetainUdpSocket {
+                conn_id,
+                socket,
+                live,
+                tx,
+            } => {
+                let valid_round = live.lock().expect("traversal lease");
+                let result = match self.connections.get_mut(&ConnId(conn_id)) {
+                    Some(state)
+                        if *valid_round
+                            && state.purpose == ConnectionPurpose::Control
+                            && state.handle.upgrade().is_some()
+                            && socket.connection_id == conn_id
+                            && socket.remote == self.state.endpoint_id
+                            && socket.is_live() =>
+                    {
+                        state.udp_sockets.retain(|socket| socket.is_live());
+                        state.udp_sockets.push(ConnectionSocket(socket));
+                        Ok(())
+                    }
+                    _ => Err("winner binding requires its live original control connection"),
                 };
                 let _ = tx.send(result);
             }
@@ -549,6 +606,23 @@ impl RemoteStateActor {
         let conn_id = ConnId(conn.stable_id());
         self.connections.remove(&conn_id);
 
+        #[cfg(not(wasm_browser))]
+        {
+            let pool = self.state.mapped_addrs.udp_socket_pool.clone();
+            let remote = self.state.endpoint_id;
+            conn.restrict_network_paths(move |path| {
+                path.local_ip()
+                    .and_then(transports::LocalSocketId::from_token)
+                    .is_none_or(|id| {
+                        pool.get(id).is_some_and(|socket| {
+                            socket.remote == remote
+                                && socket.connection_id == conn_id.0
+                                && socket.is_pinned()
+                        })
+                    })
+            });
+        }
+
         // Hook up paths, NAT addresses and connection closed event streams.
         self.state
             .path_events
@@ -580,6 +654,8 @@ impl RemoteStateActor {
                 },
                 allowed_data_custom_ids: BTreeSet::new(),
                 custom_data_policy: false,
+                #[cfg(not(wasm_browser))]
+                udp_sockets: Vec::new(),
             })
             .into_mut();
 
@@ -684,7 +760,10 @@ impl RemoteStateActor {
         conn_id: ConnId,
         allowed_data_custom_ids: Vec<u64>,
     ) -> Result<(), &'static str> {
-        let state = self.connections.get_mut(&conn_id).ok_or("connection not registered")?;
+        let state = self
+            .connections
+            .get_mut(&conn_id)
+            .ok_or("connection not registered")?;
         if state.purpose != ConnectionPurpose::Control {
             return Err("connection is not restricted");
         }
@@ -906,6 +985,20 @@ impl RemoteStateActor {
             }
             NoqPathEvent::Discarded { id, path_stats, .. } => {
                 trace!(%id, ?path_stats, "path discarded");
+                #[cfg(not(wasm_browser))]
+                {
+                    let network_paths = conn.network_paths();
+                    let live_bindings = network_paths
+                        .into_iter()
+                        .filter_map(|(_, path)| {
+                            path.local_ip()
+                                .and_then(transports::LocalSocketId::from_token)
+                        })
+                        .collect::<BTreeSet<_>>();
+                    conn_state.udp_sockets.retain(|socket| {
+                        !socket.has_used_path() || live_bindings.contains(&socket.id)
+                    });
+                }
             }
             NoqPathEvent::RemoteStatus { .. } | NoqPathEvent::ObservedAddr { .. } => {
                 // Nothing to do for these events.
@@ -970,6 +1063,25 @@ impl RemoteStateActor {
                 continue;
             };
 
+            let preferred = if conn_state.owns_udp_binding(&selected) {
+                Some(selected.clone())
+            } else {
+                conn_state
+                    .path_state
+                    .selected_id()
+                    .and_then(|id| conn_state.paths.get(&id))
+                    .filter(|path| conn_state.owns_udp_binding(path) && !conn_state.forbids(path))
+                    .cloned()
+                    .or_else(|| {
+                        conn_state
+                            .paths
+                            .values()
+                            .find(|path| {
+                                conn_state.owns_udp_binding(path) && !conn_state.forbids(path)
+                            })
+                            .cloned()
+                    })
+            };
             let selected_for_conn = match conn_state.purpose {
                 ConnectionPurpose::Data if !selected.is_ip() => {
                     conn_state.paths.values().find(|path| path.is_ip()).cloned()
@@ -984,7 +1096,7 @@ impl RemoteStateActor {
                     .values()
                     .find(|path| !conn_state.forbids(path))
                     .cloned(),
-                _ => Some(selected.clone()),
+                _ => preferred,
             };
             // Never propagate a control-only route into a data connection.
             if let Some(addr) = selected_for_conn.as_ref() {
@@ -1011,7 +1123,9 @@ impl RemoteStateActor {
                 // and racing to abandon the last one.
                 if conn.side().is_client()
                     && path_fourtuple.is_ip()
-                    && path_fourtuple != &selected
+                    && selected_for_conn
+                        .as_ref()
+                        .is_some_and(|selected| path_fourtuple != selected)
                     && conn_state.paths.values().filter(|a| a.is_ip()).count() > 1
                 {
                     trace!(?path_fourtuple, %conn_id, %path_id, "closing direct path");
@@ -1109,7 +1223,14 @@ impl State {
         // though we might not have a relay transport or ip-capable transport set up.
         // So these errors must not be fatal for this actor (or even this operation).
 
-        if let Some(addr) = self.selected_path.as_ref() {
+        // Endpoint-mapped bootstrap packets have no authenticated connection
+        // identity yet. A physical traversal winner belongs to an existing
+        // connection and cannot be reused to bootstrap another one.
+        if let Some(addr) = self
+            .selected_path
+            .as_ref()
+            .filter(|path| !path.is_connection_bound_udp())
+        {
             trace!(?addr, "sending datagram to selected path");
 
             // TODO(Frando): We might want to include a local IP here in the future, if we confidently
@@ -1177,7 +1298,11 @@ impl State {
     /// Does not start Address Lookup if we have a selected path or if Address Lookup is
     /// currently running.
     fn trigger_address_lookup(&mut self) {
-        if self.selected_path.is_some() || self.address_lookup_stream.is_some() {
+        let reusable_selected = self
+            .selected_path
+            .as_ref()
+            .is_some_and(|path| !path.is_connection_bound_udp());
+        if reusable_selected || self.address_lookup_stream.is_some() {
             return;
         }
         let stream = self.address_lookup.resolve(self.endpoint_id);
@@ -1311,8 +1436,13 @@ impl State {
         }
 
         self.set_path_status(conn_id, path, &network_path);
-        self.paths
-            .insert_open_path(network_path.remote(), Source::Connection);
+        // A traversal pool socket is owned by this connection. Its remote
+        // destination cannot become a peer-wide bootstrap candidate: a new
+        // connection would be rejected by the remote socket's owner filter.
+        if !network_path.is_connection_bound_udp() {
+            self.paths
+                .insert_open_path(network_path.remote(), Source::Connection);
+        }
         Some(network_path)
     }
 
@@ -1349,6 +1479,9 @@ impl State {
         open_4tuple: &transports::FourTuple,
         explicit_request: bool,
     ) -> Result<(), &'static str> {
+        if !conn_state.owns_udp_binding(open_4tuple) {
+            return Err("UDP binding does not belong to original connection");
+        }
         if conn_state.purpose == ConnectionPurpose::Control
             && !open_4tuple.is_custom()
             && !explicit_request
@@ -1381,6 +1514,16 @@ impl State {
         let fut = conn.open_path_ensure(mapped_4tuple, path_status);
         match fut.path_id() {
             Some(path_id) => {
+                #[cfg(not(wasm_browser))]
+                if let transports::FourTuple::Ip {
+                    local: Some(token), ..
+                } = open_4tuple
+                    && let Some(id) = transports::LocalSocketId::from_token(*token)
+                    && let Some(socket) =
+                        conn_state.udp_sockets.iter().find(|socket| socket.id == id)
+                {
+                    socket.mark_path_used();
+                }
                 trace!(%conn_id, %path_id, ?path_status, "opening new path");
                 Ok(())
             }
@@ -1513,6 +1656,15 @@ pub(crate) enum RemoteStateMessage {
     OpenDataPath {
         conn_id: usize,
         remote: SocketAddr,
+        #[cfg(not(wasm_browser))]
+        local: Option<transports::LocalSocketBinding>,
+        tx: oneshot::Sender<Result<(), &'static str>>,
+    },
+    #[cfg(not(wasm_browser))]
+    RetainUdpSocket {
+        conn_id: usize,
+        socket: Arc<transports::PoolSocket>,
+        live: Arc<std::sync::Mutex<bool>>,
         tx: oneshot::Sender<Result<(), &'static str>>,
     },
     /// Permit a same-socket UDP NAT probe while this connection is restricted.
@@ -1623,6 +1775,25 @@ struct ConnectionState {
     purpose: ConnectionPurpose,
     allowed_data_custom_ids: BTreeSet<u64>,
     custom_data_policy: bool,
+    #[cfg(not(wasm_browser))]
+    udp_sockets: Vec<ConnectionSocket>,
+}
+
+#[cfg(not(wasm_browser))]
+#[derive(Debug)]
+struct ConnectionSocket(Arc<transports::PoolSocket>);
+#[cfg(not(wasm_browser))]
+impl std::ops::Deref for ConnectionSocket {
+    type Target = transports::PoolSocket;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+#[cfg(not(wasm_browser))]
+impl Drop for ConnectionSocket {
+    fn drop(&mut self) {
+        self.0.close();
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1635,6 +1806,22 @@ enum ConnectionPurpose {
 }
 
 impl ConnectionState {
+    /// Private local tokens are capabilities of one exact original Connection.
+    /// Global peer preferences must never copy another connection's binding.
+    fn owns_udp_binding(&self, path: &transports::FourTuple) -> bool {
+        #[cfg(not(wasm_browser))]
+        if let transports::FourTuple::Ip {
+            local: Some(token), ..
+        } = path
+            && let Some(id) = transports::LocalSocketId::from_token(*token)
+        {
+            return self
+                .udp_sockets
+                .iter()
+                .any(|socket| socket.id == id && socket.is_live() && socket.is_pinned());
+        }
+        true
+    }
     fn forbids(&self, path: &transports::FourTuple) -> bool {
         self.custom_data_policy
             && matches!(path, transports::FourTuple::Custom { remote, .. }
@@ -1648,6 +1835,15 @@ impl ConnectionState {
         path_id: PathId,
         metrics: &Arc<SocketMetrics>,
     ) {
+        #[cfg(not(wasm_browser))]
+        if let transports::FourTuple::Ip {
+            local: Some(token), ..
+        } = &network_path
+            && let Some(id) = transports::LocalSocketId::from_token(*token)
+            && let Some(socket) = self.udp_sockets.iter().find(|socket| socket.id == id)
+        {
+            socket.mark_path_used();
+        }
         match network_path {
             transports::FourTuple::Ip { .. } => metrics.paths_direct.inc(),
             transports::FourTuple::Relay { .. } => metrics.paths_relay.inc(),

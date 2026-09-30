@@ -1,0 +1,2500 @@
+[
+  {
+    "cell": "positive-eim-random-a-h0-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 4,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1,
+      "random_draws": 1,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 5,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 1,
+      "elapsed_ms": 3002,
+      "local_sockets": 1,
+      "allocated_tuples": 4,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 42
+      },
+      "business_path_ms": 4281,
+      "qad_sent_datagrams": 33,
+      "qad_sent_udp_payload_bytes": 24215,
+      "peer_quic_sent_datagrams": 18,
+      "peer_quic_sent_udp_payload_bytes": 9780,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 526,
+      "responses": 9,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 538,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 3,
+      "elapsed_ms": 3103,
+      "local_sockets": 257,
+      "allocated_tuples": 16,
+      "allocation_collisions": 7761,
+      "allocation_exhausted": 482,
+      "mqtt": {
+        "sent_packets_at_business_start": 36
+      },
+      "business_path_ms": 4030,
+      "qad_sent_datagrams": 33,
+      "qad_sent_udp_payload_bytes": 24215,
+      "peer_quic_sent_datagrams": 14,
+      "peer_quic_sent_udp_payload_bytes": 8476,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-eim-random-a-h1-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 5,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1,
+      "random_draws": 1,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 5,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 0,
+      "elapsed_ms": 3003,
+      "local_sockets": 1,
+      "allocated_tuples": 5,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 41
+      },
+      "business_path_ms": 4284,
+      "qad_sent_datagrams": 33,
+      "qad_sent_udp_payload_bytes": 24223,
+      "peer_quic_sent_datagrams": 17,
+      "peer_quic_sent_udp_payload_bytes": 9760,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 548,
+      "responses": 9,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 561,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 4,
+      "elapsed_ms": 3105,
+      "local_sockets": 257,
+      "allocated_tuples": 16,
+      "allocation_collisions": 8049,
+      "allocation_exhausted": 500,
+      "mqtt": {
+        "sent_packets_at_business_start": 35
+      },
+      "business_path_ms": 4034,
+      "qad_sent_datagrams": 33,
+      "qad_sent_udp_payload_bytes": 24215,
+      "peer_quic_sent_datagrams": 14,
+      "peer_quic_sent_udp_payload_bytes": 8476,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-eim-random-a-h2-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 4,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1,
+      "random_draws": 1,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 5,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 1,
+      "elapsed_ms": 3002,
+      "local_sockets": 1,
+      "allocated_tuples": 4,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 40
+      },
+      "business_path_ms": 4284,
+      "qad_sent_datagrams": 33,
+      "qad_sent_udp_payload_bytes": 24215,
+      "peer_quic_sent_datagrams": 17,
+      "peer_quic_sent_udp_payload_bytes": 9750,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 589,
+      "responses": 9,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 602,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 4,
+      "elapsed_ms": 3105,
+      "local_sockets": 257,
+      "allocated_tuples": 16,
+      "allocation_collisions": 8705,
+      "allocation_exhausted": 541,
+      "mqtt": {
+        "sent_packets_at_business_start": 37
+      },
+      "business_path_ms": 4034,
+      "qad_sent_datagrams": 33,
+      "qad_sent_udp_payload_bytes": 24215,
+      "peer_quic_sent_datagrams": 14,
+      "peer_quic_sent_udp_payload_bytes": 8476,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-eim-random-b-h0-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 605,
+      "responses": 9,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 618,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 4,
+      "elapsed_ms": 3106,
+      "local_sockets": 257,
+      "allocated_tuples": 16,
+      "allocation_collisions": 8961,
+      "allocation_exhausted": 557,
+      "mqtt": {
+        "sent_packets_at_business_start": 42
+      },
+      "business_path_ms": 3397,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24079,
+      "peer_quic_sent_datagrams": 17,
+      "peer_quic_sent_udp_payload_bytes": 9732,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 5,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1,
+      "random_draws": 1,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 5,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 0,
+      "elapsed_ms": 3003,
+      "local_sockets": 1,
+      "allocated_tuples": 5,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 36
+      },
+      "business_path_ms": 3146,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24077,
+      "peer_quic_sent_datagrams": 15,
+      "peer_quic_sent_udp_payload_bytes": 7341,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-eim-random-b-h1-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 578,
+      "responses": 9,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 590,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 3,
+      "elapsed_ms": 3106,
+      "local_sockets": 257,
+      "allocated_tuples": 16,
+      "allocation_collisions": 8529,
+      "allocation_exhausted": 530,
+      "mqtt": {
+        "sent_packets_at_business_start": 43
+      },
+      "business_path_ms": 3396,
+      "qad_sent_datagrams": 33,
+      "qad_sent_udp_payload_bytes": 24215,
+      "peer_quic_sent_datagrams": 16,
+      "peer_quic_sent_udp_payload_bytes": 9703,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 5,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1,
+      "random_draws": 1,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 5,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 0,
+      "elapsed_ms": 3002,
+      "local_sockets": 1,
+      "allocated_tuples": 5,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 35
+      },
+      "business_path_ms": 3146,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24077,
+      "peer_quic_sent_datagrams": 13,
+      "peer_quic_sent_udp_payload_bytes": 7308,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-eim-random-b-h2-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 514,
+      "responses": 9,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 525,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 2,
+      "elapsed_ms": 3132,
+      "local_sockets": 257,
+      "allocated_tuples": 16,
+      "allocation_collisions": 7761,
+      "allocation_exhausted": 482,
+      "mqtt": {
+        "sent_packets_at_business_start": 43
+      },
+      "business_path_ms": 3421,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24077,
+      "peer_quic_sent_datagrams": 14,
+      "peer_quic_sent_udp_payload_bytes": 9642,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 4,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1,
+      "random_draws": 1,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 5,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 1,
+      "elapsed_ms": 3003,
+      "local_sockets": 1,
+      "allocated_tuples": 4,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 37
+      },
+      "business_path_ms": 3145,
+      "qad_sent_datagrams": 31,
+      "qad_sent_udp_payload_bytes": 23939,
+      "peer_quic_sent_datagrams": 13,
+      "peer_quic_sent_udp_payload_bytes": 7280,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-eim-wide-a-h0-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 498,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 374,
+      "random_draws": 376,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 498,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 0,
+      "elapsed_ms": 9179,
+      "local_sockets": 1,
+      "allocated_tuples": 378,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 43
+      },
+      "business_path_ms": 10452,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24081,
+      "peer_quic_sent_datagrams": 16,
+      "peer_quic_sent_udp_payload_bytes": 9707,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 8481,
+      "responses": 3,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 8484,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 0,
+      "elapsed_ms": 9282,
+      "local_sockets": 257,
+      "allocated_tuples": 257,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 37
+      },
+      "business_path_ms": 10201,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24077,
+      "peer_quic_sent_datagrams": 13,
+      "peer_quic_sent_udp_payload_bytes": 7281,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-eim-wide-a-h1-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 964,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 708,
+      "random_draws": 710,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 964,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 0,
+      "elapsed_ms": 15673,
+      "local_sockets": 1,
+      "allocated_tuples": 712,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 47
+      },
+      "business_path_ms": 16964,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24077,
+      "peer_quic_sent_datagrams": 17,
+      "peer_quic_sent_udp_payload_bytes": 9741,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 16565,
+      "responses": 3,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 16569,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 1,
+      "elapsed_ms": 15780,
+      "local_sockets": 257,
+      "allocated_tuples": 257,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 41
+      },
+      "business_path_ms": 16712,
+      "qad_sent_datagrams": 30,
+      "qad_sent_udp_payload_bytes": 23803,
+      "peer_quic_sent_datagrams": 13,
+      "peer_quic_sent_udp_payload_bytes": 7276,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-eim-wide-a-h2-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 522,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 390,
+      "random_draws": 391,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 522,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 0,
+      "elapsed_ms": 9409,
+      "local_sockets": 1,
+      "allocated_tuples": 394,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 44
+      },
+      "business_path_ms": 10684,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24189,
+      "peer_quic_sent_datagrams": 17,
+      "peer_quic_sent_udp_payload_bytes": 9737,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 8738,
+      "responses": 3,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 8741,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 0,
+      "elapsed_ms": 9487,
+      "local_sockets": 257,
+      "allocated_tuples": 257,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 39
+      },
+      "business_path_ms": 10409,
+      "qad_sent_datagrams": 33,
+      "qad_sent_udp_payload_bytes": 24217,
+      "peer_quic_sent_datagrams": 14,
+      "peer_quic_sent_udp_payload_bytes": 7316,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-eim-wide-b-h0-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 9473,
+      "responses": 3,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 9477,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 1,
+      "elapsed_ms": 9959,
+      "local_sockets": 257,
+      "allocated_tuples": 257,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 40
+      },
+      "business_path_ms": 10252,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24077,
+      "peer_quic_sent_datagrams": 14,
+      "peer_quic_sent_udp_payload_bytes": 8496,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 557,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 417,
+      "random_draws": 420,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 557,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 0,
+      "elapsed_ms": 9857,
+      "local_sockets": 1,
+      "allocated_tuples": 421,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 35
+      },
+      "business_path_ms": 10001,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24077,
+      "peer_quic_sent_datagrams": 14,
+      "peer_quic_sent_udp_payload_bytes": 7332,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-eim-wide-b-h1-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 2056,
+      "responses": 3,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 2059,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 0,
+      "elapsed_ms": 4220,
+      "local_sockets": 257,
+      "allocated_tuples": 257,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 42
+      },
+      "business_path_ms": 4512,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24077,
+      "peer_quic_sent_datagrams": 16,
+      "peer_quic_sent_udp_payload_bytes": 8547,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 91,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 67,
+      "random_draws": 67,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 91,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 0,
+      "elapsed_ms": 4091,
+      "local_sockets": 1,
+      "allocated_tuples": 71,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 35
+      },
+      "business_path_ms": 4234,
+      "qad_sent_datagrams": 33,
+      "qad_sent_udp_payload_bytes": 24215,
+      "peer_quic_sent_datagrams": 14,
+      "peer_quic_sent_udp_payload_bytes": 7341,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-eim-wide-b-h2-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 5911,
+      "responses": 3,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 5914,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 0,
+      "elapsed_ms": 7237,
+      "local_sockets": 257,
+      "allocated_tuples": 257,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 44
+      },
+      "business_path_ms": 7530,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24079,
+      "peer_quic_sent_datagrams": 16,
+      "peer_quic_sent_udp_payload_bytes": 8543,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 334,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 250,
+      "random_draws": 250,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 334,
+      "send_errors": 0,
+      "rejected_receipts": 0,
+      "send_aborted": 0,
+      "elapsed_ms": 7107,
+      "local_sockets": 1,
+      "allocated_tuples": 254,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 37
+      },
+      "business_path_ms": 7254,
+      "qad_sent_datagrams": 31,
+      "qad_sent_udp_payload_bytes": 23939,
+      "peer_quic_sent_datagrams": 14,
+      "peer_quic_sent_udp_payload_bytes": 7341,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-random-a-h0-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 5,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1,
+      "random_draws": 1,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 5,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 3003,
+      "local_sockets": 1,
+      "allocated_tuples": 5,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 47
+      },
+      "business_path_ms": 7513,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24077,
+      "peer_quic_sent_datagrams": 17,
+      "peer_quic_sent_udp_payload_bytes": 8576,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1285,
+      "responses": 5,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1290,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 7209,
+      "local_sockets": 257,
+      "allocated_tuples": 81,
+      "allocation_collisions": 19404,
+      "allocation_exhausted": 1205,
+      "mqtt": {
+        "sent_packets_at_business_start": 43
+      },
+      "business_path_ms": 7238,
+      "qad_sent_datagrams": 33,
+      "qad_sent_udp_payload_bytes": 24215,
+      "peer_quic_sent_datagrams": 14,
+      "peer_quic_sent_udp_payload_bytes": 8488,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-random-a-h1-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 47,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 31,
+      "random_draws": 31,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 47,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 3614,
+      "local_sockets": 1,
+      "allocated_tuples": 35,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 46
+      },
+      "business_path_ms": 9806,
+      "qad_sent_datagrams": 33,
+      "qad_sent_udp_payload_bytes": 25359,
+      "peer_quic_sent_datagrams": 18,
+      "peer_quic_sent_udp_payload_bytes": 8609,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1285,
+      "responses": 5,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1291,
+      "send_errors": 0,
+      "send_aborted": 1,
+      "rejected_receipts": 0,
+      "elapsed_ms": 9521,
+      "local_sockets": 257,
+      "allocated_tuples": 81,
+      "allocation_collisions": 19404,
+      "allocation_exhausted": 1205,
+      "mqtt": {
+        "sent_packets_at_business_start": 44
+      },
+      "business_path_ms": 9553,
+      "qad_sent_datagrams": 30,
+      "qad_sent_udp_payload_bytes": 23916,
+      "peer_quic_sent_datagrams": 16,
+      "peer_quic_sent_udp_payload_bytes": 8538,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-random-a-h2-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 37,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 25,
+      "random_draws": 25,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 37,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 3405,
+      "local_sockets": 1,
+      "allocated_tuples": 29,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 46
+      },
+      "business_path_ms": 7818,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24077,
+      "peer_quic_sent_datagrams": 19,
+      "peer_quic_sent_udp_payload_bytes": 8641,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1285,
+      "responses": 5,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1290,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 7539,
+      "local_sockets": 257,
+      "allocated_tuples": 81,
+      "allocation_collisions": 19404,
+      "allocation_exhausted": 1205,
+      "mqtt": {
+        "sent_packets_at_business_start": 38
+      },
+      "business_path_ms": 7567,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24077,
+      "peer_quic_sent_datagrams": 16,
+      "peer_quic_sent_udp_payload_bytes": 8540,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-random-b-h0-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 1285,
+      "responses": 5,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1291,
+      "send_errors": 0,
+      "send_aborted": 1,
+      "rejected_receipts": 0,
+      "elapsed_ms": 7908,
+      "local_sockets": 257,
+      "allocated_tuples": 81,
+      "allocation_collisions": 19404,
+      "allocation_exhausted": 1205,
+      "mqtt": {
+        "sent_packets_at_business_start": 42
+      },
+      "business_path_ms": 8188,
+      "qad_sent_datagrams": 33,
+      "qad_sent_udp_payload_bytes": 24215,
+      "peer_quic_sent_datagrams": 17,
+      "peer_quic_sent_udp_payload_bytes": 9739,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 69,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 49,
+      "random_draws": 49,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 69,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 3804,
+      "local_sockets": 1,
+      "allocated_tuples": 53,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 38
+      },
+      "business_path_ms": 7936,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24077,
+      "peer_quic_sent_datagrams": 16,
+      "peer_quic_sent_udp_payload_bytes": 7389,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-random-b-h1-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 1285,
+      "responses": 5,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1291,
+      "send_errors": 0,
+      "send_aborted": 1,
+      "rejected_receipts": 0,
+      "elapsed_ms": 9735,
+      "local_sockets": 257,
+      "allocated_tuples": 81,
+      "allocation_collisions": 19404,
+      "allocation_exhausted": 1205,
+      "mqtt": {
+        "sent_packets_at_business_start": 46
+      },
+      "business_path_ms": 10014,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24085,
+      "peer_quic_sent_datagrams": 16,
+      "peer_quic_sent_udp_payload_bytes": 9704,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 214,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 158,
+      "random_draws": 158,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 214,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 5604,
+      "local_sockets": 1,
+      "allocated_tuples": 162,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 40
+      },
+      "business_path_ms": 9763,
+      "qad_sent_datagrams": 31,
+      "qad_sent_udp_payload_bytes": 23941,
+      "peer_quic_sent_datagrams": 15,
+      "peer_quic_sent_udp_payload_bytes": 7359,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-random-b-h2-normal",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 1285,
+      "responses": 3,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1288,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 7444,
+      "local_sockets": 257,
+      "allocated_tuples": 81,
+      "allocation_collisions": 19404,
+      "allocation_exhausted": 1205,
+      "mqtt": {
+        "sent_packets_at_business_start": 43
+      },
+      "business_path_ms": 7723,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24189,
+      "peer_quic_sent_datagrams": 16,
+      "peer_quic_sent_udp_payload_bytes": 9704,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 21,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 13,
+      "random_draws": 13,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 21,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 3204,
+      "local_sockets": 1,
+      "allocated_tuples": 17,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 35
+      },
+      "business_path_ms": 7472,
+      "qad_sent_datagrams": 32,
+      "qad_sent_udp_payload_bytes": 24077,
+      "peer_quic_sent_datagrams": 14,
+      "peer_quic_sent_udp_payload_bytes": 7315,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-wide-a-h0-normal",
+    "outcome": "bounded_miss",
+    "client": {
+      "probes": 1696,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1007,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1696,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 46,
+        "sent_bytes": 11469,
+        "received_packets": 40,
+        "received_bytes": 10446,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 43,
+      "qad_sent_udp_payload_bytes": 32392,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1285,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1285,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38002,
+      "local_sockets": 257,
+      "allocated_tuples": 1285,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 41,
+        "sent_bytes": 10479,
+        "received_packets": 47,
+        "received_bytes": 11503,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 47,
+      "qad_sent_udp_payload_bytes": 32405,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-wide-a-h1-normal",
+    "outcome": "bounded_miss",
+    "client": {
+      "probes": 1700,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1012,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1700,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 51,
+        "sent_bytes": 11838,
+        "received_packets": 47,
+        "received_bytes": 10664,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 45,
+      "qad_sent_udp_payload_bytes": 32448,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1285,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1285,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 257,
+      "allocated_tuples": 1285,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 48,
+        "sent_bytes": 10697,
+        "received_packets": 52,
+        "received_bytes": 11872,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 45,
+      "qad_sent_udp_payload_bytes": 32440,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-wide-a-h2-normal",
+    "outcome": "bounded_miss",
+    "client": {
+      "probes": 1700,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1003,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1700,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38000,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 50,
+        "sent_bytes": 11816,
+        "received_packets": 44,
+        "received_bytes": 10581,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 46,
+      "qad_sent_udp_payload_bytes": 32578,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1285,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1285,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 257,
+      "allocated_tuples": 1285,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 44,
+        "sent_bytes": 10581,
+        "received_packets": 51,
+        "received_bytes": 11850,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 47,
+      "qad_sent_udp_payload_bytes": 32613,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-wide-b-h0-normal",
+    "outcome": "bounded_miss",
+    "client": {
+      "probes": 1285,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1285,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38000,
+      "local_sockets": 257,
+      "allocated_tuples": 1285,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 51,
+        "sent_bytes": 11817,
+        "received_packets": 44,
+        "received_bytes": 10573,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 45,
+      "qad_sent_udp_payload_bytes": 32448,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1700,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1014,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1700,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 44,
+        "sent_bytes": 10573,
+        "received_packets": 51,
+        "received_bytes": 11817,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 43,
+      "qad_sent_udp_payload_bytes": 32164,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-wide-b-h1-normal",
+    "outcome": "bounded_miss",
+    "client": {
+      "probes": 1285,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1285,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 257,
+      "allocated_tuples": 1285,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 50,
+        "sent_bytes": 11802,
+        "received_packets": 41,
+        "received_bytes": 10492,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 45,
+      "qad_sent_udp_payload_bytes": 32450,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1700,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1006,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1700,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 41,
+        "sent_bytes": 10492,
+        "received_packets": 50,
+        "received_bytes": 11802,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 46,
+      "qad_sent_udp_payload_bytes": 32578,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-wide-b-h2-normal",
+    "outcome": "bounded_miss",
+    "client": {
+      "probes": 1285,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1285,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 257,
+      "allocated_tuples": 1285,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 50,
+        "sent_bytes": 11790,
+        "received_packets": 44,
+        "received_bytes": 10572,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 44,
+      "qad_sent_udp_payload_bytes": 32306,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1700,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1010,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1700,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38000,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 44,
+        "sent_bytes": 10572,
+        "received_packets": 51,
+        "received_bytes": 11824,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 45,
+      "qad_sent_udp_payload_bytes": 32442,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-up1-a-h6-normal",
+    "outcome": "bounded_miss",
+    "client": {
+      "probes": 1285,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1285,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38000,
+      "local_sockets": 257,
+      "allocated_tuples": 1285,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 55,
+        "sent_bytes": 11947,
+        "received_packets": 46,
+        "received_bytes": 10881,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 46,
+      "qad_sent_udp_payload_bytes": 32476,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1700,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1011,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1700,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 46,
+        "sent_bytes": 10881,
+        "received_packets": 56,
+        "received_bytes": 11981,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 46,
+      "qad_sent_udp_payload_bytes": 32580,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-up1-a-h7-normal",
+    "outcome": "bounded_miss",
+    "client": {
+      "probes": 1285,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1285,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38000,
+      "local_sockets": 257,
+      "allocated_tuples": 1285,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 50,
+        "sent_bytes": 11797,
+        "received_packets": 44,
+        "received_bytes": 10818,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 45,
+      "qad_sent_udp_payload_bytes": 32553,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1700,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1014,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1700,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 44,
+        "sent_bytes": 10818,
+        "received_packets": 51,
+        "received_bytes": 11831,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 46,
+      "qad_sent_udp_payload_bytes": 32578,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-up1-a-h8-normal",
+    "outcome": "bounded_miss",
+    "client": {
+      "probes": 1285,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1285,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 257,
+      "allocated_tuples": 1285,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 50,
+        "sent_bytes": 11598,
+        "received_packets": 44,
+        "received_bytes": 10808,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 44,
+      "qad_sent_udp_payload_bytes": 32310,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1700,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1005,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1700,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38000,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 44,
+        "sent_bytes": 10808,
+        "received_packets": 50,
+        "received_bytes": 11598,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 46,
+      "qad_sent_udp_payload_bytes": 32470,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-up1-b-h6-normal",
+    "outcome": "bounded_miss",
+    "client": {
+      "probes": 1285,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1285,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 257,
+      "allocated_tuples": 1285,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 52,
+        "sent_bytes": 11845,
+        "received_packets": 44,
+        "received_bytes": 10805,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 46,
+      "qad_sent_udp_payload_bytes": 32474,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1700,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1012,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1700,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 45,
+        "sent_bytes": 10838,
+        "received_packets": 53,
+        "received_bytes": 11879,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 44,
+      "qad_sent_udp_payload_bytes": 32302,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-up1-b-h7-normal",
+    "outcome": "bounded_miss",
+    "client": {
+      "probes": 1285,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1285,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 257,
+      "allocated_tuples": 1285,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 51,
+        "sent_bytes": 11846,
+        "received_packets": 44,
+        "received_bytes": 10822,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 45,
+      "qad_sent_udp_payload_bytes": 32555,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1700,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1005,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1700,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 44,
+        "sent_bytes": 10822,
+        "received_packets": 51,
+        "received_bytes": 11846,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 46,
+      "qad_sent_udp_payload_bytes": 32580,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-up1-b-h8-normal",
+    "outcome": "bounded_miss",
+    "client": {
+      "probes": 1285,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1285,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 257,
+      "allocated_tuples": 1285,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 47,
+        "sent_bytes": 11521,
+        "received_packets": 43,
+        "received_bytes": 10784,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 46,
+      "qad_sent_udp_payload_bytes": 32479,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1700,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1009,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1700,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 43,
+        "sent_bytes": 10784,
+        "received_packets": 47,
+        "received_bytes": 11521,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 46,
+      "qad_sent_udp_payload_bytes": 32584,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "blocked-eim-wide-a-h0-normal",
+    "outcome": "bounded_miss",
+    "client": {
+      "probes": 1700,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1009,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1700,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38000,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 47,
+        "sent_bytes": 11297,
+        "received_packets": 43,
+        "received_bytes": 11218,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 43,
+      "qad_sent_udp_payload_bytes": 32280,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 45489,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 45489,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 257,
+      "allocated_tuples": 257,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 43,
+        "sent_bytes": 11218,
+        "received_packets": 48,
+        "received_bytes": 11331,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 47,
+      "qad_sent_udp_payload_bytes": 32608,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-eim-wide-a-h0-ttl_unavailable",
+    "outcome": "confirmed_business",
+    "client": {
+      "probes": 63,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 47,
+      "random_draws": 47,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 63,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 3762,
+      "local_sockets": 1,
+      "allocated_tuples": 51,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 44
+      },
+      "business_path_ms": 4143,
+      "qad_sent_datagrams": 31,
+      "qad_sent_udp_payload_bytes": 23939,
+      "peer_quic_sent_datagrams": 17,
+      "peer_quic_sent_udp_payload_bytes": 8580,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1542,
+      "responses": 3,
+      "ttl_degraded": 1542,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1545,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 3864,
+      "local_sockets": 257,
+      "allocated_tuples": 257,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets_at_business_start": 39
+      },
+      "business_path_ms": 3892,
+      "qad_sent_datagrams": 33,
+      "qad_sent_udp_payload_bytes": 24215,
+      "peer_quic_sent_datagrams": 15,
+      "peer_quic_sent_udp_payload_bytes": 7342,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "blocked-up1-wide-b-h0-normal",
+    "outcome": "bounded_miss",
+    "client": {
+      "probes": 1285,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1285,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 257,
+      "allocated_tuples": 1285,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 51,
+        "sent_bytes": 11889,
+        "received_packets": 44,
+        "received_bytes": 10593,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 45,
+      "qad_sent_udp_payload_bytes": 32556,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1700,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1007,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1700,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 44,
+        "sent_bytes": 10593,
+        "received_packets": 52,
+        "received_bytes": 11923,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 45,
+      "qad_sent_udp_payload_bytes": 32440,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "positive-up1-wide-b-h0-ttl_unavailable",
+    "outcome": "bounded_miss",
+    "client": {
+      "probes": 1285,
+      "responses": 0,
+      "ttl_degraded": 1285,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1285,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 257,
+      "allocated_tuples": 1285,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 50,
+        "sent_bytes": 11832,
+        "received_packets": 44,
+        "received_bytes": 10565,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 46,
+      "qad_sent_udp_payload_bytes": 32578,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "probes": 1700,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1013,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1700,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0,
+      "mqtt": {
+        "sent_packets": 44,
+        "sent_bytes": 10565,
+        "received_packets": 51,
+        "received_bytes": 11866,
+        "rejected_packets": 0
+      },
+      "qad_sent_datagrams": 46,
+      "qad_sent_udp_payload_bytes": 32578,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "nonmember-eim-wide-a-h0-normal",
+    "outcome": "admission_rejection",
+    "client": {
+      "qad_sent_datagrams": 11,
+      "qad_sent_udp_payload_bytes": 8289,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "qad_sent_datagrams": 13,
+      "qad_sent_udp_payload_bytes": 8355,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "revoked-eim-wide-a-h0-normal",
+    "outcome": "admission_rejection",
+    "client": {
+      "qad_sent_datagrams": 12,
+      "qad_sent_udp_payload_bytes": 8315,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "qad_sent_datagrams": 12,
+      "qad_sent_udp_payload_bytes": 8315,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "no_secret-eim-wide-a-h0-normal",
+    "outcome": "admission_rejection",
+    "client": {
+      "qad_sent_datagrams": 11,
+      "qad_sent_udp_payload_bytes": 8289,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "qad_sent_datagrams": 12,
+      "qad_sent_udp_payload_bytes": 8315,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  },
+  {
+    "cell": "wrong_secret-eim-wide-a-h0-normal",
+    "outcome": "admission_rejection",
+    "client": {
+      "qad_sent_datagrams": 12,
+      "qad_sent_udp_payload_bytes": 8315,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    },
+    "server": {
+      "qad_sent_datagrams": 12,
+      "qad_sent_udp_payload_bytes": 8323,
+      "peer_quic_sent_datagrams": 0,
+      "peer_quic_sent_udp_payload_bytes": 0,
+      "cpu": {
+        "status": "not_measured",
+        "reason": "Original processes exited without rusage collection; cannot reconstruct per-cell CPU."
+      }
+    }
+  }
+]

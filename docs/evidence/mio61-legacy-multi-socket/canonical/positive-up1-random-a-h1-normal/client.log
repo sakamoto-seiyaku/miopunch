@@ -1,0 +1,71 @@
+CANDIDATE id=605203acf6f382beed66032bb5ecfaa0a3892d25a2754722e5cdee5d176b7a70 sockets=[0.0.0.0:42027, [::]:33921] observed=100.64.27.2:42031 mapping_varies=None
+LEGACY_SAMPLE order=0 destination=100.64.27.1:46761 mapped=100.64.27.2:42031
+LEGACY_SAMPLE order=1 destination=100.64.27.1:46762 mapped=100.64.27.2:42032
+LEGACY_SAMPLE order=2 destination=100.64.27.1:46763 mapped=100.64.27.2:42033
+LEGACY_SAMPLE order=3 destination=100.64.27.1:46764 mapped=100.64.27.2:42034
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Hard, behavior: PortChanged, ports_difference: 3, regular_ports_change: true, public_network: false }) socket_generation_current=true
+LEGACY_SELECTED mode=4 index=1 c=Behavior { role: Receiver, ttl: 4, send_delay_ms: 0, ports_range: 2, ports_random: 0, listen_random: 256 } v=Behavior { role: Sender, ttl: 0, send_delay_ms: 3000, ports_range: 0, ports_random: 1000, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 4, index: 0 }, score: -1 }, BehaviorScore { id: BehaviorId { mode: 4, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 4, index: 2 }, score: 0 }] round=42e63ddeb21f431e1ac4bb27c2608901 stable_id=101800072991200 execution=Ready fallback=false
+EXCHANGED peer=ec90cc0f86d615a1a63418dbeb2f729e784ee2dd6d2df8ada28331f56401c605 peer_candidate=100.64.27.6:43033 attempted=100.64.27.6:43033 stable_id=101800072991200
+LEGACY_RECV_START round=42e63ddeb21f431e1ac4bb27c2608901 stable_id=101800072991200 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Sender, ttl: 0, send_delay_ms: 3000, ports_range: 0, ports_random: 1000, listen_random: 0 }, explicit: [100.64.27.6:43035, 100.64.27.6:43043, 100.64.27.6:43046, 100.64.27.6:43033], candidates: [100.64.27.6:43035, 100.64.27.6:43043, 100.64.27.6:43046, 100.64.27.6:43033], range: None, total_budget_ms: 38000, read_budget_ms: 35000 }
+LEGACY_LISTENER round=42e63ddeb21f431e1ac4bb27c2608901 stable_id=101800072991200 local_socket_id=0 local_addr=0.0.0.0:42027 primary=true
+LEGACY_DATAGRAM target=100.64.27.6:43035 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43043 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43046 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:30218 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:4740 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:52916 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:27885 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:25520 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:29077 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:51000 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:62481 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:18941 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:13029 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43035 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43043 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:14075 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43046 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:14715 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:54470 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:25202 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:65283 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:57503 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:44069 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:26227 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:56758 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:5955 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43035 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43043 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43046 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:26229 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:37568 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:3568 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:38413 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:44104 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:14585 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:2250 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:8427 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:64082 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:18908 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:27523 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43035 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43043 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43046 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43033 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_PHASE_STOP round=42e63ddeb21f431e1ac4bb27c2608901 stable_id=101800072991200 elapsed_ms=3614 outcome=winner
+LEGACY_WINNER round=42e63ddeb21f431e1ac4bb27c2608901 stable_id=101800072991200 remote=100.64.27.6:43035 response=true before_probe=false probes=47 responses=0 ttl_degraded=0 local_socket_id=0 local_addr=10.27.1.2:42027
+LEGACY_TRACE round=42e63ddeb21f431e1ac4bb27c2608901 stable_id=101800072991200 probes=47 responses=0 ttl_degraded=0 random_iterations=31 random_draws=31 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=47 send_errors=0 send_aborted=0 rejected_receipts=0
+LEGACY_EXECUTION status=CompleteExecution target=Some(100.64.27.6:43035) stable_id=101800072991200
+LEGACY_WINNER_READY round=42e63ddeb21f431e1ac4bb27c2608901 stable_id=101800072991200 remaining_ms=28462
+LEGACY_WINNER_PATH path_id_retries=0 stable_id=101800072991200
+PROBES_SENT count=47 distinct_targets=35 complete_execution=1
+PATH_OPEN path_id_retries=0
+CONTROL_FRAME_SENT kind=PROMOTED bytes=41
+CONTROL_FRAME_RECEIVED kind=COMMITTED bytes=42
+UDP_COMMIT_ACK round=42e63ddeb21f431e1ac4bb27c2608901 stable_id=101800072991200
+DATA_OK stable_id=101800072991200 peer=ec90cc0f86d615a1a63418dbeb2f729e784ee2dd6d2df8ada28331f56401c605 path_ms=9806 paths=PathList { snapshot: State { list: [PathData(1, ip:100.64.27.6:43035)], selected: Some(PathId(1)), closed: true }, .. } mqtt_after_commit=46
+LEGACY_BUSINESS_BINDING stable_id=101800072991200 peer=ec90cc0f86d615a1a63418dbeb2f729e784ee2dd6d2df8ada28331f56401c605 path_id=1 local_socket_id=0 local_addr=10.27.1.2:42027 remote=ip:100.64.27.6:43035
+LEGACY_RESULT outcome=business_sent feedback_owner=coordinator stable_id=101800072991200

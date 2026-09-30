@@ -35,6 +35,10 @@ use custom::{CustomEndpoint, CustomSender, CustomTransport};
 pub(crate) use self::ip::Config as IpConfig;
 #[cfg(not(wasm_browser))]
 use self::ip::{IpNetworkChangeSender, IpTransports, IpTransportsSender};
+#[cfg(not(wasm_browser))]
+pub use self::ip::{LocalSocketBinding, LocalSocketId};
+#[cfg(not(wasm_browser))]
+pub(crate) use self::ip::{PoolSocket, SocketPool};
 pub(crate) use self::relay::{
     HomeRelayWatch, RelayActorConfig, RelayConnectionFailure, RelayConnectionState, RelayTransport,
 };
@@ -312,10 +316,17 @@ impl Transports {
             };
         }
 
+        #[cfg(not(wasm_browser))]
+        self.ip.pool.register_recv_waker(cx);
+
         // To improve fairness, every other call reverses the ordering of polling.
         self.poll_recv_counter = self.poll_recv_counter.wrapping_add(1);
         let counter = self.poll_recv_counter;
         if counter.is_multiple_of(2) {
+            #[cfg(not(wasm_browser))]
+            if self.ip.pool.has_sockets() {
+                poll_transport!(self.ip.pool);
+            }
             #[cfg(not(wasm_browser))]
             for transport in self.ip.iter_mut() {
                 poll_transport!(transport);
@@ -336,6 +347,10 @@ impl Transports {
             #[cfg(not(wasm_browser))]
             for transport in self.ip.iter_mut() {
                 poll_transport!(transport);
+            }
+            #[cfg(not(wasm_browser))]
+            if self.ip.pool.has_sockets() {
+                poll_transport!(self.ip.pool);
             }
         }
 
@@ -622,6 +637,8 @@ impl fmt::Debug for Addr {
 pub struct RecvInfo {
     remote: Addr,
     local: Option<CustomAddr>,
+    #[cfg(not(wasm_browser))]
+    pub(crate) ip_binding: Option<LocalSocketBinding>,
 }
 
 impl RecvInfo {
@@ -631,6 +648,8 @@ impl RecvInfo {
         Self {
             remote,
             local: None,
+            #[cfg(not(wasm_browser))]
+            ip_binding: None,
         }
     }
 
@@ -654,6 +673,8 @@ impl RecvInfo {
         Self {
             remote: Addr::Custom(remote),
             local,
+            #[cfg(not(wasm_browser))]
+            ip_binding: None,
         }
     }
 }
@@ -845,6 +866,19 @@ pub enum FourTuple {
 
 #[cfg_attr(not(feature = "unstable-custom-transports"), allow(unreachable_pub))]
 impl FourTuple {
+    /// Physical pool routes are scoped to one authenticated connection.
+    pub(crate) fn is_connection_bound_udp(&self) -> bool {
+        #[cfg(not(wasm_browser))]
+        {
+            matches!(self, Self::Ip { local: Some(token), .. }
+                if LocalSocketId::from_token(*token).is_some())
+        }
+        #[cfg(wasm_browser)]
+        {
+            false
+        }
+    }
+
     /// Creates a four-tuple from a remote address, with no known local address.
     pub fn from_remote(remote: Addr) -> Self {
         match remote {
@@ -966,30 +1000,36 @@ pub(crate) struct TransportsSender {
 }
 
 impl TransportsSender {
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn socket_pool(&self) -> Arc<SocketPool> {
+        self.ip.pool.clone()
+    }
     #[cfg(all(not(wasm_browser), feature = "miopunch-test-hooks"))]
     pub(crate) fn test_force_ttl_unavailable(&mut self) {
+        self.ip.pool.test_force_ttl_unavailable();
         for sender in self.ip.v4_iter_mut() {
             sender.test_force_ttl_unavailable();
         }
     }
 
     #[cfg(not(wasm_browser))]
-    pub(crate) fn poll_send_probe(
+    pub(crate) fn poll_send_probe_from(
         &mut self,
         cx: &mut std::task::Context<'_>,
         remote: SocketAddr,
         data: &[u8],
         ttl: u8,
+        source: Option<IpAddr>,
     ) -> Poll<io::Result<bool>> {
         if let Some(sender) = self
             .ip
             .v4_iter_mut()
-            .find(|s| s.is_valid_send_addr(None, &remote))
+            .find(|s| s.is_valid_send_addr(source, &remote))
         {
-            return sender.poll_send_probe(cx, remote, data, ttl);
+            return sender.poll_send_probe_from(cx, remote, data, ttl, source);
         }
         if let Some(sender) = self.ip.v4_default_mut() {
-            return sender.poll_send_probe(cx, remote, data, ttl);
+            return sender.poll_send_probe_from(cx, remote, data, ttl, source);
         }
         Poll::Ready(Err(io::Error::other("no IPv4 traversal transport")))
     }
@@ -1010,36 +1050,41 @@ impl TransportsSender {
             FourTuple::Ip {
                 remote: dst_addr,
                 local: src,
-            } => match dst_addr {
-                SocketAddr::V4(_) => {
-                    if let Some(sender) = self
-                        .ip
-                        .v4_iter_mut()
-                        .find(|s| s.is_valid_send_addr(*src, dst_addr))
-                    {
-                        return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
+            } => {
+                if let Some(token) = src.filter(|ip| LocalSocketId::from_token(*ip).is_some()) {
+                    return self.ip.pool.poll_send(cx, token, *dst_addr, transmit);
+                }
+                match dst_addr {
+                    SocketAddr::V4(_) => {
+                        if let Some(sender) = self
+                            .ip
+                            .v4_iter_mut()
+                            .find(|s| s.is_valid_send_addr(*src, dst_addr))
+                        {
+                            return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
+                        }
+                        if let Some(sender) = self.ip.v4_default_mut()
+                            && sender.is_valid_default_addr(*src, dst_addr)
+                        {
+                            return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
+                        }
                     }
-                    if let Some(sender) = self.ip.v4_default_mut()
-                        && sender.is_valid_default_addr(*src, dst_addr)
-                    {
-                        return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
+                    SocketAddr::V6(_) => {
+                        if let Some(sender) = self
+                            .ip
+                            .v6_iter_mut()
+                            .find(|s| s.is_valid_send_addr(*src, dst_addr))
+                        {
+                            return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
+                        }
+                        if let Some(sender) = self.ip.v6_default_mut()
+                            && sender.is_valid_default_addr(*src, dst_addr)
+                        {
+                            return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
+                        }
                     }
                 }
-                SocketAddr::V6(_) => {
-                    if let Some(sender) = self
-                        .ip
-                        .v6_iter_mut()
-                        .find(|s| s.is_valid_send_addr(*src, dst_addr))
-                    {
-                        return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
-                    }
-                    if let Some(sender) = self.ip.v6_default_mut()
-                        && sender.is_valid_default_addr(*src, dst_addr)
-                    {
-                        return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
-                    }
-                }
-            },
+            }
             FourTuple::Relay { url, endpoint_id } => {
                 let mut has_valid_sender = false;
                 for sender in self

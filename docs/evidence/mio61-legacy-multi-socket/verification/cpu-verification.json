@@ -1,0 +1,11 @@
+{
+  "result": "PASS",
+  "plan_sha256": "a5e48c52ec257511bb2480ac1257efafd09be1d191552700d3e40e838c4cd554",
+  "frozen_inputs": 43,
+  "exact_cpu_processes": 3,
+  "all_original_38_cpu": "not_measured",
+  "nat_probability_samples_added": 0,
+  "runtime_source_changed": false,
+  "kernel": "6.6.114.1-microsoft-standard-WSL2",
+  "architecture": "x86_64"
+}

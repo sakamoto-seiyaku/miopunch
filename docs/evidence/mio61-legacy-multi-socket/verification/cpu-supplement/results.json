@@ -1,0 +1,145 @@
+{
+  "result": "PASS",
+  "scope": "whole isolated two-node Rust test process",
+  "nat_probability_samples_added": 0,
+  "rows": [
+    {
+      "mode": 0,
+      "index": 0,
+      "exit": 0,
+      "user_cpu_seconds": 0.5274179999999999,
+      "system_cpu_seconds": 0.05814,
+      "wall_seconds": 5.880244277068414,
+      "max_rss_kib": 366336,
+      "voluntary_context_switches": 2197,
+      "involuntary_context_switches": 2,
+      "raw_dropped_packets": 51,
+      "raw_dropped_ip_bytes": 5304,
+      "log_sha256": "1e55ece70ce96a77d0546532a3cf9889dd9a7ea0a8478a979304925f08c77cd7",
+      "raw_drop_sha256": "4a4faa23de2e12331280a614964996ef036bf47fe5a50be9cb960d45f79e1b2f",
+      "phase_elapsed_ms": [
+        5200,
+        5201
+      ],
+      "traces": [
+        [
+          "c",
+          "130080601428368",
+          "25",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0"
+        ],
+        [
+          "v",
+          "130080601368016",
+          "26",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0"
+        ]
+      ],
+      "control_alive": true,
+      "fd_before": 16,
+      "fd_after": 16
+    },
+    {
+      "mode": 2,
+      "index": 0,
+      "exit": 0,
+      "user_cpu_seconds": 13.649365,
+      "system_cpu_seconds": 5.111731,
+      "wall_seconds": 38.69120553799439,
+      "max_rss_kib": 366736,
+      "voluntary_context_switches": 178416,
+      "involuntary_context_switches": 33,
+      "raw_dropped_packets": 46839,
+      "raw_dropped_ip_bytes": 4871256,
+      "log_sha256": "3772458925d615e968ae87f74ea7dbb3c7e3c0ab94aba7300bd5ae972f179f2c",
+      "raw_drop_sha256": "af1552fe0db8e6f62242b56154ed458b8dce2f67e5c1838c4378de41f0a20357",
+      "phase_elapsed_ms": [
+        38001,
+        38001
+      ],
+      "traces": [
+        [
+          "c",
+          "125854487366320",
+          "1350",
+          "1000",
+          "1010",
+          "0",
+          "0",
+          "0",
+          "0"
+        ],
+        [
+          "v",
+          "125854756202816",
+          "45489",
+          "0",
+          "0",
+          "0",
+          "256",
+          "256",
+          "0"
+        ]
+      ],
+      "control_alive": true,
+      "fd_before": 16,
+      "fd_after": 16
+    },
+    {
+      "mode": 4,
+      "index": 0,
+      "exit": 0,
+      "user_cpu_seconds": 2.8161009999999997,
+      "system_cpu_seconds": 0.629761,
+      "wall_seconds": 38.68352426902857,
+      "max_rss_kib": 375348,
+      "voluntary_context_switches": 25825,
+      "involuntary_context_switches": 7,
+      "raw_dropped_packets": 2635,
+      "raw_dropped_ip_bytes": 274040,
+      "log_sha256": "65a0a04f36c884ba9349d92f67c60fe3032e7e967c84bbf541d81c4062070c5c",
+      "raw_drop_sha256": "b28168af0c6f5787fc12abe5aacd1146b4519062e25291ec0304fb857c506d0b",
+      "phase_elapsed_ms": [
+        38000,
+        38010
+      ],
+      "traces": [
+        [
+          "c",
+          "136055639135536",
+          "1350",
+          "1000",
+          "1011",
+          "0",
+          "0",
+          "0",
+          "0"
+        ],
+        [
+          "v",
+          "136055639241456",
+          "1285",
+          "0",
+          "0",
+          "0",
+          "256",
+          "256",
+          "0"
+        ]
+      ],
+      "control_alive": true,
+      "fd_before": 16,
+      "fd_after": 16
+    }
+  ]
+}

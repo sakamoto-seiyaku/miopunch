@@ -1,0 +1,46 @@
+    Blocking waiting for file lock on build directory
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+warning: variable does not need to be mutable
+   --> tests/legacy_multi_socket.rs:357:13
+    |
+357 |         let mut cw = cl.retain_winner(cb.id, packet.local_addr).await.unwrap().unwrap();
+    |             ----^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> tests/legacy_multi_socket.rs:358:13
+    |
+358 |         let mut vw = vl.retain_winner(vb.id, response.local_addr).await.unwrap().unwrap();
+    |             ----^^
+    |             |
+    |             help: remove this `mut`
+
+warning: `miopunch-native-probe` (test "legacy_multi_socket") generated 2 warnings (run `cargo fix --test "legacy_multi_socket" -p miopunch-native-probe` to apply 2 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.24s
+     Running tests/legacy_multi_socket.rs (target/debug/deps/legacy_multi_socket-f71c12cd9fb8f2ed)
+
+running 1 test
+test a_real_target_send_error_does_not_truncate_following_candidates_or_random_work ... LEGACY_DATAGRAM_ERROR target=255.255.255.255:9 ttl=7 response=false local_socket_id=0 reason=Permission denied (os error 13)
+LEGACY_DATAGRAM target=127.0.0.1:45643 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:40001 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:47082 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:47082 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:47082 ttl=0 response=true degraded=false local_socket_id=0
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.88s
+

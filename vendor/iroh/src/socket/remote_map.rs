@@ -14,8 +14,8 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 use tracing::{Span, error, trace};
 
-pub(crate) use self::remote_state::PathStateReceiver;
 pub(crate) use self::remote_state::PATH_IDENTIFIERS_UNAVAILABLE;
+pub(crate) use self::remote_state::PathStateReceiver;
 use self::remote_state::RemoteStateActor;
 pub(super) use self::remote_state::RemoteStateMessage;
 pub use self::remote_state::{
@@ -74,6 +74,8 @@ pub(crate) struct RemoteMap {
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct MappedAddrs {
+    #[cfg(not(wasm_browser))]
+    pub(super) udp_socket_pool: Arc<transports::SocketPool>,
     /// The mapping between [`EndpointId`]s and [`EndpointIdMappedAddr`]s.
     pub(super) endpoint_addrs: AddrMap<EndpointId, EndpointIdMappedAddr>,
     /// The mapping between endpoints via a relay and their [`RelayMappedAddr`]s.

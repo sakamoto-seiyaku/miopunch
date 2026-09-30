@@ -1,0 +1,67 @@
+[
+  {
+    "cell": "positive-eim-random-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 15187
+  },
+  {
+    "cell": "positive-eim-random-a-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 15092
+  },
+  {
+    "cell": "positive-eim-random-a-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 15249
+  },
+  {
+    "cell": "positive-eim-random-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 14286
+  },
+  {
+    "cell": "positive-eim-random-b-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 14381
+  },
+  {
+    "cell": "positive-eim-random-b-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 14355
+  },
+  {
+    "cell": "positive-eim-wide-a-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 21905
+  },
+  {
+    "cell": "positive-eim-wide-a-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 30534
+  },
+  {
+    "cell": "positive-eim-wide-a-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 21419
+  },
+  {
+    "cell": "positive-eim-wide-b-h0-normal",
+    "exit": 0,
+    "elapsed_ms": 21135
+  },
+  {
+    "cell": "positive-eim-wide-b-h1-normal",
+    "exit": 0,
+    "elapsed_ms": 15365
+  },
+  {
+    "cell": "positive-eim-wide-b-h2-normal",
+    "exit": 0,
+    "elapsed_ms": 18449
+  },
+  {
+    "cell": "positive-up1-random-a-h0-normal",
+    "exit": 1,
+    "elapsed_ms": 43046
+  }
+]

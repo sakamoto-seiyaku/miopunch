@@ -1,0 +1,7 @@
+{
+  "udp_nat_probe": "1eba87e48d8e31f6f5d627d596d2169835c4b126f2c39473773ee5bf57317530",
+  "udp_observation_probe": "51b02b18c6d5db6ac7f57c03c766789be7fc539558e51e30bbc8f6a92fdf7847",
+  "keys/server.key": "d8ecbf8883c8a3f9e6f4f2ecbb29ada2c1c0af238ea767a24293c6b336e08d96",
+  "keys/client.key": "63ac4285da293400e28b440ff593fffda3cedcdaea9977de32df387ce480fe04",
+  "keys/secret.bin": "7c57493cccb7244c2e85b55dfc279b9d4be4b31fcc9f8811cda0beb0d3ca67f1"
+}

@@ -12,3 +12,12 @@ an outbound packet to the transport. It clears a buffered packet that was
 already waiting on a newly forbidden path and counts rejected packets.
 This is a packet path gate; it does not inspect or decrypt application frames.
 The dependency is selected by the root `[patch.crates-io]` entry.
+
+MIOPUNCH-61 extends the predicate from a remote-only address to a full
+`NetworkPath`, preserving the old remote-only wrapper. The original Connection
+can therefore reject a private local UDP binding owned by another connection
+before receive or transmit processing. `Connection::network_paths` exposes
+all protocol-retained paths, including opening and abandonment grace, so the
+iroh owner releases a used descriptor only after its final path is discarded.
+`NetworkChangeHint::local_ip_for_recovery` lets iroh preserve a live private
+binding token while checking the real interface IP. No packet encoding changes.

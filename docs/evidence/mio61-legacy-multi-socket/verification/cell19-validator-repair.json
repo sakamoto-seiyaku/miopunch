@@ -1,0 +1,9 @@
+{
+  "cell": "positive-up1-wide-a-h0-normal",
+  "product_client_rc": 0,
+  "product_server_rc": 0,
+  "original_harness_exit": 1,
+  "reexecution": false,
+  "repair": "Post-validator required CONTROL_ALIVE_AFTER_UDP_FAILURE but the configured preopened original authenticated FailureLiveness stream completed actual PING/PONG plus stopped acknowledgement and emitted EARLY_FAILURE_CONTROL_ALIVE. Strict packet/physical/deadline/cost verification of this exact retained trial passed; accept both equivalent liveness proofs.",
+  "runtime_generation": 5
+}

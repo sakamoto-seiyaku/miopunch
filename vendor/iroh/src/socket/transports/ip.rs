@@ -16,6 +16,10 @@ use tracing::{debug, info, trace};
 use super::{RecvInfo, Transmit};
 use crate::metrics::{EndpointMetrics, SocketMetrics};
 
+mod pool;
+pub use pool::{LocalSocketBinding, LocalSocketId};
+pub(crate) use pool::{PoolSocket, SocketPool};
+
 #[derive(Debug)]
 pub(crate) struct IpTransport {
     config: Config,
@@ -223,6 +227,15 @@ impl IpTransport {
                     *recv_info = RecvInfo::from_addr(
                         SocketAddr::new(meta.addr.ip().to_canonical(), meta.addr.port()).into(),
                     );
+                    recv_info.ip_binding = Some(LocalSocketBinding {
+                        id: LocalSocketId::PRIMARY,
+                        local_addr: SocketAddr::new(
+                            meta.dst_ip
+                                .unwrap_or(self.local_addr.get().ip())
+                                .to_canonical(),
+                            self.local_addr.get().port(),
+                        ),
+                    });
                 }
                 Poll::Ready(Ok(n))
             }
@@ -314,14 +327,16 @@ impl IpSender {
         self.socket.test_force_ttl_unavailable();
     }
 
-    pub(super) fn poll_send_probe(
+    pub(super) fn poll_send_probe_from(
         &self,
         cx: &mut Context<'_>,
         remote: SocketAddr,
         data: &[u8],
         ttl: u8,
+        source: Option<IpAddr>,
     ) -> Poll<io::Result<bool>> {
-        self.socket.poll_send_datagram(cx, remote, data, ttl)
+        self.socket
+            .poll_send_datagram_from(cx, remote, data, ttl, source)
     }
 
     /// Creates a canonical socket address.
@@ -373,6 +388,7 @@ impl IpSender {
 
 #[derive(Debug, Clone)]
 pub(super) struct IpTransportsSender {
+    pub(super) pool: Arc<SocketPool>,
     /// Stored sorted by prefix len
     v4: Vec<IpSender>,
     default_v4_index: Option<usize>,
@@ -407,6 +423,7 @@ impl IpTransportsSender {
 
 #[derive(Debug)]
 pub(super) struct IpTransports {
+    pub(super) pool: Arc<SocketPool>,
     v4: Vec<IpTransport>,
     default_v4_index: Option<usize>,
     v6: Vec<IpTransport>,
@@ -419,6 +436,7 @@ impl IpTransports {
         let ip_v6 = self.v6.iter().map(|t| t.create_sender()).collect();
 
         IpTransportsSender {
+            pool: self.pool.clone(),
             v4: ip_v4,
             default_v4_index: self.default_v4_index,
             v6: ip_v6,
@@ -482,6 +500,7 @@ impl IpTransports {
         let default_v6_index = ip_v6.iter().position(|i| i.config.is_default());
 
         Ok(Self {
+            pool: Arc::new(SocketPool::default()),
             v4: ip_v4,
             default_v4_index,
             v6: ip_v6,

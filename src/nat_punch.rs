@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     admission_gate::AdmissionGate,
-    control_session::{ControlSession, DataSession},
+    control_session::{CommitError, ControlSession, DataPathOpen, DataSession},
     nat_mapping::NodeProbeBudget,
     nat_selector::{
         Analyzer, Behavior, BehaviorId, BehaviorScore, FeatureView, LearningScope, Recommendation,
@@ -140,7 +140,7 @@ impl MappingSnapshot {
         Ok(Self {
             wire,
             validity: Validity::Fallback {
-                generation: endpoint.udp_observation_generation(),
+                generation: endpoint.udp_network_generation(),
             },
             observed_at: Instant::now(),
         })
@@ -276,10 +276,39 @@ enum Frame {
     Established {
         round: Round,
     },
+    WinnerReady {
+        round: Round,
+    },
+    WinnerReadyAck {
+        round: Round,
+    },
 }
 
 fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)
+}
+
+async fn guard_remaining<T>(
+    check: impl Fn() -> io::Result<Duration>,
+    operation: impl std::future::Future<Output = io::Result<T>>,
+) -> io::Result<T> {
+    let remaining = check()?;
+    let guard = async {
+        loop {
+            check()?;
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        #[allow(unreachable_code)]
+        Err::<T, io::Error>(io::Error::other("handoff guard stopped"))
+    };
+    tokio::select! {
+        result = tokio::time::timeout(remaining, operation) => {
+            let result = result.map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "legacy winner handoff deadline elapsed"))??;
+            check()?;
+            Ok(result)
+        },
+        result = guard => result,
+    }
 }
 
 fn current_scope(control: &ControlSession, gate: &AdmissionGate) -> io::Result<LearningScope> {
@@ -351,7 +380,10 @@ pub struct Attempt {
     submitted: bool,
     finished: bool,
     execution_trace: Option<crate::nat_scheduler::ExecutionTrace>,
+    local_winner: Option<iroh::endpoint::LocalSocketBinding>,
+    winner_lease: Option<iroh::endpoint::UdpSocketPathLease>,
     feedback_ready: bool,
+    phase_deadline: Option<tokio::time::Instant>,
 }
 
 pub async fn coordinate_server(
@@ -468,7 +500,10 @@ pub async fn coordinate_server(
         submitted: false,
         finished: false,
         execution_trace: None,
+        local_winner: None,
+        winner_lease: None,
         feedback_ready: false,
+        phase_deadline: None,
     })
 }
 
@@ -578,7 +613,10 @@ pub async fn coordinate_client(
         submitted: false,
         finished: false,
         execution_trace: None,
+        local_winner: None,
+        winner_lease: None,
         feedback_ready: false,
+        phase_deadline: None,
     })
 }
 
@@ -604,6 +642,221 @@ impl Attempt {
     pub fn remote_target(&self) -> Option<SocketAddr> {
         self.remote_target
     }
+    /// Actual receiving physical socket from the authenticated raw winner.
+    pub fn local_winner(&self) -> Option<iroh::endpoint::LocalSocketBinding> {
+        self.local_winner
+    }
+    /// Remaining original phase budget for the protected winner/path handoff.
+    pub fn path_wait_remaining(
+        &self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+    ) -> io::Result<Duration> {
+        check_scope(control, gate, &self.scope, &self.snapshot)?;
+        if self.finished
+            || !self.feedback_ready
+            || control.stable_id() != self.connection_id
+            || control.is_closed()
+        {
+            return Err(invalid("NAT winner handoff is not current"));
+        }
+        self.phase_deadline
+            .and_then(|deadline| deadline.checked_duration_since(tokio::time::Instant::now()))
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "legacy winner handoff deadline elapsed",
+                )
+            })
+    }
+
+    /// Both peers retain their winner before either starts QUIC validation.
+    /// This is an original authenticated control exchange within the same
+    /// phase deadline; raw receipts never grant a peer's business capability.
+    pub async fn synchronize_winner(
+        &self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+    ) -> io::Result<()> {
+        let exchange = async {
+            let (mut send_stream, mut receive_stream) = open(control).await?;
+            send(&mut send_stream, Frame::WinnerReady { round: self.round }).await?;
+            let (mut reply, mut request) = control.accept_control_bi().await?;
+            if !matches!(receive(&mut request).await?, Frame::WinnerReady { round } if round == self.round)
+            {
+                return Err(invalid("wrong NAT winner handoff round"));
+            }
+            self.path_wait_remaining(control, gate)?;
+            send(&mut reply, Frame::WinnerReadyAck { round: self.round }).await?;
+            if !matches!(receive(&mut receive_stream).await?, Frame::WinnerReadyAck { round } if round == self.round)
+            {
+                return Err(invalid("wrong NAT winner handoff acknowledgement"));
+            }
+            self.path_wait_remaining(control, gate)?;
+            println!(
+                "LEGACY_WINNER_READY round={} stable_id={} remaining_ms={}",
+                self.round.encoded(),
+                self.connection_id,
+                self.path_wait_remaining(control, gate)?.as_millis()
+            );
+            Ok(())
+        };
+        self.guard_handoff(control, gate, exchange).await
+    }
+
+    /// Validated open path on the actual winner, under the captured scope.
+    pub fn verify_winner_path(
+        &self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+    ) -> io::Result<()> {
+        self.path_wait_remaining(control, gate)?;
+        let local = self
+            .local_winner
+            .ok_or_else(|| invalid("NAT winner has no local binding"))?;
+        let remote = self
+            .remote_target
+            .ok_or_else(|| invalid("NAT winner has no remote source"))?;
+        if control.has_data_path_from(local, remote) {
+            Ok(())
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::WouldBlock,
+                "actual NAT winner path not validated",
+            ))
+        }
+    }
+
+    /// Guard every handoff wait with the same scope and absolute deadline.
+    pub async fn guard_handoff<T>(
+        &self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+        operation: impl std::future::Future<Output = io::Result<T>>,
+    ) -> io::Result<T> {
+        guard_remaining(|| self.path_wait_remaining(control, gate), operation).await
+    }
+
+    /// Retain both winners, then validate the original connection's exact
+    /// physical winner. The original QUIC dialer initiates path validation;
+    /// the legacy raw sender/receiver role remains independent.
+    pub async fn prepare_data_path(
+        &self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+    ) -> io::Result<DataPathOpen> {
+        self.synchronize_winner(control, gate).await?;
+        let local = self
+            .local_winner
+            .ok_or_else(|| invalid("NAT winner has no local binding"))?;
+        let remote = self
+            .remote_target
+            .ok_or_else(|| invalid("NAT winner has no remote source"))?;
+        let deadline = self
+            .phase_deadline
+            .ok_or_else(|| invalid("NAT phase not started"))?;
+        self.guard_handoff(control, gate, async {
+            let report = if control.is_dialing_side() {
+                control
+                    .open_data_path_from_until(local, remote, deadline, &|| {
+                        self.path_wait_remaining(control, gate).map(|_| ())
+                    })
+                    .await?
+            } else {
+                DataPathOpen { path_id_retries: 0 }
+            };
+            loop {
+                match self.verify_winner_path(control, gate) {
+                    Ok(()) => return Ok(report),
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                        tokio::time::sleep(Duration::from_millis(10)).await
+                    }
+                    Err(error) => return Err(error),
+                }
+            }
+        })
+        .await
+    }
+
+    /// Commit only the current captured winner; queued business remains local
+    /// until this transition has been checked again after the actor responds.
+    pub async fn commit_winner_path(
+        &self,
+        control: ControlSession,
+        gate: &AdmissionGate,
+    ) -> Result<DataSession, CommitError> {
+        if let Err(error) = self.verify_winner_path(&control, gate) {
+            return Err(CommitError::Retryable {
+                error,
+                session: control,
+            });
+        }
+        let deadline = self.phase_deadline.expect("verified phase deadline");
+        let mut cancellation = control.cancellation_guard();
+        let data = match tokio::time::timeout_at(deadline, control.commit_data_path()).await {
+            Ok(Ok(data)) => data,
+            Ok(Err(error)) => {
+                cancellation.disarm();
+                return Err(error);
+            }
+            Err(_) => {
+                return Err(CommitError::Terminal {
+                    error: io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        "legacy path commitment deadline elapsed",
+                    ),
+                });
+            }
+        };
+        if let Err(error) = self.data_wait_remaining(&data, gate) {
+            data.connection().close(
+                iroh::endpoint::VarInt::from_u32(0),
+                b"invalidated NAT winner handoff",
+            );
+            return Err(CommitError::Terminal { error });
+        }
+        cancellation.disarm();
+        Ok(data)
+    }
+
+    /// Current scope and selected physical winner before releasing business.
+    pub fn data_wait_remaining(
+        &self,
+        data: &DataSession,
+        gate: &AdmissionGate,
+    ) -> io::Result<Duration> {
+        let current = !self.finished && self.feedback_ready
+            && gate.nat_learning_scope(data.connection()) == Some(self.scope.clone())
+            && self.snapshot.is_current()
+            && data.connection().close_reason().is_none()
+            && data.connection().stable_id() == self.connection_id
+            && data.connection().paths().iter().any(|path| path.is_selected()
+                && path.local_socket_id() == self.local_winner.map(|local| local.id)
+                && matches!(path.remote_addr(), iroh_base::TransportAddr::Ip(addr) if Some(*addr) == self.remote_target));
+        if !current {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "NAT winner scope or physical path changed during commitment",
+            ));
+        }
+        self.phase_deadline
+            .and_then(|deadline| deadline.checked_duration_since(tokio::time::Instant::now()))
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "legacy winner handoff deadline elapsed",
+                )
+            })
+    }
+
+    pub async fn guard_committed<T>(
+        &self,
+        data: &DataSession,
+        gate: &AdmissionGate,
+        operation: impl std::future::Future<Output = io::Result<T>>,
+    ) -> io::Result<T> {
+        guard_remaining(|| self.data_wait_remaining(data, gate), operation).await
+    }
     pub fn remote_feature(&self) -> Option<crate::nat_selector::NatFeature> {
         self.remote_snapshot.view().map(|v| v.feature())
     }
@@ -617,12 +870,6 @@ impl Attempt {
     pub fn execution_status(&self) -> ExecutionStatus {
         if self.plan.disabled {
             ExecutionStatus::Disabled
-        } else if self.plan.c.ports_random > 0
-            || self.plan.v.ports_random > 0
-            || self.plan.c.listen_random > 0
-            || self.plan.v.listen_random > 0
-        {
-            ExecutionStatus::ExecutionUnavailable
         } else {
             ExecutionStatus::Ready
         }
@@ -642,6 +889,13 @@ impl Attempt {
         let status = self.execution_status();
         if status != ExecutionStatus::Ready {
             return Ok(status);
+        }
+        if self.plan.c.ports_random > 0
+            || self.plan.v.ports_random > 0
+            || self.plan.c.listen_random > 0
+            || self.plan.v.listen_random > 0
+        {
+            return Ok(ExecutionStatus::ExecutionUnavailable);
         }
         check_scope(control, gate, &self.scope, &self.snapshot)?;
         let Some(target) = self.remote_target else {
@@ -664,7 +918,7 @@ impl Attempt {
         Ok(ExecutionStatus::PartialExecution)
     }
 
-    /// Execute the complete old single-socket phase with continuous scope checks.
+    /// Execute the complete old physical-socket phase with continuous scope checks.
     /// A provisional raw winner never grants business or updates learning.
     pub async fn execute(
         &mut self,
@@ -700,18 +954,75 @@ impl Attempt {
         };
         let mut lease = control.register_udp_traversal(self.round.0).await?;
         self.submitted = true;
-        println!(
-            "LEGACY_RECV_START round={} stable_id={} phase={phase:?}",
-            self.round.encoded(),
-            self.connection_id
-        );
+        // Old MakeHole starts the total deadline before creating random
+        // listeners. Binding work therefore consumes the same phase budget.
+        let started = Instant::now();
+        let deadline =
+            tokio::time::Instant::now() + Duration::from_millis(phase.total_budget_ms.into());
+        self.phase_deadline = Some(deadline);
         let check = || {
+            if tokio::time::Instant::now() >= deadline {
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "legacy NAT phase budget elapsed",
+                ));
+            }
             check_scope(control, gate, &self.scope, &self.snapshot)?;
             if control.is_closed() {
                 return Err(io::Error::other("NAT connection closed"));
             }
             Ok(())
         };
+        let trace = Arc::new(Mutex::new(crate::nat_scheduler::ExecutionTrace::default()));
+        let _summary = crate::nat_scheduler::TraceSummary {
+            trace: trace.clone(),
+            round: self.round.encoded(),
+            connection_id: self.connection_id,
+        };
+        let setup = tokio::time::timeout_at(
+            deadline,
+            lease.listen_random_ports_checked(usize::from(self.local.listen_random), &check),
+        )
+        .await
+        .unwrap_or_else(|_| {
+            Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "legacy NAT phase budget elapsed",
+            ))
+        });
+        let report = lease.listener_report();
+        {
+            let mut ledger = trace.lock().expect("NAT execution trace");
+            ledger.listener_attempted = report.attempted;
+            ledger.listener_bound = report.bound;
+            ledger.listener_failed = report.failed;
+        }
+        if let Err(error) = setup {
+            self.execution_trace = Some(trace.lock().expect("NAT execution trace").clone());
+            println!(
+                "LEGACY_PHASE_STOP round={} stable_id={} elapsed_ms={} outcome=failed",
+                self.round.encoded(),
+                self.connection_id,
+                started.elapsed().as_millis()
+            );
+            return Err(error);
+        }
+        println!(
+            "LEGACY_RECV_START round={} stable_id={} bind_elapsed_ms={} phase={phase:?}",
+            self.round.encoded(),
+            self.connection_id,
+            started.elapsed().as_millis()
+        );
+        for binding in lease.local_sockets() {
+            println!(
+                "LEGACY_LISTENER round={} stable_id={} local_socket_id={} local_addr={} primary={}",
+                self.round.encoded(),
+                self.connection_id,
+                binding.id.get(),
+                binding.local_addr,
+                binding.id.is_primary()
+            );
+        }
         let guard = async {
             loop {
                 check_scope(control, gate, &self.scope, &self.snapshot)?;
@@ -723,13 +1034,10 @@ impl Attempt {
             #[allow(unreachable_code)]
             Ok::<(), io::Error>(())
         };
-        let started = Instant::now();
         let result = tokio::select! {
-            result=tokio::time::timeout(Duration::from_millis(phase.total_budget_ms.into()),crate::nat_scheduler::run(&phase,&mut lease,&auth,budget,&check))=>result.unwrap_or_else(|_|Err(io::Error::new(io::ErrorKind::TimedOut,"legacy NAT phase budget elapsed"))),
+            result=tokio::time::timeout_at(deadline,crate::nat_scheduler::run_with_trace(&phase,&mut lease,&auth,budget,&trace,&check))=>result.unwrap_or_else(|_|Err(io::Error::new(io::ErrorKind::TimedOut,"legacy NAT phase budget elapsed"))),
             result=guard=> match result { Err(error)=>Err(error),Ok(())=>unreachable!() }
         };
-        // Lease drop unregisters raw reception; no spawned tasks survive it.
-        drop(lease);
         println!(
             "LEGACY_PHASE_STOP round={} stable_id={} elapsed_ms={} outcome={}",
             self.round.encoded(),
@@ -737,10 +1045,19 @@ impl Attempt {
             started.elapsed().as_millis(),
             if result.is_ok() { "winner" } else { "failed" }
         );
-        let (winner, trace) = result?;
+        self.execution_trace = Some(trace.lock().expect("NAT execution trace").clone());
+        let winner = result?;
         check_scope(control, gate, &self.scope, &self.snapshot)?;
+        let winner_lease = lease
+            .retain_winner(winner.local_socket_id, winner.local_addr)
+            .await?;
+        check_scope(control, gate, &self.scope, &self.snapshot)?;
+        // The original Connection now owns the physical winner. Raw registration
+        // and every loser are closed when the round ends.
+        drop(lease);
+        let trace = self.execution_trace.as_ref().expect("execution ledger");
         println!(
-            "LEGACY_WINNER round={} stable_id={} remote={} response={} before_probe={} probes={} responses={} ttl_degraded={}",
+            "LEGACY_WINNER round={} stable_id={} remote={} response={} before_probe={} probes={} responses={} ttl_degraded={} local_socket_id={} local_addr={}",
             self.round.encoded(),
             self.connection_id,
             winner.remote,
@@ -748,10 +1065,16 @@ impl Attempt {
             winner.before_probe,
             trace.probes,
             trace.responses,
-            trace.ttl_degraded
+            trace.ttl_degraded,
+            winner.local_socket_id.get(),
+            winner.local_addr
         );
         self.remote_target = Some(winner.remote);
-        self.execution_trace = Some(trace);
+        self.local_winner = Some(iroh::endpoint::LocalSocketBinding {
+            id: winner.local_socket_id,
+            local_addr: winner.local_addr,
+        });
+        self.winner_lease = winner_lease;
         self.feedback_ready = true;
         Ok(ExecutionStatus::CompleteExecution)
     }
@@ -779,8 +1102,17 @@ impl Attempt {
             || !self.snapshot.is_current()
             || data.connection().close_reason().is_some()
             || !data.connection().paths().iter().any(|path| path.is_selected()
-                && matches!(path.remote_addr(),iroh_base::TransportAddr::Ip(addr) if Some(*addr) == self.remote_target))
-        { return false; }
+                && matches!(path.remote_addr(),iroh_base::TransportAddr::Ip(addr) if Some(*addr) == self.remote_target)
+                && self.local_winner.is_none_or(|winner| path.local_socket_id() == Some(winner.id)))
+        { self.winner_lease.take(); return false; }
+        if self
+            .winner_lease
+            .as_mut()
+            .is_some_and(|lease| lease.commit(data.connection()).is_err())
+        {
+            self.winner_lease.take();
+            return false;
+        }
         self.recommendation.take().is_some_and(|rec| {
             analyzer
                 .lock()
@@ -790,6 +1122,7 @@ impl Attempt {
     }
 
     pub fn finish_failure(&mut self) {
+        self.winner_lease.take();
         self.finished = true;
         self.recommendation = None;
     }

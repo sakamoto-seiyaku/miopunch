@@ -687,6 +687,123 @@ async fn exhaustion_stops_full_phase_and_existing_authorized_control_remains_usa
 }
 
 #[tokio::test]
+async fn winner_handoff_waits_for_peer_inside_the_original_deadline_and_rechecks_scope() {
+    for change_scope in [false, true] {
+        let pair = Pair::new().await;
+        let (cs, vs) = pair.snapshots().await;
+        let (c, v) = pair.connect().await;
+        let stable = (c.stable_id(), v.stable_id());
+        let analyzer = Arc::new(Mutex::new(Analyzer::new(Instant::now())));
+        let (ca, va) = tokio::join!(
+            nat_punch::coordinate_server(&c, &pair.c_gate, &cs, &analyzer),
+            nat_punch::coordinate_client(&v, &pair.v_gate, &vs)
+        );
+        let (mut ca, mut va) = (ca.unwrap(), va.unwrap());
+        let cb = NodeProbeBudget::new(0, 1000);
+        let vb = NodeProbeBudget::new(0, 1000);
+        let (cr, vr) = tokio::join!(
+            ca.execute(&c, &pair.c_gate, &cb),
+            va.execute(&v, &pair.v_gate, &vb)
+        );
+        assert_eq!(cr.unwrap(), ExecutionStatus::CompleteExecution);
+        assert_eq!(vr.unwrap(), ExecutionStatus::CompleteExecution);
+        let started = Instant::now();
+        if change_scope {
+            let mutation = async {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                pair.c_gate
+                    .update_authorization([*pair.c.id().as_bytes()], [*pair.v.id().as_bytes()]);
+            };
+            let (result, _) = tokio::join!(ca.synchronize_winner(&c, &pair.c_gate), mutation);
+            assert!(result.is_err());
+            assert!(started.elapsed() < Duration::from_secs(1));
+        } else {
+            let delayed_peer = async {
+                tokio::time::sleep(Duration::from_millis(3200)).await;
+                va.synchronize_winner(&v, &pair.v_gate).await
+            };
+            let (cr, vr) = tokio::join!(ca.synchronize_winner(&c, &pair.c_gate), delayed_peer);
+            cr.unwrap();
+            vr.unwrap();
+            assert!(started.elapsed() >= Duration::from_millis(3200));
+            assert!(ca.path_wait_remaining(&c, &pair.c_gate).unwrap() < Duration::from_secs(2));
+            assert_eq!((c.stable_id(), v.stable_id()), stable);
+            ca.verify_winner_path(&c, &pair.c_gate).unwrap();
+            va.verify_winner_path(&v, &pair.v_gate).unwrap();
+            let cd = ca.commit_winner_path(c, &pair.c_gate).await.unwrap();
+            let vd = va.commit_winner_path(v, &pair.v_gate).await.unwrap();
+            assert_eq!(
+                (cd.connection().stable_id(), vd.connection().stable_id()),
+                stable
+            );
+            let started = Instant::now();
+            let mutation = async {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                pair.c.network_change().await;
+            };
+            let (result, _) = tokio::join!(
+                ca.guard_committed(
+                    &cd,
+                    &pair.c_gate,
+                    std::future::pending::<std::io::Result<()>>()
+                ),
+                mutation
+            );
+            assert!(result.is_err());
+            assert!(started.elapsed() < Duration::from_secs(1));
+        }
+        ca.finish_failure();
+        va.finish_failure();
+        pair.close().await;
+    }
+}
+
+#[tokio::test]
+async fn ordinary_qad_refresh_keeps_the_physical_generation_but_real_network_change_invalidates_it()
+{
+    let pair = Pair::new().await;
+    let sequence = pair
+        .c
+        .observe_udp_mapping_sequence(&pair.observers)
+        .await
+        .unwrap();
+    let generation = pair.c.udp_observation_generation();
+    let physical = pair.c.bound_sockets();
+    let mut reports = pair.c.udp_observation();
+    let fallback = MappingSnapshot::fallback(&pair.c, reports.get()).unwrap();
+    tokio::time::timeout(Duration::from_secs(40), async {
+        while generation.is_current() {
+            reports.updated().await.unwrap();
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(pair.c.bound_sockets(), physical);
+    assert!(
+        sequence.is_current_generation(),
+        "ordinary report publication is not a socket/network change"
+    );
+    assert!(
+        fallback.is_current(),
+        "ordinary report publication must not cancel a candidate-only lifecycle"
+    );
+    assert!(
+        !sequence.is_fresh(),
+        "the old predictor's two-second lifetime remains bounded"
+    );
+    pair.c.network_change().await;
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while sequence.is_current_generation() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(!fallback.is_current());
+    pair.close().await;
+}
+
+#[tokio::test]
 async fn low_ttl_and_unsupported_ttl_do_not_change_parallel_connection_business() {
     for degraded in [false, true] {
         let pair = Pair::new().await;
@@ -817,5 +934,132 @@ async fn fallback_retains_a_freshly_acquired_candidate_for_its_phase() {
     })
     .await
     .unwrap();
+    pair.close().await;
+}
+
+/// Explicit resource measurement, separate from controlled NAT probability trials.
+/// The runner enforces raw-only INPUT drops in a disposable loopback namespace.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "run only through legacy_nat_multi_socket_cpu.py in its isolated raw-drop fixture"]
+async fn isolated_functional_cpu_cost_supplement() {
+    assert_eq!(
+        std::env::var("MIOPUNCH_CPU_RAW_DROP_CONFIRMED").as_deref(),
+        Ok("1")
+    );
+    let mode: u8 = std::env::var("MIOPUNCH_CPU_MODE").unwrap().parse().unwrap();
+    assert!([0, 2, 4].contains(&mode));
+    let pair = Pair::new().await;
+    let mut cs = pair
+        .c
+        .observe_udp_mapping_sequence(&pair.observers)
+        .await
+        .unwrap();
+    let mut vs = pair
+        .v
+        .observe_udp_mapping_sequence(&pair.observers)
+        .await
+        .unwrap();
+    // These explicitly synthetic functional observations select the normal
+    // old strategy. They are never presented as measured NAT mappings.
+    for (index, sample) in cs.samples.iter_mut().enumerate() {
+        sample.mapped = (
+            Ipv4Addr::new(127, 0, 0, 3),
+            43000 + u16::from(mode == 4) * index as u16,
+        )
+            .into();
+    }
+    for (index, sample) in vs.samples.iter_mut().enumerate() {
+        sample.mapped = (
+            Ipv4Addr::new(127, 0, 0, 4),
+            50000 + u16::from(mode != 0) * index as u16 * 12000,
+        )
+            .into();
+    }
+    let cs = MappingSnapshot::from_sequence(cs).unwrap();
+    let vs = MappingSnapshot::from_sequence(vs).unwrap();
+    let (c, v) = pair.connect().await;
+    let stable = (c.stable_id(), v.stable_id());
+    let analyzer = Arc::new(Mutex::new(Analyzer::new(Instant::now())));
+    let (ca, va) = tokio::join!(
+        nat_punch::coordinate_server(&c, &pair.c_gate, &cs, &analyzer),
+        nat_punch::coordinate_client(&v, &pair.v_gate, &vs)
+    );
+    let mut ca = ca.unwrap();
+    let mut va = va.unwrap();
+    assert_eq!(ca.plan().id, BehaviorId { mode, index: 0 });
+    assert_eq!(ca.plan(), va.plan());
+    let before = std::fs::read_dir("/proc/self/fd").unwrap().count();
+    let budget = miopunch_native_probe::nat_scheduler::DEFAULT_LEGACY_PEER_ALLOWANCE;
+    let cb = NodeProbeBudget::new(0, budget);
+    let vb = NodeProbeBudget::new(0, budget);
+    let started = Instant::now();
+    let (cr, vr) = tokio::join!(
+        ca.execute(&c, &pair.c_gate, &cb),
+        va.execute(&v, &pair.v_gate, &vb)
+    );
+    for result in [cr, vr] {
+        let error = result.unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
+        assert_eq!(error.to_string(), "legacy NAT phase budget elapsed");
+    }
+    let expected_ms = if mode == 0 { 5200 } else { 38000 };
+    assert!(started.elapsed() >= Duration::from_millis(expected_ms - 50));
+    assert!(started.elapsed() < Duration::from_millis(expected_ms + 1000));
+    let mut probes = 0;
+    for (side, attempt) in [("c", &ca), ("v", &va)] {
+        let trace = attempt.execution_trace().unwrap();
+        let receiver = attempt.local_behavior().role == Role::Receiver;
+        assert_eq!(
+            trace.listener_attempted,
+            if mode != 0 && receiver { 256 } else { 0 }
+        );
+        assert_eq!(trace.listener_bound, trace.listener_attempted);
+        assert_eq!(trace.listener_failed, 0);
+        assert_eq!(
+            trace.random_iterations,
+            if mode != 0 && !receiver { 1000 } else { 0 }
+        );
+        assert_eq!(trace.responses, 0);
+        assert_eq!(trace.send_errors, 0);
+        assert_eq!(trace.rejected_receipts, 0);
+        probes += trace.probes;
+        println!(
+            "CPU_FUNCTIONAL_TRACE mode={mode} side={side} stable_id={} probes={} responses={} random_iterations={} random_draws={} random_skipped={} listener_attempted={} listener_bound={} listener_failed={} send_errors={} send_aborted={}",
+            if side == "c" { stable.0 } else { stable.1 },
+            trace.probes,
+            trace.responses,
+            trace.random_iterations,
+            trace.random_draws,
+            trace.random_skipped,
+            trace.listener_attempted,
+            trace.listener_bound,
+            trace.listener_failed,
+            trace.send_errors,
+            trace.send_aborted
+        );
+    }
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let after = std::fs::read_dir("/proc/self/fd").unwrap().count();
+    assert_eq!(
+        after, before,
+        "temporary physical listeners were not released"
+    );
+    let (mut send, mut recv) = v.open_control_bi().await.unwrap();
+    send.write_all(b"CPU-CONTROL-PING").await.unwrap();
+    send.finish().unwrap();
+    let (mut reply, mut request) = c.accept_control_bi().await.unwrap();
+    assert_eq!(request.read_to_end(64).await.unwrap(), b"CPU-CONTROL-PING");
+    reply.write_all(b"CPU-CONTROL-PONG").await.unwrap();
+    reply.finish().unwrap();
+    assert_eq!(recv.read_to_end(64).await.unwrap(), b"CPU-CONTROL-PONG");
+    assert_eq!((c.stable_id(), v.stable_id()), stable);
+    assert!(c.may_upgrade_member_path(&pair.c_gate));
+    assert!(v.may_upgrade_member_path(&pair.v_gate));
+    println!(
+        "CPU_FUNCTIONAL_COMPLETE mode={mode} probes={probes} elapsed_ms={} fd_before={before} fd_after={after} control_alive=true c_stable_id={} v_stable_id={}",
+        started.elapsed().as_millis(),
+        stable.0,
+        stable.1
+    );
     pair.close().await;
 }

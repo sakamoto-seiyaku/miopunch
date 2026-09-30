@@ -1,0 +1,102 @@
+{
+  "result": "PASS",
+  "rejected": 16,
+  "rows": [
+    {
+      "fault": "capture_truncated",
+      "cell": "positive-eim-random-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "truncated captured packet"
+    },
+    {
+      "fault": "capture_drops",
+      "cell": "positive-eim-random-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "incomplete/dropped capture: <fault-root>/capture_drops/wan.pcap"
+    },
+    {
+      "fault": "physical_socket_changed",
+      "cell": "positive-eim-random-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "send used foreign physical socket"
+    },
+    {
+      "fault": "wire_ttl_changed",
+      "cell": "positive-eim-random-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "actual LAN packets differ from target/TTL/physical-socket trace"
+    },
+    {
+      "fault": "wire_send_before_delay",
+      "cell": "positive-eim-random-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "sender emitted before the old3000ms delay including receiver bind setup"
+    },
+    {
+      "fault": "primary_and_extra_merged",
+      "cell": "positive-eim-random-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "different physical ports merged in preflight"
+    },
+    {
+      "fault": "listener_removed",
+      "cell": "positive-eim-random-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "not all actual physical listeners reported"
+    },
+    {
+      "fault": "winner_business_socket_changed",
+      "cell": "positive-eim-random-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "selected original business path differs from physical winner"
+    },
+    {
+      "fault": "winner_ready_reset_budget",
+      "cell": "positive-up1-random-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "winner readiness reset deadline or changed round/connection"
+    },
+    {
+      "fault": "bounded_miss_stopped_early",
+      "cell": "positive-up1-wide-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "arbitrary or early failure is not a complete bounded miss"
+    },
+    {
+      "fault": "bounded_miss_control_lost",
+      "cell": "positive-up1-wide-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "miss lost original control or incorrectly learned"
+    },
+    {
+      "fault": "random_iterations_changed",
+      "cell": "positive-up1-wide-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "random submissions cannot be reconciled with recorded aborted work"
+    },
+    {
+      "fault": "raw_work_before_admission",
+      "cell": "nonmember-eim-wide-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "work or data before admission"
+    },
+    {
+      "fault": "wrong_rejected_identity",
+      "cell": "nonmember-eim-wide-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "wrong nonmember identity rejection"
+    },
+    {
+      "fault": "run_exit_changed",
+      "cell": "nonmember-eim-wide-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "exact exit/run provenance mismatch"
+    },
+    {
+      "fault": "extra_sources_bypass_allocator",
+      "cell": "positive-eim-random-a-h0-normal",
+      "result": "REJECTED",
+      "reason": "not every physical source enters allocator"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+    Blocking waiting for file lock on build directory
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.38s
+     Running tests/legacy_multi_socket.rs (target/debug/deps/legacy_multi_socket-f71c12cd9fb8f2ed)
+
+running 1 test
+test discarded_winner_paths_release_descriptors_while_original_control_connection_lives ... 
+thread 'discarded_winner_paths_release_descriptors_while_original_control_connection_lives' (859040) panicked at tests/legacy_multi_socket.rs:301:14:
+called `Result::unwrap()` on an `Err` value: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    discarded_winner_paths_release_descriptors_while_original_control_connection_lives
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 10.00s
+
+error: test failed, to rerun pass `--test legacy_multi_socket`

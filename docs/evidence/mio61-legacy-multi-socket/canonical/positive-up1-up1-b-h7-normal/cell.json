@@ -1,0 +1,10 @@
+{
+  "case": "positive",
+  "topology": "up1-up1",
+  "dialer": "b",
+  "mode": 4,
+  "index": 1,
+  "history": 7,
+  "seed": "mio61-frozen-01",
+  "variant": "normal"
+}

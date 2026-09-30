@@ -11,3 +11,10 @@ exposes the transport address already held by an incoming event, allowing
 `noq` to enforce a connection's path policy before QUIC processes that event.
 It does not change packet encoding or protocol state. The dependency is
 selected by the root `[patch.crates-io]` entry.
+
+MIOPUNCH-61 adds `ConnectionEvent::datagram_network_path` for the complete
+source and local tuple, and a read-only iterator over all protocol-retained
+network paths. The network-change hint can retain an application binding token
+for recovery after the caller validates its underlying real interface. These
+accessors support the physical-socket ownership gate and final descriptor
+release; they do not change QUIC packet encoding.

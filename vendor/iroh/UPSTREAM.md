@@ -90,3 +90,40 @@ signed fixed-step mappings without treating the aggregate
 filter behavior, select a punch strategy, or add a data socket. Its real
 APDM+APDF validation is in
 `docs/notes/2026-09-29-nat4-regular-validation.md`.
+
+## MIOPUNCH-61 physical UDP traversal bindings
+
+The existing Endpoint can create up to 256 additional OS-selected IPv4
+listeners per authenticated traversal round. `socket/transports/ip/pool.rs`
+owns these descriptors with a bounded 1024-socket Endpoint pool, monotonic
+`LocalSocketId`, per-round registration and per-original-Connection ownership.
+Individual bind failures are counted without replacement attempts; interrupted
+setup retains its actual partial report. Dropping the round closes losers;
+an uncommitted winner closes on cancellation, while a committed winner follows
+its original connection and final Noq path disposal.
+
+Receive metadata records the actual physical descriptor and destination IP/
+port for each datagram. A winner pins that real interface IP. A private local
+token encodes its socket ID inside the existing mapped four-tuple mechanism;
+the transport resolves the token to that descriptor and real source IP before
+sending. The token never becomes a wire source address. Explicit data-path
+opening, path watchers, per-connection permits, path removal and network-change
+recovery preserve this identity. Foreign connections cannot borrow pool
+bindings, and private pool destinations are excluded from generic bootstrap
+route caching. Shared primary IPv4 and IPv6 sockets remain Endpoint-owned.
+
+Raw registration remains tied to the original admitted peer, connection and
+round. Raw packet framing and QUIC wire encoding are unchanged from the prior
+fork. The application still authenticates receipts with its original TLS
+exporter and requires the original QUIC path and business gate before learning.
+The native module is omitted in browser builds. Linux physical-source, TTL,
+descriptor and controlled NAT proof is recorded by MIOPUNCH-61; browser
+compilation verifies the native seam stays excluded, without claiming browser
+UDP traversal or additional platform packet evidence.
+
+The physical network epoch is separate from the aggregate observation report
+generation. Periodic QAD reports supersede an aggregate candidate but do not
+cancel an already admitted legacy phase. `UdpMappingSequence` and the legacy
+fallback snapshot retain the physical epoch; actual network-change handling
+increments that epoch before invalidating pending traversal bindings. The
+existing short freshness test remains required when a prediction is acquired.

@@ -1,0 +1,1 @@
+case=positive strategy=legacy topology=up1-random dialer=a client_rc=1 server_rc=1 seed=mio61-frozen-01

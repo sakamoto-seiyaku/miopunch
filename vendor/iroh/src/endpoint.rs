@@ -1084,6 +1084,24 @@ impl Endpoint {
             .await
     }
 
+    /// Validate a UDP path using a retained physical binding of this original connection.
+    #[cfg(not(wasm_browser))]
+    pub async fn open_data_path_from(
+        &self,
+        connection: &connection::Connection,
+        local: crate::socket::transports::LocalSocketBinding,
+        remote: SocketAddr,
+    ) -> std::io::Result<()> {
+        self.inner
+            .open_data_path_from(
+                connection.remote_id(),
+                connection.stable_id(),
+                remote,
+                Some(local),
+            )
+            .await
+    }
+
     /// Open a further custom control path while a connection remains in its
     /// restricted phase. A data connection rejects this before touching QUIC.
     pub async fn open_control_path(
@@ -1654,6 +1672,13 @@ impl Endpoint {
     #[cfg(not(wasm_browser))]
     pub fn udp_observation_generation(&self) -> ObservationValidity {
         self.inner.udp_observation_generation()
+    }
+
+    /// Physical socket/network epoch for a bounded traversal lifecycle.
+    /// Ordinary QAD report publication does not replace this marker.
+    #[cfg(not(wasm_browser))]
+    pub fn udp_network_generation(&self) -> ObservationValidity {
+        self.inner.udp_network_generation()
     }
 
     /// Returns the local socket addresses on which the underlying sockets are bound.
@@ -4430,4 +4455,9 @@ mod tests {
 }
 
 #[cfg(not(wasm_browser))]
-pub use crate::socket::{UdpTraversalLease, UdpTraversalPacket, UdpTraversalSender};
+pub use crate::socket::transports::{LocalSocketBinding, LocalSocketId};
+#[cfg(not(wasm_browser))]
+pub use crate::socket::{
+    UdpDatagramSendError, UdpListenerReport, UdpSocketPathLease, UdpTraversalLease,
+    UdpTraversalPacket, UdpTraversalSender,
+};

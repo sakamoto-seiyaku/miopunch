@@ -1,7 +1,7 @@
 use std::{
     future::Future,
     io,
-    net::SocketAddr,
+    net::{IpAddr, SocketAddr},
     num::NonZeroUsize,
     pin::Pin,
     sync::{Arc, RwLock, RwLockReadGuard, TryLockError, atomic::AtomicBool},
@@ -33,6 +33,7 @@ fn send_with_ttl(
     remote: SocketAddr,
     data: &[u8],
     ttl: u8,
+    source: Option<std::net::Ipv4Addr>,
 ) -> io::Result<()> {
     use std::os::fd::AsRawFd;
     let address = socket2::SockAddr::from(remote);
@@ -40,8 +41,9 @@ fn send_with_ttl(
         iov_base: data.as_ptr().cast_mut().cast(),
         iov_len: data.len(),
     };
-    // A cmsghdr array supplies native alignment and enough space for one int.
-    let mut control: [libc::cmsghdr; 2] = unsafe { std::mem::zeroed() };
+    // Native alignment and room for TTL plus optional IP_PKTINFO. Both apply
+    // only to this datagram, never to other Connections sharing the socket.
+    let mut control: [libc::cmsghdr; 4] = unsafe { std::mem::zeroed() };
     let mut message: libc::msghdr = unsafe { std::mem::zeroed() };
     message.msg_name = address.as_ptr().cast_mut().cast();
     message.msg_namelen = address.len();
@@ -51,12 +53,32 @@ fn send_with_ttl(
     // SAFETY: the aligned control buffer outlives sendmsg and holds a cmsghdr
     // plus a c_int; all other pointers reference live address/payload buffers.
     unsafe {
-        message.msg_controllen = libc::CMSG_SPACE(std::mem::size_of::<libc::c_int>() as _) as _;
+        let ttl_space = libc::CMSG_SPACE(std::mem::size_of::<libc::c_int>() as _) as usize;
+        message.msg_controllen = ttl_space
+            + source.map_or(0, |_| {
+                libc::CMSG_SPACE(std::mem::size_of::<libc::in_pktinfo>() as _) as usize
+            });
         let header = libc::CMSG_FIRSTHDR(&message);
         (*header).cmsg_level = libc::IPPROTO_IP;
         (*header).cmsg_type = libc::IP_TTL;
         (*header).cmsg_len = libc::CMSG_LEN(std::mem::size_of::<libc::c_int>() as _) as _;
         std::ptr::write(libc::CMSG_DATA(header).cast::<libc::c_int>(), ttl.into());
+        if let Some(source) = source {
+            let header = libc::CMSG_NXTHDR(&message, header);
+            (*header).cmsg_level = libc::IPPROTO_IP;
+            (*header).cmsg_type = libc::IP_PKTINFO;
+            (*header).cmsg_len = libc::CMSG_LEN(std::mem::size_of::<libc::in_pktinfo>() as _) as _;
+            std::ptr::write(
+                libc::CMSG_DATA(header).cast::<libc::in_pktinfo>(),
+                libc::in_pktinfo {
+                    ipi_ifindex: 0,
+                    ipi_spec_dst: libc::in_addr {
+                        s_addr: u32::from_ne_bytes(source.octets()),
+                    },
+                    ipi_addr: libc::in_addr { s_addr: 0 },
+                },
+            );
+        }
         loop {
             let result = libc::sendmsg(socket.as_raw_fd(), &message, libc::MSG_DONTWAIT);
             if result >= 0 {
@@ -391,10 +413,23 @@ impl UdpSocket {
         data: &[u8],
         ttl: u8,
     ) -> Poll<io::Result<bool>> {
+        self.poll_send_datagram_from(cx, remote, data, ttl, None)
+    }
+
+    /// A per-datagram TTL and real source IP on this exact physical socket.
+    /// Source selection remains in the normal Noq UDP path when TTL degrades.
+    pub fn poll_send_datagram_from(
+        &self,
+        cx: &mut Context<'_>,
+        remote: SocketAddr,
+        data: &[u8],
+        ttl: u8,
+        source: Option<IpAddr>,
+    ) -> Poll<io::Result<bool>> {
         loop {
             self.maybe_rebind()?;
             let guard = std::task::ready!(self.poll_read_socket(&self.send_waker, cx));
-            let (socket, _) = guard.try_get_connected()?;
+            let (socket, state) = guard.try_get_connected()?;
             std::task::ready!(socket.poll_send_ready(cx))?;
             let result = socket.try_io(Interest::WRITABLE, || {
                 #[cfg(feature = "miopunch-test-hooks")]
@@ -405,7 +440,16 @@ impl UdpSocket {
                 let ttl_supported = true;
                 #[cfg(any(target_os = "linux", target_os = "android"))]
                 if ttl_supported && ttl > 0 && remote.is_ipv4() {
-                    match send_with_ttl(socket, remote, data, ttl) {
+                    match send_with_ttl(
+                        socket,
+                        remote,
+                        data,
+                        ttl,
+                        source.and_then(|ip| match ip {
+                            IpAddr::V4(ip) => Some(ip),
+                            _ => None,
+                        }),
+                    ) {
                         Ok(()) => return Ok(false),
                         Err(e)
                             if matches!(
@@ -415,8 +459,17 @@ impl UdpSocket {
                         Err(e) => return Err(e),
                     }
                 }
-                socket2::SockRef::from(socket)
-                    .send_to(data, &socket2::SockAddr::from(remote))
+                state
+                    .send(
+                        socket.into(),
+                        &Transmit {
+                            destination: remote,
+                            ecn: None,
+                            contents: data,
+                            segment_size: None,
+                            src_ip: source,
+                        },
+                    )
                     .map(|_| ttl > 0)
             });
             match result {

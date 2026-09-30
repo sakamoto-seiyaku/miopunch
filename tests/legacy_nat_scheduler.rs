@@ -1,6 +1,6 @@
 //! Observable legacy phase planning and real scheduler behavior.
 use miopunch_native_probe::{
-    nat_scheduler::PhasePlan,
+    nat_scheduler::{PhasePlan, RandomPortSampler},
     nat_selector::{Behavior, Role},
 };
 fn behavior(role: Role, radius: u16) -> Behavior {
@@ -12,6 +12,46 @@ fn behavior(role: Role, radius: u16) -> Behavior {
         ports_random: 0,
         listen_random: 0,
     }
+}
+
+#[test]
+fn random_sampling_keeps_legacy_bounds_ten_draw_skip_and_per_call_uniqueness() {
+    let mut sampler = RandomPortSampler::default();
+    assert_eq!(
+        sampler.sample(|bounds| {
+            assert_eq!(bounds, 1024..65535);
+            1024
+        }),
+        Some(1024)
+    );
+    assert_eq!(sampler.sample(|_| 1024), None);
+    assert_eq!(sampler.draws, 11);
+    assert_eq!(sampler.skipped, 1);
+    assert_eq!(sampler.sample(|_| 65534), Some(65534));
+    let mut another_socket = RandomPortSampler::default();
+    assert_eq!(another_socket.sample(|_| 1024), Some(1024));
+    for _ in 0..997 {
+        sampler.sample(|_| 65534);
+    }
+    assert_eq!(sampler.draws, 9982);
+    assert_eq!(sampler.skipped, 998);
+}
+
+#[test]
+fn random_listener_pair_has_the_original_thirty_second_read_extension() {
+    let mut b = behavior(Role::Sender, 0);
+    b.send_delay_ms = 3000;
+    b.ports_random = 1000;
+    let sender = PhasePlan::new(b, 0, &[], &[], 0);
+    assert_eq!(sender.total_budget_ms, 38000);
+    assert_eq!(sender.read_budget_ms, 35000);
+    b.role = Role::Receiver;
+    b.send_delay_ms = 0;
+    b.ports_random = 0;
+    b.listen_random = 256;
+    let receiver = PhasePlan::new(b, 3000, &[], &[], 0);
+    assert_eq!(receiver.total_budget_ms, 38000);
+    assert_eq!(receiver.read_budget_ms, 38000);
 }
 #[test]
 fn legacy_range_is_inclusive_and_clips_to_valid_udp_ports() {

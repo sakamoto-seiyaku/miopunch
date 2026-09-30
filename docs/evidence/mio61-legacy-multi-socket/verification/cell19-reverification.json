@@ -1,0 +1,57 @@
+{
+  "cell": "positive-up1-wide-a-h0-normal",
+  "captured_packets": {
+    "wan": 6156,
+    "a": 1783,
+    "b": 1370
+  },
+  "peer_probes": 2981,
+  "peer_responses": 0,
+  "mode": 4,
+  "index": 0,
+  "round": "3beb29f6a96f81431a79e1a9fa10cd01",
+  "outcome": "bounded_miss",
+  "nonprimary_business": false,
+  "costs": {
+    "server": {
+      "probes": 1285,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 0,
+      "random_draws": 0,
+      "random_skipped": 0,
+      "listener_attempted": 256,
+      "listener_bound": 256,
+      "listener_failed": 0,
+      "send_attempts": 1285,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38002,
+      "local_sockets": 257,
+      "allocated_tuples": 1285,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0
+    },
+    "client": {
+      "probes": 1696,
+      "responses": 0,
+      "ttl_degraded": 0,
+      "random_iterations": 1000,
+      "random_draws": 1007,
+      "random_skipped": 0,
+      "listener_attempted": 0,
+      "listener_bound": 0,
+      "listener_failed": 0,
+      "send_attempts": 1696,
+      "send_errors": 0,
+      "send_aborted": 0,
+      "rejected_receipts": 0,
+      "elapsed_ms": 38001,
+      "local_sockets": 1,
+      "allocated_tuples": 1004,
+      "allocation_collisions": 0,
+      "allocation_exhausted": 0
+    }
+  }
+}

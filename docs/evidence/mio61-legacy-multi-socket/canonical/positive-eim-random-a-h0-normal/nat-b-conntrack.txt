@@ -1,0 +1,22 @@
+conntrack v1.4.7 (conntrack-tools): 21 flow entries have been shown.
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=45070 dport=42027 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43042 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=42974 dport=42027 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43037 mark=0 use=1
+udp      17 27 src=10.27.2.2 dst=100.64.27.2 sport=45476 dport=42027 src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43035 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=46474 dport=42027 src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43046 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=54488 dport=42027 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43031 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=49815 dport=42027 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43032 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=59661 dport=42027 src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43043 mark=0 use=1
+udp      17 27 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=42027 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43036 mark=0 use=1
+udp      17 23 src=10.27.2.2 dst=100.64.27.1 sport=43027 dport=46764 src=100.64.27.1 dst=100.64.27.6 sport=46764 dport=43033 mark=0 use=1
+udp      17 23 src=10.27.2.2 dst=100.64.27.1 sport=43027 dport=46762 src=100.64.27.1 dst=100.64.27.6 sport=46762 dport=43043 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=59075 dport=42027 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43038 mark=0 use=1
+udp      17 27 src=10.27.2.2 dst=10.27.1.2 sport=43027 dport=42027 [UNREPLIED] src=10.27.1.2 dst=100.64.27.6 sport=42027 dport=43036 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=50803 dport=42027 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43034 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=53617 dport=42027 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43044 mark=0 use=1
+udp      17 117 src=10.27.2.2 dst=100.64.27.1 sport=43027 dport=46761 src=100.64.27.1 dst=100.64.27.6 sport=46761 dport=43035 [ASSURED] mark=0 use=1
+udp      17 23 src=10.27.2.2 dst=100.64.27.1 sport=43027 dport=46763 src=100.64.27.1 dst=100.64.27.6 sport=46763 dport=43046 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=44037 dport=42027 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43040 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=49248 dport=42027 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43041 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=56107 dport=42027 src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43033 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=51390 dport=42027 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43039 mark=0 use=1
+udp      17 26 src=10.27.2.2 dst=100.64.27.2 sport=51650 dport=42027 [UNREPLIED] src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43045 mark=0 use=1

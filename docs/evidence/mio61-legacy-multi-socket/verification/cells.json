@@ -1,0 +1,382 @@
+[
+  {
+    "case": "positive",
+    "topology": "eim-random",
+    "dialer": "a",
+    "mode": 2,
+    "index": 0,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim-random",
+    "dialer": "a",
+    "mode": 2,
+    "index": 1,
+    "history": 1,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim-random",
+    "dialer": "a",
+    "mode": 2,
+    "index": 2,
+    "history": 2,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim-random",
+    "dialer": "b",
+    "mode": 2,
+    "index": 0,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim-random",
+    "dialer": "b",
+    "mode": 2,
+    "index": 1,
+    "history": 1,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim-random",
+    "dialer": "b",
+    "mode": 2,
+    "index": 2,
+    "history": 2,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim-wide",
+    "dialer": "a",
+    "mode": 2,
+    "index": 0,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim-wide",
+    "dialer": "a",
+    "mode": 2,
+    "index": 1,
+    "history": 1,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim-wide",
+    "dialer": "a",
+    "mode": 2,
+    "index": 2,
+    "history": 2,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim-wide",
+    "dialer": "b",
+    "mode": 2,
+    "index": 0,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim-wide",
+    "dialer": "b",
+    "mode": 2,
+    "index": 1,
+    "history": 1,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim-wide",
+    "dialer": "b",
+    "mode": 2,
+    "index": 2,
+    "history": 2,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-random",
+    "dialer": "a",
+    "mode": 4,
+    "index": 0,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-random",
+    "dialer": "a",
+    "mode": 4,
+    "index": 1,
+    "history": 1,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-random",
+    "dialer": "a",
+    "mode": 4,
+    "index": 2,
+    "history": 2,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-random",
+    "dialer": "b",
+    "mode": 4,
+    "index": 0,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-random",
+    "dialer": "b",
+    "mode": 4,
+    "index": 1,
+    "history": 1,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-random",
+    "dialer": "b",
+    "mode": 4,
+    "index": 2,
+    "history": 2,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-wide",
+    "dialer": "a",
+    "mode": 4,
+    "index": 0,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-wide",
+    "dialer": "a",
+    "mode": 4,
+    "index": 1,
+    "history": 1,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-wide",
+    "dialer": "a",
+    "mode": 4,
+    "index": 2,
+    "history": 2,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-wide",
+    "dialer": "b",
+    "mode": 4,
+    "index": 0,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-wide",
+    "dialer": "b",
+    "mode": 4,
+    "index": 1,
+    "history": 1,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-wide",
+    "dialer": "b",
+    "mode": 4,
+    "index": 2,
+    "history": 2,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "a",
+    "mode": 4,
+    "index": 0,
+    "history": 6,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "a",
+    "mode": 4,
+    "index": 1,
+    "history": 7,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "a",
+    "mode": 4,
+    "index": 2,
+    "history": 8,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "b",
+    "mode": 4,
+    "index": 0,
+    "history": 6,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "b",
+    "mode": 4,
+    "index": 1,
+    "history": 7,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-up1",
+    "dialer": "b",
+    "mode": 4,
+    "index": 2,
+    "history": 8,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "blocked",
+    "topology": "eim-wide",
+    "dialer": "a",
+    "mode": 2,
+    "index": 0,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "eim-wide",
+    "dialer": "a",
+    "mode": 2,
+    "index": 0,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "ttl_unavailable"
+  },
+  {
+    "case": "blocked",
+    "topology": "up1-wide",
+    "dialer": "b",
+    "mode": 4,
+    "index": 0,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "positive",
+    "topology": "up1-wide",
+    "dialer": "b",
+    "mode": 4,
+    "index": 0,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "ttl_unavailable"
+  },
+  {
+    "case": "nonmember",
+    "topology": "eim-wide",
+    "dialer": "a",
+    "mode": null,
+    "index": null,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "revoked",
+    "topology": "eim-wide",
+    "dialer": "a",
+    "mode": null,
+    "index": null,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "no_secret",
+    "topology": "eim-wide",
+    "dialer": "a",
+    "mode": null,
+    "index": null,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  },
+  {
+    "case": "wrong_secret",
+    "topology": "eim-wide",
+    "dialer": "a",
+    "mode": null,
+    "index": null,
+    "history": 0,
+    "seed": "mio61-frozen-01",
+    "variant": "normal"
+  }
+]

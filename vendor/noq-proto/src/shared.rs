@@ -15,8 +15,13 @@ impl ConnectionEvent {
     /// This allows a connection's transport policy to reject a path before
     /// QUIC processes the datagram or opens that path.
     pub fn datagram_remote_addr(&self) -> Option<SocketAddr> {
+        self.datagram_network_path().map(|path| path.remote())
+    }
+
+    /// Actual remote and local binding metadata for a received datagram.
+    pub fn datagram_network_path(&self) -> Option<FourTuple> {
         match &self.0 {
-            ConnectionEventInner::Datagram(event) => Some(event.network_path.remote()),
+            ConnectionEventInner::Datagram(event) => Some(event.network_path),
             ConnectionEventInner::NewIdentifiers(..) => None,
         }
     }

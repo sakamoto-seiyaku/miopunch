@@ -1,0 +1,79 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: variable does not need to be mutable
+   --> tests/legacy_multi_socket.rs:281:13
+    |
+281 |         let mut cw = cl.retain_winner(cb.id, packet.local_addr).await.unwrap().unwrap();
+    |             ----^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> tests/legacy_multi_socket.rs:282:13
+    |
+282 |         let mut vw = vl.retain_winner(vb.id, response.local_addr).await.unwrap().unwrap();
+    |             ----^^
+    |             |
+    |             help: remove this `mut`
+
+warning: `miopunch-native-probe` (test "legacy_multi_socket") generated 2 warnings (run `cargo fix --test "legacy_multi_socket" -p miopunch-native-probe` to apply 2 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.31s
+     Running tests/legacy_multi_socket.rs (target/debug/deps/legacy_multi_socket-f71c12cd9fb8f2ed)
+
+running 7 tests
+test a_provisional_winner_closes_when_cancelled_and_cannot_be_used_by_another_connection ... ok
+test all_256_physical_listeners_close_on_cancel_and_rounds_do_not_accumulate ... MIO61_RESOURCE round=1 bound=256 fd_before=18 fd_peak=274 fd_after=18
+MIO61_RESOURCE round=2 bound=256 fd_before=18 fd_peak=274 fd_after=18
+ok
+test authenticated_winner_keeps_its_actual_source_ip_despite_packets_to_another_local_ip ... [DEBUG-mio61-ports] stable=(135748682634720, 135748682709984) primary_c=[127.0.0.1:45693] primary_v=[127.0.0.1:44442] cb=LocalSocketBinding { id: LocalSocketId(1), local_addr: 0.0.0.0:45495 } vb=LocalSocketBinding { id: LocalSocketId(2), local_addr: 0.0.0.0:44002 }
+[DEBUG-mio61-abandoned] conn=135748682634720 id=0 reason=ApplicationClosed { error_code: 62 }
+[DEBUG-mio61-abandoned] conn=135748682709984 id=0 reason=ApplicationClosed { error_code: 62 }
+[DEBUG-mio61-abandoned] conn=135748682709984 id=2 reason=ApplicationClosed { error_code: 62 }
+[DEBUG-mio61-abandoned] conn=135748682634720 id=2 reason=RemoteAbandoned { error_code: 62 }
+[DEBUG-mio61-lifetime] conn=135748682634720 discarded=2 paths=[(PathId(0), (local: fd15:70a:510b:3:b57d:b74b:9ec3:fc15, remote: [fd15:70a:510b:3:d0a6:4c4c:97a7:eefd]:12345)), (PathId(1), (local: fd6d:696f:3631::1, remote: [::ffff:127.0.0.1]:44002))] sockets=[(LocalSocketId(1), true, true)]
+[DEBUG-mio61-lifetime] conn=135748682709984 discarded=2 paths=[(PathId(0), (local: fd15:70a:510b:3:df49:e308:68a7:edae, remote: [fd15:70a:510b:3:7060:cdec:350c:3f56]:12345)), (PathId(1), (local: fd6d:696f:3631::2, remote: [::ffff:127.0.0.2]:45495))] sockets=[(LocalSocketId(2), true, true)]
+[DEBUG-mio61-selected] c=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44002)], selected: Some(PathId(1)), closed: false }, .. } v=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.2:45495)], selected: Some(PathId(1)), closed: false }, .. }
+ok
+test cross_socket_round_packets_are_ignored_and_network_change_invalidates_pending_bindings ... [DEBUG-mio61-network] close id=1 retained=false binding=LocalSocketBinding { id: LocalSocketId(1), local_addr: 0.0.0.0:43428 } local_ips={127.0.0.1, 10.255.255.254, 192.168.4.5, 172.17.0.1, 172.19.0.1, 172.18.0.1, 192.168.254.1, ::1}
+[DEBUG-mio61-network] close id=2 retained=false binding=LocalSocketBinding { id: LocalSocketId(2), local_addr: 0.0.0.0:46587 } local_ips={127.0.0.1, 10.255.255.254, 192.168.4.5, 172.17.0.1, 172.19.0.1, 172.18.0.1, 192.168.254.1, ::1}
+[DEBUG-mio61-network] close id=3 retained=false binding=LocalSocketBinding { id: LocalSocketId(3), local_addr: 127.0.0.1:45030 } local_ips={127.0.0.1, 10.255.255.254, 192.168.4.5, 172.17.0.1, 172.19.0.1, 172.18.0.1, 192.168.254.1, ::1}
+[DEBUG-mio61-network] close id=4 retained=false binding=LocalSocketBinding { id: LocalSocketId(4), local_addr: 0.0.0.0:44428 } local_ips={127.0.0.1, 10.255.255.254, 192.168.4.5, 172.17.0.1, 172.19.0.1, 172.18.0.1, 192.168.254.1, ::1}
+ok
+test discarded_winner_paths_release_descriptors_while_original_control_connection_lives ... [DEBUG-mio61-abandoned] conn=135748682601344 id=1 reason=ApplicationClosed { error_code: 62 }
+[DEBUG-mio61-abandoned] conn=135748682607344 id=1 reason=RemoteAbandoned { error_code: 62 }
+[DEBUG-mio61-lifetime] conn=135748682601344 discarded=1 paths=[(PathId(0), (local: fd15:70a:510b:3:64c3:a66c:8918:889, remote: [fd15:70a:510b:3:a7af:d7dd:e535:187c]:12345))] sockets=[(LocalSocketId(2), true, true)]
+[DEBUG-mio61-lifetime] conn=135748682607344 discarded=1 paths=[(PathId(0), (local: fd15:70a:510b:3:3227:d984:ac0a:8397, remote: [fd15:70a:510b:3:9418:b6bc:78cd:a118]:12345))] sockets=[(LocalSocketId(1), true, true)]
+ok
+test nonprimary_winner_returns_through_its_physical_socket_on_the_original_connection ... [DEBUG-mio61-ports] stable=(135748682783088, 135748683327712) primary_c=[127.0.0.1:45520] primary_v=[127.0.0.1:47179] cb=LocalSocketBinding { id: LocalSocketId(1), local_addr: 0.0.0.0:47235 } vb=LocalSocketBinding { id: LocalSocketId(2), local_addr: 0.0.0.0:44919 }
+[DEBUG-mio61-abandoned] conn=135748682783088 id=0 reason=ApplicationClosed { error_code: 62 }
+[DEBUG-mio61-abandoned] conn=135748683327712 id=0 reason=ApplicationClosed { error_code: 62 }
+[DEBUG-mio61-abandoned] conn=135748683327712 id=2 reason=ApplicationClosed { error_code: 62 }
+[DEBUG-mio61-abandoned] conn=135748682783088 id=2 reason=RemoteAbandoned { error_code: 62 }
+[DEBUG-mio61-selected] c=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44919)], selected: Some(PathId(1)), closed: false }, .. } v=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:47235)], selected: Some(PathId(1)), closed: false }, .. }
+ok
+test os_bind_failures_keep_exact_attempt_count_and_release_partial_pool ... MIO61_PARTIAL_OS_FD_PEAK value=26
+
+running 1 test
+MIO61_PARTIAL_BIND attempted=256 bound=9 failed=247 soft_limit=26
+test os_bind_failures_keep_exact_attempt_count_and_release_partial_pool ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 1.03s
+
+
+ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 24.26s
+

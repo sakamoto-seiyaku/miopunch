@@ -39,7 +39,7 @@ use proto::{
 /// Per-connection transport admission, evaluated before handling inbound
 /// datagrams and immediately before handing outbound packets to the sender.
 #[derive(Clone)]
-struct PathPermit(Arc<dyn Fn(SocketAddr) -> bool + Send + Sync>);
+struct PathPermit(Arc<dyn Fn(FourTuple) -> bool + Send + Sync>);
 
 /// Packets rejected by this connection's transport path policy.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -341,6 +341,15 @@ impl Connection {
     /// is checked under the same lock as the QUIC connection driver, so a
     /// buffered transmit cannot escape on a newly forbidden path.
     pub fn restrict_paths(&self, permit: impl Fn(SocketAddr) -> bool + Send + Sync + 'static) {
+        self.restrict_network_paths(move |path| permit(path.remote()));
+    }
+
+    /// Restrict both remote and local binding before QUIC handles or sends packets.
+    /// Restrictions compose and cannot be loosened later.
+    pub fn restrict_network_paths(
+        &self,
+        permit: impl Fn(FourTuple) -> bool + Send + Sync + 'static,
+    ) {
         let mut state = self.0.lock_and_wake("restrict_paths");
         let next = PathPermit(Arc::new(permit));
         state.path_permit = Some(match state.path_permit.take() {
@@ -349,11 +358,9 @@ impl Connection {
             }
             None => next,
         });
-        if state
-            .buffered_transmit
-            .as_ref()
-            .is_some_and(|t| !(state.path_permit.as_ref().unwrap().0)(t.destination))
-        {
+        if state.buffered_transmit.as_ref().is_some_and(|t| {
+            !(state.path_permit.as_ref().unwrap().0)(FourTuple::new(t.destination, t.src_ip))
+        }) {
             state.buffered_transmit = None;
         }
     }
@@ -542,6 +549,18 @@ impl Connection {
     /// Returns the [`Path`] structure of an open path
     pub fn path(&self, id: PathId) -> Option<Path> {
         Path::new(&self.0, id)
+    }
+
+    /// Actual bindings for all protocol paths, including opening paths and
+    /// abandoned paths still in their packet-draining grace period.
+    pub fn network_paths(&self) -> Vec<(PathId, FourTuple)> {
+        let state = self.0.lock_without_waking("network_paths");
+        state
+            .inner
+            .paths()
+            .into_iter()
+            .filter_map(|id| state.inner.network_path(id).ok().map(|path| (id, path)))
+            .collect()
     }
 
     /// A stream of [`PathEvent`]s for all paths in this connection.
@@ -1703,7 +1722,7 @@ impl State {
             if self
                 .path_permit
                 .as_ref()
-                .is_some_and(|permit| !(permit.0)(t.destination))
+                .is_some_and(|permit| !(permit.0)(FourTuple::new(t.destination, t.src_ip)))
             {
                 self.path_filter_stats.denied_outbound += 1;
                 // QUIC will retransmit lost application data on an allowed
@@ -1759,10 +1778,10 @@ impl State {
                         .handle_network_change(hint.as_deref().map(|x| x as _), self.runtime.now());
                 }
                 Poll::Ready(Some(ConnectionEvent::Proto(event))) => {
-                    if event.datagram_remote_addr().is_some_and(|addr| {
+                    if event.datagram_network_path().is_some_and(|path| {
                         self.path_permit
                             .as_ref()
-                            .is_some_and(|permit| !(permit.0)(addr))
+                            .is_some_and(|permit| !(permit.0)(path))
                     }) {
                         self.path_filter_stats.denied_inbound += 1;
                         continue;

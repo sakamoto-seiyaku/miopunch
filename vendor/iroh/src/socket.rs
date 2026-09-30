@@ -360,6 +360,8 @@ pub(crate) struct Socket {
     net_report: Watchable<(Option<Report>, UpdateReason)>,
     udp_observation: Watchable<UdpObservation>,
     observation_generation: Arc<Mutex<u64>>,
+    /// Physical socket/network epoch, independent of ordinary QAD refreshes.
+    network_generation: Arc<Mutex<u64>>,
     /// If the last net_report report, reports IPv6 to be available.
     ipv6_reported: Arc<AtomicBool>,
     /// Maps for resolving mapped addrs to/from IP and relay addresses.
@@ -375,7 +377,9 @@ pub(crate) struct Socket {
     #[cfg(not(wasm_browser))]
     udp_probe_sender: AsyncMutex<transports::TransportsSender>,
     #[cfg(not(wasm_browser))]
-    udp_traversal: Mutex<HashMap<[u8; 16], mpsc::Sender<UdpTraversalPacket>>>,
+    udp_traversal: Mutex<HashMap<[u8; 16], UdpTraversalRegistration>>,
+    #[cfg(not(wasm_browser))]
+    udp_socket_pool: Arc<transports::SocketPool>,
     /// The DNS resolver to be used in this socket.
     #[cfg(not(wasm_browser))]
     dns_resolver: DnsResolver,
@@ -401,10 +405,32 @@ pub(crate) struct Socket {
 #[cfg(not(wasm_browser))]
 #[derive(Debug)]
 pub struct UdpTraversalPacket {
+    /// Actual receiving physical binding, including the original transport.
+    pub local_socket_id: transports::LocalSocketId,
+    /// Actual kernel destination IP and receiving socket port.
+    pub local_addr: SocketAddr,
     /// Actual observed remote source.
     pub remote: SocketAddr,
     /// Bounded raw round payload; the caller authenticates it.
     pub payload: Vec<u8>,
+}
+
+/// A kernel datagram submission failure. Admission/round failures use the
+/// normal error path and must never be treated as a target-specific miss.
+#[cfg(not(wasm_browser))]
+#[derive(Debug)]
+pub struct UdpDatagramSendError(io::Error);
+#[cfg(not(wasm_browser))]
+impl std::fmt::Display for UdpDatagramSendError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+#[cfg(not(wasm_browser))]
+impl std::error::Error for UdpDatagramSendError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0)
+    }
 }
 
 /// Round registration, removed synchronously on drop. This grants no QUIC path.
@@ -417,6 +443,70 @@ pub struct UdpTraversalLease {
     round: [u8; 16],
     rx: mpsc::Receiver<UdpTraversalPacket>,
     live: Arc<Mutex<bool>>,
+    local_sockets: Arc<Mutex<Vec<transports::LocalSocketId>>>,
+    listeners: Vec<Arc<transports::PoolSocket>>,
+    listener_report: UdpListenerReport,
+    listener_rx: Vec<mpsc::Receiver<UdpTraversalPacket>>,
+    recv_cursor: usize,
+}
+
+#[cfg(not(wasm_browser))]
+#[derive(Debug)]
+struct UdpTraversalRegistration {
+    senders: Arc<Mutex<HashMap<transports::LocalSocketId, mpsc::Sender<UdpTraversalPacket>>>>,
+    live: Arc<Mutex<bool>>,
+}
+
+/// A fixed number of legacy bind attempts; failures do not trigger replacements.
+#[cfg(not(wasm_browser))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct UdpListenerReport {
+    /// OS bind attempts.
+    pub attempted: usize,
+    /// Successfully created additional IPv4 sockets.
+    pub bound: usize,
+    /// Failed binds, including the Endpoint's resource capacity.
+    pub failed: usize,
+}
+
+/// Provisional physical winner. Until a validated original path is committed,
+/// cancellation/drop closes the descriptor even if its actor already adopted it.
+#[cfg(not(wasm_browser))]
+#[derive(Debug)]
+pub struct UdpSocketPathLease {
+    socket: Arc<transports::PoolSocket>,
+    committed: bool,
+}
+#[cfg(not(wasm_browser))]
+impl UdpSocketPathLease {
+    /// Retain the winner for this exact Connection's validated selected path.
+    /// This grants no admission or business permission.
+    pub fn commit(&mut self, connection: &crate::endpoint::Connection) -> io::Result<()> {
+        if connection.stable_id() != self.socket.connection_id
+            || connection.remote_id() != self.socket.remote
+            || connection.close_reason().is_some()
+            || !self.socket.is_live()
+            || !connection
+                .paths()
+                .iter()
+                .any(|path| path.is_selected() && path.local_socket_id() == Some(self.socket.id))
+        {
+            return Err(io::Error::other(
+                "winner requires its validated original selected path",
+            ));
+        }
+        self.committed = true;
+        self.socket.retain();
+        Ok(())
+    }
+}
+#[cfg(not(wasm_browser))]
+impl Drop for UdpSocketPathLease {
+    fn drop(&mut self) {
+        if !self.committed {
+            self.socket.close();
+        }
+    }
 }
 
 /// Sender tied to a live round registration and original connection.
@@ -428,13 +518,40 @@ pub struct UdpTraversalSender {
     connection_id: usize,
     round: [u8; 16],
     live: Arc<Mutex<bool>>,
+    local_socket_id: transports::LocalSocketId,
+    source_ip: Option<IpAddr>,
 }
 
 #[cfg(not(wasm_browser))]
 impl UdpTraversalLease {
     /// Wait for the next packet registered for this round.
     pub async fn recv(&mut self) -> Option<UdpTraversalPacket> {
-        self.rx.recv().await
+        poll_fn(|cx| {
+            let mut pending = false;
+            let count = 1 + self.listener_rx.len();
+            for offset in 0..count {
+                let index = (self.recv_cursor + offset) % count;
+                let rx = if index == 0 {
+                    &mut self.rx
+                } else {
+                    &mut self.listener_rx[index - 1]
+                };
+                match rx.poll_recv(cx) {
+                    std::task::Poll::Ready(Some(packet)) => {
+                        self.recv_cursor = (index + 1) % count;
+                        return std::task::Poll::Ready(Some(packet));
+                    }
+                    std::task::Poll::Pending => pending = true,
+                    _ => {}
+                }
+            }
+            if pending {
+                std::task::Poll::Pending
+            } else {
+                std::task::Poll::Ready(None)
+            }
+        })
+        .await
     }
     /// Obtain a sender; sends fail after the lease is dropped.
     pub fn sender(&self) -> UdpTraversalSender {
@@ -444,11 +561,205 @@ impl UdpTraversalLease {
             connection_id: self.connection_id,
             round: self.round,
             live: self.live.clone(),
+            local_socket_id: transports::LocalSocketId::PRIMARY,
+            source_ip: None,
         }
+    }
+
+    /// Bind exactly this many additional OS-selected IPv4 ports (at most 256).
+    pub async fn listen_random_ports(&mut self, attempts: usize) -> io::Result<UdpListenerReport> {
+        self.listen_random_ports_checked(attempts, &|| Ok(())).await
+    }
+
+    /// Recheck application admission between each OS binding attempt.
+    pub async fn listen_random_ports_checked(
+        &mut self,
+        attempts: usize,
+        check: &(dyn Fn() -> io::Result<()> + Sync),
+    ) -> io::Result<UdpListenerReport> {
+        if attempts > 256 || self.listener_report.attempted > 0 {
+            return Err(io::Error::other(
+                "invalid UDP listener attempt count or repeated pool",
+            ));
+        }
+        self.sender().authorize().await?;
+        for _ in 0..attempts {
+            check()?;
+            let live = self.live.lock().expect("traversal lease");
+            if !*live {
+                return Err(io::Error::other("traversal round closed"));
+            }
+            self.listener_report.attempted += 1;
+            match self.socket.udp_socket_pool.bind(
+                self.remote,
+                self.connection_id,
+                self.socket.metrics.socket.clone(),
+            ) {
+                Ok(socket) => {
+                    let (tx, rx) = mpsc::channel(32);
+                    self.socket
+                        .udp_traversal
+                        .lock()
+                        .expect("traversal registry")
+                        .get(&self.round)
+                        .ok_or_else(|| io::Error::other("traversal round closed"))?
+                        .senders
+                        .lock()
+                        .expect("round senders")
+                        .insert(socket.id, tx);
+                    self.listener_rx.push(rx);
+                    self.local_sockets
+                        .lock()
+                        .expect("round bindings")
+                        .push(socket.id);
+                    self.listeners.push(socket);
+                    self.listener_report.bound += 1;
+                }
+                Err(error) => {
+                    warn!(%error, "listen random UDP binding failed");
+                    self.listener_report.failed += 1;
+                }
+            }
+        }
+        Ok(self.listener_report)
+    }
+
+    /// Actual setup costs, including work completed before cancellation.
+    pub fn listener_report(&self) -> UdpListenerReport {
+        self.listener_report
+    }
+
+    /// Physical bindings owned by this round. Primary remains owned by Endpoint.
+    pub fn local_sockets(&self) -> Vec<transports::LocalSocketBinding> {
+        let mut bindings = self
+            .socket
+            .ip_local_addrs()
+            .find(|a| a.is_ipv4())
+            .map(|addr| transports::LocalSocketBinding {
+                id: transports::LocalSocketId::PRIMARY,
+                local_addr: addr,
+            })
+            .into_iter()
+            .collect::<Vec<_>>();
+        bindings.extend(
+            self.listeners
+                .iter()
+                .filter(|s| s.is_live())
+                .map(|s| s.binding()),
+        );
+        bindings
+    }
+
+    /// Obtain a sender for one of this round's physical bindings.
+    pub fn sender_for(
+        &self,
+        local_socket_id: transports::LocalSocketId,
+    ) -> io::Result<UdpTraversalSender> {
+        if !self
+            .local_sockets
+            .lock()
+            .expect("round bindings")
+            .contains(&local_socket_id)
+        {
+            return Err(io::Error::other(
+                "socket does not belong to traversal round",
+            ));
+        }
+        let mut sender = self.sender();
+        sender.local_socket_id = local_socket_id;
+        Ok(sender)
+    }
+
+    /// Transfer only the winner to its original Connection; close every loser.
+    /// Cancellation before this returns still closes the pending descriptor.
+    pub async fn retain_winner(
+        &mut self,
+        id: transports::LocalSocketId,
+        local_addr: SocketAddr,
+    ) -> io::Result<Option<UdpSocketPathLease>> {
+        if !self
+            .local_sockets
+            .lock()
+            .expect("round bindings")
+            .contains(&id)
+        {
+            return Err(io::Error::other("winner socket does not belong to round"));
+        }
+        let mut retained = None;
+        if !id.is_primary() {
+            let socket = self
+                .listeners
+                .iter()
+                .find(|s| s.id == id)
+                .ok_or_else(|| io::Error::other("winner socket no longer owned"))?
+                .clone();
+            socket.pin(local_addr)?;
+            let (tx, rx) = oneshot::channel();
+            self.socket
+                .try_send_remote_state_msg(
+                    self.remote,
+                    RemoteStateMessage::RetainUdpSocket {
+                        conn_id: self.connection_id,
+                        socket: socket.clone(),
+                        live: self.live.clone(),
+                        tx,
+                    },
+                )
+                .map_err(|_| io::Error::other("remote state unavailable"))?;
+            rx.await
+                .map_err(|_| io::Error::other("remote state stopped"))?
+                .map_err(io::Error::other)?;
+            retained = Some(UdpSocketPathLease {
+                socket,
+                committed: false,
+            });
+        }
+        for socket in self.listeners.drain(..) {
+            if socket.id != id {
+                socket.close();
+            }
+        }
+        self.local_sockets
+            .lock()
+            .expect("round bindings")
+            .retain(|bound| *bound == id);
+        Ok(retained)
     }
 }
 #[cfg(not(wasm_browser))]
 impl UdpTraversalSender {
+    /// Reply from the actual receiving interface on this same physical binding.
+    pub fn with_source_ip(&self, source: IpAddr) -> io::Result<Self> {
+        if !source.is_ipv4() || source.is_unspecified() {
+            return Err(io::Error::other("invalid traversal source IP"));
+        }
+        let mut sender = self.clone();
+        sender.source_ip = Some(source);
+        Ok(sender)
+    }
+    async fn authorize(&self) -> io::Result<()> {
+        if !*self.live.lock().expect("traversal lease") {
+            return Err(io::Error::other("traversal round closed"));
+        }
+        let (tx, rx) = oneshot::channel();
+        self.socket
+            .try_send_remote_state_msg(
+                self.remote,
+                RemoteStateMessage::AuthorizeUdpProbe {
+                    conn_id: self.connection_id,
+                    tx,
+                },
+            )
+            .map_err(|_| io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| io::Error::other("remote state stopped"))?
+            .map_err(io::Error::other)
+    }
+
+    /// Physical source binding used by this sender.
+    pub fn local_socket_id(&self) -> transports::LocalSocketId {
+        self.local_socket_id
+    }
     /// Returns true when a requested TTL was unavailable and default was used.
     pub async fn send(&self, remote: SocketAddr, payload: &[u8], ttl: u8) -> io::Result<bool> {
         self.send_checked(remote, payload, ttl, &|| Ok(())).await
@@ -465,22 +776,7 @@ impl UdpTraversalSender {
         if !remote.is_ipv4() || payload.len() > 256 {
             return Err(io::Error::other("invalid traversal datagram"));
         }
-        if !*self.live.lock().expect("traversal lease") {
-            return Err(io::Error::other("traversal round closed"));
-        }
-        let (tx, rx) = oneshot::channel();
-        self.socket
-            .try_send_remote_state_msg(
-                self.remote,
-                RemoteStateMessage::AuthorizeUdpProbe {
-                    conn_id: self.connection_id,
-                    tx,
-                },
-            )
-            .map_err(|_| io::Error::other("remote state unavailable"))?;
-        rx.await
-            .map_err(|_| io::Error::other("remote state stopped"))?
-            .map_err(io::Error::other)?;
+        self.authorize().await?;
         let mut bytes = b"\0MIOPUNCH63".to_vec();
         bytes.extend_from_slice(&self.round);
         bytes.extend_from_slice(payload);
@@ -495,7 +791,21 @@ impl UdpTraversalSender {
             }
             // Drop holds the same lock, so a revoked lease cannot submit even
             // after waiting for actor authorization or socket readiness.
-            sender.poll_send_probe(cx, remote, &bytes, ttl)
+            let result = if self.local_socket_id.is_primary() {
+                sender.poll_send_probe_from(cx, remote, &bytes, ttl, self.source_ip)
+            } else if let Some(socket) = self
+                .socket
+                .udp_socket_pool
+                .get(self.local_socket_id)
+                .filter(|s| s.remote == self.remote && s.connection_id == self.connection_id)
+            {
+                socket.poll_probe(cx, remote, &bytes, ttl, self.source_ip)
+            } else {
+                return std::task::Poll::Ready(Err(io::Error::other("UDP binding no longer live")));
+            };
+            result.map(|result| {
+                result.map_err(|error| io::Error::new(error.kind(), UdpDatagramSendError(error)))
+            })
         })
         .await
     }
@@ -504,11 +814,20 @@ impl UdpTraversalSender {
 impl Drop for UdpTraversalLease {
     fn drop(&mut self) {
         *self.live.lock().expect("traversal lease") = false;
-        self.socket
+        for socket in self.listeners.drain(..) {
+            socket.close();
+        }
+        let mut registry = self
+            .socket
             .udp_traversal
             .lock()
-            .expect("traversal registry")
-            .remove(&self.round);
+            .expect("traversal registry");
+        if registry
+            .get(&self.round)
+            .is_some_and(|current| Arc::ptr_eq(&current.live, &self.live))
+        {
+            registry.remove(&self.round);
+        }
     }
 }
 
@@ -801,16 +1120,30 @@ impl Socket {
                 for bytes in bufs[i][..noq_meta.len].chunks(noq_meta.stride.max(1)) {
                     if bytes.starts_with(b"\0MIOPUNCH63") && (27..=283).contains(&bytes.len()) {
                         let round: [u8; 16] = bytes[11..27].try_into().expect("round length");
-                        if let Some(tx) = self
+                        if let Some(registration) = self
                             .udp_traversal
                             .lock()
                             .expect("traversal registry")
                             .get(&round)
                         {
-                            let _ = tx.try_send(UdpTraversalPacket {
-                                remote: *remote,
-                                payload: bytes[27..].to_vec(),
-                            });
+                            let id = noq_meta
+                                .dst_ip
+                                .and_then(transports::LocalSocketId::from_token)
+                                .unwrap_or(transports::LocalSocketId::PRIMARY);
+                            if let Some(tx) =
+                                registration.senders.lock().expect("round senders").get(&id)
+                            {
+                                let Some(binding) = recv_info.ip_binding else {
+                                    continue;
+                                };
+                                let local_addr = binding.local_addr;
+                                let _ = tx.try_send(UdpTraversalPacket {
+                                    local_socket_id: id,
+                                    local_addr,
+                                    remote: *remote,
+                                    payload: bytes[27..].to_vec(),
+                                });
+                            }
                         }
                         // Fixed bit clear: Noq ignores these bytes, including
                         // stale rounds, without dropping a mixed GRO batch.
@@ -1080,6 +1413,14 @@ impl EndpointInner {
     }
 
     #[cfg(not(wasm_browser))]
+    pub(crate) fn udp_network_generation(&self) -> ObservationValidity {
+        ObservationValidity {
+            generation: self.sock.network_generation.clone(),
+            observed_generation: *self.sock.network_generation.lock().expect("network epoch"),
+        }
+    }
+
+    #[cfg(not(wasm_browser))]
     pub(crate) async fn observe_udp_mapping_sequence(
         &self,
         observers: &RelayMap,
@@ -1088,6 +1429,7 @@ impl EndpointInner {
             return Err(io::Error::other("endpoint closed"));
         }
         let generation = *self.sock.observation_generation.lock().expect("poisoned");
+        let network_generation = *self.sock.network_generation.lock().expect("poisoned");
         let samples = net_report::observe_mapping_sequence(
             observers,
             self.endpoint.clone(),
@@ -1096,7 +1438,7 @@ impl EndpointInner {
             self.sock.shutdown.at_close_start.child_token(),
         )
         .await?;
-        if *self.sock.observation_generation.lock().expect("poisoned") != generation {
+        if *self.sock.network_generation.lock().expect("poisoned") != network_generation {
             return Err(io::Error::other(
                 "network changed during mapping observation",
             ));
@@ -1129,6 +1471,10 @@ impl EndpointInner {
             validity: ObservationValidity {
                 generation: self.sock.observation_generation.clone(),
                 observed_generation: generation,
+            },
+            network_validity: ObservationValidity {
+                generation: self.sock.network_generation.clone(),
+                observed_generation: network_generation,
             },
         })
     }
@@ -1209,6 +1555,29 @@ impl EndpointInner {
         conn_id: usize,
         addr: SocketAddr,
     ) -> std::io::Result<()> {
+        self.open_data_path_from(remote, conn_id, addr, None).await
+    }
+
+    pub(crate) async fn open_data_path_from(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        addr: SocketAddr,
+        #[cfg(not(wasm_browser))] local: Option<transports::LocalSocketBinding>,
+        #[cfg(wasm_browser)] _local: Option<()>,
+    ) -> std::io::Result<()> {
+        #[cfg(not(wasm_browser))]
+        if local.is_some_and(|binding| {
+            !binding.local_addr.is_ipv4()
+                || binding.local_addr.ip().is_unspecified()
+                || (binding.id.is_primary()
+                    && !self
+                        .sock
+                        .ip_local_addrs()
+                        .any(|addr| addr.is_ipv4() && addr.port() == binding.local_addr.port()))
+        }) {
+            return Err(io::Error::other("invalid actual local UDP binding"));
+        }
         let (tx, rx) = oneshot::channel();
         self.sock
             .try_send_remote_state_msg(
@@ -1216,6 +1585,8 @@ impl EndpointInner {
                 RemoteStateMessage::OpenDataPath {
                     conn_id,
                     remote: addr,
+                    #[cfg(not(wasm_browser))]
+                    local,
                     tx,
                 },
             )
@@ -1285,14 +1656,30 @@ impl EndpointInner {
         if registrations.contains_key(&round) {
             return Err(io::Error::other("traversal round already registered"));
         }
-        registrations.insert(round, tx);
+        let local_sockets = Arc::new(Mutex::new(vec![transports::LocalSocketId::PRIMARY]));
+        let live = Arc::new(Mutex::new(true));
+        registrations.insert(
+            round,
+            UdpTraversalRegistration {
+                senders: Arc::new(Mutex::new(HashMap::from([(
+                    transports::LocalSocketId::PRIMARY,
+                    tx,
+                )]))),
+                live: live.clone(),
+            },
+        );
         Ok(UdpTraversalLease {
             socket: self.sock.clone(),
             remote,
             connection_id: conn_id,
             round,
             rx,
-            live: Arc::new(Mutex::new(true)),
+            live,
+            local_sockets,
+            listeners: Vec::new(),
+            listener_report: UdpListenerReport::default(),
+            listener_rx: Vec::new(),
+            recv_cursor: 0,
         })
     }
 
@@ -1473,14 +1860,19 @@ impl EndpointInner {
         let direct_addrs = DiscoveredDirectAddrs::default();
 
         let remote_map = {
-            RemoteMap::new(
+            let mut map = RemoteMap::new(
                 metrics.socket.clone(),
                 direct_addrs.addrs.watch(),
                 address_lookup.clone(),
                 shutdown_token.child_token(),
                 path_selector,
                 span.clone(),
-            )
+            );
+            #[cfg(not(wasm_browser))]
+            {
+                map.mapped_addrs.udp_socket_pool = transports.create_sender().socket_pool();
+            }
+            map
         };
 
         let home_relay_watch = transports.home_relay_watch();
@@ -1502,6 +1894,7 @@ impl EndpointInner {
                 UdpObservation::Pending
             }),
             observation_generation: Arc::new(Mutex::new(0)),
+            network_generation: Arc::new(Mutex::new(0)),
             #[cfg(not(wasm_browser))]
             dns_resolver: dns_resolver.clone(),
             metrics: metrics.clone(),
@@ -1511,6 +1904,8 @@ impl EndpointInner {
             ip_bind_addrs: transports.ip_bind_addrs(),
             #[cfg(not(wasm_browser))]
             udp_probe_sender: AsyncMutex::new(transports.create_sender()),
+            #[cfg(not(wasm_browser))]
+            udp_socket_pool: transports.create_sender().socket_pool(),
             #[cfg(not(wasm_browser))]
             udp_traversal: Mutex::new(HashMap::new()),
             tls_config: tls_config.clone(),
@@ -2176,6 +2571,34 @@ impl Actor {
     /// interfaces, assigned IP addresses and routes.
     fn handle_network_change(&mut self, is_major: bool) {
         debug!(is_major, "link change detected");
+        {
+            let mut generation = self.sock.network_generation.lock().expect("network epoch");
+            *generation = generation.wrapping_add(1);
+        }
+
+        #[cfg(not(wasm_browser))]
+        {
+            let rounds = self
+                .sock
+                .udp_traversal
+                .lock()
+                .expect("traversal registry")
+                .drain()
+                .map(|(_, round)| round)
+                .collect::<Vec<_>>();
+            for round in rounds {
+                *round.live.lock().expect("traversal lease") = false;
+            }
+            let interfaces = self.local_interfaces_watcher.get();
+            let actual_ips = interfaces
+                .local_addresses
+                .regular
+                .iter()
+                .chain(interfaces.local_addresses.loopback.iter())
+                .copied()
+                .collect();
+            self.sock.udp_socket_pool.on_network_change(&actual_ips);
+        }
 
         if is_major {
             self.sock.publish_observation_unavailable(
@@ -2224,9 +2647,24 @@ impl Actor {
         #[derive(Debug)]
         struct Hint {
             local_addrs: FxHashSet<IpAddr>,
+            #[cfg(not(wasm_browser))]
+            udp_socket_pool: Arc<transports::SocketPool>,
         }
 
         impl NetworkChangeHint for Hint {
+            fn local_ip_for_recovery(&self, network_path: noq_proto::FourTuple) -> Option<IpAddr> {
+                #[cfg(not(wasm_browser))]
+                if let Some(token) = network_path.local_ip()
+                    && transports::LocalSocketId::from_token(token).is_some()
+                    && self
+                        .udp_socket_pool
+                        .actual_ip(token)
+                        .is_some_and(|ip| self.local_addrs.contains(&ip))
+                {
+                    return Some(token);
+                }
+                None
+            }
             fn is_path_recoverable(
                 &self,
                 _path_id: noq::PathId,
@@ -2249,7 +2687,16 @@ impl Actor {
                         // If we no longer have a valid interface to send from for a local
                         // IP then it can not be recovered.
                         match network_path.local_ip() {
-                            Some(local_ip) => self.local_addrs.contains(&local_ip),
+                            Some(local_ip) => {
+                                #[cfg(not(wasm_browser))]
+                                if transports::LocalSocketId::from_token(local_ip).is_some() {
+                                    return self
+                                        .udp_socket_pool
+                                        .actual_ip(local_ip)
+                                        .is_some_and(|ip| self.local_addrs.contains(&ip));
+                                }
+                                self.local_addrs.contains(&local_ip)
+                            }
                             None => true,
                         }
                     }
@@ -2262,6 +2709,8 @@ impl Actor {
         }
 
         let hint = Hint {
+            #[cfg(not(wasm_browser))]
+            udp_socket_pool: self.sock.udp_socket_pool.clone(),
             #[cfg(not(wasm_browser))]
             local_addrs: {
                 let interfaces = self.local_interfaces_watcher.get();
@@ -2579,20 +3028,23 @@ pub struct UdpMappingSequence {
     pub local_ips: Vec<IpAddr>,
     valid_until: Instant,
     validity: ObservationValidity,
+    network_validity: ObservationValidity,
 }
 
 #[cfg(not(wasm_browser))]
 impl UdpMappingSequence {
     /// Network changes invalidate all copies of the observation.
     pub fn is_fresh(&self) -> bool {
-        Instant::now() < self.valid_until && self.validity.is_current()
+        Instant::now() < self.valid_until
+            && self.validity.is_current()
+            && self.network_validity.is_current()
     }
 
     /// Whether the socket/network generation that produced these samples is
     /// still current. A traversal adapter may apply a longer bounded lifetime
     /// when its legacy plan includes delays beyond the two-second predictor.
     pub fn is_current_generation(&self) -> bool {
-        self.validity.is_current()
+        self.network_validity.is_current()
     }
 }
 

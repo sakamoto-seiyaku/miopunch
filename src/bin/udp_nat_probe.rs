@@ -124,8 +124,16 @@ async fn legacy_probe(
         control.stable_id()
     );
     if status != ExecutionStatus::CompleteExecution {
-        return Err(format!("legacy {status:?}; random/pool executor belongs to 61").into());
+        return Err(format!("legacy {status:?}").into());
     }
+    let path = attempt
+        .prepare_data_path(control, gate.as_ref().ok_or("legacy requires member gate")?)
+        .await?;
+    println!(
+        "LEGACY_WINNER_PATH path_id_retries={} stable_id={}",
+        path.path_id_retries,
+        control.stable_id()
+    );
     println!(
         "PROBES_SENT count={} distinct_targets={} complete_execution=1",
         attempt.execution_trace().map_or(0, |trace| trace.probes),
@@ -149,6 +157,52 @@ fn mapping_samples(sequence: &iroh::endpoint::UdpMappingSequence) -> Vec<Mapping
             observed_at: sample.observed_at.into(),
         })
         .collect()
+}
+
+async fn guarded_control<T>(
+    attempt: Option<&Attempt>,
+    control: &ControlSession,
+    gate: &Option<AdmissionGate>,
+    operation: impl std::future::Future<Output = Result<T, Box<dyn Error>>>,
+) -> Result<T, Box<dyn Error>> {
+    if let Some(attempt) = attempt {
+        Ok(attempt
+            .guard_handoff(
+                control,
+                gate.as_ref().ok_or("legacy requires member gate")?,
+                async {
+                    operation
+                        .await
+                        .map_err(|error| io::Error::other(error.to_string()))
+                },
+            )
+            .await?)
+    } else {
+        operation.await
+    }
+}
+
+async fn guarded_data<T>(
+    attempt: Option<&Attempt>,
+    data: &miopunch_native_probe::control_session::DataSession,
+    gate: &Option<AdmissionGate>,
+    operation: impl std::future::Future<Output = Result<T, Box<dyn Error>>>,
+) -> Result<T, Box<dyn Error>> {
+    if let Some(attempt) = attempt {
+        Ok(attempt
+            .guard_committed(
+                data,
+                gate.as_ref().ok_or("legacy requires member gate")?,
+                async {
+                    operation
+                        .await
+                        .map_err(|error| io::Error::other(error.to_string()))
+                },
+            )
+            .await?)
+    } else {
+        operation.await
+    }
 }
 
 impl MappingEvidence {
@@ -1248,16 +1302,17 @@ async fn run_server(
             return Ok(());
         }
     }
-    if legacy_attempt.as_ref().is_some_and(|a| {
-        a.local_behavior().role == miopunch_native_probe::nat_selector::Role::Sender
-    }) {
-        if let Some(remote) = legacy_attempt.as_ref().and_then(Attempt::remote_target) {
-            let opened =
-                tokio::time::timeout(AUTO_PATH_WAIT, control.open_data_path_report(remote)).await;
-            println!("LEGACY_SENDER_PATH result={opened:?} stable_id={stable}");
-        }
-    }
-    if let Err(error) = wait_ip(&control, data_path_wait(automatic || legacy.is_some())?).await {
+    let waited = if let Some(attempt) = legacy_attempt.as_ref() {
+        attempt.verify_winner_path(
+            &control,
+            gate.as_ref().ok_or("legacy requires member gate")?,
+        )
+    } else {
+        wait_ip(&control, data_path_wait(automatic)?)
+            .await
+            .map_err(|error| io::Error::other(error.to_string()))
+    };
+    if let Err(error) = waited {
         println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
         if safety.is_none()
             && (automatic || legacy.is_some())
@@ -1276,11 +1331,14 @@ async fn run_server(
         return Ok(());
     }
     let mut promotion_reply = if let Some(round) = active_round {
-        let received = tokio::time::timeout(WAIT, async {
-            let (send, mut recv) = control.accept_control_bi().await?;
-            let frame = recv_frame(&mut recv).await?;
-            Ok::<_, Box<dyn Error>>((send, frame))
-        })
+        let received = tokio::time::timeout(
+            WAIT,
+            guarded_control(legacy_attempt.as_ref(), &control, &gate, async {
+                let (send, mut recv) = control.accept_control_bi().await?;
+                let frame = recv_frame(&mut recv).await?;
+                Ok::<_, Box<dyn Error>>((send, frame))
+            }),
+        )
         .await;
         match received {
             Ok(Ok((send, CoordFrame::Promoted(value)))) if value == round => {
@@ -1303,7 +1361,14 @@ async fn run_server(
         None
     };
     println!("PATH_OBSERVED peer={peer} stable_id={stable}");
-    let data = match control.commit_data_path().await {
+    let committed = if let Some(attempt) = legacy_attempt.as_ref() {
+        attempt
+            .commit_winner_path(control, gate.as_ref().ok_or("legacy requires member gate")?)
+            .await
+    } else {
+        control.commit_data_path().await
+    };
+    let data = match committed {
         Ok(data) => data,
         Err(CommitError::Retryable { error, .. } | CommitError::Terminal { error }) => {
             println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
@@ -1315,7 +1380,14 @@ async fn run_server(
         }
     };
     if let (Some(mut send), Some(round)) = (promotion_reply.take(), active_round) {
-        if let Err(error) = send_frame(&mut send, &CoordFrame::Committed(round)).await {
+        if let Err(error) = guarded_data(
+            legacy_attempt.as_ref(),
+            &data,
+            &gate,
+            send_frame(&mut send, &CoordFrame::Committed(round)),
+        )
+        .await
+        {
             println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
             close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
             return Ok(());
@@ -1326,10 +1398,13 @@ async fn run_server(
         );
     }
     let before = traffic.sent_packets();
-    let business = tokio::time::timeout(WAIT, async {
-        let (_, mut recv) = data.connection().accept_bi().await?;
-        recv.read_to_end(64).await.map_err(io::Error::other)
-    })
+    let business = tokio::time::timeout(
+        WAIT,
+        guarded_data(legacy_attempt.as_ref(), &data, &gate, async {
+            let (_, mut recv) = data.connection().accept_bi().await?;
+            Ok::<_, Box<dyn Error>>(recv.read_to_end(64).await?)
+        }),
+    )
     .await;
     let business = match business {
         Ok(Ok(bytes)) => bytes,
@@ -1357,6 +1432,25 @@ async fn run_server(
         path_started.elapsed().as_millis(),
         data.connection().paths()
     );
+    if let Some(binding) = legacy_attempt
+        .as_ref()
+        .and_then(|attempt| attempt.local_winner())
+    {
+        if let Some(path) = data
+            .connection()
+            .paths()
+            .iter()
+            .find(|path| path.is_selected())
+        {
+            println!(
+                "LEGACY_BUSINESS_BINDING stable_id={stable} peer={peer} path_id={} local_socket_id={} local_addr={} remote={}",
+                path.id(),
+                binding.id.get(),
+                binding.local_addr,
+                path.remote_addr()
+            );
+        }
+    }
     endpoint.close().await;
     Ok(())
 }
@@ -1572,17 +1666,9 @@ async fn run_client(
             close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
             return Ok(());
         }
-        if let Some(remote) = legacy_attempt.as_ref().and_then(Attempt::remote_target) {
-            tokio::time::timeout(AUTO_PATH_WAIT, control.open_data_path_report(remote)).await
-        } else {
-            tokio::time::timeout(AUTO_PATH_WAIT, async {
-                wait_ip(&control, AUTO_PATH_WAIT)
-                    .await
-                    .map_err(|e| io::Error::other(e.to_string()))?;
-                Ok(miopunch_native_probe::control_session::DataPathOpen { path_id_retries: 0 })
-            })
-            .await
-        }
+        Ok(Ok(miopunch_native_probe::control_session::DataPathOpen {
+            path_id_retries: 0,
+        }))
     } else if automatic {
         let probes = auto_probe_window(
             &control,
@@ -1650,7 +1736,17 @@ async fn run_client(
             return Ok(());
         }
     }
-    if let Err(error) = wait_ip(&control, data_path_wait(automatic || legacy.is_some())?).await {
+    let waited = if let Some(attempt) = legacy_attempt.as_ref() {
+        attempt.verify_winner_path(
+            &control,
+            gate.as_ref().ok_or("legacy requires member gate")?,
+        )
+    } else {
+        wait_ip(&control, data_path_wait(automatic)?)
+            .await
+            .map_err(|error| io::Error::other(error.to_string()))
+    };
+    if let Err(error) = waited {
         println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
         if safety.is_none()
             && (automatic || legacy.is_some())
@@ -1668,18 +1764,28 @@ async fn run_client(
         close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
         return Ok(());
     }
-    match control.commit_data_path().await {
+    let committed = if let Some(attempt) = legacy_attempt.as_ref() {
+        attempt
+            .commit_winner_path(control, gate.as_ref().ok_or("legacy requires member gate")?)
+            .await
+    } else {
+        control.commit_data_path().await
+    };
+    match committed {
         Ok(mut data) => {
             if let Some(round) = active_round {
-                let promoted = tokio::time::timeout(WAIT, async {
-                    let (mut send, mut recv) = data.connection().open_bi().await?;
-                    send_frame(&mut send, &CoordFrame::Promoted(round)).await?;
-                    let answer = recv_frame(&mut recv).await?;
-                    if answer != CoordFrame::Committed(round) {
-                        return Err("NAT3 promotion acknowledgment mismatch".into());
-                    }
-                    Ok::<_, Box<dyn Error>>(())
-                })
+                let promoted = tokio::time::timeout(
+                    WAIT,
+                    guarded_data(legacy_attempt.as_ref(), &data, &gate, async {
+                        let (mut send, mut recv) = data.connection().open_bi().await?;
+                        send_frame(&mut send, &CoordFrame::Promoted(round)).await?;
+                        let answer = recv_frame(&mut recv).await?;
+                        if answer != CoordFrame::Committed(round) {
+                            return Err("NAT3 promotion acknowledgment mismatch".into());
+                        }
+                        Ok::<_, Box<dyn Error>>(())
+                    }),
+                )
                 .await;
                 match promoted {
                     Ok(Ok(())) => {}
@@ -1702,9 +1808,20 @@ async fn run_client(
                 .pop_front()
                 .ok_or("missing queued business")?;
             let before = traffic.sent_packets();
-            let (mut send, _) = data.connection().open_bi().await?;
-            send.write_all(&queued).await?;
-            send.finish()?;
+            let transmitted = guarded_data(legacy_attempt.as_ref(), &data, &gate, async {
+                let (mut send, _) = data.connection().open_bi().await?;
+                send.write_all(&queued).await?;
+                send.finish()?;
+                Ok::<_, Box<dyn Error>>(())
+            })
+            .await;
+            if let Err(error) = transmitted {
+                println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
+                close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
+                return Ok(());
+            }
+            // Business was submitted under the exact winner scope. The peer
+            // may now close normally; this delay only measures carrier costs.
             tokio::time::sleep(Duration::from_millis(250)).await;
             if traffic.sent_packets() != before {
                 return Err("business used MQTT".into());
@@ -1714,6 +1831,25 @@ async fn run_client(
                 path_started.elapsed().as_millis(),
                 data.connection().paths()
             );
+            if let Some(binding) = legacy_attempt
+                .as_ref()
+                .and_then(|attempt| attempt.local_winner())
+            {
+                if let Some(path) = data
+                    .connection()
+                    .paths()
+                    .iter()
+                    .find(|path| path.is_selected())
+                {
+                    println!(
+                        "LEGACY_BUSINESS_BINDING stable_id={stable} peer={peer} path_id={} local_socket_id={} local_addr={} remote={}",
+                        path.id(),
+                        binding.id.get(),
+                        binding.local_addr,
+                        path.remote_addr()
+                    );
+                }
+            }
             if legacy.is_some() {
                 println!(
                     "LEGACY_RESULT outcome=business_sent feedback_owner=coordinator stable_id={stable}"
@@ -1784,7 +1920,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let legacy = if legacy_selected {
         let budget = Arc::new(NodeProbeBudget::new(
             mapping_observers.as_ref().map_or(0, RelayMap::len),
-            12000,
+            miopunch_native_probe::nat_scheduler::DEFAULT_LEGACY_PEER_ALLOWANCE,
         ));
         Some(LegacyResources {
             observers: mapping_observers.clone(),
