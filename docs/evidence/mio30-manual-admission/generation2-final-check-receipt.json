@@ -1,0 +1,90 @@
+{
+  "generation": 2,
+  "reason": "Independent Spec P2 approval commit-before-apply recovery fix, after actual checkpoint RED/GREEN",
+  "previous_generation_receipt": "final-check-receipt.json",
+  "baseline": "9ab9bed1786eafca1569b204171e76627d1837a0",
+  "mqtt_broker": "127.0.0.1:43264",
+  "container": "miopunch30-mqtt",
+  "broker_tcp_preflight": true,
+  "source_sha256": {
+    "src/lib.rs": "0ba70739f2def7155e2841609b8654bba079af03624b4f5f6407f24ac7548be5",
+    "src/manual_admission.rs": "1da8612cd09a81676433a8568bf8b6ba0687507fe69d211df7540601b2b1c9b5",
+    "src/native_network.rs": "087c17e8cc2cda4f3a7e9a5244885446bf6a3ea6d7c7afcefa709ea827a76f95",
+    "src/management_store.rs": "0f3582353603c6c5be9fad2b2f0266d581f0eb44cc794993434dcdf7a7b58ba2",
+    "src/management_auth.rs": "34238ff58c9678379e5eef9b8b0a0c2bb47da33dab3aca497d70ec58fbbd8f4e",
+    "tests/manual_admission.rs": "2bc8a00994c00faad6f47905323990c700684ec808790b092688eec89fce9400"
+  },
+  "commands": [
+    {
+      "name": "24-full-real-broker-suite-generation2",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--workspace",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "started_utc": "2026-09-30T19:41:51.617466+00:00",
+      "finished_utc": "2026-09-30T19:46:33.689829+00:00",
+      "wall_seconds": 282.0731113119982,
+      "exit_code": 0
+    },
+    {
+      "name": "25-browser-wasm-generation2",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "started_utc": "2026-09-30T19:46:33.691210+00:00",
+      "finished_utc": "2026-09-30T19:46:34.400784+00:00",
+      "wall_seconds": 0.7095848630415276,
+      "exit_code": 0
+    },
+    {
+      "name": "26-workspace-typecheck-generation2",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--workspace",
+        "--tests"
+      ],
+      "started_utc": "2026-09-30T19:46:34.401059+00:00",
+      "finished_utc": "2026-09-30T19:46:37.412866+00:00",
+      "wall_seconds": 3.0118171939393505,
+      "exit_code": 0
+    },
+    {
+      "name": "27-format-generation2",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "started_utc": "2026-09-30T19:46:37.413212+00:00",
+      "finished_utc": "2026-09-30T19:46:37.775035+00:00",
+      "wall_seconds": 0.3618342309491709,
+      "exit_code": 0
+    }
+  ],
+  "source_unchanged_through_checks": true,
+  "suite_totals": {
+    "passed": 256,
+    "failed": 0,
+    "ignored": 4
+  },
+  "actual_mio30_mqtt_capture": "MIO30_MQTT_CIPHERTEXT publishes=101 max_bytes=1472 long_lived_secret_in_invitation=false independent_holder_received_approved_result=false",
+  "broker_tests_not_skipped": true
+}

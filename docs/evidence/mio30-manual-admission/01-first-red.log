@@ -1,0 +1,85 @@
+   Compiling iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+   Compiling p2panda-net v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-net)
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: `p2panda-net` (lib) generated 1 warning
+error[E0432]: unresolved import `miopunch_native_probe::manual_admission`
+ --> tests/manual_admission.rs:9:28
+  |
+9 | use miopunch_native_probe::manual_admission::{AdmissionStage, ManualExchange};
+  |                            ^^^^^^^^^^^^^^^^ could not find `manual_admission` in `miopunch_native_probe`
+
+error[E0599]: no method named `with_ip_addrs` found for struct `EndpointAddr` in the current scope
+  --> tests/manual_admission.rs:16:49
+   |
+16 |     let target = EndpointAddr::new(server.id()).with_ip_addrs(server.addr().ip_addrs().copied());
+   |                                                 ^^^^^^^^^^^^^
+   |
+help: there is a method `with_ip_addr` with a similar name
+   |
+16 -     let target = EndpointAddr::new(server.id()).with_ip_addrs(server.addr().ip_addrs().copied());
+16 +     let target = EndpointAddr::new(server.id()).with_ip_addr(server.addr().ip_addrs().copied());
+   |
+
+error[E0599]: no method named `manual_invitation` found for struct `NativeNetwork` in the current scope
+  --> tests/manual_admission.rs:33:28
+   |
+33 |     let invitation = admin.manual_invitation().unwrap();
+   |                            ^^^^^^^^^^^^^^^^^ method not found in `NativeNetwork`
+
+error[E0599]: no associated function or constant named `join` found for struct `NativeNetwork` in the current scope
+  --> tests/manual_admission.rs:34:38
+   |
+34 |     let mut joining = NativeNetwork::join(&join_path, invitation).await.unwrap();
+   |                                      ^^^^ associated function or constant not found in `NativeNetwork`
+
+error[E0599]: no method named `serve_manual_admission` found for struct `NativeNetwork` in the current scope
+  --> tests/manual_admission.rs:44:15
+   |
+44 |         admin.serve_manual_admission(&server)
+   |               ^^^^^^^^^^^^^^^^^^^^^^ method not found in `NativeNetwork`
+
+error[E0599]: no method named `manual_requests` found for struct `NativeNetwork` in the current scope
+  --> tests/manual_admission.rs:48:25
+   |
+48 |     let request = admin.manual_requests().await.unwrap().pop().unwrap();
+   |                         ^^^^^^^^^^^^^^^ method not found in `NativeNetwork`
+
+error[E0599]: no method named `approve_manual_admission` found for struct `NativeNetwork` in the current scope
+  --> tests/manual_admission.rs:50:26
+   |
+50 |     let approved = admin.approve_manual_admission(&request).await.unwrap();
+   |                          ^^^^^^^^^^^^^^^^^^^^^^^^ method not found in `NativeNetwork`
+
+error[E0599]: no method named `serve_manual_admission` found for struct `NativeNetwork` in the current scope
+  --> tests/manual_admission.rs:63:55
+   |
+63 |     let (_, delivered) = tokio::join!(delivery, admin.serve_manual_admission(&server));
+   |                                                       ^^^^^^^^^^^^^^^^^^^^^^ method not found in `NativeNetwork`
+
+error[E0599]: no method named `admission_stage` found for struct `NativeNetwork` in the current scope
+  --> tests/manual_admission.rs:75:24
+   |
+75 |     assert_eq!(joining.admission_stage(), AdmissionStage::Complete);
+   |                        ^^^^^^^^^^^^^^^
+   |
+help: there is a method `admission_gate` with a similar name
+   |
+75 -     assert_eq!(joining.admission_stage(), AdmissionStage::Complete);
+75 +     assert_eq!(joining.admission_gate(), AdmissionStage::Complete);
+   |
+
+Some errors have detailed explanations: E0432, E0599.
+For more information about an error, try `rustc --explain E0432`.
+error: could not compile `miopunch-native-probe` (test "manual_admission") due to 9 previous errors
+warning: build failed, waiting for other jobs to finish...

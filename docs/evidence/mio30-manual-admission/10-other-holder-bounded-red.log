@@ -1,0 +1,37 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.94s
+     Running tests/manual_admission.rs (target/debug/deps/manual_admission-83d23b6496cbef27)
+
+running 1 test
+[DEBUG-mio30-mqtt] observer ready
+[DEBUG-mio30-mqtt] endpoints ready
+[DEBUG-mio30-mqtt] approval committed
+[DEBUG-mio30-mqtt] holder denied approved result
+[DEBUG-mio30-mqtt] both materials saved
+[DEBUG-mio30-mqtt] endpoints closed; waiting for carrier destruction
+
+thread 'another_invitation_holder_observes_ciphertext_but_cannot_take_an_approved_result' (1108102) panicked at tests/manual_admission.rs:604:10:
+client carrier must be destroyed: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test another_invitation_holder_observes_ciphertext_but_cannot_take_an_approved_result ... FAILED
+
+failures:
+
+failures:
+    another_invitation_holder_observes_ciphertext_but_cannot_take_an_approved_result
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 3.65s
+
+error: test failed, to rerun pass `--test manual_admission`

@@ -1,0 +1,140 @@
+{
+  "reason": "Lossless raw-log whitespace preservation, including EOF blank lines and actual test progress trailing spaces",
+  "streams": [
+    {
+      "original_name": "04-first-green-real-sockets.log",
+      "original_bytes": 789,
+      "original_sha256": "fc0c0e357d9725eccf080991ba2b56d595679a0eb57b610a799771dff2ecffb3",
+      "compressed_name": "04-first-green-real-sockets.log.gz",
+      "compressed_bytes": 485,
+      "compressed_sha256": "b7536ac829fb788835e8d5b8c8cef0cc9f78e4aa5b37fc9b26846490b8a2ad34",
+      "roundtrip_sha256": "fc0c0e357d9725eccf080991ba2b56d595679a0eb57b610a799771dff2ecffb3"
+    },
+    {
+      "original_name": "05-priority-auth-only-crash.log",
+      "original_bytes": 1464,
+      "original_sha256": "a6d2b646c0ab0603d0e19f4eb160bcb08e0bb2b2865bdd389ed0a620ad7a91ee",
+      "compressed_name": "05-priority-auth-only-crash.log.gz",
+      "compressed_bytes": 757,
+      "compressed_sha256": "b1f28f664e958b5395c96d3bd529fac4da6432603abec0cf852be77d81a1319b",
+      "roundtrip_sha256": "a6d2b646c0ab0603d0e19f4eb160bcb08e0bb2b2865bdd389ed0a620ad7a91ee"
+    },
+    {
+      "original_name": "06-wrong-network.log",
+      "original_bytes": 844,
+      "original_sha256": "aeaad737ad6541f721a0bb8011fa83974179ee0210f4c0f4034b6481bb8e4d83",
+      "compressed_name": "06-wrong-network.log.gz",
+      "compressed_bytes": 526,
+      "compressed_sha256": "bdd2fc8466fa845c6c5bd0412fab5aa71f70a0f57714e42f1a5737bbd63a6296",
+      "roundtrip_sha256": "aeaad737ad6541f721a0bb8011fa83974179ee0210f4c0f4034b6481bb8e4d83"
+    },
+    {
+      "original_name": "07-wrong-contact.log",
+      "original_bytes": 841,
+      "original_sha256": "ea36ec6877574c05ae6a6b29da262f574b721c98bbf9d66e9e4fa09716ea3369",
+      "compressed_name": "07-wrong-contact.log.gz",
+      "compressed_bytes": 522,
+      "compressed_sha256": "4f5ab81096dc3b933586c83f3402d1d5611bf93838956c5f365df1daae79ef46",
+      "roundtrip_sha256": "ea36ec6877574c05ae6a6b29da262f574b721c98bbf9d66e9e4fa09716ea3369"
+    },
+    {
+      "original_name": "08-forged-applicant.log",
+      "original_bytes": 849,
+      "original_sha256": "07ec39d1c7b34f40fab34b5e357975a959ac30ac97b9c839a1c7032c416cda4c",
+      "compressed_name": "08-forged-applicant.log.gz",
+      "compressed_bytes": 529,
+      "compressed_sha256": "e1e0e9e4bca10f5aba005b5bd20109e05a23999445791fd59eb3475fc64064ef",
+      "roundtrip_sha256": "07ec39d1c7b34f40fab34b5e357975a959ac30ac97b9c839a1c7032c416cda4c"
+    },
+    {
+      "original_name": "11-other-holder-green.log",
+      "original_bytes": 1276,
+      "original_sha256": "0009927a8b63a006718a5def22ade68a3b4e00893fbf139f44b3bf6829c60e8b",
+      "compressed_name": "11-other-holder-green.log.gz",
+      "compressed_bytes": 728,
+      "compressed_sha256": "6f782a21fd2577c6a6527a4fc35574ce3456162afe887f416392227c8a16ed4a",
+      "roundtrip_sha256": "0009927a8b63a006718a5def22ade68a3b4e00893fbf139f44b3bf6829c60e8b"
+    },
+    {
+      "original_name": "12-original-authorization-lifetime.log",
+      "original_bytes": 878,
+      "original_sha256": "39a99050aef0c8f4cdd2e316e467006f42b0a054d2caf4a2ef4b6faef83392de",
+      "compressed_name": "12-original-authorization-lifetime.log.gz",
+      "compressed_bytes": 544,
+      "compressed_sha256": "dad8a0ba8919d0f29ce1f25097a2a337ddbe304a1ad13efcec1d5c67b7df7f98",
+      "roundtrip_sha256": "39a99050aef0c8f4cdd2e316e467006f42b0a054d2caf4a2ef4b6faef83392de"
+    },
+    {
+      "original_name": "13-secret-storage-failure.log",
+      "original_bytes": 864,
+      "original_sha256": "fa46614fac03cdb34ddbb86be7f87ffb048051c6b5507e66c97448d30fd96e48",
+      "compressed_name": "13-secret-storage-failure.log.gz",
+      "compressed_bytes": 535,
+      "compressed_sha256": "32526a1bfd7c46c7c0d28e86f91bf6a612e0f9b4b5c9e5777c5067e0fbf66be2",
+      "roundtrip_sha256": "fa46614fac03cdb34ddbb86be7f87ffb048051c6b5507e66c97448d30fd96e48"
+    },
+    {
+      "original_name": "14-corrupt-signed-authorization.log",
+      "original_bytes": 865,
+      "original_sha256": "02c831d581e8d50a2f4185f3fd7ecb32f35366d05dde5f6b1f9366db946d213a",
+      "compressed_name": "14-corrupt-signed-authorization.log.gz",
+      "compressed_bytes": 540,
+      "compressed_sha256": "ceb76c94405e26c9bcb061d6c0c1cd42778d28bc1e0e06550523e2e300f117e3",
+      "roundtrip_sha256": "02c831d581e8d50a2f4185f3fd7ecb32f35366d05dde5f6b1f9366db946d213a"
+    },
+    {
+      "original_name": "15-affected-regressions.log",
+      "original_bytes": 3609,
+      "original_sha256": "3df587b6b09ebb47ba2d134a1342c8becd6c8772f3f06a9663892c54535df698",
+      "compressed_name": "15-affected-regressions.log.gz",
+      "compressed_bytes": 1561,
+      "compressed_sha256": "625910ca9de8d8ad93ed704fbc3ec52ed85e6672a23194573f55d4d82366f2ab",
+      "roundtrip_sha256": "3df587b6b09ebb47ba2d134a1342c8becd6c8772f3f06a9663892c54535df698"
+    },
+    {
+      "original_name": "16-current-grant-reuse.log",
+      "original_bytes": 869,
+      "original_sha256": "45978ca6f7b7c8bce74fd8d8c33908297a72960ae69dcb9be79af284565a0a27",
+      "compressed_name": "16-current-grant-reuse.log.gz",
+      "compressed_bytes": 541,
+      "compressed_sha256": "127a6520fa0e2c86cc63596d6213705517cfe00f85f76497ca69c56992bed97d",
+      "roundtrip_sha256": "45978ca6f7b7c8bce74fd8d8c33908297a72960ae69dcb9be79af284565a0a27"
+    },
+    {
+      "original_name": "17-full-real-broker-suite.log",
+      "original_bytes": 71457,
+      "original_sha256": "0e1a784fd733efec419d6cc109768c989e903f250a7bfcb6884827586f86b645",
+      "compressed_name": "17-full-real-broker-suite.log.gz",
+      "compressed_bytes": 11470,
+      "compressed_sha256": "287dab211afa92e86b67bffa579e1dc8d9fdcfb4b4b540779eef045bedac0607",
+      "roundtrip_sha256": "0e1a784fd733efec419d6cc109768c989e903f250a7bfcb6884827586f86b645"
+    },
+    {
+      "original_name": "22-approval-commit-recovery-green.log",
+      "original_bytes": 1035,
+      "original_sha256": "94ce66b5c78f1bea8798c7adb7775a2d8b6f2ace8d7dd67c84b9eab11f1a34c7",
+      "compressed_name": "22-approval-commit-recovery-green.log.gz",
+      "compressed_bytes": 648,
+      "compressed_sha256": "4593415a638d1def489bf8bfa2460538e99cc7cbe48cf4321f6e822fa81ad47f",
+      "roundtrip_sha256": "94ce66b5c78f1bea8798c7adb7775a2d8b6f2ace8d7dd67c84b9eab11f1a34c7"
+    },
+    {
+      "original_name": "23-recovery-affected-regressions-generation2.log",
+      "original_bytes": 4254,
+      "original_sha256": "d8007ed945e6cd32948dbc3be39faa6f4c28019a28b0a48485a4042421a0d4f5",
+      "compressed_name": "23-recovery-affected-regressions-generation2.log.gz",
+      "compressed_bytes": 1735,
+      "compressed_sha256": "4861c8a721b70e9fca09a2a7b2c29b32228bf1d36dc1d8586f1afbbccd27ad06",
+      "roundtrip_sha256": "d8007ed945e6cd32948dbc3be39faa6f4c28019a28b0a48485a4042421a0d4f5"
+    },
+    {
+      "original_name": "24-full-real-broker-suite-generation2.log",
+      "original_bytes": 72015,
+      "original_sha256": "39b1110790c5c5bd4f852531a9b66c86253d65586f78326930d78c73223eecbb",
+      "compressed_name": "24-full-real-broker-suite-generation2.log.gz",
+      "compressed_bytes": 11600,
+      "compressed_sha256": "fb750cf7b3126fdc69336796c80f6431367e67db1f194250adeacdd22ba2ff5c",
+      "roundtrip_sha256": "39b1110790c5c5bd4f852531a9b66c86253d65586f78326930d78c73223eecbb"
+    }
+  ]
+}

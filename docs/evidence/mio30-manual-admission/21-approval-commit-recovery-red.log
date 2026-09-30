@@ -1,0 +1,38 @@
+   Compiling iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+   Compiling p2panda-net v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-net)
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: `p2panda-net` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13.02s
+     Running tests/manual_admission.rs (target/debug/deps/manual_admission-83d23b6496cbef27)
+
+running 1 test
+actual approval process exits after signed Add/result transaction commit, before application
+
+MIO30_APPROVAL_RECOVERY applied=3 original_grant_reused=false
+
+thread 'approval_commit_crash_is_recovered_before_another_same_identity_request_decides_to_add' (1131338) panicked at tests/manual_admission.rs:1126:5:
+assertion `left == right` failed: a committed original Add must be recovered before the second request decides membership is absent
+  left: 3
+ right: 2
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test approval_commit_crash_is_recovered_before_another_same_identity_request_decides_to_add ... FAILED
+
+failures:
+
+failures:
+    approval_commit_crash_is_recovered_before_another_same_identity_request_decides_to_add
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.39s
+
+error: test failed, to rerun pass `--test manual_admission`

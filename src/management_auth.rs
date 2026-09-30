@@ -238,6 +238,31 @@ impl ManagementAuth {
         self.state.inner.ignore.contains(&id)
     }
 
+    /// A reusable admission result must refer to this identity's still-valid
+    /// membership episode. Current membership alone would let an old result
+    /// resume after a valid removal and a later, separately authorized rejoin.
+    /// Filtered removals remain corrections rather than permanent tombstones.
+    pub fn membership_authorization_valid(&self, id: Hash, target: VerifyingKey) -> bool {
+        if !self.nodes().iter().any(|(node, _)| *node == target) || self.filtered_operation(id) {
+            return false;
+        }
+        let Some(grant) = self.state.inner.operations.get(&id) else {
+            return false;
+        };
+        let grants_target = match &grant.action {
+            GroupAction::Add { member, .. } => *member == GroupMember::Individual(target),
+            GroupAction::Create { initial_members } => initial_members
+                .iter()
+                .any(|(member, _)| *member == GroupMember::Individual(target)),
+            _ => false,
+        };
+        grants_target && !self.state.inner.operations.values().any(|operation| {
+            !self.filtered_operation(operation.id)
+                && matches!(operation.action, GroupAction::Remove { member: GroupMember::Individual(node) } if node == target)
+                && has_ancestor(id, &operation.dependencies, &self.state)
+        })
+    }
+
     /// Current causal heads, including filtered operations retained in the graph.
     pub fn tips(&self) -> Vec<Hash> {
         let mut tips: HashSet<Hash> = self.state.inner.operations.keys().copied().collect();

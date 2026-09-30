@@ -1,18 +1,18 @@
 //! Durable native node entry for creating and reopening one private network.
 //!
-//! A completed data directory contains four separate responsibilities: the
-//! device signing key, the trusted genesis credential, the public network
-//! anchor, and the admission secret. The complete signed Create and its
-//! authorization view are committed by `ManagementStore` before publication.
+//! A creator saves its device key, trusted genesis credential, public network
+//! anchor and admission secret. A joining device saves its own key and trusted
+//! invitation, then independently persists verified membership and the current
+//! secret. Ordinary joined devices never acquire the genesis private key.
 
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::net::{Ipv4Addr, SocketAddr};
 #[cfg(unix)]
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use iroh::endpoint::presets;
+use iroh::endpoint::{Builder, presets};
 use iroh::{Endpoint, SecretKey};
 use p2panda_auth::group::{GroupAction, GroupMember};
 use p2panda_auth::{Access, GroupsExtensionArgs};
@@ -24,6 +24,7 @@ use crate::admission_proof::{AdmissionScope, AdmissionSecret};
 use crate::genesis_recovery::GenesisCredential;
 use crate::management_auth::{ManagementExtension, NetworkAnchor};
 use crate::management_store::{ManagementRecord, ManagementStore, StoreError};
+use crate::manual_admission::{JoinBinding, ManualInvitation};
 use crate::nat_connection::{NatConnector, UdpPolicy, UdpUpgrade};
 
 const NODE_KEY: &str = "node.key";
@@ -31,6 +32,8 @@ const GENESIS_CREDENTIAL: &str = "genesis.credential";
 const ANCHOR: &str = "network.anchor";
 const ADMISSION_SECRET: &str = "admission.secret";
 const MANAGEMENT_DB: &str = "management.sqlite";
+const JOIN_BINDING: &str = "join.invitation";
+const ADMISSION_MATERIAL: &str = "admission.material";
 
 struct SavedAnchor([u8; 64]);
 
@@ -100,10 +103,14 @@ pub struct NodeStatus {
 
 /// One verified local network. No secret-bearing type implements `Debug` here.
 pub struct NativeNetwork {
-    node_key: SigningKey,
-    anchor: NetworkAnchor,
-    store: ManagementStore,
-    gate: AdmissionGate,
+    pub(crate) node_key: SigningKey,
+    pub(crate) anchor: NetworkAnchor,
+    pub(crate) store: ManagementStore,
+    pub(crate) gate: AdmissionGate,
+    pub(crate) scope: AdmissionScope,
+    pub(crate) secret: Option<AdmissionSecret>,
+    pub(crate) join: Option<JoinBinding>,
+    directory: PathBuf,
     udp: NatConnector,
 }
 
@@ -111,6 +118,22 @@ impl NativeNetwork {
     /// Create a fresh network and device in a new directory. Publishing the
     /// prepared directory is the final step, so readers never see half a Create.
     pub async fn create(path: impl AsRef<Path>) -> Result<Self, NodeError> {
+        Self::initialize(path.as_ref(), None).await
+    }
+
+    /// Initialize an independently identified applicant. The trusted invitation
+    /// pins its network and contact, but grants no membership or shared secret.
+    pub async fn join(
+        path: impl AsRef<Path>,
+        invitation: ManualInvitation,
+    ) -> Result<Self, NodeError> {
+        Self::initialize(path.as_ref(), Some(invitation)).await
+    }
+
+    async fn initialize(
+        path: &Path,
+        invitation: Option<ManualInvitation>,
+    ) -> Result<Self, NodeError> {
         let path = path.as_ref();
         ensure_absent(path)?;
         let parent = match path.parent() {
@@ -123,7 +146,10 @@ impl NativeNetwork {
         #[cfg(unix)]
         builder.mode(0o700);
         builder.create(&staging)?;
-        let prepared = Self::prepare(&staging).await;
+        let prepared = match invitation {
+            None => Self::prepare(&staging).await,
+            Some(invitation) => Self::prepare_join(&staging, invitation).await,
+        };
         if let Err(error) = prepared {
             let _ = fs::remove_dir_all(&staging);
             return Err(error);
@@ -138,6 +164,24 @@ impl NativeNetwork {
         }
         File::open(parent)?.sync_all()?;
         Self::open(path).await
+    }
+
+    async fn prepare_join(path: &Path, invitation: ManualInvitation) -> Result<(), NodeError> {
+        let key = SigningKey::generate();
+        let binding = JoinBinding {
+            invitation,
+            request_id: rand::random(),
+        };
+        write_private(&path.join(NODE_KEY), key.as_bytes())?;
+        write_private(
+            &path.join(ANCHOR),
+            &SavedAnchor::encode(invitation.anchor).0,
+        )?;
+        write_private(&path.join(JOIN_BINDING), &binding.encode())?;
+        let store = ManagementStore::open(path.join(MANAGEMENT_DB), invitation.anchor).await?;
+        store.close().await;
+        File::open(path)?.sync_all()?;
+        Ok(())
     }
 
     async fn prepare(path: &Path) -> Result<(), NodeError> {
@@ -199,35 +243,75 @@ impl NativeNetwork {
         Ok(())
     }
 
-    /// Reopen only a fully committed network. Signed history must contain the
-    /// exact Create pinned by both the public anchor and private credential.
+    /// Replay a created network or an applicant's durable progress. Creators
+    /// pin the Create with their private recovery credential; applicants use
+    /// their trusted invitation and do not become successful members early.
     pub async fn open(path: impl AsRef<Path>) -> Result<Self, NodeError> {
         let path = path.as_ref();
         let node_key = SigningKey::from_bytes(&read_array::<32>(&path.join(NODE_KEY))?);
         let anchor = SavedAnchor(read_array::<64>(&path.join(ANCHOR))?).decode()?;
-        let genesis_credential =
-            SavedGenesisCredential(read_array::<64>(&path.join(GENESIS_CREDENTIAL))?).decode();
-        if genesis_credential.anchor() != anchor {
-            return Err(NodeError::InvalidCredential);
-        }
-        let admission_secret =
-            AdmissionSecret::from_saved(read_array::<32>(&path.join(ADMISSION_SECRET))?);
+        let join = if path.join(JOIN_BINDING).exists() {
+            let binding = JoinBinding::decode(&read_array::<112>(&path.join(JOIN_BINDING))?)
+                .map_err(|_| NodeError::InvalidData)?;
+            if binding.invitation.anchor != anchor || path.join(GENESIS_CREDENTIAL).exists() {
+                return Err(NodeError::InvalidData);
+            }
+            Some(binding)
+        } else {
+            let credential =
+                SavedGenesisCredential(read_array::<64>(&path.join(GENESIS_CREDENTIAL))?).decode();
+            if credential.anchor() != anchor {
+                return Err(NodeError::InvalidCredential);
+            }
+            None
+        };
         if !path.join(MANAGEMENT_DB).is_file() {
             return Err(NodeError::InvalidData);
         }
-        let store = ManagementStore::open(path.join(MANAGEMENT_DB), anchor).await?;
-        if store.get_record(anchor.genesis).await?.is_none() {
+        let mut store = ManagementStore::open(path.join(MANAGEMENT_DB), anchor).await?;
+        // Approval's Add/result can have committed before process exit without
+        // its materialized view. Recover ready records before exposing the
+        // reopened node's authority or making admission decisions.
+        store.apply_ready().await?;
+        if join.is_none() && store.get_record(anchor.genesis).await?.is_none() {
             return Err(NodeError::InvalidData);
         }
-        let scope = AdmissionScope::new(*anchor.root.as_bytes(), 0);
-        if !store
-            .current_admission_matches(&scope, &admission_secret.fingerprint(&scope))
-            .await?
-        {
+        let (scope, mut secret) = if path.join(ADMISSION_MATERIAL).exists() {
+            let bytes = read_array::<40>(&path.join(ADMISSION_MATERIAL))?;
+            (
+                AdmissionScope::new(
+                    *anchor.root.as_bytes(),
+                    u64::from_be_bytes(bytes[..8].try_into().unwrap()),
+                ),
+                Some(AdmissionSecret::from_saved(bytes[8..].try_into().unwrap())),
+            )
+        } else if path.join(ADMISSION_SECRET).exists() {
+            (
+                AdmissionScope::new(*anchor.root.as_bytes(), 0),
+                Some(AdmissionSecret::from_saved(read_array::<32>(
+                    &path.join(ADMISSION_SECRET),
+                )?)),
+            )
+        } else if join.is_some() {
+            (AdmissionScope::new(*anchor.root.as_bytes(), 0), None)
+        } else {
             return Err(NodeError::InvalidData);
+        };
+        if let Some(material) = &secret {
+            if !store
+                .current_admission_matches(&scope, &material.fingerprint(&scope))
+                .await?
+            {
+                if join.is_none() {
+                    return Err(NodeError::InvalidData);
+                }
+                // A crash between private-file fsync and database commit is
+                // still pending. A retry must pin the credential before use.
+                secret = None;
+            }
         }
         let node_id = SecretKey::from_bytes(node_key.as_bytes()).public();
-        let gate = AdmissionGate::new(node_id, scope, Some(admission_secret));
+        let gate = AdmissionGate::new(node_id, scope.clone(), secret.clone());
         gate.register_p2panda_defaults(*anchor.root.as_bytes());
         gate.update_authorization(
             store.nodes().into_iter().map(|(id, _)| *id.as_bytes()),
@@ -238,6 +322,10 @@ impl NativeNetwork {
             anchor,
             store,
             gate,
+            scope,
+            secret,
+            join,
+            directory: path.to_path_buf(),
             udp: NatConnector::new(None, UdpPolicy::default()),
         })
     }
@@ -256,12 +344,23 @@ impl NativeNetwork {
     /// Bind only after loading the durable device key; the endpoint can never
     /// silently generate a new identity on process restart.
     pub async fn bind_endpoint(&self, bind_ip: Ipv4Addr) -> Result<Endpoint, NodeError> {
+        self.bind_endpoint_with(
+            Endpoint::builder(presets::Minimal)
+                .alpns(vec![crate::admission_gate::ADMISSION_REQUEST_ALPN.to_vec()])
+                .bind_addr(SocketAddr::from((bind_ip, 0)))
+                .map_err(|_| NodeError::InvalidData)?,
+        )
+        .await
+    }
+
+    /// Configure allowed resources/carriers and advertised protocols through
+    /// the selected stack. The node installs its durable identity and shared
+    /// gate last, so carrier configuration cannot substitute either boundary.
+    pub async fn bind_endpoint_with(&self, builder: Builder) -> Result<Endpoint, NodeError> {
         Ok(self
             .gate
-            .configure(Endpoint::builder(presets::Minimal))
+            .configure(builder)
             .secret_key(SecretKey::from_bytes(self.node_key.as_bytes()))
-            .bind_addr(SocketAddr::from((bind_ip, 0)))
-            .map_err(|_| NodeError::InvalidData)?
             .bind()
             .await?)
     }
@@ -313,6 +412,11 @@ impl NativeNetwork {
         if self.store.get_record(id).await?.is_none() {
             return Err(NodeError::NotApplied);
         }
+        self.refresh_authorization();
+        Ok(id)
+    }
+
+    pub(crate) fn refresh_authorization(&self) {
         self.gate.update_authorization(
             self.store.nodes().into_iter().map(|(id, _)| *id.as_bytes()),
             self.store
@@ -320,7 +424,45 @@ impl NativeNetwork {
                 .into_iter()
                 .map(|id| *id.as_bytes()),
         );
-        Ok(id)
+    }
+
+    pub(crate) async fn save_admission_material(
+        &mut self,
+        scope: AdmissionScope,
+        secret: AdmissionSecret,
+    ) -> Result<(), NodeError> {
+        let mut bytes = [0; 40];
+        bytes[..8].copy_from_slice(&scope.secret_generation().to_be_bytes());
+        bytes[8..].copy_from_slice(secret.saved_bytes());
+        let path = self.directory.join(ADMISSION_MATERIAL);
+        if path.exists() {
+            if read_array::<40>(&path)? != bytes {
+                return Err(NodeError::InvalidData);
+            }
+        } else {
+            // Publish a complete fsynced private file atomically. A process
+            // exit during the write leaves only its unreferenced temp file.
+            let temporary = self.directory.join(format!(
+                ".admission-material-{:032x}",
+                rand::random::<u128>()
+            ));
+            let result = (|| {
+                write_private(&temporary, &bytes)?;
+                fs::hard_link(&temporary, &path)?;
+                Ok::<_, NodeError>(())
+            })();
+            let _ = fs::remove_file(&temporary);
+            result?;
+        }
+        // Also sync on retry: a previous process could have exited after
+        // publishing the link but before making its directory entry durable.
+        File::open(&self.directory)?.sync_all()?;
+        self.store.set_current_admission(&scope, &secret).await?;
+        self.gate.rotate_secret(scope.clone(), secret.clone());
+        self.scope = scope;
+        self.secret = Some(secret);
+        self.refresh_authorization();
+        Ok(())
     }
 
     pub async fn close(self) {

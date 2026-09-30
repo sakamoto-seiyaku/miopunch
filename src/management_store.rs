@@ -15,6 +15,7 @@ use thiserror::Error;
 
 use crate::admission_proof::{AdmissionScope, AdmissionSecret};
 use crate::management_auth::{AuthError, ManagementAuth, NetworkAnchor, decode_complete};
+use crate::manual_admission::{AdmissionRequest, AdmissionStage, ApprovedAdmission};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ManagementRecord {
@@ -84,6 +85,18 @@ impl ManagementStore {
                 singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
                 root BLOB NOT NULL,
                 genesis BLOB NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS admission_deliveries (
+                applicant BLOB NOT NULL,
+                request_id BLOB NOT NULL,
+                authorization BLOB,
+                phase INTEGER NOT NULL DEFAULT 0 CHECK (phase BETWEEN 0 AND 3),
+                PRIMARY KEY (applicant, request_id)
             )",
         )
         .execute(&pool)
@@ -243,6 +256,129 @@ impl ManagementStore {
             && tag == fingerprint)
     }
 
+    /// Only the restricted handler, after matching the claimed applicant to
+    /// the actual TLS peer, records requests. No grant is implied by receipt.
+    pub(crate) async fn record_admission_request(
+        &self,
+        request: &AdmissionRequest,
+    ) -> Result<(), StoreError> {
+        sqlx::query(
+            "INSERT OR IGNORE INTO admission_deliveries (applicant, request_id) VALUES (?, ?)",
+        )
+        .bind(request.applicant.as_bytes().as_slice())
+        .bind(request.request_id.as_slice())
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub(crate) async fn admission_requests(&self) -> Result<Vec<AdmissionRequest>, StoreError> {
+        let rows =
+            sqlx::query("SELECT applicant, request_id FROM admission_deliveries ORDER BY rowid")
+                .fetch_all(&self.pool)
+                .await?;
+        rows.into_iter()
+            .map(|row| {
+                let applicant: Vec<u8> = row.try_get("applicant")?;
+                let request: Vec<u8> = row.try_get("request_id")?;
+                Ok(AdmissionRequest {
+                    applicant: VerifyingKey::from_bytes(
+                        &applicant
+                            .try_into()
+                            .map_err(|_| StoreError::Corrupt("admission applicant"))?,
+                    )
+                    .map_err(|_| StoreError::Corrupt("admission applicant"))?,
+                    request_id: request
+                        .try_into()
+                        .map_err(|_| StoreError::Corrupt("admission request id"))?,
+                })
+            })
+            .collect()
+    }
+
+    pub(crate) async fn approved_admission(
+        &self,
+        request: &AdmissionRequest,
+    ) -> Result<Option<ApprovedAdmission>, StoreError> {
+        let row = sqlx::query("SELECT authorization, phase FROM admission_deliveries WHERE applicant = ? AND request_id = ?")
+            .bind(request.applicant.as_bytes().as_slice()).bind(request.request_id.as_slice())
+            .fetch_optional(&self.pool).await?;
+        let Some(row) = row else { return Ok(None) };
+        let authorization: Option<Vec<u8>> = row.try_get("authorization")?;
+        let Some(authorization) = authorization else {
+            return Ok(None);
+        };
+        let phase: i64 = row.try_get("phase")?;
+        let stage = match phase {
+            1 => AdmissionStage::Approved,
+            2 => AdmissionStage::PendingMaterials,
+            3 => AdmissionStage::Complete,
+            _ => return Err(StoreError::Corrupt("admission phase")),
+        };
+        Ok(Some(ApprovedAdmission {
+            request: request.clone(),
+            authorization: Hash::from_bytes(
+                authorization
+                    .try_into()
+                    .map_err(|_| StoreError::Corrupt("admission authorization"))?,
+            ),
+            stage,
+        }))
+    }
+
+    /// The signed Add and its reusable delivery result share one durable
+    /// transaction. After a crash, retry applies this exact record instead of
+    /// producing another Add. This is the shared local persistence boundary;
+    /// a request must already have been authenticated and recorded. Callers
+    /// must recover/apply and verify the current grant before reporting an
+    /// approved result or sending material; this commit alone is not admission.
+    pub async fn save_admission_approval(
+        &self,
+        request: &AdmissionRequest,
+        record: &ManagementRecord,
+    ) -> Result<(), StoreError> {
+        let header = decode_complete(record.header(), record.body(), self.anchor)?;
+        let mut tx = self.pool.begin().await?;
+        let changed = sqlx::query("UPDATE admission_deliveries SET authorization = ?, phase = 1 WHERE applicant = ? AND request_id = ? AND authorization IS NULL")
+            .bind(header.hash().as_bytes().as_slice())
+            .bind(request.applicant.as_bytes().as_slice()).bind(request.request_id.as_slice())
+            .execute(&mut *tx).await?;
+        if changed.rows_affected() != 1 {
+            return Err(StoreError::Corrupt("request is absent or already approved"));
+        }
+        sqlx::query("INSERT OR IGNORE INTO management_records (id, header, body) VALUES (?, ?, ?)")
+            .bind(header.hash().as_bytes().as_slice())
+            .bind(record.header())
+            .bind(record.body())
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub(crate) async fn advance_admission_delivery(
+        &self,
+        approved: &ApprovedAdmission,
+        stage: AdmissionStage,
+    ) -> Result<(), StoreError> {
+        let phase = match stage {
+            AdmissionStage::Approved => 1,
+            AdmissionStage::PendingMaterials => 2,
+            AdmissionStage::Complete => 3,
+            AdmissionStage::AwaitingApproval => {
+                return Err(StoreError::Corrupt("cannot undo admission approval"));
+            }
+        };
+        let changed = sqlx::query("UPDATE admission_deliveries SET phase = max(phase, ?) WHERE applicant = ? AND request_id = ? AND authorization = ?")
+            .bind(phase).bind(approved.request.applicant.as_bytes().as_slice())
+            .bind(approved.request.request_id.as_slice()).bind(approved.authorization.as_bytes().as_slice())
+            .execute(&self.pool).await?;
+        if changed.rows_affected() != 1 {
+            return Err(StoreError::Corrupt("delivery result changed"));
+        }
+        Ok(())
+    }
+
     /// The returned hash means the complete record is durable, not yet applied.
     pub async fn ingest(&self, record: &ManagementRecord) -> Result<Hash, StoreError> {
         let header = decode_complete(record.header(), record.body(), self.anchor)?;
@@ -369,6 +505,15 @@ impl ManagementStore {
 
     pub fn known_removed(&self, target: VerifyingKey) -> bool {
         self.auth.known_removed(target)
+    }
+
+    pub fn membership_authorization_valid(
+        &self,
+        authorization: Hash,
+        target: VerifyingKey,
+    ) -> bool {
+        self.auth
+            .membership_authorization_valid(authorization, target)
     }
 
     pub fn removed_nodes(&self) -> Vec<VerifyingKey> {

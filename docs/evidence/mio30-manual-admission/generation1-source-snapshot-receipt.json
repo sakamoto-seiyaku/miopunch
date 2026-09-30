@@ -1,0 +1,15 @@
+{
+  "baseline": "9ab9bed1786eafca1569b204171e76627d1837a0",
+  "source_sha256": {
+    "src/lib.rs": "0ba70739f2def7155e2841609b8654bba079af03624b4f5f6407f24ac7548be5",
+    "src/manual_admission.rs": "da427fae27d21e3bf932a6b100fed431e4d42c3b4935028bb82a13b37ad649a0",
+    "src/native_network.rs": "1abc9a8f3e599a1d8f556b4d5cd6f3b7080385a0a9021d39326855a267c8bfb0",
+    "src/management_store.rs": "1fda6996028ad92f0fddefec09e0b84aa8c3bd63b693e75a61177443a15116bb",
+    "src/management_auth.rs": "34238ff58c9678379e5eef9b8b0a0c2bb47da33dab3aca497d70ec58fbbd8f4e",
+    "tests/manual_admission.rs": "4772c59a50f65f6711771ceaaa815eeef895bfeeb07775cd538b8014b1468189"
+  },
+  "diff_bytes": 87076,
+  "diff_sha256": "15e5127ab2673619466a2f8792ebc09f29a343dab36f1140b04f6fd47008bcf8",
+  "compressed_sha256": "9f2dd6086c635f42efec9b3cc8296b64e0cdcbe106847da6f175d89b651b049d",
+  "roundtrip_sha256": "15e5127ab2673619466a2f8792ebc09f29a343dab36f1140b04f6fd47008bcf8"
+}
