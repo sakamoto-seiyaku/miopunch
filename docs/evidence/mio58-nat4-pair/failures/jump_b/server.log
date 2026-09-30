@@ -1,0 +1,24 @@
+CANDIDATE id=d9d2c28d1c8c55f4924a263b15e7a2a31c9444c6070b2481a52f2b6262ea98b5 sockets=[0.0.0.0:43027, [::]:60476] observed=100.64.27.6:43031 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.6:43031 t_ms=0 age_ms=12
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.6:43032 t_ms=4 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.6:43033 t_ms=8 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.6:43034 t_ms=12 age_ms=0
+MAPPING_CLASS pattern=Sequential { last: 100.64.27.6:43034, step: 1 } confidence=consistent_3/3_transitions fresh=true
+READY id=d9d2c28d1c8c55f4924a263b15e7a2a31c9444c6070b2481a52f2b6262ea98b5 route=c8ac53e739d34bf98131836332e77184
+CONTROL_FRAME_RECEIVED kind=AUTO_OFFER bytes=32
+CONTROL_FRAME_SENT kind=AUTO_READY bytes=65
+CONTROL_FRAME_RECEIVED kind=START bytes=38
+CONTROL_FRAME_SENT kind=ACK bytes=36
+AUTO_SELECTED role=DualFirst target=100.64.27.2:42035 round=9ed53117fa0d13bcbbff34581f898320 stable_id=106617576967904
+EXCHANGED peer=f1c97c993222f29ad96046638715e65a7f5b82051823c844e264a0b6a20f5032 peer_candidate=100.64.27.2:42035 stable_id=106617576967904
+CONTROL_FRAME_SENT kind=SENDER_PRIMED bytes=46
+CONTROL_FRAME_RECEIVED kind=SENDER_PRIMED_ACK bytes=50
+CONTROL_FRAME_RECEIVED kind=RECEIVER_PRIMED bytes=48
+CONTROL_FRAME_SENT kind=RECEIVER_PRIMED_ACK bytes=52
+AUTO_PROBES_SENT count=1 distinct_targets=1 role=DualFirst target=100.64.27.2:42035 elapsed_ms=40
+PATH_UNAVAILABLE reason=deadline has elapsed mqtt=MQTT_TRAFFIC sent_packets=37 sent_bytes=9595 received_packets=40 received_bytes=11107 rejected_packets=0 max_datagram=2048 queue_depth=64
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED bytes=44
+CONTROL_FRAME_SENT kind=PATH_FAILED_ACK bytes=48
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED_DONE bytes=49
+CONTROL_FRAME_SENT kind=PATH_FAILED_DONE_ACK bytes=53
+CONTROL_ALIVE_AFTER_UDP_FAILURE stable_id=106617576967904

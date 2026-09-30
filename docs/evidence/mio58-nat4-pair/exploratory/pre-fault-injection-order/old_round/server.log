@@ -1,0 +1,8 @@
+CANDIDATE id=da06a00319a95b9f3e527f40fc14e1680f017302e9a359e9454488795afe7af6 sockets=[0.0.0.0:43027, [::]:34863] observed=100.64.27.6:43031 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.6:43031 t_ms=0 age_ms=12
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.6:43032 t_ms=4 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.6:43033 t_ms=8 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.6:43034 t_ms=12 age_ms=0
+MAPPING_CLASS pattern=Sequential { last: 100.64.27.6:43034, step: 1 } confidence=consistent_3/3_transitions fresh=true
+READY id=da06a00319a95b9f3e527f40fc14e1680f017302e9a359e9454488795afe7af6 route=328ea4062a0e0c7d0eafeedc368e1e82
+COORD_UNAVAILABLE reason=old or replayed mapping round mqtt=MQTT_TRAFFIC sent_packets=20 sent_bytes=8959 received_packets=26 received_bytes=10575 rejected_packets=0 max_datagram=2048 queue_depth=64

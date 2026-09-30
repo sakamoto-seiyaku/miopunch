@@ -1,0 +1,5 @@
+CANDIDATE id=4f965c74d157695d755ee61b079ed04f47879302d6e55830c5570b0f82b591f3 sockets=[0.0.0.0:43027, [::]:45608] observed=100.64.27.6:43049 mapping_varies=None
+EXCHANGED peer=bbf70d7c20339341fd9c40141a05f1e422d1db6ce679a18418128d22e00fbddc peer_candidate=100.64.27.2:42031 attempted=100.64.27.2:42031 stable_id=94974391215408
+CONTROL_MSGS sent=1 received=1
+PROBES_SENT count=1 distinct_targets=1
+PATH_OPEN path_id_retries=0

@@ -1,0 +1,22 @@
+CANDIDATE id=2396a58618296aaf905123479be40414afc9e2f86be9154a32452eb32ab3ea83 sockets=[0.0.0.0:43027, [::]:52864] observed=100.64.27.6:43031 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.6:43031 t_ms=0 age_ms=12
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.6:43032 t_ms=4 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.6:43033 t_ms=8 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.6:43034 t_ms=12 age_ms=0
+MAPPING_CLASS pattern=Sequential { last: 100.64.27.6:43034, step: 1 } confidence=consistent_3/3_transitions fresh=true
+CONTROL_FRAME_SENT kind=AUTO_OFFER bytes=32
+CONTROL_FRAME_RECEIVED kind=AUTO_READY bytes=65
+CONTROL_FRAME_SENT kind=START bytes=38
+CONTROL_FRAME_RECEIVED kind=ACK bytes=36
+AUTO_SELECTED role=DualSecond target=100.64.27.2:42039 round=83003e6bab01837e26857b5cb9929a0f stable_id=93897108790592
+EXCHANGED peer=0dbce9e1dd14a197f519c9d0f15fc8909ca200a66535725bdf778d07489091f3 peer_candidate=100.64.27.2:42039 attempted=100.64.27.2:42039 stable_id=93897108790592
+CONTROL_FRAME_RECEIVED kind=SENDER_PRIMED bytes=46
+CONTROL_FRAME_SENT kind=SENDER_PRIMED_ACK bytes=50
+CONTROL_FRAME_SENT kind=RECEIVER_PRIMED bytes=48
+CONTROL_FRAME_RECEIVED kind=RECEIVER_PRIMED_ACK bytes=52
+AUTO_PROBES_SENT count=1 distinct_targets=1 role=DualSecond target=100.64.27.2:42039 elapsed_ms=55
+PATH_OPEN path_id_retries=0
+CONTROL_FRAME_SENT kind=PROMOTED bytes=41
+CONTROL_FRAME_RECEIVED kind=COMMITTED bytes=42
+UDP_COMMIT_ACK round=83003e6bab01837e26857b5cb9929a0f stable_id=93897108790592
+DATA_OK stable_id=93897108790592 peer=0dbce9e1dd14a197f519c9d0f15fc8909ca200a66535725bdf778d07489091f3 path_ms=336 paths=PathList { snapshot: State { list: [PathData(1, ip:100.64.27.2:42039)], selected: Some(PathId(1)), closed: true }, .. } mqtt_after_commit=38

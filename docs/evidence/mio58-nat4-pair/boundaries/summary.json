@@ -1,0 +1,62 @@
+[
+  {
+    "topology": "eim-eim",
+    "dialer": "a",
+    "strategy": "auto",
+    "client_role": null,
+    "server_role": null,
+    "success": false,
+    "wall_ms": 8381,
+    "evidence": "eim-eim-a-auto"
+  },
+  {
+    "topology": "eim-eim",
+    "dialer": "a",
+    "strategy": "baseline",
+    "client_role": null,
+    "server_role": null,
+    "success": true,
+    "wall_ms": 13992,
+    "evidence": "eim-eim-a-baseline"
+  },
+  {
+    "topology": "up1-eim",
+    "dialer": "a",
+    "strategy": "auto",
+    "client_role": "MappingSideSender",
+    "server_role": "StableSideReceiver",
+    "success": true,
+    "wall_ms": 13642,
+    "evidence": "up1-eim-a-auto"
+  },
+  {
+    "topology": "up1-eim",
+    "dialer": "b",
+    "strategy": "auto",
+    "client_role": "StableSideReceiver",
+    "server_role": "MappingSideSender",
+    "success": true,
+    "wall_ms": 13442,
+    "evidence": "up1-eim-b-auto"
+  },
+  {
+    "topology": "eim-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "client_role": "StableSideReceiver",
+    "server_role": "MappingSideSender",
+    "success": true,
+    "wall_ms": 9233,
+    "evidence": "eim-up1-a-auto"
+  },
+  {
+    "topology": "eim-up1",
+    "dialer": "b",
+    "strategy": "auto",
+    "client_role": "MappingSideSender",
+    "server_role": "StableSideReceiver",
+    "success": true,
+    "wall_ms": 13002,
+    "evidence": "eim-up1-b-auto"
+  }
+]

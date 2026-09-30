@@ -1,0 +1,24 @@
+[
+  {
+    "topology": "up1-up1",
+    "dialer": "a",
+    "trial": 1,
+    "strategy": "baseline",
+    "fixture_seed": "mio58-final-20260929:up1-up1:a:1",
+    "outcome": "harness_error",
+    "runner_rc": 1,
+    "wall_ms": 6631,
+    "fixture_cpu_ms": 1154,
+    "client_path_ms": 278,
+    "server_path_ms": 71,
+    "client_probes": 1,
+    "server_probes": 1,
+    "client_control_sent": 1,
+    "server_control_sent": 1,
+    "client_mqtt_packets": 38,
+    "server_mqtt_packets": 28,
+    "client_udp_sockets": 2,
+    "server_udp_sockets": 2,
+    "evidence": "up1-up1-a-01-baseline"
+  }
+]

@@ -1,0 +1,2 @@
+topology,dialer,trial,strategy,fixture_seed,outcome,runner_rc,wall_ms,fixture_cpu_ms,client_path_ms,server_path_ms,client_probes,server_probes,client_control_sent,server_control_sent,client_mqtt_packets,server_mqtt_packets,client_udp_sockets,server_udp_sockets,evidence
+up1-up1,a,1,baseline,mio58-final-20260929:up1-up1:a:1,harness_error,1,6631,1154,278,71,1,1,1,1,38,28,2,2,up1-up1-a-01-baseline

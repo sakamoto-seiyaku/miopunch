@@ -114,6 +114,15 @@ fn auto_probe_limit() -> Result<usize, Box<dyn Error>> {
     }
 }
 
+fn automatic_strategy(has_mapping_observers: bool) -> Result<bool, Box<dyn Error>> {
+    match std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref() {
+        Ok("baseline" | "coordinated") => Ok(false),
+        Ok("auto") => Ok(true),
+        Err(_) => Ok(has_mapping_observers),
+        _ => Err("invalid NAT strategy".into()),
+    }
+}
+
 struct ObservedCandidate {
     addr: SocketAddr,
     observation: UdpObservation,
@@ -330,6 +339,8 @@ enum CoordFrame {
     Cancel(Round),
     SenderPrimed(Round),
     SenderPrimedAck(Round),
+    ReceiverPrimed(Round),
+    ReceiverPrimedAck(Round),
     PathFailed(Round),
     PathFailedAck(Round),
     PathFailedDone(Round),
@@ -354,6 +365,8 @@ impl CoordFrame {
             Self::Cancel(round) => format!("CANCEL {}", round.encoded()),
             Self::SenderPrimed(round) => format!("SENDER_PRIMED {}", round.encoded()),
             Self::SenderPrimedAck(round) => format!("SENDER_PRIMED_ACK {}", round.encoded()),
+            Self::ReceiverPrimed(round) => format!("RECEIVER_PRIMED {}", round.encoded()),
+            Self::ReceiverPrimedAck(round) => format!("RECEIVER_PRIMED_ACK {}", round.encoded()),
             Self::PathFailed(round) => format!("PATH_FAILED {}", round.encoded()),
             Self::PathFailedAck(round) => format!("PATH_FAILED_ACK {}", round.encoded()),
             Self::PathFailedDone(round) => format!("PATH_FAILED_DONE {}", round.encoded()),
@@ -378,6 +391,8 @@ impl CoordFrame {
             ["CANCEL", round] => Self::Cancel(Round::parse(round)?),
             ["SENDER_PRIMED", round] => Self::SenderPrimed(Round::parse(round)?),
             ["SENDER_PRIMED_ACK", round] => Self::SenderPrimedAck(Round::parse(round)?),
+            ["RECEIVER_PRIMED", round] => Self::ReceiverPrimed(Round::parse(round)?),
+            ["RECEIVER_PRIMED_ACK", round] => Self::ReceiverPrimedAck(Round::parse(round)?),
             ["PATH_FAILED", round] => Self::PathFailed(Round::parse(round)?),
             ["PATH_FAILED_ACK", round] => Self::PathFailedAck(Round::parse(round)?),
             ["PATH_FAILED_DONE", round] => Self::PathFailedDone(Round::parse(round)?),
@@ -436,14 +451,26 @@ async fn send_frame(
     send: &mut iroh::endpoint::SendStream,
     frame: &CoordFrame,
 ) -> Result<(), Box<dyn Error>> {
-    send.write_all(frame.encode().as_bytes()).await?;
+    let encoded = frame.encode();
+    send.write_all(encoded.as_bytes()).await?;
     send.finish()?;
+    println!(
+        "CONTROL_FRAME_SENT kind={} bytes={}",
+        encoded.split_whitespace().next().unwrap(),
+        encoded.len()
+    );
     Ok(())
 }
 
 async fn recv_frame(recv: &mut iroh::endpoint::RecvStream) -> Result<CoordFrame, Box<dyn Error>> {
     let bytes = tokio::time::timeout(COORD_WAIT, recv.read_to_end(128)).await??;
-    CoordFrame::parse(&bytes)
+    let frame = CoordFrame::parse(&bytes)?;
+    println!(
+        "CONTROL_FRAME_RECEIVED kind={} bytes={}",
+        frame.encode().split_whitespace().next().unwrap(),
+        bytes.len()
+    );
+    Ok(frame)
 }
 
 async fn report_auto_path_failure_server(
@@ -576,9 +603,10 @@ async fn coordinate_client(
 fn auto_target(
     local: MappingPattern,
     remote: MappingPattern,
+    is_server: bool,
 ) -> Result<(SocketAddr, PunchRole), Box<dyn Error>> {
-    let role = nat_mapping::choose_single_sequential(local, remote)
-        .ok_or("no supported single-sequential mapping pair")?;
+    let role = nat_mapping::choose_regular_pair(local, remote, is_server)
+        .ok_or("no supported regular mapping pair")?;
     let target = match remote {
         MappingPattern::Stable { address } => address,
         MappingPattern::Sequential { .. } => {
@@ -599,7 +627,7 @@ async fn coordinate_auto_server(
         return Err("auto mapping offer expected".into());
     };
     let own_pattern = evidence.fresh_pattern()?;
-    let (remote, role) = auto_target(own_pattern, remote_pattern)?;
+    let (remote, role) = auto_target(own_pattern, remote_pattern, true)?;
     let round = Round::fresh();
     send_frame(&mut reply, &CoordFrame::AutoReady(round, own_pattern)).await?;
     let (mut reply, mut request) =
@@ -638,7 +666,7 @@ async fn coordinate_auto_client(
     let CoordFrame::AutoReady(round, remote_pattern) = recv_frame(&mut recv).await? else {
         return Err("auto mapping ready expected".into());
     };
-    let (remote, role) = auto_target(evidence.fresh_pattern()?, remote_pattern)?;
+    let (remote, role) = auto_target(evidence.fresh_pattern()?, remote_pattern, false)?;
     if fault == "late_control" {
         tokio::time::sleep(COORD_WAIT + Duration::from_secs(1)).await;
     }
@@ -648,7 +676,12 @@ async fn coordinate_auto_client(
         send_frame(&mut send, &CoordFrame::Cancel(round)).await?;
         return Err("mapping round cancelled".into());
     }
-    send_frame(&mut send, &CoordFrame::Start(round)).await?;
+    let start = if fault == "old_round" {
+        CoordFrame::Start(Round::parse(&std::env::var("MIOPUNCH_NAT_REPLAY_ROUND")?)?)
+    } else {
+        CoordFrame::Start(round)
+    };
+    send_frame(&mut send, &start).await?;
     if recv_frame(&mut recv).await? != CoordFrame::Ack(round) {
         return Err("mapping round acknowledgment mismatch".into());
     }
@@ -665,6 +698,11 @@ async fn auto_probe_window(
     round: Round,
 ) -> Result<(), Box<dyn Error>> {
     let started = Instant::now();
+    let dual_first_packets = match std::env::var("MIOPUNCH_NAT_LAB_DUAL_FIRST_PACKETS").as_deref() {
+        Ok("1") | Err(_) => 1,
+        Ok("2") => 2,
+        _ => return Err("lab dual-first packet count must be 1 or 2".into()),
+    };
     match role {
         PunchRole::MappingSideSender => {
             auto_probe_once(control, gate, evidence, remote).await?;
@@ -686,14 +724,54 @@ async fn auto_probe_window(
             send_frame(&mut reply, &CoordFrame::SenderPrimedAck(round)).await?;
             auto_probe_once(control, gate, evidence, remote).await?;
         }
+        PunchRole::DualFirst => {
+            auto_probe_once(control, gate, evidence, remote).await?;
+            let (mut send, mut recv) =
+                tokio::time::timeout(COORD_WAIT, control.open_control_bi()).await??;
+            send_frame(&mut send, &CoordFrame::SenderPrimed(round)).await?;
+            if recv_frame(&mut recv).await? != CoordFrame::SenderPrimedAck(round) {
+                return Err("dual first-prime acknowledgment mismatch".into());
+            }
+            let (mut reply, mut request) =
+                tokio::time::timeout(COORD_WAIT, control.accept_control_bi()).await??;
+            if recv_frame(&mut request).await? != CoordFrame::ReceiverPrimed(round) {
+                return Err("dual second-prime signal missing or wrong round".into());
+            }
+            send_frame(&mut reply, &CoordFrame::ReceiverPrimedAck(round)).await?;
+            if dual_first_packets == 2 {
+                auto_probe_once(control, gate, evidence, remote).await?;
+            }
+        }
+        PunchRole::DualSecond => {
+            let (mut reply, mut request) =
+                tokio::time::timeout(COORD_WAIT, control.accept_control_bi()).await??;
+            if recv_frame(&mut request).await? != CoordFrame::SenderPrimed(round) {
+                return Err("dual first-prime signal missing or wrong round".into());
+            }
+            send_frame(&mut reply, &CoordFrame::SenderPrimedAck(round)).await?;
+            auto_probe_once(control, gate, evidence, remote).await?;
+            let (mut send, mut recv) =
+                tokio::time::timeout(COORD_WAIT, control.open_control_bi()).await??;
+            send_frame(&mut send, &CoordFrame::ReceiverPrimed(round)).await?;
+            if recv_frame(&mut recv).await? != CoordFrame::ReceiverPrimedAck(round) {
+                return Err("dual second-prime acknowledgment mismatch".into());
+            }
+        }
     }
-    if evidence.peer_probe_limit == 2 {
+    if evidence.peer_probe_limit == 2
+        && !matches!(role, PunchRole::DualFirst | PunchRole::DualSecond)
+    {
         tokio::time::sleep(Duration::from_millis(50)).await;
         auto_probe_once(control, gate, evidence, remote).await?;
     }
+    let probes = match role {
+        PunchRole::DualFirst => dual_first_packets,
+        PunchRole::DualSecond => 1,
+        _ => evidence.peer_probe_limit,
+    };
     println!(
         "AUTO_PROBES_SENT count={} distinct_targets=1 role={role:?} target={remote} elapsed_ms={}",
-        evidence.peer_probe_limit,
+        probes,
         started.elapsed().as_millis()
     );
     Ok(())
@@ -761,7 +839,7 @@ async fn run_server(
         return Ok(());
     }
     let coordinated = std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref() == Ok("coordinated");
-    let automatic = std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref() == Ok("auto");
+    let automatic = automatic_strategy(mapping.is_some())?;
     let advanced = coordinated || automatic;
     let mut active_round = None;
     let mut auto_role = None;
@@ -834,26 +912,17 @@ async fn run_server(
         let own_addr = own_candidate.fresh_addr()?;
         reply.write_all(own_addr.to_string().as_bytes()).await?;
         reply.finish()?;
+        println!(
+            "CONTROL_FRAME_SENT kind=CANDIDATE bytes={}",
+            own_addr.to_string().len()
+        );
+        println!(
+            "CONTROL_FRAME_RECEIVED kind=CANDIDATE bytes={}",
+            remote.to_string().len()
+        );
         remote
     };
     println!("EXCHANGED peer={peer} peer_candidate={remote} stable_id={stable}");
-    println!(
-        "CONTROL_MSGS sent={} received={}",
-        if automatic {
-            3
-        } else if coordinated {
-            2
-        } else {
-            1
-        },
-        if automatic {
-            3
-        } else if coordinated {
-            2
-        } else {
-            1
-        }
-    );
     let path_started = Instant::now();
     if advanced {
         // The auto branch's next control stream is the authenticated
@@ -1030,7 +1099,7 @@ async fn run_client(
         tokio::time::sleep(nat_mapping::MAX_EVIDENCE_AGE + Duration::from_millis(100)).await;
     }
     let coordinated = std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref() == Ok("coordinated");
-    let automatic = std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref() == Ok("auto");
+    let automatic = automatic_strategy(mapping.is_some())?;
     let advanced = coordinated || automatic;
     let mut active_round = None;
     let mut auto_role = None;
@@ -1076,7 +1145,16 @@ async fn run_client(
             let (mut send, mut recv) = control.open_control_bi().await?;
             send.write_all(own_addr.to_string().as_bytes()).await?;
             send.finish()?;
-            read_candidate(&mut recv).await
+            println!(
+                "CONTROL_FRAME_SENT kind=CANDIDATE bytes={}",
+                own_addr.to_string().len()
+            );
+            let addr = read_candidate(&mut recv).await?;
+            println!(
+                "CONTROL_FRAME_RECEIVED kind=CANDIDATE bytes={}",
+                addr.to_string().len()
+            );
+            Ok::<SocketAddr, Box<dyn Error>>(addr)
         })
         .await
         {
@@ -1095,23 +1173,6 @@ async fn run_client(
     let remote = override_candidate.unwrap_or(reported);
     println!(
         "EXCHANGED peer={peer} peer_candidate={reported} attempted={remote} stable_id={stable}"
-    );
-    println!(
-        "CONTROL_MSGS sent={} received={}",
-        if automatic {
-            3
-        } else if coordinated {
-            2
-        } else {
-            1
-        },
-        if automatic {
-            3
-        } else if coordinated {
-            2
-        } else {
-            1
-        }
     );
     let path_started = Instant::now();
     if !advanced {
@@ -1269,10 +1330,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     else {
         return Err("usage: udp_nat_probe identity KEY | server|client KEY CERT BROKER OBSERVER_HOST OBSERVER_PORT PEER_ID [ROUTE [PEER_UDP_OVERRIDE]]".into());
     };
-    if matches!(
-        std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref(),
-        Ok("coordinated" | "auto")
-    ) && std::env::var("MIOPUNCH_NAT_SECRET_FILE").is_err()
+    let has_mapping_observers =
+        std::env::var("MIOPUNCH_NAT_OBSERVERS").is_ok_and(|value| !value.is_empty());
+    let automatic = automatic_strategy(has_mapping_observers)?;
+    if (automatic || std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref() == Ok("coordinated"))
+        && std::env::var("MIOPUNCH_NAT_SECRET_FILE").is_err()
     {
         return Err("enhanced UDP strategy requires an admission-gated control connection".into());
     }
@@ -1287,12 +1349,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .await?;
     let own_candidate = observed_addr(&endpoint).await?;
-    let mapping = if std::env::var("MIOPUNCH_NAT_STRATEGY").as_deref() == Ok("auto") {
+    let mapping = if automatic {
         // The endpoint's baseline QAD observation remains available to all
         // strategies; this allowance covers only the four additional QAD
         // connections and the selected one/two peer-directed datagrams.
         let probe_limit = auto_probe_limit()?;
-        let budget = Arc::new(NodeProbeBudget::new(4, probe_limit));
+        // Both regular sides use one application prime by default. Reserve a
+        // second only for the bounded packet-budget comparison in the lab.
+        let dual_limit = match std::env::var("MIOPUNCH_NAT_LAB_DUAL_FIRST_PACKETS").as_deref() {
+            Ok("2") => 2,
+            Ok("1") | Err(_) => 1,
+            _ => return Err("lab dual-first packet count must be 1 or 2".into()),
+        };
+        let budget = Arc::new(NodeProbeBudget::new(4, probe_limit.max(dual_limit)));
         Some(
             mapping_evidence(
                 &endpoint,
@@ -1372,6 +1441,8 @@ mod tests {
             CoordFrame::Cancel(round),
             CoordFrame::SenderPrimed(round),
             CoordFrame::SenderPrimedAck(round),
+            CoordFrame::ReceiverPrimed(round),
+            CoordFrame::ReceiverPrimedAck(round),
             CoordFrame::PathFailed(round),
             CoordFrame::PathFailedAck(round),
             CoordFrame::PathFailedDone(round),

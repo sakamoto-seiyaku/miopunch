@@ -1,0 +1,1 @@
+case=positive strategy=auto topology=up1-eim dialer=b client_rc=0 server_rc=0

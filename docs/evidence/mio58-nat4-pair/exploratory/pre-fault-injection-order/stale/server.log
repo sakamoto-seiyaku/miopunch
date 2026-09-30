@@ -1,0 +1,8 @@
+CANDIDATE id=cb9c43ad323c8df83af79b607cedc9679df81d9e0b11a239b8aa98bc74313ff5 sockets=[0.0.0.0:43027, [::]:40100] observed=100.64.27.6:43031 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.6:43031 t_ms=0 age_ms=12
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.6:43032 t_ms=3 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.6:43033 t_ms=7 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.6:43034 t_ms=11 age_ms=0
+MAPPING_CLASS pattern=Sequential { last: 100.64.27.6:43034, step: 1 } confidence=consistent_3/3_transitions fresh=true
+READY id=cb9c43ad323c8df83af79b607cedc9679df81d9e0b11a239b8aa98bc74313ff5 route=3d5940ece7b2b3a31eb6e3f153a2e800
+COORD_UNAVAILABLE reason=closed by peer: 0 mqtt=MQTT_TRAFFIC sent_packets=23 sent_bytes=8977 received_packets=29 received_bytes=10586 rejected_packets=0 max_datagram=2048 queue_depth=64

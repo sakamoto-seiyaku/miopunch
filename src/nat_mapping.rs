@@ -32,6 +32,11 @@ pub enum PunchRole {
     MappingSideSender,
     /// Old mode 1's stable Easy side: aim at the predicted mapping.
     StableSideReceiver,
+    /// Both mappings advance: open the local filter first, then wait for the
+    /// other side before starting the QUIC path validation.
+    DualFirst,
+    /// Both mappings advance: send after DualFirst has opened its filter.
+    DualSecond,
 }
 
 /// A local policy ceiling, not an assertion about real NAT allocation.
@@ -150,6 +155,26 @@ pub fn choose_single_sequential(
     }
 }
 
+/// Keep bilateral ordering independent of which node has which port step.
+/// The accepted connection's server sends first for either dialer role.
+pub fn choose_regular_pair(
+    local: MappingPattern,
+    remote: MappingPattern,
+    is_server: bool,
+) -> Option<PunchRole> {
+    if matches!(local, MappingPattern::Sequential { .. })
+        && matches!(remote, MappingPattern::Sequential { .. })
+    {
+        Some(if is_server {
+            PunchRole::DualFirst
+        } else {
+            PunchRole::DualSecond
+        })
+    } else {
+        choose_single_sequential(local, remote)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -246,11 +271,53 @@ mod tests {
     }
 
     #[test]
+    fn bilateral_regular_branch_is_distinct_from_stable_and_single_regular() {
+        let stable = MappingPattern::Stable {
+            address: "100.64.27.6:43027".parse().unwrap(),
+        };
+        let regular = MappingPattern::Sequential {
+            last: "100.64.27.2:42037".parse().unwrap(),
+            step: 2,
+        };
+        assert_eq!(
+            choose_regular_pair(regular, regular, true),
+            Some(PunchRole::DualFirst)
+        );
+        assert_eq!(
+            choose_regular_pair(regular, regular, false),
+            Some(PunchRole::DualSecond)
+        );
+        assert_eq!(
+            choose_regular_pair(regular, stable, true),
+            Some(PunchRole::MappingSideSender)
+        );
+        assert_eq!(
+            choose_regular_pair(stable, regular, false),
+            Some(PunchRole::StableSideReceiver)
+        );
+        assert_eq!(choose_regular_pair(stable, stable, true), None);
+        assert_eq!(
+            choose_regular_pair(MappingPattern::Unknown, regular, true),
+            None
+        );
+    }
+
+    #[test]
     fn one_node_budget_cannot_be_refilled_by_a_second_attempt() {
         let budget = NodeProbeBudget::new(4, 1);
         assert!(budget.reserve_observations(4));
         assert!(!budget.reserve_observations(4));
         assert!(budget.spend_peer_datagram());
         assert!(!budget.spend_peer_datagram());
+    }
+
+    #[test]
+    fn bilateral_first_side_cannot_spend_a_third_datagram() {
+        let budget = NodeProbeBudget::new(4, 2);
+        assert!(budget.reserve_observations(4));
+        assert!(budget.spend_peer_datagram());
+        assert!(budget.spend_peer_datagram());
+        assert!(!budget.spend_peer_datagram());
+        assert!(!budget.reserve_observations(4));
     }
 }

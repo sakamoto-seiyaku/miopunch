@@ -1,0 +1,65 @@
+[
+  {
+    "case": "wrong",
+    "wall_ms": 13894,
+    "client_probes": 1,
+    "server_probes": 1,
+    "client_outcome": "PATH_UNAVAILABLE",
+    "server_outcome": "PATH_UNAVAILABLE",
+    "evidence": "wrong"
+  },
+  {
+    "case": "stale",
+    "wall_ms": 13543,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "STALE_CANDIDATE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "stale"
+  },
+  {
+    "case": "expire_mapping",
+    "wall_ms": 12590,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "expire_mapping"
+  },
+  {
+    "case": "late_control",
+    "wall_ms": 16198,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "late_control"
+  },
+  {
+    "case": "cancel",
+    "wall_ms": 9985,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "cancel"
+  },
+  {
+    "case": "old_round",
+    "wall_ms": 13743,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "old_round"
+  },
+  {
+    "case": "unknown_mapping",
+    "wall_ms": 10286,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "unknown_mapping"
+  }
+]

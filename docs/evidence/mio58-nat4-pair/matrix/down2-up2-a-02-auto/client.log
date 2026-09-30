@@ -1,0 +1,22 @@
+CANDIDATE id=349d5bcbc8018a05211df0ce517da1918ff2e35eae6634bab83b2706b1f916ee sockets=[0.0.0.0:42027, [::]:44548] observed=100.64.27.2:42049 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.2:42049 t_ms=0 age_ms=13
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.2:42047 t_ms=3 age_ms=9
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.2:42045 t_ms=9 age_ms=3
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.2:42043 t_ms=13 age_ms=0
+MAPPING_CLASS pattern=Sequential { last: 100.64.27.2:42043, step: -2 } confidence=consistent_3/3_transitions fresh=true
+CONTROL_FRAME_SENT kind=AUTO_OFFER bytes=33
+CONTROL_FRAME_RECEIVED kind=AUTO_READY bytes=65
+CONTROL_FRAME_SENT kind=START bytes=38
+CONTROL_FRAME_RECEIVED kind=ACK bytes=36
+AUTO_SELECTED role=DualSecond target=100.64.27.6:43039 round=e3db1638a298e9d7fda8c815a3590c00 stable_id=101503817618416
+EXCHANGED peer=d5c3f8ca664d8d228d62c7db9c14870ad87c9f60d8afb6b8e3b7d2c5a57b3550 peer_candidate=100.64.27.6:43039 attempted=100.64.27.6:43039 stable_id=101503817618416
+CONTROL_FRAME_RECEIVED kind=SENDER_PRIMED bytes=46
+CONTROL_FRAME_SENT kind=SENDER_PRIMED_ACK bytes=50
+CONTROL_FRAME_SENT kind=RECEIVER_PRIMED bytes=48
+CONTROL_FRAME_RECEIVED kind=RECEIVER_PRIMED_ACK bytes=52
+AUTO_PROBES_SENT count=1 distinct_targets=1 role=DualSecond target=100.64.27.6:43039 elapsed_ms=91
+PATH_OPEN path_id_retries=0
+CONTROL_FRAME_SENT kind=PROMOTED bytes=41
+CONTROL_FRAME_RECEIVED kind=COMMITTED bytes=42
+UDP_COMMIT_ACK round=e3db1638a298e9d7fda8c815a3590c00 stable_id=101503817618416
+DATA_OK stable_id=101503817618416 peer=d5c3f8ca664d8d228d62c7db9c14870ad87c9f60d8afb6b8e3b7d2c5a57b3550 path_ms=372 paths=PathList { snapshot: State { list: [PathData(1, ip:100.64.27.6:43039)], selected: Some(PathId(1)), closed: true }, .. } mqtt_after_commit=39

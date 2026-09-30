@@ -1,0 +1,1 @@
+case=positive strategy=baseline topology=up1-up2 dialer=b client_rc=0 server_rc=0

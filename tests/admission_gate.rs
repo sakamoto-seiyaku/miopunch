@@ -20,7 +20,7 @@ use miopunch_native_probe::genesis_recovery::RECOVERY_ALPN;
 use miopunch_native_probe::member_bootstrap::MEMBER_BOOTSTRAP_ALPN;
 use miopunch_native_probe::mqtt_transport::{MqttTransport, Traffic};
 use miopunch_native_probe::nat_mapping::{
-    MappingPattern, NodeProbeBudget, choose_single_sequential,
+    MappingPattern, NodeProbeBudget, choose_regular_pair, choose_single_sequential,
 };
 use miopunch_native_probe::native_network::NativeNetwork;
 use miopunch_native_probe::tcp_transport::{TcpOnly, TcpTransport, Traffic as TcpTraffic};
@@ -883,6 +883,17 @@ async fn an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy()
             MappingPattern::Stable {
                 address: "127.0.0.1:42027".parse().unwrap(),
             }
+        )
+        .is_none()
+    );
+    assert!(
+        choose_regular_pair(
+            MappingPattern::Sequential {
+                last: "127.0.0.1:42034".parse().unwrap(),
+                step: 1,
+            },
+            MappingPattern::Unknown,
+            true,
         )
         .is_none()
     );

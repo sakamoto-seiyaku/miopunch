@@ -1,0 +1,114 @@
+[
+  {
+    "topology": "up1-up1",
+    "dialer": "a",
+    "strategy": "baseline",
+    "success": 0,
+    "attempts": 2
+  },
+  {
+    "topology": "up1-up1",
+    "dialer": "a",
+    "strategy": "auto",
+    "success": 2,
+    "attempts": 2
+  },
+  {
+    "topology": "up1-up1",
+    "dialer": "b",
+    "strategy": "baseline",
+    "success": 0,
+    "attempts": 2
+  },
+  {
+    "topology": "up1-up1",
+    "dialer": "b",
+    "strategy": "auto",
+    "success": 2,
+    "attempts": 2
+  },
+  {
+    "topology": "up1-down1",
+    "dialer": "a",
+    "strategy": "baseline",
+    "success": 0,
+    "attempts": 2
+  },
+  {
+    "topology": "up1-down1",
+    "dialer": "a",
+    "strategy": "auto",
+    "success": 2,
+    "attempts": 2
+  },
+  {
+    "topology": "up1-down1",
+    "dialer": "b",
+    "strategy": "baseline",
+    "success": 0,
+    "attempts": 2
+  },
+  {
+    "topology": "up1-down1",
+    "dialer": "b",
+    "strategy": "auto",
+    "success": 2,
+    "attempts": 2
+  },
+  {
+    "topology": "up2-down2",
+    "dialer": "a",
+    "strategy": "baseline",
+    "success": 0,
+    "attempts": 2
+  },
+  {
+    "topology": "up2-down2",
+    "dialer": "a",
+    "strategy": "auto",
+    "success": 2,
+    "attempts": 2
+  },
+  {
+    "topology": "up2-down2",
+    "dialer": "b",
+    "strategy": "baseline",
+    "success": 0,
+    "attempts": 2
+  },
+  {
+    "topology": "up2-down2",
+    "dialer": "b",
+    "strategy": "auto",
+    "success": 2,
+    "attempts": 2
+  },
+  {
+    "topology": "down1-up2",
+    "dialer": "a",
+    "strategy": "baseline",
+    "success": 0,
+    "attempts": 2
+  },
+  {
+    "topology": "down1-up2",
+    "dialer": "a",
+    "strategy": "auto",
+    "success": 2,
+    "attempts": 2
+  },
+  {
+    "topology": "down1-up2",
+    "dialer": "b",
+    "strategy": "baseline",
+    "success": 0,
+    "attempts": 2
+  },
+  {
+    "topology": "down1-up2",
+    "dialer": "b",
+    "strategy": "auto",
+    "success": 2,
+    "attempts": 2
+  }
+]

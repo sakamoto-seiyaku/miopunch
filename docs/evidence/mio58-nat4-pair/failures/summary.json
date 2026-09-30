@@ -1,0 +1,178 @@
+[
+  {
+    "case": "wrong",
+    "wall_ms": 11488,
+    "client_probes": 1,
+    "server_probes": 1,
+    "client_control_sent": 6,
+    "server_control_sent": 6,
+    "client_outcome": "PATH_UNAVAILABLE",
+    "server_outcome": "PATH_UNAVAILABLE",
+    "evidence": "wrong"
+  },
+  {
+    "case": "stale",
+    "wall_ms": 12790,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_control_sent": 0,
+    "server_control_sent": 0,
+    "client_outcome": "STALE_CANDIDATE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "stale"
+  },
+  {
+    "case": "expire_mapping",
+    "wall_ms": 16047,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_control_sent": 0,
+    "server_control_sent": 0,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "expire_mapping"
+  },
+  {
+    "case": "late_control",
+    "wall_ms": 17400,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_control_sent": 1,
+    "server_control_sent": 1,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "late_control"
+  },
+  {
+    "case": "cancel",
+    "wall_ms": 10737,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_control_sent": 2,
+    "server_control_sent": 1,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "cancel"
+  },
+  {
+    "case": "old_round",
+    "wall_ms": 13412,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_control_sent": 2,
+    "server_control_sent": 1,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "old_round"
+  },
+  {
+    "case": "unknown_mapping",
+    "wall_ms": 10222,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_control_sent": 1,
+    "server_control_sent": 0,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "unknown_mapping"
+  },
+  {
+    "case": "jump_b",
+    "wall_ms": 15697,
+    "client_probes": 1,
+    "server_probes": 1,
+    "client_control_sent": 6,
+    "server_control_sent": 6,
+    "client_outcome": "PATH_UNAVAILABLE",
+    "server_outcome": "PATH_UNAVAILABLE",
+    "evidence": "jump_b"
+  },
+  {
+    "case": "reversal",
+    "wall_ms": 13543,
+    "client_probes": 1,
+    "server_probes": 1,
+    "client_control_sent": 6,
+    "server_control_sent": 6,
+    "client_outcome": "PATH_UNAVAILABLE",
+    "server_outcome": "PATH_UNAVAILABLE",
+    "evidence": "reversal"
+  },
+  {
+    "case": "out_of_window",
+    "wall_ms": 12090,
+    "client_probes": 1,
+    "server_probes": 1,
+    "client_control_sent": 6,
+    "server_control_sent": 6,
+    "client_outcome": "PATH_UNAVAILABLE",
+    "server_outcome": "PATH_UNAVAILABLE",
+    "evidence": "out_of_window"
+  },
+  {
+    "case": "wide_claim",
+    "wall_ms": 11588,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_control_sent": 0,
+    "server_control_sent": 0,
+    "client_outcome": "COORD_UNAVAILABLE",
+    "server_outcome": "COORD_UNAVAILABLE",
+    "evidence": "wide_claim"
+  },
+  {
+    "case": "blocked",
+    "wall_ms": 12190,
+    "client_probes": 1,
+    "server_probes": 1,
+    "client_control_sent": 6,
+    "server_control_sent": 6,
+    "client_outcome": "PATH_UNAVAILABLE",
+    "server_outcome": "PATH_UNAVAILABLE",
+    "evidence": "blocked"
+  },
+  {
+    "case": "nonmember",
+    "wall_ms": 9884,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_control_sent": 0,
+    "server_control_sent": 0,
+    "client_outcome": "ADMISSION_REJECTED",
+    "server_outcome": "ADMISSION_REJECTED",
+    "evidence": "nonmember"
+  },
+  {
+    "case": "revoked",
+    "wall_ms": 15045,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_control_sent": 0,
+    "server_control_sent": 0,
+    "client_outcome": "Error:",
+    "server_outcome": "Error:",
+    "evidence": "revoked"
+  },
+  {
+    "case": "no_secret",
+    "wall_ms": 13341,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_control_sent": 0,
+    "server_control_sent": 0,
+    "client_outcome": "Error:",
+    "server_outcome": "Error:",
+    "evidence": "no_secret"
+  },
+  {
+    "case": "wrong_secret",
+    "wall_ms": 9634,
+    "client_probes": 0,
+    "server_probes": 0,
+    "client_control_sent": 0,
+    "server_control_sent": 0,
+    "client_outcome": "Error:",
+    "server_outcome": "Error:",
+    "evidence": "wrong_secret"
+  }
+]

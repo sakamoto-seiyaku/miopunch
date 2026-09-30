@@ -1,0 +1,24 @@
+CANDIDATE id=cbbf71e4d0749f628cc105629e2faa9acded3bcf9995d018fdee4b68bfdb33e0 sockets=[0.0.0.0:42027, [::]:58277] observed=100.64.27.2:42031 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.2:42031 t_ms=0 age_ms=13
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.2:42032 t_ms=3 age_ms=10
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.2:42033 t_ms=8 age_ms=5
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.2:42034 t_ms=13 age_ms=0
+MAPPING_CLASS pattern=Sequential { last: 100.64.27.2:42034, step: 1 } confidence=consistent_3/3_transitions fresh=true
+CONTROL_FRAME_SENT kind=AUTO_OFFER bytes=32
+CONTROL_FRAME_RECEIVED kind=AUTO_READY bytes=65
+CONTROL_FRAME_SENT kind=START bytes=38
+CONTROL_FRAME_RECEIVED kind=ACK bytes=36
+AUTO_SELECTED role=DualSecond target=100.64.27.6:43035 round=6d2bc06a7b9a907de7c3809e5c4903df stable_id=98303267759056
+EXCHANGED peer=7ecbd1cd2228da3e44ecc5d86a7f6d6af64066643aaa62849b4091e0c4b3a216 peer_candidate=100.64.27.6:43035 attempted=100.64.27.6:43035 stable_id=98303267759056
+CONTROL_FRAME_RECEIVED kind=SENDER_PRIMED bytes=46
+CONTROL_FRAME_SENT kind=SENDER_PRIMED_ACK bytes=50
+CONTROL_FRAME_SENT kind=RECEIVER_PRIMED bytes=48
+CONTROL_FRAME_RECEIVED kind=RECEIVER_PRIMED_ACK bytes=52
+AUTO_PROBES_SENT count=1 distinct_targets=1 role=DualSecond target=100.64.27.6:43035 elapsed_ms=96
+PATH_OPEN path_id_retries=0
+PATH_UNAVAILABLE reason=deadline has elapsed mqtt=MQTT_TRAFFIC sent_packets=40 sent_bytes=11093 received_packets=33 received_bytes=9483 rejected_packets=0 max_datagram=2048 queue_depth=64
+CONTROL_FRAME_SENT kind=PATH_FAILED bytes=44
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED_ACK bytes=48
+CONTROL_FRAME_SENT kind=PATH_FAILED_DONE bytes=49
+CONTROL_FRAME_RECEIVED kind=PATH_FAILED_DONE_ACK bytes=53
+CONTROL_ALIVE_AFTER_UDP_FAILURE stable_id=98303267759056

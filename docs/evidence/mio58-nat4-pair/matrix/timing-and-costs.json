@@ -1,0 +1,1799 @@
+{
+  "trials": 64,
+  "rows": [
+    {
+      "trial": "down1-down1-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 70,
+      "server_qad_age_ms": 678,
+      "client_qad_age_ms": 537,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15993,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "down1-down1-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 69,
+      "server_qad_age_ms": 682,
+      "client_qad_age_ms": 539,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "down1-down1-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 46,
+      "server_qad_age_ms": 676,
+      "client_qad_age_ms": 513,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15991,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "down1-down1-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 68,
+      "server_qad_age_ms": 679,
+      "client_qad_age_ms": 537,
+      "application_primes": 2,
+      "peer_udp_datagrams": 34,
+      "peer_udp_payload_bytes": 15964,
+      "peer_quic_datagrams": 32
+    },
+    {
+      "trial": "down1-down2-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 1,
+      "server_qad_age_ms": 713,
+      "client_qad_age_ms": 502,
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15896,
+      "peer_quic_datagrams": 30
+    },
+    {
+      "trial": "down1-down2-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 69,
+      "server_qad_age_ms": 707,
+      "client_qad_age_ms": 566,
+      "application_primes": 2,
+      "peer_udp_datagrams": 33,
+      "peer_udp_payload_bytes": 15929,
+      "peer_quic_datagrams": 31
+    },
+    {
+      "trial": "down1-down2-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 10,
+      "server_qad_age_ms": 707,
+      "client_qad_age_ms": 505,
+      "application_primes": 2,
+      "peer_udp_datagrams": 34,
+      "peer_udp_payload_bytes": 15964,
+      "peer_quic_datagrams": 32
+    },
+    {
+      "trial": "down1-down2-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 68,
+      "server_qad_age_ms": 703,
+      "client_qad_age_ms": 563,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15993,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "down1-up1-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 28,
+      "server_qad_age_ms": 701,
+      "client_qad_age_ms": 521,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "down1-up1-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 28,
+      "server_qad_age_ms": 588,
+      "client_qad_age_ms": 497,
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "peer_quic_datagrams": 30
+    },
+    {
+      "trial": "down1-up1-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 54,
+      "server_qad_age_ms": 684,
+      "client_qad_age_ms": 527,
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15914,
+      "peer_quic_datagrams": 30
+    },
+    {
+      "trial": "down1-up1-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 27,
+      "server_qad_age_ms": 737,
+      "client_qad_age_ms": 554,
+      "application_primes": 2,
+      "peer_udp_datagrams": 31,
+      "peer_udp_payload_bytes": 15880,
+      "peer_quic_datagrams": 29
+    },
+    {
+      "trial": "down1-up2-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 1,
+      "server_qad_age_ms": 717,
+      "client_qad_age_ms": 506,
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "peer_quic_datagrams": 30
+    },
+    {
+      "trial": "down1-up2-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 69,
+      "server_qad_age_ms": 679,
+      "client_qad_age_ms": 537,
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15903,
+      "peer_quic_datagrams": 30
+    },
+    {
+      "trial": "down1-up2-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 69,
+      "server_qad_age_ms": 683,
+      "client_qad_age_ms": 542,
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "peer_quic_datagrams": 30
+    },
+    {
+      "trial": "down1-up2-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 67,
+      "server_qad_age_ms": 685,
+      "client_qad_age_ms": 545,
+      "application_primes": 2,
+      "peer_udp_datagrams": 36,
+      "peer_udp_payload_bytes": 16032,
+      "peer_quic_datagrams": 34
+    },
+    {
+      "trial": "down2-down1-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 67,
+      "server_qad_age_ms": 682,
+      "client_qad_age_ms": 538,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15995,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "down2-down1-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 70,
+      "server_qad_age_ms": 680,
+      "client_qad_age_ms": 539,
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "peer_quic_datagrams": 30
+    },
+    {
+      "trial": "down2-down1-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 27,
+      "server_qad_age_ms": 701,
+      "client_qad_age_ms": 520,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "down2-down1-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 70,
+      "server_qad_age_ms": 695,
+      "client_qad_age_ms": 551,
+      "application_primes": 2,
+      "peer_udp_datagrams": 38,
+      "peer_udp_payload_bytes": 16123,
+      "peer_quic_datagrams": 36
+    },
+    {
+      "trial": "down2-down2-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 1,
+      "server_qad_age_ms": 719,
+      "client_qad_age_ms": 511,
+      "application_primes": 2,
+      "peer_udp_datagrams": 29,
+      "peer_udp_payload_bytes": 15809,
+      "peer_quic_datagrams": 27
+    },
+    {
+      "trial": "down2-down2-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 1,
+      "server_qad_age_ms": 768,
+      "client_qad_age_ms": 559,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15983,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "down2-down2-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 68,
+      "server_qad_age_ms": 679,
+      "client_qad_age_ms": 538,
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "peer_quic_datagrams": 30
+    },
+    {
+      "trial": "down2-down2-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 26,
+      "server_qad_age_ms": 697,
+      "client_qad_age_ms": 515,
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15908,
+      "peer_quic_datagrams": 30
+    },
+    {
+      "trial": "down2-up1-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 45,
+      "server_qad_age_ms": 691,
+      "client_qad_age_ms": 525,
+      "application_primes": 2,
+      "peer_udp_datagrams": 30,
+      "peer_udp_payload_bytes": 15845,
+      "peer_quic_datagrams": 28
+    },
+    {
+      "trial": "down2-up1-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 1,
+      "server_qad_age_ms": 678,
+      "client_qad_age_ms": 468,
+      "application_primes": 2,
+      "peer_udp_datagrams": 33,
+      "peer_udp_payload_bytes": 15937,
+      "peer_quic_datagrams": 31
+    },
+    {
+      "trial": "down2-up1-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 67,
+      "server_qad_age_ms": 681,
+      "client_qad_age_ms": 539,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "down2-up1-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 27,
+      "server_qad_age_ms": 701,
+      "client_qad_age_ms": 521,
+      "application_primes": 2,
+      "peer_udp_datagrams": 33,
+      "peer_udp_payload_bytes": 15937,
+      "peer_quic_datagrams": 31
+    },
+    {
+      "trial": "down2-up2-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 67,
+      "server_qad_age_ms": 682,
+      "client_qad_age_ms": 537,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15994,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "down2-up2-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 69,
+      "server_qad_age_ms": 679,
+      "client_qad_age_ms": 538,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15994,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "down2-up2-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 9,
+      "server_qad_age_ms": 721,
+      "client_qad_age_ms": 521,
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "peer_quic_datagrams": 30
+    },
+    {
+      "trial": "down2-up2-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 69,
+      "server_qad_age_ms": 682,
+      "client_qad_age_ms": 541,
+      "application_primes": 2,
+      "peer_udp_datagrams": 34,
+      "peer_udp_payload_bytes": 15964,
+      "peer_quic_datagrams": 32
+    },
+    {
+      "trial": "up1-down1-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 26,
+      "server_qad_age_ms": 729,
+      "client_qad_age_ms": 528,
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "peer_quic_datagrams": 30
+    },
+    {
+      "trial": "up1-down1-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 52,
+      "server_qad_age_ms": 697,
+      "client_qad_age_ms": 542,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15993,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "up1-down1-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 67,
+      "server_qad_age_ms": 768,
+      "client_qad_age_ms": 624,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "up1-down1-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 70,
+      "server_qad_age_ms": 678,
+      "client_qad_age_ms": 545,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15997,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "up1-down2-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 70,
+      "server_qad_age_ms": 680,
+      "client_qad_age_ms": 537,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 16004,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "up1-down2-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 26,
+      "server_qad_age_ms": 697,
+      "client_qad_age_ms": 512,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15991,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "up1-down2-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 27,
+      "server_qad_age_ms": 703,
+      "client_qad_age_ms": 519,
+      "application_primes": 2,
+      "peer_udp_datagrams": 30,
+      "peer_udp_payload_bytes": 15850,
+      "peer_quic_datagrams": 28
+    },
+    {
+      "trial": "up1-down2-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 1,
+      "server_qad_age_ms": 764,
+      "client_qad_age_ms": 553,
+      "application_primes": 2,
+      "peer_udp_datagrams": 31,
+      "peer_udp_payload_bytes": 15882,
+      "peer_quic_datagrams": 29
+    },
+    {
+      "trial": "up1-up1-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 52,
+      "server_qad_age_ms": 756,
+      "client_qad_age_ms": 529,
+      "application_primes": 2,
+      "peer_udp_datagrams": 33,
+      "peer_udp_payload_bytes": 15939,
+      "peer_quic_datagrams": 31
+    },
+    {
+      "trial": "up1-up1-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 1,
+      "server_qad_age_ms": 932,
+      "client_qad_age_ms": 597,
+      "application_primes": 2,
+      "peer_udp_datagrams": 30,
+      "peer_udp_payload_bytes": 15845,
+      "peer_quic_datagrams": 28
+    },
+    {
+      "trial": "up1-up1-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 68,
+      "server_qad_age_ms": 705,
+      "client_qad_age_ms": 536,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "up1-up1-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 1,
+      "server_qad_age_ms": 831,
+      "client_qad_age_ms": 534,
+      "application_primes": 2,
+      "peer_udp_datagrams": 36,
+      "peer_udp_payload_bytes": 16018,
+      "peer_quic_datagrams": 34
+    },
+    {
+      "trial": "up1-up2-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 12,
+      "server_qad_age_ms": 688,
+      "client_qad_age_ms": 487,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15996,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "up1-up2-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 69,
+      "server_qad_age_ms": 682,
+      "client_qad_age_ms": 563,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15992,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "up1-up2-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 1,
+      "server_qad_age_ms": 774,
+      "client_qad_age_ms": 561,
+      "application_primes": 2,
+      "peer_udp_datagrams": 31,
+      "peer_udp_payload_bytes": 15870,
+      "peer_quic_datagrams": 29
+    },
+    {
+      "trial": "up1-up2-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 67,
+      "server_qad_age_ms": 676,
+      "client_qad_age_ms": 534,
+      "application_primes": 2,
+      "peer_udp_datagrams": 34,
+      "peer_udp_payload_bytes": 15967,
+      "peer_quic_datagrams": 32
+    },
+    {
+      "trial": "up2-down1-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 69,
+      "server_qad_age_ms": 709,
+      "client_qad_age_ms": 566,
+      "application_primes": 2,
+      "peer_udp_datagrams": 34,
+      "peer_udp_payload_bytes": 15966,
+      "peer_quic_datagrams": 32
+    },
+    {
+      "trial": "up2-down1-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 1,
+      "server_qad_age_ms": 767,
+      "client_qad_age_ms": 557,
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15900,
+      "peer_quic_datagrams": 30
+    },
+    {
+      "trial": "up2-down1-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 27,
+      "server_qad_age_ms": 697,
+      "client_qad_age_ms": 520,
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "peer_quic_datagrams": 30
+    },
+    {
+      "trial": "up2-down1-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 70,
+      "server_qad_age_ms": 677,
+      "client_qad_age_ms": 538,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "up2-down2-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 1,
+      "server_qad_age_ms": 699,
+      "client_qad_age_ms": 489,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 16000,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "up2-down2-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 67,
+      "server_qad_age_ms": 684,
+      "client_qad_age_ms": 541,
+      "application_primes": 2,
+      "peer_udp_datagrams": 29,
+      "peer_udp_payload_bytes": 15821,
+      "peer_quic_datagrams": 27
+    },
+    {
+      "trial": "up2-down2-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 67,
+      "server_qad_age_ms": 701,
+      "client_qad_age_ms": 559,
+      "application_primes": 2,
+      "peer_udp_datagrams": 38,
+      "peer_udp_payload_bytes": 16093,
+      "peer_quic_datagrams": 36
+    },
+    {
+      "trial": "up2-down2-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 70,
+      "server_qad_age_ms": 688,
+      "client_qad_age_ms": 551,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "up2-up1-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 42,
+      "server_qad_age_ms": 683,
+      "client_qad_age_ms": 515,
+      "application_primes": 2,
+      "peer_udp_datagrams": 34,
+      "peer_udp_payload_bytes": 15968,
+      "peer_quic_datagrams": 32
+    },
+    {
+      "trial": "up2-up1-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 1,
+      "server_qad_age_ms": 716,
+      "client_qad_age_ms": 506,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15993,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "up2-up1-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 53,
+      "server_qad_age_ms": 673,
+      "client_qad_age_ms": 517,
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15908,
+      "peer_quic_datagrams": 30
+    },
+    {
+      "trial": "up2-up1-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 70,
+      "server_qad_age_ms": 674,
+      "client_qad_age_ms": 534,
+      "application_primes": 2,
+      "peer_udp_datagrams": 29,
+      "peer_udp_payload_bytes": 15819,
+      "peer_quic_datagrams": 27
+    },
+    {
+      "trial": "up2-up2-a-01-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 67,
+      "server_qad_age_ms": 675,
+      "client_qad_age_ms": 534,
+      "application_primes": 2,
+      "peer_udp_datagrams": 34,
+      "peer_udp_payload_bytes": 15964,
+      "peer_quic_datagrams": 32
+    },
+    {
+      "trial": "up2-up2-a-02-auto",
+      "server": "100.64.27.6",
+      "client": "100.64.27.2",
+      "server_first_ms_before_client": 1,
+      "server_qad_age_ms": 738,
+      "client_qad_age_ms": 527,
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "peer_quic_datagrams": 30
+    },
+    {
+      "trial": "up2-up2-b-01-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 46,
+      "server_qad_age_ms": 676,
+      "client_qad_age_ms": 514,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15994,
+      "peer_quic_datagrams": 33
+    },
+    {
+      "trial": "up2-up2-b-02-auto",
+      "server": "100.64.27.2",
+      "client": "100.64.27.6",
+      "server_first_ms_before_client": 1,
+      "server_qad_age_ms": 707,
+      "client_qad_age_ms": 497,
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "peer_quic_datagrams": 33
+    }
+  ],
+  "costs": [
+    {
+      "trial": "down1-down1-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15993,
+      "qad_udp_datagrams": 108,
+      "qad_udp_payload_bytes": 81257
+    },
+    {
+      "trial": "down1-down1-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 45,
+      "qad_udp_payload_bytes": 31360
+    },
+    {
+      "trial": "down1-down1-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "qad_udp_datagrams": 108,
+      "qad_udp_payload_bytes": 79804
+    },
+    {
+      "trial": "down1-down1-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "down1-down1-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15991,
+      "qad_udp_datagrams": 107,
+      "qad_udp_payload_bytes": 79664
+    },
+    {
+      "trial": "down1-down1-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31388
+    },
+    {
+      "trial": "down1-down1-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 34,
+      "peer_udp_payload_bytes": 15964,
+      "qad_udp_datagrams": 112,
+      "qad_udp_payload_bytes": 83158
+    },
+    {
+      "trial": "down1-down1-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31390
+    },
+    {
+      "trial": "down1-down2-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15896,
+      "qad_udp_datagrams": 106,
+      "qad_udp_payload_bytes": 77835
+    },
+    {
+      "trial": "down1-down2-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31392
+    },
+    {
+      "trial": "down1-down2-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 33,
+      "peer_udp_payload_bytes": 15929,
+      "qad_udp_datagrams": 115,
+      "qad_udp_payload_bytes": 85033
+    },
+    {
+      "trial": "down1-down2-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31394
+    },
+    {
+      "trial": "down1-down2-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 34,
+      "peer_udp_payload_bytes": 15964,
+      "qad_udp_datagrams": 108,
+      "qad_udp_payload_bytes": 81263
+    },
+    {
+      "trial": "down1-down2-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31390
+    },
+    {
+      "trial": "down1-down2-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15993,
+      "qad_udp_datagrams": 110,
+      "qad_udp_payload_bytes": 81531
+    },
+    {
+      "trial": "down1-down2-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "down1-up1-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "qad_udp_datagrams": 113,
+      "qad_udp_payload_bytes": 83297
+    },
+    {
+      "trial": "down1-up1-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 45,
+      "qad_udp_payload_bytes": 31360
+    },
+    {
+      "trial": "down1-up1-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "qad_udp_datagrams": 117,
+      "qad_udp_payload_bytes": 85199
+    },
+    {
+      "trial": "down1-up1-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "down1-up1-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15914,
+      "qad_udp_datagrams": 113,
+      "qad_udp_payload_bytes": 83298
+    },
+    {
+      "trial": "down1-up1-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "down1-up1-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 31,
+      "peer_udp_payload_bytes": 15880,
+      "qad_udp_datagrams": 106,
+      "qad_udp_payload_bytes": 79408
+    },
+    {
+      "trial": "down1-up1-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31392
+    },
+    {
+      "trial": "down1-up2-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "qad_udp_datagrams": 112,
+      "qad_udp_payload_bytes": 83165
+    },
+    {
+      "trial": "down1-up2-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "down1-up2-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15903,
+      "qad_udp_datagrams": 108,
+      "qad_udp_payload_bytes": 79684
+    },
+    {
+      "trial": "down1-up2-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31388
+    },
+    {
+      "trial": "down1-up2-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "qad_udp_datagrams": 106,
+      "qad_udp_payload_bytes": 79528
+    },
+    {
+      "trial": "down1-up2-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 45,
+      "qad_udp_payload_bytes": 31360
+    },
+    {
+      "trial": "down1-up2-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 36,
+      "peer_udp_payload_bytes": 16032,
+      "qad_udp_datagrams": 109,
+      "qad_udp_payload_bytes": 81393
+    },
+    {
+      "trial": "down1-up2-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 47,
+      "qad_udp_payload_bytes": 31424
+    },
+    {
+      "trial": "down2-down1-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15995,
+      "qad_udp_datagrams": 109,
+      "qad_udp_payload_bytes": 81401
+    },
+    {
+      "trial": "down2-down1-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "down2-down1-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "qad_udp_datagrams": 105,
+      "qad_udp_payload_bytes": 79383
+    },
+    {
+      "trial": "down2-down1-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "down2-down1-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "qad_udp_datagrams": 115,
+      "qad_udp_payload_bytes": 85031
+    },
+    {
+      "trial": "down2-down1-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31394
+    },
+    {
+      "trial": "down2-down1-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 38,
+      "peer_udp_payload_bytes": 16123,
+      "qad_udp_datagrams": 108,
+      "qad_udp_payload_bytes": 81255
+    },
+    {
+      "trial": "down2-down1-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31396
+    },
+    {
+      "trial": "down2-down2-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 29,
+      "peer_udp_payload_bytes": 15809,
+      "qad_udp_datagrams": 106,
+      "qad_udp_payload_bytes": 79518
+    },
+    {
+      "trial": "down2-down2-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "down2-down2-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15983,
+      "qad_udp_datagrams": 109,
+      "qad_udp_payload_bytes": 81393
+    },
+    {
+      "trial": "down2-down2-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31394
+    },
+    {
+      "trial": "down2-down2-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "qad_udp_datagrams": 109,
+      "qad_udp_payload_bytes": 81285
+    },
+    {
+      "trial": "down2-down2-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "down2-down2-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15908,
+      "qad_udp_datagrams": 111,
+      "qad_udp_payload_bytes": 83132
+    },
+    {
+      "trial": "down2-down2-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "down2-up1-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 30,
+      "peer_udp_payload_bytes": 15845,
+      "qad_udp_datagrams": 114,
+      "qad_udp_payload_bytes": 83436
+    },
+    {
+      "trial": "down2-up1-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31390
+    },
+    {
+      "trial": "down2-up1-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 33,
+      "peer_udp_payload_bytes": 15937,
+      "qad_udp_datagrams": 103,
+      "qad_udp_payload_bytes": 77546
+    },
+    {
+      "trial": "down2-up1-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "down2-up1-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "qad_udp_datagrams": 107,
+      "qad_udp_payload_bytes": 79560
+    },
+    {
+      "trial": "down2-up1-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "down2-up1-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 33,
+      "peer_udp_payload_bytes": 15937,
+      "qad_udp_datagrams": 104,
+      "qad_udp_payload_bytes": 79354
+    },
+    {
+      "trial": "down2-up1-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31390
+    },
+    {
+      "trial": "down2-up2-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15994,
+      "qad_udp_datagrams": 110,
+      "qad_udp_payload_bytes": 81419
+    },
+    {
+      "trial": "down2-up2-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "down2-up2-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15994,
+      "qad_udp_datagrams": 109,
+      "qad_udp_payload_bytes": 79710
+    },
+    {
+      "trial": "down2-up2-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31394
+    },
+    {
+      "trial": "down2-up2-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "qad_udp_datagrams": 101,
+      "qad_udp_payload_bytes": 75904
+    },
+    {
+      "trial": "down2-up2-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31394
+    },
+    {
+      "trial": "down2-up2-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 34,
+      "peer_udp_payload_bytes": 15964,
+      "qad_udp_datagrams": 105,
+      "qad_udp_payload_bytes": 79380
+    },
+    {
+      "trial": "down2-up2-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31388
+    },
+    {
+      "trial": "up1-down1-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "qad_udp_datagrams": 110,
+      "qad_udp_payload_bytes": 81419
+    },
+    {
+      "trial": "up1-down1-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31388
+    },
+    {
+      "trial": "up1-down1-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15993,
+      "qad_udp_datagrams": 111,
+      "qad_udp_payload_bytes": 81559
+    },
+    {
+      "trial": "up1-down1-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 47,
+      "qad_udp_payload_bytes": 31414
+    },
+    {
+      "trial": "up1-down1-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "qad_udp_datagrams": 110,
+      "qad_udp_payload_bytes": 79858
+    },
+    {
+      "trial": "up1-down1-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "up1-down1-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15997,
+      "qad_udp_datagrams": 107,
+      "qad_udp_payload_bytes": 79554
+    },
+    {
+      "trial": "up1-down1-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31394
+    },
+    {
+      "trial": "up1-down2-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 16004,
+      "qad_udp_datagrams": 106,
+      "qad_udp_payload_bytes": 79529
+    },
+    {
+      "trial": "up1-down2-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31394
+    },
+    {
+      "trial": "up1-down2-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15991,
+      "qad_udp_datagrams": 114,
+      "qad_udp_payload_bytes": 84891
+    },
+    {
+      "trial": "up1-down2-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31388
+    },
+    {
+      "trial": "up1-down2-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 30,
+      "peer_udp_payload_bytes": 15850,
+      "qad_udp_datagrams": 105,
+      "qad_udp_payload_bytes": 79496
+    },
+    {
+      "trial": "up1-down2-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31390
+    },
+    {
+      "trial": "up1-down2-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 31,
+      "peer_udp_payload_bytes": 15882,
+      "qad_udp_datagrams": 109,
+      "qad_udp_payload_bytes": 81505
+    },
+    {
+      "trial": "up1-down2-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "up1-up1-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 33,
+      "peer_udp_payload_bytes": 15939,
+      "qad_udp_datagrams": 110,
+      "qad_udp_payload_bytes": 81425
+    },
+    {
+      "trial": "up1-up1-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "up1-up1-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 30,
+      "peer_udp_payload_bytes": 15845,
+      "qad_udp_datagrams": 109,
+      "qad_udp_payload_bytes": 81287
+    },
+    {
+      "trial": "up1-up1-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 45,
+      "qad_udp_payload_bytes": 31364
+    },
+    {
+      "trial": "up1-up1-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "qad_udp_datagrams": 107,
+      "qad_udp_payload_bytes": 79544
+    },
+    {
+      "trial": "up1-up1-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31404
+    },
+    {
+      "trial": "up1-up1-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 36,
+      "peer_udp_payload_bytes": 16018,
+      "qad_udp_datagrams": 112,
+      "qad_udp_payload_bytes": 83269
+    },
+    {
+      "trial": "up1-up1-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31390
+    },
+    {
+      "trial": "up1-up2-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15996,
+      "qad_udp_datagrams": 103,
+      "qad_udp_payload_bytes": 76082
+    },
+    {
+      "trial": "up1-up2-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 47,
+      "qad_udp_payload_bytes": 31425
+    },
+    {
+      "trial": "up1-up2-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15992,
+      "qad_udp_datagrams": 105,
+      "qad_udp_payload_bytes": 79492
+    },
+    {
+      "trial": "up1-up2-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 45,
+      "qad_udp_payload_bytes": 31360
+    },
+    {
+      "trial": "up1-up2-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 31,
+      "peer_udp_payload_bytes": 15870,
+      "qad_udp_datagrams": 105,
+      "qad_udp_payload_bytes": 79388
+    },
+    {
+      "trial": "up1-up2-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 45,
+      "qad_udp_payload_bytes": 31360
+    },
+    {
+      "trial": "up1-up2-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 34,
+      "peer_udp_payload_bytes": 15967,
+      "qad_udp_datagrams": 111,
+      "qad_udp_payload_bytes": 83242
+    },
+    {
+      "trial": "up1-up2-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31388
+    },
+    {
+      "trial": "up2-down1-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 34,
+      "peer_udp_payload_bytes": 15966,
+      "qad_udp_datagrams": 103,
+      "qad_udp_payload_bytes": 77531
+    },
+    {
+      "trial": "up2-down1-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31390
+    },
+    {
+      "trial": "up2-down1-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15900,
+      "qad_udp_datagrams": 113,
+      "qad_udp_payload_bytes": 83296
+    },
+    {
+      "trial": "up2-down1-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "up2-down1-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "qad_udp_datagrams": 114,
+      "qad_udp_payload_bytes": 83322
+    },
+    {
+      "trial": "up2-down1-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "up2-down1-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "qad_udp_datagrams": 108,
+      "qad_udp_payload_bytes": 79682
+    },
+    {
+      "trial": "up2-down1-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 47,
+      "qad_udp_payload_bytes": 31426
+    },
+    {
+      "trial": "up2-down2-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 16000,
+      "qad_udp_datagrams": 113,
+      "qad_udp_payload_bytes": 83296
+    },
+    {
+      "trial": "up2-down2-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "up2-down2-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 29,
+      "peer_udp_payload_bytes": 15821,
+      "qad_udp_datagrams": 101,
+      "qad_udp_payload_bytes": 76019
+    },
+    {
+      "trial": "up2-down2-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31388
+    },
+    {
+      "trial": "up2-down2-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 38,
+      "peer_udp_payload_bytes": 16093,
+      "qad_udp_datagrams": 107,
+      "qad_udp_payload_bytes": 79552
+    },
+    {
+      "trial": "up2-down2-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "up2-down2-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "qad_udp_datagrams": 110,
+      "qad_udp_payload_bytes": 81531
+    },
+    {
+      "trial": "up2-down2-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "up2-up1-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 34,
+      "peer_udp_payload_bytes": 15968,
+      "qad_udp_datagrams": 111,
+      "qad_udp_payload_bytes": 81451
+    },
+    {
+      "trial": "up2-up1-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 45,
+      "qad_udp_payload_bytes": 31362
+    },
+    {
+      "trial": "up2-up1-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15993,
+      "qad_udp_datagrams": 107,
+      "qad_udp_payload_bytes": 79546
+    },
+    {
+      "trial": "up2-up1-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31390
+    },
+    {
+      "trial": "up2-up1-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15908,
+      "qad_udp_datagrams": 109,
+      "qad_udp_payload_bytes": 81393
+    },
+    {
+      "trial": "up2-up1-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "up2-up1-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 29,
+      "peer_udp_payload_bytes": 15819,
+      "qad_udp_datagrams": 107,
+      "qad_udp_payload_bytes": 79550
+    },
+    {
+      "trial": "up2-up1-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31388
+    },
+    {
+      "trial": "up2-up2-a-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 34,
+      "peer_udp_payload_bytes": 15964,
+      "qad_udp_datagrams": 101,
+      "qad_udp_payload_bytes": 75796
+    },
+    {
+      "trial": "up2-up2-a-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31386
+    },
+    {
+      "trial": "up2-up2-a-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 32,
+      "peer_udp_payload_bytes": 15906,
+      "qad_udp_datagrams": 118,
+      "qad_udp_payload_bytes": 86910
+    },
+    {
+      "trial": "up2-up2-a-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31388
+    },
+    {
+      "trial": "up2-up2-b-01-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15994,
+      "qad_udp_datagrams": 112,
+      "qad_udp_payload_bytes": 83162
+    },
+    {
+      "trial": "up2-up2-b-01-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 47,
+      "qad_udp_payload_bytes": 31414
+    },
+    {
+      "trial": "up2-up2-b-02-auto",
+      "application_primes": 2,
+      "peer_udp_datagrams": 35,
+      "peer_udp_payload_bytes": 15990,
+      "qad_udp_datagrams": 106,
+      "qad_udp_payload_bytes": 79630
+    },
+    {
+      "trial": "up2-up2-b-02-baseline",
+      "application_primes": 2,
+      "peer_udp_datagrams": 9,
+      "peer_udp_payload_bytes": 8422,
+      "qad_udp_datagrams": 46,
+      "qad_udp_payload_bytes": 31388
+    }
+  ]
+}

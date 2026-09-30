@@ -1,0 +1,1 @@
+case=revoked strategy=auto topology=up1-up1 dialer=a client_rc=1 server_rc=1

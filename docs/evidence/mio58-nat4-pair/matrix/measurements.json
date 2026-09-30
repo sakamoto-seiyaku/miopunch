@@ -1,0 +1,32 @@
+{
+  "baseline": {
+    "attempts": 64,
+    "success": 0,
+    "fixture_wall_median_ms": 18953.0,
+    "fixture_cpu_median_ms": 1366.5,
+    "application_primes_median": 2.0,
+    "peer_udp_datagrams_median": 9.0,
+    "peer_udp_payload_bytes_median": 8422.0,
+    "qad_udp_datagrams_median": 46.0,
+    "qad_udp_payload_bytes_median": 31388.0
+  },
+  "auto": {
+    "attempts": 64,
+    "success": 64,
+    "fixture_wall_median_ms": 7479.5,
+    "fixture_cpu_median_ms": 1297.5,
+    "application_primes_median": 2.0,
+    "peer_udp_datagrams_median": 34.0,
+    "peer_udp_payload_bytes_median": 15965.0,
+    "qad_udp_datagrams_median": 109.0,
+    "qad_udp_payload_bytes_median": 81260.0
+  },
+  "qad_age_ms_range": [
+    468,
+    932
+  ],
+  "first_before_second_ms_range": [
+    1,
+    70
+  ]
+}

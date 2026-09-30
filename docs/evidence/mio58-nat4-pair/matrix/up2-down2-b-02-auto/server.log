@@ -1,0 +1,24 @@
+CANDIDATE id=e94e39f731f34400e53546b6b28bde9d62588410083f5c836ce6d77e73d5ea2d sockets=[0.0.0.0:42027, [::]:36774] observed=100.64.27.2:42031 mapping_varies=None
+MAPPING_SAMPLE order=0 observer=https://qad.miopunch.test/ destination=100.64.27.1:46761 mapped=100.64.27.2:42031 t_ms=0 age_ms=13
+MAPPING_SAMPLE order=1 observer=https://qad2.miopunch.test/ destination=100.64.27.1:46762 mapped=100.64.27.2:42033 t_ms=5 age_ms=8
+MAPPING_SAMPLE order=2 observer=https://qad3.miopunch.test/ destination=100.64.27.1:46763 mapped=100.64.27.2:42035 t_ms=8 age_ms=4
+MAPPING_SAMPLE order=3 observer=https://qad4.miopunch.test/ destination=100.64.27.1:46764 mapped=100.64.27.2:42037 t_ms=13 age_ms=0
+MAPPING_CLASS pattern=Sequential { last: 100.64.27.2:42037, step: 2 } confidence=consistent_3/3_transitions fresh=true
+READY id=e94e39f731f34400e53546b6b28bde9d62588410083f5c836ce6d77e73d5ea2d route=0f88da55cb471c12ce51d8fa1f7b363f
+CONTROL_FRAME_RECEIVED kind=AUTO_OFFER bytes=33
+CONTROL_FRAME_SENT kind=AUTO_READY bytes=65
+CONTROL_FRAME_RECEIVED kind=START bytes=38
+CONTROL_FRAME_SENT kind=ACK bytes=36
+AUTO_SELECTED role=DualFirst target=100.64.27.6:43041 round=a605758bd12d72966f1d74ba83f6fa80 stable_id=103116052411936
+EXCHANGED peer=73943b7b09e0f033017470dae744819db5b6c97440b3c0ff2f5131fec3d27e3c peer_candidate=100.64.27.6:43041 stable_id=103116052411936
+CONTROL_FRAME_SENT kind=SENDER_PRIMED bytes=46
+CONTROL_FRAME_RECEIVED kind=SENDER_PRIMED_ACK bytes=50
+CONTROL_FRAME_RECEIVED kind=RECEIVER_PRIMED bytes=48
+CONTROL_FRAME_SENT kind=RECEIVER_PRIMED_ACK bytes=52
+AUTO_PROBES_SENT count=1 distinct_targets=1 role=DualFirst target=100.64.27.6:43041 elapsed_ms=114
+CONTROL_FRAME_RECEIVED kind=PROMOTED bytes=41
+UDP_PROMOTION_RECEIVED round=a605758bd12d72966f1d74ba83f6fa80 stable_id=103116052411936
+PATH_OBSERVED peer=73943b7b09e0f033017470dae744819db5b6c97440b3c0ff2f5131fec3d27e3c stable_id=103116052411936
+CONTROL_FRAME_SENT kind=COMMITTED bytes=42
+UDP_COMMIT_ACK round=a605758bd12d72966f1d74ba83f6fa80 stable_id=103116052411936
+DATA_OK stable_id=103116052411936 peer=73943b7b09e0f033017470dae744819db5b6c97440b3c0ff2f5131fec3d27e3c path_ms=187 paths=PathList { snapshot: State { list: [PathData(1, ip:100.64.27.6:43041)], selected: Some(PathId(1)), closed: false }, .. } mqtt_after_commit=34

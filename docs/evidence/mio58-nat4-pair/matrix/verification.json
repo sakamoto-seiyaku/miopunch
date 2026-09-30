@@ -1,0 +1,12 @@
+{
+  "verified_pairs": 64,
+  "baseline_success": 0,
+  "auto_success": 64,
+  "auto_client_path_median_ms": 367.0,
+  "auto_client_path_range_ms": [
+    280,
+    393
+  ],
+  "baseline_wall_median_ms": 18953.0,
+  "auto_wall_median_ms": 7479.5
+}

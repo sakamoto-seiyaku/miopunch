@@ -1,0 +1,17 @@
+topology,dialer,trial,strategy,fixture_seed,outcome,runner_rc,wall_ms,fixture_cpu_ms,client_path_ms,server_path_ms,client_probes,server_probes,client_control_sent,server_control_sent,client_mqtt_packets,server_mqtt_packets,client_udp_sockets,server_udp_sockets,evidence
+up1-up1,a,1,baseline,mio58-final-first1-20260930:up1-up1:a:1,no_path,0,19213,1439,,,1,1,1,1,33,27,2,2,up1-up1-a-01-baseline
+up1-up1,a,1,auto,mio58-final-first1-20260930:up1-up1:a:1,success,0,10286,1312,377,170,1,1,4,4,43,38,2,2,up1-up1-a-01-auto
+up1-up1,a,2,auto,mio58-final-first1-20260930:up1-up1:a:2,success,0,12891,1321,367,189,1,1,4,4,36,33,2,2,up1-up1-a-02-auto
+up1-up1,a,2,baseline,mio58-final-first1-20260930:up1-up1:a:2,no_path,0,25517,1394,,,1,1,1,1,35,26,2,2,up1-up1-a-02-baseline
+up1-up1,b,1,baseline,mio58-final-first1-20260930:up1-up1:b:1,no_path,0,23865,1397,,,1,1,1,1,32,26,2,2,up1-up1-b-01-baseline
+up1-up1,b,1,auto,mio58-final-first1-20260930:up1-up1:b:1,success,0,13092,1325,367,187,1,1,4,4,40,35,2,2,up1-up1-b-01-auto
+up1-up1,b,2,auto,mio58-final-first1-20260930:up1-up1:b:2,success,0,10286,1303,376,126,1,1,4,4,41,37,2,2,up1-up1-b-02-auto
+up1-up1,b,2,baseline,mio58-final-first1-20260930:up1-up1:b:2,no_path,0,20664,1407,,,1,1,1,1,34,28,2,2,up1-up1-b-02-baseline
+up1-down1,a,1,baseline,mio58-final-first1-20260930:up1-down1:a:1,no_path,0,19496,1615,,,1,1,1,1,25,24,2,2,up1-down1-a-01-baseline
+up1-down1,a,1,auto,mio58-final-first1-20260930:up1-down1:a:1,success,0,12416,2347,369,186,1,1,4,4,40,33,2,2,up1-down1-a-01-auto
+up1-down1,a,2,auto,mio58-final-first1-20260930:up1-down1:a:2,success,0,8184,1377,372,190,1,1,4,4,35,34,2,2,up1-down1-a-02-auto
+up1-down1,a,2,baseline,mio58-final-first1-20260930:up1-down1:a:2,no_path,0,19757,1388,,,1,1,1,1,34,27,2,2,up1-down1-a-02-baseline
+up1-down1,b,1,baseline,mio58-final-first1-20260930:up1-down1:b:1,no_path,0,20710,1411,,,1,1,1,1,37,28,2,2,up1-down1-b-01-baseline
+up1-down1,b,1,auto,mio58-final-first1-20260930:up1-down1:b:1,success,0,9385,1313,333,84,1,1,4,4,40,36,2,2,up1-down1-b-01-auto
+up1-down1,b,2,auto,mio58-final-first1-20260930:up1-down1:b:2,success,0,7581,1301,374,124,1,1,4,4,42,37,2,2,up1-down1-b-02-auto
+up1-down1,b,2,baseline,mio58-final-first1-20260930:up1-down1:b:2,harness_error,127,4424,471,,,,,,,,,0,0,up1-down1-b-02-baseline
