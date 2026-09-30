@@ -1,0 +1,32 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--features",
+    "replica-test-hooks",
+    "--test",
+    "management_auth",
+    "--test",
+    "management_store",
+    "--test",
+    "daily_management",
+    "--",
+    "--test-threads=1"
+  ],
+  "tool_session": 97513,
+  "exit_code": 0,
+  "totals": {
+    "daily_management": 6,
+    "management_auth": 7,
+    "management_store": 6
+  },
+  "passed": 19,
+  "failed": 0,
+  "raw_stdout_location": "Codex tool session97513; final-generation1 also runs these exact source tests",
+  "credential_negative_tool_exit": 0,
+  "source_receipt": "/tmp/mio32-plane/fixed-source.json",
+  "note": "Receipt summarizes actual observed tool output; it is not a reconstructed raw log"
+}

@@ -1,0 +1,119 @@
+[
+  {
+    "original_path": "docs/evidence/mio32-daily-management/causal-wire-orders.log",
+    "compressed_path": "docs/evidence/mio32-daily-management/causal-wire-orders.log.gz",
+    "original_bytes": 1350,
+    "compressed_bytes": 677,
+    "original_sha256": "57c445e0dcc9a62eceac8eda45690088151eeffafc49233f136e4a8ee80b8d66",
+    "compressed_sha256": "55f56ce21d3ba735190455d84ed6e8c243a0bf0ca4294f273e0ad0f2ebe06126",
+    "roundtrip_sha256": "57c445e0dcc9a62eceac8eda45690088151eeffafc49233f136e4a8ee80b8d66"
+  },
+  {
+    "original_path": "docs/evidence/mio32-daily-management/demotion-green.log",
+    "compressed_path": "docs/evidence/mio32-daily-management/demotion-green.log.gz",
+    "original_bytes": 873,
+    "compressed_bytes": 542,
+    "original_sha256": "1d7008580be6d6d7e045e4832a85fabdfefb00119c102d7c0d0b852e27fef82f",
+    "compressed_sha256": "eaff6064514e4068b04c064cb799c7277c1061175d4f67684a1c1ea84d7cf76d",
+    "roundtrip_sha256": "1d7008580be6d6d7e045e4832a85fabdfefb00119c102d7c0d0b852e27fef82f"
+  },
+  {
+    "original_path": "docs/evidence/mio32-daily-management/demotion-red.log",
+    "compressed_path": "docs/evidence/mio32-daily-management/demotion-red.log.gz",
+    "original_bytes": 2081,
+    "compressed_bytes": 694,
+    "original_sha256": "c338efac6e675a8dbf002412b911bbac85700d65e6337d71db72522184cdba27",
+    "compressed_sha256": "a2d9bb4b82436265b2e02458881c295f31c43db2b6d33185f2970d5d0a42b796",
+    "roundtrip_sha256": "c338efac6e675a8dbf002412b911bbac85700d65e6337d71db72522184cdba27"
+  },
+  {
+    "original_path": "docs/evidence/mio32-daily-management/final-generation1/browser-wasm.log",
+    "compressed_path": "docs/evidence/mio32-daily-management/final-generation1/browser-wasm.log.gz",
+    "original_bytes": 72,
+    "compressed_bytes": 91,
+    "original_sha256": "29b5eb7e6828fd2e1c45fec9c88ddf581e48fee458005e18d12a35400858745b",
+    "compressed_sha256": "64a94c1ff02a1c958cb4094a2f0078620735d480844f2620d3fc6ddee9f18e9f",
+    "roundtrip_sha256": "29b5eb7e6828fd2e1c45fec9c88ddf581e48fee458005e18d12a35400858745b"
+  },
+  {
+    "original_path": "docs/evidence/mio32-daily-management/final-generation1/fault-build-typecheck.log",
+    "compressed_path": "docs/evidence/mio32-daily-management/final-generation1/fault-build-typecheck.log.gz",
+    "original_bytes": 138,
+    "compressed_bytes": 136,
+    "original_sha256": "9eee4d244565146fe4a2c326beed8fd816860052906cf424e9aa9e73d9a462cb",
+    "compressed_sha256": "0060ee9212365e892af29236a7b11286be95b1f614eefdc81d1d5b24c76bd9ab",
+    "roundtrip_sha256": "9eee4d244565146fe4a2c326beed8fd816860052906cf424e9aa9e73d9a462cb"
+  },
+  {
+    "original_path": "docs/evidence/mio32-daily-management/final-generation1/format.log",
+    "compressed_path": "docs/evidence/mio32-daily-management/final-generation1/format.log.gz",
+    "original_bytes": 0,
+    "compressed_bytes": 20,
+    "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "compressed_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+    "roundtrip_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "original_path": "docs/evidence/mio32-daily-management/final-generation1/full-real-broker-suite.log",
+    "compressed_path": "docs/evidence/mio32-daily-management/final-generation1/full-real-broker-suite.log.gz",
+    "original_bytes": 75059,
+    "compressed_bytes": 12304,
+    "original_sha256": "9be3ad5c3b8618ede1044a9dcb212bbc766198e64962b5ec34358b9f2d35a861",
+    "compressed_sha256": "e0f183cb989c1d3700bbb5e40c15fc8cf7f18c8892709675a42629019b25deab",
+    "roundtrip_sha256": "9be3ad5c3b8618ede1044a9dcb212bbc766198e64962b5ec34358b9f2d35a861"
+  },
+  {
+    "original_path": "docs/evidence/mio32-daily-management/final-generation1/workspace-typecheck.log",
+    "compressed_path": "docs/evidence/mio32-daily-management/final-generation1/workspace-typecheck.log.gz",
+    "original_bytes": 72,
+    "compressed_bytes": 91,
+    "original_sha256": "dccad65a474a0e64d7c677fc96c87f30265067841005a793f4d82605fea6fe77",
+    "compressed_sha256": "923b831437524e79b03fd56c02b2544bd694bfff238361379a4031e330e8eae2",
+    "roundtrip_sha256": "dccad65a474a0e64d7c677fc96c87f30265067841005a793f4d82605fea6fe77"
+  },
+  {
+    "original_path": "docs/evidence/mio32-daily-management/first-green.log",
+    "compressed_path": "docs/evidence/mio32-daily-management/first-green.log.gz",
+    "original_bytes": 796,
+    "compressed_bytes": 482,
+    "original_sha256": "408500331e3275a65e21676f1911bf2c9cb2c0a02c8791aa9fb1843570eb755a",
+    "compressed_sha256": "989626010bdcae04990b8a7941f6127a42353db561c9b50043dff3e9acbfce3e",
+    "roundtrip_sha256": "408500331e3275a65e21676f1911bf2c9cb2c0a02c8791aa9fb1843570eb755a"
+  },
+  {
+    "original_path": "docs/evidence/mio32-daily-management/first-red.log",
+    "compressed_path": "docs/evidence/mio32-daily-management/first-red.log.gz",
+    "original_bytes": 2992,
+    "compressed_bytes": 946,
+    "original_sha256": "7f5aead8628fbc43768e219bf2fc89b0d0e0383dfff6a7976ea0ae6e1d93c603",
+    "compressed_sha256": "e113dd38fc320849afb1c71ec776263788d6c531b8fb7cd633a5e06392bb443b",
+    "roundtrip_sha256": "7f5aead8628fbc43768e219bf2fc89b0d0e0383dfff6a7976ea0ae6e1d93c603"
+  },
+  {
+    "original_path": "docs/evidence/mio32-daily-management/first-runtime-sandbox-denied.log",
+    "compressed_path": "docs/evidence/mio32-daily-management/first-runtime-sandbox-denied.log.gz",
+    "original_bytes": 1367,
+    "compressed_bytes": 737,
+    "original_sha256": "9f9202fa28c5ddd6ad900f580f501858a4c6bd4e25df71edb78223f9ecca0f6a",
+    "compressed_sha256": "964b1bcc03b88b70955f74761c32ccd6c07fa5ca9058f8939d00e0ab095aa9ca",
+    "roundtrip_sha256": "9f9202fa28c5ddd6ad900f580f501858a4c6bd4e25df71edb78223f9ecca0f6a"
+  },
+  {
+    "original_path": "docs/evidence/mio32-daily-management/priority-window.log",
+    "compressed_path": "docs/evidence/mio32-daily-management/priority-window.log.gz",
+    "original_bytes": 862,
+    "compressed_bytes": 535,
+    "original_sha256": "955aa3272b677c8eceb87e7dee0197547664c7d5fe21ed878e23be0276e14c7b",
+    "compressed_sha256": "ffd347b3e91f575d1286f58f331f199327734431d37aaef22d195c6a7a4c1e8e",
+    "roundtrip_sha256": "955aa3272b677c8eceb87e7dee0197547664c7d5fe21ed878e23be0276e14c7b"
+  },
+  {
+    "original_path": "docs/evidence/mio32-daily-management/unauthorized-raw-records.log",
+    "compressed_path": "docs/evidence/mio32-daily-management/unauthorized-raw-records.log.gz",
+    "original_bytes": 878,
+    "compressed_bytes": 543,
+    "original_sha256": "feb8db1b316b92ad9b798e34e32510a20cf03add4cb4eef3ef0ac299cae3ce88",
+    "compressed_sha256": "51346ff43699656863be177a352621cc4add5e77bed1e0934434b209170059eb",
+    "roundtrip_sha256": "feb8db1b316b92ad9b798e34e32510a20cf03add4cb4eef3ef0ac299cae3ce88"
+  }
+]

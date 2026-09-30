@@ -580,6 +580,18 @@ impl ManagementStore {
         self.auth.tips()
     }
 
+    /// Preflight local authoring without persisting a rejected action. Actual
+    /// application still runs the identical verifier in its durable transaction.
+    pub(crate) fn validate_local_record(
+        &self,
+        record: &ManagementRecord,
+    ) -> Result<Hash, StoreError> {
+        Ok(self
+            .auth
+            .clone()
+            .accept_record(record.header(), record.body())?)
+    }
+
     pub fn has_author_log_id(&self, author: VerifyingKey, log_id: [u8; 16]) -> bool {
         self.auth.has_author_log_id(author, log_id)
     }

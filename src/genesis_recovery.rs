@@ -125,6 +125,10 @@ impl GenesisCredential {
             genesis: self.genesis,
         }
     }
+
+    pub(crate) fn into_signing_key(self) -> SigningKey {
+        self.root
+    }
 }
 
 fn proof_statement(

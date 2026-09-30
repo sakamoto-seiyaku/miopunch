@@ -1,6 +1,7 @@
 pub mod admission_gate;
 pub mod admission_proof;
 pub mod control_session;
+pub mod daily_management;
 pub mod genesis_recovery;
 pub mod management_auth;
 pub mod management_store;

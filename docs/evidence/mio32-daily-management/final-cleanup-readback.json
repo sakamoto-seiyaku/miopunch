@@ -1,0 +1,8 @@
+{
+  "container": "12a420fc9cb085cfa0edbc2900755479a9a218281787cff0c770d292da5a2873",
+  "inspect_exit": 1,
+  "stdout": "[]\n",
+  "stderr": "error: no such object: 12a420fc9cb085cfa0edbc2900755479a9a218281787cff0c770d292da5a2873\n",
+  "confirmed_absent": true,
+  "receipt_check_note": "Initial case-sensitive assertion expected uppercase No; Docker actually returns lowercase error: no such object. Readback verified using actual case-insensitive response, not a container failure."
+}

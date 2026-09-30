@@ -110,6 +110,7 @@ pub struct NativeNetwork {
     pub(crate) scope: AdmissionScope,
     pub(crate) secret: Option<AdmissionSecret>,
     pub(crate) join: Option<JoinBinding>,
+    pub(crate) management_instance: [u8; 16],
     directory: PathBuf,
     udp: NatConnector,
 }
@@ -325,6 +326,7 @@ impl NativeNetwork {
             scope,
             secret,
             join,
+            management_instance: rand::random(),
             directory: path.to_path_buf(),
             udp: NatConnector::new(None, UdpPolicy::default()),
         })
