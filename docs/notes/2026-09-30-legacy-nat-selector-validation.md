@@ -28,7 +28,7 @@ prime 本身不认证身份或授予业务权限。成功仍须原 Connection �
 | WAN 阻断、错误路径目标 | 各一次 | 无业务/学习，保留原受保护控制失败握手 |
 | 非成员、已撤销、无秘密、错秘密 | 各一次 | 无增强 S、无 Plan、无 peer prime，无业务或学习 |
 
-[`legacy_nat_verify.py`](../../scripts/legacy_nat_verify.py)逐条把 S 的映射/目的与 WAN 实际 UDP 发包及 observer 响应匹配，核对初始列表/分数、round、每端唯一 stable ID、明确执行状态和失败结果。Linux `any` 抓包可能在两个接口重复看到同一包，因此 `peer_prime_capture_occurrences` 不能当应用发送数；一次提交由日志与真实预算回归共同核验。故意删除一条 S 的[检查器负例](../evidence/mio62-legacy-selector/verification/verifier-negative.json)被拒绝。
+[`legacy_nat_verify.py`](../../scripts/legacy_nat_verify.py)逐条把 S 的映射/目的与 WAN 实际 UDP 发包及 observer 响应匹配，核对初始列表/分数、round、每端唯一 stable ID、明确执行状态和失败结果。检查还要求预期退出码和明确准入拒绝原因、完整 peer capture filter、无 drop、captured/received 相等及完整 pcap record 数；不能把任意启动错误或空 capture 当作零探测负例。Linux `any` 抓包可能在两个接口重复看到同一包，因此 `peer_prime_capture_occurrences` 不能当应用发送数；一次提交由日志与真实预算回归共同核验。七项[检查器负例](../evidence/mio62-legacy-selector/verification/verifier-negative.json)分别拒绝缺失 S、无关启动错误、意外退出、header-only/truncated pcap、读取缓冲未排空及错误 filter。短 unavailable 跑用 `--immediate-mode` 完整排空抓包；缺证据的旧跑保留而不计通过。
 
 [`legacy_nat_runtime.rs`](../../tests/legacy_nat_runtime.rs)七项真实 QAD/TLS/UDP 测试覆盖两个目的/双方公网初选0/2、原连接实际业务及一次反馈、超过两秒仍可用但换网失效、取消/撤销零预算、错网络/旧 round 不创建评分、错 gate/无目标 disabled、assisted-only receive-only 及实际业务、额度拒绝或秘密变更后拒绝学习。这些是协议接缝测试，不证明 NAT 成功率。
 

@@ -35,6 +35,9 @@ def adapted_fixture(repo, topology, dialer):
   if [[ $topology == ipchange && $((index % 2)) -eq 1 ]]; then mapped_ip=100.64.27.10; fi''')
     source = replace_once(source, '"100.64.27.2:$mapped_port"', '"$mapped_ip:$mapped_port"')
     source = replace_once(source, "host 100.64.27.2 or host 100.64.27.6", "host 100.64.27.2 or host 100.64.27.6 or host 100.64.27.10")
+    # A short unavailable-executor run can end before libpcap's read timeout;
+    # packet-buffered output alone does not drain those kernel capture packets.
+    source = replace_once(source, "tcpdump -U -n -i any", "tcpdump --immediate-mode -U -n -i any")
     source = replace_once(source, "for index in 0 1 2 3; do", '''if [[ $topology == ipchange ]]; then
   ip -n "$nat_a" addr add 100.64.27.10/32 dev wan0
   ip -n "$wan" route add 100.64.27.10/32 via 100.64.27.2
@@ -70,8 +73,15 @@ for index in 0 1 2 3; do''')
     grep -q STALE_CANDIDATE "$evidence/client.log"
     grep -q COORD_UNAVAILABLE "$evidence/server.log" ;;
   nonmember|revoked|no_secret|wrong_secret)
-    grep -Eq 'ADMISSION_REJECTED|Error:' "$evidence/client.log"
-    grep -Eq 'ADMISSION_REJECTED|Error:' "$evidence/server.log"
+    if [[ $case_name == nonmember ]]; then
+      [[ $client_rc == 0 && $server_rc == 0 ]]
+      grep -Eq '^ADMISSION_REJECTED peer=[0-9a-f]{64} stable_id=[0-9]+ probes=0$' "$evidence/client.log"
+      grep -Eq '^ADMISSION_REJECTED peer=[0-9a-f]{64} stable_id=[0-9]+ probes=0$' "$evidence/server.log"
+    else
+      [[ $client_rc == 1 && $server_rc == 1 ]]
+      grep -Fxq 'Error: Connection was rejected locally' "$evidence/client.log"
+      grep -Fxq 'Error: Custom { kind: Other, error: Connection was rejected locally }' "$evidence/server.log"
+    fi
     ! grep -q LEGACY_SAMPLE "$evidence/client.log"
     ! grep -q LEGACY_SAMPLE "$evidence/server.log"
     ! grep -q LEGACY_SELECTED "$evidence/client.log"

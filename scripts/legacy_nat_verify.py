@@ -4,6 +4,7 @@ import argparse
 import json
 import pathlib
 import re
+import struct
 
 from nat4_pcap_timing import packets
 
@@ -17,21 +18,56 @@ def require(condition, message):
         raise ValueError(message)
 
 
+def verify_capture(directory):
+    log = (directory / "tcpdump.log").read_text()
+    fixture = (directory / "fixture.sh").read_text()
+    capture_filter = re.search(r"\btcpdump\b[^\n]*?'(udp[^'\n]+)'", fixture)
+    require(capture_filter and capture_filter.group(1) in (
+        "udp and (host 100.64.27.2 or host 100.64.27.6)",
+        "udp and (host 100.64.27.2 or host 100.64.27.6 or host 100.64.27.10)"),
+        "capture filter does not cover both peer directions")
+    counts = [re.search(rf"^(\d+) packets {suffix}$", log, re.M)
+              for suffix in ("captured", "received by filter", "dropped by kernel")]
+    require(all(counts), "missing capture shutdown counters")
+    captured, received, dropped = [int(match.group(1)) for match in counts]
+    require(captured > 0 and captured == received and dropped == 0,
+            "incomplete/dropped capture cannot prove zero peer traffic")
+    with (directory / "wan.pcap").open("rb") as capture:
+        header = capture.read(24)
+        require(len(header) == 24 and header[:4] == bytes.fromhex("d4c3b2a1"), "unsupported or empty capture")
+        frames = 0
+        while packet := capture.read(16):
+            require(len(packet) == 16, "truncated capture record")
+            length = struct.unpack("<IIII", packet)[2]
+            require(len(capture.read(length)) == length, "truncated captured packet")
+            frames += 1
+    require(frames == captured, "capture file does not match tcpdump shutdown count")
+    return captured, capture_filter.group(1)
+
+
 def verify(directory):
     logs = {side: (directory / f"{side}.log").read_text() for side in ("client", "server")}
     run = dict(field.split("=", 1) for field in (directory / "run.txt").read_text().split())
-    require(run["client_rc"] != "124" and run["server_rc"] != "124", "runner timeout is not a traversal negative")
+    require(run["strategy"] == "legacy", "wrong product strategy")
+    expected_rc = "1" if run["case"] in ("revoked", "no_secret", "wrong_secret") else "0"
+    require(run["client_rc"] == expected_rc and run["server_rc"] == expected_rc,
+            "unexpected runner exit is not a traversal/admission negative")
+    captured, capture_filter = verify_capture(directory)
     events = list(packets(directory / "wan.pcap"))
     primes = [event for event in events if event[1] in ("100.64.27.2", "100.64.27.6", "100.64.27.10")
               and event[2] in ("100.64.27.2", "100.64.27.6", "100.64.27.10") and event[-1] == 11]
     negative_admission = run["case"] in ("nonmember", "revoked", "no_secret", "wrong_secret")
     row = {"case": run["case"], "topology": run["topology"], "dialer": run["dialer"],
-           "peer_prime_capture_occurrences": len(primes), "samples": {}}
+           "captured_packets": captured, "peer_prime_capture_occurrences": len(primes), "samples": {}}
     for side, log in logs.items():
         if negative_admission:
             require("LEGACY_SAMPLE" not in log and "LEGACY_SELECTED" not in log and "PROBES_SENT" not in log,
                     f"{side}: enhanced work before admission")
-            require("ADMISSION_REJECTED" in log or "Error:" in log, f"{side}: missing admission rejection")
+            if run["case"] == "nonmember":
+                require(re.search(r"^ADMISSION_REJECTED peer=[0-9a-f]{64} stable_id=\d+ probes=0$", log, re.M), f"{side}: missing explicit member rejection")
+            else:
+                expected_error = "Error: Connection was rejected locally" if side == "client" else "Error: Custom { kind: Other, error: Connection was rejected locally }"
+                require(expected_error in log.splitlines(), f"{side}: unexpected error is not an admission rejection")
             require("DATA_OK" not in log and "learned=true" not in log, f"{side}: rejected session gained business or learning")
             continue
         samples = SAMPLE.findall(log)
@@ -40,6 +76,8 @@ def verify(directory):
         for _, destination, mapped in samples:
             dst, dport = destination.rsplit(":", 1)
             src, sport = mapped.rsplit(":", 1)
+            require(f"host {src}" in capture_filter,
+                    f"{side}: capture filter omits observed source IP")
             require(any(event[1:5] == (src, dst, int(sport), int(dport)) for event in events),
                     f"{side}: S sample absent from actual outbound WAN tuple {mapped}->{destination}")
             require(any(event[1:5] == (dst, src, int(dport), int(sport)) for event in events),

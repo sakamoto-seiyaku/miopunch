@@ -1,4 +1,30 @@
 {
-  "missing_sample_rejected": true,
-  "reason": "client: missing ordered S samples"
+  "missing_sample": {
+    "rejected": true,
+    "reason": "client: missing ordered S samples"
+  },
+  "unrelated_startup_error": {
+    "rejected": true,
+    "reason": "client: unexpected error is not an admission rejection"
+  },
+  "header_only_capture": {
+    "rejected": true,
+    "reason": "capture file does not match tcpdump shutdown count"
+  },
+  "unexpected_exit": {
+    "rejected": true,
+    "reason": "unexpected runner exit is not a traversal/admission negative"
+  },
+  "capture_read_buffer_gap": {
+    "rejected": true,
+    "reason": "incomplete/dropped capture cannot prove zero peer traffic"
+  },
+  "wrong_capture_filter": {
+    "rejected": true,
+    "reason": "capture filter does not cover both peer directions"
+  },
+  "truncated_packet": {
+    "rejected": true,
+    "reason": "truncated captured packet"
+  }
 }
