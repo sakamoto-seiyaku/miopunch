@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "check",
+    "--locked",
+    "--workspace",
+    "--tests",
+    "--features",
+    "replica-test-hooks"
+  ],
+  "started_utc": "2026-10-01T03:19:41.019340+00:00",
+  "finished_utc": "2026-10-01T03:19:46.945969+00:00",
+  "exit_code": 0,
+  "source_unchanged": true
+}

@@ -23,6 +23,7 @@ use crate::admission_gate::AdmissionGate;
 use crate::admission_proof::{AdmissionScope, AdmissionSecret};
 use crate::genesis_recovery::GenesisCredential;
 use crate::management_auth::{ManagementExtension, NetworkAnchor};
+use crate::management_recovery::RecoveryBinding;
 use crate::management_store::{ManagementRecord, ManagementStore, StoreError};
 use crate::manual_admission::{JoinBinding, ManualInvitation};
 use crate::nat_connection::{NatConnector, UdpPolicy, UdpUpgrade};
@@ -34,6 +35,13 @@ const ADMISSION_SECRET: &str = "admission.secret";
 const MANAGEMENT_DB: &str = "management.sqlite";
 const JOIN_BINDING: &str = "join.invitation";
 const ADMISSION_MATERIAL: &str = "admission.material";
+const RECOVERY_BINDING: &str = "recovery.binding";
+
+enum Initialization<'a> {
+    Create,
+    Join(ManualInvitation),
+    Recover(&'a GenesisCredential, iroh_base::EndpointId),
+}
 
 struct SavedAnchor([u8; 64]);
 
@@ -110,6 +118,7 @@ pub struct NativeNetwork {
     pub(crate) scope: AdmissionScope,
     pub(crate) secret: Option<AdmissionSecret>,
     pub(crate) join: Option<JoinBinding>,
+    pub(crate) recovery: Option<RecoveryBinding>,
     pub(crate) management_instance: [u8; 16],
     directory: PathBuf,
     udp: NatConnector,
@@ -119,7 +128,7 @@ impl NativeNetwork {
     /// Create a fresh network and device in a new directory. Publishing the
     /// prepared directory is the final step, so readers never see half a Create.
     pub async fn create(path: impl AsRef<Path>) -> Result<Self, NodeError> {
-        Self::initialize(path.as_ref(), None).await
+        Self::initialize(path.as_ref(), Initialization::Create).await
     }
 
     /// Initialize an independently identified applicant. The trusted invitation
@@ -128,12 +137,24 @@ impl NativeNetwork {
         path: impl AsRef<Path>,
         invitation: ManualInvitation,
     ) -> Result<Self, NodeError> {
-        Self::initialize(path.as_ref(), Some(invitation)).await
+        Self::initialize(path.as_ref(), Initialization::Join(invitation)).await
+    }
+
+    /// Prepare a new independent device using the trusted original root-key
+    /// and canonical Create backup. This stores no history or admission secret
+    /// and grants no access. `restore_management` proves root authority to the
+    /// chosen contact over the restricted TLS session; no approval is needed.
+    pub async fn recover(
+        path: impl AsRef<Path>,
+        credential: &GenesisCredential,
+        contact: iroh_base::EndpointId,
+    ) -> Result<Self, NodeError> {
+        Self::initialize(path.as_ref(), Initialization::Recover(credential, contact)).await
     }
 
     async fn initialize(
         path: &Path,
-        invitation: Option<ManualInvitation>,
+        initialization: Initialization<'_>,
     ) -> Result<Self, NodeError> {
         let path = path.as_ref();
         ensure_absent(path)?;
@@ -147,9 +168,12 @@ impl NativeNetwork {
         #[cfg(unix)]
         builder.mode(0o700);
         builder.create(&staging)?;
-        let prepared = match invitation {
-            None => Self::prepare(&staging).await,
-            Some(invitation) => Self::prepare_join(&staging, invitation).await,
+        let prepared = match initialization {
+            Initialization::Create => Self::prepare(&staging).await,
+            Initialization::Join(invitation) => Self::prepare_join(&staging, invitation).await,
+            Initialization::Recover(credential, contact) => {
+                Self::prepare_recovery(&staging, credential, contact).await
+            }
         };
         if let Err(error) = prepared {
             let _ = fs::remove_dir_all(&staging);
@@ -165,6 +189,30 @@ impl NativeNetwork {
         }
         File::open(parent)?.sync_all()?;
         Self::open(path).await
+    }
+
+    async fn prepare_recovery(
+        path: &Path,
+        credential: &GenesisCredential,
+        contact: iroh_base::EndpointId,
+    ) -> Result<(), NodeError> {
+        let key = SigningKey::generate();
+        let anchor = credential.anchor();
+        let binding = RecoveryBinding {
+            contact,
+            attempt: rand::random(),
+        };
+        write_private(&path.join(NODE_KEY), key.as_bytes())?;
+        write_private(&path.join(ANCHOR), &SavedAnchor::encode(anchor).0)?;
+        write_private(
+            &path.join(GENESIS_CREDENTIAL),
+            &SavedGenesisCredential::encode(&credential.root, anchor.genesis).0,
+        )?;
+        write_private(&path.join(RECOVERY_BINDING), &binding.encode())?;
+        let store = ManagementStore::open(path.join(MANAGEMENT_DB), anchor).await?;
+        store.close().await;
+        File::open(path)?.sync_all()?;
+        Ok(())
     }
 
     async fn prepare_join(path: &Path, invitation: ManualInvitation) -> Result<(), NodeError> {
@@ -289,6 +337,16 @@ impl NativeNetwork {
         } else {
             None
         };
+        let recovery = if path.join(RECOVERY_BINDING).exists() {
+            Some(RecoveryBinding::decode(&read_array::<48>(
+                &path.join(RECOVERY_BINDING),
+            )?)?)
+        } else {
+            None
+        };
+        if recovery.is_some() && !path.join(GENESIS_CREDENTIAL).exists() {
+            return Err(NodeError::InvalidData);
+        }
         if path.join(GENESIS_CREDENTIAL).exists() {
             let credential =
                 SavedGenesisCredential(read_array::<64>(&path.join(GENESIS_CREDENTIAL))?).decode();
@@ -307,6 +365,7 @@ impl NativeNetwork {
         // reopened node's authority or making admission decisions.
         store.apply_ready().await?;
         if path.join(GENESIS_CREDENTIAL).exists()
+            && recovery.is_none()
             && store.get_record(anchor.genesis).await?.is_none()
         {
             return Err(NodeError::InvalidData);
@@ -327,7 +386,7 @@ impl NativeNetwork {
                     &path.join(ADMISSION_SECRET),
                 )?)),
             )
-        } else if join.is_some() {
+        } else if join.is_some() || recovery.is_some() {
             (AdmissionScope::new(*anchor.root.as_bytes(), 0), None)
         } else {
             return Err(NodeError::InvalidData);
@@ -337,7 +396,7 @@ impl NativeNetwork {
                 .current_admission_matches(&scope, &material.fingerprint(&scope))
                 .await?
             {
-                if join.is_none() {
+                if join.is_none() && recovery.is_none() {
                     return Err(NodeError::InvalidData);
                 }
                 // A crash between private-file fsync and database commit is
@@ -352,7 +411,7 @@ impl NativeNetwork {
             store.nodes().into_iter().map(|(id, _)| *id.as_bytes()),
             store.removed_nodes().into_iter().map(|id| *id.as_bytes()),
         );
-        Ok(Self {
+        let mut node = Self {
             node_key,
             anchor,
             store,
@@ -360,10 +419,23 @@ impl NativeNetwork {
             scope,
             secret,
             join,
+            recovery,
             management_instance: rand::random(),
             directory: path.to_path_buf(),
             udp: NatConnector::new(None, UdpPolicy::default()),
-        })
+        };
+        if node.join.is_some() {
+            if let Some(binding) = node.recovery {
+                if !node.has_completed_root_recovery(binding).await? {
+                    return Err(NodeError::InvalidData);
+                }
+                // A single fsynced join-binding publication selects the new
+                // active lifecycle. Keep the old signed recovery history and
+                // binding as inert audit material, without two active flows.
+                node.recovery = None;
+            }
+        }
+        Ok(node)
     }
 
     pub fn status(&self) -> NodeStatus {
@@ -382,7 +454,10 @@ impl NativeNetwork {
     pub async fn bind_endpoint(&self, bind_ip: Ipv4Addr) -> Result<Endpoint, NodeError> {
         self.bind_endpoint_with(
             Endpoint::builder(presets::Minimal)
-                .alpns(vec![crate::admission_gate::ADMISSION_REQUEST_ALPN.to_vec()])
+                .alpns(vec![
+                    crate::admission_gate::ADMISSION_REQUEST_ALPN.to_vec(),
+                    crate::management_recovery::MANAGEMENT_RECOVERY_ALPN.to_vec(),
+                ])
                 .bind_addr(SocketAddr::from((bind_ip, 0)))
                 .map_err(|_| NodeError::InvalidData)?,
         )
@@ -477,11 +552,30 @@ impl NativeNetwork {
         {
             return Err(NodeError::InvalidData);
         }
+        if let Some(binding) = self.recovery {
+            if !self.has_completed_root_recovery(binding).await? {
+                return Err(NodeError::InvalidData);
+            }
+            // Seal locally saved completion before publishing the ordinary
+            // binding, including a prior exit just after secret pinning. A
+            // crash between these writes leaves the old flow safely retryable.
+            self.seal_completed_root_recovery(binding).await?;
+            #[cfg(feature = "replica-test-hooks")]
+            self.store
+                .observe(crate::management_store::RecordCheckpoint::RecoveryRejoinPrepared);
+        }
         let binding = JoinBinding {
             invitation,
             request_id: rand::random(),
         };
-        self.persist_join_binding(binding)
+        self.persist_join_binding(binding)?;
+        #[cfg(feature = "replica-test-hooks")]
+        if self.recovery.is_some() {
+            self.store
+                .observe(crate::management_store::RecordCheckpoint::RecoveryRejoinPublished);
+        }
+        self.recovery = None;
+        Ok(())
     }
 
     /// Continue incomplete admission with a trusted new code in this same
@@ -571,6 +665,16 @@ impl NativeNetwork {
         Ok(())
     }
 
+    pub(crate) fn saved_genesis_credential(&self) -> Result<GenesisCredential, NodeError> {
+        let credential =
+            SavedGenesisCredential(read_array::<64>(&self.directory.join(GENESIS_CREDENTIAL))?)
+                .decode();
+        if credential.anchor() != self.anchor {
+            return Err(NodeError::InvalidCredential);
+        }
+        Ok(credential)
+    }
+
     pub async fn close(self) {
         self.store.close().await;
     }
@@ -597,6 +701,7 @@ async fn copy_node_backup(source: &Path, target: &Path, restoring: bool) -> Resu
             MANAGEMENT_DB,
             JOIN_BINDING,
             ADMISSION_MATERIAL,
+            RECOVERY_BINDING,
         ] {
             let path = source.join(name);
             if path.exists() {

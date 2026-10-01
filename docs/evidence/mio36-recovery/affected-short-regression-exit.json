@@ -1,0 +1,28 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "genesis_recovery",
+    "--test",
+    "management_auth",
+    "--test",
+    "management_store",
+    "--test",
+    "native_network",
+    "--test",
+    "admission_gate",
+    "--test",
+    "daily_management",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T03:20:47.553123+00:00",
+  "finished_utc": "2026-10-01T03:21:38.530882+00:00",
+  "exit_code": 0,
+  "source_unchanged": true
+}

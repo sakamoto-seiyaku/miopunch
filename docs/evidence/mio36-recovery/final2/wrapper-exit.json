@@ -1,0 +1,14 @@
+{
+  "actual_exit": 0,
+  "observed_via": "unified exec session79579 terminal exit_code",
+  "argv": [
+    "rtk",
+    "proxy",
+    "python3",
+    "scripts/check_management_recovery.py",
+    "--affected-lifecycle",
+    "--output",
+    "docs/evidence/mio36-recovery/final2"
+  ],
+  "observed_utc": "2026-10-01T04:38:58.807948+00:00"
+}

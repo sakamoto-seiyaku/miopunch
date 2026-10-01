@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "management_recovery",
+    "same_root_alternate_signed_history_cannot_replace_canonical_network_after_proof",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T03:11:15.270882+00:00",
+  "finished_utc": "2026-10-01T03:11:18.754439+00:00",
+  "exit_code": 0,
+  "source_unchanged": true
+}

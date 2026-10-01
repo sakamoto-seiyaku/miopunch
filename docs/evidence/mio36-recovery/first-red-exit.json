@@ -1,0 +1,18 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "management_recovery",
+    "formal_entry_restores_original_network_when_all_old_administrators_are_offline",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T02:45:27.563524+00:00",
+  "finished_utc": "2026-10-01T02:45:35.551975+00:00",
+  "exit_code": 101
+}

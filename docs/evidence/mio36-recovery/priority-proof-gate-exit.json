@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "management_recovery",
+    "ordinary_contact_requires_root_proof_but_no_secret_history_or_old_approval",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T02:52:26.435188+00:00",
+  "finished_utc": "2026-10-01T02:52:30.135320+00:00",
+  "exit_code": 0,
+  "source_unchanged": true
+}

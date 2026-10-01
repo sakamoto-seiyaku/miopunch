@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "management_recovery",
+    "both_offline_old_administrators_survive_recovery_and_root_elevation_is_explicit",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T03:13:23.428676+00:00",
+  "finished_utc": "2026-10-01T03:13:29.135582+00:00",
+  "exit_code": 0,
+  "source_unchanged": true
+}

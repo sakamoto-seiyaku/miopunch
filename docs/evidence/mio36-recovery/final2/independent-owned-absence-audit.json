@@ -1,0 +1,51 @@
+{
+  "observed_utc": "2026-10-01T04:39:03.711774+00:00",
+  "inspections": [
+    {
+      "argv": [
+        "rtk",
+        "proxy",
+        "docker",
+        "container",
+        "inspect",
+        "d232580a35ba474ea1f4f1d12238070e76aec04bc2db17e272b519567155fa31"
+      ],
+      "kind": "container",
+      "name": "d232580a35ba474ea1f4f1d12238070e76aec04bc2db17e272b519567155fa31",
+      "actual_exit": 1,
+      "output": "[]\nError response from daemon: No such container: d232580a35ba474ea1f4f1d12238070e76aec04bc2db17e272b519567155fa31\n",
+      "absent": true
+    },
+    {
+      "argv": [
+        "rtk",
+        "proxy",
+        "docker",
+        "volume",
+        "inspect",
+        "64343f11a1b5338ac8f9b55b7d5cfb3553e06704aff094d4a93e5efe45b1958a"
+      ],
+      "kind": "volume",
+      "name": "64343f11a1b5338ac8f9b55b7d5cfb3553e06704aff094d4a93e5efe45b1958a",
+      "actual_exit": 1,
+      "output": "[]\nError response from daemon: get 64343f11a1b5338ac8f9b55b7d5cfb3553e06704aff094d4a93e5efe45b1958a: no such volume\n",
+      "absent": true
+    },
+    {
+      "argv": [
+        "rtk",
+        "proxy",
+        "docker",
+        "volume",
+        "inspect",
+        "54dfa12e939536100e10075402f0ee250f0d19280fff98a6f1132f85a16c21a2"
+      ],
+      "kind": "volume",
+      "name": "54dfa12e939536100e10075402f0ee250f0d19280fff98a6f1132f85a16c21a2",
+      "actual_exit": 1,
+      "output": "[]\nError response from daemon: get 54dfa12e939536100e10075402f0ee250f0d19280fff98a6f1132f85a16c21a2: no such volume\n",
+      "absent": true
+    }
+  ],
+  "all_three_absent": true
+}

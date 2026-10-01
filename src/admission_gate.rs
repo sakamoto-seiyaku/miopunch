@@ -127,6 +127,10 @@ impl AdmissionGate {
             ProtocolScope::AdmissionRequest,
         );
         protocols.insert(RECOVERY_ALPN.to_vec(), ProtocolScope::GenesisRecovery);
+        protocols.insert(
+            crate::management_recovery::MANAGEMENT_RECOVERY_ALPN.to_vec(),
+            ProtocolScope::GenesisRecovery,
+        );
         protocols.insert(MEMBER_BOOTSTRAP_ALPN.to_vec(), ProtocolScope::Bootstrap);
         protocols.insert(CONTROL_ALPN.to_vec(), ProtocolScope::Bootstrap);
         Self {

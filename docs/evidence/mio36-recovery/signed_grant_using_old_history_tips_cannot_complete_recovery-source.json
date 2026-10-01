@@ -1,0 +1,12 @@
+{
+  "Cargo.toml": "68e7d344c3def61f23346622b371fd5777aaf6cc21e651ecd2c7d610b8f01978",
+  "Cargo.lock": "da76af7eb98d7972eeb7bc6973166b88abfd110f99159ba39873f3bf31054590",
+  "tests/management_recovery.rs": "7197f622a1971042c1ccdf8f502832e26a96c4f5c03b58f8e92f1a518da1e3ad",
+  "src/management_recovery.rs": "53d19895198aad562a7dc0ffbccc4684b4db996ef40c41d46d8feca10249b2d7",
+  "src/native_network.rs": "e6209c272f095fceb60fcdf015005cfc61bba4d3cdf67f505576f0987a598ee3",
+  "src/genesis_recovery.rs": "f94166c37bd8687f87979897dfa0d3d711bf7a0464636adebbc5249597b3b2f6",
+  "src/management_store.rs": "4358b15ba18484d216a76c5ff5b5e076bab83c201cd9131f8cdd97bb3b811fd6",
+  "src/admission_gate.rs": "8d7e6ad9f27ddd23954ea250f82829a5feee07d94ffa73c4f94b3ad1327b3a6c",
+  "src/lib.rs": "f3d03c0827050478df0b2370efe1996c11fa76e6575ecab27ef8b5e30da21c02",
+  "/tmp/mio36-short.py": "3ba039c5c2bb08b88edffd56959533dc532c0520b0f7d858040e1755899e7713"
+}

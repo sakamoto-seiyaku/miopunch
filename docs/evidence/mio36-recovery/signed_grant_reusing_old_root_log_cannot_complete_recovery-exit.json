@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "management_recovery",
+    "signed_grant_reusing_old_root_log_cannot_complete_recovery",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T03:11:04.757529+00:00",
+  "finished_utc": "2026-10-01T03:11:07.944684+00:00",
+  "exit_code": 0,
+  "source_unchanged": true
+}

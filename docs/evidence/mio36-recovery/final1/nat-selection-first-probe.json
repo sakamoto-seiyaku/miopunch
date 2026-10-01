@@ -1,0 +1,7 @@
+{
+  "actual_exit": 1,
+  "stage": "read-only exclusion inventory extraction before runner change",
+  "reason": "nested multisocket child printed the same test name twice; initial raw-count assertion saw12 instead of11",
+  "correction": "deduplicate names within each completed module",
+  "runtime_rerun": false
+}

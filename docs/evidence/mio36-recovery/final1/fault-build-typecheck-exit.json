@@ -1,0 +1,18 @@
+{
+  "name": "fault-build-typecheck",
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "check",
+    "--locked",
+    "--workspace",
+    "--tests",
+    "--features",
+    "replica-test-hooks"
+  ],
+  "started_utc": "2026-10-01T03:40:17.846785+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-10-01T03:40:18.266468+00:00",
+  "wall_seconds": 0.41832166304811835
+}

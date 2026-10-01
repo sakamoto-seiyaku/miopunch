@@ -22,7 +22,7 @@ use crate::admission_proof::{AdmissionScope, AdmissionSecret};
 use crate::management_auth::{AuthError, ManagementAuth, ManagementExtension, NetworkAnchor};
 use crate::management_store::{ManagementRecord, ManagementStore, StoreError};
 
-const DOMAIN: &[u8] = b"miopunch/genesis-recovery/v1\0";
+pub(crate) const DOMAIN: &[u8] = b"miopunch/genesis-recovery/v1\0";
 const EXPORTER_LABEL: &[u8] = b"EXPORTER-Channel-Binding";
 pub const RECOVERY_ALPN: &[u8] = b"miopunch/genesis-recovery/1";
 const MAX_HISTORY_BYTES: usize = 16 * 1024 * 1024;
@@ -32,13 +32,13 @@ const TIMEOUT: Duration = Duration::from_secs(15);
 static ACTIVE: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(32);
 static SESSIONS: LazyLock<Mutex<HashSet<usize>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
 
-struct SessionGuard {
+pub(crate) struct SessionGuard {
     id: usize,
     connection: Connection,
 }
 
 impl SessionGuard {
-    fn begin(
+    pub(crate) fn begin(
         connection: &Connection,
     ) -> Result<(tokio::sync::SemaphorePermit<'static>, Self), RecoveryError> {
         let attempt = (|| {
@@ -106,7 +106,7 @@ pub struct RecoveredNetwork {
 /// Backup material required to recover the original network. The canonical
 /// Create hash stays separate from both the node identity and admission secret.
 pub struct GenesisCredential {
-    root: SigningKey,
+    pub(crate) root: SigningKey,
     genesis: Hash,
 }
 
@@ -131,7 +131,7 @@ impl GenesisCredential {
     }
 }
 
-fn proof_statement(
+pub(crate) fn proof_statement(
     connection: &Connection,
     anchor: NetworkAnchor,
     recovering: EndpointId,
@@ -151,7 +151,7 @@ fn proof_statement(
     Ok(statement)
 }
 
-async fn write_frame(send: &mut SendStream, bytes: &[u8]) -> Result<(), RecoveryError> {
+pub(crate) async fn write_frame(send: &mut SendStream, bytes: &[u8]) -> Result<(), RecoveryError> {
     if bytes.is_empty() || bytes.len() > MAX_HISTORY_BYTES {
         return Err(RecoveryError::Rejected);
     }
@@ -163,7 +163,10 @@ async fn write_frame(send: &mut SendStream, bytes: &[u8]) -> Result<(), Recovery
         .map_err(|_| RecoveryError::Transport)
 }
 
-async fn read_frame(recv: &mut RecvStream, max_len: usize) -> Result<Vec<u8>, RecoveryError> {
+pub(crate) async fn read_frame(
+    recv: &mut RecvStream,
+    max_len: usize,
+) -> Result<Vec<u8>, RecoveryError> {
     let mut len = [0; 4];
     recv.read_exact(&mut len)
         .await
@@ -229,7 +232,7 @@ fn parse_history(
     ))
 }
 
-fn endpoint_key(id: EndpointId) -> Result<VerifyingKey, RecoveryError> {
+pub(crate) fn endpoint_key(id: EndpointId) -> Result<VerifyingKey, RecoveryError> {
     VerifyingKey::from_bytes(id.as_bytes()).map_err(|_| RecoveryError::Rejected)
 }
 

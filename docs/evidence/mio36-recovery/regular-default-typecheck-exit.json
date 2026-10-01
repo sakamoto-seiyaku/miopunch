@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "check",
+    "--locked",
+    "--workspace",
+    "--tests"
+  ],
+  "started_utc": "2026-10-01T03:18:54.241026+00:00",
+  "finished_utc": "2026-10-01T03:19:00.005603+00:00",
+  "exit_code": 0,
+  "source_unchanged": true
+}

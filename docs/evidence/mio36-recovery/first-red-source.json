@@ -1,0 +1,8 @@
+{
+  "tests/management_recovery.rs": "4be9f0714cd38f7ba224b5e02e3301d8d6d992d1f96c26a47c526569c7dd1433",
+  "src/native_network.rs": "f4f2ef6005c1e8bdfceb79c0a73d66e7016ec1feadd18658d37a4771d2d7ee49",
+  "src/genesis_recovery.rs": "a845ee1a9397fb8c94316390b36416a55de6037fbc044d90008597d744c8f25c",
+  "src/management_store.rs": "c80c690c2be2683de1651eb7f4268ac2b7e9efbb7fb20a43ebc8e6c97d6be592",
+  "src/admission_gate.rs": "a9219b92fa7388323e1d7c29ecd3e9cd28767fe08c14408f2e395fc62265cde2",
+  "src/lib.rs": "3c6dbc1389b22e115bad8c880a861b6ff0f89d37735456d214b9c39f08d34ee5"
+}

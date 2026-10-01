@@ -80,6 +80,12 @@ pub struct ManagementStore {
 #[cfg(feature = "replica-test-hooks")]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RecordCheckpoint {
+    RecoveryProofSaved,
+    RecoveryHistoryVerified,
+    RecoveryHistorySaved,
+    RecoveryGrantCommitted,
+    RecoveryRejoinPrepared,
+    RecoveryRejoinPublished,
     AuthorizationPrepared,
     AuthorizationSent,
     AuthorizationAcknowledged,
@@ -130,6 +136,19 @@ impl ManagementStore {
                 authorization BLOB,
                 phase INTEGER NOT NULL DEFAULT 0 CHECK (phase BETWEEN 0 AND 3),
                 PRIMARY KEY (applicant, request_id)
+            )",
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS management_recoveries (
+                target BLOB NOT NULL,
+                attempt BLOB NOT NULL,
+                authorization BLOB,
+                proof_statement BLOB NOT NULL,
+                proof_signature BLOB NOT NULL,
+                phase INTEGER NOT NULL CHECK (phase BETWEEN 1 AND 3),
+                PRIMARY KEY (target, attempt)
             )",
         )
         .execute(&pool)

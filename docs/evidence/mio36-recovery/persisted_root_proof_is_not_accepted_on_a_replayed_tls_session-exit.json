@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "management_recovery",
+    "persisted_root_proof_is_not_accepted_on_a_replayed_tls_session",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T03:11:11.312694+00:00",
+  "finished_utc": "2026-10-01T03:11:15.223700+00:00",
+  "exit_code": 0,
+  "source_unchanged": true
+}

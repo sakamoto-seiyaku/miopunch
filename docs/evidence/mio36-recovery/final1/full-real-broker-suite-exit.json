@@ -1,0 +1,20 @@
+{
+  "name": "full-real-broker-suite",
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--workspace",
+    "--features",
+    "replica-test-hooks",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T03:24:01.508402+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-10-01T03:40:16.594755+00:00",
+  "wall_seconds": 975.0860888769384
+}

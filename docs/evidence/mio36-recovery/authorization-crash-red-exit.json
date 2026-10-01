@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--features",
+    "replica-test-hooks",
+    "--test",
+    "management_recovery",
+    "process_exit_after_authorization_save_resumes_same_root_grant_without_approval",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T02:54:55.338157+00:00",
+  "finished_utc": "2026-10-01T02:55:11.393900+00:00",
+  "exit_code": 101,
+  "source_unchanged": true
+}

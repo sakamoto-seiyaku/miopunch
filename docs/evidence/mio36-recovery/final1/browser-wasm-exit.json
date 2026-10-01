@@ -1,0 +1,18 @@
+{
+  "name": "browser-wasm",
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "check",
+    "--locked",
+    "-p",
+    "miopunch-browser-probe",
+    "--target",
+    "wasm32-unknown-unknown"
+  ],
+  "started_utc": "2026-10-01T03:40:16.597011+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-10-01T03:40:17.294471+00:00",
+  "wall_seconds": 0.6973003810271621
+}

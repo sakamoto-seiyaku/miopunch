@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "management_recovery",
+    "signed_grant_for_replaced_target_is_rejected",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T03:11:01.243529+00:00",
+  "finished_utc": "2026-10-01T03:11:04.714115+00:00",
+  "exit_code": 0,
+  "source_unchanged": true
+}

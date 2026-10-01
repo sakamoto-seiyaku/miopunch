@@ -1,0 +1,13 @@
+Required findings: 0. Optional judgement-call findings: 1 (P3).
+
+Reviewed the latest 179-path staged MIOPUNCH-36 diff against `f691d2b4c2c0f8188d9e9418ef691c21978a806c`; HEAD remains the baseline. No documented-standard breach remains.
+
+P3, optional — possible Duplicated Code (Fowler baseline; judgement call): `tests/management_recovery.rs:1458` and `:1586` repeat the same genuine recovery → administrator appointment → effective removal fixture, including `ManagementAction::RemoveMember(identity)` and forwarding the signed removal. Consider making `removed_recovery_for_rejoin` available to the happy-flow test and sharing that setup while retaining each scenario's assertions. This is maintenance advice, not a correctness gate.
+
+ADR0007/0008 and CONTEXT require authorization derived from verified records, independent node/root identities, and fresh session-bound recovery proofs. Those boundaries remain intact. Historical completion (`src/management_recovery.rs:247`) requires actual saved root proof and an applied signed target grant; it permits only a fresh request. Current root-result validity still uses the existing causal verifier (`:306`). `src/native_network.rs:555` seals historical completion before the existing private atomic/fsynced join publication; reopening (`:427`) activates only ordinary admission and leaves root evidence inert. Preparing the request grants no membership.
+
+The parent specification's Testing Decisions require public behavior, real crypto/storage/transport and restart observations. `tests/management_recovery.rs:1457` and `:1647` verify fresh approval, distinct request/grant, retained identity/history and invalid old authority, including actual exit 86 on both publication sides. Genuine behavioral and compile failures remain preserved.
+
+The shared contract's provenance/preservation rules are satisfied: all 179 staged/working hashes, protected 59 hashes, original 36 dirty paths and 54 lossless log roundtrips match. Final2's 54 prestart inputs and runner snapshot match current files. Its actual 116/0/0 includes 36 recovery tests and 18 crash markers, 85 MQTT publishes, five command exits 0, wrapper 0 and exact owned broker/two-volume absence receipts. Original full 347/0/4 and initial reviews remain explicitly historical.
+
+Actual NAT/packet/transport hunks and frozen 60–63 evidence are unchanged. The user's policy supports final2's ten affected lifecycle targets without unchanged NAT reruns. All 45 future workspace filters remain distinct; newly added test names introduce no substring collisions; include-NAT retains the exact original argv. The filtered whole-workspace default remains unexecuted. Review ran no runtime tests or resources.

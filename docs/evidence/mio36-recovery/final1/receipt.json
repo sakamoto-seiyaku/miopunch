@@ -1,0 +1,191 @@
+{
+  "baseline": "f691d2b4c2c0f8188d9e9418ef691c21978a806c",
+  "started_utc": "2026-10-01T03:24:01.155995+00:00",
+  "source_sha256": {
+    "Cargo.lock": "da76af7eb98d7972eeb7bc6973166b88abfd110f99159ba39873f3bf31054590",
+    "Cargo.toml": "68e7d344c3def61f23346622b371fd5777aaf6cc21e651ecd2c7d610b8f01978",
+    "browser-probe/Cargo.toml": "1e0b64129547eb5cb3ff6017fbaec48420ddbbbe6c994825621d6164fdc20050",
+    "browser-probe/src/lib.rs": "2136e0816be308954aba238fc96e8a381c1feff69b8775684bbdeec67781e971",
+    "scripts/check_management_recovery.py": "1d05b615f8abd718d07b23a63cfccda0acc10d2d5d283ae7f1fe7adf64c137ff",
+    "scripts/mosquitto-test.conf": "5bbf715cb2518197f7ad99ceff3986bf3e2b137798aae23613ce39cf5f24542c",
+    "src/admission_gate.rs": "8d7e6ad9f27ddd23954ea250f82829a5feee07d94ffa73c4f94b3ad1327b3a6c",
+    "src/admission_proof.rs": "ba9058035c406c7ff9ef7cdf7cf4a86aac778799f2d89206490e176d6de5e1b9",
+    "src/bin/browser_probe_native.rs": "b9935e954594bbb347c490a7f1951a21177c3c1cc5bc970257d1f16705c86b40",
+    "src/bin/udp_nat_probe.rs": "1dbea5c44916e8499fea24d71b38f31000d89224c48845e1f2ad240d1bcf59a0",
+    "src/bin/udp_observation_probe.rs": "d65a1e6f32541ac408c3e150e628f54ece49cffac6ca34bdf7b78742761c57c9",
+    "src/control_session.rs": "08054a11896f273649dc80fab49c9073f718dede0a6557f39f462b13b76a4540",
+    "src/daily_management.rs": "8d698590ed1bd3786fe1297d92ade4fac39d7ef75373cafa0d378ee785c77cad",
+    "src/genesis_recovery.rs": "3002667447fc27408276f2e0fba5e8585091a07d364728cac54b9828443ab701",
+    "src/lib.rs": "f3d03c0827050478df0b2370efe1996c11fa76e6575ecab27ef8b5e30da21c02",
+    "src/main.rs": "71a8fed711fe69113cdfd86fd7a485e048d11c509920f0f1179d09fb8a83bf1a",
+    "src/management_auth.rs": "c2d6750d325a83d071f0061a125b102e6fd0f6a54caa2e1887f1eff26b37e34f",
+    "src/management_recovery.rs": "878ad062f8d1629601792d3877ebde3785de192720a81a65e2468634f44d89b1",
+    "src/management_store.rs": "4358b15ba18484d216a76c5ff5b5e076bab83c201cd9131f8cdd97bb3b811fd6",
+    "src/manual_admission.rs": "03f90e0bd687fd9d02d981b941a5a23288a4ddf08a28fdad61cfc82b4a66c336",
+    "src/member_bootstrap.rs": "fd8411c3fb26bb78f39591f5f46a4d3bd9fde1e0f49630516b556ed9a2b1ead6",
+    "src/mqtt_discovery.rs": "d4b47d4c9f94ef4b6172d8338a941ae823edf65ac937461c3ba337235b1b287c",
+    "src/mqtt_transport.rs": "100e6516bcdc2d77edef5cb9f7c733896a1cacdb6cb4ef32085ab992fc4554d2",
+    "src/nat_connection.rs": "c29f7d9e5e32997690efa834f8cc06dc362ef51df578d0c9a4f69d2468ef80b5",
+    "src/nat_direct.rs": "d46df7be49bed232d1d85c570e489a86a857375521b04e46ff6f86f85215d018",
+    "src/nat_mapping.rs": "e1116376d90f01b469ad30c79f8df0516a9c7a0e750bcf6cffa1259caf9aa9a4",
+    "src/nat_punch.rs": "094e10047be9974456bbd4b14f303c7b9d2a28e86559314fbda914172f9bc0fd",
+    "src/nat_scheduler.rs": "86d00bd8a09926872aed88b607427db135464ef262da094c55cc1b8cd87d49d9",
+    "src/nat_selector.rs": "7a57155e8f2d83f30f041865ad1e269aa5a274f3e2534ea4c7f2f9cfe86abcd9",
+    "src/native_network.rs": "36636357eed7c7570cea9ae5b2e08408e1032a273480d6fa27ad1e0b56709831",
+    "src/offline_replica.rs": "0008545ecb53f302a23b6fa912cb1cf8e29832f108400777fec64808d5df802a",
+    "src/precode.rs": "0add6ad5256b5f75d57fae9babd05fd1d6f1f244ada35bc6cc6997c5b61da655",
+    "src/tcp_transport.rs": "a3a1093ed14a586b7ee265add7d1b10a55fa5fb36bf88cfc638c1a9b9f50d1a2",
+    "tests/admission_completion.rs": "48462dcaa7d42c4f2a2649daed93e325befab4971095d96338387cb2856a61bf",
+    "tests/admission_gate.rs": "cc9d8c673a3f6d31c25b8c4259f06298df8ddd729031bed656976ec6e2fe5a50",
+    "tests/admission_proof.rs": "3a7a98f06a78a902b50bff8d28fc91f4b81d0a044d1cad26cc2d2dabe866d611",
+    "tests/daily_management.rs": "6241ceb9694b1b9c89375e98a6badee995ac6d0a2d6e0174eda080d439a800d9",
+    "tests/genesis_recovery.rs": "ea0358d192b48a98e8651c3e53478d94c68c23fc6e07704182a7f18093f851a9",
+    "tests/legacy_multi_socket.rs": "a63755fb4a08a54ec57c109be5384df2742841bdb7821a0350299c1700a4e5fa",
+    "tests/legacy_nat_runtime.rs": "be598343e10388b7fde890570da285953f591cf4c684752809df598902c5e9cf",
+    "tests/legacy_nat_scheduler.rs": "998e9fb7d6197c2b6474260b9e569a53f01793caaf9ee901159eb5fdbdfe5fad",
+    "tests/management_auth.rs": "3287fe1cdd1149f529cb5cabe8d44b816fcd6dc532714d01a173ed6c8472b782",
+    "tests/management_recovery.rs": "775ea450e3dae3d27758d51cae30c69870e95ebff48c5a6b72d0bf2722a36159",
+    "tests/management_store.rs": "5a6d0a4c962f2b75e003743cfc7151e87f6e2dc1150ddaaf831d6298aa4eafe1",
+    "tests/manual_admission.rs": "2bc8a00994c00faad6f47905323990c700684ec808790b092688eec89fce9400",
+    "tests/mqtt_probe.rs": "f118e2443d4cdcec6d4002de038277af20f5b72f86f30e6e03a2062058ca3f3c",
+    "tests/mqtt_upgrade.rs": "baee86857d893ca9157a45ce71e3d68083625c44be6b6c3391fa18779e22ff3c",
+    "tests/native_network.rs": "285e8a3958347fb08dd8026aff05a5c0da6ef3ae1002ba9ada3676564e9f41cd",
+    "tests/native_probe.rs": "4341eedd820293f74603e3fe634a2091e0b15580619c83026f4a33eee0285a79",
+    "tests/offline_replica.rs": "4abe2fa58b39a31e173808835f06218d3ab3a30ad19e80700122b6fd285f5dc2",
+    "tests/precode.rs": "65b3449957ff607feb20f9a0a66388d9c06c3bd5beb0097f928d79cc9c197a87",
+    "tests/revocation.rs": "dc029a3c004ea0227635a6f617ac98368459daaefd1ee9fd3d84bda8a4373303",
+    "tests/udp_observation.rs": "7d93b10ede57cebe42451e05232f71ab89a5a0674dfd17dca998dc8612d4cdf5",
+    "tests/unknown_member_bootstrap.rs": "9e3297014cd6c640982aad839305e0549a7e1724ea1547b0596848bc69e3cf57"
+  },
+  "commands": [
+    {
+      "name": "full-real-broker-suite",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--workspace",
+        "--features",
+        "replica-test-hooks",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "started_utc": "2026-10-01T03:24:01.508402+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-10-01T03:40:16.594755+00:00",
+      "wall_seconds": 975.0860888769384
+    },
+    {
+      "name": "browser-wasm",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "started_utc": "2026-10-01T03:40:16.597011+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-10-01T03:40:17.294471+00:00",
+      "wall_seconds": 0.6973003810271621
+    },
+    {
+      "name": "workspace-typecheck",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--tests"
+      ],
+      "started_utc": "2026-10-01T03:40:17.296783+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-10-01T03:40:17.844055+00:00",
+      "wall_seconds": 0.5471427669981495
+    },
+    {
+      "name": "fault-build-typecheck",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--tests",
+        "--features",
+        "replica-test-hooks"
+      ],
+      "started_utc": "2026-10-01T03:40:17.846785+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-10-01T03:40:18.266468+00:00",
+      "wall_seconds": 0.41832166304811835
+    },
+    {
+      "name": "format",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "started_utc": "2026-10-01T03:40:18.268513+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-10-01T03:40:18.690170+00:00",
+      "wall_seconds": 0.42152274399995804
+    }
+  ],
+  "owned_container_id": "e572a7804278a091962cfd6a05586313ef927c8921582305f518855c9a5f5ccd",
+  "owned_anonymous_volumes": [
+    "42a59956d2edced06d00eedffa98c58e58ae2016b2f7b219999c0d064ed6a32c",
+    "99c45cb9880669d30cb2e7c285b1ed6741346881a7819ebaf3cec47cfb72b44a"
+  ],
+  "mqtt_broker": "127.0.0.1:43271",
+  "broker_tcp_preflight": true,
+  "source_unchanged_through_checks": true,
+  "suite_totals": {
+    "passed": 347,
+    "failed": 0,
+    "ignored": 4
+  },
+  "broker_tests_not_skipped": true,
+  "actual_mqtt_capture": "MIO30_MQTT_CIPHERTEXT publishes=95 max_bytes=1472 long_lived_secret_in_invitation=false independent_holder_received_approved_result=false",
+  "owned_container_cleanup_exit": 0,
+  "owned_container_cleanup_output": "e572a7804278a091962cfd6a05586313ef927c8921582305f518855c9a5f5ccd\n",
+  "owned_container_removed": true,
+  "owned_resource_absence": {
+    "e572a7804278a091962cfd6a05586313ef927c8921582305f518855c9a5f5ccd": {
+      "kind": "container",
+      "name": "e572a7804278a091962cfd6a05586313ef927c8921582305f518855c9a5f5ccd",
+      "actual_exit": 1,
+      "output": "[]\nError response from daemon: No such container: e572a7804278a091962cfd6a05586313ef927c8921582305f518855c9a5f5ccd\n",
+      "absent": true
+    },
+    "42a59956d2edced06d00eedffa98c58e58ae2016b2f7b219999c0d064ed6a32c": {
+      "kind": "volume",
+      "name": "42a59956d2edced06d00eedffa98c58e58ae2016b2f7b219999c0d064ed6a32c",
+      "actual_exit": 1,
+      "output": "[]\nError response from daemon: get 42a59956d2edced06d00eedffa98c58e58ae2016b2f7b219999c0d064ed6a32c: no such volume\n",
+      "absent": true
+    },
+    "99c45cb9880669d30cb2e7c285b1ed6741346881a7819ebaf3cec47cfb72b44a": {
+      "kind": "volume",
+      "name": "99c45cb9880669d30cb2e7c285b1ed6741346881a7819ebaf3cec47cfb72b44a",
+      "actual_exit": 1,
+      "output": "[]\nError response from daemon: get 99c45cb9880669d30cb2e7c285b1ed6741346881a7819ebaf3cec47cfb72b44a: no such volume\n",
+      "absent": true
+    }
+  },
+  "finished_utc": "2026-10-01T03:40:18.996916+00:00",
+  "success": true
+}

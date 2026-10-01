@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "management_recovery",
+    "different_node_cannot_use_another_devices_recovery_connection",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T03:14:37.597542+00:00",
+  "finished_utc": "2026-10-01T03:14:41.020727+00:00",
+  "exit_code": 0,
+  "source_unchanged": true
+}

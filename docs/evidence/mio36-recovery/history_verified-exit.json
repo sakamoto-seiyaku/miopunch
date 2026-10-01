@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--features",
+    "replica-test-hooks",
+    "--test",
+    "management_recovery",
+    "process_exit_at_history_verified",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T03:04:22.774064+00:00",
+  "finished_utc": "2026-10-01T03:04:41.769234+00:00",
+  "exit_code": 0,
+  "source_unchanged": true
+}

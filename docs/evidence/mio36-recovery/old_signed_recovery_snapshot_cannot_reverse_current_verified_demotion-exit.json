@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "management_recovery",
+    "old_signed_recovery_snapshot_cannot_reverse_current_verified_demotion",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T03:11:18.795326+00:00",
+  "finished_utc": "2026-10-01T03:11:25.200237+00:00",
+  "exit_code": 0,
+  "source_unchanged": true
+}

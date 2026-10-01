@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "management_recovery",
+    "same_root_other_signed_create_hash_cannot_replace_original_backup_pin",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T03:10:54.773195+00:00",
+  "finished_utc": "2026-10-01T03:10:57.944155+00:00",
+  "exit_code": 0,
+  "source_unchanged": true
+}

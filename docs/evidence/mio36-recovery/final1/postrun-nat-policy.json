@@ -1,0 +1,472 @@
+{
+  "observed_utc": "2026-10-01T03:48:12.477490+00:00",
+  "actual_original_wrapper_exit": 0,
+  "original_receipt_preserved": true,
+  "original_harness_sha256": "1d05b615f8abd718d07b23a63cfccda0acc10d2d5d283ae7f1fe7adf64c137ff",
+  "current_harness_sha256": "ddc4159a832b83418e4d56767667fc6f818a5cf458559bf9acfe244a176ac50c",
+  "only_input_mismatch": [
+    "scripts/check_management_recovery.py"
+  ],
+  "other_53_inputs_unchanged": true,
+  "actual_run_excluded_tests": [],
+  "future_default_exclusions": {
+    "tests/legacy_multi_socket.rs": [
+      "a_provisional_winner_closes_when_cancelled_and_cannot_be_used_by_another_connection",
+      "a_real_target_send_error_does_not_truncate_following_candidates_or_random_work",
+      "all_256_physical_listeners_close_on_cancel_and_rounds_do_not_accumulate",
+      "authenticated_winner_keeps_its_actual_source_ip_despite_packets_to_another_local_ip",
+      "cross_socket_round_packets_are_ignored_and_network_change_invalidates_pending_bindings",
+      "discarded_winner_paths_release_descriptors_while_original_control_connection_lives",
+      "every_physical_sender_isolates_packet_ttl_and_preserves_source_when_ttl_degrades",
+      "interrupted_listener_setup_preserves_actual_partial_costs_and_closes_bindings",
+      "nonprimary_winner_returns_through_its_physical_socket_on_the_original_connection",
+      "os_bind_failures_keep_exact_attempt_count_and_release_partial_pool",
+      "same_round_authenticated_receipt_cannot_move_to_another_physical_socket"
+    ],
+    "tests/legacy_nat_runtime.rs": [
+      "assisted_only_fallback_receives_without_an_outbound_target_and_sender_keeps_lan_first",
+      "cancelled_or_revoked_round_has_no_peer_budget_or_learning_feedback",
+      "complete_scheduler_preserves_original_tls_connection_business_and_one_feedback",
+      "dropping_attempt_during_sender_delay_spends_nothing_and_cannot_learn",
+      "exhaustion_stops_full_phase_and_existing_authorized_control_remains_usable",
+      "existing_verified_path_cannot_learn_when_budget_was_denied_or_credential_changed",
+      "fallback_retains_a_freshly_acquired_candidate_for_its_phase",
+      "formal_direct_candidates_precede_selector_and_keep_original_identity",
+      "formal_disabled_udp_blocks_business_before_stream_creation",
+      "formal_entry_observes_selects_executes_and_confirms_original_business",
+      "formal_entry_permission_and_complete_budget_stop_before_execution",
+      "formal_entry_without_s_uses_local_assisted_basic_attempt_and_original_business",
+      "formal_ipv6_direct_requires_no_ipv4_observation_or_punching",
+      "isolated_functional_cpu_cost_supplement",
+      "low_ttl_and_unsupported_ttl_do_not_change_parallel_connection_business",
+      "old_prediction_age_does_not_expire_a_legacy_plan_but_network_change_does",
+      "ordinary_qad_refresh_keeps_the_physical_generation_but_real_network_change_invalidates_it",
+      "receiver_can_win_before_delay_without_sending_a_probe_and_lease_closes",
+      "scope_and_network_changes_during_delay_stop_before_submission",
+      "stale_round_and_foreign_connection_authentication_cannot_select_a_winner",
+      "two_real_qad_observers_public_preference_original_business_and_learning",
+      "winner_handoff_waits_for_peer_inside_the_original_deadline_and_rechecks_scope",
+      "wrong_gate_and_empty_fallback_cannot_disclose_candidates_or_spend_peer_budget",
+      "wrong_network_and_old_round_are_rejected_before_snapshot_disclosure_or_selection"
+    ],
+    "tests/legacy_nat_scheduler.rs": [
+      "legacy_range_is_inclusive_and_clips_to_valid_udp_ports",
+      "random_listener_pair_has_the_original_thirty_second_read_extension",
+      "random_sampling_keeps_legacy_bounds_ten_draw_skip_and_per_call_uniqueness",
+      "sender_assisted_first_and_only_adjacent_duplicates_compact"
+    ],
+    "tests/udp_observation.rs": [
+      "changed_nat_mapping_replaces_the_old_candidate_after_network_change",
+      "destination_dependent_nat_reports_mapping_variance",
+      "disabled_observation_endpoint_never_contacts_the_observer",
+      "failed_periodic_observation_withdraws_the_old_udp_candidate",
+      "mixed_observation_and_data_relay_configuration_fails_at_bind",
+      "relay_disabled_observes_the_real_quic_socket_through_a_controlled_nat"
+    ]
+  },
+  "offline_command_selection_exit": 0,
+  "future_default_cargo_argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--workspace",
+    "--features",
+    "replica-test-hooks",
+    "--",
+    "--test-threads=1",
+    "--nocapture",
+    "--skip",
+    "a_provisional_winner_closes_when_cancelled_and_cannot_be_used_by_another_connection",
+    "--skip",
+    "a_real_target_send_error_does_not_truncate_following_candidates_or_random_work",
+    "--skip",
+    "all_256_physical_listeners_close_on_cancel_and_rounds_do_not_accumulate",
+    "--skip",
+    "authenticated_winner_keeps_its_actual_source_ip_despite_packets_to_another_local_ip",
+    "--skip",
+    "cross_socket_round_packets_are_ignored_and_network_change_invalidates_pending_bindings",
+    "--skip",
+    "discarded_winner_paths_release_descriptors_while_original_control_connection_lives",
+    "--skip",
+    "every_physical_sender_isolates_packet_ttl_and_preserves_source_when_ttl_degrades",
+    "--skip",
+    "interrupted_listener_setup_preserves_actual_partial_costs_and_closes_bindings",
+    "--skip",
+    "nonprimary_winner_returns_through_its_physical_socket_on_the_original_connection",
+    "--skip",
+    "os_bind_failures_keep_exact_attempt_count_and_release_partial_pool",
+    "--skip",
+    "same_round_authenticated_receipt_cannot_move_to_another_physical_socket",
+    "--skip",
+    "assisted_only_fallback_receives_without_an_outbound_target_and_sender_keeps_lan_first",
+    "--skip",
+    "cancelled_or_revoked_round_has_no_peer_budget_or_learning_feedback",
+    "--skip",
+    "complete_scheduler_preserves_original_tls_connection_business_and_one_feedback",
+    "--skip",
+    "dropping_attempt_during_sender_delay_spends_nothing_and_cannot_learn",
+    "--skip",
+    "exhaustion_stops_full_phase_and_existing_authorized_control_remains_usable",
+    "--skip",
+    "existing_verified_path_cannot_learn_when_budget_was_denied_or_credential_changed",
+    "--skip",
+    "fallback_retains_a_freshly_acquired_candidate_for_its_phase",
+    "--skip",
+    "formal_direct_candidates_precede_selector_and_keep_original_identity",
+    "--skip",
+    "formal_disabled_udp_blocks_business_before_stream_creation",
+    "--skip",
+    "formal_entry_observes_selects_executes_and_confirms_original_business",
+    "--skip",
+    "formal_entry_permission_and_complete_budget_stop_before_execution",
+    "--skip",
+    "formal_entry_without_s_uses_local_assisted_basic_attempt_and_original_business",
+    "--skip",
+    "formal_ipv6_direct_requires_no_ipv4_observation_or_punching",
+    "--skip",
+    "isolated_functional_cpu_cost_supplement",
+    "--skip",
+    "low_ttl_and_unsupported_ttl_do_not_change_parallel_connection_business",
+    "--skip",
+    "old_prediction_age_does_not_expire_a_legacy_plan_but_network_change_does",
+    "--skip",
+    "ordinary_qad_refresh_keeps_the_physical_generation_but_real_network_change_invalidates_it",
+    "--skip",
+    "receiver_can_win_before_delay_without_sending_a_probe_and_lease_closes",
+    "--skip",
+    "scope_and_network_changes_during_delay_stop_before_submission",
+    "--skip",
+    "stale_round_and_foreign_connection_authentication_cannot_select_a_winner",
+    "--skip",
+    "two_real_qad_observers_public_preference_original_business_and_learning",
+    "--skip",
+    "winner_handoff_waits_for_peer_inside_the_original_deadline_and_rechecks_scope",
+    "--skip",
+    "wrong_gate_and_empty_fallback_cannot_disclose_candidates_or_spend_peer_budget",
+    "--skip",
+    "wrong_network_and_old_round_are_rejected_before_snapshot_disclosure_or_selection",
+    "--skip",
+    "legacy_range_is_inclusive_and_clips_to_valid_udp_ports",
+    "--skip",
+    "random_listener_pair_has_the_original_thirty_second_read_extension",
+    "--skip",
+    "random_sampling_keeps_legacy_bounds_ten_draw_skip_and_per_call_uniqueness",
+    "--skip",
+    "sender_assisted_first_and_only_adjacent_duplicates_compact",
+    "--skip",
+    "changed_nat_mapping_replaces_the_old_candidate_after_network_change",
+    "--skip",
+    "destination_dependent_nat_reports_mapping_variance",
+    "--skip",
+    "disabled_observation_endpoint_never_contacts_the_observer",
+    "--skip",
+    "failed_periodic_observation_withdraws_the_old_udp_candidate",
+    "--skip",
+    "mixed_observation_and_data_relay_configuration_fails_at_bind",
+    "--skip",
+    "relay_disabled_observes_the_real_quic_socket_through_a_controlled_nat"
+  ],
+  "include_nat_cargo_argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--workspace",
+    "--features",
+    "replica-test-hooks",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "nat_and_underlying_transport_unchanged_check": {
+    "argv": [
+      "rtk",
+      "proxy",
+      "git",
+      "diff",
+      "--name-only",
+      "f691d2b4c2c0f8188d9e9418ef691c21978a806c",
+      "--",
+      "src/nat_connection.rs",
+      "src/nat_direct.rs",
+      "src/nat_mapping.rs",
+      "src/nat_punch.rs",
+      "src/nat_scheduler.rs",
+      "src/nat_selector.rs",
+      "src/control_session.rs",
+      "src/admission_proof.rs",
+      "src/mqtt_transport.rs",
+      "src/tcp_transport.rs",
+      "vendor/iroh",
+      "vendor/noq",
+      "vendor/noq-proto",
+      "vendor/netwatch",
+      "vendor/p2panda-net",
+      "tests/legacy_multi_socket.rs",
+      "tests/legacy_nat_runtime.rs",
+      "tests/legacy_nat_scheduler.rs",
+      "tests/udp_observation.rs"
+    ],
+    "actual_exit": 0,
+    "output": ""
+  },
+  "scope_basis": "NativeNetwork adds a separate recovery lifecycle and advertises its ALPN; AdmissionGate only registers that GenesisRecovery ALPN. Existing NAT upgrade, Member/Bootstrap gates, packet paths and transport implementations are unchanged. Already-run real admission gate regressions cover their shared boundary.",
+  "frozen_evidence": [
+    "docs/evidence/mio60-formal-nat",
+    "docs/evidence/mio61-legacy-multi-socket",
+    "docs/evidence/mio62-legacy-selector",
+    "docs/evidence/mio63-legacy-scheduler"
+  ],
+  "actual_completed_module_timings": {
+    "unittests src/lib.rs (target/debug/deps/miopunch_browser_probe-d266f353086bf9d0)": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 0.01,
+      "summary_count": 1
+    },
+    "unittests src/lib.rs (target/debug/deps/miopunch_native_probe-701cfc77bd8d1342)": {
+      "passed": 25,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 5.57,
+      "summary_count": 1
+    },
+    "unittests src/bin/browser_probe_native.rs (target/debug/deps/browser_probe_native-89fd960aec48f3d8)": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 0.0,
+      "summary_count": 1
+    },
+    "unittests src/main.rs (target/debug/deps/miopunch_native_probe-f6a8bbd9c7cdce27)": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 0.0,
+      "summary_count": 1
+    },
+    "unittests src/bin/udp_nat_probe.rs (target/debug/deps/udp_nat_probe-4d7f94a1c7e3d2ca)": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 0.0,
+      "summary_count": 1
+    },
+    "unittests src/bin/udp_observation_probe.rs (target/debug/deps/udp_observation_probe-c785482fc34f27ed)": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 0.0,
+      "summary_count": 1
+    },
+    "tests/admission_completion.rs (target/debug/deps/admission_completion-fa5d460129303fe0)": {
+      "passed": 20,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 169.22,
+      "summary_count": 1
+    },
+    "tests/admission_gate.rs (target/debug/deps/admission_gate-1ef0feda7c7a5023)": {
+      "passed": 18,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 22.24,
+      "summary_count": 1
+    },
+    "tests/admission_proof.rs (target/debug/deps/admission_proof-f78849008bd2b8da)": {
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 6.98,
+      "summary_count": 1
+    },
+    "tests/daily_management.rs (target/debug/deps/daily_management-67f1eae406bc2c7f)": {
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 22.41,
+      "summary_count": 1
+    },
+    "tests/genesis_recovery.rs (target/debug/deps/genesis_recovery-8b7732ea6d76cefa)": {
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 3.27,
+      "summary_count": 1
+    },
+    "tests/legacy_multi_socket.rs (target/debug/deps/legacy_multi_socket-d5cada16d8a04075)": {
+      "passed": 11,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 28.64,
+      "summary_count": 2
+    },
+    "tests/legacy_nat_runtime.rs (target/debug/deps/legacy_nat_runtime-d3e715b44378815f)": {
+      "passed": 23,
+      "failed": 0,
+      "ignored": 1,
+      "reported_seconds": 59.17,
+      "summary_count": 1
+    },
+    "tests/legacy_nat_scheduler.rs (target/debug/deps/legacy_nat_scheduler-1e5030bc4ed1387d)": {
+      "passed": 4,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 0.0,
+      "summary_count": 1
+    },
+    "tests/management_auth.rs (target/debug/deps/management_auth-bc02a53eceedea4c)": {
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 0.8,
+      "summary_count": 1
+    },
+    "tests/management_recovery.rs (target/debug/deps/management_recovery-7683ebe0611190ac)": {
+      "passed": 33,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 286.2,
+      "summary_count": 1
+    },
+    "tests/management_store.rs (target/debug/deps/management_store-b946a589a014220e)": {
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 0.74,
+      "summary_count": 1
+    },
+    "tests/manual_admission.rs (target/debug/deps/manual_admission-dc909ff3f94fe88b)": {
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 20.11,
+      "summary_count": 1
+    },
+    "tests/mqtt_probe.rs (target/debug/deps/mqtt_probe-3fdd05e7eab5559e)": {
+      "passed": 4,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 0.83,
+      "summary_count": 1
+    },
+    "tests/mqtt_upgrade.rs (target/debug/deps/mqtt_upgrade-e0fd733916e64dea)": {
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 6.18,
+      "summary_count": 1
+    },
+    "tests/native_network.rs (target/debug/deps/native_network-df3e9ce03652f95e)": {
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 1.13,
+      "summary_count": 1
+    },
+    "tests/native_probe.rs (target/debug/deps/native_probe-d4abe8f48ae2edf9)": {
+      "passed": 11,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 2.82,
+      "summary_count": 1
+    },
+    "tests/offline_replica.rs (target/debug/deps/offline_replica-649bc88f84e9dd9f)": {
+      "passed": 12,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 129.41,
+      "summary_count": 1
+    },
+    "tests/precode.rs (target/debug/deps/precode-1d791102521bd672)": {
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 55.85,
+      "summary_count": 1
+    },
+    "tests/revocation.rs (target/debug/deps/revocation-545451f849286af2)": {
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 18.16,
+      "summary_count": 1
+    },
+    "tests/udp_observation.rs (target/debug/deps/udp_observation-1119d517a21f7a26)": {
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 28.76,
+      "summary_count": 1
+    },
+    "tests/unknown_member_bootstrap.rs (target/debug/deps/unknown_member_bootstrap-e632983c272af369)": {
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 20.45,
+      "summary_count": 1
+    },
+    "unittests src/lib.rs (target/debug/deps/p2panda_auth-46b359b81e96588f)": {
+      "passed": 50,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 0.02,
+      "summary_count": 1
+    },
+    "unittests src/lib.rs (target/debug/deps/p2panda_net-ea4e8d22a7fe27cd)": {
+      "passed": 40,
+      "failed": 0,
+      "ignored": 1,
+      "reported_seconds": 33.22,
+      "summary_count": 1
+    },
+    "tests/api.rs (target/debug/deps/api-713d5c9e97e8cf96)": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 0.16,
+      "summary_count": 1
+    },
+    "tests/e2e.rs (target/debug/deps/e2e-3b20cfadcefe757f)": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 2.37,
+      "summary_count": 1
+    },
+    "miopunch_browser_probe": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 0.0,
+      "summary_count": 1
+    },
+    "miopunch_native_probe": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 0.0,
+      "summary_count": 1
+    },
+    "p2panda_auth": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 2,
+      "reported_seconds": 0.0,
+      "summary_count": 1
+    },
+    "p2panda_net": {
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0,
+      "reported_seconds": 0.27,
+      "summary_count": 1
+    }
+  },
+  "runtime_test_rerun_after_policy_change": false,
+  "timing_note": "Each Run/Doc-tests section uses its terminal summary, excluding the nested multisocket child from module totals; these reported durations are not exact overall wallclock."
+}
