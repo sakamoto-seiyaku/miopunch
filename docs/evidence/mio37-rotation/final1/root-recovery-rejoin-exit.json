@@ -1,0 +1,22 @@
+{
+  "name": "root-recovery-rejoin",
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--features",
+    "replica-test-hooks",
+    "--test",
+    "management_recovery",
+    "completed_recovery_after_effective_removal_can_rejoin_with_fresh_ordinary_approval",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T07:29:51.862656+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-10-01T07:29:55.584102+00:00",
+  "wall_seconds": 3.7211250229738653
+}

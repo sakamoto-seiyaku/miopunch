@@ -1,0 +1,14 @@
+{
+  "name": "format",
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "fmt",
+    "--check"
+  ],
+  "started_utc": "2026-10-01T08:08:16.663008+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-10-01T08:08:17.143793+00:00",
+  "wall_seconds": 0.480568011989817
+}

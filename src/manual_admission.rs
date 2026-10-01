@@ -114,6 +114,7 @@ pub struct AdmissionDelivery {
     local: VerifyingKey,
     binding: JoinBinding,
     authorization: Hash,
+    generation: u64,
 }
 
 #[derive(Debug, Error)]
@@ -216,6 +217,7 @@ impl NativeNetwork {
         // already committed its grant. Recover it before role/member/dedup
         // decisions, not only after looking up this exact request ID.
         self.recover_admission_state().await?;
+        self.store.ensure_admissions_open().await?;
         if !self.is_admin(self.node_key.verifying_key())
             || !self.store.admission_requests().await?.contains(request)
             || request.applicant == self.anchor.root
@@ -334,6 +336,7 @@ impl NativeNetwork {
     ) -> Result<AdmissionStage, ManualAdmissionError> {
         self.restricted_connection(connection)?;
         self.recover_admission_state().await?;
+        self.store.ensure_admissions_open().await?;
         self.restricted_connection(connection)?;
         if !self.is_admin(self.node_key.verifying_key()) {
             return Err(ManualAdmissionError::Rejected);
@@ -387,6 +390,7 @@ impl NativeNetwork {
             .iter()
             .map(|record| (record.header(), record.body()))
             .collect();
+        self.store.ensure_admissions_open().await?;
         let history = p2panda_core::cbor::encode_cbor(&(approved.authorization, raw))
             .map_err(|_| ManualAdmissionError::Rejected)?;
         if history.len() > MAX_HISTORY_BYTES {
@@ -396,6 +400,9 @@ impl NativeNetwork {
         self.store
             .observe(crate::management_store::RecordCheckpoint::AuthorizationPrepared);
         send.write_all(&[1])
+            .await
+            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+        send.write_all(&self.scope.secret_generation().to_be_bytes())
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         write_frame(&mut send, &history).await?;
@@ -418,6 +425,7 @@ impl NativeNetwork {
         // The current credential and authorization are rechecked at release,
         // not inferred from an earlier approval or sender receipt.
         self.restricted_connection(connection)?;
+        self.store.ensure_admissions_open().await?;
         self.valid_approval(&approved)?;
         let secret = self.secret.as_ref().ok_or(ManualAdmissionError::Rejected)?;
         if !self
@@ -484,6 +492,7 @@ impl NativeNetwork {
         token: Option<[u8; 32]>,
     ) -> Result<ManualExchange, ManualAdmissionError> {
         self.recover_admission_state().await?;
+        self.store.ensure_admissions_open().await?;
         self.restricted_connection(connection)?;
         let binding = self.join.ok_or(ManualAdmissionError::Rejected)?;
         if binding.invitation.anchor != self.anchor
@@ -528,6 +537,14 @@ impl NativeNetwork {
         if status != [1] {
             return Err(ManualAdmissionError::Rejected);
         }
+        let mut generation = [0; 8];
+        recv.read_exact(&mut generation)
+            .await
+            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+        let generation = u64::from_be_bytes(generation);
+        if generation > i64::MAX as u64 || generation < self.scope.secret_generation() {
+            return Err(ManualAdmissionError::Rejected);
+        }
         let history = read_frame(&mut recv).await?;
         let (authorization, raw): (Hash, Vec<(Vec<u8>, Option<Vec<u8>>)>) =
             p2panda_core::cbor::decode_cbor(history.as_slice())
@@ -550,6 +567,16 @@ impl NativeNetwork {
             || !auth.membership_authorization_valid(authorization, local)
         {
             return Err(ManualAdmissionError::Rejected);
+        }
+        // The authenticated provider's generation becomes durable before the
+        // new grant can expose normal membership. An old saved secret does not
+        // complete a fresh admission when this provider uses a newer one.
+        self.store
+            .save_expected_admission_generation(binding.request_id, generation)
+            .await?;
+        if generation > self.scope.secret_generation() {
+            self.gate.suspend_secret();
+            self.secret = None;
         }
         #[cfg(feature = "replica-test-hooks")]
         self.store
@@ -578,6 +605,7 @@ impl NativeNetwork {
             local,
             binding,
             authorization,
+            generation,
         }))
     }
 
@@ -590,6 +618,7 @@ impl NativeNetwork {
     ) -> Result<AdmissionStage, ManualAdmissionError> {
         let result = tokio::time::timeout(TIMEOUT, async {
             self.recover_admission_state().await?;
+            self.store.ensure_admissions_open().await?;
             self.restricted_connection(&delivery.connection)?;
             if self.node_key.verifying_key() != delivery.local
                 || self.join.map(|binding| binding.encode()) != Some(delivery.binding.encode())
@@ -621,6 +650,9 @@ impl NativeNetwork {
                 *self.anchor.root.as_bytes(),
                 u64::from_be_bytes(bytes[..8].try_into().unwrap()),
             );
+            if scope.secret_generation() != delivery.generation {
+                return Err(ManualAdmissionError::Rejected);
+            }
             let secret = AdmissionSecret::from_saved(bytes[8..].try_into().unwrap());
             self.save_admission_material(scope, secret).await?;
             #[cfg(feature = "replica-test-hooks")]

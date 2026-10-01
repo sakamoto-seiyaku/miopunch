@@ -160,6 +160,7 @@ impl NativeNetwork {
         token: [u8; 32],
         request: &AdmissionRequest,
     ) -> Result<ApprovedAdmission, ManualAdmissionError> {
+        self.store.ensure_admissions_open().await?;
         if request.applicant == self.anchor.root {
             return Err(ManualAdmissionError::Rejected);
         }

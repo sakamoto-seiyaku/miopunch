@@ -1,0 +1,22 @@
+{
+  "name": "root-recovery-entry",
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--features",
+    "replica-test-hooks",
+    "--test",
+    "management_recovery",
+    "ordinary_contact_requires_root_proof_but_no_secret_history_or_old_approval",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T07:29:41.830842+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-10-01T07:29:51.859999+00:00",
+  "wall_seconds": 10.028835613979027
+}

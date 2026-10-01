@@ -680,6 +680,7 @@ async fn signed_old_response_cannot_restore_locally_verified_removal() {
         let mut request = [0; 176];
         recv.read_exact(&mut request).await.unwrap();
         send.write_all(&[1]).await.unwrap();
+        send.write_all(&0_u64.to_be_bytes()).await.unwrap();
         send.write_all(&(stale.len() as u32).to_be_bytes())
             .await
             .unwrap();
@@ -741,6 +742,9 @@ async fn duplicate_save_ack_does_not_consume_twice_or_prove_recipient_persistenc
         let mut status = [0];
         recv.read_exact(&mut status).await.unwrap();
         assert_eq!(status, [1]);
+        let mut generation = [0; 8];
+        recv.read_exact(&mut generation).await.unwrap();
+        assert_eq!(u64::from_be_bytes(generation), 0);
         let mut len = [0; 4];
         recv.read_exact(&mut len).await.unwrap();
         let mut history = vec![0; u32::from_be_bytes(len) as usize];

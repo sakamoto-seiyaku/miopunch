@@ -1,0 +1,22 @@
+{
+  "name": "raw-signed-response",
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--features",
+    "replica-test-hooks",
+    "--test",
+    "admission_completion",
+    "signed_old_response_cannot_restore_locally_verified_removal",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T07:29:31.193365+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-10-01T07:29:39.854328+00:00",
+  "wall_seconds": 8.660678594955243
+}

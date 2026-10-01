@@ -1,0 +1,22 @@
+{
+  "name": "original-provider-recovery",
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--features",
+    "replica-test-hooks",
+    "--test",
+    "admission_rotation",
+    "original_",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T08:07:27.883487+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-10-01T08:08:07.783157+00:00",
+  "wall_seconds": 39.899316850001924
+}

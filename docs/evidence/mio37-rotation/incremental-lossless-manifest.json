@@ -1,0 +1,354 @@
+[
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/authority-combined1/output.log.gz",
+    "original_bytes": 1020,
+    "original_sha256": "2d2eadef20621ce22b40ab23a7ec76b7bf186a6e6e8407dd79db13313d677077",
+    "compressed_bytes": 608,
+    "compressed_sha256": "8fd96807f71af308376a59c52fc1e424b92229ccd44e1c22914b4e471946f081",
+    "roundtrip_sha256": "2d2eadef20621ce22b40ab23a7ec76b7bf186a6e6e8407dd79db13313d677077"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/combined1/output.log.gz",
+    "original_bytes": 929,
+    "original_sha256": "aec4fa35b3df0c6d9184002d0ef58fc7a48b24d6cd75260e053b256e0399de20",
+    "compressed_bytes": 553,
+    "compressed_sha256": "51857acc03131f84beca9583c6bd01aa580f532fb19ce9be2b55901d4c25a3fe",
+    "roundtrip_sha256": "aec4fa35b3df0c6d9184002d0ef58fc7a48b24d6cd75260e053b256e0399de20"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/forged-green1/output.log.gz",
+    "original_bytes": 961,
+    "original_sha256": "ae508b2987f1e4a73346b879485a810c67d0f7c29fc061df68e20d7c3162e609",
+    "compressed_bytes": 598,
+    "compressed_sha256": "4fb1af5347561668d6776a6d802de989d865895fab08dd5523e51e6c46857d83",
+    "roundtrip_sha256": "ae508b2987f1e4a73346b879485a810c67d0f7c29fc061df68e20d7c3162e609"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/forged-red1/output.log.gz",
+    "original_bytes": 1810,
+    "original_sha256": "64b135be9699a2f089053ce86ed289c8b6eb7b20ff49ba9c4c9faf97ff55264d",
+    "compressed_bytes": 771,
+    "compressed_sha256": "ce4be852bc49e90aaeddaee14b9895b4b6fe125d74ba1b0097d3838d723711ff",
+    "roundtrip_sha256": "64b135be9699a2f089053ce86ed289c8b6eb7b20ff49ba9c4c9faf97ff55264d"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/green1/output.log.gz",
+    "original_bytes": 1619,
+    "original_sha256": "1bf5440a59d63c7b485d7c4c0256b166596120a34f4f1d010eb75ca913eedbdb",
+    "compressed_bytes": 744,
+    "compressed_sha256": "61c0b4e9964d05e77b6f0fde21a77094921683648f8e43740e9226ee463ac4f0",
+    "roundtrip_sha256": "1bf5440a59d63c7b485d7c4c0256b166596120a34f4f1d010eb75ca913eedbdb"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/green2/output.log.gz",
+    "original_bytes": 1469,
+    "original_sha256": "fd339cf80bd4feca4010c9e81149b7ec2388cbbe0d498fc7c9556b6a6b476250",
+    "compressed_bytes": 681,
+    "compressed_sha256": "819ee89f500074ca1bd50142a3ee71f1de91770cabb7a31cfe198daac8603e2b",
+    "roundtrip_sha256": "fd339cf80bd4feca4010c9e81149b7ec2388cbbe0d498fc7c9556b6a6b476250"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/initial-green1/output.log.gz",
+    "original_bytes": 1622,
+    "original_sha256": "54fc58a947e32fcbaa69f1c70b67d47f17368a96fe8503badf6cc04818bf1995",
+    "compressed_bytes": 746,
+    "compressed_sha256": "3f074fcabb945d6fde6c4dab1764de84f753c9759582d1acf0d53000bc5c1b56",
+    "roundtrip_sha256": "54fc58a947e32fcbaa69f1c70b67d47f17368a96fe8503badf6cc04818bf1995"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/initial-red1/output.log.gz",
+    "original_bytes": 1439,
+    "original_sha256": "3630fb05c9bceb4f2e06599485865591d1353ed3277fb973deb42f18a69a41be",
+    "compressed_bytes": 721,
+    "compressed_sha256": "b2af8a841336558c15c2a9199c814479ee2dbb323450984e283fd2e6b2e59493",
+    "roundtrip_sha256": "3630fb05c9bceb4f2e06599485865591d1353ed3277fb973deb42f18a69a41be"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/initial-red2/output.log.gz",
+    "original_bytes": 2866,
+    "original_sha256": "fefe1f68d865105d681442ca22e0826b032783e3f8efd965aeecb3b27451bd54",
+    "compressed_bytes": 970,
+    "compressed_sha256": "83d7ffc93dfa6dbd2dc334035b73e9fa99a021be2ff1def390cef8c44d58e897",
+    "roundtrip_sha256": "fefe1f68d865105d681442ca22e0826b032783e3f8efd965aeecb3b27451bd54"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/initial-red3/output.log.gz",
+    "original_bytes": 2232,
+    "original_sha256": "3495ea1fc29ca1c021942c0938d1a85dcff019a97eda4b5e94132ba6f00f4db5",
+    "compressed_bytes": 1009,
+    "compressed_sha256": "b9ed3735d16d2783fa36111bf1399251266858261c415fb3a6a2b3559ca644a1",
+    "roundtrip_sha256": "3495ea1fc29ca1c021942c0938d1a85dcff019a97eda4b5e94132ba6f00f4db5"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/initiatorack1/output.log.gz",
+    "original_bytes": 2133,
+    "original_sha256": "89c4fb6fea089d228ce880f30808a81c8fb01293b30973aecc1588aaa0cde6b8",
+    "compressed_bytes": 844,
+    "compressed_sha256": "ddc28455b36c713d4adc969cee41f613f920782e9212e747c55daa57d9c59480",
+    "roundtrip_sha256": "89c4fb6fea089d228ce880f30808a81c8fb01293b30973aecc1588aaa0cde6b8"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/lostack1/output.log.gz",
+    "original_bytes": 1672,
+    "original_sha256": "b495e75771afdc6b545034f8e72ebbb811fe32c22a572662902fd7661bee79c6",
+    "compressed_bytes": 800,
+    "compressed_sha256": "160f9680793c83be49670080cb9ca41148c66686e2183dad59642757561914f4",
+    "roundtrip_sha256": "b495e75771afdc6b545034f8e72ebbb811fe32c22a572662902fd7661bee79c6"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/newprecodepause1/output.log.gz",
+    "original_bytes": 972,
+    "original_sha256": "c8790f8b62175c94e7c1425f75acff295d9b1a133d2725f11320c49f234c79fd",
+    "compressed_bytes": 600,
+    "compressed_sha256": "61a05927b58f31623658bd110f7a1afb216ce8a2a42decb7ef40eb1625e3bb45",
+    "roundtrip_sha256": "c8790f8b62175c94e7c1425f75acff295d9b1a133d2725f11320c49f234c79fd"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/oldprecodepause1/output.log.gz",
+    "original_bytes": 947,
+    "original_sha256": "ca8ce833b86e415f57065f50ae7f8dd3c1affa095fcaf25a2bd20850200fe343",
+    "compressed_bytes": 566,
+    "compressed_sha256": "0fdfe0b96987d6fe7b7b74b9a8bd817af7357ebfac0b423ce6a889ae1b2e4237",
+    "roundtrip_sha256": "ca8ce833b86e415f57065f50ae7f8dd3c1affa095fcaf25a2bd20850200fe343"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/original-provider2/output.log.gz",
+    "original_bytes": 1711,
+    "original_sha256": "e388e861cbc56c7b55b1992772dfb73b604bb8020a590d468dc86027bd3bfd5b",
+    "compressed_bytes": 926,
+    "compressed_sha256": "69f9a08ab8f7264d5541c4b8e1a1cb39bb1833a32e5df60b8e185ab760ea2159",
+    "roundtrip_sha256": "e388e861cbc56c7b55b1992772dfb73b604bb8020a590d468dc86027bd3bfd5b"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/pause-green1/output.log.gz",
+    "original_bytes": 953,
+    "original_sha256": "edd387e1716971c07bc16637d54fdef62fc0aa475f115ee0cd7ba5b6305c3253",
+    "compressed_bytes": 585,
+    "compressed_sha256": "86ff9b0f927a15f52c08f8ac9925854ef3237091a4e91cde81c5da7c496b64fc",
+    "roundtrip_sha256": "edd387e1716971c07bc16637d54fdef62fc0aa475f115ee0cd7ba5b6305c3253"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/pause-red1/output.log.gz",
+    "original_bytes": 1744,
+    "original_sha256": "dcb2d6f0385c7f273c7221305f5a39e6ffc257801596e383c9a0413eef962033",
+    "compressed_bytes": 761,
+    "compressed_sha256": "24289eb95f42eace9d8e57744fa5195893672c5881c5114d1271563688dd1db2",
+    "roundtrip_sha256": "dcb2d6f0385c7f273c7221305f5a39e6ffc257801596e383c9a0413eef962033"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/pending-green1/output.log.gz",
+    "original_bytes": 1051,
+    "original_sha256": "4bb76f6beb9aaf02539349f8d955a6a23faa367deab2541840c49072fc46af6d",
+    "compressed_bytes": 635,
+    "compressed_sha256": "c60644e4822c5316c3182b629e3764dce337867e1b0444b65e3bb43edb991165",
+    "roundtrip_sha256": "4bb76f6beb9aaf02539349f8d955a6a23faa367deab2541840c49072fc46af6d"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/pending-red1/output.log.gz",
+    "original_bytes": 1051,
+    "original_sha256": "9a3d14dadfb5d32383c150bcc751692677b1c7799c185773ae14ffe58522773c",
+    "compressed_bytes": 545,
+    "compressed_sha256": "5a9726e99af23a3e2541537151c219f068fa32b289f5ad41dd445e9120d62a05",
+    "roundtrip_sha256": "9a3d14dadfb5d32383c150bcc751692677b1c7799c185773ae14ffe58522773c"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/predecessor-green1/output.log.gz",
+    "original_bytes": 1047,
+    "original_sha256": "2a7637b9f52e580b268350c9c3510368da13ce6be8ffa425968bc12db1e6dcef",
+    "compressed_bytes": 619,
+    "compressed_sha256": "97e04f42ce04ff04767036575ebcfb2223a757bf580009fe6bd07f2e8de4228b",
+    "roundtrip_sha256": "2a7637b9f52e580b268350c9c3510368da13ce6be8ffa425968bc12db1e6dcef"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/predecessor-red1/output.log.gz",
+    "original_bytes": 1324,
+    "original_sha256": "bb8d1b6757a2fa2663c43e78397d42b2aa845d814552d705f121768eb2e23da3",
+    "compressed_bytes": 713,
+    "compressed_sha256": "cc295712e806768538e9af9ef6fc40f09d247429f9835f6e7bb52cffccd6b1e7",
+    "roundtrip_sha256": "bb8d1b6757a2fa2663c43e78397d42b2aa845d814552d705f121768eb2e23da3"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/priority1/output.log.gz",
+    "original_bytes": 1677,
+    "original_sha256": "9a444292b4ab26764d209113cfc2a1300d4dd383b69129361cc7ac03115999b5",
+    "compressed_bytes": 795,
+    "compressed_sha256": "2d0cb4bd87945e1f83b333fee1f8eb26aa9400441ed42ecea94bf0970f91bf9e",
+    "roundtrip_sha256": "9a444292b4ab26764d209113cfc2a1300d4dd383b69129361cc7ac03115999b5"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/priority2/output.log.gz",
+    "original_bytes": 1270,
+    "original_sha256": "6d0b6679e7f4e884066b7b2bb5371d0818e2c62cd52333f0a895b6354f917fa6",
+    "compressed_bytes": 741,
+    "compressed_sha256": "25981a5b48e255a5bfa66c33e5308a1f7c3a538da9fe0c42e6436e352babd793",
+    "roundtrip_sha256": "6d0b6679e7f4e884066b7b2bb5371d0818e2c62cd52333f0a895b6354f917fa6"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/provider-green1/output.log.gz",
+    "original_bytes": 1094,
+    "original_sha256": "316b023fe40f5e4ee1e8cfb791b0ea101288cf82486406cb1fceccd73fe46915",
+    "compressed_bytes": 665,
+    "compressed_sha256": "4248b38d32a4eeed22d0f79633100d9b95a6ef91479b819a7c59bef711ad0e60",
+    "roundtrip_sha256": "316b023fe40f5e4ee1e8cfb791b0ea101288cf82486406cb1fceccd73fe46915"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/provider-red1/output.log.gz",
+    "original_bytes": 1301,
+    "original_sha256": "75636ee12ec483707dbc2c37c6111864ce9a87d204f48ec09e03bdbec5ffcd0f",
+    "compressed_bytes": 682,
+    "compressed_sha256": "0f9e40b398ba9bfa95b1d796a1cf61ef4034af039b9d91364f5718615fe722c1",
+    "roundtrip_sha256": "75636ee12ec483707dbc2c37c6111864ce9a87d204f48ec09e03bdbec5ffcd0f"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/red1/output.log.gz",
+    "original_bytes": 3689,
+    "original_sha256": "8b12d691741fddaa93bc2616b9326ed9aa3e7599f7c557f62904e7bfb46f4614",
+    "compressed_bytes": 1039,
+    "compressed_sha256": "20a4be3424fd173f1219a81bdb5603e207eb30653305009f98830a72bfc1facc",
+    "roundtrip_sha256": "8b12d691741fddaa93bc2616b9326ed9aa3e7599f7c557f62904e7bfb46f4614"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/remove-green1/output.log.gz",
+    "original_bytes": 1078,
+    "original_sha256": "4a75f89d03e3a124db30715c93803ee8a3e4ea119b60a46a81a462ef547a7a8e",
+    "compressed_bytes": 651,
+    "compressed_sha256": "2959cafc488bff947a93e46732eec863fc49392ce2d81bb10cac1066f3a451b1",
+    "roundtrip_sha256": "4a75f89d03e3a124db30715c93803ee8a3e4ea119b60a46a81a462ef547a7a8e"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/remove-red1/output.log.gz",
+    "original_bytes": 1337,
+    "original_sha256": "f00c2012d4ab2fc6f35225444912045db7d048070dff763d8217556c65011bae",
+    "compressed_bytes": 714,
+    "compressed_sha256": "d4817c5be7e4e5fd78710b05e7b413a5bb404c52b33b44dd345ffe519b017dd5",
+    "roundtrip_sha256": "f00c2012d4ab2fc6f35225444912045db7d048070dff763d8217556c65011bae"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/rootlifecycle-green1/output.log.gz",
+    "original_bytes": 1143,
+    "original_sha256": "70ad624c7d686b473d540b770fdaa409149e0b3f61ccca9e883053e9b993ab21",
+    "compressed_bytes": 688,
+    "compressed_sha256": "47d7446bd80b2c64f5e681a4a8be8e72dc1db847d41fe173be003951fea8b5e0",
+    "roundtrip_sha256": "70ad624c7d686b473d540b770fdaa409149e0b3f61ccca9e883053e9b993ab21"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/rootlifecycle-red1/output.log.gz",
+    "original_bytes": 1427,
+    "original_sha256": "6e258818ad5346e52a624e117ffb412e755686132215b432eb8cac5f87b14708",
+    "compressed_bytes": 758,
+    "compressed_sha256": "a0ffb9e18f629685baae26ff163562ef3b032aa37a09dde273c8357fe2ce5799",
+    "roundtrip_sha256": "6e258818ad5346e52a624e117ffb412e755686132215b432eb8cac5f87b14708"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/rootpending-diagnose1/output.log.gz",
+    "original_bytes": 1611,
+    "original_sha256": "2b96e0baf5cbfd31a02307dffbcd02c2c1b58510250d08de5e0ab441932c0b1a",
+    "compressed_bytes": 880,
+    "compressed_sha256": "8ccbd15003cff22ae33bd1483a4c0d3b7b8d0896abc3972d47e4664d12043f89",
+    "roundtrip_sha256": "2b96e0baf5cbfd31a02307dffbcd02c2c1b58510250d08de5e0ab441932c0b1a"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/rootpending-diagnose2/output.log.gz",
+    "original_bytes": 1765,
+    "original_sha256": "31cca7d8ffaa5df3f2a797ec07ab35cf41ea381b3bf201ff70e17c0781ee7ffc",
+    "compressed_bytes": 943,
+    "compressed_sha256": "f3cf7413f341e5ede05e0efc20f4e827e97d7e21eb56ec9a99d669158c1e7cb2",
+    "roundtrip_sha256": "31cca7d8ffaa5df3f2a797ec07ab35cf41ea381b3bf201ff70e17c0781ee7ffc"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/rootpending-green1/output.log.gz",
+    "original_bytes": 1293,
+    "original_sha256": "2ed7930ff40faa2b6adf3572c683a495fbc0268be916ea61c2f3f95ed596d8f7",
+    "compressed_bytes": 764,
+    "compressed_sha256": "c11b9a2b2f1cd9040e2d74c64111a0e34823f494b7adccfd3878b9e504c24985",
+    "roundtrip_sha256": "2ed7930ff40faa2b6adf3572c683a495fbc0268be916ea61c2f3f95ed596d8f7"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/rootpending1/output.log.gz",
+    "original_bytes": 1543,
+    "original_sha256": "5ebe6616e91e52fbe8613d6d7bbd20a991c726ed9becc893f17e33a395831608",
+    "compressed_bytes": 837,
+    "compressed_sha256": "9e2047fc97c80bd908b2cca16d70a4d5f87425298a0022bfea1319c45b5eb489",
+    "roundtrip_sha256": "5ebe6616e91e52fbe8613d6d7bbd20a991c726ed9becc893f17e33a395831608"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/rootprovider1/output.log.gz",
+    "original_bytes": 1564,
+    "original_sha256": "fb803f98374741034b987bd22656494dc551a168fb5bb28c26694d8f2bf058f4",
+    "compressed_bytes": 850,
+    "compressed_sha256": "5bbcd738559077761e6dcef137df571fefb81e15e0f2bba9c835974332f80661",
+    "roundtrip_sha256": "fb803f98374741034b987bd22656494dc551a168fb5bb28c26694d8f2bf058f4"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/stagedscope1/output.log.gz",
+    "original_bytes": 1079,
+    "original_sha256": "78bc32dafd7b66b40a564bbe008f158855dfb7fcb4f63e65a2d0d482d402b2a2",
+    "compressed_bytes": 644,
+    "compressed_sha256": "a20bb5f7cb8ba534043ab61927d8192892576f9c670644fa957308f015b7f02d",
+    "roundtrip_sha256": "78bc32dafd7b66b40a564bbe008f158855dfb7fcb4f63e65a2d0d482d402b2a2"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/stale-green1/output.log.gz",
+    "original_bytes": 1019,
+    "original_sha256": "398dfcd9addb5003349074329c58bf41f212e0a7c4085d1c758e42f45841a869",
+    "compressed_bytes": 616,
+    "compressed_sha256": "27c4c714d2e72f8e826ec695a69de6082b4cb2ae2ec9059a36998c89455c2bf1",
+    "roundtrip_sha256": "398dfcd9addb5003349074329c58bf41f212e0a7c4085d1c758e42f45841a869"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/stale-red1/output.log.gz",
+    "original_bytes": 1124,
+    "original_sha256": "364e8986365103a0f54ef55ef630c8960725caddf57819e87635c91916f2d955",
+    "compressed_bytes": 563,
+    "compressed_sha256": "98fff15771998ff89a4932ab256eabdba0faf4451847158294ee6c5c51e72b98",
+    "roundtrip_sha256": "364e8986365103a0f54ef55ef630c8960725caddf57819e87635c91916f2d955"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/switchboundaries1/output.log.gz",
+    "original_bytes": 4131,
+    "original_sha256": "4d7f534a5bc1847fb9cd5a7d1a1b1b95090a82792e0887415f98f80d484c0465",
+    "compressed_bytes": 1064,
+    "compressed_sha256": "f13ac3df77c54c5762ac5385a30b9ec4f7197d09429bbe46057f273a86684143",
+    "roundtrip_sha256": "4d7f534a5bc1847fb9cd5a7d1a1b1b95090a82792e0887415f98f80d484c0465"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/unapproved1/output.log.gz",
+    "original_bytes": 1311,
+    "original_sha256": "7ede2235ca0731cb45a4d131584fb801dd3d9d28f4d5c7f9fd68fbf8b20de1a4",
+    "compressed_bytes": 705,
+    "compressed_sha256": "dcb21f5eb187afc660c68c0d848b8b3f9b6eeb13f107583f5ba67535dac8468f",
+    "roundtrip_sha256": "7ede2235ca0731cb45a4d131584fb801dd3d9d28f4d5c7f9fd68fbf8b20de1a4"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/unapproved2/output.log.gz",
+    "original_bytes": 895,
+    "original_sha256": "13e3eb08a12d38680cac33313957cf053418735edf35f600e8b150f5e78305b1",
+    "compressed_bytes": 550,
+    "compressed_sha256": "4fc8b86f8be4c4a9bb19b47e434148422e2c008d7610027d2ee6f2c6ddb6e198",
+    "roundtrip_sha256": "13e3eb08a12d38680cac33313957cf053418735edf35f600e8b150f5e78305b1"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/wrongid-green1/output.log.gz",
+    "original_bytes": 1005,
+    "original_sha256": "aec0fdad64629546f05f0197157073356574c017368b01390490f1df8250785b",
+    "compressed_bytes": 617,
+    "compressed_sha256": "93c08d299bc5cdde4c431cc1ce71521fa1413ca778247febd20e4fe60b60053a",
+    "roundtrip_sha256": "aec0fdad64629546f05f0197157073356574c017368b01390490f1df8250785b"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/wrongid-red1/output.log.gz",
+    "original_bytes": 1122,
+    "original_sha256": "a013a5b7e5743d42db9e5561855dec94944ebe4783920b2d9eddf5db9315c052",
+    "compressed_bytes": 574,
+    "compressed_sha256": "991e18a9a37c956b645d80865b33246e82f0aad5c9e599e1375d764cece85176",
+    "roundtrip_sha256": "a013a5b7e5743d42db9e5561855dec94944ebe4783920b2d9eddf5db9315c052"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/incremental/root-generation2-green1/output.log.gz",
+    "original_bytes": 1400,
+    "original_sha256": "41b4db7c4fe8ff0092ee245647b6520399662ea66e357cd4bd3563efed2fe98a",
+    "compressed_bytes": 828,
+    "compressed_sha256": "1f5b599335f526ca2447f2f813d3ad95af038bc17060e31be2d5fcb1fbc31081",
+    "roundtrip_sha256": "41b4db7c4fe8ff0092ee245647b6520399662ea66e357cd4bd3563efed2fe98a"
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "actual_wrapper_exit": 1,
+  "actual_cargo_exit": 101,
+  "top_level_passed": 30,
+  "failed": 1,
+  "ignored": 0,
+  "failed_case": "original_root_provider_relays_other_initiator_but_node_key_cannot_replace_fresh_root_proof",
+  "actual_other_cases_not_relabelled_final_source": true,
+  "source_unchanged": true,
+  "unstarted_commands": [
+    "browser-wasm",
+    "workspace-typecheck",
+    "fault-build-typecheck",
+    "format"
+  ],
+  "owned_broker_created": false,
+  "reason": "Incoming exact staged completion2 to a newly recovered member still active0 was incorrectly treated as a predecessor1 catchup, even though local pending proposal was the same generation2."
+}

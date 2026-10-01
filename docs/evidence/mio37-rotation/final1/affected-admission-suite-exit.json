@@ -1,0 +1,29 @@
+{
+  "name": "affected-admission-suite",
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--features",
+    "replica-test-hooks",
+    "--test",
+    "admission_gate",
+    "--test",
+    "manual_admission",
+    "--test",
+    "native_network",
+    "--test",
+    "management_store",
+    "--test",
+    "daily_management",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T07:28:12.965111+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-10-01T07:29:31.190718+00:00",
+  "wall_seconds": 78.22525926399976
+}

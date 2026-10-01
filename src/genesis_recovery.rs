@@ -351,6 +351,7 @@ pub async fn serve_recovery(
 ) -> Result<Hash, RecoveryError> {
     let (_permit, _session) = SessionGuard::begin(connection)?;
     let result = tokio::time::timeout(TIMEOUT, async {
+        store.ensure_admissions_open().await?;
         let anchor = store.anchor();
         if scope.network_id() != anchor.root.as_bytes() || connection.alpn() != RECOVERY_ALPN {
             return Err(RecoveryError::Rejected);
@@ -378,6 +379,7 @@ pub async fn serve_recovery(
         if records.first().map(|record| Hash::digest(record.header())) != Some(anchor.genesis) {
             return Err(RecoveryError::Rejected);
         }
+        store.ensure_admissions_open().await?;
         write_frame(&mut send, &history_wire(&records, scope, secret)?).await?;
         let grant = ManagementRecord::new(read_frame(&mut recv, MAX_GRANT_BYTES).await?, None);
         let header = Header::<ManagementExtension>::decode(grant.header())

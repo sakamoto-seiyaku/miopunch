@@ -54,6 +54,8 @@ pub enum StoreError {
     WrongAnchor,
     #[error("admission generation is older, reused with a different secret, or invalid")]
     InvalidAdmission,
+    #[error("admission and approved-material delivery are paused for secret rotation")]
+    AdmissionPaused,
     #[error(
         "precode is stopped, expired, exhausted, revoked, or has inconsistent consumption evidence"
     )]
@@ -80,6 +82,16 @@ pub struct ManagementStore {
 #[cfg(feature = "replica-test-hooks")]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RecordCheckpoint {
+    RotationInitialMaterialSaved,
+    RotationProposalSaved,
+    RotationSecretReceived,
+    RotationSecretSaved,
+    RotationAcknowledgementSent,
+    RotationAcknowledgementReceived,
+    RotationAcknowledgementSaved,
+    RotationCommitSaved,
+    RotationMaterialPublished,
+    RotationCredentialPinned,
     RecoveryProofSaved,
     RecoveryHistoryVerified,
     RecoveryHistorySaved,
@@ -198,6 +210,30 @@ impl ManagementStore {
                 generation INTEGER NOT NULL,
                 credential_fingerprint BLOB NOT NULL
             )",
+        )
+        .execute(&pool)
+        .await?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS admission_rotations (
+            generation INTEGER PRIMARY KEY, proposal BLOB NOT NULL,
+            completion BLOB
+        )",
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS admission_rotation_acks (
+            rotation BLOB NOT NULL, member BLOB NOT NULL, acknowledgement BLOB NOT NULL,
+            PRIMARY KEY (rotation, member)
+        )",
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS admission_material_generations (
+            request_id BLOB PRIMARY KEY, generation INTEGER NOT NULL CHECK (generation >= 0)
+        )",
         )
         .execute(&pool)
         .await?;
@@ -338,6 +374,45 @@ impl ManagementStore {
             && generation >= 0
             && scope.secret_generation() == generation as u64
             && tag == fingerprint)
+    }
+
+    pub(crate) async fn expected_admission_generation(
+        &self,
+        request_id: [u8; 16],
+    ) -> Result<Option<u64>, StoreError> {
+        let generation: Option<i64> = sqlx::query_scalar(
+            "SELECT generation FROM admission_material_generations WHERE request_id=?",
+        )
+        .bind(request_id.as_slice())
+        .fetch_optional(&self.pool)
+        .await?;
+        generation
+            .map(|generation| {
+                generation
+                    .try_into()
+                    .map_err(|_| StoreError::InvalidAdmission)
+            })
+            .transpose()
+    }
+
+    pub(crate) async fn save_expected_admission_generation(
+        &self,
+        request_id: [u8; 16],
+        generation: u64,
+    ) -> Result<(), StoreError> {
+        let generation: i64 = generation
+            .try_into()
+            .map_err(|_| StoreError::InvalidAdmission)?;
+        if self
+            .expected_admission_generation(request_id)
+            .await?
+            .is_some_and(|old| old > generation as u64)
+        {
+            return Err(StoreError::InvalidAdmission);
+        }
+        sqlx::query("INSERT INTO admission_material_generations VALUES (?, ?) ON CONFLICT(request_id) DO UPDATE SET generation=excluded.generation WHERE generation<=excluded.generation")
+            .bind(request_id.as_slice()).bind(generation).execute(&self.pool).await?;
+        Ok(())
     }
 
     /// Only the restricted handler, after matching the claimed applicant to

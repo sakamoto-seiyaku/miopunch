@@ -34,6 +34,9 @@ pub enum ProtocolScope {
     GenesisRecovery,
     Bootstrap,
     Member,
+    /// Restricted replacement distribution. A staged credential can prove
+    /// this scope only; ordinary bootstrap/business still require the active one.
+    Rotation,
 }
 
 #[derive(Debug)]
@@ -67,20 +70,25 @@ impl Session {
         match self.scope {
             ProtocolScope::AdmissionRequest => true,
             ProtocolScope::GenesisRecovery => !policy.removed.contains(&self.peer),
-            ProtocolScope::Bootstrap | ProtocolScope::Member => {
+            ProtocolScope::Bootstrap | ProtocolScope::Member | ProtocolScope::Rotation => {
                 if policy.removed.contains(&self.peer) || policy.removed.contains(&policy.local_id)
                 {
                     return false;
                 }
-                let Some(secret) = &policy.secret else {
-                    return false;
-                };
                 let Some(proof) = &self.proof else {
                     return false;
                 };
-                proof.scope() == &policy.scope
-                    && proof.credential_fingerprint() == &secret.fingerprint(&policy.scope)
-                    && (self.scope != ProtocolScope::Member
+                let current = policy.secret.as_ref().is_some_and(|secret| {
+                    proof.scope() == &policy.scope
+                        && proof.credential_fingerprint() == &secret.fingerprint(&policy.scope)
+                });
+                let staged = self.scope == ProtocolScope::Rotation
+                    && policy.staged.as_ref().is_some_and(|(scope, secret)| {
+                        proof.scope() == scope
+                            && proof.credential_fingerprint() == &secret.fingerprint(scope)
+                    });
+                (current || staged)
+                    && (!matches!(self.scope, ProtocolScope::Member | ProtocolScope::Rotation)
                         || (policy.members.contains(&self.peer)
                             && policy.members.contains(&policy.local_id)))
             }
@@ -93,6 +101,7 @@ struct Policy {
     local_id: [u8; 32],
     scope: AdmissionScope,
     secret: Option<AdmissionSecret>,
+    staged: Option<(AdmissionScope, AdmissionSecret)>,
     members: HashSet<[u8; 32]>,
     removed: HashSet<[u8; 32]>,
     authorization_epoch: u64,
@@ -133,12 +142,21 @@ impl AdmissionGate {
         );
         protocols.insert(MEMBER_BOOTSTRAP_ALPN.to_vec(), ProtocolScope::Bootstrap);
         protocols.insert(CONTROL_ALPN.to_vec(), ProtocolScope::Bootstrap);
+        protocols.insert(
+            crate::admission_rotation::ADMISSION_ROTATION_ALPN.to_vec(),
+            ProtocolScope::Rotation,
+        );
+        protocols.insert(
+            crate::admission_rotation::ROTATION_DELIVERY_ALPN.to_vec(),
+            ProtocolScope::AdmissionRequest,
+        );
         Self {
             state: Arc::new(Mutex::new(State {
                 policy: Policy {
                     local_id: *local_id.as_bytes(),
                     scope,
                     secret,
+                    staged: None,
                     members: HashSet::new(),
                     removed: HashSet::new(),
                     authorization_epoch: 0,
@@ -245,6 +263,22 @@ impl AdmissionGate {
         let mut state = self.state.lock().expect("admission policy lock");
         state.policy.scope = scope;
         state.policy.secret = Some(secret);
+        state.policy.staged = None;
+        let policy = state.policy.clone();
+        state.sessions.retain(|_, session| session.valid(&policy));
+    }
+
+    pub(crate) fn stage_rotation_secret(&self, scope: AdmissionScope, secret: AdmissionSecret) {
+        self.state
+            .lock()
+            .expect("admission policy lock")
+            .policy
+            .staged = Some((scope, secret));
+    }
+
+    pub(crate) fn suspend_secret(&self) {
+        let mut state = self.state.lock().expect("admission policy lock");
+        state.policy.secret = None;
         let policy = state.policy.clone();
         state.sessions.retain(|_, session| session.valid(&policy));
     }
@@ -394,14 +428,54 @@ impl EndpointHooks for AdmissionGate {
         }
         let proof = match protocol {
             ProtocolScope::AdmissionRequest | ProtocolScope::GenesisRecovery => None,
-            ProtocolScope::Bootstrap | ProtocolScope::Member => {
-                let Some(secret) = &policy.secret else {
+            ProtocolScope::Bootstrap | ProtocolScope::Member | ProtocolScope::Rotation => {
+                // A fresh rotation TLS connection chooses one generation before
+                // the one permitted SCRAM attempt. This never repeats SASL on
+                // an existing session or promotes a staged proof to business.
+                let selected = if protocol == ProtocolScope::Rotation {
+                    let result = tokio::time::timeout(STAGE_TIMEOUT, async {
+                        let (mut send, mut recv) = if connection.side().is_client() {
+                            connection.open_bi().await.ok()?
+                        } else {
+                            connection.accept_bi().await.ok()?
+                        };
+                        let generation = if connection.side().is_client() {
+                            send.write_all(&policy.scope.secret_generation().to_be_bytes())
+                                .await
+                                .ok()?;
+                            policy.scope.secret_generation()
+                        } else {
+                            let mut bytes = [0; 8];
+                            recv.read_exact(&mut bytes).await.ok()?;
+                            u64::from_be_bytes(bytes)
+                        };
+                        send.finish().ok()?;
+                        if generation == policy.scope.secret_generation() {
+                            Some((policy.scope.clone(), policy.secret.clone()?))
+                        } else {
+                            policy
+                                .staged
+                                .clone()
+                                .filter(|(scope, _)| scope.secret_generation() == generation)
+                        }
+                    })
+                    .await
+                    .ok()
+                    .flatten();
+                    result
+                } else {
+                    policy
+                        .secret
+                        .clone()
+                        .map(|secret| (policy.scope.clone(), secret))
+                };
+                let Some((scope, secret)) = selected else {
                     return Self::reject();
                 };
                 let result = if connection.side().is_client() {
-                    prove_client(connection, &policy.scope, secret).await
+                    prove_client(connection, &scope, &secret).await
                 } else {
-                    prove_server(connection, &policy.scope, secret).await
+                    prove_server(connection, &scope, &secret).await
                 };
                 let Ok(proof) = result else {
                     return Self::reject();
@@ -412,7 +486,7 @@ impl EndpointHooks for AdmissionGate {
         {
             let state = self.state.lock().expect("admission policy lock");
             if (protocol != ProtocolScope::AdmissionRequest && state.policy.removed.contains(&peer))
-                || (protocol == ProtocolScope::Member
+                || (matches!(protocol, ProtocolScope::Member | ProtocolScope::Rotation)
                     && (!state.policy.members.contains(&peer)
                         || !state.policy.members.contains(&state.policy.local_id)))
             {

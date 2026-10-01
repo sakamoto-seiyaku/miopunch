@@ -1,0 +1,150 @@
+{
+  "actual_wrapper_exit": 0,
+  "actual_command_exits": {
+    "rotation-suite": 0,
+    "affected-admission-suite": 0,
+    "raw-signed-response": 0,
+    "raw-duplicate-receipt": 0,
+    "root-recovery-entry": 0,
+    "root-recovery-rejoin": 0,
+    "genesis-recovery-entry": 0,
+    "nat-credential-invalidation": 0,
+    "nat-delayed-scope-invalidation": 0,
+    "browser-wasm": 0,
+    "workspace-typecheck": 0,
+    "fault-build-typecheck": 0,
+    "format": 0
+  },
+  "source_inputs": 57,
+  "source_unchanged": true,
+  "totals": {
+    "passed": 84,
+    "failed": 0,
+    "ignored": 0
+  },
+  "rotation_top_level_tests": 28,
+  "rotation_behavior_cases": 27,
+  "rotation_no_env_worker": 1,
+  "rotation_actual_process_exit87_count": 13,
+  "rotation_actual_process_exit87_checkpoints": [
+    "RotationAcknowledgementSaved",
+    "RotationAcknowledgementReceived",
+    "RotationInitialMaterialSaved",
+    "RotationProposalSaved",
+    "RotationCommitSaved",
+    "RotationMaterialPublished",
+    "RotationCredentialPinned",
+    "SecretReceived",
+    "RotationSecretReceived",
+    "RotationCommitSaved",
+    "RotationMaterialPublished",
+    "RotationCredentialPinned",
+    "RotationSecretSaved"
+  ],
+  "mqtt": "MIO30_MQTT_CIPHERTEXT publishes=95 max_bytes=1472 long_lived_secret_in_invitation=false independent_holder_received_approved_result=false",
+  "owned_container_cleanup_exit": 0,
+  "owned_resource_absence": {
+    "f0a0fc4a7b93551d2d3941df6da4e5bb325bc9ba06f65b2f13bc0e4da473b8f9": {
+      "kind": "container",
+      "name": "f0a0fc4a7b93551d2d3941df6da4e5bb325bc9ba06f65b2f13bc0e4da473b8f9",
+      "actual_exit": 1,
+      "output": "[]\nError response from daemon: No such container: f0a0fc4a7b93551d2d3941df6da4e5bb325bc9ba06f65b2f13bc0e4da473b8f9\n",
+      "absent": true
+    },
+    "d3f66e8f804cae6518c39df00845abd8d619aefa26b2259a8e4dffadb6c9d7a8": {
+      "kind": "volume",
+      "name": "d3f66e8f804cae6518c39df00845abd8d619aefa26b2259a8e4dffadb6c9d7a8",
+      "actual_exit": 1,
+      "output": "[]\nError response from daemon: get d3f66e8f804cae6518c39df00845abd8d619aefa26b2259a8e4dffadb6c9d7a8: no such volume\n",
+      "absent": true
+    },
+    "51e140b3d9bd8405532bbb80ec19067747d5cdb8c2930271a47a3cf446474111": {
+      "kind": "volume",
+      "name": "51e140b3d9bd8405532bbb80ec19067747d5cdb8c2930271a47a3cf446474111",
+      "actual_exit": 1,
+      "output": "[]\nError response from daemon: get 51e140b3d9bd8405532bbb80ec19067747d5cdb8c2930271a47a3cf446474111: no such volume\n",
+      "absent": true
+    }
+  },
+  "frozen_test_executables": [
+    {
+      "command": "rotation-suite",
+      "path": "target/debug/deps/admission_rotation-c1fd929bc37783a4",
+      "sha256": "1a3e66d7b38e009689e08d380421a048c71b8f6d1402b16541c8b4873b9d0420",
+      "frozen_path": "/tmp/mio37-frozen-executables/1a3e66d7b38e009689e08d380421a048c71b8f6d1402b16541c8b4873b9d0420/admission_rotation-c1fd929bc37783a4"
+    },
+    {
+      "command": "affected-admission-suite",
+      "path": "target/debug/deps/admission_gate-976548780671c03b",
+      "sha256": "2e0f534c7235722b75ad803a23ae9eadd919526a29a34806b8ea2f027b31d5dc",
+      "frozen_path": "/tmp/mio37-frozen-executables/2e0f534c7235722b75ad803a23ae9eadd919526a29a34806b8ea2f027b31d5dc/admission_gate-976548780671c03b"
+    },
+    {
+      "command": "affected-admission-suite",
+      "path": "target/debug/deps/daily_management-8bc3dc5a329bb41a",
+      "sha256": "c1095512b5a48ab8b67ae8548fd68c8447059f381c9319488881854cc037b34e",
+      "frozen_path": "/tmp/mio37-frozen-executables/c1095512b5a48ab8b67ae8548fd68c8447059f381c9319488881854cc037b34e/daily_management-8bc3dc5a329bb41a"
+    },
+    {
+      "command": "affected-admission-suite",
+      "path": "target/debug/deps/management_store-81c3a0a1c4ccfafe",
+      "sha256": "ac0aad45f835d71d0669c886524c841aee4a5047564822cfa9bf921b6700f89f",
+      "frozen_path": "/tmp/mio37-frozen-executables/ac0aad45f835d71d0669c886524c841aee4a5047564822cfa9bf921b6700f89f/management_store-81c3a0a1c4ccfafe"
+    },
+    {
+      "command": "affected-admission-suite",
+      "path": "target/debug/deps/manual_admission-a25bdabd9a40e03f",
+      "sha256": "6238c4a7eb18bb04dbfdd084a0e2aeeccf71324c755cb5a04ed271f0c47236b3",
+      "frozen_path": "/tmp/mio37-frozen-executables/6238c4a7eb18bb04dbfdd084a0e2aeeccf71324c755cb5a04ed271f0c47236b3/manual_admission-a25bdabd9a40e03f"
+    },
+    {
+      "command": "affected-admission-suite",
+      "path": "target/debug/deps/native_network-26b73088f93570e4",
+      "sha256": "3a7015ffc4b97f869bb4d9573cc4907cec7400d4b437e22ef6f40a47f9462e2e",
+      "frozen_path": "/tmp/mio37-frozen-executables/3a7015ffc4b97f869bb4d9573cc4907cec7400d4b437e22ef6f40a47f9462e2e/native_network-26b73088f93570e4"
+    },
+    {
+      "command": "raw-signed-response",
+      "path": "target/debug/deps/admission_completion-d623ae8b9436ad67",
+      "sha256": "aa996c41bdf4117efe8f3c6b4ae90589927e9996198e9c1ca65d953d95bd6993",
+      "frozen_path": "/tmp/mio37-frozen-executables/aa996c41bdf4117efe8f3c6b4ae90589927e9996198e9c1ca65d953d95bd6993/admission_completion-d623ae8b9436ad67"
+    },
+    {
+      "command": "raw-duplicate-receipt",
+      "path": "target/debug/deps/admission_completion-d623ae8b9436ad67",
+      "sha256": "aa996c41bdf4117efe8f3c6b4ae90589927e9996198e9c1ca65d953d95bd6993",
+      "frozen_path": "/tmp/mio37-frozen-executables/aa996c41bdf4117efe8f3c6b4ae90589927e9996198e9c1ca65d953d95bd6993/admission_completion-d623ae8b9436ad67"
+    },
+    {
+      "command": "root-recovery-entry",
+      "path": "target/debug/deps/management_recovery-9a01c00d71bb336f",
+      "sha256": "a6e513d0615f3c0c9b860a51be529dec900d1b294bb4b440ddd5995f93edb330",
+      "frozen_path": "/tmp/mio37-frozen-executables/a6e513d0615f3c0c9b860a51be529dec900d1b294bb4b440ddd5995f93edb330/management_recovery-9a01c00d71bb336f"
+    },
+    {
+      "command": "root-recovery-rejoin",
+      "path": "target/debug/deps/management_recovery-9a01c00d71bb336f",
+      "sha256": "a6e513d0615f3c0c9b860a51be529dec900d1b294bb4b440ddd5995f93edb330",
+      "frozen_path": "/tmp/mio37-frozen-executables/a6e513d0615f3c0c9b860a51be529dec900d1b294bb4b440ddd5995f93edb330/management_recovery-9a01c00d71bb336f"
+    },
+    {
+      "command": "genesis-recovery-entry",
+      "path": "target/debug/deps/genesis_recovery-5702a4aff6ccbf9e",
+      "sha256": "954ac7404b9a52838a2a4ae106080a2960b0bd38804b01a5f7a9faf750e0c6e7",
+      "frozen_path": "/tmp/mio37-frozen-executables/954ac7404b9a52838a2a4ae106080a2960b0bd38804b01a5f7a9faf750e0c6e7/genesis_recovery-5702a4aff6ccbf9e"
+    },
+    {
+      "command": "nat-credential-invalidation",
+      "path": "target/debug/deps/legacy_nat_runtime-d9c89a58d0a10fc4",
+      "sha256": "9de0751412f4e6cd522f9c5b9ca4050d8b42f81f9be9850e5b4bf6c8ba25560f",
+      "frozen_path": "/tmp/mio37-frozen-executables/9de0751412f4e6cd522f9c5b9ca4050d8b42f81f9be9850e5b4bf6c8ba25560f/legacy_nat_runtime-d9c89a58d0a10fc4"
+    },
+    {
+      "command": "nat-delayed-scope-invalidation",
+      "path": "target/debug/deps/legacy_nat_runtime-d9c89a58d0a10fc4",
+      "sha256": "9de0751412f4e6cd522f9c5b9ca4050d8b42f81f9be9850e5b4bf6c8ba25560f",
+      "frozen_path": "/tmp/mio37-frozen-executables/9de0751412f4e6cd522f9c5b9ca4050d8b42f81f9be9850e5b4bf6c8ba25560f/legacy_nat_runtime-d9c89a58d0a10fc4"
+    }
+  ],
+  "all_current_hashes_match_final_prestart": true
+}

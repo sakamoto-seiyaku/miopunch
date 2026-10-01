@@ -1,0 +1,16 @@
+{
+  "name": "workspace-typecheck",
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "check",
+    "--locked",
+    "--workspace",
+    "--tests"
+  ],
+  "started_utc": "2026-10-01T08:08:08.347633+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-10-01T08:08:12.618562+00:00",
+  "wall_seconds": 4.27069987100549
+}

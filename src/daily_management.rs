@@ -101,6 +101,17 @@ impl ManagementSession {
 }
 
 impl NativeNetwork {
+    pub(crate) fn genesis_author<'a>(
+        &self,
+        session: &'a mut ManagementSession,
+    ) -> Result<&'a SigningKey, ManagementError> {
+        self.check_management_session(session)?;
+        session
+            .elevation_remaining()
+            .ok_or(ManagementError::ElevationRequired)?;
+        Ok(&session.elevation.as_ref().unwrap().root)
+    }
+
     pub fn begin_management_session(&self) -> ManagementSession {
         ManagementSession {
             node_instance: self.management_instance,
@@ -158,6 +169,11 @@ impl NativeNetwork {
             .into_iter()
             .find(|(node, _)| *node == target)
             .map(|(_, access)| access);
+        if matches!(action, ManagementAction::AddMember(_))
+            || matches!(action, ManagementAction::AppointAdministrator(_)) && current.is_none()
+        {
+            self.store.ensure_admissions_open().await?;
+        }
         let privileged = matches!(
             action,
             ManagementAction::AppointAdministrator(_) | ManagementAction::DemoteAdministrator(_)

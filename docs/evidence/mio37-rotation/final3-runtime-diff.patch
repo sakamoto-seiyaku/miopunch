@@ -1,0 +1,17 @@
+--- final2/src/admission_rotation.rs
++++ final3/src/admission_rotation.rs
+@@ -1084,11 +1084,9 @@
+         // after the initiator has begun the next round. Apply only its exact
+         // durable root decision, never infer completion from a later proposal.
+         if self.scope.secret_generation() < proposal.previous_generation
+-            && self
+-                .store
+-                .saved_rotation()
+-                .await?
+-                .is_some_and(|old| old.completion.is_none())
++            && self.store.saved_rotation().await?.is_some_and(|old| {
++                old.completion.is_none() && old.proposal.generation == proposal.previous_generation
++            })
+         {
+             let previous = self
+                 .store

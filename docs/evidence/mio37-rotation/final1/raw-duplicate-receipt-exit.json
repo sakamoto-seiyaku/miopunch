@@ -1,0 +1,22 @@
+{
+  "name": "raw-duplicate-receipt",
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--features",
+    "replica-test-hooks",
+    "--test",
+    "admission_completion",
+    "duplicate_save_ack_does_not_consume_twice_or_prove_recipient_persistence",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T07:29:39.856860+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-10-01T07:29:41.827898+00:00",
+  "wall_seconds": 1.9707298299763352
+}

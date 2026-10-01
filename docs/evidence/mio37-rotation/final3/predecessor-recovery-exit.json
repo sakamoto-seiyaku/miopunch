@@ -1,0 +1,22 @@
+{
+  "name": "predecessor-recovery",
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--features",
+    "replica-test-hooks",
+    "--test",
+    "admission_rotation",
+    "missed_predecessor_completion_recovers_when_initiator_starts_next_rotation",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T08:07:21.711456+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-10-01T08:07:27.881034+00:00",
+  "wall_seconds": 6.16934505791869
+}

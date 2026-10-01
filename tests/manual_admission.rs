@@ -919,6 +919,7 @@ async fn authenticated_contact_cannot_make_a_corrupt_signature_durable_membershi
         let mut request = [0; 144];
         recv.read_exact(&mut request).await.unwrap();
         send.write_all(&[1]).await.unwrap();
+        send.write_all(&0_u64.to_be_bytes()).await.unwrap();
         send.write_all(&(bytes.len() as u32).to_be_bytes())
             .await
             .unwrap();

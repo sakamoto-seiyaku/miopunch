@@ -1,0 +1,22 @@
+{
+  "name": "genesis-recovery-entry",
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--features",
+    "replica-test-hooks",
+    "--test",
+    "genesis_recovery",
+    "pinned_root_credential_recovers_from_ordinary_member_without_secret_or_old_admin",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T07:29:55.587154+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-10-01T07:30:02.032452+00:00",
+  "wall_seconds": 6.44501062692143
+}

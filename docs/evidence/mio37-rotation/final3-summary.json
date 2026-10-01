@@ -1,0 +1,40 @@
+{
+  "actual_wrapper_exit": 0,
+  "actual_command_exits": {
+    "predecessor-recovery": 0,
+    "original-provider-recovery": 0,
+    "browser-wasm": 0,
+    "workspace-typecheck": 0,
+    "fault-build-typecheck": 0,
+    "format": 0
+  },
+  "suite_totals": {
+    "passed": 3,
+    "failed": 0,
+    "ignored": 0
+  },
+  "source_inputs": 57,
+  "source_unchanged": true,
+  "no_owned_broker": true,
+  "actual_root_worker_exit87": 1,
+  "no_latest_full31_or84_pass_claim": true,
+  "current_cases": [
+    "missed_predecessor_completion_recovers_when_initiator_starts_next_rotation",
+    "original_provider_relays_different_initiator_replacement_and_signed_ack_for_pending_member",
+    "original_root_provider_relays_other_initiator_but_node_key_cannot_replace_fresh_root_proof"
+  ],
+  "executables": [
+    {
+      "command": "predecessor-recovery",
+      "path": "target/debug/deps/admission_rotation-c1fd929bc37783a4",
+      "sha256": "ec0345d64795fc402e7e2d536f06012678284a38ed7f6a9dcca9d8c90aff4f1b",
+      "frozen_path": "/tmp/mio37-frozen-executables/ec0345d64795fc402e7e2d536f06012678284a38ed7f6a9dcca9d8c90aff4f1b/admission_rotation-c1fd929bc37783a4"
+    },
+    {
+      "command": "original-provider-recovery",
+      "path": "target/debug/deps/admission_rotation-c1fd929bc37783a4",
+      "sha256": "ec0345d64795fc402e7e2d536f06012678284a38ed7f6a9dcca9d8c90aff4f1b",
+      "frozen_path": "/tmp/mio37-frozen-executables/ec0345d64795fc402e7e2d536f06012678284a38ed7f6a9dcca9d8c90aff4f1b/admission_rotation-c1fd929bc37783a4"
+    }
+  ]
+}

@@ -363,6 +363,7 @@ impl NativeNetwork {
         &mut self,
         connection: &Connection,
     ) -> Result<RecoveryProgress, ManagementRecoveryError> {
+        self.store.ensure_admissions_open().await?;
         self.store.apply_ready().await?;
         self.refresh_authorization();
         self.recovery_connection(connection)?;
@@ -547,6 +548,7 @@ impl NativeNetwork {
         &mut self,
         connection: &Connection,
     ) -> Result<RecoveryProgress, ManagementRecoveryError> {
+        self.store.ensure_admissions_open().await?;
         self.store.apply_ready().await?;
         self.refresh_authorization();
         self.recovery_connection(connection)?;
@@ -612,6 +614,7 @@ impl NativeNetwork {
             .iter()
             .map(|r| (r.header().to_vec(), r.body().map(<[u8]>::to_vec)))
             .collect();
+        self.store.ensure_admissions_open().await?;
         let wire = p2panda_core::cbor::encode_cbor(&(progress.authorization, raw))
             .map_err(|_| ManagementRecoveryError::Rejected)?;
         write_frame(&mut send, &wire).await?;
@@ -658,6 +661,7 @@ impl NativeNetwork {
             return Err(ManagementRecoveryError::Rejected);
         }
         self.valid_recovery(progress)?;
+        self.store.ensure_admissions_open().await?;
         let secret = self
             .secret
             .as_ref()

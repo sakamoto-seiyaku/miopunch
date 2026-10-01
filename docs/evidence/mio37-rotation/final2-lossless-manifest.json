@@ -1,0 +1,18 @@
+[
+  {
+    "path": "docs/evidence/mio37-rotation/final2/rotation-suite.log.gz",
+    "original_bytes": 11436,
+    "original_sha256": "2683a2e09e597846ebf34bc5a0287b6a6982a666a295b5e6ee1c5f981ebd1a86",
+    "compressed_bytes": 2878,
+    "compressed_sha256": "53edc9c89fed4c72523ce661d7fe1b29feb48f3ff66d8c61ba30812e9679f3c4",
+    "roundtrip_sha256": "2683a2e09e597846ebf34bc5a0287b6a6982a666a295b5e6ee1c5f981ebd1a86"
+  },
+  {
+    "path": "docs/evidence/mio37-rotation/final2/wrapper/output.log.gz",
+    "original_bytes": 526,
+    "original_sha256": "84b838735c72406dd6f705b6a0324a159ffe835d4ac7d9cd3790c86fdb7f2c24",
+    "compressed_bytes": 283,
+    "compressed_sha256": "dbca3b7c6fd2cb6e3a2765987273aff9677626817a46f3d2fa4e3611d02fed0a",
+    "roundtrip_sha256": "84b838735c72406dd6f705b6a0324a159ffe835d4ac7d9cd3790c86fdb7f2c24"
+  }
+]

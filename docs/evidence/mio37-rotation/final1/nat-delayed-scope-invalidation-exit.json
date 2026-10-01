@@ -1,0 +1,22 @@
+{
+  "name": "nat-delayed-scope-invalidation",
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--features",
+    "replica-test-hooks",
+    "--test",
+    "legacy_nat_runtime",
+    "scope_and_network_changes_during_delay_stop_before_submission",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T07:30:12.870436+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-10-01T07:30:16.545664+00:00",
+  "wall_seconds": 3.6685148630058393
+}

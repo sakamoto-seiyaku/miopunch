@@ -120,7 +120,7 @@ pub struct NativeNetwork {
     pub(crate) join: Option<JoinBinding>,
     pub(crate) recovery: Option<RecoveryBinding>,
     pub(crate) management_instance: [u8; 16],
-    directory: PathBuf,
+    pub(crate) directory: PathBuf,
     udp: NatConnector,
 }
 
@@ -364,6 +364,7 @@ impl NativeNetwork {
         // its materialized view. Recover ready records before exposing the
         // reopened node's authority or making admission decisions.
         store.apply_ready().await?;
+        crate::admission_rotation::recover_rotation_material(&mut store, path).await?;
         if path.join(GENESIS_CREDENTIAL).exists()
             && recovery.is_none()
             && store.get_record(anchor.genesis).await?.is_none()
@@ -404,6 +405,15 @@ impl NativeNetwork {
                 secret = None;
             }
         }
+        if let Some(binding) = join {
+            if store
+                .expected_admission_generation(binding.request_id)
+                .await?
+                .is_some_and(|generation| generation > scope.secret_generation())
+            {
+                secret = None;
+            }
+        }
         let node_id = SecretKey::from_bytes(node_key.as_bytes()).public();
         let gate = AdmissionGate::new(node_id, scope.clone(), secret.clone());
         gate.register_p2panda_defaults(*anchor.root.as_bytes());
@@ -424,6 +434,7 @@ impl NativeNetwork {
             directory: path.to_path_buf(),
             udp: NatConnector::new(None, UdpPolicy::default()),
         };
+        node.restore_rotation_gate().await?;
         if node.join.is_some() {
             if let Some(binding) = node.recovery {
                 if !node.has_completed_root_recovery(binding).await? {
@@ -457,6 +468,8 @@ impl NativeNetwork {
                 .alpns(vec![
                     crate::admission_gate::ADMISSION_REQUEST_ALPN.to_vec(),
                     crate::management_recovery::MANAGEMENT_RECOVERY_ALPN.to_vec(),
+                    crate::admission_rotation::ADMISSION_ROTATION_ALPN.to_vec(),
+                    crate::admission_rotation::ROTATION_DELIVERY_ALPN.to_vec(),
                 ])
                 .bind_addr(SocketAddr::from((bind_ip, 0)))
                 .map_err(|_| NodeError::InvalidData)?,
@@ -541,6 +554,7 @@ impl NativeNetwork {
     /// preserving this device key, network anchor and all verified history.
     /// An old request keeps its old invalidated result; it is never repurposed.
     pub async fn begin_rejoin(&mut self, invitation: ManualInvitation) -> Result<(), NodeError> {
+        self.store.ensure_admissions_open().await?;
         self.store.apply_ready().await?;
         self.refresh_authorization();
         if invitation.anchor != self.anchor
@@ -589,6 +603,7 @@ impl NativeNetwork {
     ) -> Result<(), NodeError> {
         self.store.apply_ready().await?;
         self.refresh_authorization();
+        self.store.ensure_admissions_open().await?;
         let previous = self.join.ok_or(NodeError::InvalidData)?;
         let invitation = code.invitation();
         if invitation.anchor != self.anchor {
@@ -628,13 +643,34 @@ impl NativeNetwork {
         scope: AdmissionScope,
         secret: AdmissionSecret,
     ) -> Result<(), NodeError> {
+        self.store.ensure_admissions_open().await?;
         let mut bytes = [0; 40];
         bytes[..8].copy_from_slice(&scope.secret_generation().to_be_bytes());
         bytes[8..].copy_from_slice(secret.saved_bytes());
         let path = self.directory.join(ADMISSION_MATERIAL);
+        if scope.secret_generation() < self.scope.secret_generation() {
+            return Err(NodeError::InvalidData);
+        }
         if path.exists() {
-            if read_array::<40>(&path)? != bytes {
+            let saved = read_array::<40>(&path)?;
+            let old_generation = u64::from_be_bytes(saved[..8].try_into().unwrap());
+            if old_generation > scope.secret_generation()
+                || old_generation == scope.secret_generation() && saved != bytes
+            {
                 return Err(NodeError::InvalidData);
+            }
+            if old_generation < scope.secret_generation() {
+                let temporary = self.directory.join(format!(
+                    ".admission-material-{:032x}",
+                    rand::random::<u128>()
+                ));
+                let result = (|| {
+                    write_private(&temporary, &bytes)?;
+                    fs::rename(&temporary, &path)?;
+                    Ok::<_, NodeError>(())
+                })();
+                let _ = fs::remove_file(&temporary);
+                result?;
             }
         } else {
             // Publish a complete fsynced private file atomically. A process
@@ -708,6 +744,19 @@ async fn copy_node_backup(source: &Path, target: &Path, restoring: bool) -> Resu
                 write_private(&staging.join(name), &fs::read(path)?)?;
             }
         }
+        // Rotation's staged private references must travel with this node's
+        // database. Ignore unreferenced write temporaries and unrelated files.
+        for entry in fs::read_dir(source)? {
+            let entry = entry?;
+            let name = entry.file_name();
+            let Some(name) = name.to_str() else { continue };
+            if name
+                .strip_prefix("rotation.material.")
+                .is_some_and(|suffix| suffix.len() == 16 && u64::from_str_radix(suffix, 16).is_ok())
+            {
+                write_private(&staging.join(name), &fs::read(entry.path())?)?;
+            }
+        }
         // Replay verifies the copied signed history/anchor/material before
         // publishing anything; restoration's stop is committed in this copy.
         let node = NativeNetwork::open(&staging).await?;
@@ -733,7 +782,7 @@ async fn copy_node_backup(source: &Path, target: &Path, restoring: bool) -> Resu
     prepare
 }
 
-fn write_private(path: &Path, bytes: &[u8]) -> Result<(), NodeError> {
+pub(crate) fn write_private(path: &Path, bytes: &[u8]) -> Result<(), NodeError> {
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]

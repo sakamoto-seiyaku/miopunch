@@ -1,0 +1,21 @@
+{
+  "name": "rotation-suite",
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--features",
+    "replica-test-hooks",
+    "--test",
+    "admission_rotation",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "started_utc": "2026-10-01T07:22:39.825007+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-10-01T07:28:12.962539+00:00",
+  "wall_seconds": 333.13725443102885
+}
