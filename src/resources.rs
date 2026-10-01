@@ -60,6 +60,16 @@ pub struct ResourceConfig {
     pub lan_discovery: LanDiscovery,
     #[serde(default)]
     pub port_mapping: PortMapping,
+    /// Explicit native TCP listener. None preserves the existing startup.
+    #[serde(default)]
+    pub tcp_listen: Option<std::net::SocketAddr>,
+    #[serde(default)]
+    pub udp_direct_disabled: bool,
+    /// Direct peer TCP is independent of auxiliary relay permission.
+    #[serde(default)]
+    pub tcp_direct_disabled: bool,
+    #[serde(default)]
+    pub disabled_tcp_addresses: BTreeSet<std::net::SocketAddr>,
     /// Explicitly trusted configuration publisher, distinct from membership.
     #[serde(default)]
     pub trusted_update_key: Option<VerifyingKey>,
@@ -112,6 +122,10 @@ impl ResourceConfig {
             disabled_uses: BTreeSet::new(),
             lan_discovery: LanDiscovery::Disabled,
             port_mapping: PortMapping::Disabled,
+            tcp_listen: None,
+            udp_direct_disabled: false,
+            tcp_direct_disabled: false,
+            disabled_tcp_addresses: BTreeSet::new(),
             trusted_update_key: None,
         }
     }
@@ -229,27 +243,61 @@ impl ResourceConfig {
         builder: iroh::endpoint::Builder,
     ) -> Result<iroh::endpoint::Builder, std::io::Error> {
         let config = self.clone();
+        let builder = if self.udp_direct_disabled {
+            builder.clear_ip_transports()
+        } else {
+            builder
+        };
+        let builder = if let Some(address) = self.tcp_listen.filter(|_| !self.tcp_direct_disabled) {
+            builder
+                .add_custom_transport(std::sync::Arc::new(
+                    crate::tcp_transport::TcpTransport::listen(
+                        address,
+                        std::sync::Arc::new(crate::tcp_transport::Traffic::default()),
+                    ),
+                ))
+                .transport_config(
+                    iroh::endpoint::QuicTransportConfig::builder()
+                        .keep_alive_interval(Duration::from_secs(5))
+                        .max_idle_timeout(Some(Duration::from_secs(10).try_into().unwrap()))
+                        .congestion_controller_factory(std::sync::Arc::new(
+                            noq_proto::congestion::Bbr3Config::default(),
+                        ))
+                        .build(),
+                )
+        } else {
+            builder
+        };
         let builder = builder.portmapper_config(match self.port_mapping {
             PortMapping::Disabled => iroh::endpoint::PortmapperConfig::Disabled,
             PortMapping::NatPmp => iroh::endpoint::PortmapperConfig::NatPmp,
         });
-        Ok(
-            builder.relay_resource_policy(iroh::endpoint::RelayResourcePolicy::new(
-                move |url, usage| {
-                    config.allows(
-                        url.as_str(),
-                        match usage {
-                            iroh::endpoint::RelayResourceUse::DataRelay => ResourceUse::DataRelay,
-                            iroh::endpoint::RelayResourceUse::Observation => {
-                                ResourceUse::Observation
-                            }
-                            iroh::endpoint::RelayResourceUse::Signaling => ResourceUse::Signaling,
-                            iroh::endpoint::RelayResourceUse::Lookup => ResourceUse::Lookup,
-                        },
-                    )
-                },
-            )),
-        )
+        let custom_config = self.clone();
+        Ok(builder.relay_resource_policy(
+            iroh::endpoint::RelayResourcePolicy::new(move |url, usage| {
+                config.allows(
+                    url.as_str(),
+                    match usage {
+                        iroh::endpoint::RelayResourceUse::DataRelay => ResourceUse::DataRelay,
+                        iroh::endpoint::RelayResourceUse::Observation => ResourceUse::Observation,
+                        iroh::endpoint::RelayResourceUse::Signaling => ResourceUse::Signaling,
+                        iroh::endpoint::RelayResourceUse::Lookup => ResourceUse::Lookup,
+                    },
+                )
+            })
+            .with_custom_addresses(move |addr| custom_config.allows_custom(addr)),
+        ))
+    }
+
+    /// Recognized TCP candidates are checked at actual fork send; unknown
+    /// custom carriers retain their own auxiliary/use qualification.
+    pub fn allows_custom(&self, address: &iroh_base::CustomAddr) -> bool {
+        if address.id() != crate::tcp_transport::DATA_TRANSPORT_ID {
+            return true;
+        }
+        !self.tcp_direct_disabled
+            && crate::tcp_transport::TcpTransport::socket_addr(address)
+                .is_ok_and(|addr| !self.disabled_tcp_addresses.contains(&addr))
     }
 }
 
@@ -327,6 +375,23 @@ impl ResourceEndpoint {
         &self.endpoint
     }
 
+    /// Public contact address including explicitly configured direct TCP.
+    /// Signaling-only custom addresses are not advertised as data candidates.
+    pub fn addr(&self) -> iroh::EndpointAddr {
+        let mut address = self.endpoint.addr();
+        address.addrs.extend(
+            self.endpoint
+                .custom_addrs()
+                .into_iter()
+                .filter(|addr| {
+                    addr.id() == crate::tcp_transport::DATA_TRANSPORT_ID
+                        && self.config.allows_custom(addr)
+                })
+                .map(iroh::TransportAddr::Custom),
+        );
+        address
+    }
+
     /// A bounded contact attempt, independent of the resource startup snapshot.
     pub fn with_contact_timeout(mut self, timeout: Duration) -> Result<Self, std::io::Error> {
         if timeout.is_zero() || timeout > Duration::from_secs(30) {
@@ -358,6 +423,7 @@ impl ResourceEndpoint {
             iroh::TransportAddr::Relay(url) => {
                 self.config.allows(url.as_str(), ResourceUse::DataRelay)
             }
+            iroh::TransportAddr::Custom(addr) => self.config.allows_custom(addr),
             _ => true,
         });
         target.addrs.extend(

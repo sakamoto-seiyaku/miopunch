@@ -1,0 +1,96 @@
+[
+  {
+    "name": "resource-policy",
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "test",
+      "--locked",
+      "--test",
+      "resources",
+      "--",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "exit": 0,
+    "seconds": 58.74190659204032
+  },
+  {
+    "name": "admitted-tcp",
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "test",
+      "--locked",
+      "--test",
+      "admission_gate",
+      "an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy",
+      "--",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "exit": 0,
+    "seconds": 12.217262140940875
+  },
+  {
+    "name": "workspace-typecheck",
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "check",
+      "--locked",
+      "--workspace",
+      "--all-targets"
+    ],
+    "exit": 0,
+    "seconds": 20.14272050501313
+  },
+  {
+    "name": "browser-wasm",
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "miopunch-browser-probe",
+      "--target",
+      "wasm32-unknown-unknown"
+    ],
+    "exit": 0,
+    "seconds": 2.9172663679346442
+  },
+  {
+    "name": "workspace-format",
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "exit": 0,
+    "seconds": 0.5083817479899153
+  },
+  {
+    "name": "fork-format",
+    "command": [
+      "rtk",
+      "proxy",
+      "rustfmt",
+      "--check",
+      "--edition",
+      "2024",
+      "vendor/iroh/src/endpoint.rs",
+      "vendor/iroh/src/socket/transports.rs",
+      "vendor/iroh/src/socket/transports/custom.rs"
+    ],
+    "exit": 1,
+    "seconds": 0.10685303993523121
+  }
+]

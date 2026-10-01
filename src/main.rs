@@ -449,10 +449,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let node = NativeNetwork::open(data_dir).await?;
             let resources = node.bind_configured_endpoint(bind_ip).await?;
             let endpoint = resources.endpoint();
+            let address = local_udp_addr(endpoint).ok().or_else(|| {
+                resources.addr().addrs.iter().find_map(|addr| match addr {
+                    iroh::TransportAddr::Custom(addr) => TcpTransport::socket_addr(addr).ok(),
+                    _ => None,
+                })
+            });
             println!(
                 "READY {} {}",
                 node.status().node_id,
-                local_udp_addr(endpoint)?
+                address
+                    .map(|addr| addr.to_string())
+                    .unwrap_or_else(|| "no-direct-address".into())
             );
             tokio::signal::ctrl_c().await?;
             resources.close().await;

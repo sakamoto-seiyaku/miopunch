@@ -1,0 +1,15 @@
+   Compiling iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+error[E0599]: no method named `local_addrs` found for struct `Arc<EndpointInner>` in the current scope
+    --> vendor/iroh/src/endpoint.rs:1475:20
+     |
+1475 |         self.inner.local_addrs().into_iter().filter_map(|addr| {
+     |                    ^^^^^^^^^^^
+     |
+help: there is a method `local_addr` with a similar name
+     |
+1475 -         self.inner.local_addrs().into_iter().filter_map(|addr| {
+1475 +         self.inner.local_addr().into_iter().filter_map(|addr| {
+     |
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `iroh` (lib) due to 1 previous error

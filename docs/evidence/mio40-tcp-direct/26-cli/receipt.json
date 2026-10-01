@@ -1,0 +1,15 @@
+{
+  "build": {
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "rustc",
+      "--locked",
+      "--test",
+      "tcp_direct",
+      "--message-format=json"
+    ],
+    "exit": 101
+  }
+}

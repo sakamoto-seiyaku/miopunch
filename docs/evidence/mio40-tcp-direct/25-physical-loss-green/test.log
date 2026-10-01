@@ -1,0 +1,27 @@
+
+running 1 test
+test physical_tcp_loss_ends_old_stream_and_later_contact_is_a_new_connection ... TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=25 received_bytes=10423 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=25 sent_bytes=10423 received_packets=27 received_bytes=10140 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=Connection reset by peer (os error 104)
+TCP_CLOSE peer=127.0.0.1:43684 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43684 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43684 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43684 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43684 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43684 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43684 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43684 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43684 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43684 result=Connection refused (os error 111)
+MIO40_CUT_TIMEOUT elapsed_ms=9957
+TCP_CLOSE peer=127.0.0.1:43684 result=Connection refused (os error 111)
+MIO40_CUT physical_tcp=lost old_stream=failed original_connection=closed later_connection=new
+TCP_TRAFFIC sent_packets=53 sent_bytes=21433 received_packets=47 received_bytes=18485 closed=1 failed=6 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=50 sent_bytes=18587 received_packets=53 received_bytes=21433 closed=1 failed=6 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 12.00s
+

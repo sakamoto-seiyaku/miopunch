@@ -1,0 +1,9 @@
+
+running 1 test
+test cancelling_pending_tcp_contact_closes_actual_carrier ... TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=2 outbound_peak=2 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+MIO40_CANCEL pending_connect=failed actual_socket=eof bounded=true
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 3.16s
+

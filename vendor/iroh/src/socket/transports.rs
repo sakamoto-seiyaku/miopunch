@@ -250,15 +250,11 @@ impl Transports {
                 ));
             }
             let transport = config.bind()?;
-            if let Some(resource) = resource {
-                custom.push(Box::new(custom::ResourceBoundEndpoint {
-                    inner: transport,
-                    resource,
-                    policy: relay_actor_config.resource_policy.clone(),
-                }) as Box<dyn CustomEndpoint>);
-            } else {
-                custom.push(transport);
-            }
+            custom.push(Box::new(custom::ResourceBoundEndpoint {
+                inner: transport,
+                resource,
+                policy: relay_actor_config.resource_policy.clone(),
+            }) as Box<dyn CustomEndpoint>);
         }
 
         Ok(Self {

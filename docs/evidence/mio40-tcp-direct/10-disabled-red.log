@@ -1,0 +1,32 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.24s
+     Running tests/tcp_direct.rs (target/debug/deps/tcp_direct-d5904565b57db3d3)
+
+running 1 test
+
+thread 'disabled_tcp_candidate_is_not_dialed_even_through_raw_endpoint' (1695322) panicked at tests/tcp_direct.rs:177:5:
+forbidden TCP candidate was actually dialed
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=1 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test disabled_tcp_candidate_is_not_dialed_even_through_raw_endpoint ... FAILED
+
+failures:
+
+failures:
+    disabled_tcp_candidate_is_not_dialed_even_through_raw_endpoint
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.85s
+
+error: test failed, to rerun pass `--test tcp_direct`

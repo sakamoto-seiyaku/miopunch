@@ -152,3 +152,20 @@ for QAD. Graceful endpoint close awaits the mapping service's own release
 attempt with a one-second bound; abort queues best-effort deactivation.
 See `vendor/portmapper/UPSTREAM.md` for the acknowledgment and pending
 NAT-PMP allocation cleanup adaptation.
+
+## MIOPUNCH-40: native direct TCP qualification
+
+`RelayResourcePolicy::with_custom_addresses` independently qualifies actual
+custom peer addresses. Every custom endpoint now receives the existing policy
+wrapper, including direct carriers with no auxiliary resource descriptor.
+The wrapper checks both sender eligibility and the final poll_send boundary;
+the optional auxiliary resource/use check is retained. This allows the native
+saved TCP disable policy to cover explicit, cached and lookup-supplied routes
+without treating a direct peer as an auxiliary relay facility.
+
+`Endpoint::custom_addrs` explicitly exposes custom candidates without adding
+them to automatic address-lookup publication. The native resource endpoint
+adds only recognized TCP data candidates to its own public contact address.
+Signaling-only custom addresses do not thereby acquire business disclosure or
+data qualification. Inner QUIC/TLS, the shared admission gate and path selection
+remain unchanged; IPv4/IPv6 framing belongs to the root TCP adapter.

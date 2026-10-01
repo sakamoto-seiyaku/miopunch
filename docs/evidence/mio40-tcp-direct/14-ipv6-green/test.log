@@ -1,0 +1,13 @@
+
+running 1 test
+test available_ipv6_tcp_admits_syncs_and_transfers_independently ... MIO40_IPV6 environment_listener=[::1]:44526
+TCP_TRAFFIC sent_packets=28 sent_bytes=10176 received_packets=27 received_bytes=10494 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=8 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+MIO40_REAL listen=[::1]:0 udp_sockets=0 admission=Complete reopen=true replica=complete business=roundtrip path=Custom
+TCP_TRAFFIC sent_packets=58 sent_bytes=20462 received_packets=52 received_bytes=19329 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=8 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=80 sent_bytes=29863 received_packets=86 received_bytes=30638 closed=2 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 6.23s
+

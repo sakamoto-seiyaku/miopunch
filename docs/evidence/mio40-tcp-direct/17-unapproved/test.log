@@ -1,0 +1,11 @@
+
+running 1 test
+test valid_but_unapproved_identity_cannot_read_member_history_over_tcp ... MIO40_UNAPPROVED actual_identity=authenticated member_history=rejected
+TCP_TRAFFIC sent_packets=12 sent_bytes=5662 received_packets=8 received_bytes=4159 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=8 sent_bytes=4159 received_packets=10 received_bytes=5434 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.40s
+

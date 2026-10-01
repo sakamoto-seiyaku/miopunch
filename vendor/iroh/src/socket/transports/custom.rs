@@ -38,7 +38,7 @@ pub trait CustomTransport: std::fmt::Debug + Send + Sync + 'static {
 #[derive(Debug)]
 pub(super) struct ResourceBoundEndpoint {
     pub(super) inner: Box<dyn CustomEndpoint>,
-    pub(super) resource: (iroh_base::RelayUrl, crate::endpoint::RelayResourceUse),
+    pub(super) resource: Option<(iroh_base::RelayUrl, crate::endpoint::RelayResourceUse)>,
     pub(super) policy: crate::endpoint::RelayResourcePolicy,
 }
 
@@ -73,13 +73,13 @@ impl CustomEndpoint for ResourceBoundEndpoint {
 #[derive(Debug)]
 struct ResourceBoundSender {
     inner: Arc<dyn CustomSender>,
-    resource: (iroh_base::RelayUrl, crate::endpoint::RelayResourceUse),
+    resource: Option<(iroh_base::RelayUrl, crate::endpoint::RelayResourceUse)>,
     policy: crate::endpoint::RelayResourcePolicy,
 }
 
 impl CustomSender for ResourceBoundSender {
     fn is_valid_send_addr(&self, addr: &CustomAddr) -> bool {
-        self.inner.is_valid_send_addr(addr)
+        self.policy.allows_custom(addr) && self.inner.is_valid_send_addr(addr)
     }
 
     fn poll_send(
@@ -89,10 +89,15 @@ impl CustomSender for ResourceBoundSender {
         src: Option<&CustomAddr>,
         transmit: &Transmit<'_>,
     ) -> Poll<io::Result<()>> {
-        if !self.policy.allows(&self.resource.0, self.resource.1) {
+        if !self.policy.allows_custom(dst)
+            || self
+                .resource
+                .as_ref()
+                .is_some_and(|(url, usage)| !self.policy.allows(url, *usage))
+        {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
-                "auxiliary transport resource is forbidden",
+                "custom transport resource or peer address is forbidden",
             )));
         }
         self.inner.poll_send(cx, dst, src, transmit)

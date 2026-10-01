@@ -1,0 +1,32 @@
+
+running 1 test
+test physical_tcp_loss_ends_old_stream_and_later_contact_is_a_new_connection ... TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=25 received_bytes=10410 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=25 sent_bytes=10410 received_packets=27 received_bytes=10140 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=Connection reset by peer (os error 104)
+TCP_CLOSE peer=127.0.0.1:43264 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43264 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43264 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43264 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43264 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43264 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43264 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43264 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43264 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43264 result=Connection refused (os error 111)
+
+thread 'physical_tcp_loss_ends_old_stream_and_later_contact_is_a_new_connection' (1704480) panicked at tests/tcp_direct.rs:403:74:
+called `Result::unwrap()` on an `Err` value: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=33 sent_bytes=9663 received_packets=27 received_bytes=10155 closed=0 failed=1 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=27 sent_bytes=10155 received_packets=31 received_bytes=9601 closed=1 failed=10 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+FAILED
+
+failures:
+
+failures:
+    physical_tcp_loss_ends_old_stream_and_later_contact_is_a_new_connection
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 14.53s
+

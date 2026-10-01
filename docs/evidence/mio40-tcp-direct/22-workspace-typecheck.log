@@ -1,0 +1,12 @@
+    Blocking waiting for file lock on build directory
+    Checking n0-dns-resolver v0.1.0
+    Checking portmapper v0.19.3 (/home/js/Git/miopunch/vendor/portmapper)
+    Checking iroh-dns v1.3.0
+    Checking iroh-relay v1.2.0
+    Checking iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+    Checking iroh-mdns-address-lookup v0.5.0
+    Checking iroh-gossip v0.101.0
+    Checking miopunch-browser-probe v0.1.0 (/home/js/Git/miopunch/browser-probe)
+    Checking p2panda-net v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-net)
+    Checking miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.68s

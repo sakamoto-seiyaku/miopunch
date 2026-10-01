@@ -1,0 +1,28 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.61s
+     Running tests/tcp_direct.rs (target/debug/deps/tcp_direct-d5904565b57db3d3)
+
+running 1 test
+TCP_TRAFFIC sent_packets=28 sent_bytes=10178 received_packets=27 received_bytes=10494 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+MIO40_REAL listen=127.0.0.1:0 udp_sockets=0 admission=Complete reopen=true replica=complete business=roundtrip path=Custom
+TCP_TRAFFIC sent_packets=69 sent_bytes=20867 received_packets=62 received_bytes=22729 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=6 inbound_outstanding=0 inbound_peak=8 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=89 sent_bytes=33223 received_packets=97 received_bytes=31045 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=6 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+test first_real_udp_disabled_tcp_ipv4_admits_syncs_and_transfers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.50s
+

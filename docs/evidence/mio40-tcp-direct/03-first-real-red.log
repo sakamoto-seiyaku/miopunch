@@ -1,0 +1,30 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.34s
+     Running tests/tcp_direct.rs (target/debug/deps/tcp_direct-d5904565b57db3d3)
+
+running 1 test
+
+thread 'first_real_udp_disabled_tcp_ipv4_admits_syncs_and_transfers' (1687436) panicked at tests/tcp_direct.rs:33:5:
+configured startup must advertise TCP
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test first_real_udp_disabled_tcp_ipv4_admits_syncs_and_transfers ... FAILED
+
+failures:
+
+failures:
+    first_real_udp_disabled_tcp_ipv4_admits_syncs_and_transfers
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+error: test failed, to rerun pass `--test tcp_direct`

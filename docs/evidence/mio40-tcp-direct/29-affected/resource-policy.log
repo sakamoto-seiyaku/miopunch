@@ -1,0 +1,21 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+rustc-LLVM ERROR: IO failure on output stream: No space left on device
+error: could not compile `miopunch-native-probe` (test "resources")
+
+Caused by:
+  No space left on device (os error 28)
+
+Caused by:
+  failed to parse process output: `/home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name resources --edition=2024 tests/resources.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("nat-lab-test-hooks", "replica-test-hooks"))' -C metadata=068390ef0ba21709 -C extra-filename=-00aab78bb6568fb4 --out-dir /home/js/Git/miopunch/target/debug/deps -C incremental=/home/js/Git/miopunch/target/debug/incremental -L dependency=/home/js/Git/miopunch/target/debug/deps --extern blake3=/home/js/Git/miopunch/target/debug/deps/libblake3-fad5a5cec24b6686.rlib --extern bytes=/home/js/Git/miopunch/target/debug/deps/libbytes-1678f1a459ca6695.rlib --extern futures_channel=/home/js/Git/miopunch/target/debug/deps/libfutures_channel-71a0dd1690c65317.rlib --extern futures_util=/home/js/Git/miopunch/target/debug/deps/libfutures_util-ff375763a148a0fe.rlib --extern hex=/home/js/Git/miopunch/target/debug/deps/libhex-1b37eaeb49172701.rlib --extern iroh=/home/js/Git/miopunch/target/debug/deps/libiroh.rlib --extern iroh_base=/home/js/Git/miopunch/target/debug/deps/libiroh_base-e4f9491ad6fa6704.rlib --extern iroh_mdns_address_lookup=/home/js/Git/miopunch/target/debug/deps/libiroh_mdns_address_lookup-4592f1181ae40f25.rlib --extern iroh_relay=/home/js/Git/miopunch/target/debug/deps/libiroh_relay-dc89cb14a56022ff.rlib --extern miopunch_native_probe=/home/js/Git/miopunch/target/debug/deps/libmiopunch_native_probe-d3dbfcd30fc91c9c.rlib --extern n0_watcher=/home/js/Git/miopunch/target/debug/deps/libn0_watcher-e20228e97ca6d113.rlib --extern noq_proto=/home/js/Git/miopunch/target/debug/deps/libnoq_proto-c38bc53763591c9f.rlib --extern noq_udp=/home/js/Git/miopunch/target/debug/deps/libnoq_udp-ad9d1b811b98ebe5.rlib --extern p2panda_auth=/home/js/Git/miopunch/target/debug/deps/libp2panda_auth-f5edb8da0cc2bdda.rlib --extern p2panda_core=/home/js/Git/miopunch/target/debug/deps/libp2panda_core-afa274dfe8e63617.rlib --extern p2panda_net=/home/js/Git/miopunch/target/debug/deps/libp2panda_net-20eb8560a9d03a54.rlib --extern p2panda_store=/home/js/Git/miopunch/target/debug/deps/libp2panda_store-16b9b9f05b6f6eb9.rlib --extern p2panda_sync=/home/js/Git/miopunch/target/debug/deps/libp2panda_sync-882ef4ef32915cf9.rlib --extern rand=/home/js/Git/miopunch/target/debug/deps/librand-e2bc13b5e64736cf.rlib --extern rcgen=/home/js/Git/miopunch/target/debug/deps/librcgen-00fae35ed9c5d074.rlib --extern rsasl=/home/js/Git/miopunch/target/debug/deps/librsasl-a44128a8d89c7cd8.rlib --extern rumqttc=/home/js/Git/miopunch/target/debug/deps/librumqttc-060788a6501541f1.rlib --extern rustix=/home/js/Git/miopunch/target/debug/deps/librustix-b4310e9c6dbee755.rlib --extern rustls=/home/js/Git/miopunch/target/debug/deps/librustls-9999047baf737d2d.rlib --extern serde=/home/js/Git/miopunch/target/debug/deps/libserde-479b51c4b8e79502.rlib --extern serde_json=/home/js/Git/miopunch/target/debug/deps/libserde_json-53df10cab76d87af.rlib --extern sha2=/home/js/Git/miopunch/target/debug/deps/libsha2-1f4a77f489b87748.rlib --extern sqlx=/home/js/Git/miopunch/target/debug/deps/libsqlx-641dfecfff62c02c.rlib --extern tempfile=/home/js/Git/miopunch/target/debug/deps/libtempfile-df30ab2492a64321.rlib --extern thiserror=/home/js/Git/miopunch/t

@@ -1,0 +1,31 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.32s
+     Running tests/native_probe.rs (target/debug/deps/native_probe-105a2d8e230dc945)
+
+running 11 tests
+test invalid_mode_does_not_create_an_identity ... ok
+test oversized_tcp_frame_is_rejected_before_allocating_its_body ... ok
+test p2panda_endpoint_reaches_iroh_lookup_without_an_address_book_entry ... ok
+test restarting_a_node_keeps_its_identity ... ok
+test sudden_tcp_disconnect_does_not_stop_future_connections ... ok
+test truncated_tcp_frame_closes_without_reporting_echo_success ... ok
+test two_native_identities_exchange_a_message_over_framed_tcp ... ok
+test two_native_identities_exchange_a_message_over_udp ... ok
+test wrapped_probe_accepts_a_wildcard_bind_for_a_lan_peer ... ok
+test wrong_target_identity_fails_even_at_a_reachable_udp_address ... ok
+test wrong_target_identity_fails_on_reachable_tcp_carrier ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.83s
+

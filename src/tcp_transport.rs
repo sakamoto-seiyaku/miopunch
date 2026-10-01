@@ -1,10 +1,11 @@
 //! A bounded, single-hop TCP packet carrier for iroh's custom transport seam.
-//! The six-byte preface is the sender's IPv4 listening address; each packet is
-//! a two-byte big-endian length followed by one complete QUIC datagram.
+//! The preface is the sender's listening address: six bytes for IPv4 and
+//! eighteen for unscoped IPv6. Each packet is a two-byte big-endian length
+//! followed by one complete QUIC datagram. Inner TLS authenticates identity.
 
 use std::collections::HashMap;
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -21,7 +22,7 @@ use n0_watcher::{Direct, Watchable};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
-const TRANSPORT_ID: u64 = 0x6d696f746370; // "miotcp", local to this experiment.
+const TRANSPORT_ID: u64 = 0x6d696f746370; // "miotcp", retained from MIOPUNCH-18.
 /// Current custom carrier that is eligible for admitted member data.
 pub const DATA_TRANSPORT_ID: u64 = TRANSPORT_ID;
 const MAX_FRAME: usize = 2048;
@@ -82,54 +83,84 @@ impl Traffic {
 
 #[derive(Debug)]
 pub struct TcpTransport {
-    bind_ip: Ipv4Addr,
+    bind_addr: SocketAddr,
     traffic: Arc<Traffic>,
-    bound_addr: Arc<Mutex<Option<SocketAddrV4>>>,
+    bound_addr: Arc<Mutex<Option<SocketAddr>>>,
 }
 
 impl TcpTransport {
     pub fn new(bind_ip: Ipv4Addr, traffic: Arc<Traffic>) -> Self {
+        Self::listen(SocketAddr::V4(SocketAddrV4::new(bind_ip, 0)), traffic)
+    }
+
+    pub fn listen(bind_addr: SocketAddr, traffic: Arc<Traffic>) -> Self {
         Self {
-            bind_ip,
+            bind_addr,
             traffic,
             bound_addr: Arc::new(Mutex::new(None)),
         }
     }
 
-    pub fn address(addr: SocketAddrV4) -> CustomAddr {
-        CustomAddr::from_parts(TRANSPORT_ID, &encode(addr))
+    pub fn address(addr: impl Into<SocketAddr>) -> CustomAddr {
+        CustomAddr::from_parts(TRANSPORT_ID, &encode(addr.into()))
+    }
+
+    pub fn socket_addr(addr: &CustomAddr) -> io::Result<SocketAddr> {
+        decode_custom(addr)
     }
 
     pub fn bound_addr(&self) -> Option<SocketAddrV4> {
+        match self.bound_socket_addr()? {
+            SocketAddr::V4(addr) => Some(addr),
+            SocketAddr::V6(_) => None,
+        }
+    }
+
+    pub fn bound_socket_addr(&self) -> Option<SocketAddr> {
         *self.bound_addr.lock().unwrap()
     }
 }
 
-fn encode(addr: SocketAddrV4) -> [u8; 6] {
-    let mut bytes = [0; 6];
-    bytes[..4].copy_from_slice(&addr.ip().octets());
-    bytes[4..].copy_from_slice(&addr.port().to_be_bytes());
+fn encode(addr: SocketAddr) -> Vec<u8> {
+    let mut bytes = match addr {
+        SocketAddr::V4(addr) => addr.ip().octets().to_vec(),
+        SocketAddr::V6(addr) => addr.ip().octets().to_vec(),
+    };
+    bytes.extend(addr.port().to_be_bytes());
     bytes
 }
 
-fn decode(bytes: &[u8]) -> io::Result<SocketAddrV4> {
-    let [a, b, c, d, hi, lo] = bytes else {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "invalid TCP carrier address",
-        ));
+fn decode(bytes: &[u8]) -> io::Result<SocketAddr> {
+    let addr = match bytes.len() {
+        6 => SocketAddr::V4(SocketAddrV4::new(
+            Ipv4Addr::from(<[u8; 4]>::try_from(&bytes[..4]).unwrap()),
+            u16::from_be_bytes(bytes[4..].try_into().unwrap()),
+        )),
+        18 => SocketAddr::V6(SocketAddrV6::new(
+            Ipv6Addr::from(<[u8; 16]>::try_from(&bytes[..16]).unwrap()),
+            u16::from_be_bytes(bytes[16..].try_into().unwrap()),
+            0,
+            0,
+        )),
+        _ => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid TCP carrier address",
+            ));
+        }
     };
-    let port = u16::from_be_bytes([*hi, *lo]);
-    if port == 0 {
+    if addr.port() == 0
+        || matches!(addr, SocketAddr::V6(addr) if addr.ip().to_ipv4_mapped().is_some())
+    {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            "zero TCP carrier port",
+            "invalid TCP carrier port or mapped IPv6 address",
         ));
     }
-    Ok(SocketAddrV4::new(Ipv4Addr::new(*a, *b, *c, *d), port))
+    Ok(addr)
 }
 
-fn decode_custom(addr: &CustomAddr) -> io::Result<SocketAddrV4> {
+fn decode_custom(addr: &CustomAddr) -> io::Result<SocketAddr> {
     if addr.id() != TRANSPORT_ID {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -141,13 +172,13 @@ fn decode_custom(addr: &CustomAddr) -> io::Result<SocketAddrV4> {
 
 #[derive(Debug)]
 struct Packet {
-    source: SocketAddrV4,
+    source: SocketAddr,
     bytes: Vec<u8>,
     traffic: Arc<Traffic>,
 }
 
 impl Packet {
-    fn new(source: SocketAddrV4, bytes: Vec<u8>, traffic: Arc<Traffic>) -> Self {
+    fn new(source: SocketAddr, bytes: Vec<u8>, traffic: Arc<Traffic>) -> Self {
         let current = traffic.inbound_outstanding.fetch_add(1, Ordering::Relaxed) + 1;
         traffic.inbound_peak.fetch_max(current, Ordering::Relaxed);
         Self {
@@ -173,7 +204,7 @@ struct Channel {
 
 #[derive(Debug)]
 struct OutboundCircuit {
-    peer: SocketAddrV4,
+    peer: SocketAddr,
     queue: mpsc::Receiver<QueuedPacket>,
     channel: Arc<Mutex<Channel>>,
 }
@@ -202,8 +233,8 @@ impl Drop for QueuedPacket {
 
 #[derive(Debug)]
 struct Shared {
-    local: SocketAddrV4,
-    channels: Mutex<HashMap<SocketAddrV4, Arc<Mutex<Channel>>>>,
+    local: SocketAddr,
+    channels: Mutex<HashMap<SocketAddr, Arc<Mutex<Channel>>>>,
     incoming: tokio::sync::mpsc::Sender<Packet>,
     inbound_limit: Arc<tokio::sync::Semaphore>,
     shutdown: tokio::sync::watch::Sender<bool>,
@@ -223,18 +254,22 @@ impl Drop for TcpEndpoint {
         self.shared.shutdown.send_replace(true);
         self.accept_task.abort();
         self.shared.channels.lock().unwrap().clear();
+        eprintln!("{}", self.shared.traffic.report());
     }
 }
 
 impl CustomTransport for TcpTransport {
     fn bind(&self) -> io::Result<Box<dyn CustomEndpoint>> {
-        let socket =
-            std::net::TcpListener::bind(SocketAddr::V4(SocketAddrV4::new(self.bind_ip, 0)))?;
+        if matches!(self.bind_addr, SocketAddr::V6(addr) if addr.scope_id() != 0 || addr.flowinfo() != 0 || addr.ip().to_ipv4_mapped().is_some())
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "TCP carrier requires an unscoped, unmapped IPv6 address",
+            ));
+        }
+        let socket = std::net::TcpListener::bind(self.bind_addr)?;
         socket.set_nonblocking(true)?;
-        let local = match socket.local_addr()? {
-            SocketAddr::V4(addr) => addr,
-            _ => unreachable!(),
-        };
+        let local = socket.local_addr()?;
         *self.bound_addr.lock().unwrap() = Some(local);
         let listener = TcpListener::from_std(socket)?;
         let (incoming, receiver) = tokio::sync::mpsc::channel(QUEUE_DEPTH);
@@ -323,7 +358,7 @@ struct TcpSender(Arc<Shared>);
 
 impl CustomSender for TcpSender {
     fn is_valid_send_addr(&self, addr: &CustomAddr) -> bool {
-        decode_custom(addr).is_ok()
+        decode_custom(addr).is_ok_and(|addr| addr.is_ipv4() == self.0.local.is_ipv4())
     }
 
     fn poll_send(
@@ -337,6 +372,12 @@ impl CustomSender for TcpSender {
             Ok(addr) => addr,
             Err(err) => return Poll::Ready(Err(err)),
         };
+        if target.is_ipv4() != self.0.local.is_ipv4() {
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "TCP carrier address family mismatch",
+            )));
+        }
         if transmit.contents.is_empty() || transmit.contents.len() > MAX_FRAME {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -420,7 +461,7 @@ impl CustomSender for TcpSender {
     }
 }
 
-fn remove_channel(shared: &Shared, peer: SocketAddrV4, channel: &Arc<Mutex<Channel>>) {
+fn remove_channel(shared: &Shared, peer: SocketAddr, channel: &Arc<Mutex<Channel>>) {
     let mut channels = shared.channels.lock().unwrap();
     if channels
         .get(&peer)
@@ -439,10 +480,11 @@ async fn run_stream(shared: Arc<Shared>, mut stream: TcpStream, outbound: Option
         if *shutdown.borrow() {
             return Err(io::Error::new(io::ErrorKind::Interrupted, "TCP endpoint closed"));
         }
-        let mut preface = [0; 6];
+        let advertised = SocketAddr::new(stream.local_addr()?.ip(), shared.local.port());
+        let mut preface = vec![0; if shared.local.is_ipv4() { 6 } else { 18 }];
         tokio::select! {
             result = async {
-                tokio::time::timeout(std::time::Duration::from_secs(5), stream.write_all(&encode(shared.local)))
+                tokio::time::timeout(std::time::Duration::from_secs(5), stream.write_all(&encode(advertised)))
                     .await.map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "TCP preface write timeout"))??;
                 tokio::time::timeout(std::time::Duration::from_secs(5), stream.read_exact(&mut preface))
                     .await.map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "TCP preface read timeout"))??;
@@ -631,7 +673,10 @@ mod tests {
         let mut preface = [0; 6];
         stream.read_exact(&mut preface).await.unwrap();
         stream
-            .write_all(&encode(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 41000)))
+            .write_all(&encode(SocketAddr::V4(SocketAddrV4::new(
+                Ipv4Addr::LOCALHOST,
+                41000,
+            ))))
             .await
             .unwrap();
         (endpoint, stream)

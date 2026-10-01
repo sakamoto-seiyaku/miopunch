@@ -1,0 +1,29 @@
+   Compiling iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+   Compiling iroh-mdns-address-lookup v0.5.0
+   Compiling p2panda-net v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-net)
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 20.09s
+     Running unittests src/lib.rs (target/debug/deps/miopunch_native_probe-f50438bbb32eab9e)
+
+running 2 tests
+test tcp_transport::tests::dropping_endpoint_cancels_an_open_tcp_carrier ... TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+ok
+test tcp_transport::tests::unread_inbound_queue_closes_in_bounded_time ... TCP_CLOSE result=iroh receiver backpressure timeout
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=33 received_bytes=67584 closed=0 failed=1 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=32 inbound_peak=33 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 5.02s
+

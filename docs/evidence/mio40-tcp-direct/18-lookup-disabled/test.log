@@ -1,0 +1,8 @@
+
+running 1 test
+test lookup_supplied_disabled_tcp_candidate_is_not_dialed ... MIO40_DISABLED source=lookup-result actual_tcp_accepts=0
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 3.85s
+

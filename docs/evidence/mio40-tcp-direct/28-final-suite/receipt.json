@@ -1,0 +1,26 @@
+{
+  "build": {
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "rustc",
+      "--locked",
+      "--test",
+      "tcp_direct",
+      "--message-format=json"
+    ],
+    "exit": 0
+  },
+  "test": {
+    "command": [
+      "rtk",
+      "proxy",
+      "/home/js/Git/miopunch/target/debug/deps/tcp_direct-d5904565b57db3d3",
+      "",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "exit": 0
+  }
+}

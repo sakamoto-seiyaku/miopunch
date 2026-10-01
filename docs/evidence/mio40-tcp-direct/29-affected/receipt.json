@@ -1,0 +1,53 @@
+[
+  {
+    "name": "tcp-carrier",
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "test",
+      "--locked",
+      "--lib",
+      "tcp_transport::tests",
+      "--",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "exit": 0,
+    "seconds": 25.219765601097606
+  },
+  {
+    "name": "native-probe",
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "test",
+      "--locked",
+      "--test",
+      "native_probe",
+      "--",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "exit": 0,
+    "seconds": 13.211416385951452
+  },
+  {
+    "name": "resource-policy",
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "test",
+      "--locked",
+      "--test",
+      "resources",
+      "--",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "exit": -6,
+    "seconds": 5.309605973074213
+  }
+]

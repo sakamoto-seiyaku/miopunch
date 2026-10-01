@@ -1,0 +1,16 @@
+
+running 1 test
+test available_ipv6_tcp_admits_syncs_and_transfers_independently ... MIO40_IPV6 environment_listener=[::1]:45068
+
+thread 'available_ipv6_tcp_admits_syncs_and_transfers_independently' (1699764) panicked at tests/tcp_direct.rs:22:70:
+called `Result::unwrap()` on an `Err` value: Error("invalid IPv4 socket address syntax", line: 0, column: 0)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    available_ipv6_tcp_admits_syncs_and_transfers_independently
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.13s
+

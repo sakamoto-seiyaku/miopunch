@@ -196,6 +196,7 @@ pub enum RelayResourceUse {
 #[derive(Clone)]
 pub struct RelayResourcePolicy {
     filter: Arc<dyn Fn(&RelayUrl, RelayResourceUse) -> bool + Send + Sync>,
+    custom_filter: Arc<dyn Fn(&iroh_base::CustomAddr) -> bool + Send + Sync>,
     pub(crate) independent_uses: bool,
 }
 
@@ -209,6 +210,7 @@ impl Default for RelayResourcePolicy {
     fn default() -> Self {
         Self {
             filter: Arc::new(|_, _| true),
+            custom_filter: Arc::new(|_| true),
             independent_uses: false,
         }
     }
@@ -221,12 +223,27 @@ impl RelayResourcePolicy {
     ) -> Self {
         Self {
             filter: Arc::new(policy),
+            custom_filter: Arc::new(|_| true),
             independent_uses: true,
         }
     }
 
     pub(crate) fn allows(&self, url: &RelayUrl, usage: RelayResourceUse) -> bool {
         (self.filter)(url, usage)
+    }
+
+    /// Qualify the actual custom peer address independently of auxiliary
+    /// facilities. Applies to explicit, learned and lookup-supplied candidates.
+    pub fn with_custom_addresses(
+        mut self,
+        policy: impl Fn(&iroh_base::CustomAddr) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        self.custom_filter = Arc::new(policy);
+        self
+    }
+
+    pub(crate) fn allows_custom(&self, address: &iroh_base::CustomAddr) -> bool {
+        (self.custom_filter)(address)
     }
 }
 
@@ -1466,6 +1483,20 @@ impl Endpoint {
     /// changes.
     pub fn addr(&self) -> EndpointAddr {
         self.watch_addr().get()
+    }
+
+    /// Explicit custom carrier candidates. These are not automatically
+    /// published by address lookup; callers must apply carrier disclosure policy.
+    #[cfg(feature = "unstable-custom-transports")]
+    pub fn custom_addrs(&self) -> Vec<iroh_base::CustomAddr> {
+        self.inner
+            .local_addr()
+            .into_iter()
+            .filter_map(|addr| match addr {
+                crate::socket::transports::Addr::Custom(addr) => Some(addr),
+                _ => None,
+            })
+            .collect()
     }
 
     /// Returns a [`Watcher`] for the current [`EndpointAddr`] for this endpoint.
