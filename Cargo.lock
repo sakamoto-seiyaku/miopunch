@@ -2230,6 +2230,7 @@ dependencies = [
  "hex",
  "iroh",
  "iroh-base",
+ "iroh-mdns-address-lookup",
  "iroh-relay",
  "n0-watcher",
  "noq-proto",

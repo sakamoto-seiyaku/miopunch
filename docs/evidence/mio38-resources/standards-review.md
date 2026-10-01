@@ -1,0 +1,13 @@
+# Standards review — MIOPUNCH-38 final3
+
+Required findings: **0**. The initial P2 is resolved in the cached README: the first address-book RED matched zero tests, early source archives are available, and missing early executable freezing is accurately distinguished. Initial reports and historical receipts remain preserved.
+
+Reviewed the actual cached WIP against `8a93e340c4e01885bd9ed1e3da1811220dbf683b`: HEAD equals baseline, committed diff is empty, and all438 staged paths exactly match `whitelist-final3.json`. All59 protected paths retain their original hashes; none is staged. No runtime/index/Plane edits or test reruns.
+
+No documented-standard breach found in the added lookup hunks. Facility qualification is centralized in `AddressLookupServices`; publication, dynamic service additions, resolution and Arc/filtered wrappers use that boundary. The native MQTT change configures the owned test broker through the public trusted-import/save API. Native redirect rejection and constrained WASM lookup failure are explicitly recorded as capability limits. These follow `docs/agents/domain.md` (evidence does not silently choose product behavior) and the shared contract (record actual verification and limitations honestly), without adding UI, ACL, custom crypto or inherited archive gates.
+
+Optional judgement: possible **Duplicated Code**, `tests/resources.rs:203,287,336,381`: repeated `ResourceConfig::with_defaults(ResourceTable { ... })` plus `.disabled.insert(...)` fixture setup could share a small helper. This remains nonblocking; no further baseline smell merits a required change.
+
+Evidence/reuse/NAT/WASM audit **accepted**. All74 lossless logs and78 source archives match their manifests. All303 current hashes match; exactly seven inputs differ from final2. Final3 actual wrapper18817/all9 command exits are0, with29PASS/0FAIL/0ignored and owned broker/two-volume absence. All39 archived executable mappings, compressed hashes and actual decompressed roundtrip hashes/byte counts match; current executable references remain available. Earlier67-test final1 and driver-only final2 results retain their actual generations.
+
+Shared socket change after final1 only captures policy in the lookup collection. Relay/observation/custom-send/NAT bytes remain unchanged, and current26 resource plus NativeMQTT/memory/gated integration checks cover the new boundary. Twelve NAT inputs match baseline; final1 eight affected checks/exact37 exclusions and final3 all45 omissions validly reuse frozen60–63/prior evidence. No probability denominator grew. WASM is compilation only; constrained external lookup fails closed, and browser lookup runtime is not claimed.

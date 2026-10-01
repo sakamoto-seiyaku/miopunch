@@ -131,6 +131,7 @@ pub use crate::{net_report::NetReportConfig, portmapper::PortmapperConfig};
 /// To create the [`Endpoint`] call [`Builder::bind`].
 #[derive(Debug)]
 pub struct Builder {
+    relay_resource_policy: RelayResourcePolicy,
     secret_key: Option<SecretKey>,
     alpn_protocols: Vec<Vec<u8>>,
     control_only_alpns: Vec<Vec<u8>>,
@@ -177,7 +178,64 @@ impl From<RelayMode> for Option<TransportConfig> {
     }
 }
 
+/// Independent relay and address-observation permission at resource access.
+#[derive(Clone, Copy, Debug)]
+pub enum RelayResourceUse {
+    /// Encrypted endpoint packets via the relay actor.
+    DataRelay,
+    /// Address-observation and relay reachability probes.
+    Observation,
+    /// A private control-message carrier's auxiliary facility.
+    Signaling,
+    /// An auxiliary candidate/address lookup facility.
+    Lookup,
+}
+
+/// Startup policy. It is deliberately independent of RelayMap, which lists
+/// preferred relays rather than restricting routes learned from peers.
+#[derive(Clone)]
+pub struct RelayResourcePolicy {
+    filter: Arc<dyn Fn(&RelayUrl, RelayResourceUse) -> bool + Send + Sync>,
+    pub(crate) independent_uses: bool,
+}
+
+impl std::fmt::Debug for RelayResourcePolicy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("RelayResourcePolicy(..)")
+    }
+}
+
+impl Default for RelayResourcePolicy {
+    fn default() -> Self {
+        Self {
+            filter: Arc::new(|_, _| true),
+            independent_uses: false,
+        }
+    }
+}
+
+impl RelayResourcePolicy {
+    /// Called with the resource ultimately used, regardless of candidate source.
+    pub fn new(
+        policy: impl Fn(&RelayUrl, RelayResourceUse) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            filter: Arc::new(policy),
+            independent_uses: true,
+        }
+    }
+
+    pub(crate) fn allows(&self, url: &RelayUrl, usage: RelayResourceUse) -> bool {
+        (self.filter)(url, usage)
+    }
+}
+
 impl Builder {
+    /// Apply a startup resource policy to actual relay/observation access.
+    pub fn relay_resource_policy(mut self, policy: RelayResourcePolicy) -> Self {
+        self.relay_resource_policy = policy;
+        self
+    }
     // The ordering of public methods is reflected directly in the documentation.  This is
     // roughly ordered by what is most commonly needed by users.
 
@@ -205,6 +263,7 @@ impl Builder {
 
         Self {
             secret_key: Default::default(),
+            relay_resource_policy: RelayResourcePolicy::default(),
             alpn_protocols: Default::default(),
             control_only_alpns: Default::default(),
             admission_gated: false,
@@ -253,6 +312,7 @@ impl Builder {
             crypto_provider.clone(),
         );
         let static_config = StaticConfig {
+            relay_resource_policy: self.relay_resource_policy,
             server_config: tls_config.make_server_config_with_early_data(
                 self.keylog,
                 self.control_only_alpns.is_empty() && !self.admission_gated,
@@ -844,8 +904,9 @@ impl Builder {
     /// Sets QAD address-observation servers independently of data relays.
     /// An empty map disables QAD observation. When unset, configured data relays
     /// remain the observation servers for compatibility with existing callers.
-    /// This validation API currently requires data relays to be disabled;
-    /// combining both maps returns [`BindError::InvalidTransportConfig`] at bind.
+    /// Combining both maps requires an explicit [`Builder::relay_resource_policy`]
+    /// which independently qualifies each use. Without it, bind returns
+    /// [`BindError::InvalidTransportConfig`].
     pub fn observation_servers(mut self, servers: RelayMap) -> Self {
         self.observation_servers = Some(servers);
         self

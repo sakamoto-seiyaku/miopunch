@@ -269,6 +269,7 @@ impl AddressLookupBuilder for PkarrPublisherBuilder {
 /// [`AddressLookupServices`]: super::AddressLookupServices
 #[derive(derive_more::Debug, Clone)]
 pub struct PkarrPublisher {
+    resource: crate::RelayUrl,
     endpoint_id: EndpointId,
     watchable: Watchable<Option<EndpointInfo>>,
     addr_filter: AddrFilter,
@@ -306,6 +307,7 @@ impl PkarrPublisher {
     ) -> Self {
         debug!("creating pkarr publisher that publishes to {pkarr_relay}");
         let endpoint_id = secret_key.public();
+        let resource = pkarr_relay.clone().into();
 
         #[cfg(wasm_browser)]
         let pkarr_client = PkarrRelayClient::new(pkarr_relay);
@@ -323,6 +325,7 @@ impl PkarrPublisher {
         };
         let join_handle = task::spawn(service.run().instrument(info_span!("pkarr_publish")));
         Self {
+            resource,
             watchable,
             endpoint_id,
             addr_filter,
@@ -355,6 +358,10 @@ impl PkarrPublisher {
 }
 
 impl AddressLookup for PkarrPublisher {
+    fn resource(&self) -> super::AddressLookupResource {
+        super::AddressLookupResource::Facility(self.resource.clone())
+    }
+
     fn publish(&self, data: &EndpointData) {
         self.update_endpoint_data(data);
     }
@@ -534,6 +541,10 @@ impl PkarrResolver {
 }
 
 impl AddressLookup for PkarrResolver {
+    fn resource(&self) -> super::AddressLookupResource {
+        super::AddressLookupResource::Facility(self.pkarr_client.pkarr_relay_url.clone().into())
+    }
+
     fn resolve(
         &self,
         endpoint_id: EndpointId,
@@ -574,7 +585,8 @@ impl PkarrRelayClientBuilder {
     /// Build a [`PkarrRelayClient`].
     pub fn build(self) -> PkarrRelayClient {
         #[cfg(not(wasm_browser))]
-        let builder = reqwest_client_builder(self.tls_config, self.dns_resolver);
+        let builder = reqwest_client_builder(self.tls_config, self.dns_resolver)
+            .redirect(reqwest::redirect::Policy::none());
 
         #[cfg(wasm_browser)]
         let builder = reqwest_client_builder();
@@ -596,6 +608,9 @@ impl PkarrRelayClient {
         dns_resolver: DnsResolver,
     ) -> Self {
         let http_client = reqwest_client_builder(tls_config, dns_resolver)
+            // A lookup facility must not substitute another service origin.
+            // Configure canonical endpoints instead of following redirects.
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .expect("failed to create reqwest client");
         Self {

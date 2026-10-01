@@ -1,0 +1,10 @@
+{
+  "actual_unified_exec_session": 35140,
+  "actual_wrapper_exit": 0,
+  "source_fixed_generation": "final1",
+  "totals": {
+    "passed": 67,
+    "failed": 0,
+    "ignored": 0
+  }
+}

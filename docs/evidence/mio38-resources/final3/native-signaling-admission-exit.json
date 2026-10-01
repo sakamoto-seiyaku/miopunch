@@ -1,0 +1,16 @@
+{
+  "name": "native-signaling-admission",
+  "started_utc": "2026-10-01T12:01:42.923605+00:00",
+  "argv": [
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "manual_admission",
+    "another_invitation_holder_observes_ciphertext_but_cannot_take_an_approved_result",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "actual_wrapper_exit": 0
+}

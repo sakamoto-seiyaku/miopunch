@@ -1,0 +1,15 @@
+{
+  "name": "resources",
+  "started_utc": "2026-10-01T12:00:37.827737+00:00",
+  "argv": [
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "resources",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "actual_wrapper_exit": 0
+}

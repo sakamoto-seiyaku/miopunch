@@ -1,0 +1,16 @@
+{
+  "name": "nat-resource-budget",
+  "started_utc": "2026-10-01T11:10:45.993091+00:00",
+  "argv": [
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "legacy_nat_runtime",
+    "formal_entry_permission_and_complete_budget_stop_before_execution",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "actual_wrapper_exit": 0
+}

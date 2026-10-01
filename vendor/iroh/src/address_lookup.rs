@@ -178,6 +178,10 @@ impl<T> AsRef<T> for FilteredAddressLookup<T> {
 }
 
 impl<T: AddressLookup> AddressLookup for FilteredAddressLookup<T> {
+    fn resource(&self) -> AddressLookupResource {
+        self.inner.resource()
+    }
+
     fn publish(&self, data: &EndpointData) {
         let data = data.apply_filter(&self.filter);
         self.inner.publish(data.borrow());
@@ -314,6 +318,19 @@ impl Error {
     }
 }
 
+/// Auxiliary facility used by a lookup service. Memory and explicitly
+/// configured LAN discovery have local scope; network services name their
+/// actual service origin. Invalid declarations fail closed.
+#[derive(Debug)]
+pub enum AddressLookupResource {
+    /// In-memory state or separately configured LAN discovery.
+    Local,
+    /// The service origin accessed by publication or resolution.
+    Facility(crate::RelayUrl),
+    /// A malformed facility declaration; no access is allowed.
+    Invalid,
+}
+
 /// AddressLookup system for [`super::Endpoint`].
 ///
 /// This trait defines publishing and resolving addressing information for a [`EndpointId`].
@@ -330,7 +347,14 @@ impl Error {
 /// refresh, it should start its own task.
 ///
 /// [`RelayUrl`]: crate::RelayUrl
+/// Publishes and resolves endpoint address data through a declared facility.
 pub trait AddressLookup: std::fmt::Debug + Send + Sync + 'static {
+    /// Declares the auxiliary facility used for publication and resolution.
+    /// Implementations that access external facilities must return Facility.
+    fn resource(&self) -> AddressLookupResource {
+        AddressLookupResource::Local
+    }
+
     /// Publishes the given [`EndpointData`] to the Address Lookup mechanism.
     ///
     /// This is fire and forget, since the [`Endpoint`] can not wait for successful
@@ -350,6 +374,10 @@ pub trait AddressLookup: std::fmt::Debug + Send + Sync + 'static {
 }
 
 impl<T: AddressLookup> AddressLookup for Arc<T> {
+    fn resource(&self) -> AddressLookupResource {
+        self.as_ref().resource()
+    }
+
     fn publish(&self, data: &EndpointData) {
         self.as_ref().publish(data);
     }
@@ -465,9 +493,35 @@ pub struct AddressLookupServices {
     last_data: Arc<RwLock<Option<EndpointData>>>,
     /// Optional filter applied to all data before publishing to any service.
     addr_filter: Arc<RwLock<Option<AddrFilter>>>,
+    resource_policy: crate::endpoint::RelayResourcePolicy,
 }
 
 impl AddressLookupServices {
+    pub(crate) fn with_resource_policy(policy: crate::endpoint::RelayResourcePolicy) -> Self {
+        Self {
+            resource_policy: policy,
+            ..Self::default()
+        }
+    }
+
+    fn allows(&self, service: &dyn AddressLookup) -> bool {
+        match service.resource() {
+            AddressLookupResource::Local => true,
+            AddressLookupResource::Facility(url) => {
+                // Browser reqwest cannot disable Fetch redirects. Until a
+                // constrained browser lookup carrier exists, fail closed for
+                // external lookup services under an explicit resource policy.
+                #[cfg(wasm_browser)]
+                if self.resource_policy.independent_uses {
+                    return false;
+                }
+                self.resource_policy
+                    .allows(&url, crate::endpoint::RelayResourceUse::Lookup)
+            }
+            AddressLookupResource::Invalid => false,
+        }
+    }
+
     /// Sets the address filter applied before publishing to any service.
     ///
     /// When set, all address data is filtered once before being distributed
@@ -490,7 +544,9 @@ impl AddressLookupServices {
     pub fn add_boxed(&self, service: Box<dyn AddressLookup>) {
         {
             let data = self.last_data.read().expect("poisoned");
-            if let Some(data) = &*data {
+            if let Some(data) = &*data
+                && self.allows(service.as_ref())
+            {
                 service.publish(data)
             }
         }
@@ -521,7 +577,9 @@ impl AddressLookupServices {
         };
         let services = self.services.read().expect("poisoned");
         for service in &*services {
-            service.publish(&data);
+            if self.allows(service.as_ref()) {
+                service.publish(&data);
+            }
         }
 
         self.last_data
@@ -560,6 +618,7 @@ impl AddressLookupServices {
         } else {
             let streams = services
                 .iter()
+                .filter(|service| self.allows(service.as_ref()))
                 .filter_map(|service| service.resolve(endpoint_id));
             AddressLookupStream::new(streams)
         }

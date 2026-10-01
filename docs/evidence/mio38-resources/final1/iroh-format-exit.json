@@ -1,0 +1,19 @@
+{
+  "name": "iroh-format",
+  "started_utc": "2026-10-01T11:11:26.400534+00:00",
+  "argv": [
+    "rustfmt",
+    "--check",
+    "--edition",
+    "2024",
+    "--config",
+    "skip_children=true",
+    "vendor/iroh/src/endpoint.rs",
+    "vendor/iroh/src/socket.rs",
+    "vendor/iroh/src/socket/transports.rs",
+    "vendor/iroh/src/socket/transports/custom.rs",
+    "vendor/iroh/src/socket/transports/relay.rs",
+    "vendor/iroh/src/socket/transports/relay/actor.rs"
+  ],
+  "actual_wrapper_exit": 0
+}

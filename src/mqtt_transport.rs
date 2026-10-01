@@ -200,6 +200,14 @@ impl Drop for MqttEndpoint {
 }
 
 impl CustomTransport for MqttTransport {
+    fn resource(&self) -> Option<(iroh::RelayUrl, iroh::endpoint::RelayResourceUse)> {
+        Some((
+            format!("mqtt://{}/", self.broker)
+                .parse()
+                .expect("socket-address MQTT URI"),
+            iroh::endpoint::RelayResourceUse::Signaling,
+        ))
+    }
     fn bind(&self) -> io::Result<Box<dyn CustomEndpoint>> {
         let route: Route = rand::random();
         let (status, _) = watch::channel(Status::Starting);

@@ -29,7 +29,7 @@ const PROBE_ALPN: &[u8] = b"miopunch/probe/1";
 const MQTT_CONTROL_ALPN: &[u8] = b"miopunch/control-probe/1";
 const PING: &[u8] = b"PING";
 const PONG: &[u8] = b"PONG";
-const USAGE: &str = "usage: miopunch-native-probe network create|status DATA_DIR | network run DATA_DIR [BIND_IPV4] | identity DATA_DIR | serve raw|wrapped|tcp DATA_DIR [BIND_IPV4] | send raw|wrapped|tcp DATA_DIR TARGET_ID TARGET_ADDR [BIND_IPV4] | serve mqtt DATA_DIR BROKER_ADDR EXPECTED_PEER_ID | send mqtt DATA_DIR TARGET_ID TARGET_ROUTE BROKER_ADDR | cancel mqtt DATA_DIR BROKER_ADDR";
+const USAGE: &str = "usage: miopunch-native-probe network create|status|resources DATA_DIR | network resources-import|resources-update DATA_DIR JSON_FILE | network run DATA_DIR [BIND_IPV4] | identity DATA_DIR | serve raw|wrapped|tcp DATA_DIR [BIND_IPV4] | send raw|wrapped|tcp DATA_DIR TARGET_ID TARGET_ADDR [BIND_IPV4] | serve mqtt DATA_DIR BROKER_ADDR EXPECTED_PEER_ID | send mqtt DATA_DIR TARGET_ID TARGET_ROUTE BROKER_ADDR | cancel mqtt DATA_DIR BROKER_ADDR";
 
 fn print_network_status(status: &NodeStatus) {
     println!("NETWORK {} {}", status.anchor.root, status.anchor.genesis);
@@ -418,17 +418,44 @@ async fn main() -> Result<(), Box<dyn Error>> {
             node.close().await;
             return Ok(());
         }
+        [_, network, action, data_dir] if network == "network" && action == "resources" => {
+            let node = NativeNetwork::open(data_dir).await?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&node.resource_configuration()?)?
+            );
+            node.close().await;
+            return Ok(());
+        }
+        [_, network, action, data_dir, json_file]
+            if network == "network"
+                && (action == "resources-import" || action == "resources-update") =>
+        {
+            let node = NativeNetwork::open(data_dir).await?;
+            let mut config = node.resource_configuration()?;
+            let bytes = std::fs::read(json_file)?;
+            if action == "resources-import" {
+                config.import_trusted_replacement(serde_json::from_slice(&bytes)?)?;
+            } else {
+                config.apply_signed_update(&serde_json::from_slice(&bytes)?)?;
+            }
+            node.save_resource_configuration(&config)?;
+            println!("SAVED resources; effective on next endpoint start");
+            node.close().await;
+            return Ok(());
+        }
         [_, network, action, data_dir, bind @ ..] if network == "network" && action == "run" => {
             let bind_ip = optional_bind_ip(bind)?;
             let node = NativeNetwork::open(data_dir).await?;
-            let endpoint = node.bind_endpoint(bind_ip).await?;
+            let resources = node.bind_configured_endpoint(bind_ip).await?;
+            let endpoint = resources.endpoint();
             println!(
                 "READY {} {}",
                 node.status().node_id,
-                local_udp_addr(&endpoint)?
+                local_udp_addr(endpoint)?
             );
             tokio::signal::ctrl_c().await?;
-            endpoint.close().await;
+            resources.close().await;
             node.close().await;
             return Ok(());
         }

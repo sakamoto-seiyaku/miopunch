@@ -1,0 +1,15 @@
+{
+  "name": "observation-contract",
+  "started_utc": "2026-10-01T11:10:08.724145+00:00",
+  "argv": [
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "udp_observation",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "actual_wrapper_exit": 0
+}

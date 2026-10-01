@@ -84,9 +84,13 @@ name = "browser-probe-native"
 path = "src/bin/browser_probe_native.rs"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+iroh-mdns-address-lookup = "=0.5.0"
 iroh-relay = { version = "=1.2.0", features = ["server"] }
 rcgen = "0.14.7"
 rustls = { version = "0.23.45", default-features = false, features = ["ring", "std"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+p2panda-net = { path = "vendor/p2panda-net", default-features = false, features = ["iroh_mdns"] }
 
 [patch.crates-io]
 iroh = { path = "vendor/iroh" }

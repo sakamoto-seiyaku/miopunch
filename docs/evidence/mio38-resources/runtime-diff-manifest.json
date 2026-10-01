@@ -1,0 +1,10 @@
+{
+  "original_path": "docs/evidence/mio38-resources/final3-runtime-diff.patch",
+  "original_bytes": 7982,
+  "original_sha256": "0f4521cf02e16be8e89214acc366cfdf05251deb5550ca4993064886aaa2d2f6",
+  "compressed_path": "docs/evidence/mio38-resources/final3-runtime-diff.patch.gz",
+  "compressed_bytes": 2458,
+  "compressed_sha256": "a723c38190bd80ce7ddf93fa5a6b2346ab020d714f4d6ac70fe80029182dbd8c",
+  "roundtrip_sha256": "0f4521cf02e16be8e89214acc366cfdf05251deb5550ca4993064886aaa2d2f6",
+  "reason": "Unified diff context blank lines contain required single spaces. Preserve exact diff bytes losslessly while keeping Git cached whitespace checks clean."
+}

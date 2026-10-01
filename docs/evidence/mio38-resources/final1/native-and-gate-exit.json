@@ -1,0 +1,17 @@
+{
+  "name": "native-and-gate",
+  "started_utc": "2026-10-01T11:09:27.739462+00:00",
+  "argv": [
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "native_network",
+    "--test",
+    "admission_gate",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "actual_wrapper_exit": 0
+}

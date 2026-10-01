@@ -1,0 +1,22 @@
+{
+  "full_suite_generation": "final1",
+  "current_generation": "final2-driver",
+  "same_source_count": 302,
+  "changed_paths": [
+    "scripts/check_resources.py"
+  ],
+  "runtime_and_test_sources_unchanged": true,
+  "driver_change": "A source-integrity abort now returns nonzero2 if the last completed command returned0. No runtime/test/selection change. The current driver completed the workspace test typecheck at actual0. Final1 all11 actual command exits0 and67PASS0FAIL0ignored remain the full behavioral evidence; not relabeled as a repeated full suite on the changed driver.",
+  "prior_unchanged_checks": [
+    "resources:21",
+    "native-and-gate:23",
+    "direct-and-signaling-carriers:15",
+    "observation-contract:6",
+    "nat-resource-budget:1",
+    "nat-udp-disable:1",
+    "browser-wasm",
+    "fault-typecheck",
+    "format",
+    "iroh-format"
+  ]
+}

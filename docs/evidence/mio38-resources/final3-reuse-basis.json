@@ -1,0 +1,50 @@
+{
+  "full_original_generation": "final1",
+  "preceding_driver_generation": "final2-driver",
+  "current_generation": "final3",
+  "current_source_inputs": 303,
+  "unchanged_from_final2_driver": 296,
+  "changed_paths": [
+    "tests/manual_admission.rs",
+    "tests/resources.rs",
+    "vendor/iroh/src/address_lookup.rs",
+    "vendor/iroh/src/address_lookup/dns.rs",
+    "vendor/iroh/src/address_lookup/pkarr.rs",
+    "vendor/iroh/src/socket.rs",
+    "scripts/check_resources.py"
+  ],
+  "runtime_changed_paths": [
+    "vendor/iroh/src/address_lookup.rs",
+    "vendor/iroh/src/address_lookup/dns.rs",
+    "vendor/iroh/src/address_lookup/pkarr.rs",
+    "vendor/iroh/src/socket.rs"
+  ],
+  "test_changed_paths": [
+    "tests/manual_admission.rs",
+    "tests/resources.rs"
+  ],
+  "source_fixed_current_checks": [
+    "26 public resource cases, including original21 plus five lookup cases",
+    "NativeNetwork original MQTT admission with explicit owned-broker eligibility",
+    "MemoryLookup original p2panda resolution",
+    "gated p2panda original protocol actor",
+    "browser WASM typecheck",
+    "workspace test typecheck",
+    "fault workspace test typecheck",
+    "workspace format",
+    "modified iroh format"
+  ],
+  "actual_current_tests": 29,
+  "prior_unchanged_checks_reused": [
+    "final1 six QAD/observation contracts",
+    "final1 two NAT permission/UDP-disable cases",
+    "final1 native entry and other gate cases",
+    "final1 other UDP/TCP/MQTT carrier cases"
+  ],
+  "shared_socket_runtime_delta": "Only AddressLookupServices initialization now captures the existing resource policy. Observation map qualification, external mapping sequence, relay actor, home fallback and custom-carrier resource/send implementations are identical to final1. Current all26 resources recheck prior21 behavior, plus actual lookup facilities/publication/dynamicadd/allowed signed lookup/redirect denial. Current native MQTT/memory/gated cases cover the changed collection integration. NAT engine, physical socket, budget, observer logic, algorithms and frozen60\u201363 remain unchanged; no NAT rerun or probability/sample growth.",
+  "limitations": [
+    "Native Pkarr clients prohibit automatic redirects; canonical lookup URLs must be configured.",
+    "WASM constrained external lookup fails closed because reqwest browser backend cannot set Fetch redirects. Current BrowserNode installs no external lookup; WASM compilation only, not browser runtime claim."
+  ],
+  "provenance": "Final1 actual67/all11 remains prior runtime evidence. Final2-driver was only driver-hunk typecheck. Final3 actual29/all9 is current-source scoped evidence; no claim current-source reran old full67."
+}

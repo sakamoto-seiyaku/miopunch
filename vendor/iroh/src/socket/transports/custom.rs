@@ -22,11 +22,81 @@ use super::{RecvInfo, Transmit};
 /// created using [crate::endpoint::Builder::bind], a new custom endpoint will
 /// be created using [CustomTransport::bind].
 pub trait CustomTransport: std::fmt::Debug + Send + Sync + 'static {
+    /// Auxiliary facility actually used by this carrier. Direct peer transports
+    /// have no facility descriptor. Declared facilities are checked before bind
+    /// and at every send; transport-address tokens never confer permission.
+    fn resource(&self) -> Option<(iroh_base::RelayUrl, crate::endpoint::RelayResourceUse)> {
+        None
+    }
     /// Create a custom endpoint
     ///
     /// Analogously to [std::net::UdpSocket::bind], this is where the actual
     /// underlying hardware resource is created.
     fn bind(&self) -> io::Result<Box<dyn CustomEndpoint>>;
+}
+
+#[derive(Debug)]
+pub(super) struct ResourceBoundEndpoint {
+    pub(super) inner: Box<dyn CustomEndpoint>,
+    pub(super) resource: (iroh_base::RelayUrl, crate::endpoint::RelayResourceUse),
+    pub(super) policy: crate::endpoint::RelayResourcePolicy,
+}
+
+impl CustomEndpoint for ResourceBoundEndpoint {
+    fn watch_local_addrs(&self) -> n0_watcher::Direct<Vec<CustomAddr>> {
+        self.inner.watch_local_addrs()
+    }
+
+    fn create_sender(&self) -> Arc<dyn CustomSender> {
+        Arc::new(ResourceBoundSender {
+            inner: self.inner.create_sender(),
+            resource: self.resource.clone(),
+            policy: self.policy.clone(),
+        })
+    }
+
+    fn poll_recv(
+        &mut self,
+        cx: &mut Context,
+        bufs: &mut [io::IoSliceMut<'_>],
+        metas: &mut [noq_udp::RecvMeta],
+        recv_infos: &mut [RecvInfo],
+    ) -> Poll<io::Result<usize>> {
+        self.inner.poll_recv(cx, bufs, metas, recv_infos)
+    }
+
+    fn max_transmit_segments(&self) -> NonZeroUsize {
+        self.inner.max_transmit_segments()
+    }
+}
+
+#[derive(Debug)]
+struct ResourceBoundSender {
+    inner: Arc<dyn CustomSender>,
+    resource: (iroh_base::RelayUrl, crate::endpoint::RelayResourceUse),
+    policy: crate::endpoint::RelayResourcePolicy,
+}
+
+impl CustomSender for ResourceBoundSender {
+    fn is_valid_send_addr(&self, addr: &CustomAddr) -> bool {
+        self.inner.is_valid_send_addr(addr)
+    }
+
+    fn poll_send(
+        &self,
+        cx: &mut Context,
+        dst: &CustomAddr,
+        src: Option<&CustomAddr>,
+        transmit: &Transmit<'_>,
+    ) -> Poll<io::Result<()>> {
+        if !self.policy.allows(&self.resource.0, self.resource.1) {
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "auxiliary transport resource is forbidden",
+            )));
+        }
+        self.inner.poll_send(cx, dst, src, transmit)
+    }
 }
 
 /// Custom endpoint created by a [CustomTransport].

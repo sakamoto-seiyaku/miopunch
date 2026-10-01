@@ -1,0 +1,730 @@
+[
+  {
+    "generation": "cached-candidate",
+    "path": "incremental/cached-candidate",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "cached-candidate-actor-enabled",
+    "path": "incremental/cached-candidate-actor-enabled",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "cached-candidate-typefix",
+    "path": "incremental/cached-candidate-typefix",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "cli-startup",
+    "path": "incremental/cli-startup",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "contact-backoff-green",
+    "path": "incremental/contact-backoff-green",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "contact-backoff-protocol-fixed",
+    "path": "incremental/contact-backoff-protocol-fixed",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "contact-interface-red",
+    "path": "incremental/contact-interface-red",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "data-only-home-green",
+    "path": "incremental/data-only-home-green",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "data-only-home-red",
+    "path": "incremental/data-only-home-red",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "default-startup-observation-green",
+    "path": "incremental/default-startup-observation-green",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 181
+  },
+  {
+    "generation": "default-startup-observation-red",
+    "path": "incremental/default-startup-observation-red",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 181
+  },
+  {
+    "generation": "default-startup-observation-typefix",
+    "path": "incremental/default-startup-observation-typefix",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 181
+  },
+  {
+    "generation": "external-mapping-permission",
+    "path": "incremental/external-mapping-permission",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "final1",
+    "path": "final1",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 67,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 303
+  },
+  {
+    "generation": "final2-driver",
+    "path": "final2-driver",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 303
+  },
+  {
+    "generation": "final3",
+    "path": "final3",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 29,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 303
+  },
+  {
+    "generation": "first-real",
+    "path": "incremental/first-real",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 181
+  },
+  {
+    "generation": "first-real-compile-fix",
+    "path": "incremental/first-real-compile-fix",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 181
+  },
+  {
+    "generation": "first-real-fixture-fix",
+    "path": "incremental/first-real-fixture-fix",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 2,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 181
+  },
+  {
+    "generation": "first-real-network",
+    "path": "incremental/first-real-network",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 181
+  },
+  {
+    "generation": "high-level-mdns",
+    "path": "incremental/high-level-mdns",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "independent-observation",
+    "path": "incremental/independent-observation",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "independent-observation-terminal-metrics",
+    "path": "incremental/independent-observation-terminal-metrics",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "invitation-hint",
+    "path": "incremental/invitation-hint",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "known-actor-route",
+    "path": "incremental/known-actor-route",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "lookup-access-doc-fixed",
+    "path": "incremental/lookup-access-doc-fixed",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 303
+  },
+  {
+    "generation": "lookup-access-green",
+    "path": "incremental/lookup-access-green",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 303
+  },
+  {
+    "generation": "lookup-access-red",
+    "path": "incremental/lookup-access-red",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 303
+  },
+  {
+    "generation": "lookup-dynamic-add",
+    "path": "incremental/lookup-dynamic-add",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 303
+  },
+  {
+    "generation": "lookup-dynamic-add-capacity-fixed",
+    "path": "incremental/lookup-dynamic-add-capacity-fixed",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 303
+  },
+  {
+    "generation": "lookup-permitted-protocol-fixed",
+    "path": "incremental/lookup-permitted-protocol-fixed",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 303
+  },
+  {
+    "generation": "lookup-permitted-signed",
+    "path": "incremental/lookup-permitted-signed",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 303
+  },
+  {
+    "generation": "lookup-publication",
+    "path": "incremental/lookup-publication",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 303
+  },
+  {
+    "generation": "lookup-redirect-green",
+    "path": "incremental/lookup-redirect-green",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 303
+  },
+  {
+    "generation": "lookup-redirect-red",
+    "path": "incremental/lookup-redirect-red",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 303
+  },
+  {
+    "generation": "lookup-result",
+    "path": "incremental/lookup-result",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "mdns-disclosure-green",
+    "path": "incremental/mdns-disclosure-green",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "mdns-disclosure-lock-fixed",
+    "path": "incremental/mdns-disclosure-lock-fixed",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "mdns-disclosure-red",
+    "path": "incremental/mdns-disclosure-red",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "native-mqtt-resource-green",
+    "path": "incremental/native-mqtt-resource-green",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 303
+  },
+  {
+    "generation": "native-mqtt-resource-red",
+    "path": "incremental/native-mqtt-resource-red",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 303
+  },
+  {
+    "generation": "priority-addressbook-green",
+    "path": "incremental/priority-addressbook-green",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 181
+  },
+  {
+    "generation": "priority-addressbook-red",
+    "path": "incremental/priority-addressbook-red",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 181
+  },
+  {
+    "generation": "priority-addressbook-runtime-red",
+    "path": "incremental/priority-addressbook-runtime-red",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 181
+  },
+  {
+    "generation": "resource-backup-green",
+    "path": "incremental/resource-backup-green",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "resource-backup-red",
+    "path": "incremental/resource-backup-red",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "signaling-carrier-green",
+    "path": "incremental/signaling-carrier-green",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "signaling-carrier-red",
+    "path": "incremental/signaling-carrier-red",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "startup-fallback-green",
+    "path": "incremental/startup-fallback-green",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "startup-fallback-red",
+    "path": "incremental/startup-fallback-red",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "trusted-update-green",
+    "path": "incremental/trusted-update-green",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "trusted-update-interface-red",
+    "path": "incremental/trusted-update-interface-red",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "untrusted-publisher",
+    "path": "incremental/untrusted-publisher",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "update-tamper-rollback",
+    "path": "incremental/update-tamper-rollback",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "url-alias-green",
+    "path": "incremental/url-alias-green",
+    "actual_exit": 0,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  },
+  {
+    "generation": "url-alias-red",
+    "path": "incremental/url-alias-red",
+    "actual_exit": 101,
+    "source_unchanged": true,
+    "source_snapshot_available": true,
+    "actual_raw_test_totals": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0
+    },
+    "actual_source_hash_count": 302
+  }
+]

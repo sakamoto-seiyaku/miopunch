@@ -1,0 +1,1884 @@
+{
+  "baseline_had_no_resource_test": true,
+  "deleted_only_new_resource_test_build_products": [
+    {
+      "path": "/home/js/Git/miopunch/target/debug/incremental/resources-07o0mxihvr19p",
+      "bytes": 9242259,
+      "owned_new_test_incremental": true
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/incremental/resources-0fx3mpgiciw8q",
+      "bytes": 575425416,
+      "owned_new_test_incremental": true
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/incremental/resources-0la7fcl6jj2uf",
+      "bytes": 536454216,
+      "owned_new_test_incremental": true
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/incremental/resources-16ywatw4i3594",
+      "bytes": 542616503,
+      "owned_new_test_incremental": true
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/incremental/resources-3ocots8enya1v",
+      "bytes": 9241790,
+      "owned_new_test_incremental": true
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-00449f400fd763cb",
+      "bytes": 420351792,
+      "sha256": "cf55a9fc1911302741fb45cbf6c163953466d1b7cfeb769c87ef9c3ffc633d76",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": [
+        "/tmp/mio38-frozen-executables/resources-00449f400fd763cb-cf55a9fc1911302741fb45cbf6c163953466d1b7cfeb769c87ef9c3ffc633d76"
+      ]
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-00449f400fd763cb.d",
+      "bytes": 198,
+      "sha256": "b6784a375b0b1d2b3388922c6ad9a4b8e0d49f3ea2cb1525f6b613bf7ca59722",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-39892fa7e5b2343d",
+      "bytes": 442714560,
+      "sha256": "dfb1affa59f4d31975b850ca6d4a9852109fcc625ef3ef3b70f081c64747c972",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": [
+        "/tmp/mio38-frozen-executables/resources-39892fa7e5b2343d-dfb1affa59f4d31975b850ca6d4a9852109fcc625ef3ef3b70f081c64747c972"
+      ]
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-39892fa7e5b2343d.d",
+      "bytes": 198,
+      "sha256": "0ee2a52930a208cdf64040f3069005e68a1054efeec05f04af4861956008ef31",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.01rtz96x9qqjmqenf4cbhxyfi.1kp39js.rcgu.o",
+      "bytes": 107720,
+      "sha256": "f8e9e90aae2bbaeb0fb59077d0c5c0488b314af93e4ee6c1449e8cf73c161696",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.01xg5tu890l5q1sn28aut966o.1kp39js.rcgu.o",
+      "bytes": 850416,
+      "sha256": "e127b26099c33460cb66b393d5645fa23f1549662e90254b5fd948b30434d6b5",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.02ezig2z076jox6fp5y9l6qxl.1kp39js.rcgu.o",
+      "bytes": 1172416,
+      "sha256": "936c47a7e6fce950d680d21fba731dbf1fb625a4d52a45749d56da9f266ceffe",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.02jqkyzi11qz1r2b6u6qynnq5.1kp39js.rcgu.o",
+      "bytes": 997568,
+      "sha256": "0e2a9f856032faabca09deb7a19f8ebcbbc7662a7ac2b5add04155dd7b9dc02e",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.0ivnrtb81vb5fbsvr2gmevuu5.1kp39js.rcgu.o",
+      "bytes": 413152,
+      "sha256": "1be0d14a6d9d7c5f935d1a394bdc54b98791435a99f4013cf5e123fe36ab1171",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.0jdaeaz5er2lg9wc7t0k4tobn.1kp39js.rcgu.o",
+      "bytes": 194224,
+      "sha256": "7da73cc0e29fa536a2b3fe63f1ee85155d4695823970fe446705f9cd33496f94",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.0nq25tr0fvb6b6gtj33d0v3uw.1kp39js.rcgu.o",
+      "bytes": 82168,
+      "sha256": "8ce9a4bffbadb230a84a05e2647a33e7e4c1394ab9796865d1f14c3239b9be85",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.0rg5pmo7g18wb0lmdlmi4tkzb.1kp39js.rcgu.o",
+      "bytes": 998848,
+      "sha256": "41d6645e217972ca185c1d46153171877da2564f492273ec64ed300d71a92c23",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.0ve9iroq0jhtrrbipw8o2jkuv.1kp39js.rcgu.o",
+      "bytes": 2550352,
+      "sha256": "bb0a0e11215561fccb6e98a5ad6276c431ce06dad970f0f608c6211fd0217e5d",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.0zar4b8kvvx79d8ow0n93bmpp.1kp39js.rcgu.o",
+      "bytes": 730368,
+      "sha256": "f471b475530e33a7089f6520c63af0b28dfa7922139c7ba341f76a1f0778822b",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.10sz6gi5chn7wz6r3h4jj4rx2.1kp39js.rcgu.o",
+      "bytes": 5618632,
+      "sha256": "f08074b8e829877044df6c1bf35ab32e4c8d9c59f12ea4044fb1557428c54b43",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.12gndta9fi237g33h4yb630mg.1kp39js.rcgu.o",
+      "bytes": 1707600,
+      "sha256": "fc60e71adeafc78322a230337cb4a254daef66423e16584c4442cdcc3697a037",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.17mf2wex927k5yub1jzux79d1.1kp39js.rcgu.o",
+      "bytes": 160576,
+      "sha256": "04e393c07b0c291cfe19e1c2f140e6a80388de8458bd40dc19362019efad8539",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1a478n9l0e6i2civ3v4f7yfh3.1kp39js.rcgu.o",
+      "bytes": 325584,
+      "sha256": "018f507f26b3345770c1c5cafc1d8b9cedb513bba1cd2bab49a85bcb27bd6248",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1c080vvcoqzuyqvptd5ibgp7o.1kp39js.rcgu.o",
+      "bytes": 769592,
+      "sha256": "f7203453cdd113eac49ad980008d28fa796141de578c31c05f657d2b61d79571",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1cbaterfm765y02xz4nj8c3i4.1kp39js.rcgu.o",
+      "bytes": 165360,
+      "sha256": "60811e4d3088f707f8d950cff484a42258a9bcaadb2e536655c8c61f40da4775",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1ggvmm5ewni5kygz043gj99r1.1kp39js.rcgu.o",
+      "bytes": 223592,
+      "sha256": "721f182e1688a8cf47fb38ec1294355992f2f77fea7099362a0c05b0361fd698",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1hs43tqyp2i76qtqc6m2r1xys.1kp39js.rcgu.o",
+      "bytes": 1778152,
+      "sha256": "efd06c5e97e99dbe5bd5048f49e49933bb8368ab2931a0a81cb0e72ae4ff5e4d",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1i2ogr7s4btm8tz49wkphzdph.1kp39js.rcgu.o",
+      "bytes": 91456,
+      "sha256": "2d52539097e0f629fc62784e8eadb24738ac1906a89da0981e9d7bfd0c6caefc",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1j6qizza0vjb07dt6hvll5rsm.1kp39js.rcgu.o",
+      "bytes": 126104,
+      "sha256": "386f918892fb7645678070e80b1e36b00cef9a1f0217c87f981af65fefe4a9b5",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1l55yocxqmcwbgk3o9ls53qgu.1kp39js.rcgu.o",
+      "bytes": 828632,
+      "sha256": "ebd7788b234774ec9557f3e661d7cc4e7de07a62e3969e5fa6c609c5bc766452",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1m6f30e95427k0b4pzxh12rr5.1kp39js.rcgu.o",
+      "bytes": 707952,
+      "sha256": "dffe830a79e6a41b3004a5b2d9adf467cf8313d52178559874c34c05103f2c17",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1mgjy74wwbzwicpazx58xott2.1kp39js.rcgu.o",
+      "bytes": 997136,
+      "sha256": "1516f9c20c65d23b8031bcdff441dc3cd6a1315f9c2accbf7e3294a7493f2305",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1mp5ywwp53nmj8xhg4e9g4mmx.1kp39js.rcgu.o",
+      "bytes": 363832,
+      "sha256": "87d9f1eff1582f2fd2dd32fe613cf7528db5f7ebb1aea98a37e6cb0f18fdc46b",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1n9ocis693ycsqffemfchw7k2.1kp39js.rcgu.o",
+      "bytes": 1188392,
+      "sha256": "5bb0eb6f0e045a74361359158d998cf94c7b2da2afa035a7d8942013506bea52",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1ngqbzjdd7laxv058p2jm0y42.1kp39js.rcgu.o",
+      "bytes": 78896,
+      "sha256": "89688feaf597b16233f5fbc3e7329879ded51f5341806bf50ec7f60373026fd3",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1sbtsyph1au16kdmqf0wk808i.1kp39js.rcgu.o",
+      "bytes": 1020528,
+      "sha256": "be3179bc3a166c074b216327ccb3185349e0b2c789299fca32d1049575671172",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1spt5zm8prsoz4lykg7ztm6um.1kp39js.rcgu.o",
+      "bytes": 26088,
+      "sha256": "a37b36f30576dda4fb8f5fcb457c19bddf346bf712c4e204e844bdee2211ef35",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1uoimfajakzpfdtjm7jdrrk9w.1kp39js.rcgu.o",
+      "bytes": 1041200,
+      "sha256": "2dbc6302c4f2f89b9130f2843c618fbff86e38b101c997de15ce50f3860edd09",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1woowio0xorc90nrp9cfzdoj6.1kp39js.rcgu.o",
+      "bytes": 158824,
+      "sha256": "3b6d4d8dfbbb1dac30f5b28d3934aac3e444a23781b79bb11e569e35f2f1e446",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.1yd969ak2q7zkqxvcyk3fopyb.1kp39js.rcgu.o",
+      "bytes": 430696,
+      "sha256": "4e0446d7175622a4174c2623efa4835059e9d71b91f4693583bb6166a062df09",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.2037zn030vcyr64swjggzw8oe.1kp39js.rcgu.o",
+      "bytes": 101384,
+      "sha256": "58a47c34767cfc31e399cc2285074f74f2c4ffc1ee9eee11caf237d51a18ef80",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.213bjzc3sji57un0pi3lvriav.1kp39js.rcgu.o",
+      "bytes": 67144,
+      "sha256": "48295d6393b424c79569d118d11c09a877b23b0c0be456ab0f3ecc594c3dc638",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.21c7cmrv70et73hwupvtx5frv.1kp39js.rcgu.o",
+      "bytes": 85800,
+      "sha256": "8b1201e512025400868ce373028c004b9e7b12816a243831572fccf5d3f856d1",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.23ev2b7mg7wworh778wvibgmo.1kp39js.rcgu.o",
+      "bytes": 2616208,
+      "sha256": "4b8079325d65c17cb40189b90f91255322d62b4bc3030ffdc1f160c515428738",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.23mgwyk9d65cbgrvz1yfxd4rk.1kp39js.rcgu.o",
+      "bytes": 2366776,
+      "sha256": "6e0d5fb52e687c8bb426d314aae38be1f0fc77815bf333049cf90c6122118ac2",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.2aquef1wyk29zhffdz13cg5bc.1kp39js.rcgu.o",
+      "bytes": 60496,
+      "sha256": "1f53b805e0d5729d9dd77365cda01109597bb0945edb45bbcc900e0cb24fe9c1",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.2ay7gts2aolkn37l2l76x7l7h.1kp39js.rcgu.o",
+      "bytes": 1087488,
+      "sha256": "cdb14d8e69043635a8665ee2da407ce4dc1a0079293dfac3e501ad7ef899788d",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.2byq0fupj30m839p9fwns3t67.1kp39js.rcgu.o",
+      "bytes": 128984,
+      "sha256": "9965131b4797939f1025d04717fc485a819e7af72bc09a398b4b3be6b91ed119",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.2dm6md9u45beyv6nglc3wt00y.1kp39js.rcgu.o",
+      "bytes": 205952,
+      "sha256": "faf2d6d1b17dd667f273b41015634c9c27ed7961cd7c2d1a5ef8e9df68e37755",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.2ev08trhwdardqye1yhtg0r4v.1kp39js.rcgu.o",
+      "bytes": 503936,
+      "sha256": "860933bfa79757f50f58aaa0285a28b2d43aa59dff27a886f2511fdb576becf5",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.2exkyk3r02m02vcz8vjoi6nd1.1kp39js.rcgu.o",
+      "bytes": 998184,
+      "sha256": "edceeccb5b669ddd177d17040c18dad586a432d788e4f0502d96d6df66238bb1",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.2livrlirs9thhhg9u9htg5qnm.1kp39js.rcgu.o",
+      "bytes": 2206072,
+      "sha256": "deae6e9fc43738a2e65b0ca3c886eab4460ada962bc1f04ad3505194f8269ea4",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.2lztcbkr3mobg0mbtimxj7srq.1kp39js.rcgu.o",
+      "bytes": 90032,
+      "sha256": "2b28c8bd527f9dd43cb8b67fba2f8b1801093ba3821c57844bef74ac8a58ff04",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.2pqp85erl3j33g7qhfp646yfd.1kp39js.rcgu.o",
+      "bytes": 340184,
+      "sha256": "bb49a953feb431083046d5825151fa15851aa0975803362c7c899cb9dac36ad9",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.2q8pqaecktelc0xkpolvrlm6y.1kp39js.rcgu.o",
+      "bytes": 148256,
+      "sha256": "054fe15622bf8887deae73f75471938e494e7d8987cc5c82bdabf1be77426877",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.2u3l4vz5i8h94bf75v3suw7ym.1kp39js.rcgu.o",
+      "bytes": 461048,
+      "sha256": "abb271eb48b55ed583d86e8ac775741bd318aa8efbc1028f3df85e138aede027",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.2y8hlykjvynnoytzd67idhugz.1kp39js.rcgu.o",
+      "bytes": 1379736,
+      "sha256": "3f43a6553606cfc43185ab32416ebbccf3f28eba7f88a317f5e9c1fe6de145c6",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.31livdlwkk8w6kf1f5sku6wuq.1kp39js.rcgu.o",
+      "bytes": 924592,
+      "sha256": "ae5b2c4de7a4615cbae6899b82c75a5ee5f335e500b3a73002264a406ce0365a",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.3382bg40aebeujg6di2ooqyil.1kp39js.rcgu.o",
+      "bytes": 104808,
+      "sha256": "4eebfde5b330d0a56f23e8fe000169580e778e4d9e75051207c5ea7368de64e8",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.37ah3q99e3sc2t7519r6wh6zm.1kp39js.rcgu.o",
+      "bytes": 475624,
+      "sha256": "84407a3d2b41394fd1c11c80b8d9e3bd4bdb9fc86fdbb705a020554dfea58609",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.37za45iqh5a6mou8jbqwmnzvd.1kp39js.rcgu.o",
+      "bytes": 270528,
+      "sha256": "b46a0045df7f0c8b49b78f78dc4720f5bfb46ac4b12162efddc1eddeef9fbbde",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.383ffyuz7b7hzb4hmrds5odte.1kp39js.rcgu.o",
+      "bytes": 413528,
+      "sha256": "1104fd4c627ae6c957a6a51ad393c98db17ece52669d7b37b9c341066350a982",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.3boqjt04ivkxcx1pexioa4zae.1kp39js.rcgu.o",
+      "bytes": 420272,
+      "sha256": "bf46bf711dd97935daa897c2c3872e916a2f51863c9de9eea932fdb5022001b2",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.3cj4mll8f5ow4b6gcda78tv3w.1kp39js.rcgu.o",
+      "bytes": 94144,
+      "sha256": "3f08aa77a5e004a16fc4f70bbf6deeae493c388cd98f84800688b9f7e9b75765",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.3ck98fy2bdiw8conqz39n6zsz.1kp39js.rcgu.o",
+      "bytes": 172816,
+      "sha256": "db37cf4e95d1f4052e39fe298893eb90107c38662ece71b36e49a95b45962617",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.3dfrnct1f1e8q00kr22xgjlaz.1kp39js.rcgu.o",
+      "bytes": 937872,
+      "sha256": "d8e2140d7ec311ba5fca356b0267e4213998643de6fd246212c0fda0e7935959",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.3e39qspq1uwgg09svrzmwgtzj.1kp39js.rcgu.o",
+      "bytes": 689056,
+      "sha256": "a8e8deda5981f328b2bf0d4fdfdf794802114ab1932dea053ac1ce36b9f65a30",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.3hu4oe870z3uskyltghq5te4b.1kp39js.rcgu.o",
+      "bytes": 586264,
+      "sha256": "ea37933696483c3ca7a1cba2d4a6cdcda8cf8415efbe58b737bd8ec6574ec7b6",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.3kh0s9yjyzkr5s4v0ce0765ae.1kp39js.rcgu.o",
+      "bytes": 1001712,
+      "sha256": "5774d27cf7aac11d5a817fddacad159532130e7a592ce0efd4cab3f6c763e7fe",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.3kinupbntfzxm62cau5tmxqd4.1kp39js.rcgu.o",
+      "bytes": 93048,
+      "sha256": "32ce7ececf7a847221f15602e4748e2ab58bcec910012d63dd3490f4d432ade1",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.3si68y109vy0wi3qzm2gax0fh.1kp39js.rcgu.o",
+      "bytes": 619808,
+      "sha256": "f2c268259984733d99bfbfb2fde15068aa31a6ebbcf4477f50024ab2421eba48",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.3uliqb41ssachx5m8scbkw1sa.1kp39js.rcgu.o",
+      "bytes": 194880,
+      "sha256": "02cf7f157c40af200f5aa889c710b0b21b7b40a1de620398c7cddab7eeea29c6",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.3vismha8gsjucfg0sxlezgy6u.1kp39js.rcgu.o",
+      "bytes": 338416,
+      "sha256": "87df86617f90ec9033573ab90f37a5d7c5ede837e21d0dd3d44ab0e9bcdb72db",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.40l2k46pm8g16l20grfnkhtk4.1kp39js.rcgu.o",
+      "bytes": 1017240,
+      "sha256": "188d7aed7f1d1ae55bb65d9cba5e66acdb72328e736639f5317c84682a150fd2",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.4178uz4pwvyubl0bwwjprtwwc.1kp39js.rcgu.o",
+      "bytes": 72424,
+      "sha256": "7f5dce22b7c3d95f52b7b2ca36f45bf6204d82ecd9988351c1f8446eb95fb4cb",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.42sasd0ht8euzdgu1krn180uy.1kp39js.rcgu.o",
+      "bytes": 364232,
+      "sha256": "81ae355f0ed7395997394e1d2c37d9736b096d0ba4b036afbaf01d9c2445bc8b",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.43yu97bitgsg59id8mvph7sei.1kp39js.rcgu.o",
+      "bytes": 118448,
+      "sha256": "58f568bd0a8bf67bf1d58d9a6d4bda9f2be3dc6d5522bceb60783bb1457321fa",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.4ajo19hckcbpw3jyophbzkf0t.1kp39js.rcgu.o",
+      "bytes": 130992,
+      "sha256": "af470310325f15087abee4d637190a817b7dd4b6ca08316114767e7b3ec1ddcb",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.4erj9nlreygwvu1s9v92tp5x2.1kp39js.rcgu.o",
+      "bytes": 644592,
+      "sha256": "332a502d5fa117c02d0b920cd1e1c41eebf17f8a2d9259c107fbb4ea966c354a",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.4mezr6bqpzxiqgxpfmqstcer5.1kp39js.rcgu.o",
+      "bytes": 157872,
+      "sha256": "4db4150f19eaf3dfbff11bdb668345ca77b3b750812662013eaaeded30885f4d",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.4or0jg7zthq4td065hzesr0ha.1kp39js.rcgu.o",
+      "bytes": 65072,
+      "sha256": "020c9bc39229d386119cbdf842bf431c1264f16d933df7bf5fc768c0ccf701d1",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.4pxawzwabotvp56ersbal0xc2.1kp39js.rcgu.o",
+      "bytes": 1843568,
+      "sha256": "51abb213cc5b9d43899ed78da05eff7e47f835b5d025274588bad86ddf0adaa4",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.4pxz14ix8cfb8tccb4vslvhd6.1kp39js.rcgu.o",
+      "bytes": 125288,
+      "sha256": "432b1f10d8aee7440ab4fe810d1daa4ef7cab123649bc398e1de3975218aa9cc",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.4qicbi9tolo7xhf2jsssgcchh.1kp39js.rcgu.o",
+      "bytes": 102136,
+      "sha256": "0afbfbb4779e3e0bff0106a4204d25e923d9c8d6e16033dae264246e414f2264",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.4r04tjstxjybbstjjvuiok8rs.1kp39js.rcgu.o",
+      "bytes": 140224,
+      "sha256": "510245148ae75bf8753f7a2d991eee0515a161199e4a3350b43ae98a8a2ee8b7",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.4rgfz54azpg8vekgieh6m8gvs.1kp39js.rcgu.o",
+      "bytes": 2891744,
+      "sha256": "e4d2213928eabb32e4a2860073631340fdde9f6664c394722b8d18e1a8e8f407",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.4wgamh8hhspwr659x7xo4jbpi.1kp39js.rcgu.o",
+      "bytes": 1043896,
+      "sha256": "1d7d7649c91925c829dd0a0a36d84ea584bce7fd9940ae24544dce2703af1eb5",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.4wvgylh7bh0rzeyyxy4hq43wp.1kp39js.rcgu.o",
+      "bytes": 229440,
+      "sha256": "f9d9c6bc91ee3034fbaa669721262660a79c88be2d4ba0da3cab599a6d760c95",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.4zxo2ojrsvgg7yc84s8iil7yh.1kp39js.rcgu.o",
+      "bytes": 123192,
+      "sha256": "e9d027a9abbb8b9085e6258d6bf1203f2fd94965586dbc3dc2a14f6ff5d31298",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.52fhuy01hb0xohw01gzxhkgm2.1kp39js.rcgu.o",
+      "bytes": 458672,
+      "sha256": "a73c5b8738e861a47b28fd4113b8ddfe7f5ff0115c10c9294fb41859530fb101",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.547lncrtbhivibxltggjgxt7r.1kp39js.rcgu.o",
+      "bytes": 2182632,
+      "sha256": "0f1e9f783230bdb898da145062d63ca83e14e8232d6193f5adc996fdfef034e9",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.56cvzq0tvk5ogt0jljp50pd7a.1kp39js.rcgu.o",
+      "bytes": 160096,
+      "sha256": "a0cd11cb05a167b6f47ba1fc9c0340ff4b000152c41d3e59c07d5c5eebee057d",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.56kfcwkclefdg1iafj0ijv9k2.1kp39js.rcgu.o",
+      "bytes": 787920,
+      "sha256": "f6a28436c157dbdc66b1fcd5338df276388b6cd4dc116a1f9c4069a94a66b588",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.56qr25ek6hmoxqgvuenh0kx1h.1kp39js.rcgu.o",
+      "bytes": 245496,
+      "sha256": "c478b7f4f75203d2544f6524584aff0ef962d9ac11d3b32057291415a075a4c1",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.5bdyqhtniynq49g6kenmi07tn.1kp39js.rcgu.o",
+      "bytes": 2375488,
+      "sha256": "3ca46032b3532b5fc32a4e75d7c7f5d913e4549321874c8671ca9d765289ffeb",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.5gjrno82g1vfwkkepcjj4c99v.1kp39js.rcgu.o",
+      "bytes": 1989136,
+      "sha256": "386a176cd8c71e22aa62ded975a377e031397cc7e97024e018d13eb220057513",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.5hajwgw29jhz6107fjl8lvrcv.1kp39js.rcgu.o",
+      "bytes": 355200,
+      "sha256": "999b9588405e3bb2d3a58570fce89d1b74ec62207b322815cec720d48cf90cb3",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.5lfujx796zmnuei24szlpbw2d.1kp39js.rcgu.o",
+      "bytes": 153584,
+      "sha256": "b32bfefe8b1a0e3ae127d4d2b251c11a7dd6dbe22e1d1daa69388999d59ae2a2",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.5pyq79gbn5a4otflysfyiybqc.1kp39js.rcgu.o",
+      "bytes": 326248,
+      "sha256": "fd62467cf11e8541d23d982894818e2d7bdeda27994299b6166322c14f3e70c1",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.5qkbiyi1urz7ajw5z3a5uotfa.1kp39js.rcgu.o",
+      "bytes": 312368,
+      "sha256": "6dfc58406e62bff10bfd94ebcdbd6cc604fc080db2d3fd6e32114b752de4f8d1",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.5rorulgwhrvsekizowmd8gm09.1kp39js.rcgu.o",
+      "bytes": 113640,
+      "sha256": "9bbeede0f59963d9ca3d7473ada2afc4fbd0abce2ba1d9697c9ec3ad1ab70b34",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.5w8ptodx5faedpxlbr19ozgan.1kp39js.rcgu.o",
+      "bytes": 2560,
+      "sha256": "b31c6867bc429dd27ca894c2259141b76298605e0dcbd5ff4eb6e83213cba146",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.5xfq1o64yuwt3etgirz5o9kmr.1kp39js.rcgu.o",
+      "bytes": 1730584,
+      "sha256": "8431af0094da5563e5af724a4618704bf07918fe01b6ce354a0dd681b3268ee4",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.5xyxmqb9q06e1jsrha37hcbil.1kp39js.rcgu.o",
+      "bytes": 321216,
+      "sha256": "c284fe4f478e9aa195e2080fe560bdc4bfc4a44539943726e52a90c5283cb446",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.5zfoimugb4o10nqw4h2c0ksai.1kp39js.rcgu.o",
+      "bytes": 84968,
+      "sha256": "a6379684f230c20d013c0ea9bab4ab65c3faf8fa87028fc585cec03a33ceeba7",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.60kie493nkyxnflmtpnb2vhnt.1kp39js.rcgu.o",
+      "bytes": 202912,
+      "sha256": "cc6a8d0c191d267b62bd7643cf4c7fcddfd8ff85c2719740244d94862c0d4858",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.61s8ym5v6k6gj862pofmo71cv.1kp39js.rcgu.o",
+      "bytes": 412864,
+      "sha256": "5ebd5c92726475b1bdb90b0565716790ea42e7de574d2b9e09a86d971e171eab",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.66uq42txkeqoau0alu0qaz2ph.1kp39js.rcgu.o",
+      "bytes": 68144,
+      "sha256": "b2825cc7aea530eebc2b464cfd19244a5f445c8c13ad78e2f6987a240ac9b382",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.6d18r4pqkoagnoaysu8l05a2m.1kp39js.rcgu.o",
+      "bytes": 161160,
+      "sha256": "8fa8897e508f63b15445c98aee77c64f317b261cfc93216d8dd8b00ad1e67dce",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.6dnmmvl9bga2nz2g0qx1ak7ry.1kp39js.rcgu.o",
+      "bytes": 7506696,
+      "sha256": "2e608ddc0ba617283d716c7653e94c8ba71c603c1ccc456a32ed9747fd272eba",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.6jdxxbpk0kufb1vdwbf4xpntr.1kp39js.rcgu.o",
+      "bytes": 740664,
+      "sha256": "c4fbcbbb35e42b98bc4e5cf47f544b50f446de0fe632240d6e4c44ce27c6039f",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.6l7xw3y4rw3nac2ez7tzf9ay8.1kp39js.rcgu.o",
+      "bytes": 1552528,
+      "sha256": "87ab0108f82ad165601aedb64baab74b4113aa0a828db518b6899f4ca82e39e4",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.6oqta4g63t5ta0e6naxtv8f7t.1kp39js.rcgu.o",
+      "bytes": 143552,
+      "sha256": "f4af63c96a01bf91c2da17bf623ca5e18ea4dfce61a68e3a61fc3cfbc25a9cb3",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.6qs205395bjhsk097qv0fq0sq.1kp39js.rcgu.o",
+      "bytes": 156008,
+      "sha256": "bdf3ab6a976837df5e374f4c53140c09bc9bf56d49b38d86fdd315918c6d37f2",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.6qzs6uklzcr6hejmrasszxwba.1kp39js.rcgu.o",
+      "bytes": 289280,
+      "sha256": "f32b82a4837d573034d51fe4e5b6709c7103dc0a2c2cf687c02fdcc27f3bca3a",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.6vwogztftljhsdhmfszowhzdc.1kp39js.rcgu.o",
+      "bytes": 532280,
+      "sha256": "7b3858c221f559252659f28a94dd58c41e4129bdedd6db9ddea8c5b7eea6f728",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.70oc7wtlvvzm2a4repekol0b9.1kp39js.rcgu.o",
+      "bytes": 27448,
+      "sha256": "ceade8c5bd602a47649b1a945690f27f1d9b3e68bd92daf0630196c8287ffd4c",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.70oto7drsfxs12ydnjhfdsjy1.1kp39js.rcgu.o",
+      "bytes": 203424,
+      "sha256": "65cd350df102c0dbd14d2280cfbc70df806d04d9192167166623f9c894a61fcc",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.728bwt0tco489ega04teuq02c.1kp39js.rcgu.o",
+      "bytes": 194584,
+      "sha256": "82592ac87160ae8381fc036a055c8d92dd73263f768a76a46f3ecbdea723d7fc",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.76c463nf0veuklsia373hhku4.1kp39js.rcgu.o",
+      "bytes": 742320,
+      "sha256": "2b949cfbceb7c073ed7ceeb881405ba9de406020f2ab29ec80975f5414088878",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.76utr1o5qfkzc3iihrymcu923.1kp39js.rcgu.o",
+      "bytes": 66048,
+      "sha256": "cc797dfa161a77bc3453b690855b736ad54df97250165c81271c8d2b9f464de1",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.78rroz0cvwos55rstsvkdofnz.1kp39js.rcgu.o",
+      "bytes": 165104,
+      "sha256": "7fc091d827c25f04b0ff49387e21f078c221091770cd0bb4275dfbac039cf0cb",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.7b4qq3yab5mfbbjvlcadhntcr.1kp39js.rcgu.o",
+      "bytes": 639928,
+      "sha256": "ace8e9e6923147822cf4e2cd2d3259c4107580c87860492dbbdaef3cc0e0f5fe",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.7j7hdol2k1b59ug0xrdmk82m3.1kp39js.rcgu.o",
+      "bytes": 100240,
+      "sha256": "b998ba0f9428be7e908c27f491550e9f2531ccd76b070fb8bfea32e1a16e19e3",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.7la10fhz4gy5woenxipzmbd3p.1kp39js.rcgu.o",
+      "bytes": 1784520,
+      "sha256": "e1f9a367b3b79938654c8c17e4a7d7ea1589ff8f7c377aadfe80bb0b4bf80756",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.7oeyrjro3btt3zvjzmz0tbtur.1kp39js.rcgu.o",
+      "bytes": 305720,
+      "sha256": "e73001e6d37b338efe90ff43a66d3c9bbf8e9692ad9887cf517cac26594e62cf",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.7qc30v57lxgtk7fw6v6n0kq2a.1kp39js.rcgu.o",
+      "bytes": 67768,
+      "sha256": "1f78b9e0c96e3aea86198214898215a299ddf2750bd0263640ffd5264cc8cb05",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.7qppsc17rpge9mm1jy3d0xlnb.1kp39js.rcgu.o",
+      "bytes": 2243520,
+      "sha256": "f8551bceae61441858f02b0c4188d5ffca6e0f86009d7fed4694ff6ac76c607f",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.7rs2i4pahwns4cnwas1876ed1.1kp39js.rcgu.o",
+      "bytes": 1446336,
+      "sha256": "5c92f12c19e2c5bf3a81ce8f648adb906cd9d0078810b3a5bc6e882ffd974a33",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.7ucopo3vr6hjczizchi9wgde4.1kp39js.rcgu.o",
+      "bytes": 5738576,
+      "sha256": "ad044a85838bdc69adf91e68b84190012f9897cc52971d9ba572cfb89705db38",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.7uzfx92buzv8r1srsinf9l6fx.1kp39js.rcgu.o",
+      "bytes": 431376,
+      "sha256": "39a849ce4cd5255b6d8bbd27f37824cf0b940853a5b24d047316c90986dca999",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.7vjcq103jmgiy94ivlcz616l8.1kp39js.rcgu.o",
+      "bytes": 331560,
+      "sha256": "8325f7ac4d1d97111c9b610adf0988e3726e0d61fb8f8d5310ce11f1d4f64316",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.7vrybd87befqc0lf38bnc5yeu.1kp39js.rcgu.o",
+      "bytes": 476896,
+      "sha256": "8a36a207b4af31baa5dc1118bdce3840aa0af5d3527ccca9e230d9232c73c028",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.7zo212oza8q7bnnfjhxosw9sx.1kp39js.rcgu.o",
+      "bytes": 138800,
+      "sha256": "00666f75eb9bb62999699cf75ea8927a346c0549e939a796e7bcad387d77457e",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.80rkap21z5upnkh69yo84s7v9.1kp39js.rcgu.o",
+      "bytes": 105864,
+      "sha256": "94641c4aac7a398051504192d98efbfe5290bc4b86ce9c9a8f31154a907a5326",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.81yceayxy1gpem2hjro7qopel.1kp39js.rcgu.o",
+      "bytes": 784032,
+      "sha256": "54bd66d27be490eadbc78f6693a13aeb7579e915703c1a6811e3f4d89e042d27",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.8c7aczaouhlfwjqqqp8b9hfl1.1kp39js.rcgu.o",
+      "bytes": 222960,
+      "sha256": "e4b4776802c9265a296b3715dfc3baa560294d0d8a0364e0f6d8f5a9da15989b",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.8cvrl7semum4pghk83pttww4a.1kp39js.rcgu.o",
+      "bytes": 53688,
+      "sha256": "85522f5741b7ae369b849556be73282acdad3fcb64e22040fd72fad0d06cb33b",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.8iobkptdnasbzxc2soam751kv.1kp39js.rcgu.o",
+      "bytes": 524840,
+      "sha256": "80084bc7a6d01c548da8d880d81fd565be0e4d4a95c43d54ea3275634ccc856e",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.8ityk45qncs3ct20zeny3ofgp.1kp39js.rcgu.o",
+      "bytes": 805832,
+      "sha256": "a27ca8a1d3b587c5d12ef4d07647a668da18f7f6730fa174cc8f60f25f58f9cd",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.8k0yuot7pnbzxrootagfkfarv.1kp39js.rcgu.o",
+      "bytes": 876152,
+      "sha256": "032de8b8e5eda4fe58bd8b2f2edae7aa4d84b67db73dccc656af9829d4bd068a",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.8mkiwqgna8fho7ic3hnjpimfc.1kp39js.rcgu.o",
+      "bytes": 1019152,
+      "sha256": "a257931a0616daa29b97c42dd161d3790770216c60868354381ac72aee27625b",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.8mo0q61o4i03n2fbqlnbq20mn.1kp39js.rcgu.o",
+      "bytes": 325320,
+      "sha256": "1d3ee5f7568b3e5679a82c8eff88d85c95e4769eca78319bc4b9a2cf816a8c37",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.8ndubmr3qsz3os2jbq20ja439.1kp39js.rcgu.o",
+      "bytes": 2236568,
+      "sha256": "a67318f7bab9fa53911953b8141857be469974704290cfea7158f0cc51541016",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.8qwemc2zk7fjks0zro34e00j0.1kp39js.rcgu.o",
+      "bytes": 1957672,
+      "sha256": "7ea0af25bd72ac8b5b3551c9416abc1067d0fbbc5df33272d89daad370469642",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.8s1j84cmc10o8e65g49tl7jcl.1kp39js.rcgu.o",
+      "bytes": 955536,
+      "sha256": "ac0e0e060d3173f17681c610f40e4ea8a7080f2effbfefac0bef6d7697dc25ab",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.8spuq44gse3qydrf4n25rzfqr.1kp39js.rcgu.o",
+      "bytes": 2473408,
+      "sha256": "94683a83a6044f8fa139e4cbaf6ae87cd054979963396e6a5e711b3d5c03a35c",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.8t8gl3js4cdtpjd4h09thni9s.1kp39js.rcgu.o",
+      "bytes": 149856,
+      "sha256": "7904415664bd37ed477c60f9038276ebd2c7eb379318e24c4250454592d062e6",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.8tyerwxhjpnn16ti3p7gyetwr.1kp39js.rcgu.o",
+      "bytes": 125816,
+      "sha256": "ed0b81cf45697a946009e9db0bb260facb4965867d56566441f40993c83d9932",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.8vy41yiagv4n2nl06cz98wpt9.1kp39js.rcgu.o",
+      "bytes": 1897920,
+      "sha256": "8a65a20c52b756cd7c256cf2ca7dad659d73056742a74cce945182117ec704ca",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.8w256ifd4wvyo944eky96bvl6.1kp39js.rcgu.o",
+      "bytes": 631040,
+      "sha256": "84747178ca245df1488401927f92d6ccb899690c57f7551229c9ce26b541500c",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.903vmtrigmjlqa088lq1q738a.1kp39js.rcgu.o",
+      "bytes": 378248,
+      "sha256": "56eef6f47e7395bd93d21d640254057b790dd3f237472319c1a052172e15eb96",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.92adeke7ayddtrl62nnd3mpw3.1kp39js.rcgu.o",
+      "bytes": 272632,
+      "sha256": "12654cc4aaf8af71ef7230b1671abe50ab7e7d7a2d31837609479fa9dc6da8c5",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.953hzzzupwll2yj6i5yk780hi.1kp39js.rcgu.o",
+      "bytes": 112672,
+      "sha256": "9a50fe113f79489229e69634352947e866adfb5c2a3f35080357d5dc238e7a2c",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.99rrdzcc7gqnsstzj6qx17v1k.1kp39js.rcgu.o",
+      "bytes": 463880,
+      "sha256": "851393cc045269cfc3f888304da106f8e9a5039925a269f7cd30ebd89e18a6bb",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.9df439uyf4ifwml06c5jos5nh.1kp39js.rcgu.o",
+      "bytes": 76760,
+      "sha256": "71fda7805811754d4a5de8620565ad437dd704e0e6c70222d2a0fe270651d1fa",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.9gd20y5flx7zez6jlqn58v5lh.1kp39js.rcgu.o",
+      "bytes": 37768,
+      "sha256": "112b28e4d0979eec958e7f6feeea5a1e9f05e4291dca9204f445dbc80b321644",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.9gvvz1xdhbfazuabk1q2pdo96.1kp39js.rcgu.o",
+      "bytes": 37824,
+      "sha256": "1481851427bac9e6eef24ec8904453017f3ad4fad554e628d3b89e631c0473dc",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.9o0fgcgkylquuv2xvtk1fi35f.1kp39js.rcgu.o",
+      "bytes": 435320,
+      "sha256": "57bfddcca836f218ed0e178561ca2d22a53b8bc51cf02393c6a6c092da1db84e",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.9qdmdlzapbabrhb0rya6vjeq7.1kp39js.rcgu.o",
+      "bytes": 200400,
+      "sha256": "335293c1758f965f4e9a7618b8f0c063c3ee193071b678f563c2b016fd58a2a2",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.9y2g5rcndu1ihml4gg0vox48n.1kp39js.rcgu.o",
+      "bytes": 102592,
+      "sha256": "7dce06bb80def3eb21d5a23d7958a0261d4544ab444c9b9c1b626a4924e4512a",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.a32w13cwunz9fjxnpczhh6cn3.1kp39js.rcgu.o",
+      "bytes": 305712,
+      "sha256": "92c4eeb89cea437bb3ee0c94efe03dee6ea600b217a227af84e1cfc5d4000908",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.a4mags5jsm48p241qngyk8fsc.1kp39js.rcgu.o",
+      "bytes": 990920,
+      "sha256": "12c0597f736e5daf30ba225561c8e04467bcb4e81723d5875255aad5b7a55af9",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.a77uz464ofco1oipmyhccdky2.1kp39js.rcgu.o",
+      "bytes": 111984,
+      "sha256": "e48bb938b86a89ac907acce5b27c3da212de36404e82adf1169d87f3a3d5aa8a",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.abkpcxde7kq5cygywvx3uwvg2.1kp39js.rcgu.o",
+      "bytes": 515280,
+      "sha256": "1ea140dbb314063f3ddc983e862ba25807905eda78e32d890a99f8261fa00eae",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.ag6a4rw2buv2yxa085y3bcg3e.1kp39js.rcgu.o",
+      "bytes": 3135680,
+      "sha256": "7e9305a5961833b2a43b1ac29248fc9364d1f467604a3513619353acd8f714d8",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.amvi6bkg3s393pr0bf6uvac7w.1kp39js.rcgu.o",
+      "bytes": 204664,
+      "sha256": "b8b521cb8be20f8d698e22d2a2d95187db817ca70e51de504b7801b902866fa9",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.anb6r83g92d6wa1itdte464v4.1kp39js.rcgu.o",
+      "bytes": 2610760,
+      "sha256": "f1aacff43bcb50e3615c306fa9e29f232514753841321323b3f88d0f61f56670",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.aoljpffdw6im60ng0ocpzpoo7.1kp39js.rcgu.o",
+      "bytes": 129456,
+      "sha256": "1c5b1fdb7ecd13a7a3adf1f849dada5b5b26f0c7067f45cd67d218f6fd35fcd4",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.asl50exa2fw2fjf264yhiip9e.1kp39js.rcgu.o",
+      "bytes": 229192,
+      "sha256": "c46bbb4542d180aac6e026a3fe33d0fa1f72d8e6b4f182e3299580bbc7925053",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.aucsf05gw85bjun76lf4egmew.1kp39js.rcgu.o",
+      "bytes": 105400,
+      "sha256": "ea972776dfedaced6dd4dc48218a003381797fecd3a985b454dc0468900c3721",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.b00h9xskpqj8itxbxhlzyd3ka.1kp39js.rcgu.o",
+      "bytes": 44352,
+      "sha256": "9a85ae725d09b7480c077c7d50e1f6070c02dd76d8fbfb2a0bddd2c390d1d722",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.b2ipn1b5l1vbmsf3wqstv8ot7.1kp39js.rcgu.o",
+      "bytes": 79528,
+      "sha256": "5b80fd70b524ae27b7232fe8c2893d8529d94a5896c85df15da567d19cc2d3da",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.b39xhfa5ctrx9dyoaoyc61adt.1kp39js.rcgu.o",
+      "bytes": 210680,
+      "sha256": "7937c58ce55ff323e12411efa0a45d0bc03bda10c7ed22f6189c777c036e2a4b",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.b3q77avaqsa1gb4i8lirrvs97.1kp39js.rcgu.o",
+      "bytes": 66032,
+      "sha256": "4aa5cf7d760273818aac87b5ad4eac0f9fa434d0c71b966a264654ca8b44fc3e",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.b3yn4p87s7oftrothkucjqhue.1kp39js.rcgu.o",
+      "bytes": 1807240,
+      "sha256": "8d7d4b38847db095926bac31e923c1f63e902cb1e0208699cb82c53c365d16e6",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.b5ghk0u8sogtgj2s31tln2fkv.1kp39js.rcgu.o",
+      "bytes": 222248,
+      "sha256": "d8a90bdb2be5164651b469cac08a562440bd800ca41a13157af7e4b71b4eb48a",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.b6oks4h2yc04j4f3s9bzuc1xq.1kp39js.rcgu.o",
+      "bytes": 3129040,
+      "sha256": "b55dd43f1556805d18be2f7543096ecc6ce091f353c3a6ac8ca54bf81a10c4f8",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.b71m1wbtu0c6sdm6o5o5xrzts.1kp39js.rcgu.o",
+      "bytes": 440848,
+      "sha256": "2315d764cb57c621cf3ed45457d423523c71ca757f82a5fedef06719127bc99f",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.b7hm6tu9n77e54q7prqugk8by.1kp39js.rcgu.o",
+      "bytes": 3898464,
+      "sha256": "778c42d58db725449b858112af279306391665f71d00e83a5f5918240583fc9e",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.b8mjzs1g2im9jt58v2tvawlz4.1kp39js.rcgu.o",
+      "bytes": 36976,
+      "sha256": "45117818078fbfbcdec90ac5072c1f5a38df91ba99298acf87233daad600a091",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.b9hz9sp84ip7yfxc697vqj0mc.1kp39js.rcgu.o",
+      "bytes": 1372368,
+      "sha256": "9e86a88224dac309118a6b4404dec1a4aaa395e48c88e8d22631e342f6fd2a84",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.bd050l41guunbbb2mgfykofoe.1kp39js.rcgu.o",
+      "bytes": 572392,
+      "sha256": "d69c7b88b2b6acf4c68d38bf1769e6a661fbb367b468dbfe11cefc5bc6c9a89c",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.bg12m3h0gcyc4cepdltownh7q.1kp39js.rcgu.o",
+      "bytes": 1104280,
+      "sha256": "4c3c23f3fd3577a4beccd355773673426a712714229da215cdff6b7fbc1955c1",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.bkh4q5i1efsfscwzk0mss5kho.1kp39js.rcgu.o",
+      "bytes": 377312,
+      "sha256": "ff6b164f8d26d14ede042c7085c9578c2d6053c64f468c0a14cbb2985bfad158",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.bkjqy4y4hlfrn44z3n086jddq.1kp39js.rcgu.o",
+      "bytes": 1459848,
+      "sha256": "8e19e9b7186456afb69ef66aa5fc2ef4ea6a14d47d7cbb600852aef79e3400d9",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.bl0u3ftfjmmo6a0dnzr99jpd0.1kp39js.rcgu.o",
+      "bytes": 151752,
+      "sha256": "31f9782bbc0175002725e639c3dcb9112c8a56170fc69cbc497d1ef18b8c2953",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.bnus8qzi09dd7t5trw21ke9t9.1kp39js.rcgu.o",
+      "bytes": 123600,
+      "sha256": "5e7393f539460496eee7a00085a96651a845ac6a1c57e69c3c68bfcad28184b0",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.bnwoitvka7m9zbyabnx9lid1y.1kp39js.rcgu.o",
+      "bytes": 346424,
+      "sha256": "2f92cdc85d6066d093107183d7bb6c123f16185f9e5d9e250d337734818c1c7d",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.bo0v90sgzynvzqymz5nnaot61.1kp39js.rcgu.o",
+      "bytes": 493752,
+      "sha256": "6157272c4c94e9b0daae9056f861d841662dbe08530c18c8c60debf0586b7f23",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.bpnuz9bj9mma2legzak4jfs42.1kp39js.rcgu.o",
+      "bytes": 1899712,
+      "sha256": "5e9dcd41a671718c9bc342e3a80173494520ca5c36cc454971c321c40d54ab46",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.bsi1rye3wzhodfc6d6sf2p5gz.1kp39js.rcgu.o",
+      "bytes": 443312,
+      "sha256": "f9d1a7e693be26628efb016d0b3d4097d1ea9d1ccb584ab7fb87654551a3a701",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.bx0no2qi2ps7y1tr3pcndsqlz.1kp39js.rcgu.o",
+      "bytes": 87160,
+      "sha256": "1d316624009f6c01cf42aff9f6140ff9a165333374a9f590bf49996d6a226d3c",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.by08rs9fgsgcabpxa5fjmz6r2.1kp39js.rcgu.o",
+      "bytes": 238320,
+      "sha256": "0492f93b3e06a8326b5de066d01914ff7f088340f6c20c2aefc6552d85e20289",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.c05x24odxvqjsp7pv1uk6gf0n.1kp39js.rcgu.o",
+      "bytes": 70832,
+      "sha256": "7aa681e6e30b78256175248ec9e2e0ea4f1efc2245bc640e6c461ff0ff8e9064",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.c0hm6beee8nax3k216jty90fg.1kp39js.rcgu.o",
+      "bytes": 2128256,
+      "sha256": "7028167126a284c4c89f09b68378697038058b2535c1d02b8657467d9d770603",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.c2lgj6k3009juf7hhf3ms27kc.1kp39js.rcgu.o",
+      "bytes": 1025144,
+      "sha256": "38e139ad5166158118c11e3c1f8161ea34b46abeaa33a27d001339a2b4967173",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.c4x9zff2i1x0hpf5u3y09ig02.1kp39js.rcgu.o",
+      "bytes": 144576,
+      "sha256": "eb3b68250531be8927d7a4eb8ddf3ece2b64ac9c7359dadc850c61e6619cb0b9",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.c5p9xj2i59kue0vgl54vduaeq.1kp39js.rcgu.o",
+      "bytes": 1834760,
+      "sha256": "627503b5b9b4c8d14b3d85f98922913828d23986ec39aea50bae0b6af0e69683",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.cahu59rpolv4qkt7e03hv8u1r.1kp39js.rcgu.o",
+      "bytes": 135480,
+      "sha256": "10181bb0f48bd47d2e4f4fa1b00e5db70fa870e8c39f1c34f3f2e1ba2ca5259d",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.cd3fkgz8ufz2wenmiqi80kkai.1kp39js.rcgu.o",
+      "bytes": 1000656,
+      "sha256": "f54fbc534d0dfa0040a414d24016fc38d4b7d76d609262a2c8966718584b49e9",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.cfrw5zjn84np8nwvxx1di33of.1kp39js.rcgu.o",
+      "bytes": 184632,
+      "sha256": "b1c4392b1857311b46c2fdecad1af8a5ec34e6a4e9bf953ddf0b24c5fb519f29",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.cgbch36h7svu2r6y59rhh109o.1kp39js.rcgu.o",
+      "bytes": 660416,
+      "sha256": "6493a7854434f76eb659a123b1831c8c68bc6b6d6bb64f36be3b8952c7975ae3",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.chv99kdv2ruwya6mqjbn8sqqs.1kp39js.rcgu.o",
+      "bytes": 3598080,
+      "sha256": "085d62126281b4d0449a44b399904aae6a36db0a0461670fb609ae6c207d3153",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.ci3yovo6kzxr6x611g2hivx9x.1kp39js.rcgu.o",
+      "bytes": 2262048,
+      "sha256": "a7fb36d8f046a5a09eeed7317727800b2bcb3ae9d9b05b78676365630504b7d1",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.cif2p0zvkxvwgd9u7kvjs1nnu.1kp39js.rcgu.o",
+      "bytes": 1114080,
+      "sha256": "ee7c4ec2eb518eb25daa80e77519c2047c3af8d5ea961285d25f1d2c16a106c5",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.cj5h587zvux7li1gvi4rtx90m.1kp39js.rcgu.o",
+      "bytes": 436704,
+      "sha256": "79cb4d90c83eb7ea5788e0ec07a51489efa194bab97bdfbe7f4c255ad8c03102",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.ckiwuegnw5jcynj0tbzjuugyt.1kp39js.rcgu.o",
+      "bytes": 2417824,
+      "sha256": "6b012a1dbc92f3b982eb1b61b93a58c1b61ef8fe0b774b61aeba7efb026762a0",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.clf171xt62854k5jqpcj5vqm4.1kp39js.rcgu.o",
+      "bytes": 53176,
+      "sha256": "12f08eaf0aac921211b61938c737640f46a761d51000057291dcf36ad64a93f9",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.colkd1sodwqjmi7g1p9tou47i.1kp39js.rcgu.o",
+      "bytes": 782928,
+      "sha256": "741e8c0eeb162088b538848b5606b0727bd61652593011ac39268c8a1fccaa0f",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.cr30pzxe08bl23ylob68phq2e.1kp39js.rcgu.o",
+      "bytes": 714752,
+      "sha256": "4ddbb8652db34d1c9f7e364862ddf27a7985b3e33fc35243002f89e62d71863f",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.cujmd392vzqqq4n02xz9ez6wu.1kp39js.rcgu.o",
+      "bytes": 1122184,
+      "sha256": "5482e1fcb489f2794dd19850d65d456c41a4711fd9cfb7961de1b2dd1566c833",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.cv5lv7pce9qf9bgaydahcjt88.1kp39js.rcgu.o",
+      "bytes": 467344,
+      "sha256": "fc72ba13a4d8da960fb6db7dba1d7e9a6dc6962ff0acdc6c02a93693027ca976",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.cw5cwzswn151ibtlayk443w5c.1kp39js.rcgu.o",
+      "bytes": 1941552,
+      "sha256": "48ead71e268c7b3cd7a417d58d4dacb475344aa4290d8b93a430d6b998589e24",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.cyiae38s06kbsox2lximeqfzn.1kp39js.rcgu.o",
+      "bytes": 399448,
+      "sha256": "95aea80333dbb2d355cf4585466d6616abb4f80076679c56844c411db2c1eb07",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.cylxwca2b89pzv9dyqeceejnq.1kp39js.rcgu.o",
+      "bytes": 470312,
+      "sha256": "4b54cd3a054d1bf93a978eb1ff64fd568982f719cc0f3aa23d3473b6e7af2147",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.cz5bqgu9b52f9jmvtf19ap4ac.1kp39js.rcgu.o",
+      "bytes": 1047792,
+      "sha256": "046b65a0e8a01c19d7c7945093616a7ac7371d9b1293d0ea08d1d3ce973651c6",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.czc0vyxbu0j51f2u8ye4cw236.1kp39js.rcgu.o",
+      "bytes": 3754464,
+      "sha256": "6b38e30728647e0a500ddb1e4c89bee63be8c171fe14aa5213c687c4d4e0eec2",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.czmj5gif322zuaw6qctzopmar.1kp39js.rcgu.o",
+      "bytes": 12054440,
+      "sha256": "d1b639d571fbde7c5b249aafdf6d7b6f9981dfcb5808a4e077ac8caf1b6309f8",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.d",
+      "bytes": 302,
+      "sha256": "7a0a80ecd67fe547971c38641bf45509ae775b7e88e79976a3a9e391c609ce6a",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.d2axmq50ywqn8xa2yqh4kobpq.1kp39js.rcgu.o",
+      "bytes": 124480,
+      "sha256": "a06d4a342f6b0cd7b4b449b0d2f8187c082ae3b975eabf0094f84975eb8a53d7",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.d48t3u3434v6vwpalmqin8lfa.1kp39js.rcgu.o",
+      "bytes": 97928,
+      "sha256": "412b0b378bf0ce1351ba0575ca3ed5ce8aa845d1c9695216b9fe7ffd7c9a0b31",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.d6s7rsgu9n09jri4jkcmxb5q7.1kp39js.rcgu.o",
+      "bytes": 390632,
+      "sha256": "1e30ddd179c1e2f8c3b8b4b31dde4e472cade987c361221ca58f3a883b72883f",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.d9vcejn54z29pjd6oztyipatl.1kp39js.rcgu.o",
+      "bytes": 130168,
+      "sha256": "87a457fa3c790aac2ae7043836319490a380fa71a3679695556acf7db49c81ec",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.daaujd6k6ivjjjb07osfan020.1kp39js.rcgu.o",
+      "bytes": 306616,
+      "sha256": "194721777030618527f6492eb6653762bde17041d2d11cf0dbc296a6674870df",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.dejgvcrz7c8wfzvmydelzdtc6.1kp39js.rcgu.o",
+      "bytes": 142640,
+      "sha256": "29d2d20f997cdb57da465229b9e0d18fd726828cb8868f7b0691b955b2604b18",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.dfu6xqhv5ishwapd1nuuzvqkm.1kp39js.rcgu.o",
+      "bytes": 6886232,
+      "sha256": "716e0a597690c99ae64b5e01f78dd87677d0eb456f411f6ef42f7f17d8bb7c4d",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.die8hzpod5g5jo7dx9kdox8p0.1kp39js.rcgu.o",
+      "bytes": 111664,
+      "sha256": "c90697db163b89f28cd4aaa36cca1e8929b52147d186582ca47eb15ab2649344",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.djh5bl5z1zo05ts4rd805rl55.1kp39js.rcgu.o",
+      "bytes": 307296,
+      "sha256": "dc622d2e3ec7f5e6c033366a8846a69a3774c6174be4bac36534f8d7bc528f53",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.dloci4b520ct10h1vte3vbbbl.1kp39js.rcgu.o",
+      "bytes": 2378040,
+      "sha256": "1a14ab0e6f2b6cab04e5e56dd69b5fda77e58f24787ec58f6fc3410eecdfe1a2",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.dn3szk5tfm9hy45axoyv12vyf.1kp39js.rcgu.o",
+      "bytes": 1217288,
+      "sha256": "4d0f9962c6e82e09f3359d17118c8f3d22d2dc1d5b386870921de6b125238e2d",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.dn48n2irrdppjdxg3rqxjfq6y.1kp39js.rcgu.o",
+      "bytes": 428856,
+      "sha256": "1f677d23cb31481ea5f8360128e987719531fec6d0e1a7cd2090e861ab08f41e",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.dnbhvx5xed0x0hyd5vuf0apd8.1kp39js.rcgu.o",
+      "bytes": 579808,
+      "sha256": "dca2c95efb23f32ea8a889018c6139d8aa7291f6e269f637a829d26057bd4384",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.dnkzo6togo3q38fvbrly3dbsa.1kp39js.rcgu.o",
+      "bytes": 2267408,
+      "sha256": "f00e4725a2f9fbbd62979cdb6edc295e02cb58bec47e694de281d8ea0a22e898",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.dnnioggfvjpzv1zj40fkqumki.1kp39js.rcgu.o",
+      "bytes": 171664,
+      "sha256": "1218b1b0583b9f089ab6303caf2a1b63310355e8bc9c66b11aa7cb42945c8b7e",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.dq7z7hxu3kxln6ez9zplhrxdi.1kp39js.rcgu.o",
+      "bytes": 2888488,
+      "sha256": "49de02693aac398d049864a891b081fe92b40e73eddb8296e5bef9bd7c0f8fe6",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.dqjznizm9gqcbv2ko2vq4nke4.1kp39js.rcgu.o",
+      "bytes": 1741272,
+      "sha256": "ec464962705e358373a10f3262463c24e92c0977b00e8443e4f1842a7e7adaba",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.dw6mbygewf1r4gr84orh2qewf.1kp39js.rcgu.o",
+      "bytes": 532976,
+      "sha256": "a9e9601d09e0e5b1b7ba91f3a83fc4a06835a72cecded898e8bb8c3575b2911e",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.dwbn8qnny8dowgs7fmafblwg5.1kp39js.rcgu.o",
+      "bytes": 131352,
+      "sha256": "4e4e571a2530033f2e53de20a4e9a38cb6f887b36ba33068b95d695645d86826",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.e12fwsedrqx233ympa8wy3vdj.1kp39js.rcgu.o",
+      "bytes": 101096,
+      "sha256": "d691abaa3e7724f57fefecb4dc74521796cc9cc570a6e34870c69e05a3855c4e",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.e17zrlt5poe3jnrbnx7584xms.1kp39js.rcgu.o",
+      "bytes": 590256,
+      "sha256": "b43b1c5d43fc471f72ab61d14f90e54efc5f8e136e1cbc19a3fabe1aca0ebce2",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.e2007u71lvaknt7bij8bexjrp.1kp39js.rcgu.o",
+      "bytes": 574960,
+      "sha256": "b7e1fecc115b88c5827859e1dc9b62f479c638744db3bd5809a3ae4430bb8210",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.e2721l02g7qg7lhqpvj9zwg52.1kp39js.rcgu.o",
+      "bytes": 2475728,
+      "sha256": "d039faa6da7d36980d54448887cfb1a2740c22decad4b42b52c05639f62e08a5",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.e67zuzstk2u5fvukosyj7dapn.1kp39js.rcgu.o",
+      "bytes": 1854928,
+      "sha256": "0b1901528cc0e76ff18fea54535cf1e410c7a4c0a2f364fa78cc48f4b6158acf",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.e6t4i8f21jfuj0n3ixv999rhi.1kp39js.rcgu.o",
+      "bytes": 122800,
+      "sha256": "97111f2fbe752b0d1f5ca3bd4582676fd50dbb3cd8737cff23d78f74238eabeb",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.e6zgrbwjuqdg1axn8jvuwlg9j.1kp39js.rcgu.o",
+      "bytes": 893568,
+      "sha256": "7e213bc6d8ac945ae7f343205eeaf4e5aa8bcb482a02ef94facf074105bb5ff5",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.e9nk0tv0vrvw1ibu0v2iyncq9.1kp39js.rcgu.o",
+      "bytes": 228072,
+      "sha256": "19f0422672153b2cf241dc26c35d11289960fa43d2a3e6ae2cde46d2ba67ab34",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.ed9eg0fae1njwttnobdgmhbi1.1kp39js.rcgu.o",
+      "bytes": 53952,
+      "sha256": "2c2c52bc0490b6d12a06c3069b0a3aecd538828f2e75994afcee66aefb53dcca",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.edfwt026gdolcq6txd1lc9jy3.1kp39js.rcgu.o",
+      "bytes": 24240,
+      "sha256": "6dd331dec42b0223e409036f7030815a9e416507539bfe3bc0cf56cfad20c286",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.eekviv2ioawuzws1k60otae9m.1kp39js.rcgu.o",
+      "bytes": 3388552,
+      "sha256": "98df33a650145693c14a071dc6860aa18402fd1f0ccac8d3dd3868e5efec348f",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.eeujwrwo209th305n1of8di6x.1kp39js.rcgu.o",
+      "bytes": 136296,
+      "sha256": "c2cf4d1451fcc4775139130cc0169afc6988f0f62a552935656fe27f08551bd7",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.efgauy4vdt41hvxgkmbztmgb2.1kp39js.rcgu.o",
+      "bytes": 2120600,
+      "sha256": "ec89915721da00f28a47a45ebba4233c1d613cdfd52cb6694065ca770058b77e",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.egriyegywkn1gouxix4i23eet.1kp39js.rcgu.o",
+      "bytes": 601208,
+      "sha256": "65eb3d65e9181fa7c2f3359f4e325ed992ef2bfc2e228fd7d9db6dff82c43f8a",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.ehslbsennwyrhwde29s8yxnh3.1kp39js.rcgu.o",
+      "bytes": 970704,
+      "sha256": "c5d8cf405033c5f321a2b5ea00f6848eb398958ff073237619c9999fc0036092",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.ejmgafi3m6ycfthl75xepgq4v.1kp39js.rcgu.o",
+      "bytes": 70784,
+      "sha256": "5042b179b739a276e1a6f9d684607ad5f69388a2d935c1bb2c0f8d6ec60ea2aa",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.eph0v4hyhhcs0gm6pcordgl1x.1kp39js.rcgu.o",
+      "bytes": 401856,
+      "sha256": "e3c1a4fb0fe144ec0854fd8dc0bc0b670ea870c303a0541fd9e4c508c13e6e08",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.eqwqp5zjrk2qd9ftybknxac88.1kp39js.rcgu.o",
+      "bytes": 225720,
+      "sha256": "8689247948d80fddae69cf2539c955af2bf801901671c65894940da586aba7f3",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.eqz8nn7p2y4k3x8rafscryf8a.1kp39js.rcgu.o",
+      "bytes": 1025272,
+      "sha256": "f4144467a3344ae6f132950f6a472c7f02d623e693d264a3257a784981c2d0c1",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.eso9orwy355nqjb3n4qixqyfp.1kp39js.rcgu.o",
+      "bytes": 395408,
+      "sha256": "a0f8d73e8f59dcfbf0a75eada27de57b12dbf1af3f0bc75266ef70e14a1c9413",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.euzimjuux3qrsuddzzvmlvhfg.1kp39js.rcgu.o",
+      "bytes": 3814576,
+      "sha256": "bb799677aeeec3aeca31d0d52c0ccc09be20eab8bb1bdd0fcea9b620f972152a",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.evca9k07e1rwttdlrtdnevkcg.1kp39js.rcgu.o",
+      "bytes": 39024,
+      "sha256": "dcc1b23bbd41142899f0aac738fe98542d17619164101612fd1efd12883a14bf",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.f0q1i64b3t502p6s3z3lgdjlt.1kp39js.rcgu.o",
+      "bytes": 716568,
+      "sha256": "7e01bc75c079adb134d04c16099e27c7674bf9a3cf97ceb085f5349e536c6937",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.f1n872gxgfrr7ag42b25el7xe.1kp39js.rcgu.o",
+      "bytes": 1931568,
+      "sha256": "16bdd0cb0ebb0b5bd7a8ab45f636185d7413646792f6cfb00989606b0196ad71",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.f3dnk4vwy1wtapd3fgnhsxbu3.1kp39js.rcgu.o",
+      "bytes": 1694216,
+      "sha256": "b84e1a7ac5d0bb3f762f6efd926309dc23e8e36440a3b2defff50d113a301fbd",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.f3tur579ujcb8wq4v7l2f9j87.1kp39js.rcgu.o",
+      "bytes": 158568,
+      "sha256": "09e967ff076dc83fb14223919f6189fd24734f94b7d0592e508e8e6e54a8d23c",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.f41e1kiun36stw9rwu398yrlx.1kp39js.rcgu.o",
+      "bytes": 148248,
+      "sha256": "f5d7da6aa55b659fde683da2ec67418b564cdda8e9fa5520459239bb8a87eb19",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-7c9d8ccea8e35518.f52pq2ejlep00d3xuzw94sj47.1kp39js.rcgu.o",
+      "bytes": 149312,
+      "sha256": "0d60726d767a3311c67e66bcfc0577b76b826a62dff8fe55e45020b8ee95e24c",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-c0b1e44e4ef13356.d",
+      "bytes": 288,
+      "sha256": "df5a3a9878cbe9f6beb2f7b6ee69a15dc7c6777b785a3ab94e16550af3195fd5",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/resources-cc9f73ecc3745448.d",
+      "bytes": 288,
+      "sha256": "64d4c2beaf049d1a32cf69b4efad55706fa30f972a03f43c81919cba450a1905",
+      "owned_new_test_product": true,
+      "preserved_frozen_copies": []
+    }
+  ],
+  "frozen_executables_not_removed": true,
+  "bytes_freed": 2759452546
+}

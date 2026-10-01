@@ -432,6 +432,16 @@ async fn forged_claimed_applicant_cannot_enter_the_approval_queue() {
 }
 
 async fn mqtt_endpoint(node: &NativeNetwork, broker: SocketAddr) -> (Endpoint, Arc<MqttTransport>) {
+    use miopunch_native_probe::resources::{Resource, ResourceUse};
+    let mut resources = node.resource_configuration().unwrap();
+    resources
+        .import_trusted_replacement(vec![Resource {
+            url: format!("mqtt://{broker}/"),
+            uses: std::collections::BTreeSet::from([ResourceUse::Signaling]),
+            limitation: "explicitly permitted owned test broker; control only".into(),
+        }])
+        .unwrap();
+    node.save_resource_configuration(&resources).unwrap();
     let carrier = Arc::new(MqttTransport::new(broker, Arc::new(Traffic::default())));
     let endpoint = node
         .bind_endpoint_with(

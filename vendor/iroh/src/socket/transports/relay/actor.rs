@@ -53,7 +53,7 @@ use n0_future::{
     task::{JoinError, JoinSet},
     time::{self, Duration, Instant, MissedTickBehavior},
 };
-use n0_watcher::Watchable;
+use n0_watcher::{Watchable, Watcher};
 use netwatch::interfaces;
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
@@ -933,6 +933,8 @@ pub(super) struct RelayActor {
 
 #[derive(Debug, Clone)]
 pub(crate) struct Config {
+    pub initial_home: Option<RelayUrl>,
+    pub resource_policy: crate::endpoint::RelayResourcePolicy,
     pub my_relay: HomeRelayWatch,
     pub secret_key: SecretKey,
     #[cfg(not(wasm_browser))]
@@ -1135,6 +1137,19 @@ impl RelayActor {
         // When this future is present, it is sending pending datagrams to an
         // ActiveRelayActor.  We can not process further datagrams during this time.
         let mut datagram_send_fut = std::pin::pin!(MaybeFuture::None);
+        let mut home_retry = std::pin::pin!(MaybeFuture::None);
+        let mut home_backoff = ActiveRelayActor::build_backoff();
+        let mut failed_homes = BTreeSet::new();
+        let mut home_status = self.config.my_relay.watch();
+
+        // Independent observation permission must not be a prerequisite for
+        // registering an allowed data-only relay. Reports may improve it later.
+        if let Some(url) = self.config.initial_home.clone() {
+            self.config
+                .my_relay
+                .set(url.clone(), RelayConnectionState::Connecting);
+            self.set_home_relay(url).await;
+        }
 
         loop {
             tokio::select! {
@@ -1142,6 +1157,36 @@ impl RelayActor {
                 _ = self.cancel_token.cancelled() => {
                     debug!("shutting down");
                     break;
+                }
+                _ = home_status.updated(), if self.config.initial_home.is_some() => {
+                    if let Some(status) = home_status.get() {
+                        if status.is_connected() {
+                            failed_homes.clear();
+                            home_backoff = ActiveRelayActor::build_backoff();
+                            home_retry.as_mut().set_none();
+                        } else if status.last_error().is_some() && failed_homes.insert(status.url().clone()) {
+                            let next = self.config.relay_map.urls::<Vec<_>>().into_iter()
+                                .find(|url| !failed_homes.contains(url) && self.config.resource_policy.allows(url, crate::endpoint::RelayResourceUse::DataRelay));
+                            if let Some(url) = next {
+                                self.config.my_relay.set(url.clone(), RelayConnectionState::Connecting);
+                                self.set_home_relay(url).await;
+                            } else if home_retry.is_none() && let Some(delay) = home_backoff.next() {
+                                // Every allowed entry failed. Reuse the selected
+                                // stack's bounded relay backoff, not a tight
+                                // home-switch loop over already failed handles.
+                                home_retry.as_mut().set_future(time::sleep(delay));
+                            }
+                        }
+                    }
+                }
+                _ = &mut home_retry, if home_retry.is_some() => {
+                    home_retry.as_mut().set_none();
+                    failed_homes.clear();
+                    if let Some(url) = self.config.relay_map.urls::<Vec<_>>().into_iter()
+                        .find(|url| self.config.resource_policy.allows(url, crate::endpoint::RelayResourceUse::DataRelay)) {
+                        self.config.my_relay.set(url.clone(), RelayConnectionState::Connecting);
+                        self.set_home_relay(url).await;
+                    }
                 }
                 Some(res) = self.active_relay_tasks.join_next() => {
                     log_active_relay_task_result(res);
@@ -1208,9 +1253,13 @@ impl RelayActor {
         item: RelaySendItem,
     ) -> Option<impl Future<Output = ()> + use<>> {
         let url = item.url.clone();
-        let handle = self
+        let Some(handle) = self
             .active_relay_handle_for_endpoint(&item.url, &item.remote_endpoint)
-            .await;
+            .await
+        else {
+            warn!(?url, "Dropped datagram(s): relay resource is forbidden.");
+            return None;
+        };
         match handle.datagrams_send_queue.try_send(item) {
             Ok(()) => None,
             Err(mpsc::error::TrySendError::Closed(_)) => {
@@ -1232,12 +1281,43 @@ impl RelayActor {
     async fn on_network_change(&mut self, report: Report) {
         let prev = self.config.my_relay.get();
         let prev_url = prev.as_ref().map(RelayStatus::url);
-        if report.preferred_relay.as_ref() == prev_url {
+        let preferred = report
+            .preferred_relay
+            .filter(|url| {
+                self.config
+                    .resource_policy
+                    .allows(url, crate::endpoint::RelayResourceUse::DataRelay)
+            })
+            .or_else(|| {
+                self.config
+                    .initial_home
+                    .as_ref()
+                    .and_then(|_| prev.as_ref())
+                    .filter(|status| {
+                        status.is_connected()
+                            && self.config.relay_map.contains(status.url())
+                            && self
+                                .config
+                                .resource_policy
+                                .allows(status.url(), crate::endpoint::RelayResourceUse::DataRelay)
+                    })
+                    .map(|status| status.url().clone())
+            })
+            .or_else(|| {
+                self.config.initial_home.clone().filter(|url| {
+                    self.config.relay_map.contains(url)
+                        && self
+                            .config
+                            .resource_policy
+                            .allows(url, crate::endpoint::RelayResourceUse::DataRelay)
+                })
+            });
+        if preferred.as_ref() == prev_url {
             // No change.
             return;
         }
 
-        if let Some(relay_url) = report.preferred_relay {
+        if let Some(relay_url) = preferred {
             self.config.metrics.relay_home_change.inc();
 
             // On change, notify all currently connected relay servers and
@@ -1280,9 +1360,14 @@ impl RelayActor {
         &mut self,
         url: &RelayUrl,
         remote_endpoint: &EndpointId,
-    ) -> ActiveRelayHandle {
-        if let Some(handle) = self.active_relays.get(url) {
-            return handle.clone();
+    ) -> Option<ActiveRelayHandle> {
+        if self
+            .config
+            .resource_policy
+            .allows(url, crate::endpoint::RelayResourceUse::DataRelay)
+            && let Some(handle) = self.active_relays.get(url)
+        {
+            return Some(handle.clone());
         }
 
         let mut found_relay: Option<RelayUrl> = None;
@@ -1291,21 +1376,29 @@ impl RelayActor {
         // already.  E.g. maybe they dialed our home relay recently.
         {
             // Futures which return Some(RelayUrl) if the relay knows about the remote endpoint.
-            let check_futs = self.active_relays.iter().map(|(url, handle)| async move {
-                let (tx, rx) = oneshot::channel();
-                handle
-                    .prio_inbox_addr
-                    .send(ActiveRelayPrioMessage::HasEndpointRoute(
-                        *remote_endpoint,
-                        tx,
-                    ))
-                    .await
-                    .ok();
-                match rx.await {
-                    Ok(true) => Some(url.clone()),
-                    _ => None,
-                }
-            });
+            let check_futs = self
+                .active_relays
+                .iter()
+                .filter(|(url, _)| {
+                    self.config
+                        .resource_policy
+                        .allows(url, crate::endpoint::RelayResourceUse::DataRelay)
+                })
+                .map(|(url, handle)| async move {
+                    let (tx, rx) = oneshot::channel();
+                    handle
+                        .prio_inbox_addr
+                        .send(ActiveRelayPrioMessage::HasEndpointRoute(
+                            *remote_endpoint,
+                            tx,
+                        ))
+                        .await
+                        .ok();
+                    match rx.await {
+                        Ok(true) => Some(url.clone()),
+                        _ => None,
+                    }
+                });
             let mut futures = FuturesUnorderedBounded::from_iter(check_futs);
             while let Some(maybe_url) = futures.next().await {
                 if maybe_url.is_some() {
@@ -1319,9 +1412,18 @@ impl RelayActor {
     }
 
     /// Returns the handle of the [`ActiveRelayActor`].
-    fn active_relay_handle(&mut self, url: RelayUrl) -> ActiveRelayHandle {
+    fn active_relay_handle(&mut self, url: RelayUrl) -> Option<ActiveRelayHandle> {
+        // Mandatory final resource check: neither RelayMap nor the requested
+        // candidate URL is an allowlist for the actor's substituted route.
+        if !self
+            .config
+            .resource_policy
+            .allows(&url, crate::endpoint::RelayResourceUse::DataRelay)
+        {
+            return None;
+        }
         match self.active_relays.get(&url) {
-            Some(e) => e.clone(),
+            Some(e) => Some(e.clone()),
             None => {
                 let handle = self.start_active_relay(url.clone());
                 if Some(&url) == self.config.my_relay.get().as_ref().map(RelayStatus::url)
@@ -1333,7 +1435,7 @@ impl RelayActor {
                 }
                 self.active_relays.insert(url, handle.clone());
                 self.log_active_relay();
-                handle
+                Some(handle)
             }
         }
     }
@@ -1538,6 +1640,8 @@ mod tests {
     async fn close_all_active_relays_survives_a_cancelled_task() {
         let (relay_datagram_recv_queue, _recv_rx) = mpsc::channel(1);
         let config = Config {
+            initial_home: None,
+            resource_policy: Default::default(),
             my_relay: Default::default(),
             secret_key: SecretKey::from_bytes(&[0u8; 32]),
             dns_resolver: DnsResolver::new(),

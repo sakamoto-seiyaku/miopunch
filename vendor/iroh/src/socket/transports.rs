@@ -240,8 +240,25 @@ impl Transports {
                 None
             }
         }) {
+            let resource = config.resource();
+            if let Some((url, usage)) = &resource
+                && !relay_actor_config.resource_policy.allows(url, *usage)
+            {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "auxiliary transport resource is forbidden",
+                ));
+            }
             let transport = config.bind()?;
-            custom.push(transport);
+            if let Some(resource) = resource {
+                custom.push(Box::new(custom::ResourceBoundEndpoint {
+                    inner: transport,
+                    resource,
+                    policy: relay_actor_config.resource_policy.clone(),
+                }) as Box<dyn CustomEndpoint>);
+            } else {
+                custom.push(transport);
+            }
         }
 
         Ok(Self {

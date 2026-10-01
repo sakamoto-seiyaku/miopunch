@@ -36,6 +36,16 @@ const MANAGEMENT_DB: &str = "management.sqlite";
 const JOIN_BINDING: &str = "join.invitation";
 const ADMISSION_MATERIAL: &str = "admission.material";
 const RECOVERY_BINDING: &str = "recovery.binding";
+const RESOURCE_CONFIGURATION: &str = "resources.json";
+
+fn network_protocols() -> Vec<Vec<u8>> {
+    vec![
+        crate::admission_gate::ADMISSION_REQUEST_ALPN.to_vec(),
+        crate::management_recovery::MANAGEMENT_RECOVERY_ALPN.to_vec(),
+        crate::admission_rotation::ADMISSION_ROTATION_ALPN.to_vec(),
+        crate::admission_rotation::ROTATION_DELIVERY_ALPN.to_vec(),
+    ]
+}
 
 enum Initialization<'a> {
     Create,
@@ -465,12 +475,7 @@ impl NativeNetwork {
     pub async fn bind_endpoint(&self, bind_ip: Ipv4Addr) -> Result<Endpoint, NodeError> {
         self.bind_endpoint_with(
             Endpoint::builder(presets::Minimal)
-                .alpns(vec![
-                    crate::admission_gate::ADMISSION_REQUEST_ALPN.to_vec(),
-                    crate::management_recovery::MANAGEMENT_RECOVERY_ALPN.to_vec(),
-                    crate::admission_rotation::ADMISSION_ROTATION_ALPN.to_vec(),
-                    crate::admission_rotation::ROTATION_DELIVERY_ALPN.to_vec(),
-                ])
+                .alpns(network_protocols())
                 .bind_addr(SocketAddr::from((bind_ip, 0)))
                 .map_err(|_| NodeError::InvalidData)?,
         )
@@ -481,12 +486,82 @@ impl NativeNetwork {
     /// the selected stack. The node installs its durable identity and shared
     /// gate last, so carrier configuration cannot substitute either boundary.
     pub async fn bind_endpoint_with(&self, builder: Builder) -> Result<Endpoint, NodeError> {
+        let resources = self.resource_configuration()?;
+        self.bind_endpoint_with_resources(builder, &resources).await
+    }
+
+    async fn bind_endpoint_with_resources(
+        &self,
+        builder: Builder,
+        resources: &crate::resources::ResourceConfig,
+    ) -> Result<Endpoint, NodeError> {
+        let builder = resources.configure(builder)?;
+        let builder = match resources.lan_discovery {
+            crate::resources::LanDiscovery::Disabled => builder,
+            mode => builder.address_lookup(
+                iroh_mdns_address_lookup::MdnsAddressLookup::builder()
+                    .advertise(mode == crate::resources::LanDiscovery::Active)
+                    .service_name("miopunchv1"),
+            ),
+        };
         Ok(self
             .gate
             .configure(builder)
             .secret_key(SecretKey::from_bytes(self.node_key.as_bytes()))
             .bind()
             .await?)
+    }
+
+    pub fn resource_configuration(&self) -> Result<crate::resources::ResourceConfig, NodeError> {
+        Ok(crate::resources::ResourceConfig::load(
+            &self.directory.join(RESOURCE_CONFIGURATION),
+        )?)
+    }
+
+    /// Atomically save configuration for the next endpoint start. Existing
+    /// endpoints retain their startup snapshot; this is not a hot update.
+    pub fn save_resource_configuration(
+        &self,
+        config: &crate::resources::ResourceConfig,
+    ) -> Result<(), NodeError> {
+        let temporary = self
+            .directory
+            .join(format!(".resources-{:032x}", rand::random::<u128>()));
+        let result = (|| {
+            write_private(
+                &temporary,
+                &serde_json::to_vec(config).map_err(std::io::Error::other)?,
+            )?;
+            fs::rename(&temporary, self.directory.join(RESOURCE_CONFIGURATION))?;
+            File::open(&self.directory)?.sync_all()?;
+            Ok::<_, NodeError>(())
+        })();
+        let _ = fs::remove_file(temporary);
+        result
+    }
+
+    /// Normal client startup uses bundled defaults or the saved local replacement.
+    pub async fn bind_configured_endpoint(
+        &self,
+        bind_ip: Ipv4Addr,
+    ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
+        let config = self.resource_configuration()?;
+        let endpoint = self
+            .bind_endpoint_with_resources(
+                Endpoint::builder(presets::Minimal)
+                    .alpns(network_protocols())
+                    .relay_mode(iroh::RelayMode::Custom(
+                        config.relay_map(crate::resources::ResourceUse::DataRelay)?,
+                    ))
+                    .observation_servers(
+                        config.relay_map(crate::resources::ResourceUse::Observation)?,
+                    )
+                    .bind_addr(SocketAddr::from((bind_ip, 0)))
+                    .map_err(|_| NodeError::InvalidData)?,
+                &config,
+            )
+            .await?;
+        Ok(crate::resources::ResourceEndpoint::new(endpoint, config))
     }
 
     /// The same policy handle can be installed through p2panda's endpoint
@@ -738,6 +813,7 @@ async fn copy_node_backup(source: &Path, target: &Path, restoring: bool) -> Resu
             JOIN_BINDING,
             ADMISSION_MATERIAL,
             RECOVERY_BINDING,
+            RESOURCE_CONFIGURATION,
         ] {
             let path = source.join(name);
             if path.exists() {

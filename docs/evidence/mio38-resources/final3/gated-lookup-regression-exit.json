@@ -1,0 +1,16 @@
+{
+  "name": "gated-lookup-regression",
+  "started_utc": "2026-10-01T12:01:51.244774+00:00",
+  "argv": [
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "admission_gate",
+    "p2panda_endpoint_builder_hook_gates_the_actual_protocol_actor",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "actual_wrapper_exit": 0
+}

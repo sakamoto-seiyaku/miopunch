@@ -111,6 +111,13 @@ impl AddressLookupBuilder for DnsAddressLookupBuilder {
 }
 
 impl AddressLookup for DnsAddressLookup {
+    fn resource(&self) -> super::AddressLookupResource {
+        match format!("dns://{}/", self.origin_domain).parse() {
+            Ok(url) => super::AddressLookupResource::Facility(url),
+            Err(_) => super::AddressLookupResource::Invalid,
+        }
+    }
+
     fn resolve(
         &self,
         endpoint_id: EndpointId,

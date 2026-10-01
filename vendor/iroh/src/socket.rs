@@ -237,6 +237,7 @@ impl Drop for EndpointInner {
 /// Configuration for a [`noq::Endpoint`] that cannot be changed at runtime.
 #[derive(derive_more::Debug)]
 pub(crate) struct StaticConfig {
+    pub(crate) relay_resource_policy: crate::endpoint::RelayResourcePolicy,
     pub(crate) control_only_alpns: Vec<Vec<u8>>,
     pub(crate) admission_gated: bool,
     pub(crate) tls_config: tls::TlsConfig,
@@ -1461,8 +1462,14 @@ impl EndpointInner {
         }
         let generation = *self.sock.observation_generation.lock().expect("poisoned");
         let network_generation = *self.sock.network_generation.lock().expect("poisoned");
+        let observers =
+            RelayMap::from_iter(observers.relays::<Vec<_>>().into_iter().filter(|config| {
+                self.static_config
+                    .relay_resource_policy
+                    .allows(&config.url, crate::endpoint::RelayResourceUse::Observation)
+            }));
         let samples = net_report::observe_mapping_sequence(
-            observers,
+            &observers,
             self.endpoint.clone(),
             self.sock.tls_config.clone(),
             self.sock.dns_resolver.clone(),
@@ -1797,7 +1804,9 @@ impl EndpointInner {
             configured_addrs,
         } = opts;
 
-        let address_lookup = address_lookup::AddressLookupServices::default();
+        let address_lookup = address_lookup::AddressLookupServices::with_resource_policy(
+            static_config.relay_resource_policy.clone(),
+        );
         let port_mapper = portmapper::create_client(&portmapper_config);
 
         let relay_transport_configs: Vec<_> = transport_configs
@@ -1809,7 +1818,7 @@ impl EndpointInner {
         if relay_transport_configs.len() > 1 {
             bail!(BindError::InvalidTransportConfig);
         }
-        let relay_map = relay_transport_configs
+        let configured_relay_map = relay_transport_configs
             .iter()
             .filter_map(|t| {
                 #[allow(irrefutable_let_patterns)]
@@ -1821,13 +1830,35 @@ impl EndpointInner {
             })
             .next()
             .unwrap_or_else(RelayMap::empty);
+        let relay_map =
+            RelayMap::from_iter(configured_relay_map.relays::<Vec<_>>().into_iter().filter(
+                |config| {
+                    static_config
+                        .relay_resource_policy
+                        .allows(&config.url, crate::endpoint::RelayResourceUse::DataRelay)
+                },
+            ));
         let explicit_qad_servers = observation_servers.is_some();
-        if explicit_qad_servers && !relay_map.is_empty() {
-            // Mixed QAD/data-relay reports need independent resource selection.
-            // Reject that configuration until it has a separate implementation.
+        if explicit_qad_servers
+            && !relay_map.is_empty()
+            && !static_config.relay_resource_policy.independent_uses
+        {
+            // Independent maps require explicit purpose qualification. Keep
+            // rejecting the old unrestricted configuration instead of treating
+            // an observation-only server as a permitted data relay.
             bail!(BindError::InvalidTransportConfig);
         }
-        let observation_servers = observation_servers.unwrap_or_else(|| relay_map.clone());
+        let observation_servers = RelayMap::from_iter(
+            observation_servers
+                .unwrap_or_else(|| configured_relay_map.clone())
+                .relays::<Vec<_>>()
+                .into_iter()
+                .filter(|config| {
+                    static_config
+                        .relay_resource_policy
+                        .allows(&config.url, crate::endpoint::RelayResourceUse::Observation)
+                }),
+        );
         // An explicit observation map is QAD-only. It must not turn an allowed
         // UDP observer into an HTTPS probe or a captive-portal destination.
         let net_report_config = if explicit_qad_servers {
@@ -1839,6 +1870,12 @@ impl EndpointInner {
         let ipv6_reported = Arc::new(AtomicBool::new(false));
 
         let relay_actor_config = RelayActorConfig {
+            initial_home: static_config
+                .relay_resource_policy
+                .independent_uses
+                .then(|| relay_map.urls::<Vec<_>>().into_iter().next())
+                .flatten(),
+            resource_policy: static_config.relay_resource_policy.clone(),
             my_relay: HomeRelayWatch::default(),
             secret_key: secret_key.clone(),
             #[cfg(not(wasm_browser))]
@@ -3309,6 +3346,7 @@ mod tests {
             crypto_provider.clone(),
         );
         let static_config = StaticConfig {
+            relay_resource_policy: Default::default(),
             control_only_alpns: Vec::new(),
             admission_gated: false,
             server_config: tls_config.make_server_config(false).unwrap(),
@@ -3727,6 +3765,7 @@ mod tests {
         );
         let keylog = true;
         let static_config = StaticConfig {
+            relay_resource_policy: Default::default(),
             control_only_alpns: Vec::new(),
             admission_gated: false,
             server_config: tls_config.make_server_config(keylog).unwrap(),

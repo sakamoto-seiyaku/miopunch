@@ -1,0 +1,16 @@
+{
+  "name": "nat-udp-disable",
+  "started_utc": "2026-10-01T11:10:54.792367+00:00",
+  "argv": [
+    "cargo",
+    "test",
+    "--locked",
+    "--test",
+    "legacy_nat_runtime",
+    "formal_disabled_udp_blocks_business_before_stream_creation",
+    "--",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "actual_wrapper_exit": 0
+}

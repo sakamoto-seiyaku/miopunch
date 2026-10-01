@@ -1,0 +1,147 @@
+{
+  "baseline": "8a93e340c4e01885bd9ed1e3da1811220dbf683b",
+  "selected_affected_nat": {
+    "tests/udp_observation.rs": [
+      "changed_nat_mapping_replaces_the_old_candidate_after_network_change",
+      "destination_dependent_nat_reports_mapping_variance",
+      "disabled_observation_endpoint_never_contacts_the_observer",
+      "failed_periodic_observation_withdraws_the_old_udp_candidate",
+      "mixed_observation_and_data_relay_configuration_fails_at_bind",
+      "relay_disabled_observes_the_real_quic_socket_through_a_controlled_nat"
+    ],
+    "tests/legacy_nat_runtime.rs": [
+      "formal_entry_permission_and_complete_budget_stop_before_execution",
+      "formal_disabled_udp_blocks_business_before_stream_creation"
+    ]
+  },
+  "excluded_nat": {
+    "tests/legacy_multi_socket.rs": [
+      "a_provisional_winner_closes_when_cancelled_and_cannot_be_used_by_another_connection",
+      "a_real_target_send_error_does_not_truncate_following_candidates_or_random_work",
+      "all_256_physical_listeners_close_on_cancel_and_rounds_do_not_accumulate",
+      "authenticated_winner_keeps_its_actual_source_ip_despite_packets_to_another_local_ip",
+      "cross_socket_round_packets_are_ignored_and_network_change_invalidates_pending_bindings",
+      "discarded_winner_paths_release_descriptors_while_original_control_connection_lives",
+      "every_physical_sender_isolates_packet_ttl_and_preserves_source_when_ttl_degrades",
+      "interrupted_listener_setup_preserves_actual_partial_costs_and_closes_bindings",
+      "nonprimary_winner_returns_through_its_physical_socket_on_the_original_connection",
+      "os_bind_failures_keep_exact_attempt_count_and_release_partial_pool",
+      "same_round_authenticated_receipt_cannot_move_to_another_physical_socket"
+    ],
+    "tests/legacy_nat_runtime.rs": [
+      "assisted_only_fallback_receives_without_an_outbound_target_and_sender_keeps_lan_first",
+      "cancelled_or_revoked_round_has_no_peer_budget_or_learning_feedback",
+      "complete_scheduler_preserves_original_tls_connection_business_and_one_feedback",
+      "dropping_attempt_during_sender_delay_spends_nothing_and_cannot_learn",
+      "exhaustion_stops_full_phase_and_existing_authorized_control_remains_usable",
+      "existing_verified_path_cannot_learn_when_budget_was_denied_or_credential_changed",
+      "fallback_retains_a_freshly_acquired_candidate_for_its_phase",
+      "formal_direct_candidates_precede_selector_and_keep_original_identity",
+      "formal_entry_observes_selects_executes_and_confirms_original_business",
+      "formal_entry_without_s_uses_local_assisted_basic_attempt_and_original_business",
+      "formal_ipv6_direct_requires_no_ipv4_observation_or_punching",
+      "isolated_functional_cpu_cost_supplement",
+      "low_ttl_and_unsupported_ttl_do_not_change_parallel_connection_business",
+      "old_prediction_age_does_not_expire_a_legacy_plan_but_network_change_does",
+      "ordinary_qad_refresh_keeps_the_physical_generation_but_real_network_change_invalidates_it",
+      "receiver_can_win_before_delay_without_sending_a_probe_and_lease_closes",
+      "scope_and_network_changes_during_delay_stop_before_submission",
+      "stale_round_and_foreign_connection_authentication_cannot_select_a_winner",
+      "two_real_qad_observers_public_preference_original_business_and_learning",
+      "winner_handoff_waits_for_peer_inside_the_original_deadline_and_rechecks_scope",
+      "wrong_gate_and_empty_fallback_cannot_disclose_candidates_or_spend_peer_budget",
+      "wrong_network_and_old_round_are_rejected_before_snapshot_disclosure_or_selection"
+    ],
+    "tests/legacy_nat_scheduler.rs": [
+      "legacy_range_is_inclusive_and_clips_to_valid_udp_ports",
+      "random_listener_pair_has_the_original_thirty_second_read_extension",
+      "random_sampling_keeps_legacy_bounds_ten_draw_skip_and_per_call_uniqueness",
+      "sender_assisted_first_and_only_adjacent_duplicates_compact"
+    ],
+    "tests/udp_observation.rs": []
+  },
+  "unchanged_nat_sources": {
+    "src/bin/udp_nat_probe.rs": true,
+    "src/bin/udp_observation_probe.rs": true,
+    "src/nat_connection.rs": true,
+    "src/nat_direct.rs": true,
+    "src/nat_mapping.rs": true,
+    "src/nat_punch.rs": true,
+    "src/nat_scheduler.rs": true,
+    "src/nat_selector.rs": true,
+    "tests/legacy_multi_socket.rs": true,
+    "tests/legacy_nat_runtime.rs": true,
+    "tests/legacy_nat_scheduler.rs": true,
+    "tests/udp_observation.rs": true
+  },
+  "affected_shared_paths": [
+    "vendor/iroh/src/socket.rs: observer qualification and separate relay actor setup",
+    "vendor/iroh/src/socket/transports/relay/actor.rs: actual selected route resource permission and allowed-home fallback",
+    "vendor/iroh/src/socket/transports/custom.rs: auxiliary facility permission"
+  ],
+  "basis": "Resource policy affects relay/observer/custom access. All six existing observer contracts and two actual public NAT resource budget/UDP-disable cases run; unchanged physical socket setup, algorithm, range, selector, scheduler and probability/profiling behavior use frozen60\u201363 plus existing evidence. No probability batch or sample denominator is repeated.",
+  "frozen_evidence": [
+    "docs/evidence/mio60-formal-nat",
+    "docs/evidence/mio61-legacy-multi-socket",
+    "docs/evidence/mio62-legacy-selector",
+    "docs/evidence/mio63-legacy-scheduler"
+  ],
+  "current_generation": "final3",
+  "current_generation_nat_rechecks": 0,
+  "current_generation_excluded_nat": {
+    "tests/legacy_multi_socket.rs": [
+      "a_provisional_winner_closes_when_cancelled_and_cannot_be_used_by_another_connection",
+      "a_real_target_send_error_does_not_truncate_following_candidates_or_random_work",
+      "all_256_physical_listeners_close_on_cancel_and_rounds_do_not_accumulate",
+      "authenticated_winner_keeps_its_actual_source_ip_despite_packets_to_another_local_ip",
+      "cross_socket_round_packets_are_ignored_and_network_change_invalidates_pending_bindings",
+      "discarded_winner_paths_release_descriptors_while_original_control_connection_lives",
+      "every_physical_sender_isolates_packet_ttl_and_preserves_source_when_ttl_degrades",
+      "interrupted_listener_setup_preserves_actual_partial_costs_and_closes_bindings",
+      "nonprimary_winner_returns_through_its_physical_socket_on_the_original_connection",
+      "os_bind_failures_keep_exact_attempt_count_and_release_partial_pool",
+      "same_round_authenticated_receipt_cannot_move_to_another_physical_socket"
+    ],
+    "tests/legacy_nat_runtime.rs": [
+      "assisted_only_fallback_receives_without_an_outbound_target_and_sender_keeps_lan_first",
+      "cancelled_or_revoked_round_has_no_peer_budget_or_learning_feedback",
+      "complete_scheduler_preserves_original_tls_connection_business_and_one_feedback",
+      "dropping_attempt_during_sender_delay_spends_nothing_and_cannot_learn",
+      "exhaustion_stops_full_phase_and_existing_authorized_control_remains_usable",
+      "existing_verified_path_cannot_learn_when_budget_was_denied_or_credential_changed",
+      "fallback_retains_a_freshly_acquired_candidate_for_its_phase",
+      "formal_direct_candidates_precede_selector_and_keep_original_identity",
+      "formal_disabled_udp_blocks_business_before_stream_creation",
+      "formal_entry_observes_selects_executes_and_confirms_original_business",
+      "formal_entry_permission_and_complete_budget_stop_before_execution",
+      "formal_entry_without_s_uses_local_assisted_basic_attempt_and_original_business",
+      "formal_ipv6_direct_requires_no_ipv4_observation_or_punching",
+      "isolated_functional_cpu_cost_supplement",
+      "low_ttl_and_unsupported_ttl_do_not_change_parallel_connection_business",
+      "old_prediction_age_does_not_expire_a_legacy_plan_but_network_change_does",
+      "ordinary_qad_refresh_keeps_the_physical_generation_but_real_network_change_invalidates_it",
+      "receiver_can_win_before_delay_without_sending_a_probe_and_lease_closes",
+      "scope_and_network_changes_during_delay_stop_before_submission",
+      "stale_round_and_foreign_connection_authentication_cannot_select_a_winner",
+      "two_real_qad_observers_public_preference_original_business_and_learning",
+      "winner_handoff_waits_for_peer_inside_the_original_deadline_and_rechecks_scope",
+      "wrong_gate_and_empty_fallback_cannot_disclose_candidates_or_spend_peer_budget",
+      "wrong_network_and_old_round_are_rejected_before_snapshot_disclosure_or_selection"
+    ],
+    "tests/legacy_nat_scheduler.rs": [
+      "legacy_range_is_inclusive_and_clips_to_valid_udp_ports",
+      "random_listener_pair_has_the_original_thirty_second_read_extension",
+      "random_sampling_keeps_legacy_bounds_ten_draw_skip_and_per_call_uniqueness",
+      "sender_assisted_first_and_only_adjacent_duplicates_compact"
+    ],
+    "tests/udp_observation.rs": [
+      "changed_nat_mapping_replaces_the_old_candidate_after_network_change",
+      "destination_dependent_nat_reports_mapping_variance",
+      "disabled_observation_endpoint_never_contacts_the_observer",
+      "failed_periodic_observation_withdraws_the_old_udp_candidate",
+      "mixed_observation_and_data_relay_configuration_fails_at_bind",
+      "relay_disabled_observes_the_real_quic_socket_through_a_controlled_nat"
+    ]
+  },
+  "current_reuse_basis": "final3-reuse-basis.json"
+}
