@@ -80,6 +80,19 @@ pub struct ManagementStore {
 #[cfg(feature = "replica-test-hooks")]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RecordCheckpoint {
+    AuthorizationPrepared,
+    AuthorizationSent,
+    AuthorizationAcknowledged,
+    SecretPrepared,
+    SecretSent,
+    CompletionAcknowledged,
+    DeliveryComplete,
+    AuthorizationVerified,
+    AuthorizationSaved,
+    SecretReceived,
+    SecretFilePublished,
+    SecretSaved,
+    CompletionSent,
     BeforePrecodeCommit,
     AfterPrecodeCommit,
     BeforeStorageCommit,

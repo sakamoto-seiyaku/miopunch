@@ -1,0 +1,137 @@
+{
+  "baseline": "33f4ba24b0fd93cde79bea5cff4993a9634be7bb",
+  "started_utc": "2026-10-01T02:12:13.059093+00:00",
+  "source_sha256": {
+    "Cargo.toml": "68e7d344c3def61f23346622b371fd5777aaf6cc21e651ecd2c7d610b8f01978",
+    "Cargo.lock": "da76af7eb98d7972eeb7bc6973166b88abfd110f99159ba39873f3bf31054590",
+    "src/lib.rs": "3c6dbc1389b22e115bad8c880a861b6ff0f89d37735456d214b9c39f08d34ee5",
+    "src/management_auth.rs": "c2d6750d325a83d071f0061a125b102e6fd0f6a54caa2e1887f1eff26b37e34f",
+    "src/management_store.rs": "c80c690c2be2683de1651eb7f4268ac2b7e9efbb7fb20a43ebc8e6c97d6be592",
+    "src/native_network.rs": "f4f2ef6005c1e8bdfceb79c0a73d66e7016ec1feadd18658d37a4771d2d7ee49",
+    "src/genesis_recovery.rs": "a845ee1a9397fb8c94316390b36416a55de6037fbc044d90008597d744c8f25c",
+    "src/daily_management.rs": "8d698590ed1bd3786fe1297d92ade4fac39d7ef75373cafa0d378ee785c77cad",
+    "src/manual_admission.rs": "03f90e0bd687fd9d02d981b941a5a23288a4ddf08a28fdad61cfc82b4a66c336",
+    "src/precode.rs": "0add6ad5256b5f75d57fae9babd05fd1d6f1f244ada35bc6cc6997c5b61da655",
+    "src/admission_gate.rs": "a9219b92fa7388323e1d7c29ecd3e9cd28767fe08c14408f2e395fc62265cde2",
+    "src/offline_replica.rs": "0008545ecb53f302a23b6fa912cb1cf8e29832f108400777fec64808d5df802a",
+    "tests/revocation.rs": "dc029a3c004ea0227635a6f617ac98368459daaefd1ee9fd3d84bda8a4373303",
+    "tests/admission_gate.rs": "cc9d8c673a3f6d31c25b8c4259f06298df8ddd729031bed656976ec6e2fe5a50",
+    "tests/precode.rs": "65b3449957ff607feb20f9a0a66388d9c06c3bd5beb0097f928d79cc9c197a87",
+    "tests/manual_admission.rs": "2bc8a00994c00faad6f47905323990c700684ec808790b092688eec89fce9400",
+    "tests/admission_completion.rs": "48462dcaa7d42c4f2a2649daed93e325befab4971095d96338387cb2856a61bf",
+    "scripts/check_admission_completion.py": "8c00ef20fa0819a67f5b9989379857d1306ed9f48ff376dd7feab1b096a8e197",
+    "scripts/mosquitto-test.conf": "5bbf715cb2518197f7ad99ceff3986bf3e2b137798aae23613ce39cf5f24542c"
+  },
+  "commands": [
+    {
+      "name": "full-real-broker-suite",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--workspace",
+        "--features",
+        "replica-test-hooks",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "started_utc": "2026-10-01T02:12:13.419066+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-10-01T02:23:47.457648+00:00",
+      "wall_seconds": 694.0384047369007
+    },
+    {
+      "name": "browser-wasm",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "started_utc": "2026-10-01T02:23:47.458969+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-10-01T02:23:48.119071+00:00",
+      "wall_seconds": 0.659990616957657
+    },
+    {
+      "name": "workspace-typecheck",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--tests"
+      ],
+      "started_utc": "2026-10-01T02:23:48.120144+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-10-01T02:23:51.080262+00:00",
+      "wall_seconds": 2.960000602994114
+    },
+    {
+      "name": "fault-build-typecheck",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--tests",
+        "--features",
+        "replica-test-hooks"
+      ],
+      "started_utc": "2026-10-01T02:23:51.081413+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-10-01T02:23:51.517514+00:00",
+      "wall_seconds": 0.4359869291074574
+    },
+    {
+      "name": "format",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "started_utc": "2026-10-01T02:23:51.518611+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-10-01T02:23:51.957349+00:00",
+      "wall_seconds": 0.4385774669935927
+    }
+  ],
+  "owned_container_id": "05a2891bfffc12e18a5e20437f085cee1a37a79930c9fa4627a5ac71891b6046",
+  "owned_anonymous_volumes": [
+    "936c01ad08eb78e119c2472d3a25cbdd27b0cbbcccbb1a577e20f366a61f7f5b",
+    "adc2747b7c15be3145966c3439e42f9f8ac01164253b9fe79ff39561f99b4527"
+  ],
+  "mqtt_broker": "127.0.0.1:43270",
+  "broker_tcp_preflight": true,
+  "source_unchanged_through_checks": true,
+  "suite_totals": {
+    "passed": 314,
+    "failed": 0,
+    "ignored": 4
+  },
+  "broker_tests_not_skipped": true,
+  "actual_mqtt_capture": "MIO30_MQTT_CIPHERTEXT publishes=94 max_bytes=1472 long_lived_secret_in_invitation=false independent_holder_received_approved_result=false",
+  "owned_container_cleanup_exit": 0,
+  "owned_container_removed": false,
+  "owned_resource_absence": {
+    "05a2891bfffc12e18a5e20437f085cee1a37a79930c9fa4627a5ac71891b6046": true,
+    "936c01ad08eb78e119c2472d3a25cbdd27b0cbbcccbb1a577e20f366a61f7f5b": false,
+    "adc2747b7c15be3145966c3439e42f9f8ac01164253b9fe79ff39561f99b4527": false
+  },
+  "finished_utc": "2026-10-01T02:23:52.323746+00:00",
+  "success": false
+}

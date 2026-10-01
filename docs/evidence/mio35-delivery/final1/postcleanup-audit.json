@@ -1,0 +1,70 @@
+{
+  "observed_utc": "2026-10-01T02:25:40.555975+00:00",
+  "original_wrapper_actual_exit": 1,
+  "original_receipt_unchanged": true,
+  "reason": "Docker lowercase no such volume was misclassified by original case-sensitive No such comparison",
+  "all_five_actual_check_exits": 0,
+  "suite_totals": {
+    "passed": 314,
+    "failed": 0,
+    "ignored": 4
+  },
+  "original_harness_preserved_sha256": "8c00ef20fa0819a67f5b9989379857d1306ed9f48ff376dd7feab1b096a8e197",
+  "current_harness_sha256": "bc4f52d1b0db4b3da0b1408cd7cbb1b81747ef95b924b81c7cb7044ebdee83a1",
+  "only_original_manifest_mismatch": [
+    "scripts/check_admission_completion.py"
+  ],
+  "other_eighteen_sources_unchanged": true,
+  "inspections": [
+    {
+      "kind": "container",
+      "name": "05a2891bfffc12e18a5e20437f085cee1a37a79930c9fa4627a5ac71891b6046",
+      "argv": [
+        "rtk",
+        "proxy",
+        "docker",
+        "container",
+        "inspect",
+        "05a2891bfffc12e18a5e20437f085cee1a37a79930c9fa4627a5ac71891b6046"
+      ],
+      "actual_exit": 1,
+      "stdout": "[]\n",
+      "stderr": "Error response from daemon: No such container: 05a2891bfffc12e18a5e20437f085cee1a37a79930c9fa4627a5ac71891b6046\n",
+      "updated_runner_observes_absent": true
+    },
+    {
+      "kind": "volume",
+      "name": "936c01ad08eb78e119c2472d3a25cbdd27b0cbbcccbb1a577e20f366a61f7f5b",
+      "argv": [
+        "rtk",
+        "proxy",
+        "docker",
+        "volume",
+        "inspect",
+        "936c01ad08eb78e119c2472d3a25cbdd27b0cbbcccbb1a577e20f366a61f7f5b"
+      ],
+      "actual_exit": 1,
+      "stdout": "[]\n",
+      "stderr": "Error response from daemon: get 936c01ad08eb78e119c2472d3a25cbdd27b0cbbcccbb1a577e20f366a61f7f5b: no such volume\n",
+      "updated_runner_observes_absent": true
+    },
+    {
+      "kind": "volume",
+      "name": "adc2747b7c15be3145966c3439e42f9f8ac01164253b9fe79ff39561f99b4527",
+      "argv": [
+        "rtk",
+        "proxy",
+        "docker",
+        "volume",
+        "inspect",
+        "adc2747b7c15be3145966c3439e42f9f8ac01164253b9fe79ff39561f99b4527"
+      ],
+      "actual_exit": 1,
+      "stdout": "[]\n",
+      "stderr": "Error response from daemon: get adc2747b7c15be3145966c3439e42f9f8ac01164253b9fe79ff39561f99b4527: no such volume\n",
+      "updated_runner_observes_absent": true
+    }
+  ],
+  "owned_resources_absent": true,
+  "test_suite_repeated": false
+}

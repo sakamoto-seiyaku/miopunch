@@ -392,10 +392,16 @@ impl NativeNetwork {
         if history.len() > MAX_HISTORY_BYTES {
             return Err(ManualAdmissionError::Rejected);
         }
+        #[cfg(feature = "replica-test-hooks")]
+        self.store
+            .observe(crate::management_store::RecordCheckpoint::AuthorizationPrepared);
         send.write_all(&[1])
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         write_frame(&mut send, &history).await?;
+        #[cfg(feature = "replica-test-hooks")]
+        self.store
+            .observe(crate::management_store::RecordCheckpoint::AuthorizationSent);
         let mut ack = [0; 4];
         recv.read_exact(&mut ack)
             .await
@@ -406,6 +412,9 @@ impl NativeNetwork {
         self.store
             .advance_admission_delivery(&approved, AdmissionStage::PendingMaterials)
             .await?;
+        #[cfg(feature = "replica-test-hooks")]
+        self.store
+            .observe(crate::management_store::RecordCheckpoint::AuthorizationAcknowledged);
         // The current credential and authorization are rechecked at release,
         // not inferred from an earlier approval or sender receipt.
         self.restricted_connection(connection)?;
@@ -418,21 +427,33 @@ impl NativeNetwork {
         {
             return Err(ManualAdmissionError::Rejected);
         }
+        #[cfg(feature = "replica-test-hooks")]
+        self.store
+            .observe(crate::management_store::RecordCheckpoint::SecretPrepared);
         send.write_all(&self.scope.secret_generation().to_be_bytes())
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         send.write_all(secret.saved_bytes())
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+        #[cfg(feature = "replica-test-hooks")]
+        self.store
+            .observe(crate::management_store::RecordCheckpoint::SecretSent);
         recv.read_exact(&mut ack)
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         if &ack != b"SAVE" {
             return Err(ManualAdmissionError::Rejected);
         }
+        #[cfg(feature = "replica-test-hooks")]
+        self.store
+            .observe(crate::management_store::RecordCheckpoint::CompletionAcknowledged);
         self.store
             .advance_admission_delivery(&approved, AdmissionStage::Complete)
             .await?;
+        #[cfg(feature = "replica-test-hooks")]
+        self.store
+            .observe(crate::management_store::RecordCheckpoint::DeliveryComplete);
         send.write_all(b"DONE")
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
@@ -530,6 +551,9 @@ impl NativeNetwork {
         {
             return Err(ManualAdmissionError::Rejected);
         }
+        #[cfg(feature = "replica-test-hooks")]
+        self.store
+            .observe(crate::management_store::RecordCheckpoint::AuthorizationVerified);
         for (header, body) in raw {
             self.store
                 .ingest(&ManagementRecord::new(header, body.as_deref()))
@@ -544,6 +568,9 @@ impl NativeNetwork {
         {
             return Err(ManualAdmissionError::Rejected);
         }
+        #[cfg(feature = "replica-test-hooks")]
+        self.store
+            .observe(crate::management_store::RecordCheckpoint::AuthorizationSaved);
         Ok(ManualExchange::Materials(AdmissionDelivery {
             connection: connection.clone(),
             send,
@@ -587,17 +614,27 @@ impl NativeNetwork {
                 .read_exact(&mut bytes)
                 .await
                 .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+            #[cfg(feature = "replica-test-hooks")]
+            self.store
+                .observe(crate::management_store::RecordCheckpoint::SecretReceived);
             let scope = AdmissionScope::new(
                 *self.anchor.root.as_bytes(),
                 u64::from_be_bytes(bytes[..8].try_into().unwrap()),
             );
             let secret = AdmissionSecret::from_saved(bytes[8..].try_into().unwrap());
             self.save_admission_material(scope, secret).await?;
+            #[cfg(feature = "replica-test-hooks")]
+            self.store
+                .observe(crate::management_store::RecordCheckpoint::SecretSaved);
+
             delivery
                 .send
                 .write_all(b"SAVE")
                 .await
                 .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+            #[cfg(feature = "replica-test-hooks")]
+            self.store
+                .observe(crate::management_store::RecordCheckpoint::CompletionSent);
             delivery
                 .send
                 .finish()

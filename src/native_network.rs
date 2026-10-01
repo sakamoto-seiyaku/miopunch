@@ -481,9 +481,42 @@ impl NativeNetwork {
             invitation,
             request_id: rand::random(),
         };
+        self.persist_join_binding(binding)
+    }
+
+    /// Continue incomplete admission with a trusted new code in this same
+    /// canonical network. This only changes the delivery contact; actual TLS
+    /// identity, code consumption and current signed membership are checked by
+    /// the ordinary precode exchange. Repeating the same contact preserves the
+    /// persisted attempt, including across reopen, rather than consuming again.
+    pub async fn begin_precode_completion(
+        &mut self,
+        code: &crate::precode::Precode,
+    ) -> Result<(), NodeError> {
+        self.store.apply_ready().await?;
+        self.refresh_authorization();
+        let previous = self.join.ok_or(NodeError::InvalidData)?;
+        let invitation = code.invitation();
+        if invitation.anchor != self.anchor {
+            return Err(NodeError::InvalidData);
+        }
+        if previous.invitation == invitation {
+            return Ok(());
+        }
+        if self.admission_stage() == crate::manual_admission::AdmissionStage::Complete {
+            return Err(NodeError::InvalidData);
+        }
+        let binding = JoinBinding {
+            invitation,
+            request_id: previous.request_id,
+        };
+        self.persist_join_binding(binding)
+    }
+
+    fn persist_join_binding(&mut self, binding: JoinBinding) -> Result<(), NodeError> {
         let temporary = self
             .directory
-            .join(format!(".rejoin-{:032x}", rand::random::<u128>()));
+            .join(format!(".join-binding-{:032x}", rand::random::<u128>()));
         let result = (|| {
             write_private(&temporary, &binding.encode())?;
             fs::rename(&temporary, self.directory.join(JOIN_BINDING))?;
@@ -527,6 +560,9 @@ impl NativeNetwork {
         // Also sync on retry: a previous process could have exited after
         // publishing the link but before making its directory entry durable.
         File::open(&self.directory)?.sync_all()?;
+        #[cfg(feature = "replica-test-hooks")]
+        self.store
+            .observe(crate::management_store::RecordCheckpoint::SecretFilePublished);
         self.store.set_current_admission(&scope, &secret).await?;
         self.gate.rotate_secret(scope.clone(), secret.clone());
         self.scope = scope;
