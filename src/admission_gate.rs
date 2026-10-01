@@ -61,13 +61,17 @@ impl Session {
             .connection
             .upgrade()
             .is_some_and(|connection| connection.close_reason().is_none())
-            || policy.removed.contains(&self.peer)
         {
             return false;
         }
         match self.scope {
-            ProtocolScope::AdmissionRequest | ProtocolScope::GenesisRecovery => true,
+            ProtocolScope::AdmissionRequest => true,
+            ProtocolScope::GenesisRecovery => !policy.removed.contains(&self.peer),
             ProtocolScope::Bootstrap | ProtocolScope::Member => {
+                if policy.removed.contains(&self.peer) || policy.removed.contains(&policy.local_id)
+                {
+                    return false;
+                }
                 let Some(secret) = &policy.secret else {
                     return false;
                 };
@@ -207,7 +211,7 @@ impl AdmissionGate {
     ) {
         let mut state = self.state.lock().expect("admission policy lock");
         let members = members.into_iter().collect();
-        let removed = removed.into_iter().collect();
+        let removed: HashSet<_> = removed.into_iter().collect();
         if state.policy.members != members || state.policy.removed != removed {
             state.policy.authorization_epoch = state
                 .policy
@@ -216,6 +220,15 @@ impl AdmissionGate {
                 .expect("authorization epoch exhausted");
         }
         state.policy.members = members;
+        // Close every existing session affected by a newly effective removal,
+        // including restricted requests. Fresh requests remain possible, but
+        // can only obtain a separately approved, currently valid grant.
+        let newly_removed: HashSet<_> =
+            removed.difference(&state.policy.removed).copied().collect();
+        let local_removed = newly_removed.contains(&state.policy.local_id);
+        state
+            .sessions
+            .retain(|_, session| !local_removed && !newly_removed.contains(&session.peer));
         state.policy.removed = removed;
         let policy = state.policy.clone();
         state.sessions.retain(|_, session| session.valid(&policy));
@@ -341,7 +354,8 @@ impl EndpointHooks for AdmissionGate {
     ) -> BeforeConnectOutcome {
         let state = self.state.lock().expect("admission policy lock");
         if !state.protocols.contains_key(alpn)
-            || state.policy.removed.contains(remote_addr.id.as_bytes())
+            || (state.protocols.get(alpn) != Some(&ProtocolScope::AdmissionRequest)
+                && state.policy.removed.contains(remote_addr.id.as_bytes()))
         {
             BeforeConnectOutcome::Reject
         } else {
@@ -362,7 +376,7 @@ impl EndpointHooks for AdmissionGate {
                 state.allowed_data_custom_ids.clone(),
             )
         };
-        if policy.removed.contains(&peer) {
+        if protocol != ProtocolScope::AdmissionRequest && policy.removed.contains(&peer) {
             return Self::reject();
         }
         // An unregistered custom carrier cannot start a member protocol.
@@ -393,7 +407,7 @@ impl EndpointHooks for AdmissionGate {
         };
         {
             let state = self.state.lock().expect("admission policy lock");
-            if state.policy.removed.contains(&peer)
+            if (protocol != ProtocolScope::AdmissionRequest && state.policy.removed.contains(&peer))
                 || (protocol == ProtocolScope::Member
                     && (!state.policy.members.contains(&peer)
                         || !state.policy.members.contains(&state.policy.local_id)))

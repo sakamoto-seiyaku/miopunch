@@ -811,22 +811,9 @@ async fn old_redemption_cannot_restore_removed_membership_or_replace_a_fresh_gra
         )
         .await
         .unwrap();
-    // Existing known-removal policy rejects the connection itself. Lifecycle
-    // rejoining policy belongs to the separate MIOPUNCH-34 implementation.
-    let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let je = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    ae.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()]);
-    let target = EndpointAddr::new(ae.id()).with_ip_addr(*ae.addr().ip_addrs().next().unwrap());
-    let (out, incoming) = tokio::time::timeout(Duration::from_secs(10), async {
-        tokio::join!(je.connect(target, ADMISSION_REQUEST_ALPN), async {
-            ae.accept().await.unwrap().await
-        })
-    })
-    .await
-    .unwrap();
-    assert!(out.is_err() || incoming.is_err());
-    je.close().await;
-    ae.close().await;
+    // MIOPUNCH-34 permits only a fresh restricted request connection, never
+    // old redemption material or member access after effective removal.
+    assert!(!redeem(&mut admin, &mut joining, &old).await);
     assert_eq!(admin.precode_usage(&old).await.unwrap(), 1);
     // A separately valid signed grant restores membership. New-code material
     // completion reuses that grant; old redemption must still remain invalid.
@@ -846,7 +833,7 @@ async fn old_redemption_cannot_restore_removed_membership_or_replace_a_fresh_gra
     assert_eq!(admin.precode_usage(&old).await.unwrap(), 1);
     assert_eq!(admin.precode_usage(&fresh).await.unwrap(), 1);
     eprintln!(
-        "MIO33_REJOIN old_connection_rejected_after_remove=true old_result_invalid_after_separate_valid_regrant=true fresh_reuses_grant=true each_code_uses=1"
+        "MIO33_REJOIN old_redemption_rejected_after_remove=true old_result_invalid_after_separate_valid_regrant=true fresh_reuses_grant=true each_code_uses=1"
     );
     joining.close().await;
     admin.close().await;

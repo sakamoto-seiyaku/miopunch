@@ -1,0 +1,125 @@
+{
+  "baseline": "91cc520cbae87c5d8f02c7c754eab95af0eae375",
+  "started_utc": "2026-09-30T23:13:24.215091+00:00",
+  "source_sha256": {
+    "Cargo.toml": "68e7d344c3def61f23346622b371fd5777aaf6cc21e651ecd2c7d610b8f01978",
+    "Cargo.lock": "da76af7eb98d7972eeb7bc6973166b88abfd110f99159ba39873f3bf31054590",
+    "src/lib.rs": "3c6dbc1389b22e115bad8c880a861b6ff0f89d37735456d214b9c39f08d34ee5",
+    "src/management_auth.rs": "c2d6750d325a83d071f0061a125b102e6fd0f6a54caa2e1887f1eff26b37e34f",
+    "src/management_store.rs": "16bb75dc31e671dda2cdf00779cd14c1ff934abd35f51ae95b16bb5539468bb7",
+    "src/native_network.rs": "bd65492d0b016d4f66981d6cfa5032333d814eb4b0381d74481ba224ecf22919",
+    "src/genesis_recovery.rs": "a845ee1a9397fb8c94316390b36416a55de6037fbc044d90008597d744c8f25c",
+    "src/daily_management.rs": "8d698590ed1bd3786fe1297d92ade4fac39d7ef75373cafa0d378ee785c77cad",
+    "src/manual_admission.rs": "df99024175ed636a0a7001abcbc2ae7a526a6f3ccf43b23b53d0ff20d0b539e3",
+    "src/precode.rs": "0add6ad5256b5f75d57fae9babd05fd1d6f1f244ada35bc6cc6997c5b61da655",
+    "src/admission_gate.rs": "248f9937ad51fa5c09e47cb07ce8d4ff70dabff99bb36a8cd961ecec80850981",
+    "src/offline_replica.rs": "0008545ecb53f302a23b6fa912cb1cf8e29832f108400777fec64808d5df802a",
+    "tests/revocation.rs": "dc029a3c004ea0227635a6f617ac98368459daaefd1ee9fd3d84bda8a4373303",
+    "tests/admission_gate.rs": "3291c0d74c0ad3c163f5643b59897e7c27a8d0253b631cb2d0b8e6b7791126dc",
+    "tests/precode.rs": "65b3449957ff607feb20f9a0a66388d9c06c3bd5beb0097f928d79cc9c197a87",
+    "scripts/check_revocation.py": "49c27f82705848f438eb98518459309094fb5f9a2abcfad191de987267e5a3bd"
+  },
+  "commands": [
+    {
+      "name": "full-real-broker-suite",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--workspace",
+        "--features",
+        "replica-test-hooks",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "started_utc": "2026-09-30T23:13:24.748325+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-30T23:22:17.670322+00:00",
+      "wall_seconds": 532.9219624829711
+    },
+    {
+      "name": "browser-wasm",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "started_utc": "2026-09-30T23:22:17.671890+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-30T23:22:18.320287+00:00",
+      "wall_seconds": 0.6483812149381265
+    },
+    {
+      "name": "workspace-typecheck",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--tests"
+      ],
+      "started_utc": "2026-09-30T23:22:18.321202+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-30T23:22:18.999832+00:00",
+      "wall_seconds": 0.6786092410329729
+    },
+    {
+      "name": "fault-build-typecheck",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--tests",
+        "--features",
+        "replica-test-hooks"
+      ],
+      "started_utc": "2026-09-30T23:22:19.001047+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-30T23:22:21.570183+00:00",
+      "wall_seconds": 2.569121627951972
+    },
+    {
+      "name": "format",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "started_utc": "2026-09-30T23:22:21.571023+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-30T23:22:21.971184+00:00",
+      "wall_seconds": 0.40015655802562833
+    }
+  ],
+  "owned_container_id": "7d8e20d61d0fc7332f2f11cfd7b52f45792f57a955c266a2a889ad8f8e5851b6",
+  "mqtt_broker": "127.0.0.1:43268",
+  "broker_tcp_preflight": true,
+  "source_unchanged_through_checks": true,
+  "suite_totals": {
+    "passed": 293,
+    "failed": 0,
+    "ignored": 4
+  },
+  "broker_tests_not_skipped": true,
+  "actual_mqtt_capture": "MIO30_MQTT_CIPHERTEXT publishes=96 max_bytes=1472 long_lived_secret_in_invitation=false independent_holder_received_approved_result=false",
+  "owned_container_cleanup_exit": 0,
+  "owned_container_removed": true,
+  "finished_utc": "2026-09-30T23:22:22.373168+00:00",
+  "success": true
+}

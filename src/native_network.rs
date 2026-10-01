@@ -282,18 +282,22 @@ impl NativeNetwork {
         let join = if path.join(JOIN_BINDING).exists() {
             let binding = JoinBinding::decode(&read_array::<112>(&path.join(JOIN_BINDING))?)
                 .map_err(|_| NodeError::InvalidData)?;
-            if binding.invitation.anchor != anchor || path.join(GENESIS_CREDENTIAL).exists() {
+            if binding.invitation.anchor != anchor {
                 return Err(NodeError::InvalidData);
             }
             Some(binding)
         } else {
+            None
+        };
+        if path.join(GENESIS_CREDENTIAL).exists() {
             let credential =
                 SavedGenesisCredential(read_array::<64>(&path.join(GENESIS_CREDENTIAL))?).decode();
             if credential.anchor() != anchor {
                 return Err(NodeError::InvalidCredential);
             }
-            None
-        };
+        } else if join.is_none() {
+            return Err(NodeError::InvalidData);
+        }
         if !path.join(MANAGEMENT_DB).is_file() {
             return Err(NodeError::InvalidData);
         }
@@ -302,7 +306,9 @@ impl NativeNetwork {
         // its materialized view. Recover ready records before exposing the
         // reopened node's authority or making admission decisions.
         store.apply_ready().await?;
-        if join.is_none() && store.get_record(anchor.genesis).await?.is_none() {
+        if path.join(GENESIS_CREDENTIAL).exists()
+            && store.get_record(anchor.genesis).await?.is_none()
+        {
             return Err(NodeError::InvalidData);
         }
         let (scope, mut secret) = if path.join(ADMISSION_MATERIAL).exists() {
@@ -454,6 +460,40 @@ impl NativeNetwork {
                 .into_iter()
                 .map(|id| *id.as_bytes()),
         );
+    }
+
+    /// Start a fresh approval attempt after effective departure/removal while
+    /// preserving this device key, network anchor and all verified history.
+    /// An old request keeps its old invalidated result; it is never repurposed.
+    pub async fn begin_rejoin(&mut self, invitation: ManualInvitation) -> Result<(), NodeError> {
+        self.store.apply_ready().await?;
+        self.refresh_authorization();
+        if invitation.anchor != self.anchor
+            || self
+                .store
+                .nodes()
+                .iter()
+                .any(|(id, _)| *id == self.node_key.verifying_key())
+        {
+            return Err(NodeError::InvalidData);
+        }
+        let binding = JoinBinding {
+            invitation,
+            request_id: rand::random(),
+        };
+        let temporary = self
+            .directory
+            .join(format!(".rejoin-{:032x}", rand::random::<u128>()));
+        let result = (|| {
+            write_private(&temporary, &binding.encode())?;
+            fs::rename(&temporary, self.directory.join(JOIN_BINDING))?;
+            File::open(&self.directory)?.sync_all()?;
+            Ok::<_, NodeError>(())
+        })();
+        let _ = fs::remove_file(&temporary);
+        result?;
+        self.join = Some(binding);
+        Ok(())
     }
 
     pub(crate) async fn save_admission_material(

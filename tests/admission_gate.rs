@@ -627,14 +627,22 @@ async fn a_connection_to_an_uninvited_tls_identity_cannot_enter_application() {
 }
 
 #[tokio::test]
-async fn known_removed_identity_cannot_use_any_exception_or_normal_protocol() {
+async fn known_removed_identity_only_reaches_fresh_restricted_admission_requests() {
     let pair = Pair::new(Some(SECRET), SECRET, false).await;
     pair.server_gate.update_authorization(
         [*pair.server.id().as_bytes()],
         [*pair.client.id().as_bytes()],
     );
+    let (out, incoming) = pair.connect(ADMISSION_REQUEST_ALPN).await;
+    let incoming = incoming.unwrap();
+    assert!(out.is_some());
+    assert!(
+        pair.server_gate
+            .allows(&incoming, ProtocolScope::AdmissionRequest)
+    );
+    assert!(!pair.server_gate.allows(&incoming, ProtocolScope::Member));
+    incoming.close(0u32.into(), b"restricted request only");
     for alpn in [
-        ADMISSION_REQUEST_ALPN.to_vec(),
         RECOVERY_ALPN.to_vec(),
         MEMBER_BOOTSTRAP_ALPN.to_vec(),
         mixed(DISCOVERY),
@@ -920,4 +928,52 @@ async fn an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy()
     incoming.close(0u32.into(), b"done");
     client.close().await;
     server.close().await;
+}
+
+#[tokio::test]
+async fn removal_during_final_recovery_stage_must_reject_connection() {
+    let client_key = SecretKey::generate();
+    let gate = AdmissionGate::new(client_key.public(), AdmissionScope::new([23; 32], 0), None);
+    let client = gate
+        .configure(Endpoint::builder(presets::Minimal))
+        .secret_key(client_key)
+        .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+        .unwrap()
+        .bind()
+        .await
+        .unwrap();
+    let raw = Endpoint::builder(presets::Minimal)
+        .alpns(vec![RECOVERY_ALPN.to_vec()])
+        .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+        .unwrap()
+        .bind()
+        .await
+        .unwrap();
+    let target = EndpointAddr::new(raw.id()).with_ip_addr(*raw.addr().ip_addrs().next().unwrap());
+    let endpoint = client.clone();
+    let dialed = tokio::spawn(async move { endpoint.connect(target, RECOVERY_ALPN).await });
+    let server = raw.accept().await.unwrap().await.unwrap();
+    let (mut send, mut recv) = tokio::time::timeout(Duration::from_secs(3), server.accept_bi())
+        .await
+        .unwrap()
+        .unwrap();
+    let mut stage = [0];
+    recv.read_exact(&mut stage).await.unwrap();
+    assert_eq!(stage, [1]);
+    // The gated client has passed its second policy check, sent its stage
+    // byte and waits for ours. No session has entered the lifetime index yet.
+    gate.update_authorization([*client.id().as_bytes()], [*raw.id().as_bytes()]);
+    send.write_all(&[1]).await.unwrap();
+    send.finish().unwrap();
+    let result = tokio::time::timeout(Duration::from_secs(3), dialed)
+        .await
+        .unwrap()
+        .unwrap();
+    let rejected = result.is_err();
+    client.close().await;
+    raw.close().await;
+    assert!(
+        rejected,
+        "recovery accepted after effective removal during final stage"
+    );
 }

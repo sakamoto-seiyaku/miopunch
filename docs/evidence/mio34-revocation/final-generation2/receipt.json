@@ -1,0 +1,266 @@
+{
+  "observation_utc": "2026-10-01T01:38:58.702134+00:00",
+  "generation2_full_log_sha256": "6b2f113f6a808695ab54bb890adefe70a1e27fa942c74ebb46354d2d37d7eebc",
+  "full_log_all_summary_success": true,
+  "full_suite_terminal_exit_code": null,
+  "wrapper_process_absent": true,
+  "original_pty_unknown": true,
+  "source_snapshot_observed_after_wrapper_loss": true,
+  "source_sha256": {
+    "Cargo.toml": "68e7d344c3def61f23346622b371fd5777aaf6cc21e651ecd2c7d610b8f01978",
+    "Cargo.lock": "da76af7eb98d7972eeb7bc6973166b88abfd110f99159ba39873f3bf31054590",
+    "src/lib.rs": "3c6dbc1389b22e115bad8c880a861b6ff0f89d37735456d214b9c39f08d34ee5",
+    "src/management_auth.rs": "c2d6750d325a83d071f0061a125b102e6fd0f6a54caa2e1887f1eff26b37e34f",
+    "src/management_store.rs": "16bb75dc31e671dda2cdf00779cd14c1ff934abd35f51ae95b16bb5539468bb7",
+    "src/native_network.rs": "bd65492d0b016d4f66981d6cfa5032333d814eb4b0381d74481ba224ecf22919",
+    "src/genesis_recovery.rs": "a845ee1a9397fb8c94316390b36416a55de6037fbc044d90008597d744c8f25c",
+    "src/daily_management.rs": "8d698590ed1bd3786fe1297d92ade4fac39d7ef75373cafa0d378ee785c77cad",
+    "src/manual_admission.rs": "df99024175ed636a0a7001abcbc2ae7a526a6f3ccf43b23b53d0ff20d0b539e3",
+    "src/precode.rs": "0add6ad5256b5f75d57fae9babd05fd1d6f1f244ada35bc6cc6997c5b61da655",
+    "src/admission_gate.rs": "a9219b92fa7388323e1d7c29ecd3e9cd28767fe08c14408f2e395fc62265cde2",
+    "src/offline_replica.rs": "0008545ecb53f302a23b6fa912cb1cf8e29832f108400777fec64808d5df802a",
+    "tests/revocation.rs": "dc029a3c004ea0227635a6f617ac98368459daaefd1ee9fd3d84bda8a4373303",
+    "tests/admission_gate.rs": "cc9d8c673a3f6d31c25b8c4259f06298df8ddd729031bed656976ec6e2fe5a50",
+    "tests/precode.rs": "65b3449957ff607feb20f9a0a66388d9c06c3bd5beb0097f928d79cc9c197a87",
+    "scripts/check_revocation.py": "49c27f82705848f438eb98518459309094fb5f9a2abcfad191de987267e5a3bd"
+  },
+  "source_mtime_utc": {
+    "Cargo.toml": "2026-09-30T20:26:03.278070+00:00",
+    "Cargo.lock": "2026-09-30T20:26:18.054069+00:00",
+    "src/lib.rs": "2026-09-30T22:14:32.389238+00:00",
+    "src/management_auth.rs": "2026-09-30T22:14:32.393238+00:00",
+    "src/management_store.rs": "2026-09-30T22:20:29.633192+00:00",
+    "src/native_network.rs": "2026-09-30T23:11:56.748797+00:00",
+    "src/genesis_recovery.rs": "2026-09-30T21:20:16.873654+00:00",
+    "src/daily_management.rs": "2026-09-30T21:28:38.241590+00:00",
+    "src/manual_admission.rs": "2026-09-30T22:14:32.401238+00:00",
+    "src/precode.rs": "2026-09-30T22:20:29.505192+00:00",
+    "src/admission_gate.rs": "2026-09-30T23:25:52.116689+00:00",
+    "src/offline_replica.rs": "2026-09-30T20:44:43.481927+00:00",
+    "tests/revocation.rs": "2026-09-30T23:10:13.572810+00:00",
+    "tests/admission_gate.rs": "2026-09-30T23:25:52.436689+00:00",
+    "tests/precode.rs": "2026-09-30T23:07:02.576834+00:00",
+    "scripts/check_revocation.py": "2026-09-30T23:10:28.788808+00:00"
+  },
+  "suite_totals": {
+    "passed": 294,
+    "failed": 0,
+    "ignored": 4
+  },
+  "actual_mqtt_capture": "MIO30_MQTT_CIPHERTEXT publishes=98 max_bytes=1472 long_lived_secret_in_invitation=false independent_holder_received_approved_result=false",
+  "owned_container_id": "6ac616934cf496fef9c4c450acbf02fa679147589c165986c80850b8de2b679e",
+  "resumed_remaining_commands": [
+    {
+      "name": "browser-wasm",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "started_utc": "2026-10-01T01:39:36.724604+00:00",
+      "finished_utc": "2026-10-01T01:39:37.713837+00:00",
+      "exit_code": 0,
+      "wall_seconds": 0.989209596067667
+    },
+    {
+      "name": "workspace-typecheck",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--tests"
+      ],
+      "started_utc": "2026-10-01T01:39:37.715458+00:00",
+      "finished_utc": "2026-10-01T01:39:41.368494+00:00",
+      "exit_code": 0,
+      "wall_seconds": 3.6530501319793984
+    },
+    {
+      "name": "fault-build-typecheck",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--tests",
+        "--features",
+        "replica-test-hooks"
+      ],
+      "started_utc": "2026-10-01T01:39:41.370164+00:00",
+      "finished_utc": "2026-10-01T01:39:43.688286+00:00",
+      "exit_code": 0,
+      "wall_seconds": 2.3181369070662186
+    },
+    {
+      "name": "format",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "started_utc": "2026-10-01T01:39:43.690023+00:00",
+      "finished_utc": "2026-10-01T01:39:44.154946+00:00",
+      "exit_code": 0,
+      "wall_seconds": 0.4649312769761309
+    }
+  ],
+  "source_unchanged_through_resumed_checks": true,
+  "owned_cleanup_exit": 0,
+  "owned_inspect_exit": 1,
+  "owned_inspect_stderr": "error: no such object: 6ac616934cf496fef9c4c450acbf02fa679147589c165986c80850b8de2b679e\n",
+  "owned_container_removed": true,
+  "built_test_bindings": {
+    "admission_gate.rs": {
+      "binary": "target/debug/deps/admission_gate-1ef0feda7c7a5023",
+      "sha256": "81340225dbcfcc46a53c91b126b67ca483313d0af3753983b9494409edb2a90a",
+      "mtime_utc": "2026-09-30T23:28:19.928671+00:00",
+      "dep_info_exists": true,
+      "dep_info_names_test_source": true,
+      "list_exit": 0,
+      "includes_actual_race_regression": true
+    },
+    "daily_management.rs": {
+      "binary": "target/debug/deps/daily_management-67f1eae406bc2c7f",
+      "sha256": "dee881f416e191ae272320fe92a1edd8121339c5479e8c4bda9b1d847020872e",
+      "mtime_utc": "2026-09-30T23:28:10.316673+00:00",
+      "dep_info_exists": true,
+      "dep_info_names_test_source": true
+    },
+    "manual_admission.rs": {
+      "binary": "target/debug/deps/manual_admission-dc909ff3f94fe88b",
+      "sha256": "8878588ffbcb7073680d4d50d3122fc0c69d74d3e14c1f045581852c370add03",
+      "mtime_utc": "2026-09-30T23:28:12.036672+00:00",
+      "dep_info_exists": true,
+      "dep_info_names_test_source": true
+    },
+    "offline_replica.rs": {
+      "binary": "target/debug/deps/offline_replica-649bc88f84e9dd9f",
+      "sha256": "01d65e3cbc5045d4e150ada37ff7e0d304e48bade30c07f060722c9396152f0c",
+      "mtime_utc": "2026-09-30T23:28:10.484673+00:00",
+      "dep_info_exists": true,
+      "dep_info_names_test_source": true
+    },
+    "precode.rs": {
+      "binary": "target/debug/deps/precode-1d791102521bd672",
+      "sha256": "930572066a42a402e6974d1fc8ebcfb372d4bd5b366f2f565e5c8b375ece70cd",
+      "mtime_utc": "2026-09-30T23:28:15.652672+00:00",
+      "dep_info_exists": true,
+      "dep_info_names_test_source": true
+    },
+    "revocation.rs": {
+      "binary": "target/debug/deps/revocation-545451f849286af2",
+      "sha256": "474d5a85ea4fab8c7ed3b710373b20a6da89a967d5bd2f1750890db10f830b52",
+      "mtime_utc": "2026-09-30T23:28:04.760673+00:00",
+      "dep_info_exists": true,
+      "dep_info_names_test_source": true,
+      "list_exit": 0,
+      "includes_actual_revocation_regressions": true
+    }
+  },
+  "pre_start_source_sha_manifest_survived": false,
+  "source_provenance_note": "The vanished original wrapper kept its pre-start hashes only in memory. No pre-start SHA manifest survived. Current hashes were first explicitly persisted after wrapper loss; file mtimes all precede the broker creation/start and existing compiled test artifact bindings are separately recorded. No claim of continuously observed source SHA stability during the original gen2 suite is made.",
+  "source_sha256_observed_utc": "2026-10-01T01:38:58.702134+00:00",
+  "commands": [
+    {
+      "name": "full-real-broker-suite",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--workspace",
+        "--features",
+        "replica-test-hooks",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": null,
+      "terminal_exit_status": "unknown after wrapper disappearance",
+      "all_34_raw_test_summary_blocks_success": true
+    },
+    {
+      "name": "browser-wasm",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "started_utc": "2026-10-01T01:39:36.724604+00:00",
+      "finished_utc": "2026-10-01T01:39:37.713837+00:00",
+      "exit_code": 0,
+      "wall_seconds": 0.989209596067667
+    },
+    {
+      "name": "workspace-typecheck",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--tests"
+      ],
+      "started_utc": "2026-10-01T01:39:37.715458+00:00",
+      "finished_utc": "2026-10-01T01:39:41.368494+00:00",
+      "exit_code": 0,
+      "wall_seconds": 3.6530501319793984
+    },
+    {
+      "name": "fault-build-typecheck",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--tests",
+        "--features",
+        "replica-test-hooks"
+      ],
+      "started_utc": "2026-10-01T01:39:41.370164+00:00",
+      "finished_utc": "2026-10-01T01:39:43.688286+00:00",
+      "exit_code": 0,
+      "wall_seconds": 2.3181369070662186
+    },
+    {
+      "name": "format",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "started_utc": "2026-10-01T01:39:43.690023+00:00",
+      "finished_utc": "2026-10-01T01:39:44.154946+00:00",
+      "exit_code": 0,
+      "wall_seconds": 0.4649312769761309
+    }
+  ],
+  "verification_complete": true,
+  "no_final_suite_rerun": true,
+  "finished_utc": "2026-10-01T01:41:28.750826+00:00"
+}
