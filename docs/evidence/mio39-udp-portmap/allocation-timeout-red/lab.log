@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/repo/scripts/udp_portmap_lab.py", line 270, in <module>
+    lab(*args.paths)
+  File "/repo/scripts/udp_portmap_lab.py", line 165, in lab
+    assert any(event.get('requested_lifetime') == 0 and event.get('released') for event in events), 'acknowledged allocation must be released on failure or cancellation before publication'
+AssertionError: acknowledged allocation must be released on failure or cancellation before publication

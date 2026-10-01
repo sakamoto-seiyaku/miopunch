@@ -1,0 +1,45 @@
+{
+  "case": "renewal-address-failure",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "udp_portmap",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 3.196,
+      "log": "build.log"
+    },
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch39-1790865344615669624",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio39-udp-portmap/renewal-address-failure-red,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "/repo/scripts/udp_portmap_lab.py",
+        "lab",
+        "/repo/target/debug/deps/udp_portmap-adb51e17ad9cc9ac",
+        "/evidence",
+        "renewal-address-failure"
+      ],
+      "exit": 1,
+      "seconds": 6.487,
+      "log": "lab.log"
+    }
+  ]
+}

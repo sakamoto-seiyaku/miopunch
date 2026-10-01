@@ -1,0 +1,3 @@
+{"gateway_started": true, "pid": 56, "epoch": 0}
+{"source": ["10.39.0.2", 50328], "packet_hex": "00010000d75a000000001c20", "mode": "allocation-timeout", "internal_port": 55130, "preferred_port": 0, "requested_lifetime": 7200, "external_port": 41039, "granted_lifetime": 30, "result": 0, "active": [{"owner": ["10.39.0.2", 55130], "external_port": 41039}]}
+{"source": ["10.39.0.2", 50328], "packet_hex": "0000", "mode": "allocation-timeout", "address_reply_dropped": true, "active": [{"owner": ["10.39.0.2", 55130], "external_port": 41039}]}

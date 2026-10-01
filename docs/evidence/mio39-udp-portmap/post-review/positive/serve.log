@@ -1,0 +1,8 @@
+
+running 1 test
+MAPPED candidate=100.64.39.1:41039 bound=[0.0.0.0:45102, [::]:52314]
+DATA_OK real_member=true relay=false
+test gateway_node_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 1.08s
+

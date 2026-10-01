@@ -353,6 +353,7 @@ pub(crate) struct Socket {
 
     // - Shutdown Management
     shutdown: ShutdownState,
+    port_mapper: portmapper::Client,
 
     // - Networking Info
     /// Our discovered direct addresses.
@@ -1948,6 +1949,7 @@ impl EndpointInner {
         let sock = Arc::new(Socket {
             remote_actors: remote_map.senders(),
             shutdown: shutdown_state,
+            port_mapper: port_mapper.clone(),
             ipv6_reported,
             mapped_addrs: remote_map.mapped_addrs.clone(),
             address_lookup,
@@ -2140,6 +2142,14 @@ impl EndpointInner {
         self.noq_endpoint().wait_all_draining().await;
         trace!("wait_all_draining done");
 
+        // Release only this endpoint's mapping before cancelling its service.
+        // An unavailable gateway must not hold endpoint shutdown indefinitely.
+        let _ = time::timeout(
+            Duration::from_secs(1),
+            self.sock.port_mapper.deactivate_and_wait(),
+        )
+        .await;
+
         // Start cancellation of all actors.
         self.sock.shutdown.at_endpoint_closed.cancel();
 
@@ -2191,6 +2201,7 @@ impl EndpointInner {
             return;
         }
         trace!("socket aborting...");
+        self.sock.port_mapper.deactivate();
 
         // Cancel at_close_start token, which cancels running netreports.
         self.sock.shutdown.at_close_start.cancel();
@@ -2572,6 +2583,12 @@ impl Actor {
                         self.sock.metrics.net_report.portmap_external_address_updated.inc();
                     }
                     debug!("external address updated: {new_external_address:?}");
+                    #[cfg(not(wasm_browser))]
+                    {
+                        // Mapping publication/withdrawal must not wait for QAD.
+                        let (report, _) = self.sock.net_report.get();
+                        self.update_direct_addresses(report.as_ref());
+                    }
                     self.re_stun(UpdateReason::PortmapUpdated);
                 },
                 state = self.local_interfaces_watcher.updated() => {

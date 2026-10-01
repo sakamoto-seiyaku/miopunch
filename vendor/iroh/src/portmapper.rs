@@ -20,9 +20,11 @@ use tokio::sync::watch;
 pub enum PortmapperConfig {
     /// Enable portmapping with default settings.
     ///
-    /// This is the default.
+    /// The miopunch fork requires explicit opt-in for gateway access.
     #[non_exhaustive]
     Enabled {},
+    /// Enable only NAT-PMP for this endpoint's actual UDP socket.
+    NatPmp,
     /// Disable portmapping.
     ///
     /// Skips the UPnP/PCP/NAT-PMP gateway probing. Use this to avoid the
@@ -34,7 +36,7 @@ pub enum PortmapperConfig {
 
 impl Default for PortmapperConfig {
     fn default() -> Self {
-        PortmapperConfig::Enabled {}
+        PortmapperConfig::Disabled
     }
 }
 
@@ -42,6 +44,15 @@ pub(crate) fn create_client(config: &PortmapperConfig) -> Client {
     match config {
         #[cfg(all(not(wasm_browser), feature = "portmapper"))]
         PortmapperConfig::Enabled {} => Client::Enabled(::portmapper::Client::default()),
+        #[cfg(all(not(wasm_browser), feature = "portmapper"))]
+        PortmapperConfig::NatPmp => {
+            Client::Enabled(::portmapper::Client::new(::portmapper::Config {
+                enable_upnp: false,
+                enable_pcp: false,
+                enable_nat_pmp: true,
+                protocol: ::portmapper::Protocol::Udp,
+            }))
+        }
         _ => {
             let (tx, rx) = watch::channel(None);
             Client::Disabled { _tx: tx, rx }
@@ -53,7 +64,7 @@ pub(crate) fn create_client(config: &PortmapperConfig) -> Client {
 ///
 /// The disabled variant is used when the `portmapper` feature is off, on wasm,
 /// or when portmapping is disabled via [`PortmapperConfig::Disabled`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum Client {
     /// The real portmapper client (requires the `portmapper` feature).
     #[cfg(all(not(wasm_browser), feature = "portmapper"))]
@@ -86,6 +97,15 @@ impl Client {
         match self {
             #[cfg(all(not(wasm_browser), feature = "portmapper"))]
             Client::Enabled(c) => c.deactivate(),
+            Client::Disabled { .. } => {}
+        }
+    }
+
+    /// Bounded caller shutdown awaits the mapping service's own release attempt.
+    pub(crate) async fn deactivate_and_wait(&self) {
+        match self {
+            #[cfg(all(not(wasm_browser), feature = "portmapper"))]
+            Client::Enabled(c) => c.deactivate_and_wait().await,
             Client::Disabled { .. } => {}
         }
     }

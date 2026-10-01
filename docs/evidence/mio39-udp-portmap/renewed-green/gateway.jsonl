@@ -1,0 +1,8 @@
+{"gateway_started": true, "pid": 56, "epoch": 0}
+{"source": ["10.39.0.2", 60532], "packet_hex": "00010000c0fb000000001c20", "mode": "normal", "internal_port": 49403, "preferred_port": 0, "requested_lifetime": 7200, "external_port": 41039, "granted_lifetime": 6, "result": 0, "active": [{"owner": ["10.39.0.2", 49403], "external_port": 41039}]}
+{"source": ["10.39.0.2", 60532], "packet_hex": "0000", "mode": "normal", "public_address": "100.64.39.1", "active": [{"owner": ["10.39.0.2", 49403], "external_port": 41039}]}
+{"source": ["10.39.0.2", 35830], "packet_hex": "00010000c0fba04f00001c20", "mode": "normal", "internal_port": 49403, "preferred_port": 41039, "requested_lifetime": 7200, "external_port": 41039, "granted_lifetime": 6, "result": 0, "active": [{"owner": ["10.39.0.2", 49403], "external_port": 41039}]}
+{"source": ["10.39.0.2", 35830], "packet_hex": "0000", "mode": "normal", "public_address": "100.64.39.1", "active": [{"owner": ["10.39.0.2", 49403], "external_port": 41039}]}
+{"source": ["10.39.0.2", 50421], "packet_hex": "00010000c0fba04f00001c20", "mode": "normal", "internal_port": 49403, "preferred_port": 41039, "requested_lifetime": 7200, "external_port": 41039, "granted_lifetime": 6, "result": 0, "active": [{"owner": ["10.39.0.2", 49403], "external_port": 41039}]}
+{"source": ["10.39.0.2", 50421], "packet_hex": "0000", "mode": "normal", "public_address": "100.64.39.1", "active": [{"owner": ["10.39.0.2", 49403], "external_port": 41039}]}
+{"source": ["10.39.0.2", 34254], "packet_hex": "00010000c0fb000000000000", "mode": "normal", "released": ["10.39.0.2", 49403], "internal_port": 49403, "preferred_port": 0, "requested_lifetime": 0, "external_port": 0, "granted_lifetime": 0, "result": 0, "active": []}

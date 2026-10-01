@@ -1,0 +1,19 @@
+{
+  "case": "renewed",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "udp_portmap",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 101,
+      "seconds": 8.886,
+      "log": "build.log"
+    }
+  ]
+}

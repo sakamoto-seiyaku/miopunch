@@ -1,0 +1,5 @@
+
+running 1 test
+MAPPED candidate=100.64.39.1:41039 bound=[0.0.0.0:58387, [::]:60785]
+[DEBUG-m39] server authenticated remote=9397ec6e210f9c919e587b0ce94795a91fc6d9001b36804ecf26a3129454375c paths=PathList { snapshot: State { list: [PathData(0, ip:100.64.39.2:41294)], selected: None, closed: false }, .. }
+[DEBUG-m39] server request result=Ok(AwaitingApproval) closed=None

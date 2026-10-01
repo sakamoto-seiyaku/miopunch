@@ -1,0 +1,130 @@
+[
+  {
+    "name": "workspace-typecheck",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "--workspace"
+    ],
+    "exit": 0,
+    "seconds": 4.967
+  },
+  {
+    "name": "wasm-typecheck",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "miopunch-browser-probe",
+      "--target",
+      "wasm32-unknown-unknown"
+    ],
+    "exit": 0,
+    "seconds": 2.992
+  },
+  {
+    "name": "resource-regression",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--test",
+      "resources",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit": 0,
+    "seconds": 52.205
+  },
+  {
+    "name": "udp-observation-regression",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--test",
+      "udp_observation",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit": 0,
+    "seconds": 49.908
+  },
+  {
+    "name": "formal-admission-regression",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--test",
+      "manual_admission",
+      "manual_approval_saves_both_materials_and_permits_real_business",
+      "--",
+      "--exact",
+      "--test-threads=1"
+    ],
+    "exit": 0,
+    "seconds": 6.434
+  },
+  {
+    "name": "native-regression",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--test",
+      "native_network",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit": 0,
+    "seconds": 4.875
+  },
+  {
+    "name": "workspace-format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "exit": 0,
+    "seconds": 0.474
+  },
+  {
+    "name": "modified-fork-format",
+    "command": [
+      "rustfmt",
+      "--check",
+      "--edition",
+      "2024",
+      "vendor/iroh/src/portmapper.rs",
+      "vendor/iroh/src/endpoint.rs",
+      "vendor/iroh/src/socket.rs",
+      "vendor/portmapper/src/lib.rs"
+    ],
+    "exit": 1,
+    "seconds": 0.184,
+    "limitation": "Unscoped rustfmt recursively checked unchanged upstream endpoint/connection.rs; its preexisting formatting was restored and remains outside this ticket."
+  },
+  {
+    "name": "modified-fork-format-scoped",
+    "command": [
+      "rustfmt",
+      "--check",
+      "--config",
+      "skip_children=true",
+      "--edition",
+      "2024",
+      "vendor/iroh/src/portmapper.rs",
+      "vendor/iroh/src/endpoint.rs",
+      "vendor/iroh/src/socket.rs",
+      "vendor/portmapper/src/lib.rs"
+    ],
+    "exit": 0,
+    "seconds": 0.088
+  }
+]

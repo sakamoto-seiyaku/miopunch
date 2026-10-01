@@ -1,0 +1,6 @@
+{"source": ["10.39.0.2", 59313], "packet_hex": "00010000eab6000000001c20", "mode": "normal", "internal_port": 60086, "preferred_port": 0, "requested_lifetime": 7200, "external_port": 41039, "granted_lifetime": 6, "result": 0, "active": [{"owner": ["10.39.0.2", 60086], "external_port": 41039}]}
+{"source": ["10.39.0.2", 59313], "packet_hex": "0000", "mode": "normal", "public_address": "100.64.39.1", "active": [{"owner": ["10.39.0.2", 60086], "external_port": 41039}]}
+{"administrative_delete": true, "mode": "restart"}
+{"source": ["10.39.0.2", 60371], "packet_hex": "00010000eab6a04f00001c20", "mode": "restart", "internal_port": 60086, "preferred_port": 41039, "requested_lifetime": 7200, "external_port": 42039, "granted_lifetime": 6, "result": 0, "active": [{"owner": ["10.39.0.2", 60086], "external_port": 42039}]}
+{"source": ["10.39.0.2", 60371], "packet_hex": "0000", "mode": "restart", "public_address": "100.64.39.1", "active": [{"owner": ["10.39.0.2", 60086], "external_port": 42039}]}
+{"source": ["10.39.0.2", 41851], "packet_hex": "00010000eab6000000000000", "mode": "restart", "released": ["10.39.0.2", 60086], "internal_port": 60086, "preferred_port": 0, "requested_lifetime": 0, "external_port": 0, "granted_lifetime": 0, "result": 0, "active": []}

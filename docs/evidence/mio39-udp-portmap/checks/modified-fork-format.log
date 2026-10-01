@@ -1,0 +1,21 @@
+Diff in /home/js/Git/miopunch/vendor/iroh/src/endpoint/connection.rs:368:
+                 conn.close(error_code, &reason);
+                 return Err(e!(ConnectingError::LocallyRejected));
+             }
+[31m-            AfterHandshakeOutcome::AcceptData { allowed_data_custom_ids } => {
+(B[m[32m+            AfterHandshakeOutcome::AcceptData {
+(B[m[32m+                allowed_data_custom_ids,
+(B[m[32m+            } => {
+(B[m                 if !inner.static_config.admission_gated || control_only {
+                     conn.close(0u32.into(), b"incompatible admission path policy");
+                     return Err(e!(ConnectingError::LocallyRejected));
+Diff in /home/js/Git/miopunch/vendor/iroh/src/endpoint/connection.rs:384:
+             }
+             AfterHandshakeOutcome::AcceptRestricted => None,
+         };
+[31m-        if inner.static_config.admission_gated && !control_only
+(B[m[32m+        if inner.static_config.admission_gated
+(B[m[32m+            && !control_only
+(B[m             && let Some(allowed_data_custom_ids) = release
+             && inner
+                 .authorize_candidates(conn.remote_id(), conn.stable_id(), allowed_data_custom_ids)

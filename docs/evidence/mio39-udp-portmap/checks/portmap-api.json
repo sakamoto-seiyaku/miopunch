@@ -1,0 +1,5 @@
+{
+  "command": "cargo test --locked --test udp_portmap -- --test-threads=1",
+  "exit": 0,
+  "seconds": 0.7383241929346696
+}

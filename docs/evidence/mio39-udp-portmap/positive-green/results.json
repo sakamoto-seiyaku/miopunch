@@ -1,0 +1,45 @@
+{
+  "case": "positive",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "udp_portmap",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 0.389,
+      "log": "build.log"
+    },
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch39-1790861116152768138",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio39-udp-portmap/positive-green,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "/repo/scripts/udp_portmap_lab.py",
+        "lab",
+        "/repo/target/debug/deps/udp_portmap-adb51e17ad9cc9ac",
+        "/evidence"
+      ],
+      "exit": 0,
+      "seconds": 2.853,
+      "log": "lab.log"
+    }
+  ],
+  "passed": true
+}

@@ -1,0 +1,88 @@
+[
+  {
+    "name": "positive",
+    "command": [
+      "python",
+      "-B",
+      "scripts/check_udp_portmap.py",
+      "--case",
+      "positive",
+      "--output",
+      "docs/evidence/mio39-udp-portmap/post-review/positive"
+    ],
+    "exit": 0,
+    "seconds": 3.478
+  },
+  {
+    "name": "renewed",
+    "command": [
+      "python",
+      "-B",
+      "scripts/check_udp_portmap.py",
+      "--case",
+      "renewed",
+      "--output",
+      "docs/evidence/mio39-udp-portmap/post-review/renewed"
+    ],
+    "exit": 0,
+    "seconds": 10.919
+  },
+  {
+    "name": "expired-fallback",
+    "command": [
+      "python",
+      "-B",
+      "scripts/check_udp_portmap.py",
+      "--case",
+      "expired",
+      "--output",
+      "docs/evidence/mio39-udp-portmap/post-review/expired-fallback"
+    ],
+    "exit": 0,
+    "seconds": 11.539
+  },
+  {
+    "name": "portmap-api",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--test",
+      "udp_portmap",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit": 0,
+    "seconds": 0.56
+  },
+  {
+    "name": "workspace-format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "exit": 0,
+    "seconds": 0.503
+  },
+  {
+    "name": "modified-fork-format",
+    "command": [
+      "rustfmt",
+      "--check",
+      "--config",
+      "skip_children=true",
+      "--edition",
+      "2024",
+      "vendor/iroh/src/portmapper.rs",
+      "vendor/iroh/src/endpoint.rs",
+      "vendor/iroh/src/socket.rs",
+      "vendor/portmapper/src/lib.rs",
+      "vendor/portmapper/src/nat_pmp.rs"
+    ],
+    "exit": 0,
+    "seconds": 0.099
+  }
+]

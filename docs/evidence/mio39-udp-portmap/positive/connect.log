@@ -1,0 +1,15 @@
+
+running 1 test
+
+thread 'gateway_node_worker' (77) panicked at tests/udp_portmap.rs:72:61:
+called `Result::unwrap()` on an `Err` value: PathUnavailable
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test gateway_node_worker ... FAILED
+
+failures:
+
+failures:
+    gateway_node_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+

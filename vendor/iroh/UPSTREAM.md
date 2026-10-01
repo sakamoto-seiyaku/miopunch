@@ -137,3 +137,18 @@ addresses and remains available without QAD observations. The formal connector
 exchanges it as local assisted candidates, preserving sender assisted-before-
 mapped order and the old basic fallback when classification is unavailable.
 No additional socket, endpoint or wire-format change is introduced.
+
+## MIOPUNCH-39: explicit UDP gateway mapping
+
+`PortmapperConfig::NatPmp` selects only UDP NAT-PMP on the actual QUIC socket.
+The root enables the existing portmapper feature; native saved resource
+configuration owns local gateway consent independently of relay. The fork's
+default is Disabled, preserving the previously feature-disabled/non-probing
+runtime unless explicitly enabled. Upstream Enabled remains available but
+PCP/UPnP are not claimed as native product capabilities by this ticket.
+
+Mapping watcher changes update `Endpoint::addr` immediately, without waiting
+for QAD. Graceful endpoint close awaits the mapping service's own release
+attempt with a one-second bound; abort queues best-effort deactivation.
+See `vendor/portmapper/UPSTREAM.md` for the acknowledgment and pending
+NAT-PMP allocation cleanup adaptation.

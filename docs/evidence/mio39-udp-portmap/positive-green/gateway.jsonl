@@ -1,0 +1,3 @@
+{"source": ["10.39.0.2", 58507], "packet_hex": "00010000a988000000001c20", "mode": "normal", "internal_port": 43400, "preferred_port": 0, "requested_lifetime": 7200, "external_port": 41039, "granted_lifetime": 6, "result": 0, "active": [{"owner": ["10.39.0.2", 43400], "external_port": 41039}]}
+{"source": ["10.39.0.2", 58507], "packet_hex": "0000", "mode": "normal", "public_address": "100.64.39.1", "active": [{"owner": ["10.39.0.2", 43400], "external_port": 41039}]}
+{"source": ["10.39.0.2", 51624], "packet_hex": "00010000a988000000000000", "mode": "normal", "released": ["10.39.0.2", 43400], "internal_port": 43400, "preferred_port": 0, "requested_lifetime": 0, "external_port": 0, "granted_lifetime": 0, "result": 0, "active": []}

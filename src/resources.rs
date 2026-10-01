@@ -34,6 +34,16 @@ pub enum LanDiscovery {
     Active,
 }
 
+/// Local gateway consent, independent of public facilities and data relay.
+/// NAT-PMP is the protocol validated by the native mapping integration.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub enum PortMapping {
+    /// Preserve the existing absence of gateway probes unless explicitly enabled.
+    #[default]
+    Disabled,
+    NatPmp,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ResourceTable {
     pub revision: u64,
@@ -48,6 +58,8 @@ pub struct ResourceConfig {
     pub disabled: BTreeSet<(String, ResourceUse)>,
     pub disabled_uses: BTreeSet<ResourceUse>,
     pub lan_discovery: LanDiscovery,
+    #[serde(default)]
+    pub port_mapping: PortMapping,
     /// Explicitly trusted configuration publisher, distinct from membership.
     #[serde(default)]
     pub trusted_update_key: Option<VerifyingKey>,
@@ -99,6 +111,7 @@ impl ResourceConfig {
             disabled: BTreeSet::new(),
             disabled_uses: BTreeSet::new(),
             lan_discovery: LanDiscovery::Disabled,
+            port_mapping: PortMapping::Disabled,
             trusted_update_key: None,
         }
     }
@@ -216,6 +229,10 @@ impl ResourceConfig {
         builder: iroh::endpoint::Builder,
     ) -> Result<iroh::endpoint::Builder, std::io::Error> {
         let config = self.clone();
+        let builder = builder.portmapper_config(match self.port_mapping {
+            PortMapping::Disabled => iroh::endpoint::PortmapperConfig::Disabled,
+            PortMapping::NatPmp => iroh::endpoint::PortmapperConfig::NatPmp,
+        });
         Ok(
             builder.relay_resource_policy(iroh::endpoint::RelayResourcePolicy::new(
                 move |url, usage| {

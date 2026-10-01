@@ -1,0 +1,17 @@
+
+running 1 test
+[DEBUG-m39] client authenticated remote=2d5653ac78cfc1ae08632958783dfaffe353790945f0147b4c978330d14955d8 paths=PathList { snapshot: State { list: [PathData(0, ip:100.64.39.1:41039)], selected: None, closed: false }, .. }
+[DEBUG-m39] client request result=true closed=None
+
+thread 'gateway_node_worker' (77) panicked at tests/udp_portmap.rs:152:65:
+called `Result::unwrap()` on an `Err` value: PathUnavailable
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test gateway_node_worker ... FAILED
+
+failures:
+
+failures:
+    gateway_node_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+

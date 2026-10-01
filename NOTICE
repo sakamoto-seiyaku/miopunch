@@ -13,3 +13,7 @@ This repository includes code copied or derived from the following projects:
 - qrcode-generator by Kazuhiko Arase and contributors
   - Source: vendored build artifacts under `internal/http_panel/assets/vendor/qrcode/`
   - License: MIT (see `LICENSES/MIT.txt`)
+
+- portmapper by n0 team and contributors
+  - Source: portmapper 0.19.3 under `vendor/portmapper/` (see UPSTREAM.md)
+  - License: MIT OR Apache-2.0 (see retained licenses in that directory)

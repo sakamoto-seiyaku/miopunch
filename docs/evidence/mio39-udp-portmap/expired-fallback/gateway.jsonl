@@ -1,0 +1,7 @@
+{"gateway_started": true, "pid": 57, "epoch": 0}
+{"source": ["10.39.0.2", 40672], "packet_hex": "00010000ca0e000000001c20", "mode": "normal", "internal_port": 51726, "preferred_port": 0, "requested_lifetime": 7200, "external_port": 41039, "granted_lifetime": 6, "result": 0, "active": [{"owner": ["10.39.0.2", 51726], "external_port": 41039}]}
+{"source": ["10.39.0.2", 40672], "packet_hex": "0000", "mode": "normal", "public_address": "100.64.39.1", "active": [{"owner": ["10.39.0.2", 51726], "external_port": 41039}]}
+{"administrative_delete": true, "mode": "fail"}
+{"source": ["10.39.0.2", 47550], "packet_hex": "00010000ca0ea04f00001c20", "mode": "fail", "internal_port": 51726, "preferred_port": 41039, "requested_lifetime": 7200, "external_port": 0, "granted_lifetime": 0, "result": 3, "active": []}
+{"source": ["10.39.0.2", 53178], "packet_hex": "00010000ca0ea04f00001c20", "mode": "fail", "internal_port": 51726, "preferred_port": 41039, "requested_lifetime": 7200, "external_port": 0, "granted_lifetime": 0, "result": 3, "active": []}
+{"source": ["10.39.0.2", 59858], "packet_hex": "00010000ca0e000000001c20", "mode": "fail", "internal_port": 51726, "preferred_port": 0, "requested_lifetime": 7200, "external_port": 0, "granted_lifetime": 0, "result": 3, "active": []}

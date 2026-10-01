@@ -1,0 +1,2 @@
+{"source": ["10.39.0.2", 49883], "packet_hex": "00010000de3f000000001c20", "mode": "normal", "internal_port": 56895, "preferred_port": 0, "requested_lifetime": 7200, "external_port": 41039, "granted_lifetime": 6, "result": 0, "active": [{"owner": ["10.39.0.2", 56895], "external_port": 41039}]}
+{"source": ["10.39.0.2", 49883], "packet_hex": "0000", "mode": "normal", "public_address": "100.64.39.1", "active": [{"owner": ["10.39.0.2", 56895], "external_port": 41039}]}

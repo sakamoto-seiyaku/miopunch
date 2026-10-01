@@ -881,9 +881,9 @@ impl Builder {
 
     /// Configures the portmapper service (UPnP, PCP, NAT-PMP).
     ///
-    /// Defaults to [`PortmapperConfig::Enabled`]. Pass
-    /// [`PortmapperConfig::Disabled`] to avoid gateway probing (e.g. if it
-    /// triggers firewall prompts).
+    /// This fork defaults to [`PortmapperConfig::Disabled`] to preserve the
+    /// prior non-probing behavior. Explicitly enable an allowed gateway protocol
+    /// independently of data relay permission.
     pub fn portmapper_config(mut self, config: PortmapperConfig) -> Self {
         self.portmapper_config = config;
         self

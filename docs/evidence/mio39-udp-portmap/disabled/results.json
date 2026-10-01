@@ -1,0 +1,19 @@
+{
+  "case": "disabled",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "udp_portmap",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 101,
+      "seconds": 0.766,
+      "log": "build.log"
+    }
+  ]
+}
