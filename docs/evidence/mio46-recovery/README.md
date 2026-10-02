@@ -76,8 +76,8 @@ Independent GPT-6.1 Sol HIGH Fast/priority reports are
 [Standards](standards-review.md) and [Spec](spec-review.md). Initial Standards:
 zero hard violations and two optional findings; initial Spec: zero findings.
 Both maintenance suggestions were accepted: discovery now uses an explicit
-Legacy/OriginQualified profile and rejects unsupported route widths before
-opening a broker; the provider predicate is shared while authorization is still
+Legacy/OriginQualified profile and rejects unsupported public responder route
+widths before opening a broker; the provider predicate is shared while authorization is still
 rechecked before the manifest after awaiting the request.
 
 `review-maintenance/results.json` verifies all twelve current-source recovery
@@ -86,3 +86,9 @@ with current hooks and formatting after these changes. Every check and owned
 container cleanup passed. Earlier completed unchanged short checks and WASM
 compile were not needlessly repeated. The final review supplements and aggregate
 report describe the accepted changes without claiming new runtime evidence.
+
+Final independent supplements are [Standards](standards-review-final.md) and
+[Spec](spec-review-final.md); [the aggregate](code-review.md) keeps their reports
+separate. Both optional Standards findings are closed; no remaining findings on
+either axis. The Spec documentation precision note was accepted without runtime
+changes. Final source verification remains `review-maintenance/results.json`.
