@@ -1,0 +1,8 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.35s
+     Running tests/network_maintenance.rs (target/debug/deps/network_maintenance-c099ab29ceb76d2c)
+
+running 1 test
+test starting_business_does_not_abort_an_already_admitted_sync_exchange ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 1.76s
+

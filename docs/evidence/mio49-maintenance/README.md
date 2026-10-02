@@ -33,6 +33,11 @@ by affected resources/recovery, typing and formatting. Unchanged library,
 carrier, WASM and broader short checks retain the already passed receipts above.
 The initial two confirmed findings are in `spec-review-initial.md`; final
 independent follow-ups are in `spec-review.md` and `standards-review.md`.
+All sixteen final-source checks pass (12 genuine acceptance cases, 26 resource
+and 12 recovery entries, typing and formatting); both owned brokers were cleaned
+with exit zero. The two independent final reports confirm Standards 0 hard
+violations / 1 parked nonblocking heuristic and Spec 0 confirmed unresolved.
+Their separate reports are aggregated without merging axes in `code-review.md`.
 `review-failure-red/results.json` observes repeated 1739/1396/1395 ms gaps and
 stale Connected with zero neighbors; `review-failure-green/results.json`
 observes 1720/2407 ms gaps and no stale Connected flag.

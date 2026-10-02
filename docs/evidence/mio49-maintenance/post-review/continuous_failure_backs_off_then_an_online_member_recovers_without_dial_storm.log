@@ -1,0 +1,9 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.35s
+     Running tests/network_maintenance.rs (target/debug/deps/network_maintenance-c099ab29ceb76d2c)
+
+running 1 test
+OBSERVED discovery_queries=3 first_gaps_ms=[4006, 5005]
+test continuous_failure_backs_off_then_an_online_member_recovers_without_dial_storm ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 21.63s
+

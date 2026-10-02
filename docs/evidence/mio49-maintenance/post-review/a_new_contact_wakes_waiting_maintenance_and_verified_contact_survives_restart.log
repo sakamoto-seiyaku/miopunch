@@ -1,0 +1,9 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.34s
+     Running tests/network_maintenance.rs (target/debug/deps/network_maintenance-c099ab29ceb76d2c)
+
+running 1 test
+OBSERVED duplicate_hints=32 actual_contact_attempts=2 live_neighbors=1
+test a_new_contact_wakes_waiting_maintenance_and_verified_contact_survives_restart ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 8.09s
+

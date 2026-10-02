@@ -1,0 +1,9 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.35s
+     Running tests/network_maintenance.rs (target/debug/deps/network_maintenance-c099ab29ceb76d2c)
+
+running 1 test
+OBSERVED partial_link=A-C-Creator original_author_offline_at_A_sync=true same_neighbor_session=true saved_new_member=true
+test partial_links_propagate_new_signed_history_on_the_same_neighbor_session ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 3.51s
+
