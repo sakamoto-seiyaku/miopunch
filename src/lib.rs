@@ -9,6 +9,7 @@ pub mod management_recovery;
 pub mod management_store;
 pub mod manual_admission;
 pub mod member_bootstrap;
+mod mqtt_bootstrap;
 pub mod mqtt_discovery;
 pub mod mqtt_transport;
 pub mod nat_connection;

@@ -177,3 +177,22 @@ when an advanced builder installs that carrier. `RelayResourcePolicy::allows_cus
 is public for that binding check. Each retained custom shutdown handler gets a
 one-second cleanup attempt after QUIC draining and before actor cancellation.
 Other custom carriers retain their default bind behavior and have no handler.
+
+## MIOPUNCH-42: formal MQTT member bootstrap
+
+`EndpointHooks::before_data_release` is a defaulted local API stage awaited by
+both connect and accept after member admission, while the original connection
+still has its restricted packet gate and before an application handle returns.
+The native coordinator can validate and commit a permitted UDP path on that
+same authenticated connection. Hook errors reject it; its cancellation guard
+closes the original attempt. Hooks must not retain the supplied Endpoint.
+
+The actor's ordinary candidate authorization accepts either its prior Control
+stage or the Data stage already committed by this coordinator, and handles an
+already closed signaling path idempotently. The final Ordinary stage retains
+the existing data packet gate; MQTT cannot become a business fallback.
+Default hooks preserve existing direct/TCP callers. This adds no QUIC wire
+change, second identity, cryptographic handshake, or new congestion controller.
+The configured MQTT origin tag and adapter lifecycle belong to the root crate.
+See `docs/notes/2026-10-02-mqtt-bootstrap-validation.md` for the controlled
+dual-NAT evidence and declared compatibility boundaries.

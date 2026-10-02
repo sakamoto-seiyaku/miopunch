@@ -1,0 +1,27 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.29s
+     Running tests/mqtt_bootstrap.rs (target/debug/deps/mqtt_bootstrap-6629c149aa86ff1f)
+
+running 1 test
+test saved_udp_disable_applies_to_the_next_mqtt_endpoint_without_reopening_the_node ... PREPARED actual_manual_admission=true durable_members=true
+MQTT_BOOTSTRAP_START stable_id=132725898744592 peer=d3ba3a00403f508d5be66a8af9f913f6280d559739d38b28c42fc9fcd5c09eb7
+MQTT_BOOTSTRAP_START stable_id=132725898949088 peer=cca492c1e34fee3b5ed3ca092b6e5e5facec9d45578181ab32cd2b98662b79c2
+MQTT_BOOTSTRAP_FAILED stable_id=132725898949088 error=UDP resource disabled
+MQTT_BOOTSTRAP_FAILED stable_id=132725898744592 error=closed
+SAVED_UDP_DISABLE rejected_before_traversal=true elapsed_ms=404
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 1.06s
+

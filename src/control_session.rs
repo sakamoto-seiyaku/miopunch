@@ -32,6 +32,16 @@ pub struct ControlSession {
 }
 
 impl ControlSession {
+    /// The fork has completed authentication and admission, but retains the
+    /// application handle while its before-data-release hook coordinates paths.
+    pub(crate) fn from_connection(endpoint: Endpoint, connection: Connection) -> Self {
+        Self {
+            endpoint,
+            connection,
+            pending_business: VecDeque::new(),
+            pending_bytes: 0,
+        }
+    }
     pub(crate) fn endpoint(&self) -> &Endpoint {
         &self.endpoint
     }

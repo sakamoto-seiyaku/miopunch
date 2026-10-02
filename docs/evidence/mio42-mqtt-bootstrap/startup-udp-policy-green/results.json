@@ -1,0 +1,37 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "mqtt_bootstrap",
+        "saved_udp_disable_applies_to_the_next_mqtt_endpoint_without_reopening_the_node",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 7.421,
+      "log": "tests.log"
+    }
+  ],
+  "passed": true,
+  "brokers": [
+    "127.0.0.1:43284",
+    "127.0.0.1:43285"
+  ],
+  "cleanup": [
+    {
+      "owned_container": "miopunch42-short-1790907051670790076",
+      "exit": 0
+    },
+    {
+      "owned_container": "miopunch42-short-1790907051977229568",
+      "exit": 0
+    }
+  ]
+}

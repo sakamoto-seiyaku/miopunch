@@ -1,0 +1,215 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "native_network",
+        "--test",
+        "admission_gate",
+        "--test",
+        "admission_proof",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 28.872,
+      "log": "native-gates-proofs.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "mqtt_probe",
+        "--test",
+        "mqtt_upgrade",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 10.278,
+      "log": "mqtt-carrier-and-purpose.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "manual_admission",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 22.578,
+      "log": "manual-admission.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "offline_replica",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 7.352,
+      "log": "offline-replica.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "tcp_direct",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 38.448,
+      "log": "tcp-direct.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "legacy_nat_runtime",
+        "formal_",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 15.42,
+      "log": "formal-node-budget.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "legacy_nat_runtime",
+        "ordinary_qad_refresh_keeps_the_physical_generation_but_real_network_change_invalidates_it",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 27.498,
+      "log": "observation-generation.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "legacy_nat_runtime",
+        "old_prediction_age_does_not_expire_a_legacy_plan_but_network_change_does",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 3.708,
+      "log": "candidate-scope.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--lib",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 12.428,
+      "log": "library.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks"
+      ],
+      "exit": 0,
+      "seconds": 17.21,
+      "log": "all-targets.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "exit": 0,
+      "seconds": 2.159,
+      "log": "wasm.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "exit": 0,
+      "seconds": 0.559,
+      "log": "format.log"
+    },
+    {
+      "argv": [
+        "rustfmt",
+        "--check",
+        "--edition",
+        "2024",
+        "--config",
+        "skip_children=true",
+        "vendor/iroh/src/endpoint/connection.rs",
+        "vendor/iroh/src/endpoint/hooks.rs",
+        "vendor/iroh/src/socket/remote_map/remote_state.rs"
+      ],
+      "exit": 0,
+      "seconds": 0.059,
+      "log": "fork-format.log"
+    }
+  ],
+  "passed": true,
+  "brokers": [
+    "127.0.0.1:43296",
+    "127.0.0.1:43297"
+  ],
+  "cleanup": [
+    {
+      "owned_container": "miopunch42-short-1790909506340259727",
+      "exit": 0
+    },
+    {
+      "owned_container": "miopunch42-short-1790909506644071808",
+      "exit": 0
+    }
+  ]
+}

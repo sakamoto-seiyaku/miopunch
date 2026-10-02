@@ -1,0 +1,58 @@
+{
+  "case": "control_cut",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "mqtt_bootstrap",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 24.038,
+      "log": "build.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "build",
+        "--locked",
+        "--bin",
+        "udp_observation_probe"
+      ],
+      "exit": 0,
+      "seconds": 5.955,
+      "log": "qad-build.log"
+    },
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch42-1790905968060898351",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio42-mqtt-bootstrap/priority-cut-runtime-red,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "/repo/scripts/mqtt_bootstrap_lab.py",
+        "/repo/target/debug/deps/mqtt_bootstrap-6629c149aa86ff1f",
+        "/repo/target/debug/udp_observation_probe",
+        "/evidence",
+        "control_cut"
+      ],
+      "exit": 101,
+      "seconds": 12.002,
+      "log": "lab.log"
+    }
+  ],
+  "passed": false
+}

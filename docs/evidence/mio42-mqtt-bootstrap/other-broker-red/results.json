@@ -1,0 +1,37 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "mqtt_bootstrap",
+        "configured_startup_keeps_another_allowed_mqtt_service_when_one_is_down",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 101,
+      "seconds": 8.954,
+      "log": "tests.log"
+    }
+  ],
+  "passed": false,
+  "brokers": [
+    "127.0.0.1:43278",
+    "127.0.0.1:43279"
+  ],
+  "cleanup": [
+    {
+      "owned_container": "miopunch42-short-1790906511063191056",
+      "exit": 0
+    },
+    {
+      "owned_container": "miopunch42-short-1790906511373923103",
+      "exit": 0
+    }
+  ]
+}

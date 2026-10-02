@@ -1,0 +1,33 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.92s
+     Running tests/mqtt_bootstrap.rs (target/debug/deps/mqtt_bootstrap-6629c149aa86ff1f)
+
+running 1 test
+test canceling_the_formal_mqtt_data_stage_closes_the_original_attempt_and_allows_a_new_contact ... PREPARED actual_manual_admission=true durable_members=true
+MQTT_BOOTSTRAP_START stable_id=130236494815088 peer=ad71c12dd44de1b6e3f323bdba3bbf6d7be759b68eff032236ce03e11a423674
+MQTT_BOOTSTRAP_START stable_id=130236495008752 peer=85f7da1357c18a3a091dfc84fc6600f337b873d689bdb5397293ae00a53f2437
+MQTT_BOOTSTRAP_FAILED stable_id=130236494815088 error=closed by peer: canceled NAT path commitment (code 0)
+MQTT_BOOTSTRAP_START stable_id=130236495456048 peer=ad71c12dd44de1b6e3f323bdba3bbf6d7be759b68eff032236ce03e11a423674
+MQTT_BOOTSTRAP_START stable_id=130236495579456 peer=85f7da1357c18a3a091dfc84fc6600f337b873d689bdb5397293ae00a53f2437
+NAT_DIRECT_CANDIDATE stable_id=130236495579456 target=127.0.0.1:46645
+NAT_DIRECT_SUCCESS stable_id=130236495456048 target=127.0.0.1:44799 punching_recommendations=0
+MQTT_BOOTSTRAP_DATA stable_id=130236495456048 peer=ad71c12dd44de1b6e3f323bdba3bbf6d7be759b68eff032236ce03e11a423674 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44799)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=130236495579456 target=127.0.0.1:46645 punching_recommendations=0
+MQTT_BOOTSTRAP_DATA stable_id=130236495579456 peer=85f7da1357c18a3a091dfc84fc6600f337b873d689bdb5397293ae00a53f2437 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:46645)], selected: Some(PathId(1)), closed: false }, .. }
+CANCELLATION_CLEAN original_id=130236495008752 new_id=130236495579456 original_tls_closed=1 subscription_retained=true actual_new_business=true
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 1.54s
+

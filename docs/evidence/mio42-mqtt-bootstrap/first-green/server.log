@@ -1,0 +1,17 @@
+
+running 1 test
+READY id=5393d3653e3292441e9e3c4c743dfd0163672f09a6259bffad886115ffe5d317 route=b6161fd168001ee0dca24413d8c6fbb1 udp=[0.0.0.0:43027, [::]:58833] relay=false
+MQTT_BOOTSTRAP_START stable_id=132854075889744 peer=7d4558bdd8ba41af453988e9677dc4b6bc4c56824418658061082a23c45f1684
+
+thread 'mqtt_native_node_worker' (130) panicked at tests/mqtt_bootstrap.rs:111:69:
+called `Result::unwrap()` on an `Err` value: "Connection was rejected locally"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test mqtt_native_node_worker ... FAILED
+
+failures:
+
+failures:
+    mqtt_native_node_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.64s
+

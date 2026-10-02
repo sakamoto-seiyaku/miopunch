@@ -764,7 +764,10 @@ impl RemoteStateActor {
             .connections
             .get_mut(&conn_id)
             .ok_or("connection not registered")?;
-        if state.purpose != ConnectionPurpose::Control {
+        if !matches!(
+            state.purpose,
+            ConnectionPurpose::Control | ConnectionPurpose::Data
+        ) {
             return Err("connection is not restricted");
         }
         let conn = state.handle.upgrade().ok_or("connection closed")?;
@@ -784,10 +787,14 @@ impl RemoteStateActor {
         for (id, path_addr) in &state.paths {
             if state.forbids(path_addr)
                 && let Some(path) = conn.path(*id)
-                && path.close().is_err()
             {
-                conn.close(0u32.into(), b"signaling path close failed");
-                return Err("could not close signaling path");
+                match path.close() {
+                    Ok(()) | Err(noq_proto::ClosePathError::ClosedPath) => {}
+                    Err(_) => {
+                        conn.close(0u32.into(), b"signaling path close failed");
+                        return Err("could not close signaling path");
+                    }
+                }
             }
         }
         state.purpose = ConnectionPurpose::Ordinary;

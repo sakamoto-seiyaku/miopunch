@@ -2,7 +2,10 @@ use std::{collections::BTreeSet, pin::Pin};
 
 use iroh_base::EndpointAddr;
 
-use crate::endpoint::{connection::Connection, quic::VarInt};
+use crate::{
+    Endpoint,
+    endpoint::{connection::Connection, quic::VarInt},
+};
 
 type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
@@ -118,6 +121,22 @@ pub trait EndpointHooks: std::fmt::Debug + Send + Sync {
     ) -> impl Future<Output = AfterHandshakeOutcome> + Send + 'a {
         async { AfterHandshakeOutcome::accept() }
     }
+
+    /// Finish any protected path bootstrap after admission has accepted normal
+    /// scope, while the connection is still restricted and no application
+    /// handle has been returned. Both connect and accept await this stage.
+    ///
+    /// A signaling carrier can coordinate a data path here, then commit its
+    /// packet gate on this same connection. An error rejects the connection.
+    /// Implementations must bound their work and close retained stream handles
+    /// on cancellation. Do not store the supplied Endpoint on the hook.
+    fn before_data_release<'a>(
+        &'a self,
+        _endpoint: &'a Endpoint,
+        _connection: &'a Connection,
+    ) -> impl Future<Output = std::io::Result<()>> + Send + 'a {
+        async { Ok(()) }
+    }
 }
 
 pub(crate) trait DynEndpointHooks: std::fmt::Debug + Send + Sync {
@@ -127,6 +146,11 @@ pub(crate) trait DynEndpointHooks: std::fmt::Debug + Send + Sync {
         alpn: &'a [u8],
     ) -> BoxFuture<'a, BeforeConnectOutcome>;
     fn after_handshake<'a>(&'a self, conn: &'a Connection) -> BoxFuture<'a, AfterHandshakeOutcome>;
+    fn before_data_release<'a>(
+        &'a self,
+        endpoint: &'a Endpoint,
+        conn: &'a Connection,
+    ) -> BoxFuture<'a, std::io::Result<()>>;
 }
 
 impl<T: EndpointHooks> DynEndpointHooks for T {
@@ -140,6 +164,14 @@ impl<T: EndpointHooks> DynEndpointHooks for T {
 
     fn after_handshake<'a>(&'a self, conn: &'a Connection) -> BoxFuture<'a, AfterHandshakeOutcome> {
         Box::pin(EndpointHooks::after_handshake(self, conn))
+    }
+
+    fn before_data_release<'a>(
+        &'a self,
+        endpoint: &'a Endpoint,
+        conn: &'a Connection,
+    ) -> BoxFuture<'a, std::io::Result<()>> {
+        Box::pin(EndpointHooks::before_data_release(self, endpoint, conn))
     }
 }
 
@@ -208,5 +240,16 @@ impl EndpointHooksList {
         } else {
             AfterHandshakeOutcome::Accept
         }
+    }
+
+    pub(super) async fn before_data_release(
+        &self,
+        endpoint: &Endpoint,
+        conn: &Connection,
+    ) -> std::io::Result<()> {
+        for hook in &self.inner {
+            hook.before_data_release(endpoint, conn).await?;
+        }
+        Ok(())
     }
 }

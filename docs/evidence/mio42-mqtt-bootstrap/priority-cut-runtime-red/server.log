@@ -1,0 +1,19 @@
+
+running 1 test
+READY id=30fd455b455478b4ec78963b625fdabe1a9b3034d4fdbd907a2e8b431b88d9f5 route=f0c3dc4a6533aec5025fb7d3c03579bc udp=[0.0.0.0:43027, [::]:42657] relay=false
+MQTT_BOOTSTRAP_START stable_id=128172360208048 peer=cd699ff32dff47fe259b1d271b425ed978828b825ad6d726095f4a6abf18e882
+MQTT_CLOSE result=Mqtt state: Connection closed by peer abruptly
+MQTT_BOOTSTRAP_FAILED stable_id=128172360208048 error=direct exchange interrupted
+
+thread 'mqtt_native_node_worker' (130) panicked at tests/mqtt_bootstrap.rs:121:22:
+lost temporary MQTT subscription must withdraw its route: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test mqtt_native_node_worker ... FAILED
+
+failures:
+
+failures:
+    mqtt_native_node_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.73s
+

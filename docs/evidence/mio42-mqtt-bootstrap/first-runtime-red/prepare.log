@@ -1,0 +1,15 @@
+
+running 1 test
+
+thread 'mqtt_native_node_worker' (83) panicked at tests/mqtt_bootstrap.rs:46:56:
+called `Result::unwrap()` on an `Err` value: Rejected
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test mqtt_native_node_worker ... FAILED
+
+failures:
+
+failures:
+    mqtt_native_node_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.40s
+

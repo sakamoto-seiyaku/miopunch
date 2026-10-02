@@ -1,0 +1,11 @@
+
+running 1 test
+READY id=d623a6a105ed629db3ec2302fad905b94cc4a2e83d2c3054305b82786c119061 route=2e27df2c66acb54db34c7def760450d7 udp=[0.0.0.0:43027, [::]:51638] relay=false
+MQTT_BOOTSTRAP_START stable_id=129569231213296 peer=7e4391f1048928351785b64d7ae2a31e3c5b19339ec764045b8a2848562e45c1
+MQTT_CLOSE result=Mqtt state: Connection closed by peer abruptly
+MQTT_BOOTSTRAP_FAILED stable_id=129569231213296 error=direct exchange interrupted
+CONTROL_UNAVAILABLE bounded_ms=5602 attempts_opened=1 attempts_closed=1 repeated_calls=100 data_released=false route_withdrawn=true
+test mqtt_native_node_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.84s
+

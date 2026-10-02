@@ -1,0 +1,45 @@
+
+running 1 test
+READY id=e579cd3cb8990d7cc144460ecf4ddba0b294a8929e32be4fbee93abcfe2e40cc route=d494d6cac420a23209114566e2053d7d9b014e43b9ae3c683b057f7ee41c7d33 udp=[0.0.0.0:42027, [::]:41622] relay=false
+MQTT_BOOTSTRAP_START stable_id=132540275013248 peer=c05f3441936ad0c3a0c1b05126bb67e05c6f5d0b9b1f9532317d6a7e49674453
+NAT_DIRECT_CANDIDATE stable_id=132540275013248 target=10.27.2.2:43027
+NAT_DIRECT_CANDIDATE stable_id=132540275013248 target=100.64.27.6:43027
+NAT_CONNECTION_ROUND number=1 stable_id=132540275013248
+LEGACY_FEATURE feature=None socket_generation_current=true
+LEGACY_SELECTED mode=0 index=6 c=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[] round=c3916bfff566eccd903e436e26c722b8 stable_id=132540275013248 execution=Ready fallback=true
+LEGACY_CANDIDATES round=c3916bfff566eccd903e436e26c722b8 stable_id=132540275013248 assisted=[10.27.2.2:43027] mapped=[100.64.27.6:43027]
+LEGACY_RECV_START round=c3916bfff566eccd903e436e26c722b8 stable_id=132540275013248 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [100.64.27.6:43027], candidates: [100.64.27.6:43027], range: None, total_budget_ms: 5000, read_budget_ms: 5000 }
+LEGACY_LISTENER round=c3916bfff566eccd903e436e26c722b8 stable_id=132540275013248 local_socket_id=0 local_addr=0.0.0.0:42027 primary=true
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_PHASE_STOP round=c3916bfff566eccd903e436e26c722b8 stable_id=132540275013248 elapsed_ms=5000 outcome=failed
+LEGACY_TRACE round=c3916bfff566eccd903e436e26c722b8 stable_id=132540275013248 probes=25 responses=0 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=25 send_errors=0 send_aborted=0 rejected_receipts=0
+MQTT_BOOTSTRAP_FAILED stable_id=132540275013248 error=legacy NAT phase budget elapsed
+CONTROL_UNAVAILABLE case=blocked bounded_ms=7525 attempts_opened=1 attempts_closed=1 repeated_calls=100 data_released=false route_withdrawn=false
+test mqtt_native_node_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 7.62s
+

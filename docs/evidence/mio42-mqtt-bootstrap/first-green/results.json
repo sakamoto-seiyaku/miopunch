@@ -1,0 +1,56 @@
+{
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "mqtt_bootstrap",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 17.355,
+      "log": "build.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "build",
+        "--locked",
+        "--bin",
+        "udp_observation_probe"
+      ],
+      "exit": 0,
+      "seconds": 14.14,
+      "log": "qad-build.log"
+    },
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch42-1790905534266055387",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio42-mqtt-bootstrap/first-green,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "/repo/scripts/mqtt_bootstrap_lab.py",
+        "/repo/target/debug/deps/mqtt_bootstrap-dc5c7d26c801c312",
+        "/repo/target/debug/udp_observation_probe",
+        "/evidence"
+      ],
+      "exit": 101,
+      "seconds": 4.881,
+      "log": "lab.log"
+    }
+  ],
+  "passed": false
+}

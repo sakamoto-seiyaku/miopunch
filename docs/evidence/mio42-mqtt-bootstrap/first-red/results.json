@@ -1,0 +1,19 @@
+{
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "mqtt_bootstrap",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 101,
+      "seconds": 0.704,
+      "log": "build.log"
+    }
+  ],
+  "passed": false
+}

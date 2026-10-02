@@ -114,6 +114,23 @@ impl Default for ResourceConfig {
 }
 
 impl ResourceConfig {
+    /// Approved MQTT origins retain their own independently qualified routes.
+    pub(crate) fn mqtt_resources(&self) -> Vec<iroh::RelayUrl> {
+        let mut origins = BTreeMap::new();
+        for resource in self
+            .replacement
+            .as_ref()
+            .unwrap_or(&self.defaults.resources)
+        {
+            let Ok(url) = resource.url.parse::<iroh::RelayUrl>() else {
+                continue;
+            };
+            if url.scheme() == "mqtt" && self.allows(&resource.url, ResourceUse::Signaling) {
+                origins.insert(resource_origin(&resource.url).unwrap(), url);
+            }
+        }
+        origins.into_values().collect()
+    }
     pub fn with_defaults(defaults: ResourceTable) -> Self {
         Self {
             defaults,
@@ -308,7 +325,7 @@ impl ResourceConfig {
 
 /// Resource identity is the service origin, not an input URL's spelling or
 /// fixed protocol path. A DNS absolute-name suffix also names the same service.
-fn resource_origin(value: &str) -> Option<String> {
+pub(crate) fn resource_origin(value: &str) -> Option<String> {
     let parsed: RelayUrl = value.parse().ok()?;
     if !parsed.username().is_empty() || parsed.password().is_some() {
         return None;

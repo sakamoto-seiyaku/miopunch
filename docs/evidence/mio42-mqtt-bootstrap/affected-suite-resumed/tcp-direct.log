@@ -1,0 +1,90 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.85s
+     Running tests/tcp_direct.rs (target/debug/deps/tcp_direct-c52ff447d1a8a66a)
+
+running 11 tests
+test available_ipv6_tcp_admits_syncs_and_transfers_independently ... MIO40_IPV6 environment_listener=[::1]:44646
+TCP_TRAFFIC sent_packets=29 sent_bytes=10212 received_packets=27 received_bytes=10490 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=8 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+MIO40_REAL listen=[::1]:0 udp_sockets=0 admission=Complete reopen=true replica=complete business=roundtrip path=Custom
+TCP_TRAFFIC sent_packets=68 sent_bytes=23111 received_packets=64 received_bytes=22806 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=7 inbound_outstanding=0 inbound_peak=8 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=91 sent_bytes=33296 received_packets=97 received_bytes=33323 closed=2 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=6 inbound_outstanding=0 inbound_peak=8 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test cancelling_pending_tcp_contact_closes_actual_carrier ... TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=2 outbound_peak=2 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+MIO40_CANCEL pending_connect=failed actual_socket=eof bounded=true
+ok
+test disabled_tcp_candidate_is_not_dialed_even_through_raw_endpoint ... MIO40_DISABLED source=raw-endpoint actual_tcp_accepts=0
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test first_real_udp_disabled_tcp_ipv4_admits_syncs_and_transfers ... TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=25 received_bytes=10449 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+MIO40_REAL listen=127.0.0.1:0 udp_sockets=0 admission=Complete reopen=true replica=complete business=roundtrip path=Custom
+TCP_TRAFFIC sent_packets=56 sent_bytes=20406 received_packets=52 received_bytes=19791 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=77 sent_bytes=30240 received_packets=83 received_bytes=30546 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+ok
+test globally_disabled_tcp_cannot_be_reenabled_by_an_advanced_builder ... MIO40_DISABLED scope=global source=advanced-builder actual_tcp_accepts=0
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test lookup_supplied_disabled_tcp_candidate_is_not_dialed ... MIO40_DISABLED source=lookup-result actual_tcp_accepts=0
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test normal_cli_starts_with_tcp_only_and_exits_on_interrupt ... MIO40_CLI tcp_only_ready=127.0.0.1:43494 interrupt_exit=0
+ok
+test physical_tcp_loss_ends_old_stream_and_later_contact_is_a_new_connection ... TCP_TRAFFIC sent_packets=27 sent_bytes=10141 received_packets=26 received_bytes=10474 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=26 sent_bytes=10474 received_packets=27 received_bytes=10141 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE peer=127.0.0.1:44324 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44324 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44324 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44324 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44324 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44324 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44324 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44324 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44324 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44324 result=Connection refused (os error 111)
+MIO40_CUT_TIMEOUT elapsed_ms=9957
+TCP_CLOSE peer=127.0.0.1:44324 result=Connection refused (os error 111)
+MIO40_CUT physical_tcp=lost old_stream=failed original_connection=closed later_connection=new
+TCP_TRAFFIC sent_packets=53 sent_bytes=20257 received_packets=46 received_bytes=18738 closed=1 failed=6 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=49 sent_bytes=18840 received_packets=53 received_bytes=20257 closed=2 failed=5 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test priority_wrong_member_identity_cannot_bypass_tcp_admission ... MIO40_WRONG tcp=reachable wrong_expected_identity=rejected requests=0 admission=not-complete
+TCP_TRAFFIC sent_packets=2654 sent_bytes=3184800 received_packets=2 received_bytes=1338 closed=0 failed=0 cancelled=0 outbound_outstanding=34 outbound_peak=34 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=2 sent_bytes=1338 received_packets=1901 received_bytes=2281200 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=1 inbound_outstanding=33 inbound_peak=33 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+ok
+test received_revocation_ends_tcp_flow_and_rejects_stale_member ... MIO40_REVOKED actual_live_stream=ended stale_member_new_connection=rejected
+TCP_TRAFFIC sent_packets=71 sent_bytes=28294 received_packets=69 received_bytes=26814 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=1 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=70 sent_bytes=26876 received_packets=71 received_bytes=28294 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=6 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+ok
+test valid_but_unapproved_identity_cannot_read_member_history_over_tcp ... MIO40_UNAPPROVED actual_identity=authenticated member_history=rejected
+TCP_TRAFFIC sent_packets=13 sent_bytes=5784 received_packets=9 received_bytes=4189 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=9 sent_bytes=4189 received_packets=13 received_bytes=5784 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 34.52s
+

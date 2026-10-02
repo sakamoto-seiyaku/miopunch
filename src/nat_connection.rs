@@ -45,8 +45,9 @@ impl Default for UdpPolicy {
 pub struct NatConnector {
     observers: Option<RelayMap>,
     analyzer: Arc<Mutex<Analyzer>>,
-    budget: NodeProbeBudget,
-    enabled: AtomicBool,
+    budget: Arc<NodeProbeBudget>,
+    enabled: Arc<AtomicBool>,
+    resource_enabled: bool,
     max_rounds: u8,
 }
 
@@ -69,8 +70,12 @@ impl NatConnector {
         Self {
             observers,
             analyzer: Arc::new(Mutex::new(Analyzer::new(Instant::now()))),
-            budget: NodeProbeBudget::new(policy.additional_observations, policy.peer_datagrams),
-            enabled: AtomicBool::new(policy.enabled),
+            budget: Arc::new(NodeProbeBudget::new(
+                policy.additional_observations,
+                policy.peer_datagrams,
+            )),
+            enabled: Arc::new(AtomicBool::new(policy.enabled)),
+            resource_enabled: true,
             max_rounds: policy.max_rounds.min(32),
         }
     }
@@ -79,8 +84,25 @@ impl NatConnector {
         self.enabled.store(enabled, Ordering::Release);
     }
 
+    /// An endpoint keeps its resource startup snapshot, while node learning,
+    /// runtime maintenance permission and spent allowances survive new binds.
+    pub(crate) fn for_endpoint(&self, observers: Option<RelayMap>, enabled: bool) -> Self {
+        Self {
+            observers,
+            analyzer: self.analyzer.clone(),
+            budget: self.budget.clone(),
+            enabled: self.enabled.clone(),
+            resource_enabled: enabled,
+            max_rounds: self.max_rounds,
+        }
+    }
+
+    fn udp_enabled(&self) -> bool {
+        self.resource_enabled && self.enabled.load(Ordering::Acquire)
+    }
+
     fn check(&self, control: &ControlSession, gate: &AdmissionGate) -> io::Result<()> {
-        if !self.enabled.load(Ordering::Acquire) {
+        if !self.udp_enabled() {
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 "UDP resource disabled",
@@ -277,7 +299,7 @@ impl NatConnector {
             }
             PreparedUpgrade::Direct(direct) => {
                 let data = self.commit_checked(control, gate, None).await?;
-                if !self.enabled.load(Ordering::Acquire)
+                if !self.udp_enabled()
                     || !direct.generation.is_current()
                     || gate.nat_learning_scope(data.connection()) != Some(direct.scope.clone())
                     || data.connection().stable_id() != direct.connection_id
@@ -314,7 +336,7 @@ impl NatConnector {
         let generation = control.endpoint().udp_network_generation();
         let mut cancellation = control.cancellation_guard();
         let permitted = || {
-            if !self.enabled.load(Ordering::Acquire)
+            if !self.udp_enabled()
                 || !generation.is_current()
                 || scope.is_none()
                 || gate.nat_learning_scope(&connection) != scope
@@ -411,7 +433,7 @@ impl NatConnector {
         data: &DataSession,
         gate: &AdmissionGate,
     ) -> bool {
-        self.enabled.load(Ordering::Acquire) && attempt.confirm_success(data, gate, &self.analyzer)
+        self.udp_enabled() && attempt.confirm_success(data, gate, &self.analyzer)
     }
 
     /// Real authorized bytes and an exact echo over the committed original
@@ -425,7 +447,7 @@ impl NatConnector {
     ) -> io::Result<Vec<u8>> {
         // Check before polling either IO future; select's polling order must
         // not create a stream when permission was already withdrawn.
-        if !self.enabled.load(Ordering::Acquire) {
+        if !self.udp_enabled() {
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 "UDP disabled during business confirmation",
@@ -433,7 +455,7 @@ impl NatConnector {
         }
         let disabled = async {
             loop {
-                if !self.enabled.load(Ordering::Acquire) {
+                if !self.udp_enabled() {
                     return Err(io::Error::new(
                         io::ErrorKind::PermissionDenied,
                         "UDP disabled during business confirmation",
@@ -471,7 +493,7 @@ impl NatConnector {
             .as_ref()
             .ok_or_else(|| io::Error::other("missing direct scope"))?;
         let check = || {
-            if !self.enabled.load(Ordering::Acquire)
+            if !self.udp_enabled()
                 || !direct.generation.is_current()
                 || upgrade.data.connection().stable_id() != direct.connection_id
                 || gate.nat_learning_scope(upgrade.data.connection()).as_ref()

@@ -1,0 +1,43 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.38s
+     Running tests/mqtt_bootstrap.rs (target/debug/deps/mqtt_bootstrap-6629c149aa86ff1f)
+
+running 1 test
+test saved_udp_disable_applies_to_the_next_mqtt_endpoint_without_reopening_the_node ... PREPARED actual_manual_admission=true durable_members=true
+MQTT_BOOTSTRAP_START stable_id=131182729950400 peer=ef5cf145f4e9b81be895e9cc8b9a8e0c590b340ac8a146a789c9d86fdb2b654b
+MQTT_BOOTSTRAP_START stable_id=131182730636256 peer=efa85b7b2912772969a59ee094e79455f1855105ec9ca3ef724f5378ba6f1712
+NAT_DIRECT_CANDIDATE stable_id=131182730636256 target=127.0.0.1:47168
+NAT_CONNECTION_ROUND number=1 stable_id=131182729950400
+LEGACY_FEATURE feature=None socket_generation_current=true
+NAT_CONNECTION_ROUND number=1 stable_id=131182730636256
+LEGACY_FEATURE feature=None socket_generation_current=true
+LEGACY_SELECTED mode=0 index=7 c=Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[] round=7962e151f0feb6c8d0151d53e18845cc stable_id=131182730636256 execution=Ready fallback=true
+LEGACY_CANDIDATES round=7962e151f0feb6c8d0151d53e18845cc stable_id=131182730636256 assisted=[127.0.0.1:47168] mapped=[]
+MQTT_BOOTSTRAP_FAILED stable_id=131182730636256 error=IPv4 traversal disabled
+MQTT_BOOTSTRAP_FAILED stable_id=131182729950400 error=closed
+
+thread 'saved_udp_disable_applies_to_the_next_mqtt_endpoint_without_reopening_the_node' (1853020) panicked at tests/mqtt_bootstrap.rs:184:5:
+disabled UDP must reject before a traversal round or candidate wait
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    saved_udp_disable_applies_to_the_next_mqtt_endpoint_without_reopening_the_node
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 3.18s
+
+error: test failed, to rerun pass `--test mqtt_bootstrap`

@@ -1,0 +1,41 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "mqtt_bootstrap",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 22.055,
+      "log": "tests.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "resources",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 47.757,
+      "log": "resources.log"
+    }
+  ],
+  "passed": false,
+  "brokers": [
+    "127.0.0.1:43294",
+    "127.0.0.1:43295"
+  ],
+  "interrupted": true,
+  "interruption_note": "User requested handoff; runner exited 130 during native-gates-proofs. Manual cleanup removed the two owned brokers; see incomplete handoff /tmp/miopunch-handoff-incomplete-42-2026-10-02.md. Earlier completed check receipts remain valid."
+}

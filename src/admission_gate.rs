@@ -122,6 +122,7 @@ struct State {
 #[derive(Clone, Debug)]
 pub struct AdmissionGate {
     state: Arc<Mutex<State>>,
+    mqtt_bootstrap: bool,
 }
 
 impl AdmissionGate {
@@ -151,6 +152,7 @@ impl AdmissionGate {
             ProtocolScope::AdmissionRequest,
         );
         Self {
+            mqtt_bootstrap: false,
             state: Arc::new(Mutex::new(State {
                 policy: Policy {
                     local_id: *local_id.as_bytes(),
@@ -222,6 +224,19 @@ impl AdmissionGate {
     /// withholds automatic QNT candidates before the hook grants normal scope.
     pub fn configure(&self, builder: Builder) -> Builder {
         builder.admission_gate(self.clone())
+    }
+
+    /// Endpoint-local permission for the formal MQTT adapter's bootstrap.
+    /// Install only together with the before-data-release path coordinator.
+    pub(crate) fn with_mqtt_bootstrap(&self) -> Self {
+        Self {
+            state: self.state.clone(),
+            mqtt_bootstrap: true,
+        }
+    }
+
+    fn member_carrier_allowed(&self, id: u64, data_ids: &BTreeSet<u64>) -> bool {
+        data_ids.contains(&id) || (self.mqtt_bootstrap && id == crate::mqtt_transport::TRANSPORT_ID)
     }
 
     /// Supply only the locally verified, currently applied management view.
@@ -308,7 +323,10 @@ impl AdmissionGate {
             .get(&connection.stable_id())
             .is_some_and(|session| {
                 session.peer == *connection.remote_id().as_bytes()
-                    && session.scope == ProtocolScope::Bootstrap
+                    && matches!(
+                        session.scope,
+                        ProtocolScope::Bootstrap | ProtocolScope::Member
+                    )
                     && session.valid(&state.policy)
                     && state.policy.members.contains(&session.peer)
                     && state.policy.members.contains(&state.policy.local_id)
@@ -421,7 +439,7 @@ impl EndpointHooks for AdmissionGate {
         if protocol == ProtocolScope::Member
             && connection.paths().iter().any(|path| {
                 matches!(path.remote_addr(), iroh_base::TransportAddr::Custom(custom)
-                    if !allowed_data_custom_ids.contains(&custom.id()))
+                    if !self.member_carrier_allowed(custom.id(), &allowed_data_custom_ids))
             })
         {
             return Self::reject();
@@ -511,7 +529,7 @@ impl EndpointHooks for AdmissionGate {
                         matches!(
                             path.remote_addr(),
                             iroh_base::TransportAddr::Custom(custom)
-                                if !state.allowed_data_custom_ids.contains(&custom.id())
+                                if !self.member_carrier_allowed(custom.id(), &state.allowed_data_custom_ids)
                         )
                     }))
             {

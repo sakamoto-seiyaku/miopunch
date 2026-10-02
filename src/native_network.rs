@@ -11,6 +11,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 #[cfg(unix)]
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use iroh::endpoint::{Builder, presets};
 use iroh::{Endpoint, SecretKey};
@@ -131,7 +132,7 @@ pub struct NativeNetwork {
     pub(crate) recovery: Option<RecoveryBinding>,
     pub(crate) management_instance: [u8; 16],
     pub(crate) directory: PathBuf,
-    udp: NatConnector,
+    udp: Arc<NatConnector>,
 }
 
 impl NativeNetwork {
@@ -442,7 +443,7 @@ impl NativeNetwork {
             recovery,
             management_instance: rand::random(),
             directory: path.to_path_buf(),
-            udp: NatConnector::new(None, UdpPolicy::default()),
+            udp: Arc::new(NatConnector::new(None, UdpPolicy::default())),
         };
         node.restore_rotation_gate().await?;
         if node.join.is_some() {
@@ -487,15 +488,28 @@ impl NativeNetwork {
     /// gate last, so carrier configuration cannot substitute either boundary.
     pub async fn bind_endpoint_with(&self, builder: Builder) -> Result<Endpoint, NodeError> {
         let resources = self.resource_configuration()?;
-        self.bind_endpoint_with_resources(builder, &resources).await
+        self.bind_endpoint_with_resources(builder, &resources, false)
+            .await
     }
 
     async fn bind_endpoint_with_resources(
         &self,
         builder: Builder,
         resources: &crate::resources::ResourceConfig,
+        automatic_mqtt: bool,
     ) -> Result<Endpoint, NodeError> {
-        let builder = resources.configure(builder)?;
+        let mut builder = resources.configure(builder)?;
+        let mut mqtt = Vec::new();
+        if automatic_mqtt {
+            for resource in resources.mqtt_resources() {
+                let transport = Arc::new(crate::mqtt_transport::MqttTransport::from_resource(
+                    resource,
+                    Arc::new(crate::mqtt_transport::Traffic::default()),
+                )?);
+                builder = builder.add_custom_transport(transport.clone());
+                mqtt.push(transport);
+            }
+        }
         let builder = match resources.lan_discovery {
             crate::resources::LanDiscovery::Disabled => builder,
             mode => builder.address_lookup(
@@ -504,12 +518,34 @@ impl NativeNetwork {
                     .service_name("miopunchv1"),
             ),
         };
-        Ok(self
-            .gate
-            .configure(builder)
+        let builder = if !mqtt.is_empty() {
+            let observers = resources.relay_map(crate::resources::ResourceUse::Observation)?;
+            self.gate.with_mqtt_bootstrap().configure(builder).hooks(
+                crate::mqtt_bootstrap::MemberPathBootstrap::new(
+                    self.gate.clone(),
+                    Arc::new(self.udp.for_endpoint(
+                        (!observers.is_empty()).then_some(observers),
+                        !resources.udp_direct_disabled,
+                    )),
+                ),
+            )
+        } else {
+            self.gate.configure(builder)
+        };
+        let endpoint = builder
             .secret_key(SecretKey::from_bytes(self.node_key.as_bytes()))
             .bind()
-            .await?)
+            .await?;
+        // Poll all approved services within the adapter's shared startup bound.
+        // A failed subscription cannot prevent another resource or direct path.
+        for result in
+            futures_util::future::join_all(mqtt.iter().map(|mqtt| mqtt.wait_ready())).await
+        {
+            if let Err(error) = result {
+                eprintln!("MQTT_RESOURCE_UNAVAILABLE error={error}");
+            }
+        }
+        Ok(endpoint)
     }
 
     pub fn resource_configuration(&self) -> Result<crate::resources::ResourceConfig, NodeError> {
@@ -545,20 +581,34 @@ impl NativeNetwork {
         &self,
         bind_ip: Ipv4Addr,
     ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
+        self.bind_configured_endpoint_with(
+            Endpoint::builder(presets::Minimal)
+                .bind_addr(SocketAddr::from((bind_ip, 0)))
+                .map_err(|_| NodeError::InvalidData)?,
+        )
+        .await
+    }
+
+    /// The formal startup with advanced local socket/TLS settings. Saved
+    /// resource consent, durable identity and member bootstrap remain owned by
+    /// this assembly rather than by the caller's stream or synchronization code.
+    pub async fn bind_configured_endpoint_with(
+        &self,
+        builder: Builder,
+    ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
         let config = self.resource_configuration()?;
         let endpoint = self
             .bind_endpoint_with_resources(
-                Endpoint::builder(presets::Minimal)
+                builder
                     .alpns(network_protocols())
                     .relay_mode(iroh::RelayMode::Custom(
                         config.relay_map(crate::resources::ResourceUse::DataRelay)?,
                     ))
                     .observation_servers(
                         config.relay_map(crate::resources::ResourceUse::Observation)?,
-                    )
-                    .bind_addr(SocketAddr::from((bind_ip, 0)))
-                    .map_err(|_| NodeError::InvalidData)?,
+                    ),
                 &config,
+                true,
             )
             .await?;
         Ok(crate::resources::ResourceEndpoint::new(endpoint, config))
@@ -579,7 +629,7 @@ impl NativeNetwork {
         policy: UdpPolicy,
     ) -> Result<Self, NodeError> {
         let mut node = Self::open(path).await?;
-        node.udp = NatConnector::new(observers, policy);
+        node.udp = Arc::new(NatConnector::new(observers, policy));
         Ok(node)
     }
 

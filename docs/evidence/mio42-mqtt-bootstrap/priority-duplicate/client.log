@@ -1,0 +1,29 @@
+
+running 1 test
+READY id=4e76b343769df866124f06788c8cf6a45dbd522361b54c50873a66d8f603d3b6 route=9e5f0955d616c9403b71d949663f464d udp=[0.0.0.0:42027, [::]:46678] relay=false
+MQTT_BOOTSTRAP_START stable_id=131567599305072 peer=ef8925bd8c47a4321780017df255905a8d9c48bea07d3fc3a5a32e2eb22466c3
+NAT_DIRECT_CANDIDATE stable_id=131567599305072 target=10.27.2.2:43027
+NAT_DIRECT_CANDIDATE stable_id=131567599305072 target=100.64.27.6:43027
+NAT_CONNECTION_ROUND number=1 stable_id=131567599305072
+LEGACY_FEATURE feature=None socket_generation_current=true
+LEGACY_SELECTED mode=0 index=6 c=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[] round=fd21bf580844b3abf305e424084fefcc stable_id=131567599305072 execution=Ready fallback=true
+LEGACY_CANDIDATES round=fd21bf580844b3abf305e424084fefcc stable_id=131567599305072 assisted=[10.27.2.2:43027] mapped=[100.64.27.6:43027]
+LEGACY_RECV_START round=fd21bf580844b3abf305e424084fefcc stable_id=131567599305072 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [100.64.27.6:43027], candidates: [100.64.27.6:43027], range: None, total_budget_ms: 5000, read_budget_ms: 5000 }
+LEGACY_LISTENER round=fd21bf580844b3abf305e424084fefcc stable_id=131567599305072 local_socket_id=0 local_addr=0.0.0.0:42027 primary=true
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=100.64.27.6:43027 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_PHASE_STOP round=fd21bf580844b3abf305e424084fefcc stable_id=131567599305072 elapsed_ms=115 outcome=winner
+LEGACY_WINNER round=fd21bf580844b3abf305e424084fefcc stable_id=131567599305072 remote=100.64.27.6:43027 response=false before_probe=false probes=1 responses=3 ttl_degraded=0 local_socket_id=0 local_addr=10.27.1.2:42027
+LEGACY_TRACE round=fd21bf580844b3abf305e424084fefcc stable_id=131567599305072 probes=1 responses=3 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=4 send_errors=0 send_aborted=0 rejected_receipts=0
+LEGACY_WINNER_READY round=fd21bf580844b3abf305e424084fefcc stable_id=131567599305072 remaining_ms=4882
+MQTT_BOOTSTRAP_DATA stable_id=131567599305072 peer=ef8925bd8c47a4321780017df255905a8d9c48bea07d3fc3a5a32e2eb22466c3 paths=PathList { snapshot: State { list: [PathData(3, ip:100.64.27.6:43027)], selected: Some(PathId(3)), closed: false }, .. }
+DATA_RETURN stable_id=131567599305072 peer=ef8925bd8c47a4321780017df255905a8d9c48bea07d3fc3a5a32e2eb22466c3 paths=PathList { snapshot: State { list: [PathData(3, ip:100.64.27.6:43027)], selected: Some(PathId(3)), closed: false }, .. }
+SYNC_OK source=ef8925bd8c47a4321780017df255905a8d9c48bea07d3fc3a5a32e2eb22466c3 saved=2 complete=true
+DATA_OK same_connection=true real_member=true relay=false
+DUPLICATE_BOUNDED tls_connections=1 data_connections=1
+test mqtt_native_node_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.93s
+

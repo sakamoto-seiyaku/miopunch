@@ -356,6 +356,7 @@ fn conn_from_noq_conn(
 
     // Check hooks
     let inner = ep.inner.clone();
+    let endpoint = ep.clone();
     Ok(async move {
         let paths = fut.await?;
         let conn = Connection {
@@ -368,7 +369,9 @@ fn conn_from_noq_conn(
                 conn.close(error_code, &reason);
                 return Err(e!(ConnectingError::LocallyRejected));
             }
-            AfterHandshakeOutcome::AcceptData { allowed_data_custom_ids } => {
+            AfterHandshakeOutcome::AcceptData {
+                allowed_data_custom_ids,
+            } => {
                 if !inner.static_config.admission_gated || control_only {
                     conn.close(0u32.into(), b"incompatible admission path policy");
                     return Err(e!(ConnectingError::LocallyRejected));
@@ -384,7 +387,15 @@ fn conn_from_noq_conn(
             }
             AfterHandshakeOutcome::AcceptRestricted => None,
         };
-        if inner.static_config.admission_gated && !control_only
+        if release.is_some()
+            && let Err(error) = inner.hooks.before_data_release(&endpoint, &conn).await
+        {
+            tracing::debug!(%error, "protected data path bootstrap failed");
+            conn.close(0u32.into(), b"data path bootstrap failed");
+            return Err(e!(ConnectingError::LocallyRejected));
+        }
+        if inner.static_config.admission_gated
+            && !control_only
             && let Some(allowed_data_custom_ids) = release
             && inner
                 .authorize_candidates(conn.remote_id(), conn.stable_id(), allowed_data_custom_ids)

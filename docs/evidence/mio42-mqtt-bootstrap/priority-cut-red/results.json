@@ -1,0 +1,20 @@
+{
+  "case": "control_cut",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "mqtt_bootstrap",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 101,
+      "seconds": 7.165,
+      "log": "build.log"
+    }
+  ],
+  "passed": false
+}

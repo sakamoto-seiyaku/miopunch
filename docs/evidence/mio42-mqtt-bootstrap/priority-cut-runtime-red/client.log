@@ -1,0 +1,19 @@
+
+running 1 test
+READY id=cd699ff32dff47fe259b1d271b425ed978828b825ad6d726095f4a6abf18e882 route=1c0898c868962a93df5a4624c1d2882c udp=[0.0.0.0:42027, [::]:40322] relay=false
+MQTT_BOOTSTRAP_START stable_id=132449007090672 peer=30fd455b455478b4ec78963b625fdabe1a9b3034d4fdbd907a2e8b431b88d9f5
+MQTT_CLOSE result=Mqtt state: Mqtt serialization/deserialization error: IO: Connection reset by peer (os error 104)
+MQTT_BOOTSTRAP_FAILED stable_id=132449007090672 error=direct exchange interrupted
+
+thread 'mqtt_native_node_worker' (153) panicked at tests/mqtt_bootstrap.rs:121:22:
+lost temporary MQTT subscription must withdraw its route: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test mqtt_native_node_worker ... FAILED
+
+failures:
+
+failures:
+    mqtt_native_node_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.52s
+

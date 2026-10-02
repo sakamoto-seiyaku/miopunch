@@ -1,0 +1,11 @@
+
+running 1 test
+READY id=7e4391f1048928351785b64d7ae2a31e3c5b19339ec764045b8a2848562e45c1 route=f123c8828da922a740e7bcd81c34ae66 udp=[0.0.0.0:42027, [::]:50799] relay=false
+MQTT_BOOTSTRAP_START stable_id=125244266558208 peer=d623a6a105ed629db3ec2302fad905b94cc4a2e83d2c3054305b82786c119061
+MQTT_CLOSE result=Mqtt state: Mqtt serialization/deserialization error: IO: Connection reset by peer (os error 104)
+MQTT_BOOTSTRAP_FAILED stable_id=125244266558208 error=direct exchange interrupted
+CONTROL_UNAVAILABLE bounded_ms=5397 attempts_opened=1 attempts_closed=1 repeated_calls=100 data_released=false route_withdrawn=true
+test mqtt_native_node_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.68s
+
