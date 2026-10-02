@@ -48,4 +48,8 @@ crypto shim. The Windows filesystem correction retains Unix behavior; the
 vendor changes remove unused cdylib artifacts only. All 32 upstream Rust
 files in the newly vendored locked iroh-relay package were compared unchanged.
 
-Independent Standards and Spec reports are saved here after review.
+[Independent two-axis review](code-review.md): Standards found no hard
+violations and two optional duplication heuristics; Spec found no required or
+optional findings. Optional maintenance suggestions remain parked under the
+user's completion priority. The reviewers inspected the saved evidence without
+rerunning tests.

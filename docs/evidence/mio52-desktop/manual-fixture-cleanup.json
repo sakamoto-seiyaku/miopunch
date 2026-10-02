@@ -1,0 +1,10 @@
+[
+  {
+    "container": "mio52-windows-runtime",
+    "exit": 0
+  },
+  {
+    "container": "mio52-windows-tools",
+    "exit": 0
+  }
+]
