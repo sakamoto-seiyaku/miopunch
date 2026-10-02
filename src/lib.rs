@@ -22,6 +22,7 @@ pub mod nat_punch;
 pub mod nat_scheduler;
 pub mod nat_selector;
 pub mod native_network;
+pub mod network_migration;
 pub mod offline_replica;
 pub mod path_selection;
 pub mod precode;

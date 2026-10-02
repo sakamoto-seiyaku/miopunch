@@ -1,0 +1,9 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.06s
+     Running tests/network_migration.rs (target/debug/deps/network_migration-b5ba812dd9d0db9a)
+
+running 1 test
+test source_works_until_saved_target_member_data_then_switch_and_exit ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 3.12s
+

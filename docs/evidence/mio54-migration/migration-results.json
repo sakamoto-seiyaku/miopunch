@@ -1,0 +1,56 @@
+[
+  {
+    "check": "first",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--features",
+      "replica-test-hooks",
+      "--test",
+      "network_migration",
+      "source_works_until_saved_target_member_data_then_switch_and_exit",
+      "--",
+      "--exact",
+      "--nocapture"
+    ],
+    "exit": 0
+  },
+  {
+    "check": "priority",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--features",
+      "replica-test-hooks",
+      "--test",
+      "network_migration",
+      "signaling_only_target_cannot_switch_and_formal_exit_cannot_roll_back",
+      "--",
+      "--exact",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exit": 0
+  },
+  {
+    "check": "remaining",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--features",
+      "replica-test-hooks",
+      "--test",
+      "network_migration",
+      "--",
+      "--nocapture",
+      "--skip",
+      "source_works_until_saved_target_member_data_then_switch_and_exit",
+      "--skip",
+      "signaling_only_target_cannot_switch_and_formal_exit_cannot_roll_back"
+    ],
+    "exit": 0
+  }
+]

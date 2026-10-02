@@ -1,0 +1,10 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+error[E0432]: unresolved import `miopunch_native_probe::network_migration`
+ --> tests/network_migration.rs:3:60
+  |
+3 | ..._network::NativeNetwork, network_migration::{NetworkMigration, MigrationPhase}, admission_gate::ProtocolScope, offline_replica::RE...
+  |                             ^^^^^^^^^^^^^^^^^ could not find `network_migration` in `miopunch_native_probe`
+
+For more information about this error, try `rustc --explain E0432`.
+error: could not compile `miopunch-native-probe` (test "network_migration") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

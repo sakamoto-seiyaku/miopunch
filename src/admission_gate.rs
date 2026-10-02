@@ -114,6 +114,7 @@ struct Policy {
 struct State {
     policy: Policy,
     protocols: HashMap<Vec<u8>, ProtocolScope>,
+    lifecycle_protocols: Option<BTreeSet<Vec<u8>>>,
     allowed_data_custom_ids: BTreeSet<u64>,
     sessions: HashMap<usize, Session>,
 }
@@ -179,10 +180,25 @@ impl AdmissionGate {
                     authorization_epoch: 0,
                 },
                 protocols,
+                lifecycle_protocols: None,
                 allowed_data_custom_ids: BTreeSet::from([DATA_TRANSPORT_ID]),
                 sessions: HashMap::new(),
             })),
         }
+    }
+
+    /// Lifecycle restriction is independent of membership and cannot be undone
+    /// by replaying an authorization view or registering another protocol.
+    pub(crate) fn restrict_lifecycle(&self, protocols: Option<BTreeSet<Vec<u8>>>) {
+        let mut state = self.state.lock().expect("admission policy lock");
+        state.lifecycle_protocols = protocols;
+        let allowed = state.lifecycle_protocols.clone();
+        state.sessions.retain(|_, session| {
+            session
+                .connection
+                .upgrade()
+                .is_some_and(|c| allowed.as_ref().is_none_or(|set| set.contains(c.alpn())))
+        });
     }
 
     /// Classify a protocol before registering it with Router or p2panda.
@@ -461,7 +477,11 @@ impl EndpointHooks for AdmissionGate {
         alpn: &[u8],
     ) -> BeforeConnectOutcome {
         let state = self.state.lock().expect("admission policy lock");
-        if !state.protocols.contains_key(alpn)
+        if state
+            .lifecycle_protocols
+            .as_ref()
+            .is_some_and(|set| !set.contains(alpn))
+            || !state.protocols.contains_key(alpn)
             || (state.protocols.get(alpn) != Some(&ProtocolScope::AdmissionRequest)
                 && state.policy.removed.contains(remote_addr.id.as_bytes()))
         {
@@ -475,6 +495,13 @@ impl EndpointHooks for AdmissionGate {
         let peer = *connection.remote_id().as_bytes();
         let (protocol, policy, allowed_data_custom_ids) = {
             let state = self.state.lock().expect("admission policy lock");
+            if state
+                .lifecycle_protocols
+                .as_ref()
+                .is_some_and(|set| !set.contains(connection.alpn()))
+            {
+                return Self::reject();
+            }
             let Some(protocol) = state.protocols.get(connection.alpn()).copied() else {
                 return Self::reject();
             };
@@ -573,7 +600,8 @@ impl EndpointHooks for AdmissionGate {
             let mut state = self.state.lock().expect("admission policy lock");
             let current = state.policy.clone();
             state.sessions.retain(|_, session| session.valid(&current));
-            if state.protocols.get(connection.alpn()) != Some(&protocol)
+            if state.lifecycle_protocols.as_ref().is_some_and(|set| !set.contains(connection.alpn()))
+                || state.protocols.get(connection.alpn()) != Some(&protocol)
                 || state.sessions.len() >= MAX_SESSIONS
                 || state.sessions.contains_key(&connection.stable_id())
                 || (protocol == ProtocolScope::Member

@@ -1,0 +1,13 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.36s
+     Running tests/native_network.rs (target/debug/deps/native_network-3a7e33188e1c602b)
+
+running 5 tests
+test relative_data_directory_is_a_public_entry ... ok
+test invalid_record_cannot_create_a_valid_view ... ok
+test wrong_root_and_alternate_create_cannot_replace_pinned_network ... ok
+test create_and_restart_through_public_node_entry ... ok
+test new_credential_is_new_network_and_secrets_are_not_status ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.02s
+

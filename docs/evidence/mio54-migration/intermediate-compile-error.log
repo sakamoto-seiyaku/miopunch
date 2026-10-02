@@ -1,0 +1,13 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+error: expected `,` following `match` arm
+   --> src/native_network.rs:197:89
+    |
+197 |                         .and_then(|_| sync_directory(&staging).map_err(NodeError::from))
+    |                                                                                         ^
+    |
+help: missing a comma here to end this `match` arm
+    |
+197 |                         .and_then(|_| sync_directory(&staging).map_err(NodeError::from)),
+    |                                                                                         +
+
+error: could not compile `miopunch-native-probe` (lib) due to 1 previous error

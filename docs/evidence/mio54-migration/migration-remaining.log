@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.35s
+     Running tests/network_migration.rs (target/debug/deps/network_migration-b5ba812dd9d0db9a)
+
+running 5 tests
+test migration_crash_worker ... ok
+durable checkpoint prepare: Preparing, identity preserved
+test explicit_cancel_leaves_target_without_changing_source ... ok
+test same_key_histories_and_permissions_remain_independent ... ok
+test offline_device_confirms_itself_with_fresh_invitation_and_ordinary_exit ... ok
+durable checkpoint authorize: PendingMaterials, identity preserved
+durable checkpoint secret: MaterialsSaved, identity preserved
+durable checkpoint complete: MaterialsSaved, identity preserved
+durable checkpoint validate: Validated, identity preserved
+durable checkpoint switch: Switched, identity preserved
+durable checkpoint exit_record: Switched, identity preserved
+durable checkpoint exit: SourceExited, identity preserved
+test process_death_at_each_durable_boundary_keeps_identity_progress_and_one_redemption ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 31.74s
+

@@ -1,0 +1,241 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.81s
+     Running tests/admission_completion.rs (target/debug/deps/admission_completion-697d9862c569394e)
+
+running 20 tests
+test delivery_checkpoint_worker ... ok
+MIO35_ACK duplicate_save=true sender_ack_complete=true recipient_pending_until_real_save=true retry_uses=1
+test duplicate_save_ack_does_not_consume_twice_or_prove_recipient_persistence ... ok
+MIO35_CONTACT wrong_network_rejected=true wrong_tls_contact_rejected=true stale_handle_rejected=true original_attempt_preserved=true
+test new_contact_rejects_wrong_network_tls_contact_and_stale_delivery_handle ... ok
+MIO35_REVOKED old_result_rejected=true new_contact_new_grant=true new_uses=1 original_uses=1
+test new_contact_after_removal_gets_new_authorization_and_old_result_stays_invalid ... ok
+MIO35_CRASH real_process_exit_at=AuthorizationVerified
+
+MIO35_CRASH real_process_exit_at=AuthorizationSaved
+
+MIO35_CRASH real_process_exit_at=CompletionSent
+
+MIO35_CRASH real_process_exit_at=AuthorizationPrepared
+
+MIO35_RESUME checkpoint=AuthorizationVerified real_exit=83 stable_identity=true same_result=true uses=1 applied=2 durable_complete=true
+MIO35_CRASH real_process_exit_at=AuthorizationSent
+
+test process_exit_at_authorization_verified ... ok
+MIO35_CRASH real_process_exit_at=AuthorizationAcknowledged
+
+MIO35_CRASH real_process_exit_at=DeliveryComplete
+
+MIO35_CRASH real_process_exit_at=CompletionAcknowledged
+
+MIO35_CRASH real_process_exit_at=SecretSent
+
+MIO35_RESUME checkpoint=AuthorizationSaved real_exit=83 stable_identity=true same_result=true uses=1 applied=2 durable_complete=true
+test process_exit_at_authorization_saved ... ok
+MIO35_CRASH real_process_exit_at=SecretFilePublished
+
+MIO35_RESUME checkpoint=CompletionSent real_exit=83 stable_identity=true same_result=true uses=1 applied=2 durable_complete=true
+test process_exit_at_completion_sent ... ok
+MIO35_RESUME checkpoint=AuthorizationPrepared real_exit=83 stable_identity=true same_result=true uses=1 applied=2 durable_complete=true
+test process_exit_at_authorization_prepared ... ok
+MIO35_RESUME checkpoint=AuthorizationSent real_exit=83 stable_identity=true same_result=true uses=1 applied=2 durable_complete=true
+test process_exit_at_authorization_sent ... ok
+MIO35_RESUME checkpoint=AuthorizationAcknowledged real_exit=83 stable_identity=true same_result=true uses=1 applied=2 durable_complete=true
+test process_exit_at_authorization_acknowledged ... ok
+MIO35_RESUME checkpoint=DeliveryComplete real_exit=83 stable_identity=true same_result=true uses=1 applied=2 durable_complete=true
+test process_exit_at_delivery_complete ... ok
+MIO35_RESUME checkpoint=CompletionAcknowledged real_exit=83 stable_identity=true same_result=true uses=1 applied=2 durable_complete=true
+MIO35_RESUME checkpoint=SecretSent real_exit=83 stable_identity=true same_result=true uses=1 applied=2 durable_complete=true
+test process_exit_at_completion_acknowledged ... ok
+test process_exit_after_secret_send_resumes_original_code_once ... ok
+MIO35_RESUME checkpoint=SecretFilePublished real_exit=83 stable_identity=true same_result=true uses=1 applied=2 durable_complete=true
+test process_exit_at_secret_file_published ... ok
+MIO35_REPLAY original_signed_response_replayed=true local_removal_still_effective=true no_secret_saved=true
+test signed_old_response_cannot_restore_locally_verified_removal ... ok
+MIO35_IDENTITY wrong_node_rejected=true rightful_resume=true uses=1
+test replacing_applicant_cannot_complete_another_identity_delivery ... ok
+MIO35_CRASH real_process_exit_at=SecretPrepared
+
+MIO35_RESUME checkpoint=SecretPrepared real_exit=83 stable_identity=true same_result=true uses=1 applied=2 durable_complete=true
+test process_exit_at_secret_prepared ... ok
+MIO35_PRIORITY original_offline=true learned_grant=real_logsync new_uses=1 same_grant=true duplicate_add=false stable_identity=true
+test unavailable_original_new_contact_consumes_new_code_reuses_verified_grant ... ok
+MIO35_CRASH real_process_exit_at=SecretReceived
+
+MIO35_RESUME checkpoint=SecretReceived real_exit=83 stable_identity=true same_result=true uses=1 applied=2 durable_complete=true
+test process_exit_at_secret_received ... ok
+MIO35_CRASH real_process_exit_at=SecretSaved
+
+MIO35_RESUME checkpoint=SecretSaved real_exit=83 stable_identity=true same_result=true uses=1 applied=2 durable_complete=true
+test process_exit_at_secret_saved ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 28.55s
+
+     Running tests/admission_gate.rs (target/debug/deps/admission_gate-c5689303c2f5efa3)
+
+running 18 tests
+test known_removed_identity_only_reaches_fresh_restricted_admission_requests ... ok
+test a_gated_endpoint_never_treats_a_default_hook_as_admission ... ok
+test a_connection_to_an_uninvited_tls_identity_cannot_enter_application ... ok
+test removal_during_final_recovery_stage_must_reject_connection ... ok
+test a_wrong_secret_cannot_be_reused_from_another_member_connection ... ok
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=20 sent_bytes=9984 received_packets=20 received_bytes=8889 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=20 sent_bytes=8889 received_packets=20 received_bytes=9984 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+test an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy ... ok
+test p2panda_endpoint_builder_hook_gates_the_actual_protocol_actor ... ok
+test no_secret_applicant_only_reaches_the_restricted_application_protocol ... ok
+test cancelled_proof_does_not_authorize_a_later_connection ... ok
+test proof_is_bound_to_each_connection_and_credential_generation ... ok
+test stale_member_view_does_not_return_an_outgoing_business_handle ... ok
+test the_persisted_native_network_installs_the_same_gate ... ok
+test admitted_control_path_upgrade_requires_current_membership ... ok
+test signaling_carrier_allows_scoped_control_but_refuses_business ... ok
+test secret_holder_without_membership_gets_bootstrap_but_no_normal_protocol ... ok
+test verified_members_reach_every_normal_protocol_and_revocation_closes_existing_sessions ... ok
+test genesis_recovery_stays_restricted_and_early_handles_are_unavailable ... ok
+test stalled_proof_times_out_and_fresh_connection_can_still_prove ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.57s
+
+     Running tests/daily_management.rs (target/debug/deps/daily_management-8b335be4d4a4ac8b)
+
+running 6 tests
+test elevation_requires_independent_root_and_canonical_create_not_node_key_or_admission_secret ... ok
+test expired_elevation_and_other_device_or_session_cannot_reuse_the_window ... ok
+test daily_management_and_elevated_appointment_are_verified_on_remote_node ... ok
+test demotion_keeps_membership_and_separate_admin_removal_survives_offline_forwarding ... ok
+test directly_signed_daily_admin_privilege_records_fail_locally_on_wire_and_after_restart ... ok
+test concurrent_admin_demotion_corrects_member_removal_in_both_wire_orders_and_replay ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.87s
+
+     Running tests/manual_admission.rs (target/debug/deps/manual_admission-a67305ec4a74f523)
+
+running 14 tests
+test applicant_crash_after_authorization_worker ... ok
+test approval_commit_checkpoint_worker ... ok
+test forged_claimed_applicant_cannot_enter_the_approval_queue ... ok
+actual approval process exits after signed Add/result transaction commit, before application
+
+test authenticated_contact_cannot_make_a_corrupt_signature_durable_membership ... ok
+MIO30_APPROVAL_RECOVERY applied=2 original_grant_reused=true
+test another_authenticated_request_for_an_existing_member_reuses_its_valid_grant ... ok
+actual approval process exits after signed Add/result transaction commit, before application
+
+test actual_tls_contact_must_match_the_invitation_pin ... ok
+test invitation_for_wrong_network_cannot_queue_a_request ... ok
+MIO30_APPROVAL_RECOVERY applied=2 original_grant_reused=true
+test original_result_is_rejected_after_removal_even_when_a_fresh_grant_readds_the_identity ... ok
+MIO30_MQTT_CIPHERTEXT publishes=88 max_bytes=1472 long_lived_secret_in_invitation=false independent_holder_received_approved_result=false
+test another_invitation_holder_observes_ciphertext_but_cannot_take_an_approved_result ... ok
+test approval_commit_interruption_is_recovered_before_a_live_nodes_next_request_decides_to_add ... ok
+test material_file_failure_retains_pending_state_and_can_retry_after_restart ... ok
+test approval_commit_crash_is_recovered_before_another_same_identity_request_decides_to_add ... ok
+test manual_approval_saves_both_materials_and_permits_real_business ... ok
+actual applicant process exits after durable authorization, before requesting secret
+
+test crash_after_only_authorization_never_succeeds_and_same_request_resumes_once ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.39s
+
+     Running tests/native_network.rs (target/debug/deps/native_network-a9a260ee642c077f)
+
+running 5 tests
+test relative_data_directory_is_a_public_entry ... ok
+test invalid_record_cannot_create_a_valid_view ... ok
+test wrong_root_and_alternate_create_cannot_replace_pinned_network ... ok
+test create_and_restart_through_public_node_entry ... ok
+test new_credential_is_new_network_and_secrets_are_not_status ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+
+     Running tests/offline_replica.rs (target/debug/deps/offline_replica-d3041399bff183ff)
+
+running 12 tests
+test replica_crash_worker ... ok
+test unadmitted_identity_cannot_start_replication_or_read_history ... ok
+test signed_extension_only_action_is_applied_by_replica_consumer ... ok
+test required_body_missing_then_complete_retry_survives_restart ... ok
+test missing_dependency_is_saved_but_not_complete_then_out_of_order_duplicates_apply_once ... ok
+test unauthorized_records_and_private_material_are_excluded_from_served_replicas ... ok
+test original_author_offline_restarted_member_supplies_body_and_dependencies ... ok
+actual replica process exits at AfterStorageCommit
+
+provider transport result at AfterStorageCommit: Err(Transport)
+actual replica process exits at BeforeGroupsCommit
+
+provider transport result at BeforeGroupsCommit: Err(Transport)
+actual replica process exits at AfterGroupsCommit
+
+provider transport result at AfterGroupsCommit: Err(Transport)
+actual replica process exits at AfterOrdererSelect
+
+provider transport result at AfterOrdererSelect: Err(Transport)
+actual replica process exits at BeforeStorageCommit
+
+provider transport result at BeforeStorageCommit: Err(Transport)
+AfterStorageCommit: recovered identical four-record view; offline replica still serves; duplicate replay adds no action
+test process_exit_after_record_commit_replays_and_still_serves ... ok
+BeforeGroupsCommit: recovered identical four-record view; offline replica still serves; duplicate replay adds no action
+test process_exit_before_view_commit_replays_and_still_serves ... ok
+AfterGroupsCommit: recovered identical four-record view; offline replica still serves; duplicate replay adds no action
+test process_exit_after_view_commit_does_not_duplicate_application ... ok
+AfterOrdererSelect: recovered identical four-record view; offline replica still serves; duplicate replay adds no action
+test process_exit_after_causal_selection_replays_without_losing_authorization ... ok
+BeforeStorageCommit: recovered identical four-record view; offline replica still serves; duplicate replay adds no action
+test process_exit_before_record_commit_never_advertises_it_and_retry_completes ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 28.23s
+
+     Running tests/precode.rs (target/debug/deps/precode-1f4f930b4d5587f4)
+
+running 14 tests
+test precode_commit_crash_child ... ok
+MIO33_PRIORITY independent_tls_identities=2 successes=1 uses=1 applied=2
+test independent_tls_identities_competing_for_last_use_admit_only_one ... ok
+MIO33_IDENTITY actual_forged_claim=true tls_mismatch_rejected=true forged_uses=0 rightful_uses=1
+test holder_of_the_same_code_cannot_redeem_as_a_different_tls_identity ... ok
+MIO33_FRESH existing_grant_reused=true each_code_uses=1 distinct_redemption=true applied=2
+test fresh_code_consumes_once_for_existing_member_without_adding_twice ... ok
+MIO33_DAMAGE real_counter_corruption=true old_stopped=true prior_valid=true fresh_uses=1
+test damaged_counter_stops_old_code_and_allows_fresh_issuance ... ok
+MIO33_RESTORE coherent_before_consumption=true old_saved_counter=0 old_new_redemption_stopped=true fresh_uses=1 stable_identity_anchor=true
+MIO33_ORIGIN root_signed_loss_regrant=true reopened=true old_new_redemption_rejected=true fresh_accepted=true prior_member_valid=true
+test administrator_regrant_never_revives_codes_from_the_previous_authority_origin ... ok
+MIO33_REJOIN old_redemption_rejected_after_remove=true old_result_invalid_after_separate_valid_regrant=true fresh_reuses_grant=true each_code_uses=1
+test old_redemption_cannot_restore_removed_membership_or_replace_a_fresh_grant ... ok
+MIO33_EXPIRY actual_wall_deadline=true new_rejected=true prior_materials=true uses=1
+test expiry_stops_new_redemption_but_not_prior_materials_or_membership ... ok
+MIO33_REVOKE time_only=true designated_only=true new_rejected=true prior_valid=true retry_uses=1
+test time_only_codes_and_single_code_revocation_preserve_existing_membership ... ok
+test supported_restore_of_coherent_pre_consumption_backup_stops_old_codes ... ok
+MIO33_DESIGNATED same_network_admins=2 other_revoke=false retargeted_redemption=false offline_takeover=false fresh_other_code=true
+test code_is_only_redeemable_and_revocable_at_its_designated_same_network_administrator ... ok
+MIO33_LATE_ORIGIN actual_logsync=true manage_before_and_after=true old_origin_rejected=true fresh_accepted=true
+test late_signed_loss_and_regrant_history_invalidates_the_old_code_origin ... ok
+MIO33_CRASH actual_process_exit_at=BeforePrecodeCommit
+
+MIO33_FIRST stable_request=true stable_authorization=true uses=1 applied=2 complete=true
+test single_use_redemption_survives_restart_and_delayed_delivery ... ok
+MIO33_COMMIT stage=before real_process_exit=true recoverable_atomic_tuple=true retry_uses=1 applied=2
+MIO33_CRASH actual_process_exit_at=AfterPrecodeCommit
+
+MIO33_COMMIT stage=after real_process_exit=true recoverable_atomic_tuple=true retry_uses=1 applied=2
+test quota_signed_grant_and_pending_result_recover_at_both_commit_boundaries ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 27.90s
+
+     Running tests/revocation.rs (target/debug/deps/revocation-5478785ab7cb4d5d)
+
+running 5 tests
+test a_departed_creator_can_prepare_durable_rejoin_without_losing_recovery_material ... ok
+test offline_retains_roles_but_self_departure_closes_flows_and_admin_requires_elevation ... ok
+test fresh_manual_approval_rejoins_stable_identity_but_old_request_cannot ... ok
+actual established flow closed; stale secret held unchanged; new member connection rejected
+test received_removal_ends_actual_flow_and_rejects_new_connections_with_same_secret ... ok
+test concurrent_admin_demotion_corrects_member_removal_in_both_wire_orders_and_replay ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.90s
+

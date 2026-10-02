@@ -100,7 +100,10 @@ impl NativeNetwork {
         }
     }
 
-    fn check_management_session(&self, session: &ManagementSession) -> Result<(), ManagementError> {
+    pub(crate) fn check_management_session(
+        &self,
+        session: &ManagementSession,
+    ) -> Result<(), ManagementError> {
         if session.ended || session.node_instance != self.management_instance {
             return Err(ManagementError::InvalidSession);
         }

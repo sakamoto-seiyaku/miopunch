@@ -1,0 +1,40 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+error[E0599]: no method named `set_checkpoint_observer` found for struct `NetworkMigration` in the current scope
+   --> tests/network_migration.rs:151:4
+    |
+151 |  m.set_checkpoint_observer(|checkpoint| {
+    |  --^^^^^^^^^^^^^^^^^^^^^^^ method not found in `NetworkMigration`
+
+error[E0599]: no variant, associated function, or constant named `MigrationValidated` found for enum `RecordCheckpoint` in the current scope
+   --> tests/network_migration.rs:156:35
+    |
+156 |     ("validate",RecordCheckpoint::MigrationValidated) |
+    |                                   ^^^^^^^^^^^^^^^^^^ variant, associated function, or constant not found in `RecordCheckpoint`
+
+error[E0599]: no variant, associated function, or constant named `MigrationSwitched` found for enum `RecordCheckpoint` in the current scope
+   --> tests/network_migration.rs:157:33
+    |
+157 |     ("switch",RecordCheckpoint::MigrationSwitched) |
+    |                                 ^^^^^^^^^^^^^^^^^ variant, associated function, or constant not found in `RecordCheckpoint`
+
+error[E0599]: no variant, associated function, or constant named `MigrationSourceExitCommitted` found for enum `RecordCheckpoint` in the current scope
+   --> tests/network_migration.rs:158:38
+    |
+158 |     ("exit_record",RecordCheckpoint::MigrationSourceExitCommitted)) { std::process::exit(77); }
+    |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ variant, associated function, or constant not found in `RecordCheckpoint`
+
+error[E0308]: `if` and `else` have incompatible types
+   --> tests/network_migration.rs:182:167
+    |
+182 | ..." {target.serve_replica(&c).await.map_err(|e|e.to_string())} else {target.serve_precode_admission(&c).await.map_err(|e|e.to_string())}; ...
+    |       --------------------------------------------------------        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<(), String>`, found `Result<AdmissionStage, String>`
+    |       |
+    |       expected because of this
+    |
+    = note: expected enum `Result<(), _>`
+               found enum `Result<AdmissionStage, _>`
+
+Some errors have detailed explanations: E0308, E0599.
+For more information about an error, try `rustc --explain E0308`.
+error: could not compile `miopunch-native-probe` (test "network_migration") due to 5 previous errors
+warning: build failed, waiting for other jobs to finish...

@@ -55,6 +55,7 @@ fn network_protocols() -> Vec<Vec<u8>> {
 enum Initialization<'a> {
     Create,
     Join(ManualInvitation),
+    Migration(ManualInvitation, &'a SigningKey),
     Recover(&'a GenesisCredential, iroh_base::EndpointId),
 }
 
@@ -97,6 +98,8 @@ impl SavedGenesisCredential {
 
 #[derive(Debug, Error)]
 pub enum NodeError {
+    #[error("this directory is owned by NetworkMigration; reopen its lifecycle entry")]
+    MigrationManaged,
     #[error("node data directory already exists")]
     AlreadyExists,
     #[error("node data is incomplete or invalid")]
@@ -185,7 +188,16 @@ impl NativeNetwork {
         builder.create(&staging)?;
         let prepared = match initialization {
             Initialization::Create => Self::prepare(&staging).await,
-            Initialization::Join(invitation) => Self::prepare_join(&staging, invitation).await,
+            Initialization::Join(invitation) => {
+                Self::prepare_join(&staging, invitation, &SigningKey::generate()).await
+            }
+            Initialization::Migration(invitation, key) => {
+                match Self::prepare_join(&staging, invitation, key).await {
+                    Ok(()) => write_private(&staging.join("migration.managed"), b"1")
+                        .and_then(|_| sync_directory(&staging).map_err(NodeError::from)),
+                    Err(error) => Err(error),
+                }
+            }
             Initialization::Recover(credential, contact) => {
                 Self::prepare_recovery(&staging, credential, contact).await
             }
@@ -203,7 +215,7 @@ impl NativeNetwork {
             return Err(error);
         }
         sync_directory(parent)?;
-        Self::open(path).await
+        Self::open_migration_context(path).await
     }
 
     async fn prepare_recovery(
@@ -230,8 +242,11 @@ impl NativeNetwork {
         Ok(())
     }
 
-    async fn prepare_join(path: &Path, invitation: ManualInvitation) -> Result<(), NodeError> {
-        let key = SigningKey::generate();
+    async fn prepare_join(
+        path: &Path,
+        invitation: ManualInvitation,
+        key: &SigningKey,
+    ) -> Result<(), NodeError> {
         let binding = JoinBinding {
             invitation,
             request_id: rand::random(),
@@ -340,6 +355,21 @@ impl NativeNetwork {
 
     pub async fn open(path: impl AsRef<Path>) -> Result<Self, NodeError> {
         let path = path.as_ref();
+        if path.join("migration.invitation").exists() || path.join("migration.managed").exists() {
+            return Err(NodeError::MigrationManaged);
+        }
+        Self::open_migration_context(path).await
+    }
+
+    pub(crate) async fn join_migration(
+        path: &Path,
+        invitation: ManualInvitation,
+        key: &SigningKey,
+    ) -> Result<Self, NodeError> {
+        Self::initialize(path, Initialization::Migration(invitation, key)).await
+    }
+
+    pub(crate) async fn open_migration_context(path: &Path) -> Result<Self, NodeError> {
         let node_key = SigningKey::from_bytes(&read_array::<32>(&path.join(NODE_KEY))?);
         let anchor = SavedAnchor(read_array::<64>(&path.join(ANCHOR))?).decode()?;
         let join = if path.join(JOIN_BINDING).exists() {

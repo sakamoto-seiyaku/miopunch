@@ -61,6 +61,9 @@ pub struct ManagementStore {
 #[cfg(feature = "replica-test-hooks")]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RecordCheckpoint {
+    MigrationValidated,
+    MigrationSwitched,
+    MigrationSourceExitCommitted,
     RotationInitialMaterialSaved,
     RotationProposalSaved,
     RotationSecretReceived,

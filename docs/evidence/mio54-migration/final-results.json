@@ -1,0 +1,36 @@
+[
+  {
+    "check": "native-network",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--test",
+      "native_network"
+    ],
+    "exit": 0
+  },
+  {
+    "check": "check-native",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "--all-targets",
+      "--features",
+      "replica-test-hooks"
+    ],
+    "exit": 0
+  },
+  {
+    "check": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "exit": 0
+  }
+]

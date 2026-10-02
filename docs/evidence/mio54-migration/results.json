@@ -1,0 +1,121 @@
+[
+  {
+    "check": "first",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--features",
+      "replica-test-hooks",
+      "--test",
+      "network_migration",
+      "source_works_until_saved_target_member_data_then_switch_and_exit",
+      "--",
+      "--exact",
+      "--nocapture"
+    ],
+    "exit": 0
+  },
+  {
+    "check": "priority",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--features",
+      "replica-test-hooks",
+      "--test",
+      "network_migration",
+      "signaling_only_target_cannot_switch_and_formal_exit_cannot_roll_back",
+      "--",
+      "--exact",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exit": 0
+  },
+  {
+    "check": "remaining",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--features",
+      "replica-test-hooks",
+      "--test",
+      "network_migration",
+      "--",
+      "--nocapture",
+      "--skip",
+      "source_works_until_saved_target_member_data_then_switch_and_exit",
+      "--skip",
+      "signaling_only_target_cannot_switch_and_formal_exit_cannot_roll_back"
+    ],
+    "exit": 0
+  },
+  {
+    "check": "affected",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--features",
+      "replica-test-hooks",
+      "--test",
+      "native_network",
+      "--test",
+      "manual_admission",
+      "--test",
+      "admission_completion",
+      "--test",
+      "daily_management",
+      "--test",
+      "admission_gate",
+      "--test",
+      "offline_replica",
+      "--test",
+      "revocation",
+      "--test",
+      "precode",
+      "--",
+      "--nocapture"
+    ],
+    "exit": 0
+  },
+  {
+    "check": "check-native",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "--all-targets",
+      "--features",
+      "replica-test-hooks"
+    ],
+    "exit": 0
+  },
+  {
+    "check": "check-wasm",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "miopunch-browser-probe",
+      "--target",
+      "wasm32-unknown-unknown"
+    ],
+    "exit": 0
+  },
+  {
+    "check": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "exit": 0
+  }
+]
