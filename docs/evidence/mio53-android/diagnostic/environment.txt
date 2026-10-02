@@ -1,0 +1,4 @@
+Pixel 6a
+16
+36
+aarch64

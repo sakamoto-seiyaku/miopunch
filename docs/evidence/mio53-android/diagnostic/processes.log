@@ -1,0 +1,23 @@
+NETWORK 16670e15f79ce52d5bf962a4d2e3c90afe818453896cb3ccfb5754e102abf92a b7c578d6a05d8badbfcc4922c730256334e503dc142f43c7d4bd32fbaeac2149
+NODE 0d44f88580db2b51643e76236206f8a3d8bbdf43ed62689da572f76b8b253db7
+MEMBER 0d44f88580db2b51643e76236206f8a3d8bbdf43ed62689da572f76b8b253db7 admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"172.17.0.1:46563"},{"Ip":"172.18.0.1:46563"},{"Ip":"172.19.0.1:46563"},{"Ip":"192.168.4.5:46563"},{"Ip":"192.168.254.1:46563"}],"id":"0d44f88580db2b51643e76236206f8a3d8bbdf43ed62689da572f76b8b253db7"},"event":"ready","node":"0d44f88580db2b51643e76236206f8a3d8bbdf43ed62689da572f76b8b253db7"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK 16670e15f79ce52d5bf962a4d2e3c90afe818453896cb3ccfb5754e102abf92a b7c578d6a05d8badbfcc4922c730256334e503dc142f43c7d4bd32fbaeac2149
+NODE 3b386bfc4d39185964a94ed9ee95905e4764701c0282daacd6288a371459bf28
+RECORDS 0
+MIOPID 17670
+
+thread 'tokio-rt-worker' (17687) panicked at /home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ndk-context-0.1.1/src/lib.rs:72:30:
+android context was not initialized
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"192.168.4.151:44291"}],"id":"3b386bfc4d39185964a94ed9ee95905e4764701c0282daacd6288a371459bf28"},"event":"ready","node":"3b386bfc4d39185964a94ed9ee95905e4764701c0282daacd6288a371459bf28"}
+{"event":"admission","stage":"AwaitingApproval"}
+{"id":1,"ok":true,"result":{"stage":"AwaitingApproval"}}
+{"id":2,"ok":true,"result":{"requests":[{"applicant":"3b386bfc4d39185964a94ed9ee95905e4764701c0282daacd6288a371459bf28","request_id":"6b4823bc3f58920554c1ff8984f6902f"}]}}
+{"id":3,"ok":true,"result":{"stage":"Approved"}}
+[DEBUG-mio53] Node(Io(Os { code: 13, kind: PermissionDenied, message: "Permission denied" }))
+{"error":"storage_or_verification_failed","id":2,"ok":false}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"id":3,"ok":true,"result":{"stopped":true}}

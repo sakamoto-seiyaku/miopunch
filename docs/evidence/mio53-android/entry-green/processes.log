@@ -1,0 +1,10 @@
+NETWORK 701ad7ce48062297252c5b73df378e8cfd1a6f2a5961a6820df5531a08bde88b aada29c1a807a83801399c77e50a235062f4572f09597eecb2c3a1e6dc3fc8ab
+NODE 4bb61bbbe77ab09c1f93510f90788178b13de7e56feeedc2e1633acf76050776
+MEMBER 4bb61bbbe77ab09c1f93510f90788178b13de7e56feeedc2e1633acf76050776 admin
+RECORDS 1
+SAVED resources; effective on next endpoint start
+MIOPID 18119
+{"address":{"addrs":[{"Ip":"192.168.4.151:54052"}],"id":"4bb61bbbe77ab09c1f93510f90788178b13de7e56feeedc2e1633acf76050776"},"event":"ready","generation":"948c3fdb0acf98f01c2233005a65e656","node":"4bb61bbbe77ab09c1f93510f90788178b13de7e56feeedc2e1633acf76050776"}
+{"id":1,"ok":true,"result":{"cause":"no permitted member contact or discovery entry; waiting for a new hint or startup resource configuration","contact_attempts":0,"generation":"948c3fdb0acf98f01c2233005a65e656","last_sync":null,"neighbors":[],"node":"4bb61bbbe77ab09c1f93510f90788178b13de7e56feeedc2e1633acf76050776","records":1,"retry_after_ms":4999,"state":"TemporarilyUnreachable"}}
+{"id":2,"ok":true,"result":{"notified":true}}
+{"id":3,"ok":true,"result":{"stopped":true}}

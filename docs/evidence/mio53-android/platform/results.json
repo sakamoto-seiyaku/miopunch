@@ -1,0 +1,29 @@
+[
+  {
+    "case": "first-phone-create-join-daily-management-genesis",
+    "passed": true
+  },
+  {
+    "case": "sigkill-pending-materials-resources-and-complete-restart",
+    "passed": true
+  },
+  {
+    "case": "shared-maintenance-platform-entry",
+    "passed": true
+  },
+  {
+    "case": "explicit-suspend-os-stop-and-kill-maintenance-recovery",
+    "passed": true,
+    "old_connection": 140380066633200,
+    "new_connection": 140379999685344
+  },
+  {
+    "case": "physical-wifi-loss-reconnect-same-membership-new-connection",
+    "passed": true,
+    "wifi_restored": true
+  },
+  {
+    "case": "android-precode-persistent-count-pending-restart",
+    "passed": true
+  }
+]

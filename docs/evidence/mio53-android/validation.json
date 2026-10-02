@@ -1,0 +1,41 @@
+{
+  "android_build_exit": 0,
+  "linux_build_exit": 0,
+  "platform_exit": 0,
+  "platform_cases": [
+    {
+      "case": "first-phone-create-join-daily-management-genesis",
+      "passed": true
+    },
+    {
+      "case": "sigkill-pending-materials-resources-and-complete-restart",
+      "passed": true
+    },
+    {
+      "case": "shared-maintenance-platform-entry",
+      "passed": true
+    },
+    {
+      "case": "explicit-suspend-os-stop-and-kill-maintenance-recovery",
+      "passed": true,
+      "old_connection": 140380066633200,
+      "new_connection": 140379999685344
+    },
+    {
+      "case": "physical-wifi-loss-reconnect-same-membership-new-connection",
+      "passed": true,
+      "wifi_restored": true
+    },
+    {
+      "case": "android-precode-persistent-count-pending-restart",
+      "passed": true
+    }
+  ],
+  "affected_native_exit": 0,
+  "affected_native_passing_entries": 56,
+  "inert_crash_worker_entries": 3,
+  "all_target_check_exit": 0,
+  "wasm_check_exit": 0,
+  "format_exit": 0,
+  "skipped": "Already verified unchanged slow NAT and unaffected cross-platform/public-service matrices, per user policy."
+}

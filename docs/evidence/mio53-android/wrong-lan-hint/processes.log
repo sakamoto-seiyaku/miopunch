@@ -1,0 +1,16 @@
+NETWORK 60d533021122eb331ae15634e932aebd40985e0da24746ad25c2da97dd9a5dc0 4834521d817d4529b5d12558ee12cec428be1662914c5594e708f93b745ba7be
+NODE e55624c59a0fe89637adbcb29dd4869dedb22902333eaa7e0d5df7e929405908
+MEMBER e55624c59a0fe89637adbcb29dd4869dedb22902333eaa7e0d5df7e929405908 admin
+RECORDS 1
+SAVED resources; effective on next endpoint start
+{"address":{"addrs":[{"Ip":"172.17.0.1:45622"},{"Ip":"172.18.0.1:45622"},{"Ip":"172.19.0.1:45622"},{"Ip":"192.168.4.5:45622"},{"Ip":"192.168.254.1:45622"}],"id":"e55624c59a0fe89637adbcb29dd4869dedb22902333eaa7e0d5df7e929405908"},"event":"ready","node":"e55624c59a0fe89637adbcb29dd4869dedb22902333eaa7e0d5df7e929405908"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK 60d533021122eb331ae15634e932aebd40985e0da24746ad25c2da97dd9a5dc0 4834521d817d4529b5d12558ee12cec428be1662914c5594e708f93b745ba7be
+NODE 6ff409aef0ca551e66c7f4d818bccf67fd2d208b76907f904a9182c5e615a782
+RECORDS 0
+SAVED resources; effective on next endpoint start
+MIOPID 17792
+{"address":{"addrs":[{"Ip":"192.168.4.151:37497"}],"id":"6ff409aef0ca551e66c7f4d818bccf67fd2d208b76907f904a9182c5e615a782"},"event":"ready","node":"6ff409aef0ca551e66c7f4d818bccf67fd2d208b76907f904a9182c5e615a782"}
+{"error":"temporarily_unreachable","id":1,"ok":false}
+{"id":2,"ok":true,"result":{"stopped":true}}
+{"id":2,"ok":true,"result":{"stopped":true}}

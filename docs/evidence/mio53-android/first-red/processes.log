@@ -1,0 +1,55 @@
+NETWORK 7e7238a49152e6f476bac2f0d2665c9179a4d44bedaa1a47a2fd02163fa390f5 32e0a211810a980b2dd6bdd16650ea9f72fb6b6a5be4c8f34760f79e64e8b6e6
+NODE 5248a7100e06c1ca26305dcbd5327c855e73a685a89a2075f09d45a9a3fd1050
+MEMBER 5248a7100e06c1ca26305dcbd5327c855e73a685a89a2075f09d45a9a3fd1050 admin
+RECORDS 1
+MIOPID 17569
+
+thread 'tokio-rt-worker' (17579) panicked at /home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ndk-context-0.1.1/src/lib.rs:72:30:
+android context was not initialized
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"192.168.4.151:37322"}],"id":"5248a7100e06c1ca26305dcbd5327c855e73a685a89a2075f09d45a9a3fd1050"},"event":"ready","node":"5248a7100e06c1ca26305dcbd5327c855e73a685a89a2075f09d45a9a3fd1050"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK 7e7238a49152e6f476bac2f0d2665c9179a4d44bedaa1a47a2fd02163fa390f5 32e0a211810a980b2dd6bdd16650ea9f72fb6b6a5be4c8f34760f79e64e8b6e6
+NODE 377814d243e972ce814f94778b18b6b5097cd7c14ba147251a77b0d87687ec3f
+RECORDS 0
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"172.17.0.1:45227"},{"Ip":"172.18.0.1:45227"},{"Ip":"172.19.0.1:45227"},{"Ip":"192.168.4.5:45227"},{"Ip":"192.168.254.1:45227"}],"id":"377814d243e972ce814f94778b18b6b5097cd7c14ba147251a77b0d87687ec3f"},"event":"ready","node":"377814d243e972ce814f94778b18b6b5097cd7c14ba147251a77b0d87687ec3f"}
+{"event":"admission","stage":"AwaitingApproval"}
+{"id":1,"ok":true,"result":{"stage":"AwaitingApproval"}}
+{"id":2,"ok":true,"result":{"requests":[{"applicant":"377814d243e972ce814f94778b18b6b5097cd7c14ba147251a77b0d87687ec3f","request_id":"c767085ad6295c2ea7e0a3f15da5f6f5"}]}}
+{"id":3,"ok":true,"result":{"stage":"Approved"}}
+{"event":"admission","stage":"Complete"}
+{"id":2,"ok":true,"result":{"stage":"Complete"}}
+{"id":3,"ok":true,"result":{"reply":"PONG"}}
+78ec33e5920de67106652751e13196dde9643d553eb31b20e37fd1148e82fe11
+{"error":"elevation_required","id":4,"ok":false}
+{"id":5,"ok":true,"result":{"elevated":true,"seconds":60}}
+{"id":6,"ok":true,"result":{"record":"82acd4ac5390f4a17215706e966aebcaba185893e75b0a76eb0bde9ca9e7e2ed"}}
+{"id":4,"ok":true,"result":{"complete":true,"source":"5248a7100e06c1ca26305dcbd5327c855e73a685a89a2075f09d45a9a3fd1050"}}
+{"id":7,"ok":true,"result":{"record":"1d268207ddd23bb0db3a4d865dbfb7efdad7d6b07ee2e89e349124aa1529766c"}}
+{"id":8,"ok":true,"result":{"record":"cd15f6fbe3d3410e11aa93a57936ab38d442d6b67130e2bfb3a788565179d1f5"}}
+{"id":9,"ok":true,"result":{"elevated":false}}
+{"error":"elevation_required","id":10,"ok":false}
+{"id":5,"ok":true,"result":{"stopped":true}}
+{"id":11,"ok":true,"result":{"stopped":true}}
+NETWORK b1123384fa9ad3f7ea416eb172925c42eb9f4dedc566a517a504a3d0facb6b85 92465712c9db6e17d8924b660fda934c25caff558004c5784844e436eeadd361
+NODE fd6b6b36d0387429326611da8a3aa3c87b0d5619d9336f69b782b1b3f92d624e
+MEMBER fd6b6b36d0387429326611da8a3aa3c87b0d5619d9336f69b782b1b3f92d624e admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"172.17.0.1:44615"},{"Ip":"172.18.0.1:44615"},{"Ip":"172.19.0.1:44615"},{"Ip":"192.168.4.5:44615"},{"Ip":"192.168.254.1:44615"}],"id":"fd6b6b36d0387429326611da8a3aa3c87b0d5619d9336f69b782b1b3f92d624e"},"event":"ready","node":"fd6b6b36d0387429326611da8a3aa3c87b0d5619d9336f69b782b1b3f92d624e"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK b1123384fa9ad3f7ea416eb172925c42eb9f4dedc566a517a504a3d0facb6b85 92465712c9db6e17d8924b660fda934c25caff558004c5784844e436eeadd361
+NODE 46bea645dc2d3728d6ce9bdc501f5743a506eb0324ec700b173cf23f148fff50
+RECORDS 0
+MIOPID 17603
+
+thread 'tokio-rt-worker' (17614) panicked at /home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ndk-context-0.1.1/src/lib.rs:72:30:
+android context was not initialized
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"192.168.4.151:51909"}],"id":"46bea645dc2d3728d6ce9bdc501f5743a506eb0324ec700b173cf23f148fff50"},"event":"ready","node":"46bea645dc2d3728d6ce9bdc501f5743a506eb0324ec700b173cf23f148fff50"}
+{"event":"admission","stage":"AwaitingApproval"}
+{"id":1,"ok":true,"result":{"stage":"AwaitingApproval"}}
+{"id":2,"ok":true,"result":{"requests":[{"applicant":"46bea645dc2d3728d6ce9bdc501f5743a506eb0324ec700b173cf23f148fff50","request_id":"9454b48ca8ceea5c6627c8634fe40469"}]}}
+{"id":3,"ok":true,"result":{"stage":"Approved"}}
+{"error":"storage_or_verification_failed","id":2,"ok":false}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"id":3,"ok":true,"result":{"stopped":true}}

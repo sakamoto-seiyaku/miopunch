@@ -1,0 +1,33 @@
+NETWORK 56060a59b9f2ec7b05d4a56fece0ae9196356d039e10bde191c7acf59e1f0969 0a07b18548dc2aad74de1e8094abd1841e182b521b900a5f829e5b2b0cff58de
+NODE 776a8644e16c99dfc3361a74ce339880470970764f1eaa4776e4468ce928bedd
+MEMBER 776a8644e16c99dfc3361a74ce339880470970764f1eaa4776e4468ce928bedd admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"172.17.0.1:43675"},{"Ip":"172.18.0.1:43675"},{"Ip":"172.19.0.1:43675"},{"Ip":"192.168.4.5:43675"},{"Ip":"192.168.254.1:43675"}],"id":"776a8644e16c99dfc3361a74ce339880470970764f1eaa4776e4468ce928bedd"},"event":"ready","node":"776a8644e16c99dfc3361a74ce339880470970764f1eaa4776e4468ce928bedd"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK 56060a59b9f2ec7b05d4a56fece0ae9196356d039e10bde191c7acf59e1f0969 0a07b18548dc2aad74de1e8094abd1841e182b521b900a5f829e5b2b0cff58de
+NODE 82680a709529a54a9011fb0cfea2ba0691601f26e29b78a958f8fab092dcafe3
+RECORDS 0
+
+thread 'tokio-rt-worker' (17741) panicked at /home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ndk-context-0.1.1/src/lib.rs:72:30:
+android context was not initialized
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+MIOPID 17734
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"192.168.4.151:35390"}],"id":"82680a709529a54a9011fb0cfea2ba0691601f26e29b78a958f8fab092dcafe3"},"event":"ready","node":"82680a709529a54a9011fb0cfea2ba0691601f26e29b78a958f8fab092dcafe3"}
+{"event":"admission","stage":"AwaitingApproval"}
+{"id":1,"ok":true,"result":{"stage":"AwaitingApproval"}}
+{"id":2,"ok":true,"result":{"requests":[{"applicant":"82680a709529a54a9011fb0cfea2ba0691601f26e29b78a958f8fab092dcafe3","request_id":"24163fbe4fa0b49131271c2f52bb951d"}]}}
+{"id":3,"ok":true,"result":{"stage":"Approved"}}
+{"event":"admission","stage":"Complete"}
+{"id":2,"ok":true,"result":{"stage":"Complete"}}
+{"id":3,"ok":true,"result":{"reply":"PONG"}}
+25ea8db8c0aac9c340420ecf5e803d04aa76cd394506ef946aebe873d658fe16
+{"error":"elevation_required","id":4,"ok":false}
+{"id":5,"ok":true,"result":{"elevated":true,"seconds":60}}
+{"id":6,"ok":true,"result":{"record":"cd9b4556357609bd88c84b052973fdae51fab5ba0248782a17d01bdb2fdfed04"}}
+{"id":4,"ok":true,"result":{"complete":true,"source":"776a8644e16c99dfc3361a74ce339880470970764f1eaa4776e4468ce928bedd"}}
+{"id":5,"ok":true,"result":{"record":"1258843a43c6115fbd2624e422e89b2994700e37a79fb41a89f396177e52392a"}}
+{"id":6,"ok":true,"result":{"record":"57c99bb5ba4567b2722934197f238b6eb0fd133f238683245c1b74f9a0cae3b2"}}
+{"id":7,"ok":true,"result":{"elevated":false}}
+{"error":"elevation_required","id":8,"ok":false}
+{"id":7,"ok":true,"result":{"stopped":true}}
+{"id":9,"ok":true,"result":{"stopped":true}}

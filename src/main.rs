@@ -1,4 +1,5 @@
 mod desktop_cli;
+mod lifecycle_cli;
 
 use std::error::Error;
 use std::io::Write;
@@ -31,7 +32,7 @@ const PROBE_ALPN: &[u8] = b"miopunch/probe/1";
 const MQTT_CONTROL_ALPN: &[u8] = b"miopunch/control-probe/1";
 const PING: &[u8] = b"PING";
 const PONG: &[u8] = b"PONG";
-const USAGE: &str = "usage: miopunch-native-probe network create|status|resources DATA_DIR | network join DATA_DIR INVITATION_FILE | network backup|restore SOURCE_DIR TARGET_DIR | network session DATA_DIR [BIND_IPV4] | network resources-import|resources-update DATA_DIR JSON_FILE | network run DATA_DIR [BIND_IPV4] | identity DATA_DIR | serve raw|wrapped|tcp DATA_DIR [BIND_IPV4] | send raw|wrapped|tcp DATA_DIR TARGET_ID TARGET_ADDR [BIND_IPV4] | serve mqtt DATA_DIR BROKER_ADDR EXPECTED_PEER_ID | send mqtt DATA_DIR TARGET_ID TARGET_ROUTE BROKER_ADDR | cancel mqtt DATA_DIR BROKER_ADDR";
+const USAGE: &str = "usage: miopunch-native-probe network create|status|resources DATA_DIR | network join DATA_DIR INVITATION_FILE | network backup|restore SOURCE_DIR TARGET_DIR | network session|maintain DATA_DIR [BIND_IPV4] | network resources-import|resources-update DATA_DIR JSON_FILE | network run DATA_DIR [BIND_IPV4] | identity DATA_DIR | serve raw|wrapped|tcp DATA_DIR [BIND_IPV4] | send raw|wrapped|tcp DATA_DIR TARGET_ID TARGET_ADDR [BIND_IPV4] | serve mqtt DATA_DIR BROKER_ADDR EXPECTED_PEER_ID | send mqtt DATA_DIR TARGET_ID TARGET_ROUTE BROKER_ADDR | cancel mqtt DATA_DIR BROKER_ADDR";
 
 fn print_network_status(status: &NodeStatus) {
     println!("NETWORK {} {}", status.anchor.root, status.anchor.genesis);
@@ -433,6 +434,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
             if network == "network" && action == "session" =>
         {
             return desktop_cli::session(data_dir, optional_bind_ip(bind)?).await;
+        }
+        [_, network, action, data_dir, bind @ ..]
+            if network == "network" && action == "maintain" =>
+        {
+            return lifecycle_cli::run(data_dir, optional_bind_ip(bind)?).await;
         }
         [_, network, action, data_dir] if network == "network" && action == "create" => {
             let node = NativeNetwork::create(data_dir).await?;

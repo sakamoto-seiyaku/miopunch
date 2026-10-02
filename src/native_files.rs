@@ -19,7 +19,18 @@ pub(crate) fn sync_directory(_path: &Path) -> io::Result<()> {
 pub(crate) fn publish_file(source: &Path, target: &Path) -> io::Result<()> {
     #[cfg(windows)]
     return move_windows(source, target, false);
-    #[cfg(not(windows))]
+    // Android SELinux can deny hard links even in a writable shell directory.
+    // renameat2 preserves atomic, no-overwrite publication without link permission.
+    #[cfg(target_os = "android")]
+    return rustix::fs::renameat_with(
+        rustix::fs::CWD,
+        source,
+        rustix::fs::CWD,
+        target,
+        rustix::fs::RenameFlags::NOREPLACE,
+    )
+    .map_err(Into::into);
+    #[cfg(not(any(windows, target_os = "android")))]
     std::fs::hard_link(source, target)
 }
 

@@ -1,0 +1,92 @@
+   Compiling iroh-relay v1.2.0 (/home/js/Git/miopunch/vendor/iroh-relay)
+   Compiling iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+   Compiling iroh-mdns-address-lookup v0.5.0
+   Compiling p2panda-net v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-net)
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.39s
+     Running tests/admission_completion.rs (target/debug/deps/admission_completion-697d9862c569394e)
+
+running 20 tests
+test delivery_checkpoint_worker ... ok
+test process_exit_at_completion_sent ... ok
+test duplicate_save_ack_does_not_consume_twice_or_prove_recipient_persistence ... ok
+test new_contact_rejects_wrong_network_tls_contact_and_stale_delivery_handle ... ok
+test new_contact_after_removal_gets_new_authorization_and_old_result_stays_invalid ... ok
+test process_exit_at_authorization_verified ... ok
+test process_exit_at_authorization_saved ... ok
+test process_exit_at_authorization_prepared ... ok
+test process_exit_at_authorization_acknowledged ... ok
+test process_exit_at_delivery_complete ... ok
+test signed_old_response_cannot_restore_locally_verified_removal ... ok
+test process_exit_after_secret_send_resumes_original_code_once ... ok
+test process_exit_at_completion_acknowledged ... ok
+test process_exit_at_authorization_sent ... ok
+test process_exit_at_secret_file_published ... ok
+test process_exit_at_secret_prepared ... ok
+test replacing_applicant_cannot_complete_another_identity_delivery ... ok
+test process_exit_at_secret_received ... ok
+test unavailable_original_new_contact_consumes_new_code_reuses_verified_grant ... ok
+test process_exit_at_secret_saved ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.89s
+
+     Running tests/daily_management.rs (target/debug/deps/daily_management-8b335be4d4a4ac8b)
+
+running 6 tests
+test elevation_requires_independent_root_and_canonical_create_not_node_key_or_admission_secret ... ok
+test daily_management_and_elevated_appointment_are_verified_on_remote_node ... ok
+test expired_elevation_and_other_device_or_session_cannot_reuse_the_window ... ok
+test demotion_keeps_membership_and_separate_admin_removal_survives_offline_forwarding ... ok
+test directly_signed_daily_admin_privilege_records_fail_locally_on_wire_and_after_restart ... ok
+test concurrent_admin_demotion_corrects_member_removal_in_both_wire_orders_and_replay ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.49s
+
+     Running tests/manual_admission.rs (target/debug/deps/manual_admission-a67305ec4a74f523)
+
+running 14 tests
+test applicant_crash_after_authorization_worker ... ok
+test approval_commit_checkpoint_worker ... ok
+test another_invitation_holder_observes_ciphertext_but_cannot_take_an_approved_result ... ok
+test another_authenticated_request_for_an_existing_member_reuses_its_valid_grant ... ok
+test forged_claimed_applicant_cannot_enter_the_approval_queue ... ok
+test actual_tls_contact_must_match_the_invitation_pin ... ok
+test invitation_for_wrong_network_cannot_queue_a_request ... ok
+test authenticated_contact_cannot_make_a_corrupt_signature_durable_membership ... ok
+test original_result_is_rejected_after_removal_even_when_a_fresh_grant_readds_the_identity ... ok
+test approval_commit_interruption_is_recovered_before_a_live_nodes_next_request_decides_to_add ... ok
+test approval_commit_crash_is_recovered_before_another_same_identity_request_decides_to_add ... ok
+test manual_approval_saves_both_materials_and_permits_real_business ... ok
+test material_file_failure_retains_pending_state_and_can_retry_after_restart ... ok
+test crash_after_only_authorization_never_succeeds_and_same_request_resumes_once ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.25s
+
+     Running tests/native_network.rs (target/debug/deps/native_network-a9a260ee642c077f)
+
+running 5 tests
+test relative_data_directory_is_a_public_entry ... ok
+test invalid_record_cannot_create_a_valid_view ... ok
+test wrong_root_and_alternate_create_cannot_replace_pinned_network ... ok
+test create_and_restart_through_public_node_entry ... ok
+test new_credential_is_new_network_and_secrets_are_not_status ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+
+     Running tests/native_probe.rs (target/debug/deps/native_probe-e0b7029a08950b65)
+
+running 11 tests
+test invalid_mode_does_not_create_an_identity ... ok
+test oversized_tcp_frame_is_rejected_before_allocating_its_body ... ok
+test two_native_identities_exchange_a_message_over_framed_tcp ... ok
+test truncated_tcp_frame_closes_without_reporting_echo_success ... ok
+test sudden_tcp_disconnect_does_not_stop_future_connections ... ok
+test restarting_a_node_keeps_its_identity ... ok
+test two_native_identities_exchange_a_message_over_udp ... ok
+test p2panda_endpoint_reaches_iroh_lookup_without_an_address_book_entry ... ok
+test wrapped_probe_accepts_a_wildcard_bind_for_a_lan_peer ... ok
+test wrong_target_identity_fails_even_at_a_reachable_udp_address ... ok
+test wrong_target_identity_fails_on_reachable_tcp_carrier ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.97s
+

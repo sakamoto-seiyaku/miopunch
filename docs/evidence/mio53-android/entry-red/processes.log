@@ -1,0 +1,7 @@
+NETWORK e497a23b221f04ca997fb75280057e7f465698df4455432bf9d98b04b0d4b869 80ad315c6bfb00793d661b84b3d2a1ca2cee50f234060eced3d94f9c5a893bb8
+NODE df8e255344a5fdf48f04c1614aed82bfffc7829b8aa4cab37134aae7432f848d
+MEMBER df8e255344a5fdf48f04c1614aed82bfffc7829b8aa4cab37134aae7432f848d admin
+RECORDS 1
+SAVED resources; effective on next endpoint start
+Error: "usage: miopunch-native-probe network create|status|resources DATA_DIR | network join DATA_DIR INVITATION_FILE | network backup|restore SOURCE_DIR TARGET_DIR | network session DATA_DIR [BIND_IPV4] | network resources-import|resources-update DATA_DIR JSON_FILE | network run DATA_DIR [BIND_IPV4] | identity DATA_DIR | serve raw|wrapped|tcp DATA_DIR [BIND_IPV4] | send raw|wrapped|tcp DATA_DIR TARGET_ID TARGET_ADDR [BIND_IPV4] | serve mqtt DATA_DIR BROKER_ADDR EXPECTED_PEER_ID | send mqtt DATA_DIR TARGET_ID TARGET_ROUTE BROKER_ADDR | cancel mqtt DATA_DIR BROKER_ADDR"
+MIOPID 18050
