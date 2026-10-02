@@ -136,24 +136,14 @@ impl ResourceConfig {
             .take(4)
             .collect()
     }
-    /// Approved MQTT origins retain their own independently qualified routes.
+    /// Approved message origins retain independently qualified routes.
     pub(crate) fn mqtt_resources(&self) -> Vec<iroh::RelayUrl> {
-        let mut origins = BTreeMap::new();
-        for resource in self
-            .replacement
-            .as_ref()
-            .unwrap_or(&self.defaults.resources)
-        {
-            let Ok(url) = resource.url.parse::<iroh::RelayUrl>() else {
-                continue;
-            };
-            if url.scheme() == "mqtt" && self.allows(&resource.url, ResourceUse::Signaling) {
-                origins.insert(resource_origin(&resource.url).unwrap(), url);
-            }
-        }
-        origins.into_values().collect()
+        self.signaling_resources("mqtt")
     }
     pub(crate) fn irc_resources(&self) -> Vec<iroh::RelayUrl> {
+        self.signaling_resources("irc")
+    }
+    fn signaling_resources(&self, scheme: &str) -> Vec<iroh::RelayUrl> {
         let mut origins = BTreeMap::new();
         for resource in self
             .replacement
@@ -163,7 +153,7 @@ impl ResourceConfig {
             let Ok(url) = resource.url.parse::<iroh::RelayUrl>() else {
                 continue;
             };
-            if url.scheme() == "irc" && self.allows(&resource.url, ResourceUse::Signaling) {
+            if url.scheme() == scheme && self.allows(&resource.url, ResourceUse::Signaling) {
                 origins.insert(resource_origin(&resource.url).unwrap(), url);
             }
         }

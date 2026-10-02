@@ -180,6 +180,13 @@ struct Shared {
     service: Service,
     outbound: Mutex<mpsc::Sender<Outbound>>,
 }
+struct DriverBinding {
+    route: Route,
+    service: Service,
+    addresses: Watchable<Vec<CustomAddr>>,
+    status: watch::Sender<Status>,
+    traffic: Arc<Traffic>,
+}
 #[derive(Debug)]
 struct IrcEndpoint {
     shared: Arc<Shared>,
@@ -226,29 +233,21 @@ impl CustomTransport for IrcTransport {
             outbound: Mutex::new(outbound),
         });
         let addresses = Watchable::new(Vec::new());
-        let task_addresses = addresses.clone();
-        let task_status = status.clone();
         let resource = self.resource.clone();
-        let service = self.service;
-        let traffic = self.traffic.clone();
+        let binding = DriverBinding {
+            route,
+            service: self.service,
+            addresses: addresses.clone(),
+            status: status.clone(),
+            traffic: self.traffic.clone(),
+        };
         let driver = tokio::spawn(async move {
-            if let Err(error) = drive(
-                resource,
-                route,
-                service,
-                task_addresses.clone(),
-                queue,
-                incoming,
-                task_status.clone(),
-                traffic.clone(),
-            )
-            .await
-            {
+            if let Err(error) = drive(resource, &binding, queue, incoming).await {
                 eprintln!("IRC_CLOSE error={error}");
             }
-            task_addresses.set(Vec::new()).ok();
-            task_status.send_replace(Status::Closed);
-            traffic.pending.store(0, Ordering::Relaxed);
+            binding.addresses.set(Vec::new()).ok();
+            binding.status.send_replace(Status::Closed);
+            binding.traffic.pending.store(0, Ordering::Relaxed);
         });
         Ok(Box::new(IrcEndpoint {
             shared,
@@ -391,13 +390,9 @@ impl Reassembly {
 
 async fn drive(
     resource: iroh::RelayUrl,
-    route: Route,
-    service: Service,
-    addresses: Watchable<Vec<CustomAddr>>,
+    binding: &DriverBinding,
     queue: mpsc::Receiver<Outbound>,
     incoming: tokio::sync::mpsc::Sender<Packet>,
-    status: watch::Sender<Status>,
-    traffic: Arc<Traffic>,
 ) -> io::Result<()> {
     let host = resource
         .host_str()
@@ -418,18 +413,8 @@ async fn drive(
     let (control, commands) = tokio::sync::mpsc::channel(8);
     // Futures stay in this driver: cancellation drops both halves immediately.
     // Receiving a partial IRC line never competes with an outbound frame read.
-    let reader = read_loop(
-        &mut lines,
-        &nick,
-        route,
-        service,
-        addresses,
-        status.clone(),
-        control,
-        incoming,
-        traffic.clone(),
-    );
-    let writer = write_loop(write, route, queue, commands, status, traffic);
+    let reader = read_loop(&mut lines, &nick, binding, control, incoming);
+    let writer = write_loop(write, binding, queue, commands);
     tokio::select! {result=reader=>result,result=writer=>result}
 }
 async fn write_line(write: &mut tokio::net::tcp::OwnedWriteHalf, line: &str) -> io::Result<()> {
@@ -445,13 +430,12 @@ async fn write_line(write: &mut tokio::net::tcp::OwnedWriteHalf, line: &str) -> 
 }
 async fn write_loop(
     mut write: tokio::net::tcp::OwnedWriteHalf,
-    route: Route,
+    binding: &DriverBinding,
     mut queue: mpsc::Receiver<Outbound>,
     mut commands: tokio::sync::mpsc::Receiver<String>,
-    status: watch::Sender<Status>,
-    traffic: Arc<Traffic>,
 ) -> io::Result<()> {
-    let mut ready = status.subscribe();
+    let mut ready = binding.status.subscribe();
+    let traffic = &binding.traffic;
     loop {
         tokio::select! {
             command=commands.recv()=>{let Some(command)=command else{return Ok(())};write_line(&mut write,&command).await?;}
@@ -459,7 +443,7 @@ async fn write_loop(
             item=queue.next(),if *ready.borrow()==Status::Ready=>{
                 let Some(item)=item else{return Ok(())};
                 if item.queued.elapsed()>QUEUE_TTL {traffic.rejected.fetch_add(1,Ordering::Relaxed);continue;}
-                for part in fragments(item.target,route,&item.bytes) {
+                for part in fragments(item.target,binding.route,&item.bytes) {
                     write_line(&mut write,&format!("PRIVMSG {CHANNEL} :{part}\r\n")).await?;
                     traffic.fragments.fetch_add(1,Ordering::Relaxed);
                     tokio::time::sleep(LINE_INTERVAL).await;
@@ -472,14 +456,15 @@ async fn write_loop(
 async fn read_loop(
     lines: &mut FramedRead<BufReader<tokio::net::tcp::OwnedReadHalf>, LinesCodec>,
     nick: &str,
-    route: Route,
-    service: Service,
-    addresses: Watchable<Vec<CustomAddr>>,
-    status: watch::Sender<Status>,
+    binding: &DriverBinding,
     control: tokio::sync::mpsc::Sender<String>,
     incoming: tokio::sync::mpsc::Sender<Packet>,
-    traffic: Arc<Traffic>,
 ) -> io::Result<()> {
+    let route = binding.route;
+    let service = binding.service;
+    let addresses = &binding.addresses;
+    let status = &binding.status;
+    let traffic = &binding.traffic;
     let started = Instant::now();
     let mut registered = false;
     let mut capability = false;

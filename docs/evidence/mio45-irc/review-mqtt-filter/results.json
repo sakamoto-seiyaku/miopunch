@@ -1,0 +1,35 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "mqtt_bootstrap",
+        "configured_startup",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 4.435,
+      "log": "tests.log"
+    }
+  ],
+  "passed": true,
+  "brokers": [
+    "127.0.0.1:43312",
+    "127.0.0.1:43313"
+  ],
+  "cleanup": [
+    {
+      "owned_container": "miopunch42-short-1790923657511547869",
+      "exit": 0
+    },
+    {
+      "owned_container": "miopunch42-short-1790923658597762182",
+      "exit": 0
+    }
+  ]
+}

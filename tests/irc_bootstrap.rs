@@ -202,25 +202,7 @@ async fn incomplete_public_envelopes_have_bounded_reassembly_and_expire() {
     use n0_watcher::Watcher;
     let address = addresses.get().pop().unwrap();
     let target = hex::encode(&address.data()[16..]);
-    let stream = tokio::net::TcpStream::connect(&server).await.unwrap();
-    let (read, mut write) = stream.into_split();
-    let mut lines = BufReader::new(read).lines();
-    let nick = format!("test{}", rand::random::<u32>());
-    write
-        .write_all(format!("NICK {nick}\r\nUSER test 0 * :test\r\n").as_bytes())
-        .await
-        .unwrap();
-    while let Some(line) = lines.next_line().await.unwrap() {
-        if line.contains(" 001 ") {
-            write
-                .write_all(format!("JOIN {CHANNEL}\r\n").as_bytes())
-                .await
-                .unwrap();
-        }
-        if line.contains(" 366 ") {
-            break;
-        }
-    }
+    let (mut write, _lines) = registered_irc_client(&server, "test").await;
     for id in 0..80u64 {
         write
             .write_all(
@@ -314,6 +296,44 @@ async fn echo(client: &Connection, server: &Connection) {
     );
 }
 
+async fn registered_irc_client(
+    server: &str,
+    prefix: &str,
+) -> (
+    tokio::net::tcp::OwnedWriteHalf,
+    tokio::io::Lines<BufReader<tokio::net::tcp::OwnedReadHalf>>,
+) {
+    use miopunch_native_probe::irc_transport::CHANNEL;
+    tokio::time::timeout(Duration::from_secs(8), async {
+        let stream = tokio::net::TcpStream::connect(server).await.unwrap();
+        let (read, mut write) = stream.into_split();
+        let mut lines = BufReader::new(read).lines();
+        let nick = format!("{prefix}{}", rand::random::<u32>());
+        write
+            .write_all(format!("NICK {nick}\r\nUSER test 0 * :test\r\n").as_bytes())
+            .await
+            .unwrap();
+        loop {
+            let line = lines
+                .next_line()
+                .await
+                .unwrap()
+                .expect("owned IRCd must complete registration");
+            if line.contains(" 001 ") {
+                write
+                    .write_all(format!("JOIN {CHANNEL}\r\n").as_bytes())
+                    .await
+                    .unwrap();
+            }
+            if line.contains(" 366 ") {
+                return (write, lines);
+            }
+        }
+    })
+    .await
+    .expect("owned IRCd registration and channel join are bounded")
+}
+
 struct Observer {
     count: Arc<AtomicU64>,
     packets: Arc<Mutex<Vec<String>>>,
@@ -327,28 +347,8 @@ impl Drop for Observer {
 }
 impl Observer {
     async fn new() -> Self {
-        use miopunch_native_probe::irc_transport::CHANNEL;
-        let stream = tokio::net::TcpStream::connect(std::env::var("MIOPUNCH_IRC_SERVER").unwrap())
-            .await
-            .unwrap();
-        let (read, mut write) = stream.into_split();
-        let mut lines = BufReader::new(read).lines();
-        let nick = format!("observe{}", rand::random::<u32>());
-        write
-            .write_all(format!("NICK {nick}\r\nUSER test 0 * :test\r\n").as_bytes())
-            .await
-            .unwrap();
-        while let Some(line) = lines.next_line().await.unwrap() {
-            if line.contains(" 001 ") {
-                write
-                    .write_all(format!("JOIN {CHANNEL}\r\n").as_bytes())
-                    .await
-                    .unwrap();
-            }
-            if line.contains(" 366 ") {
-                break;
-            }
-        }
+        let (write, mut lines) =
+            registered_irc_client(&std::env::var("MIOPUNCH_IRC_SERVER").unwrap(), "observe").await;
         let count = Arc::new(AtomicU64::new(0));
         let packets = Arc::new(Mutex::new(Vec::new()));
         let (c, p) = (count.clone(), packets.clone());

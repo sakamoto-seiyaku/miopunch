@@ -1,0 +1,29 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.64s
+     Running tests/irc_bootstrap.rs (target/debug/deps/irc_bootstrap-19f6fd2d4a90d470)
+
+running 1 test
+test real_irc_replaces_mqtt_at_the_same_native_connection_entry ... IRC_BOOTSTRAP_START stable_id=123832363581552 peer=2e8c8108ecf7a1316d646be9df520495adca314acbce284812981f26f379b4aa
+IRC_BOOTSTRAP_START stable_id=123832363932272 peer=cedffb42a4634a1c667904b663fa9b14b3ed73599fcef417b048546fc36131f8
+NAT_DIRECT_CANDIDATE stable_id=123832363932272 target=127.0.0.1:47103
+NAT_DIRECT_SUCCESS stable_id=123832363581552 target=127.0.0.1:46105 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=123832363581552 peer=2e8c8108ecf7a1316d646be9df520495adca314acbce284812981f26f379b4aa paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:46105)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=123832363932272 target=127.0.0.1:47103 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=123832363932272 peer=cedffb42a4634a1c667904b663fa9b14b3ed73599fcef417b048546fc36131f8 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:47103)], selected: Some(PathId(1)), closed: false }, .. }
+IRC_FIRST_PASS stable_id=123832363932272 same_connection=true real_member=true udp_data=true
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 2.47s
+

@@ -1,0 +1,46 @@
+{
+  "checks": [
+    {
+      "name": "all-current-hooks",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks"
+      ],
+      "exit": 0,
+      "seconds": 3.195,
+      "log": "all-current-hooks.log"
+    },
+    {
+      "name": "default-native",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "miopunch-native-probe",
+        "--all-targets"
+      ],
+      "exit": 0,
+      "seconds": 2.208,
+      "log": "default-native.log"
+    },
+    {
+      "name": "format",
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit": 0,
+      "seconds": 0.587,
+      "log": "format.log"
+    }
+  ],
+  "passed": true
+}

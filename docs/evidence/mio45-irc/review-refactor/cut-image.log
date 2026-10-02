@@ -1,0 +1,33 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from irc_lab.Dockerfile
+#1 transferring dockerfile: 283B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/miopunch-nat61-lab:bookworm
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [stage-1 1/3] FROM docker.io/library/miopunch-nat61-lab:bookworm
+#5 DONE 0.0s
+
+#6 [ircd 1/1] FROM docker.io/ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7
+#6 DONE 0.0s
+
+#7 [stage-1 2/3] COPY --from=ircd /ircd-bin /ircd-bin
+#7 CACHED
+
+#8 [stage-1 3/3] COPY --from=ircd /lib/ld-musl-x86_64.so.1 /lib/ld-musl-x86_64.so.1
+#8 CACHED
+
+#9 exporting to image
+#9 exporting layers done
+#9 writing image sha256:57b44b56b51c1df7777f7b4f493cfc212b334132d52a6c8cb320d2be0551efba done
+#9 naming to docker.io/library/miopunch45-irc-lab:ergo270 done
+#9 DONE 0.0s

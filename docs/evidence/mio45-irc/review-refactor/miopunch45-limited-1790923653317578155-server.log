@@ -1,0 +1,15 @@
+2026-10-02T06:47:33.654Z : info  : server     : ergo-2.7.0-9851d2e9bcbb02ae starting
+2026-10-02T06:47:33.654Z : info  : server     : Using config file : ircd.yaml
+2026-10-02T06:47:33.654Z : info  : server     : Using datastore : ircd.db
+2026-10-02T06:47:33.654Z : warn  : server     : database does not exist, creating it : ircd.db
+2026-10-02T06:47:33.662Z : info  : server     : Proxied IPs will be accepted from : localhost
+2026-10-02T06:47:33.683Z : info  : listeners  : now listening on :6667, tls=false, proxy=false, tor=false, websocket=false.
+2026-10-02T06:47:33.683Z : warn  : listeners  : Warning: your server is configured with public plaintext listener :6667. Consider disabling it for improved security and privacy.
+2026-10-02T06:47:33.684Z : info  : server     : Server running
+2026-10-02T06:47:33.720Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:47:33.721Z : info  : connect-ip : disconnecting session of * from 172.17.0.1
+2026-10-02T06:48:19.923Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:48:19.924Z : info  : connect    : Client connected [mio404d844a40fd45b6] [u:~u] [r:miopunch]
+2026-10-02T06:48:20.005Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:48:20.014Z : info  : connect    : Client connected [mio7798067d4369a990] [u:~u] [r:miopunch]
+2026-10-02T06:48:27.018Z : info  : connect-ip : disconnecting session of mio7798067d4369a990 from 172.17.0.1
