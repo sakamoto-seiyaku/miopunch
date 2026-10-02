@@ -2714,6 +2714,46 @@ impl Connection {
         Ok(())
     }
 
+    /// Queue a data-space PING and capture the first not-yet-sent packet number.
+    /// Callers must keep this watermark bound to this exact connection and path.
+    pub fn start_path_probe(&mut self, path: PathId) -> Result<u64, ClosedPath> {
+        if !self.state.is_established()
+            || !self.paths.contains_key(&path)
+            || self.abandoned_paths.contains(&path)
+        {
+            return Err(ClosedPath { _private: () });
+        }
+        let space = self.spaces[SpaceId::Data]
+            .number_spaces
+            .get_mut(&path)
+            .ok_or(ClosedPath { _private: () })?;
+        let watermark = space.next_packet_number;
+        space.pending_ping = true;
+        Ok(watermark)
+    }
+
+    /// Whether this path has acknowledged a packet sent after the probe began.
+    /// Existing authenticated ACK processing validates packet numbers per path.
+    pub fn path_probe_acknowledged(
+        &self,
+        path: PathId,
+        watermark: u64,
+    ) -> Result<bool, ClosedPath> {
+        if !self.state.is_established()
+            || !self.paths.contains_key(&path)
+            || self.abandoned_paths.contains(&path)
+        {
+            return Err(ClosedPath { _private: () });
+        }
+        let space = self.spaces[SpaceId::Data]
+            .number_spaces
+            .get(&path)
+            .ok_or(ClosedPath { _private: () })?;
+        Ok(space
+            .largest_acked_packet_pn
+            .is_some_and(|pn| pn >= watermark))
+    }
+
     /// Update traffic keys spontaneously
     ///
     /// This can be useful for testing key updates, as they otherwise only happen infrequently.

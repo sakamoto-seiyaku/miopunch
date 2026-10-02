@@ -1276,3 +1276,167 @@ async fn control_paths_recover_when_the_original_accepting_side_initiates() {
     );
     pair.close().await;
 }
+
+// This boundary fixture cuts the real TCP listener/circuits while preserving
+// the endpoint's advertised address, as happens during an unchanged-IP outage.
+#[derive(Debug)]
+struct CuttableTcp {
+    inner: miopunch_native_probe::tcp_transport::TcpTransport,
+    shutdown: std::sync::Mutex<
+        Option<std::sync::Arc<dyn iroh::endpoint::transports::CustomEndpointShutdown>>,
+    >,
+}
+impl iroh::endpoint::transports::CustomTransport for CuttableTcp {
+    fn bind(&self) -> std::io::Result<Box<dyn iroh::endpoint::transports::CustomEndpoint>> {
+        let endpoint = self.inner.bind()?;
+        *self.shutdown.lock().unwrap() = endpoint.shutdown_handler();
+        Ok(endpoint)
+    }
+}
+
+#[tokio::test]
+async fn control_paths_do_not_report_stale_same_address_as_recovered() {
+    use miopunch_native_probe::{
+        connection_recovery::{CONNECTION_RECOVERY_ALPN, ConnectionPathRecoveryError},
+        mqtt_transport::TRANSPORT_ID,
+        resources::{Resource, ResourceUse},
+        tcp_transport::{TcpTransport, Traffic},
+    };
+    let broker = std::env::var("MIOPUNCH_MQTT_BROKER").expect("owned MQTT broker required");
+    let mut pair = Pair::new(false).await;
+    pair.reconfigure(vec![Resource {
+        url: format!("mqtt://{broker}"),
+        uses: std::collections::BTreeSet::from([ResourceUse::Signaling]),
+        limitation: "owned broker for unchanged-address outage".into(),
+    }])
+    .await;
+    let mut config = pair.admin.resource_configuration().unwrap();
+    config.tcp_listen = None;
+    pair.admin.save_resource_configuration(&config).unwrap();
+    let carrier = std::sync::Arc::new(CuttableTcp {
+        inner: TcpTransport::new(Ipv4Addr::LOCALHOST, std::sync::Arc::new(Traffic::default())),
+        shutdown: std::sync::Mutex::new(None),
+    });
+    let new_server = pair
+        .admin
+        .bind_configured_endpoint_with(
+            iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .clear_ip_transports()
+                .bind_addr((Ipv4Addr::LOCALHOST, 0))
+                .unwrap()
+                .add_custom_transport(carrier.clone()),
+        )
+        .await
+        .unwrap();
+    std::mem::replace(&mut pair.server, new_server)
+        .close()
+        .await;
+    pair.server
+        .endpoint()
+        .set_alpns(vec![BUSINESS.to_vec(), CONNECTION_RECOVERY_ALPN.to_vec()]);
+    let route = pair
+        .server
+        .endpoint()
+        .custom_addrs()
+        .into_iter()
+        .find(|a| a.id() == TRANSPORT_ID)
+        .unwrap();
+    let contact =
+        EndpointAddr::new(pair.server.endpoint().id()).with_addrs([TransportAddr::Custom(route)]);
+    let (client, server) = pair.business().await;
+    let old = client.stable_id();
+    let original_address = client.paths().iter().next().unwrap().remote_addr().clone();
+    let (mut send, _) = client.open_bi().await.unwrap();
+    send.write_all(b"before outage").await.unwrap();
+    let (_, mut receive) = server.accept_bi().await.unwrap();
+    let mut before = [0; 13];
+    receive.read_exact(&mut before).await.unwrap();
+    // First confirm that a living unchanged path really can be acknowledged.
+    let serve = async {
+        let control = pair
+            .server
+            .endpoint()
+            .accept()
+            .await
+            .unwrap()
+            .await
+            .unwrap();
+        pair.admin
+            .serve_connection_path_recovery(&pair.server, &control)
+            .await
+    };
+    let (result, served) = tokio::join!(
+        pair.joining
+            .recover_connection_path(&pair.client, &client, contact.clone()),
+        serve
+    );
+    assert_eq!(result.unwrap().path, original_address);
+    served.unwrap();
+    chunk(&mut send, &mut receive, b"fresh unchanged path").await;
+    let shutdown = carrier.shutdown.lock().unwrap().clone().unwrap();
+    shutdown.close().await;
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while tokio::net::TcpStream::connect(carrier.inner.bound_addr().unwrap())
+            .await
+            .is_ok()
+        {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("real listener stopped");
+    assert!(client.close_reason().is_none());
+    assert!(
+        client
+            .paths()
+            .iter()
+            .any(|p| p.remote_addr() == &original_address)
+    );
+    assert!(
+        pair.server.addr().addrs.contains(&original_address),
+        "unchanged peer offer"
+    );
+    let serve = async {
+        let control = pair
+            .server
+            .endpoint()
+            .accept()
+            .await
+            .unwrap()
+            .await
+            .unwrap();
+        assert!(
+            matches!(control.paths().iter().next().unwrap().remote_addr(), TransportAddr::Custom(a) if a.id() == TRANSPORT_ID)
+        );
+        pair.admin
+            .serve_connection_path_recovery(&pair.server, &control)
+            .await
+    };
+    let (result, served) = tokio::join!(
+        pair.joining
+            .recover_connection_path(&pair.client, &client, contact.clone()),
+        serve
+    );
+    eprintln!("MIO47_SAME_ADDRESS result={result:?} served={served:?} control_contacted=true");
+    assert!(
+        matches!(result, Err(ConnectionPathRecoveryError::Retryable { stable_id, .. }) if stable_id == old),
+        "stale listed path must not prove delivery"
+    );
+    assert!(client.close_reason().is_none());
+    send.write_all(b"queued during outage").await.unwrap();
+    let reason = tokio::time::timeout(Duration::from_secs(16), client.closed())
+        .await
+        .expect("actual original lifetime expires");
+    let result = pair
+        .joining
+        .recover_connection_path(&pair.client, &client, contact)
+        .await;
+    assert!(
+        matches!(result, Err(ConnectionPathRecoveryError::Terminal { stable_id }) if stable_id == old)
+    );
+    assert!(receive.read_exact(&mut [0; 1]).await.is_err());
+    eprintln!(
+        "MIO47_SAME_ADDRESS_FINAL original={old} close={reason:?} retryable_then_terminal=true false_success=false"
+    );
+    pair.close().await;
+}

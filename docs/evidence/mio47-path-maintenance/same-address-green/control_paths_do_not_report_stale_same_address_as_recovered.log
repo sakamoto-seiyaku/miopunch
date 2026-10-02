@@ -1,0 +1,58 @@
+
+running 1 test
+test control_paths_do_not_report_stale_same_address_as_recovered ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10172 received_packets=26 received_bytes=10439 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=26 sent_bytes=10439 received_packets=28 received_bytes=10172 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:45128 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:45128 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:45128 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:45128 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:45128 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:45128 result=Connection refused (os error 111)
+MIO47_SAME_ADDRESS result=Err(Retryable { stable_id: 134034856452336, cause: "bounded path repair timed out" }) served=Ok(()) control_contacted=true
+TCP_CLOSE peer=127.0.0.1:45128 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:45128 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:45128 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:45128 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:45128 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:45128 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:45128 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:45128 result=Connection refused (os error 111)
+MIO47_SAME_ADDRESS_FINAL original=134034856452336 close=LocallyClosed retryable_then_terminal=true false_success=false
+TCP_TRAFFIC sent_packets=31 sent_bytes=10296 received_packets=24 received_bytes=9015 closed=1 failed=27 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=24 sent_bytes=9015 received_packets=31 received_bytes=10296 closed=0 failed=0 cancelled=14 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 12.60s
+

@@ -59,7 +59,8 @@ Connection. `Endpoint::open_data_transport_path` accepts an explicit UDP, native
 relay or qualified custom data candidate on an ordinary admitted connection.
 It does not grant carrier permission and does not reopen a closed Connection.
 The native bounded coordinator retries only noq's actual path-ID-unavailable result;
-public path observation, not the open request alone, establishes usability.
+fresh authenticated acknowledgment on the original data path, not the open
+request or a retained path snapshot alone, establishes usability.
 The previous test-only custom-path hook delegates to this same production gate.
 
 ## A new carrier while the original business connection still lives
@@ -98,8 +99,14 @@ The attempt has a three-second bound and races the original connection's actual
 close future. Its owned control handle closes on completion, failure or
 cancellation. The serving handler keeps the proved exchange alive until that
 close, also within its own bound, avoiding loss of an unacknowledged offer.
+Each offered path receives one fresh QUIC PING with a packet-number watermark
+captured under the original connection lock. Success requires the original
+path's authenticated ACK processing to acknowledge a packet at or above that
+watermark. Old ACKs, retained unavailable paths, signaling replies and abandoned
+paths cannot satisfy this check. The probe uses existing QUIC packet/ACK logic,
+adds no wire format and never extends actual connection lifetime.
 A successful result names the unchanged original stable ID and a real validated
-path. As upstream documents, `stable_id` is local and stable for a handle's
+path with this fresh confirmation. As upstream documents, `stable_id` is local and stable for a handle's
 lifetime, not a persistent globally unique session name. The TLS binding refers
 to the actual original session rather than treating that numeric ID as a wire
 credential. A failure reports `Retryable` only while that original still lives;
@@ -122,6 +129,7 @@ of the exact same stream and exact received content:
 | Faster relay with `PreferDirect` | Explicit direct preference wins |
 | Disabled relay with `PreferRelay` and an explicit path request | No origin access and no relay path |
 | No prebuilt backup; original TCP proxy physically removed; new MQTT/SCRAM exchange coordinates a new TCP carrier, initiated separately by each original endpoint role | New carrier on the living original business Connection |
+| Same advertised TCP address, real listener/circuit outage, live MQTT control | Healthy unchanged path first confirms; outage stays Retryable, then actual close becomes Terminal |
 | Unknown original TLS binding on a proved control connection | No offer; the real business Connection remains usable |
 | Original business Connection terminated while control remains alive | Terminal repair result; only a distinct later Connection |
 | Only business carrier physically removed with 65,536 queued bytes, separate control still live | Original stream fails within actual lifetime; no signal fallback |

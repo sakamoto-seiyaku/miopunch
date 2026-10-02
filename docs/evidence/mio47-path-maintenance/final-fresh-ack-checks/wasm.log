@@ -1,0 +1,6 @@
+   Compiling noq v1.3.0 (/home/js/Git/miopunch/vendor/noq)
+    Checking noq-proto v1.3.0 (/home/js/Git/miopunch/vendor/noq-proto)
+   Compiling iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+    Checking iroh-relay v1.2.0
+    Checking miopunch-browser-probe v0.1.0 (/home/js/Git/miopunch/browser-probe)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.39s

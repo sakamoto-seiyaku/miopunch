@@ -25,6 +25,7 @@ CASES = [
     "control_paths_stay_live_while_physical_business_loss_ends_queued_bytes",
     "control_paths_reject_an_unknown_original_tls_binding_without_changing_business",
     "control_paths_recover_when_the_original_accepting_side_initiates",
+    "control_paths_do_not_report_stale_same_address_as_recovered",
 ]
 FEATURES = "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks"
 
@@ -131,7 +132,7 @@ def main():
                 ("all-targets", ["cargo", "check", "--locked", "--workspace", "--all-targets", "--features", FEATURES]),
                 ("wasm", ["cargo", "check", "--locked", "-p", "miopunch-browser-probe", "--target", "wasm32-unknown-unknown"]),
                 ("format", ["cargo", "fmt", "--check"]),
-                ("fork-format", ["rustfmt", "--check", "--edition", "2024", "--config", "skip_children=true", "vendor/iroh/src/endpoint.rs", "vendor/iroh/src/socket.rs", "vendor/iroh/src/socket/remote_map/remote_state.rs"]),
+                ("fork-format", ["rustfmt", "--check", "--edition", "2024", "--config", "skip_children=true", "vendor/iroh/src/endpoint.rs", "vendor/iroh/src/socket.rs", "vendor/iroh/src/socket/remote_map/remote_state.rs", "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs", "vendor/noq/src/lib.rs", "vendor/noq/src/path.rs", "vendor/noq-proto/src/connection/mod.rs", "vendor/noq-proto/src/tests/multipath.rs"]),
             ]
             if args.start_at:
                 checks = checks[next(index for index, (name, _) in enumerate(checks) if name == args.start_at):]

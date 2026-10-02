@@ -1,0 +1,52 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running unittests src/lib.rs (vendor/noq-proto/target/debug/deps/noq_proto-462b178ee2b7790a)
+
+running 45 tests
+test tests::multipath::abandon_cycle ... ok
+test tests::multipath::abandon_path_data_continues ... ok
+test tests::multipath::cid_issued_multipath ... ok
+test tests::multipath::close_last_path ... ok
+test tests::multipath::close_path ... ok
+test tests::multipath::fresh_path_probe_rejects_old_acks_and_closed_paths ... ok
+test tests::multipath::issue_max_path_id ... ok
+test tests::multipath::issue_max_path_id_reordered ... ok
+test tests::multipath::mtud_on_two_paths ... ok
+test tests::multipath::multipath_cid_rotation ... ok
+test tests::multipath::nat_traversal_revalidates_existing_path ... ok
+test tests::multipath::network_change_multipath_no_hint_replaces_path ... ok
+test tests::multipath::network_change_selective_hint ... ok
+test tests::multipath::network_change_server_no_hint_recovers ... ok
+test tests::multipath::network_change_server_single_path_non_recoverable_falls_back ... ok
+test tests::multipath::network_change_server_two_paths_selective_hint ... ok
+test tests::multipath::new_identifiers_after_abandon_does_not_panic ... ok
+test tests::multipath::no_establish_after_abandon ... ok
+test tests::multipath::non_zero_length_cids ... ok
+test tests::multipath::open_path ... ok
+test tests::multipath::open_path_ensure_after_abandon ... ok
+test tests::multipath::open_path_key_update ... ok
+test tests::multipath::open_path_validation_fails_client_side ... ok
+test tests::multipath::open_path_validation_fails_server_side ... ok
+test tests::multipath::path_acks ... ok
+test tests::multipath::path_close_last_path ... ok
+test tests::multipath::path_open_challenge_lost ... ok
+test tests::multipath::path_open_deadline_is_set_on_send ... ok
+test tests::multipath::path_recovers_after_silent_gap_via_keepalive ... ok
+test tests::multipath::path_scheduling_path_status ... ok
+test tests::multipath::path_status ... ok
+test tests::multipath::paths_blocked_retransmission ... ok
+test tests::multipath::per_path_observed_address ... ok
+test tests::multipath::regression_delayed_path_cids_blocked ... ok
+test tests::multipath::regression_discarded_path_stats_are_up_to_date ... ok
+test tests::multipath::remote_can_close_last_validated_path ... ok
+test tests::multipath::remote_path_abandon_last_path_client_opens_new ... ok
+test tests::multipath::remote_path_abandon_last_path_closes_connection ... ok
+test tests::multipath::remote_path_abandon_with_remaining_path ... ok
+test tests::multipath::server_abandon_last_verified_path ... ok
+test tests::multipath::test_hard_nat_client_opens_path ... ok
+test tests::multipath::test_hard_nat_server_opens_path ... ok
+test tests::multipath::test_peer_may_probe ... ok
+test tests::multipath::test_simple_nat_traveral_opens_path ... ok
+test tests::multipath::test_simple_nat_traversal_challenge_with_response ... ok
+
+test result: ok. 45 passed; 0 failed; 0 ignored; 0 measured; 383 filtered out; finished in 0.38s
+

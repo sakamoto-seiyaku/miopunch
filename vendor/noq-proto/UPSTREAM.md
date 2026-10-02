@@ -18,3 +18,11 @@ network paths. The network-change hint can retain an application binding token
 for recovery after the caller validates its underlying real interface. These
 accessors support the physical-socket ownership gate and final descriptor
 release; they do not change QUIC packet encoding.
+
+MIOPUNCH-47 adds fresh data-path acknowledgment probes. The protocol helper
+atomically captures the next data-space packet number and queues an ordinary
+PING, then reads the existing largest authenticated per-path ACK watermark.
+Closed connections and abandoned paths are rejected. The async wrapper owns
+the original Path and opaque watermark, preventing callers from accidentally
+checking another connection or path. No QUIC frame encoding, ACK processing,
+congestion control or lifetime algorithm changes.

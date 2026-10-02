@@ -233,3 +233,7 @@ boundary. These are local API/actor changes, not new QUIC wire encoding or
 congestion implementations. The root's separate protected same-session repair
 coordinator and qualified matrix are recorded in
 `docs/notes/2026-10-02-connection-path-maintenance.md`.
+
+MIOPUNCH-47 review correction adds `Path::start_probe`, delegating to the
+original noq Path's fresh authenticated data-packet acknowledgment probe.
+Native recovery cannot report success from a stale address snapshot alone.

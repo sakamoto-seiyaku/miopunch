@@ -1,0 +1,43 @@
+{
+  "checks": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--manifest-path",
+        "vendor/noq-proto/Cargo.toml",
+        "--locked",
+        "--offline",
+        "--lib",
+        "tests::multipath::fresh_path_probe_rejects_old_acks_and_closed_paths",
+        "--",
+        "--exact"
+      ],
+      "exit": 0,
+      "seconds": 3.972,
+      "log": "fresh-ack-watermark.log"
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--manifest-path",
+        "vendor/noq-proto/Cargo.toml",
+        "--locked",
+        "--offline",
+        "--lib",
+        "tests::multipath::",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 0.512,
+      "log": "affected-multipath.log"
+    }
+  ],
+  "passed": true
+}

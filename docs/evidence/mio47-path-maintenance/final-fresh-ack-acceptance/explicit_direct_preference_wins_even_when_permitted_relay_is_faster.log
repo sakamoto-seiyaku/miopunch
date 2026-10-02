@@ -1,0 +1,15 @@
+
+running 1 test
+test explicit_direct_preference_wins_even_when_permitted_relay_is_faster ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10144 received_packets=26 received_bytes=10456 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=26 sent_bytes=10456 received_packets=27 received_bytes=10144 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_PREFERENCE direct_rtt=212.557685ms relay_rtt=95.877709ms selected=TCP stable_ids=(139634084912384, 139634084500432)
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=47 sent_bytes=10886 received_packets=45 received_bytes=9717 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=45 sent_bytes=9717 received_packets=47 received_bytes=10886 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 4.65s
+

@@ -182,15 +182,30 @@ impl NativeNetwork {
                 }
             }
         }
+        // A path snapshot may retain an unavailable carrier until QUIC expires.
+        // Start one fresh probe per qualified path; only new authenticated ACKs
+        // on that original path can establish recovery, including reused addresses.
+        let mut probes = Vec::new();
         loop {
             self.check_repair_membership(original, control)?;
-            if let Some(path) = original
+            for path in original
                 .paths()
                 .iter()
-                .find(|path| paths.contains(path.remote_addr()))
-                .map(|path| path.remote_addr().clone())
+                .filter(|path| paths.contains(path.remote_addr()))
             {
-                return Ok(path);
+                if probes.iter().any(|(id, _, _)| *id == path.id()) {
+                    continue;
+                }
+                if let Ok(probe) = path.start_probe() {
+                    probes.push((path.id(), path.remote_addr().clone(), probe));
+                }
+            }
+            if let Some((_, address, _)) = probes
+                .iter()
+                .find(|(_, _, probe)| matches!(probe.is_acknowledged(), Ok(true)))
+            {
+                self.check_repair_membership(original, control)?;
+                return Ok(address.clone());
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
         }

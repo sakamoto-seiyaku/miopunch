@@ -492,6 +492,14 @@ impl<'conn> Path<'conn> {
             .map_err(std::io::Error::other)
     }
 
+    /// Queue fresh QUIC traffic and retain its acknowledgment watermark on this path.
+    pub fn start_probe(&self) -> std::io::Result<noq::PathProbe> {
+        self.data
+            .upgrade(self.conn)
+            .start_probe()
+            .map_err(std::io::Error::other)
+    }
+
     /// Returns `true` if this path is currently selected for application data transmission.
     pub fn is_selected(&self) -> bool {
         self.is_selected

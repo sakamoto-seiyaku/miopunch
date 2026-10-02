@@ -2293,3 +2293,68 @@ fn regression_discarded_path_stats_are_up_to_date() -> TestResult {
 
     Ok(())
 }
+
+#[test]
+fn fresh_path_probe_rejects_old_acks_and_closed_paths() -> TestResult {
+    let _guard = subscribe();
+    let mut pair = ConnPair::builder().enable_multipath().connect();
+    pair.drive();
+    let path = PathId::ZERO;
+    let probe = pair.conn_mut(Client).start_path_probe(path)?;
+    assert!(!pair.conn(Client).path_probe_acknowledged(path, probe)?);
+    pair.drive();
+    assert!(pair.conn(Client).path_probe_acknowledged(path, probe)?);
+
+    // A later attempt must not reuse the preceding attempt's acknowledgment.
+    let next_probe = pair.conn_mut(Client).start_path_probe(path)?;
+    assert!(next_probe > probe);
+    assert!(
+        !pair
+            .conn(Client)
+            .path_probe_acknowledged(path, next_probe)?
+    );
+    pair.drive();
+    assert!(
+        pair.conn(Client)
+            .path_probe_acknowledged(path, next_probe)?
+    );
+
+    let server_addr = pair.routes.public_server_addr();
+    let other = pair.open_path(
+        Client,
+        FourTuple::from_remote(server_addr),
+        PathStatus::Available,
+    )?;
+    pair.drive();
+    let other_probe = pair.conn_mut(Client).start_path_probe(other)?;
+    assert!(
+        !pair
+            .conn(Client)
+            .path_probe_acknowledged(other, other_probe)?
+    );
+    assert!(
+        pair.conn(Client)
+            .path_probe_acknowledged(path, next_probe)?
+    );
+    pair.drive();
+    assert!(
+        pair.conn(Client)
+            .path_probe_acknowledged(other, other_probe)?
+    );
+    pair.close_path(Client, other, 0u8.into())?;
+    // Abandonment rejects evidence immediately, before path-drain expiry.
+    assert!(
+        pair.conn(Client)
+            .path_probe_acknowledged(other, other_probe)
+            .is_err()
+    );
+    assert!(pair.conn_mut(Client).start_path_probe(other).is_err());
+    pair.close(Client, 0, b"probe connection ended");
+    assert!(
+        pair.conn(Client)
+            .path_probe_acknowledged(path, next_probe)
+            .is_err()
+    );
+    assert!(pair.conn_mut(Client).start_path_probe(path).is_err());
+    Ok(())
+}

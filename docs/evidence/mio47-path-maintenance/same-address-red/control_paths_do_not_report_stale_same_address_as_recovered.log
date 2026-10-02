@@ -1,0 +1,31 @@
+
+running 1 test
+test control_paths_do_not_report_stale_same_address_as_recovered ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=26 received_bytes=10437 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=26 sent_bytes=10437 received_packets=27 received_bytes=10140 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:44504 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:44504 result=Connection refused (os error 111)
+MIO47_SAME_ADDRESS result=Ok(ConnectionPathRecovery { stable_id: 139081712320752, path: Custom(CustomAddr { id: 120299608892272, data: [7f000001add8] }) }) served=Ok(()) control_contacted=true
+
+thread 'control_paths_do_not_report_stale_same_address_as_recovered' (2212845) panicked at tests/path_maintenance.rs:1361:5:
+stale listed path must not prove delivery
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=30 sent_bytes=11434 received_packets=20 received_bytes=8881 closed=1 failed=4 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=20 sent_bytes=8881 received_packets=30 received_bytes=11434 closed=0 failed=0 cancelled=3 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+FAILED
+
+failures:
+
+failures:
+    control_paths_do_not_report_stale_same_address_as_recovered
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 13 filtered out; finished in 2.47s
+

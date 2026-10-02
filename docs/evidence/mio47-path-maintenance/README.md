@@ -11,8 +11,22 @@ Named acceptance must exist and exactly one test must execute.
 
 ## Final runtime and affected checks
 
+- [final-fresh-ack-acceptance/results.json](final-fresh-ack-acceptance/results.json)
+  is the authoritative final fourteen-case matrix after independent review,
+  including the unchanged-address physical outage and fresh original-path ACK.
+  It retains healthy same-address success, Retryable during actual loss and
+  Terminal after the original lifetime ends.
+- [fresh-ack-protocol-checks/results.json](fresh-ack-protocol-checks/results.json)
+  records the packet-number watermark regression and 45 affected vendored
+  multipath tests. [fresh-ack-immediate-close-check/run.log](fresh-ack-immediate-close-check/run.log)
+  adds immediate abandoned-path and closed-Connection rejection before drain.
+- [final-fresh-ack-checks/results.json](final-fresh-ack-checks/results.json)
+  records the final library, all-targets, WASM and extended root/fork formatting
+  checks. The earlier affected short matrix below remains applicable: the
+  additive probe reads existing authenticated ACK state and queues an ordinary
+  PING; packet encoding, ACK processing and the NAT algorithm are unchanged.
 - [final-roles-acceptance/results.json](final-roles-acceptance/results.json)
-  is the authoritative final thirteen-case ordered matrix, including both
+  preserves the earlier thirteen-case ordered matrix, including both
   original endpoint roles in protected no-backup recovery. Tests use real
   independent identities/SQLite, TLS/SCRAM, streams and physical socket faults.
 - [final-suite/results.json](final-suite/results.json) retains the first full
@@ -49,6 +63,7 @@ all-history SHA audits or additional root gates were used.
 | Reevaluate real RTT change without replacing either living path | [quality-controlled-red](quality-controlled-red/results.json) kept slower route despite better actual RTT | [quality-green](quality-green/results.json) selected faster path with unchanged path IDs |
 | Protected control beside business quality selection | [isolation-red](isolation-red/results.json) diverted explicit TCP business attempt into another MQTT control route | [isolation-compile-corrected](isolation-compile-corrected/results.json) independently selected qualified business paths, signal path rejected |
 | Keep repair control alive while original business path validates | [control-recovery-green](control-recovery-green/results.json) actual early-close/read failure | [control-recovery-owned-lifetime](control-recovery-owned-lifetime/results.json) physical TCP cut repaired on same stream/IDs |
+| Retained same-address path during actual TCP outage | [same-address-red](same-address-red/results.json) falsely reported recovery from the stale list entry | [same-address-green](same-address-green/results.json) requires fresh original-path ACK, then Retryable/Terminal |
 | Initiate repair from original accepting side | [accepting-side-red](accepting-side-red/results.json) real timeout because only noq dialing side can open paths | [accepting-side-green](accepting-side-green/results.json) delegated to original dialing peer on same stream/IDs |
 
 Each final acceptance rechecks the resulting behavior on the final runtime.
@@ -89,7 +104,7 @@ retains the old stream failure and distinct retained/new handle IDs.
 
 Intermediate standalone directories additionally retain actual preference,
 UDP/relay, native-relay/TCP, disabled-origin, physical termination, unknown
-binding and surviving-control results. The final matrix is authoritative rather
+binding and surviving-control results. The final fourteen-case matrix is authoritative rather
 than combining those older runs into a fictional single run.
 
 ## Environment and cleanup

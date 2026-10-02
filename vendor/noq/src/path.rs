@@ -277,10 +277,40 @@ impl Path {
         state.inner.network_path(self.id())
     }
 
+    /// Start a fresh acknowledgment probe on this original QUIC path.
+    /// Existing packet acknowledgments cannot satisfy the captured watermark.
+    pub fn start_probe(&self) -> Result<PathProbe, ClosedPath> {
+        let mut state = self.conn.lock_and_wake("start path probe");
+        let watermark = state.inner.start_path_probe(self.id())?;
+        Ok(PathProbe {
+            path: self.clone(),
+            watermark,
+        })
+    }
+
     /// Ping the remote endpoint over this path.
     pub fn ping(&self) -> Result<(), ClosedPath> {
         let mut state = self.conn.lock_and_wake("ping");
         state.inner.ping_path(self.id())
+    }
+}
+
+/// Fresh authenticated traffic confirmation bound to one connection and path.
+/// Polling does not retransmit or extend QUIC's actual connection lifetime.
+#[derive(Debug)]
+pub struct PathProbe {
+    path: Path,
+    watermark: u64,
+}
+
+impl PathProbe {
+    /// Returns true only after a data packet sent since creation was acknowledged.
+    pub fn is_acknowledged(&self) -> Result<bool, ClosedPath> {
+        self.path
+            .conn
+            .lock_without_waking("path probe acknowledgment")
+            .inner
+            .path_probe_acknowledged(self.path.id(), self.watermark)
     }
 }
 

@@ -1,0 +1,66 @@
+{
+  "checks": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "path_maintenance",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 6.49,
+      "log": "build.log",
+      "reported_passed": 0
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-7d60672da188bcec",
+        "control_paths_do_not_report_stale_same_address_as_recovered",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 101,
+      "seconds": 2.486,
+      "log": "control_paths_do_not_report_stale_same_address_as_recovered.log",
+      "reported_passed": 0
+    }
+  ],
+  "passed": false,
+  "brokers": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        "miopunch47-maintenance-1790937933938950779",
+        "--publish",
+        "127.0.0.1::1883",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/scripts/mosquitto-test.conf,target=/mosquitto/config/mosquitto.conf,readonly",
+        "eclipse-mosquitto:2"
+      ],
+      "owned": "miopunch47-maintenance-1790937933938950779",
+      "address": "127.0.0.1:43368"
+    }
+  ],
+  "error": "control_paths_do_not_report_stale_same_address_as_recovered exited 101",
+  "cleanup": [
+    {
+      "owned": "miopunch47-maintenance-1790937933938950779",
+      "exit": 0
+    }
+  ]
+}
