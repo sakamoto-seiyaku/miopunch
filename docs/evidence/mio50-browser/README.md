@@ -39,5 +39,5 @@ the other independent applicants have separate browser contexts and identities.
 
 Independent Standards and Spec reviews are recorded separately in
 `standards-review.md`, `spec-review.md`, and their `code-review.md` aggregation
-when available. Architecture suggestions without a confirmed bug remain parked
+(completed against the implementation commit). Architecture suggestions without a confirmed bug remain parked
 under the user's latest instruction.
