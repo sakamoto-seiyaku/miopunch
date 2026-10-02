@@ -82,6 +82,8 @@ pub(crate) struct MappedAddrs {
     pub(super) relay_addrs: AddrMap<(RelayUrl, EndpointId), RelayMappedAddr>,
     /// The mapping between custom transport addresses and their [`CustomMappedAddr`]s.
     pub(super) custom_addrs: AddrMap<CustomAddr, CustomMappedAddr>,
+    /// None only for synthetic path contexts; real sockets supply their senders.
+    pub(super) custom_route_senders: Option<Vec<Arc<dyn transports::custom::CustomSender>>>,
 }
 
 impl MappedAddrs {

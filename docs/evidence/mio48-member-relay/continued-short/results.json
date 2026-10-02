@@ -1,0 +1,125 @@
+{
+  "checks": [
+    {
+      "name": "start-irc-usable",
+      "argv": [
+        "rtk",
+        "proxy",
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        "miopunch48-irc-usable-1790941035979340751",
+        "--publish",
+        "127.0.0.1::6667",
+        "--entrypoint",
+        "/ircd-bin/ergo",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/tests/fixtures/irc/ergo.yaml,dst=/ircd/ircd.yaml,readonly",
+        "ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7",
+        "run"
+      ],
+      "exit": 0,
+      "seconds": 0.362,
+      "reported_passed": 0,
+      "log": "start-irc-usable.log"
+    },
+    {
+      "name": "start-irc-limited",
+      "argv": [
+        "rtk",
+        "proxy",
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        "miopunch48-irc-limited-1790941036380861163",
+        "--publish",
+        "127.0.0.1::6667",
+        "--entrypoint",
+        "/ircd-bin/ergo",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio48-member-relay/continued-short/limited-irc.yaml,dst=/ircd/ircd.yaml,readonly",
+        "ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7",
+        "run"
+      ],
+      "exit": 0,
+      "seconds": 0.378,
+      "reported_passed": 0,
+      "log": "start-irc-limited.log"
+    },
+    {
+      "name": "irc",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "irc_bootstrap",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 45.206,
+      "reported_passed": 10,
+      "log": "irc.log"
+    },
+    {
+      "name": "default-build",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--test",
+        "member_relay"
+      ],
+      "exit": 0,
+      "seconds": 9.212,
+      "reported_passed": 0,
+      "log": "default-build.log"
+    },
+    {
+      "name": "fork-format",
+      "argv": [
+        "rtk",
+        "proxy",
+        "rustfmt",
+        "--check",
+        "--edition",
+        "2024",
+        "--config",
+        "skip_children=true",
+        "vendor/iroh/src/socket.rs",
+        "vendor/iroh/src/socket/transports.rs",
+        "vendor/iroh/src/socket/remote_map.rs",
+        "vendor/iroh/src/socket/remote_map/remote_state.rs"
+      ],
+      "exit": 0,
+      "seconds": 0.108,
+      "reported_passed": 0,
+      "log": "fork-format.log"
+    }
+  ],
+  "passed": true,
+  "environment": "native Linux IPv4 loopback; independent persisted nodes; real signed membership/TLS/QUIC; TCP outer links; controlled UDP backup",
+  "skipped": "Previously validated unchanged slow NAT matrices, per standing user instruction",
+  "irc_servers": [
+    "127.0.0.1:43375",
+    "127.0.0.1:43376"
+  ],
+  "cleanup": [
+    {
+      "owned": "miopunch48-irc-usable-1790941035979340751",
+      "exit": 0
+    },
+    {
+      "owned": "miopunch48-irc-limited-1790941036380861163",
+      "exit": 0
+    }
+  ]
+}

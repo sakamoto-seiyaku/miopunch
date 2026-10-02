@@ -1980,6 +1980,7 @@ impl EndpointInner {
                 path_selector,
                 span.clone(),
             );
+            map.mapped_addrs.custom_route_senders = Some(transports.custom_route_senders());
             #[cfg(not(wasm_browser))]
             {
                 map.mapped_addrs.udp_socket_pool = transports.create_sender().socket_pool();

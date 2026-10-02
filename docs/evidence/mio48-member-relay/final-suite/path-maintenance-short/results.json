@@ -1,0 +1,528 @@
+{
+  "checks": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "path_maintenance",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 18.409,
+      "log": "build.log",
+      "reported_passed": 0
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-7d60672da188bcec",
+        "first_same_stream_survives_validated_tcp_to_udp_switch",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 1.43,
+      "log": "first_same_stream_survives_validated_tcp_to_udp_switch.log",
+      "reported_passed": 1
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-7d60672da188bcec",
+        "priority_closed_connection_fails_old_stream_and_reports_new_identity",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 1.971,
+      "log": "priority_closed_connection_fails_old_stream_and_reports_new_identity.log",
+      "reported_passed": 1
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-7d60672da188bcec",
+        "living_paths_are_reevaluated_when_real_latency_changes",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 3.636,
+      "log": "living_paths_are_reevaluated_when_real_latency_changes.log",
+      "reported_passed": 1
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-7d60672da188bcec",
+        "restricted_control_paths_do_not_displace_business_quality_selection",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 3.858,
+      "log": "restricted_control_paths_do_not_displace_business_quality_selection.log",
+      "reported_passed": 1
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-7d60672da188bcec",
+        "quality_selects_better_native_relay_and_keeps_tcp_as_existing_backup",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 2.702,
+      "log": "quality_selects_better_native_relay_and_keeps_tcp_as_existing_backup.log",
+      "reported_passed": 1
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-7d60672da188bcec",
+        "control_paths_recover_a_new_tcp_carrier_within_the_original_connection_window",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 7.742,
+      "log": "control_paths_recover_a_new_tcp_carrier_within_the_original_connection_window.log",
+      "reported_passed": 1
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-7d60672da188bcec",
+        "explicit_relay_preference_switches_the_same_udp_stream_and_retains_udp_backup",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 1.616,
+      "log": "explicit_relay_preference_switches_the_same_udp_stream_and_retains_udp_backup.log",
+      "reported_passed": 1
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-7d60672da188bcec",
+        "explicit_direct_preference_wins_even_when_permitted_relay_is_faster",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 4.467,
+      "log": "explicit_direct_preference_wins_even_when_permitted_relay_is_faster.log",
+      "reported_passed": 1
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-7d60672da188bcec",
+        "disabled_relay_is_never_opened_or_selected_even_with_explicit_relay_preference",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 3.072,
+      "log": "disabled_relay_is_never_opened_or_selected_even_with_explicit_relay_preference.log",
+      "reported_passed": 1
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-7d60672da188bcec",
+        "control_paths_never_recover_a_closed_business_connection",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 2.464,
+      "log": "control_paths_never_recover_a_closed_business_connection.log",
+      "reported_passed": 1
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-7d60672da188bcec",
+        "control_paths_stay_live_while_physical_business_loss_ends_queued_bytes",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 12.336,
+      "log": "control_paths_stay_live_while_physical_business_loss_ends_queued_bytes.log",
+      "reported_passed": 1
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-7d60672da188bcec",
+        "control_paths_reject_an_unknown_original_tls_binding_without_changing_business",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 1.986,
+      "log": "control_paths_reject_an_unknown_original_tls_binding_without_changing_business.log",
+      "reported_passed": 1
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-7d60672da188bcec",
+        "control_paths_recover_when_the_original_accepting_side_initiates",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 5.488,
+      "log": "control_paths_recover_when_the_original_accepting_side_initiates.log",
+      "reported_passed": 1
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-7d60672da188bcec",
+        "control_paths_do_not_report_stale_same_address_as_recovered",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 12.326,
+      "log": "control_paths_do_not_report_stale_same_address_as_recovered.log",
+      "reported_passed": 1
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "resources",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 50.206,
+      "log": "resources.log",
+      "reported_passed": 26
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "native_network",
+        "--test",
+        "admission_gate",
+        "--test",
+        "admission_proof",
+        "--test",
+        "revocation",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 49.318,
+      "log": "native-gates-proofs.log",
+      "reported_passed": 38
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "mqtt_probe",
+        "--test",
+        "mqtt_upgrade",
+        "--test",
+        "unknown_member_bootstrap",
+        "--test",
+        "mqtt_bootstrap",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 46.829,
+      "log": "mqtt-carrier-and-purpose.log",
+      "reported_passed": 19
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "manual_admission",
+        "--test",
+        "offline_replica",
+        "--test",
+        "network_recovery",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 203.626,
+      "log": "node-state.log",
+      "reported_passed": 38
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "tcp_direct",
+        "--test",
+        "member_forward",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 81.395,
+      "log": "tcp-member-forwarding.log",
+      "reported_passed": 20
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "legacy_multi_socket",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 31.79,
+      "log": "physical-bindings.log",
+      "reported_passed": 12
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "legacy_nat_runtime",
+        "formal_",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 15.168,
+      "log": "formal-node-budget.log",
+      "reported_passed": 6
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--lib",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 12.275,
+      "log": "library.log",
+      "reported_passed": 25
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks"
+      ],
+      "exit": 0,
+      "seconds": 14.426,
+      "log": "all-targets.log",
+      "reported_passed": 0
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "exit": 0,
+      "seconds": 2.66,
+      "log": "wasm.log",
+      "reported_passed": 0
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "exit": 0,
+      "seconds": 0.659,
+      "log": "format.log",
+      "reported_passed": 0
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "rustfmt",
+        "--check",
+        "--edition",
+        "2024",
+        "--config",
+        "skip_children=true",
+        "vendor/iroh/src/endpoint.rs",
+        "vendor/iroh/src/socket.rs",
+        "vendor/iroh/src/socket/remote_map/remote_state.rs",
+        "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs",
+        "vendor/noq/src/lib.rs",
+        "vendor/noq/src/path.rs",
+        "vendor/noq-proto/src/connection/mod.rs",
+        "vendor/noq-proto/src/tests/multipath.rs"
+      ],
+      "exit": 0,
+      "seconds": 0.195,
+      "log": "fork-format.log",
+      "reported_passed": 0
+    }
+  ],
+  "passed": true,
+  "brokers": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        "miopunch47-maintenance-1790940371115056966",
+        "--publish",
+        "127.0.0.1::1883",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/scripts/mosquitto-test.conf,target=/mosquitto/config/mosquitto.conf,readonly",
+        "eclipse-mosquitto:2"
+      ],
+      "owned": "miopunch47-maintenance-1790940371115056966",
+      "address": "127.0.0.1:43373"
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        "miopunch47-maintenance-1790940371985736804",
+        "--publish",
+        "127.0.0.1::1883",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/scripts/mosquitto-test.conf,target=/mosquitto/config/mosquitto.conf,readonly",
+        "eclipse-mosquitto:2"
+      ],
+      "owned": "miopunch47-maintenance-1790940371985736804",
+      "address": "127.0.0.1:43374"
+    }
+  ],
+  "cleanup": [
+    {
+      "owned": "miopunch47-maintenance-1790940371115056966",
+      "exit": 0
+    },
+    {
+      "owned": "miopunch47-maintenance-1790940371985736804",
+      "exit": 0
+    }
+  ]
+}

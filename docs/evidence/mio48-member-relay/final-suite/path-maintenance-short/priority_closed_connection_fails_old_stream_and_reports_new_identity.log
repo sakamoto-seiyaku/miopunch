@@ -1,0 +1,15 @@
+
+running 1 test
+test priority_closed_connection_fails_old_stream_and_reports_new_identity ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10178 received_packets=27 received_bytes=10490 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10490 received_packets=28 received_bytes=10178 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_PRIORITY old=(133855407635616, 133855407662320) new=(133855408226272, 133855407681392) old_stream_failed=true close=LocallyClosed
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=59 sent_bytes=20579 received_packets=52 received_bytes=19858 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=52 sent_bytes=19858 received_packets=59 received_bytes=20579 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 1.95s
+

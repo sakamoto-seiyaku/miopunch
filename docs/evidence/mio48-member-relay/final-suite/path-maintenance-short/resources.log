@@ -1,0 +1,69 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.24s
+     Running tests/resources.rs (target/debug/deps/resources-5c0015658c0a2210)
+
+running 26 tests
+test a_disabled_signaling_broker_cannot_be_opened_by_a_custom_carrier ... MIO38_SIGNALING disabled=true endpoint_bind_rejected=true actual_broker_tcp_connections=0
+ok
+test a_known_actor_route_cannot_replace_an_allowed_candidate_with_a_forbidden_relay ... MIO38_ACTOR_ROUTE warm_real_tls=true forbidden_before=12137 forbidden_after=12137 denied_checks=10 candidate_checks=7 candidate_http=1
+ok
+test all_allowed_entries_fail_with_bounded_backoff_and_import_restart_recovery ... MIO38_UNREACHABLE actual_failed_entries=[4, 4] retry_after=1s repeat_backed_off=true trusted_import_restarted=true real_authenticated_contact_recovered=true forbidden_http=0
+ok
+test allowed_lookup_cannot_redirect_access_to_a_disabled_facility ... MIO38_LOOKUP redirect_allowed_requests=["GET /pkarr/rfm1d51ddz61omubf3jiby5ycxt6j6n5hetfmuczomxhris8ukfy HTTP/1.1"] redirect_forbidden_requests=[]
+ok
+test allowed_signed_pkarr_lookup_reaches_real_admission_with_data_relay_disabled ... MIO38_LOOKUP allowed_signed_pkarr=true data_relay_disabled=true id_only_tls=true actual_admission=AwaitingApproval actual_http_requests=["PUT /pkarr/f3b61rq5im83zajathai8tcpbxeabsa6adxi7ba993ccma3e4s3o HTTP/1.1", "GET /pkarr/f3b61rq5im83zajathai8tcpbxeabsa6adxi7ba993ccma3e4s3o HTTP/1.1"]
+ok
+test an_update_signed_by_an_untrusted_publisher_cannot_change_configuration ... ok
+test cli_import_update_and_startup_preserve_local_resource_choices ... MIO38_CLI import_saved=true signed_update_saved=true local_choices_preserved=true next_start_ready=true actual_child_exit=exit status: 0
+ok
+test data_relay_disable_preserves_independently_allowed_address_observation ... MIO38_INDEPENDENT_USE data_relay=disabled observation=Fresh { addresses: [127.0.0.1:45337], observed_at: Instant { tv_sec: 852675, tv_nsec: 896517303 }, valid_until: Instant { tv_sec: 852715, tv_nsec: 896517303 }, mapping_varies_by_dest: None, validity: ObservationValidity { generation: Mutex { data: 1, poisoned: false, .. }, observed_generation: 1 } } actual_qad_incoming=1 established_qad=1 relay_http=0 relay_bytes=0
+ok
+test disabled_lookup_added_after_bind_through_wrappers_is_never_accessed ... MIO38_LOOKUP added_after_bind=true filtered_arc_wrappers=true actual_http_requests=[]
+ok
+test disabled_pkarr_lookup_facility_is_never_accessed ... MIO38_LOOKUP disabled=true actual_http_requests=[]
+ok
+test disabled_pkarr_publication_facility_is_never_accessed ... MIO38_LOOKUP publication_disabled=true actual_http_requests=[]
+ok
+test disabled_relay_from_invitation_hint_is_never_accessed ... MIO38_DISABLED source=invitation-hint http_connections=0 relay_bytes=0
+ok
+test disabled_relay_from_lookup_result_is_never_accessed ... MIO38_DISABLED source=lookup-result http_connections=0 relay_bytes=0
+ok
+test disabled_relay_in_default_startup_table_is_never_accessed ... MIO38_DISABLED source=default-table http_connections=0
+ok
+test disabled_relay_retained_in_cache_is_never_accessed ... MIO38_DISABLED source=cache cached=true lookup_services=0 dispatch_denials=10 http_connections=0 relay_bytes=0
+ok
+test equivalent_url_spelling_cannot_bypass_a_local_disable ... MIO38_URL_ALIAS disabled_without_slash=true actual_http_connections=0
+ok
+test explicit_lan_disclosure_publishes_only_active_nodes_and_passive_discovers ... MIO38_LAN active_wire_publication=true passive_published=false default_disabled_lookup_count=0
+ok
+test external_mapping_observer_map_cannot_bypass_permission ... MIO38_MAPPING external_map=3 allowed_samples=2 actual_qad_incoming=[0, 1, 1] original_socket=[127.0.0.1:47201]
+ok
+test failed_initial_data_only_relay_falls_back_to_another_allowed_entry ... MIO38_STARTUP_FALLBACK online=true actual_failed_entry_connections=1 actual_allowed_relay_accepts=1 advertised=[RelayUrl("http://localhost:44228/")]
+ok
+test first_real_default_test_configuration_admits_and_communicates ... MIO38_REAL configuration=default-test admission=Complete reopened=true data=received relay=http://127.0.0.1:44906/ server_metrics=RelayMetrics { server: Metrics { bytes_sent: Counter { value: 41033 }, bytes_recv: Counter { value: 41070 }, send_packets_sent: Counter { value: 83 }, send_packets_recv: Counter { value: 84 }, send_packets_dropped: Counter { value: 0 }, other_packets_sent: Counter { value: 0 }, other_packets_recv: Counter { value: 0 }, other_packets_dropped: Counter { value: 0 }, got_ping: Counter { value: 3 }, sent_pong: Counter { value: 3 }, unknown_frames: Counter { value: 0 }, bytes_rx_ratelimited_total: Counter { value: 0 }, conns_rx_ratelimited_total: Counter { value: 0 }, accepts: Counter { value: 3 }, disconnects: Counter { value: 1 }, unique_client_keys: Counter { value: 3 }, clients_inactive_added: Counter { value: 0 }, clients_inactive_removed: Counter { value: 0 }, qad_incoming: Counter { value: 0 }, qad_incoming_error: Counter { value: 0 }, qad_connections: Counter { value: 0 }, qad_connections_closed: Counter { value: 0 }, qad_connections_errored: Counter { value: 0 }, http_connections: Counter { value: 3 }, http_connections_closed: Counter { value: 3 }, http_connections_errored: Counter { value: 0 } } }
+ok
+test first_real_self_hosted_replacement_admits_and_communicates ... MIO38_REAL configuration=self-hosted admission=Complete reopened=true data=received relay=http://127.0.0.1:44754/ server_metrics=RelayMetrics { server: Metrics { bytes_sent: Counter { value: 41214 }, bytes_recv: Counter { value: 41214 }, send_packets_sent: Counter { value: 89 }, send_packets_recv: Counter { value: 89 }, send_packets_dropped: Counter { value: 0 }, other_packets_sent: Counter { value: 0 }, other_packets_recv: Counter { value: 0 }, other_packets_dropped: Counter { value: 0 }, got_ping: Counter { value: 3 }, sent_pong: Counter { value: 3 }, unknown_frames: Counter { value: 0 }, bytes_rx_ratelimited_total: Counter { value: 0 }, conns_rx_ratelimited_total: Counter { value: 0 }, accepts: Counter { value: 3 }, disconnects: Counter { value: 1 }, unique_client_keys: Counter { value: 3 }, clients_inactive_added: Counter { value: 0 }, clients_inactive_removed: Counter { value: 0 }, qad_incoming: Counter { value: 0 }, qad_incoming_error: Counter { value: 0 }, qad_connections: Counter { value: 0 }, qad_connections_closed: Counter { value: 0 }, qad_connections_errored: Counter { value: 0 }, http_connections: Counter { value: 3 }, http_connections_closed: Counter { value: 3 }, http_connections_errored: Counter { value: 0 } } }
+ok
+test p2panda_high_level_active_publishes_while_its_passive_branch_is_inactive ... MIO38_HIGH_LAN explicit_active_wire_publication=true passive_default_discovered=false
+ok
+test priority_disabled_relay_from_address_book_is_never_accessed ... MIO38_DISABLED source=address-book http_connections=0 relay_bytes=0
+ok
+test resource_choices_survive_the_public_node_backup_and_restore ... ok
+test tampering_and_signed_rollback_cannot_change_configuration ... ok
+test trusted_table_update_preserves_local_replacement_and_disable_on_restart ... MIO38_UPDATE signature=verified revision=2 restarted=true http_connections_disabled_local_newdefault=[0, 1, 0]
+ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 41.89s
+

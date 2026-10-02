@@ -501,6 +501,14 @@ impl NativeNetwork {
         configured_startup: bool,
     ) -> Result<Endpoint, NodeError> {
         let (mut builder, tcp) = resources.configure_with_tcp(builder)?;
+        if !resources.member_data_relay_disabled
+            && !resources
+                .disabled_uses
+                .contains(&crate::resources::ResourceUse::DataRelay)
+        {
+            self.gate
+                .register_data_carrier(crate::member_transport::DATA_TRANSPORT_ID);
+        }
         let mut mqtt = Vec::new();
         let mut irc = Vec::new();
         if configured_startup {

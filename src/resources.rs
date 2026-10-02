@@ -68,6 +68,9 @@ pub struct ResourceConfig {
     /// Direct peer TCP is independent of auxiliary relay permission.
     #[serde(default)]
     pub tcp_direct_disabled: bool,
+    /// Forbid ordinary-member data circuits independently of signaling.
+    #[serde(default)]
+    pub member_data_relay_disabled: bool,
     #[serde(default)]
     pub disabled_tcp_addresses: BTreeSet<std::net::SocketAddr>,
     #[serde(default)]
@@ -172,6 +175,7 @@ impl ResourceConfig {
             tcp_listen: None,
             udp_direct_disabled: false,
             tcp_direct_disabled: false,
+            member_data_relay_disabled: false,
             disabled_tcp_addresses: BTreeSet::new(),
             path_selection: Default::default(),
             trusted_update_key: None,
@@ -376,6 +380,10 @@ impl ResourceConfig {
     /// Recognized TCP candidates are checked at actual fork send; unknown
     /// custom carriers retain their own auxiliary/use qualification.
     pub fn allows_custom(&self, address: &iroh_base::CustomAddr) -> bool {
+        if address.id() == crate::member_transport::DATA_TRANSPORT_ID {
+            return !self.member_data_relay_disabled
+                && !self.disabled_uses.contains(&ResourceUse::DataRelay);
+        }
         if address.id() != crate::tcp_transport::DATA_TRANSPORT_ID {
             return true;
         }
@@ -472,8 +480,11 @@ impl ResourceEndpoint {
                 .custom_addrs()
                 .into_iter()
                 .filter(|addr| {
-                    addr.id() == crate::tcp_transport::DATA_TRANSPORT_ID
-                        && self.config.allows_custom(addr)
+                    matches!(
+                        addr.id(),
+                        crate::tcp_transport::DATA_TRANSPORT_ID
+                            | crate::member_transport::DATA_TRANSPORT_ID
+                    ) && self.config.allows_custom(addr)
                 })
                 .map(iroh::TransportAddr::Custom),
         );
@@ -489,8 +500,11 @@ impl ResourceEndpoint {
                 self.config.allows(url.as_str(), ResourceUse::DataRelay)
             }
             iroh::TransportAddr::Custom(address) => {
-                address.id() == crate::tcp_transport::DATA_TRANSPORT_ID
-                    && self.config.allows_custom(address)
+                matches!(
+                    address.id(),
+                    crate::tcp_transport::DATA_TRANSPORT_ID
+                        | crate::member_transport::DATA_TRANSPORT_ID
+                ) && self.config.allows_custom(address)
             }
             _ => false,
         }

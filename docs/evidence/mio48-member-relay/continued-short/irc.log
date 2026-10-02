@@ -1,0 +1,93 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
+     Running tests/irc_bootstrap.rs (target/debug/deps/irc_bootstrap-19f6fd2d4a90d470)
+
+running 11 tests
+test a_missing_fragment_of_the_real_long_handshake_cannot_release_a_connection ... IRC_PRIORITY_PASS long_handshake_fragments=60 missing_final=true no_connection=true bounded_ms=4252
+ok
+test actual_server_rate_limiting_returns_bounded_unavailability ... IRC_RATE_LIMIT_PASS actual_ircd_fakelag=true connection_unavailable=true bounded_ms=4252
+ok
+test an_irc_route_cannot_substitute_tls_identity_or_unapproved_membership ... IRC_BOOTSTRAP_START stable_id=131010936489296 peer=68bd09b268815d708fbbb1d3f955f31fb7ccca93d00744ac87139e4f3c3e5f72
+IRC_BOOTSTRAP_START stable_id=131010936354336 peer=778601986e55cb59dd709e7300c70fe3346b43107faf593ec7a98956e95afe69
+NAT_DIRECT_CANDIDATE stable_id=131010936354336 target=127.0.0.1:46127
+NAT_DIRECT_SUCCESS stable_id=131010936489296 target=127.0.0.1:46137 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=131010936489296 peer=68bd09b268815d708fbbb1d3f955f31fb7ccca93d00744ac87139e4f3c3e5f72 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:46137)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=131010936354336 target=127.0.0.1:46127 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=131010936354336 peer=778601986e55cb59dd709e7300c70fe3346b43107faf593ec7a98956e95afe69 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:46127)], selected: Some(PathId(1)), closed: false }, .. }
+IRC_IDENTITY_PASS wrong_tls_target_rejected=true invitation_holder_member_rejected=true approved_member_usable=true
+ok
+test canceled_handshake_releases_the_attempt_and_a_later_contact_succeeds ... IRC_BOOTSTRAP_START stable_id=131010936466800 peer=6ec888ec5127343523a331e32ecd96f610c9a5f7df1820f77279ff89cb157e6c
+IRC_BOOTSTRAP_START stable_id=131010936472016 peer=0d6834835d2161bf769515ec0874ebda1e873aa8932151493b11f189922bb901
+IRC_BOOTSTRAP_FAILED stable_id=131010936466800 error=closed by peer: canceled NAT path commitment (code 0)
+IRC_BOOTSTRAP_START stable_id=131010931214800 peer=6ec888ec5127343523a331e32ecd96f610c9a5f7df1820f77279ff89cb157e6c
+IRC_BOOTSTRAP_START stable_id=131010931573072 peer=0d6834835d2161bf769515ec0874ebda1e873aa8932151493b11f189922bb901
+NAT_DIRECT_CANDIDATE stable_id=131010931573072 target=127.0.0.1:44112
+NAT_DIRECT_SUCCESS stable_id=131010931214800 target=127.0.0.1:45221 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=131010931214800 peer=6ec888ec5127343523a331e32ecd96f610c9a5f7df1820f77279ff89cb157e6c paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:45221)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=131010931573072 target=127.0.0.1:44112 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=131010931573072 peer=0d6834835d2161bf769515ec0874ebda1e873aa8932151493b11f189922bb901 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44112)], selected: Some(PathId(1)), closed: false }, .. }
+IRC_CANCEL_PASS original_stable_id=131010936472016 later_stable_id=131010931573072 original_closed=true opened_attempts=2
+ok
+test disconnected_irc_withdraws_routes_and_fresh_binding_preserves_identity ... IRC_CLOSE error=IRC disconnected
+IRC_CLOSE error=IRC disconnected
+IRC_BOOTSTRAP_START stable_id=131010931732960 peer=767e8e2b0eb4071421ac9cf88f1f19ff4ee276641eeb9b16136336ab5ea73cdb
+IRC_BOOTSTRAP_START stable_id=131010931729008 peer=552206ad8559f2ec179ad6729b9ab4e58e66a9e1bb83be7f09088a1beb90224d
+NAT_DIRECT_CANDIDATE stable_id=131010931729008 target=127.0.0.1:43398
+NAT_DIRECT_SUCCESS stable_id=131010931732960 target=127.0.0.1:44063 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=131010931732960 peer=767e8e2b0eb4071421ac9cf88f1f19ff4ee276641eeb9b16136336ab5ea73cdb paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44063)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=131010931729008 target=127.0.0.1:43398 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=131010931729008 peer=552206ad8559f2ec179ad6729b9ab4e58e66a9e1bb83be7f09088a1beb90224d paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:43398)], selected: Some(PathId(1)), closed: false }, .. }
+IRC_RECONNECT_PASS withdrawn_routes=true new_delivery_tokens=true stable_node_identity=true fresh_connection=true
+ok
+test duplicate_fragments_and_injected_ciphertext_do_not_impersonate_or_leak ... IRC_BOOTSTRAP_START stable_id=131010931068752 peer=d1751ec60b0436e902ce220c8f914d36b7109cc12d8b90f4192adb3c85ebf46f
+IRC_BOOTSTRAP_START stable_id=131010931880176 peer=76cf04b8479871dee10f7a045b485b53e4d70e0a09bb8c65dc74e4b1f21b2f7e
+NAT_DIRECT_CANDIDATE stable_id=131010931880176 target=127.0.0.1:44799
+NAT_DIRECT_SUCCESS stable_id=131010931068752 target=127.0.0.1:46360 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=131010931068752 peer=d1751ec60b0436e902ce220c8f914d36b7109cc12d8b90f4192adb3c85ebf46f paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:46360)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=131010931880176 target=127.0.0.1:44799 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=131010931880176 peer=76cf04b8479871dee10f7a045b485b53e4d70e0a09bb8c65dc74e4b1f21b2f7e paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44799)], selected: Some(PathId(1)), closed: false }, .. }
+IRC_DUPLICATE_INJECTION_PASS visible_frames=394 captured=128 extra_connections=0 normal_business_irc_frames=0
+ok
+test incomplete_public_envelopes_have_bounded_reassembly_and_expire ... IRC_REASSEMBLY_BOUND_PASS IRC_TRAFFIC sent=0 received=0 fragments=0 rejected=48 expired=32 pending=0 max_datagram=2048 assemblies=32 queue=64
+ok
+test losing_the_udp_data_path_does_not_send_business_back_to_irc ... ignored, run in the owned privileged offline IRC container, never host netfilter
+test reachable_irc_cannot_release_business_without_a_permitted_data_path ... IRC_BOOTSTRAP_START stable_id=131010931243328 peer=963d6ec0a15ab1b98c035693bb19af84c7f4c6508612f4e7fd9f715cb5c9a2cd
+IRC_BOOTSTRAP_START stable_id=131010938130336 peer=fdb41e0fbb249096fb8e3020d05fa6cc1c095a3730271c9530129fa8f4838d0d
+IRC_BOOTSTRAP_FAILED stable_id=131010931243328 error=no mutually permitted data path capability
+IRC_BOOTSTRAP_FAILED stable_id=131010938130336 error=read error: connection lost
+IRC_PURPOSE_PASS control_reachable=true udp_disabled=true application_connections=0
+ok
+test real_irc_replaces_mqtt_at_the_same_native_connection_entry ... IRC_BOOTSTRAP_START stable_id=131010931828000 peer=58fa1eae034e337d911d6282e9d9e3a9c0a8a1b16afdfb8f8e3df554a250f10b
+IRC_BOOTSTRAP_START stable_id=131010931159616 peer=b228ecff97158060c636684d6e1bd0fb12df6eb2128c6cce1c2246514f60f538
+NAT_DIRECT_CANDIDATE stable_id=131010931159616 target=127.0.0.1:47240
+NAT_DIRECT_SUCCESS stable_id=131010931828000 target=127.0.0.1:43414 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=131010931828000 peer=58fa1eae034e337d911d6282e9d9e3a9c0a8a1b16afdfb8f8e3df554a250f10b paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:43414)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=131010931159616 target=127.0.0.1:47240 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=131010931159616 peer=b228ecff97158060c636684d6e1bd0fb12df6eb2128c6cce1c2246514f60f538 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:47240)], selected: Some(PathId(1)), closed: false }, .. }
+IRC_FIRST_PASS stable_id=131010931159616 same_connection=true real_member=true udp_data=true
+ok
+test saved_irc_disable_and_a_failed_service_preserve_other_resource_choices ... IRC_CLOSE error=Connection refused (os error 111)
+IRC_RESOURCE_UNAVAILABLE error=IRC carrier stopped
+IRC_BOOTSTRAP_START stable_id=131010938018544 peer=0730caf4f43d272386db03fa9b5ead4e39796a6f2f3dc202689222983e29d9c9
+IRC_BOOTSTRAP_START stable_id=131010931609168 peer=caf603c86cda54e70fd031a9a1b959c2c91128d54c046aa3b557365cbfdc74f3
+NAT_DIRECT_CANDIDATE stable_id=131010931609168 target=127.0.0.1:45124
+NAT_DIRECT_SUCCESS stable_id=131010938018544 target=127.0.0.1:45414 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=131010938018544 peer=0730caf4f43d272386db03fa9b5ead4e39796a6f2f3dc202689222983e29d9c9 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:45414)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=131010931609168 target=127.0.0.1:45124 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=131010931609168 peer=caf603c86cda54e70fd031a9a1b959c2c91128d54c046aa3b557365cbfdc74f3 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:45124)], selected: Some(PathId(1)), closed: false }, .. }
+IRC_RESOURCES_PASS failed_origins=1 permitted_ready_routes=1 saved_signaling_disable_respected=true durable_identity_unchanged=true
+ok
+
+test result: ok. 10 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 44.81s
+

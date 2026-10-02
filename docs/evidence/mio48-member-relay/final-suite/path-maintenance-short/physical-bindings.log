@@ -1,0 +1,97 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.62s
+     Running tests/legacy_multi_socket.rs (target/debug/deps/legacy_multi_socket-9aacc0e02c7f2bc7)
+
+running 11 tests
+test a_provisional_winner_closes_when_cancelled_and_cannot_be_used_by_another_connection ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=40 sent_bytes=18179 received_packets=36 received_bytes=19773 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=36 sent_bytes=19773 received_packets=40 received_bytes=18179 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test a_real_target_send_error_does_not_truncate_following_candidates_or_random_work ... LEGACY_DATAGRAM_ERROR target=255.255.255.255:9 ttl=7 response=false local_socket_id=0 reason=Permission denied (os error 13)
+LEGACY_DATAGRAM target=127.0.0.1:46516 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:33747 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:44256 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:44256 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:44256 ttl=0 response=true degraded=false local_socket_id=0
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=19 sent_bytes=8859 received_packets=18 received_bytes=9882 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=18 sent_bytes=9882 received_packets=19 received_bytes=8859 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test all_256_physical_listeners_close_on_cancel_and_rounds_do_not_accumulate ... MIO61_RESOURCE round=1 bound=256 fd_before=18 fd_peak=274 fd_after=18
+MIO61_RESOURCE round=2 bound=256 fd_before=18 fd_peak=274 fd_after=18
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=67 sent_bytes=10553 received_packets=49 received_bytes=10912 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=18 inbound_outstanding=0 inbound_peak=16 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=49 sent_bytes=10912 received_packets=44 received_bytes=9679 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=4 inbound_outstanding=0 inbound_peak=18 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test authenticated_winner_keeps_its_actual_source_ip_despite_packets_to_another_local_ip ... TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=37 sent_bytes=17698 received_packets=36 received_bytes=19780 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=36 sent_bytes=19780 received_packets=37 received_bytes=17698 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test cross_socket_round_packets_are_ignored_and_network_change_invalidates_pending_bindings ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=20 sent_bytes=8894 received_packets=21 received_bytes=9991 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=21 sent_bytes=9991 received_packets=20 received_bytes=8894 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test discarded_winner_paths_release_descriptors_while_original_control_connection_lives ... TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=23 sent_bytes=9169 received_packets=25 received_bytes=10307 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=25 sent_bytes=10307 received_packets=23 received_bytes=9169 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test every_physical_sender_isolates_packet_ttl_and_preserves_source_when_ttl_degrades ... MIO61_TTL local_socket_id=0 source=127.0.0.2:43865 requested=7 observed=7
+MIO61_TTL local_socket_id=0 source=127.0.0.2:43865 requested=4 observed=4
+MIO61_TTL local_socket_id=0 source=127.0.0.2:43865 requested=0 observed=64
+MIO61_TTL local_socket_id=1 source=127.0.0.2:44471 requested=7 observed=7
+MIO61_TTL local_socket_id=1 source=127.0.0.2:44471 requested=4 observed=4
+MIO61_TTL local_socket_id=1 source=127.0.0.2:44471 requested=0 observed=64
+MIO61_TTL local_socket_id=1 source=127.0.0.2:44471 requested=degraded observed=64
+MIO61_TTL local_socket_id=2 source=127.0.0.2:43810 requested=degraded observed=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=18 sent_bytes=8835 received_packets=19 received_bytes=9906 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=19 sent_bytes=9906 received_packets=18 received_bytes=8835 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test interrupted_listener_setup_preserves_actual_partial_costs_and_closes_bindings ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=19 sent_bytes=8866 received_packets=17 received_bytes=9856 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=17 sent_bytes=9856 received_packets=19 received_bytes=8866 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test nonprimary_winner_returns_through_its_physical_socket_on_the_original_connection ... TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=36 sent_bytes=17664 received_packets=33 received_bytes=19692 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=33 sent_bytes=19692 received_packets=36 received_bytes=17664 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test os_bind_failures_keep_exact_attempt_count_and_release_partial_pool ... MIO61_PARTIAL_OS_FD_PEAK value=26
+
+running 1 test
+MIO61_PARTIAL_BIND attempted=256 bound=9 failed=247 soft_limit=26
+test os_bind_failures_keep_exact_attempt_count_and_release_partial_pool ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 1.00s
+
+
+ok
+test same_round_authenticated_receipt_cannot_move_to_another_physical_socket ... LEGACY_DATAGRAM target=127.0.0.1:44825 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:44825 ttl=0 response=false degraded=false local_socket_id=1
+LEGACY_DATAGRAM target=127.0.0.1:44825 ttl=0 response=false degraded=false local_socket_id=2
+LEGACY_RECEIPT_REJECT reason=nonce_socket local_socket_id=2
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=17 sent_bytes=8792 received_packets=17 received_bytes=9857 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=17 sent_bytes=9857 received_packets=17 received_bytes=8792 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 29.09s
+

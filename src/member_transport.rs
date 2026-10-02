@@ -1,6 +1,7 @@
-//! One-hop signaling over existing admitted member connections. The envelope
-//! carries public delivery tokens and opaque QUIC datagrams, never application
-//! streams. The ordinary endpoint gate owns the inner connection's admission.
+//! One-hop carriers over existing admitted member connections. Signaling and
+//! explicitly enabled data forwarding use distinct qualification and route IDs.
+//! Envelopes carry opaque QUIC datagrams, never decrypted application streams;
+//! the ordinary endpoint gate owns each inner connection's admission.
 
 use crate::admission_gate::{AdmissionGate, ProtocolScope};
 use iroh::{
@@ -13,7 +14,7 @@ use iroh::{
 use iroh_base::CustomAddr;
 use n0_watcher::{Direct, Watchable};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io,
     sync::{Arc, Mutex},
     task::{Context, Poll},
@@ -23,23 +24,86 @@ use tokio::sync::mpsc;
 use tokio::sync::watch;
 
 #[cfg(feature = "member-signaling-test-hooks")]
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 pub const TRANSPORT_ID: u64 = 0x6d696f6d656d; // "miomem"
-const MAGIC: &[u8; 4] = b"MIM1";
+/// Independently qualified ordinary-member data carrier; never a signaling ID.
+pub const DATA_TRANSPORT_ID: u64 = 0x6d696f646174; // "miodat"
+#[derive(Clone, Copy, Debug)]
+enum Carrier {
+    Signaling,
+    Data,
+}
+impl Carrier {
+    fn id(self) -> u64 {
+        match self {
+            Self::Signaling => TRANSPORT_ID,
+            Self::Data => DATA_TRANSPORT_ID,
+        }
+    }
+    fn magic(self) -> &'static [u8; 4] {
+        match self {
+            Self::Signaling => b"MIM1",
+            Self::Data => b"MID1",
+        }
+    }
+    fn check(self, gate: &AdmissionGate, connection: &Connection) -> io::Result<()> {
+        check_member(gate, connection)?;
+        // An outer connection must not itself use a member circuit. This keeps
+        // this service to one hop, including later outer path changes.
+        if matches!(self, Self::Data) && connection.paths().iter().any(|p|
+            matches!(p.remote_addr(), iroh::TransportAddr::Custom(a) if a.id() == DATA_TRANSPORT_ID)) {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "nested member data circuit"));
+        }
+        Ok(())
+    }
+}
 const MAX_DATAGRAM: usize = 2048;
 const QUEUE_DEPTH: usize = 64;
 const MAX_LINKS: usize = 16;
+const MAX_DATA_REGISTRATIONS: usize = 4096;
+// Hard safety ceilings per link, including handshake/retransmission traffic.
+// Excess packets are dropped; QUIC owns retry and congestion control.
+const DATA_BYTES_PER_SECOND: usize = 1024 * 1024;
+const DATA_PACKETS_PER_SECOND: usize = 4096;
+struct DataBudget {
+    start: tokio::time::Instant,
+    bytes: usize,
+    packets: usize,
+}
+impl DataBudget {
+    fn new() -> Self {
+        Self {
+            start: tokio::time::Instant::now(),
+            bytes: 0,
+            packets: 0,
+        }
+    }
+    fn take(&mut self, carrier: Carrier, bytes: usize) -> bool {
+        if matches!(carrier, Carrier::Signaling) {
+            return true;
+        }
+        if self.start.elapsed() >= Duration::from_secs(1) {
+            *self = Self::new();
+        }
+        if self.bytes + bytes > DATA_BYTES_PER_SECOND || self.packets >= DATA_PACKETS_PER_SECOND {
+            return false;
+        }
+        self.bytes += bytes;
+        self.packets += 1;
+        true
+    }
+}
 type Route = [u8; 16];
 
-fn address(via: EndpointId, route: Route) -> CustomAddr {
+fn address(carrier: Carrier, via: EndpointId, route: Route) -> CustomAddr {
     let mut bytes = [0; 48];
     bytes[..32].copy_from_slice(via.as_bytes());
     bytes[32..].copy_from_slice(&route);
-    CustomAddr::from_parts(TRANSPORT_ID, &bytes)
+    CustomAddr::from_parts(carrier.id(), &bytes)
 }
-fn route(addr: &CustomAddr, via: EndpointId) -> io::Result<Route> {
-    if addr.id() != TRANSPORT_ID || addr.data().len() != 48 || &addr.data()[..32] != via.as_bytes()
+fn route(carrier: Carrier, addr: &CustomAddr, via: EndpointId) -> io::Result<Route> {
+    if addr.id() != carrier.id() || addr.data().len() != 48 || &addr.data()[..32] != via.as_bytes()
     {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -103,13 +167,18 @@ async fn write_packet(send: &mut SendStream, packet: Packet) -> io::Result<()> {
 }
 
 async fn transmit_packets(
+    carrier: Carrier,
     connection: &Connection,
     gate: &AdmissionGate,
     send: &mut SendStream,
     queue: &mut mpsc::Receiver<Packet>,
 ) -> io::Result<()> {
+    let mut budget = DataBudget::new();
     while let Some(packet) = queue.recv().await {
-        check_member(gate, connection)?;
+        if !budget.take(carrier, packet.bytes.len()) {
+            continue;
+        }
+        carrier.check(gate, connection)?;
         write_packet(send, packet).await?;
     }
     Ok(())
@@ -135,9 +204,13 @@ struct ForwardLink {
     connection: Connection,
     sender: mpsc::Sender<Packet>,
     marker: Arc<()>,
+    expires: tokio::time::Instant,
 }
 #[derive(Clone, Debug)]
 pub struct MemberForwarder {
+    carrier: Carrier,
+    enabled: watch::Sender<bool>,
+    used_data_routes: Arc<Mutex<HashSet<Route>>>,
     gate: AdmissionGate,
     links: Arc<Mutex<HashMap<Route, ForwardLink>>>,
     #[cfg(feature = "member-signaling-test-hooks")]
@@ -148,10 +221,19 @@ pub struct MemberForwarder {
 struct ForwardFaults {
     duplicate: AtomicBool,
     observed: Mutex<Vec<Vec<u8>>>,
+    forwarded: AtomicU64,
+    unknown_route: AtomicU64,
+    rate_dropped: AtomicU64,
 }
 impl MemberForwarder {
     pub fn new(gate: AdmissionGate) -> Self {
+        Self::with_carrier(gate, Carrier::Signaling)
+    }
+    fn with_carrier(gate: AdmissionGate, carrier: Carrier) -> Self {
         Self {
+            carrier,
+            enabled: watch::channel(matches!(carrier, Carrier::Signaling)).0,
+            used_data_routes: Arc::new(Mutex::new(HashSet::new())),
             gate,
             links: Arc::new(Mutex::new(HashMap::new())),
             #[cfg(feature = "member-signaling-test-hooks")]
@@ -178,6 +260,15 @@ impl MemberForwarder {
         self.faults.observed.lock().unwrap().clone()
     }
 
+    #[cfg(feature = "member-signaling-test-hooks")]
+    fn test_counts(&self) -> (u64, u64, u64) {
+        (
+            self.faults.forwarded.load(Ordering::Relaxed),
+            self.faults.unknown_route.load(Ordering::Relaxed),
+            self.faults.rate_dropped.load(Ordering::Relaxed),
+        )
+    }
+
     /// The caller dispatches the next reserved bi-stream on its existing
     /// member connection. No data-relay permission is granted by this service.
     pub async fn accept_link(
@@ -186,7 +277,14 @@ impl MemberForwarder {
         lifetime: Duration,
     ) -> io::Result<SignalingLease> {
         check_lifetime(lifetime)?;
-        check_member(&self.gate, connection)?;
+        let mut enabled = self.enabled.subscribe();
+        self.carrier.check(&self.gate, connection)?;
+        if !*self.enabled.borrow() {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "member data relay disabled",
+            ));
+        }
         let (mut send, mut recv) =
             tokio::time::timeout(Duration::from_secs(5), connection.accept_bi())
                 .await
@@ -198,7 +296,7 @@ impl MemberForwarder {
             .await
             .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "member signaling hello timeout"))?
             .map_err(io::Error::other)?;
-        if &hello[..4] != MAGIC {
+        if &hello[..4] != self.carrier.magic() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "invalid signaling hello",
@@ -207,9 +305,16 @@ impl MemberForwarder {
         let own: Route = hello[4..].try_into().unwrap();
         let (sender, mut queue) = mpsc::channel(QUEUE_DEPTH);
         let marker = Arc::new(());
+        let expires = tokio::time::Instant::now() + lifetime;
         {
-            check_member(&self.gate, connection)?;
             let mut links = self.links.lock().unwrap();
+            self.carrier.check(&self.gate, connection)?;
+            if !*self.enabled.borrow() {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "member data relay disabled",
+                ));
+            }
             if links.len() >= MAX_LINKS
                 || links.contains_key(&own)
                 || links
@@ -221,12 +326,22 @@ impl MemberForwarder {
                     "member signaling link limit or duplicate",
                 ));
             }
+            if matches!(self.carrier, Carrier::Data) {
+                let mut used = self.used_data_routes.lock().unwrap();
+                if used.len() >= MAX_DATA_REGISTRATIONS || !used.insert(own) {
+                    return Err(io::Error::new(
+                        io::ErrorKind::AlreadyExists,
+                        "member data route retired or registration budget exhausted",
+                    ));
+                }
+            }
             links.insert(
                 own,
                 ForwardLink {
                     connection: connection.clone(),
                     sender,
                     marker: marker.clone(),
+                    expires,
                 },
             );
         }
@@ -235,11 +350,12 @@ impl MemberForwarder {
             route: own,
             marker,
         };
-        tokio::time::timeout(Duration::from_secs(5), send.write_all(MAGIC))
+        tokio::time::timeout(Duration::from_secs(5), send.write_all(self.carrier.magic()))
             .await
             .map_err(|_| {
                 io::Error::new(io::ErrorKind::TimedOut, "member signaling reply timeout")
             })??;
+        let carrier = self.carrier;
         let gate = self.gate.clone();
         let connection = connection.clone();
         let links = self.links.clone();
@@ -247,18 +363,35 @@ impl MemberForwarder {
         let faults = self.faults.clone();
         Ok(SignalingLease(tokio::spawn(async move {
             let _registration = registration;
+            let permission = enabled.clone();
             let receive = async {
+                let mut budget = DataBudget::new();
                 loop {
                     let packet = read_packet(&mut recv).await?;
-                    check_member(&gate, &connection)?;
+                    carrier.check(&gate, &connection)?;
+                    if !budget.take(carrier, packet.bytes.len()) {
+                        #[cfg(feature = "member-signaling-test-hooks")]
+                        faults.rate_dropped.fetch_add(1, Ordering::Relaxed);
+                        continue;
+                    }
                     if packet.peer == own {
                         continue;
                     }
                     let links = links.lock().unwrap();
+                    if !*permission.borrow() || permission.has_changed().unwrap_or(true) {
+                        return Err(io::Error::new(
+                            io::ErrorKind::PermissionDenied,
+                            "member data relay changed",
+                        ));
+                    }
                     if let Some(target) = links.get(&packet.peer) {
-                        check_member(&gate, &target.connection)?;
+                        carrier.check(&gate, &target.connection)?;
+                        if tokio::time::Instant::now() >= target.expires {
+                            continue;
+                        }
                         #[cfg(feature = "member-signaling-test-hooks")]
                         {
+                            faults.forwarded.fetch_add(1, Ordering::Relaxed);
                             let mut observed = faults.observed.lock().unwrap();
                             if observed.len() < 64 {
                                 observed.push(packet.bytes.clone());
@@ -275,16 +408,19 @@ impl MemberForwarder {
                             peer: own,
                             bytes: packet.bytes,
                         });
+                    } else {
+                        #[cfg(feature = "member-signaling-test-hooks")]
+                        faults.unknown_route.fetch_add(1, Ordering::Relaxed);
                     }
                 }
                 #[allow(unreachable_code)]
                 Ok::<_, io::Error>(())
             };
-            let transmit = transmit_packets(&connection, &gate, &mut send, &mut queue);
+            let transmit = transmit_packets(carrier, &connection, &gate, &mut send, &mut queue);
             let operation = async {
-                tokio::select! { result = receive => result, result = transmit => result }
+                tokio::select! { result = receive => result, result = transmit => result, _ = enabled.changed() => Ok(()) }
             };
-            let _ = tokio::time::timeout(lifetime, operation).await;
+            let _ = tokio::time::timeout_at(expires, operation).await;
         })))
     }
 }
@@ -314,6 +450,7 @@ struct Binding {
 /// `via`. Both ends use the same ordinary connect/accept interface as MQTT.
 #[derive(Debug)]
 pub struct MemberSignalingTransport {
+    carrier: Carrier,
     via: EndpointId,
     own: Route,
     gate: AdmissionGate,
@@ -323,7 +460,11 @@ pub struct MemberSignalingTransport {
 }
 impl MemberSignalingTransport {
     pub fn new(via: EndpointId, gate: AdmissionGate) -> Self {
+        Self::with_carrier(via, gate, Carrier::Signaling)
+    }
+    fn with_carrier(via: EndpointId, gate: AdmissionGate, carrier: Carrier) -> Self {
         Self {
+            carrier,
             via,
             own: rand::random(),
             gate,
@@ -343,7 +484,7 @@ impl MemberSignalingTransport {
         lifetime: Duration,
     ) -> io::Result<SignalingLease> {
         check_lifetime(lifetime)?;
-        check_member(&self.gate, connection)?;
+        self.carrier.check(&self.gate, connection)?;
         if connection.remote_id() != self.via {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -352,12 +493,12 @@ impl MemberSignalingTransport {
         }
         let (mut send, mut recv) = tokio::time::timeout(Duration::from_secs(5), async {
             let (mut send, mut recv) = connection.open_bi().await?;
-            let mut hello = MAGIC.to_vec();
+            let mut hello = self.carrier.magic().to_vec();
             hello.extend_from_slice(&self.own);
             send.write_all(&hello).await?;
             let mut ack = [0; 4];
             recv.read_exact(&mut ack).await.map_err(io::Error::other)?;
-            if &ack != MAGIC {
+            if &ack != self.carrier.magic() {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
                     "invalid signaling acknowledgement",
@@ -380,7 +521,7 @@ impl MemberSignalingTransport {
                     "member endpoint stopped",
                 ));
             }
-            check_member(&self.gate, connection)?;
+            self.carrier.check(&self.gate, connection)?;
             (
                 binding.incoming.clone(),
                 binding.outbound.take().ok_or_else(|| {
@@ -391,23 +532,26 @@ impl MemberSignalingTransport {
                 })?,
             )
         };
+        let carrier = self.carrier;
         let gate = self.gate.clone();
         let connection = connection.clone();
         let addresses = self.addresses.clone();
         let mut stopped = self.stopped.subscribe();
-        addresses.set(vec![address(self.via, self.own)]).ok();
+        addresses
+            .set(vec![address(carrier, self.via, self.own)])
+            .ok();
         Ok(SignalingLease(tokio::spawn(async move {
             let _advertisement = Advertisement(addresses);
             let receive = async {
                 loop {
                     let packet = read_packet(&mut recv).await?;
-                    check_member(&gate, &connection)?;
+                    carrier.check(&gate, &connection)?;
                     let _ = incoming.try_send(packet);
                 }
                 #[allow(unreachable_code)]
                 Ok::<_, io::Error>(())
             };
-            let transmit = transmit_packets(&connection, &gate, &mut send, &mut outbound);
+            let transmit = transmit_packets(carrier, &connection, &gate, &mut send, &mut outbound);
             let operation = async {
                 tokio::select! { result = receive => result, result = transmit => result, _ = stopped.changed() => Ok(()) }
             };
@@ -424,6 +568,7 @@ impl Drop for Advertisement {
 
 #[derive(Debug)]
 struct MemberEndpoint {
+    carrier: Carrier,
     via: EndpointId,
     incoming: mpsc::Receiver<Packet>,
     outbound: mpsc::Sender<Packet>,
@@ -452,6 +597,7 @@ impl CustomTransport for MemberSignalingTransport {
             outbound: Some(queue),
         });
         Ok(Box::new(MemberEndpoint {
+            carrier: self.carrier,
             via: self.via,
             incoming: receiver,
             outbound,
@@ -466,6 +612,7 @@ impl CustomEndpoint for MemberEndpoint {
     }
     fn create_sender(&self) -> Arc<dyn CustomSender> {
         Arc::new(MemberSender {
+            carrier: self.carrier,
             via: self.via,
             outbound: self.outbound.clone(),
         })
@@ -494,7 +641,7 @@ impl CustomEndpoint for MemberEndpoint {
                     metas[0].len = packet.bytes.len();
                     metas[0].stride = packet.bytes.len();
                     infos[0] = RecvInfo::new(
-                        address(self.via, packet.peer),
+                        address(self.carrier, self.via, packet.peer),
                         self.addresses.get().first().cloned(),
                     );
                     return Poll::Ready(Ok(1));
@@ -506,12 +653,14 @@ impl CustomEndpoint for MemberEndpoint {
 }
 #[derive(Debug)]
 struct MemberSender {
+    carrier: Carrier,
     via: EndpointId,
     outbound: mpsc::Sender<Packet>,
 }
 impl CustomSender for MemberSender {
     fn is_valid_send_addr(&self, addr: &CustomAddr) -> bool {
-        route(addr, self.via).is_ok()
+        route(self.carrier, addr, self.via).is_ok()
+            && (matches!(self.carrier, Carrier::Signaling) || !self.outbound.is_closed())
     }
     fn poll_send(
         &self,
@@ -520,7 +669,7 @@ impl CustomSender for MemberSender {
         _src: Option<&CustomAddr>,
         transmit: &Transmit<'_>,
     ) -> Poll<io::Result<()>> {
-        let peer = match route(dst, self.via) {
+        let peer = match route(self.carrier, dst, self.via) {
             Ok(peer) => peer,
             Err(error) => return Poll::Ready(Err(error)),
         };
@@ -541,5 +690,78 @@ impl CustomSender for MemberSender {
             )),
         };
         Poll::Ready(result)
+    }
+}
+
+/// A bounded one-hop data service over existing admitted links. Disabled by
+/// default; signaling-service installation never grants this permission.
+#[derive(Clone, Debug)]
+pub struct MemberDataRelay(MemberForwarder);
+impl MemberDataRelay {
+    pub fn new(gate: AdmissionGate) -> Self {
+        Self(MemberForwarder::with_carrier(gate, Carrier::Data))
+    }
+    /// Every change retires the existing leases. Re-enabling requires fresh
+    /// registrations/tokens, so old addresses cannot silently revive.
+    pub fn set_enabled(&self, enabled: bool) {
+        let mut links = self.0.links.lock().unwrap();
+        if self.0.enabled.send_if_modified(|old| {
+            if *old == enabled {
+                false
+            } else {
+                *old = enabled;
+                true
+            }
+        }) {
+            links.clear();
+        }
+    }
+    pub fn active_links(&self) -> usize {
+        self.0.active_links()
+    }
+    pub async fn accept_link(
+        &self,
+        connection: &Connection,
+        lifetime: Duration,
+    ) -> io::Result<SignalingLease> {
+        self.0.accept_link(connection, lifetime).await
+    }
+    #[cfg(feature = "member-signaling-test-hooks")]
+    pub fn test_observed_datagrams(&self) -> Vec<Vec<u8>> {
+        self.0.test_observed_datagrams()
+    }
+    /// Actual forwarding, unknown destination, and budget drop counts. No
+    /// inner plaintext, keys or per-packet private routing state is retained.
+    #[cfg(feature = "member-signaling-test-hooks")]
+    pub fn test_counts(&self) -> (u64, u64, u64) {
+        self.0.test_counts()
+    }
+}
+/// Client of an explicitly enabled member data service. The forwarding member
+/// gets opaque A-C QUIC packets, not the A-C TLS state or application streams.
+#[derive(Debug)]
+pub struct MemberDataTransport(MemberSignalingTransport);
+impl MemberDataTransport {
+    pub fn new(via: EndpointId, gate: AdmissionGate) -> Self {
+        Self(MemberSignalingTransport::with_carrier(
+            via,
+            gate,
+            Carrier::Data,
+        ))
+    }
+    pub fn address(&self) -> io::Result<CustomAddr> {
+        self.0.address()
+    }
+    pub async fn attach(
+        &self,
+        connection: &Connection,
+        lifetime: Duration,
+    ) -> io::Result<SignalingLease> {
+        self.0.attach(connection, lifetime).await
+    }
+}
+impl CustomTransport for MemberDataTransport {
+    fn bind(&self) -> io::Result<Box<dyn CustomEndpoint>> {
+        self.0.bind()
     }
 }

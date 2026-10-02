@@ -1,0 +1,77 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.08s
+     Running tests/irc_bootstrap.rs (target/debug/deps/irc_bootstrap-19f6fd2d4a90d470)
+
+running 11 tests
+test a_missing_fragment_of_the_real_long_handshake_cannot_release_a_connection ... 
+thread 'a_missing_fragment_of_the_real_long_handshake_cannot_release_a_connection' (2257687) panicked at tests/irc_bootstrap.rs:114:59:
+called `Result::unwrap()` on an `Err` value: NotPresent
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test actual_server_rate_limiting_returns_bounded_unavailability ... 
+thread 'actual_server_rate_limiting_returns_bounded_unavailability' (2257688) panicked at tests/irc_bootstrap.rs:665:10:
+owned IRCd with actual fakelag required: NotPresent
+FAILED
+test an_irc_route_cannot_substitute_tls_identity_or_unapproved_membership ... 
+thread 'an_irc_route_cannot_substitute_tls_identity_or_unapproved_membership' (2257689) panicked at tests/irc_bootstrap.rs:61:51:
+real owned IRCd required: NotPresent
+FAILED
+test canceled_handshake_releases_the_attempt_and_a_later_contact_succeeds ... 
+thread 'canceled_handshake_releases_the_attempt_and_a_later_contact_succeeds' (2257690) panicked at tests/irc_bootstrap.rs:61:51:
+real owned IRCd required: NotPresent
+FAILED
+test disconnected_irc_withdraws_routes_and_fresh_binding_preserves_identity ... 
+thread 'disconnected_irc_withdraws_routes_and_fresh_binding_preserves_identity' (2257691) panicked at tests/irc_bootstrap.rs:114:59:
+called `Result::unwrap()` on an `Err` value: NotPresent
+FAILED
+test duplicate_fragments_and_injected_ciphertext_do_not_impersonate_or_leak ... 
+thread 'duplicate_fragments_and_injected_ciphertext_do_not_impersonate_or_leak' (2257692) panicked at tests/irc_bootstrap.rs:351:73:
+called `Result::unwrap()` on an `Err` value: NotPresent
+FAILED
+test incomplete_public_envelopes_have_bounded_reassembly_and_expire ... 
+thread 'incomplete_public_envelopes_have_bounded_reassembly_and_expire' (2257693) panicked at tests/irc_bootstrap.rs:196:55:
+called `Result::unwrap()` on an `Err` value: NotPresent
+FAILED
+test losing_the_udp_data_path_does_not_send_business_back_to_irc ... ignored, run in the owned privileged offline IRC container, never host netfilter
+test reachable_irc_cannot_release_business_without_a_permitted_data_path ... 
+thread 'reachable_irc_cannot_release_business_without_a_permitted_data_path' (2257694) panicked at tests/irc_bootstrap.rs:351:73:
+called `Result::unwrap()` on an `Err` value: NotPresent
+FAILED
+test real_irc_replaces_mqtt_at_the_same_native_connection_entry ... 
+thread 'real_irc_replaces_mqtt_at_the_same_native_connection_entry' (2257695) panicked at tests/irc_bootstrap.rs:61:51:
+real owned IRCd required: NotPresent
+FAILED
+test saved_irc_disable_and_a_failed_service_preserve_other_resource_choices ... 
+thread 'saved_irc_disable_and_a_failed_service_preserve_other_resource_choices' (2257696) panicked at tests/irc_bootstrap.rs:61:51:
+real owned IRCd required: NotPresent
+FAILED
+
+failures:
+
+failures:
+    a_missing_fragment_of_the_real_long_handshake_cannot_release_a_connection
+    actual_server_rate_limiting_returns_bounded_unavailability
+    an_irc_route_cannot_substitute_tls_identity_or_unapproved_membership
+    canceled_handshake_releases_the_attempt_and_a_later_contact_succeeds
+    disconnected_irc_withdraws_routes_and_fresh_binding_preserves_identity
+    duplicate_fragments_and_injected_ciphertext_do_not_impersonate_or_leak
+    incomplete_public_envelopes_have_bounded_reassembly_and_expire
+    reachable_irc_cannot_release_business_without_a_permitted_data_path
+    real_irc_replaces_mqtt_at_the_same_native_connection_entry
+    saved_irc_disable_and_a_failed_service_preserve_other_resource_choices
+
+test result: FAILED. 0 passed; 10 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--test irc_bootstrap`

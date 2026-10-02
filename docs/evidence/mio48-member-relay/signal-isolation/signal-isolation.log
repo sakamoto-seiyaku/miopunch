@@ -1,0 +1,24 @@
+
+running 1 test
+test live_signaling_service_never_becomes_business_fallback_when_b_disables_data_relay ... TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10144 received_packets=25 received_bytes=10434 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=25 sent_bytes=10434 received_packets=27 received_bytes=10144 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=27 received_bytes=11188 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=27 sent_bytes=11188 received_packets=27 received_bytes=10140 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MEMBER_BOOTSTRAP_START stable_id=138091589582352 peer=8363bf03e40c961ebd5215dbfba60f6ddd33eadb00360cf7ad389244e08afad0
+MEMBER_BOOTSTRAP_START stable_id=138091589316208 peer=4906b1ecc8a4ef8275fba70427044fa9d8ba020bd554fbcf34d7fd60766585e7
+MEMBER_BOOTSTRAP_FAILED stable_id=138091589582352 error=no mutually permitted data path capability
+MEMBER_BOOTSTRAP_FAILED stable_id=138091589316208 error=read error: connection lost
+MEMBER_DATA_SIGNAL_ISOLATION_PASS live_signaling_routes=2 queued_business_on_signal=0 restricted_attempt_reachable=true business_release=false
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=141 sent_bytes=36873 received_packets=140 received_bytes=34327 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=264 sent_bytes=69928 received_packets=276 received_bytes=71700 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=135 sent_bytes=34827 received_packets=124 received_bytes=35601 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 14.71s
+

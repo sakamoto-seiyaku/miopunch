@@ -1,0 +1,21 @@
+
+running 1 test
+test malformed_and_over_budget_member_frames_have_bounded_forwarding ... TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10172 received_packets=28 received_bytes=10542 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=28 sent_bytes=10542 received_packets=28 received_bytes=10172 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10146 received_packets=26 received_bytes=11160 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=26 sent_bytes=11160 received_packets=27 received_bytes=10146 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MEMBER_DATA_BOUNDS_PASS rate_drops_observed=true unknown_target_forwarded=0 oversized_frame_rejected=true member_link_alive=true queue_bound=64 datagram_bound=2048 active_links_bound=16
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=3017 sent_bytes=4338004 received_packets=1529 received_bytes=58906 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=14 inbound_outstanding=0 inbound_peak=12 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=1560 sent_bytes=68246 received_packets=3048 received_bytes=4348299 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=24 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=31 sent_bytes=10295 received_packets=31 received_bytes=9340 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 4.00s
+

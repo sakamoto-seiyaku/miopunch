@@ -1098,12 +1098,64 @@ impl RemoteStateActor {
         self.select_path();
     }
 
+    /// A locally withdrawn data carrier cannot remain a scored candidate or
+    /// be reopened by the peer. Preserve the admission allowlist and retire
+    /// only this Connection's exact addresses. Raw and restricted consumers
+    /// retain their existing lifecycle; the transport still owns its shutdown.
+    fn retire_unavailable_custom_paths(&mut self) {
+        let Some(senders) = &self.state.mapped_addrs.custom_route_senders else {
+            return;
+        };
+        for state in self.connections.values_mut().filter(|state| {
+            state.custom_data_policy && state.purpose == ConnectionPurpose::Ordinary
+        }) {
+            let mut changed = false;
+            for path in state.paths.values() {
+                if let transports::FourTuple::Custom { remote, .. } = path
+                    && !senders
+                        .iter()
+                        .any(|sender| sender.is_valid_send_addr(remote))
+                {
+                    changed |= state.retired_custom.insert(remote.clone());
+                }
+            }
+            if !changed {
+                continue;
+            }
+            let Some(conn) = state
+                .handle
+                .upgrade()
+                .filter(|conn| conn.close_reason().is_none())
+            else {
+                continue;
+            };
+            let mapped = self.state.mapped_addrs.clone();
+            let allowed = state.allowed_data_custom_ids.clone();
+            let retired = state.retired_custom.clone();
+            conn.restrict_paths(move |addr| match mapped.to_transport_addr(addr) {
+                Some(transports::Addr::Custom(custom)) => {
+                    allowed.contains(&custom.id()) && !retired.contains(&custom)
+                }
+                Some(_) => true,
+                None => false,
+            });
+            for (id, address) in &state.paths {
+                if state.forbids(address)
+                    && let Some(path) = conn.path(*id)
+                {
+                    let _ = path.close();
+                }
+            }
+        }
+    }
+
     /// Selects the preferred path by invoking the configured [`PathSelector`].
     ///
     /// A qualified peer hint may be added to ordinary data connections. Each
     /// connection then scores only its own qualified paths.
     #[instrument(skip_all)]
     fn select_path(&mut self) {
+        self.retire_unavailable_custom_paths();
         let current_path = self.state.selected_path.as_ref();
         let selected_addr = {
             let ctx = PathSelectionContext::new(current_path, &self.connections);

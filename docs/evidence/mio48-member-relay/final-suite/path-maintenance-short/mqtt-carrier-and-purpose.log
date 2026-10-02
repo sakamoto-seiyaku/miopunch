@@ -1,0 +1,130 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.95s
+     Running tests/mqtt_bootstrap.rs (target/debug/deps/mqtt_bootstrap-0a428b03b5a1c7e5)
+
+running 8 tests
+test a_wrong_target_identity_at_the_real_mqtt_route_never_releases_a_member_connection ... PREPARED actual_manual_admission=true durable_members=true
+WRONG_TARGET_REJECTED actual_mqtt_route=true data_released=false
+ok
+test another_invitation_holder_cannot_impersonate_a_member_at_the_formal_mqtt_entry ... PREPARED actual_manual_admission=true durable_members=true
+MQTT_BOOTSTRAP_START stable_id=137227159455136 peer=f46b0967fe1c73068ce1b02f206bccd78ae4b59f3843974de9c7faf6dd78db23
+MQTT_BOOTSTRAP_START stable_id=137227169858704 peer=2da8c10afc02f3e8784dc5df6c7839a55313a88ee92300697f9ae2b01be4e69d
+NAT_DIRECT_CANDIDATE stable_id=137227169858704 target=127.0.0.1:43340
+NAT_DIRECT_SUCCESS stable_id=137227159455136 target=127.0.0.1:46352 punching_recommendations=0
+MQTT_BOOTSTRAP_DATA stable_id=137227159455136 peer=f46b0967fe1c73068ce1b02f206bccd78ae4b59f3843974de9c7faf6dd78db23 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:46352)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=137227169858704 target=127.0.0.1:43340 punching_recommendations=0
+MQTT_BOOTSTRAP_DATA stable_id=137227169858704 peer=2da8c10afc02f3e8784dc5df6c7839a55313a88ee92300697f9ae2b01be4e69d paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:43340)], selected: Some(PathId(1)), closed: false }, .. }
+INVITATION_HOLDER_REJECTED distinct_identity=true membership_unchanged=true legitimate_member_still_works=true
+ok
+test canceling_the_formal_mqtt_data_stage_closes_the_original_attempt_and_allows_a_new_contact ... PREPARED actual_manual_admission=true durable_members=true
+MQTT_BOOTSTRAP_START stable_id=137227158652512 peer=294f2d744b469f725347c3d03f1c47c3e50543459396f23042b28c1568e8aca6
+MQTT_BOOTSTRAP_START stable_id=137227158178368 peer=4f1f562a045a53a2aef54542f1bb319a4d2a7f30c7e1c228ba096253bac9310d
+MQTT_BOOTSTRAP_FAILED stable_id=137227158652512 error=closed by peer: canceled NAT path commitment (code 0)
+MQTT_BOOTSTRAP_START stable_id=137227158332128 peer=294f2d744b469f725347c3d03f1c47c3e50543459396f23042b28c1568e8aca6
+MQTT_BOOTSTRAP_START stable_id=137227169825056 peer=4f1f562a045a53a2aef54542f1bb319a4d2a7f30c7e1c228ba096253bac9310d
+NAT_DIRECT_CANDIDATE stable_id=137227169825056 target=127.0.0.1:45550
+NAT_DIRECT_SUCCESS stable_id=137227158332128 target=127.0.0.1:45670 punching_recommendations=0
+MQTT_BOOTSTRAP_DATA stable_id=137227158332128 peer=294f2d744b469f725347c3d03f1c47c3e50543459396f23042b28c1568e8aca6 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:45670)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=137227169825056 target=127.0.0.1:45550 punching_recommendations=0
+MQTT_BOOTSTRAP_DATA stable_id=137227169825056 peer=4f1f562a045a53a2aef54542f1bb319a4d2a7f30c7e1c228ba096253bac9310d paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:45550)], selected: Some(PathId(1)), closed: false }, .. }
+CANCELLATION_CLEAN original_id=137227158178368 new_id=137227169825056 original_tls_closed=1 subscription_retained=true actual_new_business=true
+ok
+test configured_startup_keeps_another_allowed_mqtt_service_when_one_is_down ... MQTT_CLOSE result=I/O: Connection refused (os error 111)
+MQTT_RESOURCE_UNAVAILABLE error=MQTT carrier stopped
+MQTT_OTHER_RESOURCE_USABLE failed_services=1 ready_routes=1
+ok
+test mqtt_native_node_worker ... ok
+test saved_udp_disable_applies_to_the_next_mqtt_endpoint_without_reopening_the_node ... PREPARED actual_manual_admission=true durable_members=true
+MQTT_BOOTSTRAP_START stable_id=137227159500928 peer=8edbbbf91c984e732d4b3b0e0224a56d83948a1fe0ee8aedad3f6187ee15006f
+MQTT_BOOTSTRAP_START stable_id=137227159503472 peer=1fe9063ce993757ce37dcad4e8d0db68e7ac1056c4734794dc7fb94dd8746878
+MQTT_BOOTSTRAP_FAILED stable_id=137227159500928 error=no mutually permitted data path capability
+MQTT_BOOTSTRAP_FAILED stable_id=137227159503472 error=read error: connection lost
+SAVED_UDP_DISABLE rejected_before_traversal=true elapsed_ms=447
+ok
+test simultaneous_formal_mqtt_dials_return_bounded_independent_data_connections ... PREPARED actual_manual_admission=true durable_members=true
+MQTT_BOOTSTRAP_START stable_id=137227159683488 peer=5b3f80ef1babc943e54aab60ed893bfb698f1dd33120977ce22422e83a12bbd9
+MQTT_BOOTSTRAP_START stable_id=137227158937872 peer=d19c869477dfbdacc0cd1da4f72278351c15c19a13dd05cc68cfe8cd72bcca02
+MQTT_BOOTSTRAP_START stable_id=137227158267456 peer=d19c869477dfbdacc0cd1da4f72278351c15c19a13dd05cc68cfe8cd72bcca02
+MQTT_BOOTSTRAP_START stable_id=137227158915488 peer=5b3f80ef1babc943e54aab60ed893bfb698f1dd33120977ce22422e83a12bbd9
+NAT_DIRECT_CANDIDATE stable_id=137227158915488 target=127.0.0.1:47297
+NAT_DIRECT_CANDIDATE stable_id=137227158267456 target=127.0.0.1:44886
+NAT_DIRECT_SUCCESS stable_id=137227158937872 target=127.0.0.1:44886 punching_recommendations=0
+MQTT_BOOTSTRAP_DATA stable_id=137227158937872 peer=d19c869477dfbdacc0cd1da4f72278351c15c19a13dd05cc68cfe8cd72bcca02 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44886)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=137227158915488 target=127.0.0.1:47297 punching_recommendations=0
+MQTT_BOOTSTRAP_DATA stable_id=137227158915488 peer=5b3f80ef1babc943e54aab60ed893bfb698f1dd33120977ce22422e83a12bbd9 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:47297)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=137227159683488 target=127.0.0.1:47297 punching_recommendations=0
+MQTT_BOOTSTRAP_DATA stable_id=137227159683488 peer=5b3f80ef1babc943e54aab60ed893bfb698f1dd33120977ce22422e83a12bbd9 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:47297)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=137227158267456 target=127.0.0.1:44886 punching_recommendations=0
+MQTT_BOOTSTRAP_DATA stable_id=137227158267456 peer=d19c869477dfbdacc0cd1da4f72278351c15c19a13dd05cc68cfe8cd72bcca02 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44886)], selected: Some(PathId(1)), closed: false }, .. }
+SIMULTANEOUS_BOUNDED node_a_tls=2 node_b_tls=2 returned=4 distinct_connections=true actual_business=true
+ok
+test two_live_broker_routes_each_deliver_a_formal_original_data_connection ... PREPARED actual_manual_admission=true durable_members=true
+MQTT_BOOTSTRAP_START stable_id=137227158740928 peer=c29a372eff038f6502c8f0aff046b99e65ddaacaa3a2a63c878aa319a9806bc7
+MQTT_BOOTSTRAP_START stable_id=137227158724000 peer=3a19e8b4613024e408226bf5964773e920e3c3e36025c685841acbf57934f509
+NAT_DIRECT_CANDIDATE stable_id=137227158724000 target=127.0.0.1:47213
+NAT_DIRECT_SUCCESS stable_id=137227158740928 target=127.0.0.1:45770 punching_recommendations=0
+MQTT_BOOTSTRAP_DATA stable_id=137227158740928 peer=c29a372eff038f6502c8f0aff046b99e65ddaacaa3a2a63c878aa319a9806bc7 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:45770)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=137227158724000 target=127.0.0.1:47213 punching_recommendations=0
+MQTT_BOOTSTRAP_DATA stable_id=137227158724000 peer=3a19e8b4613024e408226bf5964773e920e3c3e36025c685841acbf57934f509 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:47213)], selected: Some(PathId(1)), closed: false }, .. }
+BROKER_ROUTE_OK round=0 actual_member=true fresh_endpoint=true same_connection_id=137227158724000
+MQTT_BOOTSTRAP_START stable_id=137227158527472 peer=c29a372eff038f6502c8f0aff046b99e65ddaacaa3a2a63c878aa319a9806bc7
+MQTT_BOOTSTRAP_START stable_id=137227159588368 peer=3a19e8b4613024e408226bf5964773e920e3c3e36025c685841acbf57934f509
+NAT_DIRECT_CANDIDATE stable_id=137227159588368 target=127.0.0.1:46419
+NAT_DIRECT_SUCCESS stable_id=137227158527472 target=127.0.0.1:46705 punching_recommendations=0
+MQTT_BOOTSTRAP_DATA stable_id=137227158527472 peer=c29a372eff038f6502c8f0aff046b99e65ddaacaa3a2a63c878aa319a9806bc7 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:46705)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=137227159588368 target=127.0.0.1:46419 punching_recommendations=0
+MQTT_BOOTSTRAP_DATA stable_id=137227159588368 peer=3a19e8b4613024e408226bf5964773e920e3c3e36025c685841acbf57934f509 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:46419)], selected: Some(PathId(1)), closed: false }, .. }
+BROKER_ROUTE_OK round=1 actual_member=true fresh_endpoint=true same_connection_id=137227159588368
+ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.01s
+
+     Running tests/mqtt_probe.rs (target/debug/deps/mqtt_probe-2e5d50576a09c1d6)
+
+running 4 tests
+test cancelling_a_subscribed_mqtt_endpoint_completes ... ok
+test known_nodes_exchange_control_over_a_real_mqtt_broker ... MQTT_EVIDENCE control_ms=127 client=MQTT_TRAFFIC sent_packets=15 sent_bytes=6685 received_packets=11 received_bytes=5639 rejected_packets=0 max_datagram=2048 queue_depth=64 server=MQTT_TRAFFIC sent_packets=11 sent_bytes=5639 received_packets=14 received_bytes=6645 rejected_packets=0 max_datagram=2048 queue_depth=64
+ok
+test rebinding_the_adapter_gets_a_fresh_delivery_route ... ok
+test wrong_identity_and_other_subscriber_cannot_get_control_or_plaintext ... MQTT_EVIDENCE observed_publishes=73 max_payload_bytes=1409
+ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.84s
+
+     Running tests/mqtt_upgrade.rs (target/debug/deps/mqtt_upgrade-9e4d4af6d37b9531)
+
+running 5 tests
+test closed_control_session_never_releases_queued_business ... ok
+test queued_business_and_retransmission_never_fall_back_to_mqtt ... FAILURE_EVIDENCE queued_udp_packets=8 retry_or_probe_packets_after_cut=12 client_stable_id=134350000281888 mqtt_after_failure=(19,15) close=Some(TimedOut) cut_to_close_ms=3990
+ok
+test real_mqtt_control_connection_upgrades_to_udp_without_redial ... UPGRADE_EVIDENCE client_stable_id=134350000358368 server_stable_id=134350000122048 mqtt_after_commit=(35,31) client_paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:45808)], selected: Some(PathId(1)), closed: false }, .. } server_paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:45193)], selected: Some(PathId(1)), closed: false }, .. }
+ok
+test reordered_real_mqtt_datagrams_preserve_control_stream_bytes ... MQTT_REORDER_EVIDENCE reversed_publish_pairs=1 control_bytes=16384
+ok
+test restricted_mqtt_endpoint_refuses_early_connection_handles ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.22s
+
+     Running tests/unknown_member_bootstrap.rs (target/debug/deps/unknown_member_bootstrap-95655241d68d88cb)
+
+running 2 tests
+test false_candidates_and_former_secret_holders_do_not_receive_history ... UNKNOWN_MEMBER_REJECTION no_secret=1 old_secret_new_identity=1 known_removed=1 expired_reply=1 wrong_generation=1 wrong_network=1
+ok
+test offline_known_contact_does_not_block_unknown_member_bootstrap ... MQTT_CAPTURE publishes=43 query=1 reply=1 quic_packets=41 public_fields_match=1 secret_exposed=0
+UNKNOWN_MEMBER_BOOTSTRAP a_known_offline_b=1 discovered_c=1 tls=1 scram=1 signed_history=1 new_records=1
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.69s
+

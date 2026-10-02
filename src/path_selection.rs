@@ -51,7 +51,10 @@ impl QualityPathSelector {
         match self.0.preference {
             PathPreference::Quality => 0,
             PathPreference::PreferDirect => u8::from(!direct),
-            PathPreference::PreferRelay => u8::from(!path.is_relay()),
+            PathPreference::PreferRelay => u8::from(
+                !(path.is_relay()
+                    || matches!(path, FourTuple::Custom { remote, .. } if remote.id() == crate::member_transport::DATA_TRANSPORT_ID)),
+            ),
         }
     }
 }

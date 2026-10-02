@@ -501,6 +501,14 @@ impl Transports {
         false
     }
 
+    /// Dynamic custom sender qualification, shared with connection maintenance.
+    pub(crate) fn custom_route_senders(&self) -> Vec<Arc<dyn custom::CustomSender>> {
+        self.custom
+            .iter()
+            .map(|transport| transport.create_sender())
+            .collect()
+    }
+
     pub(crate) fn create_sender(&self) -> TransportsSender {
         #[cfg(not(wasm_browser))]
         let ip = self.ip.create_sender();
