@@ -99,6 +99,7 @@ rustls = { version = "0.23.45", default-features = false, features = ["ring", "s
 p2panda-net = { path = "vendor/p2panda-net", default-features = false, features = ["iroh_mdns"] }
 
 [patch.crates-io]
+p2panda-sync = { path = "vendor/p2panda-sync" }
 iroh = { path = "vendor/iroh" }
 noq = { path = "vendor/noq" }
 noq-proto = { path = "vendor/noq-proto" }

@@ -32,3 +32,12 @@ pub mod tcp_transport;
 
 pub mod network_maintenance;
 pub mod network_recovery;
+
+pub mod management_record;
+mod replica_snapshot;
+
+mod admission_request_id;
+
+mod management_action;
+
+mod precode_policy;

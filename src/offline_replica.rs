@@ -1,19 +1,17 @@
 //! A bounded, source-scoped management-history exchange over an admitted data
 //! connection. The immutable serving snapshot contains only applied records;
 //! all received LogSync events go through the durable management consumer.
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
 use iroh::endpoint::Connection;
 use iroh_base::EndpointId;
-use p2panda_core::{Body, Hash, Header, Operation, SeqNum, VerifyingKey};
+use p2panda_core::Hash;
 use p2panda_net::codec::Codec;
-use p2panda_store::logs::LogStore;
-use p2panda_sync::protocols::{LogSync, LogSyncEvent, LogSyncMessage, Logs};
+use p2panda_sync::protocols::{LogSync, LogSyncEvent, LogSyncMessage};
 use p2panda_sync::traits::Protocol;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::broadcast;
 use tokio_util::codec::{FramedRead, FramedWrite};
@@ -27,9 +25,7 @@ pub const REPLICA_ALPN: &[u8] = b"miopunch/control-replica/1";
 const MAX_RECORDS: usize = 4096;
 const MAX_BYTES: usize = 16 * 1024 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(20);
-type ManagementOperation = Operation<ManagementExtension>;
-type Entry = (ManagementOperation, Vec<u8>);
-type Entries = BTreeMap<(VerifyingKey, [u8; 16]), Vec<Entry>>;
+use crate::replica_snapshot::{Manifest, Receipt, Snapshot};
 
 #[derive(Debug, Error)]
 pub enum ReplicaError {
@@ -56,155 +52,6 @@ pub struct ReplicaOutcome {
 impl ReplicaOutcome {
     pub fn complete(&self) -> bool {
         self.transport_done && self.scope == self.saved && self.scope == self.applied
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-struct Manifest {
-    anchor: NetworkAnchor,
-    logs: Logs<[u8; 16]>,
-    ids: Vec<Hash>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Receipt {
-    records_saved: bool,
-    view_applied: bool,
-}
-
-/// Read-only LogStore projection of one durable, authorized snapshot. Pending
-/// records never advertise heights; pruning has no implementation here.
-#[derive(Clone, Default)]
-struct Snapshot(Arc<Entries>);
-
-impl Snapshot {
-    fn from_records(
-        anchor: NetworkAnchor,
-        records: &[ManagementRecord],
-    ) -> Result<(Self, Manifest), ReplicaError> {
-        let mut entries = Entries::new();
-        let mut ids = Vec::new();
-        let mut logs = Logs::new();
-        let mut bytes = 0;
-        for record in records {
-            bytes += record.header().len() + record.body().map_or(0, |body| body.len());
-            if ids.len() >= MAX_RECORDS || bytes > MAX_BYTES {
-                return Err(ReplicaError::Rejected);
-            }
-            let header = Header::<ManagementExtension>::decode(record.header())
-                .map_err(|_| ReplicaError::Rejected)?;
-            let author = header.verifying_key;
-            let log = header.extensions.log_id;
-            let author_logs = logs.entry(author).or_default();
-            if !author_logs.contains(&log) {
-                author_logs.push(log);
-            }
-            if !ids.contains(&header.hash()) {
-                ids.push(header.hash());
-            }
-            entries.entry((author, log)).or_default().push((
-                Operation {
-                    hash: header.hash(),
-                    header,
-                    body: record.body().map(Body::from_bytes),
-                },
-                record.header().to_vec(),
-            ));
-        }
-        for log in entries.values_mut() {
-            log.sort_by_key(|(op, _)| op.header.seq_num);
-        }
-        Ok((Self(Arc::new(entries)), Manifest { anchor, logs, ids }))
-    }
-
-    fn range(
-        &self,
-        author: &VerifyingKey,
-        log: &[u8; 16],
-        after: Option<SeqNum>,
-        until: Option<SeqNum>,
-    ) -> Option<Vec<Entry>> {
-        self.0.get(&(*author, *log)).map(|entries| {
-            entries
-                .iter()
-                .filter(|(op, _)| {
-                    after.is_none_or(|seq| op.header.seq_num > seq)
-                        && until.is_none_or(|seq| op.header.seq_num <= seq)
-                })
-                .cloned()
-                .collect()
-        })
-    }
-}
-
-impl LogStore<ManagementOperation, VerifyingKey, [u8; 16], SeqNum, Hash> for Snapshot {
-    type Error = ReplicaError;
-    async fn get_latest_entry(
-        &self,
-        author: &VerifyingKey,
-        log: &[u8; 16],
-    ) -> Result<Option<ManagementOperation>, Self::Error> {
-        Ok(self
-            .0
-            .get(&(*author, *log))
-            .and_then(|entries| entries.last())
-            .map(|(op, _)| op.clone()))
-    }
-    async fn get_latest_entry_tx(
-        &self,
-        author: &VerifyingKey,
-        log: &[u8; 16],
-    ) -> Result<Option<ManagementOperation>, Self::Error> {
-        self.get_latest_entry(author, log).await
-    }
-    async fn get_log_heights(
-        &self,
-        author: &VerifyingKey,
-        logs: &[[u8; 16]],
-    ) -> Result<Option<BTreeMap<[u8; 16], SeqNum>>, Self::Error> {
-        let mut heights = BTreeMap::new();
-        for log in logs {
-            if let Some(op) = self.get_latest_entry(author, log).await? {
-                heights.insert(*log, op.header.seq_num);
-            }
-        }
-        Ok((!heights.is_empty()).then_some(heights))
-    }
-    async fn get_log_size(
-        &self,
-        author: &VerifyingKey,
-        log: &[u8; 16],
-        after: Option<SeqNum>,
-        until: Option<SeqNum>,
-    ) -> Result<Option<(u32, u32)>, Self::Error> {
-        Ok(self.range(author, log, after, until).map(|entries| {
-            (
-                entries.len() as u32,
-                entries
-                    .iter()
-                    .map(|(op, header)| {
-                        header.len() + op.body.as_ref().map_or(0, |body| body.to_bytes().len())
-                    })
-                    .sum::<usize>() as u32,
-            )
-        }))
-    }
-    async fn get_log_entries(
-        &self,
-        author: &VerifyingKey,
-        log: &[u8; 16],
-        after: Option<SeqNum>,
-        until: Option<SeqNum>,
-    ) -> Result<Option<Vec<Entry>>, Self::Error> {
-        Ok(self.range(author, log, after, until))
-    }
-    async fn prune_entries(
-        &self,
-        _: &VerifyingKey,
-        _: &[u8; 16],
-        _: &SeqNum,
-    ) -> Result<u64, Self::Error> {
-        Err(ReplicaError::Rejected)
     }
 }
 
@@ -364,7 +211,7 @@ impl NativeNetwork {
             let outcome = ReplicaOutcome { source: connection.remote_id(), saved: manifest.ids.iter().filter(|id| saved_ids.contains(id)).copied().collect(), scope: manifest.ids, transport_done: true, applied };
             let mut receipt_sink = FramedWrite::new(sink.into_inner(), Codec::<Receipt>::new().max_frame_len(64));
             receipt_sink.send(Receipt { records_saved: outcome.saved == outcome.scope, view_applied: outcome.applied == outcome.scope }).await.map_err(|_| ReplicaError::Transport)?;
-            if connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN {
+            {
                 let buffered = stream.read_buffer().clone();
                 let mut acknowledgement = FramedRead::new(stream.into_inner(), Codec::<Receipt>::new().max_frame_len(64));
                 acknowledgement.read_buffer_mut().extend_from_slice(&buffered);
@@ -434,7 +281,8 @@ impl ReplicaProvider {
             if !self.replica_provider_allowed(connection) {
                 return Err(ReplicaError::Rejected);
             }
-            let (snapshot, manifest) = Snapshot::from_records(self.anchor, records)?;
+            let (snapshot, manifest) =
+                Snapshot::from_records(self.anchor, records).map_err(|_| ReplicaError::Rejected)?;
             let (mut send, mut recv) = match streams {
                 Some(streams) => streams,
                 None => connection
@@ -501,7 +349,7 @@ impl ReplicaProvider {
             if !receipt.records_saved {
                 return Err(ReplicaError::Rejected);
             }
-            if connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN {
+            {
                 let mut acknowledgement =
                     FramedWrite::new(sink.into_inner(), Codec::<Receipt>::new().max_frame_len(64));
                 acknowledgement

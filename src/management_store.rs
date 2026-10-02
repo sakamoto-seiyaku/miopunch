@@ -17,28 +17,7 @@ use crate::admission_proof::{AdmissionScope, AdmissionSecret};
 use crate::management_auth::{AuthError, ManagementAuth, NetworkAnchor, decode_complete};
 use crate::manual_admission::{AdmissionRequest, AdmissionStage, ApprovedAdmission};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ManagementRecord {
-    header: Vec<u8>,
-    body: Option<Vec<u8>>,
-}
-
-impl ManagementRecord {
-    pub fn new(header: Vec<u8>, body: Option<&[u8]>) -> Self {
-        Self {
-            header,
-            body: body.map(|bytes| bytes.to_vec()),
-        }
-    }
-
-    pub fn header(&self) -> &[u8] {
-        &self.header
-    }
-
-    pub fn body(&self) -> Option<&[u8]> {
-        self.body.as_deref()
-    }
-}
+pub use crate::management_record::ManagementRecord;
 
 #[derive(Debug, Error)]
 pub enum StoreError {

@@ -510,12 +510,8 @@ impl NativeNetwork {
         // original local binding for the second-material verification.
         let mut wire_binding = binding;
         if let Some(token) = token {
-            let mut hash = blake3::Hasher::new_derive_key("miopunch precode redemption id v1");
-            hash.update(&binding.request_id);
-            hash.update(&token);
-            wire_binding
-                .request_id
-                .copy_from_slice(&hash.finalize().as_bytes()[..16]);
+            wire_binding.request_id =
+                crate::admission_request_id::precode_request_id(binding.request_id, token);
         }
         let mut wire = wire_binding.encode().to_vec();
         wire.extend_from_slice(self.node_key.verifying_key().as_bytes());

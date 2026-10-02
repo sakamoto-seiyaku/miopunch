@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { createReadStream, existsSync, readdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, createReadStream, existsSync, readdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -16,7 +16,8 @@ const events = [];
 const caseArgument = process.argv.indexOf('--case');
 const selected = process.argv.includes('--suite') ? 'suite' : caseArgument < 0 ? 'first' : process.argv[caseArgument + 1];
 const includes = name => selected === 'suite' || selected === name;
-assert(['first', 'lifecycle', 'persistent-restart', 'multi-page', 'delivery-interruption', 'storage-clear', 'commit-loss', 'no-relay', 'disabled-relay', 'unavailable-relay', 'tls', 'suite'].includes(selected), 'unknown browser case');
+assert(['first', 'lifecycle', 'persistent-restart', 'multi-page', 'delivery-interruption', 'storage-clear', 'commit-loss', 'no-relay', 'disabled-relay', 'unavailable-relay', 'tls', 'replica', 'precode', 'management', 'new-code', 'browser-admission', 'replica-faults', 'revocation', 'storage-corrupt', 'browser-precode', 'suite'].includes(selected), 'unknown browser case');
+const controlCases=['replica','precode','management','new-code','browser-admission','replica-faults','revocation','storage-corrupt','browser-precode'];
 const requests = [];
 let browser;
 
@@ -33,7 +34,7 @@ function child(binary, args) {
   const waiters = [];
   const stream = createInterface({ input: process.stdout });
   stream.on('line', line => {
-    console.log(`${binary}: ${line}`);
+    console.log(`${binary}: ${line.includes('"code":') ? '[private invitation response]' : line}`);
     lines.push(line);
     for (const waiter of [...waiters]) {
       if (waiter.pattern.test(line)) {
@@ -82,7 +83,7 @@ const web = createServer((request, response) => {
 });
 
 try {
-  const tls = includes('tls');
+  const tls = includes('tls') || controlCases.includes(selected);
   const cert = join(temporary, 'relay-certificate.der');
   const relay = child('browser-probe-native', tls ? ['relay-tls', cert] : ['relay', '0']);
   const address = (await relay.wait(/^RELAY /)).slice(6);
@@ -114,6 +115,240 @@ try {
   assert.equal(JSON.parse(await page.evaluate(() => window.network.status())).stage, 'Complete');
   assert.equal(await page.evaluate(() => window.network.exchange('after-refresh')), 'after-refresh');
   events.push({ case: 'first-real-check', browser: first, native: ready.id, stage: 'Complete', count: 2, reload: true, controlledBytes: 26 });
+
+  if (selected === 'replica') {
+    const thirdContext = await browserContext();
+    const third = await thirdContext.newPage();
+    await third.goto(url);
+    await bounded(third.evaluate(() => window.ready), 'third browser start');
+    assert.equal(await third.evaluate(inv => window.network.request_admission(inv), ready.invitation), 'AwaitingApproval');
+    await native.command('approve', 'approved');
+    await third.evaluate(inv => window.network.request_admission(inv), ready.invitation);
+    await third.evaluate(() => window.network.complete_admission());
+    const authored = await native.command('record', 'record');
+    const outcome = JSON.parse(await page.evaluate(id => window.network.sync_replica(id), ready.id));
+    assert.equal(outcome.complete, true);
+    assert(outcome.scope.includes(authored.record));
+    await page.reload();
+    await bounded(page.evaluate(() => window.ready), 'replica reopen');
+    assert.equal(JSON.parse(await page.evaluate(() => window.network.control_state())).records, outcome.scope.length);
+    native.process.stdin.write('stop\n');
+    assert.equal(await bounded(new Promise(resolve => native.process.once('exit', resolve)), 'original author offline'),0);
+    console.log('AUTHOR_OFFLINE exit=0');
+    const serving = page.evaluate(() => window.network.serve_replica());
+    const copied = JSON.parse(await third.evaluate(id => window.network.sync_replica(id), first));
+    await serving;
+    assert.equal(copied.complete, true);
+    assert.equal(copied.source, first);
+    assert(copied.scope.includes(authored.record));
+    const original=JSON.parse(await third.evaluate(id=>window.network.control_record(id),authored.record));
+    assert.equal(original.body,Buffer.from('original-author browser replica body').toString('hex'));
+    await third.reload();
+    await bounded(third.evaluate(() => window.ready), 'third durable replica');
+    assert.equal(JSON.parse(await third.evaluate(() => window.network.control_state())).records, outcome.scope.length);
+    events.push({ case: 'replica-author-offline-browser-reload-third-node', ...copied });
+    await thirdContext.close();
+  }
+
+  if (selected === 'precode') {
+    const { code } = await native.command('issue', 'issued');
+    const joiningContext = await browserContext();
+    const owner = await joiningContext.newPage();
+    await owner.goto(url);
+    const identity = await bounded(owner.evaluate(() => window.ready), 'precode owner');
+    assert.equal(await owner.evaluate(code => window.network.request_precode(code), code), 'PendingMaterials');
+    const competitor = await joiningContext.newPage();
+    await competitor.goto(url);
+    await assert.rejects(() => competitor.evaluate(() => window.ready), /identity already active/);
+    await owner.close();
+    await competitor.reload();
+    assert.equal(await bounded(competitor.evaluate(() => window.ready), 'precode takeover'), identity);
+    assert.equal(await competitor.evaluate(code => window.network.request_precode(code), code), 'PendingMaterials');
+    assert.equal(await competitor.evaluate(() => window.network.complete_admission()), 'Complete');
+    assert.equal((await native.command('usage', 'usage')).uses, 1);
+    assert.equal((await native.command('status', 'status')).count, 3);
+    await competitor.reload();
+    await bounded(competitor.evaluate(() => window.ready), 'precode completed reload');
+    assert.equal(await competitor.evaluate(code => window.network.request_precode(code), code), 'PendingMaterials');
+    await competitor.evaluate(() => window.network.complete_admission());
+    const result=await native.command('usage', 'usage');
+    assert.equal(result.uses,1); assert.equal(result.count,3);
+    events.push({case:'precode-multiple-pages-same-attempt', exclusiveOwner:true, takeover:true, reload:true, uses:result.uses, count:result.count});
+    await joiningContext.close();
+  }
+
+  if (selected === 'management') {
+    const outsiderContext=await browserContext();
+    const outsider=await outsiderContext.newPage(); await outsider.goto(url);
+    const target=await bounded(outsider.evaluate(()=>window.ready),'management target identity');
+    await outsiderContext.close();
+    let session=await page.evaluate(()=>window.network.begin_management_session());
+    await assert.rejects(()=>page.evaluate(({session,target})=>window.network.manage(session,'add-member',target),{session,target}));
+    const credential=readFileSync(join(temporary,'admin','genesis.credential'));
+    const rootMaterial={seed:credential.subarray(0,32).toString('hex'),genesis:credential.subarray(32).toString('hex')};
+    const elevate=windowMs=>page.evaluate(({session,rootMaterial,windowMs})=>window.network.elevate_genesis(session,rootMaterial.seed,rootMaterial.genesis,windowMs),{session,rootMaterial,windowMs});
+    await elevate(60000);
+    await page.evaluate(({session,first})=>window.network.manage(session,'appoint-administrator',first),{session,first});
+    await page.evaluate(session=>window.network.exit_genesis_elevation(session),session);
+    await page.evaluate(({session,target})=>window.network.manage(session,'add-member',target),{session,target});
+    await page.evaluate(({session,target})=>window.network.manage(session,'remove-member',target),{session,target});
+    for (const action of ['appoint-administrator','demote-administrator','remove-member']) {
+      await assert.rejects(()=>page.evaluate(({session,action,target})=>window.network.manage(session,action,target),{session,action,target:ready.id}),/genesis elevation required/);
+    }
+    await assert.rejects(()=>page.evaluate(session=>window.network.leave(session),session),/genesis elevation required/);
+    await elevate(1);
+    await new Promise(resolve=>setTimeout(resolve,20));
+    await assert.rejects(()=>page.evaluate(({session,target})=>window.network.manage(session,'demote-administrator',target),{session,target:ready.id}),/genesis elevation required/);
+    await elevate(60000);
+    await page.evaluate(({session,target})=>window.network.manage(session,'demote-administrator',target),{session,target:ready.id});
+    assert.equal(JSON.parse(await page.evaluate(()=>window.network.control_state())).members.find(member=>member.id===ready.id).administrator,false);
+    await page.evaluate(({session,target})=>window.network.manage(session,'appoint-administrator',target),{session,target:ready.id});
+    await page.evaluate(session=>window.network.end_management_session(session),session);
+    await assert.rejects(()=>page.evaluate(({session,target})=>window.network.manage(session,'demote-administrator',target),{session,target:ready.id}),/session ended/);
+    await page.reload(); await bounded(page.evaluate(()=>window.ready),'management reopen');
+    await assert.rejects(()=>page.evaluate(({session,target})=>window.network.manage(session,'demote-administrator',target),{session,target:ready.id}),/session ended/);
+    events.push({case:'browser-management-permission-matrix',ordinaryCannotAdd:true,dailyAddRemove:true,administratorProtected:true,administratorLeaveProtected:true,expiry:true,explicitExit:true,sessionEnd:true,reloadDropsElevation:true});
+  }
+
+  if (['new-code','browser-admission'].includes(selected)) {
+    const credential=readFileSync(join(temporary,'admin','genesis.credential'));
+    await page.evaluate(({seed,genesis,first})=>{
+      const session=window.network.begin_management_session();
+      window.network.elevate_genesis(session,seed,genesis,60000);
+      return window.network.manage(session,'appoint-administrator',first);
+    },{seed:credential.subarray(0,32).toString('hex'),genesis:credential.subarray(32).toString('hex'),first});
+    const joiningContext=await browserContext(); const joining=await joiningContext.newPage();
+    await joining.goto(url); const joiningId=await bounded(joining.evaluate(()=>window.ready),'browser-admin applicant');
+    if (selected==='new-code') {
+      const original=await native.command('issue','issued');
+      assert.equal(await joining.evaluate(code=>window.network.request_precode(code),original.code),'PendingMaterials');
+      await joining.reload(); await bounded(joining.evaluate(()=>window.ready),'interrupted original delivery');
+      await page.evaluate(id=>window.network.sync_replica(id),ready.id);
+      const before=JSON.parse(await page.evaluate(()=>window.network.control_state())).records;
+      assert.equal((await native.command('usage','usage')).uses,1);
+      native.process.stdin.write('stop\n');
+      assert.equal(await bounded(new Promise(resolve=>native.process.once('exit',resolve)),'original delivery unavailable'),0);
+      console.log('AUTHOR_OFFLINE exit=0');
+      const replacement=await page.evaluate(()=>window.network.issue_precode(BigInt(Math.floor(Date.now()/1000)+3600),1n));
+      const serving=page.evaluate(()=>window.network.serve_admission(true));
+      assert.equal(await joining.evaluate(code=>window.network.request_precode(code),replacement),'PendingMaterials');
+      assert.equal(await joining.evaluate(()=>window.network.complete_admission()),'Complete');
+      assert.equal(await serving,'Complete');
+      assert.equal(await page.evaluate(code=>window.network.precode_usage(code),replacement),1n);
+      assert.equal(JSON.parse(await page.evaluate(()=>window.network.control_state())).records,before);
+      const servingReplica=page.evaluate(()=>window.network.serve_replica());
+      assert.equal(JSON.parse(await joining.evaluate(id=>window.network.sync_replica(id),first)).complete,true);
+      await servingReplica;
+      events.push({case:'new-code-other-browser-original-offline',originalUses:1,newUses:1,noDuplicateAdd:true,qualifiedReplica:true});
+    } else {
+      const invitation=await page.evaluate(()=>window.network.manual_invitation());
+      let serving=page.evaluate(()=>window.network.serve_admission(false));
+      assert.equal(await joining.evaluate(inv=>window.network.request_admission(inv),invitation),'AwaitingApproval');
+      assert.equal(await serving,'AwaitingApproval');
+      const request=JSON.parse(await page.evaluate(()=>window.network.admission_requests())).find(request=>request.applicant===joiningId);
+      await page.evaluate(request=>window.network.approve_admission(request.applicant,request.request),request);
+      serving=page.evaluate(()=>window.network.serve_admission(false));
+      await joining.evaluate(inv=>window.network.request_admission(inv),invitation);
+      await joining.evaluate(()=>window.network.complete_admission());
+      assert.equal(await serving,'Complete');
+      events.push({case:'browser-independent-manual-approval',administrator:first,applicant:joiningId,complete:true});
+    }
+    await joiningContext.close();
+  }
+
+  if (selected==='replica-faults') {
+    await native.command('prepare-faults','prepared');
+    await native.command('fixture-missing-body','fixture');
+    await assert.rejects(()=>page.evaluate(id=>window.network.sync_replica(id),ready.id));
+    let state=JSON.parse(await page.evaluate(()=>window.network.control_state()));
+    assert.equal(state.records,2); assert.equal(state.pending,0);
+    await native.command('fixture-child-only','fixture');
+    const partial=JSON.parse(await page.evaluate(id=>window.network.sync_replica(id),ready.id));
+    assert.equal(partial.transport_done,true); assert.equal(partial.complete,false);
+    state=JSON.parse(await page.evaluate(()=>window.network.control_state()));
+    assert.equal(state.records,2); assert.equal(state.pending,1);
+    await page.reload(); await bounded(page.evaluate(()=>window.ready),'pending dependency reopen');
+    assert.equal(JSON.parse(await page.evaluate(()=>window.network.control_state())).pending,1);
+    await native.command('fixture-reversed-duplicates','fixture');
+    const completed=JSON.parse(await page.evaluate(id=>window.network.sync_replica(id),ready.id));
+    assert.equal(completed.complete,true);
+    state=JSON.parse(await page.evaluate(()=>window.network.control_state()));
+    assert.equal(state.records,4); assert.equal(state.pending,0);
+    await native.command('fixture-normal','fixture');
+    await page.evaluate(id=>window.network.sync_replica(id),ready.id);
+    assert.equal(JSON.parse(await page.evaluate(()=>window.network.control_state())).records,4);
+    await native.command('record','record');
+    await page.evaluate(()=>{
+      const put=IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put=function(...args) { this.transaction.abort(); return put.apply(this,args); };
+    });
+    await assert.rejects(()=>page.evaluate(id=>window.network.sync_replica(id),ready.id),/commit failed|storage changed/);
+    await page.reload(); await bounded(page.evaluate(()=>window.ready),'failed replica commit reopen');
+    assert.equal(JSON.parse(await page.evaluate(()=>window.network.control_state())).records,4);
+    assert.equal(JSON.parse(await page.evaluate(id=>window.network.sync_replica(id),ready.id)).complete,true);
+    assert.equal(JSON.parse(await page.evaluate(()=>window.network.control_state())).records,5);
+    events.push({case:'browser-replica-failure-boundaries',missingBodyRejected:true,missingDependencyIncomplete:true,pendingSurvivesReload:true,reversedDuplicatesAppliedOnce:true,realIdbAbortNoCompletion:true,retryComplete:true});
+  }
+
+  if (selected==='revocation') {
+    await page.evaluate(async id=>{window.member=await window.network.open_member_connection(id);},ready.id);
+    assert.equal(await page.evaluate(()=>window.member.exchange('before-revocation')),'before-revocation');
+    assert.equal(await page.evaluate(()=>window.member.is_closed()),false);
+    const removal=await native.command(`remove-record ${first}`,'removal-record');
+    await page.evaluate(header=>window.network.ingest_management_record(header,undefined),removal.header);
+    assert.equal(await page.evaluate(()=>window.member.is_closed()),true);
+    await assert.rejects(()=>page.evaluate(()=>window.member.exchange('after-revocation')));
+    await assert.rejects(()=>page.evaluate(id=>window.network.open_member_connection(id),ready.id));
+    assert.equal(JSON.parse(await page.evaluate(()=>window.network.status())).stage,'Removed');
+    await page.reload();await bounded(page.evaluate(()=>window.ready),'revoked reopen');
+    assert.equal(JSON.parse(await page.evaluate(()=>window.network.status())).stage,'Removed');
+    events.push({case:'browser-local-revocation-closes-real-connection',existingClosed:true,newRejected:true,reloadRemainsRemoved:true});
+  }
+  if (selected==='storage-corrupt') {
+    await page.evaluate(()=>new Promise((resolve,reject)=>{
+      const request=indexedDB.open('miopunch-browser-network',1);
+      request.onsuccess=()=>{const db=request.result;const tx=db.transaction('node','readwrite',{durability:'strict'});tx.objectStore('node').put('invalid persisted snapshot','state');tx.oncomplete=()=>{db.close();resolve();};tx.onabort=()=>reject(new Error('fixture corruption failed'));};
+    }));
+    await page.reload(); await assert.rejects(()=>page.evaluate(()=>window.ready),/materials corrupt/);
+    await page.reload(); await assert.rejects(()=>page.evaluate(()=>window.ready),/materials corrupt/);
+    events.push({case:'browser-corrupt-restore-fails-closed',explicitFailure:true,noSilentNewIdentity:true});
+  }
+
+  if (selected==='browser-precode') {
+    const credential=readFileSync(join(temporary,'admin','genesis.credential'));
+    let session=await page.evaluate(()=>window.network.begin_management_session());
+    await page.evaluate(({session,seed,genesis})=>window.network.elevate_genesis(session,seed,genesis,60000),{session,seed:credential.subarray(0,32).toString('hex'),genesis:credential.subarray(32).toString('hex')});
+    await page.evaluate(({session,first})=>window.network.manage(session,'appoint-administrator',first),{session,first});
+    const code=await page.evaluate(()=>window.network.issue_precode(BigInt(Math.floor(Date.now()/1000)+3600),1n));
+    const joiningContext=await browserContext();const joining=await joiningContext.newPage();
+    await joining.goto(url);await bounded(joining.evaluate(()=>window.ready),'browser-code joining');
+    let serving=page.evaluate(()=>window.network.serve_admission(true));
+    await joining.evaluate(code=>window.network.request_precode(code),code);
+    await joining.evaluate(()=>window.network.complete_admission());await serving;
+    await page.reload();await bounded(page.evaluate(()=>window.ready),'issuer ledger reopen');
+    assert.equal(await page.evaluate(code=>window.network.precode_usage(code),code),1n);
+    serving=page.evaluate(()=>window.network.serve_admission(true));
+    await joining.evaluate(code=>window.network.request_precode(code),code);
+    await joining.evaluate(()=>window.network.complete_admission());await serving;
+    assert.equal(await page.evaluate(code=>window.network.precode_usage(code),code),1n);
+    const oldCode=await page.evaluate(()=>window.network.issue_precode(BigInt(Math.floor(Date.now()/1000)+3600),1n));
+    session=await page.evaluate(()=>window.network.begin_management_session());
+    await page.evaluate(({session,seed,genesis})=>window.network.elevate_genesis(session,seed,genesis,60000),{session,seed:credential.subarray(0,32).toString('hex'),genesis:credential.subarray(32).toString('hex')});
+    await page.evaluate(({session,first})=>window.network.manage(session,'demote-administrator',first),{session,first});
+    await page.evaluate(({session,first})=>window.network.manage(session,'appoint-administrator',first),{session,first});
+    const otherContext=await browserContext();const other=await otherContext.newPage();
+    await other.goto(url);await bounded(other.evaluate(()=>window.ready),'old-code applicant');
+    serving=page.evaluate(()=>window.network.serve_admission(true)).then(()=>false,()=>true);
+    await assert.rejects(()=>other.evaluate(code=>window.network.request_precode(code),oldCode));
+    assert.equal(await serving,true);
+    assert.equal(await page.evaluate(code=>window.network.precode_usage(code),oldCode),0n);
+    const fresh=await page.evaluate(()=>window.network.issue_precode(BigInt(Math.floor(Date.now()/1000)+3600),1n));
+    serving=page.evaluate(()=>window.network.serve_admission(true));
+    await other.evaluate(code=>window.network.request_precode(code),fresh);await other.evaluate(()=>window.network.complete_admission());await serving;
+    assert.equal(await page.evaluate(code=>window.network.precode_usage(code),fresh),1n);
+    events.push({case:'browser-precode-durable-ledger-and-authority-episode',reopenUses:1,retryUses:1,oldCodeAfterDemoteReappointUses:0,newCodeUses:1});
+    await otherContext.close();await joiningContext.close();
+  }
 
   if (includes('lifecycle')) {
     const cdp = await context.newCDPSession(page);

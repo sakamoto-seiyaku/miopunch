@@ -3,11 +3,8 @@
 //! neither a session handle nor its local lifetime is a network authority.
 use std::time::{Duration, Instant};
 
-use p2panda_auth::{
-    Access, GroupsExtensionArgs,
-    group::{GroupAction, GroupMember},
-};
-use p2panda_core::{Hash, Header, SigningKey, VerifyingKey};
+use p2panda_auth::{Access, GroupsExtensionArgs};
+use p2panda_core::{Hash, Header, SigningKey};
 use thiserror::Error;
 
 use crate::genesis_recovery::GenesisCredential;
@@ -15,24 +12,7 @@ use crate::management_auth::ManagementExtension;
 use crate::management_store::{ManagementRecord, StoreError};
 use crate::native_network::{NativeNetwork, NodeError};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ManagementAction {
-    AddMember(VerifyingKey),
-    RemoveMember(VerifyingKey),
-    AppointAdministrator(VerifyingKey),
-    DemoteAdministrator(VerifyingKey),
-}
-
-impl ManagementAction {
-    fn target(self) -> VerifyingKey {
-        match self {
-            Self::AddMember(target)
-            | Self::RemoveMember(target)
-            | Self::AppointAdministrator(target)
-            | Self::DemoteAdministrator(target) => target,
-        }
-    }
-}
+pub use crate::management_action::ManagementAction;
 
 /// A committed record and the local effective view at return time. Later
 /// causal correction may change that view; this is not global finality.
@@ -174,38 +154,12 @@ impl NativeNetwork {
         {
             self.store.ensure_admissions_open().await?;
         }
-        let privileged = matches!(
-            action,
-            ManagementAction::AppointAdministrator(_) | ManagementAction::DemoteAdministrator(_)
-        ) || matches!(action, ManagementAction::RemoveMember(_))
-            && current == Some(Access::manage());
+        let privileged = action.requires_genesis(current.clone());
         let elevated = session.elevation_remaining().is_some();
         if privileged && !elevated {
             return Err(ManagementError::ElevationRequired);
         }
-        let signed_action = match action {
-            ManagementAction::AddMember(_) => GroupAction::Add {
-                member: GroupMember::Individual(target),
-                access: Access::read(),
-            },
-            ManagementAction::RemoveMember(_) => GroupAction::Remove {
-                member: GroupMember::Individual(target),
-            },
-            ManagementAction::AppointAdministrator(_) if current.is_some() => {
-                GroupAction::Promote {
-                    member: GroupMember::Individual(target),
-                    access: Access::manage(),
-                }
-            }
-            ManagementAction::AppointAdministrator(_) => GroupAction::Add {
-                member: GroupMember::Individual(target),
-                access: Access::manage(),
-            },
-            ManagementAction::DemoteAdministrator(_) => GroupAction::Demote {
-                member: GroupMember::Individual(target),
-                access: Access::read(),
-            },
-        };
+        let signed_action = action.group_action(current);
         let author_id = if elevated {
             session.elevation.as_ref().unwrap().root.verifying_key()
         } else {

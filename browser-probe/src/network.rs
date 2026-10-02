@@ -12,9 +12,12 @@ use p2panda_core::{Hash, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-use crate::admission_proof::{AdmissionScope, AdmissionSecret, BootstrapProof, prove_client};
+use crate::admission_proof::{
+    AdmissionScope, AdmissionSecret, BootstrapProof, prove_client, prove_server,
+};
 use crate::management_auth::{ManagementAuth, NetworkAnchor};
 
+const REPLICA_ALPN: &[u8] = b"miopunch/control-replica/1";
 const REQUEST_ALPN: &[u8] = b"miopunch/admission-request/1";
 const BUSINESS_ALPN: &[u8] = b"miopunch/browser-member/1";
 const TIMEOUT: Duration = Duration::from_secs(12);
@@ -61,6 +64,14 @@ struct SavedNode {
     secret: Option<[u8; 32]>,
     #[serde(default)]
     resources: Option<Configuration>,
+    #[serde(default)]
+    pending: Records,
+    #[serde(default)]
+    precode: Option<[u8; 32]>,
+    #[serde(default)]
+    codes: Vec<admission::Code>,
+    #[serde(default)]
+    approvals: Vec<admission::Approval>,
 }
 
 #[derive(Clone, Copy)]
@@ -92,6 +103,7 @@ impl SavedNode {
         Invitation::decode(self.invitation.as_ref().ok_or_else(rejected)?)
     }
     fn verify(&self) -> Result<Option<ManagementAuth>, JsValue> {
+        self.verify_ledger()?;
         if self.version != 1 || self.generation > i64::MAX as u64 {
             return Err(rejected());
         }
@@ -105,16 +117,17 @@ impl SavedNode {
             return Ok(None);
         }
         let invitation = self.invitation()?;
+        if self.records.len() + self.pending.len() > 4096 {
+            return Err(rejected());
+        }
+        for (header, body) in &self.pending {
+            crate::management_auth::decode_complete(header, body.as_deref(), invitation.anchor)
+                .map_err(error)?;
+        }
         let auth =
             ManagementAuth::replay_records(invitation.anchor, &self.records).map_err(error)?;
-        let provider = VerifyingKey::from_bytes(invitation.contact.as_bytes()).map_err(error)?;
         if self.records.len() > 4096
             || Hash::digest(&self.records[0].0) != invitation.anchor.genesis
-            || !auth.nodes().contains(&(provider, Access::manage()))
-            || !auth.membership_authorization_valid(
-                self.authorization.ok_or_else(rejected)?,
-                self.identity(),
-            )
         {
             return Err(rejected());
         }
@@ -123,6 +136,10 @@ impl SavedNode {
     fn stage(&self) -> &'static str {
         if self.authorization.is_none() {
             "AwaitingApproval"
+        } else if self.verify().ok().flatten().is_some_and(|auth| {
+            !auth.membership_authorization_valid(self.authorization.unwrap(), self.identity())
+        }) {
+            "Removed"
         } else if self.secret.is_none() {
             "PendingMaterials"
         } else {
@@ -135,6 +152,7 @@ impl SavedNode {
 struct GateState {
     saved: Option<SavedNode>,
     proofs: Vec<BootstrapProof>,
+    connections: Vec<iroh::endpoint::WeakConnectionHandle>,
 }
 #[derive(Clone, Default)]
 struct BrowserGate(Arc<Mutex<GateState>>);
@@ -145,14 +163,38 @@ impl std::fmt::Debug for BrowserGate {
 }
 impl BrowserGate {
     fn install(&self, saved: &SavedNode) {
-        self.0.lock().unwrap().saved = Some(saved.clone());
+        let mut gate = self.0.lock().unwrap();
+        gate.connections.retain(|weak| {
+            let Some(connection) = weak.upgrade() else {
+                return false;
+            };
+            if connection.close_reason().is_some() {
+                return false;
+            }
+            if !Self::permits(saved, connection.remote_id(), connection.alpn()) {
+                connection.close(0u32.into(), b"membership revoked");
+                return false;
+            }
+            true
+        });
+        gate.saved = Some(saved.clone());
     }
     fn permits(saved: &SavedNode, target: iroh_base::EndpointId, alpn: &[u8]) -> bool {
         let Ok(invitation) = saved.invitation() else {
             return false;
         };
-        target == invitation.contact
-            && (alpn == REQUEST_ALPN || (alpn == BUSINESS_ALPN && saved.stage() == "Complete"))
+        if alpn == REQUEST_ALPN {
+            return target == invitation.contact;
+        }
+        if !matches!(alpn, BUSINESS_ALPN | REPLICA_ALPN) || saved.stage() != "Complete" {
+            return false;
+        }
+        saved.verify().ok().flatten().is_some_and(|auth| {
+            auth.nodes()
+                .iter()
+                .any(|(id, _)| id.as_bytes() == target.as_bytes())
+                && auth.nodes().iter().any(|(id, _)| *id == saved.identity())
+        })
     }
     fn reject() -> AfterHandshakeOutcome {
         AfterHandshakeOutcome::Reject {
@@ -178,14 +220,21 @@ impl EndpointHooks for BrowserGate {
     }
     async fn after_handshake(&self, connection: &Connection) -> AfterHandshakeOutcome {
         let saved = self.0.lock().unwrap().saved.clone();
-        let Some(saved) =
-            saved.filter(|saved| Self::permits(saved, connection.remote_id(), connection.alpn()))
-        else {
+        let Some(saved) = saved.filter(|saved| {
+            if connection.alpn() == REQUEST_ALPN && !connection.side().is_client() {
+                saved.stage() == "Complete"
+                    && saved.verify().ok().flatten().is_some_and(|auth| {
+                        auth.nodes().contains(&(saved.identity(), Access::manage()))
+                    })
+            } else {
+                Self::permits(saved, connection.remote_id(), connection.alpn())
+            }
+        }) else {
             return Self::reject();
         };
         // No 0-RTT API is exposed. Normal data handles wait for the native
         // mutual proof and stage agreement, including after a fresh page start.
-        let proof = if connection.alpn() == BUSINESS_ALPN {
+        let proof = if connection.alpn() != REQUEST_ALPN {
             let Ok(invitation) = saved.invitation() else {
                 return Self::reject();
             };
@@ -193,7 +242,13 @@ impl EndpointHooks for BrowserGate {
             let Some(secret) = saved.secret else {
                 return Self::reject();
             };
-            match prove_client(connection, &scope, &AdmissionSecret::from_saved(secret)).await {
+            let secret = AdmissionSecret::from_saved(secret);
+            let result = if connection.side().is_client() {
+                prove_client(connection, &scope, &secret).await
+            } else {
+                prove_server(connection, &scope, &secret).await
+            };
+            match result {
                 Ok(proof) => Some(proof),
                 Err(_) => return Self::reject(),
             }
@@ -201,7 +256,11 @@ impl EndpointHooks for BrowserGate {
             None
         };
         let agreed = n0_future::time::timeout(Duration::from_secs(5), async {
-            let (mut send, mut recv) = connection.open_bi().await.ok()?;
+            let (mut send, mut recv) = if connection.side().is_client() {
+                connection.open_bi().await.ok()?
+            } else {
+                connection.accept_bi().await.ok()?
+            };
             send.write_all(&[1]).await.ok()?;
             send.finish().ok()?;
             let mut response = [0];
@@ -217,11 +276,23 @@ impl EndpointHooks for BrowserGate {
         }
         if let Some(proof) = proof {
             let mut gate = self.0.lock().unwrap();
+            if !gate.saved.as_ref().is_some_and(|current| {
+                current.generation == saved.generation
+                    && current.secret == saved.secret
+                    && Self::permits(current, connection.remote_id(), connection.alpn())
+            }) {
+                return Self::reject();
+            }
             gate.proofs.retain(BootstrapProof::is_live);
+            gate.connections.retain(|weak| {
+                weak.upgrade()
+                    .is_some_and(|connection| connection.close_reason().is_none())
+            });
             if gate.proofs.len() >= 32 {
                 return Self::reject();
             }
             gate.proofs.push(proof);
+            gate.connections.push(connection.weak_handle());
             AfterHandshakeOutcome::AcceptData {
                 allowed_data_custom_ids: Vec::new(),
             }
@@ -291,6 +362,7 @@ pub struct BrowserNetwork {
     saved: SavedNode,
     committed: String,
     delivery: Option<Delivery>,
+    management: Option<management::Session>,
 }
 
 #[wasm_bindgen]
@@ -319,6 +391,10 @@ impl BrowserNetwork {
                 generation: 0,
                 secret: None,
                 resources: None,
+                pending: Vec::new(),
+                precode: None,
+                codes: Vec::new(),
+                approvals: Vec::new(),
             }
         };
         saved.verify()?;
@@ -367,6 +443,7 @@ impl BrowserNetwork {
                 matches!(usage, RelayResourceUse::DataRelay)
                     && origin(url.as_str()).is_ok_and(|origin| allowed.contains(&origin))
             }))
+            .alpns(vec![REPLICA_ALPN.to_vec(), REQUEST_ALPN.to_vec()])
             .admission_gate(gate.clone())
             .bind()
             .await
@@ -388,6 +465,7 @@ impl BrowserNetwork {
             saved,
             committed,
             delivery: None,
+            management: None,
         })
     }
 
@@ -412,15 +490,43 @@ impl BrowserNetwork {
         }
         let mut next = self.saved.clone();
         next.invitation = Some(bytes);
+        next.precode = None;
         self.commit(next).await?;
         let result = n0_future::time::timeout(TIMEOUT, self.request_inner()).await;
         result.map_err(|_| error("temporarily unreachable; durable admission progress retained"))?
     }
 
+    /// Redeem through the designated node. A new code changes the request
+    /// namespace, preserving this device and original durable attempt.
+    pub async fn request_precode(&mut self, code: String) -> Result<String, JsValue> {
+        self.delivery = None;
+        let bytes = hex::decode(code).map_err(error)?;
+        if bytes.len() != 128 {
+            return Err(rejected());
+        }
+        let invitation = Invitation::decode(&bytes[..96])?;
+        if self.saved.invitation.is_some() && self.saved.invitation()?.anchor != invitation.anchor {
+            return Err(error("another network is already selected"));
+        }
+        let mut next = self.saved.clone();
+        next.invitation = Some(bytes[..96].to_vec());
+        next.precode = Some(bytes[96..].try_into().unwrap());
+        self.commit(next).await?;
+        n0_future::time::timeout(TIMEOUT, self.request_inner())
+            .await
+            .map_err(|_| error("precode contact unavailable; progress retained"))?
+    }
+
     pub async fn complete_admission(&mut self) -> Result<String, JsValue> {
         let mut delivery = self.delivery.take().ok_or_else(rejected)?;
         let result = n0_future::time::timeout(TIMEOUT, async {
-            self.saved.verify()?;
+            let auth = self.saved.verify()?.ok_or_else(rejected)?;
+            if !auth.membership_authorization_valid(
+                self.saved.authorization.ok_or_else(rejected)?,
+                self.saved.identity(),
+            ) {
+                return Err(rejected());
+            }
             delivery.send.write_all(b"AUTH").await.map_err(error)?;
             let mut material = [0; 40];
             delivery
@@ -476,6 +582,7 @@ impl BrowserNetwork {
     /// a membership Remove, and successful saved admission survives restart.
     pub async fn close(&mut self) {
         self.delivery = None;
+        self.management = None;
         self.endpoint.close().await;
         self.lease = None;
     }
@@ -499,6 +606,9 @@ impl BrowserNetwork {
         next.verify()?;
         let token = self.lease.as_ref().ok_or_else(rejected)?.0;
         let raw = serde_json::to_string(&next).map_err(error)?;
+        if raw.len() > 80 * 1024 * 1024 {
+            return Err(error("browser state too large"));
+        }
         save_node(token, JsValue::from_str(&self.committed), raw.clone()).await?;
         self.saved = next;
         self.committed = raw;
@@ -508,9 +618,17 @@ impl BrowserNetwork {
     async fn connect(&self, alpn: &[u8]) -> Result<Connection, JsValue> {
         self.check_store().await?;
         let invitation = self.saved.invitation()?;
+        self.connect_target(invitation.contact, alpn).await
+    }
+    async fn connect_target(
+        &self,
+        target: iroh_base::EndpointId,
+        alpn: &[u8],
+    ) -> Result<Connection, JsValue> {
+        self.check_store().await?;
         let mut last = error("temporarily unreachable: no allowed relay path");
         for relay in &self.relays {
-            let addr = EndpointAddr::new(invitation.contact).with_relay_url(relay.clone());
+            let addr = EndpointAddr::new(target).with_relay_url(relay.clone());
             match self.endpoint.connect(addr, alpn).await {
                 Ok(connection) => return Ok(connection),
                 Err(_) => last = error("temporarily unreachable: allowed relay path failed"),
@@ -523,8 +641,14 @@ impl BrowserNetwork {
         let result = async {
             let (mut send, mut recv) = connection.open_bi().await.map_err(error)?;
             let mut wire = self.saved.invitation.clone().ok_or_else(rejected)?;
-            wire.extend_from_slice(&self.saved.request);
+            let request = self.saved.precode.map_or(self.saved.request, |token| {
+                crate::admission_request_id::precode_request_id(self.saved.request, token)
+            });
+            wire.extend_from_slice(&request);
             wire.extend_from_slice(self.saved.identity().as_bytes());
+            if let Some(token) = self.saved.precode {
+                wire.extend_from_slice(&token);
+            }
             send.write_all(&wire).await.map_err(error)?;
             let mut status = [0];
             recv.read_exact(&mut status).await.map_err(error)?;
@@ -552,12 +676,20 @@ impl BrowserNetwork {
             let (authorization, records): (Hash, Records) =
                 p2panda_core::cbor::decode_cbor(history.as_slice()).map_err(error)?;
             let mut next = self.saved.clone();
-            next.records = records;
+            next = next.merge_records(records)?;
             next.authorization = Some(authorization);
             next.generation = generation;
             // A newly received grant is never completed by a previously saved
             // secret, even when the identity is retained across a rejoin.
             next.secret = None;
+            let auth = next.verify()?.ok_or_else(rejected)?;
+            let provider =
+                VerifyingKey::from_bytes(next.invitation()?.contact.as_bytes()).map_err(error)?;
+            if !auth.nodes().contains(&(provider, Access::manage()))
+                || !auth.membership_authorization_valid(authorization, next.identity())
+            {
+                return Err(rejected());
+            }
             self.commit(next).await?;
             self.delivery = Some(Delivery {
                 connection: connection.clone(),
@@ -573,3 +705,16 @@ impl BrowserNetwork {
         result
     }
 }
+
+#[path = "replica.rs"]
+mod replica;
+
+#[path = "management.rs"]
+mod management;
+
+#[path = "admission.rs"]
+mod admission;
+
+#[path = "member_connection.rs"]
+mod member_connection;
+pub use member_connection::BrowserMemberConnection;

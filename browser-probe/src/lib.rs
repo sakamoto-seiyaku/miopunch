@@ -11,7 +11,7 @@ pub mod admission_proof;
 #[allow(dead_code)] // Durable native-store helpers are outside this platform adapter.
 pub mod management_auth;
 mod network;
-pub use network::BrowserNetwork;
+pub use network::{BrowserMemberConnection, BrowserNetwork};
 
 const KEY_NAME: &str = "miopunch-browser-probe-node-key";
 const ALPN: &[u8] = b"miopunch/browser-probe/1";
@@ -86,3 +86,20 @@ impl BrowserNode {
         self.endpoint.close().await;
     }
 }
+
+#[path = "../../vendor/p2panda-net/src/codec.rs"]
+#[allow(dead_code)]
+mod codec;
+#[path = "../../src/management_record.rs"]
+mod management_record;
+#[path = "../../src/replica_snapshot.rs"]
+mod replica_snapshot;
+
+#[path = "../../src/admission_request_id.rs"]
+mod admission_request_id;
+
+#[path = "../../src/management_action.rs"]
+mod management_action;
+
+#[path = "../../src/precode_policy.rs"]
+mod precode_policy;

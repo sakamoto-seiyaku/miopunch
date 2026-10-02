@@ -168,22 +168,33 @@ impl NativeNetwork {
             .bind(token.as_slice()).bind(request.applicant.as_bytes().as_slice()).bind(request.request_id.as_slice())
             .fetch_one(&self.store.pool).await.map_err(StoreError::from)?;
         if exists == 0 {
-            let origin: Option<Vec<u8>> =
-                sqlx::query_scalar("SELECT origin FROM precodes WHERE token=?")
-                    .bind(token.as_slice())
-                    .fetch_optional(&self.store.pool)
-                    .await
-                    .map_err(StoreError::from)?;
+            let row = sqlx::query("SELECT origin,expires,max_uses,used,stopped,revoked, used=(SELECT count(*) FROM precode_redemptions r WHERE r.token=precodes.token) AND NOT EXISTS (SELECT 1 FROM precode_redemptions r LEFT JOIN admission_deliveries d ON d.applicant=r.applicant AND d.request_id=r.request_id WHERE r.token=precodes.token AND (d.authorization IS NULL OR d.phase<1)) AS consistent FROM precodes WHERE token=?")
+                .bind(token.as_slice()).fetch_optional(&self.store.pool).await.map_err(StoreError::from)?
+                .ok_or(ManualAdmissionError::Rejected)?;
+            let origin: Vec<u8> = row.try_get("origin").map_err(StoreError::from)?;
             let origin = p2panda_core::Hash::from_bytes(
                 origin
-                    .ok_or(ManualAdmissionError::Rejected)?
                     .try_into()
                     .map_err(|_| ManualAdmissionError::Rejected)?,
             );
-            if !self
-                .store
-                .administrator_authorization_valid(origin, self.node_key.verifying_key())
-            {
+            let unsigned =
+                |value: i64| u64::try_from(value).map_err(|_| ManualAdmissionError::Rejected);
+            let policy = crate::precode_policy::RedemptionPolicy {
+                expires: unsigned(row.try_get("expires").map_err(StoreError::from)?)?,
+                max_uses: row
+                    .try_get::<Option<i64>, _>("max_uses")
+                    .map_err(StoreError::from)?
+                    .map(unsigned)
+                    .transpose()?,
+                used: unsigned(row.try_get("used").map_err(StoreError::from)?)?,
+                stopped: row.try_get("stopped").map_err(StoreError::from)?,
+                revoked: row.try_get("revoked").map_err(StoreError::from)?,
+                ledger_consistent: row.try_get("consistent").map_err(StoreError::from)?,
+                issuer_authorized: self
+                    .store
+                    .administrator_authorization_valid(origin, self.node_key.verifying_key()),
+            };
+            if !policy.permits_new(now()? as u64) {
                 return Err(ManualAdmissionError::Rejected);
             }
             let record = self.admission_record(request).await?;
