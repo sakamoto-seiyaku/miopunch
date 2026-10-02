@@ -250,12 +250,17 @@ impl ResourceConfig {
         };
         let builder = if let Some(address) = self.tcp_listen.filter(|_| !self.tcp_direct_disabled) {
             builder
-                .add_custom_transport(std::sync::Arc::new(
-                    crate::tcp_transport::TcpTransport::listen(
+                .add_custom_transport(std::sync::Arc::new({
+                    let transport = crate::tcp_transport::TcpTransport::listen(
                         address,
                         std::sync::Arc::new(crate::tcp_transport::Traffic::default()),
-                    ),
-                ))
+                    );
+                    if self.port_mapping == PortMapping::NatPmp {
+                        transport.with_nat_pmp_mapping()
+                    } else {
+                        transport
+                    }
+                }))
                 .transport_config(
                     iroh::endpoint::QuicTransportConfig::builder()
                         .keep_alive_interval(Duration::from_secs(5))

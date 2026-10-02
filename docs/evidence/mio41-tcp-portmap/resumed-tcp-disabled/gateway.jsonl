@@ -1,0 +1,4 @@
+{"gateway_started": true, "pid": 57, "epoch": 0}
+{"source": ["10.41.0.2", 39899], "packet_hex": "00010000aef4000000001c20", "mode": "normal", "protocol": "udp", "internal_port": 44788, "preferred_port": 0, "requested_lifetime": 7200, "external_port": 41041, "granted_lifetime": 30, "result": 0, "active": [{"owner": ["10.41.0.2", 44788, "udp"], "external_port": 41041}]}
+{"source": ["10.41.0.2", 39899], "packet_hex": "0000", "mode": "normal", "public_address": "100.64.41.1", "active": [{"owner": ["10.41.0.2", 44788, "udp"], "external_port": 41041}]}
+{"source": ["10.41.0.2", 45615], "packet_hex": "00010000aef4000000000000", "mode": "normal", "released": ["10.41.0.2", 44788, "udp"], "protocol": "udp", "internal_port": 44788, "preferred_port": 0, "requested_lifetime": 0, "external_port": 0, "granted_lifetime": 0, "result": 0, "active": []}

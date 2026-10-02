@@ -22,6 +22,16 @@ use super::{RecvInfo, Transmit};
 /// created using [crate::endpoint::Builder::bind], a new custom endpoint will
 /// be created using [CustomTransport::bind].
 pub trait CustomTransport: std::fmt::Debug + Send + Sync + 'static {
+    /// Bind with the endpoint's local gateway consent. Mapping-capable custom
+    /// transports must honor Disabled before discovering or requesting a lease.
+    fn bind_with_portmapper_config(
+        &self,
+        _config: &crate::endpoint::PortmapperConfig,
+        _policy: &crate::endpoint::RelayResourcePolicy,
+    ) -> io::Result<Box<dyn CustomEndpoint>> {
+        self.bind()
+    }
+
     /// Auxiliary facility actually used by this carrier. Direct peer transports
     /// have no facility descriptor. Declared facilities are checked before bind
     /// and at every send; transport-address tokens never confer permission.
@@ -43,6 +53,10 @@ pub(super) struct ResourceBoundEndpoint {
 }
 
 impl CustomEndpoint for ResourceBoundEndpoint {
+    fn shutdown_handler(&self) -> Option<Arc<dyn CustomEndpointShutdown>> {
+        self.inner.shutdown_handler()
+    }
+
     fn watch_local_addrs(&self) -> n0_watcher::Direct<Vec<CustomAddr>> {
         self.inner.watch_local_addrs()
     }
@@ -109,6 +123,11 @@ impl CustomSender for ResourceBoundSender {
 /// An endpoint has a local address (or multiple local addresses), can receive
 /// packets, and can create senders to send packets.
 pub trait CustomEndpoint: std::fmt::Debug + Send + Sync + 'static {
+    /// Optional owned-resource cleanup, called after QUIC has drained and before
+    /// actors are cancelled. The endpoint bounds each handler to one second.
+    fn shutdown_handler(&self) -> Option<Arc<dyn CustomEndpointShutdown>> {
+        None
+    }
     /// A watcher for local addresses for this custom endpoint.
     fn watch_local_addrs(&self) -> n0_watcher::Direct<Vec<CustomAddr>>;
     /// Create a custom sender for this custom endpoint.
@@ -146,6 +165,12 @@ pub trait CustomEndpoint: std::fmt::Debug + Send + Sync + 'static {
     fn max_transmit_segments(&self) -> NonZeroUsize {
         NonZeroUsize::MIN
     }
+}
+
+/// Cleanup retained independently from the socket receiver owned by Noq.
+pub trait CustomEndpointShutdown: std::fmt::Debug + Send + Sync + 'static {
+    /// Attempt to release this endpoint's resources.
+    fn close(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + '_>>;
 }
 
 impl std::fmt::Display for Box<dyn CustomEndpoint> {

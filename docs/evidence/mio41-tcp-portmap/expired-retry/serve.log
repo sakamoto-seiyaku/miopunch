@@ -1,0 +1,5 @@
+
+running 1 test
+MAPPED candidate=100.64.41.1:41041 bound=[]
+DATA_OK real_member=true relay=false
+CANDIDATE_WITHDRAWN old=100.64.41.1:41041

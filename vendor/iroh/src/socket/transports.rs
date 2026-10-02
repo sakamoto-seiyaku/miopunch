@@ -188,12 +188,20 @@ impl TransportConfig {
 }
 
 impl Transports {
+    pub(crate) fn custom_shutdown_handlers(&self) -> Vec<Arc<dyn custom::CustomEndpointShutdown>> {
+        self.custom
+            .iter()
+            .filter_map(|endpoint| endpoint.shutdown_handler())
+            .collect()
+    }
+
     /// Binds the  transports.
     pub(crate) fn bind(
         configs: &[TransportConfig],
         relay_actor_config: RelayActorConfig,
         metrics: &EndpointMetrics,
         shutdown_token: CancellationToken,
+        portmapper_config: &crate::endpoint::PortmapperConfig,
     ) -> io::Result<Self> {
         #[cfg(not(wasm_browser))]
         let ip_configs = {
@@ -249,7 +257,10 @@ impl Transports {
                     "auxiliary transport resource is forbidden",
                 ));
             }
-            let transport = config.bind()?;
+            let transport = config.bind_with_portmapper_config(
+                portmapper_config,
+                &relay_actor_config.resource_policy,
+            )?;
             custom.push(Box::new(custom::ResourceBoundEndpoint {
                 inner: transport,
                 resource,

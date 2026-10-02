@@ -1,0 +1,16 @@
+
+running 1 test
+
+thread 'gateway_node_worker' (59) panicked at tests/tcp_portmap.rs:204:18:
+real NAT-PMP candidate must appear without relay: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test gateway_node_worker ... FAILED
+
+failures:
+
+failures:
+    gateway_node_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.08s
+

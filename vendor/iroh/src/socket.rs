@@ -354,6 +354,7 @@ pub(crate) struct Socket {
     // - Shutdown Management
     shutdown: ShutdownState,
     port_mapper: portmapper::Client,
+    custom_shutdown: Vec<Arc<dyn transports::custom::CustomEndpointShutdown>>,
 
     // - Networking Info
     /// Our discovered direct addresses.
@@ -1896,6 +1897,7 @@ impl EndpointInner {
             relay_actor_config,
             &metrics,
             shutdown_token.child_token(),
+            &portmapper_config,
         )
         .map_err(|err| e!(BindError::Sockets, err))?;
 
@@ -1950,6 +1952,7 @@ impl EndpointInner {
             remote_actors: remote_map.senders(),
             shutdown: shutdown_state,
             port_mapper: port_mapper.clone(),
+            custom_shutdown: transports.custom_shutdown_handlers(),
             ipv6_reported,
             mapped_addrs: remote_map.mapped_addrs.clone(),
             address_lookup,
@@ -2141,6 +2144,10 @@ impl EndpointInner {
         trace!("wait_all_draining start");
         self.noq_endpoint().wait_all_draining().await;
         trace!("wait_all_draining done");
+
+        for handler in &self.sock.custom_shutdown {
+            let _ = time::timeout(Duration::from_secs(1), handler.close()).await;
+        }
 
         // Release only this endpoint's mapping before cancelling its service.
         // An unavailable gateway must not hold endpoint shutdown indefinitely.

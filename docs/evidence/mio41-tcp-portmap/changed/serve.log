@@ -1,0 +1,6 @@
+
+running 1 test
+MAPPED candidate=100.64.41.1:41041 bound=[]
+DATA_OK real_member=true relay=false
+CANDIDATE_REPLACED old=100.64.41.1:41041 new=100.64.41.1:42041 case=changed
+EXISTING_CONNECTION_CONTINUES id=127918219021376 case=changed

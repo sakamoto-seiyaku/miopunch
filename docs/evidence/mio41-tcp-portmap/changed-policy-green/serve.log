@@ -1,0 +1,13 @@
+
+running 1 test
+MAPPED candidate=100.64.41.1:41041 bound=[]
+DATA_OK real_member=true relay=false
+CANDIDATE_REPLACED old=100.64.41.1:41041 new=100.64.41.1:42041 case=changed
+EXISTING_CONNECTION_CONTINUES id=130159252344704 case=changed
+OTHER_PATH_OK case=changed real_member=true relay=false
+TCP_TRAFFIC sent_packets=68 sent_bytes=28380 received_packets=81 received_bytes=30528 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+test gateway_node_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.59s
+

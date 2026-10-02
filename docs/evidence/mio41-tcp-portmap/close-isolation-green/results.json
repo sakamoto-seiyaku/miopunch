@@ -1,0 +1,26 @@
+{
+  "case": "close-isolation",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "--config",
+        "profile.dev.package.miopunch-native-probe.debug=0",
+        "--config",
+        "profile.dev.package.miopunch-native-probe.incremental=false",
+        "profile.dev.package.miopunch-native-probe.strip=\"debuginfo\"",
+        "rustc",
+        "--locked",
+        "--test",
+        "tcp_portmap",
+        "--message-format=json",
+        "--",
+        "-C",
+        "link-arg=-Wl,--strip-debug"
+      ],
+      "exit": 101,
+      "seconds": 0.163,
+      "log": "build.log"
+    }
+  ]
+}

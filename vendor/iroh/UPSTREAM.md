@@ -169,3 +169,11 @@ adds only recognized TCP data candidates to its own public contact address.
 Signaling-only custom addresses do not thereby acquire business disclosure or
 data qualification. Inner QUIC/TLS, the shared admission gate and path selection
 remain unchanged; IPv4/IPv6 framing belongs to the root TCP adapter.
+
+MIOPUNCH-41 adds defaulted custom-transport binding and shutdown hooks.
+Binding receives endpoint gateway consent and the existing resource policy;
+the native TCP carrier checks them before any optional NAT-PMP request, including
+when an advanced builder installs that carrier. `RelayResourcePolicy::allows_custom`
+is public for that binding check. Each retained custom shutdown handler gets a
+one-second cleanup attempt after QUIC draining and before actor cancellation.
+Other custom carriers retain their default bind behavior and have no handler.

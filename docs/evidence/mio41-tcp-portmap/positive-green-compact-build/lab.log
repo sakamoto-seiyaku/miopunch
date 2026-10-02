@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/repo/scripts/tcp_portmap_lab.py", line 316, in <module>
+    lab(*args.paths)
+  File "/repo/scripts/tcp_portmap_lab.py", line 242, in lab
+    assert '--dport 49041' in rules and not any('-p tcp' in line and ('--dport 41041' in line or '--dport 42041' in line) for line in rules.splitlines()), 'close must clear only owned mapping and preserve foreign owner'
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: close must clear only owned mapping and preserve foreign owner

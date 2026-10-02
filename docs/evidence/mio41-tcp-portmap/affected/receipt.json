@@ -1,0 +1,121 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--lib",
+        "tcp_transport::tests",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "log": "carrier-green.log",
+      "passed": 2
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "tcp_direct",
+        "--test",
+        "resources",
+        "--test",
+        "native_probe",
+        "--test",
+        "udp_portmap",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "log": "integration-green.log",
+      "raw_passed": 51,
+      "meaningful_passed": 50,
+      "inert_worker": 1
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "admission_gate",
+        "an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "log": "admitted-tcp.log",
+      "passed": 1
+    },
+    {
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit": 0,
+      "log": "all-targets.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "exit": 0,
+      "log": "wasm.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit": 0,
+      "log": "format.log"
+    },
+    {
+      "argv": [
+        "rustfmt",
+        "--edition",
+        "2024",
+        "--check",
+        "--config",
+        "skip_children=true",
+        "vendor/iroh/src/endpoint.rs",
+        "vendor/iroh/src/socket.rs",
+        "vendor/iroh/src/socket/transports.rs",
+        "vendor/iroh/src/socket/transports/custom.rs",
+        "vendor/portmapper/src/nat_pmp.rs"
+      ],
+      "exit": 0,
+      "log": "format.log"
+    }
+  ],
+  "meaningful_ordinary_checks": 53,
+  "initial_host_socket_attempts": {
+    "exit": 101,
+    "logs": [
+      "carrier.log",
+      "integration-sandbox.log"
+    ],
+    "cause": "sandbox socket bind EPERM; same commands rerun with real-socket access"
+  },
+  "profile": "normal local/shared Cargo dev/test defaults; no per-check profile override",
+  "udp_gateway": "udp-release/results.json",
+  "omitted": "previously verified unchanged slow NAT algorithm/probability matrices; no full-workspace runtime claim"
+}

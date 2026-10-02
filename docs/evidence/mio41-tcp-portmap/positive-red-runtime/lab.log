@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/repo/scripts/tcp_portmap_lab.py", line 279, in <module>
+    lab(*args.paths)
+  File "/repo/scripts/tcp_portmap_lab.py", line 184, in lab
+    wait_file('mapped', server)
+  File "/repo/scripts/tcp_portmap_lab.py", line 127, in wait_file
+    raise RuntimeError(f'{name} did not appear; worker status={process.poll()}')
+RuntimeError: mapped did not appear; worker status=101

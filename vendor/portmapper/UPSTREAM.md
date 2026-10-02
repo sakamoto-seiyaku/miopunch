@@ -16,3 +16,8 @@ Gateway discovery, NAT-PMP wire encoding and successful lease renewal/expiry
 remain the upstream implementation. Failed renewals conservatively withdraw
 the candidate and release any remaining owned mapping. Native product configuration opts into
 NAT-PMP only; PCP/UPnP runtime capability is not claimed by this ticket.
+
+MIOPUNCH-41 retains each completed NAT-PMP Mapping's TCP/UDP protocol and
+uses it for release, matching the pending-allocation cleanup guard. Upstream's
+completed release was UDP-only even for a TCP allocation. No gateway table is
+cleared: deletion remains keyed by the owned local IP, protocol and port.

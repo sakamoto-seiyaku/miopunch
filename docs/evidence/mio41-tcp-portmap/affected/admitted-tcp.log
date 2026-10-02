@@ -1,0 +1,24 @@
+    Blocking waiting for file lock on build directory
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 43.04s
+     Running tests/admission_gate.rs (target/debug/deps/admission_gate-8f888828b27ae2cf)
+
+running 1 test
+test an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy ... TCP_TRAFFIC sent_packets=21 sent_bytes=10018 received_packets=19 received_bytes=8859 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=19 sent_bytes=8859 received_packets=21 received_bytes=10018 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.70s
+

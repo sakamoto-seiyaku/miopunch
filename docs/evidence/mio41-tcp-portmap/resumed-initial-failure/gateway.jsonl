@@ -1,0 +1,3 @@
+{"gateway_started": true, "pid": 57, "epoch": 0}
+{"administrative_delete": true, "mode": "fail"}
+{"source": ["10.41.0.2", 44033], "packet_hex": "00020000a051000000001c20", "mode": "fail", "protocol": "tcp", "internal_port": 41041, "preferred_port": 0, "requested_lifetime": 7200, "external_port": 0, "granted_lifetime": 0, "result": 3, "active": []}

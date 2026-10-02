@@ -1,0 +1,45 @@
+{
+  "case": "disabled",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "rustc",
+        "--locked",
+        "--test",
+        "tcp_portmap",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 8.285,
+      "log": "build.log"
+    },
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch41-1790902933361060128",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio41-tcp-portmap/resumed-disabled,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "/repo/scripts/tcp_portmap_lab.py",
+        "lab",
+        "/repo/target/debug/deps/tcp_portmap-9b6ed3a47ba36c1e",
+        "/evidence",
+        "disabled"
+      ],
+      "exit": 0,
+      "seconds": 2.994,
+      "log": "lab.log"
+    }
+  ],
+  "passed": true
+}

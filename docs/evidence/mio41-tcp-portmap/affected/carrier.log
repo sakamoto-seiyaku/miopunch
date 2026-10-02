@@ -1,0 +1,36 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.60s
+     Running unittests src/lib.rs (target/debug/deps/miopunch_native_probe-338ea843c3a1a5e6)
+
+running 2 tests
+test tcp_transport::tests::dropping_endpoint_cancels_an_open_tcp_carrier ... 
+thread 'tcp_transport::tests::dropping_endpoint_cancels_an_open_tcp_carrier' (302) panicked at src/tcp_transport.rs:768:41:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test tcp_transport::tests::unread_inbound_queue_closes_in_bounded_time ... 
+thread 'tcp_transport::tests::unread_inbound_queue_closes_in_bounded_time' (303) panicked at src/tcp_transport.rs:768:41:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+
+failures:
+
+failures:
+    tcp_transport::tests::dropping_endpoint_cancels_an_open_tcp_carrier
+    tcp_transport::tests::unread_inbound_queue_closes_in_bounded_time
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

@@ -18,6 +18,9 @@ const MAPPING_REQUESTED_LIFETIME_SECONDS: u32 = 60 * 60 * 2;
 /// A mapping successfully registered with a NAT-PMP server.
 #[derive(Debug)]
 pub struct Mapping {
+    /// Transport of the allocated lease; TCP and UDP are distinct owners even
+    /// when their private and public port numbers are identical.
+    protocol: MapProtocol,
     /// Local ip used to create this mapping.
     local_ip: Ipv4Addr,
     /// Local port used to create this mapping.
@@ -179,6 +182,7 @@ impl Mapping {
 
         allocation.armed = false; // transfer cleanup responsibility to Mapping
         Ok(Mapping {
+            protocol: proto,
             external_port,
             external_addr,
             lifetime_seconds,
@@ -195,6 +199,7 @@ impl Mapping {
         // Suggested External Port MUST be set to zero by the client on sending
 
         let Mapping {
+            protocol,
             local_ip,
             local_port,
             gateway,
@@ -206,7 +211,7 @@ impl Mapping {
         socket.connect((gateway, protocol::SERVER_PORT).into())?;
 
         let req = Request::Mapping {
-            proto: MapProtocol::Udp,
+            proto: protocol,
             local_port: local_port.into(),
             external_port: 0,
             lifetime_seconds: 0,

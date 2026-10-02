@@ -1,0 +1,4 @@
+{"gateway_started": true, "pid": 57, "epoch": 0}
+{"source": ["10.41.0.2", 47556], "packet_hex": "00020000a051000000001c20", "mode": "allocation-cancel", "protocol": "tcp", "internal_port": 41041, "preferred_port": 0, "requested_lifetime": 7200, "external_port": 41041, "granted_lifetime": 30, "result": 0, "active": [{"owner": ["10.41.0.2", 41041, "tcp"], "external_port": 41041}]}
+{"source": ["10.41.0.2", 47556], "packet_hex": "0000", "mode": "allocation-cancel", "address_reply_dropped": true, "active": [{"owner": ["10.41.0.2", 41041, "tcp"], "external_port": 41041}]}
+{"source": ["10.41.0.2", 53553], "packet_hex": "00020000a051000000000000", "mode": "allocation-cancel", "released": ["10.41.0.2", 41041, "tcp"], "protocol": "tcp", "internal_port": 41041, "preferred_port": 0, "requested_lifetime": 0, "external_port": 0, "granted_lifetime": 0, "result": 0, "active": []}

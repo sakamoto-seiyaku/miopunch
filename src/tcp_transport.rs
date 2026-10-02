@@ -14,8 +14,8 @@ use std::task::{Context, Poll};
 use futures_channel::mpsc;
 use futures_util::{Sink, StreamExt};
 use iroh::endpoint::transports::{
-    CustomEndpoint, CustomSender, CustomTransport, FourTuple, PathSelection, PathSelectionContext,
-    PathSelector, RecvInfo, Transmit,
+    CustomEndpoint, CustomEndpointShutdown, CustomSender, CustomTransport, FourTuple,
+    PathSelection, PathSelectionContext, PathSelector, RecvInfo, Transmit,
 };
 use iroh_base::CustomAddr;
 use n0_watcher::{Direct, Watchable};
@@ -81,11 +81,13 @@ impl Traffic {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TcpTransport {
     bind_addr: SocketAddr,
     traffic: Arc<Traffic>,
     bound_addr: Arc<Mutex<Option<SocketAddr>>>,
+    nat_pmp_mapping: bool,
+    bind_policy: Option<iroh::endpoint::RelayResourcePolicy>,
 }
 
 impl TcpTransport {
@@ -98,7 +100,16 @@ impl TcpTransport {
             bind_addr,
             traffic,
             bound_addr: Arc::new(Mutex::new(None)),
+            nat_pmp_mapping: false,
+            bind_policy: None,
         }
+    }
+
+    /// Explicit local gateway consent. Each bound IPv4 listener owns a TCP
+    /// NAT-PMP service, independently of the QUIC socket's UDP mapping.
+    pub fn with_nat_pmp_mapping(mut self) -> Self {
+        self.nat_pmp_mapping = true;
+        self
     }
 
     pub fn address(addr: impl Into<SocketAddr>) -> CustomAddr {
@@ -247,6 +258,17 @@ struct TcpEndpoint {
     receiver: tokio::sync::mpsc::Receiver<Packet>,
     addresses: Watchable<Vec<CustomAddr>>,
     accept_task: tokio::task::JoinHandle<()>,
+    mapping: Option<Arc<TcpMapping>>,
+    mapping_task: Option<tokio::task::JoinHandle<()>>,
+}
+
+#[derive(Debug)]
+struct TcpMapping(portmapper::Client);
+
+impl CustomEndpointShutdown for TcpMapping {
+    fn close(&self) -> Pin<Box<dyn std::future::Future<Output = ()> + Send + '_>> {
+        Box::pin(self.0.deactivate_and_wait())
+    }
 }
 
 impl Drop for TcpEndpoint {
@@ -254,11 +276,40 @@ impl Drop for TcpEndpoint {
         self.shared.shutdown.send_replace(true);
         self.accept_task.abort();
         self.shared.channels.lock().unwrap().clear();
+        if let Some(task) = &self.mapping_task {
+            task.abort();
+        }
+        if let Some(mapping) = self.mapping.take() {
+            // Abrupt receiver drop still gives the owned lease a best-effort
+            // release; graceful Endpoint::close already awaited this handler.
+            if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+                runtime.spawn(async move {
+                    let _ =
+                        tokio::time::timeout(std::time::Duration::from_secs(1), mapping.close())
+                            .await;
+                });
+            }
+        }
         eprintln!("{}", self.shared.traffic.report());
     }
 }
 
 impl CustomTransport for TcpTransport {
+    fn bind_with_portmapper_config(
+        &self,
+        config: &iroh::endpoint::PortmapperConfig,
+        policy: &iroh::endpoint::RelayResourcePolicy,
+    ) -> io::Result<Box<dyn CustomEndpoint>> {
+        let mut transport = self.clone();
+        transport.nat_pmp_mapping &= matches!(
+            config,
+            iroh::endpoint::PortmapperConfig::NatPmp
+                | iroh::endpoint::PortmapperConfig::Enabled { .. }
+        );
+        transport.bind_policy = Some(policy.clone());
+        transport.bind()
+    }
+
     fn bind(&self) -> io::Result<Box<dyn CustomEndpoint>> {
         if matches!(self.bind_addr, SocketAddr::V6(addr) if addr.scope_id() != 0 || addr.flowinfo() != 0 || addr.ip().to_ipv4_mapped().is_some())
         {
@@ -299,16 +350,66 @@ impl CustomTransport for TcpTransport {
                 }
             }
         });
+        let addresses = Watchable::new(vec![TcpTransport::address(local)]);
+        let mapping = if self.nat_pmp_mapping
+            && local.is_ipv4()
+            && self
+                .bind_policy
+                .as_ref()
+                .is_none_or(|policy| policy.allows_custom(&TcpTransport::address(local)))
+        {
+            // NAT-PMP targets the default gateway's local address. A listener
+            // bound only to some other interface cannot receive that mapping.
+            let compatible = local.ip().is_unspecified()
+                || netwatch::interfaces::HomeRouter::new()
+                    .is_some_and(|router| router.my_ip == Some(local.ip()));
+            compatible.then(|| {
+                let client = portmapper::Client::new(portmapper::Config {
+                    enable_upnp: false,
+                    enable_pcp: false,
+                    enable_nat_pmp: true,
+                    protocol: portmapper::Protocol::Tcp,
+                });
+                client.update_local_port(local.port().try_into().unwrap());
+                Arc::new(TcpMapping(client))
+            })
+        } else {
+            None
+        };
+        let mapping_task = mapping.as_ref().map(|mapping| {
+            let mut external = mapping.0.watch_external_address();
+            let addresses = addresses.clone();
+            tokio::spawn(async move {
+                loop {
+                    let mut candidates = vec![TcpTransport::address(local)];
+                    if let Some(mapped) = *external.borrow_and_update() {
+                        candidates.push(TcpTransport::address(mapped));
+                    }
+                    addresses.set(candidates).ok();
+                    if external.changed().await.is_err() {
+                        break;
+                    }
+                }
+            })
+        });
         Ok(Box::new(TcpEndpoint {
             shared,
             receiver,
-            addresses: Watchable::new(vec![TcpTransport::address(local)]),
+            addresses,
             accept_task,
+            mapping,
+            mapping_task,
         }))
     }
 }
 
 impl CustomEndpoint for TcpEndpoint {
+    fn shutdown_handler(&self) -> Option<Arc<dyn CustomEndpointShutdown>> {
+        self.mapping
+            .as_ref()
+            .map(|mapping| mapping.clone() as Arc<dyn CustomEndpointShutdown>)
+    }
+
     fn watch_local_addrs(&self) -> Direct<Vec<CustomAddr>> {
         self.addresses.watch()
     }
@@ -494,12 +595,10 @@ async fn run_stream(shared: Arc<Shared>, mut stream: TcpStream, outbound: Option
         }
         let remote = decode(&preface)?;
         let (peer, mut queue, channel) = if let Some(circuit) = outbound {
-            if circuit.peer != remote {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "TCP peer address mismatch",
-                ));
-            }
+            // The dialed route may be a gateway mapping. Its private preface
+            // is only an untrusted return hint, never endpoint authentication.
+            // Keep responses on this circuit under the original dialed route;
+            // inner iroh TLS authenticates the requested endpoint identity.
             (circuit.peer, circuit.queue, circuit.channel)
         } else {
             let (sender, receiver) = mpsc::channel(QUEUE_DEPTH);

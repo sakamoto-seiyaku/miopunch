@@ -42,7 +42,7 @@ pub mod transports {
         remote_map::{PathSelection, PathSelectionContext, PathSelectionData, PathSelector},
         transports::{
             Addr, AddrKind, FourTuple, RecvInfo, Transmit,
-            custom::{CustomEndpoint, CustomSender, CustomTransport},
+            custom::{CustomEndpoint, CustomEndpointShutdown, CustomSender, CustomTransport},
         },
     };
 }
@@ -242,7 +242,9 @@ impl RelayResourcePolicy {
         self
     }
 
-    pub(crate) fn allows_custom(&self, address: &iroh_base::CustomAddr) -> bool {
+    /// Whether a custom peer address is locally permitted. Custom transports
+    /// also use this before allocating an optional public gateway route.
+    pub fn allows_custom(&self, address: &iroh_base::CustomAddr) -> bool {
         (self.custom_filter)(address)
     }
 }

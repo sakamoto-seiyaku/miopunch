@@ -1,0 +1,21 @@
+{
+  "case": "positive",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "rustc",
+        "--locked",
+        "--test",
+        "tcp_portmap",
+        "--message-format=json",
+        "--",
+        "-C",
+        "link-arg=-Wl,--strip-debug"
+      ],
+      "exit": 1,
+      "seconds": 26.979,
+      "log": "build.log"
+    }
+  ]
+}

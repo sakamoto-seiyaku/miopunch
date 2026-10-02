@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/repo/scripts/tcp_portmap_lab.py", line 314, in <module>
+    udp_probe(*args.paths)
+  File "/repo/scripts/tcp_portmap_lab.py", line 301, in udp_probe
+    assert data.recvfrom(128)[0] == b'UDP survives TCP close'
+           ^^^^^^^^^^^^^^^^^^
+TimeoutError: timed out

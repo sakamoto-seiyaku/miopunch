@@ -1,0 +1,33 @@
+{
+  "case": "restart",
+  "commands": [
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch41-1790900778090241805",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio41-tcp-portmap/restart,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "/repo/scripts/tcp_portmap_lab.py",
+        "lab",
+        "/repo/target/debug/deps/tcp_portmap-2eb77ccbabed0a10",
+        "/evidence",
+        "restart"
+      ],
+      "exit": 0,
+      "seconds": 11.584,
+      "log": "lab.log"
+    }
+  ],
+  "reused_worker": "target/debug/deps/tcp_portmap-2eb77ccbabed0a10",
+  "passed": true
+}

@@ -1,0 +1,168 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
+     Running tests/native_probe.rs (target/debug/deps/native_probe-448af2c579c4ec6f)
+
+running 11 tests
+test invalid_mode_does_not_create_an_identity ... ok
+test oversized_tcp_frame_is_rejected_before_allocating_its_body ... ok
+test p2panda_endpoint_reaches_iroh_lookup_without_an_address_book_entry ... ok
+test restarting_a_node_keeps_its_identity ... ok
+test sudden_tcp_disconnect_does_not_stop_future_connections ... ok
+test truncated_tcp_frame_closes_without_reporting_echo_success ... ok
+test two_native_identities_exchange_a_message_over_framed_tcp ... ok
+test two_native_identities_exchange_a_message_over_udp ... ok
+test wrapped_probe_accepts_a_wildcard_bind_for_a_lan_peer ... ok
+test wrong_target_identity_fails_even_at_a_reachable_udp_address ... ok
+test wrong_target_identity_fails_on_reachable_tcp_carrier ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.85s
+
+     Running tests/resources.rs (target/debug/deps/resources-35a80e461644a7c1)
+
+running 26 tests
+test a_disabled_signaling_broker_cannot_be_opened_by_a_custom_carrier ... MIO38_SIGNALING disabled=true endpoint_bind_rejected=true actual_broker_tcp_connections=0
+ok
+test a_known_actor_route_cannot_replace_an_allowed_candidate_with_a_forbidden_relay ... MIO38_ACTOR_ROUTE warm_real_tls=true forbidden_before=12154 forbidden_after=12154 denied_checks=10 candidate_checks=6 candidate_http=1
+ok
+test all_allowed_entries_fail_with_bounded_backoff_and_import_restart_recovery ... MIO38_UNREACHABLE actual_failed_entries=[5, 4] retry_after=1s repeat_backed_off=true trusted_import_restarted=true real_authenticated_contact_recovered=true forbidden_http=0
+ok
+test allowed_lookup_cannot_redirect_access_to_a_disabled_facility ... MIO38_LOOKUP redirect_allowed_requests=["GET /pkarr/7xozd1oqcbda7hdwqk1zksykrcujk9jhoj9ukjd59xs4z3xr9ato HTTP/1.1"] redirect_forbidden_requests=[]
+ok
+test allowed_signed_pkarr_lookup_reaches_real_admission_with_data_relay_disabled ... MIO38_LOOKUP allowed_signed_pkarr=true data_relay_disabled=true id_only_tls=true actual_admission=AwaitingApproval actual_http_requests=["PUT /pkarr/385obkra37xdjpbqt56ffje55z9aynx6p64th97jf4cjh5iqz7qo HTTP/1.1", "GET /pkarr/385obkra37xdjpbqt56ffje55z9aynx6p64th97jf4cjh5iqz7qo HTTP/1.1"]
+ok
+test an_update_signed_by_an_untrusted_publisher_cannot_change_configuration ... ok
+test cli_import_update_and_startup_preserve_local_resource_choices ... MIO38_CLI import_saved=true signed_update_saved=true local_choices_preserved=true next_start_ready=true actual_child_exit=exit status: 0
+ok
+test data_relay_disable_preserves_independently_allowed_address_observation ... MIO38_INDEPENDENT_USE data_relay=disabled observation=Fresh { addresses: [127.0.0.1:46008], observed_at: Instant { tv_sec: 815509, tv_nsec: 786742892 }, valid_until: Instant { tv_sec: 815549, tv_nsec: 786742892 }, mapping_varies_by_dest: None, validity: ObservationValidity { generation: Mutex { data: 1, poisoned: false, .. }, observed_generation: 1 } } actual_qad_incoming=1 established_qad=1 relay_http=0 relay_bytes=0
+ok
+test disabled_lookup_added_after_bind_through_wrappers_is_never_accessed ... MIO38_LOOKUP added_after_bind=true filtered_arc_wrappers=true actual_http_requests=[]
+ok
+test disabled_pkarr_lookup_facility_is_never_accessed ... MIO38_LOOKUP disabled=true actual_http_requests=[]
+ok
+test disabled_pkarr_publication_facility_is_never_accessed ... MIO38_LOOKUP publication_disabled=true actual_http_requests=[]
+ok
+test disabled_relay_from_invitation_hint_is_never_accessed ... MIO38_DISABLED source=invitation-hint http_connections=0 relay_bytes=0
+ok
+test disabled_relay_from_lookup_result_is_never_accessed ... MIO38_DISABLED source=lookup-result http_connections=0 relay_bytes=0
+ok
+test disabled_relay_in_default_startup_table_is_never_accessed ... MIO38_DISABLED source=default-table http_connections=0
+ok
+test disabled_relay_retained_in_cache_is_never_accessed ... MIO38_DISABLED source=cache cached=true lookup_services=0 dispatch_denials=10 http_connections=0 relay_bytes=0
+ok
+test equivalent_url_spelling_cannot_bypass_a_local_disable ... MIO38_URL_ALIAS disabled_without_slash=true actual_http_connections=0
+ok
+test explicit_lan_disclosure_publishes_only_active_nodes_and_passive_discovers ... MIO38_LAN active_wire_publication=true passive_published=false default_disabled_lookup_count=0
+ok
+test external_mapping_observer_map_cannot_bypass_permission ... MIO38_MAPPING external_map=3 allowed_samples=2 actual_qad_incoming=[0, 1, 1] original_socket=[127.0.0.1:44835]
+ok
+test failed_initial_data_only_relay_falls_back_to_another_allowed_entry ... MIO38_STARTUP_FALLBACK online=true actual_failed_entry_connections=1 actual_allowed_relay_accepts=1 advertised=[RelayUrl("http://localhost:43432/")]
+ok
+test first_real_default_test_configuration_admits_and_communicates ... MIO38_REAL configuration=default-test admission=Complete reopened=true data=received relay=http://127.0.0.1:44006/ server_metrics=RelayMetrics { server: Metrics { bytes_sent: Counter { value: 41229 }, bytes_recv: Counter { value: 41229 }, send_packets_sent: Counter { value: 89 }, send_packets_recv: Counter { value: 89 }, send_packets_dropped: Counter { value: 0 }, other_packets_sent: Counter { value: 0 }, other_packets_recv: Counter { value: 0 }, other_packets_dropped: Counter { value: 0 }, got_ping: Counter { value: 3 }, sent_pong: Counter { value: 3 }, unknown_frames: Counter { value: 0 }, bytes_rx_ratelimited_total: Counter { value: 0 }, conns_rx_ratelimited_total: Counter { value: 0 }, accepts: Counter { value: 3 }, disconnects: Counter { value: 1 }, unique_client_keys: Counter { value: 3 }, clients_inactive_added: Counter { value: 0 }, clients_inactive_removed: Counter { value: 0 }, qad_incoming: Counter { value: 0 }, qad_incoming_error: Counter { value: 0 }, qad_connections: Counter { value: 0 }, qad_connections_closed: Counter { value: 0 }, qad_connections_errored: Counter { value: 0 }, http_connections: Counter { value: 3 }, http_connections_closed: Counter { value: 3 }, http_connections_errored: Counter { value: 0 } } }
+ok
+test first_real_self_hosted_replacement_admits_and_communicates ... MIO38_REAL configuration=self-hosted admission=Complete reopened=true data=received relay=http://127.0.0.1:45158/ server_metrics=RelayMetrics { server: Metrics { bytes_sent: Counter { value: 41217 }, bytes_recv: Counter { value: 41217 }, send_packets_sent: Counter { value: 89 }, send_packets_recv: Counter { value: 89 }, send_packets_dropped: Counter { value: 0 }, other_packets_sent: Counter { value: 0 }, other_packets_recv: Counter { value: 0 }, other_packets_dropped: Counter { value: 0 }, got_ping: Counter { value: 3 }, sent_pong: Counter { value: 3 }, unknown_frames: Counter { value: 0 }, bytes_rx_ratelimited_total: Counter { value: 0 }, conns_rx_ratelimited_total: Counter { value: 0 }, accepts: Counter { value: 3 }, disconnects: Counter { value: 1 }, unique_client_keys: Counter { value: 3 }, clients_inactive_added: Counter { value: 0 }, clients_inactive_removed: Counter { value: 0 }, qad_incoming: Counter { value: 0 }, qad_incoming_error: Counter { value: 0 }, qad_connections: Counter { value: 0 }, qad_connections_closed: Counter { value: 0 }, qad_connections_errored: Counter { value: 0 }, http_connections: Counter { value: 3 }, http_connections_closed: Counter { value: 3 }, http_connections_errored: Counter { value: 0 } } }
+ok
+test p2panda_high_level_active_publishes_while_its_passive_branch_is_inactive ... MIO38_HIGH_LAN explicit_active_wire_publication=true passive_default_discovered=false
+ok
+test priority_disabled_relay_from_address_book_is_never_accessed ... MIO38_DISABLED source=address-book http_connections=0 relay_bytes=0
+ok
+test resource_choices_survive_the_public_node_backup_and_restore ... ok
+test tampering_and_signed_rollback_cannot_change_configuration ... ok
+test trusted_table_update_preserves_local_replacement_and_disable_on_restart ... MIO38_UPDATE signature=verified revision=2 restarted=true http_connections_disabled_local_newdefault=[0, 1, 0]
+ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 42.48s
+
+     Running tests/tcp_direct.rs (target/debug/deps/tcp_direct-acb4220561bdd591)
+
+running 11 tests
+test available_ipv6_tcp_admits_syncs_and_transfers_independently ... MIO40_IPV6 environment_listener=[::1]:45074
+TCP_TRAFFIC sent_packets=28 sent_bytes=10173 received_packets=27 received_bytes=10489 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=8 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+MIO40_REAL listen=[::1]:0 udp_sockets=0 admission=Complete reopen=true replica=complete business=roundtrip path=Custom
+TCP_TRAFFIC sent_packets=58 sent_bytes=20476 received_packets=53 received_bytes=19795 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=8 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=80 sent_bytes=30284 received_packets=86 received_bytes=30649 closed=2 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test cancelling_pending_tcp_contact_closes_actual_carrier ... TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=2 outbound_peak=2 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+MIO40_CANCEL pending_connect=failed actual_socket=eof bounded=true
+ok
+test disabled_tcp_candidate_is_not_dialed_even_through_raw_endpoint ... MIO40_DISABLED source=raw-endpoint actual_tcp_accepts=0
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test first_real_udp_disabled_tcp_ipv4_admits_syncs_and_transfers ... TCP_TRAFFIC sent_packets=28 sent_bytes=10177 received_packets=27 received_bytes=10493 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+MIO40_REAL listen=127.0.0.1:0 udp_sockets=0 admission=Complete reopen=true replica=complete business=roundtrip path=Custom
+TCP_TRAFFIC sent_packets=57 sent_bytes=21592 received_packets=55 received_bytes=19891 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=82 sent_bytes=30384 received_packets=85 received_bytes=31769 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+ok
+test globally_disabled_tcp_cannot_be_reenabled_by_an_advanced_builder ... MIO40_DISABLED scope=global source=advanced-builder actual_tcp_accepts=0
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test lookup_supplied_disabled_tcp_candidate_is_not_dialed ... MIO40_DISABLED source=lookup-result actual_tcp_accepts=0
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test normal_cli_starts_with_tcp_only_and_exits_on_interrupt ... MIO40_CLI tcp_only_ready=127.0.0.1:45124 interrupt_exit=0
+ok
+test physical_tcp_loss_ends_old_stream_and_later_contact_is_a_new_connection ... TCP_TRAFFIC sent_packets=27 sent_bytes=10142 received_packets=25 received_bytes=10449 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=25 sent_bytes=10449 received_packets=27 received_bytes=10142 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=Connection reset by peer (os error 104)
+TCP_CLOSE peer=127.0.0.1:45160 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:45160 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:45160 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:45160 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:45160 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:45160 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:45160 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:45160 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:45160 result=Connection refused (os error 111)
+MIO40_CUT_TIMEOUT elapsed_ms=9957
+TCP_CLOSE peer=127.0.0.1:45160 result=Connection refused (os error 111)
+MIO40_CUT physical_tcp=lost old_stream=failed original_connection=closed later_connection=new
+TCP_TRAFFIC sent_packets=52 sent_bytes=21391 received_packets=47 received_bytes=18364 closed=1 failed=5 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=49 sent_bytes=18436 received_packets=52 received_bytes=21391 closed=0 failed=6 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+ok
+test priority_wrong_member_identity_cannot_bypass_tcp_admission ... MIO40_WRONG tcp=reachable wrong_expected_identity=rejected requests=0 admission=not-complete
+TCP_TRAFFIC sent_packets=2193 sent_bytes=2631600 received_packets=2 received_bytes=1338 closed=0 failed=0 cancelled=0 outbound_outstanding=34 outbound_peak=34 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=2 sent_bytes=1338 received_packets=1384 received_bytes=1660800 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=1 inbound_outstanding=33 inbound_peak=33 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+ok
+test received_revocation_ends_tcp_flow_and_rejects_stale_member ... MIO40_REVOKED actual_live_stream=ended stale_member_new_connection=rejected
+TCP_TRAFFIC sent_packets=71 sent_bytes=27135 received_packets=71 received_bytes=26924 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=2 inbound_peak=8 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=71 sent_bytes=26924 received_packets=71 received_bytes=27135 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=6 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test valid_but_unapproved_identity_cannot_read_member_history_over_tcp ... MIO40_UNAPPROVED actual_identity=authenticated member_history=rejected
+TCP_TRAFFIC sent_packets=13 sent_bytes=5784 received_packets=9 received_bytes=4190 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=9 sent_bytes=4190 received_packets=13 received_bytes=5784 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 39.52s
+
+     Running tests/udp_portmap.rs (target/debug/deps/udp_portmap-4faf38a17c2fcf84)
+
+running 3 tests
+test gateway_node_worker ... ok
+test local_gateway_consent_survives_release_updates_and_node_restore ... ok
+test old_resource_configuration_does_not_start_new_gateway_probes ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+

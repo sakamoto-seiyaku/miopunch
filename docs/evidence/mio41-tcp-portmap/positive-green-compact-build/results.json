@@ -1,0 +1,51 @@
+{
+  "case": "positive",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "--config",
+        "profile.dev.package.miopunch-native-probe.debug=0",
+        "--config",
+        "profile.dev.package.miopunch-native-probe.incremental=false",
+        "rustc",
+        "--locked",
+        "--test",
+        "tcp_portmap",
+        "--message-format=json",
+        "--",
+        "-C",
+        "link-arg=-Wl,--strip-debug"
+      ],
+      "exit": 0,
+      "seconds": 8.891,
+      "log": "build.log"
+    },
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch41-1790900293767934064",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio41-tcp-portmap/positive-green-compact-build,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "/repo/scripts/tcp_portmap_lab.py",
+        "lab",
+        "/repo/target/debug/deps/tcp_portmap-a35721c9e50733c3",
+        "/evidence",
+        "positive"
+      ],
+      "exit": 1,
+      "seconds": 4.251,
+      "log": "lab.log"
+    }
+  ]
+}

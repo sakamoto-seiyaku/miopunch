@@ -1,0 +1,32 @@
+{
+  "case": "close-isolation",
+  "commands": [
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch41-1790900320601600805",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio41-tcp-portmap/close-isolation-red,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "/repo/scripts/tcp_portmap_lab.py",
+        "lab",
+        "/repo/target/debug/deps/tcp_portmap-a35721c9e50733c3",
+        "/evidence",
+        "close-isolation"
+      ],
+      "exit": 1,
+      "seconds": 5.754,
+      "log": "lab.log"
+    }
+  ],
+  "reused_worker": "target/debug/deps/tcp_portmap-a35721c9e50733c3"
+}

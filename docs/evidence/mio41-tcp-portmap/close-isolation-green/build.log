@@ -1,0 +1,4 @@
+error: no such command: `profile.dev.package.miopunch-native-probe.strip="debuginfo"`
+
+help: view all installed commands with `cargo --list`
+help: find a package to install `profile.dev.package.miopunch-native-probe.strip="debuginfo"` with `cargo search cargo-profile.dev.package.miopunch-native-probe.strip="debuginfo"`

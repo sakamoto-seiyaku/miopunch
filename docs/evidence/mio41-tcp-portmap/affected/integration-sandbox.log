@@ -1,0 +1,98 @@
+    Blocking waiting for file lock on build directory
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.29s
+     Running tests/native_probe.rs (target/debug/deps/native_probe-448af2c579c4ec6f)
+
+running 11 tests
+test invalid_mode_does_not_create_an_identity ... ok
+test oversized_tcp_frame_is_rejected_before_allocating_its_body ... 
+thread 'oversized_tcp_frame_is_rejected_before_allocating_its_body' (722) panicked at tests/native_probe.rs:43:5:
+assertion `left == right` failed: server readiness: ""
+  left: 1
+ right: 3
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test p2panda_endpoint_reaches_iroh_lookup_without_an_address_book_entry ... 
+thread 'p2panda_endpoint_reaches_iroh_lookup_without_an_address_book_entry' (737) panicked at tests/native_probe.rs:43:5:
+assertion `left == right` failed: server readiness: ""
+  left: 1
+ right: 3
+FAILED
+test restarting_a_node_keeps_its_identity ... 
+thread 'restarting_a_node_keeps_its_identity' (758) panicked at tests/native_probe.rs:43:5:
+assertion `left == right` failed: server readiness: ""
+  left: 1
+ right: 3
+FAILED
+test sudden_tcp_disconnect_does_not_stop_future_connections ... 
+thread 'sudden_tcp_disconnect_does_not_stop_future_connections' (779) panicked at tests/native_probe.rs:43:5:
+assertion `left == right` failed: server readiness: ""
+  left: 1
+ right: 3
+FAILED
+test truncated_tcp_frame_closes_without_reporting_echo_success ... 
+thread 'truncated_tcp_frame_closes_without_reporting_echo_success' (794) panicked at tests/native_probe.rs:43:5:
+assertion `left == right` failed: server readiness: ""
+  left: 1
+ right: 3
+FAILED
+test two_native_identities_exchange_a_message_over_framed_tcp ... 
+thread 'two_native_identities_exchange_a_message_over_framed_tcp' (809) panicked at tests/native_probe.rs:43:5:
+assertion `left == right` failed: server readiness: ""
+  left: 1
+ right: 3
+FAILED
+test two_native_identities_exchange_a_message_over_udp ... 
+thread 'two_native_identities_exchange_a_message_over_udp' (824) panicked at tests/native_probe.rs:43:5:
+assertion `left == right` failed: server readiness: ""
+  left: 1
+ right: 3
+FAILED
+test wrapped_probe_accepts_a_wildcard_bind_for_a_lan_peer ... 
+thread 'wrapped_probe_accepts_a_wildcard_bind_for_a_lan_peer' (839) panicked at tests/native_probe.rs:43:5:
+assertion `left == right` failed: server readiness: ""
+  left: 1
+ right: 3
+FAILED
+test wrong_target_identity_fails_even_at_a_reachable_udp_address ... 
+thread 'wrong_target_identity_fails_even_at_a_reachable_udp_address' (860) panicked at tests/native_probe.rs:43:5:
+assertion `left == right` failed: server readiness: ""
+  left: 1
+ right: 3
+FAILED
+test wrong_target_identity_fails_on_reachable_tcp_carrier ... 
+thread 'wrong_target_identity_fails_on_reachable_tcp_carrier' (881) panicked at tests/native_probe.rs:43:5:
+assertion `left == right` failed: server readiness: ""
+  left: 1
+ right: 3
+FAILED
+
+failures:
+
+failures:
+    oversized_tcp_frame_is_rejected_before_allocating_its_body
+    p2panda_endpoint_reaches_iroh_lookup_without_an_address_book_entry
+    restarting_a_node_keeps_its_identity
+    sudden_tcp_disconnect_does_not_stop_future_connections
+    truncated_tcp_frame_closes_without_reporting_echo_success
+    two_native_identities_exchange_a_message_over_framed_tcp
+    two_native_identities_exchange_a_message_over_udp
+    wrapped_probe_accepts_a_wildcard_bind_for_a_lan_peer
+    wrong_target_identity_fails_even_at_a_reachable_udp_address
+    wrong_target_identity_fails_on_reachable_tcp_carrier
+
+test result: FAILED. 1 passed; 10 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+error: test failed, to rerun pass `--test native_probe`

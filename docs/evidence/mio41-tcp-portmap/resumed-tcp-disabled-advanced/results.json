@@ -1,0 +1,33 @@
+{
+  "case": "tcp-disabled-advanced",
+  "commands": [
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch41-1790903038254357562",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio41-tcp-portmap/resumed-tcp-disabled-advanced,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "/repo/scripts/tcp_portmap_lab.py",
+        "lab",
+        "/repo/target/debug/deps/tcp_portmap-9b6ed3a47ba36c1e",
+        "/evidence",
+        "tcp-disabled-advanced"
+      ],
+      "exit": 0,
+      "seconds": 2.886,
+      "log": "lab.log"
+    }
+  ],
+  "reused_worker": "target/debug/deps/tcp_portmap-9b6ed3a47ba36c1e",
+  "passed": true
+}
