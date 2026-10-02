@@ -98,7 +98,11 @@ rustls = { version = "0.23.45", default-features = false, features = ["ring", "s
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 p2panda-net = { path = "vendor/p2panda-net", default-features = false, features = ["iroh_mdns"] }
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Storage_FileSystem"] }
+
 [patch.crates-io]
+iroh-relay = { path = "vendor/iroh-relay" }
 p2panda-sync = { path = "vendor/p2panda-sync" }
 iroh = { path = "vendor/iroh" }
 noq = { path = "vendor/noq" }

@@ -5,7 +5,7 @@
 //! invitation, then independently persists verified membership and the current
 //! secret. Ordinary joined devices never acquire the genesis private key.
 
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::net::{Ipv4Addr, SocketAddr};
 #[cfg(unix)]
@@ -28,6 +28,7 @@ use crate::management_recovery::RecoveryBinding;
 use crate::management_store::{ManagementRecord, ManagementStore, StoreError};
 use crate::manual_admission::{JoinBinding, ManualInvitation};
 use crate::nat_connection::{NatConnector, UdpPolicy, UdpUpgrade};
+use crate::native_files::{publish_file, replace_file, sync_directory};
 
 const NODE_KEY: &str = "node.key";
 const GENESIS_CREDENTIAL: &str = "genesis.credential";
@@ -201,7 +202,7 @@ impl NativeNetwork {
             let _ = fs::remove_dir_all(&staging);
             return Err(error);
         }
-        File::open(parent)?.sync_all()?;
+        sync_directory(parent)?;
         Self::open(path).await
     }
 
@@ -225,7 +226,7 @@ impl NativeNetwork {
         write_private(&path.join(RECOVERY_BINDING), &binding.encode())?;
         let store = ManagementStore::open(path.join(MANAGEMENT_DB), anchor).await?;
         store.close().await;
-        File::open(path)?.sync_all()?;
+        sync_directory(path)?;
         Ok(())
     }
 
@@ -243,7 +244,7 @@ impl NativeNetwork {
         write_private(&path.join(JOIN_BINDING), &binding.encode())?;
         let store = ManagementStore::open(path.join(MANAGEMENT_DB), invitation.anchor).await?;
         store.close().await;
-        File::open(path)?.sync_all()?;
+        sync_directory(path)?;
         Ok(())
     }
 
@@ -302,7 +303,7 @@ impl NativeNetwork {
             )
             .await?;
         store.close().await;
-        File::open(path)?.sync_all()?;
+        sync_directory(path)?;
         Ok(())
     }
 
@@ -616,8 +617,8 @@ impl NativeNetwork {
                 return Err(NodeError::InvalidData);
             }
             write_private(&temporary, &bytes)?;
-            fs::rename(&temporary, self.directory.join(MAINTENANCE_CONTACTS))?;
-            File::open(&self.directory)?.sync_all()?;
+            replace_file(&temporary, &self.directory.join(MAINTENANCE_CONTACTS))?;
+            sync_directory(&self.directory)?;
             Ok(())
         })();
         let _ = fs::remove_file(temporary);
@@ -638,8 +639,8 @@ impl NativeNetwork {
                 &temporary,
                 &serde_json::to_vec(config).map_err(std::io::Error::other)?,
             )?;
-            fs::rename(&temporary, self.directory.join(RESOURCE_CONFIGURATION))?;
-            File::open(&self.directory)?.sync_all()?;
+            replace_file(&temporary, &self.directory.join(RESOURCE_CONFIGURATION))?;
+            sync_directory(&self.directory)?;
             Ok::<_, NodeError>(())
         })();
         let _ = fs::remove_file(temporary);
@@ -832,8 +833,8 @@ impl NativeNetwork {
             .join(format!(".join-binding-{:032x}", rand::random::<u128>()));
         let result = (|| {
             write_private(&temporary, &binding.encode())?;
-            fs::rename(&temporary, self.directory.join(JOIN_BINDING))?;
-            File::open(&self.directory)?.sync_all()?;
+            replace_file(&temporary, &self.directory.join(JOIN_BINDING))?;
+            sync_directory(&self.directory)?;
             Ok::<_, NodeError>(())
         })();
         let _ = fs::remove_file(&temporary);
@@ -870,7 +871,7 @@ impl NativeNetwork {
                 ));
                 let result = (|| {
                     write_private(&temporary, &bytes)?;
-                    fs::rename(&temporary, &path)?;
+                    replace_file(&temporary, &path)?;
                     Ok::<_, NodeError>(())
                 })();
                 let _ = fs::remove_file(&temporary);
@@ -885,7 +886,7 @@ impl NativeNetwork {
             ));
             let result = (|| {
                 write_private(&temporary, &bytes)?;
-                fs::hard_link(&temporary, &path)?;
+                publish_file(&temporary, &path)?;
                 Ok::<_, NodeError>(())
             })();
             let _ = fs::remove_file(&temporary);
@@ -893,7 +894,7 @@ impl NativeNetwork {
         }
         // Also sync on retry: a previous process could have exited after
         // publishing the link but before making its directory entry durable.
-        File::open(&self.directory)?.sync_all()?;
+        sync_directory(&self.directory)?;
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::SecretFilePublished);
@@ -974,10 +975,10 @@ async fn copy_node_backup(source: &Path, target: &Path, restoring: bool) -> Resu
             write_private(&staging.join("backup.version"), b"miopunch node backup 1\n")?;
         }
         node.close().await;
-        File::open(&staging)?.sync_all()?;
+        sync_directory(&staging)?;
         ensure_absent(target)?;
         publish_new_directory(&staging, target, parent)?;
-        File::open(parent)?.sync_all()?;
+        sync_directory(parent)?;
         Ok::<_, NodeError>(())
     }
     .await;
@@ -1020,7 +1021,7 @@ fn ensure_absent(path: &Path) -> Result<(), NodeError> {
 fn publish_new_directory(staging: &Path, target: &Path, parent: &Path) -> Result<(), NodeError> {
     use rustix::fs::{RenameFlags, renameat_with};
 
-    let parent_dir = File::open(parent)?;
+    let parent_dir = fs::File::open(parent)?;
     let source = staging.file_name().ok_or(NodeError::InvalidData)?;
     let destination = target.file_name().ok_or(NodeError::InvalidData)?;
     renameat_with(
@@ -1052,7 +1053,18 @@ fn publish_new_directory(_staging: &Path, _target: &Path, _parent: &Path) -> Res
     Err(NodeError::UnsupportedAtomicPublication)
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+fn publish_new_directory(staging: &Path, target: &Path, _parent: &Path) -> Result<(), NodeError> {
+    crate::native_files::move_windows(staging, target, false).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::AlreadyExists {
+            NodeError::AlreadyExists
+        } else {
+            NodeError::Io(error)
+        }
+    })
+}
+
+#[cfg(all(not(unix), not(windows)))]
 fn publish_new_directory(staging: &Path, target: &Path, _parent: &Path) -> Result<(), NodeError> {
     fs::rename(staging, target)?;
     Ok(())

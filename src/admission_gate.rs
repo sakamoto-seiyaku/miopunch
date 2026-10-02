@@ -21,6 +21,9 @@ use crate::nat_selector::{LearningScope, ProbeProtocol};
 use crate::tcp_transport::DATA_TRANSPORT_ID;
 
 pub const ADMISSION_REQUEST_ALPN: &[u8] = b"miopunch/admission-request/1";
+/// Explicit precode selection lets one endpoint serve manual and preauthorized
+/// invitations concurrently. It grants only the same restricted request scope.
+pub const PRECODE_REQUEST_ALPN: &[u8] = b"miopunch/precode-request/1";
 pub const CONTROL_ALPN: &[u8] = b"miopunch/control/1";
 
 const MAX_SESSIONS: usize = 4096;
@@ -134,6 +137,10 @@ impl AdmissionGate {
         let mut protocols = HashMap::new();
         protocols.insert(
             ADMISSION_REQUEST_ALPN.to_vec(),
+            ProtocolScope::AdmissionRequest,
+        );
+        protocols.insert(
+            PRECODE_REQUEST_ALPN.to_vec(),
             ProtocolScope::AdmissionRequest,
         );
         protocols.insert(RECOVERY_ALPN.to_vec(), ProtocolScope::GenesisRecovery);

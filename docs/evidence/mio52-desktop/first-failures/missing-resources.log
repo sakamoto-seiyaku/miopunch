@@ -1,0 +1,22 @@
+NETWORK 666fc4c92e088558d23bb117b488527559a7151670c1ee0fa176a30c4cbe8cd4 7c21232324cfb48764a7d0e9c6b912b3702bedcb2e9d38df7582309fbfc80c8c
+NODE 7cc6378fe25e69998fda5d0b3de993569ac9702933be207828fbb78ec91cec17
+MEMBER 7cc6378fe25e69998fda5d0b3de993569ac9702933be207828fbb78ec91cec17 admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:46770"}],"id":"7cc6378fe25e69998fda5d0b3de993569ac9702933be207828fbb78ec91cec17"},"event":"ready","node":"7cc6378fe25e69998fda5d0b3de993569ac9702933be207828fbb78ec91cec17"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK 666fc4c92e088558d23bb117b488527559a7151670c1ee0fa176a30c4cbe8cd4 7c21232324cfb48764a7d0e9c6b912b3702bedcb2e9d38df7582309fbfc80c8c
+NODE b7c6bc393d34c3ff1e69386587afc50e6856a60e98f860bb50be469a3a5028fb
+RECORDS 0
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:46555"}],"id":"b7c6bc393d34c3ff1e69386587afc50e6856a60e98f860bb50be469a3a5028fb"},"event":"ready","node":"b7c6bc393d34c3ff1e69386587afc50e6856a60e98f860bb50be469a3a5028fb"}
+{"event":"admission","stage":"AwaitingApproval"}
+{"id":1,"ok":true,"result":{"stage":"AwaitingApproval"}}
+{"id":2,"ok":true,"result":{"requests":[{"applicant":"b7c6bc393d34c3ff1e69386587afc50e6856a60e98f860bb50be469a3a5028fb","request_id":"05811047e6e74008301cffc9d288f657"}]}}
+{"id":3,"ok":true,"result":{"stage":"Approved"}}
+{"event":"admission","stage":"Complete"}
+{"id":2,"ok":true,"result":{"stage":"Complete"}}
+{"id":3,"ok":true,"result":{"reply":"PONG"}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:45705"}],"id":"7cc6378fe25e69998fda5d0b3de993569ac9702933be207828fbb78ec91cec17"},"event":"ready","node":"7cc6378fe25e69998fda5d0b3de993569ac9702933be207828fbb78ec91cec17"}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:43343"}],"id":"b7c6bc393d34c3ff1e69386587afc50e6856a60e98f860bb50be469a3a5028fb"},"event":"ready","node":"b7c6bc393d34c3ff1e69386587afc50e6856a60e98f860bb50be469a3a5028fb"}
+{"error":"invalid_command","id":null,"ok":false}

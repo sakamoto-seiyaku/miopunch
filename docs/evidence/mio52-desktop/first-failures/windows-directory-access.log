@@ -1,0 +1,14 @@
+READY 275d74a796e3227884f1b0a8af0c06248770dc1e45ec807160ec9383900638e3 127.0.0.1:46361
+PONG
+wine: created the configuration directory '/tmp/mio52-wine10-prefix'
+error: XDG_RUNTIME_DIR is invalid or not set in the environment.
+error: XDG_RUNTIME_DIR is invalid or not set in the environment.
+wine: failed to open L"C:\\windows\\syswow64\\rundll32.exe": c0000135
+NETWORK b6c260759e121e6608b4a84a09d1a268c1dc704486cdff0c92934511a37d0b84 f12011c94590a703db1015e4164ab03520140b1918303291b07a13e772c292f3
+NODE 7d51eaa8dbc8a8b7a5cbef2439ff284779e97bf40fb586650b2ecff0b5a91390
+MEMBER 7d51eaa8dbc8a8b7a5cbef2439ff284779e97bf40fb586650b2ecff0b5a91390 admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:43927"}],"id":"7d51eaa8dbc8a8b7a5cbef2439ff284779e97bf40fb586650b2ecff0b5a91390"},"event":"ready","node":"7d51eaa8dbc8a8b7a5cbef2439ff284779e97bf40fb586650b2ecff0b5a91390"}
+{"id":1,"ok":true,"result":{"saved":true}}
+error: XDG_RUNTIME_DIR is invalid or not set in the environment.
+Error: Io(Os { code: 5, kind: PermissionDenied, message: "Access denied." })

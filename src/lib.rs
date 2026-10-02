@@ -41,3 +41,5 @@ mod admission_request_id;
 mod management_action;
 
 mod precode_policy;
+
+mod native_files;

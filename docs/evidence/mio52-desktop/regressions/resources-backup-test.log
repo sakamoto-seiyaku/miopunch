@@ -1,0 +1,35 @@
+warning: variable does not need to be mutable
+   --> tests/resources.rs:907:9
+    |
+907 |     let mut contact = joining
+    |         ----^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> tests/resources.rs:971:9
+    |
+971 |     let mut contact = joining
+    |         ----^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> tests/resources.rs:1176:9
+     |
+1176 |     let mut passive_contact = passive
+     |         ----^^^^^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: `miopunch-native-probe` (test "resources") generated 3 warnings (run `cargo fix --test "resources" -p miopunch-native-probe` to apply 3 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.35s
+     Running tests/resources.rs (target/debug/deps/resources-213c5a86bd31353c)
+
+running 1 test
+test resource_choices_survive_the_public_node_backup_and_restore ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.31s
+

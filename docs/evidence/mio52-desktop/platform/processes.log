@@ -1,0 +1,377 @@
+READY 703b40a6ac2f52d8e8d093054432a2f515da8c90acd1a2ea44ea2d28945f193d 127.0.0.1:45946
+PONG
+wine: created the configuration directory '/tmp/mio52-final-platform/wine-prefix'
+wine: failed to open L"C:\\windows\\syswow64\\rundll32.exe": c0000135
+NETWORK a0bdcdfee4a16fbde0709e8c334a2f73ed599173828532ab79bc9f29094d4305 1b35a18a24ba0cf25bdea180cf60ed6ed58e0a23cb7f7fa36f1385c976a53938
+NODE f77bd68342e90e351e1ff1c0911c0eb4e126295aa2a292b56a06302150b0d294
+MEMBER f77bd68342e90e351e1ff1c0911c0eb4e126295aa2a292b56a06302150b0d294 admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:46128"}],"id":"f77bd68342e90e351e1ff1c0911c0eb4e126295aa2a292b56a06302150b0d294"},"event":"ready","node":"f77bd68342e90e351e1ff1c0911c0eb4e126295aa2a292b56a06302150b0d294"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK a0bdcdfee4a16fbde0709e8c334a2f73ed599173828532ab79bc9f29094d4305 1b35a18a24ba0cf25bdea180cf60ed6ed58e0a23cb7f7fa36f1385c976a53938
+NODE d69cdbdc2a668577820191121001bf430d328a05df512fc034d669000f1666b7
+RECORDS 0
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:46678"}],"id":"d69cdbdc2a668577820191121001bf430d328a05df512fc034d669000f1666b7"},"event":"ready","node":"d69cdbdc2a668577820191121001bf430d328a05df512fc034d669000f1666b7"}
+{"event":"admission","stage":"AwaitingApproval"}
+{"id":1,"ok":true,"result":{"stage":"AwaitingApproval"}}
+{"id":2,"ok":true,"result":{"requests":[{"applicant":"d69cdbdc2a668577820191121001bf430d328a05df512fc034d669000f1666b7","request_id":"64ab44a9a87d3d153412ab59cfef8647"}]}}
+{"id":3,"ok":true,"result":{"stage":"Approved"}}
+{"event":"admission","stage":"Complete"}
+{"id":2,"ok":true,"result":{"stage":"Complete"}}
+{"id":3,"ok":true,"result":{"reply":"PONG"}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+NETWORK 2dcbb6859838e0fcdac6e26fa588e546a7d5928d672a88952228b17d16d75234 24de9afce4d6c312487f703a8837667b76961209cd34b74e0aa4722d95a46711
+NODE f246c63cc8c6ba78136e2510fc81dccf6277fbe2d70345d9f96f8b30df0b388e
+MEMBER f246c63cc8c6ba78136e2510fc81dccf6277fbe2d70345d9f96f8b30df0b388e admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:45603"}],"id":"f246c63cc8c6ba78136e2510fc81dccf6277fbe2d70345d9f96f8b30df0b388e"},"event":"ready","node":"f246c63cc8c6ba78136e2510fc81dccf6277fbe2d70345d9f96f8b30df0b388e"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK 2dcbb6859838e0fcdac6e26fa588e546a7d5928d672a88952228b17d16d75234 24de9afce4d6c312487f703a8837667b76961209cd34b74e0aa4722d95a46711
+NODE 6b2600cb185f8ccd018ca85dc7839b096b9e5b03961ab857bccdf4c070e29ed6
+RECORDS 0
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:46654"}],"id":"6b2600cb185f8ccd018ca85dc7839b096b9e5b03961ab857bccdf4c070e29ed6"},"event":"ready","node":"6b2600cb185f8ccd018ca85dc7839b096b9e5b03961ab857bccdf4c070e29ed6"}
+{"event":"admission","stage":"AwaitingApproval"}
+{"id":1,"ok":true,"result":{"stage":"AwaitingApproval"}}
+{"id":2,"ok":true,"result":{"requests":[{"applicant":"6b2600cb185f8ccd018ca85dc7839b096b9e5b03961ab857bccdf4c070e29ed6","request_id":"1724a22c59c5c8097ca686800dbf9b0f"}]}}
+{"id":3,"ok":true,"result":{"stage":"Approved"}}
+{"event":"admission","stage":"Complete"}
+{"id":2,"ok":true,"result":{"stage":"Complete"}}
+{"id":3,"ok":true,"result":{"reply":"PONG"}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+NETWORK 16e12bdde5fab895eb1509ca7e502276f04845f3648f83bc895e385f2e7558db 1d7424d6efa78f1df5e09af90b9b0dc10d95bbe1d002b735db5cdd8617956d95
+NODE 19e6a9f0d937bcd1718279fd9de2c3491e337399cffc798b260d7e6d93038274
+MEMBER 19e6a9f0d937bcd1718279fd9de2c3491e337399cffc798b260d7e6d93038274 admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:46100"}],"id":"19e6a9f0d937bcd1718279fd9de2c3491e337399cffc798b260d7e6d93038274"},"event":"ready","node":"19e6a9f0d937bcd1718279fd9de2c3491e337399cffc798b260d7e6d93038274"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK 16e12bdde5fab895eb1509ca7e502276f04845f3648f83bc895e385f2e7558db 1d7424d6efa78f1df5e09af90b9b0dc10d95bbe1d002b735db5cdd8617956d95
+NODE f43d97feb6d1d52581571f79ebd59edbd2e4e877ac0d89b2212451b6b80d949c
+RECORDS 0
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:44471"}],"id":"f43d97feb6d1d52581571f79ebd59edbd2e4e877ac0d89b2212451b6b80d949c"},"event":"ready","node":"f43d97feb6d1d52581571f79ebd59edbd2e4e877ac0d89b2212451b6b80d949c"}
+{"event":"admission","stage":"AwaitingApproval"}
+{"id":1,"ok":true,"result":{"stage":"AwaitingApproval"}}
+{"id":2,"ok":true,"result":{"requests":[{"applicant":"f43d97feb6d1d52581571f79ebd59edbd2e4e877ac0d89b2212451b6b80d949c","request_id":"64ee4deed18155c4e35ae774add95b86"}]}}
+{"id":3,"ok":true,"result":{"stage":"Approved"}}
+{"id":2,"ok":true,"result":{"stage":"PendingMaterials"}}
+{"id":4,"ok":true,"result":{"genesis":"1d7424d6efa78f1df5e09af90b9b0dc10d95bbe1d002b735db5cdd8617956d95","members":[{"node":"19e6a9f0d937bcd1718279fd9de2c3491e337399cffc798b260d7e6d93038274","role":"admin"},{"node":"f43d97feb6d1d52581571f79ebd59edbd2e4e877ac0d89b2212451b6b80d949c","role":"member"}],"network":"16e12bdde5fab895eb1509ca7e502276f04845f3648f83bc895e385f2e7558db","node":"19e6a9f0d937bcd1718279fd9de2c3491e337399cffc798b260d7e6d93038274","records":2,"stage":"Complete"}}
+{"error":"delivery_incomplete","event":"incoming_failed"}
+{"id":3,"ok":true,"result":{"stopped":true}}
+{"id":5,"ok":true,"result":{"stopped":true}}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:43392"}],"id":"19e6a9f0d937bcd1718279fd9de2c3491e337399cffc798b260d7e6d93038274"},"event":"ready","node":"19e6a9f0d937bcd1718279fd9de2c3491e337399cffc798b260d7e6d93038274"}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:45489"}],"id":"f43d97feb6d1d52581571f79ebd59edbd2e4e877ac0d89b2212451b6b80d949c"},"event":"ready","node":"f43d97feb6d1d52581571f79ebd59edbd2e4e877ac0d89b2212451b6b80d949c"}
+{"id":1,"ok":true,"result":{"genesis":"1d7424d6efa78f1df5e09af90b9b0dc10d95bbe1d002b735db5cdd8617956d95","members":[{"node":"19e6a9f0d937bcd1718279fd9de2c3491e337399cffc798b260d7e6d93038274","role":"admin"},{"node":"f43d97feb6d1d52581571f79ebd59edbd2e4e877ac0d89b2212451b6b80d949c","role":"member"}],"network":"16e12bdde5fab895eb1509ca7e502276f04845f3648f83bc895e385f2e7558db","node":"f43d97feb6d1d52581571f79ebd59edbd2e4e877ac0d89b2212451b6b80d949c","records":2,"stage":"PendingMaterials"}}
+{"id":1,"ok":true,"result":{"requests":[{"applicant":"f43d97feb6d1d52581571f79ebd59edbd2e4e877ac0d89b2212451b6b80d949c","request_id":"64ee4deed18155c4e35ae774add95b86"}]}}
+{"id":2,"ok":true,"result":{"saved":true}}
+{"event":"admission","stage":"Complete"}
+{"id":2,"ok":true,"result":{"stage":"Complete"}}
+{"id":3,"ok":true,"result":{"genesis":"1d7424d6efa78f1df5e09af90b9b0dc10d95bbe1d002b735db5cdd8617956d95","members":[{"node":"19e6a9f0d937bcd1718279fd9de2c3491e337399cffc798b260d7e6d93038274","role":"admin"},{"node":"f43d97feb6d1d52581571f79ebd59edbd2e4e877ac0d89b2212451b6b80d949c","role":"member"}],"network":"16e12bdde5fab895eb1509ca7e502276f04845f3648f83bc895e385f2e7558db","node":"19e6a9f0d937bcd1718279fd9de2c3491e337399cffc798b260d7e6d93038274","records":2,"stage":"Complete"}}
+{"id":3,"ok":true,"result":{"reply":"PONG"}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:47339"}],"id":"f43d97feb6d1d52581571f79ebd59edbd2e4e877ac0d89b2212451b6b80d949c"},"event":"ready","node":"f43d97feb6d1d52581571f79ebd59edbd2e4e877ac0d89b2212451b6b80d949c"}
+{"id":1,"ok":true,"result":{"genesis":"1d7424d6efa78f1df5e09af90b9b0dc10d95bbe1d002b735db5cdd8617956d95","members":[{"node":"19e6a9f0d937bcd1718279fd9de2c3491e337399cffc798b260d7e6d93038274","role":"admin"},{"node":"f43d97feb6d1d52581571f79ebd59edbd2e4e877ac0d89b2212451b6b80d949c","role":"member"}],"network":"16e12bdde5fab895eb1509ca7e502276f04845f3648f83bc895e385f2e7558db","node":"f43d97feb6d1d52581571f79ebd59edbd2e4e877ac0d89b2212451b6b80d949c","records":2,"stage":"Complete"}}
+{"id":2,"ok":true,"result":{"stopped":true}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+NETWORK 66bdc8cf18f80c3f180c306f795caefceb46fa34c3a4bab86f8732737af81e9e fdd3b18ed41163d0fecb5c8730d9ecf9164c38fc439f8555df81fd08f5d7bf7e
+NODE 0c2ec37e289f823b0e6d9ca082267145d74aaa861135d7262c199b12e7b9b3df
+MEMBER 0c2ec37e289f823b0e6d9ca082267145d74aaa861135d7262c199b12e7b9b3df admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:46537"}],"id":"0c2ec37e289f823b0e6d9ca082267145d74aaa861135d7262c199b12e7b9b3df"},"event":"ready","node":"0c2ec37e289f823b0e6d9ca082267145d74aaa861135d7262c199b12e7b9b3df"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK 66bdc8cf18f80c3f180c306f795caefceb46fa34c3a4bab86f8732737af81e9e fdd3b18ed41163d0fecb5c8730d9ecf9164c38fc439f8555df81fd08f5d7bf7e
+NODE c87162219ce478e59a357e0ae23935975d99a09c4029c51bd2dd3f63fe6acd2a
+RECORDS 0
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:44352"}],"id":"c87162219ce478e59a357e0ae23935975d99a09c4029c51bd2dd3f63fe6acd2a"},"event":"ready","node":"c87162219ce478e59a357e0ae23935975d99a09c4029c51bd2dd3f63fe6acd2a"}
+{"event":"admission","stage":"AwaitingApproval"}
+{"id":1,"ok":true,"result":{"stage":"AwaitingApproval"}}
+{"id":2,"ok":true,"result":{"requests":[{"applicant":"c87162219ce478e59a357e0ae23935975d99a09c4029c51bd2dd3f63fe6acd2a","request_id":"ade82a33e2a803b423ee16ed8f1cb72c"}]}}
+{"id":3,"ok":true,"result":{"stage":"Approved"}}
+{"id":2,"ok":true,"result":{"stage":"PendingMaterials"}}
+{"id":4,"ok":true,"result":{"genesis":"fdd3b18ed41163d0fecb5c8730d9ecf9164c38fc439f8555df81fd08f5d7bf7e","members":[{"node":"0c2ec37e289f823b0e6d9ca082267145d74aaa861135d7262c199b12e7b9b3df","role":"admin"},{"node":"c87162219ce478e59a357e0ae23935975d99a09c4029c51bd2dd3f63fe6acd2a","role":"member"}],"network":"66bdc8cf18f80c3f180c306f795caefceb46fa34c3a4bab86f8732737af81e9e","node":"0c2ec37e289f823b0e6d9ca082267145d74aaa861135d7262c199b12e7b9b3df","records":2,"stage":"Complete"}}
+{"error":"delivery_incomplete","event":"incoming_failed"}
+{"id":3,"ok":true,"result":{"stopped":true}}
+{"id":5,"ok":true,"result":{"stopped":true}}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:43747"}],"id":"0c2ec37e289f823b0e6d9ca082267145d74aaa861135d7262c199b12e7b9b3df"},"event":"ready","node":"0c2ec37e289f823b0e6d9ca082267145d74aaa861135d7262c199b12e7b9b3df"}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:46030"}],"id":"c87162219ce478e59a357e0ae23935975d99a09c4029c51bd2dd3f63fe6acd2a"},"event":"ready","node":"c87162219ce478e59a357e0ae23935975d99a09c4029c51bd2dd3f63fe6acd2a"}
+{"id":1,"ok":true,"result":{"genesis":"fdd3b18ed41163d0fecb5c8730d9ecf9164c38fc439f8555df81fd08f5d7bf7e","members":[{"node":"0c2ec37e289f823b0e6d9ca082267145d74aaa861135d7262c199b12e7b9b3df","role":"admin"},{"node":"c87162219ce478e59a357e0ae23935975d99a09c4029c51bd2dd3f63fe6acd2a","role":"member"}],"network":"66bdc8cf18f80c3f180c306f795caefceb46fa34c3a4bab86f8732737af81e9e","node":"c87162219ce478e59a357e0ae23935975d99a09c4029c51bd2dd3f63fe6acd2a","records":2,"stage":"PendingMaterials"}}
+{"id":1,"ok":true,"result":{"requests":[{"applicant":"c87162219ce478e59a357e0ae23935975d99a09c4029c51bd2dd3f63fe6acd2a","request_id":"ade82a33e2a803b423ee16ed8f1cb72c"}]}}
+{"id":2,"ok":true,"result":{"saved":true}}
+{"event":"admission","stage":"Complete"}
+{"id":2,"ok":true,"result":{"stage":"Complete"}}
+{"id":3,"ok":true,"result":{"genesis":"fdd3b18ed41163d0fecb5c8730d9ecf9164c38fc439f8555df81fd08f5d7bf7e","members":[{"node":"0c2ec37e289f823b0e6d9ca082267145d74aaa861135d7262c199b12e7b9b3df","role":"admin"},{"node":"c87162219ce478e59a357e0ae23935975d99a09c4029c51bd2dd3f63fe6acd2a","role":"member"}],"network":"66bdc8cf18f80c3f180c306f795caefceb46fa34c3a4bab86f8732737af81e9e","node":"0c2ec37e289f823b0e6d9ca082267145d74aaa861135d7262c199b12e7b9b3df","records":2,"stage":"Complete"}}
+{"id":3,"ok":true,"result":{"reply":"PONG"}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:43538"}],"id":"c87162219ce478e59a357e0ae23935975d99a09c4029c51bd2dd3f63fe6acd2a"},"event":"ready","node":"c87162219ce478e59a357e0ae23935975d99a09c4029c51bd2dd3f63fe6acd2a"}
+{"id":1,"ok":true,"result":{"genesis":"fdd3b18ed41163d0fecb5c8730d9ecf9164c38fc439f8555df81fd08f5d7bf7e","members":[{"node":"0c2ec37e289f823b0e6d9ca082267145d74aaa861135d7262c199b12e7b9b3df","role":"admin"},{"node":"c87162219ce478e59a357e0ae23935975d99a09c4029c51bd2dd3f63fe6acd2a","role":"member"}],"network":"66bdc8cf18f80c3f180c306f795caefceb46fa34c3a4bab86f8732737af81e9e","node":"c87162219ce478e59a357e0ae23935975d99a09c4029c51bd2dd3f63fe6acd2a","records":2,"stage":"Complete"}}
+{"id":2,"ok":true,"result":{"stopped":true}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+NETWORK d5d8b096a41def9aec649068c6b7a1a523767475e07c384e9893111b49028a66 7c31313de7ddb109c957876d0bb838301489f7d67e765e2475935ed34b32c253
+NODE 1dcb1583c9c40172303e953e7007ec327c9dbc5960094a4ee7e9a6ecc1b50ada
+MEMBER 1dcb1583c9c40172303e953e7007ec327c9dbc5960094a4ee7e9a6ecc1b50ada admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:43765"}],"id":"1dcb1583c9c40172303e953e7007ec327c9dbc5960094a4ee7e9a6ecc1b50ada"},"event":"ready","node":"1dcb1583c9c40172303e953e7007ec327c9dbc5960094a4ee7e9a6ecc1b50ada"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK d5d8b096a41def9aec649068c6b7a1a523767475e07c384e9893111b49028a66 7c31313de7ddb109c957876d0bb838301489f7d67e765e2475935ed34b32c253
+NODE 0e955012f4344391f22a866bcc29fdb28211736ae7fca4ac126825b5f3567e91
+RECORDS 0
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:43791"}],"id":"0e955012f4344391f22a866bcc29fdb28211736ae7fca4ac126825b5f3567e91"},"event":"ready","node":"0e955012f4344391f22a866bcc29fdb28211736ae7fca4ac126825b5f3567e91"}
+{"event":"admission","stage":"AwaitingApproval"}
+{"id":1,"ok":true,"result":{"stage":"AwaitingApproval"}}
+{"id":2,"ok":true,"result":{"requests":[{"applicant":"0e955012f4344391f22a866bcc29fdb28211736ae7fca4ac126825b5f3567e91","request_id":"ab1a91ee7c508af55413fca69f5061f1"}]}}
+{"id":3,"ok":true,"result":{"stage":"Approved"}}
+{"event":"admission","stage":"Complete"}
+{"id":2,"ok":true,"result":{"stage":"Complete"}}
+{"id":3,"ok":true,"result":{"reply":"PONG"}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:44715"}],"id":"1dcb1583c9c40172303e953e7007ec327c9dbc5960094a4ee7e9a6ecc1b50ada"},"event":"ready","node":"1dcb1583c9c40172303e953e7007ec327c9dbc5960094a4ee7e9a6ecc1b50ada"}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:44514"}],"id":"0e955012f4344391f22a866bcc29fdb28211736ae7fca4ac126825b5f3567e91"},"event":"ready","node":"0e955012f4344391f22a866bcc29fdb28211736ae7fca4ac126825b5f3567e91"}
+15d575e7a1f5cc3ba944d3a062038cf137d6843f138b6218c79fe14ad7fc5bda
+{"error":"permission_denied","id":1,"ok":false}
+{"error":"elevation_required","id":1,"ok":false}
+{"id":2,"ok":true,"result":{"record":"0b61a616b738d982fbb1fecd02b822c3b572034027aba311395b42d68f0187b8"}}
+{"id":3,"ok":true,"result":{"elevated":true,"seconds":60}}
+{"id":4,"ok":true,"result":{"record":"e1cb1b113119fa512af5c1e247efef3bf8091ae88a88a4254b73144ed16a997f"}}
+{"id":2,"ok":true,"result":{"complete":true,"source":"1dcb1583c9c40172303e953e7007ec327c9dbc5960094a4ee7e9a6ecc1b50ada"}}
+{"id":3,"ok":true,"result":{"genesis":"7c31313de7ddb109c957876d0bb838301489f7d67e765e2475935ed34b32c253","members":[{"node":"0e955012f4344391f22a866bcc29fdb28211736ae7fca4ac126825b5f3567e91","role":"admin"},{"node":"15d575e7a1f5cc3ba944d3a062038cf137d6843f138b6218c79fe14ad7fc5bda","role":"member"},{"node":"1dcb1583c9c40172303e953e7007ec327c9dbc5960094a4ee7e9a6ecc1b50ada","role":"admin"}],"network":"d5d8b096a41def9aec649068c6b7a1a523767475e07c384e9893111b49028a66","node":"0e955012f4344391f22a866bcc29fdb28211736ae7fca4ac126825b5f3567e91","records":4,"stage":"Complete"}}
+{"id":5,"ok":true,"result":{"record":"8cf6a06d045b7ba4016f27182ffbda71fec922178417f5ea9a3b919cc725a276"}}
+{"id":6,"ok":true,"result":{"elevated":false}}
+{"error":"elevation_required","id":7,"ok":false}
+{"id":4,"ok":true,"result":{"complete":true,"source":"1dcb1583c9c40172303e953e7007ec327c9dbc5960094a4ee7e9a6ecc1b50ada"}}
+{"id":5,"ok":true,"result":{"genesis":"7c31313de7ddb109c957876d0bb838301489f7d67e765e2475935ed34b32c253","members":[{"node":"0e955012f4344391f22a866bcc29fdb28211736ae7fca4ac126825b5f3567e91","role":"member"},{"node":"15d575e7a1f5cc3ba944d3a062038cf137d6843f138b6218c79fe14ad7fc5bda","role":"member"},{"node":"1dcb1583c9c40172303e953e7007ec327c9dbc5960094a4ee7e9a6ecc1b50ada","role":"admin"}],"network":"d5d8b096a41def9aec649068c6b7a1a523767475e07c384e9893111b49028a66","node":"0e955012f4344391f22a866bcc29fdb28211736ae7fca4ac126825b5f3567e91","records":5,"stage":"Complete"}}
+{"id":8,"ok":true,"result":{"record":"01e04c324a543d7311bf35f116610a7d532330db95a824e8b69202282cd7f9db"}}
+{"id":9,"ok":true,"result":{"record":"942342c143e6948212bddf90128b727cce6c9dad5819e46b46b9bebaa8718b67"}}
+{"error":"invalid_request_or_operation_failed","event":"incoming_failed"}
+{"error":"temporarily_unreachable","id":6,"ok":false}
+{"id":10,"ok":true,"result":{"stopped":true}}
+{"error":"invalid_request_or_operation_failed","event":"incoming_failed"}
+{"id":7,"ok":true,"result":{"stopped":true}}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:45498"}],"id":"1dcb1583c9c40172303e953e7007ec327c9dbc5960094a4ee7e9a6ecc1b50ada"},"event":"ready","node":"1dcb1583c9c40172303e953e7007ec327c9dbc5960094a4ee7e9a6ecc1b50ada"}
+{"id":1,"ok":true,"result":{"genesis":"7c31313de7ddb109c957876d0bb838301489f7d67e765e2475935ed34b32c253","members":[{"node":"1dcb1583c9c40172303e953e7007ec327c9dbc5960094a4ee7e9a6ecc1b50ada","role":"admin"}],"network":"d5d8b096a41def9aec649068c6b7a1a523767475e07c384e9893111b49028a66","node":"1dcb1583c9c40172303e953e7007ec327c9dbc5960094a4ee7e9a6ecc1b50ada","records":7,"stage":"Complete"}}
+{"error":"elevation_required","id":2,"ok":false}
+{"id":3,"ok":true,"result":{"stopped":true}}
+NETWORK a5862c7eb6f1079a5b3b5625a5ad29d5a7ddd2d33aa0e0089a85766121d16930 d52b48882fa9aace7f2f9890f5682e0439d595d3518f451e54fb33f7854450e4
+NODE 3137be5b208ddfd7b90a2789292932ef1946a222fae23fcc74b3dbcf3ac9004a
+MEMBER 3137be5b208ddfd7b90a2789292932ef1946a222fae23fcc74b3dbcf3ac9004a admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:43807"}],"id":"3137be5b208ddfd7b90a2789292932ef1946a222fae23fcc74b3dbcf3ac9004a"},"event":"ready","node":"3137be5b208ddfd7b90a2789292932ef1946a222fae23fcc74b3dbcf3ac9004a"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK a5862c7eb6f1079a5b3b5625a5ad29d5a7ddd2d33aa0e0089a85766121d16930 d52b48882fa9aace7f2f9890f5682e0439d595d3518f451e54fb33f7854450e4
+NODE 9b2d4a97badddbb8bb245d269e323cf82bff475eadfb26a22fbee49fe9c31667
+RECORDS 0
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:43764"}],"id":"9b2d4a97badddbb8bb245d269e323cf82bff475eadfb26a22fbee49fe9c31667"},"event":"ready","node":"9b2d4a97badddbb8bb245d269e323cf82bff475eadfb26a22fbee49fe9c31667"}
+{"event":"admission","stage":"AwaitingApproval"}
+{"id":1,"ok":true,"result":{"stage":"AwaitingApproval"}}
+{"id":2,"ok":true,"result":{"requests":[{"applicant":"9b2d4a97badddbb8bb245d269e323cf82bff475eadfb26a22fbee49fe9c31667","request_id":"786903678a6c34cbf22f0eabe8205502"}]}}
+{"id":3,"ok":true,"result":{"stage":"Approved"}}
+{"event":"admission","stage":"Complete"}
+{"id":2,"ok":true,"result":{"stage":"Complete"}}
+{"id":3,"ok":true,"result":{"reply":"PONG"}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:47099"}],"id":"3137be5b208ddfd7b90a2789292932ef1946a222fae23fcc74b3dbcf3ac9004a"},"event":"ready","node":"3137be5b208ddfd7b90a2789292932ef1946a222fae23fcc74b3dbcf3ac9004a"}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:45337"}],"id":"9b2d4a97badddbb8bb245d269e323cf82bff475eadfb26a22fbee49fe9c31667"},"event":"ready","node":"9b2d4a97badddbb8bb245d269e323cf82bff475eadfb26a22fbee49fe9c31667"}
+10e03eaf6a8f172cde73975c1fa87843546b5833408027a9cdd82af9f6c1d30b
+{"error":"permission_denied","id":1,"ok":false}
+{"error":"elevation_required","id":1,"ok":false}
+{"id":2,"ok":true,"result":{"record":"6cb97a68c66b62b38d5d4c4e66936ee082ddcbc43b20b801b5904e9e92fe1f07"}}
+{"id":3,"ok":true,"result":{"elevated":true,"seconds":60}}
+{"id":4,"ok":true,"result":{"record":"385e4ac37bcf8612de5f04dfcdb1e0f6d310a4819cee4f93bbc5dcc38d447a5a"}}
+{"id":2,"ok":true,"result":{"complete":true,"source":"3137be5b208ddfd7b90a2789292932ef1946a222fae23fcc74b3dbcf3ac9004a"}}
+{"id":3,"ok":true,"result":{"genesis":"d52b48882fa9aace7f2f9890f5682e0439d595d3518f451e54fb33f7854450e4","members":[{"node":"10e03eaf6a8f172cde73975c1fa87843546b5833408027a9cdd82af9f6c1d30b","role":"member"},{"node":"3137be5b208ddfd7b90a2789292932ef1946a222fae23fcc74b3dbcf3ac9004a","role":"admin"},{"node":"9b2d4a97badddbb8bb245d269e323cf82bff475eadfb26a22fbee49fe9c31667","role":"admin"}],"network":"a5862c7eb6f1079a5b3b5625a5ad29d5a7ddd2d33aa0e0089a85766121d16930","node":"9b2d4a97badddbb8bb245d269e323cf82bff475eadfb26a22fbee49fe9c31667","records":4,"stage":"Complete"}}
+{"id":5,"ok":true,"result":{"record":"5c019d4441ac1894b241e282a7e71a4b7339c4fc8893feb5779972bae7fa6fea"}}
+{"id":6,"ok":true,"result":{"elevated":false}}
+{"error":"elevation_required","id":7,"ok":false}
+{"id":4,"ok":true,"result":{"complete":true,"source":"3137be5b208ddfd7b90a2789292932ef1946a222fae23fcc74b3dbcf3ac9004a"}}
+{"id":5,"ok":true,"result":{"genesis":"d52b48882fa9aace7f2f9890f5682e0439d595d3518f451e54fb33f7854450e4","members":[{"node":"10e03eaf6a8f172cde73975c1fa87843546b5833408027a9cdd82af9f6c1d30b","role":"member"},{"node":"3137be5b208ddfd7b90a2789292932ef1946a222fae23fcc74b3dbcf3ac9004a","role":"admin"},{"node":"9b2d4a97badddbb8bb245d269e323cf82bff475eadfb26a22fbee49fe9c31667","role":"member"}],"network":"a5862c7eb6f1079a5b3b5625a5ad29d5a7ddd2d33aa0e0089a85766121d16930","node":"9b2d4a97badddbb8bb245d269e323cf82bff475eadfb26a22fbee49fe9c31667","records":5,"stage":"Complete"}}
+{"id":8,"ok":true,"result":{"record":"45885aa8cad74cf6e7ec7461bab00f518966097e1c8a9bfea63405c0ef706950"}}
+{"id":9,"ok":true,"result":{"record":"71ef21a35b6bb1d930183f2a4a7cead45f04e1fe62a02f36376e19c9ef73b9c6"}}
+{"error":"invalid_request_or_operation_failed","event":"incoming_failed"}
+{"error":"temporarily_unreachable","id":6,"ok":false}
+{"id":10,"ok":true,"result":{"stopped":true}}
+{"id":7,"ok":true,"result":{"stopped":true}}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:46884"}],"id":"3137be5b208ddfd7b90a2789292932ef1946a222fae23fcc74b3dbcf3ac9004a"},"event":"ready","node":"3137be5b208ddfd7b90a2789292932ef1946a222fae23fcc74b3dbcf3ac9004a"}
+{"id":1,"ok":true,"result":{"genesis":"d52b48882fa9aace7f2f9890f5682e0439d595d3518f451e54fb33f7854450e4","members":[{"node":"3137be5b208ddfd7b90a2789292932ef1946a222fae23fcc74b3dbcf3ac9004a","role":"admin"}],"network":"a5862c7eb6f1079a5b3b5625a5ad29d5a7ddd2d33aa0e0089a85766121d16930","node":"3137be5b208ddfd7b90a2789292932ef1946a222fae23fcc74b3dbcf3ac9004a","records":7,"stage":"Complete"}}
+{"error":"elevation_required","id":2,"ok":false}
+{"id":3,"ok":true,"result":{"stopped":true}}
+NETWORK d315a4254ba126a60ee1d8c2b156b9cb26ee4a8031b13d6e9924258c3100c18d 284e01f929c9e0602d64fff2c1f82342eef1aaed847d3877bf48ead0c2faca18
+NODE c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a
+MEMBER c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:44479"}],"id":"c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a"},"event":"ready","node":"c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK d315a4254ba126a60ee1d8c2b156b9cb26ee4a8031b13d6e9924258c3100c18d 284e01f929c9e0602d64fff2c1f82342eef1aaed847d3877bf48ead0c2faca18
+NODE 99910a3485c010ff6f835735932b6f2ec6ae3585288c46ba136ad147514adb0b
+RECORDS 0
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:45953"}],"id":"99910a3485c010ff6f835735932b6f2ec6ae3585288c46ba136ad147514adb0b"},"event":"ready","node":"99910a3485c010ff6f835735932b6f2ec6ae3585288c46ba136ad147514adb0b"}
+{"id":1,"ok":true,"result":{"stage":"PendingMaterials"}}
+{"id":2,"ok":true,"result":{"count_trusted":true,"uses":1}}
+{"error":"delivery_incomplete","event":"incoming_failed"}
+{"id":3,"ok":true,"result":{"genesis":"284e01f929c9e0602d64fff2c1f82342eef1aaed847d3877bf48ead0c2faca18","members":[{"node":"99910a3485c010ff6f835735932b6f2ec6ae3585288c46ba136ad147514adb0b","role":"member"},{"node":"c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a","role":"admin"}],"network":"d315a4254ba126a60ee1d8c2b156b9cb26ee4a8031b13d6e9924258c3100c18d","node":"c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a","records":2,"stage":"Complete"}}
+{"id":2,"ok":true,"result":{"stopped":true}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:46011"}],"id":"c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a"},"event":"ready","node":"c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a"}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:43840"}],"id":"99910a3485c010ff6f835735932b6f2ec6ae3585288c46ba136ad147514adb0b"},"event":"ready","node":"99910a3485c010ff6f835735932b6f2ec6ae3585288c46ba136ad147514adb0b"}
+{"id":1,"ok":true,"result":{"saved":true}}
+{"event":"admission","stage":"Complete"}
+{"id":1,"ok":true,"result":{"stage":"Complete"}}
+{"id":2,"ok":true,"result":{"count_trusted":true,"uses":1}}
+{"id":3,"ok":true,"result":{"genesis":"284e01f929c9e0602d64fff2c1f82342eef1aaed847d3877bf48ead0c2faca18","members":[{"node":"99910a3485c010ff6f835735932b6f2ec6ae3585288c46ba136ad147514adb0b","role":"member"},{"node":"c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a","role":"admin"}],"network":"d315a4254ba126a60ee1d8c2b156b9cb26ee4a8031b13d6e9924258c3100c18d","node":"c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a","records":2,"stage":"Complete"}}
+{"id":2,"ok":true,"result":{"reply":"PONG"}}
+{"id":3,"ok":true,"result":{"stopped":true}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+SAVED backup
+NETWORK d315a4254ba126a60ee1d8c2b156b9cb26ee4a8031b13d6e9924258c3100c18d 284e01f929c9e0602d64fff2c1f82342eef1aaed847d3877bf48ead0c2faca18
+NODE c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a
+MEMBER 99910a3485c010ff6f835735932b6f2ec6ae3585288c46ba136ad147514adb0b member
+MEMBER c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a admin
+RECORDS 2
+PRECODE_COUNTS_UNTRUSTED old codes stopped for new redemption
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:44344"}],"id":"c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a"},"event":"ready","node":"c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a"}
+{"id":1,"ok":true,"result":{"count_trusted":false,"uses":1}}
+{"id":2,"ok":true,"result":{"saved":true}}
+NETWORK d315a4254ba126a60ee1d8c2b156b9cb26ee4a8031b13d6e9924258c3100c18d 284e01f929c9e0602d64fff2c1f82342eef1aaed847d3877bf48ead0c2faca18
+NODE e90e29204cdae0cb47bcae004e629fd760acbf0cc02ae1bf412e1e4c36f110a6
+RECORDS 0
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:44558"}],"id":"e90e29204cdae0cb47bcae004e629fd760acbf0cc02ae1bf412e1e4c36f110a6"},"event":"ready","node":"e90e29204cdae0cb47bcae004e629fd760acbf0cc02ae1bf412e1e4c36f110a6"}
+{"error":"admission_rejected","event":"incoming_failed"}
+{"error":"delivery_incomplete","id":1,"ok":false}
+{"id":2,"ok":true,"result":{"genesis":"284e01f929c9e0602d64fff2c1f82342eef1aaed847d3877bf48ead0c2faca18","members":[],"network":"d315a4254ba126a60ee1d8c2b156b9cb26ee4a8031b13d6e9924258c3100c18d","node":"e90e29204cdae0cb47bcae004e629fd760acbf0cc02ae1bf412e1e4c36f110a6","records":0,"stage":"AwaitingApproval"}}
+{"id":3,"ok":true,"result":{"genesis":"284e01f929c9e0602d64fff2c1f82342eef1aaed847d3877bf48ead0c2faca18","members":[{"node":"99910a3485c010ff6f835735932b6f2ec6ae3585288c46ba136ad147514adb0b","role":"member"},{"node":"c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a","role":"admin"}],"network":"d315a4254ba126a60ee1d8c2b156b9cb26ee4a8031b13d6e9924258c3100c18d","node":"c607f671526b072c92b0e39ce51291507e90fbb0584b81306612100ffba9325a","records":2,"stage":"Complete"}}
+{"id":4,"ok":true,"result":{"saved":true}}
+{"event":"admission","stage":"Complete"}
+{"id":3,"ok":true,"result":{"stage":"Complete"}}
+{"id":5,"ok":true,"result":{"count_trusted":true,"uses":1}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"id":6,"ok":true,"result":{"stopped":true}}
+NETWORK 00a405bbe7acfd2dd92de57800f55e629972ea83bf50ebcb04e88a49053a759e 8548a2bca9ca6e99547f97013718af2b509e4caff07df9bd6eade15ac30fb7dc
+NODE d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433
+MEMBER d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433 admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:45882"}],"id":"d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433"},"event":"ready","node":"d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK 00a405bbe7acfd2dd92de57800f55e629972ea83bf50ebcb04e88a49053a759e 8548a2bca9ca6e99547f97013718af2b509e4caff07df9bd6eade15ac30fb7dc
+NODE c19af4be624a8b7e18bb65b56c928f8810caddee09697217ad97d4bafdd1599b
+RECORDS 0
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:46916"}],"id":"c19af4be624a8b7e18bb65b56c928f8810caddee09697217ad97d4bafdd1599b"},"event":"ready","node":"c19af4be624a8b7e18bb65b56c928f8810caddee09697217ad97d4bafdd1599b"}
+{"id":1,"ok":true,"result":{"stage":"PendingMaterials"}}
+{"id":2,"ok":true,"result":{"count_trusted":true,"uses":1}}
+{"error":"delivery_incomplete","event":"incoming_failed"}
+{"id":3,"ok":true,"result":{"genesis":"8548a2bca9ca6e99547f97013718af2b509e4caff07df9bd6eade15ac30fb7dc","members":[{"node":"c19af4be624a8b7e18bb65b56c928f8810caddee09697217ad97d4bafdd1599b","role":"member"},{"node":"d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433","role":"admin"}],"network":"00a405bbe7acfd2dd92de57800f55e629972ea83bf50ebcb04e88a49053a759e","node":"d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433","records":2,"stage":"Complete"}}
+{"id":2,"ok":true,"result":{"stopped":true}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:43658"}],"id":"d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433"},"event":"ready","node":"d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433"}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:46329"}],"id":"c19af4be624a8b7e18bb65b56c928f8810caddee09697217ad97d4bafdd1599b"},"event":"ready","node":"c19af4be624a8b7e18bb65b56c928f8810caddee09697217ad97d4bafdd1599b"}
+{"id":1,"ok":true,"result":{"saved":true}}
+{"event":"admission","stage":"Complete"}
+{"id":1,"ok":true,"result":{"stage":"Complete"}}
+{"id":2,"ok":true,"result":{"count_trusted":true,"uses":1}}
+{"id":3,"ok":true,"result":{"genesis":"8548a2bca9ca6e99547f97013718af2b509e4caff07df9bd6eade15ac30fb7dc","members":[{"node":"c19af4be624a8b7e18bb65b56c928f8810caddee09697217ad97d4bafdd1599b","role":"member"},{"node":"d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433","role":"admin"}],"network":"00a405bbe7acfd2dd92de57800f55e629972ea83bf50ebcb04e88a49053a759e","node":"d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433","records":2,"stage":"Complete"}}
+{"id":2,"ok":true,"result":{"reply":"PONG"}}
+{"id":3,"ok":true,"result":{"stopped":true}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+SAVED backup
+NETWORK 00a405bbe7acfd2dd92de57800f55e629972ea83bf50ebcb04e88a49053a759e 8548a2bca9ca6e99547f97013718af2b509e4caff07df9bd6eade15ac30fb7dc
+NODE d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433
+MEMBER c19af4be624a8b7e18bb65b56c928f8810caddee09697217ad97d4bafdd1599b member
+MEMBER d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433 admin
+RECORDS 2
+PRECODE_COUNTS_UNTRUSTED old codes stopped for new redemption
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:44814"}],"id":"d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433"},"event":"ready","node":"d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433"}
+{"id":1,"ok":true,"result":{"count_trusted":false,"uses":1}}
+{"id":2,"ok":true,"result":{"saved":true}}
+NETWORK 00a405bbe7acfd2dd92de57800f55e629972ea83bf50ebcb04e88a49053a759e 8548a2bca9ca6e99547f97013718af2b509e4caff07df9bd6eade15ac30fb7dc
+NODE 38d4f907d669273ff844e337660376df50795fced3674b0f05438b1e40cf4200
+RECORDS 0
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:46846"}],"id":"38d4f907d669273ff844e337660376df50795fced3674b0f05438b1e40cf4200"},"event":"ready","node":"38d4f907d669273ff844e337660376df50795fced3674b0f05438b1e40cf4200"}
+{"error":"admission_rejected","event":"incoming_failed"}
+{"error":"delivery_incomplete","id":1,"ok":false}
+{"id":2,"ok":true,"result":{"genesis":"8548a2bca9ca6e99547f97013718af2b509e4caff07df9bd6eade15ac30fb7dc","members":[],"network":"00a405bbe7acfd2dd92de57800f55e629972ea83bf50ebcb04e88a49053a759e","node":"38d4f907d669273ff844e337660376df50795fced3674b0f05438b1e40cf4200","records":0,"stage":"AwaitingApproval"}}
+{"id":3,"ok":true,"result":{"genesis":"8548a2bca9ca6e99547f97013718af2b509e4caff07df9bd6eade15ac30fb7dc","members":[{"node":"c19af4be624a8b7e18bb65b56c928f8810caddee09697217ad97d4bafdd1599b","role":"member"},{"node":"d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433","role":"admin"}],"network":"00a405bbe7acfd2dd92de57800f55e629972ea83bf50ebcb04e88a49053a759e","node":"d41bc29d93ae13109ddbaf9b0c8f72c9902aaa667705fbb4cb34dc7e35dfd433","records":2,"stage":"Complete"}}
+{"id":4,"ok":true,"result":{"saved":true}}
+{"event":"admission","stage":"Complete"}
+{"id":3,"ok":true,"result":{"stage":"Complete"}}
+{"id":5,"ok":true,"result":{"count_trusted":true,"uses":1}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"id":6,"ok":true,"result":{"stopped":true}}
+NETWORK d7242126786a2e54b2f0ef7242d09087ef28e6cca04599e1e96feebf14af5628 c5ade3da34d8ee500d244cbc95b238d9521126cf03374dde58df26fde666ffc4
+NODE e078890a95392f5b7499631581e6a83a24f8d131d50f8c09100b1cdca20400e7
+MEMBER e078890a95392f5b7499631581e6a83a24f8d131d50f8c09100b1cdca20400e7 admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:43800"}],"id":"e078890a95392f5b7499631581e6a83a24f8d131d50f8c09100b1cdca20400e7"},"event":"ready","node":"e078890a95392f5b7499631581e6a83a24f8d131d50f8c09100b1cdca20400e7"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK d7242126786a2e54b2f0ef7242d09087ef28e6cca04599e1e96feebf14af5628 c5ade3da34d8ee500d244cbc95b238d9521126cf03374dde58df26fde666ffc4
+NODE 06f061c9d4d6ffda1ee37f0c9d6bc93ba4ac2f74075020809985b0e13e17c5c4
+RECORDS 0
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:45262"}],"id":"06f061c9d4d6ffda1ee37f0c9d6bc93ba4ac2f74075020809985b0e13e17c5c4"},"event":"ready","node":"06f061c9d4d6ffda1ee37f0c9d6bc93ba4ac2f74075020809985b0e13e17c5c4"}
+{"event":"admission","stage":"AwaitingApproval"}
+{"id":1,"ok":true,"result":{"stage":"AwaitingApproval"}}
+{"id":2,"ok":true,"result":{"requests":[{"applicant":"06f061c9d4d6ffda1ee37f0c9d6bc93ba4ac2f74075020809985b0e13e17c5c4","request_id":"ce72add39c71816e542f944fc1b7754b"}]}}
+{"id":3,"ok":true,"result":{"stage":"Approved"}}
+{"event":"admission","stage":"Complete"}
+{"id":2,"ok":true,"result":{"stage":"Complete"}}
+{"id":3,"ok":true,"result":{"reply":"PONG"}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:47314"}],"id":"e078890a95392f5b7499631581e6a83a24f8d131d50f8c09100b1cdca20400e7"},"event":"ready","node":"e078890a95392f5b7499631581e6a83a24f8d131d50f8c09100b1cdca20400e7"}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:43623"}],"id":"06f061c9d4d6ffda1ee37f0c9d6bc93ba4ac2f74075020809985b0e13e17c5c4"},"event":"ready","node":"06f061c9d4d6ffda1ee37f0c9d6bc93ba4ac2f74075020809985b0e13e17c5c4"}
+{"id":1,"ok":true,"result":{"config":{"defaults":{"resources":[{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://aps1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://euc1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://use1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://usw1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]}],"revision":1},"disabled":[],"disabled_tcp_addresses":[],"disabled_uses":[],"lan_discovery":"Disabled","maintenance":{"contact_timeout_ms":2000,"discovery_interval_ms":15000,"exploration_interval_ms":5000,"max_concurrent_contacts":1,"max_neighbors":1,"quality_interval_ms":5000},"member_data_relay_disabled":false,"path_selection":{"preference":"Quality","reevaluation_interval_ms":1000},"port_mapping":"Disabled","replacement":null,"tcp_direct_disabled":false,"tcp_listen":null,"trusted_update_key":null,"udp_direct_disabled":false}}}
+{"id":2,"ok":true,"result":{"effective_on_restart":true}}
+{"id":1,"ok":true,"result":{"config":{"defaults":{"resources":[{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://aps1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://euc1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://use1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://usw1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]}],"revision":1},"disabled":[],"disabled_tcp_addresses":[],"disabled_uses":[],"lan_discovery":"Disabled","maintenance":{"contact_timeout_ms":2000,"discovery_interval_ms":15000,"exploration_interval_ms":5000,"max_concurrent_contacts":1,"max_neighbors":1,"quality_interval_ms":5000},"member_data_relay_disabled":false,"path_selection":{"preference":"Quality","reevaluation_interval_ms":1000},"port_mapping":"Disabled","replacement":null,"tcp_direct_disabled":false,"tcp_listen":null,"trusted_update_key":null,"udp_direct_disabled":false}}}
+{"id":2,"ok":true,"result":{"effective_on_restart":true}}
+{"id":3,"ok":true,"result":{"stopped":true}}
+{"id":3,"ok":true,"result":{"stopped":true}}
+{"address":{"addrs":[{"Ip":"127.0.0.1:45031"}],"id":"e078890a95392f5b7499631581e6a83a24f8d131d50f8c09100b1cdca20400e7"},"event":"ready","node":"e078890a95392f5b7499631581e6a83a24f8d131d50f8c09100b1cdca20400e7"}
+{"address":{"addrs":[{"Ip":"127.0.0.1:43693"}],"id":"06f061c9d4d6ffda1ee37f0c9d6bc93ba4ac2f74075020809985b0e13e17c5c4"},"event":"ready","node":"06f061c9d4d6ffda1ee37f0c9d6bc93ba4ac2f74075020809985b0e13e17c5c4"}
+{"id":1,"ok":true,"result":{"config":{"defaults":{"resources":[{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://aps1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://euc1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://use1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://usw1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]}],"revision":1},"disabled":[],"disabled_tcp_addresses":[],"disabled_uses":["Observation","Lookup","Signaling","DataRelay"],"lan_discovery":"Disabled","maintenance":{"contact_timeout_ms":2000,"discovery_interval_ms":15000,"exploration_interval_ms":5000,"max_concurrent_contacts":1,"max_neighbors":1,"quality_interval_ms":5000},"member_data_relay_disabled":false,"path_selection":{"preference":"Quality","reevaluation_interval_ms":1000},"port_mapping":"Disabled","replacement":[],"tcp_direct_disabled":true,"tcp_listen":null,"trusted_update_key":null,"udp_direct_disabled":false}}}
+{"id":1,"ok":true,"result":{"config":{"defaults":{"resources":[{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://aps1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://euc1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://use1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://usw1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]}],"revision":1},"disabled":[],"disabled_tcp_addresses":[],"disabled_uses":["Observation","Lookup","Signaling","DataRelay"],"lan_discovery":"Disabled","maintenance":{"contact_timeout_ms":2000,"discovery_interval_ms":15000,"exploration_interval_ms":5000,"max_concurrent_contacts":1,"max_neighbors":1,"quality_interval_ms":5000},"member_data_relay_disabled":false,"path_selection":{"preference":"Quality","reevaluation_interval_ms":1000},"port_mapping":"Disabled","replacement":[],"tcp_direct_disabled":true,"tcp_listen":null,"trusted_update_key":null,"udp_direct_disabled":false}}}
+{"id":2,"ok":true,"result":{"reply":"PONG"}}
+{"id":2,"ok":true,"result":{"stopped":true}}
+{"error":"temporarily_unreachable","id":3,"ok":false}
+{"error":"temporarily_unreachable","id":4,"ok":false}
+{"id":5,"ok":true,"result":{"genesis":"c5ade3da34d8ee500d244cbc95b238d9521126cf03374dde58df26fde666ffc4","members":[{"node":"06f061c9d4d6ffda1ee37f0c9d6bc93ba4ac2f74075020809985b0e13e17c5c4","role":"member"},{"node":"e078890a95392f5b7499631581e6a83a24f8d131d50f8c09100b1cdca20400e7","role":"admin"}],"network":"d7242126786a2e54b2f0ef7242d09087ef28e6cca04599e1e96feebf14af5628","node":"06f061c9d4d6ffda1ee37f0c9d6bc93ba4ac2f74075020809985b0e13e17c5c4","records":2,"stage":"Complete"}}
+{"address":{"addrs":[{"Ip":"127.0.0.1:44066"}],"id":"e078890a95392f5b7499631581e6a83a24f8d131d50f8c09100b1cdca20400e7"},"event":"ready","node":"e078890a95392f5b7499631581e6a83a24f8d131d50f8c09100b1cdca20400e7"}
+{"id":6,"ok":true,"result":{"reply":"PONG"}}
+{"id":7,"ok":true,"result":{"stopped":true}}
+{"id":1,"ok":true,"result":{"stopped":true}}
+NETWORK e96f5704dd7f3efd8bdc683774cdcf459761792a046894aee74e89cefb41d54b e71f5e2b61ee684cfec2de864874d253693e0b37bd88e2e6875e084196b39244
+NODE f5b70bb4621a7f96e1214af848228b5b14e976e202b5e13eb0e9fbb082b373da
+MEMBER f5b70bb4621a7f96e1214af848228b5b14e976e202b5e13eb0e9fbb082b373da admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:45189"}],"id":"f5b70bb4621a7f96e1214af848228b5b14e976e202b5e13eb0e9fbb082b373da"},"event":"ready","node":"f5b70bb4621a7f96e1214af848228b5b14e976e202b5e13eb0e9fbb082b373da"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK e96f5704dd7f3efd8bdc683774cdcf459761792a046894aee74e89cefb41d54b e71f5e2b61ee684cfec2de864874d253693e0b37bd88e2e6875e084196b39244
+NODE 1b62bd632e612be8bd164ab4b459cf9e765b870626e52c9fac51694d5befc795
+RECORDS 0
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:46524"}],"id":"1b62bd632e612be8bd164ab4b459cf9e765b870626e52c9fac51694d5befc795"},"event":"ready","node":"1b62bd632e612be8bd164ab4b459cf9e765b870626e52c9fac51694d5befc795"}
+{"event":"admission","stage":"AwaitingApproval"}
+{"id":1,"ok":true,"result":{"stage":"AwaitingApproval"}}
+{"id":2,"ok":true,"result":{"requests":[{"applicant":"1b62bd632e612be8bd164ab4b459cf9e765b870626e52c9fac51694d5befc795","request_id":"09d337934065d8ddb1341067820a68ab"}]}}
+{"id":3,"ok":true,"result":{"stage":"Approved"}}
+{"event":"admission","stage":"Complete"}
+{"id":2,"ok":true,"result":{"stage":"Complete"}}
+{"id":3,"ok":true,"result":{"reply":"PONG"}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"id":4,"ok":true,"result":{"stopped":true}}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:45120"}],"id":"f5b70bb4621a7f96e1214af848228b5b14e976e202b5e13eb0e9fbb082b373da"},"event":"ready","node":"f5b70bb4621a7f96e1214af848228b5b14e976e202b5e13eb0e9fbb082b373da"}
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:43647"}],"id":"1b62bd632e612be8bd164ab4b459cf9e765b870626e52c9fac51694d5befc795"},"event":"ready","node":"1b62bd632e612be8bd164ab4b459cf9e765b870626e52c9fac51694d5befc795"}
+{"id":1,"ok":true,"result":{"config":{"defaults":{"resources":[{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://aps1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://euc1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://use1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://usw1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]}],"revision":1},"disabled":[],"disabled_tcp_addresses":[],"disabled_uses":[],"lan_discovery":"Disabled","maintenance":{"contact_timeout_ms":2000,"discovery_interval_ms":15000,"exploration_interval_ms":5000,"max_concurrent_contacts":1,"max_neighbors":1,"quality_interval_ms":5000},"member_data_relay_disabled":false,"path_selection":{"preference":"Quality","reevaluation_interval_ms":1000},"port_mapping":"Disabled","replacement":null,"tcp_direct_disabled":false,"tcp_listen":null,"trusted_update_key":null,"udp_direct_disabled":false}}}
+{"id":2,"ok":true,"result":{"effective_on_restart":true}}
+{"id":1,"ok":true,"result":{"config":{"defaults":{"resources":[{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://aps1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://euc1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://use1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://usw1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]}],"revision":1},"disabled":[],"disabled_tcp_addresses":[],"disabled_uses":[],"lan_discovery":"Disabled","maintenance":{"contact_timeout_ms":2000,"discovery_interval_ms":15000,"exploration_interval_ms":5000,"max_concurrent_contacts":1,"max_neighbors":1,"quality_interval_ms":5000},"member_data_relay_disabled":false,"path_selection":{"preference":"Quality","reevaluation_interval_ms":1000},"port_mapping":"Disabled","replacement":null,"tcp_direct_disabled":false,"tcp_listen":null,"trusted_update_key":null,"udp_direct_disabled":false}}}
+{"id":2,"ok":true,"result":{"effective_on_restart":true}}
+{"id":3,"ok":true,"result":{"stopped":true}}
+{"id":3,"ok":true,"result":{"stopped":true}}
+{"address":{"addrs":[{"Ip":"127.0.0.1:47228"}],"id":"f5b70bb4621a7f96e1214af848228b5b14e976e202b5e13eb0e9fbb082b373da"},"event":"ready","node":"f5b70bb4621a7f96e1214af848228b5b14e976e202b5e13eb0e9fbb082b373da"}
+{"address":{"addrs":[{"Ip":"127.0.0.1:43506"}],"id":"1b62bd632e612be8bd164ab4b459cf9e765b870626e52c9fac51694d5befc795"},"event":"ready","node":"1b62bd632e612be8bd164ab4b459cf9e765b870626e52c9fac51694d5befc795"}
+{"id":1,"ok":true,"result":{"config":{"defaults":{"resources":[{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://aps1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://euc1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://use1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://usw1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]}],"revision":1},"disabled":[],"disabled_tcp_addresses":[],"disabled_uses":["Observation","Lookup","Signaling","DataRelay"],"lan_discovery":"Disabled","maintenance":{"contact_timeout_ms":2000,"discovery_interval_ms":15000,"exploration_interval_ms":5000,"max_concurrent_contacts":1,"max_neighbors":1,"quality_interval_ms":5000},"member_data_relay_disabled":false,"path_selection":{"preference":"Quality","reevaluation_interval_ms":1000},"port_mapping":"Disabled","replacement":[],"tcp_direct_disabled":true,"tcp_listen":null,"trusted_update_key":null,"udp_direct_disabled":false}}}
+{"id":1,"ok":true,"result":{"config":{"defaults":{"resources":[{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://aps1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://euc1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://use1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]},{"limitation":"number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority","url":"https://usw1-1.relay.n0.iroh.link./","uses":["Observation","DataRelay"]}],"revision":1},"disabled":[],"disabled_tcp_addresses":[],"disabled_uses":["Observation","Lookup","Signaling","DataRelay"],"lan_discovery":"Disabled","maintenance":{"contact_timeout_ms":2000,"discovery_interval_ms":15000,"exploration_interval_ms":5000,"max_concurrent_contacts":1,"max_neighbors":1,"quality_interval_ms":5000},"member_data_relay_disabled":false,"path_selection":{"preference":"Quality","reevaluation_interval_ms":1000},"port_mapping":"Disabled","replacement":[],"tcp_direct_disabled":true,"tcp_listen":null,"trusted_update_key":null,"udp_direct_disabled":false}}}
+{"id":2,"ok":true,"result":{"reply":"PONG"}}
+{"id":2,"ok":true,"result":{"stopped":true}}
+{"error":"temporarily_unreachable","id":3,"ok":false}
+{"error":"temporarily_unreachable","id":4,"ok":false}
+{"id":5,"ok":true,"result":{"genesis":"e71f5e2b61ee684cfec2de864874d253693e0b37bd88e2e6875e084196b39244","members":[{"node":"1b62bd632e612be8bd164ab4b459cf9e765b870626e52c9fac51694d5befc795","role":"member"},{"node":"f5b70bb4621a7f96e1214af848228b5b14e976e202b5e13eb0e9fbb082b373da","role":"admin"}],"network":"e96f5704dd7f3efd8bdc683774cdcf459761792a046894aee74e89cefb41d54b","node":"1b62bd632e612be8bd164ab4b459cf9e765b870626e52c9fac51694d5befc795","records":2,"stage":"Complete"}}
+{"address":{"addrs":[{"Ip":"127.0.0.1:44198"}],"id":"f5b70bb4621a7f96e1214af848228b5b14e976e202b5e13eb0e9fbb082b373da"},"event":"ready","node":"f5b70bb4621a7f96e1214af848228b5b14e976e202b5e13eb0e9fbb082b373da"}
+{"id":6,"ok":true,"result":{"reply":"PONG"}}
+{"id":7,"ok":true,"result":{"stopped":true}}
+{"id":1,"ok":true,"result":{"stopped":true}}

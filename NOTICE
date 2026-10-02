@@ -17,3 +17,8 @@ This repository includes code copied or derived from the following projects:
 - portmapper by n0 team and contributors
   - Source: portmapper 0.19.3 under `vendor/portmapper/` (see UPSTREAM.md)
   - License: MIT OR Apache-2.0 (see retained licenses in that directory)
+
+- iroh-relay by n0 team and contributors
+  - Source: iroh-relay 1.2.0 under `vendor/iroh-relay/` (see MIOPUNCH.md)
+  - Package license: MIT OR Apache-2.0; retained Tailscale-derived code notice
+    in `vendor/iroh-relay/LICENSE-BSD3`

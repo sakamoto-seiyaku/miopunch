@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/check_desktop_management.py", line 136, in <module>
+    main()
+    ~~~~^^
+  File "/home/js/Git/miopunch/scripts/check_desktop_management.py", line 124, in main
+    results.append(lab.first("linux", "linux", "linux-development-only"))
+                   ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/js/Git/miopunch/scripts/check_desktop_management.py", line 91, in first
+    admin, ar = self.session(creator_platform, creator)
+                ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/js/Git/miopunch/scripts/check_desktop_management.py", line 83, in session
+    ready = process.wait(lambda event: event.get("event") == "ready")
+  File "/home/js/Git/miopunch/scripts/check_desktop_management.py", line 36, in wait
+    assert "eof" not in event, event
+           ^^^^^^^^^^^^^^^^^^
+AssertionError: {'eof': 1}

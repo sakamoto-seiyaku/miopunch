@@ -237,3 +237,11 @@ coordinator and qualified matrix are recorded in
 MIOPUNCH-47 review correction adds `Path::start_probe`, delegating to the
 original noq Path's fresh authenticated data-packet acknowledgment probe.
 Native recovery cannot report success from a stale address snapshot alone.
+
+## MIOPUNCH-52: Windows Rust-library packaging
+
+The normalized manifest now builds only `lib`, omitting the unused `cdylib`
+artifact. The debug x86_64-pc-windows-gnu build exceeded the PE export ordinal
+limit (108336 exports) while producing that DLL. miopunch embeds the Rust
+library, not a C ABI. The same packaging-only change is recorded for the
+vendored locked `iroh-relay` 1.2.0 dependency. No Rust API or wire change.

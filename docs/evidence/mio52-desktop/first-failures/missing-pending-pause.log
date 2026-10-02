@@ -1,0 +1,21 @@
+READY 9a8c6bdf6a44b7f3d7a36b04c3947f9f43abd5c5ede8ff45159e42f957dde015 127.0.0.1:46161
+PONG
+error: XDG_RUNTIME_DIR is invalid or not set in the environment.
+NETWORK ae209304d6b5ea40ba7285e0d71517d7dcff3bdfbcd11ec5de54350f22d314d7 ab55ac4e4ceaeb68a3fd42748f93a3e283be6fe02bb40a0b1953fd1343df034b
+NODE b6e2bdaeabe1c8b8215285bf9af6803c487d40b689d09efa96f7dbf3d4d56eb5
+MEMBER b6e2bdaeabe1c8b8215285bf9af6803c487d40b689d09efa96f7dbf3d4d56eb5 admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:43722"}],"id":"b6e2bdaeabe1c8b8215285bf9af6803c487d40b689d09efa96f7dbf3d4d56eb5"},"event":"ready","node":"b6e2bdaeabe1c8b8215285bf9af6803c487d40b689d09efa96f7dbf3d4d56eb5"}
+{"id":1,"ok":true,"result":{"saved":true}}
+NETWORK ae209304d6b5ea40ba7285e0d71517d7dcff3bdfbcd11ec5de54350f22d314d7 ab55ac4e4ceaeb68a3fd42748f93a3e283be6fe02bb40a0b1953fd1343df034b
+NODE 0fedb1225f44122207a2a2713c532a07c38e414200a4f89a79726de235e1bcc9
+RECORDS 0
+error: XDG_RUNTIME_DIR is invalid or not set in the environment.
+error: XDG_RUNTIME_DIR is invalid or not set in the environment.
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:45922"}],"id":"0fedb1225f44122207a2a2713c532a07c38e414200a4f89a79726de235e1bcc9"},"event":"ready","node":"0fedb1225f44122207a2a2713c532a07c38e414200a4f89a79726de235e1bcc9"}
+{"event":"admission","stage":"AwaitingApproval"}
+{"id":1,"ok":true,"result":{"stage":"AwaitingApproval"}}
+{"id":2,"ok":true,"result":{"requests":[{"applicant":"0fedb1225f44122207a2a2713c532a07c38e414200a4f89a79726de235e1bcc9","request_id":"d684bf0818e4f57680d6f749e5ce50ff"}]}}
+{"id":3,"ok":true,"result":{"stage":"Approved"}}
+{"event":"admission","stage":"Complete"}
+{"id":2,"ok":true,"result":{"stage":"Complete"}}

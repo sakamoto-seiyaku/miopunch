@@ -1,7 +1,7 @@
 //! Durable admission-secret rotation. Signed control statements contain only
 //! identities, generations and credential tags; secret bytes stay in private
 //! files and admitted TLS streams. Staged credentials never grant business.
-use std::fs::{self, File};
+use std::fs;
 use std::path::Path;
 use std::time::Duration;
 
@@ -421,9 +421,7 @@ fn save_staged(
     } else {
         atomic_private(path, &target, secret.saved_bytes())?;
     }
-    File::open(path)
-        .and_then(|dir| dir.sync_all())
-        .map_err(NodeError::from)?;
+    crate::native_files::sync_directory(path).map_err(NodeError::from)?;
     Ok(())
 }
 
@@ -434,8 +432,8 @@ fn atomic_private(directory: &Path, target: &Path, bytes: &[u8]) -> Result<(), N
     ));
     let result = (|| {
         write_private(&temporary, bytes)?;
-        fs::rename(&temporary, target)?;
-        File::open(directory)?.sync_all()?;
+        crate::native_files::replace_file(&temporary, target)?;
+        crate::native_files::sync_directory(directory)?;
         Ok(())
     })();
     let _ = fs::remove_file(&temporary);

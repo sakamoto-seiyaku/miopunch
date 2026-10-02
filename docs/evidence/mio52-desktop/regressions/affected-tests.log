@@ -1,0 +1,228 @@
+   Compiling iroh-relay v1.2.0 (/home/js/Git/miopunch/vendor/iroh-relay)
+   Compiling iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+   Compiling iroh-mdns-address-lookup v0.5.0
+   Compiling p2panda-net v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-net)
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 31.51s
+     Running tests/admission_completion.rs (target/debug/deps/admission_completion-697d9862c569394e)
+
+running 20 tests
+test delivery_checkpoint_worker ... ok
+test process_exit_at_completion_sent ... ok
+test duplicate_save_ack_does_not_consume_twice_or_prove_recipient_persistence ... ok
+test new_contact_rejects_wrong_network_tls_contact_and_stale_delivery_handle ... ok
+test new_contact_after_removal_gets_new_authorization_and_old_result_stays_invalid ... ok
+test process_exit_at_authorization_verified ... ok
+test process_exit_at_authorization_saved ... ok
+test process_exit_at_authorization_sent ... ok
+test process_exit_at_authorization_prepared ... ok
+test process_exit_at_delivery_complete ... ok
+test process_exit_after_secret_send_resumes_original_code_once ... ok
+test process_exit_at_completion_acknowledged ... ok
+test process_exit_at_authorization_acknowledged ... ok
+test process_exit_at_secret_file_published ... ok
+test signed_old_response_cannot_restore_locally_verified_removal ... ok
+test process_exit_at_secret_prepared ... ok
+test replacing_applicant_cannot_complete_another_identity_delivery ... ok
+test process_exit_at_secret_received ... ok
+test unavailable_original_new_contact_consumes_new_code_reuses_verified_grant ... ok
+test process_exit_at_secret_saved ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.09s
+
+     Running tests/admission_gate.rs (target/debug/deps/admission_gate-c5689303c2f5efa3)
+
+running 18 tests
+test a_gated_endpoint_never_treats_a_default_hook_as_admission ... ok
+test a_connection_to_an_uninvited_tls_identity_cannot_enter_application ... ok
+test signaling_carrier_allows_scoped_control_but_refuses_business ... ok
+test removal_during_final_recovery_stage_must_reject_connection ... ok
+test known_removed_identity_only_reaches_fresh_restricted_admission_requests ... ok
+test a_wrong_secret_cannot_be_reused_from_another_member_connection ... ok
+test an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy ... ok
+test p2panda_endpoint_builder_hook_gates_the_actual_protocol_actor ... ok
+test no_secret_applicant_only_reaches_the_restricted_application_protocol ... ok
+test cancelled_proof_does_not_authorize_a_later_connection ... ok
+test the_persisted_native_network_installs_the_same_gate ... ok
+test stale_member_view_does_not_return_an_outgoing_business_handle ... ok
+test proof_is_bound_to_each_connection_and_credential_generation ... ok
+test admitted_control_path_upgrade_requires_current_membership ... ok
+test secret_holder_without_membership_gets_bootstrap_but_no_normal_protocol ... ok
+test verified_members_reach_every_normal_protocol_and_revocation_closes_existing_sessions ... ok
+test genesis_recovery_stays_restricted_and_early_handles_are_unavailable ... ok
+test stalled_proof_times_out_and_fresh_connection_can_still_prove ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.43s
+
+     Running tests/admission_rotation.rs (target/debug/deps/admission_rotation-d98d452a2137c2c0)
+
+running 31 tests
+
+running 1 test
+
+running 1 test
+test already_approved_member_without_old_secret_receives_only_rotation_replacement ... ok
+MIO37_CRASH actual_exit=87 checkpoint=RotationInitialMaterialSaved
+MIO37_CRASH actual_exit=87 checkpoint=RotationProposalSaved
+test initiator_initial_material_before_proposal_recovers_after_actual_exit ... ok
+test initiator_initial_proposal_before_self_ack_recovers_after_actual_exit ... ok
+
+running 1 test
+
+running 1 test
+test explicit_combined_remove_and_rotate_removes_first_and_waits_for_other_retained_member ... ok
+test forged_ack_signature_is_rejected_without_counting_the_member ... ok
+test explicit_removal_changes_retained_set_and_takes_effect_before_rotation_switch ... ok
+
+running 1 test
+MIO37_CRASH actual_exit=87 checkpoint=RotationAcknowledgementSaved
+MIO37_CRASH actual_exit=87 checkpoint=RotationAcknowledgementReceived
+test completed_root_recovery_rotates_reopens_and_rejoins_ordinary_at_a_later_generation ... ok
+test new_manual_approval_waits_for_rotation_without_creating_membership ... ok
+MIO37_CRASH actual_exit=87 checkpoint=RotationCommitSaved
+test actual_previous_rotation_signed_ack_is_rejected_in_the_next_generation ... ok
+
+running 1 test
+test ack_signed_by_another_retained_identity_cannot_count_on_this_tls_connection ... ok
+test old_precode_material_resumption_pauses_but_retained_replacement_preserves_consumption ... ok
+
+running 1 test
+MIO37_CRASH actual_exit=87 checkpoint=RotationMaterialPublished
+test initiator_switch_commit_before_material_publication_recovers_after_actual_exit ... ok
+test missed_predecessor_completion_recovers_when_initiator_starts_next_rotation ... ok
+MIO37_CRASH actual_exit=87 checkpoint=RotationCredentialPinned
+test new_precode_redemption_pauses_without_consumption_and_resumes_current_generation ... ok
+test rotation_checkpoint_worker ... ok
+
+running 1 test
+MIO37_CRASH actual_exit=87 checkpoint=SecretReceived
+
+running 1 test
+test initiator_switch_material_publication_before_pin_recovers_after_actual_exit ... ok
+MIO37_CRASH actual_exit=87 checkpoint=SecretReceived
+test initiator_switch_pin_before_runtime_install_recovers_after_actual_exit ... ok
+
+running 1 test
+test standalone_rotation_requires_current_device_session_elevation_at_start_and_switch ... ok
+MIO37_CRASH actual_exit=87 checkpoint=RotationSecretReceived
+
+running 1 test
+
+running 1 test
+
+running 1 test
+MIO37_CRASH actual_exit=87 checkpoint=RotationCommitSaved
+test staged_proof_stays_restricted_and_switch_closes_old_member_sessions ... ok
+
+running 1 test
+test original_provider_relays_different_initiator_replacement_and_signed_ack_for_pending_member ... ok
+MIO37_CRASH actual_exit=87 checkpoint=RotationSecretSaved
+test unapproved_tls_identity_cannot_receive_retained_replacement_or_history ... ok
+MIO37_CRASH actual_exit=87 checkpoint=RotationMaterialPublished
+MIO37_CRASH actual_exit=87 checkpoint=RotationCredentialPinned
+test two_retained_members_save_ack_switch_and_reopen_with_stable_identities ... ok
+test initiator_ack_database_commit_survives_restart_before_sender_result ... ok
+test initiator_ack_received_before_database_commit_does_not_count_after_restart ... ok
+test pending_root_recovery_delivery_pauses_but_fresh_root_proof_receives_replacement_once ... ok
+test received_before_commit_process_crash_never_acknowledges_or_switches ... ok
+test receiver_switch_commit_before_material_publication_recovers_after_actual_exit ... ok
+test original_root_provider_relays_other_initiator_but_node_key_cannot_replace_fresh_root_proof ... ok
+test receiver_switch_material_publication_before_pin_recovers_after_actual_exit ... ok
+test receiver_switch_pin_before_runtime_install_recovers_after_actual_exit ... ok
+test saved_replacement_lost_ack_is_retryable_after_member_and_initiator_restart ... ok
+
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 37.66s
+
+     Running tests/daily_management.rs (target/debug/deps/daily_management-8b335be4d4a4ac8b)
+
+running 6 tests
+test elevation_requires_independent_root_and_canonical_create_not_node_key_or_admission_secret ... ok
+test expired_elevation_and_other_device_or_session_cannot_reuse_the_window ... ok
+test daily_management_and_elevated_appointment_are_verified_on_remote_node ... ok
+test demotion_keeps_membership_and_separate_admin_removal_survives_offline_forwarding ... ok
+test directly_signed_daily_admin_privilege_records_fail_locally_on_wire_and_after_restart ... ok
+test concurrent_admin_demotion_corrects_member_removal_in_both_wire_orders_and_replay ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.45s
+
+     Running tests/manual_admission.rs (target/debug/deps/manual_admission-a67305ec4a74f523)
+
+running 14 tests
+test applicant_crash_after_authorization_worker ... ok
+test approval_commit_checkpoint_worker ... ok
+test another_invitation_holder_observes_ciphertext_but_cannot_take_an_approved_result ... ok
+test forged_claimed_applicant_cannot_enter_the_approval_queue ... ok
+test authenticated_contact_cannot_make_a_corrupt_signature_durable_membership ... ok
+test invitation_for_wrong_network_cannot_queue_a_request ... ok
+test actual_tls_contact_must_match_the_invitation_pin ... ok
+test another_authenticated_request_for_an_existing_member_reuses_its_valid_grant ... ok
+test original_result_is_rejected_after_removal_even_when_a_fresh_grant_readds_the_identity ... ok
+test approval_commit_interruption_is_recovered_before_a_live_nodes_next_request_decides_to_add ... ok
+test material_file_failure_retains_pending_state_and_can_retry_after_restart ... ok
+test approval_commit_crash_is_recovered_before_another_same_identity_request_decides_to_add ... ok
+test manual_approval_saves_both_materials_and_permits_real_business ... ok
+test crash_after_only_authorization_never_succeeds_and_same_request_resumes_once ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.00s
+
+     Running tests/native_network.rs (target/debug/deps/native_network-a9a260ee642c077f)
+
+running 5 tests
+test relative_data_directory_is_a_public_entry ... ok
+test wrong_root_and_alternate_create_cannot_replace_pinned_network ... ok
+test invalid_record_cannot_create_a_valid_view ... ok
+test new_credential_is_new_network_and_secrets_are_not_status ... ok
+test create_and_restart_through_public_node_entry ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/native_probe.rs (target/debug/deps/native_probe-e0b7029a08950b65)
+
+running 11 tests
+test invalid_mode_does_not_create_an_identity ... ok
+test truncated_tcp_frame_closes_without_reporting_echo_success ... ok
+test two_native_identities_exchange_a_message_over_framed_tcp ... ok
+test oversized_tcp_frame_is_rejected_before_allocating_its_body ... ok
+test sudden_tcp_disconnect_does_not_stop_future_connections ... ok
+test restarting_a_node_keeps_its_identity ... ok
+test two_native_identities_exchange_a_message_over_udp ... ok
+test p2panda_endpoint_reaches_iroh_lookup_without_an_address_book_entry ... ok
+test wrapped_probe_accepts_a_wildcard_bind_for_a_lan_peer ... ok
+test wrong_target_identity_fails_even_at_a_reachable_udp_address ... ok
+test wrong_target_identity_fails_on_reachable_tcp_carrier ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.96s
+
+     Running tests/precode.rs (target/debug/deps/precode-1f4f930b4d5587f4)
+
+running 14 tests
+test precode_commit_crash_child ... ok
+test expiry_stops_new_redemption_but_not_prior_materials_or_membership ... FAILED
+test independent_tls_identities_competing_for_last_use_admit_only_one ... ok
+test holder_of_the_same_code_cannot_redeem_as_a_different_tls_identity ... ok
+test fresh_code_consumes_once_for_existing_member_without_adding_twice ... ok
+test damaged_counter_stops_old_code_and_allows_fresh_issuance ... ok
+test administrator_regrant_never_revives_codes_from_the_previous_authority_origin ... ok
+test time_only_codes_and_single_code_revocation_preserve_existing_membership ... ok
+test old_redemption_cannot_restore_removed_membership_or_replace_a_fresh_grant ... ok
+test supported_restore_of_coherent_pre_consumption_backup_stops_old_codes ... ok
+test code_is_only_redeemable_and_revocable_at_its_designated_same_network_administrator ... ok
+test late_signed_loss_and_regrant_history_invalidates_the_old_code_origin ... ok
+test single_use_redemption_survives_restart_and_delayed_delivery ... ok
+test quota_signed_grant_and_pending_result_recover_at_both_commit_boundaries ... ok
+
+failures:
+
+---- expiry_stops_new_redemption_but_not_prior_materials_or_membership stdout ----
+
+thread 'expiry_stops_new_redemption_but_not_prior_materials_or_membership' (2458721) panicked at tests/precode.rs:408:5:
+assertion failed: redeem(&mut admin, &mut first, &code).await
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    expiry_stops_new_redemption_but_not_prior_materials_or_membership
+
+test result: FAILED. 13 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 27.41s
+
+error: test failed, to rerun pass `--test precode`

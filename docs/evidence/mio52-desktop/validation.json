@@ -1,0 +1,30 @@
+{
+  "platform_scenarios": 11,
+  "platform_passed": true,
+  "platform_command_exits": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "regression_entries": 121,
+  "inert_crash_worker_entries_included": 5,
+  "initial_regression_command_exit": 1,
+  "initial_failure": "precode expiry first redemption; two-second clock started before applicant/TLS setup",
+  "isolation_exit": 0,
+  "corrected_precode_suite_exit": 0,
+  "other_seven_suites_reported_passes": 105,
+  "additional_resource_tests_passed": 2,
+  "native_check_exit": 0,
+  "wasm_check_exit": 0,
+  "fmt_check_exit": 0,
+  "unchanged_slow_nat": "not rerun",
+  "windows_scope": "x86_64-pc-windows-gnu Windows PE under Wine 10 on Linux; no native Windows kernel/NTFS/ACL/power-loss certification"
+}

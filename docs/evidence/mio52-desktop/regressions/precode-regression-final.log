@@ -1,0 +1,22 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.48s
+     Running tests/precode.rs (target/debug/deps/precode-1f4f930b4d5587f4)
+
+running 14 tests
+test precode_commit_crash_child ... ok
+test independent_tls_identities_competing_for_last_use_admit_only_one ... ok
+test holder_of_the_same_code_cannot_redeem_as_a_different_tls_identity ... ok
+test fresh_code_consumes_once_for_existing_member_without_adding_twice ... ok
+test expiry_stops_new_redemption_but_not_prior_materials_or_membership ... ok
+test damaged_counter_stops_old_code_and_allows_fresh_issuance ... ok
+test old_redemption_cannot_restore_removed_membership_or_replace_a_fresh_grant ... ok
+test administrator_regrant_never_revives_codes_from_the_previous_authority_origin ... ok
+test time_only_codes_and_single_code_revocation_preserve_existing_membership ... ok
+test supported_restore_of_coherent_pre_consumption_backup_stops_old_codes ... ok
+test code_is_only_redeemable_and_revocable_at_its_designated_same_network_administrator ... ok
+test late_signed_loss_and_regrant_history_invalidates_the_old_code_origin ... ok
+test single_use_redemption_survives_restart_and_delayed_delivery ... ok
+test quota_signed_grant_and_pending_result_recover_at_both_commit_boundaries ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 28.94s
+

@@ -11,7 +11,7 @@ use p2panda_auth::{Access, GroupsExtensionArgs};
 use p2panda_core::{Hash, Header, SigningKey, VerifyingKey};
 use thiserror::Error;
 
-use crate::admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope};
+use crate::admission_gate::{ADMISSION_REQUEST_ALPN, PRECODE_REQUEST_ALPN, ProtocolScope};
 use crate::admission_proof::{AdmissionScope, AdmissionSecret};
 use crate::management_auth::{ManagementAuth, ManagementExtension, NetworkAnchor};
 use crate::management_store::{ManagementRecord, StoreError};
@@ -152,10 +152,12 @@ impl NativeNetwork {
         &self,
         connection: &Connection,
     ) -> Result<(), ManualAdmissionError> {
-        if connection.alpn() != ADMISSION_REQUEST_ALPN
-            || !self
-                .gate
-                .allows(connection, ProtocolScope::AdmissionRequest)
+        if !matches!(
+            connection.alpn(),
+            ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN
+        ) || !self
+            .gate
+            .allows(connection, ProtocolScope::AdmissionRequest)
         {
             return Err(ManualAdmissionError::Rejected);
         }

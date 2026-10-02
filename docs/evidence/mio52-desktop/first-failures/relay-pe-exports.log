@@ -1,0 +1,79 @@
+   Compiling log v0.4.34
+   Compiling tracing-core v0.1.36
+   Compiling zerotrie v0.2.5
+   Compiling tinystr v0.8.4
+   Compiling ring v0.17.14
+   Compiling icu_collections v2.3.0
+   Compiling num-traits v0.2.19
+   Compiling digest v0.11.3
+   Compiling noq v1.3.0 (/home/js/Git/miopunch/vendor/noq)
+   Compiling time v0.3.55
+   Compiling icu_locale_core v2.3.0
+   Compiling curve25519-dalek v5.0.0
+   Compiling sha2 v0.11.0
+   Compiling simdutf8 v0.1.5
+   Compiling tracing v0.1.44
+   Compiling iroh-relay v1.2.0
+   Compiling rumqttc v0.25.1
+   Compiling h2 v0.4.19
+   Compiling noq-udp v1.3.0
+   Compiling iroh-metrics v1.0.2
+   Compiling acto v0.8.2
+   Compiling ractor v0.16.5
+   Compiling chrono v0.4.45
+   Compiling icu_provider v2.3.1
+   Compiling ed25519-dalek v3.0.0
+   Compiling atoi v2.0.0
+   Compiling p2panda-auth v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-auth)
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling wmi v0.18.4
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling netwatch v0.19.3 (/home/js/Git/miopunch/vendor/netwatch)
+   Compiling url v2.5.8
+warning: unused variable: `ttl_supported`
+   --> vendor/netwatch/src/udp.rs:440:21
+    |
+440 |                 let ttl_supported = true;
+    |                     ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_ttl_supported`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling sqlx-core v0.8.6
+   Compiling tower-http v0.6.11
+   Compiling attohttpc v0.30.1
+   Compiling iroh-base v1.2.0
+   Compiling hickory-proto v0.26.3
+warning: `netwatch` (lib) generated 1 warning (run `cargo fix --lib -p netwatch` to apply 1 suggestion)
+   Compiling hyper v1.11.1
+   Compiling swarm-discovery v0.6.3
+   Compiling rustls v0.23.45
+   Compiling sqlx-sqlite v0.8.6
+   Compiling hyper-util v0.1.21
+   Compiling rustls-webpki v0.103.15
+   Compiling igd-next v0.17.1
+   Compiling sqlx-macros-core v0.8.6
+   Compiling portmapper v0.19.3 (/home/js/Git/miopunch/vendor/portmapper)
+   Compiling sqlx-macros v0.8.6
+   Compiling sqlx v0.8.6
+   Compiling p2panda-store v0.7.1
+   Compiling tokio-rustls v0.26.6
+   Compiling rustls-platform-verifier v0.7.1
+   Compiling noq-proto v1.3.0 (/home/js/Git/miopunch/vendor/noq-proto)
+   Compiling p2panda-discovery v0.7.1
+   Compiling p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)
+   Compiling hyper-rustls v0.27.10
+   Compiling tokio-websockets v0.13.3
+   Compiling reqwest v0.13.5
+   Compiling n0-dns-resolver v0.1.0
+   Compiling iroh-dns v1.3.0
+error: linking with `/tmp/mio52-cc` failed: exit status: 1
+  |
+  = note:  "/tmp/mio52-cc" "-Wl,/home/js/Git/miopunch/target/x86_64-pc-windows-gnu/debug/deps/rustcHnM3TD/list.def" "-fno-use-linker-plugin" "-Wl,--dynamicbase" "-Wl,--disable-auto-image-base" "-m64" "-Wl,--high-entropy-va" "/home/js/Git/miopunch/target/x86_64-pc-windows-gnu/debug/deps/rustcHnM3TD/symbols.o" "<9 object files omitted>" "-Wl,-Bstatic" "/home/js/Git/miopunch/target/x86_64-pc-windows-gnu/debug/deps/{libpostcard-c58fd9196b4a684c,libcobs-2fae10cfb4639873,libblake3-bd4b975d48c237c0,libconstant_time_eq-32cbf56d7a6f589f,libarrayvec-c67ce7c2d2eb8529,libserde_bytes-44fbcbf44362a05a,libtokio_websockets-a3dcd29a1f4f10b3,libsimdutf8-245119edf5244d80,libsha1_smol-d93cc34a756ae23b,libbase64-05fbf51bdf8a445d,libnum_enum-f4d4dc357990f6fc,libnoq-2dfef47e2c6963b6,libtokio_stream-9684b7e6f1641952,libnoq_udp-fd7487c7a31ca59d,liblibc-78a03d48480df8ac,libnoq_proto-91b0028fa508a878,liblru_slab-db8f7138a1f6e504,librand_pcg-c32ba5d5e069d10f,libaes_gcm-689626b8fd54a414,libctr-31bae77fd7509a82,libghash-162c71f8b53b3033,libpolyval-c4ff763c889eed33,libopaque_debug-08d5f1ee6df98e05,libuniversal_hash-1d869f70728a1eb7,libaes-25d1ee43c05bb2e9,libcpufeatures-b2046445b0d34a2a,libcipher-1ae7135196661cdc,libinout-6fa5b4a79c89156d,libaead-2613bf74f56478c8,libcrypto_common-167b6ac4e112bfa1,libgeneric_array-bcf9fedc7c3714ef,libsorted_index_buffer-0fe52c4b71bdfb7d,libidentity_hash-89323317ab04c057,libfastbloom-ed4abc3b03de79fc,liblibm-5af1cbf325c11790,libsiphasher-f73798ee4cfe6dab,libtinyvec-86817cdf8f3912cb,libthiserror-31cd725ed88ba296,libiroh_dns-4b9ca6eaf5b1e099,libstrum-d9d0e04e1f52e35e,libn0_dns_resolver-ab0f6e7904d0f4ea,libipconfig-4ca238b76377c3c5,libwindows_registry-62fb0c47c819d509,libwindows_strings-8eaf4cdb3a904919,libwindows_result-b4c7530f65d0eef6,libwidestring-d16ce69285186478,libwebpki_roots-48597829e812a35d,libreqwest-78c4f5554b403e68,librustls_platform_verifier-d915afb5617d3deb,libhyper_rustls-8f36284b05641156,libtower_http-85d91ac87c852dbe,libtower-969375b5bf09c3c4,libtower_layer-17024fbfc8218fc0,libhyper_util-a5161c61df9efc45,libbase64-253d8b6588abccd8,libipnet-fa11f8bcbef9e7ba,libtower_service-ee82f5960a8b738d,libhyper-0ab4780e85f7bae4,libwant-e651f865b0235f34,libtry_lock-cf6d1fbae2811cd5,libhttparse-e6c0c3ee02829e15,libh2-cdabfcf08b72e845,libindexmap-10245ac6af010a0c,libequivalent-1bb8d8ad888c8892,libfnv-598326a38214bfd3,libatomic_waker-be6d2782f98f0032,libhttpdate-06e618c72eb9450a,libhttp_body_util-a1ea0372c11e14f5,libhttp_body-fc155ab7d6ff1542,libhttp-9794516e65989d80,libitoa-2913c95510cdd42e,libsync_wrapper-cec7a19b34297bc6,libtokio_rustls-2d241d57a72ff9e3,librustls-32a0a67bac506fca,libwebpki-20ae378134bf2b9f,libring-57c55c95c03af137,libgetrandom-3b3554f8134839bd,libuntrusted-a73f67da6deac3ff,librustls_pki_types-e99ae108df695955,librustc_hash-33b17da8146fbab1,liblru-ffbe2d7c54c20983,libhashbrown-cf98ea963209a522,libfoldhash-c86cf21faa36fe4a,libtracing-79ada115d8394d76,liblog-afad1dc4855be954,libtracing_core-85401ad699215927,libonce_cell-16052363acfa9f34,libportable_atomic-713fff375db9c732,libsimple_dns-4e656977b0ab3167,libbitflags-afcf605db04392d5,libn0_future-ab2f39395eacba44,libfutures_lite-538d85de9c3d0d76,libparking-700613029b52338e,libfastrand-7ab23b4dfefc2eaa,libfutures_buffered-d8cee87d5eb88d0b,libspin-81047128254d0bda,libdiatomic_waker-7735f3c671e81f25,libcordyceps-622df16060f9c0e1,libtokio_util-2a246b997c94b4fc,libfutures_util-36c8482da2dbeadd,libmemchr-0bd6dd6061e4bb49,libfutures_io-61082defa2ee814f,libslab-fdf0dc557bdfd8d2,libfutures_channel-6a9202476bac2893,libfutures_task-1163d49f90a8b242,libfutures_core-794dc3c7dbdc399e,libfutures_sink-ba1743b0ae3f2508,libtokio-8af91a6e73c2bc41,libsocket2-0b7c0ca5cc23a4e2,libbytes-61a20d10207a65f0,libmio-f14eabed52aec49c,libwindows_sys-279883168744c7f9,libparking_lot-8bfe685181ef2238,libparking_lot_core-13a60ec6e3f58895,libwindows_link-7b76980e0d80ec78,liblock_api-6aafa69588e858bf,libscopeguard-e0e1aa99afe76d84,libpin_project_lite-48bdf3785ce4b66f,libpin_project-d0f3b9d549a7efcc,libarc_swap-35bb67db2b061102,libiroh_base-418dfb7fb3b6ce57,librand-9e6d57d677d59455,libgetrandom-3d7aaa69bfb03e20,libchacha20-33bbc55f689124dc,libderive_more-9cf9f5c267b3d06d,liburl-5f0b5f523014fa52,libidna-ee849ac729accc6d,libidna_adapter-433012e56da7191b,libicu_properties-6848cde430cedc41,libicu_properties_data-3c9485adc4f18945,libicu_normalizer-d5184443d2c390dc,libsmallvec-1011856680518201,libicu_normalizer_data-e658b80f82c604b3,libicu_collections-b4e80e7acd8bda62,libutf8_iter-a836d74a708ef2a7,libpotential_utf-e8ffda027c10dbbb,libicu_provider-9c99e74636e5aebf,libicu_locale_core-9a59e237d75e5be8,libtinystr-e1ee0dcd98976dff,liblitemap-53292b2664ebce0c,libwriteable-a78176192aef5513,libzerovec-4fd7ecb39207053a,libzerotrie-c907ca2891f8429f,libyoke-f129a83751fac8df,libstable_deref_trait-349cee38924a59d4,libzerofrom-38c87d90185e210f,libform_urlencoded-f8adae2aa86b7e0d,libpercent_encoding-132cb01f15d3d153,libed25519_dalek-783d6f91b1617c65,libsha2-f596ff9d439f7b47,libed25519-e9c242b28cdd2107,libserdect-ccf83d81aaa41fe3,libbase16ct-636f56a34c242634,libsignature-f9e86ede0b45ca88,libpkcs8-6be620ac8c0c4584,libspki-afff1793b4b02c2d,libder-e3ecc36797aea724,libpem_rfc7468-83f37bff4cd41812,libbase64ct-0e596f3fd201fab5,libconst_oid-19c39a5e00ffe991,libdata_encoding_macro-1faa8500be2ea4d6,libcurve25519_dalek-2c960f08d3accb62,libcpufeatures-03d8fc1a979f1bf2,libzeroize-8e76fb4d2f5d4d5d,libsubtle-23ea80c08f991d9e,libcfg_if-438bec7f6e6e9c43,libdigest-5419d79189400700,libcrypto_common-d967075ab93c1a87,libblock_buffer-026c246f7979f3d2,libhybrid_array-b54aa6a8cb75639e,libtypenum-5b4ac4f6ddc663ab,librand_core-00ca7bf56b6e9376,libserde-502f68260c077882,libserde_core-561472114290fe9e,libn0_error-5daf8e8c0920fc44,libdata_encoding-940b6b3d0d50b564}.rlib" "<sysroot>/lib/rustlib/x86_64-pc-windows-gnu/lib/{libstd-*,libpanic_unwind-*,libobject-*,libmemchr-*,libaddr2line-*,libgimli-*,libcfg_if-*,libwindows_link-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libminiz_oxide-*,libadler2-*,libunwind-*,liblibc-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "-Wl,-Bdynamic" "-liphlpapi" "-lbcrypt" "-ladvapi32" "-lkernel32" "-lkernel32" "-lkernel32" "-lntdll" "-luserenv" "-lws2_32" "-ldbghelp" "-lgcc_eh" "-l:libpthread.a" "-lmsvcrt" "-lmingwex" "-lmingw32" "-lgcc" "-lmsvcrt" "-lmingwex" "-luser32" "-lkernel32" "-Wl,--nxcompat" "-L" "/home/js/Git/miopunch/target/x86_64-pc-windows-gnu/debug/build/blake3-c4cc0609bbad1dde/out" "-L" "/home/js/Git/miopunch/target/x86_64-pc-windows-gnu/debug/build/ring-1facb082f614dd17/out" "-o" "/home/js/Git/miopunch/target/x86_64-pc-windows-gnu/debug/deps/iroh_relay-28c0fcc1da82e9dd.dll" "-Wl,--gc-sections" "-shared" "-Wl,--out-implib=/home/js/Git/miopunch/target/x86_64-pc-windows-gnu/debug/deps/libiroh_relay-28c0fcc1da82e9dd.dll.a" "-nodefaultlibs"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: /usr/bin/x86_64-w64-mingw32-ld: error: export ordinal too large: 66063
+          collect2: error: ld returned 1 exit status
+          
+
+error: could not compile `iroh-relay` (lib) due to 1 previous error

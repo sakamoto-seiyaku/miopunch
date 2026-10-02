@@ -1,0 +1,177 @@
+[
+  {
+    "label": "image-compiler",
+    "command": [
+      "docker",
+      "build",
+      "--target",
+      "compiler",
+      "-t",
+      "miopunch-desktop-compiler:bookworm",
+      "-f",
+      "scripts/desktop_windows_lab.Dockerfile",
+      "scripts"
+    ],
+    "exit": 0,
+    "seconds": 33.382
+  },
+  {
+    "label": "image-runtime",
+    "command": [
+      "docker",
+      "build",
+      "--target",
+      "runtime",
+      "-t",
+      "miopunch-desktop-runtime:trixie",
+      "-f",
+      "scripts/desktop_windows_lab.Dockerfile",
+      "scripts"
+    ],
+    "exit": 0,
+    "seconds": 103.258
+  },
+  {
+    "label": "start-miopunch-desktop-compiler-2458959",
+    "command": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "miopunch-desktop-compiler-2458959",
+      "--network",
+      "host",
+      "--user",
+      "1000:1000",
+      "-v",
+      "/home/js:/home/js:ro",
+      "-v",
+      "/home/js/Git/miopunch:/home/js/Git/miopunch",
+      "-v",
+      "/tmp:/tmp",
+      "-v",
+      "/tmp/mio52-final-platform:/tmp/mio52-final-platform",
+      "-w",
+      "/home/js/Git/miopunch",
+      "miopunch-desktop-compiler:bookworm",
+      "sleep",
+      "infinity"
+    ],
+    "exit": 0,
+    "seconds": 0.323
+  },
+  {
+    "label": "start-miopunch-desktop-runtime-2458959",
+    "command": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "miopunch-desktop-runtime-2458959",
+      "--network",
+      "host",
+      "--user",
+      "1000:1000",
+      "-v",
+      "/home/js:/home/js:ro",
+      "-v",
+      "/home/js/Git/miopunch:/home/js/Git/miopunch",
+      "-v",
+      "/tmp:/tmp",
+      "-v",
+      "/tmp/mio52-final-platform:/tmp/mio52-final-platform",
+      "-w",
+      "/home/js/Git/miopunch",
+      "miopunch-desktop-runtime:trixie",
+      "sleep",
+      "infinity"
+    ],
+    "exit": 0,
+    "seconds": 0.313
+  },
+  {
+    "label": "rust-version",
+    "command": [
+      "rustc",
+      "--version"
+    ],
+    "exit": 0,
+    "seconds": 0.019
+  },
+  {
+    "label": "compiler-version",
+    "command": [
+      "docker",
+      "exec",
+      "miopunch-desktop-compiler-2458959",
+      "x86_64-w64-mingw32-gcc",
+      "--version"
+    ],
+    "exit": 0,
+    "seconds": 0.08
+  },
+  {
+    "label": "wine-version",
+    "command": [
+      "docker",
+      "exec",
+      "miopunch-desktop-runtime-2458959",
+      "/usr/lib/wine/wine64",
+      "--version"
+    ],
+    "exit": 0,
+    "seconds": 0.083
+  },
+  {
+    "label": "windows-target",
+    "command": [
+      "rustup",
+      "target",
+      "add",
+      "x86_64-pc-windows-gnu"
+    ],
+    "exit": 0,
+    "seconds": 0.061
+  },
+  {
+    "label": "linux-build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--bin",
+      "miopunch-native-probe"
+    ],
+    "exit": 0,
+    "seconds": 5.854
+  },
+  {
+    "label": "windows-build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--target",
+      "x86_64-pc-windows-gnu",
+      "--bin",
+      "miopunch-native-probe"
+    ],
+    "exit": 0,
+    "seconds": 40.85
+  },
+  {
+    "label": "desktop-matrix",
+    "command": [
+      "python3",
+      "scripts/check_desktop_management.py",
+      "--output",
+      "/tmp/mio52-final-platform/matrix",
+      "--windows-runner",
+      "/tmp/mio52-final-platform/tools/wine",
+      "--case",
+      "all"
+    ],
+    "exit": 0,
+    "seconds": 238.342
+  }
+]

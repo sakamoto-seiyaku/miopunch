@@ -396,16 +396,36 @@ async fn expiry_stops_new_redemption_but_not_prior_materials_or_membership() {
     let mut admin = NativeNetwork::create(dir.path().join("admin"))
         .await
         .unwrap();
+    // Establish the real applicant and TLS path before starting the short wall
+    // deadline. Parallel fixture setup must not consume the acceptance window.
+    let mut first =
+        NativeNetwork::join(dir.path().join("first"), admin.manual_invitation().unwrap())
+            .await
+            .unwrap();
+    let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
+    let je = first.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
+    ae.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()]);
+    let (client, server) = connect(&je, &ae, ADMISSION_REQUEST_ALPN).await;
     let expires = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs()
         + 2;
     let code = admin.issue_precode(expires, None).await.unwrap();
-    let mut first = NativeNetwork::join(dir.path().join("first"), code.invitation())
-        .await
-        .unwrap();
-    assert!(redeem(&mut admin, &mut first, &code).await);
+    let receive = async {
+        let ManualExchange::Materials(materials) = first
+            .request_precode_admission(&client, &code)
+            .await
+            .unwrap()
+        else {
+            panic!("fresh code must deliver materials before its deadline")
+        };
+        first.complete_manual_admission(materials).await.unwrap();
+    };
+    let (_, served) = tokio::join!(receive, admin.serve_precode_admission(&server));
+    served.unwrap();
+    je.close().await;
+    ae.close().await;
     let original = admin.precode_redemptions(&code).await.unwrap()[0].authorization;
     let until = UNIX_EPOCH + Duration::from_secs(expires);
     if let Ok(wait) = until.duration_since(SystemTime::now()) {

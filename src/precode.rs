@@ -47,6 +47,13 @@ fn now() -> Result<i64, ManualAdmissionError> {
         .ok_or(ManualAdmissionError::Rejected)
 }
 
+/// Secret-free local consumption evidence. A restored or inconsistent ledger
+/// cannot promise a remaining allowance, even when a saved count is readable.
+pub struct PrecodeUsageStatus {
+    pub saved_uses: Option<u64>,
+    pub count_trusted: bool,
+}
+
 impl NativeNetwork {
     pub async fn issue_precode(
         &mut self,
@@ -116,6 +123,22 @@ impl NativeNetwork {
             .await
             .map_err(StoreError::from)?;
         used.try_into().map_err(|_| ManualAdmissionError::Rejected)
+    }
+
+    pub async fn precode_usage_status(
+        &self,
+        code: &Precode,
+    ) -> Result<PrecodeUsageStatus, ManualAdmissionError> {
+        self.own_precode(code)?;
+        let row = sqlx::query("SELECT used, stopped, used>=0 AND used=(SELECT count(*) FROM precode_redemptions r WHERE r.token=precodes.token) AND NOT EXISTS (SELECT 1 FROM precode_redemptions r LEFT JOIN admission_deliveries d ON d.applicant=r.applicant AND d.request_id=r.request_id WHERE r.token=precodes.token AND (d.authorization IS NULL OR d.phase<1)) AS consistent FROM precodes WHERE token=?")
+            .bind(code.token.as_slice()).fetch_one(&self.store.pool).await.map_err(StoreError::from)?;
+        let used: i64 = row.try_get("used").map_err(StoreError::from)?;
+        let stopped: bool = row.try_get("stopped").map_err(StoreError::from)?;
+        let consistent: bool = row.try_get("consistent").map_err(StoreError::from)?;
+        Ok(PrecodeUsageStatus {
+            saved_uses: used.try_into().ok(),
+            count_trusted: !stopped && consistent,
+        })
     }
 
     pub async fn precode_redemptions(

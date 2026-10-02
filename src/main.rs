@@ -1,3 +1,5 @@
+mod desktop_cli;
+
 use std::error::Error;
 use std::io::Write;
 use std::net::{Ipv4Addr, SocketAddr};
@@ -29,7 +31,7 @@ const PROBE_ALPN: &[u8] = b"miopunch/probe/1";
 const MQTT_CONTROL_ALPN: &[u8] = b"miopunch/control-probe/1";
 const PING: &[u8] = b"PING";
 const PONG: &[u8] = b"PONG";
-const USAGE: &str = "usage: miopunch-native-probe network create|status|resources DATA_DIR | network resources-import|resources-update DATA_DIR JSON_FILE | network run DATA_DIR [BIND_IPV4] | identity DATA_DIR | serve raw|wrapped|tcp DATA_DIR [BIND_IPV4] | send raw|wrapped|tcp DATA_DIR TARGET_ID TARGET_ADDR [BIND_IPV4] | serve mqtt DATA_DIR BROKER_ADDR EXPECTED_PEER_ID | send mqtt DATA_DIR TARGET_ID TARGET_ROUTE BROKER_ADDR | cancel mqtt DATA_DIR BROKER_ADDR";
+const USAGE: &str = "usage: miopunch-native-probe network create|status|resources DATA_DIR | network join DATA_DIR INVITATION_FILE | network backup|restore SOURCE_DIR TARGET_DIR | network session DATA_DIR [BIND_IPV4] | network resources-import|resources-update DATA_DIR JSON_FILE | network run DATA_DIR [BIND_IPV4] | identity DATA_DIR | serve raw|wrapped|tcp DATA_DIR [BIND_IPV4] | send raw|wrapped|tcp DATA_DIR TARGET_ID TARGET_ADDR [BIND_IPV4] | serve mqtt DATA_DIR BROKER_ADDR EXPECTED_PEER_ID | send mqtt DATA_DIR TARGET_ID TARGET_ROUTE BROKER_ADDR | cancel mqtt DATA_DIR BROKER_ADDR";
 
 fn print_network_status(status: &NodeStatus) {
     println!("NETWORK {} {}", status.anchor.root, status.anchor.genesis);
@@ -406,6 +408,32 @@ fn optional_bind_ip(args: &[String]) -> Result<Ipv4Addr, Box<dyn Error>> {
 async fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = std::env::args().collect();
     match args.as_slice() {
+        [_, network, action, source, target] if network == "network" && action == "backup" => {
+            NativeNetwork::open(source)
+                .await?
+                .create_backup(target)
+                .await?;
+            println!("SAVED backup");
+            return Ok(());
+        }
+        [_, network, action, source, target] if network == "network" && action == "restore" => {
+            let node = NativeNetwork::restore_backup(source, target).await?;
+            print_network_status(&node.status());
+            println!("PRECODE_COUNTS_UNTRUSTED old codes stopped for new redemption");
+            node.close().await;
+            return Ok(());
+        }
+        [_, network, action, data_dir, invitation] if network == "network" && action == "join" => {
+            let node = desktop_cli::join(data_dir, invitation).await?;
+            print_network_status(&node.status());
+            node.close().await;
+            return Ok(());
+        }
+        [_, network, action, data_dir, bind @ ..]
+            if network == "network" && action == "session" =>
+        {
+            return desktop_cli::session(data_dir, optional_bind_ip(bind)?).await;
+        }
         [_, network, action, data_dir] if network == "network" && action == "create" => {
             let node = NativeNetwork::create(data_dir).await?;
             print_network_status(&node.status());

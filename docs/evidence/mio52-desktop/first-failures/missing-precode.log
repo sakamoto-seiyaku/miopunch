@@ -1,0 +1,6 @@
+NETWORK 1d89427ddf06e76b50d1901e3864c327f3aae9c03df14bfb7f123f72a1911768 e10bf419b694d669092d4d527c36e5b0f8f26f25ab14b3046443cb1b715184ca
+NODE a5f1d8e7d9ab52ebbb2b90eef29a349cfd218aae598eac7ab6d59ae7f733ffaf
+MEMBER a5f1d8e7d9ab52ebbb2b90eef29a349cfd218aae598eac7ab6d59ae7f733ffaf admin
+RECORDS 1
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"127.0.0.1:44888"}],"id":"a5f1d8e7d9ab52ebbb2b90eef29a349cfd218aae598eac7ab6d59ae7f733ffaf"},"event":"ready","node":"a5f1d8e7d9ab52ebbb2b90eef29a349cfd218aae598eac7ab6d59ae7f733ffaf"}
+{"error":"invalid_command","id":null,"ok":false}
