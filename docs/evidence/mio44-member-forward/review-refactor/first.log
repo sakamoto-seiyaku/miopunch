@@ -1,0 +1,29 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.12s
+     Running tests/member_forward.rs (target/debug/deps/member_forward-5e6f9f3299a47542)
+
+running 1 test
+test member_without_data_relay_forwards_protected_control_then_ac_uses_a_direct_path ... MEMBER_BOOTSTRAP_START stable_id=131152340287824 peer=1a790e8c8923bd2a63db0f6a1f235d210fbc781d60734d65d79269bfe9906ad4
+MEMBER_BOOTSTRAP_START stable_id=131152340286960 peer=99c43f7e8d82471ecd6244f8132ca8ed0d984675b08ed28a3ac963a497669398
+NAT_DIRECT_CANDIDATE stable_id=131152340286960 target=127.0.0.1:44902
+NAT_DIRECT_SUCCESS stable_id=131152340287824 target=127.0.0.1:44410 punching_recommendations=0
+MEMBER_BOOTSTRAP_DATA stable_id=131152340287824 peer=1a790e8c8923bd2a63db0f6a1f235d210fbc781d60734d65d79269bfe9906ad4 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44410)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=131152340286960 target=127.0.0.1:44902 punching_recommendations=0
+MEMBER_BOOTSTRAP_DATA stable_id=131152340286960 peer=99c43f7e8d82471ecd6244f8132ca8ed0d984675b08ed28a3ac963a497669398 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44902)], selected: Some(PathId(1)), closed: false }, .. }
+MEMBER_FIRST_PASS relay_enabled=false inner_tls_peer=99c43f7e8d82471ecd6244f8132ca8ed0d984675b08ed28a3ac963a497669398 stable_id=131152340286960 direct_data=true
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 2.71s
+

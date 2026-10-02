@@ -496,11 +496,11 @@ impl NativeNetwork {
         &self,
         builder: Builder,
         resources: &crate::resources::ResourceConfig,
-        automatic_mqtt: bool,
+        configured_startup: bool,
     ) -> Result<Endpoint, NodeError> {
         let (mut builder, tcp) = resources.configure_with_tcp(builder)?;
         let mut mqtt = Vec::new();
-        if automatic_mqtt {
+        if configured_startup {
             for resource in resources.mqtt_resources() {
                 let transport = Arc::new(crate::mqtt_transport::MqttTransport::from_resource(
                     resource,
@@ -518,7 +518,7 @@ impl NativeNetwork {
                     .service_name("miopunchv1"),
             ),
         };
-        let builder = if automatic_mqtt {
+        let builder = if configured_startup {
             let observers = resources.relay_map(crate::resources::ResourceUse::Observation)?;
             self.gate.with_message_bootstrap().configure(builder).hooks(
                 crate::message_bootstrap::MemberPathBootstrap::new(

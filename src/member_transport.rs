@@ -102,6 +102,19 @@ async fn write_packet(send: &mut SendStream, packet: Packet) -> io::Result<()> {
     Ok(())
 }
 
+async fn transmit_packets(
+    connection: &Connection,
+    gate: &AdmissionGate,
+    send: &mut SendStream,
+    queue: &mut mpsc::Receiver<Packet>,
+) -> io::Result<()> {
+    while let Some(packet) = queue.recv().await {
+        check_member(gate, connection)?;
+        write_packet(send, packet).await?;
+    }
+    Ok(())
+}
+
 /// Owns only a reserved signaling stream. Expiry/drop interrupts forwarding,
 /// without closing the underlying A-B or B-C member connection.
 #[derive(Debug)]
@@ -267,13 +280,7 @@ impl MemberForwarder {
                 #[allow(unreachable_code)]
                 Ok::<_, io::Error>(())
             };
-            let transmit = async {
-                while let Some(packet) = queue.recv().await {
-                    check_member(&gate, &connection)?;
-                    write_packet(&mut send, packet).await?;
-                }
-                Ok::<_, io::Error>(())
-            };
+            let transmit = transmit_packets(&connection, &gate, &mut send, &mut queue);
             let operation = async {
                 tokio::select! { result = receive => result, result = transmit => result }
             };
@@ -400,13 +407,7 @@ impl MemberSignalingTransport {
                 #[allow(unreachable_code)]
                 Ok::<_, io::Error>(())
             };
-            let transmit = async {
-                while let Some(packet) = outbound.recv().await {
-                    check_member(&gate, &connection)?;
-                    write_packet(&mut send, packet).await?;
-                }
-                Ok::<_, io::Error>(())
-            };
+            let transmit = transmit_packets(&connection, &gate, &mut send, &mut outbound);
             let operation = async {
                 tokio::select! { result = receive => result, result = transmit => result, _ = stopped.changed() => Ok(()) }
             };

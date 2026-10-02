@@ -1,0 +1,28 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.34s
+     Running tests/member_forward.rs (target/debug/deps/member_forward-5e6f9f3299a47542)
+
+running 1 test
+test duplicated_opaque_datagrams_cannot_reveal_private_control_or_release_extra_connections ... MEMBER_BOOTSTRAP_START stable_id=130747405395792 peer=84756e7257a00c0a0a54486822268367f7901b3ec5659f62a89418fbe6f7e7b1
+MEMBER_BOOTSTRAP_START stable_id=130747405394928 peer=b431f8244e3c2dd8fb02a2e632f3fadbcf61d98d25bceac1bf4fb646ca85062a
+NAT_DIRECT_CANDIDATE stable_id=130747405394928 target=127.0.0.1:43300
+NAT_DIRECT_SUCCESS stable_id=130747405395792 target=127.0.0.1:47021 punching_recommendations=0
+MEMBER_BOOTSTRAP_DATA stable_id=130747405395792 peer=84756e7257a00c0a0a54486822268367f7901b3ec5659f62a89418fbe6f7e7b1 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:47021)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=130747405394928 target=127.0.0.1:43300 punching_recommendations=0
+MEMBER_BOOTSTRAP_DATA stable_id=130747405394928 peer=b431f8244e3c2dd8fb02a2e632f3fadbcf61d98d25bceac1bf4fb646ca85062a paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:43300)], selected: Some(PathId(1)), closed: false }, .. }
+MEMBER_DUPLICATE_PACKETS_PASS observed_ciphertext_datagrams=64 private_candidates_visible=false extra_connections=0
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 3.10s
+
