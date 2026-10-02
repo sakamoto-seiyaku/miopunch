@@ -56,5 +56,9 @@ qualified by these foreground shell checks. See the delivery note for details.
 
 ## Independent review
 
-The required Standards and Spec review reports are added after review of the
-committed change against `db528ca1e6d0f36941ddb00687d838e9b1b21504`.
+[Standards](standards-review.md): 0 hard violations, 1 optional fixture naming/
+structure heuristic. [Spec](spec-review.md): 0 findings. The [two-axis report](code-review.md)
+preserves each report separately. Both reviewed runtime commit
+`19611e482019e4418526c9188b3d76ce81542391` against
+`db528ca1e6d0f36941ddb00687d838e9b1b21504`; neither reran tests or edited source.
+The optional suggestion remains parked under the current completion priority.
