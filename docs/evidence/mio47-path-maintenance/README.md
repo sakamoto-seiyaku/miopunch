@@ -119,6 +119,9 @@ or passing marker is described as a security audit.
 
 The runner owns only its named brokers/anonymous volumes and cleans them in
 `finally`; receipts retain actual cleanup exits. Tests close their endpoint,
-node, proxy and native-relay resources. The independent review reports and
-aggregate are stored beside this index after review; the OS-temp handoff points
+node, proxy and native-relay resources. The independent [Standards](standards-review.md), [Spec](spec-review.md) and
+[two-axis aggregate](code-review.md) preserve initial findings and final
+supplements: Standards has no hard violations and two non-blocking duplication
+judgements; the Spec P2 has a genuine RED/GREEN correction and no remaining
+finding. They are stored beside this index; the OS-temp handoff points
 to these artifacts rather than duplicating them.
