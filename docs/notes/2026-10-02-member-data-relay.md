@@ -84,7 +84,10 @@ new member permission roles are outside this ticket.
 ## Withdrawal and original-Connection lifetime
 
 `set_enabled(false)` synchronizes permission change with registration, removes
-active routes and wakes every old forwarding task. An immediate re-enable still
+active routes and wakes every old forwarding task. The data writer also rechecks
+the unchanged enable epoch before starting each dequeued frame, so cancellation
+scheduling cannot grant a queued frame new egress permission. Already begun
+outer writes remain in flight. An immediate re-enable still
 retires those old leases; new adapters/tokens are required. Dropping a lease,
 expiry, reserved-stream interruption, outer connection close, endpoint shutdown
 or received valid member removal ends the affected registrations/advertisements.

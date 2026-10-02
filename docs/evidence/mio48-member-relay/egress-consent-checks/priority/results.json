@@ -1,0 +1,44 @@
+{
+  "checks": [
+    {
+      "name": "build",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "member_relay",
+        "--features",
+        "member-signaling-test-hooks",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 5.716,
+      "reported_passed": 0,
+      "log": "build.log"
+    },
+    {
+      "name": "priority",
+      "argv": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/member_relay-d9e2ad031a2ba74e",
+        "disabling_data_relay_stops_new_forwarding_and_the_only_inner_path_fails",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 24.743,
+      "reported_passed": 1,
+      "log": "priority.log"
+    }
+  ],
+  "passed": true,
+  "environment": "native Linux IPv4 loopback; independent persisted nodes; real signed membership/TLS/QUIC; TCP outer links; controlled UDP backup",
+  "skipped": "Previously validated unchanged slow NAT matrices, per standing user instruction",
+  "cleanup": []
+}

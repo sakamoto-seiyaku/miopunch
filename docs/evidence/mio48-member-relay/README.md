@@ -24,6 +24,10 @@ The output path must be new; `--case NAME` runs one named condition.
   setup was corrected; already passed acceptance and short checks were not repeated.
   The one existing privileged IRC UDP-cut case remains explicitly ignored;
   unchanged prior 45 evidence is not presented as a new 48 physical-cut result.
+- [egress-consent-checks/results.json](egress-consent-checks/results.json): review-stage
+  data-writer consent recheck at frame start; actual priority/backup/live-signal
+  cases and current all-targets/format pass. No unchanged tests or NAT matrices
+  were rerun merely for review.
 - Independent Standards and Spec reports are recorded separately after review;
   reviewers inspect the implementation against the fixed pre-48 baseline.
 

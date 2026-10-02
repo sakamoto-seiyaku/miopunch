@@ -1,0 +1,44 @@
+{
+  "checks": [
+    {
+      "name": "build",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "member_relay",
+        "--features",
+        "member-signaling-test-hooks",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 0.402,
+      "reported_passed": 0,
+      "log": "build.log"
+    },
+    {
+      "name": "signal-isolation",
+      "argv": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/member_relay-d9e2ad031a2ba74e",
+        "live_signaling_service_never_becomes_business_fallback_when_b_disables_data_relay",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 22.03,
+      "reported_passed": 1,
+      "log": "signal-isolation.log"
+    }
+  ],
+  "passed": true,
+  "environment": "native Linux IPv4 loopback; independent persisted nodes; real signed membership/TLS/QUIC; TCP outer links; controlled UDP backup",
+  "skipped": "Previously validated unchanged slow NAT matrices, per standing user instruction",
+  "cleanup": []
+}

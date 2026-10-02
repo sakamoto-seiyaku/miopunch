@@ -172,9 +172,20 @@ async fn transmit_packets(
     gate: &AdmissionGate,
     send: &mut SendStream,
     queue: &mut mpsc::Receiver<Packet>,
+    permission: Option<&watch::Receiver<bool>>,
 ) -> io::Result<()> {
     let mut budget = DataBudget::new();
     while let Some(packet) = queue.recv().await {
+        // Queueing permission is not a grant to start a later frame after
+        // disable/re-enable. Already begun outer writes remain in flight.
+        if permission.is_some_and(|permission| {
+            !*permission.borrow() || permission.has_changed().unwrap_or(true)
+        }) {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "member data relay changed before egress",
+            ));
+        }
         if !budget.take(carrier, packet.bytes.len()) {
             continue;
         }
@@ -416,7 +427,14 @@ impl MemberForwarder {
                 #[allow(unreachable_code)]
                 Ok::<_, io::Error>(())
             };
-            let transmit = transmit_packets(carrier, &connection, &gate, &mut send, &mut queue);
+            let transmit = transmit_packets(
+                carrier,
+                &connection,
+                &gate,
+                &mut send,
+                &mut queue,
+                matches!(carrier, Carrier::Data).then_some(&permission),
+            );
             let operation = async {
                 tokio::select! { result = receive => result, result = transmit => result, _ = enabled.changed() => Ok(()) }
             };
@@ -551,7 +569,8 @@ impl MemberSignalingTransport {
                 #[allow(unreachable_code)]
                 Ok::<_, io::Error>(())
             };
-            let transmit = transmit_packets(carrier, &connection, &gate, &mut send, &mut outbound);
+            let transmit =
+                transmit_packets(carrier, &connection, &gate, &mut send, &mut outbound, None);
             let operation = async {
                 tokio::select! { result = receive => result, result = transmit => result, _ = stopped.changed() => Ok(()) }
             };

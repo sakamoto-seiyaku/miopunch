@@ -1,0 +1,82 @@
+{
+  "checks": [
+    {
+      "name": "priority",
+      "command": [
+        "rtk",
+        "proxy",
+        "python",
+        "-B",
+        "scripts/check_member_relay.py",
+        "--output",
+        "docs/evidence/mio48-member-relay/egress-consent-checks/priority",
+        "--case",
+        "priority"
+      ],
+      "exit": 0,
+      "log": "priority.log"
+    },
+    {
+      "name": "backup",
+      "command": [
+        "rtk",
+        "proxy",
+        "python",
+        "-B",
+        "scripts/check_member_relay.py",
+        "--output",
+        "docs/evidence/mio48-member-relay/egress-consent-checks/backup",
+        "--case",
+        "backup-disabled"
+      ],
+      "exit": 0,
+      "log": "backup.log"
+    },
+    {
+      "name": "signal-isolation",
+      "command": [
+        "rtk",
+        "proxy",
+        "python",
+        "-B",
+        "scripts/check_member_relay.py",
+        "--output",
+        "docs/evidence/mio48-member-relay/egress-consent-checks/signal-isolation",
+        "--case",
+        "signal-isolation"
+      ],
+      "exit": 0,
+      "log": "signal-isolation.log"
+    },
+    {
+      "name": "all-targets",
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks"
+      ],
+      "exit": 0,
+      "log": "all-targets.log"
+    },
+    {
+      "name": "format",
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "exit": 0,
+      "log": "format.log"
+    }
+  ],
+  "passed": true,
+  "reason": "Recheck explicit data egress consent at frame start after independent review observation; unchanged slow NAT matrices remain skipped."
+}
