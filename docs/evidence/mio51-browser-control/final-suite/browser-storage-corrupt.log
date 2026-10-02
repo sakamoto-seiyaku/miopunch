@@ -1,0 +1,11 @@
+browser-probe-native: RELAY https://localhost:43808/
+browser_network_native: {"event":"ready","id":"a226416577e2ccf2b6ac46290bef513d656f9cc60684930377739869fbbe8abe","invitation":"b0c9346374e8bb672a28bcbee57499df1060f4de43367708989d5336cef5e2164121de6d726718885b51de1dd162112646f61d8f3b094fc85a3be84a1992f93da226416577e2ccf2b6ac46290bef513d656f9cc60684930377739869fbbe8abe"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":2,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"bytes":26,"event":"business"}
+browser_network_native: {"bytes":13,"event":"business"}
+RESULT [{"case":"first-real-check","browser":"73beccfb1856656e034e89ae74e1d8172301e5662bedd7a14f24a5d20391465a","native":"a226416577e2ccf2b6ac46290bef513d656f9cc60684930377739869fbbe8abe","stage":"Complete","count":2,"reload":true,"controlledBytes":26},{"case":"browser-corrupt-restore-fails-closed","explicitFailure":true,"noSilentNewIdentity":true},{"case":"tls-websocket-relay","relayUrl":"https://localhost:43808/","websocket":"wss://localhost:43808/","nativeTrustedTestCa":true,"isolatedChromiumTestCertificateException":true}]
+PASS storage-corrupt: real browser admission and selected boundary checks
+CLEANUP {"code":0,"signal":null}
+CLEANUP {"code":0,"signal":null}

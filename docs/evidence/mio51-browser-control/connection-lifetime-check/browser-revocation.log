@@ -1,0 +1,13 @@
+browser-probe-native: RELAY https://localhost:43286/
+browser_network_native: {"event":"ready","id":"bd5aaf01cb293ece9ab0150b65e857705db09dc5cf64d0fd3e749273fab08bcd","invitation":"45f6f2793b5fd2dc9da176072cea5763489f2e54da3b62cd50242f57fa7a3efc744a776516a3e69bb671258fc797cf9de47aea9b27e12c4759208054ed1a0436bd5aaf01cb293ece9ab0150b65e857705db09dc5cf64d0fd3e749273fab08bcd"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":2,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"bytes":26,"event":"business"}
+browser_network_native: {"bytes":13,"event":"business"}
+browser_network_native: {"bytes":17,"event":"business"}
+browser_network_native: {"event":"removal-record","header":"86015820bd5aaf01cb293ece9ab0150b65e857705db09dc5cf64d0fd3e749273fab08bcd5840d6f4cdaaeef465c1885dcd9f9f829fc711ba59c5b1d8e87ebbdd8f87fa0518ce674394d4f26b75706fa95f34a3ee8916b7dc036968256c6c8af208fd145223050000a36567726f7570a366616374696f6ea16652656d6f7665a1666d656d626572a16a496e646976696475616c5820ad2bae86f80ea9757a9ec7957f7d7b33313cba199272f0216b36f84e88d50d5f6867726f75705f6964582045f6f2793b5fd2dc9da176072cea5763489f2e54da3b62cd50242f57fa7a3efc6c646570656e64656e63696573825820744a776516a3e69bb671258fc797cf9de47aea9b27e12c4759208054ed1a04365820ff916c3db4e16bc63fa4330da880fe5002eab92c054b41d71c57ba38c5ea3805666c6f675f6964900418f4189b18b718e0181b188718ef189a18ce182218e618d31850181b146776657273696f6e01"}
+RESULT [{"case":"first-real-check","browser":"ad2bae86f80ea9757a9ec7957f7d7b33313cba199272f0216b36f84e88d50d5f","native":"bd5aaf01cb293ece9ab0150b65e857705db09dc5cf64d0fd3e749273fab08bcd","stage":"Complete","count":2,"reload":true,"controlledBytes":26},{"case":"browser-local-revocation-closes-real-connection","existingClosed":true,"newRejected":true,"reloadRemainsRemoved":true},{"case":"tls-websocket-relay","relayUrl":"https://localhost:43286/","websocket":"wss://localhost:43286/","nativeTrustedTestCa":true,"isolatedChromiumTestCertificateException":true}]
+PASS revocation: real browser admission and selected boundary checks
+CLEANUP {"code":0,"signal":null}
+CLEANUP {"code":0,"signal":null}

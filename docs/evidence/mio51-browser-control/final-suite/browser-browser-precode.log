@@ -1,0 +1,11 @@
+browser-probe-native: RELAY https://localhost:44678/
+browser_network_native: {"event":"ready","id":"c24d52fc5a7de17922e7d462f44ae53e6eb1241df3076ee5e609b30e2244359f","invitation":"71aa7d6c56da758fec83d219d96e3f1b61d9c070217d0a5d0232104e37df73f8b849fbc748fa2e9d9fa572a421958eac6b3f23167dd30b40de759ee9b10dc320c24d52fc5a7de17922e7d462f44ae53e6eb1241df3076ee5e609b30e2244359f"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":2,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"bytes":26,"event":"business"}
+browser_network_native: {"bytes":13,"event":"business"}
+RESULT [{"case":"first-real-check","browser":"c37be2dbaf44aeaf337bf3bc18f7d59553c2d2bedaa63f885cc859d2f9b87db6","native":"c24d52fc5a7de17922e7d462f44ae53e6eb1241df3076ee5e609b30e2244359f","stage":"Complete","count":2,"reload":true,"controlledBytes":26},{"case":"browser-precode-durable-ledger-and-authority-episode","reopenUses":1,"retryUses":1,"oldCodeAfterDemoteReappointUses":0,"newCodeUses":1},{"case":"tls-websocket-relay","relayUrl":"https://localhost:44678/","websocket":"wss://localhost:44678/","nativeTrustedTestCa":true,"isolatedChromiumTestCertificateException":true}]
+PASS browser-precode: real browser admission and selected boundary checks
+CLEANUP {"code":0,"signal":null}
+CLEANUP {"code":0,"signal":null}

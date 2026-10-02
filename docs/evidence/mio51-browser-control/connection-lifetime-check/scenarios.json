@@ -1,0 +1,29 @@
+[
+  {
+    "run": "browser-revocation",
+    "cases": [
+      {
+        "case": "first-real-check",
+        "browser": "ad2bae86f80ea9757a9ec7957f7d7b33313cba199272f0216b36f84e88d50d5f",
+        "native": "bd5aaf01cb293ece9ab0150b65e857705db09dc5cf64d0fd3e749273fab08bcd",
+        "stage": "Complete",
+        "count": 2,
+        "reload": true,
+        "controlledBytes": 26
+      },
+      {
+        "case": "browser-local-revocation-closes-real-connection",
+        "existingClosed": true,
+        "newRejected": true,
+        "reloadRemainsRemoved": true
+      },
+      {
+        "case": "tls-websocket-relay",
+        "relayUrl": "https://localhost:43286/",
+        "websocket": "wss://localhost:43286/",
+        "nativeTrustedTestCa": true,
+        "isolatedChromiumTestCertificateException": true
+      }
+    ]
+  }
+]

@@ -1,0 +1,11 @@
+browser-probe-native: RELAY https://localhost:43354/
+browser_network_native: {"event":"ready","id":"9b6d8aafa08cf82facd362ee3cd763c6f94184e8846390ecd8d2299e116f4684","invitation":"5d0c53be77938c5a79962bc2c4767784d79bdea060b96ec3c60ed578861d30c838b23b4eeb64a877781c943411838a91dd1f8f1a768b8047be65da22490771c39b6d8aafa08cf82facd362ee3cd763c6f94184e8846390ecd8d2299e116f4684"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":2,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"bytes":26,"event":"business"}
+browser_network_native: {"bytes":13,"event":"business"}
+RESULT [{"case":"first-real-check","browser":"908bff408c378ad2707007505b7d67e5a474a45775acbc9aad9d341ff43d10b5","native":"9b6d8aafa08cf82facd362ee3cd763c6f94184e8846390ecd8d2299e116f4684","stage":"Complete","count":2,"reload":true,"controlledBytes":26},{"case":"browser-management-permission-matrix","ordinaryCannotAdd":true,"dailyAddRemove":true,"administratorProtected":true,"administratorLeaveProtected":true,"expiry":true,"explicitExit":true,"sessionEnd":true,"reloadDropsElevation":true},{"case":"tls-websocket-relay","relayUrl":"https://localhost:43354/","websocket":"wss://localhost:43354/","nativeTrustedTestCa":true,"isolatedChromiumTestCertificateException":true}]
+PASS management: real browser admission and selected boundary checks
+CLEANUP {"code":0,"signal":null}
+CLEANUP {"code":0,"signal":null}

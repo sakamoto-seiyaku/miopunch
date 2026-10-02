@@ -1,0 +1,11 @@
+browser-probe-native: RELAY https://localhost:44056/
+browser_network_native: {"event":"ready","id":"99833abb02a96ce351c055d1e48cc78c92029da4029e7ac320e38ef32c8f6aea","invitation":"b690500f3b4fd472aac536f9d3a17e29942d94d7bc4f321c29d6f9a04d4df863be8c74ea079f6759ff3e61cc3900f14937240c8c975128797383c955870c7d8999833abb02a96ce351c055d1e48cc78c92029da4029e7ac320e38ef32c8f6aea"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":2,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"bytes":26,"event":"business"}
+browser_network_native: {"bytes":13,"event":"business"}
+RESULT [{"case":"first-real-check","browser":"ddcd73fcc4e101f0f76cc87ae8f3b164be181c457d598fc0da9f04cf24742f36","native":"99833abb02a96ce351c055d1e48cc78c92029da4029e7ac320e38ef32c8f6aea","stage":"Complete","count":2,"reload":true,"controlledBytes":26},{"case":"browser-independent-manual-approval","administrator":"ddcd73fcc4e101f0f76cc87ae8f3b164be181c457d598fc0da9f04cf24742f36","applicant":"d6fe1981576f7ea0e6fa80510e9f72da58ce3949928b76ef52c994126223860d","complete":true},{"case":"tls-websocket-relay","relayUrl":"https://localhost:44056/","websocket":"wss://localhost:44056/","nativeTrustedTestCa":true,"isolatedChromiumTestCertificateException":true}]
+PASS browser-admission: real browser admission and selected boundary checks
+CLEANUP {"code":0,"signal":null}
+CLEANUP {"code":0,"signal":null}

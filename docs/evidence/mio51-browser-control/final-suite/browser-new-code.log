@@ -1,0 +1,15 @@
+browser-probe-native: RELAY https://localhost:45154/
+browser_network_native: {"event":"ready","id":"6eeab9ea9babd2965c807853fcb8639e41b09993f9aa14741fbf604e891b661f","invitation":"6ee1dafae78ac367c83e805f134c8e40e6ecaf5941f66599703da7cdc66e799db1ba98a9a5ce224a0a8b6bb96350df411be86fab75a1beae0bd60aa3c5880c266eeab9ea9babd2965c807853fcb8639e41b09993f9aa14741fbf604e891b661f"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":2,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"bytes":26,"event":"business"}
+browser_network_native: {"bytes":13,"event":"business"}
+browser_network_native: [private invitation response]
+browser_network_native: browser fixture request: current admission path unavailable; durable progress is retained
+
+browser_network_native: {"count":3,"event":"usage","uses":1}
+AUTHOR_OFFLINE exit=0
+RESULT [{"case":"first-real-check","browser":"afb4e3e182f289eb548aff768a62032beac836101ac272d8160964521ad284cc","native":"6eeab9ea9babd2965c807853fcb8639e41b09993f9aa14741fbf604e891b661f","stage":"Complete","count":2,"reload":true,"controlledBytes":26},{"case":"new-code-other-browser-original-offline","originalUses":1,"newUses":1,"noDuplicateAdd":true,"qualifiedReplica":true},{"case":"tls-websocket-relay","relayUrl":"https://localhost:45154/","websocket":"wss://localhost:45154/","nativeTrustedTestCa":true,"isolatedChromiumTestCertificateException":true}]
+PASS new-code: real browser admission and selected boundary checks
+CLEANUP {"code":0,"signal":null}

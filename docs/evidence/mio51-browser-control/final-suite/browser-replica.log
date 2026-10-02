@@ -1,0 +1,15 @@
+browser-probe-native: RELAY https://localhost:44964/
+browser_network_native: {"event":"ready","id":"0fcf05d37bd2fd9e6578e5514e9834db163b0d1f1c3ddd9fe676ed2dae1dbffd","invitation":"ae4752c7c5925fdbc1457913e04352c34b4207ba77345cbfefac4a87492536264096341bf9118ecee5cd2ed3fb65dfd1fd0b71dcb46adbd4089df5a73fe93dc10fcf05d37bd2fd9e6578e5514e9834db163b0d1f1c3ddd9fe676ed2dae1dbffd"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":2,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"bytes":26,"event":"business"}
+browser_network_native: {"bytes":13,"event":"business"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":3,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"event":"record","record":"8f1a8f8c96f84f2191f2050c2250105b6721764c7114142f24b7db9605a2d549"}
+AUTHOR_OFFLINE exit=0
+RESULT [{"case":"first-real-check","browser":"664f6c338b470918cce534c9ca8d9baec97806d40636ff6dd70bd00fb85d7284","native":"0fcf05d37bd2fd9e6578e5514e9834db163b0d1f1c3ddd9fe676ed2dae1dbffd","stage":"Complete","count":2,"reload":true,"controlledBytes":26},{"case":"replica-author-offline-browser-reload-third-node","complete":true,"scope":["4096341bf9118ecee5cd2ed3fb65dfd1fd0b71dcb46adbd4089df5a73fe93dc1","0d67817cb3beef44fac70c6ef9cb32784bd3aea4af9d0e07b0775a43b8d201e2","5c1e9f415bda2660dc0803975c4cdac46a805e70fd125875b3321ea4e5c2570c","8f1a8f8c96f84f2191f2050c2250105b6721764c7114142f24b7db9605a2d549"],"source":"664f6c338b470918cce534c9ca8d9baec97806d40636ff6dd70bd00fb85d7284","transport_done":true},{"case":"tls-websocket-relay","relayUrl":"https://localhost:44964/","websocket":"wss://localhost:44964/","nativeTrustedTestCa":true,"isolatedChromiumTestCertificateException":true}]
+PASS replica: real browser admission and selected boundary checks
+CLEANUP {"code":0,"signal":null}

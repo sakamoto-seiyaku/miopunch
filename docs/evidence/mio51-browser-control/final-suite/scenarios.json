@@ -1,0 +1,350 @@
+[
+  {
+    "run": "browser-replica",
+    "cases": [
+      {
+        "case": "first-real-check",
+        "browser": "664f6c338b470918cce534c9ca8d9baec97806d40636ff6dd70bd00fb85d7284",
+        "native": "0fcf05d37bd2fd9e6578e5514e9834db163b0d1f1c3ddd9fe676ed2dae1dbffd",
+        "stage": "Complete",
+        "count": 2,
+        "reload": true,
+        "controlledBytes": 26
+      },
+      {
+        "case": "replica-author-offline-browser-reload-third-node",
+        "complete": true,
+        "scope": [
+          "4096341bf9118ecee5cd2ed3fb65dfd1fd0b71dcb46adbd4089df5a73fe93dc1",
+          "0d67817cb3beef44fac70c6ef9cb32784bd3aea4af9d0e07b0775a43b8d201e2",
+          "5c1e9f415bda2660dc0803975c4cdac46a805e70fd125875b3321ea4e5c2570c",
+          "8f1a8f8c96f84f2191f2050c2250105b6721764c7114142f24b7db9605a2d549"
+        ],
+        "source": "664f6c338b470918cce534c9ca8d9baec97806d40636ff6dd70bd00fb85d7284",
+        "transport_done": true
+      },
+      {
+        "case": "tls-websocket-relay",
+        "relayUrl": "https://localhost:44964/",
+        "websocket": "wss://localhost:44964/",
+        "nativeTrustedTestCa": true,
+        "isolatedChromiumTestCertificateException": true
+      }
+    ]
+  },
+  {
+    "run": "browser-precode",
+    "cases": [
+      {
+        "case": "first-real-check",
+        "browser": "94333afa4e3da1d0c26321f8a4dc03013d45ca699f0d5ba7b7790aa05fcaccc9",
+        "native": "3e8e893c7423028e4e9996ad8e116bae701ea2566be795d61ba2eb025b916013",
+        "stage": "Complete",
+        "count": 2,
+        "reload": true,
+        "controlledBytes": 26
+      },
+      {
+        "case": "precode-multiple-pages-same-attempt",
+        "exclusiveOwner": true,
+        "takeover": true,
+        "reload": true,
+        "uses": 1,
+        "count": 3
+      },
+      {
+        "case": "tls-websocket-relay",
+        "relayUrl": "https://localhost:43424/",
+        "websocket": "wss://localhost:43424/",
+        "nativeTrustedTestCa": true,
+        "isolatedChromiumTestCertificateException": true
+      }
+    ]
+  },
+  {
+    "run": "browser-replica-faults",
+    "cases": [
+      {
+        "case": "first-real-check",
+        "browser": "9af00de29874c09c93b20a2b348db1e51a261db8af1e91d0380aec33fc5200b8",
+        "native": "dccc296dcafebbc43f070776d16c066525925b82981040463494debc727f6823",
+        "stage": "Complete",
+        "count": 2,
+        "reload": true,
+        "controlledBytes": 26
+      },
+      {
+        "case": "browser-replica-failure-boundaries",
+        "missingBodyRejected": true,
+        "missingDependencyIncomplete": true,
+        "pendingSurvivesReload": true,
+        "reversedDuplicatesAppliedOnce": true,
+        "realIdbAbortNoCompletion": true,
+        "retryComplete": true
+      },
+      {
+        "case": "tls-websocket-relay",
+        "relayUrl": "https://localhost:43904/",
+        "websocket": "wss://localhost:43904/",
+        "nativeTrustedTestCa": true,
+        "isolatedChromiumTestCertificateException": true
+      }
+    ]
+  },
+  {
+    "run": "browser-management",
+    "cases": [
+      {
+        "case": "first-real-check",
+        "browser": "88e33374ad06faa4e047fb29b49b41c146168ac7d886a590ae08932ad07a5254",
+        "native": "bfea0c9f6759ff14d3e8da99d30263fd9e0f5e1a3cb03b7df51d1369f428c06e",
+        "stage": "Complete",
+        "count": 2,
+        "reload": true,
+        "controlledBytes": 26
+      },
+      {
+        "case": "browser-management-permission-matrix",
+        "ordinaryCannotAdd": true,
+        "dailyAddRemove": true,
+        "administratorProtected": true,
+        "administratorLeaveProtected": true,
+        "expiry": true,
+        "explicitExit": true,
+        "sessionEnd": true,
+        "reloadDropsElevation": true
+      },
+      {
+        "case": "tls-websocket-relay",
+        "relayUrl": "https://localhost:43258/",
+        "websocket": "wss://localhost:43258/",
+        "nativeTrustedTestCa": true,
+        "isolatedChromiumTestCertificateException": true
+      }
+    ]
+  },
+  {
+    "run": "browser-browser-admission",
+    "cases": [
+      {
+        "case": "first-real-check",
+        "browser": "ddcd73fcc4e101f0f76cc87ae8f3b164be181c457d598fc0da9f04cf24742f36",
+        "native": "99833abb02a96ce351c055d1e48cc78c92029da4029e7ac320e38ef32c8f6aea",
+        "stage": "Complete",
+        "count": 2,
+        "reload": true,
+        "controlledBytes": 26
+      },
+      {
+        "case": "browser-independent-manual-approval",
+        "administrator": "ddcd73fcc4e101f0f76cc87ae8f3b164be181c457d598fc0da9f04cf24742f36",
+        "applicant": "d6fe1981576f7ea0e6fa80510e9f72da58ce3949928b76ef52c994126223860d",
+        "complete": true
+      },
+      {
+        "case": "tls-websocket-relay",
+        "relayUrl": "https://localhost:44056/",
+        "websocket": "wss://localhost:44056/",
+        "nativeTrustedTestCa": true,
+        "isolatedChromiumTestCertificateException": true
+      }
+    ]
+  },
+  {
+    "run": "browser-new-code",
+    "cases": [
+      {
+        "case": "first-real-check",
+        "browser": "afb4e3e182f289eb548aff768a62032beac836101ac272d8160964521ad284cc",
+        "native": "6eeab9ea9babd2965c807853fcb8639e41b09993f9aa14741fbf604e891b661f",
+        "stage": "Complete",
+        "count": 2,
+        "reload": true,
+        "controlledBytes": 26
+      },
+      {
+        "case": "new-code-other-browser-original-offline",
+        "originalUses": 1,
+        "newUses": 1,
+        "noDuplicateAdd": true,
+        "qualifiedReplica": true
+      },
+      {
+        "case": "tls-websocket-relay",
+        "relayUrl": "https://localhost:45154/",
+        "websocket": "wss://localhost:45154/",
+        "nativeTrustedTestCa": true,
+        "isolatedChromiumTestCertificateException": true
+      }
+    ]
+  },
+  {
+    "run": "browser-revocation",
+    "cases": [
+      {
+        "case": "first-real-check",
+        "browser": "3f993ca9530294920a2a06f157c5fbb96c613b22a6f40f05c79c04b249f39242",
+        "native": "1f24ad0af09e2f2674e19712b364caf4be45b8b051f1d90ec4c137c73b21fe66",
+        "stage": "Complete",
+        "count": 2,
+        "reload": true,
+        "controlledBytes": 26
+      },
+      {
+        "case": "browser-local-revocation-closes-real-connection",
+        "existingClosed": true,
+        "newRejected": true,
+        "reloadRemainsRemoved": true
+      },
+      {
+        "case": "tls-websocket-relay",
+        "relayUrl": "https://localhost:43566/",
+        "websocket": "wss://localhost:43566/",
+        "nativeTrustedTestCa": true,
+        "isolatedChromiumTestCertificateException": true
+      }
+    ]
+  },
+  {
+    "run": "browser-storage-corrupt",
+    "cases": [
+      {
+        "case": "first-real-check",
+        "browser": "73beccfb1856656e034e89ae74e1d8172301e5662bedd7a14f24a5d20391465a",
+        "native": "a226416577e2ccf2b6ac46290bef513d656f9cc60684930377739869fbbe8abe",
+        "stage": "Complete",
+        "count": 2,
+        "reload": true,
+        "controlledBytes": 26
+      },
+      {
+        "case": "browser-corrupt-restore-fails-closed",
+        "explicitFailure": true,
+        "noSilentNewIdentity": true
+      },
+      {
+        "case": "tls-websocket-relay",
+        "relayUrl": "https://localhost:43808/",
+        "websocket": "wss://localhost:43808/",
+        "nativeTrustedTestCa": true,
+        "isolatedChromiumTestCertificateException": true
+      }
+    ]
+  },
+  {
+    "run": "browser-browser-precode",
+    "cases": [
+      {
+        "case": "first-real-check",
+        "browser": "c37be2dbaf44aeaf337bf3bc18f7d59553c2d2bedaa63f885cc859d2f9b87db6",
+        "native": "c24d52fc5a7de17922e7d462f44ae53e6eb1241df3076ee5e609b30e2244359f",
+        "stage": "Complete",
+        "count": 2,
+        "reload": true,
+        "controlledBytes": 26
+      },
+      {
+        "case": "browser-precode-durable-ledger-and-authority-episode",
+        "reopenUses": 1,
+        "retryUses": 1,
+        "oldCodeAfterDemoteReappointUses": 0,
+        "newCodeUses": 1
+      },
+      {
+        "case": "tls-websocket-relay",
+        "relayUrl": "https://localhost:44678/",
+        "websocket": "wss://localhost:44678/",
+        "nativeTrustedTestCa": true,
+        "isolatedChromiumTestCertificateException": true
+      }
+    ]
+  },
+  {
+    "run": "browser-manual-regression",
+    "cases": [
+      {
+        "case": "first-real-check",
+        "browser": "8447d7bd820efdfcb1f4127de0b1a0d7d3e54d050fc4a71da756f2544a3f1649",
+        "native": "19bbaa8319b47f91c084fb4f77ac45472f8889059bfaa4b845a650727e0ff688",
+        "stage": "Complete",
+        "count": 2,
+        "reload": true,
+        "controlledBytes": 26
+      },
+      {
+        "case": "priority-pause-reopen",
+        "frozen": true,
+        "sameIdentity": true,
+        "count": 2,
+        "requestCount": 1,
+        "controlledBytes": 12
+      },
+      {
+        "case": "persistent-browser-process-restart",
+        "sameIdentity": true,
+        "bothMaterialsSaved": true,
+        "savedRelayChoiceRestored": true,
+        "count": 2,
+        "requestCount": 1
+      },
+      {
+        "case": "same-identity-pages",
+        "competingPageRejected": true,
+        "takeoverIdentity": "8447d7bd820efdfcb1f4127de0b1a0d7d3e54d050fc4a71da756f2544a3f1649",
+        "count": 2,
+        "requests": 1
+      },
+      {
+        "case": "delivery-interruption",
+        "authorizationSaved": true,
+        "secretInitiallySaved": false,
+        "sameIdentity": true,
+        "resumed": true,
+        "earlyDataRejected": true,
+        "count": 3
+      },
+      {
+        "case": "material-clear",
+        "oldIdentity": "8447d7bd820efdfcb1f4127de0b1a0d7d3e54d050fc4a71da756f2544a3f1649",
+        "newIdentity": "e90616962800698548a1b6c181370ac451804a20f1cc75ab77147d48fa895fe5",
+        "staleMemoryRejected": true,
+        "explicitNewApproval": true,
+        "count": 4
+      },
+      {
+        "case": "secret-commit-loss",
+        "failedSaveRejected": true,
+        "neverComplete": true,
+        "noDuplicateAdd": true,
+        "count": 5
+      },
+      {
+        "case": "no-allowed-relay",
+        "forbiddenFacilityAccesses": 0,
+        "persistedChoice": true,
+        "explicitImportRestored": true,
+        "count": 5
+      },
+      {
+        "case": "disabled-relay",
+        "forbiddenFacilityAccesses": 0,
+        "persistedChoice": true,
+        "explicitImportRestored": true,
+        "count": 5
+      },
+      {
+        "case": "unavailable-relay",
+        "actualAllowedAttempt": true,
+        "publicFallbackAccesses": 0,
+        "explicitTemporarilyUnreachable": true
+      },
+      {
+        "case": "tls-websocket-relay",
+        "relayUrl": "https://localhost:43328/",
+        "websocket": "wss://localhost:43328/",
+        "nativeTrustedTestCa": true,
+        "isolatedChromiumTestCertificateException": true
+      }
+    ]
+  }
+]

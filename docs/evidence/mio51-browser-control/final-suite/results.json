@@ -1,0 +1,277 @@
+{
+  "started_utc": "2026-10-02T15:35:28Z",
+  "scope": "MIOPUNCH-51; already verified unchanged slow NAT excluded",
+  "checks": [
+    {
+      "name": "rust-version",
+      "command": [
+        "rtk",
+        "proxy",
+        "rustc",
+        "--version"
+      ],
+      "exit": 0,
+      "seconds": 0.032
+    },
+    {
+      "name": "node-version",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "--version"
+      ],
+      "exit": 0,
+      "seconds": 0.016
+    },
+    {
+      "name": "bindgen-version",
+      "command": [
+        "rtk",
+        "proxy",
+        "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+        "--version"
+      ],
+      "exit": 0,
+      "seconds": 0.016
+    },
+    {
+      "name": "native-build",
+      "command": [
+        "rtk",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--features",
+        "replica-test-hooks",
+        "--bin",
+        "browser_network_native",
+        "--bin",
+        "browser-probe-native"
+      ],
+      "exit": 0,
+      "seconds": 2.977
+    },
+    {
+      "name": "wasm-build",
+      "command": [
+        "rtk",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "exit": 0,
+      "seconds": 2.169
+    },
+    {
+      "name": "wasm-bindgen",
+      "command": [
+        "rtk",
+        "proxy",
+        "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+        "--target",
+        "web",
+        "--out-dir",
+        "browser-probe/pkg",
+        "target/wasm32-unknown-unknown/debug/miopunch_browser_probe.wasm"
+      ],
+      "exit": 0,
+      "seconds": 1.771
+    },
+    {
+      "name": "browser-replica",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "browser-probe/harness/run-network.mjs",
+        "--case",
+        "replica"
+      ],
+      "exit": 0,
+      "seconds": 5.578
+    },
+    {
+      "name": "browser-precode",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "browser-probe/harness/run-network.mjs",
+        "--case",
+        "precode"
+      ],
+      "exit": 0,
+      "seconds": 16.051
+    },
+    {
+      "name": "browser-replica-faults",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "browser-probe/harness/run-network.mjs",
+        "--case",
+        "replica-faults"
+      ],
+      "exit": 0,
+      "seconds": 6.731
+    },
+    {
+      "name": "browser-management",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "browser-probe/harness/run-network.mjs",
+        "--case",
+        "management"
+      ],
+      "exit": 0,
+      "seconds": 4.124
+    },
+    {
+      "name": "browser-browser-admission",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "browser-probe/harness/run-network.mjs",
+        "--case",
+        "browser-admission"
+      ],
+      "exit": 0,
+      "seconds": 3.773
+    },
+    {
+      "name": "browser-new-code",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "browser-probe/harness/run-network.mjs",
+        "--case",
+        "new-code"
+      ],
+      "exit": 0,
+      "seconds": 17.154
+    },
+    {
+      "name": "browser-revocation",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "browser-probe/harness/run-network.mjs",
+        "--case",
+        "revocation"
+      ],
+      "exit": 0,
+      "seconds": 3.472
+    },
+    {
+      "name": "browser-storage-corrupt",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "browser-probe/harness/run-network.mjs",
+        "--case",
+        "storage-corrupt"
+      ],
+      "exit": 0,
+      "seconds": 3.474
+    },
+    {
+      "name": "browser-browser-precode",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "browser-probe/harness/run-network.mjs",
+        "--case",
+        "browser-precode"
+      ],
+      "exit": 0,
+      "seconds": 5.879
+    },
+    {
+      "name": "browser-manual-regression",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "browser-probe/harness/run-network.mjs",
+        "--suite"
+      ],
+      "exit": 0,
+      "seconds": 39.255
+    },
+    {
+      "name": "workspace-typecheck",
+      "command": [
+        "rtk",
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--workspace"
+      ],
+      "exit": 0,
+      "seconds": 5.077
+    },
+    {
+      "name": "native-affected",
+      "command": [
+        "rtk",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "management_auth",
+        "--test",
+        "management_store",
+        "--test",
+        "daily_management",
+        "--test",
+        "offline_replica",
+        "--test",
+        "revocation",
+        "--test",
+        "precode",
+        "--test",
+        "admission_completion",
+        "--test",
+        "admission_gate",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 418.394
+    },
+    {
+      "name": "format",
+      "command": [
+        "rtk",
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit": 0,
+      "seconds": 0.716
+    }
+  ],
+  "completed_utc": "2026-10-02T15:44:24Z",
+  "passed": true
+}

@@ -1,0 +1,34 @@
+[
+  {
+    "run": "browser-management",
+    "cases": [
+      {
+        "case": "first-real-check",
+        "browser": "908bff408c378ad2707007505b7d67e5a474a45775acbc9aad9d341ff43d10b5",
+        "native": "9b6d8aafa08cf82facd362ee3cd763c6f94184e8846390ecd8d2299e116f4684",
+        "stage": "Complete",
+        "count": 2,
+        "reload": true,
+        "controlledBytes": 26
+      },
+      {
+        "case": "browser-management-permission-matrix",
+        "ordinaryCannotAdd": true,
+        "dailyAddRemove": true,
+        "administratorProtected": true,
+        "administratorLeaveProtected": true,
+        "expiry": true,
+        "explicitExit": true,
+        "sessionEnd": true,
+        "reloadDropsElevation": true
+      },
+      {
+        "case": "tls-websocket-relay",
+        "relayUrl": "https://localhost:43354/",
+        "websocket": "wss://localhost:43354/",
+        "nativeTrustedTestCa": true,
+        "isolatedChromiumTestCertificateException": true
+      }
+    ]
+  }
+]

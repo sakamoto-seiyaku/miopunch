@@ -1,0 +1,22 @@
+browser-probe-native: RELAY https://localhost:43904/
+browser_network_native: {"event":"ready","id":"dccc296dcafebbc43f070776d16c066525925b82981040463494debc727f6823","invitation":"bcfef18df6d44ecf50160d1b8120c756a1c6fd37a9c48680e440675bbcdb3e0090a02401102c2501998dc31bc43395746bc28cecf35f164c5cf060d11d864b5edccc296dcafebbc43f070776d16c066525925b82981040463494debc727f6823"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":2,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"bytes":26,"event":"business"}
+browser_network_native: {"bytes":13,"event":"business"}
+browser_network_native: {"event":"prepared","records":["b80eafda8d1f2845487363fe13865ef51ee0b3d4f666b433e44b5938f191f4eb","110ebb0e18eccd1da2e14d53d274278993a3e649a25df88c6e8b4aae57a6fc65"]}
+browser_network_native: {"event":"fixture","mode":"fixture-missing-body"}
+browser_network_native: browser fixture request: replica transport failed or timed out
+
+browser_network_native: {"event":"fixture","mode":"fixture-child-only"}
+browser_network_native: {"event":"fixture","mode":"fixture-reversed-duplicates"}
+browser_network_native: {"event":"fixture","mode":"fixture-normal"}
+browser_network_native: {"event":"record","record":"04787d143aa6f326399add01e8aafbce519effe46a81eb8d12e1622e219fa8ea"}
+browser: TransactionInactiveError: Failed to execute 'put' on 'IDBObjectStore': The transaction has finished.
+browser_network_native: browser fixture request: replica transport failed or timed out
+
+RESULT [{"case":"first-real-check","browser":"9af00de29874c09c93b20a2b348db1e51a261db8af1e91d0380aec33fc5200b8","native":"dccc296dcafebbc43f070776d16c066525925b82981040463494debc727f6823","stage":"Complete","count":2,"reload":true,"controlledBytes":26},{"case":"browser-replica-failure-boundaries","missingBodyRejected":true,"missingDependencyIncomplete":true,"pendingSurvivesReload":true,"reversedDuplicatesAppliedOnce":true,"realIdbAbortNoCompletion":true,"retryComplete":true},{"case":"tls-websocket-relay","relayUrl":"https://localhost:43904/","websocket":"wss://localhost:43904/","nativeTrustedTestCa":true,"isolatedChromiumTestCertificateException":true}]
+PASS replica-faults: real browser admission and selected boundary checks
+CLEANUP {"code":0,"signal":null}
+CLEANUP {"code":0,"signal":null}

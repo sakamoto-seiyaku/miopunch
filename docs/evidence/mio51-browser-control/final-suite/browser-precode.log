@@ -1,0 +1,19 @@
+browser-probe-native: RELAY https://localhost:43424/
+browser_network_native: {"event":"ready","id":"3e8e893c7423028e4e9996ad8e116bae701ea2566be795d61ba2eb025b916013","invitation":"255b1dc37935f4c7afc8694ce962ba4ae09405a008f2698ca54b938d4a93ffc110f78c8e2223c4437243292306550af1db5cfd660fe21dd506c65a6d1be5db733e8e893c7423028e4e9996ad8e116bae701ea2566be795d61ba2eb025b916013"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":2,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"bytes":26,"event":"business"}
+browser_network_native: {"bytes":13,"event":"business"}
+browser_network_native: [private invitation response]
+browser_network_native: browser fixture request: current admission path unavailable; durable progress is retained
+
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"count":3,"event":"usage","uses":1}
+browser_network_native: {"count":3,"event":"status","members":["3e8e893c7423028e4e9996ad8e116bae701ea2566be795d61ba2eb025b916013","94333afa4e3da1d0c26321f8a4dc03013d45ca699f0d5ba7b7790aa05fcaccc9","b4b31662bf0f429d9c275f36013c7bc7eb5ed07d8907322413ab06452ba4de91"],"requests":2}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"count":3,"event":"usage","uses":1}
+RESULT [{"case":"first-real-check","browser":"94333afa4e3da1d0c26321f8a4dc03013d45ca699f0d5ba7b7790aa05fcaccc9","native":"3e8e893c7423028e4e9996ad8e116bae701ea2566be795d61ba2eb025b916013","stage":"Complete","count":2,"reload":true,"controlledBytes":26},{"case":"precode-multiple-pages-same-attempt","exclusiveOwner":true,"takeover":true,"reload":true,"uses":1,"count":3},{"case":"tls-websocket-relay","relayUrl":"https://localhost:43424/","websocket":"wss://localhost:43424/","nativeTrustedTestCa":true,"isolatedChromiumTestCertificateException":true}]
+PASS precode: real browser admission and selected boundary checks
+CLEANUP {"code":0,"signal":null}
+CLEANUP {"code":0,"signal":null}

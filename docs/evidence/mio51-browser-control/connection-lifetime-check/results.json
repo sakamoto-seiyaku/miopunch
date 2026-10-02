@@ -1,0 +1,103 @@
+{
+  "started_utc": "2026-10-02T15:41:22Z",
+  "scope": "MIOPUNCH-51; already verified unchanged slow NAT excluded",
+  "checks": [
+    {
+      "name": "rust-version",
+      "command": [
+        "rtk",
+        "proxy",
+        "rustc",
+        "--version"
+      ],
+      "exit": 0,
+      "seconds": 0.032
+    },
+    {
+      "name": "node-version",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "--version"
+      ],
+      "exit": 0,
+      "seconds": 0.016
+    },
+    {
+      "name": "bindgen-version",
+      "command": [
+        "rtk",
+        "proxy",
+        "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+        "--version"
+      ],
+      "exit": 0,
+      "seconds": 0.016
+    },
+    {
+      "name": "native-build",
+      "command": [
+        "rtk",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--features",
+        "replica-test-hooks",
+        "--bin",
+        "browser_network_native",
+        "--bin",
+        "browser-probe-native"
+      ],
+      "exit": 0,
+      "seconds": 0.415
+    },
+    {
+      "name": "wasm-build",
+      "command": [
+        "rtk",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "exit": 0,
+      "seconds": 2.369
+    },
+    {
+      "name": "wasm-bindgen",
+      "command": [
+        "rtk",
+        "proxy",
+        "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+        "--target",
+        "web",
+        "--out-dir",
+        "browser-probe/pkg",
+        "target/wasm32-unknown-unknown/debug/miopunch_browser_probe.wasm"
+      ],
+      "exit": 0,
+      "seconds": 1.821
+    },
+    {
+      "name": "browser-revocation",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "browser-probe/harness/run-network.mjs",
+        "--case",
+        "revocation"
+      ],
+      "exit": 0,
+      "seconds": 3.824
+    }
+  ],
+  "completed_utc": "2026-10-02T15:41:30Z",
+  "passed": true
+}
