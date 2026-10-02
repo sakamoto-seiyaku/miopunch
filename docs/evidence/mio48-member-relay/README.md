@@ -28,8 +28,12 @@ The output path must be new; `--case NAME` runs one named condition.
   data-writer consent recheck at frame start; actual priority/backup/live-signal
   cases and current all-targets/format pass. No unchanged tests or NAT matrices
   were rerun merely for review.
-- Independent Standards and Spec reports are recorded separately after review;
-  reviewers inspect the implementation against the fixed pre-48 baseline.
+- [standards-review.md](standards-review.md), [spec-review.md](spec-review.md),
+  and [code-review.md](code-review.md): independent two-axis initial/final reviews.
+  Standards has 0 hard violations and 1 parked nonblocking duplication heuristic;
+  Spec has 0 confirmed findings. The final egress consent check addresses the
+  earlier unconfirmed scheduling observation without claiming it was a reproduced
+  bug. No tests were repeated merely for review.
 
 The acceptance environment is native Linux IPv4 loopback with independently
 persisted identities/stores, real signed membership, TLS/SCRAM/QUIC, native TCP
