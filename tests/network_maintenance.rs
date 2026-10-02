@@ -920,3 +920,126 @@ async fn a_full_neighbor_budget_still_explores_a_new_source_without_requiring_fu
     assert_eq!(status.neighbors.len(), 1);
     assert_eq!(status.neighbors[0].stable_id, original);
 }
+
+#[tokio::test]
+async fn repeated_authenticated_replica_failures_increment_backoff_and_leave_connected_state() {
+    use miopunch_native_probe::{
+        admission_gate::ProtocolScope, network_maintenance::MaintenanceState,
+        offline_replica::REPLICA_ALPN,
+    };
+    struct FailingReplica {
+        node: Arc<NativeNetwork>,
+        accepted: Arc<std::sync::Mutex<Vec<std::time::Instant>>>,
+        failed: Arc<std::sync::atomic::AtomicBool>,
+    }
+    impl std::fmt::Debug for FailingReplica {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("FailingReplica")
+        }
+    }
+    impl iroh::protocol::ProtocolHandler for FailingReplica {
+        async fn accept(&self, connection: Connection) -> Result<(), iroh::protocol::AcceptError> {
+            self.accepted
+                .lock()
+                .unwrap()
+                .push(std::time::Instant::now());
+            loop {
+                if !self.failed.load(std::sync::atomic::Ordering::Acquire) {
+                    if self.node.serve_replica(&connection).await.is_err() {
+                        break;
+                    }
+                    self.failed
+                        .store(true, std::sync::atomic::Ordering::Release);
+                } else {
+                    let Ok((mut send, mut recv)) = connection.accept_bi().await else {
+                        break;
+                    };
+                    let mut request = [0; 4];
+                    if recv.read_exact(&mut request).await.is_err() {
+                        break;
+                    }
+                    assert_eq!(&request, b"REPL");
+                    // A real authenticated peer sends an invalid manifest, not
+                    // a mocked success or a failed TLS handshake.
+                    if send.write_all(&[0, 0, 0, 1, 0xff]).await.is_err() {
+                        break;
+                    }
+                    let _ = connection.closed().await;
+                    break;
+                }
+            }
+            Ok(())
+        }
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let mut admin = NativeNetwork::create(dir.path().join("admin"))
+        .await
+        .unwrap();
+    let mut a = join(&mut admin, &dir.path().join("a")).await;
+    let c = join(&mut admin, &dir.path().join("c")).await;
+    for record in admin.management_history().await.unwrap() {
+        a.ingest_management_record(record.header(), record.body())
+            .await
+            .unwrap();
+    }
+    admin.close().await;
+    for node in [&a, &c] {
+        let mut config = node.resource_configuration().unwrap();
+        config.replacement = Some(Vec::new());
+        config.maintenance.exploration_interval_ms = 250;
+        node.save_resource_configuration(&config).unwrap();
+        node.admission_gate()
+            .register_protocol(REPLICA_ALPN, ProtocolScope::Member);
+    }
+    let accepted = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let resources = c
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let router = iroh::protocol::Router::builder(resources.endpoint().clone())
+        .accept(
+            REPLICA_ALPN,
+            FailingReplica {
+                node: Arc::new(c),
+                accepted: accepted.clone(),
+                failed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            },
+        )
+        .spawn();
+    let a = a.maintain_network(Ipv4Addr::LOCALHOST).await.unwrap();
+    a.offer_contact(resources.addr()).await.unwrap();
+    wait_neighbors(&a, 1).await; // The source succeeds once, then fails LogSync.
+    tokio::time::timeout(Duration::from_secs(4), async {
+        loop {
+            if a.maintenance_status().neighbors.is_empty() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let no_stale_connected = a.maintenance_status().state != MaintenanceState::Connected;
+    tokio::time::sleep(Duration::from_secs(5)).await;
+    let times = accepted.lock().unwrap().clone();
+    let gaps = times
+        .windows(2)
+        .map(|window| window[1].duration_since(window[0]))
+        .collect::<Vec<_>>();
+    a.close().await;
+    router.shutdown().await.unwrap();
+    resources.close().await;
+    eprintln!(
+        "OBSERVED authenticated_failed_replica_gaps_ms={:?} stale_connected={}",
+        gaps.iter().map(Duration::as_millis).collect::<Vec<_>>(),
+        !no_stale_connected
+    );
+    assert!(
+        no_stale_connected,
+        "the final failed neighbor must report waiting rather than Connected"
+    );
+    assert!(
+        gaps.len() >= 2 && gaps[1] > gaps[0] + Duration::from_millis(500),
+        "successful TLS followed by failed LogSync must not reset consecutive failure backoff"
+    );
+}

@@ -445,6 +445,8 @@ impl Coordinator {
             self.status.state = MaintenanceState::BusinessPriority;
         } else if !self.neighbors.is_empty() {
             self.status.state = MaintenanceState::Connected;
+        } else if self.status.state == MaintenanceState::Connected {
+            self.status.state = MaintenanceState::TemporarilyUnreachable;
         }
         self.published.send_replace(self.status.clone());
         match self.node.management_history().await {
@@ -521,6 +523,7 @@ impl Coordinator {
                 self.sampler.insert(&candidate).await?;
                 self.candidates.insert(id, candidate);
                 self.persist_contacts().await?;
+                self.resources.reset_contact(id);
                 self.status.cause = None;
                 self.status.state = MaintenanceState::Connected;
                 if connection.alpn() == REPLICA_ALPN
@@ -562,6 +565,9 @@ impl Coordinator {
         for (id, connection) in due {
             match self.node.sync_replica(&connection).await {
                 Ok(outcome) => {
+                    if outcome.complete() {
+                        self.resources.reset_contact(id);
+                    }
                     self.status.last_sync = Some(outcome);
                     if let Some(peer) = self.neighbors.get_mut(&id) {
                         peer.sync_at = Instant::now()
@@ -573,6 +579,7 @@ impl Coordinator {
                     self.neighbors.remove(&id);
                     self.resources.contact_failed(id);
                     self.status.cause = Some(error.to_string());
+                    self.status.state = MaintenanceState::TemporarilyUnreachable;
                 }
             }
             if self.activity.count.load(Ordering::Acquire) > 0 {
@@ -630,7 +637,9 @@ impl Coordinator {
                 RECOVERY_REPLICA_ALPN
             };
             dials.push(async move {
-                let result = resources.connect(candidate.address.clone(), alpn).await;
+                let result = resources
+                    .connect_for_recovery(candidate.address.clone(), alpn)
+                    .await;
                 (candidate, result)
             });
         }
@@ -702,7 +711,9 @@ impl Coordinator {
             self.discover_at = Instant::now() + wait;
         }
         self.explore_at = Instant::now() + self.floor();
-        if self.neighbors.is_empty() && self.status.last_sync.is_none() {
+        if self.neighbors.is_empty()
+            && self.status.state != MaintenanceState::WaitingForDependencies
+        {
             self.status.state = MaintenanceState::TemporarilyUnreachable;
             if self.candidates.is_empty() && self.resources.recovery_origins().is_empty() {
                 self.status.cause = Some("no permitted member contact or discovery entry; waiting for a new hint or startup resource configuration".into());

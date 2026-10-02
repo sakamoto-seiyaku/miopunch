@@ -1,0 +1,23 @@
+   Compiling iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+   Compiling iroh-mdns-address-lookup v0.5.0
+   Compiling p2panda-net v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-net)
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.67s
+     Running tests/network_maintenance.rs (target/debug/deps/network_maintenance-c099ab29ceb76d2c)
+
+running 1 test
+OBSERVED authenticated_failed_replica_gaps_ms=[1739, 1396, 1395] stale_connected=true
+
+thread 'repeated_authenticated_replica_failures_increment_backoff_and_leave_connected_state' (2324654) panicked at tests/network_maintenance.rs:986:5:
+the final failed neighbor must report waiting rather than Connected
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test repeated_authenticated_replica_failures_increment_backoff_and_leave_connected_state ... FAILED
+
+failures:
+
+failures:
+    repeated_authenticated_replica_failures_increment_backoff_and_leave_connected_state
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 11 filtered out; finished in 7.21s
+
+error: test failed, to rerun pass `--test network_maintenance`

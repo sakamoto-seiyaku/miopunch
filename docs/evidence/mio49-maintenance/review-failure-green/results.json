@@ -1,0 +1,41 @@
+{
+  "checks": [
+    {
+      "name": "repeated_authenticated_replica_failures_increment_backoff_and_leave_connected_state",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_maintenance",
+        "repeated_authenticated_replica_failures_increment_backoff_and_leave_connected_state",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 13.322,
+      "log": "repeated_authenticated_replica_failures_increment_backoff_and_leave_connected_state.log",
+      "reported_passed": 1
+    }
+  ],
+  "passed": true,
+  "cleanup": [
+    {
+      "owned_container": "miopunch49-maintenance-1790948117209367044",
+      "exit": 0
+    },
+    {
+      "owned_container": "miopunch49-maintenance-1790948117209367044-second",
+      "exit": 0
+    }
+  ],
+  "brokers": [
+    "127.0.0.1:43407",
+    "127.0.0.1:43408"
+  ],
+  "environment": "native Linux IPv4 loopback, independent identities and SQLite, real TLS/SCRAM/QUIC/LogSync, owned MQTT and controlled UDP failure observers",
+  "skipped": "Already verified unchanged slow NAT matrices; unaffected IRC and port-mapping labs, per the standing user test policy"
+}

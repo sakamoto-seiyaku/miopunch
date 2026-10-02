@@ -16,6 +16,7 @@ def main():
     parser.add_argument('--output', required=True, type=pathlib.Path)
     parser.add_argument('--case')
     parser.add_argument('--suite', action='store_true')
+    parser.add_argument('--review-checks', action='store_true', help='acceptance plus affected post-review resource/recovery/type/format checks')
     parser.add_argument('--start-at', help='continue only the remaining suite checks')
     args = parser.parse_args()
     root = pathlib.Path(__file__).resolve().parents[1]
@@ -72,6 +73,7 @@ def main():
             'stale_saved_contact_expands_to_discovery_and_recovers_an_unknown_member',
             'starting_business_does_not_abort_an_already_admitted_sync_exchange',
             'a_full_neighbor_budget_still_explores_a_new_source_without_requiring_full_mesh',
+            'repeated_authenticated_replica_failures_increment_backoff_and_leave_connected_state',
         ]
         checks = [(case, ['cargo', 'test', '--locked', '--features', 'replica-test-hooks', '--test', 'network_maintenance', case, '--', '--exact', '--nocapture']) for case in cases]
         def tests(*targets):
@@ -94,6 +96,8 @@ def main():
                 ('wasm', ['cargo', 'check', '--locked', '-p', 'miopunch-browser-probe', '--target', 'wasm32-unknown-unknown']),
                 ('format', ['cargo', 'fmt', '--check']),
             ]
+        if args.review_checks:
+            checks += [('resources', tests('resources')), ('network-recovery', tests('network_recovery')), ('typecheck', ['cargo', 'check', '--locked', '--workspace', '--all-targets', '--features', 'replica-test-hooks,nat-lab-test-hooks,member-signaling-test-hooks']), ('format', ['cargo', 'fmt', '--check'])]
         if args.start_at:
             names = [name for name, _ in checks]
             if not args.suite or args.start_at not in names:

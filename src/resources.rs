@@ -545,8 +545,27 @@ impl ResourceEndpoint {
 
     pub async fn connect(
         &self,
+        target: iroh::EndpointAddr,
+        alpn: &[u8],
+    ) -> Result<iroh::endpoint::Connection, ResourceContactError> {
+        self.connect_attempt(target, alpn, true).await
+    }
+
+    /// Recovery is not complete merely because QUIC admitted the peer. Keep
+    /// prior protocol failures until the coordinator verifies/saves its scope.
+    pub(crate) async fn connect_for_recovery(
+        &self,
+        target: iroh::EndpointAddr,
+        alpn: &[u8],
+    ) -> Result<iroh::endpoint::Connection, ResourceContactError> {
+        self.connect_attempt(target, alpn, false).await
+    }
+
+    async fn connect_attempt(
+        &self,
         mut target: iroh::EndpointAddr,
         alpn: &[u8],
+        complete_on_handshake: bool,
     ) -> Result<iroh::endpoint::Connection, ResourceContactError> {
         let id = target.id;
         {
@@ -590,11 +609,9 @@ impl ResourceEndpoint {
         let cause =
             match tokio::time::timeout(self.timeout, self.endpoint.connect(target, alpn)).await {
                 Ok(Ok(connection)) => {
-                    let mut states = self.backoff.lock().expect("contact budget");
-                    let state = states.entry(id).or_default();
-                    state.failures = 0;
-                    state.retry_at = None;
-                    state.cause = None;
+                    if complete_on_handshake {
+                        self.reset_contact(id);
+                    }
                     return Ok(connection);
                 }
                 Ok(Err(error)) => error.to_string(),

@@ -38,6 +38,11 @@ temporary unreachability; dropping a canceled attempt releases its guard.
 An identical hint does not reset backoff. Changed hints/network events may end a
 long wait while retaining the node's frequency floor. A later business dial uses
 the same guard rather than forcibly clearing failure pacing.
+Background recovery retains prior failure history through a successful QUIC
+handshake and resets it only after verified, saved source-scope completion.
+The independent review found that transport success previously erased later
+protocol failure history; real repeated authenticated invalid-manifest exchanges
+now increase their contact gaps rather than restarting the one-second delay.
 
 Known permitted contacts are sampled before expanded discovery. At most the
 configured contact batch runs concurrently, rather than waiting for every old
@@ -77,6 +82,8 @@ application intent from opaque QUIC packets or a bandwidth/power SLA.
 Waiting states include cause, next maintenance-cycle delay, actual attempts and
 lookup rounds, observed concurrency, source progress, neighbor stable IDs and
 actual QUIC PING counts. An empty permitted contact/entry set is reported explicitly.
+Losing the final neighbor switches to temporary unreachability even if an earlier
+source exchange completed; historical progress cannot keep a live Connected flag.
 Partial connectivity, temporarily unreachable entries and missing dependencies
 do not become claims that all members are offline. QUIC still determines actual
 connection lifetime; new sessions do not transparently resume old application
@@ -137,7 +144,8 @@ does not add a competing recovery loop or extend actual session lifetime.
 Rerun `rtk proxy python -B scripts/check_network_maintenance.py --output NEW_DIR`
 for ordered acceptance, `--case NAME` for one case, or `--suite` for acceptance
 and affected short regression/type/format/WASM. `--suite --start-at NAME` continues
-only the remaining checks. Each exact selection verifies one passing test;
+only the remaining checks. `--review-checks` adds the affected resource/recovery,
+type and format checks after the narrow review correction. Each exact selection verifies one passing test;
 owned brokers and their volumes are removed in the runner's finally block.
 See [the evidence index](../evidence/mio49-maintenance/README.md) for actual
 results, failures, corrective checks and independent review reports.

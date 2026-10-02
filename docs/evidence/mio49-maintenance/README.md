@@ -11,7 +11,7 @@ gate, speculative architecture ticket, executable freeze or duplicate source
 archive was introduced. Unchanged slow NAT matrices were skipped under the
 user's explicit test policy; the affected acceptance and short checks remain real.
 
-## Authoritative final verification
+## Verification before and after independent review
 
 [final-suite/results.json](final-suite/results.json) lists the ordered eleven
 real acceptance cases, followed by affected resources, native admission,
@@ -25,6 +25,17 @@ All eleven acceptance cases and all final checks pass. Short regression reports
 ignored in the workspace library log, and existing inert worker entries remain
 identifiable in their raw logs. Typechecking, browser WASM and formatting pass.
 Both owned brokers/volumes were removed with exit zero. No slow NAT matrix ran.
+
+After independent Spec review, [post-review/results.json](post-review/results.json)
+is the final-source receipt: the original eleven cases plus a twelfth real
+authenticated protocol-failure/backoff and empty-neighbor-state case, followed
+by affected resources/recovery, typing and formatting. Unchanged library,
+carrier, WASM and broader short checks retain the already passed receipts above.
+The initial two confirmed findings are in `spec-review-initial.md`; final
+independent follow-ups are in `spec-review.md` and `standards-review.md`.
+`review-failure-red/results.json` observes repeated 1739/1396/1395 ms gaps and
+stale Connected with zero neighbors; `review-failure-green/results.json`
+observes 1720/2407 ms gaps and no stale Connected flag.
 
 Cases include new/duplicate contact hints and restart, conservative/active
 actual UDP effort, actual business and shared identity guarding, original-author
