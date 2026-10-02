@@ -49,8 +49,19 @@ groups exit0. The short groups report137 passing tests (including their inert
 subprocess worker entries), plus workspace/all-target and browser WASM compile
 checks and root/fork formatting. WASM is compile-only. The extra all-target
 check includes the new member fault feature; the default member test target
-also compiles. Both owned short brokers were removed with exit0. No runtime
-source changed after these final checks.
+also compiles. Both owned short brokers were removed with exit0.
+
+Independent [Standards](standards-review.md) and [Spec](spec-review.md) reports
+initially found0 hard violations/2 optional maintenance smells and0 Spec
+findings. The review stage accepted the clearer configured-startup flag name
+and a shared membership-checked transmit loop. `review-refactor/results.json`
+then repeated all9 real ordered cases, all exit0, `passed:true`; its
+`all-targets.log`, `default-build.log` and `format.log` record successful
+feature/default compilation and formatting. The unrelated already-passed
+short groups and unchanged slow NAT matrices were not repeated. No runtime
+source changed after this verification. The original independent reviewers'
+final supplements confirm0 open findings on each axis, aggregated in
+[`code-review.md`](code-review.md).
 
 Packet-marker observations are limited evidence, not a security audit. Identity
 binding uses the real inner TLS implementation and the ordinary member proof.
