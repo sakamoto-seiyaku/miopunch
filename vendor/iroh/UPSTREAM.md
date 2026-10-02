@@ -209,3 +209,27 @@ them during a permitted UDP fallback. No new QUIC wire format or congestion
 implementation is added. Native protected TCP coordination and the actual
 Linux/NAT boundaries are recorded in
 `docs/notes/2026-10-02-tcp-punch-validation.md`.
+
+## MIOPUNCH-47: connection-qualified quality maintenance
+
+The defaulted `PathSelector::reevaluation_interval` optionally requests bounded
+live-path reevaluation in the existing remote actor (250ms–30s, no catch-up
+bursts). Native product policy installs a quality-first selector without
+changing the upstream historical default for other consumers. The builder's
+`default_path_selector` preserves an explicitly supplied advanced selector.
+Selection contexts now qualify each Connection's own current paths and physical
+UDP ownership; restricted control paths do not become peer data preferences or
+ordinary business paths. Per-connection packet gates remain decisive.
+
+An admission-gated sole custom contact remains the route for that attempt's
+Initial, so another live control session cannot substitute its cached carrier.
+Ungated raw consumers retain the historical mapped bootstrap and graceful-drain
+behavior; existing explicit control-only routes keep their own route rule. The UDP
+path-opening API also works on a living admitted connection; the new
+`open_data_transport_path` opens an explicitly qualified UDP/relay/custom data
+candidate on an ordinary admitted connection. Closed connections return failure
+and are never redialed. Existing custom-path test hooks use that same production
+boundary. These are local API/actor changes, not new QUIC wire encoding or
+congestion implementations. The root's separate protected same-session repair
+coordinator and qualified matrix are recorded in
+`docs/notes/2026-10-02-connection-path-maintenance.md`.

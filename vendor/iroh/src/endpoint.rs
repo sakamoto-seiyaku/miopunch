@@ -151,6 +151,7 @@ pub struct Builder {
     max_tls_tickets: usize,
     hooks: EndpointHooksList,
     path_selector: Arc<dyn PathSelector>,
+    path_selector_explicit: bool,
     portmapper_config: PortmapperConfig,
     net_report_config: NetReportConfig,
     observation_servers: Option<RelayMap>,
@@ -299,6 +300,7 @@ impl Builder {
             transports,
             hooks: Default::default(),
             path_selector: Arc::new(BiasedRttPathSelector::default()),
+            path_selector_explicit: false,
             portmapper_config: Default::default(),
             net_report_config: Default::default(),
             observation_servers: None,
@@ -970,6 +972,17 @@ impl Builder {
     #[cfg(feature = "unstable-custom-transports")]
     pub fn path_selector(mut self, selector: Arc<dyn PathSelector>) -> Self {
         self.path_selector = selector;
+        self.path_selector_explicit = true;
+        self
+    }
+
+    /// Installs a product default without overriding an explicitly configured
+    /// advanced selector. Existing resource and per-connection gates still apply.
+    #[cfg(feature = "unstable-custom-transports")]
+    pub fn default_path_selector(mut self, selector: Arc<dyn PathSelector>) -> Self {
+        if !self.path_selector_explicit {
+            self.path_selector = selector;
+        }
         self
     }
 }
@@ -1115,9 +1128,24 @@ impl Endpoint {
             .test_open_admitted_custom_path(connection.remote_id(), connection.stable_id(), remote)
             .await
     }
+    /// Validate a known, permitted data carrier on this original admitted
+    /// connection. Admission and resource gates remain in force, and the caller
+    /// observes actual establishment through `Connection::paths`. A closed
+    /// connection is terminal; this operation never dials a replacement.
+    pub async fn open_data_transport_path(
+        &self,
+        connection: &connection::Connection,
+        remote: iroh_base::TransportAddr,
+    ) -> std::io::Result<()> {
+        self.inner
+            .open_admitted_data_path(connection.remote_id(), connection.stable_id(), remote)
+            .await
+    }
+
     /// Start validating a known UDP address on an existing authenticated
     /// connection. The dialing side opens the path; callers must observe an
-    /// established IP path before allowing ordinary traffic.
+    /// established IP path before allowing ordinary traffic. Also available on
+    /// an admitted connection while it remains alive.
     pub async fn open_data_path(
         &self,
         connection: &connection::Connection,
@@ -1393,7 +1421,16 @@ impl Endpoint {
                 [TransportAddr::Custom(route)] => Some((*route).clone()),
                 _ => return Err(e!(ConnectWithOptsError::InvalidControlRoute)),
             }
+        } else if self.inner.static_config.admission_gated {
+            // An admission-gated sole custom route belongs to this contact attempt.
+            // A cached control session to the same identity cannot substitute
+            // its signaling route before the new ALPN is authenticated.
+            match endpoint_addr.addrs.iter().collect::<Vec<_>>().as_slice() {
+                [TransportAddr::Custom(route)] => Some((*route).clone()),
+                _ => None,
+            }
         } else {
+            // Keep the historical mapped bootstrap for ungated consumers.
             None
         };
 

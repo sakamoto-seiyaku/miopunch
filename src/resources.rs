@@ -70,6 +70,8 @@ pub struct ResourceConfig {
     pub tcp_direct_disabled: bool,
     #[serde(default)]
     pub disabled_tcp_addresses: BTreeSet<std::net::SocketAddr>,
+    #[serde(default)]
+    pub path_selection: crate::path_selection::PathSelectionPolicy,
     /// Explicitly trusted configuration publisher, distinct from membership.
     #[serde(default)]
     pub trusted_update_key: Option<VerifyingKey>,
@@ -171,6 +173,7 @@ impl ResourceConfig {
             udp_direct_disabled: false,
             tcp_direct_disabled: false,
             disabled_tcp_addresses: BTreeSet::new(),
+            path_selection: Default::default(),
             trusted_update_key: None,
         }
     }
@@ -307,6 +310,7 @@ impl ResourceConfig {
         std::io::Error,
     > {
         let config = self.clone();
+        let builder = builder.default_path_selector(self.path_selection.selector()?);
         let builder = if self.udp_direct_disabled {
             builder.clear_ip_transports()
         } else {
@@ -474,6 +478,22 @@ impl ResourceEndpoint {
                 .map(iroh::TransportAddr::Custom),
         );
         address
+    }
+
+    /// Candidate eligibility for an existing member data connection. Unknown
+    /// custom/signaling carriers are never promoted by the repair coordinator.
+    pub(crate) fn allows_data_path(&self, path: &iroh::TransportAddr) -> bool {
+        match path {
+            iroh::TransportAddr::Ip(_) => !self.config.udp_direct_disabled,
+            iroh::TransportAddr::Relay(url) => {
+                self.config.allows(url.as_str(), ResourceUse::DataRelay)
+            }
+            iroh::TransportAddr::Custom(address) => {
+                address.id() == crate::tcp_transport::DATA_TRANSPORT_ID
+                    && self.config.allows_custom(address)
+            }
+            _ => false,
+        }
     }
 
     /// A bounded contact attempt, independent of the resource startup snapshot.

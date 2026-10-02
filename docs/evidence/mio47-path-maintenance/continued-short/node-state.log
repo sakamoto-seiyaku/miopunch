@@ -1,0 +1,115 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.92s
+     Running tests/manual_admission.rs (target/debug/deps/manual_admission-818f7fbf694dd14a)
+
+running 14 tests
+test actual_tls_contact_must_match_the_invitation_pin ... ok
+test another_authenticated_request_for_an_existing_member_reuses_its_valid_grant ... ok
+test another_invitation_holder_observes_ciphertext_but_cannot_take_an_approved_result ... MIO30_MQTT_CIPHERTEXT publishes=82 max_bytes=1472 long_lived_secret_in_invitation=false independent_holder_received_approved_result=false
+ok
+test applicant_crash_after_authorization_worker ... ok
+test approval_commit_checkpoint_worker ... ok
+test approval_commit_crash_is_recovered_before_another_same_identity_request_decides_to_add ... actual approval process exits after signed Add/result transaction commit, before application
+
+MIO30_APPROVAL_RECOVERY applied=2 original_grant_reused=true
+ok
+test approval_commit_interruption_is_recovered_before_a_live_nodes_next_request_decides_to_add ... actual approval process exits after signed Add/result transaction commit, before application
+
+MIO30_APPROVAL_RECOVERY applied=2 original_grant_reused=true
+ok
+test authenticated_contact_cannot_make_a_corrupt_signature_durable_membership ... ok
+test crash_after_only_authorization_never_succeeds_and_same_request_resumes_once ... actual applicant process exits after durable authorization, before requesting secret
+
+ok
+test forged_claimed_applicant_cannot_enter_the_approval_queue ... ok
+test invitation_for_wrong_network_cannot_queue_a_request ... ok
+test manual_approval_saves_both_materials_and_permits_real_business ... ok
+test material_file_failure_retains_pending_state_and_can_retry_after_restart ... ok
+test original_result_is_rejected_after_removal_even_when_a_fresh_grant_readds_the_identity ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 22.29s
+
+     Running tests/network_recovery.rs (target/debug/deps/network_recovery-d0bb273e52e4bb9c)
+
+running 12 tests
+test a_failed_entry_does_not_prevent_recovery ... MQTT_CLOSE result=I/O: Connection refused (os error 111)
+MQTT_RESOURCE_UNAVAILABLE error=MQTT carrier stopped
+UNKNOWN_RECOVERY_ENTRIES partial_failure=true duplicate_hints=false authorized_source=1
+ok
+test a_false_candidate_without_the_network_secret_never_supplies_history ... UNKNOWN_RECOVERY_FALSE_HINT false_candidate=1 no_secret=1 saved_history=0 subsequent_legitimate_recovery=1
+ok
+test a_known_revoked_candidate_is_rejected_before_any_history_request ... UNKNOWN_RECOVERY_REVOCATION advertised_candidate=1 known_removed=1 handshake_packets=0 history_requested=0
+ok
+test a_mismatched_saved_generation_does_not_fetch_current_member_history ... UNKNOWN_RECOVERY_GENERATION wrong_generation=1 source_accepted=0
+ok
+test another_network_on_the_same_entry_is_never_a_recovery_source ... UNKNOWN_RECOVERY_NETWORK wrong_network=1 source_accepted=0
+ok
+test disabling_lookup_does_not_reenable_discovery_via_signaling ... UNKNOWN_RECOVERY_CONSENT lookup_disabled=1 signaling_live=1 discovery_queries=0
+ok
+test duplicate_tagged_hints_do_not_prevent_recovery ... UNKNOWN_RECOVERY_ENTRIES partial_failure=false duplicate_hints=true authorized_source=1
+ok
+test missing_admission_material_cannot_start_network_history_recovery ... UNKNOWN_RECOVERY_MATERIAL no_secret=1 no_history=1 waiting=1
+ok
+test missing_causal_dependency_waits_then_recovers_from_the_saved_source ... UNKNOWN_RECOVERY_DEPENDENCY partial_saved=1 causal_wait=1 retried_source=1 complete=1
+ok
+test no_online_candidate_waits_and_new_contact_recovers_on_the_same_endpoint ... UNKNOWN_RECOVERY_RETRY no_candidate_wait=1 new_contact=1 same_endpoint=1
+ok
+test old_member_recovers_from_the_only_online_unknown_member_at_startup ... RECOVERY_PUBLIC_FIELDS query=20 response=90 route=32 private_secret_exposed=0 publishes=53
+UNKNOWN_RECOVERY a_knows_c_initially=0 b_online=0 real_mqtt=1 durable_logsync=1 authorized_business=1
+UNKNOWN_RECOVERY_REOPEN verified_c_membership_saved=1
+ok
+test old_secret_with_a_new_identity_keeps_only_bootstrap_scope ... UNKNOWN_RECOVERY_REJECTION old_secret=1 new_identity=1 scoped_scram=1 history_disclosed=0 member_connection=0
+ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 49.79s
+
+     Running tests/offline_replica.rs (target/debug/deps/offline_replica-5194320e0714167b)
+
+running 12 tests
+test missing_dependency_is_saved_but_not_complete_then_out_of_order_duplicates_apply_once ... ok
+test original_author_offline_restarted_member_supplies_body_and_dependencies ... ok
+test process_exit_after_causal_selection_replays_without_losing_authorization ... actual replica process exits at AfterOrdererSelect
+
+provider transport result at AfterOrdererSelect: Err(Transport)
+AfterOrdererSelect: recovered identical four-record view; offline replica still serves; duplicate replay adds no action
+ok
+test process_exit_after_record_commit_replays_and_still_serves ... actual replica process exits at AfterStorageCommit
+
+provider transport result at AfterStorageCommit: Err(Transport)
+AfterStorageCommit: recovered identical four-record view; offline replica still serves; duplicate replay adds no action
+ok
+test process_exit_after_view_commit_does_not_duplicate_application ... actual replica process exits at AfterGroupsCommit
+
+provider transport result at AfterGroupsCommit: Err(Transport)
+AfterGroupsCommit: recovered identical four-record view; offline replica still serves; duplicate replay adds no action
+ok
+test process_exit_before_record_commit_never_advertises_it_and_retry_completes ... actual replica process exits at BeforeStorageCommit
+
+provider transport result at BeforeStorageCommit: Err(Transport)
+BeforeStorageCommit: recovered identical four-record view; offline replica still serves; duplicate replay adds no action
+ok
+test process_exit_before_view_commit_replays_and_still_serves ... actual replica process exits at BeforeGroupsCommit
+
+provider transport result at BeforeGroupsCommit: Err(Transport)
+BeforeGroupsCommit: recovered identical four-record view; offline replica still serves; duplicate replay adds no action
+ok
+test replica_crash_worker ... ok
+test required_body_missing_then_complete_retry_survives_restart ... ok
+test signed_extension_only_action_is_applied_by_replica_consumer ... ok
+test unadmitted_identity_cannot_start_replication_or_read_history ... ok
+test unauthorized_records_and_private_material_are_excluded_from_served_replicas ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 128.56s
+

@@ -142,6 +142,10 @@ impl AdmissionGate {
             ProtocolScope::GenesisRecovery,
         );
         protocols.insert(MEMBER_BOOTSTRAP_ALPN.to_vec(), ProtocolScope::Bootstrap);
+        protocols.insert(
+            crate::connection_recovery::CONNECTION_RECOVERY_ALPN.to_vec(),
+            ProtocolScope::Bootstrap,
+        );
         protocols.insert(CONTROL_ALPN.to_vec(), ProtocolScope::Bootstrap);
         protocols.insert(
             crate::network_recovery::RECOVERY_REPLICA_ALPN.to_vec(),
@@ -320,6 +324,28 @@ impl AdmissionGate {
                 session.peer == *connection.remote_id().as_bytes()
                     && session.scope == required
                     && session.valid(&state.policy)
+            })
+    }
+
+    pub(crate) fn member_connection_for_binding(
+        &self,
+        peer: iroh::EndpointId,
+        binding: &[u8; 32],
+    ) -> Option<Connection> {
+        let state = self.state.lock().expect("admission policy lock");
+        state
+            .sessions
+            .values()
+            .filter(|session| {
+                session.peer == *peer.as_bytes()
+                    && session.scope == ProtocolScope::Member
+                    && session.valid(&state.policy)
+            })
+            .filter_map(|session| session.connection.upgrade())
+            .find(|connection| {
+                connection.close_reason().is_none()
+                    && crate::connection_recovery::binding(connection)
+                        .is_ok_and(|actual| &actual == binding)
             })
     }
 

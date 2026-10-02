@@ -1,0 +1,35 @@
+
+running 1 test
+test control_paths_stay_live_while_physical_business_loss_ends_queued_bytes ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=26 received_bytes=10457 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=26 sent_bytes=10457 received_packets=27 received_bytes=10140 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44610 result=Connection refused (os error 111)
+MIO47_PHYSICAL_TERMINAL old=123397833544864 new=123397833210448 close=LocallyClosed queued_bytes=65536 control_alive=true elapsed_ms=10596
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=52 sent_bytes=20230 received_packets=48 received_bytes=18507 closed=1 failed=6 cancelled=1 outbound_outstanding=0 outbound_peak=14 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=51 sent_bytes=18607 received_packets=52 received_bytes=20230 closed=1 failed=12 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 12.59s
+

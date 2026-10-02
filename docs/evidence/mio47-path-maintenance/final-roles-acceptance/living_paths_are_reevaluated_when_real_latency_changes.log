@@ -1,0 +1,19 @@
+
+running 1 test
+test living_paths_are_reevaluated_when_real_latency_changes ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10144 received_packets=26 received_bytes=10457 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=26 sent_bytes=10457 received_packets=27 received_bytes=10144 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_FIXTURE first=127.0.0.1:44770 second=127.0.0.1:43878 initial=PathList { snapshot: State { list: [PathData(0, custom:6d696f746370_7f000001aee2)], selected: Some(PathId(0)), closed: false }, .. }
+MIO47_FIXTURE both_established=PathList { snapshot: State { list: [PathData(0, custom:6d696f746370_7f000001aee2), PathData(1, custom:6d696f746370_7f000001ab66)], selected: Some(PathId(0)), closed: false }, .. }
+MIO47_QUALITY before_wait paths=[(PathId(0), Custom(CustomAddr { id: 120299608892272, data: [7f000001aee2] }), 273.496983ms, false), (PathId(1), Custom(CustomAddr { id: 120299608892272, data: [7f000001ab66] }), 216.218784ms, true)]
+MIO47_QUALITY stable_ids=(134931901458352, 134931900641104) same_stream=true same_paths=true selected=[Custom(CustomAddr { id: 120299608892272, data: [7f000001ab66] })]
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=65 sent_bytes=19711 received_packets=51 received_bytes=16534 closed=0 failed=0 cancelled=2 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=51 sent_bytes=16534 received_packets=64 received_bytes=19664 closed=0 failed=0 cancelled=2 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 4.19s
+

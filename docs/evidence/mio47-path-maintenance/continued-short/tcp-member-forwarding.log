@@ -1,0 +1,144 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.38s
+     Running tests/member_forward.rs (target/debug/deps/member_forward-67a7144e0343eef9)
+
+running 9 tests
+test a_forwarding_route_cannot_substitute_the_inner_tls_target_identity ... MEMBER_WRONG_TARGET_PASS valid_c_route=true unrelated_identity_rejected=true
+ok
+test an_admitted_bootstrap_session_does_not_grant_member_forwarding ... MEMBER_SCOPE_PASS bootstrap_admitted=true member_forwarding_rejected=true
+ok
+test closing_the_endpoint_releases_its_forwarding_lease_without_waiting_for_expiry ... MEMBER_ENDPOINT_CLOSE_PASS owned_lease_finished=true remaining_links=1 cb_alive=true
+ok
+test duplicated_opaque_datagrams_cannot_reveal_private_control_or_release_extra_connections ... MEMBER_BOOTSTRAP_START stable_id=137722230425328 peer=622ac0d908ecccd615bf3c9cd5dfb9d818b443df91aae3bc3ee585769cc74361
+MEMBER_BOOTSTRAP_START stable_id=137722230405248 peer=84ca881665ade966c99fc74893a9345e37eff6e1c10aa2a39ff6968dd01fcfca
+NAT_DIRECT_CANDIDATE stable_id=137722230405248 target=127.0.0.1:44513
+NAT_DIRECT_SUCCESS stable_id=137722230425328 target=127.0.0.1:45369 punching_recommendations=0
+MEMBER_BOOTSTRAP_DATA stable_id=137722230425328 peer=622ac0d908ecccd615bf3c9cd5dfb9d818b443df91aae3bc3ee585769cc74361 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:45369)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=137722230405248 target=127.0.0.1:44513 punching_recommendations=0
+MEMBER_BOOTSTRAP_DATA stable_id=137722230405248 peer=84ca881665ade966c99fc74893a9345e37eff6e1c10aa2a39ff6968dd01fcfca paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44513)], selected: Some(PathId(1)), closed: false }, .. }
+MEMBER_DUPLICATE_PACKETS_PASS observed_ciphertext_datagrams=63 private_candidates_visible=false extra_connections=0
+ok
+test expired_forwarding_leases_remove_routes_without_ending_the_member_links ... MEMBER_EXPIRY_PASS registered_routes=0 stale_route_rejected=true ab_alive=true
+ok
+test member_without_data_relay_forwards_protected_control_then_ac_uses_a_direct_path ... MEMBER_BOOTSTRAP_START stable_id=137722230828528 peer=16b7a1169e19ee2f95ba6b4c36bbf50c56760df4b26fc60420d7c6ae492fa977
+MEMBER_BOOTSTRAP_START stable_id=137722230772736 peer=60525f7ff7fed9e6c94f3f1281ed1adca853a197e9c8026040c3c088d3b881b6
+NAT_DIRECT_CANDIDATE stable_id=137722230772736 target=127.0.0.1:43597
+NAT_DIRECT_SUCCESS stable_id=137722230828528 target=127.0.0.1:44296 punching_recommendations=0
+MEMBER_BOOTSTRAP_DATA stable_id=137722230828528 peer=16b7a1169e19ee2f95ba6b4c36bbf50c56760df4b26fc60420d7c6ae492fa977 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44296)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=137722230772736 target=127.0.0.1:43597 punching_recommendations=0
+MEMBER_BOOTSTRAP_DATA stable_id=137722230772736 peer=60525f7ff7fed9e6c94f3f1281ed1adca853a197e9c8026040c3c088d3b881b6 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:43597)], selected: Some(PathId(1)), closed: false }, .. }
+MEMBER_FIRST_PASS relay_enabled=false inner_tls_peer=60525f7ff7fed9e6c94f3f1281ed1adca853a197e9c8026040c3c088d3b881b6 stable_id=137722230772736 direct_data=true
+ok
+test repeated_registration_does_not_add_forwarding_routes_or_confuse_member_identity ... MEMBER_DUPLICATE_REGISTRATION_PASS registered_routes=2 ab_alive=true
+ok
+test signaling_only_cannot_release_business_without_another_permitted_ac_path ... MEMBER_BOOTSTRAP_START stable_id=137722220821184 peer=9a4426d994c0b3bb880c3a461fa069ebf090771e3c40d3417e4f84e59dc3f0d2
+MEMBER_BOOTSTRAP_START stable_id=137722230972144 peer=7834dd947101717b474e280d16c4321cd17759955a109a6d8899e3a59921b5a4
+MEMBER_BOOTSTRAP_FAILED stable_id=137722220821184 error=no mutually permitted data path capability
+MEMBER_BOOTSTRAP_FAILED stable_id=137722230972144 error=read error: connection lost
+MEMBER_PRIORITY_PASS control_reachable=true permitted_ac_data_paths=0 business_released=false ab_unchanged=true cb_unchanged=true
+ok
+test stopping_a_forwarding_stream_fails_ac_control_and_keeps_ab_usable ... MEMBER_INTERRUPTION_PASS forwarding_stream_stopped=true ac_unavailable=true ab_alive=true
+ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 35.33s
+
+     Running tests/tcp_direct.rs (target/debug/deps/tcp_direct-15e6ee8bb1929eda)
+
+running 11 tests
+test available_ipv6_tcp_admits_syncs_and_transfers_independently ... MIO40_IPV6 environment_listener=[::1]:43814
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=29 sent_bytes=10212 received_packets=27 received_bytes=10482 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=8 queue_depth=32 max_frame=2048 max_circuits=64
+MIO40_REAL listen=[::1]:0 udp_sockets=0 admission=Complete reopen=true replica=complete business=roundtrip path=Custom
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=69 sent_bytes=23146 received_packets=66 received_bytes=22874 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=7 inbound_outstanding=0 inbound_peak=8 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=93 sent_bytes=33356 received_packets=98 received_bytes=33358 closed=2 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=6 inbound_outstanding=0 inbound_peak=8 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test cancelling_pending_tcp_contact_closes_actual_carrier ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+MIO40_CANCEL pending_connect=failed actual_socket=eof bounded=true
+ok
+test disabled_tcp_candidate_is_not_dialed_even_through_raw_endpoint ... MIO40_DISABLED source=raw-endpoint actual_tcp_accepts=0
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test first_real_udp_disabled_tcp_ipv4_admits_syncs_and_transfers ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=29 sent_bytes=10209 received_packets=26 received_bytes=10448 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MIO40_REAL listen=127.0.0.1:0 udp_sockets=0 admission=Complete reopen=true replica=complete business=roundtrip path=Custom
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=58 sent_bytes=20469 received_packets=53 received_bytes=21129 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=79 sent_bytes=31577 received_packets=87 received_bytes=30678 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test globally_disabled_tcp_cannot_be_reenabled_by_an_advanced_builder ... MIO40_DISABLED scope=global source=advanced-builder actual_tcp_accepts=0
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test lookup_supplied_disabled_tcp_candidate_is_not_dialed ... MIO40_DISABLED source=lookup-result actual_tcp_accepts=0
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test normal_cli_starts_with_tcp_only_and_exits_on_interrupt ... MIO40_CLI tcp_only_ready=127.0.0.1:43850 interrupt_exit=0
+ok
+test physical_tcp_loss_ends_old_stream_and_later_contact_is_a_new_connection ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=25 received_bytes=10425 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=25 sent_bytes=10425 received_packets=27 received_bytes=10140 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44542 result=Connection refused (os error 111)
+MIO40_CUT_TIMEOUT elapsed_ms=9958
+MIO40_CUT physical_tcp=lost old_stream=failed original_connection=closed later_connection=new
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=51 sent_bytes=20198 received_packets=45 received_bytes=18009 closed=1 failed=12 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=48 sent_bytes=18111 received_packets=51 received_bytes=20198 closed=1 failed=12 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test priority_wrong_member_identity_cannot_bypass_tcp_admission ... MIO40_WRONG tcp=reachable wrong_expected_identity=rejected requests=0 admission=not-complete
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=1 sent_bytes=1200 received_packets=4 received_bytes=3738 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=1 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=4 sent_bytes=3738 received_packets=1 received_bytes=1200 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=1 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test received_revocation_ends_tcp_flow_and_rejects_stale_member ... MIO40_REVOKED actual_live_stream=ended stale_member_new_connection=rejected
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=72 sent_bytes=28328 received_packets=69 received_bytes=26719 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE peer=127.0.0.1:43320 result=TCP endpoint closed
+TCP_TRAFFIC sent_packets=71 sent_bytes=26843 received_packets=72 received_bytes=28328 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=6 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test valid_but_unapproved_identity_cannot_read_member_history_over_tcp ... MIO40_UNAPPROVED actual_identity=authenticated member_history=rejected
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=7 sent_bytes=5092 received_packets=9 received_bytes=4189 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=9 sent_bytes=4189 received_packets=7 received_bytes=5092 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 42.25s
+

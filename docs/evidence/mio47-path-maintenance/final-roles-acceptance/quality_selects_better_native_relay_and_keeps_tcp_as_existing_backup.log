@@ -1,0 +1,18 @@
+
+running 1 test
+test quality_selects_better_native_relay_and_keeps_tcp_as_existing_backup ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10172 received_packets=28 received_bytes=10519 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10519 received_packets=28 received_bytes=10172 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_RELAY_QUALITY before_cut=[(Custom(CustomAddr { id: 120299608892272, data: [7f000001afe4] }), 190.571222ms, false), (Relay(http://127.0.0.1:43322/), 2.783694ms, true)]
+MIO47_MATRIX TCP->Relay->TCP stable_ids=(126159228584560, 126159229622768) same_stream=true content_complete=true
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=44 sent_bytes=10963 received_packets=37 received_bytes=9566 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=37 sent_bytes=9566 received_packets=39 received_bytes=10734 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 2.88s
+

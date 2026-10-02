@@ -1,0 +1,24 @@
+
+running 1 test
+test control_paths_recover_a_new_tcp_carrier_within_the_original_connection_window ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=27 received_bytes=10467 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=27 sent_bytes=10467 received_packets=27 received_bytes=10140 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE peer=127.0.0.1:44398 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44398 result=Connection refused (os error 111)
+
+thread 'control_paths_recover_a_new_tcp_carrier_within_the_original_connection_window' (2164121) panicked at tests/path_maintenance.rs:365:31:
+called `Result::unwrap()` on an `Err` value: Retryable { stable_id: 126450011295184, cause: "read error: connection lost" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=26 sent_bytes=10126 received_packets=22 received_bytes=9043 closed=1 failed=1 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=24 sent_bytes=9105 received_packets=26 received_bytes=10126 closed=1 failed=1 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+FAILED
+
+failures:
+
+failures:
+    control_paths_recover_a_new_tcp_carrier_within_the_original_connection_window
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 2.33s
+

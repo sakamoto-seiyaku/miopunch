@@ -1,0 +1,31 @@
+{
+  "build": {
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "test",
+      "--locked",
+      "--test",
+      "path_maintenance",
+      "--no-run",
+      "--message-format=json"
+    ],
+    "exit": 0
+  },
+  "tests": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-4e251ff6c7cd83ec",
+        "disabled_relay_is_never_opened_or_selected_even_with_explicit_relay_preference",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0
+    }
+  ],
+  "cleanup": []
+}

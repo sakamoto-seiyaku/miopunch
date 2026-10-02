@@ -257,7 +257,18 @@ impl RemoteStateActor {
         let check_connections = time::interval(UPGRADE_INTERVAL);
         n0_future::pin!(check_connections);
 
+        let reevaluation_interval = self
+            .state
+            .path_selector
+            .reevaluation_interval()
+            .map(|interval| interval.clamp(Duration::from_millis(250), Duration::from_secs(30)));
+        let mut next_reevaluation = reevaluation_interval.map(|interval| Instant::now() + interval);
         loop {
+            let reevaluation = match next_reevaluation {
+                Some(when) => MaybeFuture::Some(time::sleep_until(when)),
+                None => MaybeFuture::None,
+            };
+            n0_future::pin!(reevaluation);
             let scheduled_path_open = match self.state.scheduled_open_path {
                 Some(when) => MaybeFuture::Some(time::sleep_until(when)),
                 None => MaybeFuture::None,
@@ -325,6 +336,12 @@ impl RemoteStateActor {
                 _ = check_connections.tick() => {
                     self.check_connections();
                 }
+                _ = &mut reevaluation => {
+                    // Reschedule from now: a busy actor never catches up with a
+                    // burst of delayed maintenance. No discovery or redial here.
+                    next_reevaluation = reevaluation_interval.map(|interval| Instant::now() + interval);
+                    self.reevaluate_paths();
+                }
                 _ = &mut idle_timeout => {
                     if self.is_idle(&inbox) {
                         trace!("idle timeout expired and still idle: terminate actor");
@@ -375,18 +392,27 @@ impl RemoteStateActor {
                 let result = self.authorize_candidates(ConnId(conn_id), allowed_data_custom_ids);
                 let _ = tx.send(result);
             }
-            #[cfg(feature = "miopunch-test-hooks")]
-            RemoteStateMessage::TestOpenAdmittedCustomPath {
+            RemoteStateMessage::OpenAdmittedDataPath {
                 conn_id,
                 remote,
                 tx,
             } => {
                 let result = if let Some(state) = self.connections.get(&ConnId(conn_id)) {
                     if state.purpose != ConnectionPurpose::Ordinary {
-                        Err("test requires an admitted connection")
+                        Err("data carrier opening requires an admitted connection")
                     } else if let Some(conn) = state.handle.upgrade() {
-                        let path =
-                            transports::FourTuple::from_remote(transports::Addr::Custom(remote));
+                        let address = match remote {
+                            TransportAddr::Ip(address) => transports::Addr::Ip(address),
+                            TransportAddr::Relay(url) => {
+                                transports::Addr::Relay(url, self.state.endpoint_id)
+                            }
+                            TransportAddr::Custom(address) => transports::Addr::Custom(address),
+                            _ => {
+                                let _ = tx.send(Err("unsupported data carrier"));
+                                return;
+                            }
+                        };
+                        let path = transports::FourTuple::from_remote(address);
                         self.state
                             .open_path_on_conn(ConnId(conn_id), state, &conn, &path, true)
                     } else {
@@ -405,9 +431,7 @@ impl RemoteStateActor {
                 tx,
             } => {
                 let result = if let Some(state) = self.connections.get(&ConnId(conn_id)) {
-                    if state.purpose != ConnectionPurpose::Control {
-                        Err("data path opening requires a restricted control connection")
-                    } else if let Some(conn) = state.handle.upgrade() {
+                    if let Some(conn) = state.handle.upgrade() {
                         if conn.side().is_client() {
                             #[cfg(feature = "miopunch-test-hooks")]
                             if self.force_path_id_retry_once == Some(ConnId(conn_id)) {
@@ -1053,10 +1077,31 @@ impl RemoteStateActor {
         }
     }
 
+    /// Refresh only live, qualified paths in existing connections. QUIC retains
+    /// its own path/connection timeouts and reports final failure to callers.
+    fn reevaluate_paths(&mut self) {
+        for state in self.connections.values() {
+            if let Some(conn) = state
+                .handle
+                .upgrade()
+                .filter(|conn| conn.close_reason().is_none())
+            {
+                for (id, address) in &state.paths {
+                    if state.may_select(address)
+                        && let Some(path) = conn.path(*id)
+                    {
+                        let _ = path.ping();
+                    }
+                }
+            }
+        }
+        self.select_path();
+    }
+
     /// Selects the preferred path by invoking the configured [`PathSelector`].
     ///
-    /// The selected path is added to any connections which do not yet have it.  Any unused
-    /// direct paths are closed for all connections.
+    /// A qualified peer hint may be added to ordinary data connections. Each
+    /// connection then scores only its own qualified paths.
     #[instrument(skip_all)]
     fn select_path(&mut self) {
         let current_path = self.state.selected_path.as_ref();
@@ -1076,14 +1121,20 @@ impl RemoteStateActor {
                 network_path = %addr,
                 prev_network_path = %prev_remote.map(|p| format!("{p}")).unwrap_or("None".to_string()),
             );
-        } else {
-            trace!(?current_path, "keeping current path");
+        } else if !self.connections.values().any(|state| {
+            state.purpose != ConnectionPurpose::Control
+                && state.paths.values().any(|path| {
+                    Some(path) == self.state.selected_path.as_ref() && state.may_select(path)
+                })
+        }) {
+            self.state.selected_path = None;
         }
 
         self.apply_selected_path();
     }
 
-    /// Propagates a change of [`State::selected_path`] to noq.
+    /// Applies connection-local selection to noq, retaining a qualified peer
+    /// candidate only as a hint for ordinary data connections.
     ///
     /// Iterates over all connections and applies the selected path as follows:
     /// - Closes non-selected IP paths (but keeps one IP path open still)
@@ -1091,59 +1142,37 @@ impl RemoteStateActor {
     /// - Opens the selected path if it does not exist on the connection
     /// - Sets the selected path to [`PathStatus::Available`]
     fn apply_selected_path(&mut self) {
-        let Some(selected) = self.state.selected_path.clone() else {
-            // We can't open the selected path on all paths if we don't have one yet.  And
-            // we can't close all "unselected" paths either, because we don't know which one
-            // is selected.
-            return;
-        };
-
         for (conn_id, conn_state) in self.connections.iter() {
-            let Some(conn) = conn_state.handle.upgrade() else {
+            let Some(conn) = conn_state
+                .handle
+                .upgrade()
+                .filter(|conn| conn.close_reason().is_none())
+            else {
                 continue;
             };
-
-            let preferred = if conn_state.owns_udp_binding(&selected) {
-                Some(selected.clone())
-            } else {
-                conn_state
-                    .path_state
-                    .selected_id()
-                    .and_then(|id| conn_state.paths.get(&id))
-                    .filter(|path| conn_state.owns_udp_binding(path) && !conn_state.forbids(path))
-                    .cloned()
-                    .or_else(|| {
-                        conn_state
-                            .paths
-                            .values()
-                            .find(|path| {
-                                conn_state.owns_udp_binding(path) && !conn_state.forbids(path)
-                            })
-                            .cloned()
-                    })
-            };
-            let selected_for_conn = match conn_state.purpose {
-                ConnectionPurpose::Data if !selected.is_ip() => {
-                    conn_state.paths.values().find(|path| path.is_ip()).cloned()
-                }
-                ConnectionPurpose::Control if !selected.is_custom() => conn_state
-                    .paths
-                    .values()
-                    .find(|path| path.is_custom())
-                    .cloned(),
-                ConnectionPurpose::Ordinary if conn_state.forbids(&selected) => conn_state
-                    .paths
-                    .values()
-                    .find(|path| !conn_state.forbids(path))
-                    .cloned(),
-                _ => preferred,
-            };
-            // Never propagate a control-only route into a data connection.
-            if let Some(addr) = selected_for_conn.as_ref() {
+            // Share only a qualified ordinary data candidate. A restricted
+            // exchange must keep its own paths while it negotiates admission.
+            if conn_state.purpose == ConnectionPurpose::Ordinary
+                && let Some(selected) = self.state.selected_path.clone()
+                && conn_state.may_select(&selected)
+            {
                 let _ = self
                     .state
-                    .open_path_on_conn(*conn_id, conn_state, &conn, addr, false);
+                    .open_path_on_conn(*conn_id, conn_state, &conn, &selected, false);
             }
+            let current = conn_state
+                .path_state
+                .selected_id()
+                .and_then(|id| conn_state.paths.get(&id))
+                .filter(|path| conn_state.may_select(path));
+            let context = PathSelectionContext::for_connection(current, conn_state);
+            let selected_for_conn = self
+                .state
+                .path_selector
+                .select(&context)
+                .selected()
+                .cloned()
+                .or_else(|| current.cloned());
 
             for (path_id, path_fourtuple) in conn_state.paths.iter() {
                 let Some(path) = conn.path(*path_id) else {
@@ -1519,6 +1548,9 @@ impl State {
         open_4tuple: &transports::FourTuple,
         explicit_request: bool,
     ) -> Result<(), &'static str> {
+        if conn.close_reason().is_some() {
+            return Err("connection closed");
+        }
         if !conn_state.owns_udp_binding(open_4tuple) {
             return Err("UDP binding does not belong to original connection");
         }
@@ -1686,10 +1718,10 @@ pub(crate) enum RemoteStateMessage {
         allowed_data_custom_ids: Vec<u64>,
         tx: oneshot::Sender<Result<(), &'static str>>,
     },
-    #[cfg(feature = "miopunch-test-hooks")]
-    TestOpenAdmittedCustomPath {
+    /// A permitted UDP, relay or custom data carrier on an admitted connection.
+    OpenAdmittedDataPath {
         conn_id: usize,
-        remote: iroh_base::CustomAddr,
+        remote: TransportAddr,
         tx: oneshot::Sender<Result<(), &'static str>>,
     },
     /// Opens a known UDP path on an already authenticated connection.
@@ -1868,6 +1900,12 @@ impl ConnectionState {
         }
         true
     }
+    fn may_select(&self, path: &transports::FourTuple) -> bool {
+        self.owns_udp_binding(path)
+            && !self.forbids(path)
+            && (self.purpose != ConnectionPurpose::Data || path.is_ip())
+    }
+
     fn forbids(&self, path: &transports::FourTuple) -> bool {
         matches!(path, transports::FourTuple::Custom { remote, .. }
             if self.retired_custom.contains(remote) || (self.custom_data_policy && !self.allowed_data_custom_ids.contains(&remote.id())))
@@ -1936,6 +1974,7 @@ pub struct PathSelectionContext<'a> {
 #[derive(Debug)]
 enum PathsSource<'a> {
     Live(&'a FxHashMap<ConnId, ConnectionState>),
+    Connection(&'a ConnectionState),
     #[cfg(test)]
     Test(Vec<PathSelectionData<'a>>),
 }
@@ -1949,6 +1988,16 @@ impl<'a> PathSelectionContext<'a> {
         Self {
             current,
             source: PathsSource::Live(connections),
+        }
+    }
+
+    fn for_connection(
+        current: Option<&'a transports::FourTuple>,
+        state: &'a ConnectionState,
+    ) -> Self {
+        Self {
+            current,
+            source: PathsSource::Connection(state),
         }
     }
 
@@ -1971,18 +2020,44 @@ impl<'a> PathSelectionContext<'a> {
 
     /// Iterator over candidate paths.
     ///
-    /// The same address may appear more than once when it is a path on multiple
-    /// connections to the remote.  Selectors that care should aggregate as appropriate.
+    /// Connection-local evaluation includes only that connection's qualified
+    /// paths. Peer-hint evaluation can include the same address on multiple
+    /// ordinary connections; selectors can aggregate these as appropriate.
     pub fn paths(&self) -> Box<dyn Iterator<Item = PathSelectionData<'a>> + '_> {
         match &self.source {
             PathsSource::Live(connections) => Box::new(
                 connections
                     .values()
-                    .filter_map(|state| state.handle.upgrade().map(|conn| (state, conn)))
+                    .filter(|state| state.purpose != ConnectionPurpose::Control)
+                    .filter_map(|state| {
+                        state
+                            .handle
+                            .upgrade()
+                            .filter(|conn| conn.close_reason().is_none())
+                            .map(|conn| (state, conn))
+                    })
                     .flat_map(|(state, conn)| {
-                        state.paths.iter().map(move |(path_id, addr)| {
-                            PathSelectionData::live(addr, *path_id, conn.clone())
-                        })
+                        state
+                            .paths
+                            .iter()
+                            .filter(move |(_, addr)| state.may_select(addr))
+                            .map(move |(path_id, addr)| {
+                                PathSelectionData::live(addr, *path_id, conn.clone())
+                            })
+                    }),
+            ),
+            PathsSource::Connection(state) => Box::new(
+                state
+                    .handle
+                    .upgrade()
+                    .filter(|conn| conn.close_reason().is_none())
+                    .into_iter()
+                    .flat_map(move |conn| {
+                        state
+                            .paths
+                            .iter()
+                            .filter(move |(_, addr)| state.may_select(addr))
+                            .map(move |(id, addr)| PathSelectionData::live(addr, *id, conn.clone()))
                     }),
             ),
             #[cfg(test)]
@@ -2064,6 +2139,13 @@ impl<'a> PathSelectionData<'a> {
 /// Most users do not need to provide their own selector.
 #[cfg_attr(not(feature = "unstable-custom-transports"), allow(unreachable_pub))]
 pub trait PathSelector: Send + Sync + std::fmt::Debug + 'static {
+    /// Optional bounded reevaluation of live path quality. The actor clamps
+    /// this to 250 milliseconds through 30 seconds and skips catch-up bursts.
+    /// None preserves selection only on path lifecycle events.
+    fn reevaluation_interval(&self) -> Option<Duration> {
+        None
+    }
+
     /// Pick the selected path to carry application data among the currently
     /// open network paths to the remote endpoint.
     ///

@@ -1,0 +1,13 @@
+
+running 1 test
+test first_same_stream_survives_validated_tcp_to_udp_switch ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10141 received_packets=25 received_bytes=10424 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=25 sent_bytes=10424 received_packets=27 received_bytes=10141 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_FIRST stable_ids=(124273805473824, 124273805032912) same_stream=true content_complete=true paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:43299)], selected: Some(PathId(1)), closed: false }, .. }
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=31 sent_bytes=10292 received_packets=29 received_bytes=9588 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=29 sent_bytes=9588 received_packets=31 received_bytes=10292 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 1.79s
+

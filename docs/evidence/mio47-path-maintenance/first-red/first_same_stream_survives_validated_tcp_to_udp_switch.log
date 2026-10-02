@@ -1,0 +1,17 @@
+
+running 1 test
+test first_same_stream_survives_validated_tcp_to_udp_switch ... 
+thread 'first_same_stream_survives_validated_tcp_to_udp_switch' (2148063) panicked at tests/path_maintenance.rs:97:63:
+called `Result::unwrap()` on an `Err` value: Custom { kind: Other, error: "data path opening requires a restricted control connection" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=61 sent_bytes=22465 received_packets=59 received_bytes=21622 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=6 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=60 sent_bytes=21668 received_packets=58 received_bytes=22364 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+FAILED
+
+failures:
+
+failures:
+    first_same_stream_survives_validated_tcp_to_udp_switch
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.15s
+

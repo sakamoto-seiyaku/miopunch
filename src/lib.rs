@@ -1,6 +1,7 @@
 pub mod admission_gate;
 pub mod admission_proof;
 pub mod admission_rotation;
+pub mod connection_recovery;
 pub mod control_session;
 pub mod daily_management;
 pub mod genesis_recovery;
@@ -22,6 +23,7 @@ pub mod nat_scheduler;
 pub mod nat_selector;
 pub mod native_network;
 pub mod offline_replica;
+pub mod path_selection;
 pub mod precode;
 pub mod resources;
 mod tcp_observation;

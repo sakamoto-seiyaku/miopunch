@@ -1,0 +1,19 @@
+
+running 1 test
+test living_paths_are_reevaluated_when_real_latency_changes ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=25 received_bytes=10439 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=25 sent_bytes=10439 received_packets=27 received_bytes=10140 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_FIXTURE first=127.0.0.1:44604 second=127.0.0.1:45248 initial=PathList { snapshot: State { list: [PathData(0, custom:6d696f746370_7f000001ae3c)], selected: Some(PathId(0)), closed: false }, .. }
+MIO47_FIXTURE both_established=PathList { snapshot: State { list: [PathData(0, custom:6d696f746370_7f000001ae3c), PathData(1, custom:6d696f746370_7f000001b0c0)], selected: Some(PathId(0)), closed: false }, .. }
+MIO47_QUALITY before_wait paths=[(PathId(0), Custom(CustomAddr { id: 120299608892272, data: [7f000001ae3c] }), 172.281949ms, false), (PathId(1), Custom(CustomAddr { id: 120299608892272, data: [7f000001b0c0] }), 92.980028ms, true)]
+MIO47_QUALITY stable_ids=(126619327786208, 126619327251056) same_stream=true same_paths=true selected=[Custom(CustomAddr { id: 120299608892272, data: [7f000001b0c0] })]
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=62 sent_bytes=19504 received_packets=55 received_bytes=16789 closed=0 failed=0 cancelled=2 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=55 sent_bytes=16789 received_packets=61 received_bytes=19468 closed=0 failed=0 cancelled=2 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 3.68s
+

@@ -1,0 +1,28 @@
+{
+  "checks": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "mqtt_probe",
+        "wrong_identity_and_other_subscriber_cannot_get_control_or_plaintext",
+        "--",
+        "--exact",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 101,
+      "log": "run-0.log"
+    }
+  ],
+  "cleanup": {
+    "owned": "miopunch47-repro-1790934148342888848",
+    "exit": 0
+  }
+}

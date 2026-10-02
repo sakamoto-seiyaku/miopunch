@@ -1,0 +1,17 @@
+
+running 1 test
+test living_paths_are_reevaluated_when_real_latency_changes ... 
+thread 'living_paths_are_reevaluated_when_real_latency_changes' (2151445) panicked at tests/path_maintenance.rs:78:14:
+qualified path condition: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=68 sent_bytes=29359 received_packets=73 received_bytes=29903 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=6 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=73 sent_bytes=29903 received_packets=68 received_bytes=29359 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+FAILED
+
+failures:
+
+failures:
+    living_paths_are_reevaluated_when_real_latency_changes
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 6.53s
+

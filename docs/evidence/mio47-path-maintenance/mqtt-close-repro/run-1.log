@@ -1,0 +1,30 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.34s
+     Running tests/mqtt_probe.rs (target/debug/deps/mqtt_probe-2e5d50576a09c1d6)
+
+running 1 test
+test wrong_identity_and_other_subscriber_cannot_get_control_or_plaintext ... 
+thread 'wrong_identity_and_other_subscriber_cannot_get_control_or_plaintext' (2179358) panicked at tests/mqtt_probe.rs:68:5:
+server did not finish after control exchange
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    wrong_identity_and_other_subscriber_cannot_get_control_or_plaintext
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 3.37s
+
+error: test failed, to rerun pass `--test mqtt_probe`

@@ -1,0 +1,16 @@
+{
+  "build": {
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "test",
+      "--locked",
+      "--test",
+      "path_maintenance",
+      "--no-run",
+      "--message-format=json"
+    ],
+    "exit": 101
+  }
+}

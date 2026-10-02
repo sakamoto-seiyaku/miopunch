@@ -1,0 +1,20 @@
+
+running 1 test
+test living_paths_are_reevaluated_when_real_latency_changes ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=25 received_bytes=10436 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=25 sent_bytes=10436 received_packets=27 received_bytes=10140 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_FIXTURE first=127.0.0.1:45136 second=127.0.0.1:44676 initial=PathList { snapshot: State { list: [PathData(0, custom:6d696f746370_7f000001b050)], selected: Some(PathId(0)), closed: false }, .. }
+MIO47_FIXTURE both_established=PathList { snapshot: State { list: [PathData(0, custom:6d696f746370_7f000001b050), PathData(1, custom:6d696f746370_7f000001ae84)], selected: Some(PathId(0)), closed: false }, .. }
+MIO47_QUALITY before_wait paths=[(PathId(0), Custom(CustomAddr { id: 120299608892272, data: [7f000001b050] }), 300.357416ms, false), (PathId(1), Custom(CustomAddr { id: 120299608892272, data: [7f000001ae84] }), 277.025655ms, true)]
+MIO47_QUALITY stable_ids=(134089819380048, 134089818849744) same_stream=true same_paths=true selected=[Custom(CustomAddr { id: 120299608892272, data: [7f000001ae84] })]
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=66 sent_bytes=18348 received_packets=54 received_bytes=16633 closed=0 failed=0 cancelled=2 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=54 sent_bytes=16633 received_packets=64 received_bytes=18254 closed=0 failed=0 cancelled=2 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 3.76s
+

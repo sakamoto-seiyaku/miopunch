@@ -1,0 +1,45 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.37s
+     Running unittests src/lib.rs (target/debug/deps/miopunch_native_probe-439a4a227562994c)
+
+running 25 tests
+test admission_proof::tests::scram_sha256_matches_rfc_7677_server_verifier ... ok
+test management_store::tests::each_commit_boundary_recovers_from_disk_without_double_apply ... ok
+test nat_mapping::tests::bilateral_first_side_cannot_spend_a_third_datagram ... ok
+test nat_mapping::tests::bilateral_regular_branch_is_distinct_from_stable_and_single_regular ... ok
+test nat_mapping::tests::derives_stable_and_signed_steps_from_ordered_destinations ... ok
+test nat_mapping::tests::distinguishes_reversal_from_old_or_reused_evidence ... ok
+test nat_mapping::tests::fresh_irregular_evidence_is_distinct_from_missing_or_invalid_evidence ... ok
+test nat_mapping::tests::irregular_roles_and_targets_require_fresh_allocation_evidence ... ok
+test nat_mapping::tests::one_node_budget_cannot_be_refilled_by_a_second_attempt ... ok
+test nat_mapping::tests::selects_old_mode_one_roles_only_for_one_regular_and_one_stable ... ok
+test nat_punch::tests::incomplete_samples_keep_legacy_fallback_sender_target_preference ... ok
+test nat_selector::tests::all_six_scenes_preserve_complete_order_for_two_cycles ... ok
+test nat_selector::tests::all_thirty_parameter_pairs_match_the_executed_archived_go_oracle ... ok
+test nat_selector::tests::cache_reuses_port_changes_and_expires_only_after_two_idle_hours ... ok
+test nat_selector::tests::classification_matches_legacy_boundaries_ip_changes_and_public_detection ... ok
+test nat_selector::tests::easy_pair_recommends_every_behavior_in_insertion_order_before_repeating ... ok
+test nat_selector::tests::every_security_dimension_and_directed_feature_key_isolates_learning ... ok
+test nat_selector::tests::legacy_regular_feature_uses_spread_instead_of_signed_steps ... ok
+test nat_selector::tests::public_and_span_changes_reuse_existing_scene_and_opportunistic_clean_refreshes_activity ... ok
+test nat_selector::tests::public_preference_retains_c_priority_and_does_not_change_irregular_fallback ... ok
+test nat_selector::tests::role_adjustment_uses_current_c_feature_without_changing_mode_index ... ok
+test nat_selector::tests::scoring_is_unbounded_downward_success_adds_two_caps_ten_and_refreshes_unknown_index ... ok
+test native_network::tests::publishing_never_replaces_an_existing_empty_directory ... ok
+test tcp_transport::tests::dropping_endpoint_cancels_an_open_tcp_carrier ... ok
+test tcp_transport::tests::unread_inbound_queue_closes_in_bounded_time ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.49s
+

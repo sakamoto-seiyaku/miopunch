@@ -1,0 +1,30 @@
+{
+  "build": {
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "test",
+      "--locked",
+      "--test",
+      "path_maintenance",
+      "--no-run",
+      "--message-format=json"
+    ],
+    "exit": 0
+  },
+  "tests": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/path_maintenance-4e251ff6c7cd83ec",
+        "first_same_stream_survives_validated_tcp_to_udp_switch",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0
+    }
+  ]
+}

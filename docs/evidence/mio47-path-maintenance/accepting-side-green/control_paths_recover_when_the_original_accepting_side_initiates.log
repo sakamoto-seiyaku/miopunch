@@ -1,0 +1,35 @@
+
+running 1 test
+test control_paths_recover_when_the_original_accepting_side_initiates ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10141 received_packets=25 received_bytes=10407 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=25 sent_bytes=10407 received_packets=27 received_bytes=10141 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+MIO47_REVERSE_CONTROL_RESULT recovered=Ok(ConnectionPathRecovery { stable_id: 124452516315376, path: Custom(CustomAddr { id: 120299608892272, data: [7f000001aa82] }) }) served=Ok(())
+MIO47_REVERSE_CONTROL same_stream=true original_stable_ids=(124452516804992, 124452516315376) repaired_by=original_dialing_peer
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=39 sent_bytes=18395 received_packets=45 received_bytes=16416 closed=1 failed=12 cancelled=1 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE peer=127.0.0.1:43454 result=Connection refused (os error 111)
+TCP_TRAFFIC sent_packets=47 sent_bytes=16478 received_packets=39 received_bytes=18395 closed=2 failed=7 cancelled=0 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 6.26s
+

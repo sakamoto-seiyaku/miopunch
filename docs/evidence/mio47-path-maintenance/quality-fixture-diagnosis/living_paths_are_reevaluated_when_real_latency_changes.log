@@ -1,0 +1,19 @@
+
+running 1 test
+test living_paths_are_reevaluated_when_real_latency_changes ... MIO47_FIXTURE first=127.0.0.1:44818 second=127.0.0.1:44890 initial=PathList { snapshot: State { list: [PathData(0, custom:6d696f746370_7f000001b05c)], selected: Some(PathId(0)), closed: false }, .. }
+MIO47_FIXTURE both_established=PathList { snapshot: State { list: [PathData(0, custom:6d696f746370_7f000001b05c), PathData(1, custom:6d696f746370_7f000001af5a)], selected: Some(PathId(0)), closed: false }, .. }
+
+thread 'living_paths_are_reevaluated_when_real_latency_changes' (2151847) panicked at tests/path_maintenance.rs:78:37:
+qualified path condition: Elapsed(()); paths=[(PathId(0), Custom(CustomAddr { id: 120299608892272, data: [7f000001b05c] }), 83.30684ms, true), (PathId(1), Custom(CustomAddr { id: 120299608892272, data: [7f000001af5a] }), 108.539977ms, false)]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=62 sent_bytes=27852 received_packets=66 received_bytes=29685 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=66 sent_bytes=29685 received_packets=62 received_bytes=27852 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+FAILED
+
+failures:
+
+failures:
+    living_paths_are_reevaluated_when_real_latency_changes
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 6.46s
+

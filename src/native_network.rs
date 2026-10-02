@@ -42,6 +42,7 @@ const RESOURCE_CONFIGURATION: &str = "resources.json";
 fn network_protocols() -> Vec<Vec<u8>> {
     vec![
         crate::admission_gate::ADMISSION_REQUEST_ALPN.to_vec(),
+        crate::connection_recovery::CONNECTION_RECOVERY_ALPN.to_vec(),
         crate::network_recovery::RECOVERY_REPLICA_ALPN.to_vec(),
         crate::management_recovery::MANAGEMENT_RECOVERY_ALPN.to_vec(),
         crate::admission_rotation::ADMISSION_ROTATION_ALPN.to_vec(),

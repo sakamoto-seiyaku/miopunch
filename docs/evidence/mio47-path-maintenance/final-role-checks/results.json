@@ -1,0 +1,138 @@
+{
+  "checks": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "path_maintenance",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 0.414,
+      "log": "build.log",
+      "reported_passed": 0
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks"
+      ],
+      "exit": 0,
+      "seconds": 4.284,
+      "log": "all-targets.log",
+      "reported_passed": 0
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "exit": 0,
+      "seconds": 0.337,
+      "log": "wasm.log",
+      "reported_passed": 0
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "exit": 0,
+      "seconds": 0.656,
+      "log": "format.log",
+      "reported_passed": 0
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "rustfmt",
+        "--check",
+        "--edition",
+        "2024",
+        "--config",
+        "skip_children=true",
+        "vendor/iroh/src/endpoint.rs",
+        "vendor/iroh/src/socket.rs",
+        "vendor/iroh/src/socket/remote_map/remote_state.rs"
+      ],
+      "exit": 0,
+      "seconds": 0.124,
+      "log": "fork-format.log",
+      "reported_passed": 0
+    }
+  ],
+  "passed": true,
+  "brokers": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        "miopunch47-maintenance-1790936062219420010",
+        "--publish",
+        "127.0.0.1::1883",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/scripts/mosquitto-test.conf,target=/mosquitto/config/mosquitto.conf,readonly",
+        "eclipse-mosquitto:2"
+      ],
+      "owned": "miopunch47-maintenance-1790936062219420010",
+      "address": "127.0.0.1:43366"
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        "miopunch47-maintenance-1790936062681782514",
+        "--publish",
+        "127.0.0.1::1883",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/scripts/mosquitto-test.conf,target=/mosquitto/config/mosquitto.conf,readonly",
+        "eclipse-mosquitto:2"
+      ],
+      "owned": "miopunch47-maintenance-1790936062681782514",
+      "address": "127.0.0.1:43367"
+    }
+  ],
+  "cleanup": [
+    {
+      "owned": "miopunch47-maintenance-1790936062219420010",
+      "exit": 0
+    },
+    {
+      "owned": "miopunch47-maintenance-1790936062681782514",
+      "exit": 0
+    }
+  ]
+}

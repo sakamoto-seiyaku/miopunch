@@ -1,0 +1,32 @@
+
+running 1 test
+test control_paths_recover_when_the_original_accepting_side_initiates ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10141 received_packets=27 received_bytes=10482 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=27 sent_bytes=10482 received_packets=27 received_bytes=10141 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE peer=127.0.0.1:43936 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43936 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43936 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43936 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43936 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43936 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43936 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43936 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43936 result=Connection refused (os error 111)
+MIO47_REVERSE_CONTROL_RESULT recovered=Err(Retryable { stable_id: 138333984480128, cause: "bounded path repair timed out" }) served=Ok(())
+
+thread 'control_paths_recover_when_the_original_accepting_side_initiates' (2204215) panicked at tests/path_maintenance.rs:1261:31:
+called `Result::unwrap()` on an `Err` value: Retryable { stable_id: 138333984480128, cause: "bounded path repair timed out" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=24 sent_bytes=10053 received_packets=21 received_bytes=8894 closed=1 failed=5 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=23 sent_bytes=8956 received_packets=24 received_bytes=10053 closed=1 failed=4 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+FAILED
+
+failures:
+
+failures:
+    control_paths_recover_when_the_original_accepting_side_initiates
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 12 filtered out; finished in 5.00s
+

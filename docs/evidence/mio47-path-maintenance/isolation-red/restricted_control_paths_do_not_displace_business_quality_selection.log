@@ -1,0 +1,27 @@
+
+running 1 test
+test restricted_control_paths_do_not_displace_business_quality_selection ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10141 received_packets=26 received_bytes=10464 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=26 sent_bytes=10464 received_packets=27 received_bytes=10141 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+MQTT_BOOTSTRAP_START stable_id=123342334028480 peer=41a5b5d9172dc94e3ffad3bd2c17760eb1b4e21abb751c186bcc8dd6cd1b093d
+MQTT_BOOTSTRAP_START stable_id=123342334165872 peer=0606a6cb4efc07619280004b513912c0c41fc3d65aa21f587ad521a3457889c4
+MQTT_BOOTSTRAP_FAILED stable_id=123342334028480 error=no mutually permitted data path capability
+MQTT_BOOTSTRAP_FAILED stable_id=123342334165872 error=read error: connection lost
+
+thread 'restricted_control_paths_do_not_displace_business_quality_selection' (2155824) panicked at tests/path_maintenance.rs:89:14:
+called `Result::unwrap()` on an `Err` value: TemporarilyUnreachable { retry_after: 1s, cause: Some("Connection was rejected locally") }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+FAILED
+
+failures:
+
+failures:
+    restricted_control_paths_do_not_displace_business_quality_selection
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 1.47s
+

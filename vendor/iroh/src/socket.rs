@@ -1526,11 +1526,21 @@ impl EndpointInner {
         conn_id: usize,
         addr: iroh_base::CustomAddr,
     ) -> io::Result<()> {
+        self.open_admitted_data_path(remote, conn_id, iroh_base::TransportAddr::Custom(addr))
+            .await
+    }
+
+    pub(crate) async fn open_admitted_data_path(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        addr: iroh_base::TransportAddr,
+    ) -> io::Result<()> {
         let (tx, rx) = oneshot::channel();
         self.sock
             .try_send_remote_state_msg(
                 remote,
-                RemoteStateMessage::TestOpenAdmittedCustomPath {
+                RemoteStateMessage::OpenAdmittedDataPath {
                     conn_id,
                     remote: addr,
                     tx,
@@ -1539,7 +1549,16 @@ impl EndpointInner {
             .map_err(|_| io::Error::other("remote state unavailable"))?;
         rx.await
             .map_err(|_| io::Error::other("remote state stopped"))?
-            .map_err(io::Error::other)
+            .map_err(|error| {
+                io::Error::new(
+                    if error == remote_map::PATH_IDENTIFIERS_UNAVAILABLE {
+                        io::ErrorKind::WouldBlock
+                    } else {
+                        io::ErrorKind::Other
+                    },
+                    error,
+                )
+            })
     }
 
     #[cfg(feature = "miopunch-test-hooks")]
