@@ -1,0 +1,273 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: variable does not need to be mutable
+   --> tests/path_maintenance.rs:131:20
+    |
+131 |     async fn close(mut self) {
+    |                    ----^^^^
+    |                    |
+    |                    help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: `miopunch-native-probe` (test "path_maintenance") generated 1 warning (run `cargo fix --test "path_maintenance" -p miopunch-native-probe` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.90s
+     Running tests/path_maintenance.rs (target/debug/deps/path_maintenance-7a9e7123518a4d04)
+
+running 14 tests
+test control_paths_do_not_report_stale_same_address_as_recovered ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10172 received_packets=27 received_bytes=10489 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10489 received_packets=28 received_bytes=10172 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE peer=127.0.0.1:44374 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:44374 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44374 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:44374 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:44374 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44374 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:44374 result=Connection refused (os error 111)
+MIO47_SAME_ADDRESS result=Err(Retryable { stable_id: 140062843778800, cause: "bounded path repair timed out" }) served=Ok(()) control_contacted=true
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:44374 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44374 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:44374 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:44374 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:44374 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:44374 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:44374 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+TCP_CLOSE peer=127.0.0.1:44374 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=early eof
+MIO47_SAME_ADDRESS_FINAL original=140062843778800 close=LocallyClosed retryable_then_terminal=true false_success=false
+TCP_TRAFFIC sent_packets=31 sent_bytes=10296 received_packets=22 received_bytes=8947 closed=1 failed=28 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=22 sent_bytes=8947 received_packets=31 received_bytes=10296 closed=0 failed=0 cancelled=14 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test control_paths_never_recover_a_closed_business_connection ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=27 received_bytes=10488 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10488 received_packets=27 received_bytes=10140 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_CLOSED_WITH_CONTROL old=140062844260624 new=140062843679728 terminal=true control_alive=true old_stream_failed=true
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=59 sent_bytes=20536 received_packets=52 received_bytes=19856 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=52 sent_bytes=19856 received_packets=59 received_bytes=20536 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test control_paths_recover_a_new_tcp_carrier_within_the_original_connection_window ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10172 received_packets=26 received_bytes=10443 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=26 sent_bytes=10443 received_packets=28 received_bytes=10172 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+MIO47_CONTROL_RESULT recovered=Ok(ConnectionPathRecovery { stable_id: 140062843348864, path: Custom(CustomAddr { id: 120299608892272, data: [7f000001ae5c] }) }) served=Ok(())
+MIO47_CONTROL_RECOVERY stable_ids=(140062843348864, 140062843205088) same_stream=true new_carrier=Custom(CustomAddr { id: 120299608892272, data: [7f000001ae5c] }) elapsed_ms=570
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=36 sent_bytes=16889 received_packets=43 received_bytes=14925 closed=1 failed=12 cancelled=1 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE peer=127.0.0.1:44752 result=Connection refused (os error 111)
+TCP_TRAFFIC sent_packets=45 sent_bytes=14987 received_packets=36 received_bytes=16889 closed=2 failed=8 cancelled=0 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test control_paths_recover_when_the_original_accepting_side_initiates ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=25 received_bytes=10432 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=25 sent_bytes=10432 received_packets=27 received_bytes=10140 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+MIO47_REVERSE_CONTROL_RESULT recovered=Ok(ConnectionPathRecovery { stable_id: 140062844112368, path: Custom(CustomAddr { id: 120299608892272, data: [7f000001b0bc] }) }) served=Ok(())
+MIO47_REVERSE_CONTROL same_stream=true original_stable_ids=(140062843123024, 140062844112368) repaired_by=original_dialing_peer
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=46 sent_bytes=18620 received_packets=47 received_bytes=16478 closed=1 failed=9 cancelled=1 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE peer=127.0.0.1:43626 result=Connection refused (os error 111)
+TCP_TRAFFIC sent_packets=49 sent_bytes=16540 received_packets=46 received_bytes=18620 closed=2 failed=7 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test control_paths_reject_an_unknown_original_tls_binding_without_changing_business ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=27 received_bytes=10496 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=27 sent_bytes=10496 received_packets=27 received_bytes=10140 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_BINDING unknown_binding=rejected offered_candidates=0 original_business=usable stable_ids=(140062846145952, 140062843277056)
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=30 sent_bytes=10271 received_packets=27 received_bytes=9488 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=27 sent_bytes=9488 received_packets=30 received_bytes=10271 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test control_paths_stay_live_while_physical_business_loss_ends_queued_bytes ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10145 received_packets=26 received_bytes=10463 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=26 sent_bytes=10463 received_packets=27 received_bytes=10145 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+TCP_CLOSE peer=127.0.0.1:44218 result=Connection refused (os error 111)
+MIO47_PHYSICAL_TERMINAL old=140062844047872 new=140062844210544 close=LocallyClosed queued_bytes=65536 control_alive=true elapsed_ms=10477
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=65 sent_bytes=40534 received_packets=45 received_bytes=18121 closed=1 failed=5 cancelled=1 outbound_outstanding=0 outbound_peak=14 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=48 sent_bytes=18219 received_packets=51 received_bytes=20206 closed=2 failed=12 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test disabled_relay_is_never_opened_or_selected_even_with_explicit_relay_preference ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10176 received_packets=25 received_bytes=10415 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=25 sent_bytes=10415 received_packets=28 received_bytes=10176 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_DISABLED preference=PreferRelay actual_relay_accesses=0 relay_paths=0 TCP_stream=complete stable_ids=(140062843730960, 140062843016992)
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=32 sent_bytes=10328 received_packets=29 received_bytes=9559 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=29 sent_bytes=9559 received_packets=32 received_bytes=10328 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test explicit_direct_preference_wins_even_when_permitted_relay_is_faster ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=25 received_bytes=10438 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=25 sent_bytes=10438 received_packets=27 received_bytes=10140 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_PREFERENCE direct_rtt=241.92151ms relay_rtt=118.248907ms selected=TCP stable_ids=(140062843298416, 140062843493696)
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=48 sent_bytes=10930 received_packets=47 received_bytes=9775 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=47 sent_bytes=9775 received_packets=48 received_bytes=10930 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test explicit_relay_preference_switches_the_same_udp_stream_and_retains_udp_backup ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=25 received_bytes=10439 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=25 sent_bytes=10439 received_packets=27 received_bytes=10140 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_MATRIX UDP->Relay->UDP stable_ids=(140062843395792, 140062843493728) preference=PreferRelay same_stream=true content_complete=true
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test first_same_stream_survives_validated_tcp_to_udp_switch ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=26 received_bytes=10456 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=26 sent_bytes=10456 received_packets=27 received_bytes=10140 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_FIRST stable_ids=(140062844172336, 140062844205360) same_stream=true content_complete=true paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:46451)], selected: Some(PathId(1)), closed: false }, .. }
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10165 received_packets=27 received_bytes=9210 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=28 sent_bytes=9256 received_packets=27 received_bytes=10165 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test living_paths_are_reevaluated_when_real_latency_changes ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=27 received_bytes=10504 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=27 sent_bytes=10504 received_packets=27 received_bytes=10140 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_FIXTURE first=127.0.0.1:45144 second=127.0.0.1:44836 initial=PathList { snapshot: State { list: [PathData(0, custom:6d696f746370_7f000001b058)], selected: Some(PathId(0)), closed: false }, .. }
+MIO47_FIXTURE both_established=PathList { snapshot: State { list: [PathData(0, custom:6d696f746370_7f000001b058), PathData(1, custom:6d696f746370_7f000001af24)], selected: Some(PathId(0)), closed: false }, .. }
+MIO47_QUALITY before_wait paths=[(PathId(0), Custom(CustomAddr { id: 120299608892272, data: [7f000001b058] }), 304.436719ms, false), (PathId(1), Custom(CustomAddr { id: 120299608892272, data: [7f000001af24] }), 265.782103ms, true)]
+MIO47_QUALITY stable_ids=(140062843738480, 140062843458288) same_stream=true same_paths=true selected=[Custom(CustomAddr { id: 120299608892272, data: [7f000001af24] })]
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=65 sent_bytes=18304 received_packets=53 received_bytes=16590 closed=0 failed=0 cancelled=2 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=53 sent_bytes=16590 received_packets=63 received_bytes=18210 closed=0 failed=0 cancelled=2 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test priority_closed_connection_fails_old_stream_and_reports_new_identity ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=26 received_bytes=10449 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=26 sent_bytes=10449 received_packets=27 received_bytes=10140 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_PRIORITY old=(140062843900368, 140062843742832) new=(140062842999040, 140062843738480) old_stream_failed=true close=LocallyClosed
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=60 sent_bytes=20612 received_packets=53 received_bytes=19884 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=53 sent_bytes=19884 received_packets=60 received_bytes=20612 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test quality_selects_better_native_relay_and_keeps_tcp_as_existing_backup ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10174 received_packets=26 received_bytes=10452 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=26 sent_bytes=10452 received_packets=28 received_bytes=10174 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_RELAY_QUALITY before_cut=[(Custom(CustomAddr { id: 120299608892272, data: [7f000001aba8] }), 208.820625ms, false), (Relay(http://127.0.0.1:43536/), 1.826647ms, true)]
+MIO47_MATRIX TCP->Relay->TCP stable_ids=(140062844237472, 140062843863280) same_stream=true content_complete=true
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=42 sent_bytes=10896 received_packets=36 received_bytes=9531 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=36 sent_bytes=9531 received_packets=39 received_bytes=10757 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test restricted_control_paths_do_not_displace_business_quality_selection ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10172 received_packets=27 received_bytes=10496 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10496 received_packets=28 received_bytes=10172 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+MIO47_ISOLATION same_stream=true stable_ids=(140062844117888, 140062845077024) control_alive=true signaling_business_paths=0
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=72 sent_bytes=20097 received_packets=57 received_bytes=17129 closed=0 failed=0 cancelled=2 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=57 sent_bytes=17129 received_packets=69 received_bytes=19950 closed=0 failed=0 cancelled=2 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 68.54s
+

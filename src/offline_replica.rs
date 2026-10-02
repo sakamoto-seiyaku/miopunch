@@ -266,12 +266,6 @@ impl NativeNetwork {
                     .all(|path| matches!(path.remote_addr(), iroh::TransportAddr::Ip(_))))
     }
 
-    fn replica_provider_allowed(&self, connection: &Connection) -> bool {
-        self.replica_allowed(connection)
-            && (connection.alpn() != crate::network_recovery::RECOVERY_REPLICA_ALPN
-                || self.gate.allows_member_path_upgrade(connection))
-    }
-
     /// Serve the complete locally applied control history, including original
     /// author bodies and dependencies. Admission and data-path gates apply
     /// before emitting even the manifest; no private delivery tables are read.
@@ -296,93 +290,9 @@ impl NativeNetwork {
         connection: &Connection,
         records: &[ManagementRecord],
     ) -> Result<(), ReplicaError> {
-        let result = tokio::time::timeout(TIMEOUT, async {
-            if !self.replica_provider_allowed(connection) {
-                return Err(ReplicaError::Rejected);
-            }
-            let (snapshot, manifest) = Snapshot::from_records(self.anchor, records)?;
-            let (mut send, mut recv) = connection
-                .accept_bi()
-                .await
-                .map_err(|_| ReplicaError::Transport)?;
-            let mut request = [0; 4];
-            recv.read_exact(&mut request)
-                .await
-                .map_err(|_| ReplicaError::Transport)?;
-            if &request != b"REPL" {
-                return Err(ReplicaError::Rejected);
-            }
-            if !self.replica_provider_allowed(connection) {
-                return Err(ReplicaError::Rejected);
-            }
-            let bytes =
-                p2panda_core::cbor::encode_cbor(&manifest).map_err(|_| ReplicaError::Rejected)?;
-            if bytes.len() > MAX_BYTES {
-                return Err(ReplicaError::Rejected);
-            }
-            send.write_all(&(bytes.len() as u32).to_be_bytes())
-                .await
-                .map_err(|_| ReplicaError::Transport)?;
-            send.write_all(&bytes)
-                .await
-                .map_err(|_| ReplicaError::Transport)?;
-            let (events, mut received) =
-                broadcast::channel::<LogSyncEvent<ManagementExtension>>(MAX_RECORDS + 1);
-            let sync = LogSync::new(snapshot, manifest.logs, events);
-            let mut sink = FramedWrite::new(
-                send,
-                Codec::<LogSyncMessage<[u8; 16]>>::new().max_frame_len(MAX_BYTES),
-            );
-            let mut stream = FramedRead::new(
-                recv,
-                Codec::<LogSyncMessage<[u8; 16]>>::new().max_frame_len(MAX_BYTES),
-            );
-            sync.run(&mut sink, &mut stream)
-                .await
-                .map_err(|_| ReplicaError::Transport)?;
-            // This is a one-way replica fetch, not an unsolicited publish route.
-            while let Ok(event) = received.try_recv() {
-                if matches!(event, LogSyncEvent::OperationReceived { .. }) {
-                    return Err(ReplicaError::Rejected);
-                }
-            }
-            // Wire Done only describes LogSync. Keep this actual Connection
-            // alive until the receiver has drained its durable consumer.
-            let buffered = stream.read_buffer().clone();
-            let mut receipt_stream = FramedRead::new(
-                stream.into_inner(),
-                Codec::<Receipt>::new().max_frame_len(64),
-            );
-            receipt_stream
-                .read_buffer_mut()
-                .extend_from_slice(&buffered);
-            let receipt = receipt_stream
-                .next()
-                .await
-                .ok_or(ReplicaError::Transport)?
-                .map_err(|_| ReplicaError::Transport)?;
-            if !receipt.records_saved {
-                return Err(ReplicaError::Rejected);
-            }
-            if connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN {
-                let mut acknowledgement =
-                    FramedWrite::new(sink.into_inner(), Codec::<Receipt>::new().max_frame_len(64));
-                acknowledgement
-                    .send(Receipt {
-                        records_saved: true,
-                        view_applied: receipt.view_applied,
-                    })
-                    .await
-                    .map_err(|_| ReplicaError::Transport)?;
-            }
-            Ok(())
-        })
-        .await
-        .unwrap_or(Err(ReplicaError::Transport));
-        if result.is_err() {
-            connection.close(0u32.into(), b"replica rejected");
-        }
-        result
+        ReplicaProvider::new(self, records.to_vec())
+            .serve(connection)
+            .await
     }
 
     /// Consume real LogSync OperationReceived events through complete-record
@@ -463,6 +373,149 @@ impl NativeNetwork {
             }
             Ok(outcome)
         }).await.unwrap_or(Err(ReplicaError::Transport));
+        if result.is_err() {
+            connection.close(0u32.into(), b"replica rejected");
+        }
+        result
+    }
+}
+
+/// Immutable applied history for concurrently serving while the node's durable
+/// consumer runs. The live gate is shared and rechecked at every release.
+#[derive(Clone)]
+pub(crate) struct ReplicaProvider {
+    anchor: NetworkAnchor,
+    gate: crate::admission_gate::AdmissionGate,
+    records: Arc<Vec<ManagementRecord>>,
+}
+impl ReplicaProvider {
+    pub(crate) fn new(node: &NativeNetwork, records: Vec<ManagementRecord>) -> Self {
+        Self {
+            anchor: node.anchor,
+            gate: node.gate.clone(),
+            records: Arc::new(records),
+        }
+    }
+    pub(crate) async fn serve(&self, connection: &Connection) -> Result<(), ReplicaError> {
+        self.serve_records(connection, &self.records, None).await
+    }
+    pub(crate) async fn serve_stream(
+        &self,
+        connection: &Connection,
+        streams: (iroh::endpoint::SendStream, iroh::endpoint::RecvStream),
+    ) -> Result<(), ReplicaError> {
+        self.serve_records(connection, &self.records, Some(streams))
+            .await
+    }
+    fn replica_allowed(&self, connection: &Connection) -> bool {
+        (connection.alpn() == REPLICA_ALPN && self.gate.allows(connection, ProtocolScope::Member))
+            || (connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN
+                && self.gate.allows(connection, ProtocolScope::Bootstrap)
+                && !connection.paths().is_empty()
+                && connection
+                    .paths()
+                    .iter()
+                    .all(|path| matches!(path.remote_addr(), iroh::TransportAddr::Ip(_))))
+    }
+
+    fn replica_provider_allowed(&self, connection: &Connection) -> bool {
+        self.replica_allowed(connection)
+            && (connection.alpn() != crate::network_recovery::RECOVERY_REPLICA_ALPN
+                || self.gate.allows_member_path_upgrade(connection))
+    }
+
+    async fn serve_records(
+        &self,
+        connection: &Connection,
+        records: &[ManagementRecord],
+        streams: Option<(iroh::endpoint::SendStream, iroh::endpoint::RecvStream)>,
+    ) -> Result<(), ReplicaError> {
+        let result = tokio::time::timeout(TIMEOUT, async {
+            if !self.replica_provider_allowed(connection) {
+                return Err(ReplicaError::Rejected);
+            }
+            let (snapshot, manifest) = Snapshot::from_records(self.anchor, records)?;
+            let (mut send, mut recv) = match streams {
+                Some(streams) => streams,
+                None => connection
+                    .accept_bi()
+                    .await
+                    .map_err(|_| ReplicaError::Transport)?,
+            };
+            let mut request = [0; 4];
+            recv.read_exact(&mut request)
+                .await
+                .map_err(|_| ReplicaError::Transport)?;
+            if &request != b"REPL" {
+                return Err(ReplicaError::Rejected);
+            }
+            if !self.replica_provider_allowed(connection) {
+                return Err(ReplicaError::Rejected);
+            }
+            let bytes =
+                p2panda_core::cbor::encode_cbor(&manifest).map_err(|_| ReplicaError::Rejected)?;
+            if bytes.len() > MAX_BYTES {
+                return Err(ReplicaError::Rejected);
+            }
+            send.write_all(&(bytes.len() as u32).to_be_bytes())
+                .await
+                .map_err(|_| ReplicaError::Transport)?;
+            send.write_all(&bytes)
+                .await
+                .map_err(|_| ReplicaError::Transport)?;
+            let (events, mut received) =
+                broadcast::channel::<LogSyncEvent<ManagementExtension>>(MAX_RECORDS + 1);
+            let sync = LogSync::new(snapshot, manifest.logs, events);
+            let mut sink = FramedWrite::new(
+                send,
+                Codec::<LogSyncMessage<[u8; 16]>>::new().max_frame_len(MAX_BYTES),
+            );
+            let mut stream = FramedRead::new(
+                recv,
+                Codec::<LogSyncMessage<[u8; 16]>>::new().max_frame_len(MAX_BYTES),
+            );
+            sync.run(&mut sink, &mut stream)
+                .await
+                .map_err(|_| ReplicaError::Transport)?;
+            // This is a one-way replica fetch, not an unsolicited publish route.
+            while let Ok(event) = received.try_recv() {
+                if matches!(event, LogSyncEvent::OperationReceived { .. }) {
+                    return Err(ReplicaError::Rejected);
+                }
+            }
+            // Wire Done only describes LogSync. Keep this actual Connection
+            // alive until the receiver has drained its durable consumer.
+            let buffered = stream.read_buffer().clone();
+            let mut receipt_stream = FramedRead::new(
+                stream.into_inner(),
+                Codec::<Receipt>::new().max_frame_len(64),
+            );
+            receipt_stream
+                .read_buffer_mut()
+                .extend_from_slice(&buffered);
+            let receipt = receipt_stream
+                .next()
+                .await
+                .ok_or(ReplicaError::Transport)?
+                .map_err(|_| ReplicaError::Transport)?;
+            if !receipt.records_saved {
+                return Err(ReplicaError::Rejected);
+            }
+            if connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN {
+                let mut acknowledgement =
+                    FramedWrite::new(sink.into_inner(), Codec::<Receipt>::new().max_frame_len(64));
+                acknowledgement
+                    .send(Receipt {
+                        records_saved: true,
+                        view_applied: receipt.view_applied,
+                    })
+                    .await
+                    .map_err(|_| ReplicaError::Transport)?;
+            }
+            Ok(())
+        })
+        .await
+        .unwrap_or(Err(ReplicaError::Transport));
         if result.is_err() {
             connection.close(0u32.into(), b"replica rejected");
         }

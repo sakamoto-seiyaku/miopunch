@@ -1,0 +1,215 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.51s
+     Running tests/member_relay.rs (target/debug/deps/member_relay-7d1673e5edd1512a)
+
+running 14 tests
+test an_inner_member_relay_connection_cannot_be_used_as_another_relay_outer_link ... TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10175 received_packets=24 received_bytes=10411 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=24 sent_bytes=10411 received_packets=28 received_bytes=10175 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10176 received_packets=27 received_bytes=11181 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=28 sent_bytes=11225 received_packets=28 received_bytes=10176 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MEMBER_DATA_ONE_HOP_PASS nested_circuit_denied=true original_business_alive=true
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=68 sent_bytes=22649 received_packets=70 received_bytes=20454 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=8 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=143 sent_bytes=42120 received_packets=140 received_bytes=44126 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=72 sent_bytes=21477 received_packets=73 received_bytes=21666 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test b_has_separate_outer_tls_keys_and_cannot_substitute_the_inner_endpoint_identity ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10173 received_packets=28 received_bytes=10513 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=28 sent_bytes=10513 received_packets=28 received_bytes=10173 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10144 received_packets=27 received_bytes=11173 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=27 sent_bytes=11173 received_packets=27 received_bytes=10144 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+MEMBER_DATA_SECURITY_PASS real_ac_tls_identity=true inner_exporter_distinct_from_b_outer_sessions=true forged_target_rejected=true opaque_forwarding_observed=true
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=131 sent_bytes=26322 received_packets=125 received_bytes=26874 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=259 sent_bytes=52228 received_packets=267 received_bytes=54284 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=136 sent_bytes=27962 received_packets=134 received_bytes=25354 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test disabling_data_relay_stops_new_forwarding_and_the_only_inner_path_fails ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10176 received_packets=27 received_bytes=10496 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=28 sent_bytes=10540 received_packets=28 received_bytes=10176 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10182 received_packets=28 received_bytes=11203 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=28 sent_bytes=11203 received_packets=28 received_bytes=10182 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MEMBER_DATA_PRIORITY_PASS disabled_routes=0 inner_original_failed=true outer_links_alive=true signal_business_fallback=false
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=120 sent_bytes=24758 received_packets=117 received_bytes=22275 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=229 sent_bytes=46051 received_packets=234 received_bytes=47598 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=114 sent_bytes=22840 received_packets=112 received_bytes=23776 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test disabling_member_relay_keeps_the_original_connection_and_stream_on_an_allowed_backup ... TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10172 received_packets=26 received_bytes=10455 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=26 sent_bytes=10455 received_packets=28 received_bytes=10172 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10141 received_packets=25 received_bytes=11108 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=25 sent_bytes=11108 received_packets=27 received_bytes=10141 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MEMBER_DATA_BACKUP_PASS original_ids_unchanged=true same_stream=true retired_member_candidate=true
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=80 sent_bytes=23649 received_packets=74 received_bytes=20096 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=152 sent_bytes=42606 received_packets=159 received_bytes=45162 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=79 sent_bytes=21513 received_packets=78 received_bytes=22510 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test disconnected_b_keeps_the_original_connection_and_stream_on_an_allowed_backup ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10144 received_packets=26 received_bytes=10459 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=26 sent_bytes=10459 received_packets=27 received_bytes=10144 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10141 received_packets=26 received_bytes=11120 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=26 sent_bytes=11120 received_packets=27 received_bytes=10141 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+MEMBER_DATA_BACKUP_PASS original_ids_unchanged=true same_stream=true retired_member_candidate=true
+TCP_TRAFFIC sent_packets=76 sent_bytes=23515 received_packets=75 received_bytes=20534 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=151 sent_bytes=43277 received_packets=152 received_bytes=44935 closed=0 failed=0 cancelled=2 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=76 sent_bytes=21420 received_packets=76 received_bytes=22743 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test expired_data_routes_cannot_revive_after_reenabling_the_service ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=27 received_bytes=10475 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=27 sent_bytes=10475 received_packets=27 received_bytes=10140 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=25 received_bytes=11088 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=25 sent_bytes=11088 received_packets=27 received_bytes=10140 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+MEMBER_DATA_EXPIRY_PASS stale_route_rejected=true no_implicit_reregistration=true outer_link_alive=true
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=52 sent_bytes=10965 received_packets=51 received_bytes=9866 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=101 sent_bytes=20092 received_packets=105 received_bytes=21947 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=53 sent_bytes=10982 received_packets=50 received_bytes=10226 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test explicit_consumer_data_relay_restriction_blocks_the_route_at_actual_send ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10142 received_packets=27 received_bytes=10481 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=27 sent_bytes=10481 received_packets=27 received_bytes=10142 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=25 received_bytes=11088 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=25 sent_bytes=11088 received_packets=27 received_bytes=10140 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+MEMBER_DATA_RESOURCE_PASS explicit_candidate_denied=true b_forwarded_datagrams=0 outer_link_alive=true
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=53 sent_bytes=11010 received_packets=51 received_bytes=10264 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=100 sent_bytes=20467 received_packets=104 received_bytes=21932 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=51 sent_bytes=10922 received_packets=49 received_bytes=10203 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test explicitly_enabled_member_relay_carries_a_real_end_to_end_business_session ... TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10172 received_packets=27 received_bytes=10488 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=27 sent_bytes=10488 received_packets=28 received_bytes=10172 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=26 received_bytes=11143 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=26 sent_bytes=11143 received_packets=27 received_bytes=10140 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MEMBER_DATA_FIRST_PASS real_ac_tls=true ac_business_via_b=true
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=68 sent_bytes=22136 received_packets=68 received_bytes=20658 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=138 sent_bytes=41767 received_packets=139 received_bytes=43549 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=71 sent_bytes=21413 received_packets=70 received_bytes=21109 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test forged_destinations_and_retired_tokens_cannot_redirect_member_data ... TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10142 received_packets=26 received_bytes=10470 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=26 sent_bytes=10470 received_packets=27 received_bytes=10142 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=26 received_bytes=11152 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=26 sent_bytes=11152 received_packets=27 received_bytes=10140 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MEMBER_DATA_ROUTE_PASS unknown_destination_forwarded=0 retired_registration_rejected=true source_bound_to_outer_peer=true
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=34 sent_bytes=10429 received_packets=33 received_bytes=9287 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=61 sent_bytes=18818 received_packets=65 received_bytes=20716 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=31 sent_bytes=10287 received_packets=28 received_bytes=9531 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test interrupted_member_circuit_keeps_the_original_ac_stream_on_an_allowed_backup ... TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10141 received_packets=25 received_bytes=10441 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=25 sent_bytes=10441 received_packets=27 received_bytes=10141 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10179 received_packets=27 received_bytes=11193 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=27 sent_bytes=11193 received_packets=28 received_bytes=10179 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MEMBER_DATA_BACKUP_PASS original_ids_unchanged=true same_stream=true retired_member_candidate=true
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=83 sent_bytes=24977 received_packets=79 received_bytes=20523 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=162 sent_bytes=44580 received_packets=173 received_bytes=47529 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=8 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=90 sent_bytes=22552 received_packets=83 received_bytes=24057 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test live_signaling_service_never_becomes_business_fallback_when_b_disables_data_relay ... TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10172 received_packets=27 received_bytes=10510 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=27 sent_bytes=10510 received_packets=28 received_bytes=10172 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=25 received_bytes=11118 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=25 sent_bytes=11118 received_packets=27 received_bytes=10140 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MEMBER_BOOTSTRAP_START stable_id=135609566151536 peer=38f180c0b798d9cfe06a9b7055269fef4ff310c2810e9984d895bdc9e34c824e
+MEMBER_BOOTSTRAP_START stable_id=135609568274160 peer=20602184e870e3154242a5c686552a072f04ae9555ae962e4b58040de2c74c95
+MEMBER_BOOTSTRAP_FAILED stable_id=135609566151536 error=no mutually permitted data path capability
+MEMBER_BOOTSTRAP_FAILED stable_id=135609568274160 error=read error: connection lost
+MEMBER_DATA_SIGNAL_ISOLATION_PASS live_signaling_routes=2 queued_business_on_signal=0 restricted_attempt_reachable=true business_release=false
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=141 sent_bytes=37556 received_packets=142 received_bytes=33681 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=272 sent_bytes=69918 received_packets=276 received_bytes=72096 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=3 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=135 sent_bytes=34540 received_packets=130 received_bytes=36237 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test malformed_and_over_budget_member_frames_have_bounded_forwarding ... TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=27 received_bytes=10494 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=27 sent_bytes=10494 received_packets=27 received_bytes=10140 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10147 received_packets=24 received_bytes=11076 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=24 sent_bytes=11076 received_packets=27 received_bytes=10147 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+MEMBER_DATA_BOUNDS_PASS rate_drops_observed=true unknown_target_forwarded=0 oversized_frame_rejected=true member_link_alive=true queue_bound=64 datagram_bound=2048 active_links_bound=16
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=3018 sent_bytes=4338041 received_packets=1525 received_bytes=59158 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=14 inbound_outstanding=0 inbound_peak=14 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=1555 sent_bytes=68352 received_packets=3049 received_bytes=4348329 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=26 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=31 sent_bytes=10288 received_packets=30 received_bytes=9194 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test ordinary_member_data_service_is_disabled_by_default_and_bootstrap_is_insufficient ... TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10140 received_packets=25 received_bytes=10430 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=25 sent_bytes=10430 received_packets=27 received_bytes=10140 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10149 received_packets=25 received_bytes=11105 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=25 sent_bytes=11105 received_packets=27 received_bytes=10149 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MEMBER_DATA_DEFAULT_PASS explicit_consent_required=true bootstrap_cannot_relay=true ordinary_b=true
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=57 sent_bytes=20429 received_packets=55 received_bytes=19969 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=83 sent_bytes=29096 received_packets=87 received_bytes=30684 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=30 sent_bytes=10255 received_packets=28 received_bytes=9127 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test removing_b_retires_its_routes_and_preserves_the_original_ac_stream_on_an_allowed_backup ... TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10141 received_packets=26 received_bytes=10464 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=26 sent_bytes=10464 received_packets=27 received_bytes=10141 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=28 sent_bytes=10172 received_packets=26 received_bytes=11114 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=26 sent_bytes=11114 received_packets=28 received_bytes=10172 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+MEMBER_DATA_BACKUP_PASS original_ids_unchanged=true same_stream=true retired_member_candidate=true
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=85 sent_bytes=25135 received_packets=81 received_bytes=22663 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=165 sent_bytes=47050 received_packets=171 received_bytes=48670 closed=0 failed=0 cancelled=2 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=86 sent_bytes=23535 received_packets=84 received_bytes=24387 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=7 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 129.60s
+

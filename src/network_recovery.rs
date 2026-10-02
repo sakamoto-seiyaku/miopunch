@@ -8,6 +8,7 @@ use crate::{
     offline_replica::{ReplicaError, ReplicaOutcome},
     resources::ResourceEndpoint,
 };
+use futures_util::StreamExt;
 use iroh::{EndpointAddr, TransportAddr, endpoint::Connection};
 use std::{
     net::{Ipv4Addr, SocketAddr},
@@ -50,8 +51,8 @@ async fn broker_address(resource: &iroh::RelayUrl) -> std::io::Result<SocketAddr
     .ok_or_else(|| std::io::Error::other("MQTT IPv4 profile unavailable"))
 }
 
-async fn commit_ip(
-    resources: &ResourceEndpoint,
+pub(crate) async fn commit_ip(
+    endpoint: &iroh::Endpoint,
     connection: &Connection,
 ) -> Result<(), ReplicaError> {
     tokio::time::timeout(PATH_TIMEOUT, async {
@@ -68,11 +69,24 @@ async fn commit_ip(
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
-        resources
-            .endpoint()
+        endpoint
             .commit_data_path(connection)
             .await
-            .map_err(|_| ReplicaError::Transport)
+            .map_err(|_| ReplicaError::Transport)?;
+        // Committing installs the packet gate synchronously, but the public
+        // path snapshot follows QUIC's path events. Wait for that observation
+        // before the replica consumer applies its IP-only history boundary.
+        let mut paths = connection.paths_stream();
+        while let Some(paths) = paths.next().await {
+            if !paths.is_empty()
+                && paths
+                    .iter()
+                    .all(|path| matches!(path.remote_addr(), TransportAddr::Ip(_)))
+            {
+                return Ok(());
+            }
+        }
+        Err(ReplicaError::Transport)
     })
     .await
     .unwrap_or(Err(ReplicaError::Transport))
@@ -144,6 +158,61 @@ impl NativeNetwork {
         {
             return RecoveryStatus::Waiting;
         }
+        let candidates = self.discover_recovery_candidates(resources).await;
+        let mut pending = None;
+        for candidate in candidates {
+            let target = EndpointAddr::new(candidate.id).with_addrs([TransportAddr::Custom(
+                iroh_base::CustomAddr::from_parts(TRANSPORT_ID, &candidate.route),
+            )]);
+            resources.remember(target.clone());
+            let Ok(connection) = resources.connect(target, RECOVERY_REPLICA_ALPN).await else {
+                continue;
+            };
+            let result = async {
+                if !self.gate.allows(&connection, ProtocolScope::Bootstrap) {
+                    return Err(ReplicaError::Rejected);
+                }
+                resources
+                    .endpoint()
+                    .open_data_path(&connection, candidate.udp_addr.into())
+                    .await
+                    .map_err(|_| ReplicaError::Transport)?;
+                commit_ip(resources.endpoint(), &connection).await?;
+                let outcome = self.sync_replica(&connection).await?;
+                if outcome.complete() && !self.gate.allows_member_path_upgrade(&connection) {
+                    return Err(ReplicaError::Rejected);
+                }
+                Ok(outcome)
+            }
+            .await;
+            connection.close(0u32.into(), b"startup replica exchange ended");
+            if let Ok(outcome) = result {
+                if !outcome.complete() {
+                    pending = Some(outcome);
+                    continue;
+                }
+                // The authenticated physical path replaces temporary carrier
+                // routing in the same endpoint address book for ordinary dials.
+                resources.remember(
+                    EndpointAddr::new(candidate.id).with_ip_addr(candidate.udp_addr.into()),
+                );
+                return RecoveryStatus::Ready(outcome);
+            }
+            resources.contact_failed(candidate.id);
+        }
+        pending
+            .map(RecoveryStatus::WaitingForDependencies)
+            .unwrap_or(RecoveryStatus::Waiting)
+    }
+
+    /// Qualified hints for the single node-level maintenance coordinator.
+    pub(crate) async fn discover_recovery_candidates(
+        &self,
+        resources: &ResourceEndpoint,
+    ) -> Vec<TaggedCandidate> {
+        if !resources.recovery_udp_allowed() || self.secret.is_none() {
+            return Vec::new();
+        }
         let queries = resources.recovery_origins().into_iter().map(|resource| {
             let scope = self.scope.clone();
             async move {
@@ -175,50 +244,7 @@ impl NativeNetwork {
                 }
             }
         }
-        let mut pending = None;
-        for candidate in candidates {
-            let target = EndpointAddr::new(candidate.id).with_addrs([TransportAddr::Custom(
-                iroh_base::CustomAddr::from_parts(TRANSPORT_ID, &candidate.route),
-            )]);
-            resources.remember(target.clone());
-            let Ok(connection) = resources.connect(target, RECOVERY_REPLICA_ALPN).await else {
-                continue;
-            };
-            let result = async {
-                if !self.gate.allows(&connection, ProtocolScope::Bootstrap) {
-                    return Err(ReplicaError::Rejected);
-                }
-                resources
-                    .endpoint()
-                    .open_data_path(&connection, candidate.udp_addr.into())
-                    .await
-                    .map_err(|_| ReplicaError::Transport)?;
-                commit_ip(resources, &connection).await?;
-                let outcome = self.sync_replica(&connection).await?;
-                if outcome.complete() && !self.gate.allows_member_path_upgrade(&connection) {
-                    return Err(ReplicaError::Rejected);
-                }
-                Ok(outcome)
-            }
-            .await;
-            connection.close(0u32.into(), b"startup replica exchange ended");
-            if let Ok(outcome) = result {
-                if !outcome.complete() {
-                    pending = Some(outcome);
-                    continue;
-                }
-                // The authenticated physical path replaces temporary carrier
-                // routing in the same endpoint address book for ordinary dials.
-                resources.remember(
-                    EndpointAddr::new(candidate.id).with_ip_addr(candidate.udp_addr.into()),
-                );
-                return RecoveryStatus::Ready(outcome);
-            }
-            resources.contact_failed(candidate.id);
-        }
-        pending
-            .map(RecoveryStatus::WaitingForDependencies)
-            .unwrap_or(RecoveryStatus::Waiting)
+        candidates
     }
 
     /// The online member's router handler. Secret possession is restricted
@@ -258,7 +284,7 @@ impl NativeNetwork {
             {
                 return Err(ReplicaError::Rejected);
             }
-            commit_ip(resources, connection).await?;
+            commit_ip(resources.endpoint(), connection).await?;
             self.serve_replica_records(connection, records).await?;
             // Retain the provider's handle until the receiver observes its final
             // acknowledgement and closes; dropping it earlier can discard ACK.

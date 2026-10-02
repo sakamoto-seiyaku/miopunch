@@ -1,0 +1,30 @@
+{
+  "checks": [
+    {
+      "name": "a_full_neighbor_budget_still_explores_a_new_source_without_requiring_full_mesh",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_maintenance",
+        "a_full_neighbor_budget_still_explores_a_new_source_without_requiring_full_mesh",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 101,
+      "seconds": 19.594,
+      "log": "a_full_neighbor_budget_still_explores_a_new_source_without_requiring_full_mesh.log"
+    }
+  ],
+  "passed": false,
+  "cleanup": [
+    {
+      "owned_container": "miopunch49-maintenance-1790945829388330751",
+      "exit": 0
+    }
+  ]
+}

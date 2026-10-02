@@ -1,0 +1,32 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.80s
+     Running tests/network_maintenance.rs (target/debug/deps/network_maintenance-54af2d701327e55c)
+
+running 1 test
+OBSERVED discovery_queries=4 first_gaps_ms=[3005, 3004, 3003]
+
+thread 'continuous_failure_backs_off_then_an_online_member_recovers_without_dial_storm' (2269880) panicked at tests/network_maintenance.rs:148:5:
+repeated real failed discovery must slow down instead of querying at a fixed interval
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test continuous_failure_backs_off_then_an_online_member_recovers_without_dial_storm ... FAILED
+
+failures:
+
+failures:
+    continuous_failure_backs_off_then_an_online_member_recovers_without_dial_storm
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 26.42s
+
+error: test failed, to rerun pass `--test network_maintenance`

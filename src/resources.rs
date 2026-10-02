@@ -75,6 +75,8 @@ pub struct ResourceConfig {
     pub disabled_tcp_addresses: BTreeSet<std::net::SocketAddr>,
     #[serde(default)]
     pub path_selection: crate::path_selection::PathSelectionPolicy,
+    #[serde(default)]
+    pub maintenance: crate::network_maintenance::MaintenancePolicy,
     /// Explicitly trusted configuration publisher, distinct from membership.
     #[serde(default)]
     pub trusted_update_key: Option<VerifyingKey>,
@@ -178,6 +180,7 @@ impl ResourceConfig {
             member_data_relay_disabled: false,
             disabled_tcp_addresses: BTreeSet::new(),
             path_selection: Default::default(),
+            maintenance: Default::default(),
             trusted_update_key: None,
         }
     }
@@ -417,6 +420,24 @@ struct ContactBackoff {
     failures: u32,
     retry_at: Option<Instant>,
     cause: Option<String>,
+    in_flight: bool,
+}
+
+struct ContactAttempt {
+    states: std::sync::Arc<std::sync::Mutex<BTreeMap<iroh::EndpointId, ContactBackoff>>>,
+    id: iroh::EndpointId,
+}
+impl Drop for ContactAttempt {
+    fn drop(&mut self) {
+        if let Some(state) = self
+            .states
+            .lock()
+            .expect("contact budget")
+            .get_mut(&self.id)
+        {
+            state.in_flight = false;
+        }
+    }
 }
 
 impl ContactBackoff {
@@ -450,7 +471,7 @@ pub struct ResourceEndpoint {
     endpoint: iroh::Endpoint,
     config: ResourceConfig,
     timeout: Duration,
-    backoff: BTreeMap<iroh::EndpointId, ContactBackoff>,
+    backoff: std::sync::Arc<std::sync::Mutex<BTreeMap<iroh::EndpointId, ContactBackoff>>>,
     pub(crate) contacts: iroh::address_lookup::memory::MemoryLookup,
     pub(crate) responders: Vec<tokio::task::JoinHandle<()>>,
 }
@@ -461,7 +482,7 @@ impl ResourceEndpoint {
             endpoint,
             config,
             timeout: Duration::from_secs(10),
-            backoff: BTreeMap::new(),
+            backoff: Default::default(),
             contacts: iroh::address_lookup::memory::MemoryLookup::new(),
             responders: Vec::new(),
         }
@@ -523,20 +544,35 @@ impl ResourceEndpoint {
     }
 
     pub async fn connect(
-        &mut self,
+        &self,
         mut target: iroh::EndpointAddr,
         alpn: &[u8],
     ) -> Result<iroh::endpoint::Connection, ResourceContactError> {
         let id = target.id;
-        if let Some(state) = self.backoff.get(&id)
-            && let Some(retry_at) = state.retry_at
-            && let Some(retry_after) = retry_at.checked_duration_since(Instant::now())
         {
-            return Err(ResourceContactError::TemporarilyUnreachable {
-                retry_after,
-                cause: state.cause.clone(),
-            });
+            let mut states = self.backoff.lock().expect("contact budget");
+            let state = states.entry(id).or_default();
+            if state.in_flight {
+                return Err(ResourceContactError::TemporarilyUnreachable {
+                    retry_after: self.timeout,
+                    cause: Some("contact attempt already in flight for this identity".into()),
+                });
+            }
+            if let Some(retry_after) = state
+                .retry_at
+                .and_then(|at| at.checked_duration_since(Instant::now()))
+            {
+                return Err(ResourceContactError::TemporarilyUnreachable {
+                    retry_after,
+                    cause: state.cause.clone(),
+                });
+            }
+            state.in_flight = true;
         }
+        let _attempt = ContactAttempt {
+            states: self.backoff.clone(),
+            id,
+        };
         target.addrs.retain(|addr| match addr {
             iroh::TransportAddr::Relay(url) => {
                 self.config.allows(url.as_str(), ResourceUse::DataRelay)
@@ -554,13 +590,23 @@ impl ResourceEndpoint {
         let cause =
             match tokio::time::timeout(self.timeout, self.endpoint.connect(target, alpn)).await {
                 Ok(Ok(connection)) => {
-                    self.backoff.remove(&id);
+                    let mut states = self.backoff.lock().expect("contact budget");
+                    let state = states.entry(id).or_default();
+                    state.failures = 0;
+                    state.retry_at = None;
+                    state.cause = None;
                     return Ok(connection);
                 }
                 Ok(Err(error)) => error.to_string(),
                 Err(_) => "bounded contact attempt timed out".to_owned(),
             };
-        Err(self.backoff.entry(id).or_default().failed(cause))
+        Err(self
+            .backoff
+            .lock()
+            .expect("contact budget")
+            .entry(id)
+            .or_default()
+            .failed(cause))
     }
 
     pub(crate) fn recovery_origins(&self) -> Vec<iroh::RelayUrl> {
@@ -576,14 +622,16 @@ impl ResourceEndpoint {
         !self.config.udp_direct_disabled
     }
 
-    pub(crate) fn contact_failed(&mut self, id: iroh::EndpointId) {
+    pub(crate) fn contact_failed(&self, id: iroh::EndpointId) {
         self.backoff
+            .lock()
+            .expect("contact budget")
             .entry(id)
             .or_default()
             .failed("candidate recovery did not complete".into());
     }
 
-    pub(crate) fn remember(&mut self, target: iroh::EndpointAddr) {
+    pub(crate) fn remember(&self, target: iroh::EndpointAddr) {
         if self
             .contacts
             .get_endpoint_info(target.id)
@@ -591,9 +639,27 @@ impl ResourceEndpoint {
             .as_ref()
             != Some(&target)
         {
-            self.backoff.remove(&target.id);
+            self.reset_contact(target.id);
         }
         self.contacts.set_endpoint_info(target);
+    }
+
+    pub(crate) fn reset_contact(&self, id: iroh::EndpointId) {
+        if let Some(state) = self.backoff.lock().expect("contact budget").get_mut(&id) {
+            state.failures = 0;
+            state.retry_at = None;
+            state.cause = None;
+        }
+    }
+
+    pub(crate) fn contact_ready(&self, id: iroh::EndpointId) -> bool {
+        self.backoff
+            .lock()
+            .expect("contact budget")
+            .get(&id)
+            .is_none_or(|state| {
+                !state.in_flight && state.retry_at.is_none_or(|at| at <= Instant::now())
+            })
     }
 
     pub async fn close(self) {

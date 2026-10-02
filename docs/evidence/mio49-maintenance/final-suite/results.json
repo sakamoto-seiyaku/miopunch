@@ -1,0 +1,463 @@
+{
+  "checks": [
+    {
+      "name": "startup_automatically_recovers_and_saves_history_without_business",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_maintenance",
+        "startup_automatically_recovers_and_saves_history_without_business",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 12.259,
+      "log": "startup_automatically_recovers_and_saves_history_without_business.log",
+      "reported_passed": 1
+    },
+    {
+      "name": "continuous_failure_backs_off_then_an_online_member_recovers_without_dial_storm",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_maintenance",
+        "continuous_failure_backs_off_then_an_online_member_recovers_without_dial_storm",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 22.414,
+      "log": "continuous_failure_backs_off_then_an_online_member_recovers_without_dial_storm.log",
+      "reported_passed": 1
+    },
+    {
+      "name": "a_new_contact_wakes_waiting_maintenance_and_verified_contact_survives_restart",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_maintenance",
+        "a_new_contact_wakes_waiting_maintenance_and_verified_contact_survives_restart",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 9.737,
+      "log": "a_new_contact_wakes_waiting_maintenance_and_verified_contact_survives_restart.log",
+      "reported_passed": 1
+    },
+    {
+      "name": "conservative_and_active_nodes_observe_distinct_frequency_and_concurrency_budgets",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_maintenance",
+        "conservative_and_active_nodes_observe_distinct_frequency_and_concurrency_budgets",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 12.968,
+      "log": "conservative_and_active_nodes_observe_distinct_frequency_and_concurrency_budgets.log",
+      "reported_passed": 1
+    },
+    {
+      "name": "real_business_has_priority_and_shared_identity_guard_prevents_duplicate_dials",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_maintenance",
+        "real_business_has_priority_and_shared_identity_guard_prevents_duplicate_dials",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 13.281,
+      "log": "real_business_has_priority_and_shared_identity_guard_prevents_duplicate_dials.log",
+      "reported_passed": 1
+    },
+    {
+      "name": "partial_links_propagate_new_signed_history_on_the_same_neighbor_session",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_maintenance",
+        "partial_links_propagate_new_signed_history_on_the_same_neighbor_session",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 4.445,
+      "log": "partial_links_propagate_new_signed_history_on_the_same_neighbor_session.log",
+      "reported_passed": 1
+    },
+    {
+      "name": "node_quality_budget_changes_actual_quic_probe_frequency",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_maintenance",
+        "node_quality_budget_changes_actual_quic_probe_frequency",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 10.197,
+      "log": "node_quality_budget_changes_actual_quic_probe_frequency.log",
+      "reported_passed": 1
+    },
+    {
+      "name": "active_budget_never_enables_disabled_lookup_or_forbidden_data_carriers",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_maintenance",
+        "active_budget_never_enables_disabled_lookup_or_forbidden_data_carriers",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 2.285,
+      "log": "active_budget_never_enables_disabled_lookup_or_forbidden_data_carriers.log",
+      "reported_passed": 1
+    },
+    {
+      "name": "stale_saved_contact_expands_to_discovery_and_recovers_an_unknown_member",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_maintenance",
+        "stale_saved_contact_expands_to_discovery_and_recovers_an_unknown_member",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 12.037,
+      "log": "stale_saved_contact_expands_to_discovery_and_recovers_an_unknown_member.log",
+      "reported_passed": 1
+    },
+    {
+      "name": "starting_business_does_not_abort_an_already_admitted_sync_exchange",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_maintenance",
+        "starting_business_does_not_abort_an_already_admitted_sync_exchange",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 2.511,
+      "log": "starting_business_does_not_abort_an_already_admitted_sync_exchange.log",
+      "reported_passed": 1
+    },
+    {
+      "name": "a_full_neighbor_budget_still_explores_a_new_source_without_requiring_full_mesh",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_maintenance",
+        "a_full_neighbor_budget_still_explores_a_new_source_without_requiring_full_mesh",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 3.636,
+      "log": "a_full_neighbor_budget_still_explores_a_new_source_without_requiring_full_mesh.log",
+      "reported_passed": 1
+    },
+    {
+      "name": "resources",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks,nat-lab-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "resources",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 59.765,
+      "log": "resources.log",
+      "reported_passed": 26
+    },
+    {
+      "name": "native-admission",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks,nat-lab-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "native_network",
+        "--test",
+        "admission_gate",
+        "--test",
+        "admission_proof",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 32.538,
+      "log": "native-admission.log",
+      "reported_passed": 33
+    },
+    {
+      "name": "network-recovery",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks,nat-lab-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "network_recovery",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 53.071,
+      "log": "network-recovery.log",
+      "reported_passed": 12
+    },
+    {
+      "name": "offline-replica",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks,nat-lab-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "offline_replica",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 131.941,
+      "log": "offline-replica.log",
+      "reported_passed": 12
+    },
+    {
+      "name": "path-maintenance",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks,nat-lab-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "path_maintenance",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 73.516,
+      "log": "path-maintenance.log",
+      "reported_passed": 14
+    },
+    {
+      "name": "member-relay",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks,nat-lab-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "member_relay",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 133.201,
+      "log": "member-relay.log",
+      "reported_passed": 14
+    },
+    {
+      "name": "mqtt-purpose",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks,nat-lab-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "mqtt_bootstrap",
+        "--test",
+        "mqtt_probe",
+        "--test",
+        "mqtt_upgrade",
+        "--test",
+        "unknown_member_bootstrap",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 46.405,
+      "log": "mqtt-purpose.log",
+      "reported_passed": 19
+    },
+    {
+      "name": "tcp-direct",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks,nat-lab-test-hooks,member-signaling-test-hooks",
+        "--test",
+        "tcp_direct",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 45.87,
+      "log": "tcp-direct.log",
+      "reported_passed": 11
+    },
+    {
+      "name": "workspace-library",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--workspace",
+        "--lib",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 87.766,
+      "log": "workspace-library.log",
+      "reported_passed": 115
+    },
+    {
+      "name": "typecheck",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "replica-test-hooks,nat-lab-test-hooks,member-signaling-test-hooks"
+      ],
+      "exit": 0,
+      "seconds": 11.423,
+      "log": "typecheck.log",
+      "reported_passed": 0
+    },
+    {
+      "name": "wasm",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "exit": 0,
+      "seconds": 0.463,
+      "log": "wasm.log",
+      "reported_passed": 0
+    },
+    {
+      "name": "format",
+      "argv": [
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "exit": 0,
+      "seconds": 0.665,
+      "log": "format.log",
+      "reported_passed": 0
+    }
+  ],
+  "passed": true,
+  "cleanup": [
+    {
+      "owned_container": "miopunch49-maintenance-1790946303705094252",
+      "exit": 0
+    },
+    {
+      "owned_container": "miopunch49-maintenance-1790946303705094252-second",
+      "exit": 0
+    }
+  ],
+  "brokers": [
+    "127.0.0.1:43403",
+    "127.0.0.1:43404"
+  ],
+  "environment": "native Linux IPv4 loopback, independent identities and SQLite, real TLS/SCRAM/QUIC/LogSync, owned MQTT and controlled UDP failure observers",
+  "skipped": "Already verified unchanged slow NAT matrices; unaffected IRC and port-mapping labs, per the standing user test policy"
+}

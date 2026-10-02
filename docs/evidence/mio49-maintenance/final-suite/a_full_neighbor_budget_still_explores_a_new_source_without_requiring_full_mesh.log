@@ -1,0 +1,8 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.35s
+     Running tests/network_maintenance.rs (target/debug/deps/network_maintenance-c099ab29ceb76d2c)
+
+running 1 test
+test a_full_neighbor_budget_still_explores_a_new_source_without_requiring_full_mesh ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 3.21s
+

@@ -62,7 +62,9 @@ p2panda-auth = { workspace = true, features = ["serde"] }
 p2panda-store.workspace = true
 p2panda-sync.workspace = true
 tokio-util = { version = "0.7.18", features = ["codec"] }
-p2panda-net = { path = "vendor/p2panda-net", default-features = false, features = ["iroh_endpoint"] }
+p2panda-net = { path = "vendor/p2panda-net", default-features = false, features = ["iroh_endpoint", "discovery"] }
+p2panda-discovery.workspace = true
+rand_chacha.workspace = true
 rsasl.workspace = true
 sha2.workspace = true
 rumqttc = { version = "=0.25.1", default-features = false }

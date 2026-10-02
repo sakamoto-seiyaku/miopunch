@@ -1,0 +1,28 @@
+{
+  "checks": [
+    {
+      "name": "a_new_contact_wakes_waiting_maintenance_and_verified_contact_survives_restart",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "network_maintenance",
+        "a_new_contact_wakes_waiting_maintenance_and_verified_contact_survives_restart",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 14.106,
+      "log": "a_new_contact_wakes_waiting_maintenance_and_verified_contact_survives_restart.log"
+    }
+  ],
+  "passed": true,
+  "cleanup": [
+    {
+      "owned_container": "miopunch49-maintenance-1790944068966110732",
+      "exit": 0
+    }
+  ]
+}

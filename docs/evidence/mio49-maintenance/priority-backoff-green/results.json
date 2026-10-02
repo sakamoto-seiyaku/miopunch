@@ -1,0 +1,28 @@
+{
+  "checks": [
+    {
+      "name": "continuous_failure_backs_off_then_an_online_member_recovers_without_dial_storm",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "network_maintenance",
+        "continuous_failure_backs_off_then_an_online_member_recovers_without_dial_storm",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 30.817,
+      "log": "continuous_failure_backs_off_then_an_online_member_recovers_without_dial_storm.log"
+    }
+  ],
+  "passed": true,
+  "cleanup": [
+    {
+      "owned_container": "miopunch49-maintenance-1790943207801581689",
+      "exit": 0
+    }
+  ]
+}

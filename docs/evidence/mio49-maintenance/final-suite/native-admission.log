@@ -1,0 +1,57 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.68s
+     Running tests/admission_gate.rs (target/debug/deps/admission_gate-7335292247aaf23e)
+
+running 18 tests
+test a_connection_to_an_uninvited_tls_identity_cannot_enter_application ... ok
+test a_gated_endpoint_never_treats_a_default_hook_as_admission ... ok
+test a_wrong_secret_cannot_be_reused_from_another_member_connection ... ok
+test admitted_control_path_upgrade_requires_current_membership ... ok
+test an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy ... TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=19 sent_bytes=9974 received_packets=20 received_bytes=8883 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=20 sent_bytes=8883 received_packets=19 received_bytes=9974 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+ok
+test cancelled_proof_does_not_authorize_a_later_connection ... ok
+test genesis_recovery_stays_restricted_and_early_handles_are_unavailable ... ok
+test known_removed_identity_only_reaches_fresh_restricted_admission_requests ... ok
+test no_secret_applicant_only_reaches_the_restricted_application_protocol ... ok
+test p2panda_endpoint_builder_hook_gates_the_actual_protocol_actor ... ok
+test proof_is_bound_to_each_connection_and_credential_generation ... ok
+test removal_during_final_recovery_stage_must_reject_connection ... ok
+test secret_holder_without_membership_gets_bootstrap_but_no_normal_protocol ... ok
+test signaling_carrier_allows_scoped_control_but_refuses_business ... ok
+test stale_member_view_does_not_return_an_outgoing_business_handle ... ok
+test stalled_proof_times_out_and_fresh_connection_can_still_prove ... ok
+test the_persisted_native_network_installs_the_same_gate ... ok
+test verified_members_reach_every_normal_protocol_and_revocation_closes_existing_sessions ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.76s
+
+     Running tests/admission_proof.rs (target/debug/deps/admission_proof-75dd24227f130f12)
+
+running 10 tests
+test cancelling_a_pending_proof_closes_its_connection ... ok
+test changed_server_final_is_not_mutual_success ... ok
+test correct_secret_proves_both_sides_on_real_tls ... ok
+test exporter_is_equal_at_both_tls_ends_and_changes_on_reconnect ... ok
+test previous_valid_client_transcript_cannot_be_replayed_on_a_new_connection ... ok
+test proof_forwarded_to_a_different_tls_connection_fails ... ok
+test unbound_or_downgraded_first_message_is_rejected ... ok
+test untrusted_iteration_count_is_rejected_before_expensive_work ... ok
+test wrong_exporter_value_on_a_real_tls_connection_fails ... ok
+test wrong_secret_network_and_secret_generation_do_not_prove_admission ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.66s
+
+     Running tests/native_network.rs (target/debug/deps/native_network-8d7b585486c6771f)
+
+running 5 tests
+test create_and_restart_through_public_node_entry ... ok
+test invalid_record_cannot_create_a_valid_view ... ok
+test new_credential_is_new_network_and_secrets_are_not_status ... ok
+test relative_data_directory_is_a_public_entry ... ok
+test wrong_root_and_alternate_create_cannot_replace_pinned_network ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.34s
+

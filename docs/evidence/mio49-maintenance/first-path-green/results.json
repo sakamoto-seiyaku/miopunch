@@ -1,0 +1,28 @@
+{
+  "checks": [
+    {
+      "name": "startup_automatically_recovers_and_saves_history_without_business",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "network_maintenance",
+        "startup_automatically_recovers_and_saves_history_without_business",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 9.486,
+      "log": "startup_automatically_recovers_and_saves_history_without_business.log"
+    }
+  ],
+  "passed": true,
+  "cleanup": [
+    {
+      "owned_container": "miopunch49-maintenance-1790943048985173118",
+      "exit": 0
+    }
+  ]
+}

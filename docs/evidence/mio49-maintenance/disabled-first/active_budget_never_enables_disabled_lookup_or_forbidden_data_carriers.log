@@ -1,0 +1,20 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+error[E0061]: this function takes 0 arguments but 1 argument was supplied
+   --> tests/network_maintenance.rs:648:14
+    |
+648 |     let id = iroh::SecretKey::generate(&mut rand::rng()).public();
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^ ---------------- unexpected argument of type `&mut ThreadRng`
+    |
+note: associated function defined here
+   --> /home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/iroh-base-1.2.0/src/key.rs:318:12
+    |
+318 |     pub fn generate() -> Self {
+    |            ^^^^^^^^
+help: remove the extra argument
+    |
+648 -     let id = iroh::SecretKey::generate(&mut rand::rng()).public();
+648 +     let id = iroh::SecretKey::generate().public();
+    |
+
+For more information about this error, try `rustc --explain E0061`.
+error: could not compile `miopunch-native-probe` (test "network_maintenance") due to 1 previous error

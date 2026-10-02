@@ -1,0 +1,28 @@
+{
+  "checks": [
+    {
+      "name": "stale_saved_contact_expands_to_discovery_and_recovers_an_unknown_member",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "network_maintenance",
+        "stale_saved_contact_expands_to_discovery_and_recovers_an_unknown_member",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 13.838,
+      "log": "stale_saved_contact_expands_to_discovery_and_recovers_an_unknown_member.log"
+    }
+  ],
+  "passed": true,
+  "cleanup": [
+    {
+      "owned_container": "miopunch49-maintenance-1790945290688986124",
+      "exit": 0
+    }
+  ]
+}

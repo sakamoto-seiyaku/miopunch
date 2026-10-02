@@ -1,0 +1,67 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: methods `contact_ready` and `configuration` are never used
+   --> src/resources.rs:634:19
+    |
+474 | impl ResourceEndpoint {
+    | --------------------- methods in this implementation
+...
+634 |     pub(crate) fn contact_ready(&self, id: iroh::EndpointId) -> bool {
+    |                   ^^^^^^^^^^^^^
+...
+640 |     pub(crate) fn configuration(&self) -> &ResourceConfig { &self.config }
+    |                   ^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `miopunch-native-probe` (lib) generated 1 warning
+error[E0599]: no method named `offer_contact` found for struct `MaintainedNetwork` in the current scope
+   --> tests/network_maintenance.rs:173:24
+    |
+173 |     for _ in 0..32 { a.offer_contact(c.addr()).await.unwrap(); }
+    |                        ^^^^^^^^^^^^^ method not found in `MaintainedNetwork`
+
+error[E0599]: no method named `addr` found for struct `MaintainedNetwork` in the current scope
+   --> tests/network_maintenance.rs:173:40
+    |
+173 |     for _ in 0..32 { a.offer_contact(c.addr()).await.unwrap(); }
+    |                                        ^^^^ method not found in `MaintainedNetwork`
+
+error[E0599]: no method named `maintenance_status` found for struct `MaintainedNetwork` in the current scope
+   --> tests/network_maintenance.rs:176:79
+    |
+176 |             if a.node_status().members.iter().any(|(id, _)| *id == c_id) && a.maintenance_status().neighbors.len() == 1 { break; }
+    |                                                                               ^^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `node_status` with a similar name
+    |
+176 -             if a.node_status().members.iter().any(|(id, _)| *id == c_id) && a.maintenance_status().neighbors.len() == 1 { break; }
+176 +             if a.node_status().members.iter().any(|(id, _)| *id == c_id) && a.node_status().neighbors.len() == 1 { break; }
+    |
+
+error[E0599]: no method named `maintenance_status` found for struct `MaintainedNetwork` in the current scope
+   --> tests/network_maintenance.rs:180:22
+    |
+180 |     let attempts = a.maintenance_status().contact_attempts;
+    |                      ^^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `node_status` with a similar name
+    |
+180 -     let attempts = a.maintenance_status().contact_attempts;
+180 +     let attempts = a.node_status().contact_attempts;
+    |
+
+error[E0599]: no method named `maintenance_status` found for struct `MaintainedNetwork` in the current scope
+   --> tests/network_maintenance.rs:187:18
+    |
+187 |             if a.maintenance_status().neighbors.len() == 1 { break; }
+    |                  ^^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `node_status` with a similar name
+    |
+187 -             if a.maintenance_status().neighbors.len() == 1 { break; }
+187 +             if a.node_status().neighbors.len() == 1 { break; }
+    |
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `miopunch-native-probe` (test "network_maintenance") due to 5 previous errors
+warning: build failed, waiting for other jobs to finish...

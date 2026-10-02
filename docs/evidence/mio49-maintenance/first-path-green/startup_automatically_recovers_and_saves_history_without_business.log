@@ -1,0 +1,24 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.44s
+     Running tests/network_maintenance.rs (target/debug/deps/network_maintenance-54af2d701327e55c)
+
+running 1 test
+MIO49_GATE member=true bootstrap=true members=3
+MIO49_RECOVERY Ready(ReplicaOutcome { source: PublicKey(50a40f02f5503e404dc8d25f1cc137e548566f71729d26a1e4fc900f7fcb268f), scope: [Hash([110, 173, 215, 27, 135, 236, 73, 50, 134, 150, 25, 173, 93, 238, 217, 206, 189, 0, 2, 38, 181, 162, 252, 33, 61, 241, 194, 203, 246, 177, 254, 67]), Hash([238, 218, 40, 71, 236, 161, 132, 213, 28, 216, 57, 48, 171, 99, 212, 245, 54, 154, 180, 7, 247, 206, 122, 17, 52, 126, 72, 227, 9, 1, 181, 198]), Hash([12, 85, 164, 39, 78, 19, 155, 77, 137, 201, 202, 251, 254, 39, 61, 222, 94, 127, 246, 47, 176, 66, 226, 18, 165, 167, 48, 246, 244, 17, 172, 66])], transport_done: true, saved: [Hash([110, 173, 215, 27, 135, 236, 73, 50, 134, 150, 25, 173, 93, 238, 217, 206, 189, 0, 2, 38, 181, 162, 252, 33, 61, 241, 194, 203, 246, 177, 254, 67]), Hash([238, 218, 40, 71, 236, 161, 132, 213, 28, 216, 57, 48, 171, 99, 212, 245, 54, 154, 180, 7, 247, 206, 122, 17, 52, 126, 72, 227, 9, 1, 181, 198]), Hash([12, 85, 164, 39, 78, 19, 155, 77, 137, 201, 202, 251, 254, 39, 61, 222, 94, 127, 246, 47, 176, 66, 226, 18, 165, 167, 48, 246, 244, 17, 172, 66])], applied: [Hash([110, 173, 215, 27, 135, 236, 73, 50, 134, 150, 25, 173, 93, 238, 217, 206, 189, 0, 2, 38, 181, 162, 252, 33, 61, 241, 194, 203, 246, 177, 254, 67]), Hash([238, 218, 40, 71, 236, 161, 132, 213, 28, 216, 57, 48, 171, 99, 212, 245, 54, 154, 180, 7, 247, 206, 122, 17, 52, 126, 72, 227, 9, 1, 181, 198]), Hash([12, 85, 164, 39, 78, 19, 155, 77, 137, 201, 202, 251, 254, 39, 61, 222, 94, 127, 246, 47, 176, 66, 226, 18, 165, 167, 48, 246, 244, 17, 172, 66])] })
+MIO49_SERVE Ok(())
+test startup_automatically_recovers_and_saves_history_without_business ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 3.97s
+

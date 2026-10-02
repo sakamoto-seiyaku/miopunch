@@ -38,6 +38,7 @@ const JOIN_BINDING: &str = "join.invitation";
 const ADMISSION_MATERIAL: &str = "admission.material";
 const RECOVERY_BINDING: &str = "recovery.binding";
 const RESOURCE_CONFIGURATION: &str = "resources.json";
+const MAINTENANCE_CONTACTS: &str = "maintenance.contacts.json";
 
 fn network_protocols() -> Vec<Vec<u8>> {
     vec![
@@ -583,6 +584,44 @@ impl NativeNetwork {
         Ok(crate::resources::ResourceConfig::load(
             &self.directory.join(RESOURCE_CONFIGURATION),
         )?)
+    }
+
+    pub(crate) fn saved_maintenance_contacts(&self) -> Result<Vec<iroh::EndpointAddr>, NodeError> {
+        let bytes = match std::fs::read(self.directory.join(MAINTENANCE_CONTACTS)) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(error) => return Err(error.into()),
+        };
+        if bytes.len() > 64 * 1024 {
+            return Err(NodeError::InvalidData);
+        }
+        let contacts: Vec<iroh::EndpointAddr> =
+            serde_json::from_slice(&bytes).map_err(|_| NodeError::InvalidData)?;
+        if contacts.len() > 64 || contacts.iter().any(|contact| contact.addrs.len() > 8) {
+            return Err(NodeError::InvalidData);
+        }
+        Ok(contacts)
+    }
+
+    pub(crate) fn save_maintenance_contacts(
+        &self,
+        contacts: &[iroh::EndpointAddr],
+    ) -> Result<(), NodeError> {
+        let temporary = self
+            .directory
+            .join(format!(".contacts-{:032x}", rand::random::<u128>()));
+        let result = (|| {
+            let bytes = serde_json::to_vec(contacts).map_err(std::io::Error::other)?;
+            if contacts.len() > 64 || bytes.len() > 64 * 1024 {
+                return Err(NodeError::InvalidData);
+            }
+            write_private(&temporary, &bytes)?;
+            fs::rename(&temporary, self.directory.join(MAINTENANCE_CONTACTS))?;
+            File::open(&self.directory)?.sync_all()?;
+            Ok(())
+        })();
+        let _ = fs::remove_file(temporary);
+        result
     }
 
     /// Atomically save configuration for the next endpoint start. Existing

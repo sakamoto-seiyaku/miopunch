@@ -1,0 +1,9 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.34s
+     Running tests/network_maintenance.rs (target/debug/deps/network_maintenance-5c0fe2acc8b96cfa)
+
+running 1 test
+OBSERVED business_echo_bytes=32768 background_queries_during_business=0 duplicate_in_flight_rejected=true
+test real_business_has_priority_and_shared_identity_guard_prevents_duplicate_dials ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 13.02s
+

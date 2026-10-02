@@ -1,0 +1,28 @@
+{
+  "checks": [
+    {
+      "name": "node_quality_budget_changes_actual_quic_probe_frequency",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "network_maintenance",
+        "node_quality_budget_changes_actual_quic_probe_frequency",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 101,
+      "seconds": 4.35,
+      "log": "node_quality_budget_changes_actual_quic_probe_frequency.log"
+    }
+  ],
+  "passed": false,
+  "cleanup": [
+    {
+      "owned_container": "miopunch49-maintenance-1790945019913288961",
+      "exit": 0
+    }
+  ]
+}

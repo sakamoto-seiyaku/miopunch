@@ -1,0 +1,10 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.55s
+     Running tests/network_maintenance.rs (target/debug/deps/network_maintenance-5c0fe2acc8b96cfa)
+
+running 1 test
+OBSERVED saved_contact_unavailable=true discovery_expanded=true unknown_source_verified_and_saved=true
+test stale_saved_contact_expands_to_discovery_and_recovers_an_unknown_member ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 11.22s
+

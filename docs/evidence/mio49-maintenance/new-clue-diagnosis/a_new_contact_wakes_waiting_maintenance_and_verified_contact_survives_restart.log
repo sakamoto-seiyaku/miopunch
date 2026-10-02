@@ -1,0 +1,33 @@
+   Compiling p2panda-net v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-net)
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: method `configuration` is never used
+   --> src/resources.rs:665:19
+    |
+479 | impl ResourceEndpoint {
+    | --------------------- method in this implementation
+...
+665 |     pub(crate) fn configuration(&self) -> &ResourceConfig {
+    |                   ^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `miopunch-native-probe` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.56s
+     Running tests/network_maintenance.rs (target/debug/deps/network_maintenance-5c0fe2acc8b96cfa)
+
+running 1 test
+OBSERVED new_hint_status=MaintenanceStatus { state: TemporarilyUnreachable, node: NodeStatus { node_id: VerifyingKey([87, 18, 3, 57, 228, 72, 129, 182, 111, 12, 14, 156, 140, 8, 79, 33, 104, 65, 18, 50, 8, 10, 14, 59, 23, 167, 22, 200, 42, 161, 28, 213]), anchor: NetworkAnchor { root: VerifyingKey([29, 77, 21, 51, 243, 134, 62, 139, 105, 214, 252, 120, 19, 119, 182, 137, 115, 64, 45, 238, 205, 111, 238, 80, 27, 156, 87, 155, 24, 18, 81, 85]), genesis: Hash([31, 206, 107, 242, 79, 122, 228, 243, 249, 165, 35, 252, 19, 193, 123, 220, 96, 42, 143, 88, 126, 146, 132, 92, 18, 8, 233, 11, 208, 87, 3, 228]) }, members: [(VerifyingKey([87, 18, 3, 57, 228, 72, 129, 182, 111, 12, 14, 156, 140, 8, 79, 33, 104, 65, 18, 50, 8, 10, 14, 59, 23, 167, 22, 200, 42, 161, 28, 213]), Access { conditions: None, level: Read }), (VerifyingKey([93, 99, 155, 198, 253, 10, 228, 126, 165, 142, 117, 88, 31, 194, 87, 202, 117, 52, 179, 87, 10, 159, 218, 212, 38, 249, 173, 50, 189, 87, 130, 224]), Access { conditions: None, level: Read }), (VerifyingKey([231, 37, 89, 209, 194, 236, 205, 56, 99, 124, 25, 166, 144, 64, 223, 160, 7, 40, 246, 203, 62, 138, 203, 138, 5, 217, 239, 36, 223, 202, 122, 183]), Access { conditions: None, level: Manage })], applied_count: 3 }, neighbors: [], last_sync: Some(ReplicaOutcome { source: PublicKey(5d639bc6fd0ae47ea58e75581fc257ca7534b3570a9fdad426f9ad32bd5782e0), scope: [Hash([31, 206, 107, 242, 79, 122, 228, 243, 249, 165, 35, 252, 19, 193, 123, 220, 96, 42, 143, 88, 126, 146, 132, 92, 18, 8, 233, 11, 208, 87, 3, 228]), Hash([163, 73, 228, 29, 14, 86, 169, 15, 255, 91, 59, 248, 109, 213, 188, 252, 124, 201, 209, 76, 165, 194, 93, 142, 234, 187, 197, 15, 157, 87, 58, 71]), Hash([226, 79, 200, 61, 240, 10, 135, 161, 131, 181, 69, 129, 237, 204, 185, 202, 8, 62, 9, 143, 207, 42, 31, 227, 194, 63, 216, 121, 5, 208, 137, 88])], transport_done: true, saved: [Hash([31, 206, 107, 242, 79, 122, 228, 243, 249, 165, 35, 252, 19, 193, 123, 220, 96, 42, 143, 88, 126, 146, 132, 92, 18, 8, 233, 11, 208, 87, 3, 228]), Hash([163, 73, 228, 29, 14, 86, 169, 15, 255, 91, 59, 248, 109, 213, 188, 252, 124, 201, 209, 76, 165, 194, 93, 142, 234, 187, 197, 15, 157, 87, 58, 71]), Hash([226, 79, 200, 61, 240, 10, 135, 161, 131, 181, 69, 129, 237, 204, 185, 202, 8, 62, 9, 143, 207, 42, 31, 227, 194, 63, 216, 121, 5, 208, 137, 88])], applied: [Hash([31, 206, 107, 242, 79, 122, 228, 243, 249, 165, 35, 252, 19, 193, 123, 220, 96, 42, 143, 88, 126, 146, 132, 92, 18, 8, 233, 11, 208, 87, 3, 228]), Hash([163, 73, 228, 29, 14, 86, 169, 15, 255, 91, 59, 248, 109, 213, 188, 252, 124, 201, 209, 76, 165, 194, 93, 142, 234, 187, 197, 15, 157, 87, 58, 71]), Hash([226, 79, 200, 61, 240, 10, 135, 161, 131, 181, 69, 129, 237, 204, 185, 202, 8, 62, 9, 143, 207, 42, 31, 227, 194, 63, 216, 121, 5, 208, 137, 88])] }), contact_attempts: 2, discovery_rounds: 0, max_in_flight: 1, retry_after: 4.999968591s, cause: Some("temporarily unreachable; retry after 1s") }
+
+thread 'a_new_contact_wakes_waiting_maintenance_and_verified_contact_survives_restart' (2286235) panicked at tests/network_maintenance.rs:273:5:
+a new allowed direct hint must wake maintenance without business
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test a_new_contact_wakes_waiting_maintenance_and_verified_contact_survives_restart ... FAILED
+
+failures:
+
+failures:
+    a_new_contact_wakes_waiting_maintenance_and_verified_contact_survives_restart
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 9.35s
+
+error: test failed, to rerun pass `--test network_maintenance`

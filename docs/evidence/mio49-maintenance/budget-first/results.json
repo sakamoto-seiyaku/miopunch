@@ -1,0 +1,28 @@
+{
+  "checks": [
+    {
+      "name": "conservative_and_active_nodes_observe_distinct_frequency_and_concurrency_budgets",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "network_maintenance",
+        "conservative_and_active_nodes_observe_distinct_frequency_and_concurrency_budgets",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 16.374,
+      "log": "conservative_and_active_nodes_observe_distinct_frequency_and_concurrency_budgets.log"
+    }
+  ],
+  "passed": true,
+  "cleanup": [
+    {
+      "owned_container": "miopunch49-maintenance-1790944330556878229",
+      "exit": 0
+    }
+  ]
+}

@@ -1,0 +1,215 @@
+   Compiling bytes v1.12.1
+   Compiling derive_more-impl v2.1.1
+   Compiling anyhow v1.0.104
+   Compiling tokio v1.53.1
+   Compiling mock_instant v0.6.1
+   Compiling wasm-bindgen-shared v0.2.129
+   Compiling irpc-derive v0.17.0
+   Compiling futures-concurrency v7.7.1
+   Compiling futures-test v0.3.34
+   Compiling p2panda-core v0.7.1
+   Compiling wasm-bindgen-macro-support v0.2.129
+   Compiling n0-error v1.0.1
+   Compiling http v1.5.0
+   Compiling netlink-sys v0.9.0
+   Compiling netdev v0.46.3
+   Compiling http-body v1.1.0
+   Compiling attohttpc v0.30.1
+   Compiling http-body-util v0.1.5
+   Compiling derive_more v2.1.1
+   Compiling iroh-base v1.2.0
+   Compiling noq-proto v1.3.0 (/home/js/Git/miopunch/vendor/noq-proto)
+   Compiling wasm-bindgen-macro v0.2.129
+   Compiling tokio-stream v0.1.19
+   Compiling wasm-bindgen v0.2.129
+   Compiling sqlx-core v0.8.6
+   Compiling tokio-util v0.7.19
+   Compiling tokio-rustls v0.26.6
+   Compiling tower v0.5.3
+   Compiling netlink-sys v0.8.8
+   Compiling reloadable-state v0.1.0
+   Compiling rustls-cert-file-reader v0.4.2
+   Compiling backon v1.6.0
+   Compiling rustls-cert-reloadable-resolver v0.7.1
+   Compiling acto v0.8.2
+   Compiling netlink-proto v0.12.2
+   Compiling ractor v0.16.5
+   Compiling p2panda-auth v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-auth)
+   Compiling js-sys v0.3.106
+   Compiling tower-http v0.6.11
+   Compiling swarm-discovery v0.6.3
+   Compiling h2 v0.4.19
+   Compiling n0-future v0.3.2
+   Compiling tokio-websockets v0.13.3
+   Compiling n0-watcher v1.0.0
+   Compiling irpc v0.17.0
+   Compiling netwatch v0.19.3 (/home/js/Git/miopunch/vendor/netwatch)
+   Compiling rumqttc v0.25.1
+   Compiling sqlx-sqlite v0.8.6
+   Compiling sqlx-macros-core v0.8.6
+   Compiling noq v1.3.0 (/home/js/Git/miopunch/vendor/noq)
+   Compiling hyper v1.11.1
+   Compiling sqlx-macros v0.8.6
+   Compiling hyper-util v0.1.21
+   Compiling sqlx v0.8.6
+   Compiling p2panda-store v0.7.1
+   Compiling p2panda-sync v0.7.1
+   Compiling p2panda-discovery v0.7.1
+   Compiling wasm-bindgen-futures v0.4.79
+   Compiling web-sys v0.3.106
+   Compiling hyper-rustls v0.27.10
+   Compiling igd-next v0.17.1
+   Compiling reqwest v0.13.5
+   Compiling n0-dns-resolver v0.1.0
+   Compiling iroh-metrics v1.0.2
+   Compiling tokio-rustls-acme v0.9.1
+   Compiling portmapper v0.19.3 (/home/js/Git/miopunch/vendor/portmapper)
+   Compiling iroh-dns v1.3.0
+   Compiling iroh-relay v1.2.0
+   Compiling iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+   Compiling iroh-mdns-address-lookup v0.5.0
+   Compiling iroh-gossip v0.101.0
+   Compiling miopunch-browser-probe v0.1.0 (/home/js/Git/miopunch/browser-probe)
+   Compiling p2panda-net v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-net)
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 48.86s
+     Running unittests src/lib.rs (target/debug/deps/miopunch_browser_probe-62eda392ec4e204c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/miopunch_native_probe-b87e0a691e8dc223)
+
+running 25 tests
+test admission_proof::tests::scram_sha256_matches_rfc_7677_server_verifier ... ok
+test management_store::tests::each_commit_boundary_recovers_from_disk_without_double_apply ... ok
+test nat_mapping::tests::bilateral_first_side_cannot_spend_a_third_datagram ... ok
+test nat_mapping::tests::bilateral_regular_branch_is_distinct_from_stable_and_single_regular ... ok
+test nat_mapping::tests::derives_stable_and_signed_steps_from_ordered_destinations ... ok
+test nat_mapping::tests::distinguishes_reversal_from_old_or_reused_evidence ... ok
+test nat_mapping::tests::fresh_irregular_evidence_is_distinct_from_missing_or_invalid_evidence ... ok
+test nat_mapping::tests::irregular_roles_and_targets_require_fresh_allocation_evidence ... ok
+test nat_mapping::tests::one_node_budget_cannot_be_refilled_by_a_second_attempt ... ok
+test nat_mapping::tests::selects_old_mode_one_roles_only_for_one_regular_and_one_stable ... ok
+test nat_punch::tests::incomplete_samples_keep_legacy_fallback_sender_target_preference ... ok
+test nat_selector::tests::all_six_scenes_preserve_complete_order_for_two_cycles ... ok
+test nat_selector::tests::all_thirty_parameter_pairs_match_the_executed_archived_go_oracle ... ok
+test nat_selector::tests::cache_reuses_port_changes_and_expires_only_after_two_idle_hours ... ok
+test nat_selector::tests::classification_matches_legacy_boundaries_ip_changes_and_public_detection ... ok
+test nat_selector::tests::easy_pair_recommends_every_behavior_in_insertion_order_before_repeating ... ok
+test nat_selector::tests::every_security_dimension_and_directed_feature_key_isolates_learning ... ok
+test nat_selector::tests::legacy_regular_feature_uses_spread_instead_of_signed_steps ... ok
+test nat_selector::tests::public_and_span_changes_reuse_existing_scene_and_opportunistic_clean_refreshes_activity ... ok
+test nat_selector::tests::public_preference_retains_c_priority_and_does_not_change_irregular_fallback ... ok
+test nat_selector::tests::role_adjustment_uses_current_c_feature_without_changing_mode_index ... ok
+test nat_selector::tests::scoring_is_unbounded_downward_success_adds_two_caps_ten_and_refreshes_unknown_index ... ok
+test native_network::tests::publishing_never_replaces_an_existing_empty_directory ... ok
+test tcp_transport::tests::dropping_endpoint_cancels_an_open_tcp_carrier ... ok
+test tcp_transport::tests::unread_inbound_queue_closes_in_bounded_time ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.59s
+
+     Running unittests src/lib.rs (target/debug/deps/p2panda_auth-acd5e9fad761b804)
+
+running 50 tests
+test access::tests::expiry_timestamp_access_ordering ... ok
+test access::tests::path_condition_comparators ... ok
+test graph::tests::complex_bubble ... ok
+test graph::tests::test_bubble ... ok
+test graph::tests::test_linear_chain_no_concurrency ... ok
+test graph::tests::test_two_bubbles ... ok
+test group::authority_graphs::tests::graph_builds ... ok
+test group::authority_graphs::tests::multi_delegate_chains ... ok
+test group::authority_graphs::tests::removal_cycle ... ok
+test group::authority_graphs::tests::remove_delegate_cycle ... ok
+test group::crdt::state::tests::add_errors ... ok
+test group::crdt::state::tests::create_add_remove ... ok
+test group::crdt::state::tests::demote_errors ... ok
+test group::crdt::state::tests::merge_state_access ... ok
+test group::crdt::state::tests::merge_state_access_counter ... ok
+test group::crdt::state::tests::merge_state_counter ... ok
+test group::crdt::state::tests::merge_state_member ... ok
+test group::crdt::state::tests::promote_demote_modify ... ok
+test group::crdt::state::tests::promote_errors ... ok
+test group::crdt::state::tests::remove_errors ... ok
+test group::crdt::state::tests::self_remove ... ok
+test group::crdt::tests::add_group_with_concurrent_change ... ok
+test group::crdt::tests::concurrent_add_with_insufficient_access ... ok
+test group::crdt::tests::concurrent_removal ... ok
+test group::crdt::tests::concurrent_removal_ooo_processing ... ok
+test group::crdt::tests::deeply_nested_groups_with_removals ... ok
+test group::crdt::tests::error_on_add_existing_member ... ok
+test group::crdt::tests::error_on_add_manager_group ... ok
+test group::crdt::tests::error_on_demote_non_member ... ok
+test group::crdt::tests::error_on_promote_non_member ... ok
+test group::crdt::tests::error_on_remove_non_member ... ok
+test group::crdt::tests::error_on_remove_nonexistent_subgroup ... ok
+test group::crdt::tests::error_on_unauthorized_add ... ok
+test group::crdt::tests::group_operations ... ok
+test group::crdt::tests::mutual_concurrent_removal ... ok
+test group::crdt::tests::nested_group_cycle_error ... ok
+test group::crdt::tests::nested_groups ... ok
+test group::crdt::tests::nested_groups_with_concurrent_removal_and_promotion ... ok
+test group::crdt::tests::self_remove ... ok
+test group::crdt::tests::serde_to_from_bytes ... ok
+test group::resolver::tests::concurrent_readds_filtered ... ok
+test group::resolver::tests::demote_add_filter ... ok
+test group::resolver::tests::demote_remove_filter ... ok
+test group::resolver::tests::filter_only_concurrent_operations ... ok
+test group::resolver::tests::mutual_removal_filter ... ok
+test group::resolver::tests::mutual_remove_cycle_with_delegation ... ok
+test group::resolver::tests::mutual_remove_cycles_detected ... ok
+test group::resolver::tests::remove_dependencies_filter ... ok
+test group::resolver::tests::remove_readd_dependencies_filter ... ok
+test group::resolver::tests::two_bubbles ... ok
+
+test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/lib.rs (target/debug/deps/p2panda_net-1b683326096ad422)
+
+running 41 tests
+test address_book::actor::tests::insert_node_and_transport_info ... ok
+test address_book::tests::add_topic_bug ... ok
+test addrs::tests::authenticate_address_infos ... ok
+test addrs::tests::deduplicate_transport_address ... ok
+test addrs::tests::latest_transport_info_wins ... ok
+test addrs::tests::node_id_mismatch ... ok
+test addrs::tests::stale_nodes ... ok
+test codec::tests::decoding_exactly_one_frame ... ok
+test codec::tests::decoding_incomplete_frame ... ok
+test codec::tests::decoding_more_than_one_frame ... ok
+test codec::tests::decoding_too_large_message ... ok
+test codec::tests::encoding ... ok
+test codec::tests::encoding_too_large_message ... ok
+test codec::tests::operations_stream ... ok
+test discovery::backoff::tests::increment ... ok
+test discovery::backoff::tests::reset ... ok
+test discovery::tests::smoke_test ... ok
+test gossip::api::tests::topic_drop_guard ... ok
+test gossip::tests::join_without_bootstrap ... ok
+test gossip::tests::joined_and_left_events_are_received ... ok
+test gossip::tests::large_message_error ... ok
+test gossip::tests::leave_overlay_on_drop ... ok
+test gossip::tests::third_peer_joins_non_bootstrap ... ignored, flaky
+test gossip::tests::three_peer_gossip_with_rejoin ... ok
+test gossip::tests::two_peer_gossip ... ok
+test iroh_endpoint::tests::configure_authentication_per_relay ... ok
+test iroh_endpoint::tests::establish_connection ... ok
+test iroh_endpoint::tests::relay_authentication_is_optional ... ok
+test iroh_endpoint::user_data::tests::transport_info_to_user_data ... ok
+test iroh_endpoint::user_data::tests::transport_info_to_user_data_with_relay_url ... ok
+test iroh_mdns::tests::mdns_discovery ... ok
+test supervisor::tests::nested_supervisors ... ok
+test supervisor::tests::restart_after_failure ... ok
+test sync::log_sync::tests::e2e_log_sync ... ok
+test sync::log_sync::tests::e2e_three_party_sync ... ok
+test sync::log_sync::tests::panic_on_sink_closure_after_error_regression ... ok
+test sync::log_sync::tests::unsubscribe_from_gossip_after_drop ... ok
+test sync::tests::failed_sync_session_retry ... ok
+test test_utils::deterministic_args ... ok
+test utils::tests::order ... ok
+test watchers::tests::subscribe_to_changes ... ok
+
+test result: ok. 40 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 33.19s
+

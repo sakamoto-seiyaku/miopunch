@@ -14,6 +14,9 @@ mod tests;
 
 pub use actors::DiscoveryMetrics;
 pub use api::{Discovery, DiscoveryError};
+/// Reuse discovery retry pacing when the application supplies its own admitted
+/// session protocol rather than running a second set of discovery actors.
+pub use backoff::{Backoff as DiscoveryBackoff, Config as DiscoveryBackoffConfig};
 pub use builder::Builder;
 pub use config::DiscoveryConfig;
 pub use events::{DiscoveryEvent, SessionRole};

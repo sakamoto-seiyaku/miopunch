@@ -1,0 +1,28 @@
+{
+  "checks": [
+    {
+      "name": "partial_links_propagate_new_signed_history_on_the_same_neighbor_session",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "network_maintenance",
+        "partial_links_propagate_new_signed_history_on_the_same_neighbor_session",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 11.103,
+      "log": "partial_links_propagate_new_signed_history_on_the_same_neighbor_session.log"
+    }
+  ],
+  "passed": true,
+  "cleanup": [
+    {
+      "owned_container": "miopunch49-maintenance-1790944819453811210",
+      "exit": 0
+    }
+  ]
+}

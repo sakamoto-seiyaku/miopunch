@@ -1,0 +1,19 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.92s
+     Running tests/network_maintenance.rs (target/debug/deps/network_maintenance-5c0fe2acc8b96cfa)
+
+running 1 test
+
+thread 'starting_business_does_not_abort_an_already_admitted_sync_exchange' (2298573) panicked at tests/network_maintenance.rs:784:5:
+business priority must stop new exploration while allowing the already admitted bounded LogSync exchange to finish
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test starting_business_does_not_abort_an_already_admitted_sync_exchange ... FAILED
+
+failures:
+
+failures:
+    starting_business_does_not_abort_an_already_admitted_sync_exchange
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 4.63s
+
+error: test failed, to rerun pass `--test network_maintenance`

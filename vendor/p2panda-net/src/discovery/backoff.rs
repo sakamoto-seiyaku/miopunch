@@ -57,6 +57,31 @@ impl Default for Config {
     }
 }
 
+impl Config {
+    /// Bounded local pacing for an admitted discovery integration. The random
+    /// increment range is half-open; callers must provide increasing bounds.
+    pub fn bounded(
+        initial_value: Duration,
+        min_increment: Duration,
+        max_increment: Duration,
+        max_value: Duration,
+    ) -> std::io::Result<Self> {
+        if min_increment.is_zero() || min_increment >= max_increment || initial_value > max_value {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "invalid discovery backoff bounds",
+            ));
+        }
+        Ok(Self {
+            initial_value,
+            min_increment,
+            max_increment,
+            max_value,
+            ..Self::default()
+        })
+    }
+}
+
 impl Backoff {
     pub fn new(config: Config, rng: ChaCha20Rng) -> Self {
         let mut backoff = Self {
@@ -76,7 +101,7 @@ impl Backoff {
             self.value = self.config.max_value;
         } else if self.value < self.config.max_value {
             let increment = self.random_increment();
-            self.value += increment;
+            self.value = (self.value + increment).min(self.config.max_value);
         }
 
         // Reset backoff after we've waited long enough.
@@ -92,6 +117,11 @@ impl Backoff {
 
         trace!("backoff {} seconds", self.value.as_secs());
         tokio::time::sleep(self.value).await;
+    }
+
+    /// Current delay for a caller's single coordination timer.
+    pub fn duration(&self) -> Duration {
+        self.value
     }
 
     pub fn reset(&mut self) {

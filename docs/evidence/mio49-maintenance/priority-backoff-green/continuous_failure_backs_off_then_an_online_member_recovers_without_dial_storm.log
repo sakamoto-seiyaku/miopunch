@@ -1,0 +1,12 @@
+   Compiling p2panda-discovery v0.7.1
+   Compiling p2panda-net v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-net)
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.56s
+     Running tests/network_maintenance.rs (target/debug/deps/network_maintenance-5c0fe2acc8b96cfa)
+
+running 1 test
+OBSERVED discovery_queries=3 first_gaps_ms=[3042, 4130]
+test continuous_failure_backs_off_then_an_online_member_recovers_without_dial_storm ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 16.18s
+

@@ -1,0 +1,28 @@
+{
+  "checks": [
+    {
+      "name": "starting_business_does_not_abort_an_already_admitted_sync_exchange",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "network_maintenance",
+        "starting_business_does_not_abort_an_already_admitted_sync_exchange",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 101,
+      "seconds": 7.618,
+      "log": "starting_business_does_not_abort_an_already_admitted_sync_exchange.log"
+    }
+  ],
+  "passed": false,
+  "cleanup": [
+    {
+      "owned_container": "miopunch49-maintenance-1790945550306476414",
+      "exit": 0
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "checks": [
+    {
+      "name": "active_budget_never_enables_disabled_lookup_or_forbidden_data_carriers",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "network_maintenance",
+        "active_budget_never_enables_disabled_lookup_or_forbidden_data_carriers",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 2.173,
+      "log": "active_budget_never_enables_disabled_lookup_or_forbidden_data_carriers.log"
+    }
+  ],
+  "passed": true,
+  "cleanup": [
+    {
+      "owned_container": "miopunch49-maintenance-1790945196380840985",
+      "exit": 0
+    }
+  ]
+}

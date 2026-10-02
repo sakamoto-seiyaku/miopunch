@@ -1,0 +1,28 @@
+{
+  "checks": [
+    {
+      "name": "real_business_has_priority_and_shared_identity_guard_prevents_duplicate_dials",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "network_maintenance",
+        "real_business_has_priority_and_shared_identity_guard_prevents_duplicate_dials",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 13.422,
+      "log": "real_business_has_priority_and_shared_identity_guard_prevents_duplicate_dials.log"
+    }
+  ],
+  "passed": true,
+  "cleanup": [
+    {
+      "owned_container": "miopunch49-maintenance-1790944494777532209",
+      "exit": 0
+    }
+  ]
+}

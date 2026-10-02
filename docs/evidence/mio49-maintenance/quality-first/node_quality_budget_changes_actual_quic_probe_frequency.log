@@ -1,0 +1,20 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.27s
+     Running tests/network_maintenance.rs (target/debug/deps/network_maintenance-5c0fe2acc8b96cfa)
+
+running 1 test
+OBSERVED actual_QUIC_ping_delta conservative=3 active=3 window_ms=3500
+
+thread 'node_quality_budget_changes_actual_quic_probe_frequency' (2294137) panicked at tests/network_maintenance.rs:623:5:
+quality budget must affect QUIC probes, beyond saved configuration values
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test node_quality_budget_changes_actual_quic_probe_frequency ... FAILED
+
+failures:
+
+failures:
+    node_quality_budget_changes_actual_quic_probe_frequency
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 9.37s
+
+error: test failed, to rerun pass `--test network_maintenance`
