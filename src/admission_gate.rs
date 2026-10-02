@@ -144,6 +144,10 @@ impl AdmissionGate {
         protocols.insert(MEMBER_BOOTSTRAP_ALPN.to_vec(), ProtocolScope::Bootstrap);
         protocols.insert(CONTROL_ALPN.to_vec(), ProtocolScope::Bootstrap);
         protocols.insert(
+            crate::network_recovery::RECOVERY_REPLICA_ALPN.to_vec(),
+            ProtocolScope::Bootstrap,
+        );
+        protocols.insert(
             crate::admission_rotation::ADMISSION_ROTATION_ALPN.to_vec(),
             ProtocolScope::Rotation,
         );
@@ -377,6 +381,14 @@ impl AdmissionGate {
         (session.peer == *connection.remote_id().as_bytes() && session.valid(&state.policy))
             .then(|| session.proof.as_ref().cloned())
             .flatten()
+    }
+
+    pub(crate) fn discovery_current(&self, scope: &AdmissionScope) -> bool {
+        let state = self.state.lock().expect("admission policy lock");
+        state.policy.scope == *scope
+            && state.policy.secret.is_some()
+            && state.policy.members.contains(&state.policy.local_id)
+            && !state.policy.removed.contains(&state.policy.local_id)
     }
 
     fn reject() -> AfterHandshakeOutcome {

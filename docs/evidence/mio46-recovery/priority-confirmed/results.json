@@ -1,0 +1,35 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "network_recovery",
+        "old_secret_with_a_new_identity_keeps_only_bootstrap_scope",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 6.087,
+      "log": "tests.log"
+    }
+  ],
+  "passed": true,
+  "brokers": [
+    "127.0.0.1:43326",
+    "127.0.0.1:43327"
+  ],
+  "cleanup": [
+    {
+      "owned_container": "miopunch46-recovery-1790925527607989253",
+      "exit": 0
+    },
+    {
+      "owned_container": "miopunch46-recovery-1790925527927008388",
+      "exit": 0
+    }
+  ]
+}

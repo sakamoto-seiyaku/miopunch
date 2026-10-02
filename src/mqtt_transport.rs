@@ -37,6 +37,16 @@ enum Status {
     Closed,
 }
 
+pub(crate) fn service_tag(resource: &iroh::RelayUrl) -> io::Result<[u8; 16]> {
+    let origin = crate::resources::resource_origin(resource.as_str())
+        .filter(|_| resource.scheme() == "mqtt")
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid MQTT resource"))?;
+    let mut hash = Sha256::new();
+    hash.update(b"miopunch/mqtt-service/1\0");
+    hash.update(origin);
+    Ok(hash.finalize()[..16].try_into().unwrap())
+}
+
 fn topic(route: Route) -> String {
     format!("miopunch/test/{}/packet", hex::encode(route))
 }
@@ -141,13 +151,7 @@ impl MqttTransport {
         resource: iroh::RelayUrl,
         traffic: Arc<Traffic>,
     ) -> io::Result<Self> {
-        let origin = crate::resources::resource_origin(resource.as_str())
-            .filter(|_| resource.scheme() == "mqtt")
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid MQTT resource"))?;
-        let mut hash = Sha256::new();
-        hash.update(b"miopunch/mqtt-service/1\0");
-        hash.update(origin);
-        let service = hash.finalize()[..16].try_into().unwrap();
+        let service = service_tag(&resource)?;
         Ok(Self {
             resource,
             service: Some(service),

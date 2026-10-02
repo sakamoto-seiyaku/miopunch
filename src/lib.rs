@@ -27,3 +27,5 @@ pub mod resources;
 mod tcp_observation;
 mod tcp_punch;
 pub mod tcp_transport;
+
+pub mod network_recovery;

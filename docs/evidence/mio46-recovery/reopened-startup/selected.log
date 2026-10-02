@@ -1,0 +1,24 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.55s
+     Running tests/network_recovery.rs (target/debug/deps/network_recovery-52d28c5654ad2ec0)
+
+running 1 test
+test old_member_recovers_from_the_only_online_unknown_member_at_startup ... RECOVERY_PUBLIC_FIELDS query=20 response=90 route=32 private_secret_exposed=0 publishes=68
+UNKNOWN_RECOVERY a_knows_c_initially=0 b_online=0 real_mqtt=1 durable_logsync=1 authorized_business=1
+UNKNOWN_RECOVERY_REOPEN verified_c_membership_saved=1
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 4.02s
+

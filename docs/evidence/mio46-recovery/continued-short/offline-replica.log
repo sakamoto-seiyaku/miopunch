@@ -1,0 +1,52 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.65s
+     Running tests/offline_replica.rs (target/debug/deps/offline_replica-4db429657c1019b1)
+
+running 12 tests
+test missing_dependency_is_saved_but_not_complete_then_out_of_order_duplicates_apply_once ... ok
+test original_author_offline_restarted_member_supplies_body_and_dependencies ... ok
+test process_exit_after_causal_selection_replays_without_losing_authorization ... actual replica process exits at AfterOrdererSelect
+
+provider transport result at AfterOrdererSelect: Err(Transport)
+AfterOrdererSelect: recovered identical four-record view; offline replica still serves; duplicate replay adds no action
+ok
+test process_exit_after_record_commit_replays_and_still_serves ... actual replica process exits at AfterStorageCommit
+
+provider transport result at AfterStorageCommit: Err(Transport)
+AfterStorageCommit: recovered identical four-record view; offline replica still serves; duplicate replay adds no action
+ok
+test process_exit_after_view_commit_does_not_duplicate_application ... actual replica process exits at AfterGroupsCommit
+
+provider transport result at AfterGroupsCommit: Err(Transport)
+AfterGroupsCommit: recovered identical four-record view; offline replica still serves; duplicate replay adds no action
+ok
+test process_exit_before_record_commit_never_advertises_it_and_retry_completes ... actual replica process exits at BeforeStorageCommit
+
+provider transport result at BeforeStorageCommit: Err(Transport)
+BeforeStorageCommit: recovered identical four-record view; offline replica still serves; duplicate replay adds no action
+ok
+test process_exit_before_view_commit_replays_and_still_serves ... actual replica process exits at BeforeGroupsCommit
+
+provider transport result at BeforeGroupsCommit: Err(Transport)
+BeforeGroupsCommit: recovered identical four-record view; offline replica still serves; duplicate replay adds no action
+ok
+test replica_crash_worker ... ok
+test required_body_missing_then_complete_retry_survives_restart ... ok
+test signed_extension_only_action_is_applied_by_replica_consumer ... ok
+test unadmitted_identity_cannot_start_replication_or_read_history ... ok
+test unauthorized_records_and_private_material_are_excluded_from_served_replicas ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 127.15s
+

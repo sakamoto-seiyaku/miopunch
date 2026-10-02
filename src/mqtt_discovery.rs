@@ -17,6 +17,7 @@ use crate::admission_proof::AdmissionScope;
 
 const QUERY: &[u8; 4] = b"MDQ1";
 const RESPONSE: &[u8; 4] = b"MDR1";
+const TAGGED_RESPONSE: &[u8; 4] = b"MDR2";
 const MAX_CANDIDATES: usize = 16;
 const DISCOVERY_WINDOW: Duration = Duration::from_secs(2);
 
@@ -61,48 +62,62 @@ async fn subscribed(events: &mut rumqttc::EventLoop) -> io::Result<()> {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Candidate {
+pub struct Candidate<const N: usize = 16> {
     pub id: EndpointId,
-    pub route: [u8; 16],
+    pub route: [u8; N],
     pub udp_addr: SocketAddrV4,
 }
 
-impl Candidate {
-    fn encode(self, nonce: &[u8; 16]) -> [u8; 74] {
-        let mut bytes = [0; 74];
-        bytes[..4].copy_from_slice(RESPONSE);
-        bytes[4..20].copy_from_slice(nonce);
-        bytes[20..52].copy_from_slice(self.id.as_bytes());
-        bytes[52..68].copy_from_slice(&self.route);
-        bytes[68..72].copy_from_slice(&self.udp_addr.ip().octets());
-        bytes[72..74].copy_from_slice(&self.udp_addr.port().to_be_bytes());
+impl<const N: usize> Candidate<N> {
+    fn encode(self, nonce: &[u8; 16]) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(58 + N);
+        bytes.extend_from_slice(if N == 32 { TAGGED_RESPONSE } else { RESPONSE });
+        bytes.extend_from_slice(nonce);
+        bytes.extend_from_slice(self.id.as_bytes());
+        bytes.extend_from_slice(&self.route);
+        bytes.extend_from_slice(&self.udp_addr.ip().octets());
+        bytes.extend_from_slice(&self.udp_addr.port().to_be_bytes());
         bytes
     }
 
     fn decode(bytes: &[u8], nonce: &[u8; 16]) -> Option<Self> {
-        if bytes.len() != 74 || &bytes[..4] != RESPONSE || &bytes[4..20] != nonce {
+        let version = if N == 32 { TAGGED_RESPONSE } else { RESPONSE };
+        if !matches!(N, 16 | 32)
+            || bytes.len() != 58 + N
+            || &bytes[..4] != version
+            || &bytes[4..20] != nonce
+        {
             return None;
         }
         let id = EndpointId::from_bytes(bytes[20..52].try_into().ok()?).ok()?;
-        let route = bytes[52..68].try_into().ok()?;
+        let route = bytes[52..52 + N].try_into().ok()?;
         let udp_addr = SocketAddrV4::new(
-            Ipv4Addr::from(<[u8; 4]>::try_from(&bytes[68..72]).ok()?),
-            u16::from_be_bytes(bytes[72..74].try_into().ok()?),
+            Ipv4Addr::from(<[u8; 4]>::try_from(&bytes[52 + N..56 + N]).ok()?),
+            u16::from_be_bytes(bytes[56 + N..58 + N].try_into().ok()?),
         );
-        Some(Self {
-            id,
-            route,
-            udp_addr,
-        })
+        (udp_addr.port() != 0 && !udp_addr.ip().is_unspecified() && !udp_addr.ip().is_multicast())
+            .then_some(Self {
+                id,
+                route,
+                udp_addr,
+            })
     }
 }
 
 /// A responder subscribes before reporting ready. Its task can be aborted
 /// when this node stops being available on the selected message resource.
-pub async fn respond(
+pub async fn respond<const N: usize>(
     broker: SocketAddr,
     scope: AdmissionScope,
-    candidate: Candidate,
+    candidate: Candidate<N>,
+) -> io::Result<tokio::task::JoinHandle<()>> {
+    respond_live(broker, scope, move || Some(candidate)).await
+}
+
+pub(crate) async fn respond_live<const N: usize>(
+    broker: SocketAddr,
+    scope: AdmissionScope,
+    candidate: impl Fn() -> Option<Candidate<N>> + Send + 'static,
 ) -> io::Result<tokio::task::JoinHandle<()>> {
     let prefix = namespace(&scope);
     let query_topic = format!("{prefix}/query");
@@ -123,6 +138,9 @@ pub async fn respond(
             {
                 continue;
             }
+            let Some(candidate) = candidate() else {
+                continue;
+            };
             let nonce: [u8; 16] = publish.payload[4..20].try_into().unwrap();
             let reply = format!("{prefix}/reply/{}", hex::encode(nonce));
             if mqtt
@@ -138,6 +156,13 @@ pub async fn respond(
 /// Gather a bounded set of hints. The random reply route expires when this
 /// call returns; retained or late replies never become reusable authority.
 pub async fn discover(broker: SocketAddr, scope: &AdmissionScope) -> io::Result<Vec<Candidate>> {
+    discover_routes::<16>(broker, scope).await
+}
+
+pub(crate) async fn discover_routes<const N: usize>(
+    broker: SocketAddr,
+    scope: &AdmissionScope,
+) -> io::Result<Vec<Candidate<N>>> {
     let prefix = namespace(scope);
     let nonce: [u8; 16] = rand::random();
     let reply = format!("{prefix}/reply/{}", hex::encode(nonce));
@@ -167,7 +192,7 @@ pub async fn discover(broker: SocketAddr, scope: &AdmissionScope) -> io::Result<
         if let Some(candidate) = Candidate::decode(&publish.payload, &nonce) {
             if !found
                 .iter()
-                .any(|old: &Candidate| old.id == candidate.id && old.route == candidate.route)
+                .any(|old: &Candidate<N>| old.id == candidate.id && old.route == candidate.route)
             {
                 found.push(candidate);
             }

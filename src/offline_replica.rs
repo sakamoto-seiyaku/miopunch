@@ -256,7 +256,14 @@ impl NativeNetwork {
     }
 
     fn replica_allowed(&self, connection: &Connection) -> bool {
-        connection.alpn() == REPLICA_ALPN && self.gate.allows(connection, ProtocolScope::Member)
+        (connection.alpn() == REPLICA_ALPN && self.gate.allows(connection, ProtocolScope::Member))
+            || (connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN
+                && self.gate.allows(connection, ProtocolScope::Bootstrap)
+                && !connection.paths().is_empty()
+                && connection
+                    .paths()
+                    .iter()
+                    .all(|path| matches!(path.remote_addr(), iroh::TransportAddr::Ip(_))))
     }
 
     /// Serve the complete locally applied control history, including original
@@ -278,13 +285,16 @@ impl NativeNetwork {
         self.serve_replica_records(connection, records).await
     }
 
-    async fn serve_replica_records(
+    pub(crate) async fn serve_replica_records(
         &self,
         connection: &Connection,
         records: &[ManagementRecord],
     ) -> Result<(), ReplicaError> {
         let result = tokio::time::timeout(TIMEOUT, async {
-            if !self.replica_allowed(connection) {
+            if !self.replica_allowed(connection)
+                || (connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN
+                    && !self.gate.allows_member_path_upgrade(connection))
+            {
                 return Err(ReplicaError::Rejected);
             }
             let (snapshot, manifest) = Snapshot::from_records(self.anchor, records)?;
@@ -299,7 +309,10 @@ impl NativeNetwork {
             if &request != b"REPL" {
                 return Err(ReplicaError::Rejected);
             }
-            if !self.replica_allowed(connection) {
+            if !self.replica_allowed(connection)
+                || (connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN
+                    && !self.gate.allows_member_path_upgrade(connection))
+            {
                 return Err(ReplicaError::Rejected);
             }
             let bytes =
@@ -350,6 +363,17 @@ impl NativeNetwork {
                 .map_err(|_| ReplicaError::Transport)?;
             if !receipt.records_saved {
                 return Err(ReplicaError::Rejected);
+            }
+            if connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN {
+                let mut acknowledgement =
+                    FramedWrite::new(sink.into_inner(), Codec::<Receipt>::new().max_frame_len(64));
+                acknowledgement
+                    .send(Receipt {
+                        records_saved: true,
+                        view_applied: receipt.view_applied,
+                    })
+                    .await
+                    .map_err(|_| ReplicaError::Transport)?;
             }
             Ok(())
         })
@@ -430,6 +454,13 @@ impl NativeNetwork {
             let outcome = ReplicaOutcome { source: connection.remote_id(), saved: manifest.ids.iter().filter(|id| saved_ids.contains(id)).copied().collect(), scope: manifest.ids, transport_done: true, applied };
             let mut receipt_sink = FramedWrite::new(sink.into_inner(), Codec::<Receipt>::new().max_frame_len(64));
             receipt_sink.send(Receipt { records_saved: outcome.saved == outcome.scope, view_applied: outcome.applied == outcome.scope }).await.map_err(|_| ReplicaError::Transport)?;
+            if connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN {
+                let buffered = stream.read_buffer().clone();
+                let mut acknowledgement = FramedRead::new(stream.into_inner(), Codec::<Receipt>::new().max_frame_len(64));
+                acknowledgement.read_buffer_mut().extend_from_slice(&buffered);
+                let ack = acknowledgement.next().await.ok_or(ReplicaError::Transport)?.map_err(|_| ReplicaError::Transport)?;
+                if !ack.records_saved { return Err(ReplicaError::Rejected); }
+            }
             Ok(outcome)
         }).await.unwrap_or(Err(ReplicaError::Transport));
         if result.is_err() {

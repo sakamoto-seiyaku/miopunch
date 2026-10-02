@@ -42,6 +42,7 @@ const RESOURCE_CONFIGURATION: &str = "resources.json";
 fn network_protocols() -> Vec<Vec<u8>> {
     vec![
         crate::admission_gate::ADMISSION_REQUEST_ALPN.to_vec(),
+        crate::network_recovery::RECOVERY_REPLICA_ALPN.to_vec(),
         crate::management_recovery::MANAGEMENT_RECOVERY_ALPN.to_vec(),
         crate::admission_rotation::ADMISSION_ROTATION_ALPN.to_vec(),
         crate::admission_rotation::ROTATION_DELIVERY_ALPN.to_vec(),
@@ -632,7 +633,16 @@ impl NativeNetwork {
                 true,
             )
             .await?;
-        Ok(crate::resources::ResourceEndpoint::new(endpoint, config))
+        let mut resources = crate::resources::ResourceEndpoint::new(endpoint, config);
+        if !resources.recovery_origins().is_empty() {
+            resources
+                .endpoint()
+                .address_lookup()
+                .map_err(std::io::Error::other)?
+                .add(resources.contacts.clone());
+        }
+        self.start_recovery_discovery(&mut resources).await;
+        Ok(resources)
     }
 
     /// The same policy handle can be installed through p2panda's endpoint

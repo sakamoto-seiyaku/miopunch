@@ -1,0 +1,37 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_recovery",
+        "missing_causal_dependency_waits_then_recovers_from_the_saved_source",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 13.132,
+      "log": "tests.log"
+    }
+  ],
+  "passed": true,
+  "brokers": [
+    "127.0.0.1:43330",
+    "127.0.0.1:43331"
+  ],
+  "cleanup": [
+    {
+      "owned_container": "miopunch46-recovery-1790925780807320002",
+      "exit": 0
+    },
+    {
+      "owned_container": "miopunch46-recovery-1790925781122572631",
+      "exit": 0
+    }
+  ]
+}

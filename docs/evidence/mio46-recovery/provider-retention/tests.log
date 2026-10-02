@@ -1,0 +1,24 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.50s
+     Running tests/network_recovery.rs (target/debug/deps/network_recovery-39d4e37d1d6559ae)
+
+running 1 test
+test old_member_recovers_from_the_only_online_unknown_member_at_startup ... [DEBUG-mio46] replica complete=true member=true paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:45429)], selected: Some(PathId(1)), closed: false }, .. }
+[DEBUG-mio46] result=Ok(ReplicaOutcome { source: PublicKey(9481aac1eae2bcb2e5225dc18d963cd00afb5bd1c9f7fb7439764dcfc3357ad3), scope: [Hash([180, 168, 248, 170, 234, 121, 64, 16, 185, 56, 15, 10, 53, 33, 104, 17, 139, 188, 118, 34, 121, 19, 90, 181, 86, 118, 255, 21, 27, 124, 195, 129]), Hash([105, 64, 144, 136, 31, 175, 219, 59, 226, 199, 24, 150, 77, 235, 123, 227, 238, 54, 211, 125, 59, 241, 242, 215, 76, 219, 236, 68, 108, 175, 13, 151]), Hash([251, 112, 228, 68, 94, 136, 151, 214, 63, 40, 76, 160, 145, 75, 21, 235, 57, 108, 91, 247, 242, 244, 95, 214, 88, 69, 150, 237, 183, 93, 199, 12])], transport_done: true, saved: [Hash([180, 168, 248, 170, 234, 121, 64, 16, 185, 56, 15, 10, 53, 33, 104, 17, 139, 188, 118, 34, 121, 19, 90, 181, 86, 118, 255, 21, 27, 124, 195, 129]), Hash([105, 64, 144, 136, 31, 175, 219, 59, 226, 199, 24, 150, 77, 235, 123, 227, 238, 54, 211, 125, 59, 241, 242, 215, 76, 219, 236, 68, 108, 175, 13, 151]), Hash([251, 112, 228, 68, 94, 136, 151, 214, 63, 40, 76, 160, 145, 75, 21, 235, 57, 108, 91, 247, 242, 244, 95, 214, 88, 69, 150, 237, 183, 93, 199, 12])], applied: [Hash([180, 168, 248, 170, 234, 121, 64, 16, 185, 56, 15, 10, 53, 33, 104, 17, 139, 188, 118, 34, 121, 19, 90, 181, 86, 118, 255, 21, 27, 124, 195, 129]), Hash([105, 64, 144, 136, 31, 175, 219, 59, 226, 199, 24, 150, 77, 235, 123, 227, 238, 54, 211, 125, 59, 241, 242, 215, 76, 219, 236, 68, 108, 175, 13, 151]), Hash([251, 112, 228, 68, 94, 136, 151, 214, 63, 40, 76, 160, 145, 75, 21, 235, 57, 108, 91, 247, 242, 244, 95, 214, 88, 69, 150, 237, 183, 93, 199, 12])] })
+UNKNOWN_RECOVERY a_knows_c_initially=0 b_online=0 real_mqtt=1 durable_logsync=1 authorized_business=1
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.93s
+

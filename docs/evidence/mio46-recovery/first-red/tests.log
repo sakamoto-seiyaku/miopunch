@@ -1,0 +1,46 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: unused import: `time::Duration`
+ --> tests/network_recovery.rs:2:49
+  |
+2 | use std::{collections::BTreeSet, net::Ipv4Addr, time::Duration};
+  |                                                 ^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `EndpointAddr`
+ --> tests/network_recovery.rs:3:22
+  |
+3 | use iroh::{Endpoint, EndpointAddr, endpoint::Connection};
+  |                      ^^^^^^^^^^^^
+
+warning: `miopunch-native-probe` (test "network_recovery") generated 2 warnings (run `cargo fix --test "network_recovery" -p miopunch-native-probe` to apply 2 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.65s
+     Running tests/network_recovery.rs (target/debug/deps/network_recovery-39d4e37d1d6559ae)
+
+running 1 test
+test old_member_recovers_from_the_only_online_unknown_member_at_startup ... 
+thread 'old_member_recovers_from_the_only_online_unknown_member_at_startup' (2100415) panicked at tests/network_recovery.rs:76:67:
+startup must automatically discover C and verify/save its replica
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    old_member_recovers_from_the_only_online_unknown_member_at_startup
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.02s
+
+error: test failed, to rerun pass `--test network_recovery`

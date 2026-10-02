@@ -439,6 +439,8 @@ pub struct ResourceEndpoint {
     config: ResourceConfig,
     timeout: Duration,
     backoff: BTreeMap<iroh::EndpointId, ContactBackoff>,
+    pub(crate) contacts: iroh::address_lookup::memory::MemoryLookup,
+    pub(crate) responders: Vec<tokio::task::JoinHandle<()>>,
 }
 
 impl ResourceEndpoint {
@@ -448,6 +450,8 @@ impl ResourceEndpoint {
             config,
             timeout: Duration::from_secs(10),
             backoff: BTreeMap::new(),
+            contacts: iroh::address_lookup::memory::MemoryLookup::new(),
+            responders: Vec::new(),
         }
     }
 
@@ -525,7 +529,48 @@ impl ResourceEndpoint {
         Err(self.backoff.entry(id).or_default().failed(cause))
     }
 
+    pub(crate) fn recovery_origins(&self) -> Vec<iroh::RelayUrl> {
+        self.config
+            .mqtt_resources()
+            .into_iter()
+            .filter(|url| self.config.allows(url.as_str(), ResourceUse::Lookup))
+            .take(4)
+            .collect()
+    }
+
+    pub(crate) fn recovery_udp_allowed(&self) -> bool {
+        !self.config.udp_direct_disabled
+    }
+
+    pub(crate) fn contact_failed(&mut self, id: iroh::EndpointId) {
+        self.backoff
+            .entry(id)
+            .or_default()
+            .failed("candidate recovery did not complete".into());
+    }
+
+    pub(crate) fn remember(&mut self, target: iroh::EndpointAddr) {
+        if self
+            .contacts
+            .get_endpoint_info(target.id)
+            .map(|info| info.into_endpoint_addr())
+            .as_ref()
+            != Some(&target)
+        {
+            self.backoff.remove(&target.id);
+        }
+        self.contacts.set_endpoint_info(target);
+    }
+
     pub async fn close(self) {
         self.endpoint.close().await;
+    }
+}
+
+impl Drop for ResourceEndpoint {
+    fn drop(&mut self) {
+        for responder in &self.responders {
+            responder.abort();
+        }
     }
 }

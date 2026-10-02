@@ -1,0 +1,37 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_recovery",
+        "a_false_candidate_without_the_network_secret_never_supplies_history",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 9.319,
+      "log": "selected.log"
+    }
+  ],
+  "passed": true,
+  "brokers": [
+    "127.0.0.1:43334",
+    "127.0.0.1:43335"
+  ],
+  "cleanup": [
+    {
+      "owned_container": "miopunch46-recovery-1790926166497089857",
+      "exit": 0
+    },
+    {
+      "owned_container": "miopunch46-recovery-1790926166919083076",
+      "exit": 0
+    }
+  ]
+}
