@@ -1,9 +1,13 @@
 {
-  "acceptance": "completed-acceptance/results.json",
+  "acceptance": "review-refactor/results.json",
   "passed": true,
   "affected_short_behavior": "final/mqtt-short/results.json",
   "affected_short_prior_receipt_passed": false,
   "prior_failure": "format during test source editing; not a runtime failure",
   "pending_checks_completed": "continued-short/results.json",
-  "skip": "Previously validated unchanged slow NAT matrices per standing user instruction"
+  "skip": "Previously validated unchanged slow NAT matrices per standing user instruction",
+  "post_review_mqtt_filter": "review-mqtt-filter/results.json",
+  "post_review_compile": "review-compile/results.json",
+  "standards": "standards-review-final.md",
+  "spec": "spec-review-final.md"
 }

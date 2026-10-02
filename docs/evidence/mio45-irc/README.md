@@ -57,3 +57,13 @@ completed receipts report passed=true. The affected existing short groups
 report 137 passing tests, including inert subprocess worker entries. Slow already verified unchanged
 NAT matrices are excluded per the user's standing instruction. WASM checks are
 compile-only. No new arbitrary-NAT, public-service or other-platform claim is made.
+
+The final accepted cleanup is validated by `review-refactor/results.json`
+(all ten IRC conditions plus isolated UDP-cut), `review-mqtt-filter/results.json`
+(actual affected MQTT configured startup) and `review-compile/results.json`
+(current hooks, default native compilation and formatting), all passed=true.
+Independent initial reports are `standards-review.md` and `spec-review.md`; their
+`*-final.md` supplements confirm the three optional Standards maintenance
+suggestions were addressed with no remaining or new findings.
+`code-review.md` reports both axes separately. No runtime/test source changed
+after those accepted checks and final reviews.
