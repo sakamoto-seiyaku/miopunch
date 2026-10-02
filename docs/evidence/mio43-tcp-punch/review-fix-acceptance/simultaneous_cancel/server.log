@@ -1,0 +1,17 @@
+
+running 1 test
+READY id=bf3b1dcbc9d500e4b05356e6d46a1abc4961bb9b5f22fad23a07dcc8daed3c5b tcp=EndpointAddr { id: PublicKey(bf3b1dcbc9d500e4b05356e6d46a1abc4961bb9b5f22fad23a07dcc8daed3c5b), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=138476523624608 peer=6877e5cba4cd6b9cd5e60e21e5ad8d98bdefe7e969a140c99a489c6c055594c8
+MQTT_BOOTSTRAP_START stable_id=138476590850528 peer=6877e5cba4cd6b9cd5e60e21e5ad8d98bdefe7e969a140c99a489c6c055594c8
+MQTT_BOOTSTRAP_FAILED stable_id=138476590850528 error=read error: connection lost
+TCP_OBSERVED stable_id=138476523624608 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=138476523624608 peer=6877e5cba4cd6b9cd5e60e21e5ad8d98bdefe7e969a140c99a489c6c055594c8 remote=100.64.27.2:42027
+TCP_PUNCH_FALLBACK stable_id=138476523624608 error=connection lost
+MQTT_BOOTSTRAP_FAILED stable_id=138476523624608 error=no mutually permitted data path capability
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP attempt canceled
+CANCEL_OK peer_cancel_closed_both=true node_identity=bf3b1dcbc9d500e4b05356e6d46a1abc4961bb9b5f22fad23a07dcc8daed3c5b
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.97s
+

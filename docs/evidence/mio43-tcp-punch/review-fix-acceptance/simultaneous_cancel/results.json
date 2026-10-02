@@ -1,0 +1,32 @@
+{
+  "case": "simultaneous_cancel",
+  "commands": [
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch43-1790917295547599949",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio43-tcp-punch/review-fix-acceptance/simultaneous_cancel,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "/repo/scripts/tcp_punch_lab.py",
+        "/repo/target/debug/deps/tcp_punch-db64afba10aa32c2",
+        "/repo/target/debug/udp_observation_probe",
+        "/evidence",
+        "simultaneous_cancel"
+      ],
+      "exit": 0,
+      "seconds": 5.232,
+      "log": "lab.log"
+    }
+  ],
+  "passed": true
+}

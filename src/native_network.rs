@@ -498,7 +498,7 @@ impl NativeNetwork {
         resources: &crate::resources::ResourceConfig,
         automatic_mqtt: bool,
     ) -> Result<Endpoint, NodeError> {
-        let mut builder = resources.configure(builder)?;
+        let (mut builder, tcp) = resources.configure_with_tcp(builder)?;
         let mut mqtt = Vec::new();
         if automatic_mqtt {
             for resource in resources.mqtt_resources() {
@@ -527,6 +527,15 @@ impl NativeNetwork {
                         (!observers.is_empty()).then_some(observers),
                         !resources.udp_direct_disabled,
                     )),
+                    tcp.filter(|_| !resources.tcp_observers().is_empty())
+                        .filter(|transport| transport.supports_punching())
+                        .map(|transport| {
+                            crate::tcp_punch::TcpPunch::new(
+                                transport,
+                                resources.tcp_observers(),
+                                resources.clone(),
+                            )
+                        }),
                 ),
             )
         } else {

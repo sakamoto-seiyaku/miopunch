@@ -1,0 +1,2 @@
+conntrack v1.4.7 (conntrack-tools): 1 flow entries have been deleted.
+tcp      6 119 SYN_SENT src=10.27.1.2 dst=100.64.27.6 sport=42027 dport=43027 [UNREPLIED] src=100.64.27.6 dst=100.64.27.2 sport=43027 dport=42027 mark=0 use=1

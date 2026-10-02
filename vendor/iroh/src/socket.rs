@@ -1758,6 +1758,28 @@ impl EndpointInner {
             .map_err(|_| std::io::Error::other("remote state stopped"))?
             .map_err(std::io::Error::other)
     }
+
+    pub(crate) async fn retire_control_path(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        addr: iroh_base::CustomAddr,
+    ) -> io::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.sock
+            .try_send_remote_state_msg(
+                remote,
+                RemoteStateMessage::RetireControlPath {
+                    conn_id,
+                    remote: addr,
+                    tx,
+                },
+            )
+            .map_err(|_| io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| io::Error::other("remote state stopped"))?
+            .map_err(io::Error::other)
+    }
     /// Release QNT candidates only after an endpoint admission hook succeeds.
     pub(crate) async fn authorize_candidates(
         &self,

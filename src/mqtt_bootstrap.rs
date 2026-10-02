@@ -13,9 +13,41 @@ use crate::{
     nat_connection::NatConnector,
 };
 
+#[derive(Clone, Copy, Debug)]
+struct PathCapabilities {
+    tcp: bool,
+    udp: bool,
+}
+
+async fn exchange_capabilities(
+    connection: &Connection,
+    local: PathCapabilities,
+) -> io::Result<PathCapabilities> {
+    let (mut send, mut recv) = if connection.side().is_client() {
+        connection.open_bi().await?
+    } else {
+        connection.accept_bi().await?
+    };
+    send.write_all(&[1, u8::from(local.tcp), u8::from(local.udp)])
+        .await?;
+    send.finish()?;
+    let peer = recv.read_to_end(3).await.map_err(io::Error::other)?;
+    if peer.len() != 3 || peer[0] != 1 || peer[1] > 1 || peer[2] > 1 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid protected data path capabilities",
+        ));
+    }
+    Ok(PathCapabilities {
+        tcp: local.tcp && peer[1] == 1,
+        udp: local.udp && peer[2] == 1,
+    })
+}
+
 pub(crate) struct MemberPathBootstrap {
     gate: AdmissionGate,
     udp: Arc<NatConnector>,
+    tcp: Option<crate::tcp_punch::TcpPunch>,
 }
 
 impl fmt::Debug for MemberPathBootstrap {
@@ -26,8 +58,12 @@ impl fmt::Debug for MemberPathBootstrap {
 }
 
 impl MemberPathBootstrap {
-    pub(crate) fn new(gate: AdmissionGate, udp: Arc<NatConnector>) -> Self {
-        Self { gate, udp }
+    pub(crate) fn new(
+        gate: AdmissionGate,
+        udp: Arc<NatConnector>,
+        tcp: Option<crate::tcp_punch::TcpPunch>,
+    ) -> Self {
+        Self { gate, udp, tcp }
     }
 }
 
@@ -41,6 +77,14 @@ impl EndpointHooks for MemberPathBootstrap {
             matches!(path.remote_addr(),
             TransportAddr::Custom(address) if address.id() == TRANSPORT_ID)
         }) {
+            if let Some(tcp)=&self.tcp
+                && connection.paths().iter().any(|path|matches!(path.remote_addr(),TransportAddr::Custom(address) if address.id()==crate::tcp_transport::DATA_TRANSPORT_ID)) {
+                let control=ControlSession::from_connection(endpoint.clone(),connection.clone());
+                let mut cancellation=control.cancellation_guard();
+                tcp.retain_existing(endpoint,connection).await?;
+                if !self.gate.allows_member_path_upgrade(connection) {return Err(io::Error::new(io::ErrorKind::PermissionDenied,"TCP membership changed before data release"));}
+                cancellation.disarm();
+            }
             return Ok(());
         }
         let control = ControlSession::from_connection(endpoint.clone(), connection.clone());
@@ -51,6 +95,34 @@ impl EndpointHooks for MemberPathBootstrap {
             connection.remote_id()
         );
         let operation = async {
+            let capabilities = exchange_capabilities(
+                connection,
+                PathCapabilities {
+                    tcp: self.tcp.is_some(),
+                    udp: self.udp.udp_enabled(),
+                },
+            )
+            .await?;
+            if capabilities.tcp
+                && let Some(tcp) = &self.tcp
+            {
+                match tcp.upgrade(endpoint, connection, &self.gate).await {
+                    Ok(()) => return Ok(()),
+                    Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+                        return Err(error);
+                    }
+                    Err(error) => eprintln!(
+                        "TCP_PUNCH_FALLBACK stable_id={} error={error}",
+                        connection.stable_id()
+                    ),
+                }
+            }
+            if !capabilities.udp {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "no mutually permitted data path capability",
+                ));
+            }
             let mut upgrade = self
                 .udp
                 .upgrade(control, &self.gate)

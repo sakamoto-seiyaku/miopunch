@@ -1,0 +1,14 @@
+
+running 1 test
+READY id=9be27175ccceca4f0871b90f7073b59d0c5220c1bd89a0117c6bcfeed36c37ea tcp=EndpointAddr { id: PublicKey(9be27175ccceca4f0871b90f7073b59d0c5220c1bd89a0117c6bcfeed36c37ea), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=136694783300848 peer=67e25bb9543642252fe3c810ecc389eb4713c5431887040c0a21567d69466602
+TCP_OBSERVED stable_id=136694783300848 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=136694783300848 peer=67e25bb9543642252fe3c810ecc389eb4713c5431887040c0a21567d69466602 remote=100.64.27.2:42027
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP connect timeout
+MQTT_BOOTSTRAP_FAILED stable_id=136694783300848 error=TCP punching path validation timed out
+UNSUPPORTED_BOUNDED case=endpoint_dependent elapsed_ms=6948 data_released=false pending_sockets=0
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=1 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.03s
+

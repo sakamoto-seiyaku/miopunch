@@ -1,0 +1,20 @@
+{
+  "case": "simultaneous",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "tcp_punch",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 101,
+      "seconds": 0.744,
+      "log": "build.log"
+    }
+  ],
+  "passed": false
+}

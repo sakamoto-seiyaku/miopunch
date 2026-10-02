@@ -1,0 +1,38 @@
+STUN_TCP_READY actual_socket_observer=true
+STUN_TCP_OBSERVED candidate=100.64.27.6:43027
+STUN_TCP_OBSERVED candidate=100.64.27.2:42027
+Task exception was never retrieved
+future: <Task finished name='Task-8' coro=<binding() done, defined at /repo/scripts/tcp_stun_observer.py:8> exception=ConnectionResetError(104, 'Connection reset by peer')>
+Traceback (most recent call last):
+  File "/repo/scripts/tcp_stun_observer.py", line 25, in binding
+    await writer.wait_closed()
+  File "/usr/lib/python3.11/asyncio/streams.py", line 350, in wait_closed
+    await self._protocol._get_close_waiter(self)
+  File "/usr/lib/python3.11/asyncio/selector_events.py", line 995, in _read_ready__data_received
+    data = self._sock.recv(self.max_size)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [Errno 104] Connection reset by peer
+Task exception was never retrieved
+future: <Task finished name='Task-4' coro=<binding() done, defined at /repo/scripts/tcp_stun_observer.py:8> exception=ConnectionResetError(104, 'Connection reset by peer')>
+Traceback (most recent call last):
+  File "/repo/scripts/tcp_stun_observer.py", line 25, in binding
+    await writer.wait_closed()
+  File "/usr/lib/python3.11/asyncio/streams.py", line 350, in wait_closed
+    await self._protocol._get_close_waiter(self)
+  File "/usr/lib/python3.11/asyncio/selector_events.py", line 995, in _read_ready__data_received
+    data = self._sock.recv(self.max_size)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [Errno 104] Connection reset by peer
+STUN_TCP_OBSERVED candidate=100.64.27.6:43027
+STUN_TCP_OBSERVED candidate=100.64.27.2:42027
+Task exception was never retrieved
+future: <Task finished name='Task-16' coro=<binding() done, defined at /repo/scripts/tcp_stun_observer.py:8> exception=ConnectionResetError(104, 'Connection reset by peer')>
+Traceback (most recent call last):
+  File "/repo/scripts/tcp_stun_observer.py", line 25, in binding
+    await writer.wait_closed()
+  File "/usr/lib/python3.11/asyncio/streams.py", line 350, in wait_closed
+    await self._protocol._get_close_waiter(self)
+  File "/usr/lib/python3.11/asyncio/selector_events.py", line 995, in _read_ready__data_received
+    data = self._sock.recv(self.max_size)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [Errno 104] Connection reset by peer

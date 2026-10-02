@@ -1194,6 +1194,19 @@ impl Endpoint {
             .await
     }
 
+    /// Retire a failed custom candidate on this original restricted connection.
+    /// Pending paths and queued packets are included; later admission cannot
+    /// revive this candidate. Other connections and candidates are unaffected.
+    pub async fn retire_control_path(
+        &self,
+        connection: &connection::Connection,
+        remote: iroh_base::CustomAddr,
+    ) -> std::io::Result<()> {
+        self.inner
+            .retire_control_path(connection.remote_id(), connection.stable_id(), remote)
+            .await
+    }
+
     /// Permanently disallow custom control paths on this connection, after a
     /// data path has been established. This installs a packet admission rule
     /// before closing the old paths, including for queued transmits and new

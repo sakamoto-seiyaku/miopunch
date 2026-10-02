@@ -1,0 +1,30 @@
+
+running 1 test
+READY id=07749d1c3a7010ba3ab7868a88c0fa6c5c3baeefb02811a4af23cfc7ae43be31 tcp=EndpointAddr { id: PublicKey(07749d1c3a7010ba3ab7868a88c0fa6c5c3baeefb02811a4af23cfc7ae43be31), addrs: {Ip(10.27.1.2:42027), Custom(CustomAddr { id: 120299608892272, data: [00000000a42b] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=129058935649472 peer=391ce633241597176c25bfbb9c338e98e932527e9e3b89413e7d54bd552ce2f9
+TCP_OBSERVED stable_id=129058935649472 listener=Some(0.0.0.0:42027) candidate=100.64.27.2:42027
+TCP_PUNCH_START stable_id=129058935649472 peer=391ce633241597176c25bfbb9c338e98e932527e9e3b89413e7d54bd552ce2f9 remote=100.64.27.6:43027
+TCP_CLOSE peer=100.64.27.6:43027 result=TCP connect timeout
+TCP_PUNCH_FALLBACK stable_id=129058935649472 error=TCP punching path validation timed out
+NAT_DIRECT_CANDIDATE stable_id=129058935649472 target=10.27.2.2:43027
+NAT_CONNECTION_ROUND number=1 stable_id=129058935649472
+LEGACY_FEATURE feature=None socket_generation_current=true
+LEGACY_SELECTED mode=0 index=6 c=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[] round=8458c00031e2df93f97a6d31adb3c4c7 stable_id=129058935649472 execution=Ready fallback=true
+LEGACY_CANDIDATES round=8458c00031e2df93f97a6d31adb3c4c7 stable_id=129058935649472 assisted=[10.27.2.2:43027] mapped=[]
+LEGACY_RECV_START round=8458c00031e2df93f97a6d31adb3c4c7 stable_id=129058935649472 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [], candidates: [], range: None, total_budget_ms: 5000, read_budget_ms: 5000 }
+LEGACY_LISTENER round=8458c00031e2df93f97a6d31adb3c4c7 stable_id=129058935649472 local_socket_id=0 local_addr=0.0.0.0:42027 primary=true
+LEGACY_TRACE round=8458c00031e2df93f97a6d31adb3c4c7 stable_id=129058935649472 probes=0 responses=0 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=0 send_errors=0 send_aborted=0 rejected_receipts=0
+
+thread 'tcp_native_punch_worker' (156) panicked at tests/tcp_punch.rs:173:35:
+dual NAT must return formal authenticated TCP connection: "TemporarilyUnreachable { retry_after: 1s, cause: Some(\"bounded contact attempt timed out\") }"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=1 cancelled=0 outbound_outstanding=3 outbound_peak=3 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... FAILED
+
+failures:
+
+failures:
+    tcp_native_punch_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.11s
+

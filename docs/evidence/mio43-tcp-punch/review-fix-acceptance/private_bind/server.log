@@ -1,0 +1,16 @@
+
+running 1 test
+READY id=4124303cbe2853f7444d4830c360bf7f81d9e60c82533fd96aee91f59e48c242 tcp=EndpointAddr { id: PublicKey(4124303cbe2853f7444d4830c360bf7f81d9e60c82533fd96aee91f59e48c242), addrs: {Custom(CustomAddr { id: 120299608892272, data: [0a1b0202a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=123801962551456 peer=5937b97720d38cf3d028e0700742b35349a9f10d482b4849ed04ef24929c6a04
+TCP_OBSERVED stable_id=123801962551456 listener=Some(10.27.2.2:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=123801962551456 peer=5937b97720d38cf3d028e0700742b35349a9f10d482b4849ed04ef24929c6a04 remote=100.64.27.2:42027
+TCP_PUNCH_VALIDATED stable_id=123801962551456 peer=5937b97720d38cf3d028e0700742b35349a9f10d482b4849ed04ef24929c6a04
+TCP_CLOSE peer=100.64.27.2:42027 result=Connection refused (os error 111)
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP connect timeout
+DATA_OK stable_id=123801962551456 peer=5937b97720d38cf3d028e0700742b35349a9f10d482b4849ed04ef24929c6a04 formal_member=true same_connection=true
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP attempt canceled
+TCP_TRAFFIC sent_packets=19 sent_bytes=8577 received_packets=17 received_bytes=8532 closed=1 failed=2 cancelled=1 outbound_outstanding=0 outbound_peak=10 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.38s
+

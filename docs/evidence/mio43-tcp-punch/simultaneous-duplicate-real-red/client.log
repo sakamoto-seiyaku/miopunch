@@ -1,0 +1,25 @@
+
+running 1 test
+READY id=9099077b5a962a1ecd05f44a8accbe99be86e0cd52cc120a842ed595c7124843 tcp=EndpointAddr { id: PublicKey(9099077b5a962a1ecd05f44a8accbe99be86e0cd52cc120a842ed595c7124843), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a42b] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=129215299140640 peer=cc1bbd11245c1f32557678df779dabf4866712038d744956e658d70f5869e994
+MQTT_BOOTSTRAP_START stable_id=129215366175520 peer=cc1bbd11245c1f32557678df779dabf4866712038d744956e658d70f5869e994
+MQTT_BOOTSTRAP_FAILED stable_id=129215366175520 error=duplicate TCP peer attempt
+TCP_OBSERVED stable_id=129215299140640 listener=Some(0.0.0.0:42027) candidate=100.64.27.2:42027
+TCP_PUNCH_START stable_id=129215299140640 peer=cc1bbd11245c1f32557678df779dabf4866712038d744956e658d70f5869e994 remote=100.64.27.6:43027
+TCP_PUNCH_VALIDATED stable_id=129215299140640 peer=cc1bbd11245c1f32557678df779dabf4866712038d744956e658d70f5869e994
+SIMULTANEOUS_OK live_sessions=1 original_connection=129215299140640 authenticated_peer=cc1bbd11245c1f32557678df779dabf4866712038d744956e658d70f5869e994
+
+thread 'tcp_native_punch_worker' (125) panicked at tests/tcp_punch.rs:206:17:
+repeated contact may not create a second valid session while original TCP session is live
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=44 sent_bytes=18677 received_packets=42 received_bytes=17551 closed=1 failed=0 cancelled=0 outbound_outstanding=2 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE peer=100.64.27.6:43027 result=TCP attempt canceled
+test tcp_native_punch_worker ... FAILED
+
+failures:
+
+failures:
+    tcp_native_punch_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.70s
+

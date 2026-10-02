@@ -1,0 +1,32 @@
+{
+  "case": "endpoint_dependent",
+  "commands": [
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch43-1790916441109659097",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio43-tcp-punch/final-acceptance/endpoint_dependent,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "/repo/scripts/tcp_punch_lab.py",
+        "/repo/target/debug/deps/tcp_punch-db64afba10aa32c2",
+        "/repo/target/debug/udp_observation_probe",
+        "/evidence",
+        "endpoint_dependent"
+      ],
+      "exit": 0,
+      "seconds": 10.2,
+      "log": "lab.log"
+    }
+  ],
+  "passed": true
+}

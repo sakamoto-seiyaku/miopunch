@@ -1,0 +1,19 @@
+
+running 1 test
+READY id=b37fe041ca1101637c8b339634c25b96737347a2341761ac403e483cf934f773 tcp=EndpointAddr { id: PublicKey(b37fe041ca1101637c8b339634c25b96737347a2341761ac403e483cf934f773), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=125504313103440 peer=002507e547a8a0b68ee76658a17ef16e4eda374337c7c25f0911208a734c7312
+MQTT_BOOTSTRAP_FAILED stable_id=125504313103440 error=UDP resource disabled
+
+thread 'tcp_native_punch_worker' (108) panicked at tests/tcp_punch.rs:114:27:
+dual NAT must return formal authenticated TCP connection: "Connection was rejected locally"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... FAILED
+
+failures:
+
+failures:
+    tcp_native_punch_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+

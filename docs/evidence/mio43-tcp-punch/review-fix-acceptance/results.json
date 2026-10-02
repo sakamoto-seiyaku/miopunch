@@ -1,0 +1,203 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "case": "positive",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-B",
+        "scripts/check_tcp_punch.py",
+        "--case",
+        "positive",
+        "--worker",
+        "/home/js/Git/miopunch/target/debug/deps/tcp_punch-db64afba10aa32c2",
+        "--output",
+        "/home/js/Git/miopunch/docs/evidence/mio43-tcp-punch/review-fix-acceptance/positive"
+      ],
+      "exit": 0,
+      "seconds": 19.996
+    },
+    {
+      "case": "simultaneous_cancel",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-B",
+        "scripts/check_tcp_punch.py",
+        "--case",
+        "simultaneous_cancel",
+        "--worker",
+        "/home/js/Git/miopunch/target/debug/deps/tcp_punch-db64afba10aa32c2",
+        "--output",
+        "/home/js/Git/miopunch/docs/evidence/mio43-tcp-punch/review-fix-acceptance/simultaneous_cancel"
+      ],
+      "exit": 0,
+      "seconds": 5.291
+    },
+    {
+      "case": "simultaneous",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-B",
+        "scripts/check_tcp_punch.py",
+        "--case",
+        "simultaneous",
+        "--worker",
+        "/home/js/Git/miopunch/target/debug/deps/tcp_punch-db64afba10aa32c2",
+        "--output",
+        "/home/js/Git/miopunch/docs/evidence/mio43-tcp-punch/review-fix-acceptance/simultaneous"
+      ],
+      "exit": 0,
+      "seconds": 19.751
+    },
+    {
+      "case": "endpoint_dependent",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-B",
+        "scripts/check_tcp_punch.py",
+        "--case",
+        "endpoint_dependent",
+        "--worker",
+        "/home/js/Git/miopunch/target/debug/deps/tcp_punch-db64afba10aa32c2",
+        "--output",
+        "/home/js/Git/miopunch/docs/evidence/mio43-tcp-punch/review-fix-acceptance/endpoint_dependent"
+      ],
+      "exit": 0,
+      "seconds": 11.213
+    },
+    {
+      "case": "udp_fallback",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-B",
+        "scripts/check_tcp_punch.py",
+        "--case",
+        "udp_fallback",
+        "--worker",
+        "/home/js/Git/miopunch/target/debug/deps/tcp_punch-db64afba10aa32c2",
+        "--output",
+        "/home/js/Git/miopunch/docs/evidence/mio43-tcp-punch/review-fix-acceptance/udp_fallback"
+      ],
+      "exit": 0,
+      "seconds": 22.041
+    },
+    {
+      "case": "mixed_tcp",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-B",
+        "scripts/check_tcp_punch.py",
+        "--case",
+        "mixed_tcp",
+        "--worker",
+        "/home/js/Git/miopunch/target/debug/deps/tcp_punch-db64afba10aa32c2",
+        "--output",
+        "/home/js/Git/miopunch/docs/evidence/mio43-tcp-punch/review-fix-acceptance/mixed_tcp"
+      ],
+      "exit": 0,
+      "seconds": 15.009
+    },
+    {
+      "case": "wrong_target",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-B",
+        "scripts/check_tcp_punch.py",
+        "--case",
+        "wrong_target",
+        "--worker",
+        "/home/js/Git/miopunch/target/debug/deps/tcp_punch-db64afba10aa32c2",
+        "--output",
+        "/home/js/Git/miopunch/docs/evidence/mio43-tcp-punch/review-fix-acceptance/wrong_target"
+      ],
+      "exit": 0,
+      "seconds": 5.288
+    },
+    {
+      "case": "private_bind",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-B",
+        "scripts/check_tcp_punch.py",
+        "--case",
+        "private_bind",
+        "--worker",
+        "/home/js/Git/miopunch/target/debug/deps/tcp_punch-db64afba10aa32c2",
+        "--output",
+        "/home/js/Git/miopunch/docs/evidence/mio43-tcp-punch/review-fix-acceptance/private_bind"
+      ],
+      "exit": 0,
+      "seconds": 21.652
+    },
+    {
+      "case": "cancel_attempt",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-B",
+        "scripts/check_tcp_punch.py",
+        "--case",
+        "cancel_attempt",
+        "--worker",
+        "/home/js/Git/miopunch/target/debug/deps/tcp_punch-db64afba10aa32c2",
+        "--output",
+        "/home/js/Git/miopunch/docs/evidence/mio43-tcp-punch/review-fix-acceptance/cancel_attempt"
+      ],
+      "exit": 0,
+      "seconds": 13.995
+    },
+    {
+      "case": "observer_failure",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-B",
+        "scripts/check_tcp_punch.py",
+        "--case",
+        "observer_failure",
+        "--worker",
+        "/home/js/Git/miopunch/target/debug/deps/tcp_punch-db64afba10aa32c2",
+        "--output",
+        "/home/js/Git/miopunch/docs/evidence/mio43-tcp-punch/review-fix-acceptance/observer_failure"
+      ],
+      "exit": 0,
+      "seconds": 16.145
+    },
+    {
+      "case": "candidate_denied",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-B",
+        "scripts/check_tcp_punch.py",
+        "--case",
+        "candidate_denied",
+        "--worker",
+        "/home/js/Git/miopunch/target/debug/deps/tcp_punch-db64afba10aa32c2",
+        "--output",
+        "/home/js/Git/miopunch/docs/evidence/mio43-tcp-punch/review-fix-acceptance/candidate_denied"
+      ],
+      "exit": 0,
+      "seconds": 7.98
+    }
+  ]
+}

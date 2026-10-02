@@ -1,0 +1,15 @@
+
+running 1 test
+READY id=56f7b6298561fd52908988803a1989109265d1ed121168c168fcc77f2f5e2996 tcp=EndpointAddr { id: PublicKey(56f7b6298561fd52908988803a1989109265d1ed121168c168fcc77f2f5e2996), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a42b] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=139184589642352 peer=b9dc01cf4841a88cbb61831c770758e056285fa661899a0f92490d2a41650b89
+TCP_OBSERVED stable_id=139184589642352 listener=Some(0.0.0.0:42027) candidate=100.64.27.2:42027
+TCP_PUNCH_START stable_id=139184589642352 peer=b9dc01cf4841a88cbb61831c770758e056285fa661899a0f92490d2a41650b89 remote=100.64.27.6:43027
+TCP_PUNCH_VALIDATED stable_id=139184589642352 peer=b9dc01cf4841a88cbb61831c770758e056285fa661899a0f92490d2a41650b89
+DATA_OK stable_id=139184589642352 peer=b9dc01cf4841a88cbb61831c770758e056285fa661899a0f92490d2a41650b89 formal_member=true same_connection=true
+TCP_CLOSE result=cancelled
+TCP_CLOSE peer=100.64.27.6:43027 result=TCP endpoint closed
+TCP_TRAFFIC sent_packets=21 sent_bytes=8669 received_packets=17 received_bytes=8525 closed=0 failed=0 cancelled=2 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.56s
+

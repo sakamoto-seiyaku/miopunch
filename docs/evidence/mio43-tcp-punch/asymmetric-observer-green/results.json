@@ -1,0 +1,20 @@
+{
+  "case": "observer_failure",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "tcp_punch",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 101,
+      "seconds": 4.983,
+      "log": "build.log"
+    }
+  ],
+  "passed": false
+}

@@ -1,0 +1,20 @@
+
+running 1 test
+READY id=7e974daee47b00c49c49afc99fbc9bd8dac1f0ea264fdd3952317a5c2e4ccbd4 tcp=EndpointAddr { id: PublicKey(7e974daee47b00c49c49afc99fbc9bd8dac1f0ea264fdd3952317a5c2e4ccbd4), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=126622078359152 peer=0f23d4f7db433436a96c12d4888f01580e17c18432f2fb4d343c5543e05cbaa3
+MQTT_BOOTSTRAP_START stable_id=126621474496240 peer=0f23d4f7db433436a96c12d4888f01580e17c18432f2fb4d343c5543e05cbaa3
+MQTT_BOOTSTRAP_FAILED stable_id=126621474496240 error=duplicate TCP peer attempt
+TCP_OBSERVED stable_id=126622078359152 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=126622078359152 peer=0f23d4f7db433436a96c12d4888f01580e17c18432f2fb4d343c5543e05cbaa3 remote=100.64.27.2:42027
+TCP_PUNCH_VALIDATED stable_id=126622078359152 peer=0f23d4f7db433436a96c12d4888f01580e17c18432f2fb4d343c5543e05cbaa3
+SIMULTANEOUS_OK live_sessions=1 original_connection=126622078359152 authenticated_peer=0f23d4f7db433436a96c12d4888f01580e17c18432f2fb4d343c5543e05cbaa3
+DUPLICATE_OK first_connection=126622078359152 still_live=true
+TCP_CLOSE peer=100.64.27.2:42027 result=Connection refused (os error 111)
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP connect timeout
+DATA_OK stable_id=126622078359152 peer=0f23d4f7db433436a96c12d4888f01580e17c18432f2fb4d343c5543e05cbaa3 formal_member=true same_connection=true
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP attempt canceled
+TCP_TRAFFIC sent_packets=43 sent_bytes=17621 received_packets=45 received_bytes=18707 closed=1 failed=2 cancelled=1 outbound_outstanding=0 outbound_peak=8 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.38s
+

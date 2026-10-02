@@ -8,7 +8,7 @@ use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::task::{Context, Poll};
 
 use futures_channel::mpsc;
@@ -20,7 +20,7 @@ use iroh::endpoint::transports::{
 use iroh_base::CustomAddr;
 use n0_watcher::{Direct, Watchable};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::{TcpListener, TcpSocket, TcpStream};
 
 const TRANSPORT_ID: u64 = 0x6d696f746370; // "miotcp", retained from MIOPUNCH-18.
 /// Current custom carrier that is eligible for admitted member data.
@@ -88,6 +88,8 @@ pub struct TcpTransport {
     bound_addr: Arc<Mutex<Option<SocketAddr>>>,
     nat_pmp_mapping: bool,
     bind_policy: Option<iroh::endpoint::RelayResourcePolicy>,
+    punching: bool,
+    shared: Arc<Mutex<Weak<Shared>>>,
 }
 
 impl TcpTransport {
@@ -102,6 +104,8 @@ impl TcpTransport {
             bound_addr: Arc::new(Mutex::new(None)),
             nat_pmp_mapping: false,
             bind_policy: None,
+            punching: false,
+            shared: Arc::new(Mutex::new(Weak::new())),
         }
     }
 
@@ -110,6 +114,57 @@ impl TcpTransport {
     pub fn with_nat_pmp_mapping(mut self) -> Self {
         self.nat_pmp_mapping = true;
         self
+    }
+
+    pub(crate) fn with_punching(mut self) -> Self {
+        self.punching = cfg!(target_os = "linux") && self.bind_addr.is_ipv4();
+        self
+    }
+
+    pub(crate) fn supports_punching(&self) -> bool {
+        self.punching
+    }
+
+    pub(crate) async fn observe(
+        &self,
+        observer: SocketAddr,
+    ) -> io::Result<(SocketAddr, TcpStream)> {
+        let shared = self
+            .shared
+            .lock()
+            .unwrap()
+            .upgrade()
+            .ok_or_else(|| io::Error::other("TCP endpoint unavailable"))?;
+        if !shared.punching {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "TCP punching requires validated Linux IPv4 port reuse",
+            ));
+        }
+        let stream = connect_from_listener(shared.local, observer).await?;
+        crate::tcp_observation::binding(stream).await
+    }
+
+    pub(crate) fn prime(&self, peer: SocketAddr) -> io::Result<TcpCircuitLease> {
+        let shared = self
+            .shared
+            .lock()
+            .unwrap()
+            .upgrade()
+            .ok_or_else(|| io::Error::other("TCP endpoint unavailable"))?;
+        if !shared.punching || !peer.is_ipv4() {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "TCP punching unavailable",
+            ));
+        }
+        let channel = ensure_channel(&shared, peer)?;
+        channel.lock().unwrap().owners += 1;
+        Ok(TcpCircuitLease {
+            shared,
+            peer,
+            channel,
+        })
     }
 
     pub fn address(addr: impl Into<SocketAddr>) -> CustomAddr {
@@ -211,12 +266,66 @@ impl Drop for Packet {
 #[derive(Debug)]
 struct Channel {
     sender: mpsc::Sender<QueuedPacket>,
+    pending_queue: Option<mpsc::Receiver<QueuedPacket>>,
+    active: bool,
+    dial_cancel: tokio::sync::watch::Sender<bool>,
+    cancel: tokio::sync::watch::Sender<bool>,
+    owners: usize,
+}
+
+/// A connection attempt owns its share of the real peer circuit. Cancelling
+/// one attempt cannot close a circuit still retained by another live session.
+pub(crate) struct TcpCircuitLease {
+    shared: Arc<Shared>,
+    peer: SocketAddr,
+    channel: Arc<Mutex<Channel>>,
+}
+
+impl Drop for TcpCircuitLease {
+    fn drop(&mut self) {
+        let last = {
+            let mut channel = self.channel.lock().unwrap();
+            channel.owners -= 1;
+            if channel.owners == 0 {
+                channel.cancel.send_replace(true);
+                true
+            } else {
+                false
+            }
+        };
+        if last {
+            let mut channels = self.shared.channels.lock().unwrap();
+            if let Some(current) = channels.get(&self.peer) {
+                let current = current.lock().unwrap();
+                if current.owners == 0 {
+                    current.cancel.send_replace(true);
+                    drop(current);
+                    channels.remove(&self.peer);
+                }
+            }
+        }
+    }
+}
+
+fn channel(
+    sender: mpsc::Sender<QueuedPacket>,
+    queue: mpsc::Receiver<QueuedPacket>,
+) -> Arc<Mutex<Channel>> {
+    let (cancel, _) = tokio::sync::watch::channel(false);
+    let (dial_cancel, _) = tokio::sync::watch::channel(false);
+    Arc::new(Mutex::new(Channel {
+        sender,
+        pending_queue: Some(queue),
+        active: false,
+        dial_cancel,
+        cancel,
+        owners: 0,
+    }))
 }
 
 #[derive(Debug)]
 struct OutboundCircuit {
     peer: SocketAddr,
-    queue: mpsc::Receiver<QueuedPacket>,
     channel: Arc<Mutex<Channel>>,
 }
 
@@ -250,6 +359,7 @@ struct Shared {
     inbound_limit: Arc<tokio::sync::Semaphore>,
     shutdown: tokio::sync::watch::Sender<bool>,
     traffic: Arc<Traffic>,
+    punching: bool,
 }
 
 #[derive(Debug)]
@@ -268,6 +378,24 @@ struct TcpMapping(portmapper::Client);
 impl CustomEndpointShutdown for TcpMapping {
     fn close(&self) -> Pin<Box<dyn std::future::Future<Output = ()> + Send + '_>> {
         Box::pin(self.0.deactivate_and_wait())
+    }
+}
+
+#[derive(Debug)]
+struct TcpCleanup {
+    shared: Arc<Shared>,
+    mapping: Option<Arc<TcpMapping>>,
+}
+
+impl CustomEndpointShutdown for TcpCleanup {
+    fn close(&self) -> Pin<Box<dyn std::future::Future<Output = ()> + Send + '_>> {
+        Box::pin(async {
+            self.shared.shutdown.send_replace(true);
+            self.shared.channels.lock().unwrap().clear();
+            if let Some(mapping) = &self.mapping {
+                mapping.close().await;
+            }
+        })
     }
 }
 
@@ -318,7 +446,21 @@ impl CustomTransport for TcpTransport {
                 "TCP carrier requires an unscoped, unmapped IPv6 address",
             ));
         }
-        let socket = std::net::TcpListener::bind(self.bind_addr)?;
+        let socket: std::net::TcpListener = if self.punching {
+            let socket = socket2::Socket::new(
+                socket2::Domain::IPV4,
+                socket2::Type::STREAM,
+                Some(socket2::Protocol::TCP),
+            )?;
+            socket.set_reuse_address(true)?;
+            #[cfg(target_os = "linux")]
+            socket.set_reuse_port(true)?;
+            socket.bind(&self.bind_addr.into())?;
+            socket.listen(64)?;
+            socket.into()
+        } else {
+            std::net::TcpListener::bind(self.bind_addr)?
+        };
         socket.set_nonblocking(true)?;
         let local = socket.local_addr()?;
         *self.bound_addr.lock().unwrap() = Some(local);
@@ -332,10 +474,18 @@ impl CustomTransport for TcpTransport {
             inbound_limit: Arc::new(tokio::sync::Semaphore::new(MAX_CIRCUITS)),
             shutdown,
             traffic: self.traffic.clone(),
+            punching: self.punching,
         });
+        *self.shared.lock().unwrap() = Arc::downgrade(&shared);
         let weak = Arc::downgrade(&shared);
+        let mut accept_shutdown = shared.shutdown.subscribe();
         let accept_task = tokio::spawn(async move {
-            while let Ok((stream, _)) = listener.accept().await {
+            loop {
+                let accepted = tokio::select! {
+                    accepted=listener.accept()=>accepted,
+                    _=accept_shutdown.changed()=>break,
+                };
+                let Ok((stream, _)) = accepted else { break };
                 let Some(shared) = weak.upgrade() else { break };
                 if let Ok(permit) = shared.inbound_limit.clone().try_acquire_owned() {
                     tokio::spawn(async move {
@@ -405,9 +555,10 @@ impl CustomTransport for TcpTransport {
 
 impl CustomEndpoint for TcpEndpoint {
     fn shutdown_handler(&self) -> Option<Arc<dyn CustomEndpointShutdown>> {
-        self.mapping
-            .as_ref()
-            .map(|mapping| mapping.clone() as Arc<dyn CustomEndpointShutdown>)
+        Some(Arc::new(TcpCleanup {
+            shared: self.shared.clone(),
+            mapping: self.mapping.clone(),
+        }))
     }
 
     fn watch_local_addrs(&self) -> Direct<Vec<CustomAddr>> {
@@ -485,61 +636,9 @@ impl CustomSender for TcpSender {
                 "oversized QUIC packet",
             )));
         }
-        let channel = {
-            let mut channels = self.0.channels.lock().unwrap();
-            if !channels.contains_key(&target) && channels.len() >= MAX_CIRCUITS {
-                return Poll::Ready(Err(io::Error::new(
-                    io::ErrorKind::OutOfMemory,
-                    "too many TCP circuits",
-                )));
-            }
-            channels
-                .entry(target)
-                .or_insert_with(|| {
-                    let (sender, receiver) = mpsc::channel(QUEUE_DEPTH);
-                    let channel = Arc::new(Mutex::new(Channel { sender }));
-                    let shared = self.0.clone();
-                    let task_channel = channel.clone();
-                    tokio::spawn(async move {
-                        match tokio::time::timeout(
-                            std::time::Duration::from_secs(5),
-                            TcpStream::connect(target),
-                        )
-                        .await
-                        {
-                            Ok(Ok(stream)) => {
-                                run_stream(
-                                    shared,
-                                    stream,
-                                    Some(OutboundCircuit {
-                                        peer: target,
-                                        queue: receiver,
-                                        channel: task_channel,
-                                    }),
-                                )
-                                .await
-                            }
-                            result => {
-                                let err = match result {
-                                    Ok(Err(err)) => err,
-                                    Err(_) => io::Error::new(
-                                        io::ErrorKind::TimedOut,
-                                        "TCP connect timeout",
-                                    ),
-                                    Ok(Ok(_)) => unreachable!(),
-                                };
-                                shared
-                                    .traffic
-                                    .failed_circuits
-                                    .fetch_add(1, Ordering::Relaxed);
-                                eprintln!("TCP_CLOSE peer={target} result={err}");
-                                remove_channel(&shared, target, &task_channel);
-                            }
-                        }
-                    });
-                    channel
-                })
-                .clone()
+        let channel = match ensure_channel(&self.0, target) {
+            Ok(channel) => channel,
+            Err(error) => return Poll::Ready(Err(error)),
         };
         let mut channel = channel.lock().unwrap();
         match Pin::new(&mut channel.sender).poll_ready(cx) {
@@ -550,16 +649,101 @@ impl CustomSender for TcpSender {
             ))),
             Poll::Ready(Ok(())) => {
                 let packet = QueuedPacket::new(transmit.contents.to_vec(), self.0.traffic.clone());
-                match Pin::new(&mut channel.sender).start_send(packet) {
-                    Ok(()) => Poll::Ready(Ok(())),
-                    Err(_) => Poll::Ready(Err(io::Error::new(
-                        io::ErrorKind::BrokenPipe,
-                        "TCP carrier closed",
-                    ))),
-                }
+                Pin::new(&mut channel.sender)
+                    .start_send(packet)
+                    .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "TCP carrier closed"))?;
+                Poll::Ready(Ok(()))
             }
         }
     }
+}
+
+async fn connect_from_listener(local: SocketAddr, target: SocketAddr) -> io::Result<TcpStream> {
+    let socket = if local.is_ipv4() {
+        TcpSocket::new_v4()?
+    } else {
+        TcpSocket::new_v6()?
+    };
+    socket.set_reuseaddr(true)?;
+    #[cfg(target_os = "linux")]
+    socket.set_reuseport(true)?;
+    socket.bind(local)?;
+    socket.connect(target).await
+}
+
+fn ensure_channel(shared: &Arc<Shared>, target: SocketAddr) -> io::Result<Arc<Mutex<Channel>>> {
+    let channel = {
+        let mut channels = shared.channels.lock().unwrap();
+        if !channels.contains_key(&target) && channels.len() >= MAX_CIRCUITS {
+            return Err(io::Error::new(
+                io::ErrorKind::OutOfMemory,
+                "too many TCP circuits",
+            ));
+        }
+        channels
+            .entry(target)
+            .or_insert_with(|| {
+                let (sender, receiver) = mpsc::channel(QUEUE_DEPTH);
+                let channel = channel(sender,receiver);
+                let shared = shared.clone();
+                let task_channel = channel.clone();
+                let mut cancel=channel.lock().unwrap().cancel.subscribe();
+                let mut dial_cancel=channel.lock().unwrap().dial_cancel.subscribe();
+                let mut shutdown=shared.shutdown.subscribe();
+                tokio::spawn(async move {
+                    let connecting=tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                        if shared.punching {
+                            connect_from_listener(shared.local, target).await
+                        } else {
+                            TcpStream::connect(target).await
+                        }
+                    });
+                    let result=tokio::select! {
+                        result=connecting=>result,
+                        _=cancel.changed()=>Ok(Err(io::Error::new(io::ErrorKind::Interrupted,"TCP attempt canceled"))),
+                        _=shutdown.changed()=>Ok(Err(io::Error::new(io::ErrorKind::Interrupted,"TCP endpoint closed"))),
+                        _=dial_cancel.changed()=>Ok(Err(io::Error::new(io::ErrorKind::Interrupted,"TCP incoming circuit won"))),
+                    };
+                    match result {
+                        Ok(Ok(stream)) => {
+                            run_stream(
+                                shared,
+                                stream,
+                                Some(OutboundCircuit {
+                                    peer: target,
+                                    channel: task_channel,
+                                }),
+                            )
+                            .await
+                        }
+                        result => {
+                            let mut channel=task_channel.lock().unwrap();
+                            if channel.active {return;}
+                            channel.pending_queue.take();
+                            drop(channel);
+                            let err = match result {
+                                Ok(Err(err)) => err,
+                                Err(_) => {
+                                    io::Error::new(io::ErrorKind::TimedOut, "TCP connect timeout")
+                                }
+                                Ok(Ok(_)) => unreachable!(),
+                            };
+                            shared
+                                .traffic
+                                .cancelled_circuits
+                                .fetch_add(u64::from(err.kind()==io::ErrorKind::Interrupted), Ordering::Relaxed);
+                            shared.traffic.failed_circuits
+                                .fetch_add(u64::from(err.kind()!=io::ErrorKind::Interrupted), Ordering::Relaxed);
+                            eprintln!("TCP_CLOSE peer={target} result={err}");
+                            remove_channel(&shared, target, &task_channel);
+                        }
+                    }
+                });
+                channel
+            })
+            .clone()
+    };
+    Ok(channel)
 }
 
 fn remove_channel(shared: &Shared, peer: SocketAddr, channel: &Arc<Mutex<Channel>>) {
@@ -577,10 +761,15 @@ async fn run_stream(shared: Arc<Shared>, mut stream: TcpStream, outbound: Option
         .as_ref()
         .map(|circuit| (circuit.peer, circuit.channel.clone()));
     let mut shutdown = shared.shutdown.subscribe();
+    let mut owns_channel = false;
+    let mut early_cancel = outbound
+        .as_ref()
+        .map(|circuit| circuit.channel.lock().unwrap().cancel.subscribe());
     let result = async {
         if *shutdown.borrow() {
             return Err(io::Error::new(io::ErrorKind::Interrupted, "TCP endpoint closed"));
         }
+        if early_cancel.as_ref().is_some_and(|cancel|*cancel.borrow()) {return Err(io::Error::new(io::ErrorKind::Interrupted,"TCP attempt canceled"));}
         let advertised = SocketAddr::new(stream.local_addr()?.ip(), shared.local.port());
         let mut preface = vec![0; if shared.local.is_ipv4() { 6 } else { 18 }];
         tokio::select! {
@@ -592,28 +781,41 @@ async fn run_stream(shared: Arc<Shared>, mut stream: TcpStream, outbound: Option
                 Ok::<(), io::Error>(())
             } => result?,
             _ = shutdown.changed() => return Err(io::Error::new(io::ErrorKind::Interrupted, "TCP endpoint closed")),
+            _ = async {match &mut early_cancel {Some(cancel)=>{let _=cancel.changed().await;},None=>std::future::pending::<()>().await}} => return Err(io::Error::new(io::ErrorKind::Interrupted, "TCP attempt canceled")),
         }
         let remote = decode(&preface)?;
-        let (peer, mut queue, channel) = if let Some(circuit) = outbound {
+        let (peer, channel) = if let Some(circuit) = outbound {
             // The dialed route may be a gateway mapping. Its private preface
             // is only an untrusted return hint, never endpoint authentication.
             // Keep responses on this circuit under the original dialed route;
             // inner iroh TLS authenticates the requested endpoint identity.
-            (circuit.peer, circuit.queue, circuit.channel)
+            (circuit.peer, circuit.channel)
         } else {
-            let (sender, receiver) = mpsc::channel(QUEUE_DEPTH);
-            let channel = Arc::new(Mutex::new(Channel { sender }));
+            let socket_peer=stream.peer_addr()?;
+            // A coordinated same-port peer's actual connected tuple survives
+            // NAT. The private preface remains a hint and cannot authenticate it.
+            let peer=if shared.punching && (socket_peer.port()==remote.port() || shared.channels.lock().unwrap().contains_key(&socket_peer)) {socket_peer} else {remote};
             let mut channels = shared.channels.lock().unwrap();
-            if channels.len() >= MAX_CIRCUITS || channels.contains_key(&remote) {
+            if channels.len() >= MAX_CIRCUITS && !channels.contains_key(&peer) {
                 return Err(io::Error::new(
                     io::ErrorKind::AlreadyExists,
                     "TCP peer circuit unavailable",
                 ));
             }
-            channels.insert(remote, channel.clone());
+            let channel=channels.entry(peer).or_insert_with(||{let (sender,receiver)=mpsc::channel(QUEUE_DEPTH);channel(sender,receiver)}).clone();
             drop(channels);
-            (remote, receiver, channel)
+            (peer, channel)
         };
+        let mut queue={
+            let mut channel=channel.lock().unwrap();
+            if *channel.cancel.borrow() {return Err(io::Error::new(io::ErrorKind::Interrupted,"TCP attempt canceled"));}
+            let queue=channel.pending_queue.take().ok_or_else(||io::Error::new(io::ErrorKind::AlreadyExists,"TCP circuit already active"))?;
+            channel.active=true;
+            channel.dial_cancel.send_replace(true);
+            queue
+        };
+        owns_channel=true;
+        let mut circuit_cancel=channel.lock().unwrap().cancel.subscribe();
         let (mut reader, mut writer) = stream.into_split();
         let traffic = shared.traffic.clone();
         let mut writer_task = tokio::spawn(async move {
@@ -726,6 +928,7 @@ async fn run_stream(shared: Arc<Shared>, mut stream: TcpStream, outbound: Option
             result = read_packets => result,
             result = &mut writer_task => result.map_err(io::Error::other)?,
             _ = shutdown.changed() => Err(io::Error::new(io::ErrorKind::Interrupted, "TCP endpoint closed")),
+            _ = circuit_cancel.changed() => Err(io::Error::new(io::ErrorKind::Interrupted, "TCP attempt canceled")),
         };
         writer_task.abort();
         remove_channel(&shared, peer, &channel);
@@ -733,7 +936,10 @@ async fn run_stream(shared: Arc<Shared>, mut stream: TcpStream, outbound: Option
     }
     .await;
     if let Some((peer, channel)) = outbound_cleanup {
-        remove_channel(&shared, peer, &channel);
+        if owns_channel || !channel.lock().unwrap().active {
+            channel.lock().unwrap().pending_queue.take();
+            remove_channel(&shared, peer, &channel);
+        }
     }
     match result {
         Ok(()) => {

@@ -1,0 +1,22 @@
+
+running 1 test
+READY id=d891985048253f251a0db2404f392fc0760c9e1b8a48f0397b8ef0d034289441 tcp=EndpointAddr { id: PublicKey(d891985048253f251a0db2404f392fc0760c9e1b8a48f0397b8ef0d034289441), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=130400307386720 peer=8dd8a6ac8c6ccb504f7829b506c8e72c9871f94b7c4e618a86dcb089c193c02d
+TCP_OBSERVED stable_id=130400307386720 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=130400307386720 peer=8dd8a6ac8c6ccb504f7829b506c8e72c9871f94b7c4e618a86dcb089c193c02d remote=100.64.27.2:42027
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP attempt canceled
+TCP_PUNCH_FALLBACK stable_id=130400307386720 error=connection lost
+MQTT_BOOTSTRAP_FAILED stable_id=130400307386720 error=no mutually permitted data path capability
+CANCELED_ORIGINAL peer_closed=true endpoint_alive=true
+MQTT_BOOTSTRAP_START stable_id=130400106063344 peer=8dd8a6ac8c6ccb504f7829b506c8e72c9871f94b7c4e618a86dcb089c193c02d
+TCP_OBSERVED stable_id=130400106063344 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=130400106063344 peer=8dd8a6ac8c6ccb504f7829b506c8e72c9871f94b7c4e618a86dcb089c193c02d remote=100.64.27.2:42027
+TCP_PUNCH_VALIDATED stable_id=130400106063344 peer=8dd8a6ac8c6ccb504f7829b506c8e72c9871f94b7c4e618a86dcb089c193c02d
+CANCEL_RETRY_OK old=130400307386720 new=130400106063344 same_node_identity=d891985048253f251a0db2404f392fc0760c9e1b8a48f0397b8ef0d034289441
+TCP_CLOSE result=cancelled
+DATA_OK stable_id=130400106063344 peer=8dd8a6ac8c6ccb504f7829b506c8e72c9871f94b7c4e618a86dcb089c193c02d formal_member=true same_connection=true
+TCP_TRAFFIC sent_packets=24 sent_bytes=8741 received_packets=24 received_bytes=8773 closed=1 failed=0 cancelled=2 outbound_outstanding=0 outbound_peak=1 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.43s
+

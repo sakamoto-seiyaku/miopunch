@@ -1,0 +1,9 @@
+
+running 1 test
+READY id=f574e579f49544cae1c61fc8ffc872d035f6953f98d08f411bbc3115e9b78be5 tcp=EndpointAddr { id: PublicKey(f574e579f49544cae1c61fc8ffc872d035f6953f98d08f411bbc3115e9b78be5), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a42b] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=138639933709040 peer=78e1961ed3d1a7096cdfe31b98892c9bfd08bd1051e6096a08f0e6d04d719ed2
+MQTT_BOOTSTRAP_START stable_id=138640604853008 peer=78e1961ed3d1a7096cdfe31b98892c9bfd08bd1051e6096a08f0e6d04d719ed2
+TCP_OBSERVED stable_id=138639933709040 listener=Some(0.0.0.0:42027) candidate=100.64.27.2:42027
+TCP_OBSERVATION_FAILED observer=100.64.27.1:3478 result=Ok(Err(Os { code: 99, kind: AddrNotAvailable, message: "Cannot assign requested address" }))
+MQTT_BOOTSTRAP_FAILED stable_id=138640604853008 error=no permitted TCP observation available
+MQTT_BOOTSTRAP_FAILED stable_id=138639933709040 error=closed

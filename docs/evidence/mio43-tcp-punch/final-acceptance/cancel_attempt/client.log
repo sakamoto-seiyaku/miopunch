@@ -1,0 +1,20 @@
+
+running 1 test
+READY id=bd480b1383c76808441161a207bb5816295abbe941cec8dd96b0368fe77c0d9e tcp=EndpointAddr { id: PublicKey(bd480b1383c76808441161a207bb5816295abbe941cec8dd96b0368fe77c0d9e), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a42b] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=125140851493760 peer=4215c7bcd5949b42d270b3530c9a74352a8f2d9fe0dec4e1f15a83b0ed0c367e
+TCP_OBSERVED stable_id=125140851493760 listener=Some(0.0.0.0:42027) candidate=100.64.27.2:42027
+TCP_PUNCH_START stable_id=125140851493760 peer=4215c7bcd5949b42d270b3530c9a74352a8f2d9fe0dec4e1f15a83b0ed0c367e remote=100.64.27.6:43027
+TCP_CLOSE peer=100.64.27.6:43027 result=TCP attempt canceled
+CANCELED_ORIGINAL endpoint_alive=true pending_sockets=0
+MQTT_BOOTSTRAP_START stable_id=125140985881648 peer=4215c7bcd5949b42d270b3530c9a74352a8f2d9fe0dec4e1f15a83b0ed0c367e
+TCP_OBSERVED stable_id=125140985881648 listener=Some(0.0.0.0:42027) candidate=100.64.27.2:42027
+TCP_PUNCH_START stable_id=125140985881648 peer=4215c7bcd5949b42d270b3530c9a74352a8f2d9fe0dec4e1f15a83b0ed0c367e remote=100.64.27.6:43027
+TCP_PUNCH_VALIDATED stable_id=125140985881648 peer=4215c7bcd5949b42d270b3530c9a74352a8f2d9fe0dec4e1f15a83b0ed0c367e
+CANCEL_RETRY_OK old=125140851493760 new=125140985881648 same_node_identity=bd480b1383c76808441161a207bb5816295abbe941cec8dd96b0368fe77c0d9e
+DATA_OK stable_id=125140985881648 peer=4215c7bcd5949b42d270b3530c9a74352a8f2d9fe0dec4e1f15a83b0ed0c367e formal_member=true same_connection=true
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=22 sent_bytes=8716 received_packets=23 received_bytes=8716 closed=1 failed=0 cancelled=2 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.28s
+

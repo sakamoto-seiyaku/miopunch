@@ -1,0 +1,31 @@
+
+running 1 test
+READY id=02ea82311e7c51aa5f8fb68540590ec807e6da65119866940b6c101ae11c43f5 tcp=EndpointAddr { id: PublicKey(02ea82311e7c51aa5f8fb68540590ec807e6da65119866940b6c101ae11c43f5), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a42b] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=134009220836880 peer=7e83ef87682f860b10bae19e717c02af88dd51b53a6248918c94faa58b81c02b
+TCP_OBSERVED stable_id=134009220836880 listener=Some(0.0.0.0:42027) candidate=100.64.27.2:42027
+TCP_PUNCH_START stable_id=134009220836880 peer=7e83ef87682f860b10bae19e717c02af88dd51b53a6248918c94faa58b81c02b remote=100.64.27.6:43027
+TCP_CLOSE peer=100.64.27.6:43027 result=TCP attempt canceled
+CANCELED_ORIGINAL endpoint_alive=true pending_sockets=0
+MQTT_BOOTSTRAP_START stable_id=134010093566320 peer=7e83ef87682f860b10bae19e717c02af88dd51b53a6248918c94faa58b81c02b
+TCP_OBSERVED stable_id=134010093566320 listener=Some(0.0.0.0:42027) candidate=100.64.27.2:42027
+TCP_PUNCH_START stable_id=134010093566320 peer=7e83ef87682f860b10bae19e717c02af88dd51b53a6248918c94faa58b81c02b remote=100.64.27.6:43027
+TCP_CLOSE peer=100.64.27.6:43027 result=Cannot assign requested address (os error 99)
+TCP_CLOSE peer=100.64.27.6:43027 result=Cannot assign requested address (os error 99)
+TCP_CLOSE peer=100.64.27.6:43027 result=Cannot assign requested address (os error 99)
+TCP_CLOSE peer=100.64.27.6:43027 result=Cannot assign requested address (os error 99)
+TCP_PUNCH_FALLBACK stable_id=134010093566320 error=TCP member scope invalidated
+MQTT_BOOTSTRAP_FAILED stable_id=134010093566320 error=no mutually permitted data path capability
+
+thread 'tcp_native_punch_worker' (132) panicked at tests/tcp_punch.rs:419:33:
+dual NAT must return formal authenticated TCP connection: "TemporarilyUnreachable { retry_after: 1s, cause: Some(\"Connection was rejected locally\") }"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=4 cancelled=1 outbound_outstanding=0 outbound_peak=1 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... FAILED
+
+failures:
+
+failures:
+    tcp_native_punch_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.65s
+

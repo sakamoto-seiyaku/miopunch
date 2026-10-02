@@ -1,0 +1,15 @@
+
+running 1 test
+READY id=707ed990c59e52861e99e2648c0feb0272527140609713e87716827120c3299f tcp=EndpointAddr { id: PublicKey(707ed990c59e52861e99e2648c0feb0272527140609713e87716827120c3299f), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=129663854728240 peer=0391b6d8c38f32044bb6ba8c51143b09b33df6c336e932bdc84cb1b9a3fc630b
+TCP_OBSERVED stable_id=129663854728240 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=129663854728240 peer=0391b6d8c38f32044bb6ba8c51143b09b33df6c336e932bdc84cb1b9a3fc630b remote=100.64.27.2:42027
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP connect timeout
+TCP_PUNCH_FALLBACK stable_id=129663854728240 error=TCP punching path validation timed out
+MQTT_BOOTSTRAP_FAILED stable_id=129663854728240 error=no mutually permitted data path capability
+UNSUPPORTED_BOUNDED case=endpoint_dependent elapsed_ms=6912 data_released=false pending_sockets=0
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=1 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.00s
+

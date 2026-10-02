@@ -1,0 +1,4 @@
+State     Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess
+LISTEN    0      64           0.0.0.0:42027      0.0.0.0:*          
+TIME-WAIT 0      0          10.27.1.2:42027  100.64.27.1:3478       
+ESTAB     0      0          10.27.1.2:60714  100.64.27.1:1883       

@@ -1,0 +1,14 @@
+
+running 1 test
+READY id=ad991d2608a379fd6a5b06867c113b67638e5fcbca63e68a88c44b2d970e45c4 tcp=EndpointAddr { id: PublicKey(ad991d2608a379fd6a5b06867c113b67638e5fcbca63e68a88c44b2d970e45c4), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=137425934375168 peer=3fed5688918e65bd95a189185f554c5af703f1bee8dc6969fe1a877ab58ddd22
+TCP_OBSERVED stable_id=137425934375168 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=137425934375168 peer=3fed5688918e65bd95a189185f554c5af703f1bee8dc6969fe1a877ab58ddd22 remote=100.64.27.2:42027
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP attempt canceled
+TCP_PUNCH_FALLBACK stable_id=137425934375168 error=TCP member scope invalidated
+MQTT_BOOTSTRAP_FAILED stable_id=137425934375168 error=no mutually permitted data path capability
+CANCELED_ORIGINAL peer_closed=true endpoint_alive=true
+MQTT_BOOTSTRAP_START stable_id=137425263290000 peer=3fed5688918e65bd95a189185f554c5af703f1bee8dc6969fe1a877ab58ddd22
+TCP_OBSERVED stable_id=137425263290000 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=137425263290000 peer=3fed5688918e65bd95a189185f554c5af703f1bee8dc6969fe1a877ab58ddd22 remote=100.64.27.2:42027
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP connect timeout

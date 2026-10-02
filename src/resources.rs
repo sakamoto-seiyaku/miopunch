@@ -114,6 +114,28 @@ impl Default for ResourceConfig {
 }
 
 impl ResourceConfig {
+    /// Explicit STUN-over-TCP observers. This increment accepts literal IPv4
+    /// origins and keeps them separate from the HTTPS QAD/relay facilities.
+    pub(crate) fn tcp_observers(&self) -> Vec<std::net::SocketAddr> {
+        self.replacement
+            .as_ref()
+            .unwrap_or(&self.defaults.resources)
+            .iter()
+            .filter(|resource| self.allows(&resource.url, ResourceUse::Observation))
+            .filter_map(|resource| {
+                let url = resource.url.parse::<RelayUrl>().ok()?;
+                if url.scheme() != "stun+tcp" {
+                    return None;
+                }
+                Some(std::net::SocketAddr::new(
+                    url.host_str()?.parse().ok()?,
+                    url.port()?,
+                ))
+                .filter(|addr| addr.is_ipv4() && addr.port() != 0)
+            })
+            .take(4)
+            .collect()
+    }
     /// Approved MQTT origins retain their own independently qualified routes.
     pub(crate) fn mqtt_resources(&self) -> Vec<iroh::RelayUrl> {
         let mut origins = BTreeMap::new();
@@ -172,6 +194,12 @@ impl ResourceConfig {
             .unwrap_or(&self.defaults.resources)
             .iter()
             .filter(|resource| self.allows(&resource.url, usage))
+            .filter(|resource| {
+                resource
+                    .url
+                    .parse::<RelayUrl>()
+                    .is_ok_and(|url| url.scheme() != "stun+tcp")
+            })
             .map(|resource| {
                 resource
                     .url
@@ -259,25 +287,44 @@ impl ResourceConfig {
         &self,
         builder: iroh::endpoint::Builder,
     ) -> Result<iroh::endpoint::Builder, std::io::Error> {
+        self.configure_with_tcp(builder).map(|(builder, _)| builder)
+    }
+
+    pub(crate) fn configure_with_tcp(
+        &self,
+        builder: iroh::endpoint::Builder,
+    ) -> Result<
+        (
+            iroh::endpoint::Builder,
+            Option<crate::tcp_transport::TcpTransport>,
+        ),
+        std::io::Error,
+    > {
         let config = self.clone();
         let builder = if self.udp_direct_disabled {
             builder.clear_ip_transports()
         } else {
             builder
         };
-        let builder = if let Some(address) = self.tcp_listen.filter(|_| !self.tcp_direct_disabled) {
+        let tcp = self
+            .tcp_listen
+            .filter(|_| !self.tcp_direct_disabled)
+            .map(|address| {
+                let mut transport = crate::tcp_transport::TcpTransport::listen(
+                    address,
+                    std::sync::Arc::new(crate::tcp_transport::Traffic::default()),
+                );
+                if self.port_mapping == PortMapping::NatPmp {
+                    transport = transport.with_nat_pmp_mapping();
+                }
+                if !self.tcp_observers().is_empty() {
+                    transport = transport.with_punching();
+                }
+                transport
+            });
+        let builder = if let Some(transport) = &tcp {
             builder
-                .add_custom_transport(std::sync::Arc::new({
-                    let transport = crate::tcp_transport::TcpTransport::listen(
-                        address,
-                        std::sync::Arc::new(crate::tcp_transport::Traffic::default()),
-                    );
-                    if self.port_mapping == PortMapping::NatPmp {
-                        transport.with_nat_pmp_mapping()
-                    } else {
-                        transport
-                    }
-                }))
+                .add_custom_transport(std::sync::Arc::new(transport.clone()))
                 .transport_config(
                     iroh::endpoint::QuicTransportConfig::builder()
                         .keep_alive_interval(Duration::from_secs(5))
@@ -295,19 +342,24 @@ impl ResourceConfig {
             PortMapping::NatPmp => iroh::endpoint::PortmapperConfig::NatPmp,
         });
         let custom_config = self.clone();
-        Ok(builder.relay_resource_policy(
-            iroh::endpoint::RelayResourcePolicy::new(move |url, usage| {
-                config.allows(
-                    url.as_str(),
-                    match usage {
-                        iroh::endpoint::RelayResourceUse::DataRelay => ResourceUse::DataRelay,
-                        iroh::endpoint::RelayResourceUse::Observation => ResourceUse::Observation,
-                        iroh::endpoint::RelayResourceUse::Signaling => ResourceUse::Signaling,
-                        iroh::endpoint::RelayResourceUse::Lookup => ResourceUse::Lookup,
-                    },
-                )
-            })
-            .with_custom_addresses(move |addr| custom_config.allows_custom(addr)),
+        Ok((
+            builder.relay_resource_policy(
+                iroh::endpoint::RelayResourcePolicy::new(move |url, usage| {
+                    config.allows(
+                        url.as_str(),
+                        match usage {
+                            iroh::endpoint::RelayResourceUse::DataRelay => ResourceUse::DataRelay,
+                            iroh::endpoint::RelayResourceUse::Observation => {
+                                ResourceUse::Observation
+                            }
+                            iroh::endpoint::RelayResourceUse::Signaling => ResourceUse::Signaling,
+                            iroh::endpoint::RelayResourceUse::Lookup => ResourceUse::Lookup,
+                        },
+                    )
+                })
+                .with_custom_addresses(move |addr| custom_config.allows_custom(addr)),
+            ),
+            tcp,
         ))
     }
 

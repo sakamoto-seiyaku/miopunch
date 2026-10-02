@@ -97,7 +97,7 @@ impl NatConnector {
         }
     }
 
-    fn udp_enabled(&self) -> bool {
+    pub(crate) fn udp_enabled(&self) -> bool {
         self.resource_enabled && self.enabled.load(Ordering::Acquire)
     }
 

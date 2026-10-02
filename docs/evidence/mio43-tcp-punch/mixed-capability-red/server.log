@@ -1,0 +1,18 @@
+
+running 1 test
+READY id=cf683fc47262c8af03aeb045b6da54cff299d602bf82878e296f0d3e17ff8137 tcp=EndpointAddr { id: PublicKey(cf683fc47262c8af03aeb045b6da54cff299d602bf82878e296f0d3e17ff8137), addrs: {Ip(10.27.2.2:43027)} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=123679757337088 peer=12f4cb1480a18842fc5992e649e2ff2d601bf4fd3663c290114599221474e8d1
+MQTT_BOOTSTRAP_FAILED stable_id=123679757337088 error=expected value at line 1 column 1
+
+thread 'tcp_native_punch_worker' (135) panicked at tests/tcp_punch.rs:184:35:
+dual NAT must return formal authenticated TCP connection: "Connection was rejected locally"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test tcp_native_punch_worker ... FAILED
+
+failures:
+
+failures:
+    tcp_native_punch_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.92s
+

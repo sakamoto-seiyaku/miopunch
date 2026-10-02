@@ -196,3 +196,16 @@ change, second identity, cryptographic handshake, or new congestion controller.
 The configured MQTT origin tag and adapter lifecycle belong to the root crate.
 See `docs/notes/2026-10-02-mqtt-bootstrap-validation.md` for the controlled
 dual-NAT evidence and declared compatibility boundaries.
+
+## MIOPUNCH-43 TCP candidate retirement delta
+
+`Endpoint::retire_control_path` retires one failed custom route on its exact
+restricted original connection. The per-peer actor records the route, filters
+queued/draining packets, closes pending as well as established noq paths and
+retains the exclusion when normal candidate admission installs its data policy.
+Other connections and candidates remain independent. This lets the native TCP
+coordinator release losing physical circuits without QUIC retries recreating
+them during a permitted UDP fallback. No new QUIC wire format or congestion
+implementation is added. Native protected TCP coordination and the actual
+Linux/NAT boundaries are recorded in
+`docs/notes/2026-10-02-tcp-punch-validation.md`.

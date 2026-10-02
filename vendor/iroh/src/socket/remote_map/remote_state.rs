@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeSet, VecDeque},
+    collections::{BTreeSet, HashSet, VecDeque},
     net::SocketAddr,
     pin::Pin,
     sync::Arc,
@@ -574,6 +574,35 @@ impl RemoteStateActor {
                 let result = self.commit_data_path(ConnId(conn_id));
                 let _ = tx.send(result);
             }
+            RemoteStateMessage::RetireControlPath {
+                conn_id,
+                remote,
+                tx,
+            } => {
+                let result = if let Some(state) = self.connections.get_mut(&ConnId(conn_id)) {
+                    if state.purpose != ConnectionPurpose::Control {
+                        Err("candidate retirement requires restricted original connection")
+                    } else if let Some(conn) = state.handle.upgrade() {
+                        state.retired_custom.insert(remote.clone());
+                        let retired = state.retired_custom.clone();
+                        let mapped = self.state.mapped_addrs.clone();
+                        conn.restrict_paths(move |addr| !matches!(mapped.to_transport_addr(addr),Some(transports::Addr::Custom(custom)) if retired.contains(&custom)));
+                        for (id, tuple) in conn.network_paths() {
+                            if matches!(self.state.mapped_addrs.to_transport_addr(tuple.remote()),Some(transports::Addr::Custom(custom)) if custom==remote)
+                                && let Some(path) = conn.path(id)
+                            {
+                                let _ = path.close();
+                            }
+                        }
+                        Ok(())
+                    } else {
+                        Err("connection closed")
+                    }
+                } else {
+                    Err("connection not registered")
+                };
+                let _ = tx.send(result);
+            }
             RemoteStateMessage::ResolveRemote(addrs, tx) => {
                 self.state.handle_msg_resolve_remote(addrs, tx);
             }
@@ -654,6 +683,7 @@ impl RemoteStateActor {
                 },
                 allowed_data_custom_ids: BTreeSet::new(),
                 custom_data_policy: false,
+                retired_custom: HashSet::new(),
                 #[cfg(not(wasm_browser))]
                 udp_sockets: Vec::new(),
             })
@@ -777,8 +807,11 @@ impl RemoteStateActor {
         let allowed: BTreeSet<_> = allowed_data_custom_ids.into_iter().collect();
         let mapped = self.state.mapped_addrs.clone();
         let packet_allowed = allowed.clone();
+        let retired = state.retired_custom.clone();
         conn.restrict_paths(move |addr| match mapped.to_transport_addr(addr) {
-            Some(transports::Addr::Custom(custom)) => packet_allowed.contains(&custom.id()),
+            Some(transports::Addr::Custom(custom)) => {
+                packet_allowed.contains(&custom.id()) && !retired.contains(&custom)
+            }
             Some(_) => true,
             None => false,
         });
@@ -1690,6 +1723,11 @@ pub(crate) enum RemoteStateMessage {
         remote: iroh_base::CustomAddr,
         tx: oneshot::Sender<Result<(), &'static str>>,
     },
+    RetireControlPath {
+        conn_id: usize,
+        remote: iroh_base::CustomAddr,
+        tx: oneshot::Sender<Result<(), &'static str>>,
+    },
     #[cfg(feature = "miopunch-test-hooks")]
     TestReopenControlPath {
         conn_id: usize,
@@ -1782,6 +1820,7 @@ struct ConnectionState {
     purpose: ConnectionPurpose,
     allowed_data_custom_ids: BTreeSet<u64>,
     custom_data_policy: bool,
+    retired_custom: HashSet<iroh_base::CustomAddr>,
     #[cfg(not(wasm_browser))]
     udp_sockets: Vec<ConnectionSocket>,
 }
@@ -1830,9 +1869,8 @@ impl ConnectionState {
         true
     }
     fn forbids(&self, path: &transports::FourTuple) -> bool {
-        self.custom_data_policy
-            && matches!(path, transports::FourTuple::Custom { remote, .. }
-            if !self.allowed_data_custom_ids.contains(&remote.id()))
+        matches!(path, transports::FourTuple::Custom { remote, .. }
+            if self.retired_custom.contains(remote) || (self.custom_data_policy && !self.allowed_data_custom_ids.contains(&remote.id())))
     }
 
     /// Tracks an open path for the connection.

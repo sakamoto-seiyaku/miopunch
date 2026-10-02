@@ -1,0 +1,14 @@
+
+running 1 test
+READY id=836ce3f78bf9a4fa1042f9b387f1f6963cbeaa231c244986bf51e8aada8e48ec tcp=EndpointAddr { id: PublicKey(836ce3f78bf9a4fa1042f9b387f1f6963cbeaa231c244986bf51e8aada8e48ec), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=126376191481456 peer=524c417b7221a54da034a201688a33f7c4a03787a352339d08e229cc2b1dd5ec
+TCP_OBSERVED stable_id=126376191481456 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=126376191481456 peer=524c417b7221a54da034a201688a33f7c4a03787a352339d08e229cc2b1dd5ec remote=100.64.27.2:42027
+MQTT_BOOTSTRAP_FAILED stable_id=126376191481456 error=TCP member scope invalidated
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP attempt canceled
+CANCEL_OK peer_cancel_closed_both=true node_identity=836ce3f78bf9a4fa1042f9b387f1f6963cbeaa231c244986bf51e8aada8e48ec
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=1 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.96s
+

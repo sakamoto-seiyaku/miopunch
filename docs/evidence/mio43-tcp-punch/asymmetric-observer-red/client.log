@@ -1,0 +1,21 @@
+
+running 1 test
+READY id=34e494d47540cf32b8c539a330b942465072226a0cbe5fd795cbf6ac6c3123d7 tcp=EndpointAddr { id: PublicKey(34e494d47540cf32b8c539a330b942465072226a0cbe5fd795cbf6ac6c3123d7), addrs: {Ip(10.27.1.2:42027), Custom(CustomAddr { id: 120299608892272, data: [00000000a42b] })} } mapping=false udp=true relay=false
+MQTT_BOOTSTRAP_START stable_id=126340221455056 peer=1c370852591932a59b4b6459c8dadb48379b17231c1a6c22dc900ea3d6c94486
+TCP_OBSERVATION_FAILED observer=100.64.27.1:3478 result=Err(Elapsed(()))
+TCP_PUNCH_FALLBACK stable_id=126340221455056 error=no permitted TCP observation available
+MQTT_BOOTSTRAP_FAILED stable_id=126340221455056 error=expected value at line 1 column 1
+
+thread 'tcp_native_punch_worker' (154) panicked at tests/tcp_punch.rs:496:33:
+dual NAT must return formal authenticated TCP connection: "TemporarilyUnreachable { retry_after: 1s, cause: Some(\"Connection was rejected locally\") }"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... FAILED
+
+failures:
+
+failures:
+    tcp_native_punch_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.81s
+

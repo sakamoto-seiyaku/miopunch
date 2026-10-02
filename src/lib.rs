@@ -22,4 +22,6 @@ pub mod native_network;
 pub mod offline_replica;
 pub mod precode;
 pub mod resources;
+mod tcp_observation;
+mod tcp_punch;
 pub mod tcp_transport;

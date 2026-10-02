@@ -1,0 +1,44 @@
+{
+  "case": "cancel_attempt",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "build",
+        "--locked",
+        "--bin",
+        "udp_observation_probe"
+      ],
+      "exit": 0,
+      "seconds": 0.374,
+      "log": "qad-build.log"
+    },
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch43-1790916504422308084",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio43-tcp-punch/final-acceptance/cancel_attempt,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "/repo/scripts/tcp_punch_lab.py",
+        "/repo/target/debug/deps/tcp_punch-db64afba10aa32c2",
+        "/repo/target/debug/udp_observation_probe",
+        "/evidence",
+        "cancel_attempt"
+      ],
+      "exit": 0,
+      "seconds": 5.689,
+      "log": "lab.log"
+    }
+  ],
+  "passed": true
+}

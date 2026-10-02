@@ -1,0 +1,20 @@
+
+running 1 test
+READY id=b83cd08eb37588be13145b977fc5052d12182a63e7865b0cdf1fe2f5b9568bd8 tcp=EndpointAddr { id: PublicKey(b83cd08eb37588be13145b977fc5052d12182a63e7865b0cdf1fe2f5b9568bd8), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=129361395520752 peer=9f96eb52131db7805abfc0118fab637773282e75fae46f03c908fd5de8a01df8
+TCP_OBSERVATION_FAILED observer=100.64.27.1:3478 result=Ok(Err(Os { code: 98, kind: AddrInUse, message: "Address already in use" }))
+MQTT_BOOTSTRAP_FAILED stable_id=129361395520752 error=no permitted TCP observation available
+
+thread 'tcp_native_punch_worker' (106) panicked at tests/tcp_punch.rs:114:27:
+dual NAT must return formal authenticated TCP connection: "Connection was rejected locally"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... FAILED
+
+failures:
+
+failures:
+    tcp_native_punch_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.66s
+

@@ -1,0 +1,30 @@
+
+running 1 test
+READY id=52b4cb1382903463960a5b4739d35b6c0ec661cb12e72cba17cfcb8b0d701098 tcp=EndpointAddr { id: PublicKey(52b4cb1382903463960a5b4739d35b6c0ec661cb12e72cba17cfcb8b0d701098), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=135371664924464 peer=c301e0ddd7d7e4a13f487419742852cd2a600f6cedd4ab449c4749079fb84485
+TCP_OBSERVED stable_id=135371664924464 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=135371664924464 peer=c301e0ddd7d7e4a13f487419742852cd2a600f6cedd4ab449c4749079fb84485 remote=100.64.27.2:42027
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP attempt canceled
+TCP_PUNCH_FALLBACK stable_id=135371664924464 error=TCP member scope invalidated
+MQTT_BOOTSTRAP_FAILED stable_id=135371664924464 error=no mutually permitted data path capability
+CANCELED_ORIGINAL peer_closed=true endpoint_alive=true
+MQTT_BOOTSTRAP_START stable_id=135371732052320 peer=c301e0ddd7d7e4a13f487419742852cd2a600f6cedd4ab449c4749079fb84485
+TCP_OBSERVED stable_id=135371732052320 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=135371732052320 peer=c301e0ddd7d7e4a13f487419742852cd2a600f6cedd4ab449c4749079fb84485 remote=100.64.27.2:42027
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP connect timeout
+TCP_PUNCH_FALLBACK stable_id=135371732052320 error=TCP punching path validation timed out
+MQTT_BOOTSTRAP_FAILED stable_id=135371732052320 error=no mutually permitted data path capability
+
+thread 'tcp_native_punch_worker' (110) panicked at tests/tcp_punch.rs:419:33:
+dual NAT must return formal authenticated TCP connection: "Connection was rejected locally"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=1 cancelled=1 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... FAILED
+
+failures:
+
+failures:
+    tcp_native_punch_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.78s
+

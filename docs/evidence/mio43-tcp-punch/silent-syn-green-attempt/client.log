@@ -1,0 +1,22 @@
+
+running 1 test
+READY id=d9058006ca5d6fd9990c3db407cec71dbe996993d7a0d8f93569f7274ec76ef9 tcp=EndpointAddr { id: PublicKey(d9058006ca5d6fd9990c3db407cec71dbe996993d7a0d8f93569f7274ec76ef9), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a42b] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=128540385663344 peer=a69057446332fa46228cdf44962ebb10d2528ef01b8804b776d9229f3a7e4e08
+TCP_OBSERVED stable_id=128540385663344 listener=Some(0.0.0.0:42027) candidate=100.64.27.2:42027
+TCP_PUNCH_START stable_id=128540385663344 peer=a69057446332fa46228cdf44962ebb10d2528ef01b8804b776d9229f3a7e4e08 remote=100.64.27.6:43027
+TCP_PUNCH_VALIDATED stable_id=128540385663344 peer=a69057446332fa46228cdf44962ebb10d2528ef01b8804b776d9229f3a7e4e08
+TCP_CLOSE peer=100.64.27.6:43027 result=TCP connect timeout
+
+thread 'tcp_native_punch_worker' (127) panicked at tests/tcp_punch.rs:118:60:
+called `Result::unwrap()` on an `Err` value: Transport
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=4 sent_bytes=5115 received_packets=3 received_bytes=2560 closed=1 failed=1 cancelled=0 outbound_outstanding=2 outbound_peak=11 inbound_outstanding=0 inbound_peak=1 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... FAILED
+
+failures:
+
+failures:
+    tcp_native_punch_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.68s
+

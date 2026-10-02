@@ -1,0 +1,25 @@
+
+running 1 test
+READY id=0618a17546c66157a147d0b67da4be7af8cd76e46515cdad0533b9f8a5a16f12 tcp=EndpointAddr { id: PublicKey(0618a17546c66157a147d0b67da4be7af8cd76e46515cdad0533b9f8a5a16f12), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a42b] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=128537634158720 peer=bbe7650422e54ebf6d97c1eb9da835b3d27c008d1d09e6ecc9f82c9257e88c86
+TCP_OBSERVED stable_id=128537634158720 listener=Some(0.0.0.0:42027) candidate=100.64.27.2:42027
+TCP_PUNCH_START stable_id=128537634158720 peer=bbe7650422e54ebf6d97c1eb9da835b3d27c008d1d09e6ecc9f82c9257e88c86 remote=100.64.27.6:43027
+TCP_CLOSE peer=100.64.27.6:43027 result=Connection refused (os error 111)
+TCP_CLOSE peer=100.64.27.6:43027 result=Connection refused (os error 111)
+TCP_CLOSE peer=100.64.27.6:43027 result=Connection refused (os error 111)
+TCP_CLOSE peer=100.64.27.6:43027 result=Connection refused (os error 111)
+MQTT_BOOTSTRAP_FAILED stable_id=128537634158720 error=TCP member scope invalidated
+
+thread 'tcp_native_punch_worker' (123) panicked at tests/tcp_punch.rs:114:27:
+dual NAT must return formal authenticated TCP connection: "TemporarilyUnreachable { retry_after: 1s, cause: Some(\"Connection was rejected locally\") }"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=4 cancelled=0 outbound_outstanding=0 outbound_peak=1 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... FAILED
+
+failures:
+
+failures:
+    tcp_native_punch_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.55s
+

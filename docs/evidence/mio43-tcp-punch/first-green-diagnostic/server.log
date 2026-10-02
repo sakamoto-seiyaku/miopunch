@@ -1,0 +1,3 @@
+
+running 1 test
+READY id=0f247f96e1e68d6e9a90e2ff47cf163f165da25d6c69c16b48cd0af1ac47bbe9 tcp=EndpointAddr { id: PublicKey(0f247f96e1e68d6e9a90e2ff47cf163f165da25d6c69c16b48cd0af1ac47bbe9), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false

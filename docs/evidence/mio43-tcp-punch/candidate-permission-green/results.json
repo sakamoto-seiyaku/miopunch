@@ -1,0 +1,58 @@
+{
+  "case": "candidate_denied",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "tcp_punch",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 8.229,
+      "log": "build.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "build",
+        "--locked",
+        "--bin",
+        "udp_observation_probe"
+      ],
+      "exit": 0,
+      "seconds": 5.989,
+      "log": "qad-build.log"
+    },
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch43-1790917219507280060",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio43-tcp-punch/candidate-permission-green,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "/repo/scripts/tcp_punch_lab.py",
+        "/repo/target/debug/deps/tcp_punch-db64afba10aa32c2",
+        "/repo/target/debug/udp_observation_probe",
+        "/evidence",
+        "candidate_denied"
+      ],
+      "exit": 0,
+      "seconds": 7.535,
+      "log": "lab.log"
+    }
+  ],
+  "passed": true
+}

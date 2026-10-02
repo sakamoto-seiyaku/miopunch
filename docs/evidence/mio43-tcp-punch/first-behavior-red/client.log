@@ -1,0 +1,17 @@
+
+running 1 test
+READY id=bdb6755ee85742bb381e8fb187f1a799858b6fddaaac0ff2182fb8fb38f2a480 tcp=EndpointAddr { id: PublicKey(bdb6755ee85742bb381e8fb187f1a799858b6fddaaac0ff2182fb8fb38f2a480), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a42b] })} } mapping=false udp=false relay=false
+
+thread 'tcp_native_punch_worker' (147) panicked at tests/tcp_punch.rs:79:27:
+dual NAT must return formal authenticated TCP connection: "temporarily unreachable; retry after 1s"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... FAILED
+
+failures:
+
+failures:
+    tcp_native_punch_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+

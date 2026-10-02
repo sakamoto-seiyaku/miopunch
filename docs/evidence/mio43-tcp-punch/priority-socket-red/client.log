@@ -1,0 +1,23 @@
+
+running 1 test
+READY id=19bba61be543f2c9a33e9acb886d745ca953d2af7a7180a892ccc683116ca95a tcp=EndpointAddr { id: PublicKey(19bba61be543f2c9a33e9acb886d745ca953d2af7a7180a892ccc683116ca95a), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a42b] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=134134580199808 peer=e75fe097720666693031c44c728678c69476a9fb2bb6808b266a93d92430206e
+MQTT_BOOTSTRAP_START stable_id=134134915665584 peer=e75fe097720666693031c44c728678c69476a9fb2bb6808b266a93d92430206e
+MQTT_BOOTSTRAP_FAILED stable_id=134134915665584 error=duplicate TCP peer attempt
+TCP_OBSERVED stable_id=134134580199808 listener=Some(0.0.0.0:42027) candidate=100.64.27.2:42027
+TCP_PUNCH_START stable_id=134134580199808 peer=e75fe097720666693031c44c728678c69476a9fb2bb6808b266a93d92430206e remote=100.64.27.6:43027
+CANCEL_SOCKET_SNAPSHOT elapsed_ms=108 remaining="0      1      10.27.1.2:42027 100.64.27.6:43027\n"
+
+thread 'tcp_native_punch_worker' (132) panicked at tests/tcp_punch.rs:132:17:
+cancelled endpoint may not retain pending same-port TCP dial sockets
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=1 outbound_peak=1 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... FAILED
+
+failures:
+
+failures:
+    tcp_native_punch_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.85s
+

@@ -1,0 +1,15 @@
+
+running 1 test
+READY id=75c9e7822d346f90e88e27b85ac300195ea838c5aaa6bbbc4f3ddb729ec4205a tcp=EndpointAddr { id: PublicKey(75c9e7822d346f90e88e27b85ac300195ea838c5aaa6bbbc4f3ddb729ec4205a), addrs: {Custom(CustomAddr { id: 120299608892272, data: [0a1b0202a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=127186530997712 peer=7a7b25093be3d920f40f7cad4c14cbc669b2c7839a3663279f41cd46cee9a9ee
+TCP_OBSERVED stable_id=127186530997712 listener=Some(10.27.2.2:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=127186530997712 peer=7a7b25093be3d920f40f7cad4c14cbc669b2c7839a3663279f41cd46cee9a9ee remote=100.64.27.2:42027
+TCP_PUNCH_VALIDATED stable_id=127186530997712 peer=7a7b25093be3d920f40f7cad4c14cbc669b2c7839a3663279f41cd46cee9a9ee
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP connect timeout
+DATA_OK stable_id=127186530997712 peer=7a7b25093be3d920f40f7cad4c14cbc669b2c7839a3663279f41cd46cee9a9ee formal_member=true same_connection=true
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP attempt canceled
+TCP_TRAFFIC sent_packets=19 sent_bytes=8580 received_packets=20 received_bytes=8625 closed=1 failed=1 cancelled=1 outbound_outstanding=0 outbound_peak=11 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.07s
+

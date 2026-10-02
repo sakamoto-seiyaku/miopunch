@@ -1,0 +1,4 @@
+conntrack v1.4.7 (conntrack-tools): 3 flow entries have been shown.
+tcp      6 114 SYN_SENT2 src=10.27.1.2 dst=100.64.27.6 sport=42027 dport=43027 src=100.64.27.6 dst=100.64.27.2 sport=43027 dport=42027 mark=0 use=1
+tcp      6 105 TIME_WAIT src=10.27.1.2 dst=100.64.27.1 sport=39968 dport=1883 src=100.64.27.1 dst=100.64.27.2 sport=1883 dport=39968 [ASSURED] mark=0 use=1
+tcp      6 104 TIME_WAIT src=10.27.1.2 dst=100.64.27.1 sport=42027 dport=3478 src=100.64.27.1 dst=100.64.27.2 sport=3478 dport=42027 [ASSURED] mark=0 use=1

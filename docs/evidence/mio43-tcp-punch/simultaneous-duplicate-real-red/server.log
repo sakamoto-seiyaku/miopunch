@@ -1,0 +1,25 @@
+
+running 1 test
+READY id=cc1bbd11245c1f32557678df779dabf4866712038d744956e658d70f5869e994 tcp=EndpointAddr { id: PublicKey(cc1bbd11245c1f32557678df779dabf4866712038d744956e658d70f5869e994), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=123922825614752 peer=9099077b5a962a1ecd05f44a8accbe99be86e0cd52cc120a842ed595c7124843
+MQTT_BOOTSTRAP_START stable_id=123922825657472 peer=9099077b5a962a1ecd05f44a8accbe99be86e0cd52cc120a842ed595c7124843
+MQTT_BOOTSTRAP_FAILED stable_id=123922825657472 error=duplicate TCP peer attempt
+TCP_OBSERVED stable_id=123922825614752 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=123922825614752 peer=9099077b5a962a1ecd05f44a8accbe99be86e0cd52cc120a842ed595c7124843 remote=100.64.27.2:42027
+TCP_PUNCH_VALIDATED stable_id=123922825614752 peer=9099077b5a962a1ecd05f44a8accbe99be86e0cd52cc120a842ed595c7124843
+SIMULTANEOUS_OK live_sessions=1 original_connection=123922825614752 authenticated_peer=9099077b5a962a1ecd05f44a8accbe99be86e0cd52cc120a842ed595c7124843
+
+thread 'tcp_native_punch_worker' (108) panicked at tests/tcp_punch.rs:199:158:
+duplicate must not release another valid peer session
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=42 sent_bytes=17551 received_packets=44 received_bytes=18677 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... FAILED
+
+failures:
+
+failures:
+    tcp_native_punch_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.81s
+

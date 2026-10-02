@@ -1,0 +1,25 @@
+
+running 1 test
+READY id=fa9064962f0e4e4590faf0fc522637c91716f1882d149f779244cb109c84c08a tcp=EndpointAddr { id: PublicKey(fa9064962f0e4e4590faf0fc522637c91716f1882d149f779244cb109c84c08a), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=136947313940832 peer=8b0de3e8560b1fd9a0301cfbdd831184bdcc39a82c39a1736a784ddd7d53cd0c
+TCP_OBSERVED stable_id=136947313940832 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=136947313940832 peer=8b0de3e8560b1fd9a0301cfbdd831184bdcc39a82c39a1736a784ddd7d53cd0c remote=100.64.27.2:42027
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP attempt canceled
+TCP_PUNCH_FALLBACK stable_id=136947313940832 error=TCP member scope invalidated
+MQTT_BOOTSTRAP_FAILED stable_id=136947313940832 error=no mutually permitted data path capability
+CANCELED_ORIGINAL peer_closed=true endpoint_alive=true
+MQTT_BOOTSTRAP_START stable_id=136947179720752 peer=8b0de3e8560b1fd9a0301cfbdd831184bdcc39a82c39a1736a784ddd7d53cd0c
+TCP_OBSERVED stable_id=136947179720752 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=136947179720752 peer=8b0de3e8560b1fd9a0301cfbdd831184bdcc39a82c39a1736a784ddd7d53cd0c remote=100.64.27.2:42027
+TCP_PUNCH_VALIDATED stable_id=136947179720752 peer=8b0de3e8560b1fd9a0301cfbdd831184bdcc39a82c39a1736a784ddd7d53cd0c
+CANCEL_RETRY_OK old=136947313940832 new=136947179720752 same_node_identity=fa9064962f0e4e4590faf0fc522637c91716f1882d149f779244cb109c84c08a
+[DEBUG-mio43] TCP_REUSE_FAILURE stage=connect local=0.0.0.0:43027 target=100.64.27.2:42027 error=Connection refused (os error 111)
+TCP_CLOSE peer=100.64.27.2:42027 result=Connection refused (os error 111)
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP connect timeout
+DATA_OK stable_id=136947179720752 peer=8b0de3e8560b1fd9a0301cfbdd831184bdcc39a82c39a1736a784ddd7d53cd0c formal_member=true same_connection=true
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP attempt canceled
+TCP_TRAFFIC sent_packets=23 sent_bytes=8706 received_packets=21 received_bytes=8668 closed=1 failed=2 cancelled=2 outbound_outstanding=0 outbound_peak=10 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 17.23s
+

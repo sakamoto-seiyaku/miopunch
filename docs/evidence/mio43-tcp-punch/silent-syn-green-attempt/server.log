@@ -1,0 +1,24 @@
+
+running 1 test
+READY id=a69057446332fa46228cdf44962ebb10d2528ef01b8804b776d9229f3a7e4e08 tcp=EndpointAddr { id: PublicKey(a69057446332fa46228cdf44962ebb10d2528ef01b8804b776d9229f3a7e4e08), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=125433446159936 peer=d9058006ca5d6fd9990c3db407cec71dbe996993d7a0d8f93569f7274ec76ef9
+TCP_OBSERVED stable_id=125433446159936 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=125433446159936 peer=d9058006ca5d6fd9990c3db407cec71dbe996993d7a0d8f93569f7274ec76ef9 remote=100.64.27.2:42027
+TCP_PUNCH_VALIDATED stable_id=125433446159936 peer=d9058006ca5d6fd9990c3db407cec71dbe996993d7a0d8f93569f7274ec76ef9
+
+thread 'tcp_native_punch_worker' (110) panicked at tests/tcp_punch.rs:116:9:
+assertion failed: connection.paths().iter().all(|p|
+        !matches!(p.remote_addr(),TransportAddr::Custom(a) if
+                a.id()==miopunch_native_probe::mqtt_transport::TRANSPORT_ID))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=3 sent_bytes=2560 received_packets=3 received_bytes=3726 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=1 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+test tcp_native_punch_worker ... FAILED
+
+failures:
+
+failures:
+    tcp_native_punch_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.79s
+

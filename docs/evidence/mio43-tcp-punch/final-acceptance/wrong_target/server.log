@@ -1,0 +1,16 @@
+
+running 1 test
+READY id=1c5d1b7a100baa65773daf1570901e60be64f67ac90ae2a70ffcf28079206dde tcp=EndpointAddr { id: PublicKey(1c5d1b7a100baa65773daf1570901e60be64f67ac90ae2a70ffcf28079206dde), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false
+WRONG_TARGET_REJECTED error=Some("aborted by peer: the cryptographic handshake failed: error 48: invalid peer certificate: UnknownIssuer") data_released=false
+MQTT_BOOTSTRAP_START stable_id=123191138190704 peer=31e35b64d3fe238b0065602edb83e8c88eda8c32681203387b75eb2421bcb32d
+TCP_OBSERVED stable_id=123191138190704 listener=Some(0.0.0.0:43027) candidate=100.64.27.6:43027
+TCP_PUNCH_START stable_id=123191138190704 peer=31e35b64d3fe238b0065602edb83e8c88eda8c32681203387b75eb2421bcb32d remote=100.64.27.2:42027
+TCP_PUNCH_VALIDATED stable_id=123191138190704 peer=31e35b64d3fe238b0065602edb83e8c88eda8c32681203387b75eb2421bcb32d
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP connect timeout
+DATA_OK stable_id=123191138190704 peer=31e35b64d3fe238b0065602edb83e8c88eda8c32681203387b75eb2421bcb32d formal_member=true same_connection=true
+TCP_CLOSE peer=100.64.27.2:42027 result=TCP attempt canceled
+TCP_TRAFFIC sent_packets=19 sent_bytes=8575 received_packets=20 received_bytes=8631 closed=1 failed=1 cancelled=1 outbound_outstanding=0 outbound_peak=9 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.23s
+

@@ -1,0 +1,7 @@
+    Checking iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+    Checking iroh-mdns-address-lookup v0.5.0
+    Checking iroh-gossip v0.101.0
+    Checking miopunch-browser-probe v0.1.0 (/home/js/Git/miopunch/browser-probe)
+    Checking p2panda-net v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-net)
+    Checking miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.27s

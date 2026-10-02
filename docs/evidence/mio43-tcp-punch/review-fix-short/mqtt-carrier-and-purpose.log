@@ -1,0 +1,43 @@
+   Compiling iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+   Compiling iroh-mdns-address-lookup v0.5.0
+   Compiling p2panda-net v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-net)
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: `p2panda-net` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.36s
+     Running tests/mqtt_probe.rs (target/debug/deps/mqtt_probe-abff3e5889b276b4)
+
+running 4 tests
+test cancelling_a_subscribed_mqtt_endpoint_completes ... ok
+test known_nodes_exchange_control_over_a_real_mqtt_broker ... MQTT_EVIDENCE control_ms=145 client=MQTT_TRAFFIC sent_packets=16 sent_bytes=6703 received_packets=11 received_bytes=5632 rejected_packets=0 max_datagram=2048 queue_depth=64 server=MQTT_TRAFFIC sent_packets=11 sent_bytes=5632 received_packets=16 received_bytes=6703 rejected_packets=0 max_datagram=2048 queue_depth=64
+ok
+test rebinding_the_adapter_gets_a_fresh_delivery_route ... ok
+test wrong_identity_and_other_subscriber_cannot_get_control_or_plaintext ... MQTT_EVIDENCE observed_publishes=74 max_payload_bytes=1409
+ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.89s
+
+     Running tests/mqtt_upgrade.rs (target/debug/deps/mqtt_upgrade-be7d242f28aa75c3)
+
+running 5 tests
+test closed_control_session_never_releases_queued_business ... ok
+test queued_business_and_retransmission_never_fall_back_to_mqtt ... FAILURE_EVIDENCE queued_udp_packets=8 retry_or_probe_packets_after_cut=14 client_stable_id=131798461553632 mqtt_after_failure=(21,20) close=Some(TimedOut) cut_to_close_ms=3991
+ok
+test real_mqtt_control_connection_upgrades_to_udp_without_redial ... UPGRADE_EVIDENCE client_stable_id=131798461446640 server_stable_id=131798461488496 mqtt_after_commit=(40,35) client_paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:46602)], selected: Some(PathId(1)), closed: false }, .. } server_paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:47226)], selected: Some(PathId(1)), closed: false }, .. }
+ok
+test reordered_real_mqtt_datagrams_preserve_control_stream_bytes ... MQTT_REORDER_EVIDENCE reversed_publish_pairs=1 control_bytes=16384
+ok
+test restricted_mqtt_endpoint_refuses_early_connection_handles ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.16s
+
