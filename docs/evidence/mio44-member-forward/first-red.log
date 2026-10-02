@@ -1,0 +1,44 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+warning: fields `at` and `cb` are never read
+  --> tests/member_forward.rs:74:5
+   |
+70 | struct Topology {
+   |        -------- fields in this struct
+...
+74 |     at: Arc<MemberSignalingTransport>, ct: Arc<MemberSignalingTransport>,
+   |     ^^
+75 |     ab: (Connection,Connection), cb: (Connection,Connection),
+   |                                  ^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `miopunch-native-probe` (test "member_forward") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.42s
+     Running tests/member_forward.rs (target/debug/deps/member_forward-3ef461f682d99ae8)
+
+running 1 test
+
+thread 'member_without_data_relay_forwards_protected_control_then_ac_uses_a_direct_path' (2037299) panicked at tests/member_forward.rs:103:27:
+member-only signaling must release the ordinary connection: Connection was rejected locally
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test member_without_data_relay_forwards_protected_control_then_ac_uses_a_direct_path ... FAILED
+
+failures:
+
+failures:
+    member_without_data_relay_forwards_protected_control_then_ac_uses_a_direct_path
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.28s
+
+error: test failed, to rerun pass `--test member_forward`

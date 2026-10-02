@@ -1,0 +1,54 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.26s
+     Running tests/member_forward.rs (target/debug/deps/member_forward-5e6f9f3299a47542)
+
+running 8 tests
+test a_forwarding_route_cannot_substitute_the_inner_tls_target_identity ... MEMBER_WRONG_TARGET_PASS valid_c_route=true claimed_b_identity_rejected=true
+ok
+test an_admitted_bootstrap_session_does_not_grant_member_forwarding ... MEMBER_SCOPE_PASS bootstrap_admitted=true member_forwarding_rejected=true
+ok
+test duplicated_opaque_datagrams_cannot_reveal_private_control_or_release_extra_connections ... MEMBER_BOOTSTRAP_START stable_id=126890515087984 peer=4938163114688fbdc14fd73851c198ee096d75edb29d0437bf7781e991de72de
+MEMBER_BOOTSTRAP_START stable_id=126890514813072 peer=3bc42c1b1455172a573bbff3f6b2560168b82a77629210fce3e54f7ba9a608ca
+NAT_DIRECT_CANDIDATE stable_id=126890514813072 target=127.0.0.1:46746
+NAT_DIRECT_SUCCESS stable_id=126890515087984 target=127.0.0.1:44092 punching_recommendations=0
+MEMBER_BOOTSTRAP_DATA stable_id=126890515087984 peer=4938163114688fbdc14fd73851c198ee096d75edb29d0437bf7781e991de72de paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44092)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=126890514813072 target=127.0.0.1:46746 punching_recommendations=0
+MEMBER_BOOTSTRAP_DATA stable_id=126890514813072 peer=3bc42c1b1455172a573bbff3f6b2560168b82a77629210fce3e54f7ba9a608ca paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:46746)], selected: Some(PathId(1)), closed: false }, .. }
+MEMBER_DUPLICATE_PACKETS_PASS observed_ciphertext_datagrams=63 private_candidates_visible=false extra_connections=0
+ok
+test expired_forwarding_leases_remove_routes_without_ending_the_member_links ... MEMBER_EXPIRY_PASS registered_routes=0 stale_route_rejected=true ab_alive=true
+ok
+test member_without_data_relay_forwards_protected_control_then_ac_uses_a_direct_path ... MEMBER_BOOTSTRAP_START stable_id=126890514857008 peer=76aa5a470a34a0ed56ff7c29aa2b3b994465f1e71fc60adaf4d8d058a5682e01
+MEMBER_BOOTSTRAP_START stable_id=126890514836480 peer=aadf455b7160a7c75d729156bdffa498aa5ec98a331787289e92a5eaec0b0715
+NAT_DIRECT_CANDIDATE stable_id=126890514836480 target=127.0.0.1:43354
+NAT_DIRECT_SUCCESS stable_id=126890514857008 target=127.0.0.1:45323 punching_recommendations=0
+MEMBER_BOOTSTRAP_DATA stable_id=126890514857008 peer=76aa5a470a34a0ed56ff7c29aa2b3b994465f1e71fc60adaf4d8d058a5682e01 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:45323)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=126890514836480 target=127.0.0.1:43354 punching_recommendations=0
+MEMBER_BOOTSTRAP_DATA stable_id=126890514836480 peer=aadf455b7160a7c75d729156bdffa498aa5ec98a331787289e92a5eaec0b0715 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:43354)], selected: Some(PathId(1)), closed: false }, .. }
+MEMBER_FIRST_PASS relay_enabled=false inner_tls_peer=aadf455b7160a7c75d729156bdffa498aa5ec98a331787289e92a5eaec0b0715 stable_id=126890514836480 direct_data=true
+ok
+test repeated_registration_does_not_add_forwarding_routes_or_confuse_member_identity ... MEMBER_DUPLICATE_REGISTRATION_PASS registered_routes=2 ab_alive=true
+ok
+test signaling_only_cannot_release_business_without_another_permitted_ac_path ... MEMBER_BOOTSTRAP_START stable_id=126890524758720 peer=418016a225b6fd3598eec484af22a44a1835173a3a4febf367014180f4a0f38f
+MEMBER_BOOTSTRAP_START stable_id=126890524767936 peer=4d629e651202306957c0097c8183bed01550927bf1a73bb8ad71778783f333ed
+MEMBER_BOOTSTRAP_FAILED stable_id=126890524758720 error=no mutually permitted data path capability
+MEMBER_BOOTSTRAP_FAILED stable_id=126890524767936 error=read error: connection lost
+MEMBER_PRIORITY_PASS control_reachable=true permitted_ac_data_paths=0 business_released=false ab_unchanged=true cb_unchanged=true
+ok
+test stopping_a_forwarding_stream_fails_ac_control_and_keeps_ab_usable ... MEMBER_INTERRUPTION_PASS forwarding_stream_stopped=true ac_unavailable=true ab_alive=true
+ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 26.01s
+

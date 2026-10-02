@@ -1,0 +1,136 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.39s
+     Running tests/legacy_nat_runtime.rs (target/debug/deps/legacy_nat_runtime-dd3b937531d04d40)
+
+running 6 tests
+test formal_direct_candidates_precede_selector_and_keep_original_identity ... NAT_DIRECT_SUCCESS stable_id=132249829753328 target=127.0.0.1:43552 punching_recommendations=0
+NAT_DIRECT_SUCCESS stable_id=132249829752880 target=127.0.0.1:43339 punching_recommendations=0
+ok
+test formal_disabled_udp_blocks_business_before_stream_creation ... LEGACY_SAMPLE order=0 destination=127.0.0.1:43745 mapped=127.0.0.1:45959
+LEGACY_SAMPLE order=1 destination=127.0.0.1:45914 mapped=127.0.0.1:45959
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Easy, behavior: NoChange, ports_difference: 0, regular_ports_change: false, public_network: true }) socket_generation_current=true
+LEGACY_SAMPLE order=0 destination=127.0.0.1:43745 mapped=127.0.0.1:46854
+LEGACY_SAMPLE order=1 destination=127.0.0.1:45914 mapped=127.0.0.1:46854
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Easy, behavior: NoChange, ports_difference: 0, regular_ports_change: false, public_network: true }) socket_generation_current=true
+LEGACY_SELECTED mode=0 index=2 c=Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Sender, ttl: 0, send_delay_ms: 200, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 0, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 2 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 3 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 5 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 6 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 7 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 8 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 9 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 10 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 11 }, score: 1 }] round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828379264 execution=Ready fallback=false
+LEGACY_CANDIDATES round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828379264 assisted=[127.0.0.1:45959] mapped=[127.0.0.1:45959, 127.0.0.1:45959]
+LEGACY_SELECTED mode=0 index=2 c=Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Sender, ttl: 0, send_delay_ms: 200, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 0, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 2 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 3 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 5 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 6 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 7 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 8 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 9 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 10 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 11 }, score: 1 }] round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828419072 execution=Ready fallback=false
+LEGACY_CANDIDATES round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828419072 assisted=[127.0.0.1:46854] mapped=[127.0.0.1:46854, 127.0.0.1:46854]
+LEGACY_RECV_START round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828419072 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [127.0.0.1:46854], candidates: [127.0.0.1:46854], range: None, total_budget_ms: 5200, read_budget_ms: 5200 }
+LEGACY_LISTENER round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828419072 local_socket_id=0 local_addr=127.0.0.1:45959 primary=true
+LEGACY_RECV_START round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828379264 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Sender, ttl: 0, send_delay_ms: 200, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [127.0.0.1:45959], candidates: [127.0.0.1:45959], range: None, total_budget_ms: 5200, read_budget_ms: 5000 }
+LEGACY_LISTENER round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828379264 local_socket_id=0 local_addr=127.0.0.1:46854 primary=true
+LEGACY_DATAGRAM target=127.0.0.1:46854 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:45959 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:46854 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:46854 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_PHASE_STOP round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828379264 elapsed_ms=201 outcome=winner
+LEGACY_WINNER round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828379264 remote=127.0.0.1:45959 response=true before_probe=false probes=1 responses=0 ttl_degraded=0 local_socket_id=0 local_addr=127.0.0.1:46854
+LEGACY_TRACE round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828379264 probes=1 responses=0 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=1 send_errors=0 send_aborted=0 rejected_receipts=0
+LEGACY_DATAGRAM target=127.0.0.1:46854 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:46854 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_PHASE_STOP round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828419072 elapsed_ms=304 outcome=winner
+LEGACY_WINNER round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828419072 remote=127.0.0.1:46854 response=false before_probe=false probes=2 responses=3 ttl_degraded=0 local_socket_id=0 local_addr=127.0.0.1:45959
+LEGACY_TRACE round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828419072 probes=2 responses=3 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=5 send_errors=0 send_aborted=0 rejected_receipts=0
+LEGACY_WINNER_READY round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828379264 remaining_ms=4893
+LEGACY_WINNER_READY round=83fb46b02c3f4454fe9865deb5336bbe stable_id=132249828419072 remaining_ms=4893
+ok
+test formal_entry_observes_selects_executes_and_confirms_original_business ... LEGACY_SAMPLE order=0 destination=127.0.0.1:43838 mapped=127.0.0.1:44475
+LEGACY_SAMPLE order=1 destination=127.0.0.1:44430 mapped=127.0.0.1:44475
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Easy, behavior: NoChange, ports_difference: 0, regular_ports_change: false, public_network: true }) socket_generation_current=true
+LEGACY_SAMPLE order=0 destination=127.0.0.1:43838 mapped=127.0.0.1:45800
+LEGACY_SAMPLE order=1 destination=127.0.0.1:44430 mapped=127.0.0.1:45800
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Easy, behavior: NoChange, ports_difference: 0, regular_ports_change: false, public_network: true }) socket_generation_current=true
+LEGACY_SELECTED mode=0 index=2 c=Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Sender, ttl: 0, send_delay_ms: 200, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 0, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 2 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 3 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 5 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 6 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 7 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 8 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 9 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 10 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 11 }, score: 1 }] round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249828087296 execution=Ready fallback=false
+LEGACY_CANDIDATES round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249828087296 assisted=[127.0.0.1:45800] mapped=[127.0.0.1:45800, 127.0.0.1:45800]
+LEGACY_SELECTED mode=0 index=2 c=Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Sender, ttl: 0, send_delay_ms: 200, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 0, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 2 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 3 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 5 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 6 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 7 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 8 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 9 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 10 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 11 }, score: 1 }] round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249827890288 execution=Ready fallback=false
+LEGACY_CANDIDATES round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249827890288 assisted=[127.0.0.1:44475] mapped=[127.0.0.1:44475, 127.0.0.1:44475]
+LEGACY_RECV_START round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249827890288 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [127.0.0.1:44475], candidates: [127.0.0.1:44475], range: None, total_budget_ms: 5200, read_budget_ms: 5200 }
+LEGACY_LISTENER round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249827890288 local_socket_id=0 local_addr=127.0.0.1:45800 primary=true
+LEGACY_RECV_START round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249828087296 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Sender, ttl: 0, send_delay_ms: 200, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [127.0.0.1:45800], candidates: [127.0.0.1:45800], range: None, total_budget_ms: 5200, read_budget_ms: 5000 }
+LEGACY_LISTENER round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249828087296 local_socket_id=0 local_addr=127.0.0.1:44475 primary=true
+LEGACY_DATAGRAM target=127.0.0.1:44475 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:45800 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:44475 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:44475 ttl=7 response=false degraded=false local_socket_id=0
+LEGACY_PHASE_STOP round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249828087296 elapsed_ms=201 outcome=winner
+LEGACY_WINNER round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249828087296 remote=127.0.0.1:45800 response=true before_probe=false probes=1 responses=0 ttl_degraded=0 local_socket_id=0 local_addr=127.0.0.1:44475
+LEGACY_TRACE round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249828087296 probes=1 responses=0 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=1 send_errors=0 send_aborted=0 rejected_receipts=0
+LEGACY_DATAGRAM target=127.0.0.1:44475 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:44475 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_PHASE_STOP round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249827890288 elapsed_ms=303 outcome=winner
+LEGACY_WINNER round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249827890288 remote=127.0.0.1:44475 response=false before_probe=false probes=2 responses=3 ttl_degraded=0 local_socket_id=0 local_addr=127.0.0.1:45800
+LEGACY_TRACE round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249827890288 probes=2 responses=3 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=5 send_errors=0 send_aborted=0 rejected_receipts=0
+LEGACY_WINNER_READY round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249828087296 remaining_ms=4895
+LEGACY_WINNER_READY round=e3fc150acfbf5464de5e8c2d6653aea2 stable_id=132249827890288 remaining_ms=4894
+LEGACY_RESULT outcome=confirmed_business learned=true score_delta=2 stable_id=132249827890288
+LEGACY_RESULT outcome=confirmed_business learned=false score_delta=0 stable_id=132249828087296
+LEGACY_SAMPLE order=0 destination=127.0.0.1:43838 mapped=127.0.0.1:44475
+LEGACY_SAMPLE order=1 destination=127.0.0.1:44430 mapped=127.0.0.1:44475
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Easy, behavior: NoChange, ports_difference: 0, regular_ports_change: false, public_network: true }) socket_generation_current=true
+LEGACY_SAMPLE order=0 destination=127.0.0.1:43838 mapped=127.0.0.1:45800
+LEGACY_SAMPLE order=1 destination=127.0.0.1:44430 mapped=127.0.0.1:45800
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Easy, behavior: NoChange, ports_difference: 0, regular_ports_change: false, public_network: true }) socket_generation_current=true
+LEGACY_SELECTED mode=0 index=2 c=Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Sender, ttl: 0, send_delay_ms: 200, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 0, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 2 }, score: 2 }, BehaviorScore { id: BehaviorId { mode: 0, index: 3 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 5 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 6 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 7 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 8 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 9 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 10 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 11 }, score: 1 }] round=78d7302f640238d97662cfe830986008 stable_id=132249829527696 execution=Ready fallback=false
+LEGACY_CANDIDATES round=78d7302f640238d97662cfe830986008 stable_id=132249829527696 assisted=[127.0.0.1:45800] mapped=[127.0.0.1:45800, 127.0.0.1:45800]
+LEGACY_SELECTED mode=0 index=2 c=Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Sender, ttl: 0, send_delay_ms: 200, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 0, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 2 }, score: 2 }, BehaviorScore { id: BehaviorId { mode: 0, index: 3 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 5 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 6 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 7 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 8 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 9 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 10 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 11 }, score: 1 }] round=78d7302f640238d97662cfe830986008 stable_id=132249828550544 execution=Ready fallback=false
+LEGACY_CANDIDATES round=78d7302f640238d97662cfe830986008 stable_id=132249828550544 assisted=[127.0.0.1:44475] mapped=[127.0.0.1:44475, 127.0.0.1:44475]
+ok
+test formal_entry_permission_and_complete_budget_stop_before_execution ... LEGACY_SAMPLE order=0 destination=127.0.0.1:44597 mapped=127.0.0.1:46188
+LEGACY_SAMPLE order=1 destination=127.0.0.1:46724 mapped=127.0.0.1:46188
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Easy, behavior: NoChange, ports_difference: 0, regular_ports_change: false, public_network: true }) socket_generation_current=true
+LEGACY_SAMPLE order=0 destination=127.0.0.1:44597 mapped=127.0.0.1:45156
+LEGACY_SAMPLE order=1 destination=127.0.0.1:46724 mapped=127.0.0.1:45156
+LEGACY_FEATURE feature=Some(NatFeature { nat_type: Easy, behavior: NoChange, ports_difference: 0, regular_ports_change: false, public_network: true }) socket_generation_current=true
+LEGACY_SELECTED mode=0 index=2 c=Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Sender, ttl: 0, send_delay_ms: 200, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 0, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 2 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 3 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 5 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 6 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 7 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 8 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 9 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 10 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 11 }, score: 1 }] round=0519ed3bb41aa3fb31c55361e5d5c28c stable_id=132249828677360 execution=Ready fallback=false
+LEGACY_CANDIDATES round=0519ed3bb41aa3fb31c55361e5d5c28c stable_id=132249828677360 assisted=[127.0.0.1:45156] mapped=[127.0.0.1:45156, 127.0.0.1:45156]
+LEGACY_SELECTED mode=0 index=2 c=Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Sender, ttl: 0, send_delay_ms: 200, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[BehaviorScore { id: BehaviorId { mode: 0, index: 0 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 1 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 2 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 3 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 4 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 5 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 6 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 7 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 8 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 9 }, score: 0 }, BehaviorScore { id: BehaviorId { mode: 0, index: 10 }, score: 1 }, BehaviorScore { id: BehaviorId { mode: 0, index: 11 }, score: 1 }] round=0519ed3bb41aa3fb31c55361e5d5c28c stable_id=132249829153008 execution=Ready fallback=false
+LEGACY_CANDIDATES round=0519ed3bb41aa3fb31c55361e5d5c28c stable_id=132249829153008 assisted=[127.0.0.1:46188] mapped=[127.0.0.1:46188, 127.0.0.1:46188]
+LEGACY_RECV_START round=0519ed3bb41aa3fb31c55361e5d5c28c stable_id=132249828677360 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Sender, ttl: 0, send_delay_ms: 200, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [127.0.0.1:45156], candidates: [127.0.0.1:45156], range: None, total_budget_ms: 5200, read_budget_ms: 5000 }
+LEGACY_LISTENER round=0519ed3bb41aa3fb31c55361e5d5c28c stable_id=132249828677360 local_socket_id=0 local_addr=127.0.0.1:46188 primary=true
+LEGACY_PHASE_STOP round=0519ed3bb41aa3fb31c55361e5d5c28c stable_id=132249828677360 elapsed_ms=34 outcome=failed
+LEGACY_TRACE round=0519ed3bb41aa3fb31c55361e5d5c28c stable_id=132249828677360 probes=0 responses=0 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=0 send_errors=0 send_aborted=0 rejected_receipts=0
+ok
+test formal_entry_without_s_uses_local_assisted_basic_attempt_and_original_business ... LEGACY_FEATURE feature=None socket_generation_current=true
+LEGACY_FEATURE feature=None socket_generation_current=true
+LEGACY_SELECTED mode=0 index=6 c=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[] round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249829084800 execution=Ready fallback=true
+LEGACY_CANDIDATES round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249829084800 assisted=[127.0.0.1:44913] mapped=[]
+LEGACY_SELECTED mode=0 index=6 c=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[] round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249828767312 execution=Ready fallback=true
+LEGACY_CANDIDATES round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249828767312 assisted=[127.0.0.1:47012] mapped=[]
+LEGACY_RECV_START round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249828767312 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [127.0.0.1:47012], candidates: [], range: None, total_budget_ms: 5000, read_budget_ms: 5000 }
+LEGACY_LISTENER round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249828767312 local_socket_id=0 local_addr=127.0.0.1:44913 primary=true
+LEGACY_RECV_START round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249829084800 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [], candidates: [], range: None, total_budget_ms: 5000, read_budget_ms: 5000 }
+LEGACY_LISTENER round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249829084800 local_socket_id=0 local_addr=127.0.0.1:47012 primary=true
+LEGACY_DATAGRAM target=127.0.0.1:47012 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:44913 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_PHASE_STOP round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249828767312 elapsed_ms=1 outcome=winner
+LEGACY_WINNER round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249828767312 remote=127.0.0.1:47012 response=true before_probe=false probes=1 responses=0 ttl_degraded=0 local_socket_id=0 local_addr=127.0.0.1:44913
+LEGACY_TRACE round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249828767312 probes=1 responses=0 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=1 send_errors=0 send_aborted=0 rejected_receipts=0
+LEGACY_DATAGRAM target=127.0.0.1:44913 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=127.0.0.1:44913 ttl=0 response=true degraded=false local_socket_id=0
+LEGACY_PHASE_STOP round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249829084800 elapsed_ms=103 outcome=winner
+LEGACY_WINNER round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249829084800 remote=127.0.0.1:44913 response=false before_probe=false probes=0 responses=3 ttl_degraded=0 local_socket_id=0 local_addr=127.0.0.1:47012
+LEGACY_TRACE round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249829084800 probes=0 responses=3 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=3 send_errors=0 send_aborted=0 rejected_receipts=0
+LEGACY_WINNER_READY round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249828767312 remaining_ms=4895
+LEGACY_WINNER_READY round=8e81d6c869a7459d65b67606d3573c37 stable_id=132249829084800 remaining_ms=4895
+LEGACY_RESULT outcome=confirmed_business learned=false score_delta=0 stable_id=132249828767312
+LEGACY_RESULT outcome=confirmed_business learned=false score_delta=0 stable_id=132249829084800
+ok
+test formal_ipv6_direct_requires_no_ipv4_observation_or_punching ... NAT_DIRECT_SUCCESS stable_id=132249828776832 target=[::1]:45508 punching_recommendations=0
+NAT_DIRECT_SUCCESS stable_id=132249828768016 target=[::1]:46264 punching_recommendations=0
+ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 11.29s
+

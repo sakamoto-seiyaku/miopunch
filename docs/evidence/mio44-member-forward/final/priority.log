@@ -1,0 +1,25 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.34s
+     Running tests/member_forward.rs (target/debug/deps/member_forward-5e6f9f3299a47542)
+
+running 1 test
+test signaling_only_cannot_release_business_without_another_permitted_ac_path ... MEMBER_BOOTSTRAP_START stable_id=125530228110912 peer=64a3ba28447b7076743b5b21998fbf86c89421b8ff8bc8548a0de7cc745cfd0c
+MEMBER_BOOTSTRAP_START stable_id=125530228110848 peer=993f5ab2ede4c20720e975b725a66e921c45405dec90157057cea8a848bcbc67
+MEMBER_BOOTSTRAP_FAILED stable_id=125530228110912 error=no mutually permitted data path capability
+MEMBER_BOOTSTRAP_FAILED stable_id=125530228110848 error=read error: connection lost
+MEMBER_PRIORITY_PASS control_reachable=true permitted_ac_data_paths=0 business_released=false ab_unchanged=true cb_unchanged=true
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 2.26s
+

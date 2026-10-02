@@ -122,7 +122,7 @@ struct State {
 #[derive(Clone, Debug)]
 pub struct AdmissionGate {
     state: Arc<Mutex<State>>,
-    mqtt_bootstrap: bool,
+    message_bootstrap: bool,
 }
 
 impl AdmissionGate {
@@ -152,7 +152,7 @@ impl AdmissionGate {
             ProtocolScope::AdmissionRequest,
         );
         Self {
-            mqtt_bootstrap: false,
+            message_bootstrap: false,
             state: Arc::new(Mutex::new(State {
                 policy: Policy {
                     local_id: *local_id.as_bytes(),
@@ -226,17 +226,22 @@ impl AdmissionGate {
         builder.admission_gate(self.clone())
     }
 
-    /// Endpoint-local permission for the formal MQTT adapter's bootstrap.
+    /// Endpoint-local permission for supported signaling adapters' bootstrap.
     /// Install only together with the before-data-release path coordinator.
-    pub(crate) fn with_mqtt_bootstrap(&self) -> Self {
+    pub(crate) fn with_message_bootstrap(&self) -> Self {
         Self {
             state: self.state.clone(),
-            mqtt_bootstrap: true,
+            message_bootstrap: true,
         }
     }
 
     fn member_carrier_allowed(&self, id: u64, data_ids: &BTreeSet<u64>) -> bool {
-        data_ids.contains(&id) || (self.mqtt_bootstrap && id == crate::mqtt_transport::TRANSPORT_ID)
+        data_ids.contains(&id)
+            || (self.message_bootstrap
+                && matches!(
+                    id,
+                    crate::mqtt_transport::TRANSPORT_ID | crate::member_transport::TRANSPORT_ID
+                ))
     }
 
     /// Supply only the locally verified, currently applied management view.

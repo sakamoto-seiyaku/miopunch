@@ -1,0 +1,16 @@
+Starting tests
+Starting resources
+Starting native-gates-proofs
+Starting mqtt-carrier-and-purpose
+Starting manual-admission
+Starting offline-replica
+Starting tcp-direct
+Starting formal-node-budget
+Starting observation-generation
+Starting candidate-scope
+Starting library
+Starting all-targets
+Starting wasm
+Starting format
+Starting fork-format
+PASS short MQTT checks: /home/js/Git/miopunch/docs/evidence/mio44-member-forward/final/mqtt-short

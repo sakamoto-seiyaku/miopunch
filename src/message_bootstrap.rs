@@ -75,7 +75,7 @@ impl EndpointHooks for MemberPathBootstrap {
     ) -> io::Result<()> {
         if !connection.paths().iter().any(|path| {
             matches!(path.remote_addr(),
-            TransportAddr::Custom(address) if address.id() == TRANSPORT_ID)
+            TransportAddr::Custom(address) if matches!(address.id(), TRANSPORT_ID | crate::member_transport::TRANSPORT_ID))
         }) {
             if let Some(tcp)=&self.tcp
                 && connection.paths().iter().any(|path|matches!(path.remote_addr(),TransportAddr::Custom(address) if address.id()==crate::tcp_transport::DATA_TRANSPORT_ID)) {
@@ -87,10 +87,11 @@ impl EndpointHooks for MemberPathBootstrap {
             }
             return Ok(());
         }
+        let carrier = if connection.paths().iter().any(|path| matches!(path.remote_addr(), TransportAddr::Custom(address) if address.id() == crate::member_transport::TRANSPORT_ID)) { "MEMBER" } else { "MQTT" };
         let control = ControlSession::from_connection(endpoint.clone(), connection.clone());
         let mut cancellation = control.cancellation_guard();
         println!(
-            "MQTT_BOOTSTRAP_START stable_id={} peer={}",
+            "{carrier}_BOOTSTRAP_START stable_id={} peer={}",
             connection.stable_id(),
             connection.remote_id()
         );
@@ -142,7 +143,7 @@ impl EndpointHooks for MemberPathBootstrap {
                 ));
             }
             println!(
-                "MQTT_BOOTSTRAP_DATA stable_id={} peer={} paths={:?}",
+                "{carrier}_BOOTSTRAP_DATA stable_id={} peer={} paths={:?}",
                 connection.stable_id(),
                 connection.remote_id(),
                 connection.paths()
@@ -154,13 +155,13 @@ impl EndpointHooks for MemberPathBootstrap {
             .map_err(|_| {
                 io::Error::new(
                     io::ErrorKind::TimedOut,
-                    "MQTT data path bootstrap timed out",
+                    "message data path bootstrap timed out",
                 )
             })
             .and_then(|result| result);
         if let Err(error) = result {
             eprintln!(
-                "MQTT_BOOTSTRAP_FAILED stable_id={} error={error}",
+                "{carrier}_BOOTSTRAP_FAILED stable_id={} error={error}",
                 connection.stable_id()
             );
             return Err(error);

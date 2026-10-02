@@ -1,0 +1,43 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.67s
+     Running tests/manual_admission.rs (target/debug/deps/manual_admission-fa75574db4124aeb)
+
+running 14 tests
+test actual_tls_contact_must_match_the_invitation_pin ... ok
+test another_authenticated_request_for_an_existing_member_reuses_its_valid_grant ... ok
+test another_invitation_holder_observes_ciphertext_but_cannot_take_an_approved_result ... MIO30_MQTT_CIPHERTEXT publishes=86 max_bytes=1472 long_lived_secret_in_invitation=false independent_holder_received_approved_result=false
+ok
+test applicant_crash_after_authorization_worker ... ok
+test approval_commit_checkpoint_worker ... ok
+test approval_commit_crash_is_recovered_before_another_same_identity_request_decides_to_add ... actual approval process exits after signed Add/result transaction commit, before application
+
+MIO30_APPROVAL_RECOVERY applied=2 original_grant_reused=true
+ok
+test approval_commit_interruption_is_recovered_before_a_live_nodes_next_request_decides_to_add ... actual approval process exits after signed Add/result transaction commit, before application
+
+MIO30_APPROVAL_RECOVERY applied=2 original_grant_reused=true
+ok
+test authenticated_contact_cannot_make_a_corrupt_signature_durable_membership ... ok
+test crash_after_only_authorization_never_succeeds_and_same_request_resumes_once ... actual applicant process exits after durable authorization, before requesting secret
+
+ok
+test forged_claimed_applicant_cannot_enter_the_approval_queue ... ok
+test invitation_for_wrong_network_cannot_queue_a_request ... ok
+test manual_approval_saves_both_materials_and_permits_real_business ... ok
+test material_file_failure_retains_pending_state_and_can_retry_after_restart ... ok
+test original_result_is_rejected_after_removal_even_when_a_fresh_grant_readds_the_identity ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.99s
+

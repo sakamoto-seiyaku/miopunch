@@ -1,0 +1,229 @@
+{
+  "checks": [
+    {
+      "name": "first",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "member_forward",
+        "--features",
+        "member-signaling-test-hooks",
+        "member_without_data_relay_forwards_protected_control_then_ac_uses_a_direct_path",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 4.671,
+      "log": "first.log"
+    },
+    {
+      "name": "priority",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "member_forward",
+        "--features",
+        "member-signaling-test-hooks",
+        "signaling_only_cannot_release_business_without_another_permitted_ac_path",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 2.652,
+      "log": "priority.log"
+    },
+    {
+      "name": "duplicates",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "member_forward",
+        "--features",
+        "member-signaling-test-hooks",
+        "duplicated_opaque_datagrams_cannot_reveal_private_control_or_release_extra_connections",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 3.128,
+      "log": "duplicates.log"
+    },
+    {
+      "name": "registration",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "member_forward",
+        "--features",
+        "member-signaling-test-hooks",
+        "repeated_registration_does_not_add_forwarding_routes_or_confuse_member_identity",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 2.259,
+      "log": "registration.log"
+    },
+    {
+      "name": "expiry",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "member_forward",
+        "--features",
+        "member-signaling-test-hooks",
+        "expired_forwarding_leases_remove_routes_without_ending_the_member_links",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 6.695,
+      "log": "expiry.log"
+    },
+    {
+      "name": "interruption",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "member_forward",
+        "--features",
+        "member-signaling-test-hooks",
+        "stopping_a_forwarding_stream_fails_ac_control_and_keeps_ab_usable",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 6.28,
+      "log": "interruption.log"
+    },
+    {
+      "name": "identity",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "member_forward",
+        "--features",
+        "member-signaling-test-hooks",
+        "a_forwarding_route_cannot_substitute_the_inner_tls_target_identity",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 2.313,
+      "log": "identity.log"
+    },
+    {
+      "name": "scope",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "member_forward",
+        "--features",
+        "member-signaling-test-hooks",
+        "an_admitted_bootstrap_session_does_not_grant_member_forwarding",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 2.604,
+      "log": "scope.log"
+    },
+    {
+      "name": "endpoint-close",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "member_forward",
+        "--features",
+        "member-signaling-test-hooks",
+        "closing_the_endpoint_releases_its_forwarding_lease_without_waiting_for_expiry",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 2.272,
+      "log": "endpoint-close.log"
+    },
+    {
+      "name": "affected-short",
+      "argv": [
+        "python",
+        "-B",
+        "scripts/check_mqtt_bootstrap_short.py",
+        "--output",
+        "/home/js/Git/miopunch/docs/evidence/mio44-member-forward/final/mqtt-short",
+        "--suite"
+      ],
+      "exit": 0,
+      "seconds": 245.044,
+      "log": "affected-short.log"
+    },
+    {
+      "name": "all-test-hooks",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks"
+      ],
+      "exit": 0,
+      "seconds": 7.579,
+      "log": "all-test-hooks.log"
+    },
+    {
+      "name": "default-member-build",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--test",
+        "member_forward"
+      ],
+      "exit": 0,
+      "seconds": 11.345,
+      "log": "default-member-build.log"
+    }
+  ],
+  "passed": true,
+  "environment": "Linux loopback; three real persistent members; no NAT success claim",
+  "skipped": "Previously validated unchanged slow NAT matrices, per user policy"
+}

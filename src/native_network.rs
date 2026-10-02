@@ -518,10 +518,10 @@ impl NativeNetwork {
                     .service_name("miopunchv1"),
             ),
         };
-        let builder = if !mqtt.is_empty() {
+        let builder = if automatic_mqtt {
             let observers = resources.relay_map(crate::resources::ResourceUse::Observation)?;
-            self.gate.with_mqtt_bootstrap().configure(builder).hooks(
-                crate::mqtt_bootstrap::MemberPathBootstrap::new(
+            self.gate.with_message_bootstrap().configure(builder).hooks(
+                crate::message_bootstrap::MemberPathBootstrap::new(
                     self.gate.clone(),
                     Arc::new(self.udp.for_endpoint(
                         (!observers.is_empty()).then_some(observers),

@@ -17,6 +17,7 @@ needless_pass_by_ref_mut = "warn"
 [features]
 nat-lab-test-hooks = ["iroh/miopunch-test-hooks"]
 replica-test-hooks = []
+member-signaling-test-hooks = []
 
 [workspace.dependencies]
 blake3 = "1.8.5"

@@ -1,0 +1,245 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "mqtt_bootstrap",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 17.157,
+      "log": "tests.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "resources",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 47.482,
+      "log": "resources.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "native_network",
+        "--test",
+        "admission_gate",
+        "--test",
+        "admission_proof",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 34.227,
+      "log": "native-gates-proofs.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "mqtt_probe",
+        "--test",
+        "mqtt_upgrade",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 10.08,
+      "log": "mqtt-carrier-and-purpose.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "manual_admission",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 22.733,
+      "log": "manual-admission.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "offline_replica",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 7.453,
+      "log": "offline-replica.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "tcp_direct",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 38.621,
+      "log": "tcp-direct.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "legacy_nat_runtime",
+        "formal_",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 15.752,
+      "log": "formal-node-budget.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "legacy_nat_runtime",
+        "ordinary_qad_refresh_keeps_the_physical_generation_but_real_network_change_invalidates_it",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 25.929,
+      "log": "observation-generation.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "legacy_nat_runtime",
+        "old_prediction_age_does_not_expire_a_legacy_plan_but_network_change_does",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 3.711,
+      "log": "candidate-scope.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--lib",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 11.478,
+      "log": "library.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks"
+      ],
+      "exit": 0,
+      "seconds": 7.645,
+      "log": "all-targets.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown"
+      ],
+      "exit": 0,
+      "seconds": 0.351,
+      "log": "wasm.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "exit": 0,
+      "seconds": 0.611,
+      "log": "format.log"
+    },
+    {
+      "argv": [
+        "rustfmt",
+        "--check",
+        "--edition",
+        "2024",
+        "--config",
+        "skip_children=true",
+        "vendor/iroh/src/endpoint/connection.rs",
+        "vendor/iroh/src/endpoint/hooks.rs",
+        "vendor/iroh/src/socket/remote_map/remote_state.rs"
+      ],
+      "exit": 0,
+      "seconds": 0.067,
+      "log": "fork-format.log"
+    }
+  ],
+  "passed": true,
+  "brokers": [
+    "127.0.0.1:43302",
+    "127.0.0.1:43303"
+  ],
+  "cleanup": [
+    {
+      "owned_container": "miopunch42-short-1790918859360818646",
+      "exit": 0
+    },
+    {
+      "owned_container": "miopunch42-short-1790918859716849366",
+      "exit": 0
+    }
+  ]
+}
