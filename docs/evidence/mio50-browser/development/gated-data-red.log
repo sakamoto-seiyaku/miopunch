@@ -1,0 +1,22 @@
+browser-probe-native: RELAY 127.0.0.1:43660
+browser_network_native: {"event":"ready","id":"4b76683c454f240010f4c2ab58bb7d2d3a255eb8a4917da23f4de5ff0df74d47","invitation":"800c94d1984cce8d20c76d10940874677b4a5a31a2a677faeff746641806848fb07b2b8a97b1b8149a9fea45be751f65dfb0f09ed71a9f0513dafb084bbd3e504b76683c454f240010f4c2ab58bb7d2d3a255eb8a4917da23f4de5ff0df74d47"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":2,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+CHECK_FAILED page.evaluate: temporarily unreachable: allowed relay path failed
+    at /home/js/Git/miopunch/browser-probe/harness/run-network.mjs:100:27
+browser_network_native: browser fixture request: closed
+
+CLEANUP {"code":0,"signal":null}
+CLEANUP {"code":0,"signal":null}
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+page.evaluate: temporarily unreachable: allowed relay path failed
+    at /home/js/Git/miopunch/browser-probe/harness/run-network.mjs:100:27 {
+  log: [],
+  name: 'Error'
+}
+
+Node.js v24.14.0

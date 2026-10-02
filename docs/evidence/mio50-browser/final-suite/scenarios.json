@@ -1,0 +1,85 @@
+[
+  {
+    "case": "first-real-check",
+    "browser": "8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0",
+    "native": "0dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7",
+    "stage": "Complete",
+    "count": 2,
+    "reload": true,
+    "controlledBytes": 26
+  },
+  {
+    "case": "priority-pause-reopen",
+    "frozen": true,
+    "sameIdentity": true,
+    "count": 2,
+    "requestCount": 1,
+    "controlledBytes": 12
+  },
+  {
+    "case": "persistent-browser-process-restart",
+    "sameIdentity": true,
+    "bothMaterialsSaved": true,
+    "savedRelayChoiceRestored": true,
+    "count": 2,
+    "requestCount": 1
+  },
+  {
+    "case": "same-identity-pages",
+    "competingPageRejected": true,
+    "takeoverIdentity": "8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0",
+    "count": 2,
+    "requests": 1
+  },
+  {
+    "case": "delivery-interruption",
+    "authorizationSaved": true,
+    "secretInitiallySaved": false,
+    "sameIdentity": true,
+    "resumed": true,
+    "earlyDataRejected": true,
+    "count": 3
+  },
+  {
+    "case": "material-clear",
+    "oldIdentity": "8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0",
+    "newIdentity": "60db6e22632b6cb3a941fcab867e99580acde106801c3670ce979222b60b56cd",
+    "staleMemoryRejected": true,
+    "explicitNewApproval": true,
+    "count": 4
+  },
+  {
+    "case": "secret-commit-loss",
+    "failedSaveRejected": true,
+    "neverComplete": true,
+    "noDuplicateAdd": true,
+    "count": 5
+  },
+  {
+    "case": "no-allowed-relay",
+    "forbiddenFacilityAccesses": 0,
+    "persistedChoice": true,
+    "explicitImportRestored": true,
+    "count": 5
+  },
+  {
+    "case": "disabled-relay",
+    "forbiddenFacilityAccesses": 0,
+    "persistedChoice": true,
+    "explicitImportRestored": true,
+    "count": 5
+  },
+  {
+    "case": "unavailable-relay",
+    "actualAllowedAttempt": true,
+    "publicFallbackAccesses": 0,
+    "explicitTemporarilyUnreachable": true
+  },
+  {
+    "case": "tls-websocket-relay",
+    "relayUrl": "https://localhost:44990/",
+    "websocket": "wss://localhost:44990/",
+    "nativeTrustedTestCa": true,
+    "isolatedChromiumTestCertificateException": true
+  }
+]

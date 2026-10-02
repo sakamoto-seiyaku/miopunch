@@ -1,0 +1,18 @@
+browser-probe-native: RELAY 127.0.0.1:43984
+browser_network_native: {"event":"ready","id":"b28472bf74cad04dc95d2a9d0e9cab085d77f8fe20224f7571c0d36fe6159ef9","invitation":"27341e7ae8b0fa3f3c9f8b7519c09e742786f886beab3ebad929dc6607e58fb2908c33584cb2dae1028591090c1009bd199f3f22f56e87a433ce57d4a68be8c8b28472bf74cad04dc95d2a9d0e9cab085d77f8fe20224f7571c0d36fe6159ef9"}
+browser: SyntaxError: The requested module '/pkg/miopunch_browser_probe.js' does not provide an export named 'BrowserNetwork'
+CHECK_FAILED page.waitForFunction: Timeout 30000ms exceeded.
+    at /home/js/Git/miopunch/browser-probe/harness/run-network.mjs:88:14
+CLEANUP {"code":null,"signal":"SIGKILL"}
+CLEANUP {"code":0,"signal":null}
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+page.waitForFunction: Timeout 30000ms exceeded.
+    at /home/js/Git/miopunch/browser-probe/harness/run-network.mjs:88:14 {
+  log: [],
+  name: 'TimeoutError'
+}
+
+Node.js v24.14.0

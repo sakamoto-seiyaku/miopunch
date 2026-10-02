@@ -1,0 +1,11 @@
+browser-probe-native: RELAY 127.0.0.1:43986
+browser_network_native: {"event":"ready","id":"331fac678492ac68074a22fef3b36f85b2ccbcb602c4bee3381c4ec46568034f","invitation":"b93cbfec2baf9c4b0c487d79d26295151d82066aa83c241a8d38668ed9e60536fb4521c045498cbd07030d67341e1ead5062a3eceec0961e61a1c136971cf880331fac678492ac68074a22fef3b36f85b2ccbcb602c4bee3381c4ec46568034f"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":2,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"bytes":26,"event":"business"}
+browser_network_native: {"bytes":13,"event":"business"}
+RESULT [{"case":"first-real-check","browser":"20601e45b9ee1b12db6efbc3179ad8d19daae76ba3aabe6e16e3acaa19bf182d","native":"331fac678492ac68074a22fef3b36f85b2ccbcb602c4bee3381c4ec46568034f","stage":"Complete","count":2,"reload":true,"controlledBytes":26}]
+PASS first real browser admission, durable materials after refresh, authenticated controlled communication
+CLEANUP {"code":0,"signal":null}
+CLEANUP {"code":0,"signal":null}

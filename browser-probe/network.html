@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>miopunch browser admission check</title>
+<link rel="icon" href="data:,">
+<body>
+<p id="status">Starting browser participant…</p>
+<button id="request" disabled>Request admission</button>
+<button id="complete" disabled>Save admission secret</button>
+<button id="exchange" disabled>Exchange test message</button>
+<button id="disconnect" disabled>Disconnect</button>
+<script type="module">
+  import init, { BrowserNetwork } from '/pkg/miopunch_browser_probe.js';
+  const parameters = new URLSearchParams(location.search);
+  const status = document.querySelector('#status');
+  window.ready = (async () => {
+    await init();
+    window.network = await BrowserNetwork.start(parameters.get('config') ?? '{}');
+    status.textContent = window.network.status();
+    for (const button of document.querySelectorAll('button')) button.disabled = false;
+    return window.network.id();
+  })();
+  window.ready.catch(error => { status.textContent = String(error); });
+  async function run(action) {
+    try { await action(); status.textContent = window.network.status(); }
+    catch (error) { status.textContent = String(error); }
+  }
+  document.querySelector('#request').onclick = () => run(() => window.network.request_admission(parameters.get('invitation')));
+  document.querySelector('#complete').onclick = () => run(() => window.network.complete_admission());
+  document.querySelector('#exchange').onclick = () => run(() => window.network.exchange('browser-controlled-message'));
+  document.querySelector('#disconnect').onclick = () => run(() => window.network.close());
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+browser-probe-native: RELAY 127.0.0.1:44604
+browser_network_native: {"event":"ready","id":"57fca9666e86c6a77b6e1ae279227b19e5620e1ec7bbc1bc82816a7cd9acdd8f","invitation":"4ad524680a306bfe947b5c061091787c0b9ab38f31f0bec79e27290056fda4c9e21a91ba01b50be3f2d41049a87de5e3ea739da20ed1e7313f9746b7ad7e091857fca9666e86c6a77b6e1ae279227b19e5620e1ec7bbc1bc82816a7cd9acdd8f"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":2,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"bytes":26,"event":"business"}
+browser_network_native: {"bytes":13,"event":"business"}
+browser_network_native: {"bytes":11,"event":"business"}
+browser_network_native: {"bytes":12,"event":"business"}
+browser_network_native: {"count":2,"event":"status","members":["57fca9666e86c6a77b6e1ae279227b19e5620e1ec7bbc1bc82816a7cd9acdd8f","ebca08eb8fd41ad30b4e9612b1ef8760da13e6622fdea3ee0ae4ae098b22ab68"],"requests":1}
+RESULT [{"case":"first-real-check","browser":"ebca08eb8fd41ad30b4e9612b1ef8760da13e6622fdea3ee0ae4ae098b22ab68","native":"57fca9666e86c6a77b6e1ae279227b19e5620e1ec7bbc1bc82816a7cd9acdd8f","stage":"Complete","count":2,"reload":true,"controlledBytes":26},{"case":"priority-pause-reopen","frozen":true,"sameIdentity":true,"count":2,"requestCount":1,"controlledBytes":12}]
+PASS lifecycle: real browser admission and selected boundary checks
+CLEANUP {"code":0,"signal":null}
+CLEANUP {"code":0,"signal":null}

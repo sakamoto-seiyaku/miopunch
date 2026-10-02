@@ -3,6 +3,8 @@
 
 use iroh::endpoint::{Connection, WeakConnectionHandle};
 use iroh_base::EndpointId;
+#[cfg(target_arch = "wasm32")]
+use n0_future::time::timeout;
 use rsasl::callback::{Context, Request, SessionCallback, SessionData};
 use rsasl::config::SASLConfig;
 use rsasl::mechanisms::scram::{SCRAM_SHA256_PLUS, properties::ScramStoredPassword, tools};
@@ -15,6 +17,8 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex, Weak};
 use std::time::Duration;
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::time::timeout;
 
 const EXPORTER_LABEL: &[u8] = b"EXPORTER-Channel-Binding";
 const BINDING_NAME: &str = "tls-exporter";
@@ -126,6 +130,12 @@ impl Drop for BootstrapProof {
 }
 
 impl BootstrapProof {
+    /// Used by platform adapters to reclaim completed protocol qualifications.
+    pub fn is_live(&self) -> bool {
+        self.connection
+            .upgrade()
+            .is_some_and(|connection| connection.close_reason().is_none())
+    }
     pub fn peer(&self) -> EndpointId {
         self.peer
     }
@@ -397,7 +407,7 @@ pub async fn prove_client(
 ) -> Result<BootstrapProof, ProofError> {
     let _permit = ACTIVE_PROOFS.try_acquire().map_err(|_| ProofError::Busy)?;
     let attempt = reserve_once(connection)?;
-    tokio::time::timeout(PROOF_TIMEOUT, async {
+    timeout(PROOF_TIMEOUT, async {
         let binding = exporter(connection)?;
         let sasl = SASLClient::with_cb(
             config(ClientCredentials {
@@ -462,7 +472,7 @@ pub async fn prove_server(
 ) -> Result<BootstrapProof, ProofError> {
     let _permit = ACTIVE_PROOFS.try_acquire().map_err(|_| ProofError::Busy)?;
     let attempt = reserve_once(connection)?;
-    tokio::time::timeout(PROOF_TIMEOUT, async {
+    timeout(PROOF_TIMEOUT, async {
         let binding = exporter(connection)?;
         let sasl = SASLServer::<ProofValidation, _>::with_cb(
             config(ServerCredentials::new(scope, secret))?,

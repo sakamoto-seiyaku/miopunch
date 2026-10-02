@@ -1,0 +1,43 @@
+browser-probe-native: RELAY https://localhost:44990/
+browser_network_native: {"event":"ready","id":"0dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7","invitation":"dbfc28dcbeeab44a58c82dc91dd794d79fc8abcc697573e540aeb64551aaadee8d9debf21031ae83984b06ca6f30e695f51e883deb89adba2e470cca10d152860dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":2,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"bytes":26,"event":"business"}
+browser_network_native: {"bytes":13,"event":"business"}
+browser_network_native: {"bytes":11,"event":"business"}
+browser_network_native: {"bytes":12,"event":"business"}
+browser_network_native: {"count":2,"event":"status","members":["0dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7","8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0"],"requests":1}
+browser_network_native: {"bytes":29,"event":"business"}
+browser_network_native: {"count":2,"event":"status","members":["0dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7","8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0"],"requests":1}
+browser_network_native: {"count":2,"event":"status","members":["0dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7","8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0"],"requests":1}
+browser_network_native: {"bytes":19,"event":"business"}
+browser_network_native: {"count":2,"event":"status","members":["0dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7","8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0"],"requests":1}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":3,"event":"approved"}
+browser_network_native: browser fixture request: current admission path unavailable; durable progress is retained
+
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"bytes":21,"event":"business"}
+browser_network_native: {"count":3,"event":"status","members":["0dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7","8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0","f81390b50592cec763e9694d6ceb987b7f37c1175c737f45d479241a64633a97"],"requests":2}
+browser_network_native: {"count":3,"event":"status","members":["0dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7","8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0","f81390b50592cec763e9694d6ceb987b7f37c1175c737f45d479241a64633a97"],"requests":2}
+browser_network_native: {"count":3,"event":"status","members":["0dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7","8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0","f81390b50592cec763e9694d6ceb987b7f37c1175c737f45d479241a64633a97"],"requests":2}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":4,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"bytes":26,"event":"business"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":5,"event":"approved"}
+browser_network_native: browser fixture request: current admission path unavailable; durable progress is retained
+
+browser_network_native: {"count":5,"event":"status","members":["0dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7","60db6e22632b6cb3a941fcab867e99580acde106801c3670ce979222b60b56cd","8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0","f57fda52c428c49c5ac1e51f55b885a5dd8cd834e2a63faa9a97a37834530cd0","f81390b50592cec763e9694d6ceb987b7f37c1175c737f45d479241a64633a97"],"requests":4}
+browser_network_native: {"count":5,"event":"status","members":["0dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7","60db6e22632b6cb3a941fcab867e99580acde106801c3670ce979222b60b56cd","8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0","f57fda52c428c49c5ac1e51f55b885a5dd8cd834e2a63faa9a97a37834530cd0","f81390b50592cec763e9694d6ceb987b7f37c1175c737f45d479241a64633a97"],"requests":4}
+browser_network_native: {"bytes":21,"event":"business"}
+browser_network_native: {"count":5,"event":"status","members":["0dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7","60db6e22632b6cb3a941fcab867e99580acde106801c3670ce979222b60b56cd","8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0","f57fda52c428c49c5ac1e51f55b885a5dd8cd834e2a63faa9a97a37834530cd0","f81390b50592cec763e9694d6ceb987b7f37c1175c737f45d479241a64633a97"],"requests":4}
+browser_network_native: {"count":5,"event":"status","members":["0dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7","60db6e22632b6cb3a941fcab867e99580acde106801c3670ce979222b60b56cd","8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0","f57fda52c428c49c5ac1e51f55b885a5dd8cd834e2a63faa9a97a37834530cd0","f81390b50592cec763e9694d6ceb987b7f37c1175c737f45d479241a64633a97"],"requests":4}
+browser_network_native: {"bytes":21,"event":"business"}
+browser_network_native: {"count":5,"event":"status","members":["0dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7","60db6e22632b6cb3a941fcab867e99580acde106801c3670ce979222b60b56cd","8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0","f57fda52c428c49c5ac1e51f55b885a5dd8cd834e2a63faa9a97a37834530cd0","f81390b50592cec763e9694d6ceb987b7f37c1175c737f45d479241a64633a97"],"requests":4}
+RESULT [{"case":"first-real-check","browser":"8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0","native":"0dcd01df2e7cb45feec33ce78842340bba8d479dafb41641624e695fa54037d7","stage":"Complete","count":2,"reload":true,"controlledBytes":26},{"case":"priority-pause-reopen","frozen":true,"sameIdentity":true,"count":2,"requestCount":1,"controlledBytes":12},{"case":"persistent-browser-process-restart","sameIdentity":true,"bothMaterialsSaved":true,"savedRelayChoiceRestored":true,"count":2,"requestCount":1},{"case":"same-identity-pages","competingPageRejected":true,"takeoverIdentity":"8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0","count":2,"requests":1},{"case":"delivery-interruption","authorizationSaved":true,"secretInitiallySaved":false,"sameIdentity":true,"resumed":true,"earlyDataRejected":true,"count":3},{"case":"material-clear","oldIdentity":"8467ba0d4cb8892751d9390682553cae3194a43195d7ffb030046515595b0fa0","newIdentity":"60db6e22632b6cb3a941fcab867e99580acde106801c3670ce979222b60b56cd","staleMemoryRejected":true,"explicitNewApproval":true,"count":4},{"case":"secret-commit-loss","failedSaveRejected":true,"neverComplete":true,"noDuplicateAdd":true,"count":5},{"case":"no-allowed-relay","forbiddenFacilityAccesses":0,"persistedChoice":true,"explicitImportRestored":true,"count":5},{"case":"disabled-relay","forbiddenFacilityAccesses":0,"persistedChoice":true,"explicitImportRestored":true,"count":5},{"case":"unavailable-relay","actualAllowedAttempt":true,"publicFallbackAccesses":0,"explicitTemporarilyUnreachable":true},{"case":"tls-websocket-relay","relayUrl":"https://localhost:44990/","websocket":"wss://localhost:44990/","nativeTrustedTestCa":true,"isolatedChromiumTestCertificateException":true}]
+PASS suite: real browser admission and selected boundary checks
+CLEANUP {"code":0,"signal":null}
+CLEANUP {"code":0,"signal":null}

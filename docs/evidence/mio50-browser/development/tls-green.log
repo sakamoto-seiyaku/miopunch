@@ -1,0 +1,11 @@
+browser-probe-native: RELAY https://localhost:44246/
+browser_network_native: {"event":"ready","id":"3a4185607b02f0c182e4715d59b5d13560b94a7632aafca48bdb901d2b129077","invitation":"42204d76c5e4918c2482d21e73d579b2258380a0cc19373c21dc08328ea5959b35c64880e1c795d31fdf9e6bfab0096b2f71cfaa1fe66bd3c2218a227ce718d03a4185607b02f0c182e4715d59b5d13560b94a7632aafca48bdb901d2b129077"}
+browser_network_native: {"event":"admission","stage":"AwaitingApproval"}
+browser_network_native: {"count":2,"event":"approved"}
+browser_network_native: {"event":"admission","stage":"Complete"}
+browser_network_native: {"bytes":26,"event":"business"}
+browser_network_native: {"bytes":13,"event":"business"}
+RESULT [{"case":"first-real-check","browser":"f15ba34e73153a119ee5fe51e2ef630c3c4c9dfee4436b76bfea0aac7b02824f","native":"3a4185607b02f0c182e4715d59b5d13560b94a7632aafca48bdb901d2b129077","stage":"Complete","count":2,"reload":true,"controlledBytes":26},{"case":"tls-websocket-relay","relayUrl":"https://localhost:44246/","websocket":"wss://localhost:44246/","nativeTrustedTestCa":true,"isolatedChromiumTestCertificateException":true}]
+PASS tls: real browser admission and selected boundary checks
+CLEANUP {"code":0,"signal":null}
+CLEANUP {"code":0,"signal":null}

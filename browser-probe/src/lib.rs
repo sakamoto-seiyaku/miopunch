@@ -3,6 +3,16 @@ use iroh_base::{PublicKey, RelayUrl, SecretKey};
 use p2panda_core::SigningKey;
 use wasm_bindgen::prelude::*;
 
+// Use the native verifier and admission proof unchanged on the browser platform.
+#[path = "../../src/admission_proof.rs"]
+#[allow(dead_code)] // The browser uses the client qualification from this shared module.
+pub mod admission_proof;
+#[path = "../../src/management_auth.rs"]
+#[allow(dead_code)] // Durable native-store helpers are outside this platform adapter.
+pub mod management_auth;
+mod network;
+pub use network::BrowserNetwork;
+
 const KEY_NAME: &str = "miopunch-browser-probe-node-key";
 const ALPN: &[u8] = b"miopunch/browser-probe/1";
 
