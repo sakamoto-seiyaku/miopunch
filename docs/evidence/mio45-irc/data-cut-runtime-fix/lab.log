@@ -1,0 +1,23 @@
+
+running 1 test
+IRC_BOOTSTRAP_START stable_id=127893389504928 peer=66399f84a4c2a5513c8a72b2371314e74639e8e0c290d1cfbcff9b86efc8c7d0
+IRC_BOOTSTRAP_START stable_id=127893389564752 peer=3b8c9c011c13d68b0f5dba3d28d268677dc9016a6dcd8a35ef2107b4404539d4
+NAT_DIRECT_CANDIDATE stable_id=127893389564752 target=127.0.0.1:38206
+NAT_DIRECT_SUCCESS stable_id=127893389504928 target=127.0.0.1:56927 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=127893389504928 peer=66399f84a4c2a5513c8a72b2371314e74639e8e0c290d1cfbcff9b86efc8c7d0 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:56927)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=127893389564752 target=127.0.0.1:38206 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=127893389564752 peer=3b8c9c011c13d68b0f5dba3d28d268677dc9016a6dcd8a35ef2107b4404539d4 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:38206)], selected: Some(PathId(1)), closed: false }, .. }
+
+thread 'losing_the_udp_data_path_does_not_send_business_back_to_irc' (17) panicked at tests/irc_bootstrap.rs:696:5:
+assertion failed: !matches!(tokio::time::timeout(Duration::from_secs(7),
+        server.accept_bi()).await, Ok(Ok(_)))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test losing_the_udp_data_path_does_not_send_business_back_to_irc ... FAILED
+
+failures:
+
+failures:
+    losing_the_udp_data_path_does_not_send_business_back_to_irc
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 3.05s
+

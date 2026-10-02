@@ -1,0 +1,20 @@
+2026-10-02T06:12:07.528Z : info  : server     : ergo-2.7.0-9851d2e9bcbb02ae starting
+2026-10-02T06:12:07.528Z : info  : server     : Using config file : /repo/tests/fixtures/irc/ergo.yaml
+2026-10-02T06:12:07.528Z : info  : server     : Using datastore : ircd.db
+2026-10-02T06:12:07.528Z : warn  : server     : database does not exist, creating it : ircd.db
+2026-10-02T06:12:07.530Z : info  : server     : Proxied IPs will be accepted from : localhost
+2026-10-02T06:12:07.552Z : info  : listeners  : now listening on :6667, tls=false, proxy=false, tor=false, websocket=false.
+2026-10-02T06:12:07.552Z : warn  : listeners  : Warning: your server is configured with public plaintext listener :6667. Consider disabling it for improved security and privacy.
+2026-10-02T06:12:07.552Z : info  : server     : Server running
+2026-10-02T06:12:07.614Z : info  : connect-ip : Client connecting: real IP 127.0.0.1, proxied IP <nil>
+2026-10-02T06:12:07.614Z : info  : connect-ip : disconnecting session of * from 127.0.0.1
+2026-10-02T06:12:07.618Z : info  : connect-ip : Client connecting: real IP 127.0.0.1, proxied IP <nil>
+2026-10-02T06:12:07.618Z : info  : connect    : Client connected [observe3366429119] [u:~u] [r:test]
+2026-10-02T06:12:08.178Z : info  : connect-ip : Client connecting: real IP 127.0.0.1, proxied IP <nil>
+2026-10-02T06:12:08.178Z : info  : connect    : Client connected [mio0de61b9c3898c1c4] [u:~u] [r:miopunch]
+2026-10-02T06:12:08.269Z : info  : connect-ip : Client connecting: real IP 127.0.0.1, proxied IP <nil>
+2026-10-02T06:12:08.269Z : info  : connect    : Client connected [mio5e12815fad9283e5] [u:~u] [r:miopunch]
+2026-10-02T06:12:10.670Z : info  : connect-ip : disconnecting session of observe3366429119 from 127.0.0.1
+2026-10-02T06:12:10.670Z : info  : connect-ip : disconnecting session of mio5e12815fad9283e5 from 127.0.0.1
+2026-10-02T06:12:10.671Z : info  : connect-ip : disconnecting session of mio0de61b9c3898c1c4 from 127.0.0.1
+2026-10-02T06:12:10.686Z : info  : server     : ergo-2.7.0-9851d2e9bcbb02ae exiting

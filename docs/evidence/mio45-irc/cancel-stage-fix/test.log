@@ -1,0 +1,32 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.16s
+     Running tests/irc_bootstrap.rs (target/debug/deps/irc_bootstrap-19f6fd2d4a90d470)
+
+running 1 test
+IRC_BOOTSTRAP_START stable_id=123992082746160 peer=0c88d617166f7dad36dfd5ce76a24b5002cc4f51b1deb41ba63a8d9dac5f448b
+IRC_BOOTSTRAP_START stable_id=123992082284912 peer=4f7f751c8e91ac8ce18655aaaa4f8a6897c53b0ca6bc072b9c9add74822d8bdf
+IRC_BOOTSTRAP_FAILED stable_id=123992082746160 error=closed by peer: canceled NAT path commitment (code 0)
+IRC_BOOTSTRAP_START stable_id=123992082306768 peer=0c88d617166f7dad36dfd5ce76a24b5002cc4f51b1deb41ba63a8d9dac5f448b
+IRC_BOOTSTRAP_START stable_id=123992082930576 peer=4f7f751c8e91ac8ce18655aaaa4f8a6897c53b0ca6bc072b9c9add74822d8bdf
+NAT_DIRECT_CANDIDATE stable_id=123992082930576 target=127.0.0.1:45073
+NAT_DIRECT_SUCCESS stable_id=123992082306768 target=127.0.0.1:46866 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=123992082306768 peer=0c88d617166f7dad36dfd5ce76a24b5002cc4f51b1deb41ba63a8d9dac5f448b paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:46866)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=123992082930576 target=127.0.0.1:45073 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=123992082930576 peer=4f7f751c8e91ac8ce18655aaaa4f8a6897c53b0ca6bc072b9c9add74822d8bdf paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:45073)], selected: Some(PathId(1)), closed: false }, .. }
+IRC_CANCEL_PASS original_stable_id=123992082284912 later_stable_id=123992082930576 original_closed=true opened_attempts=2
+test canceled_handshake_releases_the_attempt_and_a_later_contact_succeeds ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 3.89s
+

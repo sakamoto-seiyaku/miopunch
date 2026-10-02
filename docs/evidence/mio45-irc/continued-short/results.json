@@ -1,0 +1,80 @@
+{
+  "checks": [
+    {
+      "name": "format",
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit": 0,
+      "seconds": 0.609,
+      "log": "format.log"
+    },
+    {
+      "name": "fork-format",
+      "argv": [
+        "rustfmt",
+        "--check",
+        "--edition",
+        "2024",
+        "--config",
+        "skip_children=true",
+        "vendor/iroh/src/endpoint/connection.rs",
+        "vendor/iroh/src/endpoint/hooks.rs",
+        "vendor/iroh/src/socket/remote_map/remote_state.rs"
+      ],
+      "exit": 0,
+      "seconds": 0.07,
+      "log": "fork-format.log"
+    },
+    {
+      "name": "member",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "member_forward",
+        "--features",
+        "member-signaling-test-hooks",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 44.012,
+      "log": "member.log"
+    },
+    {
+      "name": "current-hooks",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks"
+      ],
+      "exit": 0,
+      "seconds": 7.76,
+      "log": "current-hooks.log"
+    },
+    {
+      "name": "default-native",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "miopunch-native-probe",
+        "--all-targets"
+      ],
+      "exit": 0,
+      "seconds": 4.003,
+      "log": "default-native.log"
+    }
+  ],
+  "passed": true
+}

@@ -1,0 +1,29 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.07s
+     Running tests/member_forward.rs (target/debug/deps/member_forward-5e6f9f3299a47542)
+
+running 9 tests
+test a_forwarding_route_cannot_substitute_the_inner_tls_target_identity ... ok
+test an_admitted_bootstrap_session_does_not_grant_member_forwarding ... ok
+test closing_the_endpoint_releases_its_forwarding_lease_without_waiting_for_expiry ... ok
+test duplicated_opaque_datagrams_cannot_reveal_private_control_or_release_extra_connections ... ok
+test expired_forwarding_leases_remove_routes_without_ending_the_member_links ... ok
+test member_without_data_relay_forwards_protected_control_then_ac_uses_a_direct_path ... ok
+test repeated_registration_does_not_add_forwarding_routes_or_confuse_member_identity ... ok
+test signaling_only_cannot_release_business_without_another_permitted_ac_path ... ok
+test stopping_a_forwarding_stream_fails_ac_control_and_keeps_ab_usable ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 31.86s
+

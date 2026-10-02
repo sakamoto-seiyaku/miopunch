@@ -1,0 +1,26 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.77s
+     Running tests/irc_bootstrap.rs (target/debug/deps/irc_bootstrap-19f6fd2d4a90d470)
+
+running 1 test
+IRC_BOOTSTRAP_START stable_id=128128068603968 peer=32893c1bb5f918b9f1ef7662c3bfac0dc584a8dea957658716290c2071f48a10
+IRC_BOOTSTRAP_START stable_id=128128068476096 peer=abd1c9072a39eadd4ab3eb71adcf2ddf4f36ff90cbee04ec195ab80c1f1aa441
+IRC_BOOTSTRAP_FAILED stable_id=128128068603968 error=no mutually permitted data path capability
+IRC_BOOTSTRAP_FAILED stable_id=128128068476096 error=read error: connection lost
+IRC_PURPOSE_PASS control_reachable=true udp_disabled=true application_connections=0
+test reachable_irc_cannot_release_business_without_a_permitted_data_path ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 4.65s
+

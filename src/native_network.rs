@@ -500,6 +500,7 @@ impl NativeNetwork {
     ) -> Result<Endpoint, NodeError> {
         let (mut builder, tcp) = resources.configure_with_tcp(builder)?;
         let mut mqtt = Vec::new();
+        let mut irc = Vec::new();
         if configured_startup {
             for resource in resources.mqtt_resources() {
                 let transport = Arc::new(crate::mqtt_transport::MqttTransport::from_resource(
@@ -508,6 +509,12 @@ impl NativeNetwork {
                 )?);
                 builder = builder.add_custom_transport(transport.clone());
                 mqtt.push(transport);
+            }
+            for resource in resources.irc_resources() {
+                let transport =
+                    Arc::new(crate::irc_transport::IrcTransport::from_resource(resource)?);
+                builder = builder.add_custom_transport(transport.clone());
+                irc.push(transport);
             }
         }
         let builder = match resources.lan_discovery {
@@ -552,6 +559,11 @@ impl NativeNetwork {
         {
             if let Err(error) = result {
                 eprintln!("MQTT_RESOURCE_UNAVAILABLE error={error}");
+            }
+        }
+        for result in futures_util::future::join_all(irc.iter().map(|irc| irc.wait_ready())).await {
+            if let Err(error) = result {
+                eprintln!("IRC_RESOURCE_UNAVAILABLE error={error}");
             }
         }
         Ok(endpoint)

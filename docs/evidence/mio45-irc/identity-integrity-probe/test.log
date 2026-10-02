@@ -1,0 +1,275 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.02s
+     Running tests/irc_bootstrap.rs (target/debug/deps/irc_bootstrap-19f6fd2d4a90d470)
+
+running 1 test
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=363766fdf4b12db2f4faf5a48f3d590f1f6733b459aaa6b26c8aef5e789b5870
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=363766fdf4b12db2f4faf5a48f3d590f1f6733b459aaa6b26c8aef5e789b5870
+[DEBUG-mio45-packet] send source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=1200 hash=66f3e1b933af0ea5dc704efa0e3c5d607b60e41a2ad9c7244e35d72d59cac2e0
+[DEBUG-mio45-packet] send source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=138 hash=b7dd52853dd41a1968a4cb1f0fd9b1bebd80d25b0af8b9db360af41361c97b64
+[DEBUG-mio45-packet] recv source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=1200 hash=66f3e1b933af0ea5dc704efa0e3c5d607b60e41a2ad9c7244e35d72d59cac2e0
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=89fe5f20b5da7c86fd709cbe94669ee3935695d6dd8433daf4ff18e66aaa07fa
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=c5cdfff9fb2f60c82cc1751693243136aed7ae1a4723b02dc279f5d32fdd5b90
+[DEBUG-mio45-packet] recv source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=138 hash=b7dd52853dd41a1968a4cb1f0fd9b1bebd80d25b0af8b9db360af41361c97b64
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=a04d088b9c7f6420eff6f1e5f67c8bbe6149e3f0288765b8f1230361da1db6b3
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=ea8fd4295c0ea19c83df6933684c9f3417621d27cd943b9d0a256c25d77d3d6a
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=70b9d28100e73251df92dc62ba04ac966caa3a54b6b18767f4985abb01222a56
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=ac2f5fee5a6e5a0943d4831ef56c6e99dc059a84549a08ecc25f11641c5f53b7
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=89fe5f20b5da7c86fd709cbe94669ee3935695d6dd8433daf4ff18e66aaa07fa
+[DEBUG-mio45-identity] rejected client=Err(TemporarilyUnreachable { retry_after: 1s, cause: Some("the cryptographic handshake failed: error 48: invalid peer certificate: UnknownIssuer") }) server=Err(aborted by peer: the cryptographic handshake failed: error 48: invalid peer certificate: UnknownIssuer)
+[DEBUG-mio45-identity] unapproved rejected client=Err(TemporarilyUnreachable { retry_after: 1s, cause: Some("the cryptographic handshake failed: error 48: invalid peer certificate: UnknownIssuer") }) server=Err(aborted by peer: the cryptographic handshake failed: error 48: invalid peer certificate: UnknownIssuer)
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=63b805ae25ea21afe440e0652d7ed23142a074ffe78b59269f56765753deff06
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=23a61e878b5ece769e7919c273ce3737be3a6c1b85cecfba4bcdb08e716bb633
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=b12da729468245a24e3d0ee593d50480c66fb76dc56675f1b06f9f246f318f0a
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=6ebf70e38edce6135c59d4bdca32179089b89ac72e962aec81d2d5d6aaaf120b
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=dd90af271966f2f4d23342e1c16b319e579fd1464fb41c3589b7b8a5d0b2147d
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=79ef3a6bff93d6f0c5dc05b5af01df48d8be11198d3218ecdce84ecedf10d0fe
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=3865458f202dbad41bf6319b9a212d083fb1959e2ca1c45b4c02962c6a3284af
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=540c7ac5d067629c3fb5eed8459c5041607ff02ae958461dcb4d99df951c3a35
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=c5cdfff9fb2f60c82cc1751693243136aed7ae1a4723b02dc279f5d32fdd5b90
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=67e8d74a7c707e290293fef9b1456bb9a8ac6d0ea1d432f5cb6356dfb9196142
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=4393789e8a9845814a79914e72224d26dde1cfd2e176b6174a37ca70bb8d418e
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=ce037b9a38dd20ebefd94cbf02dd6ebb7ec280d96d275e8b1bf211818c247c55
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=599d3e05d98c817f5919a04afd596e3464a9424b1b91a6549def33cfaeb117aa
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=8aa7f880c6b4cd3acfaa3f19d4e335f1420dbbd9381f6edf5f7c1952c76dea18
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=ba85a72682a281ca7db8889ed2528f4ea10aa14e0d60ffbdeca08908da46ec6a
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=a04d088b9c7f6420eff6f1e5f67c8bbe6149e3f0288765b8f1230361da1db6b3
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=06cc92b904505db0479e82fe40a6c3adbeaf91ac4e148e225dfde25aa918e8bf
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=7f5b69e4f8ac53d35f5040901b1da1a3e684822982308e9c301790088b58a41a
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=f3f8d3f0f0ec1bf36965faaa3c4ef6b0f94e5b7e57be4d3e37dc2b8170d9deda
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=2c42310d76e6fe0c8a99f5014a6e0c406e5910f28f58de7020a933542a79165b
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=3acc7987ab6a26a5024a633d4196829718becfb18b1c72ae26bf849259fdb2b8
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=91f7e3e59a0e76fef9e8fe5d0386df785f78fe63a67a9301616a89512d6eb3d7
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=11499ac14cd59a627aba9823bc094c071749fa308d4ff357dd11e36b00f34c7e
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=ea8fd4295c0ea19c83df6933684c9f3417621d27cd943b9d0a256c25d77d3d6a
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=e093c4a94173780a13f4755cef5ed2cd0556b13d68d0087c1c4a006cc44aa520
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=0559f5785f3f9657120541cd6914885ec521ad01bf9599f24450036c12ac4088
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=601bea49997ae5b305f8f8e424b1f08797a7aa3f247f5a27e2d4132f560ea044
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=1179b94fa8a8a8c2de63d1c7b857d133637e9bcb59385b1a0234dd431bb1d975
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=f4a24bd0cb85507d937df0917779d1dd392da787a94fe71955b47f8b5998c3e7
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=976058b7b54b1e385363a2617cc43182102815244423a084749a9a594445ca81
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=70b9d28100e73251df92dc62ba04ac966caa3a54b6b18767f4985abb01222a56
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=cf4b44cf2c8e2f192adc7ba4fe1e7afd6569da43213a3a01256c436e7dfaab7c
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=e250b0afc1e7ca5501b52f258cd74ab74abef8792f683548baa378cc98323ff7
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=513647904941800fc472afc759355a7d24bc28ee033e149496660711e74444f8
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=06620e9981a57b7925c583e945334c3478f5d69960e78fb386b68fe369bd39d5
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=a089980b70799333a06670f96725f82c67d1dba8a22dad5083955eebce8e161e
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=9bd5bbc8448a79d23d4b09adb5c8324cdc03b0c2af3bc23d0275eea8c5622e0b
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=ac2f5fee5a6e5a0943d4831ef56c6e99dc059a84549a08ecc25f11641c5f53b7
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=be6b660451b1902a626ff9a014725860df90ea802aacab6d440e37eab228a487
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=3fc44764514dde8660efe8f42ec855cb42647e71961147aff9c69b2eddf41efc
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=271a0639e0e1f75e13e37c5b65b2234c75548ee448934e14b2d7e2f275657054
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=2672f7a35a4c8442e5b12b11aa18fe77808f00a583332678c1734e4612121ab4
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=3aa427bfa8409a3dd1e58f529867e1fa3f9a230b30a0c542af2ac9567473503f
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=9eeeca16f68200e8f3ffe2c1ac5d93c42aaf863cc871d67329a339384ce4b06a
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=27c779adc687df8c59b401fd865d0b52a5aa290d349923ccb10762148256c993
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=63b805ae25ea21afe440e0652d7ed23142a074ffe78b59269f56765753deff06
+[DEBUG-mio45-packet] send source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=1200 hash=f93548219ab9275d6b20a997c22ad3b8b431825ebca60b63b9835dc509638299
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=49599731539d4aafea46c2cd7add45a79b6ba8e7179c441cccc20f316c682794
+[DEBUG-mio45-packet] send source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=138 hash=90e2e2b30aec53d52c0003cefcfe05e79534155fd2e3ade77f6ca3fa6d9c8708
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=d27f4cc1b6c549353bec07c1e46a907883ad226c82c42e573af8a7ee9e44b94e
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=493748c4b1c00cd238cc8bca38a3f41bb9f5c565b0c67a619224e489899a9be7
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=322e0d70036f8ec29c19d8548955d9cdc147e2668272e9938adfbab91102b460
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=5f849879159bb91cea6fdfced8a63fc7fc1e07fa908148134ac5335d86f89b2a
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=d4df14ad8cbcc6af38ee356591e77414baf1387219ea1318acd533365dfcf58c
+[DEBUG-mio45-packet] recv source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=1200 hash=f93548219ab9275d6b20a997c22ad3b8b431825ebca60b63b9835dc509638299
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=7d7baca5689b8289a3b51d7fe93c28c5301f82383cfa1c691accc13e610eabe2
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1326 hash=eb127fe261f623b96c4b5204006ca19c3de80e8984489f28acaeb4288253f34b
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=23a61e878b5ece769e7919c273ce3737be3a6c1b85cecfba4bcdb08e716bb633
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=5b4be4e260b0edea2cc2718eb9ebf73708e6e60d695159dedb2e192fbf2b46d1
+[DEBUG-mio45-packet] recv source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=138 hash=90e2e2b30aec53d52c0003cefcfe05e79534155fd2e3ade77f6ca3fa6d9c8708
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=c718f3918d11124b787307ea09cfb2d90ac206ba98d8d5a8553e393652511300
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=a02dd35afec8e8f3bcb1a8e9cca0e514dfa1ef9a0c0625c0c2d694115e957783
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=669b4c3172c22a1d665f767d1841bdd0157d2fb5e2850b2c5b379ab207f388f8
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1177 hash=081fad22c8edc0a0e48885d939ba8b9dc6e60628b64e11522513141fe369333e
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=f04ab761d46c86623e12fea14eb2b7a78568d24181d75deb7857f04a73deadea
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=86446523dbd57a95b1b1c8a016fe50fdcbfd28f669e2ef7615828816bfb09298
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=14a3d93402a32981eaabe3549d9eda694f0b7d8c2d0b22845ebee4b11b67e9ac
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=b12da729468245a24e3d0ee593d50480c66fb76dc56675f1b06f9f246f318f0a
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=182 hash=65af0263bc301d0448f078672a322ee71a4cc4cb8eb3995bd009712aafc92d06
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=4331f42e6202011bbb6422183cff302bd7fdacdf549bf2822b318559c6d5498a
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=35e826b1f7bbd909fff8df69fb314e38894c8ad93e22a0fefb583375c833034e
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=03f9b9e0d2d9e2d961ff5978ce5d1e09023208f219012864d71f7dee7a0d07c6
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=e11cc8001ca559e8dc03307386d51034633bb72f5f950f3442fec4bae1b734ee
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=832b8a8d9c715228f26a17c4aedd0ddc33c440d563e0e393409592e116835beb
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=a4cf7eb340cfab91532a0587b2bbe5fe2d7974d5d59ecfd6f500584de867987f
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=6ebf70e38edce6135c59d4bdca32179089b89ac72e962aec81d2d5d6aaaf120b
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=b8745b23dc52bc16d5eff391a16a5ec42c37315a8840680d1c2dcd8f306fb65b
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=e8e0da113de9a2885b9fc770380df7eec11804147c1bfeac067fc5fd54566879
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=44e374dd091e6d50f6584b4a59a5b80b49e3ba38f188f61a21dbeab783682279
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=80991989aacc8ae09455b649be34482fe3af3dcd5052efdacf6a8c827365fa5d
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=df3dd0f9fe3acfd96171a79d57a5e062ff0cf34c7f62061c4736d23ee5d89eaa
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=ba0e00b832ec7420809b5406b35bec57f458b413ea4d416ba984e94970bbcde1
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=dd90af271966f2f4d23342e1c16b319e579fd1464fb41c3589b7b8a5d0b2147d
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=3dba60484b7a71a501457e0ae44488ff60b4359e1c6be8abaaee9da4f257b674
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=c1073b602065b52c4e04ac810c0ef38dff5ae94ac43a9f989489c7865b27b363
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=a5c9fcf23d31f4f9a46c829b35a9697dcaad04d77821989490186f95587f2ab3
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=7dabc0a38b46c7c0bfe1a16a72b650510ca223d1694599127e2b66cddf68f0db
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=1fa3c29376c566d13da02f3f0d60331a6fb3b98a73386b6040849adf3f663dd4
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=38f47a3cf92f9a611558ad908f4d89204a30d4e01a840d9610b3a841de55a219
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=a24ee5fa76d77282b73aae9d0d783ffa5aeaba9895dd642a8b98abc7a2684226
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=79ef3a6bff93d6f0c5dc05b5af01df48d8be11198d3218ecdce84ecedf10d0fe
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=04ba4d6878a1db05ee8c0aa160c2de34ddc948b4b4f28afc6cd02b0a8722efd1
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=f2d17b6b83fadab58b08e87ee3e71baa71ab648e5e31c87463649342f166826a
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=d2b1d560081271383b6e72cf5d7347008a83fa8a7add958b0f08ea0515884975
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=823397bb18e7aa3720bb5c80ee9caa55fbd38edc8291a5e4f027230c3affa5b8
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=fc08da045edaa0a0f87dae2f0fd25d1096b4af80b76e2738a78ecb9e64395f57
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=b81207254ca17ad3d79b123d17c0f9eaf2365dc9481a0df3b41bfaa5370393f8
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=3865458f202dbad41bf6319b9a212d083fb1959e2ca1c45b4c02962c6a3284af
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=c421a9d078c1ea3ff62ed393dc3993bf2694755fd2b676c48f61a0ac275d252f
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=fddb1550ae8f1410c9dec90ec52fa2b2be057f334e5203ea3acffd4dee96c050
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=980e082afe1978ebcf3463304219abdc4b5b4ce516abb0d7200b3f032af46a8b
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=b6e38ca2a7632f8c4e70732f013d888ccc2cd446d11fc02986a34ee82d79fda5
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=85528cc0fd9f7effea2fccb5e99f43990f2580eb10b15f1eb2ddfdf2142bb589
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=52cf19a9f6a357b2dcd8c62d63f6decf48a991d17a7c2d558ff46665ebbf7e31
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=62b04525917aac2df03e2050ef8d01dcd4e5a8e149955c799aaa4d01b4f32c47
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=540c7ac5d067629c3fb5eed8459c5041607ff02ae958461dcb4d99df951c3a35
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=4824eeae183a2d7eda00448c84e46f014afc1bcb273aaeaaeb0af818d1195183
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=ab486a733baee647609521ee43b5b888bf50fc189486f83726533ab98a53d5bf
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=8e68c8c29748ef8a6bf7df952bd59bb768f882fbbc847a90ed969bffe74e5cca
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=51ca3d06f5683e06feb11c946ada81a675ef2a85708f5a9ee527207f260d7dcf
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=27316c6ed4e9cbd046813815768618d2c814f605f1d1daee7d3a96d87f554c27
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=750d5882e4106bdfd87e088073dfd90a250de9632159e395d743c8463ad096d9
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=67e8d74a7c707e290293fef9b1456bb9a8ac6d0ea1d432f5cb6356dfb9196142
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=821ba4755cc6cfc79bebc481dc5e76fa79a2a57725878dc0eaf28035b3688559
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=6ca810a5abce558a984467d8a727b0ecd4e00a1c5cc4e7d28b7975632c7c91ab
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=a85f8e0e35369964736494bbe2317bd0bc07accd582206c1db4ec2d12b6f094c
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=3ee1881443a34613787e6a24d4484acababf9063510d17bf8fd218ae0668ca93
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=a1f9ce44e4b672086221f5e67aeb1103369d86511e976dc4f60582d5b6bd1028
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=f1c5f5dd72b8907b1d3c3a4083e285e918815e1f1d94459e7f07e69c29aa22fc
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=4393789e8a9845814a79914e72224d26dde1cfd2e176b6174a37ca70bb8d418e
+[DEBUG-mio45-packet] send source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=1200 hash=b5f7dce4cbc1fab8aba4b5e2f7f8994a535402f520bb216d352825dc4c5b9934
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=0e04432858b607c65dcdd24b14bae9efcdaba34e8361b20d505577889d8898fd
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=88b0c626aa85b94ab8d70aa8a93f19544a0e2973e3981ca3f75f8efb551b8f61
+[DEBUG-mio45-packet] send source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=1200 hash=8f7c80bbbaf7283645705900828fddca9035cec24ec4f714dc71207d576760d8
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=b1cd5becad22c40b0bfcb4d806f1f3b618bfd1dfe29dfade232636cd34f2642d
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=b199f2535d26de5f6a11bc92fd06a89e88066c498488bd80d7845dca1d28c5bd
+[DEBUG-mio45-packet] recv source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=1200 hash=b5f7dce4cbc1fab8aba4b5e2f7f8994a535402f520bb216d352825dc4c5b9934
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=ce037b9a38dd20ebefd94cbf02dd6ebb7ec280d96d275e8b1bf211818c247c55
+[DEBUG-mio45-packet] recv source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=1200 hash=8f7c80bbbaf7283645705900828fddca9035cec24ec4f714dc71207d576760d8
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=599d3e05d98c817f5919a04afd596e3464a9424b1b91a6549def33cfaeb117aa
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=30 hash=d24c0c8333383bf470d7d751744dfab2fb5de86d08d914497c86eedc828a06f0
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=8aa7f880c6b4cd3acfaa3f19d4e335f1420dbbd9381f6edf5f7c1952c76dea18
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=ba85a72682a281ca7db8889ed2528f4ea10aa14e0d60ffbdeca08908da46ec6a
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=06cc92b904505db0479e82fe40a6c3adbeaf91ac4e148e225dfde25aa918e8bf
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=7f5b69e4f8ac53d35f5040901b1da1a3e684822982308e9c301790088b58a41a
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=f3f8d3f0f0ec1bf36965faaa3c4ef6b0f94e5b7e57be4d3e37dc2b8170d9deda
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=2c42310d76e6fe0c8a99f5014a6e0c406e5910f28f58de7020a933542a79165b
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=3acc7987ab6a26a5024a633d4196829718becfb18b1c72ae26bf849259fdb2b8
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=91f7e3e59a0e76fef9e8fe5d0386df785f78fe63a67a9301616a89512d6eb3d7
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=11499ac14cd59a627aba9823bc094c071749fa308d4ff357dd11e36b00f34c7e
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=30 hash=745592922093bcee6b82c6ebe444bd93125bfbf04efbcb447d68b16f6ab4b4d6
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=e093c4a94173780a13f4755cef5ed2cd0556b13d68d0087c1c4a006cc44aa520
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=227 hash=8254619725afbffeee93e818ba9228cbd323de8cb17ce580008d9789b7eb831f
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=227 hash=97e75d3dbe0ff8ad13a63b553548799419dacb49c2b99527aae7ed572b95ecb9
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=0559f5785f3f9657120541cd6914885ec521ad01bf9599f24450036c12ac4088
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=601bea49997ae5b305f8f8e424b1f08797a7aa3f247f5a27e2d4132f560ea044
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=1179b94fa8a8a8c2de63d1c7b857d133637e9bcb59385b1a0234dd431bb1d975
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=f4a24bd0cb85507d937df0917779d1dd392da787a94fe71955b47f8b5998c3e7
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=976058b7b54b1e385363a2617cc43182102815244423a084749a9a594445ca81
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=cf4b44cf2c8e2f192adc7ba4fe1e7afd6569da43213a3a01256c436e7dfaab7c
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=e250b0afc1e7ca5501b52f258cd74ab74abef8792f683548baa378cc98323ff7
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=513647904941800fc472afc759355a7d24bc28ee033e149496660711e74444f8
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=06620e9981a57b7925c583e945334c3478f5d69960e78fb386b68fe369bd39d5
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=30 hash=a3c38441f9db178729b47eb935220fc3593a01d81679b58b2499424088156ff9
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=a089980b70799333a06670f96725f82c67d1dba8a22dad5083955eebce8e161e
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=9bd5bbc8448a79d23d4b09adb5c8324cdc03b0c2af3bc23d0275eea8c5622e0b
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=be6b660451b1902a626ff9a014725860df90ea802aacab6d440e37eab228a487
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=3fc44764514dde8660efe8f42ec855cb42647e71961147aff9c69b2eddf41efc
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=271a0639e0e1f75e13e37c5b65b2234c75548ee448934e14b2d7e2f275657054
+IRC_REJECTED_INCOMING error=timed out
+IRC_REJECTED_INCOMING error=detected an error with protocol compliance that was not covered by more specific error codes: authentication failed
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=2672f7a35a4c8442e5b12b11aa18fe77808f00a583332678c1734e4612121ab4
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=3aa427bfa8409a3dd1e58f529867e1fa3f9a230b30a0c542af2ac9567473503f
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=9eeeca16f68200e8f3ffe2c1ac5d93c42aaf863cc871d67329a339384ce4b06a
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=27c779adc687df8c59b401fd865d0b52a5aa290d349923ccb10762148256c993
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=30 hash=e3217b996b21be1420b218f5515470bcfc1ed9ee67402abcb4322de31a6bc39d
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=49599731539d4aafea46c2cd7add45a79b6ba8e7179c441cccc20f316c682794
+IRC_REJECTED_INCOMING error=detected an error with protocol compliance that was not covered by more specific error codes: authentication failed
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=d27f4cc1b6c549353bec07c1e46a907883ad226c82c42e573af8a7ee9e44b94e
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=493748c4b1c00cd238cc8bca38a3f41bb9f5c565b0c67a619224e489899a9be7
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=322e0d70036f8ec29c19d8548955d9cdc147e2668272e9938adfbab91102b460
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=5f849879159bb91cea6fdfced8a63fc7fc1e07fa908148134ac5335d86f89b2a
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=d4df14ad8cbcc6af38ee356591e77414baf1387219ea1318acd533365dfcf58c
+IRC_REJECTED_INCOMING error=detected an error with protocol compliance that was not covered by more specific error codes: authentication failed
+[DEBUG-mio45-packet] send source=61b2795c28d3e379344d9eab66c0867e len=114 hash=84ed067d97b158af27c2adeebaddd9a4342add8cd06a9be763afbf72e4833545
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=7d7baca5689b8289a3b51d7fe93c28c5301f82383cfa1c691accc13e610eabe2
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1326 hash=eb127fe261f623b96c4b5204006ca19c3de80e8984489f28acaeb4288253f34b
+[DEBUG-mio45-packet] send source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=437 hash=abd9bc07c45fb354b172423f3b0a88b07c5cbd6d44ccb0503eb07c0fd3845514
+[DEBUG-mio45-packet] recv source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=437 hash=abd9bc07c45fb354b172423f3b0a88b07c5cbd6d44ccb0503eb07c0fd3845514
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=5b4be4e260b0edea2cc2718eb9ebf73708e6e60d695159dedb2e192fbf2b46d1
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=c718f3918d11124b787307ea09cfb2d90ac206ba98d8d5a8553e393652511300
+IRC_REJECTED_INCOMING error=detected an error with protocol compliance that was not covered by more specific error codes: authentication failed
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=a02dd35afec8e8f3bcb1a8e9cca0e514dfa1ef9a0c0625c0c2d694115e957783
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=669b4c3172c22a1d665f767d1841bdd0157d2fb5e2850b2c5b379ab207f388f8
+IRC_REJECTED_INCOMING error=detected an error with protocol compliance that was not covered by more specific error codes: authentication failed
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1177 hash=081fad22c8edc0a0e48885d939ba8b9dc6e60628b64e11522513141fe369333e
+[DEBUG-mio45-packet] send source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=1149 hash=8bdfc0601d6b537792bede5e3d6777df4f920b3c15e43e808d82b2ef3d1932e9
+[DEBUG-mio45-packet] recv source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=1149 hash=8bdfc0601d6b537792bede5e3d6777df4f920b3c15e43e808d82b2ef3d1932e9
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=f04ab761d46c86623e12fea14eb2b7a78568d24181d75deb7857f04a73deadea
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=86446523dbd57a95b1b1c8a016fe50fdcbfd28f669e2ef7615828816bfb09298
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=14a3d93402a32981eaabe3549d9eda694f0b7d8c2d0b22845ebee4b11b67e9ac
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=182 hash=65af0263bc301d0448f078672a322ee71a4cc4cb8eb3995bd009712aafc92d06
+[DEBUG-mio45-packet] send source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=112 hash=4a4adeabba5f1babec435a1a9f76820cf18f09fe1570d075df96a262d92dfa93
+[DEBUG-mio45-packet] recv source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=112 hash=4a4adeabba5f1babec435a1a9f76820cf18f09fe1570d075df96a262d92dfa93
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=4331f42e6202011bbb6422183cff302bd7fdacdf549bf2822b318559c6d5498a
+IRC_REJECTED_INCOMING error=detected an error with protocol compliance that was not covered by more specific error codes: authentication failed
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=35e826b1f7bbd909fff8df69fb314e38894c8ad93e22a0fefb583375c833034e
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=03f9b9e0d2d9e2d961ff5978ce5d1e09023208f219012864d71f7dee7a0d07c6
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=e11cc8001ca559e8dc03307386d51034633bb72f5f950f3442fec4bae1b734ee
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=832b8a8d9c715228f26a17c4aedd0ddc33c440d563e0e393409592e116835beb
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=a4cf7eb340cfab91532a0587b2bbe5fe2d7974d5d59ecfd6f500584de867987f
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=b8745b23dc52bc16d5eff391a16a5ec42c37315a8840680d1c2dcd8f306fb65b
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=e8e0da113de9a2885b9fc770380df7eec11804147c1bfeac067fc5fd54566879
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=44e374dd091e6d50f6584b4a59a5b80b49e3ba38f188f61a21dbeab783682279
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=80991989aacc8ae09455b649be34482fe3af3dcd5052efdacf6a8c827365fa5d
+IRC_REJECTED_INCOMING error=detected an error with protocol compliance that was not covered by more specific error codes: authentication failed
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=df3dd0f9fe3acfd96171a79d57a5e062ff0cf34c7f62061c4736d23ee5d89eaa
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=ba0e00b832ec7420809b5406b35bec57f458b413ea4d416ba984e94970bbcde1
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=3dba60484b7a71a501457e0ae44488ff60b4359e1c6be8abaaee9da4f257b674
+IRC_REJECTED_INCOMING error=detected an error with protocol compliance that was not covered by more specific error codes: authentication failed
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=c1073b602065b52c4e04ac810c0ef38dff5ae94ac43a9f989489c7865b27b363
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=04ba4d6878a1db05ee8c0aa160c2de34ddc948b4b4f28afc6cd02b0a8722efd1
+IRC_REJECTED_INCOMING error=detected an error with protocol compliance that was not covered by more specific error codes: authentication failed
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=fddb1550ae8f1410c9dec90ec52fa2b2be057f334e5203ea3acffd4dee96c050
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=4824eeae183a2d7eda00448c84e46f014afc1bcb273aaeaaeb0af818d1195183
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=6ca810a5abce558a984467d8a727b0ecd4e00a1c5cc4e7d28b7975632c7c91ab
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=1200 hash=88b0c626aa85b94ab8d70aa8a93f19544a0e2973e3981ca3f75f8efb551b8f61
+IRC_REJECTED_INCOMING error=detected an error with protocol compliance that was not covered by more specific error codes: authentication failed
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=30 hash=d24c0c8333383bf470d7d751744dfab2fb5de86d08d914497c86eedc828a06f0
+[DEBUG-mio45-packet] send source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=29 hash=210abd805bf6b2986d650808ae0b6ef75e021595e69f9c6912069318776cc249
+[DEBUG-mio45-packet] recv source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=29 hash=210abd805bf6b2986d650808ae0b6ef75e021595e69f9c6912069318776cc249
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=30 hash=745592922093bcee6b82c6ebe444bd93125bfbf04efbcb447d68b16f6ab4b4d6
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=227 hash=8254619725afbffeee93e818ba9228cbd323de8cb17ce580008d9789b7eb831f
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=227 hash=97e75d3dbe0ff8ad13a63b553548799419dacb49c2b99527aae7ed572b95ecb9
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=30 hash=a3c38441f9db178729b47eb935220fc3593a01d81679b58b2499424088156ff9
+[DEBUG-mio45-packet] send source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=29 hash=f553deb3280b53308933497bfd3e9d04052b383474841d35857a004f33f514b6
+[DEBUG-mio45-packet] recv source=aabc4cf765f5482f5b1a8f39fdb2b1d3 len=29 hash=f553deb3280b53308933497bfd3e9d04052b383474841d35857a004f33f514b6
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=30 hash=e3217b996b21be1420b218f5515470bcfc1ed9ee67402abcb4322de31a6bc39d
+[DEBUG-mio45-packet] recv source=61b2795c28d3e379344d9eab66c0867e len=114 hash=84ed067d97b158af27c2adeebaddd9a4342add8cd06a9be763afbf72e4833545
+
+thread 'an_irc_route_cannot_substitute_tls_identity_or_unapproved_membership' (2074747) panicked at tests/irc_bootstrap.rs:292:6:
+called `Result::unwrap()` on an `Err` value: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test an_irc_route_cannot_substitute_tls_identity_or_unapproved_membership ... FAILED
+
+failures:
+
+failures:
+    an_irc_route_cannot_substitute_tls_identity_or_unapproved_membership
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 15.92s
+
+error: test failed, to rerun pass `--test irc_bootstrap`

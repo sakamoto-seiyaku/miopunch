@@ -1,0 +1,31 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
+     Running tests/irc_bootstrap.rs (target/debug/deps/irc_bootstrap-19f6fd2d4a90d470)
+
+running 1 test
+[DEBUG-mio45-cancel] before opened=0 closed=0
+
+thread 'canceled_handshake_releases_the_attempt_and_a_later_contact_succeeds' (2068182) panicked at tests/irc_bootstrap.rs:551:6:
+cancellation must close original QUIC attempt: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test canceled_handshake_releases_the_attempt_and_a_later_contact_succeeds ... FAILED
+
+failures:
+
+failures:
+    canceled_handshake_releases_the_attempt_and_a_later_contact_succeeds
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 3.69s
+
+error: test failed, to rerun pass `--test irc_bootstrap`

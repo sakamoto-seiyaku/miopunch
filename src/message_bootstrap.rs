@@ -75,7 +75,7 @@ impl EndpointHooks for MemberPathBootstrap {
     ) -> io::Result<()> {
         if !connection.paths().iter().any(|path| {
             matches!(path.remote_addr(),
-            TransportAddr::Custom(address) if matches!(address.id(), TRANSPORT_ID | crate::member_transport::TRANSPORT_ID))
+            TransportAddr::Custom(address) if matches!(address.id(), TRANSPORT_ID | crate::member_transport::TRANSPORT_ID | crate::irc_transport::TRANSPORT_ID))
         }) {
             if let Some(tcp)=&self.tcp
                 && connection.paths().iter().any(|path|matches!(path.remote_addr(),TransportAddr::Custom(address) if address.id()==crate::tcp_transport::DATA_TRANSPORT_ID)) {
@@ -87,7 +87,7 @@ impl EndpointHooks for MemberPathBootstrap {
             }
             return Ok(());
         }
-        let carrier = if connection.paths().iter().any(|path| matches!(path.remote_addr(), TransportAddr::Custom(address) if address.id() == crate::member_transport::TRANSPORT_ID)) { "MEMBER" } else { "MQTT" };
+        let carrier = if connection.paths().iter().any(|path| matches!(path.remote_addr(), TransportAddr::Custom(address) if address.id() == crate::member_transport::TRANSPORT_ID)) { "MEMBER" } else if connection.paths().iter().any(|path| matches!(path.remote_addr(), TransportAddr::Custom(address) if address.id() == crate::irc_transport::TRANSPORT_ID)) { "IRC" } else { "MQTT" };
         let control = ControlSession::from_connection(endpoint.clone(), connection.clone());
         let mut cancellation = control.cancellation_guard();
         println!(

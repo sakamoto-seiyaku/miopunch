@@ -1,0 +1,79 @@
+2026-10-02T06:37:09.637Z : info  : server     : ergo-2.7.0-9851d2e9bcbb02ae starting
+2026-10-02T06:37:09.637Z : info  : server     : Using config file : ircd.yaml
+2026-10-02T06:37:09.637Z : info  : server     : Using datastore : ircd.db
+2026-10-02T06:37:09.637Z : warn  : server     : database does not exist, creating it : ircd.db
+2026-10-02T06:37:09.645Z : info  : server     : Proxied IPs will be accepted from : localhost
+2026-10-02T06:37:09.696Z : info  : listeners  : now listening on :6667, tls=false, proxy=false, tor=false, websocket=false.
+2026-10-02T06:37:09.696Z : warn  : listeners  : Warning: your server is configured with public plaintext listener :6667. Consider disabling it for improved security and privacy.
+2026-10-02T06:37:09.696Z : info  : server     : Server running
+2026-10-02T06:37:09.739Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:09.740Z : info  : connect-ip : disconnecting session of * from 172.17.0.1
+2026-10-02T06:37:15.203Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:15.204Z : info  : connect    : Client connected [mioe92b66c873b5d0fa] [u:~u] [r:miopunch]
+2026-10-02T06:37:15.285Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:15.295Z : info  : connect    : Client connected [mio21ba20d999a5dd7a] [u:~u] [r:miopunch]
+2026-10-02T06:37:17.069Z : info  : connect-ip : disconnecting session of mioe92b66c873b5d0fa from 172.17.0.1
+2026-10-02T06:37:17.070Z : info  : connect-ip : disconnecting session of mio21ba20d999a5dd7a from 172.17.0.1
+2026-10-02T06:37:18.310Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:18.310Z : info  : connect    : Client connected [mio0d77458d7ccb8164] [u:~u] [r:miopunch]
+2026-10-02T06:37:18.427Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:18.427Z : info  : connect    : Client connected [mioc994ed8ad1a628f5] [u:~u] [r:miopunch]
+2026-10-02T06:37:25.474Z : info  : connect-ip : disconnecting session of mio0d77458d7ccb8164 from 172.17.0.1
+2026-10-02T06:37:25.474Z : info  : connect-ip : disconnecting session of mioc994ed8ad1a628f5 from 172.17.0.1
+2026-10-02T06:37:25.910Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:25.910Z : info  : connect    : Client connected [mioace50e88cde99a96] [u:~u] [r:miopunch]
+2026-10-02T06:37:25.913Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:25.913Z : info  : connect    : Client connected [test505370168] [u:~u] [r:test]
+2026-10-02T06:37:29.268Z : info  : connect-ip : disconnecting session of mioace50e88cde99a96 from 172.17.0.1
+2026-10-02T06:37:29.268Z : info  : connect-ip : disconnecting session of test505370168 from 172.17.0.1
+2026-10-02T06:37:29.687Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:29.687Z : info  : connect    : Client connected [observe1651138012] [u:~u] [r:test]
+2026-10-02T06:37:30.474Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:30.474Z : info  : connect    : Client connected [mio0659602f4e9cc52a] [u:~u] [r:miopunch]
+2026-10-02T06:37:30.595Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:30.595Z : info  : connect    : Client connected [mio95a1e5d7762839cd] [u:~u] [r:miopunch]
+2026-10-02T06:37:33.690Z : info  : connect-ip : disconnecting session of mio0659602f4e9cc52a from 172.17.0.1
+2026-10-02T06:37:33.690Z : info  : connect-ip : disconnecting session of mio95a1e5d7762839cd from 172.17.0.1
+2026-10-02T06:37:33.701Z : info  : connect-ip : disconnecting session of observe1651138012 from 172.17.0.1
+2026-10-02T06:37:34.177Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:34.177Z : info  : connect    : Client connected [observe2051046099] [u:~u] [r:test]
+2026-10-02T06:37:34.997Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:35.017Z : info  : connect    : Client connected [mioe5deff9420a1f333] [u:~u] [r:miopunch]
+2026-10-02T06:37:35.088Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:35.088Z : info  : connect    : Client connected [mioa66a32bdf9c1131c] [u:~u] [r:miopunch]
+2026-10-02T06:37:36.567Z : info  : connect-ip : disconnecting session of mioe5deff9420a1f333 from 172.17.0.1
+2026-10-02T06:37:36.568Z : info  : connect-ip : disconnecting session of mioa66a32bdf9c1131c from 172.17.0.1
+2026-10-02T06:37:36.580Z : info  : connect-ip : disconnecting session of observe2051046099 from 172.17.0.1
+2026-10-02T06:37:37.903Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:37.923Z : info  : connect    : Client connected [mio63dee3cdc2a55abb] [u:~u] [r:miopunch]
+2026-10-02T06:37:37.994Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:38.004Z : info  : connect    : Client connected [miodadbc6a0a6f425c4] [u:~u] [r:miopunch]
+2026-10-02T06:37:38.527Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:38.528Z : info  : connect    : Client connected [mio1cb71676084f9821] [u:~u] [r:miopunch]
+2026-10-02T06:37:42.276Z : info  : connect-ip : disconnecting session of mio1cb71676084f9821 from 172.17.0.1
+2026-10-02T06:37:42.278Z : info  : connect-ip : disconnecting session of mio63dee3cdc2a55abb from 172.17.0.1
+2026-10-02T06:37:42.279Z : info  : connect-ip : disconnecting session of miodadbc6a0a6f425c4 from 172.17.0.1
+2026-10-02T06:37:43.467Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:43.467Z : info  : connect    : Client connected [miofd30b089f270f2e7] [u:~u] [r:miopunch]
+2026-10-02T06:37:43.540Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:43.550Z : info  : connect    : Client connected [mio56a91406373690ac] [u:~u] [r:miopunch]
+2026-10-02T06:37:46.787Z : info  : connect-ip : disconnecting session of mio56a91406373690ac from 172.17.0.1
+2026-10-02T06:37:46.787Z : info  : connect-ip : disconnecting session of miofd30b089f270f2e7 from 172.17.0.1
+2026-10-02T06:37:52.420Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:52.420Z : info  : connect    : Client connected [mio8516ac13cbe474e4] [u:~u] [r:miopunch]
+2026-10-02T06:37:52.530Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:52.530Z : info  : connect    : Client connected [mio1bc4086df54c75c0] [u:~u] [r:miopunch]
+2026-10-02T06:37:52.533Z : info  : connect-ip : disconnecting session of mio8516ac13cbe474e4 from 172.17.0.1
+2026-10-02T06:37:52.533Z : info  : connect-ip : disconnecting session of mio1bc4086df54c75c0 from 172.17.0.1
+2026-10-02T06:37:52.628Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:52.637Z : info  : connect    : Client connected [mio3a610dcbdd4edb0d] [u:~u] [r:miopunch]
+2026-10-02T06:37:52.709Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:37:52.719Z : info  : connect    : Client connected [miod2e16e9c348eafd4] [u:~u] [r:miopunch]
+2026-10-02T06:37:54.703Z : info  : connect-ip : disconnecting session of mio3a610dcbdd4edb0d from 172.17.0.1
+2026-10-02T06:37:54.704Z : info  : connect-ip : disconnecting session of miod2e16e9c348eafd4 from 172.17.0.1
+2026-10-02T06:38:04.696Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:38:04.697Z : info  : connect    : Client connected [mio97c2b2454e7cf6c7] [u:~u] [r:miopunch]
+2026-10-02T06:38:04.778Z : info  : connect-ip : Client connecting: real IP 172.17.0.1, proxied IP <nil>
+2026-10-02T06:38:04.788Z : info  : connect    : Client connected [mio4b45ce5885850c39] [u:~u] [r:miopunch]
+2026-10-02T06:38:06.477Z : info  : connect-ip : disconnecting session of mio97c2b2454e7cf6c7 from 172.17.0.1
+2026-10-02T06:38:06.550Z : info  : connect-ip : disconnecting session of mio4b45ce5885850c39 from 172.17.0.1

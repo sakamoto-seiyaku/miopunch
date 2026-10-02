@@ -1,0 +1,30 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
+     Running tests/irc_bootstrap.rs (target/debug/deps/irc_bootstrap-19f6fd2d4a90d470)
+
+running 1 test
+
+thread 'real_irc_replaces_mqtt_at_the_same_native_connection_entry' (2060301) panicked at tests/irc_bootstrap.rs:63:60:
+configured real IRC must publish a temporary route
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test real_irc_replaces_mqtt_at_the_same_native_connection_entry ... FAILED
+
+failures:
+
+failures:
+    real_irc_replaces_mqtt_at_the_same_native_connection_entry
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+error: test failed, to rerun pass `--test irc_bootstrap`

@@ -153,6 +153,22 @@ impl ResourceConfig {
         }
         origins.into_values().collect()
     }
+    pub(crate) fn irc_resources(&self) -> Vec<iroh::RelayUrl> {
+        let mut origins = BTreeMap::new();
+        for resource in self
+            .replacement
+            .as_ref()
+            .unwrap_or(&self.defaults.resources)
+        {
+            let Ok(url) = resource.url.parse::<iroh::RelayUrl>() else {
+                continue;
+            };
+            if url.scheme() == "irc" && self.allows(&resource.url, ResourceUse::Signaling) {
+                origins.insert(resource_origin(&resource.url).unwrap(), url);
+            }
+        }
+        origins.into_values().collect()
+    }
     pub fn with_defaults(defaults: ResourceTable) -> Self {
         Self {
             defaults,

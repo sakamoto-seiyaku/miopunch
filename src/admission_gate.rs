@@ -240,7 +240,9 @@ impl AdmissionGate {
             || (self.message_bootstrap
                 && matches!(
                     id,
-                    crate::mqtt_transport::TRANSPORT_ID | crate::member_transport::TRANSPORT_ID
+                    crate::mqtt_transport::TRANSPORT_ID
+                        | crate::member_transport::TRANSPORT_ID
+                        | crate::irc_transport::TRANSPORT_ID
                 ))
     }
 

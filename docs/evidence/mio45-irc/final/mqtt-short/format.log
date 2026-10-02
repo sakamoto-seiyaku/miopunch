@@ -1,0 +1,16 @@
+Diff in /home/js/Git/miopunch/tests/irc_bootstrap.rs:435:
+     let observed = observer.packets.lock().unwrap();
+     assert!(!observed.is_empty());
+     for line in observed.iter() {
+[31m-        let ciphertext=hex::decode(line.split_whitespace().last().unwrap()).unwrap();
+(B[m[32m+        let ciphertext = hex::decode(line.split_whitespace().last().unwrap()).unwrap();
+(B[m         for marker in [b"private business".as_slice(), b"private ACK", b"127.0.0.1"] {
+[31m-            assert!(!ciphertext.windows(marker.len()).any(|window|window==marker));
+(B[m[32m+            assert!(
+(B[m[32m+                !ciphertext
+(B[m[32m+                    .windows(marker.len())
+(B[m[32m+                    .any(|window| window == marker)
+(B[m[32m+            );
+(B[m         }
+     }
+     assert!(

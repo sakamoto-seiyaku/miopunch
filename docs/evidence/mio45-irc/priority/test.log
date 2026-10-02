@@ -1,0 +1,44 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: unused import: `Mutex`
+  --> tests/irc_bootstrap.rs:12:10
+   |
+12 |     Arc, Mutex,
+   |          ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `duplicates` and `frames` are never read
+  --> tests/irc_bootstrap.rs:88:5
+   |
+85 | struct Proxy {
+   |        ----- fields in this struct
+...
+88 |     duplicates: Arc<AtomicBool>,
+   |     ^^^^^^^^^^
+89 |     frames: Arc<AtomicU64>,
+   |     ^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `miopunch-native-probe` (test "irc_bootstrap") generated 2 warnings (run `cargo fix --test "irc_bootstrap" -p miopunch-native-probe` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.50s
+     Running tests/irc_bootstrap.rs (target/debug/deps/irc_bootstrap-19f6fd2d4a90d470)
+
+running 1 test
+IRC_PRIORITY_PASS long_handshake_fragments=60 missing_final=true no_connection=true bounded_ms=4252
+test a_missing_fragment_of_the_real_long_handshake_cannot_release_a_connection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 7.70s
+

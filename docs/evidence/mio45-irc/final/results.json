@@ -1,0 +1,295 @@
+{
+  "checks": [
+    {
+      "name": "start-usable",
+      "argv": [
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        "miopunch45-usable-1790922545839797731",
+        "--publish",
+        "127.0.0.1::6667",
+        "--entrypoint",
+        "/ircd-bin/ergo",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/tests/fixtures/irc/ergo.yaml,dst=/ircd/ircd.yaml,readonly",
+        "ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7",
+        "run"
+      ],
+      "exit": 0,
+      "seconds": 0.315,
+      "log": "start-usable.log"
+    },
+    {
+      "name": "start-limited",
+      "argv": [
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        "miopunch45-limited-1790922546184664207",
+        "--publish",
+        "127.0.0.1::6667",
+        "--entrypoint",
+        "/ircd-bin/ergo",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio45-irc/final/limited.yaml,dst=/ircd/ircd.yaml,readonly",
+        "ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7",
+        "run"
+      ],
+      "exit": 0,
+      "seconds": 0.315,
+      "log": "start-limited.log"
+    },
+    {
+      "name": "first",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "irc_bootstrap",
+        "real_irc_replaces_mqtt_at_the_same_native_connection_entry",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 2.721,
+      "log": "first.log"
+    },
+    {
+      "name": "priority",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "irc_bootstrap",
+        "a_missing_fragment_of_the_real_long_handshake_cannot_release_a_connection",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 8.084,
+      "log": "priority.log"
+    },
+    {
+      "name": "reassembly",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "irc_bootstrap",
+        "incomplete_public_envelopes_have_bounded_reassembly_and_expire",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 3.773,
+      "log": "reassembly.log"
+    },
+    {
+      "name": "duplicates-injection",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "irc_bootstrap",
+        "duplicate_fragments_and_injected_ciphertext_do_not_impersonate_or_leak",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 4.024,
+      "log": "duplicates-injection.log"
+    },
+    {
+      "name": "purpose",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "irc_bootstrap",
+        "reachable_irc_cannot_release_business_without_a_permitted_data_path",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 2.47,
+      "log": "purpose.log"
+    },
+    {
+      "name": "identity-membership",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "irc_bootstrap",
+        "an_irc_route_cannot_substitute_tls_identity_or_unapproved_membership",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 5.277,
+      "log": "identity-membership.log"
+    },
+    {
+      "name": "cancel",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "irc_bootstrap",
+        "canceled_handshake_releases_the_attempt_and_a_later_contact_succeeds",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 4.224,
+      "log": "cancel.log"
+    },
+    {
+      "name": "reconnect",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "irc_bootstrap",
+        "disconnected_irc_withdraws_routes_and_fresh_binding_preserves_identity",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 2.971,
+      "log": "reconnect.log"
+    },
+    {
+      "name": "rate-limit",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "irc_bootstrap",
+        "actual_server_rate_limiting_returns_bounded_unavailability",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 8.033,
+      "log": "rate-limit.log"
+    },
+    {
+      "name": "build-worker",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "irc_bootstrap",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 0.415,
+      "log": "build-worker.log"
+    },
+    {
+      "name": "cut-image",
+      "argv": [
+        "docker",
+        "build",
+        "--file",
+        "scripts/irc_lab.Dockerfile",
+        "--tag",
+        "miopunch45-irc-lab:ergo270",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.265,
+      "log": "cut-image.log"
+    },
+    {
+      "name": "data-cut",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch45-cut-1790922588789700156",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,dst=/repo,readonly",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/docs/evidence/mio45-irc/final,dst=/evidence",
+        "miopunch45-irc-lab:ergo270",
+        "python3",
+        "/repo/scripts/irc_data_cut_lab.py",
+        "/repo/target/debug/deps/irc_bootstrap-19f6fd2d4a90d470"
+      ],
+      "exit": 0,
+      "seconds": 7.833,
+      "log": "data-cut.log"
+    },
+    {
+      "name": "affected-short",
+      "argv": [
+        "python",
+        "-B",
+        "scripts/check_mqtt_bootstrap_short.py",
+        "--output",
+        "/home/js/Git/miopunch/docs/evidence/mio45-irc/final/mqtt-short",
+        "--suite"
+      ],
+      "exit": 1,
+      "seconds": 244.726,
+      "log": "affected-short.log"
+    }
+  ],
+  "passed": false,
+  "image": "ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7",
+  "environment": "Linux real Ergo 2.7.0, loopback UDP; isolated offline kernel data-cut",
+  "skipped": "Already verified unchanged slow NAT matrices, per user policy",
+  "servers": [
+    "127.0.0.1:43304",
+    "127.0.0.1:43305"
+  ],
+  "error": "affected-short failed: read /home/js/Git/miopunch/docs/evidence/mio45-irc/final/affected-short.log",
+  "cleanup": [
+    {
+      "owned_container": "miopunch45-usable-1790922545839797731",
+      "exit": 0
+    },
+    {
+      "owned_container": "miopunch45-limited-1790922546184664207",
+      "exit": 0
+    }
+  ]
+}

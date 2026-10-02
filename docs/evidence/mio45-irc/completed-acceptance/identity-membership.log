@@ -1,0 +1,28 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.35s
+     Running tests/irc_bootstrap.rs (target/debug/deps/irc_bootstrap-19f6fd2d4a90d470)
+
+running 1 test
+test an_irc_route_cannot_substitute_tls_identity_or_unapproved_membership ... IRC_BOOTSTRAP_START stable_id=131798186642416 peer=048899b99cb156267e9819e8dda0afc91d3c268875eb77c356f572870a20158e
+IRC_BOOTSTRAP_START stable_id=131798196894304 peer=8e86db6b8532c74bc2c191dbfb8d55204c569d481c947884b6781cc3ecc7870b
+NAT_DIRECT_CANDIDATE stable_id=131798196894304 target=127.0.0.1:46605
+NAT_DIRECT_SUCCESS stable_id=131798186642416 target=127.0.0.1:44391 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=131798186642416 peer=048899b99cb156267e9819e8dda0afc91d3c268875eb77c356f572870a20158e paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44391)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=131798196894304 target=127.0.0.1:46605 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=131798196894304 peer=8e86db6b8532c74bc2c191dbfb8d55204c569d481c947884b6781cc3ecc7870b paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:46605)], selected: Some(PathId(1)), closed: false }, .. }
+IRC_IDENTITY_PASS wrong_tls_target_rejected=true invitation_holder_member_rejected=true approved_member_usable=true
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 5.26s
+

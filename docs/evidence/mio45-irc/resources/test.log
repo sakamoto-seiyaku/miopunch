@@ -1,0 +1,31 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.68s
+     Running tests/irc_bootstrap.rs (target/debug/deps/irc_bootstrap-19f6fd2d4a90d470)
+
+running 1 test
+IRC_CLOSE error=Connection refused (os error 111)
+IRC_RESOURCE_UNAVAILABLE error=IRC carrier stopped
+IRC_BOOTSTRAP_START stable_id=136044968374512 peer=fe8c86d683531211ae88517c1824fcd7aeeedeb7b98467f0048162f197d76318
+IRC_BOOTSTRAP_START stable_id=136044970122592 peer=61e8572b4a5cbd303a45c5a67e15177bf2ce9bc18ebb1d1a81da31d45c427765
+NAT_DIRECT_CANDIDATE stable_id=136044970122592 target=127.0.0.1:44421
+NAT_DIRECT_SUCCESS stable_id=136044968374512 target=127.0.0.1:43972 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=136044968374512 peer=fe8c86d683531211ae88517c1824fcd7aeeedeb7b98467f0048162f197d76318 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:43972)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=136044970122592 target=127.0.0.1:44421 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=136044970122592 peer=61e8572b4a5cbd303a45c5a67e15177bf2ce9bc18ebb1d1a81da31d45c427765 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44421)], selected: Some(PathId(1)), closed: false }, .. }
+IRC_RESOURCES_PASS failed_origins=1 permitted_ready_routes=1 saved_signaling_disable_respected=true durable_identity_unchanged=true
+test saved_irc_disable_and_a_failed_service_preserve_other_resource_choices ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 2.62s
+

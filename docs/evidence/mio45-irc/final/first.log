@@ -1,0 +1,43 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+warning: unused variable: `client_port`
+   --> tests/irc_bootstrap.rs:699:9
+    |
+699 |     let client_port = server
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_client_port`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `server_port`
+   --> tests/irc_bootstrap.rs:710:9
+    |
+710 |     let server_port = client
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_server_port`
+
+warning: `miopunch-native-probe` (test "irc_bootstrap") generated 2 warnings (run `cargo fix --test "irc_bootstrap" -p miopunch-native-probe` to apply 2 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
+     Running tests/irc_bootstrap.rs (target/debug/deps/irc_bootstrap-19f6fd2d4a90d470)
+
+running 1 test
+test real_irc_replaces_mqtt_at_the_same_native_connection_entry ... IRC_BOOTSTRAP_START stable_id=132430283850224 peer=0e4d971f5b56cff35a915e1c69c5b52d694fe6836c58caf71cd5e8e740cc7027
+IRC_BOOTSTRAP_START stable_id=132430284110112 peer=035aa24a95b6d5b915b406c91ee7a97cd93cfba1a7a2946c53744ded4ea71452
+NAT_DIRECT_CANDIDATE stable_id=132430284110112 target=127.0.0.1:45104
+NAT_DIRECT_SUCCESS stable_id=132430283850224 target=127.0.0.1:46731 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=132430283850224 peer=0e4d971f5b56cff35a915e1c69c5b52d694fe6836c58caf71cd5e8e740cc7027 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:46731)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=132430284110112 target=127.0.0.1:45104 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=132430284110112 peer=035aa24a95b6d5b915b406c91ee7a97cd93cfba1a7a2946c53744ded4ea71452 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:45104)], selected: Some(PathId(1)), closed: false }, .. }
+IRC_FIRST_PASS stable_id=132430284110112 same_connection=true real_member=true udp_data=true
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 2.31s
+

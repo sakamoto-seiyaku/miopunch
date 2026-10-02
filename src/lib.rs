@@ -4,6 +4,7 @@ pub mod admission_rotation;
 pub mod control_session;
 pub mod daily_management;
 pub mod genesis_recovery;
+pub mod irc_transport;
 pub mod management_auth;
 pub mod management_recovery;
 pub mod management_store;

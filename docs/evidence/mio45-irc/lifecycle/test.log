@@ -1,0 +1,78 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.55s
+     Running tests/irc_bootstrap.rs (target/debug/deps/irc_bootstrap-19f6fd2d4a90d470)
+
+running 10 tests
+test a_missing_fragment_of_the_real_long_handshake_cannot_release_a_connection ... IRC_PRIORITY_PASS long_handshake_fragments=60 missing_final=true no_connection=true bounded_ms=4252
+ok
+test actual_server_rate_limiting_returns_bounded_unavailability ... IRC_RATE_LIMIT_PASS actual_ircd_fakelag=true connection_unavailable=true bounded_ms=4251
+ok
+test an_irc_route_cannot_substitute_tls_identity_or_unapproved_membership ... 
+thread 'an_irc_route_cannot_substitute_tls_identity_or_unapproved_membership' (2066802) panicked at tests/irc_bootstrap.rs:284:13:
+called `Result::unwrap()` on an `Err` value: TemporarilyUnreachable { retry_after: 1s, cause: Some("timed out") }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test canceled_handshake_releases_the_attempt_and_a_later_contact_succeeds ... 
+thread 'canceled_handshake_releases_the_attempt_and_a_later_contact_succeeds' (2066829) panicked at tests/irc_bootstrap.rs:549:6:
+cancellation must close original QUIC attempt: Elapsed(())
+FAILED
+test disconnected_irc_withdraws_routes_and_fresh_binding_preserves_identity ... IRC_CLOSE error=IRC disconnected
+IRC_CLOSE error=IRC disconnected
+IRC_BOOTSTRAP_START stable_id=137420298174288 peer=cb06206b2b864f8f840a7fb6564e9c28fb4d90f9bc4c65bfdfbae1d3e31e5e36
+IRC_BOOTSTRAP_START stable_id=137420297824240 peer=66edf59046601b7a71712858c7a378a5a5b5b87a1b3e1587c34c00a6c183363f
+NAT_DIRECT_CANDIDATE stable_id=137420297824240 target=127.0.0.1:44718
+NAT_DIRECT_SUCCESS stable_id=137420298174288 target=127.0.0.1:44743 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=137420298174288 peer=cb06206b2b864f8f840a7fb6564e9c28fb4d90f9bc4c65bfdfbae1d3e31e5e36 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44743)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=137420297824240 target=127.0.0.1:44718 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=137420297824240 peer=66edf59046601b7a71712858c7a378a5a5b5b87a1b3e1587c34c00a6c183363f paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44718)], selected: Some(PathId(1)), closed: false }, .. }
+IRC_RECONNECT_PASS withdrawn_routes=true new_delivery_tokens=true stable_node_identity=true fresh_connection=true
+ok
+test duplicate_fragments_and_injected_ciphertext_do_not_impersonate_or_leak ... IRC_BOOTSTRAP_START stable_id=137420297311616 peer=31e8a839dd9dc8dfb4a0fb1c7d58ac36440896b34dd19402ece769ebcfcdba84
+IRC_BOOTSTRAP_START stable_id=137420298022256 peer=b2387c41d771077940ea8ea382f13f28d2398c086bbac72577342caef1a53a16
+NAT_DIRECT_CANDIDATE stable_id=137420298022256 target=127.0.0.1:43701
+NAT_DIRECT_SUCCESS stable_id=137420297311616 target=127.0.0.1:45029 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=137420297311616 peer=31e8a839dd9dc8dfb4a0fb1c7d58ac36440896b34dd19402ece769ebcfcdba84 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:45029)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=137420298022256 target=127.0.0.1:43701 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=137420298022256 peer=b2387c41d771077940ea8ea382f13f28d2398c086bbac72577342caef1a53a16 paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:43701)], selected: Some(PathId(1)), closed: false }, .. }
+IRC_DUPLICATE_INJECTION_PASS visible_frames=406 captured=128 extra_connections=0 normal_business_irc_frames=0
+ok
+test incomplete_public_envelopes_have_bounded_reassembly_and_expire ... IRC_REASSEMBLY_BOUND_PASS IRC_TRAFFIC sent=0 received=0 fragments=0 rejected=48 expired=32 pending=0 max_datagram=2048 assemblies=32 queue=64
+ok
+test losing_the_udp_data_path_does_not_send_business_back_to_irc ... ignored, run in the owned privileged offline IRC container, never host netfilter
+test reachable_irc_cannot_release_business_without_a_permitted_data_path ... IRC_BOOTSTRAP_START stable_id=137420298019360 peer=2362f2e3d9ead30fcea59394f6d21da746e9b3a30a8ebe9ea24cf70b206ebf60
+IRC_BOOTSTRAP_START stable_id=137420297995904 peer=f8b32499bb5ef29c03bc8d28ffbc8579ae7693e4da729bdb1834480ad05ccbab
+IRC_BOOTSTRAP_FAILED stable_id=137420298019360 error=no mutually permitted data path capability
+IRC_BOOTSTRAP_FAILED stable_id=137420297995904 error=read error: connection lost
+IRC_PURPOSE_PASS control_reachable=true udp_disabled=true application_connections=0
+ok
+test real_irc_replaces_mqtt_at_the_same_native_connection_entry ... IRC_BOOTSTRAP_START stable_id=137420297365216 peer=f2e1ed49517fc13ba3be56cebd07046d029f3551a7fd592266c675d380f5b6ff
+IRC_BOOTSTRAP_START stable_id=137420308959408 peer=25ac44e2a1bedf8db5c7cf3eeadd855846b8c5a8a0d7a50a040ed09e670f31ef
+NAT_DIRECT_CANDIDATE stable_id=137420308959408 target=127.0.0.1:46001
+NAT_DIRECT_SUCCESS stable_id=137420297365216 target=127.0.0.1:44359 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=137420297365216 peer=f2e1ed49517fc13ba3be56cebd07046d029f3551a7fd592266c675d380f5b6ff paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:44359)], selected: Some(PathId(1)), closed: false }, .. }
+NAT_DIRECT_SUCCESS stable_id=137420308959408 target=127.0.0.1:46001 punching_recommendations=0
+IRC_BOOTSTRAP_DATA stable_id=137420308959408 peer=25ac44e2a1bedf8db5c7cf3eeadd855846b8c5a8a0d7a50a040ed09e670f31ef paths=PathList { snapshot: State { list: [PathData(1, ip:127.0.0.1:46001)], selected: Some(PathId(1)), closed: false }, .. }
+IRC_FIRST_PASS stable_id=137420308959408 same_connection=true real_member=true udp_data=true
+ok
+
+failures:
+
+failures:
+    an_irc_route_cannot_substitute_tls_identity_or_unapproved_membership
+    canceled_handshake_releases_the_attempt_and_a_later_contact_succeeds
+
+test result: FAILED. 7 passed; 2 failed; 1 ignored; 0 measured; 0 filtered out; finished in 38.69s
+
+error: test failed, to rerun pass `--test irc_bootstrap`
