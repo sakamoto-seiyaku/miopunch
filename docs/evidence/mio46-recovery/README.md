@@ -69,3 +69,20 @@ including inert worker entries; all-targets with current hooks, browser WASM
 compile, root and fork formatting also passed. `reopened-startup/results.json`
 adds the current-source first check with actual A store reopen; C's verified
 membership remains saved. No slow NAT matrix was run.
+
+## Independent review and accepted maintenance
+
+Independent GPT-6.1 Sol HIGH Fast/priority reports are
+[Standards](standards-review.md) and [Spec](spec-review.md). Initial Standards:
+zero hard violations and two optional findings; initial Spec: zero findings.
+Both maintenance suggestions were accepted: discovery now uses an explicit
+Legacy/OriginQualified profile and rejects unsupported route widths before
+opening a broker; the provider predicate is shared while authorization is still
+rechecked before the manifest after awaiting the request.
+
+`review-maintenance/results.json` verifies all twelve current-source recovery
+conditions (including store reopen), both legacy discovery checks, all-targets
+with current hooks and formatting after these changes. Every check and owned
+container cleanup passed. Earlier completed unchanged short checks and WASM
+compile were not needlessly repeated. The final review supplements and aggregate
+report describe the accepted changes without claiming new runtime evidence.

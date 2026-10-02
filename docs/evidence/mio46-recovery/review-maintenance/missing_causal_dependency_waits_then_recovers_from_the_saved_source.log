@@ -1,0 +1,21 @@
+warning: method `store` is never used
+   --> vendor/p2panda-net/src/address_book/api.rs:266:25
+    |
+ 74 | impl AddressBook {
+    | ---------------- method in this implementation
+...
+266 |     pub(crate) async fn store(&self) -> Result<SqliteStore, AddressBookError> {
+    |                         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `p2panda-net` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
+     Running tests/network_recovery.rs (target/debug/deps/network_recovery-52d28c5654ad2ec0)
+
+running 1 test
+test missing_causal_dependency_waits_then_recovers_from_the_saved_source ... UNKNOWN_RECOVERY_DEPENDENCY partial_saved=1 causal_wait=1 retried_source=1 complete=1
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 8.55s
+

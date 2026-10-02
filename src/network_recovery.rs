@@ -2,7 +2,7 @@
 //! address book and contact budget, then the existing durable LogSync consumer.
 use crate::{
     admission_gate::ProtocolScope,
-    mqtt_discovery::{self, Candidate},
+    mqtt_discovery::{self, TaggedCandidate},
     mqtt_transport::{self, TRANSPORT_ID},
     native_network::{NativeNetwork, NodeError},
     offline_replica::{ReplicaError, ReplicaOutcome},
@@ -106,7 +106,7 @@ impl NativeNetwork {
                         SocketAddr::V4(addr) => Some(*addr),
                         _ => None,
                     })?;
-                    Some(Candidate::<32> {
+                    Some(TaggedCandidate {
                         id: endpoint.id(),
                         route: address.data().try_into().ok()?,
                         udp_addr,

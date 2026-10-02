@@ -18,6 +18,29 @@ use crate::admission_proof::AdmissionScope;
 const QUERY: &[u8; 4] = b"MDQ1";
 const RESPONSE: &[u8; 4] = b"MDR1";
 const TAGGED_RESPONSE: &[u8; 4] = b"MDR2";
+#[derive(Clone, Copy)]
+enum DiscoveryProfile {
+    Legacy,
+    OriginQualified,
+}
+
+impl DiscoveryProfile {
+    fn for_route_width(width: usize) -> Option<Self> {
+        match width {
+            16 => Some(Self::Legacy),
+            32 => Some(Self::OriginQualified),
+            _ => None,
+        }
+    }
+
+    fn response_tag(self) -> &'static [u8; 4] {
+        match self {
+            Self::Legacy => RESPONSE,
+            Self::OriginQualified => TAGGED_RESPONSE,
+        }
+    }
+}
+
 const MAX_CANDIDATES: usize = 16;
 const DISCOVERY_WINDOW: Duration = Duration::from_secs(2);
 
@@ -68,10 +91,13 @@ pub struct Candidate<const N: usize = 16> {
     pub udp_addr: SocketAddrV4,
 }
 
+/// The configured native route includes its service origin and delivery token.
+pub type TaggedCandidate = Candidate<32>;
+
 impl<const N: usize> Candidate<N> {
-    fn encode(self, nonce: &[u8; 16]) -> Vec<u8> {
+    fn encode(self, nonce: &[u8; 16], profile: DiscoveryProfile) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(58 + N);
-        bytes.extend_from_slice(if N == 32 { TAGGED_RESPONSE } else { RESPONSE });
+        bytes.extend_from_slice(profile.response_tag());
         bytes.extend_from_slice(nonce);
         bytes.extend_from_slice(self.id.as_bytes());
         bytes.extend_from_slice(&self.route);
@@ -81,12 +107,8 @@ impl<const N: usize> Candidate<N> {
     }
 
     fn decode(bytes: &[u8], nonce: &[u8; 16]) -> Option<Self> {
-        let version = if N == 32 { TAGGED_RESPONSE } else { RESPONSE };
-        if !matches!(N, 16 | 32)
-            || bytes.len() != 58 + N
-            || &bytes[..4] != version
-            || &bytes[4..20] != nonce
-        {
+        let version = DiscoveryProfile::for_route_width(N)?.response_tag();
+        if bytes.len() != 58 + N || &bytes[..4] != version || &bytes[4..20] != nonce {
             return None;
         }
         let id = EndpointId::from_bytes(bytes[20..52].try_into().ok()?).ok()?;
@@ -119,6 +141,12 @@ pub(crate) async fn respond_live<const N: usize>(
     scope: AdmissionScope,
     candidate: impl Fn() -> Option<Candidate<N>> + Send + 'static,
 ) -> io::Result<tokio::task::JoinHandle<()>> {
+    let profile = DiscoveryProfile::for_route_width(N).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "unsupported discovery route profile",
+        )
+    })?;
     let prefix = namespace(&scope);
     let query_topic = format!("{prefix}/query");
     let (mqtt, mut events) = client(broker);
@@ -144,7 +172,12 @@ pub(crate) async fn respond_live<const N: usize>(
             let nonce: [u8; 16] = publish.payload[4..20].try_into().unwrap();
             let reply = format!("{prefix}/reply/{}", hex::encode(nonce));
             if mqtt
-                .try_publish(reply, QoS::AtMostOnce, false, candidate.encode(&nonce))
+                .try_publish(
+                    reply,
+                    QoS::AtMostOnce,
+                    false,
+                    candidate.encode(&nonce, profile),
+                )
                 .is_err()
             {
                 break;

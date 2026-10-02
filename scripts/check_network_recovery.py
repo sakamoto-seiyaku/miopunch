@@ -15,6 +15,7 @@ def main():
     parser.add_argument('--output', type=pathlib.Path, required=True)
     parser.add_argument('--selector')
     parser.add_argument('--suite', action='store_true')
+    parser.add_argument('--review-checks', action='store_true', help='ordered acceptance plus affected wire profiles, typecheck and format after maintenance')
     parser.add_argument('--start-at', help='resume a suite at the named check')
     args = parser.parse_args()
     root = pathlib.Path(__file__).resolve().parents[1]
@@ -85,6 +86,12 @@ def main():
                 ('wasm', ['cargo', 'check', '--locked', '-p', 'miopunch-browser-probe', '--target', 'wasm32-unknown-unknown']),
                 ('format', ['cargo', 'fmt', '--check']),
                 ('fork-format', ['rustfmt', '--check', '--edition', '2024', '--config', 'skip_children=true', 'vendor/iroh/src/endpoint/connection.rs', 'vendor/iroh/src/endpoint/hooks.rs', 'vendor/iroh/src/socket/remote_map/remote_state.rs']),
+            ]
+        if args.review_checks:
+            checks += [
+                ('legacy-discovery', tests('unknown_member_bootstrap')),
+                ('all-targets', ['cargo', 'check', '--locked', '--workspace', '--all-targets', '--features', 'nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks']),
+                ('format', ['cargo', 'fmt', '--check']),
             ]
         if args.start_at:
             if not args.suite or args.start_at not in [name for name, _ in checks]:

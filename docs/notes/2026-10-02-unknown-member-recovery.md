@@ -30,7 +30,8 @@ The existing `MDQ1 || nonce` query remains twenty bytes. Configured recovery use
 bytes in total. The route keeps the complete thirty-two-byte configured CustomAddr;
 its public sixteen-byte origin tag is checked against the actual qualified MQTT
 origin before use. Legacy `MDR1` and sixteen-byte probe routes remain compatible
-with the earlier validation entry. This is a versioned extension of that profile,
+with the earlier validation entry. The explicit Legacy/OriginQualified profile
+rejects unsupported route widths before any broker access. This is a versioned extension of that profile,
 not automatic unknown discovery through IRC or arbitrary carriers.
 
 Each online responder checks its current admission generation, local membership

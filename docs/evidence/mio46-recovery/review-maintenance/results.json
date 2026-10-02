@@ -1,0 +1,276 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_recovery",
+        "old_member_recovers_from_the_only_online_unknown_member_at_startup",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 14.543,
+      "log": "old_member_recovers_from_the_only_online_unknown_member_at_startup.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_recovery",
+        "old_secret_with_a_new_identity_keeps_only_bootstrap_scope",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 4.571,
+      "log": "old_secret_with_a_new_identity_keeps_only_bootstrap_scope.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_recovery",
+        "missing_causal_dependency_waits_then_recovers_from_the_saved_source",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 8.949,
+      "log": "missing_causal_dependency_waits_then_recovers_from_the_saved_source.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_recovery",
+        "no_online_candidate_waits_and_new_contact_recovers_on_the_same_endpoint",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 6.393,
+      "log": "no_online_candidate_waits_and_new_contact_recovers_on_the_same_endpoint.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_recovery",
+        "a_failed_entry_does_not_prevent_recovery",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 4.456,
+      "log": "a_failed_entry_does_not_prevent_recovery.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_recovery",
+        "duplicate_tagged_hints_do_not_prevent_recovery",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 4.381,
+      "log": "duplicate_tagged_hints_do_not_prevent_recovery.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_recovery",
+        "a_false_candidate_without_the_network_secret_never_supplies_history",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 6.596,
+      "log": "a_false_candidate_without_the_network_secret_never_supplies_history.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_recovery",
+        "disabling_lookup_does_not_reenable_discovery_via_signaling",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 1.449,
+      "log": "disabling_lookup_does_not_reenable_discovery_via_signaling.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_recovery",
+        "missing_admission_material_cannot_start_network_history_recovery",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 0.693,
+      "log": "missing_admission_material_cannot_start_network_history_recovery.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_recovery",
+        "another_network_on_the_same_entry_is_never_a_recovery_source",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 2.744,
+      "log": "another_network_on_the_same_entry_is_never_a_recovery_source.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_recovery",
+        "a_mismatched_saved_generation_does_not_fetch_current_member_history",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 3.477,
+      "log": "a_mismatched_saved_generation_does_not_fetch_current_member_history.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "network_recovery",
+        "a_known_revoked_candidate_is_rejected_before_any_history_request",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 3.478,
+      "log": "a_known_revoked_candidate_is_rejected_before_any_history_request.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--features",
+        "replica-test-hooks",
+        "--test",
+        "unknown_member_bootstrap",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 22.678,
+      "log": "legacy-discovery.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks"
+      ],
+      "exit": 0,
+      "seconds": 7.381,
+      "log": "all-targets.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "exit": 0,
+      "seconds": 0.606,
+      "log": "format.log"
+    }
+  ],
+  "passed": true,
+  "brokers": [
+    "127.0.0.1:43342",
+    "127.0.0.1:43343"
+  ],
+  "cleanup": [
+    {
+      "owned_container": "miopunch46-recovery-1790927456494685932",
+      "exit": 0
+    },
+    {
+      "owned_container": "miopunch46-recovery-1790927456887102259",
+      "exit": 0
+    }
+  ]
+}

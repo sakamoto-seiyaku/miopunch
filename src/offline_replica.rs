@@ -266,6 +266,12 @@ impl NativeNetwork {
                     .all(|path| matches!(path.remote_addr(), iroh::TransportAddr::Ip(_))))
     }
 
+    fn replica_provider_allowed(&self, connection: &Connection) -> bool {
+        self.replica_allowed(connection)
+            && (connection.alpn() != crate::network_recovery::RECOVERY_REPLICA_ALPN
+                || self.gate.allows_member_path_upgrade(connection))
+    }
+
     /// Serve the complete locally applied control history, including original
     /// author bodies and dependencies. Admission and data-path gates apply
     /// before emitting even the manifest; no private delivery tables are read.
@@ -291,10 +297,7 @@ impl NativeNetwork {
         records: &[ManagementRecord],
     ) -> Result<(), ReplicaError> {
         let result = tokio::time::timeout(TIMEOUT, async {
-            if !self.replica_allowed(connection)
-                || (connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN
-                    && !self.gate.allows_member_path_upgrade(connection))
-            {
+            if !self.replica_provider_allowed(connection) {
                 return Err(ReplicaError::Rejected);
             }
             let (snapshot, manifest) = Snapshot::from_records(self.anchor, records)?;
@@ -309,10 +312,7 @@ impl NativeNetwork {
             if &request != b"REPL" {
                 return Err(ReplicaError::Rejected);
             }
-            if !self.replica_allowed(connection)
-                || (connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN
-                    && !self.gate.allows_member_path_upgrade(connection))
-            {
+            if !self.replica_provider_allowed(connection) {
                 return Err(ReplicaError::Rejected);
             }
             let bytes =
