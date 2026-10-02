@@ -43,6 +43,12 @@ directories and are not included here. Unchanged slow NAT suites were skipped
 under the user's standing instruction. No platform runtime claims beyond the
 native Linux migration SDK are inferred from earlier tickets.
 
-Independent Standards and Spec reviews are recorded separately in this folder
-when complete; they compare the implementation against baseline
+Independent [Standards](standards-review.md) and [Spec](spec-review.md) reviews
+compare implementation `c85fb62ca4d56db27ff93f1351179a385be88f7c` against baseline
 `f7d298116cd53cb16d92729fd1aec18467dffbd4` and the current Plane ticket/parent.
+[Separate-axis aggregation](review.md): Standards 0 hard findings / 1 nonblocking
+membership-query duplication heuristic; Spec 0 findings. The optional refactor
+is parked under the user's completion priority. Both reviewers actually ran
+Astra/low/priority before the timed cutoff, independently confirmed by root.
+No reviewer reran suites. Raw terminal logs retain trailing blank EOF lines;
+`git diff --check` flags those artifacts, while source fmt checks pass.
