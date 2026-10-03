@@ -1,0 +1,150 @@
+{
+  "scope": "MIOPUNCH-68 step 4 integration with completed MQTT steps 1 and 2; no step 5 completion claim",
+  "startingCommit": "859915f061be7cb3ec924dc98261a01cc54dc9e2",
+  "rtcSourceCommits": [
+    "207825e08acfea368f83709957f58d5df0de2403",
+    "e6079ae14878784e5e0091d3287cfc3bb2dc9650",
+    "dbb3294afbb5931bd6594a5f2160e55bdcb45b1d"
+  ],
+  "mainCommits": [
+    "8db8f086",
+    "e0b11153",
+    "01ddd763"
+  ],
+  "passed": true,
+  "checks": [
+    {
+      "name": "workspace-all-targets",
+      "argv": [
+        "rtk",
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "rtc-probe",
+        "-j",
+        "2"
+      ],
+      "exit": 0,
+      "seconds": 10.439
+    },
+    {
+      "name": "rtc-queue-suite",
+      "argv": [
+        "rtk",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "rtc-probe",
+        "--test",
+        "rtc_association",
+        "-j",
+        "2"
+      ],
+      "exit": 0,
+      "seconds": 49.763
+    },
+    {
+      "name": "fmt",
+      "argv": [
+        "rtk",
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit": 0,
+      "seconds": 0.816
+    },
+    {
+      "name": "python-parse",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-c",
+        "import ast; from pathlib import Path; [ast.parse(Path(p).read_text()) for p in [\"scripts/check_browser_paths.py\",\"scripts/check_browser_rtc.py\",\"scripts/browser_mqtt_trust.py\"]]"
+      ],
+      "exit": 0,
+      "seconds": 0.064
+    },
+    {
+      "name": "node-parse",
+      "argv": [
+        "rtk",
+        "proxy",
+        "node",
+        "--check",
+        "browser-probe/harness/run-rtc.mjs"
+      ],
+      "exit": 0,
+      "seconds": 0.032
+    },
+    {
+      "name": "git-whitespace",
+      "argv": [
+        "rtk",
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit": 0,
+      "seconds": 1.218
+    }
+  ],
+  "protocolRuns": [
+    {
+      "case": "rtc-channel",
+      "runner": "/tmp/mio-rtc-s4-combined-20261004/results.json",
+      "runnerSha256": "bd862f2d6ddd456164297a9a696a2a052bd0e03b149ab26beffe4ccc51e7f37e",
+      "raw": "/tmp/mio-rtc-s4-combined-20261004/rtc-channel.json",
+      "rawSha256": "914b085b53696d1903aea5dfcf07126fd811776ef6000001c7d8332973240aa4",
+      "passed": true
+    },
+    {
+      "case": "wss-restricted-handshake",
+      "runner": "/tmp/mio-rtc-s2-combined-20261004/results.json",
+      "runnerSha256": "5d4b8f1626db1747196b0f90639f4959576ae1b054b816a26867d43c9e463009",
+      "raw": "/tmp/mio-rtc-s2-combined-20261004/wss-restricted-handshake.json",
+      "rawSha256": "04634a5e5b5a58402214a36c1bb5d58a728cb772ed2727835d81e52f0e61f53a",
+      "passed": true
+    },
+    {
+      "case": "mqtt-datagram",
+      "runner": "/tmp/mio-rtc-s1-combined-20261004/results.json",
+      "runnerSha256": "a70183cb6a5f9bcbce81ae9428158318a7b920fbf0298543c3b229ee8c9ba794",
+      "raw": "/tmp/mio-rtc-s1-combined-20261004/mqtt-datagram.json",
+      "rawSha256": "62140e5534ef408c248d91db0b9f569246e6628a9d3416cf90f7f6883773dad1",
+      "passed": true
+    }
+  ],
+  "dependencyVersions": {
+    "async-trait": "0.1.92",
+    "rcgen": "0.14.10",
+    "rumqttc": "0.25.1",
+    "webrtc": "0.21.0",
+    "yasna": "0.6.0"
+  },
+  "mainTrustHelperPreserved": true,
+  "sourceSha256": {
+    "Cargo.toml": "b55c895be2fe7847a20dd70f7d8032098e471d2fe59f916b73b9dd80bd5dc0c4",
+    "Cargo.lock": "94608505a80ebba9ef4478783c45ad1529acdd1b3a35ea386cb344c61da6eb20",
+    "browser-probe/Cargo.toml": "5c94333a25e45d7e1cee60477c7bea048b36ab1a9bd034da713cadf24aebceed",
+    "browser-probe/src/network.rs": "b7308776629be630ca5e313a0105092fdddd4ae9951769118e2f4ff12b3336d5",
+    "browser-probe/src/rtc.rs": "7a693eca44de1d5758149329f9aabbebaf96a25aefc15166ccf33cab6fec4e8e",
+    "browser-probe/src/member_connection.rs": "d3c300a33d9cb1bdd316c3c2d6d63179ac42434fcc1e2bad148ad491b94a1cf9",
+    "src/rtc_association.rs": "64d95aaad6d6ff3c921a9da255a54619f00eda501377ffbb925f2c27b9ea6f50",
+    "src/rtc_probe.rs": "25efecf033493fe819125031db488eaba843f665311f451e277275e9ce91d20f",
+    "src/bin/browser_network_native.rs": "48d1f3c7a930ba6e2f346735834422c4f35cceb4fa6e50790b018cd60dadf3d2",
+    "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+    "scripts/check_browser_paths.py": "086c35e064a59a8eb6f3f4f00c00683d458012ee29f5993b332e157a11abff34",
+    "scripts/check_browser_rtc.py": "b34bd03712831288b4a61b29c5abf66133810c870bd6157b5491be233f7b5835",
+    "browser-probe/harness/run-rtc.mjs": "ddfb71cd5b0eceb6ad1677495784e377cd59814fcfe334f7463ae196f9575b26"
+  }
+}

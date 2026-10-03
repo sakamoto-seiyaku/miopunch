@@ -9,6 +9,7 @@ import shutil
 import signal
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -19,11 +20,19 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=['mqtt-datagram', 'wss-restricted-handshake'], required=True)
+    parser.add_argument('--case', choices=['mqtt-datagram', 'wss-restricted-handshake', 'rtc-channel'], required=True)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--skip-build', action='store_true')
     parser.add_argument('--wasm-bindgen', default=shutil.which('wasm-bindgen') or '/tmp/miopunch-wasm-tools/bin/wasm-bindgen')
+    parser.add_argument('--target-dir', type=Path, default=ROOT / 'target')
     args = parser.parse_args()
+    if args.case == 'rtc-channel':
+        command = ['rtk', 'proxy', sys.executable, str(ROOT / 'scripts/check_browser_rtc.py'),
+                   '--output', str(args.output), '--target-dir', str(args.target_dir),
+                   '--wasm-bindgen', args.wasm_bindgen]
+        if args.skip_build:
+            command.append('--skip-build')
+        os.execvp(command[0], command)
     protocol_budget = 45 if args.case == 'wss-restricted-handshake' else 60
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
