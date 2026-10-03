@@ -1,6 +1,6 @@
 # Browser/native synthetic RTC channel, step 4
 
-2026-10-03 15:51:33–15:51:36 UTC. The runnable step-4 experiment in the
+2026-10-03 16:14:47–16:14:51 UTC. The runnable step-4 experiment in the
 [replan](../../notes/2026-10-03-browser-webrtc-replan.md) passed on Linux,
 Chromium 153.0.8010.12, native `webrtc =0.21.0`, browser `web-sys 0.3.106`,
 Rust 1.98.1, and wasm-bindgen 0.2.129. This is a test profile and candidate
@@ -45,14 +45,14 @@ Actual [channel receipt](channel.json):
 | Selected pair | host / host, UDP | host / host, UDP |
 
 Both selected addresses were the same host's LAN address `192.168.4.5`, with
-independent UDP ports 43416 and 46316. This is same-host/LAN API interoperability,
+independent UDP ports 46029 and 45726. This is same-host/LAN API interoperability,
 not an across-device or NAT success-rate result. No STUN or TURN URLs were
 configured on either side. A peer-reflexive candidate in an earlier receipt was
 also direct; the test rejects relay candidates instead of assuming direct means
 host-only.
 
-Native reported open after 269ms; the complete protocol process took 2.971s,
-plus 0.595s of fixture provisioning. These are observations, not an SLA or a
+Native reported open after 279ms; the complete protocol process took 4.476s,
+plus 0.907s of fixture provisioning. These are observations, not an SLA or a
 performance comparison. The browser's actual data-channel stats recorded one
 1200-byte message sent and one received before a separate four-byte DONE control
 acknowledgement. Both adapters preserve message boundaries. Browser copying
@@ -74,12 +74,24 @@ metadata without a message-count bound.
 Native socket count was 6 before RTC and 6 after its owned driver closed; both
 queues were empty. The browser closes its channel and peer connection and
 removes callbacks on drop. The node and owned relay exited with code 0; final
-fixture cleanup took 197ms. The browser attempt has a 20s deadline, native open
+fixture cleanup took 265ms. The browser attempt has a 20s deadline, native open
 uses a 20s deadline, the harness reserves cleanup inside 60s, and the outer
 runner terminates its owned process group on expiry. No background application
 pump is spawned. Fixture provisioning has a separate 15s protection within the
 60s attempt budget. A concurrent call on the same M is rejected before a second
 RTC object is created; the real run verifies this overlap refusal. Normal and failure receipts retain cleanup facts.
+
+The dual-axis review found a public-close lifecycle gap in the initial snapshot.
+A second, independently qualified M deliberately withholds its native synthetic
+reply, leaving the browser waiting on RTC RX. The [red receipt](caller-close-red.json)
+records a 16136.4ms wait after caller close; cleanup eventually depended on remote
+RTC closure. The browser now prioritizes the original M's closed future, retires
+its local association and guards onopen against a closed M. The passing receipt
+records cancellation in 2.5ms, three created/three closed browser peer connections
+(normal, local fault, cancellation), and all callbacks detached. Native queues
+were zero and socket count returned to 6 for both associations. This verifies
+the public caller-close path as well as the explicit local retirement fixture;
+it does not complete the later authorization-revision/path-lease experiments.
 
 The first browser-offered DCEP profile failed its strict native attribute check:
 [receipt](dcep-getter-failure.json). The published `rtc 0.21.0` incoming-channel

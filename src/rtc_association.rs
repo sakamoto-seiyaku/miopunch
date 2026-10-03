@@ -14,6 +14,19 @@ pub const CHANNEL_ID: u16 = 0;
 pub const CHANNEL_LABEL: &str = "mio-rtc-synthetic/1";
 pub const CHANNEL_PROTOCOL: &str = "miopunch/synthetic/1";
 
+pub const EXPORTER_LABEL: &[u8] = b"miopunch/rtc-probe/1";
+
+/// Fixed experimental role order, shared by the browser offerer and native answerer.
+pub fn attempt_context(
+    attempt: &str,
+    network: &[u8; 32],
+    generation: u64,
+    offerer: &str,
+    answerer: &str,
+) -> String {
+    serde_json::json!([attempt, hex::encode(network), generation, offerer, answerer]).to_string()
+}
+
 /// Test profile explicitly confirmed by both endpoints over their protected M.
 /// Incoming DCEP metadata in rtc 0.21.0 does not preserve the reliability fields.
 pub fn channel_parameters() -> serde_json::Value {

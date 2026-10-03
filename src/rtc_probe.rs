@@ -2,8 +2,8 @@
 use crate::{
     admission_gate::{AdmissionGate, ProtocolScope},
     rtc_association::{
-        CHANNEL_ID, CHANNEL_LABEL, CHANNEL_PROTOCOL, DATAGRAM_BYTES, DatagramQueue, QUEUE_BYTES,
-        channel_parameters,
+        CHANNEL_ID, CHANNEL_LABEL, CHANNEL_PROTOCOL, DATAGRAM_BYTES, DatagramQueue, EXPORTER_LABEL,
+        QUEUE_BYTES, attempt_context, channel_parameters,
     },
 };
 use bytes::BytesMut;
@@ -80,7 +80,7 @@ async fn frame(send: &mut SendStream, value: &Value) -> Result<()> {
 pub fn binding(connection: &Connection, context: &[u8]) -> Result<String> {
     let mut exporter = [0; 32];
     connection
-        .export_keying_material(&mut exporter, b"miopunch/rtc-probe/1", context)
+        .export_keying_material(&mut exporter, EXPORTER_LABEL, context)
         .map_err(|_| "RTC exporter unavailable")?;
     Ok(blake3::hash(&exporter).to_hex().to_string())
 }
@@ -99,14 +99,14 @@ pub async fn serve(
         .get("context")
         .and_then(Value::as_str)
         .ok_or("missing context")?;
-    let expected_context = json!([
-        request["attempt"],
-        hex::encode(proof.scope().network_id()),
+    let attempt = request["attempt"].as_str().ok_or("missing attempt")?;
+    let expected_context = attempt_context(
+        attempt,
+        proof.scope().network_id(),
         proof.scope().secret_generation(),
-        connection.remote_id().to_string(),
-        local
-    ])
-    .to_string();
+        &connection.remote_id().to_string(),
+        &local,
+    );
     if !gate.allows(connection, ProtocolScope::Member)
         || context != expected_context
         || request["binding"].as_str() != Some(binding(connection, context.as_bytes())?.as_str())
@@ -202,9 +202,12 @@ pub async fn serve(
             return Err("negotiated maxMessageSize too small".into());
         }
         let opened_ms = started.elapsed().as_millis();
-        tx.try_push(vec![0xa7; DATAGRAM_BYTES])?;
-        let payload = tx.try_pop()?.ok_or("TX missing")?;
-        dc.try_send(BytesMut::from(payload.as_slice())).await?;
+        let withhold_reply = request["withholdReply"].as_bool().unwrap_or(false);
+        if !withhold_reply {
+            tx.try_push(vec![0xa7; DATAGRAM_BYTES])?;
+            let payload = tx.try_pop()?.ok_or("TX missing")?;
+            dc.try_send(BytesMut::from(payload.as_slice())).await?;
+        }
         let mut matched = false;
         loop {
             if !gate.allows(connection, ProtocolScope::Member) {
@@ -223,6 +226,12 @@ pub async fn serve(
                         return Err("synthetic payload mismatch".into());
                     }
                     matched = true;
+                    if withhold_reply {
+                        println!(
+                            "{}",
+                            json!({"event":"rtc-waiting", "phase":"native-received-synthetic-without-reply", "memberStableId":connection.stable_id()})
+                        );
+                    }
                 }
                 Some(DataChannelEvent::OnClose) | None => {
                     return Err("channel closed before completion".into());

@@ -1,50 +1,50 @@
 {
   "scope": "step 4 synthetic RTC; signaling via authenticated protected relay M; no QUIC bridge",
-  "startedUtc": "2026-10-03T15:51:33.356Z",
-  "relay": "https://localhost:43498/",
+  "startedUtc": "2026-10-03T16:14:47.844Z",
+  "relay": "https://localhost:44648/",
   "iceServers": [],
   "turnServers": [],
   "native": [
     {
       "event": "ready",
-      "id": "9097536f2d350ce3cde9c70a1af32594adb747c65c6a892592df747d67545652",
+      "id": "77f7a6b98742d621b32b574a542c8e368b7d26935d44861e071643a469c243ed",
       "relay": [
-        "https://localhost:43498/"
+        "https://localhost:44648/"
       ],
-      "receivedUtc": "2026-10-03T15:51:33.628Z"
+      "receivedUtc": "2026-10-03T16:14:48.117Z"
     },
     {
       "event": "admission",
       "paths": [
         {
           "isRelay": true,
-          "receivedBytes": 8500,
-          "relay": "https://localhost:43498/",
+          "receivedBytes": 8467,
+          "relay": "https://localhost:44648/",
           "selected": true,
-          "sentBytes": 8445
+          "sentBytes": 8434
         }
       ],
       "stage": "AwaitingApproval",
-      "receivedUtc": "2026-10-03T15:51:34.724Z"
+      "receivedUtc": "2026-10-03T16:14:49.800Z"
     },
     {
       "count": 2,
       "event": "approved",
-      "receivedUtc": "2026-10-03T15:51:34.776Z"
+      "receivedUtc": "2026-10-03T16:14:49.853Z"
     },
     {
       "event": "admission",
       "paths": [
         {
           "isRelay": true,
-          "receivedBytes": 8601,
-          "relay": "https://localhost:43498/",
+          "receivedBytes": 8605,
+          "relay": "https://localhost:44648/",
           "selected": true,
-          "sentBytes": 10136
+          "sentBytes": 10157
         }
       ],
       "stage": "Complete",
-      "receivedUtc": "2026-10-03T15:51:34.902Z"
+      "receivedUtc": "2026-10-03T16:14:49.987Z"
     },
     {
       "cleanup": {
@@ -57,7 +57,7 @@
       },
       "event": "rtc-cleanup",
       "failure": null,
-      "receivedUtc": "2026-10-03T15:51:35.788Z"
+      "receivedUtc": "2026-10-03T16:14:50.867Z"
     },
     {
       "event": "rtc",
@@ -89,17 +89,17 @@
         "dtls": "Connected",
         "events": [
           {
-            "elapsedMs": 75,
+            "elapsedMs": 65,
             "kind": "connection",
             "state": "connecting"
           },
           {
-            "elapsedMs": 75,
+            "elapsedMs": 65,
             "kind": "ice",
             "state": "checking"
           },
           {
-            "elapsedMs": 75,
+            "elapsedMs": 66,
             "kind": "gathering",
             "state": "complete"
           },
@@ -123,8 +123,8 @@
         "library": "webrtc 0.21.0",
         "matchedBytes": 1200,
         "maxMessageSize": 65536,
-        "memberStableId": 131169911925616,
-        "openedMs": 269,
+        "memberStableId": 124477010794512,
+        "openedMs": 279,
         "outstandingBytes": 0,
         "queueMessageLimit": 55,
         "rxPeakBytes": 1200,
@@ -136,8 +136,8 @@
             "address": "192.168.4.5",
             "component": 1,
             "foundation": "1558228001",
-            "id": "candidate:0c8nDT70NRONOVj0XUPuoAo5HEJ8/FF7",
-            "port": 46316,
+            "id": "candidate:bgnWrQwrQzR1DAgT9eCBGYNlsFKYspxW",
+            "port": 45726,
             "priority": 2130706431,
             "protocol": "udp",
             "related_address": "",
@@ -150,9 +150,9 @@
           "remote": {
             "address": "192.168.4.5",
             "component": 1,
-            "foundation": "1597886696",
-            "id": "candidate:612o36fPB2FILZkIUs9mgy/++cBhGPIu",
-            "port": 43416,
+            "foundation": "3151712001",
+            "id": "candidate:K8KwlyTUgAtT/ek74bUmGfai+jewudBs",
+            "port": 46029,
             "priority": 2113937151,
             "protocol": "udp",
             "related_address": "",
@@ -169,48 +169,67 @@
         "txPeakBytes": 1200,
         "txPeakMessages": 1
       },
-      "receivedUtc": "2026-10-03T15:51:35.789Z"
+      "receivedUtc": "2026-10-03T16:14:50.867Z"
+    },
+    {
+      "event": "rtc-waiting",
+      "memberStableId": 124476676027920,
+      "phase": "native-received-synthetic-without-reply",
+      "receivedUtc": "2026-10-03T16:14:51.645Z"
+    },
+    {
+      "cleanup": {
+        "ownedPumpTasks": 0,
+        "pcClosed": true,
+        "rxBytes": 0,
+        "socketAfter": 6,
+        "socketBefore": 6,
+        "txBytes": 0
+      },
+      "event": "rtc-cleanup",
+      "failure": "channel closed before completion",
+      "receivedUtc": "2026-10-03T16:14:51.649Z"
     }
   ],
   "websockets": [
     {
-      "url": "wss://localhost:43498/relay",
-      "sentFrames": 78,
-      "receivedFrames": 63,
+      "url": "wss://localhost:44648/relay",
+      "sentFrames": 108,
+      "receivedFrames": 88,
       "status": 101
     }
   ],
   "preparation": [
     {
       "name": "request",
-      "startedUtc": "2026-10-03T15:51:34.549Z",
-      "milliseconds": 180,
+      "startedUtc": "2026-10-03T16:14:49.184Z",
+      "milliseconds": 621,
       "passed": true
     },
     {
       "name": "approval",
-      "startedUtc": "2026-10-03T15:51:34.729Z",
-      "milliseconds": 47,
+      "startedUtc": "2026-10-03T16:14:49.806Z",
+      "milliseconds": 48,
       "passed": true
     },
     {
       "name": "authorization-save",
-      "startedUtc": "2026-10-03T15:51:34.776Z",
-      "milliseconds": 91,
+      "startedUtc": "2026-10-03T16:14:49.854Z",
+      "milliseconds": 96,
       "passed": true
     },
     {
       "name": "material-save",
-      "startedUtc": "2026-10-03T15:51:34.867Z",
-      "milliseconds": 43,
+      "startedUtc": "2026-10-03T16:14:49.950Z",
+      "milliseconds": 45,
       "passed": true
     }
   ],
   "passed": true,
   "ownedRelay": true,
-  "origin": "http://127.0.0.1:43778",
+  "origin": "http://127.0.0.1:44990",
   "launch": {
-    "executablePath": "/tmp/mio-rtc-s4-trust-piz4bqxz/chromium-private-trust.sh",
+    "executablePath": "/tmp/mio-rtc-s4-trust-odozud1e/chromium-private-trust.sh",
     "headless": true,
     "args": [
       "--no-sandbox",
@@ -221,8 +240,8 @@
     "certificateBypassFlags": []
   },
   "browserVersion": "153.0.8010.12",
-  "browserIdentity": "060f7e25945cffc1e9f38e62327c9222d1ed04b13163de91e6bc99d777037167",
-  "preparedUtc": "2026-10-03T15:51:35.280Z",
+  "browserIdentity": "8458a1391440c1a242121aaf395329dd6be6f803efd5d1dadaaeeeeed61f997b",
+  "preparedUtc": "2026-10-03T16:14:50.359Z",
   "rtc": {
     "browser": {
       "adapterSyntheticPayloadCopies": {
@@ -245,72 +264,72 @@
       "dtls": "connected",
       "events": [
         {
-          "atMs": 1791042695311,
+          "atMs": 1791044090392,
           "kind": "ice",
           "state": "New"
         },
         {
-          "atMs": 1791042695311,
+          "atMs": 1791044090392,
           "kind": "connection",
           "state": "New"
         },
         {
-          "atMs": 1791042695434,
+          "atMs": 1791044090512,
           "kind": "ice",
           "state": "New"
         },
         {
-          "atMs": 1791042695434,
+          "atMs": 1791044090512,
           "kind": "connection",
           "state": "New"
         },
         {
-          "atMs": 1791042695515,
+          "atMs": 1791044090584,
           "kind": "ice",
           "state": "Checking"
         },
         {
-          "atMs": 1791042695516,
+          "atMs": 1791044090584,
           "kind": "connection",
           "state": "New"
         },
         {
-          "atMs": 1791042695516,
+          "atMs": 1791044090584,
           "kind": "ice",
           "state": "Checking"
         },
         {
-          "atMs": 1791042695516,
+          "atMs": 1791044090584,
           "kind": "connection",
           "state": "Connecting"
         },
         {
-          "atMs": 1791042695638,
+          "atMs": 1791044090716,
           "kind": "ice",
           "state": "Connected"
         },
         {
-          "atMs": 1791042695638,
+          "atMs": 1791044090716,
           "kind": "connection",
           "state": "Connecting"
         },
         {
-          "atMs": 1791042695778,
+          "atMs": 1791044090856,
           "kind": "ice",
           "state": "Connected"
         },
         {
-          "atMs": 1791042695778,
+          "atMs": 1791044090856,
           "kind": "connection",
           "state": "Connected"
         },
         {
-          "atMs": 1791042695781,
+          "atMs": 1791044090859,
           "kind": "channel",
           "state": "open"
         },
         {
-          "atMs": 1791042695781,
+          "atMs": 1791044090859,
           "kind": "sendLimit",
           "state": "65536"
         }
@@ -319,7 +338,7 @@
       "iceServers": [],
       "matchedBytes": 1200,
       "maxMessageSize": 65536,
-      "memberStableId": 2599672,
+      "memberStableId": 2530336,
       "queueMessageLimit": 55,
       "rxPeakBytes": 1200,
       "rxPeakMessages": 1,
@@ -338,86 +357,86 @@
             "messagesSent": 1,
             "protocol": "miopunch/synthetic/1",
             "state": "open",
-            "timestamp": 1791042695783.935,
+            "timestamp": 1791044090862.039,
             "type": "data-channel"
           }
         ],
         "localCandidate": {
           "address": "192.168.4.5",
           "candidateType": "host",
-          "foundation": "1597886696",
-          "id": "It4XuU5PU",
+          "foundation": "3151712001",
+          "id": "I8GZ/ltW+",
           "ip": "192.168.4.5",
           "isRemote": false,
           "networkType": "unknown",
-          "port": 43416,
+          "port": 46029,
           "priority": 2113937151,
           "protocol": "udp",
-          "timestamp": 1791042695783.935,
+          "timestamp": 1791044090862.039,
           "transportId": "T01",
           "type": "local-candidate",
-          "usernameFragment": "Zh/g"
+          "usernameFragment": "9p0u"
         },
         "remoteCandidate": {
           "address": "192.168.4.5",
           "candidateType": "host",
           "foundation": "1558228001",
-          "id": "I46SaSxlK",
+          "id": "ID8ilK1VY",
           "ip": "192.168.4.5",
           "isRemote": true,
-          "port": 46316,
+          "port": 45726,
           "priority": 2130706431,
           "protocol": "udp",
-          "timestamp": 1791042695783.935,
+          "timestamp": 1791044090862.039,
           "transportId": "T01",
           "type": "remote-candidate",
-          "usernameFragment": "nIJECuVcftrGqkPE"
+          "usernameFragment": "udWyObRspnqdHxWx"
         },
         "selectedPair": {
           "bytesDiscardedOnSend": 0,
-          "bytesReceived": 2385,
-          "bytesSent": 2415,
+          "bytesReceived": 2386,
+          "bytesSent": 2416,
           "consentRequestsSent": 2,
           "currentRoundTripTime": 0.001,
-          "id": "CPt4XuU5PU_46SaSxlK",
-          "lastPacketReceivedTimestamp": 1791042695782,
-          "lastPacketSentTimestamp": 1791042695782,
-          "localCandidateId": "It4XuU5PU",
+          "id": "CP8GZ/ltW+_D8ilK1VY",
+          "lastPacketReceivedTimestamp": 1791044090860,
+          "lastPacketSentTimestamp": 1791044090860,
+          "localCandidateId": "I8GZ/ltW+",
           "nominated": true,
           "packetsDiscardedOnSend": 0,
           "packetsReceived": 7,
           "packetsSent": 8,
           "priority": 9079290933605827000,
-          "remoteCandidateId": "I46SaSxlK",
+          "remoteCandidateId": "ID8ilK1VY",
           "requestsReceived": 4,
           "requestsSent": 3,
           "responsesReceived": 3,
           "responsesSent": 4,
           "state": "succeeded",
-          "timestamp": 1791042695783.935,
+          "timestamp": 1791044090862.039,
           "totalRoundTripTime": 0.003,
           "transportId": "T01",
           "type": "candidate-pair",
           "writable": true
         },
         "transport": {
-          "bytesReceived": 2385,
-          "bytesSent": 2415,
+          "bytesReceived": 2386,
+          "bytesSent": 2416,
           "dtlsCipher": "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
           "dtlsRole": "server",
           "dtlsState": "connected",
-          "iceLocalUsernameFragment": "Zh/g",
+          "iceLocalUsernameFragment": "9p0u",
           "iceRole": "controlling",
           "iceState": "connected",
           "id": "T01",
-          "localCertificateId": "CFFD:C4:90:49:5E:3D:1F:09:4D:A5:B3:48:98:A4:B4:AD:C2:6A:8A:28:A9:6E:27:98:BB:D7:D1:88:43:7A:7C:DE",
+          "localCertificateId": "CF73:40:4B:3A:0D:72:4E:2C:E7:65:07:2B:D5:61:3A:7E:E8:33:E3:BA:9C:88:1F:AA:2D:7A:5E:54:DD:99:E8:95",
           "packetsReceived": 7,
           "packetsSent": 8,
-          "remoteCertificateId": "CF1C:0A:51:3E:C2:52:6B:13:EE:82:C0:71:E3:B8:84:B0:06:71:D5:9A:93:74:4C:19:84:AE:28:42:EF:1D:AA:E5",
+          "remoteCertificateId": "CF0B:88:5C:B1:EA:BF:D3:ED:AF:85:28:E4:25:4B:8E:0B:93:56:CB:BD:4D:F8:C5:D7:C3:87:D7:52:55:3E:98:7E",
           "selectedCandidatePairChanges": 1,
-          "selectedCandidatePairId": "CPt4XuU5PU_46SaSxlK",
+          "selectedCandidatePairId": "CP8GZ/ltW+_D8ilK1VY",
           "srtpCipher": "SRTP_AES128_CM_HMAC_SHA1_80",
-          "timestamp": 1791042695783.935,
+          "timestamp": 1791044090862.039,
           "tlsVersion": "FEFD",
           "type": "transport"
         }
@@ -462,17 +481,17 @@
       "dtls": "Connected",
       "events": [
         {
-          "elapsedMs": 75,
+          "elapsedMs": 65,
           "kind": "connection",
           "state": "connecting"
         },
         {
-          "elapsedMs": 75,
+          "elapsedMs": 65,
           "kind": "ice",
           "state": "checking"
         },
         {
-          "elapsedMs": 75,
+          "elapsedMs": 66,
           "kind": "gathering",
           "state": "complete"
         },
@@ -496,8 +515,8 @@
       "library": "webrtc 0.21.0",
       "matchedBytes": 1200,
       "maxMessageSize": 65536,
-      "memberStableId": 131169911925616,
-      "openedMs": 269,
+      "memberStableId": 124477010794512,
+      "openedMs": 279,
       "outstandingBytes": 0,
       "queueMessageLimit": 55,
       "rxPeakBytes": 1200,
@@ -509,8 +528,8 @@
           "address": "192.168.4.5",
           "component": 1,
           "foundation": "1558228001",
-          "id": "candidate:0c8nDT70NRONOVj0XUPuoAo5HEJ8/FF7",
-          "port": 46316,
+          "id": "candidate:bgnWrQwrQzR1DAgT9eCBGYNlsFKYspxW",
+          "port": 45726,
           "priority": 2130706431,
           "protocol": "udp",
           "related_address": "",
@@ -523,9 +542,9 @@
         "remote": {
           "address": "192.168.4.5",
           "component": 1,
-          "foundation": "1597886696",
-          "id": "candidate:612o36fPB2FILZkIUs9mgy/++cBhGPIu",
-          "port": 43416,
+          "foundation": "3151712001",
+          "id": "candidate:K8KwlyTUgAtT/ek74bUmGfai+jewudBs",
+          "port": 46029,
           "priority": 2113937151,
           "protocol": "udp",
           "related_address": "",
@@ -547,7 +566,7 @@
   "failures": {
     "events": [
       {
-        "atMs": 1791042695804,
+        "atMs": 1791044090886,
         "kind": "lateOpen",
         "state": "ignored"
       }
@@ -559,6 +578,13 @@
     "rxBytes": 0,
     "txBytes": 0
   },
+  "cancellation": {
+    "milliseconds": 2.5,
+    "rejection": "RTC signaling M closed; association cancelled",
+    "peersCreated": 3,
+    "peersClosed": 3,
+    "callbacksDetached": true
+  },
   "fixtureCleanup": {
     "code": 0,
     "signal": null
@@ -567,6 +593,6 @@
     "code": 0,
     "signal": null
   },
-  "cleanupMilliseconds": 197,
-  "completedUtc": "2026-10-03T15:51:36.002Z"
+  "cleanupMilliseconds": 265,
+  "completedUtc": "2026-10-03T16:14:51.916Z"
 }

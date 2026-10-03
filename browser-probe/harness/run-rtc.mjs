@@ -133,8 +133,15 @@ try {
   assert.equal(await preparation('material-save', () => page.evaluate(() => window.network.complete_admission())), 'Complete');
   await bounded(page.evaluate(async id => { window.member = await window.network.open_member_connection(id); }, ready.id));
   report.preparedUtc = new Date().toISOString();
+  await page.evaluate(() => {
+    const Original = window.RTCPeerConnection;
+    window.rtcObjects = [];
+    window.RTCPeerConnection = class extends Original {
+      constructor(...args) { super(...args); window.rtcObjects.push(this); }
+    };
+  });
   const attempts = await bounded(page.evaluate(async () => {
-    const results = await Promise.allSettled([window.member.rtc_channel_probe(), window.member.rtc_channel_probe()]);
+    const results = await Promise.allSettled([window.member.rtc_channel_probe(false), window.member.rtc_channel_probe(false)]);
     const fulfilled = results.filter(result => result.status === 'fulfilled');
     const refused = results.filter(result => result.status === 'rejected');
     if (fulfilled.length !== 1 || refused.length !== 1 || !String(refused[0].reason).includes('attempt already active')) throw new Error('concurrent RTC attempt was not refused');
@@ -162,6 +169,28 @@ try {
   assert.equal(report.failures.queueFullRefused, true); assert.equal(report.failures.lateOpenIgnored, true);
   assert(report.failures.events.some(event => event.kind === 'lateOpen' && event.state === 'ignored'));
   assert.equal(report.failures.txBytes + report.failures.rxBytes, 0);
+  await bounded(page.evaluate(async id => { window.cancelMember = await window.network.open_member_connection(id); }, ready.id));
+  const waiting = native.wait('rtc-waiting', true);
+  waiting.catch(() => {});
+  await bounded(page.evaluate(() => {
+    window.pendingCancel = window.cancelMember.rtc_channel_probe(true);
+    window.pendingCancel.catch(() => {});
+  }));
+  await waiting;
+  report.cancellation = await bounded(page.evaluate(async () => {
+    const started = performance.now();
+    window.cancelMember.close();
+    let rejection;
+    try { await window.pendingCancel; } catch (error) { rejection = String(error); }
+    return { milliseconds: performance.now()-started, rejection,
+      peersCreated: window.rtcObjects.length,
+      peersClosed: window.rtcObjects.filter(peer => peer.connectionState === 'closed').length,
+      callbacksDetached: window.rtcObjects.every(peer => peer.onicegatheringstatechange === null && peer.oniceconnectionstatechange === null && peer.onconnectionstatechange === null) };
+  }));
+  assert.match(report.cancellation.rejection, /signaling M closed/);
+  assert(report.cancellation.milliseconds < 1000, 'public close must promptly cancel local RTC RX');
+  assert.equal(report.cancellation.peersCreated, report.cancellation.peersClosed);
+  assert.equal(report.cancellation.callbacksDetached, true);
   assert(report.websockets.length > 0 && report.websockets.every(socket => socket.url.startsWith(relay.replace(/^https:/, 'wss:'))));
   assert(report.websockets.some(socket => socket.status === 101 && socket.sentFrames > 0 && socket.receivedFrames > 0));
   report.passed = true;

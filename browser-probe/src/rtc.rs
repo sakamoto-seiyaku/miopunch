@@ -1,10 +1,10 @@
 //! Native browser RTC API adapter for the bounded synthetic channel experiment.
 use super::*;
 use crate::rtc_association::{
-    CHANNEL_ID, CHANNEL_LABEL, CHANNEL_PROTOCOL, DATAGRAM_BYTES, DatagramQueue, QUEUE_BYTES,
-    channel_parameters,
+    CHANNEL_ID, CHANNEL_LABEL, CHANNEL_PROTOCOL, DATAGRAM_BYTES, DatagramQueue, EXPORTER_LABEL,
+    QUEUE_BYTES, attempt_context, channel_parameters,
 };
-use futures_util::{future::poll_fn, task::AtomicWaker};
+use futures_util::{FutureExt, future::poll_fn, task::AtomicWaker};
 use js_sys::{Array, Reflect, Uint8Array};
 use serde_json::{Value, json};
 use std::{cell::RefCell, rc::Rc, task::Poll};
@@ -38,7 +38,7 @@ fn event(events: &RefCell<Vec<Value>>, kind: &str, state: String) {
     }
 }
 impl Association {
-    fn new() -> Result<Self, JsValue> {
+    fn new(connection: &Connection) -> Result<Self, JsValue> {
         let config = RtcConfiguration::new();
         config.set_ice_servers(&Array::new());
         let pc = RtcPeerConnection::new_with_configuration(&config)?;
@@ -58,7 +58,18 @@ impl Association {
         let mut callbacks = Vec::new();
         let (tx_open, rx_open, dc_open, open_events) =
             (tx.clone(), rx.clone(), dc.clone(), events.clone());
+        let open_member = connection.weak_handle();
         let open = Closure::<dyn FnMut(Event)>::new(move |_| {
+            if !open_member
+                .upgrade()
+                .is_some_and(|member| member.close_reason().is_none())
+            {
+                tx_open.close();
+                rx_open.close();
+                dc_open.close();
+                event(&open_events, "lateOpen", "ignored after M close".into());
+                return;
+            }
             if tx_open.open().is_err() || rx_open.open().is_err() {
                 event(&open_events, "lateOpen", "ignored".into());
                 dc_open.close();
@@ -286,7 +297,7 @@ async fn stats(pc: &RtcPeerConnection) -> Result<Value, JsValue> {
 #[wasm_bindgen]
 impl BrowserMemberConnection {
     /// A synthetic experiment inside this already qualified relay M; not a MIO path upgrade.
-    pub async fn rtc_channel_probe(&self) -> Result<String, JsValue> {
+    pub async fn rtc_channel_probe(&self, withhold_reply: bool) -> Result<String, JsValue> {
         let saved = self.qualified_snapshot().await?;
         self.rtc_active
             .compare_exchange(
@@ -297,19 +308,18 @@ impl BrowserMemberConnection {
             )
             .map_err(|_| error("RTC attempt already active on this M"))?;
         let _active = ActiveAttempt(self.rtc_active.clone());
-        let association = Association::new()?;
+        let association = Association::new(&self.connection)?;
         let attempt = hex::encode(rand::random::<[u8; 16]>());
-        let context = json!([
-            attempt,
-            hex::encode(saved.invitation()?.anchor.root.as_bytes()),
+        let context = attempt_context(
+            &attempt,
+            saved.invitation()?.anchor.root.as_bytes(),
             saved.generation,
-            saved.identity().to_string(),
-            self.connection.remote_id().to_string()
-        ])
-        .to_string();
+            &saved.identity().to_string(),
+            &self.connection.remote_id().to_string(),
+        );
         let mut exporter = [0; 32];
         self.connection
-            .export_keying_material(&mut exporter, b"miopunch/rtc-probe/1", context.as_bytes())
+            .export_keying_material(&mut exporter, EXPORTER_LABEL, context.as_bytes())
             .map_err(|_| error("RTC exporter unavailable"))?;
         let binding = blake3::hash(&exporter).to_hex().to_string();
         let work = async {
@@ -322,7 +332,7 @@ impl BrowserMemberConnection {
                 .pc
                 .local_description()
                 .ok_or_else(|| error("RTC offer absent"))?;
-            let request = json!({"protocol":"miopunch/rtc-probe/1","attempt":attempt,"context":context,"binding":binding,"channel":channel_parameters(),"description":{"type":"offer","sdp":offer.sdp()}});
+            let request = json!({"protocol":"miopunch/rtc-probe/1","attempt":attempt,"context":context,"binding":binding,"channel":channel_parameters(),"withholdReply":withhold_reply,"description":{"type":"offer","sdp":offer.sdp()}});
             let (mut send, mut recv) = self.connection.open_bi().await.map_err(error)?;
             send.write_all(&serde_json::to_vec(&request).map_err(error)?)
                 .await
@@ -365,9 +375,17 @@ impl BrowserMemberConnection {
             let native = read_frame(&mut recv).await?;
             Ok::<_, JsValue>(json!({"browser":browser,"native":native}))
         };
-        let result = n0_future::time::timeout(std::time::Duration::from_secs(20), work)
-            .await
-            .map_err(|_| error("RTC 20 second setup/test deadline"))?;
+        let closed = self.connection.closed().fuse();
+        let work = work.fuse();
+        futures_util::pin_mut!(closed, work);
+        let result = n0_future::time::timeout(std::time::Duration::from_secs(20), async {
+            futures_util::select_biased! {
+                _ = closed => Err(error("RTC signaling M closed; association cancelled")),
+                result = work => result,
+            }
+        })
+        .await
+        .map_err(|_| error("RTC 20 second setup/test deadline"))?;
         association.retire();
         let mut result = result?;
         result["cleanup"] = json!({"pcClosed":true,"channelClosed":true,"txBytes":association.tx.bytes(),"rxBytes":association.rx.bytes(),"ownedPumpTasks":0,"callbacksDetachedOnDrop":true});
@@ -375,7 +393,7 @@ impl BrowserMemberConnection {
     }
     /// Local failure injection on owned RTC objects; no public traffic or remote peer.
     pub fn rtc_failure_probe(&self) -> Result<String, JsValue> {
-        let association = Association::new()?;
+        let association = Association::new(&self.connection)?;
         association.tx.open().map_err(error)?;
         for _ in 0..54 {
             association.tx.try_push(vec![1; 1200]).map_err(error)?;
