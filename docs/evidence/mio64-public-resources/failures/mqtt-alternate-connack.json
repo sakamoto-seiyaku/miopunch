@@ -1,0 +1,27 @@
+[
+  {
+    "host": "broker.emqx.io",
+    "port": 1883,
+    "tls_verified": false,
+    "peer": [
+      "44.232.241.40",
+      1883
+    ],
+    "connack": "20020000"
+  },
+  {
+    "host": "test.mosquitto.org",
+    "port": 8886,
+    "tls_verified": true,
+    "peer": [
+      "54.36.178.49",
+      8886
+    ],
+    "connack": "20020000"
+  },
+  {
+    "host": "broker.hivemq.com",
+    "port": 1883,
+    "error": "TimeoutError('timed out')"
+  }
+]

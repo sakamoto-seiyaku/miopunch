@@ -1,0 +1,179 @@
+{
+  "started_unix_ms": 1790996136864,
+  "passed": false,
+  "selected_resources": {
+    "mqtt": "mqtt://broker.emqx.io:1883/",
+    "stun_tcp": "stun+tcp://turn.cloudflare.com:3478/",
+    "stun_udp": "stun://stun.cloudflare.com:3478/",
+    "relay": "https://aps1-1.relay.n0.iroh.link./"
+  },
+  "tls": {
+    "mqtt": "unencrypted public carrier; private exchange uses inner identity-authenticated QUIC/TLS",
+    "relay": "verified HTTPS with embedded WebPKI roots; no verification bypass"
+  },
+  "default_public_data": {
+    "android": {
+      "genesis": "0727df2fbdf52c6c4ca6f5ed84b9a5c42671baa44fe191ba532a0bde935b0344",
+      "members": [
+        {
+          "node": "891641f10783581da1c0cafa25a52d10a820b47fdf0f3343c8d72c9a4dd3ba27",
+          "role": "admin"
+        },
+        {
+          "node": "e74475954632a59dbe7187edca7c5bcaade1c4426c279a866b5a7b0a5b1e2353",
+          "role": "member"
+        }
+      ],
+      "network": "0873a955e537fb6253336a46681b0b8c506f6401f8bcab18e08f43d71ee34a59",
+      "node": "e74475954632a59dbe7187edca7c5bcaade1c4426c279a866b5a7b0a5b1e2353",
+      "records": 2,
+      "stage": "Complete"
+    },
+    "linux": {
+      "genesis": "0727df2fbdf52c6c4ca6f5ed84b9a5c42671baa44fe191ba532a0bde935b0344",
+      "members": [
+        {
+          "node": "891641f10783581da1c0cafa25a52d10a820b47fdf0f3343c8d72c9a4dd3ba27",
+          "role": "admin"
+        },
+        {
+          "node": "e74475954632a59dbe7187edca7c5bcaade1c4426c279a866b5a7b0a5b1e2353",
+          "role": "member"
+        }
+      ],
+      "network": "0873a955e537fb6253336a46681b0b8c506f6401f8bcab18e08f43d71ee34a59",
+      "node": "891641f10783581da1c0cafa25a52d10a820b47fdf0f3343c8d72c9a4dd3ba27",
+      "records": 2,
+      "stage": "Complete"
+    },
+    "business": {
+      "reply": "PONG",
+      "transport": {
+        "connection": 12970367462337381696,
+        "paths": [
+          {
+            "local": "Relay(RelayUrl(\"https://aps1-1.relay.n0.iroh.link./\"))",
+            "remote": {
+              "Relay": "https://aps1-1.relay.n0.iroh.link./"
+            },
+            "rx_bytes": 11470,
+            "selected": true,
+            "stream_rx": 5,
+            "stream_tx": 6,
+            "tx_bytes": 12218
+          }
+        ],
+        "peer": "891641f10783581da1c0cafa25a52d10a820b47fdf0f3343c8d72c9a4dd3ba27"
+      }
+    }
+  },
+  "observations": {
+    "linux": {
+      "bound_sockets": [
+        "0.0.0.0:45399",
+        "[::]:44542"
+      ],
+      "observations": [
+        {
+          "error": "STUN Binding timed out after 3 endpoint socket sends",
+          "fresh": false,
+          "protocol": "STUN/UDP/RFC8489",
+          "service": "stun://stun.cloudflare.com:3478/",
+          "started_unix_ms": 1790996155980
+        },
+        {
+          "destination": "141.101.90.1:3478",
+          "fresh": true,
+          "local_socket": "192.168.4.5:41654",
+          "mapped": "104.28.218.21:55659",
+          "protocol": "STUN/TCP/RFC8489",
+          "retained_connection": true,
+          "service": "stun+tcp://turn.cloudflare.com:3478/",
+          "started_unix_ms": 1790996158982,
+          "transaction_and_source_validated": true,
+          "transport_listener": "0.0.0.0:41654",
+          "valid_for_ms": 39999
+        }
+      ]
+    },
+    "linux_relay_only": {
+      "bound_sockets": [],
+      "observations": [
+        {
+          "error": "endpoint has no IPv4 UDP transport for STUN",
+          "fresh": false,
+          "protocol": "STUN/UDP/RFC8489",
+          "service": "stun://stun.cloudflare.com:3478/",
+          "started_unix_ms": 1790996160841
+        },
+        {
+          "destination": "141.101.90.1:3478",
+          "fresh": true,
+          "local_socket": "192.168.4.5:41654",
+          "mapped": "104.28.218.21:55661",
+          "protocol": "STUN/TCP/RFC8489",
+          "retained_connection": true,
+          "service": "stun+tcp://turn.cloudflare.com:3478/",
+          "started_unix_ms": 1790996160841,
+          "transaction_and_source_validated": true,
+          "transport_listener": "0.0.0.0:41654",
+          "valid_for_ms": 39999
+        }
+      ]
+    },
+    "android": {
+      "bound_sockets": [
+        "0.0.0.0:52672",
+        "[::]:46118"
+      ],
+      "observations": [
+        {
+          "error": "STUN Binding timed out after 3 endpoint socket sends",
+          "fresh": false,
+          "protocol": "STUN/UDP/RFC8489",
+          "service": "stun://stun.cloudflare.com:3478/",
+          "started_unix_ms": 1790996168771
+        },
+        {
+          "destination": "141.101.90.1:3478",
+          "fresh": true,
+          "local_socket": "192.168.4.151:41653",
+          "mapped": "104.28.218.21:55526",
+          "protocol": "STUN/TCP/RFC8489",
+          "retained_connection": true,
+          "service": "stun+tcp://turn.cloudflare.com:3478/",
+          "started_unix_ms": 1790996171777,
+          "transaction_and_source_validated": true,
+          "transport_listener": "0.0.0.0:41653",
+          "valid_for_ms": 39999
+        }
+      ]
+    },
+    "android_relay_only": {
+      "bound_sockets": [],
+      "observations": [
+        {
+          "error": "endpoint has no IPv4 UDP transport for STUN",
+          "fresh": false,
+          "protocol": "STUN/UDP/RFC8489",
+          "service": "stun://stun.cloudflare.com:3478/",
+          "started_unix_ms": 1790996174629
+        },
+        {
+          "destination": "141.101.90.1:3478",
+          "fresh": true,
+          "local_socket": "192.168.4.151:41653",
+          "mapped": "[2a09:bac1:1e00::1d8:83]:42598",
+          "protocol": "STUN/TCP/RFC8489",
+          "retained_connection": true,
+          "service": "stun+tcp://turn.cloudflare.com:3478/",
+          "started_unix_ms": 1790996174629,
+          "transaction_and_source_validated": true,
+          "transport_listener": "0.0.0.0:41653",
+          "valid_for_ms": 39999
+        }
+      ]
+    }
+  },
+  "error": "AssertionError(('open_business', {'error': 'invalid_request_or_operation_failed', 'id': 4, 'ok': False}))"
+}

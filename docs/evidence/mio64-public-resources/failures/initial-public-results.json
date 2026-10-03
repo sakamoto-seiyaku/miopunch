@@ -1,0 +1,61 @@
+{
+  "started_unix_ms": 1790994088387,
+  "passed": false,
+  "default_public_data": {
+    "android": {
+      "genesis": "eee149b3b31ea87ac4dc2d48c157cfffb956c458c5bc1061e7468261ce1b1c61",
+      "members": [
+        {
+          "node": "7602c70135446acdcbbbf492e91b13253718487497c0160c6836c976004058c3",
+          "role": "admin"
+        },
+        {
+          "node": "ef1e7676d4326e2ce398f2719a9a744fd1c0824bcf36cf2e9157d344ff8c69ae",
+          "role": "member"
+        }
+      ],
+      "network": "c7258ae4f25cef8a93cd4a6b5cae388bf69bf12a0fb015ad61b6b99a63314f03",
+      "node": "ef1e7676d4326e2ce398f2719a9a744fd1c0824bcf36cf2e9157d344ff8c69ae",
+      "records": 2,
+      "stage": "Complete"
+    },
+    "linux": {
+      "genesis": "eee149b3b31ea87ac4dc2d48c157cfffb956c458c5bc1061e7468261ce1b1c61",
+      "members": [
+        {
+          "node": "7602c70135446acdcbbbf492e91b13253718487497c0160c6836c976004058c3",
+          "role": "admin"
+        },
+        {
+          "node": "ef1e7676d4326e2ce398f2719a9a744fd1c0824bcf36cf2e9157d344ff8c69ae",
+          "role": "member"
+        }
+      ],
+      "network": "c7258ae4f25cef8a93cd4a6b5cae388bf69bf12a0fb015ad61b6b99a63314f03",
+      "node": "7602c70135446acdcbbbf492e91b13253718487497c0160c6836c976004058c3",
+      "records": 2,
+      "stage": "Complete"
+    },
+    "business": {
+      "reply": "PONG",
+      "transport": {
+        "connection": 12970367465067250912,
+        "paths": [
+          {
+            "local": "Relay(RelayUrl(\"https://aps1-1.relay.n0.iroh.link./\"))",
+            "remote": {
+              "Relay": "https://aps1-1.relay.n0.iroh.link./"
+            },
+            "rx_bytes": 9254,
+            "selected": true,
+            "stream_rx": 6,
+            "stream_tx": 6,
+            "tx_bytes": 10288
+          }
+        ],
+        "peer": "7602c70135446acdcbbbf492e91b13253718487497c0160c6836c976004058c3"
+      }
+    }
+  },
+  "error": "AssertionError({'bound_sockets': [], 'observations': [{'error': 'STUN Binding timed out', 'fresh': False, 'protocol': 'STUN/UDP/RFC8489', 'service': 'stun://stun.cloudflare.com:3478/', 'started_unix_ms': 1790994111251}, {'error': 'invalid STUN TCP binding response', 'fresh': False, 'protocol': 'STUN/TCP/RFC8489', 'service': 'stun+tcp://turn.cloudflare.com:3478/', 'started_unix_ms': 1790994114253}]})"
+}

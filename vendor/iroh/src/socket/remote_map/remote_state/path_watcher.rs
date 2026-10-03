@@ -312,10 +312,7 @@ pub(crate) struct PathStateReceiver {
 impl PathStateReceiver {
     /// Returns a snapshot of the currently-open paths, tied to `conn`.
     pub(crate) fn get<'a>(&self, conn: &'a noq::Connection) -> PathList<'a> {
-        PathList {
-            snapshot: self.shared.state.lock().expect("poisoned").clone(),
-            conn,
-        }
+        PathList::new(self.shared.state.lock().expect("poisoned").clone(), conn)
     }
 
     /// Returns a stream of [`PathEvent`]s.
@@ -364,6 +361,23 @@ pub struct PathList<'conn> {
 }
 
 impl<'conn> PathList<'conn> {
+    fn new(mut snapshot: State, conn: &'conn noq::Connection) -> Self {
+        // A local close takes effect before noq emits its delayed Abandoned
+        // event. Admission can close signaling paths just before releasing a
+        // data handle, so capture actual open paths rather than stale actor
+        // entries. Existing snapshots keep their retained statistics.
+        snapshot
+            .list
+            .retain(|data| conn.path(data.handle.id()).is_some());
+        if snapshot
+            .selected
+            .is_some_and(|id| !snapshot.list.iter().any(|data| data.handle.id() == id))
+        {
+            snapshot.selected = None;
+        }
+        Self { snapshot, conn }
+    }
+
     /// Returns the number of open paths.
     pub fn len(&self) -> usize {
         self.snapshot.list.len()
@@ -561,10 +575,7 @@ impl<'conn> Stream for PathListStream<'conn> {
         if snapshot.closed {
             Poll::Ready(None)
         } else {
-            Poll::Ready(Some(PathList {
-                snapshot,
-                conn: this.conn,
-            }))
+            Poll::Ready(Some(PathList::new(snapshot, this.conn)))
         }
     }
 }

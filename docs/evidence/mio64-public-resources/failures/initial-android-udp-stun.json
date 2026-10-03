@@ -1,0 +1,32 @@
+{
+  "id": 1,
+  "ok": true,
+  "result": {
+    "bound_sockets": [
+      "0.0.0.0:48732",
+      "[::]:42489"
+    ],
+    "observations": [
+      {
+        "error": "STUN Binding timed out",
+        "fresh": false,
+        "protocol": "STUN/UDP/RFC8489",
+        "service": "stun://stun.cloudflare.com:3478/",
+        "started_unix_ms": 1790993691107
+      },
+      {
+        "destination": "141.101.90.1:3478",
+        "fresh": true,
+        "local_socket": "192.168.4.151:41653",
+        "mapped": "104.28.218.19:58811",
+        "protocol": "STUN/TCP/RFC8489",
+        "retained_connection": true,
+        "service": "stun+tcp://turn.cloudflare.com:3478/",
+        "started_unix_ms": 1790993694113,
+        "transaction_and_source_validated": true,
+        "transport_listener": "0.0.0.0:41653",
+        "valid_for_ms": 39999
+      }
+    ]
+  }
+}

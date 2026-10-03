@@ -89,6 +89,7 @@ pub struct TcpTransport {
     nat_pmp_mapping: bool,
     bind_policy: Option<iroh::endpoint::RelayResourcePolicy>,
     punching: bool,
+    reuse_local_port: bool,
     shared: Arc<Mutex<Weak<Shared>>>,
 }
 
@@ -105,6 +106,7 @@ impl TcpTransport {
             nat_pmp_mapping: false,
             bind_policy: None,
             punching: false,
+            reuse_local_port: false,
             shared: Arc::new(Mutex::new(Weak::new())),
         }
     }
@@ -118,6 +120,8 @@ impl TcpTransport {
 
     pub(crate) fn with_punching(mut self) -> Self {
         self.punching = cfg!(target_os = "linux") && self.bind_addr.is_ipv4();
+        self.reuse_local_port =
+            cfg!(any(target_os = "linux", target_os = "android")) && self.bind_addr.is_ipv4();
         self
     }
 
@@ -135,10 +139,10 @@ impl TcpTransport {
             .unwrap()
             .upgrade()
             .ok_or_else(|| io::Error::other("TCP endpoint unavailable"))?;
-        if !shared.punching {
+        if !shared.reuse_local_port {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
-                "TCP punching requires validated Linux IPv4 port reuse",
+                "TCP observation requires retained IPv4 transport port reuse",
             ));
         }
         let stream = connect_from_listener(shared.local, observer).await?;
@@ -360,6 +364,7 @@ struct Shared {
     shutdown: tokio::sync::watch::Sender<bool>,
     traffic: Arc<Traffic>,
     punching: bool,
+    reuse_local_port: bool,
 }
 
 #[derive(Debug)]
@@ -446,14 +451,14 @@ impl CustomTransport for TcpTransport {
                 "TCP carrier requires an unscoped, unmapped IPv6 address",
             ));
         }
-        let socket: std::net::TcpListener = if self.punching {
+        let socket: std::net::TcpListener = if self.reuse_local_port {
             let socket = socket2::Socket::new(
                 socket2::Domain::IPV4,
                 socket2::Type::STREAM,
                 Some(socket2::Protocol::TCP),
             )?;
             socket.set_reuse_address(true)?;
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "android"))]
             socket.set_reuse_port(true)?;
             socket.bind(&self.bind_addr.into())?;
             socket.listen(64)?;
@@ -475,6 +480,7 @@ impl CustomTransport for TcpTransport {
             shutdown,
             traffic: self.traffic.clone(),
             punching: self.punching,
+            reuse_local_port: self.reuse_local_port,
         });
         *self.shared.lock().unwrap() = Arc::downgrade(&shared);
         let weak = Arc::downgrade(&shared);
@@ -665,7 +671,7 @@ async fn connect_from_listener(local: SocketAddr, target: SocketAddr) -> io::Res
         TcpSocket::new_v6()?
     };
     socket.set_reuseaddr(true)?;
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     socket.set_reuseport(true)?;
     socket.bind(local)?;
     socket.connect(target).await
@@ -692,7 +698,7 @@ fn ensure_channel(shared: &Arc<Shared>, target: SocketAddr) -> io::Result<Arc<Mu
                 let mut shutdown=shared.shutdown.subscribe();
                 tokio::spawn(async move {
                     let connecting=tokio::time::timeout(std::time::Duration::from_secs(5), async {
-                        if shared.punching {
+                        if shared.reuse_local_port {
                             connect_from_listener(shared.local, target).await
                         } else {
                             TcpStream::connect(target).await

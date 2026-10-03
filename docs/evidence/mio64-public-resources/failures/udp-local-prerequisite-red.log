@@ -1,0 +1,24 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.26s
+     Running tests/public_resources.rs (target/debug/deps/public_resources-c88496f5eb5e69f0)
+
+running 1 test
+test configured_stun_is_not_a_qad_relay_and_disabled_observation_sends_nothing ... FAILED
+
+failures:
+
+---- configured_stun_is_not_a_qad_relay_and_disabled_observation_sends_nothing stdout ----
+
+thread 'configured_stun_is_not_a_qad_relay_and_disabled_observation_sends_nothing' (2647502) panicked at tests/public_resources.rs:123:5:
+assertion `left == right` failed: a missing UDP transport is a local prerequisite failure, not public STUN availability
+  left: TimedOut
+ right: Unsupported
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    configured_stun_is_not_a_qad_relay_and_disabled_observation_sends_nothing
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 3.39s
+
+error: test failed, to rerun pass `--test public_resources`

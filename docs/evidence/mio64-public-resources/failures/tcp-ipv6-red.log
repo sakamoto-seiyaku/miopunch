@@ -1,0 +1,24 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.93s
+     Running tests/public_resources.rs (target/debug/deps/public_resources-c88496f5eb5e69f0)
+
+running 1 test
+test tcp_stun_accepts_ipv6_mapping_of_the_actual_ipv4_transport_connection ... FAILED
+
+failures:
+
+---- tcp_stun_accepts_ipv6_mapping_of_the_actual_ipv4_transport_connection stdout ----
+[DEBUG-64-stun] xor_size=20 family=Some(2)
+
+thread 'tcp_stun_accepts_ipv6_mapping_of_the_actual_ipv4_transport_connection' (2631194) panicked at tests/public_resources.rs:197:62:
+called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidData, error: "invalid STUN TCP binding response" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+
+
+failures:
+    tcp_stun_accepts_ipv6_mapping_of_the_actual_ipv4_transport_connection
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.19s
+
+error: test failed, to rerun pass `--test public_resources`

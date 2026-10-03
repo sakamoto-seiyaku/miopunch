@@ -1,0 +1,24 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: unused import: `collections::BTreeSet`
+ --> tests/public_resources.rs:2:11
+  |
+2 | use std::{collections::BTreeSet, net::Ipv4Addr, time::Duration};
+  |           ^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `ResourceUse`, `Resource`, and `native_network::NativeNetwork`
+ --> tests/public_resources.rs:5:29
+  |
+5 | use miopunch_native_probe::{native_network::NativeNetwork, resources::{Resource, ResourceUse}};
+  |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^              ^^^^^^^^  ^^^^^^^^^^^
+
+error[E0599]: no method named `observe_udp_stun` found for struct `iroh::Endpoint` in the current scope
+  --> tests/public_resources.rs:40:32
+   |
+40 |     let observation = endpoint.observe_udp_stun(&format!("stun://{address}/").parse().unwrap()).await.unwrap();
+   |                                ^^^^^^^^^^^^^^^^ method not found in `iroh::Endpoint`
+
+For more information about this error, try `rustc --explain E0599`.
+warning: `miopunch-native-probe` (test "public_resources") generated 2 warnings
+error: could not compile `miopunch-native-probe` (test "public_resources") due to 1 previous error; 2 warnings emitted

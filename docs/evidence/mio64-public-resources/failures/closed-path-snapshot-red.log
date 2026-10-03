@@ -1,0 +1,22 @@
+   Compiling iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+   Compiling iroh-mdns-address-lookup v0.5.0
+   Compiling p2panda-net v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-net)
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.27s
+     Running tests/public_resources.rs (target/debug/deps/public_resources-c88496f5eb5e69f0)
+
+running 1 test
+
+thread 'locally_closed_paths_are_absent_from_new_public_snapshots_before_abandonment' (2663595) panicked at tests/public_resources.rs:284:5:
+a released handle must not advertise closed signaling paths
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test locally_closed_paths_are_absent_from_new_public_snapshots_before_abandonment ... FAILED
+
+failures:
+
+failures:
+    locally_closed_paths_are_absent_from_new_public_snapshots_before_abandonment
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 3.53s
+
+error: test failed, to rerun pass `--test public_resources`

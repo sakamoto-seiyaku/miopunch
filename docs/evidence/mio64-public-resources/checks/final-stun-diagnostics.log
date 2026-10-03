@@ -1,0 +1,18 @@
+   Compiling iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+   Compiling iroh-mdns-address-lookup v0.5.0
+   Compiling p2panda-net v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-net)
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.94s
+     Running tests/public_resources.rs (target/debug/deps/public_resources-c88496f5eb5e69f0)
+
+running 4 tests
+STUN_UDP_SEND destination=127.0.0.1:47003 endpoint_binding=Some(127.0.0.1:47244) attempt=1 sent_to_kernel=true
+test stun_uses_the_endpoint_socket_and_rejects_wrong_source_and_transaction ... ok
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_stun_retains_the_configured_transport_port_and_expires_on_close ... ok
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_stun_accepts_ipv6_mapping_of_the_actual_ipv4_transport_connection ... ok
+test configured_stun_is_not_a_qad_relay_and_disabled_observation_sends_nothing ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.71s
+

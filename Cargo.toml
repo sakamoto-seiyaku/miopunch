@@ -5,6 +5,9 @@ edition = "2024"
 rust-version = "1.96"
 publish = false
 
+[lib]
+crate-type = ["rlib", "cdylib"]
+
 [workspace]
 resolver = "2"
 members = ["browser-probe", "vendor/p2panda-auth", "vendor/p2panda-net"]
@@ -77,6 +80,9 @@ socket2 = "0.6.5"
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite"] }
 thiserror.workspace = true
 tokio = { version = "1.52.3", features = ["full"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "=0.21.1"
 
 [dev-dependencies]
 bytes = "1.11.1"

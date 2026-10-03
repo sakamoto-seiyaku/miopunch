@@ -13,6 +13,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ndk", required=True, help="Android NDK directory")
     parser.add_argument("--output", required=True, help="new directory for build log/tool metadata")
+    parser.add_argument("--jni-shell", action="store_true", help="also build the foreground JNI shell and dex jar")
+    parser.add_argument("--d8-jar", help="Android build-tools lib/d8.jar, required with --jni-shell")
     args = parser.parse_args()
     output = pathlib.Path(args.output).resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -43,14 +45,35 @@ def main():
     env.update(CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=str(compiler),
                CC_aarch64_linux_android=str(compiler), AR_aarch64_linux_android=str(archiver))
     command = ["cargo", "build", "--locked", "--target", "aarch64-linux-android", "--bin", "miopunch-native-probe"]
+    if args.jni_shell:
+        command.append("--lib")
     versions = {"rust": subprocess.check_output(["rustc", "-vV"], text=True),
                 "compiler": subprocess.check_output([str(compiler), "--version"], text=True),
                 "ndk": (ndk / "source.properties").read_text(), "command": command}
     with (output / "build.log").open("w") as log:
         result = subprocess.run(command, env=env, stdout=log, stderr=subprocess.STDOUT)
     versions["exit"] = result.returncode
+    if result.returncode == 0 and args.jni_shell:
+        assert args.d8_jar and pathlib.Path(args.d8_jar).is_file(), "--d8-jar required for JNI shell"
+        classes = output / "classes"
+        dex = output / "dex"
+        classes.mkdir()
+        dex.mkdir()
+        source = pathlib.Path(__file__).resolve().parent / "android/MioPublicShell.java"
+        shell_commands = [
+            ["javac", "--release", "8", "-d", str(classes), str(source)],
+            ["java", "-cp", args.d8_jar, "com.android.tools.r8.D8", "--min-api", "24", "--output", str(dex), str(classes / "MioPublicShell.class")],
+            ["jar", "cf", str(output / "android-shell.jar"), "-C", str(dex), "classes.dex"],
+        ]
+        with (output / "shell-build.log").open("w") as log:
+            for shell_command in shell_commands:
+                built = subprocess.run(shell_command, stdout=log, stderr=subprocess.STDOUT)
+                if built.returncode:
+                    versions["exit"] = built.returncode
+                    break
+        versions["shell_commands"] = shell_commands
     (output / "build.json").write_text(json.dumps(versions, indent=2))
-    raise SystemExit(result.returncode)
+    raise SystemExit(versions["exit"])
 
 
 if __name__ == "__main__":

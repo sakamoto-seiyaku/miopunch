@@ -120,15 +120,28 @@ enum Command {
     },
     Status,
     Resources,
+    Observe,
     SaveResources {
         config: miopunch_native_probe::resources::ResourceConfig,
     },
     Ping {
         address: EndpointAddr,
+        #[serde(default)]
+        hints_only: bool,
     },
     Sync {
         address: EndpointAddr,
+        #[serde(default)]
+        hints_only: bool,
     },
+    Address,
+    OpenBusiness {
+        address: EndpointAddr,
+        #[serde(default)]
+        hints_only: bool,
+    },
+    Business,
+    BusinessStatus,
     Manage {
         action: Action,
         target: p2panda_core::VerifyingKey,
@@ -208,11 +221,20 @@ fn emit(value: Value) {
     let _ = std::io::stdout().flush();
 }
 
+fn paths(connection: &Connection) -> Value {
+    json!({"connection": connection.stable_id(), "peer": connection.remote_id().to_string(),
+        "paths": connection.paths().iter().map(|path| json!({"remote": path.remote_addr(),
+            "local": format!("{:?}", path.local_addr()), "selected": path.is_selected(),
+            "tx_bytes": path.stats().udp_tx.bytes, "rx_bytes": path.stats().udp_rx.bytes,
+            "stream_tx": path.stats().frame_tx.stream, "stream_rx": path.stats().frame_rx.stream})).collect::<Vec<_>>()})
+}
+
 async fn dispatch(
     command: Command,
     node: &mut NativeNetwork,
     resources: &ResourceEndpoint,
     session: &mut ManagementSession,
+    held: &mut Option<Connection>,
 ) -> Result<Value, CommandError> {
     match command {
         Command::Invite { path } => {
@@ -327,12 +349,98 @@ async fn dispatch(
         }
         Command::Status => Ok(status(node)),
         Command::Resources => Ok(json!({"config": node.resource_configuration()?})),
+        Command::Observe => {
+            let mut results = Vec::new();
+            for origin in node.resource_configuration()?.udp_stun_resources() {
+                let started = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)?
+                    .as_millis();
+                match resources.endpoint().observe_udp_stun(&origin).await {
+                    Ok(observation) => results.push(json!({"service": origin, "protocol": "STUN/UDP/RFC8489",
+                        "started_unix_ms": started, "destination": observation.destination,
+                        "local_socket": observation.local_addr, "mapped": observation.mapped,
+                        "transaction_and_source_validated": true, "fresh": observation.is_fresh(),
+                        "valid_for_ms": observation.valid_until.saturating_duration_since(std::time::Instant::now()).as_millis()})),
+                    Err(error) => results.push(json!({"service": origin, "protocol": "STUN/UDP/RFC8489",
+                        "started_unix_ms": started, "fresh": false, "error": error.to_string()})),
+                }
+            }
+            for origin in node.resource_configuration()?.tcp_stun_resources() {
+                let started = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)?
+                    .as_millis();
+                match resources.observe_tcp_stun(&origin).await {
+                    Ok(observation) => results.push(json!({"service": origin, "protocol": "STUN/TCP/RFC8489",
+                        "started_unix_ms": started, "destination": observation.destination,
+                        "transport_listener": observation.listener, "local_socket": observation.local_addr, "mapped": observation.mapped,
+                        "transaction_and_source_validated": true, "retained_connection": true, "fresh": observation.is_fresh(),
+                        "valid_for_ms": observation.valid_until.saturating_duration_since(std::time::Instant::now()).as_millis()})),
+                    Err(error) => results.push(json!({"service": origin, "protocol": "STUN/TCP/RFC8489",
+                        "started_unix_ms": started, "fresh": false, "error": error.to_string()})),
+                }
+            }
+            Ok(
+                json!({"bound_sockets": resources.endpoint().bound_sockets(), "observations": results}),
+            )
+        }
         Command::SaveResources { config } => {
             node.save_resource_configuration(&config)?;
             Ok(json!({"effective_on_restart": true}))
         }
-        Command::Ping { address } => {
-            let connection = resources.connect(address, BUSINESS).await?;
+        Command::Address => Ok(
+            json!({"address": resources.addr(), "custom": resources.endpoint().custom_addrs(), "mqtt": resources.mqtt_diagnostics()}),
+        ),
+        Command::OpenBusiness {
+            address,
+            hints_only,
+        } => {
+            if let Some(previous) = held.take() {
+                previous.close(0u32.into(), b"replaced test connection");
+            }
+            let connection = if hints_only {
+                tokio::time::timeout(
+                    std::time::Duration::from_secs(25),
+                    resources.endpoint().connect(address, BUSINESS),
+                )
+                .await??
+            } else {
+                resources.connect(address, BUSINESS).await?
+            };
+            let result = paths(&connection);
+            *held = Some(connection);
+            Ok(result)
+        }
+        Command::Business => {
+            let connection = held.as_ref().ok_or("no held business connection")?;
+            tokio::time::timeout(std::time::Duration::from_secs(3), async {
+                let (mut send, mut recv) = connection.open_bi().await?;
+                send.write_all(b"PING").await?;
+                send.finish()?;
+                if recv.read_to_end(64).await? != b"PONG" {
+                    return Err("unexpected reply".into());
+                }
+                Ok::<_, CommandError>(json!({"reply": "PONG", "transport": paths(connection)}))
+            })
+            .await?
+        }
+        Command::BusinessStatus => Ok(json!({"transport": held.as_ref().map(paths),
+            "close_reason": held.as_ref().and_then(|connection| connection.close_reason()).map(|reason| reason.to_string())})),
+        Command::Ping {
+            address,
+            hints_only,
+        } => {
+            // Advanced Endpoint hints are useful for measuring a single carrier's
+            // bootstrap. The configured Endpoint still enforces all resource and
+            // admission rules; ordinary calls retain ResourceEndpoint recovery.
+            let connection = if hints_only {
+                tokio::time::timeout(
+                    std::time::Duration::from_secs(25),
+                    resources.endpoint().connect(address, BUSINESS),
+                )
+                .await??
+            } else {
+                resources.connect(address, BUSINESS).await?
+            };
             let result = async {
                 let (mut send, mut recv) = connection.open_bi().await?;
                 send.write_all(b"PING").await?;
@@ -340,18 +448,32 @@ async fn dispatch(
                 if recv.read_to_end(64).await? != b"PONG" {
                     return Err("unexpected reply".into());
                 }
-                Ok::<_, CommandError>(json!({"reply": "PONG"}))
+                Ok::<_, CommandError>(json!({"reply": "PONG", "transport": paths(&connection)}))
             }
             .await;
             connection.close(0u32.into(), b"desktop ping ended");
             result
         }
-        Command::Sync { address } => {
-            let connection = resources.connect(address, REPLICA_ALPN).await?;
+        Command::Sync {
+            address,
+            hints_only,
+        } => {
+            let connection = if hints_only {
+                tokio::time::timeout(
+                    std::time::Duration::from_secs(25),
+                    resources.endpoint().connect(address, REPLICA_ALPN),
+                )
+                .await??
+            } else {
+                resources.connect(address, REPLICA_ALPN).await?
+            };
             let result = node.sync_replica(&connection).await;
+            let transport = paths(&connection);
             connection.close(0u32.into(), b"desktop sync ended");
             let result = result?;
-            Ok(json!({"complete": result.complete(), "source": result.source.to_string()}))
+            Ok(
+                json!({"complete": result.complete(), "source": result.source.to_string(), "transport": transport}),
+            )
         }
         Command::Manage { action, target } => {
             let action = match action {
@@ -406,12 +528,17 @@ async fn serve(
         } else if connection.alpn() == REPLICA_ALPN {
             node.lock().await.serve_replica(&connection).await?;
         } else if connection.alpn() == BUSINESS {
-            let (mut send, mut recv) = connection.accept_bi().await?;
-            if recv.read_to_end(64).await? != b"PING" {
-                return Err("unexpected request".into());
+            loop {
+                let (mut send, mut recv) = tokio::select! {
+                    streams = connection.accept_bi() => streams?,
+                    _ = connection.closed() => break,
+                };
+                if recv.read_to_end(64).await? != b"PING" {
+                    return Err("unexpected request".into());
+                }
+                send.write_all(b"PONG").await?;
+                send.finish()?;
             }
-            send.write_all(b"PONG").await?;
-            send.finish()?;
         }
         connection.closed().await;
         Ok::<_, CommandError>(())
@@ -430,7 +557,16 @@ pub async fn session(path: &str, bind_ip: Ipv4Addr) -> Result<(), Box<dyn Error>
     node.admission_gate()
         .register_protocol(REPLICA_ALPN, ProtocolScope::Member);
     let mut session = node.begin_management_session();
-    let resources = node.bind_configured_endpoint(bind_ip).await?;
+    let resources = if let Ok(proxy) = std::env::var("MIOPUNCH_RELAY_PROXY") {
+        node.bind_configured_endpoint_with(
+            iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .bind_addr((bind_ip, 0))?
+                .proxy_url(proxy.parse()?),
+        )
+        .await?
+    } else {
+        node.bind_configured_endpoint(bind_ip).await?
+    };
     resources.endpoint().set_alpns(vec![
         ADMISSION_REQUEST_ALPN.to_vec(),
         PRECODE_REQUEST_ALPN.to_vec(),
@@ -443,6 +579,7 @@ pub async fn session(path: &str, bind_ip: Ipv4Addr) -> Result<(), Box<dyn Error>
     let node = Arc::new(Mutex::new(node));
     let mut lines = BufReader::new(tokio::io::stdin()).lines();
     let mut handlers = tokio::task::JoinSet::new();
+    let mut held = None;
     loop {
         tokio::select! {
             line = lines.next_line() => {
@@ -452,7 +589,7 @@ pub async fn session(path: &str, bind_ip: Ipv4Addr) -> Result<(), Box<dyn Error>
                     Err(_) => { emit(json!({"id": null, "ok": false, "error": "invalid_command"})); continue; }
                 };
                 let stop = matches!(request.command, Command::Stop);
-                let result = dispatch(request.command, &mut *node.lock().await, &resources, &mut session).await;
+                let result = dispatch(request.command, &mut *node.lock().await, &resources, &mut session, &mut held).await;
                 match result {
                     Ok(result) => emit(json!({"id": request.id, "ok": true, "result": result})),
                     Err(error) => emit(json!({"id": request.id, "ok": false, "error": error_code(error.as_ref())})),
@@ -474,6 +611,9 @@ pub async fn session(path: &str, bind_ip: Ipv4Addr) -> Result<(), Box<dyn Error>
         }
     }
     session.end();
+    if let Some(connection) = held.take() {
+        connection.close(0u32.into(), b"test shell stopped");
+    }
     resources.close().await;
     handlers.abort_all();
     while handlers.join_next().await.is_some() {}

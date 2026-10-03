@@ -1,0 +1,10 @@
+NETWORK 56cc7e6aa0808cf3a0ed748e319afb5959b176956d21022d09768607545e1809 929e56ae8fd4ea6b24bdd88be5b29c9506c8b91c770067599b65aecf537849fd
+NODE 80b00f18ff6ea337302db4d19d887ea67debaa07f7ec17038b9b80368468dc26
+MEMBER 80b00f18ff6ea337302db4d19d887ea67debaa07f7ec17038b9b80368468dc26 admin
+RECORDS 1
+
+thread 'tokio-rt-worker' (22577) panicked at /home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ndk-context-0.1.1/src/lib.rs:72:30:
+android context was not initialized
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"192.168.4.151:44012"}],"id":"80b00f18ff6ea337302db4d19d887ea67debaa07f7ec17038b9b80368468dc26"},"event":"ready","node":"80b00f18ff6ea337302db4d19d887ea67debaa07f7ec17038b9b80368468dc26"}
+{"id":1,"ok":true,"result":{"stopped":true}}

@@ -794,6 +794,9 @@ impl Connection {
 
     /// Gets the local [`PathStatus`] for a known [`PathId`]
     pub fn path_status(&self, path_id: PathId) -> Result<PathStatus, ClosedPath> {
+        if self.abandoned_paths.contains(&path_id) {
+            return Err(ClosedPath { _private: () });
+        }
         self.path(path_id)
             .map(PathData::local_status)
             .ok_or(ClosedPath { _private: () })

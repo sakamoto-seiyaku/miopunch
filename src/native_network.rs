@@ -524,6 +524,7 @@ impl NativeNetwork {
         let resources = self.resource_configuration()?;
         self.bind_endpoint_with_resources(builder, &resources, false)
             .await
+            .map(|(endpoint, _, _)| endpoint)
     }
 
     async fn bind_endpoint_with_resources(
@@ -531,7 +532,14 @@ impl NativeNetwork {
         builder: Builder,
         resources: &crate::resources::ResourceConfig,
         configured_startup: bool,
-    ) -> Result<Endpoint, NodeError> {
+    ) -> Result<
+        (
+            Endpoint,
+            Option<crate::tcp_transport::TcpTransport>,
+            Vec<Arc<crate::mqtt_transport::MqttTransport>>,
+        ),
+        NodeError,
+    > {
         let (mut builder, tcp) = resources.configure_with_tcp(builder)?;
         if !resources.member_data_relay_disabled
             && !resources
@@ -576,7 +584,8 @@ impl NativeNetwork {
                         (!observers.is_empty()).then_some(observers),
                         !resources.udp_direct_disabled,
                     )),
-                    tcp.filter(|_| !resources.tcp_observers().is_empty())
+                    tcp.clone()
+                        .filter(|_| !resources.tcp_observers().is_empty())
                         .filter(|transport| transport.supports_punching())
                         .map(|transport| {
                             crate::tcp_punch::TcpPunch::new(
@@ -585,6 +594,7 @@ impl NativeNetwork {
                                 resources.clone(),
                             )
                         }),
+                    resources.clone(),
                 ),
             )
         } else {
@@ -608,7 +618,7 @@ impl NativeNetwork {
                 eprintln!("IRC_RESOURCE_UNAVAILABLE error={error}");
             }
         }
-        Ok(endpoint)
+        Ok((endpoint, tcp, mqtt))
     }
 
     pub fn resource_configuration(&self) -> Result<crate::resources::ResourceConfig, NodeError> {
@@ -698,7 +708,7 @@ impl NativeNetwork {
         builder: Builder,
     ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
         let config = self.resource_configuration()?;
-        let endpoint = self
+        let (endpoint, tcp, mqtt) = self
             .bind_endpoint_with_resources(
                 builder
                     .alpns(network_protocols())
@@ -712,7 +722,9 @@ impl NativeNetwork {
                 true,
             )
             .await?;
-        let mut resources = crate::resources::ResourceEndpoint::new(endpoint, config);
+        let mut resources = crate::resources::ResourceEndpoint::new(endpoint, config)
+            .with_tcp(tcp)
+            .with_mqtt(mqtt);
         if !resources.recovery_origins().is_empty() {
             resources
                 .endpoint()

@@ -121,6 +121,32 @@ impl Default for ResourceConfig {
 }
 
 impl ResourceConfig {
+    /// Permitted RFC 8489 UDP observers, separate from HTTPS QAD facilities.
+    pub fn udp_stun_resources(&self) -> Vec<iroh::RelayUrl> {
+        self.stun_resources("stun")
+    }
+
+    /// Permitted STUN-over-TCP service names, resolved at the actual endpoint.
+    pub fn tcp_stun_resources(&self) -> Vec<iroh::RelayUrl> {
+        self.stun_resources("stun+tcp")
+    }
+
+    fn stun_resources(&self, scheme: &str) -> Vec<iroh::RelayUrl> {
+        let mut origins = BTreeMap::new();
+        for resource in self
+            .replacement
+            .as_ref()
+            .unwrap_or(&self.defaults.resources)
+        {
+            let Ok(url) = resource.url.parse::<iroh::RelayUrl>() else {
+                continue;
+            };
+            if url.scheme() == scheme && self.allows(&resource.url, ResourceUse::Observation) {
+                origins.insert(resource_origin(&resource.url).unwrap(), url);
+            }
+        }
+        origins.into_values().take(4).collect()
+    }
     /// Explicit STUN-over-TCP observers. This increment accepts literal IPv4
     /// origins and keeps them separate from the HTTPS QAD/relay facilities.
     pub(crate) fn tcp_observers(&self) -> Vec<std::net::SocketAddr> {
@@ -214,7 +240,7 @@ impl ResourceConfig {
                 resource
                     .url
                     .parse::<RelayUrl>()
-                    .is_ok_and(|url| url.scheme() != "stun+tcp")
+                    .is_ok_and(|url| matches!(url.scheme(), "http" | "https"))
             })
             .map(|resource| {
                 resource
@@ -334,7 +360,7 @@ impl ResourceConfig {
                 if self.port_mapping == PortMapping::NatPmp {
                     transport = transport.with_nat_pmp_mapping();
                 }
-                if !self.tcp_observers().is_empty() {
+                if !self.tcp_stun_resources().is_empty() {
                     transport = transport.with_punching();
                 }
                 transport
@@ -474,6 +500,39 @@ pub struct ResourceEndpoint {
     backoff: std::sync::Arc<std::sync::Mutex<BTreeMap<iroh::EndpointId, ContactBackoff>>>,
     pub(crate) contacts: iroh::address_lookup::memory::MemoryLookup,
     pub(crate) responders: Vec<tokio::task::JoinHandle<()>>,
+    tcp: Option<crate::tcp_transport::TcpTransport>,
+    mqtt: Vec<std::sync::Arc<crate::mqtt_transport::MqttTransport>>,
+    tcp_observations: std::sync::Mutex<BTreeMap<String, std::sync::Arc<tokio::net::TcpStream>>>,
+}
+
+/// One observation of a retained connection opened from the real TCP carrier's
+/// listening port. Its mapping is TCP-specific; it is never a UDP candidate or
+/// proof that another destination has the same mapping or is reachable.
+pub struct TcpStunObservation {
+    pub observer: iroh::RelayUrl,
+    pub destination: std::net::SocketAddr,
+    pub listener: std::net::SocketAddr,
+    pub local_addr: std::net::SocketAddr,
+    pub mapped: std::net::SocketAddr,
+    pub observed_at: Instant,
+    pub valid_until: Instant,
+    stream: std::sync::Weak<tokio::net::TcpStream>,
+    endpoint: iroh::Endpoint,
+    generation: iroh::endpoint::ObservationValidity,
+}
+
+impl TcpStunObservation {
+    pub fn is_fresh(&self) -> bool {
+        if self.endpoint.is_closed()
+            || !self.generation.is_current()
+            || Instant::now() >= self.valid_until
+        {
+            return false;
+        }
+        self.stream.upgrade().is_some_and(|stream| {
+            matches!(stream.try_read(&mut [0; 1]), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+        })
+    }
 }
 
 impl ResourceEndpoint {
@@ -485,11 +544,117 @@ impl ResourceEndpoint {
             backoff: Default::default(),
             contacts: iroh::address_lookup::memory::MemoryLookup::new(),
             responders: Vec::new(),
+            tcp: None,
+            mqtt: Vec::new(),
+            tcp_observations: Default::default(),
         }
     }
 
     pub fn endpoint(&self) -> &iroh::Endpoint {
         &self.endpoint
+    }
+
+    pub(crate) fn with_tcp(mut self, tcp: Option<crate::tcp_transport::TcpTransport>) -> Self {
+        self.tcp = tcp;
+        self
+    }
+
+    pub(crate) fn with_mqtt(
+        mut self,
+        mqtt: Vec<std::sync::Arc<crate::mqtt_transport::MqttTransport>>,
+    ) -> Self {
+        self.mqtt = mqtt;
+        self
+    }
+
+    pub fn mqtt_diagnostics(&self) -> Vec<(String, bool, u64, u64)> {
+        self.mqtt
+            .iter()
+            .map(|transport| transport.diagnostics())
+            .collect()
+    }
+
+    /// Resolve and transact only a configured, permitted TCP observer. Success
+    /// retains the query connection until a replacement query or endpoint close.
+    pub async fn observe_tcp_stun(
+        &self,
+        observer: &iroh::RelayUrl,
+    ) -> std::io::Result<TcpStunObservation> {
+        use std::io;
+        if observer.scheme() != "stun+tcp"
+            || !self
+                .config
+                .allows(observer.as_str(), ResourceUse::Observation)
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "TCP STUN resource denied",
+            ));
+        }
+        let origin = resource_origin(observer.as_str())
+            .ok_or_else(|| io::Error::other("invalid TCP STUN origin"))?;
+        self.tcp_observations
+            .lock()
+            .expect("TCP observations")
+            .remove(&origin);
+        let transport = self.tcp.as_ref().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Unsupported, "no configured TCP transport")
+        })?;
+        let generation = self.endpoint.udp_network_generation();
+        let operation = async {
+            let host = observer
+                .host_str()
+                .ok_or_else(|| io::Error::other("missing STUN host"))?;
+            let ip = if let Ok(ip) = host.parse::<std::net::Ipv4Addr>() {
+                std::net::IpAddr::V4(ip)
+            } else {
+                self.endpoint
+                    .dns_resolver()
+                    .map_err(io::Error::other)?
+                    .lookup_ipv4(host.to_owned(), Duration::from_secs(2))
+                    .await
+                    .map_err(io::Error::other)?
+                    .next()
+                    .ok_or_else(|| io::Error::other("STUN has no IPv4 address"))?
+            };
+            let destination = std::net::SocketAddr::new(ip, observer.port().unwrap_or(3478));
+            let listener = transport
+                .bound_socket_addr()
+                .ok_or_else(|| io::Error::other("TCP transport not bound"))?;
+            let (mapped, stream) = transport.observe(destination).await?;
+            let local_addr = stream.local_addr()?;
+            if stream.peer_addr()? != destination
+                || local_addr.port() != listener.port()
+                || self.endpoint.is_closed()
+                || !generation.is_current()
+            {
+                return Err(io::Error::other(
+                    "TCP STUN transport changed or source mismatched",
+                ));
+            }
+            let observed_at = Instant::now();
+            let stream = std::sync::Arc::new(stream);
+            let observation = TcpStunObservation {
+                observer: observer.clone(),
+                destination,
+                listener,
+                local_addr,
+                mapped,
+                observed_at,
+                valid_until: observed_at + Duration::from_secs(40),
+                stream: std::sync::Arc::downgrade(&stream),
+                endpoint: self.endpoint.clone(),
+                generation,
+            };
+            self.tcp_observations
+                .lock()
+                .expect("TCP observations")
+                .insert(origin, stream);
+            Ok(observation)
+        };
+        tokio::time::timeout(Duration::from_secs(3), operation)
+            .await
+            .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "TCP STUN Binding timed out"))?
     }
 
     /// Public contact address including explicitly configured direct TCP.

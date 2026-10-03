@@ -94,7 +94,11 @@ pub(crate) mod biased_rtt_path_selector;
 pub(crate) mod concurrent_read_map;
 pub(crate) mod mapped_addrs;
 pub(crate) mod remote_map;
+#[cfg(not(wasm_browser))]
+mod stun;
 pub(crate) mod transports;
+#[cfg(not(wasm_browser))]
+pub use stun::UdpStunObservation;
 
 use self::mapped_addrs::{EndpointIdMappedAddr, MappedAddr};
 pub use self::metrics::Metrics;
@@ -381,6 +385,8 @@ pub(crate) struct Socket {
     udp_probe_sender: AsyncMutex<transports::TransportsSender>,
     #[cfg(not(wasm_browser))]
     udp_traversal: Mutex<HashMap<[u8; 16], UdpTraversalRegistration>>,
+    #[cfg(not(wasm_browser))]
+    stun: stun::Transactions,
     #[cfg(not(wasm_browser))]
     udp_socket_pool: Arc<transports::SocketPool>,
     /// The DNS resolver to be used in this socket.
@@ -1121,6 +1127,11 @@ impl Socket {
             #[cfg(not(wasm_browser))]
             if let transports::Addr::Ip(remote) = remote_addr {
                 for bytes in bufs[i][..noq_meta.len].chunks(noq_meta.stride.max(1)) {
+                    if let Some(binding) = recv_info.ip_binding
+                        && binding.id.is_primary()
+                    {
+                        self.stun.receive(*remote, binding.local_addr, bytes);
+                    }
                     if bytes.starts_with(b"\0MIOPUNCH63") && (27..=283).contains(&bytes.len()) {
                         let round: [u8; 16] = bytes[11..27].try_into().expect("round length");
                         if let Some(registration) = self
@@ -1754,7 +1765,7 @@ impl EndpointInner {
                 remote,
                 RemoteStateMessage::OpenControlPath {
                     conn_id,
-                    remote: addr,
+                    remote: TransportAddr::Custom(addr),
                     tx,
                 },
             )
@@ -1762,6 +1773,38 @@ impl EndpointInner {
         rx.await
             .map_err(|_| std::io::Error::other("remote state stopped"))?
             .map_err(std::io::Error::other)
+    }
+
+    pub(crate) async fn open_control_relay_path(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        url: RelayUrl,
+    ) -> io::Result<()> {
+        if !self
+            .static_config
+            .relay_resource_policy
+            .allows(&url, crate::endpoint::RelayResourceUse::DataRelay)
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "relay data resource denied",
+            ));
+        }
+        let (tx, rx) = oneshot::channel();
+        self.sock
+            .try_send_remote_state_msg(
+                remote,
+                RemoteStateMessage::OpenControlPath {
+                    conn_id,
+                    remote: TransportAddr::Relay(url),
+                    tx,
+                },
+            )
+            .map_err(|_| io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| io::Error::other("remote state stopped"))?
+            .map_err(io::Error::other)
     }
 
     pub(crate) async fn commit_data_path(
@@ -2023,6 +2066,8 @@ impl EndpointInner {
             udp_socket_pool: transports.create_sender().socket_pool(),
             #[cfg(not(wasm_browser))]
             udp_traversal: Mutex::new(HashMap::new()),
+            #[cfg(not(wasm_browser))]
+            stun: stun::Transactions::default(),
             tls_config: tls_config.clone(),
             hooks,
             span: span.clone(),

@@ -3,7 +3,7 @@
 //! are disclosed. The result is an untrusted candidate, never reachability.
 use std::{
     io,
-    net::{Ipv4Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -44,22 +44,35 @@ pub(crate) async fn binding(mut stream: TcpStream) -> io::Result<(SocketAddr, Tc
         let size =
             u16::from_be_bytes(attributes[offset + 2..offset + 4].try_into().unwrap()) as usize;
         let end = offset + 4 + size;
-        if end > length {
+        if offset + 4 + ((size + 3) & !3) > length {
             return Err(invalid());
         }
         let value = &attributes[offset + 4..end];
         if kind == 0x0020 {
-            if candidate.is_some() || size != 8 || value[..2] != [0, 1] {
+            if candidate.is_some() || size < 4 || value[0] != 0 {
                 return Err(invalid());
             }
             let port = u16::from_be_bytes(value[2..4].try_into().unwrap()) ^ 0x2112;
-            let address = u32::from_be_bytes(value[4..8].try_into().unwrap()) ^ 0x2112a442;
-            let address = Ipv4Addr::from(address);
-            if port == 0
-                || address.is_unspecified()
-                || address.is_multicast()
-                || address.is_broadcast()
-            {
+            let address = match (value[1], size) {
+                (1, 8) => {
+                    let ip = Ipv4Addr::from(
+                        u32::from_be_bytes(value[4..8].try_into().unwrap()) ^ 0x2112a442,
+                    );
+                    if ip.is_broadcast() {
+                        return Err(invalid());
+                    }
+                    IpAddr::V4(ip)
+                }
+                (2, 20) => {
+                    let mut bytes = [0; 16];
+                    for index in 0..16 {
+                        bytes[index] = value[4 + index] ^ request[4 + index];
+                    }
+                    IpAddr::V6(Ipv6Addr::from(bytes))
+                }
+                _ => return Err(invalid()),
+            };
+            if port == 0 || address.is_unspecified() || address.is_multicast() {
                 return Err(invalid());
             }
             candidate = Some(SocketAddr::from((address, port)));

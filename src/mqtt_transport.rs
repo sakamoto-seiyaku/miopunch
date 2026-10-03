@@ -134,6 +134,21 @@ struct Binding {
 }
 
 impl MqttTransport {
+    /// Read-only diagnostics for the configured carrier; no private payload.
+    pub fn diagnostics(&self) -> (String, bool, u64, u64) {
+        let ready = self
+            .binding
+            .lock()
+            .expect("MQTT binding")
+            .as_ref()
+            .is_some_and(|binding| *binding.status.borrow() == Status::Ready);
+        (
+            self.resource.to_string(),
+            ready,
+            self.traffic.sent_packets(),
+            self.traffic.received_packets(),
+        )
+    }
     pub fn new(broker: SocketAddr, traffic: Arc<Traffic>) -> Self {
         Self {
             resource: format!("mqtt://{broker}/")

@@ -1,6 +1,13 @@
 pub mod admission_gate;
+#[cfg(target_os = "android")]
+extern crate self as miopunch_native_probe;
 pub mod admission_proof;
 pub mod admission_rotation;
+#[cfg(target_os = "android")]
+#[path = "desktop_cli.rs"]
+mod android_desktop_cli;
+#[cfg(target_os = "android")]
+mod android_shell;
 pub mod connection_recovery;
 pub mod control_session;
 pub mod daily_management;

@@ -1,0 +1,16 @@
+{
+  "mqtt://broker.emqx.io:1883/": [
+    "34.243.217.54",
+    "35.172.255.228",
+    "44.232.241.40"
+  ],
+  "stun+tcp://turn.cloudflare.com:3478/": [
+    "141.101.90.1"
+  ],
+  "stun://stun.cloudflare.com:3478/": [
+    "162.159.207.0"
+  ],
+  "https://aps1-1.relay.n0.iroh.link./": [
+    "5.223.65.62"
+  ]
+}

@@ -57,7 +57,9 @@ pub use super::socket::{
     transports::LocalTransportAddr,
 };
 #[cfg(not(wasm_browser))]
-pub use super::socket::{ObservationValidity, UdpMappingSample, UdpMappingSequence};
+pub use super::socket::{
+    ObservationValidity, UdpMappingSample, UdpMappingSequence, UdpStunObservation,
+};
 #[cfg(wasm_browser)]
 use crate::address_lookup::PkarrResolver;
 #[cfg(not(wasm_browser))]
@@ -1222,6 +1224,19 @@ impl Endpoint {
             .await
     }
 
+    /// Validate an explicitly permitted relay data candidate while retaining
+    /// this authenticated, restricted control connection. No new connection is
+    /// dialed, and normal data remains gated until the node's hook completes.
+    pub async fn open_control_relay_path(
+        &self,
+        connection: &connection::Connection,
+        remote: RelayUrl,
+    ) -> std::io::Result<()> {
+        self.inner
+            .open_control_relay_path(connection.remote_id(), connection.stable_id(), remote)
+            .await
+    }
+
     /// Retire a failed custom candidate on this original restricted connection.
     /// Pending paths and queued packets are included; later admission cannot
     /// revive this candidate. Other connections and candidates are unaffected.
@@ -1797,6 +1812,17 @@ impl Endpoint {
     /// The advertised direct addresses remain available through [`Self::addr`].
     pub fn udp_observation(&self) -> impl Watcher<Value = UdpObservation> + use<> {
         self.inner.udp_observation()
+    }
+
+    /// Complete a bounded RFC 8489 Binding transaction through this endpoint's
+    /// actual primary IPv4 UDP transport. The configured resource policy must
+    /// allow Observation for the `stun://` origin. QAD remains separate.
+    #[cfg(not(wasm_browser))]
+    pub async fn observe_udp_stun(
+        &self,
+        observer: &RelayUrl,
+    ) -> std::io::Result<UdpStunObservation> {
+        self.inner.observe_udp_stun(observer).await
     }
 
     /// Observe four configured QAD destinations in sequence using this

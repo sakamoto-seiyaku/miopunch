@@ -1,0 +1,22 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.96s
+     Running tests/public_resources.rs (target/debug/deps/public_resources-edbb4c9665009878)
+
+running 1 test
+test configured_stun_is_not_a_qad_relay_and_disabled_observation_sends_nothing ... FAILED
+
+failures:
+
+---- configured_stun_is_not_a_qad_relay_and_disabled_observation_sends_nothing stdout ----
+
+thread 'configured_stun_is_not_a_qad_relay_and_disabled_observation_sends_nothing' (2586522) panicked at tests/public_resources.rs:58:5:
+STUN must never be passed to QAD
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    configured_stun_is_not_a_qad_relay_and_disabled_observation_sends_nothing
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.09s
+
+error: test failed, to rerun pass `--test public_resources`

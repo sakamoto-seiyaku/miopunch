@@ -1,0 +1,29 @@
+{
+  "started_utc": "2026-10-03T02:57:59.554000+00:00",
+  "linux": {
+    "runtime": "WSL2",
+    "kernel": "6.6.114.1-microsoft-standard-WSL2",
+    "architecture": "x86_64",
+    "private_ipv4": "192.168.4.5",
+    "prefix_length": 24
+  },
+  "android": {
+    "model": "Pixel 6a",
+    "release": "16",
+    "api": 36,
+    "architecture": "aarch64",
+    "private_ipv4": "192.168.4.151",
+    "prefix_length": 24,
+    "entry": "foreground JNI app_process shell"
+  },
+  "same_lan": true,
+  "active_independent_cellular_interface": false,
+  "independent_network_supplied": false,
+  "excluded_data_paths": [
+    "UDP direct disabled",
+    "both devices local TCP addresses disabled",
+    "MQTT closed and packet-gated before data release"
+  ],
+  "qualified_data_path": "official HTTPS public number0 relay with normal WebPKI verification",
+  "topology_source": "actual ip address/rule and device wifi status readback; identifying SSID/MAC/serial details omitted"
+}

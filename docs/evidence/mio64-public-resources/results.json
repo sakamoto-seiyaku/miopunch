@@ -1,0 +1,546 @@
+{
+  "started_unix_ms": 1790996279554,
+  "passed": true,
+  "selected_resources": {
+    "mqtt": "mqtt://broker.emqx.io:1883/",
+    "stun_tcp": "stun+tcp://turn.cloudflare.com:3478/",
+    "stun_udp": "stun://stun.cloudflare.com:3478/",
+    "relay": "https://aps1-1.relay.n0.iroh.link./"
+  },
+  "tls": {
+    "mqtt": "unencrypted public carrier; private exchange uses inner identity-authenticated QUIC/TLS",
+    "relay": "verified HTTPS with embedded WebPKI roots; no verification bypass"
+  },
+  "default_public_data": {
+    "android": {
+      "genesis": "035ccf7dfee11b3e6947f65311f1a6aaf448a0862bd269fc50fe6763a152d0bf",
+      "members": [
+        {
+          "node": "a2a733a63f9edd22285224e30451585b4133524cea20f1c6455ae4a73f2096cd",
+          "role": "member"
+        },
+        {
+          "node": "cf40a261115ac41c752aa505e9b055fbab5b35932b4ae8c165f9bd53223a4e64",
+          "role": "admin"
+        }
+      ],
+      "network": "d585a326ff3155dafdc0a7ad95c41e812ccf94efafb958900147ade20fc46b6c",
+      "node": "a2a733a63f9edd22285224e30451585b4133524cea20f1c6455ae4a73f2096cd",
+      "records": 2,
+      "stage": "Complete"
+    },
+    "linux": {
+      "genesis": "035ccf7dfee11b3e6947f65311f1a6aaf448a0862bd269fc50fe6763a152d0bf",
+      "members": [
+        {
+          "node": "a2a733a63f9edd22285224e30451585b4133524cea20f1c6455ae4a73f2096cd",
+          "role": "member"
+        },
+        {
+          "node": "cf40a261115ac41c752aa505e9b055fbab5b35932b4ae8c165f9bd53223a4e64",
+          "role": "admin"
+        }
+      ],
+      "network": "d585a326ff3155dafdc0a7ad95c41e812ccf94efafb958900147ade20fc46b6c",
+      "node": "cf40a261115ac41c752aa505e9b055fbab5b35932b4ae8c165f9bd53223a4e64",
+      "records": 2,
+      "stage": "Complete"
+    },
+    "business": {
+      "reply": "PONG",
+      "transport": {
+        "connection": 12970367439285085456,
+        "paths": [
+          {
+            "local": "Relay(RelayUrl(\"https://aps1-1.relay.n0.iroh.link./\"))",
+            "remote": {
+              "Relay": "https://aps1-1.relay.n0.iroh.link./"
+            },
+            "rx_bytes": 9172,
+            "selected": true,
+            "stream_rx": 5,
+            "stream_tx": 6,
+            "tx_bytes": 10219
+          }
+        ],
+        "peer": "cf40a261115ac41c752aa505e9b055fbab5b35932b4ae8c165f9bd53223a4e64"
+      }
+    }
+  },
+  "observations": {
+    "linux": {
+      "bound_sockets": [
+        "0.0.0.0:45835",
+        "[::]:44517"
+      ],
+      "observations": [
+        {
+          "error": "STUN Binding timed out after 3 endpoint socket sends",
+          "fresh": false,
+          "protocol": "STUN/UDP/RFC8489",
+          "service": "stun://stun.cloudflare.com:3478/",
+          "started_unix_ms": 1790996298247
+        },
+        {
+          "destination": "141.101.90.1:3478",
+          "fresh": true,
+          "local_socket": "192.168.4.5:41654",
+          "mapped": "104.28.250.19:64726",
+          "protocol": "STUN/TCP/RFC8489",
+          "retained_connection": true,
+          "service": "stun+tcp://turn.cloudflare.com:3478/",
+          "started_unix_ms": 1790996301250,
+          "transaction_and_source_validated": true,
+          "transport_listener": "0.0.0.0:41654",
+          "valid_for_ms": 39999
+        }
+      ]
+    },
+    "linux_relay_only": {
+      "bound_sockets": [],
+      "observations": [
+        {
+          "error": "endpoint has no IPv4 UDP transport for STUN",
+          "fresh": false,
+          "protocol": "STUN/UDP/RFC8489",
+          "service": "stun://stun.cloudflare.com:3478/",
+          "started_unix_ms": 1790996302864
+        },
+        {
+          "destination": "141.101.90.1:3478",
+          "fresh": true,
+          "local_socket": "192.168.4.5:41654",
+          "mapped": "104.28.218.21:61560",
+          "protocol": "STUN/TCP/RFC8489",
+          "retained_connection": true,
+          "service": "stun+tcp://turn.cloudflare.com:3478/",
+          "started_unix_ms": 1790996302864,
+          "transaction_and_source_validated": true,
+          "transport_listener": "0.0.0.0:41654",
+          "valid_for_ms": 39999
+        }
+      ]
+    },
+    "android": {
+      "bound_sockets": [
+        "0.0.0.0:44072",
+        "[::]:51453"
+      ],
+      "observations": [
+        {
+          "error": "STUN Binding timed out after 3 endpoint socket sends",
+          "fresh": false,
+          "protocol": "STUN/UDP/RFC8489",
+          "service": "stun://stun.cloudflare.com:3478/",
+          "started_unix_ms": 1790996311326
+        },
+        {
+          "destination": "141.101.90.1:3478",
+          "fresh": true,
+          "local_socket": "192.168.4.151:41653",
+          "mapped": "[2a09:bac1:1e00::1d8:83]:13630",
+          "protocol": "STUN/TCP/RFC8489",
+          "retained_connection": true,
+          "service": "stun+tcp://turn.cloudflare.com:3478/",
+          "started_unix_ms": 1790996314333,
+          "transaction_and_source_validated": true,
+          "transport_listener": "0.0.0.0:41653",
+          "valid_for_ms": 39999
+        }
+      ]
+    },
+    "android_relay_only": {
+      "bound_sockets": [],
+      "observations": [
+        {
+          "error": "endpoint has no IPv4 UDP transport for STUN",
+          "fresh": false,
+          "protocol": "STUN/UDP/RFC8489",
+          "service": "stun://stun.cloudflare.com:3478/",
+          "started_unix_ms": 1790996317276
+        },
+        {
+          "destination": "141.101.90.1:3478",
+          "fresh": true,
+          "local_socket": "192.168.4.151:41653",
+          "mapped": "104.28.218.19:62255",
+          "protocol": "STUN/TCP/RFC8489",
+          "retained_connection": true,
+          "service": "stun+tcp://turn.cloudflare.com:3478/",
+          "started_unix_ms": 1790996317276,
+          "transaction_and_source_validated": true,
+          "transport_listener": "0.0.0.0:41653",
+          "valid_for_ms": 39999
+        }
+      ]
+    }
+  },
+  "first": {
+    "passed": true,
+    "opened": {
+      "connection": 12970367451352116176,
+      "paths": [
+        {
+          "local": "Relay(RelayUrl(\"https://aps1-1.relay.n0.iroh.link./\"))",
+          "remote": {
+            "Relay": "https://aps1-1.relay.n0.iroh.link./"
+          },
+          "rx_bytes": 1200,
+          "selected": true,
+          "stream_rx": 0,
+          "stream_tx": 1,
+          "tx_bytes": 5272
+        }
+      ],
+      "peer": "cf40a261115ac41c752aa505e9b055fbab5b35932b4ae8c165f9bd53223a4e64"
+    },
+    "business": {
+      "reply": "PONG",
+      "transport": {
+        "connection": 12970367451352116176,
+        "paths": [
+          {
+            "local": "Relay(RelayUrl(\"https://aps1-1.relay.n0.iroh.link./\"))",
+            "remote": {
+              "Relay": "https://aps1-1.relay.n0.iroh.link./"
+            },
+            "rx_bytes": 7931,
+            "selected": true,
+            "stream_rx": 1,
+            "stream_tx": 2,
+            "tx_bytes": 9353
+          }
+        ],
+        "peer": "cf40a261115ac41c752aa505e9b055fbab5b35932b4ae8c165f9bd53223a4e64"
+      }
+    },
+    "logsync": {
+      "complete": true,
+      "source": "cf40a261115ac41c752aa505e9b055fbab5b35932b4ae8c165f9bd53223a4e64",
+      "transport": {
+        "connection": 12970367451352115696,
+        "paths": [
+          {
+            "local": "Relay(RelayUrl(\"https://aps1-1.relay.n0.iroh.link./\"))",
+            "remote": {
+              "Relay": "https://aps1-1.relay.n0.iroh.link./"
+            },
+            "rx_bytes": 9273,
+            "selected": true,
+            "stream_rx": 6,
+            "stream_tx": 5,
+            "tx_bytes": 8906
+          }
+        ],
+        "peer": "cf40a261115ac41c752aa505e9b055fbab5b35932b4ae8c165f9bd53223a4e64"
+      }
+    },
+    "saved_record": {
+      "record": "a6bb60d6349da4b152e6bd57f1a22f2c33b10c68d9571475970c85a82f82152f"
+    },
+    "records_before": 2,
+    "records_after": 3,
+    "mqtt_after_control": {
+      "linux": [
+        [
+          "mqtt://broker.emqx.io:1883/",
+          true,
+          90,
+          85
+        ]
+      ],
+      "android": [
+        [
+          "mqtt://broker.emqx.io:1883/",
+          true,
+          85,
+          90
+        ]
+      ]
+    }
+  },
+  "priority": {
+    "passed": true,
+    "single_fault": "blackhole owned Linux CONNECT tunnel carrying real public relay TLS traffic",
+    "cut": [
+      {
+        "host": "aps1-1.relay.n0.iroh.link.",
+        "port": 443,
+        "started_unix_ms": 1790996280014,
+        "forwarded_to_public": 252,
+        "forwarded_from_public": 0,
+        "dropped": 0,
+        "actual_public_peer": [
+          "5.223.65.62",
+          443
+        ]
+      },
+      {
+        "host": "aps1-1.relay.n0.iroh.link.",
+        "port": 443,
+        "started_unix_ms": 1790996280241,
+        "forwarded_to_public": 24544,
+        "forwarded_from_public": 32422,
+        "dropped": 0,
+        "actual_public_peer": [
+          "5.223.65.62",
+          443
+        ]
+      },
+      {
+        "host": "aps1-1.relay.n0.iroh.link.",
+        "port": 443,
+        "started_unix_ms": 1790996296524,
+        "forwarded_to_public": 827,
+        "forwarded_from_public": 4460,
+        "dropped": 0,
+        "actual_public_peer": [
+          "5.223.65.62",
+          443
+        ]
+      },
+      {
+        "host": "aps1-1.relay.n0.iroh.link.",
+        "port": 443,
+        "started_unix_ms": 1790996301937,
+        "forwarded_to_public": 22345,
+        "forwarded_from_public": 29186,
+        "dropped": 2596,
+        "actual_public_peer": [
+          "5.223.65.62",
+          443
+        ]
+      }
+    ],
+    "failure": {
+      "error": "invalid_request_or_operation_failed",
+      "id": 17,
+      "ok": false
+    },
+    "closed": {
+      "close_reason": "closed",
+      "transport": {
+        "connection": 12970367451352116176,
+        "paths": [
+          {
+            "local": "Relay(RelayUrl(\"https://aps1-1.relay.n0.iroh.link./\"))",
+            "remote": {
+              "Relay": "https://aps1-1.relay.n0.iroh.link./"
+            },
+            "rx_bytes": 7994,
+            "selected": true,
+            "stream_rx": 1,
+            "stream_tx": 3,
+            "tx_bytes": 9874
+          }
+        ],
+        "peer": "cf40a261115ac41c752aa505e9b055fbab5b35932b4ae8c165f9bd53223a4e64"
+      }
+    },
+    "recovered": {
+      "connection": 12970367466683657072,
+      "paths": [
+        {
+          "local": "Relay(RelayUrl(\"https://aps1-1.relay.n0.iroh.link./\"))",
+          "remote": {
+            "Relay": "https://aps1-1.relay.n0.iroh.link./"
+          },
+          "rx_bytes": 1200,
+          "selected": true,
+          "stream_rx": 0,
+          "stream_tx": 0,
+          "tx_bytes": 5179
+        }
+      ],
+      "peer": "cf40a261115ac41c752aa505e9b055fbab5b35932b4ae8c165f9bd53223a4e64"
+    },
+    "control_only_failure": {
+      "error": "invalid_request_or_operation_failed",
+      "id": 38,
+      "ok": false
+    },
+    "control_only_mqtt": {
+      "linux": [
+        [
+          "mqtt://broker.emqx.io:1883/",
+          true,
+          142,
+          135
+        ]
+      ],
+      "android": [
+        [
+          "mqtt://broker.emqx.io:1883/",
+          true,
+          135,
+          142
+        ]
+      ]
+    },
+    "same_node": "a2a733a63f9edd22285224e30451585b4133524cea20f1c6455ae4a73f2096cd",
+    "precode_uses": 1,
+    "saved_record_count": 3,
+    "saved_resources_retained": true
+  },
+  "disabled": {
+    "passed": true,
+    "failed_contact": {
+      "error": "temporarily_unreachable",
+      "id": 4,
+      "ok": false
+    },
+    "same_node": "a2a733a63f9edd22285224e30451585b4133524cea20f1c6455ae4a73f2096cd"
+  },
+  "public_relay_tunnels": [
+    {
+      "host": "aps1-1.relay.n0.iroh.link.",
+      "port": 443,
+      "started_unix_ms": 1790996280014,
+      "forwarded_to_public": 252,
+      "forwarded_from_public": 0,
+      "dropped": 0,
+      "actual_public_peer": [
+        "5.223.65.62",
+        443
+      ]
+    },
+    {
+      "host": "aps1-1.relay.n0.iroh.link.",
+      "port": 443,
+      "started_unix_ms": 1790996280241,
+      "forwarded_to_public": 24544,
+      "forwarded_from_public": 32422,
+      "dropped": 0,
+      "actual_public_peer": [
+        "5.223.65.62",
+        443
+      ]
+    },
+    {
+      "host": "aps1-1.relay.n0.iroh.link.",
+      "port": 443,
+      "started_unix_ms": 1790996296524,
+      "forwarded_to_public": 827,
+      "forwarded_from_public": 4460,
+      "dropped": 0,
+      "actual_public_peer": [
+        "5.223.65.62",
+        443
+      ]
+    },
+    {
+      "host": "aps1-1.relay.n0.iroh.link.",
+      "port": 443,
+      "started_unix_ms": 1790996301937,
+      "forwarded_to_public": 22345,
+      "forwarded_from_public": 29186,
+      "dropped": 2633,
+      "actual_public_peer": [
+        "5.223.65.62",
+        443
+      ]
+    },
+    {
+      "host": "aps1-1.relay.n0.iroh.link.",
+      "port": 443,
+      "started_unix_ms": 1790996348316,
+      "forwarded_to_public": 0,
+      "forwarded_from_public": 0,
+      "dropped": 0,
+      "blocked_reconnect": true
+    },
+    {
+      "host": "aps1-1.relay.n0.iroh.link.",
+      "port": 443,
+      "started_unix_ms": 1790996348332,
+      "forwarded_to_public": 0,
+      "forwarded_from_public": 0,
+      "dropped": 0,
+      "blocked_reconnect": true
+    },
+    {
+      "host": "aps1-1.relay.n0.iroh.link.",
+      "port": 443,
+      "started_unix_ms": 1790996348358,
+      "forwarded_to_public": 0,
+      "forwarded_from_public": 0,
+      "dropped": 0,
+      "blocked_reconnect": true
+    },
+    {
+      "host": "aps1-1.relay.n0.iroh.link.",
+      "port": 443,
+      "started_unix_ms": 1790996348440,
+      "forwarded_to_public": 0,
+      "forwarded_from_public": 0,
+      "dropped": 0,
+      "blocked_reconnect": true
+    },
+    {
+      "host": "aps1-1.relay.n0.iroh.link.",
+      "port": 443,
+      "started_unix_ms": 1790996348541,
+      "forwarded_to_public": 0,
+      "forwarded_from_public": 0,
+      "dropped": 0,
+      "blocked_reconnect": true
+    },
+    {
+      "host": "aps1-1.relay.n0.iroh.link.",
+      "port": 443,
+      "started_unix_ms": 1790996348736,
+      "forwarded_to_public": 0,
+      "forwarded_from_public": 0,
+      "dropped": 0,
+      "blocked_reconnect": true
+    },
+    {
+      "host": "aps1-1.relay.n0.iroh.link.",
+      "port": 443,
+      "started_unix_ms": 1790996349077,
+      "forwarded_to_public": 0,
+      "forwarded_from_public": 0,
+      "dropped": 0,
+      "blocked_reconnect": true
+    },
+    {
+      "host": "aps1-1.relay.n0.iroh.link.",
+      "port": 443,
+      "started_unix_ms": 1790996349743,
+      "forwarded_to_public": 0,
+      "forwarded_from_public": 0,
+      "dropped": 0,
+      "blocked_reconnect": true
+    },
+    {
+      "host": "aps1-1.relay.n0.iroh.link.",
+      "port": 443,
+      "started_unix_ms": 1790996351770,
+      "forwarded_to_public": 0,
+      "forwarded_from_public": 0,
+      "dropped": 0,
+      "blocked_reconnect": true
+    },
+    {
+      "host": "aps1-1.relay.n0.iroh.link.",
+      "port": 443,
+      "started_unix_ms": 1790996354369,
+      "forwarded_to_public": 0,
+      "forwarded_from_public": 0,
+      "dropped": 0,
+      "blocked_reconnect": true
+    },
+    {
+      "host": "aps1-1.relay.n0.iroh.link.",
+      "port": 443,
+      "started_unix_ms": 1790996362042,
+      "forwarded_to_public": 17935,
+      "forwarded_from_public": 29431,
+      "dropped": 0,
+      "actual_public_peer": [
+        "5.223.65.62",
+        443
+      ]
+    }
+  ]
+}

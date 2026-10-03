@@ -1,0 +1,14 @@
+[
+  {
+    "host": "test.mosquitto.org",
+    "peer": [
+      "54.36.178.49",
+      1883
+    ],
+    "connack": ""
+  },
+  {
+    "host": "broker.hivemq.com",
+    "error": "TimeoutError('timed out')"
+  }
+]

@@ -544,9 +544,17 @@ impl RemoteStateActor {
                         Err("control path requires a restricted control connection")
                     } else if let Some(conn) = state.handle.upgrade() {
                         if conn.side().is_client() {
-                            let path = transports::FourTuple::from_remote(
-                                transports::Addr::Custom(remote),
-                            );
+                            let remote = match remote {
+                                TransportAddr::Custom(address) => transports::Addr::Custom(address),
+                                TransportAddr::Relay(url) => {
+                                    transports::Addr::Relay(url, self.state.endpoint_id)
+                                }
+                                _ => {
+                                    let _ = tx.send(Err("unsupported control carrier"));
+                                    return;
+                                }
+                            };
+                            let path = transports::FourTuple::from_remote(remote);
                             self.state
                                 .open_path_on_conn(ConnId(conn_id), state, &conn, &path, true)
                         } else {
@@ -1804,7 +1812,7 @@ pub(crate) enum RemoteStateMessage {
     /// Attempts to open an additional control route on a restricted connection.
     OpenControlPath {
         conn_id: usize,
-        remote: iroh_base::CustomAddr,
+        remote: TransportAddr,
         tx: oneshot::Sender<Result<(), &'static str>>,
     },
     RetireControlPath {

@@ -1,0 +1,205 @@
+
+thread 'tokio-rt-worker' (22593) panicked at /home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ndk-context-0.1.1/src/lib.rs:72:30:
+android context was not initialized
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at ./rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/panicking.rs:679:5
+   1: core::panicking::panic_fmt
+             at ./rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/panicking.rs:80:14
+   2: core::panicking::panic_display::<&str>
+             at ./rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/panicking.rs:259:5
+   3: core::option::expect_failed
+             at ./rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/option.rs:2260:5
+   4: <core::option::Option<ndk_context::AndroidContext>>::expect
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:969:21
+   5: ndk_context::android_context
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ndk-context-0.1.1/src/lib.rs:72:30
+   6: n0_dns_resolver::system_config::android::read_system_dns_jni
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/n0-dns-resolver-0.1.0/src/system_config/android.rs:54:15
+   7: <n0_dns_resolver::system_config::android::read_system_dns_jni as core::ops::function::FnOnce<()>>::call_once
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5
+   8: <core::panic::unwind_safe::AssertUnwindSafe<n0_dns_resolver::system_config::android::read_system_dns_jni> as core::ops::function::FnOnce<()>>::call_once
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panic/unwind_safe.rs:275:9
+   9: do_call<core::panic::unwind_safe::AssertUnwindSafe<fn() -> core::result::Result<n0_dns_resolver::config::Config, core::io::error::Error>>, core::result::Result<n0_dns_resolver::config::Config, core::io::error::Error>>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panicking.rs:576:43
+  10: __rust_try
+  11: catch_unwind<core::result::Result<n0_dns_resolver::config::Config, core::io::error::Error>, core::panic::unwind_safe::AssertUnwindSafe<fn() -> core::result::Result<n0_dns_resolver::config::Config, core::io::error::Error>>>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panicking.rs:544:19
+  12: catch_unwind<core::panic::unwind_safe::AssertUnwindSafe<fn() -> core::result::Result<n0_dns_resolver::config::Config, core::io::error::Error>>, core::result::Result<n0_dns_resolver::config::Config, core::io::error::Error>>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panic.rs:359:14
+  13: n0_dns_resolver::system_config::android::read_system_dns
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/n0-dns-resolver-0.1.0/src/system_config/android.rs:43:11
+  14: read_system
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/n0-dns-resolver-0.1.0/src/system_config.rs:43:11
+  15: build
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/n0-dns-resolver-0.1.0/src/resolver.rs:269:13
+  16: <n0_dns_resolver::resolver::DnsResolver>::state::{closure#0}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/n0-dns-resolver-0.1.0/src/resolver.rs:422:29
+  17: <std::sync::once_lock::OnceLock<n0_dns_resolver::resolver::ResolverState>>::get_or_init::<<n0_dns_resolver::resolver::DnsResolver>::state::{closure#0}>::{closure#0}
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sync/once_lock.rs:321:50
+  18: {closure#0}<n0_dns_resolver::resolver::ResolverState, std::sync::once_lock::{impl#0}::get_or_init::{closure_env#0}<n0_dns_resolver::resolver::ResolverState, n0_dns_resolver::resolver::{impl#4}::state::{closure_env#0}>, !>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sync/once_lock.rs:543:19
+  19: {closure#0}<std::sync::once_lock::{impl#0}::initialize::{closure_env#0}<n0_dns_resolver::resolver::ResolverState, std::sync::once_lock::{impl#0}::get_or_init::{closure_env#0}<n0_dns_resolver::resolver::ResolverState, n0_dns_resolver::resolver::{impl#4}::state::{closure_env#0}>, !>>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sync/once.rs:226:40
+  20: <std::sys::sync::once::futex::Once>::call
+             at ./rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/sync/once/futex.rs:183:21
+  21: call_once_force<std::sync::once_lock::{impl#0}::initialize::{closure_env#0}<n0_dns_resolver::resolver::ResolverState, std::sync::once_lock::{impl#0}::get_or_init::{closure_env#0}<n0_dns_resolver::resolver::ResolverState, n0_dns_resolver::resolver::{impl#4}::state::{closure_env#0}>, !>>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sync/once.rs:226:20
+  22: <std::sync::once_lock::OnceLock<n0_dns_resolver::resolver::ResolverState>>::initialize::<<std::sync::once_lock::OnceLock<n0_dns_resolver::resolver::ResolverState>>::get_or_init<<n0_dns_resolver::resolver::DnsResolver>::state::{closure#0}>::{closure#0}, !>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sync/once_lock.rs:542:19
+  23: get_or_try_init<n0_dns_resolver::resolver::ResolverState, std::sync::once_lock::{impl#0}::get_or_init::{closure_env#0}<n0_dns_resolver::resolver::ResolverState, n0_dns_resolver::resolver::{impl#4}::state::{closure_env#0}>, !>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sync/once_lock.rs:410:14
+  24: <std::sync::once_lock::OnceLock<n0_dns_resolver::resolver::ResolverState>>::get_or_init::<<n0_dns_resolver::resolver::DnsResolver>::state::{closure#0}>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sync/once_lock.rs:321:20
+  25: <n0_dns_resolver::resolver::DnsResolver>::state
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/n0-dns-resolver-0.1.0/src/resolver.rs:422:14
+  26: search_names
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/n0-dns-resolver-0.1.0/src/resolver.rs:436:28
+  27: {async_fn#0}<alloc::string::String>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/n0-dns-resolver-0.1.0/src/resolver.rs:1113:14
+  28: {async_block#0}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/iroh-dns-1.3.0/src/dns.rs:567:47
+  29: poll<alloc::boxed::Box<(dyn core::future::future::Future<Output=core::result::Result<alloc::boxed::Box<(dyn core::iter::traits::iterator::Iterator<Item=core::net::ip_addr::Ipv4Addr> + core::marker::Send), alloc::alloc::Global>, iroh_dns::dns::DnsError>> + core::marker::Send), alloc::alloc::Global>>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/future/future.rs:133:9
+  30: poll<&mut core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output=core::result::Result<alloc::boxed::Box<(dyn core::iter::traits::iterator::Iterator<Item=core::net::ip_addr::Ipv4Addr> + core::marker::Send), alloc::alloc::Global>, iroh_dns::dns::DnsError>> + core::marker::Send), alloc::alloc::Global>>>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/future/future.rs:133:9
+  31: <iroh_dns::dns::Inner>::op::<<iroh_dns::dns::DnsResolver>::resolve_host_all::{closure#0}, core::pin::Pin<alloc::boxed::Box<dyn core::future::future::Future<Output = core::result::Result<alloc::boxed::Box<dyn core::iter::traits::iterator::Iterator<Item = core::net::ip_addr::Ipv4Addr> + core::marker::Send>, iroh_dns::dns::DnsError>> + core::marker::Send>>, alloc::boxed::Box<dyn core::iter::traits::iterator::Iterator<Item = core::net::ip_addr::Ipv4Addr> + core::marker::Send>, iroh_dns::dns::DnsError>::{closure#0}::{closure#0}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/macros/select.rs:710:49
+  32: <core::future::poll_fn::PollFn<<iroh_dns::dns::Inner>::op<<iroh_dns::dns::DnsResolver>::resolve_host_all::{closure#0}, core::pin::Pin<alloc::boxed::Box<dyn core::future::future::Future<Output = core::result::Result<alloc::boxed::Box<dyn core::iter::traits::iterator::Iterator<Item = core::net::ip_addr::Ipv4Addr> + core::marker::Send>, iroh_dns::dns::DnsError>> + core::marker::Send>>, alloc::boxed::Box<dyn core::iter::traits::iterator::Iterator<Item = core::net::ip_addr::Ipv4Addr> + core::marker::Send>, iroh_dns::dns::DnsError>::{closure#0}::{closure#0}> as core::future::future::Future>::poll
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/future/poll_fn.rs:151:9
+  33: {async_fn#0}<iroh_dns::dns::{impl#7}::resolve_host_all::{closure_env#0}, core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output=core::result::Result<alloc::boxed::Box<(dyn core::iter::traits::iterator::Iterator<Item=core::net::ip_addr::Ipv4Addr> + core::marker::Send), alloc::alloc::Global>, iroh_dns::dns::DnsError>> + core::marker::Send), alloc::alloc::Global>>, alloc::boxed::Box<(dyn core::iter::traits::iterator::Iterator<Item=core::net::ip_addr::Ipv4Addr> + core::marker::Send), alloc::alloc::Global>, iroh_dns::dns::DnsError>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/iroh-dns-1.3.0/src/dns.rs:731:13
+  34: poll<alloc::boxed::Box<(dyn core::future::future::Future<Output=core::result::Result<alloc::boxed::Box<(dyn core::iter::traits::iterator::Iterator<Item=core::net::ip_addr::Ipv4Addr> + core::marker::Send), alloc::alloc::Global>, iroh_dns::dns::DnsError>> + core::marker::Send), alloc::alloc::Global>>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/future/future.rs:133:9
+  35: poll<core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output=core::result::Result<alloc::boxed::Box<(dyn core::iter::traits::iterator::Iterator<Item=core::net::ip_addr::Ipv4Addr> + core::marker::Send), alloc::alloc::Global>, iroh_dns::dns::DnsError>> + core::marker::Send), alloc::alloc::Global>>>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/n0-future-0.3.2/src/maybe_future.rs:124:60
+  36: poll<n0_future::maybe_future::MaybeFuture<core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output=core::result::Result<alloc::boxed::Box<(dyn core::iter::traits::iterator::Iterator<Item=core::net::ip_addr::Ipv4Addr> + core::marker::Send), alloc::alloc::Global>, iroh_dns::dns::DnsError>> + core::marker::Send), alloc::alloc::Global>>>>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/future/future.rs:121:9
+  37: <iroh_dns::dns::DnsResolver>::resolve_host_all::{closure#2}::{closure#0}::{closure#0}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/macros/select.rs:710:49
+  38: <core::future::poll_fn::PollFn<<iroh_dns::dns::DnsResolver>::resolve_host_all::{closure#2}::{closure#0}::{closure#0}> as core::future::future::Future>::poll
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/future/poll_fn.rs:151:9
+  39: {synthetic#0}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/iroh-dns-1.3.0/src/dns.rs:981:17
+  40: poll_next<iroh_dns::dns::{impl#7}::resolve_host_all::State, iroh_dns::dns::{impl#7}::resolve_host_all::{closure_env#2}, iroh_dns::dns::{impl#7}::resolve_host_all::{closure#2}::{async_closure_env#0}, core::result::Result<core::net::ip_addr::IpAddr, iroh_dns::dns::DnsError>>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-lite-2.6.1/src/stream.rs:510:14
+  41: <futures_util::future::either::Either<futures_lite::stream::Once<core::result::Result<core::net::ip_addr::IpAddr, iroh_dns::dns::DnsError>>, futures_lite::stream::Unfold<<iroh_dns::dns::DnsResolver>::resolve_host_all::State, <iroh_dns::dns::DnsResolver>::resolve_host_all::{closure#2}, <iroh_dns::dns::DnsResolver>::resolve_host_all::{closure#2}::{closure#0}<i32>>> as futures_core::stream::Stream>::poll_next
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-util-0.3.34/src/future/either.rs:137:35
+  42: poll_next<&mut futures_util::future::either::Either<futures_lite::stream::Once<core::result::Result<core::net::ip_addr::IpAddr, iroh_dns::dns::DnsError>>, futures_lite::stream::Unfold<iroh_dns::dns::{impl#7}::resolve_host_all::State, iroh_dns::dns::{impl#7}::resolve_host_all::{closure_env#2}, iroh_dns::dns::{impl#7}::resolve_host_all::{closure#2}::{async_closure_env#0}>>>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-core-0.3.34/src/stream.rs:130:33
+  43: <core::pin::Pin<&mut futures_util::future::either::Either<futures_lite::stream::Once<core::result::Result<core::net::ip_addr::IpAddr, iroh_dns::dns::DnsError>>, futures_lite::stream::Unfold<<iroh_dns::dns::DnsResolver>::resolve_host_all::State, <iroh_dns::dns::DnsResolver>::resolve_host_all::{closure#2}, <iroh_dns::dns::DnsResolver>::resolve_host_all::{closure#2}::{closure#0}<i32>>>> as futures_lite::stream::StreamExt>::poll_next
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-lite-2.6.1/src/stream.rs:840:9
+  44: <futures_lite::stream::NextFuture<core::pin::Pin<&mut futures_util::future::either::Either<futures_lite::stream::Once<core::result::Result<core::net::ip_addr::IpAddr, iroh_dns::dns::DnsError>>, futures_lite::stream::Unfold<<iroh_dns::dns::DnsResolver>::resolve_host_all::State, <iroh_dns::dns::DnsResolver>::resolve_host_all::{closure#2}, <iroh_dns::dns::DnsResolver>::resolve_host_all::{closure#2}::{closure#0}<i32>>>>> as core::future::future::Future>::poll
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-lite-2.6.1/src/stream.rs:2111:21
+  45: iroh_relay::client::tls::dial_happy_eyeballs::{closure#0}::{closure#3}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/macros/select.rs:710:49
+  46: <core::future::poll_fn::PollFn<iroh_relay::client::tls::dial_happy_eyeballs::{closure#0}::{closure#3}> as core::future::future::Future>::poll
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/future/poll_fn.rs:151:9
+  47: {async_fn#0}
+             at ./home/js/Git/miopunch/vendor/iroh-relay/src/client/tls.rs:306:9
+  48: {async_fn#0}
+             at ./home/js/Git/miopunch/vendor/iroh-relay/src/client/tls.rs:122:86
+  49: {async_fn#0}
+             at ./home/js/Git/miopunch/vendor/iroh-relay/src/client/tls.rs:70:56
+  50: {async_fn#0}
+             at ./home/js/Git/miopunch/vendor/iroh-relay/src/client.rs:296:40
+  51: poll<iroh_relay::client::{impl#0}::connect::{async_fn_env#0}>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/time/timeout.rs:217:42
+  52: {async_block#0}
+             at ./home/js/Git/miopunch/vendor/iroh/src/socket/transports/relay/actor.rs:541:76
+  53: poll<&mut iroh::socket::transports::relay::actor::{impl#0}::dial_relay::{async_block_env#0}>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/future/future.rs:133:9
+  54: poll<core::pin::Pin<&mut iroh::socket::transports::relay::actor::{impl#0}::dial_relay::{async_block_env#0}>>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/future/future.rs:121:9
+  55: <iroh::socket::transports::relay::actor::ActiveRelayActor>::run_dialing::{closure#0}::{closure#1}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/macros/select.rs:710:49
+  56: <core::future::poll_fn::PollFn<<iroh::socket::transports::relay::actor::ActiveRelayActor>::run_dialing::{closure#0}::{closure#1}> as core::future::future::Future>::poll
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/future/poll_fn.rs:151:9
+  57: {async_fn#0}
+             at ./home/js/Git/miopunch/vendor/iroh/src/socket/transports/relay/actor.rs:467:13
+  58: poll<iroh::socket::transports::relay::actor::{impl#0}::run_dialing::{async_fn_env#0}>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.44/src/instrument.rs:321:15
+  59: {async_fn#0}
+             at ./home/js/Git/miopunch/vendor/iroh/src/socket/transports/relay/actor.rs:410:81
+  60: {async_fn#0}
+             at ./home/js/Git/miopunch/vendor/iroh/src/socket/transports/relay/actor.rs:329:46
+  61: {async_block#1}
+             at ./home/js/Git/miopunch/vendor/iroh/src/socket/transports/relay/actor.rs:1480:29
+  62: poll<iroh::socket::transports::relay::actor::{impl#8}::start_active_relay::{async_block_env#1}>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.44/src/instrument.rs:321:15
+  63: poll<alloc::boxed::Box<tracing::instrument::Instrumented<iroh::socket::transports::relay::actor::{impl#8}::start_active_relay::{async_block_env#1}>, alloc::alloc::Global>>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/future/future.rs:133:9
+  64: <tokio::runtime::task::core::Core<core::pin::Pin<alloc::boxed::Box<tracing::instrument::Instrumented<<iroh::socket::transports::relay::actor::RelayActor>::start_active_relay::{closure#1}>>>, alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle>>>::poll::{closure#0}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/task/core.rs:380:24
+  65: with_mut<tokio::runtime::task::core::Stage<core::pin::Pin<alloc::boxed::Box<tracing::instrument::Instrumented<iroh::socket::transports::relay::actor::{impl#8}::start_active_relay::{async_block_env#1}>, alloc::alloc::Global>>>, core::task::poll::Poll<()>, tokio::runtime::task::core::{impl#6}::poll::{closure_env#0}<core::pin::Pin<alloc::boxed::Box<tracing::instrument::Instrumented<iroh::socket::transports::relay::actor::{impl#8}::start_active_relay::{async_block_env#1}>, alloc::alloc::Global>>, alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle, alloc::alloc::Global>>>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/loom/std/unsafe_cell.rs:16:9
+  66: poll<core::pin::Pin<alloc::boxed::Box<tracing::instrument::Instrumented<iroh::socket::transports::relay::actor::{impl#8}::start_active_relay::{async_block_env#1}>, alloc::alloc::Global>>, alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle, alloc::alloc::Global>>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/task/core.rs:369:30
+  67: tokio::runtime::task::harness::poll_future::<core::pin::Pin<alloc::boxed::Box<tracing::instrument::Instrumented<<iroh::socket::transports::relay::actor::RelayActor>::start_active_relay::{closure#1}>>>, alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle>>::{closure#0}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/task/harness.rs:535:30
+  68: <core::panic::unwind_safe::AssertUnwindSafe<tokio::runtime::task::harness::poll_future<core::pin::Pin<alloc::boxed::Box<tracing::instrument::Instrumented<<iroh::socket::transports::relay::actor::RelayActor>::start_active_relay::{closure#1}>>>, alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle>>::{closure#0}> as core::ops::function::FnOnce<()>>::call_once
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panic/unwind_safe.rs:275:9
+  69: do_call<core::panic::unwind_safe::AssertUnwindSafe<tokio::runtime::task::harness::poll_future::{closure_env#0}<core::pin::Pin<alloc::boxed::Box<tracing::instrument::Instrumented<iroh::socket::transports::relay::actor::{impl#8}::start_active_relay::{async_block_env#1}>, alloc::alloc::Global>>, alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle, alloc::alloc::Global>>>, core::task::poll::Poll<()>>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panicking.rs:576:43
+  70: __rust_try
+  71: catch_unwind<core::task::poll::Poll<()>, core::panic::unwind_safe::AssertUnwindSafe<tokio::runtime::task::harness::poll_future::{closure_env#0}<core::pin::Pin<alloc::boxed::Box<tracing::instrument::Instrumented<iroh::socket::transports::relay::actor::{impl#8}::start_active_relay::{async_block_env#1}>, alloc::alloc::Global>>, alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle, alloc::alloc::Global>>>>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panicking.rs:544:19
+  72: catch_unwind<core::panic::unwind_safe::AssertUnwindSafe<tokio::runtime::task::harness::poll_future::{closure_env#0}<core::pin::Pin<alloc::boxed::Box<tracing::instrument::Instrumented<iroh::socket::transports::relay::actor::{impl#8}::start_active_relay::{async_block_env#1}>, alloc::alloc::Global>>, alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle, alloc::alloc::Global>>>, core::task::poll::Poll<()>>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panic.rs:359:14
+  73: tokio::runtime::task::harness::poll_future::<core::pin::Pin<alloc::boxed::Box<tracing::instrument::Instrumented<<iroh::socket::transports::relay::actor::RelayActor>::start_active_relay::{closure#1}>>>, alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle>>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/task/harness.rs:523:18
+  74: <tokio::runtime::task::harness::Harness<core::pin::Pin<alloc::boxed::Box<tracing::instrument::Instrumented<<iroh::socket::transports::relay::actor::RelayActor>::start_active_relay::{closure#1}>>>, alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle>>>::poll_inner
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/task/harness.rs:210:27
+  75: <tokio::runtime::task::harness::Harness<core::pin::Pin<alloc::boxed::Box<tracing::instrument::Instrumented<<iroh::socket::transports::relay::actor::RelayActor>::start_active_relay::{closure#1}>>>, alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle>>>::poll
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/task/harness.rs:155:20
+  76: tokio::runtime::task::raw::poll::<core::pin::Pin<alloc::boxed::Box<tracing::instrument::Instrumented<<iroh::socket::transports::relay::actor::RelayActor>::start_active_relay::{closure#1}>>>, alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle>>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/task/raw.rs:343:13
+  77: <tokio::runtime::task::raw::RawTask>::poll
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/task/raw.rs:273:18
+  78: <tokio::runtime::task::LocalNotified<alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle>>>::run
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/task/mod.rs:519:13
+  79: {closure#0}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/multi_thread/worker.rs:775:22
+  80: with_budget<core::result::Result<alloc::boxed::Box<tokio::runtime::scheduler::multi_thread::worker::Core, alloc::alloc::Global>, ()>, tokio::runtime::scheduler::multi_thread::worker::{impl#1}::run_task::{closure_env#0}>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/task/coop/mod.rs:167:5
+  81: budget<core::result::Result<alloc::boxed::Box<tokio::runtime::scheduler::multi_thread::worker::Core, alloc::alloc::Global>, ()>, tokio::runtime::scheduler::multi_thread::worker::{impl#1}::run_task::{closure_env#0}>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/task/coop/mod.rs:133:5
+  82: run_task
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/multi_thread/worker.rs:689:9
+  83: <tokio::runtime::scheduler::multi_thread::worker::Context>::run
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/multi_thread/worker.rs:596:29
+  84: tokio::runtime::scheduler::multi_thread::worker::run::{closure#0}::{closure#0}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/multi_thread/worker.rs:561:24
+  85: <tokio::runtime::context::scoped::Scoped<tokio::runtime::scheduler::Context>>::set::<tokio::runtime::scheduler::multi_thread::worker::run::{closure#0}::{closure#0}, ()>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/context/scoped.rs:40:9
+  86: tokio::runtime::context::set_scheduler::<(), tokio::runtime::scheduler::multi_thread::worker::run::{closure#0}::{closure#0}>::{closure#0}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/context.rs:187:38
+  87: try_with<tokio::runtime::context::Context, tokio::runtime::context::set_scheduler::{closure_env#0}<(), tokio::runtime::scheduler::multi_thread::worker::run::{closure#0}::{closure_env#0}>, ()>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/local.rs:463:12
+  88: <std::thread::local::LocalKey<tokio::runtime::context::Context>>::with::<tokio::runtime::context::set_scheduler<(), tokio::runtime::scheduler::multi_thread::worker::run::{closure#0}::{closure#0}>::{closure#0}, ()>
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/local.rs:427:20
+  89: tokio::runtime::context::set_scheduler::<(), tokio::runtime::scheduler::multi_thread::worker::run::{closure#0}::{closure#0}>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/context.rs:187:17
+  90: tokio::runtime::scheduler::multi_thread::worker::run::{closure#0}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/multi_thread/worker.rs:556:9
+  91: tokio::runtime::context::runtime::enter_runtime::<tokio::runtime::scheduler::multi_thread::worker::run::{closure#0}, ()>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/context/runtime.rs:65:16
+  92: tokio::runtime::scheduler::multi_thread::worker::run
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/multi_thread/worker.rs:548:5
+  93: <tokio::runtime::scheduler::multi_thread::worker::Launch>::launch::{closure#0}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/multi_thread/worker.rs:514:45
+  94: <tokio::runtime::blocking::task::BlockingTask<<tokio::runtime::scheduler::multi_thread::worker::Launch>::launch::{closure#0}> as core::future::future::Future>::poll
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/blocking/task.rs:42:21
+  95: <tokio::runtime::task::core::Core<tokio::runtime::blocking::task::BlockingTask<<tokio::runtime::scheduler::multi_thread::worker::Launch>::launch::{closure#0}>, tokio::runtime::blocking::schedule::BlockingSchedule>>::poll::{closure#0}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/task/core.rs:380:24
+  96: with_mut<tokio::runtime::task::core::Stage<tokio::runtime::blocking::task::BlockingTask<tokio::runtime::scheduler::multi_thread::worker::{impl#0}::launch::{closure_env#0}>>, core::task::poll::Poll<()>, tokio::runtime::task::core::{impl#6}::poll::{closure_env#0}<tokio::runtime::blocking::task::BlockingTask<tokio::runtime::scheduler::multi_thread::worker::{impl#0}::launch::{closure_env#0}>, tokio::runtime::blocking::schedule::BlockingSchedule>>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/loom/std/unsafe_cell.rs:16:9
+  97: poll<tokio::runtime::blocking::task::BlockingTask<tokio::runtime::scheduler::multi_thread::worker::{impl#0}::launch::{closure_env#0}>, tokio::runtime::blocking::schedule::BlockingSchedule>
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/task/core.rs:369:30
+  98: tokio::runtime::task::harness::poll_future::<tokio::runtime::blocking::task::BlockingTask<<tokio::runtime::scheduler::multi_thread::worker::Launch>::launch::{closure#0}>, tokio::runtime::blocking::schedule::BlockingSchedule>::{closure#0}
+             at ./home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/task/harness.rs:535:30
+  99: <core::panic::unwind_safe::AssertUnwindSafe<tokio::runtime::task::harness::poll_future<tokio::runtime::blocking::task::BlockingTask<<tokio::runtime::scheduler::multi_thread::worker::Launch>::launch::{closure#0}>, tokio::runtime::blocking::schedule::BlockingSchedule>::{closure#0}> as core::ops::function::FnOnce<()>>::call_once
+             at ./home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panic/unwind_safe.rs:275:9
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+{"address":{"addrs":[{"Relay":"https://aps1-1.relay.n0.iroh.link./"},{"Ip":"192.168.4.151:48314"}],"id":"80b00f18ff6ea337302db4d19d887ea67debaa07f7ec17038b9b80368468dc26"},"event":"ready","node":"80b00f18ff6ea337302db4d19d887ea67debaa07f7ec17038b9b80368468dc26"}
+{"id":1,"ok":true,"result":{"stopped":true}}
