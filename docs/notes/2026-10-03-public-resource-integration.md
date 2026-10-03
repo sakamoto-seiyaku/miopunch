@@ -59,7 +59,9 @@ nor LogSync is qualified by a signaling-only connection.
    IPv4 and IPv6 XOR-MAPPED-ADDRESS responses are accepted. Closing the
    observation connection, changing the network, superseding the query,
    closing the Endpoint or 40-second age invalidates the result. Android's
-   TCP hole punching remains disabled.
+   TCP hole punching remains disabled. A per-origin cancellation token also
+   supersedes pending queries atomically; an older completion cannot replace a
+   newer attempt, including one that fails or is cancelled.
 3. Cloudflare's public TURN listener responds to Binding as STUN, as its
    [official FAQ](https://developers.cloudflare.com/realtime/turn/faq/) explains.
    This run performs Binding only; no TURN allocation or TURN data relay is

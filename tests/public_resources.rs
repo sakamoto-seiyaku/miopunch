@@ -189,6 +189,53 @@ async fn tcp_stun_retains_the_configured_transport_port_and_expires_on_close() {
 }
 
 #[tokio::test]
+async fn a_new_tcp_stun_attempt_invalidates_an_older_pending_query() {
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
+    let server = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let url: iroh::RelayUrl = format!("stun+tcp://{}/", server.local_addr().unwrap())
+        .parse()
+        .unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let node = NativeNetwork::create(directory.path().join("node"))
+        .await
+        .unwrap();
+    let mut config = node.resource_configuration().unwrap();
+    config.replacement = Some(vec![Resource {
+        url: url.to_string(),
+        uses: BTreeSet::from([ResourceUse::Observation]),
+        limitation: "supersession test".into(),
+    }]);
+    config.tcp_listen = Some((Ipv4Addr::LOCALHOST, 0).into());
+    node.save_resource_configuration(&config).unwrap();
+    let resources = node
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let (older, stream) = tokio::join!(resources.observe_tcp_stun(&url), async {
+        let (mut stream, _) = server.accept().await.unwrap();
+        let mut request = [0; 20];
+        stream.read_exact(&mut request).await.unwrap();
+        // The second request must start before the first response is sent.
+        // It may fail to reuse the same TCP four-tuple or be cancelled while
+        // awaiting its response; either way the older query is superseded.
+        let _ = tokio::time::timeout(Duration::from_millis(100), resources.observe_tcp_stun(&url))
+            .await;
+        let _ = stream.write_all(&response(&request, 41002)).await;
+        stream
+    });
+    assert!(
+        older.is_err(),
+        "a superseded in-flight query must not publish a fresh observation"
+    );
+    drop(stream);
+    resources.close().await;
+    node.close().await;
+}
+
+#[tokio::test]
 async fn tcp_stun_accepts_ipv6_mapping_of_the_actual_ipv4_transport_connection() {
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},

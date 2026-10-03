@@ -1,0 +1,20 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.08s
+     Running tests/public_resources.rs (target/debug/deps/public_resources-c88496f5eb5e69f0)
+
+running 1 test
+
+thread 'a_new_tcp_stun_attempt_invalidates_an_older_pending_query' (2689311) panicked at tests/public_resources.rs:218:5:
+a superseded in-flight query must not publish a fresh observation
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test a_new_tcp_stun_attempt_invalidates_an_older_pending_query ... FAILED
+
+failures:
+
+failures:
+    a_new_tcp_stun_attempt_invalidates_an_older_pending_query
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.33s
+
+error: test failed, to rerun pass `--test public_resources`

@@ -1,0 +1,11 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: function `join` is never used
+  --> src/desktop_cli.rs:73:14
+   |
+73 | pub async fn join(path: &str, invitation_path: &str) -> Result<NativeNetwork, Box<dyn Error>> {
+   |              ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `miopunch-native-probe` (lib) generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 10.00s

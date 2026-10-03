@@ -46,6 +46,16 @@ uses an actually running separately owned controlled broker via
 `MIOPUNCH_MQTT_BROKER=127.0.0.1:18864`; the public acceptance uses EMQX instead.
 The unchanged slow NAT matrix is skipped under the user's standing policy.
 
+The Spec review found a TCP-observation supersession race after these checks.
+`failures/tcp-supersession-red.log` reproduces an older pending query publishing
+after a newer same-origin attempt. The per-origin cancellation fix rejects the
+older query and prevents stale publication. `checks/tcp-supersession-green-affected.log`
+records **33 passed / 0 failed** across the seven public-resource checks and
+26 resource checks after that correction. The prior physical acceptance uses
+sequential observations, so its public network results remain qualified.
+`checks/post-review-native-check.log`, `checks/post-review-fmt.log` and
+`checks/android-post-review-build.log` record compilation of the correction.
+
 `checks/final-stun-diagnostics.log` additionally checks actual UDP binding
 diagnostics and the four STUN boundaries after the logging correction.
 `checks/final-native-check-v3.log` records the final all-target native check;

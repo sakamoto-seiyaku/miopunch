@@ -502,7 +502,12 @@ pub struct ResourceEndpoint {
     pub(crate) responders: Vec<tokio::task::JoinHandle<()>>,
     tcp: Option<crate::tcp_transport::TcpTransport>,
     mqtt: Vec<std::sync::Arc<crate::mqtt_transport::MqttTransport>>,
-    tcp_observations: std::sync::Mutex<BTreeMap<String, std::sync::Arc<tokio::net::TcpStream>>>,
+    tcp_observations: std::sync::Mutex<BTreeMap<String, TcpObservationSlot>>,
+}
+
+struct TcpObservationSlot {
+    request: tokio_util::sync::CancellationToken,
+    stream: Option<std::sync::Arc<tokio::net::TcpStream>>,
 }
 
 /// One observation of a retained connection opened from the real TCP carrier's
@@ -519,12 +524,14 @@ pub struct TcpStunObservation {
     stream: std::sync::Weak<tokio::net::TcpStream>,
     endpoint: iroh::Endpoint,
     generation: iroh::endpoint::ObservationValidity,
+    request: tokio_util::sync::CancellationToken,
 }
 
 impl TcpStunObservation {
     pub fn is_fresh(&self) -> bool {
         if self.endpoint.is_closed()
             || !self.generation.is_current()
+            || self.request.is_cancelled()
             || Instant::now() >= self.valid_until
         {
             return false;
@@ -593,10 +600,21 @@ impl ResourceEndpoint {
         }
         let origin = resource_origin(observer.as_str())
             .ok_or_else(|| io::Error::other("invalid TCP STUN origin"))?;
-        self.tcp_observations
-            .lock()
-            .expect("TCP observations")
-            .remove(&origin);
+        let request = tokio_util::sync::CancellationToken::new();
+        {
+            let mut observations = self.tcp_observations.lock().expect("TCP observations");
+            if let Some(previous) = observations.insert(
+                origin.clone(),
+                TcpObservationSlot {
+                    request: request.clone(),
+                    stream: None,
+                },
+            ) {
+                // Supersede both a retained result and an in-flight query,
+                // even when this new attempt subsequently fails or is dropped.
+                previous.request.cancel();
+            }
+        }
         let transport = self.tcp.as_ref().ok_or_else(|| {
             io::Error::new(io::ErrorKind::Unsupported, "no configured TCP transport")
         })?;
@@ -645,14 +663,27 @@ impl ResourceEndpoint {
                 stream: std::sync::Arc::downgrade(&stream),
                 endpoint: self.endpoint.clone(),
                 generation,
+                request: request.clone(),
             };
-            self.tcp_observations
-                .lock()
-                .expect("TCP observations")
-                .insert(origin, stream);
+            let mut observations = self.tcp_observations.lock().expect("TCP observations");
+            if request.is_cancelled() {
+                return Err(io::Error::new(
+                    io::ErrorKind::Interrupted,
+                    "TCP STUN query superseded",
+                ));
+            }
+            observations
+                .get_mut(&origin)
+                .expect("registered TCP query")
+                .stream = Some(stream);
             Ok(observation)
         };
-        tokio::time::timeout(Duration::from_secs(3), operation)
+        tokio::time::timeout(Duration::from_secs(3), async {
+            tokio::select! {
+                _ = request.cancelled() => Err(io::Error::new(io::ErrorKind::Interrupted, "TCP STUN query superseded")),
+                result = operation => result,
+            }
+        })
             .await
             .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "TCP STUN Binding timed out"))?
     }

@@ -1,0 +1,223 @@
+    Blocking waiting for file lock on build directory
+    Checking miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: variable does not need to be mutable
+   --> tests/tcp_punch.rs:214:9
+    |
+214 |     let mut resources = node.bind_configured_endpoint_with(builder).await.unwrap();
+    |         ----^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> tests/tcp_direct.rs:226:9
+    |
+226 |     let mut ce = joining
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> tests/tcp_direct.rs:339:9
+    |
+339 |     let mut ce = joining
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:300:9
+    |
+300 |     let mut client = bind_member(&joining).await;
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: `miopunch-native-probe` (test "tcp_punch") generated 1 warning (run `cargo fix --test "tcp_punch" -p miopunch-native-probe` to apply 1 suggestion)
+warning: variable does not need to be mutable
+   --> tests/tcp_portmap.rs:131:17
+    |
+131 |             let mut endpoint = node
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> tests/resources.rs:907:9
+    |
+907 |     let mut contact = joining
+    |         ----^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> tests/resources.rs:971:9
+    |
+971 |     let mut contact = joining
+    |         ----^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:327:9
+    |
+327 |     let mut a = bind_member(&admin).await;
+    |         ----^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:328:9
+    |
+328 |     let mut b = bind_member(&joining).await;
+    |         ----^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/path_maintenance.rs:131:20
+    |
+131 |     async fn close(mut self) {
+    |                    ----^^^^
+    |                    |
+    |                    help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+    --> tests/resources.rs:1176:9
+     |
+1176 |     let mut passive_contact = passive
+     |         ----^^^^^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:411:9
+    |
+411 |     let mut client = joining
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:491:9
+    |
+491 |     let mut client = bind_member(&joining).await;
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:529:9
+    |
+529 |     let mut attacker = bind_member(&holder).await;
+    |         ----^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:546:9
+    |
+546 |     let mut member = bind_member(&joining).await;
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:595:13
+    |
+595 |         let mut client = bind_member(&joining).await;
+    |             ----^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:656:13
+    |
+656 |         let mut resources = node.bind_configured_endpoint_with(
+    |             ----^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: `miopunch-native-probe` (test "tcp_direct") generated 2 warnings (run `cargo fix --test "tcp_direct" -p miopunch-native-probe` to apply 2 suggestions)
+warning: `miopunch-native-probe` (test "tcp_portmap") generated 1 warning (run `cargo fix --test "tcp_portmap" -p miopunch-native-probe` to apply 1 suggestion)
+warning: `miopunch-native-probe` (test "resources") generated 3 warnings (run `cargo fix --test "resources" -p miopunch-native-probe` to apply 3 suggestions)
+warning: `miopunch-native-probe` (test "mqtt_bootstrap") generated 9 warnings (run `cargo fix --test "mqtt_bootstrap" -p miopunch-native-probe` to apply 9 suggestions)
+warning: variable does not need to be mutable
+   --> tests/network_recovery.rs:149:9
+    |
+149 |     let mut recovered = recovered.unwrap();
+    |         ----^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `signal` is never read
+   --> tests/member_relay.rs:185:5
+    |
+173 | struct Topology {
+    |        -------- field in this struct
+...
+185 |     signal: Option<(
+    |     ^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `miopunch-native-probe` (test "member_relay") generated 1 warning
+warning: `miopunch-native-probe` (test "network_recovery") generated 1 warning (run `cargo fix --test "network_recovery" -p miopunch-native-probe` to apply 1 suggestion)
+warning: `miopunch-native-probe` (test "path_maintenance") generated 1 warning (run `cargo fix --test "path_maintenance" -p miopunch-native-probe` to apply 1 suggestion)
+warning: variable does not need to be mutable
+   --> tests/irc_bootstrap.rs:161:9
+    |
+161 |     let mut ae = bind(&a)
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> tests/irc_bootstrap.rs:473:9
+    |
+473 |     let mut ae = bind(&a).await;
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/irc_bootstrap.rs:516:9
+    |
+516 |     let mut se = bind(&stranger).await;
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/irc_bootstrap.rs:667:9
+    |
+667 |     let mut ae = bind(&a)
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/irc_bootstrap.rs:836:9
+    |
+836 |     let mut ae = bind(&a).await;
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+
+warning: `miopunch-native-probe` (test "irc_bootstrap") generated 5 warnings (run `cargo fix --test "irc_bootstrap" -p miopunch-native-probe` to apply 5 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 13.04s
