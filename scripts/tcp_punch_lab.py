@@ -10,7 +10,7 @@ def fixture_source(repo):
     source = (repo / "scripts/udp_nat_lab.sh").read_text()
     source = source[:source.index("# Endpoint-independent mapping")]
     source = source.replace("/tmp/miopunch27.", "/tmp/miopunch43.").replace('prefix="m27$$"', 'prefix="m43$$"')
-    source = source.replace("positive|no_prime|path_id_retry|blocked|wrong|stale|control_cut", "positive|domain_stun|stun_udp|blocked|simultaneous_cancel|endpoint_dependent|udp_fallback|simultaneous|mixed_tcp|wrong_target|private_bind|cancel_attempt|observer_failure|candidate_denied")
+    source = source.replace("positive|no_prime|path_id_retry|blocked|wrong|stale|control_cut", "positive|domain_stun|domain_stun_diagnostic|stun_udp|blocked|simultaneous_cancel|endpoint_dependent|udp_fallback|simultaneous|mixed_tcp|wrong_target|private_bind|cancel_attempt|observer_failure|candidate_denied")
     source = source.replace('  for ns in "${names[@]}"; do', '\n'.join([
         '  for nat in "$nat_a" "$nat_b"; do',
         '    ip netns exec "$nat" iptables-save -c > "$evidence/$nat-rules.txt" 2>/dev/null || true',
@@ -25,7 +25,7 @@ for nat in "$nat_a" "$nat_b"; do
   ip netns exec "$nat" iptables -A INPUT -i wan0 -p tcp --syn -j DROP
 done
 ip netns exec "$wan" sysctl -qw net.ipv4.ip_forward=1
-if [[ $case_name == domain_stun ]]; then
+if [[ $case_name == domain_stun || $case_name == domain_stun_diagnostic ]]; then
   for node in "$node_a" "$node_b"; do
     mkdir -p "/etc/netns/$node"
     printf '127.0.0.1 localhost\n100.64.27.1 stun.miopunch.test\n' > "/etc/netns/$node/hosts"

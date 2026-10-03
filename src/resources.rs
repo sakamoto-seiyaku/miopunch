@@ -497,13 +497,6 @@ pub struct ResourceEndpoint {
     pub(crate) responders: Vec<tokio::task::JoinHandle<()>>,
     tcp: Option<crate::tcp_transport::TcpTransport>,
     mqtt: Vec<std::sync::Arc<crate::mqtt_transport::MqttTransport>>,
-    tcp_observations: std::sync::Mutex<BTreeMap<String, TcpObservationSlot>>,
-}
-
-struct TcpObservationSlot {
-    request: tokio_util::sync::CancellationToken,
-    /// Ownership retains the real diagnostic socket until replacement/close.
-    _stream: std::sync::Arc<tokio::net::TcpStream>,
 }
 
 /// One observation of a retained connection opened from the real TCP carrier's
@@ -549,7 +542,6 @@ impl ResourceEndpoint {
             responders: Vec::new(),
             tcp: None,
             mqtt: Vec::new(),
-            tcp_observations: Default::default(),
         }
     }
 
@@ -599,14 +591,6 @@ impl ResourceEndpoint {
         let transport = self.tcp.as_ref().ok_or_else(|| {
             io::Error::new(io::ErrorKind::Unsupported, "no configured TCP transport")
         })?;
-        if let Some(previous) = self
-            .tcp_observations
-            .lock()
-            .expect("TCP observations")
-            .remove(&origin)
-        {
-            previous.request.cancel();
-        }
         let result = crate::tcp_observation::observe(&self.endpoint, transport, observer).await?;
         let stream = std::sync::Arc::new(result.stream);
         let observation = TcpStunObservation {
@@ -622,20 +606,13 @@ impl ResourceEndpoint {
             generation: result.generation,
             request: result.request.clone(),
         };
-        let mut observations = self.tcp_observations.lock().expect("TCP observations");
         if !observation.is_fresh() {
             return Err(io::Error::new(
                 io::ErrorKind::Interrupted,
                 "TCP STUN query superseded",
             ));
         }
-        observations.insert(
-            origin,
-            TcpObservationSlot {
-                request: result.request,
-                _stream: stream,
-            },
-        );
+        transport.retain_observation(&origin, &result.request, stream)?;
         Ok(observation)
     }
 

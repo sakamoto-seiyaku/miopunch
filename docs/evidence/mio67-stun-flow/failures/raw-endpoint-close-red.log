@@ -1,0 +1,20 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.77s
+     Running tests/public_resources.rs (target/debug/deps/public_resources-b572264cd1691a2e)
+
+running 1 test
+
+thread 'closing_the_endpoint_retires_a_retained_tcp_observation_even_while_resource_wrapper_lives' (2735077) panicked at tests/public_resources.rs:360:5:
+raw Endpoint close must release the actual retained observer socket
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test closing_the_endpoint_retires_a_retained_tcp_observation_even_while_resource_wrapper_lives ... FAILED
+
+failures:
+
+failures:
+    closing_the_endpoint_retires_a_retained_tcp_observation_even_while_resource_wrapper_lives
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.49s
+
+error: test failed, to rerun pass `--test public_resources`

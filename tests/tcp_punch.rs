@@ -102,7 +102,9 @@ async fn prepare(directory: &Path) {
                 limitation: "owned signaling broker".into(),
             },
             Resource {
-                url: if std::env::var("MIO43_CASE").is_ok_and(|case| case == "domain_stun") {
+                url: if std::env::var("MIO43_CASE").is_ok_and(|case| {
+                    matches!(case.as_str(), "domain_stun" | "domain_stun_diagnostic")
+                }) {
                     "stun+tcp://stun.miopunch.test:3478/".into()
                 } else {
                     "stun+tcp://100.64.27.1:3478/".into()
@@ -253,7 +255,13 @@ async fn run_worker(role: String, directory: std::path::PathBuf) {
         .await
         .unwrap();
     let phase = std::env::var("MIO67_PHASE").unwrap_or_else(|_| "first".into());
-    if server && matches!(case.as_str(), "domain_stun" | "stun_udp") && phase != "disabled" {
+    if server
+        && matches!(
+            case.as_str(),
+            "domain_stun" | "domain_stun_diagnostic" | "stun_udp"
+        )
+        && phase != "disabled"
+    {
         let mut session = node.begin_management_session();
         let record = node
             .manage(
@@ -295,6 +303,20 @@ async fn run_worker(role: String, directory: std::path::PathBuf) {
     let mut resources = node.bind_configured_endpoint_with(builder).await.unwrap();
     let endpoint = resources.endpoint().clone();
     endpoint.set_alpns(vec![REPLICA_ALPN.to_vec()]);
+    let diagnostic = if case == "domain_stun_diagnostic" {
+        let result = resources
+            .observe_tcp_stun(&"stun+tcp://stun.miopunch.test:3478/".parse().unwrap())
+            .await
+            .unwrap();
+        assert!(result.is_fresh());
+        println!(
+            "DIAGNOSTIC_BEFORE_FORMAL listener={} source={} destination={} fresh=true",
+            result.listener, result.local_addr, result.destination
+        );
+        Some(result)
+    } else {
+        None
+    };
     assert_eq!(
         endpoint.bound_sockets().is_empty(),
         !fallback,
@@ -597,6 +619,16 @@ async fn run_worker(role: String, directory: std::path::PathBuf) {
         return;
     }
     let connection = connection.expect("dual NAT must return formal authenticated TCP connection");
+    if let Some(diagnostic) = diagnostic {
+        assert!(
+            !diagnostic.is_fresh(),
+            "formal supersession invalidates the previous diagnostic mapping"
+        );
+        println!(
+            "DIAGNOSTIC_SUPERSEDED formal_connection={} old_candidate_current=false",
+            connection.stable_id()
+        );
+    }
     if case == "cancel_attempt" {
         let ids = stage_ids.lock().unwrap();
         assert_eq!(ids.len(), 2);
@@ -687,7 +719,10 @@ async fn run_worker(role: String, directory: std::path::PathBuf) {
     } else {
         let before = node.management_history().await.unwrap().len();
         assert!(node.sync_replica(&connection).await.unwrap().complete());
-        if matches!(case.as_str(), "domain_stun" | "stun_udp") {
+        if matches!(
+            case.as_str(),
+            "domain_stun" | "domain_stun_diagnostic" | "stun_udp"
+        ) {
             let after = node.management_history().await.unwrap().len();
             let record = std::fs::read_to_string(directory.join("sync-record"))
                 .unwrap()

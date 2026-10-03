@@ -113,3 +113,25 @@ removed. Only public fixture metadata, logs, results and captures remain.
 Independent review is recorded in `review.md` at completion.
 
 Repository log copies normalize trailing whitespace and terminal blank lines; original OS-temporary logs remain unchanged.
+
+## Concrete review correction
+
+Independent Spec review found a P2 at the initial implementation: a completed
+diagnostic retained its TCP socket even after the formal query superseded its
+token. The same listener/destination four-tuple remained established, and both
+formal nodes reproduced errno99 with no data release. A second public API RED
+showed raw Endpoint close retaining the observer socket while its resource
+wrapper remained alive. Both original failures are preserved.
+
+The actual TCP carrier now owns the per-origin request and retained diagnostic
+socket together. Supersession retires that socket before reconnecting; carrier
+shutdown cancels all observations and releases retained streams. `review-fix/`
+records the formal GREEN: diagnostics first, fresh same-port observations, old
+copies invalidated, real TCP punch, original TLS Connection, new-record sync
+2 → 3 and authorized business. The raw-close GREEN verifies actual peer EOF.
+
+Only affected public-resource/TCP-direct suites were rerun after the correction:
+22 passed with actual owned brokers. Native all-target checking, formatting,
+Android JNI build and its narrow physical observation regression are recorded
+with the fix. Earlier UDP/QAD/coalescence, gate and WASM results are retained;
+the correction changes only TCP observation ownership/lifecycle.

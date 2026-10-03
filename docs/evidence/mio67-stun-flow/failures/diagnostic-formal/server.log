@@ -1,0 +1,21 @@
+
+running 1 test
+DIAGNOSTIC_BEFORE_FORMAL listener=0.0.0.0:43027 source=10.27.2.2:43027 destination=100.64.27.1:3478 fresh=true
+READY id=b3855ff4b6c9e3bc3635fdb8d5e4ca809e8de7385a6bfe8237e5bdf4eee8d433 tcp=EndpointAddr { id: PublicKey(b3855ff4b6c9e3bc3635fdb8d5e4ca809e8de7385a6bfe8237e5bdf4eee8d433), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a813] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=128129544770800 peer=4edcf6b3795f3541b56043e56c4664b57fd842c84af8165a85bc68493c5b8624
+TCP_OBSERVATION_FAILED observer=stun+tcp://stun.miopunch.test:3478/ result=Err(Os { code: 99, kind: AddrNotAvailable, message: "Cannot assign requested address" })
+TCP_PUNCH_FALLBACK stable_id=128129544770800 error=TCP observation unavailable at a peer
+MQTT_BOOTSTRAP_FAILED stable_id=128129544770800 error=no mutually permitted data path capability
+
+thread 'tcp_native_punch_worker' (110) panicked at tests/tcp_punch.rs:605:33:
+dual NAT must return formal authenticated TCP connection: "Connection was rejected locally"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=0 sent_bytes=0 received_packets=0 received_bytes=0 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=0 inbound_outstanding=0 inbound_peak=0 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... FAILED
+
+failures:
+
+failures:
+    tcp_native_punch_worker
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.04s

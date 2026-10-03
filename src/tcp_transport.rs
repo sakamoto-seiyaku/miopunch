@@ -91,7 +91,26 @@ pub struct TcpTransport {
     punching: bool,
     reuse_local_port: bool,
     shared: Arc<Mutex<Weak<Shared>>>,
-    observation_requests: Arc<Mutex<HashMap<String, tokio_util::sync::CancellationToken>>>,
+    observations: Arc<TcpObservations>,
+}
+
+#[derive(Debug, Default)]
+struct TcpObservations {
+    slots: Mutex<HashMap<String, TcpObservationRequest>>,
+}
+
+#[derive(Debug)]
+struct TcpObservationRequest {
+    request: tokio_util::sync::CancellationToken,
+    /// Completed diagnostics retain their socket in the actual carrier's
+    /// lifecycle, so a formal query can retire it before reusing the tuple.
+    retained_stream: Option<Arc<TcpStream>>,
+}
+
+impl Drop for TcpObservationRequest {
+    fn drop(&mut self) {
+        self.request.cancel();
+    }
 }
 
 impl TcpTransport {
@@ -109,7 +128,7 @@ impl TcpTransport {
             punching: false,
             reuse_local_port: false,
             shared: Arc::new(Mutex::new(Weak::new())),
-            observation_requests: Default::default(),
+            observations: Default::default(),
         }
     }
 
@@ -134,15 +153,31 @@ impl TcpTransport {
     /// Diagnostics and formal punching share supersession on this actual carrier.
     pub(crate) fn begin_observation(&self, origin: &str) -> tokio_util::sync::CancellationToken {
         let request = tokio_util::sync::CancellationToken::new();
-        if let Some(previous) = self
-            .observation_requests
-            .lock()
-            .unwrap()
-            .insert(origin.into(), request.clone())
-        {
-            previous.cancel();
-        }
+        self.observations.slots.lock().unwrap().insert(
+            origin.into(),
+            TcpObservationRequest {
+                request: request.clone(),
+                retained_stream: None,
+            },
+        );
         request
+    }
+
+    pub(crate) fn retain_observation(
+        &self,
+        origin: &str,
+        request: &tokio_util::sync::CancellationToken,
+        stream: Arc<TcpStream>,
+    ) -> io::Result<()> {
+        let mut slots = self.observations.slots.lock().unwrap();
+        let slot = slots
+            .get_mut(origin)
+            .filter(|_| !request.is_cancelled())
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::Interrupted, "TCP STUN query superseded")
+            })?;
+        slot.retained_stream = Some(stream);
+        Ok(())
     }
 
     pub(crate) async fn observe(
@@ -381,6 +416,7 @@ struct Shared {
     traffic: Arc<Traffic>,
     punching: bool,
     reuse_local_port: bool,
+    observations: Arc<TcpObservations>,
 }
 
 #[derive(Debug)]
@@ -412,6 +448,7 @@ impl CustomEndpointShutdown for TcpCleanup {
     fn close(&self) -> Pin<Box<dyn std::future::Future<Output = ()> + Send + '_>> {
         Box::pin(async {
             self.shared.shutdown.send_replace(true);
+            self.shared.observations.slots.lock().unwrap().clear();
             self.shared.channels.lock().unwrap().clear();
             if let Some(mapping) = &self.mapping {
                 mapping.close().await;
@@ -423,6 +460,7 @@ impl CustomEndpointShutdown for TcpCleanup {
 impl Drop for TcpEndpoint {
     fn drop(&mut self) {
         self.shared.shutdown.send_replace(true);
+        self.shared.observations.slots.lock().unwrap().clear();
         self.accept_task.abort();
         self.shared.channels.lock().unwrap().clear();
         if let Some(task) = &self.mapping_task {
@@ -497,6 +535,7 @@ impl CustomTransport for TcpTransport {
             traffic: self.traffic.clone(),
             punching: self.punching,
             reuse_local_port: self.reuse_local_port,
+            observations: self.observations.clone(),
         });
         *self.shared.lock().unwrap() = Arc::downgrade(&shared);
         let weak = Arc::downgrade(&shared);

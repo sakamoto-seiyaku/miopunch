@@ -1,0 +1,16 @@
+
+running 1 test
+DIAGNOSTIC_BEFORE_FORMAL listener=0.0.0.0:42027 source=10.27.1.2:42027 destination=100.64.27.1:3478 fresh=true
+READY id=b7eb6dac2460fb0a2fbf0b66244c1c111e1be6deca8bb6e3ac7974f765210306 tcp=EndpointAddr { id: PublicKey(b7eb6dac2460fb0a2fbf0b66244c1c111e1be6deca8bb6e3ac7974f765210306), addrs: {Custom(CustomAddr { id: 120299608892272, data: [00000000a42b] })} } mapping=false udp=false relay=false
+MQTT_BOOTSTRAP_START stable_id=135571515534448 peer=6fe4c6e041ad6bfcf792e1d3318b9d5bc0bd68f18e2d481ee40de5cffdf6d8d1
+TCP_OBSERVED stable_id=135571515534448 listener=0.0.0.0:42027 source=10.27.1.2:42027 destination=100.64.27.1:3478 candidate=100.64.27.2:42027
+TCP_PUNCH_START stable_id=135571515534448 peer=6fe4c6e041ad6bfcf792e1d3318b9d5bc0bd68f18e2d481ee40de5cffdf6d8d1 remote=100.64.27.6:43027
+TCP_PUNCH_VALIDATED stable_id=135571515534448 peer=6fe4c6e041ad6bfcf792e1d3318b9d5bc0bd68f18e2d481ee40de5cffdf6d8d1
+DIAGNOSTIC_SUPERSEDED formal_connection=135571515534448 old_candidate_current=false
+STUN_FLOW_SYNC phase=first before=2 after=3 new_record_saved=true
+DATA_OK stable_id=135571515534448 peer=6fe4c6e041ad6bfcf792e1d3318b9d5bc0bd68f18e2d481ee40de5cffdf6d8d1 formal_member=true same_connection=true
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=22 sent_bytes=8721 received_packets=25 received_bytes=9230 closed=1 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+test tcp_native_punch_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.50s

@@ -1,0 +1,5 @@
+MIOPID 26115
+{"address":{"addrs":[{"Custom":{"data":[0,0,0,0,128,161],"id":120299608892272}}],"id":"367d88226243b8408ff01975ff602e99329a2c47c6c7f258399fffeff2835942"},"event":"ready","node":"367d88226243b8408ff01975ff602e99329a2c47c6c7f258399fffeff2835942"}
+{"id":1,"ok":true,"result":{"genesis":"1ff38c45d9d472b5579fa9c0638733258f034bebfe47e66350a0bb4d35960268","members":[{"node":"367d88226243b8408ff01975ff602e99329a2c47c6c7f258399fffeff2835942","role":"admin"}],"network":"2ada216f2b5277ed4e10970d165315c68a1715ec758b043029d90bbb06c8d734","node":"367d88226243b8408ff01975ff602e99329a2c47c6c7f258399fffeff2835942","records":1,"stage":"Complete"}}
+{"id":2,"ok":true,"result":{"bound_sockets":[],"observations":[]}}
+{"id":3,"ok":true,"result":{"stopped":true}}

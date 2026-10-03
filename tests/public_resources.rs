@@ -334,6 +334,53 @@ async fn tcp_stun_retains_the_configured_transport_port_and_expires_on_close() {
 }
 
 #[tokio::test]
+async fn closing_the_endpoint_retires_a_retained_tcp_observation_even_while_resource_wrapper_lives()
+{
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
+    let server = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let url: iroh::RelayUrl = format!("stun+tcp://{}/", server.local_addr().unwrap())
+        .parse()
+        .unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let node = NativeNetwork::create(directory.path().join("node"))
+        .await
+        .unwrap();
+    let mut config = node.resource_configuration().unwrap();
+    config.replacement = Some(vec![Resource {
+        url: url.to_string(),
+        uses: BTreeSet::from([ResourceUse::Observation]),
+        limitation: "owned endpoint-lifetime observer".into(),
+    }]);
+    config.tcp_listen = Some((Ipv4Addr::LOCALHOST, 0).into());
+    node.save_resource_configuration(&config).unwrap();
+    let resources = node
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let (observation, mut stream) = tokio::join!(resources.observe_tcp_stun(&url), async {
+        let (mut stream, _) = server.accept().await.unwrap();
+        let mut request = [0; 20];
+        stream.read_exact(&mut request).await.unwrap();
+        stream.write_all(&response(&request, 41000)).await.unwrap();
+        stream
+    });
+    let observation = observation.unwrap();
+    assert!(observation.is_fresh());
+    resources.endpoint().close().await;
+    assert!(!observation.is_fresh());
+    let eof = tokio::time::timeout(Duration::from_millis(300), stream.read(&mut [0; 1])).await;
+    assert!(
+        matches!(eof, Ok(Ok(0))),
+        "raw Endpoint close must release the actual retained observer socket"
+    );
+    resources.close().await;
+    node.close().await;
+}
+
+#[tokio::test]
 async fn a_new_tcp_stun_attempt_invalidates_an_older_pending_query() {
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},

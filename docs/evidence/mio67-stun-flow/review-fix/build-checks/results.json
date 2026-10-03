@@ -1,0 +1,34 @@
+[
+  {
+    "name": "native",
+    "argv": [
+      "cargo",
+      "check",
+      "--locked",
+      "--workspace",
+      "--all-targets",
+      "--features",
+      "nat-lab-test-hooks,replica-test-hooks"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "format",
+    "argv": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "diff",
+    "argv": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit": 0
+  }
+]
