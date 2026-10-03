@@ -1,0 +1,10 @@
+{
+  "owned_public_run_device_directory_removed": true,
+  "owned_public_run_close_errors": [],
+  "device_network_changed": false,
+  "owned_preflight_files_removed": true,
+  "owned_controlled_regression_broker_removed": true,
+  "owned_os_temporary_private_fixture_paths_removed": 15,
+  "private_fixture_stores_and_invites_excluded_from_repo": true,
+  "original_unrelated_pycache_and_user_work_preserved": true
+}

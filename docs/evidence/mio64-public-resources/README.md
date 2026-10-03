@@ -35,6 +35,8 @@ it implements no relay or STUN protocol and supplies no fake result.
 - `linux-dns.json`, `environment.json`: DNS answers and sanitized topology.
   Successful TCP observations include each actual destination and local port.
 - `cleanup.json`: owned-device cleanup and absence of network-setting changes.
+- `cleanup-fixtures.json`: preflight files, private OS-temporary fixture stores
+  and the separate controlled regression broker removed after validation.
 - `review.md`: independent Standards and Spec review, kept as separate axes.
 
 ## Regression and build checks
