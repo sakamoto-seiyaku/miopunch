@@ -1,0 +1,11 @@
+native: {"event":"ready","id":"b8986b4b3bf184a2698cb61498df1bd99d3dca615f20c6a49d8de119cdbf32b8","invitation":"fb5e2ed665a2b641bfd868e35926b86558bca68ab188c9ef64e2f8afa9111c011022085f7ea85792d917dbbf239d3c2e608779a07f36514a62fc249f724d0555b8986b4b3bf184a2698cb61498df1bd99d3dca615f20c6a49d8de119cdbf32b8"}
+native: {"event":"admission","stage":"AwaitingApproval"}
+native: {"count":2,"event":"approved"}
+native: {"event":"admission","stage":"Complete"}
+native: {"bytes":36,"event":"business"}
+CHECK_FAILED AssertionError [ERR_ASSERTION]: actual member transport paths must be recorded
+    at assertRelayPaths (file:///home/js/Git/miopunch/browser-probe/harness/run-public-relay.mjs:116:3)
+    at file:///home/js/Git/miopunch/browser-probe/harness/run-public-relay.mjs:152:3
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:472:9)
+CLEANUP {"code":0,"signal":null}

@@ -1,0 +1,16 @@
+browser-probe-native: RELAY https://localhost:45088/
+browser_network_native: {"event":"ready","id":"e05fd16baf7e3c4078769b07a87f6a928aa31fe89602586acc63c51e860af06c","invitation":"96499b6f804c476e0148e84bb43eb2dd4f1806b05fc84d114a6ce1621e597f00c3238a0679275a1618a008e0e499e2b58cab4767207bcbcd2515c4e70a4ed3a0e05fd16baf7e3c4078769b07a87f6a928aa31fe89602586acc63c51e860af06c","relay":["https://localhost:45088/"]}
+browser_network_native: {"event":"admission","paths":[{"isRelay":true,"receivedBytes":8467,"relay":"https://localhost:45088/","selected":true,"sentBytes":8440}],"stage":"AwaitingApproval"}
+browser_network_native: {"count":2,"event":"approved"}
+browser_network_native: {"event":"admission","paths":[{"isRelay":true,"receivedBytes":8605,"relay":"https://localhost:45088/","selected":true,"sentBytes":10160}],"stage":"Complete"}
+browser_network_native: {"bytes":26,"event":"business","paths":[{"isRelay":true,"receivedBytes":9128,"relay":"https://localhost:45088/","selected":true,"sentBytes":8910}]}
+browser_network_native: {"bytes":13,"event":"business","paths":[{"isRelay":true,"receivedBytes":8921,"relay":"https://localhost:45088/","selected":true,"sentBytes":8950}]}
+browser_network_native: {"event":"admission","paths":[{"isRelay":true,"receivedBytes":8434,"relay":"https://localhost:45088/","selected":true,"sentBytes":8441}],"stage":"AwaitingApproval"}
+browser_network_native: {"count":3,"event":"approved"}
+browser_network_native: {"event":"admission","paths":[{"isRelay":true,"receivedBytes":8730,"relay":"https://localhost:45088/","selected":true,"sentBytes":10956}],"stage":"Complete"}
+browser_network_native: {"event":"record","record":"b7922748b8c6c430f5c49148ef6794bd2f51ce2566b922c7bbae3e0f22551a1a"}
+browser_network_native: {"event":"replica","paths":[{"isRelay":true,"receivedBytes":9150,"relay":"https://localhost:45088/","selected":true,"sentBytes":11376}]}
+AUTHOR_OFFLINE exit=0
+RESULT [{"case":"first-real-check","browser":"a4193ed9bd419da6197ece5d64d3ff033ae90ccffb13cf0141a8b41c759f0ec7","native":"e05fd16baf7e3c4078769b07a87f6a928aa31fe89602586acc63c51e860af06c","stage":"Complete","count":2,"reload":true,"controlledBytes":26},{"case":"replica-author-offline-browser-reload-third-node","complete":true,"scope":["c3238a0679275a1618a008e0e499e2b58cab4767207bcbcd2515c4e70a4ed3a0","823bfe93090846d35e96cbf6f06905ba64da70744b2e2db2a344501cafcf3556","7fec686779fae896aab91c6e5712604f2c3875e82e8509f15eafeca059daca74","b7922748b8c6c430f5c49148ef6794bd2f51ce2566b922c7bbae3e0f22551a1a"],"source":"a4193ed9bd419da6197ece5d64d3ff033ae90ccffb13cf0141a8b41c759f0ec7","transport_done":true},{"case":"tls-websocket-relay","relayUrl":"https://localhost:45088/","websocket":"wss://localhost:45088/","nativeTrustedTestCa":true,"isolatedChromiumTestCertificateException":true}]
+PASS replica: real browser admission and selected boundary checks
+CLEANUP {"code":0,"signal":null}

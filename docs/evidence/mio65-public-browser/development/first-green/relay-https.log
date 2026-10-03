@@ -1,0 +1,13 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:--  0:00:01 --:--:--     0
+  0     9    0     0    0     0      0      0 --:--:--  0:00:01 --:--:--     0
+HTTP/1.1 404 Not Found
+strict-transport-security: max-age=63072000; includeSubDomains
+strict-transport-security: max-age=63072000; includeSubDomains
+content-security-policy: default-src 'none'; frame-ancestors 'none'; form-action 'none'; base-uri 'self'; block-all-mixed-content; plugin-types 'none'
+content-security-policy: default-src 'none'; frame-ancestors 'none'; form-action 'none'; base-uri 'self'; block-all-mixed-content; plugin-types 'none'
+content-length: 9
+date: Sat, 03 Oct 2026 02:25:02 GMT

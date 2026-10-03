@@ -1,0 +1,43 @@
+ M CONTEXT.md
+ M Cargo.lock
+ M Cargo.toml
+ M README.md
+ M docs/adr/README.md
+ M docs/agents/issue-tracker.md
+ M docs/notes/2026-09-27-network-repositioning-discussion-draft.md
+ M docs/notes/2026-09-27-product-mainline-draft.md
+ M docs/notes/2026-09-28-network-scenario-walkthrough.md
+ M scripts/build_android_node.py
+ M src/desktop_cli.rs
+ M src/lib.rs
+ M src/message_bootstrap.rs
+ M src/mqtt_transport.rs
+ M src/native_network.rs
+ M src/resources.rs
+ M src/tcp_observation.rs
+ M src/tcp_transport.rs
+ M vendor/iroh/src/endpoint.rs
+ M vendor/iroh/src/socket.rs
+ M vendor/iroh/src/socket/remote_map/remote_state.rs
+?? .cargo/
+?? browser-probe/harness/run-public-relay.mjs
+?? docs/adr/0001-network-identity-genesis-credential.md
+?? docs/adr/0002-precode-single-redemption-node.md
+?? docs/adr/0003-authorization-state-correction.md
+?? docs/adr/0004-network-admission-secret.md
+?? docs/adr/0005-side-channel-control-bootstrap.md
+?? docs/adr/0006-prepare-network-migration-before-switch.md
+?? docs/notes/2026-09-28-p2panda-auth-discussion-basis.md
+?? docs/notes/2026-09-28-private-signaling-mechanism-research.md
+?? docs/notes/2026-09-29-admission-proof-ticket-source-analysis.md
+?? docs/notes/2026-09-29-auth-state-ticket-source-analysis.md
+?? docs/notes/2026-09-29-integration-browser-ticket-source-analysis.md
+?? docs/notes/2026-09-29-iroh-ticket-source-analysis.md
+?? docs/notes/2026-09-29-transport-and-ui-followup.md
+?? scripts/__pycache__/
+?? scripts/android/
+?? scripts/check_browser_public_relay.py
+?? scripts/check_public_resources.py
+?? src/android_shell.rs
+?? tests/public_resources.rs
+?? vendor/iroh/src/socket/stun.rs

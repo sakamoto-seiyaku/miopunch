@@ -1,0 +1,80 @@
+{
+  "startedUtc": "2026-10-03T02:24:14.831Z",
+  "relay": "https://aps1-1.relay.n0.iroh.link./",
+  "scenarios": [],
+  "requests": [
+    {
+      "url": "http://127.0.0.1:43306/network.html?config=%7B%22relays%22%3A%5B%22https%3A%2F%2Faps1-1.relay.n0.iroh.link.%2F%22%5D%2C%22disabled%22%3A%5B%5D%7D",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:24:16.925Z"
+    },
+    {
+      "url": "http://127.0.0.1:43306/pkg/miopunch_browser_probe.js",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:24:16.949Z"
+    },
+    {
+      "url": "http://127.0.0.1:43306/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:24:16.958Z"
+    },
+    {
+      "url": "http://127.0.0.1:43306/pkg/miopunch_browser_probe_bg.wasm",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:24:16.965Z"
+    }
+  ],
+  "websockets": [
+    {
+      "url": "wss://aps1-1.relay.n0.iroh.link./relay",
+      "atUtc": "2026-10-03T02:24:17.338Z",
+      "sentFrames": 71,
+      "receivedFrames": 73,
+      "sentBytes": 31073,
+      "receivedBytes": 29174,
+      "status": 101,
+      "protocol": "iroh-relay-v2"
+    }
+  ],
+  "native": [
+    {
+      "event": "ready",
+      "id": "b8986b4b3bf184a2698cb61498df1bd99d3dca615f20c6a49d8de119cdbf32b8",
+      "invitation": "fb5e2ed665a2b641bfd868e35926b86558bca68ab188c9ef64e2f8afa9111c011022085f7ea85792d917dbbf239d3c2e608779a07f36514a62fc249f724d0555b8986b4b3bf184a2698cb61498df1bd99d3dca615f20c6a49d8de119cdbf32b8"
+    },
+    {
+      "event": "admission",
+      "stage": "AwaitingApproval"
+    },
+    {
+      "count": 2,
+      "event": "approved"
+    },
+    {
+      "event": "admission",
+      "stage": "Complete"
+    },
+    {
+      "bytes": 36,
+      "event": "business"
+    }
+  ],
+  "origin": "http://127.0.0.1:43306",
+  "executable": "/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome",
+  "launch": {
+    "executablePath": "/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome",
+    "headless": true,
+    "args": [
+      "--no-sandbox"
+    ],
+    "ignoreHTTPSErrors": false
+  },
+  "browserVersion": "153.0.8010.12",
+  "passed": false,
+  "failure": "AssertionError [ERR_ASSERTION]: actual member transport paths must be recorded\n    at assertRelayPaths (file:///home/js/Git/miopunch/browser-probe/harness/run-public-relay.mjs:116:3)\n    at file:///home/js/Git/miopunch/browser-probe/harness/run-public-relay.mjs:152:3\n    at runNextTicks (node:internal/process/task_queues:65:5)\n    at process.processImmediate (node:internal/timers:472:9)",
+  "cleanup": {
+    "code": 0,
+    "signal": null
+  },
+  "completedUtc": "2026-10-03T02:24:31.596Z"
+}

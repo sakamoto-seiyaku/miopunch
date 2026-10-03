@@ -1,0 +1,54 @@
+{
+  "started_utc": "2026-10-03T02:27:48Z",
+  "scope": "MIOPUNCH-51; already verified unchanged slow NAT excluded",
+  "checks": [
+    {
+      "name": "rust-version",
+      "command": [
+        "rtk",
+        "proxy",
+        "rustc",
+        "--version"
+      ],
+      "exit": 0,
+      "seconds": 0.064
+    },
+    {
+      "name": "node-version",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "--version"
+      ],
+      "exit": 0,
+      "seconds": 0.032
+    },
+    {
+      "name": "bindgen-version",
+      "command": [
+        "rtk",
+        "proxy",
+        "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+        "--version"
+      ],
+      "exit": 0,
+      "seconds": 0.032
+    },
+    {
+      "name": "browser-replica",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "browser-probe/harness/run-network.mjs",
+        "--case",
+        "replica"
+      ],
+      "exit": 0,
+      "seconds": 6.33
+    }
+  ],
+  "completed_utc": "2026-10-03T02:27:54Z",
+  "passed": true
+}

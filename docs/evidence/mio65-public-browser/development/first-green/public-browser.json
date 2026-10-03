@@ -1,0 +1,307 @@
+{
+  "startedUtc": "2026-10-03T02:25:03.488Z",
+  "relay": "https://aps1-1.relay.n0.iroh.link./",
+  "scenarios": [
+    {
+      "case": "first-real-public-check",
+      "identity": "80f7b3de437ff0bbcde880528494d480c760a3945c9d11d73fad3b46c0a9786f",
+      "native": "4492854f2b617b540c317b8414f9156b90cbb80be68fb3dfe0dff463ae1d79fd",
+      "status": {
+        "authorization_saved": true,
+        "id": "80f7b3de437ff0bbcde880528494d480c760a3945c9d11d73fad3b46c0a9786f",
+        "running": true,
+        "secret_saved": true,
+        "stage": "Complete"
+      },
+      "LogSync": {
+        "complete": true,
+        "scope": [
+          "b414b31d234e733d5d8c2c56298d001288852c234ee617eb45b53525cb8b9bad",
+          "29852ffe25ac1e4a60c04668d2c0fe565f377a5e4ed51efa12627409af89e88d",
+          "31af7793921e8320b5ceefbed59eaca015648a30fbf69b26a93dd69b5939197b"
+        ],
+        "source": "4492854f2b617b540c317b8414f9156b90cbb80be68fb3dfe0dff463ae1d79fd",
+        "transport_done": true
+      },
+      "record": "31af7793921e8320b5ceefbed59eaca015648a30fbf69b26a93dd69b5939197b",
+      "reload": true,
+      "count": 3
+    },
+    {
+      "case": "selected-official-relay-disable-and-reopen",
+      "failureMilliseconds": 445,
+      "externalAttemptsWhileDisabled": 0,
+      "persistedDisable": true,
+      "identity": "80f7b3de437ff0bbcde880528494d480c760a3945c9d11d73fad3b46c0a9786f",
+      "sameMembership": true,
+      "count": 3,
+      "noNewApproval": true
+    }
+  ],
+  "requests": [
+    {
+      "url": "http://127.0.0.1:43328/network.html?config=%7B%22relays%22%3A%5B%22https%3A%2F%2Faps1-1.relay.n0.iroh.link.%2F%22%5D%2C%22disabled%22%3A%5B%5D%7D",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:05.646Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/pkg/miopunch_browser_probe.js",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:05.664Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:05.672Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/pkg/miopunch_browser_probe_bg.wasm",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:05.675Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/network.html?config=%7B%22relays%22%3A%5B%22https%3A%2F%2Faps1-1.relay.n0.iroh.link.%2F%22%5D%2C%22disabled%22%3A%5B%5D%7D",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:29.375Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/pkg/miopunch_browser_probe.js",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:29.389Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:29.391Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/pkg/miopunch_browser_probe_bg.wasm",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:29.395Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/network.html?config=%7B%22relays%22%3A%5B%22https%3A%2F%2Faps1-1.relay.n0.iroh.link.%2F%22%5D%2C%22disabled%22%3A%5B%22https%3A%2F%2Faps1-1.relay.n0.iroh.link.%2F%22%5D%7D",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:36.648Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/pkg/miopunch_browser_probe.js",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:36.660Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:36.667Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/pkg/miopunch_browser_probe_bg.wasm",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:36.670Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/network.html?config=%7B%7D",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:37.091Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/pkg/miopunch_browser_probe.js",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:37.105Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:37.107Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/pkg/miopunch_browser_probe_bg.wasm",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:37.110Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/network.html?config=%7B%22relays%22%3A%5B%22https%3A%2F%2Faps1-1.relay.n0.iroh.link.%2F%22%5D%2C%22disabled%22%3A%5B%5D%7D",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:37.427Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/pkg/miopunch_browser_probe.js",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:37.443Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:37.450Z"
+    },
+    {
+      "url": "http://127.0.0.1:43328/pkg/miopunch_browser_probe_bg.wasm",
+      "method": "GET",
+      "atUtc": "2026-10-03T02:25:37.455Z"
+    }
+  ],
+  "websockets": [
+    {
+      "url": "wss://aps1-1.relay.n0.iroh.link./relay",
+      "atUtc": "2026-10-03T02:25:06.036Z",
+      "sentFrames": 111,
+      "receivedFrames": 107,
+      "sentBytes": 46917,
+      "receivedBytes": 48494,
+      "status": 101,
+      "protocol": "iroh-relay-v2"
+    },
+    {
+      "url": "wss://aps1-1.relay.n0.iroh.link./relay",
+      "atUtc": "2026-10-03T02:25:29.643Z",
+      "sentFrames": 27,
+      "receivedFrames": 27,
+      "sentBytes": 11116,
+      "receivedBytes": 9869,
+      "status": 101,
+      "protocol": "iroh-relay-v2"
+    },
+    {
+      "url": "wss://aps1-1.relay.n0.iroh.link./relay",
+      "atUtc": "2026-10-03T02:25:37.874Z",
+      "sentFrames": 31,
+      "receivedFrames": 29,
+      "sentBytes": 11389,
+      "receivedBytes": 10010,
+      "status": 101,
+      "protocol": "iroh-relay-v2"
+    }
+  ],
+  "native": [
+    {
+      "event": "ready",
+      "id": "4492854f2b617b540c317b8414f9156b90cbb80be68fb3dfe0dff463ae1d79fd",
+      "invitation": "565a1f260bfe695398829f307084c41d48cb11d4dd7c7f052a734dda085be9c9b414b31d234e733d5d8c2c56298d001288852c234ee617eb45b53525cb8b9bad4492854f2b617b540c317b8414f9156b90cbb80be68fb3dfe0dff463ae1d79fd",
+      "relay": [
+        "https://aps1-1.relay.n0.iroh.link./"
+      ]
+    },
+    {
+      "event": "admission",
+      "paths": [
+        {
+          "isRelay": true,
+          "receivedBytes": 5588,
+          "relay": "https://aps1-1.relay.n0.iroh.link./",
+          "selected": true,
+          "sentBytes": 8059
+        }
+      ],
+      "stage": "AwaitingApproval"
+    },
+    {
+      "count": 2,
+      "event": "approved"
+    },
+    {
+      "event": "admission",
+      "paths": [
+        {
+          "isRelay": true,
+          "receivedBytes": 9156,
+          "relay": "https://aps1-1.relay.n0.iroh.link./",
+          "selected": true,
+          "sentBytes": 12572
+        }
+      ],
+      "stage": "Complete"
+    },
+    {
+      "bytes": 36,
+      "event": "business",
+      "paths": [
+        {
+          "isRelay": true,
+          "receivedBytes": 8935,
+          "relay": "https://aps1-1.relay.n0.iroh.link./",
+          "selected": true,
+          "sentBytes": 9031
+        }
+      ]
+    },
+    {
+      "event": "record",
+      "record": "31af7793921e8320b5ceefbed59eaca015648a30fbf69b26a93dd69b5939197b"
+    },
+    {
+      "event": "replica",
+      "paths": [
+        {
+          "isRelay": true,
+          "receivedBytes": 11212,
+          "relay": "https://aps1-1.relay.n0.iroh.link./",
+          "selected": true,
+          "sentBytes": 13539
+        }
+      ]
+    },
+    {
+      "bytes": 28,
+      "event": "business",
+      "paths": [
+        {
+          "isRelay": true,
+          "receivedBytes": 8868,
+          "relay": "https://aps1-1.relay.n0.iroh.link./",
+          "selected": true,
+          "sentBytes": 9026
+        }
+      ]
+    },
+    {
+      "count": 3,
+      "event": "status",
+      "members": [
+        "4492854f2b617b540c317b8414f9156b90cbb80be68fb3dfe0dff463ae1d79fd",
+        "80f7b3de437ff0bbcde880528494d480c760a3945c9d11d73fad3b46c0a9786f",
+        "ff9234684e0cf38903fdaf015b4f6543309a74f0f843def5b1e9167112b95382"
+      ],
+      "requests": 1
+    },
+    {
+      "bytes": 40,
+      "event": "business",
+      "paths": [
+        {
+          "isRelay": true,
+          "receivedBytes": 8967,
+          "relay": "https://aps1-1.relay.n0.iroh.link./",
+          "selected": true,
+          "sentBytes": 9030
+        }
+      ]
+    },
+    {
+      "count": 3,
+      "event": "status",
+      "members": [
+        "4492854f2b617b540c317b8414f9156b90cbb80be68fb3dfe0dff463ae1d79fd",
+        "80f7b3de437ff0bbcde880528494d480c760a3945c9d11d73fad3b46c0a9786f",
+        "ff9234684e0cf38903fdaf015b4f6543309a74f0f843def5b1e9167112b95382"
+      ],
+      "requests": 1
+    }
+  ],
+  "origin": "http://127.0.0.1:43328",
+  "executable": "/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome",
+  "launch": {
+    "executablePath": "/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome",
+    "headless": true,
+    "args": [
+      "--no-sandbox"
+    ],
+    "ignoreHTTPSErrors": false
+  },
+  "browserVersion": "153.0.8010.12",
+  "passed": true,
+  "cleanup": {
+    "code": 0,
+    "signal": null
+  },
+  "completedUtc": "2026-10-03T02:25:45.530Z"
+}
