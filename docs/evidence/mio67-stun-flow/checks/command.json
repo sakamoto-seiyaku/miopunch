@@ -1,0 +1,1 @@
+["cargo", "test", "--locked", "--lib", "--test", "public_resources", "--test", "resources", "--test", "tcp_direct", "--test", "udp_observation", "--test", "legacy_nat_runtime", "--test", "native_network", "--test", "admission_gate", "--test", "mqtt_bootstrap", "--", "--test-threads=1"]

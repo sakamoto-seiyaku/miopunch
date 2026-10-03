@@ -1,0 +1,42 @@
+
+running 1 test
+READY id=0cc949c8ccd4552d828f70179685014df96f55c1d07dad01cf73332ee1b5543c tcp=EndpointAddr { id: PublicKey(0cc949c8ccd4552d828f70179685014df96f55c1d07dad01cf73332ee1b5543c), addrs: {Ip(10.27.2.2:43027)} } mapping=false udp=true relay=false
+FORMAL_QAD phase=disabled observation=Pending
+MQTT_BOOTSTRAP_START stable_id=127173713202528 peer=bcff8b124775cb16cfbaac73f0d3fe5d21949e981d05607496e231b5c6073f70
+NAT_CONNECTION_ROUND number=1 stable_id=127173713202528
+QAD_SEQUENCE_UNAVAILABLE error=mapping observation timed out
+LEGACY_FEATURE feature=None socket_generation_current=true
+LEGACY_SELECTED mode=0 index=6 c=Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } v=Behavior { role: Receiver, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 } scores_before=[] round=f23a6e47705d815d2a9a08f6bca5669d stable_id=127173713202528 execution=Ready fallback=true
+LEGACY_CANDIDATES round=f23a6e47705d815d2a9a08f6bca5669d stable_id=127173713202528 assisted=[10.27.1.2:42027] mapped=[]
+LEGACY_RECV_START round=f23a6e47705d815d2a9a08f6bca5669d stable_id=127173713202528 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Sender, ttl: 0, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [10.27.1.2:42027], candidates: [], range: None, total_budget_ms: 5000, read_budget_ms: 5000 }
+LEGACY_LISTENER round=f23a6e47705d815d2a9a08f6bca5669d stable_id=127173713202528 local_socket_id=0 local_addr=0.0.0.0:43027 primary=true
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_DATAGRAM target=10.27.1.2:42027 ttl=0 response=false degraded=false local_socket_id=0
+LEGACY_PHASE_STOP round=f23a6e47705d815d2a9a08f6bca5669d stable_id=127173713202528 elapsed_ms=4453 outcome=failed
+LEGACY_TRACE round=f23a6e47705d815d2a9a08f6bca5669d stable_id=127173713202528 probes=23 responses=0 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=23 send_errors=0 send_aborted=0 rejected_receipts=0
+MQTT_BOOTSTRAP_FAILED stable_id=127173713202528 error=member path upgrade denied
+UNSUPPORTED_BOUNDED case=stun_udp elapsed_ms=10270 data_released=false pending_sockets=0
+test tcp_native_punch_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.39s

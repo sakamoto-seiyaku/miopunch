@@ -1,6 +1,6 @@
 //! RFC 8489 Binding, received and sent by the endpoint's retained UDP transport.
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io,
     net::{Ipv4Addr, SocketAddr},
     sync::{Arc, Mutex},
@@ -11,7 +11,8 @@ use iroh_base::RelayUrl;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
-use super::{EndpointInner, ObservationValidity, transports};
+use super::{EndpointInner, ObservationValidity, UdpMappingSample, UdpMappingSequence, transports};
+use n0_watcher::Watcher as _;
 
 const COOKIE: [u8; 4] = [0x21, 0x12, 0xa4, 0x42];
 type Transaction = [u8; 12];
@@ -158,9 +159,114 @@ fn parse(bytes: &[u8], transaction: Transaction) -> io::Result<SocketAddr> {
 }
 
 impl EndpointInner {
+    fn begin_udp_stun_observation(&self) -> ObservationValidity {
+        let mut generation = self.sock.stun.generation.lock().expect("STUN generation");
+        *generation = generation.wrapping_add(1);
+        ObservationValidity {
+            generation: self.sock.stun.generation.clone(),
+            observed_generation: *generation,
+        }
+    }
+
     pub(crate) async fn observe_udp_stun(
         &self,
         observer: &RelayUrl,
+    ) -> io::Result<UdpStunObservation> {
+        self.observe_udp_stun_in_sequence(observer, self.begin_udp_stun_observation())
+            .await
+    }
+
+    /// One scope for the entire ordered sequence; individual queries must not
+    /// invalidate earlier samples. Distinct URL names never imply distinct IPs.
+    pub(crate) async fn observe_udp_stun_mapping_sequence(
+        &self,
+        observers: &[RelayUrl],
+    ) -> io::Result<UdpMappingSequence> {
+        if observers.len() > 4 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "at most four STUN origins per sequence",
+            ));
+        }
+        let validity = self.begin_udp_stun_observation();
+        let network_validity = self.udp_network_generation();
+        let mut destinations = HashSet::new();
+        let mut samples = Vec::new();
+        let mut local_addr = None;
+        for observer in observers {
+            if !validity.is_current()
+                || !network_validity.is_current()
+                || self.sock.shutdown.is_closed()
+            {
+                return Err(io::Error::new(
+                    io::ErrorKind::Interrupted,
+                    "STUN sequence invalidated",
+                ));
+            }
+            match self
+                .observe_udp_stun_in_sequence(observer, validity.clone())
+                .await
+            {
+                Ok(result) => {
+                    if local_addr.is_some_and(|address| address != result.local_addr) {
+                        return Err(io::Error::other("STUN sequence changed UDP socket"));
+                    }
+                    local_addr = Some(result.local_addr);
+                    eprintln!(
+                        "STUN_UDP_OBSERVED observer={} destination={} local_addr={} mapped={} current={}",
+                        result.observer,
+                        result.destination,
+                        result.local_addr,
+                        result.mapped,
+                        result.is_fresh()
+                    );
+                    if destinations.insert(result.destination) {
+                        samples.push(UdpMappingSample {
+                            observer: result.observer.to_string(),
+                            destination: result.destination,
+                            mapped: result.mapped,
+                            observed_at: result.observed_at.into(),
+                        });
+                    }
+                }
+                Err(error) if error.kind() == io::ErrorKind::PermissionDenied => return Err(error),
+                Err(error) => {
+                    eprintln!("STUN_UDP_OBSERVATION_FAILED observer={observer} error={error}")
+                }
+            }
+        }
+        if samples.len() < 2
+            || !validity.is_current()
+            || !network_validity.is_current()
+            || self.sock.shutdown.is_closed()
+        {
+            return Err(io::Error::other(
+                "insufficient current distinct STUN destinations",
+            ));
+        }
+        let interfaces = self.local_interfaces_watcher.clone().get();
+        let valid_until = samples[0].observed_at + Duration::from_secs(40);
+        Ok(UdpMappingSequence {
+            samples,
+            local_ips: interfaces
+                .local_addresses
+                .regular
+                .iter()
+                .chain(interfaces.local_addresses.loopback.iter())
+                .copied()
+                .collect(),
+            valid_until,
+            validity: validity.clone(),
+            network_validity,
+            supersession_validity: Some(validity),
+            closed: Some(self.sock.shutdown.at_close_start.child_token()),
+        })
+    }
+
+    async fn observe_udp_stun_in_sequence(
+        &self,
+        observer: &RelayUrl,
+        validity: ObservationValidity,
     ) -> io::Result<UdpStunObservation> {
         if observer.scheme() != "stun"
             || observer.username() != ""
@@ -181,14 +287,6 @@ impl EndpointInner {
                 "endpoint has no IPv4 UDP transport for STUN",
             ));
         }
-        let validity = {
-            let mut generation = self.sock.stun.generation.lock().expect("STUN generation");
-            *generation = generation.wrapping_add(1);
-            ObservationValidity {
-                generation: self.sock.stun.generation.clone(),
-                observed_generation: *generation,
-            }
-        };
         let network_validity = self.udp_network_generation();
         let closed = self.sock.shutdown.at_close_start.child_token();
         let mut sends = 0;
@@ -241,7 +339,7 @@ impl EndpointInner {
                 tokio::select! {
                     _ = closed.cancelled() => return Err(io::Error::other("endpoint closed during STUN")),
                     _ = retransmit.tick(), if sends < 3 => {
-                        if !network_validity.is_current() { return Err(io::Error::other("network changed during STUN")); }
+                        if !network_validity.is_current() || !validity.is_current() { return Err(io::Error::other("network or observation changed during STUN")); }
                         let mut sender = self.sock.udp_probe_sender.lock().await;
                         let path = transports::FourTuple::Ip { remote: destination, local: None };
                         let packet = transports::Transmit { ecn: None, contents: &request, segment_size: None };

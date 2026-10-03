@@ -44,6 +44,7 @@ impl Default for UdpPolicy {
 /// Reuse one connector per node so learning and allowances cannot refill on retry.
 pub struct NatConnector {
     observers: Option<RelayMap>,
+    stun_observers: Vec<iroh::RelayUrl>,
     analyzer: Arc<Mutex<Analyzer>>,
     budget: Arc<NodeProbeBudget>,
     enabled: Arc<AtomicBool>,
@@ -69,6 +70,7 @@ impl NatConnector {
     pub fn new(observers: Option<RelayMap>, policy: UdpPolicy) -> Self {
         Self {
             observers,
+            stun_observers: Vec::new(),
             analyzer: Arc::new(Mutex::new(Analyzer::new(Instant::now()))),
             budget: Arc::new(NodeProbeBudget::new(
                 policy.additional_observations,
@@ -86,9 +88,15 @@ impl NatConnector {
 
     /// An endpoint keeps its resource startup snapshot, while node learning,
     /// runtime maintenance permission and spent allowances survive new binds.
-    pub(crate) fn for_endpoint(&self, observers: Option<RelayMap>, enabled: bool) -> Self {
+    pub(crate) fn for_endpoint(
+        &self,
+        observers: Option<RelayMap>,
+        stun_observers: Vec<iroh::RelayUrl>,
+        enabled: bool,
+    ) -> Self {
         Self {
             observers,
+            stun_observers,
             analyzer: self.analyzer.clone(),
             budget: self.budget.clone(),
             enabled: self.enabled.clone(),
@@ -161,7 +169,7 @@ impl NatConnector {
     ) -> io::Result<MappingSnapshot> {
         self.check(control, gate)?;
         let endpoint = control.endpoint();
-        let snapshot = if let Some(observers) = &self.observers {
+        let qad = if let Some(observers) = &self.observers {
             if !self.budget.reserve_observations(observers.len()) {
                 return Err(io::Error::other("NAT observation budget exhausted"));
             }
@@ -173,17 +181,36 @@ impl NatConnector {
                 )
                 .await
             {
-                Ok(sequence) => {
-                    for (index, sample) in sequence.samples.iter().enumerate() {
-                        println!(
-                            "LEGACY_SAMPLE order={index} destination={} mapped={}",
-                            sample.destination, sample.mapped
-                        );
-                    }
-                    MappingSnapshot::from_sequence(sequence)?
-                }
+                Ok(sequence) => Self::mapping_snapshot(sequence).ok(),
                 Err(error) if error.kind() == io::ErrorKind::PermissionDenied => return Err(error),
-                Err(_) => MappingSnapshot::fallback(endpoint, endpoint.udp_observation().get())?,
+                Err(error) => {
+                    eprintln!("QAD_SEQUENCE_UNAVAILABLE error={error}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        let snapshot = if let Some(snapshot) = qad {
+            snapshot
+        } else if !self.stun_observers.is_empty() {
+            if !self.budget.reserve_observations(self.stun_observers.len()) {
+                return Err(io::Error::other("NAT STUN observation budget exhausted"));
+            }
+            match self
+                .guard(
+                    control,
+                    gate,
+                    endpoint.observe_udp_stun_mapping_sequence(&self.stun_observers),
+                )
+                .await
+            {
+                Ok(sequence) => Self::mapping_snapshot(sequence)?,
+                Err(error) if error.kind() == io::ErrorKind::PermissionDenied => return Err(error),
+                Err(error) => {
+                    eprintln!("STUN_SEQUENCE_UNAVAILABLE error={error}");
+                    MappingSnapshot::fallback(endpoint, endpoint.udp_observation().get())?
+                }
             }
         } else {
             MappingSnapshot::fallback(endpoint, endpoint.udp_observation().get())?
@@ -195,6 +222,19 @@ impl NatConnector {
             snapshot.feature(),
             snapshot.is_current()
         );
+        Ok(snapshot)
+    }
+
+    fn mapping_snapshot(
+        sequence: iroh::endpoint::UdpMappingSequence,
+    ) -> io::Result<MappingSnapshot> {
+        let snapshot = MappingSnapshot::from_sequence(sequence.clone())?;
+        for (index, sample) in sequence.samples.iter().enumerate() {
+            println!(
+                "LEGACY_SAMPLE order={index} destination={} mapped={} observer={}",
+                sample.destination, sample.mapped, sample.observer
+            );
+        }
         Ok(snapshot)
     }
 

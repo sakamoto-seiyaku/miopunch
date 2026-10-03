@@ -1,0 +1,310 @@
+    Blocking waiting for file lock on build directory
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: variable does not need to be mutable
+   --> tests/tcp_direct.rs:226:9
+    |
+226 |     let mut ce = joining
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:300:9
+    |
+300 |     let mut client = bind_member(&joining).await;
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:327:9
+    |
+327 |     let mut a = bind_member(&admin).await;
+    |         ----^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:328:9
+    |
+328 |     let mut b = bind_member(&joining).await;
+    |         ----^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/tcp_direct.rs:339:9
+    |
+339 |     let mut ce = joining
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:411:9
+    |
+411 |     let mut client = joining
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:491:9
+    |
+491 |     let mut client = bind_member(&joining).await;
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:529:9
+    |
+529 |     let mut attacker = bind_member(&holder).await;
+    |         ----^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:546:9
+    |
+546 |     let mut member = bind_member(&joining).await;
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:595:13
+    |
+595 |         let mut client = bind_member(&joining).await;
+    |             ----^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:656:13
+    |
+656 |         let mut resources = node.bind_configured_endpoint_with(
+    |             ----^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/resources.rs:907:9
+    |
+907 |     let mut contact = joining
+    |         ----^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> tests/resources.rs:971:9
+    |
+971 |     let mut contact = joining
+    |         ----^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> tests/resources.rs:1176:9
+     |
+1176 |     let mut passive_contact = passive
+     |         ----^^^^^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: `miopunch-native-probe` (test "mqtt_bootstrap") generated 9 warnings (run `cargo fix --test "mqtt_bootstrap" -p miopunch-native-probe` to apply 9 suggestions)
+warning: `miopunch-native-probe` (test "tcp_direct") generated 2 warnings (run `cargo fix --test "tcp_direct" -p miopunch-native-probe` to apply 2 suggestions)
+warning: `miopunch-native-probe` (test "resources") generated 3 warnings (run `cargo fix --test "resources" -p miopunch-native-probe` to apply 3 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 06s
+     Running unittests src/lib.rs (target/debug/deps/miopunch_native_probe-b26af88ec06736cc)
+
+running 25 tests
+test admission_proof::tests::scram_sha256_matches_rfc_7677_server_verifier ... ok
+test management_store::tests::each_commit_boundary_recovers_from_disk_without_double_apply ... ok
+test nat_mapping::tests::bilateral_first_side_cannot_spend_a_third_datagram ... ok
+test nat_mapping::tests::bilateral_regular_branch_is_distinct_from_stable_and_single_regular ... ok
+test nat_mapping::tests::derives_stable_and_signed_steps_from_ordered_destinations ... ok
+test nat_mapping::tests::distinguishes_reversal_from_old_or_reused_evidence ... ok
+test nat_mapping::tests::fresh_irregular_evidence_is_distinct_from_missing_or_invalid_evidence ... ok
+test nat_mapping::tests::irregular_roles_and_targets_require_fresh_allocation_evidence ... ok
+test nat_mapping::tests::one_node_budget_cannot_be_refilled_by_a_second_attempt ... ok
+test nat_mapping::tests::selects_old_mode_one_roles_only_for_one_regular_and_one_stable ... ok
+test nat_punch::tests::incomplete_samples_keep_legacy_fallback_sender_target_preference ... ok
+test nat_selector::tests::all_six_scenes_preserve_complete_order_for_two_cycles ... ok
+test nat_selector::tests::all_thirty_parameter_pairs_match_the_executed_archived_go_oracle ... ok
+test nat_selector::tests::cache_reuses_port_changes_and_expires_only_after_two_idle_hours ... ok
+test nat_selector::tests::classification_matches_legacy_boundaries_ip_changes_and_public_detection ... ok
+test nat_selector::tests::easy_pair_recommends_every_behavior_in_insertion_order_before_repeating ... ok
+test nat_selector::tests::every_security_dimension_and_directed_feature_key_isolates_learning ... ok
+test nat_selector::tests::legacy_regular_feature_uses_spread_instead_of_signed_steps ... ok
+test nat_selector::tests::public_and_span_changes_reuse_existing_scene_and_opportunistic_clean_refreshes_activity ... ok
+test nat_selector::tests::public_preference_retains_c_priority_and_does_not_change_irregular_fallback ... ok
+test nat_selector::tests::role_adjustment_uses_current_c_feature_without_changing_mode_index ... ok
+test nat_selector::tests::scoring_is_unbounded_downward_success_adds_two_caps_ten_and_refreshes_unknown_index ... ok
+test native_network::tests::publishing_never_replaces_an_existing_empty_directory ... ok
+test tcp_transport::tests::dropping_endpoint_cancels_an_open_tcp_carrier ... ok
+test tcp_transport::tests::unread_inbound_queue_closes_in_bounded_time ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.30s
+
+     Running tests/admission_gate.rs (target/debug/deps/admission_gate-a3be471411fcf6f5)
+
+running 18 tests
+test a_connection_to_an_uninvited_tls_identity_cannot_enter_application ... ok
+test a_gated_endpoint_never_treats_a_default_hook_as_admission ... ok
+test a_wrong_secret_cannot_be_reused_from_another_member_connection ... ok
+test admitted_control_path_upgrade_requires_current_membership ... ok
+test an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy ... ok
+test cancelled_proof_does_not_authorize_a_later_connection ... ok
+test genesis_recovery_stays_restricted_and_early_handles_are_unavailable ... ok
+test known_removed_identity_only_reaches_fresh_restricted_admission_requests ... ok
+test no_secret_applicant_only_reaches_the_restricted_application_protocol ... ok
+test p2panda_endpoint_builder_hook_gates_the_actual_protocol_actor ... ok
+test proof_is_bound_to_each_connection_and_credential_generation ... ok
+test removal_during_final_recovery_stage_must_reject_connection ... ok
+test secret_holder_without_membership_gets_bootstrap_but_no_normal_protocol ... ok
+test signaling_carrier_allows_scoped_control_but_refuses_business ... ok
+test stale_member_view_does_not_return_an_outgoing_business_handle ... ok
+test stalled_proof_times_out_and_fresh_connection_can_still_prove ... ok
+test the_persisted_native_network_installs_the_same_gate ... ok
+test verified_members_reach_every_normal_protocol_and_revocation_closes_existing_sessions ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 21.27s
+
+     Running tests/legacy_nat_runtime.rs (target/debug/deps/legacy_nat_runtime-58f68429d8e72a4d)
+
+running 24 tests
+test assisted_only_fallback_receives_without_an_outbound_target_and_sender_keeps_lan_first ... ok
+test cancelled_or_revoked_round_has_no_peer_budget_or_learning_feedback ... ok
+test complete_scheduler_preserves_original_tls_connection_business_and_one_feedback ... ok
+test dropping_attempt_during_sender_delay_spends_nothing_and_cannot_learn ... ok
+test exhaustion_stops_full_phase_and_existing_authorized_control_remains_usable ... ok
+test existing_verified_path_cannot_learn_when_budget_was_denied_or_credential_changed ... ok
+test fallback_retains_a_freshly_acquired_candidate_for_its_phase ... ok
+test formal_direct_candidates_precede_selector_and_keep_original_identity ... ok
+test formal_disabled_udp_blocks_business_before_stream_creation ... ok
+test formal_entry_observes_selects_executes_and_confirms_original_business ... ok
+test formal_entry_permission_and_complete_budget_stop_before_execution ... ok
+test formal_entry_without_s_uses_local_assisted_basic_attempt_and_original_business ... ok
+test formal_ipv6_direct_requires_no_ipv4_observation_or_punching ... ok
+test isolated_functional_cpu_cost_supplement ... ignored, run only through legacy_nat_multi_socket_cpu.py in its isolated raw-drop fixture
+test low_ttl_and_unsupported_ttl_do_not_change_parallel_connection_business ... ok
+test old_prediction_age_does_not_expire_a_legacy_plan_but_network_change_does ... ok
+test ordinary_qad_refresh_keeps_the_physical_generation_but_real_network_change_invalidates_it ... ok
+test receiver_can_win_before_delay_without_sending_a_probe_and_lease_closes ... ok
+test scope_and_network_changes_during_delay_stop_before_submission ... ok
+test stale_round_and_foreign_connection_authentication_cannot_select_a_winner ... ok
+test two_real_qad_observers_public_preference_original_business_and_learning ... ok
+test winner_handoff_waits_for_peer_inside_the_original_deadline_and_rechecks_scope ... ok
+test wrong_gate_and_empty_fallback_cannot_disclose_candidates_or_spend_peer_budget ... ok
+test wrong_network_and_old_round_are_rejected_before_snapshot_disclosure_or_selection ... ok
+
+test result: ok. 23 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 61.29s
+
+     Running tests/mqtt_bootstrap.rs (target/debug/deps/mqtt_bootstrap-ee0e1386f93ce4b6)
+
+running 8 tests
+test a_wrong_target_identity_at_the_real_mqtt_route_never_releases_a_member_connection ... ok
+test another_invitation_holder_cannot_impersonate_a_member_at_the_formal_mqtt_entry ... ok
+test canceling_the_formal_mqtt_data_stage_closes_the_original_attempt_and_allows_a_new_contact ... ok
+test configured_startup_keeps_another_allowed_mqtt_service_when_one_is_down ... ok
+test mqtt_native_node_worker ... ok
+test saved_udp_disable_applies_to_the_next_mqtt_endpoint_without_reopening_the_node ... ok
+test simultaneous_formal_mqtt_dials_return_bounded_independent_data_connections ... ok
+test two_live_broker_routes_each_deliver_a_formal_original_data_connection ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/native_network.rs (target/debug/deps/native_network-c3f113128b4e4fe0)
+
+running 5 tests
+test create_and_restart_through_public_node_entry ... ok
+test invalid_record_cannot_create_a_valid_view ... ok
+test new_credential_is_new_network_and_secrets_are_not_status ... ok
+test relative_data_directory_is_a_public_entry ... ok
+test wrong_root_and_alternate_create_cannot_replace_pinned_network ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.83s
+
+     Running tests/public_resources.rs (target/debug/deps/public_resources-b572264cd1691a2e)
+
+running 10 tests
+test a_new_tcp_stun_attempt_invalidates_an_older_pending_query ... ok
+test bundled_stun_is_observation_only_and_preserves_all_four_official_qad_nodes ... ok
+test configured_stun_is_not_a_qad_relay_and_disabled_observation_sends_nothing ... ok
+test dns_names_that_share_one_udp_destination_cannot_manufacture_a_mapping_sequence ... ok
+test locally_closed_paths_are_absent_from_new_public_snapshots_before_abandonment ... ok
+test mqtt_bootstrap_can_release_only_the_original_connection_over_an_allowed_relay ... ok
+test ordered_stun_sequence_uses_one_data_socket_and_failed_new_query_invalidates_old_snapshot ... ok
+test stun_uses_the_endpoint_socket_and_rejects_wrong_source_and_transaction ... ok
+test tcp_stun_accepts_ipv6_mapping_of_the_actual_ipv4_transport_connection ... ok
+test tcp_stun_retains_the_configured_transport_port_and_expires_on_close ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.40s
+
+     Running tests/resources.rs (target/debug/deps/resources-753eda7c2b3156f6)
+
+running 26 tests
+test a_disabled_signaling_broker_cannot_be_opened_by_a_custom_carrier ... ok
+test a_known_actor_route_cannot_replace_an_allowed_candidate_with_a_forbidden_relay ... ok
+test all_allowed_entries_fail_with_bounded_backoff_and_import_restart_recovery ... ok
+test allowed_lookup_cannot_redirect_access_to_a_disabled_facility ... ok
+test allowed_signed_pkarr_lookup_reaches_real_admission_with_data_relay_disabled ... ok
+test an_update_signed_by_an_untrusted_publisher_cannot_change_configuration ... ok
+test cli_import_update_and_startup_preserve_local_resource_choices ... ok
+test data_relay_disable_preserves_independently_allowed_address_observation ... ok
+test disabled_lookup_added_after_bind_through_wrappers_is_never_accessed ... ok
+test disabled_pkarr_lookup_facility_is_never_accessed ... ok
+test disabled_pkarr_publication_facility_is_never_accessed ... ok
+test disabled_relay_from_invitation_hint_is_never_accessed ... ok
+test disabled_relay_from_lookup_result_is_never_accessed ... ok
+test disabled_relay_in_default_startup_table_is_never_accessed ... ok
+test disabled_relay_retained_in_cache_is_never_accessed ... ok
+test equivalent_url_spelling_cannot_bypass_a_local_disable ... ok
+test explicit_lan_disclosure_publishes_only_active_nodes_and_passive_discovers ... ok
+test external_mapping_observer_map_cannot_bypass_permission ... ok
+test failed_initial_data_only_relay_falls_back_to_another_allowed_entry ... ok
+test first_real_default_test_configuration_admits_and_communicates ... ok
+test first_real_self_hosted_replacement_admits_and_communicates ... ok
+test p2panda_high_level_active_publishes_while_its_passive_branch_is_inactive ... ok
+test priority_disabled_relay_from_address_book_is_never_accessed ... ok
+test resource_choices_survive_the_public_node_backup_and_restore ... ok
+test tampering_and_signed_rollback_cannot_change_configuration ... ok
+test trusted_table_update_preserves_local_replacement_and_disable_on_restart ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 43.56s
+
+     Running tests/tcp_direct.rs (target/debug/deps/tcp_direct-89a7eb5425e1e9bc)
+
+running 11 tests
+test available_ipv6_tcp_admits_syncs_and_transfers_independently ... ok
+test cancelling_pending_tcp_contact_closes_actual_carrier ... ok
+test disabled_tcp_candidate_is_not_dialed_even_through_raw_endpoint ... ok
+test first_real_udp_disabled_tcp_ipv4_admits_syncs_and_transfers ... ok
+test globally_disabled_tcp_cannot_be_reenabled_by_an_advanced_builder ... ok
+test lookup_supplied_disabled_tcp_candidate_is_not_dialed ... ok
+test normal_cli_starts_with_tcp_only_and_exits_on_interrupt ... ok
+test physical_tcp_loss_ends_old_stream_and_later_contact_is_a_new_connection ... ok
+test priority_wrong_member_identity_cannot_bypass_tcp_admission ... ok
+test received_revocation_ends_tcp_flow_and_rejects_stale_member ... ok
+test valid_but_unapproved_identity_cannot_read_member_history_over_tcp ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 41.11s
+
+     Running tests/udp_observation.rs (target/debug/deps/udp_observation-5845661c4c7d5c68)
+
+running 6 tests
+test changed_nat_mapping_replaces_the_old_candidate_after_network_change ... ok
+test destination_dependent_nat_reports_mapping_variance ... ok
+test disabled_observation_endpoint_never_contacts_the_observer ... ok
+test failed_periodic_observation_withdraws_the_old_udp_candidate ... ok
+test mixed_observation_and_data_relay_configuration_fails_at_bind ... ok
+test relay_disabled_observes_the_real_quic_socket_through_a_controlled_nat ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 28.78s

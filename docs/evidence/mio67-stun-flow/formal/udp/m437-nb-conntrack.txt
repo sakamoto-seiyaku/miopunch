@@ -1,0 +1,13 @@
+conntrack v1.4.7 (conntrack-tools): 12 flow entries have been shown.
+udp      17 118 src=10.27.2.2 dst=100.64.27.5 sport=43027 dport=3479 src=100.64.27.5 dst=100.64.27.6 sport=3479 dport=43027 [ASSURED] mark=0 use=1
+udp      17 115 src=10.27.2.2 dst=100.64.27.5 sport=43027 dport=7842 src=100.64.27.5 dst=100.64.27.6 sport=7842 dport=43027 [ASSURED] mark=0 use=1
+tcp      6 101 TIME_WAIT src=10.27.2.2 dst=100.64.27.1 sport=42614 dport=1883 src=100.64.27.1 dst=100.64.27.6 sport=1883 dport=42614 [ASSURED] mark=0 use=1
+udp      17 118 src=10.27.2.2 dst=100.64.27.1 sport=43027 dport=3479 src=100.64.27.1 dst=100.64.27.6 sport=3479 dport=43027 [ASSURED] mark=0 use=1
+udp      17 119 src=10.27.2.2 dst=100.64.27.2 sport=43027 dport=42027 src=100.64.27.2 dst=100.64.27.6 sport=42027 dport=43027 [ASSURED] mark=0 use=1
+udp      17 29 src=10.27.2.2 dst=10.27.1.2 sport=43027 dport=42027 [UNREPLIED] src=10.27.1.2 dst=100.64.27.6 sport=42027 dport=43027 mark=0 use=1
+udp      17 118 src=10.27.2.2 dst=100.64.27.1 sport=43027 dport=7842 src=100.64.27.1 dst=100.64.27.6 sport=7842 dport=43027 [ASSURED] mark=0 use=1
+tcp      6 119 TIME_WAIT src=10.27.2.2 dst=100.64.27.1 sport=35260 dport=1883 src=100.64.27.1 dst=100.64.27.6 sport=1883 dport=35260 [ASSURED] mark=0 use=1
+udp      17 118 src=10.27.2.2 dst=100.64.27.5 sport=43027 dport=3478 src=100.64.27.5 dst=100.64.27.6 sport=3478 dport=43027 [ASSURED] mark=0 use=1
+tcp      6 112 TIME_WAIT src=10.27.2.2 dst=100.64.27.1 sport=39206 dport=1883 src=100.64.27.1 dst=100.64.27.6 sport=1883 dport=39206 [ASSURED] mark=0 use=1
+udp      17 118 src=10.27.2.2 dst=100.64.27.1 sport=43027 dport=3478 src=100.64.27.1 dst=100.64.27.6 sport=3478 dport=43027 [ASSURED] mark=0 use=1
+tcp      6 94 TIME_WAIT src=10.27.2.2 dst=100.64.27.1 sport=59272 dport=1883 src=100.64.27.1 dst=100.64.27.6 sport=1883 dport=59272 [ASSURED] mark=0 use=1

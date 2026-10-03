@@ -6,14 +6,11 @@ import sys
 import tempfile
 
 
-def main():
-    worker, unused_qad, output = map(pathlib.Path, sys.argv[1:4])
-    case = sys.argv[4]
-    repo = pathlib.Path(__file__).resolve().parents[1]
+def fixture_source(repo):
     source = (repo / "scripts/udp_nat_lab.sh").read_text()
     source = source[:source.index("# Endpoint-independent mapping")]
     source = source.replace("/tmp/miopunch27.", "/tmp/miopunch43.").replace('prefix="m27$$"', 'prefix="m43$$"')
-    source = source.replace("positive|no_prime|path_id_retry|blocked|wrong|stale|control_cut", "positive|blocked|simultaneous_cancel|endpoint_dependent|udp_fallback|simultaneous|mixed_tcp|wrong_target|private_bind|cancel_attempt|observer_failure|candidate_denied")
+    source = source.replace("positive|no_prime|path_id_retry|blocked|wrong|stale|control_cut", "positive|domain_stun|stun_udp|blocked|simultaneous_cancel|endpoint_dependent|udp_fallback|simultaneous|mixed_tcp|wrong_target|private_bind|cancel_attempt|observer_failure|candidate_denied")
     source = source.replace('  for ns in "${names[@]}"; do', '\n'.join([
         '  for nat in "$nat_a" "$nat_b"; do',
         '    ip netns exec "$nat" iptables-save -c > "$evidence/$nat-rules.txt" 2>/dev/null || true',
@@ -28,6 +25,12 @@ for nat in "$nat_a" "$nat_b"; do
   ip netns exec "$nat" iptables -A INPUT -i wan0 -p tcp --syn -j DROP
 done
 ip netns exec "$wan" sysctl -qw net.ipv4.ip_forward=1
+if [[ $case_name == domain_stun ]]; then
+  for node in "$node_a" "$node_b"; do
+    mkdir -p "/etc/netns/$node"
+    printf '127.0.0.1 localhost\n100.64.27.1 stun.miopunch.test\n' > "/etc/netns/$node/hosts"
+  done
+fi
 if [[ $case_name == blocked || $case_name == simultaneous_cancel || $case_name == udp_fallback || $case_name == cancel_attempt ]]; then
   ip netns exec "$wan" iptables -A FORWARD -p tcp -s 100.64.27.2 -d 100.64.27.6 -j DROP
   ip netns exec "$wan" iptables -A FORWARD -p tcp -s 100.64.27.6 -d 100.64.27.2 -j DROP
@@ -53,6 +56,12 @@ for _ in $(seq 1 100); do
 done
 grep -q STUN_TCP_READY "$evidence/observer.log"
 grep -q 'Opening ipv4 listen socket' "$evidence/broker.log"
+if [[ $case_name == stun_udp ]]; then
+  ip netns exec "$wan" python3 /repo/scripts/stun_udp_observer.py --bind 100.64.27.1:3478 --bind 100.64.27.1:3479 --bind 100.64.27.5:3478 --bind 100.64.27.5:3479 > "$evidence/udp-observer.log" 2>&1 &
+  jobs+=("$!")
+  for _ in $(seq 1 100); do [[ $(grep -c STUN_UDP_READY "$evidence/udp-observer.log") == 4 ]] && break; sleep 0.01; done
+  [[ $(grep -c STUN_UDP_READY "$evidence/udp-observer.log") == 4 ]]
+fi
 if [[ $case_name == udp_fallback || $case_name == mixed_tcp || $case_name == observer_failure || $case_name == candidate_denied ]]; then
   ip netns exec "$wan" "$qad" serve "$runtime/cert.der" 100.64.27.1:7842 > "$evidence/qad.log" 2>&1 &
   jobs+=("$!")
@@ -62,6 +71,16 @@ if [[ $case_name == udp_fallback || $case_name == mixed_tcp || $case_name == obs
     mkdir -p "/etc/netns/$node"
     printf '127.0.0.1 localhost\n100.64.27.1 qad.miopunch.test\n' > "/etc/netns/$node/hosts"
   done
+  for side in a b; do
+    if [[ $side == a ]]; then nat="$nat_a"; private=10.27.1.2; public=100.64.27.2; port=42027;
+    else nat="$nat_b"; private=10.27.2.2; public=100.64.27.6; port=43027; fi
+    ip netns exec "$nat" iptables -t mangle -A FORWARD -i lan0 -o wan0 -p udp --sport "$port" -m recent --name mio43allow --set --rdest
+    ip netns exec "$nat" iptables -t nat -I POSTROUTING 1 -o wan0 -s "$private" -p udp --sport "$port" -j SNAT --to-source "$public:$port"
+    ip netns exec "$nat" iptables -t nat -A PREROUTING -i wan0 -p udp --dport "$port" -j DNAT --to-destination "$private:$port"
+    ip netns exec "$nat" iptables -I FORWARD 1 -i wan0 -o lan0 -p udp --dport "$port" -m recent --name mio43allow --rcheck --seconds 60 --rsource -j ACCEPT
+  done
+fi
+if [[ $case_name == stun_udp ]]; then
   for side in a b; do
     if [[ $side == a ]]; then nat="$nat_a"; private=10.27.1.2; public=100.64.27.2; port=42027;
     else nat="$nat_b"; private=10.27.2.2; public=100.64.27.6; port=43027; fi
@@ -134,8 +153,23 @@ if [[ $case_name == observer_failure ]]; then
 fi
 grep -q DATA_OK "$evidence/client.log"
 grep -q DATA_OK "$evidence/server.log"
+if [[ $case_name == stun_udp ]]; then
+  grep -q '^LEGACY_SAMPLE ' "$evidence/client.log"
+  grep -q '^LEGACY_SAMPLE ' "$evidence/server.log"
+  grep -q '^LEGACY_FEATURE feature=Some' "$evidence/client.log"
+  grep -q '^LEGACY_FEATURE feature=Some' "$evidence/server.log"
+  grep -q STUN_UDP_BINDING "$evidence/udp-observer.log"
+fi
 echo "PASS formal TCP dual NAT case=$case_name"
 '''
+    return source
+
+
+def main():
+    worker, unused_qad, output = map(pathlib.Path, sys.argv[1:4])
+    case = sys.argv[4]
+    repo = pathlib.Path(__file__).resolve().parents[1]
+    source = fixture_source(repo)
     output.mkdir(parents=True, exist_ok=True)
     (output / "fixture.sh").write_text(source)
     with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", prefix="mio43-") as script:

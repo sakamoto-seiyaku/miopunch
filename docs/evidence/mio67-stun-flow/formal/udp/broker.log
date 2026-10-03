@@ -1,0 +1,29 @@
+1791009850: mosquitto version 2.0.11 starting
+1791009850: Config loaded from /tmp/miopunch43.GE9xHB/mosquitto.conf.
+1791009850: Opening ipv4 listen socket on port 1883.
+1791009850: mosquitto version 2.0.11 running
+1791009851: New connection from 100.64.27.6:59272 on port 1883.
+1791009851: New client connected from 100.64.27.6:59272 as mio20-fd78c4086ff7f69fb8af96f7e99bc892 (p2, c1, k5).
+1791009851: New connection from 100.64.27.2:37800 on port 1883.
+1791009851: New client connected from 100.64.27.2:37800 as mio20-3d649934cd30a4403183740f474d022d (p2, c1, k5).
+1791009855: Client mio20-fd78c4086ff7f69fb8af96f7e99bc892 closed its connection.
+1791009855: Client mio20-3d649934cd30a4403183740f474d022d closed its connection.
+1791009855: New connection from 100.64.27.6:42614 on port 1883.
+1791009855: New client connected from 100.64.27.6:42614 as mio20-50e175d9d240087a1f55a0ba54d31557 (p2, c1, k5).
+1791009855: New connection from 100.64.27.2:37816 on port 1883.
+1791009855: New client connected from 100.64.27.2:37816 as mio20-e3ba3878e0aa102c3a92c1830dd21d40 (p2, c1, k5).
+1791009862: Client mio20-50e175d9d240087a1f55a0ba54d31557 closed its connection.
+1791009862: Client mio20-e3ba3878e0aa102c3a92c1830dd21d40 closed its connection.
+1791009862: New connection from 100.64.27.6:39206 on port 1883.
+1791009862: New client connected from 100.64.27.6:39206 as mio20-099b181977976da4f38d3c1a3e98e010 (p2, c1, k5).
+1791009862: New connection from 100.64.27.2:59934 on port 1883.
+1791009862: New client connected from 100.64.27.2:59934 as mio20-ce7bd3821c150f1b2f2481688a2aaede (p2, c1, k5).
+1791009872: Client mio20-ce7bd3821c150f1b2f2481688a2aaede closed its connection.
+1791009872: Client mio20-099b181977976da4f38d3c1a3e98e010 closed its connection.
+1791009873: New connection from 100.64.27.6:35260 on port 1883.
+1791009873: New client connected from 100.64.27.6:35260 as mio20-1a2b770c1710e27797cd342b9260d53e (p2, c1, k5).
+1791009873: New connection from 100.64.27.2:38552 on port 1883.
+1791009873: New client connected from 100.64.27.2:38552 as mio20-02f9bf34ad6fe7145d9f376a5e0b748e (p2, c1, k5).
+1791009880: Client mio20-1a2b770c1710e27797cd342b9260d53e closed its connection.
+1791009880: Client mio20-02f9bf34ad6fe7145d9f376a5e0b748e closed its connection.
+1791009880: mosquitto version 2.0.11 terminating

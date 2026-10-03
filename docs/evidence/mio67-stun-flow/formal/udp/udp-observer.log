@@ -1,0 +1,20 @@
+STUN_UDP_READY destination=100.64.27.1:3478
+STUN_UDP_READY destination=100.64.27.1:3479
+STUN_UDP_READY destination=100.64.27.5:3478
+STUN_UDP_READY destination=100.64.27.5:3479
+STUN_UDP_BINDING destination=('100.64.27.1', 3478) actual_source=('100.64.27.6', 43027) transaction=29956ae0251f9a1299e392c0
+STUN_UDP_BINDING destination=('100.64.27.1', 3478) actual_source=('100.64.27.2', 42027) transaction=4fd4e01d16d83124aa8c51f8
+STUN_UDP_BINDING destination=('100.64.27.1', 3479) actual_source=('100.64.27.6', 43027) transaction=a0f480af01555409de53bda8
+STUN_UDP_BINDING destination=('100.64.27.1', 3479) actual_source=('100.64.27.2', 42027) transaction=0ae410254f45447eb9000b1b
+STUN_UDP_BINDING destination=('100.64.27.5', 3478) actual_source=('100.64.27.6', 43027) transaction=f3d64b7ccb65f9394d72e730
+STUN_UDP_BINDING destination=('100.64.27.5', 3478) actual_source=('100.64.27.2', 42027) transaction=cf448b7fb4007b3a5bf41c68
+STUN_UDP_BINDING destination=('100.64.27.5', 3479) actual_source=('100.64.27.6', 43027) transaction=5ea39d82553eba4a746f3fcf
+STUN_UDP_BINDING destination=('100.64.27.5', 3479) actual_source=('100.64.27.2', 42027) transaction=994d78f9091e5beae9da7fcf
+STUN_UDP_BINDING destination=('100.64.27.1', 3478) actual_source=('100.64.27.6', 43027) transaction=4e7902b502c2db6f8f309298
+STUN_UDP_BINDING destination=('100.64.27.1', 3478) actual_source=('100.64.27.2', 42027) transaction=4ce7292bcc2bae2510920f5c
+STUN_UDP_BINDING destination=('100.64.27.1', 3479) actual_source=('100.64.27.6', 43027) transaction=e9f5c8cae40ee2a69217e3d6
+STUN_UDP_BINDING destination=('100.64.27.1', 3479) actual_source=('100.64.27.2', 42027) transaction=82c47f1be52d30aa0d96c944
+STUN_UDP_BINDING destination=('100.64.27.5', 3478) actual_source=('100.64.27.6', 43027) transaction=4ef7fca6fc251ae71d66dd5f
+STUN_UDP_BINDING destination=('100.64.27.5', 3478) actual_source=('100.64.27.2', 42027) transaction=a1ecdacd7cc4c4852d8d942d
+STUN_UDP_BINDING destination=('100.64.27.5', 3479) actual_source=('100.64.27.6', 43027) transaction=2493e1099c5c37aea1ffdaf2
+STUN_UDP_BINDING destination=('100.64.27.5', 3479) actual_source=('100.64.27.2', 42027) transaction=5bc99abbcb88300356cf05df

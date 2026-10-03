@@ -18,6 +18,41 @@ fn response(request: &[u8], port: u16) -> Vec<u8> {
     packet
 }
 
+#[test]
+fn bundled_stun_is_observation_only_and_preserves_all_four_official_qad_nodes() {
+    use miopunch_native_probe::resources::ResourceConfig;
+    let mut config = ResourceConfig::default();
+    let official = iroh::defaults::prod::default_relay_map();
+    let qad = config.relay_map(ResourceUse::Observation).unwrap();
+    assert_eq!(qad.urls::<BTreeSet<_>>(), official.urls::<BTreeSet<_>>());
+    assert_eq!(qad.len(), 4);
+    assert!(
+        config.tcp_listen.is_none(),
+        "TCP remains explicitly enabled only"
+    );
+    let udp = config.udp_stun_resources();
+    assert_eq!(
+        udp.len(),
+        2,
+        "usable multi-destination default backup requires two services"
+    );
+    assert_eq!(config.tcp_stun_resources().len(), 1);
+    for url in udp.iter().chain(config.tcp_stun_resources().iter()) {
+        assert!(!config.allows(url.as_str(), ResourceUse::DataRelay));
+        assert!(!config.allows(url.as_str(), ResourceUse::Signaling));
+    }
+    config.disabled_uses.insert(ResourceUse::Observation);
+    assert!(config.udp_stun_resources().is_empty());
+    assert!(config.tcp_stun_resources().is_empty());
+    config.disabled_uses.clear();
+    config.import_trusted_replacement(Vec::new()).unwrap();
+    assert!(
+        config.udp_stun_resources().is_empty(),
+        "replacement does not leak bundled services"
+    );
+    assert!(config.tcp_stun_resources().is_empty());
+}
+
 #[tokio::test]
 async fn stun_uses_the_endpoint_socket_and_rejects_wrong_source_and_transaction() {
     let server = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
@@ -67,6 +102,116 @@ async fn stun_uses_the_endpoint_socket_and_rejects_wrong_source_and_transaction(
         !observation.is_fresh(),
         "closing the owning socket invalidates its mapping"
     );
+}
+
+#[tokio::test]
+async fn ordered_stun_sequence_uses_one_data_socket_and_failed_new_query_invalidates_old_snapshot()
+{
+    let endpoint = Endpoint::builder(presets::Minimal)
+        .clear_ip_transports()
+        .bind_addr((Ipv4Addr::LOCALHOST, 0))
+        .unwrap()
+        .bind()
+        .await
+        .unwrap();
+    let mut observers = Vec::new();
+    let mut tasks = Vec::new();
+    for port in [41000, 41001] {
+        let server = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let destination = server.local_addr().unwrap();
+        observers.push(format!("stun://{destination}/").parse().unwrap());
+        let bindings = endpoint.bound_sockets();
+        tasks.push(tokio::spawn(async move {
+            for _ in 0..2 {
+                let mut request = [0; 128];
+                let (len, peer) = server.recv_from(&mut request).await.unwrap();
+                assert_eq!(len, 20);
+                assert!(
+                    bindings.contains(&peer),
+                    "each sample uses the actual data binding"
+                );
+                server
+                    .send_to(&response(&request, port), peer)
+                    .await
+                    .unwrap();
+            }
+        }));
+    }
+    let first = endpoint
+        .observe_udp_stun_mapping_sequence(&observers)
+        .await
+        .unwrap();
+    assert_eq!(first.samples.len(), 2);
+    assert_eq!(
+        first.samples[0].mapped,
+        "203.0.113.7:41000".parse().unwrap()
+    );
+    assert_eq!(
+        first.samples[1].mapped,
+        "203.0.113.7:41001".parse().unwrap()
+    );
+    assert_ne!(first.samples[0].destination, first.samples[1].destination);
+    assert!(first.samples[0].observed_at <= first.samples[1].observed_at);
+    let snapshot =
+        miopunch_native_probe::nat_punch::MappingSnapshot::from_sequence(first.clone()).unwrap();
+    assert!(first.is_fresh() && snapshot.is_current());
+    let unavailable = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let url = format!("stun://{}/", unavailable.local_addr().unwrap())
+        .parse()
+        .unwrap();
+    assert!(
+        tokio::time::timeout(Duration::from_millis(50), endpoint.observe_udp_stun(&url))
+            .await
+            .is_err()
+    );
+    assert!(
+        !first.is_fresh() && !snapshot.is_current(),
+        "a failed/canceled replacement cannot revive old mapping"
+    );
+    let fresh = endpoint
+        .observe_udp_stun_mapping_sequence(&observers)
+        .await
+        .unwrap();
+    assert!(fresh.is_fresh() && fresh.is_current_generation());
+    for task in tasks {
+        task.await.unwrap();
+    }
+    endpoint.close().await;
+    assert!(!fresh.is_fresh() && !fresh.is_current_generation());
+}
+
+#[tokio::test]
+async fn dns_names_that_share_one_udp_destination_cannot_manufacture_a_mapping_sequence() {
+    let endpoint = Endpoint::builder(presets::Minimal)
+        .clear_ip_transports()
+        .bind_addr((Ipv4Addr::LOCALHOST, 0))
+        .unwrap()
+        .bind()
+        .await
+        .unwrap();
+    let server = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let port = server.local_addr().unwrap().port();
+    let task = tokio::spawn(async move {
+        for _ in 0..2 {
+            let mut request = [0; 128];
+            let (_, peer) = server.recv_from(&mut request).await.unwrap();
+            server
+                .send_to(&response(&request, 41000), peer)
+                .await
+                .unwrap();
+        }
+    });
+    let observers = [
+        format!("stun://localhost:{port}/").parse().unwrap(),
+        format!("stun://127.0.0.1:{port}/").parse().unwrap(),
+    ];
+    let error = endpoint
+        .observe_udp_stun_mapping_sequence(&observers)
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("insufficient"));
+    task.await.unwrap();
+    endpoint.close().await;
 }
 
 #[tokio::test]

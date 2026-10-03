@@ -1,0 +1,5 @@
+PASS STUN_FLOW phase=qad
+PASS STUN_FLOW phase=backup
+PASS STUN_FLOW phase=disabled
+PASS STUN_FLOW phase=restored
+PASS QAD-primary STUN-backup priority-disable exact-restore same-identities

@@ -1,0 +1,58 @@
+{
+  "scope": "physical Android STUN/TCP observation only; no Android punching",
+  "phases": [
+    {
+      "phase": "first",
+      "node": "8bd1308da08a5ca0e9d72f718433588a4637da76293d0f44cab2d70769e7e685",
+      "observations": [
+        {
+          "destination": "141.101.90.1:3478",
+          "fresh": true,
+          "local_socket": "192.168.4.151:34851",
+          "mapped": "104.28.218.19:18386",
+          "protocol": "STUN/TCP/RFC8489",
+          "retained_connection": true,
+          "service": "stun+tcp://turn.cloudflare.com:3478/",
+          "started_unix_ms": 1791010253779,
+          "transaction_and_source_validated": true,
+          "transport_listener": "0.0.0.0:34851",
+          "valid_for_ms": 39999
+        }
+      ],
+      "exit": 0
+    },
+    {
+      "phase": "disabled",
+      "node": "8bd1308da08a5ca0e9d72f718433588a4637da76293d0f44cab2d70769e7e685",
+      "observations": [],
+      "exit": 0
+    },
+    {
+      "phase": "restored",
+      "node": "8bd1308da08a5ca0e9d72f718433588a4637da76293d0f44cab2d70769e7e685",
+      "observations": [
+        {
+          "destination": "141.101.90.1:3478",
+          "fresh": true,
+          "local_socket": "192.168.4.151:39945",
+          "mapped": "[2a09:bac1:1e00::1d8:83]:58898",
+          "protocol": "STUN/TCP/RFC8489",
+          "retained_connection": true,
+          "service": "stun+tcp://turn.cloudflare.com:3478/",
+          "started_unix_ms": 1791010256087,
+          "transaction_and_source_validated": true,
+          "transport_listener": "0.0.0.0:39945",
+          "valid_for_ms": 39999
+        }
+      ],
+      "exit": 0
+    }
+  ],
+  "passed": true,
+  "platform": {
+    "model": "Pixel 6a",
+    "android": "16",
+    "sdk": "36"
+  },
+  "owned_directory_removed": true
+}

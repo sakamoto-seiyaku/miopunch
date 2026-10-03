@@ -1,0 +1,103 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+error[E0277]: `TcpSocketObservation` doesn't implement `Debug`
+   --> src/tcp_punch.rs:208:88
+    |
+208 |                 result => eprintln!("TCP_OBSERVATION_FAILED observer={observer} result={result:?}"),
+    |                                                                                        ^^^^^^^^^^ `TcpSocketObservation` cannot be formatted using `{:?}` because it doesn't implement `Debug`
+    |
+    = help: the trait `Debug` is not implemented for `TcpSocketObservation`
+help: the trait `Debug` is conditionally implemented for `Result<T, E>`
+   --> /home/js/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/result.rs:552:16
+    |
+552 | #[derive(Copy, Debug, Hash)]
+    |                ^^^^^
+...
+557 | pub enum Result<T, E> {
+    |                 - unsatisfied requirement introduced here: `TcpSocketObservation: Debug`
+    = note: required for `Result<TcpSocketObservation, std::io::Error>` to implement `Debug`
+help: consider annotating `TcpSocketObservation` with `#[derive(Debug)]`
+   --> src/tcp_observation.rs:14:1
+    |
+ 14 + #[derive(Debug)]
+ 15 | pub(crate) struct TcpSocketObservation {
+    |
+
+error: internal compiler error: encountered incremental compilation error with evaluate_obligation(a8e9298dfc0b34c7-7464f0b799c4ee76)
+  |
+  = note: please follow the instructions below to create a bug report with the provided information
+  = note: for incremental compilation bugs, having a reproduction is vital
+  = note: an ideal reproduction consists of the code before and some patch that then triggers the bug when applied and compiled again
+  = note: as a workaround, you can run `cargo clean -p miopunch_native_probe` or `cargo clean` to allow your project to compile
+
+
+thread 'rustc' (2714659) panicked at /rustc-dev/48a229ceaefd4985c50990b14116b6d856af0985/compiler/rustc_middle/src/verify_ich.rs:82:9:
+Found unstable fingerprints for evaluate_obligation(a8e9298dfc0b34c7-7464f0b799c4ee76): Ok(EvaluatedToOk)
+stack backtrace:
+   0:     0x76a9f56e12a6 - <<std[6c98fd8553dbae28]::sys::backtrace::BacktraceLock>::print::DisplayBacktrace as core[c0acaeba6ab4c2e0]::fmt::Display>::fmt
+   1:     0x76a9f5e0ecc8 - core[c0acaeba6ab4c2e0]::fmt::write
+   2:     0x76a9f71d672c - <std[6c98fd8553dbae28]::sys::stdio::unix::Stderr as std[6c98fd8553dbae28]::io::Write>::write_fmt
+   3:     0x76a9f56b56fa - std[6c98fd8553dbae28]::panicking::default_hook::{closure#0}
+   4:     0x76a9f56d3a03 - std[6c98fd8553dbae28]::panicking::default_hook
+   5:     0x76a9f46bb818 - std[6c98fd8553dbae28]::panicking::update_hook::<alloc[12e961f32105355]::boxed::Box<rustc_driver_impl[7c7a30f131ac6633]::install_ice_hook::{closure#1}>>::{closure#0}
+   6:     0x76a9f56d3ea2 - std[6c98fd8553dbae28]::panicking::panic_with_hook
+   7:     0x76a9f56b57b2 - std[6c98fd8553dbae28]::panicking::panic_handler::{closure#0}
+   8:     0x76a9f56a9c89 - std[6c98fd8553dbae28]::sys::backtrace::__rust_end_short_backtrace::<std[6c98fd8553dbae28]::panicking::panic_handler::{closure#0}, !>
+   9:     0x76a9f56b711d - __rustc[100742bb89c490cb]::rust_begin_unwind
+  10:     0x76a9f282b02c - core[c0acaeba6ab4c2e0]::panicking::panic_fmt
+  11:     0x76a9f4ca0bb6 - rustc_middle[1df509376204f648]::verify_ich::incremental_verify_ich_failed
+  12:     0x76a9f620e25c - rustc_middle[1df509376204f648]::verify_ich::incremental_verify_ich::<rustc_middle[1df509376204f648]::query::erase::ErasedData<[u8; 2usize]>>
+  13:     0x76a9f6c93799 - rustc_query_impl[93753e9a5b789b34]::execution::try_execute_query::<rustc_middle[1df509376204f648]::query::caches::DefaultCache<rustc_type_ir[772caa9f495d950]::canonical::CanonicalQueryInput<rustc_middle[1df509376204f648]::ty::context::TyCtxt, rustc_middle[1df509376204f648]::ty::ParamEnvAnd<rustc_middle[1df509376204f648]::ty::predicate::Predicate>>, rustc_middle[1df509376204f648]::query::erase::ErasedData<[u8; 2usize]>>, true>
+  14:     0x76a9f6c91f30 - rustc_query_impl[93753e9a5b789b34]::query_impl::evaluate_obligation::execute_query_incr::__rust_end_short_backtrace
+  15:     0x76a9f651091b - <rustc_trait_selection[ffd24eea91be225b]::traits::fulfill::FulfillProcessor as rustc_data_structures[c038d4a67d5123e]::obligation_forest::ObligationProcessor>::process_obligation
+  16:     0x76a9f5e05b11 - <rustc_data_structures[c038d4a67d5123e]::obligation_forest::ObligationForest<rustc_trait_selection[ffd24eea91be225b]::traits::fulfill::PendingPredicateObligation>>::process_obligations::<rustc_trait_selection[ffd24eea91be225b]::traits::fulfill::FulfillProcessor>
+  17:     0x76a9f66fac2b - <rustc_trait_selection[ffd24eea91be225b]::traits::fulfill::FulfillmentContext<rustc_trait_selection[ffd24eea91be225b]::traits::FulfillmentError> as rustc_infer[d83c391d02ffb724]::traits::engine::TraitEngine<rustc_trait_selection[ffd24eea91be225b]::traits::FulfillmentError>>::evaluate_obligations_error_on_ambiguity
+  18:     0x76a9f482ce72 - rustc_hir_analysis[74d8a0f2b982b1de]::check::compare_impl_item::collect_return_position_impl_trait_in_trait_tys::{closure#0}
+  19:     0x76a9f515d883 - rustc_query_impl[93753e9a5b789b34]::query_impl::collect_return_position_impl_trait_in_trait_tys::invoke_provider_fn::__rust_begin_short_backtrace
+  20:     0x76a9f63abcde - rustc_query_impl[93753e9a5b789b34]::execution::try_execute_query::<rustc_middle[1df509376204f648]::query::caches::DefIdCache<rustc_middle[1df509376204f648]::query::erase::ErasedData<[u8; 8usize]>>, true>
+  21:     0x76a9f639a791 - rustc_query_impl[93753e9a5b789b34]::execution::force_query_dep_node::<rustc_middle[1df509376204f648]::query::caches::DefIdCache<rustc_middle[1df509376204f648]::query::erase::ErasedData<[u8; 8usize]>>>
+  22:     0x76a9f51bf73d - <rustc_query_impl[93753e9a5b789b34]::dep_kind_vtables::make_dep_kind_vtable_for_query<rustc_query_impl[93753e9a5b789b34]::query_impl::collect_return_position_impl_trait_in_trait_tys::VTableGetter>::{closure#0} as core[c0acaeba6ab4c2e0]::ops::function::FnOnce<(rustc_middle[1df509376204f648]::ty::context::TyCtxt, rustc_middle[1df509376204f648]::dep_graph::dep_node::DepNode, rustc_middle[1df509376204f648]::dep_graph::serialized::SerializedDepNodeIndex)>>::call_once
+  23:     0x76a9f5e29079 - <rustc_middle[1df509376204f648]::dep_graph::graph::DepGraphData>::try_mark_previous_green
+  24:     0x76a9f5e28cb3 - <rustc_middle[1df509376204f648]::dep_graph::graph::DepGraphData>::try_mark_previous_green
+  25:     0x76a9f5e28cb3 - <rustc_middle[1df509376204f648]::dep_graph::graph::DepGraphData>::try_mark_previous_green
+  26:     0x76a9f6200525 - rustc_query_impl[93753e9a5b789b34]::execution::ensure_can_skip_execution::<rustc_data_structures[c038d4a67d5123e]::vec_cache::VecCache<rustc_span[b8203aa248aaa837]::def_id::LocalDefId, rustc_middle[1df509376204f648]::query::erase::ErasedData<[u8; 1usize]>, rustc_middle[1df509376204f648]::dep_graph::graph::DepNodeIndex>>
+  27:     0x76a9f620512b - rustc_query_impl[93753e9a5b789b34]::query_impl::check_well_formed::execute_query_incr::__rust_end_short_backtrace
+  28:     0x76a9f6b4c905 - rustc_hir_analysis[74d8a0f2b982b1de]::check::wfcheck::check_type_wf
+  29:     0x76a9f6b4c813 - rustc_query_impl[93753e9a5b789b34]::query_impl::check_type_wf::invoke_provider_fn::__rust_begin_short_backtrace
+  30:     0x76a9f72b5c69 - rustc_query_impl[93753e9a5b789b34]::execution::try_execute_query::<rustc_middle[1df509376204f648]::query::caches::SingleCache<rustc_middle[1df509376204f648]::query::erase::ErasedData<[u8; 1usize]>>, true>
+  31:     0x76a9f72b560c - rustc_query_impl[93753e9a5b789b34]::query_impl::check_type_wf::execute_query_incr::__rust_end_short_backtrace
+  32:     0x76a9f625f75a - rustc_hir_analysis[74d8a0f2b982b1de]::check_crate
+  33:     0x76a9f6263d7a - rustc_interface[f52ff661d028375d]::passes::analysis
+  34:     0x76a9f6fd8203 - rustc_query_impl[93753e9a5b789b34]::execution::try_execute_query::<rustc_middle[1df509376204f648]::query::caches::SingleCache<rustc_middle[1df509376204f648]::query::erase::ErasedData<[u8; 0usize]>>, true>
+  35:     0x76a9f6fd7b37 - rustc_query_impl[93753e9a5b789b34]::query_impl::analysis::execute_query_incr::__rust_end_short_backtrace
+  36:     0x76a9f6f50ac2 - rustc_interface[f52ff661d028375d]::interface::run_compiler::<(), rustc_driver_impl[7c7a30f131ac6633]::run_compiler::{closure#0}>::{closure#1}
+  37:     0x76a9f6fc4e7a - std[6c98fd8553dbae28]::sys::backtrace::__rust_begin_short_backtrace::<rustc_interface[f52ff661d028375d]::util::run_in_thread_with_globals<rustc_interface[f52ff661d028375d]::util::run_in_thread_pool_with_globals<rustc_interface[f52ff661d028375d]::interface::run_compiler<(), rustc_driver_impl[7c7a30f131ac6633]::run_compiler::{closure#0}>::{closure#1}, ()>::{closure#0}, ()>::{closure#0}::{closure#0}, ()>
+  38:     0x76a9f6fc4c2d - <std[6c98fd8553dbae28]::thread::lifecycle::spawn_unchecked<rustc_interface[f52ff661d028375d]::util::run_in_thread_with_globals<rustc_interface[f52ff661d028375d]::util::run_in_thread_pool_with_globals<rustc_interface[f52ff661d028375d]::interface::run_compiler<(), rustc_driver_impl[7c7a30f131ac6633]::run_compiler::{closure#0}>::{closure#1}, ()>::{closure#0}, ()>::{closure#0}::{closure#0}, ()>::{closure#1} as core[c0acaeba6ab4c2e0]::ops::function::FnOnce<()>>::call_once::{shim:vtable#0}
+  39:     0x76a9f6fc2a0e - <std[6c98fd8553dbae28]::sys::thread::unix::Thread>::new::thread_start
+  40:     0x76a9f0aa71f5 - start_thread
+                               at ./nptl/pthread_create.c:442:8
+  41:     0x76a9f0b278ec - clone3
+                               at ./misc/../sysdeps/unix/sysv/linux/x86_64/clone3.S:81:0
+  42:                0x0 - <unknown>
+
+error: the compiler unexpectedly panicked. This is a bug
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: rustc 1.98.1 (48a229cea 2026-09-01) running on x86_64-unknown-linux-gnu
+
+note: compiler flags: --crate-type rlib --crate-type cdylib -C embed-bitcode=no -C debuginfo=line-tables-only -C incremental=[REDACTED]
+
+note: some of the compiler flags provided by cargo are hidden
+
+query stack during panic:
+#0 [evaluate_obligation] evaluating trait selection obligation `alloc::boxed::Box<iroh_dns::dns::DnsError>: core::marker::Send`
+#1 [collect_return_position_impl_trait_in_trait_tys] comparing an impl and trait method signature, inferring any hidden `impl Trait` types in the process
+... and 2 other queries... use `env RUST_BACKTRACE=1` to see the full query stack
+there was a panic while trying to force a dep node
+try_mark_green dep node stack:
+#0 type_of(miopunch_native_probe[e909]::message_bootstrap::{impl#2}::before_data_release::{anon_assoc#0})
+#1 compare_impl_item(miopunch_native_probe[e909]::message_bootstrap::{impl#2}::before_data_release)
+#2 check_well_formed(miopunch_native_probe[e909]::message_bootstrap::{impl#2})
+end of try_mark_green dep node stack
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `miopunch-native-probe` (lib) due to 2 previous errors

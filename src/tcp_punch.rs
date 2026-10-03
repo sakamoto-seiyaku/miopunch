@@ -12,7 +12,7 @@ use std::{
 #[derive(Debug)]
 pub(crate) struct TcpPunch {
     pub(crate) transport: TcpTransport,
-    pub(crate) observers: Vec<SocketAddr>,
+    pub(crate) observers: Vec<iroh::RelayUrl>,
     pub(crate) resources: crate::resources::ResourceConfig,
     attempts: Arc<Mutex<HashMap<(iroh::EndpointId, Vec<u8>), PeerAttempt>>>,
 }
@@ -87,7 +87,7 @@ impl TcpPunch {
 
     pub(crate) fn new(
         transport: TcpTransport,
-        observers: Vec<SocketAddr>,
+        observers: Vec<iroh::RelayUrl>,
         resources: crate::resources::ResourceConfig,
     ) -> Self {
         Self {
@@ -196,24 +196,26 @@ impl TcpPunch {
         check()?;
         let claim = self.claim(endpoint, connection).await?;
         check()?;
+        let generation = endpoint.udp_network_generation();
         let mut observation = None;
         for observer in &self.observers {
             check()?;
-            match tokio::time::timeout(Duration::from_secs(1), self.transport.observe(*observer))
-                .await
-            {
-                Ok(Ok(result)) => {
+            match crate::tcp_observation::observe(endpoint, &self.transport, observer).await {
+                Ok(result) if result.is_fresh() && result.mapped.is_ipv4() => {
                     observation = Some(result);
                     break;
                 }
                 result => eprintln!("TCP_OBSERVATION_FAILED observer={observer} result={result:?}"),
             }
         }
-        if let Some((local, _)) = &observation {
+        if let Some(result) = &observation {
             println!(
-                "TCP_OBSERVED stable_id={} listener={:?} candidate={local}",
+                "TCP_OBSERVED stable_id={} listener={} source={} destination={} candidate={}",
                 connection.stable_id(),
-                self.transport.bound_socket_addr()
+                result.listener,
+                result.local_addr,
+                result.destination,
+                result.mapped
             );
         }
         check()?;
@@ -225,7 +227,10 @@ impl TcpPunch {
         // Keep both peers in the TCP phase even when only one observer fails.
         // The retained observation socket lives through the path decision.
         let mut candidate = b"MIOTCP01".to_vec();
-        if let Some((SocketAddr::V4(local), _)) = &observation {
+        if let Some(result) = &observation
+            && result.is_fresh()
+            && let SocketAddr::V4(local) = result.mapped
+        {
             candidate.push(1);
             candidate.extend(local.ip().octets());
             candidate.extend(local.port().to_be_bytes());
@@ -286,6 +291,14 @@ impl TcpPunch {
             let deadline = tokio::time::Instant::now() + Duration::from_secs(6);
             loop {
                 check()?;
+                if !generation.is_current()
+                    || endpoint.is_closed()
+                    || !observation.as_ref().is_some_and(|result| result.is_fresh())
+                {
+                    return Err(io::Error::other(
+                        "TCP observation invalidated during punching",
+                    ));
+                }
                 if connection.side().is_client() {
                     match endpoint.open_control_path(connection, route.clone()).await {
                         Ok(()) => {}
@@ -331,6 +344,15 @@ impl TcpPunch {
         if peer_validated[0] == 0 {
             let _ = endpoint.retire_control_path(connection, route).await;
             return Err(io::Error::other("TCP path unavailable at a peer"));
+        }
+        if !generation.is_current()
+            || endpoint.is_closed()
+            || !observation.as_ref().is_some_and(|result| result.is_fresh())
+        {
+            let _ = endpoint.retire_control_path(connection, route).await;
+            return Err(io::Error::other(
+                "TCP observation invalidated before release",
+            ));
         }
         self.release_claim(&claim, connection)?;
         let closed = connection.weak_handle();

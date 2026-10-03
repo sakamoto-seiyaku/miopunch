@@ -1,0 +1,12 @@
+STUN_UDP_READY destination=100.64.27.1:3478
+STUN_UDP_READY destination=100.64.27.1:3479
+STUN_UDP_READY destination=100.64.27.5:3478
+STUN_UDP_READY destination=100.64.27.5:3479
+STUN_UDP_BINDING destination=('100.64.27.1', 3478) actual_source=('100.64.27.2', 42027) transaction=79c3eb7e007cdd976cc7601b
+STUN_UDP_BINDING destination=('100.64.27.1', 3479) actual_source=('100.64.27.2', 42027) transaction=98b4ce8ac31118f102104416
+STUN_UDP_BINDING destination=('100.64.27.1', 3478) actual_source=('100.64.27.6', 43027) transaction=281e4828e3817d081147acc1
+STUN_UDP_BINDING destination=('100.64.27.5', 3478) actual_source=('100.64.27.2', 42027) transaction=602da29d4039faad20673988
+STUN_UDP_BINDING destination=('100.64.27.1', 3479) actual_source=('100.64.27.6', 43027) transaction=c117aa413989564192d5491a
+STUN_UDP_BINDING destination=('100.64.27.5', 3479) actual_source=('100.64.27.2', 42027) transaction=3a3b9445c6fc614611df192c
+STUN_UDP_BINDING destination=('100.64.27.5', 3478) actual_source=('100.64.27.6', 43027) transaction=4e90525ad444fba9263f4aaf
+STUN_UDP_BINDING destination=('100.64.27.5', 3479) actual_source=('100.64.27.6', 43027) transaction=8fb353635087c81375f2e69c

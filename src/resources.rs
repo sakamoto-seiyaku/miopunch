@@ -106,7 +106,7 @@ impl SignedResourceTable {
 impl Default for ResourceConfig {
     fn default() -> Self {
         Self::with_defaults(ResourceTable {
-            revision: 1,
+            revision: 2,
             resources: iroh::defaults::prod::default_relay_map()
                 .urls::<Vec<_>>()
                 .into_iter()
@@ -115,6 +115,23 @@ impl Default for ResourceConfig {
                     uses: BTreeSet::from([ResourceUse::Observation, ResourceUse::DataRelay]),
                     limitation: "number0 public relay: best effort, no availability guarantee; QAD and end-to-end encrypted relay, not membership authority".into(),
                 })
+                .chain([
+                    Resource {
+                        url: "stun://stun.cloudflare.com:3478/".into(),
+                        uses: BTreeSet::from([ResourceUse::Observation]),
+                        limitation: "Cloudflare documented public STUN/UDP Binding; best effort observation only, no TURN allocation or data relay".into(),
+                    },
+                    Resource {
+                        url: "stun://global.stun.twilio.com:3478/".into(),
+                        uses: BTreeSet::from([ResourceUse::Observation]),
+                        limitation: "Twilio documented public STUN/UDP Binding; best effort observation only, no TURN allocation or data relay".into(),
+                    },
+                    Resource {
+                        url: "stun+tcp://turn.cloudflare.com:3478/".into(),
+                        uses: BTreeSet::from([ResourceUse::Observation]),
+                        limitation: "Cloudflare actual TCP Binding verified in MIOPUNCH-64; observation only when TCP explicitly enabled, not TURN or a data relay".into(),
+                    },
+                ])
                 .collect(),
         })
     }
@@ -146,28 +163,6 @@ impl ResourceConfig {
             }
         }
         origins.into_values().take(4).collect()
-    }
-    /// Explicit STUN-over-TCP observers. This increment accepts literal IPv4
-    /// origins and keeps them separate from the HTTPS QAD/relay facilities.
-    pub(crate) fn tcp_observers(&self) -> Vec<std::net::SocketAddr> {
-        self.replacement
-            .as_ref()
-            .unwrap_or(&self.defaults.resources)
-            .iter()
-            .filter(|resource| self.allows(&resource.url, ResourceUse::Observation))
-            .filter_map(|resource| {
-                let url = resource.url.parse::<RelayUrl>().ok()?;
-                if url.scheme() != "stun+tcp" {
-                    return None;
-                }
-                Some(std::net::SocketAddr::new(
-                    url.host_str()?.parse().ok()?,
-                    url.port()?,
-                ))
-                .filter(|addr| addr.is_ipv4() && addr.port() != 0)
-            })
-            .take(4)
-            .collect()
     }
     /// Approved message origins retain independently qualified routes.
     pub(crate) fn mqtt_resources(&self) -> Vec<iroh::RelayUrl> {
@@ -507,7 +502,8 @@ pub struct ResourceEndpoint {
 
 struct TcpObservationSlot {
     request: tokio_util::sync::CancellationToken,
-    stream: Option<std::sync::Arc<tokio::net::TcpStream>>,
+    /// Ownership retains the real diagnostic socket until replacement/close.
+    _stream: std::sync::Arc<tokio::net::TcpStream>,
 }
 
 /// One observation of a retained connection opened from the real TCP carrier's
@@ -600,92 +596,47 @@ impl ResourceEndpoint {
         }
         let origin = resource_origin(observer.as_str())
             .ok_or_else(|| io::Error::other("invalid TCP STUN origin"))?;
-        let request = tokio_util::sync::CancellationToken::new();
-        {
-            let mut observations = self.tcp_observations.lock().expect("TCP observations");
-            if let Some(previous) = observations.insert(
-                origin.clone(),
-                TcpObservationSlot {
-                    request: request.clone(),
-                    stream: None,
-                },
-            ) {
-                // Supersede both a retained result and an in-flight query,
-                // even when this new attempt subsequently fails or is dropped.
-                previous.request.cancel();
-            }
-        }
         let transport = self.tcp.as_ref().ok_or_else(|| {
             io::Error::new(io::ErrorKind::Unsupported, "no configured TCP transport")
         })?;
-        let generation = self.endpoint.udp_network_generation();
-        let operation = async {
-            let host = observer
-                .host_str()
-                .ok_or_else(|| io::Error::other("missing STUN host"))?;
-            let ip = if let Ok(ip) = host.parse::<std::net::Ipv4Addr>() {
-                std::net::IpAddr::V4(ip)
-            } else {
-                self.endpoint
-                    .dns_resolver()
-                    .map_err(io::Error::other)?
-                    .lookup_ipv4(host.to_owned(), Duration::from_secs(2))
-                    .await
-                    .map_err(io::Error::other)?
-                    .next()
-                    .ok_or_else(|| io::Error::other("STUN has no IPv4 address"))?
-            };
-            let destination = std::net::SocketAddr::new(ip, observer.port().unwrap_or(3478));
-            let listener = transport
-                .bound_socket_addr()
-                .ok_or_else(|| io::Error::other("TCP transport not bound"))?;
-            let (mapped, stream) = transport.observe(destination).await?;
-            let local_addr = stream.local_addr()?;
-            if stream.peer_addr()? != destination
-                || local_addr.port() != listener.port()
-                || self.endpoint.is_closed()
-                || !generation.is_current()
-            {
-                return Err(io::Error::other(
-                    "TCP STUN transport changed or source mismatched",
-                ));
-            }
-            let observed_at = Instant::now();
-            let stream = std::sync::Arc::new(stream);
-            let observation = TcpStunObservation {
-                observer: observer.clone(),
-                destination,
-                listener,
-                local_addr,
-                mapped,
-                observed_at,
-                valid_until: observed_at + Duration::from_secs(40),
-                stream: std::sync::Arc::downgrade(&stream),
-                endpoint: self.endpoint.clone(),
-                generation,
-                request: request.clone(),
-            };
-            let mut observations = self.tcp_observations.lock().expect("TCP observations");
-            if request.is_cancelled() {
-                return Err(io::Error::new(
-                    io::ErrorKind::Interrupted,
-                    "TCP STUN query superseded",
-                ));
-            }
-            observations
-                .get_mut(&origin)
-                .expect("registered TCP query")
-                .stream = Some(stream);
-            Ok(observation)
+        if let Some(previous) = self
+            .tcp_observations
+            .lock()
+            .expect("TCP observations")
+            .remove(&origin)
+        {
+            previous.request.cancel();
+        }
+        let result = crate::tcp_observation::observe(&self.endpoint, transport, observer).await?;
+        let stream = std::sync::Arc::new(result.stream);
+        let observation = TcpStunObservation {
+            observer: observer.clone(),
+            destination: result.destination,
+            listener: result.listener,
+            local_addr: result.local_addr,
+            mapped: result.mapped,
+            observed_at: result.observed_at,
+            valid_until: result.observed_at + Duration::from_secs(40),
+            stream: std::sync::Arc::downgrade(&stream),
+            endpoint: self.endpoint.clone(),
+            generation: result.generation,
+            request: result.request.clone(),
         };
-        tokio::time::timeout(Duration::from_secs(3), async {
-            tokio::select! {
-                _ = request.cancelled() => Err(io::Error::new(io::ErrorKind::Interrupted, "TCP STUN query superseded")),
-                result = operation => result,
-            }
-        })
-            .await
-            .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "TCP STUN Binding timed out"))?
+        let mut observations = self.tcp_observations.lock().expect("TCP observations");
+        if !observation.is_fresh() {
+            return Err(io::Error::new(
+                io::ErrorKind::Interrupted,
+                "TCP STUN query superseded",
+            ));
+        }
+        observations.insert(
+            origin,
+            TcpObservationSlot {
+                request: result.request,
+                _stream: stream,
+            },
+        );
+        Ok(observation)
     }
 
     /// Public contact address including explicitly configured direct TCP.

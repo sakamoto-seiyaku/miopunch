@@ -1,0 +1,9 @@
+   Compiling noq v1.3.0 (/home/js/Git/miopunch/vendor/noq)
+    Checking noq-proto v1.3.0 (/home/js/Git/miopunch/vendor/noq-proto)
+   Compiling netwatch v0.19.3 (/home/js/Git/miopunch/vendor/netwatch)
+   Compiling iroh-relay v1.2.0 (/home/js/Git/miopunch/vendor/iroh-relay)
+   Compiling iroh v1.2.0 (/home/js/Git/miopunch/vendor/iroh)
+    Checking p2panda-auth v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-auth)
+    Checking p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)
+    Checking miopunch-browser-probe v0.1.0 (/home/js/Git/miopunch/browser-probe)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 7.04s

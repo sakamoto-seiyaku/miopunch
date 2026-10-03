@@ -1,0 +1,34 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "mqtt_bootstrap",
+        "--test",
+        "public_resources",
+        "--",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 19.99
+    }
+  ],
+  "brokers": [
+    "127.0.0.1:43415",
+    "127.0.0.1:43416"
+  ],
+  "cleanup": [
+    {
+      "name": "miopunch67-broker-1791010040630286965",
+      "exit": 0
+    },
+    {
+      "name": "miopunch67-broker-1791010041108362672",
+      "exit": 0
+    }
+  ]
+}

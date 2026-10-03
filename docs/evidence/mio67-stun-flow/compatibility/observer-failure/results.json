@@ -1,0 +1,44 @@
+{
+  "case": "observer_failure",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "build",
+        "--locked",
+        "--bin",
+        "udp_observation_probe"
+      ],
+      "exit": 0,
+      "seconds": 32.537,
+      "log": "qad-build.log"
+    },
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch43-1791010174807558779",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/tmp/mio67-tcp-observer-failure,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "/repo/scripts/tcp_punch_lab.py",
+        "/repo/target/debug/deps/tcp_punch-4a076fb2a6900510",
+        "/repo/target/debug/udp_observation_probe",
+        "/evidence",
+        "observer_failure"
+      ],
+      "exit": 0,
+      "seconds": 12.923,
+      "log": "lab.log"
+    }
+  ],
+  "passed": true
+}

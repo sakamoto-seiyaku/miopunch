@@ -582,15 +582,16 @@ impl NativeNetwork {
                     self.gate.clone(),
                     Arc::new(self.udp.for_endpoint(
                         (!observers.is_empty()).then_some(observers),
+                        resources.udp_stun_resources(),
                         !resources.udp_direct_disabled,
                     )),
                     tcp.clone()
-                        .filter(|_| !resources.tcp_observers().is_empty())
+                        .filter(|_| !resources.tcp_stun_resources().is_empty())
                         .filter(|transport| transport.supports_punching())
                         .map(|transport| {
                             crate::tcp_punch::TcpPunch::new(
                                 transport,
-                                resources.tcp_observers(),
+                                resources.tcp_stun_resources(),
                                 resources.clone(),
                             )
                         }),

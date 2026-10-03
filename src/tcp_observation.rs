@@ -10,6 +10,98 @@ use tokio::{
     net::TcpStream,
 };
 
+/// The caller retains this real observation socket through path validation.
+#[derive(Debug)]
+pub(crate) struct TcpSocketObservation {
+    pub(crate) destination: SocketAddr,
+    pub(crate) listener: SocketAddr,
+    pub(crate) local_addr: SocketAddr,
+    pub(crate) mapped: SocketAddr,
+    pub(crate) observed_at: std::time::Instant,
+    pub(crate) stream: TcpStream,
+    pub(crate) generation: iroh::endpoint::ObservationValidity,
+    pub(crate) request: tokio_util::sync::CancellationToken,
+}
+
+impl TcpSocketObservation {
+    pub(crate) fn is_fresh(&self) -> bool {
+        self.generation.is_current()
+            && !self.request.is_cancelled()
+            && self.observed_at.elapsed() < std::time::Duration::from_secs(40)
+            && matches!(self.stream.try_read(&mut [0; 1]), Err(error) if error.kind() == io::ErrorKind::WouldBlock)
+    }
+}
+
+/// Resolve within the transaction bound and preserve the actual listener port.
+pub(crate) async fn observe(
+    endpoint: &iroh::Endpoint,
+    transport: &crate::tcp_transport::TcpTransport,
+    observer: &iroh::RelayUrl,
+) -> io::Result<TcpSocketObservation> {
+    use std::time::{Duration, Instant};
+    let origin = crate::resources::resource_origin(observer.as_str())
+        .ok_or_else(|| io::Error::other("invalid TCP STUN origin"))?;
+    let request = transport.begin_observation(&origin);
+    // A dropped future cannot later publish a result. Successful callers retain
+    // the token/socket and explicitly recheck freshness before candidate use.
+    let cancel_on_drop = request.clone().drop_guard();
+    let generation = endpoint.udp_network_generation();
+    let operation = async {
+        let host = observer
+            .host_str()
+            .ok_or_else(|| io::Error::other("missing STUN host"))?;
+        let ip = if let Ok(ip) = host.parse::<Ipv4Addr>() {
+            IpAddr::V4(ip)
+        } else {
+            endpoint
+                .dns_resolver()
+                .map_err(io::Error::other)?
+                .lookup_ipv4(host.to_owned(), Duration::from_secs(2))
+                .await
+                .map_err(io::Error::other)?
+                .next()
+                .ok_or_else(|| io::Error::other("STUN has no IPv4 address"))?
+        };
+        let destination = SocketAddr::new(ip, observer.port().unwrap_or(3478));
+        if destination.port() == 0 {
+            return Err(io::Error::other("invalid STUN port"));
+        }
+        let listener = transport
+            .bound_socket_addr()
+            .ok_or_else(|| io::Error::other("TCP transport not bound"))?;
+        let (mapped, stream) = transport.observe(destination).await?;
+        let local_addr = stream.local_addr()?;
+        if stream.peer_addr()? != destination
+            || local_addr.port() != listener.port()
+            || endpoint.is_closed()
+            || !generation.is_current()
+            || request.is_cancelled()
+        {
+            return Err(io::Error::other(
+                "TCP STUN transport changed or source mismatched",
+            ));
+        }
+        Ok(TcpSocketObservation {
+            destination,
+            listener,
+            local_addr,
+            mapped,
+            observed_at: Instant::now(),
+            stream,
+            generation,
+            request: request.clone(),
+        })
+    };
+    let result = tokio::time::timeout(Duration::from_secs(3), async {
+        tokio::select! {
+            _ = request.cancelled() => Err(io::Error::new(io::ErrorKind::Interrupted, "TCP STUN query superseded")),
+            result = operation => result,
+        }
+    }).await.map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "TCP STUN Binding timed out"))??;
+    cancel_on_drop.disarm();
+    Ok(result)
+}
+
 pub(crate) async fn binding(mut stream: TcpStream) -> io::Result<(SocketAddr, TcpStream)> {
     let transaction: [u8; 12] = rand::random();
     let mut request = vec![0, 1, 0, 0, 0x21, 0x12, 0xa4, 0x42];

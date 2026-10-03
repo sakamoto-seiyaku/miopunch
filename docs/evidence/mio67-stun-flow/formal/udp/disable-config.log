@@ -1,0 +1,7 @@
+
+running 1 test
+STUN_CONFIGURATION role=disable_stun node=0cc949c8ccd4552d828f70179685014df96f55c1d07dad01cf73332ee1b5543c restored_exact=false
+STUN_CONFIGURATION role=disable_stun node=bcff8b124775cb16cfbaac73f0d3fe5d21949e981d05607496e231b5c6073f70 restored_exact=false
+test tcp_native_punch_worker ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s

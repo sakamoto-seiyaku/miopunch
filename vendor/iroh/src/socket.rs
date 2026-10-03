@@ -1527,6 +1527,8 @@ impl EndpointInner {
                 generation: self.sock.network_generation.clone(),
                 observed_generation: network_generation,
             },
+            supersession_validity: None,
+            closed: None,
         })
     }
 
@@ -3181,7 +3183,7 @@ fn new_re_stun_timer(initial_delay: bool) -> time::Interval {
     }
 }
 
-/// An ordered reflection from a configured QAD destination through the
+/// An ordered reflection from a configured QAD or STUN destination through the
 /// endpoint's real QUIC UDP socket.
 #[cfg(not(wasm_browser))]
 #[derive(Debug, Clone)]
@@ -3196,7 +3198,7 @@ pub struct UdpMappingSample {
     pub observed_at: Instant,
 }
 
-/// A short-lived sequential QAD observation for mapping allocation analysis.
+/// A short-lived sequential UDP observation for mapping allocation analysis.
 #[cfg(not(wasm_browser))]
 #[derive(Debug, Clone)]
 pub struct UdpMappingSequence {
@@ -3208,6 +3210,10 @@ pub struct UdpMappingSequence {
     valid_until: Instant,
     validity: ObservationValidity,
     network_validity: ObservationValidity,
+    /// STUN rounds share one request generation and a forty-second lifetime.
+    /// QAD reports may refresh during long legacy plans without changing sockets.
+    supersession_validity: Option<ObservationValidity>,
+    closed: Option<CancellationToken>,
 }
 
 #[cfg(not(wasm_browser))]
@@ -3217,6 +3223,10 @@ impl UdpMappingSequence {
         Instant::now() < self.valid_until
             && self.validity.is_current()
             && self.network_validity.is_current()
+            && self
+                .closed
+                .as_ref()
+                .is_none_or(|closed| !closed.is_cancelled())
     }
 
     /// Whether the socket/network generation that produced these samples is
@@ -3224,6 +3234,14 @@ impl UdpMappingSequence {
     /// when its legacy plan includes delays beyond the two-second predictor.
     pub fn is_current_generation(&self) -> bool {
         self.network_validity.is_current()
+            && self
+                .supersession_validity
+                .as_ref()
+                .is_none_or(|validity| validity.is_current() && Instant::now() < self.valid_until)
+            && self
+                .closed
+                .as_ref()
+                .is_none_or(|closed| !closed.is_cancelled())
     }
 }
 

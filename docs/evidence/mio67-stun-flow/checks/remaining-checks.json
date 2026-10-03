@@ -1,0 +1,49 @@
+[
+  {
+    "name": "wasm",
+    "argv": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "miopunch-browser-probe",
+      "--target",
+      "wasm32-unknown-unknown"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "format",
+    "argv": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "fork-format",
+    "argv": [
+      "rustfmt",
+      "--check",
+      "--edition",
+      "2024",
+      "--config",
+      "skip_children=true",
+      "vendor/iroh/src/endpoint.rs",
+      "vendor/iroh/src/socket.rs",
+      "vendor/iroh/src/socket/stun.rs"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "diff-check",
+    "argv": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit": 0
+  }
+]

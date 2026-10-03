@@ -1825,6 +1825,19 @@ impl Endpoint {
         self.inner.observe_udp_stun(observer).await
     }
 
+    /// Acquire ordered STUN reflections from distinct resolved destinations,
+    /// using the same actual IPv4 data socket and one supersession scope.
+    /// Every origin must be permitted for Observation. No TCP candidate is used.
+    #[cfg(not(wasm_browser))]
+    pub async fn observe_udp_stun_mapping_sequence(
+        &self,
+        observers: &[RelayUrl],
+    ) -> std::io::Result<UdpMappingSequence> {
+        self.inner
+            .observe_udp_stun_mapping_sequence(observers)
+            .await
+    }
+
     /// Observe four configured QAD destinations in sequence using this
     /// endpoint's QUIC UDP socket. The caller must still classify the results,
     /// check freshness and gate any peer-directed probing.

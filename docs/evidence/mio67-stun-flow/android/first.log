@@ -1,0 +1,5 @@
+MIOPID 25874
+{"address":{"addrs":[{"Custom":{"data":[0,0,0,0,169,49],"id":120299608892272}}],"id":"49d88e6fb11141a6c9146e80d9de1473e2d9dfdc1d9c9e8ef94c70065a7c1e10"},"event":"ready","node":"49d88e6fb11141a6c9146e80d9de1473e2d9dfdc1d9c9e8ef94c70065a7c1e10"}
+{"id":1,"ok":true,"result":{"genesis":"c44cceb58baee0349b81cfa851c0a91cfa9a8ba38e875c1d53d78b50993ebd89","members":[{"node":"49d88e6fb11141a6c9146e80d9de1473e2d9dfdc1d9c9e8ef94c70065a7c1e10","role":"admin"}],"network":"9dc9f9849d4bcdb447048fa6f19ad7c373dd0e834678b3bc0ac7345d1053bc0c","node":"49d88e6fb11141a6c9146e80d9de1473e2d9dfdc1d9c9e8ef94c70065a7c1e10","records":1,"stage":"Complete"}}
+{"id":2,"ok":true,"result":{"bound_sockets":[],"observations":[{"destination":"141.101.90.1:3478","fresh":true,"local_socket":"192.168.4.151:43313","mapped":"[2a09:bac1:1e00::1d8:83]:43212","protocol":"STUN/TCP/RFC8489","retained_connection":true,"service":"stun+tcp://turn.cloudflare.com:3478/","started_unix_ms":1791010648714,"transaction_and_source_validated":true,"transport_listener":"0.0.0.0:43313","valid_for_ms":39999}]}}
+{"id":3,"ok":true,"result":{"stopped":true}}

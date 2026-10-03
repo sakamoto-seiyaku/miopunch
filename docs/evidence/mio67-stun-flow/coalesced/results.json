@@ -1,0 +1,59 @@
+{
+  "case": "coalesced",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "tcp_punch",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 22.339,
+      "log": "build.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "build",
+        "--locked",
+        "--bin",
+        "udp_observation_probe"
+      ],
+      "exit": 0,
+      "seconds": 17.681,
+      "log": "qad-build.log"
+    },
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch67-1791010459595564007",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/tmp/mio67-qad-coalescence,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "-B",
+        "/repo/scripts/stun_flow_lab.py",
+        "/repo/target/debug/deps/tcp_punch-4a076fb2a6900510",
+        "/repo/target/debug/udp_observation_probe",
+        "/evidence/udp",
+        "coalesced"
+      ],
+      "exit": 0,
+      "seconds": 8.736,
+      "log": "udp-lab.log"
+    }
+  ],
+  "passed": true
+}

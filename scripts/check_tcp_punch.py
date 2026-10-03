@@ -11,7 +11,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=pathlib.Path, required=True)
     parser.add_argument('--worker', type=pathlib.Path)
-    parser.add_argument('--case', choices=['positive', 'blocked', 'simultaneous_cancel', 'endpoint_dependent', 'udp_fallback', 'simultaneous', 'mixed_tcp', 'wrong_target', 'private_bind', 'cancel_attempt', 'observer_failure', 'candidate_denied'], default='positive')
+    parser.add_argument('--case', choices=['positive', 'domain_stun', 'stun_udp', 'blocked', 'simultaneous_cancel', 'endpoint_dependent', 'udp_fallback', 'simultaneous', 'mixed_tcp', 'wrong_target', 'private_bind', 'cancel_attempt', 'observer_failure', 'candidate_denied'], default='positive')
     args = parser.parse_args()
     root = pathlib.Path(__file__).resolve().parents[1]
     output = args.output.resolve()

@@ -1,0 +1,74 @@
+{
+  "case": "both",
+  "commands": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--test",
+        "tcp_punch",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 21.953,
+      "log": "build.log"
+    },
+    {
+      "argv": [
+        "cargo",
+        "build",
+        "--locked",
+        "--bin",
+        "udp_observation_probe"
+      ],
+      "exit": 0,
+      "seconds": 20.115,
+      "log": "qad-build.log"
+    },
+    {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch67-1791009847572125765",
+        "--privileged",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+        "--mount",
+        "type=bind,src=/tmp/mio67-formal-lifecycle-v1,target=/evidence",
+        "miopunch-nat61-lab:bookworm",
+        "python3",
+        "-B",
+        "/repo/scripts/stun_flow_lab.py",
+        "/repo/target/debug/deps/tcp_punch-4a076fb2a6900510",
+        "/repo/target/debug/udp_observation_probe",
+        "/evidence/udp"
+      ],
+      "exit": 0,
+      "seconds": 33.357,
+      "log": "udp-lab.log"
+    },
+    {
+      "argv": [
+        "python3",
+        "-B",
+        "scripts/check_tcp_punch.py",
+        "--case",
+        "domain_stun",
+        "--worker",
+        "target/debug/deps/tcp_punch-4a076fb2a6900510",
+        "--output",
+        "/tmp/mio67-formal-lifecycle-v1/tcp"
+      ],
+      "exit": 0,
+      "seconds": 4.937,
+      "log": "tcp-lab.log"
+    }
+  ],
+  "passed": true
+}

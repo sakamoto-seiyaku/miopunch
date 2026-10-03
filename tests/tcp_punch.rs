@@ -102,7 +102,11 @@ async fn prepare(directory: &Path) {
                 limitation: "owned signaling broker".into(),
             },
             Resource {
-                url: "stun+tcp://100.64.27.1:3478/".into(),
+                url: if std::env::var("MIO43_CASE").is_ok_and(|case| case == "domain_stun") {
+                    "stun+tcp://stun.miopunch.test:3478/".into()
+                } else {
+                    "stun+tcp://100.64.27.1:3478/".into()
+                },
                 uses: BTreeSet::from([ResourceUse::Observation]),
                 limitation: "owned RFC8489 TCP binding observer; candidate only".into(),
             },
@@ -120,6 +124,35 @@ async fn prepare(directory: &Path) {
                 limitation: "owned UDP QAD; independently permitted fallback".into(),
             });
         }
+        let stun_udp = std::env::var("MIO43_CASE").is_ok_and(|case| case == "stun_udp");
+        if stun_udp {
+            config
+                .replacement
+                .as_mut()
+                .unwrap()
+                .retain(|resource| !resource.url.starts_with("stun+tcp"));
+            for destination in [
+                "100.64.27.1:3478",
+                "100.64.27.1:3479",
+                "100.64.27.5:3478",
+                "100.64.27.5:3479",
+            ] {
+                config.replacement.as_mut().unwrap().push(Resource {
+                    url: format!("stun://{destination}/"),
+                    uses: BTreeSet::from([ResourceUse::Observation]),
+                    limitation: "owned actual UDP Binding observer".into(),
+                });
+            }
+            if std::env::var_os("MIO67_FLOW").is_some() {
+                for host in ["qad.miopunch.test", "qad2.miopunch.test"] {
+                    config.replacement.as_mut().unwrap().push(Resource {
+                        url: format!("https://{host}/"),
+                        uses: BTreeSet::from([ResourceUse::Observation]),
+                        limitation: "owned actual QAD primary".into(),
+                    });
+                }
+            }
+        }
         if std::env::var("MIO43_CASE").is_ok_and(|case| case == "candidate_denied")
             && node.status().node_id == joining.status().node_id
         {
@@ -127,7 +160,7 @@ async fn prepare(directory: &Path) {
                 .disabled_tcp_addresses
                 .insert("100.64.27.6:43027".parse().unwrap());
         }
-        config.udp_direct_disabled = !fallback;
+        config.udp_direct_disabled = !(fallback || stun_udp);
         config.tcp_direct_disabled = std::env::var("MIO43_CASE")
             .is_ok_and(|case| case == "mixed_tcp")
             && node.status().node_id == admin.status().node_id;
@@ -149,6 +182,9 @@ async fn prepare(directory: &Path) {
                 "10.27.1.2:42027"
             };
             config.tcp_listen = Some(address.parse().unwrap());
+        }
+        if stun_udp {
+            config.tcp_listen = None;
         }
         node.save_resource_configuration(&config).unwrap();
     }
@@ -182,24 +218,69 @@ async fn run_worker(role: String, directory: std::path::PathBuf) {
         prepare(&directory).await;
         return;
     }
+    if role == "disable_stun" || role == "restore_stun" {
+        for path in ["admin", "joining"] {
+            let node = NativeNetwork::open(directory.join(path)).await.unwrap();
+            let mut config = node.resource_configuration().unwrap();
+            let original = directory.join(format!("{path}-resources.json"));
+            if role == "disable_stun" {
+                std::fs::write(&original, serde_json::to_vec(&config).unwrap()).unwrap();
+                for resource in config.replacement.as_ref().unwrap() {
+                    if resource.url.starts_with("stun://") {
+                        config
+                            .disabled
+                            .insert((resource.url.clone(), ResourceUse::Observation));
+                    }
+                }
+            } else {
+                config = serde_json::from_slice(&std::fs::read(&original).unwrap()).unwrap();
+            }
+            node.save_resource_configuration(&config).unwrap();
+            assert_eq!(node.resource_configuration().unwrap(), config);
+            println!(
+                "STUN_CONFIGURATION role={role} node={} restored_exact={}",
+                node.status().node_id,
+                role == "restore_stun"
+            );
+            node.close().await;
+        }
+        return;
+    }
     let server = role == "serve";
     let case = std::env::var("MIO43_CASE").unwrap();
     let stage_ids = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let mut node = NativeNetwork::open(directory.join(if server { "admin" } else { "joining" }))
         .await
         .unwrap();
+    let phase = std::env::var("MIO67_PHASE").unwrap_or_else(|_| "first".into());
+    if server && matches!(case.as_str(), "domain_stun" | "stun_udp") && phase != "disabled" {
+        let mut session = node.begin_management_session();
+        let record = node
+            .manage(
+                &mut session,
+                miopunch_native_probe::daily_management::ManagementAction::AddMember(
+                    p2panda_core::SigningKey::generate().verifying_key(),
+                ),
+            )
+            .await
+            .unwrap();
+        std::fs::write(directory.join("sync-record"), record.record.to_string()).unwrap();
+    }
     node.admission_gate()
         .register_protocol(REPLICA_ALPN, ProtocolScope::Member);
-    let fallback = std::env::var("MIO43_CASE").is_ok_and(|case| {
+    let qad_fallback = std::env::var("MIO43_CASE").is_ok_and(|case| {
         matches!(
             case.as_str(),
             "udp_fallback" | "mixed_tcp" | "observer_failure" | "candidate_denied"
         )
     });
+    let qad_fallback =
+        qad_fallback || (case == "stun_udp" && std::env::var_os("MIO67_FLOW").is_some());
+    let fallback = qad_fallback || case == "stun_udp";
     let builder = iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
         .bind_addr((Ipv4Addr::UNSPECIFIED, if server { 43027 } else { 42027 }))
         .unwrap();
-    let builder = if fallback {
+    let builder = if qad_fallback {
         builder.ca_tls_config(iroh_relay::tls::CaTlsConfig::custom_roots(vec![
             std::fs::read(directory.join("cert.der")).unwrap().into(),
         ]))
@@ -238,6 +319,13 @@ async fn run_worker(role: String, directory: std::path::PathBuf) {
         endpoint.id(),
         resources.addr()
     );
+    if std::env::var_os("MIO67_FLOW").is_some() {
+        use iroh::Watcher as _;
+        println!(
+            "FORMAL_QAD phase={phase} observation={:?}",
+            endpoint.udp_observation().get()
+        );
+    }
     let mut simultaneous_connection = None;
     if case == "cancel_attempt" {
         if server {
@@ -447,13 +535,13 @@ async fn run_worker(role: String, directory: std::path::PathBuf) {
         .await
         .unwrap();
     }
-    if case == "blocked" || case == "endpoint_dependent" {
+    if case == "blocked" || case == "endpoint_dependent" || phase == "disabled" {
         assert!(
             connection.is_err(),
             "unsupported topology must not release data"
         );
         assert!(
-            started.elapsed() < Duration::from_secs(9),
+            started.elapsed() < Duration::from_secs(if phase == "disabled" { 20 } else { 9 }),
             "unsupported topology must fail within its traversal bound"
         );
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -597,7 +685,23 @@ async fn run_worker(role: String, directory: std::path::PathBuf) {
         }
         connection.closed().await;
     } else {
+        let before = node.management_history().await.unwrap().len();
         assert!(node.sync_replica(&connection).await.unwrap().complete());
+        if matches!(case.as_str(), "domain_stun" | "stun_udp") {
+            let after = node.management_history().await.unwrap().len();
+            let record = std::fs::read_to_string(directory.join("sync-record"))
+                .unwrap()
+                .parse()
+                .unwrap();
+            assert!(
+                after > before,
+                "actual new source record must be verified and saved over this data path"
+            );
+            assert!(node.management_record(record).await.unwrap().is_some());
+            println!(
+                "STUN_FLOW_SYNC phase={phase} before={before} after={after} new_record_saved=true"
+            );
+        }
         let (mut send, mut recv) = connection.open_bi().await.unwrap();
         send.write_all(b"actual business over punched TCP")
             .await

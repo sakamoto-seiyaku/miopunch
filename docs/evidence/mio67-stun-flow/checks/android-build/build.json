@@ -1,0 +1,45 @@
+{
+  "rust": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: x86_64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8\n",
+  "compiler": "Debian clang version 14.0.6\nTarget: aarch64-unknown-linux-android24\nThread model: posix\nInstalledDir: /usr/bin\n",
+  "ndk": "Pkg.Desc = Android NDK\nPkg.Revision = 29.0.14206865\nPkg.BaseRevision = 29.0.14206865\nPkg.ReleaseName = r29\n",
+  "command": [
+    "cargo",
+    "build",
+    "--locked",
+    "--target",
+    "aarch64-linux-android",
+    "--bin",
+    "miopunch-native-probe",
+    "--lib"
+  ],
+  "exit": 0,
+  "shell_commands": [
+    [
+      "javac",
+      "--release",
+      "8",
+      "-d",
+      "/tmp/mio67-android-build/classes",
+      "/home/js/Git/miopunch/scripts/android/MioPublicShell.java"
+    ],
+    [
+      "java",
+      "-cp",
+      "/mnt/c/Android/SDK/build-tools/36.0.0/lib/d8.jar",
+      "com.android.tools.r8.D8",
+      "--min-api",
+      "24",
+      "--output",
+      "/tmp/mio67-android-build/dex",
+      "/tmp/mio67-android-build/classes/MioPublicShell.class"
+    ],
+    [
+      "jar",
+      "cf",
+      "/tmp/mio67-android-build/android-shell.jar",
+      "-C",
+      "/tmp/mio67-android-build/dex",
+      "classes.dex"
+    ]
+  ]
+}

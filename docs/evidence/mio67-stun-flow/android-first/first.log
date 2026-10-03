@@ -1,0 +1,5 @@
+MIOPID 25680
+{"address":{"addrs":[{"Custom":{"data":[0,0,0,0,136,35],"id":120299608892272}}],"id":"8bd1308da08a5ca0e9d72f718433588a4637da76293d0f44cab2d70769e7e685"},"event":"ready","node":"8bd1308da08a5ca0e9d72f718433588a4637da76293d0f44cab2d70769e7e685"}
+{"id":1,"ok":true,"result":{"genesis":"53ef1b3674fc1304ef4fba22390ab63918ff6064742c8f100680f78a9654ca85","members":[{"node":"8bd1308da08a5ca0e9d72f718433588a4637da76293d0f44cab2d70769e7e685","role":"admin"}],"network":"30160b380a11ad951525f005c51902e92ebfbde23b8b4493811b3cd76ef8e289","node":"8bd1308da08a5ca0e9d72f718433588a4637da76293d0f44cab2d70769e7e685","records":1,"stage":"Complete"}}
+{"id":2,"ok":true,"result":{"bound_sockets":[],"observations":[{"destination":"141.101.90.1:3478","fresh":true,"local_socket":"192.168.4.151:34851","mapped":"104.28.218.19:18386","protocol":"STUN/TCP/RFC8489","retained_connection":true,"service":"stun+tcp://turn.cloudflare.com:3478/","started_unix_ms":1791010253779,"transaction_and_source_validated":true,"transport_listener":"0.0.0.0:34851","valid_for_ms":39999}]}}
+{"id":3,"ok":true,"result":{"stopped":true}}

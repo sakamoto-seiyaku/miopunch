@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "cargo",
+    "check",
+    "--locked",
+    "--workspace",
+    "--all-targets",
+    "--features",
+    "nat-lab-test-hooks,replica-test-hooks"
+  ],
+  "exit": 0,
+  "seconds": 21.46,
+  "evidence_kind": "completion observed in tool response; raw stdout was not separately saved",
+  "existing_warnings": "unused_mut/dead_code in test targets"
+}

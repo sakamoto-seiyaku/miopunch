@@ -91,6 +91,7 @@ pub struct TcpTransport {
     punching: bool,
     reuse_local_port: bool,
     shared: Arc<Mutex<Weak<Shared>>>,
+    observation_requests: Arc<Mutex<HashMap<String, tokio_util::sync::CancellationToken>>>,
 }
 
 impl TcpTransport {
@@ -108,6 +109,7 @@ impl TcpTransport {
             punching: false,
             reuse_local_port: false,
             shared: Arc::new(Mutex::new(Weak::new())),
+            observation_requests: Default::default(),
         }
     }
 
@@ -127,6 +129,20 @@ impl TcpTransport {
 
     pub(crate) fn supports_punching(&self) -> bool {
         self.punching
+    }
+
+    /// Diagnostics and formal punching share supersession on this actual carrier.
+    pub(crate) fn begin_observation(&self, origin: &str) -> tokio_util::sync::CancellationToken {
+        let request = tokio_util::sync::CancellationToken::new();
+        if let Some(previous) = self
+            .observation_requests
+            .lock()
+            .unwrap()
+            .insert(origin.into(), request.clone())
+        {
+            previous.cancel();
+        }
+        request
     }
 
     pub(crate) async fn observe(
