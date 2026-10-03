@@ -1,0 +1,49 @@
+{
+  "owned_fixture_containers": [
+    {
+      "name": "miopunch67-1791010459595564007",
+      "removed": true
+    },
+    {
+      "name": "miopunch67-1791009847572125765",
+      "removed": true
+    },
+    {
+      "name": "miopunch43-1791010175038283057",
+      "removed": true
+    },
+    {
+      "name": "miopunch43-1791010141119082291",
+      "removed": true
+    },
+    {
+      "name": "miopunch43-1791010174807558779",
+      "removed": true
+    },
+    {
+      "name": "miopunch43-1791009199683118748",
+      "removed": true
+    },
+    {
+      "name": "miopunch43-1791009378068304396",
+      "removed": true
+    },
+    {
+      "name": "miopunch43-1791011065953015467",
+      "removed": true
+    },
+    {
+      "name": "miopunch43-1791011158459678396",
+      "removed": true
+    },
+    {
+      "name": "miopunch43-1791009880961681750",
+      "removed": true
+    }
+  ],
+  "all_removed": true,
+  "owned_broker_cleanup": "checks/real-mqtt/results.json and review-fix/checks/results.json",
+  "owned_phone_cleanup": "android/results.json and review-fix/android/results.json",
+  "private_materials": "owned fixture stores removed by EXIT traps/container removal, host test TempDirs by RAII; no private keys, invitations or credentials copied",
+  "protected_work": "preexisting CONTEXT/README/ADR index/issue-tracker/September notes plus untracked .cargo, ADRs1\u20136, research and scripts cache remain untouched and unstaged"
+}
