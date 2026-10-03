@@ -16,27 +16,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let key = rustls::pki_types::PrivatePkcs8KeyDer::from(
                 certificate.signing_key.serialize_der(),
             );
-            let tls = rustls::ServerConfig::builder_with_provider(std::sync::Arc::new(
-                rustls::crypto::ring::default_provider(),
-            ))
-            .with_safe_default_protocol_versions()?
-            .with_no_client_auth()
-            .with_single_cert(vec![certificate.cert.der().clone()], key.into())?;
-            let addr = SocketAddr::from(([127, 0, 0, 1], 0));
-            let mut relay = RelayConfig::new(addr);
-            relay.tls = Some(iroh_relay::server::TlsConfig::new(
-                addr,
-                iroh_relay::server::CertConfig::Manual { server_config: tls },
-            ));
-            let mut config = ServerConfig::default();
-            config.relay = Some(relay);
-            let server = Server::spawn(config).await?;
-            println!(
-                "RELAY https://localhost:{}/",
-                server.https_addr().ok_or("no HTTPS relay address")?.port()
-            );
-            tokio::signal::ctrl_c().await?;
-            server.shutdown().await?;
+            serve_tls(certificate.cert.der().clone(), key.into()).await?;
+        }
+        [_, action, certificate_path, key_path] if action == "relay-tls-files" => {
+            let certificate = rustls::pki_types::CertificateDer::from(std::fs::read(certificate_path)?);
+            let key = rustls::pki_types::PrivatePkcs8KeyDer::from(std::fs::read(key_path)?);
+            serve_tls(certificate, key.into()).await?;
         }
         [_, action, port] if action == "relay" => {
             let addr = SocketAddr::from_str(&format!("127.0.0.1:{port}"))?;
@@ -75,7 +60,42 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
             endpoint.close().await;
         }
-        _ => return Err("usage: browser-probe-native relay <port> | serve <relay-url>".into()),
+        _ => return Err("usage: browser-probe-native relay <port> | relay-tls <certificate-output> | relay-tls-files <certificate-der> <key-pkcs8-der> | serve <relay-url>".into()),
     }
+    Ok(())
+}
+
+// Test fixtures keep the trust root and signing keys in their owned temp directory.
+async fn serve_tls(
+    certificate: rustls::pki_types::CertificateDer<'static>,
+    key: rustls::pki_types::PrivateKeyDer<'static>,
+) -> Result<(), Box<dyn Error>> {
+    let tls = rustls::ServerConfig::builder_with_provider(std::sync::Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_safe_default_protocol_versions()?
+    .with_no_client_auth()
+    .with_single_cert(vec![certificate], key)?;
+    let addr = SocketAddr::from(([127, 0, 0, 1], 0));
+    let mut relay = RelayConfig::new(addr);
+    relay.tls = Some(iroh_relay::server::TlsConfig::new(
+        addr,
+        iroh_relay::server::CertConfig::Manual { server_config: tls },
+    ));
+    let mut config = ServerConfig::default();
+    config.relay = Some(relay);
+    let server = Server::spawn(config).await?;
+    println!(
+        "RELAY https://localhost:{}/",
+        server.https_addr().ok_or("no HTTPS relay address")?.port()
+    );
+    use tokio::io::AsyncBufReadExt;
+    let mut input = tokio::io::BufReader::new(tokio::io::stdin());
+    let mut command = String::new();
+    tokio::select! {
+        result = tokio::signal::ctrl_c() => result?,
+        result = input.read_line(&mut command) => { result?; }
+    }
+    server.shutdown().await?;
     Ok(())
 }

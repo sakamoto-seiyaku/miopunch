@@ -2,21 +2,15 @@
 use super::*;
 #[wasm_bindgen]
 pub struct BrowserMemberConnection {
-    connection: Connection,
+    pub(super) connection: Connection,
     gate: BrowserGate,
     lease: u32,
+    #[cfg(feature = "rtc-probe")]
+    pub(super) rtc_active: Arc<std::sync::atomic::AtomicBool>,
 }
-#[wasm_bindgen]
 impl BrowserMemberConnection {
-    pub fn is_closed(&self) -> bool {
-        self.connection.close_reason().is_some()
-    }
-    pub fn close(&self) {
-        self.connection
-            .close(0u32.into(), b"browser caller disconnected");
-    }
-    pub async fn exchange(&self, message: String) -> Result<String, JsValue> {
-        if message.len() > 65536 || self.is_closed() {
+    pub(super) async fn qualified_snapshot(&self) -> Result<SavedNode, JsValue> {
+        if self.is_closed() {
             return Err(rejected());
         }
         let saved = self
@@ -34,6 +28,23 @@ impl BrowserMemberConnection {
             self.close();
             return Err(rejected());
         }
+        Ok(saved)
+    }
+}
+#[wasm_bindgen]
+impl BrowserMemberConnection {
+    pub fn is_closed(&self) -> bool {
+        self.connection.close_reason().is_some()
+    }
+    pub fn close(&self) {
+        self.connection
+            .close(0u32.into(), b"browser caller disconnected");
+    }
+    pub async fn exchange(&self, message: String) -> Result<String, JsValue> {
+        if message.len() > 65536 || self.is_closed() {
+            return Err(rejected());
+        }
+        self.qualified_snapshot().await?;
         n0_future::time::timeout(TIMEOUT, async {
             let (mut send, mut recv) = self.connection.open_bi().await.map_err(error)?;
             send.write_all(message.as_bytes()).await.map_err(error)?;
@@ -57,6 +68,8 @@ impl BrowserNetwork {
             connection,
             gate: self.gate.clone(),
             lease: self.lease.as_ref().ok_or_else(rejected)?.0,
+            #[cfg(feature = "rtc-probe")]
+            rtc_active: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         })
     }
 }

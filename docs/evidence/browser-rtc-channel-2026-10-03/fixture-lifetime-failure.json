@@ -1,0 +1,237 @@
+{
+  "scope": "step 4 synthetic RTC; signaling via authenticated protected relay M; no QUIC bridge",
+  "startedUtc": "2026-10-03T15:35:41.982Z",
+  "relay": "https://localhost:43546/",
+  "iceServers": [],
+  "turnServers": [],
+  "native": [
+    {
+      "event": "ready",
+      "id": "fee92fe1f16ee71104fd1d1becb2c0af5e6c3ec067471ce712da8342f8fba2e2",
+      "relay": [
+        "https://localhost:43546/"
+      ],
+      "receivedUtc": "2026-10-03T15:35:42.165Z"
+    },
+    {
+      "event": "admission",
+      "paths": [
+        {
+          "isRelay": true,
+          "receivedBytes": 6982,
+          "relay": "https://localhost:43546/",
+          "selected": true,
+          "sentBytes": 6957
+        }
+      ],
+      "stage": "AwaitingApproval",
+      "receivedUtc": "2026-10-03T15:35:43.258Z"
+    },
+    {
+      "count": 2,
+      "event": "approved",
+      "receivedUtc": "2026-10-03T15:35:43.304Z"
+    },
+    {
+      "event": "admission",
+      "paths": [
+        {
+          "isRelay": true,
+          "receivedBytes": 8694,
+          "relay": "https://localhost:43546/",
+          "selected": true,
+          "sentBytes": 10226
+        }
+      ],
+      "stage": "Complete",
+      "receivedUtc": "2026-10-03T15:35:43.423Z"
+    },
+    {
+      "cleanup": {
+        "ownedPumpTasks": 0,
+        "pcClosed": true,
+        "rxBytes": 0,
+        "socketAfter": 6,
+        "socketBefore": 6,
+        "txBytes": 0
+      },
+      "event": "rtc-cleanup",
+      "failure": null,
+      "receivedUtc": "2026-10-03T15:35:44.321Z"
+    },
+    {
+      "event": "rtc",
+      "report": {
+        "adapterSyntheticPayloadCopies": {
+          "libraryInternalCopies": "not instrumented",
+          "rxBytesToVec": 1,
+          "txVecToBytesMut": 1
+        },
+        "bindingMatched": true,
+        "channel": {
+          "id": 0,
+          "label": "mio-rtc-synthetic/1",
+          "maxPacketLifeTime": null,
+          "maxRetransmits": 0,
+          "negotiated": true,
+          "ordered": false,
+          "protocol": "miopunch/synthetic/1",
+          "readyState": "Open"
+        },
+        "cleanup": {
+          "ownedPumpTasks": 0,
+          "pcClosed": true,
+          "rxBytes": 0,
+          "socketAfter": 6,
+          "socketBefore": 6,
+          "txBytes": 0
+        },
+        "dtls": "Connected",
+        "events": [
+          {
+            "elapsedMs": 75,
+            "kind": "connection",
+            "state": "connecting"
+          },
+          {
+            "elapsedMs": 75,
+            "kind": "ice",
+            "state": "checking"
+          },
+          {
+            "elapsedMs": 75,
+            "kind": "gathering",
+            "state": "complete"
+          },
+          {
+            "elapsedMs": 199,
+            "kind": "ice",
+            "state": "connected"
+          },
+          {
+            "elapsedMs": 339,
+            "kind": "connection",
+            "state": "connected"
+          }
+        ],
+        "features": [
+          "runtime-tokio",
+          "crypto-ring"
+        ],
+        "ice": "Connected",
+        "iceServers": [],
+        "library": "webrtc 0.21.0",
+        "matchedBytes": 1200,
+        "maxMessageSize": 65536,
+        "memberStableId": 129968059198736,
+        "openedMs": 267,
+        "outstandingBytes": 0,
+        "queueMessageLimit": 55,
+        "rxPeakBytes": 1200,
+        "rxPeakMessages": 1,
+        "sctp": "Connected",
+        "sctpReceiveBufferLimit": 65536,
+        "selectedPair": {
+          "local": {
+            "address": "172.17.0.1",
+            "component": 1,
+            "foundation": "4219973503",
+            "id": "candidate:l/cQ6Duc4RTKgYF6Rzc7gUvIb/Pfzold",
+            "port": 46683,
+            "priority": 2130706431,
+            "protocol": "udp",
+            "related_address": "",
+            "related_port": 0,
+            "relay_protocol": "Unspecified",
+            "tcp_type": "Unspecified",
+            "typ": "host",
+            "url": null
+          },
+          "remote": {
+            "address": "172.17.0.1",
+            "component": 1,
+            "foundation": "1310057489",
+            "id": "candidate:scGGpa4xEqRfBKEzPLvawxO51B5v6fKN",
+            "port": 45863,
+            "priority": 1862270975,
+            "protocol": "udp",
+            "related_address": "",
+            "related_port": 0,
+            "relay_protocol": "Unspecified",
+            "tcp_type": "Unspecified",
+            "typ": "prflx",
+            "url": null
+          }
+        },
+        "sendBufferLimit": 65536,
+        "sentBytes": 1200,
+        "turnServers": [],
+        "txPeakBytes": 1200,
+        "txPeakMessages": 1
+      },
+      "receivedUtc": "2026-10-03T15:35:44.322Z"
+    }
+  ],
+  "websockets": [
+    {
+      "url": "wss://localhost:43546/relay",
+      "sentFrames": 79,
+      "receivedFrames": 62,
+      "status": 101
+    }
+  ],
+  "preparation": [
+    {
+      "name": "request",
+      "startedUtc": "2026-10-03T15:35:43.083Z",
+      "milliseconds": 180,
+      "passed": true
+    },
+    {
+      "name": "approval",
+      "startedUtc": "2026-10-03T15:35:43.264Z",
+      "milliseconds": 40,
+      "passed": true
+    },
+    {
+      "name": "authorization-save",
+      "startedUtc": "2026-10-03T15:35:43.304Z",
+      "milliseconds": 93,
+      "passed": true
+    },
+    {
+      "name": "material-save",
+      "startedUtc": "2026-10-03T15:35:43.397Z",
+      "milliseconds": 35,
+      "passed": true
+    }
+  ],
+  "passed": false,
+  "ownedRelay": true,
+  "origin": "http://127.0.0.1:45090",
+  "launch": {
+    "executablePath": "/tmp/mio-rtc-s4-trust-d7yalw77/chromium-private-trust.sh",
+    "headless": true,
+    "args": [
+      "--no-sandbox",
+      "--disable-features=WebRtcHideLocalIpsWithMdns"
+    ],
+    "ignoreHTTPSErrors": false,
+    "privateNssMount": true,
+    "certificateBypassFlags": []
+  },
+  "browserVersion": "153.0.8010.12",
+  "browserIdentity": "72384b51c73ae79e93d62b108c8121b71b03677ea99561ded93362211c300728",
+  "preparedUtc": "2026-10-03T15:35:43.827Z",
+  "failure": "page.evaluate: connection lost\n    at /tmp/miopunch-rtc-s4-20261003/browser-probe/harness/run-rtc.mjs:134:46",
+  "fixtureCleanup": {
+    "code": 0,
+    "signal": null
+  },
+  "relayCleanup": {
+    "code": 0,
+    "signal": null
+  },
+  "cleanupMilliseconds": 150,
+  "completedUtc": "2026-10-03T15:35:44.479Z"
+}

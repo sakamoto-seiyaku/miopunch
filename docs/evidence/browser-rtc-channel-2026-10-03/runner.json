@@ -1,0 +1,128 @@
+{
+  "scope": "MIOPUNCH-68 step 4; synthetic RTC, not MIO path or same-M upgrade",
+  "startedUtc": "2026-10-03T15:51:26Z",
+  "relay": "owned",
+  "passed": true,
+  "commands": [
+    {
+      "name": "revision",
+      "command": [
+        "rtk",
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "seconds": 0.032,
+      "exit": 0
+    },
+    {
+      "name": "rust-version",
+      "command": [
+        "rtk",
+        "proxy",
+        "rustc",
+        "--version"
+      ],
+      "seconds": 0.064,
+      "exit": 0
+    },
+    {
+      "name": "bindgen-version",
+      "command": [
+        "rtk",
+        "proxy",
+        "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+        "--version"
+      ],
+      "seconds": 0.032,
+      "exit": 0
+    },
+    {
+      "name": "native-build",
+      "command": [
+        "rtk",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--features",
+        "rtc-probe",
+        "--bin",
+        "browser_network_native",
+        "--bin",
+        "browser-probe-native",
+        "--target-dir",
+        "/tmp/miopunch-rtc-s4-target",
+        "--jobs",
+        "2"
+      ],
+      "seconds": 0.515,
+      "exit": 0
+    },
+    {
+      "name": "wasm-build",
+      "command": [
+        "rtk",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "miopunch-browser-probe",
+        "--features",
+        "rtc-probe",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--target-dir",
+        "/tmp/miopunch-rtc-s4-target",
+        "--jobs",
+        "2"
+      ],
+      "seconds": 3.072,
+      "exit": 0
+    },
+    {
+      "name": "wasm-bindgen",
+      "command": [
+        "rtk",
+        "proxy",
+        "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+        "--target",
+        "web",
+        "--out-dir",
+        "browser-probe/pkg",
+        "/tmp/miopunch-rtc-s4-target/wasm32-unknown-unknown/debug/miopunch_browser_probe.wasm"
+      ],
+      "seconds": 1.92,
+      "exit": 0
+    },
+    {
+      "name": "rtc-channel",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "browser-probe/harness/run-rtc.mjs",
+        "--relay",
+        "owned",
+        "--native",
+        "/tmp/miopunch-rtc-s4-target/debug/browser_network_native",
+        "--evidence",
+        "/tmp/miopunch-rtc-s4-bounded-final-20261003",
+        "--fixture",
+        "/tmp/mio-rtc-s4-trust-piz4bqxz",
+        "--relay-fixture",
+        "/tmp/miopunch-rtc-s4-target/debug/browser-probe-native"
+      ],
+      "seconds": 2.971,
+      "exit": 0
+    }
+  ],
+  "certificate": {
+    "normalVerification": true,
+    "privateNssOnly": true,
+    "caPemSha256": "b53dd8e7b0f2e902c23c792469c02978945c36d5c6a2751f64a19d9cc3dda04d"
+  },
+  "fixtureSetupSeconds": 0.595,
+  "completedUtc": "2026-10-03T15:51:36Z"
+}

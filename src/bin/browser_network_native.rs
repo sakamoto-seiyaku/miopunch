@@ -183,6 +183,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             incoming = endpoint.accept() => {
                 let Some(incoming) = incoming else { break };
                 let node = node.clone();
+                #[cfg(feature = "rtc-probe")]
+                let endpoint_id = endpoint.id().to_string();
                 let precode_mode=precode_mode.clone();
                 #[cfg(feature="replica-test-hooks")]
                 let replica_fixture=replica_fixture.clone();
@@ -210,6 +212,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         } else {
                             let (mut send, mut recv) = connection.accept_bi().await?;
                             let request = recv.read_to_end(65536).await?;
+                            #[cfg(feature = "rtc-probe")]
+                            if let Ok(value) = serde_json::from_slice::<serde_json::Value>(&request) {
+                                if value["protocol"] == "miopunch/rtc-probe/1" {
+                                    let gate = node.lock().await.admission_gate().clone();
+                                    miopunch_native_probe::rtc_probe::serve(&connection, &gate, endpoint_id, value, &mut send).await?;
+                                    // The existing M owns the control receipt stream until its caller closes it.
+                                    connection.closed().await;
+                                    return Ok(());
+                                }
+                            }
                             send.write_all(&request).await?;
                             send.finish()?;
                             println!("{}", json!({"event":"business", "bytes":request.len(), "paths":paths(&connection)}));

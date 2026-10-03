@@ -1,0 +1,61 @@
+{
+  "scope": "step 4 synthetic RTC; signaling via authenticated protected relay M; no QUIC bridge",
+  "startedUtc": "2026-10-03T15:03:32.374Z",
+  "relay": "https://aps1-1.relay.n0.iroh.link./",
+  "iceServers": [],
+  "turnServers": [],
+  "native": [
+    {
+      "event": "ready",
+      "id": "6dd8e3b97fb71eef51740c46085ee2ef0e6017b6c651aee51a74827816ad40df",
+      "relay": [
+        "https://aps1-1.relay.n0.iroh.link./"
+      ]
+    },
+    {
+      "event": "admission",
+      "paths": [
+        {
+          "isRelay": true,
+          "receivedBytes": 10298,
+          "relay": "https://aps1-1.relay.n0.iroh.link./",
+          "selected": true,
+          "sentBytes": 9103
+        }
+      ],
+      "stage": "AwaitingApproval"
+    },
+    {
+      "count": 2,
+      "event": "approved"
+    }
+  ],
+  "websockets": [
+    {
+      "url": "wss://aps1-1.relay.n0.iroh.link./relay",
+      "sentFrames": 61,
+      "receivedFrames": 66,
+      "status": 101
+    }
+  ],
+  "passed": false,
+  "origin": "http://127.0.0.1:44542",
+  "launch": {
+    "executablePath": "/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome",
+    "headless": true,
+    "args": [
+      "--no-sandbox",
+      "--disable-features=WebRtcHideLocalIpsWithMdns"
+    ],
+    "ignoreHTTPSErrors": false
+  },
+  "browserVersion": "153.0.8010.12",
+  "browserIdentity": "42d864de18e3d8bee261464d05f3f861aed5867631cd77f74fe8dddaad6bf162",
+  "failure": "page.evaluate: connection lost\n    at /tmp/miopunch-rtc-s4-20261003/browser-probe/harness/run-rtc.mjs:98:35",
+  "fixtureCleanup": {
+    "code": 0,
+    "signal": null
+  },
+  "cleanupMilliseconds": 518,
+  "completedUtc": "2026-10-03T15:04:14.994Z"
+}

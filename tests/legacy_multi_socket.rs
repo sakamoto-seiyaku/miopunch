@@ -132,7 +132,7 @@ async fn winner_connection(receiver_ip: Ipv4Addr, network_change: bool) {
         let cb = cl.local_sockets()[1];
         let vb = vl.local_sockets()[2];
         let ca = (receiver_ip, cb.local_addr.port()).into();
-        let va = (Ipv4Addr::LOCALHOST, vb.local_addr.port()).into();
+        let va: std::net::SocketAddr = (Ipv4Addr::LOCALHOST, vb.local_addr.port()).into();
         vl.sender_for(vb.id)
             .unwrap()
             .send(ca, b"request", 0)

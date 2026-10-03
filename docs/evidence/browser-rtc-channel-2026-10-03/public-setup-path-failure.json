@@ -1,0 +1,54 @@
+{
+  "scope": "step 4 synthetic RTC; signaling via authenticated protected relay M; no QUIC bridge",
+  "startedUtc": "2026-10-03T15:14:04.552Z",
+  "relay": "https://aps1-1.relay.n0.iroh.link./",
+  "iceServers": [],
+  "turnServers": [],
+  "native": [
+    {
+      "event": "ready",
+      "id": "caa69ed03f90d12f866d3c5492c363b53b97f2e0921625914aae855dce749521",
+      "relay": [
+        "https://aps1-1.relay.n0.iroh.link./"
+      ],
+      "receivedUtc": "2026-10-03T15:14:07.990Z"
+    }
+  ],
+  "websockets": [
+    {
+      "url": "wss://aps1-1.relay.n0.iroh.link./relay",
+      "sentFrames": 21,
+      "receivedFrames": 21,
+      "status": 101
+    }
+  ],
+  "preparation": [
+    {
+      "name": "request",
+      "startedUtc": "2026-10-03T15:14:14.936Z",
+      "milliseconds": 9086,
+      "passed": false,
+      "error": "Error: page.evaluate: temporarily unreachable: allowed relay path failed"
+    }
+  ],
+  "passed": false,
+  "origin": "http://127.0.0.1:43998",
+  "launch": {
+    "executablePath": "/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome",
+    "headless": true,
+    "args": [
+      "--no-sandbox",
+      "--disable-features=WebRtcHideLocalIpsWithMdns"
+    ],
+    "ignoreHTTPSErrors": false
+  },
+  "browserVersion": "153.0.8010.12",
+  "browserIdentity": "a0d917ea85a9518b099209bf810ae8eee691975386789d635446cabe90ba6839",
+  "failure": "page.evaluate: temporarily unreachable: allowed relay path failed\n    at /tmp/miopunch-rtc-s4-20261003/browser-probe/harness/run-rtc.mjs:100:56\n    at preparation (/tmp/miopunch-rtc-s4-20261003/browser-probe/harness/run-rtc.mjs:31:37)\n    at /tmp/miopunch-rtc-s4-20261003/browser-probe/harness/run-rtc.mjs:100:22",
+  "fixtureCleanup": {
+    "code": 0,
+    "signal": null
+  },
+  "cleanupMilliseconds": 2964,
+  "completedUtc": "2026-10-03T15:14:26.986Z"
+}

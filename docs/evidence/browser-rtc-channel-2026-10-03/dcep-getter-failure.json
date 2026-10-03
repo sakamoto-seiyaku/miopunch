@@ -1,0 +1,125 @@
+{
+  "scope": "step 4 synthetic RTC; signaling via authenticated protected relay M; no QUIC bridge",
+  "startedUtc": "2026-10-03T15:25:41.753Z",
+  "relay": "https://localhost:44808/",
+  "iceServers": [],
+  "turnServers": [],
+  "native": [
+    {
+      "event": "ready",
+      "id": "a491a5699539e00e1a9684ad341c95a62a5c706498e3dde98d7c35661edce116",
+      "relay": [
+        "https://localhost:44808/"
+      ],
+      "receivedUtc": "2026-10-03T15:25:41.944Z"
+    },
+    {
+      "event": "admission",
+      "paths": [
+        {
+          "isRelay": true,
+          "receivedBytes": 6949,
+          "relay": "https://localhost:44808/",
+          "selected": true,
+          "sentBytes": 6958
+        }
+      ],
+      "stage": "AwaitingApproval",
+      "receivedUtc": "2026-10-03T15:25:42.923Z"
+    },
+    {
+      "count": 2,
+      "event": "approved",
+      "receivedUtc": "2026-10-03T15:25:42.969Z"
+    },
+    {
+      "event": "admission",
+      "paths": [
+        {
+          "isRelay": true,
+          "receivedBytes": 8601,
+          "relay": "https://localhost:44808/",
+          "selected": true,
+          "sentBytes": 10204
+        }
+      ],
+      "stage": "Complete",
+      "receivedUtc": "2026-10-03T15:25:43.089Z"
+    },
+    {
+      "cleanup": {
+        "ownedPumpTasks": 0,
+        "pcClosed": true,
+        "rxBytes": 0,
+        "socketAfter": 6,
+        "socketBefore": 6,
+        "txBytes": 0
+      },
+      "event": "rtc-cleanup",
+      "failure": "[DEBUG-rtc-attributes] channel attributes mismatch: {\"id\":0,\"label\":\"mio-rtc-synthetic/1\",\"maxPacketLifeTime\":null,\"maxRetransmits\":null,\"negotiated\":false,\"ordered\":false,\"protocol\":\"miopunch/synthetic/1\",\"readyState\":\"Open\"}",
+      "receivedUtc": "2026-10-03T15:25:43.953Z"
+    }
+  ],
+  "websockets": [
+    {
+      "url": "wss://localhost:44808/relay",
+      "sentFrames": 76,
+      "receivedFrames": 61,
+      "status": 101
+    }
+  ],
+  "preparation": [
+    {
+      "name": "request",
+      "startedUtc": "2026-10-03T15:25:42.759Z",
+      "milliseconds": 169,
+      "passed": true
+    },
+    {
+      "name": "approval",
+      "startedUtc": "2026-10-03T15:25:42.928Z",
+      "milliseconds": 41,
+      "passed": true
+    },
+    {
+      "name": "authorization-save",
+      "startedUtc": "2026-10-03T15:25:42.969Z",
+      "milliseconds": 94,
+      "passed": true
+    },
+    {
+      "name": "material-save",
+      "startedUtc": "2026-10-03T15:25:43.063Z",
+      "milliseconds": 35,
+      "passed": true
+    }
+  ],
+  "passed": false,
+  "ownedRelay": true,
+  "origin": "http://127.0.0.1:45092",
+  "launch": {
+    "executablePath": "/tmp/mio-rtc-s4-trust-ze6apvvc/chromium-private-trust.sh",
+    "headless": true,
+    "args": [
+      "--no-sandbox",
+      "--disable-features=WebRtcHideLocalIpsWithMdns"
+    ],
+    "ignoreHTTPSErrors": false,
+    "privateNssMount": true,
+    "certificateBypassFlags": []
+  },
+  "browserVersion": "153.0.8010.12",
+  "browserIdentity": "2979a41f51e79fc75aed76d6cc9bd805054f53f0dc657df4a19a56045a23659e",
+  "preparedUtc": "2026-10-03T15:25:43.480Z",
+  "failure": "page.evaluate: RTC queue Closed\n    at /tmp/miopunch-rtc-s4-20261003/browser-probe/harness/run-rtc.mjs:134:46",
+  "fixtureCleanup": {
+    "code": 0,
+    "signal": null
+  },
+  "relayCleanup": {
+    "code": 0,
+    "signal": null
+  },
+  "cleanupMilliseconds": 149,
+  "completedUtc": "2026-10-03T15:26:00.446Z"
+}

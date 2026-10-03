@@ -1,0 +1,105 @@
+{
+  "fixedBaseline": "6cd3ada172683596025766040baa884d03e9124d",
+  "rustc": "1.98.1 (48a229cea 2026-09-01)",
+  "nativeFeatures": [
+    "rtc-probe",
+    "webrtc/runtime-tokio",
+    "webrtc/crypto-ring"
+  ],
+  "browserFeatures": [
+    "rtc-probe"
+  ],
+  "libraries": [
+    {
+      "name": "webrtc",
+      "version": "0.21.0",
+      "cargoChecksum": "b3cc7db94f14a20c9401202f7300f38071dcac4446177b40e12dc2df34b2256b",
+      "vcs": {
+        "git": {
+          "sha1": "4be2e3d6f99787ac438d28f9f704d343b1aa1498"
+        },
+        "path_in_vcs": ""
+      }
+    },
+    {
+      "name": "rtc",
+      "version": "0.21.0",
+      "cargoChecksum": "a0c5e4a8791908797789d63efd013d6987b1f87cce4255b94343d1fa9c69a81f",
+      "vcs": {
+        "git": {
+          "sha1": "c8321cab79ae745aad973d62034ec84d301e893c"
+        },
+        "path_in_vcs": ""
+      }
+    },
+    {
+      "name": "web-sys",
+      "version": "0.3.106",
+      "cargoChecksum": "88261b9deccee56594c11a3460c462c41f58d148598fe70ad77070126a68aba4",
+      "vcs": {
+        "git": {
+          "sha1": "165586f854c852bcbc4d14d8a75a0a0e0d0abc12"
+        },
+        "path_in_vcs": "crates/web-sys"
+      }
+    },
+    {
+      "name": "wasm-bindgen",
+      "version": "0.2.129",
+      "cargoChecksum": "9bb54f33acc68fd454578d9820b0bde1a1a3d17aa17bb7b6595806d02886d409",
+      "vcs": {
+        "git": {
+          "sha1": "165586f854c852bcbc4d14d8a75a0a0e0d0abc12"
+        },
+        "path_in_vcs": ""
+      }
+    },
+    {
+      "name": "rcgen",
+      "version": "0.14.10",
+      "cargoChecksum": "8774e05a7d0de114588e6a28fe7e71694b82614ed569d86d8b389dfbc98b8ad8",
+      "vcs": {
+        "git": {
+          "sha1": "f4a3b165c467c070d5c74b86acc2c3f0a0be10ab"
+        },
+        "path_in_vcs": "rcgen"
+      }
+    },
+    {
+      "name": "async-trait",
+      "version": "0.1.92",
+      "cargoChecksum": "82f6aeea286b8eb4dd3431a1be1b59d290ace00f5bfd8e2a159bc2a05e2c1667",
+      "vcs": {
+        "git": {
+          "sha1": "82e7e9edd60f622294373a23c0ce9c0077ad0263"
+        },
+        "path_in_vcs": ""
+      }
+    }
+  ],
+  "sources": {
+    "Cargo.lock": "3b8cf7923bffca06eb4122f2c1347e841f9d6d309104fdc4659c568525c65189",
+    "Cargo.toml": "1cd9e42ff5196aa9392f0f12134e18238d4e4509482c649dd93a19598dc630e2",
+    "browser-probe/Cargo.toml": "1f56056e7a2d375983798463521a35d1c5564b83f571f8a3ac64ecd6679e3925",
+    "src/rtc_association.rs": "d1045454f6c79bcaf55183e4527b1589de6ae83e32465a85a17fdb59f00ec182",
+    "src/rtc_probe.rs": "22ef14a27c5c96d4e5307fc7b1e2fdc82461f691a6adaa98f27c6f04abe23621",
+    "src/bin/browser_network_native.rs": "48d1f3c7a930ba6e2f346735834422c4f35cceb4fa6e50790b018cd60dadf3d2",
+    "src/bin/browser_probe_native.rs": "554989910b9a358b12820136fe1b6e30392a485ebb43fc53205be75f7c95b23f",
+    "browser-probe/src/rtc.rs": "1e6bf75991a557c66bc297973cf809f98c321aeebe0b28383ad212d10aec522c",
+    "browser-probe/src/member_connection.rs": "d3c300a33d9cb1bdd316c3c2d6d63179ac42434fcc1e2bad148ad491b94a1cf9",
+    "browser-probe/harness/run-rtc.mjs": "abdcf1419804725da96fb1a03cf2d6f67d243aae61eb7ab7320eaec3730037f3",
+    "scripts/check_browser_rtc.py": "b34bd03712831288b4a61b29c5abf66133810c870bd6157b5491be233f7b5835",
+    "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+    "src/lib.rs": "190fccff755fb3832cef50ad2edb9e14b946321a8a81a2bee81aa28f91442856",
+    "browser-probe/src/lib.rs": "a9861ddc9e8865f4aae1aab09fabbd7ea2072fa74cb230998b7aef8f3bd56ce4",
+    "browser-probe/src/network.rs": "8d730b3ebb2de898657a2fcd4df66efc8d55101d91e78aec1effaac096c422ec",
+    "tests/rtc_association.rs": "f1dab3354044f3eb9cfb5f171f951afc6ac2b0390035985bdf876c2a88385daf",
+    "tests/legacy_multi_socket.rs": "08a86348569741ac14f381f65a27f1574284488d1788a1c4cd7087dabb8a3fa2",
+    "tests/public_resources.rs": "6cad9a982555f56dbd4eaa4cd2312e8e244a1212625cabd9dbc8d06c2b0a71f9"
+  },
+  "incomingDcepMetadataSource": {
+    "path": "rtc-0.21.0/src/data_channel/internal.rs",
+    "lines": "165-181",
+    "sha256": "045ea15d8f86de10e8e6bc188c1ba4cbf4666044546a6363c56477f147b59bd5"
+  }
+}

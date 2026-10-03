@@ -93,7 +93,10 @@ async fn stun_uses_the_endpoint_socket_and_rejects_wrong_source_and_transaction(
         .observe_udp_stun(&format!("stun://{address}/").parse().unwrap())
         .await
         .unwrap();
-    assert_eq!(observation.mapped, "203.0.113.7:41000".parse().unwrap());
+    assert_eq!(
+        observation.mapped,
+        "203.0.113.7:41000".parse::<std::net::SocketAddr>().unwrap()
+    );
     assert_eq!(observation.destination, address);
     assert_eq!(observation.local_addr, task.await.unwrap());
     assert!(observation.is_fresh());
@@ -144,11 +147,11 @@ async fn ordered_stun_sequence_uses_one_data_socket_and_failed_new_query_invalid
     assert_eq!(first.samples.len(), 2);
     assert_eq!(
         first.samples[0].mapped,
-        "203.0.113.7:41000".parse().unwrap()
+        "203.0.113.7:41000".parse::<std::net::SocketAddr>().unwrap()
     );
     assert_eq!(
         first.samples[1].mapped,
-        "203.0.113.7:41001".parse().unwrap()
+        "203.0.113.7:41001".parse::<std::net::SocketAddr>().unwrap()
     );
     assert_ne!(first.samples[0].destination, first.samples[1].destination);
     assert!(first.samples[0].observed_at <= first.samples[1].observed_at);
@@ -325,7 +328,10 @@ async fn tcp_stun_retains_the_configured_transport_port_and_expires_on_close() {
         "no temporary ephemeral port may impersonate the transport"
     );
     assert_eq!(observation.destination, destination);
-    assert_eq!(observation.mapped, "203.0.113.7:41001".parse().unwrap());
+    assert_eq!(
+        observation.mapped,
+        "203.0.113.7:41001".parse::<std::net::SocketAddr>().unwrap()
+    );
     assert!(observation.is_fresh());
     resources.close().await;
     assert!(!observation.is_fresh());
@@ -475,7 +481,12 @@ async fn tcp_stun_accepts_ipv6_mapping_of_the_actual_ipv4_transport_connection()
         stream
     });
     let observation = resources.observe_tcp_stun(&url).await.unwrap();
-    assert_eq!(observation.mapped, "[2001:db8::7]:41001".parse().unwrap());
+    assert_eq!(
+        observation.mapped,
+        "[2001:db8::7]:41001"
+            .parse::<std::net::SocketAddr>()
+            .unwrap()
+    );
     assert!(observation.local_addr.is_ipv4());
     let stream = task.await.unwrap();
     resources.close().await;

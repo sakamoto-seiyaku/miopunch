@@ -1,0 +1,29 @@
+{
+  "observedChecks": [
+    {
+      "command": "rtk cargo test --locked --offline --features rtc-probe --test rtc_association --test manual_admission --test admission_gate --target-dir /tmp/miopunch-rtc-s4-target --jobs 2 -- --test-threads=1",
+      "result": "35 passed, 3 suites, 40.03s",
+      "exit": 0
+    },
+    {
+      "command": "rtk cargo test --locked --offline --workspace --lib --features rtc-probe --target-dir /tmp/miopunch-rtc-s4-target --jobs 2 -- --test-threads=1",
+      "result": "123 passed, 1 ignored, 4 suites, 38.67s",
+      "exit": 0
+    },
+    {
+      "command": "rtk cargo check --locked --offline --workspace --all-targets --features rtc-probe --target-dir /tmp/miopunch-rtc-s4-target --jobs 2",
+      "result": "0 errors; 24 pre-existing unused/dead-code warnings",
+      "exit": 0
+    },
+    {
+      "command": "rtk cargo fmt --all -- --check",
+      "result": "passed",
+      "exit": 0
+    },
+    {
+      "command": "rtk cargo test --locked --offline --features rtc-probe --test rtc_association --target-dir /tmp/miopunch-rtc-s4-target --jobs 2",
+      "result": "3 passed, 1 suite, 0.00s",
+      "exit": 0
+    }
+  ]
+}

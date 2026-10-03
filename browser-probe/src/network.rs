@@ -940,3 +940,7 @@ mod admission;
 #[path = "member_connection.rs"]
 mod member_connection;
 pub use member_connection::BrowserMemberConnection;
+
+#[cfg(feature = "rtc-probe")]
+#[path = "rtc.rs"]
+mod rtc;

@@ -107,3 +107,7 @@ mod management_action;
 
 #[path = "../../src/precode_policy.rs"]
 mod precode_policy;
+
+#[cfg(feature = "rtc-probe")]
+#[path = "../../src/rtc_association.rs"]
+mod rtc_association;
