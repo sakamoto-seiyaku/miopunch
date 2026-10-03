@@ -1,0 +1,251 @@
+{
+  "schema_version": 1,
+  "review_baseline": "dd02424bc419cf08d96e8594dc8d71a3429c7016",
+  "affected_native": {
+    "passed": true,
+    "tests_passed": 85,
+    "counts_by_binary": [
+      25,
+      14,
+      8,
+      3,
+      4,
+      5,
+      26
+    ],
+    "raw_artifact": {
+      "path": "/tmp/mio-rtc-s2-regression/affected-native-suite.log",
+      "sha256": "117322224f33a3c14ce17b057467c9b67b5f100c15078ec0fd99ba1d6c5e2967"
+    },
+    "runner_receipt": {
+      "path": "/tmp/mio-rtc-s2-regression/results.json",
+      "sha256": "dfb48817792e1fb596e80167db038c665eb3ed1e6ffe66a8ead21a4c0c350580"
+    },
+    "note": "Native suite passed in full; original launcher later typecheck ran during typed-route editing and failed, superseded by final stable checks below. No claim of a passing original launcher."
+  },
+  "final_checks": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "workspace-typecheck",
+        "argv": [
+          "cargo",
+          "check",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "--workspace",
+          "--all-targets"
+        ],
+        "exit": 0,
+        "seconds": 1.418
+      },
+      {
+        "name": "wasm-typecheck",
+        "argv": [
+          "cargo",
+          "check",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "-p",
+          "miopunch-browser-probe",
+          "--target",
+          "wasm32-unknown-unknown"
+        ],
+        "exit": 0,
+        "seconds": 0.365
+      },
+      {
+        "name": "format",
+        "argv": [
+          "cargo",
+          "fmt",
+          "--all",
+          "--",
+          "--check"
+        ],
+        "exit": 0,
+        "seconds": 0.766
+      },
+      {
+        "name": "node-syntax",
+        "argv": [
+          "node",
+          "--check",
+          "browser-probe/harness/run-mqtt-datagram.mjs"
+        ],
+        "exit": 0,
+        "seconds": 0.032
+      },
+      {
+        "name": "python-syntax",
+        "argv": [
+          "python3",
+          "-c",
+          "import ast;ast.parse(open(\"scripts/check_browser_paths.py\").read())"
+        ],
+        "exit": 0,
+        "seconds": 0.032
+      },
+      {
+        "name": "whitespace",
+        "argv": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "exit": 0,
+        "seconds": 0.616
+      }
+    ]
+  },
+  "final_checks_raw": {
+    "path": "/tmp/mio-rtc-s2-final-checks/results.json",
+    "sha256": "bcc53de80f3467085c1b15b4b6747c21eb51fa1ee30695ebf5e3ed8b9ae26d67"
+  },
+  "browser_relay_regression": {
+    "started_utc": "2026-10-03T15:52:42Z",
+    "scope": "MIOPUNCH-50 browser manual admission; unchanged slow NAT excluded",
+    "checks": [
+      {
+        "name": "rust-version",
+        "command": [
+          "rtk",
+          "proxy",
+          "rustc",
+          "--version"
+        ],
+        "exit": 0,
+        "seconds": 0.032
+      },
+      {
+        "name": "node-version",
+        "command": [
+          "rtk",
+          "proxy",
+          "node",
+          "--version"
+        ],
+        "exit": 0,
+        "seconds": 0.016
+      },
+      {
+        "name": "bindgen-version",
+        "command": [
+          "rtk",
+          "proxy",
+          "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+          "--version"
+        ],
+        "exit": 0,
+        "seconds": 0.016
+      },
+      {
+        "name": "browser",
+        "command": [
+          "rtk",
+          "proxy",
+          "node",
+          "browser-probe/harness/run-network.mjs",
+          "--case",
+          "first"
+        ],
+        "exit": 0,
+        "seconds": 3.122
+      }
+    ],
+    "completed_utc": "2026-10-03T15:52:45Z",
+    "passed": true
+  },
+  "browser_relay_raw": {
+    "path": "/tmp/mio-rtc-s2-relay-regression/browser.log",
+    "sha256": "b0b73abc926eaf8fc5259b9a6f67631fa21c43ce407c5fb97bba6ca45e2a56ec"
+  },
+  "relay_note": "Existing first admission + normal business story uses owned localhost HTTP relay and normal iroh QUIC TLS; no certificate-bypass case was run. Compiled WASM is final step2 build.",
+  "datagram_regression": {
+    "case": "mqtt-datagram",
+    "started_utc": "2026-10-03T15:46:52Z",
+    "passed": true,
+    "checks": [
+      {
+        "name": "mqtt-datagram",
+        "argv": [
+          "node",
+          "browser-probe/harness/run-mqtt-datagram.mjs",
+          "--case",
+          "mqtt-datagram",
+          "--evidence",
+          "/tmp/mio-rtc-s2-datagram-regression",
+          "--fixture",
+          "/tmp/mio-rtc-mqtt-1496pwer",
+          "--broker",
+          "127.0.0.1:43437"
+        ],
+        "exit": 0,
+        "budget_seconds": 57.77099319908302,
+        "seconds": 4.725
+      }
+    ],
+    "protocol_budget_seconds": 60,
+    "phase_budget_seconds": 15,
+    "public_traffic": false,
+    "cleanup": [
+      {
+        "container": "miopunch-rtc-mqtt-1791042413094281149",
+        "exit": 0
+      }
+    ],
+    "certificate": {
+      "normal_verification": true,
+      "private_trust_only": true,
+      "leaf_pem_sha256": "615e9f2bbaa0d4ec267d099e30cbd3567b8a03653f56bc21ff49e398808cd0dc"
+    },
+    "owned_broker": {
+      "address": "127.0.0.1:43437",
+      "container": "miopunch-rtc-mqtt-1791042413094281149",
+      "image": "eclipse-mosquitto:2"
+    },
+    "fixture_setup_seconds": 2.229,
+    "completed_utc": "2026-10-03T15:46:59Z",
+    "total_seconds": 7.238,
+    "protocol_total_seconds": 7.237
+  },
+  "datagram_raw": {
+    "path": "/tmp/mio-rtc-s2-datagram-regression/mqtt-datagram.json",
+    "sha256": "d1a02b50a3929e52f6f7e618dcadfc273b9c4098575c07f2a6314c66f0a3ff68"
+  },
+  "reviews": {
+    "model": "gpt-6.1-sol",
+    "reasoning_effort": "high",
+    "standards": {
+      "documented_breaches": 0,
+      "remaining_smells": 0,
+      "fixed": "Compile validated contact route into EndpointId/CustomAddr once at startup"
+    },
+    "spec": {
+      "findings": 0,
+      "verified_final_native_retirement": true
+    }
+  },
+  "retained_failures": [
+    {
+      "path": "/tmp/mio-rtc-s2-first",
+      "cause": "Sandbox Docker socket denied, protocol not reached"
+    },
+    {
+      "path": "/tmp/mio-rtc-s2-real-first",
+      "cause": "NativeNetwork installs persisted resource policy; explicit signaling resource missing"
+    },
+    {
+      "path": "/tmp/mio-rtc-s2-resource-fixed",
+      "cause": "Fixture mistook textual Traffic::report for JSON; fixed by snapshot"
+    },
+    {
+      "path": "/tmp/mio-rtc-s2-native-cleanup",
+      "cause": "Final snapshot observed Closed before actual driver DISCONNECT; wait bounded driver completion before receipt"
+    }
+  ]
+}

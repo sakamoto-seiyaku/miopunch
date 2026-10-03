@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded real browser/native path checks. This increment is MQTT datagrams."""
+"""Bounded real browser/native MQTT datagram and restricted admission checks."""
 import argparse
 import hashlib
 import json
@@ -19,15 +19,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=['mqtt-datagram'], required=True)
+    parser.add_argument('--case', choices=['mqtt-datagram', 'wss-restricted-handshake'], required=True)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--skip-build', action='store_true')
     parser.add_argument('--wasm-bindgen', default=shutil.which('wasm-bindgen') or '/tmp/miopunch-wasm-tools/bin/wasm-bindgen')
     args = parser.parse_args()
+    protocol_budget = 45 if args.case == 'wss-restricted-handshake' else 60
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     receipt = {'case': args.case, 'started_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-               'passed': False, 'checks': [], 'protocol_budget_seconds': 60,
+               'passed': False, 'checks': [], 'protocol_budget_seconds': protocol_budget,
                'phase_budget_seconds': 15, 'public_traffic': False, 'cleanup': []}
     owned = None
     task_started = time.monotonic()
@@ -66,7 +67,7 @@ def main():
     signal.signal(signal.SIGALRM, deadline)
     try:
         if not args.skip_build:
-            run('native-build', ['cargo', 'build', '--locked', '--offline', '-j', '2', '--bin', 'browser_mqtt_datagram'], 600)
+            run('native-build', ['cargo', 'build', '--locked', '--offline', '-j', '2', '--bin', 'browser_restricted_native' if args.case == 'wss-restricted-handshake' else 'browser_mqtt_datagram'], 600)
             run('wasm-build', ['cargo', 'build', '--locked', '--offline', '-j', '2', '-p', 'miopunch-browser-probe', '--target', 'wasm32-unknown-unknown'], 600)
             run('wasm-bindgen', [args.wasm_bindgen, '--target', 'web', '--out-dir', 'browser-probe/pkg', 'target/wasm32-unknown-unknown/debug/miopunch_browser_probe.wasm'], 60)
         with tempfile.TemporaryDirectory(prefix='mio-rtc-mqtt-') as fixture_name:
@@ -96,13 +97,13 @@ def main():
                     time.sleep(0.1)
             receipt['owned_broker'] = {'address': address, 'container': owned, 'image': 'eclipse-mosquitto:2'}
             receipt['fixture_setup_seconds'] = round(time.monotonic() - started, 3)
-            remaining = max(0.001, 60 - (time.monotonic() - protocol_started))
+            remaining = max(0.001, protocol_budget - (time.monotonic() - protocol_started))
             signal.setitimer(signal.ITIMER_REAL, remaining)
             # Compilation is separately recorded. Fixture provisioning and the
             # complete protocol run share one 60-second attempt budget.
-            run('mqtt-datagram', ['node', 'browser-probe/harness/run-mqtt-datagram.mjs',
+            run(args.case, ['node', 'browser-probe/harness/run-mqtt-datagram.mjs', '--case', args.case,
                                  '--evidence', str(output), '--fixture', str(fixture), '--broker', address], remaining)
-            receipt['passed'] = json.loads((output / 'mqtt-datagram.json').read_text())['passed']
+            receipt['passed'] = json.loads((output / f'{args.case}.json').read_text())['passed']
     except (Exception, KeyboardInterrupt) as error:
         receipt['failure'] = str(error) or 'cancelled'
         receipt['passed'] = False
@@ -122,7 +123,7 @@ def main():
         if protocol_started is not None:
             receipt['protocol_total_seconds'] = round(time.monotonic() - protocol_started, 3)
         save()
-    print(f'{"PASS" if receipt["passed"] else "FAIL"} MQTT datagram: {output}')
+    print(f'{"PASS" if receipt["passed"] else "FAIL"} {args.case}: {output}')
     raise SystemExit(0 if receipt['passed'] else 1)
 
 

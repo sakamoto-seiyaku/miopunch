@@ -306,6 +306,21 @@ impl EndpointHooks for BrowserGate {
 struct Configuration {
     relays: Vec<String>,
     disabled: Vec<String>,
+    #[serde(default)]
+    mqtt: Vec<crate::mqtt_datagram::MqttFacility>,
+    #[serde(default)]
+    contact_routes: Vec<ContactRoute>,
+}
+#[derive(Clone, Serialize, Deserialize)]
+struct ContactRoute {
+    contact: String,
+    facility: String,
+    address: String,
+}
+struct RuntimeContactRoute {
+    contact: iroh_base::EndpointId,
+    facility: String,
+    address: iroh_base::CustomAddr,
 }
 impl Default for Configuration {
     fn default() -> Self {
@@ -316,6 +331,8 @@ impl Default for Configuration {
                 .map(|url| url.to_string())
                 .collect(),
             disabled: Vec::new(),
+            mqtt: Vec::new(),
+            contact_routes: Vec::new(),
         }
     }
 }
@@ -323,6 +340,8 @@ impl Default for Configuration {
 struct ConfigurationInput {
     relays: Option<Vec<String>>,
     disabled: Option<Vec<String>>,
+    mqtt: Option<Vec<crate::mqtt_datagram::MqttFacility>>,
+    contact_routes: Option<Vec<ContactRoute>>,
 }
 
 fn origin(value: &str) -> Result<String, JsValue> {
@@ -346,6 +365,14 @@ struct Delivery {
     send: SendStream,
     recv: RecvStream,
 }
+struct RequestConnection(Option<Connection>);
+impl Drop for RequestConnection {
+    fn drop(&mut self) {
+        if let Some(connection) = self.0.take() {
+            connection.close(0u32.into(), b"browser request ended or cancelled");
+        }
+    }
+}
 impl Drop for Delivery {
     fn drop(&mut self) {
         self.connection
@@ -357,6 +384,13 @@ impl Drop for Delivery {
 pub struct BrowserNetwork {
     endpoint: Endpoint,
     relays: Vec<RelayUrl>,
+    mqtt: Vec<(
+        crate::mqtt_datagram::MqttFacility,
+        crate::mqtt::BrowserMqttTransport,
+    )>,
+    contact_routes: Vec<RuntimeContactRoute>,
+    last_request: Option<serde_json::Value>,
+    attempt_started: Option<n0_future::time::Instant>,
     gate: BrowserGate,
     lease: Option<Lease>,
     saved: SavedNode,
@@ -405,18 +439,69 @@ impl BrowserNetwork {
         if let Some(disabled) = input.disabled {
             configuration.disabled = disabled;
         }
+        if let Some(mqtt) = input.mqtt {
+            configuration.mqtt = mqtt;
+        }
+        if let Some(routes) = input.contact_routes {
+            configuration.contact_routes = routes;
+        }
         if configuration.relays.len() > 16 || configuration.disabled.len() > 64 {
             return Err(error("too many relay resources"));
         }
         let disabled: Vec<_> = configuration
             .disabled
             .iter()
-            .map(|url| origin(url))
-            .collect::<Result<_, _>>()?;
+            .filter_map(|url| origin(url).ok())
+            .collect();
         let mut relays = Vec::new();
         for value in &configuration.relays {
             if !disabled.contains(&origin(value)?) {
                 relays.push(value.parse::<RelayUrl>().map_err(error)?);
+            }
+        }
+        if configuration.mqtt.len() > 16 || configuration.contact_routes.len() > 64 {
+            return Err(error("too many MQTT resources or contact routes"));
+        }
+        let mut logical_ids = std::collections::BTreeSet::new();
+        for facility in &configuration.mqtt {
+            facility.validate().map_err(error)?;
+            if !logical_ids.insert(&facility.logical_id) {
+                return Err(error("duplicate MQTT logical facility"));
+            }
+        }
+        let mut contact_routes = Vec::new();
+        for route in &configuration.contact_routes {
+            let contact = route
+                .contact
+                .parse::<iroh_base::EndpointId>()
+                .map_err(error)?;
+            let facility = configuration
+                .mqtt
+                .iter()
+                .find(|item| item.logical_id == route.facility)
+                .ok_or_else(|| error("contact route has no trusted facility"))?;
+            let addr = iroh_base::CustomAddr::from_parts(
+                crate::mqtt_datagram::TRANSPORT_ID,
+                &hex::decode(&route.address).map_err(error)?,
+            );
+            crate::mqtt_datagram::route_from_addr(
+                &addr,
+                Some(facility.service_tag().map_err(error)?),
+            )
+            .map_err(error)?;
+            contact_routes.push(RuntimeContactRoute {
+                contact,
+                facility: route.facility.clone(),
+                address: addr,
+            });
+        }
+        let mut mqtt = Vec::new();
+        for facility in &configuration.mqtt {
+            if facility.check_allowed(&configuration.disabled).is_ok() {
+                mqtt.push((
+                    facility.clone(),
+                    crate::mqtt::BrowserMqttTransport::new(facility, &configuration.disabled)?,
+                ));
             }
         }
         saved.resources = Some(configuration);
@@ -427,8 +512,10 @@ impl BrowserNetwork {
         if raw.as_string().as_deref() != Some(&committed) {
             save_node(lease.0, previous, committed.clone()).await?;
         }
-        if relays.is_empty() {
-            return Err(error("temporarily unreachable: no allowed browser relay"));
+        if relays.is_empty() && mqtt.is_empty() {
+            return Err(error(
+                "temporarily unreachable: no allowed browser relay or MQTT carrier",
+            ));
         }
         let allowed: Vec<_> = relays
             .iter()
@@ -436,30 +523,83 @@ impl BrowserNetwork {
             .collect::<Result<_, _>>()?;
         let gate = BrowserGate::default();
         gate.install(&saved);
-        let endpoint = Endpoint::builder(presets::Minimal)
+        let signaling: Vec<iroh::RelayUrl> = mqtt
+            .iter()
+            .map(|(facility, _)| facility.wss_url.parse().unwrap())
+            .collect();
+        let custom_services: Vec<_> = mqtt
+            .iter()
+            .map(|(facility, _)| facility.service_tag().unwrap())
+            .collect();
+        let mut builder = Endpoint::builder(presets::Minimal)
             .secret_key(SecretKey::from_bytes(&saved.key))
             .relay_mode(RelayMode::custom(relays.clone()))
-            .relay_resource_policy(RelayResourcePolicy::new(move |url, usage| {
-                matches!(usage, RelayResourceUse::DataRelay)
-                    && origin(url.as_str()).is_ok_and(|origin| allowed.contains(&origin))
-            }))
+            .relay_resource_policy(
+                RelayResourcePolicy::new(move |url, usage| match usage {
+                    RelayResourceUse::DataRelay => {
+                        origin(url.as_str()).is_ok_and(|origin| allowed.contains(&origin))
+                    }
+                    RelayResourceUse::Signaling => signaling.contains(url),
+                    _ => false,
+                })
+                .with_custom_addresses(move |addr| {
+                    custom_services.iter().any(|service| {
+                        crate::mqtt_datagram::route_from_addr(addr, Some(*service)).is_ok()
+                    })
+                }),
+            )
             .alpns(vec![REPLICA_ALPN.to_vec(), REQUEST_ALPN.to_vec()])
-            .admission_gate(gate.clone())
-            .bind()
-            .await
-            .map_err(error)?;
-        if n0_future::time::timeout(TIMEOUT, endpoint.online())
-            .await
-            .is_err()
+            .admission_gate(gate.clone());
+        for (_, transport) in &mqtt {
+            builder = builder.add_custom_transport(Arc::new(transport.clone()));
+        }
+        let endpoint = builder.bind().await.map_err(error)?;
+        if n0_future::time::timeout(TIMEOUT, async {
+            use futures_util::{FutureExt, future::select_all};
+            let mut candidates = Vec::new();
+            for (_, transport) in &mqtt {
+                candidates.push(
+                    async move {
+                        transport.wait_ready().await?;
+                        transport.route()?;
+                        Ok::<_, JsValue>(())
+                    }
+                    .boxed_local(),
+                );
+            }
+            if !relays.is_empty() {
+                candidates.push(
+                    async {
+                        endpoint.online().await;
+                        Ok::<_, JsValue>(())
+                    }
+                    .boxed_local(),
+                );
+            }
+            while !candidates.is_empty() {
+                let (result, _, remaining) = select_all(candidates).await;
+                if result.is_ok() {
+                    return Ok(());
+                }
+                candidates = remaining;
+            }
+            Err(error("no browser carrier became ready"))
+        })
+        .await
+        .map_or(true, |result| result.is_err())
         {
             endpoint.close().await;
             return Err(error(
-                "temporarily unreachable: allowed browser relays unavailable",
+                "temporarily unreachable: allowed browser carriers unavailable",
             ));
         }
         Ok(Self {
             endpoint,
             relays,
+            mqtt,
+            contact_routes,
+            last_request: None,
+            attempt_started: None,
             gate,
             lease: Some(lease),
             saved,
@@ -477,6 +617,9 @@ impl BrowserNetwork {
     }
 
     pub async fn request_admission(&mut self, invitation: String) -> Result<String, JsValue> {
+        let started = n0_future::time::Instant::now();
+        self.attempt_started = Some(started);
+        self.last_request = None;
         self.delivery = None;
         let bytes = hex::decode(invitation).map_err(error)?;
         Invitation::decode(&bytes)?;
@@ -491,14 +634,40 @@ impl BrowserNetwork {
         let mut next = self.saved.clone();
         next.invitation = Some(bytes);
         next.precode = None;
-        self.commit(next).await?;
-        let result = n0_future::time::timeout(TIMEOUT, self.request_inner()).await;
+        let result = n0_future::time::timeout(TIMEOUT.saturating_sub(started.elapsed()), async {
+            self.commit(next).await?;
+            self.request_inner().await
+        })
+        .await;
+        if let Some(report) = self.last_request.as_mut() {
+            report["attempt_elapsed_ms"] = serde_json::json!(started.elapsed().as_millis());
+        }
         result.map_err(|_| error("temporarily unreachable; durable admission progress retained"))?
+    }
+
+    /// Public protocol diagnostics contain identities and counters only.
+    pub fn path_diagnostics(&self) -> String {
+        serde_json::json!({"request":self.last_request,"carriers":self.mqtt.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap()).collect::<Vec<_>>()}).to_string()
+    }
+
+    /// A separate handle can cancel while WASM owns the mutable request future.
+    /// Cancellation disconnects this endpoint; reopen retains durable identity.
+    pub fn cancellation_handle(&self) -> BrowserCancellation {
+        BrowserCancellation {
+            endpoint: self.endpoint.clone(),
+            carriers: self
+                .mqtt
+                .iter()
+                .map(|(_, transport)| transport.clone())
+                .collect(),
+        }
     }
 
     /// Redeem through the designated node. A new code changes the request
     /// namespace, preserving this device and original durable attempt.
     pub async fn request_precode(&mut self, code: String) -> Result<String, JsValue> {
+        let started = n0_future::time::Instant::now();
+        self.attempt_started = Some(started);
         self.delivery = None;
         let bytes = hex::decode(code).map_err(error)?;
         if bytes.len() != 128 {
@@ -511,10 +680,12 @@ impl BrowserNetwork {
         let mut next = self.saved.clone();
         next.invitation = Some(bytes[..96].to_vec());
         next.precode = Some(bytes[96..].try_into().unwrap());
-        self.commit(next).await?;
-        n0_future::time::timeout(TIMEOUT, self.request_inner())
-            .await
-            .map_err(|_| error("precode contact unavailable; progress retained"))?
+        n0_future::time::timeout(TIMEOUT.saturating_sub(started.elapsed()), async {
+            self.commit(next).await?;
+            self.request_inner().await
+        })
+        .await
+        .map_err(|_| error("precode contact unavailable; progress retained"))?
     }
 
     pub async fn complete_admission(&mut self) -> Result<String, JsValue> {
@@ -626,18 +797,34 @@ impl BrowserNetwork {
         alpn: &[u8],
     ) -> Result<Connection, JsValue> {
         self.check_store().await?;
-        let mut last = error("temporarily unreachable: no allowed relay path");
+        let mut addr = EndpointAddr::new(target);
         for relay in &self.relays {
-            let addr = EndpointAddr::new(target).with_relay_url(relay.clone());
-            match self.endpoint.connect(addr, alpn).await {
-                Ok(connection) => return Ok(connection),
-                Err(_) => last = error("temporarily unreachable: allowed relay path failed"),
+            addr.addrs
+                .insert(iroh_base::TransportAddr::Relay(relay.clone()));
+        }
+        for route in &self.contact_routes {
+            if route.contact == target
+                && self
+                    .mqtt
+                    .iter()
+                    .any(|(facility, _)| facility.logical_id == route.facility)
+            {
+                addr.addrs
+                    .insert(iroh_base::TransportAddr::Custom(route.address.clone()));
             }
         }
-        Err(last)
+        if addr.addrs.is_empty() {
+            return Err(error("temporarily unreachable: no allowed contact route"));
+        }
+        self.endpoint.connect(addr, alpn).await.map_err(error)
     }
     async fn request_inner(&mut self) -> Result<String, JsValue> {
+        let started = n0_future::time::Instant::now();
         let connection = self.connect(REQUEST_ALPN).await?;
+        let mut request_scope = RequestConnection(Some(connection.clone()));
+        self.last_request = Some(
+            serde_json::json!({"local_id":self.endpoint.id().to_string(),"remote_id":connection.remote_id().to_string(),"alpn":String::from_utf8_lossy(connection.alpn()),"stable_id":connection.stable_id(),"restricted":true,"business_handle":false,"handshake_ms":started.elapsed().as_millis()}),
+        );
         let result = async {
             let (mut send, mut recv) = connection.open_bi().await.map_err(error)?;
             let mut wire = self.saved.invitation.clone().ok_or_else(rejected)?;
@@ -699,10 +886,45 @@ impl BrowserNetwork {
             Ok(self.saved.stage().to_string())
         }
         .await;
-        if self.delivery.is_none() {
-            connection.close(0u32.into(), b"browser request ended");
+        if let Some(report) = self.last_request.as_mut() {
+            report["exchange_ms"] = serde_json::json!(started.elapsed().as_millis());
+            report["remaining_caller_ms"] = serde_json::json!(
+                TIMEOUT
+                    .saturating_sub(self.attempt_started.unwrap_or(started).elapsed())
+                    .as_millis()
+            );
+            report["stage"] = serde_json::json!(result.as_ref().ok());
+            report["stats"] = serde_json::json!(format!("{:?}", connection.stats()));
+            report["paths"] = serde_json::json!(
+                connection
+                    .paths()
+                    .iter()
+                    .map(|path| format!("{:?}", path.remote_addr()))
+                    .collect::<Vec<_>>()
+            );
+        }
+        if self.delivery.is_some() {
+            request_scope.0 = None;
         }
         result
+    }
+}
+
+#[wasm_bindgen]
+pub struct BrowserCancellation {
+    endpoint: Endpoint,
+    carriers: Vec<crate::mqtt::BrowserMqttTransport>,
+}
+#[wasm_bindgen]
+impl BrowserCancellation {
+    pub fn cancel(&self) {
+        for carrier in &self.carriers {
+            carrier.close();
+        }
+        let endpoint = self.endpoint.clone();
+        wasm_bindgen_futures::spawn_local(async move {
+            endpoint.close().await;
+        });
     }
 }
 

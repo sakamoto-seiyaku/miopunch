@@ -1,5 +1,4 @@
-//! Browser-native WebSocket MQTT 3.1.1 datagram adapter. This increment exposes
-//! the carrier only; QUIC admission and member-path wiring are separate work.
+//! Browser-native WebSocket MQTT 3.1.1 datagram adapter and iroh control carrier.
 
 use std::{
     cell::RefCell,
@@ -63,6 +62,7 @@ struct State {
     incoming: VecDeque<(Route, Vec<u8>)>,
     waiters: Vec<Waker>,
     report: Report,
+    addresses: n0_watcher::Watchable<Vec<CustomAddr>>,
 }
 
 impl State {
@@ -83,6 +83,7 @@ impl State {
             return;
         }
         self.closed = true;
+        let _ = self.addresses.set(Vec::new());
         self.qualification.retire();
         self.pending.clear();
         self.incoming.clear();
@@ -138,6 +139,9 @@ impl State {
                 self.report.suback_codes = body[2..].to_vec();
                 self.qualification.suback(id, &body[2..]).map_err(error)?;
                 self.report.ready_ms = Some(js_sys::Date::now());
+                let _ = self
+                    .addresses
+                    .set(vec![wire::address_for(Some(self.service), self.route)]);
                 self.wake();
             }
             // Restrict the carrier to unretained QoS0 publishes.
@@ -241,6 +245,7 @@ impl BrowserMqttDatagram {
                 generation: rand::random::<u32>() as u64,
                 ..Report::default()
             },
+            addresses: n0_watcher::Watchable::new(Vec::new()),
         }));
         let opened = state.clone();
         let open_socket = socket.clone();
@@ -412,6 +417,141 @@ impl Drop for BrowserMqttDatagram {
         self.socket.set_onclose(None);
         // Keep callback owners alive until after all bindings are removed.
         let _ = (&self.onopen, &self.onmessage, &self.onerror, &self.onclose);
+    }
+}
+
+/// iroh requires Send/Sync transport objects even on its single-threaded WASM
+/// runtime. SendWrapper checks access and destruction remain on the JS thread;
+/// no browser socket or callback is moved to a worker.
+#[derive(Clone)]
+pub(crate) struct BrowserMqttTransport {
+    carrier: std::sync::Arc<send_wrapper::SendWrapper<Rc<BrowserMqttDatagram>>>,
+    resource: iroh::RelayUrl,
+}
+
+impl std::fmt::Debug for BrowserMqttTransport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BrowserMqttTransport")
+            .field("resource", &self.resource)
+            .finish_non_exhaustive()
+    }
+}
+
+impl BrowserMqttTransport {
+    pub(crate) fn new(facility: &MqttFacility, disabled: &[String]) -> Result<Self, JsValue> {
+        let carrier = BrowserMqttDatagram::connect(
+            serde_json::json!({"facility":facility,"disabled":disabled}).to_string(),
+        )?;
+        Ok(Self {
+            carrier: std::sync::Arc::new(send_wrapper::SendWrapper::new(Rc::new(carrier))),
+            resource: facility.wss_url.parse().map_err(error)?,
+        })
+    }
+    pub(crate) async fn wait_ready(&self) -> Result<(), JsValue> {
+        self.carrier.wait_ready().await
+    }
+    pub(crate) fn route(&self) -> Result<CustomAddr, JsValue> {
+        Ok(CustomAddr::from_parts(
+            wire::TRANSPORT_ID,
+            &hex::decode(self.carrier.route()?).map_err(error)?,
+        ))
+    }
+    pub(crate) fn diagnostics(&self) -> String {
+        self.carrier.diagnostics()
+    }
+    pub(crate) fn close(&self) {
+        self.carrier.close();
+    }
+}
+
+impl iroh::endpoint::transports::CustomTransport for BrowserMqttTransport {
+    fn resource(&self) -> Option<(iroh::RelayUrl, iroh::endpoint::RelayResourceUse)> {
+        Some((
+            self.resource.clone(),
+            iroh::endpoint::RelayResourceUse::Signaling,
+        ))
+    }
+    fn bind(&self) -> std::io::Result<Box<dyn iroh::endpoint::transports::CustomEndpoint>> {
+        Ok(Box::new(self.clone()))
+    }
+}
+
+impl iroh::endpoint::transports::CustomEndpoint for BrowserMqttTransport {
+    fn shutdown_handler(
+        &self,
+    ) -> Option<std::sync::Arc<dyn iroh::endpoint::transports::CustomEndpointShutdown>> {
+        Some(std::sync::Arc::new(self.clone()))
+    }
+    fn watch_local_addrs(&self) -> n0_watcher::Direct<Vec<CustomAddr>> {
+        self.carrier.state.borrow().addresses.watch()
+    }
+    fn create_sender(&self) -> std::sync::Arc<dyn iroh::endpoint::transports::CustomSender> {
+        std::sync::Arc::new(self.clone())
+    }
+    fn poll_recv(
+        &mut self,
+        cx: &mut std::task::Context,
+        bufs: &mut [std::io::IoSliceMut<'_>],
+        metas: &mut [noq_udp::RecvMeta],
+        infos: &mut [iroh::endpoint::transports::RecvInfo],
+    ) -> Poll<std::io::Result<usize>> {
+        let mut state = self.carrier.state.borrow_mut();
+        if state.closed {
+            return Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "MQTT carrier closed",
+            )));
+        }
+        if bufs.is_empty() {
+            return Poll::Ready(Ok(0));
+        }
+        while let Some((source, bytes)) = state.incoming.pop_front() {
+            if bytes.len() > bufs[0].len() {
+                continue;
+            }
+            bufs[0][..bytes.len()].copy_from_slice(&bytes);
+            metas[0].len = bytes.len();
+            metas[0].stride = bytes.len();
+            infos[0] = iroh::endpoint::transports::RecvInfo::new(
+                wire::address_for(Some(state.service), source),
+                Some(wire::address_for(Some(state.service), state.route)),
+            );
+            return Poll::Ready(Ok(1));
+        }
+        state.wait(cx.waker());
+        Poll::Pending
+    }
+}
+
+impl iroh::endpoint::transports::CustomSender for BrowserMqttTransport {
+    fn is_valid_send_addr(&self, addr: &CustomAddr) -> bool {
+        wire::route_from_addr(addr, Some(self.carrier.state.borrow().service)).is_ok()
+    }
+    fn poll_send(
+        &self,
+        _cx: &mut std::task::Context,
+        dst: &CustomAddr,
+        _src: Option<&CustomAddr>,
+        transmit: &iroh::endpoint::transports::Transmit<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        Poll::Ready(
+            self.carrier
+                .send(hex::encode(dst.data()), transmit.contents.to_vec())
+                .map_err(|error| {
+                    std::io::Error::other(
+                        error
+                            .as_string()
+                            .unwrap_or_else(|| "MQTT send failed".into()),
+                    )
+                }),
+        )
+    }
+}
+
+impl iroh::endpoint::transports::CustomEndpointShutdown for BrowserMqttTransport {
+    fn close(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + '_>> {
+        self.close();
+        Box::pin(std::future::ready(()))
     }
 }
 

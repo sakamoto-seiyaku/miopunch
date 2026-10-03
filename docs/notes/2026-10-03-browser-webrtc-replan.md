@@ -97,6 +97,8 @@ flowchart LR
 - **关键失败：**同路由换成错误 contact 身份，TLS/预期身份拒绝；另一个同邀请身份不能被当作原申请者，且不能取得原交付结果。公网只用临时测试材料；注入/旁听验证在自有 broker。
 - **证据/通过：**端点身份、ALPN、A stable_id、握手阶段时间/重传/载体总量、restricted 状态、无业务句柄；不记录秘密或 TLS key。整次诊断上限45秒，使用实际 caller 剩余 deadline，不能悄悄覆盖产品超时。失败定位到TLS/路由/报文预算后停止，不继续加 RTC。
 
+2026-10-03 后续授权实施的 MQTT 版本已通过自有正常 TLS/WSS 设施资格，见 [受限 QUIC/TLS 实施回执](2026-10-03-browser-wss-restricted-handshake.md)。这不替代 IRC 变体、成员 M、RTC 或首次材料完成的后续验证。
+
 ### 3. IRC 独立载体资格
 
 - **问题/前提：**新公网私信观察已通过，但真实 channel/MIR1 仍未通过。自有或明确允许用途的实例，正常 WSS/TLS；使用独立随机测试 channel，绝不使用人类频道。

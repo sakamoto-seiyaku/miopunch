@@ -16,6 +16,7 @@ const root = resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const argument = name => process.argv[process.argv.indexOf(name) + 1];
 const evidence = resolve(argument('--evidence'));
 const fixture = resolve(argument('--fixture'));
+const caseName = process.argv.includes('--case') ? argument('--case') : 'mqtt-datagram';
 const [brokerHost, brokerPort] = argument('--broker').split(':');
 const report = { startedUtc: new Date().toISOString(), passed: false, phases: [], normal: [], failures: [],
   native: [], websockets: [], proxy: [], tls: [], cleanup: {}, budgets: { outerSeconds: 60, phaseSeconds: 15 } };
@@ -26,7 +27,7 @@ let browser;
 let page;
 let stopping;
 
-function save() { writeFileSync(join(evidence, 'mqtt-datagram.json'), `${JSON.stringify(report, null, 2)}\n`); }
+function save() { writeFileSync(join(evidence, `${caseName}.json`), `${JSON.stringify(report, null, 2)}\n`); }
 function bounded(promise, label, milliseconds = 15000) {
   let timer;
   return Promise.race([promise, new Promise((_, reject) => {
@@ -78,6 +79,7 @@ function bridge(client, send, mode, label) {
     const kind = packet[0] >> 4;
     entry.packetsFromClient.push({ kind, bytes: packet.length, atMs: Date.now() });
     if (kind === 3) entry.publishCount++;
+    if (kind === 3 && mode === 'drop-publish') return;
     broker.write(packet);
   });
   const incoming = mqttReader((packet, header) => {
@@ -148,10 +150,11 @@ function executable() {
   throw new Error('pinned Chromium unavailable');
 }
 function quote(value) { return `'${value.replaceAll("'", "'\\''")}'`; }
-function nativeFixture(config, name) {
+function nativeFixture(config, name, restricted = false) {
   const configPath = join(fixture, `native-${name}.json`);
   writeFileSync(configPath, JSON.stringify(config));
-  const child = spawn('rtk', ['proxy', join(root, 'target/debug/browser_mqtt_datagram'), configPath, join(fixture, 'ca.pem')], { stdio: ['pipe', 'pipe', 'pipe'] });
+  const child = spawn('rtk', ['proxy', join(root, `target/debug/${restricted ? 'browser_restricted_native' : 'browser_mqtt_datagram'}`), configPath, join(fixture, 'ca.pem'), ...(restricted ? [join(fixture, `node-${name}`)] : [])], { stdio: ['pipe', 'pipe', 'pipe'] });
+  child.restricted = restricted;
   nativeProcesses.add(child);
   const entries = [];
   const pending = [];
@@ -187,12 +190,12 @@ function nativeFixture(config, name) {
   return { child, wait, command(command, event) {
     const request = ++id;
     const result = wait(event, value => value.id === request || event === 'status');
-    child.stdin.write(`${JSON.stringify({ ...command, id: request })}\n`);
+    child.stdin.write(`${restricted ? command.command : JSON.stringify({ ...command, id: request })}\n`);
     return result;
   }, async stop() {
     if (child.exitCode !== null || child.signalCode !== null) return;
     const exited = new Promise(resolveExit => child.once('exit', (code, signal) => resolveExit({ code, signal })));
-    child.stdin.end(`${JSON.stringify({ command: 'stop' })}\n`);
+    child.stdin.end(`${restricted ? 'stop' : JSON.stringify({ command: 'stop' })}\n`);
     assert.equal((await bounded(exited, `native ${name} cleanup`, 3000)).code, 0);
   } };
 }
@@ -210,11 +213,11 @@ function configFor(nativePort, wssPort, mode = 'normal') {
 async function cleanup() {
   if (stopping) return stopping;
   stopping = (async () => {
-    await page?.evaluate(() => { window.carrier?.close(); window.carrier?.free(); }).catch(() => {});
+    await page?.evaluate(async () => { await window.network?.close(); window.network?.free(); window.carrier?.close(); window.carrier?.free(); }).catch(() => {});
     await browser?.close();
     await Promise.all([...nativeProcesses].map(async child => {
       const exited = new Promise(resolveExit => child.once('exit', resolveExit));
-      child.stdin.end(`${JSON.stringify({ command: 'stop' })}\n`);
+      child.stdin.end(`${child.restricted ? 'stop' : JSON.stringify({ command: 'stop' })}\n`);
       try { await bounded(exited, 'native final cleanup', 3000); }
       catch { child.kill('SIGKILL'); await exited; }
     }));
@@ -230,6 +233,132 @@ async function cleanup() {
 }
 process.on('SIGTERM', () => { report.failure = 'external process-group deadline/cancel'; cleanup().finally(() => process.exit(1)); });
 
+async function runRestricted(config) {
+  report.budgets = { outerSeconds: 45, callerSeconds: 12, phaseSeconds: 15 };
+  const native = nativeFixture(config, 'restricted', true);
+  const ready = await native.wait('ready');
+  const configuration = (contact = ready.id, mode = 'normal', disabled = []) => ({
+    relays: [], disabled, mqtt: [configFor(report.nativePort, report.wssPort, mode).facility],
+    contact_routes: [{ contact, facility: config.facility.logical_id, address: ready.route }],
+  });
+  const start = async (target, value) => target.evaluate(async configuration => {
+    window.network = await window.BrowserNetwork.start(JSON.stringify(configuration));
+    return window.network.id();
+  }, value);
+  const closeNetwork = async target => {
+    const diagnostic=await target.evaluate(async()=>{await window.network.close();const report=JSON.parse(window.network.path_diagnostics());window.network.free();window.network=null;return report;});
+    assert(diagnostic.carriers.every(carrier=>carrier.closed&&!carrier.ready&&carrier.route===null&&carrier.queued_packets===0&&carrier.pending_bytes===0));
+    (report.cleanup.browserCarriers??=[]).push(diagnostic);
+  };
+  const normalId = await start(page, configuration());
+  await phase('restricted-authenticated-application', async () => {
+    const admission = native.wait('admission');
+    assert.equal(await page.evaluate(invitation => window.network.request_admission(invitation), ready.invitation), 'AwaitingApproval');
+    const received = await admission;
+    assert.equal(received.remote_id, normalId);
+    assert.equal(received.local_id, ready.id);
+    assert.equal(received.alpn, 'miopunch/admission-request/1');
+    assert.equal(received.restricted, true);
+    assert.equal(received.business_handle, false);
+    assert.match(received.stage, /AwaitingApproval/);
+    const diagnostic = JSON.parse(await page.evaluate(() => window.network.path_diagnostics()));
+    assert.equal(diagnostic.request.remote_id, ready.id);
+    assert.equal(diagnostic.request.restricted, true);
+    assert.equal(diagnostic.request.business_handle, false);
+    assert(diagnostic.request.remaining_caller_ms > 0 && diagnostic.request.remaining_caller_ms < 12000);
+    await assert.rejects(() => page.evaluate(() => window.network.exchange('forbidden business')));
+    report.normal.push({ identity: normalId, native: received, browser: diagnostic, businessRejected: true });
+  });
+  const requestId = await page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => { const open=indexedDB.open('miopunch-browser-network',1);open.onsuccess=()=>resolve(open.result);open.onerror=()=>reject(open.error); });
+    const value=await new Promise(resolve=>{const read=db.transaction('node').objectStore('node').get('state');read.onsuccess=()=>resolve(JSON.parse(read.result).request);});db.close();return value;
+  });
+  await closeNetwork(page);
+  const independent = await browser.browser().newContext();
+  try {
+    const second = await independent.newPage();
+    await second.goto(report.origin);
+    await second.evaluate(async () => {const module=await import('/pkg/miopunch_browser_probe.js');await module.default();window.BrowserNetwork=module.BrowserNetwork;});
+    await start(second, configuration());
+    await second.evaluate(async request => {
+      await window.network.close();window.network.free();window.network=null;
+      const db=await new Promise(resolve=>{const open=indexedDB.open('miopunch-browser-network',1);open.onsuccess=()=>resolve(open.result);});
+      await new Promise((resolve,reject)=>{const transaction=db.transaction('node','readwrite');const store=transaction.objectStore('node');const read=store.get('state');read.onsuccess=()=>{const saved=JSON.parse(read.result);saved.request=request;store.put(JSON.stringify(saved),'state');};transaction.oncomplete=resolve;transaction.onerror=()=>reject(transaction.error);});db.close();
+    },requestId);
+    const secondId = await start(second, configuration());
+    assert.notEqual(secondId,normalId);
+    await phase('same-invitation-independent-applicant', async () => {
+      const admission=native.wait('admission');
+      assert.equal(await second.evaluate(invitation=>window.network.request_admission(invitation),ready.invitation),'AwaitingApproval');
+      const received=await admission;
+      assert.equal(received.remote_id,secondId);assert.equal(received.business_handle,false);
+      const state=await native.command({command:'status'},'status');
+      assert.equal(state.requests.length,2);
+      assert.equal(state.requests[0].request_id,state.requests[1].request_id);
+      assert.deepEqual(new Set(state.requests.map(item=>item.applicant)),new Set([normalId,secondId]));
+      assert(state.requests.every(item=>!item.approved));
+      assert.equal(state.members.length,1);
+      await assert.rejects(()=>second.evaluate(()=>window.network.complete_admission()));
+      report.failures.push({case:'same-request-independent-identity',native:state,secondId,originalIdentity:normalId,originalDeliveryUnavailable:true});
+    });
+    await closeNetwork(second);
+  } finally { await independent.close(); }
+  await phase('wrong-expected-contact-on-same-route', async () => {
+    const wrong = nativeFixture(config,'wrong-contact',true);
+    const wrongReady=await wrong.wait('ready');
+    const wrongContext=await browser.browser().newContext();
+    try {
+      const wrongPage=await wrongContext.newPage();await wrongPage.goto(report.origin);
+      await wrongPage.evaluate(async()=>{const module=await import('/pkg/miopunch_browser_probe.js');await module.default();window.BrowserNetwork=module.BrowserNetwork;});
+      await start(wrongPage,configuration(wrongReady.id));
+      const invitation=ready.invitation.slice(0,128)+wrongReady.invitation.slice(128);
+      const at=Date.now();
+      const rejection=await wrongPage.evaluate(async invitation=>{try{await window.network.request_admission(invitation);return null;}catch(error){return String(error);}},invitation);
+      assert.match(rejection,/cryptographic handshake failed.*invalid peer certificate/);
+      report.failures.push({case:'wrong-expected-contact',expected:wrongReady.id,actual:ready.id,milliseconds:Date.now()-at,rejection,browser:JSON.parse(await wrongPage.evaluate(()=>window.network.path_diagnostics()))});
+      await closeNetwork(wrongPage);
+    }finally{await wrongContext.close();}
+    await wrong.stop();
+  });
+  await phase('disabled-alias-before-connection', async () => {
+    const before=report.websockets.length;
+    for(const disabled of [config.facility.logical_id,config.facility.native_url,config.facility.wss_url]) {
+      await assert.rejects(()=>start(page,configuration(ready.id,'normal',[disabled])));
+    }
+    assert.equal(report.websockets.length,before);
+    report.failures.push({case:'disabled-alias',newWebsockets:0});
+  });
+  // Use another fresh origin context because wrong invitations are durably
+  // selected; tests never erase an identity to hide a failed application.
+  const failureContext=await browser.browser().newContext();
+  try {
+    const failurePage=await failureContext.newPage();await failurePage.goto(report.origin);
+    await failurePage.evaluate(async()=>{const module=await import('/pkg/miopunch_browser_probe.js');await module.default();window.BrowserNetwork=module.BrowserNetwork;});
+    await start(failurePage,configuration(ready.id,'drop-publish'));
+    await phase('caller-deadline-with-real-dropped-quic',async()=>{
+      const at=Date.now();await assert.rejects(()=>failurePage.evaluate(invitation=>window.network.request_admission(invitation),ready.invitation));
+      const elapsed=Date.now()-at;assert(elapsed>=11500&&elapsed<13500);
+      report.failures.push({case:'caller-deadline',milliseconds:elapsed,callerBudgetMs:12000});
+    });
+    await closeNetwork(failurePage);
+    await start(failurePage,configuration(ready.id,'drop-publish'));
+    await phase('explicit-cancellation-with-real-dropped-quic',async()=>{
+      const result=await failurePage.evaluate(async invitation=>{
+        const cancellation=window.network.cancellation_handle();const started=Date.now();
+        const attempt=window.network.request_admission(invitation).then(()=>false,()=>true);
+        await new Promise(resolve=>setTimeout(resolve,100));cancellation.cancel();
+        const rejected=await attempt;cancellation.free();return {rejected,milliseconds:Date.now()-started};
+      },ready.invitation);
+      assert(result.rejected);assert(result.milliseconds<3000);
+      report.failures.push({case:'explicit-cancellation',...result});
+    });
+    await closeNetwork(failurePage);
+  }finally{await failureContext.close();}
+  await native.stop();
+  report.cleanup.carriers=report.native.filter(entry=>entry.event==='closed');
+  assert(report.cleanup.carriers.every(entry=>entry.traffic.protocol.withdraw_ms!==null&&entry.traffic.protocol.unsubscribe_sent&&entry.traffic.protocol.disconnect_sent&&entry.traffic.queued_packets===0));
+}
+
 try {
   await phase('fixture-and-browser-start', async () => {
     const tlsOptions = { key: readFileSync(join(fixture, 'leaf.key')), cert: readFileSync(join(fixture, 'leaf.pem')) };
@@ -244,7 +373,7 @@ try {
     wss.on('upgrade', (request, socket, head) => {
       track(socket);
       const mode = request.url.split('/').at(-1);
-      if (!['normal', 'reject-suback', 'unmatched-suback', 'cut-before-suback'].includes(mode)
+      if (!['normal', 'reject-suback', 'unmatched-suback', 'cut-before-suback', 'drop-publish'].includes(mode)
           || request.headers['sec-websocket-protocol'] !== 'mqtt') return socket.destroy();
       const accept = createHash('sha1').update(request.headers['sec-websocket-key'] + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
       socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\nSec-WebSocket-Protocol: mqtt\r\n\r\n`);
@@ -299,10 +428,14 @@ try {
       const module = await import('/pkg/miopunch_browser_probe.js');
       await module.default();
       window.BrowserMqttDatagram = module.BrowserMqttDatagram;
+      window.BrowserNetwork = module.BrowserNetwork;
     });
   });
   const config = configFor(report.nativePort, report.wssPort);
   report.facility = config.facility;
+  if (caseName === 'wss-restricted-handshake') {
+    await runRestricted(config);
+  } else {
   let native;
   let nativeRoute;
   let browserRoute;
@@ -429,10 +562,11 @@ try {
     report.cleanup.carriers = { browser: closed, native: finalNative, closeAt };
   });
   assert.equal(report.normal.length, 4);
+  }
   assert(report.websockets.every(socket => socket.status === 101 && socket.protocol === 'mqtt'));
   assert(report.tls.every(entry => entry.protocol === 'TLSv1.3' || entry.protocol === 'TLSv1.2'));
   report.passed = true;
-  console.log(`PASS ${JSON.stringify({ normal: report.normal, failures: report.failures.map(entry => entry.case) })}`);
+  console.log(`PASS ${JSON.stringify({ normal: report.normal.map(entry=>({direction:entry.direction,bytes:entry.bytes,identity:entry.identity})), failures: report.failures.map(entry => entry.case) })}`);
 } catch (error) {
   report.failure = error.stack;
   console.error(error.stack);
