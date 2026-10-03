@@ -24,6 +24,11 @@
       "command": "rtk cargo test --locked --offline --features rtc-probe --test rtc_association --target-dir /tmp/miopunch-rtc-s4-target --jobs 2",
       "result": "3 passed, 1 suite, 0.00s",
       "exit": 0
+    },
+    {
+      "command": "rtk cargo test --locked --offline --workspace --lib --features rtc-probe --target-dir /tmp/miopunch-rtc-s4-target --jobs 2 -- --test-threads=1",
+      "result": "Final post-review: 123 passed, 1 ignored, 4 suites, 38.96s",
+      "exit": 0
     }
   ]
 }
