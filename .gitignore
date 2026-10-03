@@ -2,4 +2,5 @@
 /target/
 /browser-probe/pkg/
 /browser-probe/harness/node_modules/
+/scripts/__pycache__/
 /archive/legacy-go-openspec-2026-09-28/packaging/linux/deb/out/

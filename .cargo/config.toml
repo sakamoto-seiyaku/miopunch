@@ -1,0 +1,9 @@
+# Shared defaults for routine builds. Keep backtrace locations without full DWARF.
+[profile.dev]
+debug = "line-tables-only"
+incremental = true
+
+# Keep cargo build/test on the same debug and incremental settings.
+[profile.test]
+debug = "line-tables-only"
+incremental = true

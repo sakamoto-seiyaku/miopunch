@@ -1,0 +1,90 @@
+{
+  "startedUtc": "2026-10-03T08:48:36.312Z",
+  "normalCertificateValidation": true,
+  "checks": [
+    {
+      "name": "EMQX",
+      "url": "wss://broker.emqx.io:8084/mqtt",
+      "startedUtc": "2026-10-03T08:48:36.813Z",
+      "stages": [
+        {
+          "stage": "browser-WSS-MQTT-subscribe-publish-echo",
+          "ok": true,
+          "connack": [
+            0,
+            0
+          ],
+          "suback": [
+            0,
+            1,
+            0
+          ],
+          "payloadBytes": 56,
+          "protocol": "mqtt"
+        },
+        {
+          "stage": "browser-WSS-native-TCP-bidirectional",
+          "ok": true,
+          "nativePort": 1883,
+          "nativeTls": false,
+          "nativeToBrowserBytes": 54,
+          "browserToNativeBytes": 54
+        }
+      ],
+      "browserErrors": [],
+      "websocketHandshakeStatus": 101,
+      "websocketProtocol": "mqtt",
+      "finishedUtc": "2026-10-03T08:48:39.987Z"
+    },
+    {
+      "name": "HiveMQ",
+      "url": "wss://broker.hivemq.com:8884/mqtt",
+      "startedUtc": "2026-10-03T08:48:36.813Z",
+      "stages": [
+        {
+          "stage": "browser-WSS-MQTT-subscribe-publish-echo",
+          "ok": true,
+          "connack": [
+            0,
+            0
+          ],
+          "suback": [
+            0,
+            1,
+            0
+          ],
+          "payloadBytes": 56,
+          "protocol": "mqtt"
+        },
+        {
+          "stage": "browser-WSS-native-TCP-bidirectional",
+          "ok": true,
+          "nativePort": 1883,
+          "nativeTls": false,
+          "nativeToBrowserBytes": 54,
+          "browserToNativeBytes": 54
+        }
+      ],
+      "browserErrors": [],
+      "websocketHandshakeStatus": 101,
+      "websocketProtocol": "mqtt",
+      "finishedUtc": "2026-10-03T08:48:41.117Z"
+    },
+    {
+      "name": "Mosquitto",
+      "url": "wss://test.mosquitto.org:8081/mqtt",
+      "startedUtc": "2026-10-03T08:48:36.814Z",
+      "stages": [
+        {
+          "stage": "browser-WSS-MQTT-subscribe-publish-echo",
+          "ok": false,
+          "error": "Error: page.evaluate: Error: browser WSS open timeout\n    at eval (eval at evaluate (:311:30), <anonymous>:18:80)"
+        }
+      ],
+      "browserErrors": [],
+      "finishedUtc": "2026-10-03T08:48:49.095Z"
+    }
+  ],
+  "browserVersion": "153.0.8010.12",
+  "finishedUtc": "2026-10-03T08:48:49.190Z"
+}

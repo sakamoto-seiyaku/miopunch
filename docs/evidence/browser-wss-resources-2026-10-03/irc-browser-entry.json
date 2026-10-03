@@ -1,0 +1,19 @@
+{
+  "startedUtc": "2026-10-03T08:52:32.211Z",
+  "url": "wss://testnet.ergo.chat/webirc",
+  "normalCertificateValidation": true,
+  "scope": "WebSocket handshake and IRC registration only; no channels joined and no PRIVMSG sent",
+  "browserVersion": "153.0.8010.12",
+  "browserErrors": [],
+  "handshakeStatus": 101,
+  "handshakeProtocol": "text.ircv3.net",
+  "registration": {
+    "opened": true,
+    "registered": true,
+    "numericCodes": [
+      "001"
+    ],
+    "protocol": "text.ircv3.net"
+  },
+  "finishedUtc": "2026-10-03T08:52:35.343Z"
+}

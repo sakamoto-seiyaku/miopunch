@@ -1,0 +1,59 @@
+{
+  "checkedUtc": "2026-10-03T12:24:15.500564+00:00",
+  "scope": "Read-only source identities, not RTC test results",
+  "files": {
+    "src/irc_transport.rs": "3d3c1bf803c4fb1dc0d9bbe6288501736c89cde5338b4dfb4f6b2a329ded3425",
+    "src/mqtt_transport.rs": "9ad75479998a5ef6cb0dad122c2e4cc90cacec2bf445388cc1312c3203aa205f",
+    "src/message_bootstrap.rs": "d944213c99352febfc2d35df4d96e5204931b390f640648d7e48db49ff0190d2",
+    "src/admission_gate.rs": "ee3843a8d5a3508bbba31026bc0bc9e3d125221690c6ed505d8ab01e24811cd8",
+    "src/control_session.rs": "d78789557b6bafe34a7257ccf9e923ad91221a8e1d94317ad717e51fe0e7da3a",
+    "src/resources.rs": "f5a0dc327752b0a62300164247a1c2b533659b769e7b15e5e9178ed8b19d8c28",
+    "src/connection_recovery.rs": "c90802cac93b6e66d461ee90a19a254b553a47a588f84cd63f040824d59b8bca",
+    "src/member_bootstrap.rs": "fd8411c3fb26bb78f39591f5f46a4d3bd9fde1e0f49630516b556ed9a2b1ead6",
+    "browser-probe/src/network.rs": "bed96b66526e4ad7e0799229b0a96126376b3a85013f778271f74d407f5e0421",
+    "vendor/iroh/src/endpoint/connection.rs": "8362fdf591ec6d79b9936624433c1596fad32071d6a786419ec3af9a2ce48b8e",
+    "vendor/iroh/src/socket/remote_map/remote_state.rs": "377bbd1188840f9ad2b354d7d7cd148d2026f1741ef0efe3531a0990c46f2be3",
+    "vendor/iroh/src/socket/transports/custom.rs": "729feba78247be538ae767aac89ca2b2dd51939cbdbdb1eac0bbd7aba64be0d3"
+  },
+  "releases": [
+    {
+      "crate": "webrtc",
+      "version": "0.21.0",
+      "archiveUrl": "https://static.crates.io/crates/webrtc/webrtc-0.21.0.crate",
+      "archiveSha256": "b3cc7db94f14a20c9401202f7300f38071dcac4446177b40e12dc2df34b2256b",
+      "vcs": {
+        "git": {
+          "sha1": "4be2e3d6f99787ac438d28f9f704d343b1aa1498"
+        },
+        "path_in_vcs": ""
+      },
+      "built": false
+    },
+    {
+      "crate": "str0m",
+      "version": "0.24.0",
+      "archiveUrl": "https://static.crates.io/crates/str0m/str0m-0.24.0.crate",
+      "archiveSha256": "018e4267976f45bf568c146b559bbabd2e823a9dc8c10b5b86e83118b597b89c",
+      "vcs": {
+        "git": {
+          "sha1": "95e5038c6f45de6646d8e3f4c2bca6207a5bedde"
+        },
+        "path_in_vcs": ""
+      },
+      "built": false
+    },
+    {
+      "crate": "iroh-webrtc-transport",
+      "version": "0.1.0-alpha.2",
+      "archiveUrl": "https://static.crates.io/crates/iroh-webrtc-transport/iroh-webrtc-transport-0.1.0-alpha.2.crate",
+      "archiveSha256": "acdc23ee2c0c67cdff4d5a1544eb472c96460c0948ca436dcb41b9cadc973aac",
+      "vcs": {
+        "git": {
+          "sha1": "fdb511da1650600dba5b97e04880b1b9aa2738a6"
+        },
+        "path_in_vcs": "crates/iroh-webrtc-transport"
+      },
+      "built": false
+    }
+  ]
+}

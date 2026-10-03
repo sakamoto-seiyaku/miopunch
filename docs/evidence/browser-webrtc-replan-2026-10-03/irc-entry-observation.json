@@ -1,0 +1,65 @@
+{
+  "startedUtc": "2026-10-03T12:20:37.470Z",
+  "service": "testnet.ergo.chat",
+  "normalCertificateValidation": true,
+  "scope": "Two owned nicks; two small PRIVMSG; one synthetic 1200-byte MIR1-shaped fragment series; no channels, secrets, QUIC or RTC",
+  "native": {
+    "authorized": true,
+    "protocol": "TLSv1.3",
+    "peerCertificate": {
+      "subject": {
+        "CN": "testnet.ergo.chat"
+      },
+      "validTo": "Dec  3 11:44:37 2026 GMT"
+    },
+    "numericCodes": [
+      "001",
+      "002",
+      "003",
+      "004",
+      "005",
+      "251",
+      "252",
+      "253",
+      "254",
+      "255",
+      "265",
+      "266",
+      "375",
+      "372",
+      "376",
+      "221"
+    ],
+    "isupport": [
+      ":testnet.ergo.chat 005 <owned-nick> AWAYLEN=390 BOT=B CASEMAPPING=ascii CHANLIMIT=#:100 CHANMODES=Ibe,k,fl,CEMRUimnstu CHANNELLEN=64 CHANTYPES=# CHATHISTORY=1000 ELIST=U EXCEPTS EXTBAN=,m EXTJWT=1 FORWARD=f :are supported by this server",
+      ":testnet.ergo.chat 005 <owned-nick> INVEX KICKLEN=390 MAXLIST=beI:60 MAXTARGETS=4 MODES MONITOR=100 MSGREFTYPES=msgid,timestamp NETWORK=ErgoTestnet NICKLEN=32 PREFIX=(qaohv)~&@%+ RPCHAN=E RPUSER=E SAFELIST :are supported by this server",
+      ":testnet.ergo.chat 005 <owned-nick> SAFERATE STATUSMSG=~&@%+ TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100 TOPICLEN=390 UTF8ONLY VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0 WHOX draft/CHATHISTORY=1000 draft/ICON=https://testnet.ergo.chat/favicon.ico :are supported by this server"
+    ]
+  },
+  "browser": {
+    "version": "153.0.8010.12",
+    "handshakeStatus": 101,
+    "protocol": "text.ircv3.net",
+    "errors": []
+  },
+  "observations": [
+    {
+      "stage": "WSS-to-native-TLS-small-PRIVMSG-bidirectional",
+      "ok": true
+    },
+    {
+      "stage": "synthetic-MIR1-shaped-series",
+      "ok": true,
+      "datagramBytes": 1200,
+      "fragments": 10,
+      "sendSpacingMs": 600,
+      "firstToLastArrivalMs": 5023,
+      "maxReceivedLineBytes": 411,
+      "matches": true,
+      "currentThreeSecondReassemblyWouldExpire": true
+    }
+  ],
+  "ok": true,
+  "finishedUtc": "2026-10-03T12:20:55.524Z",
+  "cleanup": "Owned TLS socket destroyed and browser closed; no accounts or channels created"
+}
