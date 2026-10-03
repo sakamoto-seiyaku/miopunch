@@ -135,6 +135,8 @@ flowchart LR
 - **关键失败：**旧端无RTC能力且没有共同获准data path，明确不可达；两端不得互等connect返回或把MQTT当data fallback。
 - **证据/通过：**hook阶段、协议版本/角色、M绑定、资格世代、最终custom allowlist、放行时刻、signal/data字节；45秒诊断上限/实际剩余预算。失败清理attempt，不清除已保存成员材料。IRC版本独立重复此步，不能复用MQTT结果冒称通过。
 
+2026-10-04 后续授权实施的 MQTT 版本已通过自有正常 TLS/WSS 的已保存成员原 M 放行前 RTC 转换，见 [第 6 步实施与兼容回执](2026-10-04-browser-wss-member-rtc.md)。有限 ALPN/能力角色、原 caller 时钟、精确 Control route seal 和获准旧 relay 兼容选择在该说明中明确记录；IRC 版本仍停在其受限握手未资格化分支，第 7–11 步不因此自动完成。
+
 ### 7. 断 RTC 数据，保留信令入口
 
 - **问题/前提：**第6步通过。

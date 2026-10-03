@@ -522,9 +522,15 @@ impl NativeNetwork {
     /// gate last, so carrier configuration cannot substitute either boundary.
     pub async fn bind_endpoint_with(&self, builder: Builder) -> Result<Endpoint, NodeError> {
         let resources = self.resource_configuration()?;
-        self.bind_endpoint_with_resources(builder, &resources, false)
-            .await
-            .map(|(endpoint, _, _)| endpoint)
+        self.bind_endpoint_with_resources(
+            builder,
+            &resources,
+            false,
+            #[cfg(feature = "rtc-probe")]
+            None,
+        )
+        .await
+        .map(|(endpoint, _, _)| endpoint)
     }
 
     async fn bind_endpoint_with_resources(
@@ -532,6 +538,7 @@ impl NativeNetwork {
         builder: Builder,
         resources: &crate::resources::ResourceConfig,
         configured_startup: bool,
+        #[cfg(feature = "rtc-probe")] rtc: Option<crate::rtc_transport::RtcTransport>,
     ) -> Result<
         (
             Endpoint,
@@ -540,6 +547,12 @@ impl NativeNetwork {
         ),
         NodeError,
     > {
+        #[cfg(feature = "rtc-probe")]
+        let builder = if let Some(rtc) = &rtc {
+            builder.add_custom_transport(Arc::new(rtc.clone()))
+        } else {
+            builder
+        };
         let (mut builder, tcp) = resources.configure_with_tcp(builder)?;
         if !resources.member_data_relay_disabled
             && !resources
@@ -577,27 +590,31 @@ impl NativeNetwork {
         };
         let builder = if configured_startup {
             let observers = resources.relay_map(crate::resources::ResourceUse::Observation)?;
-            self.gate.with_message_bootstrap().configure(builder).hooks(
-                crate::message_bootstrap::MemberPathBootstrap::new(
-                    self.gate.clone(),
-                    Arc::new(self.udp.for_endpoint(
-                        (!observers.is_empty()).then_some(observers),
-                        resources.udp_stun_resources(),
-                        !resources.udp_direct_disabled,
-                    )),
-                    tcp.clone()
-                        .filter(|_| !resources.tcp_stun_resources().is_empty())
-                        .filter(|transport| transport.supports_punching())
-                        .map(|transport| {
-                            crate::tcp_punch::TcpPunch::new(
-                                transport,
-                                resources.tcp_stun_resources(),
-                                resources.clone(),
-                            )
-                        }),
-                    resources.clone(),
-                ),
-            )
+            let bootstrap = crate::message_bootstrap::MemberPathBootstrap::new(
+                self.gate.clone(),
+                Arc::new(self.udp.for_endpoint(
+                    (!observers.is_empty()).then_some(observers),
+                    resources.udp_stun_resources(),
+                    !resources.udp_direct_disabled,
+                )),
+                tcp.clone()
+                    .filter(|_| !resources.tcp_stun_resources().is_empty())
+                    .filter(|transport| transport.supports_punching())
+                    .map(|transport| {
+                        crate::tcp_punch::TcpPunch::new(
+                            transport,
+                            resources.tcp_stun_resources(),
+                            resources.clone(),
+                        )
+                    }),
+                resources.clone(),
+            );
+            #[cfg(feature = "rtc-probe")]
+            let bootstrap = bootstrap.with_rtc(rtc);
+            self.gate
+                .with_message_bootstrap()
+                .configure(builder)
+                .hooks(bootstrap)
         } else {
             self.gate.configure(builder)
         };
@@ -708,6 +725,31 @@ impl NativeNetwork {
         &self,
         builder: Builder,
     ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
+        self.bind_configured_endpoint_with_options(
+            builder,
+            #[cfg(feature = "rtc-probe")]
+            None,
+        )
+        .await
+    }
+
+    /// Experimental installed RTC adapter; the saved resource assembly and
+    /// original admission gate still own all member connection decisions.
+    #[cfg(feature = "rtc-probe")]
+    pub async fn bind_configured_endpoint_with_rtc(
+        &self,
+        builder: Builder,
+        rtc: crate::rtc_transport::RtcTransport,
+    ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
+        self.bind_configured_endpoint_with_options(builder, Some(rtc))
+            .await
+    }
+
+    async fn bind_configured_endpoint_with_options(
+        &self,
+        builder: Builder,
+        #[cfg(feature = "rtc-probe")] rtc: Option<crate::rtc_transport::RtcTransport>,
+    ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
         let config = self.resource_configuration()?;
         let (endpoint, tcp, mqtt) = self
             .bind_endpoint_with_resources(
@@ -721,6 +763,8 @@ impl NativeNetwork {
                     ),
                 &config,
                 true,
+                #[cfg(feature = "rtc-probe")]
+                rtc,
             )
             .await?;
         let mut resources = crate::resources::ResourceEndpoint::new(endpoint, config)

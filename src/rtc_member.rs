@@ -68,6 +68,7 @@ pub async fn serve_stream(
             request,
             &mut send,
             &mut recv,
+            false,
         )
         .await
         {
@@ -257,13 +258,17 @@ async fn upgrade(
     request: Value,
     send: &mut SendStream,
     recv: &mut RecvStream,
+    control: bool,
 ) -> Result<()> {
     let remaining_ms = request["remainingMs"]
         .as_u64()
         .filter(|value| *value > 0 && *value <= 12000)
         .ok_or("RTC caller remainder invalid")?;
+    let remote_deadline = n0_future::time::Instant::now() + Duration::from_millis(remaining_ms);
     let budget = RtcDeadline::from_caller(
-        n0_future::time::Instant::now() + Duration::from_millis(remaining_ms),
+        connection
+            .caller_deadline()
+            .map_or(remote_deadline, |local| local.min(remote_deadline)),
     );
     let qualification = gate
         .path_qualification(connection)
@@ -314,6 +319,14 @@ async fn upgrade(
     let pc = tokio::select! { biased;
         _ = connection.closed() => return Err("RTC original M closed during construction".into()),
         result = tokio::time::timeout(budget.remaining()?, rtc_probe::peer(gathered, events.clone())) => result??,
+    };
+    // Dropping a hook future must retire its exact route and close the PC,
+    // even when it never reaches the explicit result/cleanup tail.
+    let mut cancellation_cleanup = CancelRtc {
+        io: lease.io(),
+        live: attempt_live.clone(),
+        pc: Some(pc.clone()),
+        pump: None,
     };
     let drop_quic = Arc::new(AtomicBool::new(false));
     let pump_stats = Arc::new(PumpStats::default());
@@ -406,6 +419,9 @@ async fn upgrade(
             );
             result
         }));
+        cancellation_cleanup.pump = owned_pump
+            .as_ref()
+            .map(tokio::task::JoinHandle::abort_handle);
         write_frame(
             send,
             &json!({"kind":"channel-open","atMs":budget.elapsed_ms()}),
@@ -479,15 +495,23 @@ async fn upgrade(
         // Keep the already Available relay for this bilateral confirmation.
         write_frame(send, &json!({"kind":"retained","pathId":probe.path_id()})).await?;
         phase(recv, "ready", budget).await?;
-        endpoint
-            .retain_data_transport_path(connection, lease.remote_addr()?)
-            .await?;
-        write_frame(send, &json!({"kind":"selected","pathId":probe.path_id()})).await?;
-        phase(recv, "disable-relay", budget).await?;
-        for path in connection.paths().iter().filter(|path| path.is_relay()) {
-            path.close()?;
+        if control {
+            endpoint
+                .retain_control_data_transport_path(connection, lease.remote_addr()?)
+                .await?;
+        } else {
+            endpoint
+                .retain_data_transport_path(connection, lease.remote_addr()?)
+                .await?;
         }
-        write_frame(send, &json!({"kind":"relay-disabled"})).await?;
+        write_frame(send, &json!({"kind":"selected","pathId":probe.path_id()})).await?;
+        if !control {
+            phase(recv, "disable-relay", budget).await?;
+            for path in connection.paths().iter().filter(|path| path.is_relay()) {
+                path.close()?;
+            }
+            write_frame(send, &json!({"kind":"relay-disabled"})).await?;
+        }
         phase(recv, "finish", budget).await?;
         let pair = sctp
             .transport()
@@ -518,6 +542,39 @@ async fn upgrade(
     let mut pump_joined = false;
     if let Ok(report) = &outcome {
         println!("{}", json!({"event":"rtc-path","report":report}));
+        if control {
+            // This holder owns only the association, exact lease and pump.
+            // It cannot retain Endpoint, a strong M, or private hook streams.
+            let original = connection.weak_handle();
+            let stable = stable_before;
+            let mut task = owned_pump.take();
+            cancellation_cleanup.pc = None;
+            cancellation_cleanup.pump = None;
+            drop(cancellation_cleanup);
+            tokio::spawn(async move {
+                let _fault_sender = pump_fault;
+                if let Some(pump) = task.as_mut() {
+                    tokio::select! { _ = original.closed() => {}, _ = pump => {} }
+                }
+                attempt_live.store(false, Ordering::Release);
+                lease.close();
+                if let Some(pump) = task {
+                    if !pump.is_finished() {
+                        pump.abort();
+                        let _ = pump.await;
+                    }
+                }
+                let closed = pc.close().await.is_ok();
+                drop(pc);
+                tokio::task::yield_now().await;
+                println!(
+                    "{}",
+                    json!({"event":"rtc-path-cleanup","stableId":stable,"switched":true,
+                    "cleanup":{"pcClosed":closed,"ownedPumpTasks":lease.report().owned_pump_tasks,"txBytes":lease.report().tx_bytes,"rxBytes":lease.report().rx_bytes}})
+                );
+            });
+            return Ok(());
+        }
         // The association persists beyond the upgrade result, owned by original M.
         if let Some(task) = owned_pump.as_mut() {
             tokio::select! { _ = connection.closed() => {}, _ = task => { pump_joined = true; } }
@@ -532,6 +589,8 @@ async fn upgrade(
         }
     }
     let closed = pc.close().await.is_ok();
+    cancellation_cleanup.pc = None;
+    cancellation_cleanup.pump = None;
     drop(pc);
     tokio::task::yield_now().await;
     let cleanup = json!({"pcClosed":closed,"txBytes":lease.report().tx_bytes,"rxBytes":lease.report().rx_bytes,"ownedPumpTasks":lease.report().owned_pump_tasks,"activePumpTasks":transport.active_pumps(),"socketBefore":socket_before,"socketAfter":rtc_probe::sockets(),"activeAssociations":transport.active_associations(),"dataChannel":pump_stats.report()});
@@ -542,6 +601,49 @@ async fn upgrade(
     if let Err(error) = outcome {
         let _ = write_frame(send, &json!({"kind":"failed","switched":false,"freshAck":false,"failure":error.to_string(),"cleanup":cleanup})).await;
         let _ = send.finish();
+        if control {
+            return Err(error);
+        }
     }
     Ok(())
+}
+
+struct CancelRtc {
+    io: RtcDatagramIo,
+    live: Arc<AtomicBool>,
+    pc: Option<Arc<dyn PeerConnection>>,
+    pump: Option<tokio::task::AbortHandle>,
+}
+impl Drop for CancelRtc {
+    fn drop(&mut self) {
+        // A successful handoff empties pc; the weak lifetime holder now owns
+        // retirement. Normal cleanup already retired the route before emptying it.
+        if let Some(pc) = self.pc.take() {
+            self.live.store(false, Ordering::Release);
+            self.io.retire();
+            if let Some(pump) = self.pump.take() {
+                pump.abort();
+            }
+            tokio::spawn(async move {
+                let _ = pc.close().await;
+            });
+        }
+    }
+}
+
+/// Answer on the original restricted M, then return before ordinary release.
+/// Same shared profile, SDP, pump, fresh probe and bilateral selection as S5.
+pub(crate) async fn bootstrap_control(
+    endpoint: &Endpoint,
+    connection: &Connection,
+    gate: &AdmissionGate,
+    transport: &RtcTransport,
+) -> std::io::Result<()> {
+    let (mut send, mut recv) = connection.accept_bi().await?;
+    let request = read_frame(&mut recv).await.map_err(std::io::Error::other)?;
+    upgrade(
+        endpoint, connection, gate, transport, request, &mut send, &mut recv, true,
+    )
+    .await
+    .map_err(std::io::Error::other)
 }

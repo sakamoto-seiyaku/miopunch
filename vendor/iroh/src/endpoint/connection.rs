@@ -29,7 +29,7 @@ use ed25519_dalek::{VerifyingKey, pkcs8::DecodePublicKey};
 use futures_util::{FutureExt, future::Shared};
 use iroh_base::{EndpointId, RelayUrl};
 use n0_error::{e, stack_error};
-use n0_future::{TryFutureExt, future::Boxed as BoxFuture, time::Duration};
+use n0_future::{TryFutureExt, future::Boxed as BoxFuture, time::{Duration, Instant}};
 use noq::WeakConnectionHandle as NoqWeakConnectionHandle;
 use pin_project::pin_project;
 use tracing::{error, event, warn};
@@ -114,6 +114,7 @@ impl Future for Accept<'_> {
                 let incoming = Incoming {
                     inner,
                     ep: this.ep.clone(),
+                    attempt: AttemptOptions::default(),
                 };
                 event!(
                     target: "iroh::_events::conn::incoming",
@@ -126,15 +127,30 @@ impl Future for Accept<'_> {
     }
 }
 
+/// Local caller metadata shared by the original attempt and its hooks.
+#[derive(Debug, Clone, Default)]
+pub(super) struct AttemptOptions {
+    pub(super) caller_deadline: Option<Instant>,
+    pub(super) cancellation: Option<tokio_util::sync::CancellationToken>,
+}
+
 /// An incoming connection for which the server has not yet begun its parts of the
 /// handshake.
 #[derive(Debug)]
 pub struct Incoming {
     inner: noq::Incoming,
     ep: Endpoint,
+    attempt: AttemptOptions,
 }
 
 impl Incoming {
+    /// Propagate this local caller's existing absolute deadline to the hooks.
+    /// No deadline is supplied by default for incoming connections.
+    pub fn with_caller_deadline(mut self, deadline: Instant) -> Self {
+        self.attempt.caller_deadline = Some(deadline);
+        self
+    }
+
     /// Attempts to accept this incoming connection (an error may still occur).
     ///
     /// Errors occurring here are likely not caused by the application or remote.  The QUIC
@@ -147,7 +163,7 @@ impl Incoming {
     pub fn accept(self) -> Result<Accepting, ConnectionError> {
         self.inner
             .accept()
-            .map(|conn| Accepting::new(conn, self.ep))
+            .map(|conn| Accepting::new(conn, self.ep, self.attempt))
     }
 
     /// Accepts this incoming connection using a custom configuration.
@@ -167,7 +183,7 @@ impl Incoming {
     ) -> Result<Accepting, ConnectionError> {
         self.inner
             .accept_with(server_config.to_inner_arc())
-            .map(|conn| Accepting::new(conn, self.ep))
+            .map(|conn| Accepting::new(conn, self.ep, self.attempt))
     }
 
     /// Rejects this incoming connection attempt.
@@ -184,7 +200,7 @@ impl Incoming {
     pub fn retry(self) -> Result<(), RetryError> {
         self.inner
             .retry()
-            .map_err(|err| e!(RetryError { err, ep: self.ep }))
+            .map_err(|err| e!(RetryError { err, ep: self.ep, attempt: self.attempt }))
     }
 
     /// Ignores this incoming connection attempt, not sending any packet in response.
@@ -235,7 +251,7 @@ impl IntoFuture for Incoming {
     fn into_future(self) -> Self::IntoFuture {
         IncomingFuture(Box::pin(async move {
             let noq_conn = self.inner.into_future().await?;
-            let conn = conn_from_noq_conn(noq_conn, &self.ep)?.await?;
+            let conn = conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?.await?;
             Ok(conn)
         }))
     }
@@ -247,6 +263,7 @@ impl IntoFuture for Incoming {
 pub struct RetryError {
     err: noq::RetryError,
     ep: Endpoint,
+    attempt: AttemptOptions,
 }
 
 impl RetryError {
@@ -255,6 +272,7 @@ impl RetryError {
         Incoming {
             inner: self.err.into_incoming(),
             ep: self.ep,
+            attempt: self.attempt,
         }
     }
 }
@@ -303,6 +321,20 @@ pub enum AuthenticationError {
     NoAlpn {},
 }
 
+/// A dropped protected registration future closes its one original M even
+/// when a private stream is still owned elsewhere. Success disarms it.
+struct PendingAdmission(Option<NoqWeakConnectionHandle>);
+impl PendingAdmission {
+    fn disarm(&mut self) { self.0.take(); }
+}
+impl Drop for PendingAdmission {
+    fn drop(&mut self) {
+        if let Some(connection) = self.0.take().and_then(|weak| weak.upgrade()) {
+            connection.close(0u32.into(), b"member attempt cancelled before release");
+        }
+    }
+}
+
 /// Converts a `noq::Connection` to a `Connection`.
 ///
 /// Returns an error if there was a connection error, the handshake data has not completed
@@ -316,6 +348,7 @@ pub enum AuthenticationError {
 fn conn_from_noq_conn(
     conn: noq::Connection,
     ep: &Endpoint,
+    attempt: AttemptOptions,
 ) -> Result<
     impl Future<Output = Result<Connection, ConnectingError>> + Send + 'static,
     ConnectingError,
@@ -357,10 +390,13 @@ fn conn_from_noq_conn(
     // Check hooks
     let inner = ep.inner.clone();
     let endpoint = ep.clone();
+    let mut pending = PendingAdmission(Some(conn.weak_handle()));
     Ok(async move {
+        let cancellation = attempt.cancellation.clone();
+        let work = async move {
         let paths = fut.await?;
         let conn = Connection {
-            data: HandshakeCompletedData { info, paths },
+            data: HandshakeCompletedData { info, paths, attempt },
             inner: conn,
         };
 
@@ -392,7 +428,7 @@ fn conn_from_noq_conn(
         {
             tracing::debug!(%error, "protected data path bootstrap failed");
             conn.close(0u32.into(), b"data path bootstrap failed");
-            return Err(e!(ConnectingError::LocallyRejected));
+            return Err(e!(ConnectingError::DataPathUnavailable { reason: error.to_string() }));
         }
         if inner.static_config.admission_gated
             && !control_only
@@ -407,6 +443,15 @@ fn conn_from_noq_conn(
         }
 
         Ok(conn)
+        };
+        let result = if let Some(cancellation) = cancellation {
+            tokio::select! { biased;
+                _ = cancellation.cancelled() => Err(e!(ConnectingError::AttemptCancelled)),
+                result = work => result,
+            }
+        } else { work.await };
+        if result.is_ok() { pending.disarm(); }
+        result
     })
 }
 
@@ -471,7 +516,7 @@ pub struct Connecting {
     ep: Endpoint,
     /// `Some(remote_id)` if this is an outgoing connection, `None` if this is an incoming conn
     remote_endpoint_id: EndpointId,
-}
+    attempt: AttemptOptions,}
 
 type RegisterWithSocketFut = BoxFuture<Result<Connection, ConnectingError>>;
 
@@ -479,6 +524,7 @@ type RegisterWithSocketFut = BoxFuture<Result<Connection, ConnectingError>>;
 #[derive(derive_more::Debug)]
 pub struct Accepting {
     inner: noq::Connecting,
+    attempt: AttemptOptions,
     /// Future to register the connection with the socket.
     ///
     /// This is set and polled after `inner` completes. We are using an option instead of an enum
@@ -523,18 +569,25 @@ pub enum ConnectingError {
     },
     #[error("Connection was rejected locally")]
     LocallyRejected,
+    /// Membership succeeded, but the protected data path hook refused release.
+    #[error("temporarily unreachable: protected member data path unavailable ({reason})")]
+    DataPathUnavailable { reason: String },
+    #[error("Original connection attempt cancelled")]
+    AttemptCancelled,
 }
 
 impl Connecting {
-    pub(crate) fn new(
+    pub(super) fn new(
         inner: noq::Connecting,
         ep: Endpoint,
         remote_endpoint_id: EndpointId,
+        attempt: AttemptOptions,
     ) -> Self {
         Self {
             inner,
             ep,
             remote_endpoint_id,
+            attempt,
             register_with_socket: None,
         }
     }
@@ -587,7 +640,7 @@ impl Connecting {
                     let noq_conn = noq_conn.clone();
                     async move {
                         let accepted = zrtt_accepted.await;
-                        let conn = conn_from_noq_conn(noq_conn, &self.ep)?.await?;
+                        let conn = conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?.await?;
                         Ok(match accepted {
                             true => ZeroRttStatus::Accepted(conn),
                             false => ZeroRttStatus::Rejected(conn),
@@ -629,7 +682,7 @@ impl Future for Connecting {
                 return fut.poll_unpin(cx).map_err(Into::into);
             } else {
                 let noq_conn = std::task::ready!(self.inner.poll_unpin(cx)?);
-                let fut = conn_from_noq_conn(noq_conn, &self.ep)?;
+                let fut = conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?;
                 self.register_with_socket = Some(Box::pin(fut.err_into()));
             }
         }
@@ -637,10 +690,11 @@ impl Future for Connecting {
 }
 
 impl Accepting {
-    pub(crate) fn new(inner: noq::Connecting, ep: Endpoint) -> Self {
+    pub(super) fn new(inner: noq::Connecting, ep: Endpoint, attempt: AttemptOptions) -> Self {
         Self {
             inner,
             ep,
+            attempt,
             register_with_socket: None,
         }
     }
@@ -687,7 +741,7 @@ impl Accepting {
             let noq_conn = noq_conn.clone();
             async move {
                 let _ = zrtt_accepted.await;
-                let conn = conn_from_noq_conn(noq_conn, &self.ep)?.await?;
+                let conn = conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?.await?;
                 Ok(conn)
             }
         });
@@ -731,7 +785,7 @@ impl Future for Accepting {
                 return fut.poll_unpin(cx).map_err(Into::into);
             } else {
                 let noq_conn = std::task::ready!(self.inner.poll_unpin(cx)?);
-                match conn_from_noq_conn(noq_conn, &self.ep) {
+                match conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone()) {
                     Err(err) => return Poll::Ready(Err(err)),
                     Ok(fut) => self.register_with_socket = Some(Box::pin(fut.err_into())),
                 };
@@ -810,6 +864,7 @@ pub struct Connection<State: ConnectionState = HandshakeCompleted> {
 pub struct HandshakeCompletedData {
     info: StaticInfo,
     paths: PathStateReceiver,
+    attempt: AttemptOptions,
 }
 
 /// Static info from a completed TLS handshake.
@@ -1181,6 +1236,21 @@ impl<T: ConnectionState> Connection<T> {
 }
 
 impl Connection<HandshakeCompleted> {
+    /// Cancellation for this individual original attempt, when supplied.
+    /// A retained data actor watches this token and current qualification; it
+    /// does not use the setup deadline as its lifetime.
+    pub fn attempt_cancellation(&self) -> Option<tokio_util::sync::CancellationToken> {
+        self.data.attempt.cancellation.clone()
+    }
+
+    /// The original local caller deadline, if explicitly provided. Protected
+    /// hooks share it without refreshing it; an admitted data actor does not
+    /// expire merely because its setup deadline has passed.
+    pub fn caller_deadline(&self) -> Option<Instant> {
+        self.data.attempt.caller_deadline
+    }
+
+
     /// Extracts the ALPN protocol from the peer's handshake data.
     pub fn alpn(&self) -> &[u8] {
         &self.data.info.alpn

@@ -438,6 +438,24 @@ impl RemoteStateActor {
                 if result.is_ok() { self.select_path(); }
                 let _ = tx.send(result);
             }
+            RemoteStateMessage::RetainControlDataPath { conn_id, remote, tx } => {
+                let result = if let Some(state) = self.connections.get_mut(&ConnId(conn_id)) {
+                    if state.purpose != ConnectionPurpose::Control || state.retained_control_custom.is_some() {
+                        Err("data route retention requires an unsealed restricted connection")
+                    } else if state.retired_custom.contains(&remote)
+                        || !state.mapped_addrs.qualifies_connection_owned_custom(&remote, conn_id)
+                    {
+                        Err("control retention requires current connection-owned qualification")
+                    } else if let Some(conn) = state.handle.upgrade().filter(|conn| conn.close_reason().is_none()) {
+                        if state.paths.iter().any(|(id, path)| matches!(path, transports::FourTuple::Custom { remote: actual, .. } if actual == &remote) && conn.path(*id).is_some()) {
+                            state.retained_control_custom = Some(remote);
+                            Ok(())
+                        } else { Err("qualified control data route not established on original connection") }
+                    } else { Err("original connection closed") }
+                } else { Err("connection not registered") };
+                if result.is_ok() { self.select_path(); }
+                let _ = tx.send(result);
+            }
             #[cfg(feature = "miopunch-test-hooks")]
             RemoteStateMessage::TestLimitTransportPaths { conn_id, allowed, tx } => {
                 let result = if allowed.len() > 8 { Err("fixture path mask exceeds bound") }
@@ -757,6 +775,7 @@ impl RemoteStateActor {
                 },
                 allowed_data_custom_ids: BTreeSet::new(),
                 custom_data_policy: false,
+                retained_control_custom: None,
                 retired_custom: HashSet::new(),
                 #[cfg(not(wasm_browser))]
                 udp_sockets: Vec::new(),
@@ -878,13 +897,25 @@ impl RemoteStateActor {
         if conn.close_reason().is_some() {
             return Err("connection closed");
         }
+        // The actor processes this after the hook future completes. Recheck
+        // live transport qualification here, never trust its earlier snapshot.
+        let exact = state.retained_control_custom.clone();
+        if let Some(address) = exact.as_ref()
+            && (state.retired_custom.contains(address)
+                || !state.mapped_addrs.qualifies_connection_owned_custom(address, conn_id.0)
+                || !state.paths.iter().any(|(id, path)| matches!(path, transports::FourTuple::Custom { remote, .. } if remote == address) && conn.path(*id).is_some()))
+        {
+            return Err("retained data route lost current qualification before release");
+        }
         let allowed: BTreeSet<_> = allowed_data_custom_ids.into_iter().collect();
         let mapped = self.state.mapped_addrs.clone();
         let packet_allowed = allowed.clone();
         let retired = state.retired_custom.clone();
         conn.restrict_paths(move |addr| match mapped.to_transport_addr(addr) {
             Some(transports::Addr::Custom(custom)) => {
-                packet_allowed.contains(&custom.id()) && !retired.contains(&custom)
+                !retired.contains(&custom) && (packet_allowed.contains(&custom.id())
+                    || (exact.as_ref() == Some(&custom)
+                        && mapped.qualifies_connection_owned_custom(&custom, conn_id.0)))
             }
             Some(_) => true,
             None => false,
@@ -1267,13 +1298,16 @@ impl RemoteStateActor {
                 .and_then(|id| conn_state.paths.get(&id))
                 .filter(|path| conn_state.may_select(path));
             let context = PathSelectionContext::for_connection(current, conn_state);
-            let selected_for_conn = self
-                .state
-                .path_selector
-                .select(&context)
-                .selected()
-                .cloned()
-                .or_else(|| current.cloned());
+            let selected_for_conn = if conn_state.purpose == ConnectionPurpose::Control
+                && let Some(exact) = conn_state.retained_control_custom.as_ref()
+            {
+                // Confirmation must traverse the newly qualified exact route,
+                // even when the signaling path has a lower measured latency.
+                conn_state.paths.values().find(|path| matches!(path, transports::FourTuple::Custom { remote, .. } if remote == exact) && conn_state.may_select(path)).cloned()
+            } else {
+                self.state.path_selector.select(&context).selected().cloned()
+                    .or_else(|| current.cloned())
+            };
 
             for (path_id, path_fourtuple) in conn_state.paths.iter() {
                 let Some(path) = conn.path(*path_id) else {
@@ -1840,6 +1874,12 @@ pub(crate) enum RemoteStateMessage {
         remote: iroh_base::CustomAddr,
         tx: oneshot::Sender<Result<(), &'static str>>,
     },
+    /// Seal a fresh, owned data path while withholding the normal handle.
+    RetainControlDataPath {
+        conn_id: usize,
+        remote: iroh_base::CustomAddr,
+        tx: oneshot::Sender<Result<(), &'static str>>,
+    },
     #[cfg(feature = "miopunch-test-hooks")]
     TestLimitTransportPaths {
         conn_id: usize,
@@ -1976,6 +2016,8 @@ struct ConnectionState {
     purpose: ConnectionPurpose,
     allowed_data_custom_ids: BTreeSet<u64>,
     custom_data_policy: bool,
+    /// Exact grant sealed by a restricted hook; never a type-wide permission.
+    retained_control_custom: Option<iroh_base::CustomAddr>,
     retired_custom: HashSet<iroh_base::CustomAddr>,
     #[cfg(not(wasm_browser))]
     udp_sockets: Vec<ConnectionSocket>,
@@ -2034,7 +2076,7 @@ impl ConnectionState {
     fn forbids(&self, path: &transports::FourTuple) -> bool {
         matches!(path, transports::FourTuple::Custom { remote, .. }
             if !self.mapped_addrs.permits_custom_connection(remote, self.connection_id)
-                || self.retired_custom.contains(remote) || (self.custom_data_policy && !self.allowed_data_custom_ids.contains(&remote.id())))
+                || self.retired_custom.contains(remote) || (self.custom_data_policy && !self.allowed_data_custom_ids.contains(&remote.id()) && self.retained_control_custom.as_ref() != Some(remote)))
     }
 
     /// Tracks an open path for the connection.

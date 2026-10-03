@@ -97,6 +97,11 @@ iroh-relay = { version = "=1.2.0", features = ["server", "test-utils"] }
 name = "browser-probe-native"
 path = "src/bin/browser_probe_native.rs"
 
+[[bin]]
+name = "browser_wss_member_native"
+path = "src/bin/browser_wss_member_native.rs"
+required-features = ["rtc-probe"]
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 webrtc = { version = "=0.21.0", default-features = false, features = ["runtime-tokio", "crypto-ring"], optional = true }
 async-trait = { version = "0.1.89", optional = true }

@@ -252,6 +252,10 @@ impl RtcTransport {
     pub fn resource_revision(&self) -> u64 {
         self.0.resource_revision.load(Ordering::Acquire)
     }
+
+    pub fn resource_allowed(&self) -> bool {
+        self.0.resource_allowed.load(Ordering::Acquire)
+    }
 }
 
 /// RAII ownership remains with the original member's RTC actor. Dropping it

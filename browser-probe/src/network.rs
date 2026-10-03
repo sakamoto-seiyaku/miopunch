@@ -158,6 +158,11 @@ struct GateState {
     snapshot_hash: Option<[u8; 32]>,
     request_handshake: Option<serde_json::Value>,
     request_deadline: Option<n0_future::time::Instant>,
+    lease: Option<u32>,
+    #[cfg(feature = "rtc-probe")]
+    rtc: Option<crate::rtc_transport::RtcTransport>,
+    #[cfg(feature = "rtc-probe")]
+    rtc_reports: std::collections::BTreeMap<usize, serde_json::Value>,
 }
 #[derive(Clone, Default)]
 struct BrowserGate(Arc<Mutex<GateState>>);
@@ -217,7 +222,9 @@ impl BrowserGate {
         if alpn == REQUEST_ALPN {
             return target == invitation.contact;
         }
-        if !matches!(alpn, BUSINESS_ALPN | REPLICA_ALPN) || saved.stage() != "Complete" {
+        if crate::member_path_protocol::MemberProtocol::from_wire(alpn).is_none()
+            || saved.stage() != "Complete"
+        {
             return false;
         }
         saved.verify().ok().flatten().is_some_and(|auth| {
@@ -232,6 +239,163 @@ impl BrowserGate {
             error_code: 0u32.into(),
             reason: b"browser admission rejected".to_vec(),
         }
+    }
+
+    async fn qualified_snapshot(&self, connection: &Connection) -> Result<SavedNode, JsValue> {
+        let (saved, lease) = {
+            let gate = self.0.lock().unwrap();
+            (
+                gate.saved.clone().ok_or_else(rejected)?,
+                gate.lease.ok_or_else(rejected)?,
+            )
+        };
+        let scope = AdmissionScope::new(
+            *saved.invitation()?.anchor.root.as_bytes(),
+            saved.generation,
+        );
+        if connection.close_reason().is_some()
+            || read_node(lease).await?.as_string().as_deref()
+                != Some(&serde_json::to_string(&saved).map_err(error)?)
+            || !Self::permits(&saved, connection.remote_id(), connection.alpn())
+            || !self
+                .0
+                .lock()
+                .unwrap()
+                .proofs
+                .iter()
+                .any(|proof| proof.applies_to(connection, &scope))
+        {
+            return Err(rejected());
+        }
+        Ok(saved)
+    }
+
+    fn permitted_relay_origins(saved: &SavedNode) -> Vec<String> {
+        let Some(resources) = saved.resources.as_ref() else {
+            return Vec::new();
+        };
+        let disabled: Vec<_> = resources
+            .disabled
+            .iter()
+            .filter_map(|url| origin(url).ok())
+            .collect();
+        resources
+            .relays
+            .iter()
+            .filter_map(|url| origin(url).ok())
+            .filter(|url| !disabled.contains(url))
+            .collect()
+    }
+
+    #[cfg(feature = "rtc-probe")]
+    fn remember_bootstrap(&self, connection: &Connection, report: serde_json::Value) {
+        let mut gate = self.0.lock().unwrap();
+        // The existing admission proof bound is 32 concurrent member Ms.
+        // Closed diagnostics must not grow with a long-running page's retries.
+        if gate.rtc_reports.len() >= 32 {
+            let live: std::collections::BTreeSet<_> = gate
+                .connections
+                .iter()
+                .filter_map(|weak| weak.upgrade())
+                .filter(|connection| connection.close_reason().is_none())
+                .map(|connection| connection.stable_id())
+                .collect();
+            gate.rtc_reports.retain(|stable, _| live.contains(stable));
+        }
+        gate.rtc_reports.insert(connection.stable_id(), report);
+    }
+
+    async fn legacy_relay_continuation(
+        &self,
+        endpoint: &Endpoint,
+        connection: &Connection,
+    ) -> std::io::Result<serde_json::Value> {
+        use crate::member_path_protocol::RelayValidation;
+        let check = || async {
+            self.qualified_snapshot(connection).await.map_err(|cause| {
+                std::io::Error::other(
+                    cause
+                        .as_string()
+                        .unwrap_or_else(|| "browser relay qualification failed".into()),
+                )
+            })
+        };
+        let saved = check().await?;
+        let allowed = Self::permitted_relay_origins(&saved);
+        let permits =
+            |url: &RelayUrl| origin(url.as_str()).is_ok_and(|value| allowed.contains(&value));
+        let local = endpoint
+            .addr()
+            .relay_urls()
+            .filter(|url| permits(url))
+            .take(4)
+            .cloned()
+            .collect();
+        let exchange = RelayValidation::begin(connection, local).await?;
+        let stream_id = exchange.stream_id.clone();
+        let remote = exchange.candidates.iter().find(|url| permits(url)).cloned();
+        let validation = async {
+            let remote = remote.ok_or_else(|| std::io::Error::new(std::io::ErrorKind::PermissionDenied, "no mutually permitted relay"))?;
+            let started = n0_future::time::Instant::now();
+            let mut fresh = None;
+            loop {
+                let current = check().await?;
+                if !origin(remote.as_str()).is_ok_and(|url| Self::permitted_relay_origins(&current).contains(&url)) {
+                    return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "browser relay permission changed"));
+                }
+                if connection.side().is_client() {
+                    match endpoint.open_control_relay_path(connection, remote.clone()).await {
+                        Ok(()) => {},
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {},
+                        Err(error) => return Err(error),
+                    }
+                }
+                if let Some(path) = connection.paths().iter().find(|path| matches!(path.remote_addr(), iroh::TransportAddr::Relay(url) if url == &remote)) {
+                    if fresh.is_none() { fresh = Some((path.id().to_string(), path.start_probe()?, started.elapsed().as_millis())); }
+                    let (path_id, probe, probe_started) = fresh.as_ref().unwrap();
+                    if path.id().to_string() != *path_id { return Err(std::io::Error::other("relay probe path changed")); }
+                    if probe.is_acknowledged().map_err(std::io::Error::other)? {
+                        return Ok(serde_json::json!({"pathId":path_id,"freshProbeStartedMs":probe_started,"freshAckMs":started.elapsed().as_millis(),"probeWatermark":probe.watermark(),"freshAck":true}));
+                    }
+                }
+                n0_future::time::sleep(Duration::from_millis(40)).await;
+            }
+        }.await;
+        let observation = validation.as_ref().ok().cloned();
+        let continuity = exchange.finish(connection, validation.map(|_| ())).await?;
+        let current = check().await?;
+        if Self::permitted_relay_origins(&current) != allowed {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "browser relay resources changed before release",
+            ));
+        }
+        Ok(
+            serde_json::json!({"kind":"legacy-relay","capabilitiesVersion":2,"privateStreamId":stream_id,
+            "memberStableId":connection.stable_id(),"stableUnchanged":continuity.stable_unchanged,"bindingUnchanged":continuity.binding_unchanged,"validatedRelay":observation,
+            "relayFramesAfterConfirmation":connection.paths().iter().filter(|path|path.is_relay()).map(|path|serde_json::json!({"pathId":path.id().to_string(),"selected":path.is_selected(),"streamSent":path.stats().frame_tx.stream,"streamReceived":path.stats().frame_rx.stream})).collect::<Vec<_>>()}),
+        )
+    }
+
+    #[cfg(feature = "rtc-probe")]
+    fn rtc_qualification(
+        &self,
+    ) -> (
+        Arc<std::sync::atomic::AtomicU64>,
+        u64,
+        n0_watcher::Direct<u64>,
+    ) {
+        let gate = self.0.lock().unwrap();
+        let revision = gate.qualification_revision.clone();
+        let observed = revision.load(std::sync::atomic::Ordering::Acquire);
+        (
+            revision,
+            observed,
+            gate.qualification_updates
+                .as_ref()
+                .expect("installed qualification")
+                .watch(),
+        )
     }
 }
 impl EndpointHooks for BrowserGate {
@@ -365,7 +529,13 @@ impl EndpointHooks for BrowserGate {
                 allowed_data_custom_ids: {
                     #[cfg(feature = "rtc-probe")]
                     {
-                        vec![crate::rtc_transport::TRANSPORT_ID]
+                        // Existing admitted relay experiments retain their
+                        // S5 grant. Restricted MQTT M must seal one exact route.
+                        if connection.paths().iter().any(|path| path.is_relay()) {
+                            vec![crate::rtc_transport::TRANSPORT_ID]
+                        } else {
+                            Vec::new()
+                        }
                     }
                     #[cfg(not(feature = "rtc-probe"))]
                     {
@@ -376,6 +546,113 @@ impl EndpointHooks for BrowserGate {
         } else {
             AfterHandshakeOutcome::AcceptRestricted
         }
+    }
+
+    async fn before_data_release(
+        &self,
+        endpoint: &Endpoint,
+        connection: &Connection,
+    ) -> std::io::Result<()> {
+        use crate::member_path_protocol::{PathCapabilities, RtcRole, exchange_capabilities};
+        if crate::member_path_protocol::MemberProtocol::from_wire(connection.alpn()).is_none()
+            || !connection.paths().iter().any(|path| matches!(path.remote_addr(), iroh::TransportAddr::Custom(addr) if addr.id() == crate::mqtt_datagram::TRANSPORT_ID))
+        { return Ok(()); }
+        let deadline = connection
+            .caller_deadline()
+            .ok_or_else(|| std::io::Error::other("browser member caller deadline absent"))?;
+        // WASM hooks run on their originating browser thread. Wrap the complete
+        // local JS future; no Rc escapes into a transport callback or Noq lock.
+        send_wrapper::SendWrapper::new(async {
+            let relay = self
+                .0
+                .lock()
+                .unwrap()
+                .saved
+                .as_ref()
+                .is_some_and(|saved| !Self::permitted_relay_origins(saved).is_empty());
+            #[cfg(feature = "rtc-probe")]
+            let transport = self.0.lock().unwrap().rtc.clone();
+            #[cfg(feature = "rtc-probe")]
+            let qualified = self.qualified_snapshot(connection).await.map_err(|cause| {
+                std::io::Error::other(
+                    cause
+                        .as_string()
+                        .unwrap_or_else(|| "browser qualification failed".into()),
+                )
+            })?;
+            let role = {
+                #[cfg(feature = "rtc-probe")]
+                {
+                    RtcRole::browser_adapter(
+                        connection,
+                        transport.as_ref().is_some_and(|rtc| rtc.resource_allowed()),
+                    )
+                }
+                #[cfg(not(feature = "rtc-probe"))]
+                {
+                    RtcRole::None
+                }
+            };
+            let operation = async {
+                let paths = exchange_capabilities(
+                    connection,
+                    PathCapabilities {
+                        tcp: false,
+                        udp: false,
+                        relay,
+                        rtc: role,
+                    },
+                )
+                .await?
+                .require_usable()?;
+                #[cfg(feature = "rtc-probe")]
+                if paths.rtc {
+                    let mut report = rtc_member::bootstrap_control(
+                        endpoint,
+                        connection,
+                        self,
+                        &qualified,
+                        transport
+                            .as_ref()
+                            .ok_or_else(|| std::io::Error::other("browser RTC adapter absent"))?,
+                    )
+                    .await
+                    .map_err(|cause| {
+                        std::io::Error::other(
+                            cause
+                                .as_string()
+                                .unwrap_or_else(|| "browser RTC setup failed".into()),
+                        )
+                    })?;
+                    report["capabilitiesVersion"] = serde_json::json!(paths.version.number());
+                    self.remember_bootstrap(connection, report);
+                    return Ok(());
+                }
+                if paths.relay {
+                    let mut report = self.legacy_relay_continuation(endpoint, connection).await?;
+                    report["capabilitiesVersion"] = serde_json::json!(paths.version.number());
+                    #[cfg(feature = "rtc-probe")]
+                    self.remember_bootstrap(connection, report);
+                    return Ok(());
+                }
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::NotConnected,
+                    "temporarily unreachable: browser member data path unavailable",
+                ))
+            };
+            n0_future::time::timeout(
+                deadline.saturating_duration_since(n0_future::time::Instant::now()),
+                operation,
+            )
+            .await
+            .map_err(|_| {
+                std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "browser member caller deadline exceeded",
+                )
+            })?
+        })
+        .await
     }
 }
 
@@ -730,6 +1007,7 @@ impl BrowserNetwork {
             .collect::<Result<_, _>>()?;
         let gate = BrowserGate::default();
         gate.install(&saved);
+        gate.0.lock().unwrap().lease = Some(lease.0);
         let mut signaling: Vec<iroh::RelayUrl> = mqtt
             .iter()
             .map(|(facility, _)| facility.wss_url.parse().unwrap())
@@ -782,6 +1060,7 @@ impl BrowserNetwork {
         #[cfg(feature = "rtc-probe")]
         {
             builder = builder.add_custom_transport(Arc::new(rtc_transport.clone()));
+            gate.0.lock().unwrap().rtc = Some(rtc_transport.clone());
         }
         let endpoint = builder.bind().await.map_err(error)?;
         if n0_future::time::timeout(
@@ -906,7 +1185,12 @@ impl BrowserNetwork {
 
     /// Public protocol diagnostics contain identities and counters only.
     pub fn path_diagnostics(&self) -> String {
-        serde_json::json!({"request":self.last_request,"gate":self.gate.0.lock().unwrap().request_handshake,"carriers":self.mqtt.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap()).chain(self.irc.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap())).collect::<Vec<_>>()}).to_string()
+        let gate = self.gate.0.lock().unwrap();
+        #[cfg(feature = "rtc-probe")]
+        let bootstraps = serde_json::json!(gate.rtc_reports);
+        #[cfg(not(feature = "rtc-probe"))]
+        let bootstraps = serde_json::json!({});
+        serde_json::json!({"request":self.last_request,"gate":gate.request_handshake,"memberBootstraps":bootstraps,"carriers":self.mqtt.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap()).chain(self.irc.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap())).collect::<Vec<_>>()}).to_string()
     }
 
     /// A separate handle can cancel while WASM owns the mutable request future.
@@ -1061,7 +1345,31 @@ impl BrowserNetwork {
         target: iroh_base::EndpointId,
         alpn: &[u8],
     ) -> Result<Connection, JsValue> {
+        let started = n0_future::time::Instant::now();
         self.check_store().await?;
+        let addr = self.target_address(target)?;
+        let deadline = started + self.caller_budget;
+        let options = crate::member_path_protocol::MemberProtocol::from_wire(alpn)
+            .map_or_else(iroh::endpoint::ConnectOptions::new, |(protocol, _)| {
+                protocol.connect_options()
+            })
+            .with_caller_deadline(deadline);
+        n0_future::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            async {
+                self.endpoint
+                    .connect_with_opts(addr, alpn, options)
+                    .await
+                    .map_err(error)?
+                    .await
+                    .map_err(error)
+            },
+        )
+        .await
+        .map_err(|_| error("browser connection caller deadline exceeded"))?
+    }
+
+    fn target_address(&self, target: iroh_base::EndpointId) -> Result<EndpointAddr, JsValue> {
         let mut addr = EndpointAddr::new(target);
         for relay in &self.relays {
             addr.addrs
@@ -1086,7 +1394,7 @@ impl BrowserNetwork {
         if addr.addrs.is_empty() {
             return Err(error("temporarily unreachable: no allowed contact route"));
         }
-        self.endpoint.connect(addr, alpn).await.map_err(error)
+        Ok(addr)
     }
     async fn request_inner(&mut self) -> Result<String, JsValue> {
         let started = n0_future::time::Instant::now();

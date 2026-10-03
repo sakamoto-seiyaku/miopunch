@@ -13,49 +13,15 @@ use crate::{
     nat_connection::NatConnector,
 };
 
-#[derive(Clone, Copy, Debug)]
-struct PathCapabilities {
-    tcp: bool,
-    udp: bool,
-    relay: bool,
-}
-
-async fn exchange_capabilities(
-    connection: &Connection,
-    local: PathCapabilities,
-) -> io::Result<PathCapabilities> {
-    let (mut send, mut recv) = if connection.side().is_client() {
-        connection.open_bi().await?
-    } else {
-        connection.accept_bi().await?
-    };
-    send.write_all(&[
-        2,
-        u8::from(local.tcp),
-        u8::from(local.udp),
-        u8::from(local.relay),
-    ])
-    .await?;
-    send.finish()?;
-    let peer = recv.read_to_end(4).await.map_err(io::Error::other)?;
-    if peer.len() != 4 || peer[0] != 2 || peer[1..].iter().any(|capability| *capability > 1) {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "invalid protected data path capabilities",
-        ));
-    }
-    Ok(PathCapabilities {
-        tcp: local.tcp && peer[1] == 1,
-        udp: local.udp && peer[2] == 1,
-        relay: local.relay && peer[3] == 1,
-    })
-}
+use crate::member_path_protocol::{PathCapabilities, RtcRole, exchange_capabilities};
 
 pub(crate) struct MemberPathBootstrap {
     gate: AdmissionGate,
     udp: Arc<NatConnector>,
     tcp: Option<crate::tcp_punch::TcpPunch>,
     resources: crate::resources::ResourceConfig,
+    #[cfg(feature = "rtc-probe")]
+    rtc: Option<crate::rtc_transport::RtcTransport>,
 }
 
 impl fmt::Debug for MemberPathBootstrap {
@@ -77,7 +43,15 @@ impl MemberPathBootstrap {
             udp,
             tcp,
             resources,
+            #[cfg(feature = "rtc-probe")]
+            rtc: None,
         }
+    }
+
+    #[cfg(feature = "rtc-probe")]
+    pub(crate) fn with_rtc(mut self, rtc: Option<crate::rtc_transport::RtcTransport>) -> Self {
+        self.rtc = rtc;
+        self
     }
 
     async fn relay_upgrade(&self, endpoint: &Endpoint, connection: &Connection) -> io::Result<()> {
@@ -104,42 +78,22 @@ impl MemberPathBootstrap {
             .take(4)
             .cloned()
             .collect();
-        let (mut send, mut recv) = if connection.side().is_client() {
-            connection.open_bi().await?
-        } else {
-            connection.accept_bi().await?
-        };
-        let encoded = serde_json::to_vec(&local).map_err(io::Error::other)?;
-        if encoded.len() > 1024 {
-            return Err(io::Error::other("relay candidate message too large"));
-        }
-        send.write_all(&(encoded.len() as u16).to_be_bytes())
-            .await?;
-        send.write_all(&encoded).await?;
-        let mut length = [0; 2];
-        recv.read_exact(&mut length)
-            .await
-            .map_err(io::Error::other)?;
-        let length = usize::from(u16::from_be_bytes(length));
-        if length > 1024 {
-            return Err(io::Error::other("peer relay candidate message too large"));
-        }
-        let mut encoded = vec![0; length];
-        recv.read_exact(&mut encoded)
-            .await
-            .map_err(io::Error::other)?;
-        let candidates: Vec<iroh::RelayUrl> =
-            serde_json::from_slice(&encoded).map_err(io::Error::other)?;
-        if candidates.len() > 4 {
-            return Err(io::Error::other("too many peer relay candidates"));
-        }
-        let remote = candidates.into_iter().find(|url| {
-            self.resources
-                .allows(url.as_str(), crate::resources::ResourceUse::DataRelay)
-        });
+        let exchange =
+            crate::member_path_protocol::RelayValidation::begin(connection, local).await?;
+        let stream_id = exchange.stream_id.clone();
+        let remote = exchange
+            .candidates
+            .iter()
+            .find(|url| {
+                self.resources
+                    .allows(url.as_str(), crate::resources::ResourceUse::DataRelay)
+            })
+            .cloned();
         let validation = async {
             let remote = remote.ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no mutually permitted relay"))?;
             let deadline = tokio::time::Instant::now() + Duration::from_secs(6);
+            let started = tokio::time::Instant::now();
+            let mut fresh = None;
             loop {
                 check()?;
                 if connection.side().is_client() {
@@ -149,9 +103,14 @@ impl MemberPathBootstrap {
                         Err(error) => return Err(error),
                     }
                 }
-                if connection.paths().iter().any(|path| matches!(path.remote_addr(), TransportAddr::Relay(url)
+                if let Some(path) = connection.paths().iter().find(|path| matches!(path.remote_addr(), TransportAddr::Relay(url)
                     if self.resources.allows(url.as_str(), crate::resources::ResourceUse::DataRelay))) {
-                    return Ok(());
+                    if fresh.is_none() { fresh = Some((path.id().to_string(), path.start_probe()?, started.elapsed().as_millis())); }
+                    let (path_id, probe, probe_started) = fresh.as_ref().unwrap();
+                    if path.id().to_string() != *path_id { return Err(io::Error::other("relay probe path changed")); }
+                    if probe.is_acknowledged().map_err(io::Error::other)? {
+                        return Ok(serde_json::json!({"pathId":path_id,"freshProbeStartedMs":probe_started,"freshAckMs":started.elapsed().as_millis(),"probeWatermark":probe.watermark(),"freshAck":true}));
+                    }
                 }
                 if tokio::time::Instant::now() >= deadline { return Err(io::Error::new(io::ErrorKind::TimedOut, "relay data validation timed out")); }
                 tokio::time::sleep(Duration::from_millis(40)).await;
@@ -163,14 +122,15 @@ impl MemberPathBootstrap {
                 connection.stable_id()
             );
         }
-        send.write_all(&[u8::from(validation.is_ok())]).await?;
-        send.finish()?;
-        let peer = recv.read_to_end(1).await.map_err(io::Error::other)?;
-        validation?;
-        if peer != [1] {
-            return Err(io::Error::other("relay validation failed at peer"));
-        }
+        let observation = validation.as_ref().ok().cloned();
+        let continuity = exchange.finish(connection, validation.map(|_| ())).await?;
         check()?;
+        println!(
+            "{}",
+            serde_json::json!({"event":"relay-path", "stableId":connection.stable_id(),"privateStreamId":stream_id,
+            "stableUnchanged":continuity.stable_unchanged,"bindingUnchanged":continuity.binding_unchanged,"probe":observation,
+            "relayFramesAfterConfirmation":connection.paths().iter().filter(|path|path.is_relay()).map(|path|serde_json::json!({"pathId":path.id().to_string(),"selected":path.is_selected(),"streamSent":path.stats().frame_tx.stream,"streamReceived":path.stats().frame_rx.stream})).collect::<Vec<_>>()})
+        );
         println!(
             "MESSAGE_RELAY_VALIDATED stable_id={} peer={} paths={:?}",
             connection.stable_id(),
@@ -219,9 +179,45 @@ impl EndpointHooks for MemberPathBootstrap {
                         .resources
                         .relay_map(crate::resources::ResourceUse::DataRelay)?
                         .is_empty(),
+                    rtc: {
+                        #[cfg(feature = "rtc-probe")]
+                        {
+                            RtcRole::native_adapter(
+                                connection,
+                                carrier == "MQTT"
+                                    && self.rtc.as_ref().is_some_and(|rtc| rtc.resource_allowed())
+                                    && self.gate.path_qualification(connection).is_some(),
+                            )
+                        }
+                        #[cfg(not(feature = "rtc-probe"))]
+                        {
+                            RtcRole::None
+                        }
+                    },
                 },
             )
             .await?;
+            println!(
+                "{}",
+                serde_json::json!({"event":"path-capabilities", "stableId":connection.stable_id(),
+                "alpn":String::from_utf8_lossy(connection.alpn()), "version":capabilities.version.number(),
+                "localRtc":format!("{:?}", capabilities.local_rtc), "peerRtc":format!("{:?}", capabilities.peer_rtc),
+                "rtc":capabilities.rtc,"tcp":capabilities.tcp,"udp":capabilities.udp,"relay":capabilities.relay,
+                "initialPaths":connection.paths().iter().map(|path|serde_json::json!({"isRelay":path.is_relay(),"isIp":path.is_ip(),"isMqtt":matches!(path.remote_addr(),TransportAddr::Custom(addr) if addr.id()==TRANSPORT_ID),"selected":path.is_selected()})).collect::<Vec<_>>()})
+            );
+            let capabilities = capabilities.require_usable()?;
+            #[cfg(feature = "rtc-probe")]
+            if capabilities.rtc {
+                return crate::rtc_member::bootstrap_control(
+                    endpoint,
+                    connection,
+                    &self.gate,
+                    self.rtc
+                        .as_ref()
+                        .ok_or_else(|| io::Error::other("RTC adapter absent"))?,
+                )
+                .await;
+            }
             if capabilities.tcp
                 && let Some(tcp) = &self.tcp
             {
@@ -277,7 +273,12 @@ impl EndpointHooks for MemberPathBootstrap {
             );
             Ok(())
         };
-        let result = tokio::time::timeout(Duration::from_secs(45), operation)
+        let budget = connection
+            .caller_deadline()
+            .map_or(Duration::from_secs(45), |deadline| {
+                deadline.saturating_duration_since(n0_future::time::Instant::now())
+            });
+        let result = tokio::time::timeout(budget, operation)
             .await
             .map_err(|_| {
                 io::Error::new(

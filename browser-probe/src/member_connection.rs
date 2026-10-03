@@ -3,7 +3,7 @@ use super::*;
 #[wasm_bindgen]
 pub struct BrowserMemberConnection {
     pub(super) connection: Connection,
-    gate: BrowserGate,
+    pub(super) gate: BrowserGate,
     lease: u32,
     #[cfg(feature = "rtc-probe")]
     pub(super) rtc_active: Arc<std::sync::atomic::AtomicBool>,
@@ -105,13 +105,110 @@ impl BrowserNetwork {
         &self,
         target: String,
     ) -> Result<BrowserMemberConnection, JsValue> {
-        let connection = self
-            .connect_target(target.parse().map_err(error)?, BUSINESS_ALPN)
-            .await?;
+        self.member_connection_attempt(target, self.caller_budget.as_millis() as u32)?
+            .connect()
+            .await
+    }
+
+    /// One pending operation, with the caller's original clock and cancellation.
+    /// This never exposes an unadmitted Connection or allocates a second endpoint.
+    pub fn member_connection_attempt(
+        &self,
+        target: String,
+        caller_ms: u32,
+    ) -> Result<BrowserMemberAttempt, JsValue> {
+        if caller_ms == 0 || Duration::from_millis(u64::from(caller_ms)) > self.caller_budget {
+            return Err(error(
+                "member caller budget must fit the original browser budget",
+            ));
+        }
+        let target = target.parse().map_err(error)?;
+        if !BrowserGate::permits(&self.saved, target, BUSINESS_ALPN) {
+            return Err(rejected());
+        }
+        Ok(BrowserMemberAttempt {
+            endpoint: self.endpoint.clone(),
+            gate: self.gate.clone(),
+            lease: self.lease.as_ref().ok_or_else(rejected)?.0,
+            saved: self.committed.clone(),
+            address: self.target_address(target)?,
+            deadline: n0_future::time::Instant::now() + Duration::from_millis(u64::from(caller_ms)),
+            cancel: tokio_util::sync::CancellationToken::new(),
+            started: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(feature = "rtc-probe")]
+            rtc_transport: self.rtc_transport.clone(),
+        })
+    }
+}
+
+#[wasm_bindgen]
+pub struct BrowserMemberAttempt {
+    endpoint: Endpoint,
+    gate: BrowserGate,
+    lease: u32,
+    saved: String,
+    address: EndpointAddr,
+    deadline: n0_future::time::Instant,
+    cancel: tokio_util::sync::CancellationToken,
+    started: std::sync::atomic::AtomicBool,
+    #[cfg(feature = "rtc-probe")]
+    rtc_transport: crate::rtc_transport::RtcTransport,
+}
+impl Drop for BrowserMemberAttempt {
+    fn drop(&mut self) {
+        self.cancel.cancel();
+    }
+}
+
+#[wasm_bindgen]
+impl BrowserMemberAttempt {
+    /// Cancels only this pending connect; the browser node and saved materials
+    /// remain available for another independently bounded member attempt.
+    pub fn cancel(&self) {
+        self.cancel.cancel();
+    }
+
+    pub async fn connect(&self) -> Result<BrowserMemberConnection, JsValue> {
+        use futures_util::FutureExt;
+        if self.started.swap(true, std::sync::atomic::Ordering::AcqRel) {
+            return Err(error("member attempt already started"));
+        }
+        let work = async {
+            if read_node(self.lease).await?.as_string().as_deref() != Some(&self.saved) {
+                return Err(error("browser materials changed during member attempt"));
+            }
+            let options = crate::member_path_protocol::MemberProtocol::Business
+                .connect_options()
+                .with_caller_deadline(self.deadline)
+                .with_attempt_cancellation(self.cancel.clone());
+            self.endpoint
+                .connect_with_opts(self.address.clone(), BUSINESS_ALPN, options)
+                .await
+                .map_err(error)?
+                .await
+                .map_err(error)
+        }
+        .fuse();
+        let cancelled = self.cancel.cancelled().fuse();
+        let connection = {
+            futures_util::pin_mut!(work, cancelled);
+            n0_future::time::timeout(
+                self.deadline
+                    .saturating_duration_since(n0_future::time::Instant::now()),
+                async {
+                    futures_util::select_biased! {
+                        _ = cancelled => Err(error("member attempt cancelled")),
+                        result = work => result,
+                    }
+                },
+            )
+            .await
+            .map_err(|_| error("member connection caller deadline exceeded"))??
+        };
         Ok(BrowserMemberConnection {
             connection,
             gate: self.gate.clone(),
-            lease: self.lease.as_ref().ok_or_else(rejected)?.0,
+            lease: self.lease,
             #[cfg(feature = "rtc-probe")]
             rtc_active: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             #[cfg(feature = "rtc-probe")]

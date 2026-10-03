@@ -1156,6 +1156,19 @@ impl Endpoint {
         self.inner.retain_admitted_data_path(connection.remote_id(), connection.stable_id(), remote).await
     }
 
+    /// Seal an exact, established connection-owned data route while admission
+    /// still withholds the normal handle. The transport must already hold a
+    /// fresh QUIC ACK and current qualification for this original connection.
+    /// Private confirmation then uses this route; final admission rechecks its
+    /// qualification and preserves only this exact custom address.
+    pub async fn retain_control_data_transport_path(
+        &self,
+        connection: &connection::Connection,
+        remote: iroh_base::CustomAddr,
+    ) -> std::io::Result<()> {
+        self.inner.retain_control_data_path(connection.remote_id(), connection.stable_id(), remote).await
+    }
+
     /// Owned-fixture packet fault on one original connection. Address learning
     /// may continue, but neither old nor newly learned paths bypass this mask.
     #[cfg(feature = "miopunch-test-hooks")]
@@ -1527,7 +1540,7 @@ impl Endpoint {
                 .noq_endpoint()
                 .connect_with(client_config, dest_addr, server_name)?;
 
-        Ok(Connecting::new(connect, self.clone(), endpoint_id))
+        Ok(Connecting::new(connect, self.clone(), endpoint_id, options.attempt))
     }
 
     /// Accepts an incoming connection on the endpoint.
@@ -2229,6 +2242,7 @@ impl Endpoint {
 pub struct ConnectOptions {
     transport_config: Option<QuicTransportConfig>,
     additional_alpns: Vec<Vec<u8>>,
+    attempt: connection::AttemptOptions,
 }
 
 impl ConnectOptions {
@@ -2238,6 +2252,22 @@ impl ConnectOptions {
     /// as [`Endpoint::connect`], e.g. a default [`QuicTransportConfig`].
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Pass the caller's existing absolute attempt deadline to the protected
+    /// hooks. This does not create a new budget or change the default timeout;
+    /// the caller still bounds TLS/setup and each hook uses remaining time.
+    pub fn with_caller_deadline(mut self, deadline: n0_future::time::Instant) -> Self {
+        self.attempt.caller_deadline = Some(deadline);
+        self
+    }
+
+    /// Associate one cancellation token with this attempt and its protected
+    /// hooks. Cancelling it withdraws this original M, leaving the Endpoint
+    /// available. The caller also watches it while dialing/resolving TLS.
+    pub fn with_attempt_cancellation(mut self, cancellation: tokio_util::sync::CancellationToken) -> Self {
+        self.attempt.cancellation = Some(cancellation);
+        self
     }
 
     /// Sets the QUIC transport config options for this connection.

@@ -103,7 +103,9 @@ impl NativeNetwork {
     }
 
     fn replica_allowed(&self, connection: &Connection) -> bool {
-        (connection.alpn() == REPLICA_ALPN && self.gate.allows(connection, ProtocolScope::Member))
+        (crate::member_path_protocol::MemberProtocol::from_wire(connection.alpn()).is_some_and(
+            |(protocol, _)| protocol == crate::member_path_protocol::MemberProtocol::Replica,
+        ) && self.gate.allows(connection, ProtocolScope::Member))
             || (connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN
                 && self.gate.allows(connection, ProtocolScope::Bootstrap)
                 && !connection.paths().is_empty()
@@ -255,7 +257,9 @@ impl ReplicaProvider {
             .await
     }
     fn replica_allowed(&self, connection: &Connection) -> bool {
-        (connection.alpn() == REPLICA_ALPN && self.gate.allows(connection, ProtocolScope::Member))
+        (crate::member_path_protocol::MemberProtocol::from_wire(connection.alpn()).is_some_and(
+            |(protocol, _)| protocol == crate::member_path_protocol::MemberProtocol::Replica,
+        ) && self.gate.allows(connection, ProtocolScope::Member))
             || (connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN
                 && self.gate.allows(connection, ProtocolScope::Bootstrap)
                 && !connection.paths().is_empty()

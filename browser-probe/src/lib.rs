@@ -14,6 +14,8 @@ pub mod irc_datagram;
 #[path = "../../src/management_auth.rs"]
 #[allow(dead_code)] // Durable native-store helpers are outside this platform adapter.
 pub mod management_auth;
+#[path = "../../src/member_path_protocol.rs"]
+pub mod member_path_protocol;
 mod mqtt;
 #[path = "../../src/mqtt_datagram.rs"]
 pub mod mqtt_datagram;

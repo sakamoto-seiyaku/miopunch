@@ -691,6 +691,7 @@ impl ResourceEndpoint {
         alpn: &[u8],
         complete_on_handshake: bool,
     ) -> Result<iroh::endpoint::Connection, ResourceContactError> {
+        let deadline = n0_future::time::Instant::now() + self.timeout;
         let id = target.id;
         {
             let mut states = self.backoff.lock().expect("contact budget");
@@ -730,17 +731,33 @@ impl ResourceEndpoint {
                 .into_iter()
                 .map(iroh::TransportAddr::Relay),
         );
-        let cause =
-            match tokio::time::timeout(self.timeout, self.endpoint.connect(target, alpn)).await {
-                Ok(Ok(connection)) => {
-                    if complete_on_handshake {
-                        self.reset_contact(id);
-                    }
-                    return Ok(connection);
+        let options = crate::member_path_protocol::MemberProtocol::from_wire(alpn)
+            .map_or_else(iroh::endpoint::ConnectOptions::new, |(protocol, _)| {
+                protocol.connect_options()
+            })
+            .with_caller_deadline(deadline);
+        let cause = match tokio::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            async {
+                let connecting = self
+                    .endpoint
+                    .connect_with_opts(target, alpn, options)
+                    .await
+                    .map_err(|error| error.to_string())?;
+                connecting.await.map_err(|error| error.to_string())
+            },
+        )
+        .await
+        {
+            Ok(Ok(connection)) => {
+                if complete_on_handshake {
+                    self.reset_contact(id);
                 }
-                Ok(Err(error)) => error.to_string(),
-                Err(_) => "bounded contact attempt timed out".to_owned(),
-            };
+                return Ok(connection);
+            }
+            Ok(Err(error)) => error.to_string(),
+            Err(_) => "bounded contact attempt timed out".to_owned(),
+        };
         Err(self
             .backoff
             .lock()

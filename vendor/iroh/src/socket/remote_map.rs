@@ -109,6 +109,14 @@ impl MappedAddrs {
         })
     }
 
+    pub(crate) fn qualifies_connection_owned_custom(&self, address: &CustomAddr, connection_id: usize) -> bool {
+        self.custom_route_senders.as_ref().is_some_and(|senders| senders.iter().any(|sender| {
+            sender.guards_application_data(address)
+                && sender.is_valid_connection_addr(address, connection_id)
+                && sender.is_data_path_qualified(address, connection_id)
+        }))
+    }
+
     pub(crate) fn qualifies_custom_data(&self, address: &CustomAddr, connection_id: usize) -> bool {
         // Only opt-in carriers have an additional path qualification step.
         // Legacy path scoring remains governed by its existing scope/policy.

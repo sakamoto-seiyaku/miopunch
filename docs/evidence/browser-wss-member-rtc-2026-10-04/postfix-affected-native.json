@@ -1,0 +1,374 @@
+{
+  "scope": "Final affected-source native admission/Control/wire/caller, real owned IRC/MQTT/resource, full14 member-relay plus9 forward; all-targets + WASM RTC/default. Unchanged workspace-library/replica tests remain in earlier full baseline.",
+  "passed": true,
+  "sourceUnchanged": true,
+  "sourceBefore": {
+    "Cargo.lock": "543a4a397bd047de1c6b0633c5163367869bee1423cf1e8db69b6faa0413f2b3",
+    "Cargo.toml": "d589b5c3dc7e5e5039a0a9eebf1bba0ecc0988963fd8b19085f1cc6a05e71b33",
+    "browser-probe/Cargo.toml": "470044552915bd030e321741ce7de7f1d4632e950094952ade2caed8915bf1c1",
+    "browser-probe/harness/owned-mixed-mqtt-proxy.mjs": "b50cf2d40ff0094bade4882e3c1f244fb24b992eb3d84866ee12a69224303bf9",
+    "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+    "browser-probe/harness/run-rtc.mjs": "ba6ecd6d30a680732f89964e1e2dc28c5aa2fe1d7bad2ecf7263600ea068e0a0",
+    "browser-probe/network.html": "b11be64a9f1c5c2b729c20495424ac08d9f588408bbbb7dc4efdc6593610ea6b",
+    "browser-probe/src/lib.rs": "c7d3c1da183232ca57f9a5b94545d675df291564f0860ea5584a7c8f5d0ded37",
+    "browser-probe/src/member_connection.rs": "40e00a071b1866be722fdb9edb74e37105e3ccb04268c665b37c1dbd0399f2b0",
+    "browser-probe/src/mqtt.rs": "67ca10c43bd3479ca0dbad91bb7691fa535dd3dce8faf2a7ef8dc496ecbd83df",
+    "browser-probe/src/network.rs": "a7db7194323da54d0f0db475acbfeaff004e12c7500e51c9ed0b7bd2920ef831",
+    "browser-probe/src/replica.rs": "641571cb15c7a11d1e27e237a0eba1fc49d0cc165638dd1461b0a3052d1ebf29",
+    "browser-probe/src/rtc.rs": "251959eb8d3919ef0d26672f1916a468bc5a8fbe19bd6ac9e4be7bfb65187ae4",
+    "browser-probe/src/rtc_member.rs": "09d93a4d071d9badc9284aab5e3d642784a59a2eba67a3e126496e899bf4da11",
+    "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+    "scripts/check_browser_paths.py": "3757528a6594e916447ccf776969644ed50ca8747eda06d90abe2666b888dfa9",
+    "scripts/check_browser_rtc.py": "49ee4a5aed1092344ba376492d92afb6a6ff835a389cd8266bb307b52ffc4fe1",
+    "scripts/mosquitto-test.conf": "5bbf715cb2518197f7ad99ceff3986bf3e2b137798aae23613ce39cf5f24542c",
+    "src/admission_gate.rs": "4d8bc0173d5b615652eab82114a2d23689bfec91b7ccfcb479a5943cf9c631a9",
+    "src/admission_proof.rs": "33502e93c55c3204916b3bec6b75fa2510cd3f0fb3ab60c6666689c515f2bf4d",
+    "src/bin/browser_network_native.rs": "951df304b2076de085412bc108da1cc7e7345885fe935ff163d9cd374f451a8a",
+    "src/bin/browser_probe_native.rs": "554989910b9a358b12820136fe1b6e30392a485ebb43fc53205be75f7c95b23f",
+    "src/bin/browser_wss_member_native.rs": "67b28b5aa5be83b77d1100f1b455a9c3345574ddece135ca83c1a8a50b01d339",
+    "src/control_session.rs": "d78789557b6bafe34a7257ccf9e923ad91221a8e1d94317ad717e51fe0e7da3a",
+    "src/lib.rs": "0cf7d160536641c0cd6c188f16c8a648b0c24da4bd4afd579f6ad18e2f27eb58",
+    "src/member_bootstrap.rs": "fd8411c3fb26bb78f39591f5f46a4d3bd9fde1e0f49630516b556ed9a2b1ead6",
+    "src/member_path_protocol.rs": "3403601c74ad5baffb3b67e0985eae98736e08e7b0d20ba5bcacf085bce0488e",
+    "src/message_bootstrap.rs": "78e0c15cefeefc5e0f3721c312e643bfb73a51f6da93a48a194f6eadd9b66181",
+    "src/mqtt_datagram.rs": "acaeeb199cca3ddca85894a07d9bdebdc8ce6b21752f847096d388de5f167084",
+    "src/mqtt_transport.rs": "3585ea182dbe952b97679ef4ba8fa367790bde29373ef282f4ba3a1146fe4091",
+    "src/native_network.rs": "3f2f7e720f77103f76c9068a05f8e7512f9ca585926e94a95b3b825d91baf367",
+    "src/offline_replica.rs": "ebc7c8312ed3707321a8e33173b5674d2e7bc2e59f6af974e317cde3b62ed550",
+    "src/replica_snapshot.rs": "a8e62db5cb9440de96559aa6b26d07f8ea2742c5431c42895f367f1cd1c5a3d1",
+    "src/resources.rs": "3812a8d143b595b283420b7c5c3198d12b954986ab9dc8fb0ef55ffb3ba80191",
+    "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+    "src/rtc_member.rs": "290cb87ae7e6474d4785e4e2591755c63df52e0653cf8075290c2adccdce49c9",
+    "src/rtc_probe.rs": "fa928c9deb4ddf41159226ca45b48a5f2bb4af842e6290ee36927de7ad2d3870",
+    "src/rtc_transport.rs": "8ac5792416a97842b54d1b713ba4b6cb48a351778f5b0ef03652de1005cea438",
+    "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+    "tests/member_attempt.rs": "b61e462fb9f83af4e3a9d0ad30c82405d659686429553ad94b900955ad045c15",
+    "tests/member_path_protocol.rs": "c79db5a60d239fe7984cf8be29367d6ef08f923d40b3041f9ea72bfde193d1a4",
+    "tests/rtc_control_release.rs": "758be623dbe892209bd839851e5724a2775ba92065c2415b9e92d92dec46e7e2",
+    "vendor/iroh/src/endpoint.rs": "98159bae11fb31d73460f9fad23e0146882087fdcaefd811a061e313fd2f3617",
+    "vendor/iroh/src/endpoint/connection.rs": "d73389c486b157b652523e24d2305cfa579a33fd51566497316eaf1079a9ae9a",
+    "vendor/iroh/src/socket.rs": "1c8e55979b906ddfe76672a843f947012fe3dfe1f420789e5e61bee6c814380e",
+    "vendor/iroh/src/socket/mapped_addrs.rs": "c95accdd5f474a11e820b1d460696507ffd0195ccd074d439520cab9cd9c3ffa",
+    "vendor/iroh/src/socket/remote_map.rs": "bd2710b30ff105cc69c9faf9d390355a9dd2dd5247fe4634f0e4e57f7e8cdb32",
+    "vendor/iroh/src/socket/remote_map/remote_state.rs": "962e8f1a593fe10b76b0b479030f465989a4fab5a9094743eff82943fbc88c93",
+    "vendor/iroh/src/socket/remote_map/remote_state/path_state.rs": "d320c4becfacc9ecc32475e0cfa1cc52c9698b2011804f7bbb95b7f860b0a3ab",
+    "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs": "838bbcd605addbe1afaf911c20b4efc5be87499a7758aba0933e58101dce32b9",
+    "vendor/iroh/src/socket/transports/custom.rs": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+    "vendor/noq-proto/src/connection/mod.rs": "c65b92731042bf591fd8a1da916c45a2a19eeaad2f761d6d839b2ac99c047054",
+    "vendor/noq-proto/src/connection/paths.rs": "3f86ec41fa014b1a6870d2c8556900e4fd3c15f8959b654d54356b9c52bfb8b5"
+  },
+  "groups": [
+    {
+      "name": "start-usable",
+      "argv": [
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        "miopunch-s6-final-usable-1791070703295637224",
+        "--publish",
+        "127.0.0.1::6667",
+        "--entrypoint",
+        "/ircd-bin/ergo",
+        "--mount",
+        "type=bind,src=/tmp/mio-rtc-s6-postfix-native-20261004/usable.yaml,target=/ircd/ircd.yaml,readonly",
+        "ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7",
+        "run"
+      ],
+      "exit": 0,
+      "seconds": 0.315,
+      "testCounts": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "rawLog": "/tmp/mio-rtc-s6-postfix-native-20261004/start-usable.log",
+      "rawLogSha256": "67f26260daac29cc38dba2d4f16836be1de91ecea6c30ec3cd1603d99ae6183c"
+    },
+    {
+      "name": "start-limited",
+      "argv": [
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        "miopunch-s6-final-limited-1791070703639976127",
+        "--publish",
+        "127.0.0.1::6667",
+        "--entrypoint",
+        "/ircd-bin/ergo",
+        "--mount",
+        "type=bind,src=/tmp/mio-rtc-s6-postfix-native-20261004/limited.yaml,target=/ircd/ircd.yaml,readonly",
+        "ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7",
+        "run"
+      ],
+      "exit": 0,
+      "seconds": 0.365,
+      "testCounts": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "rawLog": "/tmp/mio-rtc-s6-postfix-native-20261004/start-limited.log",
+      "rawLogSha256": "5318f479bf3704a81730c3c02eabaced50bf52333acd605103c3d94cef29d67f"
+    },
+    {
+      "name": "start-mqtt",
+      "argv": [
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        "miopunch-s6-final-mqtt-1791070704034911301",
+        "--publish",
+        "127.0.0.1::1883",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/scripts/mosquitto-test.conf,target=/mosquitto/config/mosquitto.conf,readonly",
+        "eclipse-mosquitto:2"
+      ],
+      "exit": 0,
+      "seconds": 0.315,
+      "testCounts": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "rawLog": "/tmp/mio-rtc-s6-postfix-native-20261004/start-mqtt.log",
+      "rawLogSha256": "15fe3e96840b838bacbe627ec92886ad1b27a13f364417876e94d96c1f71878a"
+    },
+    {
+      "name": "start-mqtt2",
+      "argv": [
+        "docker",
+        "run",
+        "--detach",
+        "--name",
+        "miopunch-s6-final-mqtt2-1791070704377627904",
+        "--publish",
+        "127.0.0.1::1883",
+        "--mount",
+        "type=bind,src=/home/js/Git/miopunch/scripts/mosquitto-test.conf,target=/mosquitto/config/mosquitto.conf,readonly",
+        "eclipse-mosquitto:2"
+      ],
+      "exit": 0,
+      "seconds": 0.315,
+      "testCounts": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "rawLog": "/tmp/mio-rtc-s6-postfix-native-20261004/start-mqtt2.log",
+      "rawLogSha256": "282446e672a64d12d6e6917bf2e7944376a41811c5492b9d15233848463c75f9"
+    },
+    {
+      "name": "admission-control-wire",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/miopunch-rtc-s4-target",
+        "--features",
+        "rtc-probe,member-signaling-test-hooks,replica-test-hooks",
+        "--test",
+        "admission_gate",
+        "--test",
+        "admission_proof",
+        "--test",
+        "member_attempt",
+        "--test",
+        "member_path_protocol",
+        "--test",
+        "rtc_association",
+        "--test",
+        "rtc_path_qualification",
+        "--test",
+        "rtc_control_release",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 65.08,
+      "testCounts": {
+        "passed": 46,
+        "failed": 0,
+        "ignored": 0
+      },
+      "rawLog": "/tmp/mio-rtc-s6-postfix-native-20261004/admission-control-wire.log",
+      "rawLogSha256": "39ac5728b28b1ec64fa7004eb9d0dce2efb3fe4821185ed44f16dfd77b1dc05f"
+    },
+    {
+      "name": "owned-carriers-resources",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/miopunch-rtc-s4-target",
+        "--features",
+        "rtc-probe,member-signaling-test-hooks,replica-test-hooks",
+        "--test",
+        "irc_datagram",
+        "--test",
+        "irc_bootstrap",
+        "--test",
+        "mqtt_datagram",
+        "--test",
+        "mqtt_bootstrap",
+        "--test",
+        "mqtt_upgrade",
+        "--test",
+        "resources",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 114.683,
+      "testCounts": {
+        "passed": 62,
+        "failed": 0,
+        "ignored": 1
+      },
+      "rawLog": "/tmp/mio-rtc-s6-postfix-native-20261004/owned-carriers-resources.log",
+      "rawLogSha256": "0606e766aec2c0645b6b020e30625432bb81944011376f444ff9220951081358"
+    },
+    {
+      "name": "permitted-legacy-member-relay",
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/miopunch-rtc-s4-target",
+        "--features",
+        "rtc-probe,member-signaling-test-hooks,replica-test-hooks",
+        "--test",
+        "member_relay",
+        "--test",
+        "member_forward",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 160.508,
+      "testCounts": {
+        "passed": 23,
+        "failed": 0,
+        "ignored": 0
+      },
+      "rawLog": "/tmp/mio-rtc-s6-postfix-native-20261004/permitted-legacy-member-relay.log",
+      "rawLogSha256": "b83e79fb78bdb0cd43a1fdc86281183a87f75e369b61d4bb74749b8ff9747f6f"
+    },
+    {
+      "name": "native-all-targets",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--all-targets",
+        "--features",
+        "rtc-probe",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/miopunch-rtc-s4-target"
+      ],
+      "exit": 0,
+      "seconds": 21.87,
+      "testCounts": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "rawLog": "/tmp/mio-rtc-s6-postfix-native-20261004/native-all-targets.log",
+      "rawLogSha256": "13f50eadaf05f1e45166d34e0b025153a00e24b9de7ca0b579a7ff506f208241"
+    },
+    {
+      "name": "wasm-rtc",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--features",
+        "rtc-probe",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/miopunch-rtc-s4-target"
+      ],
+      "exit": 0,
+      "seconds": 3.325,
+      "testCounts": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "rawLog": "/tmp/mio-rtc-s6-postfix-native-20261004/wasm-rtc.log",
+      "rawLogSha256": "ae29557d17404b144f05e0562d294cd2c18ff98cc36647ee8e8a08198174c712"
+    },
+    {
+      "name": "wasm-default",
+      "argv": [
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--jobs",
+        "2",
+        "--target-dir",
+        "/tmp/miopunch-rtc-s4-target"
+      ],
+      "exit": 0,
+      "seconds": 2.169,
+      "testCounts": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "rawLog": "/tmp/mio-rtc-s6-postfix-native-20261004/wasm-default.log",
+      "rawLogSha256": "1967c1a3c12cb3addf6790b37f06e610edb83b489e61c7ce5114dfdb4e855db9"
+    }
+  ],
+  "cleanup": [
+    {
+      "container": "miopunch-s6-final-usable-1791070703295637224",
+      "removeExit": 0
+    },
+    {
+      "container": "miopunch-s6-final-limited-1791070703639976127",
+      "removeExit": 0
+    },
+    {
+      "container": "miopunch-s6-final-mqtt-1791070704034911301",
+      "removeExit": 0
+    },
+    {
+      "container": "miopunch-s6-final-mqtt2-1791070704377627904",
+      "removeExit": 0
+    }
+  ],
+  "testCounts": {
+    "passed": 131,
+    "failed": 0,
+    "ignored": 1
+  }
+}

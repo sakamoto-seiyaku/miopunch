@@ -12,6 +12,9 @@ const root = resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const argument = name => { const index = process.argv.indexOf(name); assert(index >= 0, `${name} required`); return process.argv[index + 1]; };
 const evidence = resolve(argument('--evidence'));
 const memberCase = process.argv.includes('--case') && argument('--case') === 'relay-member-rtc';
+const wssMemberCase = process.argv.includes('--case') && argument('--case') === 'wss-member-rtc';
+const legacyNoRtc = process.argv.includes('--legacy-no-rtc');
+const legacyRelay = process.argv.includes('--legacy-relay');
 const requestedRelay = argument('--relay');
 let relay = requestedRelay;
 assert(requestedRelay === 'owned' || ['aps1-1', 'use1-1', 'usw1-1', 'euc1-1'].some(region => relay === `https://${region}.relay.n0.iroh.link./`));
@@ -26,11 +29,13 @@ let web;
 let page;
 let deadline;
 let rejectDeadline;
-const total = new Promise((_, reject) => { rejectDeadline = reject; deadline = setTimeout(() => reject(new Error('RTC fixture 45 second deadline; 15 seconds reserved for finally cleanup')), memberCase ? 35000 : 45000); });
+const total = new Promise((_, reject) => { rejectDeadline = reject; deadline = setTimeout(() => reject(new Error('RTC fixture deadline; reserved finally cleanup')), wssMemberCase ? 55000 : memberCase ? 35000 : 45000); });
+const ownedSockets = new Set();
+const facilityServers = [];
 // Attach immediately: synchronous startup errors still proceed through finally.
 total.catch(() => {});
 for (const name of ['SIGTERM', 'SIGINT']) process.once(name, () => rejectDeadline(new Error(`RTC fixture cancelled by ${name}`)));
-function save() { writeFileSync(join(evidence, memberCase ? 'relay-member-rtc.json' : 'rtc-channel.json'), `${JSON.stringify(report, null, 2)}\n`); }
+function save() { writeFileSync(join(evidence, wssMemberCase ? 'wss-member-rtc.json' : memberCase ? 'relay-member-rtc.json' : 'rtc-channel.json'), `${JSON.stringify(report, null, 2)}\n`); }
 function bounded(promise) { return Promise.race([promise, total]); }
 async function preparation(name, action) {
   const started = Date.now();
@@ -48,8 +53,8 @@ function executable() {
   }
   throw new Error('install pinned Playwright Chromium');
 }
-function fixture() {
-  const process = spawn('rtk', ['proxy', argument('--native'), join(temporary, 'admin'), relay, ...(requestedRelay === 'owned' ? [join(argument('--fixture'), 'ca.der')] : [])], { stdio: ['pipe', 'pipe', 'pipe'] });
+function fixture(memberFacilityPath) {
+  const process = spawn('rtk', ['proxy', memberFacilityPath ? argument('--wss-native') : argument('--native'), join(temporary, 'admin'), ...(memberFacilityPath ? [memberFacilityPath, join(argument('--fixture'), 'ca.pem'), ...(legacyNoRtc ? ['legacy-no-rtc'] : legacyRelay ? ['legacy-relay', relay] : [])] : [relay, ...(requestedRelay === 'owned' ? [join(argument('--fixture'), 'ca.der')] : [])])], { stdio: ['pipe', 'pipe', 'pipe'] });
   const entries = [];
   const waiters = [];
   createInterface({ input: process.stdout }).on('line', line => {
@@ -75,6 +80,15 @@ function fixture() {
     return bounded(new Promise((resolve, reject) => { waiter = { event, resolve, reject }; waiters.push(waiter); })).finally(() => { const index = waiters.indexOf(waiter); if (index >= 0) waiters.splice(index, 1); });
   }
   return { process, wait, command(value, event) { const result = wait(event, true); process.stdin.write(`${value}\n`); return result; } };
+}
+async function stopProcess(child, label) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  const exited = new Promise(resolveExit => child.once('exit', (code, signal) => resolveExit({ code, signal })));
+  child.stdin.end('stop\n');
+  const killer = setTimeout(() => child.kill('SIGKILL'), 3000);
+  const result = await exited; clearTimeout(killer);
+  assert.equal(result.code, 0, `${label} must close cleanly`);
+  return result;
 }
 try {
   if (requestedRelay === 'owned') {
@@ -132,7 +146,7 @@ try {
   await preparation('approval', () => native.command('approve', 'approved'));
   assert.equal(await preparation('authorization-save', () => page.evaluate(invitation => window.network.request_admission(invitation), ready.invitation)), 'PendingMaterials');
   assert.equal(await preparation('material-save', () => page.evaluate(() => window.network.complete_admission())), 'Complete');
-  await bounded(page.evaluate(async id => { window.member = await window.network.open_member_connection(id); }, ready.id));
+  if (!wssMemberCase) await bounded(page.evaluate(async id => { window.member = await window.network.open_member_connection(id); }, ready.id));
   report.preparedUtc = new Date().toISOString();
   await page.evaluate(() => {
     const Original = window.RTCPeerConnection;
@@ -141,7 +155,303 @@ try {
       constructor(...args) { super(...args); window.rtcObjects.push(this); }
     };
   });
-  if (memberCase) {
+  if (wssMemberCase) {
+    report.scope = 'step 6; known saved-member MQTT/WSS Control-M admission to exact RTC';
+    report.savedBefore = JSON.parse(await page.evaluate(() => window.network.status()));
+    await bounded(page.evaluate(async () => { await window.network.close(); window.network.free(); window.network = null; }));
+    report.preparationNativeClosed = await stopProcess(native.process, 'preparation native');
+    if (!legacyRelay) {
+      report.preparationRelayClosed = await stopProcess(relayProcess, 'preparation relay');
+      relayProcess = null;
+    } else { report.preparationEndpointsClosedRelayStillExplicitlyPermitted = true; }
+    const { startMixedMqttProxy } = await import('./owned-mixed-mqtt-proxy.mjs');
+    const facility = await startMixedMqttProxy({ fixture: argument('--fixture'), broker: argument('--broker'), report, ownedSockets,
+      dropPublish: () => false, listen: async server => {
+        facilityServers.push(server);
+        await bounded(new Promise((resolveListening, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolveListening); }));
+        return server.address().port;
+      } });
+    const facilityPath = join(temporary, 'member-facility.json');
+    writeFileSync(facilityPath, JSON.stringify(facility));
+    native = fixture(facilityPath);
+    const memberReady = await native.wait('ready');
+    assert.equal(memberReady.id, ready.id);
+    assert(memberReady.knownMembers.includes(report.browserIdentity));
+    assert.equal(memberReady.ipAddresses, 0);
+    assert.equal(memberReady.relayAddresses, legacyRelay ? 1 : 0);
+    const configuration = { relays: legacyRelay ? [relay] : [], disabled: [], irc: [], mqtt: [facility],
+      contact_routes: [{ contact: ready.id, facility: facility.logical_id, address: memberReady.route }] };
+    let legacyRelayCapabilities;
+    if (legacyRelay) {
+      // Approved at startup; dormant only in this owned fixture until actual
+      // MQTT capability exchange, so a relay-started M cannot pass this story.
+      await page.evaluate(relayHost => {
+        const Original = window.WebSocket;
+        const openers = [];
+        let released = false;
+        window.ownedRelayEvents = [];
+        window.releaseOwnedRelay = () => { released = true; for (const open of openers.splice(0)) open(); };
+        // This fixture object emits no open/message and has no network socket
+        // until release. It then delegates to the real normally verified WS.
+        window.WebSocket = class extends EventTarget {
+          static CONNECTING = Original.CONNECTING; static OPEN = Original.OPEN;
+          static CLOSING = Original.CLOSING; static CLOSED = Original.CLOSED;
+          constructor(url, protocols) {
+            super();
+            if (new URL(url).host !== relayHost) return protocols === undefined ? new Original(url) : new Original(url, protocols);
+            this.url = String(url); this.socket = null; this.cancelled = false; this._binaryType = 'blob';
+            window.ownedRelayEvents.push({ kind: 'deferred', readyState: this.readyState });
+            const open = () => {
+              if (this.cancelled) return;
+              window.ownedRelayEvents.push({ kind: 'native-constructor' });
+              this.socket = protocols === undefined ? new Original(url) : new Original(url, protocols);
+              this.socket.binaryType = this._binaryType;
+              for (const kind of ['open', 'message', 'error', 'close']) this.socket.addEventListener(kind, event => {
+                window.ownedRelayEvents.push({ kind, readyState: this.readyState });
+                const copy = kind === 'message' ? new MessageEvent(kind, { data: event.data, origin: event.origin }) :
+                  kind === 'close' ? new CloseEvent(kind, { code: event.code, reason: event.reason, wasClean: event.wasClean }) : new Event(kind);
+                this.dispatchEvent(copy); this[`on${kind}`]?.call(this, copy);
+              });
+            };
+            if (released) open(); else openers.push(open);
+          }
+          get readyState() { return this.cancelled ? Original.CLOSED : this.socket?.readyState ?? Original.CONNECTING; }
+          get bufferedAmount() { return this.socket?.bufferedAmount ?? 0; }
+          get protocol() { return this.socket?.protocol ?? ''; }
+          get extensions() { return this.socket?.extensions ?? ''; }
+          get binaryType() { return this._binaryType; }
+          set binaryType(value) { this._binaryType = value; if (this.socket) this.socket.binaryType = value; }
+          send(bytes) { if (!this.socket) throw new DOMException('Owned relay remains dormant', 'InvalidStateError'); this.socket.send(bytes); }
+          close(code, reason) {
+            this.cancelled = true;
+            if (this.socket) this.socket.close(code, reason);
+            else queueMicrotask(() => { const event = new CloseEvent('close'); this.dispatchEvent(event); this.onclose?.call(this, event); });
+          }
+        };
+      }, new URL(relay).host);
+      legacyRelayCapabilities = native.wait('path-capabilities', true);
+      legacyRelayCapabilities.then(async () => {
+        report.legacyRelayRevealed = await page.evaluate(() => { window.releaseOwnedRelay(); return window.ownedRelayEvents; });
+      }).catch(rejectDeadline);
+    }
+    report.reopenedIdentity = await bounded(page.evaluate(async configuration => {
+      const { BrowserNetwork } = await import('/pkg/miopunch_browser_probe.js');
+      window.network = await BrowserNetwork.start(JSON.stringify(configuration));
+      return window.network.id();
+    }, configuration));
+    assert.equal(report.reopenedIdentity, report.browserIdentity);
+    report.savedAfterReopen = JSON.parse(await page.evaluate(() => window.network.status()));
+    assert.equal(report.savedAfterReopen.stage, 'Complete');
+    assert.equal(report.savedAfterReopen.secret_saved, true);
+    report.beforeMember = JSON.parse(await page.evaluate(() => window.network.path_diagnostics()));
+    if (legacyNoRtc) {
+      report.legacyUnreachable = await bounded(page.evaluate(async id => {
+        const started = performance.now();
+        try { window.unexpectedMember = await window.network.open_member_connection(id); return { returnedHandle: true }; }
+        catch (error) { return { returnedHandle: false, failure: String(error), milliseconds: performance.now()-started, peersCreated: window.rtcObjects.length }; }
+      }, ready.id));
+      assert.equal(report.legacyUnreachable.returnedHandle, false);
+      assert.match(report.legacyUnreachable.failure, /temporarily unreachable/);
+      assert(report.legacyUnreachable.milliseconds < 3000);
+      assert.equal(report.legacyUnreachable.peersCreated, 0);
+      report.legacyCapabilities = await native.wait('path-capabilities');
+      assert.equal(report.legacyCapabilities.alpn, 'miopunch/browser-member/1');
+      assert.equal(report.legacyCapabilities.version, 2);
+      assert.equal(report.legacyCapabilities.localRtc, 'None');
+      assert.equal(report.legacyCapabilities.peerRtc, 'None');
+      report.legacyNativeWithheld = await native.wait('handle-withheld');
+      assert.match(report.legacyNativeWithheld.error, /temporarily unreachable/);
+      assert(!report.native.some(entry => entry.event === 'member-released'));
+      report.legacySaved = JSON.parse(await page.evaluate(() => window.network.status()));
+      assert.equal(report.legacySaved.stage, 'Complete');
+      assert.equal(report.legacySaved.id, report.browserIdentity);
+    } else if (legacyRelay) {
+      try {
+        await bounded(page.evaluate(async id => { window.legacyMember = await window.network.open_member_connection(id); }, ready.id));
+      } catch (error) {
+        report.legacyRelayFailure = String(error);
+        report.legacyCapabilities = await legacyRelayCapabilities;
+        throw error;
+      }
+      report.legacyCapabilities = await legacyRelayCapabilities;
+      assert.equal(report.legacyCapabilities.version, 2);
+      assert.equal(report.legacyCapabilities.relay, true);
+      assert.equal(report.legacyCapabilities.rtc, false);
+      assert(report.legacyCapabilities.initialPaths.every(path => path.isMqtt && !path.isRelay && !path.isIp));
+      report.legacyRelayMember = JSON.parse(await page.evaluate(() => window.legacyMember.rtc_path_diagnostics()));
+      report.legacyRelayNativeValidation = await native.wait('relay-path');
+      for (const side of [report.legacyRelayMember.bootstrap, report.legacyRelayNativeValidation]) {
+        assert.equal(side.stableUnchanged, true); assert.equal(side.bindingUnchanged, true);
+        const probe = side.validatedRelay ?? side.probe;
+        assert.equal(probe.freshAck, true);
+        assert(probe.freshAckMs >= probe.freshProbeStartedMs);
+        assert(probe.probeWatermark > 0);
+        assert(side.relayFramesAfterConfirmation.some(path => path.streamSent + path.streamReceived > 0));
+      }
+      assert.equal(report.legacyRelayMember.bootstrap.privateStreamId, report.legacyRelayNativeValidation.privateStreamId);
+      assert(report.legacyRelayMember.paths.some(path => path.isRelay && path.selected));
+      assert(report.legacyRelayMember.paths.every(path => path.isRelay && !path.isRtc));
+      assert.equal(await bounded(page.evaluate(() => window.legacyMember.exchange('legacy v2 same-M permitted relay DATA'))), 'legacy v2 same-M permitted relay DATA');
+      report.legacyRelayAfterData = JSON.parse(await page.evaluate(() => window.legacyMember.rtc_path_diagnostics()));
+      assert(report.legacyRelayAfterData.paths[0].streamFramesSent > report.legacyRelayMember.paths[0].streamFramesSent);
+      assert(report.legacyRelayAfterData.paths[0].streamFramesReceived > report.legacyRelayMember.paths[0].streamFramesReceived);
+      report.legacyRelayReleased = await native.wait('member-released');
+      assert.equal(report.legacyRelayReleased.stableId, report.legacyCapabilities.stableId);
+      assert.equal(report.legacyRelayReleased.alpn, 'miopunch/browser-member/1');
+      assert.equal(await page.evaluate(() => window.rtcObjects.length), 0);
+      await page.evaluate(() => window.legacyMember.close());
+      report.legacySaved = JSON.parse(await page.evaluate(() => window.network.status()));
+      assert.equal(report.legacySaved.stage, 'Complete');
+    } else {
+    // This is the tracer-bullet red: both native and browser admission hooks
+    // must finish an actual RTC path before this call returns a public handle.
+    await bounded(page.evaluate(async id => { window.member = await window.network.open_member_connection(id); }, ready.id));
+    report.member = JSON.parse(await page.evaluate(() => window.member.rtc_path_diagnostics()));
+    for (const side of [report.member.bootstrap, report.member.bootstrap.native]) {
+      assert.equal(side.stableUnchanged, true);
+      assert.equal(side.bindingUnchanged, true);
+      assert.equal(side.freshAck, true);
+      assert(side.freshAckMs >= side.freshProbeStartedMs);
+      assert(Object.values(side.beforeRetainFrames).every(frames => frames === 0));
+    }
+    assert.equal(report.member.bootstrap.rtcRole, 'offerer');
+    assert.equal(report.member.bootstrap.native.rtcRole, 'answerer');
+    assert.equal(report.member.bootstrap.capabilitiesVersion, 3);
+    assert(report.member.paths.some(path => path.isRtc && path.selected));
+    assert(report.member.paths.every(path => path.isRtc && !path.isRelay));
+    report.carrierBeforeData = JSON.parse(await page.evaluate(() => window.network.path_diagnostics())).carriers;
+    assert.equal(await bounded(page.evaluate(() => window.member.exchange('saved member DATA after restricted MQTT RTC setup'))), 'saved member DATA after restricted MQTT RTC setup');
+    report.businessAfter = JSON.parse(await page.evaluate(() => window.member.rtc_path_diagnostics()));
+    report.carrierAfterData = JSON.parse(await page.evaluate(() => window.network.path_diagnostics())).carriers;
+    assert(report.carrierAfterData.every(carrier => carrier.ready));
+    assert.equal(report.carrierAfterData[0].traffic.sent_bytes, report.carrierBeforeData[0].traffic.sent_bytes);
+    assert.equal(report.carrierAfterData[0].traffic.received_bytes, report.carrierBeforeData[0].traffic.received_bytes);
+    report.memberReleased = await native.wait('member-released');
+    // The route's retained lifetime must outlive this caller's 12-second setup.
+    await bounded(new Promise(resolveWait => setTimeout(resolveWait, 12500)));
+    assert.equal(await bounded(page.evaluate(() => window.member.exchange('RTC DATA beyond original setup deadline'))), 'RTC DATA beyond original setup deadline');
+    report.afterSetupDeadline = JSON.parse(await page.evaluate(() => window.member.rtc_path_diagnostics()));
+    assert.equal(report.afterSetupDeadline.memberStableId, report.member.memberStableId);
+    assert(report.afterSetupDeadline.paths.some(path => path.isRtc && path.selected));
+    await page.evaluate(() => window.member.close());
+    report.normalCleanup = await native.wait('rtc-path-cleanup');
+    assert.equal(report.normalCleanup.cleanup.pcClosed, true);
+    assert.equal(report.normalCleanup.cleanup.ownedPumpTasks, 0);
+    report.normalBrowserCleanup = JSON.parse(await page.evaluate(() => window.member.rtc_path_diagnostics()));
+    assert.equal(report.normalBrowserCleanup.activeAssociations, 0);
+    assert.equal(report.normalBrowserCleanup.activePumpTasks, 0);
+    // Missing API is deliberately the next red. The separate pending-operation
+    // object must cancel this one connect attempt while WASM borrows its future.
+    await page.evaluate(id => { window.cancelAttempt = window.network.member_connection_attempt(id, 12000); }, ready.id);
+    const cancelledNativeCleanup = native.wait('rtc-path-cleanup', true);
+    cancelledNativeCleanup.catch(() => {});
+    await page.evaluate(() => {
+      // Drop actual datagram sends after RTC channel setup in this owned
+      // fixture, while the protected original MQTT stream remains available.
+      window.dropRtcPackets = true;
+      window.droppedRtcPackets = 0;
+      window.droppedOpenRtcPackets = 0;
+      const send = RTCDataChannel.prototype.send;
+      if (!window.originalRtcSend) {
+        window.originalRtcSend = send;
+        RTCDataChannel.prototype.send = function(bytes) {
+          if (window.dropRtcPackets) { window.droppedRtcPackets++; if (this.readyState === 'open') window.droppedOpenRtcPackets++; return; }
+          return window.originalRtcSend.call(this, bytes);
+        };
+      }
+      window.pendingMember = window.cancelAttempt.connect().then(member => { window.unexpectedMember = member; return { returnedHandle: true }; }, error => ({ returnedHandle: false, failure: String(error) }));
+    });
+    // Loss is active before QUIC can open a path; open-only is insufficient.
+    await bounded(page.waitForFunction(() => window.rtcObjects.some(peer => peer.connectionState === 'connected') && window.droppedRtcPackets > 0));
+    report.cancelled = await bounded(page.evaluate(async () => {
+      const started = performance.now(); window.cancelAttempt.cancel();
+      return { ...(await window.pendingMember), milliseconds: performance.now()-started, droppedQuicPackets: window.droppedRtcPackets, droppedWhileOpen: window.droppedOpenRtcPackets };
+    }));
+    assert.equal(report.cancelled.returnedHandle, false);
+    assert.match(report.cancelled.failure, /cancel/i);
+    assert(report.cancelled.milliseconds < 1000);
+    assert(report.cancelled.droppedQuicPackets > 0);
+    assert(report.cancelled.droppedWhileOpen > 0);
+    report.cancelledNativeCleanup = await cancelledNativeCleanup;
+    assert.equal(report.cancelledNativeCleanup.cleanup.pcClosed, true);
+    assert.equal(report.cancelledNativeCleanup.cleanup.ownedPumpTasks, 0);
+    assert.equal(report.cancelledNativeCleanup.switched, false);
+    await page.evaluate(() => { window.dropRtcPackets = false; window.cancelAttempt.free(); });
+    report.savedAfterCancellation = JSON.parse(await page.evaluate(() => window.network.status()));
+    assert.equal(report.savedAfterCancellation.stage, 'Complete');
+    assert.equal(report.savedAfterCancellation.secret_saved, true);
+    assert.equal(report.savedAfterCancellation.running, true);
+    assert.equal(report.savedAfterCancellation.id, report.browserIdentity);
+    await bounded(page.evaluate(async id => { window.memberAfterCancellation = await window.network.open_member_connection(id); }, ready.id));
+    assert.equal(await bounded(page.evaluate(() => window.memberAfterCancellation.exchange('same node retry after pending cancellation'))), 'same node retry after pending cancellation');
+    report.retryAfterCancellation = JSON.parse(await page.evaluate(() => window.memberAfterCancellation.rtc_path_diagnostics()));
+    const retryCleanup = native.wait('rtc-path-cleanup', true); retryCleanup.catch(() => {});
+    await page.evaluate(() => window.memberAfterCancellation.close());
+    await retryCleanup;
+    // The original 12-second clock covers setup even when the channel opens.
+    // Dropping real QUIC packets must never return an application handle.
+    const timeoutCleanup = native.wait('rtc-path-cleanup', true); timeoutCleanup.catch(() => {});
+    report.openChannelTimeout = await bounded(page.evaluate(async id => {
+      window.dropRtcPackets = true; window.droppedRtcPackets = 0; window.droppedOpenRtcPackets = 0;
+      const attempt = window.network.member_connection_attempt(id, 12000);
+      const started = performance.now();
+      let returnedHandle = false, failure;
+      try { window.unexpectedMember = await attempt.connect(); returnedHandle = true; }
+      catch (error) { failure = String(error); }
+      finally { attempt.free(); }
+      return { returnedHandle, failure, milliseconds: performance.now()-started, droppedQuicPackets: window.droppedRtcPackets, droppedWhileOpen: window.droppedOpenRtcPackets,
+        connectedChannels: window.rtcObjects.filter(peer => peer.connectionState === 'connected').length };
+    }, ready.id));
+    assert.equal(report.openChannelTimeout.returnedHandle, false);
+    assert(report.openChannelTimeout.droppedQuicPackets > 0);
+    assert(report.openChannelTimeout.droppedWhileOpen > 0);
+    assert(report.openChannelTimeout.milliseconds >= 11000 && report.openChannelTimeout.milliseconds < 13500);
+    report.timeoutNativeCleanup = await timeoutCleanup;
+    assert.equal(report.timeoutNativeCleanup.switched, false);
+    assert.equal(report.timeoutNativeCleanup.cleanup.pcClosed, true);
+    assert.equal(report.timeoutNativeCleanup.cleanup.ownedPumpTasks, 0);
+    // Creation fixes this shorter clock; delaying connect consumes its budget.
+    report.consumedCallerBudget = await bounded(page.evaluate(async id => {
+      const attempt = window.network.member_connection_attempt(id, 2000);
+      const started = performance.now();
+      await new Promise(resolve => setTimeout(resolve, 2200));
+      let returnedHandle = false, failure;
+      try { await attempt.connect(); returnedHandle = true; } catch (error) { failure = String(error); }
+      finally { attempt.free(); }
+      return { returnedHandle, failure, milliseconds: performance.now()-started };
+    }, ready.id));
+    assert.equal(report.consumedCallerBudget.returnedHandle, false);
+    assert(report.consumedCallerBudget.milliseconds < 2700);
+    await page.evaluate(() => { window.dropRtcPackets = false; });
+    // Late browser callbacks cannot revive a closed per-M association.
+    await bounded(page.waitForFunction(() => window.rtcObjects.every(peer => peer.connectionState === 'closed' && peer.onconnectionstatechange === null && peer.oniceconnectionstatechange === null)));
+    report.closedBrowserPeers = await page.evaluate(() => ({ created: window.rtcObjects.length,
+      closed: window.rtcObjects.filter(peer => peer.connectionState === 'closed').length }));
+    report.nativeLateCleanup = await native.command('status', 'status');
+    assert.equal(report.nativeLateCleanup.socketCount, memberReady.socketCount);
+    report.savedAfterTimeout = JSON.parse(await page.evaluate(() => window.network.status()));
+    assert.equal(report.savedAfterTimeout.stage, 'Complete');
+    await bounded(page.evaluate(async () => { await window.network.close(); window.network.free(); }));
+    await bounded(page.goto(`${report.origin}/network.html?config=${encodeURIComponent(JSON.stringify(configuration))}`));
+    assert.equal(await bounded(page.evaluate(() => window.ready)), report.browserIdentity);
+    report.savedAfterPageReload = JSON.parse(await page.evaluate(() => window.network.status()));
+    assert.equal(report.savedAfterPageReload.stage, 'Complete');
+    assert.equal(report.savedAfterPageReload.secret_saved, true);
+    const replicaReleased = native.wait('member-released', true); replicaReleased.catch(() => {});
+    const replicaCleanup = native.wait('rtc-path-cleanup', true); replicaCleanup.catch(() => {});
+    report.replica = JSON.parse(await bounded(page.evaluate(id => window.network.sync_replica(id), ready.id)));
+    report.replicaReleased = await replicaReleased;
+    assert.equal(report.replicaReleased.alpn, 'miopunch/control-replica/rtc-path/3');
+    report.replicaBootstrap = JSON.parse(await page.evaluate(() => window.network.path_diagnostics()));
+    const replicaBootstraps = Object.values(report.replicaBootstrap.memberBootstraps);
+    assert.equal(replicaBootstraps.length, 1);
+    assert.equal(replicaBootstraps[0].freshAck, true);
+    assert.equal(replicaBootstraps[0].native.freshAck, true);
+    report.replicaCleanup = await replicaCleanup;
+    assert.equal(report.replicaCleanup.cleanup.pcClosed, true);
+    assert.equal(report.replicaCleanup.cleanup.ownedPumpTasks, 0);
+    }
+  } else if (memberCase) {
     const { runMemberRtc } = await import('./run-rtc-member.mjs');
     await runMemberRtc({ page, native, ready, report, bounded, save });
   } else {
@@ -197,7 +507,7 @@ try {
   assert.equal(report.cancellation.peersCreated, report.cancellation.peersClosed);
   assert.equal(report.cancellation.callbacksDetached, true);
   }
-  assert(report.websockets.length > 0 && report.websockets.every(socket => socket.url.startsWith(relay.replace(/^https:/, 'wss:'))));
+  assert(report.websockets.length > 0 && (wssMemberCase || report.websockets.every(socket => socket.url.startsWith(relay.replace(/^https:/, 'wss:')))));
   assert(report.websockets.some(socket => socket.status === 101 && socket.sentFrames > 0 && socket.receivedFrames > 0));
   report.passed = true;
 } catch (error) {
@@ -217,6 +527,8 @@ try {
     report.fixtureCleanup = await exited; clearTimeout(killer);
     if (report.fixtureCleanup.code !== 0) { report.passed = false; process.exitCode = 1; }
   }
+  for (const socket of ownedSockets) socket.destroy();
+  for (const server of facilityServers) { server.closeAllConnections?.(); await new Promise(resolveClose => server.close(resolveClose)); }
   if (relayProcess && relayProcess.exitCode === null && relayProcess.signalCode === null) {
     const exited = new Promise(resolveExit => relayProcess.once('exit', (code, signal) => resolveExit({ code, signal })));
     relayProcess.stdin.write('stop\n'); relayProcess.stdin.end();

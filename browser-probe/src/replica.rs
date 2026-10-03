@@ -65,8 +65,9 @@ impl BrowserNetwork {
 }
 impl BrowserNetwork {
     fn replica_allowed(&self, connection: &Connection) -> bool {
-        connection.alpn() == REPLICA_ALPN
-            && BrowserGate::permits(&self.saved, connection.remote_id(), REPLICA_ALPN)
+        crate::member_path_protocol::MemberProtocol::from_wire(connection.alpn()).is_some_and(
+            |(protocol, _)| protocol == crate::member_path_protocol::MemberProtocol::Replica,
+        ) && BrowserGate::permits(&self.saved, connection.remote_id(), REPLICA_ALPN)
     }
     async fn consume_replica_event(
         &mut self,

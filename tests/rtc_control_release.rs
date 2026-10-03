@@ -1,0 +1,386 @@
+//! Real protected-hook/QUIC/lease boundary. The owned queue bridge is not
+//! a browser RTC association and does not qualify the WSS carrier.
+use futures_util::future::poll_fn;
+use iroh::{
+    Endpoint, TransportAddr,
+    endpoint::{AfterHandshakeOutcome, Connection, EndpointHooks, presets},
+};
+use iroh_base::CustomAddr;
+use miopunch_native_probe::rtc_transport::{
+    RtcDatagramIo, RtcRouteLease, RtcTransport, TRANSPORT_ID,
+};
+use std::{
+    io,
+    net::{Ipv4Addr, SocketAddr},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    },
+    time::Duration,
+};
+
+const ALPN: &[u8] = b"miopunch/rtc-control-release-test/1";
+#[derive(Default)]
+struct Bridge {
+    halves: Mutex<[Option<RtcDatagramIo>; 2]>,
+    notify: tokio::sync::Notify,
+    pumps: Mutex<Vec<tokio::task::JoinHandle<()>>>,
+    confirmed: AtomicUsize,
+}
+#[derive(Clone)]
+struct Gate {
+    side: usize,
+    transport: RtcTransport,
+    bridge: Arc<Bridge>,
+    owner: Arc<Mutex<Option<RtcRouteLease>>>,
+    original: Arc<Mutex<Option<usize>>>,
+    current: Arc<AtomicBool>,
+    invalidate_before_release: bool,
+}
+impl std::fmt::Debug for Gate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Gate").field("side", &self.side).finish()
+    }
+}
+impl EndpointHooks for Gate {
+    async fn after_handshake(&self, _: &Connection) -> AfterHandshakeOutcome {
+        // No type-wide RTC grant: final release must preserve only the exact
+        // route qualified by both protected hooks on this original M.
+        AfterHandshakeOutcome::AcceptData {
+            allowed_data_custom_ids: vec![],
+        }
+    }
+    async fn before_data_release(
+        &self,
+        endpoint: &Endpoint,
+        original: &Connection,
+    ) -> io::Result<()> {
+        *self.original.lock().unwrap() = Some(original.stable_id());
+        let (mut send, mut recv) = if original.side().is_client() {
+            original.open_bi().await.map_err(io::Error::other)?
+        } else {
+            original.accept_bi().await.map_err(io::Error::other)?
+        };
+        let current = self.current.clone();
+        let lease = self
+            .transport
+            .reserve(original, move || current.load(Ordering::Acquire))?;
+        send.write_all(lease.local_addr().data())
+            .await
+            .map_err(io::Error::other)?;
+        let mut address = [0; 16];
+        recv.read_exact(&mut address)
+            .await
+            .map_err(io::Error::other)?;
+        let remote = CustomAddr::from_parts(TRANSPORT_ID, &address);
+        lease.set_remote(remote.clone())?;
+        lease.activate()?;
+        self.bridge.halves.lock().unwrap()[self.side] = Some(lease.io());
+        self.bridge.notify.notify_waiters();
+        let destination = loop {
+            let notified = self.bridge.notify.notified();
+            let peer = self.bridge.halves.lock().unwrap()[1 - self.side].clone();
+            if let Some(peer) = peer {
+                break peer;
+            }
+            notified.await;
+        };
+        let source = lease.io();
+        self.bridge
+            .pumps
+            .lock()
+            .unwrap()
+            .push(tokio::spawn(async move {
+                while let Ok(packet) = poll_fn(|cx| source.poll_outbound(cx)).await {
+                    if destination.receive(packet).is_err() {
+                        break;
+                    }
+                    tokio::task::yield_now().await;
+                }
+            }));
+        if original.side().is_client() {
+            endpoint.open_control_path(original, remote.clone()).await?;
+        }
+        let probe = loop {
+            match lease.start_probe(original) {
+                Ok(probe) => break probe,
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                    tokio::time::sleep(Duration::from_millis(10)).await
+                }
+                Err(e) => return Err(e),
+            }
+        };
+        for path in original
+            .paths()
+            .iter()
+            .filter(|path| path.remote_addr().is_custom())
+        {
+            assert_eq!(
+                path.stats().frame_tx.stream,
+                0,
+                "pending path cannot carry private STREAM"
+            );
+            assert_eq!(path.stats().frame_tx.datagram, 0);
+        }
+        while !probe.is_acknowledged()? {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        lease.retain(original, &probe)?;
+        send.write_all(b"ack").await.map_err(io::Error::other)?;
+        let mut ack = [0; 3];
+        recv.read_exact(&mut ack).await.map_err(io::Error::other)?;
+        assert_eq!(&ack, b"ack");
+        endpoint
+            .retain_control_data_transport_path(original, remote.clone())
+            .await?;
+        assert!(
+            original.paths().iter().any(|path| path.remote_addr()
+                == &TransportAddr::Custom(remote.clone())
+                && path.is_selected()),
+            "restricted connection pins exact qualified RTC"
+        );
+        // Isolate old IP loss for the continuation observation, only in this
+        // fixture. Final authorization must replace this mask while retaining
+        // the qualified exact route and excluding type-wide custom grants.
+        endpoint
+            .test_limit_transport_paths(original, vec![TransportAddr::Custom(remote)])
+            .await?;
+        for path in original.paths().iter().filter(|path| path.is_ip()) {
+            let _ = path.close();
+        }
+        send.write_all(b"same private stream")
+            .await
+            .map_err(io::Error::other)?;
+        let mut confirm = [0; 19];
+        recv.read_exact(&mut confirm)
+            .await
+            .map_err(io::Error::other)?;
+        assert_eq!(&confirm, b"same private stream");
+        send.finish().map_err(io::Error::other)?;
+        *self.owner.lock().unwrap() = Some(lease);
+        if self.invalidate_before_release {
+            self.bridge.confirmed.fetch_add(1, Ordering::AcqRel);
+            self.bridge.notify.notify_waiters();
+            loop {
+                let notified = self.bridge.notify.notified();
+                if self.bridge.confirmed.load(Ordering::Acquire) == 2 {
+                    break;
+                }
+                notified.await;
+            }
+            // Fault after both private reads completed, so this story tests
+            // queued admission rather than interruption of confirmation.
+            self.current.store(false, Ordering::Release);
+        }
+        Ok(())
+    }
+}
+async fn endpoint(gate: Gate) -> Endpoint {
+    Endpoint::builder(presets::Minimal)
+        .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+        .unwrap()
+        .clear_relay_transports()
+        .add_custom_transport(Arc::new(gate.transport.clone()))
+        .admission_gate(gate)
+        .alpns(vec![ALPN.to_vec()])
+        .bind()
+        .await
+        .unwrap()
+}
+#[tokio::test]
+async fn protected_hooks_confirm_on_exact_rtc_before_original_m_is_released() {
+    tokio::time::timeout(Duration::from_secs(8), async {
+        let bridge = Arc::new(Bridge::default());
+        let gate = |side| Gate {
+            side,
+            transport: RtcTransport::new(),
+            bridge: bridge.clone(),
+            owner: Arc::new(Mutex::new(None)),
+            original: Arc::new(Mutex::new(None)),
+            current: Arc::new(AtomicBool::new(true)),
+            invalidate_before_release: false,
+        };
+        let left = gate(0);
+        let right = gate(1);
+        let a = endpoint(left.clone()).await;
+        let b = endpoint(right.clone()).await;
+        let (local, remote) = tokio::join!(a.connect(b.addr(), ALPN), async {
+            b.accept().await.unwrap().await
+        });
+        let (local, remote) = (local.unwrap(), remote.unwrap());
+        assert_eq!(Some(local.stable_id()), *left.original.lock().unwrap());
+        assert_eq!(Some(remote.stable_id()), *right.original.lock().unwrap());
+        let mut l = [0; 32];
+        let mut r = [0; 32];
+        local
+            .export_keying_material(&mut l, b"control-release-test", &[])
+            .unwrap();
+        remote
+            .export_keying_material(&mut r, b"control-release-test", &[])
+            .unwrap();
+        assert!(l == r, "original authenticated M TLS binding comparison");
+        let (mut request, mut reply) = local.open_bi().await.unwrap();
+        request.write_all(b"released original M").await.unwrap();
+        request.finish().unwrap();
+        let (mut response, mut incoming) = remote.accept_bi().await.unwrap();
+        assert_eq!(
+            incoming.read_to_end(32).await.unwrap(),
+            b"released original M"
+        );
+        response
+            .write_all(b"normal data over exact RTC")
+            .await
+            .unwrap();
+        response.finish().unwrap();
+        assert_eq!(
+            reply.read_to_end(64).await.unwrap(),
+            b"normal data over exact RTC"
+        );
+        for connection in [&local, &remote] {
+            assert!(
+                connection
+                    .paths()
+                    .iter()
+                    .any(|p| p.remote_addr().is_custom()
+                        && p.is_selected()
+                        && p.stats().frame_tx.stream > 0)
+            );
+            connection.close(0u32.into(), b"owned fixture ended");
+        }
+        left.owner.lock().unwrap().take();
+        right.owner.lock().unwrap().take();
+        for pump in bridge.pumps.lock().unwrap().drain(..) {
+            pump.abort();
+        }
+        tokio::join!(a.close(), b.close());
+    })
+    .await
+    .expect("owned protected release completes within fixture limit");
+}
+
+#[tokio::test]
+async fn queued_final_release_rechecks_the_exact_route_after_hook_confirmation() {
+    let bridge = Arc::new(Bridge::default());
+    let gate = |side| Gate {
+        side,
+        transport: RtcTransport::new(),
+        bridge: bridge.clone(),
+        owner: Arc::new(Mutex::new(None)),
+        original: Arc::new(Mutex::new(None)),
+        current: Arc::new(AtomicBool::new(true)),
+        invalidate_before_release: true,
+    };
+    let left = gate(0);
+    let right = gate(1);
+    let a = endpoint(left.clone()).await;
+    let b = endpoint(right.clone()).await;
+    let (local, remote) = tokio::time::timeout(Duration::from_secs(8), async {
+        tokio::join!(a.connect(b.addr(), ALPN), async {
+            b.accept().await.unwrap().await
+        })
+    })
+    .await
+    .unwrap();
+    assert!(
+        local.is_err() && remote.is_err(),
+        "qualification changed after confirmation; neither normal handle may be released"
+    );
+    left.owner.lock().unwrap().take();
+    right.owner.lock().unwrap().take();
+    for pump in bridge.pumps.lock().unwrap().drain(..) {
+        pump.abort();
+    }
+    tokio::join!(a.close(), b.close());
+}
+
+#[derive(Debug, Clone)]
+struct RejectSignalingSeal(Arc<AtomicBool>);
+impl EndpointHooks for RejectSignalingSeal {
+    async fn after_handshake(&self, _: &Connection) -> AfterHandshakeOutcome {
+        AfterHandshakeOutcome::AcceptData {
+            allowed_data_custom_ids: vec![],
+        }
+    }
+    async fn before_data_release(
+        &self,
+        endpoint: &Endpoint,
+        original: &Connection,
+    ) -> io::Result<()> {
+        let signaling = original
+            .paths()
+            .iter()
+            .find_map(|path| match path.remote_addr() {
+                TransportAddr::Custom(address) => Some(address.clone()),
+                _ => None,
+            })
+            .expect("this authenticated M actually started on MQTT");
+        assert_eq!(
+            signaling.id(),
+            miopunch_native_probe::mqtt_transport::TRANSPORT_ID
+        );
+        let error = endpoint
+            .retain_control_data_transport_path(original, signaling)
+            .await
+            .expect_err("legacy signaling carrier cannot become an exact data grant");
+        assert!(error.to_string().contains("connection-owned qualification"));
+        self.0.store(true, Ordering::Release);
+        Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "signaling has no normal data grant",
+        ))
+    }
+}
+#[tokio::test]
+async fn actual_mqtt_control_route_cannot_be_sealed_as_an_ordinary_data_path() {
+    use miopunch_native_probe::mqtt_transport::{MqttTransport, Traffic};
+    let Ok(broker) = std::env::var("MIOPUNCH_MQTT_BROKER") else {
+        return;
+    };
+    let broker = broker.parse::<SocketAddr>().unwrap();
+    let observed = [
+        Arc::new(AtomicBool::new(false)),
+        Arc::new(AtomicBool::new(false)),
+    ];
+    let carriers = [
+        Arc::new(MqttTransport::new(broker, Arc::new(Traffic::default()))),
+        Arc::new(MqttTransport::new(broker, Arc::new(Traffic::default()))),
+    ];
+    let mut endpoints = Vec::new();
+    for index in 0..2 {
+        endpoints.push(
+            Endpoint::builder(presets::Minimal)
+                .clear_ip_transports()
+                .clear_relay_transports()
+                .add_custom_transport(carriers[index].clone())
+                .admission_gate(RejectSignalingSeal(observed[index].clone()))
+                .alpns(vec![ALPN.to_vec()])
+                .bind()
+                .await
+                .unwrap(),
+        );
+        carriers[index].wait_ready().await.unwrap();
+    }
+    let target = iroh::EndpointAddr::new(endpoints[1].id()).with_addrs([TransportAddr::Custom(
+        MqttTransport::address(&carriers[1].route().unwrap()).unwrap(),
+    )]);
+    let (local, remote) = tokio::time::timeout(Duration::from_secs(8), async {
+        tokio::join!(endpoints[0].connect(target, ALPN), async {
+            endpoints[1].accept().await.unwrap().await
+        })
+    })
+    .await
+    .unwrap();
+    assert!(
+        local.is_err() && remote.is_err(),
+        "neither signaling M yields a normal data handle"
+    );
+    assert!(
+        observed.iter().all(|value| value.load(Ordering::Acquire)),
+        "both restricted hooks rejected the actual signaling route"
+    );
+    assert!(
+        carriers.iter().all(|carrier| carrier.diagnostics().1),
+        "facility remains ready while ordinary signaling use is refused"
+    );
+    tokio::join!(endpoints[0].close(), endpoints[1].close());
+}
