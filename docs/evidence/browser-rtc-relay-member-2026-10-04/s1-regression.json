@@ -1,0 +1,1624 @@
+{
+  "startedUtc": "2026-10-03T20:36:30.432Z",
+  "passed": true,
+  "phases": [
+    {
+      "name": "fixture-and-browser-start",
+      "startedUtc": "2026-10-03T20:36:30.432Z",
+      "budgetSeconds": 15,
+      "passed": true,
+      "milliseconds": 741
+    },
+    {
+      "name": "successful-acks",
+      "startedUtc": "2026-10-03T20:36:31.173Z",
+      "budgetSeconds": 15,
+      "passed": true,
+      "milliseconds": 60
+    },
+    {
+      "name": "four-full-datagrams-and-local-rejection",
+      "startedUtc": "2026-10-03T20:36:31.233Z",
+      "budgetSeconds": 15,
+      "passed": true,
+      "milliseconds": 193
+    },
+    {
+      "name": "live-disconnection-withdrawal",
+      "startedUtc": "2026-10-03T20:36:31.427Z",
+      "budgetSeconds": 15,
+      "passed": true,
+      "milliseconds": 625
+    },
+    {
+      "name": "subscription-failure-and-pre-ready-disconnect",
+      "startedUtc": "2026-10-03T20:36:32.052Z",
+      "budgetSeconds": 15,
+      "passed": true,
+      "milliseconds": 1944
+    },
+    {
+      "name": "alias-disable-and-clean-close",
+      "startedUtc": "2026-10-03T20:36:33.996Z",
+      "budgetSeconds": 15,
+      "passed": true,
+      "milliseconds": 650
+    }
+  ],
+  "normal": [
+    {
+      "direction": "native-to-browser",
+      "bytes": 1200,
+      "byteEqual": true
+    },
+    {
+      "direction": "browser-to-native",
+      "bytes": 1200,
+      "byteEqual": true
+    },
+    {
+      "direction": "native-to-browser",
+      "bytes": 2048,
+      "byteEqual": true
+    },
+    {
+      "direction": "browser-to-native",
+      "bytes": 2048,
+      "byteEqual": true
+    }
+  ],
+  "failures": [
+    {
+      "case": "oversize",
+      "browserRejected": true,
+      "nativeRejected": true
+    },
+    {
+      "case": "wrong-service",
+      "browserRejected": true,
+      "nativeRejected": true
+    },
+    {
+      "case": "disconnect-after-ready",
+      "browser": {
+        "buffered_bytes": 0,
+        "closed": true,
+        "pending_bytes": 0,
+        "protocol": "mqtt",
+        "queued_packets": 0,
+        "ready": false,
+        "route": null,
+        "traffic": {
+          "buffered_bytes_peak": 2126,
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": "MQTT WebSocket closed",
+          "generation": 2995942098,
+          "ready_ms": 1791059791230,
+          "received_bytes": 3248,
+          "received_frame_bytes": 3413,
+          "received_frames": 4,
+          "received_packets": 2,
+          "rejected_packets": 0,
+          "rx_queue_peak": 1,
+          "sent_bytes": 3248,
+          "sent_frame_bytes": 3522,
+          "sent_frames": 4,
+          "sent_packets": 2,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": 1791059791429
+        }
+      },
+      "native": {
+        "address_count": 0,
+        "error": "MQTT carrier closed",
+        "event": "withdrawn",
+        "route_rejected": true,
+        "traffic": {
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": false,
+            "failure": "Mqtt state: Mqtt serialization/deserialization error: IO: peer closed connection without sending TLS close_notify: https://docs.rs/rustls/latest/rustls/manual/_03_howto/index.html#unexpected-eof",
+            "ready_ms": 1791059791203,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": false,
+            "withdraw_ms": 1791059791427
+          },
+          "queue_depth": 64,
+          "queue_peak": 1,
+          "queued_packets": 0,
+          "received_bytes": 3248,
+          "received_packets": 2,
+          "rejected_packets": 2,
+          "rx_queue_peak": 1,
+          "sent_bytes": 3248,
+          "sent_packets": 2
+        }
+      }
+    },
+    {
+      "case": "reject-suback",
+      "browser": {
+        "buffered_bytes": 0,
+        "closed": true,
+        "pending_bytes": 0,
+        "protocol": "mqtt",
+        "queued_packets": 0,
+        "ready": false,
+        "route": null,
+        "traffic": {
+          "buffered_bytes_peak": 60,
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": "JsValue(\"MQTT subscription rejected or unmatched SUBACK\")",
+          "generation": 1403530904,
+          "ready_ms": null,
+          "received_bytes": 0,
+          "received_frame_bytes": 9,
+          "received_frames": 2,
+          "received_packets": 0,
+          "rejected_packets": 0,
+          "rx_queue_peak": 0,
+          "sent_bytes": 0,
+          "sent_frame_bytes": 118,
+          "sent_frames": 2,
+          "sent_packets": 0,
+          "suback_codes": [
+            128
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": 1791059792061
+        }
+      }
+    },
+    {
+      "case": "unmatched-suback",
+      "browser": {
+        "buffered_bytes": 0,
+        "closed": true,
+        "pending_bytes": 0,
+        "protocol": "mqtt",
+        "queued_packets": 0,
+        "ready": false,
+        "route": null,
+        "traffic": {
+          "buffered_bytes_peak": 60,
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": "JsValue(\"MQTT subscription rejected or unmatched SUBACK\")",
+          "generation": 230339450,
+          "ready_ms": null,
+          "received_bytes": 0,
+          "received_frame_bytes": 9,
+          "received_frames": 2,
+          "received_packets": 0,
+          "rejected_packets": 0,
+          "rx_queue_peak": 0,
+          "sent_bytes": 0,
+          "sent_frame_bytes": 118,
+          "sent_frames": 2,
+          "sent_packets": 0,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 0,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": 1791059792073
+        }
+      }
+    },
+    {
+      "case": "cut-before-suback",
+      "browser": {
+        "buffered_bytes": 0,
+        "closed": true,
+        "pending_bytes": 0,
+        "protocol": "mqtt",
+        "queued_packets": 0,
+        "ready": false,
+        "route": null,
+        "traffic": {
+          "buffered_bytes_peak": 60,
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": "MQTT WebSocket closed",
+          "generation": 1170178238,
+          "ready_ms": null,
+          "received_bytes": 0,
+          "received_frame_bytes": 4,
+          "received_frames": 1,
+          "received_packets": 0,
+          "rejected_packets": 0,
+          "rx_queue_peak": 0,
+          "sent_bytes": 0,
+          "sent_frame_bytes": 118,
+          "sent_frames": 2,
+          "sent_packets": 0,
+          "suback_codes": [],
+          "suback_id": null,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": 1791059792087
+        }
+      }
+    },
+    {
+      "case": "native-reject-suback",
+      "native": {
+        "address_count": 0,
+        "error": "MQTT carrier stopped",
+        "event": "failed",
+        "route_rejected": true,
+        "traffic": {
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": false,
+            "failure": "MQTT subscription rejected or unmatched SUBACK",
+            "ready_ms": null,
+            "suback_codes": [
+              128
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": false,
+            "withdraw_ms": 1791059792104
+          },
+          "queue_depth": 64,
+          "queue_peak": 0,
+          "queued_packets": 0,
+          "received_bytes": 0,
+          "received_packets": 0,
+          "rejected_packets": 0,
+          "rx_queue_peak": 0,
+          "sent_bytes": 0,
+          "sent_packets": 0
+        }
+      }
+    },
+    {
+      "case": "native-unmatched-suback",
+      "native": {
+        "address_count": 0,
+        "error": "MQTT carrier stopped",
+        "event": "failed",
+        "route_rejected": true,
+        "traffic": {
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": false,
+            "failure": "MQTT subscription rejected or unmatched SUBACK",
+            "ready_ms": null,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 0,
+            "subscribe_id": 1,
+            "unsubscribe_sent": false,
+            "withdraw_ms": 1791059792740
+          },
+          "queue_depth": 64,
+          "queue_peak": 0,
+          "queued_packets": 0,
+          "received_bytes": 0,
+          "received_packets": 0,
+          "rejected_packets": 0,
+          "rx_queue_peak": 0,
+          "sent_bytes": 0,
+          "sent_packets": 0
+        }
+      }
+    },
+    {
+      "case": "native-cut-before-suback",
+      "native": {
+        "address_count": 0,
+        "error": "MQTT carrier stopped",
+        "event": "failed",
+        "route_rejected": true,
+        "traffic": {
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": false,
+            "failure": "Mqtt state: Mqtt serialization/deserialization error: IO: peer closed connection without sending TLS close_notify: https://docs.rs/rustls/latest/rustls/manual/_03_howto/index.html#unexpected-eof",
+            "ready_ms": null,
+            "suback_codes": [],
+            "suback_id": null,
+            "subscribe_id": 1,
+            "unsubscribe_sent": false,
+            "withdraw_ms": 1791059793376
+          },
+          "queue_depth": 64,
+          "queue_peak": 0,
+          "queued_packets": 0,
+          "received_bytes": 0,
+          "received_packets": 0,
+          "rejected_packets": 0,
+          "rx_queue_peak": 0,
+          "sent_bytes": 0,
+          "sent_packets": 0
+        }
+      }
+    }
+  ],
+  "native": [
+    {
+      "name": "normal",
+      "address_count": 0,
+      "event": "starting",
+      "route_rejected": true,
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": null,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": null,
+          "suback_codes": [],
+          "suback_id": null,
+          "subscribe_id": null,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 0,
+        "queued_packets": 0,
+        "received_bytes": 0,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_packets": 0
+      }
+    },
+    {
+      "name": "normal",
+      "address_count": 1,
+      "event": "ready",
+      "route": "1b593cb6a554f425bf1e3220859b8a0dd316f29773d3a6d511e1d7b2469a611a",
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": 1791059791203,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 0,
+        "queued_packets": 0,
+        "received_bytes": 0,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_packets": 0
+      }
+    },
+    {
+      "name": "normal",
+      "accepted": true,
+      "error": null,
+      "event": "sent",
+      "id": 1,
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": 1791059791203,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 1,
+        "queued_packets": 1,
+        "received_bytes": 0,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_packets": 0
+      }
+    },
+    {
+      "name": "normal",
+      "bytes": "d3e6f90c1f3245586b7e91a4b7caddf00316293c4f6275889baec1d4e7fa0d203346596c7f92a5b8cbdef104172a3d506376899cafc2d5e8fb0e2134475a6d8093a6b9ccdff205182b3e5164778a9db0c3d6e9fc0f2235485b6e8194a7bacde0f306192c3f5265788b9eb1c4d7eafd102336495c6f8295a8bbcee1f4071a2d405366798c9fb2c5d8ebfe1124374a5d708396a9bccfe2f5081b2e4154677a8da0b3c6d9ecff1225384b5e718497aabdd0e3f6091c2f4255687b8ea1b4c7daed001326394c5f728598abbed1e4f70a1d304356697c8fa2b5c8dbee0114273a4d60738699acbfd2e5f80b1e3144576a7d90a3b6c9dcef0215283b4e6174879aadc0d3e6f90c1f3245586b7e91a4b7caddf00316293c4f6275889baec1d4e7fa0d203346596c7f92a5b8cbdef104172a3d506376899cafc2d5e8fb0e2134475a6d8093a6b9ccdff205182b3e5164778a9db0c3d6e9fc0f2235485b6e8194a7bacde0f306192c3f5265788b9eb1c4d7eafd102336495c6f8295a8bbcee1f4071a2d405366798c9fb2c5d8ebfe1124374a5d708396a9bccfe2f5081b2e4154677a8da0b3c6d9ecff1225384b5e718497aabdd0e3f6091c2f4255687b8ea1b4c7daed001326394c5f728598abbed1e4f70a1d304356697c8fa2b5c8dbee0114273a4d60738699acbfd2e5f80b1e3144576a7d90a3b6c9dcef0215283b4e6174879aadc0d3e6f90c1f3245586b7e91a4b7caddf00316293c4f6275889baec1d4e7fa0d203346596c7f92a5b8cbdef104172a3d506376899cafc2d5e8fb0e2134475a6d8093a6b9ccdff205182b3e5164778a9db0c3d6e9fc0f2235485b6e8194a7bacde0f306192c3f5265788b9eb1c4d7eafd102336495c6f8295a8bbcee1f4071a2d405366798c9fb2c5d8ebfe1124374a5d708396a9bccfe2f5081b2e4154677a8da0b3c6d9ecff1225384b5e718497aabdd0e3f6091c2f4255687b8ea1b4c7daed001326394c5f728598abbed1e4f70a1d304356697c8fa2b5c8dbee0114273a4d60738699acbfd2e5f80b1e3144576a7d90a3b6c9dcef0215283b4e6174879aadc0d3e6f90c1f3245586b7e91a4b7caddf00316293c4f6275889baec1d4e7fa0d203346596c7f92a5b8cbdef104172a3d506376899cafc2d5e8fb0e2134475a6d8093a6b9ccdff205182b3e5164778a9db0c3d6e9fc0f2235485b6e8194a7bacde0f306192c3f5265788b9eb1c4d7eafd102336495c6f8295a8bbcee1f4071a2d405366798c9fb2c5d8ebfe1124374a5d708396a9bccfe2f5081b2e4154677a8da0b3c6d9ecff1225384b5e718497aabdd0e3f6091c2f4255687b8ea1b4c7daed001326394c5f728598abbed1e4f70a1d304356697c8fa2b5c8dbee0114273a4d60738699acbfd2e5f80b1e3144576a7d90a3b6c9dcef0215283b4e6174879aadc0d3e6f90c1f3245586b7e91a4b7caddf00316293c4f6275889baec1d4e7fa0d203346596c7f92a5b8cbdef104172a3d506376899cafc2d5e8fb0e2134475a6d8093a6b9ccdff205182b3e5164778a9db0c3d6e9fc0f2235485b6e8194a7bacde0f306192c3f5265788b9eb1c4d7eafd102336495c6f8295a8bbcee1f4071a2d405366798c9fb2c5d8ebfe1124374a5d708396a9bccfe2f5081b2e4154677a8da0b3c6d9ecff1225384b5e718497aabdd0",
+      "event": "received",
+      "source": "1b593cb6a554f425bf1e3220859b8a0d504c9903b442e8a3e1910137be131b13",
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": 1791059791203,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 1,
+        "queued_packets": 0,
+        "received_bytes": 1200,
+        "received_packets": 1,
+        "rejected_packets": 0,
+        "rx_queue_peak": 1,
+        "sent_bytes": 1200,
+        "sent_packets": 1
+      }
+    },
+    {
+      "name": "normal",
+      "accepted": true,
+      "error": null,
+      "event": "sent",
+      "id": 2,
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": 1791059791203,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 1,
+        "queued_packets": 1,
+        "received_bytes": 1200,
+        "received_packets": 1,
+        "rejected_packets": 0,
+        "rx_queue_peak": 1,
+        "sent_bytes": 1200,
+        "sent_packets": 1
+      }
+    },
+    {
+      "name": "normal",
+      "bytes": "d3e6f90c1f3245586b7e91a4b7caddf00316293c4f6275889baec1d4e7fa0d203346596c7f92a5b8cbdef104172a3d506376899cafc2d5e8fb0e2134475a6d8093a6b9ccdff205182b3e5164778a9db0c3d6e9fc0f2235485b6e8194a7bacde0f306192c3f5265788b9eb1c4d7eafd102336495c6f8295a8bbcee1f4071a2d405366798c9fb2c5d8ebfe1124374a5d708396a9bccfe2f5081b2e4154677a8da0b3c6d9ecff1225384b5e718497aabdd0e3f6091c2f4255687b8ea1b4c7daed001326394c5f728598abbed1e4f70a1d304356697c8fa2b5c8dbee0114273a4d60738699acbfd2e5f80b1e3144576a7d90a3b6c9dcef0215283b4e6174879aadc0d3e6f90c1f3245586b7e91a4b7caddf00316293c4f6275889baec1d4e7fa0d203346596c7f92a5b8cbdef104172a3d506376899cafc2d5e8fb0e2134475a6d8093a6b9ccdff205182b3e5164778a9db0c3d6e9fc0f2235485b6e8194a7bacde0f306192c3f5265788b9eb1c4d7eafd102336495c6f8295a8bbcee1f4071a2d405366798c9fb2c5d8ebfe1124374a5d708396a9bccfe2f5081b2e4154677a8da0b3c6d9ecff1225384b5e718497aabdd0e3f6091c2f4255687b8ea1b4c7daed001326394c5f728598abbed1e4f70a1d304356697c8fa2b5c8dbee0114273a4d60738699acbfd2e5f80b1e3144576a7d90a3b6c9dcef0215283b4e6174879aadc0d3e6f90c1f3245586b7e91a4b7caddf00316293c4f6275889baec1d4e7fa0d203346596c7f92a5b8cbdef104172a3d506376899cafc2d5e8fb0e2134475a6d8093a6b9ccdff205182b3e5164778a9db0c3d6e9fc0f2235485b6e8194a7bacde0f306192c3f5265788b9eb1c4d7eafd102336495c6f8295a8bbcee1f4071a2d405366798c9fb2c5d8ebfe1124374a5d708396a9bccfe2f5081b2e4154677a8da0b3c6d9ecff1225384b5e718497aabdd0e3f6091c2f4255687b8ea1b4c7daed001326394c5f728598abbed1e4f70a1d304356697c8fa2b5c8dbee0114273a4d60738699acbfd2e5f80b1e3144576a7d90a3b6c9dcef0215283b4e6174879aadc0d3e6f90c1f3245586b7e91a4b7caddf00316293c4f6275889baec1d4e7fa0d203346596c7f92a5b8cbdef104172a3d506376899cafc2d5e8fb0e2134475a6d8093a6b9ccdff205182b3e5164778a9db0c3d6e9fc0f2235485b6e8194a7bacde0f306192c3f5265788b9eb1c4d7eafd102336495c6f8295a8bbcee1f4071a2d405366798c9fb2c5d8ebfe1124374a5d708396a9bccfe2f5081b2e4154677a8da0b3c6d9ecff1225384b5e718497aabdd0e3f6091c2f4255687b8ea1b4c7daed001326394c5f728598abbed1e4f70a1d304356697c8fa2b5c8dbee0114273a4d60738699acbfd2e5f80b1e3144576a7d90a3b6c9dcef0215283b4e6174879aadc0d3e6f90c1f3245586b7e91a4b7caddf00316293c4f6275889baec1d4e7fa0d203346596c7f92a5b8cbdef104172a3d506376899cafc2d5e8fb0e2134475a6d8093a6b9ccdff205182b3e5164778a9db0c3d6e9fc0f2235485b6e8194a7bacde0f306192c3f5265788b9eb1c4d7eafd102336495c6f8295a8bbcee1f4071a2d405366798c9fb2c5d8ebfe1124374a5d708396a9bccfe2f5081b2e4154677a8da0b3c6d9ecff1225384b5e718497aabdd0e3f6091c2f4255687b8ea1b4c7daed001326394c5f728598abbed1e4f70a1d304356697c8fa2b5c8dbee0114273a4d60738699acbfd2e5f80b1e3144576a7d90a3b6c9dcef0215283b4e6174879aadc0d3e6f90c1f3245586b7e91a4b7caddf00316293c4f6275889baec1d4e7fa0d203346596c7f92a5b8cbdef104172a3d506376899cafc2d5e8fb0e2134475a6d8093a6b9ccdff205182b3e5164778a9db0c3d6e9fc0f2235485b6e8194a7bacde0f306192c3f5265788b9eb1c4d7eafd102336495c6f8295a8bbcee1f4071a2d405366798c9fb2c5d8ebfe1124374a5d708396a9bccfe2f5081b2e4154677a8da0b3c6d9ecff1225384b5e718497aabdd0e3f6091c2f4255687b8ea1b4c7daed001326394c5f728598abbed1e4f70a1d304356697c8fa2b5c8dbee0114273a4d60738699acbfd2e5f80b1e3144576a7d90a3b6c9dcef0215283b4e6174879aadc0d3e6f90c1f3245586b7e91a4b7caddf00316293c4f6275889baec1d4e7fa0d203346596c7f92a5b8cbdef104172a3d506376899cafc2d5e8fb0e2134475a6d8093a6b9ccdff205182b3e5164778a9db0c3d6e9fc0f2235485b6e8194a7bacde0f306192c3f5265788b9eb1c4d7eafd102336495c6f8295a8bbcee1f4071a2d405366798c9fb2c5d8ebfe1124374a5d708396a9bccfe2f5081b2e4154677a8da0b3c6d9ecff1225384b5e718497aabdd0e3f6091c2f4255687b8ea1b4c7daed001326394c5f728598abbed1e4f70a1d304356697c8fa2b5c8dbee0114273a4d60738699acbfd2e5f80b1e3144576a7d90a3b6c9dcef0215283b4e6174879aadc0d3e6f90c1f3245586b7e91a4b7caddf00316293c4f6275889baec1d4e7fa0d203346596c7f92a5b8cbdef104172a3d506376899cafc2d5e8fb0e2134475a6d8093a6b9ccdff205182b3e5164778a9db0c3d6e9fc0f2235485b6e8194a7bacde0f306192c3f5265788b9eb1c4d7eafd102336495c6f8295a8bbcee1f4071a2d405366798c9fb2c5d8ebfe1124374a5d708396a9bccfe2f5081b2e4154677a8da0b3c6d9ecff1225384b5e718497aabdd0e3f6091c2f4255687b8ea1b4c7daed001326394c5f728598abbed1e4f70a1d304356697c8fa2b5c8dbee0114273a4d60738699acbfd2e5f80b1e3144576a7d90a3b6c9dcef0215283b4e6174879aadc0",
+      "event": "received",
+      "source": "1b593cb6a554f425bf1e3220859b8a0d504c9903b442e8a3e1910137be131b13",
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": 1791059791203,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 1,
+        "queued_packets": 0,
+        "received_bytes": 3248,
+        "received_packets": 2,
+        "rejected_packets": 0,
+        "rx_queue_peak": 1,
+        "sent_bytes": 3248,
+        "sent_packets": 2
+      }
+    },
+    {
+      "name": "normal",
+      "accepted": false,
+      "error": "invalid MQTT datagram size",
+      "event": "sent",
+      "id": 3,
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": 1791059791203,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 1,
+        "queued_packets": 0,
+        "received_bytes": 3248,
+        "received_packets": 2,
+        "rejected_packets": 1,
+        "rx_queue_peak": 1,
+        "sent_bytes": 3248,
+        "sent_packets": 2
+      }
+    },
+    {
+      "name": "normal",
+      "accepted": false,
+      "error": "MQTT route belongs to another service",
+      "event": "sent",
+      "id": 4,
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": 1791059791203,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 1,
+        "queued_packets": 0,
+        "received_bytes": 3248,
+        "received_packets": 2,
+        "rejected_packets": 2,
+        "rx_queue_peak": 1,
+        "sent_bytes": 3248,
+        "sent_packets": 2
+      }
+    },
+    {
+      "name": "normal",
+      "address_count": 1,
+      "event": "status",
+      "route": "1b593cb6a554f425bf1e3220859b8a0dd316f29773d3a6d511e1d7b2469a611a",
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": 1791059791203,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 1,
+        "queued_packets": 0,
+        "received_bytes": 3248,
+        "received_packets": 2,
+        "rejected_packets": 2,
+        "rx_queue_peak": 1,
+        "sent_bytes": 3248,
+        "sent_packets": 2
+      }
+    },
+    {
+      "name": "normal",
+      "address_count": 0,
+      "error": "MQTT carrier closed",
+      "event": "withdrawn",
+      "route_rejected": true,
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": "Mqtt state: Mqtt serialization/deserialization error: IO: peer closed connection without sending TLS close_notify: https://docs.rs/rustls/latest/rustls/manual/_03_howto/index.html#unexpected-eof",
+          "ready_ms": 1791059791203,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": 1791059791427
+        },
+        "queue_depth": 64,
+        "queue_peak": 1,
+        "queued_packets": 0,
+        "received_bytes": 3248,
+        "received_packets": 2,
+        "rejected_packets": 2,
+        "rx_queue_peak": 1,
+        "sent_bytes": 3248,
+        "sent_packets": 2
+      }
+    },
+    {
+      "name": "normal",
+      "event": "closed",
+      "route_rejected": true,
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": "Mqtt state: Mqtt serialization/deserialization error: IO: peer closed connection without sending TLS close_notify: https://docs.rs/rustls/latest/rustls/manual/_03_howto/index.html#unexpected-eof",
+          "ready_ms": 1791059791203,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": 1791059791427
+        },
+        "queue_depth": 64,
+        "queue_peak": 1,
+        "queued_packets": 0,
+        "received_bytes": 3248,
+        "received_packets": 2,
+        "rejected_packets": 2,
+        "rx_queue_peak": 1,
+        "sent_bytes": 3248,
+        "sent_packets": 2
+      }
+    },
+    {
+      "name": "reject-suback",
+      "address_count": 0,
+      "event": "starting",
+      "route_rejected": true,
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": null,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": null,
+          "suback_codes": [],
+          "suback_id": null,
+          "subscribe_id": null,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 0,
+        "queued_packets": 0,
+        "received_bytes": 0,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_packets": 0
+      }
+    },
+    {
+      "name": "reject-suback",
+      "address_count": 0,
+      "error": "MQTT carrier stopped",
+      "event": "failed",
+      "route_rejected": true,
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": "MQTT subscription rejected or unmatched SUBACK",
+          "ready_ms": null,
+          "suback_codes": [
+            128
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": 1791059792104
+        },
+        "queue_depth": 64,
+        "queue_peak": 0,
+        "queued_packets": 0,
+        "received_bytes": 0,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_packets": 0
+      }
+    },
+    {
+      "name": "unmatched-suback",
+      "address_count": 0,
+      "event": "starting",
+      "route_rejected": true,
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": null,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": null,
+          "suback_codes": [],
+          "suback_id": null,
+          "subscribe_id": null,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 0,
+        "queued_packets": 0,
+        "received_bytes": 0,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_packets": 0
+      }
+    },
+    {
+      "name": "unmatched-suback",
+      "address_count": 0,
+      "error": "MQTT carrier stopped",
+      "event": "failed",
+      "route_rejected": true,
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": "MQTT subscription rejected or unmatched SUBACK",
+          "ready_ms": null,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 0,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": 1791059792740
+        },
+        "queue_depth": 64,
+        "queue_peak": 0,
+        "queued_packets": 0,
+        "received_bytes": 0,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_packets": 0
+      }
+    },
+    {
+      "name": "cut-before-suback",
+      "address_count": 0,
+      "event": "starting",
+      "route_rejected": true,
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": null,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": null,
+          "suback_codes": [],
+          "suback_id": null,
+          "subscribe_id": null,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 0,
+        "queued_packets": 0,
+        "received_bytes": 0,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_packets": 0
+      }
+    },
+    {
+      "name": "cut-before-suback",
+      "address_count": 0,
+      "error": "MQTT carrier stopped",
+      "event": "failed",
+      "route_rejected": true,
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": "Mqtt state: Mqtt serialization/deserialization error: IO: peer closed connection without sending TLS close_notify: https://docs.rs/rustls/latest/rustls/manual/_03_howto/index.html#unexpected-eof",
+          "ready_ms": null,
+          "suback_codes": [],
+          "suback_id": null,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": 1791059793376
+        },
+        "queue_depth": 64,
+        "queue_peak": 0,
+        "queued_packets": 0,
+        "received_bytes": 0,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_packets": 0
+      }
+    },
+    {
+      "name": "clean-close",
+      "address_count": 0,
+      "event": "starting",
+      "route_rejected": true,
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": null,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": null,
+          "suback_codes": [],
+          "suback_id": null,
+          "subscribe_id": null,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 0,
+        "queued_packets": 0,
+        "received_bytes": 0,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_packets": 0
+      }
+    },
+    {
+      "name": "clean-close",
+      "address_count": 1,
+      "event": "ready",
+      "route": "1b593cb6a554f425bf1e3220859b8a0de3848c995320daa7bd77f2d8fb4b1528",
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": 1791059794024,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 0,
+        "queued_packets": 0,
+        "received_bytes": 0,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_packets": 0
+      }
+    },
+    {
+      "name": "clean-close",
+      "event": "closed",
+      "route_rejected": true,
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": true,
+          "failure": null,
+          "ready_ms": 1791059794024,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": true,
+          "withdraw_ms": 1791059794024
+        },
+        "queue_depth": 64,
+        "queue_peak": 0,
+        "queued_packets": 0,
+        "received_bytes": 0,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_packets": 0
+      }
+    }
+  ],
+  "websockets": [
+    {
+      "url": "wss://localhost:43804/mqtt/normal",
+      "atMs": 1791059791221,
+      "sentFrames": 4,
+      "sentBytes": 3522,
+      "receivedFrames": 4,
+      "receivedBytes": 3413,
+      "status": 101,
+      "protocol": "mqtt"
+    },
+    {
+      "url": "wss://localhost:43804/mqtt/reject-suback",
+      "atMs": 1791059792056,
+      "sentFrames": 2,
+      "sentBytes": 118,
+      "receivedFrames": 2,
+      "receivedBytes": 9,
+      "status": 101,
+      "protocol": "mqtt"
+    },
+    {
+      "url": "wss://localhost:43804/mqtt/unmatched-suback",
+      "atMs": 1791059792066,
+      "sentFrames": 2,
+      "sentBytes": 118,
+      "receivedFrames": 2,
+      "receivedBytes": 9,
+      "status": 101,
+      "protocol": "mqtt"
+    },
+    {
+      "url": "wss://localhost:43804/mqtt/cut-before-suback",
+      "atMs": 1791059792077,
+      "sentFrames": 2,
+      "sentBytes": 118,
+      "receivedFrames": 1,
+      "receivedBytes": 4,
+      "status": 101,
+      "protocol": "mqtt"
+    },
+    {
+      "url": "wss://localhost:43804/mqtt/normal",
+      "atMs": 1791059794003,
+      "sentFrames": 4,
+      "sentBytes": 179,
+      "receivedFrames": 2,
+      "receivedBytes": 9,
+      "status": 101,
+      "protocol": "mqtt"
+    }
+  ],
+  "proxy": [
+    {
+      "label": "native-normal",
+      "mode": "normal",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 52,
+          "atMs": 1791059791202
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791059791203
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791059791234
+        },
+        {
+          "kind": 3,
+          "bytes": 2126,
+          "atMs": 1791059791289
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791059791202
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791059791203
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791059791287
+        },
+        {
+          "kind": 3,
+          "bytes": 2126,
+          "atMs": 1791059791306
+        }
+      ],
+      "publishCount": 2,
+      "closedMs": 1791059791428
+    },
+    {
+      "label": "browser-normal",
+      "mode": "normal",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 58,
+          "atMs": 1791059791226
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791059791229
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791059791286
+        },
+        {
+          "kind": 3,
+          "bytes": 2126,
+          "atMs": 1791059791305
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791059791227
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791059791229
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791059791272
+        },
+        {
+          "kind": 3,
+          "bytes": 2126,
+          "atMs": 1791059791290
+        }
+      ],
+      "publishCount": 2,
+      "closedMs": 1791059791428
+    },
+    {
+      "label": "browser-reject-suback",
+      "mode": "reject-suback",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 58,
+          "atMs": 1791059792059
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791059792060
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791059792059
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791059792060
+        }
+      ],
+      "publishCount": 0,
+      "closedMs": 1791059792063
+    },
+    {
+      "label": "browser-unmatched-suback",
+      "mode": "unmatched-suback",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 58,
+          "atMs": 1791059792071
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791059792072
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791059792072
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791059792073
+        }
+      ],
+      "publishCount": 0,
+      "closedMs": 1791059792074
+    },
+    {
+      "label": "browser-cut-before-suback",
+      "mode": "cut-before-suback",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 58,
+          "atMs": 1791059792085
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791059792086
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791059792086
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791059792087
+        }
+      ],
+      "publishCount": 0,
+      "closedMs": 1791059792087
+    },
+    {
+      "label": "native-reject-suback",
+      "mode": "reject-suback",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 52,
+          "atMs": 1791059792102
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791059792104
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791059792103
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791059792104
+        }
+      ],
+      "publishCount": 0,
+      "closedMs": 1791059792105
+    },
+    {
+      "label": "native-unmatched-suback",
+      "mode": "unmatched-suback",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 52,
+          "atMs": 1791059792738
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791059792739
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791059792739
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791059792740
+        }
+      ],
+      "publishCount": 0,
+      "closedMs": 1791059792740
+    },
+    {
+      "label": "native-cut-before-suback",
+      "mode": "cut-before-suback",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 52,
+          "atMs": 1791059793374
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791059793375
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791059793375
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791059793375
+        }
+      ],
+      "publishCount": 0,
+      "closedMs": 1791059793375
+    },
+    {
+      "label": "browser-normal",
+      "mode": "normal",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 58,
+          "atMs": 1791059794006
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791059794007
+        },
+        {
+          "kind": 10,
+          "bytes": 59,
+          "atMs": 1791059794009
+        },
+        {
+          "kind": 14,
+          "bytes": 2,
+          "atMs": 1791059794009
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791059794006
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791059794007
+        },
+        {
+          "kind": 11,
+          "bytes": 4,
+          "atMs": 1791059794009
+        }
+      ],
+      "publishCount": 0,
+      "closedMs": 1791059794010
+    },
+    {
+      "label": "native-normal",
+      "mode": "normal",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 52,
+          "atMs": 1791059794023
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791059794023
+        },
+        {
+          "kind": 10,
+          "bytes": 59,
+          "atMs": 1791059794025
+        },
+        {
+          "kind": 14,
+          "bytes": 2,
+          "atMs": 1791059794025
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791059794023
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791059794024
+        }
+      ],
+      "publishCount": 0,
+      "closedMs": 1791059794025
+    }
+  ],
+  "tls": [
+    {
+      "role": "native",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791059791200
+    },
+    {
+      "role": "browser",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791059791223
+    },
+    {
+      "role": "browser",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791059792058
+    },
+    {
+      "role": "browser",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791059792070
+    },
+    {
+      "role": "browser",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791059792084
+    },
+    {
+      "role": "browser",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791059794005
+    },
+    {
+      "role": "native",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791059794022
+    }
+  ],
+  "cleanup": {
+    "carriers": {
+      "browser": {
+        "buffered_bytes": 0,
+        "closed": true,
+        "pending_bytes": 0,
+        "protocol": "mqtt",
+        "queued_packets": 0,
+        "ready": false,
+        "route": null,
+        "traffic": {
+          "buffered_bytes_peak": 61,
+          "connack": 0,
+          "disconnect_sent": true,
+          "failure": null,
+          "generation": 1912011973,
+          "ready_ms": 1791059794007,
+          "received_bytes": 0,
+          "received_frame_bytes": 9,
+          "received_frames": 2,
+          "received_packets": 0,
+          "rejected_packets": 0,
+          "rx_queue_peak": 0,
+          "sent_bytes": 0,
+          "sent_frame_bytes": 179,
+          "sent_frames": 4,
+          "sent_packets": 0,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": true,
+          "withdraw_ms": 1791059794009
+        }
+      },
+      "native": {
+        "name": "clean-close",
+        "event": "closed",
+        "route_rejected": true,
+        "traffic": {
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": true,
+            "failure": null,
+            "ready_ms": 1791059794024,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": true,
+            "withdraw_ms": 1791059794024
+          },
+          "queue_depth": 64,
+          "queue_peak": 0,
+          "queued_packets": 0,
+          "received_bytes": 0,
+          "received_packets": 0,
+          "rejected_packets": 0,
+          "rx_queue_peak": 0,
+          "sent_bytes": 0,
+          "sent_packets": 0
+        }
+      },
+      "closeAt": 1791059794008
+    },
+    "activeNativeProcesses": 0,
+    "activeProxySockets": 0,
+    "serversClosed": true
+  },
+  "budgets": {
+    "outerSeconds": 60,
+    "phaseSeconds": 15
+  },
+  "nativePort": 45064,
+  "wssPort": 43804,
+  "origin": "http://127.0.0.1:44944",
+  "launch": {
+    "executablePath": "/tmp/mio-rtc-mqtt-_gd0hpyd/chromium-private-trust.sh",
+    "headless": true,
+    "args": [
+      "--no-sandbox"
+    ],
+    "ignoreHTTPSErrors": false,
+    "privateNssMount": true,
+    "certificateBypassFlags": []
+  },
+  "browserVersion": "153.0.8010.12",
+  "facility": {
+    "logical_id": "owned-mqtt-datagram-fixture",
+    "native_url": "mqtts://localhost:45064/",
+    "wss_url": "wss://localhost:43804/mqtt/normal"
+  },
+  "normalBrowser": {
+    "buffered_bytes": 0,
+    "closed": false,
+    "pending_bytes": 0,
+    "protocol": "mqtt",
+    "queued_packets": 0,
+    "ready": true,
+    "route": "1b593cb6a554f425bf1e3220859b8a0d504c9903b442e8a3e1910137be131b13",
+    "traffic": {
+      "buffered_bytes_peak": 2126,
+      "connack": 0,
+      "disconnect_sent": false,
+      "failure": null,
+      "generation": 2995942098,
+      "ready_ms": 1791059791230,
+      "received_bytes": 3248,
+      "received_frame_bytes": 3413,
+      "received_frames": 4,
+      "received_packets": 2,
+      "rejected_packets": 0,
+      "rx_queue_peak": 1,
+      "sent_bytes": 3248,
+      "sent_frame_bytes": 3522,
+      "sent_frames": 4,
+      "sent_packets": 2,
+      "suback_codes": [
+        0
+      ],
+      "suback_id": 1,
+      "subscribe_id": 1,
+      "unsubscribe_sent": false,
+      "withdraw_ms": null
+    }
+  },
+  "normalNative": {
+    "address_count": 1,
+    "event": "status",
+    "route": "1b593cb6a554f425bf1e3220859b8a0dd316f29773d3a6d511e1d7b2469a611a",
+    "traffic": {
+      "generation": 1,
+      "max_datagram": 2048,
+      "protocol": {
+        "connack": 0,
+        "disconnect_sent": false,
+        "failure": null,
+        "ready_ms": 1791059791203,
+        "suback_codes": [
+          0
+        ],
+        "suback_id": 1,
+        "subscribe_id": 1,
+        "unsubscribe_sent": false,
+        "withdraw_ms": null
+      },
+      "queue_depth": 64,
+      "queue_peak": 1,
+      "queued_packets": 0,
+      "received_bytes": 3248,
+      "received_packets": 2,
+      "rejected_packets": 2,
+      "rx_queue_peak": 1,
+      "sent_bytes": 3248,
+      "sent_packets": 2
+    }
+  },
+  "completedUtc": "2026-10-03T20:36:34.819Z"
+}

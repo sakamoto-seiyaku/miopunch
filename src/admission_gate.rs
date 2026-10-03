@@ -3,7 +3,10 @@
 //! TLS handshake alone never grants network data or management history.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicU64, Ordering},
+};
 use std::time::Duration;
 
 use iroh::endpoint::{
@@ -127,6 +130,28 @@ struct State {
 pub struct AdmissionGate {
     state: Arc<Mutex<State>>,
     message_bootstrap: bool,
+    path_revision: Arc<AtomicU64>,
+    path_updates: Arc<n0_watcher::Watchable<u64>>,
+}
+
+/// An independently readable generation token; safe under the QUIC driver lock.
+/// Only the gate can advance its source revision, before applying a scope change.
+#[derive(Clone, Debug)]
+pub(crate) struct PathQualification {
+    revision: Arc<AtomicU64>,
+    observed: u64,
+    updates: n0_watcher::Direct<u64>,
+}
+impl PathQualification {
+    pub(crate) fn is_current(&self) -> bool {
+        self.revision.load(Ordering::Acquire) == self.observed
+    }
+    pub(crate) fn updates(&self) -> n0_watcher::Direct<u64> {
+        self.updates.clone()
+    }
+    pub(crate) fn revision(&self) -> u64 {
+        self.observed
+    }
 }
 
 impl AdmissionGate {
@@ -168,6 +193,8 @@ impl AdmissionGate {
             ProtocolScope::AdmissionRequest,
         );
         Self {
+            path_revision: Arc::new(AtomicU64::new(0)),
+            path_updates: Arc::new(n0_watcher::Watchable::new(0)),
             message_bootstrap: false,
             state: Arc::new(Mutex::new(State {
                 policy: Policy {
@@ -191,6 +218,9 @@ impl AdmissionGate {
     /// by replaying an authorization view or registering another protocol.
     pub(crate) fn restrict_lifecycle(&self, protocols: Option<BTreeSet<Vec<u8>>>) {
         let mut state = self.state.lock().expect("admission policy lock");
+        if state.lifecycle_protocols != protocols {
+            self.invalidate_path_qualifications();
+        }
         state.lifecycle_protocols = protocols;
         let allowed = state.lifecycle_protocols.clone();
         state.sessions.retain(|_, session| {
@@ -245,6 +275,7 @@ impl AdmissionGate {
     pub fn register_data_carrier(&self, transport_id: u64) {
         let mut state = self.state.lock().expect("admission policy lock");
         if state.allowed_data_custom_ids.insert(transport_id) {
+            self.invalidate_path_qualifications();
             state
                 .sessions
                 .retain(|_, session| session.scope != ProtocolScope::Member);
@@ -263,6 +294,8 @@ impl AdmissionGate {
         Self {
             state: self.state.clone(),
             message_bootstrap: true,
+            path_revision: self.path_revision.clone(),
+            path_updates: self.path_updates.clone(),
         }
     }
 
@@ -288,6 +321,7 @@ impl AdmissionGate {
         let members = members.into_iter().collect();
         let removed: HashSet<_> = removed.into_iter().collect();
         if state.policy.members != members || state.policy.removed != removed {
+            self.invalidate_path_qualifications();
             state.policy.authorization_epoch = state
                 .policy
                 .authorization_epoch
@@ -314,6 +348,7 @@ impl AdmissionGate {
     /// the rotation before the caller invokes this method.
     pub fn rotate_secret(&self, scope: AdmissionScope, secret: AdmissionSecret) {
         let mut state = self.state.lock().expect("admission policy lock");
+        self.invalidate_path_qualifications();
         state.policy.scope = scope;
         state.policy.secret = Some(secret);
         state.policy.staged = None;
@@ -331,6 +366,7 @@ impl AdmissionGate {
 
     pub(crate) fn suspend_secret(&self) {
         let mut state = self.state.lock().expect("admission policy lock");
+        self.invalidate_path_qualifications();
         state.policy.secret = None;
         let policy = state.policy.clone();
         state.sessions.retain(|_, session| session.valid(&policy));
@@ -348,6 +384,30 @@ impl AdmissionGate {
                     && session.scope == required
                     && session.valid(&state.policy)
             })
+    }
+
+    fn invalidate_path_qualifications(&self) {
+        self.path_revision
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |revision| {
+                revision.checked_add(1)
+            })
+            .expect("admission path revision exhausted");
+        let _ = self
+            .path_updates
+            .set(self.path_revision.load(Ordering::Acquire));
+    }
+
+    pub(crate) fn path_qualification(&self, connection: &Connection) -> Option<PathQualification> {
+        let state = self.state.lock().expect("admission policy lock");
+        let session = state.sessions.get(&connection.stable_id())?;
+        (session.peer == *connection.remote_id().as_bytes()
+            && session.scope == ProtocolScope::Member
+            && session.valid(&state.policy))
+        .then(|| PathQualification {
+            revision: self.path_revision.clone(),
+            observed: self.path_revision.load(Ordering::Acquire),
+            updates: self.path_updates.watch(),
+        })
     }
 
     pub(crate) fn member_connection_for_binding(

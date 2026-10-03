@@ -423,6 +423,34 @@ impl RemoteStateActor {
                 };
                 let _ = tx.send(result);
             }
+            RemoteStateMessage::RetainAdmittedDataPath { conn_id, remote, tx } => {
+                let result = if let Some(state) = self.connections.get(&ConnId(conn_id)) {
+                    let address = transports::FourTuple::from_remote(transports::Addr::Custom(remote.clone()));
+                    if state.purpose != ConnectionPurpose::Ordinary || !state.may_select(&address) {
+                        Err("data retention requires current connection-owned qualification")
+                    } else if let Some(conn) = state.handle.upgrade().filter(|conn| conn.close_reason().is_none()) {
+                        if let Some((id, _)) = state.paths.iter().find(|(_, path)| matches!(path, transports::FourTuple::Custom { remote: actual, .. } if actual == &remote)) {
+                            if let Some(path) = conn.path(*id) { let _ = path.ping(); }
+                            Ok(())
+                        } else { Err("qualified data path not established on original connection") }
+                    } else { Err("original connection closed") }
+                } else { Err("connection not registered") };
+                if result.is_ok() { self.select_path(); }
+                let _ = tx.send(result);
+            }
+            #[cfg(feature = "miopunch-test-hooks")]
+            RemoteStateMessage::TestLimitTransportPaths { conn_id, allowed, tx } => {
+                let result = if allowed.len() > 8 { Err("fixture path mask exceeds bound") }
+                else if let Some(conn) = self.connections.get(&ConnId(conn_id)).and_then(|state| state.handle.upgrade()) {
+                    let mapped = self.state.mapped_addrs.clone();
+                    conn.restrict_paths(move |address| mapped.to_transport_addr(address).is_some_and(|path| {
+                        let path: TransportAddr = path.into();
+                        allowed.contains(&path)
+                    }));
+                    Ok(())
+                } else { Err("original connection closed") };
+                let _ = tx.send(result);
+            }
             RemoteStateMessage::OpenDataPath {
                 conn_id,
                 remote,
@@ -665,6 +693,18 @@ impl RemoteStateActor {
         self.state.metrics.num_conns_opened.inc();
         // Remove any conflicting stable_ids from the local state.
         let conn_id = ConnId(conn.stable_id());
+        let scoped = self.state.mapped_addrs.clone();
+        conn.restrict_paths(move |addr| match scoped.to_transport_addr(addr) {
+            Some(transports::Addr::Custom(custom)) => scoped.permits_custom_connection(&custom, conn_id.0),
+            Some(_) => true,
+            None => false,
+        });
+        let data = self.state.mapped_addrs.clone();
+        conn.restrict_application_data_paths(move |path| match data.to_transport_addr(path.remote()) {
+            Some(transports::Addr::Custom(custom)) => data.permits_custom_application_data(&custom, conn_id.0),
+            Some(_) => true,
+            None => false,
+        });
         self.connections.remove(&conn_id);
 
         #[cfg(not(wasm_browser))]
@@ -704,6 +744,8 @@ impl RemoteStateActor {
             .connections
             .entry(conn_id)
             .insert_entry(ConnectionState {
+                connection_id: conn_id.0,
+                mapped_addrs: self.state.mapped_addrs.clone(),
                 handle: conn.weak_handle(),
                 path_state: path_state_sender,
                 paths: Default::default(),
@@ -904,10 +946,9 @@ impl RemoteStateActor {
             self.state.metrics.num_conns_closed.inc();
             conn_state.path_state.close(closed);
         }
-        if self.connections.is_empty() {
-            trace!("last connection closed - clearing selected_path");
-            self.state.selected_path = None;
-        }
+        // A per-connection winner can disappear while another M is still open.
+        // Recompute peer hints instead of retaining that retired association.
+        self.select_path();
     }
 
     /// Updates the local [`DirectAddr`]s to all connections.
@@ -1340,6 +1381,13 @@ impl RemoteStateActor {
 }
 
 impl State {
+    fn may_bootstrap_on(&self, path: &transports::FourTuple) -> bool {
+        !path.is_connection_bound_udp() && match path {
+            transports::FourTuple::Custom { remote, .. } => self.mapped_addrs.permits_custom_bootstrap(remote),
+            _ => true,
+        }
+    }
+
     /// Handles [`RemoteStateMessage::SendDatagram`].
     async fn handle_msg_send_datagram(
         &mut self,
@@ -1358,7 +1406,7 @@ impl State {
         if let Some(addr) = self
             .selected_path
             .as_ref()
-            .filter(|path| !path.is_connection_bound_udp())
+            .filter(|path| self.may_bootstrap_on(path))
         {
             trace!(?addr, "sending datagram to selected path");
 
@@ -1379,6 +1427,8 @@ impl State {
             }
 
             for addr in self.paths.addrs() {
+                if let transports::Addr::Custom(custom) = addr
+                    && !self.mapped_addrs.permits_custom_bootstrap(custom) { continue; }
                 // We never want to send to our local addresses.
                 // The local address set is updated in the main loop so we can use `peek` here.
                 if let transports::Addr::Ip(sockaddr) = addr
@@ -1430,7 +1480,7 @@ impl State {
         let reusable_selected = self
             .selected_path
             .as_ref()
-            .is_some_and(|path| !path.is_connection_bound_udp());
+            .is_some_and(|path| self.may_bootstrap_on(path));
         if reusable_selected || self.address_lookup_stream.is_some() {
             return;
         }
@@ -1784,6 +1834,18 @@ pub(crate) enum RemoteStateMessage {
         remote: TransportAddr,
         tx: oneshot::Sender<Result<(), &'static str>>,
     },
+    /// Retain an already established, freshly qualified connection-owned carrier.
+    RetainAdmittedDataPath {
+        conn_id: usize,
+        remote: iroh_base::CustomAddr,
+        tx: oneshot::Sender<Result<(), &'static str>>,
+    },
+    #[cfg(feature = "miopunch-test-hooks")]
+    TestLimitTransportPaths {
+        conn_id: usize,
+        allowed: Vec<TransportAddr>,
+        tx: oneshot::Sender<Result<(), &'static str>>,
+    },
     /// Opens a known UDP path on an already authenticated connection.
     OpenDataPath {
         conn_id: usize,
@@ -1888,6 +1950,8 @@ struct ConnId(usize);
 /// - Some stuff to make observers happy.
 #[derive(Debug)]
 struct ConnectionState {
+    connection_id: usize,
+    mapped_addrs: super::MappedAddrs,
     /// Weak handle to the connection.
     handle: WeakConnectionHandle,
     /// Writer-side handle for the connection's path observation state.
@@ -1963,12 +2027,14 @@ impl ConnectionState {
     fn may_select(&self, path: &transports::FourTuple) -> bool {
         self.owns_udp_binding(path)
             && !self.forbids(path)
+            && match path { transports::FourTuple::Custom { remote, .. } => self.mapped_addrs.qualifies_custom_data(remote, self.connection_id), _ => true }
             && (self.purpose != ConnectionPurpose::Data || path.is_ip())
     }
 
     fn forbids(&self, path: &transports::FourTuple) -> bool {
         matches!(path, transports::FourTuple::Custom { remote, .. }
-            if self.retired_custom.contains(remote) || (self.custom_data_policy && !self.allowed_data_custom_ids.contains(&remote.id())))
+            if !self.mapped_addrs.permits_custom_connection(remote, self.connection_id)
+                || self.retired_custom.contains(remote) || (self.custom_data_policy && !self.allowed_data_custom_ids.contains(&remote.id())))
     }
 
     /// Tracks an open path for the connection.

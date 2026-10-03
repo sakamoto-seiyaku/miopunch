@@ -23,7 +23,7 @@ use webrtc::{
         SettingEngineBuilder,
     },
 };
-type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
+pub(crate) type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
 struct Handler {
     started: Instant,
@@ -57,7 +57,7 @@ impl PeerConnectionEventHandler for Handler {
         self.event("connection", state);
     }
 }
-fn sockets() -> usize {
+pub(crate) fn sockets() -> usize {
     std::fs::read_dir("/proc/self/fd")
         .into_iter()
         .flatten()
@@ -66,14 +66,42 @@ fn sockets() -> usize {
         .filter(|path| path.to_string_lossy().starts_with("socket:"))
         .count()
 }
-async fn frame(send: &mut SendStream, value: &Value) -> Result<()> {
-    let bytes = serde_json::to_vec(value)?;
-    if bytes.len() > 65536 {
-        return Err("RTC control frame too large".into());
-    }
-    send.write_all(&(bytes.len() as u32).to_be_bytes()).await?;
-    send.write_all(&bytes).await?;
-    Ok(())
+pub(crate) async fn frame(send: &mut SendStream, value: &Value) -> Result<()> {
+    Ok(crate::rtc_wire::write_frame(send, value).await?)
+}
+
+pub(crate) async fn peer(
+    gathered: mpsc::Sender<()>,
+    events: Arc<Mutex<Vec<Value>>>,
+) -> Result<Arc<dyn PeerConnection>> {
+    Ok(Arc::new(
+        PeerConnectionBuilder::new()
+            .with_configuration(
+                RTCConfigurationBuilder::default()
+                    .with_ice_servers(vec![])
+                    .build(),
+            )
+            .with_setting_engine(
+                SettingEngineBuilder::default()
+                    .with_sctp_max_receive_buffer_size(QUEUE_BYTES as u32)
+                    .build(),
+            )
+            .with_data_channel_send_buffer_limit(QUEUE_BYTES)
+            .with_handler(Arc::new(Handler {
+                started: Instant::now(),
+                gathered,
+                events,
+            }))
+            .with_udp_addrs(vec!["0.0.0.0:0"])
+            .build()
+            .await?,
+    ))
+}
+
+pub(crate) async fn channel_attributes(channel: &Arc<dyn DataChannel>) -> Result<Value> {
+    Ok(
+        json!({"label":channel.label().await?,"ordered":channel.ordered().await?,"maxRetransmits":channel.max_retransmits().await?,"maxPacketLifeTime":channel.max_packet_life_time().await?,"negotiated":channel.negotiated().await?,"protocol":channel.protocol().await?,"id":channel.id(),"readyState":format!("{:?}",channel.ready_state().await?)}),
+    )
 }
 /// Hash an exporter scoped to identities, network, current secret generation and attempt.
 /// The exporter itself is never serialized or logged.
@@ -127,26 +155,7 @@ pub async fn serve(
     let socket_before = sockets();
     let (gathered, mut gather_rx) = mpsc::channel(1);
     let events = Arc::new(Mutex::new(Vec::new()));
-    let pc = PeerConnectionBuilder::new()
-        .with_configuration(
-            RTCConfigurationBuilder::default()
-                .with_ice_servers(vec![])
-                .build(),
-        )
-        .with_setting_engine(
-            SettingEngineBuilder::default()
-                .with_sctp_max_receive_buffer_size(QUEUE_BYTES as u32)
-                .build(),
-        )
-        .with_data_channel_send_buffer_limit(QUEUE_BYTES)
-        .with_handler(Arc::new(Handler {
-            started: Instant::now(),
-            gathered,
-            events: events.clone(),
-        }))
-        .with_udp_addrs(vec!["0.0.0.0:0"])
-        .build()
-        .await?;
+    let pc = peer(gathered, events.clone()).await?;
     let tx = DatagramQueue::new(QUEUE_BYTES, DATAGRAM_BYTES);
     let rx = DatagramQueue::new(QUEUE_BYTES, DATAGRAM_BYTES);
     let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
@@ -187,7 +196,7 @@ pub async fn serve(
         }
         tx.open()?;
         rx.open()?;
-        let attributes = json!({"label":dc.label().await?,"ordered":dc.ordered().await?,"maxRetransmits":dc.max_retransmits().await?,"maxPacketLifeTime":dc.max_packet_life_time().await?,"negotiated":dc.negotiated().await?,"protocol":dc.protocol().await?,"id":dc.id(),"readyState":format!("{:?}",dc.ready_state().await?)});
+        let attributes = channel_attributes(&dc).await?;
         if attributes["ordered"] != false
             || attributes["maxRetransmits"] != 0
             || attributes["label"] != CHANNEL_LABEL

@@ -8,7 +8,7 @@ use std::{
     pin::Pin,
     sync::{
         Arc, Weak,
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     task::{Context, Poll, Waker, ready},
 };
@@ -363,6 +363,16 @@ impl Connection {
         }) {
             state.buffered_transmit = None;
         }
+    }
+
+    /// Gate ordinary frames separately from path validation. The callback is
+    /// invoked under the connection lock and must not re-enter Connection.
+    pub fn restrict_application_data_paths(
+        &self,
+        permit: impl Fn(FourTuple) -> bool + Send + Sync + 'static,
+    ) {
+        self.0.lock_and_wake("restrict application data paths")
+            .inner.restrict_application_data_paths(permit);
     }
 
     /// Returns a weak reference to the inner connection struct.
@@ -1558,6 +1568,11 @@ impl Drop for WakeGuard<'_> {
 pub struct WeakConnectionHandle(Weak<Arc<ConnectionInner>>);
 
 impl WeakConnectionHandle {
+    /// Whether this original connection is alive and has not terminated.
+    /// This lock-free check is safe inside packet/path admission callbacks.
+    pub fn is_open(&self) -> bool {
+        self.0.upgrade().is_some_and(|connection| !connection.shared.terminal.load(Ordering::Acquire))
+    }
     /// Returns `true` if the [`Connection`] associated with this handle is still alive.
     pub fn is_alive(&self) -> bool {
         self.0.upgrade().is_some()
@@ -1580,6 +1595,7 @@ impl WeakConnectionHandle {
 
 #[derive(Debug, Default)]
 pub(crate) struct Shared {
+    terminal: AtomicBool,
     handshake_confirmed: Notify,
     /// Notified when new streams may be locally initiated due to an increase in stream ID flow
     /// control budget
@@ -1970,6 +1986,7 @@ impl State {
 
     /// Used to wake up all blocked futures when the connection becomes closed for any reason
     fn terminate(&mut self, reason: ConnectionError, shared: &Shared) {
+        shared.terminal.store(true, Ordering::Release);
         self.error = Some(reason.clone());
         if let Some(x) = self.on_handshake_data.take() {
             let _ = x.send(());

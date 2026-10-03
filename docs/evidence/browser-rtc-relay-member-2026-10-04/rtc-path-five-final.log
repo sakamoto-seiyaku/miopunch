@@ -1,0 +1,12 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 16.59s
+     Running tests/rtc_path_qualification.rs (target/debug/deps/rtc_path_qualification-df2edfeada957d72)
+
+running 5 tests
+test original_member_close_wakes_a_backpressured_driver_without_capacity ... ok
+test pending_rtc_path_never_carries_stream_data_and_only_its_fresh_probe_can_retain_it ... ok
+test qualification_change_wakes_a_backpressured_driver_without_capacity ... ok
+test retiring_a_route_cancels_a_held_datagram_before_channel_capacity_returns ... ok
+test rtc_route_is_owned_by_one_original_live_member_and_retirement_is_terminal ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.22s

@@ -56,6 +56,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .register_protocol(BUSINESS, ProtocolScope::Member);
     node.admission_gate()
         .register_protocol(REPLICA_ALPN, ProtocolScope::Member);
+    #[cfg(feature = "rtc-probe")]
+    let rtc_transport = miopunch_native_probe::rtc_transport::RtcTransport::new();
+    #[cfg(feature = "rtc-probe")]
+    node.admission_gate()
+        .register_data_carrier(miopunch_native_probe::rtc_transport::TRANSPORT_ID);
     let mut builder = iroh::Endpoint::builder(presets::Minimal)
         .clear_ip_transports()
         .relay_mode(RelayMode::custom([relay.parse()?]))
@@ -67,6 +72,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if let Some(path) = args.get(3) {
         let cert = rustls::pki_types::CertificateDer::from(std::fs::read(path)?);
         builder = builder.ca_tls_config(iroh_relay::tls::CaTlsConfig::custom_roots(vec![cert]));
+    }
+    #[cfg(feature = "rtc-probe")]
+    {
+        builder = builder.add_custom_transport(Arc::new(rtc_transport.clone()));
     }
     let endpoint = node.bind_endpoint_with(builder).await?;
     tokio::time::timeout(std::time::Duration::from_secs(20), endpoint.online())
@@ -184,7 +193,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let Some(incoming) = incoming else { break };
                 let node = node.clone();
                 #[cfg(feature = "rtc-probe")]
-                let endpoint_id = endpoint.id().to_string();
+                let rtc_endpoint = endpoint.clone();
+                #[cfg(feature = "rtc-probe")]
+                let rtc_transport = rtc_transport.clone();
                 let precode_mode=precode_mode.clone();
                 #[cfg(feature="replica-test-hooks")]
                 let replica_fixture=replica_fixture.clone();
@@ -210,22 +221,43 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             println!("{}", json!({"event":"replica", "paths":paths(&connection)}));
                             connection.closed().await;
                         } else {
+                            #[cfg(feature = "rtc-probe")]
+                            {
+                                let gate = node.lock().await.admission_gate().clone();
+                                let mut streams = tokio::task::JoinSet::new();
+                                loop {
+                                    tokio::select! { biased;
+                                        _ = connection.closed() => break,
+                                        incoming = connection.accept_bi() => {
+                                            let (send, recv) = incoming?;
+                                            let endpoint = rtc_endpoint.clone();
+                                            let member = connection.clone();
+                                            let gate = gate.clone();
+                                            let transport = rtc_transport.clone();
+                                            streams.spawn(async move { miopunch_native_probe::rtc_member::serve_stream(endpoint, member, gate, transport, send, recv).await });
+                                        },
+                                        Some(result) = streams.join_next(), if !streams.is_empty() => {
+                                            if let Ok(Err(error)) = result { eprintln!("owned member stream: {error}"); }
+                                        },
+                                    }
+                                }
+                                // Original-M close wakes RTC and ordinary readers. Give the
+                                // owned actors a bounded cleanup interval before forced abort.
+                                let _ = tokio::time::timeout(std::time::Duration::from_secs(1), async {
+                                    while streams.join_next().await.is_some() {}
+                                }).await;
+                                streams.abort_all();
+                                while streams.join_next().await.is_some() {}
+                            }
+                            #[cfg(not(feature = "rtc-probe"))]
+                            {
                             let (mut send, mut recv) = connection.accept_bi().await?;
                             let request = recv.read_to_end(65536).await?;
-                            #[cfg(feature = "rtc-probe")]
-                            if let Ok(value) = serde_json::from_slice::<serde_json::Value>(&request) {
-                                if value["protocol"] == "miopunch/rtc-probe/1" {
-                                    let gate = node.lock().await.admission_gate().clone();
-                                    miopunch_native_probe::rtc_probe::serve(&connection, &gate, endpoint_id, value, &mut send).await?;
-                                    // The existing M owns the control receipt stream until its caller closes it.
-                                    connection.closed().await;
-                                    return Ok(());
-                                }
-                            }
                             send.write_all(&request).await?;
                             send.finish()?;
                             println!("{}", json!({"event":"business", "bytes":request.len(), "paths":paths(&connection)}));
                             connection.closed().await;
+                            }
                         }
                         Ok(())
                     }.await;

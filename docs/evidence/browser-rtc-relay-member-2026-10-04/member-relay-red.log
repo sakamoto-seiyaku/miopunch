@@ -1,0 +1,19 @@
+---- disabling_data_relay_stops_new_forwarding_and_the_only_inner_path_fails stdout ----
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10142 received_packets=25 received_bytes=10431 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=25 sent_bytes=10431 received_packets=27 received_bytes=10142 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_CLOSE result=cancelled
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=27 sent_bytes=10141 received_packets=26 received_bytes=11157 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=26 sent_bytes=11157 received_packets=27 received_bytes=10141 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+
+thread 'disabling_data_relay_stops_new_forwarding_and_the_only_inner_path_fails' (3435526) panicked at tests/member_relay.rs:352:10:
+original session must fail: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TCP_TRAFFIC sent_packets=99 sent_bytes=22346 received_packets=98 received_bytes=23360 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=4 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=195 sent_bytes=45003 received_packets=197 received_bytes=46383 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=6 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=98 sent_bytes=24037 received_packets=97 received_bytes=21643 closed=0 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=5 queue_depth=32 max_frame=2048 max_circuits=64
+
+
+test result: FAILED. 13 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 120.56s
+[full output: ~/.local/share/rtk/tee/1791057056_cargo_test.log]

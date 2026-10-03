@@ -96,6 +96,24 @@ impl CustomSender for ResourceBoundSender {
         self.policy.allows_custom(addr) && self.inner.is_valid_send_addr(addr)
     }
 
+    fn can_bootstrap_connection(&self, addr: &CustomAddr) -> bool {
+        self.is_valid_send_addr(addr) && self.inner.can_bootstrap_connection(addr)
+    }
+
+    fn is_valid_connection_addr(&self, addr: &CustomAddr, connection_id: usize) -> bool {
+        self.is_valid_send_addr(addr)
+            && self.inner.is_valid_connection_addr(addr, connection_id)
+    }
+
+    fn guards_application_data(&self, addr: &CustomAddr) -> bool {
+        self.inner.guards_application_data(addr)
+    }
+
+    fn is_data_path_qualified(&self, addr: &CustomAddr, connection_id: usize) -> bool {
+        self.is_valid_connection_addr(addr, connection_id)
+            && self.inner.is_data_path_qualified(addr, connection_id)
+    }
+
     fn poll_send(
         &self,
         cx: &mut Context,
@@ -190,6 +208,27 @@ impl std::fmt::Display for Box<dyn CustomEndpoint> {
 pub trait CustomSender: std::fmt::Debug + Send + Sync + 'static {
     /// True if this sender can send to the given address.
     fn is_valid_send_addr(&self, addr: &CustomAddr) -> bool;
+    /// Whether this address can carry unauthenticated initial packets for a new
+    /// connection. A connection-owned path must never become a peer-wide dial route.
+    fn can_bootstrap_connection(&self, addr: &CustomAddr) -> bool {
+        self.is_valid_send_addr(addr)
+    }
+    /// Some carriers belong to one original QUIC connection rather than a peer.
+    /// Unbound transports keep their existing behavior. Bound transports must
+    /// also reject a retired association and an original connection that closed.
+    fn is_valid_connection_addr(&self, addr: &CustomAddr, _connection_id: usize) -> bool {
+        self.is_valid_send_addr(addr)
+    }
+    /// Opt in to validation-only QUIC scheduling before ordinary-data
+    /// qualification. Legacy transports retain their existing packet/lifetime
+    /// behavior; a connection-owned RTC bridge must return true for its ID.
+    fn guards_application_data(&self, _addr: &CustomAddr) -> bool { false }
+    /// Whether this exact connection/address may carry ordinary data. A false
+    /// result still permits QUIC path validation and fresh acknowledgment probes;
+    /// it is never an ordinary-data fallback, even with no other usable path.
+    fn is_data_path_qualified(&self, addr: &CustomAddr, connection_id: usize) -> bool {
+        self.is_valid_connection_addr(addr, connection_id)
+    }
     /// poll sending a packet on this sender.
     ///
     /// This will only be called from iroh with addresses for which [CustomSender::is_valid_send_addr] returns true.

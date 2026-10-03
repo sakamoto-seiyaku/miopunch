@@ -55,4 +55,8 @@ mod native_files;
 
 pub mod rtc_association;
 #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+pub mod rtc_member;
+#[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
 pub mod rtc_probe;
+pub mod rtc_transport;
+pub mod rtc_wire;

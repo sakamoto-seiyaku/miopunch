@@ -1144,6 +1144,30 @@ impl Endpoint {
             .await
     }
 
+    /// Retain an already established custom path after its connection-owned
+    /// transport lease confirms a fresh QUIC ACK and current qualification.
+    /// This never opens a path or another connection. Pending carriers remain
+    /// validation-only even if every previous ordinary path is unavailable.
+    pub async fn retain_data_transport_path(
+        &self,
+        connection: &connection::Connection,
+        remote: iroh_base::CustomAddr,
+    ) -> std::io::Result<()> {
+        self.inner.retain_admitted_data_path(connection.remote_id(), connection.stable_id(), remote).await
+    }
+
+    /// Owned-fixture packet fault on one original connection. Address learning
+    /// may continue, but neither old nor newly learned paths bypass this mask.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub async fn test_limit_transport_paths(
+        &self,
+        connection: &connection::Connection,
+        allowed: Vec<iroh_base::TransportAddr>,
+    ) -> std::io::Result<()> {
+        self.inner.test_limit_transport_paths(connection.remote_id(), connection.stable_id(), allowed).await
+    }
+
     /// Start validating a known UDP address on an existing authenticated
     /// connection. The dialing side opens the path; callers must observe an
     /// established IP path before allowing ordinary traffic. Also available on

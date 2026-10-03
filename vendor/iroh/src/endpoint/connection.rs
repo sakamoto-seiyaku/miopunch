@@ -1370,6 +1370,10 @@ pub struct WeakConnectionHandle {
 }
 
 impl WeakConnectionHandle {
+    /// Lock-free original-session liveness for transport admission callbacks.
+    pub fn is_open(&self) -> bool {
+        self.inner.is_open()
+    }
     /// Attempts to upgrade this weak handle to a strong [`Connection`].
     ///
     /// Returns `None` if the connection has already been dropped.

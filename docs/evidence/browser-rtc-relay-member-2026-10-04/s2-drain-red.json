@@ -1,0 +1,1210 @@
+{
+  "startedUtc": "2026-10-03T20:22:07.527Z",
+  "passed": false,
+  "phases": [
+    {
+      "name": "fixture-and-browser-start",
+      "startedUtc": "2026-10-03T20:22:07.527Z",
+      "budgetSeconds": 15,
+      "passed": true,
+      "milliseconds": 733
+    },
+    {
+      "name": "restricted-authenticated-application",
+      "startedUtc": "2026-10-03T20:22:08.679Z",
+      "budgetSeconds": 15,
+      "passed": true,
+      "milliseconds": 226
+    },
+    {
+      "name": "same-invitation-independent-applicant",
+      "startedUtc": "2026-10-03T20:22:09.468Z",
+      "budgetSeconds": 15,
+      "passed": false,
+      "cancelReason": "Error: page.evaluate: connection lost",
+      "milliseconds": 227
+    }
+  ],
+  "normal": [
+    {
+      "identity": "cd051fed8654f9ca0324503e1259beb102ce5efbb9b25058d0db63515db41ed4",
+      "native": {
+        "alpn": "miopunch/admission-request/1",
+        "business_handle": false,
+        "event": "admission",
+        "exchange_ms": 145,
+        "handshake_ms": 92,
+        "local_id": "747c644f9e94c89286499a8a69a5d8eb6680a66cd967f63f86239104c24bca1e",
+        "remote_id": "cd051fed8654f9ca0324503e1259beb102ce5efbb9b25058d0db63515db41ed4",
+        "restricted": true,
+        "stable_id": 139542212385072,
+        "stage": "Ok(Ok(AwaitingApproval))",
+        "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 14, bytes: 8526, ios: 0 }, udp_rx: UdpStats { datagrams: 16, bytes: 8471, ios: 0 }, frame_tx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 5, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 2, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 2, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 5, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 1, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }",
+        "traffic": {
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": false,
+            "failure": null,
+            "ready_ms": 1791058928465,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": false,
+            "withdraw_ms": null
+          },
+          "queue_depth": 64,
+          "queue_peak": 2,
+          "queued_packets": 0,
+          "received_bytes": 9671,
+          "received_packets": 17,
+          "rejected_packets": 0,
+          "rx_queue_peak": 3,
+          "sent_bytes": 8493,
+          "sent_packets": 13
+        }
+      },
+      "browser": {
+        "carriers": [
+          {
+            "buffered_bytes": 0,
+            "closed": false,
+            "pending_bytes": 0,
+            "protocol": "mqtt",
+            "queued_packets": 0,
+            "ready": true,
+            "route": "1b593cb6a554f425bf1e3220859b8a0db2bfe5a04a40ef3930d94e3450a5d1cb",
+            "traffic": {
+              "buffered_bytes_peak": 4274,
+              "connack": 0,
+              "disconnect_sent": false,
+              "failure": null,
+              "generation": 3713774154,
+              "ready_ms": 1791058928675,
+              "received_bytes": 8595,
+              "received_frame_bytes": 9768,
+              "received_frames": 17,
+              "received_packets": 15,
+              "rejected_packets": 0,
+              "rx_queue_peak": 1,
+              "sent_bytes": 9774,
+              "sent_frame_bytes": 11366,
+              "sent_frames": 21,
+              "sent_packets": 19,
+              "suback_codes": [
+                0
+              ],
+              "suback_id": 1,
+              "subscribe_id": 1,
+              "unsubscribe_sent": false,
+              "withdraw_ms": null
+            }
+          }
+        ],
+        "request": {
+          "alpn": "miopunch/admission-request/1",
+          "attempt_elapsed_ms": 211,
+          "business_handle": false,
+          "exchange_ms": 197,
+          "handshake_ms": 163,
+          "local_id": "cd051fed8654f9ca0324503e1259beb102ce5efbb9b25058d0db63515db41ed4",
+          "paths": [
+            "Custom(CustomAddr { id: 30796699759899764, data: [1b593cb6a554f425bf1e3220859b8a0d1d92ea3a24e66df4d17f30d1d41fb366] })"
+          ],
+          "remaining_caller_ms": 11790,
+          "remote_id": "747c644f9e94c89286499a8a69a5d8eb6680a66cd967f63f86239104c24bca1e",
+          "restricted": true,
+          "stable_id": 2508104,
+          "stage": "AwaitingApproval",
+          "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 18, bytes: 9704, ios: 0 }, udp_rx: UdpStats { datagrams: 14, bytes: 8526, ios: 0 }, frame_tx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 2, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 6, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 1, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 5, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 2, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }"
+        }
+      },
+      "businessRejected": true
+    }
+  ],
+  "failures": [],
+  "native": [
+    {
+      "name": "restricted",
+      "event": "ready",
+      "id": "747c644f9e94c89286499a8a69a5d8eb6680a66cd967f63f86239104c24bca1e",
+      "route": "1b593cb6a554f425bf1e3220859b8a0d1d92ea3a24e66df4d17f30d1d41fb366"
+    },
+    {
+      "name": "restricted",
+      "alpn": "miopunch/admission-request/1",
+      "business_handle": false,
+      "event": "admission",
+      "exchange_ms": 145,
+      "handshake_ms": 92,
+      "local_id": "747c644f9e94c89286499a8a69a5d8eb6680a66cd967f63f86239104c24bca1e",
+      "remote_id": "cd051fed8654f9ca0324503e1259beb102ce5efbb9b25058d0db63515db41ed4",
+      "restricted": true,
+      "stable_id": 139542212385072,
+      "stage": "Ok(Ok(AwaitingApproval))",
+      "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 14, bytes: 8526, ios: 0 }, udp_rx: UdpStats { datagrams: 16, bytes: 8471, ios: 0 }, frame_tx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 5, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 2, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 2, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 5, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 1, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }",
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": 1791058928465,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 2,
+        "queued_packets": 0,
+        "received_bytes": 9671,
+        "received_packets": 17,
+        "rejected_packets": 0,
+        "rx_queue_peak": 3,
+        "sent_bytes": 8493,
+        "sent_packets": 13
+      }
+    },
+    {
+      "name": "restricted",
+      "alpn": "miopunch/admission-request/1",
+      "business_handle": false,
+      "event": "admission",
+      "exchange_ms": 149,
+      "handshake_ms": 98,
+      "local_id": "747c644f9e94c89286499a8a69a5d8eb6680a66cd967f63f86239104c24bca1e",
+      "remote_id": "a03c1cd7d1ce62e5fa0af0d1ea9e88d8ec52e9feed7abba323f32d09c31fec8a",
+      "restricted": true,
+      "stable_id": 139542011078912,
+      "stage": "Ok(Ok(AwaitingApproval))",
+      "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 13, bytes: 8492, ios: 0 }, udp_rx: UdpStats { datagrams: 16, bytes: 8467, ios: 0 }, frame_tx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 5, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 1, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 2, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 5, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }",
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": 1791058928465,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 2,
+        "queued_packets": 0,
+        "received_bytes": 19441,
+        "received_packets": 36,
+        "rejected_packets": 0,
+        "rx_queue_peak": 3,
+        "sent_bytes": 17156,
+        "sent_packets": 29
+      }
+    },
+    {
+      "name": "restricted",
+      "event": "closed",
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": true,
+          "failure": null,
+          "ready_ms": 1791058928465,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": true,
+          "withdraw_ms": 1791058929882
+        },
+        "queue_depth": 64,
+        "queue_peak": 2,
+        "queued_packets": 0,
+        "received_bytes": 19511,
+        "received_packets": 38,
+        "rejected_packets": 0,
+        "rx_queue_peak": 3,
+        "sent_bytes": 17294,
+        "sent_packets": 31
+      }
+    }
+  ],
+  "websockets": [
+    {
+      "url": "wss://localhost:44964/mqtt/normal",
+      "atMs": 1791058928600,
+      "sentFrames": 23,
+      "sentBytes": 11427,
+      "receivedFrames": 17,
+      "receivedBytes": 9768,
+      "status": 101,
+      "protocol": "mqtt"
+    }
+  ],
+  "proxy": [
+    {
+      "label": "native-normal",
+      "mode": "normal",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 52,
+          "atMs": 1791058928463
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791058928464
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791058928744
+        },
+        {
+          "kind": 3,
+          "bytes": 216,
+          "atMs": 1791058928785
+        },
+        {
+          "kind": 3,
+          "bytes": 393,
+          "atMs": 1791058928821
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791058928827
+        },
+        {
+          "kind": 3,
+          "bytes": 1169,
+          "atMs": 1791058928827
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928834
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928835
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791058928852
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791058928853
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791058928877
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791058928877
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791058928883
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791058928884
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928888
+        },
+        {
+          "kind": 3,
+          "bytes": 147,
+          "atMs": 1791058928889
+        },
+        {
+          "kind": 3,
+          "bytes": 147,
+          "atMs": 1791058928895
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791058929535
+        },
+        {
+          "kind": 3,
+          "bytes": 216,
+          "atMs": 1791058929562
+        },
+        {
+          "kind": 3,
+          "bytes": 393,
+          "atMs": 1791058929616
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791058929618
+        },
+        {
+          "kind": 3,
+          "bytes": 1169,
+          "atMs": 1791058929626
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791058929631
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058929643
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791058929647
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791058929651
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791058929676
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791058929676
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791058929681
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791058929682
+        },
+        {
+          "kind": 3,
+          "bytes": 147,
+          "atMs": 1791058929687
+        },
+        {
+          "kind": 3,
+          "bytes": 147,
+          "atMs": 1791058929691
+        },
+        {
+          "kind": 10,
+          "bytes": 59,
+          "atMs": 1791058929883
+        },
+        {
+          "kind": 14,
+          "bytes": 2,
+          "atMs": 1791058929883
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791058928464
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791058928465
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791058928741
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791058928812
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791058928821
+        },
+        {
+          "kind": 3,
+          "bytes": 1244,
+          "atMs": 1791058928821
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791058928823
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791058928829
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791058928833
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928845
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928848
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791058928851
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791058928854
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928855
+        },
+        {
+          "kind": 3,
+          "bytes": 259,
+          "atMs": 1791058928875
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928875
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791058928876
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791058928882
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928883
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928889
+        },
+        {
+          "kind": 3,
+          "bytes": 148,
+          "atMs": 1791058928895
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791058929532
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791058929607
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791058929616
+        },
+        {
+          "kind": 3,
+          "bytes": 1244,
+          "atMs": 1791058929616
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791058929618
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791058929626
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791058929630
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058929643
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058929646
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791058929650
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791058929653
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058929674
+        },
+        {
+          "kind": 3,
+          "bytes": 255,
+          "atMs": 1791058929674
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058929674
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791058929675
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791058929680
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058929682
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058929687
+        },
+        {
+          "kind": 3,
+          "bytes": 114,
+          "atMs": 1791058929691
+        }
+      ],
+      "publishCount": 31,
+      "closedMs": 1791058929883
+    },
+    {
+      "label": "browser-normal",
+      "mode": "normal",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 58,
+          "atMs": 1791058928606
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791058928608
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791058928740
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791058928811
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791058928812
+        },
+        {
+          "kind": 3,
+          "bytes": 1244,
+          "atMs": 1791058928820
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791058928822
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791058928828
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791058928832
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928845
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928847
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791058928850
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791058928853
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928855
+        },
+        {
+          "kind": 3,
+          "bytes": 259,
+          "atMs": 1791058928870
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928873
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791058928874
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791058928881
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928883
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928888
+        },
+        {
+          "kind": 3,
+          "bytes": 148,
+          "atMs": 1791058928894
+        },
+        {
+          "kind": 10,
+          "bytes": 59,
+          "atMs": 1791058928913
+        },
+        {
+          "kind": 14,
+          "bytes": 2,
+          "atMs": 1791058928913
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791058928606
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791058928609
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791058928745
+        },
+        {
+          "kind": 3,
+          "bytes": 216,
+          "atMs": 1791058928785
+        },
+        {
+          "kind": 3,
+          "bytes": 393,
+          "atMs": 1791058928822
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791058928828
+        },
+        {
+          "kind": 3,
+          "bytes": 1169,
+          "atMs": 1791058928829
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928835
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928846
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791058928853
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791058928854
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791058928878
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791058928878
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791058928884
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791058928885
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058928889
+        },
+        {
+          "kind": 3,
+          "bytes": 147,
+          "atMs": 1791058928895
+        }
+      ],
+      "publishCount": 19,
+      "closedMs": 1791058928915
+    },
+    {
+      "label": "browser-normal",
+      "mode": "normal",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 58,
+          "atMs": 1791058929434
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791058929437
+        },
+        {
+          "kind": 10,
+          "bytes": 59,
+          "atMs": 1791058929447
+        },
+        {
+          "kind": 14,
+          "bytes": 2,
+          "atMs": 1791058929447
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791058929434
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791058929438
+        }
+      ],
+      "publishCount": 0,
+      "closedMs": 1791058929448
+    },
+    {
+      "label": "browser-normal",
+      "mode": "normal",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 58,
+          "atMs": 1791058929465
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791058929466
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791058929531
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791058929606
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791058929608
+        },
+        {
+          "kind": 3,
+          "bytes": 1244,
+          "atMs": 1791058929615
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791058929617
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791058929625
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791058929629
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058929642
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058929645
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791058929649
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791058929652
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058929657
+        },
+        {
+          "kind": 3,
+          "bytes": 255,
+          "atMs": 1791058929667
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058929671
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791058929673
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791058929680
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058929681
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058929686
+        },
+        {
+          "kind": 3,
+          "bytes": 114,
+          "atMs": 1791058929690
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791058929466
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791058929467
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791058929535
+        },
+        {
+          "kind": 3,
+          "bytes": 216,
+          "atMs": 1791058929562
+        },
+        {
+          "kind": 3,
+          "bytes": 393,
+          "atMs": 1791058929617
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791058929619
+        },
+        {
+          "kind": 3,
+          "bytes": 1169,
+          "atMs": 1791058929626
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791058929631
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791058929644
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791058929647
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791058929652
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791058929677
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791058929677
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791058929681
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791058929683
+        },
+        {
+          "kind": 3,
+          "bytes": 147,
+          "atMs": 1791058929688
+        },
+        {
+          "kind": 3,
+          "bytes": 147,
+          "atMs": 1791058929691
+        }
+      ],
+      "publishCount": 19,
+      "closedMs": 1791058929714
+    }
+  ],
+  "tls": [
+    {
+      "role": "native",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791058928462
+    },
+    {
+      "role": "browser",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791058928604
+    },
+    {
+      "role": "browser",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791058929368
+    },
+    {
+      "role": "browser",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791058929464
+    }
+  ],
+  "cleanup": {
+    "browserCarriers": [
+      {
+        "carriers": [
+          {
+            "buffered_bytes": 61,
+            "closed": true,
+            "pending_bytes": 0,
+            "protocol": "mqtt",
+            "queued_packets": 0,
+            "ready": false,
+            "route": null,
+            "traffic": {
+              "buffered_bytes_peak": 4274,
+              "connack": 0,
+              "disconnect_sent": true,
+              "failure": null,
+              "generation": 3713774154,
+              "ready_ms": 1791058928675,
+              "received_bytes": 8595,
+              "received_frame_bytes": 9768,
+              "received_frames": 17,
+              "received_packets": 15,
+              "rejected_packets": 0,
+              "rx_queue_peak": 1,
+              "sent_bytes": 9774,
+              "sent_frame_bytes": 11427,
+              "sent_frames": 23,
+              "sent_packets": 19,
+              "suback_codes": [
+                0
+              ],
+              "suback_id": 1,
+              "subscribe_id": 1,
+              "unsubscribe_sent": true,
+              "withdraw_ms": 1791058928913
+            }
+          }
+        ],
+        "request": {
+          "alpn": "miopunch/admission-request/1",
+          "attempt_elapsed_ms": 211,
+          "business_handle": false,
+          "exchange_ms": 197,
+          "handshake_ms": 163,
+          "local_id": "cd051fed8654f9ca0324503e1259beb102ce5efbb9b25058d0db63515db41ed4",
+          "paths": [
+            "Custom(CustomAddr { id: 30796699759899764, data: [1b593cb6a554f425bf1e3220859b8a0d1d92ea3a24e66df4d17f30d1d41fb366] })"
+          ],
+          "remaining_caller_ms": 11790,
+          "remote_id": "747c644f9e94c89286499a8a69a5d8eb6680a66cd967f63f86239104c24bca1e",
+          "restricted": true,
+          "stable_id": 2508104,
+          "stage": "AwaitingApproval",
+          "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 18, bytes: 9704, ios: 0 }, udp_rx: UdpStats { datagrams: 14, bytes: 8526, ios: 0 }, frame_tx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 2, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 6, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 1, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 5, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 2, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }"
+        }
+      }
+    ],
+    "activeNativeProcesses": 0,
+    "activeProxySockets": 0,
+    "serversClosed": true
+  },
+  "budgets": {
+    "outerSeconds": 45,
+    "callerSeconds": 12,
+    "phaseSeconds": 15
+  },
+  "nativePort": 44646,
+  "wssPort": 44964,
+  "origin": "http://127.0.0.1:43976",
+  "launch": {
+    "executablePath": "/tmp/mio-rtc-mqtt-bptv2_gt/chromium-private-trust.sh",
+    "headless": true,
+    "args": [
+      "--no-sandbox"
+    ],
+    "ignoreHTTPSErrors": false,
+    "privateNssMount": true,
+    "certificateBypassFlags": []
+  },
+  "browserVersion": "153.0.8010.12",
+  "facility": {
+    "logical_id": "owned-mqtt-datagram-fixture",
+    "native_url": "mqtts://localhost:44646/",
+    "wss_url": "wss://localhost:44964/mqtt/normal"
+  },
+  "failure": "page.evaluate: connection lost\n    at /home/js/Git/miopunch/browser-probe/harness/run-mqtt-datagram.mjs:292:33\n    at phase (/home/js/Git/miopunch/browser-probe/harness/run-mqtt-datagram.mjs:41:37)\n    at runRestricted (/home/js/Git/miopunch/browser-probe/harness/run-mqtt-datagram.mjs:290:11)\n    at async file:///home/js/Git/miopunch/browser-probe/harness/run-mqtt-datagram.mjs:437:5",
+  "completedUtc": "2026-10-03T20:22:09.907Z"
+}

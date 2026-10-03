@@ -158,6 +158,9 @@ use state::StateType;
 pub struct Connection {
     endpoint_config: Arc<EndpointConfig>,
     config: Arc<TransportConfig>,
+    /// Dynamic, connection-local ordinary-frame eligibility. Validation and
+    /// acknowledgment probes remain possible on an unqualified path.
+    application_data_permit: Option<Arc<dyn Fn(FourTuple) -> bool + Send + Sync>>,
     rng: StdRng,
     /// Consolidated cryptographic state
     crypto_state: CryptoState,
@@ -362,6 +365,7 @@ impl Connection {
 
         let mut this = Self {
             endpoint_config,
+            application_data_permit: None,
             crypto_state: CryptoState::new(crypto, init_cid, side, &mut rng),
             handshake_cid: local_cid,
             remote_handshake_cid: remote_cid,
@@ -1161,6 +1165,7 @@ impl Connection {
                 && !self.abandoned_paths.contains(path_id)
                 && path.data.validated
                 && path.data.local_status() == PathStatus::Available
+                && self.application_data_allowed(path.data.network_path)
         });
 
         // Such a space is able to send SpaceKind::Data frames.
@@ -1168,6 +1173,7 @@ impl Connection {
             self.remote_cids.contains_key(path_id)
                 && !self.abandoned_paths.contains(path_id)
                 && path.data.validated
+                && self.application_data_allowed(path.data.network_path)
         });
 
         let is_handshaking = self.is_handshaking();
@@ -1176,10 +1182,11 @@ impl Connection {
         let path_data = self.path_data(path_id);
         let validated = path_data.validated;
         let status = path_data.local_status();
+        let application_data_allowed = self.application_data_allowed(path_data.network_path);
 
         // This is the core packet scheduling, whether this space ID may send
         // SpaceKind::Data frames.
-        let may_send_data = has_cids
+        let may_send_data = application_data_allowed && has_cids
             && !is_abandoned
             && if is_handshaking {
                 // There is only one path during the handshake. We want to
@@ -1229,6 +1236,7 @@ impl Connection {
         PathSchedulingInfo {
             is_abandoned,
             may_send_data,
+            validation_only: !application_data_allowed,
             may_send_close,
             may_self_abandon,
         }
@@ -1505,7 +1513,8 @@ impl Connection {
                 } else if can_send.close && scheduling_info.may_send_close {
                     // This is the best path to send a CONNECTION_CLOSE on.
                     true
-                } else if needs_loss_probe || can_send.space_specific {
+                } else if needs_loss_probe || can_send.space_specific
+                    || (scheduling_info.validation_only && can_send.acks) {
                     // We always send a loss probe or space-specific frames if the path is
                     // not abandoned.
                     true
@@ -2697,6 +2706,24 @@ impl Connection {
     /// Ping the remote endpoint
     ///
     /// Causes an ACK-eliciting packet to be transmitted on the connection.
+    /// Compose a dynamic ordinary-frame gate without prohibiting path probes.
+    /// Callbacks must not acquire this connection's runtime lock.
+    pub fn restrict_application_data_paths(
+        &mut self,
+        permit: impl Fn(FourTuple) -> bool + Send + Sync + 'static,
+    ) {
+        let next = Arc::new(permit);
+        self.application_data_permit = Some(match self.application_data_permit.take() {
+            Some(previous) => Arc::new(move |path| previous(path) && next(path)),
+            None => next,
+        });
+    }
+
+    fn application_data_allowed(&self, path: FourTuple) -> bool {
+        self.application_data_permit.as_ref().is_none_or(|permit| permit(path))
+    }
+
+    /// Queue an ACK-eliciting PING on every current path.
     pub fn ping(&mut self) {
         // TODO(flub): This is very brute-force: it pings *all* the paths.  Instead it would
         //    be nice if we could only send a single packet for this.
@@ -4350,6 +4377,19 @@ impl Connection {
             Ok((packet, pn)) => {
                 // We received an authenticated packet and decrypted it.
                 qlog.header(&packet.header, pn, path_id);
+                if self.state.is_established()
+                    && packet.header.space() == SpaceKind::Data
+                    && !self.application_data_allowed(network_path)
+                    && frame::Iter::new(packet.payload.clone().freeze()).is_ok_and(|mut frames| frames.any(|frame| !matches!(frame,
+                        Ok(Frame::Padding | Frame::Ping | Frame::Ack(_) | Frame::PathAck(_)
+                            | Frame::PathChallenge(_) | Frame::PathResponse(_) | Frame::ObservedAddr(_)
+                            | Frame::ImmediateAck | Frame::Close(_)))))
+                {
+                    // Reject the entire packet before deduplication/ACK state.
+                    // Otherwise acknowledging a discarded STREAM loses data.
+                    trace!(%path_id, "ordinary frames on unqualified path discarded");
+                    return;
+                }
                 let span = match pn {
                     Some(pn) => trace_span!("recv", space = ?packet.header.space(), pn),
                     None => trace_span!("recv", space = ?packet.header.space()),
@@ -6170,7 +6210,7 @@ impl Connection {
         }
 
         // ACK
-        if !scheduling_info.is_abandoned && scheduling_info.may_send_data {
+        if !scheduling_info.is_abandoned && (scheduling_info.may_send_data || scheduling_info.validation_only) {
             for path_id in space
                 .number_spaces
                 .iter_mut()
@@ -7355,6 +7395,8 @@ enum PollPathSpaceStatus {
 /// [`Connection::populate_packet`].
 #[derive(Debug, Copy, Clone)]
 struct PathSchedulingInfo {
+    /// Ordinary frames are prohibited even if this is the only validated path.
+    validation_only: bool,
     /// Whether the path is abandoned.
     ///
     /// Note that a path that is abandoned but still has CIDs can still send a packet. After

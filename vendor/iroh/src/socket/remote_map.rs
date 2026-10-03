@@ -87,6 +87,33 @@ pub(crate) struct MappedAddrs {
 }
 
 impl MappedAddrs {
+    pub(crate) fn permits_custom_bootstrap(&self, address: &CustomAddr) -> bool {
+        self.custom_route_senders.as_ref().is_none_or(|senders| senders.iter()
+            .any(|sender| sender.can_bootstrap_connection(address)))
+    }
+
+    pub(crate) fn permits_custom_connection(&self, address: &CustomAddr, connection_id: usize) -> bool {
+        self.custom_route_senders.as_ref().is_none_or(|senders| {
+            // An ownership restriction is a property of a connection-bound
+            // carrier. Preserve legacy carrier error/lifetime handling rather
+            // than filtering its terminal send error before it reaches Noq.
+            let guarded = senders.iter().any(|sender| sender.guards_application_data(address));
+            !guarded || senders.iter().any(|sender| sender.guards_application_data(address) && sender.is_valid_connection_addr(address, connection_id))
+        })
+    }
+
+    pub(crate) fn permits_custom_application_data(&self, address: &CustomAddr, connection_id: usize) -> bool {
+        self.custom_route_senders.as_ref().is_none_or(|senders| {
+            let guarded = senders.iter().any(|sender| sender.guards_application_data(address));
+            !guarded || senders.iter().any(|sender| sender.guards_application_data(address) && sender.is_valid_connection_addr(address, connection_id) && sender.is_data_path_qualified(address, connection_id))
+        })
+    }
+
+    pub(crate) fn qualifies_custom_data(&self, address: &CustomAddr, connection_id: usize) -> bool {
+        // Only opt-in carriers have an additional path qualification step.
+        // Legacy path scoring remains governed by its existing scope/policy.
+        self.permits_custom_application_data(address, connection_id)
+    }
     /// Converts a possibly mapped-IP address into a [`transports::Addr`].
     pub(crate) fn to_transport_addr(&self, addr: SocketAddr) -> Option<transports::Addr> {
         to_transport_addr(addr, &self.relay_addrs, &self.custom_addrs)

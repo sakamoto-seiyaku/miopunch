@@ -1,0 +1,366 @@
+{
+  "scope": "S5 final-source affected validation; legacy member-relay compatibility and current qualification notifications",
+  "checks": [
+    {
+      "name": "native-library",
+      "command": [
+        "rtk",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "rtc-probe",
+        "--lib",
+        "-j",
+        "2",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 16.406
+    },
+    {
+      "name": "admission-gate",
+      "command": [
+        "rtk",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "rtc-probe",
+        "--test",
+        "admission_gate",
+        "-j",
+        "2",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 32.526
+    },
+    {
+      "name": "admission-proof",
+      "command": [
+        "rtk",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "rtc-probe",
+        "--test",
+        "admission_proof",
+        "-j",
+        "2",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 9.437
+    },
+    {
+      "name": "rtc-path-five",
+      "command": [
+        "rtk",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "rtc-probe",
+        "--test",
+        "rtc_path_qualification",
+        "-j",
+        "2",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 6.079
+    },
+    {
+      "name": "member-relay",
+      "command": [
+        "rtk",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "rtc-probe,member-signaling-test-hooks",
+        "--test",
+        "member_relay",
+        "-j",
+        "2",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 101,
+      "seconds": 152.27
+    },
+    {
+      "name": "rtc-path-five-final",
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "rtc-probe",
+        "--test",
+        "rtc_path_qualification",
+        "-j",
+        "2",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 20.951
+    },
+    {
+      "name": "member-relay-final",
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "rtc-probe,member-signaling-test-hooks",
+        "--test",
+        "member_relay",
+        "-j",
+        "2",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 144.609
+    },
+    {
+      "name": "all-targets",
+      "command": [
+        "rtk",
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "rtc-probe",
+        "-j",
+        "2"
+      ],
+      "exit": 0,
+      "seconds": 29.338
+    },
+    {
+      "name": "format",
+      "command": [
+        "rtk",
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit": 0,
+      "seconds": 0.916
+    },
+    {
+      "name": "python",
+      "command": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-c",
+        "import ast; from pathlib import Path; [ast.parse(Path(p).read_text()) for p in ['scripts/check_browser_paths.py','scripts/check_browser_rtc.py']]"
+      ],
+      "exit": 0,
+      "seconds": 0.064
+    },
+    {
+      "name": "harness",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "--check",
+        "browser-probe/harness/run-rtc.mjs"
+      ],
+      "exit": 0,
+      "seconds": 0.064
+    },
+    {
+      "name": "member-harness",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "--check",
+        "browser-probe/harness/run-rtc-member.mjs"
+      ],
+      "exit": 0,
+      "seconds": 0.064
+    },
+    {
+      "name": "native-fixtures",
+      "command": [
+        "rtk",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--features",
+        "rtc-probe",
+        "--bin",
+        "browser_network_native",
+        "--bin",
+        "browser-probe-native",
+        "--bin",
+        "browser_restricted_native",
+        "--bin",
+        "browser_mqtt_datagram",
+        "-j",
+        "2"
+      ],
+      "exit": 0,
+      "seconds": 21.286
+    },
+    {
+      "name": "wasm-fixture",
+      "command": [
+        "rtk",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "miopunch-browser-probe",
+        "--features",
+        "rtc-probe",
+        "--target",
+        "wasm32-unknown-unknown",
+        "-j",
+        "2"
+      ],
+      "exit": 0,
+      "seconds": 7.132
+    },
+    {
+      "name": "wasm-bindgen",
+      "command": [
+        "rtk",
+        "proxy",
+        "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+        "--target",
+        "web",
+        "--out-dir",
+        "browser-probe/pkg",
+        "target/wasm32-unknown-unknown/debug/miopunch_browser_probe.wasm"
+      ],
+      "exit": 0,
+      "seconds": 2.177
+    },
+    {
+      "name": "same-member-real",
+      "command": [
+        "rtk",
+        "proxy",
+        "python3",
+        "scripts/check_browser_paths.py",
+        "--case",
+        "relay-member-rtc",
+        "--skip-build",
+        "--output",
+        "/tmp/mio-rtc-s5-qualified-final-20261004"
+      ],
+      "exit": 0,
+      "seconds": 31.487
+    },
+    {
+      "name": "s4-regression",
+      "command": [
+        "rtk",
+        "proxy",
+        "python3",
+        "scripts/check_browser_paths.py",
+        "--case",
+        "rtc-channel",
+        "--skip-build",
+        "--output",
+        "/tmp/mio-rtc-s5-s4-final-20261004"
+      ],
+      "exit": 0,
+      "seconds": 5.427
+    },
+    {
+      "name": "s2-regression",
+      "command": [
+        "rtk",
+        "proxy",
+        "python3",
+        "scripts/check_browser_paths.py",
+        "--case",
+        "wss-restricted-handshake",
+        "--skip-build",
+        "--output",
+        "/tmp/mio-rtc-s5-s2-final-20261004"
+      ],
+      "exit": 1,
+      "seconds": 4.125
+    },
+    {
+      "name": "s2-fixture-drain-fix",
+      "command": [
+        "rtk",
+        "proxy",
+        "python3",
+        "scripts/check_browser_paths.py",
+        "--case",
+        "wss-restricted-handshake",
+        "--skip-build",
+        "--output",
+        "/tmp/mio-rtc-s5-s2-drain-green-20261004"
+      ],
+      "exit": 0,
+      "seconds": 21.384,
+      "resolves": "s2-regression",
+      "sourceDelta": "src/bin/browser_restricted_native.rs fixture-only, RTC inputs/binaries unchanged"
+    },
+    {
+      "name": "s1-regression",
+      "command": [
+        "rtk",
+        "proxy",
+        "python3",
+        "scripts/check_browser_paths.py",
+        "--case",
+        "mqtt-datagram",
+        "--skip-build",
+        "--output",
+        "/tmp/mio-rtc-s5-s1-final-20261004"
+      ],
+      "exit": 0,
+      "seconds": 4.776
+    }
+  ],
+  "passed": true,
+  "compatibilityRegression": {
+    "baseline": "f5bae5c727c632faf5cac0b3473b01cbbe938fe4",
+    "baselineExact": "1 passed, 13 filtered out, 24.72s",
+    "currentRedExact": "0 passed, 1 failed, 17.74s",
+    "currentGreenExact": "1 passed, 13 filtered out, 24.27s",
+    "resolution": "New path qualification and packet ownership/scheduling checks opt in only for connection-bound RTC; preserve legacy path policy/scoring and physical errors."
+  },
+  "resolvedPriorFailures": {
+    "member-relay": "member-relay-final",
+    "s2-regression": "s2-fixture-drain-fix"
+  }
+}

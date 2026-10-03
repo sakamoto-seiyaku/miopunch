@@ -1,0 +1,123 @@
+{
+  "passed": true,
+  "scope": "MIOPUNCH-68 step5 and affected S4/S2/S1 regressions; full11 remains active",
+  "reviewBase": "f5bae5c727c632faf5cac0b3473b01cbbe938fe4",
+  "finalRuntime": {
+    "rtc": "rtc-member.json",
+    "s4": "s4-regression.json",
+    "s2": "s2-regression.json",
+    "s1": "s1-regression.json"
+  },
+  "requiredReviews": {
+    "standardsHard": 0,
+    "specRemaining": 0,
+    "requiredPumpFindingsResolved": 2,
+    "optionalDuplicatedCodeParked": 2,
+    "optionalPumpCounterLabelCorrected": true
+  },
+  "compatibility": {
+    "baselineSameNoBackupCase": {
+      "checkout": "/tmp/miopunch-s5-baseline-f5-20261004",
+      "commit": "f5bae5c727c632faf5cac0b3473b01cbbe938fe4",
+      "passed": 1,
+      "seconds": 24.72
+    },
+    "currentRedSameCase": {
+      "passed": 0,
+      "failed": 1,
+      "seconds": 17.74
+    },
+    "currentGreenSameCase": {
+      "passed": 1,
+      "seconds": 24.27
+    },
+    "finalMemberRelay": {
+      "passed": 14,
+      "failed": 0,
+      "log": "member-relay-final.log"
+    },
+    "finalRtcPath": {
+      "passed": 5,
+      "failed": 0,
+      "log": "rtc-path-five-final.log"
+    }
+  },
+  "qualification": {
+    "originalStreamBeyondCallerDeadlineMs": 12522,
+    "normalAttemptMs": 1656,
+    "dropCallerBudgetMs": 10000,
+    "dropAttemptMs": 10009,
+    "maintenanceBudgetMs": 2000,
+    "maintenanceAttemptMs": 2010,
+    "nativePumpTerminationReturnMs": 8,
+    "browserPcCleanup": {
+      "peersCreated": 4,
+      "peersClosed": 4,
+      "callbacksDetached": true
+    },
+    "browserPumpCleanup": 0,
+    "sourceIdentity": "source-receipt.json"
+  },
+  "externalPaths": {
+    "fullInitialWorkspaceLib": "/tmp/mio-rtc-s5-checks-20261004/workspace-library.log",
+    "rtcIOSeamRed": "/home/js/.local/share/rtk/tee/1791055771_cargo_test.log",
+    "fullHandoff": "/tmp/miopunch-handoff-2026-10-04-webrtc-s5-implemented.md"
+  },
+  "evidenceSha256": {
+    "README.md": "8f6f3b00e6f7df5facd16e947a3078b028e168d911c7c67a5436161daafb0c84",
+    "admission-gate.log": "4cf59b5540eef893ba9499c054ddc6c468c589a21ba75c977c8bf8d482af451c",
+    "admission-proof.log": "ce3691be557548a00b9f2b1bd1705c1b716c60cb7bd5a04ef8e4b5f1e4a0880c",
+    "all-targets.log": "40b68302d7d3619578a3e4317d35c3b996b2fd7e3d9e370bdc31bfa302c6c1a1",
+    "bootstrap-route-red.json": "e6479eadc6f0a14a1728cfa755539153be0ca273266e90589a9362ba28e66cc9",
+    "checks-history.json": "b19d77f3b878d1514142582ed4dce8e3983872147676032cc12f723360331d99",
+    "member-relay-final.log": "6926022b20e3ac144603c576da9caa4ec763aa4265270628ced7f218428f61b8",
+    "member-relay-red.log": "6715b1d886490043ba730eac65cad1d86ad025490aef09392d03ecd3651502db",
+    "native-fixtures.log": "830475516cfa1e77f52533601e437a1438802dbe2541e5da162bb50e5e94425f",
+    "native-library.log": "35f4a45e3cb16b630d144579cfcbc84d9325681d7e5637314b49725f92d67979",
+    "pump-terminal-green.json": "cd9a4dc580018b44c5b1e0432e981d6d25948a175318ce1513fe24e42555b1fc",
+    "pump-terminal-red.json": "67fa579877065da4e87dff5b8ff1ecfd8794a4dde1bccd43900273378b884d95",
+    "rtc-member.json": "0214e84a94521c2cc38774cec0437371cbfe23f3b68703ef133d1e930aa8e67c",
+    "rtc-path-five-final.log": "ad93a8eee9db805742077c50627d78b5d8fed19a9229fc99242d01a1f5157d68",
+    "rtc-run.json": "c5b074a021d1c6eca38cff35fe6775db17382bf46078dc8d774ca663c703bf48",
+    "s1-regression.json": "cae204dcecd6170cc03318d01b6d1064c6c59414ccad5587f76f09d9c839dd7a",
+    "s2-drain-red.json": "703e47e8188627aebf90e9b2c9bd183bc1254db508ecee0c3e057481737f5a20",
+    "s2-regression.json": "75a631b920cb3ba179526ba18eb8e4a80e738dabc6285f52f5294d51d955585f",
+    "s4-regression.json": "ce4162c9b3e288bd7cf146ad181693c1178c6b25dbb88fedd4481d59cbd8d979",
+    "source-receipt.json": "a48a8f38c4be9345df0336c4eb52971fb312bb06aaf1d90d45f5904a756e6346",
+    "spec-final.md": "25247e0c23c9606e3c2f4bddbb54cb9cd80266671e84aa066865157e807ae090",
+    "spec-initial.md": "3bd5442d08d826b33ee663adbf2d38dace15805adf6a775bdae8e052ccb83baf",
+    "spec-resource-finding.md": "c548a99ccbdaff771453c1ad1b4047edea6cc785467b62b9882ffdc2649b1650",
+    "standards-final.md": "c89cb1865276afe97717f34ede214f483c885e2a65c45b877b21b510985804a0",
+    "standards-initial.md": "05dc78d8c495519e283d2b01aec459b7360e46ee748e9a028be2df253e96e210",
+    "wasm-bindgen.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "wasm-fixture.log": "68dc042e272952cd584b6198240e38dabc2b09b3578c9cd5ae3477d424f1329b"
+  },
+  "socketObservation": {
+    "semantics": "Native pc.close/drop plus one scheduler yield; socketAfter is an immediate process-wide snapshot, not a awaited driver-quiescence barrier.",
+    "immediateSnapshots": {
+      "normalCleanup": {
+        "before": 6,
+        "after": 6
+      },
+      "failureCleanup": {
+        "before": 6,
+        "after": 13
+      },
+      "shortNativeCleanup": {
+        "before": 6,
+        "after": 6
+      },
+      "pumpCleanup": {
+        "before": 6,
+        "after": 6
+      }
+    },
+    "laterSameProcessBaseline": {
+      "count": 6,
+      "observation": "Before constructing the next short-deadline PC in the same still-running native fixture, following the 10-second failed candidate.",
+      "exactReclamationLatencyRecorded": false
+    },
+    "ownedBridgeTasksMeasuredZero": true,
+    "allInternalWebrtcDriverTasksMeasured": false
+  }
+}

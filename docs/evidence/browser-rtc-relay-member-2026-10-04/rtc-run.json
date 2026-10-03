@@ -1,0 +1,140 @@
+{
+  "scope": "MIOPUNCH-68 step 5; same Ordinary-M relay to RTC",
+  "startedUtc": "2026-10-03T20:21:29Z",
+  "relay": "owned",
+  "passed": true,
+  "commands": [
+    {
+      "name": "revision",
+      "command": [
+        "rtk",
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "seconds": 0.032,
+      "exit": 0
+    },
+    {
+      "name": "rust-version",
+      "command": [
+        "rtk",
+        "proxy",
+        "rustc",
+        "--version"
+      ],
+      "seconds": 0.064,
+      "exit": 0
+    },
+    {
+      "name": "bindgen-version",
+      "command": [
+        "rtk",
+        "proxy",
+        "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+        "--version"
+      ],
+      "seconds": 0.032,
+      "exit": 0
+    },
+    {
+      "name": "relay-member-rtc",
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "browser-probe/harness/run-rtc.mjs",
+        "--case",
+        "relay-member-rtc",
+        "--relay",
+        "owned",
+        "--native",
+        "/home/js/Git/miopunch/target/debug/browser_network_native",
+        "--evidence",
+        "/tmp/mio-rtc-s5-qualified-final-20261004",
+        "--fixture",
+        "/tmp/mio-rtc-s4-trust-o7eo3xvu",
+        "--relay-fixture",
+        "/home/js/Git/miopunch/target/debug/browser-probe-native"
+      ],
+      "seconds": 29.634,
+      "exit": 0
+    }
+  ],
+  "sourceBefore": {
+    "Cargo.lock": "1774978d2cc60b71af047bc120b6759f656c6093b66329cb1c88cee58bdcdc09",
+    "Cargo.toml": "d6ed7161423e8fa73f53a23d0e542f0209036cefc07cc6d9d5e9ac74ead7ebaf",
+    "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+    "browser-probe/harness/run-rtc.mjs": "0e244c459d4659af203805c3ccf8745427344fa01aca276a087e82c9c7e9b5c2",
+    "browser-probe/src/lib.rs": "0d2e3f1ea429039ae807ae1940ae864b77f1da15b0f172a11483792b7e0f8b73",
+    "browser-probe/src/member_connection.rs": "cb1c0f7d365923bacce6f6c42d2fe6cfcbee63b69417a23c781a86bdbdab4a91",
+    "browser-probe/src/network.rs": "ef91d699e3cedc13bdb808af7a4d41151095d8e5a8f9c9b14d50d8fcf9ab8995",
+    "browser-probe/src/rtc.rs": "251959eb8d3919ef0d26672f1916a468bc5a8fbe19bd6ac9e4be7bfb65187ae4",
+    "browser-probe/src/rtc_member.rs": "c2ea8fd9b718b343ac9f937294674de5d9d09d34729f8cdc55ce2a4403de2df3",
+    "scripts/check_browser_paths.py": "7def69d42f600f58584abd910c7bcf062af6ee5f5e2b68d0a27501c6eb81db36",
+    "scripts/check_browser_rtc.py": "efc3f597ab4cf464190c3c6b6ec4f9cac92e08cdfa94c889c0db15ba003e1975",
+    "src/admission_gate.rs": "4d8bc0173d5b615652eab82114a2d23689bfec91b7ccfcb479a5943cf9c631a9",
+    "src/bin/browser_network_native.rs": "951df304b2076de085412bc108da1cc7e7345885fe935ff163d9cd374f451a8a",
+    "src/lib.rs": "556c677460f4b1f08026450a346e9ebefb5ff47aaa00e7599fc24393e8e579d2",
+    "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+    "src/rtc_member.rs": "9008a15a123bc9005e5f847de244c625939d5a2add5cb751dfed7df4147a455e",
+    "src/rtc_probe.rs": "fa928c9deb4ddf41159226ca45b48a5f2bb4af842e6290ee36927de7ad2d3870",
+    "src/rtc_transport.rs": "6596e28adc9390b89d768df016d06ad5d5879b5651df79cc24adc88bb17e33ae",
+    "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+    "tests/rtc_path_qualification.rs": "689d996c103ed86549dc52fb15d7ef6d8423befe5ca2c7c6893c292129ec1c28",
+    "vendor/iroh/src/endpoint.rs": "90f0981378f1cecb1bf04fbb949ff85fb29a33ef289056f3c173d42dc98d5c46",
+    "vendor/iroh/src/endpoint/connection.rs": "e66768c9841ce71c1fdf97b6c0d0c9428fb2c334541da05ea46cf8def0afadc5",
+    "vendor/iroh/src/socket.rs": "a222e8f89e29f555a0b65d7385133bd97285831b69fef576e511013664370c3b",
+    "vendor/iroh/src/socket/remote_map.rs": "fe908f81f160e4679d8e5526caa9140ecf65126148b3ea9a5541ca8e8934833a",
+    "vendor/iroh/src/socket/remote_map/remote_state.rs": "63a3678d1eed107ea986af5768c03a00391e3bb9b545d02071559dfab943e3a3",
+    "vendor/iroh/src/socket/transports/custom.rs": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+    "vendor/noq-proto/src/connection/mod.rs": "c65b92731042bf591fd8a1da916c45a2a19eeaad2f761d6d839b2ac99c047054",
+    "vendor/noq/src/connection.rs": "44ed00986693ad0c35e62cdb50b2cf16aab7586dbebc2f7410ec7cab65414f75",
+    "vendor/noq/src/path.rs": "b8da127fed75cf4e112f336a43e9f05a1dd077355e863c712a8e8c29a2902c01"
+  },
+  "builtArtifacts": {
+    "target/debug/browser_network_native": "5cff68122ca2a57097e18eda0c2c5df741598fd432ffb487356d067381b29885",
+    "target/debug/browser-probe-native": "7f90297985db02b684cdae551bb43cd43711cc8c8ddf6fb5a573540adde8f1e3",
+    "browser-probe/pkg/miopunch_browser_probe.js": "e7c5e4178df2399d3df9791ce3647fe3545898d1d864d908c94ccccc9ce9d5bc",
+    "browser-probe/pkg/miopunch_browser_probe_bg.wasm": "28c4da15b179ff3e23705101eca12e242b00571828a3a22521d9f5213cec4407"
+  },
+  "certificate": {
+    "normalVerification": true,
+    "privateNssOnly": true,
+    "caPemSha256": "bc290ace90e092a85b7e7fd0314dbb0ec71cbead8f2b27d5fda87faa7b196573"
+  },
+  "fixtureSetupSeconds": 1.015,
+  "sourceAfter": {
+    "Cargo.lock": "1774978d2cc60b71af047bc120b6759f656c6093b66329cb1c88cee58bdcdc09",
+    "Cargo.toml": "d6ed7161423e8fa73f53a23d0e542f0209036cefc07cc6d9d5e9ac74ead7ebaf",
+    "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+    "browser-probe/harness/run-rtc.mjs": "0e244c459d4659af203805c3ccf8745427344fa01aca276a087e82c9c7e9b5c2",
+    "browser-probe/src/lib.rs": "0d2e3f1ea429039ae807ae1940ae864b77f1da15b0f172a11483792b7e0f8b73",
+    "browser-probe/src/member_connection.rs": "cb1c0f7d365923bacce6f6c42d2fe6cfcbee63b69417a23c781a86bdbdab4a91",
+    "browser-probe/src/network.rs": "ef91d699e3cedc13bdb808af7a4d41151095d8e5a8f9c9b14d50d8fcf9ab8995",
+    "browser-probe/src/rtc.rs": "251959eb8d3919ef0d26672f1916a468bc5a8fbe19bd6ac9e4be7bfb65187ae4",
+    "browser-probe/src/rtc_member.rs": "c2ea8fd9b718b343ac9f937294674de5d9d09d34729f8cdc55ce2a4403de2df3",
+    "scripts/check_browser_paths.py": "7def69d42f600f58584abd910c7bcf062af6ee5f5e2b68d0a27501c6eb81db36",
+    "scripts/check_browser_rtc.py": "efc3f597ab4cf464190c3c6b6ec4f9cac92e08cdfa94c889c0db15ba003e1975",
+    "src/admission_gate.rs": "4d8bc0173d5b615652eab82114a2d23689bfec91b7ccfcb479a5943cf9c631a9",
+    "src/bin/browser_network_native.rs": "951df304b2076de085412bc108da1cc7e7345885fe935ff163d9cd374f451a8a",
+    "src/lib.rs": "556c677460f4b1f08026450a346e9ebefb5ff47aaa00e7599fc24393e8e579d2",
+    "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+    "src/rtc_member.rs": "9008a15a123bc9005e5f847de244c625939d5a2add5cb751dfed7df4147a455e",
+    "src/rtc_probe.rs": "fa928c9deb4ddf41159226ca45b48a5f2bb4af842e6290ee36927de7ad2d3870",
+    "src/rtc_transport.rs": "6596e28adc9390b89d768df016d06ad5d5879b5651df79cc24adc88bb17e33ae",
+    "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+    "tests/rtc_path_qualification.rs": "689d996c103ed86549dc52fb15d7ef6d8423befe5ca2c7c6893c292129ec1c28",
+    "vendor/iroh/src/endpoint.rs": "90f0981378f1cecb1bf04fbb949ff85fb29a33ef289056f3c173d42dc98d5c46",
+    "vendor/iroh/src/endpoint/connection.rs": "e66768c9841ce71c1fdf97b6c0d0c9428fb2c334541da05ea46cf8def0afadc5",
+    "vendor/iroh/src/socket.rs": "a222e8f89e29f555a0b65d7385133bd97285831b69fef576e511013664370c3b",
+    "vendor/iroh/src/socket/remote_map.rs": "fe908f81f160e4679d8e5526caa9140ecf65126148b3ea9a5541ca8e8934833a",
+    "vendor/iroh/src/socket/remote_map/remote_state.rs": "63a3678d1eed107ea986af5768c03a00391e3bb9b545d02071559dfab943e3a3",
+    "vendor/iroh/src/socket/transports/custom.rs": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+    "vendor/noq-proto/src/connection/mod.rs": "c65b92731042bf591fd8a1da916c45a2a19eeaad2f761d6d839b2ac99c047054",
+    "vendor/noq/src/connection.rs": "44ed00986693ad0c35e62cdb50b2cf16aab7586dbebc2f7410ec7cab65414f75",
+    "vendor/noq/src/path.rs": "b8da127fed75cf4e112f336a43e9f05a1dd077355e863c712a8e8c29a2902c01"
+  },
+  "sourceUnchanged": true,
+  "completedUtc": "2026-10-03T20:22:00Z"
+}

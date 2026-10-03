@@ -1,8 +1,9 @@
 //! Native browser RTC API adapter for the bounded synthetic channel experiment.
 use super::*;
 use crate::rtc_association::{
-    CHANNEL_ID, CHANNEL_LABEL, CHANNEL_PROTOCOL, DATAGRAM_BYTES, DatagramQueue, EXPORTER_LABEL,
-    QUEUE_BYTES, attempt_context, channel_parameters,
+    CHANNEL_ID, CHANNEL_LABEL, CHANNEL_PROTOCOL, DATAGRAM_BYTES, DATAGRAM_CHANNEL_LABEL,
+    DATAGRAM_CHANNEL_PROTOCOL, DatagramQueue, EXPORTER_LABEL, QUEUE_BYTES, attempt_context,
+    channel_parameters,
 };
 use futures_util::{FutureExt, future::poll_fn, task::AtomicWaker};
 use js_sys::{Array, Reflect, Uint8Array};
@@ -15,21 +16,23 @@ use web_sys::{
     RtcSdpType, RtcSessionDescriptionInit,
 };
 
-struct ActiveAttempt(Arc<std::sync::atomic::AtomicBool>);
+pub(super) struct ActiveAttempt(pub(super) Arc<std::sync::atomic::AtomicBool>);
 impl Drop for ActiveAttempt {
     fn drop(&mut self) {
         self.0.store(false, std::sync::atomic::Ordering::Release);
     }
 }
 
-struct Association {
-    pc: RtcPeerConnection,
-    dc: RtcDataChannel,
+pub(super) struct Association {
+    pub(super) pc: RtcPeerConnection,
+    pub(super) dc: RtcDataChannel,
     tx: Arc<DatagramQueue>,
     rx: Arc<DatagramQueue>,
     callbacks: Vec<Closure<dyn FnMut(Event)>>,
-    events: Rc<RefCell<Vec<Value>>>,
+    pub(super) events: Rc<RefCell<Vec<Value>>>,
     progress: Rc<AtomicWaker>,
+    receiver: Rc<RefCell<Option<Box<dyn Fn(Vec<u8>) -> Result<(), JsValue>>>>>,
+    retired: Rc<RefCell<Option<Box<dyn Fn()>>>>,
 }
 fn event(events: &RefCell<Vec<Value>>, kind: &str, state: String) {
     let mut events = events.borrow_mut();
@@ -39,6 +42,17 @@ fn event(events: &RefCell<Vec<Value>>, kind: &str, state: String) {
 }
 impl Association {
     fn new(connection: &Connection) -> Result<Self, JsValue> {
+        Self::with_profile(connection, false)
+    }
+    pub(super) fn datagram(connection: &Connection) -> Result<Self, JsValue> {
+        Self::with_profile(connection, true)
+    }
+    fn with_profile(connection: &Connection, datagram: bool) -> Result<Self, JsValue> {
+        let maximum = if datagram {
+            crate::rtc_transport::MAX_DATAGRAM
+        } else {
+            DATAGRAM_BYTES
+        };
         let config = RtcConfiguration::new();
         config.set_ice_servers(&Array::new());
         let pc = RtcPeerConnection::new_with_configuration(&config)?;
@@ -47,23 +61,32 @@ impl Association {
         init.set_max_retransmits(0);
         init.set_negotiated(true);
         init.set_id(CHANNEL_ID);
-        init.set_protocol(CHANNEL_PROTOCOL);
-        let dc = pc.create_data_channel_with_data_channel_dict(CHANNEL_LABEL, &init);
+        init.set_protocol(if datagram {
+            DATAGRAM_CHANNEL_PROTOCOL
+        } else {
+            CHANNEL_PROTOCOL
+        });
+        let dc = pc.create_data_channel_with_data_channel_dict(
+            if datagram {
+                DATAGRAM_CHANNEL_LABEL
+            } else {
+                CHANNEL_LABEL
+            },
+            &init,
+        );
         dc.set_binary_type(RtcDataChannelType::Arraybuffer);
-        dc.set_buffered_amount_low_threshold((QUEUE_BYTES - DATAGRAM_BYTES) as u32);
-        let tx = Arc::new(DatagramQueue::new(QUEUE_BYTES, DATAGRAM_BYTES));
-        let rx = Arc::new(DatagramQueue::new(QUEUE_BYTES, DATAGRAM_BYTES));
+        dc.set_buffered_amount_low_threshold((QUEUE_BYTES - maximum) as u32);
+        let tx = Arc::new(DatagramQueue::new(QUEUE_BYTES, maximum));
+        let rx = Arc::new(DatagramQueue::new(QUEUE_BYTES, maximum));
         let events = Rc::new(RefCell::new(Vec::new()));
         let progress = Rc::new(AtomicWaker::new());
         let mut callbacks = Vec::new();
         let (tx_open, rx_open, dc_open, open_events) =
             (tx.clone(), rx.clone(), dc.clone(), events.clone());
         let open_member = connection.weak_handle();
+        let open_progress = progress.clone();
         let open = Closure::<dyn FnMut(Event)>::new(move |_| {
-            if !open_member
-                .upgrade()
-                .is_some_and(|member| member.close_reason().is_none())
-            {
+            if !open_member.is_open() {
                 tx_open.close();
                 rx_open.close();
                 dc_open.close();
@@ -76,17 +99,31 @@ impl Association {
             } else {
                 event(&open_events, "channel", "open".into());
             }
+            open_progress.wake();
         });
         dc.set_onopen(Some(open.as_ref().unchecked_ref()));
         callbacks.push(open);
+        let receiver: Rc<RefCell<Option<Box<dyn Fn(Vec<u8>) -> Result<(), JsValue>>>>> =
+            Rc::new(RefCell::new(None));
+        let bridge_receiver = receiver.clone();
+        let retired: Rc<RefCell<Option<Box<dyn Fn()>>>> = Rc::new(RefCell::new(None));
+        let message_retired = retired.clone();
         let (message_rx, message_tx, message_dc, message_events) =
             (rx.clone(), tx.clone(), dc.clone(), events.clone());
         let message = Closure::<dyn FnMut(Event)>::new(move |value: Event| {
             let value: MessageEvent = value.unchecked_into();
             let data = Uint8Array::new(&value.data());
-            if data.length() as usize > DATAGRAM_BYTES
-                || message_rx.try_push(data.to_vec()).is_err()
-            {
+            let accepted = if data.length() as usize > maximum {
+                false
+            } else if let Some(receiver) = bridge_receiver.borrow().as_ref() {
+                receiver(data.to_vec()).is_ok()
+            } else {
+                message_rx.try_push(data.to_vec()).is_ok()
+            };
+            if !accepted {
+                if let Some(retire) = message_retired.borrow().as_ref() {
+                    retire();
+                }
                 event(&message_events, "receive", "rejected".into());
                 message_rx.close();
                 message_tx.close();
@@ -97,10 +134,14 @@ impl Association {
         callbacks.push(message);
         let (close_tx, close_rx, close_progress, close_events) =
             (tx.clone(), rx.clone(), progress.clone(), events.clone());
+        let close_retired = retired.clone();
         let close = Closure::<dyn FnMut(Event)>::new(move |_| {
             close_tx.close();
             close_rx.close();
             close_progress.wake();
+            if let Some(retire) = close_retired.borrow().as_ref() {
+                retire();
+            }
             event(&close_events, "channel", "closed".into());
         });
         dc.set_onclose(Some(close.as_ref().unchecked_ref()));
@@ -166,16 +207,54 @@ impl Association {
             callbacks,
             events,
             progress,
+            receiver,
+            retired,
         })
     }
-    fn retire(&self) {
+    pub(super) fn retire(&self) {
         self.tx.close();
         self.rx.close();
         self.progress.wake();
         self.dc.close();
         self.pc.close();
     }
-    async fn gathered(&self) -> Result<(), JsValue> {
+    pub(super) fn set_receiver(
+        &self,
+        receive: impl Fn(Vec<u8>) -> Result<(), JsValue> + 'static,
+        retire: impl Fn() + 'static,
+    ) {
+        *self.receiver.borrow_mut() = Some(Box::new(receive));
+        *self.retired.borrow_mut() = Some(Box::new(retire));
+    }
+    pub(super) async fn wait_open(&self) -> Result<(), JsValue> {
+        poll_fn(|cx| {
+            self.progress.register(cx.waker());
+            match self.dc.ready_state() {
+                RtcDataChannelState::Open => Poll::Ready(Ok(())),
+                RtcDataChannelState::Closed | RtcDataChannelState::Closing => {
+                    Poll::Ready(Err(error("RTC channel closed before open")))
+                }
+                _ => Poll::Pending,
+            }
+        })
+        .await
+    }
+    pub(super) fn poll_capacity(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        size: usize,
+    ) -> Poll<Result<(), JsValue>> {
+        self.progress.register(cx.waker());
+        if self.dc.ready_state() != RtcDataChannelState::Open {
+            return Poll::Ready(Err(error("RTC channel closed")));
+        }
+        if self.dc.buffered_amount() as usize + size <= QUEUE_BYTES {
+            Poll::Ready(Ok(()))
+        } else {
+            Poll::Pending
+        }
+    }
+    pub(super) async fn gathered(&self) -> Result<(), JsValue> {
         poll_fn(|cx| {
             self.progress.register(cx.waker());
             if self.pc.ice_gathering_state() == RtcIceGatheringState::Complete {
@@ -226,6 +305,16 @@ impl Association {
     async fn receive(&self) -> Result<Vec<u8>, JsValue> {
         poll_fn(|cx| self.rx.poll_pop(cx)).await.map_err(error)
     }
+    pub(super) fn detach(&self) {
+        self.dc.set_onopen(None);
+        self.dc.set_onmessage(None);
+        self.dc.set_onclose(None);
+        self.dc.set_onerror(None);
+        self.dc.set_onbufferedamountlow(None);
+        self.pc.set_onicegatheringstatechange(None);
+        self.pc.set_oniceconnectionstatechange(None);
+        self.pc.set_onconnectionstatechange(None);
+    }
 }
 impl Drop for Association {
     fn drop(&mut self) {
@@ -242,17 +331,9 @@ impl Drop for Association {
     }
 }
 async fn read_frame(recv: &mut iroh::endpoint::RecvStream) -> Result<Value, JsValue> {
-    let mut header = [0; 4];
-    recv.read_exact(&mut header).await.map_err(error)?;
-    let length = u32::from_be_bytes(header) as usize;
-    if length > 65536 {
-        return Err(error("RTC control frame too large"));
-    }
-    let mut body = vec![0; length];
-    recv.read_exact(&mut body).await.map_err(error)?;
-    serde_json::from_slice(&body).map_err(error)
+    crate::rtc_wire::read_frame(recv).await.map_err(error)
 }
-async fn stats(pc: &RtcPeerConnection) -> Result<Value, JsValue> {
+pub(super) async fn stats(pc: &RtcPeerConnection) -> Result<Value, JsValue> {
     let report = JsFuture::from(pc.get_stats()).await?;
     let values = Rc::new(RefCell::new(Vec::new()));
     let collect_values = values.clone();
@@ -299,6 +380,9 @@ impl BrowserMemberConnection {
     /// A synthetic experiment inside this already qualified relay M; not a MIO path upgrade.
     pub async fn rtc_channel_probe(&self, withhold_reply: bool) -> Result<String, JsValue> {
         let saved = self.qualified_snapshot().await?;
+        if self.rtc_live.borrow().is_some() {
+            return Err(error("RTC association already owned by M"));
+        }
         self.rtc_active
             .compare_exchange(
                 false,

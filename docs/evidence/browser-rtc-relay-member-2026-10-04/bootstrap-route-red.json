@@ -1,0 +1,1175 @@
+{
+  "scope": "step 5; admitted Ordinary-M relay to RTC, original QUIC and stream",
+  "startedUtc": "2026-10-03T18:48:13.491Z",
+  "relay": "https://localhost:45180/",
+  "iceServers": [],
+  "turnServers": [],
+  "native": [
+    {
+      "event": "ready",
+      "id": "45f1d02d056f6adbbced0ed13b1a069217deb0d653a839b51267914c35d97e57",
+      "relay": [
+        "https://localhost:45180/"
+      ],
+      "receivedUtc": "2026-10-03T18:48:13.660Z"
+    },
+    {
+      "event": "admission",
+      "paths": [
+        {
+          "isRelay": true,
+          "receivedBytes": 8401,
+          "relay": "https://localhost:45180/",
+          "selected": true,
+          "sentBytes": 6993
+        }
+      ],
+      "stage": "AwaitingApproval",
+      "receivedUtc": "2026-10-03T18:48:14.735Z"
+    },
+    {
+      "count": 2,
+      "event": "approved",
+      "receivedUtc": "2026-10-03T18:48:14.782Z"
+    },
+    {
+      "event": "admission",
+      "paths": [
+        {
+          "isRelay": true,
+          "receivedBytes": 8605,
+          "relay": "https://localhost:45180/",
+          "selected": true,
+          "sentBytes": 10150
+        }
+      ],
+      "stage": "Complete",
+      "receivedUtc": "2026-10-03T18:48:14.899Z"
+    },
+    {
+      "atMs": 1344,
+      "dropQuic": false,
+      "event": "rtc-probe-started",
+      "pathId": "1",
+      "stableId": 129004711536928,
+      "receivedUtc": "2026-10-03T18:48:17.127Z"
+    },
+    {
+      "event": "rtc-path",
+      "report": {
+        "attemptMs": 1387,
+        "authorizationRevision": 4,
+        "bindingUnchanged": true,
+        "callerRemainderMs": 11832,
+        "channel": {
+          "id": 0,
+          "label": "mio-quic-datagram/1",
+          "maxPacketLifeTime": null,
+          "maxRetransmits": 0,
+          "negotiated": true,
+          "ordered": false,
+          "protocol": "miopunch/quic-datagram/1",
+          "readyState": "Open"
+        },
+        "dataChannel": {
+          "actualReceivedBytes": 8553,
+          "actualReceivedPackets": 16,
+          "actualSentBytes": 7439,
+          "actualSentPackets": 14,
+          "bufferPeak": 1452,
+          "droppedQuicBytes": 0,
+          "droppedQuicPackets": 0
+        },
+        "events": [
+          {
+            "elapsedMs": 75,
+            "kind": "connection",
+            "state": "connecting"
+          },
+          {
+            "elapsedMs": 75,
+            "kind": "ice",
+            "state": "checking"
+          },
+          {
+            "elapsedMs": 75,
+            "kind": "gathering",
+            "state": "complete"
+          },
+          {
+            "elapsedMs": 85,
+            "kind": "ice",
+            "state": "connected"
+          },
+          {
+            "elapsedMs": 279,
+            "kind": "connection",
+            "state": "connected"
+          }
+        ],
+        "freshAck": true,
+        "freshAckMs": 1356,
+        "freshProbeStartedMs": 1344,
+        "iceServers": [],
+        "maxMessageSize": 65536,
+        "memberStableId": 129004711536928,
+        "pathId": "1",
+        "quicRole": "server",
+        "relayAfter": [
+          [
+            "0",
+            11760,
+            11772
+          ]
+        ],
+        "relayBefore": [
+          [
+            "0",
+            9151,
+            11033
+          ]
+        ],
+        "resourceRevision": 0,
+        "route": {
+          "active": true,
+          "original_stable_id": 129004711536928,
+          "qualified": true,
+          "received_bytes": 8553,
+          "received_packets": 16,
+          "resource_revision": 0,
+          "rx_bytes": 0,
+          "rx_peak_bytes": 2526,
+          "sent_bytes": 7439,
+          "sent_packets": 14,
+          "tx_bytes": 0,
+          "tx_peak_bytes": 1452
+        },
+        "rtcRole": "answerer",
+        "secretGeneration": 0,
+        "selectedPair": {
+          "local": {
+            "address": "192.168.4.5",
+            "component": 1,
+            "foundation": "1558228001",
+            "id": "candidate:8JO8CNN3q2xm4sNxnMOFr8Fc2ucS9cpr",
+            "port": 47288,
+            "priority": 2130706431,
+            "protocol": "udp",
+            "related_address": "",
+            "related_port": 0,
+            "relay_protocol": "Unspecified",
+            "tcp_type": "Unspecified",
+            "typ": "host",
+            "url": null
+          },
+          "remote": {
+            "address": "192.168.4.5",
+            "component": 1,
+            "foundation": "3472699152",
+            "id": "candidate:+EEMMf2SjJQf1as8Pl5767oDqDT/wrwe",
+            "port": 44174,
+            "priority": 2113937151,
+            "protocol": "udp",
+            "related_address": "",
+            "related_port": 0,
+            "relay_protocol": "Unspecified",
+            "tcp_type": "Unspecified",
+            "typ": "host",
+            "url": null
+          }
+        },
+        "stableUnchanged": true,
+        "stats": [
+          {
+            "bytesReceived": 12529,
+            "bytesSent": 11231,
+            "ccfbMessagesReceived": 0,
+            "ccfbMessagesSent": 0,
+            "dtlsCipher": "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+            "dtlsRole": "client",
+            "dtlsState": "connected",
+            "iceLocalUsernameFragment": "",
+            "iceRole": "controlled",
+            "iceState": "connected",
+            "id": "RTCTransport",
+            "localCertificateId": "5a:11:89:81:da:68:ad:5b:05:b9:7a:df:76:3f:e7:35:9a:52:88:6e:79:f8:80:7b:8d:dc:77:d3:3c:fa:dd:f0",
+            "packetsReceived": 47,
+            "packetsSent": 44,
+            "remoteCertificateId": "remote-certificate-cc:2d:d7",
+            "selectedCandidatePairChanges": 1,
+            "selectedCandidatePairId": "RTCIceCandidatePair_candidate:8JO8CNN3q2xm4sNxnMOFr8Fc2ucS9cpr_candidate:+EEMMf2SjJQf1as8Pl5767oDqDT/wrwe",
+            "srtpCipher": "SRTP_AES128_CM_HMAC_SHA1_80",
+            "timestamp": 1791053297.169,
+            "tlsVersion": "DTLS 1.2",
+            "type": "transport"
+          },
+          {
+            "availableIncomingBitrate": 0,
+            "availableOutgoingBitrate": 0,
+            "bytesDiscardedOnSend": 0,
+            "bytesReceived": 11697,
+            "bytesSent": 10375,
+            "consentRequestsSent": 0,
+            "currentRoundTripTime": 0.00123235,
+            "id": "RTCIceCandidatePair_candidate:8JO8CNN3q2xm4sNxnMOFr8Fc2ucS9cpr_candidate:+EEMMf2SjJQf1as8Pl5767oDqDT/wrwe",
+            "lastPacketReceivedTimestamp": 1791053297.169,
+            "lastPacketSentTimestamp": 1791053297.169,
+            "localCandidateId": "candidate:8JO8CNN3q2xm4sNxnMOFr8Fc2ucS9cpr",
+            "nominated": true,
+            "packetsDiscardedOnSend": 0,
+            "packetsReceived": 37,
+            "packetsSent": 34,
+            "remoteCandidateId": "candidate:+EEMMf2SjJQf1as8Pl5767oDqDT/wrwe",
+            "requestsReceived": 4,
+            "requestsSent": 1,
+            "responsesReceived": 1,
+            "responsesSent": 4,
+            "state": "succeeded",
+            "timestamp": 1791053297.169,
+            "totalRoundTripTime": 0.00123235,
+            "transportId": "RTCTransport",
+            "type": "candidate-pair"
+          },
+          {
+            "address": "172.17.0.1",
+            "candidateType": "host",
+            "foundation": "4219973503",
+            "id": "RTCLocalIceCandidate_candidate:8QdFWq2FV9o4zTu9GU8NZstBNOIOw94C",
+            "port": 43514,
+            "priority": 32511,
+            "protocol": "udp",
+            "relatedAddress": "",
+            "relatedPort": 0,
+            "relayProtocol": "Unspecified",
+            "tcpType": "Unspecified",
+            "timestamp": 1791053297.169,
+            "transportId": "RTCTransport",
+            "type": "local-candidate",
+            "url": "",
+            "usernameFragment": "OwqWZVgRauLSNtpx"
+          },
+          {
+            "address": "172.19.0.1",
+            "candidateType": "host",
+            "foundation": "1890207162",
+            "id": "RTCLocalIceCandidate_candidate:Hp0IB3/CDG2JBH7W4YQkCu2RN1vIiAep",
+            "port": 43308,
+            "priority": 32511,
+            "protocol": "udp",
+            "relatedAddress": "",
+            "relatedPort": 0,
+            "relayProtocol": "Unspecified",
+            "tcpType": "Unspecified",
+            "timestamp": 1791053297.169,
+            "transportId": "RTCTransport",
+            "type": "local-candidate",
+            "url": "",
+            "usernameFragment": "OwqWZVgRauLSNtpx"
+          },
+          {
+            "address": "192.168.4.5",
+            "candidateType": "host",
+            "foundation": "1558228001",
+            "id": "RTCLocalIceCandidate_candidate:8JO8CNN3q2xm4sNxnMOFr8Fc2ucS9cpr",
+            "port": 47288,
+            "priority": 32511,
+            "protocol": "udp",
+            "relatedAddress": "",
+            "relatedPort": 0,
+            "relayProtocol": "Unspecified",
+            "tcpType": "Unspecified",
+            "timestamp": 1791053297.169,
+            "transportId": "RTCTransport",
+            "type": "local-candidate",
+            "url": "",
+            "usernameFragment": "OwqWZVgRauLSNtpx"
+          },
+          {
+            "address": "192.168.254.1",
+            "candidateType": "host",
+            "foundation": "2533464812",
+            "id": "RTCLocalIceCandidate_candidate:4bb6lIhvigCLUqGp+BWXn5MkytsDyz+g",
+            "port": 44929,
+            "priority": 32511,
+            "protocol": "udp",
+            "relatedAddress": "",
+            "relatedPort": 0,
+            "relayProtocol": "Unspecified",
+            "tcpType": "Unspecified",
+            "timestamp": 1791053297.169,
+            "transportId": "RTCTransport",
+            "type": "local-candidate",
+            "url": "",
+            "usernameFragment": "OwqWZVgRauLSNtpx"
+          },
+          {
+            "address": "172.18.0.1",
+            "candidateType": "host",
+            "foundation": "2224329714",
+            "id": "RTCLocalIceCandidate_candidate:jWvv9f+khvl1FromXurWbBJlesC9FEYB",
+            "port": 46722,
+            "priority": 32511,
+            "protocol": "udp",
+            "relatedAddress": "",
+            "relatedPort": 0,
+            "relayProtocol": "Unspecified",
+            "tcpType": "Unspecified",
+            "timestamp": 1791053297.169,
+            "transportId": "RTCTransport",
+            "type": "local-candidate",
+            "url": "",
+            "usernameFragment": "OwqWZVgRauLSNtpx"
+          },
+          {
+            "address": "10.255.255.254",
+            "candidateType": "host",
+            "foundation": "2813970642",
+            "id": "RTCLocalIceCandidate_candidate:3+14t1OMJmrQYWYSYd3tRapID3P5WpHO",
+            "port": 43845,
+            "priority": 32511,
+            "protocol": "udp",
+            "relatedAddress": "",
+            "relatedPort": 0,
+            "relayProtocol": "Unspecified",
+            "tcpType": "Unspecified",
+            "timestamp": 1791053297.169,
+            "transportId": "RTCTransport",
+            "type": "local-candidate",
+            "url": "",
+            "usernameFragment": "OwqWZVgRauLSNtpx"
+          },
+          {
+            "bytesReceived": 8553,
+            "bytesSent": 7439,
+            "dataChannelIdentifier": 0,
+            "id": "RTCDataChannel_0",
+            "label": "mio-quic-datagram/1",
+            "messagesReceived": 16,
+            "messagesSent": 14,
+            "protocol": "miopunch/quic-datagram/1",
+            "state": "open",
+            "timestamp": 1791053297.169,
+            "type": "data-channel"
+          }
+        ],
+        "switched": true,
+        "turnServers": []
+      },
+      "receivedUtc": "2026-10-03T18:48:17.170Z"
+    },
+    {
+      "bytes": 31,
+      "event": "business",
+      "stableId": 129004711536928,
+      "receivedUtc": "2026-10-03T18:48:17.215Z"
+    },
+    {
+      "bytes": 20,
+      "event": "business",
+      "stableId": 129004912781872,
+      "receivedUtc": "2026-10-03T18:48:17.233Z"
+    },
+    {
+      "cleanup": {
+        "activeAssociations": 0,
+        "dataChannel": {
+          "actualReceivedBytes": 8856,
+          "actualReceivedPackets": 23,
+          "actualSentBytes": 14186,
+          "actualSentPackets": 23,
+          "bufferPeak": 6476,
+          "droppedQuicBytes": 0,
+          "droppedQuicPackets": 0
+        },
+        "ownedPumpTasks": 0,
+        "pcClosed": true,
+        "rxBytes": 0,
+        "socketAfter": 6,
+        "socketBefore": 6,
+        "txBytes": 0
+      },
+      "event": "rtc-path-cleanup",
+      "failure": null,
+      "stableId": 129004711536928,
+      "switched": true,
+      "receivedUtc": "2026-10-03T18:48:17.240Z"
+    }
+  ],
+  "websockets": [
+    {
+      "url": "wss://localhost:45180/relay",
+      "sentFrames": 151,
+      "receivedFrames": 128,
+      "status": 101
+    }
+  ],
+  "preparation": [
+    {
+      "name": "request",
+      "startedUtc": "2026-10-03T18:48:14.558Z",
+      "milliseconds": 184,
+      "passed": true
+    },
+    {
+      "name": "approval",
+      "startedUtc": "2026-10-03T18:48:14.742Z",
+      "milliseconds": 40,
+      "passed": true
+    },
+    {
+      "name": "authorization-save",
+      "startedUtc": "2026-10-03T18:48:14.782Z",
+      "milliseconds": 91,
+      "passed": true
+    },
+    {
+      "name": "material-save",
+      "startedUtc": "2026-10-03T18:48:14.873Z",
+      "milliseconds": 33,
+      "passed": true
+    }
+  ],
+  "passed": false,
+  "ownedRelay": true,
+  "origin": "http://127.0.0.1:44814",
+  "launch": {
+    "executablePath": "/tmp/mio-rtc-s4-trust-aqnxtdnh/chromium-private-trust.sh",
+    "headless": true,
+    "args": [
+      "--no-sandbox",
+      "--disable-features=WebRtcHideLocalIpsWithMdns"
+    ],
+    "ignoreHTTPSErrors": false,
+    "privateNssMount": true,
+    "certificateBypassFlags": []
+  },
+  "browserVersion": "153.0.8010.12",
+  "browserIdentity": "9d8c84d9fdaaad3bde1301989816cc55b59a5f91580893c5ad65b0d5983b7721",
+  "preparedUtc": "2026-10-03T18:48:15.274Z",
+  "before": {
+    "activeAssociations": 0,
+    "closed": false,
+    "memberStableId": 2580168,
+    "paths": [
+      {
+        "address": "Relay(https://localhost:45180/)",
+        "isRelay": true,
+        "isRtc": false,
+        "pathId": "0",
+        "receivedBytes": 8877,
+        "selected": true,
+        "sentBytes": 10306,
+        "streamFramesReceived": 4,
+        "streamFramesSent": 4
+      }
+    ],
+    "resourceRevision": 0
+  },
+  "secondBefore": {
+    "activeAssociations": 0,
+    "closed": false,
+    "memberStableId": 2667104,
+    "paths": [
+      {
+        "address": "Relay(https://localhost:45180/)",
+        "isRelay": true,
+        "isRtc": false,
+        "pathId": "0",
+        "receivedBytes": 8847,
+        "selected": true,
+        "sentBytes": 10014,
+        "streamFramesReceived": 4,
+        "streamFramesSent": 4
+      }
+    ],
+    "resourceRevision": 0
+  },
+  "rtc": {
+    "attemptMs": 1570,
+    "browser": {
+      "authorizationRevision": 4,
+      "bindingUnchanged": true,
+      "dataChannel": {
+        "actualReceivedBytes": 13883,
+        "actualReceivedPackets": 19,
+        "actualSentBytes": 8650,
+        "actualSentPackets": 19,
+        "bufferPeak": 1420,
+        "droppedQuicBytes": 0,
+        "droppedQuicPackets": 0
+      },
+      "events": [
+        {
+          "atMs": 1791053295661,
+          "kind": "ice",
+          "state": "New"
+        },
+        {
+          "atMs": 1791053295661,
+          "kind": "connection",
+          "state": "New"
+        },
+        {
+          "atMs": 1791053295777,
+          "kind": "ice",
+          "state": "New"
+        },
+        {
+          "atMs": 1791053295778,
+          "kind": "connection",
+          "state": "New"
+        },
+        {
+          "atMs": 1791053295859,
+          "kind": "ice",
+          "state": "Checking"
+        },
+        {
+          "atMs": 1791053295859,
+          "kind": "connection",
+          "state": "New"
+        },
+        {
+          "atMs": 1791053295860,
+          "kind": "ice",
+          "state": "Checking"
+        },
+        {
+          "atMs": 1791053295860,
+          "kind": "connection",
+          "state": "Connecting"
+        },
+        {
+          "atMs": 1791053295869,
+          "kind": "ice",
+          "state": "Connected"
+        },
+        {
+          "atMs": 1791053295869,
+          "kind": "connection",
+          "state": "Connecting"
+        },
+        {
+          "atMs": 1791053296062,
+          "kind": "ice",
+          "state": "Connected"
+        },
+        {
+          "atMs": 1791053296062,
+          "kind": "connection",
+          "state": "Connected"
+        },
+        {
+          "atMs": 1791053296064,
+          "kind": "channel",
+          "state": "open"
+        }
+      ],
+      "freshAck": true,
+      "freshAckMs": 1532,
+      "freshProbeStartedMs": 1521,
+      "iceServers": [],
+      "memberStableId": 2580168,
+      "ownedPumpTasks": 1,
+      "pathId": "1",
+      "quicRole": "client",
+      "relayAfter": [
+        [
+          "0",
+          12972,
+          11760
+        ]
+      ],
+      "relayBefore": [
+        [
+          "0",
+          10306,
+          8877
+        ]
+      ],
+      "resourceRevision": 0,
+      "route": {
+        "active": true,
+        "original_stable_id": 2580168,
+        "qualified": true,
+        "received_bytes": 13883,
+        "received_packets": 19,
+        "resource_revision": 0,
+        "rx_bytes": 0,
+        "rx_peak_bytes": 1452,
+        "sent_bytes": 8650,
+        "sent_packets": 19,
+        "tx_bytes": 0,
+        "tx_peak_bytes": 2526
+      },
+      "rtc": {
+        "channel": {
+          "id": 0,
+          "label": "mio-quic-datagram/1",
+          "maxPacketLifeTime": null,
+          "maxRetransmits": 0,
+          "negotiated": true,
+          "ordered": false,
+          "protocol": "miopunch/quic-datagram/1"
+        },
+        "dtlsState": "connected",
+        "iceRole": null,
+        "iceState": "connected",
+        "maxMessageSize": 65536,
+        "sctpState": "connected",
+        "stats": {
+          "dataChannels": [
+            {
+              "bytesReceived": 13883,
+              "bytesSent": 8619,
+              "dataChannelIdentifier": 0,
+              "id": "D1",
+              "label": "mio-quic-datagram/1",
+              "messagesReceived": 19,
+              "messagesSent": 18,
+              "protocol": "miopunch/quic-datagram/1",
+              "state": "open",
+              "timestamp": 1791053297178.04,
+              "type": "data-channel"
+            }
+          ],
+          "localCandidate": {
+            "address": "192.168.4.5",
+            "candidateType": "host",
+            "foundation": "3472699152",
+            "id": "IvsZ3Lf8z",
+            "ip": "192.168.4.5",
+            "isRemote": false,
+            "networkType": "unknown",
+            "port": 44174,
+            "priority": 2113937151,
+            "protocol": "udp",
+            "timestamp": 1791053297178.04,
+            "transportId": "T01",
+            "type": "local-candidate",
+            "usernameFragment": "7sE4"
+          },
+          "remoteCandidate": {
+            "address": "192.168.4.5",
+            "candidateType": "host",
+            "foundation": "1558228001",
+            "id": "Ib/gBtemy",
+            "ip": "192.168.4.5",
+            "isRemote": true,
+            "port": 47288,
+            "priority": 2130706431,
+            "protocol": "udp",
+            "timestamp": 1791053297178.04,
+            "transportId": "T01",
+            "type": "remote-candidate",
+            "usernameFragment": "OwqWZVgRauLSNtpx"
+          },
+          "selectedPair": {
+            "bytesDiscardedOnSend": 0,
+            "bytesReceived": 17477,
+            "bytesSent": 12224,
+            "consentRequestsSent": 3,
+            "currentRoundTripTime": 0.001,
+            "id": "CPvsZ3Lf8z_b/gBtemy",
+            "lastPacketReceivedTimestamp": 1791053297174,
+            "lastPacketSentTimestamp": 1791053297176,
+            "localCandidateId": "IvsZ3Lf8z",
+            "nominated": true,
+            "packetsDiscardedOnSend": 0,
+            "packetsReceived": 44,
+            "packetsSent": 44,
+            "priority": 9079290933605827000,
+            "remoteCandidateId": "Ib/gBtemy",
+            "requestsReceived": 1,
+            "requestsSent": 4,
+            "responsesReceived": 4,
+            "responsesSent": 1,
+            "state": "succeeded",
+            "timestamp": 1791053297178.04,
+            "totalRoundTripTime": 0.004,
+            "transportId": "T01",
+            "type": "candidate-pair",
+            "writable": true
+          },
+          "transport": {
+            "bytesReceived": 17477,
+            "bytesSent": 12224,
+            "dtlsCipher": "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+            "dtlsRole": "server",
+            "dtlsState": "connected",
+            "iceLocalUsernameFragment": "7sE4",
+            "iceRole": "controlling",
+            "iceState": "connected",
+            "id": "T01",
+            "localCertificateId": "CFCC:2D:D7:FF:B2:1C:1F:76:DB:64:35:D2:24:9A:2F:44:7E:31:23:1C:D9:32:42:FA:68:ED:91:21:E1:63:12:FB",
+            "packetsReceived": 44,
+            "packetsSent": 44,
+            "remoteCertificateId": "CF5A:11:89:81:DA:68:AD:5B:05:B9:7A:DF:76:3F:E7:35:9A:52:88:6E:79:F8:80:7B:8D:DC:77:D3:3C:FA:DD:F0",
+            "selectedCandidatePairChanges": 1,
+            "selectedCandidatePairId": "CPvsZ3Lf8z_b/gBtemy",
+            "srtpCipher": "SRTP_AES128_CM_HMAC_SHA1_80",
+            "timestamp": 1791053297178.04,
+            "tlsVersion": "FEFD",
+            "type": "transport"
+          }
+        }
+      },
+      "rtcRole": "offerer",
+      "secretGeneration": 0,
+      "stableUnchanged": true,
+      "turnServers": []
+    },
+    "callerBudgetMs": 12000,
+    "continuity": [
+      {
+        "bindingUnchanged": true,
+        "localStableId": 2580168,
+        "native": {
+          "bindingUnchanged": true,
+          "payload": "original stream PING 0",
+          "sequence": 0,
+          "stableId": 129004711536928,
+          "streamId": "client bidirectional stream 3"
+        },
+        "sequence": 0,
+        "stableUnchanged": true,
+        "streamId": "client bidirectional stream 3"
+      },
+      {
+        "bindingUnchanged": true,
+        "localStableId": 2580168,
+        "native": {
+          "bindingUnchanged": true,
+          "payload": "original stream PING 1",
+          "sequence": 1,
+          "stableId": 129004711536928,
+          "streamId": "client bidirectional stream 3"
+        },
+        "sequence": 1,
+        "stableUnchanged": true,
+        "streamId": "client bidirectional stream 3"
+      },
+      {
+        "bindingUnchanged": true,
+        "localStableId": 2580168,
+        "native": {
+          "bindingUnchanged": true,
+          "payload": "original stream PING 2",
+          "sequence": 2,
+          "stableId": 129004711536928,
+          "streamId": "client bidirectional stream 3"
+        },
+        "sequence": 2,
+        "stableUnchanged": true,
+        "streamId": "client bidirectional stream 3"
+      }
+    ],
+    "diagnosticCapMs": 45000,
+    "native": {
+      "attemptMs": 1387,
+      "authorizationRevision": 4,
+      "bindingUnchanged": true,
+      "callerRemainderMs": 11832,
+      "channel": {
+        "id": 0,
+        "label": "mio-quic-datagram/1",
+        "maxPacketLifeTime": null,
+        "maxRetransmits": 0,
+        "negotiated": true,
+        "ordered": false,
+        "protocol": "miopunch/quic-datagram/1",
+        "readyState": "Open"
+      },
+      "dataChannel": {
+        "actualReceivedBytes": 8553,
+        "actualReceivedPackets": 16,
+        "actualSentBytes": 7439,
+        "actualSentPackets": 14,
+        "bufferPeak": 1452,
+        "droppedQuicBytes": 0,
+        "droppedQuicPackets": 0
+      },
+      "events": [
+        {
+          "elapsedMs": 75,
+          "kind": "connection",
+          "state": "connecting"
+        },
+        {
+          "elapsedMs": 75,
+          "kind": "ice",
+          "state": "checking"
+        },
+        {
+          "elapsedMs": 75,
+          "kind": "gathering",
+          "state": "complete"
+        },
+        {
+          "elapsedMs": 85,
+          "kind": "ice",
+          "state": "connected"
+        },
+        {
+          "elapsedMs": 279,
+          "kind": "connection",
+          "state": "connected"
+        }
+      ],
+      "freshAck": true,
+      "freshAckMs": 1356,
+      "freshProbeStartedMs": 1344,
+      "iceServers": [],
+      "maxMessageSize": 65536,
+      "memberStableId": 129004711536928,
+      "pathId": "1",
+      "quicRole": "server",
+      "relayAfter": [
+        [
+          "0",
+          11760,
+          11772
+        ]
+      ],
+      "relayBefore": [
+        [
+          "0",
+          9151,
+          11033
+        ]
+      ],
+      "resourceRevision": 0,
+      "route": {
+        "active": true,
+        "original_stable_id": 129004711536928,
+        "qualified": true,
+        "received_bytes": 8553,
+        "received_packets": 16,
+        "resource_revision": 0,
+        "rx_bytes": 0,
+        "rx_peak_bytes": 2526,
+        "sent_bytes": 7439,
+        "sent_packets": 14,
+        "tx_bytes": 0,
+        "tx_peak_bytes": 1452
+      },
+      "rtcRole": "answerer",
+      "secretGeneration": 0,
+      "selectedPair": {
+        "local": {
+          "address": "192.168.4.5",
+          "component": 1,
+          "foundation": "1558228001",
+          "id": "candidate:8JO8CNN3q2xm4sNxnMOFr8Fc2ucS9cpr",
+          "port": 47288,
+          "priority": 2130706431,
+          "protocol": "udp",
+          "related_address": "",
+          "related_port": 0,
+          "relay_protocol": "Unspecified",
+          "tcp_type": "Unspecified",
+          "typ": "host",
+          "url": null
+        },
+        "remote": {
+          "address": "192.168.4.5",
+          "component": 1,
+          "foundation": "3472699152",
+          "id": "candidate:+EEMMf2SjJQf1as8Pl5767oDqDT/wrwe",
+          "port": 44174,
+          "priority": 2113937151,
+          "protocol": "udp",
+          "related_address": "",
+          "related_port": 0,
+          "relay_protocol": "Unspecified",
+          "tcp_type": "Unspecified",
+          "typ": "host",
+          "url": null
+        }
+      },
+      "stableUnchanged": true,
+      "stats": [
+        {
+          "bytesReceived": 12529,
+          "bytesSent": 11231,
+          "ccfbMessagesReceived": 0,
+          "ccfbMessagesSent": 0,
+          "dtlsCipher": "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+          "dtlsRole": "client",
+          "dtlsState": "connected",
+          "iceLocalUsernameFragment": "",
+          "iceRole": "controlled",
+          "iceState": "connected",
+          "id": "RTCTransport",
+          "localCertificateId": "5a:11:89:81:da:68:ad:5b:05:b9:7a:df:76:3f:e7:35:9a:52:88:6e:79:f8:80:7b:8d:dc:77:d3:3c:fa:dd:f0",
+          "packetsReceived": 47,
+          "packetsSent": 44,
+          "remoteCertificateId": "remote-certificate-cc:2d:d7",
+          "selectedCandidatePairChanges": 1,
+          "selectedCandidatePairId": "RTCIceCandidatePair_candidate:8JO8CNN3q2xm4sNxnMOFr8Fc2ucS9cpr_candidate:+EEMMf2SjJQf1as8Pl5767oDqDT/wrwe",
+          "srtpCipher": "SRTP_AES128_CM_HMAC_SHA1_80",
+          "timestamp": 1791053297.169,
+          "tlsVersion": "DTLS 1.2",
+          "type": "transport"
+        },
+        {
+          "availableIncomingBitrate": 0,
+          "availableOutgoingBitrate": 0,
+          "bytesDiscardedOnSend": 0,
+          "bytesReceived": 11697,
+          "bytesSent": 10375,
+          "consentRequestsSent": 0,
+          "currentRoundTripTime": 0.00123235,
+          "id": "RTCIceCandidatePair_candidate:8JO8CNN3q2xm4sNxnMOFr8Fc2ucS9cpr_candidate:+EEMMf2SjJQf1as8Pl5767oDqDT/wrwe",
+          "lastPacketReceivedTimestamp": 1791053297.169,
+          "lastPacketSentTimestamp": 1791053297.169,
+          "localCandidateId": "candidate:8JO8CNN3q2xm4sNxnMOFr8Fc2ucS9cpr",
+          "nominated": true,
+          "packetsDiscardedOnSend": 0,
+          "packetsReceived": 37,
+          "packetsSent": 34,
+          "remoteCandidateId": "candidate:+EEMMf2SjJQf1as8Pl5767oDqDT/wrwe",
+          "requestsReceived": 4,
+          "requestsSent": 1,
+          "responsesReceived": 1,
+          "responsesSent": 4,
+          "state": "succeeded",
+          "timestamp": 1791053297.169,
+          "totalRoundTripTime": 0.00123235,
+          "transportId": "RTCTransport",
+          "type": "candidate-pair"
+        },
+        {
+          "address": "172.17.0.1",
+          "candidateType": "host",
+          "foundation": "4219973503",
+          "id": "RTCLocalIceCandidate_candidate:8QdFWq2FV9o4zTu9GU8NZstBNOIOw94C",
+          "port": 43514,
+          "priority": 32511,
+          "protocol": "udp",
+          "relatedAddress": "",
+          "relatedPort": 0,
+          "relayProtocol": "Unspecified",
+          "tcpType": "Unspecified",
+          "timestamp": 1791053297.169,
+          "transportId": "RTCTransport",
+          "type": "local-candidate",
+          "url": "",
+          "usernameFragment": "OwqWZVgRauLSNtpx"
+        },
+        {
+          "address": "172.19.0.1",
+          "candidateType": "host",
+          "foundation": "1890207162",
+          "id": "RTCLocalIceCandidate_candidate:Hp0IB3/CDG2JBH7W4YQkCu2RN1vIiAep",
+          "port": 43308,
+          "priority": 32511,
+          "protocol": "udp",
+          "relatedAddress": "",
+          "relatedPort": 0,
+          "relayProtocol": "Unspecified",
+          "tcpType": "Unspecified",
+          "timestamp": 1791053297.169,
+          "transportId": "RTCTransport",
+          "type": "local-candidate",
+          "url": "",
+          "usernameFragment": "OwqWZVgRauLSNtpx"
+        },
+        {
+          "address": "192.168.4.5",
+          "candidateType": "host",
+          "foundation": "1558228001",
+          "id": "RTCLocalIceCandidate_candidate:8JO8CNN3q2xm4sNxnMOFr8Fc2ucS9cpr",
+          "port": 47288,
+          "priority": 32511,
+          "protocol": "udp",
+          "relatedAddress": "",
+          "relatedPort": 0,
+          "relayProtocol": "Unspecified",
+          "tcpType": "Unspecified",
+          "timestamp": 1791053297.169,
+          "transportId": "RTCTransport",
+          "type": "local-candidate",
+          "url": "",
+          "usernameFragment": "OwqWZVgRauLSNtpx"
+        },
+        {
+          "address": "192.168.254.1",
+          "candidateType": "host",
+          "foundation": "2533464812",
+          "id": "RTCLocalIceCandidate_candidate:4bb6lIhvigCLUqGp+BWXn5MkytsDyz+g",
+          "port": 44929,
+          "priority": 32511,
+          "protocol": "udp",
+          "relatedAddress": "",
+          "relatedPort": 0,
+          "relayProtocol": "Unspecified",
+          "tcpType": "Unspecified",
+          "timestamp": 1791053297.169,
+          "transportId": "RTCTransport",
+          "type": "local-candidate",
+          "url": "",
+          "usernameFragment": "OwqWZVgRauLSNtpx"
+        },
+        {
+          "address": "172.18.0.1",
+          "candidateType": "host",
+          "foundation": "2224329714",
+          "id": "RTCLocalIceCandidate_candidate:jWvv9f+khvl1FromXurWbBJlesC9FEYB",
+          "port": 46722,
+          "priority": 32511,
+          "protocol": "udp",
+          "relatedAddress": "",
+          "relatedPort": 0,
+          "relayProtocol": "Unspecified",
+          "tcpType": "Unspecified",
+          "timestamp": 1791053297.169,
+          "transportId": "RTCTransport",
+          "type": "local-candidate",
+          "url": "",
+          "usernameFragment": "OwqWZVgRauLSNtpx"
+        },
+        {
+          "address": "10.255.255.254",
+          "candidateType": "host",
+          "foundation": "2813970642",
+          "id": "RTCLocalIceCandidate_candidate:3+14t1OMJmrQYWYSYd3tRapID3P5WpHO",
+          "port": 43845,
+          "priority": 32511,
+          "protocol": "udp",
+          "relatedAddress": "",
+          "relatedPort": 0,
+          "relayProtocol": "Unspecified",
+          "tcpType": "Unspecified",
+          "timestamp": 1791053297.169,
+          "transportId": "RTCTransport",
+          "type": "local-candidate",
+          "url": "",
+          "usernameFragment": "OwqWZVgRauLSNtpx"
+        },
+        {
+          "bytesReceived": 8553,
+          "bytesSent": 7439,
+          "dataChannelIdentifier": 0,
+          "id": "RTCDataChannel_0",
+          "label": "mio-quic-datagram/1",
+          "messagesReceived": 16,
+          "messagesSent": 14,
+          "protocol": "miopunch/quic-datagram/1",
+          "state": "open",
+          "timestamp": 1791053297.169,
+          "type": "data-channel"
+        }
+      ],
+      "switched": true,
+      "turnServers": []
+    },
+    "switched": true
+  },
+  "after": {
+    "activeAssociations": 1,
+    "closed": false,
+    "memberStableId": 2580168,
+    "paths": [
+      {
+        "address": "Custom(CustomAddr { id: 120299608765539, data: [22ab9b1ab76f05b9d0c51f3e5d737d6a] })",
+        "isRelay": false,
+        "isRtc": true,
+        "pathId": "1",
+        "receivedBytes": 13915,
+        "selected": true,
+        "sentBytes": 8680,
+        "streamFramesReceived": 8,
+        "streamFramesSent": 4
+      }
+    ],
+    "resourceRevision": 0
+  },
+  "afterReturn": {
+    "bindingUnchanged": true,
+    "localStableId": 2580168,
+    "native": {
+      "bindingUnchanged": true,
+      "payload": "original stream PING 3",
+      "sequence": 3,
+      "stableId": 129004711536928,
+      "streamId": "client bidirectional stream 3"
+    },
+    "sequence": 3,
+    "stableUnchanged": true,
+    "streamId": "client bidirectional stream 3"
+  },
+  "afterBusiness": {
+    "activeAssociations": 1,
+    "closed": false,
+    "memberStableId": 2580168,
+    "paths": [
+      {
+        "address": "Custom(CustomAddr { id: 120299608765539, data: [22ab9b1ab76f05b9d0c51f3e5d737d6a] })",
+        "isRelay": false,
+        "isRtc": true,
+        "pathId": "1",
+        "receivedBytes": 14186,
+        "selected": true,
+        "sentBytes": 8856,
+        "streamFramesReceived": 10,
+        "streamFramesSent": 6
+      }
+    ],
+    "resourceRevision": 0
+  },
+  "secondAfter": {
+    "activeAssociations": 1,
+    "closed": false,
+    "memberStableId": 2667104,
+    "paths": [
+      {
+        "address": "Relay(https://localhost:45180/)",
+        "isRelay": true,
+        "isRtc": false,
+        "pathId": "0",
+        "receivedBytes": 8956,
+        "selected": true,
+        "sentBytes": 10162,
+        "streamFramesReceived": 5,
+        "streamFramesSent": 5
+      }
+    ],
+    "resourceRevision": 0
+  },
+  "normalCleanup": {
+    "cleanup": {
+      "activeAssociations": 0,
+      "dataChannel": {
+        "actualReceivedBytes": 8856,
+        "actualReceivedPackets": 23,
+        "actualSentBytes": 14186,
+        "actualSentPackets": 23,
+        "bufferPeak": 6476,
+        "droppedQuicBytes": 0,
+        "droppedQuicPackets": 0
+      },
+      "ownedPumpTasks": 0,
+      "pcClosed": true,
+      "rxBytes": 0,
+      "socketAfter": 6,
+      "socketBefore": 6,
+      "txBytes": 0
+    },
+    "event": "rtc-path-cleanup",
+    "failure": null,
+    "stableId": 129004711536928,
+    "switched": true
+  },
+  "failure": "page.evaluate: timed out\n    at runMemberRtc (/home/js/Git/miopunch/browser-probe/harness/run-rtc-member.mjs:78:22)\n    at async file:///home/js/Git/miopunch/browser-probe/harness/run-rtc.mjs:146:5",
+  "fixtureCleanup": {
+    "code": 0,
+    "signal": null
+  },
+  "relayCleanup": {
+    "code": 0,
+    "signal": null
+  },
+  "cleanupMilliseconds": 134,
+  "completedUtc": "2026-10-03T18:48:47.391Z"
+}

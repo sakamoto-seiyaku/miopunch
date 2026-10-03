@@ -68,6 +68,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         let handshake_ms=started.elapsed().as_millis();
                         let stage=tokio::time::timeout_at(deadline,node.serve_manual_admission(&connection)).await;
                         println!("{}",json!({"event":"admission","local_id":endpoint.id().to_string(),"remote_id":connection.remote_id().to_string(),"alpn":String::from_utf8_lossy(connection.alpn()),"stable_id":connection.stable_id(),"handshake_ms":handshake_ms,"exchange_ms":started.elapsed().as_millis(),"restricted":node.admission_gate().allows(&connection,ProtocolScope::AdmissionRequest),"business_handle":node.admission_gate().allows(&connection,ProtocolScope::Member),"stage":format!("{stage:?}"),"stats":format!("{:?}",connection.stats()),"traffic":traffic.snapshot()}));
+                        // `finish()` queues FIN; closing M here can overtake
+                        // the one-byte AwaitingApproval reply. The browser's
+                        // existing request scope closes A after receiving it.
+                        // Drain only within this attempt's original deadline.
+                        if matches!(&stage, Ok(Ok(_))) {
+                            let _ = tokio::time::timeout_at(deadline, connection.closed()).await;
+                        }
                         connection.close(0u32.into(),b"restricted fixture exchange ended");
                     }
                     result=>println!("{}",json!({"event":"handshake-rejected","error":format!("{result:?}"),"elapsed_ms":started.elapsed().as_millis()})),

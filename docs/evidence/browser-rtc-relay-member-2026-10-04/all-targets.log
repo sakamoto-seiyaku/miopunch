@@ -1,0 +1,202 @@
+warning: methods `reserve` and `set_resource_allowed` are never used
+   --> browser-probe/src/../../src/rtc_transport.rs:169:12
+    |
+152 | impl RtcTransport {
+    | ----------------- methods in this implementation
+...
+169 |     pub fn reserve(
+    |            ^^^^^^^
+...
+238 |     pub fn set_resource_allowed(&self, allowed: bool) {
+    |            ^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+warning: variable does not need to be mutable
+   --> tests/tcp_direct.rs:226:9
+    |
+226 |     let mut ce = joining
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+warning: variable does not need to be mutable
+   --> tests/tcp_direct.rs:339:9
+    |
+339 |     let mut ce = joining
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+warning: variable does not need to be mutable
+   --> tests/network_recovery.rs:149:9
+    |
+149 |     let mut recovered = recovered.unwrap();
+    |         ----^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+warning: variable does not need to be mutable
+   --> tests/resources.rs:907:9
+    |
+907 |     let mut contact = joining
+    |         ----^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+warning: variable does not need to be mutable
+   --> tests/resources.rs:971:9
+    |
+971 |     let mut contact = joining
+    |         ----^^^^^^^
+    |         |
+    |         help: remove this `mut`
+warning: variable does not need to be mutable
+    --> tests/resources.rs:1176:9
+     |
+1176 |     let mut passive_contact = passive
+     |         ----^^^^^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:300:9
+    |
+300 |     let mut client = bind_member(&joining).await;
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:327:9
+    |
+327 |     let mut a = bind_member(&admin).await;
+    |         ----^
+    |         |
+    |         help: remove this `mut`
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:328:9
+    |
+328 |     let mut b = bind_member(&joining).await;
+    |         ----^
+    |         |
+    |         help: remove this `mut`
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:411:9
+    |
+411 |     let mut client = joining
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:491:9
+    |
+491 |     let mut client = bind_member(&joining).await;
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:529:9
+    |
+529 |     let mut attacker = bind_member(&holder).await;
+    |         ----^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:546:9
+    |
+546 |     let mut member = bind_member(&joining).await;
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:595:13
+    |
+595 |         let mut client = bind_member(&joining).await;
+    |             ----^^^^^^
+    |             |
+    |             help: remove this `mut`
+warning: variable does not need to be mutable
+   --> tests/mqtt_bootstrap.rs:656:13
+    |
+656 |         let mut resources = node.bind_configured_endpoint_with(
+    |             ----^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+warning: field `signal` is never read
+   --> tests/member_relay.rs:185:5
+    |
+173 | struct Topology {
+    |        -------- field in this struct
+...
+185 |     signal: Option<(
+    |     ^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+warning: variable does not need to be mutable
+   --> tests/path_maintenance.rs:131:20
+    |
+131 |     async fn close(mut self) {
+    |                    ----^^^^
+    |                    |
+    |                    help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+warning: variable does not need to be mutable
+   --> tests/tcp_portmap.rs:131:17
+    |
+131 |             let mut endpoint = node
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+warning: variable does not need to be mutable
+   --> tests/irc_bootstrap.rs:161:9
+    |
+161 |     let mut ae = bind(&a)
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+warning: variable does not need to be mutable
+   --> tests/irc_bootstrap.rs:473:9
+    |
+473 |     let mut ae = bind(&a).await;
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+warning: variable does not need to be mutable
+   --> tests/irc_bootstrap.rs:516:9
+    |
+516 |     let mut se = bind(&stranger).await;
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+warning: variable does not need to be mutable
+   --> tests/irc_bootstrap.rs:667:9
+    |
+667 |     let mut ae = bind(&a)
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+warning: variable does not need to be mutable
+   --> tests/irc_bootstrap.rs:836:9
+    |
+836 |     let mut ae = bind(&a).await;
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+warning: variable does not need to be mutable
+   --> tests/tcp_punch.rs:303:9
+    |
+303 |     let mut resources = node.bind_configured_endpoint_with(builder).await.unwrap();
+    |         ----^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+═══════════════════════════════════════
+cargo build: 0 errors, 25 warnings (10 crates)

@@ -1574,6 +1574,29 @@ impl EndpointInner {
             })
     }
 
+    pub(crate) async fn retain_admitted_data_path(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        address: iroh_base::CustomAddr,
+    ) -> io::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.sock.try_send_remote_state_msg(remote, RemoteStateMessage::RetainAdmittedDataPath {
+            conn_id, remote: address, tx,
+        }).map_err(|_| io::Error::other("remote state unavailable"))?;
+        rx.await.map_err(|_| io::Error::other("remote state stopped"))?.map_err(io::Error::other)
+    }
+
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub(crate) async fn test_limit_transport_paths(
+        &self, remote: EndpointId, conn_id: usize, allowed: Vec<iroh_base::TransportAddr>,
+    ) -> io::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.sock.try_send_remote_state_msg(remote, RemoteStateMessage::TestLimitTransportPaths { conn_id, allowed, tx })
+            .map_err(|_| io::Error::other("remote state unavailable"))?;
+        rx.await.map_err(|_| io::Error::other("remote state stopped"))?.map_err(io::Error::other)
+    }
+
     #[cfg(feature = "miopunch-test-hooks")]
     pub(crate) async fn test_force_path_id_retry_once(
         &self,

@@ -153,6 +153,9 @@ struct GateState {
     saved: Option<SavedNode>,
     proofs: Vec<BootstrapProof>,
     connections: Vec<iroh::endpoint::WeakConnectionHandle>,
+    qualification_revision: Arc<std::sync::atomic::AtomicU64>,
+    qualification_updates: Option<n0_watcher::Watchable<u64>>,
+    snapshot_hash: Option<[u8; 32]>,
 }
 #[derive(Clone, Default)]
 struct BrowserGate(Arc<Mutex<GateState>>);
@@ -164,6 +167,30 @@ impl std::fmt::Debug for BrowserGate {
 impl BrowserGate {
     fn install(&self, saved: &SavedNode) {
         let mut gate = self.0.lock().unwrap();
+        let snapshot_hash =
+            *blake3::hash(&serde_json::to_vec(saved).expect("serializable browser snapshot"))
+                .as_bytes();
+        if gate.snapshot_hash != Some(snapshot_hash) {
+            gate.qualification_revision
+                .fetch_update(
+                    std::sync::atomic::Ordering::AcqRel,
+                    std::sync::atomic::Ordering::Acquire,
+                    |revision| revision.checked_add(1),
+                )
+                .expect("browser path revision exhausted");
+            let revision = gate
+                .qualification_revision
+                .load(std::sync::atomic::Ordering::Acquire);
+            if let Some(updates) = &gate.qualification_updates {
+                let _ = updates.set(revision);
+            } else {
+                gate.qualification_updates = Some(n0_watcher::Watchable::new(revision));
+            }
+            gate.snapshot_hash = Some(snapshot_hash);
+        }
+        let credential_changed = gate.saved.as_ref().is_some_and(|previous| {
+            previous.generation != saved.generation || previous.secret != saved.secret
+        });
         gate.connections.retain(|weak| {
             let Some(connection) = weak.upgrade() else {
                 return false;
@@ -171,7 +198,9 @@ impl BrowserGate {
             if connection.close_reason().is_some() {
                 return false;
             }
-            if !Self::permits(saved, connection.remote_id(), connection.alpn()) {
+            if !Self::permits(saved, connection.remote_id(), connection.alpn())
+                || (credential_changed && connection.alpn() != REQUEST_ALPN)
+            {
                 connection.close(0u32.into(), b"membership revoked");
                 return false;
             }
@@ -294,7 +323,16 @@ impl EndpointHooks for BrowserGate {
             gate.proofs.push(proof);
             gate.connections.push(connection.weak_handle());
             AfterHandshakeOutcome::AcceptData {
-                allowed_data_custom_ids: Vec::new(),
+                allowed_data_custom_ids: {
+                    #[cfg(feature = "rtc-probe")]
+                    {
+                        vec![crate::rtc_transport::TRANSPORT_ID]
+                    }
+                    #[cfg(not(feature = "rtc-probe"))]
+                    {
+                        Vec::new()
+                    }
+                },
             }
         } else {
             AfterHandshakeOutcome::AcceptRestricted
@@ -383,6 +421,8 @@ impl Drop for Delivery {
 #[wasm_bindgen]
 pub struct BrowserNetwork {
     endpoint: Endpoint,
+    #[cfg(feature = "rtc-probe")]
+    rtc_transport: crate::rtc_transport::RtcTransport,
     relays: Vec<RelayUrl>,
     mqtt: Vec<(
         crate::mqtt_datagram::MqttFacility,
@@ -543,6 +583,10 @@ impl BrowserNetwork {
                     _ => false,
                 })
                 .with_custom_addresses(move |addr| {
+                    #[cfg(feature = "rtc-probe")]
+                    if addr.id() == crate::rtc_transport::TRANSPORT_ID && addr.data().len() == 16 {
+                        return true;
+                    }
                     custom_services.iter().any(|service| {
                         crate::mqtt_datagram::route_from_addr(addr, Some(*service)).is_ok()
                     })
@@ -552,6 +596,12 @@ impl BrowserNetwork {
             .admission_gate(gate.clone());
         for (_, transport) in &mqtt {
             builder = builder.add_custom_transport(Arc::new(transport.clone()));
+        }
+        #[cfg(feature = "rtc-probe")]
+        let rtc_transport = crate::rtc_transport::RtcTransport::new();
+        #[cfg(feature = "rtc-probe")]
+        {
+            builder = builder.add_custom_transport(Arc::new(rtc_transport.clone()));
         }
         let endpoint = builder.bind().await.map_err(error)?;
         if n0_future::time::timeout(TIMEOUT, async {
@@ -595,6 +645,8 @@ impl BrowserNetwork {
         }
         Ok(Self {
             endpoint,
+            #[cfg(feature = "rtc-probe")]
+            rtc_transport,
             relays,
             mqtt,
             contact_routes,
@@ -944,3 +996,6 @@ pub use member_connection::BrowserMemberConnection;
 #[cfg(feature = "rtc-probe")]
 #[path = "rtc.rs"]
 mod rtc;
+#[cfg(feature = "rtc-probe")]
+#[path = "rtc_member.rs"]
+mod rtc_member;

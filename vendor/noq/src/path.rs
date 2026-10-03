@@ -304,6 +304,9 @@ pub struct PathProbe {
 }
 
 impl PathProbe {
+    /// Packet-number watermark captured when this fresh probe was issued.
+    pub fn watermark(&self) -> u64 { self.watermark }
+
     /// Returns true only after a data packet sent since creation was acknowledged.
     pub fn is_acknowledged(&self) -> Result<bool, ClosedPath> {
         self.path

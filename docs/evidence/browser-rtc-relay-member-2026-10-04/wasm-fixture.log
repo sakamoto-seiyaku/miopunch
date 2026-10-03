@@ -1,0 +1,15 @@
+warning: methods `reserve` and `set_resource_allowed` are never used
+   --> browser-probe/src/../../src/rtc_transport.rs:169:12
+    |
+152 | impl RtcTransport {
+    | ----------------- methods in this implementation
+...
+169 |     pub fn reserve(
+    |            ^^^^^^^
+...
+238 |     pub fn set_resource_allowed(&self, allowed: bool) {
+    |            ^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+═══════════════════════════════════════
+cargo build: 0 errors, 1 warnings (2 crates)

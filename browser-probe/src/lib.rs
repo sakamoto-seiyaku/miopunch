@@ -111,3 +111,9 @@ mod precode_policy;
 #[cfg(feature = "rtc-probe")]
 #[path = "../../src/rtc_association.rs"]
 mod rtc_association;
+#[cfg(feature = "rtc-probe")]
+#[path = "../../src/rtc_transport.rs"]
+mod rtc_transport;
+#[cfg(feature = "rtc-probe")]
+#[path = "../../src/rtc_wire.rs"]
+mod rtc_wire;

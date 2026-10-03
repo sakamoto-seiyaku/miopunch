@@ -1,0 +1,21 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.63s
+     Running tests/member_relay.rs (target/debug/deps/member_relay-83a57770d0d44268)
+
+running 14 tests
+test an_inner_member_relay_connection_cannot_be_used_as_another_relay_outer_link ... ok
+test b_has_separate_outer_tls_keys_and_cannot_substitute_the_inner_endpoint_identity ... ok
+test disabling_data_relay_stops_new_forwarding_and_the_only_inner_path_fails ... ok
+test disabling_member_relay_keeps_the_original_connection_and_stream_on_an_allowed_backup ... ok
+test disconnected_b_keeps_the_original_connection_and_stream_on_an_allowed_backup ... ok
+test expired_data_routes_cannot_revive_after_reenabling_the_service ... ok
+test explicit_consumer_data_relay_restriction_blocks_the_route_at_actual_send ... ok
+test explicitly_enabled_member_relay_carries_a_real_end_to_end_business_session ... ok
+test forged_destinations_and_retired_tokens_cannot_redirect_member_data ... ok
+test interrupted_member_circuit_keeps_the_original_ac_stream_on_an_allowed_backup ... ok
+test live_signaling_service_never_becomes_business_fallback_when_b_disables_data_relay ... ok
+test malformed_and_over_budget_member_frames_have_bounded_forwarding ... ok
+test ordinary_member_data_service_is_disabled_by_default_and_bootstrap_is_insufficient ... ok
+test removing_b_retires_its_routes_and_preserves_the_original_ac_stream_on_an_allowed_backup ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 134.84s

@@ -15,6 +15,48 @@ pub const CHANNEL_LABEL: &str = "mio-rtc-synthetic/1";
 pub const CHANNEL_PROTOCOL: &str = "miopunch/synthetic/1";
 
 pub const EXPORTER_LABEL: &[u8] = b"miopunch/rtc-probe/1";
+pub const DATAGRAM_CHANNEL_LABEL: &str = "mio-quic-datagram/1";
+pub const DATAGRAM_CHANNEL_PROTOCOL: &str = "miopunch/quic-datagram/1";
+pub const MEMBER_RTC_PROTOCOL: &str = "miopunch/relay-member-rtc/1";
+pub const CONTROL_MARKER: &[u8; 4] = b"MRC1";
+pub const CONTINUITY_MARKER: &[u8; 4] = b"MRS1";
+pub const CONTINUITY_BINDING_LABEL: &[u8] = b"miopunch/rtc-original-stream/1";
+
+/// The same qualified reliability semantics, with an explicit data-purpose profile.
+pub fn datagram_channel_parameters() -> serde_json::Value {
+    let mut profile = channel_parameters();
+    profile["label"] = DATAGRAM_CHANNEL_LABEL.into();
+    profile["protocol"] = DATAGRAM_CHANNEL_PROTOCOL.into();
+    profile
+}
+
+/// One monotonic deadline for the entire attempt. The diagnostic cap never
+/// extends a caller's existing 12/10/2 second budget.
+#[derive(Clone, Copy, Debug)]
+pub struct RtcDeadline {
+    started: n0_future::time::Instant,
+    deadline: n0_future::time::Instant,
+}
+impl RtcDeadline {
+    pub fn from_caller(deadline: n0_future::time::Instant) -> Self {
+        let started = n0_future::time::Instant::now();
+        Self {
+            started,
+            deadline: deadline.min(started + std::time::Duration::from_secs(45)),
+        }
+    }
+    pub fn remaining(&self) -> std::io::Result<std::time::Duration> {
+        self.deadline
+            .checked_duration_since(n0_future::time::Instant::now())
+            .filter(|remaining| !remaining.is_zero())
+            .ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::TimedOut, "RTC caller deadline exceeded")
+            })
+    }
+    pub fn elapsed_ms(&self) -> u128 {
+        self.started.elapsed().as_millis()
+    }
+}
 
 /// Fixed experimental role order, shared by the browser offerer and native answerer.
 pub fn attempt_context(

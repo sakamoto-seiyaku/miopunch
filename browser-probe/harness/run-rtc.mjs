@@ -11,12 +11,13 @@ import { chromium } from 'playwright-core';
 const root = resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const argument = name => { const index = process.argv.indexOf(name); assert(index >= 0, `${name} required`); return process.argv[index + 1]; };
 const evidence = resolve(argument('--evidence'));
+const memberCase = process.argv.includes('--case') && argument('--case') === 'relay-member-rtc';
 const requestedRelay = argument('--relay');
 let relay = requestedRelay;
 assert(requestedRelay === 'owned' || ['aps1-1', 'use1-1', 'usw1-1', 'euc1-1'].some(region => relay === `https://${region}.relay.n0.iroh.link./`));
 const temporary = requestedRelay === 'owned' ? join(argument('--fixture'), 'runtime') : mkdtempSync(join(tmpdir(), 'mio-rtc-s4-'));
 mkdirSync(temporary, { recursive: true });
-const report = { scope: 'step 4 synthetic RTC; signaling via authenticated protected relay M; no QUIC bridge', startedUtc: new Date().toISOString(), relay, iceServers: [], turnServers: [], native: [], websockets: [], preparation: [], passed: false };
+const report = { scope: memberCase ? 'step 5; admitted Ordinary-M relay to RTC, original QUIC and stream' : 'step 4 synthetic RTC; signaling via authenticated protected relay M; no QUIC bridge', startedUtc: new Date().toISOString(), relay, iceServers: [], turnServers: [], native: [], websockets: [], preparation: [], passed: false };
 let browser;
 let context;
 let relayProcess;
@@ -25,11 +26,11 @@ let web;
 let page;
 let deadline;
 let rejectDeadline;
-const total = new Promise((_, reject) => { rejectDeadline = reject; deadline = setTimeout(() => reject(new Error('RTC fixture 45 second deadline; 15 seconds reserved for finally cleanup')), 45000); });
+const total = new Promise((_, reject) => { rejectDeadline = reject; deadline = setTimeout(() => reject(new Error('RTC fixture 45 second deadline; 15 seconds reserved for finally cleanup')), memberCase ? 35000 : 45000); });
 // Attach immediately: synchronous startup errors still proceed through finally.
 total.catch(() => {});
 for (const name of ['SIGTERM', 'SIGINT']) process.once(name, () => rejectDeadline(new Error(`RTC fixture cancelled by ${name}`)));
-function save() { writeFileSync(join(evidence, 'rtc-channel.json'), `${JSON.stringify(report, null, 2)}\n`); }
+function save() { writeFileSync(join(evidence, memberCase ? 'relay-member-rtc.json' : 'rtc-channel.json'), `${JSON.stringify(report, null, 2)}\n`); }
 function bounded(promise) { return Promise.race([promise, total]); }
 async function preparation(name, action) {
   const started = Date.now();
@@ -140,6 +141,10 @@ try {
       constructor(...args) { super(...args); window.rtcObjects.push(this); }
     };
   });
+  if (memberCase) {
+    const { runMemberRtc } = await import('./run-rtc-member.mjs');
+    await runMemberRtc({ page, native, ready, report, bounded, save });
+  } else {
   const attempts = await bounded(page.evaluate(async () => {
     const results = await Promise.allSettled([window.member.rtc_channel_probe(false), window.member.rtc_channel_probe(false)]);
     const fulfilled = results.filter(result => result.status === 'fulfilled');
@@ -191,6 +196,7 @@ try {
   assert(report.cancellation.milliseconds < 1000, 'public close must promptly cancel local RTC RX');
   assert.equal(report.cancellation.peersCreated, report.cancellation.peersClosed);
   assert.equal(report.cancellation.callbacksDetached, true);
+  }
   assert(report.websockets.length > 0 && report.websockets.every(socket => socket.url.startsWith(relay.replace(/^https:/, 'wss:'))));
   assert(report.websockets.some(socket => socket.status === 101 && socket.sentFrames > 0 && socket.receivedFrames > 0));
   report.passed = true;
@@ -201,7 +207,7 @@ try {
 } finally {
   clearTimeout(deadline);
   const cleanupStart = Date.now();
-  if (page && !page.isClosed()) await page.evaluate(async () => { window.member?.close(); await window.network?.close(); }).catch(() => {});
+  if (page && !page.isClosed()) await page.evaluate(async () => { window.member?.close(); window.secondMember?.close(); window.newMember?.close(); window.failedMember?.close(); window.pumpMember?.close(); await window.network?.close(); }).catch(() => {});
   await context?.close();
   if (web) { web.closeAllConnections(); await new Promise(resolveClose => web.close(resolveClose)); }
   if (native && native.process.exitCode === null && native.process.signalCode === null) {

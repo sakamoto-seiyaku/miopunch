@@ -1,0 +1,187 @@
+{
+  "scope": "step 5; admitted Ordinary-M relay to RTC, original QUIC and stream",
+  "startedUtc": "2026-10-03T19:19:37.646Z",
+  "relay": "https://localhost:45182/",
+  "iceServers": [],
+  "turnServers": [],
+  "native": [
+    {
+      "event": "ready",
+      "id": "4e3fb221fe0d58593f1ce1cea2ff20554fba86f4098f71f688e40b4b8d9b1aef",
+      "relay": [
+        "https://localhost:45182/"
+      ],
+      "receivedUtc": "2026-10-03T19:19:37.926Z"
+    },
+    {
+      "event": "admission",
+      "paths": [
+        {
+          "isRelay": true,
+          "receivedBytes": 8434,
+          "relay": "https://localhost:45182/",
+          "selected": true,
+          "sentBytes": 8441
+        }
+      ],
+      "stage": "AwaitingApproval",
+      "receivedUtc": "2026-10-03T19:19:39.047Z"
+    },
+    {
+      "count": 2,
+      "event": "approved",
+      "receivedUtc": "2026-10-03T19:19:39.100Z"
+    },
+    {
+      "event": "admission",
+      "paths": [
+        {
+          "isRelay": true,
+          "receivedBytes": 8605,
+          "relay": "https://localhost:45182/",
+          "selected": true,
+          "sentBytes": 10156
+        }
+      ],
+      "stage": "Complete",
+      "receivedUtc": "2026-10-03T19:19:39.231Z"
+    },
+    {
+      "atMs": 406,
+      "dropQuic": false,
+      "event": "rtc-probe-started",
+      "pathId": "1",
+      "stableId": 137801341356464,
+      "receivedUtc": "2026-10-03T19:19:40.517Z"
+    },
+    {
+      "atMs": 417,
+      "event": "rtc-pump-fault-after-fresh-ack",
+      "freshAck": true,
+      "pathId": "1",
+      "stableId": 137801341356464,
+      "receivedUtc": "2026-10-03T19:19:40.528Z"
+    },
+    {
+      "active": true,
+      "event": "rtc-pump-ended",
+      "failure": "injected native RTC pump failure",
+      "qualified": false,
+      "stableId": 137801341356464,
+      "receivedUtc": "2026-10-03T19:19:40.528Z"
+    },
+    {
+      "cleanup": {
+        "activeAssociations": 0,
+        "dataChannel": {
+          "actualReceivedBytes": 8017,
+          "actualReceivedPackets": 7,
+          "actualSentBytes": 6817,
+          "actualSentPackets": 6,
+          "bufferPeak": 1452,
+          "droppedQuicBytes": 0,
+          "droppedQuicPackets": 0
+        },
+        "ownedPumpTasks": 0,
+        "pcClosed": true,
+        "rxBytes": 0,
+        "socketAfter": 6,
+        "socketBefore": 6,
+        "txBytes": 0
+      },
+      "event": "rtc-path-cleanup",
+      "failure": "RTC original M closed",
+      "stableId": 137801341356464,
+      "switched": false,
+      "receivedUtc": "2026-10-03T19:19:40.541Z"
+    }
+  ],
+  "websockets": [
+    {
+      "url": "wss://localhost:45182/relay",
+      "sentFrames": 115,
+      "receivedFrames": 94,
+      "status": 101
+    }
+  ],
+  "preparation": [
+    {
+      "name": "request",
+      "startedUtc": "2026-10-03T19:19:38.865Z",
+      "milliseconds": 189,
+      "passed": true
+    },
+    {
+      "name": "approval",
+      "startedUtc": "2026-10-03T19:19:39.054Z",
+      "milliseconds": 46,
+      "passed": true
+    },
+    {
+      "name": "authorization-save",
+      "startedUtc": "2026-10-03T19:19:39.100Z",
+      "milliseconds": 94,
+      "passed": true
+    },
+    {
+      "name": "material-save",
+      "startedUtc": "2026-10-03T19:19:39.194Z",
+      "milliseconds": 45,
+      "passed": true
+    }
+  ],
+  "passed": false,
+  "ownedRelay": true,
+  "origin": "http://127.0.0.1:44504",
+  "launch": {
+    "executablePath": "/tmp/mio-rtc-s4-trust-3aa5ionn/chromium-private-trust.sh",
+    "headless": true,
+    "args": [
+      "--no-sandbox",
+      "--disable-features=WebRtcHideLocalIpsWithMdns"
+    ],
+    "ignoreHTTPSErrors": false,
+    "privateNssMount": true,
+    "certificateBypassFlags": []
+  },
+  "browserVersion": "153.0.8010.12",
+  "browserIdentity": "90960ba1b41a59fdaac126360cf543f2c478850a11cf3d2894dba2467a9e0e16",
+  "preparedUtc": "2026-10-03T19:19:39.609Z",
+  "pumpFailureBefore": {
+    "activeAssociations": 0,
+    "closed": false,
+    "memberStableId": 2748136,
+    "paths": [
+      {
+        "address": "Relay(https://localhost:45182/)",
+        "isRelay": true,
+        "isRtc": false,
+        "pathId": "0",
+        "receivedBytes": 8849,
+        "selected": true,
+        "sentBytes": 10216,
+        "streamFramesReceived": 4,
+        "streamFramesSent": 4
+      }
+    ],
+    "resourceRevision": 0
+  },
+  "pumpEnd": {
+    "active": true,
+    "event": "rtc-pump-ended",
+    "failure": "injected native RTC pump failure",
+    "qualified": false,
+    "stableId": 137801341356464
+  },
+  "failure": "AssertionError [ERR_ASSERTION]: native pump terminal must immediately retire its exact route\n\ntrue !== false\n\n    at pumpFailure (file:///home/js/Git/miopunch/browser-probe/harness/run-rtc-member.mjs:27:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async file:///home/js/Git/miopunch/browser-probe/harness/run-rtc.mjs:146:5",
+  "fixtureCleanup": {
+    "code": 0,
+    "signal": null
+  },
+  "relayCleanup": {
+    "code": 0,
+    "signal": null
+  },
+  "cleanupMilliseconds": 249,
+  "completedUtc": "2026-10-03T19:19:40.778Z"
+}
