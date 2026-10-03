@@ -105,6 +105,9 @@ iroh-mdns-address-lookup = "=0.5.0"
 iroh-relay = { version = "=1.2.0", features = ["server"] }
 rcgen = "0.14.8"
 rustls = { version = "0.23.45", default-features = false, features = ["ring", "std"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring"] }
+rustls-pemfile = "2.2.0"
+webpki-roots = "1.0.9"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 p2panda-net = { path = "vendor/p2panda-net", default-features = false, features = ["iroh_mdns"] }

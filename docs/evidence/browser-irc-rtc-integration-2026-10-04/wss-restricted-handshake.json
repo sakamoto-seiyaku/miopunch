@@ -1,0 +1,2046 @@
+{
+  "startedUtc": "2026-10-03T21:13:45.411Z",
+  "passed": true,
+  "phases": [
+    {
+      "name": "fixture-and-browser-start",
+      "startedUtc": "2026-10-03T21:13:45.411Z",
+      "budgetSeconds": 15,
+      "passed": true,
+      "milliseconds": 689
+    },
+    {
+      "name": "restricted-authenticated-application",
+      "startedUtc": "2026-10-03T21:13:46.381Z",
+      "budgetSeconds": 15,
+      "passed": true,
+      "milliseconds": 224
+    },
+    {
+      "name": "same-invitation-independent-applicant",
+      "startedUtc": "2026-10-03T21:13:47.190Z",
+      "budgetSeconds": 15,
+      "passed": true,
+      "milliseconds": 216
+    },
+    {
+      "name": "wrong-expected-contact-on-same-route",
+      "startedUtc": "2026-10-03T21:13:47.422Z",
+      "budgetSeconds": 15,
+      "passed": true,
+      "milliseconds": 841
+    },
+    {
+      "name": "disabled-alias-before-connection",
+      "startedUtc": "2026-10-03T21:13:48.264Z",
+      "budgetSeconds": 15,
+      "passed": true,
+      "milliseconds": 27
+    },
+    {
+      "name": "caller-deadline-with-real-dropped-quic",
+      "startedUtc": "2026-10-03T21:13:48.777Z",
+      "budgetSeconds": 15,
+      "passed": true,
+      "milliseconds": 12007
+    },
+    {
+      "name": "explicit-cancellation-with-real-dropped-quic",
+      "startedUtc": "2026-10-03T21:14:03.805Z",
+      "budgetSeconds": 15,
+      "passed": true,
+      "milliseconds": 106
+    }
+  ],
+  "normal": [
+    {
+      "identity": "b90bd6bce7c1f70d3599898ce243d45164a4b8c1cef765790f4c34542f428292",
+      "native": {
+        "alpn": "miopunch/admission-request/1",
+        "business_handle": false,
+        "event": "admission",
+        "exchange_ms": 141,
+        "handshake_ms": 123,
+        "local_id": "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08",
+        "remote_id": "b90bd6bce7c1f70d3599898ce243d45164a4b8c1cef765790f4c34542f428292",
+        "restricted": true,
+        "stable_id": 129691235131184,
+        "stage": "Ok(Ok(AwaitingApproval))",
+        "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 13, bytes: 7080, ios: 0 }, udp_rx: UdpStats { datagrams: 16, bytes: 8855, ios: 0 }, frame_tx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 3, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 6, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 3, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 2, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 2, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 3, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }",
+        "traffic": {
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": false,
+            "failure": null,
+            "ready_ms": 1791062026215,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": false,
+            "withdraw_ms": null
+          },
+          "queue_depth": 64,
+          "queue_peak": 2,
+          "queued_packets": 0,
+          "received_bytes": 10055,
+          "received_packets": 17,
+          "rejected_packets": 0,
+          "rx_queue_peak": 5,
+          "sent_bytes": 7047,
+          "sent_packets": 12
+        }
+      },
+      "browser": {
+        "carriers": [
+          {
+            "buffered_bytes": 0,
+            "closed": false,
+            "pending_bytes": 0,
+            "protocol": "mqtt",
+            "queued_packets": 0,
+            "ready": true,
+            "route": "1b593cb6a554f425bf1e3220859b8a0d4de84788c316268bbe2dd71c8f8ca696",
+            "traffic": {
+              "buffered_bytes_peak": 4274,
+              "connack": 0,
+              "disconnect_sent": false,
+              "failure": null,
+              "generation": 2955758676,
+              "ready_ms": 1791062026377,
+              "received_bytes": 8568,
+              "received_frame_bytes": 9740,
+              "received_frames": 17,
+              "received_packets": 15,
+              "rejected_packets": 0,
+              "rx_queue_peak": 1,
+              "sent_bytes": 10228,
+              "sent_frame_bytes": 11900,
+              "sent_frames": 22,
+              "sent_packets": 20,
+              "suback_codes": [
+                0
+              ],
+              "suback_id": 1,
+              "subscribe_id": 1,
+              "unsubscribe_sent": false,
+              "withdraw_ms": null
+            }
+          }
+        ],
+        "gate": {
+          "agreement_elapsed_ms": 47,
+          "alpn": "miopunch/admission-request/1",
+          "business_handle": false,
+          "expected_contact_verified": true,
+          "local_id": "b90bd6bce7c1f70d3599898ce243d45164a4b8c1cef765790f4c34542f428292",
+          "remote_id": "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08",
+          "stable_id": 2509272,
+          "stage": "restricted-A",
+          "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 16, bytes: 9878, ios: 0 }, udp_rx: UdpStats { datagrams: 10, bytes: 5595, ios: 0 }, frame_tx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 4, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 3, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 0, STREAM: 1, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 2, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 5, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 2, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 1, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }",
+          "tls_authenticated": true
+        },
+        "request": {
+          "alpn": "miopunch/admission-request/1",
+          "attempt_elapsed_ms": 207,
+          "business_handle": false,
+          "exchange_ms": 194,
+          "handshake_ms": 183,
+          "local_id": "b90bd6bce7c1f70d3599898ce243d45164a4b8c1cef765790f4c34542f428292",
+          "paths": [
+            "Custom(CustomAddr { id: 30796699759899764, data: [1b593cb6a554f425bf1e3220859b8a0d9420fdbdd7e7d1caa4293a05115a9ea5] })"
+          ],
+          "remaining_caller_ms": 11795,
+          "remote_id": "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08",
+          "restricted": true,
+          "stable_id": 2509272,
+          "stage": "AwaitingApproval",
+          "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 18, bytes: 10088, ios: 0 }, udp_rx: UdpStats { datagrams: 13, bytes: 7080, ios: 0 }, frame_tx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 4, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 4, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 3, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 6, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 3, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 2, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }"
+        }
+      },
+      "businessRejected": true
+    }
+  ],
+  "failures": [
+    {
+      "case": "same-request-independent-identity",
+      "native": {
+        "event": "status",
+        "members": [
+          "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08"
+        ],
+        "requests": [
+          {
+            "applicant": "b90bd6bce7c1f70d3599898ce243d45164a4b8c1cef765790f4c34542f428292",
+            "approved": false,
+            "request_id": "cf57a7007148c6c93613ae37e9ab8d86"
+          },
+          {
+            "applicant": "e1d37fcbc1fba437e0e54b267f61eeaac14e25125e3de86897a1cad94f50084b",
+            "approved": false,
+            "request_id": "cf57a7007148c6c93613ae37e9ab8d86"
+          }
+        ]
+      },
+      "secondId": "e1d37fcbc1fba437e0e54b267f61eeaac14e25125e3de86897a1cad94f50084b",
+      "originalIdentity": "b90bd6bce7c1f70d3599898ce243d45164a4b8c1cef765790f4c34542f428292",
+      "originalDeliveryUnavailable": true
+    },
+    {
+      "case": "wrong-expected-contact",
+      "expected": "53793557dc01ee482d446fc18012963b4cf2ac9361079131946bbe9916da241e",
+      "actual": "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08",
+      "milliseconds": 88,
+      "rejection": "the cryptographic handshake failed: error 48: invalid peer certificate: UnknownIssuer",
+      "browser": {
+        "carriers": [
+          {
+            "buffered_bytes": 0,
+            "closed": false,
+            "pending_bytes": 0,
+            "protocol": "mqtt",
+            "queued_packets": 0,
+            "ready": true,
+            "route": "1b593cb6a554f425bf1e3220859b8a0dc6fd30db382f645cedb0a9837f86305e",
+            "traffic": {
+              "buffered_bytes_peak": 1278,
+              "connack": 0,
+              "disconnect_sent": false,
+              "failure": null,
+              "generation": 165187409,
+              "ready_ms": 1791062028045,
+              "received_bytes": 1200,
+              "received_frame_bytes": 1287,
+              "received_frames": 3,
+              "received_packets": 1,
+              "rejected_packets": 0,
+              "rx_queue_peak": 1,
+              "sent_bytes": 1200,
+              "sent_frame_bytes": 1396,
+              "sent_frames": 3,
+              "sent_packets": 1,
+              "suback_codes": [
+                0
+              ],
+              "suback_id": 1,
+              "subscribe_id": 1,
+              "unsubscribe_sent": false,
+              "withdraw_ms": null
+            }
+          }
+        ],
+        "gate": null,
+        "request": {
+          "attempt_elapsed_ms": 84,
+          "business_handle": false,
+          "stage": "connecting"
+        }
+      }
+    },
+    {
+      "case": "disabled-alias",
+      "newWebsockets": 0
+    },
+    {
+      "case": "caller-deadline",
+      "milliseconds": 12005,
+      "callerBudgetMs": 12000
+    },
+    {
+      "case": "explicit-cancellation",
+      "rejected": true,
+      "milliseconds": 103
+    }
+  ],
+  "native": [
+    {
+      "name": "restricted",
+      "event": "ready",
+      "id": "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08",
+      "route": "1b593cb6a554f425bf1e3220859b8a0d9420fdbdd7e7d1caa4293a05115a9ea5"
+    },
+    {
+      "name": "restricted",
+      "alpn": "miopunch/admission-request/1",
+      "business_handle": false,
+      "event": "admission",
+      "exchange_ms": 141,
+      "handshake_ms": 123,
+      "local_id": "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08",
+      "remote_id": "b90bd6bce7c1f70d3599898ce243d45164a4b8c1cef765790f4c34542f428292",
+      "restricted": true,
+      "stable_id": 129691235131184,
+      "stage": "Ok(Ok(AwaitingApproval))",
+      "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 13, bytes: 7080, ios: 0 }, udp_rx: UdpStats { datagrams: 16, bytes: 8855, ios: 0 }, frame_tx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 3, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 6, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 3, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 2, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 2, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 3, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }",
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": 1791062026215,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 2,
+        "queued_packets": 0,
+        "received_bytes": 10055,
+        "received_packets": 17,
+        "rejected_packets": 0,
+        "rx_queue_peak": 5,
+        "sent_bytes": 7047,
+        "sent_packets": 12
+      }
+    },
+    {
+      "name": "restricted",
+      "alpn": "miopunch/admission-request/1",
+      "business_handle": false,
+      "event": "admission",
+      "exchange_ms": 139,
+      "handshake_ms": 109,
+      "local_id": "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08",
+      "remote_id": "e1d37fcbc1fba437e0e54b267f61eeaac14e25125e3de86897a1cad94f50084b",
+      "restricted": true,
+      "stable_id": 129691235133056,
+      "stage": "Ok(Ok(AwaitingApproval))",
+      "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 15, bytes: 7141, ios: 0 }, udp_rx: UdpStats { datagrams: 17, bytes: 8888, ios: 0 }, frame_tx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 3, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 6, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 3, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 2, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 2, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 4, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }",
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": 1791062026215,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 2,
+        "queued_packets": 0,
+        "received_bytes": 20349,
+        "received_packets": 39,
+        "rejected_packets": 0,
+        "rx_queue_peak": 5,
+        "sent_bytes": 15709,
+        "sent_packets": 30
+      }
+    },
+    {
+      "name": "restricted",
+      "event": "status",
+      "members": [
+        "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08"
+      ],
+      "requests": [
+        {
+          "applicant": "b90bd6bce7c1f70d3599898ce243d45164a4b8c1cef765790f4c34542f428292",
+          "approved": false,
+          "request_id": "cf57a7007148c6c93613ae37e9ab8d86"
+        },
+        {
+          "applicant": "e1d37fcbc1fba437e0e54b267f61eeaac14e25125e3de86897a1cad94f50084b",
+          "approved": false,
+          "request_id": "cf57a7007148c6c93613ae37e9ab8d86"
+        }
+      ]
+    },
+    {
+      "name": "wrong-contact",
+      "event": "ready",
+      "id": "53793557dc01ee482d446fc18012963b4cf2ac9361079131946bbe9916da241e",
+      "route": "1b593cb6a554f425bf1e3220859b8a0d779bad305fff3f7846e65205e969c5d1"
+    },
+    {
+      "name": "wrong-contact",
+      "event": "closed",
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": true,
+          "failure": null,
+          "ready_ms": 1791062027531,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": true,
+          "withdraw_ms": 1791062028252
+        },
+        "queue_depth": 64,
+        "queue_peak": 0,
+        "queued_packets": 0,
+        "received_bytes": 0,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_packets": 0
+      }
+    },
+    {
+      "name": "restricted",
+      "elapsed_ms": 12001,
+      "error": "Err(Elapsed(()))",
+      "event": "handshake-rejected"
+    },
+    {
+      "name": "restricted",
+      "event": "closed",
+      "traffic": {
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": true,
+          "failure": null,
+          "ready_ms": 1791062026215,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": true,
+          "withdraw_ms": 1791062043921
+        },
+        "queue_depth": 64,
+        "queue_peak": 2,
+        "queued_packets": 0,
+        "received_bytes": 21689,
+        "received_packets": 42,
+        "rejected_packets": 0,
+        "rx_queue_peak": 5,
+        "sent_bytes": 20935,
+        "sent_packets": 36
+      }
+    }
+  ],
+  "websockets": [
+    {
+      "url": "wss://localhost:44102/mqtt/normal",
+      "atMs": 1791062026315,
+      "sentFrames": 24,
+      "sentBytes": 11961,
+      "receivedFrames": 17,
+      "receivedBytes": 9740,
+      "status": 101,
+      "protocol": "mqtt"
+    }
+  ],
+  "proxy": [
+    {
+      "label": "native-normal",
+      "mode": "normal",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 52,
+          "atMs": 1791062026214
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791062026215
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062026446
+        },
+        {
+          "kind": 3,
+          "bytes": 216,
+          "atMs": 1791062026489
+        },
+        {
+          "kind": 3,
+          "bytes": 393,
+          "atMs": 1791062026520
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791062026521
+        },
+        {
+          "kind": 3,
+          "bytes": 1169,
+          "atMs": 1791062026526
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062026553
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791062026567
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791062026568
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791062026568
+        },
+        {
+          "kind": 3,
+          "bytes": 116,
+          "atMs": 1791062026572
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791062026575
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791062026577
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062026586
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791062026588
+        },
+        {
+          "kind": 3,
+          "bytes": 113,
+          "atMs": 1791062026593
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062027256
+        },
+        {
+          "kind": 3,
+          "bytes": 216,
+          "atMs": 1791062027301
+        },
+        {
+          "kind": 3,
+          "bytes": 393,
+          "atMs": 1791062027330
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791062027330
+        },
+        {
+          "kind": 3,
+          "bytes": 1171,
+          "atMs": 1791062027335
+        },
+        {
+          "kind": 3,
+          "bytes": 112,
+          "atMs": 1791062027363
+        },
+        {
+          "kind": 3,
+          "bytes": 111,
+          "atMs": 1791062027364
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791062027364
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791062027365
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791062027372
+        },
+        {
+          "kind": 3,
+          "bytes": 111,
+          "atMs": 1791062027373
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791062027388
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791062027388
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791062027393
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062027394
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791062027395
+        },
+        {
+          "kind": 3,
+          "bytes": 113,
+          "atMs": 1791062027400
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062028108
+        },
+        {
+          "kind": 3,
+          "bytes": 216,
+          "atMs": 1791062028148
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062029108
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062029137
+        },
+        {
+          "kind": 12,
+          "bytes": 2,
+          "atMs": 1791062031216
+        },
+        {
+          "kind": 12,
+          "bytes": 2,
+          "atMs": 1791062036217
+        },
+        {
+          "kind": 12,
+          "bytes": 2,
+          "atMs": 1791062041218
+        },
+        {
+          "kind": 10,
+          "bytes": 59,
+          "atMs": 1791062043922
+        },
+        {
+          "kind": 14,
+          "bytes": 2,
+          "atMs": 1791062043922
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791062026214
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791062026215
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062026443
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062026510
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791062026520
+        },
+        {
+          "kind": 3,
+          "bytes": 1244,
+          "atMs": 1791062026520
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791062026522
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791062026528
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791062026554
+        },
+        {
+          "kind": 3,
+          "bytes": 305,
+          "atMs": 1791062026565
+        },
+        {
+          "kind": 3,
+          "bytes": 305,
+          "atMs": 1791062026565
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062026565
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062026565
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791062026565
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791062026568
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791062026571
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062026574
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791062026576
+        },
+        {
+          "kind": 3,
+          "bytes": 255,
+          "atMs": 1791062026579
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062026587
+        },
+        {
+          "kind": 3,
+          "bytes": 148,
+          "atMs": 1791062026592
+        },
+        {
+          "kind": 3,
+          "bytes": 148,
+          "atMs": 1791062026595
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062027254
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062027321
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791062027330
+        },
+        {
+          "kind": 3,
+          "bytes": 1244,
+          "atMs": 1791062027330
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791062027333
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791062027338
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791062027352
+        },
+        {
+          "kind": 3,
+          "bytes": 305,
+          "atMs": 1791062027364
+        },
+        {
+          "kind": 3,
+          "bytes": 305,
+          "atMs": 1791062027364
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062027365
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062027368
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791062027371
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791062027374
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062027386
+        },
+        {
+          "kind": 3,
+          "bytes": 255,
+          "atMs": 1791062027386
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062027386
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791062027386
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791062027391
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062027393
+        },
+        {
+          "kind": 3,
+          "bytes": 148,
+          "atMs": 1791062027399
+        },
+        {
+          "kind": 3,
+          "bytes": 148,
+          "atMs": 1791062027402
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062028105
+        },
+        {
+          "kind": 13,
+          "bytes": 2,
+          "atMs": 1791062031216
+        },
+        {
+          "kind": 13,
+          "bytes": 2,
+          "atMs": 1791062036217
+        },
+        {
+          "kind": 13,
+          "bytes": 2,
+          "atMs": 1791062041218
+        }
+      ],
+      "publishCount": 36,
+      "closedMs": 1791062043922
+    },
+    {
+      "label": "browser-normal",
+      "mode": "normal",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 58,
+          "atMs": 1791062026374
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791062026376
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062026442
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062026510
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791062026511
+        },
+        {
+          "kind": 3,
+          "bytes": 1244,
+          "atMs": 1791062026519
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791062026522
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791062026528
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791062026540
+        },
+        {
+          "kind": 3,
+          "bytes": 305,
+          "atMs": 1791062026554
+        },
+        {
+          "kind": 3,
+          "bytes": 305,
+          "atMs": 1791062026554
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062026558
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062026561
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791062026565
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791062026567
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791062026571
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062026574
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791062026576
+        },
+        {
+          "kind": 3,
+          "bytes": 255,
+          "atMs": 1791062026579
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062026581
+        },
+        {
+          "kind": 3,
+          "bytes": 148,
+          "atMs": 1791062026591
+        },
+        {
+          "kind": 3,
+          "bytes": 148,
+          "atMs": 1791062026594
+        },
+        {
+          "kind": 10,
+          "bytes": 59,
+          "atMs": 1791062026613
+        },
+        {
+          "kind": 14,
+          "bytes": 2,
+          "atMs": 1791062026613
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791062026375
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791062026377
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062026447
+        },
+        {
+          "kind": 3,
+          "bytes": 216,
+          "atMs": 1791062026489
+        },
+        {
+          "kind": 3,
+          "bytes": 393,
+          "atMs": 1791062026521
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791062026522
+        },
+        {
+          "kind": 3,
+          "bytes": 1169,
+          "atMs": 1791062026528
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062026554
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791062026567
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791062026568
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791062026568
+        },
+        {
+          "kind": 3,
+          "bytes": 116,
+          "atMs": 1791062026573
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791062026575
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791062026577
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062026586
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791062026588
+        },
+        {
+          "kind": 3,
+          "bytes": 113,
+          "atMs": 1791062026594
+        }
+      ],
+      "publishCount": 20,
+      "closedMs": 1791062026614
+    },
+    {
+      "label": "browser-normal",
+      "mode": "normal",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 58,
+          "atMs": 1791062027157
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791062027160
+        },
+        {
+          "kind": 10,
+          "bytes": 59,
+          "atMs": 1791062027170
+        },
+        {
+          "kind": 14,
+          "bytes": 2,
+          "atMs": 1791062027170
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791062027158
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791062027160
+        }
+      ],
+      "publishCount": 0,
+      "closedMs": 1791062027171
+    },
+    {
+      "label": "browser-normal",
+      "mode": "normal",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 58,
+          "atMs": 1791062027188
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791062027189
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062027253
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062027320
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791062027321
+        },
+        {
+          "kind": 3,
+          "bytes": 1244,
+          "atMs": 1791062027329
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791062027332
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791062027338
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791062027351
+        },
+        {
+          "kind": 3,
+          "bytes": 305,
+          "atMs": 1791062027361
+        },
+        {
+          "kind": 3,
+          "bytes": 305,
+          "atMs": 1791062027361
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062027364
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062027368
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791062027371
+        },
+        {
+          "kind": 3,
+          "bytes": 134,
+          "atMs": 1791062027373
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062027376
+        },
+        {
+          "kind": 3,
+          "bytes": 255,
+          "atMs": 1791062027382
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062027384
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791062027386
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791062027391
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062027393
+        },
+        {
+          "kind": 3,
+          "bytes": 148,
+          "atMs": 1791062027398
+        },
+        {
+          "kind": 3,
+          "bytes": 148,
+          "atMs": 1791062027401
+        },
+        {
+          "kind": 10,
+          "bytes": 59,
+          "atMs": 1791062027408
+        },
+        {
+          "kind": 14,
+          "bytes": 2,
+          "atMs": 1791062027408
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791062027188
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791062027189
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062027257
+        },
+        {
+          "kind": 3,
+          "bytes": 216,
+          "atMs": 1791062027301
+        },
+        {
+          "kind": 3,
+          "bytes": 393,
+          "atMs": 1791062027331
+        },
+        {
+          "kind": 3,
+          "bytes": 1404,
+          "atMs": 1791062027333
+        },
+        {
+          "kind": 3,
+          "bytes": 1171,
+          "atMs": 1791062027339
+        },
+        {
+          "kind": 3,
+          "bytes": 112,
+          "atMs": 1791062027363
+        },
+        {
+          "kind": 3,
+          "bytes": 111,
+          "atMs": 1791062027364
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791062027365
+        },
+        {
+          "kind": 3,
+          "bytes": 107,
+          "atMs": 1791062027368
+        },
+        {
+          "kind": 3,
+          "bytes": 1467,
+          "atMs": 1791062027373
+        },
+        {
+          "kind": 3,
+          "bytes": 111,
+          "atMs": 1791062027373
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791062027389
+        },
+        {
+          "kind": 3,
+          "bytes": 1498,
+          "atMs": 1791062027389
+        },
+        {
+          "kind": 3,
+          "bytes": 109,
+          "atMs": 1791062027393
+        },
+        {
+          "kind": 3,
+          "bytes": 110,
+          "atMs": 1791062027395
+        },
+        {
+          "kind": 3,
+          "bytes": 1530,
+          "atMs": 1791062027395
+        },
+        {
+          "kind": 3,
+          "bytes": 113,
+          "atMs": 1791062027401
+        }
+      ],
+      "publishCount": 21,
+      "closedMs": 1791062027408
+    },
+    {
+      "label": "native-normal",
+      "mode": "normal",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 52,
+          "atMs": 1791062027529
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791062027530
+        },
+        {
+          "kind": 10,
+          "bytes": 59,
+          "atMs": 1791062028253
+        },
+        {
+          "kind": 14,
+          "bytes": 2,
+          "atMs": 1791062028253
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791062027530
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791062027531
+        }
+      ],
+      "publishCount": 0,
+      "closedMs": 1791062028253
+    },
+    {
+      "label": "browser-normal",
+      "mode": "normal",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 58,
+          "atMs": 1791062028043
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791062028045
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062028105
+        },
+        {
+          "kind": 10,
+          "bytes": 59,
+          "atMs": 1791062028233
+        },
+        {
+          "kind": 14,
+          "bytes": 2,
+          "atMs": 1791062028233
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791062028043
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791062028045
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062028108
+        },
+        {
+          "kind": 3,
+          "bytes": 216,
+          "atMs": 1791062028149
+        },
+        {
+          "kind": 11,
+          "bytes": 4,
+          "atMs": 1791062028234
+        }
+      ],
+      "publishCount": 1,
+      "closedMs": 1791062028235
+    },
+    {
+      "label": "browser-drop-publish",
+      "mode": "drop-publish",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 58,
+          "atMs": 1791062028771
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791062028773
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062028836
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062029831
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062029861
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062031859
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062031889
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062034890
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062034921
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062038923
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062038953
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062040782
+        },
+        {
+          "kind": 10,
+          "bytes": 59,
+          "atMs": 1791062043780
+        },
+        {
+          "kind": 14,
+          "bytes": 2,
+          "atMs": 1791062043780
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791062028772
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791062028774
+        }
+      ],
+      "publishCount": 10,
+      "closedMs": 1791062043781
+    },
+    {
+      "label": "browser-drop-publish",
+      "mode": "drop-publish",
+      "packetsFromClient": [
+        {
+          "kind": 1,
+          "bytes": 58,
+          "atMs": 1791062043802
+        },
+        {
+          "kind": 8,
+          "bytes": 60,
+          "atMs": 1791062043804
+        },
+        {
+          "kind": 3,
+          "bytes": 1278,
+          "atMs": 1791062043814
+        },
+        {
+          "kind": 10,
+          "bytes": 59,
+          "atMs": 1791062043908
+        },
+        {
+          "kind": 14,
+          "bytes": 2,
+          "atMs": 1791062043908
+        }
+      ],
+      "packetsFromBroker": [
+        {
+          "kind": 2,
+          "bytes": 4,
+          "atMs": 1791062043803
+        },
+        {
+          "kind": 9,
+          "bytes": 5,
+          "atMs": 1791062043804
+        },
+        {
+          "kind": 11,
+          "bytes": 4,
+          "atMs": 1791062043908
+        }
+      ],
+      "publishCount": 1,
+      "closedMs": 1791062043909
+    }
+  ],
+  "tls": [
+    {
+      "role": "native",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791062026212
+    },
+    {
+      "role": "browser",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791062026318
+    },
+    {
+      "role": "browser",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791062027093
+    },
+    {
+      "role": "browser",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791062027187
+    },
+    {
+      "role": "native",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791062027529
+    },
+    {
+      "role": "browser",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791062027983
+    },
+    {
+      "role": "browser",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791062028718
+    },
+    {
+      "role": "browser",
+      "protocol": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "atMs": 1791062043801
+    }
+  ],
+  "cleanup": {
+    "browserCarriers": [
+      {
+        "carriers": [
+          {
+            "buffered_bytes": 61,
+            "closed": true,
+            "pending_bytes": 0,
+            "protocol": "mqtt",
+            "queued_packets": 0,
+            "ready": false,
+            "route": null,
+            "traffic": {
+              "buffered_bytes_peak": 4274,
+              "connack": 0,
+              "disconnect_sent": true,
+              "failure": null,
+              "generation": 2955758676,
+              "ready_ms": 1791062026377,
+              "received_bytes": 8568,
+              "received_frame_bytes": 9740,
+              "received_frames": 17,
+              "received_packets": 15,
+              "rejected_packets": 0,
+              "rx_queue_peak": 1,
+              "sent_bytes": 10228,
+              "sent_frame_bytes": 11961,
+              "sent_frames": 24,
+              "sent_packets": 20,
+              "suback_codes": [
+                0
+              ],
+              "suback_id": 1,
+              "subscribe_id": 1,
+              "unsubscribe_sent": true,
+              "withdraw_ms": 1791062026612
+            }
+          }
+        ],
+        "gate": {
+          "agreement_elapsed_ms": 47,
+          "alpn": "miopunch/admission-request/1",
+          "business_handle": false,
+          "expected_contact_verified": true,
+          "local_id": "b90bd6bce7c1f70d3599898ce243d45164a4b8c1cef765790f4c34542f428292",
+          "remote_id": "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08",
+          "stable_id": 2509272,
+          "stage": "restricted-A",
+          "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 16, bytes: 9878, ios: 0 }, udp_rx: UdpStats { datagrams: 10, bytes: 5595, ios: 0 }, frame_tx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 4, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 3, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 0, STREAM: 1, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 2, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 5, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 2, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 1, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }",
+          "tls_authenticated": true
+        },
+        "request": {
+          "alpn": "miopunch/admission-request/1",
+          "attempt_elapsed_ms": 207,
+          "business_handle": false,
+          "exchange_ms": 194,
+          "handshake_ms": 183,
+          "local_id": "b90bd6bce7c1f70d3599898ce243d45164a4b8c1cef765790f4c34542f428292",
+          "paths": [
+            "Custom(CustomAddr { id: 30796699759899764, data: [1b593cb6a554f425bf1e3220859b8a0d9420fdbdd7e7d1caa4293a05115a9ea5] })"
+          ],
+          "remaining_caller_ms": 11795,
+          "remote_id": "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08",
+          "restricted": true,
+          "stable_id": 2509272,
+          "stage": "AwaitingApproval",
+          "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 18, bytes: 10088, ios: 0 }, udp_rx: UdpStats { datagrams: 13, bytes: 7080, ios: 0 }, frame_tx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 4, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 4, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 3, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 6, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 3, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 2, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }"
+        }
+      },
+      {
+        "carriers": [
+          {
+            "buffered_bytes": 61,
+            "closed": true,
+            "pending_bytes": 0,
+            "protocol": "mqtt",
+            "queued_packets": 0,
+            "ready": false,
+            "route": null,
+            "traffic": {
+              "buffered_bytes_peak": 4274,
+              "connack": 0,
+              "disconnect_sent": true,
+              "failure": null,
+              "generation": 33767277,
+              "ready_ms": 1791062027189,
+              "received_bytes": 8629,
+              "received_frame_bytes": 9955,
+              "received_frames": 19,
+              "received_packets": 17,
+              "rejected_packets": 0,
+              "rx_queue_peak": 1,
+              "sent_bytes": 10261,
+              "sent_frame_bytes": 12071,
+              "sent_frames": 25,
+              "sent_packets": 21,
+              "suback_codes": [
+                0
+              ],
+              "suback_id": 1,
+              "subscribe_id": 1,
+              "unsubscribe_sent": true,
+              "withdraw_ms": 1791062027407
+            }
+          }
+        ],
+        "gate": {
+          "agreement_elapsed_ms": 41,
+          "alpn": "miopunch/admission-request/1",
+          "business_handle": false,
+          "expected_contact_verified": true,
+          "local_id": "e1d37fcbc1fba437e0e54b267f61eeaac14e25125e3de86897a1cad94f50084b",
+          "remote_id": "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08",
+          "stable_id": 2527704,
+          "stage": "restricted-A",
+          "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 14, bytes: 7006, ios: 0 }, udp_rx: UdpStats { datagrams: 8, bytes: 4171, ios: 0 }, frame_tx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 4, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 2, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 3, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 2, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 0, STREAM: 1, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 1, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 3, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 1, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 0, STREAM: 1, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }",
+          "tls_authenticated": true
+        },
+        "request": {
+          "alpn": "miopunch/admission-request/1",
+          "attempt_elapsed_ms": 205,
+          "business_handle": false,
+          "exchange_ms": 195,
+          "handshake_ms": 179,
+          "local_id": "e1d37fcbc1fba437e0e54b267f61eeaac14e25125e3de86897a1cad94f50084b",
+          "paths": [
+            "Custom(CustomAddr { id: 30796699759899764, data: [1b593cb6a554f425bf1e3220859b8a0d9420fdbdd7e7d1caa4293a05115a9ea5] })"
+          ],
+          "remaining_caller_ms": 11795,
+          "remote_id": "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08",
+          "restricted": true,
+          "stable_id": 2527704,
+          "stage": "AwaitingApproval",
+          "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 19, bytes: 10121, ios: 0 }, udp_rx: UdpStats { datagrams: 15, bytes: 7141, ios: 0 }, frame_tx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 4, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 5, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 3, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 6, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 3, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 2, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }"
+        }
+      },
+      {
+        "carriers": [
+          {
+            "buffered_bytes": 61,
+            "closed": true,
+            "pending_bytes": 0,
+            "protocol": "mqtt",
+            "queued_packets": 0,
+            "ready": false,
+            "route": null,
+            "traffic": {
+              "buffered_bytes_peak": 1278,
+              "connack": 0,
+              "disconnect_sent": true,
+              "failure": null,
+              "generation": 165187409,
+              "ready_ms": 1791062028045,
+              "received_bytes": 1338,
+              "received_frame_bytes": 1503,
+              "received_frames": 4,
+              "received_packets": 2,
+              "rejected_packets": 0,
+              "rx_queue_peak": 1,
+              "sent_bytes": 1200,
+              "sent_frame_bytes": 1457,
+              "sent_frames": 5,
+              "sent_packets": 1,
+              "suback_codes": [
+                0
+              ],
+              "suback_id": 1,
+              "subscribe_id": 1,
+              "unsubscribe_sent": true,
+              "withdraw_ms": 1791062028233
+            }
+          }
+        ],
+        "gate": null,
+        "request": {
+          "attempt_elapsed_ms": 84,
+          "business_handle": false,
+          "stage": "connecting"
+        }
+      },
+      {
+        "carriers": [
+          {
+            "buffered_bytes": 61,
+            "closed": true,
+            "pending_bytes": 0,
+            "protocol": "mqtt",
+            "queued_packets": 0,
+            "ready": false,
+            "route": null,
+            "traffic": {
+              "buffered_bytes_peak": 1278,
+              "connack": 0,
+              "disconnect_sent": true,
+              "failure": null,
+              "generation": 1655529473,
+              "ready_ms": 1791062028774,
+              "received_bytes": 0,
+              "received_frame_bytes": 9,
+              "received_frames": 2,
+              "received_packets": 0,
+              "rejected_packets": 0,
+              "rx_queue_peak": 0,
+              "sent_bytes": 12000,
+              "sent_frame_bytes": 12959,
+              "sent_frames": 14,
+              "sent_packets": 10,
+              "suback_codes": [
+                0
+              ],
+              "suback_id": 1,
+              "subscribe_id": 1,
+              "unsubscribe_sent": true,
+              "withdraw_ms": 1791062043780
+            }
+          }
+        ],
+        "gate": null,
+        "request": {
+          "attempt_elapsed_ms": 12000,
+          "business_handle": false,
+          "stage": "connecting"
+        }
+      },
+      {
+        "carriers": [
+          {
+            "buffered_bytes": 0,
+            "closed": true,
+            "pending_bytes": 0,
+            "protocol": "mqtt",
+            "queued_packets": 0,
+            "ready": false,
+            "route": null,
+            "traffic": {
+              "buffered_bytes_peak": 1278,
+              "connack": 0,
+              "disconnect_sent": true,
+              "failure": null,
+              "generation": 2299006901,
+              "ready_ms": 1791062043804,
+              "received_bytes": 0,
+              "received_frame_bytes": 9,
+              "received_frames": 2,
+              "received_packets": 0,
+              "rejected_packets": 0,
+              "rx_queue_peak": 0,
+              "sent_bytes": 1200,
+              "sent_frame_bytes": 1457,
+              "sent_frames": 5,
+              "sent_packets": 1,
+              "suback_codes": [
+                0
+              ],
+              "suback_id": 1,
+              "subscribe_id": 1,
+              "unsubscribe_sent": true,
+              "withdraw_ms": 1791062043907
+            }
+          }
+        ],
+        "gate": null,
+        "request": {
+          "attempt_elapsed_ms": 103,
+          "business_handle": false,
+          "stage": "connecting"
+        }
+      }
+    ],
+    "carriers": [
+      {
+        "name": "wrong-contact",
+        "event": "closed",
+        "traffic": {
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": true,
+            "failure": null,
+            "ready_ms": 1791062027531,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": true,
+            "withdraw_ms": 1791062028252
+          },
+          "queue_depth": 64,
+          "queue_peak": 0,
+          "queued_packets": 0,
+          "received_bytes": 0,
+          "received_packets": 0,
+          "rejected_packets": 0,
+          "rx_queue_peak": 0,
+          "sent_bytes": 0,
+          "sent_packets": 0
+        }
+      },
+      {
+        "name": "restricted",
+        "event": "closed",
+        "traffic": {
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": true,
+            "failure": null,
+            "ready_ms": 1791062026215,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": true,
+            "withdraw_ms": 1791062043921
+          },
+          "queue_depth": 64,
+          "queue_peak": 2,
+          "queued_packets": 0,
+          "received_bytes": 21689,
+          "received_packets": 42,
+          "rejected_packets": 0,
+          "rx_queue_peak": 5,
+          "sent_bytes": 20935,
+          "sent_packets": 36
+        }
+      }
+    ],
+    "activeNativeProcesses": 0,
+    "activeProxySockets": 0,
+    "serversClosed": true
+  },
+  "budgets": {
+    "outerSeconds": 45,
+    "callerSeconds": 12,
+    "phaseSeconds": 15
+  },
+  "nativePort": 43814,
+  "wssPort": 44102,
+  "origin": "http://127.0.0.1:44480",
+  "launch": {
+    "executablePath": "/tmp/mio-rtc-mqtt-u4fni8x0/chromium-private-trust.sh",
+    "headless": true,
+    "args": [
+      "--no-sandbox"
+    ],
+    "ignoreHTTPSErrors": false,
+    "privateNssMount": true,
+    "certificateBypassFlags": []
+  },
+  "browserVersion": "153.0.8010.12",
+  "facility": {
+    "logical_id": "owned-mqtt-datagram-fixture",
+    "native_url": "mqtts://localhost:43814/",
+    "wss_url": "wss://localhost:44102/mqtt/normal"
+  },
+  "completedUtc": "2026-10-03T21:14:04.033Z"
+}

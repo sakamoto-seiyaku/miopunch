@@ -99,6 +99,8 @@ flowchart LR
 
 2026-10-03 后续授权实施的 MQTT 版本已通过自有正常 TLS/WSS 设施资格，见 [受限 QUIC/TLS 实施回执](2026-10-03-browser-wss-restricted-handshake.md)。这不替代 IRC 变体、成员 M、RTC 或首次材料完成的后续验证。
 
+2026-10-04 IRC 版本已独立实测该慢速 profile：正常 TLS/WSS 与指定 contact 身份认证后，现有 stage agreement 无法在预算内形成受限 A；12 秒 caller 同样不可用。见 [IRC 受限握手停止分支回执](2026-10-04-browser-irc-restricted-handshake.md)。这是第 2/6 步 IRC 路线的未资格化停止分支，不阻塞 MQTT/RTC，也不宣称第 2/6 步 IRC 已通过。
+
 ### 3. IRC 独立载体资格
 
 - **问题/前提：**新公网私信观察已通过，但真实 channel/MIR1 仍未通过。自有或明确允许用途的实例，正常 WSS/TLS；使用独立随机测试 channel，绝不使用人类频道。
@@ -106,6 +108,8 @@ flowchart LR
 - **正常故事：**两端 001/005、JOIN 完成及366就绪后，按声明的保守 pacing 双向重组一个1200字节真实MIR1 datagram；记录首末片跨度。之后才尝试第2步的 IRC 版本。
 - **关键失败：**缺一片、重复冲突片或取消时不得交付半包，不得产生无界 pending；超过整次预算明确不可用。PING/PONG不能因长片串发送被饥饿。
 - **证据/通过：**完整行长度、server prefix、ISUPPORT、片序/间隔/重组年龄、expired/rejected/pending、queue age、关闭回执；测试最长60秒，至多两组完整报文及一组本地故障，清理自有channel和连接。若握手预算无法容纳，停止宣称此 profile 支持 QUIC；保留 MQTT 路线，不把提高服务负载作为修复。
+
+2026-10-04 后续授权实施的第 3 步已通过自有正常 TLS/WSS 的慢速完整 MIR1 载体验证，见 [IRC datagram 实施回执](2026-10-04-browser-irc-datagram.md)。这不证明该 profile 能在实际 caller 预算内完成 IRC 受限 QUIC/TLS，也不替代第 2/6 步的 IRC 独立变体。
 
 ### 4. RTC 最小互操作（仍不是 MIO 路径）
 

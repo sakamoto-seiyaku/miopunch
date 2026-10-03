@@ -1,0 +1,248 @@
+{
+  "step": 3,
+  "passed": true,
+  "baseline": "859915f061be7cb3ec924dc98261a01cc54dc9e2",
+  "source_sha256": {
+    "Cargo.toml": "c3dda3b38e615119e3e514769ecffcbd9f02675e613ac82b2a137c8494661b61",
+    "Cargo.lock": "aac957d084f50032af742e822c27e5fbf03fe1cbc27480d309ab263caf4d980c",
+    "src/lib.rs": "0ddf09fcfeb38dde60b51f46bd641f1fd0c5e31c064d4f2bfb65dda1d514f63d",
+    "src/irc_datagram.rs": "8e17cec89dd1e334c14cdf944ce11bda65d6a44ee4885e6010ae66d6b9ac7b3c",
+    "src/irc_transport.rs": "6378c11205b68f12d78f5b5b565503d061c35bd7ee2170e69c1131cb1c70ac4b",
+    "src/bin/browser_irc_datagram.rs": "f3a94c2c1bf954abb689aede68bd207f25f62d7b16a4f0cb6bce09486ead403b",
+    "browser-probe/Cargo.toml": "0c1e51aa2418886cc1f3a42cf1c3664999080b48c9a039c04cb7c9844ea2a279",
+    "browser-probe/src/lib.rs": "6f1349944367a6df5e789f9a718701ce060ea401e399778a077adca80cba368d",
+    "browser-probe/src/irc.rs": "b2196eb5504c0517e2fe935988e40fa56b3d0c4452817131b8a0620c1bc0a9f9",
+    "browser-probe/harness/run-irc-datagram.mjs": "d22c2def8ac447b1db464b180cf84ddd18a18ca16d3a7f5a080669dac84f3863",
+    "browser-probe/harness/package.json": "510a3856fc117e0d6743244c32ed68ba5ece6813e3c1ab096e46af294e8a5b7f",
+    "browser-probe/harness/package-lock.json": "d7635ea41290d8309ca40251fa438f6eacbe73abbf8811c579615ddb6bc9184d",
+    "scripts/check_browser_irc.py": "bc42eb2893a6c3bec67887b1506eb4b966778387421ae762189e5fb77127a80e",
+    "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+    "tests/irc_datagram.rs": "80c91855c06d7d50c881d860aaf5dccd2586c502885d9f99f7bb15917c953e8b",
+    "tests/fixtures/irc/ergo.yaml": "1762910d6c284bf486af68ce04e4b578e47ba67e5ad45a4e9fad115e7c831dde"
+  },
+  "qualification": "qualification.json",
+  "affected_full_suite": {
+    "passed": true,
+    "native_library": 25,
+    "existing_irc": 10,
+    "new_datagram_lifecycle": 10,
+    "resources": 26,
+    "total_passed": 71,
+    "ignored": 1,
+    "ignored_reason": "existing UDP data-cut test requires the unchanged privileged isolated NAT lab, outside this carrier increment",
+    "raw_receipt": {
+      "path": "/tmp/mio-irc-s3-regression/results.json",
+      "sha256": "bd682ae7176161d8f4475099f820b209ccac5ea9866e423befe8da2df66513ad"
+    },
+    "raw_suite": {
+      "path": "/tmp/mio-irc-s3-regression/affected-native-suite.log",
+      "sha256": "047ff5f8edca478e896c43670c7b98731f80ed28ba331f4ad330528b61e96b16"
+    },
+    "checks": [
+      {
+        "name": "start-fast-backward-regression",
+        "argv": [
+          "docker",
+          "run",
+          "--detach",
+          "--name",
+          "miopunch-irc-s3-regress-fast-backward-regression-1791046604667921796",
+          "--publish",
+          "127.0.0.1::6667",
+          "--entrypoint",
+          "/ircd-bin/ergo",
+          "--mount",
+          "type=bind,src=/tmp/mio-irc-s3-regression/fast-backward-regression.yaml,target=/ircd/ircd.yaml,readonly",
+          "ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7",
+          "run"
+        ],
+        "exit": 0,
+        "seconds": 0.415,
+        "log": "start-fast-backward-regression.log"
+      },
+      {
+        "name": "start-limited-backward-regression",
+        "argv": [
+          "docker",
+          "run",
+          "--detach",
+          "--name",
+          "miopunch-irc-s3-regress-limited-backward-regression-1791046605127636752",
+          "--publish",
+          "127.0.0.1::6667",
+          "--entrypoint",
+          "/ircd-bin/ergo",
+          "--mount",
+          "type=bind,src=/tmp/mio-irc-s3-regression/limited-backward-regression.yaml,target=/ircd/ircd.yaml,readonly",
+          "ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7",
+          "run"
+        ],
+        "exit": 0,
+        "seconds": 0.465,
+        "log": "start-limited-backward-regression.log"
+      },
+      {
+        "name": "affected-native-suite",
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "--lib",
+          "--test",
+          "irc_datagram",
+          "--test",
+          "irc_bootstrap",
+          "--test",
+          "resources",
+          "--",
+          "--test-threads=1"
+        ],
+        "exit": 0,
+        "seconds": 113.873,
+        "log": "affected-native-suite.log"
+      },
+      {
+        "name": "workspace-all-targets",
+        "argv": [
+          "cargo",
+          "check",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "--workspace",
+          "--all-targets",
+          "--features",
+          "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks"
+        ],
+        "exit": 0,
+        "seconds": 55.102,
+        "log": "workspace-all-targets.log"
+      },
+      {
+        "name": "wasm-typecheck",
+        "argv": [
+          "cargo",
+          "check",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "-p",
+          "miopunch-browser-probe",
+          "--target",
+          "wasm32-unknown-unknown"
+        ],
+        "exit": 0,
+        "seconds": 2.069,
+        "log": "wasm-typecheck.log"
+      }
+    ],
+    "cleanup": [
+      {
+        "owned": "miopunch-irc-s3-regress-fast-backward-regression-1791046604667921796",
+        "exit": 0
+      },
+      {
+        "owned": "miopunch-irc-s3-regress-limited-backward-regression-1791046605127636752",
+        "exit": 0
+      }
+    ],
+    "snapshot_note": "Full affected suite ran before review follow-up changes; final targeted library/datagram, fresh runtime qualification and final workspace checks verify the review changes."
+  },
+  "after_review_native": {
+    "passed": true,
+    "total_passed": 35,
+    "raw_log": {
+      "path": "/tmp/miopunch-irc-review-final-native.log",
+      "sha256": "36c091700db61bef8cc1d0b1b4282677a6e9eb579850526ddff52addfd777a39"
+    }
+  },
+  "reviews": {
+    "standards": {
+      "initial_documented_breaches": 0,
+      "initial_smells": 1,
+      "fixed": "Read typed assembly counters directly; serialize current binding report once",
+      "final_documented_breaches": 0,
+      "final_smells": 0,
+      "model": "gpt-6.1-sol/high"
+    },
+    "spec": {
+      "initial_p2": 2,
+      "fixed": [
+        "Reserve cleanup inside the 60s total; optional logs cannot skip owned container removal or receipt saving",
+        "Retire the periodic browser interval on every terminal path, even when an expired adapter is retained"
+      ],
+      "final_findings": 0,
+      "model": "gpt-6.1-sol/high"
+    }
+  },
+  "retained_failures_and_lifecycle_checks": [
+    {
+      "path": "/tmp/mio-irc-s3-first/results.json",
+      "sha256": "f804b5100a0e6f1068146502984224c60deb377be7ce56c7be4800fe53d4e5c8"
+    },
+    {
+      "path": "/tmp/mio-irc-s3-first/irc-datagram.json",
+      "sha256": "07b55e51a3cc39224eaf67234828ed6e073c084843af70b77795e1019a534f21"
+    },
+    {
+      "path": "/tmp/miopunch-irc-cancel-red.log",
+      "sha256": "5234664bab738fb83ce50d94c0c7d6698c3b9dd285c9a19076740d1a62ca48f2"
+    },
+    {
+      "path": "/tmp/miopunch-irc-readiness-red.log",
+      "sha256": "2266173b2acf80031afad09fa0b8d0c16af863fe10591bed805adcbb01ac73a4"
+    },
+    {
+      "path": "/tmp/miopunch-irc-native-alias-red.log",
+      "sha256": "529b57f703de28c7cfc1d9b1ca888882915bd1f37a30623d175c748d39f0ecc6"
+    },
+    {
+      "path": "/tmp/mio-irc-s3-timer-red/results.json",
+      "sha256": "c4eb653722a160e42db9956b1cb12141edf5d3a8b5ff90e222677ea18f2c95f0"
+    },
+    {
+      "path": "/tmp/mio-irc-s3-timer-red/irc-datagram.json",
+      "sha256": "83c3b5f4cd021f2be5a9af6e5bf538b01a45b9bc3e4744bceddba278ebf2227f"
+    },
+    {
+      "path": "/tmp/mio-irc-s3-cleanup-red/cleanup-injection.json",
+      "sha256": "60c09eafa1acec05e54aba81e0af336e6651a68c5e0ae2bc200461b8ecd1d5ae"
+    },
+    {
+      "path": "/tmp/mio-irc-s3-cleanup-green/cleanup-injection.json",
+      "sha256": "1211c4d80ff0806d7623de710c3ff9dd6dee0f3cb13badb224bbae2d24206aef"
+    },
+    {
+      "path": "/tmp/mio-irc-s3-processgroup-red/cleanup-injection.json",
+      "sha256": "cc7d5087e5c4f09f3f092666cd04366f5c37517f19b32ad0cac78fe024548e56"
+    }
+  ],
+  "failure_notes": [
+    "First owned run stopped at fixture HTML404 before IRC datagrams; cleanup succeeded",
+    "Cancellation originally allowed a shared assembly generation to rebuild from late fragments; terminal cancellation is now tested",
+    "Qualification retirement originally allowed late005 to revive ready; terminal qualification is now tested",
+    "Native custom-scheme uppercase hostname originally bypassed origin disable; canonical case is now tested",
+    "Real browser expiration originally left one active interval before explicitclose; final real interval count is zero",
+    "Owned Docker log timeout originally skipped removal; that red owned container was manually removed (exit0). Independent cleanup now passes the same injected failure",
+    "The historical processgroup-red directory contains a passing lifecycle-only deadline check, not a datagram failure: synthetic SIGTERM-ignoring worker and real owned Ergo were retired within55.75s"
+  ],
+  "public_traffic": false,
+  "secrets_in_evidence": false,
+  "final_workspace_all_targets": {
+    "passed": true,
+    "features": [
+      "nat-lab-test-hooks",
+      "replica-test-hooks",
+      "member-signaling-test-hooks"
+    ],
+    "raw_log": {
+      "path": "/tmp/miopunch-irc-final-workspace-check.log",
+      "sha256": "53d9efbf4a2d43b67c378371f4d3d07cbaf3dd8bc27fd7cbd3c938e7189548a8"
+    }
+  }
+}

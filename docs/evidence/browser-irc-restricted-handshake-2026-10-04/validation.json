@@ -1,0 +1,148 @@
+{
+  "baseline": "b1fd4d924aa84ee8749e22cfaf5c6f532c7b4d82",
+  "qualification_available": false,
+  "source_hashes_audited": true,
+  "affected_full_native_suite_once": {
+    "passed": true,
+    "test_count": 71,
+    "ignored": 1,
+    "ignored_scope": "Existing privileged UDP data-cut test unchanged; no legacy NAT expansion.",
+    "receipt": "/tmp/mio-irc-s2-regression/results.json",
+    "receipt_sha256": "88f04a0a8e72f47c9d8794c62aa941132eeba56373fced4a2853f6db5bb4b925",
+    "log": "/tmp/mio-irc-s2-regression/affected-native-suite.log",
+    "log_sha256": "44c422eb56e361d53a883ac69a1035273533ff2501d84f889149f09025ce6fb6"
+  },
+  "workspace_all_targets_and_wasm": {
+    "passed": true,
+    "workspace_final_log": "/tmp/miopunch-irc-s2-reviewed-workspace.log",
+    "workspace_final_sha256": "63503b81a25d89f3f296bb3217a3e7e18902838943e8f2dd5e865a87acc476eb",
+    "wasm_fresh_build_receipts": [
+      "/tmp/mio-irc-s2-reviewed-45/results.json",
+      "/tmp/mio-irc-s2-reviewed-12/results.json"
+    ]
+  },
+  "actual_mqtt_restricted_regression": {
+    "passed": true,
+    "scope": "Current BrowserNetwork/WASM, real normal A plus independent-requester/wrong-contact/disable/deadline/cancel failure classes; not IRC qualification.",
+    "receipt": "/tmp/mio-irc-s2-reviewed-mqtt/results.json",
+    "receipt_sha256": "83dc17dd553d864bd6f70941d8fc51798e7646aca1d6012a7adad64357748664"
+  },
+  "retained_failures_and_red_green": [
+    {
+      "path": "/tmp/mio-irc-s2-first/results.json",
+      "sha256": "21d9f553346a93f24da85aa51c635826b14c496706fc1e99c1168b796e42679b",
+      "meaning": "Sandbox Docker denial before traffic; no owned fixture created."
+    },
+    {
+      "path": "/tmp/mio-irc-s2-diagnostic-first/results.json",
+      "sha256": "2be813a06a5cd1f7ee20e7b51f54e40c621a2c4fcf235b18a3e7195fab0e5ea6",
+      "meaning": "Source setup failure: Endpoint::addr excludes signaling custom routes; owned cleanup0."
+    },
+    {
+      "path": "/tmp/mio-irc-s2-diagnostic-route-green/results.json",
+      "sha256": "cb7b228c5eda4c83d9bddbde4eaccd892d82e8e8575469924c7e225ff5cf5789",
+      "meaning": "Wrong view watcher wait times out at existing10s startup deadline; not a handshake measurement."
+    },
+    {
+      "path": "/tmp/mio-irc-s2-diagnostic-custom-route/irc-restricted-handshake.json",
+      "sha256": "d4fab1ef3caa36b19d2fd9086564216a0c8de78ef42642a42914a6d782ca2229",
+      "meaning": "First true protocol attempt: native36.1s timeout; runner exposed graceful drain beyond caller guard, then actual owned cleanup."
+    },
+    {
+      "path": "/tmp/mio-irc-s2-diagnostic-final/irc-restricted-handshake.json",
+      "sha256": "c5845dd93b37e1bd0f1c811b2b06abe860997aa0ec11020043669123010c1a77",
+      "meaning": "Real local admission rejection ~16.1s; native graceful drain exposed missing explicit carrier retirement."
+    },
+    {
+      "path": "/tmp/miopunch-irc-s2-close-red.log",
+      "sha256": "93929a47e80f7bf6f4382e5af805874cc9b0c45f1f3d614ce3b78a446ca92ad1",
+      "meaning": "Public native retirement regression RED: absent close seam."
+    },
+    {
+      "path": "/tmp/miopunch-irc-s2-close-green.log",
+      "sha256": "fbd199b6c6d8a350da043130a82f45fc3e012f100b3fe1944e38aa9458c93315",
+      "meaning": "Sandbox blocks owned loopback listener; not a protocol regression."
+    },
+    {
+      "path": "/tmp/miopunch-irc-s2-close-green-socket.log",
+      "sha256": "bb72e280135ecb4cb7339310f48f240f8d9a9f5658d77bc86eac291e6b0731fa",
+      "meaning": "Authorized actual local public close/PONG test GREEN while owner retained."
+    },
+    {
+      "path": "/tmp/mio-irc-s2-mixed-red/results.json",
+      "sha256": "e880f5906c5bd778616e64f2e88547301076b4ef567e44cf5ba6707f3fdf60d1",
+      "meaning": "Fixture build failed before any traffic: missing MQTT counter initialization, corrected."
+    },
+    {
+      "path": "/tmp/mio-irc-s2-mixed-red-runtime/irc-mixed-retry.json",
+      "sha256": "bbdab24a3497d444776a20e6351f8aaa8bb14929567ede73c539d54c83c45cfc",
+      "meaning": "Actual reviewed P2 RED: failed IRCoriginal, same retained browser MQTTretry wrongly had8.47ms/zero request; owned cleanup0."
+    },
+    {
+      "path": "/tmp/mio-irc-s2-mixed-green/irc-mixed-retry.json",
+      "sha256": "94705827db8d0994e1c4aa98d826be633ea3353e0eff2a0328d69230e93f65fa",
+      "meaning": "Per-attempt deadline fixed; actual MQTT A formed but native fixture closed bufferedAwaitingApproval reply too early. Remains FAIL; fixed by waiting forpeer close under same server deadline."
+    }
+  ],
+  "reviews": {
+    "standards": {
+      "initial_documented_breaches": 0,
+      "initial_judgement_smells": 2,
+      "fixes": "Shared concrete owned IRC fixture utilities and browser receive metadata copier; no general transport framework. Three-line carrier readiness expressions retain their concrete types.",
+      "final": {
+        "documented_breaches": 0,
+        "remaining_judgement_smells": 1,
+        "parked": "Low duplicated CDP monitoring and MQTT wire-reader/framing across independently owned harnesses. Root explicitly accepts parking instead of a general transport framework or unsafe simultaneous main-harness edits.",
+        "resolved": "Substantive IRC fixture/receive-metadata duplication extracted; three unused MQTT fault branches removed.",
+        "model": "gpt-6.1-sol",
+        "reasoning": "high",
+        "agent": "/root/webrtc_s2_irc_sol61_high/irc_standards_review",
+        "fixed_baseline": "b1fd4d924aa84ee8749e22cfaf5c6f532c7b4d82"
+      }
+    },
+    "spec": {
+      "initial_findings": 1,
+      "severity": "P2",
+      "fix": "Each public manual/precode call has a fresh12s deadline; only explicit fixture shares initial startupdeadline. Actual retained mixed and delayedFIRST regressions passed.",
+      "final": {
+        "findings": 0,
+        "model": "gpt-6.1-sol",
+        "reasoning": "high",
+        "agent": "/root/webrtc_s2_irc_sol61_high/irc_spec_review",
+        "fixed_baseline": "b1fd4d924aa84ee8749e22cfaf5c6f532c7b4d82",
+        "source_and_artifact_hash_audit": "24 source hashes and20 artifact hashes matched at final review; later3unreachable JSbranch deletions checked independently and updatedhelper mixedreceipt passed."
+      }
+    }
+  },
+  "limitations": [
+    "No restricted A returned or application request accepted on this profile.",
+    "Wrong contact and another-requester IRC admission stories not qualified because original A did not form.",
+    "Graceful browser QUIC drain may time out; actual owned browser-context teardown ends remaining JS jobs.",
+    "No native saved TLS/channel facility parser product integration; stopped before IRC6.",
+    "No normal data/approval/materials/RTC/UI/TURN/public facility/default decision."
+  ],
+  "affected_shared_irc_fixture_and_browser_bridge_regression": {
+    "passed": true,
+    "receipt": "/tmp/mio-irc-s2-reviewed-datagram/results.json",
+    "receipt_sha256": "018bbabf56d5ba530fcf406337abd0846c8b439661e337fb49db8673689a56f1",
+    "scope": "Two real1200-byte datagrams plus localfault group; shared fixture extraction and browser receive metadata seam. Not IRC A qualification."
+  },
+  "retained_sdk_mqtt_regressions": {
+    "passed": true,
+    "red": "/tmp/mio-irc-s2-mixed-red-runtime/irc-mixed-retry.json",
+    "red_sha256": "bbdab24a3497d444776a20e6351f8aaa8bb14929567ede73c539d54c83c45cfc",
+    "green": "/tmp/mio-irc-s2-mixed-final-cleanup/irc-mixed-retry.json",
+    "green_sha256": "bb0268aa06bde848551d1f1131e32c519b23c76ed471071d996d7d4d928fe964",
+    "delayed_first": "/tmp/mio-irc-s2-delayed-first/irc-mixed-retry.json",
+    "delayed_first_sha256": "710bd817fbf7660cc583c2b775e3bdd5f33547be72702776d9189a17c328140d",
+    "scope": "Original IRC failed/no application request. Same retained SDK/identity retries through MQTT with fresh12s -> one unapproved request. First call after13s idle also succeeds onMQTT. No authorization/materials/repeated approval/code consumption."
+  },
+  "final_checks": {
+    "fmt": true,
+    "node_syntax": true,
+    "python_syntax": true,
+    "git_whitespace": true,
+    "no_live_owned_jobs": true,
+    "source_sha256_count": 24
+  }
+}

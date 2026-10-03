@@ -2482,6 +2482,7 @@ dependencies = [
  "rumqttc",
  "rustix",
  "rustls",
+ "rustls-pemfile",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -2490,8 +2491,10 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
+ "tokio-rustls",
  "tokio-util",
  "webrtc",
+ "webpki-roots",
  "windows-sys 0.61.2",
 ]
 

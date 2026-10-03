@@ -1,0 +1,1924 @@
+{
+  "startedUtc": "2026-10-03T21:13:31.339Z",
+  "passed": true,
+  "normal": [
+    {
+      "direction": "browser-native",
+      "bytes": 1200,
+      "sha256": "a952ade4894b1a37001ff320a7ddc6c2ad5cf943748e407fb770787f8420a39a",
+      "native": {
+        "driver_active": 1,
+        "expired": 0,
+        "fragments": 0,
+        "pending": 0,
+        "protocol": {
+          "accepted_bytes": 0,
+          "accepted_datagrams": [],
+          "assembly": {
+            "completed_age_ms": 5410,
+            "delivered": 1,
+            "expired": 0,
+            "pending": 0,
+            "pending_peak": 1,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [
+            {
+              "at_ms": 74,
+              "fragment": "00",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 684,
+              "fragment": "01",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 1284,
+              "fragment": "02",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 1884,
+              "fragment": "03",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 2484,
+              "fragment": "04",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 3084,
+              "fragment": "05",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 3684,
+              "fragment": "06",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 4284,
+              "fragment": "07",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 4884,
+              "fragment": "08",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 5484,
+              "fragment": "09",
+              "line_bytes": 261,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            }
+          ],
+          "max_line_bytes": 421,
+          "part_sent": false,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": true,
+            "isupport": [
+              "AWAYLEN=390",
+              "BOT=B",
+              "CASEMAPPING=ascii",
+              "CHANLIMIT=#:100",
+              "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+              "CHANNELLEN=64",
+              "CHANTYPES=#",
+              "ELIST=U",
+              "EXCEPTS",
+              "EXTBAN=,m",
+              "FORWARD=f",
+              "INVEX",
+              "KICKLEN=390",
+              "MAXLIST=beI:60",
+              "MAXTARGETS=4",
+              "MODES",
+              "MONITOR=100",
+              "NETWORK=ErgoTest",
+              "NICKLEN=32",
+              "PREFIX=(qaohv)~&@%+",
+              "STATUSMSG=~&@%+",
+              "TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+              "TOPICLEN=390",
+              "UTF8MAPPING=rfc8265",
+              "UTF8ONLY",
+              "WHOX"
+            ],
+            "joined": true,
+            "names_done": true,
+            "ready": true,
+            "registered": true,
+            "retired": false
+          },
+          "queue_age_ms": 0,
+          "queue_peak": 0,
+          "queue_pending": 0,
+          "quit_sent": false,
+          "ready_ms": 6,
+          "received_bytes": 1200,
+          "server_prefix": "ergo.test",
+          "tls": {
+            "cipher": "TLS13_AES_256_GCM_SHA384",
+            "hostname": "localhost",
+            "leaf_der_sha256": "f96e321c6d4a77e20b16647b7da708d3883547fd56ac88d69e33e4d05758d354",
+            "verified": true,
+            "version": "TLSv1_3"
+          },
+          "withdraw_ms": null
+        },
+        "received": 1,
+        "rejected": 0,
+        "sent": 0
+      },
+      "browser": {
+        "assembly": {
+          "completed_age_ms": 0,
+          "delivered": 0,
+          "expired": 0,
+          "pending": 0,
+          "pending_peak": 0,
+          "rejected": 0
+        },
+        "buffered_bytes": 0,
+        "closed": false,
+        "protocol": {
+          "accepted_bytes": 1200,
+          "accepted_datagrams": [
+            {
+              "at_ms": 33.700000047683716,
+              "bytes": 1200,
+              "ciphertext_sha256": "a952ade4894b1a37001ff320a7ddc6c2ad5cf943748e407fb770787f8420a39a",
+              "first_five_bytes": "0726456483"
+            }
+          ],
+          "buffered_bytes_peak": 379,
+          "failure": null,
+          "max_line_bytes": 313,
+          "part_sent": false,
+          "pong_sent": 0,
+          "queue_age_ms": 7.5,
+          "queue_peak": 1,
+          "quit_sent": false,
+          "ready_ms": 15.899999976158142,
+          "received_bytes": 0,
+          "received_fragments": [],
+          "received_packets": 0,
+          "rejected": 0,
+          "sent_fragments": [
+            {
+              "at_ms": 41.200000047683716,
+              "fragment": "00"
+            },
+            {
+              "at_ms": 651.1000000238419,
+              "fragment": "01"
+            },
+            {
+              "at_ms": 1251.1000000238419,
+              "fragment": "02"
+            },
+            {
+              "at_ms": 1851.1000000238419,
+              "fragment": "03"
+            },
+            {
+              "at_ms": 2451.100000023842,
+              "fragment": "04"
+            },
+            {
+              "at_ms": 3051.100000023842,
+              "fragment": "05"
+            },
+            {
+              "at_ms": 3651.100000023842,
+              "fragment": "06"
+            },
+            {
+              "at_ms": 4251.100000023842,
+              "fragment": "07"
+            },
+            {
+              "at_ms": 4851.100000023842,
+              "fragment": "08"
+            },
+            {
+              "at_ms": 5451.100000023842,
+              "fragment": "09"
+            }
+          ],
+          "sent_packets": 1,
+          "server_prefix": "ergo.test",
+          "withdraw_ms": null
+        },
+        "qualification": {
+          "capability": true,
+          "isupport": [
+            "AWAYLEN=390",
+            "BOT=B",
+            "CASEMAPPING=ascii",
+            "CHANLIMIT=#:100",
+            "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+            "CHANNELLEN=64",
+            "CHANTYPES=#",
+            "ELIST=U",
+            "EXCEPTS",
+            "EXTBAN=,m",
+            "FORWARD=f",
+            "INVEX",
+            "KICKLEN=390",
+            "MAXLIST=beI:60",
+            "MAXTARGETS=4",
+            "MODES",
+            "MONITOR=100",
+            "NETWORK=ErgoTest",
+            "NICKLEN=32",
+            "PREFIX=(qaohv)~&@%+",
+            "STATUSMSG=~&@%+",
+            "TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+            "TOPICLEN=390",
+            "UTF8MAPPING=rfc8265",
+            "UTF8ONLY",
+            "WHOX"
+          ],
+          "joined": true,
+          "names_done": true,
+          "ready": true,
+          "registered": true,
+          "retired": false
+        },
+        "queue_pending": 0,
+        "rx_pending": 0,
+        "socket_state": 1,
+        "timer_active": true,
+        "waiters": 0
+      }
+    },
+    {
+      "direction": "native-browser",
+      "bytes": 1200,
+      "sha256": "a952ade4894b1a37001ff320a7ddc6c2ad5cf943748e407fb770787f8420a39a",
+      "native": {
+        "driver_active": 1,
+        "expired": 0,
+        "fragments": 10,
+        "pending": 0,
+        "protocol": {
+          "accepted_bytes": 1200,
+          "accepted_datagrams": [
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "a952ade4894b1a37001ff320a7ddc6c2ad5cf943748e407fb770787f8420a39a",
+              "first_five_bytes": "0726456483"
+            }
+          ],
+          "assembly": {
+            "completed_age_ms": 5410,
+            "delivered": 1,
+            "expired": 0,
+            "pending": 0,
+            "pending_peak": 1,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [
+            {
+              "at_ms": 74,
+              "fragment": "00",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 684,
+              "fragment": "01",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 1284,
+              "fragment": "02",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 1884,
+              "fragment": "03",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 2484,
+              "fragment": "04",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 3084,
+              "fragment": "05",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 3684,
+              "fragment": "06",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 4284,
+              "fragment": "07",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 4884,
+              "fragment": "08",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 5484,
+              "fragment": "09",
+              "line_bytes": 261,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            }
+          ],
+          "max_line_bytes": 421,
+          "part_sent": false,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": true,
+            "isupport": [
+              "AWAYLEN=390",
+              "BOT=B",
+              "CASEMAPPING=ascii",
+              "CHANLIMIT=#:100",
+              "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+              "CHANNELLEN=64",
+              "CHANTYPES=#",
+              "ELIST=U",
+              "EXCEPTS",
+              "EXTBAN=,m",
+              "FORWARD=f",
+              "INVEX",
+              "KICKLEN=390",
+              "MAXLIST=beI:60",
+              "MAXTARGETS=4",
+              "MODES",
+              "MONITOR=100",
+              "NETWORK=ErgoTest",
+              "NICKLEN=32",
+              "PREFIX=(qaohv)~&@%+",
+              "STATUSMSG=~&@%+",
+              "TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+              "TOPICLEN=390",
+              "UTF8MAPPING=rfc8265",
+              "UTF8ONLY",
+              "WHOX"
+            ],
+            "joined": true,
+            "names_done": true,
+            "ready": true,
+            "registered": true,
+            "retired": false
+          },
+          "queue_age_ms": 0,
+          "queue_peak": 1,
+          "queue_pending": 0,
+          "quit_sent": false,
+          "ready_ms": 6,
+          "received_bytes": 1200,
+          "server_prefix": "ergo.test",
+          "tls": {
+            "cipher": "TLS13_AES_256_GCM_SHA384",
+            "hostname": "localhost",
+            "leaf_der_sha256": "f96e321c6d4a77e20b16647b7da708d3883547fd56ac88d69e33e4d05758d354",
+            "verified": true,
+            "version": "TLSv1_3"
+          },
+          "withdraw_ms": null
+        },
+        "received": 1,
+        "rejected": 0,
+        "sent": 1
+      },
+      "browser": {
+        "assembly": {
+          "completed_age_ms": 5412,
+          "delivered": 1,
+          "expired": 0,
+          "pending": 0,
+          "pending_peak": 1,
+          "rejected": 0
+        },
+        "buffered_bytes": 0,
+        "closed": false,
+        "protocol": {
+          "accepted_bytes": 1200,
+          "accepted_datagrams": [
+            {
+              "at_ms": 33.700000047683716,
+              "bytes": 1200,
+              "ciphertext_sha256": "a952ade4894b1a37001ff320a7ddc6c2ad5cf943748e407fb770787f8420a39a",
+              "first_five_bytes": "0726456483"
+            }
+          ],
+          "buffered_bytes_peak": 379,
+          "failure": null,
+          "max_line_bytes": 421,
+          "part_sent": false,
+          "pong_sent": 0,
+          "queue_age_ms": 7.5,
+          "queue_peak": 1,
+          "quit_sent": false,
+          "ready_ms": 15.899999976158142,
+          "received_bytes": 1200,
+          "received_fragments": [
+            {
+              "at_ms": 5459.399999976158,
+              "fragment": "00",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 6061,
+              "fragment": "01",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 6662.600000023842,
+              "fragment": "02",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 7263.899999976158,
+              "fragment": "03",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 7865.700000047684,
+              "fragment": "04",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 8467,
+              "fragment": "05",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 9068.700000047684,
+              "fragment": "06",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 9669.200000047684,
+              "fragment": "07",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 10270.600000023842,
+              "fragment": "08",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 10871.100000023842,
+              "fragment": "09",
+              "line_bytes": 261,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            }
+          ],
+          "received_packets": 1,
+          "rejected": 0,
+          "sent_fragments": [
+            {
+              "at_ms": 41.200000047683716,
+              "fragment": "00"
+            },
+            {
+              "at_ms": 651.1000000238419,
+              "fragment": "01"
+            },
+            {
+              "at_ms": 1251.1000000238419,
+              "fragment": "02"
+            },
+            {
+              "at_ms": 1851.1000000238419,
+              "fragment": "03"
+            },
+            {
+              "at_ms": 2451.100000023842,
+              "fragment": "04"
+            },
+            {
+              "at_ms": 3051.100000023842,
+              "fragment": "05"
+            },
+            {
+              "at_ms": 3651.100000023842,
+              "fragment": "06"
+            },
+            {
+              "at_ms": 4251.100000023842,
+              "fragment": "07"
+            },
+            {
+              "at_ms": 4851.100000023842,
+              "fragment": "08"
+            },
+            {
+              "at_ms": 5451.100000023842,
+              "fragment": "09"
+            }
+          ],
+          "sent_packets": 1,
+          "server_prefix": "ergo.test",
+          "withdraw_ms": null
+        },
+        "qualification": {
+          "capability": true,
+          "isupport": [
+            "AWAYLEN=390",
+            "BOT=B",
+            "CASEMAPPING=ascii",
+            "CHANLIMIT=#:100",
+            "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+            "CHANNELLEN=64",
+            "CHANTYPES=#",
+            "ELIST=U",
+            "EXCEPTS",
+            "EXTBAN=,m",
+            "FORWARD=f",
+            "INVEX",
+            "KICKLEN=390",
+            "MAXLIST=beI:60",
+            "MAXTARGETS=4",
+            "MODES",
+            "MONITOR=100",
+            "NETWORK=ErgoTest",
+            "NICKLEN=32",
+            "PREFIX=(qaohv)~&@%+",
+            "STATUSMSG=~&@%+",
+            "TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+            "TOPICLEN=390",
+            "UTF8MAPPING=rfc8265",
+            "UTF8ONLY",
+            "WHOX"
+          ],
+          "joined": true,
+          "names_done": true,
+          "ready": true,
+          "registered": true,
+          "retired": false
+        },
+        "queue_pending": 0,
+        "rx_pending": 0,
+        "socket_state": 1,
+        "timer_active": true,
+        "waiters": 0
+      }
+    }
+  ],
+  "native": [
+    {
+      "name": "normal",
+      "address_count": 0,
+      "event": "starting",
+      "route_rejected": true,
+      "traffic": {
+        "driver_active": 1,
+        "expired": 0,
+        "fragments": 0,
+        "pending": 0,
+        "protocol": {
+          "accepted_bytes": 0,
+          "accepted_datagrams": [],
+          "assembly": {
+            "completed_age_ms": 0,
+            "delivered": 0,
+            "expired": 0,
+            "pending": 0,
+            "pending_peak": 0,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [],
+          "max_line_bytes": 0,
+          "part_sent": false,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": false,
+            "isupport": [],
+            "joined": false,
+            "names_done": false,
+            "ready": false,
+            "registered": false,
+            "retired": false
+          },
+          "queue_age_ms": 0,
+          "queue_peak": 0,
+          "queue_pending": 0,
+          "quit_sent": false,
+          "ready_ms": null,
+          "received_bytes": 0,
+          "server_prefix": "",
+          "tls": null,
+          "withdraw_ms": null
+        },
+        "received": 0,
+        "rejected": 0,
+        "sent": 0
+      }
+    },
+    {
+      "name": "normal",
+      "address_count": 1,
+      "event": "ready",
+      "route": "4a3cf135787c2a8383abb5367537c66073e2c0ca1fb622a2160419dc465203d7",
+      "traffic": {
+        "driver_active": 1,
+        "expired": 0,
+        "fragments": 0,
+        "pending": 0,
+        "protocol": {
+          "accepted_bytes": 0,
+          "accepted_datagrams": [],
+          "assembly": {
+            "completed_age_ms": 0,
+            "delivered": 0,
+            "expired": 0,
+            "pending": 0,
+            "pending_peak": 0,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [],
+          "max_line_bytes": 313,
+          "part_sent": false,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": true,
+            "isupport": [
+              "AWAYLEN=390",
+              "BOT=B",
+              "CASEMAPPING=ascii",
+              "CHANLIMIT=#:100",
+              "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+              "CHANNELLEN=64",
+              "CHANTYPES=#",
+              "ELIST=U",
+              "EXCEPTS",
+              "EXTBAN=,m",
+              "FORWARD=f",
+              "INVEX",
+              "KICKLEN=390",
+              "MAXLIST=beI:60",
+              "MAXTARGETS=4",
+              "MODES",
+              "MONITOR=100",
+              "NETWORK=ErgoTest",
+              "NICKLEN=32",
+              "PREFIX=(qaohv)~&@%+",
+              "STATUSMSG=~&@%+",
+              "TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+              "TOPICLEN=390",
+              "UTF8MAPPING=rfc8265",
+              "UTF8ONLY",
+              "WHOX"
+            ],
+            "joined": true,
+            "names_done": true,
+            "ready": true,
+            "registered": true,
+            "retired": false
+          },
+          "queue_age_ms": 0,
+          "queue_peak": 0,
+          "queue_pending": 0,
+          "quit_sent": false,
+          "ready_ms": 6,
+          "received_bytes": 0,
+          "server_prefix": "ergo.test",
+          "tls": {
+            "cipher": "TLS13_AES_256_GCM_SHA384",
+            "hostname": "localhost",
+            "leaf_der_sha256": "f96e321c6d4a77e20b16647b7da708d3883547fd56ac88d69e33e4d05758d354",
+            "verified": true,
+            "version": "TLSv1_3"
+          },
+          "withdraw_ms": null
+        },
+        "received": 0,
+        "rejected": 0,
+        "sent": 0
+      }
+    },
+    {
+      "name": "normal",
+      "bytes": "0726456483a2c1e0ff1e3d5c7b9ab9d8f71635547392b1d0ef0e2d4c6b8aa9c8e70625446382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e60524436281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f211304f6e8daccbea0928476685a4c3e201203f5e7d9cbbdaf91837567594b3d2f1102f4e6d8cabcae90827466584a3c2e1001f3e5d7c9bbad9f81736557493b2d1f00f2e4d6c8baac9e80726456483a2c1e0ff1e3d5c7b9ab9d8f71635547392b1d0ef0e2d4c6b8aa9c8e70625446382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e60524436281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f211304f6e8daccbea0928476685a4c3e201203f5e7d9cbbdaf91837567594b3d2f1102f4e6d8cabcae90827466584a3c2e1001f3e5d7c9bbad9f81736557493b2d1f00f2e4d6c8baac9e80726456483a2c1e0ff1e3d5c7b9ab9d8f71635547392b1d0ef0e2d4c6b8aa9c8e70625446382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e60524436281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f211304f6e8daccbea0928476685a4c3e201203f5e7d9cbbdaf91837567594b3d2f1102f4e6d8cabcae90827466584a3c2e1001f3e5d7c9bbad9f81736557493b2d1f00f2e4d6c8baac9e80726456483a2c1e0ff1e3d5c7b9ab9d8f71635547392b1d0ef0e2d4c6b8aa9c8e70625446382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e60524436281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f211304f6e8daccbea0928476685a4c3e201203f5e7d9cbbdaf91837567594b3d2f1102f4e6d8cabcae90827466584a3c2e1001f3e5d7c9bbad9f81736557493b2d1f00f2e4d6c8baac9e80726456483a2c1e0ff1e3d5c7b9ab9d8f71635547392b1d0ef0e2d4c6b8aa9c8e70625446382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e60524436281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938",
+      "event": "received",
+      "source": "4a3cf135787c2a8383abb5367537c660d1bd5aac5b06c8d994d7da11ed4cc745",
+      "traffic": {
+        "driver_active": 1,
+        "expired": 0,
+        "fragments": 0,
+        "pending": 0,
+        "protocol": {
+          "accepted_bytes": 0,
+          "accepted_datagrams": [],
+          "assembly": {
+            "completed_age_ms": 5410,
+            "delivered": 1,
+            "expired": 0,
+            "pending": 0,
+            "pending_peak": 1,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [
+            {
+              "at_ms": 74,
+              "fragment": "00",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 684,
+              "fragment": "01",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 1284,
+              "fragment": "02",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 1884,
+              "fragment": "03",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 2484,
+              "fragment": "04",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 3084,
+              "fragment": "05",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 3684,
+              "fragment": "06",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 4284,
+              "fragment": "07",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 4884,
+              "fragment": "08",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 5484,
+              "fragment": "09",
+              "line_bytes": 261,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            }
+          ],
+          "max_line_bytes": 421,
+          "part_sent": false,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": true,
+            "isupport": [
+              "AWAYLEN=390",
+              "BOT=B",
+              "CASEMAPPING=ascii",
+              "CHANLIMIT=#:100",
+              "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+              "CHANNELLEN=64",
+              "CHANTYPES=#",
+              "ELIST=U",
+              "EXCEPTS",
+              "EXTBAN=,m",
+              "FORWARD=f",
+              "INVEX",
+              "KICKLEN=390",
+              "MAXLIST=beI:60",
+              "MAXTARGETS=4",
+              "MODES",
+              "MONITOR=100",
+              "NETWORK=ErgoTest",
+              "NICKLEN=32",
+              "PREFIX=(qaohv)~&@%+",
+              "STATUSMSG=~&@%+",
+              "TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+              "TOPICLEN=390",
+              "UTF8MAPPING=rfc8265",
+              "UTF8ONLY",
+              "WHOX"
+            ],
+            "joined": true,
+            "names_done": true,
+            "ready": true,
+            "registered": true,
+            "retired": false
+          },
+          "queue_age_ms": 0,
+          "queue_peak": 0,
+          "queue_pending": 0,
+          "quit_sent": false,
+          "ready_ms": 6,
+          "received_bytes": 1200,
+          "server_prefix": "ergo.test",
+          "tls": {
+            "cipher": "TLS13_AES_256_GCM_SHA384",
+            "hostname": "localhost",
+            "leaf_der_sha256": "f96e321c6d4a77e20b16647b7da708d3883547fd56ac88d69e33e4d05758d354",
+            "verified": true,
+            "version": "TLSv1_3"
+          },
+          "withdraw_ms": null
+        },
+        "received": 1,
+        "rejected": 0,
+        "sent": 0
+      }
+    },
+    {
+      "name": "normal",
+      "accepted": true,
+      "error": null,
+      "event": "sent",
+      "id": 1,
+      "traffic": {
+        "driver_active": 1,
+        "expired": 0,
+        "fragments": 0,
+        "pending": 0,
+        "protocol": {
+          "accepted_bytes": 1200,
+          "accepted_datagrams": [
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "a952ade4894b1a37001ff320a7ddc6c2ad5cf943748e407fb770787f8420a39a",
+              "first_five_bytes": "0726456483"
+            }
+          ],
+          "assembly": {
+            "completed_age_ms": 5410,
+            "delivered": 1,
+            "expired": 0,
+            "pending": 0,
+            "pending_peak": 1,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [
+            {
+              "at_ms": 74,
+              "fragment": "00",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 684,
+              "fragment": "01",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 1284,
+              "fragment": "02",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 1884,
+              "fragment": "03",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 2484,
+              "fragment": "04",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 3084,
+              "fragment": "05",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 3684,
+              "fragment": "06",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 4284,
+              "fragment": "07",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 4884,
+              "fragment": "08",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 5484,
+              "fragment": "09",
+              "line_bytes": 261,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            }
+          ],
+          "max_line_bytes": 421,
+          "part_sent": false,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": true,
+            "isupport": [
+              "AWAYLEN=390",
+              "BOT=B",
+              "CASEMAPPING=ascii",
+              "CHANLIMIT=#:100",
+              "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+              "CHANNELLEN=64",
+              "CHANTYPES=#",
+              "ELIST=U",
+              "EXCEPTS",
+              "EXTBAN=,m",
+              "FORWARD=f",
+              "INVEX",
+              "KICKLEN=390",
+              "MAXLIST=beI:60",
+              "MAXTARGETS=4",
+              "MODES",
+              "MONITOR=100",
+              "NETWORK=ErgoTest",
+              "NICKLEN=32",
+              "PREFIX=(qaohv)~&@%+",
+              "STATUSMSG=~&@%+",
+              "TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+              "TOPICLEN=390",
+              "UTF8MAPPING=rfc8265",
+              "UTF8ONLY",
+              "WHOX"
+            ],
+            "joined": true,
+            "names_done": true,
+            "ready": true,
+            "registered": true,
+            "retired": false
+          },
+          "queue_age_ms": 0,
+          "queue_peak": 1,
+          "queue_pending": 1,
+          "quit_sent": false,
+          "ready_ms": 6,
+          "received_bytes": 1200,
+          "server_prefix": "ergo.test",
+          "tls": {
+            "cipher": "TLS13_AES_256_GCM_SHA384",
+            "hostname": "localhost",
+            "leaf_der_sha256": "f96e321c6d4a77e20b16647b7da708d3883547fd56ac88d69e33e4d05758d354",
+            "verified": true,
+            "version": "TLSv1_3"
+          },
+          "withdraw_ms": null
+        },
+        "received": 1,
+        "rejected": 0,
+        "sent": 0
+      }
+    },
+    {
+      "name": "normal",
+      "address_count": 1,
+      "event": "status",
+      "route": "4a3cf135787c2a8383abb5367537c66073e2c0ca1fb622a2160419dc465203d7",
+      "traffic": {
+        "driver_active": 1,
+        "expired": 0,
+        "fragments": 10,
+        "pending": 0,
+        "protocol": {
+          "accepted_bytes": 1200,
+          "accepted_datagrams": [
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "a952ade4894b1a37001ff320a7ddc6c2ad5cf943748e407fb770787f8420a39a",
+              "first_five_bytes": "0726456483"
+            }
+          ],
+          "assembly": {
+            "completed_age_ms": 5410,
+            "delivered": 1,
+            "expired": 0,
+            "pending": 0,
+            "pending_peak": 1,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [
+            {
+              "at_ms": 74,
+              "fragment": "00",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 684,
+              "fragment": "01",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 1284,
+              "fragment": "02",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 1884,
+              "fragment": "03",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 2484,
+              "fragment": "04",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 3084,
+              "fragment": "05",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 3684,
+              "fragment": "06",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 4284,
+              "fragment": "07",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 4884,
+              "fragment": "08",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 5484,
+              "fragment": "09",
+              "line_bytes": 261,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            }
+          ],
+          "max_line_bytes": 421,
+          "part_sent": false,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": true,
+            "isupport": [
+              "AWAYLEN=390",
+              "BOT=B",
+              "CASEMAPPING=ascii",
+              "CHANLIMIT=#:100",
+              "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+              "CHANNELLEN=64",
+              "CHANTYPES=#",
+              "ELIST=U",
+              "EXCEPTS",
+              "EXTBAN=,m",
+              "FORWARD=f",
+              "INVEX",
+              "KICKLEN=390",
+              "MAXLIST=beI:60",
+              "MAXTARGETS=4",
+              "MODES",
+              "MONITOR=100",
+              "NETWORK=ErgoTest",
+              "NICKLEN=32",
+              "PREFIX=(qaohv)~&@%+",
+              "STATUSMSG=~&@%+",
+              "TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+              "TOPICLEN=390",
+              "UTF8MAPPING=rfc8265",
+              "UTF8ONLY",
+              "WHOX"
+            ],
+            "joined": true,
+            "names_done": true,
+            "ready": true,
+            "registered": true,
+            "retired": false
+          },
+          "queue_age_ms": 0,
+          "queue_peak": 1,
+          "queue_pending": 0,
+          "quit_sent": false,
+          "ready_ms": 6,
+          "received_bytes": 1200,
+          "server_prefix": "ergo.test",
+          "tls": {
+            "cipher": "TLS13_AES_256_GCM_SHA384",
+            "hostname": "localhost",
+            "leaf_der_sha256": "f96e321c6d4a77e20b16647b7da708d3883547fd56ac88d69e33e4d05758d354",
+            "verified": true,
+            "version": "TLSv1_3"
+          },
+          "withdraw_ms": null
+        },
+        "received": 1,
+        "rejected": 0,
+        "sent": 1
+      }
+    },
+    {
+      "name": "normal",
+      "event": "closed",
+      "route_rejected": true,
+      "traffic": {
+        "driver_active": 0,
+        "expired": 0,
+        "fragments": 10,
+        "pending": 0,
+        "protocol": {
+          "accepted_bytes": 1200,
+          "accepted_datagrams": [
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "a952ade4894b1a37001ff320a7ddc6c2ad5cf943748e407fb770787f8420a39a",
+              "first_five_bytes": "0726456483"
+            }
+          ],
+          "assembly": {
+            "completed_age_ms": 5410,
+            "delivered": 1,
+            "expired": 0,
+            "pending": 0,
+            "pending_peak": 1,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [
+            {
+              "at_ms": 74,
+              "fragment": "00",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 684,
+              "fragment": "01",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 1284,
+              "fragment": "02",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 1884,
+              "fragment": "03",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 2484,
+              "fragment": "04",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 3084,
+              "fragment": "05",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 3684,
+              "fragment": "06",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 4284,
+              "fragment": "07",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 4884,
+              "fragment": "08",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 5484,
+              "fragment": "09",
+              "line_bytes": 261,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            }
+          ],
+          "max_line_bytes": 421,
+          "part_sent": true,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": true,
+            "isupport": [
+              "AWAYLEN=390",
+              "BOT=B",
+              "CASEMAPPING=ascii",
+              "CHANLIMIT=#:100",
+              "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+              "CHANNELLEN=64",
+              "CHANTYPES=#",
+              "ELIST=U",
+              "EXCEPTS",
+              "EXTBAN=,m",
+              "FORWARD=f",
+              "INVEX",
+              "KICKLEN=390",
+              "MAXLIST=beI:60",
+              "MAXTARGETS=4",
+              "MODES",
+              "MONITOR=100",
+              "NETWORK=ErgoTest",
+              "NICKLEN=32",
+              "PREFIX=(qaohv)~&@%+",
+              "STATUSMSG=~&@%+",
+              "TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+              "TOPICLEN=390",
+              "UTF8MAPPING=rfc8265",
+              "UTF8ONLY",
+              "WHOX"
+            ],
+            "joined": true,
+            "names_done": true,
+            "ready": false,
+            "registered": true,
+            "retired": true
+          },
+          "queue_age_ms": 0,
+          "queue_peak": 1,
+          "queue_pending": 0,
+          "quit_sent": true,
+          "ready_ms": 6,
+          "received_bytes": 1200,
+          "server_prefix": "ergo.test",
+          "tls": {
+            "cipher": "TLS13_AES_256_GCM_SHA384",
+            "hostname": "localhost",
+            "leaf_der_sha256": "f96e321c6d4a77e20b16647b7da708d3883547fd56ac88d69e33e4d05758d354",
+            "verified": true,
+            "version": "TLSv1_3"
+          },
+          "withdraw_ms": 10932
+        },
+        "received": 1,
+        "rejected": 0,
+        "sent": 1
+      }
+    }
+  ],
+  "websockets": [
+    {
+      "url": "wss://localhost:43511/webirc",
+      "status": 101,
+      "headers": {
+        "Upgrade": "websocket",
+        "Sec-WebSocket-Protocol": "text.ircv3.net",
+        "Sec-WebSocket-Accept": "cCpv5Dhb7iqu88xGBvComMAap3A=",
+        "Connection": "Upgrade"
+      },
+      "closedMs": 1791062023305
+    },
+    {
+      "url": "wss://localhost:44882/fault",
+      "status": 101,
+      "headers": {
+        "Upgrade": "websocket",
+        "Sec-WebSocket-Protocol": "text.ircv3.net",
+        "Sec-WebSocket-Accept": "NCfjpvW3v+VvB9Kw23dL5ryEPNs=",
+        "Connection": "Upgrade"
+      },
+      "closedMs": 1791062023384
+    },
+    {
+      "url": "wss://localhost:44882/fault",
+      "status": 101,
+      "headers": {
+        "Upgrade": "websocket",
+        "Sec-WebSocket-Protocol": "text.ircv3.net",
+        "Sec-WebSocket-Accept": "+xu0YkRaY0MdQ0zx9OiPb2p1MC0=",
+        "Connection": "Upgrade"
+      },
+      "closedMs": 1791062023638
+    }
+  ],
+  "faults": {
+    "disabledAliasesNoWss": true,
+    "codec": {
+      "cancelled": {
+        "completed_age_ms": 0,
+        "delivered": 0,
+        "expired": 0,
+        "pending": 0,
+        "pending_peak": 1,
+        "rejected": 0
+      },
+      "conflict": {
+        "completed_age_ms": 0,
+        "delivered": 0,
+        "expired": 0,
+        "pending": 0,
+        "pending_peak": 1,
+        "rejected": 1
+      },
+      "missing": {
+        "completed_age_ms": 0,
+        "delivered": 0,
+        "expired": 1,
+        "pending": 0,
+        "pending_peak": 1,
+        "rejected": 0
+      }
+    },
+    "lifecycle": {
+      "pingAt": 1791062023380,
+      "pongAt": 1791062023381,
+      "pongLatencyMs": 1,
+      "fragmentsAtCancel": 1,
+      "browser": {
+        "assembly": {
+          "completed_age_ms": 0,
+          "delivered": 0,
+          "expired": 0,
+          "pending": 0,
+          "pending_peak": 0,
+          "rejected": 0
+        },
+        "buffered_bytes": 0,
+        "closed": true,
+        "protocol": {
+          "accepted_bytes": 1200,
+          "accepted_datagrams": [
+            {
+              "at_ms": 11.100000023841858,
+              "bytes": 1200,
+              "ciphertext_sha256": "e398e87ce2c49c28dd91d52c9043230d9ceea6cb506ec07d3a67c22a902adfea",
+              "first_five_bytes": "5a5a5a5a5a"
+            }
+          ],
+          "buffered_bytes_peak": 379,
+          "failure": null,
+          "max_line_bytes": 71,
+          "part_sent": true,
+          "pong_sent": 1,
+          "queue_age_ms": 9,
+          "queue_peak": 1,
+          "quit_sent": true,
+          "ready_ms": 8.299999952316284,
+          "received_bytes": 0,
+          "received_fragments": [],
+          "received_packets": 0,
+          "rejected": 0,
+          "sent_fragments": [
+            {
+              "at_ms": 20.100000023841858,
+              "fragment": "00"
+            }
+          ],
+          "sent_packets": 0,
+          "server_prefix": "fault.test",
+          "withdraw_ms": 22.299999952316284
+        },
+        "qualification": {
+          "capability": true,
+          "isupport": [
+            "NICKLEN=32"
+          ],
+          "joined": true,
+          "names_done": true,
+          "ready": false,
+          "registered": true,
+          "retired": true
+        },
+        "queue_pending": 0,
+        "rx_pending": 0,
+        "socket_state": 3,
+        "timer_active": false,
+        "waiters": 0
+      }
+    },
+    "deadline": {
+      "assembly": {
+        "completed_age_ms": 0,
+        "delivered": 0,
+        "expired": 0,
+        "pending": 0,
+        "pending_peak": 0,
+        "rejected": 0
+      },
+      "buffered_bytes": 0,
+      "closed": true,
+      "protocol": {
+        "accepted_bytes": 0,
+        "accepted_datagrams": [],
+        "buffered_bytes_peak": 50,
+        "failure": "JsValue(\"IRC whole attempt deadline\")",
+        "max_line_bytes": 71,
+        "part_sent": false,
+        "pong_sent": 0,
+        "queue_age_ms": 0,
+        "queue_peak": 0,
+        "quit_sent": false,
+        "ready_ms": 4.5,
+        "received_bytes": 0,
+        "received_fragments": [],
+        "received_packets": 0,
+        "rejected": 0,
+        "sent_fragments": [],
+        "sent_packets": 0,
+        "server_prefix": "fault.test",
+        "withdraw_ms": 250.5
+      },
+      "qualification": {
+        "capability": true,
+        "isupport": [
+          "NICKLEN=32"
+        ],
+        "joined": true,
+        "names_done": true,
+        "ready": false,
+        "registered": true,
+        "retired": true
+      },
+      "queue_pending": 0,
+      "rx_pending": 0,
+      "socket_state": 3,
+      "timer_active": false,
+      "waiters": 0
+    },
+    "deadlineActiveTimers": 0
+  },
+  "cleanup": {
+    "normalBrowser": {
+      "assembly": {
+        "completed_age_ms": 5412,
+        "delivered": 1,
+        "expired": 0,
+        "pending": 0,
+        "pending_peak": 1,
+        "rejected": 0
+      },
+      "buffered_bytes": 0,
+      "closed": true,
+      "protocol": {
+        "accepted_bytes": 1200,
+        "accepted_datagrams": [
+          {
+            "at_ms": 33.700000047683716,
+            "bytes": 1200,
+            "ciphertext_sha256": "a952ade4894b1a37001ff320a7ddc6c2ad5cf943748e407fb770787f8420a39a",
+            "first_five_bytes": "0726456483"
+          }
+        ],
+        "buffered_bytes_peak": 379,
+        "failure": null,
+        "max_line_bytes": 421,
+        "part_sent": true,
+        "pong_sent": 0,
+        "queue_age_ms": 7.5,
+        "queue_peak": 1,
+        "quit_sent": true,
+        "ready_ms": 15.899999976158142,
+        "received_bytes": 1200,
+        "received_fragments": [
+          {
+            "at_ms": 5459.399999976158,
+            "fragment": "00",
+            "line_bytes": 421,
+            "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 6061,
+            "fragment": "01",
+            "line_bytes": 421,
+            "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 6662.600000023842,
+            "fragment": "02",
+            "line_bytes": 421,
+            "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 7263.899999976158,
+            "fragment": "03",
+            "line_bytes": 421,
+            "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 7865.700000047684,
+            "fragment": "04",
+            "line_bytes": 421,
+            "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 8467,
+            "fragment": "05",
+            "line_bytes": 421,
+            "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 9068.700000047684,
+            "fragment": "06",
+            "line_bytes": 421,
+            "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 9669.200000047684,
+            "fragment": "07",
+            "line_bytes": 421,
+            "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 10270.600000023842,
+            "fragment": "08",
+            "line_bytes": 421,
+            "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 10871.100000023842,
+            "fragment": "09",
+            "line_bytes": 261,
+            "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+          }
+        ],
+        "received_packets": 1,
+        "rejected": 0,
+        "sent_fragments": [
+          {
+            "at_ms": 41.200000047683716,
+            "fragment": "00"
+          },
+          {
+            "at_ms": 651.1000000238419,
+            "fragment": "01"
+          },
+          {
+            "at_ms": 1251.1000000238419,
+            "fragment": "02"
+          },
+          {
+            "at_ms": 1851.1000000238419,
+            "fragment": "03"
+          },
+          {
+            "at_ms": 2451.100000023842,
+            "fragment": "04"
+          },
+          {
+            "at_ms": 3051.100000023842,
+            "fragment": "05"
+          },
+          {
+            "at_ms": 3651.100000023842,
+            "fragment": "06"
+          },
+          {
+            "at_ms": 4251.100000023842,
+            "fragment": "07"
+          },
+          {
+            "at_ms": 4851.100000023842,
+            "fragment": "08"
+          },
+          {
+            "at_ms": 5451.100000023842,
+            "fragment": "09"
+          }
+        ],
+        "sent_packets": 1,
+        "server_prefix": "ergo.test",
+        "withdraw_ms": 10879.399999976158
+      },
+      "qualification": {
+        "capability": true,
+        "isupport": [
+          "AWAYLEN=390",
+          "BOT=B",
+          "CASEMAPPING=ascii",
+          "CHANLIMIT=#:100",
+          "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+          "CHANNELLEN=64",
+          "CHANTYPES=#",
+          "ELIST=U",
+          "EXCEPTS",
+          "EXTBAN=,m",
+          "FORWARD=f",
+          "INVEX",
+          "KICKLEN=390",
+          "MAXLIST=beI:60",
+          "MAXTARGETS=4",
+          "MODES",
+          "MONITOR=100",
+          "NETWORK=ErgoTest",
+          "NICKLEN=32",
+          "PREFIX=(qaohv)~&@%+",
+          "STATUSMSG=~&@%+",
+          "TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+          "TOPICLEN=390",
+          "UTF8MAPPING=rfc8265",
+          "UTF8ONLY",
+          "WHOX"
+        ],
+        "joined": true,
+        "names_done": true,
+        "ready": false,
+        "registered": true,
+        "retired": true
+      },
+      "queue_pending": 0,
+      "rx_pending": 0,
+      "socket_state": 3,
+      "timer_active": false,
+      "waiters": 0
+    },
+    "normalNative": {
+      "driver_active": 0,
+      "expired": 0,
+      "fragments": 10,
+      "pending": 0,
+      "protocol": {
+        "accepted_bytes": 1200,
+        "accepted_datagrams": [
+          {
+            "bytes": 1200,
+            "ciphertext_sha256": "a952ade4894b1a37001ff320a7ddc6c2ad5cf943748e407fb770787f8420a39a",
+            "first_five_bytes": "0726456483"
+          }
+        ],
+        "assembly": {
+          "completed_age_ms": 5410,
+          "delivered": 1,
+          "expired": 0,
+          "pending": 0,
+          "pending_peak": 1,
+          "rejected": 0
+        },
+        "failure": null,
+        "fragments": [
+          {
+            "at_ms": 74,
+            "fragment": "00",
+            "line_bytes": 421,
+            "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 684,
+            "fragment": "01",
+            "line_bytes": 421,
+            "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 1284,
+            "fragment": "02",
+            "line_bytes": 421,
+            "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 1884,
+            "fragment": "03",
+            "line_bytes": 421,
+            "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 2484,
+            "fragment": "04",
+            "line_bytes": 421,
+            "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 3084,
+            "fragment": "05",
+            "line_bytes": 421,
+            "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 3684,
+            "fragment": "06",
+            "line_bytes": 421,
+            "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 4284,
+            "fragment": "07",
+            "line_bytes": 421,
+            "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 4884,
+            "fragment": "08",
+            "line_bytes": 421,
+            "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+          },
+          {
+            "at_ms": 5484,
+            "fragment": "09",
+            "line_bytes": 261,
+            "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+          }
+        ],
+        "max_line_bytes": 421,
+        "part_sent": true,
+        "pong_sent": 0,
+        "qualification": {
+          "capability": true,
+          "isupport": [
+            "AWAYLEN=390",
+            "BOT=B",
+            "CASEMAPPING=ascii",
+            "CHANLIMIT=#:100",
+            "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+            "CHANNELLEN=64",
+            "CHANTYPES=#",
+            "ELIST=U",
+            "EXCEPTS",
+            "EXTBAN=,m",
+            "FORWARD=f",
+            "INVEX",
+            "KICKLEN=390",
+            "MAXLIST=beI:60",
+            "MAXTARGETS=4",
+            "MODES",
+            "MONITOR=100",
+            "NETWORK=ErgoTest",
+            "NICKLEN=32",
+            "PREFIX=(qaohv)~&@%+",
+            "STATUSMSG=~&@%+",
+            "TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+            "TOPICLEN=390",
+            "UTF8MAPPING=rfc8265",
+            "UTF8ONLY",
+            "WHOX"
+          ],
+          "joined": true,
+          "names_done": true,
+          "ready": false,
+          "registered": true,
+          "retired": true
+        },
+        "queue_age_ms": 0,
+        "queue_peak": 1,
+        "queue_pending": 0,
+        "quit_sent": true,
+        "ready_ms": 6,
+        "received_bytes": 1200,
+        "server_prefix": "ergo.test",
+        "tls": {
+          "cipher": "TLS13_AES_256_GCM_SHA384",
+          "hostname": "localhost",
+          "leaf_der_sha256": "f96e321c6d4a77e20b16647b7da708d3883547fd56ac88d69e33e4d05758d354",
+          "verified": true,
+          "version": "TLSv1_3"
+        },
+        "withdraw_ms": 10932
+      },
+      "received": 1,
+      "rejected": 0,
+      "sent": 1
+    },
+    "browser": {
+      "assembly": {
+        "completed_age_ms": 0,
+        "delivered": 0,
+        "expired": 0,
+        "pending": 0,
+        "pending_peak": 0,
+        "rejected": 0
+      },
+      "buffered_bytes": 0,
+      "closed": true,
+      "protocol": {
+        "accepted_bytes": 0,
+        "accepted_datagrams": [],
+        "buffered_bytes_peak": 50,
+        "failure": "JsValue(\"IRC whole attempt deadline\")",
+        "max_line_bytes": 71,
+        "part_sent": false,
+        "pong_sent": 0,
+        "queue_age_ms": 0,
+        "queue_peak": 0,
+        "quit_sent": false,
+        "ready_ms": 4.5,
+        "received_bytes": 0,
+        "received_fragments": [],
+        "received_packets": 0,
+        "rejected": 0,
+        "sent_fragments": [],
+        "sent_packets": 0,
+        "server_prefix": "fault.test",
+        "withdraw_ms": 250.5
+      },
+      "qualification": {
+        "capability": true,
+        "isupport": [
+          "NICKLEN=32"
+        ],
+        "joined": true,
+        "names_done": true,
+        "ready": false,
+        "registered": true,
+        "retired": true
+      },
+      "queue_pending": 0,
+      "rx_pending": 0,
+      "socket_state": 3,
+      "timer_active": false,
+      "waiters": 0
+    },
+    "activeNativeProcesses": 0,
+    "serversClosed": true,
+    "activeFaultSockets": 0
+  },
+  "budgets": {
+    "outerSeconds": 60,
+    "profileSeconds": 30,
+    "phaseSeconds": 15
+  },
+  "origin": "http://localhost:43368",
+  "launch": {
+    "executablePath": "/tmp/mio-rtc-irc-lkfa5foo/chromium-private-trust.sh",
+    "headless": true,
+    "args": [
+      "--no-sandbox"
+    ],
+    "ignoreHTTPSErrors": false,
+    "privateNssMount": true,
+    "certificateBypassFlags": []
+  },
+  "browserVersion": "153.0.8010.12",
+  "facility": {
+    "logical_id": "owned-irc-datagram-fixture",
+    "native_url": "ircs://localhost:43510/",
+    "wss_url": "wss://localhost:43511/webirc",
+    "channel": "#mio-5fc3fee7d5c7"
+  },
+  "profile": {
+    "pacing_ms": 600,
+    "assembly_ttl_ms": 8000,
+    "queue_ttl_ms": 1500,
+    "attempt_ms": 30000
+  },
+  "completedUtc": "2026-10-03T21:13:43.736Z"
+}

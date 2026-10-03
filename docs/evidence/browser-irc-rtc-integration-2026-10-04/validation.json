@@ -1,0 +1,1112 @@
+{
+  "scope": "Semantic integration of final IRC carrier and stopped restricted experiment with current S5 RTC",
+  "releaseBaseline": "ca3be8bad6887c96022297081ddeafa2e2514364",
+  "integratedSources": [
+    "b1fd4d924aa84ee8749e22cfaf5c6f532c7b4d82",
+    "517b71bb9ac6d159449a87f7abea2450cf9400bc"
+  ],
+  "history": "517b is final amended direct child of b1fd; earlier81d58 sibling is not separately applied",
+  "passed": true,
+  "typechecks": {
+    "baseline": "ca3be8bad6887c96022297081ddeafa2e2514364",
+    "scope": "StageA IRC semantic integration checks",
+    "checks": [
+      {
+        "name": "native-all-targets",
+        "argv": [
+          "cargo",
+          "check",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "--workspace",
+          "--all-targets",
+          "--features",
+          "rtc-probe,nat-lab-test-hooks,member-signaling-test-hooks"
+        ],
+        "exit": 0,
+        "seconds": 24.576
+      },
+      {
+        "name": "wasm-rtc",
+        "argv": [
+          "cargo",
+          "check",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "-p",
+          "miopunch-browser-probe",
+          "--target",
+          "wasm32-unknown-unknown",
+          "--features",
+          "rtc-probe"
+        ],
+        "exit": 0,
+        "seconds": 13.397
+      }
+    ],
+    "passed": true
+  },
+  "nativeRemaining": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "start-usable",
+        "argv": [
+          "docker",
+          "run",
+          "--detach",
+          "--name",
+          "miopunch-s6-integration-usable-1791061646108479629",
+          "--publish",
+          "127.0.0.1::6667",
+          "--entrypoint",
+          "/ircd-bin/ergo",
+          "--mount",
+          "type=bind,src=/tmp/mio-rtc-s6-integration-native-owned-20261004/usable.yaml,target=/ircd/ircd.yaml,readonly",
+          "ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7",
+          "run"
+        ],
+        "exit": 0,
+        "seconds": 0.415
+      },
+      {
+        "name": "start-limited",
+        "argv": [
+          "docker",
+          "run",
+          "--detach",
+          "--name",
+          "miopunch-s6-integration-limited-1791061646559753796",
+          "--publish",
+          "127.0.0.1::6667",
+          "--entrypoint",
+          "/ircd-bin/ergo",
+          "--mount",
+          "type=bind,src=/tmp/mio-rtc-s6-integration-native-owned-20261004/limited.yaml,target=/ircd/ircd.yaml,readonly",
+          "ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7",
+          "run"
+        ],
+        "exit": 0,
+        "seconds": 0.315
+      },
+      {
+        "name": "start-mqtt",
+        "argv": [
+          "docker",
+          "run",
+          "--detach",
+          "--name",
+          "miopunch-s6-integration-mqtt-1791061646903170265",
+          "--publish",
+          "127.0.0.1::1883",
+          "--mount",
+          "type=bind,src=/home/js/Git/miopunch/scripts/mosquitto-test.conf,target=/mosquitto/config/mosquitto.conf,readonly",
+          "eclipse-mosquitto:2"
+        ],
+        "exit": 0,
+        "seconds": 0.315
+      },
+      {
+        "name": "remaining-native",
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "--features",
+          "rtc-probe",
+          "--test",
+          "irc_datagram",
+          "--test",
+          "irc_bootstrap",
+          "--test",
+          "resources",
+          "--test",
+          "mqtt_datagram",
+          "--test",
+          "mqtt_upgrade",
+          "--test",
+          "rtc_path_qualification",
+          "--",
+          "--test-threads=1"
+        ],
+        "exit": 0,
+        "seconds": 96.347
+      }
+    ],
+    "cleanup": [
+      {
+        "container": "miopunch-s6-integration-usable-1791061646108479629",
+        "remove_exit": 0
+      },
+      {
+        "container": "miopunch-s6-integration-limited-1791061646559753796",
+        "remove_exit": 0
+      },
+      {
+        "container": "miopunch-s6-integration-mqtt-1791061646903170265",
+        "remove_exit": 0
+      }
+    ],
+    "prior": "/tmp/mio-rtc-s6-integration-native-20261004c",
+    "scope": "Only remaining combined targets; earlier library25/gate18/proof10 already passed",
+    "owned_addresses": [
+      "127.0.0.1:43507",
+      "127.0.0.1:43508",
+      "127.0.0.1:43509"
+    ]
+  },
+  "earlierPassedNative": {
+    "tests": 53,
+    "suites": {
+      "library": 25,
+      "admission_gate": 18,
+      "admission_proof": 10
+    },
+    "raw": "/tmp/mio-rtc-s6-integration-native-20261004c/affected-native.log"
+  },
+  "nativeTotalPassed": 112,
+  "ignored": "One existing privileged IRC UDP data cut; unchanged and outside integration",
+  "sourceAndArtifacts": {
+    "scope": "StageA actual combined IRC/RTC integration, no IRC restricted qualification claim",
+    "baseline": "ca3be8bad6887c96022297081ddeafa2e2514364",
+    "passed": true,
+    "checks": [
+      {
+        "name": "fresh-native",
+        "argv": [
+          "cargo",
+          "build",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "--features",
+          "rtc-probe",
+          "--bin",
+          "browser_network_native",
+          "--bin",
+          "browser-probe-native",
+          "--bin",
+          "browser_restricted_native",
+          "--bin",
+          "browser_irc_datagram",
+          "--bin",
+          "browser_irc_restricted_native",
+          "--bin",
+          "browser_mqtt_datagram"
+        ],
+        "exit": 0,
+        "seconds": 24.046
+      },
+      {
+        "name": "fresh-wasm",
+        "argv": [
+          "cargo",
+          "build",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "-p",
+          "miopunch-browser-probe",
+          "--target",
+          "wasm32-unknown-unknown",
+          "--features",
+          "rtc-probe"
+        ],
+        "exit": 0,
+        "seconds": 22.219
+      },
+      {
+        "name": "fresh-bindgen",
+        "argv": [
+          "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+          "--target",
+          "web",
+          "--out-dir",
+          "browser-probe/pkg",
+          "target/wasm32-unknown-unknown/debug/miopunch_browser_probe.wasm"
+        ],
+        "exit": 0,
+        "seconds": 2.076
+      },
+      {
+        "name": "irc-datagram",
+        "argv": [
+          "python3",
+          "scripts/check_browser_paths.py",
+          "--case",
+          "irc-datagram",
+          "--skip-build",
+          "--output",
+          "/tmp/mio-rtc-s6-integration-qualification-20261004/irc-datagram"
+        ],
+        "exit": 0,
+        "seconds": 14.197
+      },
+      {
+        "name": "wss-restricted-handshake",
+        "argv": [
+          "python3",
+          "scripts/check_browser_paths.py",
+          "--case",
+          "wss-restricted-handshake",
+          "--skip-build",
+          "--output",
+          "/tmp/mio-rtc-s6-integration-qualification-20261004/wss-restricted-handshake"
+        ],
+        "exit": 0,
+        "seconds": 20.213
+      },
+      {
+        "name": "relay-member-rtc",
+        "argv": [
+          "python3",
+          "scripts/check_browser_paths.py",
+          "--case",
+          "relay-member-rtc",
+          "--skip-build",
+          "--output",
+          "/tmp/mio-rtc-s6-integration-qualification-20261004/relay-member-rtc"
+        ],
+        "exit": 0,
+        "seconds": 30.686
+      }
+    ],
+    "sourceBefore": {
+      "Cargo.lock": "09e97a45a237bb32e4fad1a39db7f923780703fd0d56f80523673511bd5b3fff",
+      "Cargo.toml": "8eecf89731b6ec6e0572a3623b8ed82f9008e200db46b4e281d86c1a4ea6da9b",
+      "browser-probe/Cargo.toml": "a0326ee28347ec55af56f6819bae779226349c1250e97dca1d58fc8d90c3a51e",
+      "browser-probe/harness/owned-irc-fixture.mjs": "43dfc3488521c44a93ed6eb55edb412f30ab5fb5f5cb1bbb90b82a93c1837877",
+      "browser-probe/harness/owned-mixed-mqtt-proxy.mjs": "b50cf2d40ff0094bade4882e3c1f244fb24b992eb3d84866ee12a69224303bf9",
+      "browser-probe/harness/run-irc-datagram.mjs": "7a32e0ef53f7d9dffeefaf83382db744db62249cd6790f42bf592f3d6340a04f",
+      "browser-probe/harness/run-irc-mixed-retry.mjs": "1b6842c6aca6d92bc2cb50376922be7be715cf05e59f87c3f8278a5b624a157d",
+      "browser-probe/harness/run-irc-restricted.mjs": "ccd178b20223cb508c432942bbd949bc93229b585db8858fab296d30347e06da",
+      "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+      "browser-probe/src/custom_datagram.rs": "915d7f96d31cc2e6a6b860bb36c5608b0cba1a10c0ee754296964134436fdd75",
+      "browser-probe/src/irc.rs": "7311dcf3f6f9a786ba12722ab328859a91a6f26287814c3eb4a57804be227b08",
+      "browser-probe/src/lib.rs": "0160c518761b6e51ff086aa9d457bc7ab0041b120c85ea224d879f78ea630969",
+      "browser-probe/src/member_connection.rs": "cb1c0f7d365923bacce6f6c42d2fe6cfcbee63b69417a23c781a86bdbdab4a91",
+      "browser-probe/src/mqtt.rs": "67ca10c43bd3479ca0dbad91bb7691fa535dd3dce8faf2a7ef8dc496ecbd83df",
+      "browser-probe/src/network.rs": "9619ad6daa81e1d2030909d54208d59a677e11dfcdd0043ec3bd3b2bf5cf8a97",
+      "browser-probe/src/rtc_member.rs": "c2ea8fd9b718b343ac9f937294674de5d9d09d34729f8cdc55ce2a4403de2df3",
+      "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+      "scripts/check_browser_irc.py": "255fd01bda77ce68a1e7922ca34d7ae66354e94c6f0194397fbc53ffc3138931",
+      "scripts/check_browser_paths.py": "c7e5447bb9709bad5037eb193e5b1af293997d1b0dcd5b4d8e1e16707d1b0013",
+      "scripts/check_browser_rtc.py": "efc3f597ab4cf464190c3c6b6ec4f9cac92e08cdfa94c889c0db15ba003e1975",
+      "src/bin/browser_irc_datagram.rs": "f3a94c2c1bf954abb689aede68bd207f25f62d7b16a4f0cb6bce09486ead403b",
+      "src/bin/browser_irc_restricted_native.rs": "fe971924716bc0bc1915b14928a3ee354579289b3709cc446244743621ca6403",
+      "src/bin/browser_restricted_native.rs": "42e6cb72ad76d7c15cfa3bd7c956cb1d7875d691f88f73e8e46a6eb4a700ad0e",
+      "src/irc_datagram.rs": "8e17cec89dd1e334c14cdf944ce11bda65d6a44ee4885e6010ae66d6b9ac7b3c",
+      "src/irc_transport.rs": "799ac4203ece0c99afde4e4d0aaaf057b47ac82f2a10ab3e38a7b8aab8f0dde7",
+      "src/lib.rs": "7a171ddf82d6e6331332595c027f5da1819bc0dfd78db88e6154a7e009a67ba9",
+      "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+      "src/rtc_member.rs": "9008a15a123bc9005e5f847de244c625939d5a2add5cb751dfed7df4147a455e",
+      "src/rtc_transport.rs": "6596e28adc9390b89d768df016d06ad5d5879b5651df79cc24adc88bb17e33ae",
+      "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+      "tests/irc_datagram.rs": "619f3aa076cb5ece604a983914dd7abfb52fd12307136de2a279f8d68e107187"
+    },
+    "builtArtifacts": {
+      "target/debug/browser_network_native": "6b84a3570c9d948ce168ebf5009d766c3e6fa0fbe715fe4b3e6bc888d94ff643",
+      "target/debug/browser-probe-native": "fcd9383b04fd1c497de04dd4391ab3f7d914c4d0b002023b1debf672d4835b15",
+      "target/debug/browser_restricted_native": "70b58f1c208372be7f65740d04c94a5bbb3af44392f2e1db6b7e0eca20ce64f9",
+      "target/debug/browser_irc_datagram": "a4285e6a51a40db626823f28ea46a029f7083594c7d271b365902cdaf54f59f6",
+      "target/debug/browser_irc_restricted_native": "73e74da183340a274e3fccdb1505a32f16aa2ea7a8c2b9d3bd30472529291bbb",
+      "target/debug/browser_mqtt_datagram": "26bae04034e953db505316d784576e4e2a54aa31f4d5078f880bd9ad9e62fa19",
+      "browser-probe/pkg/miopunch_browser_probe.js": "9479019e0c841135452ad4541e221d2f623bd361a61f6d6d57577ffc22be82ba",
+      "browser-probe/pkg/miopunch_browser_probe_bg.wasm": "a7785f383449843c58b64a4e43d8afa27589bd6aacf886a985be0ca27ca27c6e"
+    },
+    "sourceAfter": {
+      "Cargo.lock": "09e97a45a237bb32e4fad1a39db7f923780703fd0d56f80523673511bd5b3fff",
+      "Cargo.toml": "8eecf89731b6ec6e0572a3623b8ed82f9008e200db46b4e281d86c1a4ea6da9b",
+      "browser-probe/Cargo.toml": "a0326ee28347ec55af56f6819bae779226349c1250e97dca1d58fc8d90c3a51e",
+      "browser-probe/harness/owned-irc-fixture.mjs": "43dfc3488521c44a93ed6eb55edb412f30ab5fb5f5cb1bbb90b82a93c1837877",
+      "browser-probe/harness/owned-mixed-mqtt-proxy.mjs": "b50cf2d40ff0094bade4882e3c1f244fb24b992eb3d84866ee12a69224303bf9",
+      "browser-probe/harness/run-irc-datagram.mjs": "7a32e0ef53f7d9dffeefaf83382db744db62249cd6790f42bf592f3d6340a04f",
+      "browser-probe/harness/run-irc-mixed-retry.mjs": "1b6842c6aca6d92bc2cb50376922be7be715cf05e59f87c3f8278a5b624a157d",
+      "browser-probe/harness/run-irc-restricted.mjs": "ccd178b20223cb508c432942bbd949bc93229b585db8858fab296d30347e06da",
+      "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+      "browser-probe/src/custom_datagram.rs": "915d7f96d31cc2e6a6b860bb36c5608b0cba1a10c0ee754296964134436fdd75",
+      "browser-probe/src/irc.rs": "7311dcf3f6f9a786ba12722ab328859a91a6f26287814c3eb4a57804be227b08",
+      "browser-probe/src/lib.rs": "0160c518761b6e51ff086aa9d457bc7ab0041b120c85ea224d879f78ea630969",
+      "browser-probe/src/member_connection.rs": "cb1c0f7d365923bacce6f6c42d2fe6cfcbee63b69417a23c781a86bdbdab4a91",
+      "browser-probe/src/mqtt.rs": "67ca10c43bd3479ca0dbad91bb7691fa535dd3dce8faf2a7ef8dc496ecbd83df",
+      "browser-probe/src/network.rs": "9619ad6daa81e1d2030909d54208d59a677e11dfcdd0043ec3bd3b2bf5cf8a97",
+      "browser-probe/src/rtc_member.rs": "c2ea8fd9b718b343ac9f937294674de5d9d09d34729f8cdc55ce2a4403de2df3",
+      "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+      "scripts/check_browser_irc.py": "255fd01bda77ce68a1e7922ca34d7ae66354e94c6f0194397fbc53ffc3138931",
+      "scripts/check_browser_paths.py": "c7e5447bb9709bad5037eb193e5b1af293997d1b0dcd5b4d8e1e16707d1b0013",
+      "scripts/check_browser_rtc.py": "efc3f597ab4cf464190c3c6b6ec4f9cac92e08cdfa94c889c0db15ba003e1975",
+      "src/bin/browser_irc_datagram.rs": "f3a94c2c1bf954abb689aede68bd207f25f62d7b16a4f0cb6bce09486ead403b",
+      "src/bin/browser_irc_restricted_native.rs": "fe971924716bc0bc1915b14928a3ee354579289b3709cc446244743621ca6403",
+      "src/bin/browser_restricted_native.rs": "42e6cb72ad76d7c15cfa3bd7c956cb1d7875d691f88f73e8e46a6eb4a700ad0e",
+      "src/irc_datagram.rs": "8e17cec89dd1e334c14cdf944ce11bda65d6a44ee4885e6010ae66d6b9ac7b3c",
+      "src/irc_transport.rs": "799ac4203ece0c99afde4e4d0aaaf057b47ac82f2a10ab3e38a7b8aab8f0dde7",
+      "src/lib.rs": "7a171ddf82d6e6331332595c027f5da1819bc0dfd78db88e6154a7e009a67ba9",
+      "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+      "src/rtc_member.rs": "9008a15a123bc9005e5f847de244c625939d5a2add5cb751dfed7df4147a455e",
+      "src/rtc_transport.rs": "6596e28adc9390b89d768df016d06ad5d5879b5651df79cc24adc88bb17e33ae",
+      "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+      "tests/irc_datagram.rs": "619f3aa076cb5ece604a983914dd7abfb52fd12307136de2a279f8d68e107187"
+    },
+    "sourceUnchanged": true
+  },
+  "formatSyntaxWhitespace": "cargo fmt --all -- --check; Python compile and git diff checks passed",
+  "review": "Final STEP6 two-axis review compares ca3 and covers semantic fusion, without re-reviewing unchanged independent IRC modules",
+  "limitations": [
+    "IRC datagram600ms profile qualified; IRC restricted A/STEP6 remains unqualified and stop branch retained",
+    "Fast native IRC backward fixture separately labeled; not slow qualification",
+    "No STEP6 WSS M qualification from these integration receipts",
+    "No UI/default backend/TURN/global resource decision or public traffic"
+  ],
+  "retainedSetupErrors": [
+    "/tmp/mio-rtc-s6-integration-native-20261004",
+    "/tmp/mio-rtc-s6-integration-native-20261004b",
+    "/tmp/mio-rtc-s6-integration-native-20261004c"
+  ],
+  "cleanup": {
+    "nativeContainersRemoved": [
+      {
+        "container": "miopunch-s6-integration-usable-1791061646108479629",
+        "remove_exit": 0
+      },
+      {
+        "container": "miopunch-s6-integration-limited-1791061646559753796",
+        "remove_exit": 0
+      },
+      {
+        "container": "miopunch-s6-integration-mqtt-1791061646903170265",
+        "remove_exit": 0
+      }
+    ],
+    "irc": {
+      "normalBrowser": {
+        "assembly": {
+          "completed_age_ms": 5412,
+          "delivered": 1,
+          "expired": 0,
+          "pending": 0,
+          "pending_peak": 1,
+          "rejected": 0
+        },
+        "buffered_bytes": 0,
+        "closed": true,
+        "protocol": {
+          "accepted_bytes": 1200,
+          "accepted_datagrams": [
+            {
+              "at_ms": 33.700000047683716,
+              "bytes": 1200,
+              "ciphertext_sha256": "a952ade4894b1a37001ff320a7ddc6c2ad5cf943748e407fb770787f8420a39a",
+              "first_five_bytes": "0726456483"
+            }
+          ],
+          "buffered_bytes_peak": 379,
+          "failure": null,
+          "max_line_bytes": 421,
+          "part_sent": true,
+          "pong_sent": 0,
+          "queue_age_ms": 7.5,
+          "queue_peak": 1,
+          "quit_sent": true,
+          "ready_ms": 15.899999976158142,
+          "received_bytes": 1200,
+          "received_fragments": [
+            {
+              "at_ms": 5459.399999976158,
+              "fragment": "00",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 6061,
+              "fragment": "01",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 6662.600000023842,
+              "fragment": "02",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 7263.899999976158,
+              "fragment": "03",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 7865.700000047684,
+              "fragment": "04",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 8467,
+              "fragment": "05",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 9068.700000047684,
+              "fragment": "06",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 9669.200000047684,
+              "fragment": "07",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 10270.600000023842,
+              "fragment": "08",
+              "line_bytes": 421,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 10871.100000023842,
+              "fragment": "09",
+              "line_bytes": 261,
+              "prefix": "mio16f51377da2abf48!~u@qdg8u4i2an97e.irc"
+            }
+          ],
+          "received_packets": 1,
+          "rejected": 0,
+          "sent_fragments": [
+            {
+              "at_ms": 41.200000047683716,
+              "fragment": "00"
+            },
+            {
+              "at_ms": 651.1000000238419,
+              "fragment": "01"
+            },
+            {
+              "at_ms": 1251.1000000238419,
+              "fragment": "02"
+            },
+            {
+              "at_ms": 1851.1000000238419,
+              "fragment": "03"
+            },
+            {
+              "at_ms": 2451.100000023842,
+              "fragment": "04"
+            },
+            {
+              "at_ms": 3051.100000023842,
+              "fragment": "05"
+            },
+            {
+              "at_ms": 3651.100000023842,
+              "fragment": "06"
+            },
+            {
+              "at_ms": 4251.100000023842,
+              "fragment": "07"
+            },
+            {
+              "at_ms": 4851.100000023842,
+              "fragment": "08"
+            },
+            {
+              "at_ms": 5451.100000023842,
+              "fragment": "09"
+            }
+          ],
+          "sent_packets": 1,
+          "server_prefix": "ergo.test",
+          "withdraw_ms": 10879.399999976158
+        },
+        "qualification": {
+          "capability": true,
+          "isupport": [
+            "AWAYLEN=390",
+            "BOT=B",
+            "CASEMAPPING=ascii",
+            "CHANLIMIT=#:100",
+            "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+            "CHANNELLEN=64",
+            "CHANTYPES=#",
+            "ELIST=U",
+            "EXCEPTS",
+            "EXTBAN=,m",
+            "FORWARD=f",
+            "INVEX",
+            "KICKLEN=390",
+            "MAXLIST=beI:60",
+            "MAXTARGETS=4",
+            "MODES",
+            "MONITOR=100",
+            "NETWORK=ErgoTest",
+            "NICKLEN=32",
+            "PREFIX=(qaohv)~&@%+",
+            "STATUSMSG=~&@%+",
+            "TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+            "TOPICLEN=390",
+            "UTF8MAPPING=rfc8265",
+            "UTF8ONLY",
+            "WHOX"
+          ],
+          "joined": true,
+          "names_done": true,
+          "ready": false,
+          "registered": true,
+          "retired": true
+        },
+        "queue_pending": 0,
+        "rx_pending": 0,
+        "socket_state": 3,
+        "timer_active": false,
+        "waiters": 0
+      },
+      "normalNative": {
+        "driver_active": 0,
+        "expired": 0,
+        "fragments": 10,
+        "pending": 0,
+        "protocol": {
+          "accepted_bytes": 1200,
+          "accepted_datagrams": [
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "a952ade4894b1a37001ff320a7ddc6c2ad5cf943748e407fb770787f8420a39a",
+              "first_five_bytes": "0726456483"
+            }
+          ],
+          "assembly": {
+            "completed_age_ms": 5410,
+            "delivered": 1,
+            "expired": 0,
+            "pending": 0,
+            "pending_peak": 1,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [
+            {
+              "at_ms": 74,
+              "fragment": "00",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 684,
+              "fragment": "01",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 1284,
+              "fragment": "02",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 1884,
+              "fragment": "03",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 2484,
+              "fragment": "04",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 3084,
+              "fragment": "05",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 3684,
+              "fragment": "06",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 4284,
+              "fragment": "07",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 4884,
+              "fragment": "08",
+              "line_bytes": 421,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            },
+            {
+              "at_ms": 5484,
+              "fragment": "09",
+              "line_bytes": 261,
+              "prefix": "mioe91ebcef79cc5550!~u@qdg8u4i2an97e.irc"
+            }
+          ],
+          "max_line_bytes": 421,
+          "part_sent": true,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": true,
+            "isupport": [
+              "AWAYLEN=390",
+              "BOT=B",
+              "CASEMAPPING=ascii",
+              "CHANLIMIT=#:100",
+              "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+              "CHANNELLEN=64",
+              "CHANTYPES=#",
+              "ELIST=U",
+              "EXCEPTS",
+              "EXTBAN=,m",
+              "FORWARD=f",
+              "INVEX",
+              "KICKLEN=390",
+              "MAXLIST=beI:60",
+              "MAXTARGETS=4",
+              "MODES",
+              "MONITOR=100",
+              "NETWORK=ErgoTest",
+              "NICKLEN=32",
+              "PREFIX=(qaohv)~&@%+",
+              "STATUSMSG=~&@%+",
+              "TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+              "TOPICLEN=390",
+              "UTF8MAPPING=rfc8265",
+              "UTF8ONLY",
+              "WHOX"
+            ],
+            "joined": true,
+            "names_done": true,
+            "ready": false,
+            "registered": true,
+            "retired": true
+          },
+          "queue_age_ms": 0,
+          "queue_peak": 1,
+          "queue_pending": 0,
+          "quit_sent": true,
+          "ready_ms": 6,
+          "received_bytes": 1200,
+          "server_prefix": "ergo.test",
+          "tls": {
+            "cipher": "TLS13_AES_256_GCM_SHA384",
+            "hostname": "localhost",
+            "leaf_der_sha256": "f96e321c6d4a77e20b16647b7da708d3883547fd56ac88d69e33e4d05758d354",
+            "verified": true,
+            "version": "TLSv1_3"
+          },
+          "withdraw_ms": 10932
+        },
+        "received": 1,
+        "rejected": 0,
+        "sent": 1
+      },
+      "browser": {
+        "assembly": {
+          "completed_age_ms": 0,
+          "delivered": 0,
+          "expired": 0,
+          "pending": 0,
+          "pending_peak": 0,
+          "rejected": 0
+        },
+        "buffered_bytes": 0,
+        "closed": true,
+        "protocol": {
+          "accepted_bytes": 0,
+          "accepted_datagrams": [],
+          "buffered_bytes_peak": 50,
+          "failure": "JsValue(\"IRC whole attempt deadline\")",
+          "max_line_bytes": 71,
+          "part_sent": false,
+          "pong_sent": 0,
+          "queue_age_ms": 0,
+          "queue_peak": 0,
+          "quit_sent": false,
+          "ready_ms": 4.5,
+          "received_bytes": 0,
+          "received_fragments": [],
+          "received_packets": 0,
+          "rejected": 0,
+          "sent_fragments": [],
+          "sent_packets": 0,
+          "server_prefix": "fault.test",
+          "withdraw_ms": 250.5
+        },
+        "qualification": {
+          "capability": true,
+          "isupport": [
+            "NICKLEN=32"
+          ],
+          "joined": true,
+          "names_done": true,
+          "ready": false,
+          "registered": true,
+          "retired": true
+        },
+        "queue_pending": 0,
+        "rx_pending": 0,
+        "socket_state": 3,
+        "timer_active": false,
+        "waiters": 0
+      },
+      "activeNativeProcesses": 0,
+      "serversClosed": true,
+      "activeFaultSockets": 0
+    },
+    "mqtt": {
+      "browserCarriers": [
+        {
+          "carriers": [
+            {
+              "buffered_bytes": 61,
+              "closed": true,
+              "pending_bytes": 0,
+              "protocol": "mqtt",
+              "queued_packets": 0,
+              "ready": false,
+              "route": null,
+              "traffic": {
+                "buffered_bytes_peak": 4274,
+                "connack": 0,
+                "disconnect_sent": true,
+                "failure": null,
+                "generation": 2955758676,
+                "ready_ms": 1791062026377,
+                "received_bytes": 8568,
+                "received_frame_bytes": 9740,
+                "received_frames": 17,
+                "received_packets": 15,
+                "rejected_packets": 0,
+                "rx_queue_peak": 1,
+                "sent_bytes": 10228,
+                "sent_frame_bytes": 11961,
+                "sent_frames": 24,
+                "sent_packets": 20,
+                "suback_codes": [
+                  0
+                ],
+                "suback_id": 1,
+                "subscribe_id": 1,
+                "unsubscribe_sent": true,
+                "withdraw_ms": 1791062026612
+              }
+            }
+          ],
+          "gate": {
+            "agreement_elapsed_ms": 47,
+            "alpn": "miopunch/admission-request/1",
+            "business_handle": false,
+            "expected_contact_verified": true,
+            "local_id": "b90bd6bce7c1f70d3599898ce243d45164a4b8c1cef765790f4c34542f428292",
+            "remote_id": "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08",
+            "stable_id": 2509272,
+            "stage": "restricted-A",
+            "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 16, bytes: 9878, ios: 0 }, udp_rx: UdpStats { datagrams: 10, bytes: 5595, ios: 0 }, frame_tx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 4, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 3, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 0, STREAM: 1, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 2, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 5, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 2, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 1, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }",
+            "tls_authenticated": true
+          },
+          "request": {
+            "alpn": "miopunch/admission-request/1",
+            "attempt_elapsed_ms": 207,
+            "business_handle": false,
+            "exchange_ms": 194,
+            "handshake_ms": 183,
+            "local_id": "b90bd6bce7c1f70d3599898ce243d45164a4b8c1cef765790f4c34542f428292",
+            "paths": [
+              "Custom(CustomAddr { id: 30796699759899764, data: [1b593cb6a554f425bf1e3220859b8a0d9420fdbdd7e7d1caa4293a05115a9ea5] })"
+            ],
+            "remaining_caller_ms": 11795,
+            "remote_id": "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08",
+            "restricted": true,
+            "stable_id": 2509272,
+            "stage": "AwaitingApproval",
+            "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 18, bytes: 10088, ios: 0 }, udp_rx: UdpStats { datagrams: 13, bytes: 7080, ios: 0 }, frame_tx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 4, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 4, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 3, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 6, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 3, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 2, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }"
+          }
+        },
+        {
+          "carriers": [
+            {
+              "buffered_bytes": 61,
+              "closed": true,
+              "pending_bytes": 0,
+              "protocol": "mqtt",
+              "queued_packets": 0,
+              "ready": false,
+              "route": null,
+              "traffic": {
+                "buffered_bytes_peak": 4274,
+                "connack": 0,
+                "disconnect_sent": true,
+                "failure": null,
+                "generation": 33767277,
+                "ready_ms": 1791062027189,
+                "received_bytes": 8629,
+                "received_frame_bytes": 9955,
+                "received_frames": 19,
+                "received_packets": 17,
+                "rejected_packets": 0,
+                "rx_queue_peak": 1,
+                "sent_bytes": 10261,
+                "sent_frame_bytes": 12071,
+                "sent_frames": 25,
+                "sent_packets": 21,
+                "suback_codes": [
+                  0
+                ],
+                "suback_id": 1,
+                "subscribe_id": 1,
+                "unsubscribe_sent": true,
+                "withdraw_ms": 1791062027407
+              }
+            }
+          ],
+          "gate": {
+            "agreement_elapsed_ms": 41,
+            "alpn": "miopunch/admission-request/1",
+            "business_handle": false,
+            "expected_contact_verified": true,
+            "local_id": "e1d37fcbc1fba437e0e54b267f61eeaac14e25125e3de86897a1cad94f50084b",
+            "remote_id": "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08",
+            "stable_id": 2527704,
+            "stage": "restricted-A",
+            "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 14, bytes: 7006, ios: 0 }, udp_rx: UdpStats { datagrams: 8, bytes: 4171, ios: 0 }, frame_tx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 4, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 2, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 3, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 2, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 0, STREAM: 1, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 1, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 3, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 1, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 0, STREAM: 1, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }",
+            "tls_authenticated": true
+          },
+          "request": {
+            "alpn": "miopunch/admission-request/1",
+            "attempt_elapsed_ms": 205,
+            "business_handle": false,
+            "exchange_ms": 195,
+            "handshake_ms": 179,
+            "local_id": "e1d37fcbc1fba437e0e54b267f61eeaac14e25125e3de86897a1cad94f50084b",
+            "paths": [
+              "Custom(CustomAddr { id: 30796699759899764, data: [1b593cb6a554f425bf1e3220859b8a0d9420fdbdd7e7d1caa4293a05115a9ea5] })"
+            ],
+            "remaining_caller_ms": 11795,
+            "remote_id": "af8ff93aa80cf2ea991f831bc0320d189601f34437d949529862f81b5ac85e08",
+            "restricted": true,
+            "stable_id": 2527704,
+            "stage": "AwaitingApproval",
+            "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 19, bytes: 10121, ios: 0 }, udp_rx: UdpStats { datagrams: 15, bytes: 7141, ios: 0 }, frame_tx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 4, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 5, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 1, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 3, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 6, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 3, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 2, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }"
+          }
+        },
+        {
+          "carriers": [
+            {
+              "buffered_bytes": 61,
+              "closed": true,
+              "pending_bytes": 0,
+              "protocol": "mqtt",
+              "queued_packets": 0,
+              "ready": false,
+              "route": null,
+              "traffic": {
+                "buffered_bytes_peak": 1278,
+                "connack": 0,
+                "disconnect_sent": true,
+                "failure": null,
+                "generation": 165187409,
+                "ready_ms": 1791062028045,
+                "received_bytes": 1338,
+                "received_frame_bytes": 1503,
+                "received_frames": 4,
+                "received_packets": 2,
+                "rejected_packets": 0,
+                "rx_queue_peak": 1,
+                "sent_bytes": 1200,
+                "sent_frame_bytes": 1457,
+                "sent_frames": 5,
+                "sent_packets": 1,
+                "suback_codes": [
+                  0
+                ],
+                "suback_id": 1,
+                "subscribe_id": 1,
+                "unsubscribe_sent": true,
+                "withdraw_ms": 1791062028233
+              }
+            }
+          ],
+          "gate": null,
+          "request": {
+            "attempt_elapsed_ms": 84,
+            "business_handle": false,
+            "stage": "connecting"
+          }
+        },
+        {
+          "carriers": [
+            {
+              "buffered_bytes": 61,
+              "closed": true,
+              "pending_bytes": 0,
+              "protocol": "mqtt",
+              "queued_packets": 0,
+              "ready": false,
+              "route": null,
+              "traffic": {
+                "buffered_bytes_peak": 1278,
+                "connack": 0,
+                "disconnect_sent": true,
+                "failure": null,
+                "generation": 1655529473,
+                "ready_ms": 1791062028774,
+                "received_bytes": 0,
+                "received_frame_bytes": 9,
+                "received_frames": 2,
+                "received_packets": 0,
+                "rejected_packets": 0,
+                "rx_queue_peak": 0,
+                "sent_bytes": 12000,
+                "sent_frame_bytes": 12959,
+                "sent_frames": 14,
+                "sent_packets": 10,
+                "suback_codes": [
+                  0
+                ],
+                "suback_id": 1,
+                "subscribe_id": 1,
+                "unsubscribe_sent": true,
+                "withdraw_ms": 1791062043780
+              }
+            }
+          ],
+          "gate": null,
+          "request": {
+            "attempt_elapsed_ms": 12000,
+            "business_handle": false,
+            "stage": "connecting"
+          }
+        },
+        {
+          "carriers": [
+            {
+              "buffered_bytes": 0,
+              "closed": true,
+              "pending_bytes": 0,
+              "protocol": "mqtt",
+              "queued_packets": 0,
+              "ready": false,
+              "route": null,
+              "traffic": {
+                "buffered_bytes_peak": 1278,
+                "connack": 0,
+                "disconnect_sent": true,
+                "failure": null,
+                "generation": 2299006901,
+                "ready_ms": 1791062043804,
+                "received_bytes": 0,
+                "received_frame_bytes": 9,
+                "received_frames": 2,
+                "received_packets": 0,
+                "rejected_packets": 0,
+                "rx_queue_peak": 0,
+                "sent_bytes": 1200,
+                "sent_frame_bytes": 1457,
+                "sent_frames": 5,
+                "sent_packets": 1,
+                "suback_codes": [
+                  0
+                ],
+                "suback_id": 1,
+                "subscribe_id": 1,
+                "unsubscribe_sent": true,
+                "withdraw_ms": 1791062043907
+              }
+            }
+          ],
+          "gate": null,
+          "request": {
+            "attempt_elapsed_ms": 103,
+            "business_handle": false,
+            "stage": "connecting"
+          }
+        }
+      ],
+      "carriers": [
+        {
+          "name": "wrong-contact",
+          "event": "closed",
+          "traffic": {
+            "generation": 1,
+            "max_datagram": 2048,
+            "protocol": {
+              "connack": 0,
+              "disconnect_sent": true,
+              "failure": null,
+              "ready_ms": 1791062027531,
+              "suback_codes": [
+                0
+              ],
+              "suback_id": 1,
+              "subscribe_id": 1,
+              "unsubscribe_sent": true,
+              "withdraw_ms": 1791062028252
+            },
+            "queue_depth": 64,
+            "queue_peak": 0,
+            "queued_packets": 0,
+            "received_bytes": 0,
+            "received_packets": 0,
+            "rejected_packets": 0,
+            "rx_queue_peak": 0,
+            "sent_bytes": 0,
+            "sent_packets": 0
+          }
+        },
+        {
+          "name": "restricted",
+          "event": "closed",
+          "traffic": {
+            "generation": 1,
+            "max_datagram": 2048,
+            "protocol": {
+              "connack": 0,
+              "disconnect_sent": true,
+              "failure": null,
+              "ready_ms": 1791062026215,
+              "suback_codes": [
+                0
+              ],
+              "suback_id": 1,
+              "subscribe_id": 1,
+              "unsubscribe_sent": true,
+              "withdraw_ms": 1791062043921
+            },
+            "queue_depth": 64,
+            "queue_peak": 2,
+            "queued_packets": 0,
+            "received_bytes": 21689,
+            "received_packets": 42,
+            "rejected_packets": 0,
+            "rx_queue_peak": 5,
+            "sent_bytes": 20935,
+            "sent_packets": 36
+          }
+        }
+      ],
+      "activeNativeProcesses": 0,
+      "activeProxySockets": 0,
+      "serversClosed": true
+    },
+    "rtcNative": {
+      "signal": null
+    },
+    "rtcRelay": {
+      "signal": null
+    }
+  }
+}

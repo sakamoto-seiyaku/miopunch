@@ -20,12 +20,21 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=['mqtt-datagram', 'wss-restricted-handshake', 'rtc-channel', 'relay-member-rtc'], required=True)
+    parser.add_argument('--case', choices=['mqtt-datagram', 'wss-restricted-handshake', 'irc-datagram', 'rtc-channel', 'relay-member-rtc'], required=True)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--skip-build', action='store_true')
     parser.add_argument('--wasm-bindgen', default=shutil.which('wasm-bindgen') or '/tmp/miopunch-wasm-tools/bin/wasm-bindgen')
     parser.add_argument('--target-dir', type=Path, default=ROOT / 'target')
     args = parser.parse_args()
+    if args.case == 'irc-datagram':
+        if args.target_dir.resolve() != (ROOT / 'target').resolve():
+            parser.error('irc-datagram uses the existing repository target directory')
+        command = ['rtk', 'proxy', sys.executable, str(ROOT / 'scripts/check_browser_irc.py'),
+                   '--case', args.case, '--output', str(args.output),
+                   '--wasm-bindgen', args.wasm_bindgen]
+        if args.skip_build:
+            command.append('--skip-build')
+        os.execvp(command[0], command)
     if args.case in ('rtc-channel', 'relay-member-rtc'):
         command = ['rtk', 'proxy', sys.executable, str(ROOT / 'scripts/check_browser_rtc.py'),
                    '--case', args.case, '--output', str(args.output), '--target-dir', str(args.target_dir),

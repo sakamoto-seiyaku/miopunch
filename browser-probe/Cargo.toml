@@ -29,7 +29,7 @@ hex = "0.4.3"
 wasm-bindgen = "=0.2.129"
 wasm-bindgen-futures = "0.4.79"
 js-sys = "0.3.106"
-web-sys = { version = "0.3.79", features = ["Window", "Storage", "WebSocket", "BinaryType", "CloseEvent", "Event", "MessageEvent", "RtcPeerConnection", "RtcPeerConnectionState", "RtcConfiguration", "RtcDataChannel", "RtcDataChannelInit", "RtcDataChannelState", "RtcDataChannelType", "RtcSdpType", "RtcSessionDescription", "RtcSessionDescriptionInit", "RtcIceGatheringState", "RtcIceConnectionState", "RtcStatsReport"] }
+web-sys = { version = "0.3.79", features = ["Window", "Storage", "WebSocket", "BinaryType", "CloseEvent", "Event", "MessageEvent", "Performance", "RtcPeerConnection", "RtcPeerConnectionState", "RtcConfiguration", "RtcDataChannel", "RtcDataChannelInit", "RtcDataChannelState", "RtcDataChannelType", "RtcSdpType", "RtcSessionDescription", "RtcSessionDescriptionInit", "RtcIceGatheringState", "RtcIceConnectionState", "RtcStatsReport"] }
 
 p2panda-sync.workspace = true
 futures-util = { version = "0.3.32", features = ["sink"] }

@@ -1,3 +1,4 @@
+mod custom_datagram;
 use iroh::{Endpoint, EndpointAddr, RelayMode, endpoint::presets};
 use iroh_base::{PublicKey, RelayUrl, SecretKey};
 use p2panda_core::SigningKey;
@@ -7,6 +8,9 @@ use wasm_bindgen::prelude::*;
 #[path = "../../src/admission_proof.rs"]
 #[allow(dead_code)] // The browser uses the client qualification from this shared module.
 pub mod admission_proof;
+mod irc;
+#[path = "../../src/irc_datagram.rs"]
+pub mod irc_datagram;
 #[path = "../../src/management_auth.rs"]
 #[allow(dead_code)] // Durable native-store helpers are outside this platform adapter.
 pub mod management_auth;

@@ -506,16 +506,16 @@ impl iroh::endpoint::transports::CustomEndpoint for BrowserMqttTransport {
             return Poll::Ready(Ok(0));
         }
         while let Some((source, bytes)) = state.incoming.pop_front() {
-            if bytes.len() > bufs[0].len() {
+            if !crate::custom_datagram::copy_received(
+                &bytes,
+                wire::address_for(Some(state.service), source),
+                wire::address_for(Some(state.service), state.route),
+                &mut bufs[0],
+                &mut metas[0],
+                &mut infos[0],
+            ) {
                 continue;
             }
-            bufs[0][..bytes.len()].copy_from_slice(&bytes);
-            metas[0].len = bytes.len();
-            metas[0].stride = bytes.len();
-            infos[0] = iroh::endpoint::transports::RecvInfo::new(
-                wire::address_for(Some(state.service), source),
-                Some(wire::address_for(Some(state.service), state.route)),
-            );
             return Poll::Ready(Ok(1));
         }
         state.wait(cx.waker());

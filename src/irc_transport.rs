@@ -7,9 +7,9 @@ use iroh::endpoint::transports::{
 };
 use iroh_base::CustomAddr;
 use n0_watcher::{Direct, Watchable};
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::{
-    collections::BTreeMap,
     io,
     pin::Pin,
     sync::{
@@ -20,48 +20,59 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::{
-    io::{AsyncWriteExt, BufReader},
+    io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader},
     net::TcpStream,
     sync::watch,
 };
 use tokio_util::codec::{FramedRead, LinesCodec};
 
-pub const TRANSPORT_ID: u64 = 0x6d696f697263; // "mioirc"
+pub use crate::irc_datagram::TRANSPORT_ID;
+use crate::irc_datagram::{
+    self as wire, AssemblyReport, IrcFacility, MAX_DATAGRAM, Profile, QUEUE_DEPTH, Qualification,
+    Reassembly, Route, Service, address, route_from_addr,
+};
 pub const CHANNEL: &str = "#miopunch-v1";
-const MAX_DATAGRAM: usize = 2048;
-const CHUNK: usize = 128;
-const MAX_PARTS: usize = MAX_DATAGRAM.div_ceil(CHUNK);
-const QUEUE_DEPTH: usize = 64;
-const ASSEMBLIES: usize = 32;
-const ASSEMBLY_TTL: Duration = Duration::from_secs(3);
-const REPLAY_DEPTH: usize = 128;
-const LINE_INTERVAL: Duration = Duration::from_millis(10);
-const QUEUE_TTL: Duration = Duration::from_millis(500);
-type Route = [u8; 16];
-type Service = [u8; 16];
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Status {
     Starting,
     Ready,
     Closed,
 }
-fn address(service: Service, route: Route) -> CustomAddr {
-    let mut data = [0; 32];
-    data[..16].copy_from_slice(&service);
-    data[16..].copy_from_slice(&route);
-    CustomAddr::from_parts(TRANSPORT_ID, &data)
+/// Each binding owns its observations, so a retiring driver cannot stamp a new route.
+#[derive(Debug, Default, Serialize)]
+struct ProtocolReport {
+    qualification: Qualification,
+    assembly: AssemblyReport,
+    ready_ms: Option<u64>,
+    withdraw_ms: Option<u64>,
+    failure: Option<String>,
+    queue_pending: u64,
+    queue_peak: u64,
+    queue_age_ms: u64,
+    pong_sent: u64,
+    part_sent: bool,
+    quit_sent: bool,
+    tls: Option<serde_json::Value>,
+    max_line_bytes: usize,
+    server_prefix: String,
+    fragments: Vec<FragmentEvent>,
+    accepted_bytes: u64,
+    accepted_datagrams: Vec<DatagramEvent>,
+    received_bytes: u64,
 }
-fn route_from_addr(addr: &CustomAddr, service: Service) -> io::Result<Route> {
-    if addr.id() != TRANSPORT_ID || addr.data().len() != 32 || addr.data()[..16] != service {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "IRC route belongs to another service",
-        ));
-    }
-    Ok(addr.data()[16..].try_into().unwrap())
+#[derive(Debug, Serialize)]
+struct DatagramEvent {
+    bytes: usize,
+    first_five_bytes: String,
+    ciphertext_sha256: String,
 }
-
+#[derive(Debug, Serialize)]
+struct FragmentEvent {
+    at_ms: u64,
+    line_bytes: usize,
+    prefix: String,
+    fragment: String,
+}
 /// Bounded adapter observations; these are not a cryptographic audit.
 #[derive(Debug, Default)]
 pub struct Traffic {
@@ -69,8 +80,8 @@ pub struct Traffic {
     received: AtomicU64,
     fragments: AtomicU64,
     rejected: AtomicU64,
-    expired: AtomicU64,
-    pending: AtomicU64,
+    diagnostics: Mutex<Arc<Mutex<ProtocolReport>>>,
+    driver_active: AtomicU64,
 }
 impl Traffic {
     pub fn sent_packets(&self) -> u64 {
@@ -80,14 +91,23 @@ impl Traffic {
         self.received.load(Ordering::Relaxed)
     }
     pub fn pending_assemblies(&self) -> u64 {
-        self.pending.load(Ordering::Relaxed)
+        let report = self.diagnostics.lock().unwrap().clone();
+        let pending = report.lock().unwrap().assembly.pending;
+        pending as u64
     }
     pub fn expired_assemblies(&self) -> u64 {
-        self.expired.load(Ordering::Relaxed)
+        let report = self.diagnostics.lock().unwrap().clone();
+        let expired = report.lock().unwrap().assembly.expired;
+        expired
+    }
+    pub fn snapshot(&self) -> serde_json::Value {
+        let report = self.diagnostics.lock().unwrap().clone();
+        let report = report.lock().unwrap();
+        serde_json::json!({"sent":self.sent_packets(),"received":self.received_packets(),"fragments":self.fragments.load(Ordering::Relaxed),"rejected":self.rejected.load(Ordering::Relaxed),"expired":report.assembly.expired,"pending":report.assembly.pending,"driver_active":self.driver_active.load(Ordering::Relaxed),"protocol":&*report})
     }
     pub fn report(&self) -> String {
         format!(
-            "IRC_TRAFFIC sent={} received={} fragments={} rejected={} expired={} pending={} max_datagram={MAX_DATAGRAM} assemblies={ASSEMBLIES} queue={QUEUE_DEPTH}",
+            "IRC_TRAFFIC sent={} received={} fragments={} rejected={} expired={} pending={} max_datagram={MAX_DATAGRAM} assemblies=32 queue={QUEUE_DEPTH}",
             self.sent_packets(),
             self.received_packets(),
             self.fragments.load(Ordering::Relaxed),
@@ -101,8 +121,19 @@ impl Traffic {
 pub struct IrcTransport {
     resource: iroh::RelayUrl,
     service: Service,
-    binding: Mutex<Option<watch::Sender<Status>>>,
+    binding: Mutex<Option<Binding>>,
     traffic: Arc<Traffic>,
+    channel: String,
+    profile: Profile,
+    tls_ca: Option<Vec<u8>>,
+    bounded_attempt: bool,
+}
+#[derive(Debug)]
+struct Binding {
+    status: watch::Sender<Status>,
+    shutdown: watch::Sender<bool>,
+    addresses: Watchable<Vec<CustomAddr>>,
+    report: Arc<Mutex<ProtocolReport>>,
 }
 impl IrcTransport {
     /// Only explicit plaintext IRC origins with no authentication, URL options
@@ -129,10 +160,49 @@ impl IrcTransport {
             service: hash.finalize()[..16].try_into().unwrap(),
             binding: Mutex::new(None),
             traffic: Arc::new(Traffic::default()),
+            channel: CHANNEL.into(),
+            profile: Profile::default(),
+            tls_ca: None,
+            bounded_attempt: false,
+        })
+    }
+    pub fn from_facility(
+        facility: &IrcFacility,
+        disabled: &[String],
+        profile: Profile,
+        tls_ca: Option<Vec<u8>>,
+    ) -> io::Result<Self> {
+        facility.check_allowed(disabled)?;
+        profile.validate()?;
+        Ok(Self {
+            resource: facility.native_url.parse().map_err(io::Error::other)?,
+            service: facility.service_tag()?,
+            binding: Mutex::new(None),
+            traffic: Arc::new(Traffic::default()),
+            channel: facility.channel.clone(),
+            profile,
+            tls_ca,
+            bounded_attempt: true,
+        })
+    }
+    pub fn bind_datagrams(&self) -> io::Result<IrcDatagram> {
+        Ok(IrcDatagram {
+            endpoint: self.bind_endpoint()?,
         })
     }
     pub fn traffic(&self) -> &Arc<Traffic> {
         &self.traffic
+    }
+    /// Retire this binding immediately, before any QUIC graceful-drain wait.
+    /// Readiness publication shares the report lock and cannot revive it.
+    pub fn close(&self) {
+        if let Some(binding) = self.binding.lock().unwrap().as_ref() {
+            let mut report = binding.report.lock().unwrap();
+            binding.shutdown.send_replace(true);
+            binding.addresses.set(Vec::new()).ok();
+            binding.status.send_replace(Status::Closed);
+            report.qualification.retire();
+        }
     }
     pub async fn wait_ready(&self) -> io::Result<()> {
         let mut status = self
@@ -141,6 +211,7 @@ impl IrcTransport {
             .unwrap()
             .as_ref()
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotConnected, "IRC not bound"))?
+            .status
             .subscribe();
         tokio::time::timeout(Duration::from_secs(8), async {
             loop {
@@ -179,6 +250,8 @@ struct Shared {
     route: Route,
     service: Service,
     outbound: Mutex<mpsc::Sender<Outbound>>,
+    shutdown: watch::Sender<bool>,
+    report: Arc<Mutex<ProtocolReport>>,
 }
 struct DriverBinding {
     route: Route,
@@ -186,6 +259,10 @@ struct DriverBinding {
     addresses: Watchable<Vec<CustomAddr>>,
     status: watch::Sender<Status>,
     traffic: Arc<Traffic>,
+    channel: String,
+    profile: Profile,
+    started: Instant,
+    report: Arc<Mutex<ProtocolReport>>,
 }
 #[derive(Debug)]
 struct IrcEndpoint {
@@ -193,13 +270,16 @@ struct IrcEndpoint {
     receiver: tokio::sync::mpsc::Receiver<Packet>,
     addresses: Watchable<Vec<CustomAddr>>,
     status: watch::Sender<Status>,
-    driver: tokio::task::JoinHandle<()>,
+    _driver: tokio::task::JoinHandle<()>,
 }
 impl Drop for IrcEndpoint {
     fn drop(&mut self) {
-        self.driver.abort();
+        // Serialize retirement with driver-side address publication.
+        let mut report = self.shared.report.lock().unwrap();
+        self.shared.shutdown.send_replace(true);
         self.addresses.set(Vec::new()).ok();
         self.status.send_replace(Status::Closed);
+        report.qualification.retire();
     }
 }
 impl CustomTransport for IrcTransport {
@@ -210,29 +290,44 @@ impl CustomTransport for IrcTransport {
         ))
     }
     fn bind(&self) -> io::Result<Box<dyn CustomEndpoint>> {
+        Ok(Box::new(self.bind_endpoint()?))
+    }
+}
+impl IrcTransport {
+    fn bind_endpoint(&self) -> io::Result<IrcEndpoint> {
         let (status, _) = watch::channel(Status::Starting);
+        let (shutdown, stop) = watch::channel(false);
+        let addresses = Watchable::new(Vec::new());
+        let report = Arc::new(Mutex::new(ProtocolReport::default()));
         {
             let mut binding = self.binding.lock().unwrap();
             if binding
                 .as_ref()
-                .is_some_and(|s| *s.borrow() != Status::Closed)
+                .is_some_and(|binding| *binding.status.borrow() != Status::Closed)
             {
                 return Err(io::Error::new(
                     io::ErrorKind::AlreadyExists,
                     "IRC already bound",
                 ));
             }
-            *binding = Some(status.clone());
+            *binding = Some(Binding {
+                status: status.clone(),
+                shutdown: shutdown.clone(),
+                addresses: addresses.clone(),
+                report: report.clone(),
+            });
         }
         let route = rand::random();
         let (outbound, queue) = mpsc::channel(QUEUE_DEPTH);
         let (incoming, receiver) = tokio::sync::mpsc::channel(QUEUE_DEPTH);
+        *self.traffic.diagnostics.lock().unwrap() = report.clone();
         let shared = Arc::new(Shared {
             route,
             service: self.service,
             outbound: Mutex::new(outbound),
+            shutdown,
+            report: report.clone(),
         });
-        let addresses = Watchable::new(Vec::new());
         let resource = self.resource.clone();
         let binding = DriverBinding {
             route,
@@ -240,184 +335,147 @@ impl CustomTransport for IrcTransport {
             addresses: addresses.clone(),
             status: status.clone(),
             traffic: self.traffic.clone(),
+            channel: self.channel.clone(),
+            profile: self.profile.clone(),
+            started: Instant::now(),
+            report,
         };
+        let tls_ca = self.tls_ca.clone();
+        let bounded = self.bounded_attempt;
+        self.traffic.driver_active.fetch_add(1, Ordering::Relaxed);
         let driver = tokio::spawn(async move {
-            if let Err(error) = drive(resource, &binding, queue, incoming).await {
-                eprintln!("IRC_CLOSE error={error}");
-            }
+            // Retain RX until route retirement, so a closed receiver cannot race ready.
+            let retained = incoming.clone();
+            let result = if bounded {
+                tokio::time::timeout_at(
+                    tokio::time::Instant::from_std(binding.started)
+                        + Duration::from_millis(binding.profile.attempt_ms),
+                    drive(resource, &binding, queue, incoming, stop, tls_ca),
+                )
+                .await
+                .unwrap_or_else(|_| {
+                    Err(io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        "IRC whole attempt deadline",
+                    ))
+                })
+            } else {
+                drive(resource, &binding, queue, incoming, stop, tls_ca).await
+            };
             binding.addresses.set(Vec::new()).ok();
             binding.status.send_replace(Status::Closed);
-            binding.traffic.pending.store(0, Ordering::Relaxed);
+            let mut report = binding.report.lock().unwrap();
+            report.failure = result.err().map(|error| error.to_string());
+            report.queue_pending = 0;
+            report.assembly.pending = 0;
+            report.qualification.retire();
+            report.withdraw_ms = Some(binding.started.elapsed().as_millis() as u64);
+            binding
+                .traffic
+                .driver_active
+                .fetch_sub(1, Ordering::Relaxed);
+            drop(retained);
         });
-        Ok(Box::new(IrcEndpoint {
+        Ok(IrcEndpoint {
             shared,
             receiver,
             addresses,
             status,
-            driver,
-        }))
-    }
-}
-
-/// Each envelope fits a traditional 512-byte line including a qualified
-/// server's prefix. Fields are public routing metadata, followed by ciphertext.
-fn fragments(target: Route, source: Route, bytes: &[u8]) -> Vec<String> {
-    let id = rand::random::<u64>();
-    let total = bytes.len().div_ceil(CHUNK);
-    bytes
-        .chunks(CHUNK)
-        .enumerate()
-        .map(|(index, chunk)| {
-            format!(
-                "MIR1 {} {} {id:016x} {index:02x} {total:02x} {}",
-                hex::encode(target),
-                hex::encode(source),
-                hex::encode(chunk)
-            )
+            _driver: driver,
         })
-        .collect()
-}
-struct Assembly {
-    created: Instant,
-    parts: Vec<Option<Vec<u8>>>,
-}
-#[derive(Default)]
-struct Reassembly {
-    pending: BTreeMap<(Route, u64), Assembly>,
-    completed: BTreeMap<(Route, u64), Instant>,
-}
-impl Reassembly {
-    fn expire(&mut self, traffic: &Traffic) {
-        let before = self.pending.len();
-        self.pending
-            .retain(|_, a| a.created.elapsed() < ASSEMBLY_TTL);
-        traffic
-            .expired
-            .fetch_add((before - self.pending.len()) as u64, Ordering::Relaxed);
-        self.completed.retain(|_, at| at.elapsed() < ASSEMBLY_TTL);
-        traffic
-            .pending
-            .store(self.pending.len() as u64, Ordering::Relaxed);
-    }
-    fn receive(&mut self, text: &str, own: Route, traffic: &Traffic) -> Option<Packet> {
-        self.expire(traffic);
-        let fields = text.split(' ').collect::<Vec<_>>();
-        if fields.len() != 7 || fields[0] != "MIR1" || fields[1] != hex::encode(own) {
-            return None;
-        }
-        let parsed = (|| {
-            let source: Route = hex::decode(fields[2]).ok()?.try_into().ok()?;
-            if source == own
-                || fields[3].len() != 16
-                || fields[4].len() != 2
-                || fields[5].len() != 2
-            {
-                return None;
-            }
-            let id = u64::from_str_radix(fields[3], 16).ok()?;
-            let index = usize::from_str_radix(fields[4], 16).ok()?;
-            let total = usize::from_str_radix(fields[5], 16).ok()?;
-            if total == 0
-                || total > MAX_PARTS
-                || index >= total
-                || fields[6].is_empty()
-                || fields[6].len() > CHUNK * 2
-            {
-                return None;
-            }
-            let bytes = hex::decode(fields[6]).ok()?;
-            if index + 1 < total && bytes.len() != CHUNK {
-                return None;
-            }
-            Some((source, id, index, total, bytes))
-        })();
-        let Some((source, id, index, total, bytes)) = parsed else {
-            traffic.rejected.fetch_add(1, Ordering::Relaxed);
-            return None;
-        };
-        let key = (source, id);
-        if self.completed.contains_key(&key) {
-            return None;
-        }
-        if !self.pending.contains_key(&key) && self.pending.len() >= ASSEMBLIES {
-            traffic.rejected.fetch_add(1, Ordering::Relaxed);
-            return None;
-        }
-        let assembly = self.pending.entry(key).or_insert_with(|| Assembly {
-            created: Instant::now(),
-            parts: vec![None; total],
-        });
-        if assembly.parts.len() != total
-            || assembly.parts[index]
-                .as_ref()
-                .is_some_and(|old| old != &bytes)
-        {
-            self.pending.remove(&key);
-            traffic.rejected.fetch_add(1, Ordering::Relaxed);
-            return None;
-        }
-        assembly.parts[index] = Some(bytes);
-        traffic
-            .pending
-            .store(self.pending.len() as u64, Ordering::Relaxed);
-        if !self.pending[&key].parts.iter().all(Option::is_some) {
-            return None;
-        }
-        let assembly = self.pending.remove(&key).unwrap();
-        let bytes = assembly
-            .parts
-            .into_iter()
-            .flatten()
-            .flatten()
-            .collect::<Vec<_>>();
-        if self.completed.len() >= REPLAY_DEPTH {
-            if let Some(old) = self
-                .completed
-                .iter()
-                .min_by_key(|(_, at)| *at)
-                .map(|(key, _)| *key)
-            {
-                self.completed.remove(&old);
-            }
-        }
-        self.completed.insert(key, Instant::now());
-        traffic
-            .pending
-            .store(self.pending.len() as u64, Ordering::Relaxed);
-        Some(Packet { source, bytes })
     }
 }
 
+trait IrcIo: AsyncRead + AsyncWrite + Unpin + Send {}
+impl<T: AsyncRead + AsyncWrite + Unpin + Send> IrcIo for T {}
+type Stream = Box<dyn IrcIo>;
 async fn drive(
     resource: iroh::RelayUrl,
     binding: &DriverBinding,
     queue: mpsc::Receiver<Outbound>,
     incoming: tokio::sync::mpsc::Sender<Packet>,
+    stop: watch::Receiver<bool>,
+    ca: Option<Vec<u8>>,
 ) -> io::Result<()> {
+    let mut stop = stop;
+    let mut stream = tokio::select! {biased;
+        _=stop.changed()=>return Ok(()),
+        stream=connect_stream(&resource,binding,ca)=>stream?,
+    };
+    let nick = format!("mio{}", hex::encode(rand::random::<[u8; 8]>()));
+    tokio::select! {biased;
+        _=stop.changed()=>return Ok(()),
+        result=async {
+            write_line(&mut stream,&format!("NICK {nick}\r\n")).await?;
+            write_line(&mut stream,"USER mio 0 * :miopunch\r\n").await
+        }=>result?,
+    }
+    let (read, write) = tokio::io::split(stream);
+    let mut lines = FramedRead::new(BufReader::new(read), LinesCodec::new_with_max_length(510));
+    let (control, commands) = tokio::sync::mpsc::channel(8);
+    let reader = read_loop(&mut lines, &nick, binding, control, incoming);
+    let writer = write_loop(write, binding, queue, commands, stop);
+    tokio::select! {result=reader=>result,result=writer=>result}
+}
+async fn connect_stream(
+    resource: &iroh::RelayUrl,
+    binding: &DriverBinding,
+    ca: Option<Vec<u8>>,
+) -> io::Result<Stream> {
     let host = resource
         .host_str()
         .unwrap()
         .trim_start_matches('[')
         .trim_end_matches(']');
-    let stream = tokio::time::timeout(
+    let tcp = tokio::time::timeout(
         Duration::from_secs(5),
-        TcpStream::connect((host, resource.port().unwrap())),
+        TcpStream::connect((
+            host,
+            resource.port().unwrap_or(if resource.scheme() == "ircs" {
+                6697
+            } else {
+                6667
+            }),
+        )),
     )
     .await
-    .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "IRC TCP connect timeout"))??;
-    let (read, mut write) = stream.into_split();
-    let nick = format!("mio{}", hex::encode(rand::random::<[u8; 8]>()));
-    write_line(&mut write, &format!("NICK {nick}\r\n")).await?;
-    write_line(&mut write, "USER mio 0 * :miopunch\r\n").await?;
-    let mut lines = FramedRead::new(BufReader::new(read), LinesCodec::new_with_max_length(510));
-    let (control, commands) = tokio::sync::mpsc::channel(8);
-    // Futures stay in this driver: cancellation drops both halves immediately.
-    // Receiving a partial IRC line never competes with an outbound frame read.
-    let reader = read_loop(&mut lines, &nick, binding, control, incoming);
-    let writer = write_loop(write, binding, queue, commands);
-    tokio::select! {result=reader=>result,result=writer=>result}
+    .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "IRC TCP timeout"))??;
+    let stream: Stream = if resource.scheme() == "ircs" {
+        let mut roots = rustls::RootCertStore::empty();
+        if let Some(ca) = ca {
+            for cert in rustls_pemfile::certs(&mut ca.as_slice()) {
+                roots.add(cert?).map_err(io::Error::other)?;
+            }
+        } else {
+            roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+        }
+        let config = rustls::ClientConfig::builder()
+            .with_root_certificates(roots)
+            .with_no_client_auth();
+        let name =
+            rustls::pki_types::ServerName::try_from(host.to_owned()).map_err(io::Error::other)?;
+        let tls = tokio::time::timeout(
+            Duration::from_secs(5),
+            tokio_rustls::TlsConnector::from(Arc::new(config)).connect(name, tcp),
+        )
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "IRC TLS timeout"))??;
+        let connection = tls.get_ref().1;
+        binding.report.lock().unwrap().tls = Some(serde_json::json!({
+            "verified":true,
+            "hostname":host,
+            "version":connection.protocol_version().map(|value|format!("{value:?}")),
+            "cipher":connection.negotiated_cipher_suite().map(|value|format!("{:?}",value.suite())),
+            "leaf_der_sha256":connection.peer_certificates().and_then(|certs|certs.first()).map(|cert|hex::encode(Sha256::digest(cert.as_ref())))
+        }));
+        Box::new(tls)
+    } else {
+        Box::new(tcp)
+    };
+    Ok(stream)
 }
-async fn write_line(write: &mut tokio::net::tcp::OwnedWriteHalf, line: &str) -> io::Result<()> {
+
+async fn write_line<W: AsyncWrite + Unpin>(write: &mut W, line: &str) -> io::Result<()> {
     if line.len() > 512 {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -428,70 +486,113 @@ async fn write_line(write: &mut tokio::net::tcp::OwnedWriteHalf, line: &str) -> 
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "IRC write stalled"))?
 }
-async fn write_loop(
-    mut write: tokio::net::tcp::OwnedWriteHalf,
+async fn write_loop<W: AsyncWrite + Unpin>(
+    mut write: W,
     binding: &DriverBinding,
     mut queue: mpsc::Receiver<Outbound>,
     mut commands: tokio::sync::mpsc::Receiver<String>,
+    mut stop: watch::Receiver<bool>,
 ) -> io::Result<()> {
     let mut ready = binding.status.subscribe();
     let traffic = &binding.traffic;
+    let mut active: std::collections::VecDeque<String> = Default::default();
+    let mut next = tokio::time::Instant::now();
     loop {
-        tokio::select! {
-            command=commands.recv()=>{let Some(command)=command else{return Ok(())};write_line(&mut write,&command).await?;}
+        tokio::select! {biased;
+            _=stop.changed()=>{
+                return tokio::time::timeout(Duration::from_secs(2),async {
+                    write_line(&mut write,&format!("PART {} :experiment complete\r\nQUIT :experiment complete\r\n",binding.channel)).await?;
+                    {let mut report=binding.report.lock().unwrap();report.part_sent=true;report.quit_sent=true;}
+                    write.shutdown().await
+                }).await.map_err(|_|io::Error::new(io::ErrorKind::TimedOut,"IRC cleanup write deadline"))?;
+            }
+            command=commands.recv()=>{
+                let Some(command)=command else{return Ok(())};write_line(&mut write,&command).await?;
+                if command.starts_with("PONG "){binding.report.lock().unwrap().pong_sent+=1;}
+            }
+            _=tokio::time::sleep_until(next),if !active.is_empty()=>{
+                let part=active.pop_front().unwrap();write_line(&mut write,&format!("PRIVMSG {} :{part}\r\n",binding.channel)).await?;
+                traffic.fragments.fetch_add(1,Ordering::Relaxed);next=tokio::time::Instant::now()+Duration::from_millis(binding.profile.pacing_ms);
+                if active.is_empty(){traffic.sent.fetch_add(1,Ordering::Relaxed);let mut report=binding.report.lock().unwrap();report.queue_pending=report.queue_pending.saturating_sub(1);}
+            }
             changed=ready.changed(),if *ready.borrow()!=Status::Ready=>{changed.map_err(io::Error::other)?;}
-            item=queue.next(),if *ready.borrow()==Status::Ready=>{
-                let Some(item)=item else{return Ok(())};
-                if item.queued.elapsed()>QUEUE_TTL {traffic.rejected.fetch_add(1,Ordering::Relaxed);continue;}
-                for part in fragments(item.target,binding.route,&item.bytes) {
-                    write_line(&mut write,&format!("PRIVMSG {CHANNEL} :{part}\r\n")).await?;
-                    traffic.fragments.fetch_add(1,Ordering::Relaxed);
-                    tokio::time::sleep(LINE_INTERVAL).await;
-                }
-                traffic.sent.fetch_add(1,Ordering::Relaxed);
+            item=queue.next(),if *ready.borrow()==Status::Ready&&active.is_empty()=>{
+                let Some(item)=item else{return Ok(())};let age=item.queued.elapsed().as_millis() as u64;
+                binding.report.lock().unwrap().queue_age_ms=age;
+                if age>binding.profile.queue_ttl_ms{traffic.rejected.fetch_add(1,Ordering::Relaxed);let mut report=binding.report.lock().unwrap();report.queue_pending=report.queue_pending.saturating_sub(1);continue;}
+                active=wire::fragments(item.target,binding.route,rand::random(),&item.bytes)?.into();
             }
         }
     }
 }
-async fn read_loop(
-    lines: &mut FramedRead<BufReader<tokio::net::tcp::OwnedReadHalf>, LinesCodec>,
+async fn read_loop<R: AsyncRead + Unpin>(
+    lines: &mut FramedRead<BufReader<R>, LinesCodec>,
     nick: &str,
     binding: &DriverBinding,
     control: tokio::sync::mpsc::Sender<String>,
     incoming: tokio::sync::mpsc::Sender<Packet>,
 ) -> io::Result<()> {
-    let route = binding.route;
-    let service = binding.service;
-    let addresses = &binding.addresses;
-    let status = &binding.status;
     let traffic = &binding.traffic;
-    let started = Instant::now();
-    let mut registered = false;
-    let mut capability = false;
-    let mut reassembly = Reassembly::default();
+    let mut qualification = Qualification::default();
+    let mut reassembly = Reassembly::new(binding.profile.clone())?;
     let mut expiry = tokio::time::interval(Duration::from_millis(100));
     loop {
         tokio::select! {
-            _=expiry.tick()=>{reassembly.expire(&traffic);if *status.borrow()==Status::Starting && started.elapsed()>Duration::from_secs(7) {return Err(io::Error::new(io::ErrorKind::TimedOut,"IRC registration or channel join timeout"));}}
+            _=expiry.tick()=>{
+                let now=binding.started.elapsed().as_millis() as u64;reassembly.expire(now);
+                binding.report.lock().unwrap().assembly=reassembly.snapshot();
+                if *binding.status.borrow()==Status::Starting&&now>7000{return Err(io::Error::new(io::ErrorKind::TimedOut,"IRC registration or JOIN deadline"));}
+            }
             line=lines.next()=>{
-                let line=line.ok_or_else(||io::Error::new(io::ErrorKind::UnexpectedEof,"IRC disconnected"))?.map_err(io::Error::other)?;
-                let body=if line.starts_with(':') {line.split_once(' ').map(|(_,body)|body).unwrap_or("")} else {&line};
-                let (head,trailing)=body.split_once(" :").unwrap_or((body,""));let args=head.split_whitespace().collect::<Vec<_>>();
-                let Some(command)=args.first().copied() else{continue;};
-                match command {
-                    "PING"=>{control.try_send(format!("PONG :{trailing}\r\n")).map_err(io::Error::other)?;}
-                    "001"=>{registered=true;control.try_send(format!("JOIN {CHANNEL}\r\n")).map_err(io::Error::other)?;}
-                    "005"=>{capability=true;for arg in &args {if let Some(value)=arg.strip_prefix("NICKLEN=") {if value.parse::<usize>().unwrap_or(0)<nick.len(){return Err(io::Error::new(io::ErrorKind::Unsupported,"IRC nick limit"));}}}}
-                    "366" if registered && capability && args.get(2)==Some(&CHANNEL)=>{addresses.set(vec![address(service,route)]).ok();status.send_replace(Status::Ready);}
-                    "PRIVMSG" if *status.borrow()==Status::Ready && args.get(1)==Some(&CHANNEL)=>{
-                        if let Some(packet)=reassembly.receive(trailing,route,&traffic) {if incoming.try_send(packet).is_ok(){traffic.received.fetch_add(1,Ordering::Relaxed);}else{traffic.rejected.fetch_add(1,Ordering::Relaxed);}}
+                let line=line.ok_or_else(||io::Error::new(io::ErrorKind::UnexpectedEof,"IRC disconnected"))?.map_err(io::Error::other)?;let parsed=wire::parse_line(&line)?;
+                for command in qualification.receive(&parsed,nick,&binding.channel)?{control.try_send(command).map_err(io::Error::other)?;}
+                let now=binding.started.elapsed().as_millis() as u64;
+                let is_packet=qualification.ready&&*binding.status.borrow()==Status::Ready&&parsed.command=="PRIVMSG"&&parsed.args.first()==Some(&binding.channel.as_str());
+                let packet=if is_packet{reassembly.receive(parsed.trailing,binding.route,now)}else{None};
+                {
+                let mut report=binding.report.lock().unwrap();
+                if *binding.status.borrow()==Status::Closed { qualification.retire(); }
+                report.qualification=qualification.clone();
+                    report.assembly=reassembly.snapshot();report.max_line_bytes=report.max_line_bytes.max(line.len()+2);
+                    if report.server_prefix.is_empty()&&!parsed.prefix.is_empty(){report.server_prefix=parsed.prefix.into();}
+                if qualification.ready&&*binding.status.borrow()==Status::Starting {
+                    report.ready_ms=Some(now);
+                    binding.addresses.set(vec![address(binding.service,binding.route)]).ok();
+                    binding.status.send_replace(Status::Ready);
+                }
+                    if is_packet&&parsed.trailing.starts_with("MIR1 ")&&report.fragments.len()<256{
+                        report.fragments.push(FragmentEvent{at_ms:now,line_bytes:line.len()+2,prefix:parsed.prefix.into(),fragment:parsed.trailing.split(' ').nth(4).unwrap_or("").into()});
                     }
-                    "ERROR"|"403"|"404"|"405"|"407"|"421"|"433"|"439"|"471"|"473"|"474"|"475"|"477"|"479"=>{return Err(io::Error::new(io::ErrorKind::PermissionDenied,format!("IRC server rejected service: {command}")));}
-                    "KICK" if args.get(1)==Some(&CHANNEL) && args.get(2)==Some(&nick)=>{return Err(io::Error::new(io::ErrorKind::PermissionDenied,"IRC channel permission withdrawn"));}
-                    _=>{}
+                }
+                if let Some((source,bytes))=packet{
+                    binding.report.lock().unwrap().received_bytes += bytes.len() as u64;
+                    traffic.received.fetch_add(1,Ordering::Relaxed);
+                    if incoming.try_send(Packet{source,bytes}).is_err(){traffic.received.fetch_sub(1,Ordering::Relaxed);traffic.rejected.fetch_add(1,Ordering::Relaxed);}
                 }
             }
         }
+    }
+}
+
+pub struct IrcDatagram {
+    endpoint: IrcEndpoint,
+}
+impl IrcDatagram {
+    pub fn local_addresses(&self) -> Vec<CustomAddr> {
+        self.endpoint.addresses.get()
+    }
+    pub async fn send(&self, target: &CustomAddr, bytes: &[u8]) -> io::Result<()> {
+        futures_util::future::poll_fn(|cx| self.endpoint.shared.poll_datagram(cx, target, bytes))
+            .await
+    }
+    pub async fn receive(&mut self) -> io::Result<(CustomAddr, Vec<u8>)> {
+        let p = self
+            .endpoint
+            .receiver
+            .recv()
+            .await
+            .ok_or_else(|| io::Error::new(io::ErrorKind::BrokenPipe, "IRC carrier closed"))?;
+        Ok((address(self.endpoint.shared.service, p.source), p.bytes))
     }
 }
 
@@ -550,32 +651,69 @@ impl CustomSender for IrcSender {
         _src: Option<&CustomAddr>,
         transmit: &Transmit<'_>,
     ) -> Poll<io::Result<()>> {
-        let target = match route_from_addr(dst, self.0.service) {
+        self.0.poll_datagram(cx, dst, transmit.contents)
+    }
+}
+
+impl Shared {
+    fn poll_datagram(
+        &self,
+        cx: &mut Context,
+        dst: &CustomAddr,
+        bytes: &[u8],
+    ) -> Poll<io::Result<()>> {
+        if *self.shutdown.borrow() {
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::BrokenPipe,
+                "IRC carrier retired",
+            )));
+        }
+        let target = match route_from_addr(dst, self.service) {
             Ok(route) => route,
             Err(error) => return Poll::Ready(Err(error)),
         };
-        if transmit.contents.is_empty() || transmit.contents.len() > MAX_DATAGRAM {
+        if bytes.is_empty() || bytes.len() > MAX_DATAGRAM {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "invalid IRC datagram size",
             )));
         }
-        let mut queue = self.0.outbound.lock().unwrap();
+        let mut queue = self.outbound.lock().unwrap();
         match Pin::new(&mut *queue).poll_ready(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(Err(_)) => Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::BrokenPipe,
                 "IRC carrier closed",
             ))),
-            Poll::Ready(Ok(())) => Poll::Ready(
-                Pin::new(&mut *queue)
+            Poll::Ready(Ok(())) => {
+                {
+                    let mut r = self.report.lock().unwrap();
+                    r.queue_pending += 1;
+                    r.queue_peak = r.queue_peak.max(r.queue_pending);
+                }
+                let result = Pin::new(&mut *queue)
                     .start_send(Outbound {
                         target,
-                        bytes: transmit.contents.to_vec(),
+                        bytes: bytes.to_vec(),
                         queued: Instant::now(),
                     })
-                    .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "IRC carrier closed")),
-            ),
+                    .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "IRC carrier closed"));
+                if result.is_err() {
+                    let mut r = self.report.lock().unwrap();
+                    r.queue_pending = r.queue_pending.saturating_sub(1);
+                } else {
+                    let mut r = self.report.lock().unwrap();
+                    r.accepted_bytes += bytes.len() as u64;
+                    if r.accepted_datagrams.len() < 256 {
+                        r.accepted_datagrams.push(DatagramEvent {
+                            bytes: bytes.len(),
+                            first_five_bytes: hex::encode(&bytes[..bytes.len().min(5)]),
+                            ciphertext_sha256: hex::encode(Sha256::digest(bytes)),
+                        });
+                    }
+                }
+                Poll::Ready(result)
+            }
         }
     }
 }

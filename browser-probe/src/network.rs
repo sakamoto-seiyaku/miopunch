@@ -156,6 +156,8 @@ struct GateState {
     qualification_revision: Arc<std::sync::atomic::AtomicU64>,
     qualification_updates: Option<n0_watcher::Watchable<u64>>,
     snapshot_hash: Option<[u8; 32]>,
+    request_handshake: Option<serde_json::Value>,
+    request_deadline: Option<n0_future::time::Instant>,
 }
 #[derive(Clone, Default)]
 struct BrowserGate(Arc<Mutex<GateState>>);
@@ -261,6 +263,20 @@ impl EndpointHooks for BrowserGate {
         }) else {
             return Self::reject();
         };
+        let handshake_started = n0_future::time::Instant::now();
+        if connection.alpn() == REQUEST_ALPN {
+            self.0.lock().unwrap().request_handshake = Some(serde_json::json!({
+                "local_id": hex::encode(saved.identity().as_bytes()),
+                "remote_id": connection.remote_id().to_string(),
+                "alpn": String::from_utf8_lossy(connection.alpn()),
+                "stable_id": connection.stable_id(),
+                "expected_contact_verified": connection.side().is_client(),
+                "tls_authenticated": true,
+                "stage": "admission-stage-agreement",
+                "business_handle": false,
+                "stats": format!("{:?}", connection.stats()),
+            }));
+        }
         // No 0-RTT API is exposed. Normal data handles wait for the native
         // mutual proof and stage agreement, including after a fresh page start.
         let proof = if connection.alpn() != REQUEST_ALPN {
@@ -284,7 +300,17 @@ impl EndpointHooks for BrowserGate {
         } else {
             None
         };
-        let agreed = n0_future::time::timeout(Duration::from_secs(5), async {
+        let agreement_budget = self
+            .0
+            .lock()
+            .unwrap()
+            .request_deadline
+            .filter(|_| connection.alpn() == REQUEST_ALPN)
+            .map_or(Duration::from_secs(5), |deadline| {
+                Duration::from_secs(5)
+                    .min(deadline.saturating_duration_since(n0_future::time::Instant::now()))
+            });
+        let agreed = n0_future::time::timeout(agreement_budget, async {
             let (mut send, mut recv) = if connection.side().is_client() {
                 connection.open_bi().await.ok()?
             } else {
@@ -300,6 +326,19 @@ impl EndpointHooks for BrowserGate {
         .ok()
         .flatten()
         .is_some();
+        if connection.alpn() == REQUEST_ALPN {
+            let mut state = self.0.lock().unwrap();
+            if let Some(report) = state.request_handshake.as_mut() {
+                report["agreement_elapsed_ms"] =
+                    serde_json::json!(handshake_started.elapsed().as_millis());
+                report["stage"] = serde_json::json!(if agreed {
+                    "restricted-A"
+                } else {
+                    "admission-stage-agreement-failed"
+                });
+                report["stats"] = serde_json::json!(format!("{:?}", connection.stats()));
+            }
+        }
         if !agreed {
             return Self::reject();
         }
@@ -341,6 +380,11 @@ impl EndpointHooks for BrowserGate {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+struct IrcConfiguration {
+    facility: crate::irc_datagram::IrcFacility,
+    profile: crate::irc_datagram::Profile,
+}
+#[derive(Clone, Serialize, Deserialize)]
 struct Configuration {
     relays: Vec<String>,
     disabled: Vec<String>,
@@ -348,6 +392,8 @@ struct Configuration {
     mqtt: Vec<crate::mqtt_datagram::MqttFacility>,
     #[serde(default)]
     contact_routes: Vec<ContactRoute>,
+    #[serde(default)]
+    irc: Vec<IrcConfiguration>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 struct ContactRoute {
@@ -370,6 +416,7 @@ impl Default for Configuration {
                 .collect(),
             disabled: Vec::new(),
             mqtt: Vec::new(),
+            irc: Vec::new(),
             contact_routes: Vec::new(),
         }
     }
@@ -379,6 +426,7 @@ struct ConfigurationInput {
     relays: Option<Vec<String>>,
     disabled: Option<Vec<String>>,
     mqtt: Option<Vec<crate::mqtt_datagram::MqttFacility>>,
+    irc: Option<Vec<IrcConfiguration>>,
     contact_routes: Option<Vec<ContactRoute>>,
 }
 
@@ -428,6 +476,10 @@ pub struct BrowserNetwork {
         crate::mqtt_datagram::MqttFacility,
         crate::mqtt::BrowserMqttTransport,
     )>,
+    irc: Vec<(IrcConfiguration, crate::irc::BrowserIrcTransport)>,
+    carrier_started: n0_future::time::Instant,
+    startup_request_started: Option<n0_future::time::Instant>,
+    caller_budget: std::time::Duration,
     contact_routes: Vec<RuntimeContactRoute>,
     last_request: Option<serde_json::Value>,
     attempt_started: Option<n0_future::time::Instant>,
@@ -444,6 +496,70 @@ impl BrowserNetwork {
     /// Configuration is a startup snapshot. Allowed relays are replaceable;
     /// no default facility is silently installed when none can be used.
     pub async fn start(configuration: String) -> Result<BrowserNetwork, JsValue> {
+        Self::start_bounded(configuration, TIMEOUT).await
+    }
+
+    /// Owned-fixture diagnostic only. This explicit budget never changes the
+    /// normal BrowserNetwork 12-second caller budget. No business handle escapes.
+    pub async fn irc_restricted_probe(
+        configuration: String,
+        invitation: String,
+        budget_ms: u32,
+    ) -> Result<String, JsValue> {
+        if !(1..=45000).contains(&budget_ms) {
+            return Err(error("invalid IRC diagnostic budget"));
+        }
+        let mut network = Self::start_bounded(
+            configuration,
+            std::time::Duration::from_millis(budget_ms.into()),
+        )
+        .await?;
+        if network.irc.is_empty() || !network.mqtt.is_empty() || !network.relays.is_empty() {
+            network.close().await;
+            return Err(error(
+                "IRC diagnostic requires IRC-only explicit facilities",
+            ));
+        }
+        // Only this explicitly startup-inclusive fixture attempt shares the
+        // outer caller clock. Ordinary public calls begin their own attempt.
+        network.startup_request_started = Some(network.carrier_started);
+        let result = network.request_admission(invitation).await;
+        let diagnostics: serde_json::Value =
+            serde_json::from_str(&network.path_diagnostics()).map_err(error)?;
+        let status: serde_json::Value = serde_json::from_str(&network.status()).map_err(error)?;
+        for (_, transport) in &network.irc {
+            transport.close();
+        }
+        // Fixture retirement is separate from the caller's attempt. Closing a
+        // QUIC endpoint may drain for several PTOs; the owned browser context
+        // is destroyed by the runner if this bounded graceful drain expires.
+        let cleanup_started = n0_future::time::Instant::now();
+        let graceful_close =
+            n0_future::time::timeout(std::time::Duration::from_secs(2), network.close())
+                .await
+                .is_ok();
+        Ok(serde_json::json!({"result":result.as_ref().ok(),"failure":result.err().map(|e|format!("{e:?}")),"status":status,"diagnostics":diagnostics,"graceful_close":graceful_close,"cleanup_elapsed_ms":cleanup_started.elapsed().as_millis(),"cleanup":serde_json::from_str::<serde_json::Value>(&network.path_diagnostics()).map_err(error)?}).to_string())
+    }
+}
+
+impl BrowserNetwork {
+    async fn start_bounded(
+        configuration: String,
+        caller_budget: std::time::Duration,
+    ) -> Result<BrowserNetwork, JsValue> {
+        let carrier_started = n0_future::time::Instant::now();
+        n0_future::time::timeout(
+            caller_budget,
+            Self::start_inner(configuration, caller_budget, carrier_started),
+        )
+        .await
+        .map_err(|_| error("temporarily unreachable: browser startup caller deadline"))?
+    }
+    async fn start_inner(
+        configuration: String,
+        caller_budget: std::time::Duration,
+        carrier_started: n0_future::time::Instant,
+    ) -> Result<BrowserNetwork, JsValue> {
         let input: ConfigurationInput = serde_json::from_str(&configuration).map_err(error)?;
         let lease = Lease(acquire_node().await?.as_f64().ok_or_else(rejected)? as u32);
         let raw = read_node(lease.0).await?;
@@ -482,6 +598,9 @@ impl BrowserNetwork {
         if let Some(mqtt) = input.mqtt {
             configuration.mqtt = mqtt;
         }
+        if let Some(irc) = input.irc {
+            configuration.irc = irc;
+        }
         if let Some(routes) = input.contact_routes {
             configuration.contact_routes = routes;
         }
@@ -499,7 +618,9 @@ impl BrowserNetwork {
                 relays.push(value.parse::<RelayUrl>().map_err(error)?);
             }
         }
-        if configuration.mqtt.len() > 16 || configuration.contact_routes.len() > 64 {
+        if configuration.mqtt.len() + configuration.irc.len() > 16
+            || configuration.contact_routes.len() > 64
+        {
             return Err(error("too many MQTT resources or contact routes"));
         }
         let mut logical_ids = std::collections::BTreeSet::new();
@@ -509,26 +630,49 @@ impl BrowserNetwork {
                 return Err(error("duplicate MQTT logical facility"));
             }
         }
+        for entry in &configuration.irc {
+            entry.facility.validate().map_err(error)?;
+            entry.profile.validate().map_err(error)?;
+            if !logical_ids.insert(&entry.facility.logical_id) {
+                return Err(error("duplicate signaling logical facility"));
+            }
+        }
         let mut contact_routes = Vec::new();
         for route in &configuration.contact_routes {
             let contact = route
                 .contact
                 .parse::<iroh_base::EndpointId>()
                 .map_err(error)?;
-            let facility = configuration
+            let bytes = hex::decode(&route.address).map_err(error)?;
+            let addr = if let Some(facility) = configuration
                 .mqtt
                 .iter()
                 .find(|item| item.logical_id == route.facility)
-                .ok_or_else(|| error("contact route has no trusted facility"))?;
-            let addr = iroh_base::CustomAddr::from_parts(
-                crate::mqtt_datagram::TRANSPORT_ID,
-                &hex::decode(&route.address).map_err(error)?,
-            );
-            crate::mqtt_datagram::route_from_addr(
-                &addr,
-                Some(facility.service_tag().map_err(error)?),
-            )
-            .map_err(error)?;
+            {
+                let addr =
+                    iroh_base::CustomAddr::from_parts(crate::mqtt_datagram::TRANSPORT_ID, &bytes);
+                crate::mqtt_datagram::route_from_addr(
+                    &addr,
+                    Some(facility.service_tag().map_err(error)?),
+                )
+                .map_err(error)?;
+                addr
+            } else if let Some(entry) = configuration
+                .irc
+                .iter()
+                .find(|item| item.facility.logical_id == route.facility)
+            {
+                let addr =
+                    iroh_base::CustomAddr::from_parts(crate::irc_datagram::TRANSPORT_ID, &bytes);
+                crate::irc_datagram::route_from_addr(
+                    &addr,
+                    entry.facility.service_tag().map_err(error)?,
+                )
+                .map_err(error)?;
+                addr
+            } else {
+                return Err(error("contact route has no trusted facility"));
+            };
             contact_routes.push(RuntimeContactRoute {
                 contact,
                 facility: route.facility.clone(),
@@ -544,6 +688,29 @@ impl BrowserNetwork {
                 ));
             }
         }
+        let mut irc = Vec::new();
+        for entry in &configuration.irc {
+            if entry
+                .facility
+                .check_allowed(&configuration.disabled)
+                .is_ok()
+            {
+                let mut profile = entry.profile.clone();
+                profile.attempt_ms = profile.attempt_ms.min(
+                    caller_budget
+                        .saturating_sub(carrier_started.elapsed())
+                        .as_millis() as u64,
+                );
+                irc.push((
+                    entry.clone(),
+                    crate::irc::BrowserIrcTransport::new(
+                        &entry.facility,
+                        &profile,
+                        &configuration.disabled,
+                    )?,
+                ));
+            }
+        }
         saved.resources = Some(configuration);
         let committed = serde_json::to_string(&saved).map_err(error)?;
         let previous = raw
@@ -552,7 +719,7 @@ impl BrowserNetwork {
         if raw.as_string().as_deref() != Some(&committed) {
             save_node(lease.0, previous, committed.clone()).await?;
         }
-        if relays.is_empty() && mqtt.is_empty() {
+        if relays.is_empty() && mqtt.is_empty() && irc.is_empty() {
             return Err(error(
                 "temporarily unreachable: no allowed browser relay or MQTT carrier",
             ));
@@ -563,9 +730,17 @@ impl BrowserNetwork {
             .collect::<Result<_, _>>()?;
         let gate = BrowserGate::default();
         gate.install(&saved);
-        let signaling: Vec<iroh::RelayUrl> = mqtt
+        let mut signaling: Vec<iroh::RelayUrl> = mqtt
             .iter()
             .map(|(facility, _)| facility.wss_url.parse().unwrap())
+            .collect();
+        signaling.extend(
+            irc.iter()
+                .map(|(entry, _)| entry.facility.wss_url.parse().unwrap()),
+        );
+        let irc_services: Vec<_> = irc
+            .iter()
+            .map(|(entry, _)| entry.facility.service_tag().unwrap())
             .collect();
         let custom_services: Vec<_> = mqtt
             .iter()
@@ -589,12 +764,17 @@ impl BrowserNetwork {
                     }
                     custom_services.iter().any(|service| {
                         crate::mqtt_datagram::route_from_addr(addr, Some(*service)).is_ok()
-                    })
+                    }) || irc_services
+                        .iter()
+                        .any(|service| crate::irc_datagram::route_from_addr(addr, *service).is_ok())
                 }),
             )
             .alpns(vec![REPLICA_ALPN.to_vec(), REQUEST_ALPN.to_vec()])
             .admission_gate(gate.clone());
         for (_, transport) in &mqtt {
+            builder = builder.add_custom_transport(Arc::new(transport.clone()));
+        }
+        for (_, transport) in &irc {
             builder = builder.add_custom_transport(Arc::new(transport.clone()));
         }
         #[cfg(feature = "rtc-probe")]
@@ -604,37 +784,50 @@ impl BrowserNetwork {
             builder = builder.add_custom_transport(Arc::new(rtc_transport.clone()));
         }
         let endpoint = builder.bind().await.map_err(error)?;
-        if n0_future::time::timeout(TIMEOUT, async {
-            use futures_util::{FutureExt, future::select_all};
-            let mut candidates = Vec::new();
-            for (_, transport) in &mqtt {
-                candidates.push(
-                    async move {
-                        transport.wait_ready().await?;
-                        transport.route()?;
-                        Ok::<_, JsValue>(())
-                    }
-                    .boxed_local(),
-                );
-            }
-            if !relays.is_empty() {
-                candidates.push(
-                    async {
-                        endpoint.online().await;
-                        Ok::<_, JsValue>(())
-                    }
-                    .boxed_local(),
-                );
-            }
-            while !candidates.is_empty() {
-                let (result, _, remaining) = select_all(candidates).await;
-                if result.is_ok() {
-                    return Ok(());
+        if n0_future::time::timeout(
+            caller_budget.saturating_sub(carrier_started.elapsed()),
+            async {
+                use futures_util::{FutureExt, future::select_all};
+                let mut candidates = Vec::new();
+                for (_, transport) in &mqtt {
+                    candidates.push(
+                        async move {
+                            transport.wait_ready().await?;
+                            transport.route()?;
+                            Ok::<_, JsValue>(())
+                        }
+                        .boxed_local(),
+                    );
                 }
-                candidates = remaining;
-            }
-            Err(error("no browser carrier became ready"))
-        })
+                for (_, transport) in &irc {
+                    candidates.push(
+                        async move {
+                            transport.wait_ready().await?;
+                            transport.route()?;
+                            Ok::<_, JsValue>(())
+                        }
+                        .boxed_local(),
+                    );
+                }
+                if !relays.is_empty() {
+                    candidates.push(
+                        async {
+                            endpoint.online().await;
+                            Ok::<_, JsValue>(())
+                        }
+                        .boxed_local(),
+                    );
+                }
+                while !candidates.is_empty() {
+                    let (result, _, remaining) = select_all(candidates).await;
+                    if result.is_ok() {
+                        return Ok(());
+                    }
+                    candidates = remaining;
+                }
+                Err(error("no browser carrier became ready"))
+            },
+        )
         .await
         .map_or(true, |result| result.is_err())
         {
@@ -649,6 +842,10 @@ impl BrowserNetwork {
             rtc_transport,
             relays,
             mqtt,
+            irc,
+            carrier_started,
+            startup_request_started: None,
+            caller_budget,
             contact_routes,
             last_request: None,
             attempt_started: None,
@@ -660,7 +857,10 @@ impl BrowserNetwork {
             management: None,
         })
     }
+}
 
+#[wasm_bindgen]
+impl BrowserNetwork {
     pub fn id(&self) -> String {
         self.endpoint.id().to_string()
     }
@@ -669,9 +869,13 @@ impl BrowserNetwork {
     }
 
     pub async fn request_admission(&mut self, invitation: String) -> Result<String, JsValue> {
-        let started = n0_future::time::Instant::now();
+        let started = self
+            .startup_request_started
+            .take()
+            .unwrap_or_else(n0_future::time::Instant::now);
         self.attempt_started = Some(started);
-        self.last_request = None;
+        self.gate.0.lock().unwrap().request_deadline = Some(started + self.caller_budget);
+        self.last_request = Some(serde_json::json!({"stage":"connecting","business_handle":false}));
         self.delivery = None;
         let bytes = hex::decode(invitation).map_err(error)?;
         Invitation::decode(&bytes)?;
@@ -686,10 +890,13 @@ impl BrowserNetwork {
         let mut next = self.saved.clone();
         next.invitation = Some(bytes);
         next.precode = None;
-        let result = n0_future::time::timeout(TIMEOUT.saturating_sub(started.elapsed()), async {
-            self.commit(next).await?;
-            self.request_inner().await
-        })
+        let result = n0_future::time::timeout(
+            self.caller_budget.saturating_sub(started.elapsed()),
+            async {
+                self.commit(next).await?;
+                self.request_inner().await
+            },
+        )
         .await;
         if let Some(report) = self.last_request.as_mut() {
             report["attempt_elapsed_ms"] = serde_json::json!(started.elapsed().as_millis());
@@ -699,7 +906,7 @@ impl BrowserNetwork {
 
     /// Public protocol diagnostics contain identities and counters only.
     pub fn path_diagnostics(&self) -> String {
-        serde_json::json!({"request":self.last_request,"carriers":self.mqtt.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap()).collect::<Vec<_>>()}).to_string()
+        serde_json::json!({"request":self.last_request,"gate":self.gate.0.lock().unwrap().request_handshake,"carriers":self.mqtt.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap()).chain(self.irc.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap())).collect::<Vec<_>>()}).to_string()
     }
 
     /// A separate handle can cancel while WASM owns the mutable request future.
@@ -707,6 +914,11 @@ impl BrowserNetwork {
     pub fn cancellation_handle(&self) -> BrowserCancellation {
         BrowserCancellation {
             endpoint: self.endpoint.clone(),
+            irc: self
+                .irc
+                .iter()
+                .map(|(_, transport)| transport.clone())
+                .collect(),
             carriers: self
                 .mqtt
                 .iter()
@@ -720,6 +932,7 @@ impl BrowserNetwork {
     pub async fn request_precode(&mut self, code: String) -> Result<String, JsValue> {
         let started = n0_future::time::Instant::now();
         self.attempt_started = Some(started);
+        self.gate.0.lock().unwrap().request_deadline = Some(started + self.caller_budget);
         self.delivery = None;
         let bytes = hex::decode(code).map_err(error)?;
         if bytes.len() != 128 {
@@ -860,6 +1073,11 @@ impl BrowserNetwork {
                     .mqtt
                     .iter()
                     .any(|(facility, _)| facility.logical_id == route.facility)
+                || route.contact == target
+                    && self
+                        .irc
+                        .iter()
+                        .any(|(entry, _)| entry.facility.logical_id == route.facility)
             {
                 addr.addrs
                     .insert(iroh_base::TransportAddr::Custom(route.address.clone()));
@@ -941,7 +1159,7 @@ impl BrowserNetwork {
         if let Some(report) = self.last_request.as_mut() {
             report["exchange_ms"] = serde_json::json!(started.elapsed().as_millis());
             report["remaining_caller_ms"] = serde_json::json!(
-                TIMEOUT
+                self.caller_budget
                     .saturating_sub(self.attempt_started.unwrap_or(started).elapsed())
                     .as_millis()
             );
@@ -966,10 +1184,14 @@ impl BrowserNetwork {
 pub struct BrowserCancellation {
     endpoint: Endpoint,
     carriers: Vec<crate::mqtt::BrowserMqttTransport>,
+    irc: Vec<crate::irc::BrowserIrcTransport>,
 }
 #[wasm_bindgen]
 impl BrowserCancellation {
     pub fn cancel(&self) {
+        for carrier in &self.irc {
+            carrier.close();
+        }
         for carrier in &self.carriers {
             carrier.close();
         }
