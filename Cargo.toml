@@ -70,7 +70,7 @@ p2panda-discovery.workspace = true
 rand_chacha.workspace = true
 rsasl.workspace = true
 sha2.workspace = true
-rumqttc = { version = "=0.25.1", default-features = false }
+rumqttc = { version = "=0.25.1", default-features = false, features = ["use-rustls-no-provider"] }
 rand = "0.10.1"
 rustix = { version = "1.1.5", features = ["fs"] }
 hex = "0.4.3"

@@ -87,6 +87,8 @@ flowchart LR
 - **关键失败：**2049 字节本地拒绝，错误 service tag 不投递，订阅失败/断连不能发布 ready 地址。失败注入优先在自有实例，避免公网洪泛。
 - **证据/通过：**时间、URL/逻辑设施、TLS/WSS101/subprotocol、CONNACK/SUBACK code、route generation、帧/字节/丢弃、队列峰值、ready/withdraw 时刻。仅四条正常数据消息；60秒外层上限，单阶段15秒，超时关闭两端并退订/断开。完整报文不过，停止该设施上的安全握手验证。
 
+2026-10-03 后续授权实施的第 1 步自有设施资格及真实失败修复，见 [MQTT datagram 实施回执](2026-10-03-browser-mqtt-datagram.md)。本规划的其余步骤不因该结果自动视为完成。
+
 ### 2. WSS 上真实受限 QUIC/TLS
 
 - **问题/前提：**第1步通过；只验证真实安全引导，不把批准和 RTC 放进同一步。

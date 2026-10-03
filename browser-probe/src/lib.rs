@@ -10,7 +10,11 @@ pub mod admission_proof;
 #[path = "../../src/management_auth.rs"]
 #[allow(dead_code)] // Durable native-store helpers are outside this platform adapter.
 pub mod management_auth;
+mod mqtt;
+#[path = "../../src/mqtt_datagram.rs"]
+pub mod mqtt_datagram;
 mod network;
+pub use mqtt::BrowserMqttDatagram;
 pub use network::{BrowserMemberConnection, BrowserNetwork};
 
 const KEY_NAME: &str = "miopunch-browser-probe-node-key";

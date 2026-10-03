@@ -50,4 +50,5 @@ mod management_action;
 
 mod precode_policy;
 
+pub mod mqtt_datagram;
 mod native_files;

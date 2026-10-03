@@ -1,0 +1,497 @@
+{
+  "baseline": "6cd3ada172683596025766040baa884d03e9124d",
+  "review": {
+    "standards_initial_hard_violations": 0,
+    "standards_initial_heuristic_findings": 2,
+    "standards_residual_findings": 0,
+    "spec_findings": 0,
+    "resolved": [
+      "Binding-owned generation protocol and queue metrics; real immediate close/rebind red then green",
+      "Shared ACK qualification and explicit QoS0 acceptance on both platforms"
+    ]
+  },
+  "runs": {
+    "initial-disconnection-failure": {
+      "path": "/tmp/mio-rtc-s1-first/results.json",
+      "sha256": "6950dbb5ec90576f74dd402e74881c34173469ca285cd974fcd513f8817f364d",
+      "results": {
+        "case": "mqtt-datagram",
+        "started_utc": "2026-10-03T14:52:23Z",
+        "passed": false,
+        "checks": [
+          {
+            "name": "native-build",
+            "argv": [
+              "cargo",
+              "build",
+              "--locked",
+              "--offline",
+              "-j",
+              "2",
+              "--bin",
+              "browser_mqtt_datagram"
+            ],
+            "exit": 0,
+            "budget_seconds": 600,
+            "seconds": 14.001
+          },
+          {
+            "name": "wasm-build",
+            "argv": [
+              "cargo",
+              "build",
+              "--locked",
+              "--offline",
+              "-j",
+              "2",
+              "-p",
+              "miopunch-browser-probe",
+              "--target",
+              "wasm32-unknown-unknown"
+            ],
+            "exit": 0,
+            "budget_seconds": 600,
+            "seconds": 11.191
+          },
+          {
+            "name": "wasm-bindgen",
+            "argv": [
+              "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+              "--target",
+              "web",
+              "--out-dir",
+              "browser-probe/pkg",
+              "target/wasm32-unknown-unknown/debug/miopunch_browser_probe.wasm"
+            ],
+            "exit": 0,
+            "budget_seconds": 60,
+            "seconds": 1.971
+          },
+          {
+            "name": "mqtt-datagram",
+            "argv": [
+              "node",
+              "browser-probe/harness/run-mqtt-datagram.mjs",
+              "--evidence",
+              "/tmp/mio-rtc-s1-first",
+              "--fixture",
+              "/tmp/mio-rtc-mqtt-b_3ioy1d",
+              "--broker",
+              "127.0.0.1:43419"
+            ],
+            "exit": 1,
+            "budget_seconds": 60,
+            "seconds": 1.768
+          }
+        ],
+        "protocol_budget_seconds": 60,
+        "phase_budget_seconds": 15,
+        "public_traffic": false,
+        "cleanup": [
+          {
+            "container": "miopunch-rtc-mqtt-1791039171394529955",
+            "exit": 0
+          }
+        ],
+        "certificate": {
+          "normal_verification": true,
+          "private_trust_only": true,
+          "leaf_pem_sha256": "e2f0e36a3fe765b315466694320d5e67872b5566bc396a1300d7cbbf1602aa48"
+        },
+        "owned_broker": {
+          "address": "127.0.0.1:43419",
+          "container": "miopunch-rtc-mqtt-1791039171394529955",
+          "image": "eclipse-mosquitto:2"
+        },
+        "fixture_setup_seconds": 1.414,
+        "failure": "mqtt-datagram failed; see /tmp/mio-rtc-s1-first/mqtt-datagram.log",
+        "completed_utc": "2026-10-03T14:52:54Z"
+      }
+    },
+    "initial-expanded-pass": {
+      "path": "/tmp/mio-rtc-s1/results.json",
+      "sha256": "4be1cbb3b1edaad31ae411c6395e72fb3a53de1cd0a8886198ca248c10b902a3",
+      "results": {
+        "case": "mqtt-datagram",
+        "started_utc": "2026-10-03T14:59:03Z",
+        "passed": true,
+        "checks": [
+          {
+            "name": "native-build",
+            "argv": [
+              "cargo",
+              "build",
+              "--locked",
+              "--offline",
+              "-j",
+              "2",
+              "--bin",
+              "browser_mqtt_datagram"
+            ],
+            "exit": 0,
+            "budget_seconds": 600,
+            "seconds": 4.676
+          },
+          {
+            "name": "wasm-build",
+            "argv": [
+              "cargo",
+              "build",
+              "--locked",
+              "--offline",
+              "-j",
+              "2",
+              "-p",
+              "miopunch-browser-probe",
+              "--target",
+              "wasm32-unknown-unknown"
+            ],
+            "exit": 0,
+            "budget_seconds": 600,
+            "seconds": 2.069
+          },
+          {
+            "name": "wasm-bindgen",
+            "argv": [
+              "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+              "--target",
+              "web",
+              "--out-dir",
+              "browser-probe/pkg",
+              "target/wasm32-unknown-unknown/debug/miopunch_browser_probe.wasm"
+            ],
+            "exit": 0,
+            "budget_seconds": 60,
+            "seconds": 1.875
+          },
+          {
+            "name": "mqtt-datagram",
+            "argv": [
+              "node",
+              "browser-probe/harness/run-mqtt-datagram.mjs",
+              "--evidence",
+              "/tmp/mio-rtc-s1",
+              "--fixture",
+              "/tmp/mio-rtc-mqtt-pea1oez_",
+              "--broker",
+              "127.0.0.1:43421"
+            ],
+            "exit": 0,
+            "budget_seconds": 59.10634161694907,
+            "seconds": 4.576
+          }
+        ],
+        "protocol_budget_seconds": 60,
+        "phase_budget_seconds": 15,
+        "public_traffic": false,
+        "cleanup": [
+          {
+            "container": "miopunch-rtc-mqtt-1791039552813330882",
+            "exit": 0
+          }
+        ],
+        "certificate": {
+          "normal_verification": true,
+          "private_trust_only": true,
+          "leaf_pem_sha256": "98a29ed8e6da93cf32ed4675ff244cb4279931cfe5e35fb7f62f1907c828dee7"
+        },
+        "owned_broker": {
+          "address": "127.0.0.1:43421",
+          "container": "miopunch-rtc-mqtt-1791039552813330882",
+          "image": "eclipse-mosquitto:2"
+        },
+        "fixture_setup_seconds": 0.894,
+        "completed_utc": "2026-10-03T14:59:18Z",
+        "total_seconds": 14.336,
+        "protocol_total_seconds": 5.715
+      }
+    },
+    "original-affected-suite": {
+      "path": "/tmp/mio-rtc-s1-regression/results.json",
+      "sha256": "808da7c368bab550395b12b9562668d1b2259b73d6aa373533c8f4844018e4e9",
+      "results": {
+        "passed": true,
+        "brokers": [
+          "127.0.0.1:43422",
+          "127.0.0.1:43423"
+        ],
+        "checks": [
+          {
+            "name": "affected-native-suite",
+            "argv": [
+              "rtk",
+              "proxy",
+              "cargo",
+              "test",
+              "--locked",
+              "--offline",
+              "-j",
+              "2",
+              "--lib",
+              "--test",
+              "mqtt_datagram",
+              "--test",
+              "mqtt_probe",
+              "--test",
+              "mqtt_upgrade",
+              "--test",
+              "mqtt_bootstrap",
+              "--test",
+              "resources",
+              "--",
+              "--test-threads=1"
+            ],
+            "exit": 0,
+            "seconds": 111.684
+          },
+          {
+            "name": "workspace-typecheck",
+            "argv": [
+              "rtk",
+              "proxy",
+              "cargo",
+              "check",
+              "--locked",
+              "--offline",
+              "-j",
+              "2",
+              "--workspace",
+              "--all-targets"
+            ],
+            "exit": 0,
+            "seconds": 32.997
+          },
+          {
+            "name": "wasm-typecheck",
+            "argv": [
+              "rtk",
+              "proxy",
+              "cargo",
+              "check",
+              "--locked",
+              "--offline",
+              "-j",
+              "2",
+              "-p",
+              "miopunch-browser-probe",
+              "--target",
+              "wasm32-unknown-unknown"
+            ],
+            "exit": 0,
+            "seconds": 1.317
+          }
+        ],
+        "cleanup": [
+          {
+            "container": "miopunch-rtc-s1-regression-1791039713538923926-0",
+            "exit": 0
+          },
+          {
+            "container": "miopunch-rtc-s1-regression-1791039713853749651-1",
+            "exit": 0
+          }
+        ]
+      },
+      "test_summaries": {
+        "affected-native-suite.log": [
+          "test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.30s",
+          "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.92s",
+          "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.82s",
+          "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.21s",
+          "test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 44.17s"
+        ]
+      }
+    },
+    "generation-red": {
+      "path": "/tmp/mio-rtc-s1-rebind-red/results.json",
+      "sha256": "aba19b853addbd4ea669e028a820c6c3cb90f8f215d0841cde172a16e7ce36e6",
+      "results": {
+        "passed": false,
+        "brokers": [
+          "127.0.0.1:43424",
+          "127.0.0.1:43425"
+        ],
+        "checks": [
+          {
+            "name": "binding-generation",
+            "argv": [
+              "rtk",
+              "proxy",
+              "cargo",
+              "test",
+              "--locked",
+              "--offline",
+              "-j",
+              "2",
+              "--test",
+              "mqtt_datagram",
+              "retiring_a_binding",
+              "--",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "exit": 101,
+            "seconds": 2.326
+          }
+        ],
+        "cleanup": [
+          {
+            "container": "miopunch-rtc-s1-regression-1791039905579948342-0",
+            "exit": 0
+          },
+          {
+            "container": "miopunch-rtc-s1-regression-1791039905977361225-1",
+            "exit": 0
+          }
+        ],
+        "failure": "binding-generation failed"
+      },
+      "test_summaries": {
+        "binding-generation.log": [
+          "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.61s"
+        ]
+      }
+    },
+    "generation-green": {
+      "path": "/tmp/mio-rtc-s1-rebind-green/results.json",
+      "sha256": "65ea3f2ac917be412aedf50379a5310452280301cf8c759a1871e490228552f1",
+      "results": {
+        "passed": true,
+        "brokers": [
+          "127.0.0.1:43426",
+          "127.0.0.1:43427"
+        ],
+        "checks": [
+          {
+            "name": "binding-generation",
+            "argv": [
+              "rtk",
+              "proxy",
+              "cargo",
+              "test",
+              "--locked",
+              "--offline",
+              "-j",
+              "2",
+              "--test",
+              "mqtt_datagram",
+              "retiring_a_binding",
+              "--",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "exit": 0,
+            "seconds": 20.654
+          }
+        ],
+        "cleanup": [
+          {
+            "container": "miopunch-rtc-s1-regression-1791040043734519521-0",
+            "exit": 0
+          },
+          {
+            "container": "miopunch-rtc-s1-regression-1791040044158626376-1",
+            "exit": 0
+          }
+        ]
+      },
+      "test_summaries": {
+        "binding-generation.log": [
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 1.21s"
+        ]
+      }
+    },
+    "post-review-carrier-suite": {
+      "path": "/tmp/mio-rtc-s1-reviewed-regression/results.json",
+      "sha256": "5f563c52068957b79094c858a0fb002e6d97caf67895c1de2096880a2545c9e2",
+      "results": {
+        "passed": true,
+        "brokers": [
+          "127.0.0.1:43429",
+          "127.0.0.1:43430"
+        ],
+        "checks": [
+          {
+            "name": "carrier-and-generation",
+            "argv": [
+              "rtk",
+              "proxy",
+              "cargo",
+              "test",
+              "--locked",
+              "--offline",
+              "-j",
+              "2",
+              "--lib",
+              "--test",
+              "mqtt_datagram",
+              "--test",
+              "mqtt_probe",
+              "--test",
+              "mqtt_upgrade",
+              "--",
+              "--test-threads=1"
+            ],
+            "exit": 0,
+            "seconds": 35.276
+          },
+          {
+            "name": "workspace-typecheck",
+            "argv": [
+              "rtk",
+              "proxy",
+              "cargo",
+              "check",
+              "--locked",
+              "--offline",
+              "-j",
+              "2",
+              "--workspace",
+              "--all-targets"
+            ],
+            "exit": 0,
+            "seconds": 19.363
+          },
+          {
+            "name": "wasm-typecheck",
+            "argv": [
+              "rtk",
+              "proxy",
+              "cargo",
+              "check",
+              "--locked",
+              "--offline",
+              "-j",
+              "2",
+              "-p",
+              "miopunch-browser-probe",
+              "--target",
+              "wasm32-unknown-unknown"
+            ],
+            "exit": 0,
+            "seconds": 1.518
+          }
+        ],
+        "cleanup": [
+          {
+            "container": "miopunch-rtc-s1-regression-1791040497429023496-0",
+            "exit": 0
+          },
+          {
+            "container": "miopunch-rtc-s1-regression-1791040497731254584-1",
+            "exit": 0
+          }
+        ]
+      },
+      "test_summaries": {
+        "carrier-and-generation.log": [
+          "test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.49s",
+          "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.21s",
+          "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.82s",
+          "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.12s"
+        ]
+      }
+    }
+  }
+}

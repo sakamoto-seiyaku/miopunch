@@ -17,18 +17,15 @@ use iroh::endpoint::transports::{
 use iroh_base::CustomAddr;
 use n0_watcher::{Direct, Watchable};
 use rumqttc::mqttbytes::v4::SubscribeReasonCode;
-use rumqttc::{AsyncClient, Event, MqttOptions, Packet as MqttPacket, QoS};
+use rumqttc::{AsyncClient, Event, MqttOptions, Outgoing, Packet as MqttPacket, QoS};
 use sha2::{Digest, Sha256};
 use tokio::sync::watch;
 
-pub const TRANSPORT_ID: u64 = 0x6d696f6d717474; // "miomqtt"
-const MAGIC: &[u8; 4] = b"MIO1";
-const ROUTE_LEN: usize = 16;
-const MAX_DATAGRAM: usize = 2048;
-const QUEUE_DEPTH: usize = 64;
-
-type Route = [u8; ROUTE_LEN];
-type Service = [u8; 16];
+pub use crate::mqtt_datagram::TRANSPORT_ID;
+use crate::mqtt_datagram::{
+    MAX_DATAGRAM, MqttFacility, QUEUE_DEPTH, Qualification, Route, Service, address_for,
+    decode_datagram, encode_datagram, route_from_addr, topic,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Status {
@@ -47,44 +44,6 @@ pub(crate) fn service_tag(resource: &iroh::RelayUrl) -> io::Result<[u8; 16]> {
     Ok(hash.finalize()[..16].try_into().unwrap())
 }
 
-fn topic(route: Route) -> String {
-    format!("miopunch/test/{}/packet", hex::encode(route))
-}
-
-fn address_for(service: Option<Service>, route: Route) -> CustomAddr {
-    if let Some(service) = service {
-        let mut data = [0; 32];
-        data[..16].copy_from_slice(&service);
-        data[16..].copy_from_slice(&route);
-        CustomAddr::from_parts(TRANSPORT_ID, &data)
-    } else {
-        CustomAddr::from_parts(TRANSPORT_ID, &route)
-    }
-}
-
-fn route_from_addr(addr: &CustomAddr, service: Option<Service>) -> io::Result<Route> {
-    if addr.id() != TRANSPORT_ID {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "wrong MQTT carrier",
-        ));
-    }
-    let data = match service {
-        Some(service) if addr.data().len() == 32 && addr.data()[..16] == service => {
-            &addr.data()[16..]
-        }
-        Some(_) => {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "MQTT route belongs to another service",
-            ));
-        }
-        None => addr.data(),
-    };
-    data.try_into()
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid MQTT route length"))
-}
-
 #[derive(Debug, Default)]
 pub struct Traffic {
     sent_packets: AtomicU64,
@@ -92,9 +51,58 @@ pub struct Traffic {
     received_packets: AtomicU64,
     received_bytes: AtomicU64,
     rejected_packets: AtomicU64,
+    generation: AtomicU64,
+    current_binding: Mutex<Arc<BindingReport>>,
+}
+
+#[derive(Debug, Default)]
+struct BindingReport {
+    generation: u64,
+    queued_packets: AtomicU64,
+    queue_peak: AtomicU64,
+    rx_queue_peak: AtomicU64,
+    protocol: Mutex<ProtocolReport>,
+}
+
+#[derive(Clone, Debug, Default, serde::Serialize)]
+struct ProtocolReport {
+    connack: Option<u8>,
+    subscribe_id: Option<u16>,
+    suback_id: Option<u16>,
+    suback_codes: Vec<u8>,
+    ready_ms: Option<u64>,
+    withdraw_ms: Option<u64>,
+    unsubscribe_sent: bool,
+    disconnect_sent: bool,
+    failure: Option<String>,
+}
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64
 }
 
 impl Traffic {
+    pub fn snapshot(&self) -> serde_json::Value {
+        let binding = self.current_binding.lock().unwrap().clone();
+        serde_json::json!({
+            "generation": binding.generation,
+            "sent_packets": self.sent_packets.load(Ordering::Relaxed),
+            "sent_bytes": self.sent_bytes.load(Ordering::Relaxed),
+            "received_packets": self.received_packets.load(Ordering::Relaxed),
+            "received_bytes": self.received_bytes.load(Ordering::Relaxed),
+            "rejected_packets": self.rejected_packets.load(Ordering::Relaxed),
+            "queue_peak": binding.queue_peak.load(Ordering::Relaxed),
+            "rx_queue_peak": binding.rx_queue_peak.load(Ordering::Relaxed),
+            "queued_packets": binding.queued_packets.load(Ordering::Relaxed),
+            "protocol": binding.protocol.lock().unwrap().clone(),
+            "max_datagram": MAX_DATAGRAM,
+            "queue_depth": QUEUE_DEPTH,
+        })
+    }
+
     /// Actual datagrams handed to the MQTT publish queue by this endpoint.
     pub fn sent_packets(&self) -> u64 {
         self.sent_packets.load(Ordering::Relaxed)
@@ -119,12 +127,23 @@ impl Traffic {
     }
 }
 
+impl BindingReport {
+    fn withdraw(&self) {
+        self.protocol
+            .lock()
+            .unwrap()
+            .withdraw_ms
+            .get_or_insert_with(now_ms);
+    }
+}
+
 #[derive(Debug)]
 pub struct MqttTransport {
     resource: iroh::RelayUrl,
     service: Option<Service>,
     binding: Mutex<Option<Binding>>,
     traffic: Arc<Traffic>,
+    tls_ca: Option<Vec<u8>>,
 }
 
 #[derive(Debug)]
@@ -134,6 +153,13 @@ struct Binding {
 }
 
 impl MqttTransport {
+    /// Standalone access to the same carrier used by CustomTransport, for
+    /// datagram qualification without constructing a QUIC session.
+    pub fn bind_datagrams(&self) -> io::Result<MqttDatagram> {
+        Ok(MqttDatagram {
+            endpoint: self.bind_endpoint()?,
+        })
+    }
     /// Read-only diagnostics for the configured carrier; no private payload.
     pub fn diagnostics(&self) -> (String, bool, u64, u64) {
         let ready = self
@@ -157,6 +183,7 @@ impl MqttTransport {
             service: None,
             binding: Mutex::new(None),
             traffic,
+            tls_ca: None,
         }
     }
 
@@ -172,15 +199,34 @@ impl MqttTransport {
             service: Some(service),
             binding: Mutex::new(None),
             traffic,
+            tls_ca: None,
+        })
+    }
+
+    /// Use an explicit trusted native/WSS mapping. Both entries share the
+    /// logical service tag; URL spelling and host equality never infer aliases.
+    pub fn from_facility(
+        facility: &MqttFacility,
+        disabled: &[String],
+        traffic: Arc<Traffic>,
+        tls_ca: Option<Vec<u8>>,
+    ) -> io::Result<Self> {
+        facility.check_allowed(disabled)?;
+        Ok(Self {
+            resource: facility.native_url.parse().map_err(io::Error::other)?,
+            service: Some(facility.service_tag()?),
+            binding: Mutex::new(None),
+            traffic,
+            tls_ca,
         })
     }
 
     pub fn route(&self) -> io::Result<String> {
         let binding = self.binding()?;
-        if *binding.status.borrow() == Status::Closed {
+        if *binding.status.borrow() != Status::Ready {
             return Err(io::Error::new(
                 io::ErrorKind::NotConnected,
-                "MQTT subscription closed",
+                "MQTT subscription not ready",
             ));
         }
         Ok(hex::encode(address_for(self.service, binding.route).data()))
@@ -260,6 +306,10 @@ struct Shared {
     route: Route,
     service: Option<Service>,
     outbound: Mutex<mpsc::Sender<Outbound>>,
+    status: watch::Sender<Status>,
+    shutdown: watch::Sender<bool>,
+    traffic: Arc<Traffic>,
+    report: Arc<BindingReport>,
 }
 
 #[derive(Debug)]
@@ -268,13 +318,40 @@ struct MqttEndpoint {
     receiver: tokio::sync::mpsc::Receiver<Packet>,
     addresses: Watchable<Vec<CustomAddr>>,
     status: watch::Sender<Status>,
-    driver: tokio::task::JoinHandle<()>,
+}
+
+pub struct MqttDatagram {
+    endpoint: MqttEndpoint,
+}
+
+impl MqttDatagram {
+    pub fn local_addresses(&self) -> Vec<CustomAddr> {
+        self.endpoint.addresses.get()
+    }
+    pub async fn send(&self, target: &CustomAddr, bytes: &[u8]) -> io::Result<()> {
+        futures_util::future::poll_fn(|cx| self.endpoint.shared.poll_datagram(cx, target, bytes))
+            .await
+    }
+
+    pub async fn receive(&mut self) -> io::Result<(CustomAddr, Vec<u8>)> {
+        let packet = self
+            .endpoint
+            .receiver
+            .recv()
+            .await
+            .ok_or_else(|| io::Error::new(io::ErrorKind::BrokenPipe, "MQTT carrier closed"))?;
+        Ok((
+            address_for(self.endpoint.shared.service, packet.source),
+            packet.bytes,
+        ))
+    }
 }
 
 impl Drop for MqttEndpoint {
     fn drop(&mut self) {
-        self.driver.abort();
+        self.shared.shutdown.send_replace(true);
         self.addresses.set(Vec::new()).ok();
+        self.shared.report.withdraw();
         self.status.send_replace(Status::Closed);
     }
 }
@@ -287,8 +364,15 @@ impl CustomTransport for MqttTransport {
         ))
     }
     fn bind(&self) -> io::Result<Box<dyn CustomEndpoint>> {
+        Ok(Box::new(self.bind_endpoint()?))
+    }
+}
+
+impl MqttTransport {
+    fn bind_endpoint(&self) -> io::Result<MqttEndpoint> {
         let route: Route = rand::random();
         let (status, _) = watch::channel(Status::Starting);
+        let (shutdown, stop) = watch::channel(false);
         {
             let mut binding = self.binding.lock().unwrap();
             if binding
@@ -307,10 +391,19 @@ impl CustomTransport for MqttTransport {
         }
         let (outbound, queue) = mpsc::channel(QUEUE_DEPTH);
         let (incoming, receiver) = tokio::sync::mpsc::channel(QUEUE_DEPTH);
+        let report = Arc::new(BindingReport {
+            generation: self.traffic.generation.fetch_add(1, Ordering::Relaxed) + 1,
+            ..BindingReport::default()
+        });
+        *self.traffic.current_binding.lock().unwrap() = report.clone();
         let shared = Arc::new(Shared {
             route,
             service: self.service,
             outbound: Mutex::new(outbound),
+            status: status.clone(),
+            shutdown,
+            traffic: self.traffic.clone(),
+            report: report.clone(),
         });
         let resource = self.resource.clone();
         let traffic = self.traffic.clone();
@@ -318,31 +411,40 @@ impl CustomTransport for MqttTransport {
         let addresses = Watchable::new(Vec::new());
         let task_addresses = addresses.clone();
         let service = self.service;
-        let driver = tokio::spawn(async move {
+        let tls_ca = self.tls_ca.clone();
+        tokio::spawn(async move {
             if let Err(err) = drive(
                 resource,
                 route,
                 service,
                 task_addresses.clone(),
                 queue,
-                incoming,
+                &incoming,
                 task_status.clone(),
-                traffic,
+                traffic.clone(),
+                report.clone(),
+                tls_ca,
+                stop,
             )
             .await
             {
                 eprintln!("MQTT_CLOSE result={err}");
+                report.protocol.lock().unwrap().failure = Some(err.to_string());
             }
             task_addresses.set(Vec::new()).ok();
+            report.queued_packets.store(0, Ordering::Relaxed);
+            report.withdraw();
             task_status.send_replace(Status::Closed);
+            // Keep the RX sender alive until route retirement is observable.
+            // Otherwise poll_recv can report closure while route() is still ready.
+            drop(incoming);
         });
-        Ok(Box::new(MqttEndpoint {
+        Ok(MqttEndpoint {
             shared,
             receiver,
             addresses,
             status,
-            driver,
-        }))
+        })
     }
 }
 
@@ -352,9 +454,12 @@ async fn drive(
     service: Option<Service>,
     addresses: Watchable<Vec<CustomAddr>>,
     mut queue: mpsc::Receiver<Outbound>,
-    incoming: tokio::sync::mpsc::Sender<Packet>,
+    incoming: &tokio::sync::mpsc::Sender<Packet>,
     status: watch::Sender<Status>,
     traffic: Arc<Traffic>,
+    report: Arc<BindingReport>,
+    tls_ca: Option<Vec<u8>>,
+    mut stop: watch::Receiver<bool>,
 ) -> io::Result<()> {
     let mut options = MqttOptions::new(
         format!("mio20-{}", hex::encode(route)),
@@ -363,8 +468,18 @@ async fn drive(
             .expect("validated MQTT host")
             .trim_start_matches('[')
             .trim_end_matches(']'),
-        resource.port().unwrap_or(1883),
+        resource.port().unwrap_or(if resource.scheme() == "mqtts" {
+            8883
+        } else {
+            1883
+        }),
     );
+    if resource.scheme() == "mqtts" {
+        options.set_transport(match tls_ca {
+            Some(ca) => rumqttc::Transport::tls(ca, None, None),
+            None => rumqttc::Transport::tls_with_default_config(),
+        });
+    }
     options.set_keep_alive(Duration::from_secs(5));
     options.set_clean_session(true);
     options.set_max_packet_size(4096, 4096);
@@ -374,37 +489,71 @@ async fn drive(
         .await
         .map_err(io::Error::other)?;
     let own_topic = topic(route);
-    let mut subscribed = false;
+    let mut qualification = Qualification::default();
     loop {
         tokio::select! {
+            biased;
+            _ = stop.changed() => {
+                addresses.set(Vec::new()).ok();
+                report.withdraw();
+                status.send_replace(Status::Closed);
+                let _ = client.try_unsubscribe(own_topic.clone());
+                let _ = client.try_disconnect();
+                let _ = tokio::time::timeout(Duration::from_millis(500), async {
+                    loop {
+                        match eventloop.poll().await {
+                            Ok(Event::Outgoing(Outgoing::Unsubscribe(_))) => report.protocol.lock().unwrap().unsubscribe_sent = true,
+                            Ok(Event::Outgoing(Outgoing::Disconnect)) => {
+                                report.protocol.lock().unwrap().disconnect_sent = true;
+                                break;
+                            }
+                            Err(_) => break,
+                            _ => {}
+                        }
+                    }
+                }).await;
+                return Ok(());
+            }
             event = eventloop.poll() => {
                 match event.map_err(io::Error::other)? {
+                    Event::Incoming(MqttPacket::ConnAck(ack)) => {
+                        report.protocol.lock().unwrap().connack = Some(ack.code as u8);
+                        qualification.connack(ack.code as u8, ack.session_present)?;
+                    }
+                    Event::Outgoing(Outgoing::Subscribe(pkid)) => {
+                        qualification.subscribe(pkid)?;
+                        report.protocol.lock().unwrap().subscribe_id = Some(pkid);
+                    }
                     Event::Incoming(MqttPacket::SubAck(ack)) => {
-                        if ack.return_codes != [SubscribeReasonCode::Success(QoS::AtMostOnce)] {
-                            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "MQTT subscription rejected"));
+                        {
+                            let mut protocol = report.protocol.lock().unwrap();
+                            protocol.suback_id = Some(ack.pkid);
+                            protocol.suback_codes = ack.return_codes.iter().map(|code| match code {
+                                SubscribeReasonCode::Success(qos) => *qos as u8,
+                                SubscribeReasonCode::Failure => 128,
+                            }).collect();
                         }
-                        subscribed = true;
+                        qualification.suback(ack.pkid, &report.protocol.lock().unwrap().suback_codes)?;
+                        report.protocol.lock().unwrap().ready_ms = Some(now_ms());
                         addresses.set(vec![address_for(service, route)]).ok();
                         status.send_replace(Status::Ready);
                     }
                     Event::Incoming(MqttPacket::Publish(publish)) => {
                         let payload = publish.payload.as_ref();
-                        if !subscribed || publish.topic != own_topic || publish.retain
-                            || payload.len() < MAGIC.len() + ROUTE_LEN + 1
-                            || payload.len() > MAGIC.len() + ROUTE_LEN + MAX_DATAGRAM
-                            || !payload.starts_with(MAGIC)
-                        {
+                        let decoded = decode_datagram(payload);
+                        if !qualification.ready() || publish.topic != own_topic || publish.retain || publish.qos != QoS::AtMostOnce || decoded.is_err() {
                             traffic.rejected_packets.fetch_add(1, Ordering::Relaxed);
                             continue;
                         }
-                        let source: Route = payload[4..20].try_into().unwrap();
+                        let (source, bytes) = decoded.unwrap();
                         if source == route {
                             traffic.rejected_packets.fetch_add(1, Ordering::Relaxed);
                             continue;
                         }
-                        let bytes = payload[20..].to_vec();
+                        let bytes = bytes.to_vec();
                         let len = bytes.len();
                         if incoming.try_send(Packet { source, bytes }).is_ok() {
+                            report.rx_queue_peak.fetch_max((QUEUE_DEPTH - incoming.capacity()).max(1) as u64, Ordering::Relaxed);
                             traffic.received_packets.fetch_add(1, Ordering::Relaxed);
                             traffic.received_bytes.fetch_add(len as u64, Ordering::Relaxed);
                         } else {
@@ -414,12 +563,10 @@ async fn drive(
                     _ => {}
                 }
             }
-            item = queue.next(), if subscribed => {
+            item = queue.next(), if qualification.ready() => {
                 let Some(item) = item else { return Ok(()); };
-                let mut payload = Vec::with_capacity(20 + item.bytes.len());
-                payload.extend_from_slice(MAGIC);
-                payload.extend_from_slice(&route);
-                payload.extend_from_slice(&item.bytes);
+                report.queued_packets.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |depth| Some(depth.saturating_sub(1))).ok();
+                let payload = encode_datagram(route, &item.bytes)?;
                 client.try_publish(topic(item.target), QoS::AtMostOnce, false, payload)
                     .map_err(io::Error::other)?;
                 traffic.sent_packets.fetch_add(1, Ordering::Relaxed);
@@ -489,31 +636,67 @@ impl CustomSender for MqttSender {
         _src: Option<&CustomAddr>,
         transmit: &Transmit<'_>,
     ) -> Poll<io::Result<()>> {
-        let target = match route_from_addr(dst, self.0.service) {
+        self.0.poll_datagram(cx, dst, transmit.contents)
+    }
+}
+
+impl Shared {
+    fn poll_datagram(
+        &self,
+        cx: &mut Context,
+        dst: &CustomAddr,
+        bytes: &[u8],
+    ) -> Poll<io::Result<()>> {
+        let target = match route_from_addr(dst, self.service) {
             Ok(route) => route,
-            Err(err) => return Poll::Ready(Err(err)),
+            Err(err) => {
+                self.traffic
+                    .rejected_packets
+                    .fetch_add(1, Ordering::Relaxed);
+                return Poll::Ready(Err(err));
+            }
         };
-        if transmit.contents.is_empty() || transmit.contents.len() > MAX_DATAGRAM {
+        if bytes.is_empty() || bytes.len() > MAX_DATAGRAM {
+            self.traffic
+                .rejected_packets
+                .fetch_add(1, Ordering::Relaxed);
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "invalid MQTT datagram size",
             )));
         }
-        let mut queue = self.0.outbound.lock().unwrap();
+        if *self.status.borrow() != Status::Ready {
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::NotConnected,
+                "MQTT subscription not ready",
+            )));
+        }
+        let mut queue = self.outbound.lock().unwrap();
         match Pin::new(&mut *queue).poll_ready(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(Err(_)) => Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::BrokenPipe,
                 "MQTT carrier closed",
             ))),
-            Poll::Ready(Ok(())) => Poll::Ready(
-                Pin::new(&mut *queue)
+            Poll::Ready(Ok(())) => {
+                let depth = self.report.queued_packets.fetch_add(1, Ordering::Relaxed) + 1;
+                self.report.queue_peak.fetch_max(depth, Ordering::Relaxed);
+                let sent = Pin::new(&mut *queue)
                     .start_send(Outbound {
                         target,
-                        bytes: transmit.contents.to_vec(),
+                        bytes: bytes.to_vec(),
                     })
-                    .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "MQTT carrier closed")),
-            ),
+                    .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "MQTT carrier closed"));
+                if sent.is_err() {
+                    self.report
+                        .queued_packets
+                        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |depth| {
+                            Some(depth.saturating_sub(1))
+                        })
+                        .ok();
+                }
+                Poll::Ready(sent)
+            }
         }
     }
 }
