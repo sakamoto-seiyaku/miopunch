@@ -23,6 +23,17 @@ fn socket_count() -> usize {
         .count()
 }
 
+fn connection_paths(connection: &iroh::endpoint::Connection) -> Vec<serde_json::Value> {
+    connection.paths().iter().map(|path| {
+        let stats=path.stats();
+        json!({"pathId":path.id().to_string(),"selected":path.is_selected(),"isRelay":path.is_relay(),"isIp":path.is_ip(),
+            "isRtc":matches!(path.remote_addr(),iroh::TransportAddr::Custom(addr) if addr.id()==miopunch_native_probe::rtc_transport::TRANSPORT_ID),
+            "isSignal":matches!(path.remote_addr(),iroh::TransportAddr::Custom(addr) if matches!(addr.id(),miopunch_native_probe::mqtt_transport::TRANSPORT_ID | miopunch_native_probe::irc_transport::TRANSPORT_ID)),
+            "sentBytes":stats.udp_tx.bytes,"receivedBytes":stats.udp_rx.bytes,"streamFramesSent":stats.frame_tx.stream,"streamFramesReceived":stats.frame_rx.stream,
+            "datagramFramesSent":stats.frame_tx.datagram,"datagramFramesReceived":stats.frame_rx.datagram})
+    }).collect()
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<_> = std::env::args().collect();
@@ -128,6 +139,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 Some("status")=>println!("{}",json!({"event":"status","traffic":traffic.snapshot(),"socketCount":socket_count(),
                     "activeRtcAssociations":rtc_transport.active_associations(),"activeRtcPumps":rtc_transport.active_pumps(),
                     "publishedRtcRoutes":rtc_transport.published_routes_fixture()})),
+                Some("record")=>{
+                    use p2panda_auth::{Access,GroupsExtensionArgs,group::{GroupAction,GroupMember}};
+                    use p2panda_core::{Hash,Header,SigningKey};
+                    use miopunch_native_probe::management_auth::ManagementExtension;
+                    let mut node=node.lock().await;
+                    let key=SigningKey::from_bytes(&std::fs::read(std::path::Path::new(&args[1]).join("node.key"))?
+                        .try_into().map_err(|_|"invalid fixture key length")?);
+                    let target=SigningKey::generate().verifying_key();
+                    let history=node.management_history().await?;
+                    let body=b"original-author browser replica body";
+                    let header=Header::<ManagementExtension>::builder().body(body).build(&key,ManagementExtension {
+                        version:1,log_id:rand::random(),group:GroupsExtensionArgs {group_id:node.status().anchor.root,
+                            action:GroupAction::Add{member:GroupMember::Individual(target),access:Access::read()},
+                            dependencies:history.iter().map(|record|Hash::digest(record.header())).collect()}
+                    }).encode();
+                    let id=node.ingest_management_record(&header,Some(body)).await?;
+                    let stored=node.management_record(id).await?.ok_or("source record not applied")?;
+                    let verified=Header::<ManagementExtension>::decode(stored.header())?;
+                    println!("{}",json!({"event":"record","record":id.to_string(),"header":hex::encode(stored.header()),
+                        "body":stored.body().map(hex::encode),"bodyBytes":body.len(),"author":verified.verifying_key.to_string(),
+                        "logId":hex::encode(verified.extensions.log_id),"sequence":verified.seq_num,"backlink":verified.backlink.map(|id|id.to_string()),
+                        "action":"Add","target":target.to_string(),"dependencies":verified.extensions.group.dependencies.iter().map(ToString::to_string).collect::<Vec<_>>(),
+                        "applied":node.status().members.contains(&(target,Access::read()))}));
+                },
                 Some("arm-control")=>{
                     rtc_transport.arm_control_fixture(miopunch_native_probe::rtc_invalidation_fixture::ControlCheckpointStage::BeforeRelease)?;
                     println!("{}",json!({"event":"control-armed"}));
@@ -201,6 +236,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             },
             incoming=endpoint.accept()=>{
                 let Some(incoming)=incoming else {break};
+                let incoming=incoming.with_caller_deadline(n0_future::time::Instant::now()+Duration::from_secs(12));
                 let node=node.clone();
                 let assembly=assembly.clone();
                 let rtc_transport=rtc_transport.clone();
@@ -228,7 +264,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         "remoteId":connection.remote_id().to_string(),"alpn":String::from_utf8_lossy(connection.alpn()),
                         "paths":connection.paths().iter().map(|path|json!({"isRelay":path.is_relay(),"isIp":path.is_ip(),"selected":path.is_selected(),"ackReceived":path.stats().frame_rx.acks,"streamSent":path.stats().frame_tx.stream})).collect::<Vec<_>>()}));
                     if MemberProtocol::from_wire(connection.alpn()).is_some_and(|(protocol,_)|protocol==MemberProtocol::Replica) {
-                        node.lock().await.serve_replica(&connection).await?;
+                        let original=connection.stable_id();
+                        let mut binding=[0;32];
+                        connection.export_keying_material(&mut binding,b"miopunch/replica-session-observation/1",&[]).map_err(|_|"original replica binding unavailable")?;
+                        let deadline=connection.caller_deadline().ok_or("owned replica caller deadline absent")?;
+                        let before=connection_paths(&connection);
+                        let result=node.lock().await.serve_replica_with_deadline(&connection,deadline).await;
+                        let mut current=[0;32];
+                        let matched=connection.export_keying_material(&mut current,b"miopunch/replica-session-observation/1",&[]).is_ok()&&current==binding;
+                        println!("{}",json!({"event":"replica-finished","stableId":connection.stable_id(),"alpn":String::from_utf8_lossy(connection.alpn()),
+                            "stableUnchanged":connection.stable_id()==original,"bindingUnchanged":matched,"durableReceiptAccepted":result.is_ok(),
+                            "failure":result.as_ref().err().map(ToString::to_string),"before":before,"after":connection_paths(&connection),
+                            "remainingCallerMs":deadline.saturating_duration_since(n0_future::time::Instant::now()).as_millis()}));
+                        result?;
                     } else {
                         let mut streams=tokio::task::JoinSet::new();
                         loop {

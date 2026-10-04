@@ -163,6 +163,43 @@ struct GateState {
     rtc: Option<crate::rtc_transport::RtcTransport>,
     #[cfg(feature = "rtc-probe")]
     rtc_reports: std::collections::BTreeMap<usize, serde_json::Value>,
+    #[cfg(feature = "rtc-probe")]
+    rtc_qualifications: std::collections::BTreeMap<usize, RtcQualificationSource>,
+}
+
+/// The effective permission of one proved original M. Saved record changes
+/// still advance the source diagnostic revision, but cannot revoke another
+/// still-permitted M's path. Retirement is terminal for every issued token.
+#[cfg(feature = "rtc-probe")]
+struct RtcQualificationSource {
+    original: iroh::endpoint::WeakConnectionHandle,
+    revision: Arc<std::sync::atomic::AtomicU64>,
+    updates: n0_watcher::Watchable<u64>,
+    retired: bool,
+}
+#[cfg(feature = "rtc-probe")]
+impl RtcQualificationSource {
+    fn retire(&mut self) {
+        if self.retired {
+            return;
+        }
+        self.retired = true;
+        let previous = self
+            .revision
+            .fetch_update(
+                std::sync::atomic::Ordering::AcqRel,
+                std::sync::atomic::Ordering::Acquire,
+                |revision| revision.checked_add(1),
+            )
+            .expect("browser M permission revision exhausted");
+        let _ = self.updates.set(previous + 1);
+    }
+}
+#[cfg(feature = "rtc-probe")]
+impl Drop for RtcQualificationSource {
+    fn drop(&mut self) {
+        self.retire();
+    }
 }
 #[derive(Clone, Default)]
 struct BrowserGate(Arc<Mutex<GateState>>);
@@ -198,6 +235,29 @@ impl BrowserGate {
         let credential_changed = gate.saved.as_ref().is_some_and(|previous| {
             previous.generation != saved.generation || previous.secret != saved.secret
         });
+        #[cfg(feature = "rtc-probe")]
+        {
+            let mut qualifications = std::mem::take(&mut gate.rtc_qualifications);
+            qualifications.retain(|_, source| {
+                let Some(connection) = source.original.upgrade() else {
+                    source.retire();
+                    return false;
+                };
+                if credential_changed || !Self::proved_member_current(&gate, saved, &connection) {
+                    // Publish loss before closing the M or changing SavedNode.
+                    // Queued/idle pumps and Noq predicates see only this atomic
+                    // token and never need the gate/Connection lock.
+                    source.retire();
+                    if let Some(transport) = &gate.rtc {
+                        transport.retire_connection(&connection);
+                    }
+                    connection.close(0u32.into(), b"member path permission revoked");
+                    return false;
+                }
+                true
+            });
+            gate.rtc_qualifications = qualifications;
+        }
         gate.connections.retain(|weak| {
             let Some(connection) = weak.upgrade() else {
                 return false;
@@ -378,25 +438,61 @@ impl BrowserGate {
         )
     }
 
+    fn proved_member_current(gate: &GateState, saved: &SavedNode, connection: &Connection) -> bool {
+        let (Ok(invitation), Some(secret)) = (saved.invitation(), saved.secret) else {
+            return false;
+        };
+        let scope = AdmissionScope::new(*invitation.anchor.root.as_bytes(), saved.generation);
+        let fingerprint = AdmissionSecret::from_saved(secret).fingerprint(&scope);
+        connection.close_reason().is_none()
+            && Self::permits(saved, connection.remote_id(), connection.alpn())
+            && gate.proofs.iter().any(|proof| {
+                proof.applies_to(connection, &scope)
+                    && proof.credential_fingerprint() == &fingerprint
+            })
+    }
+
     #[cfg(feature = "rtc-probe")]
     fn rtc_qualification(
         &self,
-    ) -> (
-        Arc<std::sync::atomic::AtomicU64>,
-        u64,
-        n0_watcher::Direct<u64>,
-    ) {
-        let gate = self.0.lock().unwrap();
-        let revision = gate.qualification_revision.clone();
-        let observed = revision.load(std::sync::atomic::Ordering::Acquire);
+        connection: &Connection,
+    ) -> Result<
         (
-            revision,
-            observed,
-            gate.qualification_updates
-                .as_ref()
-                .expect("installed qualification")
-                .watch(),
-        )
+            Arc<std::sync::atomic::AtomicU64>,
+            u64,
+            n0_watcher::Direct<u64>,
+        ),
+        JsValue,
+    > {
+        let mut gate = self.0.lock().unwrap();
+        let saved = gate.saved.as_ref().ok_or_else(rejected)?;
+        if !Self::proved_member_current(&gate, saved, connection) {
+            return Err(rejected());
+        }
+        gate.rtc_qualifications
+            .retain(|_, source| source.original.is_open());
+        let stable = connection.stable_id();
+        if !gate.rtc_qualifications.contains_key(&stable) {
+            if gate.rtc_qualifications.len() >= 32 {
+                return Err(error("too many concurrent proved member paths"));
+            }
+            let current = gate
+                .qualification_revision
+                .load(std::sync::atomic::Ordering::Acquire);
+            gate.rtc_qualifications.insert(
+                stable,
+                RtcQualificationSource {
+                    original: connection.weak_handle(),
+                    revision: Arc::new(std::sync::atomic::AtomicU64::new(current)),
+                    updates: n0_watcher::Watchable::new(current),
+                    retired: false,
+                },
+            );
+        }
+        let source = &gate.rtc_qualifications[&stable];
+        let revision = source.revision.clone();
+        let observed = revision.load(std::sync::atomic::Ordering::Acquire);
+        Ok((revision, observed, source.updates.watch()))
     }
 }
 impl EndpointHooks for BrowserGate {
@@ -765,6 +861,7 @@ pub struct BrowserNetwork {
     caller_budget: std::time::Duration,
     contact_routes: Vec<RuntimeContactRoute>,
     last_request: Option<serde_json::Value>,
+    last_replica: Option<serde_json::Value>,
     attempt_started: Option<n0_future::time::Instant>,
     gate: BrowserGate,
     lease: Option<Lease>,
@@ -1133,6 +1230,7 @@ impl BrowserNetwork {
             caller_budget,
             contact_routes,
             last_request: None,
+            last_replica: None,
             attempt_started: None,
             gate,
             lease: Some(lease),
@@ -1351,10 +1449,21 @@ impl BrowserNetwork {
         target: iroh_base::EndpointId,
         alpn: &[u8],
     ) -> Result<Connection, JsValue> {
-        let started = n0_future::time::Instant::now();
+        self.connect_target_until(
+            target,
+            alpn,
+            n0_future::time::Instant::now() + self.caller_budget,
+        )
+        .await
+    }
+    async fn connect_target_until(
+        &self,
+        target: iroh_base::EndpointId,
+        alpn: &[u8],
+        deadline: n0_future::time::Instant,
+    ) -> Result<Connection, JsValue> {
         self.check_store().await?;
         let addr = self.target_address(target)?;
-        let deadline = started + self.caller_budget;
         let options = crate::member_path_protocol::MemberProtocol::from_wire(alpn)
             .map_or_else(iroh::endpoint::ConnectOptions::new, |(protocol, _)| {
                 protocol.connect_options()

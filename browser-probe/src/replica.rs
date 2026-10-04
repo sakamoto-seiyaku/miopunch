@@ -38,12 +38,32 @@ impl BrowserNetwork {
         Ok(serde_json::json!({"records":self.saved.records.len(),"pending":self.saved.pending.len(),"members":auth.nodes().iter().map(|(id,access)|serde_json::json!({"id":id.to_string(),"administrator":*access==Access::manage()})).collect::<Vec<_>>()}).to_string())
     }
     pub async fn sync_replica(&mut self, target: String) -> Result<String, JsValue> {
+        let started = n0_future::time::Instant::now();
+        let deadline = started + self.caller_budget;
+        self.last_replica = None;
         let connection = self
-            .connect_target(target.parse().map_err(error)?, REPLICA_ALPN)
+            .connect_target_until(target.parse().map_err(error)?, REPLICA_ALPN, deadline)
             .await?;
-        let result = self.receive_replica(&connection).await;
+        let _scope = RequestConnection(Some(connection.clone()));
+        let original = connection.stable_id();
+        let binding = replica_binding(&connection)?;
+        let before = self.replica_session(&connection);
+        let result = self.receive_replica(&connection, deadline).await;
+        self.last_replica = Some(
+            serde_json::json!({"before":before,"after":self.replica_session(&connection),
+            "stableUnchanged":connection.stable_id()==original,"bindingUnchanged":replica_binding(&connection).is_ok_and(|current|current==binding),
+            "callerBudgetMs":self.caller_budget.as_millis(),"operationMs":started.elapsed().as_millis(),
+            "remainingCallerMs":deadline.saturating_duration_since(n0_future::time::Instant::now()).as_millis(),
+            "completeReturned":result.as_ref().ok().and_then(|value|serde_json::from_str::<serde_json::Value>(value).ok()).is_some_and(|value|value["complete"]==true),
+            "failure":result.as_ref().err().map(|cause|format!("{cause:?}"))}),
+        );
         connection.close(0u32.into(), b"replica completed");
         result
+    }
+    /// The most recent actual original-M exchange, observed before close. No
+    /// exporter, credentials or stored node material are exposed here.
+    pub fn replica_diagnostics(&self) -> String {
+        serde_json::to_string(&self.last_replica).expect("serializable replica observations")
     }
     /// Serve one authenticated member exchange. The caller drives the page's
     /// foreground accept loop; closing the page only disconnects the node.
@@ -64,10 +84,54 @@ impl BrowserNetwork {
     }
 }
 impl BrowserNetwork {
+    fn replica_session(&self, connection: &Connection) -> serde_json::Value {
+        let mut observation = serde_json::json!({"stableId":connection.stable_id(),"remoteId":connection.remote_id().to_string(),
+            "alpn":String::from_utf8_lossy(connection.alpn()),"closed":connection.close_reason().is_some(),
+            "currentPermission":self.replica_allowed(connection),"secretGeneration":self.saved.generation,
+            "paths":connection.paths().iter().map(|path| {
+                let stats=path.stats();
+                let is_rtc={
+                    #[cfg(feature="rtc-probe")]
+                    {matches!(path.remote_addr(),iroh::TransportAddr::Custom(addr) if addr.id()==crate::rtc_transport::TRANSPORT_ID)}
+                    #[cfg(not(feature="rtc-probe"))]
+                    {false}
+                };
+                serde_json::json!({"pathId":path.id().to_string(),"selected":path.is_selected(),"isRelay":path.is_relay(),"isIp":path.is_ip(),
+                    "isRtc":is_rtc,
+                    "isSignal":matches!(path.remote_addr(),iroh::TransportAddr::Custom(addr) if matches!(addr.id(),crate::mqtt_datagram::TRANSPORT_ID | crate::irc_datagram::TRANSPORT_ID)),
+                    "sentBytes":stats.udp_tx.bytes,"receivedBytes":stats.udp_rx.bytes,"streamFramesSent":stats.frame_tx.stream,
+                    "streamFramesReceived":stats.frame_rx.stream,"datagramFramesSent":stats.frame_tx.datagram,"datagramFramesReceived":stats.frame_rx.datagram})
+            }).collect::<Vec<_>>()});
+        let gate = self.gate.0.lock().unwrap();
+        observation["sourceRevision"] = serde_json::json!(
+            gate.qualification_revision
+                .load(std::sync::atomic::Ordering::Acquire)
+        );
+        #[cfg(feature = "rtc-probe")]
+        {
+            observation["bootstrap"] =
+                serde_json::json!(gate.rtc_reports.get(&connection.stable_id()));
+            observation["permissionRevision"] = serde_json::json!(
+                gate.rtc_qualifications
+                    .get(&connection.stable_id())
+                    .map(|source| source.revision.load(std::sync::atomic::Ordering::Acquire))
+            );
+            observation["resourceRevision"] =
+                serde_json::json!(self.rtc_transport.resource_revision());
+            observation["activeAssociations"] =
+                serde_json::json!(self.rtc_transport.active_associations());
+            observation["activePumpTasks"] = serde_json::json!(self.rtc_transport.active_pumps());
+        }
+        observation
+    }
     fn replica_allowed(&self, connection: &Connection) -> bool {
         crate::member_path_protocol::MemberProtocol::from_wire(connection.alpn()).is_some_and(
             |(protocol, _)| protocol == crate::member_path_protocol::MemberProtocol::Replica,
-        ) && BrowserGate::permits(&self.saved, connection.remote_id(), REPLICA_ALPN)
+        ) && BrowserGate::proved_member_current(
+            &self.gate.0.lock().unwrap(),
+            &self.saved,
+            connection,
+        )
     }
     async fn consume_replica_event(
         &mut self,
@@ -106,13 +170,18 @@ impl BrowserNetwork {
         self.commit(next).await?;
         Ok(id)
     }
-    async fn receive_replica(&mut self, connection: &Connection) -> Result<String, JsValue> {
-        let result = n0_future::time::timeout(TIMEOUT, async {
+    async fn receive_replica(
+        &mut self,
+        connection: &Connection,
+        deadline: n0_future::time::Instant,
+    ) -> Result<String, JsValue> {
+        let result = n0_future::time::timeout(deadline.saturating_duration_since(n0_future::time::Instant::now()), async {
             if !self.replica_allowed(connection) { return Err(rejected()); }
             let (send, mut recv) = connection.open_bi().await.map_err(|_| error("replica transport failed"))?;
             // QUIC opens the stream lazily; the request makes it visible before
             // the provider sends its manifest and starts the real LogSync.
             let mut send = send;
+            let stream_id=send.id().to_string();
             send.write_all(b"REPL").await.map_err(|_| error("replica transport failed"))?;
             let mut size = [0;4]; recv.read_exact(&mut size).await.map_err(|_| error("replica transport failed"))?;
             let size = u32::from_be_bytes(size) as usize;
@@ -165,7 +234,9 @@ impl BrowserNetwork {
             }
             let saved: Vec<_> = manifest.ids.iter().filter(|id| saved_ids.contains(id)).copied().collect();
             let complete = saved == manifest.ids && applied == manifest.ids;
-            let outcome = serde_json::json!({"source":connection.remote_id().to_string(), "scope":manifest.ids.iter().map(ToString::to_string).collect::<Vec<_>>(), "transport_done":true,"complete":complete});
+            let outcome = serde_json::json!({"source":connection.remote_id().to_string(), "scope":manifest.ids.iter().map(ToString::to_string).collect::<Vec<_>>(),
+                "saved":saved.iter().map(ToString::to_string).collect::<Vec<_>>(),"applied":applied.iter().map(ToString::to_string).collect::<Vec<_>>(),
+                "streamId":stream_id,"transport_done":true,"complete":complete});
             let mut receipt_sink = FramedWrite::new(sink.into_inner(), Codec::<Receipt>::new().max_frame_len(64));
             receipt_sink.send(Receipt { records_saved: saved == manifest.ids, view_applied: applied == manifest.ids }).await.map_err(|_| error("replica transport failed"))?;
             let buffered = stream.read_buffer().clone();
@@ -272,6 +343,14 @@ impl BrowserNetwork {
         }
         result
     }
+}
+
+fn replica_binding(connection: &Connection) -> Result<[u8; 32], JsValue> {
+    let mut binding = [0; 32];
+    connection
+        .export_keying_material(&mut binding, b"miopunch/replica-session-observation/1", &[])
+        .map_err(|_| error("original replica binding unavailable"))?;
+    Ok(binding)
 }
 
 impl SavedNode {

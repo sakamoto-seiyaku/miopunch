@@ -20,6 +20,7 @@ pub mod management_recovery;
 pub mod management_store;
 pub mod manual_admission;
 pub mod member_bootstrap;
+pub mod member_message;
 pub mod member_path_protocol;
 pub mod member_transport;
 mod message_bootstrap;

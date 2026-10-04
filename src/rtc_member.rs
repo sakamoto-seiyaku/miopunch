@@ -109,11 +109,20 @@ pub async fn serve_stream(
         .await?;
         return Ok(());
     }
-    send.write_all(&request).await?;
-    send.finish()?;
+    if request == b"PING" {
+        if !gate.allows(&connection, ProtocolScope::Member) {
+            return Err("member message M is no longer qualified".into());
+        }
+        crate::member_message::respond(&request, &mut send).await?;
+    } else {
+        send.write_all(&request).await?;
+        send.finish()?;
+    }
     println!(
         "{}",
-        json!({"event":"business","bytes":request.len(),"stableId":connection.stable_id()})
+        json!({"event":"business","bytes":request.len(),"stableId":connection.stable_id(),
+            "alpn":String::from_utf8_lossy(connection.alpn()),"streamId":send.id().to_string(),
+            "memberMessage":request==b"PING","reply":if request==b"PING"{Some("PONG")}else{None}})
     );
     Ok(())
 }
@@ -587,6 +596,7 @@ async fn upgrade(
             // It cannot retain Endpoint, a strong M, or private hook streams.
             let original = connection.weak_handle();
             let stable = stable_before;
+            let transport = RtcTransport::clone(transport);
             let mut task = owned_pump.take();
             cancellation_cleanup.pc = None;
             cancellation_cleanup.pump = None;
@@ -610,7 +620,9 @@ async fn upgrade(
                 println!(
                     "{}",
                     json!({"event":"rtc-path-cleanup","stableId":stable,"switched":true,
-                    "cleanup":{"pcClosed":closed,"ownedPumpTasks":lease.report().owned_pump_tasks,"txBytes":lease.report().tx_bytes,"rxBytes":lease.report().rx_bytes}})
+                    "cleanup":{"pcClosed":closed,"ownedPumpTasks":lease.report().owned_pump_tasks,"txBytes":lease.report().tx_bytes,"rxBytes":lease.report().rx_bytes,
+                        "activePumpTasks":transport.active_pumps(),"activeAssociations":transport.active_associations(),
+                        "socketBefore":socket_before,"socketAfter":rtc_probe::sockets(),"dataChannel":pump_stats.report()}})
                 );
             });
             return Ok(());

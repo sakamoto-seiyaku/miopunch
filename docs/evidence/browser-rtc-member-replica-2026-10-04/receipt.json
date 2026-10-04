@@ -1,0 +1,810 @@
+{
+  "scope": "STEP9 member PING/PONG, independent nonempty replica and actual storage interruption; four STANDARD STEP8 stories and normal WSS compatibility",
+  "fixedBase": "78e4f9448135068f2630114210a7576378338a50",
+  "implementationStatus": "runtime qualified; independent Standards/Spec reviews and SAME final metadata audits passed; local commit identity is in implemented handoff",
+  "runtimePassed": true,
+  "validationPassed": true,
+  "sourceUnchanged": true,
+  "sources": {
+    "Cargo.lock": "543a4a397bd047de1c6b0633c5163367869bee1423cf1e8db69b6faa0413f2b3",
+    "Cargo.toml": "d589b5c3dc7e5e5039a0a9eebf1bba0ecc0988963fd8b19085f1cc6a05e71b33",
+    "browser-probe/Cargo.toml": "470044552915bd030e321741ce7de7f1d4632e950094952ade2caed8915bf1c1",
+    "browser-probe/harness/owned-mixed-mqtt-proxy.mjs": "b50cf2d40ff0094bade4882e3c1f244fb24b992eb3d84866ee12a69224303bf9",
+    "browser-probe/harness/run-rtc-data-cut.mjs": "e2c51d056b5ed7f723d841b317b9aa0020c75e6b4a7bc9d9014458665d43d60d",
+    "browser-probe/harness/run-rtc-invalidation.mjs": "216b1fafdd815e7db9a8bb856fbadb2acc348bf62352bfdd1208165e69ad60a6",
+    "browser-probe/harness/run-rtc-member-replica.mjs": "576cf6f6219f7c7c2665420a63f687e395785ef217019b6c543cd6b4f199ef45",
+    "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+    "browser-probe/harness/run-rtc.mjs": "f2a9c750d5b5b7e4b6a53b748c51925a07bfe612890b645916559de8b0795b77",
+    "browser-probe/network.html": "b11be64a9f1c5c2b729c20495424ac08d9f588408bbbb7dc4efdc6593610ea6b",
+    "browser-probe/src/lib.rs": "38dccb015da58e7500118d16d460164201262ae447174e127040bf18a145ed7d",
+    "browser-probe/src/member_connection.rs": "7d5eb186dc1ebe79b0d713337c3f8a177c2466769d7f12d556f1069ec37ea32a",
+    "browser-probe/src/mqtt.rs": "67ca10c43bd3479ca0dbad91bb7691fa535dd3dce8faf2a7ef8dc496ecbd83df",
+    "browser-probe/src/network.rs": "8b20a70255914be08b93163997831ec0904534d5ddb5e9ffdeb86668516cde17",
+    "browser-probe/src/replica.rs": "fd13dfb2cd4bb4684aa79ca47cf493c51f1f96facd62660971008d4b0c9372c3",
+    "browser-probe/src/rtc.rs": "251959eb8d3919ef0d26672f1916a468bc5a8fbe19bd6ac9e4be7bfb65187ae4",
+    "browser-probe/src/rtc_member.rs": "fde8288af06f542c29b448e94d56bbb699b354db15a219d0441ee686a8e4f96a",
+    "browser-probe/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+    "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+    "scripts/check_browser_paths.py": "e5cb5e23719ed694839eb5150862092a37ab838b0562a601b799c242f7bba475",
+    "scripts/check_browser_rtc.py": "94d9cc6a92376584ff52b42b51838423cf5a2eece7a50186fe89cb02d4a4fe71",
+    "scripts/check_browser_rtc_cut.py": "79fec541c5b5c61e9936dc0165939cd31611e32d332356c53cab97d818c8c0f2",
+    "scripts/mosquitto-test.conf": "5bbf715cb2518197f7ad99ceff3986bf3e2b137798aae23613ce39cf5f24542c",
+    "src/admission_gate.rs": "21f5def441accb6429adb006a5f95c51987180ae868cdd8c2856883bab886748",
+    "src/admission_proof.rs": "33502e93c55c3204916b3bec6b75fa2510cd3f0fb3ab60c6666689c515f2bf4d",
+    "src/bin/browser_network_native.rs": "951df304b2076de085412bc108da1cc7e7345885fe935ff163d9cd374f451a8a",
+    "src/bin/browser_probe_native.rs": "554989910b9a358b12820136fe1b6e30392a485ebb43fc53205be75f7c95b23f",
+    "src/bin/browser_wss_member_native.rs": "a888817b3fed4d5da409f1d95537530b3f6f355d7bfca20fe1aebfcdd0e92d87",
+    "src/connection_recovery.rs": "1b169a60a8cd59f8c68d758378f7acf1894d939c43b5c030b8d054f6fd6baac9",
+    "src/connection_recovery_core.rs": "a6bdc8de7cf47b49ec8e838b169337490bdeb9f6c58b8c31c2a737de32b3c68b",
+    "src/control_session.rs": "d78789557b6bafe34a7257ccf9e923ad91221a8e1d94317ad717e51fe0e7da3a",
+    "src/desktop_cli.rs": "0c03eb535ed2cb68a778899086ebed5accf52518e283b1436752b79c7b67536b",
+    "src/lib.rs": "812a38344a37f42412d5229168d66c4b5465704f5b9d60d578aa5f9ab5aba9d2",
+    "src/management_action.rs": "3cdb3a43993464a9a16707ab442d5924d55116d14d9fddaefd827799f6c58bda",
+    "src/management_auth.rs": "c2d6750d325a83d071f0061a125b102e6fd0f6a54caa2e1887f1eff26b37e34f",
+    "src/management_record.rs": "87d3a07c339612d6f731db3256cd99593daa5fe033d128b256bf5c2d65551ebc",
+    "src/management_store.rs": "6f3ab314842348ab9a294b93b05307fcb4cfbec0ed10c33ad9b60b891bbdb343",
+    "src/member_bootstrap.rs": "fd8411c3fb26bb78f39591f5f46a4d3bd9fde1e0f49630516b556ed9a2b1ead6",
+    "src/member_message.rs": "fd62da23c6f9312ba3636a8a190f62ecd718a443caed12a00e9dba7757871bd8",
+    "src/member_path_protocol.rs": "3403601c74ad5baffb3b67e0985eae98736e08e7b0d20ba5bcacf085bce0488e",
+    "src/message_bootstrap.rs": "78e0c15cefeefc5e0f3721c312e643bfb73a51f6da93a48a194f6eadd9b66181",
+    "src/mqtt_datagram.rs": "acaeeb199cca3ddca85894a07d9bdebdc8ce6b21752f847096d388de5f167084",
+    "src/mqtt_transport.rs": "3585ea182dbe952b97679ef4ba8fa367790bde29373ef282f4ba3a1146fe4091",
+    "src/native_network.rs": "f862be40ebcf507a0e8b687e2ee986616088961ab55ad6ad975ce0556b0161f9",
+    "src/offline_replica.rs": "04448bd57d6ed3da557754b0ad7b9204e103c6aa42279520c6e643bac92c3d07",
+    "src/replica_snapshot.rs": "a8e62db5cb9440de96559aa6b26d07f8ea2742c5431c42895f367f1cd1c5a3d1",
+    "src/resources.rs": "68c72185e06f44ea242fadc6ba35f9a0b1c9429deddcc3c76acdc858909ee81f",
+    "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+    "src/rtc_invalidation_fixture.rs": "01c4f380d57969743efa1c9b9e792c55c6ae0ba5cfc9a587c4ae4684202786e3",
+    "src/rtc_member.rs": "d4c235128131b3abd376d3ce29a97db1617110e294c341ef3ed1810048422b30",
+    "src/rtc_probe.rs": "fa928c9deb4ddf41159226ca45b48a5f2bb4af842e6290ee36927de7ad2d3870",
+    "src/rtc_transport.rs": "6172a551d052c20e9ac5435622af18c23e759f804f6edc564b40431b9c5089a4",
+    "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+    "tests/offline_replica.rs": "81a2e7c8cfb2c471206c89056f0fc3e755254327e696ab8ca046b234430b5d46",
+    "vendor/iroh/src/socket/mapped_addrs.rs": "c95accdd5f474a11e820b1d460696507ffd0195ccd074d439520cab9cd9c3ffa",
+    "vendor/iroh/src/socket/remote_map/remote_state/path_state.rs": "d320c4becfacc9ecc32475e0cfa1cc52c9698b2011804f7bbb95b7f860b0a3ab",
+    "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs": "838bbcd605addbe1afaf911c20b4efc5be87499a7758aba0933e58101dce32b9",
+    "vendor/iroh/src/socket/transports/custom.rs": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+    "vendor/noq-proto/src/connection/mod.rs": "93575c4027506cf6fa324c1384e9ee5e740701934020e3323465ca2ae0e69e17",
+    "vendor/noq-proto/src/connection/paths.rs": "3f86ec41fa014b1a6870d2c8556900e4fd3c15f8959b654d54356b9c52bfb8b5"
+  },
+  "executedArtifacts": {
+    "/home/js/Git/miopunch/target/debug/browser_network_native": "91383eb0a1f64883f5d93912d103e709aaeb7d893b5d1a283fb0ec8467d75ce1",
+    "/home/js/Git/miopunch/target/debug/browser-probe-native": "a47615f7702708a0a0056ac38b48f6b455c8f946836142a7e9d3a6f3a668966a",
+    "/home/js/Git/miopunch/target/debug/browser_wss_member_native": "01ccf674f159995cf3e7bdd77c9cf63dcf21452cc74cfa642b3699574a975580",
+    "/home/js/Git/miopunch/browser-probe/pkg/miopunch_browser_probe.js": "a730d39894c1145c6f703c1cc8cf11a5a2b08a6c1d2c385ceaa60ddd21ba3534",
+    "/home/js/Git/miopunch/browser-probe/pkg/miopunch_browser_probe_bg.wasm": "24d640936682f5868070907901b6e86e290485dd058ae551a3d853acd37403a7"
+  },
+  "commands": [
+    {
+      "name": "step9",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "scripts/check_browser_paths.py",
+        "--case",
+        "rtc-member-replica",
+        "--output",
+        "/tmp/mio-rtc-s9-member-replica-final-20261004"
+      ],
+      "exit": 0,
+      "seconds": 34.953,
+      "output": "/tmp/mio-rtc-s9-member-replica-final-20261004",
+      "receiptSha256": "dc1270baa171ebc2884e1b5034c2e39495835ef61c45eb97aa4e3c9832360c63",
+      "passed": true,
+      "sourceUnchanged": true,
+      "totalProtocolSeconds": 24.284
+    },
+    {
+      "name": "step8-cancel",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "scripts/check_browser_paths.py",
+        "--case",
+        "rtc-invalidation",
+        "--output",
+        "/tmp/mio-rtc-s9-s8-cancel-final-20261004",
+        "--skip-build",
+        "--invalidation-mode",
+        "cancel"
+      ],
+      "exit": 0,
+      "seconds": 9.687,
+      "output": "/tmp/mio-rtc-s9-s8-cancel-final-20261004",
+      "receiptSha256": "d06e3b475ac143ba1ed8775ba99158b9d1572faae85b768a0c5a80971db3bc95",
+      "passed": true,
+      "sourceUnchanged": true,
+      "totalProtocolSeconds": 8.912
+    },
+    {
+      "name": "step8-member",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "scripts/check_browser_paths.py",
+        "--case",
+        "rtc-invalidation",
+        "--output",
+        "/tmp/mio-rtc-s9-s8-member-final-20261004",
+        "--skip-build",
+        "--invalidation-mode",
+        "member"
+      ],
+      "exit": 0,
+      "seconds": 8.538,
+      "output": "/tmp/mio-rtc-s9-s8-member-final-20261004",
+      "receiptSha256": "0984844823de7dadf393c2dbf8576544f4962ca844bc42356c81327fe41f8e73",
+      "passed": true,
+      "sourceUnchanged": true,
+      "totalProtocolSeconds": 7.776
+    },
+    {
+      "name": "step8-secret-standard",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "scripts/check_browser_paths.py",
+        "--case",
+        "rtc-invalidation",
+        "--output",
+        "/tmp/mio-rtc-s9-s8-secret-standard-final-20261004",
+        "--skip-build",
+        "--invalidation-mode",
+        "secret-standard"
+      ],
+      "exit": 0,
+      "seconds": 8.384,
+      "output": "/tmp/mio-rtc-s9-s8-secret-standard-final-20261004",
+      "receiptSha256": "262b28a5201da7c0005c61ef224d87811e2f817f0129c1ec86082f00b15e0ef7",
+      "passed": true,
+      "sourceUnchanged": true,
+      "totalProtocolSeconds": 7.634
+    },
+    {
+      "name": "step8-resource",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "scripts/check_browser_paths.py",
+        "--case",
+        "rtc-invalidation",
+        "--output",
+        "/tmp/mio-rtc-s9-s8-resource-final-20261004",
+        "--skip-build",
+        "--invalidation-mode",
+        "resource"
+      ],
+      "exit": 0,
+      "seconds": 8.484,
+      "output": "/tmp/mio-rtc-s9-s8-resource-final-20261004",
+      "receiptSha256": "e414f414953d915e3def184f428a8dbdd65b9631a183c87df2700fd80f882f4b",
+      "passed": true,
+      "sourceUnchanged": true,
+      "totalProtocolSeconds": 7.747
+    },
+    {
+      "name": "normal-wss",
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "scripts/check_browser_rtc_cut.py",
+        "--case",
+        "wss-member-rtc",
+        "--output",
+        "/tmp/mio-rtc-s9-wss-normal-final-20261004",
+        "--skip-build"
+      ],
+      "exit": 0,
+      "seconds": 42.314,
+      "output": "/tmp/mio-rtc-s9-wss-normal-final-20261004",
+      "receiptSha256": "568c3ec0291b38c52e840821870d56242be0ba76e7a84a7716036eaf5e7e566c",
+      "passed": true,
+      "sourceUnchanged": true,
+      "totalProtocolSeconds": 41.666
+    }
+  ],
+  "archives": [
+    {
+      "path": "business-red-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-business-red-20261004/results.json",
+      "originalRawSha256": "9e45dd493155c7bfc4e8a5a6eabba6a1e8d5d3cfc5add7572772931f0d233d28",
+      "archivedRawSha256": "9e45dd493155c7bfc4e8a5a6eabba6a1e8d5d3cfc5add7572772931f0d233d28",
+      "gzipSha256": "2b1cf259c426b0d13cc07fd0b50857597cc0b9de116c6633552ab2dc77270adb",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "business-red-rtc-member-replica.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-business-red-20261004/rtc-member-replica.json",
+      "originalRawSha256": "2547d1607130f44e85d11fac4246b196ac2c9d5a4d26ee7ea1d65661cf3e6664",
+      "archivedRawSha256": "2547d1607130f44e85d11fac4246b196ac2c9d5a4d26ee7ea1d65661cf3e6664",
+      "gzipSha256": "0e5d8928e5a4d2c004f8c00e0de1f03bf8d67c7aeef734c46188a0be199aa0a6",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "business-red-rtc-member-replica.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-business-red-20261004/rtc-member-replica.log",
+      "originalRawSha256": "60cc69795fb2caeaa03eff6f14371bfd9d1b79f1f9f30cac092d7bc51495508e",
+      "archivedRawSha256": "60cc69795fb2caeaa03eff6f14371bfd9d1b79f1f9f30cac092d7bc51495508e",
+      "gzipSha256": "533400a2e612ea60e8e0e0efd1209a0ccb53c2cc09f4fd2ea815c9ce92a6df08",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "nonempty-red-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-nonempty-red-20261004/results.json",
+      "originalRawSha256": "e478129a36ed1dc83bc29001767edf9366cee80ee0b9cec7ce49a2bfb8201922",
+      "archivedRawSha256": "e478129a36ed1dc83bc29001767edf9366cee80ee0b9cec7ce49a2bfb8201922",
+      "gzipSha256": "750a848f7f64ae37d789dea1e121d31beecc6fabcfedf8601bf798b43152416a",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "nonempty-red-rtc-member-replica.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-nonempty-red-20261004/rtc-member-replica.json",
+      "originalRawSha256": "60d6eb8ece0e72d413392070174e078bece13dcbe3ef2a7efd78376ee8dc743e",
+      "archivedRawSha256": "60d6eb8ece0e72d413392070174e078bece13dcbe3ef2a7efd78376ee8dc743e",
+      "gzipSha256": "45fb2364178c7758b021b8a5a6044e0d17f78b485a96e711b1b8a2d1cb1a564e",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "nonempty-red-rtc-member-replica.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-nonempty-red-20261004/rtc-member-replica.log",
+      "originalRawSha256": "ca793773bf093b449527e7a4694b768863b7792b5ea56e8354b1e46ebcdcb0f9",
+      "archivedRawSha256": "ca793773bf093b449527e7a4694b768863b7792b5ea56e8354b1e46ebcdcb0f9",
+      "gzipSha256": "4a9f250f18eeae956acd424b640ed1994f4fae5197407c0081506930857f8ba9",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "nonempty-first-green-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-nonempty-permission-green-20261004/results.json",
+      "originalRawSha256": "5eee4b9e75aa18df05a9947d0ae94338ff23476dd3e26ce20ad4519d63b2b950",
+      "archivedRawSha256": "5eee4b9e75aa18df05a9947d0ae94338ff23476dd3e26ce20ad4519d63b2b950",
+      "gzipSha256": "f44a6c4ea8ed06f677e8a5afeaab125c80aea629a7eee5aa2908037c773384f4",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "nonempty-first-green-rtc-member-replica.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-nonempty-permission-green-20261004/rtc-member-replica.json",
+      "originalRawSha256": "aeeeef1b2d4b8097ebe589a626cfc668c697c5fbcf89ad13a3e0ee63b522ba0e",
+      "archivedRawSha256": "aeeeef1b2d4b8097ebe589a626cfc668c697c5fbcf89ad13a3e0ee63b522ba0e",
+      "gzipSha256": "d0a3234d8cbac405f2552a6058191dd0d2038fab7e62326aca72fcef0d5bb1f8",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "nonempty-first-green-rtc-member-replica.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-nonempty-permission-green-20261004/rtc-member-replica.log",
+      "originalRawSha256": "72d6e3e7725395e28a970075a135f22e2049dab0eb6d81bf8c3d6f6f1c025a32",
+      "archivedRawSha256": "72d6e3e7725395e28a970075a135f22e2049dab0eb6d81bf8c3d6f6f1c025a32",
+      "gzipSha256": "24cc330ba3cd7dd4e0fd8f90c34037d72f6082e34ef59373d8253bac4c92bb28",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "save-boundary-harness-fail-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-save-boundaries-first-20261004/results.json",
+      "originalRawSha256": "4eb1fe520f20d38e5681741d2b2c3ead16a5005fdaad6cb25f25a0fc20c6d913",
+      "archivedRawSha256": "4eb1fe520f20d38e5681741d2b2c3ead16a5005fdaad6cb25f25a0fc20c6d913",
+      "gzipSha256": "74d5e20893bb11afec8129a05c75de8983c576a9afed5ab27c8ef431488ffbb5",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "save-boundary-harness-fail-rtc-member-replica.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-save-boundaries-first-20261004/rtc-member-replica.json",
+      "originalRawSha256": "47d18a1ae658c68cbc6ce5d275e645248a98588effee66b9ded8be6985378c9a",
+      "archivedRawSha256": "47d18a1ae658c68cbc6ce5d275e645248a98588effee66b9ded8be6985378c9a",
+      "gzipSha256": "b1b57caed86cc86942e1f90338776b348dbf85bc6def375192cc6f8e490a1a63",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "save-boundary-harness-fail-rtc-member-replica.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-save-boundaries-first-20261004/rtc-member-replica.log",
+      "originalRawSha256": "104b9a351cd9f4169454ab5c8735f9cdc62e5f2fc9c7ea647922cccba1485848",
+      "archivedRawSha256": "104b9a351cd9f4169454ab5c8735f9cdc62e5f2fc9c7ea647922cccba1485848",
+      "gzipSha256": "e51ed4468fa7f8471af8bc21f09b1f7d7160154a448bcfc292558af161fb85f9",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "save-boundary-first-green-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-save-boundaries-green-20261004/results.json",
+      "originalRawSha256": "a095ac7cea6de5be862829952f29ce2b8c29475d26b93d757ad633db214cd60f",
+      "archivedRawSha256": "a095ac7cea6de5be862829952f29ce2b8c29475d26b93d757ad633db214cd60f",
+      "gzipSha256": "a82d1fa46b56caa4c1870c69a7ba7ecf6ba8f24ae1f91d7af71a34ff90617f48",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "save-boundary-first-green-rtc-member-replica.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-save-boundaries-green-20261004/rtc-member-replica.json",
+      "originalRawSha256": "6eeb49c476a9fda37c4eebe5d61f3f2a185c4ea7c4221c34ba9705b1b8a75dc4",
+      "archivedRawSha256": "6eeb49c476a9fda37c4eebe5d61f3f2a185c4ea7c4221c34ba9705b1b8a75dc4",
+      "gzipSha256": "3470abff19540e58419fb49dac06d3c12f2ab3d012e9cbd41098cd34c5739589",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "save-boundary-first-green-rtc-member-replica.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-save-boundaries-green-20261004/rtc-member-replica.log",
+      "originalRawSha256": "b20b449e61981cc7635f5306e8bc187f7eecf9d28f6d21aefd0f624ba62cabd4",
+      "archivedRawSha256": "b20b449e61981cc7635f5306e8bc187f7eecf9d28f6d21aefd0f624ba62cabd4",
+      "gzipSha256": "f8fea4471cd82bb8bfdd4a228007f6ce0d8ed6691a8f3f943af849b4b73e9700",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "member-replica-final-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-member-replica-final-20261004/results.json",
+      "originalRawSha256": "dc1270baa171ebc2884e1b5034c2e39495835ef61c45eb97aa4e3c9832360c63",
+      "archivedRawSha256": "dc1270baa171ebc2884e1b5034c2e39495835ef61c45eb97aa4e3c9832360c63",
+      "gzipSha256": "f45b9d084d954478c113164c3d5c8414888b55b4525147fa382c72bad2e03b13",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "member-replica-final-rtc-member-replica.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-member-replica-final-20261004/rtc-member-replica.json",
+      "originalRawSha256": "8f7c4c4f533e1b13aa19e3d67559ef04474d348546534aa8eeeec6ff318dcaa3",
+      "archivedRawSha256": "8f7c4c4f533e1b13aa19e3d67559ef04474d348546534aa8eeeec6ff318dcaa3",
+      "gzipSha256": "7b8b4b41e0c7ede956a54d2f5690a50c309c16bfcaaaf28a432e44ba0a9e355a",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "member-replica-final-rtc-member-replica.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-member-replica-final-20261004/rtc-member-replica.log",
+      "originalRawSha256": "b20b449e61981cc7635f5306e8bc187f7eecf9d28f6d21aefd0f624ba62cabd4",
+      "archivedRawSha256": "b20b449e61981cc7635f5306e8bc187f7eecf9d28f6d21aefd0f624ba62cabd4",
+      "gzipSha256": "f8fea4471cd82bb8bfdd4a228007f6ce0d8ed6691a8f3f943af849b4b73e9700",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "cancel-final-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-s8-cancel-final-20261004/results.json",
+      "originalRawSha256": "d06e3b475ac143ba1ed8775ba99158b9d1572faae85b768a0c5a80971db3bc95",
+      "archivedRawSha256": "d06e3b475ac143ba1ed8775ba99158b9d1572faae85b768a0c5a80971db3bc95",
+      "gzipSha256": "ebdb2e624d6a9d015237f83c3959bf7d492f578a298f369953498e8e5bf3f994",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "cancel-final-rtc-invalidation.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-s8-cancel-final-20261004/rtc-invalidation.json",
+      "originalRawSha256": "52433ee4fef0cf2bb8e9568a790615d16a9caba5e884d9f53b90710db121740a",
+      "archivedRawSha256": "52433ee4fef0cf2bb8e9568a790615d16a9caba5e884d9f53b90710db121740a",
+      "gzipSha256": "cece40ae3042df57770f9b94677556b7357fb8f15a475b5f1b8b66e20ba26379",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "cancel-final-rtc-invalidation.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-s8-cancel-final-20261004/rtc-invalidation.log",
+      "originalRawSha256": "06ed60db87664c5b7efee8deebac509bd94c808b09706693c940d7b67a2e7dc2",
+      "archivedRawSha256": "06ed60db87664c5b7efee8deebac509bd94c808b09706693c940d7b67a2e7dc2",
+      "gzipSha256": "ed36c7a314682664ff6ae7ba8b9f3cf1579f8872771419f2c3f4267d3599a742",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "member-final-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-s8-member-final-20261004/results.json",
+      "originalRawSha256": "0984844823de7dadf393c2dbf8576544f4962ca844bc42356c81327fe41f8e73",
+      "archivedRawSha256": "0984844823de7dadf393c2dbf8576544f4962ca844bc42356c81327fe41f8e73",
+      "gzipSha256": "70084a9694bb63859d7ba5af8d6bae9195bcb80f4b1a2da64c60c88bedfef833",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "member-final-rtc-invalidation.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-s8-member-final-20261004/rtc-invalidation.json",
+      "originalRawSha256": "b3aab99ce6868f5dd1e18d62ba73c7f3ee219e4959da62ff8aea777897be84cb",
+      "archivedRawSha256": "b3aab99ce6868f5dd1e18d62ba73c7f3ee219e4959da62ff8aea777897be84cb",
+      "gzipSha256": "cb58ab5f4325735989749d407b075bce0bd2d4528b9a98af5d4dc16169180341",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "member-final-rtc-invalidation.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-s8-member-final-20261004/rtc-invalidation.log",
+      "originalRawSha256": "a7989348fa20ae12c3ddda358246e8fc9a70308f4052dfebb20ed929a1c36d31",
+      "archivedRawSha256": "a7989348fa20ae12c3ddda358246e8fc9a70308f4052dfebb20ed929a1c36d31",
+      "gzipSha256": "8683215990da0d62f02e402b7d2f1bcb51dbb927b728b580bea6fdf2e4865f67",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "secret-standard-final-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-s8-secret-standard-final-20261004/results.json",
+      "originalRawSha256": "262b28a5201da7c0005c61ef224d87811e2f817f0129c1ec86082f00b15e0ef7",
+      "archivedRawSha256": "262b28a5201da7c0005c61ef224d87811e2f817f0129c1ec86082f00b15e0ef7",
+      "gzipSha256": "e23a7fe0b281ceb9ecb7cce38dffb1b4bf6992791abeed80a212f8909c8984b6",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "secret-standard-final-rtc-invalidation.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-s8-secret-standard-final-20261004/rtc-invalidation.json",
+      "originalRawSha256": "6d6e13b9c6ee9c07503f51424bafe09e4c204784a9f0b9b6f1246fe578fa1529",
+      "archivedRawSha256": "6d6e13b9c6ee9c07503f51424bafe09e4c204784a9f0b9b6f1246fe578fa1529",
+      "gzipSha256": "a22b59df391c94246a9cfb882d76ffecd7c0ccb8f1cfeae0cc36c8b4e07fd67d",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "secret-standard-final-rtc-invalidation.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-s8-secret-standard-final-20261004/rtc-invalidation.log",
+      "originalRawSha256": "3c2049558d3d52d5b03b0f73e7dd2d6c8a351b6cc47f1cd16c8c936433ace0b9",
+      "archivedRawSha256": "3c2049558d3d52d5b03b0f73e7dd2d6c8a351b6cc47f1cd16c8c936433ace0b9",
+      "gzipSha256": "478f0fdd12e4d02826c597dac0626d3b3f23dae2538bb9e0436ec9a8912c083b",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "resource-final-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-s8-resource-final-20261004/results.json",
+      "originalRawSha256": "e414f414953d915e3def184f428a8dbdd65b9631a183c87df2700fd80f882f4b",
+      "archivedRawSha256": "e414f414953d915e3def184f428a8dbdd65b9631a183c87df2700fd80f882f4b",
+      "gzipSha256": "377a250622b46053a1b610e0a5a73464f834303ecabfbfd475bdf2391e17e04c",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "resource-final-rtc-invalidation.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-s8-resource-final-20261004/rtc-invalidation.json",
+      "originalRawSha256": "dbbc4d3096914a822f234b7b3352e92ff5da43f4f6f459dfea306255fe645f55",
+      "archivedRawSha256": "dbbc4d3096914a822f234b7b3352e92ff5da43f4f6f459dfea306255fe645f55",
+      "gzipSha256": "75cb558fecb3d5d6702858d180b9dc4fef10177e7629d271caed2b4a92bcf641",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "resource-final-rtc-invalidation.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-s8-resource-final-20261004/rtc-invalidation.log",
+      "originalRawSha256": "72e6542add026a7476d108339bcef4e3d25eb6a7c4ec64057d5807917d6bda8a",
+      "archivedRawSha256": "72e6542add026a7476d108339bcef4e3d25eb6a7c4ec64057d5807917d6bda8a",
+      "gzipSha256": "752e88ae8709da7a68347367af72cd30b4daff9bc0f57258f1ddd5429518c744",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "normal-wss-final-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-wss-normal-final-20261004/results.json",
+      "originalRawSha256": "568c3ec0291b38c52e840821870d56242be0ba76e7a84a7716036eaf5e7e566c",
+      "archivedRawSha256": "568c3ec0291b38c52e840821870d56242be0ba76e7a84a7716036eaf5e7e566c",
+      "gzipSha256": "e150ccecfa43362b00a65636d2e6d1a4182cca9a3440137d0fcf47e98f497fce",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "normal-wss-final-wss-member-rtc.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-wss-normal-final-20261004/wss-member-rtc.json",
+      "originalRawSha256": "880fc2020993f92ec9cbdd013317b53a85dafc878667b39ea6f74f8213af3ebd",
+      "archivedRawSha256": "4e7dd0b06ee8c0245b09bc2734953b07ccbbad544411c8bf8fe0c296d9ddf5c7",
+      "gzipSha256": "dbe489c402f671912a5d5d270e5c8f33f061ef9bdda04cb5521bf8537884cd99",
+      "byteExact": false,
+      "omittedCredentialFields": {
+        "iceLocalUsernameFragment": 16,
+        "usernameFragment": 22
+      },
+      "transformation": "recursively omit ICE username fragment fields only"
+    },
+    {
+      "path": "normal-wss-final-wss-member-rtc.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-wss-normal-final-20261004/wss-member-rtc.log",
+      "originalRawSha256": "be673aad93b658bf919ef26d11a513f0edf36b6a39cd1661b4e6dfaa87ae006f",
+      "archivedRawSha256": "be673aad93b658bf919ef26d11a513f0edf36b6a39cd1661b4e6dfaa87ae006f",
+      "gzipSha256": "20b330a525be038c8743f374eb5fe3d4e99c6993be2c0614eaf583ec2e54c2f8",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "validation-diff-check.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-current-validation-20261004/diff-check.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "validation-format.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-current-validation-20261004/format.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "validation-full-member-store-replica.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-current-validation-20261004/full-member-store-replica.log",
+      "originalRawSha256": "7b13e54d790ce46040bd3019458b4fb4865ebc6b45b13613901d25d3cb3983de",
+      "archivedRawSha256": "7b13e54d790ce46040bd3019458b4fb4865ebc6b45b13613901d25d3cb3983de",
+      "gzipSha256": "e46802161f5121b8ea91d5594c0b1f24c2e5d984c2723ed3858cf2f8378511bd",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "validation-library.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-current-validation-20261004/library.log",
+      "originalRawSha256": "b9681002578f72c53e94f367445f34c8370d210f42ee3dc6b3ec13a45048da62",
+      "archivedRawSha256": "b9681002578f72c53e94f367445f34c8370d210f42ee3dc6b3ec13a45048da62",
+      "gzipSha256": "71477a32195a32a8fedc33a9e7519b86d5d70378671dfa8d6d3fecf30e698391",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "validation-native-all-targets.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-current-validation-20261004/native-all-targets.log",
+      "originalRawSha256": "30d11392199167c6594b3eaffc4c814148568a008fd5c1ba6c128e937d66e473",
+      "archivedRawSha256": "30d11392199167c6594b3eaffc4c814148568a008fd5c1ba6c128e937d66e473",
+      "gzipSha256": "a6b7eea0fddbd617a799da4ca44dd4f31d20d105542ded9c4cd296359d66d0f4",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "validation-node-syntax.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-current-validation-20261004/node-syntax.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "validation-python-syntax.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-current-validation-20261004/python-syntax.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "validation-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-current-validation-20261004/results.json",
+      "originalRawSha256": "d75c2933b7fdf934ff762b76fa8e5dc1ce16565134f015d4d530454ca9b61bf2",
+      "archivedRawSha256": "d75c2933b7fdf934ff762b76fa8e5dc1ce16565134f015d4d530454ca9b61bf2",
+      "gzipSha256": "ab08e06e19a34defa55cbf6ac4a03c63f75ecd2d402a9aa71dede984b62899c3",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "validation-rtc-current-guards.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-current-validation-20261004/rtc-current-guards.log",
+      "originalRawSha256": "5ff6b9e8c99d3f5acd6b06b9a547ea43ee7e3cf2e66f240a2083812b78e78df8",
+      "archivedRawSha256": "5ff6b9e8c99d3f5acd6b06b9a547ea43ee7e3cf2e66f240a2083812b78e78df8",
+      "gzipSha256": "46e5d582f03a7d57431fc7b488eaa008c8818c80f4e33d989cdee97222416a34",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "validation-wasm-default.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-current-validation-20261004/wasm-default.log",
+      "originalRawSha256": "eef08f33e904631927d8e71ad0c838748cbf2559aff770f64c5b9934f9ddd207",
+      "archivedRawSha256": "eef08f33e904631927d8e71ad0c838748cbf2559aff770f64c5b9934f9ddd207",
+      "gzipSha256": "a5d0cbefe395d1194313684cf0d07adae211b79e9962aadbe65cf4f4ffba5dbb",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "validation-wasm-rtc.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-current-validation-20261004/wasm-rtc.log",
+      "originalRawSha256": "33c36656490dc8dbd3d2f9b486c7453462c2bc3483bfb2ad4610f34df342a1bd",
+      "archivedRawSha256": "33c36656490dc8dbd3d2f9b486c7453462c2bc3483bfb2ad4610f34df342a1bd",
+      "gzipSha256": "f88096dbeba6844b8f42d1c03e3b325c130bffa6bf896499b4531be331fa35e5",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "deadline-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-provider-deadline-20261004/results.json",
+      "originalRawSha256": "6b16b7575109b8a0f4c8a722932d925d719c21447f8e220f6f154f3a913eac18",
+      "archivedRawSha256": "6b16b7575109b8a0f4c8a722932d925d719c21447f8e220f6f154f3a913eac18",
+      "gzipSha256": "16e219db51cb87ebc961be56e00c1d19e21169c5d2a54b52dee5e44c015eb02b",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "deadline-test.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-provider-deadline-20261004/test.log",
+      "originalRawSha256": "4d2ccdc78eaa7cfe68a0c681f04957b3f26f902202774778ec1b917c1de32009",
+      "archivedRawSha256": "4d2ccdc78eaa7cfe68a0c681f04957b3f26f902202774778ec1b917c1de32009",
+      "gzipSha256": "525fc703d72781d2e9649d7299d48590fa65ced2031f0a1b7139eb498b7ac10d",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "final-runtime-normal-wss.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-final-runtime-20261004/normal-wss.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "final-runtime-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s9-final-runtime-20261004/results.json",
+      "originalRawSha256": "6c60cb27e66d5097153ce5bcde7558b18adf23aeb6876af9728f3d2a08d2e7d3",
+      "archivedRawSha256": "6c60cb27e66d5097153ce5bcde7558b18adf23aeb6876af9728f3d2a08d2e7d3",
+      "gzipSha256": "fffbe05748b8200f2088eebe69c41596b3ff0b584c2a57cba7ac784aa26f7ef3",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "final-runtime-step8-cancel.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-final-runtime-20261004/step8-cancel.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "final-runtime-step8-member.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-final-runtime-20261004/step8-member.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "final-runtime-step8-resource.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-final-runtime-20261004/step8-resource.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "final-runtime-step8-secret-standard.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-final-runtime-20261004/step8-secret-standard.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    },
+    {
+      "path": "final-runtime-step9.log.gz",
+      "originalPath": "/tmp/mio-rtc-s9-final-runtime-20261004/step9.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "omittedCredentialFields": {},
+      "transformation": "none; original bytes"
+    }
+  ],
+  "reviewFiles": [
+    "standards-review.md",
+    "spec-review.md"
+  ],
+  "limits": [
+    "known-current prepared member materials, Browser dialer/RTC offerer -> native answerer, owned namespace/normal TLS/private NSS, empty ICE STUN TURN",
+    "original-author record is existing signed management Add with opaque 36-byte body; source is also author; no separate offline third-author experiment",
+    "real target IndexedDB readwrite transaction abort before put/commit; not process crash or network interruption",
+    "native per-member qualification source unchanged; narrowed integration fix is actual browser consumer",
+    "STANDARD secret installation invalidation only; stopped held-PC/notification-delay diagnostic remains stopped",
+    "first WSS admission STEP10 and real heterogeneous-network/cost STEP11 are separate scopes; no full11 completion claim"
+  ],
+  "reviews": {
+    "standards": {
+      "agent": "/root/webrtc_s9_sol61_high/standards_review",
+      "threadId": "01a105c0-1ec2-7f90-a5bd-9648f779a2ce",
+      "runtimeModel": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "runtimeVerifiedBy": "root read-only appserver metadata",
+      "reportSha256": "b6d775f62986f884048f32ca2428ef92d1a02683da3cfe2fafdaf58d45a4b7fc",
+      "requiredFindings": 0,
+      "optionalFindings": 1,
+      "verdict": "PASS"
+    },
+    "spec": {
+      "agent": "/root/webrtc_s9_sol61_high/spec_review",
+      "threadId": "01a105c0-9933-7ac1-8431-9fd0692ac008",
+      "runtimeModel": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "runtimeVerifiedBy": "root read-only appserver metadata",
+      "reportSha256": "44766bea1289c37193c32ff97d8cbef4c7fb4b78f5802c683237228185aa6207",
+      "requiredFindings": 0,
+      "optionalFindings": 0,
+      "verdict": "PASS"
+    }
+  },
+  "reviewDisposition": {
+    "requiredFixes": [],
+    "deferredOptional": "Duplicated path-stat JSON mapping across browser and native adapters; revisit when observation schema changes, no unrelated platform refactor"
+  },
+  "finalMetadataAudit": {
+    "auditedStagedTree": "7e60645c47dd8f8fbf72f1d3e7056a89e54a0433",
+    "auditedBinaryDiffSha256": "8d9fbf8fb27cec470c7abf6c8e3b83f49f2b84daadd1598c1ff7d6c36723cebd",
+    "auditedPaths": 75,
+    "reports": {
+      "standards": {
+        "agent": "/root/webrtc_s9_sol61_high/standards_review",
+        "path": "standards-final-audit.md",
+        "sha256": "91509aeaaaa192744f9c836f97d118181a89b350c078c16d14dae689db21e7e1",
+        "status": "PASS",
+        "requiredImplementationFindings": 0
+      },
+      "spec": {
+        "agent": "/root/webrtc_s9_sol61_high/spec_review",
+        "path": "spec-final-audit.md",
+        "sha256": "f5c0062685eec821312bb4f1ba9b3463ff81394c48d4cb96e116c0dbdca286ca",
+        "status": "PASS",
+        "requiredImplementationFindings": 0
+      }
+    },
+    "standardsMetadataCorrection": "README final audit clause now backed by this actual finalMetadataAudit entry; same Standards reviewer acknowledged closure",
+    "onlyChangesAfterAuditedTree": "exact two audit reports and this final audit receipt metadata; production sources, harness, tests, archives and initial reviews unchanged"
+  }
+}

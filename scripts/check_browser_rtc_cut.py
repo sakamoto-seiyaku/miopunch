@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Owned STEP7/8 namespace, <=60s per protocol story including cleanup."""
+"""Owned RTC namespace; bounded protocol story including cleanup."""
 import argparse
 import json
 import os
@@ -38,7 +38,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--mode", choices=("relay", "none"), default="relay")
-    parser.add_argument("--case", choices=("rtc-data-cut", "rtc-invalidation", "wss-member-rtc"), default="rtc-data-cut")
+    parser.add_argument("--case", choices=("rtc-data-cut", "rtc-invalidation", "wss-member-rtc", "rtc-member-replica"), default="rtc-data-cut")
     parser.add_argument("--invalidation-mode", choices=("cancel", "member", "secret", "secret-standard", "resource"), default="cancel")
     parser.add_argument("--target-dir", type=Path, default=ROOT / "target")
     parser.add_argument("--skip-build", action="store_true")
@@ -47,9 +47,11 @@ def main():
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     target = args.target_dir.resolve()
-    receipt = {"case": args.case, "mode": args.invalidation_mode if args.case == "rtc-invalidation" else args.mode, "passed": False, "image": IMAGE,
+    total_budget = 120 if args.case == "rtc-member-replica" else 60
+    work_budget = total_budget - 15
+    receipt = {"case": args.case, "mode": args.invalidation_mode if args.case == "rtc-invalidation" else "member-replica" if args.case == "rtc-member-replica" else args.mode, "passed": False, "image": IMAGE,
                "sourceBefore": source_snapshot(), "commands": [], "cleanup": [],
-               "totalBudgetSeconds": 60, "workBudgetSeconds": 45, "cleanupReserveSeconds": 15,
+               "totalBudgetSeconds": total_budget, "workBudgetSeconds": work_budget, "cleanupReserveSeconds": 15,
                "scope": "one owned kernel namespace; not NAT or WAN qualification"}
 
     def save():
@@ -110,7 +112,7 @@ def main():
         fixture_path = Path(fixture.name)
 
         def remaining():
-            value = 45 - (time.monotonic()-protocol_started)
+            value = work_budget - (time.monotonic()-protocol_started)
             if value <= 0:
                 raise TimeoutError("owned STEP7 work budget ended; cleanup reserve starts")
             return value
@@ -134,7 +136,7 @@ def main():
                 "--env", "MIO_OWNED_CUT_ID="+container]
         for source, destination, readonly in mounts:
             argv += ["--mount", f"type=bind,src={source},target={destination}"+(",readonly" if readonly else "")]
-        argv += ["--entrypoint", "/bin/sleep", IMAGE, "58"]
+        argv += ["--entrypoint", "/bin/sleep", IMAGE, str(total_budget-2)]
         command("container-start", argv, min(3, remaining()))
         receipt["ownedContainer"] = container
         receipt["ownedNetwork"] = network
@@ -188,7 +190,7 @@ finally:s.close()
         # never skip exact owned removal. No prune/flush or shared cache edits.
         if protocol_started is not None:
             def cleanup(name, argv):
-                budget = max(0.001, min(3, 60 - (time.monotonic()-protocol_started)))
+                budget = max(0.001, min(3, total_budget - (time.monotonic()-protocol_started)))
                 cleanup_command(receipt, name, argv, budget)
             if container:
                 cleanup("owned-files-owner", ["docker", "exec", container, "chown", "-R", f"{os.getuid()}:{os.getgid()}", "/fixture", "/evidence"])
@@ -198,7 +200,7 @@ finally:s.close()
                 cleanup("network-remove", ["docker", "network", "rm", network])
                 cleanup("network-absent", ["docker", "network", "ls", "--filter", "label=miopunch.run="+container, "--format", "{{.ID}}"])
             receipt["totalProtocolSeconds"] = round(time.monotonic()-protocol_started, 3)
-            if receipt["totalProtocolSeconds"] > 60:
+            if receipt["totalProtocolSeconds"] > total_budget:
                 receipt["passed"] = False
         if fixture:
             try:
@@ -208,7 +210,7 @@ finally:s.close()
                 receipt["passed"] = False
         if protocol_started is not None:
             receipt["totalProtocolSeconds"] = round(time.monotonic()-protocol_started, 3)
-            if receipt["totalProtocolSeconds"] > 60:
+            if receipt["totalProtocolSeconds"] > total_budget:
                 receipt["passed"] = False
         receipt["sourceAfter"] = source_snapshot()
         receipt["sourceUnchanged"] = receipt["sourceBefore"] == receipt["sourceAfter"]

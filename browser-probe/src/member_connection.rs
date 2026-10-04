@@ -80,20 +80,15 @@ impl BrowserMemberConnection {
     #[cfg(feature = "rtc-probe")]
     pub(super) fn rtc_qualification(
         &self,
-    ) -> (
-        Arc<std::sync::atomic::AtomicU64>,
-        u64,
-        n0_watcher::Direct<u64>,
-    ) {
-        let gate = self.gate.0.lock().unwrap();
-        let revision = gate.qualification_revision.clone();
-        let observed = revision.load(std::sync::atomic::Ordering::Acquire);
-        let updates = gate
-            .qualification_updates
-            .as_ref()
-            .expect("installed browser qualification")
-            .watch();
-        (revision, observed, updates)
+    ) -> Result<
+        (
+            Arc<std::sync::atomic::AtomicU64>,
+            u64,
+            n0_watcher::Direct<u64>,
+        ),
+        JsValue,
+    > {
+        self.gate.rtc_qualification(&self.connection)
     }
 }
 #[wasm_bindgen]

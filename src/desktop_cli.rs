@@ -529,15 +529,11 @@ async fn serve(
             node.lock().await.serve_replica(&connection).await?;
         } else if connection.alpn() == BUSINESS {
             loop {
-                let (mut send, mut recv) = tokio::select! {
+                let (send, recv) = tokio::select! {
                     streams = connection.accept_bi() => streams?,
                     _ = connection.closed() => break,
                 };
-                if recv.read_to_end(64).await? != b"PING" {
-                    return Err("unexpected request".into());
-                }
-                send.write_all(b"PONG").await?;
-                send.finish()?;
+                miopunch_native_probe::member_message::serve(send, recv).await?;
             }
         }
         connection.closed().await;

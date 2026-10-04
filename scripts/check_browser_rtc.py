@@ -38,6 +38,10 @@ def source_snapshot():
                   "src/rtc_member.rs", "src/rtc_transport.rs", "src/message_bootstrap.rs", "src/bin/browser_wss_member_native.rs",
                   "browser-probe/src/lib.rs", "browser-probe/src/network.rs", "browser-probe/src/member_connection.rs", "browser-probe/src/rtc_member.rs",
                   "scripts/check_browser_rtc_cut.py", "browser-probe/harness/run-rtc-data-cut.mjs", "Cargo.toml", "Cargo.lock", "browser-probe/Cargo.toml"})
+    paths.update({"src/member_message.rs", "src/desktop_cli.rs", "src/management_auth.rs", "src/management_action.rs",
+                  "src/management_record.rs", "src/management_store.rs", "src/offline_replica.rs", "src/rtc_invalidation_fixture.rs",
+                  "browser-probe/src/replica.rs", "browser-probe/src/storage.js", "browser-probe/harness/run-rtc-member-replica.mjs",
+                  "browser-probe/harness/run-rtc-invalidation.mjs", "tests/offline_replica.rs"})
     return {path: sha256(ROOT / path) for path in sorted(paths) if (ROOT / path).is_file()}
 
 

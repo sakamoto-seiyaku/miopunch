@@ -73,6 +73,55 @@ async fn connect(a: &Endpoint, b: &Endpoint, alpn: &[u8]) -> (Connection, Connec
     .unwrap()
 }
 
+#[tokio::test]
+async fn replica_provider_consumes_the_original_caller_remainder_without_a_fresh_wait() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut source = NativeNetwork::create(dir.path().join("source"))
+        .await
+        .unwrap();
+    let receiver = join(&mut source, &dir.path().join("receiver")).await;
+    let source_endpoint = endpoint(&source).await;
+    let receiver_endpoint = endpoint(&receiver).await;
+    let (client, server) = connect(&receiver_endpoint, &source_endpoint, REPLICA_ALPN).await;
+    let (mut request, mut response) = client.open_bi().await.unwrap();
+    request.write_all(b"REPL").await.unwrap();
+    let deadline = n0_future::time::Instant::now() + Duration::from_millis(400);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let started = std::time::Instant::now();
+    let (result, ()) = tokio::join!(
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            source.serve_replica_with_deadline(&server, deadline)
+        ),
+        async {
+            // The admitted real stream receives a genuine nonempty manifest,
+            // then intentionally sends no LogSync response/receipt.
+            let mut length = [0; 4];
+            response.read_exact(&mut length).await.unwrap();
+            let length = u32::from_be_bytes(length) as usize;
+            assert!(length > 0 && length < 4096);
+            let mut manifest = vec![0; length];
+            response.read_exact(&mut manifest).await.unwrap();
+        },
+    );
+    assert!(matches!(
+        result.expect("provider must not start another wait"),
+        Err(miopunch_native_probe::offline_replica::ReplicaError::Transport)
+    ));
+    assert!(
+        started.elapsed() < Duration::from_millis(300),
+        "only the remaining original budget is available"
+    );
+    assert!(server.close_reason().is_some());
+    assert_eq!(source.status().applied_count, 2);
+    assert_eq!(receiver.status().applied_count, 2);
+    client.close(0u32.into(), b"bounded replica test complete");
+    source_endpoint.close().await;
+    receiver_endpoint.close().await;
+    source.close().await;
+    receiver.close().await;
+}
+
 #[cfg(feature = "replica-test-hooks")]
 #[test]
 fn replica_crash_worker() {

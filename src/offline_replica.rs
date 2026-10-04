@@ -123,6 +123,19 @@ impl NativeNetwork {
         self.serve_replica_records(connection, &records).await
     }
 
+    /// Serve a newly connected replica within its caller's already running
+    /// operation clock. The usual provider ceiling can only shorten it.
+    pub async fn serve_replica_with_deadline(
+        &self,
+        connection: &Connection,
+        deadline: n0_future::time::Instant,
+    ) -> Result<(), ReplicaError> {
+        let records = self.management_history().await?;
+        ReplicaProvider::new(self, records)
+            .serve_until(connection, deadline)
+            .await
+    }
+
     /// Explicit fault-fixture build only: deliver incomplete, missing-dependency
     /// or unauthorized signed input through the same admitted wire protocol.
     #[cfg(feature = "replica-test-hooks")]
@@ -246,14 +259,23 @@ impl ReplicaProvider {
         }
     }
     pub(crate) async fn serve(&self, connection: &Connection) -> Result<(), ReplicaError> {
-        self.serve_records(connection, &self.records, None).await
+        self.serve_records(connection, &self.records, None, None)
+            .await
+    }
+    async fn serve_until(
+        &self,
+        connection: &Connection,
+        deadline: n0_future::time::Instant,
+    ) -> Result<(), ReplicaError> {
+        self.serve_records(connection, &self.records, None, Some(deadline))
+            .await
     }
     pub(crate) async fn serve_stream(
         &self,
         connection: &Connection,
         streams: (iroh::endpoint::SendStream, iroh::endpoint::RecvStream),
     ) -> Result<(), ReplicaError> {
-        self.serve_records(connection, &self.records, Some(streams))
+        self.serve_records(connection, &self.records, Some(streams), None)
             .await
     }
     fn replica_allowed(&self, connection: &Connection) -> bool {
@@ -280,8 +302,12 @@ impl ReplicaProvider {
         connection: &Connection,
         records: &[ManagementRecord],
         streams: Option<(iroh::endpoint::SendStream, iroh::endpoint::RecvStream)>,
+        deadline: Option<n0_future::time::Instant>,
     ) -> Result<(), ReplicaError> {
-        let result = tokio::time::timeout(TIMEOUT, async {
+        let remaining = deadline.map_or(TIMEOUT, |deadline| {
+            TIMEOUT.min(deadline.saturating_duration_since(n0_future::time::Instant::now()))
+        });
+        let result = tokio::time::timeout(remaining, async {
             if !self.replica_provider_allowed(connection) {
                 return Err(ReplicaError::Rejected);
             }

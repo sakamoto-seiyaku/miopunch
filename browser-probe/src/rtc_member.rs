@@ -88,7 +88,7 @@ impl OwnedRtc {
         transport: &crate::rtc_transport::RtcTransport,
         gate: &BrowserGate,
     ) -> Result<Self, JsValue> {
-        let (revision, observed, updates) = gate.rtc_qualification();
+        let (revision, observed, updates) = gate.rtc_qualification(connection)?;
         let attempt_live = Arc::new(AtomicBool::new(true));
         let live = attempt_live.clone();
         let lease = transport
@@ -247,7 +247,7 @@ pub(super) async fn bootstrap_control(
     let protected_binding = blake3::hash(&exporter).to_hex().to_string();
     let (mut send, mut recv) = connection.open_bi().await.map_err(error)?;
     let stream_id = send.id().to_string();
-    let (revision, observed, _) = gate.rtc_qualification();
+    let (revision, observed, _) = gate.rtc_qualification(connection)?;
     let work = async {
         let offer: RtcSessionDescriptionInit = JsFuture::from(owner.association.pc.create_offer()).await?.unchecked_into();
         JsFuture::from(owner.association.pc.set_local_description(&offer)).await?;
@@ -482,7 +482,7 @@ impl BrowserMemberConnection {
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
             .map_err(|_| error("RTC attempt already active on this M"))?;
         let _active = ActiveAttempt(self.rtc_active.clone());
-        let (_, observed, _) = self.rtc_qualification();
+        let (_, observed, _) = self.rtc_qualification()?;
         let owner = OwnedRtc::new(&self.connection, &self.rtc_transport, &self.gate)?;
         let attempt = hex::encode(rand::random::<[u8; 16]>());
         let context = attempt_context(
