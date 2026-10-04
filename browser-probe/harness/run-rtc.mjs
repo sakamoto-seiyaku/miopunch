@@ -12,9 +12,12 @@ const root = resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const argument = name => { const index = process.argv.indexOf(name); assert(index >= 0, `${name} required`); return process.argv[index + 1]; };
 const evidence = resolve(argument('--evidence'));
 const memberCase = process.argv.includes('--case') && argument('--case') === 'relay-member-rtc';
-const wssMemberCase = process.argv.includes('--case') && argument('--case') === 'wss-member-rtc';
+const cutCase = process.argv.includes('--case') && argument('--case') === 'rtc-data-cut';
+const cutRelay = cutCase && argument('--cut-mode') === 'relay';
+const wssMemberCase = process.argv.includes('--case') && (argument('--case') === 'wss-member-rtc' || cutCase);
 const legacyNoRtc = process.argv.includes('--legacy-no-rtc');
 const legacyRelay = process.argv.includes('--legacy-relay');
+const relayBackup = legacyRelay || cutRelay;
 const requestedRelay = argument('--relay');
 let relay = requestedRelay;
 assert(requestedRelay === 'owned' || ['aps1-1', 'use1-1', 'usw1-1', 'euc1-1'].some(region => relay === `https://${region}.relay.n0.iroh.link./`));
@@ -29,13 +32,16 @@ let web;
 let page;
 let deadline;
 let rejectDeadline;
-const total = new Promise((_, reject) => { rejectDeadline = reject; deadline = setTimeout(() => reject(new Error('RTC fixture deadline; reserved finally cleanup')), wssMemberCase ? 55000 : memberCase ? 35000 : 45000); });
+const total = new Promise((_, reject) => { rejectDeadline = reject; deadline = setTimeout(() => reject(new Error('RTC fixture deadline; reserved finally cleanup')), cutCase ? Number(process.env.MIO_CUT_WORK_MS ?? 40000) : wssMemberCase ? 55000 : memberCase ? 35000 : 45000); });
 const ownedSockets = new Set();
 const facilityServers = [];
 // Attach immediately: synchronous startup errors still proceed through finally.
 total.catch(() => {});
 for (const name of ['SIGTERM', 'SIGINT']) process.once(name, () => rejectDeadline(new Error(`RTC fixture cancelled by ${name}`)));
-function save() { writeFileSync(join(evidence, wssMemberCase ? 'wss-member-rtc.json' : memberCase ? 'relay-member-rtc.json' : 'rtc-channel.json'), `${JSON.stringify(report, null, 2)}\n`); }
+function save() {
+  const redact = cutCase ? (key, value) => typeof value === 'string' && (/sdp|ufrag|username|password|icepwd|certificate|fingerprint/i.test(key) || /^CF[0-9A-F]{2}(:[0-9A-F]{2})+$/i.test(value)) ? undefined : value : undefined;
+  writeFileSync(join(evidence, cutCase ? 'rtc-data-cut.json' : wssMemberCase ? 'wss-member-rtc.json' : memberCase ? 'relay-member-rtc.json' : 'rtc-channel.json'), `${JSON.stringify(report, redact, 2)}\n`);
+}
 function bounded(promise) { return Promise.race([promise, total]); }
 async function preparation(name, action) {
   const started = Date.now();
@@ -54,7 +60,7 @@ function executable() {
   throw new Error('install pinned Playwright Chromium');
 }
 function fixture(memberFacilityPath) {
-  const process = spawn('rtk', ['proxy', memberFacilityPath ? argument('--wss-native') : argument('--native'), join(temporary, 'admin'), ...(memberFacilityPath ? [memberFacilityPath, join(argument('--fixture'), 'ca.pem'), ...(legacyNoRtc ? ['legacy-no-rtc'] : legacyRelay ? ['legacy-relay', relay] : [])] : [relay, ...(requestedRelay === 'owned' ? [join(argument('--fixture'), 'ca.der')] : [])])], { stdio: ['pipe', 'pipe', 'pipe'] });
+  const process = spawn('rtk', ['proxy', memberFacilityPath ? argument('--wss-native') : argument('--native'), join(temporary, 'admin'), ...(memberFacilityPath ? [memberFacilityPath, join(argument('--fixture'), 'ca.pem'), ...(legacyNoRtc ? ['legacy-no-rtc'] : legacyRelay ? ['legacy-relay', relay] : cutRelay ? ['rtc-relay', relay] : [])] : [relay, ...(requestedRelay === 'owned' ? [join(argument('--fixture'), 'ca.der')] : [])])], { stdio: ['pipe', 'pipe', 'pipe'] });
   const entries = [];
   const waiters = [];
   createInterface({ input: process.stdout }).on('line', line => {
@@ -115,7 +121,7 @@ try {
   await bounded(new Promise(resolveListening => web.listen(0, '127.0.0.1', resolveListening)));
   report.origin = `http://127.0.0.1:${web.address().port}`;
   let browserExecutable = executable();
-  if (requestedRelay === 'owned') {
+  if (requestedRelay === 'owned' && process.env.MIO_PRIVATE_NSS_NAMESPACE !== '1') {
     const trustFixture = argument('--fixture');
     const legacyDb = join(homedir(), '.pki/nssdb');
     const defaultDb = join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local/share'), 'pki/nssdb');
@@ -127,7 +133,12 @@ try {
     browserExecutable = wrapper;
   }
   report.launch = { executablePath: browserExecutable, headless: true, args: ['--no-sandbox', '--disable-features=WebRtcHideLocalIpsWithMdns'], ignoreHTTPSErrors: false, privateNssMount: requestedRelay === 'owned', certificateBypassFlags: [] };
-  context = await bounded(chromium.launchPersistentContext(join(temporary, 'profile'), report.launch));
+  const launchOptions = { ...report.launch };
+  if (process.env.MIO_PRIVATE_NSS_NAMESPACE === '1') {
+    launchOptions.env = { ...process.env, LD_LIBRARY_PATH: '/opt/hostlib' };
+    report.chromiumRuntimeLibraries = '/opt/hostlib; namespace fixture only';
+  }
+  context = await bounded(chromium.launchPersistentContext(join(temporary, 'profile'), launchOptions));
   browser = context.browser();
   report.browserVersion = browser.version();
   page = await context.newPage();
@@ -160,7 +171,7 @@ try {
     report.savedBefore = JSON.parse(await page.evaluate(() => window.network.status()));
     await bounded(page.evaluate(async () => { await window.network.close(); window.network.free(); window.network = null; }));
     report.preparationNativeClosed = await stopProcess(native.process, 'preparation native');
-    if (!legacyRelay) {
+    if (!relayBackup) {
       report.preparationRelayClosed = await stopProcess(relayProcess, 'preparation relay');
       relayProcess = null;
     } else { report.preparationEndpointsClosedRelayStillExplicitlyPermitted = true; }
@@ -178,11 +189,11 @@ try {
     assert.equal(memberReady.id, ready.id);
     assert(memberReady.knownMembers.includes(report.browserIdentity));
     assert.equal(memberReady.ipAddresses, 0);
-    assert.equal(memberReady.relayAddresses, legacyRelay ? 1 : 0);
-    const configuration = { relays: legacyRelay ? [relay] : [], disabled: [], irc: [], mqtt: [facility],
+    assert.equal(memberReady.relayAddresses, relayBackup ? 1 : 0);
+    const configuration = { relays: relayBackup ? [relay] : [], disabled: [], irc: [], mqtt: [facility],
       contact_routes: [{ contact: ready.id, facility: facility.logical_id, address: memberReady.route }] };
     let legacyRelayCapabilities;
-    if (legacyRelay) {
+    if (relayBackup) {
       // Approved at startup; dormant only in this owned fixture until actual
       // MQTT capability exchange, so a relay-started M cannot pass this story.
       await page.evaluate(relayHost => {
@@ -229,10 +240,12 @@ try {
           }
         };
       }, new URL(relay).host);
-      legacyRelayCapabilities = native.wait('path-capabilities', true);
-      legacyRelayCapabilities.then(async () => {
-        report.legacyRelayRevealed = await page.evaluate(() => { window.releaseOwnedRelay(); return window.ownedRelayEvents; });
-      }).catch(rejectDeadline);
+      if (legacyRelay) {
+        legacyRelayCapabilities = native.wait('path-capabilities', true);
+        legacyRelayCapabilities.then(async () => {
+          report.legacyRelayRevealed = await page.evaluate(() => { window.releaseOwnedRelay(); return window.ownedRelayEvents; });
+        }).catch(rejectDeadline);
+      }
     }
     report.reopenedIdentity = await bounded(page.evaluate(async configuration => {
       const { BrowserNetwork } = await import('/pkg/miopunch_browser_probe.js');
@@ -244,7 +257,10 @@ try {
     assert.equal(report.savedAfterReopen.stage, 'Complete');
     assert.equal(report.savedAfterReopen.secret_saved, true);
     report.beforeMember = JSON.parse(await page.evaluate(() => window.network.path_diagnostics()));
-    if (legacyNoRtc) {
+    if (cutCase) {
+      const { runRtcDataCut } = await import('./run-rtc-data-cut.mjs');
+      await runRtcDataCut({ page, native, ready: memberReady, report, bounded, save, evidence, relayBackup });
+    } else if (legacyNoRtc) {
       report.legacyUnreachable = await bounded(page.evaluate(async id => {
         const started = performance.now();
         try { window.unexpectedMember = await window.network.open_member_connection(id); return { returnedHandle: true }; }

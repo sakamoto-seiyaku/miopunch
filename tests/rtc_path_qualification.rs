@@ -53,6 +53,48 @@ async fn pair(a: &Endpoint, b: &Endpoint) -> (Connection, Connection) {
 }
 
 #[tokio::test]
+async fn maintenance_retirement_closes_only_the_exact_original_member_association() {
+    let at = RtcTransport::new();
+    let bt = RtcTransport::new();
+    let a = endpoint(at.clone()).await;
+    let b = endpoint(bt.clone()).await;
+    let (first, first_peer) = pair(&a, &b).await;
+    let (second, second_peer) = pair(&a, &b).await;
+    let first_lease = at.reserve(&first, || true).unwrap();
+    let second_lease = at.reserve(&second, || true).unwrap();
+    let first_remote = bt.reserve(&first_peer, || true).unwrap();
+    let second_remote = bt.reserve(&second_peer, || true).unwrap();
+    for (lease, remote) in [
+        (&first_lease, &first_remote),
+        (&second_lease, &second_remote),
+    ] {
+        lease.set_remote(remote.local_addr()).unwrap();
+        remote.set_remote(lease.local_addr()).unwrap();
+        lease.activate().unwrap();
+        remote.activate().unwrap();
+    }
+    assert!(
+        !at.retire_connection(&first_peer),
+        "foreign endpoint M cannot retire either local association"
+    );
+    assert_eq!(at.active_associations(), 2);
+    assert!(at.retire_connection(&first));
+    assert!(!first_lease.io().is_active());
+    assert!(second_lease.io().is_active());
+    assert_eq!(at.active_associations(), 1);
+    assert!(
+        !at.retire_connection(&first),
+        "retirement is idempotent for only that old M"
+    );
+    assert!(first.close_reason().is_none() && second.close_reason().is_none());
+    assert!(at.retire_connection(&second));
+    for c in [&first, &second, &first_peer, &second_peer] {
+        c.close(0u32.into(), b"fixture ended");
+    }
+    tokio::join!(a.close(), b.close());
+}
+
+#[tokio::test]
 async fn rtc_route_is_owned_by_one_original_live_member_and_retirement_is_terminal() {
     let at = RtcTransport::new();
     let bt = RtcTransport::new();

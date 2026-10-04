@@ -4,74 +4,21 @@ use crate::{
     admission_gate::ProtocolScope, native_network::NativeNetwork, resources::ResourceEndpoint,
 };
 use iroh::{EndpointAddr, TransportAddr, endpoint::Connection};
-use std::{io, time::Duration};
-use thiserror::Error;
+use std::io;
 
-pub const CONNECTION_RECOVERY_ALPN: &[u8] = b"miopunch/connection-path-recovery/1";
-const MAX_MESSAGE: usize = 4096;
-const MAX_CANDIDATES: usize = 8;
-const REPAIR_TIMEOUT: Duration = Duration::from_secs(3);
-const BINDING_LABEL: &[u8] = b"miopunch-existing-connection-path-recovery/1";
-
-#[derive(Debug, Error)]
-pub enum ConnectionPathRecoveryError {
-    #[error("original connection {stable_id} terminated; a later contact must be a new connection")]
-    Terminal { stable_id: usize },
-    #[error("path repair on connection {stable_id} failed while it remains alive: {cause}")]
-    Retryable { stable_id: usize, cause: String },
-}
-#[derive(Debug)]
-pub struct ConnectionPathRecovery {
-    pub stable_id: usize,
-    pub path: TransportAddr,
-}
-
-// Private wire envelope; the session binding is never formatted for diagnostics.
-#[derive(serde::Serialize, serde::Deserialize)]
-struct RepairRequest {
-    binding: [u8; 32],
-    offer: EndpointAddr,
-}
+pub(crate) use crate::connection_recovery_core::binding;
+use crate::connection_recovery_core::{
+    self as core, MAX_CANDIDATES, MAX_MESSAGE, REPAIR_TIMEOUT, RepairRequest, encode_message,
+};
+pub use crate::connection_recovery_core::{
+    CONNECTION_RECOVERY_ALPN, ConnectionPathRecovery, ConnectionPathRecoveryError,
+};
 
 fn data_offer(endpoint: &ResourceEndpoint) -> EndpointAddr {
     let mut offer = endpoint.addr();
     offer.addrs.retain(|path| endpoint.allows_data_path(path));
     offer.addrs = offer.addrs.into_iter().take(MAX_CANDIDATES).collect();
     offer
-}
-
-fn encode_message(message: &impl serde::Serialize) -> io::Result<Vec<u8>> {
-    let bytes = serde_json::to_vec(message).map_err(io::Error::other)?;
-    if bytes.len() > MAX_MESSAGE {
-        return Err(io::Error::other("path recovery message exceeds bound"));
-    }
-    Ok(bytes)
-}
-
-pub(crate) fn binding(connection: &Connection) -> io::Result<[u8; 32]> {
-    let mut binding = [0; 32];
-    connection
-        .export_keying_material(&mut binding, BINDING_LABEL, &[])
-        .map_err(|_| io::Error::other("original TLS connection binding unavailable"))?;
-    Ok(binding)
-}
-fn failed(connection: &Connection, cause: impl ToString) -> ConnectionPathRecoveryError {
-    if connection.close_reason().is_some() {
-        ConnectionPathRecoveryError::Terminal {
-            stable_id: connection.stable_id(),
-        }
-    } else {
-        ConnectionPathRecoveryError::Retryable {
-            stable_id: connection.stable_id(),
-            cause: cause.to_string(),
-        }
-    }
-}
-struct CloseControl(Connection);
-impl Drop for CloseControl {
-    fn drop(&mut self) {
-        self.0.close(0u32.into(), b"path recovery exchange ended");
-    }
 }
 
 impl NativeNetwork {
@@ -86,60 +33,72 @@ impl NativeNetwork {
         original: &Connection,
         contact: EndpointAddr,
     ) -> Result<ConnectionPathRecovery, ConnectionPathRecoveryError> {
-        if original.close_reason().is_some() {
-            return Err(failed(original, "original connection closed"));
-        }
-        if !self.gate.allows(original, ProtocolScope::Member) || original.remote_id() != contact.id
-        {
-            return Err(failed(
-                original,
-                "original connection is not a current member session for this target",
-            ));
-        }
-        let repair = async {
-            let request = RepairRequest {
-                binding: binding(original)?,
-                offer: data_offer(endpoint),
-            };
-            let control = endpoint
-                .endpoint()
-                .connect(contact, CONNECTION_RECOVERY_ALPN)
-                .await
-                .map_err(io::Error::other)?;
-            let control = CloseControl(control);
-            if !self.gate.allows_member_path_upgrade(&control.0) {
-                return Err(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    "control peer is not a current member",
-                ));
-            }
-            let (mut send, mut recv) = control.0.open_bi().await?;
-            send.write_all(&encode_message(&request)?).await?;
-            send.finish()?;
-            let bytes = recv
-                .read_to_end(MAX_MESSAGE)
-                .await
-                .map_err(io::Error::other)?;
-            let candidate: EndpointAddr =
-                serde_json::from_slice(&bytes).map_err(io::Error::other)?;
-            let path = self
-                .validate_connection_candidates(endpoint, original, &control.0, candidate)
-                .await?;
-            Ok(ConnectionPathRecovery {
-                stable_id: original.stable_id(),
-                path,
-            })
-        };
-        tokio::select! {
-            _ = original.closed() => Err(failed(original, "original connection closed")),
-            result = tokio::time::timeout(REPAIR_TIMEOUT, repair) => match result {
-                Ok(Ok(recovered)) => {
-                    if original.close_reason().is_some() { Err(failed(original, "original connection closed")) } else { Ok(recovered) }
+        self.recover_connection_path_until(
+            endpoint,
+            original,
+            contact,
+            n0_future::time::Instant::now() + REPAIR_TIMEOUT,
+        )
+        .await
+    }
+
+    /// The caller's absolute clock also bounds the restricted contact and probe.
+    pub async fn recover_connection_path_until(
+        &self,
+        endpoint: &ResourceEndpoint,
+        original: &Connection,
+        contact: EndpointAddr,
+        deadline: n0_future::time::Instant,
+    ) -> Result<ConnectionPathRecovery, ConnectionPathRecoveryError> {
+        self.recover_with_confirmation(endpoint, original, contact, deadline, false)
+            .await
+    }
+
+    /// Opt into the finite original-path confirmation extension. Legacy repair
+    /// callers continue sending the unchanged two-field request.
+    pub async fn recover_connection_path_confirmed_until(
+        &self,
+        endpoint: &ResourceEndpoint,
+        original: &Connection,
+        contact: EndpointAddr,
+        deadline: n0_future::time::Instant,
+    ) -> Result<ConnectionPathRecovery, ConnectionPathRecoveryError> {
+        self.recover_with_confirmation(endpoint, original, contact, deadline, true)
+            .await
+    }
+
+    async fn recover_with_confirmation(
+        &self,
+        endpoint: &ResourceEndpoint,
+        original: &Connection,
+        contact: EndpointAddr,
+        deadline: n0_future::time::Instant,
+        confirm: bool,
+    ) -> Result<ConnectionPathRecovery, ConnectionPathRecoveryError> {
+        let result = core::recover(
+            endpoint.endpoint(),
+            original,
+            contact,
+            data_offer(endpoint),
+            deadline,
+            tokio_util::sync::CancellationToken::new(),
+            confirm,
+            |path| endpoint.allows_data_path(path),
+            |original| {
+                if self.gate.allows(original, ProtocolScope::Member) {
+                    Ok(())
+                } else {
+                    Err(io::Error::new(
+                        io::ErrorKind::PermissionDenied,
+                        "original is not a current member session",
+                    ))
                 }
-                Ok(Err(error)) => Err(failed(original, error)),
-                Err(_) => Err(failed(original, "bounded path repair timed out")),
-            }
-        }
+            },
+            |original, control| self.check_repair_membership(original, control),
+        )
+        .await?;
+        endpoint.retire_replaced_rtc(original);
+        Ok(result)
     }
 
     async fn validate_connection_candidates(
@@ -149,66 +108,16 @@ impl NativeNetwork {
         control: &Connection,
         candidate: EndpointAddr,
     ) -> io::Result<TransportAddr> {
-        if candidate.id != original.remote_id() || candidate.addrs.len() > MAX_CANDIDATES {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "invalid data path offer",
-            ));
-        }
-        let paths = candidate
-            .addrs
-            .into_iter()
-            .filter(|path| endpoint.allows_data_path(path))
-            .collect::<Vec<_>>();
-        if paths.is_empty() {
-            return Err(io::Error::other("no mutually permitted data candidate"));
-        }
-        // Noq opens new paths only from the original dialing side. That peer
-        // can be either requester or responder of this separate control exchange.
-        if original.side().is_client() {
-            for path in &paths {
-                loop {
-                    self.check_repair_membership(original, control)?;
-                    match endpoint
-                        .endpoint()
-                        .open_data_transport_path(original, path.clone())
-                        .await
-                    {
-                        Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                            tokio::time::sleep(Duration::from_millis(50)).await
-                        }
-                        _ => break,
-                    }
-                }
-            }
-        }
-        // A path snapshot may retain an unavailable carrier until QUIC expires.
-        // Start one fresh probe per qualified path; only new authenticated ACKs
-        // on that original path can establish recovery, including reused addresses.
-        let mut probes = Vec::new();
-        loop {
-            self.check_repair_membership(original, control)?;
-            for path in original
-                .paths()
-                .iter()
-                .filter(|path| paths.contains(path.remote_addr()))
-            {
-                if probes.iter().any(|(id, _, _)| *id == path.id()) {
-                    continue;
-                }
-                if let Ok(probe) = path.start_probe() {
-                    probes.push((path.id(), path.remote_addr().clone(), probe));
-                }
-            }
-            if let Some((_, address, _)) = probes
-                .iter()
-                .find(|(_, _, probe)| matches!(probe.is_acknowledged(), Ok(true)))
-            {
-                self.check_repair_membership(original, control)?;
-                return Ok(address.clone());
-            }
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
+        core::validate_candidates(
+            endpoint.endpoint(),
+            original,
+            control,
+            candidate,
+            &|path| endpoint.allows_data_path(path),
+            &|original, control| self.check_repair_membership(original, control),
+        )
+        .await
+        .map(|path| path.address)
     }
 
     fn check_repair_membership(
@@ -222,12 +131,22 @@ impl NativeNetwork {
                 "original connection closed",
             ));
         }
-        if !self.gate.allows(original, ProtocolScope::Member)
-            || !self.gate.allows_member_path_upgrade(control)
-        {
+        if !self.gate.allows(original, ProtocolScope::Member) {
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
-                "membership changed during path repair",
+                "original membership changed during path repair",
+            ));
+        }
+        if control.close_reason().is_some() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotConnected,
+                "restricted repair control closed",
+            ));
+        }
+        if !self.gate.allows_member_path_upgrade(control) {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "control membership changed during path repair",
             ));
         }
         Ok(())
@@ -276,12 +195,50 @@ impl NativeNetwork {
                 })?;
             self.check_repair_membership(&original, control)?;
             if original.side().is_client() {
-                self.validate_connection_candidates(endpoint, &original, control, request.offer)
-                    .await?;
+                self.validate_connection_candidates(
+                    endpoint,
+                    &original,
+                    control,
+                    request.offer.clone(),
+                )
+                .await?;
             }
             let bytes = encode_message(&data_offer(endpoint))?;
             send.write_all(&bytes).await?;
             send.finish()?;
+            if request.require_confirmation {
+                let path = core::validate_candidates(
+                    endpoint.endpoint(),
+                    &original,
+                    control,
+                    request.offer,
+                    &|path| endpoint.allows_data_path(path),
+                    &|original, control| self.check_repair_membership(original, control),
+                )
+                .await?;
+                self.check_repair_membership(&original, control)?;
+                // A real authenticated replacement-path ACK precedes retirement
+                // of the old carrier; closing a sole path cannot kill repair.
+                endpoint.retire_replaced_rtc(&original);
+                let (mut send, mut recv) = control.open_bi().await?;
+                send.write_all(&encode_message(&core::RepairConfirmation {
+                    path: path.address,
+                    fresh_ack: true,
+                    probe_watermark: path.watermark,
+                })?)
+                .await?;
+                send.finish()?;
+                let mut confirmed = [0];
+                recv.read_exact(&mut confirmed)
+                    .await
+                    .map_err(io::Error::other)?;
+                if confirmed != [1] {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "repair confirmation refused",
+                    ));
+                }
+            }
             // The requester retains its authenticated control scope while it
             // validates the new carrier. Its owned guard closes this exchange
             // on completion, cancellation or failure; the serving wait is bound.

@@ -1,0 +1,2569 @@
+{
+  "scope": "STEP7; owned single namespace; no NAT/WAN or natural RTC idle-expiry qualification",
+  "reviewBase": "1434334cfc15d8231257883a6fecd8761bda79d7",
+  "runs": {
+    "relay": {
+      "passed": true,
+      "rawTransientDirectory": "/tmp/mio-rtc-s7-reviewed-relay-20261004",
+      "sourceBefore": {
+        "Cargo.lock": "543a4a397bd047de1c6b0633c5163367869bee1423cf1e8db69b6faa0413f2b3",
+        "Cargo.toml": "d589b5c3dc7e5e5039a0a9eebf1bba0ecc0988963fd8b19085f1cc6a05e71b33",
+        "browser-probe/Cargo.toml": "470044552915bd030e321741ce7de7f1d4632e950094952ade2caed8915bf1c1",
+        "browser-probe/harness/owned-mixed-mqtt-proxy.mjs": "b50cf2d40ff0094bade4882e3c1f244fb24b992eb3d84866ee12a69224303bf9",
+        "browser-probe/harness/run-rtc-data-cut.mjs": "e2c51d056b5ed7f723d841b317b9aa0020c75e6b4a7bc9d9014458665d43d60d",
+        "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+        "browser-probe/harness/run-rtc.mjs": "45c53153b60517fc11fc921d8a7bf75df8f5e656199c8db046a59e5c4519be7a",
+        "browser-probe/network.html": "b11be64a9f1c5c2b729c20495424ac08d9f588408bbbb7dc4efdc6593610ea6b",
+        "browser-probe/src/lib.rs": "bc759bd77aba294db0fd0dc69cb2834f38d4324ed0687ad504c4057065ad32b8",
+        "browser-probe/src/member_connection.rs": "a6af8d2b28ae728c68bdb8715d8c1cb4b1da9e0f63a786859c8730716fcc8601",
+        "browser-probe/src/mqtt.rs": "67ca10c43bd3479ca0dbad91bb7691fa535dd3dce8faf2a7ef8dc496ecbd83df",
+        "browser-probe/src/network.rs": "f1ad611f5b6d0a5c76b432866e71eba5895cb4fc925d50c329a9420d84c6010b",
+        "browser-probe/src/rtc.rs": "251959eb8d3919ef0d26672f1916a468bc5a8fbe19bd6ac9e4be7bfb65187ae4",
+        "browser-probe/src/rtc_member.rs": "c86173ee505c972689c588abfd768ef26a79f7b1bfae2805692f215f08a41ac7",
+        "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+        "scripts/check_browser_paths.py": "dfc3b7191c23fe809f28dc9e830682d1745ec94bed3f2172db17133f376df41d",
+        "scripts/check_browser_rtc.py": "cdffb137dfefa32974f5a198584e6f1bc95beecc4a4bc6cce03121636d2a7dee",
+        "scripts/check_browser_rtc_cut.py": "4407ccc50e3903be6202b74c0de4a0ef207b606d92074e60b6bd1c9679d23620",
+        "scripts/mosquitto-test.conf": "5bbf715cb2518197f7ad99ceff3986bf3e2b137798aae23613ce39cf5f24542c",
+        "src/admission_gate.rs": "4d8bc0173d5b615652eab82114a2d23689bfec91b7ccfcb479a5943cf9c631a9",
+        "src/admission_proof.rs": "33502e93c55c3204916b3bec6b75fa2510cd3f0fb3ab60c6666689c515f2bf4d",
+        "src/bin/browser_network_native.rs": "951df304b2076de085412bc108da1cc7e7345885fe935ff163d9cd374f451a8a",
+        "src/bin/browser_probe_native.rs": "554989910b9a358b12820136fe1b6e30392a485ebb43fc53205be75f7c95b23f",
+        "src/bin/browser_wss_member_native.rs": "0d3e740304acd15b73615e76cbacf2071924ad360691edba687d8de2c7fd33f9",
+        "src/connection_recovery.rs": "1b169a60a8cd59f8c68d758378f7acf1894d939c43b5c030b8d054f6fd6baac9",
+        "src/connection_recovery_core.rs": "a6bdc8de7cf47b49ec8e838b169337490bdeb9f6c58b8c31c2a737de32b3c68b",
+        "src/control_session.rs": "d78789557b6bafe34a7257ccf9e923ad91221a8e1d94317ad717e51fe0e7da3a",
+        "src/lib.rs": "62902c17d911d0cf7588dbc5b3d67ae41a30c747c5f3038c902299c3928100fc",
+        "src/member_bootstrap.rs": "fd8411c3fb26bb78f39591f5f46a4d3bd9fde1e0f49630516b556ed9a2b1ead6",
+        "src/member_path_protocol.rs": "3403601c74ad5baffb3b67e0985eae98736e08e7b0d20ba5bcacf085bce0488e",
+        "src/message_bootstrap.rs": "78e0c15cefeefc5e0f3721c312e643bfb73a51f6da93a48a194f6eadd9b66181",
+        "src/mqtt_datagram.rs": "acaeeb199cca3ddca85894a07d9bdebdc8ce6b21752f847096d388de5f167084",
+        "src/mqtt_transport.rs": "3585ea182dbe952b97679ef4ba8fa367790bde29373ef282f4ba3a1146fe4091",
+        "src/native_network.rs": "83d0156bb3e596fd41b957ec3fe88ac6be065dd2c832e12ddfe788872c7c17bc",
+        "src/replica_snapshot.rs": "a8e62db5cb9440de96559aa6b26d07f8ea2742c5431c42895f367f1cd1c5a3d1",
+        "src/resources.rs": "68c72185e06f44ea242fadc6ba35f9a0b1c9429deddcc3c76acdc858909ee81f",
+        "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+        "src/rtc_member.rs": "290cb87ae7e6474d4785e4e2591755c63df52e0653cf8075290c2adccdce49c9",
+        "src/rtc_probe.rs": "fa928c9deb4ddf41159226ca45b48a5f2bb4af842e6290ee36927de7ad2d3870",
+        "src/rtc_transport.rs": "cdad837328fde9f006ac70e24c34d819476c6cc82f958a97148142bb1610ca4f",
+        "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+        "tests/path_maintenance.rs": "bcd728397d1fd554f97c0a64570440ab9f1e73d604540b7052b299051c0c6927",
+        "tests/rtc_path_qualification.rs": "61ba3c91687660ea09aa4d89ff31ac4889cce5cbede8a5843da2bb8ca619f678",
+        "vendor/iroh/src/socket/mapped_addrs.rs": "c95accdd5f474a11e820b1d460696507ffd0195ccd074d439520cab9cd9c3ffa",
+        "vendor/iroh/src/socket/remote_map/remote_state/path_state.rs": "d320c4becfacc9ecc32475e0cfa1cc52c9698b2011804f7bbb95b7f860b0a3ab",
+        "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs": "838bbcd605addbe1afaf911c20b4efc5be87499a7758aba0933e58101dce32b9",
+        "vendor/iroh/src/socket/transports/custom.rs": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+        "vendor/noq-proto/src/connection/mod.rs": "93575c4027506cf6fa324c1384e9ee5e740701934020e3323465ca2ae0e69e17",
+        "vendor/noq-proto/src/connection/paths.rs": "3f86ec41fa014b1a6870d2c8556900e4fd3c15f8959b654d54356b9c52bfb8b5",
+        "vendor/noq-proto/src/tests/multipath.rs": "e3887c55dadc1fe86d72587d206f9228d9bad2fb5ad0b2c2483f80aa50625904"
+      },
+      "sourceAfter": {
+        "Cargo.lock": "543a4a397bd047de1c6b0633c5163367869bee1423cf1e8db69b6faa0413f2b3",
+        "Cargo.toml": "d589b5c3dc7e5e5039a0a9eebf1bba0ecc0988963fd8b19085f1cc6a05e71b33",
+        "browser-probe/Cargo.toml": "470044552915bd030e321741ce7de7f1d4632e950094952ade2caed8915bf1c1",
+        "browser-probe/harness/owned-mixed-mqtt-proxy.mjs": "b50cf2d40ff0094bade4882e3c1f244fb24b992eb3d84866ee12a69224303bf9",
+        "browser-probe/harness/run-rtc-data-cut.mjs": "e2c51d056b5ed7f723d841b317b9aa0020c75e6b4a7bc9d9014458665d43d60d",
+        "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+        "browser-probe/harness/run-rtc.mjs": "45c53153b60517fc11fc921d8a7bf75df8f5e656199c8db046a59e5c4519be7a",
+        "browser-probe/network.html": "b11be64a9f1c5c2b729c20495424ac08d9f588408bbbb7dc4efdc6593610ea6b",
+        "browser-probe/src/lib.rs": "bc759bd77aba294db0fd0dc69cb2834f38d4324ed0687ad504c4057065ad32b8",
+        "browser-probe/src/member_connection.rs": "a6af8d2b28ae728c68bdb8715d8c1cb4b1da9e0f63a786859c8730716fcc8601",
+        "browser-probe/src/mqtt.rs": "67ca10c43bd3479ca0dbad91bb7691fa535dd3dce8faf2a7ef8dc496ecbd83df",
+        "browser-probe/src/network.rs": "f1ad611f5b6d0a5c76b432866e71eba5895cb4fc925d50c329a9420d84c6010b",
+        "browser-probe/src/rtc.rs": "251959eb8d3919ef0d26672f1916a468bc5a8fbe19bd6ac9e4be7bfb65187ae4",
+        "browser-probe/src/rtc_member.rs": "c86173ee505c972689c588abfd768ef26a79f7b1bfae2805692f215f08a41ac7",
+        "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+        "scripts/check_browser_paths.py": "dfc3b7191c23fe809f28dc9e830682d1745ec94bed3f2172db17133f376df41d",
+        "scripts/check_browser_rtc.py": "cdffb137dfefa32974f5a198584e6f1bc95beecc4a4bc6cce03121636d2a7dee",
+        "scripts/check_browser_rtc_cut.py": "4407ccc50e3903be6202b74c0de4a0ef207b606d92074e60b6bd1c9679d23620",
+        "scripts/mosquitto-test.conf": "5bbf715cb2518197f7ad99ceff3986bf3e2b137798aae23613ce39cf5f24542c",
+        "src/admission_gate.rs": "4d8bc0173d5b615652eab82114a2d23689bfec91b7ccfcb479a5943cf9c631a9",
+        "src/admission_proof.rs": "33502e93c55c3204916b3bec6b75fa2510cd3f0fb3ab60c6666689c515f2bf4d",
+        "src/bin/browser_network_native.rs": "951df304b2076de085412bc108da1cc7e7345885fe935ff163d9cd374f451a8a",
+        "src/bin/browser_probe_native.rs": "554989910b9a358b12820136fe1b6e30392a485ebb43fc53205be75f7c95b23f",
+        "src/bin/browser_wss_member_native.rs": "0d3e740304acd15b73615e76cbacf2071924ad360691edba687d8de2c7fd33f9",
+        "src/connection_recovery.rs": "1b169a60a8cd59f8c68d758378f7acf1894d939c43b5c030b8d054f6fd6baac9",
+        "src/connection_recovery_core.rs": "a6bdc8de7cf47b49ec8e838b169337490bdeb9f6c58b8c31c2a737de32b3c68b",
+        "src/control_session.rs": "d78789557b6bafe34a7257ccf9e923ad91221a8e1d94317ad717e51fe0e7da3a",
+        "src/lib.rs": "62902c17d911d0cf7588dbc5b3d67ae41a30c747c5f3038c902299c3928100fc",
+        "src/member_bootstrap.rs": "fd8411c3fb26bb78f39591f5f46a4d3bd9fde1e0f49630516b556ed9a2b1ead6",
+        "src/member_path_protocol.rs": "3403601c74ad5baffb3b67e0985eae98736e08e7b0d20ba5bcacf085bce0488e",
+        "src/message_bootstrap.rs": "78e0c15cefeefc5e0f3721c312e643bfb73a51f6da93a48a194f6eadd9b66181",
+        "src/mqtt_datagram.rs": "acaeeb199cca3ddca85894a07d9bdebdc8ce6b21752f847096d388de5f167084",
+        "src/mqtt_transport.rs": "3585ea182dbe952b97679ef4ba8fa367790bde29373ef282f4ba3a1146fe4091",
+        "src/native_network.rs": "83d0156bb3e596fd41b957ec3fe88ac6be065dd2c832e12ddfe788872c7c17bc",
+        "src/replica_snapshot.rs": "a8e62db5cb9440de96559aa6b26d07f8ea2742c5431c42895f367f1cd1c5a3d1",
+        "src/resources.rs": "68c72185e06f44ea242fadc6ba35f9a0b1c9429deddcc3c76acdc858909ee81f",
+        "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+        "src/rtc_member.rs": "290cb87ae7e6474d4785e4e2591755c63df52e0653cf8075290c2adccdce49c9",
+        "src/rtc_probe.rs": "fa928c9deb4ddf41159226ca45b48a5f2bb4af842e6290ee36927de7ad2d3870",
+        "src/rtc_transport.rs": "cdad837328fde9f006ac70e24c34d819476c6cc82f958a97148142bb1610ca4f",
+        "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+        "tests/path_maintenance.rs": "bcd728397d1fd554f97c0a64570440ab9f1e73d604540b7052b299051c0c6927",
+        "tests/rtc_path_qualification.rs": "61ba3c91687660ea09aa4d89ff31ac4889cce5cbede8a5843da2bb8ca619f678",
+        "vendor/iroh/src/socket/mapped_addrs.rs": "c95accdd5f474a11e820b1d460696507ffd0195ccd074d439520cab9cd9c3ffa",
+        "vendor/iroh/src/socket/remote_map/remote_state/path_state.rs": "d320c4becfacc9ecc32475e0cfa1cc52c9698b2011804f7bbb95b7f860b0a3ab",
+        "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs": "838bbcd605addbe1afaf911c20b4efc5be87499a7758aba0933e58101dce32b9",
+        "vendor/iroh/src/socket/transports/custom.rs": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+        "vendor/noq-proto/src/connection/mod.rs": "93575c4027506cf6fa324c1384e9ee5e740701934020e3323465ca2ae0e69e17",
+        "vendor/noq-proto/src/connection/paths.rs": "3f86ec41fa014b1a6870d2c8556900e4fd3c15f8959b654d54356b9c52bfb8b5",
+        "vendor/noq-proto/src/tests/multipath.rs": "e3887c55dadc1fe86d72587d206f9228d9bad2fb5ad0b2c2483f80aa50625904"
+      },
+      "sourceUnchanged": true,
+      "builtArtifacts": {
+        "/home/js/Git/miopunch/target/debug/browser_network_native": "affb155d011d8c5f75bb5bb84d9d3a69d2536811eb54b986d517f4b9880475ca",
+        "/home/js/Git/miopunch/target/debug/browser-probe-native": "a47615f7702708a0a0056ac38b48f6b455c8f946836142a7e9d3a6f3a668966a",
+        "/home/js/Git/miopunch/target/debug/browser_wss_member_native": "e7afc89df3627b6cf0313d22bcd2f4b163b83e7f3beb2283620f945cbd6cb4d6",
+        "/home/js/Git/miopunch/browser-probe/pkg/miopunch_browser_probe.js": "ac4a452ecf9ddd415c0fbf83263381076a700bef3b224af54b0719faf8793ac7",
+        "/home/js/Git/miopunch/browser-probe/pkg/miopunch_browser_probe_bg.wasm": "876cde7ac9f6a33c8bc3114a72d20eb0a1ce22c96a521663ab6b85db68c71bdb"
+      },
+      "commands": [
+        {
+          "name": "revision",
+          "argv": [
+            "git",
+            "rev-parse",
+            "HEAD"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.016
+        },
+        {
+          "name": "native-build",
+          "argv": [
+            "cargo",
+            "build",
+            "--locked",
+            "--offline",
+            "-j",
+            "2",
+            "--features",
+            "rtc-probe",
+            "--bin",
+            "browser_network_native",
+            "--bin",
+            "browser-probe-native",
+            "--bin",
+            "browser_wss_member_native",
+            "--target-dir",
+            "/home/js/Git/miopunch/target"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 15.374
+        },
+        {
+          "name": "wasm-build",
+          "argv": [
+            "cargo",
+            "build",
+            "--locked",
+            "--offline",
+            "-j",
+            "2",
+            "-p",
+            "miopunch-browser-probe",
+            "--features",
+            "rtc-probe",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--target-dir",
+            "/home/js/Git/miopunch/target"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 9.689
+        },
+        {
+          "name": "bindgen",
+          "argv": [
+            "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+            "--target",
+            "web",
+            "--out-dir",
+            "/home/js/Git/miopunch/browser-probe/pkg",
+            "/home/js/Git/miopunch/target/wasm32-unknown-unknown/debug/miopunch_browser_probe.wasm"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 2.171
+        },
+        {
+          "name": "image-identity",
+          "argv": [
+            "docker",
+            "image",
+            "inspect",
+            "sha256:c9dbb88a37f58ae5105720e60bc5cc6eb40d8ad37106e57ce621d345b5ec62a2",
+            "--format",
+            "{{.Id}}"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.032
+        },
+        {
+          "name": "certificate-ca.der",
+          "argv": [
+            "openssl",
+            "x509",
+            "-in",
+            "/tmp/mio-rtc-s7-gy0z08ua/ca.pem",
+            "-outform",
+            "DER",
+            "-out",
+            "/tmp/mio-rtc-s7-gy0z08ua/ca.der"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.032
+        },
+        {
+          "name": "certificate-leaf.der",
+          "argv": [
+            "openssl",
+            "x509",
+            "-in",
+            "/tmp/mio-rtc-s7-gy0z08ua/leaf.pem",
+            "-outform",
+            "DER",
+            "-out",
+            "/tmp/mio-rtc-s7-gy0z08ua/leaf.der"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.032
+        },
+        {
+          "name": "fixture-pkcs8",
+          "argv": [
+            "openssl",
+            "pkcs8",
+            "-topk8",
+            "-nocrypt",
+            "-in",
+            "/tmp/mio-rtc-s7-gy0z08ua/leaf.key",
+            "-outform",
+            "DER",
+            "-out",
+            "/tmp/mio-rtc-s7-gy0z08ua/leaf-key.der"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.016
+        },
+        {
+          "name": "network-create",
+          "argv": [
+            "docker",
+            "network",
+            "create",
+            "--internal",
+            "--label",
+            "miopunch.run=mio-rtc-s7-1791083903569799377",
+            "mio-rtc-s7-1791083903569799377-network"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.032
+        },
+        {
+          "name": "container-start",
+          "argv": [
+            "docker",
+            "run",
+            "--detach",
+            "--name",
+            "mio-rtc-s7-1791083903569799377",
+            "--network",
+            "mio-rtc-s7-1791083903569799377-network",
+            "--label",
+            "miopunch.run=mio-rtc-s7-1791083903569799377",
+            "--cap-add",
+            "NET_ADMIN",
+            "--cap-add",
+            "NET_RAW",
+            "--workdir",
+            "/repo",
+            "--env",
+            "PATH=/opt/node/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "--env",
+            "PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/chromium/chrome",
+            "--env",
+            "MIO_PRIVATE_NSS_NAMESPACE=1",
+            "--env",
+            "MIO_OWNED_CUT_ID=mio-rtc-s7-1791083903569799377",
+            "--mount",
+            "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+            "--mount",
+            "type=bind,src=/home/js/Git/miopunch/target,target=/build,readonly",
+            "--mount",
+            "type=bind,src=/home/js/.nvm/versions/node/v24.14.0,target=/opt/node,readonly",
+            "--mount",
+            "type=bind,src=/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64,target=/opt/chromium,readonly",
+            "--mount",
+            "type=bind,src=/home/js/.local/bin/rtk,target=/usr/local/bin/rtk,readonly",
+            "--mount",
+            "type=bind,src=/usr/lib/x86_64-linux-gnu,target=/opt/hostlib,readonly",
+            "--mount",
+            "type=bind,src=/tmp/mio-rtc-s7-gy0z08ua,target=/fixture",
+            "--mount",
+            "type=bind,src=/tmp/mio-rtc-s7-gy0z08ua/nssdb,target=/root/.pki/nssdb",
+            "--mount",
+            "type=bind,src=/tmp/mio-rtc-s7-reviewed-relay-20261004,target=/evidence",
+            "--entrypoint",
+            "/bin/sleep",
+            "sha256:c9dbb88a37f58ae5105720e60bc5cc6eb40d8ad37106e57ce621d345b5ec62a2",
+            "58"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.716
+        },
+        {
+          "name": "namespace-tools",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791083903569799377",
+            "rtk",
+            "proxy",
+            "ss",
+            "-uapn"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.164
+        },
+        {
+          "name": "namespace-addresses",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791083903569799377",
+            "rtk",
+            "proxy",
+            "ip",
+            "-j",
+            "address"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.102
+        },
+        {
+          "name": "namespace-routes-before",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791083903569799377",
+            "rtk",
+            "proxy",
+            "ip",
+            "-j",
+            "route"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.114
+        },
+        {
+          "name": "mdns-join-before",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791083903569799377",
+            "rtk",
+            "proxy",
+            "python3",
+            "-c",
+            "import socket,json,sys\ns=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)\ns.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)\ns.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEPORT,1)\ns.setblocking(False)\ntry:\n s.bind(('224.0.0.251',5353))\n s.setsockopt(socket.IPPROTO_IP,socket.IP_ADD_MEMBERSHIP,socket.inet_aton('224.0.0.251')+socket.inet_aton('0.0.0.0'))\n print(json.dumps({'joined':True}))\nexcept OSError as error:\n print(json.dumps({'joined':False,'errno':error.errno}));sys.exit(1)\nfinally:s.close()\n"
+          ],
+          "exit": 1,
+          "expectedExitCodes": [
+            0,
+            1
+          ],
+          "seconds": 0.119
+        },
+        {
+          "name": "owned-multicast-route",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791083903569799377",
+            "rtk",
+            "proxy",
+            "ip",
+            "route",
+            "add",
+            "224.0.0.251/32",
+            "dev",
+            "eth0"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.164
+        },
+        {
+          "name": "mdns-join-after",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791083903569799377",
+            "rtk",
+            "proxy",
+            "python3",
+            "-c",
+            "import socket,json,sys\ns=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)\ns.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)\ns.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEPORT,1)\ns.setblocking(False)\ntry:\n s.bind(('224.0.0.251',5353))\n s.setsockopt(socket.IPPROTO_IP,socket.IP_ADD_MEMBERSHIP,socket.inet_aton('224.0.0.251')+socket.inet_aton('0.0.0.0'))\n print(json.dumps({'joined':True}))\nexcept OSError as error:\n print(json.dumps({'joined':False,'errno':error.errno}));sys.exit(1)\nfinally:s.close()\n"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.11
+        },
+        {
+          "name": "namespace-routes-after",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791083903569799377",
+            "rtk",
+            "proxy",
+            "ip",
+            "-j",
+            "route"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.164
+        },
+        {
+          "name": "browser-load",
+          "argv": [
+            "docker",
+            "exec",
+            "--env",
+            "LD_LIBRARY_PATH=/opt/hostlib",
+            "mio-rtc-s7-1791083903569799377",
+            "/opt/chromium/chrome",
+            "--version"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.165
+        },
+        {
+          "name": "broker-start",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791083903569799377",
+            "rtk",
+            "proxy",
+            "mosquitto",
+            "-c",
+            "/repo/scripts/mosquitto-test.conf",
+            "-d"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.164
+        },
+        {
+          "name": "rtc-data-cut",
+          "argv": [
+            "docker",
+            "exec",
+            "--env",
+            "MIO_CUT_WORK_MS=42012",
+            "mio-rtc-s7-1791083903569799377",
+            "rtk",
+            "proxy",
+            "/opt/node/bin/node",
+            "browser-probe/harness/run-rtc.mjs",
+            "--case",
+            "rtc-data-cut",
+            "--cut-mode",
+            "relay",
+            "--relay",
+            "owned",
+            "--fixture",
+            "/fixture",
+            "--evidence",
+            "/evidence",
+            "--broker",
+            "127.0.0.1:1883",
+            "--native",
+            "/build/debug/browser_network_native",
+            "--wss-native",
+            "/build/debug/browser_wss_member_native",
+            "--relay-fixture",
+            "/build/debug/browser-probe-native"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 6.73
+        }
+      ],
+      "totalProtocolSeconds": 9.698,
+      "ownedCleanup": [
+        {
+          "name": "owned-files-owner",
+          "exit": 0
+        },
+        {
+          "name": "container-remove",
+          "exit": 0
+        },
+        {
+          "name": "container-absent",
+          "exit": 0,
+          "empty": true
+        },
+        {
+          "name": "network-remove",
+          "exit": 0
+        },
+        {
+          "name": "network-absent",
+          "exit": 0,
+          "empty": true
+        }
+      ],
+      "memberStableId": 2460960,
+      "originalNativeStableId": 129635132120880,
+      "initialMemberPaths": [
+        {
+          "ackFramesReceived": 0,
+          "ackFramesSent": 0,
+          "address": "Custom(CustomAddr { id: 120299608765539, data: [0711b9b99407822c19f1b74fa19bd585] })",
+          "isRelay": false,
+          "isRtc": true,
+          "isSignal": false,
+          "pathId": "1",
+          "pingFramesSent": 5,
+          "receivedBytes": 11809,
+          "selected": true,
+          "sentBytes": 8636,
+          "streamFramesReceived": 5,
+          "streamFramesSent": 1
+        }
+      ],
+      "control": {
+        "alpn": "miopunch/connection-path-recovery/1",
+        "event": "repair-control",
+        "paths": [
+          {
+            "isIp": false,
+            "isMqtt": true,
+            "isRelay": false,
+            "isRtc": false
+          }
+        ],
+        "restricted": true,
+        "stableId": 129635132203120
+      },
+      "controlEnded": {
+        "event": "repair-control-ended",
+        "failure": null,
+        "stableId": 129635132203120,
+        "succeeded": true
+      },
+      "repair": {
+        "callerBudgetMs": 2000,
+        "controlAlpn": "miopunch/connection-path-recovery/1",
+        "controlStableId": 2623336,
+        "elapsedMs": 783,
+        "freshAck": true,
+        "outcome": "recovered",
+        "path": "Relay(https://localhost:40681/)",
+        "pathId": "2",
+        "peerConfirmed": true,
+        "probeWatermark": 9,
+        "stableId": 2460960
+      },
+      "beforeCutStream": {
+        "sequence": 0,
+        "streamId": "client bidirectional stream 4",
+        "localStableId": 2460960,
+        "stableUnchanged": true,
+        "bindingUnchanged": true,
+        "native": {
+          "bindingUnchanged": true,
+          "payload": "original stream PING 0",
+          "sequence": 0,
+          "stableId": 129635132120880,
+          "streamId": "client bidirectional stream 4"
+        }
+      },
+      "afterRepairStream": {
+        "sequence": 1,
+        "streamId": "client bidirectional stream 4",
+        "localStableId": 2460960,
+        "stableUnchanged": true,
+        "bindingUnchanged": true,
+        "native": {
+          "bindingUnchanged": true,
+          "payload": "original stream PING 1",
+          "sequence": 1,
+          "stableId": 129635132120880,
+          "streamId": "client bidirectional stream 4"
+        }
+      },
+      "laterStream": {
+        "sequence": 2,
+        "streamId": "client bidirectional stream 4",
+        "localStableId": 2460960,
+        "stableUnchanged": true,
+        "bindingUnchanged": true,
+        "native": {
+          "bindingUnchanged": true,
+          "payload": "original stream PING 2",
+          "sequence": 2,
+          "stableId": 129635132120880,
+          "streamId": "client bidirectional stream 4"
+        }
+      },
+      "stillAliveUnreachable": false,
+      "afterRepairPaths": [
+        {
+          "ackFramesReceived": 0,
+          "ackFramesSent": 0,
+          "address": "Relay(https://localhost:40681/)",
+          "isRelay": true,
+          "isRtc": false,
+          "isSignal": false,
+          "pathId": "2",
+          "pingFramesSent": 5,
+          "receivedBytes": 7211,
+          "selected": true,
+          "sentBytes": 9692,
+          "streamFramesReceived": 0,
+          "streamFramesSent": 0
+        }
+      ],
+      "savedMaterialsUnchanged": true,
+      "carriersBefore": [
+        {
+          "buffered_bytes": 0,
+          "closed": false,
+          "pending_bytes": 0,
+          "protocol": "mqtt",
+          "queued_packets": 0,
+          "ready": true,
+          "route": "2286e2b6681ae8f67fb371fb938326f5b3cfe1923e0d02a5584e1cb3be98ddd8",
+          "traffic": {
+            "buffered_bytes_peak": 4294,
+            "connack": 0,
+            "disconnect_sent": false,
+            "failure": null,
+            "generation": 3137673384,
+            "ready_ms": 1791083907783,
+            "received_bytes": 10844,
+            "received_frame_bytes": 14101,
+            "received_frames": 44,
+            "received_packets": 42,
+            "rejected_packets": 0,
+            "rx_queue_peak": 1,
+            "sent_bytes": 12247,
+            "sent_frame_bytes": 15615,
+            "sent_frames": 44,
+            "sent_packets": 42,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": false,
+            "withdraw_ms": null
+          }
+        }
+      ],
+      "carriersAfter": [
+        {
+          "buffered_bytes": 0,
+          "closed": false,
+          "pending_bytes": 0,
+          "protocol": "mqtt",
+          "queued_packets": 0,
+          "ready": true,
+          "route": "2286e2b6681ae8f67fb371fb938326f5b3cfe1923e0d02a5584e1cb3be98ddd8",
+          "traffic": {
+            "buffered_bytes_peak": 4747,
+            "connack": 0,
+            "disconnect_sent": false,
+            "failure": null,
+            "generation": 3137673384,
+            "ready_ms": 1791083907783,
+            "received_bytes": 38106,
+            "received_frame_bytes": 46786,
+            "received_frames": 114,
+            "received_packets": 112,
+            "rejected_packets": 0,
+            "rx_queue_peak": 1,
+            "sent_bytes": 42588,
+            "sent_frame_bytes": 53010,
+            "sent_frames": 135,
+            "sent_packets": 133,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": false,
+            "withdraw_ms": null
+          }
+        }
+      ],
+      "cut": {
+        "table": "mio_cut_1791083909922",
+        "rules": "table ip mio_cut_1791083909922 {\nchain output { type filter hook output priority -10; policy accept;\nip saddr 172.20.0.2 ip daddr 172.20.0.2 udp sport 37934 udp dport 54937 counter drop\nip saddr 172.20.0.2 ip daddr 172.20.0.2 udp sport 54937 udp dport 37934 counter drop\n}\nchain input { type filter hook input priority -10; policy accept;\nip saddr 172.20.0.2 ip daddr 172.20.0.2 udp sport 37934 udp dport 54937 counter drop\nip saddr 172.20.0.2 ip daddr 172.20.0.2 udp sport 54937 udp dport 37934 counter drop\n}\n}\n",
+        "filter": "udp and ((src host 172.20.0.2 and src port 37934 and dst host 172.20.0.2 and dst port 54937) or (src host 172.20.0.2 and src port 54937 and dst host 172.20.0.2 and dst port 37934))",
+        "tuple": {
+          "local": {
+            "address": "172.20.0.2",
+            "port": 37934
+          },
+          "remote": {
+            "address": "172.20.0.2",
+            "port": 54937
+          },
+          "protocol": "udp"
+        },
+        "startedUtc": "2026-10-04T03:18:29.990Z",
+        "removedUtc": "2026-10-04T03:18:32.079Z",
+        "dropped": {
+          "packets": 11,
+          "bytes": 1619
+        },
+        "finalDropped": {
+          "packets": 58,
+          "bytes": 7399
+        },
+        "tableRemoved": true
+      },
+      "terminal": {
+        "cause": "explicit original SDK close after cut classification",
+        "closed": true,
+        "atUtc": "2026-10-04T03:18:32.038Z"
+      },
+      "afterCarrierReturns": {
+        "outcome": "terminal",
+        "stableId": 2460960
+      },
+      "failedOriginalStream": null,
+      "finalBrowserCounts": {
+        "closed": true,
+        "memberStableId": 2460960,
+        "activeAssociations": 0,
+        "activePumpTasks": 0
+      },
+      "browserCleanup": {
+        "created": 1,
+        "closed": 1,
+        "callbacksDetached": true
+      },
+      "nativeRtcCleanup": {
+        "cleanup": {
+          "ownedPumpTasks": 0,
+          "pcClosed": true,
+          "rxBytes": 0,
+          "txBytes": 0
+        },
+        "event": "rtc-path-cleanup",
+        "stableId": 129635132120880,
+        "switched": true
+      },
+      "nativeImmediate": {
+        "activeRtcAssociations": 0,
+        "activeRtcPumps": 0,
+        "event": "status",
+        "socketCount": 7,
+        "traffic": {
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": false,
+            "failure": null,
+            "ready_ms": 1791083907683,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": false,
+            "withdraw_ms": null
+          },
+          "queue_depth": 64,
+          "queue_peak": 2,
+          "queued_packets": 0,
+          "received_bytes": 42588,
+          "received_packets": 133,
+          "rejected_packets": 0,
+          "rx_queue_peak": 7,
+          "sent_bytes": 38106,
+          "sent_packets": 112
+        }
+      },
+      "nativeLate": {
+        "activeRtcAssociations": 0,
+        "activeRtcPumps": 0,
+        "event": "status",
+        "socketCount": 7,
+        "traffic": {
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": false,
+            "failure": null,
+            "ready_ms": 1791083907683,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": false,
+            "withdraw_ms": null
+          },
+          "queue_depth": 64,
+          "queue_peak": 2,
+          "queued_packets": 0,
+          "received_bytes": 42588,
+          "received_packets": 133,
+          "rejected_packets": 0,
+          "rx_queue_peak": 7,
+          "sent_bytes": 38106,
+          "sent_packets": 112
+        }
+      },
+      "nativeCleanupEvents": [
+        {
+          "cleanup": {
+            "ownedPumpTasks": 0,
+            "pcClosed": true,
+            "rxBytes": 0,
+            "txBytes": 0
+          },
+          "event": "rtc-path-cleanup",
+          "stableId": 129635132120880,
+          "switched": true,
+          "receivedUtc": "2026-10-04T03:18:31.707Z"
+        }
+      ],
+      "nativeFixtureExit": {
+        "code": 0,
+        "signal": null
+      },
+      "relayFixtureExit": {
+        "code": 0,
+        "signal": null
+      },
+      "relayFixtureExitPhase": "after-measurement",
+      "preparationNativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "preparationRelayExit": null,
+      "cancelledRepair": {
+        "callerBudgetMs": 2000,
+        "elapsedMs": 508,
+        "failure": "path repair on connection 2460960 failed while it remains alive: path repair cancelled",
+        "outcome": "unreachable",
+        "stableId": 2460960
+      },
+      "cancelledControlEnded": {
+        "event": "repair-control-ended",
+        "failure": "restricted repair control closed",
+        "stableId": 129634796783504,
+        "succeeded": false
+      },
+      "cancellationObservedMilliseconds": 5,
+      "shortCallerRepair": {
+        "callerBudgetMs": 120,
+        "elapsedMs": 120,
+        "failure": "path repair on connection 2460960 failed while it remains alive: bounded path repair caller deadline exceeded",
+        "outcome": "unreachable",
+        "stableId": 2460960
+      },
+      "selectedNativeSocketAbsentWhileOriginalLives": true,
+      "packetCaptureSha256": "57e0a185ffbf5537a6068bc964036649b665d6fb512d7bbfaa88fb675963b542",
+      "captureProof": {
+        "packets": 2,
+        "snaplen": 64,
+        "linkType": "LINUX_SLL2",
+        "allMatchSelectedUdpTuple": true,
+        "tuples": [
+          {
+            "source": {
+              "address": "172.20.0.2",
+              "port": 37934
+            },
+            "destination": {
+              "address": "172.20.0.2",
+              "port": 54937
+            }
+          },
+          {
+            "source": {
+              "address": "172.20.0.2",
+              "port": 54937
+            },
+            "destination": {
+              "address": "172.20.0.2",
+              "port": 37934
+            }
+          }
+        ]
+      },
+      "ordinaryMemberReleases": [
+        {
+          "alpn": "miopunch/browser-member/rtc-path/3",
+          "event": "member-released",
+          "paths": [
+            {
+              "ackReceived": 0,
+              "isIp": false,
+              "isRelay": false,
+              "selected": true,
+              "streamSent": 5
+            }
+          ],
+          "remoteId": "067e207998674b7af13f9e360ea324460d42d7a497785a56a68f9444e18fe359",
+          "stableId": 129635132120880,
+          "receivedUtc": "2026-10-04T03:18:29.867Z"
+        }
+      ]
+    },
+    "none": {
+      "passed": true,
+      "rawTransientDirectory": "/tmp/mio-rtc-s7-reviewed-none-20261004",
+      "sourceBefore": {
+        "Cargo.lock": "543a4a397bd047de1c6b0633c5163367869bee1423cf1e8db69b6faa0413f2b3",
+        "Cargo.toml": "d589b5c3dc7e5e5039a0a9eebf1bba0ecc0988963fd8b19085f1cc6a05e71b33",
+        "browser-probe/Cargo.toml": "470044552915bd030e321741ce7de7f1d4632e950094952ade2caed8915bf1c1",
+        "browser-probe/harness/owned-mixed-mqtt-proxy.mjs": "b50cf2d40ff0094bade4882e3c1f244fb24b992eb3d84866ee12a69224303bf9",
+        "browser-probe/harness/run-rtc-data-cut.mjs": "e2c51d056b5ed7f723d841b317b9aa0020c75e6b4a7bc9d9014458665d43d60d",
+        "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+        "browser-probe/harness/run-rtc.mjs": "45c53153b60517fc11fc921d8a7bf75df8f5e656199c8db046a59e5c4519be7a",
+        "browser-probe/network.html": "b11be64a9f1c5c2b729c20495424ac08d9f588408bbbb7dc4efdc6593610ea6b",
+        "browser-probe/src/lib.rs": "bc759bd77aba294db0fd0dc69cb2834f38d4324ed0687ad504c4057065ad32b8",
+        "browser-probe/src/member_connection.rs": "a6af8d2b28ae728c68bdb8715d8c1cb4b1da9e0f63a786859c8730716fcc8601",
+        "browser-probe/src/mqtt.rs": "67ca10c43bd3479ca0dbad91bb7691fa535dd3dce8faf2a7ef8dc496ecbd83df",
+        "browser-probe/src/network.rs": "f1ad611f5b6d0a5c76b432866e71eba5895cb4fc925d50c329a9420d84c6010b",
+        "browser-probe/src/rtc.rs": "251959eb8d3919ef0d26672f1916a468bc5a8fbe19bd6ac9e4be7bfb65187ae4",
+        "browser-probe/src/rtc_member.rs": "c86173ee505c972689c588abfd768ef26a79f7b1bfae2805692f215f08a41ac7",
+        "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+        "scripts/check_browser_paths.py": "dfc3b7191c23fe809f28dc9e830682d1745ec94bed3f2172db17133f376df41d",
+        "scripts/check_browser_rtc.py": "cdffb137dfefa32974f5a198584e6f1bc95beecc4a4bc6cce03121636d2a7dee",
+        "scripts/check_browser_rtc_cut.py": "4407ccc50e3903be6202b74c0de4a0ef207b606d92074e60b6bd1c9679d23620",
+        "scripts/mosquitto-test.conf": "5bbf715cb2518197f7ad99ceff3986bf3e2b137798aae23613ce39cf5f24542c",
+        "src/admission_gate.rs": "4d8bc0173d5b615652eab82114a2d23689bfec91b7ccfcb479a5943cf9c631a9",
+        "src/admission_proof.rs": "33502e93c55c3204916b3bec6b75fa2510cd3f0fb3ab60c6666689c515f2bf4d",
+        "src/bin/browser_network_native.rs": "951df304b2076de085412bc108da1cc7e7345885fe935ff163d9cd374f451a8a",
+        "src/bin/browser_probe_native.rs": "554989910b9a358b12820136fe1b6e30392a485ebb43fc53205be75f7c95b23f",
+        "src/bin/browser_wss_member_native.rs": "0d3e740304acd15b73615e76cbacf2071924ad360691edba687d8de2c7fd33f9",
+        "src/connection_recovery.rs": "1b169a60a8cd59f8c68d758378f7acf1894d939c43b5c030b8d054f6fd6baac9",
+        "src/connection_recovery_core.rs": "a6bdc8de7cf47b49ec8e838b169337490bdeb9f6c58b8c31c2a737de32b3c68b",
+        "src/control_session.rs": "d78789557b6bafe34a7257ccf9e923ad91221a8e1d94317ad717e51fe0e7da3a",
+        "src/lib.rs": "62902c17d911d0cf7588dbc5b3d67ae41a30c747c5f3038c902299c3928100fc",
+        "src/member_bootstrap.rs": "fd8411c3fb26bb78f39591f5f46a4d3bd9fde1e0f49630516b556ed9a2b1ead6",
+        "src/member_path_protocol.rs": "3403601c74ad5baffb3b67e0985eae98736e08e7b0d20ba5bcacf085bce0488e",
+        "src/message_bootstrap.rs": "78e0c15cefeefc5e0f3721c312e643bfb73a51f6da93a48a194f6eadd9b66181",
+        "src/mqtt_datagram.rs": "acaeeb199cca3ddca85894a07d9bdebdc8ce6b21752f847096d388de5f167084",
+        "src/mqtt_transport.rs": "3585ea182dbe952b97679ef4ba8fa367790bde29373ef282f4ba3a1146fe4091",
+        "src/native_network.rs": "83d0156bb3e596fd41b957ec3fe88ac6be065dd2c832e12ddfe788872c7c17bc",
+        "src/replica_snapshot.rs": "a8e62db5cb9440de96559aa6b26d07f8ea2742c5431c42895f367f1cd1c5a3d1",
+        "src/resources.rs": "68c72185e06f44ea242fadc6ba35f9a0b1c9429deddcc3c76acdc858909ee81f",
+        "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+        "src/rtc_member.rs": "290cb87ae7e6474d4785e4e2591755c63df52e0653cf8075290c2adccdce49c9",
+        "src/rtc_probe.rs": "fa928c9deb4ddf41159226ca45b48a5f2bb4af842e6290ee36927de7ad2d3870",
+        "src/rtc_transport.rs": "cdad837328fde9f006ac70e24c34d819476c6cc82f958a97148142bb1610ca4f",
+        "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+        "tests/path_maintenance.rs": "bcd728397d1fd554f97c0a64570440ab9f1e73d604540b7052b299051c0c6927",
+        "tests/rtc_path_qualification.rs": "61ba3c91687660ea09aa4d89ff31ac4889cce5cbede8a5843da2bb8ca619f678",
+        "vendor/iroh/src/socket/mapped_addrs.rs": "c95accdd5f474a11e820b1d460696507ffd0195ccd074d439520cab9cd9c3ffa",
+        "vendor/iroh/src/socket/remote_map/remote_state/path_state.rs": "d320c4becfacc9ecc32475e0cfa1cc52c9698b2011804f7bbb95b7f860b0a3ab",
+        "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs": "838bbcd605addbe1afaf911c20b4efc5be87499a7758aba0933e58101dce32b9",
+        "vendor/iroh/src/socket/transports/custom.rs": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+        "vendor/noq-proto/src/connection/mod.rs": "93575c4027506cf6fa324c1384e9ee5e740701934020e3323465ca2ae0e69e17",
+        "vendor/noq-proto/src/connection/paths.rs": "3f86ec41fa014b1a6870d2c8556900e4fd3c15f8959b654d54356b9c52bfb8b5",
+        "vendor/noq-proto/src/tests/multipath.rs": "e3887c55dadc1fe86d72587d206f9228d9bad2fb5ad0b2c2483f80aa50625904"
+      },
+      "sourceAfter": {
+        "Cargo.lock": "543a4a397bd047de1c6b0633c5163367869bee1423cf1e8db69b6faa0413f2b3",
+        "Cargo.toml": "d589b5c3dc7e5e5039a0a9eebf1bba0ecc0988963fd8b19085f1cc6a05e71b33",
+        "browser-probe/Cargo.toml": "470044552915bd030e321741ce7de7f1d4632e950094952ade2caed8915bf1c1",
+        "browser-probe/harness/owned-mixed-mqtt-proxy.mjs": "b50cf2d40ff0094bade4882e3c1f244fb24b992eb3d84866ee12a69224303bf9",
+        "browser-probe/harness/run-rtc-data-cut.mjs": "e2c51d056b5ed7f723d841b317b9aa0020c75e6b4a7bc9d9014458665d43d60d",
+        "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+        "browser-probe/harness/run-rtc.mjs": "45c53153b60517fc11fc921d8a7bf75df8f5e656199c8db046a59e5c4519be7a",
+        "browser-probe/network.html": "b11be64a9f1c5c2b729c20495424ac08d9f588408bbbb7dc4efdc6593610ea6b",
+        "browser-probe/src/lib.rs": "bc759bd77aba294db0fd0dc69cb2834f38d4324ed0687ad504c4057065ad32b8",
+        "browser-probe/src/member_connection.rs": "a6af8d2b28ae728c68bdb8715d8c1cb4b1da9e0f63a786859c8730716fcc8601",
+        "browser-probe/src/mqtt.rs": "67ca10c43bd3479ca0dbad91bb7691fa535dd3dce8faf2a7ef8dc496ecbd83df",
+        "browser-probe/src/network.rs": "f1ad611f5b6d0a5c76b432866e71eba5895cb4fc925d50c329a9420d84c6010b",
+        "browser-probe/src/rtc.rs": "251959eb8d3919ef0d26672f1916a468bc5a8fbe19bd6ac9e4be7bfb65187ae4",
+        "browser-probe/src/rtc_member.rs": "c86173ee505c972689c588abfd768ef26a79f7b1bfae2805692f215f08a41ac7",
+        "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+        "scripts/check_browser_paths.py": "dfc3b7191c23fe809f28dc9e830682d1745ec94bed3f2172db17133f376df41d",
+        "scripts/check_browser_rtc.py": "cdffb137dfefa32974f5a198584e6f1bc95beecc4a4bc6cce03121636d2a7dee",
+        "scripts/check_browser_rtc_cut.py": "4407ccc50e3903be6202b74c0de4a0ef207b606d92074e60b6bd1c9679d23620",
+        "scripts/mosquitto-test.conf": "5bbf715cb2518197f7ad99ceff3986bf3e2b137798aae23613ce39cf5f24542c",
+        "src/admission_gate.rs": "4d8bc0173d5b615652eab82114a2d23689bfec91b7ccfcb479a5943cf9c631a9",
+        "src/admission_proof.rs": "33502e93c55c3204916b3bec6b75fa2510cd3f0fb3ab60c6666689c515f2bf4d",
+        "src/bin/browser_network_native.rs": "951df304b2076de085412bc108da1cc7e7345885fe935ff163d9cd374f451a8a",
+        "src/bin/browser_probe_native.rs": "554989910b9a358b12820136fe1b6e30392a485ebb43fc53205be75f7c95b23f",
+        "src/bin/browser_wss_member_native.rs": "0d3e740304acd15b73615e76cbacf2071924ad360691edba687d8de2c7fd33f9",
+        "src/connection_recovery.rs": "1b169a60a8cd59f8c68d758378f7acf1894d939c43b5c030b8d054f6fd6baac9",
+        "src/connection_recovery_core.rs": "a6bdc8de7cf47b49ec8e838b169337490bdeb9f6c58b8c31c2a737de32b3c68b",
+        "src/control_session.rs": "d78789557b6bafe34a7257ccf9e923ad91221a8e1d94317ad717e51fe0e7da3a",
+        "src/lib.rs": "62902c17d911d0cf7588dbc5b3d67ae41a30c747c5f3038c902299c3928100fc",
+        "src/member_bootstrap.rs": "fd8411c3fb26bb78f39591f5f46a4d3bd9fde1e0f49630516b556ed9a2b1ead6",
+        "src/member_path_protocol.rs": "3403601c74ad5baffb3b67e0985eae98736e08e7b0d20ba5bcacf085bce0488e",
+        "src/message_bootstrap.rs": "78e0c15cefeefc5e0f3721c312e643bfb73a51f6da93a48a194f6eadd9b66181",
+        "src/mqtt_datagram.rs": "acaeeb199cca3ddca85894a07d9bdebdc8ce6b21752f847096d388de5f167084",
+        "src/mqtt_transport.rs": "3585ea182dbe952b97679ef4ba8fa367790bde29373ef282f4ba3a1146fe4091",
+        "src/native_network.rs": "83d0156bb3e596fd41b957ec3fe88ac6be065dd2c832e12ddfe788872c7c17bc",
+        "src/replica_snapshot.rs": "a8e62db5cb9440de96559aa6b26d07f8ea2742c5431c42895f367f1cd1c5a3d1",
+        "src/resources.rs": "68c72185e06f44ea242fadc6ba35f9a0b1c9429deddcc3c76acdc858909ee81f",
+        "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+        "src/rtc_member.rs": "290cb87ae7e6474d4785e4e2591755c63df52e0653cf8075290c2adccdce49c9",
+        "src/rtc_probe.rs": "fa928c9deb4ddf41159226ca45b48a5f2bb4af842e6290ee36927de7ad2d3870",
+        "src/rtc_transport.rs": "cdad837328fde9f006ac70e24c34d819476c6cc82f958a97148142bb1610ca4f",
+        "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+        "tests/path_maintenance.rs": "bcd728397d1fd554f97c0a64570440ab9f1e73d604540b7052b299051c0c6927",
+        "tests/rtc_path_qualification.rs": "61ba3c91687660ea09aa4d89ff31ac4889cce5cbede8a5843da2bb8ca619f678",
+        "vendor/iroh/src/socket/mapped_addrs.rs": "c95accdd5f474a11e820b1d460696507ffd0195ccd074d439520cab9cd9c3ffa",
+        "vendor/iroh/src/socket/remote_map/remote_state/path_state.rs": "d320c4becfacc9ecc32475e0cfa1cc52c9698b2011804f7bbb95b7f860b0a3ab",
+        "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs": "838bbcd605addbe1afaf911c20b4efc5be87499a7758aba0933e58101dce32b9",
+        "vendor/iroh/src/socket/transports/custom.rs": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+        "vendor/noq-proto/src/connection/mod.rs": "93575c4027506cf6fa324c1384e9ee5e740701934020e3323465ca2ae0e69e17",
+        "vendor/noq-proto/src/connection/paths.rs": "3f86ec41fa014b1a6870d2c8556900e4fd3c15f8959b654d54356b9c52bfb8b5",
+        "vendor/noq-proto/src/tests/multipath.rs": "e3887c55dadc1fe86d72587d206f9228d9bad2fb5ad0b2c2483f80aa50625904"
+      },
+      "sourceUnchanged": true,
+      "builtArtifacts": {
+        "/home/js/Git/miopunch/target/debug/browser_network_native": "affb155d011d8c5f75bb5bb84d9d3a69d2536811eb54b986d517f4b9880475ca",
+        "/home/js/Git/miopunch/target/debug/browser-probe-native": "a47615f7702708a0a0056ac38b48f6b455c8f946836142a7e9d3a6f3a668966a",
+        "/home/js/Git/miopunch/target/debug/browser_wss_member_native": "e7afc89df3627b6cf0313d22bcd2f4b163b83e7f3beb2283620f945cbd6cb4d6",
+        "/home/js/Git/miopunch/browser-probe/pkg/miopunch_browser_probe.js": "ac4a452ecf9ddd415c0fbf83263381076a700bef3b224af54b0719faf8793ac7",
+        "/home/js/Git/miopunch/browser-probe/pkg/miopunch_browser_probe_bg.wasm": "876cde7ac9f6a33c8bc3114a72d20eb0a1ce22c96a521663ab6b85db68c71bdb"
+      },
+      "commands": [
+        {
+          "name": "revision",
+          "argv": [
+            "git",
+            "rev-parse",
+            "HEAD"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.016
+        },
+        {
+          "name": "native-build",
+          "argv": [
+            "cargo",
+            "build",
+            "--locked",
+            "--offline",
+            "-j",
+            "2",
+            "--features",
+            "rtc-probe",
+            "--bin",
+            "browser_network_native",
+            "--bin",
+            "browser-probe-native",
+            "--bin",
+            "browser_wss_member_native",
+            "--target-dir",
+            "/home/js/Git/miopunch/target"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.465
+        },
+        {
+          "name": "wasm-build",
+          "argv": [
+            "cargo",
+            "build",
+            "--locked",
+            "--offline",
+            "-j",
+            "2",
+            "-p",
+            "miopunch-browser-probe",
+            "--features",
+            "rtc-probe",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--target-dir",
+            "/home/js/Git/miopunch/target"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.365
+        },
+        {
+          "name": "bindgen",
+          "argv": [
+            "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+            "--target",
+            "web",
+            "--out-dir",
+            "/home/js/Git/miopunch/browser-probe/pkg",
+            "/home/js/Git/miopunch/target/wasm32-unknown-unknown/debug/miopunch_browser_probe.wasm"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 2.177
+        },
+        {
+          "name": "image-identity",
+          "argv": [
+            "docker",
+            "image",
+            "inspect",
+            "sha256:c9dbb88a37f58ae5105720e60bc5cc6eb40d8ad37106e57ce621d345b5ec62a2",
+            "--format",
+            "{{.Id}}"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.032
+        },
+        {
+          "name": "certificate-ca.der",
+          "argv": [
+            "openssl",
+            "x509",
+            "-in",
+            "/tmp/mio-rtc-s7-r_6r_ui8/ca.pem",
+            "-outform",
+            "DER",
+            "-out",
+            "/tmp/mio-rtc-s7-r_6r_ui8/ca.der"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.032
+        },
+        {
+          "name": "certificate-leaf.der",
+          "argv": [
+            "openssl",
+            "x509",
+            "-in",
+            "/tmp/mio-rtc-s7-r_6r_ui8/leaf.pem",
+            "-outform",
+            "DER",
+            "-out",
+            "/tmp/mio-rtc-s7-r_6r_ui8/leaf.der"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.032
+        },
+        {
+          "name": "fixture-pkcs8",
+          "argv": [
+            "openssl",
+            "pkcs8",
+            "-topk8",
+            "-nocrypt",
+            "-in",
+            "/tmp/mio-rtc-s7-r_6r_ui8/leaf.key",
+            "-outform",
+            "DER",
+            "-out",
+            "/tmp/mio-rtc-s7-r_6r_ui8/leaf-key.der"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.016
+        },
+        {
+          "name": "network-create",
+          "argv": [
+            "docker",
+            "network",
+            "create",
+            "--internal",
+            "--label",
+            "miopunch.run=mio-rtc-s7-1791084200665629214",
+            "mio-rtc-s7-1791084200665629214-network"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.032
+        },
+        {
+          "name": "container-start",
+          "argv": [
+            "docker",
+            "run",
+            "--detach",
+            "--name",
+            "mio-rtc-s7-1791084200665629214",
+            "--network",
+            "mio-rtc-s7-1791084200665629214-network",
+            "--label",
+            "miopunch.run=mio-rtc-s7-1791084200665629214",
+            "--cap-add",
+            "NET_ADMIN",
+            "--cap-add",
+            "NET_RAW",
+            "--workdir",
+            "/repo",
+            "--env",
+            "PATH=/opt/node/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "--env",
+            "PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/chromium/chrome",
+            "--env",
+            "MIO_PRIVATE_NSS_NAMESPACE=1",
+            "--env",
+            "MIO_OWNED_CUT_ID=mio-rtc-s7-1791084200665629214",
+            "--mount",
+            "type=bind,src=/home/js/Git/miopunch,target=/repo,readonly",
+            "--mount",
+            "type=bind,src=/home/js/Git/miopunch/target,target=/build,readonly",
+            "--mount",
+            "type=bind,src=/home/js/.nvm/versions/node/v24.14.0,target=/opt/node,readonly",
+            "--mount",
+            "type=bind,src=/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64,target=/opt/chromium,readonly",
+            "--mount",
+            "type=bind,src=/home/js/.local/bin/rtk,target=/usr/local/bin/rtk,readonly",
+            "--mount",
+            "type=bind,src=/usr/lib/x86_64-linux-gnu,target=/opt/hostlib,readonly",
+            "--mount",
+            "type=bind,src=/tmp/mio-rtc-s7-r_6r_ui8,target=/fixture",
+            "--mount",
+            "type=bind,src=/tmp/mio-rtc-s7-r_6r_ui8/nssdb,target=/root/.pki/nssdb",
+            "--mount",
+            "type=bind,src=/tmp/mio-rtc-s7-reviewed-none-20261004,target=/evidence",
+            "--entrypoint",
+            "/bin/sleep",
+            "sha256:c9dbb88a37f58ae5105720e60bc5cc6eb40d8ad37106e57ce621d345b5ec62a2",
+            "58"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.716
+        },
+        {
+          "name": "namespace-tools",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791084200665629214",
+            "rtk",
+            "proxy",
+            "ss",
+            "-uapn"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.164
+        },
+        {
+          "name": "namespace-addresses",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791084200665629214",
+            "rtk",
+            "proxy",
+            "ip",
+            "-j",
+            "address"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.098
+        },
+        {
+          "name": "namespace-routes-before",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791084200665629214",
+            "rtk",
+            "proxy",
+            "ip",
+            "-j",
+            "route"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.114
+        },
+        {
+          "name": "mdns-join-before",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791084200665629214",
+            "rtk",
+            "proxy",
+            "python3",
+            "-c",
+            "import socket,json,sys\ns=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)\ns.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)\ns.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEPORT,1)\ns.setblocking(False)\ntry:\n s.bind(('224.0.0.251',5353))\n s.setsockopt(socket.IPPROTO_IP,socket.IP_ADD_MEMBERSHIP,socket.inet_aton('224.0.0.251')+socket.inet_aton('0.0.0.0'))\n print(json.dumps({'joined':True}))\nexcept OSError as error:\n print(json.dumps({'joined':False,'errno':error.errno}));sys.exit(1)\nfinally:s.close()\n"
+          ],
+          "exit": 1,
+          "expectedExitCodes": [
+            0,
+            1
+          ],
+          "seconds": 0.111
+        },
+        {
+          "name": "owned-multicast-route",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791084200665629214",
+            "rtk",
+            "proxy",
+            "ip",
+            "route",
+            "add",
+            "224.0.0.251/32",
+            "dev",
+            "eth0"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.114
+        },
+        {
+          "name": "mdns-join-after",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791084200665629214",
+            "rtk",
+            "proxy",
+            "python3",
+            "-c",
+            "import socket,json,sys\ns=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)\ns.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)\ns.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEPORT,1)\ns.setblocking(False)\ntry:\n s.bind(('224.0.0.251',5353))\n s.setsockopt(socket.IPPROTO_IP,socket.IP_ADD_MEMBERSHIP,socket.inet_aton('224.0.0.251')+socket.inet_aton('0.0.0.0'))\n print(json.dumps({'joined':True}))\nexcept OSError as error:\n print(json.dumps({'joined':False,'errno':error.errno}));sys.exit(1)\nfinally:s.close()\n"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.114
+        },
+        {
+          "name": "namespace-routes-after",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791084200665629214",
+            "rtk",
+            "proxy",
+            "ip",
+            "-j",
+            "route"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.114
+        },
+        {
+          "name": "browser-load",
+          "argv": [
+            "docker",
+            "exec",
+            "--env",
+            "LD_LIBRARY_PATH=/opt/hostlib",
+            "mio-rtc-s7-1791084200665629214",
+            "/opt/chromium/chrome",
+            "--version"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.165
+        },
+        {
+          "name": "broker-start",
+          "argv": [
+            "docker",
+            "exec",
+            "mio-rtc-s7-1791084200665629214",
+            "rtk",
+            "proxy",
+            "mosquitto",
+            "-c",
+            "/repo/scripts/mosquitto-test.conf",
+            "-d"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 0.164
+        },
+        {
+          "name": "rtc-data-cut",
+          "argv": [
+            "docker",
+            "exec",
+            "--env",
+            "MIO_CUT_WORK_MS=41972",
+            "mio-rtc-s7-1791084200665629214",
+            "rtk",
+            "proxy",
+            "/opt/node/bin/node",
+            "browser-probe/harness/run-rtc.mjs",
+            "--case",
+            "rtc-data-cut",
+            "--cut-mode",
+            "none",
+            "--relay",
+            "owned",
+            "--fixture",
+            "/fixture",
+            "--evidence",
+            "/evidence",
+            "--broker",
+            "127.0.0.1:1883",
+            "--native",
+            "/build/debug/browser_network_native",
+            "--wss-native",
+            "/build/debug/browser_wss_member_native",
+            "--relay-fixture",
+            "/build/debug/browser-probe-native"
+          ],
+          "exit": 0,
+          "expectedExitCodes": [
+            0
+          ],
+          "seconds": 5.577
+        }
+      ],
+      "totalProtocolSeconds": 8.618,
+      "ownedCleanup": [
+        {
+          "name": "owned-files-owner",
+          "exit": 0
+        },
+        {
+          "name": "container-remove",
+          "exit": 0
+        },
+        {
+          "name": "container-absent",
+          "exit": 0,
+          "empty": true
+        },
+        {
+          "name": "network-remove",
+          "exit": 0
+        },
+        {
+          "name": "network-absent",
+          "exit": 0,
+          "empty": true
+        }
+      ],
+      "memberStableId": 2707760,
+      "originalNativeStableId": 125333453943856,
+      "initialMemberPaths": [
+        {
+          "ackFramesReceived": 0,
+          "ackFramesSent": 0,
+          "address": "Custom(CustomAddr { id: 120299608765539, data: [7f220696d466c02e635d16933a83c6ad] })",
+          "isRelay": false,
+          "isRtc": true,
+          "isSignal": false,
+          "pathId": "1",
+          "pingFramesSent": 5,
+          "receivedBytes": 11867,
+          "selected": true,
+          "sentBytes": 8627,
+          "streamFramesReceived": 5,
+          "streamFramesSent": 1
+        }
+      ],
+      "control": {
+        "alpn": "miopunch/connection-path-recovery/1",
+        "event": "repair-control",
+        "paths": [
+          {
+            "isIp": false,
+            "isMqtt": true,
+            "isRelay": false,
+            "isRtc": false
+          }
+        ],
+        "restricted": true,
+        "stableId": 125333588209024
+      },
+      "controlEnded": {
+        "event": "repair-control-ended",
+        "failure": "no mutually permitted data candidate",
+        "stableId": 125333588209024,
+        "succeeded": false
+      },
+      "repair": {
+        "callerBudgetMs": 2000,
+        "elapsedMs": 497,
+        "failure": "path repair on connection 2707760 failed while it remains alive: no mutually permitted data candidate",
+        "outcome": "unreachable",
+        "stableId": 2707760
+      },
+      "beforeCutStream": {
+        "sequence": 0,
+        "streamId": "client bidirectional stream 4",
+        "localStableId": 2707760,
+        "stableUnchanged": true,
+        "bindingUnchanged": true,
+        "native": {
+          "bindingUnchanged": true,
+          "payload": "original stream PING 0",
+          "sequence": 0,
+          "stableId": 125333453943856,
+          "streamId": "client bidirectional stream 4"
+        }
+      },
+      "afterRepairStream": null,
+      "laterStream": null,
+      "stillAliveUnreachable": true,
+      "afterRepairPaths": [
+        {
+          "ackFramesReceived": 0,
+          "ackFramesSent": 0,
+          "address": "Custom(CustomAddr { id: 120299608765539, data: [7f220696d466c02e635d16933a83c6ad] })",
+          "isRelay": false,
+          "isRtc": true,
+          "isSignal": false,
+          "pathId": "1",
+          "pingFramesSent": 5,
+          "receivedBytes": 12044,
+          "selected": true,
+          "sentBytes": 9009,
+          "streamFramesReceived": 6,
+          "streamFramesSent": 3
+        }
+      ],
+      "savedMaterialsUnchanged": true,
+      "carriersBefore": [
+        {
+          "buffered_bytes": 0,
+          "closed": false,
+          "pending_bytes": 0,
+          "protocol": "mqtt",
+          "queued_packets": 0,
+          "ready": true,
+          "route": "2286e2b6681ae8f67fb371fb938326f5a2d7c1d645f641f4c1407d79c00dd218",
+          "traffic": {
+            "buffered_bytes_peak": 5007,
+            "connack": 0,
+            "disconnect_sent": false,
+            "failure": null,
+            "generation": 645938972,
+            "ready_ms": 1791084204719,
+            "received_bytes": 12352,
+            "received_frame_bytes": 15765,
+            "received_frames": 46,
+            "received_packets": 44,
+            "rejected_packets": 0,
+            "rx_queue_peak": 1,
+            "sent_bytes": 12855,
+            "sent_frame_bytes": 16764,
+            "sent_frames": 51,
+            "sent_packets": 49,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": false,
+            "withdraw_ms": null
+          }
+        }
+      ],
+      "carriersAfter": [
+        {
+          "buffered_bytes": 0,
+          "closed": false,
+          "pending_bytes": 0,
+          "protocol": "mqtt",
+          "queued_packets": 0,
+          "ready": true,
+          "route": "2286e2b6681ae8f67fb371fb938326f5a2d7c1d645f641f4c1407d79c00dd218",
+          "traffic": {
+            "buffered_bytes_peak": 5007,
+            "connack": 0,
+            "disconnect_sent": false,
+            "failure": null,
+            "generation": 645938972,
+            "ready_ms": 1791084204719,
+            "received_bytes": 22076,
+            "received_frame_bytes": 27505,
+            "received_frames": 72,
+            "received_packets": 70,
+            "rejected_packets": 0,
+            "rx_queue_peak": 1,
+            "sent_bytes": 23690,
+            "sent_frame_bytes": 30234,
+            "sent_frames": 85,
+            "sent_packets": 83,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": false,
+            "withdraw_ms": null
+          }
+        }
+      ],
+      "cut": {
+        "table": "mio_cut_1791084206893",
+        "rules": "table ip mio_cut_1791084206893 {\nchain output { type filter hook output priority -10; policy accept;\nip saddr 172.20.0.2 ip daddr 172.20.0.2 udp sport 48056 udp dport 48030 counter drop\nip saddr 172.20.0.2 ip daddr 172.20.0.2 udp sport 48030 udp dport 48056 counter drop\n}\nchain input { type filter hook input priority -10; policy accept;\nip saddr 172.20.0.2 ip daddr 172.20.0.2 udp sport 48056 udp dport 48030 counter drop\nip saddr 172.20.0.2 ip daddr 172.20.0.2 udp sport 48030 udp dport 48056 counter drop\n}\n}\n",
+        "filter": "udp and ((src host 172.20.0.2 and src port 48056 and dst host 172.20.0.2 and dst port 48030) or (src host 172.20.0.2 and src port 48030 and dst host 172.20.0.2 and dst port 48056))",
+        "tuple": {
+          "local": {
+            "address": "172.20.0.2",
+            "port": 48056
+          },
+          "remote": {
+            "address": "172.20.0.2",
+            "port": 48030
+          },
+          "protocol": "udp"
+        },
+        "startedUtc": "2026-10-04T03:23:26.965Z",
+        "removedUtc": "2026-10-04T03:23:27.725Z",
+        "dropped": {
+          "packets": 15,
+          "bytes": 2119
+        },
+        "finalDropped": {
+          "packets": 25,
+          "bytes": 3344
+        },
+        "tableRemoved": true
+      },
+      "terminal": {
+        "cause": "explicit original SDK close after cut classification",
+        "closed": true,
+        "atUtc": "2026-10-04T03:23:27.682Z"
+      },
+      "afterCarrierReturns": {
+        "outcome": "terminal",
+        "stableId": 2707760
+      },
+      "failedOriginalStream": {
+        "completed": false,
+        "failure": "connection lost"
+      },
+      "finalBrowserCounts": {
+        "closed": true,
+        "memberStableId": 2707760,
+        "activeAssociations": 0,
+        "activePumpTasks": 0
+      },
+      "browserCleanup": {
+        "created": 1,
+        "closed": 1,
+        "callbacksDetached": true
+      },
+      "nativeRtcCleanup": null,
+      "nativeImmediate": null,
+      "nativeLate": null,
+      "nativeCleanupEvents": [
+        {
+          "cleanup": {
+            "ownedPumpTasks": 0,
+            "pcClosed": true,
+            "rxBytes": 0,
+            "txBytes": 0
+          },
+          "event": "rtc-path-cleanup",
+          "stableId": 125333453943856,
+          "switched": true,
+          "receivedUtc": "2026-10-04T03:23:27.939Z"
+        }
+      ],
+      "nativeFixtureExit": {
+        "code": 0,
+        "signal": null
+      },
+      "relayFixtureExit": {
+        "code": 0,
+        "signal": null
+      },
+      "relayFixtureExitPhase": "before-no-fallback-measurement",
+      "preparationNativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "preparationRelayExit": {
+        "code": 0,
+        "signal": null
+      },
+      "cancelledRepair": null,
+      "cancelledControlEnded": null,
+      "cancellationObservedMilliseconds": null,
+      "shortCallerRepair": null,
+      "selectedNativeSocketAbsentWhileOriginalLives": false,
+      "packetCaptureSha256": "8a04ebd6b38b3093082841a16f1db0df0c54dfb4a87337d676e6726ebeca73bc",
+      "captureProof": {
+        "packets": 3,
+        "snaplen": 64,
+        "linkType": "LINUX_SLL2",
+        "allMatchSelectedUdpTuple": true,
+        "tuples": [
+          {
+            "source": {
+              "address": "172.20.0.2",
+              "port": 48056
+            },
+            "destination": {
+              "address": "172.20.0.2",
+              "port": 48030
+            }
+          },
+          {
+            "source": {
+              "address": "172.20.0.2",
+              "port": 48030
+            },
+            "destination": {
+              "address": "172.20.0.2",
+              "port": 48056
+            }
+          },
+          {
+            "source": {
+              "address": "172.20.0.2",
+              "port": 48030
+            },
+            "destination": {
+              "address": "172.20.0.2",
+              "port": 48056
+            }
+          }
+        ]
+      },
+      "ordinaryMemberReleases": [
+        {
+          "alpn": "miopunch/browser-member/rtc-path/3",
+          "event": "member-released",
+          "paths": [
+            {
+              "ackReceived": 0,
+              "isIp": false,
+              "isRelay": false,
+              "selected": true,
+              "streamSent": 5
+            }
+          ],
+          "remoteId": "928affd8997bf9790465bfcb5276819cb48ca7df0ccf2a36058894beb2fe4172",
+          "stableId": 125333453943856,
+          "receivedUtc": "2026-10-04T03:23:26.836Z"
+        }
+      ]
+    }
+  },
+  "affected": {
+    "passed": true,
+    "commands": [
+      {
+        "name": "affected",
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "--features",
+          "rtc-probe,nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks",
+          "--lib",
+          "--test",
+          "path_maintenance",
+          "--test",
+          "rtc_path_qualification",
+          "--test",
+          "rtc_control_release",
+          "--test",
+          "member_path_protocol",
+          "--test",
+          "member_attempt",
+          "--test",
+          "admission_gate",
+          "--test",
+          "admission_proof",
+          "--",
+          "--test-threads=1"
+        ],
+        "exit": 0,
+        "seconds": 142.34,
+        "passedTests": 88
+      },
+      {
+        "name": "all-targets",
+        "argv": [
+          "cargo",
+          "check",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "--workspace",
+          "--all-targets",
+          "--features",
+          "rtc-probe,nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks"
+        ],
+        "exit": 0,
+        "seconds": 25.097,
+        "passedTests": 0
+      },
+      {
+        "name": "wasm",
+        "argv": [
+          "cargo",
+          "check",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "-p",
+          "miopunch-browser-probe",
+          "--features",
+          "rtc-probe",
+          "--target",
+          "wasm32-unknown-unknown"
+        ],
+        "exit": 0,
+        "seconds": 6.516,
+        "passedTests": 0
+      },
+      {
+        "name": "format",
+        "argv": [
+          "cargo",
+          "fmt",
+          "--check"
+        ],
+        "exit": 0,
+        "seconds": 0.907,
+        "passedTests": 0
+      },
+      {
+        "name": "fork-format",
+        "argv": [
+          "rustfmt",
+          "--check",
+          "--edition",
+          "2024",
+          "--config",
+          "skip_children=true",
+          "vendor/noq-proto/src/connection/mod.rs",
+          "vendor/noq-proto/src/tests/multipath.rs"
+        ],
+        "exit": 0,
+        "seconds": 0.105,
+        "passedTests": 0
+      },
+      {
+        "name": "diff-check",
+        "argv": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "exit": 0,
+        "seconds": 0.048,
+        "passedTests": 0
+      }
+    ],
+    "cleanup": [
+      {
+        "name": "miopunch-s7-affected-1791083518108939603",
+        "removeExit": 0,
+        "absenceExit": 0,
+        "absent": true
+      },
+      {
+        "name": "miopunch-s7-affected-1791083518432212701",
+        "removeExit": 0,
+        "absenceExit": 0,
+        "absent": true
+      }
+    ],
+    "owned": [
+      "miopunch-s7-affected-1791083518108939603",
+      "miopunch-s7-affected-1791083518432212701"
+    ],
+    "sourceBefore": {
+      "Cargo.lock": "543a4a397bd047de1c6b0633c5163367869bee1423cf1e8db69b6faa0413f2b3",
+      "Cargo.toml": "d589b5c3dc7e5e5039a0a9eebf1bba0ecc0988963fd8b19085f1cc6a05e71b33",
+      "browser-probe/Cargo.toml": "470044552915bd030e321741ce7de7f1d4632e950094952ade2caed8915bf1c1",
+      "browser-probe/harness/owned-mixed-mqtt-proxy.mjs": "b50cf2d40ff0094bade4882e3c1f244fb24b992eb3d84866ee12a69224303bf9",
+      "browser-probe/harness/run-rtc-data-cut.mjs": "e2c51d056b5ed7f723d841b317b9aa0020c75e6b4a7bc9d9014458665d43d60d",
+      "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+      "browser-probe/harness/run-rtc.mjs": "45c53153b60517fc11fc921d8a7bf75df8f5e656199c8db046a59e5c4519be7a",
+      "browser-probe/network.html": "b11be64a9f1c5c2b729c20495424ac08d9f588408bbbb7dc4efdc6593610ea6b",
+      "browser-probe/src/lib.rs": "bc759bd77aba294db0fd0dc69cb2834f38d4324ed0687ad504c4057065ad32b8",
+      "browser-probe/src/member_connection.rs": "a6af8d2b28ae728c68bdb8715d8c1cb4b1da9e0f63a786859c8730716fcc8601",
+      "browser-probe/src/mqtt.rs": "67ca10c43bd3479ca0dbad91bb7691fa535dd3dce8faf2a7ef8dc496ecbd83df",
+      "browser-probe/src/network.rs": "f1ad611f5b6d0a5c76b432866e71eba5895cb4fc925d50c329a9420d84c6010b",
+      "browser-probe/src/rtc.rs": "251959eb8d3919ef0d26672f1916a468bc5a8fbe19bd6ac9e4be7bfb65187ae4",
+      "browser-probe/src/rtc_member.rs": "c86173ee505c972689c588abfd768ef26a79f7b1bfae2805692f215f08a41ac7",
+      "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+      "scripts/check_browser_paths.py": "dfc3b7191c23fe809f28dc9e830682d1745ec94bed3f2172db17133f376df41d",
+      "scripts/check_browser_rtc.py": "cdffb137dfefa32974f5a198584e6f1bc95beecc4a4bc6cce03121636d2a7dee",
+      "scripts/check_browser_rtc_cut.py": "4407ccc50e3903be6202b74c0de4a0ef207b606d92074e60b6bd1c9679d23620",
+      "scripts/mosquitto-test.conf": "5bbf715cb2518197f7ad99ceff3986bf3e2b137798aae23613ce39cf5f24542c",
+      "src/admission_gate.rs": "4d8bc0173d5b615652eab82114a2d23689bfec91b7ccfcb479a5943cf9c631a9",
+      "src/admission_proof.rs": "33502e93c55c3204916b3bec6b75fa2510cd3f0fb3ab60c6666689c515f2bf4d",
+      "src/bin/browser_network_native.rs": "951df304b2076de085412bc108da1cc7e7345885fe935ff163d9cd374f451a8a",
+      "src/bin/browser_probe_native.rs": "554989910b9a358b12820136fe1b6e30392a485ebb43fc53205be75f7c95b23f",
+      "src/bin/browser_wss_member_native.rs": "0d3e740304acd15b73615e76cbacf2071924ad360691edba687d8de2c7fd33f9",
+      "src/connection_recovery.rs": "1b169a60a8cd59f8c68d758378f7acf1894d939c43b5c030b8d054f6fd6baac9",
+      "src/connection_recovery_core.rs": "a6bdc8de7cf47b49ec8e838b169337490bdeb9f6c58b8c31c2a737de32b3c68b",
+      "src/control_session.rs": "d78789557b6bafe34a7257ccf9e923ad91221a8e1d94317ad717e51fe0e7da3a",
+      "src/lib.rs": "62902c17d911d0cf7588dbc5b3d67ae41a30c747c5f3038c902299c3928100fc",
+      "src/member_bootstrap.rs": "fd8411c3fb26bb78f39591f5f46a4d3bd9fde1e0f49630516b556ed9a2b1ead6",
+      "src/member_path_protocol.rs": "3403601c74ad5baffb3b67e0985eae98736e08e7b0d20ba5bcacf085bce0488e",
+      "src/message_bootstrap.rs": "78e0c15cefeefc5e0f3721c312e643bfb73a51f6da93a48a194f6eadd9b66181",
+      "src/mqtt_datagram.rs": "acaeeb199cca3ddca85894a07d9bdebdc8ce6b21752f847096d388de5f167084",
+      "src/mqtt_transport.rs": "3585ea182dbe952b97679ef4ba8fa367790bde29373ef282f4ba3a1146fe4091",
+      "src/native_network.rs": "83d0156bb3e596fd41b957ec3fe88ac6be065dd2c832e12ddfe788872c7c17bc",
+      "src/replica_snapshot.rs": "a8e62db5cb9440de96559aa6b26d07f8ea2742c5431c42895f367f1cd1c5a3d1",
+      "src/resources.rs": "68c72185e06f44ea242fadc6ba35f9a0b1c9429deddcc3c76acdc858909ee81f",
+      "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+      "src/rtc_member.rs": "290cb87ae7e6474d4785e4e2591755c63df52e0653cf8075290c2adccdce49c9",
+      "src/rtc_probe.rs": "fa928c9deb4ddf41159226ca45b48a5f2bb4af842e6290ee36927de7ad2d3870",
+      "src/rtc_transport.rs": "cdad837328fde9f006ac70e24c34d819476c6cc82f958a97148142bb1610ca4f",
+      "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+      "tests/path_maintenance.rs": "bcd728397d1fd554f97c0a64570440ab9f1e73d604540b7052b299051c0c6927",
+      "tests/rtc_path_qualification.rs": "61ba3c91687660ea09aa4d89ff31ac4889cce5cbede8a5843da2bb8ca619f678",
+      "vendor/iroh/src/socket/mapped_addrs.rs": "c95accdd5f474a11e820b1d460696507ffd0195ccd074d439520cab9cd9c3ffa",
+      "vendor/iroh/src/socket/remote_map/remote_state/path_state.rs": "d320c4becfacc9ecc32475e0cfa1cc52c9698b2011804f7bbb95b7f860b0a3ab",
+      "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs": "838bbcd605addbe1afaf911c20b4efc5be87499a7758aba0933e58101dce32b9",
+      "vendor/iroh/src/socket/transports/custom.rs": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+      "vendor/noq-proto/src/connection/mod.rs": "93575c4027506cf6fa324c1384e9ee5e740701934020e3323465ca2ae0e69e17",
+      "vendor/noq-proto/src/connection/paths.rs": "3f86ec41fa014b1a6870d2c8556900e4fd3c15f8959b654d54356b9c52bfb8b5",
+      "vendor/noq-proto/src/tests/multipath.rs": "e3887c55dadc1fe86d72587d206f9228d9bad2fb5ad0b2c2483f80aa50625904"
+    },
+    "sourceAfter": {
+      "Cargo.lock": "543a4a397bd047de1c6b0633c5163367869bee1423cf1e8db69b6faa0413f2b3",
+      "Cargo.toml": "d589b5c3dc7e5e5039a0a9eebf1bba0ecc0988963fd8b19085f1cc6a05e71b33",
+      "browser-probe/Cargo.toml": "470044552915bd030e321741ce7de7f1d4632e950094952ade2caed8915bf1c1",
+      "browser-probe/harness/owned-mixed-mqtt-proxy.mjs": "b50cf2d40ff0094bade4882e3c1f244fb24b992eb3d84866ee12a69224303bf9",
+      "browser-probe/harness/run-rtc-data-cut.mjs": "e2c51d056b5ed7f723d841b317b9aa0020c75e6b4a7bc9d9014458665d43d60d",
+      "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+      "browser-probe/harness/run-rtc.mjs": "45c53153b60517fc11fc921d8a7bf75df8f5e656199c8db046a59e5c4519be7a",
+      "browser-probe/network.html": "b11be64a9f1c5c2b729c20495424ac08d9f588408bbbb7dc4efdc6593610ea6b",
+      "browser-probe/src/lib.rs": "bc759bd77aba294db0fd0dc69cb2834f38d4324ed0687ad504c4057065ad32b8",
+      "browser-probe/src/member_connection.rs": "a6af8d2b28ae728c68bdb8715d8c1cb4b1da9e0f63a786859c8730716fcc8601",
+      "browser-probe/src/mqtt.rs": "67ca10c43bd3479ca0dbad91bb7691fa535dd3dce8faf2a7ef8dc496ecbd83df",
+      "browser-probe/src/network.rs": "f1ad611f5b6d0a5c76b432866e71eba5895cb4fc925d50c329a9420d84c6010b",
+      "browser-probe/src/rtc.rs": "251959eb8d3919ef0d26672f1916a468bc5a8fbe19bd6ac9e4be7bfb65187ae4",
+      "browser-probe/src/rtc_member.rs": "c86173ee505c972689c588abfd768ef26a79f7b1bfae2805692f215f08a41ac7",
+      "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+      "scripts/check_browser_paths.py": "dfc3b7191c23fe809f28dc9e830682d1745ec94bed3f2172db17133f376df41d",
+      "scripts/check_browser_rtc.py": "cdffb137dfefa32974f5a198584e6f1bc95beecc4a4bc6cce03121636d2a7dee",
+      "scripts/check_browser_rtc_cut.py": "4407ccc50e3903be6202b74c0de4a0ef207b606d92074e60b6bd1c9679d23620",
+      "scripts/mosquitto-test.conf": "5bbf715cb2518197f7ad99ceff3986bf3e2b137798aae23613ce39cf5f24542c",
+      "src/admission_gate.rs": "4d8bc0173d5b615652eab82114a2d23689bfec91b7ccfcb479a5943cf9c631a9",
+      "src/admission_proof.rs": "33502e93c55c3204916b3bec6b75fa2510cd3f0fb3ab60c6666689c515f2bf4d",
+      "src/bin/browser_network_native.rs": "951df304b2076de085412bc108da1cc7e7345885fe935ff163d9cd374f451a8a",
+      "src/bin/browser_probe_native.rs": "554989910b9a358b12820136fe1b6e30392a485ebb43fc53205be75f7c95b23f",
+      "src/bin/browser_wss_member_native.rs": "0d3e740304acd15b73615e76cbacf2071924ad360691edba687d8de2c7fd33f9",
+      "src/connection_recovery.rs": "1b169a60a8cd59f8c68d758378f7acf1894d939c43b5c030b8d054f6fd6baac9",
+      "src/connection_recovery_core.rs": "a6bdc8de7cf47b49ec8e838b169337490bdeb9f6c58b8c31c2a737de32b3c68b",
+      "src/control_session.rs": "d78789557b6bafe34a7257ccf9e923ad91221a8e1d94317ad717e51fe0e7da3a",
+      "src/lib.rs": "62902c17d911d0cf7588dbc5b3d67ae41a30c747c5f3038c902299c3928100fc",
+      "src/member_bootstrap.rs": "fd8411c3fb26bb78f39591f5f46a4d3bd9fde1e0f49630516b556ed9a2b1ead6",
+      "src/member_path_protocol.rs": "3403601c74ad5baffb3b67e0985eae98736e08e7b0d20ba5bcacf085bce0488e",
+      "src/message_bootstrap.rs": "78e0c15cefeefc5e0f3721c312e643bfb73a51f6da93a48a194f6eadd9b66181",
+      "src/mqtt_datagram.rs": "acaeeb199cca3ddca85894a07d9bdebdc8ce6b21752f847096d388de5f167084",
+      "src/mqtt_transport.rs": "3585ea182dbe952b97679ef4ba8fa367790bde29373ef282f4ba3a1146fe4091",
+      "src/native_network.rs": "83d0156bb3e596fd41b957ec3fe88ac6be065dd2c832e12ddfe788872c7c17bc",
+      "src/replica_snapshot.rs": "a8e62db5cb9440de96559aa6b26d07f8ea2742c5431c42895f367f1cd1c5a3d1",
+      "src/resources.rs": "68c72185e06f44ea242fadc6ba35f9a0b1c9429deddcc3c76acdc858909ee81f",
+      "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+      "src/rtc_member.rs": "290cb87ae7e6474d4785e4e2591755c63df52e0653cf8075290c2adccdce49c9",
+      "src/rtc_probe.rs": "fa928c9deb4ddf41159226ca45b48a5f2bb4af842e6290ee36927de7ad2d3870",
+      "src/rtc_transport.rs": "cdad837328fde9f006ac70e24c34d819476c6cc82f958a97148142bb1610ca4f",
+      "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+      "tests/path_maintenance.rs": "bcd728397d1fd554f97c0a64570440ab9f1e73d604540b7052b299051c0c6927",
+      "tests/rtc_path_qualification.rs": "61ba3c91687660ea09aa4d89ff31ac4889cce5cbede8a5843da2bb8ca619f678",
+      "vendor/iroh/src/socket/mapped_addrs.rs": "c95accdd5f474a11e820b1d460696507ffd0195ccd074d439520cab9cd9c3ffa",
+      "vendor/iroh/src/socket/remote_map/remote_state/path_state.rs": "d320c4becfacc9ecc32475e0cfa1cc52c9698b2011804f7bbb95b7f860b0a3ab",
+      "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs": "838bbcd605addbe1afaf911c20b4efc5be87499a7758aba0933e58101dce32b9",
+      "vendor/iroh/src/socket/transports/custom.rs": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+      "vendor/noq-proto/src/connection/mod.rs": "93575c4027506cf6fa324c1384e9ee5e740701934020e3323465ca2ae0e69e17",
+      "vendor/noq-proto/src/connection/paths.rs": "3f86ec41fa014b1a6870d2c8556900e4fd3c15f8959b654d54356b9c52bfb8b5",
+      "vendor/noq-proto/src/tests/multipath.rs": "e3887c55dadc1fe86d72587d206f9228d9bad2fb5ad0b2c2483f80aa50625904"
+    },
+    "sourceUnchanged": true
+  },
+  "sameRuntimeSourceForBothKernelModes": true,
+  "sameProductionSourceForBothKernelModesAndAffectedSuite": true,
+  "runtimeHarnessChangesSinceAffectedSuite": {},
+  "sameSourceForBothKernelModesAndAffectedSuite": true,
+  "sameBuiltArtifactsForBothKernelModes": true,
+  "preReviewBaseline151": {
+    "passed": true,
+    "commands": [
+      {
+        "name": "affected",
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "--features",
+          "rtc-probe,nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks",
+          "--lib",
+          "--test",
+          "path_maintenance",
+          "--test",
+          "rtc_association",
+          "--test",
+          "rtc_path_qualification",
+          "--test",
+          "rtc_control_release",
+          "--test",
+          "member_path_protocol",
+          "--test",
+          "member_attempt",
+          "--test",
+          "resources",
+          "--test",
+          "admission_gate",
+          "--test",
+          "admission_proof",
+          "--test",
+          "native_network",
+          "--test",
+          "revocation",
+          "--test",
+          "tcp_direct",
+          "--test",
+          "member_relay",
+          "--",
+          "--test-threads=1"
+        ],
+        "exit": 0,
+        "seconds": 404.105,
+        "passedTests": 151
+      },
+      {
+        "name": "all-targets",
+        "argv": [
+          "cargo",
+          "check",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "--workspace",
+          "--all-targets",
+          "--features",
+          "rtc-probe,nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks"
+        ],
+        "exit": 0,
+        "seconds": 41.825,
+        "passedTests": 0
+      },
+      {
+        "name": "wasm",
+        "argv": [
+          "cargo",
+          "check",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "-p",
+          "miopunch-browser-probe",
+          "--features",
+          "rtc-probe",
+          "--target",
+          "wasm32-unknown-unknown"
+        ],
+        "exit": 0,
+        "seconds": 11.158,
+        "passedTests": 0
+      },
+      {
+        "name": "format",
+        "argv": [
+          "cargo",
+          "fmt",
+          "--check"
+        ],
+        "exit": 0,
+        "seconds": 0.915,
+        "passedTests": 0
+      },
+      {
+        "name": "fork-format",
+        "argv": [
+          "rustfmt",
+          "--check",
+          "--edition",
+          "2024",
+          "--config",
+          "skip_children=true",
+          "vendor/noq-proto/src/connection/mod.rs",
+          "vendor/noq-proto/src/tests/multipath.rs"
+        ],
+        "exit": 0,
+        "seconds": 0.112,
+        "passedTests": 0
+      },
+      {
+        "name": "diff-check",
+        "argv": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "exit": 0,
+        "seconds": 0.059,
+        "passedTests": 0
+      }
+    ],
+    "cleanup": [
+      {
+        "name": "miopunch-s7-affected-1791079192871208395",
+        "removeExit": 0,
+        "absenceExit": 0,
+        "absent": true
+      },
+      {
+        "name": "miopunch-s7-affected-1791079193248671738",
+        "removeExit": 0,
+        "absenceExit": 0,
+        "absent": true
+      }
+    ],
+    "owned": [
+      "miopunch-s7-affected-1791079192871208395",
+      "miopunch-s7-affected-1791079193248671738"
+    ],
+    "sourceBefore": {
+      "Cargo.lock": "543a4a397bd047de1c6b0633c5163367869bee1423cf1e8db69b6faa0413f2b3",
+      "Cargo.toml": "d589b5c3dc7e5e5039a0a9eebf1bba0ecc0988963fd8b19085f1cc6a05e71b33",
+      "browser-probe/Cargo.toml": "470044552915bd030e321741ce7de7f1d4632e950094952ade2caed8915bf1c1",
+      "browser-probe/harness/owned-mixed-mqtt-proxy.mjs": "b50cf2d40ff0094bade4882e3c1f244fb24b992eb3d84866ee12a69224303bf9",
+      "browser-probe/harness/run-rtc-data-cut.mjs": "baac286f69d7f9666b8de7262a58aaf910fcd850e1679d78d91c300ebce0e914",
+      "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+      "browser-probe/harness/run-rtc.mjs": "45c53153b60517fc11fc921d8a7bf75df8f5e656199c8db046a59e5c4519be7a",
+      "browser-probe/network.html": "b11be64a9f1c5c2b729c20495424ac08d9f588408bbbb7dc4efdc6593610ea6b",
+      "browser-probe/src/lib.rs": "bc759bd77aba294db0fd0dc69cb2834f38d4324ed0687ad504c4057065ad32b8",
+      "browser-probe/src/member_connection.rs": "a6af8d2b28ae728c68bdb8715d8c1cb4b1da9e0f63a786859c8730716fcc8601",
+      "browser-probe/src/mqtt.rs": "67ca10c43bd3479ca0dbad91bb7691fa535dd3dce8faf2a7ef8dc496ecbd83df",
+      "browser-probe/src/network.rs": "f1ad611f5b6d0a5c76b432866e71eba5895cb4fc925d50c329a9420d84c6010b",
+      "browser-probe/src/rtc.rs": "251959eb8d3919ef0d26672f1916a468bc5a8fbe19bd6ac9e4be7bfb65187ae4",
+      "browser-probe/src/rtc_member.rs": "c86173ee505c972689c588abfd768ef26a79f7b1bfae2805692f215f08a41ac7",
+      "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+      "scripts/check_browser_paths.py": "dfc3b7191c23fe809f28dc9e830682d1745ec94bed3f2172db17133f376df41d",
+      "scripts/check_browser_rtc.py": "cdffb137dfefa32974f5a198584e6f1bc95beecc4a4bc6cce03121636d2a7dee",
+      "scripts/check_browser_rtc_cut.py": "620556cd56eb9bc2a1634e321633cebbb537edcf426d23b3c6e82e7e855f90b3",
+      "scripts/mosquitto-test.conf": "5bbf715cb2518197f7ad99ceff3986bf3e2b137798aae23613ce39cf5f24542c",
+      "src/admission_gate.rs": "4d8bc0173d5b615652eab82114a2d23689bfec91b7ccfcb479a5943cf9c631a9",
+      "src/admission_proof.rs": "33502e93c55c3204916b3bec6b75fa2510cd3f0fb3ab60c6666689c515f2bf4d",
+      "src/bin/browser_network_native.rs": "951df304b2076de085412bc108da1cc7e7345885fe935ff163d9cd374f451a8a",
+      "src/bin/browser_probe_native.rs": "554989910b9a358b12820136fe1b6e30392a485ebb43fc53205be75f7c95b23f",
+      "src/bin/browser_wss_member_native.rs": "0d3e740304acd15b73615e76cbacf2071924ad360691edba687d8de2c7fd33f9",
+      "src/connection_recovery.rs": "1b169a60a8cd59f8c68d758378f7acf1894d939c43b5c030b8d054f6fd6baac9",
+      "src/connection_recovery_core.rs": "13a6ff533b75e404498bdf056cf4596519df3b185e9efe80e52abca143e417bf",
+      "src/control_session.rs": "d78789557b6bafe34a7257ccf9e923ad91221a8e1d94317ad717e51fe0e7da3a",
+      "src/lib.rs": "62902c17d911d0cf7588dbc5b3d67ae41a30c747c5f3038c902299c3928100fc",
+      "src/member_bootstrap.rs": "fd8411c3fb26bb78f39591f5f46a4d3bd9fde1e0f49630516b556ed9a2b1ead6",
+      "src/member_path_protocol.rs": "3403601c74ad5baffb3b67e0985eae98736e08e7b0d20ba5bcacf085bce0488e",
+      "src/message_bootstrap.rs": "78e0c15cefeefc5e0f3721c312e643bfb73a51f6da93a48a194f6eadd9b66181",
+      "src/mqtt_datagram.rs": "acaeeb199cca3ddca85894a07d9bdebdc8ce6b21752f847096d388de5f167084",
+      "src/mqtt_transport.rs": "3585ea182dbe952b97679ef4ba8fa367790bde29373ef282f4ba3a1146fe4091",
+      "src/native_network.rs": "83d0156bb3e596fd41b957ec3fe88ac6be065dd2c832e12ddfe788872c7c17bc",
+      "src/replica_snapshot.rs": "a8e62db5cb9440de96559aa6b26d07f8ea2742c5431c42895f367f1cd1c5a3d1",
+      "src/resources.rs": "68c72185e06f44ea242fadc6ba35f9a0b1c9429deddcc3c76acdc858909ee81f",
+      "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+      "src/rtc_member.rs": "290cb87ae7e6474d4785e4e2591755c63df52e0653cf8075290c2adccdce49c9",
+      "src/rtc_probe.rs": "fa928c9deb4ddf41159226ca45b48a5f2bb4af842e6290ee36927de7ad2d3870",
+      "src/rtc_transport.rs": "cdad837328fde9f006ac70e24c34d819476c6cc82f958a97148142bb1610ca4f",
+      "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+      "tests/path_maintenance.rs": "ace140f8faeb5208b0e19152c9c67d7d113242286877b4babdc206452dfdf49e",
+      "tests/rtc_path_qualification.rs": "61ba3c91687660ea09aa4d89ff31ac4889cce5cbede8a5843da2bb8ca619f678",
+      "vendor/iroh/src/socket/mapped_addrs.rs": "c95accdd5f474a11e820b1d460696507ffd0195ccd074d439520cab9cd9c3ffa",
+      "vendor/iroh/src/socket/remote_map/remote_state/path_state.rs": "d320c4becfacc9ecc32475e0cfa1cc52c9698b2011804f7bbb95b7f860b0a3ab",
+      "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs": "838bbcd605addbe1afaf911c20b4efc5be87499a7758aba0933e58101dce32b9",
+      "vendor/iroh/src/socket/transports/custom.rs": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+      "vendor/noq-proto/src/connection/mod.rs": "b08149c1334be64fe202873bbe0691587cd42d93f7dc266a60d4ab0bc51ac2d7",
+      "vendor/noq-proto/src/connection/paths.rs": "3f86ec41fa014b1a6870d2c8556900e4fd3c15f8959b654d54356b9c52bfb8b5",
+      "vendor/noq-proto/src/tests/multipath.rs": "e3887c55dadc1fe86d72587d206f9228d9bad2fb5ad0b2c2483f80aa50625904"
+    },
+    "sourceAfter": {
+      "Cargo.lock": "543a4a397bd047de1c6b0633c5163367869bee1423cf1e8db69b6faa0413f2b3",
+      "Cargo.toml": "d589b5c3dc7e5e5039a0a9eebf1bba0ecc0988963fd8b19085f1cc6a05e71b33",
+      "browser-probe/Cargo.toml": "470044552915bd030e321741ce7de7f1d4632e950094952ade2caed8915bf1c1",
+      "browser-probe/harness/owned-mixed-mqtt-proxy.mjs": "b50cf2d40ff0094bade4882e3c1f244fb24b992eb3d84866ee12a69224303bf9",
+      "browser-probe/harness/run-rtc-data-cut.mjs": "baac286f69d7f9666b8de7262a58aaf910fcd850e1679d78d91c300ebce0e914",
+      "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+      "browser-probe/harness/run-rtc.mjs": "45c53153b60517fc11fc921d8a7bf75df8f5e656199c8db046a59e5c4519be7a",
+      "browser-probe/network.html": "b11be64a9f1c5c2b729c20495424ac08d9f588408bbbb7dc4efdc6593610ea6b",
+      "browser-probe/src/lib.rs": "bc759bd77aba294db0fd0dc69cb2834f38d4324ed0687ad504c4057065ad32b8",
+      "browser-probe/src/member_connection.rs": "a6af8d2b28ae728c68bdb8715d8c1cb4b1da9e0f63a786859c8730716fcc8601",
+      "browser-probe/src/mqtt.rs": "67ca10c43bd3479ca0dbad91bb7691fa535dd3dce8faf2a7ef8dc496ecbd83df",
+      "browser-probe/src/network.rs": "f1ad611f5b6d0a5c76b432866e71eba5895cb4fc925d50c329a9420d84c6010b",
+      "browser-probe/src/rtc.rs": "251959eb8d3919ef0d26672f1916a468bc5a8fbe19bd6ac9e4be7bfb65187ae4",
+      "browser-probe/src/rtc_member.rs": "c86173ee505c972689c588abfd768ef26a79f7b1bfae2805692f215f08a41ac7",
+      "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+      "scripts/check_browser_paths.py": "dfc3b7191c23fe809f28dc9e830682d1745ec94bed3f2172db17133f376df41d",
+      "scripts/check_browser_rtc.py": "cdffb137dfefa32974f5a198584e6f1bc95beecc4a4bc6cce03121636d2a7dee",
+      "scripts/check_browser_rtc_cut.py": "620556cd56eb9bc2a1634e321633cebbb537edcf426d23b3c6e82e7e855f90b3",
+      "scripts/mosquitto-test.conf": "5bbf715cb2518197f7ad99ceff3986bf3e2b137798aae23613ce39cf5f24542c",
+      "src/admission_gate.rs": "4d8bc0173d5b615652eab82114a2d23689bfec91b7ccfcb479a5943cf9c631a9",
+      "src/admission_proof.rs": "33502e93c55c3204916b3bec6b75fa2510cd3f0fb3ab60c6666689c515f2bf4d",
+      "src/bin/browser_network_native.rs": "951df304b2076de085412bc108da1cc7e7345885fe935ff163d9cd374f451a8a",
+      "src/bin/browser_probe_native.rs": "554989910b9a358b12820136fe1b6e30392a485ebb43fc53205be75f7c95b23f",
+      "src/bin/browser_wss_member_native.rs": "0d3e740304acd15b73615e76cbacf2071924ad360691edba687d8de2c7fd33f9",
+      "src/connection_recovery.rs": "1b169a60a8cd59f8c68d758378f7acf1894d939c43b5c030b8d054f6fd6baac9",
+      "src/connection_recovery_core.rs": "13a6ff533b75e404498bdf056cf4596519df3b185e9efe80e52abca143e417bf",
+      "src/control_session.rs": "d78789557b6bafe34a7257ccf9e923ad91221a8e1d94317ad717e51fe0e7da3a",
+      "src/lib.rs": "62902c17d911d0cf7588dbc5b3d67ae41a30c747c5f3038c902299c3928100fc",
+      "src/member_bootstrap.rs": "fd8411c3fb26bb78f39591f5f46a4d3bd9fde1e0f49630516b556ed9a2b1ead6",
+      "src/member_path_protocol.rs": "3403601c74ad5baffb3b67e0985eae98736e08e7b0d20ba5bcacf085bce0488e",
+      "src/message_bootstrap.rs": "78e0c15cefeefc5e0f3721c312e643bfb73a51f6da93a48a194f6eadd9b66181",
+      "src/mqtt_datagram.rs": "acaeeb199cca3ddca85894a07d9bdebdc8ce6b21752f847096d388de5f167084",
+      "src/mqtt_transport.rs": "3585ea182dbe952b97679ef4ba8fa367790bde29373ef282f4ba3a1146fe4091",
+      "src/native_network.rs": "83d0156bb3e596fd41b957ec3fe88ac6be065dd2c832e12ddfe788872c7c17bc",
+      "src/replica_snapshot.rs": "a8e62db5cb9440de96559aa6b26d07f8ea2742c5431c42895f367f1cd1c5a3d1",
+      "src/resources.rs": "68c72185e06f44ea242fadc6ba35f9a0b1c9429deddcc3c76acdc858909ee81f",
+      "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+      "src/rtc_member.rs": "290cb87ae7e6474d4785e4e2591755c63df52e0653cf8075290c2adccdce49c9",
+      "src/rtc_probe.rs": "fa928c9deb4ddf41159226ca45b48a5f2bb4af842e6290ee36927de7ad2d3870",
+      "src/rtc_transport.rs": "cdad837328fde9f006ac70e24c34d819476c6cc82f958a97148142bb1610ca4f",
+      "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+      "tests/path_maintenance.rs": "ace140f8faeb5208b0e19152c9c67d7d113242286877b4babdc206452dfdf49e",
+      "tests/rtc_path_qualification.rs": "61ba3c91687660ea09aa4d89ff31ac4889cce5cbede8a5843da2bb8ca619f678",
+      "vendor/iroh/src/socket/mapped_addrs.rs": "c95accdd5f474a11e820b1d460696507ffd0195ccd074d439520cab9cd9c3ffa",
+      "vendor/iroh/src/socket/remote_map/remote_state/path_state.rs": "d320c4becfacc9ecc32475e0cfa1cc52c9698b2011804f7bbb95b7f860b0a3ab",
+      "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs": "838bbcd605addbe1afaf911c20b4efc5be87499a7758aba0933e58101dce32b9",
+      "vendor/iroh/src/socket/transports/custom.rs": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+      "vendor/noq-proto/src/connection/mod.rs": "b08149c1334be64fe202873bbe0691587cd42d93f7dc266a60d4ab0bc51ac2d7",
+      "vendor/noq-proto/src/connection/paths.rs": "3f86ec41fa014b1a6870d2c8556900e4fd3c15f8959b654d54356b9c52bfb8b5",
+      "vendor/noq-proto/src/tests/multipath.rs": "e3887c55dadc1fe86d72587d206f9228d9bad2fb5ad0b2c2483f80aa50625904"
+    },
+    "sourceUnchanged": true
+  },
+  "productionChangesSinceBaseline151": {
+    "browser-probe/harness/run-rtc-data-cut.mjs": {
+      "baseline": "baac286f69d7f9666b8de7262a58aaf910fcd850e1679d78d91c300ebce0e914",
+      "current": "e2c51d056b5ed7f723d841b317b9aa0020c75e6b4a7bc9d9014458665d43d60d"
+    },
+    "scripts/check_browser_rtc_cut.py": {
+      "baseline": "620556cd56eb9bc2a1634e321633cebbb537edcf426d23b3c6e82e7e855f90b3",
+      "current": "4407ccc50e3903be6202b74c0de4a0ef207b606d92074e60b6bd1c9679d23620"
+    },
+    "src/connection_recovery_core.rs": {
+      "baseline": "13a6ff533b75e404498bdf056cf4596519df3b185e9efe80e52abca143e417bf",
+      "current": "a6bdc8de7cf47b49ec8e838b169337490bdeb9f6c58b8c31c2a737de32b3c68b"
+    },
+    "tests/path_maintenance.rs": {
+      "baseline": "ace140f8faeb5208b0e19152c9c67d7d113242286877b4babdc206452dfdf49e",
+      "current": "bcd728397d1fd554f97c0a64570440ab9f1e73d604540b7052b299051c0c6927"
+    },
+    "vendor/noq-proto/src/connection/mod.rs": {
+      "baseline": "b08149c1334be64fe202873bbe0691587cd42d93f7dc266a60d4ab0bc51ac2d7",
+      "current": "93575c4027506cf6fa324c1384e9ee5e740701934020e3323465ca2ae0e69e17"
+    }
+  },
+  "noq": {
+    "passed": true,
+    "unitTests": 429,
+    "docTests": 3,
+    "sourceIdentity": {
+      "Cargo.toml": {
+        "vendored": "de968c48ce158568890e41b199acdd8030746b3d27021ea57508edd1058c6f5d",
+        "executedCopy": "de968c48ce158568890e41b199acdd8030746b3d27021ea57508edd1058c6f5d"
+      },
+      "src/connection/mod.rs": {
+        "vendored": "93575c4027506cf6fa324c1384e9ee5e740701934020e3323465ca2ae0e69e17",
+        "executedCopy": "93575c4027506cf6fa324c1384e9ee5e740701934020e3323465ca2ae0e69e17"
+      },
+      "src/tests/multipath.rs": {
+        "vendored": "e3887c55dadc1fe86d72587d206f9228d9bad2fb5ad0b2c2483f80aa50625904",
+        "executedCopy": "e3887c55dadc1fe86d72587d206f9228d9bad2fb5ad0b2c2483f80aa50625904"
+      },
+      "lockSha256": "fb1508d294a836f4eb68966c3fd332da188ea6a284fd129441a8b0bd235d2468"
+    },
+    "rawLogSha256": "96eb566be4b98fad8e263baf6198f1021badb4ed30d8b85daa9bfa26559565ab",
+    "rawTransientLog": "/tmp/miopunch-s7-noq-review-fixes-suite.log"
+  },
+  "logs": {
+    "affected": {
+      "file": "affected.log.gz",
+      "sha256": "73b2d12038a6c662916e8147dffb374811f4e8bad1d2cdaa5257b7af1314ebc5",
+      "status": "final-green"
+    },
+    "affected-151-baseline": {
+      "file": "affected-151-baseline.log.gz",
+      "sha256": "6bf86d1f58ab0417f2aa34c000041761b5b66f92aeec78f518b6eebc36773342",
+      "status": "pre-review-baseline-green"
+    },
+    "noq-final": {
+      "file": "noq-final.log.gz",
+      "sha256": "96eb566be4b98fad8e263baf6198f1021badb4ed30d8b85daa9bfa26559565ab",
+      "status": "final-green"
+    },
+    "noq-backup-red": {
+      "file": "noq-backup-red.log.gz",
+      "sha256": "9ef52da259795d50128b92a2ab9464381dadc6db5be36a590efe9916bf54c990",
+      "status": "actual-red"
+    },
+    "legacy-diagnostic-red": {
+      "file": "legacy-diagnostic-red.log.gz",
+      "sha256": "086410d3a1822939978a0dc8d92ea91c55e3d2f8de22a313bb3bece460c2803b",
+      "status": "actual-red"
+    },
+    "legacy-intermediate-dialing-green": {
+      "file": "legacy-intermediate-dialing-green.log.gz",
+      "sha256": "fa74774c248e0b92e162c30676e4537c356e3d7be7c76306e4b8102d9d2dba4d",
+      "status": "intermediate-green"
+    },
+    "legacy-intermediate-accepting-green": {
+      "file": "legacy-intermediate-accepting-green.log.gz",
+      "sha256": "0dd53882985b4d46fc5e96148202b233db243710564667dc0f2136e64ad2f88b",
+      "status": "intermediate-green"
+    },
+    "strict-startup-mixed-red": {
+      "file": "strict-startup-mixed-red.log.gz",
+      "sha256": "5a896075562994de27203c4cfb9edfcfcc12db421110f0550d7501e51c0fb5cd",
+      "status": "actual-red"
+    },
+    "strict-startup-mixed-green": {
+      "file": "strict-startup-mixed-green.log.gz",
+      "sha256": "04578640f21596d94d6cd286525d637eedaac92016034154fea9d3ef6518a5f0",
+      "status": "intermediate-green"
+    }
+  },
+  "cleanupFaultRegressions": {
+    "timeout": {
+      "red": {
+        "outerCliExit": 0,
+        "passed": true,
+        "protocolStoryPassed": true,
+        "sourceUnchanged": true,
+        "totalProtocolSeconds": 8.546,
+        "cleanup": [
+          {
+            "name": "owned-files-owner",
+            "exit": 0
+          },
+          {
+            "name": "container-remove",
+            "exit": 0
+          },
+          {
+            "name": "container-absent",
+            "error": "Command '['rtk', 'proxy', 'docker', 'ps', '-a', '--filter', 'label=miopunch.run=mio-rtc-s7-1791082811867938609', '--format', '{{.ID}}']' timed out after 0.0 seconds"
+          },
+          {
+            "name": "network-remove",
+            "exit": 0
+          },
+          {
+            "name": "network-absent",
+            "exit": 0,
+            "empty": true
+          }
+        ],
+        "runnerSha256": "620556cd56eb9bc2a1634e321633cebbb537edcf426d23b3c6e82e7e855f90b3",
+        "rawTransientDirectory": "/tmp/mio-rtc-s7-cleanup-timeout-red-20261004",
+        "scope": "actual subprocess absence query failure only; SDK/protocol/removal not mocked"
+      },
+      "green": {
+        "outerCliExit": 1,
+        "passed": false,
+        "protocolStoryPassed": true,
+        "sourceUnchanged": true,
+        "totalProtocolSeconds": 8.697,
+        "cleanup": [
+          {
+            "name": "owned-files-owner",
+            "exit": 0
+          },
+          {
+            "name": "container-remove",
+            "exit": 0
+          },
+          {
+            "name": "container-absent",
+            "error": "Command '['rtk', 'proxy', 'docker', 'ps', '-a', '--filter', 'label=miopunch.run=mio-rtc-s7-1791083054881615883', '--format', '{{.ID}}']' timed out after 0.0 seconds"
+          },
+          {
+            "name": "network-remove",
+            "exit": 0
+          },
+          {
+            "name": "network-absent",
+            "exit": 0,
+            "empty": true
+          }
+        ],
+        "runnerSha256": "4407ccc50e3903be6202b74c0de4a0ef207b606d92074e60b6bd1c9679d23620",
+        "rawTransientDirectory": "/tmp/mio-rtc-s7-cleanup-timeout-green-20261004",
+        "scope": "actual subprocess absence query failure only; SDK/protocol/removal not mocked"
+      }
+    },
+    "return": {
+      "red": {
+        "outerCliExit": 0,
+        "passed": false,
+        "protocolStoryPassed": true,
+        "sourceUnchanged": true,
+        "totalProtocolSeconds": 8.479,
+        "cleanup": [
+          {
+            "name": "owned-files-owner",
+            "exit": 0
+          },
+          {
+            "name": "container-remove",
+            "exit": 0
+          },
+          {
+            "name": "container-absent",
+            "exit": 0,
+            "empty": true
+          },
+          {
+            "name": "network-remove",
+            "exit": 0
+          },
+          {
+            "name": "network-absent",
+            "exit": 125,
+            "empty": false
+          }
+        ],
+        "runnerSha256": "620556cd56eb9bc2a1634e321633cebbb537edcf426d23b3c6e82e7e855f90b3",
+        "rawTransientDirectory": "/tmp/mio-rtc-s7-cleanup-return-red-20261004",
+        "scope": "actual subprocess absence query failure only; SDK/protocol/removal not mocked"
+      },
+      "green": {
+        "outerCliExit": 1,
+        "passed": false,
+        "protocolStoryPassed": true,
+        "sourceUnchanged": true,
+        "totalProtocolSeconds": 8.803,
+        "cleanup": [
+          {
+            "name": "owned-files-owner",
+            "exit": 0
+          },
+          {
+            "name": "container-remove",
+            "exit": 0
+          },
+          {
+            "name": "container-absent",
+            "exit": 0,
+            "empty": true
+          },
+          {
+            "name": "network-remove",
+            "exit": 0
+          },
+          {
+            "name": "network-absent",
+            "exit": 125,
+            "empty": false
+          }
+        ],
+        "runnerSha256": "4407ccc50e3903be6202b74c0de4a0ef207b606d92074e60b6bd1c9679d23620",
+        "rawTransientDirectory": "/tmp/mio-rtc-s7-cleanup-return-green-20261004",
+        "scope": "actual subprocess absence query failure only; SDK/protocol/removal not mocked"
+      }
+    }
+  }
+}

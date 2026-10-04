@@ -351,6 +351,29 @@ pub(super) async fn bootstrap_control(
 
 #[wasm_bindgen]
 impl BrowserMemberConnection {
+    /// Start a bounded real stream on the already qualified WSS-started M.
+    pub async fn rtc_continuity_start(&self) -> Result<String, JsValue> {
+        self.qualified_snapshot().await?;
+        if self.rtc_continuity.borrow().is_some() {
+            return Err(error("continuity stream already started"));
+        }
+        n0_future::time::timeout(TIMEOUT, async {
+            let (mut send, recv) = self.connection.open_bi().await.map_err(error)?;
+            send.write_all(CONTINUITY_MARKER).await.map_err(error)?;
+            let mut stream = Continuity {
+                stream_id: send.id().to_string(),
+                send,
+                recv,
+                stable_id: self.connection.stable_id(),
+                binding: binding(&self.connection)?,
+            };
+            let first = stream.exchange(&self.connection, 0).await?;
+            *self.rtc_continuity.borrow_mut() = Some(stream);
+            Ok(first.to_string())
+        })
+        .await
+        .map_err(|_| error("continuity start caller deadline"))?
+    }
     /// Preserve the existing relay M and original stream. `caller_ms` is the
     /// existing caller remainder, bounded by the browser's ordinary 12 seconds.
     pub async fn rtc_relay_member_probe(
@@ -580,6 +603,9 @@ impl BrowserMemberConnection {
     pub fn rtc_path_diagnostics(&self) -> String {
         json!({"memberStableId":self.connection.stable_id(),"closed":self.is_closed(),"activeAssociations":self.rtc_transport.active_associations(),"activePumpTasks":self.rtc_transport.active_pumps(),"resourceRevision":self.rtc_transport.resource_revision(),
             "bootstrap":self.gate.0.lock().unwrap().rtc_reports.get(&self.connection.stable_id()),
-            "paths":self.connection.paths().iter().map(|path|json!({"pathId":path.id().to_string(),"address":format!("{:?}",path.remote_addr()),"selected":path.is_selected(),"isRelay":path.is_relay(),"isRtc":matches!(path.remote_addr(),iroh::TransportAddr::Custom(address) if address.id()==crate::rtc_transport::TRANSPORT_ID),"sentBytes":path.stats().udp_tx.bytes,"receivedBytes":path.stats().udp_rx.bytes,"streamFramesSent":path.stats().frame_tx.stream,"streamFramesReceived":path.stats().frame_rx.stream})).collect::<Vec<_>>()}).to_string()
+            "paths":self.connection.paths().iter().map(|path|json!({"pathId":path.id().to_string(),"address":format!("{:?}",path.remote_addr()),"selected":path.is_selected(),"isRelay":path.is_relay(),"isRtc":matches!(path.remote_addr(),iroh::TransportAddr::Custom(address) if address.id()==crate::rtc_transport::TRANSPORT_ID),
+                "isSignal":matches!(path.remote_addr(),iroh::TransportAddr::Custom(address) if matches!(address.id(),crate::mqtt_datagram::TRANSPORT_ID | crate::irc_datagram::TRANSPORT_ID)),
+                "sentBytes":path.stats().udp_tx.bytes,"receivedBytes":path.stats().udp_rx.bytes,"streamFramesSent":path.stats().frame_tx.stream,"streamFramesReceived":path.stats().frame_rx.stream,
+                "pingFramesSent":path.stats().frame_tx.ping,"ackFramesReceived":path.stats().frame_rx.acks,"ackFramesSent":path.stats().frame_tx.acks})).collect::<Vec<_>>()}).to_string()
     }
 }

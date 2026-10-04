@@ -145,6 +145,8 @@ flowchart LR
 - **关键失败：**禁止relay时不得暗启TURN/其他服务，业务不能回灌MQTT/IRC；原M已close时新RTC不得冒充修复。
 - **证据/通过：**精确DROP规则、pcap/计数、业务序号、signal bytes、repair binding比较、terminal时间；60秒外层、恢复遵从caller预算，finally撤销自有规则/进程。数据用途隔离不成立即停止后续能力宣传。
 
+2026-10-04 后续授权实施通过自有单 namespace 的真实 RTC UDP cut、获准 relay 原 M/stream 维护，以及禁止数据 fallback 的活但不可达和显式旧句柄 terminal 分支，见[第 7 步实施与兼容回执](2026-10-04-browser-rtc-data-cut.md)。caller 时钟、旧两字段修复 wire、精确 RTC retirement 和 Noq Backup ACK 返回路径在该回执中记录；第 8–11 步与异网/IRC 资格继续按各自边界推进。
+
 ### 8. 资格变化与迟到事件
 
 - **问题/前提：**第6步通过；不是要求先实现完整browser轮换产品。

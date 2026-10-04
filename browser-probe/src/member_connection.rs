@@ -9,8 +9,10 @@ pub struct BrowserMemberConnection {
     pub(super) rtc_active: Arc<std::sync::atomic::AtomicBool>,
     #[cfg(feature = "rtc-probe")]
     pub(super) rtc_transport: crate::rtc_transport::RtcTransport,
-    #[cfg(feature = "rtc-probe")]
     pub(super) endpoint: Endpoint,
+    repair_contact: EndpointAddr,
+    repair_active: std::sync::atomic::AtomicBool,
+    repair_cancel: Mutex<Option<tokio_util::sync::CancellationToken>>,
     #[cfg(feature = "rtc-probe")]
     pub(super) rtc_live: std::rc::Rc<std::cell::RefCell<Option<super::rtc_member::OwnedRtc>>>,
     #[cfg(feature = "rtc-probe")]
@@ -18,6 +20,30 @@ pub struct BrowserMemberConnection {
         std::rc::Rc<std::cell::RefCell<Option<super::rtc_member::Continuity>>>,
 }
 impl BrowserMemberConnection {
+    fn recovery_qualified(&self, connection: &Connection) -> std::io::Result<()> {
+        let gate = self.gate.0.lock().unwrap();
+        let allowed = gate.saved.as_ref().is_some_and(|saved| {
+            let Ok(invitation) = saved.invitation() else {
+                return false;
+            };
+            let scope = AdmissionScope::new(*invitation.anchor.root.as_bytes(), saved.generation);
+            connection.close_reason().is_none()
+                && BrowserGate::permits(saved, connection.remote_id(), connection.alpn())
+                && gate
+                    .proofs
+                    .iter()
+                    .any(|proof| proof.applies_to(connection, &scope))
+        });
+        if allowed {
+            Ok(())
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "repair qualification changed",
+            ))
+        }
+    }
+
     pub(super) async fn qualified_snapshot(&self) -> Result<SavedNode, JsValue> {
         if self.is_closed() {
             return Err(rejected());
@@ -72,6 +98,122 @@ impl BrowserMemberConnection {
 }
 #[wasm_bindgen]
 impl BrowserMemberConnection {
+    /// Cancel only the outstanding explicit path-maintenance operation.
+    pub fn cancel_path_recovery(&self) {
+        if let Some(cancel) = self.repair_cancel.lock().unwrap().as_ref() {
+            cancel.cancel();
+        }
+    }
+
+    /// Repair a carrier on this existing M through the original protected
+    /// recovery protocol. It never returns a new ordinary Connection.
+    pub async fn recover_path(&self, caller_ms: u32) -> Result<String, JsValue> {
+        use crate::connection_recovery_core as recovery;
+        if self.is_closed() {
+            return Ok(
+                serde_json::json!({"outcome":"terminal", "stableId":self.connection.stable_id()})
+                    .to_string(),
+            );
+        }
+        if caller_ms == 0 || caller_ms > TIMEOUT.as_millis() as u32 {
+            return Err(error("repair caller budget must fit the browser budget"));
+        }
+        if self
+            .repair_active
+            .swap(true, std::sync::atomic::Ordering::AcqRel)
+        {
+            return Err(error("original M repair already active"));
+        }
+        let cancel = tokio_util::sync::CancellationToken::new();
+        *self.repair_cancel.lock().unwrap() = Some(cancel.clone());
+        let _guard = RepairGuard {
+            active: &self.repair_active,
+            cancel: &self.repair_cancel,
+        };
+        let started = n0_future::time::Instant::now();
+        let deadline = started + Duration::from_millis(u64::from(caller_ms));
+        let work = async {
+            self.qualified_snapshot().await?;
+            let mut contact = self.repair_contact.clone();
+            // Prefer the explicit private signaling contact for repair when
+            // available; the original ordinary M still cannot use it as data.
+            if contact.addrs.iter().any(|path| matches!(path, iroh::TransportAddr::Custom(addr)
+                if matches!(addr.id(), crate::mqtt_datagram::TRANSPORT_ID | crate::irc_datagram::TRANSPORT_ID))) {
+                contact.addrs.retain(|path| matches!(path, iroh::TransportAddr::Custom(addr)
+                    if matches!(addr.id(), crate::mqtt_datagram::TRANSPORT_ID | crate::irc_datagram::TRANSPORT_ID)));
+            }
+            let permits = |path: &iroh::TransportAddr| match path {
+                iroh::TransportAddr::Relay(url) => {
+                    let gate = self.gate.0.lock().unwrap();
+                    gate.saved.as_ref().is_some_and(|saved| {
+                        origin(url.as_str()).is_ok_and(|url| {
+                            BrowserGate::permitted_relay_origins(saved).contains(&url)
+                        })
+                    })
+                }
+                _ => false,
+            };
+            let result = recovery::recover(
+                &self.endpoint,
+                &self.connection,
+                contact,
+                self.endpoint.addr(),
+                deadline,
+                cancel.clone(),
+                true,
+                permits,
+                |original| self.recovery_qualified(original),
+                |original, control| {
+                    self.recovery_qualified(original)?;
+                    if control.alpn() != recovery::CONNECTION_RECOVERY_ALPN
+                        || control.remote_id() != original.remote_id()
+                    {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::PermissionDenied,
+                            "repair control differs from original peer/scope",
+                        ));
+                    }
+                    self.recovery_qualified(control)
+                },
+            )
+            .await;
+            match result {
+                Ok(result) => {
+                    self.qualified_snapshot().await?;
+                    #[cfg(feature = "rtc-probe")]
+                    if self.rtc_transport.retire_connection(&self.connection) {
+                        for path in self.connection.paths().iter().filter(|path| matches!(path.remote_addr(),
+                            iroh::TransportAddr::Custom(addr) if addr.id() == crate::rtc_transport::TRANSPORT_ID)) {
+                            let _ = path.close();
+                        }
+                    }
+                    Ok(serde_json::json!({"outcome":"recovered", "stableId":result.stable_id,
+                        "pathId":result.path_id,"path":format!("{:?}",result.path),
+                        "freshAck":true,"probeWatermark":result.probe_watermark,
+                        "peerConfirmed":result.peer_confirmed,
+                        "controlStableId":result.control_stable_id,"controlAlpn":String::from_utf8_lossy(recovery::CONNECTION_RECOVERY_ALPN),
+                        "elapsedMs":started.elapsed().as_millis(),"callerBudgetMs":caller_ms}).to_string())
+                },
+                Err(cause) => Ok(serde_json::json!({"outcome":if self.is_closed(){"terminal"}else{"unreachable"},
+                    "stableId":self.connection.stable_id(),"failure":cause.to_string(),
+                    "elapsedMs":started.elapsed().as_millis(),"callerBudgetMs":caller_ms}).to_string()),
+            }
+        };
+        match n0_future::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            work,
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(_) => Ok(
+                serde_json::json!({"outcome":if self.is_closed(){"terminal"}else{"unreachable"},
+                "stableId":self.connection.stable_id(),"failure":"repair caller deadline exceeded",
+                "elapsedMs":started.elapsed().as_millis(),"callerBudgetMs":caller_ms})
+                .to_string(),
+            ),
+        }
+    }
     pub fn is_closed(&self) -> bool {
         self.connection.close_reason().is_some()
     }
@@ -97,6 +239,20 @@ impl BrowserMemberConnection {
         })
         .await
         .map_err(|_| error("member connection unavailable"))?
+    }
+}
+
+struct RepairGuard<'a> {
+    active: &'a std::sync::atomic::AtomicBool,
+    cancel: &'a Mutex<Option<tokio_util::sync::CancellationToken>>,
+}
+impl Drop for RepairGuard<'_> {
+    fn drop(&mut self) {
+        if let Some(cancel) = self.cancel.lock().unwrap().take() {
+            cancel.cancel();
+        }
+        self.active
+            .store(false, std::sync::atomic::Ordering::Release);
     }
 }
 #[wasm_bindgen]
@@ -213,8 +369,10 @@ impl BrowserMemberAttempt {
             rtc_active: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             #[cfg(feature = "rtc-probe")]
             rtc_transport: self.rtc_transport.clone(),
-            #[cfg(feature = "rtc-probe")]
             endpoint: self.endpoint.clone(),
+            repair_contact: self.address.clone(),
+            repair_active: std::sync::atomic::AtomicBool::new(false),
+            repair_cancel: Mutex::new(None),
             #[cfg(feature = "rtc-probe")]
             rtc_live: std::rc::Rc::new(std::cell::RefCell::new(None)),
             #[cfg(feature = "rtc-probe")]

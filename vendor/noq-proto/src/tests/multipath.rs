@@ -2358,3 +2358,69 @@ fn fresh_path_probe_rejects_old_acks_and_closed_paths() -> TestResult {
     assert!(pair.conn_mut(Client).start_path_probe(path).is_err());
     Ok(())
 }
+
+#[test]
+fn backup_returns_fresh_probe_acks_with_blackholed_available_primary_without_data() -> TestResult {
+    let _guard = subscribe();
+    let client_backup = "[::1:2]:1".parse()?;
+    let server_backup = "[::2:2]:1".parse()?;
+    let mut pair = ConnPair::builder()
+        .enable_multipath()
+        .disable_mtud_discovery()
+        .with_routes(ManyToManyRouting::simple_symmetric(
+            [Pair::CLIENT_ADDR, client_backup],
+            [Pair::SERVER_ADDR, server_backup],
+        ))
+        .connect();
+    pair.drive();
+    let backup = pair.open_path(
+        Client,
+        FourTuple {
+            remote: server_backup,
+            local_ip: Some(client_backup.ip()),
+        },
+        PathStatus::Backup,
+    )?;
+    pair.drive();
+    pair.set_path_status(Server, backup, PathStatus::Backup)?;
+    pair.drive();
+    let before_client = pair.path_stats(Client, backup).unwrap();
+    let before_server = pair.path_stats(Server, backup).unwrap();
+    // The primary remains Available in QUIC, but its real simulated carrier
+    // no longer routes packets. Only the already validated backup still works.
+    pair.routes = ManyToManyRouting::simple_symmetric([client_backup], [server_backup]).into();
+    let client_probe = pair.conn_mut(Client).start_path_probe(backup)?;
+    let server_probe = pair.conn_mut(Server).start_path_probe(backup)?;
+    for side in [Client, Server] {
+        let stream = pair.streams(side).open(Dir::Uni).unwrap();
+        pair.send_stream(side, stream)
+            .write(b"queued primary data")?;
+    }
+    let started = pair.time;
+    let mut confirmed = false;
+    for _ in 0..50 {
+        pair.step();
+        confirmed = pair
+            .conn(Client)
+            .path_probe_acknowledged(backup, client_probe)?
+            && pair
+                .conn(Server)
+                .path_probe_acknowledged(backup, server_probe)?;
+        if confirmed || pair.time.duration_since(started) > Duration::from_secs(1) {
+            break;
+        }
+    }
+    assert!(
+        confirmed,
+        "fresh backup probes must return before primary idle expiry"
+    );
+    for (side, before) in [(Client, before_client), (Server, before_server)] {
+        let after = pair.path_stats(side, backup).unwrap();
+        assert_eq!(after.frame_tx.stream, before.frame_tx.stream);
+        assert_eq!(after.frame_rx.stream, before.frame_rx.stream);
+        assert_eq!(after.frame_tx.datagram, before.frame_tx.datagram);
+        assert_eq!(after.frame_rx.datagram, before.frame_rx.datagram);
+        assert!(after.frame_rx.path_acks > before.frame_rx.path_acks);
+    }
+    Ok(())
+}

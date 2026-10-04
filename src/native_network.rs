@@ -764,12 +764,15 @@ impl NativeNetwork {
                 &config,
                 true,
                 #[cfg(feature = "rtc-probe")]
-                rtc,
+                rtc.clone(),
             )
             .await?;
-        let mut resources = crate::resources::ResourceEndpoint::new(endpoint, config)
+        let resources = crate::resources::ResourceEndpoint::new(endpoint, config)
             .with_tcp(tcp)
             .with_mqtt(mqtt);
+        #[cfg(feature = "rtc-probe")]
+        let resources = resources.with_rtc(rtc);
+        let mut resources = resources;
         if !resources.recovery_origins().is_empty() {
             resources
                 .endpoint()

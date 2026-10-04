@@ -34,6 +34,10 @@ def source_snapshot():
              "browser-probe/src/rtc.rs", "browser-probe/src/mqtt.rs", "browser-probe/src/storage.rs",
              "vendor/iroh/src/socket/mapped_addrs.rs", "vendor/iroh/src/socket/transports/custom.rs", "vendor/iroh/src/socket/remote_map/remote_state/path_state.rs", "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs", "vendor/noq-proto/src/connection/mod.rs", "vendor/noq-proto/src/connection/paths.rs"}
     paths.update(path for path in (changed + untracked).splitlines() if Path(path).suffix in (".rs", ".toml", ".lock", ".py", ".mjs"))
+    paths.update({"src/connection_recovery.rs", "src/connection_recovery_core.rs", "src/native_network.rs", "src/resources.rs", "src/member_path_protocol.rs",
+                  "src/rtc_member.rs", "src/rtc_transport.rs", "src/message_bootstrap.rs", "src/bin/browser_wss_member_native.rs",
+                  "browser-probe/src/lib.rs", "browser-probe/src/network.rs", "browser-probe/src/member_connection.rs", "browser-probe/src/rtc_member.rs",
+                  "scripts/check_browser_rtc_cut.py", "browser-probe/harness/run-rtc-data-cut.mjs", "Cargo.toml", "Cargo.lock", "browser-probe/Cargo.toml"})
     return {path: sha256(ROOT / path) for path in sorted(paths) if (ROOT / path).is_file()}
 
 

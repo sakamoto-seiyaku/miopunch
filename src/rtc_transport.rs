@@ -230,6 +230,24 @@ impl RtcTransport {
     pub fn active_pumps(&self) -> usize {
         self.0.active_pumps.load(Ordering::Acquire)
     }
+    /// Retire only this original M's association when its existing maintenance
+    /// operation replaces the failed carrier. Other Ms remain independent.
+    pub fn retire_connection(&self, connection: &Connection) -> bool {
+        let route = self
+            .0
+            .routes
+            .lock()
+            .unwrap()
+            .get(&connection.stable_id())
+            .cloned();
+        if let Some(route) = route {
+            if route.original.is_open() && connection.close_reason().is_none() {
+                route.close();
+                return true;
+            }
+        }
+        false
+    }
     pub fn active_associations(&self) -> usize {
         self.0.routes.lock().unwrap().len()
     }

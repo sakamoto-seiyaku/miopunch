@@ -497,6 +497,8 @@ pub struct ResourceEndpoint {
     pub(crate) responders: Vec<tokio::task::JoinHandle<()>>,
     tcp: Option<crate::tcp_transport::TcpTransport>,
     mqtt: Vec<std::sync::Arc<crate::mqtt_transport::MqttTransport>>,
+    #[cfg(feature = "rtc-probe")]
+    rtc: Option<crate::rtc_transport::RtcTransport>,
 }
 
 /// One observation of a retained connection opened from the real TCP carrier's
@@ -542,11 +544,33 @@ impl ResourceEndpoint {
             responders: Vec::new(),
             tcp: None,
             mqtt: Vec::new(),
+            #[cfg(feature = "rtc-probe")]
+            rtc: None,
         }
     }
 
     pub fn endpoint(&self) -> &iroh::Endpoint {
         &self.endpoint
+    }
+    #[cfg(feature = "rtc-probe")]
+    pub(crate) fn with_rtc(mut self, rtc: Option<crate::rtc_transport::RtcTransport>) -> Self {
+        self.rtc = rtc;
+        self
+    }
+    pub(crate) fn retire_replaced_rtc(&self, original: &iroh::endpoint::Connection) {
+        #[cfg(feature = "rtc-probe")]
+        if self
+            .rtc
+            .as_ref()
+            .is_some_and(|rtc| rtc.retire_connection(original))
+        {
+            for path in original.paths().iter().filter(|path| matches!(path.remote_addr(),
+                iroh::TransportAddr::Custom(addr) if addr.id() == crate::rtc_transport::TRANSPORT_ID)) {
+                let _ = path.close();
+            }
+        }
+        #[cfg(not(feature = "rtc-probe"))]
+        let _ = original;
     }
 
     pub(crate) fn with_tcp(mut self, tcp: Option<crate::tcp_transport::TcpTransport>) -> Self {

@@ -9,6 +9,345 @@ use miopunch_native_probe::{
 use std::{net::Ipv4Addr, time::Duration};
 const BUSINESS: &[u8] = b"miopunch/path-maintenance/1";
 
+#[derive(Debug)]
+struct UdpOnlyBusiness;
+impl iroh::endpoint::EndpointHooks for UdpOnlyBusiness {
+    async fn after_handshake(
+        &self,
+        connection: &Connection,
+    ) -> iroh::endpoint::AfterHandshakeOutcome {
+        if connection.alpn() == BUSINESS {
+            // A supported stricter startup policy intersects with the real
+            // AdmissionGate. It grants no identity or membership by itself.
+            iroh::endpoint::AfterHandshakeOutcome::AcceptData {
+                allowed_data_custom_ids: vec![],
+            }
+        } else {
+            iroh::endpoint::AfterHandshakeOutcome::Accept
+        }
+    }
+}
+
+#[tokio::test]
+async fn candidate_specific_refusal_does_not_block_another_permitted_original_path() {
+    use miopunch_native_probe::connection_recovery::CONNECTION_RECOVERY_ALPN;
+    let mut pair = Pair::new(true).await;
+    let stricter = pair
+        .joining
+        .bind_configured_endpoint_with(
+            iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .bind_addr((Ipv4Addr::LOCALHOST, 0))
+                .unwrap()
+                .clear_relay_transports()
+                .hooks(UdpOnlyBusiness),
+        )
+        .await
+        .unwrap();
+    std::mem::replace(&mut pair.client, stricter).close().await;
+    let good = TransportAddr::Ip(pair.server.endpoint().bound_sockets()[0]);
+    let target = EndpointAddr::new(pair.server.endpoint().id()).with_addrs([good.clone()]);
+    let (client, server) = connect(&mut pair.client, &pair.server, target, BUSINESS).await;
+    let ids = (client.stable_id(), server.stable_id());
+    let (mut send, _) = client.open_bi().await.unwrap();
+    send.write_all(b"before").await.unwrap();
+    let (_, mut recv) = server.accept_bi().await.unwrap();
+    recv.read_exact(&mut [0; 6]).await.unwrap();
+    assert!(
+        pair.joining
+            .admission_gate()
+            .allows(&client, ProtocolScope::Member)
+    );
+    let refused = tcp_target(&pair.server).addrs.into_iter().next().unwrap();
+    assert!(
+        !pair
+            .joining
+            .resource_configuration()
+            .unwrap()
+            .tcp_direct_disabled
+    );
+    let refusal = pair
+        .client
+        .endpoint()
+        .open_data_transport_path(&client, refused.clone())
+        .await
+        .unwrap_err();
+    assert!(
+        refusal.to_string().contains("forbidden"),
+        "actual per-M refusal: {refusal}"
+    );
+    let offer =
+        EndpointAddr::new(pair.server.endpoint().id()).with_addrs([good.clone(), refused.clone()]);
+    pair.server
+        .endpoint()
+        .set_alpns(vec![BUSINESS.to_vec(), CONNECTION_RECOVERY_ALPN.to_vec()]);
+    let serve = async {
+        let control = pair
+            .server
+            .endpoint()
+            .accept()
+            .await
+            .unwrap()
+            .await
+            .unwrap();
+        assert!(
+            pair.admin
+                .admission_gate()
+                .allows_member_path_upgrade(&control)
+        );
+        let (mut response, mut request) = control.accept_bi().await.unwrap();
+        let _: serde_json::Value =
+            serde_json::from_slice(&request.read_to_end(4096).await.unwrap()).unwrap();
+        response
+            .write_all(&serde_json::to_vec(&offer).unwrap())
+            .await
+            .unwrap();
+        response.finish().unwrap();
+        control.closed().await;
+    };
+    let (recovered, _) = tokio::join!(
+        pair.joining.recover_connection_path_until(
+            &pair.client,
+            &client,
+            tcp_target(&pair.server),
+            n0_future::time::Instant::now() + Duration::from_secs(2)
+        ),
+        serve
+    );
+    let recovered =
+        recovered.expect("one refused candidate must not abort the permitted UDP probe");
+    assert_eq!(recovered.path, good);
+    assert_eq!(recovered.stable_id, ids.0);
+    assert!(client.paths().iter().any(|p| p.is_ip()));
+    assert!(client.paths().iter().all(|p| p.remote_addr() != &refused));
+    send.write_all(b"after").await.unwrap();
+    let mut after = [0; 5];
+    recv.read_exact(&mut after).await.unwrap();
+    assert_eq!(&after, b"after");
+    assert_eq!((client.stable_id(), server.stable_id()), ids);
+    client.close(0u32.into(), b"fixture ended");
+    server.close(0u32.into(), b"fixture ended");
+    pair.close().await;
+}
+
+#[tokio::test]
+async fn old_literal_repair_request_is_accepted_on_protected_original_member() {
+    use miopunch_native_probe::connection_recovery::CONNECTION_RECOVERY_ALPN;
+    let mut pair = Pair::new(true).await;
+    let (client, server) = pair.business().await;
+    pair.server
+        .endpoint()
+        .set_alpns(vec![BUSINESS.to_vec(), CONNECTION_RECOVERY_ALPN.to_vec()]);
+    let (mut original_send, _) = client.open_bi().await.unwrap();
+    original_send.write_all(b"before").await.unwrap();
+    let (_, mut original_recv) = server.accept_bi().await.unwrap();
+    original_recv.read_exact(&mut [0; 6]).await.unwrap();
+    let mut binding = [0u8; 32];
+    client
+        .export_keying_material(
+            &mut binding,
+            b"miopunch-existing-connection-path-recovery/1",
+            &[],
+        )
+        .unwrap();
+    // This literal has exactly the pre-extension wire fields. The protected
+    // server must bind it to the actual original M, not merely decode JSON.
+    let bytes =
+        serde_json::to_vec(&serde_json::json!({"binding":binding,"offer":pair.client.addr()}))
+            .unwrap();
+    let (control, incoming) = tokio::join!(
+        pair.client
+            .connect(tcp_target(&pair.server), CONNECTION_RECOVERY_ALPN),
+        async {
+            pair.server
+                .endpoint()
+                .accept()
+                .await
+                .unwrap()
+                .await
+                .unwrap()
+        }
+    );
+    let control = control.unwrap();
+    let request = async {
+        let (mut send, mut recv) = control.open_bi().await.unwrap();
+        send.write_all(&bytes).await.unwrap();
+        send.finish().unwrap();
+        let offer: EndpointAddr =
+            serde_json::from_slice(&recv.read_to_end(4096).await.unwrap()).unwrap();
+        assert_eq!(offer.id, pair.server.endpoint().id());
+        control.close(0u32.into(), b"legacy request completed");
+    };
+    let (_, served) = tokio::join!(
+        request,
+        pair.admin
+            .serve_connection_path_recovery(&pair.server, &incoming)
+    );
+    served.unwrap();
+    incoming.close(0u32.into(), b"test ended");
+    original_send.write_all(b"after").await.unwrap();
+    let mut after = [0; 5];
+    original_recv.read_exact(&mut after).await.unwrap();
+    assert_eq!(&after, b"after");
+    client.close(0u32.into(), b"test ended");
+    server.close(0u32.into(), b"test ended");
+    pair.close().await;
+}
+
+#[tokio::test]
+async fn default_repair_api_omits_confirmation_field_on_actual_protected_wire() {
+    use miopunch_native_probe::connection_recovery::CONNECTION_RECOVERY_ALPN;
+    let mut pair = Pair::new(true).await;
+    let (client, server) = pair.business().await;
+    pair.server
+        .endpoint()
+        .set_alpns(vec![BUSINESS.to_vec(), CONNECTION_RECOVERY_ALPN.to_vec()]);
+    let inspect = async {
+        let control = pair
+            .server
+            .endpoint()
+            .accept()
+            .await
+            .unwrap()
+            .await
+            .unwrap();
+        assert!(
+            pair.admin
+                .admission_gate()
+                .allows_member_path_upgrade(&control)
+        );
+        let (mut send, mut recv) = control.accept_bi().await.unwrap();
+        let wire: serde_json::Value =
+            serde_json::from_slice(&recv.read_to_end(4096).await.unwrap()).unwrap();
+        assert_eq!(wire.as_object().unwrap().len(), 2);
+        assert!(wire.get("binding").is_some() && wire.get("offer").is_some());
+        assert!(wire.get("require_confirmation").is_none());
+        send.write_all(&serde_json::to_vec(&pair.server.addr()).unwrap())
+            .await
+            .unwrap();
+        send.finish().unwrap();
+        control.closed().await;
+    };
+    let (result, _) = tokio::join!(
+        pair.joining
+            .recover_connection_path(&pair.client, &client, tcp_target(&pair.server)),
+        inspect
+    );
+    let result = result.unwrap();
+    assert!(!result.peer_confirmed);
+    assert_eq!(result.stable_id, client.stable_id());
+    client.close(0u32.into(), b"test ended");
+    server.close(0u32.into(), b"test ended");
+    pair.close().await;
+}
+
+#[tokio::test]
+async fn protected_repair_confirms_each_ends_distinct_receiving_address_on_original_stream() {
+    use miopunch_native_probe::connection_recovery::CONNECTION_RECOVERY_ALPN;
+    let mut pair = Pair::new(true).await;
+    let (client, server) = pair.business().await;
+    pair.server
+        .endpoint()
+        .set_alpns(vec![BUSINESS.to_vec(), CONNECTION_RECOVERY_ALPN.to_vec()]);
+    let id = client.stable_id();
+    let (mut send, _) = client.open_bi().await.unwrap();
+    send.write_all(b"before").await.unwrap();
+    let (_, mut recv) = server.accept_bi().await.unwrap();
+    recv.read_exact(&mut [0; 6]).await.unwrap();
+    let requester_receive = pair.client.addr();
+    let responder_receive = pair.server.addr();
+    assert!(
+        requester_receive
+            .addrs
+            .iter()
+            .all(|address| !responder_receive.addrs.contains(address))
+    );
+    let serve = async {
+        let control = pair
+            .server
+            .endpoint()
+            .accept()
+            .await
+            .unwrap()
+            .await
+            .unwrap();
+        let result = pair
+            .admin
+            .serve_connection_path_recovery(&pair.server, &control)
+            .await;
+        control.close(0u32.into(), b"serving ended");
+        result
+    };
+    let (result, served) = tokio::join!(
+        pair.joining.recover_connection_path_confirmed_until(
+            &pair.client,
+            &client,
+            tcp_target(&pair.server),
+            n0_future::time::Instant::now() + Duration::from_secs(2)
+        ),
+        serve
+    );
+    assert!(
+        result.is_ok(),
+        "each endpoint validates its own remote receiving address, not the other endpoint's remote address: {result:?}"
+    );
+    let result = result.unwrap();
+    assert_eq!(result.stable_id, id);
+    assert!(result.peer_confirmed);
+    assert!(served.is_ok());
+    send.write_all(b"after").await.unwrap();
+    let mut bytes = [0; 5];
+    recv.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"after");
+    client.close(0u32.into(), b"test ended");
+    server.close(0u32.into(), b"test ended");
+    pair.close().await;
+}
+
+#[tokio::test]
+async fn repair_caller_deadline_does_not_wait_for_the_default_or_close_original_stream() {
+    use miopunch_native_probe::connection_recovery::{
+        CONNECTION_RECOVERY_ALPN, ConnectionPathRecoveryError,
+    };
+    let mut pair = Pair::new(false).await;
+    let (client, server) = pair.business().await;
+    pair.server
+        .endpoint()
+        .set_alpns(vec![BUSINESS.to_vec(), CONNECTION_RECOVERY_ALPN.to_vec()]);
+    let (mut send, mut recv) = client.open_bi().await.unwrap();
+    send.write_all(b"before").await.unwrap();
+    let (mut reply, mut incoming) = server.accept_bi().await.unwrap();
+    incoming.read_exact(&mut [0; 6]).await.unwrap();
+    let original_id = client.stable_id();
+    let start = std::time::Instant::now();
+    // No receiver accepts this new protected repair contact. Its wait must
+    // consume this caller's clock, independently of the already admitted M.
+    let result = pair
+        .joining
+        .recover_connection_path_until(
+            &pair.client,
+            &client,
+            tcp_target(&pair.server),
+            n0_future::time::Instant::now() + Duration::from_millis(120),
+        )
+        .await;
+    assert!(
+        matches!(result, Err(ConnectionPathRecoveryError::Retryable { stable_id, .. }) if stable_id == original_id)
+    );
+    assert!(start.elapsed() < Duration::from_millis(500));
+    assert!(client.close_reason().is_none());
+    send.write_all(b"after").await.unwrap();
+    let mut after = [0; 5];
+    incoming.read_exact(&mut after).await.unwrap();
+    assert_eq!(&after, b"after");
+    reply.write_all(b"same stream").await.unwrap();
+    let mut response = [0; 11];
+    recv.read_exact(&mut response).await.unwrap();
+    assert_eq!(&response, b"same stream");
+    client.close(0u32.into(), b"test finished");
+    server.close(0u32.into(), b"test finished");
+    pair.close().await;
+}
+
 struct Pair {
     _dir: tempfile::TempDir,
     admin: NativeNetwork,
@@ -128,7 +467,7 @@ impl Pair {
         let target = tcp_target(&self.server);
         connect(&mut self.client, &self.server, target, BUSINESS).await
     }
-    async fn close(mut self) {
+    async fn close(self) {
         self.client.close().await;
         self.server.close().await;
         self.joining.close().await;

@@ -8,6 +8,8 @@ use wasm_bindgen::prelude::*;
 #[path = "../../src/admission_proof.rs"]
 #[allow(dead_code)] // The browser uses the client qualification from this shared module.
 pub mod admission_proof;
+#[path = "../../src/connection_recovery_core.rs"]
+mod connection_recovery_core;
 mod irc;
 #[path = "../../src/irc_datagram.rs"]
 pub mod irc_datagram;

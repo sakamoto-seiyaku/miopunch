@@ -1079,6 +1079,40 @@ impl Connection {
                 && self.peer_supports_ack_frequency();
         }
 
+        // An older Available carrier can be blackholed while still retained.
+        // Let a validated backup return its pending ACK before that carrier
+        // drains all packet-number spaces' ACKs onto the broken route. Keep
+        // the ordinary frame scheduling/permission decision unchanged.
+        let ack_backup = self.spaces[SpaceId::Data]
+            .number_spaces
+            .iter()
+            .find_map(|(id, space)| {
+                (space.pending_acks.can_send()
+                    && !self.abandoned_paths.contains(id)
+                    && self.remote_cids.contains_key(id)
+                    && self.paths.get(id).is_some_and(|path| {
+                        path.data.validated && path.data.local_status() == PathStatus::Backup
+                    }))
+                .then_some(*id)
+            });
+        if !connection_close_pending && let Some(path_id) = ack_backup {
+            let info = self.scheduling_info(path_id);
+            if let Some(transmit) = self.poll_transmit_on_path(
+                now,
+                buf,
+                path_id,
+                max_datagrams,
+                &info,
+                connection_close_pending,
+            ) {
+                #[cfg(test)]
+                {
+                    self.partial_stats.transmits_tx += 1;
+                }
+                return Some(transmit);
+            }
+        }
+
         let mut next_path_id = self.paths.first_entry().map(|e| *e.key());
         while let Some(path_id) = next_path_id {
             if !connection_close_pending
@@ -1186,7 +1220,8 @@ impl Connection {
 
         // This is the core packet scheduling, whether this space ID may send
         // SpaceKind::Data frames.
-        let may_send_data = application_data_allowed && has_cids
+        let may_send_data = application_data_allowed
+            && has_cids
             && !is_abandoned
             && if is_handshaking {
                 // There is only one path during the handshake. We want to
@@ -1232,11 +1267,21 @@ impl Connection {
         // there is no other validated space to send it on, it can be sent on the path to be
         // abandoned itself if that was validated.
         let may_self_abandon = has_cids && validated && !have_validated_space;
+        let own_acks_only = has_cids
+            && !is_abandoned
+            && validated
+            && status == PathStatus::Backup
+            && !may_send_data;
 
         PathSchedulingInfo {
             is_abandoned,
             may_send_data,
-            validation_only: !application_data_allowed,
+            own_acks_only,
+            // A validated backup must be able to acknowledge its fresh probe
+            // even while an unavailable-but-not-yet-expired primary retains
+            // Available status. Sending ordinary data is still controlled by
+            // may_send_data; these packets carry only validation/ACK frames.
+            validation_only: !application_data_allowed || own_acks_only,
             may_send_close,
             may_self_abandon,
         }
@@ -1496,8 +1541,13 @@ impl Connection {
                 // A new datagram needs to be started.
                 transmit.segment_size()
             };
-            let can_send =
-                self.space_can_send(space_id, path_id, max_packet_size, connection_close_pending);
+            let can_send = self.space_can_send(
+                space_id,
+                path_id,
+                max_packet_size,
+                scheduling_info,
+                connection_close_pending,
+            );
             let needs_loss_probe = self.spaces[space_id].for_path(path_id).loss_probes > 0;
             let space_will_send = {
                 if scheduling_info.is_abandoned {
@@ -1513,8 +1563,10 @@ impl Connection {
                 } else if can_send.close && scheduling_info.may_send_close {
                     // This is the best path to send a CONNECTION_CLOSE on.
                     true
-                } else if needs_loss_probe || can_send.space_specific
-                    || (scheduling_info.validation_only && can_send.acks) {
+                } else if needs_loss_probe
+                    || can_send.space_specific
+                    || (scheduling_info.validation_only && can_send.acks)
+                {
                     // We always send a loss probe or space-specific frames if the path is
                     // not abandoned.
                     true
@@ -1785,7 +1837,13 @@ impl Connection {
                 && let Some(next_space_id) = space_id.next()
                 && max_packet_size > MIN_PACKET_SPACE
                 && self
-                    .space_can_send(space_id, path_id, max_packet_size, connection_close_pending)
+                    .space_can_send(
+                        space_id,
+                        path_id,
+                        max_packet_size,
+                        scheduling_info,
+                        connection_close_pending,
+                    )
                     .is_empty()
                 && self.has_pending_packet(next_space_id, max_packet_size, connection_close_pending)
             {
@@ -1929,11 +1987,13 @@ impl Connection {
         connection_close_pending: bool,
     ) -> bool {
         let mut space_id = current_space_id;
+        let scheduling_info = self.scheduling_info(PathId::ZERO);
         loop {
             let can_send = self.space_can_send(
                 space_id,
                 PathId::ZERO,
                 max_packet_size,
+                &scheduling_info,
                 connection_close_pending,
             );
             if !can_send.is_empty() {
@@ -2207,6 +2267,7 @@ impl Connection {
         space_id: SpaceId,
         path_id: PathId,
         packet_size: usize,
+        scheduling_info: &PathSchedulingInfo,
         connection_close_pending: bool,
     ) -> SendableFrames {
         let space = &mut self.spaces[space_id];
@@ -2222,6 +2283,11 @@ impl Connection {
         }
 
         let mut can_send = space.can_send(path_id, &self.streams);
+        // ACK-only paths must not steal another carrier's pending ACK. Use
+        // exactly the same ownership predicate as frame emission below.
+        can_send.acks = space.number_spaces.iter().any(|(ack_path, pn)| {
+            scheduling_info.allows_ack_for_path(path_id, *ack_path) && pn.pending_acks.can_send()
+        });
 
         // Check for 1RTT space.
         if space_id == SpaceId::Data {
@@ -2720,7 +2786,9 @@ impl Connection {
     }
 
     fn application_data_allowed(&self, path: FourTuple) -> bool {
-        self.application_data_permit.as_ref().is_none_or(|permit| permit(path))
+        self.application_data_permit
+            .as_ref()
+            .is_none_or(|permit| permit(path))
     }
 
     /// Queue an ACK-eliciting PING on every current path.
@@ -4380,10 +4448,22 @@ impl Connection {
                 if self.state.is_established()
                     && packet.header.space() == SpaceKind::Data
                     && !self.application_data_allowed(network_path)
-                    && frame::Iter::new(packet.payload.clone().freeze()).is_ok_and(|mut frames| frames.any(|frame| !matches!(frame,
-                        Ok(Frame::Padding | Frame::Ping | Frame::Ack(_) | Frame::PathAck(_)
-                            | Frame::PathChallenge(_) | Frame::PathResponse(_) | Frame::ObservedAddr(_)
-                            | Frame::ImmediateAck | Frame::Close(_)))))
+                    && frame::Iter::new(packet.payload.clone().freeze()).is_ok_and(|mut frames| {
+                        frames.any(|frame| {
+                            !matches!(
+                                frame,
+                                Ok(Frame::Padding
+                                    | Frame::Ping
+                                    | Frame::Ack(_)
+                                    | Frame::PathAck(_)
+                                    | Frame::PathChallenge(_)
+                                    | Frame::PathResponse(_)
+                                    | Frame::ObservedAddr(_)
+                                    | Frame::ImmediateAck
+                                    | Frame::Close(_))
+                            )
+                        })
+                    })
                 {
                     // Reject the entire packet before deduplication/ACK state.
                     // Otherwise acknowledging a discarded STREAM loses data.
@@ -6210,11 +6290,16 @@ impl Connection {
         }
 
         // ACK
-        if !scheduling_info.is_abandoned && (scheduling_info.may_send_data || scheduling_info.validation_only) {
+        if !scheduling_info.is_abandoned
+            && (scheduling_info.may_send_data || scheduling_info.validation_only)
+        {
             for path_id in space
                 .number_spaces
                 .iter_mut()
-                .filter(|(_, pns)| pns.pending_acks.can_send())
+                .filter(|(ack_path, pns)| {
+                    scheduling_info.allows_ack_for_path(path_id, **ack_path)
+                        && pns.pending_acks.can_send()
+                })
                 .map(|(&path_id, _)| path_id)
                 .collect::<Vec<_>>()
             {
@@ -7395,6 +7480,9 @@ enum PollPathSpaceStatus {
 /// [`Connection::populate_packet`].
 #[derive(Debug, Copy, Clone)]
 struct PathSchedulingInfo {
+    /// A validated ACK-only backup returns only its own packet-number-space ACKs.
+    /// Other paths preserve the existing cross-path acknowledgment behavior.
+    own_acks_only: bool,
     /// Ordinary frames are prohibited even if this is the only validated path.
     validation_only: bool,
     /// Whether the path is abandoned.
@@ -7428,6 +7516,11 @@ struct PathSchedulingInfo {
     /// [`Self::may_send_data`] other paths could be equally good.
     may_send_close: bool,
     may_self_abandon: bool,
+}
+impl PathSchedulingInfo {
+    fn allows_ack_for_path(&self, sending: PathId, acknowledged: PathId) -> bool {
+        !self.own_acks_only || sending == acknowledged
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

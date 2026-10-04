@@ -222,7 +222,8 @@ impl BrowserGate {
         if alpn == REQUEST_ALPN {
             return target == invitation.contact;
         }
-        if crate::member_path_protocol::MemberProtocol::from_wire(alpn).is_none()
+        if (crate::member_path_protocol::MemberProtocol::from_wire(alpn).is_none()
+            && alpn != crate::connection_recovery_core::CONNECTION_RECOVERY_ALPN)
             || saved.stage() != "Complete"
         {
             return false;
@@ -525,6 +526,11 @@ impl EndpointHooks for BrowserGate {
             }
             gate.proofs.push(proof);
             gate.connections.push(connection.weak_handle());
+            if connection.alpn() == crate::connection_recovery_core::CONNECTION_RECOVERY_ALPN {
+                // Current member proof authorizes only this protected repair
+                // exchange. It must not run ordinary member RTC release hooks.
+                return AfterHandshakeOutcome::AcceptRestricted;
+            }
             AfterHandshakeOutcome::AcceptData {
                 allowed_data_custom_ids: {
                     #[cfg(feature = "rtc-probe")]
