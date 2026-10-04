@@ -30,6 +30,7 @@ pub(super) struct Association {
     rx: Arc<DatagramQueue>,
     callbacks: Vec<Closure<dyn FnMut(Event)>>,
     pub(super) events: Rc<RefCell<Vec<Value>>>,
+    pub(super) ice_profile: crate::rtc_ice_profile::RtcIceProfile,
     progress: Rc<AtomicWaker>,
     receiver: Rc<RefCell<Option<Box<dyn Fn(Vec<u8>) -> Result<(), JsValue>>>>>,
     retired: Rc<RefCell<Option<Box<dyn Fn()>>>>,
@@ -42,19 +43,41 @@ fn event(events: &RefCell<Vec<Value>>, kind: &str, state: String) {
 }
 impl Association {
     fn new(connection: &Connection) -> Result<Self, JsValue> {
-        Self::with_profile(connection, false)
+        Self::with_profile(
+            connection,
+            false,
+            &crate::rtc_ice_profile::RtcIceProfile::default(),
+        )
     }
-    pub(super) fn datagram(connection: &Connection) -> Result<Self, JsValue> {
-        Self::with_profile(connection, true)
+    pub(super) fn datagram(
+        connection: &Connection,
+        profile: &crate::rtc_ice_profile::RtcIceProfile,
+    ) -> Result<Self, JsValue> {
+        Self::with_profile(connection, true, profile)
     }
-    fn with_profile(connection: &Connection, datagram: bool) -> Result<Self, JsValue> {
+    fn with_profile(
+        connection: &Connection,
+        datagram: bool,
+        profile: &crate::rtc_ice_profile::RtcIceProfile,
+    ) -> Result<Self, JsValue> {
+        profile.validate().map_err(error)?;
         let maximum = if datagram {
             crate::rtc_transport::MAX_DATAGRAM
         } else {
             DATAGRAM_BYTES
         };
         let config = RtcConfiguration::new();
-        config.set_ice_servers(&Array::new());
+        let observers = Array::new();
+        for url in &profile.stun_servers {
+            let server = js_sys::Object::new();
+            Reflect::set(
+                server.as_ref(),
+                &JsValue::from_str("urls"),
+                &JsValue::from_str(url),
+            )?;
+            observers.push(server.as_ref());
+        }
+        config.set_ice_servers(&observers);
         let pc = RtcPeerConnection::new_with_configuration(&config)?;
         let init = RtcDataChannelInit::new();
         init.set_ordered(false);
@@ -206,6 +229,7 @@ impl Association {
             rx,
             callbacks,
             events,
+            ice_profile: profile.clone(),
             progress,
             receiver,
             retired,

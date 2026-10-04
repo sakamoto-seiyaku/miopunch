@@ -773,6 +773,9 @@ struct Configuration {
     contact_routes: Vec<ContactRoute>,
     #[serde(default)]
     irc: Vec<IrcConfiguration>,
+    #[cfg(feature = "rtc-probe")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rtc_ice: Option<crate::rtc_ice_profile::RtcIceProfile>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 struct ContactRoute {
@@ -797,6 +800,8 @@ impl Default for Configuration {
             mqtt: Vec::new(),
             irc: Vec::new(),
             contact_routes: Vec::new(),
+            #[cfg(feature = "rtc-probe")]
+            rtc_ice: None,
         }
     }
 }
@@ -807,6 +812,8 @@ struct ConfigurationInput {
     mqtt: Option<Vec<crate::mqtt_datagram::MqttFacility>>,
     irc: Option<Vec<IrcConfiguration>>,
     contact_routes: Option<Vec<ContactRoute>>,
+    #[cfg(feature = "rtc-probe")]
+    rtc_ice: Option<crate::rtc_ice_profile::RtcIceProfile>,
 }
 
 fn origin(value: &str) -> Result<String, JsValue> {
@@ -985,6 +992,16 @@ impl BrowserNetwork {
         if let Some(routes) = input.contact_routes {
             configuration.contact_routes = routes;
         }
+        #[cfg(feature = "rtc-probe")]
+        if let Some(profile) = input.rtc_ice {
+            configuration.rtc_ice = Some(profile);
+        }
+        #[cfg(feature = "rtc-probe")]
+        let ice_profile = configuration.rtc_ice.clone().unwrap_or_default();
+        #[cfg(feature = "rtc-probe")]
+        ice_profile
+            .check_allowed(&configuration.disabled)
+            .map_err(error)?;
         if configuration.relays.len() > 16 || configuration.disabled.len() > 64 {
             return Err(error("too many relay resources"));
         }
@@ -1160,7 +1177,8 @@ impl BrowserNetwork {
             builder = builder.add_custom_transport(Arc::new(transport.clone()));
         }
         #[cfg(feature = "rtc-probe")]
-        let rtc_transport = crate::rtc_transport::RtcTransport::new();
+        let rtc_transport =
+            crate::rtc_transport::RtcTransport::with_ice_profile(ice_profile).map_err(error)?;
         #[cfg(feature = "rtc-probe")]
         {
             builder = builder.add_custom_transport(Arc::new(rtc_transport.clone()));

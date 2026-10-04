@@ -2,13 +2,21 @@
 """Create an owned test CA and import it into a private NSS database only."""
 import ctypes
 import ctypes.util
+import ipaddress
 from pathlib import Path
+import re
 import ssl
 import subprocess
 
 
-def certificates(directory: Path):
+def certificates(directory: Path, *, dns_names=('localhost',), ip_addresses=('127.0.0.1',)):
     """Ephemeral keys stay in the temporary fixture and are never evidence."""
+    if not dns_names or len(dns_names) + len(ip_addresses) > 16 or any(
+        not re.fullmatch(r'[A-Za-z0-9.-]{1,253}', name) for name in dns_names
+    ):
+        raise ValueError('invalid bounded owned certificate names')
+    addresses = [str(ipaddress.ip_address(address)) for address in ip_addresses]
+    names = ','.join([f'DNS:{name}' for name in dns_names] + [f'IP:{address}' for address in addresses])
     def openssl(*args):
         subprocess.run(['rtk', 'proxy', 'openssl', *args], check=True,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
@@ -23,15 +31,16 @@ def certificates(directory: Path):
             '-addext', 'basicConstraints=critical,CA:TRUE',
             '-addext', 'keyUsage=critical,keyCertSign,cRLSign',
             '-keyout', str(key), '-out', str(ca))
-    openssl('req', '-newkey', 'rsa:2048', '-nodes', '-subj', '/CN=localhost',
+    openssl('req', '-newkey', 'rsa:2048', '-nodes', '-subj', f'/CN={dns_names[0]}',
             '-keyout', str(leaf_key), '-out', str(request))
     extensions.write_text('basicConstraints=critical,CA:FALSE\n'
                           'keyUsage=critical,digitalSignature,keyEncipherment\n'
                           'extendedKeyUsage=serverAuth\n'
-                          'subjectAltName=DNS:localhost,IP:127.0.0.1\n')
+                          f'subjectAltName={names}\n')
     openssl('x509', '-req', '-in', str(request), '-CA', str(ca), '-CAkey', str(key),
             '-CAcreateserial', '-days', '1', '-extfile', str(extensions), '-out', str(leaf))
-    openssl('verify', '-CAfile', str(ca), '-verify_hostname', 'localhost', str(leaf))
+    for name in dns_names:
+        openssl('verify', '-CAfile', str(ca), '-verify_hostname', name, str(leaf))
     return ca, leaf, leaf_key
 
 

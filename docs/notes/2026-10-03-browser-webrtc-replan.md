@@ -185,6 +185,8 @@ flowchart LR
 - **关键失败：**UDP不可达时如实无direct，不能用TURN结果标direct；性能更差也如实记录，不为了结果改拥塞算法。
 - **证据/通过：**selectedCandidatePairId、local/remote candidate type/protocol/address、pair bytes、peer pcap、QUIC path/probe/业务结果；setup/首回复/RTT/goodput、CPU/RSS、队列峰值、relay与peer字节。一次场景120秒，至多三次有间隔重复，清理自有拓扑。通过只证明该环境；不编公网成功率或性能收益。
 
+2026-10-04 的隔离实现已取得五个独立 kernel namespace、每端一 NAT 的实际 RTC 成员 PONG/独立非空 replica、两端 nonrelay selected pair、六向包/STUN/conntrack 地址对应、真实 peer UDP DROP 失败，以及同关闭 seed 的 relay 成本对照。RTC 建立与极小36B保存在本轮较慢；来源、历史收集失败、时钟/CPU/RSS/字节层次、安全archive与审查修复见[第11步受控异网与有限成本证据](2026-10-04-browser-rtc-cross-network.md)。只证明本环境；主线与第10步语义合并后仍须取得新的10/9/11回执，不能借隔离或之前步骤的成功代替。
+
 ## 首步可运行入口与测试预算
 
 本轮已实际运行、现在可复现的协议观察入口为：

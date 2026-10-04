@@ -1,0 +1,24 @@
+{
+  "actualHandle": 53185,
+  "actualExit": 1,
+  "scope": "metadata-only header replay wholeobject equality; no runtime/source/archive mutation",
+  "failure": "AssertionError: direct",
+  "originalDriverSha256": "ae65777190d87cbc96a5f45719a90e8a1f3d83bcd344934d7da112075f478973",
+  "only12DifferencePaths": [
+    "/members/0/nativeSelectedPair/local/url",
+    "/members/0/nativeSelectedPair/remote/url",
+    "/members/1/nativeSelectedPair/local/url",
+    "/members/1/nativeSelectedPair/remote/url",
+    "/endpointWire/browser/sent/dataRelayTlsTcp/firstTimestamp",
+    "/endpointWire/browser/sent/dataRelayTlsTcp/lastTimestamp",
+    "/endpointWire/browser/received/dataRelayTlsTcp/firstTimestamp",
+    "/endpointWire/browser/received/dataRelayTlsTcp/lastTimestamp",
+    "/endpointWire/native/sent/dataRelayTlsTcp/firstTimestamp",
+    "/endpointWire/native/sent/dataRelayTlsTcp/lastTimestamp",
+    "/endpointWire/native/received/dataRelayTlsTcp/firstTimestamp",
+    "/endpointWire/native/received/dataRelayTlsTcp/lastTimestamp"
+  ],
+  "differenceKind": "recomputed None vs missing in original actual public_event-serialized receipt; all counters/windows/tuple/candidate values identical",
+  "correction": "apply same original receipt serializer before equality; archive transformer ordinary nulls remain byte-exact",
+  "originalFailureObservedToolChunk": "e012e3"
+}

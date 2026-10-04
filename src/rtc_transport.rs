@@ -41,6 +41,7 @@ fn check_address(address: &CustomAddr) -> io::Result<()> {
 }
 
 struct Registry {
+    ice_profile: crate::rtc_ice_profile::RtcIceProfile,
     routes: Mutex<BTreeMap<usize, Arc<Route>>>,
     addresses: Watchable<Vec<CustomAddr>>,
     retired: AtomicBool,
@@ -153,7 +154,14 @@ impl Default for RtcTransport {
 }
 impl RtcTransport {
     pub fn new() -> Self {
-        Self(Arc::new(Registry {
+        Self::with_ice_profile(crate::rtc_ice_profile::RtcIceProfile::default())
+            .expect("empty RTC ICE profile is valid")
+    }
+    /// Install one validated immutable profile before the endpoint or its M exist.
+    pub fn with_ice_profile(profile: crate::rtc_ice_profile::RtcIceProfile) -> io::Result<Self> {
+        profile.validate()?;
+        Ok(Self(Arc::new(Registry {
+            ice_profile: profile,
             routes: Mutex::new(BTreeMap::new()),
             addresses: Watchable::new(Vec::new()),
             retired: AtomicBool::new(false),
@@ -163,7 +171,10 @@ impl RtcTransport {
             active_pumps: AtomicUsize::new(0),
             #[cfg(feature = "rtc-probe")]
             control_fixture: Mutex::new(None),
-        }))
+        })))
+    }
+    pub fn ice_profile(&self) -> &crate::rtc_ice_profile::RtcIceProfile {
+        &self.0.ice_profile
     }
     /// Reserve exactly one association for this original M. `current` must
     /// compare live membership/secret/resource/attempt generations, not a

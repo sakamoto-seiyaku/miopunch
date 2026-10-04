@@ -5,7 +5,7 @@ import { createServer as httpsServer } from 'node:https';
 import { connect } from 'node:net';
 import { join } from 'node:path';
 import { createServer as tlsServer } from 'node:tls';
-export async function startMixedMqttProxy({fixture,broker,report,listen,ownedSockets,dropPublish}) {
+export async function startMixedMqttProxy({fixture,broker,report,listen,ownedSockets,dropPublish,hostname='localhost'}) {
  const [brokerHost,brokerPort]=broker.split(':');report.mqtt={proxy:[],tls:[]};
 function track(socket) {
   ownedSockets.add(socket);
@@ -116,5 +116,5 @@ function websocketReader(socket, receive) {
     });
     const wssPort = await listen(wss);
 
- return {logical_id:'owned-mqtt-mixed-retry',native_url:`mqtts://localhost:${nativePort}/`,wss_url:`wss://localhost:${wssPort}/mqtt/normal`};
+ return {logical_id:'owned-mqtt-mixed-retry',native_url:`mqtts://${hostname}:${nativePort}/`,wss_url:`wss://${hostname}:${wssPort}/mqtt/normal`};
 }

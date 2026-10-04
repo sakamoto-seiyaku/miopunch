@@ -120,6 +120,9 @@ mod precode_policy;
 #[path = "../../src/rtc_association.rs"]
 mod rtc_association;
 #[cfg(feature = "rtc-probe")]
+#[path = "../../src/rtc_ice_profile.rs"]
+mod rtc_ice_profile;
+#[cfg(feature = "rtc-probe")]
 #[path = "../../src/rtc_invalidation_fixture.rs"]
 mod rtc_invalidation_fixture;
 #[cfg(feature = "rtc-probe")]

@@ -45,6 +45,11 @@ def source_snapshot():
     paths.update({"src/manual_admission.rs", "src/precode.rs", "src/admission_request_id.rs", "src/precode_policy.rs",
                   "browser-probe/src/admission.rs", "browser-probe/harness/run-wss-admission-materials.mjs",
                   "tests/manual_admission.rs", "tests/precode.rs", "tests/admission_completion.rs"})
+    paths.update({"src/lib.rs", "src/rtc_ice_profile.rs", "tests/rtc_ice_profile.rs", "scripts/stun_udp_observer.py", "scripts/test_stun_udp_observer.py",
+                  "scripts/check_browser_rtc_cross_network.py", "scripts/rtc_cross_network_capture.py", "scripts/rtc_cross_network_configure.py",
+                  "scripts/rtc_cross_network_cost.py", "scripts/rtc_cross_network_evidence.py", "scripts/rtc_cross_network_process.py", "scripts/rtc_cross_network_topology.py",
+                  "scripts/nat_connection_process.py", "scripts/test_rtc_cross_network_evidence.py", "browser-probe/harness/run-rtc-cross-network.mjs",
+                  "browser-probe/harness/cross-network-preflight.mjs", "browser-probe/harness/owned-cross-network-services.mjs"})
     return {path: sha256(ROOT / path) for path in sorted(paths) if (ROOT / path).is_file()}
 
 

@@ -74,11 +74,34 @@ pub(crate) async fn peer(
     gathered: mpsc::Sender<()>,
     events: Arc<Mutex<Vec<Value>>>,
 ) -> Result<Arc<dyn PeerConnection>> {
+    peer_with_profile(
+        gathered,
+        events,
+        &crate::rtc_ice_profile::RtcIceProfile::default(),
+    )
+    .await
+}
+
+pub(crate) async fn peer_with_profile(
+    gathered: mpsc::Sender<()>,
+    events: Arc<Mutex<Vec<Value>>>,
+    profile: &crate::rtc_ice_profile::RtcIceProfile,
+) -> Result<Arc<dyn PeerConnection>> {
+    profile.validate()?;
+    let observers = profile
+        .stun_servers
+        .iter()
+        .map(|url| webrtc::peer_connection::RTCIceServer {
+            urls: vec![url.clone()],
+            username: String::new(),
+            credential: String::new(),
+        })
+        .collect();
     Ok(Arc::new(
         PeerConnectionBuilder::new()
             .with_configuration(
                 RTCConfigurationBuilder::default()
-                    .with_ice_servers(vec![])
+                    .with_ice_servers(observers)
                     .build(),
             )
             .with_setting_engine(

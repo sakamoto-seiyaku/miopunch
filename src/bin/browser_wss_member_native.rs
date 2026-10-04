@@ -34,26 +34,51 @@ fn connection_paths(connection: &iroh::endpoint::Connection) -> Vec<serde_json::
     }).collect()
 }
 
+struct FixtureOptions<'a> {
+    admission: bool,
+    legacy_only: bool,
+    permitted_relay: Option<&'a str>,
+    ice_profile: Option<&'a str>,
+}
+
+fn fixture_options(args: &[String]) -> Result<FixtureOptions<'_>, &'static str> {
+    const USAGE: &str = "usage: browser_wss_member_native DATA_DIR FACILITY_JSON TEST_CA_PEM [admission | legacy-no-rtc | legacy-relay RELAY_URL | rtc-relay RELAY_URL] [--ice-profile FILE]";
+    let tail = args.get(4..).ok_or(USAGE)?;
+    let (mode, ice_profile) = if tail.len() >= 2 && tail[tail.len() - 2] == "--ice-profile" {
+        (&tail[..tail.len() - 2], Some(tail[tail.len() - 1].as_str()))
+    } else {
+        (tail, None)
+    };
+    let (admission, legacy_only, permitted_relay) = match mode {
+        [] => (false, false, None),
+        [mode] if mode == "admission" => (true, false, None),
+        [mode] if mode == "legacy-no-rtc" => (false, true, None),
+        [mode, relay] if mode == "legacy-relay" => (false, true, Some(relay.as_str())),
+        [mode, relay] if mode == "rtc-relay" => (false, false, Some(relay.as_str())),
+        _ => return Err(USAGE),
+    };
+    Ok(FixtureOptions {
+        admission,
+        legacy_only,
+        permitted_relay,
+        ice_profile,
+    })
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<_> = std::env::args().collect();
-    if !matches!(args.len(), 4 | 5 | 6)
-        || args.get(4).is_some_and(|mode| match mode.as_str() {
-            "legacy-no-rtc" => args.len() != 5,
-            "legacy-relay" => args.len() != 6,
-            "rtc-relay" => args.len() != 6,
-            "admission" => args.len() != 5,
-            _ => true,
-        })
-    {
-        return Err(
-            "usage: browser_wss_member_native DATA_DIR FACILITY_JSON TEST_CA_PEM [legacy-no-rtc | legacy-relay RELAY_URL]"
-                .into(),
-        );
-    }
-    let admission_mode = args.get(4).is_some_and(|mode| mode == "admission");
-    let legacy_only = args.get(4).is_some_and(|mode| mode.starts_with("legacy-"));
-    let permitted_relay = args.get(5);
+    let options = fixture_options(&args)?;
+    let admission_mode = options.admission;
+    let legacy_only = options.legacy_only;
+    let permitted_relay = options.permitted_relay;
+    let ice_profile: miopunch_native_probe::rtc_ice_profile::RtcIceProfile =
+        if let Some(path) = options.ice_profile {
+            serde_json::from_slice(&std::fs::read(path)?)?
+        } else {
+            Default::default()
+        };
+    ice_profile.validate()?;
     // Preparation must have persisted the original identity and membership.
     let node = if admission_mode && !std::path::Path::new(&args[1]).exists() {
         NativeNetwork::create(&args[1]).await?
@@ -62,6 +87,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
     let facility: MqttFacility = serde_json::from_slice(&std::fs::read(&args[2])?)?;
     let mut resources = node.resource_configuration()?;
+    ice_profile.check_allowed(
+        &resources
+            .disabled
+            .iter()
+            .filter(|(_, usage)| *usage == ResourceUse::Observation)
+            .map(|(url, _)| url.clone())
+            .collect::<Vec<_>>(),
+    )?;
     let mut replacement = vec![Resource {
         url: facility.native_url.clone(),
         uses: [ResourceUse::Signaling].into(),
@@ -69,9 +102,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }];
     if let Some(relay) = permitted_relay {
         replacement.push(Resource {
-            url: relay.clone(),
+            url: relay.to_owned(),
             uses: [ResourceUse::DataRelay].into(),
             limitation: "owned explicitly permitted legacy relay compatibility".into(),
+        });
+    }
+    let observation_resources = ice_profile.observation_resources()?;
+    for observer in &observation_resources {
+        replacement.push(Resource {
+            url: observer.clone(),
+            uses: [ResourceUse::Observation].into(),
+            limitation: "explicit owned RTC observation fixture; no data relay".into(),
         });
     }
     resources.import_trusted_replacement(replacement)?;
@@ -81,8 +122,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
     resources.tcp_direct_disabled = true;
     resources.member_data_relay_disabled = true;
     resources.disabled_uses.insert(ResourceUse::Observation);
+    if !ice_profile.stun_servers.is_empty() {
+        resources.disabled_uses.remove(&ResourceUse::Observation);
+    }
+    if observation_resources
+        .iter()
+        .any(|url| !resources.allows(url, ResourceUse::Observation))
+    {
+        return Err("explicit RTC observer is not permitted by saved resources".into());
+    }
     if permitted_relay.is_none() {
         resources.disabled_uses.insert(ResourceUse::DataRelay);
+    } else {
+        // This fixture's explicit allowed-relay case can reopen material saved
+        // by its no-relay preparation; URL-specific disables remain enforced.
+        resources.disabled_uses.remove(&ResourceUse::DataRelay);
     }
     node.save_resource_configuration(&resources)?;
     let mut alpns = Vec::new();
@@ -117,7 +171,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if admission_mode {
         alpns.push(ADMISSION_REQUEST_ALPN.to_vec());
     }
-    let rtc_transport = miopunch_native_probe::rtc_transport::RtcTransport::new();
+    let rtc_transport =
+        miopunch_native_probe::rtc_transport::RtcTransport::with_ice_profile(ice_profile)?;
     let assembly = if legacy_only {
         node.bind_configured_endpoint_with(builder).await?
     } else {
@@ -395,4 +450,64 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .close()
         .await;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fixture_options;
+
+    fn arguments(tail: &[&str]) -> Vec<String> {
+        ["fixture", "data", "facility", "ca"]
+            .into_iter()
+            .chain(tail.iter().copied())
+            .map(str::to_owned)
+            .collect()
+    }
+
+    #[test]
+    fn admission_and_legacy_forms_keep_profile_separate_from_relay() {
+        for (mode, admission, legacy, relay) in [
+            (vec![], false, false, None),
+            (vec!["admission"], true, false, None),
+            (vec!["legacy-no-rtc"], false, true, None),
+            (
+                vec!["legacy-relay", "https://relay.test/"],
+                false,
+                true,
+                Some("https://relay.test/"),
+            ),
+            (
+                vec!["rtc-relay", "https://relay.test/"],
+                false,
+                false,
+                Some("https://relay.test/"),
+            ),
+        ] {
+            for profile in [false, true] {
+                let mut tail = mode.clone();
+                if profile {
+                    tail.extend(["--ice-profile", "owned-profile.json"]);
+                }
+                let args = arguments(&tail);
+                let parsed = fixture_options(&args).unwrap();
+                assert_eq!(parsed.admission, admission);
+                assert_eq!(parsed.legacy_only, legacy);
+                assert_eq!(parsed.permitted_relay, relay);
+                assert_eq!(parsed.ice_profile, profile.then_some("owned-profile.json"));
+            }
+        }
+    }
+
+    #[test]
+    fn ambiguous_or_incomplete_profile_forms_are_rejected() {
+        for tail in [
+            vec!["--ice-profile"],
+            vec!["admission", "--ice-profile"],
+            vec!["--ice-profile", "one.json", "--ice-profile", "two.json"],
+            vec!["--ice-profile", "owned-profile.json", "admission"],
+            vec!["admission", "unrequested-relay"],
+        ] {
+            assert!(fixture_options(&arguments(&tail)).is_err(), "{tail:?}");
+        }
+    }
 }

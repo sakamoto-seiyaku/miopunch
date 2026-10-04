@@ -1,0 +1,3075 @@
+{
+  "passed": true,
+  "scope": "metadata-only SHA/redaction and retained real pcap-header replay; no network/protocol/runtime executed",
+  "receiptSerialization": "same original public_event serializer omits None; archive transformer preserves every ordinary null that exists in original files",
+  "archiveCount": 582,
+  "archives": [
+    {
+      "archive": "raw/final-controlled/blocked/001-image.log.gz",
+      "gzipSha256": "dc4b5a28eabcdef93be1e3c31b6d2ad2f402ae8d8e2363d93db943805535c39f",
+      "storedRawSha256": "8dc9f7015309f4d243549c4e99bab29f488cf0929ad596d82e2cebda4a8cc426"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/002-network-ids.log.gz",
+      "gzipSha256": "ad2ce8c8c4aeb9801e455279f56ef09ffa2b33eeba3f7d687ff15672c921d1cb",
+      "storedRawSha256": "ce4ea160cfe124e4f5e87b2e5099c9d30f30d91d1ecb1f63b20540d8fb7fe44e"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/003-network-subnets.log.gz",
+      "gzipSha256": "eb6463fbe980208ae71761dd724252642e48edba8cbe3225ec180944a3795f5c",
+      "storedRawSha256": "345d3132511ff978c3ac1e72816923f43c040e0304924f393cb6c6a99df7eb53"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/004-create-lan-a.log.gz",
+      "gzipSha256": "c01f83c81d75908b8a7bfbe2002c2464422cf0540876a53c5ce5410ba046969b",
+      "storedRawSha256": "ad2b1d0ee9e53591fbbc0caf8420cc3c35106926b8b51145c251c500f7884aa7"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/005-create-lan-b.log.gz",
+      "gzipSha256": "cebd971a38a49259c148e09a6d1b7444c19d19d993d72626308ef146ae770f8a",
+      "storedRawSha256": "1352107b9a051fb64a400a0d5eb5fb9c404edfba6bed778b60d29e709d53e353"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/006-create-wan-a.log.gz",
+      "gzipSha256": "defb20f8af39c3ef338814a292fad1e5aa081b12c8adaa0436634e5ef060ff0e",
+      "storedRawSha256": "3881c319829dfd546712ab16537aa0e74c70252ae118be05892db78aa45d5ec0"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/007-create-wan-b.log.gz",
+      "gzipSha256": "79d0a2076f9be37e4e67ac771899c35a6013835a108e3345e8c956adc2ac316b",
+      "storedRawSha256": "5e3cc126c4497ce14f49ea3dca73d2a0d3fdc66d3ea081cb99628af53dce7b59"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/008-start-browser.log.gz",
+      "gzipSha256": "63f656a8951e74bd5bdfeed69b6e483adb4a70dc64fa8899fc4e749b8bfe1a4e",
+      "storedRawSha256": "94ed8a46d5800c3b2b131e3e4b0045ac8dc6a13bab66fd0f91d1f2083d1c8dba"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/009-configure-browser.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/010-start-native.log.gz",
+      "gzipSha256": "d96e3be8e34702905224edf39329f39838dfe64163207a8389690169f771acf1",
+      "storedRawSha256": "f7efa278fb6bbf8af2026f8d01bfe865ae7d70c9313f4a355eba02b7392168b1"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/011-configure-native.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/012-start-nat-a.log.gz",
+      "gzipSha256": "2756717af3864cfbcf1247064c1992d50d023fbb123bef5be45ba614ded5c713",
+      "storedRawSha256": "08a1880e1af028c9c4a8003e6d9b08b86536adb334f77dc8b0bcfa1a03c28e6a"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/013-attach-nat-a-wan-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/014-configure-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/015-start-nat-b.log.gz",
+      "gzipSha256": "6da4f1b0f515c2f47662125a994bcfadfcb45b19d2bbf732b8f3b214204564fc",
+      "storedRawSha256": "032bdaf6ba0fbff92854be99d7fc5c32c012b116d7481d0d1109516ccaff981d"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/016-attach-nat-b-wan-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/017-configure-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/018-start-router.log.gz",
+      "gzipSha256": "04ec33d214ea8e2d2ceecff390fe71c605f57f9fef35add62e3e1de33cd299c8",
+      "storedRawSha256": "b4a79de853749e6c7eeb1354cecd6a1438a7e6b7694fd036fe69ca87c5fe67e4"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/019-attach-router-wan-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/020-configure-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/021-snapshot-browser.log.gz",
+      "gzipSha256": "443b81f69132afc5c7d2ef08562fe795f6e49d97f87b2d63bcc9ec4d866847b5",
+      "storedRawSha256": "d3094b0a9c0b989e881331c5d810eeec6b45b9b90f9ac0ae27443329f6d03de7"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/022-snapshot-native.log.gz",
+      "gzipSha256": "e93c72ed387fd83acc0cd0b0f1738a4bcf0943a113ad1f68e3ceef20308690b3",
+      "storedRawSha256": "f32dfa2cbd941927ab4f9e225669558a080b1363fa26acdba2e53e3c4c7cc9c6"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/023-snapshot-nat-a.log.gz",
+      "gzipSha256": "25fe977b0e1381d1178adb937aa093c7b6c61ad67fe6e8ba804492db35a357c9",
+      "storedRawSha256": "5ea64e8c2aedf73bd5c972bca73fde22299e4dfdb8a66c5d9349b39c22d19603"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/024-snapshot-nat-b.log.gz",
+      "gzipSha256": "a49ed1526b10ea62093ebacd8d8edb581acf773fad2dc6647cf30cdab2431b35",
+      "storedRawSha256": "f7c303a318f8f733fcf402e48bf1cc3a92d7575961ab4e1cd79ebc1475e15e0f"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/025-snapshot-router.log.gz",
+      "gzipSha256": "e7bf74448378d5dda344b869e9e01b6a5a05dbb861e68f667903fac56c5e0372",
+      "storedRawSha256": "af93f626c9b6a3fbb6cbbda158aef7a96cc5b9b0842e28506739a42b2f6ab1b2"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/026-capture-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/027-capture-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/028-capture-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/029-namespace-after-member-nat-a.log.gz",
+      "gzipSha256": "019c6d2b1607ac588cffb9e46230f0a4b09ecc8ccad9e69d774eb413c1c3c9b2",
+      "storedRawSha256": "9f446d041461f31f07f4744cca622c531d256df76ee0700a89349350f6c7748f"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/030-namespace-after-member-nat-b.log.gz",
+      "gzipSha256": "aef6933df83f75f04b37f6da8b1447ee98a4609d776468a496fbd3be8aae54f0",
+      "storedRawSha256": "b52fea17adbe7700be1dd4c27dbe2029e2a22965c07f7f6dd176d6ddee83feb7"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/031-namespace-after-member-router.log.gz",
+      "gzipSha256": "0cb945be9ac34b42a62e4f78f45671448ca4f9395c076e32befa6a8cde13befd",
+      "storedRawSha256": "d070c80b0573c5d6a50fdace7625001dc74f36b3dded4ff7d3ea001a0dc12336"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/032-owned-stun-stop.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/033-owned-broker-stop.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/034-stop-capture-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/035-stop-capture-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/036-stop-capture-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/037-remove-containers.log.gz",
+      "gzipSha256": "b9d9b86ca8ff77405f9b88b317f87893574d7bb917ff0c2ccf01597cb76e5ba7",
+      "storedRawSha256": "752e52610b5d16a5aff251592208e89be6c8d0f7a19b4f7558b2e366273b0b95"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/038-remove-networks.log.gz",
+      "gzipSha256": "1e328ee6b06dce594f4d0da2943923dc4aabdf588ab8c719ad724ee4c069d6b1",
+      "storedRawSha256": "c44f4080003cd2214d45c61fca5d323490833867c05d8dad3e9c8cbadbc060a0"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/039-containers-absent.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/040-networks-absent.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/broker-events.jsonl.gz",
+      "gzipSha256": "a80b3307fe3afffa74ce69dc97c17241fadfe70000a78c899eadbcbf17973a33",
+      "storedRawSha256": "26beae2e818d6f511c0f8cfaa8f93926c7db3633327966de3bee66edab44edf1"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/broker-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/browser-driver-events.jsonl.gz",
+      "gzipSha256": "8e2a90437525739e457c92a751f6ccfe1ea5b8a220101192c31f0920caa2a44d",
+      "storedRawSha256": "b18123bb96e294d43d21851fb2576998416b4eb9be98367bfce1b4eb8fd57d2c"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/capture-nat-a-lan-a.log.gz",
+      "gzipSha256": "56f50e76096dd706f70acdec4bf516bf97818e2658d18505bacff1a961b3e0a1",
+      "storedRawSha256": "d2b83bcad76ff80efa09054ea26c82c93e19e8c3bb2577969c5a4f865d7fe728"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/capture-nat-a-wan-a.log.gz",
+      "gzipSha256": "9454d7b30c544807ddbd9bbe9301ff079dc45cb28a4e37df46784aa3499bac64",
+      "storedRawSha256": "0831a249d179ce613fa5184e59826607dc5eee784cbbb26e98ad332efb811e37"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/capture-nat-b-lan-b.log.gz",
+      "gzipSha256": "7c5d3a36c3d61f47af4618ad5fbb285d7e959e74c551490db063b291a13f33be",
+      "storedRawSha256": "be9e1ce5c49c80462f9e8a67947e897a8ab6a9314ba0e15d452e42634ac586a4"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/capture-nat-b-wan-b.log.gz",
+      "gzipSha256": "b755c66fb6e47089a221c2f6c2ee3d5f856aad1e0d9c8aaa90859ff6c8133b73",
+      "storedRawSha256": "f382cca77f1d09a343674f0d520ffdb0f399c7132b3c729c52a16dea358bbee0"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/capture-router-wan-a.log.gz",
+      "gzipSha256": "178a00f221fe08c26b3dd67934ff83bf5cd67506d85fba7c70213b76581314ca",
+      "storedRawSha256": "6eff7b7e68dd9db1120c1cb93d16bad9fa95453aff6b6e95df87d18ccbab9475"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/capture-router-wan-b.log.gz",
+      "gzipSha256": "7008b8f6c49a831bc154e55cc0c16b636ca9746685cd03e69e5eb612ca251fe4",
+      "storedRawSha256": "89f8b7a6d3612e9e8e4b040d6b66b6afec529ea657579b61ec57ae624c96e7d2"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/cost-broker.json.gz",
+      "gzipSha256": "c3ea3a78b6e7311a6310ebfe8a733b56b678fbf4c348ca6e31bbefaf603ca9d8",
+      "storedRawSha256": "38ae30e11616c2f43ad4cf4932b691183b07ead10c9e7676a5d68e5b94bb0591"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/cost-browser-driver.json.gz",
+      "gzipSha256": "969905e2a8fee4bf482d9e8a7bdd4458d1f5f8445c9f56882ee8d17982b30adc",
+      "storedRawSha256": "54c182f1397e0c097dea741aa09dc1896b21635a93d9576f7121b554b9fa8a77"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/cost-mqtt-services.json.gz",
+      "gzipSha256": "0ac8e0e96eb00b0dead67c996afd522e76054761e2dfe0e4d98ae7b0fb5bfef0",
+      "storedRawSha256": "7d5f006e194eff32003c86c704dd3cd68e5392878238970ac8e02c0305b1f659"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/cost-stun.json.gz",
+      "gzipSha256": "8def8e4aaa71a680212234622ff8238a089ebfb1fb32b7581d00d38eed53c3f6",
+      "storedRawSha256": "7c9561136c86f200946a566b790eb9392aa8f8f447996225fccf6202deb71fd1"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/mqtt-service.json.gz",
+      "gzipSha256": "fa6ac003fb0d81b320db551a3a2882320f4632fa347911b8d286f7a12e2a41bd",
+      "storedRawSha256": "ee584ae18fa082985e1102a69168091ee243d3857005a5b3bcfa324f65ace2c6"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/mqtt-services-events.jsonl.gz",
+      "gzipSha256": "50e4c3307eaecd543251b7d3c1157bd8ed1818232f4193237584c172694c1a35",
+      "storedRawSha256": "9b83764efec1a36bacb682d0e88af6885c5075bb359ef066a137be372cd0cc90"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/mqtt-services-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/namespace-after-member.json.gz",
+      "gzipSha256": "b029877c761df020400e2aa29a5dc1230188b4373176255996524350473deb58",
+      "storedRawSha256": "e40096c6908fbfccb04ee0bf1f4e2d8f72e844e8a8c720efa1b622a2fa39131b"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/namespace-before.json.gz",
+      "gzipSha256": "1879dd40a66ef92727e11b7fa0553ddbe4879300fcedb1e89269ec9d73b6ec96",
+      "storedRawSha256": "829afd57a6d0985c766d8f6cae99e0d7338fc8bdc2294b709579ae76392d8e77"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/nat-a-lan-a.pcap.gz",
+      "gzipSha256": "171b84663af5e615893228fb7ef9a8065761beae6f719987061a191e63f89631",
+      "storedRawSha256": "eb62c51fdee0c55ab36dfcd7796a5d0b52d3a2e7f0db0860b8ecd3d15e923b6f"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/nat-a-wan-a.pcap.gz",
+      "gzipSha256": "f9cf2990eaeb3df26f749b5162e1498db282abec82248a68f938a0faee90d0e0",
+      "storedRawSha256": "66bb8abc2f4db18527240824d2ab9798882c087b77fcfd8b39c0c086e73e7669"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/nat-b-lan-b.pcap.gz",
+      "gzipSha256": "a8571b363f9ba6097654fbf08be3fd163a3e0332fab682df60014236fcb5c566",
+      "storedRawSha256": "a4a95cd6cca5968a52b631e9bdfae8abc073edbb3d730db74efdc895861f868f"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/nat-b-wan-b.pcap.gz",
+      "gzipSha256": "57c5b108631c6ddf6e84b68f48ee4c62802c4b319a4022dc3030e5e2b654e349",
+      "storedRawSha256": "688a3b26eb4ed74ab64537c88d8e6d82b34d55caa0329f4d529aba1ea8b6d0eb"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/native-1-events.jsonl.gz",
+      "gzipSha256": "aa3552222841f9b31845501a6a314f670fa7bfb3f66a83c04b742aa54380d020",
+      "storedRawSha256": "c9d9808c75cbd1fc479a6aa0e43df2e3dbe7e93d1558dc4dbe0fb5e420ed6311"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/native-1-stderr.log.gz",
+      "gzipSha256": "3e6c8dc4637b6028992580c4d8895b308a8c7d8c82da2113d396e5d0a88c5c95",
+      "storedRawSha256": "cfb444f309ed97fe9caf46c4b448267ecc6e723bbbf271d6e5add787750c05a8"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/native-accounting-1.json.gz",
+      "gzipSha256": "d69f3906bf6ee24086785db88daa95252bc91b1cba61ba4236c65015e2a28de6",
+      "storedRawSha256": "b8c5624f9860c7e1c0ed3dfd2e26fcad21be4b5d69aa4781e8fa351a345e7839"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/results.json.gz",
+      "gzipSha256": "266bca3e964928ed1e099cdbeb27de5f3b1e822d7808233700b7c298ac357921",
+      "storedRawSha256": "3e55d3e47471d5ac168c775d4cf96fbfc65964c896a0065528d5b75b9199fcbd"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/router-wan-a.pcap.gz",
+      "gzipSha256": "409e78e2ddbbd5be251a87502bd1293e4e225bddc1e1ada8b93b92aa842ca217",
+      "storedRawSha256": "c94b1b4b06e20c2f782c6358d4831946033f2dd3c118f203a8fe61dc9b5136c2"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/router-wan-b.pcap.gz",
+      "gzipSha256": "bdcbef5484bb06eafafab5d302167fff63aa60feb74ac3739944132ff2943bbd",
+      "storedRawSha256": "64e82aa16c6b2581fd8c7f930c0dd33944c05883798df6d192972f14b9c6c3ac"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/rtc-cross-network.json.gz",
+      "gzipSha256": "f3f071459f09602aa177553f6f53e62812cd8f8a46adf723fd8a646750e3c41d",
+      "storedRawSha256": "1d6396745dbdbe81843ba21894083e334e62d0c97b4f469faf89f9db6fa49a4d"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/stun-events.jsonl.gz",
+      "gzipSha256": "c2f3e458f7521e5e6b6498d31377e5724bcfccecd313af545859a4fbc10c95de",
+      "storedRawSha256": "a53bd0568e565a506bcfdd6dcbcb25e9c0275c65e3ed18e81c35ff60d1f6c469"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/stun-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/topology-commands.json.gz",
+      "gzipSha256": "c43fcdd79ef178b0950e74987ddef35bef344e00dd7bd96682043ebd77222887",
+      "storedRawSha256": "177b32bdda8ca40454832513e7a102c66095f23b0dff3a994117064fac011876"
+    },
+    {
+      "archive": "raw/final-controlled/blocked/topology.json.gz",
+      "gzipSha256": "6e5fc593570adb1d2202efe1970d0aa85e2a66de6912a7d58230a44d45988dac",
+      "storedRawSha256": "b030140fc2091dfe4a77abc9dbbf8f803e194077de687d79438f2a0e2e4945b5"
+    },
+    {
+      "archive": "raw/final-controlled/direct/001-image.log.gz",
+      "gzipSha256": "dc4b5a28eabcdef93be1e3c31b6d2ad2f402ae8d8e2363d93db943805535c39f",
+      "storedRawSha256": "8dc9f7015309f4d243549c4e99bab29f488cf0929ad596d82e2cebda4a8cc426"
+    },
+    {
+      "archive": "raw/final-controlled/direct/002-network-ids.log.gz",
+      "gzipSha256": "ad2ce8c8c4aeb9801e455279f56ef09ffa2b33eeba3f7d687ff15672c921d1cb",
+      "storedRawSha256": "ce4ea160cfe124e4f5e87b2e5099c9d30f30d91d1ecb1f63b20540d8fb7fe44e"
+    },
+    {
+      "archive": "raw/final-controlled/direct/003-network-subnets.log.gz",
+      "gzipSha256": "eb6463fbe980208ae71761dd724252642e48edba8cbe3225ec180944a3795f5c",
+      "storedRawSha256": "345d3132511ff978c3ac1e72816923f43c040e0304924f393cb6c6a99df7eb53"
+    },
+    {
+      "archive": "raw/final-controlled/direct/004-create-lan-a.log.gz",
+      "gzipSha256": "3c216cf10f897975f291c73fdb9b51c6c4845fa346d608f2f094653f9c0966a5",
+      "storedRawSha256": "8ccda47ac891430465eb48b4abc31316cbe226eadd711b6fd813a99e09c5c420"
+    },
+    {
+      "archive": "raw/final-controlled/direct/005-create-lan-b.log.gz",
+      "gzipSha256": "4712cb4519ea70ea0a6a079d7b2dd69f84780249c0900be3c1b0842cc362cf23",
+      "storedRawSha256": "cf0930a6da6cac73ab626d03ef0f3f97d67623051b4719d312f9f8dd1dac4097"
+    },
+    {
+      "archive": "raw/final-controlled/direct/006-create-wan-a.log.gz",
+      "gzipSha256": "c539fda46bc35a23010764da70f62f6137cf51eea99501a0b1f5dc8bec15ab25",
+      "storedRawSha256": "6dead23c6f909b7c76bcdf0d9e6cd598da8b5629bb6af2c335745851976b052d"
+    },
+    {
+      "archive": "raw/final-controlled/direct/007-create-wan-b.log.gz",
+      "gzipSha256": "e3e2c8e23233323232abd7bc71139879adadb383377d92dc3dd2083242d3bd91",
+      "storedRawSha256": "bcef9e28dcdfcc7a03269c49a24fc20d10b49e07244accbaa6c17a5d35bed740"
+    },
+    {
+      "archive": "raw/final-controlled/direct/008-start-browser.log.gz",
+      "gzipSha256": "8d2958151aad2137af00a7d65ba80e49c9cd77e9cc44e4710c8dbc3088932098",
+      "storedRawSha256": "79c7c7dd36f7f7b0028355555a93a49c7e6085262ec71bf3b189d8fe50cb5546"
+    },
+    {
+      "archive": "raw/final-controlled/direct/009-configure-browser.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/010-start-native.log.gz",
+      "gzipSha256": "d9a1bff9fc4dba08f4242acb261d4cd11032d2d0c318ac64b9fae4f7a1c865a7",
+      "storedRawSha256": "a273ca2820ee060a2d681c8ef999810e4741fd0446ad00959fc45814f6eee0ba"
+    },
+    {
+      "archive": "raw/final-controlled/direct/011-configure-native.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/012-start-nat-a.log.gz",
+      "gzipSha256": "e5cd12c74690010a863d1393fbfc75cbbfaf717d68e13ee1d577a3c791a83e5c",
+      "storedRawSha256": "70021a2256d9eda16ef18ea2f1bb15f9db1bfdcac592f075adc0e5c8019f1f94"
+    },
+    {
+      "archive": "raw/final-controlled/direct/013-attach-nat-a-wan-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/014-configure-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/015-start-nat-b.log.gz",
+      "gzipSha256": "f0068ee530262f83f039a365f7eb52cd692e37b564982e69f2ad1b1a4469b53b",
+      "storedRawSha256": "19100e47f8703b05ff6011d402674cd7094fb8e4e9c4eda660803467cd16cd04"
+    },
+    {
+      "archive": "raw/final-controlled/direct/016-attach-nat-b-wan-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/017-configure-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/018-start-router.log.gz",
+      "gzipSha256": "e2586870ee332db88edc5fa588171718bb2f882c89712cf30dc5282288561482",
+      "storedRawSha256": "b6837934d3e4b3cc7b044dae9d8ece7ab72bf8c3a77b25dc89d9cef7e86f5ef2"
+    },
+    {
+      "archive": "raw/final-controlled/direct/019-attach-router-wan-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/020-configure-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/021-snapshot-browser.log.gz",
+      "gzipSha256": "7e0ed7372e9ab2e2adea6c957d0614dce3213d8a9518d809d5458f9b24ec7473",
+      "storedRawSha256": "9a72181d9cdfa607f4ba62c18c6e4603203ed9b2960633e315a9d63481b59a1a"
+    },
+    {
+      "archive": "raw/final-controlled/direct/022-snapshot-native.log.gz",
+      "gzipSha256": "ac2edaf791c0c47e7326cafbf4040fe4d9480fdf9b4e48071f8ed5d117630a23",
+      "storedRawSha256": "8f836722a72b680460b378a37eada0ec9754272403cca2a82c2cd5e2806e7654"
+    },
+    {
+      "archive": "raw/final-controlled/direct/023-snapshot-nat-a.log.gz",
+      "gzipSha256": "c8cf0ab9dfeaac2da70b3eab6bce1537f0e114732dc50ad1913d87f74a910091",
+      "storedRawSha256": "99dcdd9dee34ee275ad0bc5d74958c1ef5d6ffe6ad9afe0beb22d3c5707b2015"
+    },
+    {
+      "archive": "raw/final-controlled/direct/024-snapshot-nat-b.log.gz",
+      "gzipSha256": "a4573eb42e82b5317d80a482ad268fbaa7ddf77ebc6b1524a0406bc348034210",
+      "storedRawSha256": "aae7f8c50b84dea578e863eedc01674c8357b03471f5885bf5252065d146b0a3"
+    },
+    {
+      "archive": "raw/final-controlled/direct/025-snapshot-router.log.gz",
+      "gzipSha256": "b6310fbe689653f72aeb320bb0c21d7a0bc949008430e05f490c71396d101f12",
+      "storedRawSha256": "1f88960922f1505fd43daab518708c7d667348d112bf049814a24630358d8cdb"
+    },
+    {
+      "archive": "raw/final-controlled/direct/026-capture-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/027-capture-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/028-capture-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/029-namespace-after-member-nat-a.log.gz",
+      "gzipSha256": "3f15c204e9ca2abc4b3bfe87c4c712e63dbcac40668223528eb846f7011ec1e6",
+      "storedRawSha256": "79598fa9d8827562fb57131dbfef4dc8149530888c7985225deed409ca83ef97"
+    },
+    {
+      "archive": "raw/final-controlled/direct/030-namespace-after-member-nat-b.log.gz",
+      "gzipSha256": "ecda94960eb7b1c52a3e6e6735ffe0983f504a49c8a1c317737a3af76949be9b",
+      "storedRawSha256": "f3c7558c5d197875379fdf3e414f5f341036db359321f484f1aacefab3a57135"
+    },
+    {
+      "archive": "raw/final-controlled/direct/031-namespace-after-member-router.log.gz",
+      "gzipSha256": "cbf2b6a2488a6387cbb73d13464fdf8d3819966cd335e7e6210da3edf3d41b3b",
+      "storedRawSha256": "0d5c202691eaa0dc549d5e3304a34180ba17c60650e7e78d13a57cf362d27e3b"
+    },
+    {
+      "archive": "raw/final-controlled/direct/032-owned-stun-stop.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/033-owned-broker-stop.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/034-stop-capture-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/035-stop-capture-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/036-stop-capture-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/037-remove-containers.log.gz",
+      "gzipSha256": "c2258edc095e667d4233b148a3941634f647180d8caee3bc7888ff28a53d4ce3",
+      "storedRawSha256": "b46b02149a788f175c82a9cb4d458178f92c4b226e58a9044f23cb6018727c1d"
+    },
+    {
+      "archive": "raw/final-controlled/direct/038-remove-networks.log.gz",
+      "gzipSha256": "f80ea490d170cb4fafde2a2aaf4563a2371e5038b304ba4a085512bbad8a20b0",
+      "storedRawSha256": "58120f23384080876ba838cd54a45b65b7d34c0327367b0359d520f02c9add90"
+    },
+    {
+      "archive": "raw/final-controlled/direct/039-containers-absent.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/040-networks-absent.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/broker-events.jsonl.gz",
+      "gzipSha256": "a80b3307fe3afffa74ce69dc97c17241fadfe70000a78c899eadbcbf17973a33",
+      "storedRawSha256": "26beae2e818d6f511c0f8cfaa8f93926c7db3633327966de3bee66edab44edf1"
+    },
+    {
+      "archive": "raw/final-controlled/direct/broker-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/browser-driver-events.jsonl.gz",
+      "gzipSha256": "0ec2c4f753e0defe4acb68c49719bb30711b54407264a7ebe46962d8a03adc01",
+      "storedRawSha256": "d8f35df46939b114b94a5a0d4abc31438865cc8190085b5cefe32c7f992bfbd0"
+    },
+    {
+      "archive": "raw/final-controlled/direct/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/capture-nat-a-lan-a.log.gz",
+      "gzipSha256": "d315d6bde4362923277bfe398a5e9dcbd520909492af65e02872c955887c5a45",
+      "storedRawSha256": "40a004cd5f9b2d437ef7c86bc4620f5adc2984e3f320117e5b842721e909b983"
+    },
+    {
+      "archive": "raw/final-controlled/direct/capture-nat-a-wan-a.log.gz",
+      "gzipSha256": "74cef73b137bd195db31eb0f274bdc1f62b9b587644686eb297661640f04f6f4",
+      "storedRawSha256": "1b6df6e6b75fdcba52e7d29b2c95922570bbfbbf56378a3f79ae9d6a52080800"
+    },
+    {
+      "archive": "raw/final-controlled/direct/capture-nat-b-lan-b.log.gz",
+      "gzipSha256": "33cece350543f55afb41f9870f419279cde26f84583a625137d17d8872af5670",
+      "storedRawSha256": "369dc597041a6da0aea4e64b655f69c790c36b61e44e10db7d1720c230c52553"
+    },
+    {
+      "archive": "raw/final-controlled/direct/capture-nat-b-wan-b.log.gz",
+      "gzipSha256": "4e66964046ef781bf56017e400b1d9eea770057c7cffe10c58d24444ea867113",
+      "storedRawSha256": "ab11a63065072b28ccaaed94172be9ff0e3f8f6cf917ca375e2b06db16340dee"
+    },
+    {
+      "archive": "raw/final-controlled/direct/capture-router-wan-a.log.gz",
+      "gzipSha256": "8195e8fb11256d3e67997abc3d672278af413109535fd62883759c1be035a857",
+      "storedRawSha256": "6c3d99232fa482b0c6a92e718523514cb8577eb492e583a81ce296cac92088a3"
+    },
+    {
+      "archive": "raw/final-controlled/direct/capture-router-wan-b.log.gz",
+      "gzipSha256": "fa37a99b6353761813e2747532cce219dc4737e6d5a4b360c1520125241d8f16",
+      "storedRawSha256": "e4ea57240f8c10d986ae7ecbaaa132a3a179fffca6660bab48814b300ccafc4f"
+    },
+    {
+      "archive": "raw/final-controlled/direct/cost-broker.json.gz",
+      "gzipSha256": "6da6588ce3d15d577a5486cf275bb560acdd4431f29a826a36fc3ba3539d191f",
+      "storedRawSha256": "d32e3bf521a3e3c5ac392c63bec1d77c27e68eb0b2e12d2348197a2adfff3e40"
+    },
+    {
+      "archive": "raw/final-controlled/direct/cost-browser-driver.json.gz",
+      "gzipSha256": "67d067552d4b657ce04bc12421a36f142a1dcd7a10e4bd17d488750d9d808e6d",
+      "storedRawSha256": "11b5c11ef251eace9650a4bf3d63626b43a92451c0a5f742d8fbffd460150ef4"
+    },
+    {
+      "archive": "raw/final-controlled/direct/cost-mqtt-services.json.gz",
+      "gzipSha256": "a0fbc9780e3ed76a4a2f9e767db841c4255af482ca556bf916b5ce28ceeb4863",
+      "storedRawSha256": "fe154d826cfe339a88d8fdcae8934f2469f5630bc29053a38b8f2fd63cb689ec"
+    },
+    {
+      "archive": "raw/final-controlled/direct/cost-stun.json.gz",
+      "gzipSha256": "bad7ff3e8417cf7164f1a93d8f7ec404e1cef7170025badcbdacfecf37b951da",
+      "storedRawSha256": "086faf45359ecb4323d2560ee110983e0310b616690f816ed197f2821d92c9c7"
+    },
+    {
+      "archive": "raw/final-controlled/direct/mqtt-service.json.gz",
+      "gzipSha256": "385be39e2d7840529905862b664d91a8b9626cc1a69cc8610f13e866821d808d",
+      "storedRawSha256": "31f25d6f5fe3ace3033e3c5e9542b3ecbf476598e6ae62865165d870df8e07c2"
+    },
+    {
+      "archive": "raw/final-controlled/direct/mqtt-services-events.jsonl.gz",
+      "gzipSha256": "f847caa18178c4b72cdb1799b962097f2a4d084d3676b0fb2357a71181d0ba9b",
+      "storedRawSha256": "9acc3f1ac08b6725e63f0bb8dff0ee47e2ce2210260156a821f2998a1c49a0f5"
+    },
+    {
+      "archive": "raw/final-controlled/direct/mqtt-services-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/namespace-after-member.json.gz",
+      "gzipSha256": "7228a882f1e83eea79e092d214c1f90063822f79661e4d59b4a4cc38105130b1",
+      "storedRawSha256": "18fb6f9eafcfd6cffb2ad24ce933a15b9e1236cf5b768d30ba613faeb605e3f1"
+    },
+    {
+      "archive": "raw/final-controlled/direct/namespace-before.json.gz",
+      "gzipSha256": "30970f1ea05b38fb4a12d2d69f87cd796e05a6e2b6c79a54e3c92c117482c4ae",
+      "storedRawSha256": "b0b263d924fea6f8566bad36d7cbd906aa3185ad473ce2a5f02bb0265a72f267"
+    },
+    {
+      "archive": "raw/final-controlled/direct/nat-a-lan-a.pcap.gz",
+      "gzipSha256": "0f0a156427ab947e7c6a72e8621b19920c0fcf8805d6d6921cf3020e30a106d1",
+      "storedRawSha256": "1fe4e7018b51fce3885514040a6d262f799908957b89cba7c80028bed029eaf4"
+    },
+    {
+      "archive": "raw/final-controlled/direct/nat-a-wan-a.pcap.gz",
+      "gzipSha256": "5582038540c2071ac55957ace951212f83ef9dab9ceeed9d435dba41df021522",
+      "storedRawSha256": "c5cc7deea728bd4c2b25ab3a90e720d45568fe4d9365ab538172507370cd0a65"
+    },
+    {
+      "archive": "raw/final-controlled/direct/nat-b-lan-b.pcap.gz",
+      "gzipSha256": "c04fbcd492b742240ef8d7b60cd03842298a75893fd4bd23f40fffb7938d46f6",
+      "storedRawSha256": "27c7d2ca8ce0063c57032a8b79f9091f8599df6c8de607742fbffd7926a08269"
+    },
+    {
+      "archive": "raw/final-controlled/direct/nat-b-wan-b.pcap.gz",
+      "gzipSha256": "9ad3e8af800ad216001e1e1c7c5d0f3a02034a1f36372bd168bbf5681af9d44b",
+      "storedRawSha256": "504db3ce3a4fdb15adf33b8335d7b14add51c3706c698be4662da45c656d5a43"
+    },
+    {
+      "archive": "raw/final-controlled/direct/native-1-events.jsonl.gz",
+      "gzipSha256": "97d1d959c8423ca7bc4970e7a843762ad56390b569d0ddf898200e5afe29d704",
+      "storedRawSha256": "e28bfad4adcd2259c6d3318181aa1e3d716742e257476b246a2220abeff468ce"
+    },
+    {
+      "archive": "raw/final-controlled/direct/native-1-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/native-accounting-1.json.gz",
+      "gzipSha256": "e81cb4fa05562e9bb307b303e00795ecb7a0e6eda4303f9abf9712af2d170a1e",
+      "storedRawSha256": "fe9cfd2da1d07ea779f5320af42c58d4f405fbf6aeeeda736be98b6f64f5489a"
+    },
+    {
+      "archive": "raw/final-controlled/direct/results.json.gz",
+      "gzipSha256": "ec9f0ef1c7bfa35030503b3ce3495061025ec1455b288b04e5c4e188ed87aefd",
+      "storedRawSha256": "cf7418e32ad1d0306f31396d771690b86a6ce0c0f67a77ae920ed231128e3e9e"
+    },
+    {
+      "archive": "raw/final-controlled/direct/router-wan-a.pcap.gz",
+      "gzipSha256": "ed948b5bab3b77034e006f6f618e4a55a99ffe91bbea03d6f9061a7266341cbc",
+      "storedRawSha256": "06d0ed54c00231283397966c7ca9e55e921bf5bc648fa991dfda6445729ae3fa"
+    },
+    {
+      "archive": "raw/final-controlled/direct/router-wan-b.pcap.gz",
+      "gzipSha256": "7504f4513b94157f4c6b2b3a955ea6afc5b0d0cb8110b3a3e70bb87f0393d6ed",
+      "storedRawSha256": "aae4f99fb0edf2f2c428d6a9af48bfac8c8cbc9a6c48bbd71fc716543519984f"
+    },
+    {
+      "archive": "raw/final-controlled/direct/rtc-cross-network.json.gz",
+      "gzipSha256": "01fb90c2e552c3f3a28ee03c71127c16114a774c246d2e34308f3c1ce16cbbab",
+      "storedRawSha256": "c34113fe4d70bbf764c29b2f0900102af12f5ef24783a598c2c9941cb17ac56d"
+    },
+    {
+      "archive": "raw/final-controlled/direct/stun-events.jsonl.gz",
+      "gzipSha256": "07f85a834639426b01bdf810c0f96e9fb6068685ffe5b9fb57f719bcb68ce61c",
+      "storedRawSha256": "4868ddbc5a505138513f5a8b6080cfd383dbd38a3817f8d458fcfec030c583a5"
+    },
+    {
+      "archive": "raw/final-controlled/direct/stun-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/direct/topology-commands.json.gz",
+      "gzipSha256": "c3e0dacc9f0972b0bff8e57550ca0759b709b2b3c2bc86658c5723e3ac7b9567",
+      "storedRawSha256": "a9c27002a1e37e5223b396a2a2a0e6f5dc520b126c208b31cfb5816da2c28fe1"
+    },
+    {
+      "archive": "raw/final-controlled/direct/topology.json.gz",
+      "gzipSha256": "4e956346fb7d6dc6caa2a923bce53f17e4423fcfd80571a72f4ec03f3273b925",
+      "storedRawSha256": "4404464a32ce1112433388c56fc33aa919744c1ace82ac8495db578606f2f518"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/001-image.log.gz",
+      "gzipSha256": "dc4b5a28eabcdef93be1e3c31b6d2ad2f402ae8d8e2363d93db943805535c39f",
+      "storedRawSha256": "8dc9f7015309f4d243549c4e99bab29f488cf0929ad596d82e2cebda4a8cc426"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/002-network-ids.log.gz",
+      "gzipSha256": "ad2ce8c8c4aeb9801e455279f56ef09ffa2b33eeba3f7d687ff15672c921d1cb",
+      "storedRawSha256": "ce4ea160cfe124e4f5e87b2e5099c9d30f30d91d1ecb1f63b20540d8fb7fe44e"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/003-network-subnets.log.gz",
+      "gzipSha256": "eb6463fbe980208ae71761dd724252642e48edba8cbe3225ec180944a3795f5c",
+      "storedRawSha256": "345d3132511ff978c3ac1e72816923f43c040e0304924f393cb6c6a99df7eb53"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/004-create-lan-a.log.gz",
+      "gzipSha256": "c025715aaa90c93659b0e014f08b488851be35deb867327ba7a64c62bb932050",
+      "storedRawSha256": "ef169e8f176cd50ac11e1dca633c32ae2564d7da2c30180433742a6474f8509c"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/005-create-lan-b.log.gz",
+      "gzipSha256": "7096be3a57ba7ae96c9ee6892a1aa35c922837bd52c28d77fece7061e84564ec",
+      "storedRawSha256": "1464d1ba4a15702fbc47b12749d8312ead44786bb2f245cee1152c4e5ad1ee11"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/006-create-wan-a.log.gz",
+      "gzipSha256": "aaee5bf160ff41dc62c560e3013873194510ee483e7382d323ed4a54a61f3775",
+      "storedRawSha256": "b766e2f4883c589932139ba5428a3dd2716e184cda20dd4b1a427144a2845055"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/007-create-wan-b.log.gz",
+      "gzipSha256": "6e3eb319ce9be58788b28e5a82fcd9ca0e8413da6fdab3c5052155905d055b6b",
+      "storedRawSha256": "523a13e13fc4f78812b2fc0b14a1387e3878c7382c5b016f36a219abc6dc4e1e"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/008-start-browser.log.gz",
+      "gzipSha256": "5e0264e38a152e7b7769b305d15fde939a53ac10cc59f95afb7ad02c041dc200",
+      "storedRawSha256": "cd31edd616329ff133a936ff618cbc86c191b27be3c4397273e897762d440d99"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/009-configure-browser.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/010-start-native.log.gz",
+      "gzipSha256": "1efd1929cf1d9ab1395595ff9156c04a99947c95c7b4d160084b90751af4dfb9",
+      "storedRawSha256": "ebd612fa12dbf519a9236af021cb40b04880fdd75df8738868f0cc9d56fb8508"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/011-configure-native.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/012-start-nat-a.log.gz",
+      "gzipSha256": "f359ce4c199e3bc7a88eed3a4b1bfda53d5ac39a699546f667ad0ca18035e83c",
+      "storedRawSha256": "3b365efd1c9023703de6226eb701b1a586814f99c40bdc3d4927755c6ce176d1"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/013-attach-nat-a-wan-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/014-configure-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/015-start-nat-b.log.gz",
+      "gzipSha256": "4a355ed3b884658ffe12a0acc5c58c5962abc1f0e5c79b924582c93d66cd9563",
+      "storedRawSha256": "8caec706a1b41446e63e397da295c543924400b5cdf647d0b10753e457d348e1"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/016-attach-nat-b-wan-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/017-configure-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/018-start-router.log.gz",
+      "gzipSha256": "1874b38b5d2af0862e1e7c81940bc1ebdf2ce52b459dfa6accd7fbffb783fb1d",
+      "storedRawSha256": "44d82ead250e1c75e1b4406739f757ddd322b756f57caaeef4a67807337fc38d"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/019-attach-router-wan-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/020-configure-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/021-snapshot-browser.log.gz",
+      "gzipSha256": "06dc73452abfb57b116b800bd01200424367e4cb147e2a415caf37095ea8cf92",
+      "storedRawSha256": "ce4304bd359dd59be21923b279cabd0542ce55d6b8f87c278adcd51a189fcfaa"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/022-snapshot-native.log.gz",
+      "gzipSha256": "e17aefdf0c32701400e230582e201383648a20f5ad06e3d28e7b600e373e882d",
+      "storedRawSha256": "50367bd3cd80191972f923fe9357cdad3b992b7d513c86da411cb54950162b5d"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/023-snapshot-nat-a.log.gz",
+      "gzipSha256": "5c882665a63e869ec55d056c96a566f5b77fdcb0cc21c727e47fb70e3aa2196d",
+      "storedRawSha256": "8fc676f91b09a41a5983767229fc7a813b3bad5cb208f2981da027d95c37900e"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/024-snapshot-nat-b.log.gz",
+      "gzipSha256": "2b82c718332813f98ce46bd9f19d33f266de4989b601992c6a0594a3de7d7e76",
+      "storedRawSha256": "2b05d588283f596a1534c45accb3ae8ebaecd8f413be4f7bfab10a70afdfdcc7"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/025-snapshot-router.log.gz",
+      "gzipSha256": "e96c798fca617f4e20b0c2171506264e93787d6cba9854eeff4cc5a5aeead209",
+      "storedRawSha256": "d4fc65ece01fc188e9997e2af08b3001d29f54d477c82388e2dc857240b2c8ce"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/026-capture-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/027-capture-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/028-capture-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/029-namespace-after-member-nat-a.log.gz",
+      "gzipSha256": "89f75a19500a6ffc64e3051ac21bed4c3f6c9c21f78c98f9ac74fb3a7c4e04f6",
+      "storedRawSha256": "eb633df23d380fd7afa0158395ec2cefcfda0f4c2d529c508f229e25414c15d8"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/030-namespace-after-member-nat-b.log.gz",
+      "gzipSha256": "2cdf66e19ac69873c3c2f96dc9af57cb29b099291a0a113fd8dc1bd5a06b88e5",
+      "storedRawSha256": "049111e4fe67c1b8597f0cfb6a9ee73c3b28291da6c1ce2b58b8e65cbb2a980a"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/031-namespace-after-member-router.log.gz",
+      "gzipSha256": "c046e7beb94bb8ce9df92cd231db6269702693195e1dda29152a2595e7a315bc",
+      "storedRawSha256": "bd847b3f9181d593991a3ec87d3251f67e349d4eaeda63d26dea46a135d6c6b6"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/032-owned-stun-stop.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/033-owned-broker-stop.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/034-stop-capture-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/035-stop-capture-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/036-stop-capture-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/037-remove-containers.log.gz",
+      "gzipSha256": "7d5df69499c637606a874195cb54b41b1ccb1fa8eb1dda02470c19b67a0d8571",
+      "storedRawSha256": "dabab36cc51d267ba3318e89d9dd5d4bfc1eed0f6936eb59f5ffa5e67bb693f5"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/038-remove-networks.log.gz",
+      "gzipSha256": "6e1659a2ade6d98bac6b1117ff1620c20efe0855920d1340e2c27a5749143f4f",
+      "storedRawSha256": "1c74a4eb19c2b44d8bb56dc207b436f987b7d7996b2c0d94147ec68e8d057de2"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/039-containers-absent.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/040-networks-absent.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/broker-events.jsonl.gz",
+      "gzipSha256": "3515cab59ee7339bd1ba88bccbdec6c8b69cb8fa1824b2ef6ea8060a87e9f95c",
+      "storedRawSha256": "db9b73b026ec29b4a1375f1a2557026c84ee7a7df069a2c6d50b556186ed5d09"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/broker-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/browser-driver-events.jsonl.gz",
+      "gzipSha256": "2a6a6c972e22bb2e8ec9d2c131b87471e74e82896ad45498313bf4971a7995bf",
+      "storedRawSha256": "8a391cbe98260b89bba0b94b618a5772ddeb628c446d5e8e75d8e8945ef47574"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/capture-nat-a-lan-a.log.gz",
+      "gzipSha256": "743877a2895f7212c60168ef5962431d45aedaef9e2c0e91b1d5c54b90840946",
+      "storedRawSha256": "5a93faabb82ef3ff1aeaeff131cfb60d0e797a98ff059e5424fdf00b29a3cc53"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/capture-nat-a-wan-a.log.gz",
+      "gzipSha256": "b0fe15ab21d5a555c7c5d99675e99ea584bd3d7fadf075cb618f5d7751bf21b3",
+      "storedRawSha256": "177e087440dd607efc8698af672519d8fa71eda326c1622fca005baba1de9bc7"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/capture-nat-b-lan-b.log.gz",
+      "gzipSha256": "b7fec0fe9f7bba2a9bd2e5e62ea6d285114e3ce871c8d16a99e3a9f443578f55",
+      "storedRawSha256": "2cbe0c1ca3282c80d78f2d5be27c50aeff68720b7601d436b4b259f74aa37856"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/capture-nat-b-wan-b.log.gz",
+      "gzipSha256": "4ba84eb1bdfbf042e01b8ae93b043fd707b73e1945ce29f7ad85dd3f0a3e79b4",
+      "storedRawSha256": "4ced11f2324d193945d6e2fb4ab41bea25ce3fef8f19595ed7b1df5d921e5528"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/capture-router-wan-a.log.gz",
+      "gzipSha256": "9e79796cfe340ec82bc3231d9806bdf9f83f7b873b7810bb4edb0dd99a973862",
+      "storedRawSha256": "71c0405ff4a7da44d49d7a254f2726dc95f658405b83da9eed7acdd52be6d70c"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/capture-router-wan-b.log.gz",
+      "gzipSha256": "05af0ee55c7384eb8616d7f08ca8040c785282b4c9f574c3ba480dba0efbd9e0",
+      "storedRawSha256": "2c9129146b3fe9e68aebbf4fb51861d6381aa3e83039f426998d86417c41ce5f"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/cost-broker.json.gz",
+      "gzipSha256": "ff2b3add64a9eed9d99043d75709552c5799b64c5d59b2fde7538e9e4d010b4d",
+      "storedRawSha256": "f7777def752148b15ad88a71bed91232a0a1b845f6e10ada10f0146408e6cb5e"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/cost-browser-driver.json.gz",
+      "gzipSha256": "8a82fbe5eb0b25a5a15024d4da45dfe3c1131cf2035f043368b43f90e92bfef6",
+      "storedRawSha256": "bdeaff9a7615bca38faef81717dc87377f73c177320d649487e338aed6bbcb91"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/cost-mqtt-services.json.gz",
+      "gzipSha256": "1de48f24f3c3cf2241241131b6500bf2f44278cfa3c4f640e2cc37f47224d015",
+      "storedRawSha256": "5236334d28954564a1812186a1a3c97e97d8a1c418019e882a0c084aea927dfe"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/cost-relay.json.gz",
+      "gzipSha256": "fca31a20581e3849c15434a550382906d93d0d4a2edff8d10c94b38204cdd309",
+      "storedRawSha256": "ee8a44661c983be67872f3bcc233dd9b0e45f35fdfe1f4f4723403babd4b6f7b"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/cost-stun.json.gz",
+      "gzipSha256": "c7eb6f8b8e6db1563bd641cd5a659da1b1332a0b18ff472c78194fb594d4c079",
+      "storedRawSha256": "d1db34094f1a13b37d7f187b60ad8eb2d275e1acf417f4e8c4dce10768a5f482"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/mqtt-service.json.gz",
+      "gzipSha256": "746859b53b4aaee0e1e46b76d573fd6a2627d5acb58d34e09b3e3479a2a74c3f",
+      "storedRawSha256": "094b3728238f5b32670c68118cad6a49c398a5d229005a0262ac8dc980fdad27"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/mqtt-services-events.jsonl.gz",
+      "gzipSha256": "6809f0446d14eea5db9b45ce8e5dbb5e91b9b00fa64f199c135fca42bc495fc3",
+      "storedRawSha256": "ffe8b31fff0315375ce8527b22d769e83cb68cf67a2e22b7b4b77e6137567d41"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/mqtt-services-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/namespace-after-member.json.gz",
+      "gzipSha256": "91f233fc8a77d7a6358ce19c7390ce860c4d91ff7a9ac63e6252b75d83dd07c2",
+      "storedRawSha256": "2eb103eb5666a07c52ef2b530032c02b800532c88387f828af92677031f452ce"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/namespace-before.json.gz",
+      "gzipSha256": "79a6e83db76ec73e863600e88448ab75efdcb3fe98b46be5bb4c158dacda5614",
+      "storedRawSha256": "5a0851a74931149b591a164447443f8d16f4db270d05371b073ef8b36ed0d772"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/nat-a-lan-a.pcap.gz",
+      "gzipSha256": "9c6e3d1781b5122bc737ad77fae557390443de9011a9b743cc4d974ac6884086",
+      "storedRawSha256": "7c775233980eeb999db4989c8fe2308b01716c18672141e753b685882f2ed8f9"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/nat-a-wan-a.pcap.gz",
+      "gzipSha256": "274b620dcba5463ed324e34016059cedfbb234b6a9202c4d12aa365fdd22960d",
+      "storedRawSha256": "2140a7cb8f62766a87d2d94020714fc7acbe49b198fc482b9aaf06687006d6e3"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/nat-b-lan-b.pcap.gz",
+      "gzipSha256": "f57b7f37c70028fba4d9ca728c481371eee7a04bb2ab816658280057519a997a",
+      "storedRawSha256": "4033a3fd7e04528243b5bb2c2faaf13c24679426359742605f9b32b1f82afe8f"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/nat-b-wan-b.pcap.gz",
+      "gzipSha256": "b1c411ba895a77642259d5cd3eb365bbe8bc681081123339948ec64295f2ca04",
+      "storedRawSha256": "e44ad1dabce8a19d93a416bb0791ef27858d0b9088cc52f28d2d8eebed153fdc"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/native-1-events.jsonl.gz",
+      "gzipSha256": "3a25cf1cab6d5ce26179dbc552116b904360c4c18e75130c9ec258e24384f184",
+      "storedRawSha256": "6124cea0664879aad03d349b4a3bd885698bb97c859978d536554ed1e7b9fd00"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/native-1-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/native-2-events.jsonl.gz",
+      "gzipSha256": "4bf6425b6fa8f39ca4504d67fdeb21a2f17f48f79468f5b7d745d93f9d9f55b4",
+      "storedRawSha256": "c7f66c0f7b099c20f34d28a83ad5666e908266cc843db7c3ef189c6139a16e2b"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/native-2-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/native-accounting-1.json.gz",
+      "gzipSha256": "0ed849dc1d34911eeaec20d4acb887cba26c6ffd959bfdc0060a5378354bbb48",
+      "storedRawSha256": "3edbda1639b8a9c3a29e173c13cf5b1e32ed635f34caf9a190d272540ea4c43e"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/native-accounting-2.json.gz",
+      "gzipSha256": "8e62d95a61c08463190096337b1780463b66954a42f852fc71a47b5bef99657c",
+      "storedRawSha256": "03ec6c65340bd640382610d9b2c564c12eb38d71906cbecaeb3c4c4eda113338"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/relay-events.jsonl.gz",
+      "gzipSha256": "4e84fdda28f9b8300312a07bc29bc47e03c6a788341f8e07ebc7ce62239da3bd",
+      "storedRawSha256": "03be3db2395813f060ce2d4086f5f43507590c64d483ccabf53957a00fbb2b0d"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/relay-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/results.json.gz",
+      "gzipSha256": "e0b0df006df6065e24435b949b8a5810548a28315015b4a31176434f924e126d",
+      "storedRawSha256": "ba6a966e52c0818808d85c5dfcc55faff9fcde71afc6c8916f26d70ceecc0201"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/router-wan-a.pcap.gz",
+      "gzipSha256": "e378cd7d78ac9a5d18e918395dfb15f09e43026e0c5d04bc0124efcaa1d98cc5",
+      "storedRawSha256": "a70b81404ff885e28e83562996286a50c7050db694ad3e27bd9e0b3394db85ab"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/router-wan-b.pcap.gz",
+      "gzipSha256": "47ebfa3f26d5bf2b4593b3dcfe8c284008b4c0d5ed59b2124862d1971b914d36",
+      "storedRawSha256": "460d08ea9f60155f7074659f2a56363846c9546254510a6a6c5199b34519343d"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/rtc-cross-network.json.gz",
+      "gzipSha256": "5e278028ef05c76ee7a1ee37b10d119f69ec6b05b1ab53964dea6413e7c09273",
+      "storedRawSha256": "db9584c5456de0a15c93104d68f0d9940f379646ce0081ef186ceda51479d341"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/stun-events.jsonl.gz",
+      "gzipSha256": "10d7ed06b36fe28bd4e891199a72e7688ccc0a4c995e6c018cd5a02450f0902a",
+      "storedRawSha256": "0b86e5a590a3a8d3e9f84b7bcc98b4aa9b31b2c6b8b399e35d0538950147736f"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/stun-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/topology-commands.json.gz",
+      "gzipSha256": "228ad8738ebd1b60ad05715b4cbdb579c4b6482a888a901c06800d68b8f9f2da",
+      "storedRawSha256": "a94363e3bfc3a182d6c78887a3f9c56a03fd820f5527084945ee8a3d8907b6ec"
+    },
+    {
+      "archive": "raw/final-controlled/prepare/topology.json.gz",
+      "gzipSha256": "7a8119e35f33865fa32739d09359dca7a007ba1a3ea3c640ecd5d6a18a7be02c",
+      "storedRawSha256": "3dfd13d092e5a3b40e6ffc480f3a35be6f9573dcf74362394f358acc40ebd92e"
+    },
+    {
+      "archive": "raw/final-controlled/relay/001-image.log.gz",
+      "gzipSha256": "dc4b5a28eabcdef93be1e3c31b6d2ad2f402ae8d8e2363d93db943805535c39f",
+      "storedRawSha256": "8dc9f7015309f4d243549c4e99bab29f488cf0929ad596d82e2cebda4a8cc426"
+    },
+    {
+      "archive": "raw/final-controlled/relay/002-network-ids.log.gz",
+      "gzipSha256": "ad2ce8c8c4aeb9801e455279f56ef09ffa2b33eeba3f7d687ff15672c921d1cb",
+      "storedRawSha256": "ce4ea160cfe124e4f5e87b2e5099c9d30f30d91d1ecb1f63b20540d8fb7fe44e"
+    },
+    {
+      "archive": "raw/final-controlled/relay/003-network-subnets.log.gz",
+      "gzipSha256": "eb6463fbe980208ae71761dd724252642e48edba8cbe3225ec180944a3795f5c",
+      "storedRawSha256": "345d3132511ff978c3ac1e72816923f43c040e0304924f393cb6c6a99df7eb53"
+    },
+    {
+      "archive": "raw/final-controlled/relay/004-create-lan-a.log.gz",
+      "gzipSha256": "8f2e537beb98d99583234ee06db1b4c8fc5e28a230812b1ac93e02eff77c83b6",
+      "storedRawSha256": "c43c1c96ed2e4822f1921572107ea2facd91cac8ebcdcf0fddfa8b2e8155b608"
+    },
+    {
+      "archive": "raw/final-controlled/relay/005-create-lan-b.log.gz",
+      "gzipSha256": "b6748b186ca61896e0f03f40782ae040f732db03237c8c9a3762c5cd183d32fd",
+      "storedRawSha256": "0c8ebeb78b914222c8eee1e895df6f852269045cbca292361a0abc24bd19fc9a"
+    },
+    {
+      "archive": "raw/final-controlled/relay/006-create-wan-a.log.gz",
+      "gzipSha256": "629af8f366dc64886eb34e85fd125db771f3de565df955d83e949546fd72abbc",
+      "storedRawSha256": "ccd8ee7941fe5480c48457cf3f89780f6b2014f4cb9386f3c7740c2177169763"
+    },
+    {
+      "archive": "raw/final-controlled/relay/007-create-wan-b.log.gz",
+      "gzipSha256": "949d97e4072872b558fb80af2452c15ff06a3ef7230163ed6d319e1d0c57a1d9",
+      "storedRawSha256": "0b8047ff285c80049397e084f688064ed3106ca36b4847653b3409ae1e888e61"
+    },
+    {
+      "archive": "raw/final-controlled/relay/008-start-browser.log.gz",
+      "gzipSha256": "b7bb61f4b13443ba23dfba4c23ce8e2151d52ece58d444fad96ef6e7c4cb7fb8",
+      "storedRawSha256": "3ea307f744470325249cb41bfa1906b668245fb13123983c88702e3a9a717b7e"
+    },
+    {
+      "archive": "raw/final-controlled/relay/009-configure-browser.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/010-start-native.log.gz",
+      "gzipSha256": "314af693a0c9f480eac21231beba9142fe7fafa788bef6c1cf37c5eac18e7ef0",
+      "storedRawSha256": "f86599d53636a66e28270d9c847991c1ab71ac17bf1b087d060e402fd2d22aa6"
+    },
+    {
+      "archive": "raw/final-controlled/relay/011-configure-native.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/012-start-nat-a.log.gz",
+      "gzipSha256": "8562a5729487c3fb1fc119e6fc017725619242573df2b44a0a631feb1f1b6d35",
+      "storedRawSha256": "c5fceba05fa8142a61acb5f9b3854dcf9fc0e1494c3724a3f7be63d2b37a2e8d"
+    },
+    {
+      "archive": "raw/final-controlled/relay/013-attach-nat-a-wan-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/014-configure-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/015-start-nat-b.log.gz",
+      "gzipSha256": "a40ab9ca9414906db6773099bc559da42bcd5e8850ed69620057a5192084dd91",
+      "storedRawSha256": "c5b80bface0f89a0b6adee053b98cc0f987fd6432e6942b34fee21a9c5b46297"
+    },
+    {
+      "archive": "raw/final-controlled/relay/016-attach-nat-b-wan-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/017-configure-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/018-start-router.log.gz",
+      "gzipSha256": "b77ada191ead0d07f218ffabf10e40269c60bd3d31c8544a5af8b6079763ced4",
+      "storedRawSha256": "4b8d0c120171e78a2ffacddde1870c6b9eb3c191e5e6d2647d7bfc0576e2e67e"
+    },
+    {
+      "archive": "raw/final-controlled/relay/019-attach-router-wan-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/020-configure-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/021-snapshot-browser.log.gz",
+      "gzipSha256": "a9d1126538a93fcd3b1479cc28beb845d39b46af06dc422e0f60788d13ff6fe2",
+      "storedRawSha256": "c252effb3832207b607d15d993d3cc69c7e1b9fbcd51a3232eb5ed4c7853dca2"
+    },
+    {
+      "archive": "raw/final-controlled/relay/022-snapshot-native.log.gz",
+      "gzipSha256": "1e7521a17adca304b0ae4f18e9f19a819f8399d68469918c95c5d0296cd3e08a",
+      "storedRawSha256": "3fe585e4bb83cc43332e04664ee4822dbdc06a253505ee72bd004345207c1089"
+    },
+    {
+      "archive": "raw/final-controlled/relay/023-snapshot-nat-a.log.gz",
+      "gzipSha256": "1484199e377be1b6fc284478ddbb810bcd16113701297ff2c9e8520e1ead3e44",
+      "storedRawSha256": "f231414f5345c8946092b533e4f898e88c839e382a10e6c723f0378dde06584c"
+    },
+    {
+      "archive": "raw/final-controlled/relay/024-snapshot-nat-b.log.gz",
+      "gzipSha256": "54f8a7bdd25314eaffae7eecaf81f42c4e2386c7e0390497c2924140686957aa",
+      "storedRawSha256": "59842e5a30f1be02c28ca88ee1da16a7e2555eb7ce10bb90d27206f24ebb32a9"
+    },
+    {
+      "archive": "raw/final-controlled/relay/025-snapshot-router.log.gz",
+      "gzipSha256": "66f2abab287c849fd4f91737f5b548b4284cbacadf8c3756d00acd65793abebe",
+      "storedRawSha256": "bf69500a719ffa58b84079a3a33f69ebef5b38724d3f7fe4fa7f66b762fdf861"
+    },
+    {
+      "archive": "raw/final-controlled/relay/026-capture-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/027-capture-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/028-capture-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/029-namespace-after-member-nat-a.log.gz",
+      "gzipSha256": "5f93e5d11f0035a3a028aa83734c95943413f4206f0e29e7d04d1490346d37e5",
+      "storedRawSha256": "83b580c080b5a66148d7a3145076699996a5db4197cbef4da802766180ee2e0c"
+    },
+    {
+      "archive": "raw/final-controlled/relay/030-namespace-after-member-nat-b.log.gz",
+      "gzipSha256": "404b4910be4b0c5a8e3086f3e2480d7bee5cbe058f1ec6475a637ee9f4ff90de",
+      "storedRawSha256": "64f67ae80f473e9995da961686ed86a9a2fcf371a5f11e66af6ca80b69bbcef9"
+    },
+    {
+      "archive": "raw/final-controlled/relay/031-namespace-after-member-router.log.gz",
+      "gzipSha256": "015b2a5fde521b7615d4b38aba4c8a96e8f1944e8046363d1b6d973f7d33c238",
+      "storedRawSha256": "cb9241d04cc962913f62a8f656c032f8439b7883255e9bf8a41f1d95a573e77c"
+    },
+    {
+      "archive": "raw/final-controlled/relay/032-owned-stun-stop.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/033-owned-broker-stop.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/034-stop-capture-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/035-stop-capture-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/036-stop-capture-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/037-remove-containers.log.gz",
+      "gzipSha256": "89b991ffc9eae6e8da240bc845c4e845f8ad8f6a4c10d351244262d1a774bfb5",
+      "storedRawSha256": "6f94f5e1f78ff884d7ba8bcf593a7cf64858c8d3a232cc837c72b2057051fc32"
+    },
+    {
+      "archive": "raw/final-controlled/relay/038-remove-networks.log.gz",
+      "gzipSha256": "367ed3870f8f79d30546215a614f098e2e518c7f3871818b817db32b16ef1776",
+      "storedRawSha256": "eae6609046b7b1e8f0e56ae072e6fa7a434fa2b77f9930118cc88cd377f7a05e"
+    },
+    {
+      "archive": "raw/final-controlled/relay/039-containers-absent.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/040-networks-absent.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/broker-events.jsonl.gz",
+      "gzipSha256": "3515cab59ee7339bd1ba88bccbdec6c8b69cb8fa1824b2ef6ea8060a87e9f95c",
+      "storedRawSha256": "db9b73b026ec29b4a1375f1a2557026c84ee7a7df069a2c6d50b556186ed5d09"
+    },
+    {
+      "archive": "raw/final-controlled/relay/broker-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/browser-driver-events.jsonl.gz",
+      "gzipSha256": "e1900bc4097b0baab8ca28cdb1195f873eb5ce6a177438c432323aeb45a7e684",
+      "storedRawSha256": "f0462b7bea3f76646538de32fbc681721a0d1bf264c96e8f1c92c8e1662bf76b"
+    },
+    {
+      "archive": "raw/final-controlled/relay/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/capture-nat-a-lan-a.log.gz",
+      "gzipSha256": "d007935691131d99c144cb3a8f62a977e5c60922601cbbf5224fe3c85dd4302d",
+      "storedRawSha256": "93f8ebe473878599f0ee9877d2521e318ee80ae5b426b49437177853bc907ddd"
+    },
+    {
+      "archive": "raw/final-controlled/relay/capture-nat-a-wan-a.log.gz",
+      "gzipSha256": "e58601aba73f958e17ba5cf4286bfdd06cb2c498d20665c479949a3d0b907440",
+      "storedRawSha256": "4d482b51c7d2bc7a18bc413ba607570bc01bd370015926510d66af1094ed013b"
+    },
+    {
+      "archive": "raw/final-controlled/relay/capture-nat-b-lan-b.log.gz",
+      "gzipSha256": "5f7a681f90bd513eeee32f586075ff92211ed46677da0c672bc46bad9d082aed",
+      "storedRawSha256": "054d51503869c4c9a434d560e51b632186f642f1f609be84213f41f8d21281eb"
+    },
+    {
+      "archive": "raw/final-controlled/relay/capture-nat-b-wan-b.log.gz",
+      "gzipSha256": "f1082dd43431bb70b444f44a8dcc11f423808f0147d5c7d67f8a23a831dd8515",
+      "storedRawSha256": "dda797d5f50bc537291e5cef7fa91f6c1b842f3f995e357cd9185cf72869769c"
+    },
+    {
+      "archive": "raw/final-controlled/relay/capture-router-wan-a.log.gz",
+      "gzipSha256": "caefb2b5b614331b7c60b6c2af6d2dba4674f27e7b18317568b632b3472b6853",
+      "storedRawSha256": "7e3a4326eea346f1b2101a2ed746517878e7d8b7b21e3c8fdcf692da8fb788c7"
+    },
+    {
+      "archive": "raw/final-controlled/relay/capture-router-wan-b.log.gz",
+      "gzipSha256": "81f82f9322b314050fba328f6b4bd1848d52f34454395488d6da52795673735b",
+      "storedRawSha256": "f88d70ed8ddc67a71ae35d9c209323923b107ca6cf4aa6e7d522be334853e6c5"
+    },
+    {
+      "archive": "raw/final-controlled/relay/cost-broker.json.gz",
+      "gzipSha256": "2d9c2fe7d67e01aa18e66558a077d60ceb9a9180c59da0a86d5fb63aa2c14fa8",
+      "storedRawSha256": "9347bc09145802b810f636d99edcad5b706ba7d89f2267b09416bd2b12a98a92"
+    },
+    {
+      "archive": "raw/final-controlled/relay/cost-browser-driver.json.gz",
+      "gzipSha256": "2d2ece4bd3963ee0901e28d0b5f62d3e9d0fa3c1f569eb3cb27c49537b9080e8",
+      "storedRawSha256": "3b83c6cf6245b8f7e9d125df5a9b2402b30e38a57afccdfa7b819fe34844bbea"
+    },
+    {
+      "archive": "raw/final-controlled/relay/cost-mqtt-services.json.gz",
+      "gzipSha256": "803e83963c245941305c58ef52136dde461135cde64c8c955092d5cae9066d3a",
+      "storedRawSha256": "4120f500eb8d0e6a8a59c7c459ff995b68814873e70617c62029ab6a363a8b31"
+    },
+    {
+      "archive": "raw/final-controlled/relay/cost-relay.json.gz",
+      "gzipSha256": "96712266e871173c4ca6347f9a5648832be6b35495d7d766a0dbd2e68c12361c",
+      "storedRawSha256": "92e056fb76a0933b90eab09d7bacfed79025b7f88f55ecd2d5f96518333e1e85"
+    },
+    {
+      "archive": "raw/final-controlled/relay/cost-stun.json.gz",
+      "gzipSha256": "3b795712d6bb5d5f71b69f997d550a6ac50baedb9257cc420bcf988641052bb3",
+      "storedRawSha256": "6bd68b488a258575b6c34f944129b62f324070e0529abd88f37b72cf6a3010ea"
+    },
+    {
+      "archive": "raw/final-controlled/relay/mqtt-service.json.gz",
+      "gzipSha256": "f485fb1b9cc6ed41a03662cac4a24df0c528a7c160e8ac7db53f9dc345c5b794",
+      "storedRawSha256": "29d1b2c4aaed74b9f32cbbf545322e26d537762bda517c3462f9261315b3c925"
+    },
+    {
+      "archive": "raw/final-controlled/relay/mqtt-services-events.jsonl.gz",
+      "gzipSha256": "54e5d6b94fe540369ff4b74c30615c217e0a4c92f6abfbc2a297e9ba0f3fde04",
+      "storedRawSha256": "fe4682a7f403371f25a06a905d50b4a85c5b0e48fd7d1fefb4b43b5b16ce2741"
+    },
+    {
+      "archive": "raw/final-controlled/relay/mqtt-services-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/namespace-after-member.json.gz",
+      "gzipSha256": "d34f49ec37f685b151b023ea25a410cb2903be3f6f2e29af8f6baa9837563b5f",
+      "storedRawSha256": "b444a75377354f85f14b7940b4b9e2ed8d0ba5c2899e5b4b7f5df965b0aa1efe"
+    },
+    {
+      "archive": "raw/final-controlled/relay/namespace-before.json.gz",
+      "gzipSha256": "5b4d78735df43736ee750ec35ab893a1c4cb8e9cbad70b3f4db9907c3b884a4c",
+      "storedRawSha256": "928a436b913c3545bb80f1ea467b37b620eb1d8b26a978fde076555bad836e9e"
+    },
+    {
+      "archive": "raw/final-controlled/relay/nat-a-lan-a.pcap.gz",
+      "gzipSha256": "7a2fb2f97db94c4d3bdbfc368e151ae409f3ac0d070ef89270bcd0b8214174c2",
+      "storedRawSha256": "4db48f577390f4c1fdc3978f197b6294af5d4b769f54d2009d75db279ca1ccc3"
+    },
+    {
+      "archive": "raw/final-controlled/relay/nat-a-wan-a.pcap.gz",
+      "gzipSha256": "9116e6924ee334cea2b5f6764c0d6e9c8a31b88304cc4ca4aee8bca3b79c241f",
+      "storedRawSha256": "bde9fc8940c1bc2fc50bd8657f79c9b09e5b04f2fc7f1a57d5b6c636e9141a79"
+    },
+    {
+      "archive": "raw/final-controlled/relay/nat-b-lan-b.pcap.gz",
+      "gzipSha256": "f79f9cb734dace20052e4f538ced679881889de809c421fd97b9e79c74fea5f6",
+      "storedRawSha256": "97ffe045e714f3ca851601779c1b8ed65360ed640a926f444db65fe9dea003d2"
+    },
+    {
+      "archive": "raw/final-controlled/relay/nat-b-wan-b.pcap.gz",
+      "gzipSha256": "cae3213a27defcc320eac18a3caa1aba3e7e2cfded9e6a36ae5a0b0fa498d409",
+      "storedRawSha256": "5517aeaf1ca47f8773d9993cb28e47af4ec2c9560859be47a6c74ea0a0e6f660"
+    },
+    {
+      "archive": "raw/final-controlled/relay/native-1-events.jsonl.gz",
+      "gzipSha256": "45b9e0173bb4efdeb160c0d696a3075a3efe49e60cb32f0a4a154494f191bcb0",
+      "storedRawSha256": "3b40ad77060a491a4885c6a03ae40a9981b7b38cd369c37361ed8932fd0ca1af"
+    },
+    {
+      "archive": "raw/final-controlled/relay/native-1-stderr.log.gz",
+      "gzipSha256": "7a14aa550081d1dca8fd60873035611161fcb377735c0428d9aa39bf34710bf4",
+      "storedRawSha256": "3cd60cbddd73252a2767e718d0ff2bda93f9f33c257364ba26661150be67b76c"
+    },
+    {
+      "archive": "raw/final-controlled/relay/native-accounting-1.json.gz",
+      "gzipSha256": "d34685bc610ab561e2bf8fd144b92ae34771890b9f2b5b431ace37300f77b2a9",
+      "storedRawSha256": "6b25574e3c98f794ccc1002a9f01764ed9caf5a0bb98724fa4685f8913401e38"
+    },
+    {
+      "archive": "raw/final-controlled/relay/relay-events.jsonl.gz",
+      "gzipSha256": "4e84fdda28f9b8300312a07bc29bc47e03c6a788341f8e07ebc7ce62239da3bd",
+      "storedRawSha256": "03be3db2395813f060ce2d4086f5f43507590c64d483ccabf53957a00fbb2b0d"
+    },
+    {
+      "archive": "raw/final-controlled/relay/relay-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/results.json.gz",
+      "gzipSha256": "86b5a46264854da5ade750d852e9ad25a353c1669305f7aa7cd8c32eb808dde2",
+      "storedRawSha256": "78d3d87a0c5afe7a871a414d9a71220938b4ac0a249df27b2ef1905a2b42a72b"
+    },
+    {
+      "archive": "raw/final-controlled/relay/router-wan-a.pcap.gz",
+      "gzipSha256": "25758786b245e52f40fd7ecc0204c2f3262f5daa30d8b188ca0c16a6aa26fd8b",
+      "storedRawSha256": "d3b37015a23d398fbe60b24112437911ea2e1e7dbe9d3587260500aa3e392ae5"
+    },
+    {
+      "archive": "raw/final-controlled/relay/router-wan-b.pcap.gz",
+      "gzipSha256": "1ca3cddccb289994d77a830444ae4368521c017d47fdd2c4ead1e6882168e9a5",
+      "storedRawSha256": "88ffba0d0074d88566d539d76efffc04816df5776207b59141aeea4060ebc270"
+    },
+    {
+      "archive": "raw/final-controlled/relay/rtc-cross-network.json.gz",
+      "gzipSha256": "1f6955bce1be0bb13e848208791dd9b435635f80b9fb016dceda45923f949941",
+      "storedRawSha256": "64c66c84f833b7adda3b6c381acf19b1116bb4adbc8a89bb91fcb75aa468d58a"
+    },
+    {
+      "archive": "raw/final-controlled/relay/stun-events.jsonl.gz",
+      "gzipSha256": "10d7ed06b36fe28bd4e891199a72e7688ccc0a4c995e6c018cd5a02450f0902a",
+      "storedRawSha256": "0b86e5a590a3a8d3e9f84b7bcc98b4aa9b31b2c6b8b399e35d0538950147736f"
+    },
+    {
+      "archive": "raw/final-controlled/relay/stun-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/final-controlled/relay/topology-commands.json.gz",
+      "gzipSha256": "b35d7faea90c7c402696208096b6733e751625076658821dc553cb0d80dd7b28",
+      "storedRawSha256": "4eea7b9d39de1e04cd6bf97dbe33fe38c79c9aa1b9ad9cc0240b4905d0eb8610"
+    },
+    {
+      "archive": "raw/final-controlled/relay/topology.json.gz",
+      "gzipSha256": "4c204f4501831e3da94a1115a707a8e70863111337a3b5652f3ec8d8ea01a322",
+      "storedRawSha256": "23004becd5d81bcefe709fd907dafd5ba41925475f33be22f24d00f78a426631"
+    },
+    {
+      "archive": "raw/final-controlled/results.json.gz",
+      "gzipSha256": "3c5a43ba46862834489331db81f6b571568b1b4037ffc73b3ecf93a2c4ba2370",
+      "storedRawSha256": "672eed188bf8b6edbe1ddedf025e75247f59b2899d9d8b663cdf805aa5ed06e2"
+    },
+    {
+      "archive": "raw/default9-compat/broker-start.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/default9-compat/browser-load.log.gz",
+      "gzipSha256": "27a3fae003c93db16b4283b9b3cc73f3aafc72d49f7975ffd628b651eaf10968",
+      "storedRawSha256": "2ad066640772a38a7acd9f2b40ddda00d0ca6f78ccba87be5c3126793b6517b0"
+    },
+    {
+      "archive": "raw/default9-compat/certificate-ca.der.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/default9-compat/certificate-leaf.der.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/default9-compat/container-start.log.gz",
+      "gzipSha256": "1a3ede0ebba4bfe5d8f63f22eae160cad1264fe76ac3c3ede2e55fb94da73cc2",
+      "storedRawSha256": "677fb1ee39ffc2dd7af01790e267316c6dd146637618cbcc7e6a087b9d733110"
+    },
+    {
+      "archive": "raw/default9-compat/fixture-pkcs8.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/default9-compat/image-identity.log.gz",
+      "gzipSha256": "dc4b5a28eabcdef93be1e3c31b6d2ad2f402ae8d8e2363d93db943805535c39f",
+      "storedRawSha256": "8dc9f7015309f4d243549c4e99bab29f488cf0929ad596d82e2cebda4a8cc426"
+    },
+    {
+      "archive": "raw/default9-compat/mdns-join-after.log.gz",
+      "gzipSha256": "79690d369305174f3eacf5b9cb73614fba96730f668cbcd21325719c5030876c",
+      "storedRawSha256": "3f28daaeac38b94126082f3324244a5160a0bd8b9d932a9b0e9b44b0945bcdee"
+    },
+    {
+      "archive": "raw/default9-compat/mdns-join-before.log.gz",
+      "gzipSha256": "61364db3daf0dc3acca451902f69f335d2a63ff140dfa81db97ab576a2c47d75",
+      "storedRawSha256": "e9eedd0d56388d2827f14973da8cd554ed3ef0324aec637e7c8635ee4e2f043b"
+    },
+    {
+      "archive": "raw/default9-compat/namespace-addresses.log.gz",
+      "gzipSha256": "916d4b8bc60abe245e5cb822cd4a286c6f9326e7bb282fe32d26e7da22e6d061",
+      "storedRawSha256": "15cc189a9087d273074d36d7d1e04139124d2560924a971aa28407d2b37d10ef"
+    },
+    {
+      "archive": "raw/default9-compat/namespace-routes-after.log.gz",
+      "gzipSha256": "044d67e7371033eeaf572a263a90734e64d7655026baabfdbfa92b9359aa1417",
+      "storedRawSha256": "c077c001f1408681de712c1562987330624761517aa24b56b94b8682ec69502e"
+    },
+    {
+      "archive": "raw/default9-compat/namespace-routes-before.log.gz",
+      "gzipSha256": "f72dd8b51073a8e44516bf395bf2ea6769d9f5713ace915fdc802bfd3a8a6205",
+      "storedRawSha256": "265c0efc6afb76be479fb94f342cbf6a4abb811a92ff35f161b2f195359c699c"
+    },
+    {
+      "archive": "raw/default9-compat/namespace-tools.log.gz",
+      "gzipSha256": "ce0f755ebe5543c5926a77cebf4a5912fb761bdc5dca1f8f8d5914f174bc39c4",
+      "storedRawSha256": "c554b4466a0f44c15982d7123f1157da19251b616d81c76d417e81a1faa71366"
+    },
+    {
+      "archive": "raw/default9-compat/network-create.log.gz",
+      "gzipSha256": "904a3edd85aa86d4b285892ac5ec2c7d7fe09ed2ac1be1e8820e42c0a2aed793",
+      "storedRawSha256": "2b33395eb8564a733603b4383957308f3c4e19cc848ad2dbb0936d13ada43f06"
+    },
+    {
+      "archive": "raw/default9-compat/owned-multicast-route.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/default9-compat/results.json.gz",
+      "gzipSha256": "2cd6b00e4415bbd81c540443395f11b86e983f0aad708c0961c7a6384eab5bcf",
+      "storedRawSha256": "8c31f74058c146fe4feef6fa7819440e7e78b34d9fc23a2c8a4fbda332ca3888"
+    },
+    {
+      "archive": "raw/default9-compat/revision.log.gz",
+      "gzipSha256": "ccc0e9d09b532dba179c1f5c87d2c722ee4297bab681a553f5d0eb2f5fbe7b5b",
+      "storedRawSha256": "4c4d17aca440f8b369b1fcf570a2f5fdb9071164047ff7fd42b03d4353c6d498"
+    },
+    {
+      "archive": "raw/default9-compat/rtc-member-replica.json.gz",
+      "gzipSha256": "db2526476dc2ae48b0d4b268a835f2be5348b187f8116d753b396a10a1e90c6b",
+      "storedRawSha256": "574d49988fd9ec04d00ac1589e5dde90a023bb88f93688617edd8240652d9bfa"
+    },
+    {
+      "archive": "raw/default9-compat/rtc-member-replica.log.gz",
+      "gzipSha256": "f8fea4471cd82bb8bfdd4a228007f6ce0d8ed6691a8f3f943af849b4b73e9700",
+      "storedRawSha256": "b20b449e61981cc7635f5306e8bc187f7eecf9d28f6d21aefd0f624ba62cabd4"
+    },
+    {
+      "archive": "raw/current-validation/diff-check.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/current-validation/evidence-parser-redaction.log.gz",
+      "gzipSha256": "41164fef7a7c96487e731f61180ea068950f983f9ae8ab2fb052f5c5cc2eb9c9",
+      "storedRawSha256": "6f283ee6225d2cef4c0127d95456a6f954c45141c92b97dd89016cb1c630e8f4"
+    },
+    {
+      "archive": "raw/current-validation/format.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/current-validation/full-member-store-replica.log.gz",
+      "gzipSha256": "30b9b80f00e6b78264db1c31a5e1228c216e7dbf98125e0c10613b2be738d18a",
+      "storedRawSha256": "e9617684794d91d6e831455c726a889b2674afdb6010abb06b57800eebb9e75f"
+    },
+    {
+      "archive": "raw/current-validation/library.log.gz",
+      "gzipSha256": "c6fb26f87768c2f0b17ffb0e58d6ed1d74187c9cefbcc4fceff5d215d7130df6",
+      "storedRawSha256": "acb02e5fa11c8fc5f69f36e262ffb98236a068cfd44be15509167b2bb7b55a81"
+    },
+    {
+      "archive": "raw/current-validation/native-all-targets.log.gz",
+      "gzipSha256": "aa70eba7d2e27393b3b0428557d9364288b4e2eccefcb76cc3d58056de9c177b",
+      "storedRawSha256": "a010952fe5cbb8bb4790a98b14a485c9ebea221c96354c1cdef8ff802292f978"
+    },
+    {
+      "archive": "raw/current-validation/native-default.log.gz",
+      "gzipSha256": "b917adba4b9dab6ff660f1bc8146f05dd86676fd449902c63871d1a4b0403610",
+      "storedRawSha256": "12508f68e124af707d7ccf7b6b09558b6b829d16db4d9b106fa9c22da177780f"
+    },
+    {
+      "archive": "raw/current-validation/node-shared-replica.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/current-validation/node-syntax-cross-network-preflight.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/current-validation/node-syntax-owned-cross-network-services.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/current-validation/node-syntax-run-rtc-cross-network.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/current-validation/python-syntax.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/current-validation/resources-and-admission.log.gz",
+      "gzipSha256": "d6299ae2357f24eae4c1a523b34886792c048137569b953ef844fa0367a6f800",
+      "storedRawSha256": "cdbc50d843216882624430e5b687381b32058c10e5d6f80f6676aca54be47d7b"
+    },
+    {
+      "archive": "raw/current-validation/results.json.gz",
+      "gzipSha256": "2a7145f85556a5c03ba55c501497938f9112405a8b41a71e6861765fed0f259d",
+      "storedRawSha256": "27090c340d52e55f9d5a47f9cd383b4243013dda077f64f29ab0eb8a86620c0d"
+    },
+    {
+      "archive": "raw/current-validation/rtc-current-guards.log.gz",
+      "gzipSha256": "e69a4ebcad681dc4046c19c842c3fe55614b4f92910ea20b8fc4b22c940288c7",
+      "storedRawSha256": "2a70b1e27076cb9a94946ab10e35b946962419dd6e6a5e66c802000c4ca00142"
+    },
+    {
+      "archive": "raw/current-validation/stun-public-socket.log.gz",
+      "gzipSha256": "7e01cbbc1d25247ff7b89071d087cee2dc68abd31ad202f280ec748d6eab698f",
+      "storedRawSha256": "2d7f6d6bd899d6d2cb405bb75fec374683b078fe2eb6907f4de754625041fea8"
+    },
+    {
+      "archive": "raw/current-validation/wasm-default.log.gz",
+      "gzipSha256": "27187c4368a64f9579910ef5bdb2cf63d870b815f331e3ff2c88e9ed2e8a46dd",
+      "storedRawSha256": "60d929b25fd30dd01f9c55e4114cc0da2b90629102d78338a8e5fbb0a44b580a"
+    },
+    {
+      "archive": "raw/current-validation/wasm-rtc.log.gz",
+      "gzipSha256": "21f989421cee58437f91149a5538f15e66e3d2c56284f182a71727b9444c7a06",
+      "storedRawSha256": "3749f76dbd21db79b92017e937ac12f62c6c2407696eef942b05ea2ebe1f560b"
+    },
+    {
+      "archive": "raw/actual-mqtt-focused/broker-absent.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/actual-mqtt-focused/broker-port.log.gz",
+      "gzipSha256": "12748027b0a02ff44a38cb44458f75c2237079c73d1d5d8ff00dc01abe981370",
+      "storedRawSha256": "b5a99dc3abeca54520c4d9a4b733fdd5153be69fc8da6919bb2f07533c8dfea4"
+    },
+    {
+      "archive": "raw/actual-mqtt-focused/broker-start.log.gz",
+      "gzipSha256": "eda749d7fb706d201d2c3a2b55a333f4f9058e700c34339d47b656b2bb8777ed",
+      "storedRawSha256": "d865164f83a1ab393963c2e9f70a80da6b4ea889180142d93dcc278273eb14d4"
+    },
+    {
+      "archive": "raw/actual-mqtt-focused/broker-stop.log.gz",
+      "gzipSha256": "98f19cda761c36a48bb0159a4b8b6a77e7d0f6320f40ecedba9fc8f51a9cf336",
+      "storedRawSha256": "5a61f8a5be62d4b44892a51c18b854c0de1792568e6a2794c62c4c9a01386842"
+    },
+    {
+      "archive": "raw/actual-mqtt-focused/manual_admission.log.gz",
+      "gzipSha256": "5a238b8482ea14bf925b10502d3da4a209ed0a5285522d27ab012721f65275cb",
+      "storedRawSha256": "1be378c1e32efad3030b174436d6c7021d571e8b4bbd2af8cef91169f4072cce"
+    },
+    {
+      "archive": "raw/actual-mqtt-focused/public_resources.log.gz",
+      "gzipSha256": "cad2d5c10801bcf746d4a8bcc4871a03effb5dc9da6e23b0d50aa6f40ec9310a",
+      "storedRawSha256": "8f97aed92cc8d74543ee64bc2ef9c069636710e965bb568760accd094b0ea98a"
+    },
+    {
+      "archive": "raw/actual-mqtt-focused/results.json.gz",
+      "gzipSha256": "8f52a4f3566fc2bbc808bcfbfc96c5e48d18d8c99721bc313c7305c3d137591f",
+      "storedRawSha256": "37c069710f2e62a7788e25baf628a48d945101db460715fd959aec3f918005c2"
+    },
+    {
+      "archive": "raw/signal-cleanup/audit.json.gz",
+      "gzipSha256": "48d0e51634bf020d20453a2182edbfa806e9fa3bf8d3ec6f570525606626f501",
+      "storedRawSha256": "a98bdf13af63dd41854d6423efa355eda1a6d327df98d47910c1d2ce43f2f8f8"
+    },
+    {
+      "archive": "raw/signal-cleanup/containers-absence.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/networks-absence.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/001-certificate-ca.der.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/002-certificate-leaf.der.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/003-fixture-pkcs8.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/004-image.log.gz",
+      "gzipSha256": "dc4b5a28eabcdef93be1e3c31b6d2ad2f402ae8d8e2363d93db943805535c39f",
+      "storedRawSha256": "8dc9f7015309f4d243549c4e99bab29f488cf0929ad596d82e2cebda4a8cc426"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/005-network-ids.log.gz",
+      "gzipSha256": "ad2ce8c8c4aeb9801e455279f56ef09ffa2b33eeba3f7d687ff15672c921d1cb",
+      "storedRawSha256": "ce4ea160cfe124e4f5e87b2e5099c9d30f30d91d1ecb1f63b20540d8fb7fe44e"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/006-network-subnets.log.gz",
+      "gzipSha256": "eb6463fbe980208ae71761dd724252642e48edba8cbe3225ec180944a3795f5c",
+      "storedRawSha256": "345d3132511ff978c3ac1e72816923f43c040e0304924f393cb6c6a99df7eb53"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/007-create-lan-a.log.gz",
+      "gzipSha256": "d253ddc322f4c3c450ed7f4d08c5be82ceaa5ee177691188a3de2dce4ac7f7d0",
+      "storedRawSha256": "7473aee312fba630445c69c0878b23493e4fb82e0e854b7c2ae41e6cb3995a2d"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/008-create-lan-b.log.gz",
+      "gzipSha256": "197eacc71053d5cc9edb31ef1460c57b78ba750346919176bbc1dcb58cfaff19",
+      "storedRawSha256": "3de669d85cab211a02f7247dbfebb1009105d2960ae2f8fb1242ea2c85ce77df"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/009-create-wan-a.log.gz",
+      "gzipSha256": "3fc3f62bc65dfb32077f7279ccdbbfc49521114c65d87cf44becd39a9c6275a9",
+      "storedRawSha256": "a6510926d38c907a0126fac149dfa2ed70d466e5e68ce8d0502c17403fd329a9"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/010-create-wan-b.log.gz",
+      "gzipSha256": "833019a34898743aee1e82616eb9d5b4bd4b3f5d3bad810cd583170a02d16d5b",
+      "storedRawSha256": "bc5450e5a5695eed49fc8b99e294bdab9649dc6c0a3fbab43b7cbefb662363bc"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/011-start-browser.log.gz",
+      "gzipSha256": "72ac328122542d2caa3c62e3689287d45f870f862992b76807e25c99c948cc2e",
+      "storedRawSha256": "c112de69c0c09ef0037a35cc698c1db39d8fd5086437867501bf8adb24f1b55c"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/012-configure-browser.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/013-start-native.log.gz",
+      "gzipSha256": "c390896e6bf776e75fbe5b8382ab8dacb13b4cd9a83334582499d3285b15e702",
+      "storedRawSha256": "78db0438c75341efd640671d6e60219d17d33d35ee33416133327a5b66436105"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/014-configure-native.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/015-start-nat-a.log.gz",
+      "gzipSha256": "ce5cbc8daccd10be452def2e0e86f8c67b3cea89a49d0cee509a75db249a6ef4",
+      "storedRawSha256": "6c5704c5178c9c7d97a3d91c29d4026f23b88e4db843ca7c79a879a4d49db936"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/016-attach-nat-a-wan-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/017-configure-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/018-start-nat-b.log.gz",
+      "gzipSha256": "284a77001009a13b9c97c0397167cb1dd99bc46349dced0ff156b831a03e77df",
+      "storedRawSha256": "35b9f1d1968ea742484a58a1bd9e3cd20e18fe1d51db8a7dd868ef7014f01b39"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/019-attach-nat-b-wan-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/020-configure-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/021-start-router.log.gz",
+      "gzipSha256": "7bd5ab856aee92bc5d95b96a55c19efdeef9fd6652edc7485f9ab177113c4033",
+      "storedRawSha256": "831bab04c8ca2a5e7d13ea3af53a9cde7057e72f6ac91c35bdcc8d63fcc3c565"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/022-attach-router-wan-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/023-configure-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/024-snapshot-browser.log.gz",
+      "gzipSha256": "f9a8cce54afed7ddd46e6819ff8d9122743d0a8ed231430ab03b050b40afc980",
+      "storedRawSha256": "5dcf801f5a13d3a862efdfc0c6b5f8a22b41533bc83cfc3ed8eec66a54e5af78"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/025-snapshot-native.log.gz",
+      "gzipSha256": "da0cb8c1236f3b0efd52e472ae9cf363013b79b2d2f326948b06ab88aca9a40b",
+      "storedRawSha256": "d89aed6a2e10444c98f847aaa9a1f5fc62c1a9705fe76ed116a4e795eab02837"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/026-snapshot-nat-a.log.gz",
+      "gzipSha256": "78b22b6e390bb92d20edfa34ed3618b6416e2b1fa1c8dbbb647999629d60a364",
+      "storedRawSha256": "ff418247a368aa12779b4519b019886e3f2d6131943f58e63ddf3f939ca8d71a"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/027-snapshot-nat-b.log.gz",
+      "gzipSha256": "a07d95173e4e3471d9ac79501b4e954448b532a08ec818511cb39c03b02024f4",
+      "storedRawSha256": "43c985e5da0c3ffb07862189c7dc6e7c6eb211aabece8d393b91fea0c075d47b"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/028-snapshot-router.log.gz",
+      "gzipSha256": "dbd91b37c5a6eb19ed05884530763de90b951564d1a157662a5ef8840d802731",
+      "storedRawSha256": "0d4e9e3e595e89209f9d92874dd6f1c2ca3115ce86dcbe06576463c5ab6bcb75"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/029-capture-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/030-capture-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/031-capture-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/032-browser-user-environment.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/033-stop-capture-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/034-stop-capture-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/035-stop-capture-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/036-remove-containers.log.gz",
+      "gzipSha256": "a5c9599ec58372df5bdaffc4641cd1c205c68c685fdc868b77088d7e06ac38ea",
+      "storedRawSha256": "78f3815d27635d70d9d5a9a7d3fa364b70c1c10809bd8ff58dff37147ef8a764"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/037-remove-networks.log.gz",
+      "gzipSha256": "f827e9fbddfbccca6c6f8deb20d559e58067d9feb14faf8f671ce44d028543a9",
+      "storedRawSha256": "35d31a41decd61fc759e42651cb85a109f736d0a91e7e0b83b3d4e39eb5ef1d5"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/038-containers-absent.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/039-networks-absent.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/capture-nat-a-lan-a.log.gz",
+      "gzipSha256": "83c7909cb1806e63eb7aca49cbc60e64db44a350b0742530491d51f2bde2171f",
+      "storedRawSha256": "4322a016e189b2b54b51791a40f1fc5d3be0052d6a618f0633fa90ca934a0719"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/capture-nat-a-wan-a.log.gz",
+      "gzipSha256": "cc43a838c528dccfde07f20da56d765bc10c448d84f266b5aee43b8ac90d5916",
+      "storedRawSha256": "412e6242866294df5a26a05396c9f962351cc57dd9646d9cc367d5fab2f9f48b"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/capture-nat-b-lan-b.log.gz",
+      "gzipSha256": "e0c0dab3655c6789ba49844f069d314a1c4d167514501f65736c752e4c0c85d3",
+      "storedRawSha256": "ffe9436d2307196fa3d82ce4ba25aa7d4db2031acdaf6f84c4fd3d2c43a9b3f8"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/capture-nat-b-wan-b.log.gz",
+      "gzipSha256": "1a1c649b799c78542776c51118149b63c1febdf61efc87c48fad97d8a80ece53",
+      "storedRawSha256": "39ff1f9987ba96a9734d7c06c5aba8e2f6bb8b0da6b1fdecfbbe91237d12d5b7"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/capture-router-wan-a.log.gz",
+      "gzipSha256": "c0f767abf28717430cd9dd5eb1419971b01781fe6dc4e8436447b2244b6bab91",
+      "storedRawSha256": "41ab1de81eefbd10244200887953c1a2d8f7ff09615db751de713195379bb68e"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/capture-router-wan-b.log.gz",
+      "gzipSha256": "2facc7c82255b53512d6596741b603f3be5a0e7ba43093829ffc17651ce8b10c",
+      "storedRawSha256": "31247e00241fa0056b33914fa84e1a659c7dd67ecf4334e80683fa96bdf39453"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/namespace-before.json.gz",
+      "gzipSha256": "cf7ef0a9855baa304c997152eec9fe6708d3cfed4c71eef2d2c0855152264dfe",
+      "storedRawSha256": "d579f2d10c72eaf87869e0e60517291eb55ebb6bc13f472f5bff453fd2f0c81c"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/nat-a-lan-a.pcap.gz",
+      "gzipSha256": "b542c025fc8cc4dc3701f09ed734411c676138031786fe3f397cbb110e8e4cd2",
+      "storedRawSha256": "615b36d88ab5e59eaca680e5d9204c1a5ee4151d1d81488709776053e5161d95"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/nat-a-wan-a.pcap.gz",
+      "gzipSha256": "b542c025fc8cc4dc3701f09ed734411c676138031786fe3f397cbb110e8e4cd2",
+      "storedRawSha256": "615b36d88ab5e59eaca680e5d9204c1a5ee4151d1d81488709776053e5161d95"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/nat-b-lan-b.pcap.gz",
+      "gzipSha256": "b542c025fc8cc4dc3701f09ed734411c676138031786fe3f397cbb110e8e4cd2",
+      "storedRawSha256": "615b36d88ab5e59eaca680e5d9204c1a5ee4151d1d81488709776053e5161d95"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/nat-b-wan-b.pcap.gz",
+      "gzipSha256": "b542c025fc8cc4dc3701f09ed734411c676138031786fe3f397cbb110e8e4cd2",
+      "storedRawSha256": "615b36d88ab5e59eaca680e5d9204c1a5ee4151d1d81488709776053e5161d95"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/results.json.gz",
+      "gzipSha256": "10154f890f0aa003ab5ad400fa0791ed4a13fe2faecb465653d30f90a0f2f0b4",
+      "storedRawSha256": "220530bc1081e1ee5a2708ed52216651e36db1c289094355c9311a1607fc385e"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/router-wan-a.pcap.gz",
+      "gzipSha256": "b542c025fc8cc4dc3701f09ed734411c676138031786fe3f397cbb110e8e4cd2",
+      "storedRawSha256": "615b36d88ab5e59eaca680e5d9204c1a5ee4151d1d81488709776053e5161d95"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/router-wan-b.pcap.gz",
+      "gzipSha256": "b542c025fc8cc4dc3701f09ed734411c676138031786fe3f397cbb110e8e4cd2",
+      "storedRawSha256": "615b36d88ab5e59eaca680e5d9204c1a5ee4151d1d81488709776053e5161d95"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/topology-commands.json.gz",
+      "gzipSha256": "2f786bd24da6fa822fe039972bd5f6d254ab1251f516c28476ad373e523b46bb",
+      "storedRawSha256": "1d44d710c1194b290c0902140553bd001f47ef14b4d134ad72b4c9d2abe4f591"
+    },
+    {
+      "archive": "raw/signal-cleanup/prerequisite/topology.json.gz",
+      "gzipSha256": "4bcab07b2a21b45fb8109b65e10867689e0f1c93a4fee879cf7bb15da8bfb79d",
+      "storedRawSha256": "8ad3ae5210338f69f0683599fc281d81627f42bcf962a5b2099dd70a1d4e5f2c"
+    },
+    {
+      "archive": "raw/signal-cleanup/results.json.gz",
+      "gzipSha256": "df31b81c45ac0d49bce5cfefb5c2046687eb4d062e0ef6fa1fbff06667229b2c",
+      "storedRawSha256": "f01d4622cfb2b1e5ed709a920b3cc6b933d558d025cb14a30bf2c72fefef3d28"
+    },
+    {
+      "archive": "raw/signal-cleanup/runner.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/containers-independent-absence.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/networks-independent-absence.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/001-image.log.gz",
+      "gzipSha256": "dc4b5a28eabcdef93be1e3c31b6d2ad2f402ae8d8e2363d93db943805535c39f",
+      "storedRawSha256": "8dc9f7015309f4d243549c4e99bab29f488cf0929ad596d82e2cebda4a8cc426"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/002-network-ids.log.gz",
+      "gzipSha256": "ad2ce8c8c4aeb9801e455279f56ef09ffa2b33eeba3f7d687ff15672c921d1cb",
+      "storedRawSha256": "ce4ea160cfe124e4f5e87b2e5099c9d30f30d91d1ecb1f63b20540d8fb7fe44e"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/003-network-subnets.log.gz",
+      "gzipSha256": "eb6463fbe980208ae71761dd724252642e48edba8cbe3225ec180944a3795f5c",
+      "storedRawSha256": "345d3132511ff978c3ac1e72816923f43c040e0304924f393cb6c6a99df7eb53"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/004-create-lan-a.log.gz",
+      "gzipSha256": "4063aa88a703cc9f94add1c9d435f91fdbdfce66934c5e1a243737c1db0e4d9e",
+      "storedRawSha256": "96aac26f0bc1a36f85e8e0a9286b9d5b784a2e63357d66adfc1ab85ce2c30f88"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/005-create-lan-b.log.gz",
+      "gzipSha256": "613218af2fb223aa0a5834617fdb39eb4a05de268b32dfb26cf9be346034d818",
+      "storedRawSha256": "6d6345f10fd25916db04b7676019467913abc83566f6dd12c6eb3703fe88ee6c"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/006-create-wan-a.log.gz",
+      "gzipSha256": "aa24ed27e2dbec39cb76f0bb6108a2e28def270e2df1854386b25a48eaa79b54",
+      "storedRawSha256": "5b9aba90dbd43968a94d36ed37ffdbea1abb351971bba4c86debc63da7024c58"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/007-create-wan-b.log.gz",
+      "gzipSha256": "7ad4ce0818f201d8aa1a51fc61d0dae42b41c2e07ccfca8a08330f14a388c37f",
+      "storedRawSha256": "0a2c8a40eac6836702a10cb7c8dfd2e62ad1716cc7d26398e8ee794c8dfc9556"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/008-start-browser.log.gz",
+      "gzipSha256": "6ff341dbcface64cfe75d7895ab119104a40858d209e8c822fafd7543afd483d",
+      "storedRawSha256": "f5a83f82f48f4fdb8e424098e659f9297c08d89eb513e8a4b1c48b038f304e66"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/009-configure-browser.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/010-start-native.log.gz",
+      "gzipSha256": "15c675e368662d4f2e2ce66a4d9da260c4345c4aaaf6a67e5dff272977f08c43",
+      "storedRawSha256": "6b8a74aa3e50b9ce3db9ce4a202acfeaf11bf65d2d7f2a722dbfca1bbdf572cc"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/011-configure-native.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/012-start-nat-a.log.gz",
+      "gzipSha256": "97520f2d853ab0024f38dab58612b3cd090c7ce9aa2a38263a93032f5364baf9",
+      "storedRawSha256": "1a6a17ddca8dcd001810e2f1d4b6fce162a9bc1366b55c27fb77a0cbdcab6b2a"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/013-attach-nat-a-wan-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/014-configure-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/015-start-nat-b.log.gz",
+      "gzipSha256": "b6362d47a3bc2c4bf632b9df6766475f9a3a610daac643324919769a915242c5",
+      "storedRawSha256": "674cd13473993e331a2ee6e7f38ac2b2de3ef8bcaf8ce1832b19793e112681f6"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/016-attach-nat-b-wan-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/017-configure-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/018-start-router.log.gz",
+      "gzipSha256": "23dd91d6d4530e36857a2c25b588c31164ac6041eca6097f6bb82c9ce115870f",
+      "storedRawSha256": "a2f228f315f63540bdff50a1aafd5bc93399ee13695232d24ae4b5707b006ba4"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/019-attach-router-wan-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/020-configure-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/021-snapshot-browser.log.gz",
+      "gzipSha256": "635c6cf16031a6ed255ca545cd3e36d2185c425db32c867b36576ca21c54f8c1",
+      "storedRawSha256": "4b773ad83c44d59ecee2eb7949a3e37dd663259ec3eac2d59b15534e9e1748bf"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/022-snapshot-native.log.gz",
+      "gzipSha256": "92ea6de3a15bd8d33624a181e5c3cf2c9610b052497194920fe85a22eebe4905",
+      "storedRawSha256": "029cfdbbc4350b79762fe0236630b955ec55cc5998102b2ba7877e1230d32b42"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/023-snapshot-nat-a.log.gz",
+      "gzipSha256": "7575e77049639d6d2a913105c2f6fed89a7593f2256e12df038994c580b8a01f",
+      "storedRawSha256": "4273e274d5156c054d9533621e55f2ca5d4bca89ef57259101ee0f414fce2759"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/024-snapshot-nat-b.log.gz",
+      "gzipSha256": "7f0d2b615a7f60bbb9547d2776394b166b95d6547830868fda9c78fb52d075b6",
+      "storedRawSha256": "9a8f603ceb34dfe6fc42c238991bac8951cbb255468402c87637feacdbea5e6c"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/025-snapshot-router.log.gz",
+      "gzipSha256": "a235d4fecb610e01c3a04c87de68f64d26a64c2ed48ee221f4ec050e32246a51",
+      "storedRawSha256": "9e1988fd679143bb4b8235d2dcc328f403d7a1e5f3bbdc2f3b838f47aac55e0a"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/026-capture-nat-a.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/027-capture-nat-b.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/028-capture-router.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/029-remove-containers.log.gz",
+      "gzipSha256": "6d3fa6b626c11f82b4f6402a7040205aaa0a4fe32749b369aeef46c0f1a008ca",
+      "storedRawSha256": "bc411b89ae2ac4fc7fd89e32a293d4454117ee5ca9f061cc98d064f0a0f8aaae"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/030-remove-networks.log.gz",
+      "gzipSha256": "5920c13c85e377c4b17867f4748dba4f6144ce6c8b830b8607940b55ea57bfea",
+      "storedRawSha256": "0191ecbd83d50976a1d6ad419d1cf17cc1a736463a0b520a8d42255ca709c9bf"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/031-containers-absent.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/032-networks-absent.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/browser-driver-events.jsonl.gz",
+      "gzipSha256": "9da6b6284c2c5914be3721124a7c51094d5434d0db324240b0758d6e4957e311",
+      "storedRawSha256": "796f92da5b98ffccbdf0fb35f534780b66824b588089d5232daa66fca38fea28"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/capture-nat-a-lan-a.log.gz",
+      "gzipSha256": "71905b7f09ac82d98cf2cac8df7802ae0e3654551b58b7b1466a501c86ba3587",
+      "storedRawSha256": "8f9fe439f817b387d45ba88c7e1032601d5dfa16dfb14e76af9075824f985e89"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/capture-nat-a-wan-a.log.gz",
+      "gzipSha256": "20bcbd3350c97f9fef41b55a5ac13b1195b72023ab40765ab9d31674c510ff4c",
+      "storedRawSha256": "86dfeb47b879779e2ae15c01c38f62bb8fbf3231b9521a44cb4b6f3147c17d8d"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/capture-nat-b-lan-b.log.gz",
+      "gzipSha256": "71905b7f09ac82d98cf2cac8df7802ae0e3654551b58b7b1466a501c86ba3587",
+      "storedRawSha256": "8f9fe439f817b387d45ba88c7e1032601d5dfa16dfb14e76af9075824f985e89"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/capture-nat-b-wan-b.log.gz",
+      "gzipSha256": "20bcbd3350c97f9fef41b55a5ac13b1195b72023ab40765ab9d31674c510ff4c",
+      "storedRawSha256": "86dfeb47b879779e2ae15c01c38f62bb8fbf3231b9521a44cb4b6f3147c17d8d"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/capture-router-wan-a.log.gz",
+      "gzipSha256": "71905b7f09ac82d98cf2cac8df7802ae0e3654551b58b7b1466a501c86ba3587",
+      "storedRawSha256": "8f9fe439f817b387d45ba88c7e1032601d5dfa16dfb14e76af9075824f985e89"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/capture-router-wan-b.log.gz",
+      "gzipSha256": "20bcbd3350c97f9fef41b55a5ac13b1195b72023ab40765ab9d31674c510ff4c",
+      "storedRawSha256": "86dfeb47b879779e2ae15c01c38f62bb8fbf3231b9521a44cb4b6f3147c17d8d"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/cost-browser-driver.json.gz",
+      "gzipSha256": "647e08fcb82cef38b27068b56ba1b0ba885ef48e15ea29e9c883bba20d235d29",
+      "storedRawSha256": "6331abb9e3e74310b26da527e6a1e4629571b624b2c2700eac68d2bdfa371ea2"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/namespace-before.json.gz",
+      "gzipSha256": "098fd23a60a971ae721085a4897d0613a4e3a98c0016f3428e7e531f197b57cb",
+      "storedRawSha256": "4c50ff30c291ad400d92acac2f7410717fa75cd49556f5a4d086aa1914d04085"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/nat-a-lan-a.pcap.gz",
+      "gzipSha256": "b542c025fc8cc4dc3701f09ed734411c676138031786fe3f397cbb110e8e4cd2",
+      "storedRawSha256": "615b36d88ab5e59eaca680e5d9204c1a5ee4151d1d81488709776053e5161d95"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/nat-a-wan-a.pcap.gz",
+      "gzipSha256": "b542c025fc8cc4dc3701f09ed734411c676138031786fe3f397cbb110e8e4cd2",
+      "storedRawSha256": "615b36d88ab5e59eaca680e5d9204c1a5ee4151d1d81488709776053e5161d95"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/nat-b-lan-b.pcap.gz",
+      "gzipSha256": "b542c025fc8cc4dc3701f09ed734411c676138031786fe3f397cbb110e8e4cd2",
+      "storedRawSha256": "615b36d88ab5e59eaca680e5d9204c1a5ee4151d1d81488709776053e5161d95"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/nat-b-wan-b.pcap.gz",
+      "gzipSha256": "b542c025fc8cc4dc3701f09ed734411c676138031786fe3f397cbb110e8e4cd2",
+      "storedRawSha256": "615b36d88ab5e59eaca680e5d9204c1a5ee4151d1d81488709776053e5161d95"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/router-wan-a.pcap.gz",
+      "gzipSha256": "b542c025fc8cc4dc3701f09ed734411c676138031786fe3f397cbb110e8e4cd2",
+      "storedRawSha256": "615b36d88ab5e59eaca680e5d9204c1a5ee4151d1d81488709776053e5161d95"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/router-wan-b.pcap.gz",
+      "gzipSha256": "b542c025fc8cc4dc3701f09ed734411c676138031786fe3f397cbb110e8e4cd2",
+      "storedRawSha256": "615b36d88ab5e59eaca680e5d9204c1a5ee4151d1d81488709776053e5161d95"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/rtc-cross-network.json.gz",
+      "gzipSha256": "eb7d8a3c1796e7d4c129ff5d15eb7784c65034c3bd976ebdd5b394fd2a822586",
+      "storedRawSha256": "60469060d28d4991b09ed64cefe10f83a9f3d72922d30f2beaec9b53aa9e0070"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/slow-browser-events.jsonl.gz",
+      "gzipSha256": "a5bc8e1829adf5aa012792727c4f14e88aa0bd510e1e371b61f2c672692f03c2",
+      "storedRawSha256": "c3f99794d92378e77c27bac9d4edff0c6ad126f7d4d040dd665c094974a790d9"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/slow-browser-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/slow-native-events.jsonl.gz",
+      "gzipSha256": "3d88f22bf71c00aeca74ec92c9b422b456b05031816efb6b61ce57d5f7fa1407",
+      "storedRawSha256": "31949bcc93e342fb23235d722093e4292fec8050b80088378898fd6ec5cd715c"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/slow-native-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/topology-commands.json.gz",
+      "gzipSha256": "5ec2a2f009e9ae5dd3a5434d58eaf021499eaa92596ee266b68a329dd7bd3bea",
+      "storedRawSha256": "aec6cbeea32205179b13c61a83fec19c0666f34952fc37fd8da2c3dd42f489bb"
+    },
+    {
+      "archive": "raw/review-cleanup-current/owned-expiry/topology.json.gz",
+      "gzipSha256": "026968210d3c956e3bc5ffdaa5f74e1f1f78b5a7a304249cecf9d6bc43956055",
+      "storedRawSha256": "afa85c7fb638d51136fa1229f50564948baedf03e14d38687106caea6504fda2"
+    },
+    {
+      "archive": "raw/review-cleanup-current/process-group/001-owned-timeout-group.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/review-cleanup-current/process-group/identity.json.gz",
+      "gzipSha256": "6251ad69ee2604f0597ca3b282ebbb8f1c025faee0aeb9b97c6ddd3aef73320f",
+      "storedRawSha256": "5f3de77ca9b091ccb48f65e72d1b40e7356d29a71fc3e27bdeead2db3977340d"
+    },
+    {
+      "archive": "raw/review-cleanup-current/process-group/topology-commands.json.gz",
+      "gzipSha256": "80b6d6c711b74c1c893f6d16b4611e6911870138b765b625770c882b00c66e1a",
+      "storedRawSha256": "4539783333bc0d3707d9be99ed76844e9ecbbc9106bb71e5bd157c3871e58598"
+    },
+    {
+      "archive": "raw/review-cleanup-current/results.json.gz",
+      "gzipSha256": "2521ceacb5f8d5ec768a1b6d9f65c994a8b4bc1cbec5bd30562536118f786eb9",
+      "storedRawSha256": "a5100753fd53f534885a6b515aea4736222d3fea235ba1ee49bf96cb58d2fdd1"
+    },
+    {
+      "archive": "raw/build-final/bindgen.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/build-final/native.log.gz",
+      "gzipSha256": "4e651bb0b108b1eb41f649d9763415a80d78fca34fd7550467ee12b979646793",
+      "storedRawSha256": "31a830011eefe746234d20523cdb50c734e46d980127cbfa89fa6f86ef171797"
+    },
+    {
+      "archive": "raw/build-final/results.json.gz",
+      "gzipSha256": "82c32c57c2bbc886215d45b183ad37903017429905230acb179d12f4fba9ed2f",
+      "storedRawSha256": "052e73fe95fb8dab25fdcf4b236dd7b512df3353e9b511595c2d945bb5e57347"
+    },
+    {
+      "archive": "raw/build-final/wasm.log.gz",
+      "gzipSha256": "6be9f35b0d0303390628ee299a470292bd5348c8246d06aff1c8af984a9def99",
+      "storedRawSha256": "fef28ca24f4a1bb9b3e7918b476f271d8e59b7843a13b2c6a25ca98099f2fbb1"
+    },
+    {
+      "archive": "raw/failed-final-outer/controlled-cross-network.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/failed-final-outer/results.json.gz",
+      "gzipSha256": "a758395d56a10d9da37f593413c3d2c774bd30c7e77279fe3483f15b8fda60f6",
+      "storedRawSha256": "65d111d23b4f5e6ecae416a861fdb040754823cfc6efcafdff36d9d63475fd86"
+    },
+    {
+      "archive": "raw/failed-review-verifier/results.json.gz",
+      "gzipSha256": "fd18234af7f2cca09b7408b12be6b57b1b86ea564a91c1316fd163dc43871c50",
+      "storedRawSha256": "acb1ba693d7c65fbc4c961ae500c4c7fb6b536a3b4118c61b9438d65b6f7f277"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-actor-build-first-20261004/results.json.gz",
+      "gzipSha256": "9178194ebb383114078ce4b6dffd87f99d17bcc2ac1bb34f320f37a9ea49b106",
+      "storedRawSha256": "c40e92117290be87bf3bc4a2eee65a4e564c6deec6d54f6fa360d8cb64cfe33f"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-cross-network-final-20261004/blocked/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-cross-network-final-20261004/blocked/native-1-stderr.log.gz",
+      "gzipSha256": "ee7e3cf4a0ff4d17ae213593c17c9ef8cc98068b3d79b4ff73d7f5cf59063258",
+      "storedRawSha256": "459aa0eef14c7bbd351245ff6c9fc05aa070744018fc6118e43852f609f3fefe"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-cross-network-final-20261004/blocked/results.json.gz",
+      "gzipSha256": "68c0ef8c73f1d49dcffa82621aede291a0d0b19425a7cdd5f99c9ba2b58a6c37",
+      "storedRawSha256": "d729842958f747b060761a8c7c19da523a39c000aace9c3205161d4b79286e14"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-cross-network-final-20261004/blocked/rtc-cross-network.json.gz",
+      "gzipSha256": "6678a17b7b5ac5e1563c9b548e310df4ec086e839177bd86e0bbd52c8ca51dc6",
+      "storedRawSha256": "135e52baac6e49192a8ea95e352349a06e238d0360c5f892667083add7dbe8da"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-cross-network-final-20261004/direct/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-cross-network-final-20261004/direct/native-1-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-cross-network-final-20261004/direct/results.json.gz",
+      "gzipSha256": "a86b5f544bf4d81c8240941390d583d20033abed66b6ac653f5db0b5563cba99",
+      "storedRawSha256": "71e6823a23435b977026eba954ba2a7c2615a8de3895d6f132e47d3458837e28"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-cross-network-final-20261004/direct/rtc-cross-network.json.gz",
+      "gzipSha256": "5b8f8a1277edf3d3485bede3fa03b0dad5bb5b729a12bf415610a2bd1080f26b",
+      "storedRawSha256": "8cb65150bdd092949a116ad6b98aaf44f1a71d54bff0e01b4c4a6139e5989b13"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-cross-network-final-20261004/prepare/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-cross-network-final-20261004/prepare/native-1-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-cross-network-final-20261004/prepare/results.json.gz",
+      "gzipSha256": "dfcd038f7fe30c87af96a0f6f579cf03637d5febae8367030f412d191e8bba1c",
+      "storedRawSha256": "251b623aeccc784fd7a463ac00b60e3523470cf13adb0a1efc6827c0d80fbe73"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-cross-network-final-20261004/prepare/rtc-cross-network.json.gz",
+      "gzipSha256": "15b12d1d25327896a601630b20835d9a92c8afb0d02143b2625f2301847a997b",
+      "storedRawSha256": "1ff0f5253363821c37ea75fd90b6de5088c9316c638856447c842cf061a43350"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-cross-network-final-20261004/results.json.gz",
+      "gzipSha256": "302156c021f3c7c8a52b52757260bcfa3ec92b6a92d902c5bec0a36cd565ebd0",
+      "storedRawSha256": "c1f6f6d6cbefa3a76dcda6b611ba5860f9705fcb2f01b992972d9c7252fdd682"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-full-20261004/build/results.json.gz",
+      "gzipSha256": "207ed30b7680b6ae34c8a49aa7455775924172cadd592fbd67bcc84b7c25369e",
+      "storedRawSha256": "bc3ce29e8a9802d63a4e26bd4b162bbd65a472525eb6e8b39447b28d84ff7a46"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-full-20261004/direct/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-full-20261004/direct/native-1-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-full-20261004/direct/results.json.gz",
+      "gzipSha256": "1257f069d607dc04ac265ce27fd3f22efd3ed62a1cf494d0bec48e94ea1921a1",
+      "storedRawSha256": "bf3ae66387389abe2c6f86067aa49d3e45635d691a2324af6f7cba2a059ff4fc"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-full-20261004/direct/rtc-cross-network.json.gz",
+      "gzipSha256": "a3c2b8cfd1ad8e0811d7f6f922e88b4f768655ebcc020d6c9edb9c661a185314",
+      "storedRawSha256": "8cd39d8ca994dc27ebec41212b7f1c80ca8a4bfed758e04dcc8aff3b315d3944"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-full-20261004/prepare/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-full-20261004/prepare/native-1-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-full-20261004/prepare/results.json.gz",
+      "gzipSha256": "59cc6ede8349e226b752a5160d7989ee5d565e610fe3137d735d32f4a20d109a",
+      "storedRawSha256": "5124610819c705c3faf112cbeeaeb2bd68f4402dba316159afc9977cd5dbf04a"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-full-20261004/prepare/rtc-cross-network.json.gz",
+      "gzipSha256": "b0be812c936f6682712a3c36628b076f1f5eb36879f72cbe9137be93e341b2e4",
+      "storedRawSha256": "fe85545ff3f26c66e2435dbcd96a24073c0cabcf9d5eca2cedd3fc4ddc581b49"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-full-20261004/results.json.gz",
+      "gzipSha256": "ed62c5344ee969a106c0097faf802c1dc5334c1f322e1f3a67808bbed4c599bb",
+      "storedRawSha256": "f1588eba38d310127b41b3b76264af405ab759109cc01c48d7906df5dd278e47"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-real-direct-20261004/build/results.json.gz",
+      "gzipSha256": "b38e19a214de652e0acf56435ec930d76b8750cbbb2692700c6ae4acd92f70d3",
+      "storedRawSha256": "43caabc4f9dc9db1f22bc2d30cf81e7f3024a7d8f17d44d9fc37f45f6a2907a2"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-real-direct-20261004/prepare/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-real-direct-20261004/prepare/native-1-stderr.log.gz",
+      "gzipSha256": "10ccb450c3dc2b6de92e439cd21315771cc3feb66d4324d0dce86bd2ff7b3c9f",
+      "storedRawSha256": "5ba71823dd3c0c10c29fd88eec60bc88cb9e2371a690ae49ba9cdb7c6dde8c96"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-real-direct-20261004/prepare/results.json.gz",
+      "gzipSha256": "44a6eb58ede430a49d6cf163eb987becb231a1844a97d4c078aa784495f0953e",
+      "storedRawSha256": "da806f5423548542211b05503b0168083cc9247f484141504db72dcb0b2612bf"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-real-direct-20261004/prepare/rtc-cross-network.json.gz",
+      "gzipSha256": "c7f269ca93478cc2d1687994a52d97ce84446eb7db6df3fbcf467fe588778fd7",
+      "storedRawSha256": "c475ae5f2333452fb442a7d5a1de748e838972ad0b391935792914f6bf341c3e"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-first-real-direct-20261004/results.json.gz",
+      "gzipSha256": "0e0c43f094e908809fa299a4a6c7d082083cffbedc589824ec1110765b07eb38",
+      "storedRawSha256": "2482c2b52827ae7f23bccf3306464c9e77fd9e270791a4046b8139e987b7922a"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/blocked/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/blocked/native-1-stderr.log.gz",
+      "gzipSha256": "6f7662c552ba0754a66ca4ce700f692ebcc295bc762b6b6aa384902484be7cb7",
+      "storedRawSha256": "d3e81cb9b94674230ad1f28175bfbf4431644d9737048edc0879c9b4819e9232"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/blocked/results.json.gz",
+      "gzipSha256": "50821cee42b7dd9c47a2ba302a186dc47a226ad4f77ce85d062520424256c47a",
+      "storedRawSha256": "3d64dfa38eec723b3452b5298ccff8a602b9fcbea33c14eaf1a273bd3f5dcddc"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/blocked/rtc-cross-network.json.gz",
+      "gzipSha256": "1424cc38e6b3ac59bc5592fd487aa00dd82f6fbe5f093a2ce0412e41cc970812",
+      "storedRawSha256": "9d0597d5d7101efda8aceb0b32a475afc137a2bdc0ec588105514658472a03ff"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/direct/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/direct/native-1-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/direct/results.json.gz",
+      "gzipSha256": "1bc108b6dad5d2076ef81c6de9da60f9989ea29b6719c9d162ccae7c8819a962",
+      "storedRawSha256": "e6323c21ab868f5de194a15acdd36a5751184c60ee1a9a73c181ced159b5d9c7"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/direct/rtc-cross-network.json.gz",
+      "gzipSha256": "1062d6f749a85e77921a839f9494a95c56abcfac815798d945b006f91143f9f2",
+      "storedRawSha256": "8a9d8935513da1c1497ec909ce319a653f9dd99e956bfb25808aec8fdcf87012"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/prepare/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/prepare/native-1-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/prepare/results.json.gz",
+      "gzipSha256": "a35028a0833454859419634e3ceb98280badb1b47a5a2332f03c4d06d87d66b7",
+      "storedRawSha256": "f5adf36ba64cadb0edb7e0e51fce008148251657e64c40c0e8b76a4361f6f1ba"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/prepare/rtc-cross-network.json.gz",
+      "gzipSha256": "9a68fc3318fbd984fb8c1bc62e5b1390e6fca434fe98e3a580f2a0443e99562b",
+      "storedRawSha256": "46c5c670ba7d15fcbdc444b2e067eeaf6db68f7ce5dc3f4884133b14a5ccfbfa"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/relay/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/relay/native-1-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/relay/results.json.gz",
+      "gzipSha256": "150a1fb1785ccc79528c585d0e52ac722a858c6cc9f13fee045c8bb578e355d2",
+      "storedRawSha256": "9a04d41f7923b9a0adc49c501e610c68e128919f908a5562d6f53817173fabe8"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/relay/rtc-cross-network.json.gz",
+      "gzipSha256": "00655853aa1c3c1a7440c263e2d6f364b47f9253bd4c2208ce4f1b57b23c5713",
+      "storedRawSha256": "52b1f5f8c0b5855af6383588a48e71383d16abce89ddaf0260036c8fae555d65"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-full-icmp-broker-20261004/results.json.gz",
+      "gzipSha256": "33f34b3614e4f4f6012198e3f8679dd60cfdb566ace96258b99fcaa29917e721",
+      "storedRawSha256": "774172800575062d9a8d5cc0ee39ee5894c58fd769a2fd87a800ebe640ebaf12"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-observer-alias-red-20261004/receipt.json.gz",
+      "gzipSha256": "754a9dc3141955cacc81ab348746e1740dc534a4f563161f2b6cef81400179a0",
+      "storedRawSha256": "c1e3c78be5ea0fb6a1bc3de164e22ec594d2e0306fe03c3fbde4d902960d0424"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-observer-alias-red-20261004/test.log.gz",
+      "gzipSha256": "87c0aa506f539da67b58b309978b455eea4da2106ecc9da01db7422c6bf4c308",
+      "storedRawSha256": "5c87e2a69c3243676dbb3f4c1bd5a1902031e237de20a712191475ebe0027b9f"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-observer-resource-green-20261004/receipt.json.gz",
+      "gzipSha256": "082ed6b1d50d578d7691c0ac1ef9686581bd5a52d27582ce48abb12147ef1d80",
+      "storedRawSha256": "a287650795fb48a03390e342120fca8352502130784ca0197d4db057be5e78d4"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-observer-resource-green-20261004/test.log.gz",
+      "gzipSha256": "e37f91206ff995bd4caa33765ef67657e0102c13a34d703f42f103ecaa42d268",
+      "storedRawSha256": "bb8837a7d58efcc0c1bcee2bfb8dbcae1335ed52c83e6efc6f4af0b9b9564ff7"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-observer-resource-red-20261004/receipt.json.gz",
+      "gzipSha256": "da10cdf752063cf1a364f1b4c914a6bf7cd614236b7edfc0fa6375e3de15f480",
+      "storedRawSha256": "ee64853df3edfa1a664859526a7ab83ad5ec9d3c9e6fae6a9b6e0859d25fea09"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-observer-resource-red-20261004/test.log.gz",
+      "gzipSha256": "6f29262221f05214f26af9e7643a18dde54012249df286236c54480806718f9a",
+      "storedRawSha256": "eb1a4d6e9da956455dda173a5bdab584d44bfa2b7f9dd4feb30ebb80734d220a"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-prerequisite-bridge-20261004/results.json.gz",
+      "gzipSha256": "7cd095c978e6ed1a068c8996be948cb247bc7c3531d4b3e1af59e7602fdf17c9",
+      "storedRawSha256": "7744126cce84c94a07162795cd8ad34d0585777d7378e89f9d0b07e78ef8ceb3"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-prerequisite-first-20261004/results.json.gz",
+      "gzipSha256": "05e6a6864d0c80b4d87e7b66b2b35f43d77684cd37df6e8ef4786ba5ac15102e",
+      "storedRawSha256": "3c4a72f1c391f71676b76d1428111017ae3865a9c213a630a37c8b43ed4ecad6"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-prerequisite-home-observation-20261004/results.json.gz",
+      "gzipSha256": "d8ca25638ebf617a9c4098c08be3c6084692bf8d6c004d1973b44687fe0f23d2",
+      "storedRawSha256": "d600e08142fd56d0bd800dee635042243bf7cf7ff12d6d6b15e3f88b9c6300ba"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-prerequisite-ipam-20261004/results.json.gz",
+      "gzipSha256": "cba9915a6cc60c007e39e9888bb556ac3b6267033206b85e7d1550b7581487a6",
+      "storedRawSha256": "22ceb8ddbca3929c7fbe3a07e3f01d3ab8f4505a7a7997148328129fbd34982c"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-prerequisite-node-20261004/results.json.gz",
+      "gzipSha256": "813b704d05c588f8367dadd6124a79dc495793e84f3dd1c816ed5e4211558356",
+      "storedRawSha256": "28431ec5b4914b33f150c1c3736de9024e31b8ad58680444f9e6b25b775a82d4"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-prerequisite-private-home-20261004/results.json.gz",
+      "gzipSha256": "599c2e6fa2749e30062fd005e9a87b0ec9a3edd9dd94b9d79aa666c016a83070",
+      "storedRawSha256": "3e5f0ff2fcb2edef8725b7bd846499acd060882ac791be80046580e72daf7b5e"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-prerequisite-user-map-20261004/results.json.gz",
+      "gzipSha256": "02fa08a36d61b03133362970a0018a68d1bbd9eb34ffb7df4d2fc9b2f0ba565d",
+      "storedRawSha256": "14e6bec3ca5b1af7fee5da23155b783c162896a046487565b91c8a61240ced72"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-profile-green-20261004/receipt.json.gz",
+      "gzipSha256": "8931de900decacc448afbad84c455321dec74c9f894d12f10fc0d3dca952487d",
+      "storedRawSha256": "e2e20d4ba3ef5884c28cdac6dabb4128a448e809b471f9010a9f63f8b9c59010"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-profile-green-20261004/test.log.gz",
+      "gzipSha256": "28845dc00ae5bee4f278743faec41773408019fabeaca22dc0f2257cd77df803",
+      "storedRawSha256": "a8c4031f412dd2c5e6c281b5e27ad42c8951ef96faaa739ff068c146e2af4d50"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-profile-red-20261004/receipt.json.gz",
+      "gzipSha256": "ecf2ac269c4444cca63bd8b111e0957db6be4b740be1167952fe54c46d3ca2c6",
+      "storedRawSha256": "123dc1d63051de7788961a80ee11c1cc34ca49e2aa8a291bc62b7f2a332d1142"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-argv-20261004/direct/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-argv-20261004/direct/native-1-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-argv-20261004/direct/results.json.gz",
+      "gzipSha256": "a0114e76ddfcf7629086c751251f51cace829bcf71288cab6ea4868262930407",
+      "storedRawSha256": "f1705ecc2bc9fcd9d7dbb9505c5ef4a4d1d93d18790aab7f02f9a58242f82033"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-argv-20261004/direct/rtc-cross-network.json.gz",
+      "gzipSha256": "919b01629ee030c2a21ca749193df62de4774aba718db1024a5a0293213cee05",
+      "storedRawSha256": "711b90eaad79616e6ee10c7e5855fde0e297992f71a1ad10e471809d761a0e73"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-argv-20261004/prepare/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-argv-20261004/prepare/native-1-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-argv-20261004/prepare/results.json.gz",
+      "gzipSha256": "0697734d850f86bbe0daef6b6882ff34b9358e34dc61c7b737366b8885f922f8",
+      "storedRawSha256": "a2a5ba9b7dbe78b935a057cb181ef2474da803dd36d2884de812bc83727b84ec"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-argv-20261004/prepare/rtc-cross-network.json.gz",
+      "gzipSha256": "55f0dbd5bbc6bae11c9f920c0a8199c5d0fd98a911bb53572882f01322bd6b2b",
+      "storedRawSha256": "42199269d978df15cb9c85dad21d1e4ab466b7ee85849e85bd7c79039d1e28c6"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-argv-20261004/results.json.gz",
+      "gzipSha256": "ecafeeb82b378c238a5c94e96030a190a5f659865f8e69f17849eab6f83b60b3",
+      "storedRawSha256": "4373b09834ffe4b3bac21c90df9fb4e21dc9c5b35715d8d37f5a9cdec91dddf8"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-route-20261004/direct/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-route-20261004/direct/native-1-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-route-20261004/direct/results.json.gz",
+      "gzipSha256": "74547b5f807221af89eb91d049efcb4be7393479ec2352e8d3b862a93977e8df",
+      "storedRawSha256": "cb2c073bcd6b696d092ca1e8990e6a822d6c04159c7531ba0d8856150e839cc2"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-route-20261004/direct/rtc-cross-network.json.gz",
+      "gzipSha256": "d31a3cd27e84c3db2dd47180d79f71bd5ee0c9a4abd8ab4861d05873786af02f",
+      "storedRawSha256": "d1e51b49c190cd3934d95d10d5a6c01779717392b1fb8a120986979d4916fea3"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-route-20261004/prepare/browser-driver-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-route-20261004/prepare/native-1-stderr.log.gz",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "storedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-route-20261004/prepare/results.json.gz",
+      "gzipSha256": "d56d8ce53cad362ad507afe1b23e0d4a32f92232a0a26eeccaa4d2079bdfcd15",
+      "storedRawSha256": "033fd5d07a903ab50bb8148a3b89999ef40c1628837df29b82d3325a09e35039"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-route-20261004/prepare/rtc-cross-network.json.gz",
+      "gzipSha256": "0f3108b5655a9c4f5dc32f9ff3f7a7aca801e8d2897b4f6a8003d00e4bdade53",
+      "storedRawSha256": "73ad63db3078bdcff7103cdc4bef7cd5186cc088b6496dff2e84608afbdbb573"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-real-direct-route-20261004/results.json.gz",
+      "gzipSha256": "fae5df1a4b09f7ecf522a94a05edac03a2391f5b4221d501ba27932f62a06ce3",
+      "storedRawSha256": "ace8f7bf3e90b93c4d9c300a646b6b2baf2ec0e23e97a55c0cd0963316e5a976"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-stun-fixture-green-20261004/receipt.json.gz",
+      "gzipSha256": "717d6282e986e6510d1a9561a344bfeaae47be5ccc128e6e0dd41bc75741359f",
+      "storedRawSha256": "a074009a08613e462b95cad4b62b78c820da18d2cda90194220d2e4b90119251"
+    },
+    {
+      "archive": "raw/historical/mio-rtc-s11-stun-fixture-green-20261004/test.log.gz",
+      "gzipSha256": "3c488c20927d1be7569ec3ae12c2b426a1869ea042a57c01f3f6add05d9c5207",
+      "storedRawSha256": "dbe1503ab9e1540cdcbb25a14012efc71fb102c2ea8b6ae8a890a71bb089691c"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-source-freeze-20261004.json.gz",
+      "gzipSha256": "67f223bc69f7312193eb35ae57e03b3850a33949b727e9ab230c96249325c766",
+      "storedRawSha256": "62cb36eadab7eaa508fcfe25635d89c8c18d7d9f4648253cb2bbc5c4e39ec54b"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-source-freeze-final-20261004.json.gz",
+      "gzipSha256": "fe1a238312d4adf59d2a6d6b5395b79b992848b6bf4eea6e37809c83bfc9495e",
+      "storedRawSha256": "d3e5ca2e54871fc8d2a5974a2d6ae41d79640261bcfd4843aaa9856239ccb26b"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-source-registry-metadata-delta.json.gz",
+      "gzipSha256": "549d45626d62c01cda7670d00b9aabec2ec24eed81a5710090f8f6c708cd346a",
+      "storedRawSha256": "836523c6ff116beb3047287bc0486851b0447e00f2c9fc08e7c80a909ec978d5"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-initial-review-input.json.gz",
+      "gzipSha256": "c15ec08c18c8c59df11608284912578d070fb5289678d35674cc9b6dbf12b04d",
+      "storedRawSha256": "93a6559f2385548a9b2ac1f62b7e2cf8e27dc37fc9b6e20e10ef44f11571acf2"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-fixed-review-input.json.gz",
+      "gzipSha256": "6240045d7d3b9bcd5e5839902450217e6022afdd00a1321f92b6852ba57a55e4",
+      "storedRawSha256": "76bbe9083a4ac12737fe9c5793c1acf1d6f7b1b81759323210a6c7a93fc53e6a"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-signal-only-delta-20261004.patch.gz",
+      "gzipSha256": "600ea8824e50842bd4dcc19137c873484f30d81260ac2e67c97984168242b55e",
+      "storedRawSha256": "1958c938e87a6dcc6d11ac12f9bece31c41bd8ae13dbe725f7e0d6b64635bb69"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-review-fix-delta.patch.gz",
+      "gzipSha256": "e8ff7b663269781aa0cea8cbc51817e5544f6362d23e782574b9476d87e5ab61",
+      "storedRawSha256": "e0bffab74645e460d6064de0cb7ff40662668b51bfc8506915952af171a544b6"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-initial-staged-source-diff.patch.gz",
+      "gzipSha256": "e67a32dd5b5d4603a97813dd8cfb0d6d6ccad30806af00eb0310db25ae765c48",
+      "storedRawSha256": "35cfafea034a4133b19de2f2ac354fd62a853cfce4e228ef902d70a564f6f8f8"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-fixed-staged-source-diff.patch.gz",
+      "gzipSha256": "0abd0945d7de38538f086fc691cb25cb14d03c49b43a89e3f2eb51d499aa7f72",
+      "storedRawSha256": "fbae71b5ea2cc4279516504f49a98c34fb9d97a203f0341f125733bc44834a27"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-current-validation-driver.py.gz",
+      "gzipSha256": "0bd8ad2432a8b29b630caec821abf51576766f436cb62d1e8069166475ace820",
+      "storedRawSha256": "7fcc94a0d73bf7e60bb228010ce1fb400edcf0847d465c2ce4528c9cd2e93af8"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-mqtt-focused-validation.py.gz",
+      "gzipSha256": "9369e85ef7c978994e35f55d172cc2035e74eb7f4be2052aa6b639b42100479a",
+      "storedRawSha256": "48b826c907c736d28ec1dda49250179276f9dff1ad64b885573cccb92a6d2585"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-final-runtime-driver.py.gz",
+      "gzipSha256": "d4afc18752e7b9a8d1edfc427fe32dbc27b2a005405cc843f0853506330c956e",
+      "storedRawSha256": "24de513fa39c812f7b44ebdb4fed79fecec50b094c9b3645d1a1614b44637b69"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-cancellation-driver.py.gz",
+      "gzipSha256": "98500bcf7227b1c398ad6ffa0c43bff4be585e050474aac5c3feeb7780357557",
+      "storedRawSha256": "0ca2d1cdf87c37ab121612e0468f69f24debcb417c15f17e5e20b276fa0820e7"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-cleanup-regression-driver-first.py.gz",
+      "gzipSha256": "cd8f40ca5510beb5ff947be4d4a77f56b4684be631c316dd5d68111cf62f091d",
+      "storedRawSha256": "f33dc923efd3b928f4e3532b92c09026dac8b8d35798a357823d0d9abdc0cc84"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-cleanup-regression-driver.py.gz",
+      "gzipSha256": "6106a15d33cf1cc1d90ec29e635863ec74dde733e235d23fcfbee8d7c0d3c544",
+      "storedRawSha256": "1b0b0fcab4947312780f77ec4aa05d459540d4c938c2a058353a03efc91b6cb1"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-standards-initial-as-written.md.gz",
+      "gzipSha256": "13e9939f299abe04d79c1da2fcf0f9ea6a2837d616bfda1d58af228f7ec8fdb8",
+      "storedRawSha256": "9374ecdabbedccda2efdc3df3b3f29c60564d71d88f51fba75c88e0c2c67a318"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-spec-initial-as-written.md.gz",
+      "gzipSha256": "a1878a13fd1ad69f2a7c46ee6852407d1f82713d0eff1adcf18da997721b5e38",
+      "storedRawSha256": "2e5e53f4a7c4532437c4288425db702ba75c8a9f17d1c6182009cd92ea41756d"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-standards-review.md.gz",
+      "gzipSha256": "13e9939f299abe04d79c1da2fcf0f9ea6a2837d616bfda1d58af228f7ec8fdb8",
+      "storedRawSha256": "9374ecdabbedccda2efdc3df3b3f29c60564d71d88f51fba75c88e0c2c67a318"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-spec-review.md.gz",
+      "gzipSha256": "242717fb69e23d38a12aeaa008c28c575dcf6c70df1d5c7070ffafaaf65d0873",
+      "storedRawSha256": "36277ac7e1b0faf10d3adb757a485617b63849560e74cf902fcde553ab9d17de"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-standards-fix-audit.md.gz",
+      "gzipSha256": "d19805b006daaba063beaab3b48ae4b4ebb56b113bc1a7b5bd19d10e11f2af70",
+      "storedRawSha256": "f8096ae43a4e4b3057b93f5970c8985b2e97f3500e7ccf9119135899ada55950"
+    },
+    {
+      "archive": "raw/provenance/miopunch-s11-spec-fix-audit.md.gz",
+      "gzipSha256": "5b5a8a21621cbe17cd945b4fe5679410570707a858f61130a82ee93bda9455d7",
+      "storedRawSha256": "25d4c5f289c7ee1f23dd6f8b10577df9f628ebc59bfa4ca19bfb73f56da59853"
+    }
+  ],
+  "normalRetainedHeaderReplay": {
+    "direct": {
+      "passed": true,
+      "captureCount": 6,
+      "windows": [
+        {
+          "startUtc": "2026-10-04T10:50:05.314Z",
+          "endUtc": "2026-10-04T10:50:05.418Z",
+          "scope": "real BUSINESS PING/PONG + path snapshots",
+          "browserWan": {
+            "sent": {
+              "packets": 12,
+              "ipBytes": 1476,
+              "ethernetBytes": 1644,
+              "transportPayloadBytes": 1140,
+              "stunPackets": 0,
+              "firstTimestamp": 1791111005.327488,
+              "lastTimestamp": 1791111005.415255
+            },
+            "received": {
+              "packets": 14,
+              "ipBytes": 1614,
+              "ethernetBytes": 1810,
+              "transportPayloadBytes": 1222,
+              "stunPackets": 0,
+              "firstTimestamp": 1791111005.328314,
+              "lastTimestamp": 1791111005.415737
+            }
+          }
+        },
+        {
+          "startUtc": "2026-10-04T10:50:05.427Z",
+          "endUtc": "2026-10-04T10:50:07.758Z",
+          "scope": "fresh independent REPLICA setup + verified durable save/Receipt",
+          "browserWan": {
+            "sent": {
+              "packets": 68,
+              "ipBytes": 16281,
+              "ethernetBytes": 17233,
+              "transportPayloadBytes": 14377,
+              "stunPackets": 7,
+              "firstTimestamp": 1791111006.042551,
+              "lastTimestamp": 1791111007.757454
+            },
+            "received": {
+              "packets": 72,
+              "ipBytes": 21868,
+              "ethernetBytes": 22876,
+              "transportPayloadBytes": 19852,
+              "stunPackets": 7,
+              "firstTimestamp": 1791111006.04204,
+              "lastTimestamp": 1791111007.757594
+            }
+          }
+        }
+      ]
+    },
+    "blocked": {
+      "passed": true,
+      "captureCount": 6,
+      "windows": []
+    },
+    "relay": {
+      "passed": true,
+      "captureCount": 6,
+      "windows": []
+    }
+  },
+  "originalNormalPayloadPcapCount": 24,
+  "originalVsStoredPcapNotByteExact": true,
+  "currentSource": {
+    "Cargo.lock": "543a4a397bd047de1c6b0633c5163367869bee1423cf1e8db69b6faa0413f2b3",
+    "Cargo.toml": "d589b5c3dc7e5e5039a0a9eebf1bba0ecc0988963fd8b19085f1cc6a05e71b33",
+    "browser-probe/Cargo.toml": "470044552915bd030e321741ce7de7f1d4632e950094952ade2caed8915bf1c1",
+    "browser-probe/harness/cross-network-preflight.mjs": "e6f38bf9100eb1af5aa435c0219add8980630a491d18f94caf88769fa1808cf5",
+    "browser-probe/harness/owned-cross-network-services.mjs": "94770a66b0ef6b972c8c0058768cb80d0cc2e894a03d3a3548b441a8e78776e6",
+    "browser-probe/harness/owned-mixed-mqtt-proxy.mjs": "ea5379ee61ab0fed4a24cd55e8a4e5d1b66549f0d8483855faf3930adfe2ec80",
+    "browser-probe/harness/run-rtc-cross-network.mjs": "2496253b0f3a3e424ed21c5d97d3acb2e0a38120a3428fbaa7a5e2fe783d47e4",
+    "browser-probe/harness/run-rtc-data-cut.mjs": "e2c51d056b5ed7f723d841b317b9aa0020c75e6b4a7bc9d9014458665d43d60d",
+    "browser-probe/harness/run-rtc-invalidation.mjs": "216b1fafdd815e7db9a8bb856fbadb2acc348bf62352bfdd1208165e69ad60a6",
+    "browser-probe/harness/run-rtc-member-replica.mjs": "ed49a2304a559df63aaf91b93f466ebeb8bbb7ae21f44e320c1b43b44cacc473",
+    "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+    "browser-probe/harness/run-rtc.mjs": "f2a9c750d5b5b7e4b6a53b748c51925a07bfe612890b645916559de8b0795b77",
+    "browser-probe/network.html": "b11be64a9f1c5c2b729c20495424ac08d9f588408bbbb7dc4efdc6593610ea6b",
+    "browser-probe/src/lib.rs": "27f21ea00aa9a327bdf8a719ea4e9e4b52b57dcb96f82a0e2efcddb48374470b",
+    "browser-probe/src/member_connection.rs": "7d5eb186dc1ebe79b0d713337c3f8a177c2466769d7f12d556f1069ec37ea32a",
+    "browser-probe/src/mqtt.rs": "67ca10c43bd3479ca0dbad91bb7691fa535dd3dce8faf2a7ef8dc496ecbd83df",
+    "browser-probe/src/network.rs": "addeebf50b23d905d9205d681160904d148a4e5733592e31439cbf555da0ca23",
+    "browser-probe/src/replica.rs": "fd13dfb2cd4bb4684aa79ca47cf493c51f1f96facd62660971008d4b0c9372c3",
+    "browser-probe/src/rtc.rs": "a77d7affdbd4cbe841e56274f5dec44e0b626262e86bb537d8014e9785326554",
+    "browser-probe/src/rtc_member.rs": "e10175bfd791736c867b62f5a4bc9284b03fd806fd7266f39aa3631bd41e488a",
+    "browser-probe/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+    "scripts/browser_mqtt_trust.py": "a55febf831ac67ce4d4f32afe898bb70e542b23b695cd83f65196ec546b97839",
+    "scripts/check_browser_paths.py": "5b95eb627ed6e680e39eec38f4c6679eb40afcdcf07d0267a70b56d8a8dcfbfe",
+    "scripts/check_browser_rtc.py": "bf39af1c703a7880c2b82222dea2cb3de35c578748c222f1fd00962d267029cd",
+    "scripts/check_browser_rtc_cross_network.py": "9bc5c11779c4afd39885db4d55d635c02cf6c0839c65fc6fe883965360be1268",
+    "scripts/check_browser_rtc_cut.py": "79fec541c5b5c61e9936dc0165939cd31611e32d332356c53cab97d818c8c0f2",
+    "scripts/mosquitto-test.conf": "5bbf715cb2518197f7ad99ceff3986bf3e2b137798aae23613ce39cf5f24542c",
+    "scripts/nat_connection_process.py": "c5ef16e20f6bd0f38b419f4a98b91dcbbf6c85edb17172e1aae67a82137760a0",
+    "scripts/rtc_cross_network_capture.py": "4b9fa5c6daeb56cf4a85e77c33ef3ebf53d1978b43299aa9d02d1381ef770c57",
+    "scripts/rtc_cross_network_configure.py": "9e1f01e53f3f04bcb972843547a31f2f88027d2ec810e1c0ebb3d53a87141104",
+    "scripts/rtc_cross_network_cost.py": "2fe20eb38b5c33dab93d8398c921528eb7d4165fad981d1886157f2aaf243ef3",
+    "scripts/rtc_cross_network_evidence.py": "04ba0b90e4e9641ac3ec3fb0bd00e42d169b8e5f1e167ab049bcc8e8db890f43",
+    "scripts/rtc_cross_network_process.py": "0d50cc92f5ee89902f0e66eed59af46c211859c0b613131f6dc761eb39f1396f",
+    "scripts/rtc_cross_network_topology.py": "8f0ff004bdb7fe91ed2bd03007f57698d35e7f3929adc1ee2a6d66b5d9665be7",
+    "scripts/stun_udp_observer.py": "bf31d400e7b577ddd702a7c1ebd054e22a0da0439da325f60ea76aa70e7578a3",
+    "scripts/test_rtc_cross_network_evidence.py": "8f50e5260561026457a7e5890fc0e2dfde89b2a7d19a4b92cc2beb3b35f3889d",
+    "scripts/test_stun_udp_observer.py": "4d8c4b937ab5986fe565c471d21cc6b453a02c9ced19e8093986c6c95c6693e3",
+    "src/admission_gate.rs": "21f5def441accb6429adb006a5f95c51987180ae868cdd8c2856883bab886748",
+    "src/admission_proof.rs": "33502e93c55c3204916b3bec6b75fa2510cd3f0fb3ab60c6666689c515f2bf4d",
+    "src/bin/browser_network_native.rs": "951df304b2076de085412bc108da1cc7e7345885fe935ff163d9cd374f451a8a",
+    "src/bin/browser_probe_native.rs": "d46c01c511e59688b3a5ba92f683b965ecca2bd4bd8b87b32c1dded9948f8a7c",
+    "src/bin/browser_wss_member_native.rs": "15e03496d07fac31fef80c72f66e5fdd73bdb04974908050fa6a8d77189398c4",
+    "src/connection_recovery.rs": "1b169a60a8cd59f8c68d758378f7acf1894d939c43b5c030b8d054f6fd6baac9",
+    "src/connection_recovery_core.rs": "a6bdc8de7cf47b49ec8e838b169337490bdeb9f6c58b8c31c2a737de32b3c68b",
+    "src/control_session.rs": "d78789557b6bafe34a7257ccf9e923ad91221a8e1d94317ad717e51fe0e7da3a",
+    "src/desktop_cli.rs": "0c03eb535ed2cb68a778899086ebed5accf52518e283b1436752b79c7b67536b",
+    "src/lib.rs": "d641bf8429d13feaffa22386f94f6fa2594e18ba5c8791b9d35d7f3d02ddd594",
+    "src/management_action.rs": "3cdb3a43993464a9a16707ab442d5924d55116d14d9fddaefd827799f6c58bda",
+    "src/management_auth.rs": "c2d6750d325a83d071f0061a125b102e6fd0f6a54caa2e1887f1eff26b37e34f",
+    "src/management_record.rs": "87d3a07c339612d6f731db3256cd99593daa5fe033d128b256bf5c2d65551ebc",
+    "src/management_store.rs": "6f3ab314842348ab9a294b93b05307fcb4cfbec0ed10c33ad9b60b891bbdb343",
+    "src/member_bootstrap.rs": "fd8411c3fb26bb78f39591f5f46a4d3bd9fde1e0f49630516b556ed9a2b1ead6",
+    "src/member_message.rs": "fd62da23c6f9312ba3636a8a190f62ecd718a443caed12a00e9dba7757871bd8",
+    "src/member_path_protocol.rs": "3403601c74ad5baffb3b67e0985eae98736e08e7b0d20ba5bcacf085bce0488e",
+    "src/message_bootstrap.rs": "78e0c15cefeefc5e0f3721c312e643bfb73a51f6da93a48a194f6eadd9b66181",
+    "src/mqtt_datagram.rs": "acaeeb199cca3ddca85894a07d9bdebdc8ce6b21752f847096d388de5f167084",
+    "src/mqtt_transport.rs": "3585ea182dbe952b97679ef4ba8fa367790bde29373ef282f4ba3a1146fe4091",
+    "src/native_network.rs": "f862be40ebcf507a0e8b687e2ee986616088961ab55ad6ad975ce0556b0161f9",
+    "src/offline_replica.rs": "04448bd57d6ed3da557754b0ad7b9204e103c6aa42279520c6e643bac92c3d07",
+    "src/replica_snapshot.rs": "a8e62db5cb9440de96559aa6b26d07f8ea2742c5431c42895f367f1cd1c5a3d1",
+    "src/resources.rs": "68c72185e06f44ea242fadc6ba35f9a0b1c9429deddcc3c76acdc858909ee81f",
+    "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+    "src/rtc_ice_profile.rs": "7e3f6b27c9b8e3c78500ce9c817af10698504753166a20745cd81587e2745e8c",
+    "src/rtc_invalidation_fixture.rs": "01c4f380d57969743efa1c9b9e792c55c6ae0ba5cfc9a587c4ae4684202786e3",
+    "src/rtc_member.rs": "0fff8a6606455b55888a41527c7cacf1a99d3ef50344e4ef5c17d060a011ca50",
+    "src/rtc_probe.rs": "6218902ac6503986fabff9908431b548293dab95a1122a2174aeec3057759574",
+    "src/rtc_transport.rs": "ea3113251c5ac7a4c000e4450dc06cd2c8f4aceec8626fe931a249f1b5a98d6c",
+    "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+    "tests/offline_replica.rs": "81a2e7c8cfb2c471206c89056f0fc3e755254327e696ab8ca046b234430b5d46",
+    "tests/rtc_ice_profile.rs": "e9f0ddc20c5435608bc4a9104ef817af78e468a8e8afa847173ee1a192c3388d",
+    "vendor/iroh/src/socket/mapped_addrs.rs": "c95accdd5f474a11e820b1d460696507ffd0195ccd074d439520cab9cd9c3ffa",
+    "vendor/iroh/src/socket/remote_map/remote_state/path_state.rs": "d320c4becfacc9ecc32475e0cfa1cc52c9698b2011804f7bbb95b7f860b0a3ab",
+    "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs": "838bbcd605addbe1afaf911c20b4efc5be87499a7758aba0933e58101dce32b9",
+    "vendor/iroh/src/socket/transports/custom.rs": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+    "vendor/noq-proto/src/connection/mod.rs": "93575c4027506cf6fa324c1384e9ee5e740701934020e3323465ca2ae0e69e17",
+    "vendor/noq-proto/src/connection/paths.rs": "3f86ec41fa014b1a6870d2c8556900e4fd3c15f8959b654d54356b9c52bfb8b5"
+  },
+  "builtArtifactSet": {
+    "/tmp/miopunch-rtc-s11-target-20261004/debug/browser_network_native": "193bdd9a801f389d7d03d6709b5f2650dbaff9c397257c95306d6989a2210504",
+    "/tmp/miopunch-rtc-s11-target-20261004/debug/browser-probe-native": "ad7b9c96862b824d55e38cf7ddcec9690493a68474a0f21a1a51bd7dabc5d387",
+    "/tmp/miopunch-rtc-s11-target-20261004/debug/browser_wss_member_native": "3808c0e3fbe77a75fba79b4aa0a26410cf6d2d57d66b309d0ef8855bdf70e726",
+    "/tmp/miopunch-rtc-s11-20261004/browser-probe/pkg/miopunch_browser_probe.js": "13341f795776c8e4447d58a7c7c489a1dbed866dadcde2d625704debd0001a59",
+    "/tmp/miopunch-rtc-s11-20261004/browser-probe/pkg/miopunch_browser_probe_bg.wasm": "5423119a23638b96081d271e1523b02d23bf6c5ae469916c0e629911e8d6daa5"
+  },
+  "receiptSha256": "c0b524cebfafaf58cb3588c11c3f358387769676e90e2bd29cfe5f173116927d",
+  "driverSha256": "130f0a344102a0191864dc25f159a9053d0278b7457deaa81c438563b822d4e9"
+}

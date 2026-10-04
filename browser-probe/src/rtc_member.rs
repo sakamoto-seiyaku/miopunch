@@ -101,7 +101,7 @@ impl OwnedRtc {
             )
             .map_err(error)?;
         let owner = Self {
-            association: Rc::new(Association::datagram(connection)?),
+            association: Rc::new(Association::datagram(connection, transport.ice_profile())?),
             lease,
             attempt_live,
             drop_quic: Arc::new(AtomicBool::new(false)),
@@ -211,7 +211,8 @@ async fn metadata(association: &Association) -> Result<Value, JsValue> {
         json!({"channel":{"id":association.dc.id(),"label":association.dc.label(),"protocol":property(association.dc.as_ref(),"protocol")?.as_string(),"ordered":property(association.dc.as_ref(),"ordered")?.as_bool(),
         "maxRetransmits":association.dc.max_retransmits(),"maxPacketLifeTime":association.dc.max_packet_life_time(),"negotiated":property(association.dc.as_ref(),"negotiated")?.as_bool()},
         "maxMessageSize":property(&sctp,"maxMessageSize")?.as_f64(),"iceState":property(&ice,"state")?.as_string(),"iceRole":property(&ice,"role")?.as_string(),
-        "dtlsState":property(&dtls,"state")?.as_string(),"sctpState":property(&sctp,"state")?.as_string(),"stats":stats(&association.pc).await?}),
+        "dtlsState":property(&dtls,"state")?.as_string(),"sctpState":property(&sctp,"state")?.as_string(),"stats":stats(&association.pc).await?,
+        "iceServers":association.ice_profile.stun_servers,"turnServers":[]}),
     )
 }
 
@@ -254,7 +255,7 @@ pub(super) async fn bootstrap_control(
         owner.association.gathered().await?;
         let offer = owner.association.pc.local_description().ok_or_else(|| error("RTC offer absent"))?;
         write_frame(&mut send, &json!({"protocol":MEMBER_RTC_PROTOCOL,"attempt":attempt,"context":context,"binding":protected_binding,
-            "description":{"type":"offer","sdp":offer.sdp()},"channel":datagram_channel_parameters(),"route":hex::encode(owner.lease.local_addr().data()),
+            "description":{"type":"offer","sdp":transport.ice_profile().local_sdp(&offer.sdp()).map_err(error)?},"channel":datagram_channel_parameters(),"route":hex::encode(owner.lease.local_addr().data()),
             "quicDialer":endpoint.id().to_string(),"rtcOfferer":endpoint.id().to_string(),"rtcAnswerer":connection.remote_id().to_string(),
             "remainingMs":budget.remaining().map_err(error)?.as_millis() as u64,"authorizationRevision":observed,"resourceRevision":transport.resource_revision()})).await.map_err(error)?;
         let answer = phase(&mut recv, "answer").await?;
@@ -264,7 +265,9 @@ pub(super) async fn bootstrap_control(
         owner.lease.set_remote(iroh_base::CustomAddr::from_parts(crate::rtc_transport::TRANSPORT_ID,
             &hex::decode(answer["route"].as_str().ok_or_else(|| error("RTC peer route absent"))?).map_err(error)?)).map_err(error)?;
         let init = RtcSessionDescriptionInit::new(RtcSdpType::Answer);
-        init.set_sdp(answer["description"]["sdp"].as_str().ok_or_else(|| error("RTC native answer absent"))?);
+        let remote_sdp = answer["description"]["sdp"].as_str().ok_or_else(|| error("RTC native answer absent"))?;
+        transport.ice_profile().check_remote_sdp(remote_sdp).map_err(error)?;
+        init.set_sdp(remote_sdp);
         JsFuture::from(owner.association.pc.set_remote_description(&init)).await?;
         owner.association.wait_open().await?;
         let opening = metadata(&owner.association).await?;
@@ -543,7 +546,7 @@ impl BrowserMemberConnection {
             JsFuture::from(owner.association.pc.set_local_description(&offer)).await?;
             owner.association.gathered().await?;
             let offer = owner.association.pc.local_description().ok_or_else(|| error("RTC offer absent"))?;
-            write_frame(&mut send, &json!({"protocol":MEMBER_RTC_PROTOCOL,"attempt":attempt,"context":context,"binding":protected_binding,"description":{"type":"offer","sdp":offer.sdp()},
+            write_frame(&mut send, &json!({"protocol":MEMBER_RTC_PROTOCOL,"attempt":attempt,"context":context,"binding":protected_binding,"description":{"type":"offer","sdp":self.rtc_transport.ice_profile().local_sdp(&offer.sdp()).map_err(error)?},
                 "channel":datagram_channel_parameters(),"route":hex::encode(owner.lease.local_addr().data()),"quicDialer":self.endpoint.id().to_string(),
                 "rtcOfferer":self.endpoint.id().to_string(),"rtcAnswerer":self.connection.remote_id().to_string(),"remainingMs":budget.remaining().map_err(error)?.as_millis() as u64,
                 "authorizationRevision":observed,"resourceRevision":self.rtc_transport.resource_revision(),"faultNativePumpAfterFreshAck":fault_native_pump})).await.map_err(error)?;
@@ -553,7 +556,9 @@ impl BrowserMemberConnection {
             // The original business stream responds while RTC is still being negotiated.
             continuity.push(original.exchange(&self.connection, 1).await?);
             let init = RtcSessionDescriptionInit::new(RtcSdpType::Answer);
-            init.set_sdp(answer["description"]["sdp"].as_str().ok_or_else(|| error("RTC native answer absent"))?);
+            let remote_sdp = answer["description"]["sdp"].as_str().ok_or_else(|| error("RTC native answer absent"))?;
+            self.rtc_transport.ice_profile().check_remote_sdp(remote_sdp).map_err(error)?;
+            init.set_sdp(remote_sdp);
             JsFuture::from(owner.association.pc.set_remote_description(&init)).await?;
             owner.association.wait_open().await?;
             let opening = metadata(&owner.association).await?;
@@ -608,7 +613,7 @@ impl BrowserMemberConnection {
             let relay_after: Vec<_> = relay_paths.iter().map(|path| (path.id().to_string(), path.stats().udp_tx.bytes, path.stats().udp_rx.bytes)).collect();
             let browser = json!({"memberStableId":self.connection.stable_id(),"stableUnchanged":self.connection.stable_id()==original.stable_id,"bindingUnchanged":binding(&self.connection)? == original.binding,
                 "pathId":probe.path_id(),"freshProbeStartedMs":probe_started_ms,"freshAckMs":ack_ms,"freshAck":true,"probeWatermark":probe.watermark(),"beforeRetainFrames":before_retain_frames,"rtc":metadata(&owner.association).await?,"route":owner.lease.report(),"dataChannel":owner.stats.report(),
-                "relayBefore":relay_before,"relayAfter":relay_after,"authorizationRevision":observed,"secretGeneration":saved.generation,"resourceRevision":self.rtc_transport.resource_revision(),"quicRole":"client","rtcRole":"offerer","iceServers":[],"turnServers":[],"events":owner.association.events.borrow().clone(),"ownedPumpTasks":owner.lease.report().owned_pump_tasks});
+                "relayBefore":relay_before,"relayAfter":relay_after,"authorizationRevision":observed,"secretGeneration":saved.generation,"resourceRevision":self.rtc_transport.resource_revision(),"quicRole":"client","rtcRole":"offerer","iceServers":self.rtc_transport.ice_profile().stun_servers,"turnServers":[],"events":owner.association.events.borrow().clone(),"ownedPumpTasks":owner.lease.report().owned_pump_tasks});
             Ok::<_, JsValue>(json!({"switched":true,"browser":browser,"native":native,"continuity":continuity}))
         }.fuse();
             let closed = self.connection.closed().fuse();

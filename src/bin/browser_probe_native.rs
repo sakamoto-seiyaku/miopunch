@@ -16,12 +16,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let key = rustls::pki_types::PrivatePkcs8KeyDer::from(
                 certificate.signing_key.serialize_der(),
             );
-            serve_tls(certificate.cert.der().clone(), key.into()).await?;
+            serve_tls(certificate.cert.der().clone(), key.into(), ([127,0,0,1],0).into(), "localhost").await?;
         }
         [_, action, certificate_path, key_path] if action == "relay-tls-files" => {
             let certificate = rustls::pki_types::CertificateDer::from(std::fs::read(certificate_path)?);
             let key = rustls::pki_types::PrivatePkcs8KeyDer::from(std::fs::read(key_path)?);
-            serve_tls(certificate, key.into()).await?;
+            serve_tls(certificate, key.into(), ([127,0,0,1],0).into(), "localhost").await?;
+        }
+        [_, action, certificate_path, key_path, bind, host] if action == "relay-tls-files" => {
+            let certificate = rustls::pki_types::CertificateDer::from(std::fs::read(certificate_path)?);
+            let key = rustls::pki_types::PrivatePkcs8KeyDer::from(std::fs::read(key_path)?);
+            let address: SocketAddr = bind.parse()?;
+            let _: RelayUrl = format!("https://{host}:{}/", address.port()).parse()?;
+            serve_tls(certificate, key.into(), address, host).await?;
         }
         [_, action, port] if action == "relay" => {
             let addr = SocketAddr::from_str(&format!("127.0.0.1:{port}"))?;
@@ -69,6 +76,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 async fn serve_tls(
     certificate: rustls::pki_types::CertificateDer<'static>,
     key: rustls::pki_types::PrivateKeyDer<'static>,
+    addr: SocketAddr,
+    host: &str,
 ) -> Result<(), Box<dyn Error>> {
     let tls = rustls::ServerConfig::builder_with_provider(std::sync::Arc::new(
         rustls::crypto::ring::default_provider(),
@@ -76,8 +85,7 @@ async fn serve_tls(
     .with_safe_default_protocol_versions()?
     .with_no_client_auth()
     .with_single_cert(vec![certificate], key)?;
-    let addr = SocketAddr::from(([127, 0, 0, 1], 0));
-    let mut relay = RelayConfig::new(addr);
+    let mut relay = RelayConfig::new(SocketAddr::new(addr.ip(), 0));
     relay.tls = Some(iroh_relay::server::TlsConfig::new(
         addr,
         iroh_relay::server::CertConfig::Manual { server_config: tls },
@@ -86,7 +94,7 @@ async fn serve_tls(
     config.relay = Some(relay);
     let server = Server::spawn(config).await?;
     println!(
-        "RELAY https://localhost:{}/",
+        "RELAY https://{host}:{}/",
         server.https_addr().ok_or("no HTTPS relay address")?.port()
     );
     use tokio::io::AsyncBufReadExt;

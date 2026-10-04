@@ -307,9 +307,7 @@ async fn upgrade(
         return Err("RTC original-M context/profile/role binding rejected".into());
     }
     let offer: RTCSessionDescription = serde_json::from_value(request["description"].clone())?;
-    if offer.sdp.contains(" typ relay") {
-        return Err("RTC owned direct profile rejects relay candidates".into());
-    }
+    transport.ice_profile().check_remote_sdp(&offer.sdp)?;
     let current = qualification.clone();
     let attempt_live = Arc::new(AtomicBool::new(true));
     let live = attempt_live.clone();
@@ -327,7 +325,7 @@ async fn upgrade(
     let events = Arc::new(Mutex::new(Vec::new()));
     let pc = tokio::select! { biased;
         _ = connection.closed() => return Err("RTC original M closed during construction".into()),
-        result = tokio::time::timeout(budget.remaining()?, rtc_probe::peer(gathered, events.clone())) => result??,
+        result = tokio::time::timeout(budget.remaining()?, rtc_probe::peer_with_profile(gathered, events.clone(), transport.ice_profile())) => result??,
     };
     // Dropping a hook future must retire its exact route and close the PC,
     // even when it never reaches the explicit result/cleanup tail.
@@ -387,10 +385,11 @@ async fn upgrade(
         tokio::time::timeout(budget.remaining()?, gather_rx.recv())
             .await?
             .ok_or("RTC gathering ended")?;
-        let answer = pc
+        let mut answer = pc
             .local_description()
             .await
             .ok_or("RTC native answer absent")?;
+        answer.sdp = transport.ice_profile().local_sdp(&answer.sdp)?;
         write_frame(send, &json!({"kind":"answer","attempt":request["attempt"],"binding":request["binding"],"channel":datagram_channel_parameters(),"description":answer,"route":hex::encode(lease.local_addr().data()),"authorizationRevision":qualification.revision(),"resourceRevision":transport.resource_revision()})).await?;
         loop {
             match tokio::time::timeout(budget.remaining()?, dc.poll()).await? {
@@ -544,7 +543,7 @@ async fn upgrade(
                 )
             })
             .collect();
-        let mut report = json!({"switched":true,"memberStableId":connection.stable_id(),"stableUnchanged":connection.stable_id()==stable_before,"bindingUnchanged":session_binding(connection)?==binding_before,"pathId":probe.path_id(),"freshProbeStartedMs":probe_started_ms,"freshAckMs":ack_ms,"freshAck":true,"probeWatermark":probe.watermark(),"beforeRetainFrames":before_retain_frames,"channel":attributes,"maxMessageSize":max_message_size,"selectedPair":{"local":pair.local(),"remote":pair.remote()},"stats":stats(&pc).await,"relayBefore":relay_before,"relayAfter":relay_after,"route":lease.report(),"dataChannel":pump_stats.report(),"authorizationRevision":qualification.revision(),"secretGeneration":proof.scope().secret_generation(),"resourceRevision":transport.resource_revision(),"quicRole":"server","rtcRole":"answerer","iceServers":[],"turnServers":[],"events":events.lock().unwrap().clone(),"callerRemainderMs":remaining_ms,"attemptMs":budget.elapsed_ms()});
+        let mut report = json!({"switched":true,"memberStableId":connection.stable_id(),"stableUnchanged":connection.stable_id()==stable_before,"bindingUnchanged":session_binding(connection)?==binding_before,"pathId":probe.path_id(),"freshProbeStartedMs":probe_started_ms,"freshAckMs":ack_ms,"freshAck":true,"probeWatermark":probe.watermark(),"beforeRetainFrames":before_retain_frames,"channel":attributes,"maxMessageSize":max_message_size,"selectedPair":{"local":pair.local(),"remote":pair.remote()},"stats":stats(&pc).await,"relayBefore":relay_before,"relayAfter":relay_after,"route":lease.report(),"dataChannel":pump_stats.report(),"authorizationRevision":qualification.revision(),"secretGeneration":proof.scope().secret_generation(),"resourceRevision":transport.resource_revision(),"quicRole":"server","rtcRole":"answerer","iceServers":transport.ice_profile().stun_servers,"turnServers":[],"events":events.lock().unwrap().clone(),"callerRemainderMs":remaining_ms,"attemptMs":budget.elapsed_ms()});
         write_frame(send, &json!({"kind":"final","native":report})).await?;
         send.finish()?;
         if control {
@@ -614,6 +613,9 @@ async fn upgrade(
                         let _ = pump.await;
                     }
                 }
+                let final_stats = tokio::time::timeout(Duration::from_millis(250), stats(&pc))
+                    .await
+                    .ok();
                 let closed = pc.close().await.is_ok();
                 drop(pc);
                 tokio::task::yield_now().await;
@@ -622,7 +624,7 @@ async fn upgrade(
                     json!({"event":"rtc-path-cleanup","stableId":stable,"switched":true,
                     "cleanup":{"pcClosed":closed,"ownedPumpTasks":lease.report().owned_pump_tasks,"txBytes":lease.report().tx_bytes,"rxBytes":lease.report().rx_bytes,
                         "activePumpTasks":transport.active_pumps(),"activeAssociations":transport.active_associations(),
-                        "socketBefore":socket_before,"socketAfter":rtc_probe::sockets(),"dataChannel":pump_stats.report()}})
+                        "socketBefore":socket_before,"socketAfter":rtc_probe::sockets(),"route":lease.report(),"dataChannel":pump_stats.report(),"rtcStatsBeforeClose":final_stats}})
                 );
             });
             return Ok(());

@@ -2,15 +2,23 @@ import assert from 'node:assert/strict';
 
 const body = 'original-author browser replica body';
 
-export async function observeTraffic(page) {
-  await page.evaluate(() => {
+export async function observeTraffic(page, finalStats = false) {
+  await page.evaluate(finalStats => {
     const Original = window.RTCPeerConnection;
     window.replicaRtcTraffic = [];
     window.RTCPeerConnection = class extends Original {
       constructor(...args) {
         super(...args);
-        this.trafficTicket = { peer: this, channels: [], sentPackets: 0, sentBytes: 0, receivedPackets: 0, receivedBytes: 0 };
+        this.trafficTicket = { peer: this, channels: [], sentPackets: 0, sentBytes: 0, receivedPackets: 0, receivedBytes: 0, bufferedAmountPeak: 0 };
         window.replicaRtcTraffic.push(this.trafficTicket);
+      }
+      close(...args) {
+        if (finalStats && !this.trafficTicket.finalStats) {
+          // Request while the actual PC is still open, then preserve the SDK's
+          // synchronous close semantics. This observer cannot delay/grant data.
+          this.trafficTicket.finalStats = this.getStats().then(report => Array.from(report.values())).catch(() => null);
+        }
+        return super.close(...args);
       }
       createDataChannel(...args) {
         const channel = super.createDataChannel(...args);
@@ -19,6 +27,7 @@ export async function observeTraffic(page) {
         channel.send = function(bytes) {
           const result = send.call(this, bytes);
           ticket.sentPackets++; ticket.sentBytes += bytes.byteLength ?? bytes.length;
+          ticket.bufferedAmountPeak = Math.max(ticket.bufferedAmountPeak, this.bufferedAmount);
           return result;
         };
         const receive = event => { ticket.receivedPackets++; ticket.receivedBytes += event.data.byteLength ?? event.data.size; };
@@ -27,24 +36,27 @@ export async function observeTraffic(page) {
         return channel;
       }
     };
-  });
+  }, finalStats);
 }
 
 export async function traffic(page, detach = false) {
-  return page.evaluate(detach => window.replicaRtcTraffic.map(ticket => {
+  return page.evaluate(async detach => Promise.all(window.replicaRtcTraffic.map(async ticket => {
     if (detach) for (const entry of ticket.channels) {
       entry.channel.removeEventListener('message', entry.receive);
       entry.channel.send = entry.send;
     }
     return { scope: 'successful actual DataChannel.send submissions and delivered message events',
       sentPackets: ticket.sentPackets, sentBytes: ticket.sentBytes, receivedPackets: ticket.receivedPackets, receivedBytes: ticket.receivedBytes,
+      bufferedAmountPeak: ticket.bufferedAmountPeak, rtcStatsBeforeClose: ticket.finalStats ? await ticket.finalStats : null,
       closed: ticket.peer.connectionState === 'closed',
       callbacksDetached: ticket.peer.onicegatheringstatechange === null && ticket.peer.oniceconnectionstatechange === null && ticket.peer.onconnectionstatechange === null &&
         ticket.channels.every(({ channel }) => channel.onopen === null && channel.onmessage === null && channel.onclose === null && channel.onerror === null && channel.onbufferedamountlow === null),
       observersDetached: detach,
     };
-  }), detach);
+  })), detach);
 }
+
+export { exactRtc, absent };
 
 function exactRtc(paths) {
   assert(paths.length > 0);
