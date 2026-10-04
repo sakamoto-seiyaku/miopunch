@@ -20,16 +20,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=['mqtt-datagram', 'wss-restricted-handshake', 'irc-datagram', 'rtc-channel', 'relay-member-rtc', 'wss-member-rtc', 'rtc-data-cut'], required=True)
+    parser.add_argument('--case', choices=['mqtt-datagram', 'wss-restricted-handshake', 'irc-datagram', 'rtc-channel', 'relay-member-rtc', 'wss-member-rtc', 'rtc-data-cut', 'rtc-invalidation'], required=True)
     parser.add_argument('--cut-mode', choices=['relay', 'none'], default='relay')
+    parser.add_argument('--invalidation-mode', choices=['cancel', 'member', 'secret-standard', 'resource'], default='cancel')
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--skip-build', action='store_true')
     parser.add_argument('--wasm-bindgen', default=shutil.which('wasm-bindgen') or '/tmp/miopunch-wasm-tools/bin/wasm-bindgen')
     parser.add_argument('--target-dir', type=Path, default=ROOT / 'target')
     args = parser.parse_args()
-    if args.case == 'rtc-data-cut':
+    if args.case in ('rtc-data-cut', 'rtc-invalidation'):
         command = ['rtk', 'proxy', sys.executable, str(ROOT / 'scripts/check_browser_rtc_cut.py'), '--mode', args.cut_mode,
+                   '--case', args.case,
                    '--output', str(args.output), '--target-dir', str(args.target_dir), '--wasm-bindgen', args.wasm_bindgen]
+        if args.case == 'rtc-invalidation':
+            command.extend(['--invalidation-mode', args.invalidation_mode])
         if args.skip_build:
             command.append('--skip-build')
         os.execvp(command[0], command)

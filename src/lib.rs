@@ -57,6 +57,8 @@ pub mod mqtt_datagram;
 mod native_files;
 
 pub mod rtc_association;
+#[cfg(feature = "rtc-probe")]
+pub mod rtc_invalidation_fixture;
 #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
 pub mod rtc_member;
 #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]

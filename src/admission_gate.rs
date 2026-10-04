@@ -492,6 +492,19 @@ impl AdmissionGate {
             .flatten()
     }
 
+    /// Secret-free observation of the actual SDK source for an owned RTC fault.
+    #[cfg(feature = "rtc-probe")]
+    pub fn qualification_fixture(&self) -> serde_json::Value {
+        let state = self.state.lock().expect("admission policy lock");
+        serde_json::json!({
+            "revision":self.path_revision.load(Ordering::Acquire),
+            "authorizationEpoch":state.policy.authorization_epoch,
+            "secretGeneration":state.policy.scope.secret_generation(),
+            "memberCount":state.policy.members.len(),"removedCount":state.policy.removed.len(),
+            "sessions":state.sessions.len(),
+        })
+    }
+
     pub(crate) fn discovery_current(&self, scope: &AdmissionScope) -> bool {
         let state = self.state.lock().expect("admission policy lock");
         state.policy.scope == *scope

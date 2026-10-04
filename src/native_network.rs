@@ -996,6 +996,37 @@ impl NativeNetwork {
         Ok(())
     }
 
+    /// Owned RTC qualification fault only. Installs a new active credential
+    /// through the same durable material publication and store pin as delivery.
+    /// This is not a rotation protocol or a retained-member acknowledgement.
+    #[cfg(feature = "rtc-probe")]
+    pub async fn invalidate_current_credential_fixture(&mut self) -> Result<u64, NodeError> {
+        let generation = self
+            .scope
+            .secret_generation()
+            .checked_add(1)
+            .filter(|generation| *generation <= i64::MAX as u64)
+            .ok_or(NodeError::InvalidData)?;
+        let scope = AdmissionScope::new(*self.anchor.root.as_bytes(), generation);
+        self.save_admission_material(scope, AdmissionSecret::generate())
+            .await?;
+        Ok(generation)
+    }
+
+    /// Secret-free readback from the node's actual active scope and durable pin.
+    #[cfg(feature = "rtc-probe")]
+    pub async fn credential_generation_fixture(&self) -> Result<(u64, bool), NodeError> {
+        let current = match self.secret.as_ref() {
+            Some(secret) => {
+                self.store
+                    .current_admission_matches(&self.scope, &secret.fingerprint(&self.scope))
+                    .await?
+            }
+            None => false,
+        };
+        Ok((self.scope.secret_generation(), current))
+    }
+
     pub(crate) fn saved_genesis_credential(&self) -> Result<GenesisCredential, NodeError> {
         let credential =
             SavedGenesisCredential(read_array::<64>(&self.directory.join(GENESIS_CREDENTIAL))?)

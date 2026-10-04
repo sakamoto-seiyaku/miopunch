@@ -155,6 +155,8 @@ flowchart LR
 - **关键失败：**在路径ACK与放行之间应用成员移除或秘密世代切换，再注入旧onopen/candidate；不得返回业务句柄、发包或复活旧M。资源禁用用同样边界单独检查。
 - **证据/通过：**authorization/resource/secret revision、attempt id、事件时序、retired route、释放前后活动socket/task/队列；每例60秒，结束后待发/重组为零。这里若只能靠一次快照检查，不能进入下一步。
 
+2026-10-04 后续实施已取得四个独立标准故事、公开 release-renewal 组件及正常 WSS actor 回归，见[第 8 步标准资格与诊断回执](2026-10-04-browser-rtc-invalidation.md)。真实当前 SDK 来源、放行前新的 exact-path watermark/ACK、迟到事件及诊断 prerequisite fail 在其中分别记录；最终审阅和提交状态以证据包为准，第 9–11 步不因此自动完成。
+
 ### 9. 真实成员业务和非空 replica
 
 - **问题/前提：**第7、8步通过；证明路径接线没有只服务测试echo。

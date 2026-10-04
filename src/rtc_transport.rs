@@ -48,6 +48,8 @@ struct Registry {
     resource_allowed: AtomicBool,
     resource_revision: AtomicU64,
     active_pumps: AtomicUsize,
+    #[cfg(feature = "rtc-probe")]
+    control_fixture: Mutex<Option<Arc<crate::rtc_invalidation_fixture::ControlFixture>>>,
 }
 impl Registry {
     fn refresh(&self) {
@@ -159,6 +161,8 @@ impl RtcTransport {
             resource_allowed: AtomicBool::new(true),
             resource_revision: AtomicU64::new(0),
             active_pumps: AtomicUsize::new(0),
+            #[cfg(feature = "rtc-probe")]
+            control_fixture: Mutex::new(None),
         }))
     }
     /// Reserve exactly one association for this original M. `current` must
@@ -274,6 +278,142 @@ impl RtcTransport {
     pub fn resource_allowed(&self) -> bool {
         self.0.resource_allowed.load(Ordering::Acquire)
     }
+
+    /// Optional one-shot hold for this owned test transport, not runtime policy.
+    #[cfg(feature = "rtc-probe")]
+    pub fn arm_control_fixture(
+        &self,
+        stage: crate::rtc_invalidation_fixture::ControlCheckpointStage,
+    ) -> io::Result<()> {
+        self.arm_control_fixture_inner(stage, false)
+    }
+
+    /// Owned cleanup scheduling fault; the actual PC closes after explicit
+    /// release or the original setup deadline. Existing QUIC IO retires first.
+    #[cfg(feature = "rtc-probe")]
+    pub fn arm_control_fixture_with_cleanup_hold(
+        &self,
+        stage: crate::rtc_invalidation_fixture::ControlCheckpointStage,
+    ) -> io::Result<()> {
+        self.arm_control_fixture_inner(stage, true)
+    }
+
+    #[cfg(feature = "rtc-probe")]
+    fn arm_control_fixture_inner(
+        &self,
+        stage: crate::rtc_invalidation_fixture::ControlCheckpointStage,
+        hold_cleanup: bool,
+    ) -> io::Result<()> {
+        let mut fixture = self.0.control_fixture.lock().unwrap();
+        if fixture.is_some() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                "owned Control fixture already armed",
+            ));
+        }
+        *fixture = Some(Arc::new(
+            crate::rtc_invalidation_fixture::ControlFixture::new(stage, hold_cleanup),
+        ));
+        Ok(())
+    }
+
+    #[cfg(feature = "rtc-probe")]
+    pub fn control_fixture_snapshot(&self) -> Option<serde_json::Value> {
+        let fixture = self.0.control_fixture.lock().unwrap().clone()?;
+        let mut snapshot = fixture.snapshot()?;
+        snapshot["publishedRoutes"] = serde_json::json!(self.published_routes_fixture());
+        Some(snapshot)
+    }
+
+    #[cfg(feature = "rtc-probe")]
+    pub fn published_routes_fixture(&self) -> Vec<String> {
+        self.0
+            .addresses
+            .get()
+            .iter()
+            .map(|address| hex::encode(address.data()))
+            .collect()
+    }
+
+    #[cfg(feature = "rtc-probe")]
+    pub fn release_control_fixture(&self, attempt: &str) -> io::Result<()> {
+        let fixture = self
+            .0
+            .control_fixture
+            .lock()
+            .unwrap()
+            .clone()
+            .ok_or_else(|| invalid("owned Control fixture absent"))?;
+        fixture.release(attempt)
+    }
+
+    #[cfg(feature = "rtc-probe")]
+    pub fn clear_control_fixture(&self) {
+        if let Some(fixture) = self.0.control_fixture.lock().unwrap().take() {
+            fixture.clear();
+        }
+    }
+
+    #[cfg(feature = "rtc-probe")]
+    pub async fn before_pc_close_fixture(
+        &self,
+        original: usize,
+        budget: crate::rtc_association::RtcDeadline,
+    ) {
+        let fixture = self.0.control_fixture.lock().unwrap().clone();
+        if let Some(fixture) = fixture {
+            fixture.before_pc_close(original, budget).await;
+        }
+    }
+
+    #[cfg(feature = "rtc-probe")]
+    pub fn release_cleanup_fixture(&self, attempt: &str) -> io::Result<()> {
+        let fixture = self
+            .0
+            .control_fixture
+            .lock()
+            .unwrap()
+            .clone()
+            .ok_or_else(|| invalid("owned cleanup fixture absent"))?;
+        fixture.release_cleanup(attempt)
+    }
+
+    #[cfg(feature = "rtc-probe")]
+    pub fn holds_cleanup_fixture(&self) -> bool {
+        self.0
+            .control_fixture
+            .lock()
+            .unwrap()
+            .as_ref()
+            .is_some_and(|fixture| fixture.holds_cleanup())
+    }
+
+    #[cfg(feature = "rtc-probe")]
+    pub fn record_cleanup_details_fixture(&self, original: usize, details: serde_json::Value) {
+        let fixture = self.0.control_fixture.lock().unwrap().clone();
+        if let Some(fixture) = fixture {
+            fixture.record_cleanup_details(original, details);
+        }
+    }
+
+    #[cfg(feature = "rtc-probe")]
+    pub async fn control_fixture_checkpoint(
+        &self,
+        stage: crate::rtc_invalidation_fixture::ControlCheckpointStage,
+        original: &Connection,
+        lease: &RtcRouteLease,
+        budget: crate::rtc_association::RtcDeadline,
+        metadata: serde_json::Value,
+        actual_sends: Arc<dyn Fn() -> serde_json::Value + Send + Sync>,
+    ) -> io::Result<()> {
+        let fixture = self.0.control_fixture.lock().unwrap().clone();
+        if let Some(fixture) = fixture {
+            fixture
+                .checkpoint(stage, original, lease, budget, metadata, actual_sends)
+                .await?;
+        }
+        Ok(())
+    }
 }
 
 /// RAII ownership remains with the original member's RTC actor. Dropping it
@@ -370,6 +510,51 @@ impl RtcRouteLease {
     }
     pub fn report(&self) -> RtcRouteReport {
         self.io().report()
+    }
+
+    /// Renew exact original-M liveness after the final asynchronous private
+    /// confirmation, before ordinary release. An earlier ACK can outlive the
+    /// peer's current credential/source; it cannot satisfy this new watermark.
+    pub async fn validate_release(
+        &self,
+        connection: &Connection,
+        budget: crate::rtc_association::RtcDeadline,
+    ) -> io::Result<RtcPathProbe> {
+        let probe = self.start_probe(connection)?;
+        #[cfg(feature = "rtc-probe")]
+        let fixture = self
+            .0
+            .registry
+            .upgrade()
+            .and_then(|registry| registry.control_fixture.lock().unwrap().clone());
+        #[cfg(feature = "rtc-probe")]
+        if let Some(fixture) = &fixture {
+            fixture.record_release_probe(connection.stable_id(), serde_json::json!({
+                "pathId":probe.path_id(),"watermark":probe.watermark(),"startedMs":budget.elapsed_ms(),"acknowledged":false,
+            }));
+        }
+        let wait = async {
+            while !probe.is_acknowledged()? {
+                budget.remaining()?;
+                n0_future::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+            Ok::<_, io::Error>(())
+        };
+        n0_future::time::timeout(budget.remaining()?, self.io().while_active(wait))
+            .await
+            .map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "original RTC release probe deadline",
+                )
+            })???;
+        #[cfg(feature = "rtc-probe")]
+        if let Some(fixture) = &fixture {
+            fixture.record_release_probe(connection.stable_id(), serde_json::json!({
+                "pathId":probe.path_id(),"watermark":probe.watermark(),"acknowledgedMs":budget.elapsed_ms(),"acknowledged":true,
+            }));
+        }
+        Ok(probe)
     }
 }
 impl Drop for RtcRouteLease {

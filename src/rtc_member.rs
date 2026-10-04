@@ -331,6 +331,9 @@ async fn upgrade(
     let drop_quic = Arc::new(AtomicBool::new(false));
     let pump_stats = Arc::new(PumpStats::default());
     let mut owned_pump = None;
+    // A diagnostic may retain the actual channel until the finite PC-cleanup
+    // hold ends. No IO/pump/M is retained or reactivated by this extra handle.
+    let mut fixture_channel: Option<Arc<dyn DataChannel>> = None;
     let (pump_fault, pump_fault_rx) = tokio::sync::watch::channel(false);
     let (pump_done_tx, mut pump_done_rx) = tokio::sync::oneshot::channel::<String>();
     let mut pump_done_tx = Some(pump_done_tx);
@@ -366,6 +369,9 @@ async fn upgrade(
             .await?;
         dc.set_buffered_amount_low_threshold((QUEUE_BYTES - MAX_DATAGRAM) as u32)
             .await?;
+        if control && transport.holds_cleanup_fixture() {
+            fixture_channel = Some(dc.clone());
+        }
         pc.set_remote_description(offer).await?;
         pc.set_local_description(pc.create_answer(None).await?)
             .await?;
@@ -529,9 +535,43 @@ async fn upgrade(
                 )
             })
             .collect();
-        let report = json!({"switched":true,"memberStableId":connection.stable_id(),"stableUnchanged":connection.stable_id()==stable_before,"bindingUnchanged":session_binding(connection)?==binding_before,"pathId":probe.path_id(),"freshProbeStartedMs":probe_started_ms,"freshAckMs":ack_ms,"freshAck":true,"probeWatermark":probe.watermark(),"beforeRetainFrames":before_retain_frames,"channel":attributes,"maxMessageSize":max_message_size,"selectedPair":{"local":pair.local(),"remote":pair.remote()},"stats":stats(&pc).await,"relayBefore":relay_before,"relayAfter":relay_after,"route":lease.report(),"dataChannel":pump_stats.report(),"authorizationRevision":qualification.revision(),"secretGeneration":proof.scope().secret_generation(),"resourceRevision":transport.resource_revision(),"quicRole":"server","rtcRole":"answerer","iceServers":[],"turnServers":[],"events":events.lock().unwrap().clone(),"callerRemainderMs":remaining_ms,"attemptMs":budget.elapsed_ms()});
+        let mut report = json!({"switched":true,"memberStableId":connection.stable_id(),"stableUnchanged":connection.stable_id()==stable_before,"bindingUnchanged":session_binding(connection)?==binding_before,"pathId":probe.path_id(),"freshProbeStartedMs":probe_started_ms,"freshAckMs":ack_ms,"freshAck":true,"probeWatermark":probe.watermark(),"beforeRetainFrames":before_retain_frames,"channel":attributes,"maxMessageSize":max_message_size,"selectedPair":{"local":pair.local(),"remote":pair.remote()},"stats":stats(&pc).await,"relayBefore":relay_before,"relayAfter":relay_after,"route":lease.report(),"dataChannel":pump_stats.report(),"authorizationRevision":qualification.revision(),"secretGeneration":proof.scope().secret_generation(),"resourceRevision":transport.resource_revision(),"quicRole":"server","rtcRole":"answerer","iceServers":[],"turnServers":[],"events":events.lock().unwrap().clone(),"callerRemainderMs":remaining_ms,"attemptMs":budget.elapsed_ms()});
         write_frame(send, &json!({"kind":"final","native":report})).await?;
         send.finish()?;
+        if control {
+            let actual = pump_stats.clone();
+            transport
+                .control_fixture_checkpoint(
+                    crate::rtc_invalidation_fixture::ControlCheckpointStage::BeforeRelease,
+                    connection,
+                    &lease,
+                    budget,
+                    json!({"attempt":attempt,"stableId":connection.stable_id(),"peer":connection.remote_id().to_string(),
+                        "localRoute":hex::encode(lease.local_addr().data()),"remoteRoute":hex::encode(lease.remote_addr()?.data()),
+                        "pathId":probe.path_id(),"freshAck":true,"bothConfirmed":true,"probeWatermark":probe.watermark(),
+                        "freshProbeStartedMs":probe_started_ms,"freshAckMs":ack_ms,
+                        "source":gate.qualification_fixture(),"resourceRevision":transport.resource_revision(),"resourceAllowed":transport.resource_allowed()}),
+                    Arc::new(move || actual.report()),
+                )
+                .await?;
+            // A resumed diagnostic is not an authorization snapshot. The real
+            // final actor also rechecks the exact route seal after this hook.
+            if !qualification.is_current()
+                || !gate.allows(connection, ProtocolScope::Member)
+                || !lease.io().is_active()
+            {
+                return Err("RTC current qualification changed before ordinary release".into());
+            }
+            let release_started = budget.elapsed_ms();
+            let release_probe = lease.validate_release(connection, budget).await?;
+            if !qualification.is_current() || !gate.allows(connection, ProtocolScope::Member) {
+                return Err("RTC current qualification changed during release validation".into());
+            }
+            report["finalReleaseFreshAck"] = json!(true);
+            report["finalReleaseProbeWatermark"] = json!(release_probe.watermark());
+            report["finalReleaseProbeStartedMs"] = json!(release_started);
+            report["finalReleaseAckMs"] = json!(budget.elapsed_ms());
+        }
         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(report)
     };
     let outcome = tokio::select! { biased;
@@ -588,7 +628,27 @@ async fn upgrade(
             let _ = task.await;
         }
     }
+    if control && outcome.is_err() {
+        if let Some(channel) = fixture_channel.as_ref() {
+            let sctp_state = match pc.sctp().await {
+                Some(sctp) => sctp.state().await.ok().map(|state| format!("{state:?}")),
+                None => None,
+            };
+            let details = json!({"channel":rtc_probe::channel_attributes(channel).await.ok(),
+                "sctpState":sctp_state,"originalOpen":connection.weak_handle().is_open(),
+                "route":lease.report(),"socketCount":rtc_probe::sockets()});
+            transport.record_cleanup_details_fixture(stable_before, details.clone());
+            println!(
+                "{}",
+                json!({"event":"rtc-native-cleanup-retired","stableId":stable_before,"details":details})
+            );
+        }
+        transport
+            .before_pc_close_fixture(stable_before, budget)
+            .await;
+    }
     let closed = pc.close().await.is_ok();
+    drop(fixture_channel);
     cancellation_cleanup.pc = None;
     cancellation_cleanup.pump = None;
     drop(pc);

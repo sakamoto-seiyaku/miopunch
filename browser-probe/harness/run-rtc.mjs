@@ -13,8 +13,9 @@ const argument = name => { const index = process.argv.indexOf(name); assert(inde
 const evidence = resolve(argument('--evidence'));
 const memberCase = process.argv.includes('--case') && argument('--case') === 'relay-member-rtc';
 const cutCase = process.argv.includes('--case') && argument('--case') === 'rtc-data-cut';
+const invalidationCase = process.argv.includes('--case') && argument('--case') === 'rtc-invalidation';
 const cutRelay = cutCase && argument('--cut-mode') === 'relay';
-const wssMemberCase = process.argv.includes('--case') && (argument('--case') === 'wss-member-rtc' || cutCase);
+const wssMemberCase = process.argv.includes('--case') && (argument('--case') === 'wss-member-rtc' || cutCase || invalidationCase);
 const legacyNoRtc = process.argv.includes('--legacy-no-rtc');
 const legacyRelay = process.argv.includes('--legacy-relay');
 const relayBackup = legacyRelay || cutRelay;
@@ -32,15 +33,15 @@ let web;
 let page;
 let deadline;
 let rejectDeadline;
-const total = new Promise((_, reject) => { rejectDeadline = reject; deadline = setTimeout(() => reject(new Error('RTC fixture deadline; reserved finally cleanup')), cutCase ? Number(process.env.MIO_CUT_WORK_MS ?? 40000) : wssMemberCase ? 55000 : memberCase ? 35000 : 45000); });
+const total = new Promise((_, reject) => { rejectDeadline = reject; deadline = setTimeout(() => reject(new Error('RTC fixture deadline; reserved finally cleanup')), cutCase || invalidationCase ? Number(process.env.MIO_CUT_WORK_MS ?? 40000) : wssMemberCase ? 55000 : memberCase ? 35000 : 45000); });
 const ownedSockets = new Set();
 const facilityServers = [];
 // Attach immediately: synchronous startup errors still proceed through finally.
 total.catch(() => {});
 for (const name of ['SIGTERM', 'SIGINT']) process.once(name, () => rejectDeadline(new Error(`RTC fixture cancelled by ${name}`)));
 function save() {
-  const redact = cutCase ? (key, value) => typeof value === 'string' && (/sdp|ufrag|username|password|icepwd|certificate|fingerprint/i.test(key) || /^CF[0-9A-F]{2}(:[0-9A-F]{2})+$/i.test(value)) ? undefined : value : undefined;
-  writeFileSync(join(evidence, cutCase ? 'rtc-data-cut.json' : wssMemberCase ? 'wss-member-rtc.json' : memberCase ? 'relay-member-rtc.json' : 'rtc-channel.json'), `${JSON.stringify(report, redact, 2)}\n`);
+  const redact = cutCase || invalidationCase ? (key, value) => typeof value === 'string' && (/sdp|ufrag|username|password|icepwd|certificate|fingerprint/i.test(key) || /^CF[0-9A-F]{2}(:[0-9A-F]{2})+$/i.test(value)) ? undefined : value : undefined;
+  writeFileSync(join(evidence, invalidationCase ? 'rtc-invalidation.json' : cutCase ? 'rtc-data-cut.json' : wssMemberCase ? 'wss-member-rtc.json' : memberCase ? 'relay-member-rtc.json' : 'rtc-channel.json'), `${JSON.stringify(report, redact, 2)}\n`);
 }
 function bounded(promise) { return Promise.race([promise, total]); }
 async function preparation(name, action) {
@@ -257,7 +258,10 @@ try {
     assert.equal(report.savedAfterReopen.stage, 'Complete');
     assert.equal(report.savedAfterReopen.secret_saved, true);
     report.beforeMember = JSON.parse(await page.evaluate(() => window.network.path_diagnostics()));
-    if (cutCase) {
+    if (invalidationCase) {
+      const { runRtcInvalidation } = await import('./run-rtc-invalidation.mjs');
+      await runRtcInvalidation({ page, native, ready: memberReady, report, bounded, save, mode: argument('--invalidation-mode') });
+    } else if (cutCase) {
       const { runRtcDataCut } = await import('./run-rtc-data-cut.mjs');
       await runRtcDataCut({ page, native, ready: memberReady, report, bounded, save, evidence, relayBackup });
     } else if (legacyNoRtc) {
@@ -330,6 +334,9 @@ try {
       assert(side.freshAckMs >= side.freshProbeStartedMs);
       assert(Object.values(side.beforeRetainFrames).every(frames => frames === 0));
     }
+    assert.equal(report.member.bootstrap.finalReleaseFreshAck, true);
+    assert(report.member.bootstrap.finalReleaseProbeWatermark > report.member.bootstrap.probeWatermark);
+    assert(report.member.bootstrap.finalReleaseAckMs >= report.member.bootstrap.finalReleaseProbeStartedMs);
     assert.equal(report.member.bootstrap.rtcRole, 'offerer');
     assert.equal(report.member.bootstrap.native.rtcRole, 'answerer');
     assert.equal(report.member.bootstrap.capabilitiesVersion, 3);
@@ -343,6 +350,10 @@ try {
     assert.equal(report.carrierAfterData[0].traffic.sent_bytes, report.carrierBeforeData[0].traffic.sent_bytes);
     assert.equal(report.carrierAfterData[0].traffic.received_bytes, report.carrierBeforeData[0].traffic.received_bytes);
     report.memberReleased = await native.wait('member-released');
+    report.nativeFinalRelease = report.native.find(entry => entry.event === 'rtc-path')?.report;
+    assert.equal(report.nativeFinalRelease?.finalReleaseFreshAck, true);
+    assert(report.nativeFinalRelease.finalReleaseProbeWatermark > report.nativeFinalRelease.probeWatermark);
+    assert(report.nativeFinalRelease.finalReleaseAckMs >= report.nativeFinalRelease.finalReleaseProbeStartedMs);
     // The route's retained lifetime must outlive this caller's 12-second setup.
     await bounded(new Promise(resolveWait => setTimeout(resolveWait, 12500)));
     assert.equal(await bounded(page.evaluate(() => window.member.exchange('RTC DATA beyond original setup deadline'))), 'RTC DATA beyond original setup deadline');
@@ -533,6 +544,8 @@ try {
 } finally {
   clearTimeout(deadline);
   const cleanupStart = Date.now();
+  // Release only owned diagnostic holds before waiting for normal teardown.
+  if (invalidationCase && native && native.process.exitCode === null && native.process.signalCode === null) native.process.stdin.write('control-clear\n');
   if (page && !page.isClosed()) await page.evaluate(async () => { window.member?.close(); window.secondMember?.close(); window.newMember?.close(); window.failedMember?.close(); window.pumpMember?.close(); await window.network?.close(); }).catch(() => {});
   await context?.close();
   if (web) { web.closeAllConnections(); await new Promise(resolveClose => web.close(resolveClose)); }

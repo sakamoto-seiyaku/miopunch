@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""STEP7: one owned namespace, actual selected-RTC UDP DROP, <=60s including cleanup."""
+"""Owned STEP7/8 namespace, <=60s per protocol story including cleanup."""
 import argparse
 import json
 import os
@@ -38,6 +38,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--mode", choices=("relay", "none"), default="relay")
+    parser.add_argument("--case", choices=("rtc-data-cut", "rtc-invalidation", "wss-member-rtc"), default="rtc-data-cut")
+    parser.add_argument("--invalidation-mode", choices=("cancel", "member", "secret", "secret-standard", "resource"), default="cancel")
     parser.add_argument("--target-dir", type=Path, default=ROOT / "target")
     parser.add_argument("--skip-build", action="store_true")
     parser.add_argument("--wasm-bindgen", default=shutil.which("wasm-bindgen") or "/tmp/miopunch-wasm-tools/bin/wasm-bindgen")
@@ -45,7 +47,7 @@ def main():
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     target = args.target_dir.resolve()
-    receipt = {"case": "rtc-data-cut", "mode": args.mode, "passed": False, "image": IMAGE,
+    receipt = {"case": args.case, "mode": args.invalidation_mode if args.case == "rtc-invalidation" else args.mode, "passed": False, "image": IMAGE,
                "sourceBefore": source_snapshot(), "commands": [], "cleanup": [],
                "totalBudgetSeconds": 60, "workBudgetSeconds": 45, "cleanupReserveSeconds": 15,
                "scope": "one owned kernel namespace; not NAT or WAN qualification"}
@@ -169,13 +171,13 @@ finally:s.close()
         command("browser-load", ["docker", "exec", "--env", "LD_LIBRARY_PATH=/opt/hostlib", container, "/opt/chromium/chrome", "--version"], min(2, remaining()))
         command("broker-start", ["docker", "exec", container, "rtk", "proxy", "mosquitto", "-c", "/repo/scripts/mosquitto-test.conf", "-d"], min(2, remaining()))
         work_ms = max(1, int((remaining()-0.5)*1000))
-        command("rtc-data-cut", ["docker", "exec", "--env", f"MIO_CUT_WORK_MS={work_ms}", container, "rtk", "proxy", "/opt/node/bin/node",
-                "browser-probe/harness/run-rtc.mjs", "--case", "rtc-data-cut", "--cut-mode", args.mode,
+        command(args.case, ["docker", "exec", "--env", f"MIO_CUT_WORK_MS={work_ms}", container, "rtk", "proxy", "/opt/node/bin/node",
+                "browser-probe/harness/run-rtc.mjs", "--case", args.case, "--cut-mode", args.mode, "--invalidation-mode", args.invalidation_mode,
                 "--relay", "owned", "--fixture", "/fixture", "--evidence", "/evidence", "--broker", "127.0.0.1:1883",
                 "--native", "/build/debug/browser_network_native", "--wss-native", "/build/debug/browser_wss_member_native", "--relay-fixture", "/build/debug/browser-probe-native"], remaining())
-        actual = json.loads((output / "rtc-data-cut.json").read_text())
-        if not actual["passed"] or not actual["cut"]["tableRemoved"]:
-            raise RuntimeError("kernel cut story/owned rule cleanup did not pass")
+        actual = json.loads((output / (args.case+".json")).read_text())
+        if not actual["passed"] or (args.case == "rtc-data-cut" and not actual["cut"]["tableRemoved"]):
+            raise RuntimeError("owned RTC story/cleanup did not pass")
         receipt["passed"] = True
     except BaseException as error:
         receipt["failure"] = str(error)

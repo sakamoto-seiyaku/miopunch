@@ -273,6 +273,13 @@ pub(super) async fn bootstrap_control(
         { return Err(error("RTC negotiated profile/maximum mismatch")); }
         owner.lease.activate().map_err(error)?;
         owner.start_pump(connection.weak_handle());
+        let actual = owner.stats.clone();
+        transport.control_fixture_checkpoint(crate::rtc_invalidation_fixture::ControlCheckpointStage::ChannelReady,
+            connection, &owner.lease, budget,
+            json!({"attempt":attempt,"stableId":stable,"localRoute":hex::encode(owner.lease.local_addr().data()),
+                "remoteRoute":hex::encode(owner.lease.remote_addr().map_err(error)?.data()),"freshAck":false,
+                "authorizationRevision":observed,"secretGeneration":saved.generation,"resourceRevision":transport.resource_revision()}),
+            Arc::new(move || actual.report())).await.map_err(error)?;
         phase(&mut recv, "channel-open").await?;
         write_frame(&mut send, &json!({"kind":"channel-open"})).await.map_err(error)?;
         let remote = iroh::TransportAddr::Custom(owner.lease.remote_addr().map_err(error)?);
@@ -318,12 +325,28 @@ pub(super) async fn bootstrap_control(
         // This very private stream began over MQTT and now confirms over RTC.
         write_frame(&mut send, &json!({"kind":"finish","sequence":1})).await.map_err(error)?;
         let native = phase(&mut recv, "final").await?["native"].clone();
+        let actual = owner.stats.clone();
+        transport.control_fixture_checkpoint(crate::rtc_invalidation_fixture::ControlCheckpointStage::BeforeRelease,
+            connection, &owner.lease, budget,
+            json!({"attempt":attempt,"stableId":stable,"localRoute":hex::encode(owner.lease.local_addr().data()),
+                "remoteRoute":hex::encode(owner.lease.remote_addr().map_err(error)?.data()),"freshAck":true,"bothConfirmed":true,
+                "pathId":probe.path_id(),"probeWatermark":probe.watermark(),"freshProbeStartedMs":probe_started,"freshAckMs":acknowledged,
+                "authorizationRevision":observed,"secretGeneration":saved.generation,"resourceRevision":transport.resource_revision()}),
+            Arc::new(move || actual.report())).await.map_err(error)?;
         gate.qualified_snapshot(connection).await?;
+        let release_started = budget.elapsed_ms();
+        let release_probe = owner.lease.validate_release(connection, budget).await.map_err(error)?;
+        gate.qualified_snapshot(connection).await?;
+        if revision.load(Ordering::Acquire) != observed || !owner.lease.io().is_active() {
+            return Err(error("RTC qualification changed during final release validation"));
+        }
         send.finish().map_err(error)?;
         Ok::<_, JsValue>(json!({"switched":true,"memberStableId":stable,"stableUnchanged":connection.stable_id()==stable,
             "bindingUnchanged":binding(connection)?==original_binding,"privateStreamId":stream_id,"privateSequence":1,
             "pathId":probe.path_id(),"freshProbeStartedMs":probe_started,"freshAckMs":acknowledged,"freshAck":true,
             "probeWatermark":probe.watermark(),"beforeRetainFrames":before_retain_frames,"rtc":metadata(&owner.association).await?,
+            "finalReleaseFreshAck":true,"finalReleaseProbeWatermark":release_probe.watermark(),
+            "finalReleaseProbeStartedMs":release_started,"finalReleaseAckMs":budget.elapsed_ms(),
             "route":owner.lease.report(),"dataChannel":owner.stats.report(),"native":native,"authorizationRevision":observed,
             "secretGeneration":saved.generation,"resourceRevision":transport.resource_revision(),"quicRole":"client","rtcRole":"offerer",
             "attemptMs":budget.elapsed_ms()}))
@@ -347,6 +370,41 @@ pub(super) async fn bootstrap_control(
         owner.retire();
     });
     Ok(report)
+}
+
+/// Owned diagnostics operate on this installed carrier and pending hook. They
+/// neither expose an unadmitted M nor change saved membership/materials.
+#[wasm_bindgen]
+impl BrowserNetwork {
+    pub fn rtc_invalidation_arm(&self, stage: String) -> Result<(), JsValue> {
+        use crate::rtc_invalidation_fixture::ControlCheckpointStage;
+        let stage = match stage.as_str() {
+            "channel-ready" => ControlCheckpointStage::ChannelReady,
+            "before-release" => ControlCheckpointStage::BeforeRelease,
+            _ => return Err(error("unknown owned Control checkpoint")),
+        };
+        self.rtc_transport.arm_control_fixture(stage).map_err(error)
+    }
+
+    pub fn rtc_invalidation_diagnostics(&self) -> String {
+        let gate = self.gate.0.lock().unwrap();
+        json!({"checkpoint":self.rtc_transport.control_fixture_snapshot(),
+            "publishedRoutes":self.rtc_transport.published_routes_fixture(),
+            "activeAssociations":self.rtc_transport.active_associations(),"activePumpTasks":self.rtc_transport.active_pumps(),
+            "resourceRevision":self.rtc_transport.resource_revision(),"resourceAllowed":self.rtc_transport.resource_allowed(),
+            "sourceRevision":gate.qualification_revision.load(Ordering::Acquire),
+            "secretGeneration":gate.saved.as_ref().map(|saved|saved.generation)}).to_string()
+    }
+
+    pub fn rtc_invalidation_release(&self, attempt: String) -> Result<(), JsValue> {
+        self.rtc_transport
+            .release_control_fixture(&attempt)
+            .map_err(error)
+    }
+
+    pub fn rtc_invalidation_clear(&self) {
+        self.rtc_transport.clear_control_fixture();
+    }
 }
 
 #[wasm_bindgen]

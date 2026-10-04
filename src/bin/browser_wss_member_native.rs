@@ -126,7 +126,77 @@ async fn main() -> Result<(), Box<dyn Error>> {
             line=input.next_line()=>match line?.as_deref() {
                 Some("stop")|None=>break,
                 Some("status")=>println!("{}",json!({"event":"status","traffic":traffic.snapshot(),"socketCount":socket_count(),
-                    "activeRtcAssociations":rtc_transport.active_associations(),"activeRtcPumps":rtc_transport.active_pumps()})),
+                    "activeRtcAssociations":rtc_transport.active_associations(),"activeRtcPumps":rtc_transport.active_pumps(),
+                    "publishedRtcRoutes":rtc_transport.published_routes_fixture()})),
+                Some("arm-control")=>{
+                    rtc_transport.arm_control_fixture(miopunch_native_probe::rtc_invalidation_fixture::ControlCheckpointStage::BeforeRelease)?;
+                    println!("{}",json!({"event":"control-armed"}));
+                },
+                Some("arm-control-hold-cleanup")=>{
+                    rtc_transport.arm_control_fixture_with_cleanup_hold(miopunch_native_probe::rtc_invalidation_fixture::ControlCheckpointStage::BeforeRelease)?;
+                    println!("{}",json!({"event":"control-armed"}));
+                },
+                Some("control-status")=>{
+                    let node=node.lock().await;
+                    let (generation,durable)=node.credential_generation_fixture().await?;
+                    println!("{}",json!({"event":"control-status","checkpoint":rtc_transport.control_fixture_snapshot(),
+                        "source":node.admission_gate().qualification_fixture(),"secretGeneration":generation,"durableCurrent":durable,
+                        "members":node.status().members.iter().map(|(id,_)|id.to_string()).collect::<Vec<_>>(),
+                        "resourceRevision":rtc_transport.resource_revision(),"resourceAllowed":rtc_transport.resource_allowed(),
+                        "activeRtcAssociations":rtc_transport.active_associations(),"activeRtcPumps":rtc_transport.active_pumps(),
+                        "socketCount":socket_count()}));
+                },
+                Some("credential-invalidate")=>{
+                    let mut node=node.lock().await;
+                    let before=node.admission_gate().qualification_fixture();
+                    let generation=node.invalidate_current_credential_fixture().await?;
+                    let (_,durable)=node.credential_generation_fixture().await?;
+                    println!("{}",json!({"event":"qualification-applied","kind":"credential-generation-invalidation",
+                        "before":before,"after":node.admission_gate().qualification_fixture(),"generation":generation,"durableCurrent":durable,
+                        "members":node.status().members.iter().map(|(id,_)|id.to_string()).collect::<Vec<_>>(),
+                        "resourceRevision":rtc_transport.resource_revision(),"resourceAllowed":rtc_transport.resource_allowed(),
+                        "checkpoint":rtc_transport.control_fixture_snapshot()}));
+                },
+                Some("rtc-resource-disable")=>{
+                    let node=node.lock().await;
+                    let source=node.admission_gate().qualification_fixture();
+                    let before=rtc_transport.resource_revision();
+                    rtc_transport.set_resource_allowed(false);
+                    println!("{}",json!({"event":"qualification-applied","kind":"scoped-rtc-carrier-permission",
+                        "before":source,"after":node.admission_gate().qualification_fixture(),
+                        "previousResourceRevision":before,"resourceRevision":rtc_transport.resource_revision(),"resourceAllowed":rtc_transport.resource_allowed(),
+                        "checkpoint":rtc_transport.control_fixture_snapshot()}));
+                },
+                Some("control-clear")=>{
+                    rtc_transport.clear_control_fixture();
+                    println!("{}",json!({"event":"control-cleared"}));
+                },
+                Some(command) if command.starts_with("control-release ")=>{
+                    let result=rtc_transport.release_control_fixture(&command[16..]);
+                    println!("{}",json!({"event":"control-release","released":result.is_ok(),"failure":result.err().map(|e|e.to_string())}));
+                },
+                Some(command) if command.starts_with("cleanup-release ")=>{
+                    rtc_transport.release_cleanup_fixture(&command[16..])?;
+                    println!("{}",json!({"event":"cleanup-release"}));
+                },
+                Some(command) if command.starts_with("remove-member ")=>{
+                    let mut node=node.lock().await;
+                    let before=node.admission_gate().qualification_fixture();
+                    let target=command[14..].parse()?;
+                    let mut session=node.begin_management_session();
+                    let result=node.manage(&mut session,miopunch_native_probe::daily_management::ManagementAction::RemoveMember(target)).await?;
+                    session.end();
+                    let record=node.management_history().await?.into_iter()
+                        .find(|record|p2panda_core::Hash::digest(record.header())==result.record)
+                        .ok_or("applied removal record missing from actual history")?;
+                    println!("{}",json!({"event":"qualification-applied","kind":"verified-applied-member-removal",
+                        "record":result.record.to_string(),"target":target.to_string(),"effectiveAccessAbsent":result.effective_access.is_none(),
+                        "header":hex::encode(record.header()),
+                        "before":before,"after":node.admission_gate().qualification_fixture(),
+                        "members":node.status().members.iter().map(|(id,_)|id.to_string()).collect::<Vec<_>>(),
+                        "resourceRevision":rtc_transport.resource_revision(),"resourceAllowed":rtc_transport.resource_allowed(),
+                        "checkpoint":rtc_transport.control_fixture_snapshot()}));
+                },
                 _=>return Err("unknown fixture command".into()),
             },
             incoming=endpoint.accept()=>{
