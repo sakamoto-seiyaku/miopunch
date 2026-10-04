@@ -38,7 +38,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--mode", choices=("relay", "none"), default="relay")
-    parser.add_argument("--case", choices=("rtc-data-cut", "rtc-invalidation", "wss-member-rtc", "rtc-member-replica"), default="rtc-data-cut")
+    parser.add_argument("--case", choices=("rtc-data-cut", "rtc-invalidation", "wss-member-rtc", "rtc-member-replica", "wss-admission-materials"), default="rtc-data-cut")
     parser.add_argument("--invalidation-mode", choices=("cancel", "member", "secret", "secret-standard", "resource"), default="cancel")
     parser.add_argument("--target-dir", type=Path, default=ROOT / "target")
     parser.add_argument("--skip-build", action="store_true")
@@ -47,9 +47,9 @@ def main():
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     target = args.target_dir.resolve()
-    total_budget = 120 if args.case == "rtc-member-replica" else 60
+    total_budget = 120 if args.case in ("rtc-member-replica", "wss-admission-materials") else 60
     work_budget = total_budget - 15
-    receipt = {"case": args.case, "mode": args.invalidation_mode if args.case == "rtc-invalidation" else "member-replica" if args.case == "rtc-member-replica" else args.mode, "passed": False, "image": IMAGE,
+    receipt = {"case": args.case, "mode": args.invalidation_mode if args.case == "rtc-invalidation" else "admission-materials" if args.case == "wss-admission-materials" else "member-replica" if args.case == "rtc-member-replica" else args.mode, "passed": False, "image": IMAGE,
                "sourceBefore": source_snapshot(), "commands": [], "cleanup": [],
                "totalBudgetSeconds": total_budget, "workBudgetSeconds": work_budget, "cleanupReserveSeconds": 15,
                "scope": "one owned kernel namespace; not NAT or WAN qualification"}

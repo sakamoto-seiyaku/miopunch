@@ -18,6 +18,13 @@ use crate::management_store::{ManagementRecord, StoreError};
 use crate::native_network::{NativeNetwork, NodeError};
 
 const TIMEOUT: Duration = Duration::from_secs(12);
+
+pub(crate) fn admission_deadline(connection: &Connection) -> n0_future::time::Instant {
+    let ceiling = n0_future::time::Instant::now() + TIMEOUT;
+    connection
+        .caller_deadline()
+        .map_or(ceiling, |deadline| deadline.min(ceiling))
+}
 const MAX_HISTORY_BYTES: usize = 16 * 1024 * 1024;
 const MAX_RECORDS: usize = 4096;
 
@@ -109,6 +116,7 @@ pub enum ManualExchange {
 /// successful admission; another request can resume the original result.
 pub struct AdmissionDelivery {
     connection: Connection,
+    deadline: n0_future::time::Instant,
     send: SendStream,
     recv: RecvStream,
     local: VerifyingKey,
@@ -322,9 +330,13 @@ impl NativeNetwork {
         &mut self,
         connection: &Connection,
     ) -> Result<AdmissionStage, ManualAdmissionError> {
-        let result = tokio::time::timeout(TIMEOUT, self.serve_admission_inner(connection, false))
-            .await
-            .unwrap_or(Err(ManualAdmissionError::PathUnavailable));
+        let deadline = admission_deadline(connection);
+        let result = tokio::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            self.serve_admission_inner(connection, false),
+        )
+        .await
+        .unwrap_or(Err(ManualAdmissionError::PathUnavailable));
         if result.is_err() {
             connection.close(0u32.into(), b"manual admission ended");
         }
@@ -479,9 +491,13 @@ impl NativeNetwork {
         &mut self,
         connection: &Connection,
     ) -> Result<ManualExchange, ManualAdmissionError> {
-        let result = tokio::time::timeout(TIMEOUT, self.request_admission_inner(connection, None))
-            .await
-            .unwrap_or(Err(ManualAdmissionError::PathUnavailable));
+        let deadline = admission_deadline(connection);
+        let result = tokio::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            self.request_admission_inner(connection, None, deadline),
+        )
+        .await
+        .unwrap_or(Err(ManualAdmissionError::PathUnavailable));
         if result.is_err() {
             connection.close(0u32.into(), b"manual admission ended");
         }
@@ -492,6 +508,7 @@ impl NativeNetwork {
         &mut self,
         connection: &Connection,
         token: Option<[u8; 32]>,
+        deadline: n0_future::time::Instant,
     ) -> Result<ManualExchange, ManualAdmissionError> {
         self.recover_admission_state().await?;
         self.store.ensure_admissions_open().await?;
@@ -598,6 +615,7 @@ impl NativeNetwork {
             .observe(crate::management_store::RecordCheckpoint::AuthorizationSaved);
         Ok(ManualExchange::Materials(AdmissionDelivery {
             connection: connection.clone(),
+            deadline,
             send,
             recv,
             local,
@@ -614,72 +632,77 @@ impl NativeNetwork {
         &mut self,
         mut delivery: AdmissionDelivery,
     ) -> Result<AdmissionStage, ManualAdmissionError> {
-        let result = tokio::time::timeout(TIMEOUT, async {
-            self.recover_admission_state().await?;
-            self.store.ensure_admissions_open().await?;
-            self.restricted_connection(&delivery.connection)?;
-            if self.node_key.verifying_key() != delivery.local
-                || self.join.map(|binding| binding.encode()) != Some(delivery.binding.encode())
-                || self.anchor != delivery.binding.invitation.anchor
-                || delivery.connection.remote_id() != delivery.binding.invitation.contact
-                || !self.is_member(delivery.local)
-                || !self.is_admin(tls_key(delivery.connection.remote_id())?)
-                || !self
-                    .store
-                    .membership_authorization_valid(delivery.authorization, delivery.local)
-            {
-                return Err(ManualAdmissionError::Rejected);
-            }
+        let result = tokio::time::timeout(
             delivery
-                .send
-                .write_all(b"AUTH")
-                .await
-                .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-            let mut bytes = [0; 40];
-            delivery
-                .recv
-                .read_exact(&mut bytes)
-                .await
-                .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-            #[cfg(feature = "replica-test-hooks")]
-            self.store
-                .observe(crate::management_store::RecordCheckpoint::SecretReceived);
-            let scope = AdmissionScope::new(
-                *self.anchor.root.as_bytes(),
-                u64::from_be_bytes(bytes[..8].try_into().unwrap()),
-            );
-            if scope.secret_generation() != delivery.generation {
-                return Err(ManualAdmissionError::Rejected);
-            }
-            let secret = AdmissionSecret::from_saved(bytes[8..].try_into().unwrap());
-            self.save_admission_material(scope, secret).await?;
-            #[cfg(feature = "replica-test-hooks")]
-            self.store
-                .observe(crate::management_store::RecordCheckpoint::SecretSaved);
+                .deadline
+                .saturating_duration_since(n0_future::time::Instant::now()),
+            async {
+                self.recover_admission_state().await?;
+                self.store.ensure_admissions_open().await?;
+                self.restricted_connection(&delivery.connection)?;
+                if self.node_key.verifying_key() != delivery.local
+                    || self.join.map(|binding| binding.encode()) != Some(delivery.binding.encode())
+                    || self.anchor != delivery.binding.invitation.anchor
+                    || delivery.connection.remote_id() != delivery.binding.invitation.contact
+                    || !self.is_member(delivery.local)
+                    || !self.is_admin(tls_key(delivery.connection.remote_id())?)
+                    || !self
+                        .store
+                        .membership_authorization_valid(delivery.authorization, delivery.local)
+                {
+                    return Err(ManualAdmissionError::Rejected);
+                }
+                delivery
+                    .send
+                    .write_all(b"AUTH")
+                    .await
+                    .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+                let mut bytes = [0; 40];
+                delivery
+                    .recv
+                    .read_exact(&mut bytes)
+                    .await
+                    .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+                #[cfg(feature = "replica-test-hooks")]
+                self.store
+                    .observe(crate::management_store::RecordCheckpoint::SecretReceived);
+                let scope = AdmissionScope::new(
+                    *self.anchor.root.as_bytes(),
+                    u64::from_be_bytes(bytes[..8].try_into().unwrap()),
+                );
+                if scope.secret_generation() != delivery.generation {
+                    return Err(ManualAdmissionError::Rejected);
+                }
+                let secret = AdmissionSecret::from_saved(bytes[8..].try_into().unwrap());
+                self.save_admission_material(scope, secret).await?;
+                #[cfg(feature = "replica-test-hooks")]
+                self.store
+                    .observe(crate::management_store::RecordCheckpoint::SecretSaved);
 
-            delivery
-                .send
-                .write_all(b"SAVE")
-                .await
-                .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-            #[cfg(feature = "replica-test-hooks")]
-            self.store
-                .observe(crate::management_store::RecordCheckpoint::CompletionSent);
-            delivery
-                .send
-                .finish()
-                .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-            let mut ack = [0; 4];
-            delivery
-                .recv
-                .read_exact(&mut ack)
-                .await
-                .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-            if &ack != b"DONE" {
-                return Err(ManualAdmissionError::Rejected);
-            }
-            Ok(self.admission_stage())
-        })
+                delivery
+                    .send
+                    .write_all(b"SAVE")
+                    .await
+                    .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+                #[cfg(feature = "replica-test-hooks")]
+                self.store
+                    .observe(crate::management_store::RecordCheckpoint::CompletionSent);
+                delivery
+                    .send
+                    .finish()
+                    .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+                let mut ack = [0; 4];
+                delivery
+                    .recv
+                    .read_exact(&mut ack)
+                    .await
+                    .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+                if &ack != b"DONE" {
+                    return Err(ManualAdmissionError::Rejected);
+                }
+                Ok(self.admission_stage())
+            },
+        )
         .await
         .unwrap_or(Err(ManualAdmissionError::PathUnavailable));
         if result.is_err() {

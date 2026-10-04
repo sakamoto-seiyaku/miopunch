@@ -1,5 +1,5 @@
 //! Designated-node precode consumption shares durable admission delivery.
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use iroh::endpoint::Connection;
 use sqlx::Row;
@@ -241,7 +241,8 @@ impl NativeNetwork {
         connection: &Connection,
     ) -> Result<AdmissionStage, ManualAdmissionError> {
         let result = tokio::time::timeout(
-            Duration::from_secs(12),
+            crate::manual_admission::admission_deadline(connection)
+                .saturating_duration_since(n0_future::time::Instant::now()),
             self.serve_admission_inner(connection, true),
         )
         .await
@@ -260,9 +261,10 @@ impl NativeNetwork {
         if self.join.map(|binding| binding.invitation) != Some(code.invitation) {
             return Err(ManualAdmissionError::Rejected);
         }
+        let deadline = crate::manual_admission::admission_deadline(connection);
         let result = tokio::time::timeout(
-            Duration::from_secs(12),
-            self.request_admission_inner(connection, Some(code.token)),
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            self.request_admission_inner(connection, Some(code.token), deadline),
         )
         .await
         .unwrap_or(Err(ManualAdmissionError::PathUnavailable));

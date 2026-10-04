@@ -42,6 +42,9 @@ def source_snapshot():
                   "src/management_record.rs", "src/management_store.rs", "src/offline_replica.rs", "src/rtc_invalidation_fixture.rs",
                   "browser-probe/src/replica.rs", "browser-probe/src/storage.js", "browser-probe/harness/run-rtc-member-replica.mjs",
                   "browser-probe/harness/run-rtc-invalidation.mjs", "tests/offline_replica.rs"})
+    paths.update({"src/manual_admission.rs", "src/precode.rs", "src/admission_request_id.rs", "src/precode_policy.rs",
+                  "browser-probe/src/admission.rs", "browser-probe/harness/run-wss-admission-materials.mjs",
+                  "tests/manual_admission.rs", "tests/precode.rs", "tests/admission_completion.rs"})
     return {path: sha256(ROOT / path) for path in sorted(paths) if (ROOT / path).is_file()}
 
 

@@ -20,6 +20,61 @@ use p2panda_core::{Header, SigningKey};
 
 const BUSINESS: &[u8] = b"miopunch/manual-admission-business/1";
 
+#[tokio::test]
+async fn restricted_admission_delivery_uses_original_incoming_deadline() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut admin = NativeNetwork::create(dir.path().join("admin"))
+        .await
+        .unwrap();
+    let joining = NativeNetwork::join(
+        dir.path().join("joining"),
+        admin.manual_invitation().unwrap(),
+    )
+    .await
+    .unwrap();
+    let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
+    let je = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
+    ae.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()]);
+    let target = EndpointAddr::new(ae.id()).with_ip_addr(*ae.addr().ip_addrs().next().unwrap());
+    let deadline = n0_future::time::Instant::now() + Duration::from_secs(2);
+    let (client, server) = tokio::join!(je.connect(target, ADMISSION_REQUEST_ALPN), async {
+        ae.accept()
+            .await
+            .unwrap()
+            .with_caller_deadline(deadline)
+            .await
+    });
+    let (client, server) = (client.unwrap(), server.unwrap());
+    assert!(
+        admin
+            .admission_gate()
+            .allows(&server, ProtocolScope::AdmissionRequest)
+    );
+    // Real TLS/stage agreement consumed part of this operation. Its peer then
+    // deliberately sends no request stream; provider must not restart 12s.
+    let remainder = deadline.saturating_duration_since(n0_future::time::Instant::now());
+    tokio::time::sleep(remainder.saturating_sub(Duration::from_millis(120))).await;
+    let started = std::time::Instant::now();
+    let result = tokio::time::timeout(
+        Duration::from_millis(350),
+        admin.serve_manual_admission(&server),
+    )
+    .await;
+    let elapsed = started.elapsed();
+    client.close(0u32.into(), b"bounded deadline fixture ended");
+    server.close(0u32.into(), b"bounded deadline fixture ended");
+    je.close().await;
+    ae.close().await;
+    assert!(
+        matches!(result, Ok(Err(ManualAdmissionError::PathUnavailable))),
+        "provider renewed original incoming deadline"
+    );
+    assert!(elapsed < Duration::from_millis(300));
+    assert!(admin.manual_requests().await.unwrap().is_empty());
+    joining.close().await;
+    admin.close().await;
+}
+
 async fn connect(client: &Endpoint, server: &Endpoint, alpn: &[u8]) -> (Connection, Connection) {
     let target = EndpointAddr::new(server.id()).with_addrs(
         server

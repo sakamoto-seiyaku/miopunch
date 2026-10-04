@@ -3,7 +3,7 @@ use std::{error::Error, sync::Arc, time::Duration};
 
 use iroh::endpoint::presets;
 use miopunch_native_probe::{
-    admission_gate::ProtocolScope,
+    admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope},
     member_path_protocol::MemberProtocol,
     mqtt_datagram::MqttFacility,
     mqtt_transport::{MqttTransport, Traffic},
@@ -42,6 +42,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             "legacy-no-rtc" => args.len() != 5,
             "legacy-relay" => args.len() != 6,
             "rtc-relay" => args.len() != 6,
+            "admission" => args.len() != 5,
             _ => true,
         })
     {
@@ -50,10 +51,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .into(),
         );
     }
-    let legacy_only = args.get(4).is_some_and(|mode| mode != "rtc-relay");
+    let admission_mode = args.get(4).is_some_and(|mode| mode == "admission");
+    let legacy_only = args.get(4).is_some_and(|mode| mode.starts_with("legacy-"));
     let permitted_relay = args.get(5);
     // Preparation must have persisted the original identity and membership.
-    let node = NativeNetwork::open(&args[1]).await?;
+    let node = if admission_mode && !std::path::Path::new(&args[1]).exists() {
+        NativeNetwork::create(&args[1]).await?
+    } else {
+        NativeNetwork::open(&args[1]).await?
+    };
     let facility: MqttFacility = serde_json::from_slice(&std::fs::read(&args[2])?)?;
     let mut resources = node.resource_configuration()?;
     let mut replacement = vec![Resource {
@@ -108,6 +114,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         builder = builder.ca_tls_config(iroh_relay::tls::CaTlsConfig::custom_roots(vec![cert]));
     }
     alpns.push(miopunch_native_probe::connection_recovery::CONNECTION_RECOVERY_ALPN.to_vec());
+    if admission_mode {
+        alpns.push(ADMISSION_REQUEST_ALPN.to_vec());
+    }
     let rtc_transport = miopunch_native_probe::rtc_transport::RtcTransport::new();
     let assembly = if legacy_only {
         node.bind_configured_endpoint_with(builder).await?
@@ -127,11 +136,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
         json!({"event":"ready", "id":endpoint.id().to_string(), "route":transport.route()?,
         "knownMembers":node.status().members.iter().map(|(id,_)|id.to_string()).collect::<Vec<_>>(),
         "ipAddresses":endpoint.addr().ip_addrs().count(), "relayAddresses":endpoint.addr().relay_urls().count(),
-        "traffic":traffic.snapshot(), "socketCount":socket_count(),"legacyOnly":legacy_only})
+        "traffic":traffic.snapshot(), "socketCount":socket_count(),"legacyOnly":legacy_only,
+        "invitation":if admission_mode {Some(hex::encode(node.manual_invitation()?.encode()))} else {None}})
     );
     let node = Arc::new(tokio::sync::Mutex::new(node));
     let mut input = BufReader::new(tokio::io::stdin()).lines();
     let mut handlers = tokio::task::JoinSet::new();
+    let code_path = std::path::Path::new(&args[1]).join("fixture.precode");
+    let mut issued = if admission_mode && code_path.exists() {
+        Some(miopunch_native_probe::precode::Precode::decode(
+            &std::fs::read(&code_path)?
+                .try_into()
+                .map_err(|_| "fixture precode length")?,
+        )?)
+    } else {
+        None
+    };
+    let precode_mode = Arc::new(std::sync::atomic::AtomicBool::new(issued.is_some()));
     loop {
         tokio::select! {
             line=input.next_line()=>match line?.as_deref() {
@@ -139,6 +160,47 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 Some("status")=>println!("{}",json!({"event":"status","traffic":traffic.snapshot(),"socketCount":socket_count(),
                     "activeRtcAssociations":rtc_transport.active_associations(),"activeRtcPumps":rtc_transport.active_pumps(),
                     "publishedRtcRoutes":rtc_transport.published_routes_fixture()})),
+                Some("admission-status") if admission_mode=>{
+                    let mut node=node.lock().await;
+                    let mut requests=Vec::new();
+                    for request in node.manual_requests().await? {
+                        let approved=node.approved_admission(&request).await?;
+                        requests.push(json!({"applicant":request.applicant.to_string(),"request":hex::encode(request.request_id),
+                            "authorization":approved.as_ref().map(|a|a.authorization.to_string()),"receiptStage":approved.map(|a|format!("{:?}",a.stage))}));
+                    }
+                    let records=node.management_history().await?;
+                    println!("{}",json!({"event":"admission-status","id":node.status().node_id.to_string(),"requests":requests,
+                        "records":records.iter().map(|r|p2panda_core::Hash::digest(r.header()).to_string()).collect::<Vec<_>>(),"count":node.status().applied_count}));
+                },
+                Some(command) if admission_mode && command.starts_with("approve-request ")=>{
+                    let parts=command[16..].split_whitespace().collect::<Vec<_>>();
+                    if parts.len()!=2 {return Err("exact applicant and request required".into());}
+                    let request=miopunch_native_probe::manual_admission::AdmissionRequest {applicant:parts[0].parse()?,request_id:hex::decode(parts[1])?.try_into().map_err(|_|"request length")?};
+                    let mut node=node.lock().await;
+                    let before=node.status().applied_count;
+                    let approved=node.approve_manual_admission(&request).await?;
+                    println!("{}",json!({"event":"approved","applicant":request.applicant.to_string(),"request":hex::encode(request.request_id),
+                        "authorization":approved.authorization.to_string(),"before":before,"after":node.status().applied_count,"receiptStage":format!("{:?}",approved.stage)}));
+                },
+                Some("issue") if admission_mode=>{
+                    use std::os::unix::fs::OpenOptionsExt;
+                    use std::io::Write;
+                    let mut node=node.lock().await;
+                    let expires=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs()+3600;
+                    let code=node.issue_precode(expires,Some(1)).await?;
+                    let mut file=std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&code_path)?;
+                    file.write_all(&code.encode())?;file.sync_all()?;
+                    issued=Some(code);precode_mode.store(true,std::sync::atomic::Ordering::Release);
+                    println!("{}",json!({"event":"issued","code":hex::encode(code.encode())}));
+                },
+                Some("usage") if admission_mode=>{
+                    let mut node=node.lock().await;
+                    let code=issued.as_ref().ok_or("no owned code")?;
+                    let status=node.precode_usage_status(code).await?;
+                    let redemptions=node.precode_redemptions(code).await?;
+                    println!("{}",json!({"event":"usage","uses":node.precode_usage(code).await?,"trusted":status.count_trusted,
+                        "redemptions":redemptions.iter().map(|a|json!({"applicant":a.request.applicant.to_string(),"request":hex::encode(a.request.request_id),"authorization":a.authorization.to_string(),"receiptStage":format!("{:?}",a.stage)})).collect::<Vec<_>>(),"count":node.status().applied_count}));
+                },
                 Some("record")=>{
                     use p2panda_auth::{Access,GroupsExtensionArgs,group::{GroupAction,GroupMember}};
                     use p2panda_core::{Hash,Header,SigningKey};
@@ -241,6 +303,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let assembly=assembly.clone();
                 let rtc_transport=rtc_transport.clone();
                 let serving_endpoint=endpoint.clone();
+                let precode_mode=precode_mode.clone();
                 handlers.spawn(async move {
                     let connection=match incoming.await {
                         Ok(connection)=>connection,
@@ -249,6 +312,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             return Ok::<_,Box<dyn Error+Send+Sync>>(());
                         }
                     };
+                    if admission_mode && connection.alpn()==ADMISSION_REQUEST_ALPN {
+                        let deadline=connection.caller_deadline().ok_or("owned admission deadline absent")?;
+                        let gate=node.lock().await.admission_gate();
+                        println!("{}",json!({"event":"admission-accepted","stableId":connection.stable_id(),"remoteId":connection.remote_id().to_string(),
+                            "alpn":String::from_utf8_lossy(connection.alpn()),"restricted":gate.allows(&connection,ProtocolScope::AdmissionRequest),
+                            "businessHandle":gate.allows(&connection,ProtocolScope::Member),"paths":connection_paths(&connection)}));
+                        let result=n0_future::time::timeout(deadline.saturating_duration_since(n0_future::time::Instant::now()),async {
+                            let mut node=node.lock().await;
+                            if precode_mode.load(std::sync::atomic::Ordering::Acquire) {node.serve_precode_admission(&connection).await} else {node.serve_manual_admission(&connection).await}
+                        }).await;
+                        println!("{}",json!({"event":"admission-ended","stableId":connection.stable_id(),"remoteId":connection.remote_id().to_string(),"stage":format!("{result:?}"),"paths":connection_paths(&connection)}));
+                        if matches!(&result,Ok(Ok(_))) {let _=n0_future::time::timeout(deadline.saturating_duration_since(n0_future::time::Instant::now()),connection.closed()).await;}
+                        connection.close(0u32.into(),b"owned admission ended");
+                        return Ok::<_,Box<dyn Error+Send+Sync>>(());
+                    }
                     if connection.alpn() == miopunch_native_probe::connection_recovery::CONNECTION_RECOVERY_ALPN {
                         println!("{}",json!({"event":"repair-control","stableId":connection.stable_id(),
                             "alpn":String::from_utf8_lossy(connection.alpn()),"restricted":!node.lock().await.admission_gate().allows(&connection,ProtocolScope::Member),

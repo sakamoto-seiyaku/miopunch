@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 const body = 'original-author browser replica body';
 
-async function observeTraffic(page) {
+export async function observeTraffic(page) {
   await page.evaluate(() => {
     const Original = window.RTCPeerConnection;
     window.replicaRtcTraffic = [];
@@ -30,7 +30,7 @@ async function observeTraffic(page) {
   });
 }
 
-async function traffic(page, detach = false) {
+export async function traffic(page, detach = false) {
   return page.evaluate(detach => window.replicaRtcTraffic.map(ticket => {
     if (detach) for (const entry of ticket.channels) {
       entry.channel.removeEventListener('message', entry.receive);
@@ -52,7 +52,7 @@ function exactRtc(paths) {
   assert(paths.some(path => path.selected));
 }
 
-function releaseProof(bootstrap, nativeFinal) {
+export function releaseProof(bootstrap, nativeFinal) {
   for (const endpoint of [bootstrap, nativeFinal]) {
     assert.equal(endpoint.freshAck, true);
     assert.equal(endpoint.stableUnchanged, true);
@@ -69,7 +69,7 @@ function releaseProof(bootstrap, nativeFinal) {
   assert.equal(nativeFinal.memberStableId, bootstrap.native.memberStableId);
 }
 
-function streamProgress(before, after) {
+export function streamProgress(before, after) {
   exactRtc(before); exactRtc(after);
   const initial = before.find(path => path.selected);
   const current = after.find(path => path.pathId === initial.pathId);
@@ -77,7 +77,7 @@ function streamProgress(before, after) {
   for (const field of ['sentBytes', 'receivedBytes', 'streamFramesSent', 'streamFramesReceived']) assert(current[field] > initial[field], `actual RTC ${field} grows`);
 }
 
-function cleanupProof(value) {
+export function cleanupProof(value) {
   assert.equal(value.cleanup.pcClosed, true);
   assert.equal(value.cleanup.ownedPumpTasks, 0);
   assert.equal(value.cleanup.txBytes + value.cleanup.rxBytes, 0);

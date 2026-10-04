@@ -827,6 +827,7 @@ fn origin(value: &str) -> Result<String, JsValue> {
 
 struct Delivery {
     connection: Connection,
+    deadline: n0_future::time::Instant,
     send: SendStream,
     recv: RecvStream,
 }
@@ -1251,6 +1252,48 @@ impl BrowserNetwork {
         serde_json::json!({"id":self.id(), "stage":self.saved.stage(), "authorization_saved":self.saved.authorization.is_some(), "secret_saved":self.saved.secret.is_some(), "running":self.lease.is_some()}).to_string()
     }
 
+    /// Redacted loaded material receipt, checked against the actual leased store.
+    pub async fn admission_material_receipt(&self) -> Result<String, JsValue> {
+        self.check_store().await?;
+        self.saved.verify()?;
+        let invitation = self.saved.invitation()?;
+        Ok(serde_json::json!({"id":self.id(),"contact":invitation.contact.to_string(),"stage":self.saved.stage(),
+            "request":hex::encode(self.saved.precode.map_or(self.saved.request,|token|crate::admission_request_id::precode_request_id(self.saved.request,token))),
+            "authorization":self.saved.authorization.map(|id|id.to_string()),"generation":self.saved.generation,
+            "authorization_saved":self.saved.authorization.is_some(),"secret_saved":self.saved.secret.is_some(),
+            "records":self.saved.records.iter().map(|(header,_)|Hash::digest(header).to_string()).collect::<Vec<_>>()}).to_string())
+    }
+
+    /// Owned identity-binding diagnostic over a genuine restricted TLS A.
+    /// Claims affect only this existing request wire; durable node state is untouched.
+    #[cfg(feature = "rtc-probe")]
+    pub async fn admission_identity_probe(
+        &self,
+        request: String,
+        claimed: String,
+    ) -> Result<String, JsValue> {
+        let request = hex::decode(request).map_err(error)?;
+        if request.len() != 16 {
+            return Err(rejected());
+        }
+        let claimed: iroh_base::EndpointId = claimed.parse().map_err(error)?;
+        let deadline = n0_future::time::Instant::now() + self.caller_budget;
+        let connection = self
+            .connect_target_until(self.saved.invitation()?.contact, REQUEST_ALPN, deadline)
+            .await?;
+        let _scope = RequestConnection(Some(connection.clone()));
+        n0_future::time::timeout(deadline.saturating_duration_since(n0_future::time::Instant::now()),async {
+            let (mut send,mut recv)=connection.open_bi().await.map_err(error)?;
+            let mut wire=self.saved.invitation.clone().ok_or_else(rejected)?;
+            wire.extend_from_slice(&request);wire.extend_from_slice(claimed.as_bytes());
+            send.write_all(&wire).await.map_err(error)?;send.finish().map_err(error)?;
+            let mut response=[0];recv.read_exact(&mut response).await.map_err(error)?;
+            if response!=[0] {return Err(error("identity probe unexpectedly obtained approved material"));}
+            Ok(serde_json::json!({"local_id":self.id(),"remote_id":connection.remote_id().to_string(),"claimed":claimed.to_string(),
+                "alpn":String::from_utf8_lossy(connection.alpn()),"stable_id":connection.stable_id(),"approved_material":false,"response":response[0]}).to_string())
+        }).await.map_err(|_|error("identity probe caller deadline"))?
+    }
+
     pub async fn request_admission(&mut self, invitation: String) -> Result<String, JsValue> {
         let started = self
             .startup_request_started
@@ -1333,17 +1376,33 @@ impl BrowserNetwork {
         let mut next = self.saved.clone();
         next.invitation = Some(bytes[..96].to_vec());
         next.precode = Some(bytes[96..].try_into().unwrap());
-        n0_future::time::timeout(TIMEOUT.saturating_sub(started.elapsed()), async {
-            self.commit(next).await?;
-            self.request_inner().await
-        })
+        self.last_request = Some(serde_json::json!({"stage":"connecting","business_handle":false}));
+        n0_future::time::timeout(
+            self.caller_budget.saturating_sub(started.elapsed()),
+            async {
+                self.commit(next).await?;
+                self.request_inner().await
+            },
+        )
         .await
         .map_err(|_| error("precode contact unavailable; progress retained"))?
     }
 
     pub async fn complete_admission(&mut self) -> Result<String, JsValue> {
         let mut delivery = self.delivery.take().ok_or_else(rejected)?;
-        let result = n0_future::time::timeout(TIMEOUT, async {
+        let remaining = delivery
+            .deadline
+            .saturating_duration_since(n0_future::time::Instant::now());
+        if remaining.is_zero() {
+            return Err(error(
+                "delivery caller deadline expired; committed materials retained",
+            ));
+        }
+        if let Some(report) = self.last_request.as_mut() {
+            report["completion_remaining_ms"] = serde_json::json!(remaining.as_millis());
+            report["material_events"] = serde_json::json!([]);
+        }
+        let result = n0_future::time::timeout(remaining, async {
             let auth = self.saved.verify()?.ok_or_else(rejected)?;
             if !auth.membership_authorization_valid(
                 self.saved.authorization.ok_or_else(rejected)?,
@@ -1352,6 +1411,7 @@ impl BrowserNetwork {
                 return Err(rejected());
             }
             delivery.send.write_all(b"AUTH").await.map_err(error)?;
+            self.material_event("AUTH-sent");
             let mut material = [0; 40];
             delivery
                 .recv
@@ -1361,16 +1421,25 @@ impl BrowserNetwork {
             if u64::from_be_bytes(material[..8].try_into().unwrap()) != self.saved.generation {
                 return Err(rejected());
             }
+            self.material_event("secret-received-generation-verified");
             let mut next = self.saved.clone();
             next.secret = Some(material[8..].try_into().unwrap());
             self.commit(next).await?;
+            self.material_event("secret-committed");
+            if delivery.deadline <= n0_future::time::Instant::now() {
+                return Err(error(
+                    "delivery caller deadline expired; committed materials retained",
+                ));
+            }
             delivery.send.write_all(b"SAVE").await.map_err(error)?;
+            self.material_event("SAVE-sent");
             delivery.send.finish().map_err(error)?;
             let mut reply = [0; 4];
             delivery.recv.read_exact(&mut reply).await.map_err(error)?;
             if &reply != b"DONE" {
                 return Err(rejected());
             }
+            self.material_event("DONE-received");
             Ok(self.saved.stage().to_string())
         })
         .await
@@ -1413,6 +1482,15 @@ impl BrowserNetwork {
 }
 
 impl BrowserNetwork {
+    fn material_event(&mut self, stage: &str) {
+        if let Some(events) = self
+            .last_request
+            .as_mut()
+            .and_then(|report| report["material_events"].as_array_mut())
+        {
+            events.push(serde_json::json!({"stage":stage,"sequence":events.len(),"elapsed_ms":self.attempt_started.map(|start|start.elapsed().as_millis())}));
+        }
+    }
     async fn check_store(&self) -> Result<(), JsValue> {
         let token = self
             .lease
@@ -1513,7 +1591,10 @@ impl BrowserNetwork {
     }
     async fn request_inner(&mut self) -> Result<String, JsValue> {
         let started = n0_future::time::Instant::now();
-        let connection = self.connect(REQUEST_ALPN).await?;
+        let deadline = self.attempt_started.unwrap_or(started) + self.caller_budget;
+        let connection = self
+            .connect_target_until(self.saved.invitation()?.contact, REQUEST_ALPN, deadline)
+            .await?;
         let mut request_scope = RequestConnection(Some(connection.clone()));
         self.last_request = Some(
             serde_json::json!({"local_id":self.endpoint.id().to_string(),"remote_id":connection.remote_id().to_string(),"alpn":String::from_utf8_lossy(connection.alpn()),"stable_id":connection.stable_id(),"restricted":true,"business_handle":false,"handshake_ms":started.elapsed().as_millis()}),
@@ -1573,6 +1654,7 @@ impl BrowserNetwork {
             self.commit(next).await?;
             self.delivery = Some(Delivery {
                 connection: connection.clone(),
+                deadline,
                 send,
                 recv,
             });

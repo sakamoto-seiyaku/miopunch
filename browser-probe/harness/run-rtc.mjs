@@ -15,8 +15,9 @@ const memberCase = process.argv.includes('--case') && argument('--case') === 're
 const cutCase = process.argv.includes('--case') && argument('--case') === 'rtc-data-cut';
 const invalidationCase = process.argv.includes('--case') && argument('--case') === 'rtc-invalidation';
 const replicaCase = process.argv.includes('--case') && argument('--case') === 'rtc-member-replica';
+const admissionCase = process.argv.includes('--case') && argument('--case') === 'wss-admission-materials';
 const cutRelay = cutCase && argument('--cut-mode') === 'relay';
-const wssMemberCase = process.argv.includes('--case') && (argument('--case') === 'wss-member-rtc' || cutCase || invalidationCase || replicaCase);
+const wssMemberCase = process.argv.includes('--case') && (argument('--case') === 'wss-member-rtc' || cutCase || invalidationCase || replicaCase || admissionCase);
 const legacyNoRtc = process.argv.includes('--legacy-no-rtc');
 const legacyRelay = process.argv.includes('--legacy-relay');
 const relayBackup = legacyRelay || cutRelay;
@@ -34,15 +35,15 @@ let web;
 let page;
 let deadline;
 let rejectDeadline;
-const total = new Promise((_, reject) => { rejectDeadline = reject; deadline = setTimeout(() => reject(new Error('RTC fixture deadline; reserved finally cleanup')), cutCase || invalidationCase || replicaCase ? Number(process.env.MIO_CUT_WORK_MS ?? (replicaCase ? 100000 : 40000)) : wssMemberCase ? 55000 : memberCase ? 35000 : 45000); });
+const total = new Promise((_, reject) => { rejectDeadline = reject; deadline = setTimeout(() => reject(new Error('RTC fixture deadline; reserved finally cleanup')), cutCase || invalidationCase || replicaCase || admissionCase ? Number(process.env.MIO_CUT_WORK_MS ?? (replicaCase || admissionCase ? 100000 : 40000)) : wssMemberCase ? 55000 : memberCase ? 35000 : 45000); });
 const ownedSockets = new Set();
 const facilityServers = [];
 // Attach immediately: synchronous startup errors still proceed through finally.
 total.catch(() => {});
 for (const name of ['SIGTERM', 'SIGINT']) process.once(name, () => rejectDeadline(new Error(`RTC fixture cancelled by ${name}`)));
 function save() {
-  const redact = cutCase || invalidationCase || replicaCase ? (key, value) => typeof value === 'string' && (/sdp|ufrag|username|password|icepwd|certificate|fingerprint/i.test(key) || /^CF[0-9A-F]{2}(:[0-9A-F]{2})+$/i.test(value)) ? undefined : value : undefined;
-  writeFileSync(join(evidence, replicaCase ? 'rtc-member-replica.json' : invalidationCase ? 'rtc-invalidation.json' : cutCase ? 'rtc-data-cut.json' : wssMemberCase ? 'wss-member-rtc.json' : memberCase ? 'relay-member-rtc.json' : 'rtc-channel.json'), `${JSON.stringify(report, redact, 2)}\n`);
+  const redact = cutCase || invalidationCase || replicaCase || admissionCase ? (key, value) => typeof value === 'string' && (/sdp|ufrag|username|password|icepwd|certificate|fingerprint/i.test(key) || /^CF[0-9A-F]{2}(:[0-9A-F]{2})+$/i.test(value)) ? undefined : value : undefined;
+  writeFileSync(join(evidence, admissionCase ? 'wss-admission-materials.json' : replicaCase ? 'rtc-member-replica.json' : invalidationCase ? 'rtc-invalidation.json' : cutCase ? 'rtc-data-cut.json' : wssMemberCase ? 'wss-member-rtc.json' : memberCase ? 'relay-member-rtc.json' : 'rtc-channel.json'), `${JSON.stringify(report, redact, 2)}\n`);
 }
 function bounded(promise) { return Promise.race([promise, total]); }
 async function preparation(name, action) {
@@ -62,7 +63,7 @@ function executable() {
   throw new Error('install pinned Playwright Chromium');
 }
 function fixture(memberFacilityPath) {
-  const process = spawn('rtk', ['proxy', memberFacilityPath ? argument('--wss-native') : argument('--native'), join(temporary, 'admin'), ...(memberFacilityPath ? [memberFacilityPath, join(argument('--fixture'), 'ca.pem'), ...(legacyNoRtc ? ['legacy-no-rtc'] : legacyRelay ? ['legacy-relay', relay] : cutRelay ? ['rtc-relay', relay] : [])] : [relay, ...(requestedRelay === 'owned' ? [join(argument('--fixture'), 'ca.der')] : [])])], { stdio: ['pipe', 'pipe', 'pipe'] });
+  const process = spawn('rtk', ['proxy', memberFacilityPath ? argument('--wss-native') : argument('--native'), join(temporary, 'admin'), ...(memberFacilityPath ? [memberFacilityPath, join(argument('--fixture'), 'ca.pem'), ...(admissionCase ? ['admission'] : legacyNoRtc ? ['legacy-no-rtc'] : legacyRelay ? ['legacy-relay', relay] : cutRelay ? ['rtc-relay', relay] : [])] : [relay, ...(requestedRelay === 'owned' ? [join(argument('--fixture'), 'ca.der')] : [])])], { stdio: ['pipe', 'pipe', 'pipe'] });
   const entries = [];
   const waiters = [];
   createInterface({ input: process.stdout }).on('line', line => {
@@ -70,7 +71,7 @@ function fixture(memberFacilityPath) {
     try { entry = JSON.parse(line); } catch { return; }
     entries.push(entry);
     // Invitation is temporary setup material; never retain it in experiment evidence.
-    const { invitation, ...publicEntry } = entry;
+    const { invitation, code, ...publicEntry } = entry;
     report.native.push({ ...publicEntry, receivedUtc: new Date().toISOString() });
     for (const waiter of [...waiters]) if (entry.event === waiter.event) {
       waiters.splice(waiters.indexOf(waiter), 1);
@@ -99,7 +100,7 @@ async function stopProcess(child, label) {
   return result;
 }
 try {
-  if (requestedRelay === 'owned') {
+  if (requestedRelay === 'owned' && !admissionCase) {
     const trustFixture = argument('--fixture');
     relayProcess = spawn('rtk', ['proxy', argument('--relay-fixture'), 'relay-tls-files', join(trustFixture, 'leaf.der'), join(trustFixture, 'leaf-key.der')], { stdio: ['pipe', 'pipe', 'pipe'] });
     relayProcess.stderr.on('data', data => console.error(String(data)));
@@ -111,8 +112,23 @@ try {
     report.relay = relay;
     report.ownedRelay = true;
   }
-  native = fixture();
+  let admissionFacilityPath;
+  let admissionConfiguration;
+  if (admissionCase) {
+    const { startMixedMqttProxy } = await import('./owned-mixed-mqtt-proxy.mjs');
+    const facility = await startMixedMqttProxy({ fixture: argument('--fixture'), broker: argument('--broker'), report, ownedSockets,
+      dropPublish: () => false, listen: async server => {
+        facilityServers.push(server);
+        await bounded(new Promise((resolveListening, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolveListening); }));
+        return server.address().port;
+      } });
+    admissionFacilityPath = join(temporary, 'admission-facility.json');
+    writeFileSync(admissionFacilityPath, JSON.stringify(facility));
+    admissionConfiguration = { relays: [], disabled: [], irc: [], mqtt: [facility] };
+  }
+  native = fixture(admissionFacilityPath);
   const ready = await native.wait('ready');
+  if (admissionCase) admissionConfiguration.contact_routes = [{ contact: ready.id, facility: admissionConfiguration.mqtt[0].logical_id, address: ready.route }];
   web = createServer((request, response) => {
     const pathname = new URL(request.url, 'http://localhost').pathname;
     const file = resolve(root, 'browser-probe', `.${pathname}`);
@@ -151,10 +167,15 @@ try {
   cdp.on('Network.webSocketCreated', ({ requestId, url }) => { const socket = { url, sentFrames: 0, receivedFrames: 0 }; sockets.set(requestId, socket); report.websockets.push(socket); });
   cdp.on('Network.webSocketHandshakeResponseReceived', ({ requestId, response }) => { const socket = sockets.get(requestId); if (socket) socket.status = response.status; });
   for (const [event, field] of [['Network.webSocketFrameSent', 'sentFrames'], ['Network.webSocketFrameReceived', 'receivedFrames']]) cdp.on(event, ({ requestId }) => { const socket = sockets.get(requestId); if (socket) socket[field]++; });
-  await bounded(page.goto(`${report.origin}/network.html?config=${encodeURIComponent(JSON.stringify({ relays: [relay], disabled: [] }))}`));
+  await bounded(page.goto(`${report.origin}/network.html?config=${encodeURIComponent(JSON.stringify(admissionCase ? admissionConfiguration : { relays: [relay], disabled: [] }))}`));
   await bounded(page.waitForFunction(() => window.ready !== undefined));
   report.browserIdentity = await bounded(page.evaluate(() => window.ready));
   assert.notEqual(report.browserIdentity, ready.id);
+  if (admissionCase) {
+    const { runWssAdmissionMaterials } = await import('./run-wss-admission-materials.mjs');
+    await runWssAdmissionMaterials({ page, context, native, ready, report, bounded, save, configuration: admissionConfiguration,
+      restartNative: async () => { await stopProcess(native.process, 'admission native restart'); native=fixture(admissionFacilityPath); return native; } });
+  } else {
   assert.equal(await preparation('request', () => page.evaluate(invitation => window.network.request_admission(invitation), ready.invitation)), 'AwaitingApproval');
   await preparation('approval', () => native.command('approve', 'approved'));
   assert.equal(await preparation('authorization-save', () => page.evaluate(invitation => window.network.request_admission(invitation), ready.invitation)), 'PendingMaterials');
@@ -537,6 +558,7 @@ try {
   assert(report.cancellation.milliseconds < 1000, 'public close must promptly cancel local RTC RX');
   assert.equal(report.cancellation.peersCreated, report.cancellation.peersClosed);
   assert.equal(report.cancellation.callbacksDetached, true);
+  }
   }
   assert(report.websockets.length > 0 && (wssMemberCase || report.websockets.every(socket => socket.url.startsWith(relay.replace(/^https:/, 'wss:')))));
   assert(report.websockets.some(socket => socket.status === 101 && socket.sentFrames > 0 && socket.receivedFrames > 0));

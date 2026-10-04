@@ -1,0 +1,754 @@
+{
+  "scope": "MIOPUNCH-68 STEP10 first real owned MQTT-WSS admission materials and distinct new RTC M; full11 remains ACTIVE",
+  "fixedBase": "10831294a0ecb73c262412c717525f04923d9090",
+  "runtimeSources": {
+    "Cargo.lock": "543a4a397bd047de1c6b0633c5163367869bee1423cf1e8db69b6faa0413f2b3",
+    "Cargo.toml": "d589b5c3dc7e5e5039a0a9eebf1bba0ecc0988963fd8b19085f1cc6a05e71b33",
+    "browser-probe/Cargo.toml": "470044552915bd030e321741ce7de7f1d4632e950094952ade2caed8915bf1c1",
+    "browser-probe/harness/owned-mixed-mqtt-proxy.mjs": "b50cf2d40ff0094bade4882e3c1f244fb24b992eb3d84866ee12a69224303bf9",
+    "browser-probe/harness/run-rtc-data-cut.mjs": "e2c51d056b5ed7f723d841b317b9aa0020c75e6b4a7bc9d9014458665d43d60d",
+    "browser-probe/harness/run-rtc-invalidation.mjs": "216b1fafdd815e7db9a8bb856fbadb2acc348bf62352bfdd1208165e69ad60a6",
+    "browser-probe/harness/run-rtc-member-replica.mjs": "8e26b889082a256f75f9fbc305dfc3fb95a2e7fd84577098c9b31bec40d29bb0",
+    "browser-probe/harness/run-rtc-member.mjs": "d0dbce4a8d359c50a4c9dc5c8e7e3d37f553419a618614af7dfe0f52dae15889",
+    "browser-probe/harness/run-rtc.mjs": "bcd2a7d7c72b2d57d5276a03a73994b4004f5e5ac8c27c3e5c28d91c4249991d",
+    "browser-probe/harness/run-wss-admission-materials.mjs": "cd9e644f245df4fbfcda79e2aece2b408327bef88791daa79463be8902512897",
+    "browser-probe/network.html": "b11be64a9f1c5c2b729c20495424ac08d9f588408bbbb7dc4efdc6593610ea6b",
+    "browser-probe/src/admission.rs": "61da7d3196e552baca3cda3524436c02f8c08c122de3e02c7846ff3ede14e1ad",
+    "browser-probe/src/lib.rs": "38dccb015da58e7500118d16d460164201262ae447174e127040bf18a145ed7d",
+    "browser-probe/src/member_connection.rs": "7d5eb186dc1ebe79b0d713337c3f8a177c2466769d7f12d556f1069ec37ea32a",
+    "browser-probe/src/mqtt.rs": "67ca10c43bd3479ca0dbad91bb7691fa535dd3dce8faf2a7ef8dc496ecbd83df",
+    "browser-probe/src/network.rs": "eb2d5d71e04f3e9e1a6718c71c90277784400c95bdf39add092cd2a4eb961e0b",
+    "browser-probe/src/replica.rs": "fd13dfb2cd4bb4684aa79ca47cf493c51f1f96facd62660971008d4b0c9372c3",
+    "browser-probe/src/rtc.rs": "251959eb8d3919ef0d26672f1916a468bc5a8fbe19bd6ac9e4be7bfb65187ae4",
+    "browser-probe/src/rtc_member.rs": "fde8288af06f542c29b448e94d56bbb699b354db15a219d0441ee686a8e4f96a",
+    "browser-probe/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+    "scripts/browser_mqtt_trust.py": "5eefa142a50d44fa8353c8bdb0d8a74d151f0c020ca9a38ab0d5d8632bf112a6",
+    "scripts/check_browser_paths.py": "2a47e7951482d1da1c16d867dff2aeb6264010180f38f495f35411a8bcf66baf",
+    "scripts/check_browser_rtc.py": "101aafe71a37e1a483dd31e3661f1c87e287516ccf6954f2bffecb762066df4f",
+    "scripts/check_browser_rtc_cut.py": "35396821f1b0c74a451e834dcad4ba9f290a0461f6d68d2f7e7613859ec34509",
+    "scripts/mosquitto-test.conf": "5bbf715cb2518197f7ad99ceff3986bf3e2b137798aae23613ce39cf5f24542c",
+    "src/admission_gate.rs": "21f5def441accb6429adb006a5f95c51987180ae868cdd8c2856883bab886748",
+    "src/admission_proof.rs": "33502e93c55c3204916b3bec6b75fa2510cd3f0fb3ab60c6666689c515f2bf4d",
+    "src/admission_request_id.rs": "e167ca0f69ddb693c35cdd80b6058cae81ad4cf84a340c5e04262965b1278f61",
+    "src/bin/browser_network_native.rs": "951df304b2076de085412bc108da1cc7e7345885fe935ff163d9cd374f451a8a",
+    "src/bin/browser_probe_native.rs": "554989910b9a358b12820136fe1b6e30392a485ebb43fc53205be75f7c95b23f",
+    "src/bin/browser_wss_member_native.rs": "9fde5ec35517bf2c490e6c8ba1896687f0740f45ae55bc0d7c93501cb8142429",
+    "src/connection_recovery.rs": "1b169a60a8cd59f8c68d758378f7acf1894d939c43b5c030b8d054f6fd6baac9",
+    "src/connection_recovery_core.rs": "a6bdc8de7cf47b49ec8e838b169337490bdeb9f6c58b8c31c2a737de32b3c68b",
+    "src/control_session.rs": "d78789557b6bafe34a7257ccf9e923ad91221a8e1d94317ad717e51fe0e7da3a",
+    "src/desktop_cli.rs": "0c03eb535ed2cb68a778899086ebed5accf52518e283b1436752b79c7b67536b",
+    "src/management_action.rs": "3cdb3a43993464a9a16707ab442d5924d55116d14d9fddaefd827799f6c58bda",
+    "src/management_auth.rs": "c2d6750d325a83d071f0061a125b102e6fd0f6a54caa2e1887f1eff26b37e34f",
+    "src/management_record.rs": "87d3a07c339612d6f731db3256cd99593daa5fe033d128b256bf5c2d65551ebc",
+    "src/management_store.rs": "6f3ab314842348ab9a294b93b05307fcb4cfbec0ed10c33ad9b60b891bbdb343",
+    "src/manual_admission.rs": "4aecd8e773013386c6269b4a3ea1525f5116e9ab7d309d4ebe7ed13598fd7d08",
+    "src/member_bootstrap.rs": "fd8411c3fb26bb78f39591f5f46a4d3bd9fde1e0f49630516b556ed9a2b1ead6",
+    "src/member_message.rs": "fd62da23c6f9312ba3636a8a190f62ecd718a443caed12a00e9dba7757871bd8",
+    "src/member_path_protocol.rs": "3403601c74ad5baffb3b67e0985eae98736e08e7b0d20ba5bcacf085bce0488e",
+    "src/message_bootstrap.rs": "78e0c15cefeefc5e0f3721c312e643bfb73a51f6da93a48a194f6eadd9b66181",
+    "src/mqtt_datagram.rs": "acaeeb199cca3ddca85894a07d9bdebdc8ce6b21752f847096d388de5f167084",
+    "src/mqtt_transport.rs": "3585ea182dbe952b97679ef4ba8fa367790bde29373ef282f4ba3a1146fe4091",
+    "src/native_network.rs": "f862be40ebcf507a0e8b687e2ee986616088961ab55ad6ad975ce0556b0161f9",
+    "src/offline_replica.rs": "04448bd57d6ed3da557754b0ad7b9204e103c6aa42279520c6e643bac92c3d07",
+    "src/precode.rs": "778e6fb23c8581d4b5e4c264765aad4358198bad61858c05a1d48975d253bf26",
+    "src/precode_policy.rs": "c7ce618403b2b02dedb9eb5d36523228a990d98ef38226a7c5ca55dee97e255d",
+    "src/replica_snapshot.rs": "a8e62db5cb9440de96559aa6b26d07f8ea2742c5431c42895f367f1cd1c5a3d1",
+    "src/resources.rs": "68c72185e06f44ea242fadc6ba35f9a0b1c9429deddcc3c76acdc858909ee81f",
+    "src/rtc_association.rs": "bc2636f40580ecb60d6d4d09a998ce82d5ad91e6d79e8d21bd97ea244ecc9dc8",
+    "src/rtc_invalidation_fixture.rs": "01c4f380d57969743efa1c9b9e792c55c6ae0ba5cfc9a587c4ae4684202786e3",
+    "src/rtc_member.rs": "d4c235128131b3abd376d3ce29a97db1617110e294c341ef3ed1810048422b30",
+    "src/rtc_probe.rs": "fa928c9deb4ddf41159226ca45b48a5f2bb4af842e6290ee36927de7ad2d3870",
+    "src/rtc_transport.rs": "6172a551d052c20e9ac5435622af18c23e759f804f6edc564b40431b9c5089a4",
+    "src/rtc_wire.rs": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+    "tests/admission_completion.rs": "ca5a15bd24fefcf20a7c90cafacd0a4d6e8b5bed000b0709b3fcbb67ccb04add",
+    "tests/manual_admission.rs": "578ed716b5c72504c883d0cccaf71b95774d21123a8dbb2fd2549c6e1f3f8c34",
+    "tests/offline_replica.rs": "81a2e7c8cfb2c471206c89056f0fc3e755254327e696ab8ca046b234430b5d46",
+    "tests/precode.rs": "834d210efa682a5a0f14e4a7a7bfb9dc76b84bfc193330dcf94385a7d5c1c40f",
+    "vendor/iroh/src/socket/mapped_addrs.rs": "c95accdd5f474a11e820b1d460696507ffd0195ccd074d439520cab9cd9c3ffa",
+    "vendor/iroh/src/socket/remote_map/remote_state/path_state.rs": "d320c4becfacc9ecc32475e0cfa1cc52c9698b2011804f7bbb95b7f860b0a3ab",
+    "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs": "838bbcd605addbe1afaf911c20b4efc5be87499a7758aba0933e58101dce32b9",
+    "vendor/iroh/src/socket/transports/custom.rs": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+    "vendor/noq-proto/src/connection/mod.rs": "93575c4027506cf6fa324c1384e9ee5e740701934020e3323465ca2ae0e69e17",
+    "vendor/noq-proto/src/connection/paths.rs": "3f86ec41fa014b1a6870d2c8556900e4fd3c15f8959b654d54356b9c52bfb8b5"
+  },
+  "executedArtifacts": {
+    "/home/js/Git/miopunch/target/debug/browser_network_native": "a91f0879ace280b40abcaedc11f89511a806b458d283fe50f0aa0e863656dd37",
+    "/home/js/Git/miopunch/target/debug/browser-probe-native": "a47615f7702708a0a0056ac38b48f6b455c8f946836142a7e9d3a6f3a668966a",
+    "/home/js/Git/miopunch/target/debug/browser_wss_member_native": "07cf6d95bc7ab8dce8751a68d2f891005b6b8712073e163f64716aa5b87c825d",
+    "/home/js/Git/miopunch/browser-probe/pkg/miopunch_browser_probe.js": "cdb04e8408159e6988b9bd07b14130d293b808e9266d9dabea72529b4023679a",
+    "/home/js/Git/miopunch/browser-probe/pkg/miopunch_browser_probe_bg.wasm": "86b90521f3926d099e48a1788d6887ff39c9031e4cf26c2eead3d9b018099d3b"
+  },
+  "finalMaterial": {
+    "directory": "/tmp/mio-rtc-s10-material-final-20261004",
+    "passed": true,
+    "protocolIncludingCleanupSeconds": 28.759,
+    "cleanup": [
+      {
+        "name": "owned-files-owner",
+        "exit": 0
+      },
+      {
+        "name": "container-remove",
+        "exit": 0
+      },
+      {
+        "name": "container-absent",
+        "exit": 0,
+        "empty": true
+      },
+      {
+        "name": "network-remove",
+        "exit": 0
+      },
+      {
+        "name": "network-absent",
+        "exit": 0,
+        "empty": true
+      }
+    ]
+  },
+  "affectedS9": {
+    "directory": "/tmp/mio-rtc-s10-s9-regression-final-20261004",
+    "passed": true,
+    "protocolIncludingCleanupSeconds": 23.017,
+    "sameArtifacts": true,
+    "scope": "actual PONG/nonempty original-record LogSync/save-abort/same-profile reopen; not a repeated unrelated matrix"
+  },
+  "currentChecks": {
+    "directory": "/tmp/mio-rtc-s10-current-validation-20261004",
+    "commands": [
+      {
+        "name": "owned-broker",
+        "argv": [
+          "docker",
+          "run",
+          "--detach",
+          "--name",
+          "mio-rtc-s10-validation-1791104504299629519",
+          "--label",
+          "miopunch.run=mio-rtc-s10-validation-1791104504299629519",
+          "--publish",
+          "127.0.0.1::1883",
+          "--mount",
+          "type=bind,src=/home/js/Git/miopunch/scripts/mosquitto-test.conf,target=/mosquitto/config/mosquitto.conf,readonly",
+          "eclipse-mosquitto:2"
+        ],
+        "exit": 0,
+        "seconds": 0.415
+      },
+      {
+        "name": "broker-port",
+        "argv": [
+          "docker",
+          "port",
+          "mio-rtc-s10-validation-1791104504299629519",
+          "1883/tcp"
+        ],
+        "exit": 0,
+        "seconds": 0.035
+      },
+      {
+        "name": "native-library",
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "--workspace",
+          "--lib",
+          "--features",
+          "rtc-probe,replica-test-hooks"
+        ],
+        "exit": 0,
+        "seconds": 80.014
+      },
+      {
+        "name": "full-admission-public",
+        "argv": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "--features",
+          "rtc-probe,replica-test-hooks",
+          "--test",
+          "manual_admission",
+          "--test",
+          "precode",
+          "--test",
+          "admission_completion",
+          "--test",
+          "admission_gate",
+          "--test",
+          "admission_proof",
+          "--",
+          "--nocapture"
+        ],
+        "exit": 0,
+        "seconds": 105.731
+      },
+      {
+        "name": "native-all-targets",
+        "argv": [
+          "cargo",
+          "check",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "--workspace",
+          "--all-targets",
+          "--features",
+          "rtc-probe,replica-test-hooks"
+        ],
+        "exit": 0,
+        "seconds": 27.533
+      },
+      {
+        "name": "wasm-rtc",
+        "argv": [
+          "cargo",
+          "check",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "-p",
+          "miopunch-browser-probe",
+          "--target",
+          "wasm32-unknown-unknown",
+          "--features",
+          "rtc-probe"
+        ],
+        "exit": 0,
+        "seconds": 2.47
+      },
+      {
+        "name": "wasm-default",
+        "argv": [
+          "cargo",
+          "check",
+          "--locked",
+          "--offline",
+          "-j",
+          "2",
+          "-p",
+          "miopunch-browser-probe",
+          "--target",
+          "wasm32-unknown-unknown"
+        ],
+        "exit": 0,
+        "seconds": 1.669
+      },
+      {
+        "name": "format",
+        "argv": [
+          "cargo",
+          "fmt",
+          "--all",
+          "--",
+          "--check"
+        ],
+        "exit": 0,
+        "seconds": 0.966
+      },
+      {
+        "name": "diff",
+        "argv": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "exit": 0,
+        "seconds": 0.066
+      },
+      {
+        "name": "syntax-run-wss-admission-materials",
+        "argv": [
+          "node",
+          "--check",
+          "browser-probe/harness/run-wss-admission-materials.mjs"
+        ],
+        "exit": 0,
+        "seconds": 0.032
+      },
+      {
+        "name": "syntax-run-rtc",
+        "argv": [
+          "node",
+          "--check",
+          "browser-probe/harness/run-rtc.mjs"
+        ],
+        "exit": 0,
+        "seconds": 0.032
+      },
+      {
+        "name": "syntax-run-rtc-member-replica",
+        "argv": [
+          "node",
+          "--check",
+          "browser-probe/harness/run-rtc-member-replica.mjs"
+        ],
+        "exit": 0,
+        "seconds": 0.032
+      },
+      {
+        "name": "python-syntax",
+        "argv": [
+          "python3",
+          "-c",
+          "import ast,pathlib; [ast.parse(pathlib.Path(p).read_text()) for p in [\"scripts/check_browser_paths.py\",\"scripts/check_browser_rtc.py\",\"scripts/check_browser_rtc_cut.py\"]]"
+        ],
+        "exit": 0,
+        "seconds": 0.064
+      }
+    ],
+    "sourceUnchanged": true,
+    "libraryPassedEntries": 123,
+    "libraryExistingIgnored": 1,
+    "admissionTargetsPassedEntries": 77,
+    "includesExistingInertCrashWorkerEntries": true,
+    "actualOwnedMqttConfigured": true,
+    "cleanup": [
+      {
+        "name": "broker-remove",
+        "exit": 0,
+        "empty": null
+      },
+      {
+        "name": "broker-absent",
+        "exit": 0,
+        "empty": true
+      }
+    ]
+  },
+  "archiveRule": "gzip mtime0, byte-exact original raw bytes; originalRawSha256==archivedRawSha256 for every archive",
+  "archives": [
+    {
+      "name": "setup-docker-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s10-normal-first-20261004/results.json",
+      "originalRawSha256": "2a76ff7980d89fe9a6c3522367280b721984755debc5a56506efad8bc3f4379e",
+      "archivedRawSha256": "2a76ff7980d89fe9a6c3522367280b721984755debc5a56506efad8bc3f4379e",
+      "gzipSha256": "ce5dae87d733d2a09d43cffc4df963d00dc260113ae1a7b55f1a55f1d9046e1f",
+      "byteExact": true,
+      "rawBytes": 15751,
+      "scope": "setup-docker"
+    },
+    {
+      "name": "setup-docker-image-identity.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-normal-first-20261004/image-identity.log",
+      "originalRawSha256": "865580de498032587fbb5f8aa143097940fa95abf2f333ac33e2b94348923ca2",
+      "archivedRawSha256": "865580de498032587fbb5f8aa143097940fa95abf2f333ac33e2b94348923ca2",
+      "gzipSha256": "58c2d444360331aad113268fdcd1fd4f3fe7f7c5f469e3d2b7a7eff9ada3fdb7",
+      "byteExact": true,
+      "rawBytes": 92,
+      "scope": "setup-docker"
+    },
+    {
+      "name": "first-normal-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s10-normal-owned-20261004/results.json",
+      "originalRawSha256": "e58f9610d316cf4b9ab24899503e60dd98d120f29fc852d1284aa0569646c6fd",
+      "archivedRawSha256": "e58f9610d316cf4b9ab24899503e60dd98d120f29fc852d1284aa0569646c6fd",
+      "gzipSha256": "912c0f8b2d841073518ac6925b3a53221c80ae235ec008bafe677927e4bb461c",
+      "byteExact": true,
+      "rawBytes": 23290,
+      "scope": "first-normal"
+    },
+    {
+      "name": "first-normal-wss-admission-materials.json.gz",
+      "originalPath": "/tmp/mio-rtc-s10-normal-owned-20261004/wss-admission-materials.json",
+      "originalRawSha256": "30d69952a58d1550070665d1cda612da87a6059c0c72028ccd22c3e6abcefc30",
+      "archivedRawSha256": "30d69952a58d1550070665d1cda612da87a6059c0c72028ccd22c3e6abcefc30",
+      "gzipSha256": "29d555ec189a295633f8eb6aa9e5e2194c76f53b6b7f8e1657083939b627a6d0",
+      "byteExact": true,
+      "rawBytes": 104164,
+      "scope": "first-normal"
+    },
+    {
+      "name": "first-normal-wss-admission-materials.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-normal-owned-20261004/wss-admission-materials.log",
+      "originalRawSha256": "72d6e3e7725395e28a970075a135f22e2049dab0eb6d81bf8c3d6f6f1c025a32",
+      "archivedRawSha256": "72d6e3e7725395e28a970075a135f22e2049dab0eb6d81bf8c3d6f6f1c025a32",
+      "gzipSha256": "24cc330ba3cd7dd4e0fd8f90c34037d72f6082e34ef59373d8253bac4c92bb28",
+      "byteExact": true,
+      "rawBytes": 46,
+      "scope": "first-normal"
+    },
+    {
+      "name": "deadline-bind-setup-test.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-deadline-red-20261004/test.log",
+      "originalRawSha256": "9a58792f43ed98020b5d0d50449b130dfd903c068bf498a6c5ec92d792f94484",
+      "archivedRawSha256": "9a58792f43ed98020b5d0d50449b130dfd903c068bf498a6c5ec92d792f94484",
+      "gzipSha256": "481243a0ccec54e4f0c80c4075f366f2132b8372bb799e04ce120791fd3e64c3",
+      "byteExact": true,
+      "rawBytes": 2575,
+      "scope": "deadline-bind-setup"
+    },
+    {
+      "name": "deadline-runtime-red-owned-test.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-deadline-red-20261004/owned-test.log",
+      "originalRawSha256": "018a406694fba12dfe2a2ec3235e3206081638677abf6829b2077803960219a2",
+      "archivedRawSha256": "018a406694fba12dfe2a2ec3235e3206081638677abf6829b2077803960219a2",
+      "gzipSha256": "1a804ffa3a276411e42ae270609e2b7fa874aa15365783ceed40e0c4fcdcd376",
+      "byteExact": true,
+      "rawBytes": 1896,
+      "scope": "deadline-runtime-red"
+    },
+    {
+      "name": "deadline-focused-green-test.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-deadline-green-20261004/test.log",
+      "originalRawSha256": "8cba6b5059c98a0917846714cdab42101026ab4952f07a4d80397f0411b3fead",
+      "archivedRawSha256": "8cba6b5059c98a0917846714cdab42101026ab4952f07a4d80397f0411b3fead",
+      "gzipSha256": "0a1a87de5e3d4814d99d96caab780f250931ac62439404f0b125817422104121",
+      "byteExact": true,
+      "rawBytes": 1861,
+      "scope": "deadline-focused-green"
+    },
+    {
+      "name": "first-boundaries-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s10-material-boundaries-first-20261004/results.json",
+      "originalRawSha256": "467fe4e226969b44220bd0b05aa22a73bf0f34596a07728d5c67e7050f53046b",
+      "archivedRawSha256": "467fe4e226969b44220bd0b05aa22a73bf0f34596a07728d5c67e7050f53046b",
+      "gzipSha256": "ff9e112595b8f59bcce0680aa105f6fac7f44475f7fe64f5be179113795dfce0",
+      "byteExact": true,
+      "rawBytes": 26295,
+      "scope": "first-boundaries"
+    },
+    {
+      "name": "first-boundaries-wss-admission-materials.json.gz",
+      "originalPath": "/tmp/mio-rtc-s10-material-boundaries-first-20261004/wss-admission-materials.json",
+      "originalRawSha256": "b4118a34aa5ccf611a4a60b12c776df4a22c55e2eab0cf14ecac1cd6d8dd7b26",
+      "archivedRawSha256": "b4118a34aa5ccf611a4a60b12c776df4a22c55e2eab0cf14ecac1cd6d8dd7b26",
+      "gzipSha256": "29e3bd7b2747faf4761f6c4f8bc377d4e73ca32e7bbe9afa6bacd327b31fc533",
+      "byteExact": true,
+      "rawBytes": 255751,
+      "scope": "first-boundaries"
+    },
+    {
+      "name": "first-boundaries-wss-admission-materials.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-material-boundaries-first-20261004/wss-admission-materials.log",
+      "originalRawSha256": "4b914f96609b0c283580147e6d72ee36b5acae0c515275460dee19594f81efd9",
+      "archivedRawSha256": "4b914f96609b0c283580147e6d72ee36b5acae0c515275460dee19594f81efd9",
+      "gzipSha256": "dba23e709b163d44784eea176f0748bbddf03f2c5d2b0f5a737f09d10e564adf",
+      "byteExact": true,
+      "rawBytes": 123,
+      "scope": "first-boundaries"
+    },
+    {
+      "name": "current-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s10-current-validation-20261004/results.json",
+      "originalRawSha256": "c19bda5a51678d03022729796a8728145b0f0c0caa4a296fb3165965cb5a22dc",
+      "archivedRawSha256": "c19bda5a51678d03022729796a8728145b0f0c0caa4a296fb3165965cb5a22dc",
+      "gzipSha256": "b0c97b1d1fb6e562c5c62e696ff69a36a90471533333e312ade49a29bb2f790f",
+      "byteExact": true,
+      "rawBytes": 18351,
+      "scope": "current"
+    },
+    {
+      "name": "current-owned-broker.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-current-validation-20261004/owned-broker.log",
+      "originalRawSha256": "60afaf17e86ce5a415aa9da760d171275642c3ad533d2a73471aeabd496d2068",
+      "archivedRawSha256": "60afaf17e86ce5a415aa9da760d171275642c3ad533d2a73471aeabd496d2068",
+      "gzipSha256": "f34593541829d3f2248a36aa0db7ae649fb8c5c66ef367fa57e5c40c53785c8c",
+      "byteExact": true,
+      "rawBytes": 65,
+      "scope": "current"
+    },
+    {
+      "name": "current-broker-port.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-current-validation-20261004/broker-port.log",
+      "originalRawSha256": "1e0f184d049a5212a627281818d6115fdb1931f5fb3f95eddb099e016b6df6c1",
+      "archivedRawSha256": "1e0f184d049a5212a627281818d6115fdb1931f5fb3f95eddb099e016b6df6c1",
+      "gzipSha256": "119823d8305b7b9668bf03f7a26cd31721fa8e32b6be543f31eca7f80b5c657d",
+      "byteExact": true,
+      "rawBytes": 16,
+      "scope": "current"
+    },
+    {
+      "name": "current-native-library.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-current-validation-20261004/native-library.log",
+      "originalRawSha256": "0c9d1e78cd77c94b63bc512c9f0ff30dfa5d9e10461437022a44484ecd1f23c5",
+      "archivedRawSha256": "0c9d1e78cd77c94b63bc512c9f0ff30dfa5d9e10461437022a44484ecd1f23c5",
+      "gzipSha256": "4c030461ea8a86417e24afe69e1cebeacee488cc5d660617338d9610fd2f3cff",
+      "byteExact": true,
+      "rawBytes": 11733,
+      "scope": "current"
+    },
+    {
+      "name": "current-full-admission-public.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-current-validation-20261004/full-admission-public.log",
+      "originalRawSha256": "64e61e31d0172078f5487dd515b1a8ab6e1061f67e4d41de1c4aaecf7043e72d",
+      "archivedRawSha256": "64e61e31d0172078f5487dd515b1a8ab6e1061f67e4d41de1c4aaecf7043e72d",
+      "gzipSha256": "f31f6853ac4dbcba3241948ac4057f5196430a5014c1c2eccb7ffc2e4cc8a637",
+      "byteExact": true,
+      "rawBytes": 12342,
+      "scope": "current"
+    },
+    {
+      "name": "current-native-all-targets.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-current-validation-20261004/native-all-targets.log",
+      "originalRawSha256": "c5c3001501c2ee4dc2b055eac7f9ce4fcbb7fb98b7a520c3358c959cc5b6ccd1",
+      "archivedRawSha256": "c5c3001501c2ee4dc2b055eac7f9ce4fcbb7fb98b7a520c3358c959cc5b6ccd1",
+      "gzipSha256": "746dfb0abaf8593d2e5153c40ce68c2a04440978ed918d0221d5148a182cb1b4",
+      "byteExact": true,
+      "rawBytes": 9266,
+      "scope": "current"
+    },
+    {
+      "name": "current-wasm-rtc.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-current-validation-20261004/wasm-rtc.log",
+      "originalRawSha256": "67ba056b96a1cbdb8e62953b5987a9860f25f5c81c904c3e26680112870e9ff7",
+      "archivedRawSha256": "67ba056b96a1cbdb8e62953b5987a9860f25f5c81c904c3e26680112870e9ff7",
+      "gzipSha256": "e3306292e947294a9fdae6a4be2918a0e66dec4b3ddb19492a71b3b7a6a3abae",
+      "byteExact": true,
+      "rawBytes": 2289,
+      "scope": "current"
+    },
+    {
+      "name": "current-wasm-default.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-current-validation-20261004/wasm-default.log",
+      "originalRawSha256": "20aad49447396133aa86d358d1920d4923f11436aceb0f81457551bfd27fbe07",
+      "archivedRawSha256": "20aad49447396133aa86d358d1920d4923f11436aceb0f81457551bfd27fbe07",
+      "gzipSha256": "e91aaf54909450918919020ff25a983be68421c7b329156be51fc79f2be92047",
+      "byteExact": true,
+      "rawBytes": 153,
+      "scope": "current"
+    },
+    {
+      "name": "current-format.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-current-validation-20261004/format.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "rawBytes": 0,
+      "scope": "current"
+    },
+    {
+      "name": "current-diff.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-current-validation-20261004/diff.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "rawBytes": 0,
+      "scope": "current"
+    },
+    {
+      "name": "current-syntax-run-wss-admission-materials.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-current-validation-20261004/syntax-run-wss-admission-materials.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "rawBytes": 0,
+      "scope": "current"
+    },
+    {
+      "name": "current-syntax-run-rtc.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-current-validation-20261004/syntax-run-rtc.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "rawBytes": 0,
+      "scope": "current"
+    },
+    {
+      "name": "current-syntax-run-rtc-member-replica.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-current-validation-20261004/syntax-run-rtc-member-replica.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "rawBytes": 0,
+      "scope": "current"
+    },
+    {
+      "name": "current-python-syntax.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-current-validation-20261004/python-syntax.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "rawBytes": 0,
+      "scope": "current"
+    },
+    {
+      "name": "final-outer-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s10-final-runtime-20261004/results.json",
+      "originalRawSha256": "94f32c5b731c566f52ece4a1c888897daa8a6698fcb50e469d225da47b650d9b",
+      "archivedRawSha256": "94f32c5b731c566f52ece4a1c888897daa8a6698fcb50e469d225da47b650d9b",
+      "gzipSha256": "9211f012ea789d1ead6c12c835bce6305a4d792cb7c0533231ff059ef2756565",
+      "byteExact": true,
+      "rawBytes": 16750,
+      "scope": "final-outer"
+    },
+    {
+      "name": "final-outer-wss-admission-materials.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-final-runtime-20261004/wss-admission-materials.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "rawBytes": 0,
+      "scope": "final-outer"
+    },
+    {
+      "name": "final-outer-rtc-member-replica.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-final-runtime-20261004/rtc-member-replica.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "rawBytes": 0,
+      "scope": "final-outer"
+    },
+    {
+      "name": "final-material-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s10-material-final-20261004/results.json",
+      "originalRawSha256": "7cb4f42e75fa43a31644915f476f3be264d449d8d7b8944f668dc01070350cbb",
+      "archivedRawSha256": "7cb4f42e75fa43a31644915f476f3be264d449d8d7b8944f668dc01070350cbb",
+      "gzipSha256": "66e37f22bd0af29d6905fd1cc7b3bc52ebdc23b35887bd5089ef087d0642fe59",
+      "byteExact": true,
+      "rawBytes": 26284,
+      "scope": "final-material"
+    },
+    {
+      "name": "final-material-wss-admission-materials.json.gz",
+      "originalPath": "/tmp/mio-rtc-s10-material-final-20261004/wss-admission-materials.json",
+      "originalRawSha256": "5a7896f3a5b3beb3a4e2e24d09f1abd321cf23148ea9d12437b8b0330a11bac7",
+      "archivedRawSha256": "5a7896f3a5b3beb3a4e2e24d09f1abd321cf23148ea9d12437b8b0330a11bac7",
+      "gzipSha256": "a43865ca9def849fd7852bf6708d2f2aafe4d929515469ff7535d5c180a20da3",
+      "byteExact": true,
+      "rawBytes": 267262,
+      "scope": "final-material"
+    },
+    {
+      "name": "final-material-wss-admission-materials.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-material-final-20261004/wss-admission-materials.log",
+      "originalRawSha256": "44084eaacacee30416439396eacfffbdde39c1f8bf9238bc2ec9f9358205b178",
+      "archivedRawSha256": "44084eaacacee30416439396eacfffbdde39c1f8bf9238bc2ec9f9358205b178",
+      "gzipSha256": "243258633f9bf079fe5186f2994b58e4a2a176201ea4001ce444a317c34b4547",
+      "byteExact": true,
+      "rawBytes": 123,
+      "scope": "final-material"
+    },
+    {
+      "name": "final-material-native-build.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-material-final-20261004/native-build.log",
+      "originalRawSha256": "095a132b1144d72b164ef369f00bc487506b6157114108627ccd5c142df5527a",
+      "archivedRawSha256": "095a132b1144d72b164ef369f00bc487506b6157114108627ccd5c142df5527a",
+      "gzipSha256": "07d43f26447dbbf4f2bdcd6327909bfe0ed6202edfe9ec8ce7da0d896a10bfa1",
+      "byteExact": true,
+      "rawBytes": 138,
+      "scope": "final-material"
+    },
+    {
+      "name": "final-material-wasm-build.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-material-final-20261004/wasm-build.log",
+      "originalRawSha256": "1ded792b79d2ec05a6f31af4e8191f0e5aed7ecf09652a44efced934e6c4fe4e",
+      "archivedRawSha256": "1ded792b79d2ec05a6f31af4e8191f0e5aed7ecf09652a44efced934e6c4fe4e",
+      "gzipSha256": "529fb4ab13d3869a5e8fc96fd1d687ae103a97e9a96eef31ec1a72bd023c7bf8",
+      "byteExact": true,
+      "rawBytes": 2289,
+      "scope": "final-material"
+    },
+    {
+      "name": "final-material-bindgen.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-material-final-20261004/bindgen.log",
+      "originalRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzipSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "byteExact": true,
+      "rawBytes": 0,
+      "scope": "final-material"
+    },
+    {
+      "name": "final-s9-results.json.gz",
+      "originalPath": "/tmp/mio-rtc-s10-s9-regression-final-20261004/results.json",
+      "originalRawSha256": "9fbd0d9bda9444f8c9e93e681c2c714060b90eb41f7bb6edd630ae02b6328b3b",
+      "archivedRawSha256": "9fbd0d9bda9444f8c9e93e681c2c714060b90eb41f7bb6edd630ae02b6328b3b",
+      "gzipSha256": "837f934d8ac8a4edc5b8aca4468f1d741d0eede8047ab9b79e108f15778040a8",
+      "byteExact": true,
+      "rawBytes": 24880,
+      "scope": "final-s9"
+    },
+    {
+      "name": "final-s9-rtc-member-replica.json.gz",
+      "originalPath": "/tmp/mio-rtc-s10-s9-regression-final-20261004/rtc-member-replica.json",
+      "originalRawSha256": "2b8f483e04a1ba8d9d34516ff0a7eccbbc2328f278790ee1f0f927663aeb4e5c",
+      "archivedRawSha256": "2b8f483e04a1ba8d9d34516ff0a7eccbbc2328f278790ee1f0f927663aeb4e5c",
+      "gzipSha256": "929a154f0f084e09043eee1345f98d61c72071653040293a9e2102f149e8f09b",
+      "byteExact": true,
+      "rawBytes": 252429,
+      "scope": "final-s9"
+    },
+    {
+      "name": "final-s9-rtc-member-replica.log.gz",
+      "originalPath": "/tmp/mio-rtc-s10-s9-regression-final-20261004/rtc-member-replica.log",
+      "originalRawSha256": "b20b449e61981cc7635f5306e8bc187f7eecf9d28f6d21aefd0f624ba62cabd4",
+      "archivedRawSha256": "b20b449e61981cc7635f5306e8bc187f7eecf9d28f6d21aefd0f624ba62cabd4",
+      "gzipSha256": "f8fea4471cd82bb8bfdd4a228007f6ce0d8ed6691a8f3f943af849b4b73e9700",
+      "byteExact": true,
+      "rawBytes": 113,
+      "scope": "final-s9"
+    }
+  ],
+  "reviews": {
+    "fixedBase": "10831294a0ecb73c262412c717525f04923d9090",
+    "reviewedTree": "ffab15f43de8f1bd83f1018e86963555d11fc631",
+    "reviewedBinaryDiffSha256": "fc54ee4aa0dd82a3bc3804d299ebc0ec9a91152c9dc6fa0236a11f2bcae62c26",
+    "status": "both initial full reviews complete: 0 required findings",
+    "standardsRequired": 0,
+    "specFindings": 0,
+    "standardsOptional": [
+      {
+        "severity": "P3",
+        "heuristic": "possible Duplicated Code in selective-approval driver",
+        "disposition": "deferred small driver maintenance; keep distinct first-A/commit versus interrupted-applicant observations, no correctness defect or framework refactor needed"
+      }
+    ],
+    "reports": [
+      {
+        "axis": "standards",
+        "path": "standards-review.md",
+        "originalPath": "/tmp/miopunch-s10-standards-review.md",
+        "sha256": "e141cdfae95a991d55fb25afbd4f8b1d42a8d22e56f068ccde285aa564c0bc5e",
+        "byteExact": true
+      },
+      {
+        "axis": "spec",
+        "path": "spec-review.md",
+        "originalPath": "/tmp/miopunch-s10-spec-review.md",
+        "sha256": "a680b740b9aecfd408efc2a44edb9dea390c0669db5891392f3e4e67c9d6da37",
+        "byteExact": true
+      }
+    ],
+    "publicationAudits": {
+      "scope": "same reviewers audit final staged metadata only; external attestations do not mutate their reviewed tree",
+      "standardsPath": "/tmp/miopunch-s10-standards-final-audit.md",
+      "specPath": "/tmp/miopunch-s10-spec-final-audit.md"
+    }
+  },
+  "limits": [
+    "single owned namespace / Chromium to native; not WAN/NAT/cost qualification",
+    "A and subsequently new M are separate connections/purposes",
+    "sender SAVE receipt differs from independently verified recipient durable completion",
+    "current tiny causal history only; no globally newest claim",
+    "failed-PC data counters count successful channel submissions/delivered events; dropped shim packets are separate",
+    "no full rotation / unknown-history / migration / UI / IWA / defaults / required TURN adoption"
+  ],
+  "history": {
+    "setupDocker": "sandbox denied Docker API before any protocol; not product RED",
+    "setupBind": "sandbox denied native socket bind before TLS; not product RED",
+    "deadlineRed": "real restricted TLS/stage alive; original incoming deadline spent to120ms then provider renewed12s and failed350ms bound",
+    "focusedGreen": "same native regression passed; current full manual target also runs that same test on final68 source",
+    "firstNormal": "then-current60-source/old mode label preserved; no replacement of final68 material evidence",
+    "firstBoundaries": "then-current68 source passed18.972s; final driver adds consumed-clock/expired Delivery/actual browser PC evidence"
+  }
+}
