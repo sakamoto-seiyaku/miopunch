@@ -1,0 +1,16 @@
+{
+  "scope": "final2 frozen helper source; only two Standards-confirmed P2 corrections from final review; no new member/NAT qualification",
+  "sources": {
+    "scripts/wan_environment_preflight.py": "bbefa9512d29a35aa483178ecaa67d40dbe5213caa1e270f679d1aa2b75c2509",
+    "scripts/android_pair_runtime.py": "eb051f733893ae24a08620ca1cfebdccc17e5062fe8cc89b33cd5fe591b57998",
+    "scripts/build_android_pair.py": "06fc024b5afd8392790e6579495d5c65b2347f1c44657fe6a184cef412f33d8e",
+    "scripts/test_android_pair_tools.py": "69792faab3f3e73890e460e7ab19811232861cd9c0a0719a311e4ff304909b6b",
+    "browser-probe/harness/android-pair-page.js": "fea281329fe13f0de7f8f6612f426cfd7b2aff5bc25f2a1890aa3e3ad1d09830",
+    "browser-probe/harness/test-android-pair-page.mjs": "d90cbc7b352770b514c11797ac268156c1c6d8b954b1d7223b78d684eb9bf23f"
+  },
+  "validation": "helper-final2-review-local-validation.json",
+  "snapshot": "tooling-final2-review",
+  "previousManifest": "helper-final-review-manifest.json",
+  "qualifiesNewWireMemberPublicStory": false,
+  "qualifiesPhysicalSelectedSdkDataRoute": false
+}
