@@ -1,0 +1,47 @@
+{
+  "scope": "MIO73 Standards P2 saved-policy contact override facility mapping; real SDK bind entrance/owned loopback only",
+  "createdUtc": "2026-10-05T05:41:29.363337+00:00",
+  "sourceHashesAtReceipt": {
+    "src/native_network.rs": "dde03aa48fd01a814aba1b472787811971f8340cfdac4d5deb53b04c692bbc70",
+    "src/mqtt_transport.rs": "e49026ef6ea461d2de71f781174b95a421369fb5ffbd680234da1e31e89c5790",
+    "tests/unified_connection.rs": "96ed1c60139d32c50ee494f105f3029ed936fc160f38d09414ca7a4af0c84a8c"
+  },
+  "originalReviewSourceHashes": {
+    "src/native_network.rs": "ae1de167875bbb17ba0caea4fbc86c44c4faae076199a830b57a0e79a33b0f77",
+    "src/mqtt_transport.rs": "a52351c105648b94ca487392bbd52459540567e8aa4efbd73b1160c565754ad6",
+    "tests/unified_connection.rs": "c4dc4be38818b24fe11fa9af038203641fd5175d9bfede4075c9c224b83c5377"
+  },
+  "runs": [
+    {
+      "log": "contact-override-red.log",
+      "exit": 101,
+      "testSeconds": 1.24,
+      "status": "actual policy bug: WSS/ID-disabledA and unsaved descriptor/rawmapped override accepted, actualdriver+broker sockets opened;B healthy; all resources retired before final assertion"
+    },
+    {
+      "log": "contact-override-green.log",
+      "exit": 0,
+      "passed": 1,
+      "testSeconds": 0.93,
+      "status": "all four original deny variants fail closed/no driver/no accepted broker socket;B and explicitunmappedlegacy raw allowed; disabledraw refused"
+    },
+    {
+      "log": "ten-sdk-after-contact-policy.log",
+      "exit": 0,
+      "passed": 10,
+      "failed": 0,
+      "testSeconds": 7.29,
+      "status": "original9SDKchecks plus sameURLpolicy regression and sameallowedBlogicalID/changedWSS descriptor rejection"
+    }
+  ],
+  "sandboxFirstFailure": {
+    "log": "/tmp/mio73-contact-override-sandbox-denied.log",
+    "sha256": "09b21754d46ca9d1045cafb3e264142485838d0a7f836c97bc63e8278eeaa9e3",
+    "exit": 101,
+    "status": "owned broker bind EPERM before policy path; not the actual bug reproduction"
+  },
+  "behavior": "Facility override requires complete canonical saved allowed descriptor equality. Raw contact override uses existing explicit URL permission only when native URL is unmapped; cannot borrow another facility consent. Constructor retains canonical descriptor separately from unchanged wire service tag.",
+  "qualificationLimits": "No public/device/STUN repeat. Existing immutable public runtime receipts and build/source snapshots stay historical and unchanged. The uniquely allowed actual public facility has the same authorization outcome under this narrowed check; newly changednative sources have current local SDK qualification, not a new Android runtime/build qualification.",
+  "ownership": "73 edits native_network/tests;78 soleMQTTowner edits getter/descriptor; all other source untouched.",
+  "noKnownLiveHandles": true
+}

@@ -1,0 +1,46 @@
+{
+  "scope": "MIO73 Browser\u2192Native SDK public MQTT and controlled native abort qualification only; no matrix or physical WAN route qualification",
+  "files": {
+    "first-startup-failure.json": "4dad1e9e640056388335c972ac15ab0e2bc3592a2a53f076355f5eda9aeadbfc",
+    "native-startup-diagnosis.json": "da9b6a05e14d08ec7e03ec3b4693ae519d91873fcf91d821f0422c37dfa72a68",
+    "native-startup-after-trust-fix.json": "91ca03f8bc265f7c91a0b7360f5c8b2c09670bddab81b4a2a02111ced3012216",
+    "second-network-timeout.json": "d1499026ba54717a2c603e1d424200dc756408f033c2e4f8734dbe5b00f9c6a4",
+    "full-member-success.json": "603dc22b6ee53851d62c19afe5abef0608cec78f576023a2672943b982bd1ede",
+    "peer-close-red.log": "ffae8deb1dc0da11c573ebda255c1cf39fd5e9efb0d734daeb843de5bb191873",
+    "peer-close-green.log": "a8a81bb400a63025878c7fff6fca743e3954dd2b157a9dcdca61e3fc08661dff",
+    "stale-attempt.log": "738028e91e1e084528352dcbcb9fefde0d328085a3fab3a7acacb5b4dfaa7d38",
+    "cancel-late-answer-green.log": "a985f14771e43206dd7ff4aa85251eeca16c046de8336c2e3b7c1ec92cc70ad4",
+    "nine-sdk-current.log": "47de79c38207689153c8c7148d486d3fc4b94efe2111cb54d35d620ee8297a47",
+    "native-frozen-build.json": "c116d0d75e18172588c55c20c98654cc11a15f7e3cd89266288c393018ae6503",
+    "native-sources-before.json": "f9a1c98a292e9b198cf8178b497e2aa99bca6483d36e01fb92a74f69957b5378",
+    "native-sources-after.json": "f9a1c98a292e9b198cf8178b497e2aa99bca6483d36e01fb92a74f69957b5378",
+    "wasm-frozen-build.json": "fbc04a30cf07fa72ef44bdfc2a45d19849d8b45a8d9166ada1b84a0a640f6385",
+    "wasm-sources-before.json": "0d2adb5c596e705faf636f15e46578336a7fa4b5ba16e3f6849692468baa8e75",
+    "wasm-sources-after.json": "0d2adb5c596e705faf636f15e46578336a7fa4b5ba16e3f6849692468baa8e75",
+    "contact-override-red.log": "e335df17b1e9af5bc620efb0a348d5e723266347e50f61d16a01c28199f701af",
+    "contact-override-green.log": "3f62220b5a23dcad9c3faa83af92abaf96220b63bafdf1f8111b6134ab3febd8",
+    "ten-sdk-after-contact-policy.log": "920a609213838dea9156e36c22e6594bbce4f08f5776bc784de33e1e139c794b",
+    "contact-policy-fix.json": "f507955c045dd515f8ce607c2a5fd20e96a2df92c8518af330a12258ee2a4b5c"
+  },
+  "currentOwnedSourceHashes": {
+    "src/connection_coordinator.rs": "d235a8ea770e41885b43cc7be0d17a71d9d487a5247cbad2d43deea50609da93",
+    "src/connection_coordinator_native.rs": "2d4b9686b7f061d976c42bc19feea5510d8a405f0a341c287990cae19dc8fa90",
+    "src/native_network.rs": "dde03aa48fd01a814aba1b472787811971f8340cfdac4d5deb53b04c692bbc70",
+    "src/resources.rs": "f7644eb3318af539cedcb223a94ae61ea7db3943a0deaba537f3b5ec1dcb01f8",
+    "src/message_bootstrap.rs": "01224eb1c1036af65070755372ec0260d48b1b6be4e969233d6677119d525146",
+    "src/rtc_member.rs": "f7a830dd56b4213b74ca070628776d8402670be7943f23db0e7882210b4e4fa6",
+    "browser-probe/src/network.rs": "a3cfc13dfcaac3590ae8b6030349ac91716d5de06c391fe751ba76ad0403b1d8",
+    "browser-probe/src/rtc_member.rs": "996a0110f3f00ba42035a433b6c99646b9f95c8ad240267e4049b04efe2ea075",
+    "browser-probe/src/member_connection.rs": "9be4e5ecce17d04e3bd5fd5388894aec652eb27dafbcec76beaa98ca5d22a608",
+    "src/bin/browser_wss_member_native.rs": "b7fea757b2b790c92c25ecba2ab0c7b8409ee56ce7ae55a17efdfc9b20fbe43c",
+    "tests/unified_connection.rs": "96ed1c60139d32c50ee494f105f3029ed936fc160f38d09414ca7a4af0c84a8c",
+    "scripts/check_unified_browser_native.py": "f0ffb6bb33f6d918c7819fabe9b484657b9c227cfbaf3162533626c96d52e3d0"
+  },
+  "previousReviewSourceHashes": {
+    "src/native_network.rs": "ae1de167875bbb17ba0caea4fbc86c44c4faae076199a830b57a0e79a33b0f77",
+    "tests/unified_connection.rs": "c4dc4be38818b24fe11fa9af038203641fd5175d9bfede4075c9c224b83c5377"
+  },
+  "currentDependencySourceHashes": {
+    "src/mqtt_transport.rs": "e49026ef6ea461d2de71f781174b95a421369fb5ffbd680234da1e31e89c5790"
+  }
+}

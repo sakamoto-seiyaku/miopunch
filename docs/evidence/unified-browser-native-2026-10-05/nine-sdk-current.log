@@ -1,0 +1,61 @@
+warning: field `role` is never read
+   --> src/connection_coordinator.rs:100:9
+    |
+ 98 | pub(crate) struct ProtectedAttempt {
+    |                   ---------------- field in this struct
+ 99 |     id: [u8; 16],
+100 |     pub role: AttemptRole,
+    |         ^^^^
+    |
+    = note: `ProtectedAttempt` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `miopunch-native-probe` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.39s
+     Running tests/unified_connection.rs (target/debug/deps/unified_connection-e4d05e85b52d46cc)
+
+running 9 tests
+{"controlPath":"tcp-restricted","controlStillLive":true,"event":"unified-retired-before-ready","nativeProbeCompleted":true,"retiredPathIds":["0"],"sameOriginalM":true}
+TCP_CLOSE result=cancelled
+TCP_TRAFFIC sent_packets=17 sent_bytes=8529 received_packets=17 received_bytes=7319 closed=0 failed=0 cancelled=1 outbound_outstanding=0 outbound_peak=2 inbound_outstanding=0 inbound_peak=3 queue_depth=32 max_frame=2048 max_circuits=64
+TCP_TRAFFIC sent_packets=18 sent_bytes=7398 received_packets=17 received_bytes=8529 closed=1 failed=0 cancelled=0 outbound_outstanding=0 outbound_peak=1 inbound_outstanding=0 inbound_peak=2 queue_depth=32 max_frame=2048 max_circuits=64
+{"callerMs":623,"cleanupMs":365,"controlQueuesOutstanding":[[0,0],[0,0]],"event":"unified-retirement-refused","ordinaryHandleReturned":false,"socketReleasedImmediately":[true,true],"socketReleasedLate":[true,true],"tcpListenerReleasedImmediately":[true,true],"tcpListenerReleasedLate":[true,true]}
+test a_retired_native_probe_cannot_release_an_ordinary_handle_through_live_private_control ... ok
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":15,"role":"responder","route":"ip:127.0.0.1:43648","rtcRole":"None","selected":true,"selectedRoute":"ip:127.0.0.1:43648","version":1}
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":17,"role":"initiator","route":"ip:127.0.0.1:47062","rtcRole":"None","selected":true,"selectedRoute":"ip:127.0.0.1:47062","version":1}
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":14,"role":"responder","route":"ip:127.0.0.1:46305","rtcRole":"None","selected":true,"selectedRoute":"ip:127.0.0.1:46305","version":1}
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":18,"role":"initiator","route":"ip:127.0.0.1:43372","rtcRole":"None","selected":true,"selectedRoute":"ip:127.0.0.1:43372","version":1}
+{"callerMs":529,"dataPathUnavailable":true,"event":"unified-browser-capabilities-negative","failure":"no currently permitted data path","ordinaryHandleReturned":false,"scope":"real protected member wire; no browser or RTC runtime qualification"}
+test valid_browser_capabilities_without_mutual_data_are_unavailable_not_invalid_control ... ok
+{"dataPathUnavailable":true,"event":"unified-peer-close-negative","failure":"no currently permitted data path","initialMemberGate":true,"ordinaryHandleReturned":false,"peerClosedPendingM":true}
+test proved_pending_peer_close_is_data_unavailable_not_identity_rejection ... ok
+{"activeRtcAssociations":0,"activeRtcPumps":0,"callerMs":554,"event":"unified-stale-rtc-attempt","invalidControl":true,"ordinaryHandleReturned":false,"scope":"real protected member M and native RTC preparation; no browser connectivity claim"}
+test stale_rtc_candidate_attempt_on_protected_member_m_is_rejected_before_allocation ... ok
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":16,"role":"responder","route":"ip:127.0.0.1:46395","rtcRole":"None","selected":true,"selectedRoute":"ip:127.0.0.1:46395","version":1}
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":17,"role":"initiator","route":"ip:127.0.0.1:44520","rtcRole":"None","selected":true,"selectedRoute":"ip:127.0.0.1:44520","version":1}
+{"callerMs":586,"event":"unified-native-success","identityMatched":[true,true],"path":"native-udp","paths":[{"route":"ip:127.0.0.1:44520","selected":true}],"roles":["initiator","responder"]}
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":17,"role":"initiator","route":"ip:127.0.0.1:45621","rtcRole":"None","selected":true,"selectedRoute":"ip:127.0.0.1:45621","version":1}
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":18,"role":"responder","route":"ip:127.0.0.1:46936","rtcRole":"None","selected":true,"selectedRoute":"ip:127.0.0.1:46936","version":1}
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":15,"role":"responder","route":"ip:127.0.0.1:46904","rtcRole":"None","selected":true,"selectedRoute":"ip:127.0.0.1:46904","version":1}
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":16,"role":"initiator","route":"ip:127.0.0.1:43356","rtcRole":"None","selected":true,"selectedRoute":"ip:127.0.0.1:43356","version":1}
+{"callerMs":508,"cleanupMs":63,"disabledUdpRejected":true,"event":"unified-data-denied","healthyStreamMatched":true,"ordinaryHandleReturned":false,"signalingPromoted":false,"socketReleasedImmediately":[true,true],"socketReleasedLate":[true,true]}
+test no_permitted_data_or_signaling_only_hints_never_return_an_ordinary_sdk_handle ... ok
+{"callerMs":419,"cancel":true,"cleanupMs":12,"deadlineMs":2000,"error":"connection attempt cancelled","event":"unified-cancel-deadline","healthyStreamMatched":true,"ordinaryHandleReturned":false,"originalClosed":true,"socketReleasedImmediately":[true,true],"socketReleasedLate":[true,true]}
+{"callerMs":394,"cleanupMs":18,"error":"unified connection protocol unsupported","event":"unified-invalid-control","fault":0,"ordinaryHandleReturned":false,"socketReleasedImmediately":[true],"socketReleasedLate":[true]}
+{"cleanup":{"activeAssociations":0,"activePumpTasks":0,"dataChannel":{"actualReceivedBytes":0,"actualReceivedPackets":0,"actualSentBytes":0,"actualSentPackets":0,"bufferPeak":0,"droppedQuicBytes":0,"droppedQuicPackets":0},"ownedPumpTasks":0,"pcClosed":true,"rxBytes":0,"socketAfter":43,"socketBefore":38,"txBytes":0},"event":"rtc-path-cleanup","failure":"RTC original M closed","stableId":125928720729232,"switched":false}
+{"activeRtcAssociations":0,"activeRtcPumps":0,"afterAnswerMs":3,"answerBoundToCurrentAttempt":true,"cancel":true,"event":"unified-rtc-abort-after-answer","healthyOriginalStreamMatched":true,"lateAnswerRejected":true,"ordinaryHandlesReturned":false,"scope":"real native SDK RTC candidate with controlled wire peer; no browser callback claim"}
+{"cleanupMs":1045,"event":"unified-cleanup","graceful":true,"lateObservationMs":1158,"socketReleasedImmediately":[true,true],"socketReleasedLate":[true,true]}
+test reopened_members_use_common_sdk_without_selecting_platform_or_carrier ... ok
+{"callerMs":415,"cleanupMs":1,"error":"invalid protected connection control","event":"unified-invalid-control","fault":1,"ordinaryHandleReturned":false,"socketReleasedImmediately":[true],"socketReleasedLate":[true]}
+{"callerMs":381,"cleanupMs":1,"error":"invalid protected connection control","event":"unified-invalid-control","fault":2,"ordinaryHandleReturned":false,"socketReleasedImmediately":[true],"socketReleasedLate":[true]}
+{"cleanup":{"activeAssociations":0,"activePumpTasks":0,"dataChannel":{"actualReceivedBytes":0,"actualReceivedPackets":0,"actualSentBytes":0,"actualSentPackets":0,"bufferPeak":0,"droppedQuicBytes":0,"droppedQuicPackets":0},"ownedPumpTasks":0,"pcClosed":true,"rxBytes":0,"socketAfter":37,"socketBefore":40,"txBytes":0},"event":"rtc-path-cleanup","failure":"deadline has elapsed","stableId":125928720799552,"switched":false}
+UNIFIED_CANDIDATE_FAILED plan=Rtc error=unified/DataPathUnavailable
+{"activeRtcAssociations":0,"activeRtcPumps":0,"afterAnswerMs":902,"answerBoundToCurrentAttempt":true,"cancel":false,"event":"unified-rtc-abort-after-answer","healthyOriginalStreamMatched":true,"lateAnswerRejected":true,"ordinaryHandlesReturned":false,"scope":"real native SDK RTC candidate with controlled wire peer; no browser callback claim"}
+test cancel_or_timeout_after_real_rtc_answer_retires_candidate_and_late_answer_cannot_revive_it ... ok
+{"callerMs":367,"cleanupMs":2,"error":"invalid protected connection control","event":"unified-invalid-control","fault":3,"ordinaryHandleReturned":false,"socketReleasedImmediately":[true],"socketReleasedLate":[true]}
+test strict_protocol_refuses_bad_versions_capabilities_roles_and_lengths_without_harming_healthy_m ... ok
+{"callerMs":1778,"cancel":false,"cleanupMs":12,"deadlineMs":2000,"error":"connection deadline exceeded","event":"unified-cancel-deadline","healthyStreamMatched":true,"ordinaryHandleReturned":false,"originalClosed":true,"socketReleasedImmediately":[true,true],"socketReleasedLate":[true,true]}
+test cancel_and_deadline_close_only_the_pending_original_m_and_preserve_healthy_member_streams ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.66s
+

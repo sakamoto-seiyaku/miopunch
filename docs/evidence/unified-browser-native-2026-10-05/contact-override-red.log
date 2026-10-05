@@ -1,0 +1,56 @@
+warning: field `role` is never read
+   --> src/connection_coordinator.rs:100:9
+    |
+ 98 | pub(crate) struct ProtectedAttempt {
+    |                   ---------------- field in this struct
+ 99 |     id: [u8; 16],
+100 |     pub role: AttemptRole,
+    |         ^^^^
+    |
+    = note: `ProtectedAttempt` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `facility` is never read
+   --> src/mqtt_transport.rs:147:5
+    |
+144 | pub struct MqttTransport {
+    |            ------------- field in this struct
+...
+147 |     facility: Option<MqttFacility>,
+    |     ^^^^^^^^
+    |
+    = note: `MqttTransport` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: method `facility` is never used
+   --> src/mqtt_transport.rs:163:19
+    |
+160 | impl MqttTransport {
+    | ------------------ method in this implementation
+...
+163 |     pub(crate) fn facility(&self) -> Option<&MqttFacility> {
+    |                   ^^^^^^^^
+
+warning: `miopunch-native-probe` (lib) generated 3 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.56s
+     Running tests/unified_connection.rs (target/debug/deps/unified_connection-e4d05e85b52d46cc)
+
+running 1 test
+{"brokerImmediateEmpty":false,"brokerLateEmpty":true,"case":"wss-disabled","denied":false,"event":"contact-override-permission","noBrokerSocket":false,"noDriverStarted":false,"udpReleased":true}
+{"brokerImmediateEmpty":false,"brokerLateEmpty":true,"case":"logical-id-disabled","denied":false,"event":"contact-override-permission","noBrokerSocket":false,"noDriverStarted":false,"udpReleased":true}
+{"brokerImmediateEmpty":true,"brokerLateEmpty":true,"case":"unsaved-descriptor","denied":false,"event":"contact-override-permission","noBrokerSocket":false,"noDriverStarted":false,"udpReleased":true}
+{"brokerImmediateEmpty":true,"brokerLateEmpty":true,"case":"raw-cannot-borrow-mapped-permission","denied":false,"event":"contact-override-permission","noBrokerSocket":false,"noDriverStarted":false,"udpReleased":true}
+{"allowedBReady":true,"allowedBRetiredLate":true,"disabledRawDenied":true,"event":"contact-override-neighbor-policy","udpReleasedAfterB":true,"unmappedRawReady":true,"unmappedRawRetiredLate":true}
+
+thread 'contact_override_cannot_borrow_another_facility_permission_at_same_native_url' (296183) panicked at tests/unified_connection.rs:1437:5:
+saved policy bypass: [("wss-disabled", false), ("logical-id-disabled", false), ("unsaved-descriptor", false), ("raw-cannot-borrow-mapped-permission", false)]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test contact_override_cannot_borrow_another_facility_permission_at_same_native_url ... FAILED
+
+failures:
+
+failures:
+    contact_override_cannot_borrow_another_facility_permission_at_same_native_url
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 1.24s
+
+error: test failed, to rerun pass `--test unified_connection`

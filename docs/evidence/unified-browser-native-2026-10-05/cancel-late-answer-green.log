@@ -1,0 +1,29 @@
+warning: field `role` is never read
+   --> src/connection_coordinator.rs:100:9
+    |
+ 98 | pub(crate) struct ProtectedAttempt {
+    |                   ---------------- field in this struct
+ 99 |     id: [u8; 16],
+100 |     pub role: AttemptRole,
+    |         ^^^^
+    |
+    = note: `ProtectedAttempt` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `miopunch-native-probe` (lib) generated 1 warning
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.23s
+     Running tests/unified_connection.rs (target/debug/deps/unified_connection-e4d05e85b52d46cc)
+
+running 1 test
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":16,"role":"responder","route":"ip:127.0.0.1:43891","rtcRole":"None","selected":true,"selectedRoute":"ip:127.0.0.1:43891","version":1}
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":17,"role":"initiator","route":"ip:127.0.0.1:44723","rtcRole":"None","selected":true,"selectedRoute":"ip:127.0.0.1:44723","version":1}
+{"cleanup":{"activeAssociations":0,"activePumpTasks":0,"dataChannel":{"actualReceivedBytes":0,"actualReceivedPackets":0,"actualSentBytes":0,"actualSentPackets":0,"bufferPeak":0,"droppedQuicBytes":0,"droppedQuicPackets":0},"ownedPumpTasks":0,"pcClosed":true,"rxBytes":0,"socketAfter":17,"socketBefore":17,"txBytes":0},"event":"rtc-path-cleanup","failure":"RTC original M closed","stableId":126805766651344,"switched":false}
+{"activeRtcAssociations":0,"activeRtcPumps":0,"afterAnswerMs":2,"answerBoundToCurrentAttempt":true,"cancel":true,"event":"unified-rtc-abort-after-answer","healthyOriginalStreamMatched":true,"lateAnswerRejected":true,"ordinaryHandlesReturned":false,"scope":"real native SDK RTC candidate with controlled wire peer; no browser callback claim"}
+{"cleanup":{"activeAssociations":0,"activePumpTasks":0,"dataChannel":{"actualReceivedBytes":0,"actualReceivedPackets":0,"actualSentBytes":0,"actualSentPackets":0,"bufferPeak":0,"droppedQuicBytes":0,"droppedQuicPackets":0},"ownedPumpTasks":0,"pcClosed":true,"rxBytes":0,"socketAfter":17,"socketBefore":17,"txBytes":0},"event":"rtc-path-cleanup","failure":"deadline has elapsed","stableId":126805766648416,"switched":false}
+UNIFIED_CANDIDATE_FAILED plan=Rtc error=unified/DataPathUnavailable
+{"activeRtcAssociations":0,"activeRtcPumps":0,"afterAnswerMs":936,"answerBoundToCurrentAttempt":true,"cancel":false,"event":"unified-rtc-abort-after-answer","healthyOriginalStreamMatched":true,"lateAnswerRejected":true,"ordinaryHandlesReturned":false,"scope":"real native SDK RTC candidate with controlled wire peer; no browser callback claim"}
+test cancel_or_timeout_after_real_rtc_answer_retires_candidate_and_late_answer_cannot_revive_it ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 3.22s
+

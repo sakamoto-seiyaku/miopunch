@@ -1,0 +1,27 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: field `role` is never read
+   --> src/connection_coordinator.rs:100:9
+    |
+ 98 | pub(crate) struct ProtectedAttempt {
+    |                   ---------------- field in this struct
+ 99 |     id: [u8; 16],
+100 |     pub role: AttemptRole,
+    |         ^^^^
+    |
+    = note: `ProtectedAttempt` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `miopunch-native-probe` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.87s
+     Running tests/unified_connection.rs (target/debug/deps/unified_connection-e4d05e85b52d46cc)
+
+running 1 test
+{"brokerImmediateEmpty":true,"brokerLateEmpty":true,"case":"wss-disabled","denied":true,"event":"contact-override-permission","noBrokerSocket":true,"noDriverStarted":true,"udpReleased":true}
+{"brokerImmediateEmpty":true,"brokerLateEmpty":true,"case":"logical-id-disabled","denied":true,"event":"contact-override-permission","noBrokerSocket":true,"noDriverStarted":true,"udpReleased":true}
+{"brokerImmediateEmpty":true,"brokerLateEmpty":true,"case":"unsaved-descriptor","denied":true,"event":"contact-override-permission","noBrokerSocket":true,"noDriverStarted":true,"udpReleased":true}
+{"brokerImmediateEmpty":true,"brokerLateEmpty":true,"case":"raw-cannot-borrow-mapped-permission","denied":true,"event":"contact-override-permission","noBrokerSocket":true,"noDriverStarted":true,"udpReleased":true}
+{"allowedBReady":true,"allowedBRetiredLate":true,"disabledRawDenied":true,"event":"contact-override-neighbor-policy","udpReleasedAfterB":true,"unmappedRawReady":true,"unmappedRawRetiredLate":true}
+test contact_override_cannot_borrow_another_facility_permission_at_same_native_url ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.93s
+

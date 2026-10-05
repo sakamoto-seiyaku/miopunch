@@ -1,0 +1,23 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: field `role` is never read
+   --> src/connection_coordinator.rs:100:9
+    |
+ 98 | pub(crate) struct ProtectedAttempt {
+    |                   ---------------- field in this struct
+ 99 |     id: [u8; 16],
+100 |     pub role: AttemptRole,
+    |         ^^^^
+    |
+    = note: `ProtectedAttempt` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `miopunch-native-probe` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 25.73s
+     Running tests/unified_connection.rs (target/debug/deps/unified_connection-e4d05e85b52d46cc)
+
+running 1 test
+{"activeRtcAssociations":0,"activeRtcPumps":0,"callerMs":356,"event":"unified-stale-rtc-attempt","invalidControl":true,"ordinaryHandleReturned":false,"scope":"real protected member M and native RTC preparation; no browser connectivity claim"}
+test stale_rtc_candidate_attempt_on_protected_member_m_is_rejected_before_allocation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 1.01s
+

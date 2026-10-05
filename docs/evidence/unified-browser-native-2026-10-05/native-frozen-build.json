@@ -1,0 +1,82 @@
+{
+  "scope": "formal SDK Android build only; no device/NAT/SDK story pass",
+  "head": "34e366a9346da3d84049c47e28dde65c2b5c5835",
+  "command": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "build",
+    "--locked",
+    "--target",
+    "aarch64-linux-android",
+    "--target-dir",
+    "/tmp/miopunch-android-pair-target-20261005",
+    "--offline",
+    "--features",
+    "rtc-probe",
+    "--bin",
+    "browser_wss_member_native",
+    "--bin",
+    "unified_native_member"
+  ],
+  "targetDirectory": "/tmp/miopunch-android-pair-target-20261005",
+  "rust": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: x86_64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8",
+  "compiler": "Debian clang version 14.0.6\nTarget: aarch64-unknown-linux-android24\nThread model: posix\nInstalledDir: /usr/bin",
+  "ndk": "Pkg.Desc = Android NDK\nPkg.Revision = 29.0.14206865\nPkg.BaseRevision = 29.0.14206865\nPkg.ReleaseName = r29\n",
+  "sourceDigestBefore": "9b62d5ea6617478a900638c0d128457dbb2eeb1fdc8e89c2cb9e77faa6cf0460",
+  "builderSha256": "06fc024b5afd8392790e6579495d5c65b2347f1c44657fe6a184cef412f33d8e",
+  "exit": 0,
+  "cargoExit": 0,
+  "callerElapsedMs": 115806.971,
+  "artifacts": {
+    "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/browser_wss_member_native": "c49bc263719e0594731780d7e30ad274cce396865d6bd5e8cbde9becb6db666b",
+    "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/unified_native_member": "937e533b4791643836b27f8a1749b64f9dce83d6dbcdd46df6fc225d13d25a14"
+  },
+  "deployment": {
+    "browser_wss_member_native": {
+      "compiledPath": "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/browser_wss_member_native",
+      "compiledSha256": "c49bc263719e0594731780d7e30ad274cce396865d6bd5e8cbde9becb6db666b",
+      "deployedPath": "/tmp/mio73-android-mqtt-trust-build-20261005/deploy/browser_wss_member_native",
+      "compiledBytes": 184520704,
+      "transformation": {
+        "operation": "strip debug sections on owned copy only",
+        "command": [
+          "rtk",
+          "proxy",
+          "/usr/bin/llvm-strip",
+          "--strip-debug",
+          "/tmp/mio73-android-mqtt-trust-build-20261005/deploy/browser_wss_member_native"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "deployedSha256": "0aab5bc1e05860e26899d09a4bc41aa989ca6349e477fdd93654cb4e75664444",
+      "deployedBytes": 100958288
+    },
+    "unified_native_member": {
+      "compiledPath": "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/unified_native_member",
+      "compiledSha256": "937e533b4791643836b27f8a1749b64f9dce83d6dbcdd46df6fc225d13d25a14",
+      "deployedPath": "/tmp/mio73-android-mqtt-trust-build-20261005/deploy/unified_native_member",
+      "compiledBytes": 182198032,
+      "transformation": {
+        "operation": "strip debug sections on owned copy only",
+        "command": [
+          "rtk",
+          "proxy",
+          "/usr/bin/llvm-strip",
+          "--strip-debug",
+          "/tmp/mio73-android-mqtt-trust-build-20261005/deploy/unified_native_member"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "deployedSha256": "d182f2d13396d1059d55694f934bb67ba215581888ea607b6b046bfd4b6c53ed",
+      "deployedBytes": 98933792
+    }
+  },
+  "sourceDigestAfter": "9b62d5ea6617478a900638c0d128457dbb2eeb1fdc8e89c2cb9e77faa6cf0460",
+  "sourceFrozenDuringBuild": true,
+  "qualifiedForFrozenRun": true
+}

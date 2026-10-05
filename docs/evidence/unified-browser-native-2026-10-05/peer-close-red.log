@@ -1,0 +1,86 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: field `updates` is never read
+   --> src/admission_gate.rs:143:5
+    |
+140 | pub(crate) struct PathQualification {
+    |                   ----------------- field in this struct
+...
+143 |     updates: n0_watcher::Direct<u64>,
+    |     ^^^^^^^
+    |
+    = note: `PathQualification` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `updates` is never used
+   --> src/admission_gate.rs:149:19
+    |
+145 | impl PathQualification {
+    | ---------------------- method in this implementation
+...
+149 |     pub(crate) fn updates(&self) -> n0_watcher::Direct<u64> {
+    |                   ^^^^^^^
+
+warning: fields `id` and `role` are never read
+   --> src/connection_coordinator.rs:99:5
+    |
+ 98 | pub(crate) struct ProtectedAttempt {
+    |                   ---------------- fields in this struct
+ 99 |     id: [u8; 16],
+    |     ^^
+100 |     pub role: AttemptRole,
+    |         ^^^^
+    |
+    = note: `ProtectedAttempt` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: methods `id_hex`, `matches`, and `quic_dialer` are never used
+   --> src/connection_coordinator.rs:107:19
+    |
+106 | impl ProtectedAttempt {
+    | --------------------- methods in this implementation
+107 |     pub(crate) fn id_hex(self) -> String {
+    |                   ^^^^^^
+...
+110 |     pub(crate) fn matches(self, id: &str) -> bool {
+    |                   ^^^^^^^
+...
+113 |     pub(crate) fn quic_dialer(
+    |                   ^^^^^^^^^^^
+
+warning: method `with_proof` is never used
+   --> src/connection_coordinator.rs:226:19
+    |
+209 | impl PreparedPath {
+    | ----------------- method in this implementation
+...
+226 |     pub(crate) fn with_proof(
+    |                   ^^^^^^^^^^
+
+warning: method `native_bind_addresses` is never used
+   --> src/rtc_ice_profile.rs:110:19
+    |
+ 50 | impl RtcIceProfile {
+    | ------------------ method in this implementation
+...
+110 |     pub(crate) fn native_bind_addresses(&self) -> Vec<SocketAddr> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^
+
+warning: `miopunch-native-probe` (lib) generated 6 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.48s
+     Running tests/unified_connection.rs (target/debug/deps/unified_connection-a1e9addc5a1ce813)
+
+running 1 test
+{"dataPathUnavailable":false,"event":"unified-peer-close-negative","failure":"identity or admission rejected","initialMemberGate":true,"ordinaryHandleReturned":false,"peerClosedPendingM":true}
+
+thread 'proved_pending_peer_close_is_data_unavailable_not_identity_rejection' (180187) panicked at tests/unified_connection.rs:976:5:
+closed proved M is not an identity violation: Err(IdentityOrAdmissionRejected)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test proved_pending_peer_close_is_data_unavailable_not_identity_rejection ... FAILED
+
+failures:
+
+failures:
+    proved_pending_peer_close_is_data_unavailable_not_identity_rejection
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 1.02s
+
+error: test failed, to rerun pass `--test unified_connection`
