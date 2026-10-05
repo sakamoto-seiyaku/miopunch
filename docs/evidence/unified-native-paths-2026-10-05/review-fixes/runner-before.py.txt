@@ -1,0 +1,294 @@
+#!/usr/bin/env python3
+"""One authorized Pixel6a/Y700 native SDK story; ADB carries control only."""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import ipaddress
+import json
+from pathlib import Path
+import re
+import shlex
+import subprocess
+import tempfile
+import threading
+import time
+import uuid
+
+from android_pair_runtime import Device, NativeActor
+from android_pair_route_receipt import collect_endpoint, validate_request
+from build_android_pair import sources
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def source_snapshot():
+    return sources([Path(__file__), ROOT / "scripts/android_pair_runtime.py",
+                    ROOT / "scripts/android_pair_route_receipt.py"])
+
+
+def build_source_binding(receipt):
+    before = json.loads((receipt.parent / "sources-before.json").read_text())
+    after = json.loads((receipt.parent / "sources-after.json").read_text())
+    build = json.loads(receipt.read_text())
+    digest = hashlib.sha256(json.dumps(after, sort_keys=True).encode()).hexdigest()
+    if before != after or build["sourceDigestBefore"] != digest or build["sourceDigestAfter"] != digest:
+        raise RuntimeError("frozen build source snapshot/digest differs")
+    for name, expected in after.items():
+        path = Path(name.removeprefix("external:")) if name.startswith("external:") else ROOT / name
+        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+            raise RuntimeError("current native build input differs: " + name)
+    return {"allCurrentSourceMatch": True, "currentInputCount": len(after),
+            "compiledSourceSnapshotSha256": hashlib.sha256((receipt.parent / "sources-after.json").read_bytes()).hexdigest()}
+
+
+def utc():
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+class ReceiptActor(NativeActor):
+    """Use the existing exact-PID owner, retaining bounded native diagnostics."""
+    def start(self, args, *, stop_command=None):
+        if not self.binary or (self.process and self.process.poll() is None):
+            raise RuntimeError("owned executable must be idle before startup")
+        if any(thread.is_alive() for thread in self.threads):
+            raise RuntimeError("previous owned readers have not ended")
+        self.events.clear()
+        self.stderr.clear()
+        self.raw_stdout = []
+        self.remote_pid = None
+        self.stop_command = stop_command
+        remote = ("umask 077; echo $$ > " + shlex.quote(self.directory + "/actor.pid")
+                  + "; exec " + shlex.join([self.binary, *map(str, args)]))
+        command = ["rtk", "proxy", self.device.adb, "-s", self.device._serial, "shell", remote]
+        self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE, text=True, start_new_session=True)
+        self.runs.append({"command": ["rtk", "proxy", self.device.adb, "-s", "<model-selected-device>",
+                                      "shell", remote], "generation": uuid.uuid4().hex,
+                          "startedUtc": utc()})
+
+        def read_output():
+            for line in self.process.stdout:
+                safe = line.replace(self.device._serial, "<model-selected-device>")
+                safe = re.sub(r"\bpeer=[0-9a-f]{64}\b", "peer=<temporary-peer-identity>", safe)
+                if len(line) > 1024 * 1024 or len(self.raw_stdout) >= 2048:
+                    with self.condition:
+                        self.events.append({"event": "local-reader-failure", "failure": "bounded native stdout exceeded"})
+                        self.condition.notify_all()
+                    break
+                self.raw_stdout.append(safe)
+                try:
+                    event = json.loads(line)
+                except ValueError:
+                    continue
+                with self.condition:
+                    if len(self.events) >= 512:
+                        self.events.pop(0)
+                    self.events.append(event)
+                    self.condition.notify_all()
+            with self.condition:
+                self.condition.notify_all()
+
+        def read_errors():
+            for line in self.process.stderr:
+                if len(self.stderr) < 512:
+                    self.stderr.append(line[:4096].replace(self.device._serial, "<model-selected-device>"))
+
+        self.threads = [threading.Thread(target=reader, daemon=True) for reader in (read_output, read_errors)]
+        for thread in self.threads:
+            thread.start()
+        return self
+
+
+def native_cleanup_ok(value, remove=False):
+    required = ("leaderWaitedFor", "ownedRemoteProcessAbsent", "ownedRemoteProcessAbsentLate", "localReadersEnded")
+    return (value.get("forced") is False and all(value.get(key) is True for key in required)
+            and (not remove or value.get("ownedDirectoryRemoved") is True))
+
+
+def wifi_address(device):
+    raw, _ = device.shell("ip", "-j", "-4", "addr", "show", "dev", "wlan0")
+    addresses = [item["local"] for link in json.loads(raw) for item in link.get("addr_info", [])
+                 if item.get("family") == "inet"]
+    if len(addresses) != 1:
+        raise RuntimeError("one explicit physical Wi-Fi IPv4 source required")
+    address = ipaddress.IPv4Address(addresses[0])
+    if address.is_unspecified or address.is_loopback or address in ipaddress.IPv4Network("100.64.0.0/10"):
+        raise RuntimeError("physical Wi-Fi source cannot be an overlay address")
+    return str(address)
+
+
+def archive_run(actor, output, name):
+    (output / (name + ".stdout.log")).write_text("".join(actor.raw_stdout))
+    (output / (name + ".stderr.log")).write_text("".join(actor.stderr))
+    raw = "".join(actor.raw_stdout)
+    return {"command": actor.runs[-1]["command"], "commandExit": actor.process.poll(),
+            "stunRequestsSentToKernel": sum(line.startswith("STUN_UDP_SEND ") and "sent_to_kernel=true" in line
+                                             for line in actor.raw_stdout),
+            "stunRepliesMatched": sum(line.startswith("STUN_UDP_OBSERVED ") for line in actor.raw_stdout),
+            "tcpActualObservation": "TCP_OBSERVED " in raw,
+            "stdoutSha256": hashlib.sha256(raw.encode()).hexdigest(),
+            "stderrSha256": hashlib.sha256("".join(actor.stderr).encode()).hexdigest()}
+
+
+def phase(actor, args, expected, output, name):
+    actor.start(args)
+    event = actor.wait_event(expected, timeout=25)
+    cleanup = actor.close(remove_directory=False, graceful_seconds=5)
+    receipt = archive_run(actor, output, name)
+    receipt.update(event=event, cleanup=cleanup)
+    if receipt["commandExit"] != 0 or not native_cleanup_ok(cleanup):
+        raise RuntimeError("owned setup operation did not exit and close cleanly")
+    return receipt
+
+
+def route_request(actor, snapshot, source):
+    selected = snapshot.get("selectedPath") or {}
+    destination = selected.get("destination")
+    if not destination:
+        return None, "selected data path is a relay; UDP-specific route collector not applicable"
+    peer = ipaddress.ip_address(destination["address"])
+    if peer.version != 4 or peer in ipaddress.IPv4Network("100.64.0.0/10"):
+        return None, "selected peer is not a non-overlay IPv4 UDP destination"
+    if selected.get("localSocketId") != 0:
+        return None, "selected managed UDP socket is not the observed primary socket; mapping remains unknown"
+    entries = snapshot.get("sockets", {}).get("entries", [])
+    matches = [entry for entry in entries if entry.get("protocol") == "udp"
+               and entry.get("dupVerified") is True and entry.get("endpointUdp") is True
+               and entry.get("localTuple", {}).get("address") == source]
+    if len(matches) != 1:
+        return None, "exact selected primary UDP socket not uniquely identified; managed socket remains unknown"
+    socket = matches[0]
+    local = socket["localTuple"]
+    request = {"model": actor.device.model, "actor": {"kind": "native", "ownedDirectory": actor.directory},
+               "selectedTuple": {"localAddress": source, "localPort": local["port"],
+                                 "peerAddress": str(peer), "peerPort": destination["port"]}}
+    mark = socket.get("soMark", {})
+    if mark.get("observed") is True:
+        request["socketEvidence"] = {"operation": "getsockopt(SO_MARK)", "success": True,
+                                     "value": mark["value"], "pid": snapshot["pid"],
+                                     "localAddress": source, "localPort": local["port"]}
+    return request, None
+
+
+def run(args):
+    output = args.output.resolve()
+    output.mkdir(mode=0o700, parents=True, exist_ok=False)
+    build = json.loads(args.build_receipt.read_text())
+    binary = args.binary.resolve()
+    binary_hash = hashlib.sha256(binary.read_bytes()).hexdigest()
+    deployment = build.get("deployment", {}).get("unified_native_member", {})
+    if build.get("exit") != 0 or build.get("qualifiedForFrozenRun") is not True or deployment.get("deployedSha256") != binary_hash:
+        raise RuntimeError("explicit current Android build/deployment chain required")
+    facility = json.loads(args.facility.read_text())
+    if facility.get("native_url") != "mqtts://broker.emqx.io:8883/" or facility.get("wss_url") != "wss://broker.emqx.io:8084/mqtt":
+        raise RuntimeError("the explicit root-authorized normal TLS MQTT/WSS facility is required")
+    report = {"scope": "MIOPUNCH-79 actual Pixel6a/Y700 Native member SDK; host only build/ADB/control/evidence",
+              "startedUtc": utc(), "passed": False, "buildReceipt": str(args.build_receipt),
+              "buildReceiptSha256": hashlib.sha256(args.build_receipt.read_bytes()).hexdigest(),
+              "buildSourceBinding": build_source_binding(args.build_receipt),
+              "runnerSha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+              "sourcesBefore": source_snapshot(),
+              "deployedArtifactSha256": binary_hash, "facility": facility, "phases": {}, "cleanup": {},
+              "preparationScope": "actual loopback approval/admission on Pixel; independent stored client material moved via owned ADB control only"}
+    actors = []
+    try:
+        pixel = ReceiptActor(Device("Pixel_6a", "usb")); actors.append(pixel)
+        tablet = ReceiptActor(Device("TB322FC", "network")); actors.append(tablet)
+        sources = {actor.device.model: wifi_address(actor.device) for actor in actors}
+        report["physicalBinds"] = sources
+        for actor in actors:
+            actor.deploy(binary, "unified_native_member", executable=True, artifact=True)
+            actor.deploy(args.facility, "facility.json", artifact=True)
+        server_store = pixel.directory + "/members/server"
+        report["phases"]["pixel-prepare"] = phase(pixel, ["prepare", pixel.directory + "/members", "public",
+                                                        facility["native_url"]], "members-prepared", output, "pixel-prepare")
+        with tempfile.TemporaryDirectory(prefix="miopunch79-owned-client-material-") as private:
+            client = Path(private) / "client"
+            pixel.device.run("pull", pixel.directory + "/members/client", str(client))
+            tablet.device.shell("mkdir", "-m", "700", tablet.directory + "/members")
+            tablet.device.run("push", str(client), tablet.directory + "/members/")
+            tablet.device.shell("chmod", "-R", "u+rwX,go-rwx", tablet.directory + "/members")
+        client_store = tablet.directory + "/members/client"
+        for actor, store in ((pixel, server_store), (tablet, client_store)):
+            name = actor.device.model + "-configure"
+            report["phases"][name] = phase(actor, ["configure-public", store, actor.directory + "/facility.json"],
+                                           "public-configured", output, name)
+        target = pixel.directory + "/target.json"
+        pixel.start(["serve", server_store, target, sources["Pixel_6a"] + ":0", "hold-for-route"])
+        report["serverReady"] = pixel.wait_event("native-ready", timeout=25)
+        with tempfile.TemporaryDirectory(prefix="miopunch79-owned-contact-") as private:
+            host_target = Path(private) / "target.json"
+            pixel.device.run("pull", target, str(host_target))
+            tablet.deploy(host_target, "target.json")
+        tablet.start(["connect", client_store, tablet.directory + "/target.json",
+                      sources["TB322FC"] + ":0", "hold-for-route"])
+        snapshots = {}
+        for actor in (tablet, pixel):
+            role = actor.device.model
+            report.setdefault("results", {})[role] = actor.wait_event("native-result", timeout=60)
+            snapshots[role] = actor.wait_event(lambda value: value.get("event") == "native-owned-sockets"
+                                              and value.get("phase") == "member-active", timeout=5)
+        report["liveSocketSnapshots"] = snapshots
+        report["routeCollections"] = []
+        for actor in actors:
+            request, unknown = route_request(actor, snapshots[actor.device.model], sources[actor.device.model])
+            if request:
+                validate_request({"endpoints": [request]})
+                report["routeCollections"].append(collect_endpoint(request, actor.device))
+            else:
+                report["routeCollections"].append({"model": actor.device.model, "observed": False, "reason": unknown})
+        for actor in actors:
+            actor.send("release")
+        for actor in actors:
+            role = actor.device.model
+            report.setdefault("sdkCleanup", {})[role] = actor.wait_event("native-cleanup", timeout=15)
+            report.setdefault("reopened", {})[role] = actor.wait_event("native-material-reopened", timeout=5)
+            closed = actor.close(remove_directory=False, graceful_seconds=5)
+            report["phases"][role + "-member"] = {**archive_run(actor, output, role + "-member"), "cleanup": closed}
+        report["passed"] = all(result.get("ordinaryHandleReturned") is True and result.get("identityMatched") is True
+                               and result.get("streamMatched") is True for result in report["results"].values())
+        report["passed"] &= all(value.get("complete") is True and value.get("nonemptyVerifiedRecordSaved") is True
+                                for value in report["reopened"].values())
+        report["passed"] &= all(value.get("graceful") is True and value.get("originalClosed") is True
+                                and all(all(value.get(key, [])) for key in
+                                    ("socketReleasedImmediately", "socketReleasedLate", "tcpListenerReleasedImmediately", "tcpListenerReleasedLate"))
+                                for value in report["sdkCleanup"].values())
+    except Exception as error:
+        report["failure"] = type(error).__name__ + ": " + str(error)
+    finally:
+        for actor in actors:
+            try:
+                if actor.process and actor.process.poll() is None:
+                    try: actor.send("release")
+                    except (OSError, RuntimeError): pass
+                cleanup = actor.close(remove_directory=True, graceful_seconds=5)
+                report["cleanup"][actor.device.model] = cleanup
+                if actor.process:
+                    report.setdefault("terminalRuns", {})[actor.device.model] = archive_run(actor, output, actor.device.model + "-terminal")
+                if not native_cleanup_ok(cleanup, remove=True): report["passed"] = False
+            except Exception as error:
+                report["cleanup"][actor.device.model] = {"failure": type(error).__name__ + ": " + str(error)}
+                report["passed"] = False
+        report["commands"] = {actor.device.model: actor.device.commands for actor in actors}
+        report["sourcesAfter"] = source_snapshot()
+        report["sourceFrozenDuringRun"] = report["sourcesBefore"] == report["sourcesAfter"]
+        report["artifactFrozenDuringRun"] = hashlib.sha256(binary.read_bytes()).hexdigest() == binary_hash
+        report["passed"] &= report["sourceFrozenDuringRun"] and report["artifactFrozenDuringRun"]
+        report["completedUtc"] = utc()
+        (output / "receipt.json").write_text(json.dumps(report, indent=2) + "\n")
+    print(json.dumps({"passed": report["passed"], "receipt": str(output / "receipt.json"),
+                      "failure": report.get("failure")}), flush=True)
+    return 0 if report["passed"] else 1
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--binary", type=Path, required=True)
+    parser.add_argument("--build-receipt", type=Path, required=True)
+    parser.add_argument("--facility", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    return run(parser.parse_args())
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,66 @@
+{
+  "scope": "three unique concentrated actor/harness review fixes; offline only, no SDK/ADB/device/network/build/product mutation",
+  "previousReviewManifestSha256": "41ad411f72cc4802f51f37872c103a968fb32f201352cc5c8a837235310def00",
+  "sourceBefore": {
+    "scripts/check_unified_native_android.py": "9b96dcd48a6e00a16dfa25b14a4389e1f0304689b073174650e514405cdb7852",
+    "scripts/test_unified_native_android.py": "f608135fdf4b95158e8eb27a38a90bab4dfa4536add6e2dfbcc43615b39265f8"
+  },
+  "sourceAfter": {
+    "scripts/check_unified_native_android.py": "9b96dcd48a6e00a16dfa25b14a4389e1f0304689b073174650e514405cdb7852",
+    "scripts/test_unified_native_android.py": "f608135fdf4b95158e8eb27a38a90bab4dfa4536add6e2dfbcc43615b39265f8"
+  },
+  "sourceFrozenDuringLocalCheck": true,
+  "actualCommands": [
+    {
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "scripts/test_unified_native_android.py"
+      ],
+      "exit": 0,
+      "stdoutStderr": "frozen-final.log"
+    }
+  ],
+  "red": {
+    "actualExit": 1,
+    "groups": 5,
+    "falseSuccessAssertions": 134,
+    "log": "red.log",
+    "runnerSha256": "654fcea65d5166712af5dffeee90131def5e2f44d551c97bb1c834aed77359ac",
+    "testSourceQualification": "initial five-group test source; final source adds explicit collector prohibition and sixth owned-count mismatch group"
+  },
+  "green": {
+    "actualExit": 0,
+    "groups": 6,
+    "log": "final-green.log"
+  },
+  "sourceWhitespaceCheckExit": 0,
+  "historicalPublicStricterAudit": {
+    "passed": true,
+    "rawReceiptRewritten": false,
+    "rawReceiptSha256": "bfbd5f413cc07bf884cf0975208ff836cfa9235d2abd3b8255f9aa5ecf95ae9e",
+    "ownedEndpointCountsDerivedFromStoredEvidence": {
+      "Pixel_6a": {
+        "udp": 1,
+        "tcpListeners": 0,
+        "tcpEvidence": "recorded public-configured tcpPunchingEnabled=false; saved tcp_listen=None fixture contract"
+      },
+      "TB322FC": {
+        "udp": 1,
+        "tcpListeners": 0,
+        "tcpEvidence": "recorded public-configured tcpPunchingEnabled=false; saved tcp_listen=None fixture contract"
+      }
+    },
+    "derivation": "verified endpointUdp bind tuples counted independently of release arrays; archived public-configured event and exact actor saved tcp_listen=None contract establish no installed TCP transport listener. No peerTuple/listening inference."
+  },
+  "allOriginalRawArchiveHashesUnchanged": true,
+  "originalRawArchiveCount": 222,
+  "qualified": {
+    "localFailurePredicates": true,
+    "newDeviceExecution": false,
+    "newNativePublicNat": false
+  },
+  "devicesOwned": false,
+  "liveHandle": null
+}

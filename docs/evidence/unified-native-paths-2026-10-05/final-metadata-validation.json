@@ -1,0 +1,25 @@
+{
+  "exit": 0,
+  "scope": "offline final MIO79 evidence and provenance audit; no runtime repeat",
+  "checks": [
+    {
+      "name": "archive compressed/stored bytes and hashes",
+      "passed": true,
+      "archives": 222
+    },
+    {
+      "name": "all current frozen Android build inputs",
+      "passed": true,
+      "allCurrentSourceMatch": true,
+      "currentInputCount": 474,
+      "compiledSourceSnapshotSha256": "3fc96e7bc0519518652dffa00cabc047eec2002eaf4c7b513b91ca3a46463a70"
+    },
+    {
+      "name": "actual public SDK result/freshACK/stored records/teardown/marks/diagnostic audit",
+      "passed": true,
+      "nativeDirectQualified": false,
+      "physicalWanQualified": false
+    }
+  ],
+  "sourceCodeWhitespaceCheckExit": 0
+}

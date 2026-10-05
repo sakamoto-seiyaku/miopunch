@@ -1,0 +1,32 @@
+{
+  "scope": "pinned-source causal explanation; no new network/SDK/phone execution",
+  "chain": [
+    "default iroh builder selects DnsResolver with_system_defaults",
+    "Android system-DNS JNI reader calls ndk_context::android_context without installed Java context",
+    "read_system_dns catches the unwind and returns io::Error",
+    "read_system logs failure and returns otherwise-empty config",
+    "resolver appends the configured fallback tier when system config is empty"
+  ],
+  "sources": {
+    "endpoint": {
+      "path": "/home/js/Git/miopunch/vendor/iroh/src/endpoint.rs",
+      "sha256": "98159bae11fb31d73460f9fad23e0146882087fdcaefd811a061e313fd2f3617"
+    },
+    "androidReader": {
+      "path": "/home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/n0-dns-resolver-0.1.0/src/system_config/android.rs",
+      "sha256": "d821197b5fed02ab5dc5dfd2500fd3321594d514c56057fa6131280316fe6813"
+    },
+    "systemDispatcher": {
+      "path": "/home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/n0-dns-resolver-0.1.0/src/system_config.rs",
+      "sha256": "96122945c938f461b30d6c29145e91876639be84742aa69aa1ab2d9480c22454"
+    },
+    "resolver": {
+      "path": "/home/js/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/n0-dns-resolver-0.1.0/src/resolver.rs",
+      "sha256": "d9e010321618a6e096fc6cbfd35aeb3bb9b23a5a321d7ae2f9773f4f39de4b42"
+    }
+  },
+  "diagnosticPreserved": true,
+  "taskDeathInferredFromPanicText": false,
+  "systemDnsOrJniQualified": false,
+  "panicHookOrDependencyModified": false
+}

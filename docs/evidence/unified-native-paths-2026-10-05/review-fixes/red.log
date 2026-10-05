@@ -1,0 +1,1613 @@
+.FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='member-poll', exit=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='member-poll', exit=-9)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='member-poll', exit=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='member-poll', exit=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='member-poll', exit=0.0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='member-poll', exit='0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='member-poll', exit='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='member-close', exit=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='member-close', exit=-9)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='member-close', exit=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='member-close', exit=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='member-close', exit=0.0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='member-close', exit='0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='member-close', exit='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='terminal-poll', exit=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='terminal-poll', exit=-9)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='terminal-poll', exit=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='terminal-poll', exit=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='terminal-poll', exit=0.0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='terminal-poll', exit='0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='terminal-poll', exit='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='final-close', exit=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='final-close', exit=-9)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='final-close', exit=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='final-close', exit=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='final-close', exit=0.0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='final-close', exit='0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='Pixel_6a', location='final-close', exit='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='member-poll', exit=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='member-poll', exit=-9)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='member-poll', exit=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='member-poll', exit=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='member-poll', exit=0.0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='member-poll', exit='0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='member-poll', exit='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='member-close', exit=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='member-close', exit=-9)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='member-close', exit=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='member-close', exit=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='member-close', exit=0.0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='member-close', exit='0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='member-close', exit='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='terminal-poll', exit=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='terminal-poll', exit=-9)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='terminal-poll', exit=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='terminal-poll', exit=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='terminal-poll', exit=0.0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='terminal-poll', exit='0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='terminal-poll', exit='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='final-close', exit=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='final-close', exit=-9)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='final-close', exit=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='final-close', exit=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='final-close', exit=0.0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='final-close', exit='0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful (__main__.TestAndroidNativeSuccessPredicates.test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful) (role='TB322FC', location='final-close', exit='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 130, in test_nonzero_missing_signal_or_wrong_type_exit_is_not_graceful
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed (__main__.TestAndroidNativeSuccessPredicates.test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed) (role='Pixel_6a', evidence='no-snapshot')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 169, in test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed (__main__.TestAndroidNativeSuccessPredicates.test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed) (role='Pixel_6a', evidence='unobserved')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 169, in test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed (__main__.TestAndroidNativeSuccessPredicates.test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed) (role='Pixel_6a', evidence='unverified-udp')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 169, in test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed (__main__.TestAndroidNativeSuccessPredicates.test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed) (role='Pixel_6a', evidence='unclassified-fd')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 169, in test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed (__main__.TestAndroidNativeSuccessPredicates.test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed) (role='Pixel_6a', evidence='missing-config')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 169, in test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed (__main__.TestAndroidNativeSuccessPredicates.test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed) (role='Pixel_6a', evidence='tcp-enabled')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 169, in test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed (__main__.TestAndroidNativeSuccessPredicates.test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed) (role='TB322FC', evidence='no-snapshot')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 169, in test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed (__main__.TestAndroidNativeSuccessPredicates.test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed) (role='TB322FC', evidence='unobserved')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 169, in test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed (__main__.TestAndroidNativeSuccessPredicates.test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed) (role='TB322FC', evidence='unverified-udp')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 169, in test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed (__main__.TestAndroidNativeSuccessPredicates.test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed) (role='TB322FC', evidence='unclassified-fd')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 169, in test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed (__main__.TestAndroidNativeSuccessPredicates.test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed) (role='TB322FC', evidence='missing-config')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 169, in test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed (__main__.TestAndroidNativeSuccessPredicates.test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed) (role='TB322FC', evidence='tcp-enabled')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 169, in test_owned_udp_and_no_tcp_configuration_evidence_cannot_be_assumed
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='socketReleasedImmediately', value=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='socketReleasedImmediately', value='true')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='socketReleasedImmediately', value=[1])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='socketReleasedImmediately', value=['true'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='socketReleasedImmediately', value=[True, True])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='socketReleasedImmediately', value='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='socketReleasedImmediately', value=[])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='socketReleasedLate', value=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='socketReleasedLate', value='true')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='socketReleasedLate', value=[1])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='socketReleasedLate', value=['true'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='socketReleasedLate', value=[True, True])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='socketReleasedLate', value='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='socketReleasedLate', value=[])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='tcpListenerReleasedImmediately', value=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='tcpListenerReleasedImmediately', value='true')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='tcpListenerReleasedImmediately', value=[1])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='tcpListenerReleasedImmediately', value=['true'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='tcpListenerReleasedImmediately', value=[True, True])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='tcpListenerReleasedImmediately', value='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='tcpListenerReleasedImmediately', value=[True])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='tcpListenerReleasedLate', value=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='tcpListenerReleasedLate', value='true')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='tcpListenerReleasedLate', value=[1])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='tcpListenerReleasedLate', value=['true'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='tcpListenerReleasedLate', value=[True, True])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='tcpListenerReleasedLate', value='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='Pixel_6a', field='tcpListenerReleasedLate', value=[True])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='socketReleasedImmediately', value=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='socketReleasedImmediately', value='true')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='socketReleasedImmediately', value=[1])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='socketReleasedImmediately', value=['true'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='socketReleasedImmediately', value=[True, True])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='socketReleasedImmediately', value='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='socketReleasedImmediately', value=[])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='socketReleasedLate', value=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='socketReleasedLate', value='true')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='socketReleasedLate', value=[1])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='socketReleasedLate', value=['true'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='socketReleasedLate', value=[True, True])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='socketReleasedLate', value='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='socketReleasedLate', value=[])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='tcpListenerReleasedImmediately', value=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='tcpListenerReleasedImmediately', value='true')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='tcpListenerReleasedImmediately', value=[1])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='tcpListenerReleasedImmediately', value=['true'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='tcpListenerReleasedImmediately', value=[True, True])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='tcpListenerReleasedImmediately', value='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='tcpListenerReleasedImmediately', value=[True])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='tcpListenerReleasedLate', value=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='tcpListenerReleasedLate', value='true')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='tcpListenerReleasedLate', value=[1])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='tcpListenerReleasedLate', value=['true'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='tcpListenerReleasedLate', value=[True, True])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='tcpListenerReleasedLate', value='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_release_arrays_must_be_present_boolean_and_exact_owned_count (__main__.TestAndroidNativeSuccessPredicates.test_release_arrays_must_be_present_boolean_and_exact_owned_count) (role='TB322FC', field='tcpListenerReleasedLate', value=[True])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 153, in test_release_arrays_must_be_present_boolean_and_exact_owned_count
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_reopened_identity_must_be_explicitly_true_on_each_actor (__main__.TestAndroidNativeSuccessPredicates.test_reopened_identity_must_be_explicitly_true_on_each_actor) (role='Pixel_6a', identity=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 139, in test_reopened_identity_must_be_explicitly_true_on_each_actor
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_reopened_identity_must_be_explicitly_true_on_each_actor (__main__.TestAndroidNativeSuccessPredicates.test_reopened_identity_must_be_explicitly_true_on_each_actor) (role='Pixel_6a', identity=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 139, in test_reopened_identity_must_be_explicitly_true_on_each_actor
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_reopened_identity_must_be_explicitly_true_on_each_actor (__main__.TestAndroidNativeSuccessPredicates.test_reopened_identity_must_be_explicitly_true_on_each_actor) (role='Pixel_6a', identity=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 139, in test_reopened_identity_must_be_explicitly_true_on_each_actor
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_reopened_identity_must_be_explicitly_true_on_each_actor (__main__.TestAndroidNativeSuccessPredicates.test_reopened_identity_must_be_explicitly_true_on_each_actor) (role='Pixel_6a', identity='true')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 139, in test_reopened_identity_must_be_explicitly_true_on_each_actor
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_reopened_identity_must_be_explicitly_true_on_each_actor (__main__.TestAndroidNativeSuccessPredicates.test_reopened_identity_must_be_explicitly_true_on_each_actor) (role='Pixel_6a', identity='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 139, in test_reopened_identity_must_be_explicitly_true_on_each_actor
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_reopened_identity_must_be_explicitly_true_on_each_actor (__main__.TestAndroidNativeSuccessPredicates.test_reopened_identity_must_be_explicitly_true_on_each_actor) (role='TB322FC', identity=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 139, in test_reopened_identity_must_be_explicitly_true_on_each_actor
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_reopened_identity_must_be_explicitly_true_on_each_actor (__main__.TestAndroidNativeSuccessPredicates.test_reopened_identity_must_be_explicitly_true_on_each_actor) (role='TB322FC', identity=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 139, in test_reopened_identity_must_be_explicitly_true_on_each_actor
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_reopened_identity_must_be_explicitly_true_on_each_actor (__main__.TestAndroidNativeSuccessPredicates.test_reopened_identity_must_be_explicitly_true_on_each_actor) (role='TB322FC', identity=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 139, in test_reopened_identity_must_be_explicitly_true_on_each_actor
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_reopened_identity_must_be_explicitly_true_on_each_actor (__main__.TestAndroidNativeSuccessPredicates.test_reopened_identity_must_be_explicitly_true_on_each_actor) (role='TB322FC', identity='true')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 139, in test_reopened_identity_must_be_explicitly_true_on_each_actor
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_reopened_identity_must_be_explicitly_true_on_each_actor (__main__.TestAndroidNativeSuccessPredicates.test_reopened_identity_must_be_explicitly_true_on_each_actor) (role='TB322FC', identity='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 139, in test_reopened_identity_must_be_explicitly_true_on_each_actor
+    self.require_refused(facts)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/js/Git/miopunch/scripts/test_unified_native_android.py", line 107, in require_refused
+    self.assertEqual(code, 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: 0 != 1
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.792s
+
+FAILED (failures=134)
