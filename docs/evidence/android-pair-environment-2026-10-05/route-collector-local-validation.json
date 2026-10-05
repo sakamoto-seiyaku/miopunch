@@ -1,0 +1,38 @@
+{
+  "scope": "new independent read-only route collector preparation; fake drivers only; frozen helper source hashes independently unchanged",
+  "sourceHashes": {
+    "scripts/android_pair_route_receipt.py": "c6312994c936471c640d40099b8066e7974021cf1ef162c97593bc0773fe72da",
+    "scripts/test_android_pair_route_receipt.py": "1a236c6bafb9f7ed05f73b18561dcbeb886d9164603415dba62ebeaee2d2d67d"
+  },
+  "commands": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-B",
+        "scripts/test_android_pair_route_receipt.py"
+      ],
+      "exit": 0,
+      "stdout": "....\n----------------------------------------------------------------------\nRan 4 tests in 0.003s\n\nOK\n"
+    },
+    {
+      "command": [
+        "rtk",
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit": 0
+    }
+  ],
+  "validated": [
+    "exact Chrome package UID used, no socket UID or mark invented",
+    "matching owned native PID and successful SO_MARK receipt required even for value0",
+    "missing UID skips lookup; first real exit42 and17 and partial route facts preserved",
+    "unowned reads and overwrite rejected before Device access"
+  ],
+  "frozenHelpersUnchanged": true,
+  "newDeviceExecution": false,
+  "physicalWanQualified": false
+}

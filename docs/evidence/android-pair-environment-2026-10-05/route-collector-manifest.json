@@ -1,0 +1,11 @@
+{
+  "scope": "independent route collector source freeze for root-coordinated future live SDK observation; no devices executed",
+  "sources": {
+    "scripts/android_pair_route_receipt.py": "c6312994c936471c640d40099b8066e7974021cf1ef162c97593bc0773fe72da",
+    "scripts/test_android_pair_route_receipt.py": "1a236c6bafb9f7ed05f73b18561dcbeb886d9164603415dba62ebeaee2d2d67d"
+  },
+  "validation": "route-collector-local-validation.json",
+  "snapshot": "tooling-route-collector",
+  "frozenEnvironmentHelpersChanged": false,
+  "deviceExecution": false
+}
