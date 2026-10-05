@@ -1,0 +1,40 @@
+{
+  "review": "MIOPUNCH-74 spec only",
+  "baseline": "9d250319",
+  "head": "9d25031963bfe22e1a3aed2196a3e1c65e39ae97",
+  "observedUtc": "2026-10-05T19:42:03.112857+00:00",
+  "sourceSha256": {
+    "src/admission_gate.rs": "4cd85c3df135921ae16c22da83dab07ec7797a74e9b4d0cca5b0908b41ec2040",
+    "src/admission_proof.rs": "3b3f6d7e72fbbc1d10b84942d17d296520cc4ae0f564d2e351ff1760ac4780f4",
+    "src/rtc_member.rs": "47e944b65a787a28ac4c4aad8865c456c3e1388f41a176139f750d60f6439dbc",
+    "src/bin/browser_wss_member_native.rs": "588efd50cd14a349ded527b20e9d4f86e2e667e68fd83f524da40a134442bcf7",
+    "src/connection_coordinator.rs": "6bc1c9b440a51e64a155e668658a76505ec40a77679e349580e1655b31e23c76",
+    "src/connection_coordinator_native.rs": "6a92d60c5c500861d13c1e8e7ddfbfbcbed5b3b0bc22dca914896437707760b7",
+    "browser-probe/src/member_connection.rs": "d770cc97cfcc9d0737e9963a44d5727990a1067647547229f9fafa859871d17f",
+    "browser-probe/src/network.rs": "e40d9158ad0c2642bd65327dd649601c7a3f2a03cc9f679dc018dfaec39e1de6",
+    "browser-probe/src/rtc_member.rs": "0460ca47d7d01dfbf01dc8e5af1b01f332dc2b835ebfa05bd4d0f396de344e34",
+    "tests/unified_connection.rs": "691cf747ee2a52bcfc97914c9ea6caf7dde36eb54699d667154a89e4cfc3b903",
+    "vendor/iroh/src/endpoint.rs": "04423be1084a027ba9d49a55386bf698d78dedfbc9e1e096c7eca07b21016ebe",
+    "vendor/iroh/src/endpoint/connection.rs": "c72eaea5de2764bbb5b7756038e167b505ec74247f2b01a99bbc5afd2f80df10",
+    "vendor/iroh/src/socket.rs": "077c1ecbabf8ffe564ce755f71d47b697f5db1748372db48bda7ae2dc2a061cb",
+    "tests/mio74_rtc_offer_ownership.rs": "922215825f09fc4f624cf220db5303c6d575facb17f4d8d76d5564e0572fc0f7",
+    "tests/negotiated_accept_context.rs": "e0ff03a0a6f0865c12d0aaed371e3ed0fd40c881d6bf134fb790bb738de3fbd1",
+    "tests/support/negotiated_accept_members.rs": "e7f3d5aa0c114c2e163a1dc0855228b6121b6eae99c23e2883635eeb64dfd9ae",
+    "browser-probe/src/incoming.rs": "82e13896e2488626cba7f8899558d2022890d51f35f8fe36dd7e7e24ae4131a9",
+    "browser-probe/src/admission.rs": "49b7ba08c9d1ca47f4d672b258e8f2d6388a20cfded40951ec027d2bd9c16b48",
+    "browser-probe/src/replica.rs": "adf6d398f468e7da06a8d0c2240f914603431453da19e68b1d8f43f5775b1338",
+    "browser-probe/src/lib.rs": "4d27398e27b1adc6c5084b4ac0e91eaa8a2c9dc447bca8d7113ce53fc454d44a"
+  },
+  "ticketSha256": "a7f79ea1f376984d37ac06364744c162db4b934d297663cfcd8754a31b39a9f7",
+  "ownedJobs": [],
+  "mutations": "review artifacts only; no source/build/test/device/public/tracker/git mutation",
+  "dispatcherIntegrationAddition": {
+    "verdict": "No additional blocking mismatch: exact-purpose dispatch, original operation deadline and scoped connection drop retained; legacy replica purpose qualification remains outside74.",
+    "ownedJobs": [],
+    "hashes": {
+      "browser-probe/src/admission.rs": "49b7ba08c9d1ca47f4d672b258e8f2d6388a20cfded40951ec027d2bd9c16b48",
+      "browser-probe/src/replica.rs": "adf6d398f468e7da06a8d0c2240f914603431453da19e68b1d8f43f5775b1338",
+      "browser-probe/src/lib.rs": "4d27398e27b1adc6c5084b4ac0e91eaa8a2c9dc447bca8d7113ce53fc454d44a"
+    }
+  }
+}

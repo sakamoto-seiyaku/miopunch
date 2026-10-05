@@ -1,0 +1,51 @@
+{
+  "scope": "exact scoped M74 candidate qualification, with separate captured worktree and partial public proof",
+  "files": {
+    "standards-review.md": {
+      "source": "/tmp/mio74-concentrated-final-review-20261006/standards.md",
+      "sha256": "6051cec48f92dff6cb0a2384ce97f4d84d2543f626a5863744fd2bab43525afc"
+    },
+    "spec-review.md": {
+      "source": "/tmp/mio74-concentrated-final-review-20261006/spec.md",
+      "sha256": "84ecbcbb153f83edb043d7f26f859a45f6060c336274c78f89ec98e9ecb56677"
+    },
+    "standards-source-freeze.json": {
+      "source": "/tmp/mio74-concentrated-final-review-20261006/standards-source-freeze.json",
+      "sha256": "59bc3e44616ad439db2a3a0344da4e6121f34dce135b8e53504a02b3d5b7ba5d"
+    },
+    "spec-source-freeze.json": {
+      "source": "/tmp/mio74-concentrated-final-review-20261006/spec-source-freeze.json",
+      "sha256": "d931b45901c17d9db3444e5a55623b85acf6b42c9153683a0fe3abcad1b06318"
+    },
+    "clean-worktree-build-audit.json": {
+      "source": "/tmp/mio74-diagnostic-clean-pair-native-doc-corrected-20261006/root-independent-build-audit.json",
+      "sha256": "feeeee70af442ee175091894c5cef6e9125da545c2df28f899ab29138e940d62"
+    },
+    "clean-worktree-runtime-audit.json": {
+      "source": "/tmp/mio74-controlled-native-browser-diagnostic-clean-owned-runtime-first-20261006/root-independent-final-runtime-audit.json",
+      "sha256": "55595c16d5bf914a2c95688b9308da07651fd86eb1e0d9c94bdc5fed986c7ec2"
+    },
+    "public-candidate-exchange-audit.json": {
+      "source": "/tmp/mio74-public-y700-native-pixel-browser-actual-gathered-first-20261006/root-independent-first-audit.json",
+      "sha256": "646f0f4872a0e9a79501986d0103236e98047c9295e08874b03c89f59fc3eeca"
+    },
+    "prior-controlled-functional-audit.json": {
+      "source": "/tmp/mio74-current-finalizer-root-combined-audit-20261006.json",
+      "sha256": "2a83116bf190973b3babf3527dba420565977c56006892017bec831ec122697b"
+    },
+    "candidate-root-audit.json": {
+      "source": "/tmp/mio74-scoped-candidate-native-browser-primary-700-first-20261006/root-independent-candidate-audit.json",
+      "sha256": "77474eb9011e2c1ab52c8470035ed44a7f866b08c674b16e8c944b5b72af3260"
+    },
+    "candidate-worker-verification.json": {
+      "source": "/tmp/mio74-scoped-candidate-native-browser-primary-700-first-20261006/worker-verification.json",
+      "sha256": "ad9cecdcd767317738a2d5528cee58985097656cff7afbfc395ca81709adc5bf"
+    },
+    "candidate-build-summary.json": {
+      "source": "/tmp/mio74-scoped-candidate-pair-build-first-20261006/receipt.json",
+      "derived": true,
+      "sha256": "60c8d0e1c93ddb2201f188557f05a14c35aa9c43c42202b2a732cc05f2484ec1",
+      "sourceSha256": "6e74443736ee7fb115762220c8ac988d468135ddb166755ca85675269c3ffa9c"
+    }
+  }
+}

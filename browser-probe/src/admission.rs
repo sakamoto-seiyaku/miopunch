@@ -145,17 +145,30 @@ impl BrowserNetwork {
     /// Process one restricted request. The foreground owner chooses the native
     /// manual or precode protocol mode, then drives the next accept explicitly.
     pub async fn serve_admission(&mut self, precode: bool) -> Result<String, JsValue> {
+        let deadline = n0_future::time::Instant::now() + self.caller_budget;
+        let attempt = crate::connection_coordinator::AttemptContext::new(
+            deadline,
+            tokio_util::sync::CancellationToken::new(),
+        );
         self.check_store().await?;
         self.administrator()?;
-        let incoming = n0_future::time::timeout(TIMEOUT, self.endpoint.accept())
-            .await
-            .map_err(error)?
-            .ok_or_else(rejected)?;
-        let connection = incoming.await.map_err(error)?;
-        let result =
-            n0_future::time::timeout(TIMEOUT, self.serve_admission_inner(&connection, precode))
-                .await
-                .unwrap_or_else(|_| Err(error("admission delivery timed out")));
+        let accepting = self.incoming.receive(REQUEST_ALPN, &attempt).await?;
+        let connection = n0_future::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            accepting
+                .with_caller_deadline(deadline)
+                .with_attempt_cancellation(attempt.cancellation.clone()),
+        )
+        .await
+        .map_err(error)?
+        .map_err(error)?;
+        let _scope = RequestConnection(Some(connection.clone()));
+        let result = n0_future::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            self.serve_admission_inner(&connection, precode),
+        )
+        .await
+        .unwrap_or_else(|_| Err(error("admission delivery timed out")));
         connection.close(0u32.into(), b"browser admission ended");
         result
     }

@@ -13,14 +13,202 @@ use miopunch_native_probe::{
 use serde_json::json;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
-fn socket_count() -> usize {
-    std::fs::read_dir("/proc/self/fd")
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter_map(|entry| std::fs::read_link(entry.path()).ok())
-        .filter(|target| target.to_string_lossy().starts_with("socket:"))
-        .count()
+fn socket_count() -> Option<usize> {
+    let entries = std::fs::read_dir("/proc/self/fd").ok()?;
+    let mut count = 0;
+    for entry in entries {
+        let entry = entry.ok()?;
+        match std::fs::read_link(entry.path()) {
+            Ok(target) if target.to_string_lossy().starts_with("socket:") => count += 1,
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return None,
+        }
+    }
+    Some(count)
+}
+
+struct FixtureCleanup {
+    node: Arc<tokio::sync::Mutex<NativeNetwork>>,
+    assembly: Arc<miopunch_native_probe::resources::ResourceEndpoint>,
+    endpoint: iroh::Endpoint,
+    transport: Arc<MqttTransport>,
+    rtc_transport: miopunch_native_probe::rtc_transport::RtcTransport,
+    traffic: Arc<Traffic>,
+    handlers: tokio::task::JoinSet<Result<(), Box<dyn Error + Send + Sync>>>,
+    sockets_before: Option<usize>,
+}
+
+// Only the controlled fixture's named caller handles live here. No Connection,
+// PC, transport, node allowance or peer-wide candidate is owned by this ledger.
+struct NamedMemberAttempt {
+    cancellation: tokio_util::sync::CancellationToken,
+    pending: bool,
+    original: Option<iroh::endpoint::WeakConnectionHandle>,
+}
+type NamedMemberAttempts =
+    Arc<std::sync::Mutex<std::collections::BTreeMap<String, NamedMemberAttempt>>>;
+
+struct NamedAttemptGuard {
+    ledger: NamedMemberAttempts,
+    label: String,
+}
+impl Drop for NamedAttemptGuard {
+    fn drop(&mut self) {
+        if let Some(entry) = self.ledger.lock().unwrap().get_mut(&self.label) {
+            entry.pending = false;
+        }
+    }
+}
+// Fixture-only owned-socket observation; no dependency/config change or SDK getter.
+// The selected Android socket2 0.6.5 graph enables `all`.
+#[cfg(any(target_os = "android", target_os = "linux"))]
+fn observe_owned_udp_mark(selected: std::net::SocketAddrV4) -> serde_json::Value {
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+    // Raw descriptor input avoids creating a BorrowedFd whose validity could
+    // race another task's close. Kernel fcntl atomically duplicates or fails.
+    unsafe extern "C" {
+        fn fcntl(fd: std::ffi::c_int, command: std::ffi::c_int, ...) -> std::ffi::c_int;
+    }
+    // Existing Android NDK29 linux/fcntl.h: F_LINUX_SPECIFIC_BASE(1024)+6.
+    const DUPFD_CLOEXEC: std::ffi::c_int = 1030;
+    let read = || -> std::io::Result<Vec<u32>> {
+        let mut directory = std::fs::read_dir("/proc/self/fd")?;
+        let entries = directory.by_ref().collect::<Result<Vec<_>, _>>()?;
+        let mut marks = Vec::new();
+        for entry in entries {
+            let original = std::fs::read_link(entry.path())?;
+            if !original.to_string_lossy().starts_with("socket:[") {
+                continue;
+            }
+            let fd = entry
+                .file_name()
+                .to_string_lossy()
+                .parse::<std::ffi::c_int>()
+                .map_err(|_| std::io::Error::other("invalid own descriptor"))?;
+            // Does not create a socket or change the original file description.
+            let duplicate = unsafe { fcntl(fd, DUPFD_CLOEXEC, 0 as std::ffi::c_int) };
+            if duplicate < 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            // Successful raw duplication gives this scope sole RAII ownership.
+            let owned = unsafe { OwnedFd::from_raw_fd(duplicate) };
+            let socket = socket2::Socket::from(owned);
+            let duplicated = std::fs::read_link(format!("/proc/self/fd/{}", socket.as_raw_fd()))?;
+            let still_original = std::fs::read_link(entry.path())?;
+            if original != duplicated || original != still_original {
+                return Err(std::io::Error::other(
+                    "own socket descriptor changed during duplication",
+                ));
+            }
+            if socket.r#type()? == socket2::Type::DGRAM
+                && socket.local_addr()?.as_socket_ipv4() == Some(selected)
+            {
+                // Actual getsockopt(SOL_SOCKET, SO_MARK). Ok(0) is observed zero;
+                // no match/error/multiple descriptors never manufacture zero.
+                if socket.protocol()? != Some(socket2::Protocol::UDP) {
+                    return Err(std::io::Error::other("matching datagram tuple is not UDP"));
+                }
+                marks.push(socket.mark()?);
+            }
+            drop(socket); // Every observer duplicate closes immediately.
+        }
+        drop(directory);
+        Ok(marks)
+    };
+    match read() {
+        Ok(marks) if marks.len() == 1 => serde_json::json!({
+            "observed":true,"matchingFdCount":1,
+            "socketEvidence":{"operation":"getsockopt(SO_MARK)","success":true,
+                "value":marks[0],"pid":std::process::id(),
+                "localAddress":selected.ip().to_string(),"localPort":selected.port()},
+            "actualSocketUid":null,
+            "scope":"unique sampled own-process SOCK_DGRAM exact local tuple; no PC registry",
+            "duplicatesClosed":true}),
+        Ok(marks) => serde_json::json!({"observed":false,"socketEvidence":null,
+            "matchingFdCount":marks.len(),"reason":"exact own UDP tuple absent or ambiguous",
+            "duplicatesClosed":true,"actualSocketUid":null}),
+        Err(error) => serde_json::json!({"observed":false,"socketEvidence":null,
+            "errno":error.raw_os_error(),"reason":"own fd/SO_TYPE/getsockname/SO_MARK observation failed",
+            "duplicatesClosed":true,"actualSocketUid":null}),
+    }
+}
+
+#[cfg(not(any(target_os = "android", target_os = "linux")))]
+fn observe_owned_udp_mark(_selected: std::net::SocketAddrV4) -> serde_json::Value {
+    serde_json::json!({"observed":false,"socketEvidence":null,
+        "reason":"own UDP mark observation unsupported on this platform","actualSocketUid":null})
+}
+
+impl FixtureCleanup {
+    async fn close(mut self) -> Result<(), Box<dyn Error>> {
+        let cleanup_started = std::time::Instant::now();
+
+        self.endpoint.close().await;
+
+        self.handlers.abort_all();
+        while self.handlers.join_next().await.is_some() {}
+        drop(self.handlers);
+
+        drop(self.assembly);
+        drop(self.endpoint);
+
+        let mut status_closed = false;
+        let mut driver_joined = false;
+        // The original one-second transport cleanup ceiling includes both facts.
+        let transport_result = tokio::time::timeout(Duration::from_secs(1), async {
+            self.transport.wait_closed().await?;
+            status_closed = true;
+
+            self.transport.wait_driver_closed().await?;
+            driver_joined = true;
+
+            Ok::<_, std::io::Error>(())
+        })
+        .await;
+
+        let node_closed = if let Ok(node) = Arc::try_unwrap(self.node) {
+            node.into_inner().close().await;
+            true
+        } else {
+            false
+        };
+
+        let sockets_immediate = socket_count();
+        let rtc_cleanup_started = std::time::Instant::now();
+
+        while (self.rtc_transport.active_associations() != 0
+            || self.rtc_transport.active_pumps() != 0)
+            && rtc_cleanup_started.elapsed() < Duration::from_secs(2)
+        {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        let active_associations = self.rtc_transport.active_associations();
+        let active_pumps = self.rtc_transport.active_pumps();
+        let cleanup_ok = matches!(&transport_result, Ok(Ok(())))
+            && node_closed
+            && active_associations == 0
+            && active_pumps == 0;
+        println!(
+            "{}",
+            json!({"event":"closed","traffic":self.traffic.snapshot(),
+            "cleanupMs":cleanup_started.elapsed().as_millis(),"socketsBefore":self.sockets_before,
+            "socketsImmediate":sockets_immediate,"socketsLate":socket_count(),
+            "endpointClosed":true,"nodeClosed":node_closed,"mqttStatusClosed":status_closed,
+            "mqttDriverJoined":driver_joined,"cleanupSucceeded":cleanup_ok,
+            "activeRtcAssociations":active_associations,"activeRtcPumps":active_pumps})
+        );
+        transport_result??;
+        if !node_closed {
+            return Err("fixture node still owned".into());
+        }
+        if active_associations != 0 || active_pumps != 0 {
+            return Err("owned RTC cleanup did not complete".into());
+        }
+        Ok(())
+    }
 }
 
 fn connection_paths(connection: &iroh::endpoint::Connection) -> Vec<serde_json::Value> {
@@ -32,6 +220,84 @@ fn connection_paths(connection: &iroh::endpoint::Connection) -> Vec<serde_json::
             "sentBytes":stats.udp_tx.bytes,"receivedBytes":stats.udp_rx.bytes,"streamFramesSent":stats.frame_tx.stream,"streamFramesReceived":stats.frame_rx.stream,
             "datagramFramesSent":stats.frame_tx.datagram,"datagramFramesReceived":stats.frame_rx.datagram})
     }).collect()
+}
+
+struct OwnedFixtureMember(iroh::endpoint::Connection);
+impl Drop for OwnedFixtureMember {
+    fn drop(&mut self) {
+        self.0.close(0u32.into(), b"owned member handler ended");
+    }
+}
+
+async fn serve_member_streams(
+    endpoint: iroh::Endpoint,
+    connection: iroh::endpoint::Connection,
+    gate: miopunch_native_probe::admission_gate::AdmissionGate,
+    rtc: miopunch_native_probe::rtc_transport::RtcTransport,
+    first_exchange: Option<n0_future::time::Instant>,
+    label: Option<String>,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let owner = OwnedFixtureMember(connection);
+    let connection = &owner.0;
+    if let Some(deadline) = first_exchange {
+        let stable = connection.stable_id();
+        let mut before = [0; 32];
+        connection
+            .export_keying_material(&mut before, b"miopunch/mio74-fixture-session/1", &[])
+            .map_err(|_| "actual ordinary M exporter unavailable")?;
+        let started = std::time::Instant::now();
+        let (matched, stream_id) = n0_future::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            async {
+                let (mut send, mut recv) = connection.open_bi().await?;
+                let stream_id = send.id().to_string();
+                let message = b"CURRENT74 native to browser original M exchange";
+                send.write_all(message).await?;
+                send.finish()?;
+                let reply = recv.read_to_end(65536).await?;
+                Ok::<_, Box<dyn Error + Send + Sync>>((reply == message, stream_id))
+            },
+        )
+        .await??;
+        let mut after = [0; 32];
+        let unchanged = connection
+            .export_keying_material(&mut after, b"miopunch/mio74-fixture-session/1", &[])
+            .is_ok()
+            && before == after;
+        println!(
+            "{}",
+            json!({"event":"member-native-exchange","label":label,"matched":matched,"streamId":stream_id,
+            "stableId":stable,"stableUnchanged":connection.stable_id()==stable,"bindingUnchanged":unchanged,
+            "memberAuthorized":gate.allows(connection,ProtocolScope::Member),"ordinaryStream":true,
+            "elapsedMs":started.elapsed().as_millis(),"paths":connection_paths(connection)})
+        );
+        if !matched || !unchanged {
+            return Err("actual native to browser stream mismatch".into());
+        }
+    }
+    let mut streams = tokio::task::JoinSet::new();
+    let result = loop {
+        let stream = tokio::select! {
+            _=connection.closed()=>break Ok(()),
+            stream=connection.accept_bi()=>stream,
+            Some(_)=streams.join_next(),if !streams.is_empty()=>continue,
+        };
+        let (send, recv) = match stream {
+            Ok(stream) => stream,
+            Err(error) => break Err(error.into()),
+        };
+        streams.spawn(miopunch_native_probe::rtc_member::serve_stream(
+            endpoint.clone(),
+            connection.clone(),
+            gate.clone(),
+            rtc.clone(),
+            send,
+            recv,
+        ));
+    };
+    streams.abort_all();
+    while streams.join_next().await.is_some() {}
+    result
 }
 
 struct FixtureOptions<'a> {
@@ -209,7 +475,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     println!(
         "{}",
-        json!({"event":"ready", "id":endpoint.id().to_string(), "route":transport.route()?,
+        json!({"event":"ready", "pid":std::process::id(), "id":endpoint.id().to_string(), "route":transport.route()?,
         "knownMembers":node.status().members.iter().map(|(id,_)|id.to_string()).collect::<Vec<_>>(),
         "ipAddresses":endpoint.addr().ip_addrs().count(), "relayAddresses":endpoint.addr().relay_urls().count(),
         "traffic":traffic.snapshot(), "socketCount":socket_count(),"legacyOnly":legacy_only,"unifiedMember":unified_member,"normalPublicTrust":args[3]=="-",
@@ -218,6 +484,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let node = Arc::new(tokio::sync::Mutex::new(node));
     let mut input = BufReader::new(tokio::io::stdin()).lines();
     let mut handlers = tokio::task::JoinSet::new();
+    let named_attempts: NamedMemberAttempts = Arc::default();
     let code_path = std::path::Path::new(&args[1]).join("fixture.precode");
     let mut issued = if admission_mode && code_path.exists() {
         Some(miopunch_native_probe::precode::Precode::decode(
@@ -232,10 +499,125 @@ async fn main() -> Result<(), Box<dyn Error>> {
     loop {
         tokio::select! {
             line=input.next_line()=>match line?.as_deref() {
-                Some("stop")|None=>break,
+                Some("stop")|None=>{
+
+                    break;
+                },
                 Some("status")=>println!("{}",json!({"event":"status","traffic":traffic.snapshot(),"socketCount":socket_count(),
                     "activeRtcAssociations":rtc_transport.active_associations(),"activeRtcPumps":rtc_transport.active_pumps(),
                     "publishedRtcRoutes":rtc_transport.published_routes_fixture()})),
+                Some("member-attempts") if unified_member=>{
+                    let attempts=named_attempts.lock().unwrap();
+                    println!("{}",json!({"event":"member-attempts","attempts":attempts.iter().map(|(label,entry)|json!({
+                        "label":label,"pending":entry.pending,"cancelled":entry.cancellation.is_cancelled(),
+                        "originalOpen":entry.original.as_ref().map(|original|original.is_open())})).collect::<Vec<_>>(),
+                        "activeRtcAssociations":rtc_transport.active_associations(),"activeRtcPumps":rtc_transport.active_pumps()}));
+                },
+                Some(command) if unified_member && command.starts_with("member-socket-mark ") => {
+                    let result = async {
+                        let fields = command.strip_prefix("member-socket-mark ").unwrap()
+                            .split_whitespace().collect::<Vec<_>>();
+                        if fields.len() != 4 { return Err("exact original M and observed local tuple required"); }
+                        let stable = fields[1].parse::<usize>().map_err(|_| "invalid stable ID")?;
+                        let selected = std::net::SocketAddrV4::new(
+                            fields[2].parse().map_err(|_| "actual IPv4 required")?,
+                            fields[3].parse().map_err(|_| "actual UDP port required")?);
+                        if selected.ip().is_unspecified() || selected.ip().is_loopback()
+                            || selected.ip().is_multicast() || selected.port() == 0 {
+                            return Err("actual physical tuple unavailable");
+                        }
+                        let weak = {
+                            let ledger = named_attempts.lock().map_err(|_| "owned ledger unavailable")?;
+                            let entry = ledger.get(fields[0]).ok_or("unknown exact owned attempt")?;
+                            if entry.pending { return Err("ordinary M has not returned"); }
+                            entry.original.clone().ok_or("ordinary M absent")?
+                        };
+                        let connection = weak.upgrade().ok_or("ordinary M no longer live")?;
+                        let gate = node.lock().await.admission_gate();
+                        let selected_rtc = || connection.paths().iter().any(|path| path.is_selected()
+                            && matches!(path.remote_addr(),iroh::TransportAddr::Custom(address)
+                                if address.id()==miopunch_native_probe::rtc_transport::TRANSPORT_ID
+                                && iroh::endpoint::transports::CustomSender::is_data_path_qualified(
+                                    &rtc_transport,address,connection.stable_id())));
+                        if connection.stable_id()!=stable || connection.close_reason().is_some()
+                            || !gate.allows(&connection,ProtocolScope::Member) || !selected_rtc() {
+                            return Err("same original ordinary M/current gate/selected RTC unavailable");
+                        }
+                        let observation = observe_owned_udp_mark(selected);
+                        if connection.stable_id()!=stable || connection.close_reason().is_some()
+                            || !gate.allows(&connection,ProtocolScope::Member) || !selected_rtc() {
+                            return Err("ordinary M/current gate/RTC changed during read");
+                        }
+                        Ok(observation)
+                    }.await;
+                    println!("{}", match result {
+                        Ok(observation) => json!({"event":"member-socket-mark", "observation":observation}),
+                        Err(reason) => json!({"event":"member-socket-mark", "observation":{
+                            "observed":false,"socketEvidence":null,"reason":reason,"actualSocketUid":null}}),
+                    });
+                },
+                Some(command) if unified_member && command.starts_with("member-cancel ")=>{
+                    let label=&command[14..];
+                    let attempts=named_attempts.lock().unwrap();
+                    let attempt=attempts.get(label).ok_or("unknown owned member attempt")?;
+                    if !attempt.pending {return Err("member attempt already settled".into());}
+                    attempt.cancellation.cancel();
+                    println!("{}",json!({"event":"member-cancelled","label":label,"pending":attempt.pending}));
+                },
+                Some(command) if unified_member && (command.starts_with("member-connect ") || command.starts_with("member-connect-named "))=>{
+                    let (label,parts)=if let Some(named)=command.strip_prefix("member-connect-named ") {
+                        let mut parts=named.split_whitespace();
+                        let label=parts.next().ok_or("owned member attempt label missing")?;
+                        if label.len()>16 || !label.bytes().all(|byte|byte.is_ascii_alphanumeric()) {return Err("invalid fixture label".into());}
+                        (Some(label.to_string()),parts.collect::<Vec<_>>())
+                    } else {(None,command[15..].split_whitespace().collect::<Vec<_>>())};
+                    if parts.len()!=3 {return Err("member-connect requires peer, contact route and caller milliseconds".into());}
+                    let peer=parts[0].parse()?;
+                    let route=MqttTransport::address(parts[1])?;
+                    let caller_ms=parts[2].parse::<u64>()?;
+                    if caller_ms==0 || caller_ms>12000 {return Err("member caller budget exceeds fixture caller budget".into());}
+                    let started=n0_future::time::Instant::now();
+                    let deadline=started+Duration::from_millis(caller_ms);
+                    let cancellation=tokio_util::sync::CancellationToken::new();
+                    let named_guard=if let Some(label)=label.as_ref() {
+                        let mut attempts=named_attempts.lock().unwrap();
+                        // Four retained labels bound this diagnostic ledger, not SDK admission or Node policy.
+                        if attempts.len()>=4 || attempts.contains_key(label) {return Err("fixture label ledger full or already owned".into());}
+                        attempts.insert(label.clone(),NamedMemberAttempt {cancellation:cancellation.clone(),pending:true,original:None});
+                        Some(NamedAttemptGuard {ledger:named_attempts.clone(),label:label.clone()})
+                    } else {None};
+                    let assembly=assembly.clone();
+                    let gate=node.lock().await.admission_gate();
+                    let rtc=rtc_transport.clone();
+                    let serving_endpoint=endpoint.clone();
+                    handlers.spawn(async move {
+                        let mut named_guard=named_guard;
+                        let result=assembly.coordinator().connect(
+                            iroh::EndpointAddr::new(peer).with_addrs([iroh::TransportAddr::Custom(route)]),
+                            miopunch_native_probe::connection_coordinator::SessionPurpose::MemberBusiness,
+                            miopunch_native_probe::connection_coordinator::AttemptContext::new(deadline,cancellation)
+                        ).await;
+                        if let Some(guard)=named_guard.as_ref() {
+                            if let Some(entry)=guard.ledger.lock().unwrap().get_mut(&guard.label) {
+                                entry.original=result.as_ref().ok().map(|connection|connection.weak_handle());
+                            }
+                        }
+                        drop(named_guard.take());
+                        println!("{}",json!({"event":"member-connect-result","label":label,"returned":result.is_ok(),
+                            "stableId":result.as_ref().ok().map(|connection|connection.stable_id()),
+                            "expectedPeerMatched":result.as_ref().ok().is_some_and(|connection|connection.remote_id()==peer),
+                            "remoteId":result.as_ref().ok().map(|connection|connection.remote_id().to_string()),
+                            "memberAuthorized":result.as_ref().ok().is_some_and(|connection|gate.allows(connection,ProtocolScope::Member)),
+                            "paths":result.as_ref().ok().map(connection_paths),
+                            "quicRole":result.as_ref().ok().map(|connection|if connection.side().is_client(){"client"}else{"server"}),
+                            "callerMs":started.elapsed().as_millis(),"callerBudgetMs":caller_ms,
+                            "failure":result.as_ref().err().map(ToString::to_string)}));
+                        if let Ok(connection)=result {
+                            serve_member_streams(serving_endpoint,connection,gate,rtc,Some(deadline),label).await?;
+                        }
+                        Ok::<_,Box<dyn Error+Send+Sync>>(())
+                    });
+                },
                 Some("admission-status") if admission_mode=>{
                     let mut node=node.lock().await;
                     let mut requests=Vec::new();
@@ -442,20 +824,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             "remainingCallerMs":deadline.saturating_duration_since(n0_future::time::Instant::now()).as_millis()}));
                         result?;
                     } else {
-                        let mut streams=tokio::task::JoinSet::new();
-                        loop {
-                            let stream=tokio::select! {
-                                _=connection.closed()=>break,
-                                stream=connection.accept_bi()=>stream,
-                                Some(_)=streams.join_next(),if !streams.is_empty()=>continue,
-                            };
-                            let (send,recv)=stream?;
-                            let gate=node.lock().await.admission_gate();
-                            streams.spawn(miopunch_native_probe::rtc_member::serve_stream(
-                                serving_endpoint.clone(),connection.clone(),gate,rtc_transport.clone(),send,recv));
-                        }
-                        streams.abort_all();
-                        while streams.join_next().await.is_some() {}
+                        let gate=node.lock().await.admission_gate();
+                        serve_member_streams(serving_endpoint,connection.clone(),gate,rtc_transport,None,None).await?;
                     }
                     connection.closed().await;
                     Ok(())
@@ -466,37 +836,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     }
-    endpoint.close().await;
-    handlers.abort_all();
-    while handlers.join_next().await.is_some() {}
-    drop(assembly);
-    // Closing the endpoint stops its actor. Drop this last fixture clone too,
-    // so the actor's custom endpoint can withdraw and report transport closure.
-    drop(endpoint);
-    tokio::time::timeout(Duration::from_secs(1), transport.wait_closed()).await??;
-    Arc::try_unwrap(node)
-        .map_err(|_| "fixture node still owned")?
-        .into_inner()
-        .close()
-        .await;
-    let cleanup_started = std::time::Instant::now();
-    let sockets_immediate = socket_count();
-    while (rtc_transport.active_associations() != 0 || rtc_transport.active_pumps() != 0)
-        && cleanup_started.elapsed() < Duration::from_secs(2)
-    {
-        tokio::time::sleep(Duration::from_millis(10)).await;
+    for attempt in named_attempts.lock().unwrap().values() {
+        if attempt.pending {
+            attempt.cancellation.cancel();
+        }
     }
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    let active_associations = rtc_transport.active_associations();
-    let active_pumps = rtc_transport.active_pumps();
-    println!("{}", json!({"event":"closed","traffic":traffic.snapshot(),
-        "cleanupMs":cleanup_started.elapsed().as_millis(),"socketsBefore":sockets_before,
-        "socketsImmediate":sockets_immediate,"socketsLate":socket_count(),
-        "activeRtcAssociations":active_associations,"activeRtcPumps":active_pumps}));
-    if active_associations != 0 || active_pumps != 0 {
-        return Err("owned RTC cleanup did not complete".into());
+    drop(named_attempts);
+    FixtureCleanup {
+        node,
+        assembly,
+        endpoint,
+        transport,
+        rtc_transport,
+        traffic,
+        handlers,
+        sockets_before,
     }
-    Ok(())
+    .close()
+    .await
 }
 
 #[cfg(test)]

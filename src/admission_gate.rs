@@ -15,9 +15,7 @@ use iroh::endpoint::{
 };
 use iroh_base::EndpointId;
 
-use crate::admission_proof::{
-    AdmissionScope, AdmissionSecret, BootstrapProof, prove_client, prove_server,
-};
+use crate::admission_proof::{AdmissionScope, AdmissionSecret, BootstrapProof};
 use crate::genesis_recovery::RECOVERY_ALPN;
 use crate::member_bootstrap::MEMBER_BOOTSTRAP_ALPN;
 use crate::nat_selector::{LearningScope, ProbeProtocol};
@@ -584,6 +582,7 @@ impl EndpointHooks for AdmissionGate {
                 state.allowed_data_custom_ids.clone(),
             )
         };
+
         if protocol != ProtocolScope::AdmissionRequest && policy.removed.contains(&peer) {
             return Self::reject();
         }
@@ -643,9 +642,9 @@ impl EndpointHooks for AdmissionGate {
                     return Self::reject();
                 };
                 let result = if connection.side().is_client() {
-                    prove_client(connection, &scope, &secret).await
+                    crate::admission_proof::prove_client(connection, &scope, &secret).await
                 } else {
-                    prove_server(connection, &scope, &secret).await
+                    crate::admission_proof::prove_server(connection, &scope, &secret).await
                 };
                 let Ok(proof) = result else {
                     return Self::reject();
@@ -663,7 +662,9 @@ impl EndpointHooks for AdmissionGate {
                 return Self::reject();
             }
         }
-        if !agree_on_stage(connection).await {
+        let agreed = agree_on_stage(connection).await;
+
+        if !agreed {
             return Self::reject();
         }
         let weak = connection.weak_handle();
@@ -686,6 +687,7 @@ impl EndpointHooks for AdmissionGate {
                         )
                     }))
             {
+
                 return Self::reject();
             }
             let session = Session {
@@ -714,6 +716,7 @@ impl EndpointHooks for AdmissionGate {
                 state.sessions.remove(&id);
             }
         });
+
         if protocol == ProtocolScope::Member {
             AfterHandshakeOutcome::AcceptData {
                 allowed_data_custom_ids: self

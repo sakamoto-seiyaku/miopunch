@@ -1,0 +1,55 @@
+{
+  "passed": true,
+  "scope": "ONE actual SDK regression of exact17 M74 candidate+HEAD compiled at canonical paths; original WIP restored before runtime",
+  "actualOuterExit": 0,
+  "actualSdkRunnerExit": 0,
+  "callerMs": 11032,
+  "originalBudgetMs": 12000,
+  "bothInitialAndDistinctNewFinalAck": true,
+  "nativeWatermarks": [
+    4,
+    15
+  ],
+  "browserWatermarks": [
+    3,
+    19
+  ],
+  "strictMuc1AndCorrectRoles": true,
+  "bothCurrentExactRtcSelected": true,
+  "sameMIdentityBindingAndBidirectionalStreams": true,
+  "actualChannelIds": [
+    0,
+    0
+  ],
+  "allNaturalCleanup": true,
+  "nativeCleanupMs": 250,
+  "nativeSocketCounts": [
+    4,
+    4,
+    4
+  ],
+  "browserPcDcCreatedClosed": [
+    3,
+    3
+  ],
+  "browserOwnedStateZeroImmediateLate": true,
+  "perLeaseImmediateDataChannelState": "closing",
+  "perLeaseLateDataChannelState": "closed",
+  "currentWipEqualsCapturedCandidate": false,
+  "selectedInputCounts": {
+    "native": 276,
+    "wasm": 187
+  },
+  "allCapturedInputsMatchHeadPlusCandidate": true,
+  "allOriginal489ProtectedInputsRestoredExactBytesAndModes": true,
+  "headAndIndexUnchanged": true,
+  "sourceArtifactAndRestoreProofStableDuringRuntime": true,
+  "receiptSha256": "51c124dcc892069879879c741a1e206b8b53a9e6c17bd89f11fda86f58c247c4",
+  "outerReceiptSha256": "a69f116fca36a7ea519941bd3640445195acfbd9ad1c10a42a148079eb8424da",
+  "candidateBuildReceiptSha256": "6e74443736ee7fb115762220c8ac988d468135ddb166755ca85675269c3ffa9c",
+  "candidateManifestSha256": "7002362e927072e45d000a781b8f29bf77c688cfeace2f25baa7135b60b1f479",
+  "candidateRuntimeFreezeSha256": "793f3c0a413a6bc5aa3986ae0dc016475bb27da03d5ac128c8eaa9098542f203",
+  "physicalPublicWanQualified": false,
+  "androidBuilt": false,
+  "ownedJobs": []
+}

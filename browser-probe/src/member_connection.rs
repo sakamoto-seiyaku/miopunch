@@ -223,7 +223,7 @@ impl BrowserMemberConnection {
                     .iter()
                     .any(|proof| proof.applies_to(&self.connection, &scope))
         });
-        serde_json::json!({"newProtocol":self.connection.alpn()==BUSINESS_ALPN,
+        serde_json::json!({"remoteId":self.connection.remote_id().to_string(),"newProtocol":self.connection.alpn()==BUSINESS_ALPN,
             "alpn":String::from_utf8_lossy(self.connection.alpn()),"ordinaryHandle":!self.is_closed(),
             "expectedPeerMatched":self.connection.remote_id()==self.repair_contact.id,"memberAuthorized":member_authorized,
             "coordinator":state.member_reports.get(&self.connection.stable_id()).map(|report|&report["coordinator"]),
@@ -265,6 +265,22 @@ impl BrowserMemberConnection {
         .await
         .map_err(|_| error("member connection unavailable"))?
     }
+
+    /// Serve one ordinary exchange on this qualified M using the same bounded
+    /// stream protocol as the native member counterpart.
+    pub async fn serve_exchange(&self) -> Result<String, JsValue> {
+        self.qualified_snapshot().await?;
+        n0_future::time::timeout(TIMEOUT, async {
+            let (mut send, mut recv) = self.connection.accept_bi().await.map_err(error)?;
+            let message = recv.read_to_end(65536).await.map_err(error)?;
+            self.qualified_snapshot().await?;
+            send.write_all(&message).await.map_err(error)?;
+            send.finish().map_err(error)?;
+            String::from_utf8(message).map_err(error)
+        })
+        .await
+        .map_err(|_| error("member exchange unavailable"))?
+    }
 }
 
 struct RepairGuard<'a> {
@@ -282,6 +298,34 @@ impl Drop for RepairGuard<'_> {
 }
 #[wasm_bindgen]
 impl BrowserNetwork {
+    /// Create one incoming operation before waiting for its particular M.
+    /// Cancellation does not close this node or another member connection.
+    pub fn member_accept_attempt(
+        &self,
+        caller_ms: u32,
+    ) -> Result<BrowserMemberAcceptAttempt, JsValue> {
+        if caller_ms == 0 || Duration::from_millis(u64::from(caller_ms)) > self.caller_budget {
+            return Err(error(
+                "member caller budget must fit the original browser budget",
+            ));
+        }
+        if self.saved.stage() != "Complete" {
+            return Err(rejected());
+        }
+        Ok(BrowserMemberAcceptAttempt {
+            endpoint: self.endpoint.clone(),
+            gate: self.gate.clone(),
+            incoming: self.incoming.clone(),
+            lease: self.lease.as_ref().ok_or_else(rejected)?.0,
+            saved: self.committed.clone(),
+            deadline: n0_future::time::Instant::now() + Duration::from_millis(u64::from(caller_ms)),
+            cancel: tokio_util::sync::CancellationToken::new(),
+            started: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(feature = "rtc-probe")]
+            rtc_transport: self.rtc_transport.clone(),
+        })
+    }
+
     pub async fn open_member_connection(
         &self,
         target: String,
@@ -319,6 +363,96 @@ impl BrowserNetwork {
             #[cfg(feature = "rtc-probe")]
             rtc_transport: self.rtc_transport.clone(),
         })
+    }
+}
+
+#[wasm_bindgen]
+pub struct BrowserMemberAcceptAttempt {
+    endpoint: Endpoint,
+    gate: BrowserGate,
+    incoming: std::rc::Rc<super::incoming::IncomingDispatcher>,
+    lease: u32,
+    saved: String,
+    deadline: n0_future::time::Instant,
+    cancel: tokio_util::sync::CancellationToken,
+    started: std::sync::atomic::AtomicBool,
+    #[cfg(feature = "rtc-probe")]
+    rtc_transport: crate::rtc_transport::RtcTransport,
+}
+
+impl Drop for BrowserMemberAcceptAttempt {
+    fn drop(&mut self) {
+        self.cancel.cancel();
+    }
+}
+
+#[wasm_bindgen]
+impl BrowserMemberAcceptAttempt {
+    pub fn cancel(&self) {
+        self.cancel.cancel();
+    }
+
+    pub async fn accept(&self) -> Result<BrowserMemberConnection, JsValue> {
+        use futures_util::FutureExt;
+        if self.started.swap(true, std::sync::atomic::Ordering::AcqRel) {
+            return Err(error("member attempt already started"));
+        }
+        let work = async {
+            if read_node(self.lease).await?.as_string().as_deref() != Some(&self.saved) {
+                return Err(error("browser materials changed during member attempt"));
+            }
+            use crate::connection_coordinator::{
+                AttemptContext, AttemptRole, MemberPathAdapter, SessionPurpose,
+            };
+            let caps = self.gate.capabilities(AttemptRole::Responder);
+            let coordinator = crate::connection_coordinator::ConnectionCoordinator::new(
+                self.endpoint.clone(),
+                caps.permitted,
+                vec![],
+            );
+            let attempt = AttemptContext::new(self.deadline, self.cancel.clone());
+            let accepting = self.incoming.receive(BUSINESS_ALPN, &attempt).await?;
+            let connection = coordinator
+                .accept_accepting(accepting, SessionPurpose::MemberBusiness, attempt)
+                .await
+                .map_err(error)?;
+            let mut pending = RequestConnection(Some(connection.clone()));
+            let owner = BrowserMemberConnection {
+                repair_contact: EndpointAddr::new(connection.remote_id()),
+                connection,
+                gate: self.gate.clone(),
+                lease: self.lease,
+                endpoint: self.endpoint.clone(),
+                repair_active: std::sync::atomic::AtomicBool::new(false),
+                repair_cancel: Mutex::new(None),
+                #[cfg(feature = "rtc-probe")]
+                rtc_active: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                #[cfg(feature = "rtc-probe")]
+                rtc_transport: self.rtc_transport.clone(),
+                #[cfg(feature = "rtc-probe")]
+                rtc_live: std::rc::Rc::new(std::cell::RefCell::new(None)),
+                #[cfg(feature = "rtc-probe")]
+                rtc_continuity: std::rc::Rc::new(std::cell::RefCell::new(None)),
+            };
+            owner.qualified_snapshot().await?;
+            pending.0 = None;
+            Ok(owner)
+        }
+        .fuse();
+        let cancelled = self.cancel.cancelled().fuse();
+        futures_util::pin_mut!(work, cancelled);
+        n0_future::time::timeout(
+            self.deadline
+                .saturating_duration_since(n0_future::time::Instant::now()),
+            async {
+                futures_util::select_biased! {
+                    _ = cancelled => Err(error("member attempt cancelled")),
+                    result = work => result,
+                }
+            },
+        )
+        .await
+        .map_err(|_| error("member connection caller deadline exceeded"))?
     }
 }
 

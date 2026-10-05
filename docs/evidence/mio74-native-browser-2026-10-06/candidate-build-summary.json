@@ -1,0 +1,126 @@
+{
+  "scope": "canonical-path temporary HEAD+exact17 M74 candidate source view; clean selected host/WASM build only",
+  "sourceView": "temporary canonical paths, not restored mixed WIP",
+  "baseHead": "9d25031963bfe22e1a3aed2196a3e1c65e39ae97",
+  "commands": [
+    {
+      "label": "native",
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--features",
+        "rtc-probe",
+        "--bin",
+        "browser_wss_member_native",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 27.702888279221952,
+      "freshArtifacts": 523,
+      "rebuiltArtifacts": 5,
+      "rebuiltTargets": [
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#iroh-mdns-address-lookup@0.5.0",
+          "target": "iroh_mdns_address_lookup"
+        },
+        {
+          "package": "path+file:///home/js/Git/miopunch/vendor/p2panda-net#0.7.1",
+          "target": "p2panda_net"
+        },
+        {
+          "package": "path+file:///home/js/Git/miopunch/vendor/iroh#1.2.0",
+          "target": "iroh"
+        },
+        {
+          "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+          "target": "miopunch_native_probe"
+        },
+        {
+          "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+          "target": "browser_wss_member_native"
+        }
+      ]
+    },
+    {
+      "label": "wasm",
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "miopunch-browser-probe",
+        "--features",
+        "rtc-probe",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "seconds": 15.370663882000372,
+      "freshArtifacts": 294,
+      "rebuiltArtifacts": 2,
+      "rebuiltTargets": [
+        {
+          "package": "path+file:///home/js/Git/miopunch/vendor/iroh#1.2.0",
+          "target": "iroh"
+        },
+        {
+          "package": "path+file:///home/js/Git/miopunch/browser-probe#miopunch-browser-probe@0.1.0",
+          "target": "miopunch_browser_probe"
+        }
+      ]
+    },
+    {
+      "label": "bindgen",
+      "command": [
+        "rtk",
+        "proxy",
+        "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+        "--target",
+        "web",
+        "--out-dir",
+        "/tmp/mio74-scoped-candidate-pair-build-first-20261006/pkg",
+        "/tmp/mio74-scoped-candidate-pair-build-first-20261006/miopunch_browser_probe.wasm"
+      ],
+      "exit": 0,
+      "seconds": 2.170805762987584
+    }
+  ],
+  "guardPassed": true,
+  "exit": 0,
+  "targetDirectory": "/home/js/Git/miopunch/target",
+  "sourceStable": true,
+  "selectedCounts": {
+    "native": 276,
+    "wasm": 187
+  },
+  "allSelectedInputsMatched": true,
+  "allSelectedInputsMatchHeadPlusCandidate": true,
+  "compiledUnderTemporaryCanonicalCandidateView": true,
+  "fullReceiptSha256": "6e74443736ee7fb115762220c8ac988d468135ddb166755ca85675269c3ffa9c",
+  "fullReceiptDirectory": "/tmp/mio74-scoped-candidate-pair-build-first-20261006",
+  "allOriginalProtectedInputsRestored": true,
+  "restorationConflicts": [],
+  "artifactPins": {
+    "browser_wss_member_native": "8a8df06d91b90fea76b3cf4a6d6163cec6938ccbf5f9d9011f9d7e064ae5a7d7",
+    "miopunch_browser_probe.wasm": "c2b31db4d125ebf58e90d94ee66c36bda95255682011b1f9a5e8e74a9f7762da",
+    "browser-probe-native": "47101db605f54283e4e4ea9f250c0d7525c4843acc410b21ac194f249b9c3583",
+    "pkg/miopunch_browser_probe_bg.wasm": "9e495c607bc46f95b4bd2b054f8a4155136935007268ecb2c4c11b1cf6c69ccd",
+    "pkg/miopunch_browser_probe_bg.wasm.d.ts": "20ca533aab0a1625a60b449b7ba2a62674dec3b4013f618d5c24435b0a428bc4",
+    "pkg/miopunch_browser_probe.js": "3442cbccc7b7177036bc7467b59d7bf450d3731a8aef624156875661c73ec4e3",
+    "pkg/miopunch_browser_probe.d.ts": "a8ca573dd416dee6197e53a1f202e51c774c504edd8d4838481929bbc114aea5",
+    "pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+    "pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96"
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "review": "MIOPUNCH-74 final Standards",
+  "capturedUtc": "2026-10-05T19:41:37.560095+00:00",
+  "baseline": "9d25031963bfe22e1a3aed2196a3e1c65e39ae97",
+  "head": "9d25031963bfe22e1a3aed2196a3e1c65e39ae97",
+  "commits": [],
+  "diffCommand": "git diff 9d250319 -- src/admission_gate.rs src/admission_proof.rs src/rtc_member.rs src/bin/browser_wss_member_native.rs src/connection_coordinator.rs src/connection_coordinator_native.rs browser-probe/src/member_connection.rs browser-probe/src/network.rs browser-probe/src/rtc_member.rs tests/unified_connection.rs vendor/iroh/src/endpoint.rs vendor/iroh/src/endpoint/connection.rs vendor/iroh/src/socket.rs",
+  "diffSha256": "bb952842a07a3aba86c18973b8c7b40abfdcf7999efe09e6f486d86bd53f9c29",
+  "nonemptyWorktreeDiff": true,
+  "cleanSixFileFreezeMatched": true,
+  "files": {
+    "src/admission_gate.rs": {
+      "sha256": "4cd85c3df135921ae16c22da83dab07ec7797a74e9b4d0cca5b0908b41ec2040",
+      "bytes": 30103
+    },
+    "src/admission_proof.rs": {
+      "sha256": "3b3f6d7e72fbbc1d10b84942d17d296520cc4ae0f564d2e351ff1760ac4780f4",
+      "bytes": 18296
+    },
+    "src/rtc_member.rs": {
+      "sha256": "47e944b65a787a28ac4c4aad8865c456c3e1388f41a176139f750d60f6439dbc",
+      "bytes": 52997
+    },
+    "src/bin/browser_wss_member_native.rs": {
+      "sha256": "588efd50cd14a349ded527b20e9d4f86e2e667e68fd83f524da40a134442bcf7",
+      "bytes": 56682
+    },
+    "src/connection_coordinator.rs": {
+      "sha256": "6bc1c9b440a51e64a155e668658a76505ec40a77679e349580e1655b31e23c76",
+      "bytes": 30894
+    },
+    "src/connection_coordinator_native.rs": {
+      "sha256": "6a92d60c5c500861d13c1e8e7ddfbfbcbed5b3b0bc22dca914896437707760b7",
+      "bytes": 9240
+    },
+    "browser-probe/src/member_connection.rs": {
+      "sha256": "d770cc97cfcc9d0737e9963a44d5727990a1067647547229f9fafa859871d17f",
+      "bytes": 23549
+    },
+    "browser-probe/src/network.rs": {
+      "sha256": "e40d9158ad0c2642bd65327dd649601c7a3f2a03cc9f679dc018dfaec39e1de6",
+      "bytes": 93495
+    },
+    "browser-probe/src/rtc_member.rs": {
+      "sha256": "0460ca47d7d01dfbf01dc8e5af1b01f332dc2b835ebfa05bd4d0f396de344e34",
+      "bytes": 56735
+    },
+    "tests/unified_connection.rs": {
+      "sha256": "691cf747ee2a52bcfc97914c9ea6caf7dde36eb54699d667154a89e4cfc3b903",
+      "bytes": 68173
+    },
+    "vendor/iroh/src/endpoint.rs": {
+      "sha256": "04423be1084a027ba9d49a55386bf698d78dedfbc9e1e096c7eca07b21016ebe",
+      "bytes": 188504
+    },
+    "vendor/iroh/src/endpoint/connection.rs": {
+      "sha256": "c72eaea5de2764bbb5b7756038e167b505ec74247f2b01a99bbc5afd2f80df10",
+      "bytes": 70756
+    },
+    "vendor/iroh/src/socket.rs": {
+      "sha256": "077c1ecbabf8ffe564ce755f71d47b697f5db1748372db48bda7ae2dc2a061cb",
+      "bytes": 160605
+    },
+    "tests/mio74_rtc_offer_ownership.rs": {
+      "sha256": "922215825f09fc4f624cf220db5303c6d575facb17f4d8d76d5564e0572fc0f7",
+      "bytes": 12530
+    },
+    "tests/negotiated_accept_context.rs": {
+      "sha256": "e0ff03a0a6f0865c12d0aaed371e3ed0fd40c881d6bf134fb790bb738de3fbd1",
+      "bytes": 15213
+    },
+    "tests/support/negotiated_accept_members.rs": {
+      "sha256": "e7f3d5aa0c114c2e163a1dc0855228b6121b6eae99c23e2883635eeb64dfd9ae",
+      "bytes": 3356
+    },
+    "AGENTS.md": {
+      "sha256": "0665f135739c4492b73ff1ea0746fb0f69adac7af9c14248eb24ab37808b9873",
+      "bytes": 1809
+    },
+    "CONTEXT.md": {
+      "sha256": "04ec85d5b5b004cee43537727128b11fb49b2238b8c488417c8d686e3e01d91e",
+      "bytes": 12945
+    },
+    "docs/agents/domain.md": {
+      "sha256": "1fae24d73ccb1696f71ff86335ede4fa4277a21ee90aef6154a718c0a0267ce9",
+      "bytes": 885
+    },
+    "docs/agents/build-cache.md": {
+      "sha256": "9aeaa27640f4c0b11d6f7149cd817bf841f4033756d26d3292f8a16181b73176",
+      "bytes": 4612
+    },
+    "docs/notes/2026-10-05-unified-connection-architecture.md": {
+      "sha256": "1e5b304154270838183aa7dddd9841874456d5e24aeac5b7b8aaf4012aabc383",
+      "bytes": 17085
+    },
+    "docs/adr/0009-unified-session-and-capability-based-paths.md": {
+      "sha256": "8a0c9385b326f4ae55bf44f4f29bdbf98b31f63bcbb08430d9654f6213d01376",
+      "bytes": 5873
+    },
+    "browser-probe/src/admission.rs": {
+      "sha256": "49b7ba08c9d1ca47f4d672b258e8f2d6388a20cfded40951ec027d2bd9c16b48",
+      "bytes": 13888
+    },
+    "browser-probe/src/replica.rs": {
+      "sha256": "adf6d398f468e7da06a8d0c2240f914603431453da19e68b1d8f43f5775b1338",
+      "bytes": 21137
+    },
+    "browser-probe/src/lib.rs": {
+      "sha256": "4d27398e27b1adc6c5084b4ac0e91eaa8a2c9dc447bca8d7113ce53fc454d44a",
+      "bytes": 4508
+    }
+  },
+  "ownJobs": [],
+  "additionalCallerCoverage": {
+    "capturedUtc": "2026-10-05T20:01:37.103382+00:00",
+    "diffCommand": "git diff 9d250319 -- browser-probe/src/admission.rs browser-probe/src/replica.rs browser-probe/src/lib.rs",
+    "diffSha256": "9accff13435eabd86abd1649f3596d87d5c64134028933d69debfc8f72717721",
+    "verdict": "No additional Standards finding; original-clock purpose dispatch and RAII pending-M cleanup preserved."
+  }
+}

@@ -1,0 +1,15 @@
+# MIOPUNCH-74 concentrated final Standards review
+
+Baseline/HEAD: `9d25031963bfe22e1a3aed2196a3e1c65e39ae97`; commit list empty. Reviewed the nonempty worktree diff for the 16 assigned files and the three assigned untracked tests. Source hashes and exact diff command are pinned in `standards-source-freeze.json`; all six clean-source hashes match the diagnostic-cleanup freeze. Unrelated M77/purpose/evidence WIP is excluded.
+
+**Documented-standard violations: none found.**
+
+The new finalizers at `src/rtc_member.rs:889` and `browser-probe/src/rtc_member.rs:685` keep weak original-M ownership, reuse the caller budget, recheck permission, and obtain a distinct final exact-route ACK. This follows the documented initial-seal/finalizer choice in `docs/notes/2026-10-05-unified-connection-architecture.md:64`–`:66` and the ownership/cleanup rule at `:104`. Generic accepting-context and bootstrap-route changes remain transport-neutral; no RTC role or platform dispatch enters iroh. ADR 0009's core/adapter boundary remains intact. AGENTS/build-cache/domain rules introduce no additional source-level breach here. Formatting/tooling checks were not re-reviewed as smell findings.
+
+**Judgement call — low, possible Duplicated Code (new duplication of an existing native block).** `src/rtc_member.rs:975`–`:1001` repeats the older ownership handoff at `:1016`–`:1046`: clear cancellation ownership, spawn a weak-M/pump waiter, retire the lease, abort/join any remaining pump, close PC, and emit cleanup. A later retirement fix could reach one branch only. Consider a small native-local handoff helper preserving each branch's reporting difference. This is advisory, not an architectural violation or a request for another cross-platform framework; owner: MIOPUNCH-74 native RTC adapter.
+
+Evidence boundary: final clean Host/WASM receipts pass with 276/187 selected inputs; clean controlled SDK return is 10969/12000ms, with initial/new-final ACKs, bidirectional same-M streams and natural cleanup. Earlier reverse/removal audit predates diagnostic deletion. Physical public receipt remains unqualified (12009/12000ms; both gates accepted, ICE checking/DTLS new); it does not prove public RTC/NAT success or a current clean Android build.
+
+Totals: 0 documented violations; 1 low advisory smell. Read-only review; no source edits, builds/tests, devices, public actions, Plane mutation or commits. Own jobs: none.
+
+Additional caller coverage: `browser-probe/src/admission.rs:148`, `browser-probe/src/replica.rs:71`, and `browser-probe/src/lib.rs:29` introduce no further finding. Admission/replica register their own ALPN with the existing dispatcher, carry one caller-budget deadline and cancellation source into Accepting, consume remaining time, and guard the accepted M with RequestConnection. They cannot dequeue MemberBusiness through independent endpoint.accept calls. The export adds no lifetime holder. Replica protocol migration/nonempty-replica qualification remain outside this review. Three hashes and the supplemental diff are pinned in the same freeze.

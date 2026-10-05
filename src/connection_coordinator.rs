@@ -406,19 +406,52 @@ impl ConnectionCoordinator {
     ) -> Result<Connection, ConnectError> {
         attempt
             .run(async {
-                let connection = incoming
-                    .with_caller_deadline(attempt.deadline)
+                let accepting = incoming
                     .accept()
-                    .map_err(|e| ConnectError::Transport(e.to_string()))?
-                    .await
-                    .map_err(ConnectError::from_connecting)?;
-                if connection.alpn() != purpose.alpn() {
-                    connection.close(0u32.into(), b"unified protocol required");
-                    return Err(ConnectError::ProtocolUnsupported);
-                }
-                Ok(connection)
+                    .map_err(|error| ConnectError::Transport(error.to_string()))?;
+                self.accept_inner(accepting, purpose, &attempt).await
             })
             .await
+    }
+
+    /// Accept a pending connection already classified by negotiated ALPN. The
+    /// same original context bounds metadata, hook execution and data release;
+    /// classification does not grant identity, admission or a new budget.
+    pub async fn accept_accepting(
+        &self,
+        accepting: iroh::endpoint::Accepting,
+        purpose: SessionPurpose,
+        attempt: AttemptContext,
+    ) -> Result<Connection, ConnectError> {
+        attempt
+            .run(self.accept_inner(accepting, purpose, &attempt))
+            .await
+    }
+
+    async fn accept_inner(
+        &self,
+        accepting: iroh::endpoint::Accepting,
+        purpose: SessionPurpose,
+        attempt: &AttemptContext,
+    ) -> Result<Connection, ConnectError> {
+        let mut accepting = accepting
+            .with_caller_deadline(attempt.deadline)
+            .with_attempt_cancellation(attempt.cancellation.clone());
+        // ALPN inspection awaits the actual TLS negotiation without polling the
+        // framework hook future. A mismatched purpose must allocate no candidate.
+        let alpn = accepting
+            .alpn()
+            .await
+            .map_err(|error| ConnectError::Transport(error.to_string()))?;
+        if alpn != purpose.alpn() {
+            return Err(ConnectError::ProtocolUnsupported);
+        }
+        let connection = accepting.await.map_err(ConnectError::from_connecting)?;
+        if connection.alpn() != purpose.alpn() {
+            connection.close(0u32.into(), b"unified protocol required");
+            return Err(ConnectError::ProtocolUnsupported);
+        }
+        Ok(connection)
     }
 }
 

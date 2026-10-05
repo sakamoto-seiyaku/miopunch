@@ -26,7 +26,7 @@ mod mqtt;
 pub mod mqtt_datagram;
 mod network;
 pub use mqtt::BrowserMqttDatagram;
-pub use network::{BrowserMemberConnection, BrowserNetwork};
+pub use network::{BrowserMemberAcceptAttempt, BrowserMemberConnection, BrowserNetwork};
 
 const KEY_NAME: &str = "miopunch-browser-probe-node-key";
 const ALPN: &[u8] = b"miopunch/browser-probe/1";

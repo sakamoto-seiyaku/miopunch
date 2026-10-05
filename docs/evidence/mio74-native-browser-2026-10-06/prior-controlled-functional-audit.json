@@ -1,0 +1,62 @@
+{
+  "independentAuditPassed": true,
+  "buildReceiptSha256": "3e535abbc2702ed8fab9a6991b8ef6796f764cb84cccf4c1f794303f8de917fe",
+  "originalsPreserved": true,
+  "cases": [
+    {
+      "case": "mio74-controlled-native-browser-unified-finalizer-primary-700-first-20261006",
+      "receiptSha256": "a1c5fcfa658257ac78e0555df5b040e516aaafb1c8ee14e73cd8a0567573d674",
+      "outerReceiptSha256": "ba1ffd95fee3e9040c1a62f80d8970fedee7647bbdef9d726aa858880f92abf1",
+      "originalPass": true,
+      "originalCleanupVerified": true,
+      "sdkCallerMs": 10997,
+      "endpointCloseMs": [
+        0,
+        137
+      ],
+      "actualSignedRemoval": false,
+      "physicalWanQualified": false
+    },
+    {
+      "case": "mio74-controlled-native-browser-unified-finalizer-before-release-signed-removal-first-20261006",
+      "receiptSha256": "ee5c0dfabd0ef9ad28f024c0b45473e769c98fbeec46d59e3db55ed781ff1f53",
+      "outerReceiptSha256": "23ef233cd001f1af7683bb0ce10dce68f2a8712550d98c150d63a9844b210629",
+      "originalPass": false,
+      "originalCleanupVerified": false,
+      "sdkCallerMs": 11073,
+      "endpointCloseMs": [
+        0
+      ],
+      "actualSignedRemoval": true,
+      "physicalWanQualified": false
+    },
+    {
+      "case": "mio74-controlled-native-browser-unified-finalizer-before-release-signed-removal-term4500-first-20261006",
+      "receiptSha256": "73928ff08f4aea4d73539508b09a28883bad0532a2d1bb7bcd23eae9fc306ce7",
+      "outerReceiptSha256": "57f4fa84a1bcdc9eefd3d635f8c26b86b6280db9cd61f0fb9062c25f57d1c67b",
+      "originalPass": true,
+      "originalCleanupVerified": true,
+      "sdkCallerMs": 11087,
+      "endpointCloseMs": [
+        0,
+        3880
+      ],
+      "actualSignedRemoval": true,
+      "physicalWanQualified": false
+    },
+    {
+      "case": "mio74-controlled-current-finalizer-browser-native-counterpart-schema-corrected-first-20261006",
+      "receiptSha256": "9e0ffd37e63a66f0902da585dd15070130696ac73d31d9b48d1a3d9e188ebaac",
+      "outerReceiptSha256": "ad5a4b1f1059189dbe0ad8bd1e2672b3c537fb69ce5239bf5dbd46facd05a87f",
+      "originalPass": true,
+      "originalCleanupVerified": true,
+      "sdkCallerMs": 1222.4000000953674,
+      "endpointCloseMs": [
+        0,
+        210
+      ],
+      "actualSignedRemoval": false,
+      "physicalWanQualified": false
+    }
+  ]
+}

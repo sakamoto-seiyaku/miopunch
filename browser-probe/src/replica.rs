@@ -68,9 +68,23 @@ impl BrowserNetwork {
     /// Serve one authenticated member exchange. The caller drives the page's
     /// foreground accept loop; closing the page only disconnects the node.
     pub async fn serve_replica(&self) -> Result<(), JsValue> {
+        let deadline = n0_future::time::Instant::now() + self.caller_budget;
+        let attempt = crate::connection_coordinator::AttemptContext::new(
+            deadline,
+            tokio_util::sync::CancellationToken::new(),
+        );
         self.check_store().await?;
-        let incoming = self.endpoint.accept().await.ok_or_else(rejected)?;
-        let connection = incoming.await.map_err(error)?;
+        let accepting = self.incoming.receive(REPLICA_ALPN, &attempt).await?;
+        let connection = n0_future::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            accepting
+                .with_caller_deadline(deadline)
+                .with_attempt_cancellation(attempt.cancellation.clone()),
+        )
+        .await
+        .map_err(error)?
+        .map_err(error)?;
+        let _scope = RequestConnection(Some(connection.clone()));
         self.check_store().await?;
         let records: Vec<_> = self
             .saved
@@ -78,7 +92,12 @@ impl BrowserNetwork {
             .iter()
             .map(|(header, body)| ManagementRecord::new(header.clone(), body.as_deref()))
             .collect();
-        let result = self.provide_replica(&connection, &records).await;
+        let result = n0_future::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            self.provide_replica(&connection, &records),
+        )
+        .await
+        .map_err(error)?;
         connection.close(0u32.into(), b"replica served");
         result
     }

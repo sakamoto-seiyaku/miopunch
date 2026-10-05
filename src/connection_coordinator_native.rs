@@ -56,9 +56,8 @@ impl MemberPathAdapter for CoordinatorHook {
             #[cfg(feature = "rtc-probe")]
             {
                 (
-                    role == AttemptRole::Responder && self.rtc.is_some(),
-                    role == AttemptRole::Responder
-                        && self.rtc.as_ref().is_some_and(|rtc| rtc.resource_allowed()),
+                    self.rtc.is_some(),
+                    self.rtc.as_ref().is_some_and(|rtc| rtc.resource_allowed()),
                 )
             }
             #[cfg(not(feature = "rtc-probe"))]

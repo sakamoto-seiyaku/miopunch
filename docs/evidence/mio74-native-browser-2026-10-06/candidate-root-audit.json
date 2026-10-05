@@ -1,0 +1,64 @@
+{
+  "auditPassed": true,
+  "scope": "exact17 M74 candidate plus immutable HEAD; original mixed WIP restored before SDK runtime",
+  "baseHead": "9d25031963bfe22e1a3aed2196a3e1c65e39ae97",
+  "candidateManifestSha256": "7002362e927072e45d000a781b8f29bf77c688cfeace2f25baa7135b60b1f479",
+  "candidateSourceBlobIds": {
+    "src/connection_coordinator.rs": "e3fedc48d9cf540601fc9947852fe5e6e7a4a64c",
+    "vendor/iroh/src/endpoint/connection.rs": "0c4e4cb52cf959ec7355866c585d5da824b7280b",
+    "tests/negotiated_accept_context.rs": "123a3e520fb09c6fcf1cde937b2e50249e926072",
+    "tests/support/negotiated_accept_members.rs": "5aacc0e54603bd0276be67c33c81c909b92b55f5",
+    "src/admission_gate.rs": "4de68659c290e85db41b321c2f423b624844df22",
+    "src/admission_proof.rs": "1ac900d1249e039c53bee7873ddb439159cdf7c5",
+    "src/connection_coordinator_native.rs": "0a1e3f3777af1ae76662c6f4828182cd24e892f8",
+    "src/rtc_member.rs": "39e7fd11ac80b612e3b92b2f0d5d3416218aa784",
+    "src/bin/browser_wss_member_native.rs": "facba8ae3287df25fc5f5aa50082e79e07120b73",
+    "browser-probe/src/lib.rs": "38cdc81f1cd1e36b5a06d55dedc5cd2f71f92d87",
+    "browser-probe/src/network.rs": "8fbdc0f4d02d040aea1eef0be6fd5cbcd27ab4ab",
+    "browser-probe/src/member_connection.rs": "f8aaf3a83e2ab8603ba0f5ba6508e10011665b47",
+    "browser-probe/src/incoming.rs": "0acf7d1025e4db57b4a11994c6eda391dc33231d",
+    "browser-probe/src/admission.rs": "a6e74ecb7d0ed484b6be118885b547185198d499",
+    "browser-probe/src/replica.rs": "bb5756b446b64e87b2d608f653242ae1d0c22bd2",
+    "browser-probe/src/rtc_member.rs": "c8077b7a429583cfaace96aa3a122c2478ee1239",
+    "tests/mio74_rtc_offer_ownership.rs": "cfff1d1feeb5701e3a5f052c624ba4be7dfea5d6"
+  },
+  "actualSelectedInputCounts": {
+    "native": 276,
+    "wasm": 187
+  },
+  "rawCompilerArtifactCounts": {
+    "native": {
+      "fresh": 523,
+      "rebuilt": 5
+    },
+    "wasm": {
+      "fresh": 294,
+      "rebuilt": 2
+    }
+  },
+  "allActualInputCopiesMatchHeadPlusCandidate": true,
+  "all489OriginalInputsRestoredExactBytesAndModes": true,
+  "allArtifactPinsMatched": true,
+  "currentWipEqualsCapturedCandidate": false,
+  "headAndIndexUnchanged": true,
+  "actualSdkExit": 0,
+  "callerMs": 11032,
+  "originalBudgetMs": 12000,
+  "nativeWatermarks": [
+    4,
+    15
+  ],
+  "browserWatermarks": [
+    3,
+    19
+  ],
+  "bothInitialAndNewFinalAckAndCurrentRtc": true,
+  "sameOriginalMAndBindingAndBidirectionalBusiness": true,
+  "allNaturalCleanup": true,
+  "perLeaseImmediateClosingLateClosedPreserved": true,
+  "receiptSha256": "51c124dcc892069879879c741a1e206b8b53a9e6c17bd89f11fda86f58c247c4",
+  "outerReceiptSha256": "a69f116fca36a7ea519941bd3640445195acfbd9ad1c10a42a148079eb8424da",
+  "candidateBuildReceiptSha256": "6e74443736ee7fb115762220c8ac988d468135ddb166755ca85675269c3ffa9c",
+  "physicalPublicWanQualified": false,
+  "androidBuilt": false
+}

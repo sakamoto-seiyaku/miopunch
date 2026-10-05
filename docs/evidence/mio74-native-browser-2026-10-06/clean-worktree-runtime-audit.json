@@ -1,0 +1,23 @@
+{
+  "auditPassed": true,
+  "scope": "exact clean full-WIP captured SDK role/ACK/business/cleanup regression; not subsequent scoped-commit candidate",
+  "actualSdkExit": 0,
+  "callerMs": 10969,
+  "originalBudgetMs": 12000,
+  "nativeWatermarks": [
+    4,
+    15
+  ],
+  "browserWatermarks": [
+    3,
+    17
+  ],
+  "bothInitialAndNewFinalAckAndCurrentRtc": true,
+  "sameOriginalMAndBindingAndBidirectionalBusiness": true,
+  "allNaturalCleanup": true,
+  "perLeaseImmediateClosingLateClosedPreserved": true,
+  "receiptSha256": "17a691d3006d5ee8cd2c814834cb15f14e18f3e63865ac16a37bd100b4bc5b11",
+  "outerReceiptSha256": "acdbc3ac3bb73027a86b509451a01451039638a33e6a04749c3fc1c34db56a39",
+  "physicalPublicWanQualified": false,
+  "scopedCommitCandidateQualifiedByThisReceipt": false
+}

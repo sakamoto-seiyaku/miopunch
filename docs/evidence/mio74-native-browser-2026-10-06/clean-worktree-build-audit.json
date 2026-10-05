@@ -1,0 +1,25 @@
+{
+  "auditPassed": true,
+  "receiptSha256": "1e69cc529c2f9507903cbb99c5dbaa3d7081a7ea8fc55943aaf0c8f01aa2378c",
+  "sourceFreezeSha256": "ba549bd88c8220cfab36390243d4462532034d22663f22c692ce13491d62490f",
+  "actualSelectedInputCounts": {
+    "native": 276,
+    "wasm": 187
+  },
+  "rawCompilerArtifactCounts": {
+    "native": {
+      "fresh": 526,
+      "rebuilt": 2
+    },
+    "wasm": {
+      "fresh": 295,
+      "rebuilt": 1
+    }
+  },
+  "allActualInputCopiesAndCurrentHashesMatched": true,
+  "allArtifactPinsMatched": true,
+  "allSixDiagnosticCleanupSourcesMatched": true,
+  "relayOnlyUnchangedTlsFilesBranch": true,
+  "relayAllCapturedInputsCurrent": false,
+  "runtimeQualified": false
+}

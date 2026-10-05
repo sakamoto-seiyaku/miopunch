@@ -1,0 +1,32 @@
+{
+  "auditPassed": true,
+  "actualSdkExit": 1,
+  "actualSdkQualified": false,
+  "actualDiagnosticWitnessQualified": true,
+  "actualCallerMs": 12009,
+  "originalCallerBudgetMs": 12000,
+  "strictCallerWithinOriginal": false,
+  "actualBothGatesAccepted": true,
+  "browserRawAndPublishedCandidates": {
+    "raw": 3,
+    "rawSrflx": 1,
+    "published": 3,
+    "nativeReceived": 3
+  },
+  "actualOneNewOwnedPcAndChannel": true,
+  "actualLocalAndRemoteCountCorrelationMatched": true,
+  "existingOptionalRestrictionEmpty": true,
+  "actualBothSdpPublicationsEqualRawAndCrossEndpointReceivedCounts": true,
+  "nativeRawAndPublishedAndBrowserReceived": 4,
+  "bothIceStillChecking": true,
+  "browserDtlsStillNew": true,
+  "rawDeviceCommandReceiptPrivateAndPublicFactsMatched": true,
+  "bothSideExactlyOneCanonicalGlobalIpv4Srflx": true,
+  "actualAddressesOnlyPrivate": true,
+  "privateReceiptMode": "0600",
+  "privateReceiptSha256": "b24aa7e707eda9160dbd304813ff06a7d338a3ee9b333491d74b5254db045e52",
+  "allObserverAndSdkNaturalCleanupVerified": true,
+  "allArtifactSourceAndControllerBindingsStable": true,
+  "physicalWanQualified": false,
+  "receiptSha256": "8198881ab956e7589c601b295c7c44a8d0578b336016510b3437910769d757a0"
+}

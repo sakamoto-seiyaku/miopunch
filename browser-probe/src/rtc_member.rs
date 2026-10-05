@@ -81,6 +81,9 @@ pub(super) struct OwnedRtc {
     attempt_live: Arc<AtomicBool>,
     drop_quic: Arc<AtomicBool>,
     stats: Arc<PumpStats>,
+    cleanup: std::cell::Cell<bool>,
+    cleanup_gate: BrowserGate,
+    cleanup_stable: usize,
 }
 impl OwnedRtc {
     fn new(
@@ -106,6 +109,9 @@ impl OwnedRtc {
             attempt_live,
             drop_quic: Arc::new(AtomicBool::new(false)),
             stats: Arc::new(PumpStats::default()),
+            cleanup: std::cell::Cell::new(false),
+            cleanup_gate: gate.clone(),
+            cleanup_stable: connection.stable_id(),
         };
         let receive_io = owner.lease.io();
         let receive_drop = owner.drop_quic.clone();
@@ -183,8 +189,54 @@ impl OwnedRtc {
         self.lease.close();
         self.association.retire();
         self.association.detach();
+        if !self.cleanup.replace(true) {
+            let started = n0_future::time::Instant::now();
+            let io = self.lease.io();
+            let association = self.association.clone();
+            let gate = self.cleanup_gate.clone();
+            let stable = self.cleanup_stable;
+            gate.0.lock().unwrap().rtc_cleanup_observers += 1;
+            record_retired_rtc(&gate, stable, "immediate", started, &io, &association);
+            spawn_local(async move {
+                struct Observer(BrowserGate);
+                impl Drop for Observer {
+                    fn drop(&mut self) {
+                        self.0.0.lock().unwrap().rtc_cleanup_observers -= 1;
+                    }
+                }
+                let _observer = Observer(gate.clone());
+                // Independent late observation, never a setup or path budget.
+                n0_future::time::sleep(Duration::from_millis(100)).await;
+                record_retired_rtc(&gate, stable, "late", started, &io, &association);
+            });
+        }
     }
 }
+
+fn record_retired_rtc(
+    gate: &BrowserGate,
+    stable: usize,
+    phase: &str,
+    started: n0_future::time::Instant,
+    io: &crate::rtc_transport::RtcDatagramIo,
+    association: &Association,
+) {
+    let property = |object: &JsValue, name: &str| {
+        Reflect::get(object, &JsValue::from_str(name))
+            .ok()
+            .and_then(|value| value.as_string())
+    };
+    let pc_state = property(association.pc.as_ref(), "signalingState");
+    let dc_state = property(association.dc.as_ref(), "readyState");
+    gate.remember_rtc_cleanup(
+        stable,
+        json!({"phase":phase,
+        "observedUtcMs":js_sys::Date::now(),"retirementElapsedMs":started.elapsed().as_millis(),
+        "lease":io.report(),"pcClosed":pc_state.as_ref().map(|state|state=="closed"),
+        "pcState":pc_state,"dataChannelState":dc_state}),
+    );
+}
+
 impl Drop for OwnedRtc {
     fn drop(&mut self) {
         self.retire();
@@ -238,7 +290,7 @@ pub(super) async fn bootstrap_control_unified(
     transport: &crate::rtc_transport::RtcTransport,
     attempt: crate::connection_coordinator::ProtectedAttempt,
 ) -> Result<(Value, crate::connection_coordinator::PreparedPath), JsValue> {
-    if attempt.rtc_role != crate::connection_coordinator::RtcRole::Offerer {
+    if attempt.rtc_role == crate::connection_coordinator::RtcRole::None {
         return Err(error("unified/InvalidControl"));
     }
     let (report, prepared) =
@@ -258,12 +310,16 @@ pub(super) async fn bootstrap_control_inner(
     transport: &crate::rtc_transport::RtcTransport,
     unified: Option<crate::connection_coordinator::ProtectedAttempt>,
 ) -> Result<(Value, Option<crate::connection_coordinator::PreparedPath>), JsValue> {
-    let budget = RtcDeadline::from_caller(
+    let offerer = unified
+        .is_none_or(|attempt| attempt.rtc_role == crate::connection_coordinator::RtcRole::Offerer);
+    let caller_deadline = connection
+        .caller_deadline()
+        .ok_or_else(|| error("RTC caller deadline absent"))?;
+    let mut budget = RtcDeadline::from_caller(
         connection
             .caller_deadline()
             .ok_or_else(|| error("RTC caller deadline absent"))?,
     );
-    let owner = OwnedRtc::new(connection, transport, gate)?;
     let stable = connection.stable_id();
     let original_binding = binding(connection)?;
     let attempt = unified.map_or_else(
@@ -279,48 +335,132 @@ pub(super) async fn bootstrap_control_inner(
         attempt.quic_dialer(endpoint, connection)
     });
     let mut prepared_for_coordinator = None;
+    let mut initial_unified_probe = None;
     let context = attempt_context(
         &attempt,
         saved.invitation()?.anchor.root.as_bytes(),
         saved.generation,
-        &endpoint.id().to_string(),
-        &connection.remote_id().to_string(),
+        &if offerer {
+            endpoint.id()
+        } else {
+            connection.remote_id()
+        }
+        .to_string(),
+        &if offerer {
+            connection.remote_id()
+        } else {
+            endpoint.id()
+        }
+        .to_string(),
     );
     let mut exporter = [0; 32];
     connection
         .export_keying_material(&mut exporter, EXPORTER_LABEL, context.as_bytes())
         .map_err(|_| error("RTC original M exporter unavailable"))?;
     let protected_binding = blake3::hash(&exporter).to_hex().to_string();
-    let (mut send, mut recv) = connection.open_bi().await.map_err(error)?;
+    let (mut send, mut recv) = if offerer {
+        connection.open_bi().await.map_err(error)?
+    } else {
+        connection.accept_bi().await.map_err(error)?
+    };
+    let request = if offerer {
+        None
+    } else {
+        let request = read_frame(&mut recv).await.map_err(error)?;
+        let remaining = request["remainingMs"]
+            .as_u64()
+            .filter(|remaining| *remaining > 0 && *remaining <= 12000)
+            .ok_or_else(|| error("unified/InvalidControl"))?;
+        if request["protocol"] != protocol
+            || request["attempt"] != attempt
+            || request["context"] != context
+            || request["binding"] != protected_binding
+            || request["channel"] != datagram_channel_parameters()
+            || request["quicDialer"] != quic_dialer.to_string()
+            || request["rtcOfferer"] != connection.remote_id().to_string()
+            || request["rtcAnswerer"] != endpoint.id().to_string()
+            || request["description"]["type"] != "offer"
+        {
+            return Err(error("unified/InvalidControl"));
+        }
+        let sdp = request["description"]["sdp"]
+            .as_str()
+            .ok_or_else(|| error("unified/InvalidControl"))?;
+        transport
+            .ice_profile()
+            .check_remote_sdp(sdp)
+            .map_err(error)?;
+        budget = RtcDeadline::from_caller(
+            caller_deadline.min(n0_future::time::Instant::now() + Duration::from_millis(remaining)),
+        );
+        Some(request)
+    };
+    let owner = OwnedRtc::new(connection, transport, gate)?;
     let stream_id = send.id().to_string();
     let (revision, observed, _) = gate.rtc_qualification(connection)?;
+
     let work = async {
-        let offer: RtcSessionDescriptionInit = JsFuture::from(owner.association.pc.create_offer()).await?.unchecked_into();
-        JsFuture::from(owner.association.pc.set_local_description(&offer)).await?;
-        owner.association.gathered().await?;
-        let offer = owner.association.pc.local_description().ok_or_else(|| error("RTC offer absent"))?;
-        write_frame(&mut send, &json!({"protocol":protocol,"attempt":attempt,"context":context,"binding":protected_binding,
-            "description":{"type":"offer","sdp":transport.ice_profile().local_sdp(&offer.sdp()).map_err(error)?},"channel":datagram_channel_parameters(),"route":hex::encode(owner.lease.local_addr().data()),
-            "quicDialer":quic_dialer.to_string(),"rtcOfferer":endpoint.id().to_string(),"rtcAnswerer":connection.remote_id().to_string(),
-            "remainingMs":budget.remaining().map_err(error)?.as_millis() as u64,"authorizationRevision":observed,"resourceRevision":transport.resource_revision()})).await.map_err(error)?;
-        let answer = phase(&mut recv, "answer").await?;
-        if answer["attempt"] != attempt || answer["binding"] != protected_binding || answer["channel"] != datagram_channel_parameters() {
-            return Err(error("RTC answer context/profile binding mismatch"));
+        if offerer {
+            let offer: RtcSessionDescriptionInit = JsFuture::from(owner.association.pc.create_offer()).await?.unchecked_into();
+            JsFuture::from(owner.association.pc.set_local_description(&offer)).await?;
+            owner.association.gathered().await?;
+            let offer = owner.association.pc.local_description().ok_or_else(|| error("RTC offer absent"))?;
+            let local_sdp=offer.sdp();
+
+            let published_sdp=transport.ice_profile().local_sdp(&local_sdp).map_err(error)?;
+
+            write_frame(&mut send, &json!({"protocol":protocol,"attempt":attempt,"context":context,"binding":protected_binding,
+                "description":{"type":"offer","sdp":published_sdp},"channel":datagram_channel_parameters(),"route":hex::encode(owner.lease.local_addr().data()),
+                "quicDialer":quic_dialer.to_string(),"rtcOfferer":endpoint.id().to_string(),"rtcAnswerer":connection.remote_id().to_string(),
+                "remainingMs":budget.remaining().map_err(error)?.as_millis() as u64,"authorizationRevision":observed,"resourceRevision":transport.resource_revision()})).await.map_err(error)?;
+            let answer = phase(&mut recv, "answer").await?;
+            if answer["attempt"] != attempt || answer["binding"] != protected_binding || answer["channel"] != datagram_channel_parameters()
+                || answer["description"]["type"] != "answer" {
+                return Err(error(if unified.is_some() { "unified/InvalidControl" } else { "RTC answer context/profile binding mismatch" }));
+            }
+            owner.lease.set_remote(iroh_base::CustomAddr::from_parts(crate::rtc_transport::TRANSPORT_ID,
+                &hex::decode(answer["route"].as_str().ok_or_else(|| error("RTC peer route absent"))?).map_err(error)?)).map_err(error)?;
+            let init = RtcSessionDescriptionInit::new(RtcSdpType::Answer);
+            let remote_sdp = answer["description"]["sdp"].as_str().ok_or_else(|| error("RTC peer answer absent"))?;
+            transport.ice_profile().check_remote_sdp(remote_sdp).map_err(error)?;
+
+            init.set_sdp(remote_sdp);
+            JsFuture::from(owner.association.pc.set_remote_description(&init)).await?;
+        } else {
+            let request = request.as_ref().ok_or_else(|| error("unified/InvalidControl"))?;
+            owner.lease.set_remote(iroh_base::CustomAddr::from_parts(crate::rtc_transport::TRANSPORT_ID,
+                &hex::decode(request["route"].as_str().ok_or_else(|| error("RTC peer route absent"))?).map_err(error)?)).map_err(error)?;
+            let offer = RtcSessionDescriptionInit::new(RtcSdpType::Offer);
+            offer.set_sdp(request["description"]["sdp"].as_str().ok_or_else(|| error("RTC peer offer absent"))?);
+
+            JsFuture::from(owner.association.pc.set_remote_description(&offer)).await?;
+
+            let answer: RtcSessionDescriptionInit = JsFuture::from(owner.association.pc.create_answer()).await?.unchecked_into();
+
+            JsFuture::from(owner.association.pc.set_local_description(&answer)).await?;
+
+            owner.association.gathered().await?;
+
+            let answer = owner.association.pc.local_description().ok_or_else(|| error("RTC browser answer absent"))?;
+            let local_sdp=answer.sdp();
+
+            let published_sdp=transport.ice_profile().local_sdp(&local_sdp).map_err(error)?;
+
+            write_frame(&mut send, &json!({"kind":"answer","attempt":attempt,"binding":protected_binding,
+                "channel":datagram_channel_parameters(),"description":{"type":"answer","sdp":published_sdp},
+                "route":hex::encode(owner.lease.local_addr().data()),"authorizationRevision":observed,"resourceRevision":transport.resource_revision()})).await.map_err(error)?;
         }
-        owner.lease.set_remote(iroh_base::CustomAddr::from_parts(crate::rtc_transport::TRANSPORT_ID,
-            &hex::decode(answer["route"].as_str().ok_or_else(|| error("RTC peer route absent"))?).map_err(error)?)).map_err(error)?;
-        let init = RtcSessionDescriptionInit::new(RtcSdpType::Answer);
-        let remote_sdp = answer["description"]["sdp"].as_str().ok_or_else(|| error("RTC native answer absent"))?;
-        transport.ice_profile().check_remote_sdp(remote_sdp).map_err(error)?;
-        init.set_sdp(remote_sdp);
-        JsFuture::from(owner.association.pc.set_remote_description(&init)).await?;
+
         owner.association.wait_open().await?;
+
         let opening = metadata(&owner.association).await?;
         if opening["channel"] != datagram_channel_parameters()
             || opening["maxMessageSize"].as_f64().is_none_or(|maximum| maximum < MAX_DATAGRAM as f64)
         { return Err(error("RTC negotiated profile/maximum mismatch")); }
+
         owner.lease.activate().map_err(error)?;
         owner.start_pump(connection.weak_handle());
+
         let actual = owner.stats.clone();
         transport.control_fixture_checkpoint(crate::rtc_invalidation_fixture::ControlCheckpointStage::ChannelReady,
             connection, &owner.lease, budget,
@@ -328,26 +468,95 @@ pub(super) async fn bootstrap_control_inner(
                 "remoteRoute":hex::encode(owner.lease.remote_addr().map_err(error)?.data()),"freshAck":false,
                 "authorizationRevision":observed,"secretGeneration":saved.generation,"resourceRevision":transport.resource_revision()}),
             Arc::new(move || actual.report())).await.map_err(error)?;
+        if unified.is_some() {
+            if connection.side().is_client() {
+
+                loop {
+                    budget.remaining().map_err(error)?;
+                    let result=endpoint.open_control_path(connection,owner.lease.remote_addr().map_err(error)?).await;
+
+                    match result {
+                        Ok(())=>break,
+                        Err(cause) if cause.kind()==std::io::ErrorKind::WouldBlock=>n0_future::time::sleep(Duration::from_millis(10)).await,
+                        Err(cause)=>return Err(error(cause)),
+                    }
+                }
+
+            }
+
+            let probe=loop {
+                budget.remaining().map_err(error)?;
+                match owner.lease.start_probe(connection) {
+                    Ok(probe)=>break probe,
+                    Err(cause) if cause.kind()==std::io::ErrorKind::WouldBlock=>n0_future::time::sleep(Duration::from_millis(10)).await,
+                    Err(cause)=>return Err(error(cause)),
+                }
+            };
+            let started=budget.elapsed_ms();
+            while !probe.is_acknowledged().map_err(error)? {
+                budget.remaining().map_err(error)?;
+                n0_future::time::sleep(Duration::from_millis(10)).await;
+            }
+
+            gate.qualified_snapshot(connection).await?;
+            if revision.load(Ordering::Acquire)!=observed || !owner.lease.io().is_active() {
+                return Err(error("RTC initial qualification changed before control seal"));
+            }
+            let paths=connection.paths();
+            let path=paths.iter().find(|path|path.id().to_string()==probe.path_id()).ok_or_else(||error("RTC initial exact path disappeared"))?;
+            let frames=json!({"streamSent":path.stats().frame_tx.stream,"streamReceived":path.stats().frame_rx.stream,
+                "datagramSent":path.stats().frame_tx.datagram,"datagramReceived":path.stats().frame_rx.datagram});
+            owner.lease.retain(connection,&probe).map_err(error)?;
+
+            endpoint.retain_control_data_transport_path(connection,owner.lease.remote_addr().map_err(error)?).await.map_err(error)?;
+
+            send.finish().map_err(error)?;
+            let report=json!({"prepared":true,"finalized":false,"switched":false,
+                "memberStableId":stable,"stableUnchanged":connection.stable_id()==stable,
+                "bindingUnchanged":binding(connection)?==original_binding,"freshAck":true,
+                "initialFreshAck":true,"initialProbeWatermark":probe.watermark(),"probeWatermark":probe.watermark(),
+                "pathId":probe.path_id(),"freshProbeStartedMs":started,"freshAckMs":budget.elapsed_ms(),
+                "beforeRetainFrames":frames,"finalReleaseFreshAck":false,"privateStreamId":stream_id,
+                "rtc":opening,"authorizationRevision":observed,"secretGeneration":saved.generation,
+                "resourceRevision":transport.resource_revision(),"quicRole":if connection.side().is_client(){"client"}else{"server"},
+                "rtcRole":if offerer{"offerer"}else{"answerer"},"route":owner.lease.report(),"dataChannel":owner.stats.report()});
+            initial_unified_probe=Some(probe);
+            return Ok(report);
+        }
+
         phase(&mut recv, "channel-open").await?;
+
         write_frame(&mut send, &json!({"kind":"channel-open"})).await.map_err(error)?;
+
         let remote = iroh::TransportAddr::Custom(owner.lease.remote_addr().map_err(error)?);
-        loop {
+        if connection.side().is_client() {  loop {
             budget.remaining().map_err(error)?;
-            match endpoint.open_control_path(connection, owner.lease.remote_addr().map_err(error)?).await {
+            let result=endpoint.open_control_path(connection,owner.lease.remote_addr().map_err(error)?).await;
+
+            match result {
                 Ok(()) => break,
                 Err(cause) if cause.kind() == std::io::ErrorKind::WouldBlock => n0_future::time::sleep(Duration::from_millis(10)).await,
                 Err(cause) => return Err(error(cause)),
             }
         }
+        }
+
+
         loop {
             budget.remaining().map_err(error)?;
             if connection.paths().iter().any(|path| path.remote_addr() == &remote) { break; }
             n0_future::time::sleep(Duration::from_millis(10)).await;
         }
-        write_frame(&mut send, &json!({"kind":"begin-probe","dropQuic":false})).await.map_err(error)?;
-        phase(&mut recv, "probe-started").await?;
+
+        if offerer {
+            write_frame(&mut send, &json!({"kind":"begin-probe","dropQuic":false})).await.map_err(error)?;
+            phase(&mut recv, "probe-started").await?;
+        } else { phase(&mut recv, "begin-probe").await?; }
+
         let probe = owner.lease.start_probe(connection).map_err(error)?;
+
         let probe_started = budget.elapsed_ms();
+        if !offerer { write_frame(&mut send, &json!({"kind":"probe-started","pathId":probe.path_id(),"atMs":probe_started})).await.map_err(error)?; }
         while !probe.is_acknowledged().map_err(error)? {
             budget.remaining().map_err(error)?;
             n0_future::time::sleep(Duration::from_millis(10)).await;
@@ -359,20 +568,39 @@ pub(super) async fn bootstrap_control_inner(
         if revision.load(Ordering::Acquire) != observed || !owner.lease.io().is_active() {
             return Err(error("RTC qualification changed before bilateral retain"));
         }
-        write_frame(&mut send, &json!({"kind":"retain"})).await.map_err(error)?;
-        phase(&mut recv, "retained").await?;
+        if offerer {
+            write_frame(&mut send, &json!({"kind":"retain"})).await.map_err(error)?;
+            phase(&mut recv, "retained").await?;
+        } else { phase(&mut recv, "retain").await?; }
         let pending_paths = connection.paths();
         let pending = pending_paths.iter().find(|path| path.id().to_string() == probe.path_id())
             .ok_or_else(|| error("RTC exact probe path disappeared"))?;
         let before_retain_frames = json!({"streamSent":pending.stats().frame_tx.stream,"streamReceived":pending.stats().frame_rx.stream,
             "datagramSent":pending.stats().frame_tx.datagram,"datagramReceived":pending.stats().frame_rx.datagram});
         owner.lease.retain(connection, &probe).map_err(error)?;
-        write_frame(&mut send, &json!({"kind":"ready"})).await.map_err(error)?;
+        if offerer { write_frame(&mut send, &json!({"kind":"ready"})).await.map_err(error)?; }
+        else {
+            write_frame(&mut send, &json!({"kind":"retained","pathId":probe.path_id()})).await.map_err(error)?;
+            phase(&mut recv, "ready").await?;
+        }
         endpoint.retain_control_data_transport_path(connection, owner.lease.remote_addr().map_err(error)?).await.map_err(error)?;
-        phase(&mut recv, "selected").await?;
+        if offerer { phase(&mut recv, "selected").await?; }
+        else { write_frame(&mut send, &json!({"kind":"selected","pathId":probe.path_id()})).await.map_err(error)?; }
         // This very private stream began over MQTT and now confirms over RTC.
-        write_frame(&mut send, &json!({"kind":"finish","sequence":1})).await.map_err(error)?;
-        let native = phase(&mut recv, "final").await?["native"].clone();
+        let native = if offerer {
+            write_frame(&mut send, &json!({"kind":"finish","sequence":1})).await.map_err(error)?;
+            phase(&mut recv, "final").await?[if unified.is_some(){"peer"}else{"native"}].clone()
+        } else {
+            phase(&mut recv, "finish").await?;
+            let local = json!({"freshAck":true,"probeWatermark":probe.watermark(),"rtcRole":"answerer",
+                "quicRole":if connection.side().is_client(){"client"}else{"server"},
+                "channel":datagram_channel_parameters(),"maxMessageSize":opening["maxMessageSize"],
+                "stableUnchanged":connection.stable_id()==stable,"bindingUnchanged":binding(connection)?==original_binding,
+                "route":owner.lease.report(),"dataChannel":owner.stats.report(),"authorizationRevision":observed,
+                "secretGeneration":saved.generation,"resourceRevision":transport.resource_revision()});
+            write_frame(&mut send, &json!({"kind":"final","peer":local})).await.map_err(error)?;
+            Value::Null
+        };
         let actual = owner.stats.clone();
         transport.control_fixture_checkpoint(crate::rtc_invalidation_fixture::ControlCheckpointStage::BeforeRelease,
             connection, &owner.lease, budget,
@@ -407,16 +635,110 @@ pub(super) async fn bootstrap_control_inner(
             "finalReleaseFreshAck":true,"finalReleaseProbeWatermark":release_watermark,
             "finalReleaseProbeStartedMs":release_started,"finalReleaseAckMs":budget.elapsed_ms(),
             "route":owner.lease.report(),"dataChannel":owner.stats.report(),"native":native,"authorizationRevision":observed,
-            "secretGeneration":saved.generation,"resourceRevision":transport.resource_revision(),"quicRole":"client","rtcRole":"offerer",
+            "secretGeneration":saved.generation,"resourceRevision":transport.resource_revision(),"quicRole":if connection.side().is_client(){"client"}else{"server"},"rtcRole":if offerer{"offerer"}else{"answerer"},
             "attemptMs":budget.elapsed_ms()}))
     }.fuse();
     let closed = connection.closed().fuse();
-    let report = {
+    let outcome = {
         futures_util::pin_mut!(work, closed);
         n0_future::time::timeout(budget.remaining().map_err(error)?, async {
             futures_util::select_biased! { _ = closed => Err(error("RTC original M closed")), result = work => result }
-        }).await.map_err(|_| error("RTC original caller deadline exceeded"))??
+        }).await.map_err(|_| error("RTC original caller deadline exceeded")).and_then(|result|result)
     };
+
+    let report = outcome?;
+
+    if unified.is_some() {
+        use crate::connection_coordinator::{PreparedPath, control_error};
+        let probe = Arc::new(
+            initial_unified_probe
+                .take()
+                .ok_or_else(|| error("RTC initial proof absent"))?,
+        );
+        let initial_path = probe.path_id().to_owned();
+        let initial_watermark = probe.watermark();
+        let final_proof: Arc<std::sync::Mutex<Option<Arc<crate::rtc_transport::RtcPathProbe>>>> =
+            Arc::default();
+        let checked_final = final_proof.clone();
+        let io = owner.lease.io();
+        let rollback_io = io.clone();
+        let remote = owner.lease.remote_addr().map_err(error)?;
+        let original = connection.weak_handle();
+        let generation = saved.generation;
+        // WebSys/Rc ownership stays on the same browser executor, following the
+        // adapter's existing SendWrapper convention. No lifetime M clone.
+        let pending = send_wrapper::SendWrapper::new((
+            owner,
+            gate.clone(),
+            transport.clone(),
+            report.clone(),
+        ));
+        let prepared = PreparedPath::candidate(connection,iroh::TransportAddr::Custom(remote),move || {
+            if !io.is_active() { return Err(control_error("DataPathUnavailable")); }
+            if let Some(proof)=checked_final.lock().unwrap().as_ref() && !proof.is_acknowledged()? {
+                return Err(control_error("DataPathUnavailable"));
+            }
+            Ok(())
+        })
+        .with_proof(initial_path,initial_watermark,move || probe.is_acknowledged())
+        .with_rollback(move || rollback_io.retire())
+        .with_retain(move || Box::pin(send_wrapper::SendWrapper::new(async move {
+            let (owner,gate,transport,mut report)=pending.take();
+            let current=original.upgrade().ok_or_else(||control_error("DataPathUnavailable"))?;
+
+            let finalize=async {
+
+                let actual=owner.stats.clone();
+                transport.control_fixture_checkpoint(crate::rtc_invalidation_fixture::ControlCheckpointStage::BeforeRelease,
+                    &current,&owner.lease,budget,
+                    json!({"attempt":attempt,"stableId":stable,"localRoute":hex::encode(owner.lease.local_addr().data()),
+                        "remoteRoute":hex::encode(owner.lease.remote_addr()?.data()),"freshAck":true,"bothConfirmed":true,
+                        "pathId":report["pathId"],"probeWatermark":initial_watermark,
+                        "freshProbeStartedMs":report["freshProbeStartedMs"],"freshAckMs":report["freshAckMs"],
+                        "authorizationRevision":observed,"secretGeneration":generation,"resourceRevision":transport.resource_revision()}),
+                    Arc::new(move || actual.report())).await?;
+
+                gate.qualified_snapshot(&current).await.map_err(|_|control_error("IdentityOrAdmissionRejected"))?;
+                if revision.load(Ordering::Acquire)!=observed || !owner.lease.io().is_active() {
+                    return Err(control_error("IdentityOrAdmissionRejected"));
+                }
+
+                let started=budget.elapsed_ms();
+                let final_ack=Arc::new(owner.lease.validate_release(&current,budget).await?);
+                gate.qualified_snapshot(&current).await.map_err(|_|control_error("IdentityOrAdmissionRejected"))?;
+                if revision.load(Ordering::Acquire)!=observed || binding(&current).map_err(|_|control_error("IdentityOrAdmissionRejected"))?!=original_binding {
+                    return Err(control_error("IdentityOrAdmissionRejected"));
+                }
+                owner.lease.retain(&current,&final_ack)?;
+                report["prepared"]=json!(false);
+                report["finalized"]=json!(true);
+                report["bothConfirmed"]=json!(true);
+                report["finalReleaseFreshAck"]=json!(true);
+                report["finalReleaseProbeWatermark"]=json!(final_ack.watermark());
+                report["finalReleaseProbeStartedMs"]=json!(started);
+                report["finalReleaseAckMs"]=json!(budget.elapsed_ms());
+                report["route"]=json!(owner.lease.report());
+                report["dataChannel"]=owner.stats.report();
+                *final_proof.lock().unwrap()=Some(final_ack);
+
+                Ok::<_,std::io::Error>(())
+            }.await;
+
+            finalize?;
+            gate.remember_bootstrap(&current,report);
+            drop(current);
+            let io=owner.lease.io();
+            spawn_local(async move {
+                let retired=io.while_active(futures_util::future::pending::<()>()).fuse();
+                let closed=original.closed().fuse();
+                futures_util::pin_mut!(retired,closed);
+                futures_util::select_biased!{ _=closed=>{}, _=retired=>{} }
+                owner.retire();
+            });
+            Ok(())
+        })));
+        return Ok((report, Some(prepared)));
+    }
     let original = connection.weak_handle();
     let io = owner.lease.io();
     spawn_local(async move {
@@ -450,6 +772,7 @@ impl BrowserNetwork {
         json!({"checkpoint":self.rtc_transport.control_fixture_snapshot(),
             "publishedRoutes":self.rtc_transport.published_routes_fixture(),
             "activeAssociations":self.rtc_transport.active_associations(),"activePumpTasks":self.rtc_transport.active_pumps(),
+            "cleanupObservers":gate.rtc_cleanup_observers,"retiredMemberReports":gate.member_reports,
             "resourceRevision":self.rtc_transport.resource_revision(),"resourceAllowed":self.rtc_transport.resource_allowed(),
             "sourceRevision":gate.qualification_revision.load(Ordering::Acquire),
             "secretGeneration":gate.saved.as_ref().map(|saved|saved.generation)}).to_string()

@@ -151,6 +151,16 @@ impl Incoming {
         self
     }
 
+    /// Propagate this incoming operation's existing cancellation token to hooks.
+    /// This adds no deadline and leaves the default incoming metadata unchanged.
+    pub fn with_attempt_cancellation(
+        mut self,
+        cancellation: tokio_util::sync::CancellationToken,
+    ) -> Self {
+        self.attempt.cancellation = Some(cancellation);
+        self
+    }
+
     /// Attempts to accept this incoming connection (an error may still occur).
     ///
     /// Errors occurring here are likely not caused by the application or remote.  The QUIC
@@ -697,6 +707,24 @@ impl Accepting {
             attempt,
             register_with_socket: None,
         }
+    }
+
+    /// Attach this operation's original absolute deadline before polling the
+    /// Accepting future and its framework hooks. Inspecting negotiated ALPN or
+    /// handshake data beforehand is permitted and does not run those hooks.
+    pub fn with_caller_deadline(mut self, deadline: Instant) -> Self {
+        self.attempt.caller_deadline = Some(deadline);
+        self
+    }
+
+    /// Attach this operation's existing cancellation token before polling the
+    /// Accepting future and its framework hooks. No token is supplied by default.
+    pub fn with_attempt_cancellation(
+        mut self,
+        cancellation: tokio_util::sync::CancellationToken,
+    ) -> Self {
+        self.attempt.cancellation = Some(cancellation);
+        self
     }
 
     /// Converts this [`Accepting`] into a 0-RTT or 0.5-RTT connection at the cost of weakened

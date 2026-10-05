@@ -12,9 +12,7 @@ use p2panda_core::{Hash, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-use crate::admission_proof::{
-    AdmissionScope, AdmissionSecret, BootstrapProof, prove_client, prove_server,
-};
+use crate::admission_proof::{AdmissionScope, AdmissionSecret, BootstrapProof};
 use crate::management_auth::{ManagementAuth, NetworkAnchor};
 
 const REPLICA_ALPN: &[u8] = b"miopunch/control-replica/1";
@@ -165,6 +163,8 @@ struct GateState {
     member_reports: std::collections::BTreeMap<usize, serde_json::Value>,
     #[cfg(feature = "rtc-probe")]
     rtc_qualifications: std::collections::BTreeMap<usize, RtcQualificationSource>,
+    #[cfg(feature = "rtc-probe")]
+    rtc_cleanup_observers: usize,
 }
 
 /// The effective permission of one proved original M. Saved record changes
@@ -208,6 +208,7 @@ impl std::fmt::Debug for BrowserGate {
         f.write_str("BrowserGate")
     }
 }
+
 impl BrowserGate {
     fn install(&self, saved: &SavedNode) {
         let mut gate = self.0.lock().unwrap();
@@ -370,6 +371,40 @@ impl BrowserGate {
         gate.member_reports.insert(connection.stable_id(), report);
     }
 
+    #[cfg(feature = "rtc-probe")]
+    fn remember_rtc_cleanup(&self, stable: usize, sample: serde_json::Value) {
+        let mut state = self.0.lock().unwrap();
+        if state.member_reports.len() >= 32 && !state.member_reports.contains_key(&stable) {
+            let live: std::collections::BTreeSet<_> = state
+                .connections
+                .iter()
+                .filter_map(|original| original.upgrade())
+                .filter(|original| original.close_reason().is_none())
+                .map(|original| original.stable_id())
+                .collect();
+            state
+                .member_reports
+                .retain(|stable, _| live.contains(stable));
+        }
+        if state.member_reports.len() >= 32 && !state.member_reports.contains_key(&stable) {
+            return;
+        }
+        let report = state
+            .member_reports
+            .entry(stable)
+            .or_insert_with(|| serde_json::json!({}));
+        let samples = report
+            .as_object_mut()
+            .unwrap()
+            .entry("rtcCleanup")
+            .or_insert_with(|| serde_json::json!([]))
+            .as_array_mut()
+            .unwrap();
+        if samples.len() < 2 {
+            samples.push(sample);
+        }
+    }
+
     async fn legacy_relay_continuation(
         &self,
         endpoint: &Endpoint,
@@ -504,21 +539,17 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
         &self,
         role: crate::connection_coordinator::AttemptRole,
     ) -> crate::connection_coordinator::RuntimeCapabilities {
-        use crate::connection_coordinator::{
-            AttemptRole, Platform, RELAY, RTC, RtcRole, RuntimeCapabilities,
-        };
+        use crate::connection_coordinator::{Platform, RELAY, RTC, RtcRole, RuntimeCapabilities};
         let state = self.0.lock().unwrap();
         let relay = state
             .saved
             .as_ref()
             .is_some_and(|saved| !Self::permitted_relay_origins(saved).is_empty());
-        // This slice installs the existing offerer adapter only; later slices
-        // supply its opposite role. Support and permission stay separate.
-        let supported = role == AttemptRole::Initiator
-            && state
-                .rtc_capability
-                .as_ref()
-                .is_some_and(|capability| capability.supported == Some(true));
+        // Both role adapters share this runtime capability and resource permission.
+        let supported = state
+            .rtc_capability
+            .as_ref()
+            .is_some_and(|capability| capability.supported == Some(true));
         let allowed = {
             #[cfg(feature = "rtc-probe")]
             {
@@ -558,11 +589,18 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
             .member_reports
             .entry(connection.stable_id())
             .or_insert_with(|| serde_json::json!({}));
+        if entry["finalized"] == true && entry["finalReleaseFreshAck"] == true {
+            // Deferred RTC preparation remains provisional until this common
+            // bilateral Ready and its post-finalizer authority checks commit.
+            entry["switched"] = serde_json::json!(true);
+        }
         entry["coordinator"] = report;
     }
     fn authorization_revision(&self, connection: &Connection) -> std::io::Result<u64> {
         if connection.close_reason().is_some() {
-            return Err(crate::connection_coordinator::control_error("DataPathUnavailable"));
+            return Err(crate::connection_coordinator::control_error(
+                "DataPathUnavailable",
+            ));
         }
         #[cfg(feature = "rtc-probe")]
         {
@@ -589,7 +627,9 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
     ) -> impl std::future::Future<Output = std::io::Result<()>> + Send + 'a {
         send_wrapper::SendWrapper::new(async move {
             if connection.close_reason().is_some() {
-                return Err(crate::connection_coordinator::control_error("DataPathUnavailable"));
+                return Err(crate::connection_coordinator::control_error(
+                    "DataPathUnavailable",
+                ));
             }
             self.qualified_snapshot(connection)
                 .await
@@ -686,15 +726,18 @@ impl EndpointHooks for BrowserGate {
     }
     async fn after_handshake(&self, connection: &Connection) -> AfterHandshakeOutcome {
         let saved = self.0.lock().unwrap().saved.clone();
+
         let Some(saved) = saved.filter(|saved| {
-            if connection.alpn() == REQUEST_ALPN && !connection.side().is_client() {
+            let permits = if connection.alpn() == REQUEST_ALPN && !connection.side().is_client() {
                 saved.stage() == "Complete"
                     && saved.verify().ok().flatten().is_some_and(|auth| {
                         auth.nodes().contains(&(saved.identity(), Access::manage()))
                     })
             } else {
                 Self::permits(saved, connection.remote_id(), connection.alpn())
-            }
+            };
+
+            permits
         }) else {
             return Self::reject();
         };
@@ -724,13 +767,15 @@ impl EndpointHooks for BrowserGate {
             };
             let secret = AdmissionSecret::from_saved(secret);
             let result = if connection.side().is_client() {
-                prove_client(connection, &scope, &secret).await
+                crate::admission_proof::prove_client(connection, &scope, &secret).await
             } else {
-                prove_server(connection, &scope, &secret).await
+                crate::admission_proof::prove_server(connection, &scope, &secret).await
             };
             match result {
                 Ok(proof) => Some(proof),
-                Err(_) => return Self::reject(),
+                Err(_) => {
+                    return Self::reject();
+                }
             }
         } else {
             None
@@ -761,6 +806,7 @@ impl EndpointHooks for BrowserGate {
         .ok()
         .flatten()
         .is_some();
+
         if connection.alpn() == REQUEST_ALPN {
             let mut state = self.0.lock().unwrap();
             if let Some(report) = state.request_handshake.as_mut() {
@@ -796,6 +842,7 @@ impl EndpointHooks for BrowserGate {
             }
             gate.proofs.push(proof);
             gate.connections.push(connection.weak_handle());
+
             if connection.alpn() == crate::connection_recovery_core::CONNECTION_RECOVERY_ALPN {
                 // Current member proof authorizes only this protected repair
                 // exchange. It must not run ordinary member RTC release hooks.
@@ -1044,6 +1091,7 @@ impl Drop for Delivery {
 #[wasm_bindgen]
 pub struct BrowserNetwork {
     endpoint: Endpoint,
+    incoming: std::rc::Rc<incoming::IncomingDispatcher>,
     #[cfg(feature = "rtc-probe")]
     rtc_transport: crate::rtc_transport::RtcTransport,
     relays: Vec<RelayUrl>,
@@ -1187,13 +1235,16 @@ impl BrowserNetwork {
         if let Some(profile) = input.rtc_ice {
             configuration.rtc_ice = Some(profile);
         }
-        let rtc_capability = crate::rtc_capability::RtcCapability::probe(configuration.rtc_enabled)?;
+        let rtc_capability =
+            crate::rtc_capability::RtcCapability::probe(configuration.rtc_enabled)?;
         #[cfg(feature = "rtc-probe")]
         let ice_profile = {
             let configured = configuration.rtc_ice.clone().unwrap_or_default();
             configured.validate().map_err(error)?;
             if rtc_capability.effective {
-                configured.check_allowed(&configuration.disabled).map_err(error)?;
+                configured
+                    .check_allowed(&configuration.disabled)
+                    .map_err(error)?;
                 configured
             } else {
                 // Keep the saved preference for a later enabled startup, but
@@ -1445,8 +1496,10 @@ impl BrowserNetwork {
                 "temporarily unreachable: allowed browser carriers unavailable",
             ));
         }
+        let incoming = incoming::IncomingDispatcher::start(endpoint.clone());
         Ok(Self {
             endpoint,
+            incoming,
             #[cfg(feature = "rtc-probe")]
             rtc_transport,
             relays,
@@ -1560,7 +1613,7 @@ impl BrowserNetwork {
     pub fn path_diagnostics(&self) -> String {
         let gate = self.gate.0.lock().unwrap();
         let bootstraps = serde_json::json!(gate.member_reports);
-        serde_json::json!({"rtcCapability":gate.rtc_capability,"request":self.last_request,"gate":gate.request_handshake,"memberBootstraps":bootstraps,"carriers":self.mqtt.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap()).chain(self.irc.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap())).collect::<Vec<_>>()}).to_string()
+        serde_json::json!({"incoming":self.incoming.diagnostics(),"rtcCapability":gate.rtc_capability,"request":self.last_request,"gate":gate.request_handshake,"memberBootstraps":bootstraps,"carriers":self.mqtt.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap()).chain(self.irc.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap())).collect::<Vec<_>>()}).to_string()
     }
 
     /// A separate handle can cancel while WASM owns the mutable request future.
@@ -1699,6 +1752,8 @@ impl BrowserNetwork {
     pub async fn close(&mut self) {
         self.delivery = None;
         self.management = None;
+        self.incoming.close();
+        self.incoming.stopped().await;
         self.endpoint.close().await;
         self.lease = None;
     }
@@ -1967,7 +2022,10 @@ mod admission;
 
 #[path = "member_connection.rs"]
 mod member_connection;
-pub use member_connection::BrowserMemberConnection;
+pub use member_connection::{BrowserMemberAcceptAttempt, BrowserMemberConnection};
+
+#[path = "incoming.rs"]
+mod incoming;
 
 #[cfg(feature = "rtc-probe")]
 #[path = "rtc.rs"]

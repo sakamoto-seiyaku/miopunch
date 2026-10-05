@@ -27,6 +27,7 @@ const MAX_FRAME: usize = 512;
 const PROOF_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_ACTIVE_PROOFS: usize = 32;
 const MAX_LIVE_PROOFS: usize = 4096;
+
 static ACTIVE_PROOFS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(MAX_ACTIVE_PROOFS);
 static ATTEMPTED_CONNECTIONS: LazyLock<Mutex<HashMap<usize, AttemptedConnection>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -405,64 +406,79 @@ pub async fn prove_client(
     scope: &AdmissionScope,
     secret: &AdmissionSecret,
 ) -> Result<BootstrapProof, ProofError> {
-    let _permit = ACTIVE_PROOFS.try_acquire().map_err(|_| ProofError::Busy)?;
-    let attempt = reserve_once(connection)?;
-    timeout(PROOF_TIMEOUT, async {
-        let binding = exporter(connection)?;
-        let sasl = SASLClient::with_cb(
-            config(ClientCredentials {
-                auth_id: scope.auth_id(),
-                password: secret.scram_password(),
-            })?,
-            FixedBinding(binding),
-        );
-        let mut session = sasl
-            .start_suggested(&[SCRAM_SHA256_PLUS.mechanism])
-            .map_err(|_| ProofError::Rejected)?;
-        let (mut send, mut recv) = connection
-            .open_bi()
-            .await
-            .map_err(|_| ProofError::Transport)?;
-        let mut first = Vec::new();
-        if !session
-            .step(None, &mut first)
-            .map_err(|_| ProofError::Rejected)?
-            .is_running()
-        {
-            return Err(ProofError::Rejected);
-        }
-        send_frame(&mut send, &first).await?;
-        let server_first = read_frame(&mut recv).await?;
-        if !acceptable_server_first(&server_first) {
-            return Err(ProofError::Rejected);
-        }
-        let mut final_message = Vec::new();
-        if !session
-            .step(Some(&server_first), &mut final_message)
-            .map_err(|_| ProofError::Rejected)?
-            .is_running()
-        {
-            return Err(ProofError::Rejected);
-        }
-        send_frame(&mut send, &final_message).await?;
-        let server_final = read_frame(&mut recv).await?;
-        let mut unused = Vec::new();
-        if !matches!(
-            session.step(Some(&server_final), &mut unused),
-            Ok(State::Finished(_))
-        ) {
-            return Err(ProofError::Rejected);
-        }
-        send_frame(&mut send, b"OK").await?;
-        if read_frame(&mut recv).await? != b"OK" {
-            return Err(ProofError::Rejected);
-        }
-        send.finish().map_err(|_| ProofError::Transport)?;
-        Ok::<(), ProofError>(())
-    })
-    .await
-    .map_err(|_| ProofError::Timeout)??;
-    attempt.succeed(scope, secret)
+    let result = async {
+        let _permit = ACTIVE_PROOFS.try_acquire().map_err(|_| ProofError::Busy)?;
+        let attempt = reserve_once(connection)?;
+
+        let timed = timeout(PROOF_TIMEOUT, async {
+            let binding = exporter(connection)?;
+            let sasl = SASLClient::with_cb(
+                config(ClientCredentials {
+                    auth_id: scope.auth_id(),
+                    password: secret.scram_password(),
+                })?,
+                FixedBinding(binding),
+            );
+            let mut session = sasl
+                .start_suggested(&[SCRAM_SHA256_PLUS.mechanism])
+                .map_err(|_| ProofError::Rejected)?;
+            let (mut send, mut recv) = connection
+                .open_bi()
+                .await
+                .map_err(|_| ProofError::Transport)?;
+
+            let mut first = Vec::new();
+            if !session
+                .step(None, &mut first)
+                .map_err(|_| ProofError::Rejected)?
+                .is_running()
+            {
+                return Err(ProofError::Rejected);
+            }
+            send_frame(&mut send, &first).await?;
+
+            let server_first = read_frame(&mut recv).await?;
+
+            if !acceptable_server_first(&server_first) {
+                return Err(ProofError::Rejected);
+            }
+
+            let mut final_message = Vec::new();
+            if !session
+                .step(Some(&server_first), &mut final_message)
+                .map_err(|_| ProofError::Rejected)?
+                .is_running()
+            {
+                return Err(ProofError::Rejected);
+            }
+
+            send_frame(&mut send, &final_message).await?;
+
+            let server_final = read_frame(&mut recv).await?;
+
+            let mut unused = Vec::new();
+            if !matches!(
+                session.step(Some(&server_final), &mut unused),
+                Ok(State::Finished(_))
+            ) {
+                return Err(ProofError::Rejected);
+            }
+            send_frame(&mut send, b"OK").await?;
+
+            if read_frame(&mut recv).await? != b"OK" {
+                return Err(ProofError::Rejected);
+            }
+
+            send.finish().map_err(|_| ProofError::Transport)?;
+            Ok::<(), ProofError>(())
+        });
+
+        timed.await.map_err(|_| ProofError::Timeout)??;
+        attempt.succeed(scope, secret)
+    }
+    .await;
+
+    result
 }
 
 pub async fn prove_server(
@@ -470,56 +486,72 @@ pub async fn prove_server(
     scope: &AdmissionScope,
     secret: &AdmissionSecret,
 ) -> Result<BootstrapProof, ProofError> {
-    let _permit = ACTIVE_PROOFS.try_acquire().map_err(|_| ProofError::Busy)?;
-    let attempt = reserve_once(connection)?;
-    timeout(PROOF_TIMEOUT, async {
-        let binding = exporter(connection)?;
-        let sasl = SASLServer::<ProofValidation, _>::with_cb(
-            config(ServerCredentials::new(scope, secret))?,
-            FixedBinding(binding),
-        );
-        let mut session = sasl
-            .start_suggested(SCRAM_SHA256_PLUS.mechanism)
-            .map_err(|_| ProofError::Rejected)?;
-        let (mut send, mut recv) = connection
-            .accept_bi()
-            .await
-            .map_err(|_| ProofError::Transport)?;
-        let first = read_frame(&mut recv).await?;
-        if !first.starts_with(b"p=tls-exporter,,n=") {
-            return Err(ProofError::Rejected);
-        }
-        let mut server_first = Vec::new();
-        if !session
-            .step(Some(&first), &mut server_first)
-            .map_err(|_| ProofError::Rejected)?
-            .is_running()
-        {
-            return Err(ProofError::Rejected);
-        }
-        send_frame(&mut send, &server_first).await?;
-        let client_final = read_frame(&mut recv).await?;
-        let mut server_final = Vec::new();
-        let state = session
-            .step(Some(&client_final), &mut server_final)
-            .map_err(|_| ProofError::Rejected)?;
-        if !matches!(state, State::Finished(_)) {
-            return Err(ProofError::Rejected);
-        }
-        send_frame(&mut send, &server_final).await?;
-        if session.validation() != Some(true) {
-            return Err(ProofError::Rejected);
-        }
-        if read_frame(&mut recv).await? != b"OK" {
-            return Err(ProofError::Rejected);
-        }
-        send_frame(&mut send, b"OK").await?;
-        send.finish().map_err(|_| ProofError::Transport)?;
-        Ok::<(), ProofError>(())
-    })
-    .await
-    .map_err(|_| ProofError::Timeout)??;
-    attempt.succeed(scope, secret)
+    let result = async {
+        let _permit = ACTIVE_PROOFS.try_acquire().map_err(|_| ProofError::Busy)?;
+        let attempt = reserve_once(connection)?;
+
+        let timed = timeout(PROOF_TIMEOUT, async {
+            let binding = exporter(connection)?;
+
+            let credentials = ServerCredentials::new(scope, secret);
+
+            let sasl = SASLServer::<ProofValidation, _>::with_cb(
+                config(credentials)?,
+                FixedBinding(binding),
+            );
+            let mut session = sasl
+                .start_suggested(SCRAM_SHA256_PLUS.mechanism)
+                .map_err(|_| ProofError::Rejected)?;
+            let (mut send, mut recv) = connection
+                .accept_bi()
+                .await
+                .map_err(|_| ProofError::Transport)?;
+
+            let first = read_frame(&mut recv).await?;
+
+            if !first.starts_with(b"p=tls-exporter,,n=") {
+                return Err(ProofError::Rejected);
+            }
+            let mut server_first = Vec::new();
+            if !session
+                .step(Some(&first), &mut server_first)
+                .map_err(|_| ProofError::Rejected)?
+                .is_running()
+            {
+                return Err(ProofError::Rejected);
+            }
+            send_frame(&mut send, &server_first).await?;
+
+            let client_final = read_frame(&mut recv).await?;
+
+            let mut server_final = Vec::new();
+            let state = session
+                .step(Some(&client_final), &mut server_final)
+                .map_err(|_| ProofError::Rejected)?;
+            if !matches!(state, State::Finished(_)) {
+                return Err(ProofError::Rejected);
+            }
+            send_frame(&mut send, &server_final).await?;
+
+            if session.validation() != Some(true) {
+                return Err(ProofError::Rejected);
+            }
+            if read_frame(&mut recv).await? != b"OK" {
+                return Err(ProofError::Rejected);
+            }
+
+            send_frame(&mut send, b"OK").await?;
+
+            send.finish().map_err(|_| ProofError::Transport)?;
+            Ok::<(), ProofError>(())
+        });
+
+        timed.await.map_err(|_| ProofError::Timeout)??;
+        attempt.succeed(scope, secret)
+    }
+    .await;
+
+    result
 }
 
 #[cfg(test)]
