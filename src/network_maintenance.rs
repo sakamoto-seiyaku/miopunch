@@ -2,6 +2,7 @@
 //! identity-scoped contact attempts; iroh owns the paths of each living session.
 use crate::{
     admission_gate::{AdmissionGate, ProtocolScope},
+    contact_listener::{ContactListenerControl, ContactListenerPhase, ContactListenerStatus},
     native_network::{NativeNetwork, NodeError, NodeStatus},
     network_recovery::{RECOVERY_REPLICA_ALPN, commit_ip},
     offline_replica::{REPLICA_ALPN, ReplicaOutcome, ReplicaProvider},
@@ -123,6 +124,8 @@ pub struct MaintenanceStatus {
     pub max_in_flight: usize,
     pub retry_after: Duration,
     pub cause: Option<String>,
+    /// Local facility generation only; readiness grants no membership/data path.
+    pub contact_listener: Option<ContactListenerStatus>,
 }
 struct Activity {
     count: AtomicUsize,
@@ -161,6 +164,10 @@ impl MaintainedNetwork {
     }
     pub fn maintenance_status(&self) -> MaintenanceStatus {
         let mut status = self.updates.borrow().clone();
+        status.contact_listener = self
+            .resources
+            .contact_listener()
+            .map(|listener| listener.status());
         if self.activity.count.load(Ordering::Acquire) > 0 {
             status.state = MaintenanceState::BusinessPriority;
         }
@@ -355,6 +362,10 @@ struct Coordinator {
     neighbors: BTreeMap<EndpointId, Neighbor>,
     sampler: PeerSampler,
     backoff: DiscoveryBackoff,
+    contact_listener: Option<ContactListenerControl>,
+    listener_backoff: DiscoveryBackoff,
+    listener_retry_at: Option<Instant>,
+    listener_last_attempt: Option<Instant>,
     discover_at: Instant,
     explore_at: Instant,
     last_attempt_at: Option<Instant>,
@@ -364,6 +375,42 @@ struct Coordinator {
     activity: Arc<Activity>,
 }
 impl Coordinator {
+    fn listener_changed(&mut self) {
+        let Some(listener) = &self.contact_listener else {
+            return;
+        };
+        let status = listener.status();
+        match status.phase {
+            ContactListenerPhase::Ready => {
+                self.listener_backoff.reset();
+                self.listener_retry_at = None;
+            }
+            ContactListenerPhase::Unavailable => {
+                if self.listener_retry_at.is_none() {
+                    self.listener_retry_at =
+                        Some(Instant::now() + self.floor().max(self.listener_backoff.duration()));
+                }
+            }
+            _ => self.listener_retry_at = None,
+        }
+        self.status.contact_listener = Some(status);
+    }
+    fn restart_listener(&mut self) {
+        let Some(listener) = &self.contact_listener else {
+            return;
+        };
+        self.listener_last_attempt = Some(Instant::now());
+        if let Err(error) = listener.restart() {
+            self.status.cause = Some(error.to_string());
+            self.listener_backoff.increment();
+            self.listener_retry_at =
+                Some(Instant::now() + self.floor().max(self.listener_backoff.duration()));
+        } else {
+            self.listener_backoff.increment();
+            self.listener_retry_at = None;
+        }
+        self.status.contact_listener = Some(listener.status());
+    }
     fn floor(&self) -> Duration {
         Duration::from_millis(self.policy.exploration_interval_ms)
     }
@@ -425,6 +472,15 @@ impl Coordinator {
                     self.resources.reset_contact(*id);
                 }
                 self.wake();
+                if let Some(listener) = &self.contact_listener {
+                    if listener.status().phase == ContactListenerPhase::Unavailable {
+                        let earliest = self
+                            .listener_last_attempt
+                            .map(|at| at + self.floor())
+                            .unwrap_or_else(Instant::now);
+                        self.listener_retry_at = Some(earliest.max(Instant::now()));
+                    }
+                }
             }
         }
         Ok(())
@@ -441,6 +497,10 @@ impl Coordinator {
             })
             .collect();
         self.status.retry_after = self.explore_at.saturating_duration_since(Instant::now());
+        self.status.contact_listener = self
+            .contact_listener
+            .as_ref()
+            .map(|listener| listener.status());
         if self.activity.count.load(Ordering::Acquire) > 0 {
             self.status.state = MaintenanceState::BusinessPriority;
         } else if !self.neighbors.is_empty() {
@@ -727,15 +787,30 @@ impl Coordinator {
         cancel: CancellationToken,
         router: Router,
     ) {
+        let mut listener_updates = self
+            .contact_listener
+            .as_ref()
+            .map(|listener| listener.watch());
+        self.listener_changed();
         loop {
             let activity = self.activity.clone();
             let active = activity.count.load(Ordering::Acquire) > 0;
+            let listener_retry = self.listener_retry_at.unwrap_or(self.explore_at);
             tokio::select! {
                 biased;
                 _ = cancel.cancelled() => break,
                 command = commands.recv() => {
                     let Some(command) = command else { break; };
                     if let Err(error) = self.command(command).await { self.status.cause = Some(error.to_string()); }
+                }
+                result = async { listener_updates.as_mut().unwrap().changed().await }, if listener_updates.is_some() => {
+                    if result.is_err() { listener_updates = None; }
+                    self.listener_changed();
+                }
+                _ = tokio::time::sleep_until(listener_retry), if self.listener_retry_at.is_some() => {
+                    // This branch remains active during healthy relay/business
+                    // use. It shares this Node's single selector and budget.
+                    self.restart_listener();
                 }
                 _ = activity.changed.notified() => { self.explore_at = self.explore_at.max(Instant::now()); }
                 _ = tokio::time::sleep_until(self.explore_at), if !active => {
@@ -749,6 +824,12 @@ impl Coordinator {
                 }
             }
             self.publish().await;
+        }
+        if let Some(listener) = &self.contact_listener {
+            if let Err(error) = listener.shutdown().await {
+                self.status.cause = Some(error.to_string());
+            }
+            self.status.contact_listener = Some(listener.status());
         }
         self.status.state = MaintenanceState::Stopped;
         self.published.send_replace(self.status.clone());
@@ -767,6 +848,48 @@ impl NativeNetwork {
         bind_ip: Ipv4Addr,
         routes: impl FnOnce(RouterBuilder) -> RouterBuilder,
     ) -> Result<MaintainedNetwork, NodeError> {
+        self.maintain_network_with_endpoint(bind_ip, |builder| builder, routes)
+            .await
+    }
+
+    /// Install application-owned custom transports on the same configured
+    /// endpoint. Resource policy and the existing maintenance owner still apply.
+    pub async fn maintain_network_with_endpoint(
+        self,
+        bind_ip: Ipv4Addr,
+        configure: impl FnOnce(iroh::endpoint::Builder) -> iroh::endpoint::Builder,
+        routes: impl FnOnce(RouterBuilder) -> RouterBuilder,
+    ) -> Result<MaintainedNetwork, NodeError> {
+        self.maintain_network_inner(
+            bind_ip,
+            configure,
+            routes,
+            #[cfg(feature = "rtc-probe")]
+            None,
+        )
+        .await
+    }
+
+    /// The installed RTC adapter is owned by this same Node lifecycle; contact
+    /// selection and ordinary handlers still use the configured SDK endpoint.
+    #[cfg(feature = "rtc-probe")]
+    pub async fn maintain_network_with_rtc(
+        self,
+        bind_ip: Ipv4Addr,
+        rtc: crate::rtc_transport::RtcTransport,
+        routes: impl FnOnce(RouterBuilder) -> RouterBuilder,
+    ) -> Result<MaintainedNetwork, NodeError> {
+        self.maintain_network_inner(bind_ip, |builder| builder, routes, Some(rtc))
+            .await
+    }
+
+    async fn maintain_network_inner(
+        self,
+        bind_ip: Ipv4Addr,
+        configure: impl FnOnce(iroh::endpoint::Builder) -> iroh::endpoint::Builder,
+        routes: impl FnOnce(RouterBuilder) -> RouterBuilder,
+        #[cfg(feature = "rtc-probe")] rtc: Option<crate::rtc_transport::RtcTransport>,
+    ) -> Result<MaintainedNetwork, NodeError> {
         let config = self.resource_configuration()?;
         self.gate
             .register_protocol(REPLICA_ALPN, ProtocolScope::Member);
@@ -776,14 +899,20 @@ impl NativeNetwork {
         path_policy.reevaluation_interval_ms = path_policy
             .reevaluation_interval_ms
             .max(policy.quality_interval_ms);
-        let builder = Endpoint::builder(iroh::endpoint::presets::Minimal)
+        let builder = configure(Endpoint::builder(iroh::endpoint::presets::Minimal)
             .bind_addr(SocketAddr::from((bind_ip, 0)))
             .map_err(|_| NodeError::InvalidData)?
-            .path_selector(path_policy.selector()?);
-        let resources = self
-            .bind_configured_endpoint_with(builder)
-            .await?
-            .with_contact_timeout(Duration::from_millis(policy.contact_timeout_ms))?;
+            .path_selector(path_policy.selector()?));
+        #[cfg(feature = "rtc-probe")]
+        let resources = if let Some(rtc) = rtc {
+            self.bind_configured_endpoint_with_rtc(builder, rtc).await?
+        } else {
+            self.bind_configured_endpoint_with(builder).await?
+        };
+        #[cfg(not(feature = "rtc-probe"))]
+        let resources = self.bind_configured_endpoint_with(builder).await?;
+        let resources =
+            resources.with_contact_timeout(Duration::from_millis(policy.contact_timeout_ms))?;
         if resources.recovery_origins().is_empty() {
             resources
                 .endpoint()
@@ -818,6 +947,9 @@ impl NativeNetwork {
             max_in_flight: 0,
             retry_after: Duration::ZERO,
             cause: None,
+            contact_listener: resources
+                .contact_listener()
+                .map(|listener| listener.status()),
         };
         let (published, updates) = watch::channel(status.clone());
         let (commands, incoming) = mpsc::channel(16);
@@ -826,6 +958,15 @@ impl NativeNetwork {
             changed: Notify::new(),
         });
         let backoff = DiscoveryBackoff::new(
+            DiscoveryBackoffConfig::bounded(
+                Duration::ZERO,
+                Duration::from_millis(policy.discovery_interval_ms),
+                Duration::from_millis(policy.discovery_interval_ms + 100),
+                Duration::from_secs(120),
+            )?,
+            ChaCha20Rng::from_rng(&mut rand::rng()),
+        );
+        let listener_backoff = DiscoveryBackoff::new(
             DiscoveryBackoffConfig::bounded(
                 Duration::ZERO,
                 Duration::from_millis(policy.discovery_interval_ms),
@@ -844,6 +985,10 @@ impl NativeNetwork {
             neighbors: BTreeMap::new(),
             sampler,
             backoff,
+            contact_listener: resources.contact_listener().cloned(),
+            listener_backoff,
+            listener_retry_at: None,
+            listener_last_attempt: None,
             discover_at: Instant::now(),
             explore_at: Instant::now(),
             last_attempt_at: None,

@@ -1,4 +1,7 @@
+#[path = "../../src/connection_coordinator.rs"]
+pub mod connection_coordinator;
 mod custom_datagram;
+mod rtc_capability;
 use iroh::{Endpoint, EndpointAddr, RelayMode, endpoint::presets};
 use iroh_base::{PublicKey, RelayUrl, SecretKey};
 use p2panda_core::SigningKey;

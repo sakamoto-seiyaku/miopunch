@@ -77,6 +77,9 @@ pub struct ResourceConfig {
     pub path_selection: crate::path_selection::PathSelectionPolicy,
     #[serde(default)]
     pub maintenance: crate::network_maintenance::MaintenancePolicy,
+    /// Explicit trusted native/WSS contact mapping; no implicit public facility.
+    #[serde(default)]
+    pub mqtt_facilities: Vec<crate::mqtt_datagram::MqttFacility>,
     /// Explicitly trusted configuration publisher, distinct from membership.
     #[serde(default)]
     pub trusted_update_key: Option<VerifyingKey>,
@@ -164,6 +167,44 @@ impl ResourceConfig {
         }
         origins.into_values().take(4).collect()
     }
+    pub(crate) fn validate_mqtt_facilities(&self) -> std::io::Result<()> {
+        if self.mqtt_facilities.len() > 4 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "too many explicit MQTT facilities",
+            ));
+        }
+        let mut ids = std::collections::BTreeSet::new();
+        for facility in &self.mqtt_facilities {
+            crate::mqtt_datagram::MqttFacility::new(
+                facility.logical_id.clone(),
+                facility.native_url.clone(),
+                facility.wss_url.clone(),
+            )?;
+            if !ids.insert(&facility.logical_id) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "duplicate MQTT facility",
+                ));
+            }
+        }
+        Ok(())
+    }
+    pub(crate) fn allowed_mqtt_facilities(&self) -> Vec<&crate::mqtt_datagram::MqttFacility> {
+        let disabled: Vec<_> = self
+            .disabled
+            .iter()
+            .filter(|(_, purpose)| *purpose == ResourceUse::Signaling)
+            .map(|(url, _)| url.clone())
+            .collect();
+        self.mqtt_facilities
+            .iter()
+            .filter(|facility| {
+                self.allows(&facility.native_url, ResourceUse::Signaling)
+                    && facility.check_allowed(&disabled).is_ok()
+            })
+            .collect()
+    }
     /// Approved message origins retain independently qualified routes.
     pub(crate) fn mqtt_resources(&self) -> Vec<iroh::RelayUrl> {
         self.signaling_resources("mqtt")
@@ -202,6 +243,7 @@ impl ResourceConfig {
             disabled_tcp_addresses: BTreeSet::new(),
             path_selection: Default::default(),
             maintenance: Default::default(),
+            mqtt_facilities: Vec::new(),
             trusted_update_key: None,
         }
     }
@@ -497,6 +539,7 @@ pub struct ResourceEndpoint {
     pub(crate) responders: Vec<tokio::task::JoinHandle<()>>,
     tcp: Option<crate::tcp_transport::TcpTransport>,
     mqtt: Vec<std::sync::Arc<crate::mqtt_transport::MqttTransport>>,
+    contact_listener: Option<crate::contact_listener::ContactListenerControl>,
     #[cfg(feature = "rtc-probe")]
     rtc: Option<crate::rtc_transport::RtcTransport>,
 }
@@ -544,6 +587,7 @@ impl ResourceEndpoint {
             responders: Vec::new(),
             tcp: None,
             mqtt: Vec::new(),
+            contact_listener: None,
             #[cfg(feature = "rtc-probe")]
             rtc: None,
         }
@@ -554,8 +598,42 @@ impl ResourceEndpoint {
     }
     /// Common SDK entry with purpose and caller budget, without carrier flags.
     pub fn coordinator(&self) -> crate::connection_coordinator::ConnectionCoordinator {
+        use crate::connection_coordinator::{RELAY, TCP, UDP};
+        let permitted = if !self.config.udp_direct_disabled {
+            UDP
+        } else {
+            0
+        } | if !self.config.tcp_direct_disabled && self.tcp.is_some() {
+            TCP
+        } else {
+            0
+        } | if self
+            .config
+            .relay_map(ResourceUse::DataRelay)
+            .is_ok_and(|relays| !relays.is_empty())
+        {
+            RELAY
+        } else {
+            0
+        };
+        let mut contact_ids = Vec::new();
+        if !self.config.disabled_uses.contains(&ResourceUse::Signaling) {
+            if self.contact_listener.is_some() {
+                contact_ids.push(crate::mqtt_datagram::TRANSPORT_ID);
+            }
+            if self
+                .endpoint
+                .custom_addrs()
+                .iter()
+                .any(|address| address.id() == crate::member_transport::TRANSPORT_ID)
+            {
+                contact_ids.push(crate::member_transport::TRANSPORT_ID);
+            }
+        }
         crate::connection_coordinator::ConnectionCoordinator::new(
-            self.endpoint.clone(), !self.config.udp_direct_disabled,
+            self.endpoint.clone(),
+            permitted,
+            contact_ids,
         )
     }
     #[cfg(feature = "rtc-probe")]
@@ -590,6 +668,20 @@ impl ResourceEndpoint {
     ) -> Self {
         self.mqtt = mqtt;
         self
+    }
+
+    pub(crate) fn with_contact_listener(
+        mut self,
+        listener: Option<crate::contact_listener::ContactListenerControl>,
+    ) -> Self {
+        self.contact_listener = listener;
+        self
+    }
+
+    pub(crate) fn contact_listener(
+        &self,
+    ) -> Option<&crate::contact_listener::ContactListenerControl> {
+        self.contact_listener.as_ref()
     }
 
     pub fn mqtt_diagnostics(&self) -> Vec<(String, bool, u64, u64)> {
@@ -851,6 +943,9 @@ impl ResourceEndpoint {
     }
 
     pub async fn close(self) {
+        if let Some(listener) = &self.contact_listener {
+            let _ = listener.shutdown().await;
+        }
         self.endpoint.close().await;
     }
 }

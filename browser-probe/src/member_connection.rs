@@ -209,6 +209,36 @@ impl BrowserMemberConnection {
             ),
         }
     }
+    /// Facts about this actual ordinary member M, not its earlier admission.
+    pub fn session_diagnostics(&self) -> String {
+        let state = self.gate.0.lock().unwrap();
+        let member_authorized = state.saved.as_ref().is_some_and(|saved| {
+            let Ok(invitation) = saved.invitation() else {
+                return false;
+            };
+            let scope = AdmissionScope::new(*invitation.anchor.root.as_bytes(), saved.generation);
+            BrowserGate::permits(saved, self.connection.remote_id(), self.connection.alpn())
+                && state
+                    .proofs
+                    .iter()
+                    .any(|proof| proof.applies_to(&self.connection, &scope))
+        });
+        serde_json::json!({"newProtocol":self.connection.alpn()==BUSINESS_ALPN,
+            "alpn":String::from_utf8_lossy(self.connection.alpn()),"ordinaryHandle":!self.is_closed(),
+            "expectedPeerMatched":self.connection.remote_id()==self.repair_contact.id,"memberAuthorized":member_authorized,
+            "coordinator":state.member_reports.get(&self.connection.stable_id()).map(|report|&report["coordinator"]),
+            "bootstrap":state.member_reports.get(&self.connection.stable_id()),
+            "paths":self.connection.paths().iter().map(|path|serde_json::json!({"pathId":path.id().to_string(),
+                "route":path.remote_addr().to_string(),"selected":path.is_selected(),"isIp":path.is_ip(),"isRelay":path.is_relay(),
+                "isRtc": ({
+                    #[cfg(feature="rtc-probe")]
+                    {matches!(path.remote_addr(),iroh::TransportAddr::Custom(address) if address.id()==crate::rtc_transport::TRANSPORT_ID)}
+                    #[cfg(not(feature="rtc-probe"))]
+                    {false}
+                }),
+                "isSignal":matches!(path.remote_addr(),iroh::TransportAddr::Custom(address) if matches!(address.id(),crate::mqtt_datagram::TRANSPORT_ID|crate::irc_datagram::TRANSPORT_ID)),
+                "sentBytes":path.stats().udp_tx.bytes,"receivedBytes":path.stats().udp_rx.bytes})).collect::<Vec<_>>()}).to_string()
+    }
     pub fn is_closed(&self) -> bool {
         self.connection.close_reason().is_some()
     }
@@ -328,14 +358,26 @@ impl BrowserMemberAttempt {
             if read_node(self.lease).await?.as_string().as_deref() != Some(&self.saved) {
                 return Err(error("browser materials changed during member attempt"));
             }
-            let options = crate::member_path_protocol::MemberProtocol::Business
-                .connect_options()
-                .with_caller_deadline(self.deadline)
-                .with_attempt_cancellation(self.cancel.clone());
-            self.endpoint
-                .connect_with_opts(self.address.clone(), BUSINESS_ALPN, options)
-                .await
-                .map_err(error)?
+            use crate::connection_coordinator::MemberPathAdapter;
+            let caps = self
+                .gate
+                .capabilities(crate::connection_coordinator::AttemptRole::Initiator);
+            let coordinator = crate::connection_coordinator::ConnectionCoordinator::new(
+                self.endpoint.clone(),
+                caps.permitted,
+                if self.address.addrs.iter().any(|address|matches!(address,iroh::TransportAddr::Custom(address) if address.id()==crate::mqtt_datagram::TRANSPORT_ID)) {
+                    vec![crate::mqtt_datagram::TRANSPORT_ID]
+                } else {vec![]},
+            );
+            coordinator
+                .connect(
+                    self.address.clone(),
+                    crate::connection_coordinator::SessionPurpose::MemberBusiness,
+                    crate::connection_coordinator::AttemptContext::new(
+                        self.deadline,
+                        self.cancel.clone(),
+                    ),
+                )
                 .await
                 .map_err(error)
         }

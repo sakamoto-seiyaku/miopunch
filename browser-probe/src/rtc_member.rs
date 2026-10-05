@@ -225,6 +225,39 @@ pub(super) async fn bootstrap_control(
     saved: &SavedNode,
     transport: &crate::rtc_transport::RtcTransport,
 ) -> Result<Value, JsValue> {
+    bootstrap_control_inner(endpoint, connection, gate, saved, transport, None)
+        .await
+        .map(|(report, _)| report)
+}
+
+pub(super) async fn bootstrap_control_unified(
+    endpoint: &Endpoint,
+    connection: &Connection,
+    gate: &BrowserGate,
+    saved: &SavedNode,
+    transport: &crate::rtc_transport::RtcTransport,
+    attempt: crate::connection_coordinator::ProtectedAttempt,
+) -> Result<(Value, crate::connection_coordinator::PreparedPath), JsValue> {
+    if attempt.rtc_role != crate::connection_coordinator::RtcRole::Offerer {
+        return Err(error("unified/InvalidControl"));
+    }
+    let (report, prepared) =
+        bootstrap_control_inner(endpoint, connection, gate, saved, transport, Some(attempt))
+            .await?;
+    Ok((
+        report,
+        prepared.ok_or_else(|| error("unified/DataPathUnavailable"))?,
+    ))
+}
+
+pub(super) async fn bootstrap_control_inner(
+    endpoint: &Endpoint,
+    connection: &Connection,
+    gate: &BrowserGate,
+    saved: &SavedNode,
+    transport: &crate::rtc_transport::RtcTransport,
+    unified: Option<crate::connection_coordinator::ProtectedAttempt>,
+) -> Result<(Value, Option<crate::connection_coordinator::PreparedPath>), JsValue> {
     let budget = RtcDeadline::from_caller(
         connection
             .caller_deadline()
@@ -233,7 +266,19 @@ pub(super) async fn bootstrap_control(
     let owner = OwnedRtc::new(connection, transport, gate)?;
     let stable = connection.stable_id();
     let original_binding = binding(connection)?;
-    let attempt = hex::encode(rand::random::<[u8; 16]>());
+    let attempt = unified.map_or_else(
+        || hex::encode(rand::random::<[u8; 16]>()),
+        |attempt| attempt.id_hex(),
+    );
+    let protocol = if unified.is_some() {
+        crate::rtc_association::UNIFIED_RTC_PROTOCOL
+    } else {
+        MEMBER_RTC_PROTOCOL
+    };
+    let quic_dialer = unified.map_or(endpoint.id(), |attempt| {
+        attempt.quic_dialer(endpoint, connection)
+    });
+    let mut prepared_for_coordinator = None;
     let context = attempt_context(
         &attempt,
         saved.invitation()?.anchor.root.as_bytes(),
@@ -254,9 +299,9 @@ pub(super) async fn bootstrap_control(
         JsFuture::from(owner.association.pc.set_local_description(&offer)).await?;
         owner.association.gathered().await?;
         let offer = owner.association.pc.local_description().ok_or_else(|| error("RTC offer absent"))?;
-        write_frame(&mut send, &json!({"protocol":MEMBER_RTC_PROTOCOL,"attempt":attempt,"context":context,"binding":protected_binding,
+        write_frame(&mut send, &json!({"protocol":protocol,"attempt":attempt,"context":context,"binding":protected_binding,
             "description":{"type":"offer","sdp":transport.ice_profile().local_sdp(&offer.sdp()).map_err(error)?},"channel":datagram_channel_parameters(),"route":hex::encode(owner.lease.local_addr().data()),
-            "quicDialer":endpoint.id().to_string(),"rtcOfferer":endpoint.id().to_string(),"rtcAnswerer":connection.remote_id().to_string(),
+            "quicDialer":quic_dialer.to_string(),"rtcOfferer":endpoint.id().to_string(),"rtcAnswerer":connection.remote_id().to_string(),
             "remainingMs":budget.remaining().map_err(error)?.as_millis() as u64,"authorizationRevision":observed,"resourceRevision":transport.resource_revision()})).await.map_err(error)?;
         let answer = phase(&mut recv, "answer").await?;
         if answer["attempt"] != attempt || answer["binding"] != protected_binding || answer["channel"] != datagram_channel_parameters() {
@@ -343,12 +388,23 @@ pub(super) async fn bootstrap_control(
         if revision.load(Ordering::Acquire) != observed || !owner.lease.io().is_active() {
             return Err(error("RTC qualification changed during final release validation"));
         }
+        let release_watermark = release_probe.watermark();
+        if unified.is_some() {
+            let io = owner.lease.io();
+            let rollback_io = io.clone();
+            let path_id = release_probe.path_id().to_owned();
+            prepared_for_coordinator = Some(crate::connection_coordinator::PreparedPath::candidate(
+                connection, iroh::TransportAddr::Custom(owner.lease.remote_addr().map_err(error)?), move || {
+                    if io.is_active() { Ok(()) } else { Err(crate::connection_coordinator::control_error("DataPathUnavailable")) }
+                }).with_proof(path_id, release_watermark, move || release_probe.is_acknowledged())
+                .with_rollback(move || rollback_io.retire()));
+        }
         send.finish().map_err(error)?;
         Ok::<_, JsValue>(json!({"switched":true,"memberStableId":stable,"stableUnchanged":connection.stable_id()==stable,
             "bindingUnchanged":binding(connection)?==original_binding,"privateStreamId":stream_id,"privateSequence":1,
             "pathId":probe.path_id(),"freshProbeStartedMs":probe_started,"freshAckMs":acknowledged,"freshAck":true,
             "probeWatermark":probe.watermark(),"beforeRetainFrames":before_retain_frames,"rtc":metadata(&owner.association).await?,
-            "finalReleaseFreshAck":true,"finalReleaseProbeWatermark":release_probe.watermark(),
+            "finalReleaseFreshAck":true,"finalReleaseProbeWatermark":release_watermark,
             "finalReleaseProbeStartedMs":release_started,"finalReleaseAckMs":budget.elapsed_ms(),
             "route":owner.lease.report(),"dataChannel":owner.stats.report(),"native":native,"authorizationRevision":observed,
             "secretGeneration":saved.generation,"resourceRevision":transport.resource_revision(),"quicRole":"client","rtcRole":"offerer",
@@ -372,7 +428,7 @@ pub(super) async fn bootstrap_control(
         futures_util::select_biased! { _ = closed => {}, _ = retired => {} }
         owner.retire();
     });
-    Ok(report)
+    Ok((report, prepared_for_coordinator.take()))
 }
 
 /// Owned diagnostics operate on this installed carrier and pending hook. They
@@ -665,7 +721,7 @@ impl BrowserMemberConnection {
 
     pub fn rtc_path_diagnostics(&self) -> String {
         json!({"memberStableId":self.connection.stable_id(),"closed":self.is_closed(),"activeAssociations":self.rtc_transport.active_associations(),"activePumpTasks":self.rtc_transport.active_pumps(),"resourceRevision":self.rtc_transport.resource_revision(),
-            "bootstrap":self.gate.0.lock().unwrap().rtc_reports.get(&self.connection.stable_id()),
+            "bootstrap":self.gate.0.lock().unwrap().member_reports.get(&self.connection.stable_id()),
             "paths":self.connection.paths().iter().map(|path|json!({"pathId":path.id().to_string(),"address":format!("{:?}",path.remote_addr()),"selected":path.is_selected(),"isRelay":path.is_relay(),"isRtc":matches!(path.remote_addr(),iroh::TransportAddr::Custom(address) if address.id()==crate::rtc_transport::TRANSPORT_ID),
                 "isSignal":matches!(path.remote_addr(),iroh::TransportAddr::Custom(address) if matches!(address.id(),crate::mqtt_datagram::TRANSPORT_ID | crate::irc_datagram::TRANSPORT_ID)),
                 "sentBytes":path.stats().udp_tx.bytes,"receivedBytes":path.stats().udp_rx.bytes,"streamFramesSent":path.stats().frame_tx.stream,"streamFramesReceived":path.stats().frame_rx.stream,

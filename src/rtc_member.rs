@@ -69,6 +69,7 @@ pub async fn serve_stream(
             &mut send,
             &mut recv,
             false,
+            None,
         )
         .await
         {
@@ -268,7 +269,8 @@ async fn upgrade(
     send: &mut SendStream,
     recv: &mut RecvStream,
     control: bool,
-) -> Result<()> {
+    unified: Option<crate::connection_coordinator::ProtectedAttempt>,
+) -> Result<Option<crate::connection_coordinator::PreparedPath>> {
     let remaining_ms = request["remainingMs"]
         .as_u64()
         .filter(|value| *value > 0 && *value <= 12000)
@@ -294,17 +296,37 @@ async fn upgrade(
         &connection.remote_id().to_string(),
         &endpoint.id().to_string(),
     );
+    if unified.is_some_and(|expected| {
+        expected.rtc_role != crate::connection_coordinator::RtcRole::Answerer
+            || !expected.matches(attempt)
+    }) {
+        return Err(crate::connection_coordinator::control_error("InvalidControl").into());
+    }
+    let expected_protocol = if unified.is_some() {
+        crate::rtc_association::UNIFIED_RTC_PROTOCOL
+    } else {
+        MEMBER_RTC_PROTOCOL
+    };
+    let quic_dialer = if let Some(expected) = unified {
+        expected.quic_dialer(endpoint, connection)
+    } else {
+        connection.remote_id()
+    };
     if !connection.side().is_server()
-        || request["protocol"] != MEMBER_RTC_PROTOCOL
+        || request["protocol"] != expected_protocol
         || request["context"] != context
         || request["binding"].as_str()
             != Some(rtc_probe::binding(connection, context.as_bytes())?.as_str())
         || request["channel"] != datagram_channel_parameters()
-        || request["quicDialer"] != connection.remote_id().to_string()
+        || request["quicDialer"] != quic_dialer.to_string()
         || request["rtcOfferer"] != connection.remote_id().to_string()
         || request["rtcAnswerer"] != endpoint.id().to_string()
     {
-        return Err("RTC original-M context/profile/role binding rejected".into());
+        return Err(if unified.is_some() {
+            crate::connection_coordinator::control_error("InvalidControl").into()
+        } else {
+            "RTC original-M context/profile/role binding rejected".into()
+        });
     }
     let offer: RTCSessionDescription = serde_json::from_value(request["description"].clone())?;
     transport.ice_profile().check_remote_sdp(&offer.sdp)?;
@@ -338,6 +360,7 @@ async fn upgrade(
     let drop_quic = Arc::new(AtomicBool::new(false));
     let pump_stats = Arc::new(PumpStats::default());
     let mut owned_pump = None;
+    let mut prepared_for_coordinator = None;
     // A diagnostic may retain the actual channel until the finite PC-cleanup
     // hold ends. No IO/pump/M is retained or reactivated by this extra handle.
     let mut fixture_channel: Option<Arc<dyn DataChannel>> = None;
@@ -575,8 +598,32 @@ async fn upgrade(
             if !qualification.is_current() || !gate.allows(connection, ProtocolScope::Member) {
                 return Err("RTC current qualification changed during release validation".into());
             }
+            let release_watermark = release_probe.watermark();
+            if unified.is_some() {
+                let io = lease.io();
+                let rollback_io = io.clone();
+                let path_id = release_probe.path_id().to_owned();
+                let watermark = release_probe.watermark();
+                prepared_for_coordinator = Some(
+                    crate::connection_coordinator::PreparedPath::candidate(
+                        connection,
+                        iroh::TransportAddr::Custom(lease.remote_addr()?),
+                        move || {
+                            if io.is_active() {
+                                Ok(())
+                            } else {
+                                Err(crate::connection_coordinator::control_error(
+                                    "DataPathUnavailable",
+                                ))
+                            }
+                        },
+                    )
+                    .with_proof(path_id, watermark, move || release_probe.is_acknowledged())
+                    .with_rollback(move || rollback_io.retire()),
+                );
+            }
             report["finalReleaseFreshAck"] = json!(true);
-            report["finalReleaseProbeWatermark"] = json!(release_probe.watermark());
+            report["finalReleaseProbeWatermark"] = json!(release_watermark);
             report["finalReleaseProbeStartedMs"] = json!(release_started);
             report["finalReleaseAckMs"] = json!(budget.elapsed_ms());
         }
@@ -627,7 +674,7 @@ async fn upgrade(
                         "socketBefore":socket_before,"socketAfter":rtc_probe::sockets(),"route":lease.report(),"dataChannel":pump_stats.report(),"rtcStatsBeforeClose":final_stats}})
                 );
             });
-            return Ok(());
+            return Ok(prepared_for_coordinator.take());
         }
         // The association persists beyond the upgrade result, owned by original M.
         if let Some(task) = owned_pump.as_mut() {
@@ -679,7 +726,7 @@ async fn upgrade(
             return Err(error);
         }
     }
-    Ok(())
+    Ok(None)
 }
 
 struct CancelRtc {
@@ -716,8 +763,40 @@ pub(crate) async fn bootstrap_control(
     let (mut send, mut recv) = connection.accept_bi().await?;
     let request = read_frame(&mut recv).await.map_err(std::io::Error::other)?;
     upgrade(
-        endpoint, connection, gate, transport, request, &mut send, &mut recv, true,
+        endpoint, connection, gate, transport, request, &mut send, &mut recv, true, None,
     )
     .await
+    .map(|_| ())
     .map_err(std::io::Error::other)
+}
+
+pub(crate) async fn bootstrap_control_unified(
+    endpoint: &Endpoint,
+    connection: &Connection,
+    gate: &AdmissionGate,
+    transport: &RtcTransport,
+    attempt: crate::connection_coordinator::ProtectedAttempt,
+) -> std::io::Result<crate::connection_coordinator::PreparedPath> {
+    let (mut send, mut recv) = connection.accept_bi().await?;
+    let request = read_frame(&mut recv).await.map_err(std::io::Error::other)?;
+    upgrade(
+        endpoint,
+        connection,
+        gate,
+        transport,
+        request,
+        &mut send,
+        &mut recv,
+        true,
+        Some(attempt),
+    )
+    .await
+    .map_err(|error| {
+        if error.to_string().starts_with("unified/") {
+            std::io::Error::other(error.to_string())
+        } else {
+            crate::connection_coordinator::control_error("DataPathUnavailable")
+        }
+    })?
+    .ok_or_else(|| crate::connection_coordinator::control_error("DataPathUnavailable"))
 }

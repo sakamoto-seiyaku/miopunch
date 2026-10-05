@@ -110,7 +110,7 @@ impl BrowserNetwork {
         #[cfg(feature = "rtc-probe")]
         {
             observation["bootstrap"] =
-                serde_json::json!(gate.rtc_reports.get(&connection.stable_id()));
+                serde_json::json!(gate.member_reports.get(&connection.stable_id()));
             observation["permissionRevision"] = serde_json::json!(
                 gate.rtc_qualifications
                     .get(&connection.stable_id())

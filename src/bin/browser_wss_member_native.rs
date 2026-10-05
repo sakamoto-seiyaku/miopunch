@@ -37,29 +37,33 @@ fn connection_paths(connection: &iroh::endpoint::Connection) -> Vec<serde_json::
 struct FixtureOptions<'a> {
     admission: bool,
     legacy_only: bool,
+    unified_member: bool,
     permitted_relay: Option<&'a str>,
     ice_profile: Option<&'a str>,
 }
 
 fn fixture_options(args: &[String]) -> Result<FixtureOptions<'_>, &'static str> {
-    const USAGE: &str = "usage: browser_wss_member_native DATA_DIR FACILITY_JSON TEST_CA_PEM [admission | legacy-no-rtc | legacy-relay RELAY_URL | rtc-relay RELAY_URL] [--ice-profile FILE]";
+    const USAGE: &str = "usage: browser_wss_member_native DATA_DIR FACILITY_JSON TEST_CA_PEM [admission | unified-member [RELAY_URL] | legacy-no-rtc | legacy-relay RELAY_URL | rtc-relay RELAY_URL] [--ice-profile FILE]";
     let tail = args.get(4..).ok_or(USAGE)?;
     let (mode, ice_profile) = if tail.len() >= 2 && tail[tail.len() - 2] == "--ice-profile" {
         (&tail[..tail.len() - 2], Some(tail[tail.len() - 1].as_str()))
     } else {
         (tail, None)
     };
-    let (admission, legacy_only, permitted_relay) = match mode {
-        [] => (false, false, None),
-        [mode] if mode == "admission" => (true, false, None),
-        [mode] if mode == "legacy-no-rtc" => (false, true, None),
-        [mode, relay] if mode == "legacy-relay" => (false, true, Some(relay.as_str())),
-        [mode, relay] if mode == "rtc-relay" => (false, false, Some(relay.as_str())),
+    let (admission, legacy_only, unified_member, permitted_relay) = match mode {
+        [] => (false, false, true, None),
+        [mode] if mode == "unified-member" => (false, false, true, None),
+        [mode, relay] if mode == "unified-member" => (false, false, true, Some(relay.as_str())),
+        [mode] if mode == "admission" => (true, false, false, None),
+        [mode] if mode == "legacy-no-rtc" => (false, true, false, None),
+        [mode, relay] if mode == "legacy-relay" => (false, true, false, Some(relay.as_str())),
+        [mode, relay] if mode == "rtc-relay" => (false, false, true, Some(relay.as_str())),
         _ => return Err(USAGE),
     };
     Ok(FixtureOptions {
         admission,
         legacy_only,
+        unified_member,
         permitted_relay,
         ice_profile,
     })
@@ -67,10 +71,12 @@ fn fixture_options(args: &[String]) -> Result<FixtureOptions<'_>, &'static str> 
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    let sockets_before = socket_count();
     let args: Vec<_> = std::env::args().collect();
     let options = fixture_options(&args)?;
     let admission_mode = options.admission;
     let legacy_only = options.legacy_only;
+    let unified_member = options.unified_member;
     let permitted_relay = options.permitted_relay;
     let ice_profile: miopunch_native_probe::rtc_ice_profile::RtcIceProfile =
         if let Some(path) = options.ice_profile {
@@ -87,6 +93,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
     let facility: MqttFacility = serde_json::from_slice(&std::fs::read(&args[2])?)?;
     let mut resources = node.resource_configuration()?;
+    resources.mqtt_facilities = vec![facility.clone()];
     ice_profile.check_allowed(
         &resources
             .disabled
@@ -141,7 +148,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     node.save_resource_configuration(&resources)?;
     let mut alpns = Vec::new();
     for protocol in [MemberProtocol::Business, MemberProtocol::Replica] {
-        for alpn in if legacy_only {
+        for alpn in if unified_member && protocol == MemberProtocol::Business {
+            vec![miopunch_native_probe::connection_coordinator::MEMBER_ALPN.to_vec()]
+        } else if legacy_only {
             vec![protocol.legacy_alpn().to_vec()]
         } else {
             protocol.preferred_alpns()
@@ -154,14 +163,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let traffic = Arc::new(Traffic::default());
     let transport = Arc::new(MqttTransport::from_facility(
         &facility,
-        &[],
+        &resources
+            .disabled
+            .iter()
+            .filter(|(_, purpose)| *purpose == ResourceUse::Signaling)
+            .map(|(url, _)| url.clone())
+            .collect::<Vec<_>>(),
         traffic.clone(),
-        Some(std::fs::read(&args[3])?),
+        if args[3] == "-" {
+            None
+        } else {
+            Some(std::fs::read(&args[3])?)
+        },
     )?);
-    let mut builder = iroh::Endpoint::builder(presets::Minimal)
-        .clear_ip_transports()
-        .add_custom_transport(transport.clone());
-    if permitted_relay.is_some() {
+    let mut builder = iroh::Endpoint::builder(presets::Minimal).clear_ip_transports();
+    if permitted_relay.is_some() && args[3] != "-" {
         let cert = rustls::pki_types::CertificateDer::from(std::fs::read(
             std::path::Path::new(&args[3]).with_file_name("ca.der"),
         )?);
@@ -174,10 +190,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let rtc_transport =
         miopunch_native_probe::rtc_transport::RtcTransport::with_ice_profile(ice_profile)?;
     let assembly = if legacy_only {
-        node.bind_configured_endpoint_with(builder).await?
-    } else {
-        node.bind_configured_endpoint_with_rtc(builder, rtc_transport.clone())
+        node.bind_configured_endpoint_with_contact(builder, transport.clone())
             .await?
+    } else {
+        node.bind_configured_endpoint_with_rtc_and_contact(
+            builder,
+            rtc_transport.clone(),
+            transport.clone(),
+        )
+        .await?
     };
     let assembly = Arc::new(assembly);
     let endpoint = assembly.endpoint().clone();
@@ -191,7 +212,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         json!({"event":"ready", "id":endpoint.id().to_string(), "route":transport.route()?,
         "knownMembers":node.status().members.iter().map(|(id,_)|id.to_string()).collect::<Vec<_>>(),
         "ipAddresses":endpoint.addr().ip_addrs().count(), "relayAddresses":endpoint.addr().relay_urls().count(),
-        "traffic":traffic.snapshot(), "socketCount":socket_count(),"legacyOnly":legacy_only,
+        "traffic":traffic.snapshot(), "socketCount":socket_count(),"legacyOnly":legacy_only,"unifiedMember":unified_member,"normalPublicTrust":args[3]=="-",
         "invitation":if admission_mode {Some(hex::encode(node.manual_invitation()?.encode()))} else {None}})
     );
     let node = Arc::new(tokio::sync::Mutex::new(node));
@@ -353,14 +374,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
             },
             incoming=endpoint.accept()=>{
                 let Some(incoming)=incoming else {break};
-                let incoming=incoming.with_caller_deadline(n0_future::time::Instant::now()+Duration::from_secs(12));
+                let caller_deadline=n0_future::time::Instant::now()+Duration::from_secs(12);
+                let incoming=incoming.with_caller_deadline(caller_deadline);
                 let node=node.clone();
                 let assembly=assembly.clone();
                 let rtc_transport=rtc_transport.clone();
                 let serving_endpoint=endpoint.clone();
                 let precode_mode=precode_mode.clone();
                 handlers.spawn(async move {
-                    let connection=match incoming.await {
+                    let accepted = if unified_member {
+                        assembly.coordinator().accept(incoming,
+                            miopunch_native_probe::connection_coordinator::SessionPurpose::MemberBusiness,
+                            miopunch_native_probe::connection_coordinator::AttemptContext::new(
+                                caller_deadline,tokio_util::sync::CancellationToken::new())).await
+                            .map_err(|error|error.to_string())
+                    } else {incoming.await.map_err(|error|error.to_string())};
+                    let connection=match accepted {
                         Ok(connection)=>connection,
                         Err(error)=>{
                             println!("{}",json!({"event":"handle-withheld","error":error.to_string()}));
@@ -395,6 +424,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                     println!("{}",json!({"event":"member-released","stableId":connection.stable_id(),
                         "remoteId":connection.remote_id().to_string(),"alpn":String::from_utf8_lossy(connection.alpn()),
+                        "memberAuthorized":node.lock().await.admission_gate().allows(&connection,ProtocolScope::Member),
+                        "quicRole":if connection.side().is_client(){"client"}else{"server"},
                         "paths":connection.paths().iter().map(|path|json!({"isRelay":path.is_relay(),"isIp":path.is_ip(),"selected":path.is_selected(),"ackReceived":path.stats().frame_rx.acks,"streamSent":path.stats().frame_tx.stream})).collect::<Vec<_>>()}));
                     if MemberProtocol::from_wire(connection.alpn()).is_some_and(|(protocol,_)|protocol==MemberProtocol::Replica) {
                         let original=connection.stable_id();
@@ -443,12 +474,28 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // so the actor's custom endpoint can withdraw and report transport closure.
     drop(endpoint);
     tokio::time::timeout(Duration::from_secs(1), transport.wait_closed()).await??;
-    println!("{}", json!({"event":"closed","traffic":traffic.snapshot()}));
     Arc::try_unwrap(node)
         .map_err(|_| "fixture node still owned")?
         .into_inner()
         .close()
         .await;
+    let cleanup_started = std::time::Instant::now();
+    let sockets_immediate = socket_count();
+    while (rtc_transport.active_associations() != 0 || rtc_transport.active_pumps() != 0)
+        && cleanup_started.elapsed() < Duration::from_secs(2)
+    {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let active_associations = rtc_transport.active_associations();
+    let active_pumps = rtc_transport.active_pumps();
+    println!("{}", json!({"event":"closed","traffic":traffic.snapshot(),
+        "cleanupMs":cleanup_started.elapsed().as_millis(),"socketsBefore":sockets_before,
+        "socketsImmediate":sockets_immediate,"socketsLate":socket_count(),
+        "activeRtcAssociations":active_associations,"activeRtcPumps":active_pumps}));
+    if active_associations != 0 || active_pumps != 0 {
+        return Err("owned RTC cleanup did not complete".into());
+    }
     Ok(())
 }
 

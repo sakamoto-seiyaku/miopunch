@@ -170,8 +170,8 @@ fn socket_release(sockets: &[SocketAddr]) -> Vec<bool> {
 /// Adversarial wire at the protected control boundary, not a mocked gate or
 /// transport. The independent member still uses its durable key/secret.
 #[derive(Clone, Debug)]
-struct InvalidEnvelope(u8);
-impl EndpointHooks for InvalidEnvelope {
+struct ControlEnvelopeFixture(u8);
+impl EndpointHooks for ControlEnvelopeFixture {
     async fn before_data_release(
         &self,
         _endpoint: &Endpoint,
@@ -190,11 +190,37 @@ impl EndpointHooks for InvalidEnvelope {
             1 => bytes[9] = 128,
             2 => bytes[7] = 2,
             3 => bytes.resize(29, 0),
+            // A well-formed browser initiator supports/permits only RTC.
+            // This wire-only negative fixture makes no RTC connectivity claim.
+            4 | 5 => {
+                bytes[6] = 2;
+                bytes[8] = 8;
+                bytes[9] = 8;
+                bytes[10] = 1;
+            }
             _ => unreachable!(),
         }
         send.write_all(&(bytes.len() as u16).to_be_bytes()).await?;
         send.write_all(&bytes).await?;
         send.finish()?;
+        if self.0 == 5 {
+            // Read the real common capability envelope, then send a stale
+            // candidate attempt over another protected stream on this M.
+            let mut hello = [0; 30];
+            recv.read_exact(&mut hello)
+                .await
+                .map_err(std::io::Error::other)?;
+            let (mut candidate, _) = connection.open_bi().await?;
+            let invalid = serde_json::to_vec(&serde_json::json!({
+                "remainingMs":1000,"attempt":hex::encode([0;16])
+            }))
+            .unwrap();
+            candidate
+                .write_all(&(invalid.len() as u32).to_be_bytes())
+                .await?;
+            candidate.write_all(&invalid).await?;
+            candidate.finish()?;
+        }
         let _ = recv.read_to_end(64).await;
         connection.closed().await;
         Err(std::io::Error::other("adversarial member attempt ended"))
@@ -232,7 +258,7 @@ async fn strict_protocol_refuses_bad_versions_capabilities_roles_and_lengths_wit
                 Endpoint::builder(iroh::endpoint::presets::Minimal)
                     .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
                     .unwrap()
-                    .hooks(InvalidEnvelope(fault)),
+                    .hooks(ControlEnvelopeFixture(fault)),
             )
             .await
             .unwrap();
@@ -800,4 +826,696 @@ async fn a_retired_native_probe_cannot_release_an_ordinary_handle_through_live_p
         "callerMs":caller_ms,"cleanupMs":cleanup_ms,"socketReleasedImmediately":immediate,"socketReleasedLate":late,
         "tcpListenerReleasedImmediately":tcp_immediate,"tcpListenerReleasedLate":tcp_late,"controlQueuesOutstanding":outstanding})
     );
+}
+
+#[tokio::test]
+async fn valid_browser_capabilities_without_mutual_data_are_unavailable_not_invalid_control() {
+    let (_directory, native, browser_identity_fixture) = admitted_pair().await;
+    let native_endpoint = native
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let browser_wire = browser_identity_fixture
+        .bind_configured_endpoint_with(
+            Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
+                .unwrap()
+                .hooks(ControlEnvelopeFixture(4)),
+        )
+        .await
+        .unwrap();
+    let coordinator = native_endpoint.coordinator();
+    let started = std::time::Instant::now();
+    let (client, server) = tokio::time::timeout(Duration::from_secs(5), async {
+        tokio::join!(
+            browser_wire
+                .endpoint()
+                .connect(native_endpoint.addr(), MEMBER_ALPN),
+            async {
+                coordinator
+                    .accept(
+                        native_endpoint.endpoint().accept().await.unwrap(),
+                        SessionPurpose::MemberBusiness,
+                        attempt(),
+                    )
+                    .await
+            }
+        )
+    })
+    .await
+    .unwrap();
+    assert!(client.is_err());
+    let unavailable = matches!(&server, Err(ConnectError::DataPathUnavailable));
+    println!(
+        "{}",
+        serde_json::json!({"event":"unified-browser-capabilities-negative",
+        "scope":"real protected member wire; no browser or RTC runtime qualification",
+        "ordinaryHandleReturned":server.is_ok(),"dataPathUnavailable":unavailable,
+        "failure":server.as_ref().err().map(ToString::to_string),"callerMs":started.elapsed().as_millis()})
+    );
+    drop(coordinator);
+    tokio::join!(browser_wire.close(), native_endpoint.close());
+    tokio::join!(native.close(), browser_identity_fixture.close());
+    assert!(
+        unavailable,
+        "well-formed browser capabilities require stable DataPathUnavailable: {server:?}"
+    );
+}
+
+#[derive(Clone, Debug)]
+struct PeerClosesPendingMember {
+    gate: miopunch_native_probe::admission_gate::AdmissionGate,
+    close_self: bool,
+    close: Arc<tokio::sync::Notify>,
+    entered: Arc<Mutex<Option<tokio::sync::oneshot::Sender<bool>>>>,
+}
+impl EndpointHooks for PeerClosesPendingMember {
+    async fn before_data_release(
+        &self,
+        _endpoint: &Endpoint,
+        connection: &Connection,
+    ) -> std::io::Result<()> {
+        if connection.alpn() != MEMBER_ALPN {
+            return Ok(());
+        }
+        if self.close_self {
+            self.close.notified().await;
+            connection.close(0u32.into(), b"controlled pending peer ended");
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotConnected,
+                "controlled pending peer ended",
+            ));
+        }
+        let initially_allowed = self.gate.allows(connection, ProtocolScope::Member);
+        self.entered
+            .lock()
+            .unwrap()
+            .take()
+            .unwrap()
+            .send(initially_allowed)
+            .unwrap();
+        connection.closed().await;
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn proved_pending_peer_close_is_data_unavailable_not_identity_rejection() {
+    let (_directory, a, b) = admitted_pair().await;
+    let close = Arc::new(tokio::sync::Notify::new());
+    let (entered, receiver) = tokio::sync::oneshot::channel();
+    let entered = Arc::new(Mutex::new(Some(entered)));
+    let server = a
+        .bind_configured_endpoint_with(
+            Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
+                .unwrap()
+                .hooks(PeerClosesPendingMember {
+                    gate: a.admission_gate(),
+                    close_self: false,
+                    close: close.clone(),
+                    entered: entered.clone(),
+                }),
+        )
+        .await
+        .unwrap();
+    let client = b
+        .bind_configured_endpoint_with(
+            Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
+                .unwrap()
+                .hooks(PeerClosesPendingMember {
+                    gate: b.admission_gate(),
+                    close_self: true,
+                    close: close.clone(),
+                    entered,
+                }),
+        )
+        .await
+        .unwrap();
+    let dialer = client.coordinator();
+    let listener = server.coordinator();
+    let address = server.addr();
+    let result = async {
+        let dialing = dialer.connect(address, SessionPurpose::MemberBusiness, attempt());
+        let listening = async {
+            listener
+                .accept(
+                    server.endpoint().accept().await.unwrap(),
+                    SessionPurpose::MemberBusiness,
+                    attempt(),
+                )
+                .await
+        };
+        let cancellation = async {
+            assert!(
+                receiver.await.unwrap(),
+                "existing TLS/member proof must be valid before the close"
+            );
+            close.notify_one();
+        };
+        let (client, server, _) = tokio::join!(dialing, listening, cancellation);
+        (client, server)
+    };
+    let (client_result, server_result) = tokio::time::timeout(Duration::from_secs(6), result)
+        .await
+        .unwrap();
+    let correctly_unavailable = matches!(&server_result, Err(ConnectError::DataPathUnavailable));
+    assert!(client_result.is_err());
+    println!(
+        "{}",
+        serde_json::json!({"event":"unified-peer-close-negative","initialMemberGate":true,
+        "peerClosedPendingM":true,"dataPathUnavailable":correctly_unavailable,"ordinaryHandleReturned":server_result.is_ok(),
+        "failure":server_result.as_ref().err().map(ToString::to_string)})
+    );
+    drop((dialer, listener));
+    tokio::join!(client.close(), server.close());
+    tokio::join!(a.close(), b.close());
+    assert!(
+        correctly_unavailable,
+        "closed proved M is not an identity violation: {server_result:?}"
+    );
+}
+
+#[cfg(feature = "rtc-probe")]
+#[tokio::test]
+async fn stale_rtc_candidate_attempt_on_protected_member_m_is_rejected_before_allocation() {
+    let (_directory, native, peer) = admitted_pair().await;
+    let rtc = miopunch_native_probe::rtc_transport::RtcTransport::new();
+    let native_endpoint = native
+        .bind_configured_endpoint_with_rtc(
+            Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
+                .unwrap(),
+            rtc.clone(),
+        )
+        .await
+        .unwrap();
+    let peer_endpoint = peer
+        .bind_configured_endpoint_with(
+            Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
+                .unwrap()
+                .hooks(ControlEnvelopeFixture(5)),
+        )
+        .await
+        .unwrap();
+    let coordinator = native_endpoint.coordinator();
+    let started = std::time::Instant::now();
+    let (dialing, accepted) = tokio::time::timeout(Duration::from_secs(5), async {
+        tokio::join!(
+            peer_endpoint
+                .endpoint()
+                .connect(native_endpoint.addr(), MEMBER_ALPN),
+            async {
+                coordinator
+                    .accept(
+                        native_endpoint.endpoint().accept().await.unwrap(),
+                        SessionPurpose::MemberBusiness,
+                        attempt(),
+                    )
+                    .await
+            }
+        )
+    })
+    .await
+    .unwrap();
+    let correctly_invalid = matches!(&accepted, Err(ConnectError::InvalidControl));
+    assert!(dialing.is_err());
+    println!(
+        "{}",
+        serde_json::json!({"event":"unified-stale-rtc-attempt",
+        "scope":"real protected member M and native RTC preparation; no browser connectivity claim",
+        "ordinaryHandleReturned":accepted.is_ok(),"invalidControl":correctly_invalid,
+        "activeRtcAssociations":rtc.active_associations(),"activeRtcPumps":rtc.active_pumps(),
+        "callerMs":started.elapsed().as_millis()})
+    );
+    drop(coordinator);
+    tokio::join!(native_endpoint.close(), peer_endpoint.close());
+    tokio::join!(native.close(), peer.close());
+    assert!(
+        correctly_invalid,
+        "stale protected attempt must be InvalidControl: {accepted:?}"
+    );
+    assert_eq!(rtc.active_associations(), 0);
+    assert_eq!(rtc.active_pumps(), 0);
+}
+
+#[cfg(feature = "rtc-probe")]
+#[derive(Debug)]
+struct Gathered(tokio::sync::mpsc::Sender<()>);
+#[cfg(feature = "rtc-probe")]
+#[async_trait::async_trait]
+impl webrtc::peer_connection::PeerConnectionEventHandler for Gathered {
+    async fn on_ice_gathering_state_change(
+        &self,
+        state: webrtc::peer_connection::RTCIceGatheringState,
+    ) {
+        if state == webrtc::peer_connection::RTCIceGatheringState::Complete {
+            let _ = self.0.try_send(());
+        }
+    }
+}
+
+/// A controlled wire peer reaches the real native RTC answer allocation, then
+/// holds the valid answer until the SDK caller cancels or the budget expires.
+/// This exercises native ownership; it makes no browser-event qualification.
+#[cfg(feature = "rtc-probe")]
+#[derive(Clone)]
+struct DeferredRtcAnswer {
+    gate: miopunch_native_probe::admission_gate::AdmissionGate,
+    offer: webrtc::peer_connection::RTCSessionDescription,
+    entered: Arc<
+        Mutex<Option<tokio::sync::oneshot::Sender<webrtc::peer_connection::RTCSessionDescription>>>,
+    >,
+}
+#[cfg(feature = "rtc-probe")]
+impl std::fmt::Debug for DeferredRtcAnswer {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("DeferredRtcAnswer")
+    }
+}
+#[cfg(feature = "rtc-probe")]
+impl EndpointHooks for DeferredRtcAnswer {
+    async fn before_data_release(
+        &self,
+        endpoint: &Endpoint,
+        connection: &Connection,
+    ) -> std::io::Result<()> {
+        use miopunch_native_probe::{rtc_association as protocol, rtc_wire};
+        if connection.alpn() != MEMBER_ALPN {
+            return Ok(());
+        }
+        let (mut send, mut recv) = connection.open_bi().await?;
+        let nonce = [7; 16];
+        let mut frame = [0; 28];
+        frame[..4].copy_from_slice(b"MUC1");
+        frame[4..11].copy_from_slice(&[1, 1, 2, 1, 8, 8, 1]);
+        frame[12..].copy_from_slice(&nonce);
+        send.write_all(&28u16.to_be_bytes()).await?;
+        send.write_all(&frame).await?;
+        let mut peer = [0; 30];
+        recv.read_exact(&mut peer)
+            .await
+            .map_err(std::io::Error::other)?;
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"miopunch/unified-attempt/1");
+        hasher.update(&nonce);
+        hasher.update(&peer[14..]);
+        let attempt = hex::encode(&hasher.finalize().as_bytes()[..16]);
+        let proof = self
+            .gate
+            .proof_for(connection)
+            .ok_or_else(|| std::io::Error::other("fixture member proof absent"))?;
+        let context = protocol::attempt_context(
+            &attempt,
+            proof.scope().network_id(),
+            proof.scope().secret_generation(),
+            &endpoint.id().to_string(),
+            &connection.remote_id().to_string(),
+        );
+        let binding = miopunch_native_probe::rtc_probe::binding(connection, context.as_bytes())
+            .map_err(std::io::Error::other)?;
+        let (mut candidate, mut answer) = connection.open_bi().await?;
+        rtc_wire::write_frame(&mut candidate, &serde_json::json!({
+            "protocol":protocol::UNIFIED_RTC_PROTOCOL,"attempt":attempt,"context":context,"binding":binding,
+            "description":self.offer,"channel":protocol::datagram_channel_parameters(),"route":hex::encode([9;16]),
+            "quicDialer":endpoint.id().to_string(),"rtcOfferer":endpoint.id().to_string(),"rtcAnswerer":connection.remote_id().to_string(),
+            "remainingMs":1000,"authorizationRevision":0,"resourceRevision":0,
+        })).await?;
+        let value = rtc_wire::read_frame(&mut answer).await?;
+        let bound =
+            value["kind"] == "answer" && value["attempt"] == attempt && value["binding"] == binding;
+        assert!(
+            bound,
+            "the deferred answer belongs to this current protected attempt"
+        );
+        let description =
+            serde_json::from_value(value["description"].clone()).map_err(std::io::Error::other)?;
+        self.entered
+            .lock()
+            .unwrap()
+            .take()
+            .unwrap()
+            .send(description)
+            .unwrap();
+        // The caller holds the valid answer outside this hook. Cancelling the
+        // SDK attempt drops this future before any continuation can apply it.
+        connection.closed().await;
+        Err(std::io::Error::other("controlled late RTC answer retired"))
+    }
+}
+
+#[cfg(feature = "rtc-probe")]
+#[tokio::test]
+async fn cancel_or_timeout_after_real_rtc_answer_retires_candidate_and_late_answer_cannot_revive_it()
+ {
+    use miopunch_native_probe::rtc_association as protocol;
+    use webrtc::{
+        data_channel::RTCDataChannelInit,
+        peer_connection::{PeerConnection, PeerConnectionBuilder},
+    };
+    let (_directory, a, b) = admitted_pair().await;
+    let ae = a
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let be = b
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let (ac, bc) = (ae.coordinator(), be.coordinator());
+    let (healthy, healthy_peer) = tokio::join!(
+        ac.connect(be.addr(), SessionPurpose::MemberBusiness, attempt()),
+        async {
+            bc.accept(
+                be.endpoint().accept().await.unwrap(),
+                SessionPurpose::MemberBusiness,
+                attempt(),
+            )
+            .await
+        }
+    );
+    let (healthy, healthy_peer) = (healthy.unwrap(), healthy_peer.unwrap());
+    for cancel in [true, false] {
+        let (gathered, mut gathered_rx) = tokio::sync::mpsc::channel(1);
+        let pc: Arc<dyn PeerConnection> = Arc::new(
+            PeerConnectionBuilder::new()
+                .with_udp_addrs(vec!["127.0.0.1:0".parse::<SocketAddr>().unwrap()])
+                .with_handler(Arc::new(Gathered(gathered)))
+                .build()
+                .await
+                .unwrap(),
+        );
+        let _channel = pc
+            .create_data_channel(
+                protocol::DATAGRAM_CHANNEL_LABEL,
+                Some(RTCDataChannelInit {
+                    ordered: false,
+                    max_retransmits: Some(0),
+                    negotiated: Some(0),
+                    protocol: protocol::DATAGRAM_CHANNEL_PROTOCOL.into(),
+                    ..Default::default()
+                }),
+            )
+            .await
+            .unwrap();
+        pc.set_local_description(pc.create_offer(None).await.unwrap())
+            .await
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(2), gathered_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        let offer = pc.local_description().await.unwrap();
+        let (entered, receiver) = tokio::sync::oneshot::channel();
+        let rtc = miopunch_native_probe::rtc_transport::RtcTransport::new();
+        let server = a
+            .bind_configured_endpoint_with_rtc(
+                Endpoint::builder(iroh::endpoint::presets::Minimal)
+                    .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
+                    .unwrap(),
+                rtc.clone(),
+            )
+            .await
+            .unwrap();
+        let peer = b
+            .bind_configured_endpoint_with(
+                Endpoint::builder(iroh::endpoint::presets::Minimal)
+                    .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
+                    .unwrap()
+                    .hooks(DeferredRtcAnswer {
+                        gate: b.admission_gate(),
+                        offer,
+                        entered: Arc::new(Mutex::new(Some(entered))),
+                    }),
+            )
+            .await
+            .unwrap();
+        let token = tokio_util::sync::CancellationToken::new();
+        let deadline = n0_future::time::Instant::now() + Duration::from_secs(5);
+        let client_endpoint = peer.endpoint().clone();
+        let address = server.addr();
+        let cancellation = token.clone();
+        let dialing = tokio::spawn(async move {
+            client_endpoint
+                .connect_with_opts(
+                    address,
+                    MEMBER_ALPN,
+                    iroh::endpoint::ConnectOptions::new()
+                        .with_caller_deadline(deadline)
+                        .with_attempt_cancellation(cancellation),
+                )
+                .await
+                .unwrap()
+                .await
+        });
+        let coordinator = server.coordinator();
+        let endpoint = server.endpoint().clone();
+        let accepting = tokio::spawn(async move {
+            coordinator
+                .accept(
+                    endpoint.accept().await.unwrap(),
+                    SessionPurpose::MemberBusiness,
+                    AttemptContext::new(deadline, tokio_util::sync::CancellationToken::new()),
+                )
+                .await
+        });
+        let late_answer = tokio::time::timeout(Duration::from_secs(3), receiver)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            rtc.active_associations(),
+            1,
+            "the real answer reserved an owned association"
+        );
+        assert_eq!(rtc.active_pumps(), 0, "withheld answer cannot open a pump");
+        let started = std::time::Instant::now();
+        if cancel {
+            token.cancel();
+        }
+        let client_result = tokio::time::timeout(Duration::from_secs(3), dialing)
+            .await
+            .unwrap()
+            .unwrap();
+        let server_result = tokio::time::timeout(Duration::from_secs(3), accepting)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            client_result.is_err() && server_result.is_err(),
+            "ordinary handles must remain unavailable"
+        );
+        pc.close().await.unwrap();
+        let late_rejected = pc.set_remote_description(late_answer).await.is_err();
+        assert!(
+            late_rejected,
+            "a late answer cannot reactivate the closed fixture PC"
+        );
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while rtc.active_associations() != 0 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(rtc.active_pumps(), 0);
+        streams(&healthy, &healthy_peer).await;
+        println!(
+            "{}",
+            serde_json::json!({"event":"unified-rtc-abort-after-answer","cancel":cancel,
+            "scope":"real native SDK RTC candidate with controlled wire peer; no browser callback claim",
+            "answerBoundToCurrentAttempt":true,"ordinaryHandlesReturned":false,"lateAnswerRejected":true,
+            "activeRtcAssociations":rtc.active_associations(),"activeRtcPumps":rtc.active_pumps(),
+            "healthyOriginalStreamMatched":true,"afterAnswerMs":started.elapsed().as_millis()})
+        );
+        pc.close().await.unwrap();
+        tokio::join!(server.close(), peer.close());
+    }
+    healthy.close(0u32.into(), b"done");
+    healthy_peer.close(0u32.into(), b"done");
+    drop((healthy, healthy_peer, ac, bc));
+    tokio::join!(ae.close(), be.close());
+    tokio::join!(a.close(), b.close());
+}
+
+#[path = "support/contact_broker.rs"]
+#[allow(dead_code)]
+mod contact_override_broker;
+
+#[tokio::test]
+async fn contact_override_cannot_borrow_another_facility_permission_at_same_native_url() {
+    use miopunch_native_probe::{
+        mqtt_datagram::MqttFacility,
+        mqtt_transport::{MqttTransport, Traffic},
+        resources::{Resource, ResourceUse},
+    };
+    use std::{collections::BTreeSet, sync::atomic::Ordering};
+
+    let dir = tempfile::tempdir().unwrap();
+    let node = NativeNetwork::create(dir.path().join("node"))
+        .await
+        .unwrap();
+    let broker = contact_override_broker::Broker::new().await;
+    let native_url = format!("mqtt://{}/", broker.address);
+    let a = MqttFacility::new(
+        "facility-a".into(),
+        native_url.clone(),
+        "wss://a.invalid/mqtt".into(),
+    )
+    .unwrap();
+    let b = MqttFacility::new(
+        "facility-b".into(),
+        native_url.clone(),
+        "wss://b.invalid/mqtt".into(),
+    )
+    .unwrap();
+    let unknown = MqttFacility::new(
+        "facility-c".into(),
+        native_url.clone(),
+        "wss://c.invalid/mqtt".into(),
+    )
+    .unwrap();
+    let remapped_b = MqttFacility::new(
+        b.logical_id.clone(),
+        native_url.clone(),
+        "wss://changed-b.invalid/mqtt".into(),
+    )
+    .unwrap();
+    let mut config = node.resource_configuration().unwrap();
+    config.replacement = Some(vec![Resource {
+        url: native_url,
+        uses: BTreeSet::from([ResourceUse::Signaling]),
+        limitation: "owned loopback permission regression".into(),
+    }]);
+    config.mqtt_facilities = vec![a.clone(), b.clone()];
+    let reserve = std::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let udp_address = reserve.local_addr().unwrap();
+    drop(reserve);
+    let builder = || {
+        Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .bind_addr(udp_address)
+            .unwrap()
+    };
+    let mut denied_cases = Vec::new();
+    for (name, disabled, facility) in [
+        ("wss-disabled", a.wss_url.clone(), Some(&a)),
+        ("logical-id-disabled", a.logical_id.clone(), Some(&a)),
+        ("unsaved-descriptor", a.wss_url.clone(), Some(&unknown)),
+        (
+            "same-id-changed-wss-descriptor",
+            a.wss_url.clone(),
+            Some(&remapped_b),
+        ),
+        (
+            "raw-cannot-borrow-mapped-permission",
+            a.wss_url.clone(),
+            None,
+        ),
+    ] {
+        config.disabled = BTreeSet::from([(disabled, ResourceUse::Signaling)]);
+        node.save_resource_configuration(&config).unwrap();
+        let traffic = Arc::new(Traffic::default());
+        // Empty constructor policy deliberately defers consent to the actual
+        // saved-policy SDK bind entrance rather than testing constructor refusal.
+        let contact = Arc::new(match facility {
+            Some(facility) => {
+                MqttTransport::from_facility(facility, &[], traffic.clone(), None).unwrap()
+            }
+            None => MqttTransport::new(broker.address, traffic.clone()),
+        });
+        let before = broker.connections.load(Ordering::SeqCst);
+        let result = node
+            .bind_configured_endpoint_with_contact(builder(), contact.clone())
+            .await;
+        let denied = result.as_ref().err().is_some_and(|error| {
+            matches!(error, miopunch_native_probe::native_network::NodeError::Io(io) if io.kind() == std::io::ErrorKind::PermissionDenied)
+        });
+        let no_driver_started = traffic.snapshot()["driver_active"] == 0;
+        if let Ok(endpoint) = result {
+            // Retire the incorrectly accepted red path before any assertion.
+            let _ = tokio::time::timeout(Duration::from_secs(1), contact.wait_ready()).await;
+            endpoint.close().await;
+            contact.wait_driver_closed().await.unwrap();
+        }
+        let sockets = broker.no_sockets().await;
+        let no_broker_socket = broker.connections.load(Ordering::SeqCst) == before;
+        let udp_released = std::net::UdpSocket::bind(udp_address).is_ok();
+        println!(
+            "{}",
+            serde_json::json!({"event":"contact-override-permission","case":name,"denied":denied,"noDriverStarted":no_driver_started,"noBrokerSocket":no_broker_socket,"brokerImmediateEmpty":sockets.immediate_empty,"brokerLateEmpty":sockets.late_empty,"udpReleased":udp_released})
+        );
+        denied_cases.push((
+            name,
+            denied && no_driver_started && no_broker_socket && udp_released,
+        ));
+    }
+    config.disabled = BTreeSet::from([(a.wss_url.clone(), ResourceUse::Signaling)]);
+    node.save_resource_configuration(&config).unwrap();
+    let permitted = Arc::new(
+        MqttTransport::from_facility(&b, &[], Arc::new(Traffic::default()), None).unwrap(),
+    );
+    let endpoint = node
+        .bind_configured_endpoint_with_contact(builder(), permitted.clone())
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(1), permitted.wait_ready())
+        .await
+        .unwrap()
+        .unwrap();
+    let allowed_b_ready = permitted.route().is_ok();
+    endpoint.close().await;
+    permitted.wait_driver_closed().await.unwrap();
+    let b_retired = broker.no_sockets().await;
+    let udp_released_after_b = std::net::UdpSocket::bind(udp_address).is_ok();
+
+    // Preserve the explicit URL-policy legacy path when there is no facility
+    // mapping to borrow, and still reject that raw resource once disabled.
+    config.mqtt_facilities.clear();
+    config.disabled.clear();
+    node.save_resource_configuration(&config).unwrap();
+    let raw = Arc::new(MqttTransport::new(
+        broker.address,
+        Arc::new(Traffic::default()),
+    ));
+    let endpoint = node
+        .bind_configured_endpoint_with_contact(builder(), raw.clone())
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(1), raw.wait_ready())
+        .await
+        .unwrap()
+        .unwrap();
+    let unmapped_raw_ready = raw.route().is_ok();
+    endpoint.close().await;
+    raw.wait_driver_closed().await.unwrap();
+    let raw_retired = broker.no_sockets().await;
+    config.disabled = BTreeSet::from([(
+        format!("mqtt://{}/", broker.address),
+        ResourceUse::Signaling,
+    )]);
+    node.save_resource_configuration(&config).unwrap();
+    let raw_denied = node
+        .bind_configured_endpoint_with_contact(
+            builder(),
+            Arc::new(MqttTransport::new(
+                broker.address,
+                Arc::new(Traffic::default()),
+            )),
+        )
+        .await
+        .is_err();
+    node.close().await;
+    broker.close().await;
+    println!(
+        "{}",
+        serde_json::json!({"event":"contact-override-neighbor-policy","allowedBReady":allowed_b_ready,"allowedBRetiredLate":b_retired.late_empty,"udpReleasedAfterB":udp_released_after_b,"unmappedRawReady":unmapped_raw_ready,"unmappedRawRetiredLate":raw_retired.late_empty,"disabledRawDenied":raw_denied})
+    );
+    assert!(
+        denied_cases.iter().all(|(_, passed)| *passed),
+        "saved policy bypass: {denied_cases:?}"
+    );
+    assert!(allowed_b_ready && b_retired.late_empty && udp_released_after_b);
+    assert!(unmapped_raw_ready && raw_retired.late_empty && raw_denied);
 }

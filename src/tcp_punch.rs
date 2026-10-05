@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct TcpPunch {
     pub(crate) transport: TcpTransport,
     pub(crate) observers: Vec<iroh::RelayUrl>,
@@ -29,6 +29,77 @@ struct AttemptClaim {
     attempts: Arc<Mutex<HashMap<(iroh::EndpointId, Vec<u8>), PeerAttempt>>>,
     key: (iroh::EndpointId, Vec<u8>),
     token: [u8; 16],
+}
+
+/// A validated restricted TCP candidate. Preparation owns its exact circuit
+/// and deduplication claim; only the coordinator's final commit retains them.
+pub(crate) struct PreparedTcpPath {
+    punch: TcpPunch,
+    claim: AttemptClaim,
+    circuit: Option<crate::tcp_transport::TcpCircuitLease>,
+    observation: crate::tcp_observation::TcpSocketObservation,
+    generation: iroh::endpoint::ObservationValidity,
+    route: iroh_base::CustomAddr,
+    original: iroh::endpoint::WeakConnectionHandle,
+    connection_id: usize,
+}
+
+impl PreparedTcpPath {
+    pub(crate) fn route(&self) -> &iroh_base::CustomAddr {
+        &self.route
+    }
+
+    pub(crate) fn check(
+        &self,
+        endpoint: &Endpoint,
+        connection: &Connection,
+        gate: &AdmissionGate,
+    ) -> io::Result<()> {
+        if connection.stable_id() != self.connection_id
+            || !self.original.is_open()
+            || connection.close_reason().is_some()
+            || !gate.allows_member_path_upgrade(connection)
+            || !self.generation.is_current()
+            || endpoint.is_closed()
+            || !self.observation.is_fresh()
+            || !self.punch.resources.allows_custom(&self.route)
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "TCP candidate scope changed before retention",
+            ));
+        }
+        if !connection
+            .paths()
+            .iter()
+            .any(|path| path.remote_addr() == &TransportAddr::Custom(self.route.clone()))
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::NotConnected,
+                "TCP candidate path disappeared",
+            ));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn retain(
+        self,
+        endpoint: &Endpoint,
+        connection: &Connection,
+        gate: &AdmissionGate,
+    ) -> io::Result<()> {
+        self.check(endpoint, connection, gate)?;
+        self.punch.release_claim(&self.claim, connection)?;
+        let closed = connection.weak_handle();
+        let circuit = self.circuit;
+        let claim = self.claim;
+        tokio::spawn(async move {
+            closed.closed().await;
+            drop(circuit);
+            drop(claim);
+        });
+        Ok(())
+    }
 }
 
 impl Drop for AttemptClaim {
@@ -183,6 +254,19 @@ impl TcpPunch {
         connection: &Connection,
         gate: &AdmissionGate,
     ) -> io::Result<()> {
+        self.prepare(endpoint, connection, gate)
+            .await?
+            .retain(endpoint, connection, gate)
+    }
+
+    /// Existing observation/coordination algorithm, without releasing the
+    /// original connection's attempt claim before common path commitment.
+    pub(crate) async fn prepare(
+        &self,
+        endpoint: &Endpoint,
+        connection: &Connection,
+        gate: &AdmissionGate,
+    ) -> io::Result<PreparedTcpPath> {
         let check = || {
             if connection.close_reason().is_some() || !gate.allows_member_path_upgrade(connection) {
                 Err(io::Error::new(
@@ -198,14 +282,21 @@ impl TcpPunch {
         check()?;
         let generation = endpoint.udp_network_generation();
         let mut observation = None;
-        for observer in &self.observers {
-            check()?;
-            match crate::tcp_observation::observe(endpoint, &self.transport, observer).await {
-                Ok(result) if result.is_fresh() && result.mapped.is_ipv4() => {
-                    observation = Some(result);
-                    break;
+        // Both peers consume the protected TCP phase even when only one can
+        // punch. Unsupported platforms neither query observers nor prime a
+        // circuit, and report unavailable before the shared UDP fallback.
+        if self.transport.supports_punching() {
+            for observer in &self.observers {
+                check()?;
+                match crate::tcp_observation::observe(endpoint, &self.transport, observer).await {
+                    Ok(result) if result.is_fresh() && result.mapped.is_ipv4() => {
+                        observation = Some(result);
+                        break;
+                    }
+                    result => {
+                        eprintln!("TCP_OBSERVATION_FAILED observer={observer} result={result:?}")
+                    }
                 }
-                result => eprintln!("TCP_OBSERVATION_FAILED observer={observer} result={result:?}"),
             }
         }
         if let Some(result) = &observation {
@@ -354,13 +445,15 @@ impl TcpPunch {
                 "TCP observation invalidated before release",
             ));
         }
-        self.release_claim(&claim, connection)?;
-        let closed = connection.weak_handle();
-        tokio::spawn(async move {
-            closed.closed().await;
-            drop(circuit);
-            drop(claim);
-        });
-        Ok(())
+        Ok(PreparedTcpPath {
+            punch: self.clone(),
+            claim,
+            circuit,
+            observation: observation.expect("validated retained TCP observation"),
+            generation,
+            route,
+            original: connection.weak_handle(),
+            connection_id: connection.stable_id(),
+        })
     }
 }

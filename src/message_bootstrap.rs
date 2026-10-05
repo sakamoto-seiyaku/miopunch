@@ -55,41 +55,42 @@ impl MemberPathBootstrap {
     }
 
     async fn relay_upgrade(&self, endpoint: &Endpoint, connection: &Connection) -> io::Result<()> {
-        let check = || {
-            if !self.gate.allows_member_path_upgrade(connection)
-                || connection.close_reason().is_some()
-            {
-                Err(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    "relay member scope changed",
-                ))
-            } else {
-                Ok(())
-            }
-        };
-        check()?;
-        let local: Vec<_> = endpoint
-            .addr()
-            .relay_urls()
-            .filter(|url| {
-                self.resources
-                    .allows(url.as_str(), crate::resources::ResourceUse::DataRelay)
-            })
-            .take(4)
-            .cloned()
-            .collect();
-        let exchange =
-            crate::member_path_protocol::RelayValidation::begin(connection, local).await?;
-        let stream_id = exchange.stream_id.clone();
-        let remote = exchange
-            .candidates
-            .iter()
-            .find(|url| {
-                self.resources
-                    .allows(url.as_str(), crate::resources::ResourceUse::DataRelay)
-            })
-            .cloned();
-        let validation = async {
+        prepare_relay(endpoint, connection, &self.gate, &self.resources).await
+    }
+}
+
+pub(crate) async fn prepare_relay(
+    endpoint: &Endpoint,
+    connection: &Connection,
+    gate: &AdmissionGate,
+    resources: &crate::resources::ResourceConfig,
+) -> io::Result<()> {
+    let check = || {
+        if !gate.allows_member_path_upgrade(connection) || connection.close_reason().is_some() {
+            Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "relay member scope changed",
+            ))
+        } else {
+            Ok(())
+        }
+    };
+    check()?;
+    let local: Vec<_> = endpoint
+        .addr()
+        .relay_urls()
+        .filter(|url| resources.allows(url.as_str(), crate::resources::ResourceUse::DataRelay))
+        .take(4)
+        .cloned()
+        .collect();
+    let exchange = crate::member_path_protocol::RelayValidation::begin(connection, local).await?;
+    let stream_id = exchange.stream_id.clone();
+    let remote = exchange
+        .candidates
+        .iter()
+        .find(|url| resources.allows(url.as_str(), crate::resources::ResourceUse::DataRelay))
+        .cloned();
+    let validation = async {
             let remote = remote.ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no mutually permitted relay"))?;
             let deadline = tokio::time::Instant::now() + Duration::from_secs(6);
             let started = tokio::time::Instant::now();
@@ -104,7 +105,7 @@ impl MemberPathBootstrap {
                     }
                 }
                 if let Some(path) = connection.paths().iter().find(|path| matches!(path.remote_addr(), TransportAddr::Relay(url)
-                    if self.resources.allows(url.as_str(), crate::resources::ResourceUse::DataRelay))) {
+                    if resources.allows(url.as_str(), crate::resources::ResourceUse::DataRelay))) {
                     if fresh.is_none() { fresh = Some((path.id().to_string(), path.start_probe()?, started.elapsed().as_millis())); }
                     let (path_id, probe, probe_started) = fresh.as_ref().unwrap();
                     if path.id().to_string() != *path_id { return Err(io::Error::other("relay probe path changed")); }
@@ -116,29 +117,28 @@ impl MemberPathBootstrap {
                 tokio::time::sleep(Duration::from_millis(40)).await;
             }
         }.await;
-        if let Err(error) = &validation {
-            eprintln!(
-                "MESSAGE_RELAY_VALIDATION_FAILED stable_id={} error={error}",
-                connection.stable_id()
-            );
-        }
-        let observation = validation.as_ref().ok().cloned();
-        let continuity = exchange.finish(connection, validation.map(|_| ())).await?;
-        check()?;
-        println!(
-            "{}",
-            serde_json::json!({"event":"relay-path", "stableId":connection.stable_id(),"privateStreamId":stream_id,
+    if let Err(error) = &validation {
+        eprintln!(
+            "MESSAGE_RELAY_VALIDATION_FAILED stable_id={} error={error}",
+            connection.stable_id()
+        );
+    }
+    let observation = validation.as_ref().ok().cloned();
+    let continuity = exchange.finish(connection, validation.map(|_| ())).await?;
+    check()?;
+    println!(
+        "{}",
+        serde_json::json!({"event":"relay-path", "stableId":connection.stable_id(),"privateStreamId":stream_id,
             "stableUnchanged":continuity.stable_unchanged,"bindingUnchanged":continuity.binding_unchanged,"probe":observation,
             "relayFramesAfterConfirmation":connection.paths().iter().filter(|path|path.is_relay()).map(|path|serde_json::json!({"pathId":path.id().to_string(),"selected":path.is_selected(),"streamSent":path.stats().frame_tx.stream,"streamReceived":path.stats().frame_rx.stream})).collect::<Vec<_>>()})
-        );
-        println!(
-            "MESSAGE_RELAY_VALIDATED stable_id={} peer={} paths={:?}",
-            connection.stable_id(),
-            connection.remote_id(),
-            connection.paths()
-        );
-        Ok(())
-    }
+    );
+    println!(
+        "MESSAGE_RELAY_VALIDATED stable_id={} peer={} paths={:?}",
+        connection.stable_id(),
+        connection.remote_id(),
+        connection.paths()
+    );
+    Ok(())
 }
 
 impl EndpointHooks for MemberPathBootstrap {

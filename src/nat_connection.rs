@@ -61,7 +61,8 @@ pub struct UdpUpgrade {
     direct_scope: Option<crate::nat_direct::DirectPath>,
 }
 
-enum PreparedUpgrade {
+#[derive(Debug)]
+pub(crate) enum PreparedUdpPath {
     Direct(crate::nat_direct::DirectPath),
     Punching(Attempt),
 }
@@ -327,8 +328,19 @@ impl NatConnector {
                 });
             }
         };
+        self.commit_prepared(control, gate, prepared).await
+    }
+
+    /// Preserve the existing commit boundary while a common coordinator owns
+    /// capability negotiation, fresh path proof and bilateral readiness.
+    pub(crate) async fn commit_prepared(
+        &self,
+        control: ControlSession,
+        gate: &AdmissionGate,
+        prepared: PreparedUdpPath,
+    ) -> Result<UdpUpgrade, CommitError> {
         match prepared {
-            PreparedUpgrade::Punching(attempt) => {
+            PreparedUdpPath::Punching(attempt) => {
                 let data = self.commit_checked(control, gate, Some(&attempt)).await?;
                 Ok(UdpUpgrade {
                     data,
@@ -337,7 +349,7 @@ impl NatConnector {
                     direct_scope: None,
                 })
             }
-            PreparedUpgrade::Direct(direct) => {
+            PreparedUdpPath::Direct(direct) => {
                 let data = self.commit_checked(control, gate, None).await?;
                 if !self.udp_enabled()
                     || !direct.generation.is_current()
@@ -421,11 +433,11 @@ impl NatConnector {
         }
     }
 
-    async fn prepare_upgrade(
+    pub(crate) async fn prepare_upgrade(
         &self,
         control: &ControlSession,
         gate: &AdmissionGate,
-    ) -> io::Result<PreparedUpgrade> {
+    ) -> io::Result<PreparedUdpPath> {
         self.check(control, gate)?;
         if self.max_rounds == 0 {
             return Err(io::Error::other("NAT round allowance exhausted"));
@@ -445,7 +457,7 @@ impl NatConnector {
                 control.stable_id(),
                 direct.remote
             );
-            return Ok(PreparedUpgrade::Direct(direct));
+            return Ok(PreparedUdpPath::Direct(direct));
         }
         for round in 0..self.max_rounds {
             println!(
@@ -455,7 +467,7 @@ impl NatConnector {
             );
             let mut attempt = self.prepare(control, gate).await?;
             match self.execute(&mut attempt, control, gate).await {
-                Ok(()) => return Ok(PreparedUpgrade::Punching(attempt)),
+                Ok(()) => return Ok(PreparedUdpPath::Punching(attempt)),
                 Err(error) => {
                     attempt.finish_failure();
                     if error.kind() != io::ErrorKind::TimedOut || round + 1 == self.max_rounds {

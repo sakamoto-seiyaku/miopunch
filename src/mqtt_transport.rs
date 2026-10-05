@@ -62,6 +62,8 @@ struct BindingReport {
     queue_peak: AtomicU64,
     rx_queue_peak: AtomicU64,
     protocol: Mutex<ProtocolReport>,
+    driver_active: AtomicU64,
+    driver_closed: tokio::sync::Notify,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize)]
@@ -97,6 +99,7 @@ impl Traffic {
             "queue_peak": binding.queue_peak.load(Ordering::Relaxed),
             "rx_queue_peak": binding.rx_queue_peak.load(Ordering::Relaxed),
             "queued_packets": binding.queued_packets.load(Ordering::Relaxed),
+            "driver_active": binding.driver_active.load(Ordering::Acquire),
             "protocol": binding.protocol.lock().unwrap().clone(),
             "max_datagram": MAX_DATAGRAM,
             "queue_depth": QUEUE_DEPTH,
@@ -141,6 +144,7 @@ impl BindingReport {
 pub struct MqttTransport {
     resource: iroh::RelayUrl,
     service: Option<Service>,
+    facility: Option<MqttFacility>,
     binding: Mutex<Option<Binding>>,
     traffic: Arc<Traffic>,
     tls_ca: Option<Vec<u8>>,
@@ -150,9 +154,18 @@ pub struct MqttTransport {
 struct Binding {
     route: Route,
     status: watch::Sender<Status>,
+    report: Arc<BindingReport>,
 }
 
 impl MqttTransport {
+    /// Exact canonical mapping used to construct this carrier. A native URL
+    /// or service tag alone does not identify the permitted logical facility.
+    pub(crate) fn facility(&self) -> Option<&MqttFacility> {
+        self.facility.as_ref()
+    }
+    pub fn traffic(&self) -> &Arc<Traffic> {
+        &self.traffic
+    }
     /// Standalone access to the same carrier used by CustomTransport, for
     /// datagram qualification without constructing a QUIC session.
     pub fn bind_datagrams(&self) -> io::Result<MqttDatagram> {
@@ -181,6 +194,7 @@ impl MqttTransport {
                 .parse()
                 .expect("socket-address MQTT URI"),
             service: None,
+            facility: None,
             binding: Mutex::new(None),
             traffic,
             tls_ca: None,
@@ -197,6 +211,7 @@ impl MqttTransport {
         Ok(Self {
             resource,
             service: Some(service),
+            facility: None,
             binding: Mutex::new(None),
             traffic,
             tls_ca: None,
@@ -211,10 +226,12 @@ impl MqttTransport {
         traffic: Arc<Traffic>,
         tls_ca: Option<Vec<u8>>,
     ) -> io::Result<Self> {
+        let facility = facility.validate()?;
         facility.check_allowed(disabled)?;
         Ok(Self {
             resource: facility.native_url.parse().map_err(io::Error::other)?,
             service: Some(facility.service_tag()?),
+            facility: Some(facility),
             binding: Mutex::new(None),
             traffic,
             tls_ca,
@@ -239,6 +256,7 @@ impl MqttTransport {
             .map(|binding| Binding {
                 route: binding.route,
                 status: binding.status.clone(),
+                report: binding.report.clone(),
             })
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotConnected, "MQTT carrier not bound"))
     }
@@ -286,6 +304,44 @@ impl MqttTransport {
             }
         }
         Ok(())
+    }
+
+    /// Route withdrawal is synchronous; this separately waits for the exact
+    /// currently bound driver's future and its socket owners to be dropped.
+    /// Kernel-level reclamation still needs an independent observation.
+    pub async fn wait_driver_closed(&self) -> io::Result<()> {
+        let report = self.binding()?.report;
+        loop {
+            let notified = report.driver_closed.notified();
+            tokio::pin!(notified);
+            notified.as_mut().enable();
+            if report.driver_active.load(Ordering::Acquire) == 0 {
+                return Ok(());
+            }
+            notified.await;
+        }
+    }
+}
+
+struct DriverCompletion(Arc<BindingReport>);
+impl Drop for DriverCompletion {
+    fn drop(&mut self) {
+        self.0.driver_active.store(0, Ordering::Release);
+        self.0.driver_closed.notify_waiters();
+    }
+}
+
+/// Dropped before the MQTT eventloop/socket on every return or cancellation.
+struct RouteWithdrawal {
+    addresses: Watchable<Vec<CustomAddr>>,
+    status: watch::Sender<Status>,
+    report: Arc<BindingReport>,
+}
+impl Drop for RouteWithdrawal {
+    fn drop(&mut self) {
+        self.addresses.set(Vec::new()).ok();
+        self.report.withdraw();
+        self.status.send_replace(Status::Closed);
     }
 }
 
@@ -373,7 +429,7 @@ impl MqttTransport {
         let route: Route = rand::random();
         let (status, _) = watch::channel(Status::Starting);
         let (shutdown, stop) = watch::channel(false);
-        {
+        let report = {
             let mut binding = self.binding.lock().unwrap();
             if binding
                 .as_ref()
@@ -384,17 +440,29 @@ impl MqttTransport {
                     "MQTT carrier already bound",
                 ));
             }
+            if binding
+                .as_ref()
+                .is_some_and(|binding| binding.report.driver_active.load(Ordering::Acquire) != 0)
+            {
+                return Err(io::Error::new(
+                    io::ErrorKind::WouldBlock,
+                    "previous MQTT driver is still stopping",
+                ));
+            }
+            let report = Arc::new(BindingReport {
+                generation: self.traffic.generation.fetch_add(1, Ordering::Relaxed) + 1,
+                driver_active: AtomicU64::new(1),
+                ..BindingReport::default()
+            });
             *binding = Some(Binding {
                 route,
                 status: status.clone(),
+                report: report.clone(),
             });
-        }
+            report
+        };
         let (outbound, queue) = mpsc::channel(QUEUE_DEPTH);
         let (incoming, receiver) = tokio::sync::mpsc::channel(QUEUE_DEPTH);
-        let report = Arc::new(BindingReport {
-            generation: self.traffic.generation.fetch_add(1, Ordering::Relaxed) + 1,
-            ..BindingReport::default()
-        });
         *self.traffic.current_binding.lock().unwrap() = report.clone();
         let shared = Arc::new(Shared {
             route,
@@ -412,7 +480,9 @@ impl MqttTransport {
         let task_addresses = addresses.clone();
         let service = self.service;
         let tls_ca = self.tls_ca.clone();
+        let completion = DriverCompletion(report.clone());
         tokio::spawn(async move {
+            let _completion = completion;
             if let Err(err) = drive(
                 resource,
                 route,
@@ -477,13 +547,32 @@ async fn drive(
     if resource.scheme() == "mqtts" {
         options.set_transport(match tls_ca {
             Some(ca) => rumqttc::Transport::tls(ca, None, None),
-            None => rumqttc::Transport::tls_with_default_config(),
+            None => {
+                #[cfg(target_os = "android")]
+                {
+                    // Android does not expose the desktop CA files searched by
+                    // rustls-native-certs. Use the SDK's compiled public roots,
+                    // retaining rustls certificate and hostname verification.
+                    rumqttc::Transport::tls_with_config(rumqttc::TlsConfiguration::Rustls(
+                        android_public_tls_config(),
+                    ))
+                }
+                #[cfg(not(target_os = "android"))]
+                {
+                    rumqttc::Transport::tls_with_default_config()
+                }
+            }
         });
     }
     options.set_keep_alive(Duration::from_secs(5));
     options.set_clean_session(true);
     options.set_max_packet_size(4096, 4096);
     let (client, mut eventloop) = AsyncClient::new(options, QUEUE_DEPTH);
+    let _withdrawal = RouteWithdrawal {
+        addresses: addresses.clone(),
+        status: status.clone(),
+        report: report.clone(),
+    };
     client
         .subscribe(topic(route), QoS::AtMostOnce)
         .await
@@ -573,6 +662,68 @@ async fn drive(
                 traffic.sent_bytes.fetch_add(item.bytes.len() as u64, Ordering::Relaxed);
             }
         }
+    }
+}
+
+#[cfg(any(target_os = "android", test))]
+fn android_public_tls_config() -> Arc<rustls::ClientConfig> {
+    let mut roots = rustls::RootCertStore::empty();
+    roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    Arc::new(
+        rustls::ClientConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()
+        .expect("ring supports the default TLS versions")
+        .with_root_certificates(roots)
+        .with_no_client_auth(),
+    )
+}
+
+#[cfg(test)]
+mod tls_tests {
+    use super::*;
+
+    #[test]
+    fn android_public_mqtt_roots_reject_an_untrusted_server_certificate() {
+        let config = android_public_tls_config();
+        assert!(config.enable_sni);
+        let certificate = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
+        let server_config = rustls::ServerConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_no_client_auth()
+        .with_single_cert(
+            vec![certificate.cert.der().clone()],
+            rustls::pki_types::PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der())
+                .into(),
+        )
+        .unwrap();
+        let mut client = rustls::ClientConnection::new(
+            config,
+            rustls::pki_types::ServerName::try_from("localhost").unwrap(),
+        )
+        .unwrap();
+        let mut server = rustls::ServerConnection::new(Arc::new(server_config)).unwrap();
+        let mut client_hello = Vec::new();
+        client.write_tls(&mut client_hello).unwrap();
+        server
+            .read_tls(&mut std::io::Cursor::new(client_hello))
+            .unwrap();
+        server.process_new_packets().unwrap();
+        let mut server_flight = Vec::new();
+        server.write_tls(&mut server_flight).unwrap();
+        client
+            .read_tls(&mut std::io::Cursor::new(server_flight))
+            .unwrap();
+        assert!(matches!(
+            client.process_new_packets(),
+            Err(rustls::Error::InvalidCertificate(
+                rustls::CertificateError::UnknownIssuer
+            ))
+        ));
     }
 }
 

@@ -529,9 +529,10 @@ impl NativeNetwork {
             false,
             #[cfg(feature = "rtc-probe")]
             None,
+            None,
         )
         .await
-        .map(|(endpoint, _, _)| endpoint)
+        .map(|(endpoint, _, _, _)| endpoint)
     }
 
     async fn bind_endpoint_with_resources(
@@ -540,14 +541,39 @@ impl NativeNetwork {
         resources: &crate::resources::ResourceConfig,
         configured_startup: bool,
         #[cfg(feature = "rtc-probe")] rtc: Option<crate::rtc_transport::RtcTransport>,
+        contact_override: Option<Arc<crate::mqtt_transport::MqttTransport>>,
     ) -> Result<
         (
             Endpoint,
             Option<crate::tcp_transport::TcpTransport>,
             Vec<Arc<crate::mqtt_transport::MqttTransport>>,
+            Option<crate::contact_listener::ContactListenerControl>,
         ),
         NodeError,
     > {
+        resources.validate_mqtt_facilities()?;
+        #[cfg(feature = "rtc-probe")]
+        if let Some(rtc) = &rtc {
+            let disabled: Vec<_> = resources
+                .disabled
+                .iter()
+                .filter(|(_, purpose)| *purpose == crate::resources::ResourceUse::Observation)
+                .map(|(url, _)| url.clone())
+                .collect();
+            rtc.ice_profile().check_allowed(&disabled)?;
+            if rtc
+                .ice_profile()
+                .observation_resources()?
+                .iter()
+                .any(|url| !resources.allows(url, crate::resources::ResourceUse::Observation))
+            {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    "RTC observer is not approved by saved resources",
+                )
+                .into());
+            }
+        }
         #[cfg(feature = "rtc-probe")]
         let builder = if let Some(rtc) = &rtc {
             builder.add_custom_transport(Arc::new(rtc.clone()))
@@ -564,14 +590,73 @@ impl NativeNetwork {
                 .register_data_carrier(crate::member_transport::DATA_TRANSPORT_ID);
         }
         let mut mqtt = Vec::new();
+        let mut contact_listener = None;
         let mut irc = Vec::new();
         if configured_startup {
-            for resource in resources.mqtt_resources() {
-                let transport = Arc::new(crate::mqtt_transport::MqttTransport::from_resource(
-                    resource,
-                    Arc::new(crate::mqtt_transport::Traffic::default()),
-                )?);
-                builder = builder.add_custom_transport(transport.clone());
+            let selected = if let Some(transport) = contact_override {
+                let (resource, usage) =
+                    iroh::endpoint::transports::CustomTransport::resource(transport.as_ref())
+                        .ok_or_else(|| {
+                            std::io::Error::other("contact resource descriptor absent")
+                        })?;
+                let mapping_allowed = if let Some(facility) = transport.facility() {
+                    resources
+                        .allowed_mqtt_facilities()
+                        .iter()
+                        .any(|saved| saved.validate().is_ok_and(|saved| &saved == facility))
+                } else {
+                    // Raw legacy contacts retain their explicit URL policy only
+                    // for unmapped resources; they cannot borrow a facility's
+                    // logical-ID/WSS consent from its shared native URL.
+                    !resources.mqtt_facilities.iter().any(|facility| {
+                        facility
+                            .native_url
+                            .parse::<iroh::RelayUrl>()
+                            .is_ok_and(|url| url == resource)
+                    })
+                };
+                if !matches!(usage, iroh::endpoint::RelayResourceUse::Signaling)
+                    || !resources
+                        .allows(resource.as_str(), crate::resources::ResourceUse::Signaling)
+                    || !mapping_allowed
+                {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        "explicit contact resource denied",
+                    )
+                    .into());
+                }
+                Some(transport)
+            } else if let Some(facility) = resources.allowed_mqtt_facilities().first() {
+                Some(Arc::new(
+                    crate::mqtt_transport::MqttTransport::from_facility(
+                        facility,
+                        &[],
+                        Arc::new(crate::mqtt_transport::Traffic::default()),
+                        None,
+                    )?,
+                ))
+            } else if let Some(resource) = resources.mqtt_resources().iter().find(|resource| {
+                !resources.mqtt_facilities.iter().any(|facility| {
+                    facility
+                        .native_url
+                        .parse::<iroh::RelayUrl>()
+                        .is_ok_and(|url| &url == *resource)
+                })
+            }) {
+                Some(Arc::new(
+                    crate::mqtt_transport::MqttTransport::from_resource(
+                        resource.clone(),
+                        Arc::new(crate::mqtt_transport::Traffic::default()),
+                    )?,
+                ))
+            } else {
+                None
+            };
+            if let Some(transport) = selected {
+                let listener = crate::contact_listener::ContactListener::new(transport.clone());
+                contact_listener = Some(listener.control());
+                builder = builder.add_custom_transport(Arc::new(listener));
                 mqtt.push(transport);
             }
             for resource in resources.irc_resources() {
@@ -589,30 +674,46 @@ impl NativeNetwork {
                     .service_name("miopunchv1"),
             ),
         };
-        self.gate.register_protocol(crate::connection_coordinator::MEMBER_ALPN,
-            crate::admission_gate::ProtocolScope::Member);
-        let builder = builder.hooks(crate::connection_coordinator::CoordinatorHook::new(
-            self.gate.clone(), !resources.udp_direct_disabled,
+        self.gate.register_protocol(
+            crate::connection_coordinator::MEMBER_ALPN,
+            crate::admission_gate::ProtocolScope::Member,
+        );
+        let observers = resources.relay_map(crate::resources::ResourceUse::Observation)?;
+        let native_udp = Arc::new(self.udp.for_endpoint(
+            (!observers.is_empty()).then_some(observers),
+            resources.udp_stun_resources(),
+            !resources.udp_direct_disabled,
         ));
+        let native_tcp = tcp.clone().map(|transport| {
+            crate::tcp_punch::TcpPunch::new(
+                transport,
+                resources.tcp_stun_resources(),
+                resources.clone(),
+            )
+        });
+        let coordinator = crate::connection_coordinator::CoordinatorHook::new(
+            self.gate.clone(),
+            !resources.udp_direct_disabled,
+        )
+        .with_resources(resources.clone())
+        .with_relay(
+            !resources
+                .relay_map(crate::resources::ResourceUse::DataRelay)?
+                .is_empty(),
+        )
+        .with_native(crate::native_path_adapter::NativePathAdapter::new(
+            native_udp.clone(),
+            native_tcp.clone(),
+        ));
+        #[cfg(feature = "rtc-probe")]
+        let coordinator = coordinator.with_rtc(rtc.clone());
+        let builder = builder.hooks(coordinator);
         let builder = if configured_startup {
-            let observers = resources.relay_map(crate::resources::ResourceUse::Observation)?;
             let bootstrap = crate::message_bootstrap::MemberPathBootstrap::new(
                 self.gate.clone(),
-                Arc::new(self.udp.for_endpoint(
-                    (!observers.is_empty()).then_some(observers),
-                    resources.udp_stun_resources(),
-                    !resources.udp_direct_disabled,
-                )),
-                tcp.clone()
-                    .filter(|_| !resources.tcp_stun_resources().is_empty())
-                    .filter(|transport| transport.supports_punching())
-                    .map(|transport| {
-                        crate::tcp_punch::TcpPunch::new(
-                            transport,
-                            resources.tcp_stun_resources(),
-                            resources.clone(),
-                        )
-                    }),
+                native_udp,
+                native_tcp
+                    .filter(|tcp| !tcp.observers.is_empty() && tcp.transport.supports_punching()),
                 resources.clone(),
             );
             #[cfg(feature = "rtc-probe")]
@@ -642,7 +743,7 @@ impl NativeNetwork {
                 eprintln!("IRC_RESOURCE_UNAVAILABLE error={error}");
             }
         }
-        Ok((endpoint, tcp, mqtt))
+        Ok((endpoint, tcp, mqtt, contact_listener))
     }
 
     pub fn resource_configuration(&self) -> Result<crate::resources::ResourceConfig, NodeError> {
@@ -695,6 +796,7 @@ impl NativeNetwork {
         &self,
         config: &crate::resources::ResourceConfig,
     ) -> Result<(), NodeError> {
+        config.validate_mqtt_facilities()?;
         let temporary = self
             .directory
             .join(format!(".resources-{:032x}", rand::random::<u128>()));
@@ -735,6 +837,7 @@ impl NativeNetwork {
             builder,
             #[cfg(feature = "rtc-probe")]
             None,
+            None,
         )
         .await
     }
@@ -747,7 +850,33 @@ impl NativeNetwork {
         builder: Builder,
         rtc: crate::rtc_transport::RtcTransport,
     ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
-        self.bind_configured_endpoint_with_options(builder, Some(rtc))
+        self.bind_configured_endpoint_with_options(builder, Some(rtc), None)
+            .await
+    }
+
+    /// Explicit local contact IO settings (for example a controlled CA), still
+    /// checked against the node resource policy and owned by its listener.
+    pub async fn bind_configured_endpoint_with_contact(
+        &self,
+        builder: Builder,
+        contact: Arc<crate::mqtt_transport::MqttTransport>,
+    ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
+        self.bind_configured_endpoint_with_options(
+            builder,
+            #[cfg(feature = "rtc-probe")]
+            None,
+            Some(contact),
+        )
+        .await
+    }
+    #[cfg(feature = "rtc-probe")]
+    pub async fn bind_configured_endpoint_with_rtc_and_contact(
+        &self,
+        builder: Builder,
+        rtc: crate::rtc_transport::RtcTransport,
+        contact: Arc<crate::mqtt_transport::MqttTransport>,
+    ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
+        self.bind_configured_endpoint_with_options(builder, Some(rtc), Some(contact))
             .await
     }
 
@@ -755,9 +884,10 @@ impl NativeNetwork {
         &self,
         builder: Builder,
         #[cfg(feature = "rtc-probe")] rtc: Option<crate::rtc_transport::RtcTransport>,
+        contact_override: Option<Arc<crate::mqtt_transport::MqttTransport>>,
     ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
         let config = self.resource_configuration()?;
-        let (endpoint, tcp, mqtt) = self
+        let (endpoint, tcp, mqtt, contact_listener) = self
             .bind_endpoint_with_resources(
                 builder
                     .alpns(network_protocols())
@@ -771,11 +901,13 @@ impl NativeNetwork {
                 true,
                 #[cfg(feature = "rtc-probe")]
                 rtc.clone(),
+                contact_override,
             )
             .await?;
         let resources = crate::resources::ResourceEndpoint::new(endpoint, config)
             .with_tcp(tcp)
-            .with_mqtt(mqtt);
+            .with_mqtt(mqtt)
+            .with_contact_listener(contact_listener);
         #[cfg(feature = "rtc-probe")]
         let resources = resources.with_rtc(rtc);
         let mut resources = resources;

@@ -416,6 +416,9 @@ impl BrowserMemberConnection {
             )
             .map_err(|_| error("RTC attempt already active on this M"))?;
         let _active = ActiveAttempt(self.rtc_active.clone());
+        if !self.rtc_transport.resource_allowed() {
+            return Err(error("RTC adapter is disabled"));
+        }
         let association = Association::new(&self.connection)?;
         let attempt = hex::encode(rand::random::<[u8; 16]>());
         let context = attempt_context(
@@ -501,6 +504,9 @@ impl BrowserMemberConnection {
     }
     /// Local failure injection on owned RTC objects; no public traffic or remote peer.
     pub fn rtc_failure_probe(&self) -> Result<String, JsValue> {
+        if !self.rtc_transport.resource_allowed() {
+            return Err(error("RTC adapter is disabled"));
+        }
         let association = Association::new(&self.connection)?;
         association.tx.open().map_err(error)?;
         for _ in 0..54 {

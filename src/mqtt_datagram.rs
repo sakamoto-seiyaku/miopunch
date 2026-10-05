@@ -114,7 +114,7 @@ pub fn route_from_addr(
         .map_err(|_| invalid("invalid MQTT route length"))
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct MqttFacility {
     pub logical_id: String,
     pub native_url: String,
