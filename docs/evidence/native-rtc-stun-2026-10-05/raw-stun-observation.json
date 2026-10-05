@@ -1,0 +1,40 @@
+[
+  {
+    "bind": [
+      "0.0.0.0",
+      46892
+    ],
+    "server": [
+      "74.125.250.129",
+      19302
+    ],
+    "responsePeer": [
+      "74.125.250.129",
+      19302
+    ],
+    "responseBytes": 32,
+    "responseType": 257,
+    "transactionMatched": true,
+    "elapsedMs": 188.677,
+    "socketClosed": true
+  },
+  {
+    "bind": [
+      "192.168.4.5",
+      43867
+    ],
+    "server": [
+      "74.125.250.129",
+      19302
+    ],
+    "responsePeer": [
+      "74.125.250.129",
+      19302
+    ],
+    "responseBytes": 32,
+    "responseType": 257,
+    "transactionMatched": true,
+    "elapsedMs": 187.234,
+    "socketClosed": true
+  }
+]

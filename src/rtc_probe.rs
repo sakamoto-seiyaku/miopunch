@@ -25,6 +25,10 @@ use webrtc::{
 };
 pub(crate) type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
+#[cfg(test)]
+#[path = "rtc_stun_tests.rs"]
+mod stun_tests;
+
 struct Handler {
     started: Instant,
     gathered: mpsc::Sender<()>,
@@ -87,6 +91,15 @@ pub(crate) async fn peer_with_profile(
     events: Arc<Mutex<Vec<Value>>>,
     profile: &crate::rtc_ice_profile::RtcIceProfile,
 ) -> Result<Arc<dyn PeerConnection>> {
+    peer_with_runtime(gathered, events, profile, None).await
+}
+
+async fn peer_with_runtime(
+    gathered: mpsc::Sender<()>,
+    events: Arc<Mutex<Vec<Value>>>,
+    profile: &crate::rtc_ice_profile::RtcIceProfile,
+    runtime: Option<Arc<dyn webrtc::runtime::Runtime>>,
+) -> Result<Arc<dyn PeerConnection>> {
     profile.validate()?;
     let observers = profile
         .stun_servers
@@ -97,28 +110,28 @@ pub(crate) async fn peer_with_profile(
             credential: String::new(),
         })
         .collect();
-    Ok(Arc::new(
-        PeerConnectionBuilder::new()
-            .with_configuration(
-                RTCConfigurationBuilder::default()
-                    .with_ice_servers(observers)
-                    .build(),
-            )
-            .with_setting_engine(
-                SettingEngineBuilder::default()
-                    .with_sctp_max_receive_buffer_size(QUEUE_BYTES as u32)
-                    .build(),
-            )
-            .with_data_channel_send_buffer_limit(QUEUE_BYTES)
-            .with_handler(Arc::new(Handler {
-                started: Instant::now(),
-                gathered,
-                events,
-            }))
-            .with_udp_addrs(vec!["0.0.0.0:0"])
-            .build()
-            .await?,
-    ))
+    let mut builder = PeerConnectionBuilder::new()
+        .with_configuration(
+            RTCConfigurationBuilder::default()
+                .with_ice_servers(observers)
+                .build(),
+        )
+        .with_setting_engine(
+            SettingEngineBuilder::default()
+                .with_sctp_max_receive_buffer_size(QUEUE_BYTES as u32)
+                .build(),
+        )
+        .with_data_channel_send_buffer_limit(QUEUE_BYTES)
+        .with_handler(Arc::new(Handler {
+            started: Instant::now(),
+            gathered,
+            events,
+        }))
+        .with_udp_addrs(profile.native_bind_addresses());
+    if let Some(runtime) = runtime {
+        builder = builder.with_runtime(runtime);
+    }
+    Ok(Arc::new(builder.build().await?))
 }
 
 pub(crate) async fn channel_attributes(channel: &Arc<dyn DataChannel>) -> Result<Value> {

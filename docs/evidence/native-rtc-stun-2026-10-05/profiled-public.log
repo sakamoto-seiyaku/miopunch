@@ -1,0 +1,10 @@
+    Blocking waiting for file lock on build directory
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.13s
+     Running unittests src/lib.rs (target/debug/deps/miopunch_native_probe-479095eac890b797)
+
+running 1 test
+test rtc_probe::stun_tests::public_stun_gather ... {"bind":"192.168.4.5","bindingMatch":null,"callerDeadlineMs":12000,"callerMs":190,"candidates":[{"address":"192.168.4.5","port":"45522","type":"host"},{"address":"192.168.4.5","port":"45522","type":"host"},{"address":"104.28.227.186","port":"29071","type":"srflx"},{"address":"104.28.227.186","port":"29071","type":"srflx"}],"cleanupMs":0,"closed":true,"dataPath":null,"event":"rtc-stun-observation","events":[{"elapsedMs":190,"kind":"gathering","state":"complete"}],"failure":null,"identityMatch":null,"lateObservationMs":301,"observer":["stun:74.125.250.129:19302"],"ownedSocketsLate":0,"packets":[{"atMs":3,"bytes":20,"direction":"send","local":"192.168.4.5:45522","messageType":1,"peer":"74.125.250.129:19302","transactionMatched":null},{"atMs":190,"bytes":32,"direction":"recv","local":"192.168.4.5:45522","messageType":257,"peer":"74.125.250.129:19302","transactionMatched":true}],"partialCandidateTypes":["host","host","srflx","srflx"],"rtcRole":"offerer","socketsBefore":3,"socketsImmediate":5,"socketsLate":3,"stage":"gather-complete"}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 0.49s
+

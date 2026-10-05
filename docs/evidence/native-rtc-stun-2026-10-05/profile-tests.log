@@ -1,0 +1,12 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 21.50s
+     Running tests/rtc_ice_profile.rs (target/debug/deps/rtc_ice_profile-a222873c79f3e49c)
+
+running 4 tests
+test native_socket_bindings_are_bounded_and_do_not_restrict_published_candidates ... ok
+test explicit_observer_profile_preserves_empty_defaults_and_excludes_private_candidates ... ok
+test observer_profile_refuses_turn_credentials_unbounded_or_relay_candidates ... ok
+test explicit_observer_uses_existing_resource_identity_and_cannot_bypass_disabled_aliases ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

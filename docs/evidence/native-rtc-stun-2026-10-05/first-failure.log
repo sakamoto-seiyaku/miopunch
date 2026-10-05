@@ -1,0 +1,17 @@
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.32s
+     Running unittests src/lib.rs (target/debug/deps/miopunch_native_probe-479095eac890b797)
+
+running 1 test
+test rtc_probe::stun_tests::public_stun_gather ... {"bindingMatch":null,"callerDeadlineMs":12000,"callerMs":12001,"candidates":null,"cleanupMs":301,"closed":true,"dataPath":null,"event":"rtc-stun-observation","events":[],"failure":"deadline has elapsed","identityMatch":null,"observer":["stun:74.125.250.129:19302"],"rtcRole":"offerer","socketsBefore":3,"socketsImmediate":10,"socketsLate":3}
+Error: Elapsed(())
+FAILED
+
+failures:
+
+failures:
+    rtc_probe::stun_tests::public_stun_gather
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 25 filtered out; finished in 12.30s
+
+error: test failed, to rerun pass `--lib`

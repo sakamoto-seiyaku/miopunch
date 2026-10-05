@@ -1,0 +1,1348 @@
+{
+  "ticket": "MIOPUNCH-71",
+  "scope": "native real driver STUN address observation only",
+  "sourceBase": "9c95dcb4e78dba041d6d1b2fe151f7607c6c6fd0",
+  "qualification": {
+    "explicitLocalBindingPublicGather": true,
+    "defaultWildcardPublicGather": false,
+    "newUnifiedSdk": false,
+    "physicalPublicNatData": false,
+    "upstreamWarpPresent": true
+  },
+  "roles": {
+    "native": "offerer",
+    "remote": "STUN observer, not authenticated node"
+  },
+  "identityMatch": null,
+  "bindingMatch": null,
+  "dataPath": null,
+  "paths": {
+    "localBinding": "192.168.4.5 ephemeral UDP",
+    "observer": "74.125.250.129:19302 public UDP",
+    "noTurn": true
+  },
+  "sourcesSha256": {
+    "Cargo.toml": "d589b5c3dc7e5e5039a0a9eebf1bba0ecc0988963fd8b19085f1cc6a05e71b33",
+    "Cargo.lock": "543a4a397bd047de1c6b0633c5163367869bee1423cf1e8db69b6faa0413f2b3",
+    "src/rtc_probe.rs": "814c65a3a6328f8785c9f076c21b077800ea9898ed7336f1351cce8814d62a1d",
+    "src/rtc_stun_tests.rs": "17cee792f1d9c994e568596bcd66c5e1c386cce04162264aa478bbeb7ca335e3",
+    "src/rtc_ice_profile.rs": "5dc832c14ef2ce9520581dd5138a98aa42e376f4cf95a5be7b554e686ffd4b4e",
+    "tests/rtc_ice_profile.rs": "a08019283ebfb68a0711747c0464ed867184b5e627570161e19e43c72b0fe6b4"
+  },
+  "librarySourcesSha256": {
+    "webrtc-0.21.0/src/peer_connection/driver.rs": "8bc9a955f40cef02abed74e72469714b43e6b420d978009ae505d5a0f51f6a17",
+    "webrtc-0.21.0/src/peer_connection/transport/stun_gatherer.rs": "426ca43d3827bd310562e85adcbb3bbe9553c151dd914c79df15478b9b03cab3",
+    "rtc-stun-0.21.0/src/client.rs": "621fd43275f797d66245b37efbfdcdf8f979642ef7f46cd8c4c3ed648a91fe35"
+  },
+  "artifacts": [
+    {
+      "path": "target/debug/deps/miopunch_native_probe-479095eac890b797",
+      "sha256": "61e8bb37602e7c5fef3442758365768f02e5289e818f9558238e2b4da294720e"
+    },
+    {
+      "path": "target/debug/deps/rtc_ice_profile-a222873c79f3e49c",
+      "sha256": "edfc1953982895d33d90336aeb2915da6cffbca32d87967edd0f6ce6926a4340"
+    }
+  ],
+  "runs": [
+    {
+      "stage": "early-first-failure",
+      "command": "rtk proxy cargo test --features rtc-probe --lib public_stun_gather -- --ignored --nocapture --test-threads=1",
+      "rawCommandExit": 101,
+      "artifactIdentity": "early-artifact-overwritten-unavailable",
+      "log": "first-failure.log",
+      "logSha256": "ae895c75f253ba348e34fd6244b0ff7fd79a945d7c3f67c19d02952f7d9cc520",
+      "observations": [
+        {
+          "bindingMatch": null,
+          "callerDeadlineMs": 12000,
+          "callerMs": 12001,
+          "candidates": null,
+          "cleanupMs": 301,
+          "closed": true,
+          "dataPath": null,
+          "event": "rtc-stun-observation",
+          "events": [],
+          "failure": "deadline has elapsed",
+          "identityMatch": null,
+          "observer": [
+            "stun:74.125.250.129:19302"
+          ],
+          "rtcRole": "offerer",
+          "socketsBefore": 3,
+          "socketsImmediate": 10,
+          "socketsLate": 3
+        }
+      ]
+    },
+    {
+      "stage": "early-default-trace",
+      "command": "rtk proxy cargo test --features rtc-probe --lib public_stun_gather -- --ignored --nocapture --test-threads=1",
+      "rawCommandExit": 101,
+      "artifactIdentity": "early-artifact-overwritten-unavailable",
+      "log": "traced-default-failure.log",
+      "logSha256": "9f72814601908d3581dbc6ae5d02d89c9ef133170e09c2e4142e271acd5e71f8",
+      "observations": [
+        {
+          "bindingMatch": null,
+          "callerDeadlineMs": 12000,
+          "callerMs": 12001,
+          "candidates": null,
+          "cleanupMs": 302,
+          "closed": true,
+          "dataPath": null,
+          "event": "rtc-stun-observation",
+          "events": [],
+          "failure": "deadline has elapsed",
+          "identityMatch": null,
+          "observer": [
+            "stun:74.125.250.129:19302"
+          ],
+          "packets": [
+            {
+              "atMs": 75,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:43787",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 75,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:46776",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 75,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:43363",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 75,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.4.5:44628",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 75,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:46855",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 75,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:43549",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 264,
+              "bytes": 32,
+              "direction": "recv",
+              "local": "192.168.4.5:44628",
+              "messageType": 257,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": true
+            },
+            {
+              "atMs": 977,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:43787",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 977,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:46776",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 977,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:43363",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 977,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:46855",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 977,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:43549",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 1878,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:43787",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 1878,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:46776",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 1878,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:43363",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 1878,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:46855",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 1878,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:43549",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 3079,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:43787",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 3079,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:46776",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 3079,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:43363",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 3080,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:46855",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 3080,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:43549",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 3188,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:43787",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 3188,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:46776",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 3188,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:43363",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 3188,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:46855",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 3188,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:43549",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 6382,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:43787",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 6382,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:46776",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 6382,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:43363",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 6382,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:46855",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 6382,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:43549",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 8483,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:43787",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 8483,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:46776",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 8483,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:43363",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 8483,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:46855",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 8483,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:43549",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 10884,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:43787",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 10884,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:46776",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 10884,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:43363",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 10884,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:46855",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 10884,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:43549",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            }
+          ],
+          "rtcRole": "offerer",
+          "socketsBefore": 3,
+          "socketsImmediate": 10,
+          "socketsLate": 3,
+          "stage": "gather-complete"
+        }
+      ]
+    },
+    {
+      "stage": "early-test-only-binding-differential",
+      "command": "MIO_RTC_STUN_BIND=192.168.4.5:0 rtk proxy cargo test --features rtc-probe --lib public_stun_gather -- --ignored --nocapture --test-threads=1",
+      "rawCommandExit": 0,
+      "artifactIdentity": "early-artifact-overwritten-unavailable",
+      "log": "single-bind-differential.log",
+      "logSha256": "c626a49232efc0a58971788973ada9090a9e8b4252a1891d5f140aa96f8c406f",
+      "observations": [
+        {
+          "bind": "192.168.4.5:0",
+          "bindingMatch": null,
+          "callerDeadlineMs": 12000,
+          "callerMs": 205,
+          "candidates": [
+            {
+              "address": "192.168.4.5",
+              "port": "47248",
+              "type": "host"
+            },
+            {
+              "address": "192.168.4.5",
+              "port": "47248",
+              "type": "host"
+            },
+            {
+              "address": "104.28.195.186",
+              "port": "9496",
+              "type": "srflx"
+            },
+            {
+              "address": "104.28.195.186",
+              "port": "9496",
+              "type": "srflx"
+            }
+          ],
+          "cleanupMs": 301,
+          "closed": true,
+          "dataPath": null,
+          "event": "rtc-stun-observation",
+          "events": [
+            {
+              "elapsedMs": 204,
+              "kind": "gathering",
+              "state": "complete"
+            }
+          ],
+          "failure": null,
+          "identityMatch": null,
+          "observer": [
+            "stun:74.125.250.129:19302"
+          ],
+          "packets": [
+            {
+              "atMs": 13,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.4.5:47248",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 204,
+              "bytes": 32,
+              "direction": "recv",
+              "local": "192.168.4.5:47248",
+              "messageType": 257,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": true
+            }
+          ],
+          "partialCandidateTypes": [
+            "host",
+            "host",
+            "srflx",
+            "srflx"
+          ],
+          "rtcRole": "offerer",
+          "socketsBefore": 3,
+          "socketsImmediate": 5,
+          "socketsLate": 3,
+          "stage": "gather-complete"
+        }
+      ]
+    },
+    {
+      "stage": "final-profiled-public",
+      "command": "MIO_RTC_STUN_BIND=192.168.4.5 rtk proxy cargo test --features rtc-probe --lib public_stun_gather -- --ignored --nocapture --test-threads=1",
+      "rawCommandExit": 0,
+      "artifactIdentity": "final-artifacts",
+      "log": "profiled-public.log",
+      "logSha256": "225fff347372d7e62404926af9d12ab59a6123095d549a57818b42e1bcf7d1f8",
+      "observations": [
+        {
+          "bind": "192.168.4.5",
+          "bindingMatch": null,
+          "callerDeadlineMs": 12000,
+          "callerMs": 190,
+          "candidates": [
+            {
+              "address": "192.168.4.5",
+              "port": "45522",
+              "type": "host"
+            },
+            {
+              "address": "192.168.4.5",
+              "port": "45522",
+              "type": "host"
+            },
+            {
+              "address": "104.28.227.186",
+              "port": "29071",
+              "type": "srflx"
+            },
+            {
+              "address": "104.28.227.186",
+              "port": "29071",
+              "type": "srflx"
+            }
+          ],
+          "cleanupMs": 0,
+          "closed": true,
+          "dataPath": null,
+          "event": "rtc-stun-observation",
+          "events": [
+            {
+              "elapsedMs": 190,
+              "kind": "gathering",
+              "state": "complete"
+            }
+          ],
+          "failure": null,
+          "identityMatch": null,
+          "lateObservationMs": 301,
+          "observer": [
+            "stun:74.125.250.129:19302"
+          ],
+          "ownedSocketsLate": 0,
+          "packets": [
+            {
+              "atMs": 3,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.4.5:45522",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 190,
+              "bytes": 32,
+              "direction": "recv",
+              "local": "192.168.4.5:45522",
+              "messageType": 257,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": true
+            }
+          ],
+          "partialCandidateTypes": [
+            "host",
+            "host",
+            "srflx",
+            "srflx"
+          ],
+          "rtcRole": "offerer",
+          "socketsBefore": 3,
+          "socketsImmediate": 5,
+          "socketsLate": 3,
+          "stage": "gather-complete"
+        }
+      ]
+    },
+    {
+      "stage": "final-silent-retry",
+      "command": "rtk proxy cargo test --features rtc-probe --lib silent_observer_deadline_and_retry -- --nocapture --test-threads=1",
+      "rawCommandExit": 0,
+      "artifactIdentity": "final-artifacts",
+      "log": "silent-retry.log",
+      "logSha256": "c4b9e486484f9d1e47666e083f2741c310cfd63a08089f7d30c1c58f2261f624",
+      "observations": [
+        {
+          "attempt": 0,
+          "callerDeadlineExceeded": true,
+          "callerDeadlineMs": 150,
+          "callerMs": 151,
+          "cleanupMs": 0,
+          "event": "rtc-stun-silent-observer",
+          "graceful": true,
+          "lateObservationMs": 6,
+          "ownedSocketsImmediate": 7,
+          "ownedSocketsLate": 0,
+          "packets": [
+            {
+              "atMs": 83,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.4.5:45239",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 83,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:45253",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 83,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:43678",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 83,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:44628",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 83,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:46007",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 83,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:45100",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            }
+          ],
+          "pcClosed": true
+        },
+        {
+          "attempt": 1,
+          "callerDeadlineExceeded": true,
+          "callerDeadlineMs": 150,
+          "callerMs": 151,
+          "cleanupMs": 0,
+          "event": "rtc-stun-silent-observer",
+          "graceful": true,
+          "lateObservationMs": 6,
+          "ownedSocketsImmediate": 7,
+          "ownedSocketsLate": 0,
+          "packets": [
+            {
+              "atMs": 74,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:44074",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 74,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:46649",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 74,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:45500",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 74,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:44088",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 74,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:45094",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 74,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.4.5:45562",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            }
+          ],
+          "pcClosed": true
+        },
+        {
+          "attempt": 2,
+          "callerDeadlineExceeded": true,
+          "callerDeadlineMs": 150,
+          "callerMs": 151,
+          "cleanupMs": 0,
+          "event": "rtc-stun-silent-observer",
+          "graceful": true,
+          "lateObservationMs": 5,
+          "ownedSocketsImmediate": 7,
+          "ownedSocketsLate": 0,
+          "packets": [
+            {
+              "atMs": 64,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:44985",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 64,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:45035",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 64,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:45221",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 64,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.4.5:45269",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 64,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:47157",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 64,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:46670",
+              "messageType": 1,
+              "peer": "127.0.0.1:44748",
+              "transactionMatched": null
+            }
+          ],
+          "pcClosed": true
+        }
+      ]
+    },
+    {
+      "stage": "final-profile-regression",
+      "command": "rtk proxy cargo test --features rtc-probe --test rtc_ice_profile",
+      "rawCommandExit": 0,
+      "artifactIdentity": "final-artifacts",
+      "log": "profile-tests.log",
+      "logSha256": "baa55e29b8ba36cafa8e5736959280505d183d41900bc446544b94d4e16dc550",
+      "observations": []
+    },
+    {
+      "stage": "final-library-regression",
+      "command": "rtk proxy cargo test --features rtc-probe --lib -- --test-threads=1",
+      "rawCommandExit": 0,
+      "artifactIdentity": "final-artifacts",
+      "log": "library-tests.log",
+      "logSha256": "0efa4a1f30c2eca49f920142cd7374d303ddca1e643aad1bee5f21a478af89ed",
+      "observations": []
+    },
+    {
+      "stage": "final-default-gap",
+      "command": "rtk proxy cargo test --features rtc-probe --lib public_stun_gather -- --ignored --nocapture --test-threads=1",
+      "rawCommandExit": 101,
+      "artifactIdentity": "final-artifacts",
+      "log": "final-default-gap.log",
+      "logSha256": "c253c3bb8e1aea8f17ff51c089ddcc3be00a05745268469b8d4d5645c5ea69a0",
+      "observations": [
+        {
+          "bind": null,
+          "bindingMatch": null,
+          "callerDeadlineMs": 12000,
+          "callerMs": 12001,
+          "candidates": null,
+          "cleanupMs": 0,
+          "closed": true,
+          "dataPath": null,
+          "event": "rtc-stun-observation",
+          "events": [],
+          "failure": "deadline has elapsed",
+          "identityMatch": null,
+          "lateObservationMs": 301,
+          "observer": [
+            "stun:74.125.250.129:19302"
+          ],
+          "ownedSocketsLate": 0,
+          "packets": [
+            {
+              "atMs": 65,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:45371",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 65,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:45392",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 65,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.4.5:45294",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 65,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:45475",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 65,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:44785",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 65,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:44760",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 254,
+              "bytes": 32,
+              "direction": "recv",
+              "local": "192.168.4.5:45294",
+              "messageType": 257,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": true
+            },
+            {
+              "atMs": 967,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:45371",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 967,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:45392",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 967,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:45475",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 967,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:44785",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 967,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:44760",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 1868,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:45371",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 1868,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:45392",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 1868,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:45475",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 1868,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:44785",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 1868,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:44760",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 3070,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:45371",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 3070,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:45392",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 3070,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:45475",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 3070,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:44785",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 3070,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:44760",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 4571,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:45371",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 4571,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:45392",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 4571,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:45475",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 4571,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:44785",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 4571,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:44760",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 6372,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:45371",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 6372,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:45392",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 6372,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:45475",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 6373,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:44785",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 6373,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:44760",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 8474,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:45371",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 8474,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:45392",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 8474,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:45475",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 8474,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:44785",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 8474,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:44760",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 10875,
+              "bytes": 20,
+              "direction": "send",
+              "local": "10.255.255.254:45371",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 10875,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.19.0.1:45392",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 10875,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.18.0.1:45475",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 10875,
+              "bytes": 20,
+              "direction": "send",
+              "local": "192.168.254.1:44785",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            },
+            {
+              "atMs": 10875,
+              "bytes": 20,
+              "direction": "send",
+              "local": "172.17.0.1:44760",
+              "messageType": 1,
+              "peer": "74.125.250.129:19302",
+              "transactionMatched": null
+            }
+          ],
+          "partialCandidateTypes": [
+            "host",
+            "host",
+            "host",
+            "host",
+            "host",
+            "host",
+            "host",
+            "host",
+            "host",
+            "host",
+            "host",
+            "host",
+            "srflx",
+            "srflx"
+          ],
+          "rtcRole": "offerer",
+          "socketsBefore": 3,
+          "socketsImmediate": 10,
+          "socketsLate": 3,
+          "stage": "gather-complete"
+        }
+      ]
+    }
+  ],
+  "rawComparison": {
+    "log": "raw-stun-observation.json",
+    "sha256": "02946923f92994f1d4fd4068dd1d890cd9b2f55bf19d88f162242c0bae27a9ce",
+    "commandFile": "raw-stun-command.sh",
+    "commandSha256": "bf6c9081cc2d6dff7143b1c3e9621fe568d76da35ac0e34447b5e021b8722cda",
+    "rawCommandExit": 0
+  },
+  "cleanup": {
+    "forcedTermination": false,
+    "ownedPcClosed": true,
+    "ownedDriverSocketsLate": 0,
+    "ownMOrLeaseOrPumpOrContactListener": false,
+    "helperProcesses": false,
+    "deviceForwarding": false
+  },
+  "limitations": [
+    "Wildcard library gathers on nonresponding local interfaces and remains unqualified; explicit multiple bindings can do the same.",
+    "Gathering-only public driver operations use exact production factory builder with passive true-Tokio runtime tracing; they do not validate SDK member gates or full connection.",
+    "Earlier overwritten binaries cannot be hashed retrospectively; final repeated default/profile contrast is bound to final artifact hashes.",
+    "Host upstream uses WARP; mapped srflx is address-observation evidence only."
+  ]
+}

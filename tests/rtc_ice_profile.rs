@@ -14,6 +14,7 @@ fn explicit_observer_profile_preserves_empty_defaults_and_excludes_private_candi
             "198.18.11.2".parse().unwrap(),
             "198.18.12.2".parse().unwrap(),
         ],
+        ..Default::default()
     };
     let transport = RtcTransport::with_ice_profile(profile).unwrap();
     let published = transport.ice_profile().local_sdp(SDP).unwrap();
@@ -60,6 +61,7 @@ fn explicit_observer_uses_existing_resource_identity_and_cannot_bypass_disabled_
     let profile = RtcIceProfile {
         stun_servers: vec!["stun:198.18.0.10:3478".into()],
         candidate_addresses: vec![],
+        ..Default::default()
     };
     assert_eq!(
         profile.observation_resources().unwrap(),
@@ -83,5 +85,33 @@ fn explicit_observer_uses_existing_resource_identity_and_cannot_bypass_disabled_
         profile
             .check_allowed(&["stun://198.18.0.10/ignored-path".into()])
             .is_err()
+    );
+}
+
+#[test]
+fn native_socket_bindings_are_bounded_and_do_not_restrict_published_candidates() {
+    let mut profile = RtcIceProfile {
+        local_bind_addresses: vec!["10.203.1.2".parse().unwrap()],
+        ..Default::default()
+    };
+    profile.validate().unwrap();
+    assert_eq!(profile.local_sdp(SDP).unwrap(), SDP);
+    profile.check_remote_sdp(SDP).unwrap();
+    for address in ["0.0.0.0", "127.0.0.1", "169.254.1.1", "224.0.0.1", "::1"] {
+        profile.local_bind_addresses = vec![address.parse().unwrap()];
+        assert!(profile.validate().is_err(), "{address}");
+    }
+    profile.local_bind_addresses = vec!["10.203.1.2".parse().unwrap(); 2];
+    assert!(profile.validate().is_err());
+    profile.local_bind_addresses = (1..=9)
+        .map(|last| std::net::IpAddr::from([10, 203, 1, last]))
+        .collect();
+    assert!(profile.validate().is_err());
+    let old = r#"{"stun_servers":[],"candidate_addresses":[]}"#;
+    assert!(
+        serde_json::from_str::<RtcIceProfile>(old)
+            .unwrap()
+            .local_bind_addresses
+            .is_empty()
     );
 }

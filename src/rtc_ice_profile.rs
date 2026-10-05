@@ -12,6 +12,11 @@ const MAX_SDP_BYTES: usize = 65536;
 pub struct RtcIceProfile {
     #[serde(default)]
     pub stun_servers: Vec<String>,
+    /// Native socket binding addresses for this attempt, independent of the
+    /// candidate publication filter. Empty keeps the library's wildcard binding.
+    /// Each explicit address binds an ephemeral UDP port; no TURN is enabled.
+    #[serde(default)]
+    pub local_bind_addresses: Vec<IpAddr>,
     /// Optional finite address publication restriction, applied after gathering.
     /// Local base addresses may remain in stats and related-address attributes.
     #[serde(default)]
@@ -44,11 +49,25 @@ fn observer_address(value: &str) -> Option<SocketAddr> {
 
 impl RtcIceProfile {
     pub fn validate(&self) -> io::Result<()> {
-        if self.stun_servers.len() > MAX_OBSERVERS || self.candidate_addresses.len() > MAX_ADDRESSES
+        if self.stun_servers.len() > MAX_OBSERVERS
+            || self.candidate_addresses.len() > MAX_ADDRESSES
+            || self.local_bind_addresses.len() > MAX_ADDRESSES
         {
             return Err(invalid(
                 "RTC observation/candidate profile exceeds its bounds",
             ));
+        }
+        let mut bindings = BTreeSet::new();
+        for address in &self.local_bind_addresses {
+            if !address.is_ipv4()
+                || address.is_unspecified()
+                || address.is_loopback()
+                || address.is_multicast()
+                || matches!(address, IpAddr::V4(value) if value.is_link_local())
+                || !bindings.insert(*address)
+            {
+                return Err(invalid("RTC local binding address is invalid"));
+            }
         }
         let mut observers = BTreeSet::new();
         for url in &self.stun_servers {
@@ -86,6 +105,17 @@ impl RtcIceProfile {
             ));
         }
         Ok(())
+    }
+
+    pub(crate) fn native_bind_addresses(&self) -> Vec<SocketAddr> {
+        if self.local_bind_addresses.is_empty() {
+            vec![SocketAddr::from(([0, 0, 0, 0], 0))]
+        } else {
+            self.local_bind_addresses
+                .iter()
+                .map(|address| SocketAddr::new(*address, 0))
+                .collect()
+        }
     }
 
     pub fn check_allowed(&self, disabled: &[String]) -> io::Result<()> {
