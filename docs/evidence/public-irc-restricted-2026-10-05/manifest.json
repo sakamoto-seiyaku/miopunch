@@ -1,0 +1,120 @@
+{
+  "scope": "Public existing-SDK slow-profile negative qualification, not future unified protocol",
+  "artifacts": [
+    {
+      "path": "first/qualification.json",
+      "raw_path": "/tmp/mio72-public-irc-first/qualification.json",
+      "raw_sha256": "4cf5d05504419877c8b1e775ab37ec62381737910c5043ffdbf23d61b3cca5a2",
+      "exported_sha256": "031314ffadf0d142ad2a6b1137f4d7266e8cbdfe4878574e61de6c0bc69a3656"
+    },
+    {
+      "path": "first/results.json",
+      "raw_path": "/tmp/mio72-public-irc-first/results.json",
+      "raw_sha256": "10e5c720452e215be65cdfb78c1584f7bca5cc00569f44b428cdff7249885211",
+      "exported_sha256": "10e5c720452e215be65cdfb78c1584f7bca5cc00569f44b428cdff7249885211"
+    },
+    {
+      "path": "first/native-build.log",
+      "raw_path": "/tmp/mio72-public-irc-first/native-build.log",
+      "raw_sha256": "2524320a99f8be72b911ef4c4ea78cd873c48dce592d7a8f91ff0c3a37163bce",
+      "exported_sha256": "2524320a99f8be72b911ef4c4ea78cd873c48dce592d7a8f91ff0c3a37163bce"
+    },
+    {
+      "path": "first/wasm-build.log",
+      "raw_path": "/tmp/mio72-public-irc-first/wasm-build.log",
+      "raw_sha256": "06c7fb251373915c529154f8d05aea94d8e6e49b20b42e27be52117674abc697",
+      "exported_sha256": "06c7fb251373915c529154f8d05aea94d8e6e49b20b42e27be52117674abc697"
+    },
+    {
+      "path": "first/wasm-bindgen.log",
+      "raw_path": "/tmp/mio72-public-irc-first/wasm-bindgen.log",
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "first/public-irc-restricted.log",
+      "raw_path": "/tmp/mio72-public-irc-first/public-irc-restricted.log",
+      "raw_sha256": "ac8a21fcc1575195525cecca10d0bb88abae46827930d7d9194a6469143226d9",
+      "exported_sha256": "ac8a21fcc1575195525cecca10d0bb88abae46827930d7d9194a6469143226d9"
+    },
+    {
+      "path": "final/qualification.json",
+      "raw_path": "/tmp/mio72-public-irc-final/qualification.json",
+      "raw_sha256": "1abd81bfd03a72fb68e90f0a66cec1567a621a0b1c48ef864ffc8eb2f329be08",
+      "exported_sha256": "224d1fec7aae2c9e69c71d89d48a759cf8f6a820a68a1705a0c5b7c9a501ad7e"
+    },
+    {
+      "path": "final/results.json",
+      "raw_path": "/tmp/mio72-public-irc-final/results.json",
+      "raw_sha256": "f06f0166ced7f617708dcc7c7d7067f3258fdab20c232c2f98a9cc1ba6f28ad4",
+      "exported_sha256": "f06f0166ced7f617708dcc7c7d7067f3258fdab20c232c2f98a9cc1ba6f28ad4"
+    },
+    {
+      "path": "final/native-build.log",
+      "raw_path": "/tmp/mio72-public-irc-final/native-build.log",
+      "raw_sha256": "53154922c28ae02ff6a83271d2207385ca5c65fce97939c45e01cf062ee43fb4",
+      "exported_sha256": "53154922c28ae02ff6a83271d2207385ca5c65fce97939c45e01cf062ee43fb4"
+    },
+    {
+      "path": "final/wasm-build.log",
+      "raw_path": "/tmp/mio72-public-irc-final/wasm-build.log",
+      "raw_sha256": "8b1fd2394f7b6f177ede882431154a419bd9f404f00add314c912e91a7fc0ec0",
+      "exported_sha256": "8b1fd2394f7b6f177ede882431154a419bd9f404f00add314c912e91a7fc0ec0"
+    },
+    {
+      "path": "final/wasm-bindgen.log",
+      "raw_path": "/tmp/mio72-public-irc-final/wasm-bindgen.log",
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "final/public-irc-restricted.log",
+      "raw_path": "/tmp/mio72-public-irc-final/public-irc-restricted.log",
+      "raw_sha256": "446361f67cb7433301b3c53adf83529bbd981017911a7f6810abfbea3c16831e",
+      "exported_sha256": "446361f67cb7433301b3c53adf83529bbd981017911a7f6810abfbea3c16831e"
+    },
+    {
+      "path": "validation.json",
+      "exported_sha256": "3b7d6104ee493825d93061499983b12d06bffc6452dbbfd35250863a6d1f16ae"
+    },
+    {
+      "path": "irc-datagram-tests.log",
+      "exported_sha256": "b0324a1093ee613484a5457e3ff3b51af45bdb3340b288cc2629c8991ad06521"
+    },
+    {
+      "path": "facility.json",
+      "exported_sha256": "00ca7bac0b4096f5851705cdb4a03fa6d145df1015acdec307d05aa7cc7ec7ff"
+    },
+    {
+      "path": "README.md",
+      "exported_sha256": "fde891c4d90aaad3452dcc9b22877d50d0d3ea957b98d0022303ac8014f1227a"
+    },
+    {
+      "path": "sources/run-public-irc-restricted.mjs",
+      "exported_sha256": "c84fa743e195c29fb2b8722f74b491b1da9f31720473de868857665515ebbbbb",
+      "source_at_final_run": "browser-probe/harness/run-public-irc-restricted.mjs"
+    },
+    {
+      "path": "sources/check_public_irc.py",
+      "exported_sha256": "53f72f5fd31b9b372a35a52105ec732a36b1406bf5f0679a23debe1d00d08a50",
+      "source_at_final_run": "scripts/check_public_irc.py"
+    },
+    {
+      "path": "sources/browser_irc_restricted_native.rs",
+      "exported_sha256": "98abb6804b5c1c3d7d8e1dd4965a43be41bdad30d571a6462b7e6055ab8b642d",
+      "source_at_final_run": "src/bin/browser_irc_restricted_native.rs"
+    },
+    {
+      "path": "receipt-tests.log",
+      "exported_sha256": "ae9e8ed7b5f1fa0d389512ff82dd0bf5542c032a4246d2d9b9576224a6a9cef5"
+    }
+  ],
+  "first_private_fixture_removed_after_run": true,
+  "post_review_runner_sha256": {
+    "browser-probe/harness/run-public-irc-restricted.mjs": "2d828fb654dc42f497cee8487cff148811b147d39da041762bac1b9e13b83e7a",
+    "browser-probe/harness/public-irc-receipt.mjs": "4cce2863973f46c00cf4419e88260e42ffe023f174b85935c0211fcdf590a332",
+    "browser-probe/harness/public-irc-receipt.test.mjs": "5d45630bc632c674e3dc1c3cbba091bfe4bc202406dff9e0bbc0f946f6834804",
+    "scripts/check_public_irc.py": "6f809e9080480ebece5484b99774dae47f76e4a5cb7bc0993ba020d2c23ca213"
+  },
+  "post_review_public_rerun": false
+}

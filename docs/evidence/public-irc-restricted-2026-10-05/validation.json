@@ -1,0 +1,30 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-j",
+    "2",
+    "--test",
+    "irc_datagram"
+  ],
+  "exit": 0,
+  "seconds": 2.2918103479314595,
+  "scope": "Affected existing IRC datagram/retirement suite only; no public service traffic or old full suite repetition",
+  "post_review_receipt_validation": {
+    "argv": [
+      "rtk",
+      "proxy",
+      "node",
+      "browser-probe/harness/public-irc-receipt.test.mjs"
+    ],
+    "exit": 0,
+    "seconds": 0.0563266440294683,
+    "tests": 5,
+    "public_traffic": false,
+    "historical_final_receipt_changed": false
+  }
+}

@@ -1,0 +1,1989 @@
+{
+  "startedUtc": "2026-10-05T01:58:24.423Z",
+  "passed": false,
+  "available": false,
+  "scope": "Existing formal SDK only; does not qualify the future unified protocol or a business data path",
+  "facility": {
+    "logical_id": "explicit-ergo-public-testnet-qualification",
+    "native_url": "ircs://testnet.ergo.chat:6697/",
+    "wss_url": "wss://testnet.ergo.chat/webirc",
+    "channel": "#mio-qualification-d6c00ee35371"
+  },
+  "profile": {
+    "pacing_ms": 600,
+    "assembly_ttl_ms": 8000,
+    "queue_ttl_ms": 1500,
+    "attempt_ms": 60000
+  },
+  "callerBudgetMs": 12000,
+  "stageBudgetMs": 5000,
+  "native": [
+    {
+      "event": "ready",
+      "mqtt_traffic": null
+    },
+    {
+      "event": "status",
+      "members": 1,
+      "mqtt_traffic": null,
+      "requests": [],
+      "traffic": {
+        "driver_active": 1,
+        "expired": 0,
+        "fragments": 10,
+        "pending": 1,
+        "protocol": {
+          "accepted_bytes": 3738,
+          "accepted_datagrams": [
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "407bf4ea7e2f1c0fa698cba9dd857355f5d9e03f4b39d3daec857db6a638cb50",
+              "first_five_bytes": "c700000001"
+            },
+            {
+              "bytes": 138,
+              "ciphertext_sha256": "c942abc152402bba1c9e84bae08199e9f20a281056d2f761b41c73e1b813cd4f",
+              "first_five_bytes": "56af9851ea"
+            },
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "7932069af39f935412b8ae10cc6e3533fabff4e398b1d1adda2c0c719d433992",
+              "first_five_bytes": "cf00000001"
+            },
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "5599422bdb3942b3f6a5ee03358e1d046ca7fed3bcf54dda4ad3f4d8a3cff8c2",
+              "first_five_bytes": "c400000001"
+            }
+          ],
+          "assembly": {
+            "completed_age_ms": 5415,
+            "delivered": 1,
+            "expired": 0,
+            "pending": 1,
+            "pending_peak": 1,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [
+            {
+              "at_ms": 3388,
+              "fragment": {
+                "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 3992,
+              "fragment": {
+                "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 4591,
+              "fragment": {
+                "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 5192,
+              "fragment": {
+                "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 5796,
+              "fragment": {
+                "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 6392,
+              "fragment": {
+                "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 6992,
+              "fragment": {
+                "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 7602,
+              "fragment": {
+                "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 8203,
+              "fragment": {
+                "sha256": "323783be9a53a31e158ec9600626a4703e99f4e183bc1acb8772cbdf5c3a1ece"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 8803,
+              "fragment": {
+                "sha256": "3514acf61732f662da19625f7fe781c3e483f2dce8506012f3bb393f5003e105"
+              },
+              "line_bytes": 275,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 9453,
+              "fragment": {
+                "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 10052,
+              "fragment": {
+                "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 10656,
+              "fragment": {
+                "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 11253,
+              "fragment": {
+                "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 11851,
+              "fragment": {
+                "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 12452,
+              "fragment": {
+                "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 13052,
+              "fragment": {
+                "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 13653,
+              "fragment": {
+                "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            }
+          ],
+          "max_line_bytes": 435,
+          "part_sent": false,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": true,
+            "isupport": [
+              "AWAYLEN=390",
+              "BOT=B",
+              "CASEMAPPING=ascii",
+              "CHANLIMIT=#:100",
+              "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+              "CHANNELLEN=64",
+              "CHANTYPES=#",
+              "CHATHISTORY=1000",
+              "ELIST=U",
+              "EXCEPTS",
+              "EXTBAN=,m",
+              "EXTJWT=1",
+              "FORWARD=f",
+              "INVEX",
+              "KICKLEN=390",
+              "MAXLIST=beI:60",
+              "MAXTARGETS=4",
+              "MODES",
+              "MONITOR=100",
+              "MSGREFTYPES=msgid,timestamp",
+              "NETWORK=ErgoTestnet",
+              "NICKLEN=32",
+              "PREFIX=(qaohv)~&@%+",
+              "RPCHAN=E",
+              "RPUSER=E",
+              "SAFELIST",
+              "SAFERATE",
+              "STATUSMSG=~&@%+",
+              "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+              "TOPICLEN=390",
+              "UTF8ONLY",
+              "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+              "WHOX",
+              "draft/CHATHISTORY=1000",
+              "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+            ],
+            "joined": true,
+            "names_done": true,
+            "ready": true,
+            "registered": true,
+            "retired": false
+          },
+          "queue_age_ms": 4381,
+          "queue_peak": 4,
+          "queue_pending": 0,
+          "quit_sent": false,
+          "ready_ms": 1375,
+          "received_bytes": 1200,
+          "server_prefix": "testnet.ergo.chat",
+          "tls": {
+            "cipher": "TLS13_AES_128_GCM_SHA256",
+            "hostname": "testnet.ergo.chat",
+            "leaf_der_sha256": "1fb2abdbaca6e1c0c88c7d4df9dbe527f1795a0d7df1be5239a095294b761b64",
+            "verified": true,
+            "version": "TLSv1_3"
+          },
+          "withdraw_ms": null
+        },
+        "received": 1,
+        "rejected": 3,
+        "sent": 1
+      }
+    },
+    {
+      "cleanup_elapsed_ms": 12,
+      "event": "closed",
+      "graceful_close": true,
+      "mqtt_traffic": null,
+      "traffic": {
+        "driver_active": 0,
+        "expired": 0,
+        "fragments": 10,
+        "pending": 0,
+        "protocol": {
+          "accepted_bytes": 3738,
+          "accepted_datagrams": [
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "407bf4ea7e2f1c0fa698cba9dd857355f5d9e03f4b39d3daec857db6a638cb50",
+              "first_five_bytes": "c700000001"
+            },
+            {
+              "bytes": 138,
+              "ciphertext_sha256": "c942abc152402bba1c9e84bae08199e9f20a281056d2f761b41c73e1b813cd4f",
+              "first_five_bytes": "56af9851ea"
+            },
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "7932069af39f935412b8ae10cc6e3533fabff4e398b1d1adda2c0c719d433992",
+              "first_five_bytes": "cf00000001"
+            },
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "5599422bdb3942b3f6a5ee03358e1d046ca7fed3bcf54dda4ad3f4d8a3cff8c2",
+              "first_five_bytes": "c400000001"
+            }
+          ],
+          "assembly": {
+            "completed_age_ms": 5415,
+            "delivered": 1,
+            "expired": 0,
+            "pending": 0,
+            "pending_peak": 1,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [
+            {
+              "at_ms": 3388,
+              "fragment": {
+                "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 3992,
+              "fragment": {
+                "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 4591,
+              "fragment": {
+                "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 5192,
+              "fragment": {
+                "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 5796,
+              "fragment": {
+                "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 6392,
+              "fragment": {
+                "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 6992,
+              "fragment": {
+                "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 7602,
+              "fragment": {
+                "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 8203,
+              "fragment": {
+                "sha256": "323783be9a53a31e158ec9600626a4703e99f4e183bc1acb8772cbdf5c3a1ece"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 8803,
+              "fragment": {
+                "sha256": "3514acf61732f662da19625f7fe781c3e483f2dce8506012f3bb393f5003e105"
+              },
+              "line_bytes": 275,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 9453,
+              "fragment": {
+                "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 10052,
+              "fragment": {
+                "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 10656,
+              "fragment": {
+                "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 11253,
+              "fragment": {
+                "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 11851,
+              "fragment": {
+                "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 12452,
+              "fragment": {
+                "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 13052,
+              "fragment": {
+                "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 13653,
+              "fragment": {
+                "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            }
+          ],
+          "max_line_bytes": 435,
+          "part_sent": true,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": true,
+            "isupport": [
+              "AWAYLEN=390",
+              "BOT=B",
+              "CASEMAPPING=ascii",
+              "CHANLIMIT=#:100",
+              "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+              "CHANNELLEN=64",
+              "CHANTYPES=#",
+              "CHATHISTORY=1000",
+              "ELIST=U",
+              "EXCEPTS",
+              "EXTBAN=,m",
+              "EXTJWT=1",
+              "FORWARD=f",
+              "INVEX",
+              "KICKLEN=390",
+              "MAXLIST=beI:60",
+              "MAXTARGETS=4",
+              "MODES",
+              "MONITOR=100",
+              "MSGREFTYPES=msgid,timestamp",
+              "NETWORK=ErgoTestnet",
+              "NICKLEN=32",
+              "PREFIX=(qaohv)~&@%+",
+              "RPCHAN=E",
+              "RPUSER=E",
+              "SAFELIST",
+              "SAFERATE",
+              "STATUSMSG=~&@%+",
+              "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+              "TOPICLEN=390",
+              "UTF8ONLY",
+              "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+              "WHOX",
+              "draft/CHATHISTORY=1000",
+              "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+            ],
+            "joined": true,
+            "names_done": true,
+            "ready": false,
+            "registered": true,
+            "retired": true
+          },
+          "queue_age_ms": 4381,
+          "queue_peak": 4,
+          "queue_pending": 0,
+          "quit_sent": true,
+          "ready_ms": 1375,
+          "received_bytes": 1200,
+          "server_prefix": "testnet.ergo.chat",
+          "tls": {
+            "cipher": "TLS13_AES_128_GCM_SHA256",
+            "hostname": "testnet.ergo.chat",
+            "leaf_der_sha256": "1fb2abdbaca6e1c0c88c7d4df9dbe527f1795a0d7df1be5239a095294b761b64",
+            "verified": true,
+            "version": "TLSv1_3"
+          },
+          "withdraw_ms": 17214
+        },
+        "received": 1,
+        "rejected": 3,
+        "sent": 1
+      }
+    }
+  ],
+  "websockets": [
+    {
+      "url": "wss://testnet.ergo.chat/webirc",
+      "createdAtMs": 7395.230655,
+      "origin": "https://testnet.ergo.chat",
+      "status": 101,
+      "protocol": "text.ircv3.net",
+      "sentFrames": 23,
+      "sentFrameBytes": 7088,
+      "receivedFrames": 64,
+      "receivedFrameBytes": 9180,
+      "closedAtMs": 20594.058535
+    },
+    {
+      "url": "wss://testnet.ergo.chat/webirc",
+      "createdAtMs": 21353.498456,
+      "origin": "https://testnet.ergo.chat",
+      "status": 101,
+      "protocol": "text.ircv3.net",
+      "sentFrames": 5,
+      "sentFrameBytes": 174,
+      "receivedFrames": 56,
+      "receivedFrameBytes": 5716
+    }
+  ],
+  "attempts": [
+    {
+      "scenario": "expected-contact",
+      "elapsedIncludingRetirementMs": 14027.26586,
+      "cleanup": {
+        "carriers": [
+          {
+            "assembly": {
+              "completed_age_ms": 0,
+              "delivered": 0,
+              "expired": 0,
+              "pending": 0,
+              "pending_peak": 1,
+              "rejected": 0
+            },
+            "buffered_bytes": 0,
+            "closed": true,
+            "protocol": {
+              "accepted_bytes": 10800,
+              "accepted_datagrams": [
+                {
+                  "at_ms": 1596,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "663ccad8c1bca8227ea0f898abf4cdf4d3286a83ae59975f855f6d845dfebba2",
+                  "first_five_bytes": "c000000001"
+                },
+                {
+                  "at_ms": 2595.900000095367,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "7987396b156eb1c723ff57018235bb2f99d81536cfcf116e8df92a0b81853c32",
+                  "first_five_bytes": "c000000001"
+                },
+                {
+                  "at_ms": 2621.400000095367,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "f1a2a2e1c7f462fc8b59e4d87073df21d1cc4cc7d89a9f0a58df4de2dc5888d1",
+                  "first_five_bytes": "c300000001"
+                },
+                {
+                  "at_ms": 4622.700000047684,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "e4be9f7fee27edb51ed4fc350672c6fe1485325d89f282a1e2cab7f61f6bb94b",
+                  "first_five_bytes": "cc00000001"
+                },
+                {
+                  "at_ms": 4649.200000047684,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "4148727d1fb2c7af509649a03e542738efe783ee50ab755758cf81945f196c3a",
+                  "first_five_bytes": "c600000001"
+                },
+                {
+                  "at_ms": 7652.5,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "71c1ce6d47567e5d677d84e75bd500fffb31f9667d38ff8c578226f10dfec5d7",
+                  "first_five_bytes": "c800000001"
+                },
+                {
+                  "at_ms": 7679,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "3e039c7033190850b43e6f7a7058a9a50769501d9373710f299d0343b08c61a2",
+                  "first_five_bytes": "c400000001"
+                },
+                {
+                  "at_ms": 11682.299999952316,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "77d8957eb201293c19019f0986f820d7512518ef3d347995b3161c3e2f1088a7",
+                  "first_five_bytes": "c600000001"
+                },
+                {
+                  "at_ms": 11713.299999952316,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "5ffe3d9e47571ab6dded524b9916832eae03d44716a6b08cda0efef0b44e788b",
+                  "first_five_bytes": "ca00000001"
+                }
+              ],
+              "buffered_bytes_peak": 393,
+              "failure": null,
+              "max_line_bytes": 435,
+              "part_sent": true,
+              "pong_sent": 0,
+              "queue_age_ms": 8.5,
+              "queue_peak": 5,
+              "quit_sent": true,
+              "ready_ms": 1538.2000000476835,
+              "received_bytes": 0,
+              "received_fragments": [
+                {
+                  "at_ms": 7689.799999952316,
+                  "fragment": {
+                    "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                },
+                {
+                  "at_ms": 8290.400000095367,
+                  "fragment": {
+                    "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                },
+                {
+                  "at_ms": 8891.400000095367,
+                  "fragment": {
+                    "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                },
+                {
+                  "at_ms": 9492.100000143051,
+                  "fragment": {
+                    "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                },
+                {
+                  "at_ms": 10093,
+                  "fragment": {
+                    "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                },
+                {
+                  "at_ms": 10692.900000095367,
+                  "fragment": {
+                    "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                },
+                {
+                  "at_ms": 11295.600000143051,
+                  "fragment": {
+                    "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                },
+                {
+                  "at_ms": 11896.700000047684,
+                  "fragment": {
+                    "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                }
+              ],
+              "received_packets": 0,
+              "rejected": 4,
+              "sent_fragments": [
+                {
+                  "at_ms": 1597.5,
+                  "fragment": {
+                    "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+                  }
+                },
+                {
+                  "at_ms": 2201,
+                  "fragment": {
+                    "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+                  }
+                },
+                {
+                  "at_ms": 2801,
+                  "fragment": {
+                    "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+                  }
+                },
+                {
+                  "at_ms": 3401,
+                  "fragment": {
+                    "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+                  }
+                },
+                {
+                  "at_ms": 4001,
+                  "fragment": {
+                    "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+                  }
+                },
+                {
+                  "at_ms": 4601,
+                  "fragment": {
+                    "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+                  }
+                },
+                {
+                  "at_ms": 5201.100000143051,
+                  "fragment": {
+                    "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+                  }
+                },
+                {
+                  "at_ms": 5811,
+                  "fragment": {
+                    "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+                  }
+                },
+                {
+                  "at_ms": 6411,
+                  "fragment": {
+                    "sha256": "323783be9a53a31e158ec9600626a4703e99f4e183bc1acb8772cbdf5c3a1ece"
+                  }
+                },
+                {
+                  "at_ms": 7011.100000143051,
+                  "fragment": {
+                    "sha256": "3514acf61732f662da19625f7fe781c3e483f2dce8506012f3bb393f5003e105"
+                  }
+                },
+                {
+                  "at_ms": 7661,
+                  "fragment": {
+                    "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+                  }
+                },
+                {
+                  "at_ms": 8261,
+                  "fragment": {
+                    "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+                  }
+                },
+                {
+                  "at_ms": 8861,
+                  "fragment": {
+                    "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+                  }
+                },
+                {
+                  "at_ms": 9461,
+                  "fragment": {
+                    "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+                  }
+                },
+                {
+                  "at_ms": 10061,
+                  "fragment": {
+                    "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+                  }
+                },
+                {
+                  "at_ms": 10661,
+                  "fragment": {
+                    "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+                  }
+                },
+                {
+                  "at_ms": 11261,
+                  "fragment": {
+                    "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+                  }
+                },
+                {
+                  "at_ms": 11861.100000143051,
+                  "fragment": {
+                    "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+                  }
+                }
+              ],
+              "sent_packets": 1,
+              "server_prefix": "testnet.ergo.chat",
+              "withdraw_ms": 11937.299999952316
+            },
+            "qualification": {
+              "capability": true,
+              "isupport": [
+                "AWAYLEN=390",
+                "BOT=B",
+                "CASEMAPPING=ascii",
+                "CHANLIMIT=#:100",
+                "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+                "CHANNELLEN=64",
+                "CHANTYPES=#",
+                "CHATHISTORY=1000",
+                "ELIST=U",
+                "EXCEPTS",
+                "EXTBAN=,m",
+                "EXTJWT=1",
+                "FORWARD=f",
+                "INVEX",
+                "KICKLEN=390",
+                "MAXLIST=beI:60",
+                "MAXTARGETS=4",
+                "MODES",
+                "MONITOR=100",
+                "MSGREFTYPES=msgid,timestamp",
+                "NETWORK=ErgoTestnet",
+                "NICKLEN=32",
+                "PREFIX=(qaohv)~&@%+",
+                "RPCHAN=E",
+                "RPUSER=E",
+                "SAFELIST",
+                "SAFERATE",
+                "STATUSMSG=~&@%+",
+                "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+                "TOPICLEN=390",
+                "UTF8ONLY",
+                "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+                "WHOX",
+                "draft/CHATHISTORY=1000",
+                "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+              ],
+              "joined": true,
+              "names_done": true,
+              "ready": false,
+              "registered": true,
+              "retired": true
+            },
+            "queue_pending": 0,
+            "rx_pending": 0,
+            "socket_state": 3,
+            "timer_active": false,
+            "waiters": 0
+          }
+        ],
+        "gate": null,
+        "memberBootstraps": {},
+        "request": {
+          "attempt_elapsed_ms": 12001,
+          "business_handle": false,
+          "stage": "connecting"
+        }
+      },
+      "cleanup_elapsed_ms": 2001,
+      "diagnostics": {
+        "carriers": [
+          {
+            "assembly": {
+              "completed_age_ms": 0,
+              "delivered": 0,
+              "expired": 0,
+              "pending": 1,
+              "pending_peak": 1,
+              "rejected": 0
+            },
+            "buffered_bytes": 0,
+            "closed": false,
+            "protocol": {
+              "accepted_bytes": 10800,
+              "accepted_datagrams": [
+                {
+                  "at_ms": 1596,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "663ccad8c1bca8227ea0f898abf4cdf4d3286a83ae59975f855f6d845dfebba2",
+                  "first_five_bytes": "c000000001"
+                },
+                {
+                  "at_ms": 2595.900000095367,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "7987396b156eb1c723ff57018235bb2f99d81536cfcf116e8df92a0b81853c32",
+                  "first_five_bytes": "c000000001"
+                },
+                {
+                  "at_ms": 2621.400000095367,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "f1a2a2e1c7f462fc8b59e4d87073df21d1cc4cc7d89a9f0a58df4de2dc5888d1",
+                  "first_five_bytes": "c300000001"
+                },
+                {
+                  "at_ms": 4622.700000047684,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "e4be9f7fee27edb51ed4fc350672c6fe1485325d89f282a1e2cab7f61f6bb94b",
+                  "first_five_bytes": "cc00000001"
+                },
+                {
+                  "at_ms": 4649.200000047684,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "4148727d1fb2c7af509649a03e542738efe783ee50ab755758cf81945f196c3a",
+                  "first_five_bytes": "c600000001"
+                },
+                {
+                  "at_ms": 7652.5,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "71c1ce6d47567e5d677d84e75bd500fffb31f9667d38ff8c578226f10dfec5d7",
+                  "first_five_bytes": "c800000001"
+                },
+                {
+                  "at_ms": 7679,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "3e039c7033190850b43e6f7a7058a9a50769501d9373710f299d0343b08c61a2",
+                  "first_five_bytes": "c400000001"
+                },
+                {
+                  "at_ms": 11682.299999952316,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "77d8957eb201293c19019f0986f820d7512518ef3d347995b3161c3e2f1088a7",
+                  "first_five_bytes": "c600000001"
+                },
+                {
+                  "at_ms": 11713.299999952316,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "5ffe3d9e47571ab6dded524b9916832eae03d44716a6b08cda0efef0b44e788b",
+                  "first_five_bytes": "ca00000001"
+                }
+              ],
+              "buffered_bytes_peak": 393,
+              "failure": null,
+              "max_line_bytes": 435,
+              "part_sent": false,
+              "pong_sent": 0,
+              "queue_age_ms": 8.5,
+              "queue_peak": 5,
+              "quit_sent": false,
+              "ready_ms": 1538.2000000476835,
+              "received_bytes": 0,
+              "received_fragments": [
+                {
+                  "at_ms": 7689.799999952316,
+                  "fragment": {
+                    "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                },
+                {
+                  "at_ms": 8290.400000095367,
+                  "fragment": {
+                    "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                },
+                {
+                  "at_ms": 8891.400000095367,
+                  "fragment": {
+                    "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                },
+                {
+                  "at_ms": 9492.100000143051,
+                  "fragment": {
+                    "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                },
+                {
+                  "at_ms": 10093,
+                  "fragment": {
+                    "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                },
+                {
+                  "at_ms": 10692.900000095367,
+                  "fragment": {
+                    "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                },
+                {
+                  "at_ms": 11295.600000143051,
+                  "fragment": {
+                    "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                },
+                {
+                  "at_ms": 11896.700000047684,
+                  "fragment": {
+                    "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mio0d1da52893c30a68!~u@dsgiwf2xt7rti.irc"
+                }
+              ],
+              "received_packets": 0,
+              "rejected": 4,
+              "sent_fragments": [
+                {
+                  "at_ms": 1597.5,
+                  "fragment": {
+                    "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+                  }
+                },
+                {
+                  "at_ms": 2201,
+                  "fragment": {
+                    "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+                  }
+                },
+                {
+                  "at_ms": 2801,
+                  "fragment": {
+                    "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+                  }
+                },
+                {
+                  "at_ms": 3401,
+                  "fragment": {
+                    "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+                  }
+                },
+                {
+                  "at_ms": 4001,
+                  "fragment": {
+                    "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+                  }
+                },
+                {
+                  "at_ms": 4601,
+                  "fragment": {
+                    "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+                  }
+                },
+                {
+                  "at_ms": 5201.100000143051,
+                  "fragment": {
+                    "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+                  }
+                },
+                {
+                  "at_ms": 5811,
+                  "fragment": {
+                    "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+                  }
+                },
+                {
+                  "at_ms": 6411,
+                  "fragment": {
+                    "sha256": "323783be9a53a31e158ec9600626a4703e99f4e183bc1acb8772cbdf5c3a1ece"
+                  }
+                },
+                {
+                  "at_ms": 7011.100000143051,
+                  "fragment": {
+                    "sha256": "3514acf61732f662da19625f7fe781c3e483f2dce8506012f3bb393f5003e105"
+                  }
+                },
+                {
+                  "at_ms": 7661,
+                  "fragment": {
+                    "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+                  }
+                },
+                {
+                  "at_ms": 8261,
+                  "fragment": {
+                    "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+                  }
+                },
+                {
+                  "at_ms": 8861,
+                  "fragment": {
+                    "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+                  }
+                },
+                {
+                  "at_ms": 9461,
+                  "fragment": {
+                    "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+                  }
+                },
+                {
+                  "at_ms": 10061,
+                  "fragment": {
+                    "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+                  }
+                },
+                {
+                  "at_ms": 10661,
+                  "fragment": {
+                    "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+                  }
+                },
+                {
+                  "at_ms": 11261,
+                  "fragment": {
+                    "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+                  }
+                },
+                {
+                  "at_ms": 11861.100000143051,
+                  "fragment": {
+                    "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+                  }
+                }
+              ],
+              "sent_packets": 1,
+              "server_prefix": "testnet.ergo.chat",
+              "withdraw_ms": null
+            },
+            "qualification": {
+              "capability": true,
+              "isupport": [
+                "AWAYLEN=390",
+                "BOT=B",
+                "CASEMAPPING=ascii",
+                "CHANLIMIT=#:100",
+                "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+                "CHANNELLEN=64",
+                "CHANTYPES=#",
+                "CHATHISTORY=1000",
+                "ELIST=U",
+                "EXCEPTS",
+                "EXTBAN=,m",
+                "EXTJWT=1",
+                "FORWARD=f",
+                "INVEX",
+                "KICKLEN=390",
+                "MAXLIST=beI:60",
+                "MAXTARGETS=4",
+                "MODES",
+                "MONITOR=100",
+                "MSGREFTYPES=msgid,timestamp",
+                "NETWORK=ErgoTestnet",
+                "NICKLEN=32",
+                "PREFIX=(qaohv)~&@%+",
+                "RPCHAN=E",
+                "RPUSER=E",
+                "SAFELIST",
+                "SAFERATE",
+                "STATUSMSG=~&@%+",
+                "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+                "TOPICLEN=390",
+                "UTF8ONLY",
+                "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+                "WHOX",
+                "draft/CHATHISTORY=1000",
+                "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+              ],
+              "joined": true,
+              "names_done": true,
+              "ready": true,
+              "registered": true,
+              "retired": false
+            },
+            "queue_pending": 4,
+            "rx_pending": 0,
+            "socket_state": 1,
+            "timer_active": true,
+            "waiters": 1
+          }
+        ],
+        "gate": null,
+        "memberBootstraps": {},
+        "request": {
+          "attempt_elapsed_ms": 12001,
+          "business_handle": false,
+          "stage": "connecting"
+        }
+      },
+      "failure": "JsValue(\"temporarily unreachable; durable admission progress retained\")",
+      "graceful_close": false,
+      "result": null,
+      "status": {
+        "authorization_saved": false,
+        "running": true,
+        "secret_saved": false,
+        "stage": "AwaitingApproval"
+      },
+      "identity": {
+        "expectedContactVerified": false,
+        "remoteMatchesContact": null,
+        "nativePeerMatchesBrowser": null
+      },
+      "normalDataHandleReturned": false
+    },
+    {
+      "scenario": "wrong-contact",
+      "elapsedIncludingRetirementMs": 1701.2408570000007,
+      "cleanup": {
+        "carriers": [
+          {
+            "assembly": {
+              "completed_age_ms": 0,
+              "delivered": 0,
+              "expired": 0,
+              "pending": 0,
+              "pending_peak": 0,
+              "rejected": 0
+            },
+            "buffered_bytes": 86,
+            "closed": true,
+            "protocol": {
+              "accepted_bytes": 0,
+              "accepted_datagrams": [],
+              "buffered_bytes_peak": 86,
+              "failure": null,
+              "max_line_bytes": 381,
+              "part_sent": true,
+              "pong_sent": 0,
+              "queue_age_ms": 0,
+              "queue_peak": 0,
+              "quit_sent": true,
+              "ready_ms": 1681.2000000476835,
+              "received_bytes": 0,
+              "received_fragments": [],
+              "received_packets": 0,
+              "rejected": 0,
+              "sent_fragments": [],
+              "sent_packets": 0,
+              "server_prefix": "testnet.ergo.chat",
+              "withdraw_ms": 1688.2000000476835
+            },
+            "qualification": {
+              "capability": true,
+              "isupport": [
+                "AWAYLEN=390",
+                "BOT=B",
+                "CASEMAPPING=ascii",
+                "CHANLIMIT=#:100",
+                "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+                "CHANNELLEN=64",
+                "CHANTYPES=#",
+                "CHATHISTORY=1000",
+                "ELIST=U",
+                "EXCEPTS",
+                "EXTBAN=,m",
+                "EXTJWT=1",
+                "FORWARD=f",
+                "INVEX",
+                "KICKLEN=390",
+                "MAXLIST=beI:60",
+                "MAXTARGETS=4",
+                "MODES",
+                "MONITOR=100",
+                "MSGREFTYPES=msgid,timestamp",
+                "NETWORK=ErgoTestnet",
+                "NICKLEN=32",
+                "PREFIX=(qaohv)~&@%+",
+                "RPCHAN=E",
+                "RPUSER=E",
+                "SAFELIST",
+                "SAFERATE",
+                "STATUSMSG=~&@%+",
+                "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+                "TOPICLEN=390",
+                "UTF8ONLY",
+                "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+                "WHOX",
+                "draft/CHATHISTORY=1000",
+                "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+              ],
+              "joined": true,
+              "names_done": true,
+              "ready": false,
+              "registered": true,
+              "retired": true
+            },
+            "queue_pending": 0,
+            "rx_pending": 0,
+            "socket_state": 2,
+            "timer_active": false,
+            "waiters": 0
+          }
+        ],
+        "gate": null,
+        "memberBootstraps": {},
+        "request": {
+          "attempt_elapsed_ms": 1693,
+          "business_handle": false,
+          "stage": "connecting"
+        }
+      },
+      "cleanup_elapsed_ms": 1,
+      "diagnostics": {
+        "carriers": [
+          {
+            "assembly": {
+              "completed_age_ms": 0,
+              "delivered": 0,
+              "expired": 0,
+              "pending": 0,
+              "pending_peak": 0,
+              "rejected": 0
+            },
+            "buffered_bytes": 0,
+            "closed": false,
+            "protocol": {
+              "accepted_bytes": 0,
+              "accepted_datagrams": [],
+              "buffered_bytes_peak": 50,
+              "failure": null,
+              "max_line_bytes": 381,
+              "part_sent": false,
+              "pong_sent": 0,
+              "queue_age_ms": 0,
+              "queue_peak": 0,
+              "quit_sent": false,
+              "ready_ms": 1681.2000000476835,
+              "received_bytes": 0,
+              "received_fragments": [],
+              "received_packets": 0,
+              "rejected": 0,
+              "sent_fragments": [],
+              "sent_packets": 0,
+              "server_prefix": "testnet.ergo.chat",
+              "withdraw_ms": null
+            },
+            "qualification": {
+              "capability": true,
+              "isupport": [
+                "AWAYLEN=390",
+                "BOT=B",
+                "CASEMAPPING=ascii",
+                "CHANLIMIT=#:100",
+                "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+                "CHANNELLEN=64",
+                "CHANTYPES=#",
+                "CHATHISTORY=1000",
+                "ELIST=U",
+                "EXCEPTS",
+                "EXTBAN=,m",
+                "EXTJWT=1",
+                "FORWARD=f",
+                "INVEX",
+                "KICKLEN=390",
+                "MAXLIST=beI:60",
+                "MAXTARGETS=4",
+                "MODES",
+                "MONITOR=100",
+                "MSGREFTYPES=msgid,timestamp",
+                "NETWORK=ErgoTestnet",
+                "NICKLEN=32",
+                "PREFIX=(qaohv)~&@%+",
+                "RPCHAN=E",
+                "RPUSER=E",
+                "SAFELIST",
+                "SAFERATE",
+                "STATUSMSG=~&@%+",
+                "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+                "TOPICLEN=390",
+                "UTF8ONLY",
+                "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+                "WHOX",
+                "draft/CHATHISTORY=1000",
+                "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+              ],
+              "joined": true,
+              "names_done": true,
+              "ready": true,
+              "registered": true,
+              "retired": false
+            },
+            "queue_pending": 0,
+            "rx_pending": 0,
+            "socket_state": 1,
+            "timer_active": true,
+            "waiters": 1
+          }
+        ],
+        "gate": null,
+        "memberBootstraps": {},
+        "request": {
+          "attempt_elapsed_ms": 1693,
+          "business_handle": false,
+          "stage": "connecting"
+        }
+      },
+      "failure": "JsValue(\"temporarily unreachable: no allowed contact route\")",
+      "graceful_close": true,
+      "result": null,
+      "status": {
+        "authorization_saved": false,
+        "running": true,
+        "secret_saved": false,
+        "stage": "AwaitingApproval"
+      },
+      "identity": {
+        "expectedContactVerified": false,
+        "remoteMatchesContact": null,
+        "nativePeerMatchesBrowser": null
+      },
+      "normalDataHandleReturned": false
+    }
+  ],
+  "cleanup": {
+    "activeBrowserIntervals": 0,
+    "nativeExit": {
+      "code": 0,
+      "signal": null
+    },
+    "nativeReceipt": {
+      "cleanup_elapsed_ms": 12,
+      "event": "closed",
+      "graceful_close": true,
+      "mqtt_traffic": null,
+      "traffic": {
+        "driver_active": 0,
+        "expired": 0,
+        "fragments": 10,
+        "pending": 0,
+        "protocol": {
+          "accepted_bytes": 3738,
+          "accepted_datagrams": [
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "407bf4ea7e2f1c0fa698cba9dd857355f5d9e03f4b39d3daec857db6a638cb50",
+              "first_five_bytes": "c700000001"
+            },
+            {
+              "bytes": 138,
+              "ciphertext_sha256": "c942abc152402bba1c9e84bae08199e9f20a281056d2f761b41c73e1b813cd4f",
+              "first_five_bytes": "56af9851ea"
+            },
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "7932069af39f935412b8ae10cc6e3533fabff4e398b1d1adda2c0c719d433992",
+              "first_five_bytes": "cf00000001"
+            },
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "5599422bdb3942b3f6a5ee03358e1d046ca7fed3bcf54dda4ad3f4d8a3cff8c2",
+              "first_five_bytes": "c400000001"
+            }
+          ],
+          "assembly": {
+            "completed_age_ms": 5415,
+            "delivered": 1,
+            "expired": 0,
+            "pending": 0,
+            "pending_peak": 1,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [
+            {
+              "at_ms": 3388,
+              "fragment": {
+                "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 3992,
+              "fragment": {
+                "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 4591,
+              "fragment": {
+                "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 5192,
+              "fragment": {
+                "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 5796,
+              "fragment": {
+                "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 6392,
+              "fragment": {
+                "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 6992,
+              "fragment": {
+                "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 7602,
+              "fragment": {
+                "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 8203,
+              "fragment": {
+                "sha256": "323783be9a53a31e158ec9600626a4703e99f4e183bc1acb8772cbdf5c3a1ece"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 8803,
+              "fragment": {
+                "sha256": "3514acf61732f662da19625f7fe781c3e483f2dce8506012f3bb393f5003e105"
+              },
+              "line_bytes": 275,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 9453,
+              "fragment": {
+                "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 10052,
+              "fragment": {
+                "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 10656,
+              "fragment": {
+                "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 11253,
+              "fragment": {
+                "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 11851,
+              "fragment": {
+                "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 12452,
+              "fragment": {
+                "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 13052,
+              "fragment": {
+                "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            },
+            {
+              "at_ms": 13653,
+              "fragment": {
+                "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+              },
+              "line_bytes": 435,
+              "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+            }
+          ],
+          "max_line_bytes": 435,
+          "part_sent": true,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": true,
+            "isupport": [
+              "AWAYLEN=390",
+              "BOT=B",
+              "CASEMAPPING=ascii",
+              "CHANLIMIT=#:100",
+              "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+              "CHANNELLEN=64",
+              "CHANTYPES=#",
+              "CHATHISTORY=1000",
+              "ELIST=U",
+              "EXCEPTS",
+              "EXTBAN=,m",
+              "EXTJWT=1",
+              "FORWARD=f",
+              "INVEX",
+              "KICKLEN=390",
+              "MAXLIST=beI:60",
+              "MAXTARGETS=4",
+              "MODES",
+              "MONITOR=100",
+              "MSGREFTYPES=msgid,timestamp",
+              "NETWORK=ErgoTestnet",
+              "NICKLEN=32",
+              "PREFIX=(qaohv)~&@%+",
+              "RPCHAN=E",
+              "RPUSER=E",
+              "SAFELIST",
+              "SAFERATE",
+              "STATUSMSG=~&@%+",
+              "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+              "TOPICLEN=390",
+              "UTF8ONLY",
+              "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+              "WHOX",
+              "draft/CHATHISTORY=1000",
+              "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+            ],
+            "joined": true,
+            "names_done": true,
+            "ready": false,
+            "registered": true,
+            "retired": true
+          },
+          "queue_age_ms": 4381,
+          "queue_peak": 4,
+          "queue_pending": 0,
+          "quit_sent": true,
+          "ready_ms": 1375,
+          "received_bytes": 1200,
+          "server_prefix": "testnet.ergo.chat",
+          "tls": {
+            "cipher": "TLS13_AES_128_GCM_SHA256",
+            "hostname": "testnet.ergo.chat",
+            "leaf_der_sha256": "1fb2abdbaca6e1c0c88c7d4df9dbe527f1795a0d7df1be5239a095294b761b64",
+            "verified": true,
+            "version": "TLSv1_3"
+          },
+          "withdraw_ms": 17214
+        },
+        "received": 1,
+        "rejected": 3,
+        "sent": 1
+      }
+    },
+    "immediate": {
+      "nativeExited": true,
+      "allWebSocketsClosed": false
+    },
+    "late": {
+      "nativeExited": true,
+      "allWebSocketsClosed": false
+    },
+    "elapsedMs": 621.4449219999988
+  },
+  "policy": {
+    "source": "https://testnet.ergo.chat/",
+    "normalCertificateValidation": true,
+    "originHeaderOverride": false,
+    "pageResponseReplacement": false,
+    "concurrentPublicClients": 2,
+    "pageStatus": 200,
+    "actualPageOrigin": "https://testnet.ergo.chat"
+  },
+  "browserVersion": "153.0.8010.12",
+  "nativeReady": true,
+  "stopBranch": "IRC unavailable; do not advance IRC SDK branch; MQTT remains independent",
+  "nativeStatus": {
+    "event": "status",
+    "members": 1,
+    "mqtt_traffic": null,
+    "requests": [],
+    "traffic": {
+      "driver_active": 1,
+      "expired": 0,
+      "fragments": 10,
+      "pending": 1,
+      "protocol": {
+        "accepted_bytes": 3738,
+        "accepted_datagrams": [
+          {
+            "bytes": 1200,
+            "ciphertext_sha256": "407bf4ea7e2f1c0fa698cba9dd857355f5d9e03f4b39d3daec857db6a638cb50",
+            "first_five_bytes": "c700000001"
+          },
+          {
+            "bytes": 138,
+            "ciphertext_sha256": "c942abc152402bba1c9e84bae08199e9f20a281056d2f761b41c73e1b813cd4f",
+            "first_five_bytes": "56af9851ea"
+          },
+          {
+            "bytes": 1200,
+            "ciphertext_sha256": "7932069af39f935412b8ae10cc6e3533fabff4e398b1d1adda2c0c719d433992",
+            "first_five_bytes": "cf00000001"
+          },
+          {
+            "bytes": 1200,
+            "ciphertext_sha256": "5599422bdb3942b3f6a5ee03358e1d046ca7fed3bcf54dda4ad3f4d8a3cff8c2",
+            "first_five_bytes": "c400000001"
+          }
+        ],
+        "assembly": {
+          "completed_age_ms": 5415,
+          "delivered": 1,
+          "expired": 0,
+          "pending": 1,
+          "pending_peak": 1,
+          "rejected": 0
+        },
+        "failure": null,
+        "fragments": [
+          {
+            "at_ms": 3388,
+            "fragment": {
+              "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 3992,
+            "fragment": {
+              "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 4591,
+            "fragment": {
+              "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 5192,
+            "fragment": {
+              "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 5796,
+            "fragment": {
+              "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 6392,
+            "fragment": {
+              "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 6992,
+            "fragment": {
+              "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 7602,
+            "fragment": {
+              "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 8203,
+            "fragment": {
+              "sha256": "323783be9a53a31e158ec9600626a4703e99f4e183bc1acb8772cbdf5c3a1ece"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 8803,
+            "fragment": {
+              "sha256": "3514acf61732f662da19625f7fe781c3e483f2dce8506012f3bb393f5003e105"
+            },
+            "line_bytes": 275,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 9453,
+            "fragment": {
+              "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 10052,
+            "fragment": {
+              "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 10656,
+            "fragment": {
+              "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 11253,
+            "fragment": {
+              "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 11851,
+            "fragment": {
+              "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 12452,
+            "fragment": {
+              "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 13052,
+            "fragment": {
+              "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          },
+          {
+            "at_ms": 13653,
+            "fragment": {
+              "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+            },
+            "line_bytes": 435,
+            "prefix": "mio64d6317942f9f698!~u@dsgiwf2xt7rti.irc"
+          }
+        ],
+        "max_line_bytes": 435,
+        "part_sent": false,
+        "pong_sent": 0,
+        "qualification": {
+          "capability": true,
+          "isupport": [
+            "AWAYLEN=390",
+            "BOT=B",
+            "CASEMAPPING=ascii",
+            "CHANLIMIT=#:100",
+            "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+            "CHANNELLEN=64",
+            "CHANTYPES=#",
+            "CHATHISTORY=1000",
+            "ELIST=U",
+            "EXCEPTS",
+            "EXTBAN=,m",
+            "EXTJWT=1",
+            "FORWARD=f",
+            "INVEX",
+            "KICKLEN=390",
+            "MAXLIST=beI:60",
+            "MAXTARGETS=4",
+            "MODES",
+            "MONITOR=100",
+            "MSGREFTYPES=msgid,timestamp",
+            "NETWORK=ErgoTestnet",
+            "NICKLEN=32",
+            "PREFIX=(qaohv)~&@%+",
+            "RPCHAN=E",
+            "RPUSER=E",
+            "SAFELIST",
+            "SAFERATE",
+            "STATUSMSG=~&@%+",
+            "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+            "TOPICLEN=390",
+            "UTF8ONLY",
+            "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+            "WHOX",
+            "draft/CHATHISTORY=1000",
+            "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+          ],
+          "joined": true,
+          "names_done": true,
+          "ready": true,
+          "registered": true,
+          "retired": false
+        },
+        "queue_age_ms": 4381,
+        "queue_peak": 4,
+        "queue_pending": 0,
+        "quit_sent": false,
+        "ready_ms": 1375,
+        "received_bytes": 1200,
+        "server_prefix": "testnet.ergo.chat",
+        "tls": {
+          "cipher": "TLS13_AES_128_GCM_SHA256",
+          "hostname": "testnet.ergo.chat",
+          "leaf_der_sha256": "1fb2abdbaca6e1c0c88c7d4df9dbe527f1795a0d7df1be5239a095294b761b64",
+          "verified": true,
+          "version": "TLSv1_3"
+        },
+        "withdraw_ms": null
+      },
+      "received": 1,
+      "rejected": 3,
+      "sent": 1
+    }
+  },
+  "outcome": "profile-unavailable",
+  "completedUtc": "2026-10-05T01:58:47.779Z"
+}

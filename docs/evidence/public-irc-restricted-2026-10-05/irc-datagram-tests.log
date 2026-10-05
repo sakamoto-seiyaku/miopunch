@@ -1,0 +1,49 @@
+warning: field `updates` is never read
+   --> src/admission_gate.rs:143:5
+    |
+140 | pub(crate) struct PathQualification {
+    |                   ----------------- field in this struct
+...
+143 |     updates: n0_watcher::Direct<u64>,
+    |     ^^^^^^^
+    |
+    = note: `PathQualification` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `updates` is never used
+   --> src/admission_gate.rs:149:19
+    |
+145 | impl PathQualification {
+    | ---------------------- method in this implementation
+...
+149 |     pub(crate) fn updates(&self) -> n0_watcher::Direct<u64> {
+    |                   ^^^^^^^
+
+warning: method `native_bind_addresses` is never used
+   --> src/rtc_ice_profile.rs:110:19
+    |
+ 50 | impl RtcIceProfile {
+    | ------------------ method in this implementation
+...
+110 |     pub(crate) fn native_bind_addresses(&self) -> Vec<SocketAddr> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^
+
+warning: `miopunch-native-probe` (lib) generated 3 warnings
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.00s
+     Running tests/irc_datagram.rs (target/debug/deps/irc_datagram-0ea205b72d179e8f)
+
+running 10 tests
+test cancellation_retires_the_assembly_generation_even_when_all_fragments_arrive_later ... ok
+test default_three_second_profile_does_not_claim_qualification_for_the_slow_datagram ... ok
+test facility_entry_aliases_and_channel_names_do_not_bypass_disable_or_service_tags ... ok
+test readiness_requires_registration_isupport_own_join_and_matching_names_completion ... ok
+test slow_fragments_deliver_only_a_complete_datagram_before_the_declared_deadline ... ok
+test dropping_during_tls_startup_retires_the_socket_without_waiting_for_its_timeout ... ok
+test missing_and_conflicting_fragments_never_deliver_and_pending_stays_bounded ... ok
+test immediate_rebind_keeps_the_new_route_ready_when_the_old_driver_retires ... ok
+test native_ping_overtakes_a_slow_fragment_queue_and_cancel_retires_the_driver ... ok
+test native_whole_attempt_deadline_closes_a_silent_registration_and_clears_pending ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+

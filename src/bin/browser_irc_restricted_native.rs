@@ -1,4 +1,4 @@
-//! Owned IRC facility fixture for the existing restricted admission protocol.
+//! Explicit IRC facility fixture for the existing restricted admission protocol.
 use iroh::{RelayMode, endpoint::presets};
 use miopunch_native_probe::{
     admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope},
@@ -28,16 +28,21 @@ struct Configuration {
 async fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<_> = std::env::args().collect();
     if args.len() != 4 {
-        return Err("usage: browser_irc_restricted_native CONFIG TEST_CA_PEM DATA_DIR".into());
+        return Err("usage: browser_irc_restricted_native CONFIG CA_PEM_OR_- DATA_DIR".into());
     }
     let config: Configuration = serde_json::from_slice(&std::fs::read(&args[1])?)?;
+    let ca = if args[2] == "-" {
+        None
+    } else {
+        Some(std::fs::read(&args[2])?)
+    };
     let node = NativeNetwork::create(&args[3]).await?;
     config.facility.check_allowed(&config.disabled)?;
     let mut resources = node.resource_configuration()?;
     let mut signaling = vec![miopunch_native_probe::resources::Resource {
         url: config.facility.native_url.clone(),
         uses: [miopunch_native_probe::resources::ResourceUse::Signaling].into(),
-        limitation: "owned restricted IRC facility qualification".into(),
+        limitation: "explicit restricted IRC facility qualification".into(),
     }];
     if let Some(facility) = &config.mqtt {
         facility.check_allowed(&config.disabled)?;
@@ -55,7 +60,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         &config.facility,
         &config.disabled,
         config.profile.clone(),
-        Some(std::fs::read(&args[2])?),
+        ca.clone(),
     )?);
     let traffic = transport.traffic().clone();
     let startup_deadline = tokio::time::Instant::now() + Duration::from_secs(10);
@@ -68,7 +73,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 facility,
                 &config.disabled,
                 mqtt_traffic.clone(),
-                Some(std::fs::read(&args[2])?),
+                ca.clone(),
             )
             .map(Arc::new)
         })

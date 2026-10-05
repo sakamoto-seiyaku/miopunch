@@ -1,0 +1,6 @@
+{
+  "logical_id": "explicit-ergo-public-testnet-qualification",
+  "native_url": "ircs://testnet.ergo.chat:6697/",
+  "wss_url": "wss://testnet.ergo.chat/webirc",
+  "channel": "#mio-qualification-placeholder"
+}

@@ -1,0 +1,1966 @@
+{
+  "startedUtc": "2026-10-05T02:00:35.388Z",
+  "passed": true,
+  "available": false,
+  "scope": "Existing formal SDK only; does not qualify the future unified protocol or a business data path",
+  "facility": {
+    "logical_id": "explicit-ergo-public-testnet-qualification",
+    "native_url": "ircs://testnet.ergo.chat:6697/",
+    "wss_url": "wss://testnet.ergo.chat/webirc",
+    "channel": "#mio-qualification-590eb1581163"
+  },
+  "profile": {
+    "pacing_ms": 600,
+    "assembly_ttl_ms": 8000,
+    "queue_ttl_ms": 1500,
+    "attempt_ms": 60000
+  },
+  "callerBudgetMs": 12000,
+  "stageBudgetMs": 5000,
+  "native": [
+    {
+      "event": "ready",
+      "mqtt_traffic": null
+    },
+    {
+      "event": "status",
+      "members": 1,
+      "mqtt_traffic": null,
+      "requests": [],
+      "traffic": {
+        "driver_active": 1,
+        "expired": 0,
+        "fragments": 10,
+        "pending": 1,
+        "protocol": {
+          "accepted_bytes": 3738,
+          "accepted_datagrams": [
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "712d9f32215ba8817ce734501da22bcfbc30b7edd5beca168463527e70ffd112",
+              "first_five_bytes": "c800000001"
+            },
+            {
+              "bytes": 138,
+              "ciphertext_sha256": "bc15b45343874bb7472a161f0003b4469d5f9028433da4dbc407d91a574d3dff",
+              "first_five_bytes": "41ad8b07dc"
+            },
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "8317f9742d3cb7adf4aa8762a70141e560e3fcbab9de6922b8b5d535314f8c27",
+              "first_five_bytes": "cb00000001"
+            },
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "fc65578e858d9bbb6dc39c14536dac9f5715ea2b90b91d8dafeee0f00edc908d",
+              "first_five_bytes": "c700000001"
+            }
+          ],
+          "assembly": {
+            "completed_age_ms": 5430,
+            "delivered": 1,
+            "expired": 0,
+            "pending": 1,
+            "pending_peak": 1,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [
+            {
+              "at_ms": 3498,
+              "fragment": {
+                "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 4108,
+              "fragment": {
+                "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 4708,
+              "fragment": {
+                "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 5308,
+              "fragment": {
+                "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 5908,
+              "fragment": {
+                "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 6508,
+              "fragment": {
+                "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 7118,
+              "fragment": {
+                "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 7718,
+              "fragment": {
+                "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 8318,
+              "fragment": {
+                "sha256": "323783be9a53a31e158ec9600626a4703e99f4e183bc1acb8772cbdf5c3a1ece"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 8928,
+              "fragment": {
+                "sha256": "3514acf61732f662da19625f7fe781c3e483f2dce8506012f3bb393f5003e105"
+              },
+              "line_bytes": 275,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 9558,
+              "fragment": {
+                "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 10158,
+              "fragment": {
+                "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 10769,
+              "fragment": {
+                "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 11368,
+              "fragment": {
+                "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 11969,
+              "fragment": {
+                "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 12570,
+              "fragment": {
+                "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 13170,
+              "fragment": {
+                "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            }
+          ],
+          "max_line_bytes": 435,
+          "part_sent": false,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": true,
+            "isupport": [
+              "AWAYLEN=390",
+              "BOT=B",
+              "CASEMAPPING=ascii",
+              "CHANLIMIT=#:100",
+              "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+              "CHANNELLEN=64",
+              "CHANTYPES=#",
+              "CHATHISTORY=1000",
+              "ELIST=U",
+              "EXCEPTS",
+              "EXTBAN=,m",
+              "EXTJWT=1",
+              "FORWARD=f",
+              "INVEX",
+              "KICKLEN=390",
+              "MAXLIST=beI:60",
+              "MAXTARGETS=4",
+              "MODES",
+              "MONITOR=100",
+              "MSGREFTYPES=msgid,timestamp",
+              "NETWORK=ErgoTestnet",
+              "NICKLEN=32",
+              "PREFIX=(qaohv)~&@%+",
+              "RPCHAN=E",
+              "RPUSER=E",
+              "SAFELIST",
+              "SAFERATE",
+              "STATUSMSG=~&@%+",
+              "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+              "TOPICLEN=390",
+              "UTF8ONLY",
+              "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+              "WHOX",
+              "draft/CHATHISTORY=1000",
+              "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+            ],
+            "joined": true,
+            "names_done": true,
+            "ready": true,
+            "registered": true,
+            "retired": false
+          },
+          "queue_age_ms": 4385,
+          "queue_peak": 4,
+          "queue_pending": 0,
+          "quit_sent": false,
+          "ready_ms": 1352,
+          "received_bytes": 1200,
+          "server_prefix": "testnet.ergo.chat",
+          "tls": {
+            "cipher": "TLS13_AES_128_GCM_SHA256",
+            "hostname": "testnet.ergo.chat",
+            "leaf_der_sha256": "1fb2abdbaca6e1c0c88c7d4df9dbe527f1795a0d7df1be5239a095294b761b64",
+            "verified": true,
+            "version": "TLSv1_3"
+          },
+          "withdraw_ms": null
+        },
+        "received": 1,
+        "rejected": 3,
+        "sent": 1
+      }
+    },
+    {
+      "cleanup_elapsed_ms": 13,
+      "event": "closed",
+      "graceful_close": true,
+      "mqtt_traffic": null,
+      "traffic": {
+        "driver_active": 0,
+        "expired": 0,
+        "fragments": 10,
+        "pending": 0,
+        "protocol": {
+          "accepted_bytes": 3738,
+          "accepted_datagrams": [
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "712d9f32215ba8817ce734501da22bcfbc30b7edd5beca168463527e70ffd112",
+              "first_five_bytes": "c800000001"
+            },
+            {
+              "bytes": 138,
+              "ciphertext_sha256": "bc15b45343874bb7472a161f0003b4469d5f9028433da4dbc407d91a574d3dff",
+              "first_five_bytes": "41ad8b07dc"
+            },
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "8317f9742d3cb7adf4aa8762a70141e560e3fcbab9de6922b8b5d535314f8c27",
+              "first_five_bytes": "cb00000001"
+            },
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "fc65578e858d9bbb6dc39c14536dac9f5715ea2b90b91d8dafeee0f00edc908d",
+              "first_five_bytes": "c700000001"
+            }
+          ],
+          "assembly": {
+            "completed_age_ms": 5430,
+            "delivered": 1,
+            "expired": 0,
+            "pending": 0,
+            "pending_peak": 1,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [
+            {
+              "at_ms": 3498,
+              "fragment": {
+                "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 4108,
+              "fragment": {
+                "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 4708,
+              "fragment": {
+                "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 5308,
+              "fragment": {
+                "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 5908,
+              "fragment": {
+                "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 6508,
+              "fragment": {
+                "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 7118,
+              "fragment": {
+                "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 7718,
+              "fragment": {
+                "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 8318,
+              "fragment": {
+                "sha256": "323783be9a53a31e158ec9600626a4703e99f4e183bc1acb8772cbdf5c3a1ece"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 8928,
+              "fragment": {
+                "sha256": "3514acf61732f662da19625f7fe781c3e483f2dce8506012f3bb393f5003e105"
+              },
+              "line_bytes": 275,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 9558,
+              "fragment": {
+                "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 10158,
+              "fragment": {
+                "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 10769,
+              "fragment": {
+                "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 11368,
+              "fragment": {
+                "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 11969,
+              "fragment": {
+                "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 12570,
+              "fragment": {
+                "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 13170,
+              "fragment": {
+                "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            }
+          ],
+          "max_line_bytes": 435,
+          "part_sent": true,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": true,
+            "isupport": [
+              "AWAYLEN=390",
+              "BOT=B",
+              "CASEMAPPING=ascii",
+              "CHANLIMIT=#:100",
+              "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+              "CHANNELLEN=64",
+              "CHANTYPES=#",
+              "CHATHISTORY=1000",
+              "ELIST=U",
+              "EXCEPTS",
+              "EXTBAN=,m",
+              "EXTJWT=1",
+              "FORWARD=f",
+              "INVEX",
+              "KICKLEN=390",
+              "MAXLIST=beI:60",
+              "MAXTARGETS=4",
+              "MODES",
+              "MONITOR=100",
+              "MSGREFTYPES=msgid,timestamp",
+              "NETWORK=ErgoTestnet",
+              "NICKLEN=32",
+              "PREFIX=(qaohv)~&@%+",
+              "RPCHAN=E",
+              "RPUSER=E",
+              "SAFELIST",
+              "SAFERATE",
+              "STATUSMSG=~&@%+",
+              "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+              "TOPICLEN=390",
+              "UTF8ONLY",
+              "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+              "WHOX",
+              "draft/CHATHISTORY=1000",
+              "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+            ],
+            "joined": true,
+            "names_done": true,
+            "ready": false,
+            "registered": true,
+            "retired": true
+          },
+          "queue_age_ms": 4385,
+          "queue_peak": 4,
+          "queue_pending": 0,
+          "quit_sent": true,
+          "ready_ms": 1352,
+          "received_bytes": 1200,
+          "server_prefix": "testnet.ergo.chat",
+          "tls": {
+            "cipher": "TLS13_AES_128_GCM_SHA256",
+            "hostname": "testnet.ergo.chat",
+            "leaf_der_sha256": "1fb2abdbaca6e1c0c88c7d4df9dbe527f1795a0d7df1be5239a095294b761b64",
+            "verified": true,
+            "version": "TLSv1_3"
+          },
+          "withdraw_ms": 17552
+        },
+        "received": 1,
+        "rejected": 3,
+        "sent": 1
+      }
+    }
+  ],
+  "websockets": [
+    {
+      "url": "wss://testnet.ergo.chat/webirc",
+      "createdAtMs": 6968.0325,
+      "origin": "https://testnet.ergo.chat",
+      "status": 101,
+      "protocol": "text.ircv3.net",
+      "sentFrames": 22,
+      "sentFrameBytes": 6695,
+      "receivedFrames": 63,
+      "receivedFrameBytes": 8747,
+      "closedAtMs": 19755.979613
+    },
+    {
+      "url": "wss://testnet.ergo.chat/webirc",
+      "createdAtMs": 20991.455603,
+      "origin": "https://testnet.ergo.chat",
+      "status": 101,
+      "protocol": "text.ircv3.net",
+      "sentFrames": 5,
+      "sentFrameBytes": 174,
+      "receivedFrames": 56,
+      "receivedFrameBytes": 5716,
+      "closedAtMs": 22910.973482
+    }
+  ],
+  "attempts": [
+    {
+      "scenario": "expected-contact",
+      "elapsedIncludingRetirementMs": 14054.667895,
+      "cleanup": {
+        "carriers": [
+          {
+            "assembly": {
+              "completed_age_ms": 0,
+              "delivered": 0,
+              "expired": 0,
+              "pending": 0,
+              "pending_peak": 1,
+              "rejected": 0
+            },
+            "buffered_bytes": 0,
+            "closed": true,
+            "protocol": {
+              "accepted_bytes": 10800,
+              "accepted_datagrams": [
+                {
+                  "at_ms": 1740.3999998569489,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "8029cdbbf4c60d6bb13ea4545dc21b9cfae56700d54eeec575ae8150c93df9ee",
+                  "first_five_bytes": "c700000001"
+                },
+                {
+                  "at_ms": 2736.099999904633,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "d4edad2ea0ea72b1dd13cd40d38543fd8aedfc78745381a863f1b602a0b3f886",
+                  "first_five_bytes": "c400000001"
+                },
+                {
+                  "at_ms": 2761.399999856949,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "131c36da03ac247cc8da8223074dae286d759719cd32781ceb98b596cf830656",
+                  "first_five_bytes": "c000000001"
+                },
+                {
+                  "at_ms": 4762.399999856949,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "6074b0fcaa544bdbc0a3039c36f8346ce8d9c950040ae8c15b41782fa3fc5c08",
+                  "first_five_bytes": "cf00000001"
+                },
+                {
+                  "at_ms": 4788.899999856949,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "1d44cc060a8809a8ebb25dff5bb33d0ade758bbd81450b41056525b2070f6741",
+                  "first_five_bytes": "ca00000001"
+                },
+                {
+                  "at_ms": 7792.299999952316,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "73a96e7ab43d55650dbc555842be58293970950b572826d9846712b8b9e7de23",
+                  "first_five_bytes": "c700000001"
+                },
+                {
+                  "at_ms": 7822,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "435412d65a249f4a8ed6b7b7db3a4da1ba715cb30dac6f072dcb2a5789eedc72",
+                  "first_five_bytes": "c100000001"
+                },
+                {
+                  "at_ms": 11822,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "1025b695d77d7072803214e50e45901af84f36d90624e945872552ca1b9d74ed",
+                  "first_five_bytes": "c300000001"
+                },
+                {
+                  "at_ms": 11852.799999952316,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "dd7b467a3ee26ade5c9c2324f95eb22f2f604d6f114611b02f6a221d542b0edc",
+                  "first_five_bytes": "c500000001"
+                }
+              ],
+              "buffered_bytes_peak": 393,
+              "failure": null,
+              "max_line_bytes": 435,
+              "part_sent": true,
+              "pong_sent": 0,
+              "queue_age_ms": 8.399999856948853,
+              "queue_peak": 5,
+              "quit_sent": true,
+              "ready_ms": 1676.8999998569489,
+              "received_bytes": 0,
+              "received_fragments": [
+                {
+                  "at_ms": 7840.5,
+                  "fragment": {
+                    "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mioedbde0c977e4d60b!~u@e6uf59g9wmrd2.irc"
+                },
+                {
+                  "at_ms": 8441.899999856949,
+                  "fragment": {
+                    "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mioedbde0c977e4d60b!~u@e6uf59g9wmrd2.irc"
+                },
+                {
+                  "at_ms": 9044.399999856949,
+                  "fragment": {
+                    "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mioedbde0c977e4d60b!~u@e6uf59g9wmrd2.irc"
+                },
+                {
+                  "at_ms": 9644.899999856949,
+                  "fragment": {
+                    "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mioedbde0c977e4d60b!~u@e6uf59g9wmrd2.irc"
+                },
+                {
+                  "at_ms": 10247.699999809263,
+                  "fragment": {
+                    "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mioedbde0c977e4d60b!~u@e6uf59g9wmrd2.irc"
+                },
+                {
+                  "at_ms": 10851.699999809263,
+                  "fragment": {
+                    "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mioedbde0c977e4d60b!~u@e6uf59g9wmrd2.irc"
+                },
+                {
+                  "at_ms": 11450.699999809263,
+                  "fragment": {
+                    "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mioedbde0c977e4d60b!~u@e6uf59g9wmrd2.irc"
+                }
+              ],
+              "received_packets": 0,
+              "rejected": 4,
+              "sent_fragments": [
+                {
+                  "at_ms": 1741.8999998569489,
+                  "fragment": {
+                    "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+                  }
+                },
+                {
+                  "at_ms": 2350.599999904633,
+                  "fragment": {
+                    "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+                  }
+                },
+                {
+                  "at_ms": 2950.599999904633,
+                  "fragment": {
+                    "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+                  }
+                },
+                {
+                  "at_ms": 3550.699999809265,
+                  "fragment": {
+                    "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+                  }
+                },
+                {
+                  "at_ms": 4150.699999809265,
+                  "fragment": {
+                    "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+                  }
+                },
+                {
+                  "at_ms": 4750.699999809265,
+                  "fragment": {
+                    "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+                  }
+                },
+                {
+                  "at_ms": 5360.599999904633,
+                  "fragment": {
+                    "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+                  }
+                },
+                {
+                  "at_ms": 5960.699999809265,
+                  "fragment": {
+                    "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+                  }
+                },
+                {
+                  "at_ms": 6560.699999809265,
+                  "fragment": {
+                    "sha256": "323783be9a53a31e158ec9600626a4703e99f4e183bc1acb8772cbdf5c3a1ece"
+                  }
+                },
+                {
+                  "at_ms": 7170.599999904633,
+                  "fragment": {
+                    "sha256": "3514acf61732f662da19625f7fe781c3e483f2dce8506012f3bb393f5003e105"
+                  }
+                },
+                {
+                  "at_ms": 7800.699999809265,
+                  "fragment": {
+                    "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+                  }
+                },
+                {
+                  "at_ms": 8400.699999809265,
+                  "fragment": {
+                    "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+                  }
+                },
+                {
+                  "at_ms": 9010.599999904633,
+                  "fragment": {
+                    "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+                  }
+                },
+                {
+                  "at_ms": 9610.699999809263,
+                  "fragment": {
+                    "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+                  }
+                },
+                {
+                  "at_ms": 10210.699999809263,
+                  "fragment": {
+                    "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+                  }
+                },
+                {
+                  "at_ms": 10810.699999809263,
+                  "fragment": {
+                    "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+                  }
+                },
+                {
+                  "at_ms": 11410.699999809263,
+                  "fragment": {
+                    "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+                  }
+                }
+              ],
+              "sent_packets": 1,
+              "server_prefix": "testnet.ergo.chat",
+              "withdraw_ms": 11947.699999809263
+            },
+            "qualification": {
+              "capability": true,
+              "isupport": [
+                "AWAYLEN=390",
+                "BOT=B",
+                "CASEMAPPING=ascii",
+                "CHANLIMIT=#:100",
+                "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+                "CHANNELLEN=64",
+                "CHANTYPES=#",
+                "CHATHISTORY=1000",
+                "ELIST=U",
+                "EXCEPTS",
+                "EXTBAN=,m",
+                "EXTJWT=1",
+                "FORWARD=f",
+                "INVEX",
+                "KICKLEN=390",
+                "MAXLIST=beI:60",
+                "MAXTARGETS=4",
+                "MODES",
+                "MONITOR=100",
+                "MSGREFTYPES=msgid,timestamp",
+                "NETWORK=ErgoTestnet",
+                "NICKLEN=32",
+                "PREFIX=(qaohv)~&@%+",
+                "RPCHAN=E",
+                "RPUSER=E",
+                "SAFELIST",
+                "SAFERATE",
+                "STATUSMSG=~&@%+",
+                "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+                "TOPICLEN=390",
+                "UTF8ONLY",
+                "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+                "WHOX",
+                "draft/CHATHISTORY=1000",
+                "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+              ],
+              "joined": true,
+              "names_done": true,
+              "ready": false,
+              "registered": true,
+              "retired": true
+            },
+            "queue_pending": 0,
+            "rx_pending": 0,
+            "socket_state": 3,
+            "timer_active": false,
+            "waiters": 0
+          }
+        ],
+        "gate": null,
+        "memberBootstraps": {},
+        "request": {
+          "attempt_elapsed_ms": 12008,
+          "business_handle": false,
+          "stage": "connecting"
+        }
+      },
+      "cleanup_elapsed_ms": 2001,
+      "diagnostics": {
+        "carriers": [
+          {
+            "assembly": {
+              "completed_age_ms": 0,
+              "delivered": 0,
+              "expired": 0,
+              "pending": 1,
+              "pending_peak": 1,
+              "rejected": 0
+            },
+            "buffered_bytes": 0,
+            "closed": false,
+            "protocol": {
+              "accepted_bytes": 10800,
+              "accepted_datagrams": [
+                {
+                  "at_ms": 1740.3999998569489,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "8029cdbbf4c60d6bb13ea4545dc21b9cfae56700d54eeec575ae8150c93df9ee",
+                  "first_five_bytes": "c700000001"
+                },
+                {
+                  "at_ms": 2736.099999904633,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "d4edad2ea0ea72b1dd13cd40d38543fd8aedfc78745381a863f1b602a0b3f886",
+                  "first_five_bytes": "c400000001"
+                },
+                {
+                  "at_ms": 2761.399999856949,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "131c36da03ac247cc8da8223074dae286d759719cd32781ceb98b596cf830656",
+                  "first_five_bytes": "c000000001"
+                },
+                {
+                  "at_ms": 4762.399999856949,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "6074b0fcaa544bdbc0a3039c36f8346ce8d9c950040ae8c15b41782fa3fc5c08",
+                  "first_five_bytes": "cf00000001"
+                },
+                {
+                  "at_ms": 4788.899999856949,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "1d44cc060a8809a8ebb25dff5bb33d0ade758bbd81450b41056525b2070f6741",
+                  "first_five_bytes": "ca00000001"
+                },
+                {
+                  "at_ms": 7792.299999952316,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "73a96e7ab43d55650dbc555842be58293970950b572826d9846712b8b9e7de23",
+                  "first_five_bytes": "c700000001"
+                },
+                {
+                  "at_ms": 7822,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "435412d65a249f4a8ed6b7b7db3a4da1ba715cb30dac6f072dcb2a5789eedc72",
+                  "first_five_bytes": "c100000001"
+                },
+                {
+                  "at_ms": 11822,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "1025b695d77d7072803214e50e45901af84f36d90624e945872552ca1b9d74ed",
+                  "first_five_bytes": "c300000001"
+                },
+                {
+                  "at_ms": 11852.799999952316,
+                  "bytes": 1200,
+                  "ciphertext_sha256": "dd7b467a3ee26ade5c9c2324f95eb22f2f604d6f114611b02f6a221d542b0edc",
+                  "first_five_bytes": "c500000001"
+                }
+              ],
+              "buffered_bytes_peak": 393,
+              "failure": null,
+              "max_line_bytes": 435,
+              "part_sent": false,
+              "pong_sent": 0,
+              "queue_age_ms": 8.399999856948853,
+              "queue_peak": 5,
+              "quit_sent": false,
+              "ready_ms": 1676.8999998569489,
+              "received_bytes": 0,
+              "received_fragments": [
+                {
+                  "at_ms": 7840.5,
+                  "fragment": {
+                    "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mioedbde0c977e4d60b!~u@e6uf59g9wmrd2.irc"
+                },
+                {
+                  "at_ms": 8441.899999856949,
+                  "fragment": {
+                    "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mioedbde0c977e4d60b!~u@e6uf59g9wmrd2.irc"
+                },
+                {
+                  "at_ms": 9044.399999856949,
+                  "fragment": {
+                    "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mioedbde0c977e4d60b!~u@e6uf59g9wmrd2.irc"
+                },
+                {
+                  "at_ms": 9644.899999856949,
+                  "fragment": {
+                    "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mioedbde0c977e4d60b!~u@e6uf59g9wmrd2.irc"
+                },
+                {
+                  "at_ms": 10247.699999809263,
+                  "fragment": {
+                    "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mioedbde0c977e4d60b!~u@e6uf59g9wmrd2.irc"
+                },
+                {
+                  "at_ms": 10851.699999809263,
+                  "fragment": {
+                    "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mioedbde0c977e4d60b!~u@e6uf59g9wmrd2.irc"
+                },
+                {
+                  "at_ms": 11450.699999809263,
+                  "fragment": {
+                    "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+                  },
+                  "line_bytes": 435,
+                  "prefix": "mioedbde0c977e4d60b!~u@e6uf59g9wmrd2.irc"
+                }
+              ],
+              "received_packets": 0,
+              "rejected": 4,
+              "sent_fragments": [
+                {
+                  "at_ms": 1741.8999998569489,
+                  "fragment": {
+                    "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+                  }
+                },
+                {
+                  "at_ms": 2350.599999904633,
+                  "fragment": {
+                    "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+                  }
+                },
+                {
+                  "at_ms": 2950.599999904633,
+                  "fragment": {
+                    "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+                  }
+                },
+                {
+                  "at_ms": 3550.699999809265,
+                  "fragment": {
+                    "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+                  }
+                },
+                {
+                  "at_ms": 4150.699999809265,
+                  "fragment": {
+                    "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+                  }
+                },
+                {
+                  "at_ms": 4750.699999809265,
+                  "fragment": {
+                    "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+                  }
+                },
+                {
+                  "at_ms": 5360.599999904633,
+                  "fragment": {
+                    "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+                  }
+                },
+                {
+                  "at_ms": 5960.699999809265,
+                  "fragment": {
+                    "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+                  }
+                },
+                {
+                  "at_ms": 6560.699999809265,
+                  "fragment": {
+                    "sha256": "323783be9a53a31e158ec9600626a4703e99f4e183bc1acb8772cbdf5c3a1ece"
+                  }
+                },
+                {
+                  "at_ms": 7170.599999904633,
+                  "fragment": {
+                    "sha256": "3514acf61732f662da19625f7fe781c3e483f2dce8506012f3bb393f5003e105"
+                  }
+                },
+                {
+                  "at_ms": 7800.699999809265,
+                  "fragment": {
+                    "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+                  }
+                },
+                {
+                  "at_ms": 8400.699999809265,
+                  "fragment": {
+                    "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+                  }
+                },
+                {
+                  "at_ms": 9010.599999904633,
+                  "fragment": {
+                    "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+                  }
+                },
+                {
+                  "at_ms": 9610.699999809263,
+                  "fragment": {
+                    "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+                  }
+                },
+                {
+                  "at_ms": 10210.699999809263,
+                  "fragment": {
+                    "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+                  }
+                },
+                {
+                  "at_ms": 10810.699999809263,
+                  "fragment": {
+                    "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+                  }
+                },
+                {
+                  "at_ms": 11410.699999809263,
+                  "fragment": {
+                    "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+                  }
+                }
+              ],
+              "sent_packets": 1,
+              "server_prefix": "testnet.ergo.chat",
+              "withdraw_ms": null
+            },
+            "qualification": {
+              "capability": true,
+              "isupport": [
+                "AWAYLEN=390",
+                "BOT=B",
+                "CASEMAPPING=ascii",
+                "CHANLIMIT=#:100",
+                "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+                "CHANNELLEN=64",
+                "CHANTYPES=#",
+                "CHATHISTORY=1000",
+                "ELIST=U",
+                "EXCEPTS",
+                "EXTBAN=,m",
+                "EXTJWT=1",
+                "FORWARD=f",
+                "INVEX",
+                "KICKLEN=390",
+                "MAXLIST=beI:60",
+                "MAXTARGETS=4",
+                "MODES",
+                "MONITOR=100",
+                "MSGREFTYPES=msgid,timestamp",
+                "NETWORK=ErgoTestnet",
+                "NICKLEN=32",
+                "PREFIX=(qaohv)~&@%+",
+                "RPCHAN=E",
+                "RPUSER=E",
+                "SAFELIST",
+                "SAFERATE",
+                "STATUSMSG=~&@%+",
+                "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+                "TOPICLEN=390",
+                "UTF8ONLY",
+                "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+                "WHOX",
+                "draft/CHATHISTORY=1000",
+                "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+              ],
+              "joined": true,
+              "names_done": true,
+              "ready": true,
+              "registered": true,
+              "retired": false
+            },
+            "queue_pending": 4,
+            "rx_pending": 0,
+            "socket_state": 1,
+            "timer_active": true,
+            "waiters": 1
+          }
+        ],
+        "gate": null,
+        "memberBootstraps": {},
+        "request": {
+          "attempt_elapsed_ms": 12008,
+          "business_handle": false,
+          "stage": "connecting"
+        }
+      },
+      "failure": "JsValue(\"temporarily unreachable; durable admission progress retained\")",
+      "graceful_close": false,
+      "result": null,
+      "status": {
+        "authorization_saved": false,
+        "running": true,
+        "secret_saved": false,
+        "stage": "AwaitingApproval"
+      },
+      "identity": {
+        "expectedContactVerified": null,
+        "remoteMatchesContact": null,
+        "nativePeerMatchesBrowser": null
+      },
+      "normalDataHandleReturned": false,
+      "quic": {
+        "initialDatagrams": 9,
+        "initialBytes": 10800,
+        "initialAtMs": [
+          1740.3999998569489,
+          2736.099999904633,
+          2761.399999856949,
+          4762.399999856949,
+          4788.899999856949,
+          7792.299999952316,
+          7822,
+          11822,
+          11852.799999952316
+        ],
+        "allInitialsAtLeast1200": true,
+        "exactRetransmissionCounter": null
+      }
+    },
+    {
+      "scenario": "wrong-contact",
+      "elapsedIncludingRetirementMs": 1633.9980689999975,
+      "cleanup": {
+        "carriers": [
+          {
+            "assembly": {
+              "completed_age_ms": 0,
+              "delivered": 0,
+              "expired": 0,
+              "pending": 0,
+              "pending_peak": 0,
+              "rejected": 0
+            },
+            "buffered_bytes": 86,
+            "closed": true,
+            "protocol": {
+              "accepted_bytes": 0,
+              "accepted_datagrams": [],
+              "buffered_bytes_peak": 86,
+              "failure": null,
+              "max_line_bytes": 381,
+              "part_sent": true,
+              "pong_sent": 0,
+              "queue_age_ms": 0,
+              "queue_peak": 0,
+              "quit_sent": true,
+              "ready_ms": 1555.2000000476835,
+              "received_bytes": 0,
+              "received_fragments": [],
+              "received_packets": 0,
+              "rejected": 0,
+              "sent_fragments": [],
+              "sent_packets": 0,
+              "server_prefix": "testnet.ergo.chat",
+              "withdraw_ms": 1584
+            },
+            "qualification": {
+              "capability": true,
+              "isupport": [
+                "AWAYLEN=390",
+                "BOT=B",
+                "CASEMAPPING=ascii",
+                "CHANLIMIT=#:100",
+                "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+                "CHANNELLEN=64",
+                "CHANTYPES=#",
+                "CHATHISTORY=1000",
+                "ELIST=U",
+                "EXCEPTS",
+                "EXTBAN=,m",
+                "EXTJWT=1",
+                "FORWARD=f",
+                "INVEX",
+                "KICKLEN=390",
+                "MAXLIST=beI:60",
+                "MAXTARGETS=4",
+                "MODES",
+                "MONITOR=100",
+                "MSGREFTYPES=msgid,timestamp",
+                "NETWORK=ErgoTestnet",
+                "NICKLEN=32",
+                "PREFIX=(qaohv)~&@%+",
+                "RPCHAN=E",
+                "RPUSER=E",
+                "SAFELIST",
+                "SAFERATE",
+                "STATUSMSG=~&@%+",
+                "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+                "TOPICLEN=390",
+                "UTF8ONLY",
+                "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+                "WHOX",
+                "draft/CHATHISTORY=1000",
+                "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+              ],
+              "joined": true,
+              "names_done": true,
+              "ready": false,
+              "registered": true,
+              "retired": true
+            },
+            "queue_pending": 0,
+            "rx_pending": 0,
+            "socket_state": 2,
+            "timer_active": false,
+            "waiters": 0
+          }
+        ],
+        "gate": null,
+        "memberBootstraps": {},
+        "request": {
+          "attempt_elapsed_ms": 1611,
+          "business_handle": false,
+          "stage": "connecting"
+        }
+      },
+      "cleanup_elapsed_ms": 1,
+      "diagnostics": {
+        "carriers": [
+          {
+            "assembly": {
+              "completed_age_ms": 0,
+              "delivered": 0,
+              "expired": 0,
+              "pending": 0,
+              "pending_peak": 0,
+              "rejected": 0
+            },
+            "buffered_bytes": 0,
+            "closed": false,
+            "protocol": {
+              "accepted_bytes": 0,
+              "accepted_datagrams": [],
+              "buffered_bytes_peak": 50,
+              "failure": null,
+              "max_line_bytes": 381,
+              "part_sent": false,
+              "pong_sent": 0,
+              "queue_age_ms": 0,
+              "queue_peak": 0,
+              "quit_sent": false,
+              "ready_ms": 1555.2000000476835,
+              "received_bytes": 0,
+              "received_fragments": [],
+              "received_packets": 0,
+              "rejected": 0,
+              "sent_fragments": [],
+              "sent_packets": 0,
+              "server_prefix": "testnet.ergo.chat",
+              "withdraw_ms": null
+            },
+            "qualification": {
+              "capability": true,
+              "isupport": [
+                "AWAYLEN=390",
+                "BOT=B",
+                "CASEMAPPING=ascii",
+                "CHANLIMIT=#:100",
+                "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+                "CHANNELLEN=64",
+                "CHANTYPES=#",
+                "CHATHISTORY=1000",
+                "ELIST=U",
+                "EXCEPTS",
+                "EXTBAN=,m",
+                "EXTJWT=1",
+                "FORWARD=f",
+                "INVEX",
+                "KICKLEN=390",
+                "MAXLIST=beI:60",
+                "MAXTARGETS=4",
+                "MODES",
+                "MONITOR=100",
+                "MSGREFTYPES=msgid,timestamp",
+                "NETWORK=ErgoTestnet",
+                "NICKLEN=32",
+                "PREFIX=(qaohv)~&@%+",
+                "RPCHAN=E",
+                "RPUSER=E",
+                "SAFELIST",
+                "SAFERATE",
+                "STATUSMSG=~&@%+",
+                "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+                "TOPICLEN=390",
+                "UTF8ONLY",
+                "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+                "WHOX",
+                "draft/CHATHISTORY=1000",
+                "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+              ],
+              "joined": true,
+              "names_done": true,
+              "ready": true,
+              "registered": true,
+              "retired": false
+            },
+            "queue_pending": 0,
+            "rx_pending": 0,
+            "socket_state": 1,
+            "timer_active": true,
+            "waiters": 1
+          }
+        ],
+        "gate": null,
+        "memberBootstraps": {},
+        "request": {
+          "attempt_elapsed_ms": 1611,
+          "business_handle": false,
+          "stage": "connecting"
+        }
+      },
+      "failure": "JsValue(\"temporarily unreachable: no allowed contact route\")",
+      "graceful_close": true,
+      "result": null,
+      "status": {
+        "authorization_saved": false,
+        "running": true,
+        "secret_saved": false,
+        "stage": "AwaitingApproval"
+      },
+      "identity": {
+        "expectedContactVerified": null,
+        "remoteMatchesContact": null,
+        "nativePeerMatchesBrowser": null
+      },
+      "normalDataHandleReturned": false,
+      "quic": {
+        "initialDatagrams": 0,
+        "initialBytes": 0,
+        "initialAtMs": [],
+        "allInitialsAtLeast1200": true,
+        "exactRetransmissionCounter": null
+      },
+      "noQuicDatagramSent": true
+    }
+  ],
+  "cleanup": {
+    "activeBrowserIntervals": 0,
+    "socketCloseObservationMs": 301.42589900000166,
+    "nativeExit": {
+      "code": 0,
+      "signal": null
+    },
+    "nativeReceipt": {
+      "cleanup_elapsed_ms": 13,
+      "event": "closed",
+      "graceful_close": true,
+      "mqtt_traffic": null,
+      "traffic": {
+        "driver_active": 0,
+        "expired": 0,
+        "fragments": 10,
+        "pending": 0,
+        "protocol": {
+          "accepted_bytes": 3738,
+          "accepted_datagrams": [
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "712d9f32215ba8817ce734501da22bcfbc30b7edd5beca168463527e70ffd112",
+              "first_five_bytes": "c800000001"
+            },
+            {
+              "bytes": 138,
+              "ciphertext_sha256": "bc15b45343874bb7472a161f0003b4469d5f9028433da4dbc407d91a574d3dff",
+              "first_five_bytes": "41ad8b07dc"
+            },
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "8317f9742d3cb7adf4aa8762a70141e560e3fcbab9de6922b8b5d535314f8c27",
+              "first_five_bytes": "cb00000001"
+            },
+            {
+              "bytes": 1200,
+              "ciphertext_sha256": "fc65578e858d9bbb6dc39c14536dac9f5715ea2b90b91d8dafeee0f00edc908d",
+              "first_five_bytes": "c700000001"
+            }
+          ],
+          "assembly": {
+            "completed_age_ms": 5430,
+            "delivered": 1,
+            "expired": 0,
+            "pending": 0,
+            "pending_peak": 1,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [
+            {
+              "at_ms": 3498,
+              "fragment": {
+                "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 4108,
+              "fragment": {
+                "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 4708,
+              "fragment": {
+                "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 5308,
+              "fragment": {
+                "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 5908,
+              "fragment": {
+                "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 6508,
+              "fragment": {
+                "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 7118,
+              "fragment": {
+                "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 7718,
+              "fragment": {
+                "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 8318,
+              "fragment": {
+                "sha256": "323783be9a53a31e158ec9600626a4703e99f4e183bc1acb8772cbdf5c3a1ece"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 8928,
+              "fragment": {
+                "sha256": "3514acf61732f662da19625f7fe781c3e483f2dce8506012f3bb393f5003e105"
+              },
+              "line_bytes": 275,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 9558,
+              "fragment": {
+                "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 10158,
+              "fragment": {
+                "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 10769,
+              "fragment": {
+                "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 11368,
+              "fragment": {
+                "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 11969,
+              "fragment": {
+                "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 12570,
+              "fragment": {
+                "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            },
+            {
+              "at_ms": 13170,
+              "fragment": {
+                "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+              },
+              "line_bytes": 435,
+              "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+            }
+          ],
+          "max_line_bytes": 435,
+          "part_sent": true,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": true,
+            "isupport": [
+              "AWAYLEN=390",
+              "BOT=B",
+              "CASEMAPPING=ascii",
+              "CHANLIMIT=#:100",
+              "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+              "CHANNELLEN=64",
+              "CHANTYPES=#",
+              "CHATHISTORY=1000",
+              "ELIST=U",
+              "EXCEPTS",
+              "EXTBAN=,m",
+              "EXTJWT=1",
+              "FORWARD=f",
+              "INVEX",
+              "KICKLEN=390",
+              "MAXLIST=beI:60",
+              "MAXTARGETS=4",
+              "MODES",
+              "MONITOR=100",
+              "MSGREFTYPES=msgid,timestamp",
+              "NETWORK=ErgoTestnet",
+              "NICKLEN=32",
+              "PREFIX=(qaohv)~&@%+",
+              "RPCHAN=E",
+              "RPUSER=E",
+              "SAFELIST",
+              "SAFERATE",
+              "STATUSMSG=~&@%+",
+              "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+              "TOPICLEN=390",
+              "UTF8ONLY",
+              "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+              "WHOX",
+              "draft/CHATHISTORY=1000",
+              "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+            ],
+            "joined": true,
+            "names_done": true,
+            "ready": false,
+            "registered": true,
+            "retired": true
+          },
+          "queue_age_ms": 4385,
+          "queue_peak": 4,
+          "queue_pending": 0,
+          "quit_sent": true,
+          "ready_ms": 1352,
+          "received_bytes": 1200,
+          "server_prefix": "testnet.ergo.chat",
+          "tls": {
+            "cipher": "TLS13_AES_128_GCM_SHA256",
+            "hostname": "testnet.ergo.chat",
+            "leaf_der_sha256": "1fb2abdbaca6e1c0c88c7d4df9dbe527f1795a0d7df1be5239a095294b761b64",
+            "verified": true,
+            "version": "TLSv1_3"
+          },
+          "withdraw_ms": 17552
+        },
+        "received": 1,
+        "rejected": 3,
+        "sent": 1
+      }
+    },
+    "immediate": {
+      "nativeExited": true,
+      "allWebSocketsClosed": true
+    },
+    "late": {
+      "nativeExited": true,
+      "allWebSocketsClosed": true
+    },
+    "elapsedMs": 705.632966000001
+  },
+  "roles": {
+    "browser": "QUIC dialer / admission applicant",
+    "native": "QUIC acceptor / admission contact"
+  },
+  "policy": {
+    "source": "https://testnet.ergo.chat/",
+    "normalCertificateValidation": true,
+    "originHeaderOverride": false,
+    "pageResponseReplacement": false,
+    "concurrentPublicClients": 2,
+    "pageStatus": 200,
+    "actualPageOrigin": "https://testnet.ergo.chat"
+  },
+  "browserVersion": "153.0.8010.12",
+  "nativeReady": true,
+  "stopBranch": "IRC unavailable; do not advance IRC SDK branch; MQTT remains independent",
+  "firstFailure": {
+    "scenario": "expected-contact",
+    "failure": "JsValue(\"temporarily unreachable; durable admission progress retained\")",
+    "gateStage": null,
+    "requestStage": "connecting"
+  },
+  "nativeStatus": {
+    "event": "status",
+    "members": 1,
+    "mqtt_traffic": null,
+    "requests": [],
+    "traffic": {
+      "driver_active": 1,
+      "expired": 0,
+      "fragments": 10,
+      "pending": 1,
+      "protocol": {
+        "accepted_bytes": 3738,
+        "accepted_datagrams": [
+          {
+            "bytes": 1200,
+            "ciphertext_sha256": "712d9f32215ba8817ce734501da22bcfbc30b7edd5beca168463527e70ffd112",
+            "first_five_bytes": "c800000001"
+          },
+          {
+            "bytes": 138,
+            "ciphertext_sha256": "bc15b45343874bb7472a161f0003b4469d5f9028433da4dbc407d91a574d3dff",
+            "first_five_bytes": "41ad8b07dc"
+          },
+          {
+            "bytes": 1200,
+            "ciphertext_sha256": "8317f9742d3cb7adf4aa8762a70141e560e3fcbab9de6922b8b5d535314f8c27",
+            "first_five_bytes": "cb00000001"
+          },
+          {
+            "bytes": 1200,
+            "ciphertext_sha256": "fc65578e858d9bbb6dc39c14536dac9f5715ea2b90b91d8dafeee0f00edc908d",
+            "first_five_bytes": "c700000001"
+          }
+        ],
+        "assembly": {
+          "completed_age_ms": 5430,
+          "delivered": 1,
+          "expired": 0,
+          "pending": 1,
+          "pending_peak": 1,
+          "rejected": 0
+        },
+        "failure": null,
+        "fragments": [
+          {
+            "at_ms": 3498,
+            "fragment": {
+              "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 4108,
+            "fragment": {
+              "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 4708,
+            "fragment": {
+              "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 5308,
+            "fragment": {
+              "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 5908,
+            "fragment": {
+              "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 6508,
+            "fragment": {
+              "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 7118,
+            "fragment": {
+              "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 7718,
+            "fragment": {
+              "sha256": "19b100ab7725c612f3d80ff203ca53cea5cadaafae3bf0f88f0fb4089fe08815"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 8318,
+            "fragment": {
+              "sha256": "323783be9a53a31e158ec9600626a4703e99f4e183bc1acb8772cbdf5c3a1ece"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 8928,
+            "fragment": {
+              "sha256": "3514acf61732f662da19625f7fe781c3e483f2dce8506012f3bb393f5003e105"
+            },
+            "line_bytes": 275,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 9558,
+            "fragment": {
+              "sha256": "f1534392279bddbf9d43dde8701cb5be14b82f76ec6607bf8d6ad557f60f304e"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 10158,
+            "fragment": {
+              "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 10769,
+            "fragment": {
+              "sha256": "a953f09a1b6b6725b81956e9ad0b1eb49e3ad40004c04307ef8af6246a054116"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 11368,
+            "fragment": {
+              "sha256": "0b8efa5a3bf104413a725c6ff0459a6be12b1fd33314cbb138745baf39504ae5"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 11969,
+            "fragment": {
+              "sha256": "6cd5b6e51936a442b973660c21553dd22bd72ddc8751132a943475288113b4c0"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 12570,
+            "fragment": {
+              "sha256": "c97550ce8213ef5cf6ed4ba48790c137df3ef6a5da20b48961001a634b6cead2"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          },
+          {
+            "at_ms": 13170,
+            "fragment": {
+              "sha256": "aacd834b5cdc64a329e27649143406dd068306542988dfc250d6184745894849"
+            },
+            "line_bytes": 435,
+            "prefix": "mio7c54fa6048a48e9a!~u@e6uf59g9wmrd2.irc"
+          }
+        ],
+        "max_line_bytes": 435,
+        "part_sent": false,
+        "pong_sent": 0,
+        "qualification": {
+          "capability": true,
+          "isupport": [
+            "AWAYLEN=390",
+            "BOT=B",
+            "CASEMAPPING=ascii",
+            "CHANLIMIT=#:100",
+            "CHANMODES=Ibe,k,fl,CEMRUimnstu",
+            "CHANNELLEN=64",
+            "CHANTYPES=#",
+            "CHATHISTORY=1000",
+            "ELIST=U",
+            "EXCEPTS",
+            "EXTBAN=,m",
+            "EXTJWT=1",
+            "FORWARD=f",
+            "INVEX",
+            "KICKLEN=390",
+            "MAXLIST=beI:60",
+            "MAXTARGETS=4",
+            "MODES",
+            "MONITOR=100",
+            "MSGREFTYPES=msgid,timestamp",
+            "NETWORK=ErgoTestnet",
+            "NICKLEN=32",
+            "PREFIX=(qaohv)~&@%+",
+            "RPCHAN=E",
+            "RPUSER=E",
+            "SAFELIST",
+            "SAFERATE",
+            "STATUSMSG=~&@%+",
+            "TARGMAX=NAMES:1,LIST:1,KICK:,WHOIS:1,USERHOST:10,PRIVMSG:4,TAGMSG:4,NOTICE:4,MONITOR:100",
+            "TOPICLEN=390",
+            "UTF8ONLY",
+            "VAPID=BJXGgDQqhUBt6YWCotDbodNeIGZ_b4K9-E_Um1x6MwxhcJ6AMubrnT0Tu4C6lHIYjQqNsfq9Qme9EcwmMDabnm0",
+            "WHOX",
+            "draft/CHATHISTORY=1000",
+            "draft/ICON=https://testnet.ergo.chat/favicon.ico"
+          ],
+          "joined": true,
+          "names_done": true,
+          "ready": true,
+          "registered": true,
+          "retired": false
+        },
+        "queue_age_ms": 4385,
+        "queue_peak": 4,
+        "queue_pending": 0,
+        "quit_sent": false,
+        "ready_ms": 1352,
+        "received_bytes": 1200,
+        "server_prefix": "testnet.ergo.chat",
+        "tls": {
+          "cipher": "TLS13_AES_128_GCM_SHA256",
+          "hostname": "testnet.ergo.chat",
+          "leaf_der_sha256": "1fb2abdbaca6e1c0c88c7d4df9dbe527f1795a0d7df1be5239a095294b761b64",
+          "verified": true,
+          "version": "TLSv1_3"
+        },
+        "withdraw_ms": null
+      },
+      "received": 1,
+      "rejected": 3,
+      "sent": 1
+    }
+  },
+  "outcome": "profile-unavailable",
+  "completedUtc": "2026-10-05T02:00:58.717Z"
+}

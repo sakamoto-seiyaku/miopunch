@@ -1,0 +1,13 @@
+✔ public serialization removes nested member identities and keeps their count (1.583551ms)
+✔ actual historical cleanup passes while IRC qualification remains unavailable (0.180126ms)
+✔ native nonzero exit or nongraceful receipt cannot pass cleanup (0.528375ms)
+✔ native queue, assembly or driver residue cannot pass cleanup (1.242686ms)
+✔ forced exit or incomplete immediate and late socket observations fail cleanup (0.440671ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10.330344
