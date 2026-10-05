@@ -6,7 +6,7 @@ rust-version = "1.96"
 publish = false
 
 [lib]
-crate-type = ["rlib", "cdylib"]
+crate-type = ["rlib"]
 
 [workspace]
 resolver = "2"

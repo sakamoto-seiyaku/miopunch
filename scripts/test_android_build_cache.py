@@ -6,9 +6,22 @@ import unittest
 from unittest.mock import patch
 
 import build_android_pair as builder
+import build_android_node as node_builder
 
 
 class AndroidLinkerCacheTests(unittest.TestCase):
+    def test_node_entry_preserves_its_non_rtc_graph_and_jni_failure_exit(self):
+        arguments = ['build_android_node.py', '--ndk', '/tmp/ndk', '--output', '/tmp/receipt',
+                     '--jni-shell', '--d8-jar', '/tmp/d8.jar']
+        with patch('sys.argv', arguments), patch.object(builder, 'main', return_value=42) as shared:
+            self.assertEqual(node_builder.main(), 42)
+        forwarded = shared.call_args.args[0]
+        self.assertEqual(forwarded[forwarded.index('--features') + 1], '')
+        self.assertEqual(forwarded[forwarded.index('--bin') + 1], 'miopunch-native-probe')
+        self.assertIn('--online', forwarded)
+        self.assertIn('--jni-shell', forwarded)
+        self.assertEqual(forwarded[forwarded.index('--d8-jar') + 1], '/tmp/d8.jar')
+
     def test_new_receipt_directory_reuses_same_linker_without_rewriting_it(self):
         with tempfile.TemporaryDirectory(prefix="miopunch-linker-cache-test-") as temporary:
             root = Path(temporary)

@@ -1,0 +1,9 @@
+Standards review: **0 mandatory findings** in the 44 frozen emitter-correction paths, against `1a910ea70f6e7523187ed911a8d9af328f1c164a`.
+
+The change follows AGENTS.md and build-cache.md: default rlib-only output separates ordinary dependency graphs; explicit JNI cdylib emission uses the existing lease, target, feature set and stable toolchain. JNI failure preserves the successful CLI result, records its separate exit and prevents Java packaging/deployment qualification. The older node entry delegates while retaining its original non-RTC and online defaults. The pinned-lock and precondition instructions address the observed selector failure without changing SDK behavior.
+
+Independent hash checks match all 44 manifest paths. All 34 compressed originals match both archive and uncompressed hashes. Recomputed raw Cargo counts are corrected Native 526 fresh/2 rebuilt, external graph 527/2, and identical Native return 528/0. Their product filenames are distinct hashed rlibs, and the recorded forced type-identity compiles use each graph’s exact direct iroh dependency. The meaningful JNI-failure counterexample fails before correction; the retained 17 tooling checks pass afterward.
+
+The separate actual Android compile verifies AArch64 and the current source-defined JNI export. The initial obsolete-symbol checker failure is disclosed; its correction reads existing outputs. The tiny A/B/A emitter proof returns 1/2/1, while documentation accurately retains the mutable-JNI-output qualification. No phone, JNI-runtime or SDK-role qualification is inferred.
+
+Applied the twelve smell heuristics as judgment calls with repository overrides; no additional smell warrants a change in this narrow correction. No tooling-format repeats, build/runtime execution, SDK edits, cache mutation or artifact copying occurred during review. Earlier accepted batches were not reopened.

@@ -54,3 +54,35 @@ Raw Cargo JSON, stderr, original audit measurements, cleanup proof and affected
 tooling logs are retained as compressed originals under `raw/`. The package
 contains no target clone, executable, WASM binary or source-tree copy. The
 manifest records the hashes of the uncompressed originals and their archives.
+
+The first SDK fixture compile after those cache-hit checks exposed another
+boundary: the mixed `rlib`/`cdylib` default emitted an unversioned root dependency
+library. The external test graph overwrote it, while the ordinary graph remained
+marked Fresh. This produced real type-identity errors even though its dependency
+libraries were still present. The first compile failure is retained separately
+under `emitter-collision/`; the four earlier build pairs remain compile-only
+cache-hit observations.
+
+The default now emits only `rlib`, giving each graph a distinct hashed dependency
+file. Android JNI explicitly emits `cdylib` after the CLI build. Both Android
+entry points use the same builder and cache lease, and JNI failure retains its
+separate exit without proceeding to Java packaging. Ordinary SDK source, roles,
+wire and gates were unchanged by this repair.
+
+The corrected Native fixture compiled with 526 Fresh artifacts and only the
+root library and fixture rebuilt. The existing external test graph then compiled
+with 527 Fresh and two rebuilt artifacts. Returning to the exact Native command
+reported 528 Fresh / zero rebuilt in 0.454 seconds. The two hashed root libraries
+coexist, the original library bytes remain unchanged, and forced metadata-only
+type checks pass against both libraries and their respective direct iroh graph.
+No SDK story or prior test case was replayed for this cache regression.
+
+Actual Android JNI compilation reused 597 artifacts and rebuilt only the root
+library. Its AArch64 binary exports the source-defined
+`Java_MioPublicShell_session` entry. The initial export checker expected the old
+`run` name and failed after successful compilation; the corrected assessment
+reads the same outputs, without another build. A tiny independent emitter
+regression also switched feature graph A → B → A and loaded the expected values
+1 → 2 → 1. Explicit `cargo rustc` regenerates the cdylib primary target; JNI `.so`
+must still be pinned or deployed while the build lease is held. This proves the
+emitter behavior and exported ABI, not phone or JNI runtime operation.

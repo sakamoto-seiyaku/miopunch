@@ -137,7 +137,8 @@ class OwnershipTests(unittest.TestCase):
 
 
 class BuildReceiptTests(unittest.TestCase):
-    def run_builder(self, *, mutate_java=False, strip_failure=False, filesystem_failure=False):
+    def run_builder(self, *, mutate_java=False, strip_failure=False, filesystem_failure=False,
+                    jni_library_failure=False):
         with tempfile.TemporaryDirectory(prefix='miopunch-helper-local-') as temporary:
             root = Path(temporary)
             java = root / 'scripts/android/MioPublicShell.java'
@@ -153,7 +154,9 @@ class BuildReceiptTests(unittest.TestCase):
             output, target = root / 'output', root / 'target'
             def run(command, **_):
                 if 'cargo' in command:
-                    destination = target / 'aarch64-linux-android/debug'; destination.mkdir(parents=True)
+                    if 'rustc' in command and jni_library_failure:
+                        return subprocess.CompletedProcess(command, 42, '', 'controlled JNI emitter failure')
+                    destination = target / 'aarch64-linux-android/debug'; destination.mkdir(parents=True, exist_ok=True)
                     (destination / 'fake-actor').write_bytes(b'\x7fELFcompiled fixture')
                     if '--lib' in command: (destination / 'libmiopunch_native_probe.so').write_bytes(b'\x7fELFcompiled lib')
                 elif 'javac' in command:
@@ -165,7 +168,7 @@ class BuildReceiptTests(unittest.TestCase):
                 return subprocess.CompletedProcess(command, 0, '', '')
             arguments = ['build_android_pair.py', '--ndk', str(ndk), '--output', str(output),
                          '--target-dir', str(target), '--bin', 'fake-actor']
-            if mutate_java: arguments += ['--jni-shell', '--d8-jar', str(d8)]
+            if mutate_java or jni_library_failure: arguments += ['--jni-shell', '--d8-jar', str(d8)]
             if strip_failure or filesystem_failure: arguments += ['--strip-deployment-debug']
             prepare = builder.prepare_deployment
             def deploy(*args):
@@ -213,6 +216,14 @@ class BuildReceiptTests(unittest.TestCase):
         self.assertTrue(report['artifacts'])
         self.assertIn('controlled deployment filesystem failure', report['deploymentFailure'])
         self.assertFalse(report['qualifiedForFrozenRun'])
+
+    def test_failed_jni_library_preserves_cli_build_result_and_stops_shell_compilation(self):
+        code, report, _, _ = self.run_builder(jni_library_failure=True)
+        self.assertEqual(code, 42)
+        self.assertEqual(report['cargoExit'], 0)
+        self.assertEqual(report['jniLibrary']['exit'], 42)
+        self.assertFalse(report['qualifiedForFrozenRun'])
+        self.assertNotIn('jniCommands', report)
 
 
 if __name__ == '__main__':

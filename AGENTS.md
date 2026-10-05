@@ -22,6 +22,9 @@ Read `docs/agents/build-cache.md` before compiling. Use the shared repository
 Do not copy a Cargo target tree or create a new target for each check. Keep
 the committed profile settings and stable Android toolchain paths. Preserve
 raw evidence and pinned SDK artifacts when cleaning regenerable caches.
+Temporary test selectors retain the pinned dependency versions, sources and
+checksums; do not re-resolve their lockfiles. Build drivers must abort on failed
+source, lock or artifact preconditions before invoking Cargo.
 
 ### Issue tracker
 

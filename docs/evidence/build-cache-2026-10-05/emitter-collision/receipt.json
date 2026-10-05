@@ -1,0 +1,184 @@
+{
+  "scope": "unversioned library collision correction, no SDK runtime qualification",
+  "archives": {
+    "raw/first-sdk-compile/receipt.json.gz": {
+      "originalSha256": "c7f3ccd7d4d09703d8684d013d0e8f0c33e3ae7080320b0ebed73d9e455a89c0",
+      "archiveSha256": "5b3ccffc1a4508d2cb455a4037f620578f8645e2e54c4cfd5fbc030314a969be",
+      "originalBytes": 635
+    },
+    "raw/first-sdk-compile/cargo.jsonl.gz": {
+      "originalSha256": "6cd7984599096972ff29ed9d707c8bb45aac8bf25382642f1aa5865bdf803317",
+      "archiveSha256": "6980841cb15619de8ac1bb15edbcd84b221ba308d7a39d04afcdddfab932955f",
+      "originalBytes": 537367
+    },
+    "raw/first-sdk-compile/cargo.stderr.log.gz": {
+      "originalSha256": "c0fa2f51ab49da2d8ca696cf94a91b10b07b393304b683a4f96c215b20b4fab1",
+      "archiveSha256": "7f0d8293d147b325d1d8fe3882218a62863b529a50f814f53636d4331ae82528",
+      "originalBytes": 175
+    },
+    "raw/collision-observation.json.gz": {
+      "originalSha256": "acb809b7b15e7123cd76b412330b62d15d4f0701fc29625ea9eab532a4e7a56c",
+      "archiveSha256": "c2f019572237fefd6ad33fbe31b207c65b6441a00031fca5e089aff52020275b",
+      "originalBytes": 4914
+    },
+    "raw/corrected-sdk-compile/receipt.json.gz": {
+      "originalSha256": "51d86fc181c835c788b359e0a3d35f7659933667f8a0a8aa2223ff3072869e6f",
+      "archiveSha256": "4672fe2ecc2d0a5d591e4f35b107bb2913b4d40d2f11dfd5ffd1043d41070c67",
+      "originalBytes": 3779
+    },
+    "raw/cross-graph/receipt.json.gz": {
+      "originalSha256": "1b1b30742f26e9e2c4d236cb00558729658607b911537e3573a3f597366a188f",
+      "archiveSha256": "67583b93c0f0db02badc4a294286351b357d5f34700bfbc1cc613c604b98211b",
+      "originalBytes": 2767
+    },
+    "raw/type-identity/driver.py.gz": {
+      "originalSha256": "7cabdeeedb7f71004fa6567c094acc78b7e71c770e56c81a4c1d1d45dec69afc",
+      "archiveSha256": "0b9bab27e7b782d2cfc937cf5542eeff8a0e13a5a66cf3f436ed43f9381e51d4",
+      "originalBytes": 3734
+    },
+    "raw/type-identity/probe.rs.gz": {
+      "originalSha256": "b80a3d757361d4fae0c58ea897579e366b9ff47eeb914140629d8eec2dea53fd",
+      "archiveSha256": "5055ce58ebd5bf5957f7c7a1de67d4647494cb57e48a9ffef055ab5d341bdde9",
+      "originalBytes": 183
+    },
+    "raw/android-jni/compile-receipt.json.gz": {
+      "originalSha256": "54fed7d8c822684cb1c00133d87391f57119bde09b95c8e9ab378a73036edd84",
+      "archiveSha256": "d8f9172ada98f5c6117406260011cce5af01cf7f65f05118513d3c5a4ccdf33c",
+      "originalBytes": 816
+    },
+    "raw/android-jni/compile.jsonl.gz": {
+      "originalSha256": "dec82364bed9b5f0cad13551e938d78072a82e2bd9f560f13e041204ef1e7a4b",
+      "archiveSha256": "17e8327cec621103f76afe6436b16f61c8383e254a8ac257b8787a55d08fca19",
+      "originalBytes": 514196
+    },
+    "raw/android-jni/compile.stderr.log.gz": {
+      "originalSha256": "fc2691beb9f9efe282c42c41b2fbd30bc0ed224a6ef960829830559b0248f242",
+      "archiveSha256": "282544090dc30cab978d816a5540a04c70428e0dbef91fc6cd4afce67bd8f85e",
+      "originalBytes": 139
+    },
+    "raw/android-jni/assessment.json.gz": {
+      "originalSha256": "8cbd0622c53d9bf2fe486f4ed269e43bf4110dcda6bc2fb700de333d48bc1593",
+      "archiveSha256": "424bc72c6660d4340a5e3ec9b59751e547a0596cf6ace535b08d2633f9dbe312",
+      "originalBytes": 810
+    },
+    "raw/android-jni/elf-header.txt.gz": {
+      "originalSha256": "4eded59c63a61657202843cf8080583cd11a2699dd3b985cdd66d10291fab208",
+      "archiveSha256": "6ddb08eeb747a1467b09b4c6a8fb94f89d41dd590eb0d3c409176bf233fc851a",
+      "originalBytes": 940
+    },
+    "raw/android-jni/symbols.txt.gz": {
+      "originalSha256": "7121ab55ac0122ad58fe65a899dfdeb9c5e00d8d6b311a68ce92f665df4783e5",
+      "archiveSha256": "2efb8488e5c829146079427b14524c0d3d5262ff12386aefa4512d0925b1041d",
+      "originalBytes": 73902647
+    },
+    "raw/android-jni/sources-before.json.gz": {
+      "originalSha256": "880741e8010c6805d8b22c94ef64d66de2baeb4790b9e4b550f5538b818149d8",
+      "archiveSha256": "2db5057159f4cc634f2885fc32938803a3c8feb7b65c5c0dfad122a2352a3a7a",
+      "originalBytes": 51729
+    },
+    "raw/android-jni/sources-after.json.gz": {
+      "originalSha256": "880741e8010c6805d8b22c94ef64d66de2baeb4790b9e4b550f5538b818149d8",
+      "archiveSha256": "2db5057159f4cc634f2885fc32938803a3c8feb7b65c5c0dfad122a2352a3a7a",
+      "originalBytes": 51729
+    },
+    "raw/tiny-emitter/receipt.json.gz": {
+      "originalSha256": "ed3682b063014ebd6d27e7f64d6f0b3df0e3bd28b8045484f4e51d01d13976aa",
+      "archiveSha256": "10b35d0202163f53febb8545dfb9cd04545d2deacbd1ad241d405068b6570fb9",
+      "originalBytes": 1936
+    },
+    "raw/tooling/jni-failure-red.log.gz": {
+      "originalSha256": "b8a1dd56f0a1ab4b04a613395b62dfef4db8262b6753504b1e9cb93dfc397354",
+      "archiveSha256": "8d64f4d3f35e055844e1fa0073e7e36ba7e84d60e419eac5a371313b29a734ca",
+      "originalBytes": 731
+    },
+    "raw/tooling/android-pair-green.log.gz": {
+      "originalSha256": "0816065fe0d5a82ace2cd6e57c13acf798ab7e69d339f516b2e112daecf68ee0",
+      "archiveSha256": "f8003e9c810936c8b25661f2d84ff20cfbe383f1e47bdeb660f5553b5fd09322",
+      "originalBytes": 107
+    },
+    "raw/tooling/node-wrapper-green.log.gz": {
+      "originalSha256": "0cc3c2a48beda5d84492b7a89dc4b15039e5c0925e8850e0904a7ce636a63bb2",
+      "archiveSha256": "cc643864b26352886664b0f4ac90639e716d0f5167f9fddef5fe7a414e40b1f3",
+      "originalBytes": 100
+    },
+    "raw/tooling/cache-green.log.gz": {
+      "originalSha256": "99c0da505c93ece9d768e9c59ac20dffb1dd211308116203a59c4e68b4e729eb",
+      "archiveSha256": "b6b23d2cb080de71a46d8ad0f0e492a894b99ab0fb4d372c614d5e044cb3a6ff",
+      "originalBytes": 104
+    },
+    "raw/corrected-sdk-compile/raw-receipt.json.gz": {
+      "originalSha256": "074fe71d0d5d72929983b348f9a76eb743f54a9a763ca353b8af933d8ba50f5c",
+      "archiveSha256": "c18289460d04e92a5857733d126b2f20225a02a0ec4ea71f0b982da42e2df573",
+      "originalBytes": 908
+    },
+    "raw/corrected-sdk-compile/raw-cargo.jsonl.gz": {
+      "originalSha256": "94f763381a78c6332df85596b0b40610932e3e2b5de653fb8b2a7d5f31b4b551",
+      "archiveSha256": "0933cf50bc0e9a6591b8e491392b7cb63e6ed2132749eea54613096a474e784a",
+      "originalBytes": 433979
+    },
+    "raw/corrected-sdk-compile/raw-cargo.stderr.log.gz": {
+      "originalSha256": "172d03e10c1b35018c7e7642683c52dc72ee6c70da388d25d573aaa2f601295b",
+      "archiveSha256": "bf7cea09836b4733c28cfa4356235cb1ebc97dea5be11de32153cb2ef338b348",
+      "originalBytes": 139
+    },
+    "raw/cross-graph/external/raw-receipt.json.gz": {
+      "originalSha256": "1f86029e0c0d26042cd43332aa930d0cf312a9078c2dd5acc6896f412c568378",
+      "archiveSha256": "afd73ab2404940c131d49b9350c2e73e7fb7edaf28446a3e045245faeb9472d9",
+      "originalBytes": 1068
+    },
+    "raw/cross-graph/external/raw-cargo.jsonl.gz": {
+      "originalSha256": "ca7eb30a97ad301680cf8de637b2cf48576f3421f9d4598b2b1f3ad45e0cff00",
+      "archiveSha256": "13a9a7108a2940a6578a67100dbcda5dc0eccaecbfd326c6dbad028cf5ea00a5",
+      "originalBytes": 435043
+    },
+    "raw/cross-graph/external/raw-cargo.stderr.log.gz": {
+      "originalSha256": "e434e9e0332a010eee876bf2fb9c4ae241ce90b823232252b130f04c23d762fd",
+      "archiveSha256": "6205ab839a4a22adaea62ac0d4d800c729d07d4e076d379156fdf12f64ddd135",
+      "originalBytes": 250
+    },
+    "raw/cross-graph/root-return/raw-receipt.json.gz": {
+      "originalSha256": "0848cde1139bc23a5021fa7e20dfbd2cac3a93443ed0828fbb60c8becb3599f3",
+      "archiveSha256": "27fabfb010fea2c59ab214a18e0fbaf75e1fc74eba0e5356eb84677ff93c0932",
+      "originalBytes": 635
+    },
+    "raw/cross-graph/root-return/raw-cargo.jsonl.gz": {
+      "originalSha256": "1b847bfaa64470a6a9fc221d85cc02007ad47268a7156fbc5569d05eee12a206",
+      "archiveSha256": "bb75430a4bb826e31ddf6ece65d39785c4a9da395b171c03228fef705583d02c",
+      "originalBytes": 433977
+    },
+    "raw/cross-graph/root-return/raw-cargo.stderr.log.gz": {
+      "originalSha256": "dd621e9ff7c9eac161c730aa8a79332dd68698435a7a84d044d9ad39dfa1f5d2",
+      "archiveSha256": "3f749bd1cfa2faebe23b363708d82619169df87539a0d2cbf234787b2cbe59f6",
+      "originalBytes": 72
+    },
+    "raw/type-identity/root.stdout.log.gz": {
+      "originalSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archiveSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "originalBytes": 0
+    },
+    "raw/type-identity/root.stderr.log.gz": {
+      "originalSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archiveSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "originalBytes": 0
+    },
+    "raw/type-identity/external.stdout.log.gz": {
+      "originalSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archiveSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "originalBytes": 0
+    },
+    "raw/type-identity/external.stderr.log.gz": {
+      "originalSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archiveSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "originalBytes": 0
+    }
+  },
+  "archiveCount": 34,
+  "containsCompiledSdkArtifact": false,
+  "firstSdkCompileExit": 101,
+  "correctedSdkCompileExit": 0,
+  "actualRootExternalRootAndTypeChecksPassed": true,
+  "androidCdylibCompileExit": 0,
+  "exportCheckerFirstFailedOldSymbolName": true,
+  "noAndroidCompileRerun": true,
+  "toolingTestsPassed": 17
+}

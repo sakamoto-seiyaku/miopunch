@@ -113,8 +113,8 @@ def cargo_command(arguments, target):
     arguments = list(arguments)
     if arguments and arguments[0] == "cargo":
         arguments.pop(0)
-    if not arguments or arguments[0] not in ("build", "check", "test"):
-        raise CacheError("run accepts cargo build, check or test")
+    if not arguments or arguments[0] not in ("build", "check", "test", "rustc"):
+        raise CacheError("run accepts cargo build, check, test or rustc")
     cargo_end = arguments.index("--") if "--" in arguments else len(arguments)
     for index, argument in enumerate(arguments[:cargo_end]):
         if argument == "--target-dir":

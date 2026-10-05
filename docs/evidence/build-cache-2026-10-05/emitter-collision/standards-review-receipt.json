@@ -1,0 +1,32 @@
+{
+  "baseline": "1a910ea70f6e7523187ed911a8d9af328f1c164a",
+  "scopePathCount": 44,
+  "manifestSha256": "7b647efce969c3a6abf0e2752f95877e14dfa8039c977469eaefa9b37baf07dc",
+  "currentPathHashesMatched": true,
+  "compressedOriginalCount": 34,
+  "archiveAndOriginalHashesMatched": true,
+  "rawCounts": {
+    "corrected": {
+      "fresh": 526,
+      "rebuilt": 2,
+      "exit": 0
+    },
+    "external": {
+      "fresh": 527,
+      "rebuilt": 2,
+      "exit": 0
+    },
+    "rootReturn": {
+      "fresh": 528,
+      "rebuilt": 0,
+      "exit": 0
+    }
+  },
+  "remainingMandatoryFindings": 0,
+  "smellFindings": 0,
+  "reviewPath": "/tmp/mio-cache-emitter-standards-review-20261005.md",
+  "reviewSha256": "2131f1916f7ed962412bb7db5a8c86019cd5624c0da3c9dc37a6fbe0be7d5184",
+  "reviewWords": 242,
+  "buildOrRuntimeRepeated": false,
+  "sourceOrCacheMutation": false
+}

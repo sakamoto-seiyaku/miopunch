@@ -136,7 +136,7 @@ def prepare_deployment(artifacts, destination):
     return result
 
 
-def main():
+def main(arguments=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ndk", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True, help="new private build receipt directory")
@@ -149,7 +149,7 @@ def main():
     parser.add_argument("--jni-shell", action="store_true")
     parser.add_argument("--d8-jar", type=Path)
     parser.add_argument("--strip-deployment-debug", action="store_true", help="make smaller ELF deployment copies; preserve originals")
-    args = parser.parse_args()
+    args = parser.parse_args(arguments)
     if args.output.exists():
         parser.error("output exists; preserve prior failures/build receipts")
     if args.jobs < 1:
@@ -181,8 +181,6 @@ def build(args, target, environment):
         command += ["--features", args.features]
     for binary in bins:
         command += ["--bin", binary]
-    if args.jni_shell:
-        command.append("--lib")
     input_tools = [clang, archiver, ndk / "source.properties"]
     if args.jni_shell:
         input_tools.append(args.d8_jar.resolve())
@@ -205,7 +203,24 @@ def build(args, target, environment):
                   callerElapsedMs=round((time.monotonic() - started) * 1000, 3))
     artifacts = [target / "aarch64-linux-android/debug" / binary for binary in bins]
     if args.jni_shell and result.returncode == 0:
-        artifacts.append(target / "aarch64-linux-android/debug/libmiopunch_native_probe.so")
+        library_command = ["rtk", "proxy", "cargo", "rustc", "--locked", "--lib",
+                           "--crate-type", "cdylib", "--target", "aarch64-linux-android",
+                           "--target-dir", str(target)]
+        if not args.online:
+            library_command.append("--offline")
+        if args.features:
+            library_command += ["--features", args.features]
+        library_started = time.monotonic()
+        with (output / "jni-library-build.log").open("w") as log:
+            library_result = subprocess.run(library_command, cwd=ROOT, env=environment,
+                                            stdout=log, stderr=subprocess.STDOUT)
+        report["jniLibrary"] = {"command": library_command, "exit": library_result.returncode,
+                                "elapsedMs": round((time.monotonic() - library_started) * 1000, 3)}
+        if library_result.returncode:
+            report["exit"] = library_result.returncode
+        else:
+            artifacts.append(target / "aarch64-linux-android/debug/libmiopunch_native_probe.so")
+    if args.jni_shell and report["exit"] == 0:
         classes, dex = output / "classes", output / "dex"
         classes.mkdir()
         dex.mkdir()
@@ -227,7 +242,7 @@ def build(args, target, environment):
         if report["exit"] == 0:
             artifacts.append(output / "android-shell.jar")
     report["artifacts"] = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
-                           for path in artifacts if path.is_file() and report["exit"] == 0}
+                           for path in artifacts if path.is_file() and result.returncode == 0}
     if args.strip_deployment_debug and report["exit"] == 0:
         try:
             report["deployment"] = prepare_deployment(artifacts, output / "deploy")

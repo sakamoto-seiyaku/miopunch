@@ -29,12 +29,28 @@ compiled dependency cache. Unchanged dependencies remain reusable. Do not vary
 `CARGO_PROFILE_*`, `CARGO_INCREMENTAL`, or Rust flags to speed up one isolated
 check. Distinct platforms, intentional features and source changes can require
 compilation; repeated identical inputs should report zero rebuilt artifacts.
+Temporary test-only selectors preserve the existing lockfile's dependency
+versions, sources, checksums and dependency rows. Change only their local package
+record when necessary. Validate the declared source and lock graph in the same
+driver that starts Cargo, and abort before compilation if any precondition fails;
+do not regenerate a selector lockfile or continue after a failed validation.
 
 `build_android_pair.py` defaults to the same cache and holds its lease through
 compilation and artifact receipts. Its Windows-NDK fallback linker lives at a
 stable, toolchain-identified path under `target/.miopunch-toolchains/android`.
 New receipt directories do not change `CC`, linker or `-B` paths. Actual tool or
 NDK revision changes get another toolchain identity.
+
+The native library emits only `rlib` in ordinary builds. Cargo then stores each
+dependency graph in a distinct hashed library file. Do not restore the mixed
+`rlib`/`cdylib` default: it emitted an unversioned dependency library that one
+feature/test graph could overwrite while another graph remained marked Fresh.
+The Android builders generate JNI separately with `cargo rustc --lib
+--crate-type cdylib`, using the same feature set, target, toolchain and cache
+lease as the CLI build. The receipt records that command and its separate exit.
+The older `build_android_node.py` delegates to the pair builder while preserving
+its original non-RTC CLI feature set. JNI `.so` remains a mutable build output;
+pin or deploy it under the lease before another JNI graph replaces it.
 
 ```sh
 rtk proxy python3 scripts/build_android_pair.py \
