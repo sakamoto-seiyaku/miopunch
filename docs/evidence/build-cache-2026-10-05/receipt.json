@@ -1,0 +1,388 @@
+{
+  "scope": "dedicated cache correction, no SDK runtime qualification",
+  "baseline": "f8f42c1b967f0d0d6df5ebf7fcb187a7f27430e1",
+  "sameCommandPairs": {
+    "native": [
+      {
+        "command": [
+          "rtk",
+          "proxy",
+          "cargo",
+          "build",
+          "--locked",
+          "--offline",
+          "--features",
+          "rtc-probe",
+          "--lib",
+          "--jobs",
+          "2",
+          "--message-format=json"
+        ],
+        "exit": 0,
+        "cargoSeconds": 32.2646414230112,
+        "freshArtifacts": 516,
+        "rebuiltArtifacts": 11
+      },
+      {
+        "command": [
+          "rtk",
+          "proxy",
+          "cargo",
+          "build",
+          "--locked",
+          "--offline",
+          "--features",
+          "rtc-probe",
+          "--lib",
+          "--jobs",
+          "2",
+          "--message-format=json"
+        ],
+        "exit": 0,
+        "cargoSeconds": 0.4696034728549421,
+        "freshArtifacts": 527,
+        "rebuiltArtifacts": 0
+      }
+    ],
+    "android": [
+      {
+        "command": [
+          "rtk",
+          "proxy",
+          "cargo",
+          "build",
+          "--locked",
+          "--offline",
+          "--features",
+          "rtc-probe",
+          "--lib",
+          "--target",
+          "aarch64-linux-android",
+          "--jobs",
+          "2",
+          "--message-format=json"
+        ],
+        "exit": 0,
+        "cargoSeconds": 139.38997224508785,
+        "freshArtifacts": 204,
+        "rebuiltArtifacts": 394
+      },
+      {
+        "command": [
+          "rtk",
+          "proxy",
+          "cargo",
+          "build",
+          "--locked",
+          "--offline",
+          "--features",
+          "rtc-probe",
+          "--lib",
+          "--target",
+          "aarch64-linux-android",
+          "--jobs",
+          "2",
+          "--message-format=json"
+        ],
+        "exit": 0,
+        "cargoSeconds": 0.48677395982667804,
+        "freshArtifacts": 598,
+        "rebuiltArtifacts": 0
+      }
+    ],
+    "wasm": [
+      {
+        "command": [
+          "rtk",
+          "proxy",
+          "cargo",
+          "build",
+          "--locked",
+          "--offline",
+          "-p",
+          "miopunch-browser-probe",
+          "--features",
+          "rtc-probe",
+          "--target",
+          "wasm32-unknown-unknown",
+          "--jobs",
+          "2",
+          "--message-format=json"
+        ],
+        "exit": 0,
+        "cargoSeconds": 20.264711893862113,
+        "freshArtifacts": 287,
+        "rebuiltArtifacts": 9
+      },
+      {
+        "command": [
+          "rtk",
+          "proxy",
+          "cargo",
+          "build",
+          "--locked",
+          "--offline",
+          "-p",
+          "miopunch-browser-probe",
+          "--features",
+          "rtc-probe",
+          "--target",
+          "wasm32-unknown-unknown",
+          "--jobs",
+          "2",
+          "--message-format=json"
+        ],
+        "exit": 0,
+        "cargoSeconds": 0.3784680210519582,
+        "freshArtifacts": 296,
+        "rebuiltArtifacts": 0
+      }
+    ],
+    "selected-test": [
+      {
+        "command": [
+          "rtk",
+          "proxy",
+          "cargo",
+          "test",
+          "--manifest-path",
+          "/tmp/mio83-one-replica-red-driver-20261005/test-only-package/Cargo.toml",
+          "--locked",
+          "--offline",
+          "--features",
+          "rtc-probe",
+          "--test",
+          "unified_admission_story",
+          "--no-run",
+          "--jobs",
+          "2",
+          "--message-format=json"
+        ],
+        "exit": 0,
+        "cargoSeconds": 33.24448416591622,
+        "freshArtifacts": 512,
+        "rebuiltArtifacts": 17
+      },
+      {
+        "command": [
+          "rtk",
+          "proxy",
+          "cargo",
+          "test",
+          "--manifest-path",
+          "/tmp/mio83-one-replica-red-driver-20261005/test-only-package/Cargo.toml",
+          "--locked",
+          "--offline",
+          "--features",
+          "rtc-probe",
+          "--test",
+          "unified_admission_story",
+          "--no-run",
+          "--jobs",
+          "2",
+          "--message-format=json"
+        ],
+        "exit": 0,
+        "cargoSeconds": 0.4577552261762321,
+        "freshArtifacts": 529,
+        "rebuiltArtifacts": 0
+      }
+    ]
+  },
+  "archives": {
+    "raw/audit/audit.md.gz": {
+      "originalSha256": "bd0fc821eb3b7d4fec7585e0d455d788b3b2a5e06a0821a9e21d9de8a4ba744b",
+      "archiveSha256": "3cc564e0133188e8aeeeac92f4febc20e50d4f4ee70a2a95c2e3164e0b9c04c4",
+      "originalBytes": 6636,
+      "archiveBytes": 3215
+    },
+    "raw/audit/measurements.json.gz": {
+      "originalSha256": "74d6624ed35f26fafa46de30925636115df1305f32ea0816c03c0542fea5f175",
+      "archiveSha256": "895aee16e8dcf10083052c9059a5f07035414bf5f06363fcab6c47c3863f7fb1",
+      "originalBytes": 40684,
+      "archiveBytes": 6844
+    },
+    "raw/audit/receipt.json.gz": {
+      "originalSha256": "d4e2b5fbaf0c53bbf0c56cb6b426cd9ccf191c3e9912fcc1b8246396255bcd69",
+      "archiveSha256": "8106734ed2e22ffa30959559a0bc8b03fb6065f10d827b0a0559b17e436350d6",
+      "originalBytes": 807,
+      "archiveBytes": 425
+    },
+    "raw/cleanup/proof.json.gz": {
+      "originalSha256": "fc105e3169c09cfdd60c89dc414e2501b8b67bba805875adfeb07ffec94e3294",
+      "archiveSha256": "e332e67a41d86e510b5dcf4afba51c5c3b191e59427049f3f67ccec492416a52",
+      "originalBytes": 5782,
+      "archiveBytes": 1589
+    },
+    "raw/validation/android-linker-proof.json.gz": {
+      "originalSha256": "c30a870cc913958a8a0d8476cbc7525d06c7e4629bdc5c98ba81b383b86f7339",
+      "archiveSha256": "6f242d62385d8cfa76d42a55f577556140c9a1619669fad3d2cacf1ca9d254f8",
+      "originalBytes": 521,
+      "archiveBytes": 369
+    },
+    "raw/tooling/cleanup-ancestor-red.log.gz": {
+      "originalSha256": "ab4a94268f0c98c7f2af6adb78b787aa07b3df380dd6b43f7f05166cb0c5f14d",
+      "archiveSha256": "4171edb25098247df6725bb9d8af29e8fd04e1c452d89596226afb3ad83b6bc9",
+      "originalBytes": 2150,
+      "archiveBytes": 498
+    },
+    "raw/tooling/cache-green.log.gz": {
+      "originalSha256": "32d26914b54c8d87a0a4dc9642670e3454750b7670c5d10ff190fd9e648991c0",
+      "archiveSha256": "3ccc4af17b75493050aa1e09399b8c717a454c4f89b1b5194edb27ebf09bb536",
+      "originalBytes": 104,
+      "archiveBytes": 54
+    },
+    "raw/tooling/android-builder-green.log.gz": {
+      "originalSha256": "31d461d4f5ea9a76ac910ab10c6f0bdaffcf73105fffad0bef6b67b23d0e121f",
+      "archiveSha256": "64190d6aae37deb1db09fb0815c36e6e70ef5a2b110aee8097c24794d466d382",
+      "originalBytes": 106,
+      "archiveBytes": 54
+    },
+    "raw/validation/native-first/receipt.json.gz": {
+      "originalSha256": "2fb408d4ac243fed4bd2cbacce9f6ea51fab1b3cbd7834cfaed0f448dc6e2e9f",
+      "archiveSha256": "175fbded73c65b0095bb252596771f5a29e592255d4b0ad1dd206651c4c8e1f0",
+      "originalBytes": 1958,
+      "archiveBytes": 603
+    },
+    "raw/validation/native-first/cargo.jsonl.gz": {
+      "originalSha256": "d8862d54558026f6a0443fa811d9737f8f4d1acc66f1f18d1a58080d9422c2b6",
+      "archiveSha256": "d733a1e8a957231e6823a4be0c8ee1483777ef51ecd613f0d94bd5ef99deb0e7",
+      "originalBytes": 433263,
+      "archiveBytes": 32094
+    },
+    "raw/validation/native-first/cargo.stderr.log.gz": {
+      "originalSha256": "d9f9417a28b05fe2f3709e5ca840ad04c105c596909246f46b5f780c60c3cc97",
+      "archiveSha256": "b6ecc412c32e6f574739a10a723333b6ad87e663422bdd094d0532134cefde31",
+      "originalBytes": 821,
+      "archiveBytes": 278
+    },
+    "raw/validation/native-second/receipt.json.gz": {
+      "originalSha256": "eb989462db41017cdde998ba91d61ce68146d9db54a04e9add2fdd777a24ea3f",
+      "archiveSha256": "1ae262e8056b42c43f3fcddd601970d5d8dd11c2ef4d3e06bb998beb77be49f0",
+      "originalBytes": 601,
+      "archiveBytes": 333
+    },
+    "raw/validation/native-second/cargo.jsonl.gz": {
+      "originalSha256": "623e310d48dbb2ed5331c24c22d24b256224be95063bbbb74190871ca1d8681e",
+      "archiveSha256": "32322be3208be1b54f972dd4325512f35c0dc9c6d064eaf62c7f3f01dc000f74",
+      "originalBytes": 433252,
+      "archiveBytes": 32043
+    },
+    "raw/validation/native-second/cargo.stderr.log.gz": {
+      "originalSha256": "92bec25ad54c650450560360480d5f94d3d8ad203f81a2c724e0c641b330bbfb",
+      "archiveSha256": "a5ce2f6c56a907ebad6d0a7a905380e04a33c9727183993d67213fd93ae02fb2",
+      "originalBytes": 72,
+      "archiveBytes": 91
+    },
+    "raw/validation/android-first/receipt.json.gz": {
+      "originalSha256": "dc850781b338d0189c7bf1accc0a59152f64ffe6b4165ab0c8b8edd2295e7e84",
+      "archiveSha256": "04f58b305b154ce46027cecdc198613cc2c2dfa10c8dfd964a6b24899b616e46",
+      "originalBytes": 52914,
+      "archiveBytes": 5569
+    },
+    "raw/validation/android-first/cargo.jsonl.gz": {
+      "originalSha256": "6dc77f977c9e0217bed2690f074b999f918e441f5fc432041390a664918667dc",
+      "archiveSha256": "13aa9fda8e9bac5878b61299e083ce65daaa3362ea088c3d9ebc60e94234d2eb",
+      "originalBytes": 514717,
+      "archiveBytes": 36891
+    },
+    "raw/validation/android-first/cargo.stderr.log.gz": {
+      "originalSha256": "f505e09cdc28c123d6418914d37dbe55233426285a527c337d114f0034f266d4",
+      "archiveSha256": "6062f42ee7677e8b0a9d0ef7bf244da925361d76684cbb21d0a55e6a15244d5c",
+      "originalBytes": 12480,
+      "archiveBytes": 3343
+    },
+    "raw/validation/android-second/receipt.json.gz": {
+      "originalSha256": "4a6b429ef408d58ec2ef62b7c272eaa0fe19db3a1b0c8ba10d76d4c3922fbb67",
+      "archiveSha256": "0ab9f4b58c5be0d12ca01c402e8200c19f10c18188e79c57ec47a6fc530337a5",
+      "originalBytes": 647,
+      "archiveBytes": 350
+    },
+    "raw/validation/android-second/cargo.jsonl.gz": {
+      "originalSha256": "d61f96ad226995f9f98b2c947870c4b683dcb4ae124e1da68dd8be0eb0f0141e",
+      "archiveSha256": "d9dfdcc2ced76328b85b6802510f4a6214289d9ca07829874379072bb24e39e8",
+      "originalBytes": 514323,
+      "archiveBytes": 36599
+    },
+    "raw/validation/android-second/cargo.stderr.log.gz": {
+      "originalSha256": "45f75b19e5718ce74d75d27dc949e2b0cc21908a1e53dca4d31c24e03ebe8e09",
+      "archiveSha256": "8d4bda4166ea4c42edfeca8cc36ab7679c47b8f96a1363d4b676863de4a7114b",
+      "originalBytes": 72,
+      "archiveBytes": 91
+    },
+    "raw/validation/wasm-first/receipt.json.gz": {
+      "originalSha256": "a3fb6ddf41d1d214ec46774c35b2da31fd418a00b100cad085616badaed53bed",
+      "archiveSha256": "76e44e57cd9293782f0737b6343a693c324452a7979a6c24aeaea89c7565b9b7",
+      "originalBytes": 1766,
+      "archiveBytes": 549
+    },
+    "raw/validation/wasm-first/cargo.jsonl.gz": {
+      "originalSha256": "4547bdb594b52941314e7722670b722ec57ade4fe494a676134d674ec56ba040",
+      "archiveSha256": "646fc825d9d55037eb8e1ab38694c8d0d3187500624086df7b239c4e528984b4",
+      "originalBytes": 277158,
+      "archiveBytes": 20455
+    },
+    "raw/validation/wasm-first/cargo.stderr.log.gz": {
+      "originalSha256": "415d22c0bc0c7bd96e3e8a893b087e68902a6124f82b94d7114808d97502cd36",
+      "archiveSha256": "13147923d9995d37b69b89c14bca2c4571b74d569d4d62340b2d069d793c4a44",
+      "originalBytes": 642,
+      "archiveBytes": 240
+    },
+    "raw/validation/wasm-second/receipt.json.gz": {
+      "originalSha256": "5a2ca7279ee60454f431574d3613f91a8e92090bd7b988cad043d00c2f2d070a",
+      "archiveSha256": "0f20e3f6eee2ceb4c012204697bc4c61f57a16a3915f49832e95eb68f1467fed",
+      "originalBytes": 674,
+      "archiveBytes": 359
+    },
+    "raw/validation/wasm-second/cargo.jsonl.gz": {
+      "originalSha256": "eceb11a1b5e30ba1eae76a5a497893c8ea5bd32f6b1e36e13f9b39f6393a2b73",
+      "archiveSha256": "2ca1a6d258e330ca5b9fa5dd43f5556247232f8a9164caeabe222da60ed0d05a",
+      "originalBytes": 277149,
+      "archiveBytes": 20455
+    },
+    "raw/validation/wasm-second/cargo.stderr.log.gz": {
+      "originalSha256": "1f5852af1ed7025b5728e842e3c3c2f5d2f720d25557d84c38f1ffda99719c59",
+      "archiveSha256": "1ea906fcb94e785d3632ac96be9531de00ae92a4ee341a3f249ec059b2071ec6",
+      "originalBytes": 72,
+      "archiveBytes": 91
+    },
+    "raw/validation/selected-test-first/receipt.json.gz": {
+      "originalSha256": "b54c94fe68a87431d3aacbb346cbf9b9570c3b31a0947192a7e8e10498ac825e",
+      "archiveSha256": "99e5530a63894dd4ef511d07e0826bab4904ba7651705382ae44f465cd23dc4a",
+      "originalBytes": 2917,
+      "archiveBytes": 741
+    },
+    "raw/validation/selected-test-first/cargo.jsonl.gz": {
+      "originalSha256": "648fec6e4b0b8817ac9f40ed4cf32fc224461e143706e04ea4898c298a4ee3c7",
+      "archiveSha256": "d0922db32332696bc3d9f9154973f5aeeee1370d73ec99fb6e6f0573d0ffb248",
+      "originalBytes": 435057,
+      "archiveBytes": 32349
+    },
+    "raw/validation/selected-test-first/cargo.stderr.log.gz": {
+      "originalSha256": "f8d7e92d058966ac69d689cc68b7988772ccf350d2a738d97cafec2f43c5342e",
+      "archiveSha256": "623b994f54f04ed8c1f2008f8945fa5e09285e8e60c4b1d3bb5f3103aa327336",
+      "originalBytes": 962,
+      "archiveBytes": 343
+    },
+    "raw/validation/selected-test-second/receipt.json.gz": {
+      "originalSha256": "169604ba677e8046c84457ea4085273035e05e67873c8c307794db54a0395fc3",
+      "archiveSha256": "7f14ac0582d453654d9da69e9dc7ff827a2344cf654673e15e546c687b87d228",
+      "originalBytes": 750,
+      "archiveBytes": 411
+    },
+    "raw/validation/selected-test-second/cargo.jsonl.gz": {
+      "originalSha256": "d8087a8f43731aa411ecf77c3d819343a51a4b5003a85efc6caacbb017c1587d",
+      "archiveSha256": "308cf8c1363fe94275c783f108307944aff42a5c0e7ef81b4e87bedf19e16b9b",
+      "originalBytes": 435040,
+      "archiveBytes": 32230
+    },
+    "raw/validation/selected-test-second/cargo.stderr.log.gz": {
+      "originalSha256": "6c93a669ddf0f2353bb34ef9f4c4ae3a6d8c8218824e0bcd005c7bda74381185",
+      "archiveSha256": "82dca1981f5261790dbb8ef487e96b36190772391656af611f5b0c99da3cecd6",
+      "originalBytes": 73,
+      "archiveBytes": 92
+    }
+  },
+  "archiveCount": 32,
+  "containsExecutableOrTargetClone": false
+}

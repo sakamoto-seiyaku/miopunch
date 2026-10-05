@@ -15,6 +15,14 @@ explicitly. Use Plane for tasks; never use Plane MCP.
 
 ## Agent skills
 
+### Rust builds and disk space
+
+Read `docs/agents/build-cache.md` before compiling. Use the shared repository
+`target/` through `scripts/cargo_cache.py`; keep per-run receipts separate.
+Do not copy a Cargo target tree or create a new target for each check. Keep
+the committed profile settings and stable Android toolchain paths. Preserve
+raw evidence and pinned SDK artifacts when cleaning regenerable caches.
+
 ### Issue tracker
 
 Issues, PRDs, and decision tickets live in Plane's `MIOPUNCH` project. Use the

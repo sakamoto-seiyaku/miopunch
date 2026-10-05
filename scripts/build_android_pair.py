@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build selected formal SDK Android actors in a caller-owned target directory."""
+"""Build selected formal SDK Android actors using the shared Cargo cache."""
 import argparse
 import hashlib
 import json
@@ -8,7 +8,10 @@ from pathlib import Path
 import shlex
 import shutil
 import subprocess
+import tempfile
 import time
+
+import cargo_cache
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -50,14 +53,35 @@ def compiler(ndk, output):
     linker = sysroot / "lib/rustlib" / host / "bin/rust-lld"
     if not linker.is_file():
         raise ValueError("Rust lld is required")
-    (output / "ld.lld").symlink_to(linker)
     clang_lib = sorted((windows / "lib/clang").iterdir())[-1] / "lib/linux"
-    wrapper = output / "android-clang"
+    # A new receipt directory must not change Cargo's linker identity. Hash the
+    # real tools/revision so an actual toolchain change gets a different path.
+    identity = {
+        "ndk": str(ndk.resolve()),
+        "revision": (ndk / "source.properties").read_text(),
+        "clangLibrary": str(clang_lib.resolve()),
+        "tools": {str(Path(tool).resolve()): hashlib.sha256(Path(tool).read_bytes()).hexdigest()
+                  for tool in (clang, archiver, linker)},
+    }
+    cache = ROOT / "target/.miopunch-toolchains/android" / digest(identity)
+    cache.mkdir(parents=True, exist_ok=True)
+    cached_linker = cache / "ld.lld"
+    try:
+        cached_linker.symlink_to(linker)
+    except FileExistsError:
+        if not cached_linker.is_symlink() or cached_linker.resolve() != linker.resolve():
+            raise ValueError("cached Android linker differs from the selected Rust toolchain")
+    wrapper = cache / "android-clang"
     arguments = ["rtk", "proxy", clang, "--target=aarch64-linux-android24",
-                 "--sysroot=" + str(windows / "sysroot"), "-B" + str(output), "-fuse-ld=lld",
+                 "--sysroot=" + str(windows / "sysroot"), "-B" + str(cache), "-fuse-ld=lld",
                  "-L" + str(clang_lib), "-L" + str(clang_lib / "aarch64")]
-    wrapper.write_text("#!/bin/sh\nexec " + shlex.join(arguments) + ' "$@"\n')
-    wrapper.chmod(0o700)
+    content = "#!/bin/sh\nexec " + shlex.join(arguments) + ' "$@"\n'
+    if not wrapper.is_file() or wrapper.read_text() != content:
+        with tempfile.NamedTemporaryFile(mode="w", dir=cache, delete=False) as temporary:
+            temporary.write(content)
+            temporary_path = Path(temporary.name)
+        temporary_path.chmod(0o700)
+        temporary_path.replace(wrapper)
     return wrapper, Path(archiver)
 
 
@@ -116,7 +140,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ndk", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True, help="new private build receipt directory")
-    parser.add_argument("--target-dir", type=Path, required=True, help="owned/reusable Android Cargo target")
+    parser.add_argument("--target-dir", type=Path, help="shared Cargo target by default")
+    parser.add_argument("--isolation-reason", help="required for a separate Cargo cache")
     parser.add_argument("--bin", action="append", dest="bins")
     parser.add_argument("--features", default="rtc-probe")
     parser.add_argument("--jobs", type=int, default=2)
@@ -131,10 +156,19 @@ def main():
         parser.error("--jobs must be positive")
     if args.jni_shell and (not args.d8_jar or not args.d8_jar.is_file()):
         parser.error("--jni-shell requires existing --d8-jar")
-    output, target, ndk = args.output.resolve(), args.target_dir.resolve(), args.ndk.resolve()
+    try:
+        target = cargo_cache.target_directory(ROOT, args.target_dir, args.isolation_reason)
+        environment = cargo_cache.build_environment(target)
+    except cargo_cache.CacheError as error:
+        parser.error(str(error))
+    with cargo_cache.cache_lease(target):
+        return build(args, target, environment)
+
+
+def build(args, target, environment):
+    output, ndk = args.output.resolve(), args.ndk.resolve()
     output.mkdir(parents=True, mode=0o700)
     clang, archiver = compiler(ndk, output)
-    environment = os.environ.copy()
     environment.update(CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=str(clang),
                        CC_aarch64_linux_android=str(clang), AR_aarch64_linux_android=str(archiver),
                        CARGO_BUILD_JOBS=str(args.jobs))
@@ -158,7 +192,8 @@ def main():
     (output / "sources-before.json").write_text(json.dumps(before, indent=2) + "\n")
     report = {"scope": "formal SDK Android build only; no device/NAT/SDK story pass",
               "head": capture(["git", "rev-parse", "HEAD"]), "command": command,
-              "targetDirectory": str(target), "rust": capture(["rustc", "-vV"]),
+              "targetDirectory": str(target), "isolationReason": args.isolation_reason,
+              "rust": capture(["rustc", "-vV"]),
               "compiler": capture([str(clang), "--version"]),
               "ndk": (ndk / "source.properties").read_text(), "sourceDigestBefore": digest(before),
               "builderSha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}

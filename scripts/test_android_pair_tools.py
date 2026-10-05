@@ -175,6 +175,7 @@ class BuildReceiptTests(unittest.TestCase):
                  patch.object(builder, 'capture', return_value='controlled tool version'), \
                  patch.object(builder.subprocess, 'run', side_effect=run), \
                  patch.object(builder, 'prepare_deployment', side_effect=deploy), \
+                 patch.object(builder.cargo_cache, 'disk_state', return_value={'freeBytes': 20 * 1024**3, 'cacheBytes': 0}), \
                  patch.object(builder.shutil, 'which', side_effect=lambda name: str(strip) if name == 'llvm-strip' else None), \
                  patch.object(sys, 'argv', arguments), redirect_stdout(io.StringIO()):
                 code = builder.main()
