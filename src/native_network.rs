@@ -43,6 +43,7 @@ const MAINTENANCE_CONTACTS: &str = "maintenance.contacts.json";
 
 fn network_protocols() -> Vec<Vec<u8>> {
     vec![
+        crate::connection_coordinator::MEMBER_ALPN.to_vec(),
         crate::admission_gate::ADMISSION_REQUEST_ALPN.to_vec(),
         crate::connection_recovery::CONNECTION_RECOVERY_ALPN.to_vec(),
         crate::network_recovery::RECOVERY_REPLICA_ALPN.to_vec(),
@@ -588,6 +589,11 @@ impl NativeNetwork {
                     .service_name("miopunchv1"),
             ),
         };
+        self.gate.register_protocol(crate::connection_coordinator::MEMBER_ALPN,
+            crate::admission_gate::ProtocolScope::Member);
+        let builder = builder.hooks(crate::connection_coordinator::CoordinatorHook::new(
+            self.gate.clone(), !resources.udp_direct_disabled,
+        ));
         let builder = if configured_startup {
             let observers = resources.relay_map(crate::resources::ResourceUse::Observation)?;
             let bootstrap = crate::message_bootstrap::MemberPathBootstrap::new(

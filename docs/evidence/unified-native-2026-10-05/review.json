@@ -1,0 +1,20 @@
+{
+  "ticket": "MIOPUNCH-70",
+  "fixedPoint": "9c95dcb4e78dba041d6d1b2fe151f7607c6c6fd0",
+  "scope": "Only MIOPUNCH-70 source, tests, runner, validation note and evidence; excludes pre-existing design WIP and parallel tickets",
+  "coordination": "Root arranged parallel Standards and Spec review, then reused both reviewers for the narrow recheck",
+  "initialMandatoryFindings": {
+    "Standards": 1,
+    "Spec": 1,
+    "sameFinding": "P2: ready/EOF await could outlive the exact freshly ACKed native route; missing live path/probe recheck before ordinary release"
+  },
+  "fix": "After ready EOF and gate/revision rechecks, read current exact path ID/address and the existing probe's live acknowledgement; retired/closed paths return DataPathUnavailable through the original guard. Preserve the normal selector's choice.",
+  "realRed": "review-red/receipt.json",
+  "finalSdkEvidence": "post-review/receipt.json",
+  "unchangedAffectedRegression": "receipt.json",
+  "finalMandatoryFindings": {
+    "Standards": 0,
+    "Spec": 0
+  },
+  "finalValidation": "5 current SDK tests plus the explicitly referenced unchanged 77 affected legacy tests; 82 total. No second full regression batch."
+}

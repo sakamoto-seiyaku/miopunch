@@ -1,0 +1,21 @@
+{
+  "command": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--test",
+    "unified_connection",
+    "a_retired_native_probe_cannot_release_an_ordinary_handle_through_live_private_control",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "exitCode": 101,
+  "source": {
+    "src/connection_coordinator.rs": "6d12c014507c2dbb9ad83b63f6ba901d16c63e1d9648f179fa48f6c269205d8c",
+    "tests/unified_connection.rs": "9cf9598541de0c755b7256db9948a37bafc88975d228adade9bd4436ade634c2"
+  },
+  "artifactSha256": "be1531038c083ecf4bbd007111be55bc77f384745063c8afd6bcf2380c4ecb3d",
+  "classification": "review P2 reproduced: exact ACKed UDP path retired while private TCP control live; ordinaryHandleReturned=true"
+}

@@ -1,0 +1,13 @@
+
+running 1 test
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":16,"role":"responder","route":"ip:127.0.0.1:44245","version":1}
+{"controlPath":"tcp-restricted","controlStillLive":true,"event":"unified-retired-before-ready","nativeProbeCompleted":true,"retiredPathIds":["0"],"sameOriginalM":true}
+test a_retired_native_probe_cannot_release_an_ordinary_handle_through_live_private_control ... FAILED
+
+failures:
+
+failures:
+    a_retired_native_probe_cannot_release_an_ordinary_handle_through_live_private_control
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 1.46s
+

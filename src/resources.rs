@@ -552,6 +552,12 @@ impl ResourceEndpoint {
     pub fn endpoint(&self) -> &iroh::Endpoint {
         &self.endpoint
     }
+    /// Common SDK entry with purpose and caller budget, without carrier flags.
+    pub fn coordinator(&self) -> crate::connection_coordinator::ConnectionCoordinator {
+        crate::connection_coordinator::ConnectionCoordinator::new(
+            self.endpoint.clone(), !self.config.udp_direct_disabled,
+        )
+    }
     #[cfg(feature = "rtc-probe")]
     pub(crate) fn with_rtc(mut self, rtc: Option<crate::rtc_transport::RtcTransport>) -> Self {
         self.rtc = rtc;

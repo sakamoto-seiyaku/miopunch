@@ -1,0 +1,107 @@
+
+running 18 tests
+test a_connection_to_an_uninvited_tls_identity_cannot_enter_application ... ok
+test a_gated_endpoint_never_treats_a_default_hook_as_admission ... ok
+test signaling_carrier_allows_scoped_control_but_refuses_business ... ok
+test removal_during_final_recovery_stage_must_reject_connection ... ok
+test known_removed_identity_only_reaches_fresh_restricted_admission_requests ... ok
+test an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy ... ok
+test p2panda_endpoint_builder_hook_gates_the_actual_protocol_actor ... ok
+test no_secret_applicant_only_reaches_the_restricted_application_protocol ... ok
+test cancelled_proof_does_not_authorize_a_later_connection ... ok
+test the_persisted_native_network_installs_the_same_gate ... ok
+test stale_member_view_does_not_return_an_outgoing_business_handle ... ok
+test proof_is_bound_to_each_connection_and_credential_generation ... ok
+test admitted_control_path_upgrade_requires_current_membership ... ok
+test a_wrong_secret_cannot_be_reused_from_another_member_connection ... ok
+test secret_holder_without_membership_gets_bootstrap_but_no_normal_protocol ... ok
+test verified_members_reach_every_normal_protocol_and_revocation_closes_existing_sessions ... ok
+test genesis_recovery_stays_restricted_and_early_handles_are_unavailable ... ok
+test stalled_proof_times_out_and_fresh_connection_can_still_prove ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.43s
+
+
+running 15 tests
+test applicant_crash_after_authorization_worker ... ok
+test approval_commit_checkpoint_worker ... ok
+test another_invitation_holder_observes_ciphertext_but_cannot_take_an_approved_result ... ok
+test authenticated_contact_cannot_make_a_corrupt_signature_durable_membership ... ok
+test forged_claimed_applicant_cannot_enter_the_approval_queue ... ok
+test actual_tls_contact_must_match_the_invitation_pin ... ok
+test invitation_for_wrong_network_cannot_queue_a_request ... ok
+test another_authenticated_request_for_an_existing_member_reuses_its_valid_grant ... ok
+test original_result_is_rejected_after_removal_even_when_a_fresh_grant_readds_the_identity ... ok
+test material_file_failure_retains_pending_state_and_can_retry_after_restart ... ok
+test approval_commit_crash_is_recovered_before_another_same_identity_request_decides_to_add ... ok
+test approval_commit_interruption_is_recovered_before_a_live_nodes_next_request_decides_to_add ... ok
+test manual_approval_saves_both_materials_and_permits_real_business ... ok
+test restricted_admission_delivery_uses_original_incoming_deadline ... ok
+test crash_after_only_authorization_never_succeeds_and_same_request_resumes_once ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.23s
+
+
+running 4 tests
+test no_joint_member_data_path_is_reported_as_unreachable_without_a_handle ... ok
+test dropping_a_pending_public_attempt_closes_original_m_even_with_a_held_private_stream ... ok
+test explicit_attempt_cancellation_closes_only_original_m_before_returning_a_handle ... ok
+test one_absolute_caller_deadline_reaches_both_protected_hooks_without_refresh ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.78s
+
+
+running 3 tests
+test both_upgraded_peers_negotiate_v3_and_only_the_qualified_m_roles ... ok
+test upgraded_caller_preserves_legacy_four_bytes_on_the_same_connection ... ok
+test legacy_caller_on_new_server_has_exact_v2_and_no_joint_path_is_unreachable ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.98s
+
+
+running 26 tests
+test an_update_signed_by_an_untrusted_publisher_cannot_change_configuration ... ok
+test a_disabled_signaling_broker_cannot_be_opened_by_a_custom_carrier ... ok
+test data_relay_disable_preserves_independently_allowed_address_observation ... ok
+test disabled_lookup_added_after_bind_through_wrappers_is_never_accessed ... ok
+test disabled_pkarr_lookup_facility_is_never_accessed ... ok
+test allowed_lookup_cannot_redirect_access_to_a_disabled_facility ... ok
+test cli_import_update_and_startup_preserve_local_resource_choices ... ok
+test disabled_pkarr_publication_facility_is_never_accessed ... ok
+test allowed_signed_pkarr_lookup_reaches_real_admission_with_data_relay_disabled ... ok
+test external_mapping_observer_map_cannot_bypass_permission ... ok
+test equivalent_url_spelling_cannot_bypass_a_local_disable ... ok
+test failed_initial_data_only_relay_falls_back_to_another_allowed_entry ... ok
+test resource_choices_survive_the_public_node_backup_and_restore ... ok
+test tampering_and_signed_rollback_cannot_change_configuration ... ok
+test trusted_table_update_preserves_local_replacement_and_disable_on_restart ... ok
+test p2panda_high_level_active_publishes_while_its_passive_branch_is_inactive ... ok
+test first_real_default_test_configuration_admits_and_communicates ... ok
+test disabled_relay_in_default_startup_table_is_never_accessed ... ok
+test first_real_self_hosted_replacement_admits_and_communicates ... ok
+test explicit_lan_disclosure_publishes_only_active_nodes_and_passive_discovers ... ok
+test all_allowed_entries_fail_with_bounded_backoff_and_import_restart_recovery ... ok
+test disabled_relay_from_lookup_result_is_never_accessed ... ok
+test disabled_relay_from_invitation_hint_is_never_accessed ... ok
+test a_known_actor_route_cannot_replace_an_allowed_candidate_with_a_forbidden_relay ... ok
+test disabled_relay_retained_in_cache_is_never_accessed ... ok
+test priority_disabled_relay_from_address_book_is_never_accessed ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.36s
+
+
+running 11 tests
+test normal_cli_starts_with_tcp_only_and_exits_on_interrupt ... ok
+test valid_but_unapproved_identity_cannot_read_member_history_over_tcp ... ok
+test received_revocation_ends_tcp_flow_and_rejects_stale_member ... ok
+test first_real_udp_disabled_tcp_ipv4_admits_syncs_and_transfers ... ok
+test available_ipv6_tcp_admits_syncs_and_transfers_independently ... ok
+test cancelling_pending_tcp_contact_closes_actual_carrier ... ok
+test disabled_tcp_candidate_is_not_dialed_even_through_raw_endpoint ... ok
+test lookup_supplied_disabled_tcp_candidate_is_not_dialed ... ok
+test globally_disabled_tcp_cannot_be_reenabled_by_an_advanced_builder ... ok
+test priority_wrong_member_identity_cannot_bypass_tcp_admission ... ok
+test physical_tcp_loss_ends_old_stream_and_later_contact_is_a_new_connection ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.95s
+

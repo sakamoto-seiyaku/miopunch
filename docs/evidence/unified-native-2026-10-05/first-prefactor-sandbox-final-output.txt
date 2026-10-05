@@ -1,0 +1,23 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 19.79s
+     Running tests/manual_admission.rs (target/debug/deps/manual_admission-e55236fbc7849e5d)
+
+running 1 test
+test manual_approval_saves_both_materials_and_permits_real_business ... FAILED
+
+failures:
+
+---- manual_approval_saves_both_materials_and_permits_real_business stdout ----
+
+thread 'manual_approval_saves_both_materials_and_permits_real_business' (2708) panicked at tests/manual_admission.rs:106:73:
+called `Result::unwrap()` on an `Err` value: Endpoint(Failed to bind sockets
+Caused by:
+    Operation not permitted (os error 1))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    manual_approval_saves_both_materials_and_permits_real_business
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.31s
+
+error: test failed, to rerun pass `--test manual_admission`

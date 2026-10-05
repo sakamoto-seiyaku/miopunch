@@ -1,0 +1,85 @@
+warning: field `updates` is never read
+   --> src/admission_gate.rs:143:5
+    |
+140 | pub(crate) struct PathQualification {
+    |                   ----------------- field in this struct
+...
+143 |     updates: n0_watcher::Direct<u64>,
+    |     ^^^^^^^
+    |
+    = note: `PathQualification` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `updates` is never used
+   --> src/admission_gate.rs:149:19
+    |
+145 | impl PathQualification {
+    | ---------------------- method in this implementation
+...
+149 |     pub(crate) fn updates(&self) -> n0_watcher::Direct<u64> {
+    |                   ^^^^^^^
+
+warning: method `native_bind_addresses` is never used
+   --> src/rtc_ice_profile.rs:110:19
+    |
+ 50 | impl RtcIceProfile {
+    | ------------------ method in this implementation
+...
+110 |     pub(crate) fn native_bind_addresses(&self) -> Vec<SocketAddr> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^
+
+warning: `miopunch-native-probe` (lib) generated 3 warnings
+   Compiling miopunch-native-probe v0.1.0 (/home/js/Git/miopunch)
+warning: variable does not need to be mutable
+   --> tests/tcp_direct.rs:226:9
+    |
+226 |     let mut ce = joining
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> tests/tcp_direct.rs:339:9
+    |
+339 |     let mut ce = joining
+    |         ----^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> tests/resources.rs:907:9
+    |
+907 |     let mut contact = joining
+    |         ----^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> tests/resources.rs:971:9
+    |
+971 |     let mut contact = joining
+    |         ----^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> tests/resources.rs:1176:9
+     |
+1176 |     let mut passive_contact = passive
+     |         ----^^^^^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: `miopunch-native-probe` (test "tcp_direct") generated 2 warnings (run `cargo fix --test "tcp_direct" -p miopunch-native-probe` to apply 2 suggestions)
+warning: `miopunch-native-probe` (test "resources") generated 3 warnings (run `cargo fix --test "resources" -p miopunch-native-probe` to apply 3 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.99s
+     Running tests/admission_gate.rs (target/debug/deps/admission_gate-b28a5d0277668f03)
+     Running tests/manual_admission.rs (target/debug/deps/manual_admission-e55236fbc7849e5d)
+     Running tests/member_attempt.rs (target/debug/deps/member_attempt-20540adb85b769cb)
+     Running tests/member_path_protocol.rs (target/debug/deps/member_path_protocol-bfb3a1050be18942)
+     Running tests/resources.rs (target/debug/deps/resources-634f640c259dae99)
+     Running tests/tcp_direct.rs (target/debug/deps/tcp_direct-5db71f6822353f27)

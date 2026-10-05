@@ -1,0 +1,29 @@
+
+running 5 tests
+test a_retired_native_probe_cannot_release_an_ordinary_handle_through_live_private_control ... {"controlPath":"tcp-restricted","controlStillLive":true,"event":"unified-retired-before-ready","nativeProbeCompleted":true,"retiredPathIds":["0"],"sameOriginalM":true}
+{"callerMs":675,"cleanupMs":35,"controlQueuesOutstanding":[[0,0],[0,0]],"event":"unified-retirement-refused","ordinaryHandleReturned":false,"socketReleasedImmediately":[true,true],"socketReleasedLate":[true,true],"tcpListenerReleasedImmediately":[true,true],"tcpListenerReleasedLate":[true,true]}
+ok
+test cancel_and_deadline_close_only_the_pending_original_m_and_preserve_healthy_member_streams ... {"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":16,"role":"responder","route":"ip:127.0.0.1:44553","selected":true,"selectedRoute":"ip:127.0.0.1:44553","version":1}
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":17,"role":"initiator","route":"ip:127.0.0.1:46216","selected":true,"selectedRoute":"ip:127.0.0.1:46216","version":1}
+{"callerMs":388,"cancel":true,"cleanupMs":12,"deadlineMs":2000,"error":"connection attempt cancelled","event":"unified-cancel-deadline","healthyStreamMatched":true,"ordinaryHandleReturned":false,"originalClosed":true,"socketReleasedImmediately":[true,true],"socketReleasedLate":[true,true]}
+{"callerMs":1922,"cancel":false,"cleanupMs":12,"deadlineMs":2000,"error":"connection deadline exceeded","event":"unified-cancel-deadline","healthyStreamMatched":true,"ordinaryHandleReturned":false,"originalClosed":true,"socketReleasedImmediately":[true,true],"socketReleasedLate":[true,true]}
+ok
+test no_permitted_data_or_signaling_only_hints_never_return_an_ordinary_sdk_handle ... {"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":16,"role":"responder","route":"ip:127.0.0.1:43469","selected":true,"selectedRoute":"ip:127.0.0.1:43469","version":1}
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":17,"role":"initiator","route":"ip:127.0.0.1:44972","selected":true,"selectedRoute":"ip:127.0.0.1:44972","version":1}
+{"callerMs":427,"cleanupMs":4,"disabledUdpRejected":true,"event":"unified-data-denied","healthyStreamMatched":true,"ordinaryHandleReturned":false,"signalingPromoted":false,"socketReleasedImmediately":[true,true],"socketReleasedLate":[true,true]}
+ok
+test reopened_members_use_common_sdk_without_selecting_platform_or_carrier ... {"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":17,"role":"responder","route":"ip:127.0.0.1:46627","selected":true,"selectedRoute":"ip:127.0.0.1:46627","version":1}
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":17,"role":"initiator","route":"ip:127.0.0.1:44921","selected":true,"selectedRoute":"ip:127.0.0.1:44921","version":1}
+{"callerMs":429,"event":"unified-native-success","identityMatched":[true,true],"path":"native-udp","paths":[{"route":"ip:127.0.0.1:44921","selected":true}],"roles":["initiator","responder"]}
+{"cleanupMs":5,"event":"unified-cleanup","graceful":true,"lateObservationMs":117,"socketReleasedImmediately":[true,true],"socketReleasedLate":[true,true]}
+ok
+test strict_protocol_refuses_bad_versions_capabilities_roles_and_lengths_without_harming_healthy_m ... {"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":16,"role":"responder","route":"ip:127.0.0.1:44092","selected":true,"selectedRoute":"ip:127.0.0.1:44092","version":1}
+{"authorizationRevision":2,"event":"unified-path-ready","freshAck":true,"pathId":"0","probeWatermark":16,"role":"initiator","route":"ip:127.0.0.1:44515","selected":true,"selectedRoute":"ip:127.0.0.1:44515","version":1}
+{"callerMs":392,"cleanupMs":1,"error":"unified connection protocol unsupported","event":"unified-invalid-control","fault":0,"ordinaryHandleReturned":false,"socketReleasedImmediately":[true],"socketReleasedLate":[true]}
+{"callerMs":391,"cleanupMs":1,"error":"invalid protected connection control","event":"unified-invalid-control","fault":1,"ordinaryHandleReturned":false,"socketReleasedImmediately":[true],"socketReleasedLate":[true]}
+{"callerMs":384,"cleanupMs":1,"error":"invalid protected connection control","event":"unified-invalid-control","fault":2,"ordinaryHandleReturned":false,"socketReleasedImmediately":[true],"socketReleasedLate":[true]}
+{"callerMs":388,"cleanupMs":2,"error":"invalid protected connection control","event":"unified-invalid-control","fault":3,"ordinaryHandleReturned":false,"socketReleasedImmediately":[true],"socketReleasedLate":[true]}
+ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.22s
+

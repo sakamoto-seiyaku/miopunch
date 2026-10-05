@@ -9,6 +9,7 @@ mod android_desktop_cli;
 #[cfg(target_os = "android")]
 mod android_shell;
 pub mod connection_recovery;
+pub mod connection_coordinator;
 mod connection_recovery_core;
 pub mod control_session;
 pub mod daily_management;

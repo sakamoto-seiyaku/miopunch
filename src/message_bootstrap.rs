@@ -147,19 +147,16 @@ impl EndpointHooks for MemberPathBootstrap {
         endpoint: &Endpoint,
         connection: &Connection,
     ) -> io::Result<()> {
+        if connection.alpn() == crate::connection_coordinator::MEMBER_ALPN {
+            return Ok(()); // the common coordinator owns new-protocol release
+        }
         if !connection.paths().iter().any(|path| {
             matches!(path.remote_addr(),
             TransportAddr::Custom(address) if matches!(address.id(), TRANSPORT_ID | crate::member_transport::TRANSPORT_ID | crate::irc_transport::TRANSPORT_ID))
         }) {
-            if let Some(tcp)=&self.tcp
-                && connection.paths().iter().any(|path|matches!(path.remote_addr(),TransportAddr::Custom(address) if address.id()==crate::tcp_transport::DATA_TRANSPORT_ID)) {
-                let control=ControlSession::from_connection(endpoint.clone(),connection.clone());
-                let mut cancellation=control.cancellation_guard();
-                tcp.retain_existing(endpoint,connection).await?;
-                if !self.gate.allows_member_path_upgrade(connection) {return Err(io::Error::new(io::ErrorKind::PermissionDenied,"TCP membership changed before data release"));}
-                cancellation.disarm();
-            }
-            return Ok(());
+            return crate::connection_coordinator::release_existing_data(
+                endpoint, connection, self.tcp.as_ref(), &self.gate,
+            ).await;
         }
         let carrier = if connection.paths().iter().any(|path| matches!(path.remote_addr(), TransportAddr::Custom(address) if address.id() == crate::member_transport::TRANSPORT_ID)) { "MEMBER" } else if connection.paths().iter().any(|path| matches!(path.remote_addr(), TransportAddr::Custom(address) if address.id() == crate::irc_transport::TRANSPORT_ID)) { "IRC" } else { "MQTT" };
         let control = ControlSession::from_connection(endpoint.clone(), connection.clone());

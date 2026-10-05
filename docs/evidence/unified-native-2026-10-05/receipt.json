@@ -1,0 +1,383 @@
+{
+  "ticket": "MIOPUNCH-70",
+  "baseline": "9c95dcb4e78dba041d6d1b2fe151f7607c6c6fd0",
+  "scope": "controlled Native-to-Native persisted member SDK; loopback UDP; no public NAT claim",
+  "passed": true,
+  "commands": [
+    {
+      "name": "build",
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--test",
+        "unified_connection",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 14192,
+      "stdout": "build.stdout",
+      "stderr": "build.stderr",
+      "stdoutSha256": "5ab5bb7bbe9385c7762189e1c24e5758b0668f1c3cd52d2f287b19b78a52d65e",
+      "stderrSha256": "8de9b7cec8132b63d822f86c09c8c9f42e75e79312fddfad729984dfa46d424b"
+    },
+    {
+      "name": "sdk",
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Git/miopunch/target/debug/deps/unified_connection-68c360c706a8b8cd",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 9616,
+      "stdout": "sdk.stdout",
+      "stderr": "sdk.stderr",
+      "stdoutSha256": "b6c96a6ccee0d2786aa44d4df618e4ac515feb01e5918a71297084f6e7f1361f",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "affected-regression",
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--test",
+        "manual_admission",
+        "--test",
+        "member_attempt",
+        "--test",
+        "admission_gate",
+        "--test",
+        "member_path_protocol",
+        "--test",
+        "tcp_direct",
+        "--test",
+        "resources"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 54845,
+      "stdout": "affected-regression.stdout",
+      "stderr": "affected-regression.stderr",
+      "stdoutSha256": "b66c0ac56ca5555ae57d8ddd5a366349518334c112b83ac7f07583d76d1fb933",
+      "stderrSha256": "d0cd2cb2fa9c3666b87597c133d8d7b1980befdfc1844c1b08ac7f946879038b"
+    }
+  ],
+  "source": {
+    "scope": "MIOPUNCH-70 implementation and enumerated shared seams",
+    "sha256": "43a81f194f460c1e9b4b47380c27464070b23455fe00500483115314d457521f",
+    "files": {
+      "Cargo.toml": "d589b5c3dc7e5e5039a0a9eebf1bba0ecc0988963fd8b19085f1cc6a05e71b33",
+      "Cargo.lock": "543a4a397bd047de1c6b0633c5163367869bee1423cf1e8db69b6faa0413f2b3",
+      "src/lib.rs": "d44a12e09f5eafb8575e6d3664c003aa6ffc0feb52a5942b8b954f0bf70875df",
+      "src/connection_coordinator.rs": "6d12c014507c2dbb9ad83b63f6ba901d16c63e1d9648f179fa48f6c269205d8c",
+      "src/message_bootstrap.rs": "44dc9fd25c68e46d773e31c2dc341c97f6eef1baa4e2bf0a56e3e746bf43c92a",
+      "src/native_network.rs": "724eff073f0ab3fa08f6928f8445f7155274330b9fc0fe9ba4a2914aa6539092",
+      "src/resources.rs": "70766c5d1575a7bbdf6789548045a985a907702e546583683011ba9750bc04c6",
+      "src/admission_gate.rs": "21f5def441accb6429adb006a5f95c51987180ae868cdd8c2856883bab886748",
+      "src/control_session.rs": "d78789557b6bafe34a7257ccf9e923ad91221a8e1d94317ad717e51fe0e7da3a",
+      "src/admission_proof.rs": "33502e93c55c3204916b3bec6b75fa2510cd3f0fb3ab60c6666689c515f2bf4d",
+      "src/tcp_punch.rs": "2cc4c4285d1b80c9fb0a140e84bf5f51fabfdcd68c6d697f9d323fac6141f688",
+      "tests/unified_connection.rs": "72f42252e601b822675623f34f2c9e770a59ed3f8dc28ac2c061476d8636dbb6",
+      "scripts/check_unified_native.py": "68482214c16079ff24f9e90b03f912564fee57fab7e0bb1d38ef669a8065c0a8",
+      "vendor/iroh/src/endpoint.rs": "98159bae11fb31d73460f9fad23e0146882087fdcaefd811a061e313fd2f3617",
+      "vendor/iroh/src/endpoint/connection.rs": "d73389c486b157b652523e24d2305cfa579a33fd51566497316eaf1079a9ae9a",
+      "vendor/iroh/src/endpoint/hooks.rs": "81a77f84220ef1719b509432ca8076b53553d1e691966001c22eb9dc9db01325"
+    }
+  },
+  "sourceStableDuringRun": true,
+  "artifact": {
+    "path": "target/debug/deps/unified_connection-68c360c706a8b8cd",
+    "sha256": "e5942f88052cc02e38a7c6d60c0bbd27019fe1452c0a065236b58a32b874efdb"
+  },
+  "events": [
+    {
+      "authorizationRevision": 2,
+      "event": "unified-path-ready",
+      "freshAck": true,
+      "pathId": "0",
+      "probeWatermark": 17,
+      "role": "initiator",
+      "route": "ip:127.0.0.1:44073",
+      "version": 1
+    },
+    {
+      "authorizationRevision": 2,
+      "event": "unified-path-ready",
+      "freshAck": true,
+      "pathId": "0",
+      "probeWatermark": 15,
+      "role": "responder",
+      "route": "ip:127.0.0.1:44864",
+      "version": 1
+    },
+    {
+      "callerMs": 366,
+      "cancel": true,
+      "cleanupMs": 3,
+      "deadlineMs": 2000,
+      "error": "connection attempt cancelled",
+      "event": "unified-cancel-deadline",
+      "healthyStreamMatched": true,
+      "ordinaryHandleReturned": false,
+      "originalClosed": true,
+      "socketReleasedImmediately": [
+        true,
+        true
+      ],
+      "socketReleasedLate": [
+        true,
+        true
+      ]
+    },
+    {
+      "callerMs": 1922,
+      "cancel": false,
+      "cleanupMs": 13,
+      "deadlineMs": 2000,
+      "error": "connection deadline exceeded",
+      "event": "unified-cancel-deadline",
+      "healthyStreamMatched": true,
+      "ordinaryHandleReturned": false,
+      "originalClosed": true,
+      "socketReleasedImmediately": [
+        true,
+        true
+      ],
+      "socketReleasedLate": [
+        true,
+        true
+      ]
+    },
+    {
+      "authorizationRevision": 2,
+      "event": "unified-path-ready",
+      "freshAck": true,
+      "pathId": "0",
+      "probeWatermark": 15,
+      "role": "responder",
+      "route": "ip:127.0.0.1:44971",
+      "version": 1
+    },
+    {
+      "authorizationRevision": 2,
+      "event": "unified-path-ready",
+      "freshAck": true,
+      "pathId": "0",
+      "probeWatermark": 17,
+      "role": "initiator",
+      "route": "ip:127.0.0.1:46472",
+      "version": 1
+    },
+    {
+      "callerMs": 427,
+      "cleanupMs": 12,
+      "disabledUdpRejected": true,
+      "event": "unified-data-denied",
+      "healthyStreamMatched": true,
+      "ordinaryHandleReturned": false,
+      "signalingPromoted": false,
+      "socketReleasedImmediately": [
+        true,
+        true
+      ],
+      "socketReleasedLate": [
+        true,
+        true
+      ]
+    },
+    {
+      "authorizationRevision": 2,
+      "event": "unified-path-ready",
+      "freshAck": true,
+      "pathId": "0",
+      "probeWatermark": 18,
+      "role": "initiator",
+      "route": "ip:127.0.0.1:45421",
+      "version": 1
+    },
+    {
+      "authorizationRevision": 2,
+      "event": "unified-path-ready",
+      "freshAck": true,
+      "pathId": "0",
+      "probeWatermark": 16,
+      "role": "responder",
+      "route": "ip:127.0.0.1:44890",
+      "version": 1
+    },
+    {
+      "callerMs": 405,
+      "event": "unified-native-success",
+      "identityMatched": [
+        true,
+        true
+      ],
+      "path": "native-udp",
+      "paths": [
+        {
+          "route": "ip:127.0.0.1:45421",
+          "selected": true
+        }
+      ],
+      "roles": [
+        "initiator",
+        "responder"
+      ]
+    },
+    {
+      "cleanupMs": 4,
+      "event": "unified-cleanup",
+      "graceful": true,
+      "lateObservationMs": 117,
+      "socketReleasedImmediately": [
+        true,
+        true
+      ],
+      "socketReleasedLate": [
+        true,
+        true
+      ]
+    },
+    {
+      "authorizationRevision": 2,
+      "event": "unified-path-ready",
+      "freshAck": true,
+      "pathId": "0",
+      "probeWatermark": 18,
+      "role": "initiator",
+      "route": "ip:127.0.0.1:44239",
+      "version": 1
+    },
+    {
+      "authorizationRevision": 2,
+      "event": "unified-path-ready",
+      "freshAck": true,
+      "pathId": "0",
+      "probeWatermark": 16,
+      "role": "responder",
+      "route": "ip:127.0.0.1:43825",
+      "version": 1
+    },
+    {
+      "callerMs": 359,
+      "cleanupMs": 1,
+      "error": "unified connection protocol unsupported",
+      "event": "unified-invalid-control",
+      "fault": 0,
+      "ordinaryHandleReturned": false,
+      "socketReleasedImmediately": [
+        true
+      ],
+      "socketReleasedLate": [
+        true
+      ]
+    },
+    {
+      "callerMs": 363,
+      "cleanupMs": 2,
+      "error": "invalid protected connection control",
+      "event": "unified-invalid-control",
+      "fault": 1,
+      "ordinaryHandleReturned": false,
+      "socketReleasedImmediately": [
+        true
+      ],
+      "socketReleasedLate": [
+        true
+      ]
+    },
+    {
+      "callerMs": 356,
+      "cleanupMs": 2,
+      "error": "invalid protected connection control",
+      "event": "unified-invalid-control",
+      "fault": 2,
+      "ordinaryHandleReturned": false,
+      "socketReleasedImmediately": [
+        true
+      ],
+      "socketReleasedLate": [
+        true
+      ]
+    },
+    {
+      "callerMs": 366,
+      "cleanupMs": 1,
+      "error": "invalid protected connection control",
+      "event": "unified-invalid-control",
+      "fault": 3,
+      "ordinaryHandleReturned": false,
+      "socketReleasedImmediately": [
+        true
+      ],
+      "socketReleasedLate": [
+        true
+      ]
+    }
+  ],
+  "ownedResources": {
+    "rtcPeerConnections": 0,
+    "customPumps": 0,
+    "customQueues": 0,
+    "publicListeners": 0,
+    "temporaryProcesses": 0,
+    "forwarders": 0,
+    "udpSocketRelease": "actual rebind immediately after graceful close and again 100ms later"
+  },
+  "firstFailures": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--test",
+        "manual_admission",
+        "manual_approval_saves_both_materials_and_permits_real_business",
+        "--",
+        "--exact"
+      ],
+      "exitCode": 101,
+      "observation": "Endpoint failed to bind sockets: Operation not permitted (os error 1)",
+      "classification": "sandbox UDP binding denial; identical escalated prefactor run passed",
+      "rawCapturedFinalOutput": "first-prefactor-sandbox-final-output.txt",
+      "rawCapturedFinalOutputSha256": "784af4e5d0813ee694913c5e755f68862fe483d848f9841e303bd898452a84f9"
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--test",
+        "unified_connection",
+        "--no-run"
+      ],
+      "exitCode": 101,
+      "observation": "new public SDK types/method missing before implementation",
+      "classification": "red at the pre-agreed SDK seam"
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--test",
+        "unified_connection",
+        "cancel_and_deadline_close_only_the_pending_original_m_and_preserve_healthy_member_streams",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exitCode": 101,
+      "observation": "tests/unified_connection.rs:219 entered receiver elapsed",
+      "classification": "fixture reused cached peer route from healthy M; fresh pending dialer isolates route; no product budget change"
+    }
+  ]
+}
