@@ -1,0 +1,72 @@
+{
+  "scope": "narrow offline P2 cleanup evidence predicate correction only; no SDK/build/device/service/public/STUN replay or controlled archive rewrite",
+  "finding": "Python False was accepted as numeric zero exit/count; negative late socket count could qualify",
+  "beforeReviewManifestSha256": "25754c2b538e4d50aa599023875e302a236515f1e168ecc8ccf2b857a94bc8c5",
+  "sourceChanges": {
+    "scripts/check_browser_relay_capability.py": {
+      "beforeSha256": "5019315170021d82fef662920e47c13f389d251c3ca6d3c5c4420fb2ba1b37dd",
+      "afterSha256": "7e30d4dca960da185654462cc23f8f14926e05a47c39729bad1a0718bfc4a905"
+    },
+    "scripts/test_browser_relay_evidence.py": {
+      "beforeSha256": "ff36b96857776a019d701cde5a99437ebbc762c3575030ccdcad8bbade75f963",
+      "afterSha256": "725739a3390481bedd3282cea57bb44c1022ac6ede19a9d68d5607a7651886c3"
+    }
+  },
+  "red": {
+    "command": [
+      "rtk",
+      "proxy",
+      "python",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "scripts",
+      "-p",
+      "test_browser_relay_evidence.py"
+    ],
+    "exit": 1,
+    "stage": "offline malformed cleanup counterexamples before predicate fix; no SDK/runtime"
+  },
+  "green": {
+    "command": [
+      "rtk",
+      "proxy",
+      "python",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "scripts",
+      "-p",
+      "test_browser_relay_evidence.py"
+    ],
+    "exit": 0,
+    "stage": "offline malformed cleanup counterexamples after narrow predicate fix; no SDK/runtime"
+  },
+  "testCount": 15,
+  "redFailureCount": 6,
+  "pythonCompileExit": 0,
+  "archives": [
+    {
+      "name": "red.log",
+      "rawSha256": "f214a92fc8f101e759f075ff673e19644afd1166fe1ad107937e0f817169cb30",
+      "gzipSha256": "3efac59f847ab11c13176d4d7e8983c117c115100b4fb1e267006c4abd36bfde",
+      "rawBytes": 4195,
+      "gzipBytes": 441,
+      "byteExact": true
+    },
+    {
+      "name": "green.log",
+      "rawSha256": "16c36ae176c8925dc74efb6008909bd46a5d866707ff3ce79ef4d1d60d412ede",
+      "gzipSha256": "587110a2aeb7838bf3c03c03cfe709eb5edf65787e27de9e68e29cdcaf9cb311",
+      "rawBytes": 114,
+      "gzipBytes": 55,
+      "byteExact": true
+    }
+  ],
+  "controlled29EvidenceFilesUnchanged": true,
+  "qualifiedCapturedActualCasesChanged": false,
+  "deltaPath": "/tmp/mio76-cleanup-predicate-review-fix-20261005.diff",
+  "deltaSha256": "dad03882d598fd29bea68a0f24739e59d1dabc9d741bb36d9204a0c3b90c0d4a"
+}

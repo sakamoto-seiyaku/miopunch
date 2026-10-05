@@ -1,0 +1,83 @@
+{
+  "scope": "existing actual controlled Browser API-missing SDK successful baseline only; reused without rerun; no physical/current-main qualification",
+  "receiptOriginalPath": "/tmp/mio76-controlled-browser-native-ack-warm-home-zero-control-20261005/receipt.json",
+  "receiptSha256": "3b823a5806ddb585d131a7dccfd4d21f4753ee365dd041fb7e7009f7f7a28ff1",
+  "outerReceiptOriginalPath": "/tmp/mio76-controlled-browser-native-ack-warm-home-zero-control-20261005/outer-receipt.json",
+  "outerReceiptSha256": "acffd377801a8699e58d0b037acdae2409ce334521b1369d4e8a9dceb6f8c265",
+  "newRunPerformed": false,
+  "existingObservedFacts": {
+    "passed": true,
+    "runnerExit": 0,
+    "callerMs": 820.9000000953674,
+    "returned": true,
+    "identitiesReopened": {
+      "browser": true,
+      "native": true
+    },
+    "nativePeerCompared": true,
+    "actualRuntimeCapability": {
+      "effective": false,
+      "permitted": true,
+      "probe": {
+        "channelCloseRequested": false,
+        "channelCreated": false,
+        "pcClosed": true,
+        "pcCreated": false
+      },
+      "reason": "api-missing",
+      "supported": false
+    },
+    "nativeMemberAlpn": "miopunch/session/member/1",
+    "nativeMemberGateVerified": true,
+    "browserCapabilityVersion": 1,
+    "browserRtcRole": "None",
+    "browserFreshAck": true,
+    "nativeFreshAck": true,
+    "businessMatched": true,
+    "nativeBusinessByteCount": 50,
+    "nativeCleanup": [
+      {
+        "label": "native-admission",
+        "code": 0,
+        "signal": null,
+        "forced": false
+      },
+      {
+        "label": "browser-sdk",
+        "closed": true
+      },
+      {
+        "label": "browser-context",
+        "closed": true
+      },
+      {
+        "label": "native-member",
+        "code": 0,
+        "signal": null,
+        "forced": false
+      },
+      {
+        "label": "owned-relay",
+        "code": 0,
+        "signal": null,
+        "forced": false
+      },
+      {
+        "label": "local-services",
+        "socketSetEmpty": true,
+        "serversClosed": true
+      }
+    ],
+    "artifactsStable": true,
+    "artifactBefore": {
+      "/tmp/mio76-ack-private-probe-build-20261005/browser_wss_member_native": "1e26fe54a2b0c5e070cc13422608159f3726435280b80790ab7a4cdb5782d88f",
+      "/tmp/mio76-ack-private-probe-build-20261005/browser-probe-native": "3dc9b83b1583efda8f18adaf1faca99c2b7ee7c290267a94709907f0c41e6138",
+      "/tmp/mio76-ack-private-probe-build-20261005/pkg/miopunch_browser_probe_bg.wasm": "111150dc815bc7a9d49eeb3c5ebf1ad076d1b359f2d810fba8e1c1367225a817",
+      "/tmp/mio76-ack-private-probe-build-20261005/pkg/miopunch_browser_probe_bg.wasm.d.ts": "49f794146780a1628dbf4b2bd5163df65971aa2cea697a7fd3a8787e9deb8f0b",
+      "/tmp/mio76-ack-private-probe-build-20261005/pkg/miopunch_browser_probe.js": "6c0da00b445aa1308f703a8306ffff6c72fe8f1bb629e87e0ffa018a1dc96677",
+      "/tmp/mio76-ack-private-probe-build-20261005/pkg/miopunch_browser_probe.d.ts": "c65f354cb761d5d75da899dac80d8d629262cd6b7c5e370afce2a139d015495a",
+      "/tmp/mio76-ack-private-probe-build-20261005/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+      "/tmp/mio76-ack-private-probe-build-20261005/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "726368b4e8c636d4cc3c0b90a647f87dce5e624ec4e7a7e7f8dc6b9429ca6eda"
+    }
+  }
+}

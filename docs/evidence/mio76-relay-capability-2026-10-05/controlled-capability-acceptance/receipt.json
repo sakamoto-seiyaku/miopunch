@@ -1,0 +1,473 @@
+{
+  "scope": "controlled actual host Browser+Native SDK supplemental acceptance only; no current-main/Android/physical/public/NAT qualification",
+  "buildDirectory": "/tmp/mio76-ack-private-probe-build-20261005",
+  "buildReceiptSha256": "a774f4a25f3f9c84239d3adb9a13ab50e756177477b8c3c2f60a1691c022596a",
+  "sourceProjection": "/tmp/mio76-ack-controlled-source-projection-20261005",
+  "selectedDependencies": {
+    "native": 276,
+    "wasm": 186
+  },
+  "unchangedBudgets": {
+    "callerMs": 12000,
+    "nativeRelayStageMs": 6000
+  },
+  "baselineMissingApiNotRepeated": "/tmp/mio76-controlled-browser-native-ack-warm-home-zero-control-20261005/receipt.json",
+  "lateOwnedProcesses": {
+    "observedAtUtc": "2026-10-05T09:37:07.936245+00:00",
+    "ownedFixturePrefixCount": 4,
+    "matchingPids": [],
+    "scope": "actual late cmdline check for exact owned runtime fixture directories only"
+  },
+  "rootTaskClosure": "pending independent root acceptance/coverage review; no selfDone",
+  "cases": {
+    "disabled": {
+      "exit": 0,
+      "members": [
+        {
+          "callerMs": 865.3999998569489,
+          "strictMemberAlpn": true,
+          "bothIdentitiesMatched": true,
+          "bothMemberGatesVerified": true,
+          "bothFreshAck": true,
+          "businessMatched": true,
+          "requestBytes": 39,
+          "responseBytes": 39,
+          "newOrdinarySession": true
+        }
+      ],
+      "capability": {
+        "effective": false,
+        "permitted": false,
+        "probe": {
+          "channelCloseRequested": false,
+          "channelCreated": false,
+          "pcClosed": true,
+          "pcCreated": false
+        },
+        "reason": "disabled-by-policy",
+        "supported": null
+      },
+      "pcDcCounts": {
+        "peerCreated": 0,
+        "peerCloseCalls": 0,
+        "channelCreated": 0,
+        "openPeerConnections": 0,
+        "openDataChannels": 0
+      },
+      "noDataPath": null,
+      "newAttemptAfterRestore": null,
+      "ownedNativeSdkCleanupQualified": true,
+      "ownedContainerAndPrivateDirCleanup": [
+        {
+          "ownedBrokerRemovalExit": 0
+        },
+        {
+          "ownedPrivateCertProfileDirectoryRemoved": true,
+          "globalNssTrustChanged": false
+        }
+      ],
+      "immutableBindingsStable": true,
+      "currentMainDeltas": {
+        "native": {
+          "src/bin/browser_wss_member_native.rs": {
+            "compiledSha256": "b7fea757b2b790c92c25ecba2ab0c7b8409ee56ce7ae55a17efdfc9b20fbe43c",
+            "currentMainSha256": "2a82fca39c11db91ca4c220bd73574174a7719190dbb97b744453d533da72b13"
+          },
+          "src/connection_coordinator.rs": {
+            "compiledSha256": "8e17162adfc963bf766da314c61989e44b1e99ba6c79d34ad8d36226f776bd33",
+            "currentMainSha256": "f2dd4d1138186f5d97652ef9eaa5ff354dbb78e5166c97d4ba0b67be7c96d6b9"
+          },
+          "src/message_bootstrap.rs": {
+            "compiledSha256": "6c5c3a36afeeece309b90e12d029c9049f61c7e3fce0db6f518fd3b78be2d7d9",
+            "currentMainSha256": "1c92ab1c43e98c08aa1f28d1059d65a5c6b7b586e477703f1212555dd3d2d63d"
+          },
+          "src/path_selection.rs": {
+            "compiledSha256": "83b9c5289a9ade4cd27b043c335d1e5fc22b2eb986e9754789c3c4803d43e5e6",
+            "currentMainSha256": "6093283dce8297830082e80fa2e778201a452448df126c53cc8730cdd9548585"
+          },
+          "vendor/iroh/src/endpoint.rs": {
+            "compiledSha256": "98159bae11fb31d73460f9fad23e0146882087fdcaefd811a061e313fd2f3617",
+            "currentMainSha256": "04423be1084a027ba9d49a55386bf698d78dedfbc9e1e096c7eca07b21016ebe"
+          },
+          "vendor/iroh/src/socket.rs": {
+            "compiledSha256": "1c8e55979b906ddfe76672a843f947012fe3dfe1f420789e5e61bee6c814380e",
+            "currentMainSha256": "077c1ecbabf8ffe564ce755f71d47b697f5db1748372db48bda7ae2dc2a061cb"
+          }
+        },
+        "browser": {
+          "src/connection_coordinator.rs": {
+            "compiledSha256": "8e17162adfc963bf766da314c61989e44b1e99ba6c79d34ad8d36226f776bd33",
+            "currentMainSha256": "f2dd4d1138186f5d97652ef9eaa5ff354dbb78e5166c97d4ba0b67be7c96d6b9"
+          },
+          "browser-probe/src/network.rs": {
+            "compiledSha256": "3b53c8e82cbe85d6c05ade26dd7b57bfbc5d75a6544df991a8c86c390775d57d",
+            "currentMainSha256": "0af8c6e1b7e985eaa9729ed68726d97ebab48e67b6645e751bcac2e140a28726"
+          },
+          "vendor/iroh/src/endpoint.rs": {
+            "compiledSha256": "98159bae11fb31d73460f9fad23e0146882087fdcaefd811a061e313fd2f3617",
+            "currentMainSha256": "04423be1084a027ba9d49a55386bf698d78dedfbc9e1e096c7eca07b21016ebe"
+          },
+          "vendor/iroh/src/socket.rs": {
+            "compiledSha256": "1c8e55979b906ddfe76672a843f947012fe3dfe1f420789e5e61bee6c814380e",
+            "currentMainSha256": "077c1ecbabf8ffe564ce755f71d47b697f5db1748372db48bda7ae2dc2a061cb"
+          }
+        }
+      },
+      "rawDirectory": "raw/disabled",
+      "safeReceipt": "safe/disabled.json",
+      "originalFiles": {
+        "receipt.json": "5e33601185ee8100c562c30fcdc314900e7b5006d746c7fde48c75f0a3b3aabc",
+        "outer-receipt.json": "021933c9917daf987f77a5ab450ca50d5564a3c4c1be6a51ec5a1ac6f2cef076",
+        "run.log": "3804146a6b3b04a2600d9f08f933c06e2e6e0e8764cdba4698b9e2502d1fb86c"
+      }
+    },
+    "pc-denied": {
+      "exit": 0,
+      "members": [
+        {
+          "callerMs": 787.8000001907349,
+          "strictMemberAlpn": true,
+          "bothIdentitiesMatched": true,
+          "bothMemberGatesVerified": true,
+          "bothFreshAck": true,
+          "businessMatched": true,
+          "requestBytes": 40,
+          "responseBytes": 40,
+          "newOrdinarySession": true
+        }
+      ],
+      "capability": {
+        "effective": false,
+        "permitted": true,
+        "probe": {
+          "channelCloseRequested": false,
+          "channelCreated": false,
+          "pcClosed": true,
+          "pcCreated": false
+        },
+        "reason": "peer-connection-rejected",
+        "supported": false
+      },
+      "pcDcCounts": {
+        "peerCreated": 0,
+        "peerCloseCalls": 0,
+        "channelCreated": 0,
+        "openPeerConnections": 0,
+        "openDataChannels": 0
+      },
+      "noDataPath": null,
+      "newAttemptAfterRestore": null,
+      "ownedNativeSdkCleanupQualified": true,
+      "ownedContainerAndPrivateDirCleanup": [
+        {
+          "ownedBrokerRemovalExit": 0
+        },
+        {
+          "ownedPrivateCertProfileDirectoryRemoved": true,
+          "globalNssTrustChanged": false
+        }
+      ],
+      "immutableBindingsStable": true,
+      "currentMainDeltas": {
+        "native": {
+          "src/bin/browser_wss_member_native.rs": {
+            "compiledSha256": "b7fea757b2b790c92c25ecba2ab0c7b8409ee56ce7ae55a17efdfc9b20fbe43c",
+            "currentMainSha256": "2a82fca39c11db91ca4c220bd73574174a7719190dbb97b744453d533da72b13"
+          },
+          "src/connection_coordinator.rs": {
+            "compiledSha256": "8e17162adfc963bf766da314c61989e44b1e99ba6c79d34ad8d36226f776bd33",
+            "currentMainSha256": "f2dd4d1138186f5d97652ef9eaa5ff354dbb78e5166c97d4ba0b67be7c96d6b9"
+          },
+          "src/message_bootstrap.rs": {
+            "compiledSha256": "6c5c3a36afeeece309b90e12d029c9049f61c7e3fce0db6f518fd3b78be2d7d9",
+            "currentMainSha256": "1c92ab1c43e98c08aa1f28d1059d65a5c6b7b586e477703f1212555dd3d2d63d"
+          },
+          "src/path_selection.rs": {
+            "compiledSha256": "83b9c5289a9ade4cd27b043c335d1e5fc22b2eb986e9754789c3c4803d43e5e6",
+            "currentMainSha256": "6093283dce8297830082e80fa2e778201a452448df126c53cc8730cdd9548585"
+          },
+          "vendor/iroh/src/endpoint.rs": {
+            "compiledSha256": "98159bae11fb31d73460f9fad23e0146882087fdcaefd811a061e313fd2f3617",
+            "currentMainSha256": "04423be1084a027ba9d49a55386bf698d78dedfbc9e1e096c7eca07b21016ebe"
+          },
+          "vendor/iroh/src/socket.rs": {
+            "compiledSha256": "1c8e55979b906ddfe76672a843f947012fe3dfe1f420789e5e61bee6c814380e",
+            "currentMainSha256": "077c1ecbabf8ffe564ce755f71d47b697f5db1748372db48bda7ae2dc2a061cb"
+          }
+        },
+        "browser": {
+          "src/connection_coordinator.rs": {
+            "compiledSha256": "8e17162adfc963bf766da314c61989e44b1e99ba6c79d34ad8d36226f776bd33",
+            "currentMainSha256": "f2dd4d1138186f5d97652ef9eaa5ff354dbb78e5166c97d4ba0b67be7c96d6b9"
+          },
+          "browser-probe/src/network.rs": {
+            "compiledSha256": "3b53c8e82cbe85d6c05ade26dd7b57bfbc5d75a6544df991a8c86c390775d57d",
+            "currentMainSha256": "0af8c6e1b7e985eaa9729ed68726d97ebab48e67b6645e751bcac2e140a28726"
+          },
+          "vendor/iroh/src/endpoint.rs": {
+            "compiledSha256": "98159bae11fb31d73460f9fad23e0146882087fdcaefd811a061e313fd2f3617",
+            "currentMainSha256": "04423be1084a027ba9d49a55386bf698d78dedfbc9e1e096c7eca07b21016ebe"
+          },
+          "vendor/iroh/src/socket.rs": {
+            "compiledSha256": "1c8e55979b906ddfe76672a843f947012fe3dfe1f420789e5e61bee6c814380e",
+            "currentMainSha256": "077c1ecbabf8ffe564ce755f71d47b697f5db1748372db48bda7ae2dc2a061cb"
+          }
+        }
+      },
+      "rawDirectory": "raw/pc-denied",
+      "safeReceipt": "safe/pc-denied.json",
+      "originalFiles": {
+        "receipt.json": "b785af227ac4aad3f78eb209d2642b7d90e90d83ffb974120a9344e0b709c505",
+        "outer-receipt.json": "6dc382113cd8a6566bee10b2ffeb2a6b9278bad9b6c5ed28ca1c0247727185ec",
+        "run.log": "fb6645e57b241130e75621c7bea4925ec9639f0be1c1b6f8fbb7d263ab908f5a"
+      }
+    },
+    "dc-denied": {
+      "exit": 0,
+      "members": [
+        {
+          "callerMs": 740.1000001430511,
+          "strictMemberAlpn": true,
+          "bothIdentitiesMatched": true,
+          "bothMemberGatesVerified": true,
+          "bothFreshAck": true,
+          "businessMatched": true,
+          "requestBytes": 40,
+          "responseBytes": 40,
+          "newOrdinarySession": true
+        }
+      ],
+      "capability": {
+        "effective": false,
+        "permitted": true,
+        "probe": {
+          "channelCloseRequested": false,
+          "channelCreated": false,
+          "pcClosed": true,
+          "pcCreated": true
+        },
+        "reason": "data-channel-rejected",
+        "supported": false
+      },
+      "pcDcCounts": {
+        "peerCreated": 1,
+        "peerCloseCalls": 1,
+        "channelCreated": 0,
+        "openPeerConnections": 0,
+        "openDataChannels": 0
+      },
+      "noDataPath": null,
+      "newAttemptAfterRestore": null,
+      "ownedNativeSdkCleanupQualified": true,
+      "ownedContainerAndPrivateDirCleanup": [
+        {
+          "ownedBrokerRemovalExit": 0
+        },
+        {
+          "ownedPrivateCertProfileDirectoryRemoved": true,
+          "globalNssTrustChanged": false
+        }
+      ],
+      "immutableBindingsStable": true,
+      "currentMainDeltas": {
+        "native": {
+          "src/bin/browser_wss_member_native.rs": {
+            "compiledSha256": "b7fea757b2b790c92c25ecba2ab0c7b8409ee56ce7ae55a17efdfc9b20fbe43c",
+            "currentMainSha256": "2a82fca39c11db91ca4c220bd73574174a7719190dbb97b744453d533da72b13"
+          },
+          "src/connection_coordinator.rs": {
+            "compiledSha256": "8e17162adfc963bf766da314c61989e44b1e99ba6c79d34ad8d36226f776bd33",
+            "currentMainSha256": "f2dd4d1138186f5d97652ef9eaa5ff354dbb78e5166c97d4ba0b67be7c96d6b9"
+          },
+          "src/message_bootstrap.rs": {
+            "compiledSha256": "6c5c3a36afeeece309b90e12d029c9049f61c7e3fce0db6f518fd3b78be2d7d9",
+            "currentMainSha256": "1c92ab1c43e98c08aa1f28d1059d65a5c6b7b586e477703f1212555dd3d2d63d"
+          },
+          "src/path_selection.rs": {
+            "compiledSha256": "83b9c5289a9ade4cd27b043c335d1e5fc22b2eb986e9754789c3c4803d43e5e6",
+            "currentMainSha256": "6093283dce8297830082e80fa2e778201a452448df126c53cc8730cdd9548585"
+          },
+          "vendor/iroh/src/endpoint.rs": {
+            "compiledSha256": "98159bae11fb31d73460f9fad23e0146882087fdcaefd811a061e313fd2f3617",
+            "currentMainSha256": "04423be1084a027ba9d49a55386bf698d78dedfbc9e1e096c7eca07b21016ebe"
+          },
+          "vendor/iroh/src/socket.rs": {
+            "compiledSha256": "1c8e55979b906ddfe76672a843f947012fe3dfe1f420789e5e61bee6c814380e",
+            "currentMainSha256": "077c1ecbabf8ffe564ce755f71d47b697f5db1748372db48bda7ae2dc2a061cb"
+          }
+        },
+        "browser": {
+          "src/connection_coordinator.rs": {
+            "compiledSha256": "8e17162adfc963bf766da314c61989e44b1e99ba6c79d34ad8d36226f776bd33",
+            "currentMainSha256": "f2dd4d1138186f5d97652ef9eaa5ff354dbb78e5166c97d4ba0b67be7c96d6b9"
+          },
+          "browser-probe/src/network.rs": {
+            "compiledSha256": "3b53c8e82cbe85d6c05ade26dd7b57bfbc5d75a6544df991a8c86c390775d57d",
+            "currentMainSha256": "0af8c6e1b7e985eaa9729ed68726d97ebab48e67b6645e751bcac2e140a28726"
+          },
+          "vendor/iroh/src/endpoint.rs": {
+            "compiledSha256": "98159bae11fb31d73460f9fad23e0146882087fdcaefd811a061e313fd2f3617",
+            "currentMainSha256": "04423be1084a027ba9d49a55386bf698d78dedfbc9e1e096c7eca07b21016ebe"
+          },
+          "vendor/iroh/src/socket.rs": {
+            "compiledSha256": "1c8e55979b906ddfe76672a843f947012fe3dfe1f420789e5e61bee6c814380e",
+            "currentMainSha256": "077c1ecbabf8ffe564ce755f71d47b697f5db1748372db48bda7ae2dc2a061cb"
+          }
+        }
+      },
+      "rawDirectory": "raw/dc-denied",
+      "safeReceipt": "safe/dc-denied.json",
+      "originalFiles": {
+        "receipt.json": "84db60bfaa86898458a0422401fcbf28be63fbe82aa5c0cdfca3dccafb5e92ad",
+        "outer-receipt.json": "382684f4261791e07ecabafae62a6a464458fb65a3e9a8e53d854cb934eca430",
+        "run.log": "6bab69aea6d3a3349799af16327a84addeefee4ba5311a5068dacfb77730ccc7"
+      }
+    },
+    "no-data-path": {
+      "exit": 0,
+      "members": [
+        {
+          "callerMs": 775,
+          "strictMemberAlpn": true,
+          "bothIdentitiesMatched": true,
+          "bothMemberGatesVerified": true,
+          "bothFreshAck": true,
+          "businessMatched": true,
+          "requestBytes": 43,
+          "responseBytes": 43,
+          "newOrdinarySession": true
+        },
+        {
+          "callerMs": 774.4000000953674,
+          "strictMemberAlpn": true,
+          "bothIdentitiesMatched": true,
+          "bothMemberGatesVerified": true,
+          "bothFreshAck": true,
+          "businessMatched": true,
+          "requestBytes": 43,
+          "responseBytes": 43,
+          "newOrdinarySession": true
+        }
+      ],
+      "capability": {
+        "effective": false,
+        "permitted": false,
+        "probe": {
+          "channelCloseRequested": false,
+          "channelCreated": false,
+          "pcClosed": true,
+          "pcCreated": false
+        },
+        "reason": "disabled-by-policy",
+        "supported": null
+      },
+      "pcDcCounts": {
+        "peerCreated": 0,
+        "peerCloseCalls": 0,
+        "channelCreated": 0,
+        "openPeerConnections": 0,
+        "openDataChannels": 0
+      },
+      "noDataPath": {
+        "errorClass": "DataPathUnavailable",
+        "ordinaryHandleReturned": false,
+        "mqttContactReady": true,
+        "mqttQuicBytesSent": 0,
+        "mqttQuicBytesReceived": 0,
+        "nativeBusinessEvents": 0,
+        "identityAndMembershipUnchanged": true,
+        "runningNodeUnchanged": true,
+        "failure": {
+          "returned": false,
+          "callerMs": 10.200000047683716,
+          "error": "no currently permitted data path",
+          "ordinaryHandle": false
+        }
+      },
+      "newAttemptAfterRestore": true,
+      "ownedNativeSdkCleanupQualified": true,
+      "ownedContainerAndPrivateDirCleanup": [
+        {
+          "ownedBrokerRemovalExit": 0
+        },
+        {
+          "ownedPrivateCertProfileDirectoryRemoved": true,
+          "globalNssTrustChanged": false
+        }
+      ],
+      "immutableBindingsStable": true,
+      "currentMainDeltas": {
+        "native": {
+          "src/bin/browser_wss_member_native.rs": {
+            "compiledSha256": "b7fea757b2b790c92c25ecba2ab0c7b8409ee56ce7ae55a17efdfc9b20fbe43c",
+            "currentMainSha256": "2a82fca39c11db91ca4c220bd73574174a7719190dbb97b744453d533da72b13"
+          },
+          "src/connection_coordinator.rs": {
+            "compiledSha256": "8e17162adfc963bf766da314c61989e44b1e99ba6c79d34ad8d36226f776bd33",
+            "currentMainSha256": "f2dd4d1138186f5d97652ef9eaa5ff354dbb78e5166c97d4ba0b67be7c96d6b9"
+          },
+          "src/message_bootstrap.rs": {
+            "compiledSha256": "6c5c3a36afeeece309b90e12d029c9049f61c7e3fce0db6f518fd3b78be2d7d9",
+            "currentMainSha256": "1c92ab1c43e98c08aa1f28d1059d65a5c6b7b586e477703f1212555dd3d2d63d"
+          },
+          "src/path_selection.rs": {
+            "compiledSha256": "83b9c5289a9ade4cd27b043c335d1e5fc22b2eb986e9754789c3c4803d43e5e6",
+            "currentMainSha256": "6093283dce8297830082e80fa2e778201a452448df126c53cc8730cdd9548585"
+          },
+          "vendor/iroh/src/endpoint.rs": {
+            "compiledSha256": "98159bae11fb31d73460f9fad23e0146882087fdcaefd811a061e313fd2f3617",
+            "currentMainSha256": "04423be1084a027ba9d49a55386bf698d78dedfbc9e1e096c7eca07b21016ebe"
+          },
+          "vendor/iroh/src/socket.rs": {
+            "compiledSha256": "1c8e55979b906ddfe76672a843f947012fe3dfe1f420789e5e61bee6c814380e",
+            "currentMainSha256": "077c1ecbabf8ffe564ce755f71d47b697f5db1748372db48bda7ae2dc2a061cb"
+          }
+        },
+        "browser": {
+          "src/connection_coordinator.rs": {
+            "compiledSha256": "8e17162adfc963bf766da314c61989e44b1e99ba6c79d34ad8d36226f776bd33",
+            "currentMainSha256": "f2dd4d1138186f5d97652ef9eaa5ff354dbb78e5166c97d4ba0b67be7c96d6b9"
+          },
+          "browser-probe/src/network.rs": {
+            "compiledSha256": "3b53c8e82cbe85d6c05ade26dd7b57bfbc5d75a6544df991a8c86c390775d57d",
+            "currentMainSha256": "0af8c6e1b7e985eaa9729ed68726d97ebab48e67b6645e751bcac2e140a28726"
+          },
+          "vendor/iroh/src/endpoint.rs": {
+            "compiledSha256": "98159bae11fb31d73460f9fad23e0146882087fdcaefd811a061e313fd2f3617",
+            "currentMainSha256": "04423be1084a027ba9d49a55386bf698d78dedfbc9e1e096c7eca07b21016ebe"
+          },
+          "vendor/iroh/src/socket.rs": {
+            "compiledSha256": "1c8e55979b906ddfe76672a843f947012fe3dfe1f420789e5e61bee6c814380e",
+            "currentMainSha256": "077c1ecbabf8ffe564ce755f71d47b697f5db1748372db48bda7ae2dc2a061cb"
+          }
+        }
+      },
+      "rawDirectory": "raw/no-data-path",
+      "safeReceipt": "safe/no-data-path.json",
+      "originalFiles": {
+        "receipt.json": "b37c27794b0ae4dd21bb19b97b56d8589382432c79e9e92710c74564a0ce9b89",
+        "outer-receipt.json": "a30be158d76a32ac6e45a79cbf7ac3dc827918fe8a6b4ef1eb118579b3242123",
+        "run.log": "9fea30b6cb27bde1ccb2649f78bbfd4030fcc7c4004d875c11e2206b5f7724cd"
+      }
+    }
+  },
+  "safeReceiptTransforms": {
+    "disabled": [
+      "/browserRelay/memberBootstraps numeric private correlation keys omitted",
+      "/browserFinal/memberBootstraps numeric private correlation keys omitted"
+    ],
+    "pc-denied": [
+      "/browserRelay/memberBootstraps numeric private correlation keys omitted",
+      "/browserFinal/memberBootstraps numeric private correlation keys omitted"
+    ],
+    "dc-denied": [
+      "/browserRelay/memberBootstraps numeric private correlation keys omitted",
+      "/browserFinal/memberBootstraps numeric private correlation keys omitted"
+    ],
+    "no-data-path": [
+      "/browserRelay/memberBootstraps numeric private correlation keys omitted",
+      "/browserFinal/memberBootstraps numeric private correlation keys omitted"
+    ]
+  },
+  "rawArchivePolicy": "raw receipts/logs/build metadata are byte-exact gzip; safe readable receipts omit only process-local bootstrap correlation map keys; no actual observations/counts/nulls recomputed"
+}

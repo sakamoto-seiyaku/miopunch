@@ -1,0 +1,3379 @@
+{
+  "scope": "controlled actual Browser SDK and reopened Native SDK with owned MQTT/TLS relay; no public/device/NAT qualification",
+  "passed": true,
+  "startedUtc": "2026-10-05T09:33:32.017Z",
+  "nativeEvents": [
+    {
+      "event": "ready",
+      "ipAddresses": 0,
+      "legacyOnly": false,
+      "normalPublicTrust": false,
+      "relayAddresses": 0,
+      "socketCount": 6,
+      "traffic": {
+        "driver_active": 1,
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": 1791192812211,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 0,
+        "queued_packets": 0,
+        "received_bytes": 0,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_packets": 0
+      },
+      "unifiedMember": false
+    },
+    {
+      "alpn": "miopunch/admission-request/1",
+      "businessHandle": false,
+      "event": "admission-accepted",
+      "paths": [
+        {
+          "datagramFramesReceived": 0,
+          "datagramFramesSent": 0,
+          "isIp": false,
+          "isRelay": false,
+          "isRtc": false,
+          "isSignal": true,
+          "receivedBytes": 3808,
+          "selected": true,
+          "sentBytes": 4135,
+          "streamFramesReceived": 1,
+          "streamFramesSent": 1
+        }
+      ],
+      "restricted": true
+    },
+    {
+      "event": "admission-ended",
+      "paths": [
+        {
+          "datagramFramesReceived": 0,
+          "datagramFramesSent": 0,
+          "isIp": false,
+          "isRelay": false,
+          "isRtc": false,
+          "isSignal": true,
+          "receivedBytes": 8888,
+          "selected": true,
+          "sentBytes": 7044,
+          "streamFramesReceived": 2,
+          "streamFramesSent": 1
+        }
+      ],
+      "stage": "Ok(Ok(AwaitingApproval))"
+    },
+    {
+      "count": 1,
+      "event": "admission-status",
+      "requests": [
+        {
+          "receiptStage": null
+        }
+      ]
+    },
+    {
+      "after": 2,
+      "before": 1,
+      "event": "approved",
+      "receiptStage": "Approved"
+    },
+    {
+      "alpn": "miopunch/admission-request/1",
+      "businessHandle": false,
+      "event": "admission-accepted",
+      "paths": [
+        {
+          "datagramFramesReceived": 0,
+          "datagramFramesSent": 0,
+          "isIp": false,
+          "isRelay": false,
+          "isRtc": false,
+          "isSignal": true,
+          "receivedBytes": 3808,
+          "selected": true,
+          "sentBytes": 4256,
+          "streamFramesReceived": 1,
+          "streamFramesSent": 1
+        }
+      ],
+      "restricted": true
+    },
+    {
+      "event": "admission-ended",
+      "paths": [
+        {
+          "datagramFramesReceived": 0,
+          "datagramFramesSent": 0,
+          "isIp": false,
+          "isRelay": false,
+          "isRtc": false,
+          "isSignal": true,
+          "receivedBytes": 8705,
+          "selected": true,
+          "sentBytes": 10366,
+          "streamFramesReceived": 4,
+          "streamFramesSent": 4
+        }
+      ],
+      "stage": "Ok(Ok(Complete))"
+    },
+    {
+      "activeRtcAssociations": 0,
+      "activeRtcPumps": 0,
+      "cleanupMs": 101,
+      "event": "closed",
+      "socketsBefore": 4,
+      "socketsImmediate": 4,
+      "socketsLate": 4,
+      "traffic": {
+        "driver_active": 0,
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": true,
+          "failure": null,
+          "ready_ms": 1791192812211,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": true,
+          "withdraw_ms": 1791192813720
+        },
+        "queue_depth": 64,
+        "queue_peak": 2,
+        "queued_packets": 0,
+        "received_bytes": 20257,
+        "received_packets": 47,
+        "rejected_packets": 0,
+        "rx_queue_peak": 3,
+        "sent_bytes": 19005,
+        "sent_packets": 41
+      }
+    },
+    {
+      "event": "ready",
+      "ipAddresses": 0,
+      "legacyOnly": false,
+      "normalPublicTrust": false,
+      "relayAddresses": 1,
+      "socketCount": 7,
+      "traffic": {
+        "driver_active": 1,
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "ready_ms": 1791192813885,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        },
+        "queue_depth": 64,
+        "queue_peak": 0,
+        "queued_packets": 0,
+        "received_bytes": 0,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_packets": 0
+      },
+      "unifiedMember": true
+    },
+    {
+      "bindingUnchanged": true,
+      "event": "relay-path",
+      "probe": {
+        "freshAck": true,
+        "freshAckMs": 125,
+        "freshProbeStartedMs": 42,
+        "probeWatermark": 5
+      },
+      "relayFramesAfterConfirmation": [
+        {
+          "selected": true,
+          "streamReceived": 0,
+          "streamSent": 1
+        }
+      ],
+      "stableUnchanged": true
+    },
+    {
+      "authorizationRevision": 1,
+      "event": "unified-path-ready",
+      "freshAck": true,
+      "probeWatermark": 13,
+      "role": "responder",
+      "rtcRole": "Answerer",
+      "selected": true,
+      "version": 1
+    },
+    {
+      "alpn": "miopunch/session/member/1",
+      "event": "member-released",
+      "memberAuthorized": true,
+      "paths": [
+        {
+          "ackReceived": 0,
+          "isIp": false,
+          "isRelay": true,
+          "selected": true,
+          "streamSent": 2
+        }
+      ],
+      "quicRole": "server"
+    },
+    {
+      "alpn": "miopunch/session/member/1",
+      "bytes": 40,
+      "event": "business",
+      "memberMessage": false,
+      "reply": null
+    },
+    {
+      "activeRtcAssociations": 0,
+      "activeRtcPumps": 0,
+      "cleanupMs": 101,
+      "event": "closed",
+      "socketsBefore": 4,
+      "socketsImmediate": 4,
+      "socketsLate": 4,
+      "traffic": {
+        "driver_active": 0,
+        "generation": 1,
+        "max_datagram": 2048,
+        "protocol": {
+          "connack": 0,
+          "disconnect_sent": true,
+          "failure": null,
+          "ready_ms": 1791192813885,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": true,
+          "withdraw_ms": 1791192815185
+        },
+        "queue_depth": 64,
+        "queue_peak": 2,
+        "queued_packets": 0,
+        "received_bytes": 10545,
+        "received_packets": 37,
+        "rejected_packets": 0,
+        "rx_queue_peak": 2,
+        "sent_bytes": 9363,
+        "sent_packets": 33
+      }
+    }
+  ],
+  "nativeRelay": [
+    {
+      "configuredPermittedCount": 1,
+      "gateValid": true,
+      "localConnectedCount": 1,
+      "localPublishedCount": 1,
+      "localRelayErrorCount": 0,
+      "memberOpen": true,
+      "permittedRelayPathCount": 0,
+      "phase": "entry",
+      "relayPathCount": 0,
+      "selectedRouteKind": "signal",
+      "sideClient": false,
+      "tag": "DEBUG-mio76-relay"
+    },
+    {
+      "configuredPermittedCount": 1,
+      "gateValid": true,
+      "localCandidateCount": 1,
+      "localConnectedCount": 1,
+      "localPublishedCount": 1,
+      "localRelayErrorCount": 0,
+      "memberOpen": true,
+      "permittedRelayPathCount": 0,
+      "phase": "begin",
+      "relayPathCount": 0,
+      "selectedRouteKind": "signal",
+      "sideClient": false,
+      "tag": "DEBUG-mio76-relay"
+    },
+    {
+      "configuredPermittedCount": 1,
+      "gateValid": true,
+      "localCandidateCount": 1,
+      "localConnectedCount": 1,
+      "localPublishedCount": 1,
+      "localRelayErrorCount": 0,
+      "memberOpen": true,
+      "mutuallyAllowedCount": 1,
+      "permittedRelayPathCount": 0,
+      "phase": "exchange",
+      "relayPathCount": 0,
+      "remoteCandidateCount": 1,
+      "selectedRouteKind": "signal",
+      "sideClient": false,
+      "tag": "DEBUG-mio76-relay"
+    },
+    {
+      "callerRemainingMs": 11491,
+      "configuredPermittedCount": 1,
+      "elapsedMs": 41,
+      "exactProbePathPresent": true,
+      "freshProbeIssued": true,
+      "gateValid": true,
+      "localConnectedCount": 1,
+      "localPublishedCount": 1,
+      "localRelayErrorCount": 0,
+      "memberOpen": true,
+      "permittedRelayPathCount": 1,
+      "phase": "probe-start",
+      "probeAckRx": 0,
+      "probeAckTx": 0,
+      "probeBytesRx": 3726,
+      "probeBytesTx": 2592,
+      "probeDatagramsRx": 3,
+      "probeDatagramsTx": 4,
+      "probeLostPackets": 0,
+      "probePathAckRx": 1,
+      "probePathAckTx": 1,
+      "probePathRttMicros": 7861,
+      "probePathSelected": true,
+      "probePingRx": 1,
+      "probePingTx": 1,
+      "probeWatermark": 5,
+      "relayPathCount": 1,
+      "selectedRouteKind": "relay",
+      "sideClient": false,
+      "stageRemainingMs": 5958,
+      "tag": "DEBUG-mio76-relay"
+    },
+    {
+      "callerRemainingMs": 11408,
+      "configuredPermittedCount": 1,
+      "elapsedMs": 124,
+      "exactProbePathPresent": true,
+      "freshAck": true,
+      "gateValid": true,
+      "localConnectedCount": 1,
+      "localPublishedCount": 1,
+      "localRelayErrorCount": 0,
+      "memberOpen": true,
+      "permittedRelayPathCount": 1,
+      "phase": "probe-ack",
+      "probeAckRx": 0,
+      "probeAckTx": 0,
+      "probeBytesRx": 8181,
+      "probeBytesTx": 6981,
+      "probeDatagramsRx": 12,
+      "probeDatagramsTx": 11,
+      "probeLostPackets": 0,
+      "probePathAckRx": 6,
+      "probePathAckTx": 4,
+      "probePathRttMicros": 13818,
+      "probePathSelected": true,
+      "probePingRx": 5,
+      "probePingTx": 5,
+      "probeWatermark": 5,
+      "relayPathCount": 1,
+      "selectedRouteKind": "relay",
+      "sideClient": false,
+      "stageRemainingMs": 5875,
+      "tag": "DEBUG-mio76-relay"
+    },
+    {
+      "configuredPermittedCount": 1,
+      "gateValid": true,
+      "localCandidateCount": 1,
+      "localConnectedCount": 1,
+      "localPublishedCount": 1,
+      "localRelayErrorCount": 0,
+      "memberOpen": true,
+      "permittedRelayPathCount": 1,
+      "phase": "validation-end",
+      "relayPathCount": 1,
+      "selectedRouteKind": "relay",
+      "sideClient": false,
+      "tag": "DEBUG-mio76-relay",
+      "validationOk": true
+    },
+    {
+      "configuredPermittedCount": 1,
+      "finishOk": true,
+      "gateValid": true,
+      "localConnectedCount": 1,
+      "localPublishedCount": 1,
+      "localRelayErrorCount": 0,
+      "memberOpen": true,
+      "permittedRelayPathCount": 1,
+      "phase": "finish",
+      "relayPathCount": 1,
+      "selectedRouteKind": "relay",
+      "sideClient": false,
+      "tag": "DEBUG-mio76-relay"
+    }
+  ],
+  "stages": [
+    {
+      "name": "native-admission-ready",
+      "ok": true,
+      "elapsedMs": 141.580758
+    },
+    {
+      "name": "browser-private-context",
+      "ok": true,
+      "elapsedMs": 311.05040699999995
+    },
+    {
+      "name": "browser-admission-start",
+      "ok": true,
+      "elapsedMs": 154.1088239999999
+    },
+    {
+      "name": "request-admission",
+      "ok": true,
+      "elapsedMs": 205.19172700000013
+    },
+    {
+      "name": "request-approved-materials",
+      "ok": true,
+      "elapsedMs": 92.47466499999996
+    },
+    {
+      "name": "complete-admission",
+      "ok": true,
+      "elapsedMs": 81.09267599999998
+    },
+    {
+      "name": "native-member-reopened",
+      "ok": true,
+      "elapsedMs": 90.74703999999974
+    },
+    {
+      "name": "browser-member-reopened",
+      "ok": true,
+      "elapsedMs": 29.721778000000086
+    },
+    {
+      "name": "browser-actual-home-connected",
+      "ok": true,
+      "elapsedMs": 102.52544900000021
+    },
+    {
+      "name": "ordinary-sdk-member",
+      "ok": true,
+      "elapsedMs": 801.995226
+    }
+  ],
+  "cleanup": [
+    {
+      "label": "browser-admission-sdk",
+      "closed": true,
+      "observed": {
+        "members": [],
+        "objects": {
+          "mode": "peer-connection-denied",
+          "injected": true,
+          "peerCreated": 0,
+          "peerCloseCalls": 0,
+          "channelCreated": 0,
+          "channelCloseCalls": 0,
+          "openPeerConnections": 0,
+          "openDataChannels": 0,
+          "sockets": [
+            {
+              "origin": "wss://localhost:43866",
+              "createdAtMs": 457.7999999523163,
+              "sentBytes": 24080,
+              "receivedBytes": 22189,
+              "sentFrames": 51,
+              "receivedFrames": 43,
+              "errorEvents": 0,
+              "openedAtMs": 527.6999998092651,
+              "readyState": 2
+            }
+          ],
+          "openWebSockets": 1
+        }
+      },
+      "late": {
+        "mode": "peer-connection-denied",
+        "injected": true,
+        "peerCreated": 0,
+        "peerCloseCalls": 0,
+        "channelCreated": 0,
+        "channelCloseCalls": 0,
+        "openPeerConnections": 0,
+        "openDataChannels": 0,
+        "sockets": [
+          {
+            "origin": "wss://localhost:43866",
+            "createdAtMs": 457.7999999523163,
+            "sentBytes": 24080,
+            "receivedBytes": 22189,
+            "sentFrames": 51,
+            "receivedFrames": 43,
+            "errorEvents": 0,
+            "openedAtMs": 527.6999998092651,
+            "closedAtMs": 977.3999998569489,
+            "closeCode": 1005,
+            "closeWasClean": true,
+            "readyState": 3
+          }
+        ],
+        "openWebSockets": 0
+      }
+    },
+    {
+      "label": "native-admission",
+      "code": 0,
+      "signal": null,
+      "forced": false,
+      "readersEnded": true,
+      "sdkRetirement": {
+        "activeRtcAssociations": 0,
+        "activeRtcPumps": 0,
+        "cleanupMs": 101,
+        "event": "closed",
+        "socketsBefore": 4,
+        "socketsImmediate": 4,
+        "socketsLate": 4,
+        "traffic": {
+          "driver_active": 0,
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": true,
+            "failure": null,
+            "ready_ms": 1791192812211,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": true,
+            "withdraw_ms": 1791192813720
+          },
+          "queue_depth": 64,
+          "queue_peak": 2,
+          "queued_packets": 0,
+          "received_bytes": 20257,
+          "received_packets": 47,
+          "rejected_packets": 0,
+          "rx_queue_peak": 3,
+          "sent_bytes": 19005,
+          "sent_packets": 41
+        }
+      },
+      "sdkShutdownQualified": true
+    },
+    {
+      "label": "browser-sdk",
+      "closed": true,
+      "observed": {
+        "members": [
+          {
+            "activeAssociations": 0,
+            "activePumpTasks": 0,
+            "bootstrap": {
+              "bindingUnchanged": true,
+              "capabilitiesVersion": 1,
+              "coordinator": {
+                "authorizationRevision": 1,
+                "event": "unified-path-ready",
+                "freshAck": true,
+                "probeWatermark": 13,
+                "role": "initiator",
+                "rtcRole": "None",
+                "selected": true,
+                "version": 1
+              },
+              "kind": "legacy-relay",
+              "relayFramesAfterConfirmation": [
+                {
+                  "selected": false,
+                  "streamReceived": 1,
+                  "streamSent": 0
+                }
+              ],
+              "stableUnchanged": true,
+              "validatedRelay": {
+                "freshAck": true,
+                "freshAckMs": 132,
+                "freshProbeStartedMs": 72,
+                "probeWatermark": 3
+              }
+            },
+            "closed": true,
+            "paths": [
+              {
+                "ackFramesReceived": 0,
+                "ackFramesSent": 0,
+                "isRelay": true,
+                "isRtc": false,
+                "isSignal": false,
+                "pingFramesSent": 6,
+                "receivedBytes": 7494,
+                "selected": true,
+                "sentBytes": 8662,
+                "streamFramesReceived": 3,
+                "streamFramesSent": 1
+              }
+            ],
+            "resourceRevision": 1
+          }
+        ],
+        "objects": {
+          "mode": "peer-connection-denied",
+          "injected": true,
+          "peerCreated": 0,
+          "peerCloseCalls": 0,
+          "channelCreated": 0,
+          "channelCloseCalls": 0,
+          "openPeerConnections": 0,
+          "openDataChannels": 0,
+          "sockets": [
+            {
+              "origin": "wss://localhost:43866",
+              "createdAtMs": 457.7999999523163,
+              "sentBytes": 24080,
+              "receivedBytes": 22189,
+              "sentFrames": 51,
+              "receivedFrames": 43,
+              "errorEvents": 0,
+              "openedAtMs": 527.6999998092651,
+              "closedAtMs": 977.3999998569489,
+              "closeCode": 1005,
+              "closeWasClean": true,
+              "readyState": 3
+            },
+            {
+              "origin": "wss://localhost:43866",
+              "createdAtMs": 1304.7999999523163,
+              "sentBytes": 13586,
+              "receivedBytes": 11924,
+              "sentFrames": 41,
+              "receivedFrames": 35,
+              "errorEvents": 0,
+              "openedAtMs": 1321.3999998569489,
+              "readyState": 2
+            },
+            {
+              "origin": "wss://localhost:44806",
+              "createdAtMs": 1320.2999999523163,
+              "sentBytes": 10683,
+              "receivedBytes": 8314,
+              "sentFrames": 23,
+              "receivedFrames": 25,
+              "errorEvents": 0,
+              "openedAtMs": 1366.8999998569489,
+              "readyState": 2
+            }
+          ],
+          "openWebSockets": 2
+        }
+      },
+      "late": {
+        "mode": "peer-connection-denied",
+        "injected": true,
+        "peerCreated": 0,
+        "peerCloseCalls": 0,
+        "channelCreated": 0,
+        "channelCloseCalls": 0,
+        "openPeerConnections": 0,
+        "openDataChannels": 0,
+        "sockets": [
+          {
+            "origin": "wss://localhost:43866",
+            "createdAtMs": 457.7999999523163,
+            "sentBytes": 24080,
+            "receivedBytes": 22189,
+            "sentFrames": 51,
+            "receivedFrames": 43,
+            "errorEvents": 0,
+            "openedAtMs": 527.6999998092651,
+            "closedAtMs": 977.3999998569489,
+            "closeCode": 1005,
+            "closeWasClean": true,
+            "readyState": 3
+          },
+          {
+            "origin": "wss://localhost:43866",
+            "createdAtMs": 1304.7999999523163,
+            "sentBytes": 13586,
+            "receivedBytes": 11924,
+            "sentFrames": 41,
+            "receivedFrames": 35,
+            "errorEvents": 0,
+            "openedAtMs": 1321.3999998569489,
+            "closedAtMs": 2333.699999809265,
+            "closeCode": 1005,
+            "closeWasClean": true,
+            "readyState": 3
+          },
+          {
+            "origin": "wss://localhost:44806",
+            "createdAtMs": 1320.2999999523163,
+            "sentBytes": 10683,
+            "receivedBytes": 8314,
+            "sentFrames": 23,
+            "receivedFrames": 25,
+            "errorEvents": 0,
+            "openedAtMs": 1366.8999998569489,
+            "closedAtMs": 2335.5,
+            "closeCode": 1006,
+            "closeWasClean": false,
+            "readyState": 3
+          }
+        ],
+        "openWebSockets": 0
+      }
+    },
+    {
+      "label": "browser-context",
+      "closed": true
+    },
+    {
+      "label": "native-member",
+      "code": 0,
+      "signal": null,
+      "forced": false,
+      "readersEnded": true,
+      "sdkRetirement": {
+        "activeRtcAssociations": 0,
+        "activeRtcPumps": 0,
+        "cleanupMs": 101,
+        "event": "closed",
+        "socketsBefore": 4,
+        "socketsImmediate": 4,
+        "socketsLate": 4,
+        "traffic": {
+          "driver_active": 0,
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": true,
+            "failure": null,
+            "ready_ms": 1791192813885,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": true,
+            "withdraw_ms": 1791192815185
+          },
+          "queue_depth": 64,
+          "queue_peak": 2,
+          "queued_packets": 0,
+          "received_bytes": 10545,
+          "received_packets": 37,
+          "rejected_packets": 0,
+          "rx_queue_peak": 2,
+          "sent_bytes": 9363,
+          "sent_packets": 33
+        }
+      },
+      "sdkShutdownQualified": true
+    },
+    {
+      "label": "owned-relay",
+      "code": 0,
+      "signal": null,
+      "forced": false,
+      "readersEnded": true,
+      "sdkRetirement": null
+    },
+    {
+      "label": "local-services",
+      "socketSetEmpty": true,
+      "serversClosed": true
+    }
+  ],
+  "case": "pc-denied",
+  "callerBudgetMs": 12000,
+  "nativeRelayStageBudgetMs": 6000,
+  "trust": "owned private CA/NSS only; certificate verification enabled",
+  "relayProxy": {
+    "controlledChunkDelayMs": 0,
+    "enabledAtMember": true,
+    "connections": [
+      {
+        "index": 0,
+        "clientToRelay": {
+          "chunks": 26,
+          "bytes": 9715,
+          "delayedChunks": 0
+        },
+        "relayToClient": {
+          "chunks": 28,
+          "bytes": 13723,
+          "delayedChunks": 0
+        }
+      },
+      {
+        "index": 1,
+        "clientToRelay": {
+          "chunks": 25,
+          "bytes": 13982,
+          "delayedChunks": 0
+        },
+        "relayToClient": {
+          "chunks": 29,
+          "bytes": 11444,
+          "delayedChunks": 0
+        }
+      }
+    ]
+  },
+  "relay": "https://localhost:44806/",
+  "mqtt": {
+    "proxy": [
+      {
+        "label": "native-normal",
+        "mode": "normal",
+        "packetsFromClient": [
+          {
+            "kind": 1,
+            "bytes": 52,
+            "atMs": 1791192812209
+          },
+          {
+            "kind": 8,
+            "bytes": 60,
+            "atMs": 1791192812210
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192813234
+          },
+          {
+            "kind": 3,
+            "bytes": 216,
+            "atMs": 1791192813277
+          },
+          {
+            "kind": 3,
+            "bytes": 393,
+            "atMs": 1791192813311
+          },
+          {
+            "kind": 3,
+            "bytes": 1404,
+            "atMs": 1791192813312
+          },
+          {
+            "kind": 3,
+            "bytes": 1169,
+            "atMs": 1791192813319
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813331
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813341
+          },
+          {
+            "kind": 3,
+            "bytes": 1467,
+            "atMs": 1791192813351
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813351
+          },
+          {
+            "kind": 3,
+            "bytes": 111,
+            "atMs": 1791192813367
+          },
+          {
+            "kind": 3,
+            "bytes": 1498,
+            "atMs": 1791192813368
+          },
+          {
+            "kind": 3,
+            "bytes": 111,
+            "atMs": 1791192813371
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813372
+          },
+          {
+            "kind": 3,
+            "bytes": 1530,
+            "atMs": 1791192813373
+          },
+          {
+            "kind": 3,
+            "bytes": 113,
+            "atMs": 1791192813378
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192813436
+          },
+          {
+            "kind": 3,
+            "bytes": 513,
+            "atMs": 1791192813444
+          },
+          {
+            "kind": 3,
+            "bytes": 1404,
+            "atMs": 1791192813444
+          },
+          {
+            "kind": 3,
+            "bytes": 1154,
+            "atMs": 1791192813444
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813444
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813445
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813446
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813447
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813448
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813450
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813450
+          },
+          {
+            "kind": 3,
+            "bytes": 1467,
+            "atMs": 1791192813452
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813456
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813462
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813463
+          },
+          {
+            "kind": 3,
+            "bytes": 1498,
+            "atMs": 1791192813463
+          },
+          {
+            "kind": 3,
+            "bytes": 1467,
+            "atMs": 1791192813466
+          },
+          {
+            "kind": 3,
+            "bytes": 247,
+            "atMs": 1791192813466
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813467
+          },
+          {
+            "kind": 3,
+            "bytes": 1530,
+            "atMs": 1791192813468
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813512
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813513
+          },
+          {
+            "kind": 3,
+            "bytes": 149,
+            "atMs": 1791192813562
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813573
+          },
+          {
+            "kind": 3,
+            "bytes": 115,
+            "atMs": 1791192813589
+          },
+          {
+            "kind": 3,
+            "bytes": 113,
+            "atMs": 1791192813597
+          },
+          {
+            "kind": 10,
+            "bytes": 59,
+            "atMs": 1791192813721
+          },
+          {
+            "kind": 14,
+            "bytes": 2,
+            "atMs": 1791192813721
+          }
+        ],
+        "packetsFromBroker": [
+          {
+            "kind": 2,
+            "bytes": 4,
+            "atMs": 1791192812210
+          },
+          {
+            "kind": 9,
+            "bytes": 5,
+            "atMs": 1791192812211
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192813231
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192813301
+          },
+          {
+            "kind": 3,
+            "bytes": 1404,
+            "atMs": 1791192813310
+          },
+          {
+            "kind": 3,
+            "bytes": 1244,
+            "atMs": 1791192813310
+          },
+          {
+            "kind": 3,
+            "bytes": 134,
+            "atMs": 1791192813312
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813318
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813329
+          },
+          {
+            "kind": 3,
+            "bytes": 305,
+            "atMs": 1791192813341
+          },
+          {
+            "kind": 3,
+            "bytes": 305,
+            "atMs": 1791192813342
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813350
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813350
+          },
+          {
+            "kind": 3,
+            "bytes": 1467,
+            "atMs": 1791192813350
+          },
+          {
+            "kind": 3,
+            "bytes": 134,
+            "atMs": 1791192813352
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813366
+          },
+          {
+            "kind": 3,
+            "bytes": 255,
+            "atMs": 1791192813366
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813366
+          },
+          {
+            "kind": 3,
+            "bytes": 1498,
+            "atMs": 1791192813366
+          },
+          {
+            "kind": 3,
+            "bytes": 1530,
+            "atMs": 1791192813370
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813372
+          },
+          {
+            "kind": 3,
+            "bytes": 148,
+            "atMs": 1791192813377
+          },
+          {
+            "kind": 3,
+            "bytes": 148,
+            "atMs": 1791192813380
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192813433
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192813442
+          },
+          {
+            "kind": 3,
+            "bytes": 1404,
+            "atMs": 1791192813445
+          },
+          {
+            "kind": 3,
+            "bytes": 1244,
+            "atMs": 1791192813446
+          },
+          {
+            "kind": 3,
+            "bytes": 134,
+            "atMs": 1791192813446
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813447
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813449
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813450
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813451
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813453
+          },
+          {
+            "kind": 3,
+            "bytes": 1467,
+            "atMs": 1791192813455
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813457
+          },
+          {
+            "kind": 3,
+            "bytes": 134,
+            "atMs": 1791192813461
+          },
+          {
+            "kind": 3,
+            "bytes": 255,
+            "atMs": 1791192813461
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813461
+          },
+          {
+            "kind": 3,
+            "bytes": 1498,
+            "atMs": 1791192813461
+          },
+          {
+            "kind": 3,
+            "bytes": 1530,
+            "atMs": 1791192813466
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813467
+          },
+          {
+            "kind": 3,
+            "bytes": 111,
+            "atMs": 1791192813469
+          },
+          {
+            "kind": 3,
+            "bytes": 112,
+            "atMs": 1791192813513
+          },
+          {
+            "kind": 3,
+            "bytes": 111,
+            "atMs": 1791192813516
+          },
+          {
+            "kind": 3,
+            "bytes": 111,
+            "atMs": 1791192813557
+          },
+          {
+            "kind": 3,
+            "bytes": 112,
+            "atMs": 1791192813557
+          },
+          {
+            "kind": 3,
+            "bytes": 112,
+            "atMs": 1791192813572
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813589
+          },
+          {
+            "kind": 3,
+            "bytes": 136,
+            "atMs": 1791192813596
+          }
+        ],
+        "publishCount": 41,
+        "closedMs": 1791192813721
+      },
+      {
+        "label": "browser-normal",
+        "mode": "normal",
+        "packetsFromClient": [
+          {
+            "kind": 1,
+            "bytes": 58,
+            "atMs": 1791192813167
+          },
+          {
+            "kind": 8,
+            "bytes": 60,
+            "atMs": 1791192813169
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192813231
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192813300
+          },
+          {
+            "kind": 3,
+            "bytes": 1404,
+            "atMs": 1791192813302
+          },
+          {
+            "kind": 3,
+            "bytes": 1244,
+            "atMs": 1791192813309
+          },
+          {
+            "kind": 3,
+            "bytes": 134,
+            "atMs": 1791192813311
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813318
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813329
+          },
+          {
+            "kind": 3,
+            "bytes": 305,
+            "atMs": 1791192813340
+          },
+          {
+            "kind": 3,
+            "bytes": 305,
+            "atMs": 1791192813341
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813343
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813346
+          },
+          {
+            "kind": 3,
+            "bytes": 1467,
+            "atMs": 1791192813349
+          },
+          {
+            "kind": 3,
+            "bytes": 134,
+            "atMs": 1791192813351
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813354
+          },
+          {
+            "kind": 3,
+            "bytes": 255,
+            "atMs": 1791192813360
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813363
+          },
+          {
+            "kind": 3,
+            "bytes": 1498,
+            "atMs": 1791192813365
+          },
+          {
+            "kind": 3,
+            "bytes": 1530,
+            "atMs": 1791192813370
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813372
+          },
+          {
+            "kind": 3,
+            "bytes": 148,
+            "atMs": 1791192813377
+          },
+          {
+            "kind": 3,
+            "bytes": 148,
+            "atMs": 1791192813380
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192813433
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192813442
+          },
+          {
+            "kind": 3,
+            "bytes": 1404,
+            "atMs": 1791192813443
+          },
+          {
+            "kind": 3,
+            "bytes": 1244,
+            "atMs": 1791192813445
+          },
+          {
+            "kind": 3,
+            "bytes": 134,
+            "atMs": 1791192813445
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813446
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813448
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813449
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813451
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813452
+          },
+          {
+            "kind": 3,
+            "bytes": 1467,
+            "atMs": 1791192813454
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813455
+          },
+          {
+            "kind": 3,
+            "bytes": 134,
+            "atMs": 1791192813455
+          },
+          {
+            "kind": 3,
+            "bytes": 255,
+            "atMs": 1791192813458
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813459
+          },
+          {
+            "kind": 3,
+            "bytes": 1498,
+            "atMs": 1791192813461
+          },
+          {
+            "kind": 3,
+            "bytes": 1530,
+            "atMs": 1791192813465
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813467
+          },
+          {
+            "kind": 3,
+            "bytes": 111,
+            "atMs": 1791192813469
+          },
+          {
+            "kind": 3,
+            "bytes": 112,
+            "atMs": 1791192813505
+          },
+          {
+            "kind": 3,
+            "bytes": 111,
+            "atMs": 1791192813515
+          },
+          {
+            "kind": 3,
+            "bytes": 111,
+            "atMs": 1791192813515
+          },
+          {
+            "kind": 3,
+            "bytes": 112,
+            "atMs": 1791192813522
+          },
+          {
+            "kind": 3,
+            "bytes": 112,
+            "atMs": 1791192813571
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813588
+          },
+          {
+            "kind": 3,
+            "bytes": 136,
+            "atMs": 1791192813595
+          },
+          {
+            "kind": 10,
+            "bytes": 59,
+            "atMs": 1791192813611
+          },
+          {
+            "kind": 14,
+            "bytes": 2,
+            "atMs": 1791192813611
+          }
+        ],
+        "packetsFromBroker": [
+          {
+            "kind": 2,
+            "bytes": 4,
+            "atMs": 1791192813167
+          },
+          {
+            "kind": 9,
+            "bytes": 5,
+            "atMs": 1791192813169
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192813235
+          },
+          {
+            "kind": 3,
+            "bytes": 216,
+            "atMs": 1791192813277
+          },
+          {
+            "kind": 3,
+            "bytes": 393,
+            "atMs": 1791192813311
+          },
+          {
+            "kind": 3,
+            "bytes": 1404,
+            "atMs": 1791192813312
+          },
+          {
+            "kind": 3,
+            "bytes": 1169,
+            "atMs": 1791192813319
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813331
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813342
+          },
+          {
+            "kind": 3,
+            "bytes": 1467,
+            "atMs": 1791192813351
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813352
+          },
+          {
+            "kind": 3,
+            "bytes": 111,
+            "atMs": 1791192813368
+          },
+          {
+            "kind": 3,
+            "bytes": 1498,
+            "atMs": 1791192813368
+          },
+          {
+            "kind": 3,
+            "bytes": 111,
+            "atMs": 1791192813372
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813373
+          },
+          {
+            "kind": 3,
+            "bytes": 1530,
+            "atMs": 1791192813374
+          },
+          {
+            "kind": 3,
+            "bytes": 113,
+            "atMs": 1791192813379
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192813437
+          },
+          {
+            "kind": 3,
+            "bytes": 513,
+            "atMs": 1791192813444
+          },
+          {
+            "kind": 3,
+            "bytes": 1404,
+            "atMs": 1791192813445
+          },
+          {
+            "kind": 3,
+            "bytes": 1154,
+            "atMs": 1791192813446
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813446
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813446
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813447
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813448
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813450
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813451
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192813452
+          },
+          {
+            "kind": 3,
+            "bytes": 1467,
+            "atMs": 1791192813453
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813456
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813463
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813464
+          },
+          {
+            "kind": 3,
+            "bytes": 1498,
+            "atMs": 1791192813464
+          },
+          {
+            "kind": 3,
+            "bytes": 1467,
+            "atMs": 1791192813466
+          },
+          {
+            "kind": 3,
+            "bytes": 247,
+            "atMs": 1791192813467
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813467
+          },
+          {
+            "kind": 3,
+            "bytes": 1530,
+            "atMs": 1791192813468
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813512
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192813514
+          },
+          {
+            "kind": 3,
+            "bytes": 149,
+            "atMs": 1791192813562
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192813574
+          },
+          {
+            "kind": 3,
+            "bytes": 115,
+            "atMs": 1791192813590
+          },
+          {
+            "kind": 3,
+            "bytes": 113,
+            "atMs": 1791192813598
+          }
+        ],
+        "publishCount": 47,
+        "closedMs": 1791192813612
+      },
+      {
+        "label": "native-normal",
+        "mode": "normal",
+        "packetsFromClient": [
+          {
+            "kind": 1,
+            "bytes": 52,
+            "atMs": 1791192813882
+          },
+          {
+            "kind": 8,
+            "bytes": 60,
+            "atMs": 1791192813884
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192814119
+          },
+          {
+            "kind": 3,
+            "bytes": 524,
+            "atMs": 1791192814137
+          },
+          {
+            "kind": 3,
+            "bytes": 1404,
+            "atMs": 1791192814137
+          },
+          {
+            "kind": 3,
+            "bytes": 1154,
+            "atMs": 1791192814137
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192814138
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814139
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814149
+          },
+          {
+            "kind": 3,
+            "bytes": 1467,
+            "atMs": 1791192814154
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814154
+          },
+          {
+            "kind": 3,
+            "bytes": 1498,
+            "atMs": 1791192814158
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814160
+          },
+          {
+            "kind": 3,
+            "bytes": 1530,
+            "atMs": 1791192814161
+          },
+          {
+            "kind": 3,
+            "bytes": 215,
+            "atMs": 1791192814299
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192814358
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192814358
+          },
+          {
+            "kind": 3,
+            "bytes": 157,
+            "atMs": 1791192814448
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814474
+          },
+          {
+            "kind": 3,
+            "bytes": 115,
+            "atMs": 1791192814475
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814501
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814502
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814527
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814555
+          },
+          {
+            "kind": 3,
+            "bytes": 137,
+            "atMs": 1791192814556
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814582
+          },
+          {
+            "kind": 3,
+            "bytes": 137,
+            "atMs": 1791192814583
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814609
+          },
+          {
+            "kind": 3,
+            "bytes": 116,
+            "atMs": 1791192814619
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192814620
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814661
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814675
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814682
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814688
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814766
+          },
+          {
+            "kind": 10,
+            "bytes": 59,
+            "atMs": 1791192815185
+          },
+          {
+            "kind": 14,
+            "bytes": 2,
+            "atMs": 1791192815185
+          }
+        ],
+        "packetsFromBroker": [
+          {
+            "kind": 2,
+            "bytes": 4,
+            "atMs": 1791192813883
+          },
+          {
+            "kind": 9,
+            "bytes": 5,
+            "atMs": 1791192813885
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192814115
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192814127
+          },
+          {
+            "kind": 3,
+            "bytes": 1404,
+            "atMs": 1791192814130
+          },
+          {
+            "kind": 3,
+            "bytes": 1244,
+            "atMs": 1791192814130
+          },
+          {
+            "kind": 3,
+            "bytes": 134,
+            "atMs": 1791192814138
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192814139
+          },
+          {
+            "kind": 3,
+            "bytes": 230,
+            "atMs": 1791192814146
+          },
+          {
+            "kind": 3,
+            "bytes": 1467,
+            "atMs": 1791192814148
+          },
+          {
+            "kind": 3,
+            "bytes": 134,
+            "atMs": 1791192814149
+          },
+          {
+            "kind": 3,
+            "bytes": 112,
+            "atMs": 1791192814153
+          },
+          {
+            "kind": 3,
+            "bytes": 111,
+            "atMs": 1791192814153
+          },
+          {
+            "kind": 3,
+            "bytes": 1498,
+            "atMs": 1791192814153
+          },
+          {
+            "kind": 3,
+            "bytes": 112,
+            "atMs": 1791192814157
+          },
+          {
+            "kind": 3,
+            "bytes": 1530,
+            "atMs": 1791192814159
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814161
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814164
+          },
+          {
+            "kind": 3,
+            "bytes": 276,
+            "atMs": 1791192814446
+          },
+          {
+            "kind": 3,
+            "bytes": 112,
+            "atMs": 1791192814446
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814447
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814447
+          },
+          {
+            "kind": 3,
+            "bytes": 112,
+            "atMs": 1791192814450
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814475
+          },
+          {
+            "kind": 3,
+            "bytes": 115,
+            "atMs": 1791192814478
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814503
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814525
+          },
+          {
+            "kind": 3,
+            "bytes": 137,
+            "atMs": 1791192814545
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814556
+          },
+          {
+            "kind": 3,
+            "bytes": 137,
+            "atMs": 1791192814579
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814584
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814611
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814616
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814672
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814679
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814685
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814689
+          },
+          {
+            "kind": 3,
+            "bytes": 108,
+            "atMs": 1791192814738
+          },
+          {
+            "kind": 3,
+            "bytes": 124,
+            "atMs": 1791192814807
+          }
+        ],
+        "publishCount": 33,
+        "closedMs": 1791192815186
+      },
+      {
+        "label": "browser-normal",
+        "mode": "normal",
+        "packetsFromClient": [
+          {
+            "kind": 1,
+            "bytes": 58,
+            "atMs": 1791192813960
+          },
+          {
+            "kind": 8,
+            "bytes": 60,
+            "atMs": 1791192813961
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192814114
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192814127
+          },
+          {
+            "kind": 3,
+            "bytes": 1404,
+            "atMs": 1791192814127
+          },
+          {
+            "kind": 3,
+            "bytes": 1244,
+            "atMs": 1791192814129
+          },
+          {
+            "kind": 3,
+            "bytes": 134,
+            "atMs": 1791192814129
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192814130
+          },
+          {
+            "kind": 3,
+            "bytes": 230,
+            "atMs": 1791192814145
+          },
+          {
+            "kind": 3,
+            "bytes": 1467,
+            "atMs": 1791192814147
+          },
+          {
+            "kind": 3,
+            "bytes": 134,
+            "atMs": 1791192814148
+          },
+          {
+            "kind": 3,
+            "bytes": 112,
+            "atMs": 1791192814149
+          },
+          {
+            "kind": 3,
+            "bytes": 111,
+            "atMs": 1791192814151
+          },
+          {
+            "kind": 3,
+            "bytes": 1498,
+            "atMs": 1791192814152
+          },
+          {
+            "kind": 3,
+            "bytes": 112,
+            "atMs": 1791192814157
+          },
+          {
+            "kind": 3,
+            "bytes": 1530,
+            "atMs": 1791192814158
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814160
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814163
+          },
+          {
+            "kind": 3,
+            "bytes": 276,
+            "atMs": 1791192814445
+          },
+          {
+            "kind": 3,
+            "bytes": 112,
+            "atMs": 1791192814446
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814446
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814447
+          },
+          {
+            "kind": 3,
+            "bytes": 112,
+            "atMs": 1791192814450
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814474
+          },
+          {
+            "kind": 3,
+            "bytes": 115,
+            "atMs": 1791192814477
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814503
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814524
+          },
+          {
+            "kind": 3,
+            "bytes": 137,
+            "atMs": 1791192814544
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814544
+          },
+          {
+            "kind": 3,
+            "bytes": 137,
+            "atMs": 1791192814579
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814583
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814610
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814616
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814671
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814678
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814684
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814688
+          },
+          {
+            "kind": 3,
+            "bytes": 108,
+            "atMs": 1791192814738
+          },
+          {
+            "kind": 3,
+            "bytes": 124,
+            "atMs": 1791192814806
+          },
+          {
+            "kind": 10,
+            "bytes": 59,
+            "atMs": 1791192814970
+          },
+          {
+            "kind": 14,
+            "bytes": 2,
+            "atMs": 1791192814970
+          }
+        ],
+        "packetsFromBroker": [
+          {
+            "kind": 2,
+            "bytes": 4,
+            "atMs": 1791192813960
+          },
+          {
+            "kind": 9,
+            "bytes": 5,
+            "atMs": 1791192813961
+          },
+          {
+            "kind": 3,
+            "bytes": 1278,
+            "atMs": 1791192814119
+          },
+          {
+            "kind": 3,
+            "bytes": 524,
+            "atMs": 1791192814137
+          },
+          {
+            "kind": 3,
+            "bytes": 1404,
+            "atMs": 1791192814138
+          },
+          {
+            "kind": 3,
+            "bytes": 1154,
+            "atMs": 1791192814146
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192814146
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814146
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814150
+          },
+          {
+            "kind": 3,
+            "bytes": 1467,
+            "atMs": 1791192814155
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814155
+          },
+          {
+            "kind": 3,
+            "bytes": 1498,
+            "atMs": 1791192814158
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814160
+          },
+          {
+            "kind": 3,
+            "bytes": 1530,
+            "atMs": 1791192814162
+          },
+          {
+            "kind": 3,
+            "bytes": 215,
+            "atMs": 1791192814300
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192814359
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192814359
+          },
+          {
+            "kind": 3,
+            "bytes": 157,
+            "atMs": 1791192814448
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814475
+          },
+          {
+            "kind": 3,
+            "bytes": 115,
+            "atMs": 1791192814476
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814501
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814503
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814528
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814556
+          },
+          {
+            "kind": 3,
+            "bytes": 137,
+            "atMs": 1791192814557
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814582
+          },
+          {
+            "kind": 3,
+            "bytes": 137,
+            "atMs": 1791192814584
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814611
+          },
+          {
+            "kind": 3,
+            "bytes": 116,
+            "atMs": 1791192814620
+          },
+          {
+            "kind": 3,
+            "bytes": 107,
+            "atMs": 1791192814661
+          },
+          {
+            "kind": 3,
+            "bytes": 109,
+            "atMs": 1791192814661
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814676
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814683
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814688
+          },
+          {
+            "kind": 3,
+            "bytes": 110,
+            "atMs": 1791192814766
+          },
+          {
+            "kind": 11,
+            "bytes": 4,
+            "atMs": 1791192814971
+          }
+        ],
+        "publishCount": 37,
+        "closedMs": 1791192814972
+      }
+    ],
+    "tls": [
+      {
+        "role": "native",
+        "protocol": "TLSv1.3",
+        "cipher": "TLS_AES_256_GCM_SHA384",
+        "atMs": 1791192812207
+      },
+      {
+        "role": "browser",
+        "protocol": "TLSv1.3",
+        "cipher": "TLS_AES_256_GCM_SHA384",
+        "atMs": 1791192813103
+      },
+      {
+        "role": "native",
+        "protocol": "TLSv1.3",
+        "cipher": "TLS_AES_256_GCM_SHA384",
+        "atMs": 1791192813882
+      },
+      {
+        "role": "browser",
+        "protocol": "TLSv1.3",
+        "cipher": "TLS_AES_256_GCM_SHA384",
+        "atMs": 1791192813946
+      }
+    ]
+  },
+  "origin": "http://127.0.0.1:43606",
+  "savedMaterials": {
+    "authorization_saved": true,
+    "running": true,
+    "secret_saved": true,
+    "stage": "Complete"
+  },
+  "identitiesReopened": {
+    "browser": true,
+    "native": true
+  },
+  "capabilityObservations": [
+    {
+      "generation": "member-reopened",
+      "capability": {
+        "effective": false,
+        "permitted": true,
+        "probe": {
+          "channelCloseRequested": false,
+          "channelCreated": false,
+          "pcClosed": true,
+          "pcCreated": false
+        },
+        "reason": "peer-connection-rejected",
+        "supported": false
+      },
+      "objects": {
+        "mode": "peer-connection-denied",
+        "injected": true,
+        "peerCreated": 0,
+        "peerCloseCalls": 0,
+        "channelCreated": 0,
+        "channelCloseCalls": 0,
+        "openPeerConnections": 0,
+        "openDataChannels": 0,
+        "sockets": [
+          {
+            "origin": "wss://localhost:43866",
+            "createdAtMs": 457.7999999523163,
+            "sentBytes": 24080,
+            "receivedBytes": 22189,
+            "sentFrames": 51,
+            "receivedFrames": 43,
+            "errorEvents": 0,
+            "openedAtMs": 527.6999998092651,
+            "closedAtMs": 977.3999998569489,
+            "closeCode": 1005,
+            "closeWasClean": true,
+            "readyState": 3
+          },
+          {
+            "origin": "wss://localhost:43866",
+            "createdAtMs": 1304.7999999523163,
+            "sentBytes": 118,
+            "receivedBytes": 9,
+            "sentFrames": 2,
+            "receivedFrames": 2,
+            "errorEvents": 0,
+            "openedAtMs": 1321.3999998569489,
+            "readyState": 1
+          },
+          {
+            "origin": "wss://localhost:44806",
+            "createdAtMs": 1320.2999999523163,
+            "sentBytes": 0,
+            "receivedBytes": 0,
+            "sentFrames": 0,
+            "receivedFrames": 0,
+            "errorEvents": 0,
+            "readyState": 0
+          }
+        ],
+        "openWebSockets": 2
+      },
+      "status": {
+        "authorization_saved": true,
+        "running": true,
+        "secret_saved": true,
+        "stage": "Complete"
+      }
+    }
+  ],
+  "actualHomeBeforeDelay": {
+    "connectedCount": 1,
+    "errorCount": 0,
+    "publishedCount": 1
+  },
+  "members": [
+    {
+      "returned": true,
+      "callerMs": 787.8000001907349,
+      "diagnostics": {
+        "activeAssociations": 0,
+        "activePumpTasks": 0,
+        "bootstrap": {
+          "bindingUnchanged": true,
+          "capabilitiesVersion": 1,
+          "coordinator": {
+            "authorizationRevision": 1,
+            "event": "unified-path-ready",
+            "freshAck": true,
+            "probeWatermark": 13,
+            "role": "initiator",
+            "rtcRole": "None",
+            "selected": true,
+            "version": 1
+          },
+          "kind": "legacy-relay",
+          "relayFramesAfterConfirmation": [
+            {
+              "selected": false,
+              "streamReceived": 1,
+              "streamSent": 0
+            }
+          ],
+          "stableUnchanged": true,
+          "validatedRelay": {
+            "freshAck": true,
+            "freshAckMs": 132,
+            "freshProbeStartedMs": 72,
+            "probeWatermark": 3
+          }
+        },
+        "closed": false,
+        "paths": [
+          {
+            "ackFramesReceived": 0,
+            "ackFramesSent": 0,
+            "isRelay": true,
+            "isRtc": false,
+            "isSignal": false,
+            "pingFramesSent": 6,
+            "receivedBytes": 7154,
+            "selected": true,
+            "sentBytes": 8313,
+            "streamFramesReceived": 2,
+            "streamFramesSent": 0
+          }
+        ],
+        "resourceRevision": 1
+      },
+      "session": {
+        "alpn": "miopunch/session/member/1",
+        "bootstrap": {
+          "bindingUnchanged": true,
+          "capabilitiesVersion": 1,
+          "coordinator": {
+            "authorizationRevision": 1,
+            "event": "unified-path-ready",
+            "freshAck": true,
+            "probeWatermark": 13,
+            "role": "initiator",
+            "rtcRole": "None",
+            "selected": true,
+            "version": 1
+          },
+          "kind": "legacy-relay",
+          "relayFramesAfterConfirmation": [
+            {
+              "selected": false,
+              "streamReceived": 1,
+              "streamSent": 0
+            }
+          ],
+          "stableUnchanged": true,
+          "validatedRelay": {
+            "freshAck": true,
+            "freshAckMs": 132,
+            "freshProbeStartedMs": 72,
+            "probeWatermark": 3
+          }
+        },
+        "coordinator": {
+          "authorizationRevision": 1,
+          "event": "unified-path-ready",
+          "freshAck": true,
+          "probeWatermark": 13,
+          "role": "initiator",
+          "rtcRole": "None",
+          "selected": true,
+          "version": 1
+        },
+        "expectedPeerMatched": true,
+        "memberAuthorized": true,
+        "newProtocol": true,
+        "ordinaryHandle": true,
+        "paths": [
+          {
+            "isIp": false,
+            "isRelay": true,
+            "isRtc": false,
+            "isSignal": false,
+            "receivedBytes": 7154,
+            "selected": true,
+            "sentBytes": 8313
+          }
+        ]
+      },
+      "strictMemberAlpn": true,
+      "bothIdentitiesMatched": true,
+      "bothMemberGatesVerified": true,
+      "bothFreshAck": true,
+      "businessMatched": true,
+      "requestBytes": 40,
+      "responseBytes": 40,
+      "nativePath": {
+        "authorizationRevision": 1,
+        "event": "unified-path-ready",
+        "freshAck": true,
+        "probeWatermark": 13,
+        "role": "responder",
+        "rtcRole": "Answerer",
+        "selected": true,
+        "version": 1
+      },
+      "nativeRelease": {
+        "alpn": "miopunch/session/member/1",
+        "event": "member-released",
+        "memberAuthorized": true,
+        "paths": [
+          {
+            "ackReceived": 0,
+            "isIp": false,
+            "isRelay": true,
+            "selected": true,
+            "streamSent": 2
+          }
+        ],
+        "quicRole": "server"
+      },
+      "nativeBusiness": {
+        "alpn": "miopunch/session/member/1",
+        "bytes": 40,
+        "event": "business",
+        "memberMessage": false,
+        "reply": null
+      },
+      "newOrdinarySession": true
+    }
+  ],
+  "browserRelay": {
+    "carriers": [
+      {
+        "buffered_bytes": 0,
+        "closed": false,
+        "pending_bytes": 0,
+        "protocol": "mqtt",
+        "queued_packets": 0,
+        "ready": true,
+        "traffic": {
+          "buffered_bytes_peak": 4397,
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "generation": 1132326536,
+          "ready_ms": 1791192813962,
+          "received_bytes": 9363,
+          "received_frame_bytes": 11924,
+          "received_frames": 35,
+          "received_packets": 33,
+          "rejected_packets": 0,
+          "rx_queue_peak": 1,
+          "sent_bytes": 10545,
+          "sent_frame_bytes": 13525,
+          "sent_frames": 39,
+          "sent_packets": 37,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        }
+      }
+    ],
+    "gate": null,
+    "memberBootstraps": [
+      {
+        "bindingUnchanged": true,
+        "capabilitiesVersion": 1,
+        "coordinator": {
+          "authorizationRevision": 1,
+          "event": "unified-path-ready",
+          "freshAck": true,
+          "probeWatermark": 13,
+          "role": "initiator",
+          "rtcRole": "None",
+          "selected": true,
+          "version": 1
+        },
+        "kind": "legacy-relay",
+        "relayFramesAfterConfirmation": [
+          {
+            "selected": false,
+            "streamReceived": 1,
+            "streamSent": 0
+          }
+        ],
+        "stableUnchanged": true,
+        "validatedRelay": {
+          "freshAck": true,
+          "freshAckMs": 132,
+          "freshProbeStartedMs": 72,
+          "probeWatermark": 3
+        }
+      }
+    ],
+    "relayChecks": [
+      {
+        "attemptSequence": 1,
+        "cachedGateValid": true,
+        "configuredPermittedCount": 1,
+        "localCandidateCount": 1,
+        "localConnectedCount": 1,
+        "localPermittedMask": 4,
+        "localPublishedCount": 1,
+        "localRelayErrorCount": 0,
+        "localSupportedMask": 4,
+        "memberOpen": true,
+        "originalOpen": true,
+        "permittedRelayPathCount": 0,
+        "phase": "begin",
+        "relayPathCount": 0,
+        "rtcRole": 0,
+        "selectedRouteKind": "signal",
+        "sideClient": true,
+        "storageGateCheckPassed": true,
+        "tag": "DEBUG-mio76-relay"
+      },
+      {
+        "attemptSequence": 1,
+        "cachedGateValid": true,
+        "configuredPermittedCount": 1,
+        "localCandidateCount": 1,
+        "localConnectedCount": 1,
+        "localPermittedMask": 4,
+        "localPublishedCount": 1,
+        "localRelayErrorCount": 0,
+        "localSupportedMask": 4,
+        "memberOpen": true,
+        "mutuallyAllowedCount": 1,
+        "originalOpen": true,
+        "permittedRelayPathCount": 0,
+        "phase": "exchange",
+        "relayPathCount": 0,
+        "remoteCandidateCount": 1,
+        "rtcRole": 0,
+        "selectedRouteKind": "signal",
+        "sideClient": true,
+        "storageGateCheckPassed": true,
+        "tag": "DEBUG-mio76-relay"
+      },
+      {
+        "attemptSequence": 1,
+        "cachedGateValid": true,
+        "callerRemainingMs": 11437,
+        "configuredPermittedCount": 1,
+        "elapsedMs": 63,
+        "exactProbePathPresent": true,
+        "freshProbeIssued": true,
+        "localConnectedCount": 1,
+        "localPermittedMask": 4,
+        "localPublishedCount": 1,
+        "localRelayErrorCount": 0,
+        "localSupportedMask": 4,
+        "memberOpen": true,
+        "originalOpen": true,
+        "permittedRelayPathCount": 1,
+        "phase": "probe-start",
+        "probeAckRx": 0,
+        "probeAckTx": 0,
+        "probeBytesRx": 1200,
+        "probeBytesTx": 3726,
+        "probeDatagramsRx": 1,
+        "probeDatagramsTx": 3,
+        "probeLostPackets": 0,
+        "probePathAckRx": 0,
+        "probePathAckTx": 1,
+        "probePathRttMicros": 5700,
+        "probePathSelected": false,
+        "probePingRx": 0,
+        "probePingTx": 1,
+        "probeWatermark": 3,
+        "relayPathCount": 1,
+        "rtcRole": 0,
+        "selectedRouteKind": "signal",
+        "sideClient": true,
+        "storageGateCheckPassed": true,
+        "tag": "DEBUG-mio76-relay"
+      },
+      {
+        "attemptSequence": 1,
+        "cachedGateValid": true,
+        "callerRemainingMs": 11377,
+        "configuredPermittedCount": 1,
+        "elapsedMs": 123,
+        "exactProbePathPresent": true,
+        "freshAck": true,
+        "localConnectedCount": 1,
+        "localPermittedMask": 4,
+        "localPublishedCount": 1,
+        "localRelayErrorCount": 0,
+        "localSupportedMask": 4,
+        "memberOpen": true,
+        "originalOpen": true,
+        "permittedRelayPathCount": 1,
+        "phase": "probe-ack",
+        "probeAckRx": 0,
+        "probeAckTx": 0,
+        "probeBytesRx": 6981,
+        "probeBytesTx": 8181,
+        "probeDatagramsRx": 11,
+        "probeDatagramsTx": 12,
+        "probeLostPackets": 0,
+        "probePathAckRx": 4,
+        "probePathAckTx": 6,
+        "probePathRttMicros": 9821,
+        "probePathSelected": false,
+        "probePingRx": 5,
+        "probePingTx": 5,
+        "probeWatermark": 3,
+        "relayPathCount": 1,
+        "rtcRole": 0,
+        "selectedRouteKind": "signal",
+        "sideClient": true,
+        "storageGateCheckPassed": true,
+        "tag": "DEBUG-mio76-relay"
+      },
+      {
+        "attemptSequence": 1,
+        "cachedGateValid": true,
+        "configuredPermittedCount": 1,
+        "localConnectedCount": 1,
+        "localPermittedMask": 4,
+        "localPublishedCount": 1,
+        "localRelayErrorCount": 0,
+        "localSupportedMask": 4,
+        "memberOpen": true,
+        "originalOpen": true,
+        "permittedRelayPathCount": 1,
+        "phase": "validation-end",
+        "relayPathCount": 1,
+        "rtcRole": 0,
+        "selectedRouteKind": "signal",
+        "sideClient": true,
+        "storageGateCheckPassed": true,
+        "tag": "DEBUG-mio76-relay",
+        "validationOk": true
+      },
+      {
+        "attemptSequence": 1,
+        "cachedGateValid": true,
+        "configuredPermittedCount": 1,
+        "finishOk": true,
+        "localCandidateCount": 1,
+        "localConnectedCount": 1,
+        "localPermittedMask": 4,
+        "localPublishedCount": 1,
+        "localRelayErrorCount": 0,
+        "localSupportedMask": 4,
+        "memberOpen": true,
+        "mutuallyAllowedCount": 1,
+        "originalOpen": true,
+        "permittedRelayPathCount": 1,
+        "phase": "finish",
+        "relayPathCount": 1,
+        "remoteCandidateCount": 1,
+        "rtcRole": 0,
+        "selectedRouteKind": "signal",
+        "sideClient": true,
+        "storageGateCheckPassed": true,
+        "tag": "DEBUG-mio76-relay"
+      }
+    ],
+    "relayHome": {
+      "connectedCount": 1,
+      "errorCount": 0,
+      "publishedCount": 1
+    },
+    "rtcCapability": {
+      "effective": false,
+      "permitted": true,
+      "probe": {
+        "channelCloseRequested": false,
+        "channelCreated": false,
+        "pcClosed": true,
+        "pcCreated": false
+      },
+      "reason": "peer-connection-rejected",
+      "supported": false
+    }
+  },
+  "browserFinal": {
+    "carriers": [
+      {
+        "buffered_bytes": 0,
+        "closed": false,
+        "pending_bytes": 0,
+        "protocol": "mqtt",
+        "queued_packets": 0,
+        "ready": true,
+        "traffic": {
+          "buffered_bytes_peak": 4397,
+          "connack": 0,
+          "disconnect_sent": false,
+          "failure": null,
+          "generation": 1132326536,
+          "ready_ms": 1791192813962,
+          "received_bytes": 9363,
+          "received_frame_bytes": 11924,
+          "received_frames": 35,
+          "received_packets": 33,
+          "rejected_packets": 0,
+          "rx_queue_peak": 1,
+          "sent_bytes": 10545,
+          "sent_frame_bytes": 13525,
+          "sent_frames": 39,
+          "sent_packets": 37,
+          "suback_codes": [
+            0
+          ],
+          "suback_id": 1,
+          "subscribe_id": 1,
+          "unsubscribe_sent": false,
+          "withdraw_ms": null
+        }
+      }
+    ],
+    "gate": null,
+    "memberBootstraps": [
+      {
+        "bindingUnchanged": true,
+        "capabilitiesVersion": 1,
+        "coordinator": {
+          "authorizationRevision": 1,
+          "event": "unified-path-ready",
+          "freshAck": true,
+          "probeWatermark": 13,
+          "role": "initiator",
+          "rtcRole": "None",
+          "selected": true,
+          "version": 1
+        },
+        "kind": "legacy-relay",
+        "relayFramesAfterConfirmation": [
+          {
+            "selected": false,
+            "streamReceived": 1,
+            "streamSent": 0
+          }
+        ],
+        "stableUnchanged": true,
+        "validatedRelay": {
+          "freshAck": true,
+          "freshAckMs": 132,
+          "freshProbeStartedMs": 72,
+          "probeWatermark": 3
+        }
+      }
+    ],
+    "relayChecks": [
+      {
+        "attemptSequence": 1,
+        "cachedGateValid": true,
+        "configuredPermittedCount": 1,
+        "localCandidateCount": 1,
+        "localConnectedCount": 1,
+        "localPermittedMask": 4,
+        "localPublishedCount": 1,
+        "localRelayErrorCount": 0,
+        "localSupportedMask": 4,
+        "memberOpen": true,
+        "originalOpen": true,
+        "permittedRelayPathCount": 0,
+        "phase": "begin",
+        "relayPathCount": 0,
+        "rtcRole": 0,
+        "selectedRouteKind": "signal",
+        "sideClient": true,
+        "storageGateCheckPassed": true,
+        "tag": "DEBUG-mio76-relay"
+      },
+      {
+        "attemptSequence": 1,
+        "cachedGateValid": true,
+        "configuredPermittedCount": 1,
+        "localCandidateCount": 1,
+        "localConnectedCount": 1,
+        "localPermittedMask": 4,
+        "localPublishedCount": 1,
+        "localRelayErrorCount": 0,
+        "localSupportedMask": 4,
+        "memberOpen": true,
+        "mutuallyAllowedCount": 1,
+        "originalOpen": true,
+        "permittedRelayPathCount": 0,
+        "phase": "exchange",
+        "relayPathCount": 0,
+        "remoteCandidateCount": 1,
+        "rtcRole": 0,
+        "selectedRouteKind": "signal",
+        "sideClient": true,
+        "storageGateCheckPassed": true,
+        "tag": "DEBUG-mio76-relay"
+      },
+      {
+        "attemptSequence": 1,
+        "cachedGateValid": true,
+        "callerRemainingMs": 11437,
+        "configuredPermittedCount": 1,
+        "elapsedMs": 63,
+        "exactProbePathPresent": true,
+        "freshProbeIssued": true,
+        "localConnectedCount": 1,
+        "localPermittedMask": 4,
+        "localPublishedCount": 1,
+        "localRelayErrorCount": 0,
+        "localSupportedMask": 4,
+        "memberOpen": true,
+        "originalOpen": true,
+        "permittedRelayPathCount": 1,
+        "phase": "probe-start",
+        "probeAckRx": 0,
+        "probeAckTx": 0,
+        "probeBytesRx": 1200,
+        "probeBytesTx": 3726,
+        "probeDatagramsRx": 1,
+        "probeDatagramsTx": 3,
+        "probeLostPackets": 0,
+        "probePathAckRx": 0,
+        "probePathAckTx": 1,
+        "probePathRttMicros": 5700,
+        "probePathSelected": false,
+        "probePingRx": 0,
+        "probePingTx": 1,
+        "probeWatermark": 3,
+        "relayPathCount": 1,
+        "rtcRole": 0,
+        "selectedRouteKind": "signal",
+        "sideClient": true,
+        "storageGateCheckPassed": true,
+        "tag": "DEBUG-mio76-relay"
+      },
+      {
+        "attemptSequence": 1,
+        "cachedGateValid": true,
+        "callerRemainingMs": 11377,
+        "configuredPermittedCount": 1,
+        "elapsedMs": 123,
+        "exactProbePathPresent": true,
+        "freshAck": true,
+        "localConnectedCount": 1,
+        "localPermittedMask": 4,
+        "localPublishedCount": 1,
+        "localRelayErrorCount": 0,
+        "localSupportedMask": 4,
+        "memberOpen": true,
+        "originalOpen": true,
+        "permittedRelayPathCount": 1,
+        "phase": "probe-ack",
+        "probeAckRx": 0,
+        "probeAckTx": 0,
+        "probeBytesRx": 6981,
+        "probeBytesTx": 8181,
+        "probeDatagramsRx": 11,
+        "probeDatagramsTx": 12,
+        "probeLostPackets": 0,
+        "probePathAckRx": 4,
+        "probePathAckTx": 6,
+        "probePathRttMicros": 9821,
+        "probePathSelected": false,
+        "probePingRx": 5,
+        "probePingTx": 5,
+        "probeWatermark": 3,
+        "relayPathCount": 1,
+        "rtcRole": 0,
+        "selectedRouteKind": "signal",
+        "sideClient": true,
+        "storageGateCheckPassed": true,
+        "tag": "DEBUG-mio76-relay"
+      },
+      {
+        "attemptSequence": 1,
+        "cachedGateValid": true,
+        "configuredPermittedCount": 1,
+        "localConnectedCount": 1,
+        "localPermittedMask": 4,
+        "localPublishedCount": 1,
+        "localRelayErrorCount": 0,
+        "localSupportedMask": 4,
+        "memberOpen": true,
+        "originalOpen": true,
+        "permittedRelayPathCount": 1,
+        "phase": "validation-end",
+        "relayPathCount": 1,
+        "rtcRole": 0,
+        "selectedRouteKind": "signal",
+        "sideClient": true,
+        "storageGateCheckPassed": true,
+        "tag": "DEBUG-mio76-relay",
+        "validationOk": true
+      },
+      {
+        "attemptSequence": 1,
+        "cachedGateValid": true,
+        "configuredPermittedCount": 1,
+        "finishOk": true,
+        "localCandidateCount": 1,
+        "localConnectedCount": 1,
+        "localPermittedMask": 4,
+        "localPublishedCount": 1,
+        "localRelayErrorCount": 0,
+        "localSupportedMask": 4,
+        "memberOpen": true,
+        "mutuallyAllowedCount": 1,
+        "originalOpen": true,
+        "permittedRelayPathCount": 1,
+        "phase": "finish",
+        "relayPathCount": 1,
+        "remoteCandidateCount": 1,
+        "rtcRole": 0,
+        "selectedRouteKind": "signal",
+        "sideClient": true,
+        "storageGateCheckPassed": true,
+        "tag": "DEBUG-mio76-relay"
+      }
+    ],
+    "relayHome": {
+      "connectedCount": 1,
+      "errorCount": 0,
+      "publishedCount": 1
+    },
+    "rtcCapability": {
+      "effective": false,
+      "permitted": true,
+      "probe": {
+        "channelCloseRequested": false,
+        "channelCreated": false,
+        "pcClosed": true,
+        "pcCreated": false
+      },
+      "reason": "peer-connection-rejected",
+      "supported": false
+    }
+  },
+  "completedUtc": "2026-10-05T09:33:35.310Z"
+}

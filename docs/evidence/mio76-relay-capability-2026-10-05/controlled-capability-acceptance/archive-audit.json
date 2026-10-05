@@ -1,0 +1,187 @@
+{
+  "scope": "byte-exact packaging audit only; no runtime/source/artifact changes or rerun",
+  "archives": [
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-disabled-first-20261005/receipt.json",
+      "storedPath": "raw/disabled/receipt.json.gz",
+      "originalSha256": "5e33601185ee8100c562c30fcdc314900e7b5006d746c7fde48c75f0a3b3aabc",
+      "storedSha256": "a54feb4713441d6f3f910f4c3c3f16d3c1fefce60e16f9a0a5f239080583a240",
+      "originalBytes": 82609,
+      "storedBytes": 7302,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-disabled-first-20261005/outer-receipt.json",
+      "storedPath": "raw/disabled/outer-receipt.json.gz",
+      "originalSha256": "021933c9917daf987f77a5ab450ca50d5564a3c4c1be6a51ec5a1ac6f2cef076",
+      "storedSha256": "f40c719915dad5fb6d05b1955906e09f934b51f64a82ab55ba5c0340ca08e3fa",
+      "originalBytes": 64007,
+      "storedBytes": 17224,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-disabled-first-20261005/run.log",
+      "storedPath": "raw/disabled/run.log.gz",
+      "originalSha256": "3804146a6b3b04a2600d9f08f933c06e2e6e0e8764cdba4698b9e2502d1fb86c",
+      "storedSha256": "c0a7cbe3163632e4bcb03dea880aec1ed637bd85499f5d464816a7ad061055ca",
+      "originalBytes": 110,
+      "storedBytes": 116,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-pc-denied-first-20261005/receipt.json",
+      "storedPath": "raw/pc-denied/receipt.json.gz",
+      "originalSha256": "b785af227ac4aad3f78eb209d2642b7d90e90d83ffb974120a9344e0b709c505",
+      "storedSha256": "d68f96b0b8f40608b898dc08ac732514cdb07072714890f9e7b5877065e8901d",
+      "originalBytes": 82056,
+      "storedBytes": 7181,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-pc-denied-first-20261005/outer-receipt.json",
+      "storedPath": "raw/pc-denied/outer-receipt.json.gz",
+      "originalSha256": "6dc382113cd8a6566bee10b2ffeb2a6b9278bad9b6c5ed28ca1c0247727185ec",
+      "storedSha256": "eea902de86b3b79e31b96f451e3e41b316a0ec75e6bf0678675155860b2ce086",
+      "originalBytes": 64012,
+      "storedBytes": 17231,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-pc-denied-first-20261005/run.log",
+      "storedPath": "raw/pc-denied/run.log.gz",
+      "originalSha256": "fb6645e57b241130e75621c7bea4925ec9639f0be1c1b6f8fbb7d263ab908f5a",
+      "storedSha256": "b64f6069e484c2b394a9a7b5c284fe0dcddf950d4d0ff4344ace8019bb8f524e",
+      "originalBytes": 111,
+      "storedBytes": 117,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-dc-denied-first-20261005/receipt.json",
+      "storedPath": "raw/dc-denied/receipt.json.gz",
+      "originalSha256": "84db60bfaa86898458a0422401fcbf28be63fbe82aa5c0cdfca3dccafb5e92ad",
+      "storedSha256": "f6e7428638e956ec60a250665db9e4458961e3b85be4474f1446f5911f897e10",
+      "originalBytes": 81308,
+      "storedBytes": 7198,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-dc-denied-first-20261005/outer-receipt.json",
+      "storedPath": "raw/dc-denied/outer-receipt.json.gz",
+      "originalSha256": "382684f4261791e07ecabafae62a6a464458fb65a3e9a8e53d854cb934eca430",
+      "storedSha256": "6713af6cccbda51f71e65a712d3674bcbbd4d051643583ca6f5c3401b0a0f18a",
+      "originalBytes": 64014,
+      "storedBytes": 17228,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-dc-denied-first-20261005/run.log",
+      "storedPath": "raw/dc-denied/run.log.gz",
+      "originalSha256": "6bab69aea6d3a3349799af16327a84addeefee4ba5311a5068dacfb77730ccc7",
+      "storedSha256": "77015d19f775b08063eab71cd4b5fdc0e6284de078faec6e626bc0ce282f83c0",
+      "originalBytes": 111,
+      "storedBytes": 117,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-no-data-path-first-20261005/receipt.json",
+      "storedPath": "raw/no-data-path/receipt.json.gz",
+      "originalSha256": "b37c27794b0ae4dd21bb19b97b56d8589382432c79e9e92710c74564a0ce9b89",
+      "storedSha256": "486c208ad4f62f72b9096a2fa2c3dbacc4960dd66f719669d514e04d9cd549a4",
+      "originalBytes": 129815,
+      "storedBytes": 8911,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-no-data-path-first-20261005/outer-receipt.json",
+      "storedPath": "raw/no-data-path/outer-receipt.json.gz",
+      "originalSha256": "a30be158d76a32ac6e45a79cbf7ac3dc827918fe8a6b4ef1eb118579b3242123",
+      "storedSha256": "5f1e69440fe150669561cdcd3d2fc9405581f78c1b7f51168be14b14700126ca",
+      "originalBytes": 64016,
+      "storedBytes": 17232,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-no-data-path-first-20261005/run.log",
+      "storedPath": "raw/no-data-path/run.log.gz",
+      "originalSha256": "9fea30b6cb27bde1ccb2649f78bbfd4030fcc7c4004d875c11e2206b5f7724cd",
+      "storedSha256": "b38becfe120ec073b996dcd1fa11e9ab2bad714b0ba80c64f45481497f59824a",
+      "originalBytes": 114,
+      "storedBytes": 118,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-acceptance-20261005/private-build-receipt.json",
+      "storedPath": "raw/build/receipt.json.gz",
+      "originalSha256": "a774f4a25f3f9c84239d3adb9a13ab50e756177477b8c3c2f60a1691c022596a",
+      "storedSha256": "0572a3dcf31bb9205a02e4a621b3cdf52dd1ba7cb934bcbbef655196926f1859",
+      "originalBytes": 3415,
+      "storedBytes": 1029,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-acceptance-20261005/private-build-sources-before.json",
+      "storedPath": "raw/build/sources-before.json.gz",
+      "originalSha256": "dcdb68b2a12cca6d002b4705608597cbcf9713b8eb3c58ce0e7eff015ec492b4",
+      "storedSha256": "49b7733196c4f342caf542d642dfe23874d6778ac980a3e6076a5f0d4382a7f6",
+      "originalBytes": 53278,
+      "storedBytes": 23312,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-acceptance-20261005/private-build-sources-after.json",
+      "storedPath": "raw/build/sources-after.json.gz",
+      "originalSha256": "dcdb68b2a12cca6d002b4705608597cbcf9713b8eb3c58ce0e7eff015ec492b4",
+      "storedSha256": "49b7733196c4f342caf542d642dfe23874d6778ac980a3e6076a5f0d4382a7f6",
+      "originalBytes": 53278,
+      "storedBytes": 23312,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-acceptance-20261005/private-build-selected-dependencies-canonical.json",
+      "storedPath": "raw/build/selected-dependencies-canonical.json.gz",
+      "originalSha256": "6817b5aa18a4ce79cc45bb8cd67c0f8be66720ca13b3ad050941404e1de4c139",
+      "storedSha256": "ea6dfba8ae4e31f7cd32abca613bde005a641f19b3e8590c7ed24efccbb4db3e",
+      "originalBytes": 52608,
+      "storedBytes": 14551,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-acceptance-20261005/first-preflight-failure/preflight-first-failure.json",
+      "storedPath": "raw/first-preflight-failure/preflight-first-failure.json.gz",
+      "originalSha256": "c7c7aed56093c74a7801b627d2aaf484f4c09d9f3dde314ce3a107eb0610fb1a",
+      "storedSha256": "5eefeddca6f46cc704d5c0d20bdbb57d7c5657b8b391e8b9baa1193b48da7f28",
+      "originalBytes": 368,
+      "storedBytes": 278,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-controlled-capability-acceptance-20261005/first-preflight-failure/first-preflight-outer.py",
+      "storedPath": "raw/first-preflight-failure/first-preflight-outer.py.gz",
+      "originalSha256": "83cb583f5b3cd12f1f664ec5f83e49f7243c2d094b7a67e4ebeec0a58d7f8440",
+      "storedSha256": "745837dad62c477fe407980e4954a10e400589a7e9c069b87bd67276edebdefc",
+      "originalBytes": 6338,
+      "storedBytes": 2588,
+      "byteExact": true
+    }
+  ],
+  "archiveCount": 18,
+  "safeReceiptTransforms": {
+    "disabled": [
+      "/browserRelay/memberBootstraps numeric private correlation keys omitted",
+      "/browserFinal/memberBootstraps numeric private correlation keys omitted"
+    ],
+    "pc-denied": [
+      "/browserRelay/memberBootstraps numeric private correlation keys omitted",
+      "/browserFinal/memberBootstraps numeric private correlation keys omitted"
+    ],
+    "dc-denied": [
+      "/browserRelay/memberBootstraps numeric private correlation keys omitted",
+      "/browserFinal/memberBootstraps numeric private correlation keys omitted"
+    ],
+    "no-data-path": [
+      "/browserRelay/memberBootstraps numeric private correlation keys omitted",
+      "/browserFinal/memberBootstraps numeric private correlation keys omitted"
+    ]
+  },
+  "elfPrivateCertOrMaterialIncluded": false
+}
