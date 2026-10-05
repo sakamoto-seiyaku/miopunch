@@ -1,0 +1,539 @@
+{
+  "scope": "actual owned Chromium Browser SDK startup only; createAnswer removal injection; no Native member, physical/public/NAT/STUN qualification",
+  "passed": false,
+  "startedUtc": "2026-10-05T11:13:52.452Z",
+  "stages": [
+    {
+      "name": "owned-browser-context",
+      "ok": true,
+      "elapsedMs": 674.0893639999999
+    },
+    {
+      "name": "sdk-own-identity-reservation",
+      "ok": true,
+      "elapsedMs": 153.44014100000004
+    },
+    {
+      "name": "sdk-create-answer-missing-startup",
+      "ok": true,
+      "elapsedMs": 71.69873800000005
+    }
+  ],
+  "cleanup": [
+    {
+      "label": "baseline-sdk",
+      "closed": true,
+      "immediate": {
+        "rtc": {
+          "activeAssociations": 0,
+          "activePumpTasks": 0,
+          "cleanupObservers": 0,
+          "publishedRoutes": [],
+          "resourceAllowed": false,
+          "resourceRevision": 1,
+          "retiredMemberReports": {},
+          "secretGeneration": 0,
+          "sourceRevision": 1
+        },
+        "objects": {
+          "mode": "observe",
+          "injected": false,
+          "peerCreated": 0,
+          "peerCloseCalls": 0,
+          "channelCreated": 0,
+          "channelCloseCalls": 0,
+          "openPeerConnections": 0,
+          "openDataChannels": 0,
+          "sockets": [
+            {
+              "origin": "wss://localhost:43316",
+              "createdAtMs": 580.4000000953674,
+              "sentBytes": 179,
+              "receivedBytes": 9,
+              "sentFrames": 4,
+              "receivedFrames": 2,
+              "errorEvents": 0,
+              "openedAtMs": 641.6000001430511,
+              "readyState": 2
+            }
+          ],
+          "openWebSockets": 1
+        }
+      },
+      "late": {
+        "rtc": {
+          "activeAssociations": 0,
+          "activePumpTasks": 0,
+          "cleanupObservers": 0,
+          "publishedRoutes": [],
+          "resourceAllowed": false,
+          "resourceRevision": 1,
+          "retiredMemberReports": {},
+          "secretGeneration": 0,
+          "sourceRevision": 1
+        },
+        "objects": {
+          "mode": "observe",
+          "injected": false,
+          "peerCreated": 0,
+          "peerCloseCalls": 0,
+          "channelCreated": 0,
+          "channelCloseCalls": 0,
+          "openPeerConnections": 0,
+          "openDataChannels": 0,
+          "sockets": [
+            {
+              "origin": "wss://localhost:43316",
+              "createdAtMs": 580.4000000953674,
+              "sentBytes": 179,
+              "receivedBytes": 9,
+              "sentFrames": 4,
+              "receivedFrames": 2,
+              "errorEvents": 0,
+              "openedAtMs": 641.6000001430511,
+              "closedAtMs": 669.7000000476837,
+              "closeCode": 1005,
+              "closeWasClean": true,
+              "readyState": 3
+            }
+          ],
+          "openWebSockets": 0
+        }
+      }
+    },
+    {
+      "label": "injected-sdk",
+      "closed": true,
+      "immediate": {
+        "rtc": {
+          "activeAssociations": 0,
+          "activePumpTasks": 0,
+          "cleanupObservers": 0,
+          "publishedRoutes": [],
+          "resourceAllowed": true,
+          "resourceRevision": 0,
+          "retiredMemberReports": {},
+          "secretGeneration": 0,
+          "sourceRevision": 1
+        },
+        "objects": {
+          "mode": "observe",
+          "injected": false,
+          "peerCreated": 1,
+          "peerCloseCalls": 1,
+          "channelCreated": 1,
+          "channelCloseCalls": 1,
+          "openPeerConnections": 0,
+          "openDataChannels": 0,
+          "sockets": [
+            {
+              "origin": "wss://localhost:43316",
+              "createdAtMs": 580.4000000953674,
+              "sentBytes": 179,
+              "receivedBytes": 9,
+              "sentFrames": 4,
+              "receivedFrames": 2,
+              "errorEvents": 0,
+              "openedAtMs": 641.6000001430511,
+              "closedAtMs": 669.7000000476837,
+              "closeCode": 1005,
+              "closeWasClean": true,
+              "readyState": 3
+            },
+            {
+              "origin": "wss://localhost:43316",
+              "createdAtMs": 804.1000001430511,
+              "sentBytes": 179,
+              "receivedBytes": 9,
+              "sentFrames": 4,
+              "receivedFrames": 2,
+              "errorEvents": 0,
+              "openedAtMs": 846.7999999523163,
+              "readyState": 2
+            }
+          ],
+          "openWebSockets": 1
+        }
+      },
+      "late": {
+        "rtc": {
+          "activeAssociations": 0,
+          "activePumpTasks": 0,
+          "cleanupObservers": 0,
+          "publishedRoutes": [],
+          "resourceAllowed": true,
+          "resourceRevision": 0,
+          "retiredMemberReports": {},
+          "secretGeneration": 0,
+          "sourceRevision": 1
+        },
+        "objects": {
+          "mode": "observe",
+          "injected": false,
+          "peerCreated": 1,
+          "peerCloseCalls": 1,
+          "channelCreated": 1,
+          "channelCloseCalls": 1,
+          "openPeerConnections": 0,
+          "openDataChannels": 0,
+          "sockets": [
+            {
+              "origin": "wss://localhost:43316",
+              "createdAtMs": 580.4000000953674,
+              "sentBytes": 179,
+              "receivedBytes": 9,
+              "sentFrames": 4,
+              "receivedFrames": 2,
+              "errorEvents": 0,
+              "openedAtMs": 641.6000001430511,
+              "closedAtMs": 669.7000000476837,
+              "closeCode": 1005,
+              "closeWasClean": true,
+              "readyState": 3
+            },
+            {
+              "origin": "wss://localhost:43316",
+              "createdAtMs": 804.1000001430511,
+              "sentBytes": 179,
+              "receivedBytes": 9,
+              "sentFrames": 4,
+              "receivedFrames": 2,
+              "errorEvents": 0,
+              "openedAtMs": 846.7999999523163,
+              "closedAtMs": 854.9000000953674,
+              "closeCode": 1005,
+              "closeWasClean": true,
+              "readyState": 3
+            }
+          ],
+          "openWebSockets": 0
+        }
+      }
+    },
+    {
+      "label": "browser-context",
+      "closed": true
+    },
+    {
+      "label": "local-services",
+      "serversClosed": true,
+      "socketSetEmpty": true
+    }
+  ],
+  "mqtt": {
+    "proxy": [
+      {
+        "label": "browser-normal",
+        "mode": "normal",
+        "packetsFromClient": [
+          {
+            "kind": 1,
+            "bytes": 58,
+            "atMs": 1791198833875
+          },
+          {
+            "kind": 8,
+            "bytes": 60,
+            "atMs": 1791198833878
+          },
+          {
+            "kind": 10,
+            "bytes": 59,
+            "atMs": 1791198833896
+          },
+          {
+            "kind": 14,
+            "bytes": 2,
+            "atMs": 1791198833896
+          }
+        ],
+        "packetsFromBroker": [
+          {
+            "kind": 2,
+            "bytes": 4,
+            "atMs": 1791198833876
+          },
+          {
+            "kind": 9,
+            "bytes": 5,
+            "atMs": 1791198833879
+          },
+          {
+            "kind": 11,
+            "bytes": 4,
+            "atMs": 1791198833896
+          }
+        ],
+        "publishCount": 0,
+        "closedMs": 1791198833897
+      },
+      {
+        "label": "browser-normal",
+        "mode": "normal",
+        "packetsFromClient": [
+          {
+            "kind": 1,
+            "bytes": 58,
+            "atMs": 1791198834079
+          },
+          {
+            "kind": 8,
+            "bytes": 60,
+            "atMs": 1791198834080
+          },
+          {
+            "kind": 10,
+            "bytes": 59,
+            "atMs": 1791198834085
+          },
+          {
+            "kind": 14,
+            "bytes": 2,
+            "atMs": 1791198834085
+          }
+        ],
+        "packetsFromBroker": [
+          {
+            "kind": 2,
+            "bytes": 4,
+            "atMs": 1791198834079
+          },
+          {
+            "kind": 9,
+            "bytes": 5,
+            "atMs": 1791198834080
+          },
+          {
+            "kind": 11,
+            "bytes": 4,
+            "atMs": 1791198834086
+          }
+        ],
+        "publishCount": 0,
+        "closedMs": 1791198834086
+      }
+    ],
+    "tls": [
+      {
+        "role": "browser",
+        "protocol": "TLSv1.3",
+        "cipher": "TLS_AES_256_GCM_SHA384",
+        "atMs": 1791198833822
+      },
+      {
+        "role": "browser",
+        "protocol": "TLSv1.3",
+        "cipher": "TLS_AES_256_GCM_SHA384",
+        "atMs": 1791198834077
+      }
+    ]
+  },
+  "baseline": {
+    "status": {
+      "authorization_saved": false,
+      "running": true,
+      "secret_saved": false,
+      "stage": "AwaitingApproval"
+    },
+    "paths": {
+      "carriers": [
+        {
+          "buffered_bytes": 0,
+          "closed": false,
+          "pending_bytes": 0,
+          "protocol": "mqtt",
+          "queued_packets": 0,
+          "ready": true,
+          "traffic": {
+            "buffered_bytes_peak": 60,
+            "connack": 0,
+            "disconnect_sent": false,
+            "failure": null,
+            "generation": 1246427563,
+            "ready_ms": 1791198833879,
+            "received_bytes": 0,
+            "received_frame_bytes": 9,
+            "received_frames": 2,
+            "received_packets": 0,
+            "rejected_packets": 0,
+            "rx_queue_peak": 0,
+            "sent_bytes": 0,
+            "sent_frame_bytes": 118,
+            "sent_frames": 2,
+            "sent_packets": 0,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": false,
+            "withdraw_ms": null
+          }
+        }
+      ],
+      "gate": null,
+      "incoming": {
+        "dispatcherStopped": false,
+        "pendingTls": 0,
+        "pendingWaiters": 0,
+        "rejectedIncoming": 0
+      },
+      "memberBootstraps": {},
+      "relayChecks": [],
+      "relayHome": {
+        "connectedCount": 0,
+        "errorCount": 0,
+        "publishedCount": 0
+      },
+      "rtcCapability": {
+        "effective": false,
+        "permitted": false,
+        "probe": {
+          "channelCloseRequested": false,
+          "channelCreated": false,
+          "pcClosed": true,
+          "pcCreated": false
+        },
+        "reason": "disabled-by-policy",
+        "supported": null
+      }
+    }
+  },
+  "injection": {
+    "ownedRuntime": "real Chromium RTCPeerConnection prototype",
+    "deleted": true,
+    "beforeCreateAnswer": "function",
+    "afterCreateAnswer": "undefined",
+    "createOffer": "function",
+    "createDataChannel": "function"
+  },
+  "observed": {
+    "status": {
+      "authorization_saved": false,
+      "running": true,
+      "secret_saved": false,
+      "stage": "AwaitingApproval"
+    },
+    "paths": {
+      "carriers": [
+        {
+          "buffered_bytes": 0,
+          "closed": false,
+          "pending_bytes": 0,
+          "protocol": "mqtt",
+          "queued_packets": 0,
+          "ready": true,
+          "traffic": {
+            "buffered_bytes_peak": 60,
+            "connack": 0,
+            "disconnect_sent": false,
+            "failure": null,
+            "generation": 1421567602,
+            "ready_ms": 1791198834080,
+            "received_bytes": 0,
+            "received_frame_bytes": 9,
+            "received_frames": 2,
+            "received_packets": 0,
+            "rejected_packets": 0,
+            "rx_queue_peak": 0,
+            "sent_bytes": 0,
+            "sent_frame_bytes": 118,
+            "sent_frames": 2,
+            "sent_packets": 0,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": false,
+            "withdraw_ms": null
+          }
+        }
+      ],
+      "gate": null,
+      "incoming": {
+        "dispatcherStopped": false,
+        "pendingTls": 0,
+        "pendingWaiters": 0,
+        "rejectedIncoming": 0
+      },
+      "memberBootstraps": {},
+      "relayChecks": [],
+      "relayHome": {
+        "connectedCount": 0,
+        "errorCount": 0,
+        "publishedCount": 0
+      },
+      "rtcCapability": {
+        "effective": true,
+        "permitted": true,
+        "probe": {
+          "channelCloseRequested": true,
+          "channelCreated": true,
+          "pcClosed": true,
+          "pcCreated": true
+        },
+        "reason": "available",
+        "supported": true
+      }
+    },
+    "rtc": {
+      "activeAssociations": 0,
+      "activePumpTasks": 0,
+      "cleanupObservers": 0,
+      "publishedRoutes": [],
+      "resourceAllowed": true,
+      "resourceRevision": 0,
+      "retiredMemberReports": {},
+      "secretGeneration": 0,
+      "sourceRevision": 1
+    },
+    "objects": {
+      "mode": "observe",
+      "injected": false,
+      "peerCreated": 1,
+      "peerCloseCalls": 1,
+      "channelCreated": 1,
+      "channelCloseCalls": 1,
+      "openPeerConnections": 0,
+      "openDataChannels": 0,
+      "sockets": [
+        {
+          "origin": "wss://localhost:43316",
+          "createdAtMs": 580.4000000953674,
+          "sentBytes": 179,
+          "receivedBytes": 9,
+          "sentFrames": 4,
+          "receivedFrames": 2,
+          "errorEvents": 0,
+          "openedAtMs": 641.6000001430511,
+          "closedAtMs": 669.7000000476837,
+          "closeCode": 1005,
+          "closeWasClean": true,
+          "readyState": 3
+        },
+        {
+          "origin": "wss://localhost:43316",
+          "createdAtMs": 804.1000001430511,
+          "sentBytes": 118,
+          "receivedBytes": 9,
+          "sentFrames": 2,
+          "receivedFrames": 2,
+          "errorEvents": 0,
+          "openedAtMs": 846.7999999523163,
+          "readyState": 1
+        }
+      ],
+      "openWebSockets": 1
+    }
+  },
+  "identityPreserved": true,
+  "savedStatusPreserved": true,
+  "materialScope": "owned persistent identity/reservation only; authorization and secret absent before and after; no approved member material qualification",
+  "failure": {
+    "class": "AssertionError",
+    "observation": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\ntrue !== false\n"
+  },
+  "ownedDatabaseDeleted": true,
+  "completedUtc": "2026-10-05T11:13:54.302Z"
+}

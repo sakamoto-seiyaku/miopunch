@@ -1,0 +1,340 @@
+{
+  "scope": "necessary createAnswer API correction; actual controlled Chromium Browser SDK startup only; no member/Native-role/physical/public/NAT/STUN qualification",
+  "cases": {
+    "red": {
+      "runnerExit": 1,
+      "rawDirectory": "raw/sdk-red",
+      "safeReceipt": "red.json",
+      "capability": {
+        "effective": true,
+        "permitted": true,
+        "probe": {
+          "channelCloseRequested": true,
+          "channelCreated": true,
+          "pcClosed": true,
+          "pcCreated": true
+        },
+        "reason": "available",
+        "supported": true
+      },
+      "identityPreserved": true,
+      "savedStatusPreserved": true,
+      "materialScope": "owned persistent identity/reservation only; authorization and secret absent before and after; no approved member material qualification",
+      "sourcesArtifactsHelpersStable": true,
+      "ownedCleanup": [
+        {
+          "ownedBrokerRemovalExit": 0
+        },
+        {
+          "ownedPrivateTrustAndProfileDirectoryRemoved": true,
+          "globalTrustModified": false
+        }
+      ],
+      "ownedDatabaseDeleted": true
+    },
+    "green": {
+      "runnerExit": 0,
+      "rawDirectory": "raw/sdk-green",
+      "safeReceipt": "green.json",
+      "capability": {
+        "effective": false,
+        "permitted": true,
+        "probe": {
+          "channelCloseRequested": false,
+          "channelCreated": false,
+          "pcClosed": true,
+          "pcCreated": false
+        },
+        "reason": "api-missing",
+        "supported": false
+      },
+      "identityPreserved": true,
+      "savedStatusPreserved": true,
+      "materialScope": "owned persistent identity/reservation only; authorization and secret absent before and after; no approved member material qualification",
+      "sourcesArtifactsHelpersStable": true,
+      "ownedCleanup": [
+        {
+          "ownedBrokerRemovalExit": 0
+        },
+        {
+          "ownedPrivateTrustAndProfileDirectoryRemoved": true,
+          "globalTrustModified": false
+        }
+      ],
+      "ownedDatabaseDeleted": true
+    }
+  },
+  "localBoundary": {
+    "genericNodeTestInvocation": "file-level harness failure only, preserved; not SDK proof",
+    "directRedTests": 5,
+    "directRedPass": 4,
+    "directRedFail": 1,
+    "directRedExit": 1,
+    "greenTests": 5,
+    "greenExit": 0
+  },
+  "build": {
+    "wasmExit": 0,
+    "bindgenExit": 0,
+    "sourceStable": true,
+    "actualWasmInputs": 187,
+    "reusedNativeInputs": 276,
+    "nativeNewBuild": false,
+    "capabilitySnippetMatchesSource": true
+  },
+  "rootIndependentProofReference": {
+    "path": "/tmp/mio76-create-answer-root-proof-20261005.json",
+    "sha256": "382f8cf549a8aaf0d4ad43a774618e7da2f3a804965b3f5b01a86edc70ec46ac",
+    "newAuditOrCopyPerformed": false
+  },
+  "rawArchives": [
+    {
+      "originalPath": "/tmp/mio76-create-answer-startup-red-20261005/receipt.json",
+      "storedPath": "raw/sdk-red/receipt.json.gz",
+      "originalSha256": "c9d2e731730ce1910bee875b6a9ea563b14e8a7c54831a1913692b6018152951",
+      "storedSha256": "13c14d9c7ce72c0243875e9a31c9250c5c7593af920eb947a5058bf472705121",
+      "originalBytes": 14378,
+      "storedBytes": 2178,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-startup-red-20261005/outer-receipt.json",
+      "storedPath": "raw/sdk-red/outer-receipt.json.gz",
+      "originalSha256": "dabec2406fc0f9c59e91952a97b796f880aac375f8cc3a5b25d51f7163fbcbcc",
+      "storedSha256": "686eba5e8aecc24f1c879c56c8d1621e005b9e4a216c367dfab583d15b860320",
+      "originalBytes": 115843,
+      "storedBytes": 48609,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-startup-red-20261005/run.log",
+      "storedPath": "raw/sdk-red/run.log.gz",
+      "originalSha256": "ad63587eb1ba44aa4964dad728610bf313cee5cc6d698a10b402de581b36234d",
+      "storedSha256": "166d7997a5e377ab653f7590379b32aa70e8146a6a63cb4c3716c3cd1adb8608",
+      "originalBytes": 294,
+      "storedBytes": 197,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-startup-green-20261005/receipt.json",
+      "storedPath": "raw/sdk-green/receipt.json.gz",
+      "originalSha256": "fadff3c67f31777c8098bfff265694ae0b169eae68428e52ff55f99473ba523a",
+      "storedSha256": "e1c8b7b84a4520f7e5dbfb642c6a632150e62e637e06e538a9266ed65f078a44",
+      "originalBytes": 14054,
+      "storedBytes": 2027,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-startup-green-20261005/outer-receipt.json",
+      "storedPath": "raw/sdk-green/outer-receipt.json.gz",
+      "originalSha256": "b73a9f4e39e381facf0140fb6f4c2c33bab4d27e5cf3fdc9eed6059383989cae",
+      "storedSha256": "b36f9c73accb10419283c6e9a03a750796ad5f3a82eeb3d00b802296296bdeb7",
+      "originalBytes": 115853,
+      "storedBytes": 48599,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-startup-green-20261005/run.log",
+      "storedPath": "raw/sdk-green/run.log.gz",
+      "originalSha256": "eb7ac26363798e0dee0638dd492ae0e1a78da57648920d188c13270dc60a9767",
+      "storedSha256": "d6bac4de97313f577be8bd038daaf0d85842f2b84338c557db9136257062c117",
+      "originalBytes": 302,
+      "storedBytes": 202,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-local-boundary-20261005/red.log",
+      "storedPath": "raw/local-boundary/red.log.gz",
+      "originalSha256": "3191a5db75db7e61035df404d42c94bde1b7d39f59da506597f30f17e420ff45",
+      "storedSha256": "06ddbd6a0b1ba234ae3c6b0f698714a12fa5101fb364c94271677ce876a6a2aa",
+      "originalBytes": 337,
+      "storedBytes": 193,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-local-boundary-20261005/red.json",
+      "storedPath": "raw/local-boundary/red.json.gz",
+      "originalSha256": "e82368133f43a165e7ad77cfdb6a3ea648c06b0d19a89301d0976f0d91dc4bf2",
+      "storedSha256": "c3521c352c6ea76812ac5ccf592328ce7b8750a4b5a542740fdcf63c668dd035",
+      "originalBytes": 215,
+      "storedBytes": 175,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-local-boundary-20261005/direct-red.log",
+      "storedPath": "raw/local-boundary/direct-red.log.gz",
+      "originalSha256": "795c93e27eb7dee854279a62f422a25e31e8dbc4d2af60360c7375b771792b72",
+      "storedSha256": "441bbaa7cbf005ab6f05d62c87af1e6a083ba398de4f39346825a9da631f7103",
+      "originalBytes": 1480,
+      "storedBytes": 698,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-local-boundary-20261005/direct-red.json",
+      "storedPath": "raw/local-boundary/direct-red.json.gz",
+      "originalSha256": "f31c657d8a79906b0bb5dac814a55b07f974bfe1f0efb32a3c0f997d107d3b43",
+      "storedSha256": "3841bfdfc1c6543cfd3618ad2ab875736c131798f490430432e5ca1adce8e3b4",
+      "originalBytes": 261,
+      "storedBytes": 207,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-local-boundary-20261005/green.log",
+      "storedPath": "raw/local-boundary/green.log.gz",
+      "originalSha256": "66038c49476c2cfc3124dd84e3e9634d426f83b3d122805ec8b2ef657ec9a5e3",
+      "storedSha256": "4c1ea92eb97b8fe57631e0751a4759aea3033ae966039e3851565bf0bc3ee7d9",
+      "originalBytes": 559,
+      "storedBytes": 338,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-local-boundary-20261005/green.json",
+      "storedPath": "raw/local-boundary/green.json.gz",
+      "originalSha256": "9b28ca98b16454c1340795d8d09deca6b2a4813c2a0ec5483f6613aff70e4c1b",
+      "storedSha256": "a1875b15ac8311092c5be1f1f57dca3f0fe458c46fc7a1d3cbd402fd72a646fe",
+      "originalBytes": 205,
+      "storedBytes": 177,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-local-boundary-20261005/sources-before.json",
+      "storedPath": "raw/local-boundary/sources-before.json.gz",
+      "originalSha256": "b6c5c7fd3a77820346df510159b3fd11ab8cbdbbb74c2fb370c8730a4a72d650",
+      "storedSha256": "a450858d5f64f304f6b63d630fcd3722626b0ee353c88babf78ee462c2c05761",
+      "originalBytes": 231,
+      "storedBytes": 183,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-current-wasm-build-20261005/receipt.json",
+      "storedPath": "raw/build/receipt.json.gz",
+      "originalSha256": "034d9c95459b071ce5e3a0f180b93a32f739d780c5e04a4aa1150c820447d871",
+      "storedSha256": "4fb60e2771f107ba11a9d11ef017052e4fd87bb4358068f6116dac8431493f6a",
+      "originalBytes": 4162,
+      "storedBytes": 1457,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-current-wasm-build-20261005/sources-before.json",
+      "storedPath": "raw/build/sources-before.json.gz",
+      "originalSha256": "f9a69499a741c7184f6a7bf3e284fd6e584e3bec12d8a380f76b0f1f663a62b0",
+      "storedSha256": "518c7049bf4a7706d06e75f6138ea2db3a6279c764d3643880a273d481de14f1",
+      "originalBytes": 53538,
+      "storedBytes": 23360,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-current-wasm-build-20261005/sources-after.json",
+      "storedPath": "raw/build/sources-after.json.gz",
+      "originalSha256": "f9a69499a741c7184f6a7bf3e284fd6e584e3bec12d8a380f76b0f1f663a62b0",
+      "storedSha256": "518c7049bf4a7706d06e75f6138ea2db3a6279c764d3643880a273d481de14f1",
+      "originalBytes": 53538,
+      "storedBytes": 23360,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-current-wasm-build-20261005/selected-dependencies.json",
+      "storedPath": "raw/build/selected-dependencies.json.gz",
+      "originalSha256": "444a919cb9a614dc6571e22bedbdd3309dcc884d94b9201355891c530eeb6b0e",
+      "storedSha256": "942688f5751c0c8b8382f4fc3caa7ce7ddb5b639ea148567654c6153699ec0a6",
+      "originalBytes": 88648,
+      "storedBytes": 22390,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-current-wasm-build-20261005/wasm.d",
+      "storedPath": "raw/build/wasm.d.gz",
+      "originalSha256": "6d40365e0fa8d5a73ab65e0f78bc55a9133ffc6b51e48b30b1a85c105cfb7854",
+      "storedSha256": "5fb038b90942900767d244269e48c877f46e245afff274615605e54b3ff9d215",
+      "originalBytes": 11297,
+      "storedBytes": 1360,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-current-wasm-build-20261005/native-reused.d",
+      "storedPath": "raw/build/native-reused.d.gz",
+      "originalSha256": "a04e0a44196503251141c43ed263fd4ce8485d5175ee0da325421ae8ddd750dd",
+      "storedSha256": "ddb230764ac3dbb49390036c4f9f16ba53deff42fea3e9084abde6c7ea567754",
+      "originalBytes": 15853,
+      "storedBytes": 1820,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-current-wasm-build-20261005/wasm.log",
+      "storedPath": "raw/build/wasm.log.gz",
+      "originalSha256": "83d87b7ed204676e6a36d459969773cf4cd9838dad54c986084f084b729453d7",
+      "storedSha256": "33da8de3cc5c10e3dce0e4abbf086fcb83272044c7417cfbe1d45f76a76f172e",
+      "originalBytes": 4724,
+      "storedBytes": 1286,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio76-create-answer-current-wasm-build-20261005/bindgen.log",
+      "storedPath": "raw/build/bindgen.log.gz",
+      "originalSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "storedSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "originalBytes": 0,
+      "storedBytes": 20,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio74-current-role-positive-build-20261005/receipt.json",
+      "storedPath": "raw/red-build/receipt.json.gz",
+      "originalSha256": "c62367b525edb0429fb3be59234930e8fb92fb6f368f81ca82e90ae295a1876f",
+      "storedSha256": "2d2d8ec212d636f82202a8f0a9df18596cde46cd801ec37b510186d8b5563018",
+      "originalBytes": 3844,
+      "storedBytes": 1168,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio74-current-role-positive-build-20261005/sources-before.json",
+      "storedPath": "raw/red-build/sources-before.json.gz",
+      "originalSha256": "c1de1d659d3b2e18bdff1d861c4962129560e0b08c9ed3a15aded8a3ac6ee5bc",
+      "storedSha256": "318282b9fc1873621a10e85b44cbec8d1be846164c274ede62eb1cd3b22d3bc6",
+      "originalBytes": 53567,
+      "storedBytes": 23366,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio74-current-role-positive-build-20261005/sources-after.json",
+      "storedPath": "raw/red-build/sources-after.json.gz",
+      "originalSha256": "c1de1d659d3b2e18bdff1d861c4962129560e0b08c9ed3a15aded8a3ac6ee5bc",
+      "storedSha256": "318282b9fc1873621a10e85b44cbec8d1be846164c274ede62eb1cd3b22d3bc6",
+      "originalBytes": 53567,
+      "storedBytes": 23366,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio74-current-role-positive-build-20261005/selected-dependencies.json",
+      "storedPath": "raw/red-build/selected-dependencies.json.gz",
+      "originalSha256": "3cb8d8037ff73715437e386dcfd6d486967e7065338ad18fd315a48348145c9f",
+      "storedSha256": "0ff9cd3dfe9e022da7b5b9d5392861c234c063974ba42d6457ef19b854112740",
+      "originalBytes": 141435,
+      "storedBytes": 35520,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio74-current-role-positive-build-20261005/wasm.d",
+      "storedPath": "raw/red-build/wasm.d.gz",
+      "originalSha256": "6d40365e0fa8d5a73ab65e0f78bc55a9133ffc6b51e48b30b1a85c105cfb7854",
+      "storedSha256": "5fb038b90942900767d244269e48c877f46e245afff274615605e54b3ff9d215",
+      "originalBytes": 11297,
+      "storedBytes": 1360,
+      "byteExact": true
+    },
+    {
+      "originalPath": "/tmp/mio74-current-role-positive-build-20261005/native.d",
+      "storedPath": "raw/red-build/native.d.gz",
+      "originalSha256": "a04e0a44196503251141c43ed263fd4ce8485d5175ee0da325421ae8ddd750dd",
+      "storedSha256": "ddb230764ac3dbb49390036c4f9f16ba53deff42fea3e9084abde6c7ea567754",
+      "originalBytes": 15853,
+      "storedBytes": 1820,
+      "byteExact": true
+    }
+  ],
+  "archiveCount": 27,
+  "noPrivateCertMaterialProfileOrElfIncluded": true,
+  "f8PriorBatchExcludedAndUntouched": true,
+  "currentCodeQualificationTiming": "source/input matches refer to captured build/runtime window; future74Native fixture edits are not requalified",
+  "packagingDiskHold": "ENOSPC reported after completedGREEN; packaging began only after root cache cleanup restored space; no build/runtime replay"
+}

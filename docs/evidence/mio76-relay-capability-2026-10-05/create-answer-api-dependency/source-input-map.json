@@ -1,0 +1,2377 @@
+{
+  "scope": "captured build/runtime source qualification only; Native276 unchanged reuse, no new Native build or whole493 old-Native-current assertion; later owner fixture edits outside this capture",
+  "buildDirectory": "/tmp/mio76-create-answer-current-wasm-build-20261005",
+  "selectedCounts": {
+    "wasm": 187,
+    "native": 276
+  },
+  "selectedInputHashes": {
+    "wasm": {
+      "src/admission_proof.rs": {
+        "sha256": "33502e93c55c3204916b3bec6b75fa2510cd3f0fb3ab60c6666689c515f2bf4d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/admission_request_id.rs": {
+        "sha256": "e167ca0f69ddb693c35cdd80b6058cae81ad4cf84a340c5e04262965b1278f61",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/connection_coordinator.rs": {
+        "sha256": "6bc1c9b440a51e64a155e668658a76505ec40a77679e349580e1655b31e23c76",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/connection_recovery_core.rs": {
+        "sha256": "a6bdc8de7cf47b49ec8e838b169337490bdeb9f6c58b8c31c2a737de32b3c68b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/irc_datagram.rs": {
+        "sha256": "8e17cec89dd1e334c14cdf944ce11bda65d6a44ee4885e6010ae66d6b9ac7b3c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/management_action.rs": {
+        "sha256": "3cdb3a43993464a9a16707ab442d5924d55116d14d9fddaefd827799f6c58bda",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/management_auth.rs": {
+        "sha256": "c2d6750d325a83d071f0061a125b102e6fd0f6a54caa2e1887f1eff26b37e34f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/management_record.rs": {
+        "sha256": "87d3a07c339612d6f731db3256cd99593daa5fe033d128b256bf5c2d65551ebc",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/member_path_protocol.rs": {
+        "sha256": "3403601c74ad5baffb3b67e0985eae98736e08e7b0d20ba5bcacf085bce0488e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/mqtt_datagram.rs": {
+        "sha256": "f47d5f02dcf39701d24680d5b0d1d990165f0801f53e08ef7ad23061f0a714c8",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/precode_policy.rs": {
+        "sha256": "c7ce618403b2b02dedb9eb5d36523228a990d98ef38226a7c5ca55dee97e255d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/replica_snapshot.rs": {
+        "sha256": "a8e62db5cb9440de96559aa6b26d07f8ea2742c5431c42895f367f1cd1c5a3d1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/rtc_association.rs": {
+        "sha256": "91ee17bbc9d7c1d353c86dd15233f2eed94f446a63f9c1c6f1dd20b9512a2aa5",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/rtc_ice_profile.rs": {
+        "sha256": "5dc832c14ef2ce9520581dd5138a98aa42e376f4cf95a5be7b554e686ffd4b4e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/rtc_invalidation_fixture.rs": {
+        "sha256": "01c4f380d57969743efa1c9b9e792c55c6ae0ba5cfc9a587c4ae4684202786e3",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/rtc_transport.rs": {
+        "sha256": "ea3113251c5ac7a4c000e4450dc06cd2c8f4aceec8626fe931a249f1b5a98d6c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/rtc_wire.rs": {
+        "sha256": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/codec.rs": {
+        "sha256": "31d57fa11f6a27c572d46ab76069391c3acf1b2e4bdbed7176d2f75fb5745d5e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "browser-probe/src/admission.rs": {
+        "sha256": "49b7ba08c9d1ca47f4d672b258e8f2d6388a20cfded40951ec027d2bd9c16b48",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "browser-probe/src/custom_datagram.rs": {
+        "sha256": "915d7f96d31cc2e6a6b860bb36c5608b0cba1a10c0ee754296964134436fdd75",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "browser-probe/src/incoming.rs": {
+        "sha256": "82e13896e2488626cba7f8899558d2022890d51f35f8fe36dd7e7e24ae4131a9",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "browser-probe/src/irc.rs": {
+        "sha256": "7311dcf3f6f9a786ba12722ab328859a91a6f26287814c3eb4a57804be227b08",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "browser-probe/src/lib.rs": {
+        "sha256": "4d27398e27b1adc6c5084b4ac0e91eaa8a2c9dc447bca8d7113ce53fc454d44a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "browser-probe/src/management.rs": {
+        "sha256": "bd768f5bb70a8ee9710e2dad15fb8203513f7bf277265cfbb56c90bc812846d4",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "browser-probe/src/member_connection.rs": {
+        "sha256": "d770cc97cfcc9d0737e9963a44d5727990a1067647547229f9fafa859871d17f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "browser-probe/src/mqtt.rs": {
+        "sha256": "67ca10c43bd3479ca0dbad91bb7691fa535dd3dce8faf2a7ef8dc496ecbd83df",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "browser-probe/src/network.rs": {
+        "sha256": "f92c819854c1ee8441172b3c1982970c331236ab97db1aa475744954cdd2d55c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "browser-probe/src/replica.rs": {
+        "sha256": "adf6d398f468e7da06a8d0c2240f914603431453da19e68b1d8f43f5775b1338",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "browser-probe/src/rtc.rs": {
+        "sha256": "bbee7af4f77cccb0d8b3a6208f25291f7962ac237ccf0612a0c8ca3a811a37d6",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "browser-probe/src/rtc_capability.js": {
+        "sha256": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "browser-probe/src/rtc_capability.rs": {
+        "sha256": "6b7470ad70f483493b86fa2a91f0b1d36718931c4db85052314fdcf9be9a67ff",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "browser-probe/src/rtc_member.rs": {
+        "sha256": "4263c46cfc80cb237e7a54d1ce23a5814fe9732ad28267896dc979a1bc09e56d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "browser-probe/src/storage.js": {
+        "sha256": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/build.rs": {
+        "sha256": "da039420c41e8e7931646bc4dbb1606187468c97039d84063e74d437466a2d7f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/address_lookup/memory.rs": {
+        "sha256": "fb25a6bce0fdff098b71cc0679c9119368ef5d6e85fc7998661dc9c7a22e376e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/address_lookup/pkarr.rs": {
+        "sha256": "73cd85e1b66f4dfebac803315b6d0ef5d1fbf4ca682fc84f029df8f1ffcf75e1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/address_lookup.rs": {
+        "sha256": "73a6ea540049f176956114bbda8a5b224d7a92dafb2ca7250ab885c87bb03d29",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/defaults.rs": {
+        "sha256": "458eb1796935e62fae72fa311c55412e3973dab0d8c8c7b4e5991ef811693841",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/endpoint/connection.rs": {
+        "sha256": "c72eaea5de2764bbb5b7756038e167b505ec74247f2b01a99bbc5afd2f80df10",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/endpoint/hooks.rs": {
+        "sha256": "81a77f84220ef1719b509432ca8076b53553d1e691966001c22eb9dc9db01325",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/endpoint/presets.rs": {
+        "sha256": "e430d9a20b570dd4f2850d05c21e6a0218a41f4975dbb6b111292d15f5aa5aec",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/endpoint/quic.rs": {
+        "sha256": "47f018c70d3bd3aeda7ec01bd88fe24070b2be68d64ec5275284e4d5085dd818",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/endpoint.rs": {
+        "sha256": "04423be1084a027ba9d49a55386bf698d78dedfbc9e1e096c7eca07b21016ebe",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/lib.rs": {
+        "sha256": "f74b3091a5aeb208f3ec1404ffe4e494563f954d546865263f13d71cfbdef7f5",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/metrics.rs": {
+        "sha256": "e7e76f567260779094261d7e58bcd27a07034e0fd253647da85894a363af69c1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/net_report/defaults.rs": {
+        "sha256": "8e91cb8be17395dff36823edad5ebfe8ed9c8cd68f36d9b124d649f4ccdbc4ec",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/net_report/metrics.rs": {
+        "sha256": "cdba2490daade1948c00114c4fe61778386eaf85dbf12fe94803573292fc971a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/net_report/options.rs": {
+        "sha256": "4a8fbcebdc9a2961df7b26e89804667d750839eda8af3b740b03e86981cb903f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/net_report/probes.rs": {
+        "sha256": "5aba91dfaed0b5c235f4f0129c9fc866b56638e4745c39205687a3797f5d9b69",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/net_report/report.rs": {
+        "sha256": "88d590eacd0efa9e054f75472927552c74b6de7d2f1b5dfb09b8bb90418c93ed",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/net_report/reportgen.rs": {
+        "sha256": "524c0bd8e9efbcd2a485a48b5146a75ef7138f9b9c20e7755a56f82a319ae1ff",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/net_report.rs": {
+        "sha256": "0d50b791dde813a796e60e4f2598caff66f0cd2fd895ce758ad9789430536e6d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/portmapper.rs": {
+        "sha256": "979ec90db8babf2380b41cb97da8bc7b098ce73035198624b963ab435962bc0e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/protocol.rs": {
+        "sha256": "94435c807ab77e5d4babaeccabb47bcb3efc5a762e78394c8dde07c1082897d0",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/runtime.rs": {
+        "sha256": "b6a6c66103fbab2fe22dd430218b613915761873a4efca090f89b88ff8c10291",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/biased_rtt_path_selector.rs": {
+        "sha256": "6c7412b78d187fa5cf279a99d112e0fd4a056e43735ce8a66779eecf87cc4eba",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/concurrent_read_map.rs": {
+        "sha256": "a0148e157b08fae370da37179d0fd93ad673e018ccf25decb3ae1f6e8489a8e4",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/mapped_addrs.rs": {
+        "sha256": "c95accdd5f474a11e820b1d460696507ffd0195ccd074d439520cab9cd9c3ffa",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/metrics.rs": {
+        "sha256": "511817fe626bb1d7d395447737298ccb3ee081ebb1575927137e94a3c78a5593",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/remote_map/remote_state/path_state.rs": {
+        "sha256": "d320c4becfacc9ecc32475e0cfa1cc52c9698b2011804f7bbb95b7f860b0a3ab",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs": {
+        "sha256": "838bbcd605addbe1afaf911c20b4efc5be87499a7758aba0933e58101dce32b9",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/remote_map/remote_state/remote_info.rs": {
+        "sha256": "c868e120bc34c103040181b28927935c4b054981be5c2647d2b1bbc715180768",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/remote_map/remote_state.rs": {
+        "sha256": "962e8f1a593fe10b76b0b479030f465989a4fab5a9094743eff82943fbc88c93",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/remote_map.rs": {
+        "sha256": "bd2710b30ff105cc69c9faf9d390355a9dd2dd5247fe4634f0e4e57f7e8cdb32",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/transports/custom.rs": {
+        "sha256": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/transports/relay/actor.rs": {
+        "sha256": "665b842e5fde4a4d591b915f6a5bd7333f9bd3d37c1785e3f9f959d9e727cffe",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/transports/relay.rs": {
+        "sha256": "d853a7e8fe8fed76fe46c77a908d77bc2264de3b810e715c78cb26dddd6fc191",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/transports.rs": {
+        "sha256": "d2aeff1b846d69349e2467a84709c8a2c3b82eb1c597d57882c984a00037647b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket.rs": {
+        "sha256": "077c1ecbabf8ffe564ce755f71d47b697f5db1748372db48bda7ae2dc2a061cb",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/tls/misc.rs": {
+        "sha256": "2f60333bd46626324052ec9cacc606470690f430769a6c7e8950dab83b95ad82",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/tls/name.rs": {
+        "sha256": "0d1b1ca5d1c99c57199a232f3d658f21d889a2b20d3e590fe30e4f255c0c2acb",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/tls/resolver.rs": {
+        "sha256": "4bc17a87396badec8b93c72f815f4a9d9246c9206abe184a3abeca55a5683344",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/tls/verifier.rs": {
+        "sha256": "2d1af5d853a64e38e5b0e6e01919c7385aae091d0ba34b93fa9971ddcf4e1345",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/tls.rs": {
+        "sha256": "c2cc7dd836df5a1086bc3e397c07f4a63b2154f802016e994b565fd7e943030c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/util.rs": {
+        "sha256": "9cec3dbcc06abf195aac152dc6343cae754e306b9e2d9bc239dcd4cda126abae",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/build.rs": {
+        "sha256": "da039420c41e8e7931646bc4dbb1606187468c97039d84063e74d437466a2d7f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/client/conn.rs": {
+        "sha256": "9556b3f772a7e9cae6e3d9d15dc287b6087d303644fa7b1a4aa0a1cf642f510a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/client.rs": {
+        "sha256": "e203cbf9dfe6b7beb71d840d9737307fdf6123d3753f5242ede4bc5f01321ea3",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/defaults.rs": {
+        "sha256": "63ea0ab36aeb95324a3d902dff2c03af40ad43053da1269eca415968fcae424a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/http.rs": {
+        "sha256": "ea9bbf0087b35ffe6ab6c428cb86b128fd520270fa5ea17b6daab3e2f9e21793",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/key_cache.rs": {
+        "sha256": "b44c5d596006e72b2d08372f1b3833ccbe2d34f4e16a266c39dc00feae9b9f2a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/lib.rs": {
+        "sha256": "9327f8f19e6e8672a067669a928540619fa94724d1e1e85565b54fe1ac16277b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/ping_tracker.rs": {
+        "sha256": "7a8216985afdf1e60780b70356563c497b3014d2c184d90a7c18714fe79db8a6",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/protos/common.rs": {
+        "sha256": "60df8d490d301b75f9fe8d51ea9839ecedc900fe7fc140a967bc014d41a1c87d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/protos/handshake.rs": {
+        "sha256": "fae68739f3cd9bc8683abb6f769298a93cea4bf53029886b4720858e1ea53913",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/protos/relay.rs": {
+        "sha256": "bc98e9f332dc5fdc3b3ad4abb1cfdc1778452fbe597eaf517d3d4e409f27804a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/protos/streams.rs": {
+        "sha256": "cb426bd98b3fe1f9168f5660f39d097294715a7bada901d7dbd64d42eabc38df",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/protos.rs": {
+        "sha256": "b7934f89079056848578bf6e0ee5bd4c93fb84792731dc19d7dcc46f560805e1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/quic.rs": {
+        "sha256": "57a939f3ed9d33f7dcfe3f1edaf8d36083698d13a32a69dd475fef9dbc7600a3",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/relay_map.rs": {
+        "sha256": "e522ba25196003a32bf10176ae1ed8c9fdf4ed3349ed8781b50a25fb11c7e2e9",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/tls.rs": {
+        "sha256": "37fccdc24dbeb8e16dbb48e5e199561813e75e371220034c426a2ca635a69058",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/build.rs": {
+        "sha256": "f7cb29da5e7016b1f51faec25b302a332e42301b585a1f44e80ab06cdfe7c898",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/interfaces/wasm_browser.rs": {
+        "sha256": "355958aea9cad7bb3f184834a1613654300b041ca8e030fef7303a679c1f64db",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/interfaces.rs": {
+        "sha256": "b5def7fdf87fbf901773b8f8fb44af26e5d384bf07393abb9591c76b54cb2ca6",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/ip.rs": {
+        "sha256": "81f2290304418503050515f9ad30143021d388705fe3ede743c5906a028ca5f0",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/ip_family.rs": {
+        "sha256": "d7702ea459b42a20f31af6ff36d4fcf9bb194119669c19860eaf9e3130ebe57b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/lib.rs": {
+        "sha256": "285c91fe0d8a00df0cc0b700eba1ae9d075af52307a8aaa4e2d1a496df24544c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/netmon/actor.rs": {
+        "sha256": "85b20088deeaee4b7968d8304f74d8bb70a250e6ee04e7786096755b5a3cf0ce",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/netmon/wasm_browser.rs": {
+        "sha256": "69e82f1bf170ed6b73443a94be521f45d3e96da9c3676b314a13ffa0aa46c6f2",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/netmon.rs": {
+        "sha256": "9b821b3dd761d9d731551b01c5b76a79dfdaf09c618ff89502582c2068f49352",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/build.rs": {
+        "sha256": "da265b34113659b194be9d5972d4af6e5a334e0afa4adf02f949e4a1ab39a7ad",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/connection.rs": {
+        "sha256": "44ed00986693ad0c35e62cdb50b2cf16aab7586dbebc2f7410ec7cab65414f75",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/endpoint.rs": {
+        "sha256": "f603257e41d10f20c2de48ce35023493b30a0ed0813b320e44d746a3e1fff6a4",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/event_stream.rs": {
+        "sha256": "20940fe69ef571989d900446bab48ca7ee5850a252f0ae768af9e157b3ae5dce",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/incoming.rs": {
+        "sha256": "fb4ef3ec35ac5577f1c8265bcc2342346a0d6ca4427310b213a3f79f0bd79ac1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/lib.rs": {
+        "sha256": "d73190c6a61b096391d85766a9163ab38b99aa6bc892353aadbb2bb269384acb",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/mutex.rs": {
+        "sha256": "5fdace6d2a4e0b154a70ac727f279d23c9fc33ec5c960e41b216c1d11a4f0edc",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/path.rs": {
+        "sha256": "b8da127fed75cf4e112f336a43e9f05a1dd077355e863c712a8e8c29a2902c01",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/recv_stream.rs": {
+        "sha256": "14dcbd6725fba97abddae17767b3ddd55d29f4008971ed2ca42dc850353d2f2c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/runtime/mod.rs": {
+        "sha256": "28c016d7430efb0fd99b730c5937faaac19a3fd2406778febdc2da24b170b88d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/send_stream.rs": {
+        "sha256": "4bb8d661eb627edde1015dd9903dfbbabcdffc241fab1255cb85456e22069e1f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/work_limiter.rs": {
+        "sha256": "515ee13aaba538843e112d287cc7cd91fb94f1922e246179421e45dbcfe41fea",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/address_discovery.rs": {
+        "sha256": "110eb221e5644b00818c7e1a38cfd825d6bae2ebe9d5a3762412faa95b970c40",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/cid_generator.rs": {
+        "sha256": "5d43c394cc5d2a3b6c7d8ff111631731e11b4521d0248d9bdeed7f7857aeab3c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/cid_queue.rs": {
+        "sha256": "da3fb20d9db0451e5d7343ded889b1591c06b2b8ef6ac7ac4cbfc2ccab79898d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/coding.rs": {
+        "sha256": "3ff5e368e30445d1e90c3330312b22afc87d10639d57d5981d687d0fe975fa89",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/config/mod.rs": {
+        "sha256": "09a10465c79c0f54be60cfcd7e34f48cf671f11ec0a4393c228665354731ae8d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/config/transport.rs": {
+        "sha256": "c5fbe2893a2b42e6d906ef75ed771f3ba34782e3291782be9a996ffb7ea2c5fc",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/congestion/bbr3/max_filter.rs": {
+        "sha256": "6867b88af19d1dfe8b393eb3216458e958a4153e1390b34890a910a9e3df150c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/congestion/bbr3/mod.rs": {
+        "sha256": "f20f54b27f9e44e03145b31617b9f76a23975771365d76a0d750c24281f182e4",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/congestion/cubic.rs": {
+        "sha256": "ae5ce2cc71471d14e6a895543de9db4a1cb73a770ee562a566e237e7c0f17833",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/congestion/new_reno.rs": {
+        "sha256": "d9ab7d937d587211a6ae5b1bd11740d1ab534ef14a232e0041f385c5ea6bed3b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/congestion.rs": {
+        "sha256": "b7672d6ff6682b8714c9527076ac20bff35aa6326dc0fd162d95d9c796d4d547",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/ack_frequency.rs": {
+        "sha256": "ec99413e4cf0e84ac7c2da0b1214379823145f9911a946f769561e883812ef6d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/assembler.rs": {
+        "sha256": "d7d311d76f6b64983485b756101edd41721aebb0647c3e00a227b1ab8138845d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/cid_state.rs": {
+        "sha256": "e0c7bd79f6d40e72fa95a5fc14869073bc4f45384428163322297dc8d73b90da",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/datagrams.rs": {
+        "sha256": "4fde25004d29529f21898fd986c560661dc878bd8cd5e00e95ad99e1fea6040b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/mod.rs": {
+        "sha256": "93575c4027506cf6fa324c1384e9ee5e740701934020e3323465ca2ae0e69e17",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/mtud.rs": {
+        "sha256": "fab7f290fd255ccf14febb01223db17c645f4f2d99864963a9d046e53ff4e416",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/pacing.rs": {
+        "sha256": "b424ed5226b867b5c96383649bf383bd3f9a35842d8d34f311a07db50a6cb48a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/packet_builder.rs": {
+        "sha256": "7d9cc00d496bc3c5f33ad03ec67690804f9175868f56fd47670c63aa987152d8",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/packet_crypto.rs": {
+        "sha256": "331e21a7f0e0a6f69154d050d834ba2715b51bf18a853f17c3caebe9f8d71687",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/paths.rs": {
+        "sha256": "3f86ec41fa014b1a6870d2c8556900e4fd3c15f8959b654d54356b9c52bfb8b5",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/qlog.rs": {
+        "sha256": "25c50142ed9694440c426cd15309cc032a3de055f60e1cd876f69cb591c0b980",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/send_buffer.rs": {
+        "sha256": "87875ebce780a3c9e1656c29d3920c83bd921c4ba52948a6fee99d003c0bbe95",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/spaces.rs": {
+        "sha256": "21c26b93df0748bf0d001a1d6a51a46038b440b410293d4092b9918c9bcebc61",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/state.rs": {
+        "sha256": "393239ed7921b1f27ca518f9614d6c98c861973a283a862cb8196ef8d6e1db16",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/stats.rs": {
+        "sha256": "5866a6f4b25da66bdb0ae99f0ecafdea12aa6011b8c9b95f272f708d4981cc10",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/streams/mod.rs": {
+        "sha256": "516df37cde48a51d5f0ab880bd6fd6f62128ed80cdd226a8bcbc54a45b8b0b0f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/streams/recv.rs": {
+        "sha256": "f96dadacc5f0ba9c6deebc3e2465be06b0980fd6e673365a3f3232bedb52f88c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/streams/send.rs": {
+        "sha256": "bfbd2177b06d8f40d4115e499766fd1fb7d87961440f62e9120a9add2d167659",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/streams/state.rs": {
+        "sha256": "bf87db641800b9fb37be14f03ca3efbcb12655ccef5da1cf06912747d17f4442",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/timer.rs": {
+        "sha256": "302dfb2df839bf6ba5a79ade78b1f37c87f8c142e46bfed462ab45743a0c5faa",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/transmit_buf.rs": {
+        "sha256": "e052a3f9880f9eea0dd04aaf7c47d7f8da716e6bb6dabde916d77fe5122c1540",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/constant_time.rs": {
+        "sha256": "35540c4e65fc083894bfedcb811c3495cd5f4168d2f1c25b73cdcdcfe3a44f3b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/crypto/ring_like.rs": {
+        "sha256": "1cdffab68a099223375e24ebe0bfb45a619c5cdf561893155b0bad96bd54b8d1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/crypto/rustls.rs": {
+        "sha256": "0709aade117fdbbcc513a5b723927d6f16f98cdf2f0b78005c3acca85cf53f5a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/crypto.rs": {
+        "sha256": "6c658f45bdced033ea66b4789ad111b56a0fbe7fa0cdd62d4282ac4e9e16bbe5",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/endpoint.rs": {
+        "sha256": "7b981f8b21b0db43567d307b774c2b27f6bb900d138735170144f746184281a4",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/frame.rs": {
+        "sha256": "57b92e8349e3dbd64e5059774cb93e0cc4ec759aeead3832edaa63e86703cec6",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/lib.rs": {
+        "sha256": "65914e620aacb8a13ba12bbc2f4d44996f6d20ede190c3b8de6d20e48a06cda3",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/n0_nat_traversal.rs": {
+        "sha256": "3f98c0f68e056ac254fa7067678819972e920b01bcace2b110a6614ebd9d25c8",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/packet.rs": {
+        "sha256": "58725ff8363fe9db1d728547c0219793428b39a8362b4459640f426d24f26aac",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/range_set/array_range_set.rs": {
+        "sha256": "3c9173d556947b7807cc22dadec629620273bc91c416dbda47953f255a59b788",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/range_set/mod.rs": {
+        "sha256": "28106c895de4b0ea0733842e2ea90911a4dac1ebd6b90ab195bb5c4f2bf4f84e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/shared.rs": {
+        "sha256": "ea103e2bf67fe11b92bc2737a71224e4f7db3ea3fc47501892c267a5215206da",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/token.rs": {
+        "sha256": "949b7949195be7dad7d5afa0bc0dd836f047bbdf6a11a8839750db959c3cebca",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/token_memory_cache.rs": {
+        "sha256": "deda7123d3df5e95818fd728a31463822ac592a0f56cbe5dbd4012b88398dc00",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/transport_error.rs": {
+        "sha256": "0de736b06979b5be4d522b660ad72a3b36e847d788a1a41f4cbe36688f2b6580",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/transport_parameters.rs": {
+        "sha256": "79b09c5e2fdca31b38727f384dcf750d236f789a11680798d67c34341a71af54",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/varint.rs": {
+        "sha256": "4436c208b1c8230443a0990588675809b628284445961f89ad15ab9f95ddacc8",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/access.rs": {
+        "sha256": "34da767f89a42dcb1838ef7c47b92c7a5c39e19ae37fec2b31f5e16914b7c52b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/extension.rs": {
+        "sha256": "e712e848652b32eff805de5803b9b2f3811afeb103fd78f37c2bb70f17c36d84",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/graph.rs": {
+        "sha256": "4b73fe9779b2bd3e95d44698fe5f3fffb878a7ee26aab1518cf5e272db8b5560",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/group/action.rs": {
+        "sha256": "465750c4bbd360a14037b9a2097b41eae717224cc9d86981d428c10f5b6ff182",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/group/authority_graphs.rs": {
+        "sha256": "0120e9fca98437357c3ec63d0f0a28b02da4594f9a2ad6e95e687a55de6d933a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/group/crdt/mod.rs": {
+        "sha256": "b2c528cb6c5438bb3f8c96f76758a26ae2c59f5ca32a2982f55fb8a1b004d99b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/group/crdt/state.rs": {
+        "sha256": "b2a2250c9a0f17da18a1c2cc8701bf097af39facbe610ab2ef7b728e1ab6a6de",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/group/member.rs": {
+        "sha256": "22b1843533d6405c0ba9b59256d0e7751cdc1359741e7d8b8f8082d7282095ce",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/group/mod.rs": {
+        "sha256": "776f5bde6d7bf414c91df785c3c33015162a4a02f0c4011af1ece6f5748f0c30",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/group/resolver.rs": {
+        "sha256": "bd3220c0c4b371cd78fee46443f683a817e1ae4230b4dce4f071c841e38927ce",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/lib.rs": {
+        "sha256": "1de087155cc3807c8af8b95bd24afad75bc1ed18b5c5d2d4b050fc12ee23102d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/operation.rs": {
+        "sha256": "84107d5cd76f1154cadc75a536fc51bbb2df026b4020e48affc52b1afb1c84e8",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/traits/dgm.rs": {
+        "sha256": "635e769d1b04bc17f7b4692fe580991023047060a2b14b89f94cb5bfcdf0e981",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/traits/mod.rs": {
+        "sha256": "deabafefd08e0ed40719a849b26a577bd7a09738fa9417e030307b558309486a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/traits/operation.rs": {
+        "sha256": "5c813888387e2f7d97e6e446be108b610b5772f28f10c2f4805459183f52fbd9",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/traits/resolver.rs": {
+        "sha256": "ac06dffaf649b2660c832b6a1e46514cb2fac83f0eb45288f923017884ffadab",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/dedup.rs": {
+        "sha256": "ff4547b6c351bab938fe91deec6a73aaf9e97aea150da313b46d16652273346b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/lib.rs": {
+        "sha256": "65004a21116d534e46300f96603918a0820c8531f601e90beb616dea0e2c893d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/manager/event_stream.rs": {
+        "sha256": "eaac7155d01add3ca1a0c6d4f1858f09a460c88dcb1311bf1dd9aa18429042eb",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/manager/mod.rs": {
+        "sha256": "76bad2da32956160c1b1a91854fbd1cbb2554af9cc0d0664eb96ec4dd29790ed",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/manager/session_map.rs": {
+        "sha256": "4cc47d3b98a2e1705c7fc01ed45b980143a2f3d523d67e5875be59cadc72482c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/protocols/log_sync.rs": {
+        "sha256": "eb666fd0733a9d6b80befa051c752b8f99ecf7a1013d1ede4537e69f799a4949",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/protocols/mod.rs": {
+        "sha256": "5f8a5c745830983982b5d4c675ca6dc0f39608fc6173b1a67599bc8900ceddd9",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/protocols/topic_handshake.rs": {
+        "sha256": "c59b24a894299b59d1c49604f80d67e8e9e52ef69e49f57665d2669dadf5f08e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/protocols/topic_log_sync.rs": {
+        "sha256": "ce92fa265751fd102d8088164c914f8fd8204769699eae64ca3c4dd13a39e8af",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/traits.rs": {
+        "sha256": "08c945b7a38f6215a52c69ef291c4733cfb05a5b817bbe9a1d3383f98ee562bf",
+        "matchedBefore": true,
+        "matchedAfter": true
+      }
+    },
+    "native": {
+      "src/admission_gate.rs": {
+        "sha256": "21f5def441accb6429adb006a5f95c51987180ae868cdd8c2856883bab886748",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/admission_proof.rs": {
+        "sha256": "33502e93c55c3204916b3bec6b75fa2510cd3f0fb3ab60c6666689c515f2bf4d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/admission_request_id.rs": {
+        "sha256": "e167ca0f69ddb693c35cdd80b6058cae81ad4cf84a340c5e04262965b1278f61",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/admission_rotation.rs": {
+        "sha256": "c07ec6c8f258a32a8990b6d9d23fca3b6bddfd65e1142cbdcecd9136a7fbee0c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/bin/browser_wss_member_native.rs": {
+        "sha256": "5b790da87aac1cbfce62ea25bc345ee25fdc880d284d2ce65efc716fc18a6c7e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/connection_coordinator.rs": {
+        "sha256": "6bc1c9b440a51e64a155e668658a76505ec40a77679e349580e1655b31e23c76",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/connection_coordinator_native.rs": {
+        "sha256": "6a92d60c5c500861d13c1e8e7ddfbfbcbed5b3b0bc22dca914896437707760b7",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/connection_recovery.rs": {
+        "sha256": "1b169a60a8cd59f8c68d758378f7acf1894d939c43b5c030b8d054f6fd6baac9",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/connection_recovery_core.rs": {
+        "sha256": "a6bdc8de7cf47b49ec8e838b169337490bdeb9f6c58b8c31c2a737de32b3c68b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/contact_listener.rs": {
+        "sha256": "5f5bec893eaca3e4ef61cc21ed56a0dc207d10b5155a07fedabe9f6181d7bc1f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/control_session.rs": {
+        "sha256": "d78789557b6bafe34a7257ccf9e923ad91221a8e1d94317ad717e51fe0e7da3a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/daily_management.rs": {
+        "sha256": "2329c3a7f36eb349c389482bf4627ddd5e9ef6976be9467f4edf7b7aabb9d4c7",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/genesis_recovery.rs": {
+        "sha256": "84ddf4bc8c052273cbe90abab483735347f21eb9c0c90033c29466cc2e296725",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/irc_datagram.rs": {
+        "sha256": "8e17cec89dd1e334c14cdf944ce11bda65d6a44ee4885e6010ae66d6b9ac7b3c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/irc_transport.rs": {
+        "sha256": "799ac4203ece0c99afde4e4d0aaaf057b47ac82f2a10ab3e38a7b8aab8f0dde7",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/lib.rs": {
+        "sha256": "2d4176d731706e7c42203343bf5f964aab31ab318af0b5035fb057d7841d4771",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/management_action.rs": {
+        "sha256": "3cdb3a43993464a9a16707ab442d5924d55116d14d9fddaefd827799f6c58bda",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/management_auth.rs": {
+        "sha256": "c2d6750d325a83d071f0061a125b102e6fd0f6a54caa2e1887f1eff26b37e34f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/management_record.rs": {
+        "sha256": "87d3a07c339612d6f731db3256cd99593daa5fe033d128b256bf5c2d65551ebc",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/management_recovery.rs": {
+        "sha256": "b8634779d43ab1c3409157e02c92d1ac6afee34615aaa3cff52a1bacd432ef61",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/management_store.rs": {
+        "sha256": "6f3ab314842348ab9a294b93b05307fcb4cfbec0ed10c33ad9b60b891bbdb343",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/manual_admission.rs": {
+        "sha256": "4aecd8e773013386c6269b4a3ea1525f5116e9ab7d309d4ebe7ed13598fd7d08",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/member_bootstrap.rs": {
+        "sha256": "fd8411c3fb26bb78f39591f5f46a4d3bd9fde1e0f49630516b556ed9a2b1ead6",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/member_message.rs": {
+        "sha256": "fd62da23c6f9312ba3636a8a190f62ecd718a443caed12a00e9dba7757871bd8",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/member_path_protocol.rs": {
+        "sha256": "3403601c74ad5baffb3b67e0985eae98736e08e7b0d20ba5bcacf085bce0488e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/member_transport.rs": {
+        "sha256": "8b54fc3fa3ca4dae3e3921e50b2bcb9d6fb2775a00ac6421afc5227e5d4e5794",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/message_bootstrap.rs": {
+        "sha256": "1c92ab1c43e98c08aa1f28d1059d65a5c6b7b586e477703f1212555dd3d2d63d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/mqtt_datagram.rs": {
+        "sha256": "f47d5f02dcf39701d24680d5b0d1d990165f0801f53e08ef7ad23061f0a714c8",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/mqtt_discovery.rs": {
+        "sha256": "074ece64c6e79f78cbd8dcdb6a11986e6c22cd3e2f02b8cd657633a8c41b6685",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/mqtt_transport.rs": {
+        "sha256": "e49026ef6ea461d2de71f781174b95a421369fb5ffbd680234da1e31e89c5790",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/nat_connection.rs": {
+        "sha256": "59f99f11c49694b69ce076eb1d03556adf487afae318d75ce122c09fcc467a0f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/nat_direct.rs": {
+        "sha256": "d46df7be49bed232d1d85c570e489a86a857375521b04e46ff6f86f85215d018",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/nat_mapping.rs": {
+        "sha256": "e1116376d90f01b469ad30c79f8df0516a9c7a0e750bcf6cffa1259caf9aa9a4",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/nat_punch.rs": {
+        "sha256": "35f429a2037781efa028c8520abffcf915a86bae25009dba2ebbc84e8907cce4",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/nat_scheduler.rs": {
+        "sha256": "86d00bd8a09926872aed88b607427db135464ef262da094c55cc1b8cd87d49d9",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/nat_selector.rs": {
+        "sha256": "7a57155e8f2d83f30f041865ad1e269aa5a274f3e2534ea4c7f2f9cfe86abcd9",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/native_files.rs": {
+        "sha256": "697b22ad1982c41027bd11637c768aab6f60bb7ed2e654a7e5b940307e765fba",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/native_network.rs": {
+        "sha256": "dde03aa48fd01a814aba1b472787811971f8340cfdac4d5deb53b04c692bbc70",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/native_path_adapter.rs": {
+        "sha256": "1c7fdccbe248dc132b7ef894cd2e85c47be9eed5fa8bd039695b8aa41cd039dc",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/network_maintenance.rs": {
+        "sha256": "45ee8251d031e8ccb49c5d2e4b1e97391a3bb91319335d34a1b657a4c02c253c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/network_migration.rs": {
+        "sha256": "2395ce089640e38b506d19146e5d7b632b501042d8ce75cdd0b92f366fc91774",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/network_recovery.rs": {
+        "sha256": "cd9bf1b04789e38fa90a537884cba11f472a04f3c666fd9a0b05dee871cf3bad",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/offline_replica.rs": {
+        "sha256": "04448bd57d6ed3da557754b0ad7b9204e103c6aa42279520c6e643bac92c3d07",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/path_selection.rs": {
+        "sha256": "6093283dce8297830082e80fa2e778201a452448df126c53cc8730cdd9548585",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/precode.rs": {
+        "sha256": "778e6fb23c8581d4b5e4c264765aad4358198bad61858c05a1d48975d253bf26",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/precode_policy.rs": {
+        "sha256": "c7ce618403b2b02dedb9eb5d36523228a990d98ef38226a7c5ca55dee97e255d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/replica_snapshot.rs": {
+        "sha256": "a8e62db5cb9440de96559aa6b26d07f8ea2742c5431c42895f367f1cd1c5a3d1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/resources.rs": {
+        "sha256": "3d7552ef841e7ef6840baf484fe017a0039ee99260041147d11f09be7cfe9e5a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/rtc_association.rs": {
+        "sha256": "91ee17bbc9d7c1d353c86dd15233f2eed94f446a63f9c1c6f1dd20b9512a2aa5",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/rtc_ice_profile.rs": {
+        "sha256": "5dc832c14ef2ce9520581dd5138a98aa42e376f4cf95a5be7b554e686ffd4b4e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/rtc_invalidation_fixture.rs": {
+        "sha256": "01c4f380d57969743efa1c9b9e792c55c6ae0ba5cfc9a587c4ae4684202786e3",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/rtc_member.rs": {
+        "sha256": "92d7a955b93adfb1b4e95a47873019e10314e21f35d511d0fe23bcab53e1e704",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/rtc_probe.rs": {
+        "sha256": "814c65a3a6328f8785c9f076c21b077800ea9898ed7336f1351cce8814d62a1d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/rtc_transport.rs": {
+        "sha256": "ea3113251c5ac7a4c000e4450dc06cd2c8f4aceec8626fe931a249f1b5a98d6c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/rtc_wire.rs": {
+        "sha256": "5578f0a6912467b1a81b225c14f70e92ebe589bf680395431820319bde2cb0d1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/tcp_observation.rs": {
+        "sha256": "a39cc14971103ede58886e5c601239667c7fbdd799bbfa80cd69337215f3f7f2",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/tcp_punch.rs": {
+        "sha256": "d0cf7985640dccec9cfc19221f7501de7e872e330bc642f3363834dbdeda0a3e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "src/tcp_transport.rs": {
+        "sha256": "7dbe147774b0e1f3a77703b0674cf864beec6613aec4a632142691fe2cb3510b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/build.rs": {
+        "sha256": "da039420c41e8e7931646bc4dbb1606187468c97039d84063e74d437466a2d7f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/address_lookup/dns.rs": {
+        "sha256": "5d4afe24ff18915829514259d2c4c888b2693562f0ce6d3300d5ef2fbebe919e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/address_lookup/memory.rs": {
+        "sha256": "fb25a6bce0fdff098b71cc0679c9119368ef5d6e85fc7998661dc9c7a22e376e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/address_lookup/pkarr.rs": {
+        "sha256": "73cd85e1b66f4dfebac803315b6d0ef5d1fbf4ca682fc84f029df8f1ffcf75e1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/address_lookup.rs": {
+        "sha256": "73a6ea540049f176956114bbda8a5b224d7a92dafb2ca7250ab885c87bb03d29",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/defaults.rs": {
+        "sha256": "458eb1796935e62fae72fa311c55412e3973dab0d8c8c7b4e5991ef811693841",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/endpoint/bind.rs": {
+        "sha256": "086d3eafb81cc07349d687ae846d71f68351515339163333bd8d0bdf604213b7",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/endpoint/connection.rs": {
+        "sha256": "c72eaea5de2764bbb5b7756038e167b505ec74247f2b01a99bbc5afd2f80df10",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/endpoint/hooks.rs": {
+        "sha256": "81a77f84220ef1719b509432ca8076b53553d1e691966001c22eb9dc9db01325",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/endpoint/presets.rs": {
+        "sha256": "e430d9a20b570dd4f2850d05c21e6a0218a41f4975dbb6b111292d15f5aa5aec",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/endpoint/quic.rs": {
+        "sha256": "47f018c70d3bd3aeda7ec01bd88fe24070b2be68d64ec5275284e4d5085dd818",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/endpoint.rs": {
+        "sha256": "04423be1084a027ba9d49a55386bf698d78dedfbc9e1e096c7eca07b21016ebe",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/lib.rs": {
+        "sha256": "f74b3091a5aeb208f3ec1404ffe4e494563f954d546865263f13d71cfbdef7f5",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/metrics.rs": {
+        "sha256": "e7e76f567260779094261d7e58bcd27a07034e0fd253647da85894a363af69c1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/net_report/defaults.rs": {
+        "sha256": "8e91cb8be17395dff36823edad5ebfe8ed9c8cd68f36d9b124d649f4ccdbc4ec",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/net_report/metrics.rs": {
+        "sha256": "cdba2490daade1948c00114c4fe61778386eaf85dbf12fe94803573292fc971a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/net_report/options.rs": {
+        "sha256": "4a8fbcebdc9a2961df7b26e89804667d750839eda8af3b740b03e86981cb903f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/net_report/probes.rs": {
+        "sha256": "5aba91dfaed0b5c235f4f0129c9fc866b56638e4745c39205687a3797f5d9b69",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/net_report/report.rs": {
+        "sha256": "88d590eacd0efa9e054f75472927552c74b6de7d2f1b5dfb09b8bb90418c93ed",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/net_report/reportgen.rs": {
+        "sha256": "524c0bd8e9efbcd2a485a48b5146a75ef7138f9b9c20e7755a56f82a319ae1ff",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/net_report.rs": {
+        "sha256": "0d50b791dde813a796e60e4f2598caff66f0cd2fd895ce758ad9789430536e6d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/portmapper.rs": {
+        "sha256": "979ec90db8babf2380b41cb97da8bc7b098ce73035198624b963ab435962bc0e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/protocol.rs": {
+        "sha256": "94435c807ab77e5d4babaeccabb47bcb3efc5a762e78394c8dde07c1082897d0",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/runtime.rs": {
+        "sha256": "b6a6c66103fbab2fe22dd430218b613915761873a4efca090f89b88ff8c10291",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/biased_rtt_path_selector.rs": {
+        "sha256": "6c7412b78d187fa5cf279a99d112e0fd4a056e43735ce8a66779eecf87cc4eba",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/concurrent_read_map.rs": {
+        "sha256": "a0148e157b08fae370da37179d0fd93ad673e018ccf25decb3ae1f6e8489a8e4",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/mapped_addrs.rs": {
+        "sha256": "c95accdd5f474a11e820b1d460696507ffd0195ccd074d439520cab9cd9c3ffa",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/metrics.rs": {
+        "sha256": "511817fe626bb1d7d395447737298ccb3ee081ebb1575927137e94a3c78a5593",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/remote_map/remote_state/path_state.rs": {
+        "sha256": "d320c4becfacc9ecc32475e0cfa1cc52c9698b2011804f7bbb95b7f860b0a3ab",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/remote_map/remote_state/path_watcher.rs": {
+        "sha256": "838bbcd605addbe1afaf911c20b4efc5be87499a7758aba0933e58101dce32b9",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/remote_map/remote_state/remote_info.rs": {
+        "sha256": "c868e120bc34c103040181b28927935c4b054981be5c2647d2b1bbc715180768",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/remote_map/remote_state.rs": {
+        "sha256": "962e8f1a593fe10b76b0b479030f465989a4fab5a9094743eff82943fbc88c93",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/remote_map.rs": {
+        "sha256": "bd2710b30ff105cc69c9faf9d390355a9dd2dd5247fe4634f0e4e57f7e8cdb32",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/stun.rs": {
+        "sha256": "dd490f7b61c41806c09842fca1556b28ba4c1de608fb3819f27e91795ccfd00f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/transports/custom.rs": {
+        "sha256": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/transports/ip/pool.rs": {
+        "sha256": "d75aaa9c38343b1049298475fe30bce88a2cc50f803ff619c3d96fac0714fde3",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/transports/ip.rs": {
+        "sha256": "0066ec3d3ad5fa750d9017dd37982ee314d9fefa257b832649cd56a90be544bf",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/transports/relay/actor.rs": {
+        "sha256": "665b842e5fde4a4d591b915f6a5bd7333f9bd3d37c1785e3f9f959d9e727cffe",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/transports/relay.rs": {
+        "sha256": "d853a7e8fe8fed76fe46c77a908d77bc2264de3b810e715c78cb26dddd6fc191",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket/transports.rs": {
+        "sha256": "d2aeff1b846d69349e2467a84709c8a2c3b82eb1c597d57882c984a00037647b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/socket.rs": {
+        "sha256": "077c1ecbabf8ffe564ce755f71d47b697f5db1748372db48bda7ae2dc2a061cb",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/tls/misc.rs": {
+        "sha256": "2f60333bd46626324052ec9cacc606470690f430769a6c7e8950dab83b95ad82",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/tls/name.rs": {
+        "sha256": "0d1b1ca5d1c99c57199a232f3d658f21d889a2b20d3e590fe30e4f255c0c2acb",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/tls/resolver.rs": {
+        "sha256": "4bc17a87396badec8b93c72f815f4a9d9246c9206abe184a3abeca55a5683344",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/tls/verifier.rs": {
+        "sha256": "2d1af5d853a64e38e5b0e6e01919c7385aae091d0ba34b93fa9971ddcf4e1345",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/tls.rs": {
+        "sha256": "c2cc7dd836df5a1086bc3e397c07f4a63b2154f802016e994b565fd7e943030c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh/src/util.rs": {
+        "sha256": "9cec3dbcc06abf195aac152dc6343cae754e306b9e2d9bc239dcd4cda126abae",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/build.rs": {
+        "sha256": "da039420c41e8e7931646bc4dbb1606187468c97039d84063e74d437466a2d7f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/client/conn.rs": {
+        "sha256": "9556b3f772a7e9cae6e3d9d15dc287b6087d303644fa7b1a4aa0a1cf642f510a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/client/streams.rs": {
+        "sha256": "2d87b48c08be69e384bbb02075bb780e010abd37054a3b8a29087640fdc2d58f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/client/tls.rs": {
+        "sha256": "1767efb854e3091df602d3307d7771ad5277b42e1fb26d759f3b1d964881d943",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/client/util.rs": {
+        "sha256": "d00db60ac695de61dc234f6f0e68e6b9134550d4a597271a247426e4536aaef5",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/client.rs": {
+        "sha256": "e203cbf9dfe6b7beb71d840d9737307fdf6123d3753f5242ede4bc5f01321ea3",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/defaults.rs": {
+        "sha256": "63ea0ab36aeb95324a3d902dff2c03af40ad43053da1269eca415968fcae424a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/http.rs": {
+        "sha256": "ea9bbf0087b35ffe6ab6c428cb86b128fd520270fa5ea17b6daab3e2f9e21793",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/key_cache.rs": {
+        "sha256": "b44c5d596006e72b2d08372f1b3833ccbe2d34f4e16a266c39dc00feae9b9f2a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/lib.rs": {
+        "sha256": "9327f8f19e6e8672a067669a928540619fa94724d1e1e85565b54fe1ac16277b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/ping_tracker.rs": {
+        "sha256": "7a8216985afdf1e60780b70356563c497b3014d2c184d90a7c18714fe79db8a6",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/protos/common.rs": {
+        "sha256": "60df8d490d301b75f9fe8d51ea9839ecedc900fe7fc140a967bc014d41a1c87d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/protos/handshake.rs": {
+        "sha256": "fae68739f3cd9bc8683abb6f769298a93cea4bf53029886b4720858e1ea53913",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/protos/relay.rs": {
+        "sha256": "bc98e9f332dc5fdc3b3ad4abb1cfdc1778452fbe597eaf517d3d4e409f27804a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/protos/streams.rs": {
+        "sha256": "cb426bd98b3fe1f9168f5660f39d097294715a7bada901d7dbd64d42eabc38df",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/protos.rs": {
+        "sha256": "b7934f89079056848578bf6e0ee5bd4c93fb84792731dc19d7dcc46f560805e1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/quic.rs": {
+        "sha256": "57a939f3ed9d33f7dcfe3f1edaf8d36083698d13a32a69dd475fef9dbc7600a3",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/relay_map.rs": {
+        "sha256": "e522ba25196003a32bf10176ae1ed8c9fdf4ed3349ed8781b50a25fb11c7e2e9",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/server/client.rs": {
+        "sha256": "090e6d862e95d89e29f10f22c889ace538ec3ce9c339b41194f55048c99c6d7c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/server/clients.rs": {
+        "sha256": "f9cfe61fd0c450eaf5c1443d02126e5da99b1629ae9e9fd5bf1f9fb9b340393a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/server/http_server.rs": {
+        "sha256": "fb2366bcefee7aa7b56e62a20ef50372f19f72dc04ee47b3290fac95d1ec31b9",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/server/metrics.rs": {
+        "sha256": "c0c1dc13a6e32054f4d8433cdd1ed0c073650dfe5ac53d479c636c481b83a54f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/server/resolver.rs": {
+        "sha256": "910d31d30a4bcbf531158a779fd4011c73447c42d54d6f720ad34fdd58febe02",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/server/streams.rs": {
+        "sha256": "16de36d03a8b44c437c956ee4c627109714893156be7a3e1b098f30c55d443b5",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/server.rs": {
+        "sha256": "96c19ba39d744ff41c2ac8ec8c3cd53db8923199c02b4d79fb28cf6d4a7eb373",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/iroh-relay/src/tls.rs": {
+        "sha256": "37fccdc24dbeb8e16dbb48e5e199561813e75e371220034c426a2ca635a69058",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/build.rs": {
+        "sha256": "f7cb29da5e7016b1f51faec25b302a332e42301b585a1f44e80ab06cdfe7c898",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/interfaces/linux.rs": {
+        "sha256": "d390f2077c87c37b5a978a60b1894410267638c9a26b6b38ea5481b9e1bc116a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/interfaces/netdev_impl.rs": {
+        "sha256": "b3d3b70e3de375303c68f84259377752e5863f91725caccd0d7b611f559630dc",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/interfaces.rs": {
+        "sha256": "b5def7fdf87fbf901773b8f8fb44af26e5d384bf07393abb9591c76b54cb2ca6",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/ip.rs": {
+        "sha256": "81f2290304418503050515f9ad30143021d388705fe3ede743c5906a028ca5f0",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/ip_family.rs": {
+        "sha256": "d7702ea459b42a20f31af6ff36d4fcf9bb194119669c19860eaf9e3130ebe57b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/lib.rs": {
+        "sha256": "285c91fe0d8a00df0cc0b700eba1ae9d075af52307a8aaa4e2d1a496df24544c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/netmon/actor.rs": {
+        "sha256": "85b20088deeaee4b7968d8304f74d8bb70a250e6ee04e7786096755b5a3cf0ce",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/netmon/linux.rs": {
+        "sha256": "9b6ee5c652bf3ce69b8ce57fdedde0111476b76720bb1bed268ee949cb9549c7",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/netmon.rs": {
+        "sha256": "9b821b3dd761d9d731551b01c5b76a79dfdaf09c618ff89502582c2068f49352",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/netwatch/src/udp.rs": {
+        "sha256": "5f8266da3d9f09abeca30a20326197b6e14a51dbd2496aaed83bbb0da6a867e6",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/build.rs": {
+        "sha256": "da265b34113659b194be9d5972d4af6e5a334e0afa4adf02f949e4a1ab39a7ad",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/connection.rs": {
+        "sha256": "44ed00986693ad0c35e62cdb50b2cf16aab7586dbebc2f7410ec7cab65414f75",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/endpoint.rs": {
+        "sha256": "f603257e41d10f20c2de48ce35023493b30a0ed0813b320e44d746a3e1fff6a4",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/event_stream.rs": {
+        "sha256": "20940fe69ef571989d900446bab48ca7ee5850a252f0ae768af9e157b3ae5dce",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/incoming.rs": {
+        "sha256": "fb4ef3ec35ac5577f1c8265bcc2342346a0d6ca4427310b213a3f79f0bd79ac1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/lib.rs": {
+        "sha256": "d73190c6a61b096391d85766a9163ab38b99aa6bc892353aadbb2bb269384acb",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/mutex.rs": {
+        "sha256": "5fdace6d2a4e0b154a70ac727f279d23c9fc33ec5c960e41b216c1d11a4f0edc",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/path.rs": {
+        "sha256": "b8da127fed75cf4e112f336a43e9f05a1dd077355e863c712a8e8c29a2902c01",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/recv_stream.rs": {
+        "sha256": "14dcbd6725fba97abddae17767b3ddd55d29f4008971ed2ca42dc850353d2f2c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/runtime/mod.rs": {
+        "sha256": "28c016d7430efb0fd99b730c5937faaac19a3fd2406778febdc2da24b170b88d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/runtime/tokio.rs": {
+        "sha256": "2528e120c329ae3d2e53c4c24e1c02ebfcee92df7a5bfde016ee377a003cddc0",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/send_stream.rs": {
+        "sha256": "4bb8d661eb627edde1015dd9903dfbbabcdffc241fab1255cb85456e22069e1f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq/src/work_limiter.rs": {
+        "sha256": "515ee13aaba538843e112d287cc7cd91fb94f1922e246179421e45dbcfe41fea",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/address_discovery.rs": {
+        "sha256": "110eb221e5644b00818c7e1a38cfd825d6bae2ebe9d5a3762412faa95b970c40",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/bloom_token_log.rs": {
+        "sha256": "31429b70f6a12a9f599ded18f6bd22a9bc98e723c37baa68b23f0218592dc105",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/cid_generator.rs": {
+        "sha256": "5d43c394cc5d2a3b6c7d8ff111631731e11b4521d0248d9bdeed7f7857aeab3c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/cid_queue.rs": {
+        "sha256": "da3fb20d9db0451e5d7343ded889b1591c06b2b8ef6ac7ac4cbfc2ccab79898d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/coding.rs": {
+        "sha256": "3ff5e368e30445d1e90c3330312b22afc87d10639d57d5981d687d0fe975fa89",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/config/mod.rs": {
+        "sha256": "09a10465c79c0f54be60cfcd7e34f48cf671f11ec0a4393c228665354731ae8d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/config/transport.rs": {
+        "sha256": "c5fbe2893a2b42e6d906ef75ed771f3ba34782e3291782be9a996ffb7ea2c5fc",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/congestion/bbr3/max_filter.rs": {
+        "sha256": "6867b88af19d1dfe8b393eb3216458e958a4153e1390b34890a910a9e3df150c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/congestion/bbr3/mod.rs": {
+        "sha256": "f20f54b27f9e44e03145b31617b9f76a23975771365d76a0d750c24281f182e4",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/congestion/cubic.rs": {
+        "sha256": "ae5ce2cc71471d14e6a895543de9db4a1cb73a770ee562a566e237e7c0f17833",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/congestion/new_reno.rs": {
+        "sha256": "d9ab7d937d587211a6ae5b1bd11740d1ab534ef14a232e0041f385c5ea6bed3b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/congestion.rs": {
+        "sha256": "b7672d6ff6682b8714c9527076ac20bff35aa6326dc0fd162d95d9c796d4d547",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/ack_frequency.rs": {
+        "sha256": "ec99413e4cf0e84ac7c2da0b1214379823145f9911a946f769561e883812ef6d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/assembler.rs": {
+        "sha256": "d7d311d76f6b64983485b756101edd41721aebb0647c3e00a227b1ab8138845d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/cid_state.rs": {
+        "sha256": "e0c7bd79f6d40e72fa95a5fc14869073bc4f45384428163322297dc8d73b90da",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/datagrams.rs": {
+        "sha256": "4fde25004d29529f21898fd986c560661dc878bd8cd5e00e95ad99e1fea6040b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/mod.rs": {
+        "sha256": "93575c4027506cf6fa324c1384e9ee5e740701934020e3323465ca2ae0e69e17",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/mtud.rs": {
+        "sha256": "fab7f290fd255ccf14febb01223db17c645f4f2d99864963a9d046e53ff4e416",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/pacing.rs": {
+        "sha256": "b424ed5226b867b5c96383649bf383bd3f9a35842d8d34f311a07db50a6cb48a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/packet_builder.rs": {
+        "sha256": "7d9cc00d496bc3c5f33ad03ec67690804f9175868f56fd47670c63aa987152d8",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/packet_crypto.rs": {
+        "sha256": "331e21a7f0e0a6f69154d050d834ba2715b51bf18a853f17c3caebe9f8d71687",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/paths.rs": {
+        "sha256": "3f86ec41fa014b1a6870d2c8556900e4fd3c15f8959b654d54356b9c52bfb8b5",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/qlog.rs": {
+        "sha256": "25c50142ed9694440c426cd15309cc032a3de055f60e1cd876f69cb591c0b980",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/send_buffer.rs": {
+        "sha256": "87875ebce780a3c9e1656c29d3920c83bd921c4ba52948a6fee99d003c0bbe95",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/spaces.rs": {
+        "sha256": "21c26b93df0748bf0d001a1d6a51a46038b440b410293d4092b9918c9bcebc61",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/state.rs": {
+        "sha256": "393239ed7921b1f27ca518f9614d6c98c861973a283a862cb8196ef8d6e1db16",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/stats.rs": {
+        "sha256": "5866a6f4b25da66bdb0ae99f0ecafdea12aa6011b8c9b95f272f708d4981cc10",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/streams/mod.rs": {
+        "sha256": "516df37cde48a51d5f0ab880bd6fd6f62128ed80cdd226a8bcbc54a45b8b0b0f",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/streams/recv.rs": {
+        "sha256": "f96dadacc5f0ba9c6deebc3e2465be06b0980fd6e673365a3f3232bedb52f88c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/streams/send.rs": {
+        "sha256": "bfbd2177b06d8f40d4115e499766fd1fb7d87961440f62e9120a9add2d167659",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/streams/state.rs": {
+        "sha256": "bf87db641800b9fb37be14f03ca3efbcb12655ccef5da1cf06912747d17f4442",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/timer.rs": {
+        "sha256": "302dfb2df839bf6ba5a79ade78b1f37c87f8c142e46bfed462ab45743a0c5faa",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/connection/transmit_buf.rs": {
+        "sha256": "e052a3f9880f9eea0dd04aaf7c47d7f8da716e6bb6dabde916d77fe5122c1540",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/constant_time.rs": {
+        "sha256": "35540c4e65fc083894bfedcb811c3495cd5f4168d2f1c25b73cdcdcfe3a44f3b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/crypto/ring_like.rs": {
+        "sha256": "1cdffab68a099223375e24ebe0bfb45a619c5cdf561893155b0bad96bd54b8d1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/crypto/rustls.rs": {
+        "sha256": "0709aade117fdbbcc513a5b723927d6f16f98cdf2f0b78005c3acca85cf53f5a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/crypto.rs": {
+        "sha256": "6c658f45bdced033ea66b4789ad111b56a0fbe7fa0cdd62d4282ac4e9e16bbe5",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/endpoint.rs": {
+        "sha256": "7b981f8b21b0db43567d307b774c2b27f6bb900d138735170144f746184281a4",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/frame.rs": {
+        "sha256": "57b92e8349e3dbd64e5059774cb93e0cc4ec759aeead3832edaa63e86703cec6",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/lib.rs": {
+        "sha256": "65914e620aacb8a13ba12bbc2f4d44996f6d20ede190c3b8de6d20e48a06cda3",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/n0_nat_traversal.rs": {
+        "sha256": "3f98c0f68e056ac254fa7067678819972e920b01bcace2b110a6614ebd9d25c8",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/packet.rs": {
+        "sha256": "58725ff8363fe9db1d728547c0219793428b39a8362b4459640f426d24f26aac",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/range_set/array_range_set.rs": {
+        "sha256": "3c9173d556947b7807cc22dadec629620273bc91c416dbda47953f255a59b788",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/range_set/mod.rs": {
+        "sha256": "28106c895de4b0ea0733842e2ea90911a4dac1ebd6b90ab195bb5c4f2bf4f84e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/shared.rs": {
+        "sha256": "ea103e2bf67fe11b92bc2737a71224e4f7db3ea3fc47501892c267a5215206da",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/token.rs": {
+        "sha256": "949b7949195be7dad7d5afa0bc0dd836f047bbdf6a11a8839750db959c3cebca",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/token_memory_cache.rs": {
+        "sha256": "deda7123d3df5e95818fd728a31463822ac592a0f56cbe5dbd4012b88398dc00",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/transport_error.rs": {
+        "sha256": "0de736b06979b5be4d522b660ad72a3b36e847d788a1a41f4cbe36688f2b6580",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/transport_parameters.rs": {
+        "sha256": "79b09c5e2fdca31b38727f384dcf750d236f789a11680798d67c34341a71af54",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/noq-proto/src/varint.rs": {
+        "sha256": "4436c208b1c8230443a0990588675809b628284445961f89ad15ab9f95ddacc8",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/access.rs": {
+        "sha256": "34da767f89a42dcb1838ef7c47b92c7a5c39e19ae37fec2b31f5e16914b7c52b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/extension.rs": {
+        "sha256": "e712e848652b32eff805de5803b9b2f3811afeb103fd78f37c2bb70f17c36d84",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/graph.rs": {
+        "sha256": "4b73fe9779b2bd3e95d44698fe5f3fffb878a7ee26aab1518cf5e272db8b5560",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/group/action.rs": {
+        "sha256": "465750c4bbd360a14037b9a2097b41eae717224cc9d86981d428c10f5b6ff182",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/group/authority_graphs.rs": {
+        "sha256": "0120e9fca98437357c3ec63d0f0a28b02da4594f9a2ad6e95e687a55de6d933a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/group/crdt/mod.rs": {
+        "sha256": "b2c528cb6c5438bb3f8c96f76758a26ae2c59f5ca32a2982f55fb8a1b004d99b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/group/crdt/state.rs": {
+        "sha256": "b2a2250c9a0f17da18a1c2cc8701bf097af39facbe610ab2ef7b728e1ab6a6de",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/group/member.rs": {
+        "sha256": "22b1843533d6405c0ba9b59256d0e7751cdc1359741e7d8b8f8082d7282095ce",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/group/mod.rs": {
+        "sha256": "776f5bde6d7bf414c91df785c3c33015162a4a02f0c4011af1ece6f5748f0c30",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/group/resolver.rs": {
+        "sha256": "bd3220c0c4b371cd78fee46443f683a817e1ae4230b4dce4f071c841e38927ce",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/lib.rs": {
+        "sha256": "1de087155cc3807c8af8b95bd24afad75bc1ed18b5c5d2d4b050fc12ee23102d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/operation.rs": {
+        "sha256": "84107d5cd76f1154cadc75a536fc51bbb2df026b4020e48affc52b1afb1c84e8",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/traits/dgm.rs": {
+        "sha256": "635e769d1b04bc17f7b4692fe580991023047060a2b14b89f94cb5bfcdf0e981",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/traits/mod.rs": {
+        "sha256": "deabafefd08e0ed40719a849b26a577bd7a09738fa9417e030307b558309486a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/traits/operation.rs": {
+        "sha256": "5c813888387e2f7d97e6e446be108b610b5772f28f10c2f4805459183f52fbd9",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-auth/src/traits/resolver.rs": {
+        "sha256": "ac06dffaf649b2660c832b6a1e46514cb2fac83f0eb45288f923017884ffadab",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/address_book/actor.rs": {
+        "sha256": "5de3eb83ba70fec7ebccd9526c9be5188614cb1379ab1369c84d1d49165d3d1e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/address_book/api.rs": {
+        "sha256": "ab229b3719743e61c4820290cb0a0e954a27acaccbb3d1b3eb7201723827e61d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/address_book/builder.rs": {
+        "sha256": "9f1fd66128f3e47e963bccb2c702eb4e2861cf1bf0be952a74a71b835982ace4",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/address_book/mod.rs": {
+        "sha256": "28740cc016fc969ec3fd886e5ca74920b33b47124e12047fb41bb064b28a2766",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/address_book/report.rs": {
+        "sha256": "155422fcccf59573dd94113e67b16d7fa233b034c8aeb1f5e9a62d37eb2dcfef",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/address_book/watchers.rs": {
+        "sha256": "23e33847630ffa7d3489416c33b9209f2e2539c5cf852e58204cf34e136a90d1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/addrs.rs": {
+        "sha256": "6c2b1d5e2187aec1994d6082737d21926afa58ddec4210a2c76d8492fc4db3de",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/codec.rs": {
+        "sha256": "31d57fa11f6a27c572d46ab76069391c3acf1b2e4bdbed7176d2f75fb5745d5e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/discovery/actors/manager.rs": {
+        "sha256": "fbeea4e49b2f9eff31b737da229d73a8228eb5320fa567e6d7ba908f676c33ab",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/discovery/actors/mod.rs": {
+        "sha256": "6aec44ead549b94f651c83ac580891f6278009b920cb8354d36f0a5745e80895",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/discovery/actors/session.rs": {
+        "sha256": "c71ab392a50bbf4e171e4fd19fc0e1f314d6cdbd3a9738a3be9f209f298f17a6",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/discovery/actors/walker.rs": {
+        "sha256": "8f615e0dbfb605e4117bae43da3c61076d26a9306dc6ad965cf4fde9c6452f77",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/discovery/api.rs": {
+        "sha256": "2ba4f2fe88d86925711cc5040efb722823b36a51fc27e972e061d6033d9e84de",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/discovery/backoff.rs": {
+        "sha256": "d0774dae93e6160fadc8535c08fe8a1687a1d7c4edf9e314bacd7a67f80eddf1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/discovery/builder.rs": {
+        "sha256": "a65e9298bc8bead59b78553d86fcfc19153a7bb502b89ddd837f064bf6a403ac",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/discovery/config.rs": {
+        "sha256": "9dabca4ae31c96b2d7da5de51da74b45e292bacb3f97726186e5a41e908c9ea3",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/discovery/events.rs": {
+        "sha256": "688b55688461a46158ef991b8a4ad98e6e8f79c9edb8231678fb3e109d5da37c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/discovery/mod.rs": {
+        "sha256": "890fbf325e920e9af706ee4c7c2c73df049131355119c54a1bfa7bb252fd2146",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/iroh_endpoint/actors/connection.rs": {
+        "sha256": "7a81f95b0c05be204e869bb1b8334ebb4fb0ff3958999981fa55d7df7eb850c4",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/iroh_endpoint/actors/endpoint.rs": {
+        "sha256": "4e45d42278600aa1ef28e95f8659c3fd12f2dc873b849d1a5e25201fb1554f60",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/iroh_endpoint/actors/mod.rs": {
+        "sha256": "ea6cd0b73750999c2ada7d139dcd1db2d4b0877b758fb6a7912d525730b8922a",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/iroh_endpoint/api.rs": {
+        "sha256": "5fb3006100b495cdb754ad880f9c04dc0ea9f58b2b6115b7b2303ecfb95dfa09",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/iroh_endpoint/builder.rs": {
+        "sha256": "091072ced56e976d7d23b5a70b746d2e9f3f6d5c7be5eaabc3165790c86b2ba8",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/iroh_endpoint/config.rs": {
+        "sha256": "6356456ba26d5eb19ee63b8fd98c65a5516d010c91a0844897afd81d981e4f56",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/iroh_endpoint/discovery.rs": {
+        "sha256": "0a1331db39039de9f163bf849f70e5d7b303df24c55c954971c3bd390e8e4505",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/iroh_endpoint/mod.rs": {
+        "sha256": "b93c25297023039ca958452c7f352800602a7a9235d6c3169280bec61e001b4d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/iroh_endpoint/user_data.rs": {
+        "sha256": "575dd1270b8b0d648fb96ae245526515a6c20ac46937224d56b180bf5bd3d72d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/lib.rs": {
+        "sha256": "044b83af849b463ddb1374803b4c16727141505b78c54e5b8c2ffc38a13028b8",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/utils.rs": {
+        "sha256": "3ba96f820aa1db410e241686bb3862e9191674ca546fa53226baf4804f385980",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-net/src/watchers.rs": {
+        "sha256": "a5d0b870530a49f67b7d4c87b7c827faa18d6218327c7563f226d61c06837dcb",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/dedup.rs": {
+        "sha256": "ff4547b6c351bab938fe91deec6a73aaf9e97aea150da313b46d16652273346b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/lib.rs": {
+        "sha256": "65004a21116d534e46300f96603918a0820c8531f601e90beb616dea0e2c893d",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/manager/event_stream.rs": {
+        "sha256": "eaac7155d01add3ca1a0c6d4f1858f09a460c88dcb1311bf1dd9aa18429042eb",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/manager/mod.rs": {
+        "sha256": "76bad2da32956160c1b1a91854fbd1cbb2554af9cc0d0664eb96ec4dd29790ed",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/manager/session_map.rs": {
+        "sha256": "4cc47d3b98a2e1705c7fc01ed45b980143a2f3d523d67e5875be59cadc72482c",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/protocols/log_sync.rs": {
+        "sha256": "eb666fd0733a9d6b80befa051c752b8f99ecf7a1013d1ede4537e69f799a4949",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/protocols/mod.rs": {
+        "sha256": "5f8a5c745830983982b5d4c675ca6dc0f39608fc6173b1a67599bc8900ceddd9",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/protocols/topic_handshake.rs": {
+        "sha256": "c59b24a894299b59d1c49604f80d67e8e9e52ef69e49f57665d2669dadf5f08e",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/protocols/topic_log_sync.rs": {
+        "sha256": "ce92fa265751fd102d8088164c914f8fd8204769699eae64ca3c4dd13a39e8af",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/p2panda-sync/src/traits.rs": {
+        "sha256": "08c945b7a38f6215a52c69ef291c4733cfb05a5b817bbe9a1d3383f98ee562bf",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/portmapper/src/current_mapping.rs": {
+        "sha256": "d885ac49145c4bb493071e6a840c68c32f12b5d331eed23b49427b196dfeb013",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/portmapper/src/lib.rs": {
+        "sha256": "62500098e1e07ecb43da105bd001e974f597033964c1ebc3c42f5242b8e8aa9b",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/portmapper/src/mapping.rs": {
+        "sha256": "137610c8d9c91300e5084999bbc00e159ffc0c5ec6f3d3abf3499ebef29274d2",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/portmapper/src/metrics.rs": {
+        "sha256": "adfbaf8236f0828528576919f2179bf6a3f988bebb480503456e58f0d81758f1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/portmapper/src/nat_pmp/protocol/request.rs": {
+        "sha256": "15e51c56ec8745932ee5bbd8587e949c0292bbe1b97b7a1b7ba946ef27ea5c28",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/portmapper/src/nat_pmp/protocol/response.rs": {
+        "sha256": "14f44d630e0ec986a90790ab055c6fef1988ed2f6c8d24f9582276026d8de370",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/portmapper/src/nat_pmp/protocol.rs": {
+        "sha256": "6694bb4c2104d4409b9d50bc9fed380b51b1a59ace3aeb6d80a1b0984ff02550",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/portmapper/src/nat_pmp.rs": {
+        "sha256": "104a0fdd74f0cbff1b67fc9a6b7c1a1e3d9db0311cf36da0f9e0ec8738ff0cd4",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/portmapper/src/pcp/protocol/opcode_data.rs": {
+        "sha256": "af9d7da0997819cd953eaace2d7cd52e803f39703911f629a6953c1f61144ad4",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/portmapper/src/pcp/protocol/request.rs": {
+        "sha256": "f06b1fa2b939ac0304c7bd34642814b3cc4ceef94b36a5d26ac58f43615ad4a1",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/portmapper/src/pcp/protocol/response.rs": {
+        "sha256": "33084fed9cfb526c27bab6d4860f6b03fcee595e78b7427ac42a39ced42961bb",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/portmapper/src/pcp/protocol.rs": {
+        "sha256": "749991b26b09d4a8bba2fb8e4ec045d604efe2638e6dc428998317f4ec9c9b12",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/portmapper/src/pcp.rs": {
+        "sha256": "d2d72e27fcfbe570969b5f021ecbc5fd182288fb784e12c1a328ff9054dc5169",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/portmapper/src/upnp.rs": {
+        "sha256": "5a3f51f19fd57808d5c3e9dad7a2753900eb4f569ebc1166b5105056754bf588",
+        "matchedBefore": true,
+        "matchedAfter": true
+      },
+      "vendor/portmapper/src/util.rs": {
+        "sha256": "2845437aa1bbf691fd15bd51bcbb544198d80367a5e38eed4ec5e322511ab6b2",
+        "matchedBefore": true,
+        "matchedAfter": true
+      }
+    }
+  },
+  "wasmActualDepInfo": "raw/build/wasm.d.gz",
+  "nativeActualDepInfo": "raw/build/native-reused.d.gz",
+  "wasmSourceCopiesDirectory": "/tmp/mio76-create-answer-current-wasm-build-20261005/compiled-input-snapshots/wasm",
+  "wasmSourceCopiesRetainedNotDuplicated": true,
+  "nativeReused": {
+    "originalBuildReceipt": "/tmp/mio74-current-role-positive-build-20261005/receipt.json",
+    "originalBuildReceiptSha256": "c62367b525edb0429fb3be59234930e8fb92fb6f368f81ca82e90ae295a1876f",
+    "actualCompiledNativeInputCount": 276,
+    "all276CurrentCompiledInputsMatch": true,
+    "newNativeBuildPerformed": false,
+    "newNativeQualificationClaimed": false
+  },
+  "broadSavedWasmBuildInputCount": 493,
+  "artifactsAndAllPackageSnippets": {
+    "/tmp/mio76-create-answer-current-wasm-build-20261005/miopunch_browser_probe.wasm": {
+      "compiledPath": "/home/js/Git/miopunch/target/wasm32-unknown-unknown/debug/miopunch_browser_probe.wasm",
+      "sha256": "9bcd93c2d7f5a845a785f9f0cdd3aa812619dccaf69b6af765b16627db4a2b09"
+    },
+    "/tmp/mio74-current-role-positive-build-20261005/browser_wss_member_native": {
+      "sha256": "9bfe2047d8ba7fb5d944bb1fd5b2dc81aec37e9135eed88dc5ef1ea4a744b468",
+      "reusedUnchanged": true,
+      "newBuild": false
+    },
+    "/tmp/mio74-current-role-positive-build-20261005/browser-probe-native": {
+      "sha256": "47101db605f54283e4e4ea9f250c0d7525c4843acc410b21ac194f249b9c3583",
+      "reusedUnchanged": true,
+      "newBuild": false
+    },
+    "/tmp/mio76-create-answer-current-wasm-build-20261005/pkg/miopunch_browser_probe_bg.wasm": {
+      "sha256": "64d570f76361eda19665715460f11d7e361a376fa584fe1c19f7caaf93ed70d7"
+    },
+    "/tmp/mio76-create-answer-current-wasm-build-20261005/pkg/miopunch_browser_probe_bg.wasm.d.ts": {
+      "sha256": "20ca533aab0a1625a60b449b7ba2a62674dec3b4013f618d5c24435b0a428bc4"
+    },
+    "/tmp/mio76-create-answer-current-wasm-build-20261005/pkg/miopunch_browser_probe.js": {
+      "sha256": "95a4acf900f0f625e93eed79bdb62578005e3c7f21a79aa3372dca216aad4e7b"
+    },
+    "/tmp/mio76-create-answer-current-wasm-build-20261005/pkg/miopunch_browser_probe.d.ts": {
+      "sha256": "a8ca573dd416dee6197e53a1f202e51c774c504edd8d4838481929bbc114aea5"
+    },
+    "/tmp/mio76-create-answer-current-wasm-build-20261005/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": {
+      "sha256": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e"
+    },
+    "/tmp/mio76-create-answer-current-wasm-build-20261005/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": {
+      "sha256": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96"
+    }
+  },
+  "largeWasmAndElfReferencesOnly": true
+}

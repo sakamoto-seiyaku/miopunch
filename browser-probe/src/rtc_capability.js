@@ -12,7 +12,7 @@ export function probeRtcCapability(permitted, label, protocol) {
   let PeerConnection;
   try {
     PeerConnection = globalThis.RTCPeerConnection;
-    const required = ['createDataChannel', 'createOffer', 'setLocalDescription',
+    const required = ['createDataChannel', 'createOffer', 'createAnswer', 'setLocalDescription',
       'setRemoteDescription', 'getStats', 'close'];
     if (typeof PeerConnection !== 'function'
       || required.some(name => typeof PeerConnection.prototype?.[name] !== 'function')) {
