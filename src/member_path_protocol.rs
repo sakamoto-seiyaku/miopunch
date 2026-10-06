@@ -109,41 +109,45 @@ impl MemberProtocol {
     pub const fn legacy_alpn(self) -> &'static [u8] {
         match self {
             Self::Business => b"miopunch/browser-member/1",
-            Self::Replica => b"miopunch/control-replica/1",
+            Self::Replica => crate::connection_coordinator::REPLICA_ALPN,
         }
     }
 
     pub const fn upgraded_alpn(self) -> &'static [u8] {
         match self {
             Self::Business => b"miopunch/browser-member/rtc-path/3",
-            Self::Replica => b"miopunch/control-replica/rtc-path/3",
+            Self::Replica => crate::connection_coordinator::REPLICA_ALPN,
         }
     }
 
     /// Explicit server preference, independent of identifier sorting.
     /// A Router registering both handlers applies this list with set_alpns.
     pub fn preferred_alpns(self) -> Vec<Vec<u8>> {
+        if self == Self::Replica {
+            return vec![crate::connection_coordinator::REPLICA_ALPN.to_vec()];
+        }
         vec![self.upgraded_alpn().to_vec(), self.legacy_alpn().to_vec()]
     }
 
     /// Keep the original application ALPN as the before-connect gate input;
     /// TLS chooses the server's explicit preference on this same connection.
     pub fn connect_options(self) -> ConnectOptions {
+        if self == Self::Replica {
+            return ConnectOptions::new();
+        }
         ConnectOptions::new().with_additional_alpns(vec![self.upgraded_alpn().to_vec()])
     }
 
     pub fn from_wire(alpn: &[u8]) -> Option<(Self, CapabilitiesVersion)> {
-        [Self::Business, Self::Replica]
-            .into_iter()
-            .find_map(|protocol| {
-                if alpn == protocol.upgraded_alpn() {
-                    Some((protocol, CapabilitiesVersion::Rtc3))
-                } else if alpn == protocol.legacy_alpn() {
-                    Some((protocol, CapabilitiesVersion::Legacy2))
-                } else {
-                    None
-                }
-            })
+        [Self::Business].into_iter().find_map(|protocol| {
+            if alpn == protocol.upgraded_alpn() {
+                Some((protocol, CapabilitiesVersion::Rtc3))
+            } else if alpn == protocol.legacy_alpn() {
+                Some((protocol, CapabilitiesVersion::Legacy2))
+            } else {
+                None
+            }
+        })
     }
 }
 

@@ -13,6 +13,15 @@ export function networkObservation(message, sockets) {
   const socket = sockets.get(params.requestId);
   if (!socket) return undefined;
   const base = { socket: socket.number, origin: socket.origin };
+  if (method === 'Network.webSocketFrameReceived' || method === 'Network.webSocketFrameSent') {
+    const frame = params.response ?? {};
+    const opcode = Number.isInteger(frame.opcode) && frame.opcode >= 0 && frame.opcode <= 15
+      ? frame.opcode : null;
+    const text = typeof frame.payloadData === 'string' ? frame.payloadData : '';
+    const bytes = opcode === 2 ? Buffer.from(text, 'base64').length : Buffer.byteLength(text);
+    return { event: method.endsWith('Received') ? 'frame-received' : 'frame-sent',
+      ...base, timestamp: params.timestamp, opcode, bytes };
+  }
   if (method === 'Network.webSocketWillSendHandshakeRequest') {
     return { event: 'handshake-sent', ...base, timestamp: params.timestamp };
   }

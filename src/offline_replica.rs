@@ -21,7 +21,7 @@ use crate::management_auth::{ManagementExtension, NetworkAnchor};
 use crate::management_store::{ManagementRecord, StoreError};
 use crate::native_network::NativeNetwork;
 
-pub const REPLICA_ALPN: &[u8] = b"miopunch/control-replica/1";
+pub const REPLICA_ALPN: &[u8] = crate::connection_coordinator::REPLICA_ALPN;
 const MAX_RECORDS: usize = 4096;
 const MAX_BYTES: usize = 16 * 1024 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(20);
@@ -103,9 +103,7 @@ impl NativeNetwork {
     }
 
     fn replica_allowed(&self, connection: &Connection) -> bool {
-        (crate::member_path_protocol::MemberProtocol::from_wire(connection.alpn()).is_some_and(
-            |(protocol, _)| protocol == crate::member_path_protocol::MemberProtocol::Replica,
-        ) && self.gate.allows(connection, ProtocolScope::Member))
+        (connection.alpn() == REPLICA_ALPN && self.gate.allows(connection, ProtocolScope::Member))
             || (connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN
                 && self.gate.allows(connection, ProtocolScope::Bootstrap)
                 && !connection.paths().is_empty()
@@ -166,7 +164,27 @@ impl NativeNetwork {
         &mut self,
         connection: &Connection,
     ) -> Result<ReplicaOutcome, ReplicaError> {
-        let result = tokio::time::timeout(TIMEOUT, async {
+        self.sync_replica_until(connection, None).await
+    }
+
+    /// A fresh foreground exchange keeps the caller's already running clock.
+    pub async fn sync_replica_with_deadline(
+        &mut self,
+        connection: &Connection,
+        deadline: n0_future::time::Instant,
+    ) -> Result<ReplicaOutcome, ReplicaError> {
+        self.sync_replica_until(connection, Some(deadline)).await
+    }
+
+    async fn sync_replica_until(
+        &mut self,
+        connection: &Connection,
+        deadline: Option<n0_future::time::Instant>,
+    ) -> Result<ReplicaOutcome, ReplicaError> {
+        let remaining = deadline.map_or(TIMEOUT, |deadline| {
+            TIMEOUT.min(deadline.saturating_duration_since(n0_future::time::Instant::now()))
+        });
+        let result = tokio::time::timeout(remaining, async {
             if !self.replica_allowed(connection) { return Err(ReplicaError::Rejected); }
             let (send, mut recv) = connection.open_bi().await.map_err(|_| ReplicaError::Transport)?;
             // QUIC opens the stream lazily; the request makes it visible before
@@ -279,9 +297,7 @@ impl ReplicaProvider {
             .await
     }
     fn replica_allowed(&self, connection: &Connection) -> bool {
-        (crate::member_path_protocol::MemberProtocol::from_wire(connection.alpn()).is_some_and(
-            |(protocol, _)| protocol == crate::member_path_protocol::MemberProtocol::Replica,
-        ) && self.gate.allows(connection, ProtocolScope::Member))
+        (connection.alpn() == REPLICA_ALPN && self.gate.allows(connection, ProtocolScope::Member))
             || (connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN
                 && self.gate.allows(connection, ProtocolScope::Bootstrap)
                 && !connection.paths().is_empty()

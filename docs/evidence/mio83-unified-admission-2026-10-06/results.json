@@ -1,0 +1,445 @@
+{
+  "scope": "MIOPUNCH-83 actual Host Native + Pixel6a Browser; protected public MQTT control and permitted APS1 data relay",
+  "finalDefault": {
+    "passed": true,
+    "preparationPassed": true,
+    "sdkPublicStoryQualified": true,
+    "newWireQualified": true,
+    "physicalWanQualified": false,
+    "remainingQualification": [],
+    "commandExit": 0,
+    "nativePlatform": "host",
+    "resourceChoice": {
+      "permittedRelay": "https://aps1-1.relay.n0.iroh.link./",
+      "rtcEnabled": false
+    },
+    "selectedProfiles": {
+      "facilitySha256": "d2d5b1c3d4dc399cbdc785d82dd0d3f8655297763014e9cf72a71149969af191",
+      "nativeIceSha256": "57b9efbdef55deb107fb3e99e9d56c0ea2664ae60e3edd5edcc27b3e5afb8ef6",
+      "browserIceSha256": "57b9efbdef55deb107fb3e99e9d56c0ea2664ae60e3edd5edcc27b3e5afb8ef6"
+    },
+    "buildReceipts": {
+      "native": "a4cee87d57fbbbe9050268bd01cf8d4b8662999ebd6a64d609f3d3658271fa82",
+      "wasm": "7a9d39cd1a95bf9778fa3841877b46e512436fbddd1db7f63426738b837b6d72"
+    },
+    "artifacts": {
+      "native": "a9a03402d1f36aaab4662ec6c945c9816dd1ea1feee260ee092a2e95ac6e35b8",
+      "wasm": {
+        "miopunch_browser_probe.d.ts": "a8ca573dd416dee6197e53a1f202e51c774c504edd8d4838481929bbc114aea5",
+        "miopunch_browser_probe.js": "5ec8b7ddde8e25c2ad0d37b93a085d71844950cfb2abd48e27366f4267a4e9db",
+        "miopunch_browser_probe_bg.wasm": "fddbe15827fa3575461933de4b0fcbfeeb0d77892a13c8c19406d9c8767e2d39",
+        "miopunch_browser_probe_bg.wasm.d.ts": "20ca533aab0a1625a60b449b7ba2a62674dec3b4013f618d5c24435b0a428bc4",
+        "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+        "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e"
+      }
+    },
+    "sources": {
+      "runner": "d73a3f4ed69b70e0ad85a3ed12e03205d2e236dc8287fbda86d64e0af3e7912f",
+      "commitFixture": "1310b4346dd3ab399461427446b6c8d2bfb655ffbcc4412d619052b48303292c",
+      "rtcObserver": "08a9037def7379327740c05aa4e6bdcfa9118724c49d8cb2ef04aad9cb06f163",
+      "page": "f1f51871999fd306338036fc2ab93643ffd1e09c6cd4f61641f9e02a7f29df65"
+    },
+    "sdkCallerBudgetMs": 12000,
+    "receiptPath": "/tmp/mio83-public-host-native-pixel-browser-scoped-candidate-final-default-first-20261006/receipt.json",
+    "receiptSha256": "1a9ef0c81211375b59e523f298cb99de0c92b837d83b033171a45f86caf8678b",
+    "recordedStageCount": 43,
+    "allRecordedStagesPassed": true,
+    "wrongIdentity": {
+      "tlsClaimRejected": true,
+      "noApprovedMaterial": true,
+      "noAuthorizationMutation": true,
+      "providerFailureClass": "Rejected",
+      "oneFreshRestrictedNativeAInProbeInterval": true,
+      "rpcToNativeGroupAttributed": false,
+      "sdkCallerElapsedMs": 3693.2850000858307,
+      "nativeProviderCallerElapsedMs": 2856,
+      "nativeCallerBudgetMs": 12000,
+      "businessRejected": true,
+      "replicaRejected": true
+    },
+    "authorizationBoundary": {
+      "stage": "PendingMaterials",
+      "authorizationSaved": true,
+      "secretSaved": false
+    },
+    "failedSecretSave": {
+      "actualIdbAbort": true,
+      "secretAbsentAfterReopen": true,
+      "sameIdentityRequestGrant": true
+    },
+    "completeMaterials": {
+      "stage": "Complete",
+      "authorizationSaved": true,
+      "secretSaved": true
+    },
+    "actualTransactionFacts": {
+      "scope": "owned actual SDK IndexedDB boundary only",
+      "authorizationOnlyCommitted": true,
+      "secretAbortObserved": true,
+      "reportFailures": 0
+    },
+    "offlineAuthor": {
+      "independentIdentity": true,
+      "serializedRecordBytes": 321,
+      "bodyPresent": false,
+      "bodyBytes": 0,
+      "providerVerifiedApplied": true,
+      "savedProviderResourceConfigurationRestored": true
+    },
+    "replica": {
+      "targetAbsentBefore": true,
+      "targetVerifiedSavedAfter": true,
+      "scopeCount": 4,
+      "savedCount": 4,
+      "appliedCount": 4,
+      "complete": true,
+      "targetVerifiedSavedAfterReopen": true
+    },
+    "replicaCallerWallMs": 11125.624,
+    "replicaPurpose": {
+      "purpose": "replica",
+      "purposeCode": 3,
+      "role": "responder",
+      "runtime": "Native",
+      "peerRuntime": "Browser",
+      "freshAck": true,
+      "permitted": 4,
+      "peerPermitted": 4,
+      "stableUnchanged": true,
+      "bindingUnchanged": true,
+      "selectedRoute": "relay:https://aps1-1.relay.n0.iroh.link./",
+      "rtcRole": "None"
+    },
+    "business": {
+      "browserToNativeBytes": 4,
+      "nativeToBrowserBytes": 4,
+      "replyMatched": true,
+      "nativeOriginalMMatched": true,
+      "native": {
+        "alpn": "miopunch/session/member/1",
+        "bytes": 4,
+        "event": "business",
+        "memberMessage": true,
+        "reply": "PONG",
+        "streamId": "client bidirectional stream 3"
+      }
+    },
+    "businessPurpose": {
+      "purpose": "member-business",
+      "purposeCode": 1,
+      "role": "responder",
+      "runtime": "Native",
+      "peerRuntime": "Browser",
+      "freshAck": true,
+      "stableUnchanged": true,
+      "bindingUnchanged": true,
+      "selectedRoute": "relay:https://aps1-1.relay.n0.iroh.link./",
+      "rtcRole": "None"
+    },
+    "revokedAuthorization": {
+      "actualSdkRemoval": true,
+      "businessRejected": true,
+      "replicaRejected": true,
+      "oldGrantRejected": true,
+      "freshRejoinApprovalRequested": false,
+      "oldGrant": {
+        "canonicalRejected": true,
+        "currentGeneration": 2,
+        "noApprovedMaterial": true,
+        "noAuthorizationMutation": true,
+        "oneFreshRestrictedNativeAInRequestInterval": true,
+        "rpcToNativeGroupAttributed": false,
+        "sdkCallerElapsedMs": 3949.3150000572205,
+        "nativeProviderCallerElapsedMs": 2972,
+        "nativeCallerBudgetMs": 12000
+      }
+    },
+    "nativeOperationTimings": [
+      {
+        "generation": 1,
+        "event": "admission-accepted",
+        "alpn": "miopunch/session/admission/1",
+        "callerElapsedMs": 2722,
+        "callerBudgetMs": 12000,
+        "callerDeadlinePresent": true
+      },
+      {
+        "generation": 1,
+        "event": "admission-ended",
+        "alpn": "miopunch/session/admission/1",
+        "callerElapsedMs": 2856,
+        "callerBudgetMs": 12000,
+        "callerDeadlinePresent": null
+      },
+      {
+        "generation": 1,
+        "event": "admission-ended",
+        "alpn": "miopunch/session/admission/1",
+        "callerElapsedMs": 2780,
+        "callerBudgetMs": 12000,
+        "callerDeadlinePresent": null
+      },
+      {
+        "generation": 1,
+        "event": "admission-accepted",
+        "alpn": "miopunch/session/admission/1",
+        "callerElapsedMs": 2796,
+        "callerBudgetMs": 12000,
+        "callerDeadlinePresent": true
+      },
+      {
+        "generation": 1,
+        "event": "admission-accepted",
+        "alpn": "miopunch/session/admission/1",
+        "callerElapsedMs": 2598,
+        "callerBudgetMs": 12000,
+        "callerDeadlinePresent": true
+      },
+      {
+        "generation": 1,
+        "event": "admission-ended",
+        "alpn": "miopunch/session/admission/1",
+        "callerElapsedMs": 3673,
+        "callerBudgetMs": 12000,
+        "callerDeadlinePresent": null
+      },
+      {
+        "generation": 1,
+        "event": "admission-accepted",
+        "alpn": "miopunch/session/admission/1",
+        "callerElapsedMs": 2823,
+        "callerBudgetMs": 12000,
+        "callerDeadlinePresent": true
+      },
+      {
+        "generation": 1,
+        "event": "admission-ended",
+        "alpn": "miopunch/session/admission/1",
+        "callerElapsedMs": 4846,
+        "callerBudgetMs": 12000,
+        "callerDeadlinePresent": null
+      },
+      {
+        "generation": 1,
+        "event": "admission-accepted",
+        "alpn": "miopunch/session/admission/1",
+        "callerElapsedMs": 2674,
+        "callerBudgetMs": 12000,
+        "callerDeadlinePresent": true
+      },
+      {
+        "generation": 1,
+        "event": "admission-ended",
+        "alpn": "miopunch/session/admission/1",
+        "callerElapsedMs": 4670,
+        "callerBudgetMs": 12000,
+        "callerDeadlinePresent": null
+      },
+      {
+        "generation": 2,
+        "event": "replica-finished",
+        "alpn": "miopunch/session/replica/1",
+        "callerElapsedMs": 9995,
+        "callerBudgetMs": 12000,
+        "callerDeadlinePresent": true
+      },
+      {
+        "generation": 2,
+        "event": "admission-ended",
+        "alpn": "miopunch/session/admission/1",
+        "callerElapsedMs": 2972,
+        "callerBudgetMs": 12000,
+        "callerDeadlinePresent": null
+      },
+      {
+        "generation": 2,
+        "event": "admission-accepted",
+        "alpn": "miopunch/session/admission/1",
+        "callerElapsedMs": 2970,
+        "callerBudgetMs": 12000,
+        "callerDeadlinePresent": true
+      }
+    ],
+    "cleanup": {
+      "native": {
+        "commandExit": 0,
+        "forced": false,
+        "elapsedMs": 309.395,
+        "localReadersEnded": true,
+        "localPipesClosed": true,
+        "ownedDirectoryRemoved": true,
+        "ownedProcessGroupAbsentImmediately": true,
+        "ownedProcessGroupAbsentLate": true,
+        "lateDelayMs": 100,
+        "immediate": {
+          "processCount": 0,
+          "socketCount": 0
+        },
+        "late": {
+          "processCount": 0,
+          "socketCount": 0
+        },
+        "sdk": {
+          "cleanupMs": 106,
+          "socketsBefore": 2,
+          "socketsImmediate": 2,
+          "socketsLate": 2,
+          "activeRtcAssociations": 0,
+          "activeRtcPumps": 0,
+          "handlersDrained": true,
+          "abortedHandlers": 0
+        },
+        "mqttLate": {
+          "driver_active": 0,
+          "queued_packets": 0
+        }
+      },
+      "browser": {
+        "cleanupSucceeded": true,
+        "elapsedMs": 672.089,
+        "forwardRemoveExit": 0,
+        "forwardRuleAbsent": true,
+        "reverseRemoveExit": 0,
+        "reverseRuleAbsent": true,
+        "localListenerClosed": true,
+        "sdk": {
+          "cleanupSucceeded": true,
+          "cleanupElapsedMs": 125.72499990463257,
+          "networkClosed": true,
+          "networkFreed": true,
+          "ownedMemberHandles": 0
+        }
+      },
+      "observer": {
+        "forced": false,
+        "commandExit": 0,
+        "readerEnded": true,
+        "elapsedMs": 31.616
+      }
+    },
+    "executionEvidence": [
+      {
+        "privateReceiptFile": "private-command-receipt-before-reopen.json",
+        "sha256": "5defc24ab1a385cf8871035d78f17edcf2e2c42139b955366d9f8c344ec42b35",
+        "mode": "0600",
+        "nativeRunCount": 1,
+        "deviceCommandCounts": {
+          "browser": 3
+        },
+        "deviceCommandExits": {
+          "browser": [
+            0,
+            0,
+            0
+          ]
+        },
+        "nativeRuns": [
+          {
+            "generation": 1,
+            "commandExit": 0,
+            "forced": false,
+            "independentCleanupElapsedMs": 282.29
+          }
+        ]
+      },
+      {
+        "privateReceiptFile": "private-command-receipt-final.json",
+        "sha256": "d748c05c7d1477f2d7201105d7bd0eba919d400d48a5da41ac2cf03ec32f5809",
+        "mode": "0600",
+        "nativeRunCount": 2,
+        "deviceCommandCounts": {
+          "browser": 7
+        },
+        "deviceCommandExits": {
+          "browser": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "nativeRuns": [
+          {
+            "generation": 1,
+            "commandExit": 0,
+            "forced": false,
+            "independentCleanupElapsedMs": 282.29
+          },
+          {
+            "generation": 2,
+            "commandExit": 0,
+            "forced": false,
+            "independentCleanupElapsedMs": 309.395
+          }
+        ]
+      }
+    ],
+    "environmentQualification": {
+      "hostWarp": null,
+      "nativeOsRoute": null,
+      "scope": "selected Native platform and allowed SDK path; physical OS route/VPN/NAT facts are not inferred"
+    },
+    "physicalOsTuple": {
+      "nativeSdkSocket": null,
+      "browserPeerIpPort": null,
+      "uidRouting": null
+    }
+  },
+  "diagnosticFull": {
+    "receiptSha256": "71fbd4df0c502b2bc27f19c886d9ed204e5392b92ae6110797dcb981540c8d04",
+    "passed": true,
+    "recordedStageCount": 44,
+    "temporaryWitnessUsed": true,
+    "productDependency": false
+  },
+  "affectedPrecodeRegression": {
+    "receiptSha256": "8db24542e88a837d0d66fc47753f3b13bc9270d1d72685edf7798f23c62a89fd",
+    "actualExit": 0,
+    "newRestrictedPurpose": true,
+    "sameGrantResume": true,
+    "onceOnlyUsage": true
+  },
+  "mqttBackpressure": {
+    "redReceiptSha256": "e93b04defeaa67cfd9b0f27ba598c7ce5bb907c231920d52895aef45674f2aa4",
+    "greenReceiptSha256": "197c2ef4eaad8b1a506442d4701c09c5a9a4f40faf8a573251f3f3ef41367ba4",
+    "redBrokerSequences": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      47
+    ],
+    "expectedCount": 48,
+    "greenReceivedCount": 48,
+    "seam": "exact production connected loop, real owned TCP broker and backpressure",
+    "samePollFutureRetained": true,
+    "bindingLifecycleReceiptSha256": "879191ee28478f00f0479d48e373b7304ce34f7c50cf82851bb2c5d85ff18e19"
+  },
+  "qualificationLimits": {
+    "earlierReturnPathFailureCause": "unknown; not reproduced in two full successful stories",
+    "temporaryNativePublicationInstrumentationRemoved": true,
+    "diagnosticWitnessNotAProductDependency": true,
+    "physicalWanQualified": false,
+    "rtcQualifiedByThisCase": false,
+    "jniOrAndroidNativeQualifiedByThisCase": false
+  },
+  "compiledInputs": {
+    "native": {
+      "count": 6573,
+      "copies": 286,
+      "depfiles": 478,
+      "selectedInputReceiptSha256": "00883c72cf346ceffb7adcd355ed6a1e4933206a55f6bfc08f85b29c958a05a1"
+    },
+    "wasm": {
+      "count": 3152,
+      "copies": 191,
+      "depfiles": 264,
+      "selectedInputReceiptSha256": "fb3791cbdd91cbddda23cfcee8477c40b2d433f282b26c033e85868ecace9a95"
+    }
+  },
+  "rawPrivateEvidence": "Exclusive0600 SDK replies/commands remain in original case directories; only hashes/counts/exits are published."
+}

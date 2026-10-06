@@ -15,8 +15,13 @@ use wasm_bindgen::prelude::*;
 use crate::admission_proof::{AdmissionScope, AdmissionSecret, BootstrapProof};
 use crate::management_auth::{ManagementAuth, NetworkAnchor};
 
-const REPLICA_ALPN: &[u8] = b"miopunch/control-replica/1";
-const REQUEST_ALPN: &[u8] = b"miopunch/admission-request/1";
+const REPLICA_ALPN: &[u8] = crate::connection_coordinator::REPLICA_ALPN;
+const REQUEST_ALPN: &[u8] = crate::connection_coordinator::ADMISSION_REQUEST_ALPN;
+const PRECODE_REQUEST_ALPN: &[u8] = crate::connection_coordinator::PRECODE_REQUEST_ALPN;
+fn is_request_alpn(alpn: &[u8]) -> bool {
+    crate::connection_coordinator::SessionPurpose::from_alpn(alpn)
+        == Some(crate::connection_coordinator::SessionPurpose::AdmissionRequest)
+}
 const BUSINESS_ALPN: &[u8] = crate::connection_coordinator::MEMBER_ALPN;
 const TIMEOUT: Duration = Duration::from_secs(12);
 const MAX_HISTORY: usize = 16 * 1024 * 1024;
@@ -146,6 +151,13 @@ impl SavedNode {
     }
 }
 
+struct RelayCheckAttempt {
+    stable_id: usize,
+    original: iroh::endpoint::WeakConnectionHandle,
+    sequence: u64,
+    checks: Vec<serde_json::Value>,
+}
+
 #[derive(Default)]
 struct GateState {
     rtc_capability: Option<crate::rtc_capability::RtcCapability>,
@@ -161,6 +173,9 @@ struct GateState {
     #[cfg(feature = "rtc-probe")]
     rtc: Option<crate::rtc_transport::RtcTransport>,
     member_reports: std::collections::BTreeMap<usize, serde_json::Value>,
+    // Temporary bounded causal-observation trace; no identities or wire values.
+    relay_checks: Vec<RelayCheckAttempt>,
+    relay_check_sequence: u64,
     #[cfg(feature = "rtc-probe")]
     rtc_qualifications: std::collections::BTreeMap<usize, RtcQualificationSource>,
     #[cfg(feature = "rtc-probe")]
@@ -207,6 +222,52 @@ impl std::fmt::Debug for BrowserGate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("BrowserGate")
     }
+}
+
+fn relay_probe_debug_details(
+    connection: &Connection,
+    exact_path: Option<&str>,
+    elapsed_ms: u128,
+    stage_remaining_ms: Option<u128>,
+    started_utc_ms: Option<u128>,
+) -> serde_json::Value {
+    let mut details = serde_json::json!({"elapsedMs":elapsed_ms});
+    details["stageRemainingMs"] = serde_json::json!(stage_remaining_ms);
+    details["startedUtcMs"] = serde_json::json!(started_utc_ms);
+    details["callerRemainingMs"] =
+        serde_json::json!(connection.caller_deadline().map(|deadline| {
+            deadline
+                .saturating_duration_since(n0_future::time::Instant::now())
+                .as_millis()
+        }));
+    if let Some(exact_path) = exact_path {
+        let paths = connection.paths();
+        let path = paths
+            .iter()
+            .find(|path| path.id().to_string() == exact_path);
+        details["exactProbePathPresent"] = serde_json::json!(path.is_some());
+        if let Some(path) = path {
+            let stats = path.stats();
+            details["probePathSelected"] = serde_json::json!(path.is_selected());
+            details["probePathRttMicros"] = serde_json::json!(stats.rtt.as_micros());
+            details["probePingTx"] = serde_json::json!(stats.frame_tx.ping);
+            details["probePingRx"] = serde_json::json!(stats.frame_rx.ping);
+            details["probeAckTx"] = serde_json::json!(stats.frame_tx.acks);
+            details["probeAckRx"] = serde_json::json!(stats.frame_rx.acks);
+            details["probePathAckTx"] = serde_json::json!(stats.frame_tx.path_acks);
+            details["probePathAckRx"] = serde_json::json!(stats.frame_rx.path_acks);
+            details["probeDatagramsTx"] = serde_json::json!(stats.udp_tx.datagrams);
+            details["probeDatagramsRx"] = serde_json::json!(stats.udp_rx.datagrams);
+            details["probeBytesTx"] = serde_json::json!(stats.udp_tx.bytes);
+            details["probeBytesRx"] = serde_json::json!(stats.udp_rx.bytes);
+            details["probeLostPackets"] = serde_json::json!(stats.lost_packets);
+        }
+    }
+    details
+        .as_object_mut()
+        .unwrap()
+        .retain(|_, value| !value.is_null());
+    details
 }
 
 impl BrowserGate {
@@ -267,7 +328,7 @@ impl BrowserGate {
                 return false;
             }
             if !Self::permits(saved, connection.remote_id(), connection.alpn())
-                || (credential_changed && connection.alpn() != REQUEST_ALPN)
+                || (credential_changed && !is_request_alpn(connection.alpn()))
             {
                 connection.close(0u32.into(), b"membership revoked");
                 return false;
@@ -280,13 +341,11 @@ impl BrowserGate {
         let Ok(invitation) = saved.invitation() else {
             return false;
         };
-        if alpn == REQUEST_ALPN {
+        if is_request_alpn(alpn) {
             return target == invitation.contact;
         }
         if (alpn != BUSINESS_ALPN
-            && !crate::member_path_protocol::MemberProtocol::from_wire(alpn).is_some_and(
-                |(purpose, _)| purpose == crate::member_path_protocol::MemberProtocol::Replica,
-            )
+            && alpn != REPLICA_ALPN
             && alpn != crate::connection_recovery_core::CONNECTION_RECOVERY_ALPN)
             || saved.stage() != "Complete"
         {
@@ -304,6 +363,35 @@ impl BrowserGate {
             error_code: 0u32.into(),
             reason: b"browser admission rejected".to_vec(),
         }
+    }
+
+    // A checks its existing invitation/store scope without minting a member proof.
+    async fn restricted_snapshot(&self, connection: &Connection) -> Result<SavedNode, JsValue> {
+        let (saved, lease) = {
+            let gate = self.0.lock().unwrap();
+            (
+                gate.saved.clone().ok_or_else(rejected)?,
+                gate.lease.ok_or_else(rejected)?,
+            )
+        };
+        let auth = saved.verify()?;
+        let permitted = if connection.side().is_client() {
+            saved.invitation()?.contact == connection.remote_id()
+        } else {
+            saved.stage() == "Complete"
+                && auth.is_some_and(|auth| {
+                    auth.nodes().contains(&(saved.identity(), Access::manage()))
+                })
+        };
+        if !is_request_alpn(connection.alpn())
+            || connection.close_reason().is_some()
+            || !permitted
+            || read_node(lease).await?.as_string().as_deref()
+                != Some(&serde_json::to_string(&saved).map_err(error)?)
+        {
+            return Err(rejected());
+        }
+        Ok(saved)
     }
 
     async fn qualified_snapshot(&self, connection: &Connection) -> Result<SavedNode, JsValue> {
@@ -405,12 +493,105 @@ impl BrowserGate {
         }
     }
 
+    fn remember_relay_check(
+        &self,
+        endpoint: &Endpoint,
+        connection: &Connection,
+        phase: &str,
+        mut details: serde_json::Value,
+    ) {
+        use crate::connection_coordinator::{AttemptRole, MemberPathAdapter};
+        use n0_watcher::Watcher;
+        let caps = self.capabilities(AttemptRole::initial(connection));
+        let paths = connection.paths();
+        let selected = paths.iter().find(|path| path.is_selected());
+        let selected_kind = match selected.as_ref().map(|path| path.remote_addr()) {
+            Some(iroh::TransportAddr::Relay(_)) => "relay",
+            Some(iroh::TransportAddr::Custom(address))
+                if matches!(
+                    address.id(),
+                    crate::mqtt_datagram::TRANSPORT_ID | crate::irc_datagram::TRANSPORT_ID
+                ) =>
+            {
+                "signal"
+            }
+            Some(iroh::TransportAddr::Ip(_)) => "ip",
+            Some(_) => "other",
+            None => "none",
+        };
+        let home = endpoint.home_relay_status().get();
+        let mut gate = self.0.lock().unwrap();
+        let allowed = gate.saved.as_ref().map(Self::permitted_relay_origins);
+        let gate_snapshot_valid = gate
+            .saved
+            .as_ref()
+            .is_some_and(|saved| Self::proved_member_current(&gate, saved, connection));
+        details["tag"] = serde_json::json!("DEBUG-mio76-relay");
+        details["phase"] = serde_json::json!(phase);
+        details["sideClient"] = serde_json::json!(connection.side().is_client());
+        details["memberOpen"] = serde_json::json!(connection.close_reason().is_none());
+        details["cachedGateValid"] = serde_json::json!(gate_snapshot_valid);
+        details["configuredPermittedCount"] = serde_json::json!(allowed.as_ref().map(Vec::len));
+        details["localPublishedCount"] = serde_json::json!(endpoint.addr().relay_urls().count());
+        details["localConnectedCount"] =
+            serde_json::json!(home.iter().filter(|status| status.is_connected()).count());
+        details["localRelayErrorCount"] = serde_json::json!(
+            home.iter()
+                .filter(|status| status.last_error().is_some())
+                .count()
+        );
+        details["relayPathCount"] =
+            serde_json::json!(paths.iter().filter(|path| path.is_relay()).count());
+        details["permittedRelayPathCount"] = serde_json::json!(allowed.as_ref().map(|allowed| paths.iter().filter(|path| matches!(path.remote_addr(), iroh::TransportAddr::Relay(url) if origin(url.as_str()).is_ok_and(|origin| allowed.contains(&origin)))).count()));
+        details["selectedRouteKind"] = serde_json::json!(selected_kind);
+        details["localSupportedMask"] = serde_json::json!(caps.supported);
+        details["localPermittedMask"] = serde_json::json!(caps.permitted);
+        details["rtcRole"] = serde_json::json!(caps.rtc_role as u8);
+        let index = if let Some(index) = gate
+            .relay_checks
+            .iter()
+            .position(|attempt| attempt.stable_id == connection.stable_id())
+        {
+            index
+        } else {
+            if gate.relay_checks.len() == 4 {
+                gate.relay_checks.remove(0);
+            }
+            gate.relay_check_sequence = gate.relay_check_sequence.saturating_add(1);
+            let sequence = gate.relay_check_sequence;
+            gate.relay_checks.push(RelayCheckAttempt {
+                stable_id: connection.stable_id(),
+                original: connection.weak_handle(),
+                sequence,
+                checks: Vec::new(),
+            });
+            gate.relay_checks.len() - 1
+        };
+        let attempt = &mut gate.relay_checks[index];
+        details["attemptSequence"] = serde_json::json!(attempt.sequence);
+        details["originalOpen"] = serde_json::json!(attempt.original.is_open());
+        // Unobserved stages/optional observations remain absent, never fake 0.
+        details
+            .as_object_mut()
+            .unwrap()
+            .retain(|_, value| !value.is_null());
+        if attempt.checks.len() == 16 {
+            attempt.checks.remove(0);
+        }
+        attempt.checks.push(details);
+    }
+
     async fn legacy_relay_continuation(
         &self,
         endpoint: &Endpoint,
         connection: &Connection,
     ) -> std::io::Result<serde_json::Value> {
         use crate::member_path_protocol::RelayValidation;
+        let mut local_candidate_count: Option<usize> = None;
+        let mut remote_candidate_count: Option<usize> = None;
+        let mut mutually_allowed_count: Option<usize> = None;
+        let mut storage_gate_checked = false;
+        let work = async {
         let check = || async {
             self.qualified_snapshot(connection).await.map_err(|cause| {
                 std::io::Error::other(
@@ -421,25 +602,37 @@ impl BrowserGate {
             })
         };
         let saved = check().await?;
+        storage_gate_checked = true;
         let allowed = Self::permitted_relay_origins(&saved);
         let permits =
             |url: &RelayUrl| origin(url.as_str()).is_ok_and(|value| allowed.contains(&value));
-        let local = endpoint
+        let local: Vec<RelayUrl> = endpoint
             .addr()
             .relay_urls()
             .filter(|url| permits(url))
             .take(4)
             .cloned()
             .collect();
+        local_candidate_count = Some(local.len());
+        self.remember_relay_check(endpoint, connection, "begin", serde_json::json!({"localCandidateCount":local_candidate_count,"storageGateCheckPassed":storage_gate_checked}));
         let exchange = RelayValidation::begin(connection, local).await?;
+        remote_candidate_count = Some(exchange.candidates.len());
+        mutually_allowed_count = Some(exchange.candidates.iter().filter(|url| permits(url)).count());
+        self.remember_relay_check(endpoint, connection, "exchange", serde_json::json!({"localCandidateCount":local_candidate_count,"remoteCandidateCount":remote_candidate_count,"mutuallyAllowedCount":mutually_allowed_count,"storageGateCheckPassed":storage_gate_checked}));
         let stream_id = exchange.stream_id.clone();
         let remote = exchange.candidates.iter().find(|url| permits(url)).cloned();
         let validation = async {
             let remote = remote.ok_or_else(|| std::io::Error::new(std::io::ErrorKind::PermissionDenied, "no mutually permitted relay"))?;
             let started = n0_future::time::Instant::now();
+            let wall_time=js_sys::Date::now();
+            let started_utc_ms=(wall_time.is_finite()&&wall_time>=0.0).then_some(wall_time as u128);
             let mut fresh = None;
+            let samples=[1u64,2,4,6];
+            let mut sampled=0;
             loop {
+                storage_gate_checked = false;
                 let current = check().await?;
+                storage_gate_checked = true;
                 if !origin(remote.as_str()).is_ok_and(|url| Self::permitted_relay_origins(&current).contains(&url)) {
                     return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "browser relay permission changed"));
                 }
@@ -451,19 +644,37 @@ impl BrowserGate {
                     }
                 }
                 if let Some(path) = connection.paths().iter().find(|path| matches!(path.remote_addr(), iroh::TransportAddr::Relay(url) if url == &remote)) {
-                    if fresh.is_none() { fresh = Some((path.id().to_string(), path.start_probe()?, started.elapsed().as_millis())); }
+                    if fresh.is_none() {
+                        let probe = path.start_probe()?;
+                        let mut details=relay_probe_debug_details(connection,Some(&path.id().to_string()),started.elapsed().as_millis(),None,started_utc_ms);
+                        details["freshProbeIssued"]=serde_json::json!(true);details["probeWatermark"]=serde_json::json!(probe.watermark());details["storageGateCheckPassed"]=serde_json::json!(storage_gate_checked);
+                        self.remember_relay_check(endpoint, connection, "probe-start", details);
+                        fresh = Some((path.id().to_string(), probe, started.elapsed().as_millis()));
+                    }
                     let (path_id, probe, probe_started) = fresh.as_ref().unwrap();
                     if path.id().to_string() != *path_id { return Err(std::io::Error::other("relay probe path changed")); }
                     if probe.is_acknowledged().map_err(std::io::Error::other)? {
+                        let mut details=relay_probe_debug_details(connection,Some(path_id),started.elapsed().as_millis(),None,started_utc_ms);
+                        details["freshAck"]=serde_json::json!(true);details["probeWatermark"]=serde_json::json!(probe.watermark());details["storageGateCheckPassed"]=serde_json::json!(storage_gate_checked);
+                        self.remember_relay_check(endpoint, connection, "probe-ack", details);
                         return Ok(serde_json::json!({"pathId":path_id,"freshProbeStartedMs":probe_started,"freshAckMs":started.elapsed().as_millis(),"probeWatermark":probe.watermark(),"freshAck":true}));
                     }
+                }
+                if samples.get(sampled).is_some_and(|seconds| started.elapsed()>=Duration::from_secs(*seconds)) {
+                    let mut details=relay_probe_debug_details(connection,fresh.as_ref().map(|(path_id,_,_)|path_id.as_str()),started.elapsed().as_millis(),None,started_utc_ms);
+                    details["storageGateCheckPassed"]=serde_json::json!(storage_gate_checked);
+                    if let Some((_,probe,_))=fresh.as_ref() {details["probeWatermark"]=serde_json::json!(probe.watermark());details["freshAck"]=serde_json::json!(probe.is_acknowledged().ok());}
+                    self.remember_relay_check(endpoint, connection, "probe-progress", details);sampled+=1;
                 }
                 n0_future::time::sleep(Duration::from_millis(40)).await;
             }
         }.await;
+        self.remember_relay_check(endpoint, connection, "validation-end", serde_json::json!({"validationOk":validation.is_ok(),"errorKind":validation.as_ref().err().map(|error|format!("{:?}",error.kind())),"storageGateCheckPassed":storage_gate_checked}));
         let observation = validation.as_ref().ok().cloned();
         let continuity = exchange.finish(connection, validation.map(|_| ())).await?;
+        storage_gate_checked = false;
         let current = check().await?;
+        storage_gate_checked = true;
         if Self::permitted_relay_origins(&current) != allowed {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::PermissionDenied,
@@ -475,6 +686,9 @@ impl BrowserGate {
             "memberStableId":connection.stable_id(),"stableUnchanged":continuity.stable_unchanged,"bindingUnchanged":continuity.binding_unchanged,"validatedRelay":observation,
             "relayFramesAfterConfirmation":connection.paths().iter().filter(|path|path.is_relay()).map(|path|serde_json::json!({"pathId":path.id().to_string(),"selected":path.is_selected(),"streamSent":path.stats().frame_tx.stream,"streamReceived":path.stats().frame_rx.stream})).collect::<Vec<_>>()}),
         )
+        }.await;
+        self.remember_relay_check(endpoint, connection, "finish", serde_json::json!({"localCandidateCount":local_candidate_count,"remoteCandidateCount":remote_candidate_count,"mutuallyAllowedCount":mutually_allowed_count,"storageGateCheckPassed":storage_gate_checked,"finishOk":work.is_ok(),"errorKind":work.as_ref().err().map(|error|format!("{:?}",error.kind()))}));
+        work
     }
 
     fn proved_member_current(gate: &GateState, saved: &SavedNode, connection: &Connection) -> bool {
@@ -585,6 +799,12 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
                 .member_reports
                 .retain(|stable, _| live.contains(stable));
         }
+        if is_request_alpn(connection.alpn()) {
+            if let Some(handshake) = state.request_handshake.as_mut() {
+                handshake["coordinator"] = report;
+            }
+            return;
+        }
         let entry = state
             .member_reports
             .entry(connection.stable_id())
@@ -596,11 +816,23 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
         }
         entry["coordinator"] = report;
     }
-    fn authorization_revision(&self, connection: &Connection) -> std::io::Result<u64> {
+    fn authorization_revision(
+        &self,
+        connection: &Connection,
+        purpose: crate::connection_coordinator::SessionPurpose,
+    ) -> std::io::Result<u64> {
         if connection.close_reason().is_some() {
             return Err(crate::connection_coordinator::control_error(
                 "DataPathUnavailable",
             ));
+        }
+        if purpose == crate::connection_coordinator::SessionPurpose::AdmissionRequest {
+            return Ok(self
+                .0
+                .lock()
+                .unwrap()
+                .qualification_revision
+                .load(std::sync::atomic::Ordering::Acquire));
         }
         #[cfg(feature = "rtc-probe")]
         {
@@ -624,6 +856,7 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
     fn check<'a>(
         &'a self,
         connection: &'a Connection,
+        purpose: crate::connection_coordinator::SessionPurpose,
     ) -> impl std::future::Future<Output = std::io::Result<()>> + Send + 'a {
         send_wrapper::SendWrapper::new(async move {
             if connection.close_reason().is_some() {
@@ -631,12 +864,15 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
                     "DataPathUnavailable",
                 ));
             }
-            self.qualified_snapshot(connection)
-                .await
-                .map(|_| ())
-                .map_err(|_| {
-                    crate::connection_coordinator::control_error("IdentityOrAdmissionRejected")
-                })
+            let snapshot =
+                if purpose == crate::connection_coordinator::SessionPurpose::AdmissionRequest {
+                    self.restricted_snapshot(connection).await
+                } else {
+                    self.qualified_snapshot(connection).await
+                };
+            snapshot.map(|_| ()).map_err(|_| {
+                crate::connection_coordinator::control_error("IdentityOrAdmissionRejected")
+            })
         })
     }
     fn prepare<'a>(
@@ -728,7 +964,7 @@ impl EndpointHooks for BrowserGate {
         let saved = self.0.lock().unwrap().saved.clone();
 
         let Some(saved) = saved.filter(|saved| {
-            let permits = if connection.alpn() == REQUEST_ALPN && !connection.side().is_client() {
+            let permits = if is_request_alpn(connection.alpn()) && !connection.side().is_client() {
                 saved.stage() == "Complete"
                     && saved.verify().ok().flatten().is_some_and(|auth| {
                         auth.nodes().contains(&(saved.identity(), Access::manage()))
@@ -742,7 +978,7 @@ impl EndpointHooks for BrowserGate {
             return Self::reject();
         };
         let handshake_started = n0_future::time::Instant::now();
-        if connection.alpn() == REQUEST_ALPN {
+        if is_request_alpn(connection.alpn()) {
             self.0.lock().unwrap().request_handshake = Some(serde_json::json!({
                 "local_id": hex::encode(saved.identity().as_bytes()),
                 "remote_id": connection.remote_id().to_string(),
@@ -757,7 +993,7 @@ impl EndpointHooks for BrowserGate {
         }
         // No 0-RTT API is exposed. Normal data handles wait for the native
         // mutual proof and stage agreement, including after a fresh page start.
-        let proof = if connection.alpn() != REQUEST_ALPN {
+        let proof = if !is_request_alpn(connection.alpn()) {
             let Ok(invitation) = saved.invitation() else {
                 return Self::reject();
             };
@@ -785,7 +1021,7 @@ impl EndpointHooks for BrowserGate {
             .lock()
             .unwrap()
             .request_deadline
-            .filter(|_| connection.alpn() == REQUEST_ALPN)
+            .filter(|_| is_request_alpn(connection.alpn()))
             .map_or(Duration::from_secs(5), |deadline| {
                 Duration::from_secs(5)
                     .min(deadline.saturating_duration_since(n0_future::time::Instant::now()))
@@ -807,7 +1043,7 @@ impl EndpointHooks for BrowserGate {
         .flatten()
         .is_some();
 
-        if connection.alpn() == REQUEST_ALPN {
+        if is_request_alpn(connection.alpn()) {
             let mut state = self.0.lock().unwrap();
             if let Some(report) = state.request_handshake.as_mut() {
                 report["agreement_elapsed_ms"] =
@@ -867,6 +1103,14 @@ impl EndpointHooks for BrowserGate {
                 },
             }
         } else {
+            if send_wrapper::SendWrapper::new(crate::connection_coordinator::coordinate_session(
+                None, connection, self,
+            ))
+            .await
+            .is_err()
+            {
+                return Self::reject();
+            }
             AfterHandshakeOutcome::AcceptRestricted
         }
     }
@@ -876,9 +1120,14 @@ impl EndpointHooks for BrowserGate {
         endpoint: &Endpoint,
         connection: &Connection,
     ) -> std::io::Result<()> {
-        if connection.alpn() == BUSINESS_ALPN {
+        if crate::connection_coordinator::SessionPurpose::from_alpn(connection.alpn()).is_some() {
+            if is_request_alpn(connection.alpn()) {
+                return Err(crate::connection_coordinator::control_error(
+                    "InvalidControl",
+                ));
+            }
             return send_wrapper::SendWrapper::new(
-                crate::connection_coordinator::coordinate_member(endpoint, connection, self),
+                crate::connection_coordinator::coordinate_session(Some(endpoint), connection, self),
             )
             .await;
         }
@@ -1424,6 +1673,7 @@ impl BrowserNetwork {
                 BUSINESS_ALPN.to_vec(),
                 REPLICA_ALPN.to_vec(),
                 REQUEST_ALPN.to_vec(),
+                PRECODE_REQUEST_ALPN.to_vec(),
             ])
             .admission_gate(gate.clone());
         for (_, transport) in &mqtt {
@@ -1611,9 +1861,16 @@ impl BrowserNetwork {
 
     /// Public protocol diagnostics contain identities and counters only.
     pub fn path_diagnostics(&self) -> String {
+        use n0_watcher::Watcher;
+        let home = self.endpoint.home_relay_status().get();
+        let relay_home = serde_json::json!({
+            "publishedCount":self.endpoint.addr().relay_urls().count(),
+            "connectedCount":home.iter().filter(|status|status.is_connected()).count(),
+            "errorCount":home.iter().filter(|status|status.last_error().is_some()).count(),
+        });
         let gate = self.gate.0.lock().unwrap();
         let bootstraps = serde_json::json!(gate.member_reports);
-        serde_json::json!({"incoming":self.incoming.diagnostics(),"rtcCapability":gate.rtc_capability,"request":self.last_request,"gate":gate.request_handshake,"memberBootstraps":bootstraps,"carriers":self.mqtt.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap()).chain(self.irc.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap())).collect::<Vec<_>>()}).to_string()
+        serde_json::json!({"incoming":self.incoming.diagnostics(),"relayHome":relay_home,"rtcCapability":gate.rtc_capability,"relayChecks":gate.relay_checks.iter().flat_map(|attempt| attempt.checks.iter()).collect::<Vec<_>>(),"request":self.last_request,"gate":gate.request_handshake,"memberBootstraps":bootstraps,"carriers":self.mqtt.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap()).chain(self.irc.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap())).collect::<Vec<_>>()}).to_string()
     }
 
     /// A separate handle can cancel while WASM owns the mutable request future.
@@ -1820,7 +2077,7 @@ impl BrowserNetwork {
     ) -> Result<Connection, JsValue> {
         self.check_store().await?;
         let addr = self.target_address(target)?;
-        if alpn == BUSINESS_ALPN {
+        if crate::connection_coordinator::SessionPurpose::from_alpn(alpn).is_some() {
             use crate::connection_coordinator::MemberPathAdapter;
             let caps = self
                 .gate
@@ -1835,9 +2092,9 @@ impl BrowserNetwork {
                 },
             );
             return coordinator
-                .connect(
+                .connect_alpn(
                     addr,
-                    crate::connection_coordinator::SessionPurpose::MemberBusiness,
+                    alpn,
                     crate::connection_coordinator::AttemptContext::new(
                         deadline,
                         tokio_util::sync::CancellationToken::new(),
@@ -1896,8 +2153,13 @@ impl BrowserNetwork {
     async fn request_inner(&mut self) -> Result<String, JsValue> {
         let started = n0_future::time::Instant::now();
         let deadline = self.attempt_started.unwrap_or(started) + self.caller_budget;
+        let alpn = if self.saved.precode.is_some() {
+            PRECODE_REQUEST_ALPN
+        } else {
+            REQUEST_ALPN
+        };
         let connection = self
-            .connect_target_until(self.saved.invitation()?.contact, REQUEST_ALPN, deadline)
+            .connect_target_until(self.saved.invitation()?.contact, alpn, deadline)
             .await?;
         let mut request_scope = RequestConnection(Some(connection.clone()));
         self.last_request = Some(

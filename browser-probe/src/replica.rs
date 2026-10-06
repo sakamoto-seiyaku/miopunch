@@ -41,8 +41,21 @@ impl BrowserNetwork {
         let started = n0_future::time::Instant::now();
         let deadline = started + self.caller_budget;
         self.last_replica = None;
+        let target = n0_future::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            async {
+                self.check_store().await?;
+                let target = target.parse().map_err(error)?;
+                if !BrowserGate::permits(&self.saved, target, REPLICA_ALPN) {
+                    return Err(rejected());
+                }
+                Ok(target)
+            },
+        )
+        .await
+        .map_err(error)??;
         let connection = self
-            .connect_target_until(target.parse().map_err(error)?, REPLICA_ALPN, deadline)
+            .connect_target_until(target, REPLICA_ALPN, deadline)
             .await?;
         let _scope = RequestConnection(Some(connection.clone()));
         let original = connection.stable_id();
@@ -144,13 +157,12 @@ impl BrowserNetwork {
         observation
     }
     fn replica_allowed(&self, connection: &Connection) -> bool {
-        crate::member_path_protocol::MemberProtocol::from_wire(connection.alpn()).is_some_and(
-            |(protocol, _)| protocol == crate::member_path_protocol::MemberProtocol::Replica,
-        ) && BrowserGate::proved_member_current(
-            &self.gate.0.lock().unwrap(),
-            &self.saved,
-            connection,
-        )
+        connection.alpn() == REPLICA_ALPN
+            && BrowserGate::proved_member_current(
+                &self.gate.0.lock().unwrap(),
+                &self.saved,
+                connection,
+            )
     }
     async fn consume_replica_event(
         &mut self,
@@ -194,7 +206,7 @@ impl BrowserNetwork {
         connection: &Connection,
         deadline: n0_future::time::Instant,
     ) -> Result<String, JsValue> {
-        let result = n0_future::time::timeout(deadline.saturating_duration_since(n0_future::time::Instant::now()), async {
+        let result = n0_future::time::timeout(TIMEOUT.min(deadline.saturating_duration_since(n0_future::time::Instant::now())), async {
             if !self.replica_allowed(connection) { return Err(rejected()); }
             let (send, mut recv) = connection.open_bi().await.map_err(|_| error("replica transport failed"))?;
             // QUIC opens the stream lazily; the request makes it visible before

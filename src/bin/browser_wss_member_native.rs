@@ -809,7 +809,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         "memberAuthorized":node.lock().await.admission_gate().allows(&connection,ProtocolScope::Member),
                         "quicRole":if connection.side().is_client(){"client"}else{"server"},
                         "paths":connection.paths().iter().map(|path|json!({"isRelay":path.is_relay(),"isIp":path.is_ip(),"selected":path.is_selected(),"ackReceived":path.stats().frame_rx.acks,"streamSent":path.stats().frame_tx.stream})).collect::<Vec<_>>()}));
-                    if MemberProtocol::from_wire(connection.alpn()).is_some_and(|(protocol,_)|protocol==MemberProtocol::Replica) {
+                    if connection.alpn() == miopunch_native_probe::connection_coordinator::REPLICA_ALPN {
                         let original=connection.stable_id();
                         let mut binding=[0;32];
                         connection.export_keying_material(&mut binding,b"miopunch/replica-session-observation/1",&[]).map_err(|_|"original replica binding unavailable")?;

@@ -44,6 +44,8 @@ const MAINTENANCE_CONTACTS: &str = "maintenance.contacts.json";
 fn network_protocols() -> Vec<Vec<u8>> {
     vec![
         crate::connection_coordinator::MEMBER_ALPN.to_vec(),
+        crate::connection_coordinator::REPLICA_ALPN.to_vec(),
+        crate::admission_gate::PRECODE_REQUEST_ALPN.to_vec(),
         crate::admission_gate::ADMISSION_REQUEST_ALPN.to_vec(),
         crate::connection_recovery::CONNECTION_RECOVERY_ALPN.to_vec(),
         crate::network_recovery::RECOVERY_REPLICA_ALPN.to_vec(),
@@ -674,10 +676,13 @@ impl NativeNetwork {
                     .service_name("miopunchv1"),
             ),
         };
-        self.gate.register_protocol(
+        for alpn in [
             crate::connection_coordinator::MEMBER_ALPN,
-            crate::admission_gate::ProtocolScope::Member,
-        );
+            crate::connection_coordinator::REPLICA_ALPN,
+        ] {
+            self.gate
+                .register_protocol(alpn, crate::admission_gate::ProtocolScope::Member);
+        }
         let observers = resources.relay_map(crate::resources::ResourceUse::Observation)?;
         let native_udp = Arc::new(self.udp.for_endpoint(
             (!observers.is_empty()).then_some(observers),
@@ -707,7 +712,6 @@ impl NativeNetwork {
         ));
         #[cfg(feature = "rtc-probe")]
         let coordinator = coordinator.with_rtc(rtc.clone());
-        let builder = builder.hooks(coordinator);
         let builder = if configured_startup {
             let bootstrap = crate::message_bootstrap::MemberPathBootstrap::new(
                 self.gate.clone(),
@@ -721,9 +725,10 @@ impl NativeNetwork {
             self.gate
                 .with_message_bootstrap()
                 .configure(builder)
+                .hooks(coordinator)
                 .hooks(bootstrap)
         } else {
-            self.gate.configure(builder)
+            self.gate.configure(builder).hooks(coordinator)
         };
         let endpoint = builder
             .secret_key(SecretKey::from_bytes(self.node_key.as_bytes()))

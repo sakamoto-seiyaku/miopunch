@@ -616,6 +616,13 @@ impl ResourceEndpoint {
         } else {
             0
         };
+        #[cfg(feature = "rtc-probe")]
+        let permitted = permitted
+            | if self.rtc.as_ref().is_some_and(|rtc| rtc.resource_allowed()) {
+                crate::connection_coordinator::RTC
+            } else {
+                0
+            };
         let mut contact_ids = Vec::new();
         if !self.config.disabled_uses.contains(&ResourceUse::Signaling) {
             if self.contact_listener.is_some() {
@@ -635,6 +642,7 @@ impl ResourceEndpoint {
             permitted,
             contact_ids,
         )
+        .with_member_contact(crate::member_transport::TRANSPORT_ID)
     }
     #[cfg(feature = "rtc-probe")]
     pub(crate) fn with_rtc(mut self, rtc: Option<crate::rtc_transport::RtcTransport>) -> Self {
@@ -861,6 +869,20 @@ impl ResourceEndpoint {
         let cause = match tokio::time::timeout(
             deadline.saturating_duration_since(n0_future::time::Instant::now()),
             async {
+                if crate::connection_coordinator::SessionPurpose::from_alpn(alpn).is_some() {
+                    return self
+                        .coordinator()
+                        .connect_alpn(
+                            target,
+                            alpn,
+                            crate::connection_coordinator::AttemptContext::new(
+                                deadline,
+                                tokio_util::sync::CancellationToken::new(),
+                            ),
+                        )
+                        .await
+                        .map_err(|error| error.to_string());
+                }
                 let connecting = self
                     .endpoint
                     .connect_with_opts(target, alpn, options)

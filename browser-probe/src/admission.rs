@@ -152,7 +152,12 @@ impl BrowserNetwork {
         );
         self.check_store().await?;
         self.administrator()?;
-        let accepting = self.incoming.receive(REQUEST_ALPN, &attempt).await?;
+        let alpn = if precode {
+            PRECODE_REQUEST_ALPN
+        } else {
+            REQUEST_ALPN
+        };
+        let accepting = self.incoming.receive(alpn, &attempt).await?;
         let connection = n0_future::time::timeout(
             deadline.saturating_duration_since(n0_future::time::Instant::now()),
             accepting
@@ -240,7 +245,12 @@ impl BrowserNetwork {
     ) -> Result<String, JsValue> {
         self.check_store().await?;
         self.administrator()?;
-        if connection.alpn() != REQUEST_ALPN {
+        let expected = if precode {
+            PRECODE_REQUEST_ALPN
+        } else {
+            REQUEST_ALPN
+        };
+        if connection.alpn() != expected {
             return Err(rejected());
         }
         let (mut send, mut recv) = connection.accept_bi().await.map_err(error)?;

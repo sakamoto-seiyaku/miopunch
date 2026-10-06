@@ -1053,6 +1053,9 @@ pub struct Endpoint {
 pub enum ConnectWithOptsError {
     #[error("Control-only connect requires exactly one explicit custom route")]
     InvalidControlRoute,
+    /// An explicit initial route must be one supported route of this target.
+    #[error("Explicit bootstrap route is not a supported target route")]
+    InvalidBootstrapRoute,
     #[error("Connecting to ourself is not supported")]
     SelfConnect,
     #[error("No addressing information available")]
@@ -1458,6 +1461,11 @@ impl Endpoint {
 
         let endpoint_addr: EndpointAddr = endpoint_addr.into();
         let endpoint_id = endpoint_addr.id;
+        if let Some(route) = &options.bootstrap_route {
+            ensure!(endpoint_addr.addrs.contains(route)
+                && matches!(route, TransportAddr::Ip(_) | TransportAddr::Relay(_) | TransportAddr::Custom(_)),
+                ConnectWithOptsError::InvalidBootstrapRoute);
+        }
         let control_route = if self
             .inner
             .static_config
@@ -1530,10 +1538,15 @@ impl Endpoint {
 
         // A restricted attempt must use its own explicit MQTT route even if
         // the peer actor has a selected IP path from another connection.
-        let dest_addr = control_route
-            .as_ref()
-            .map(|route| self.inner.custom_mapped_addr(route))
-            .unwrap_or_else(|| mapped_addr.private_socket_addr());
+        let dest_addr = match &options.bootstrap_route {
+            Some(TransportAddr::Ip(address)) => *address,
+            Some(TransportAddr::Relay(url)) => self.inner.relay_mapped_addr(endpoint_id, url),
+            Some(TransportAddr::Custom(route)) => self.inner.custom_mapped_addr(route),
+            Some(_) => return Err(e!(ConnectWithOptsError::InvalidBootstrapRoute)),
+            None => control_route.as_ref()
+                .map(|route| self.inner.custom_mapped_addr(route))
+                .unwrap_or_else(|| mapped_addr.private_socket_addr()),
+        };
         let server_name = &tls::name::encode(endpoint_id);
         let connect =
             self.inner
@@ -2242,6 +2255,7 @@ impl Endpoint {
 pub struct ConnectOptions {
     transport_config: Option<QuicTransportConfig>,
     additional_alpns: Vec<Vec<u8>>,
+    bootstrap_route: Option<TransportAddr>,
     attempt: connection::AttemptOptions,
 }
 
@@ -2252,6 +2266,20 @@ impl ConnectOptions {
     /// as [`Endpoint::connect`], e.g. a default [`QuicTransportConfig`].
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Scope initial QUIC packets to one explicit route in this target.
+    ///
+    /// This bypasses the peer-wide mixed bootstrap address without changing
+    /// other connections or the generic path selector. The route grants no
+    /// identity, membership, facility permission or ordinary data authority;
+    /// existing hooks and resource send guards still apply.
+    ///
+    /// The route must be included in the supplied target. Omission preserves
+    /// the existing behavior, including admission-gated sole-custom contact.
+    pub fn with_bootstrap_route(mut self, route: TransportAddr) -> Self {
+        self.bootstrap_route = Some(route);
+        self
     }
 
     /// Pass the caller's existing absolute attempt deadline to the protected

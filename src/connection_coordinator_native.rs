@@ -1,7 +1,7 @@
 //! Native gate/candidate adapter for the common member coordinator.
 use super::{
     AttemptRole, MemberPathAdapter, PathPlan, Platform, PreparedPath, ProtectedAttempt, RELAY, RTC,
-    RtcRole, RuntimeCapabilities, TCP, UDP, control_error, coordinate_member,
+    RtcRole, RuntimeCapabilities, SessionPurpose, TCP, UDP, control_error, coordinate_session,
 };
 use crate::{admission_gate::AdmissionGate, control_session::ControlSession};
 use iroh::{Endpoint, TransportAddr, endpoint::Connection};
@@ -94,11 +94,21 @@ impl MemberPathAdapter for CoordinatorHook {
             rtc_role: RtcRole::for_attempt(role, rtc_supported),
         }
     }
-    fn authorization_revision(&self, connection: &Connection) -> io::Result<u64> {
+    fn authorization_revision(
+        &self,
+        connection: &Connection,
+        purpose: SessionPurpose,
+    ) -> io::Result<u64> {
         // A normally closed M has already lost its ephemeral proof entry.
         // That retirement is a network outcome, not evidence of bad identity.
         if connection.close_reason().is_some() {
             return Err(control_error("DataPathUnavailable"));
+        }
+        if purpose == SessionPurpose::AdmissionRequest {
+            return self
+                .gate
+                .request_revision(connection)
+                .ok_or_else(|| control_error("IdentityOrAdmissionRejected"));
         }
         self.gate
             .path_qualification(connection)
@@ -108,15 +118,18 @@ impl MemberPathAdapter for CoordinatorHook {
     fn check<'a>(
         &'a self,
         connection: &'a Connection,
+        purpose: SessionPurpose,
     ) -> impl Future<Output = io::Result<()>> + Send + 'a {
         async move {
             if connection.close_reason().is_some() {
                 return Err(control_error("DataPathUnavailable"));
             }
-            if self
-                .gate
-                .allows(connection, crate::admission_gate::ProtocolScope::Member)
-            {
+            let scope = if purpose == SessionPurpose::AdmissionRequest {
+                crate::admission_gate::ProtocolScope::AdmissionRequest
+            } else {
+                crate::admission_gate::ProtocolScope::Member
+            };
+            if self.gate.allows(connection, scope) {
                 Ok(())
             } else {
                 Err(control_error("IdentityOrAdmissionRejected"))
@@ -214,12 +227,30 @@ impl MemberPathAdapter for CoordinatorHook {
     }
 }
 impl iroh::endpoint::EndpointHooks for CoordinatorHook {
+    async fn after_handshake(
+        &self,
+        connection: &Connection,
+    ) -> iroh::endpoint::AfterHandshakeOutcome {
+        if SessionPurpose::from_alpn(connection.alpn()) != Some(SessionPurpose::AdmissionRequest) {
+            return iroh::endpoint::AfterHandshakeOutcome::Accept;
+        }
+        if coordinate_session(None, connection, self).await.is_err() {
+            return iroh::endpoint::AfterHandshakeOutcome::Reject {
+                error_code: 0u32.into(),
+                reason: b"unified restricted purpose rejected".to_vec(),
+            };
+        }
+        iroh::endpoint::AfterHandshakeOutcome::AcceptRestricted
+    }
     async fn before_data_release(
         &self,
         endpoint: &Endpoint,
         connection: &Connection,
     ) -> io::Result<()> {
-        coordinate_member(endpoint, connection, self).await
+        if SessionPurpose::from_alpn(connection.alpn()) == Some(SessionPurpose::AdmissionRequest) {
+            return Err(control_error("InvalidControl"));
+        }
+        coordinate_session(Some(endpoint), connection, self).await
     }
 }
 

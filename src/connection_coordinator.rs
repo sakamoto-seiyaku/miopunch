@@ -5,6 +5,9 @@ use iroh::{Endpoint, TransportAddr, endpoint::Connection};
 use std::{future::Future, io, pin::Pin};
 
 pub const MEMBER_ALPN: &[u8] = b"miopunch/session/member/1";
+pub const ADMISSION_REQUEST_ALPN: &[u8] = b"miopunch/session/admission/1";
+pub const PRECODE_REQUEST_ALPN: &[u8] = b"miopunch/session/precode/1";
+pub const REPLICA_ALPN: &[u8] = b"miopunch/session/replica/1";
 const FRAME_LEN: usize = 28;
 pub(crate) const UDP: u8 = 1;
 pub(crate) const TCP: u8 = 2;
@@ -16,11 +19,33 @@ const CAPABILITIES: u8 = UDP | TCP | RELAY | RTC;
 #[repr(u8)]
 pub enum SessionPurpose {
     MemberBusiness = 1,
+    AdmissionRequest = 2,
+    Replica = 3,
 }
 impl SessionPurpose {
-    fn alpn(self) -> &'static [u8] {
+    pub fn alpn(self) -> &'static [u8] {
         match self {
             Self::MemberBusiness => MEMBER_ALPN,
+            Self::AdmissionRequest => ADMISSION_REQUEST_ALPN,
+            Self::Replica => REPLICA_ALPN,
+        }
+    }
+    pub fn from_alpn(alpn: &[u8]) -> Option<Self> {
+        match alpn {
+            MEMBER_ALPN => Some(Self::MemberBusiness),
+            ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN => Some(Self::AdmissionRequest),
+            REPLICA_ALPN => Some(Self::Replica),
+            _ => None,
+        }
+    }
+    pub(crate) fn requires_data(self) -> bool {
+        self != Self::AdmissionRequest
+    }
+    fn label(self) -> &'static str {
+        match self {
+            Self::MemberBusiness => "member-business",
+            Self::AdmissionRequest => "admission-request",
+            Self::Replica => "replica",
         }
     }
 }
@@ -169,7 +194,11 @@ impl ProtectedAttempt {
 /// membership. Preparation returns an exact, connection-owned candidate.
 pub(crate) trait MemberPathAdapter {
     fn capabilities(&self, role: AttemptRole) -> RuntimeCapabilities;
-    fn authorization_revision(&self, connection: &Connection) -> io::Result<u64>;
+    fn authorization_revision(
+        &self,
+        connection: &Connection,
+        purpose: SessionPurpose,
+    ) -> io::Result<u64>;
     fn committed(&self, _connection: &Connection, _report: serde_json::Value) {}
     fn existing_direct(&self, connection: &Connection) -> Option<(TransportAddr, u8)> {
         let paths = connection.paths();
@@ -182,6 +211,7 @@ pub(crate) trait MemberPathAdapter {
     fn check<'a>(
         &'a self,
         connection: &'a Connection,
+        purpose: SessionPurpose,
     ) -> impl Future<Output = io::Result<()>> + Send + 'a;
     fn prepare<'a>(
         &'a self,
@@ -344,11 +374,23 @@ impl ConnectError {
         }
     }
 }
+enum ContactDialFailure {
+    Unavailable(ConnectError),
+    Terminal(ConnectError),
+}
+impl ContactDialFailure {
+    fn into_error(self) -> ConnectError {
+        match self {
+            Self::Unavailable(error) | Self::Terminal(error) => error,
+        }
+    }
+}
 #[derive(Clone)]
 pub struct ConnectionCoordinator {
     endpoint: Endpoint,
     permitted: u8,
     contact_ids: Vec<u64>,
+    member_contact_id: Option<u64>,
 }
 impl ConnectionCoordinator {
     pub(crate) fn new(endpoint: Endpoint, permitted: u8, contact_ids: Vec<u64>) -> Self {
@@ -356,17 +398,91 @@ impl ConnectionCoordinator {
             endpoint,
             permitted,
             contact_ids,
+            member_contact_id: None,
         }
+    }
+    /// The native resource owner supplies the installed member contact carrier.
+    /// Browser callers have no member adapter and retain None.
+    pub(crate) fn with_member_contact(mut self, id: u64) -> Self {
+        self.member_contact_id = Some(id);
+        self
+    }
+    async fn dial(
+        &self,
+        target: iroh::EndpointAddr,
+        purpose: SessionPurpose,
+        attempt: &AttemptContext,
+        wire_alpn: &[u8],
+    ) -> Result<Connection, ContactDialFailure> {
+        if SessionPurpose::from_alpn(wire_alpn) != Some(purpose) {
+            return Err(ContactDialFailure::Terminal(
+                ConnectError::ProtocolUnsupported,
+            ));
+        }
+        use iroh::endpoint::{ConnectWithOptsError, ConnectingError};
+        if attempt.cancellation.is_cancelled() {
+            return Err(ContactDialFailure::Terminal(ConnectError::Cancelled));
+        }
+        if n0_future::time::Instant::now() >= attempt.deadline {
+            return Err(ContactDialFailure::Terminal(ConnectError::DeadlineExceeded));
+        }
+        let mut options = iroh::endpoint::ConnectOptions::new()
+            .with_caller_deadline(attempt.deadline)
+            .with_attempt_cancellation(attempt.cancellation.clone());
+        if let Some(route) = target.addrs.iter().next()
+            && target.addrs.len() == 1
+        {
+            options = options.with_bootstrap_route(route.clone());
+        }
+        let connecting = self
+            .endpoint
+            .connect_with_opts(target, wire_alpn, options)
+            .await
+            .map_err(|error| match error {
+                ConnectWithOptsError::LocallyRejected { .. } => {
+                    ContactDialFailure::Terminal(ConnectError::IdentityOrAdmissionRejected)
+                }
+                ConnectWithOptsError::NoAddress { .. } => {
+                    ContactDialFailure::Unavailable(ConnectError::Transport(error.to_string()))
+                }
+                _ => ContactDialFailure::Terminal(ConnectError::Transport(error.to_string())),
+            })?;
+        connecting.await.map_err(|error| {
+            // Only QUIC setup reachability failures may move to another contact.
+            // Protected gate/control/data failures have an authenticated M and
+            // must never be turned into a new membership attempt.
+            let unavailable = matches!(&error,
+                ConnectingError::ConnectionError { source, .. }
+                if matches!(source, iroh::endpoint::ConnectionError::TimedOut
+                    | iroh::endpoint::ConnectionError::Reset));
+            let error = ConnectError::from_connecting(error);
+            if unavailable {
+                ContactDialFailure::Unavailable(error)
+            } else {
+                ContactDialFailure::Terminal(error)
+            }
+        })
     }
     pub async fn connect(
         &self,
-        mut target: iroh::EndpointAddr,
+        target: iroh::EndpointAddr,
         purpose: SessionPurpose,
         attempt: AttemptContext,
     ) -> Result<Connection, ConnectError> {
+        self.connect_alpn(target, purpose.alpn(), attempt).await
+    }
+    // Exact new selector, needed by the existing native precode entry.
+    pub(crate) async fn connect_alpn(
+        &self,
+        mut target: iroh::EndpointAddr,
+        wire_alpn: &[u8],
+        attempt: AttemptContext,
+    ) -> Result<Connection, ConnectError> {
+        let purpose =
+            SessionPurpose::from_alpn(wire_alpn).ok_or(ConnectError::ProtocolUnsupported)?;
         attempt
             .run(async {
-                if self.permitted == 0 {
+                if purpose.requires_data() && self.permitted == 0 {
                     return Err(ConnectError::DataPathUnavailable);
                 }
                 target.addrs.retain(|address| match address {
@@ -378,23 +494,63 @@ impl ConnectionCoordinator {
                 if target.addrs.is_empty() {
                     return Err(ConnectError::DataPathUnavailable);
                 }
-                let connecting = self
-                    .endpoint
-                    .connect_with_opts(
-                        target,
-                        purpose.alpn(),
-                        iroh::endpoint::ConnectOptions::new()
-                            .with_caller_deadline(attempt.deadline)
-                            .with_attempt_cancellation(attempt.cancellation.clone()),
-                    )
-                    .await
-                    .map_err(|error| match error {
-                        iroh::endpoint::ConnectWithOptsError::LocallyRejected { .. } => {
-                            ConnectError::IdentityOrAdmissionRejected
+                let mut last_unavailable = None;
+                // A hint is not a usable data path. Trial each permitted data
+                // route in this attempt's exact bootstrap scope; cached contact
+                // routes cannot carry it before an actual setup failure.
+                for route in target.addrs.iter().filter(|address| {
+                    matches!(address, TransportAddr::Ip(_) | TransportAddr::Relay(_))
+                }) {
+                    let data = iroh::EndpointAddr::new(target.id).with_addrs([route.clone()]);
+                    match self.dial(data, purpose, &attempt, wire_alpn).await {
+                        Ok(connection) => return Ok(connection),
+                        Err(ContactDialFailure::Terminal(error)) => return Err(error),
+                        Err(ContactDialFailure::Unavailable(error)) => {
+                            last_unavailable = Some(error)
                         }
-                        _ => ConnectError::Transport(error.to_string()),
-                    })?;
-                connecting.await.map_err(ConnectError::from_connecting)
+                    }
+                }
+                let mut public_contact = target.clone();
+                public_contact.addrs.retain(|address| {
+                    !matches!(address, TransportAddr::Ip(_) | TransportAddr::Relay(_))
+                });
+                if let Some(member_id) = self.member_contact_id {
+                    public_contact.addrs.retain(|address| {
+                        !matches!(address,
+                        TransportAddr::Custom(route) if route.id() == member_id)
+                    });
+                    for route in target.addrs.iter().filter_map(|address| match address {
+                        TransportAddr::Custom(route) if route.id() == member_id => Some(route),
+                        _ => None,
+                    }) {
+                        // A withdrawn local member registration is actual
+                        // unavailability, including an endpoint/link retirement
+                        // since this coordinator was constructed.
+                        if !self
+                            .endpoint
+                            .custom_addrs()
+                            .iter()
+                            .any(|local| local.id() == member_id)
+                        {
+                            break;
+                        }
+                        let member = iroh::EndpointAddr::new(target.id)
+                            .with_addrs([TransportAddr::Custom(route.clone())]);
+                        match self.dial(member, purpose, &attempt, wire_alpn).await {
+                            Ok(connection) => return Ok(connection),
+                            Err(ContactDialFailure::Terminal(error)) => return Err(error),
+                            Err(ContactDialFailure::Unavailable(error)) => {
+                                last_unavailable = Some(error)
+                            }
+                        }
+                    }
+                }
+                if public_contact.addrs.is_empty() {
+                    return Err(last_unavailable.unwrap_or(ConnectError::DataPathUnavailable));
+                }
+                self.dial(public_contact, purpose, &attempt, wire_alpn)
+                    .await
+                    .map_err(ContactDialFailure::into_error)
             })
             .await
     }
@@ -443,11 +599,11 @@ impl ConnectionCoordinator {
             .alpn()
             .await
             .map_err(|error| ConnectError::Transport(error.to_string()))?;
-        if alpn != purpose.alpn() {
+        if SessionPurpose::from_alpn(&alpn) != Some(purpose) {
             return Err(ConnectError::ProtocolUnsupported);
         }
         let connection = accepting.await.map_err(ConnectError::from_connecting)?;
-        if connection.alpn() != purpose.alpn() {
+        if SessionPurpose::from_alpn(connection.alpn()) != Some(purpose) {
             connection.close(0u32.into(), b"unified protocol required");
             return Err(ConnectError::ProtocolUnsupported);
         }
@@ -469,20 +625,51 @@ impl Drop for PendingMember {
 
 /// One shared protected protocol and release path on both platforms. The
 /// endpoint's original admission hook still owns identity/proof verification.
-pub(crate) async fn coordinate_member<A: MemberPathAdapter>(
-    endpoint: &Endpoint,
+async fn confirm_nonce(
+    send: &mut iroh::endpoint::SendStream,
+    recv: &mut iroh::endpoint::RecvStream,
+    nonce: &[u8; 16],
+    peer_nonce: &[u8],
+) -> io::Result<()> {
+    let mut ready = [0; 17];
+    ready[0] = 1;
+    ready[1..].copy_from_slice(peer_nonce);
+    send.write_all(&ready).await?;
+    send.finish()?;
+    let ack = recv.read_to_end(17).await.map_err(io::Error::other)?;
+    if ack.len() != 17 || ack[0] != 1 || &ack[1..] != nonce {
+        return Err(control_error("InvalidControl"));
+    }
+    Ok(())
+}
+
+pub(crate) async fn coordinate_session<A: MemberPathAdapter>(
+    endpoint: Option<&Endpoint>,
     connection: &Connection,
     adapter: &A,
 ) -> io::Result<()> {
-    if connection.alpn() != MEMBER_ALPN {
-        return Ok(());
+    let Some(purpose) = SessionPurpose::from_alpn(connection.alpn()) else {
+        return Ok(()); // unrelated, explicitly registered purposes remain separate
+    };
+    if purpose.requires_data() && endpoint.is_none() {
+        return Err(control_error("InvalidControl"));
     }
+    // Migrated callers supply this at their original public operation boundary.
+    if purpose != SessionPurpose::MemberBusiness && connection.caller_deadline().is_none() {
+        return Err(control_error("InvalidControl"));
+    }
+    let original = connection.stable_id();
+    let original_binding = crate::connection_recovery_core::binding(connection)?;
     let mut cancellation = PendingMember(Some(connection.clone()));
     let operation = async {
-        adapter.check(connection).await?;
-        let revision = adapter.authorization_revision(connection)?;
+        adapter.check(connection, purpose).await?;
+        let revision = adapter.authorization_revision(connection, purpose)?;
         let role = AttemptRole::initial(connection);
-        let local = adapter.capabilities(role);
+        let mut local = adapter.capabilities(role);
+        if purpose == SessionPurpose::AdmissionRequest {
+            // Actual support remains visible, but A permits no data carrier.
+            local.permitted = 0;
+        }
         local.validate(role)?;
         let (mut send, mut recv) = if connection.side().is_client() {
             connection.open_bi().await?
@@ -494,7 +681,7 @@ pub(crate) async fn coordinate_member<A: MemberPathAdapter>(
         frame[..4].copy_from_slice(b"MUC1");
         frame[4..11].copy_from_slice(&[
             1,
-            SessionPurpose::MemberBusiness as u8,
+            purpose as u8,
             local.runtime as u8,
             role as u8,
             local.supported,
@@ -555,6 +742,29 @@ pub(crate) async fn coordinate_member<A: MemberPathAdapter>(
             peer_runtime,
             mutual: local.permitted & peer[9],
         };
+        if purpose == SessionPurpose::AdmissionRequest {
+            if peer[9] != 0 {
+                return Err(control_error("InvalidControl"));
+            }
+            confirm_nonce(&mut send, &mut recv, &nonce, &peer[12..]).await?;
+            adapter.check(connection, purpose).await?;
+            if adapter.authorization_revision(connection, purpose)? != revision
+                || connection.stable_id() != original
+                || crate::connection_recovery_core::binding(connection)? != original_binding
+            {
+                return Err(control_error("IdentityOrAdmissionRejected"));
+            }
+            let report = serde_json::json!({"event":"unified-control-ready","version":1,
+                "purpose":purpose.label(),"purposeCode":purpose as u8,"stableId":original,"restricted":true,
+                "role":if role==AttemptRole::Initiator{"initiator"}else{"responder"},
+                "runtime":format!("{:?}",local.runtime),"peerRuntime":format!("{:?}",peer_runtime),
+                "supported":local.supported,"permitted":local.permitted,"peerSupported":peer[8],"peerPermitted":peer[9],
+                "ordinaryHandle":false,"dataReleased":false,"freshAck":null,
+                "stableUnchanged":true,"bindingUnchanged":true,"sourceRevision":revision});
+            adapter.committed(connection, report.clone());
+            println!("{report}");
+            return Ok(());
+        }
         let direct = adapter.existing_direct(connection);
         let plans = attempt.plans(connection, direct.as_ref())?;
         let mut prepared = None;
@@ -582,7 +792,16 @@ pub(crate) async fn coordinate_member<A: MemberPathAdapter>(
                         || Ok(()),
                     ))
                 }
-                _ => adapter.prepare(endpoint, connection, attempt, plan).await,
+                _ => {
+                    adapter
+                        .prepare(
+                            endpoint.ok_or_else(|| control_error("InvalidControl"))?,
+                            connection,
+                            attempt,
+                            plan,
+                        )
+                        .await
+                }
             };
             match candidate {
                 Ok(candidate) => {
@@ -590,8 +809,8 @@ pub(crate) async fn coordinate_member<A: MemberPathAdapter>(
                     break;
                 }
                 Err(error) => {
-                    adapter.check(connection).await?;
-                    if adapter.authorization_revision(connection)? != revision {
+                    adapter.check(connection, purpose).await?;
+                    if adapter.authorization_revision(connection, purpose)? != revision {
                         return Err(control_error("IdentityOrAdmissionRejected"));
                     }
                     if error.to_string().starts_with("unified/InvalidControl")
@@ -630,8 +849,8 @@ pub(crate) async fn coordinate_member<A: MemberPathAdapter>(
             }));
         }
         loop {
-            adapter.check(connection).await?;
-            if adapter.authorization_revision(connection)? != revision {
+            adapter.check(connection, purpose).await?;
+            if adapter.authorization_revision(connection, purpose)? != revision {
                 return Err(control_error("IdentityOrAdmissionRejected"));
             }
             prepared.check(connection, false)?;
@@ -643,30 +862,25 @@ pub(crate) async fn coordinate_member<A: MemberPathAdapter>(
             }
             n0_future::time::sleep(std::time::Duration::from_millis(10)).await;
         }
-        let mut ready = [0; 17];
-        ready[0] = 1;
-        ready[1..].copy_from_slice(&peer[12..]);
-        send.write_all(&ready).await?;
-        send.finish()?;
-        let ack = recv.read_to_end(17).await.map_err(io::Error::other)?;
-        if ack.len() != 17 || ack[0] != 1 || ack[1..] != nonce {
-            return Err(control_error("InvalidControl"));
-        }
-        adapter.check(connection).await?;
-        if adapter.authorization_revision(connection)? != revision {
+        confirm_nonce(&mut send, &mut recv, &nonce, &peer[12..]).await?;
+        adapter.check(connection, purpose).await?;
+        if adapter.authorization_revision(connection, purpose)? != revision {
             return Err(control_error("IdentityOrAdmissionRejected"));
         }
         prepared.check(connection, true)?;
         if let Some(retain) = prepared.retain.take() {
             retain().await?;
         }
-        adapter.check(connection).await?;
-        if adapter.authorization_revision(connection)? != revision {
+        adapter.check(connection, purpose).await?;
+        if adapter.authorization_revision(connection, purpose)? != revision {
             return Err(control_error("IdentityOrAdmissionRejected"));
         }
         prepared.check(connection, true)?;
         let paths = connection.paths();
-        let report = serde_json::json!({"event":"unified-path-ready","version":1,
+        let report = serde_json::json!({"event":"unified-path-ready","version":1,"purpose":purpose.label(),"purposeCode":purpose as u8,"stableId":original,
+            "stableUnchanged":connection.stable_id()==original,"bindingUnchanged":crate::connection_recovery_core::binding(connection)?==original_binding,
+            "runtime":format!("{:?}",local.runtime),"peerRuntime":format!("{:?}",peer_runtime),
+            "supported":local.supported,"permitted":local.permitted,"peerSupported":peer[8],"peerPermitted":peer[9],
             "role":if role==AttemptRole::Initiator{"initiator"}else{"responder"},"rtcRole":format!("{:?}",attempt.rtc_role),
             "freshAck":true,"route":prepared.route.to_string(),"pathId":prepared.path_id,
             "selected":paths.iter().any(|path|path.remote_addr()==&prepared.route && path.is_selected()),

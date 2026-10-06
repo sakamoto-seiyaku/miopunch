@@ -523,13 +523,13 @@ async fn drive(
     route: Route,
     service: Option<Service>,
     addresses: Watchable<Vec<CustomAddr>>,
-    mut queue: mpsc::Receiver<Outbound>,
+    queue: mpsc::Receiver<Outbound>,
     incoming: &tokio::sync::mpsc::Sender<Packet>,
     status: watch::Sender<Status>,
     traffic: Arc<Traffic>,
     report: Arc<BindingReport>,
     tls_ca: Option<Vec<u8>>,
-    mut stop: watch::Receiver<bool>,
+    stop: watch::Receiver<bool>,
 ) -> io::Result<()> {
     let mut options = MqttOptions::new(
         format!("mio20-{}", hex::encode(route)),
@@ -567,7 +567,7 @@ async fn drive(
     options.set_keep_alive(Duration::from_secs(5));
     options.set_clean_session(true);
     options.set_max_packet_size(4096, 4096);
-    let (client, mut eventloop) = AsyncClient::new(options, QUEUE_DEPTH);
+    let (client, eventloop) = AsyncClient::new(options, QUEUE_DEPTH);
     let _withdrawal = RouteWithdrawal {
         addresses: addresses.clone(),
         status: status.clone(),
@@ -577,82 +577,42 @@ async fn drive(
         .subscribe(topic(route), QoS::AtMostOnce)
         .await
         .map_err(io::Error::other)?;
+    drive_connected(
+        client, eventloop, route, service, addresses, queue, incoming, status, traffic, report,
+        stop,
+    )
+    .await
+}
+
+// One production queue owner and EventLoop poller. The test exercises this
+// exact loop with a real pinned MQTT client and a backpressured TCP peer.
+async fn drive_connected(
+    client: AsyncClient,
+    mut eventloop: rumqttc::EventLoop,
+    route: Route,
+    service: Option<Service>,
+    addresses: Watchable<Vec<CustomAddr>>,
+    mut queue: mpsc::Receiver<Outbound>,
+    incoming: &tokio::sync::mpsc::Sender<Packet>,
+    status: watch::Sender<Status>,
+    traffic: Arc<Traffic>,
+    report: Arc<BindingReport>,
+    mut stop: watch::Receiver<bool>,
+) -> io::Result<()> {
     let own_topic = topic(route);
     let mut qualification = Qualification::default();
     loop {
-        tokio::select! {
-            biased;
-            _ = stop.changed() => {
-                addresses.set(Vec::new()).ok();
-                report.withdraw();
-                status.send_replace(Status::Closed);
-                let _ = client.try_unsubscribe(own_topic.clone());
-                let _ = client.try_disconnect();
-                let _ = tokio::time::timeout(Duration::from_millis(500), async {
-                    loop {
-                        match eventloop.poll().await {
-                            Ok(Event::Outgoing(Outgoing::Unsubscribe(_))) => report.protocol.lock().unwrap().unsubscribe_sent = true,
-                            Ok(Event::Outgoing(Outgoing::Disconnect)) => {
-                                report.protocol.lock().unwrap().disconnect_sent = true;
-                                break;
-                            }
-                            Err(_) => break,
-                            _ => {}
-                        }
-                    }
-                }).await;
-                return Ok(());
-            }
-            event = eventloop.poll() => {
-                match event.map_err(io::Error::other)? {
-                    Event::Incoming(MqttPacket::ConnAck(ack)) => {
-                        report.protocol.lock().unwrap().connack = Some(ack.code as u8);
-                        qualification.connack(ack.code as u8, ack.session_present)?;
-                    }
-                    Event::Outgoing(Outgoing::Subscribe(pkid)) => {
-                        qualification.subscribe(pkid)?;
-                        report.protocol.lock().unwrap().subscribe_id = Some(pkid);
-                    }
-                    Event::Incoming(MqttPacket::SubAck(ack)) => {
-                        {
-                            let mut protocol = report.protocol.lock().unwrap();
-                            protocol.suback_id = Some(ack.pkid);
-                            protocol.suback_codes = ack.return_codes.iter().map(|code| match code {
-                                SubscribeReasonCode::Success(qos) => *qos as u8,
-                                SubscribeReasonCode::Failure => 128,
-                            }).collect();
-                        }
-                        qualification.suback(ack.pkid, &report.protocol.lock().unwrap().suback_codes)?;
-                        report.protocol.lock().unwrap().ready_ms = Some(now_ms());
-                        addresses.set(vec![address_for(service, route)]).ok();
-                        status.send_replace(Status::Ready);
-                    }
-                    Event::Incoming(MqttPacket::Publish(publish)) => {
-                        let payload = publish.payload.as_ref();
-                        let decoded = decode_datagram(payload);
-                        if !qualification.ready() || publish.topic != own_topic || publish.retain || publish.qos != QoS::AtMostOnce || decoded.is_err() {
-                            traffic.rejected_packets.fetch_add(1, Ordering::Relaxed);
-                            continue;
-                        }
-                        let (source, bytes) = decoded.unwrap();
-                        if source == route {
-                            traffic.rejected_packets.fetch_add(1, Ordering::Relaxed);
-                            continue;
-                        }
-                        let bytes = bytes.to_vec();
-                        let len = bytes.len();
-                        if incoming.try_send(Packet { source, bytes }).is_ok() {
-                            report.rx_queue_peak.fetch_max((QUEUE_DEPTH - incoming.capacity()).max(1) as u64, Ordering::Relaxed);
-                            traffic.received_packets.fetch_add(1, Ordering::Relaxed);
-                            traffic.received_bytes.fetch_add(len as u64, Ordering::Relaxed);
-                        } else {
-                            traffic.rejected_packets.fetch_add(1, Ordering::Relaxed);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            item = queue.next(), if qualification.ready() => {
+        // EventLoop::poll may already own a dequeued publish while feed/flush
+        // is Pending. Keep that exact future across additional queue work.
+        let event = {
+            let polling = eventloop.poll();
+            tokio::pin!(polling);
+            loop {
+                tokio::select! {
+                    biased;
+                    _ = stop.changed() => break None,
+                    event = &mut polling => break Some(event),
+                    item = queue.next(), if qualification.ready() => {
                 let Some(item) = item else { return Ok(()); };
                 report.queued_packets.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |depth| Some(depth.saturating_sub(1))).ok();
                 let payload = encode_datagram(route, &item.bytes)?;
@@ -660,7 +620,95 @@ async fn drive(
                     .map_err(io::Error::other)?;
                 traffic.sent_packets.fetch_add(1, Ordering::Relaxed);
                 traffic.sent_bytes.fetch_add(item.bytes.len() as u64, Ordering::Relaxed);
+
+                    }
+                }
             }
+        };
+        let Some(event) = event else {
+            addresses.set(Vec::new()).ok();
+            report.withdraw();
+            status.send_replace(Status::Closed);
+            let _ = client.try_unsubscribe(own_topic.clone());
+            let _ = client.try_disconnect();
+            let _ = tokio::time::timeout(Duration::from_millis(500), async {
+                loop {
+                    match eventloop.poll().await {
+                        Ok(Event::Outgoing(Outgoing::Unsubscribe(_))) => {
+                            report.protocol.lock().unwrap().unsubscribe_sent = true
+                        }
+                        Ok(Event::Outgoing(Outgoing::Disconnect)) => {
+                            report.protocol.lock().unwrap().disconnect_sent = true;
+                            break;
+                        }
+                        Err(_) => break,
+                        _ => {}
+                    }
+                }
+            })
+            .await;
+            return Ok(());
+        };
+        match event.map_err(io::Error::other)? {
+            Event::Incoming(MqttPacket::ConnAck(ack)) => {
+                report.protocol.lock().unwrap().connack = Some(ack.code as u8);
+                qualification.connack(ack.code as u8, ack.session_present)?;
+            }
+            Event::Outgoing(Outgoing::Subscribe(pkid)) => {
+                qualification.subscribe(pkid)?;
+                report.protocol.lock().unwrap().subscribe_id = Some(pkid);
+            }
+            Event::Incoming(MqttPacket::SubAck(ack)) => {
+                {
+                    let mut protocol = report.protocol.lock().unwrap();
+                    protocol.suback_id = Some(ack.pkid);
+                    protocol.suback_codes = ack
+                        .return_codes
+                        .iter()
+                        .map(|code| match code {
+                            SubscribeReasonCode::Success(qos) => *qos as u8,
+                            SubscribeReasonCode::Failure => 128,
+                        })
+                        .collect();
+                }
+                qualification.suback(ack.pkid, &report.protocol.lock().unwrap().suback_codes)?;
+                report.protocol.lock().unwrap().ready_ms = Some(now_ms());
+                addresses.set(vec![address_for(service, route)]).ok();
+                status.send_replace(Status::Ready);
+            }
+            Event::Incoming(MqttPacket::Publish(publish)) => {
+                let payload = publish.payload.as_ref();
+                let decoded = decode_datagram(payload);
+                if !qualification.ready()
+                    || publish.topic != own_topic
+                    || publish.retain
+                    || publish.qos != QoS::AtMostOnce
+                    || decoded.is_err()
+                {
+                    traffic.rejected_packets.fetch_add(1, Ordering::Relaxed);
+                    continue;
+                }
+                let (source, bytes) = decoded.unwrap();
+                if source == route {
+                    traffic.rejected_packets.fetch_add(1, Ordering::Relaxed);
+                    continue;
+                }
+                let bytes = bytes.to_vec();
+                let len = bytes.len();
+                if incoming.try_send(Packet { source, bytes }).is_ok() {
+                    report.rx_queue_peak.fetch_max(
+                        (QUEUE_DEPTH - incoming.capacity()).max(1) as u64,
+                        Ordering::Relaxed,
+                    );
+                    traffic.received_packets.fetch_add(1, Ordering::Relaxed);
+                    traffic
+                        .received_bytes
+                        .fetch_add(len as u64, Ordering::Relaxed);
+                } else {
+                    traffic.rejected_packets.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -849,5 +897,199 @@ impl Shared {
                 Poll::Ready(sent)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod poll_retention_tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    async fn mqtt_packet(socket: &mut tokio::net::TcpStream) -> io::Result<(u8, Vec<u8>)> {
+        let kind = socket.read_u8().await?;
+        let mut length = 0usize;
+        let mut shift = 0;
+        loop {
+            let byte = socket.read_u8().await?;
+            length += usize::from(byte & 127) << shift;
+            if length > 4096 || shift > 21 {
+                return Err(io::Error::other("owned MQTT packet exceeds limit"));
+            }
+            if byte & 128 == 0 {
+                break;
+            }
+            shift += 7;
+        }
+        let mut body = vec![0; length];
+        socket.read_exact(&mut body).await?;
+        Ok((kind, body))
+    }
+
+    #[tokio::test]
+    async fn backpressured_publish_keeps_every_datagram() {
+        const COUNT: usize = 48;
+        // Set the receiver window before accept, so an unread real socket
+        // forces feed/flush Pending while another bounded datagram is queued.
+        let listener =
+            socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, None).unwrap();
+        listener.set_recv_buffer_size(1024).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        listener
+            .bind(&"127.0.0.1:0".parse::<SocketAddr>().unwrap().into())
+            .unwrap();
+        listener.listen(1).unwrap();
+        let listener = tokio::net::TcpListener::from_std(listener.into()).unwrap();
+        let address = listener.local_addr().unwrap();
+        let (release, resume) = tokio::sync::oneshot::channel();
+        let (delivered, delivery) = tokio::sync::oneshot::channel();
+        let own_route = [1u8; 16];
+        let destination_route = [2u8; 16];
+        let broker = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            assert_eq!(mqtt_packet(&mut socket).await.unwrap().0 >> 4, 1);
+            socket.write_all(&[0x20, 2, 0, 0]).await.unwrap();
+            let (kind, subscribe) = mqtt_packet(&mut socket).await.unwrap();
+            assert_eq!(kind >> 4, 8);
+            socket
+                .write_all(&[0x90, 3, subscribe[0], subscribe[1], 0])
+                .await
+                .unwrap();
+            resume.await.unwrap();
+            let mut received = Vec::new();
+            let mut delivered = Some(delivered);
+            let deadline = tokio::time::sleep(Duration::from_secs(3));
+            tokio::pin!(deadline);
+            loop {
+                let packet = {
+                    let reading = mqtt_packet(&mut socket);
+                    tokio::pin!(reading);
+                    tokio::select! {
+                        packet = &mut reading => packet,
+                        _ = &mut deadline, if delivered.is_some() => {
+                            delivered.take().unwrap().send(received.clone()).unwrap();
+                            // Retain this same real read while natural shutdown arrives.
+                            reading.await
+                        }
+                    }
+                };
+                let Ok((kind, body)) = packet else {
+                    break;
+                };
+                match kind >> 4 {
+                    3 => {
+                        assert_eq!(kind, 0x30, "the real carrier must retain QoS0");
+                        let length = usize::from(u16::from_be_bytes([body[0], body[1]]));
+                        assert_eq!(&body[2..2 + length], topic(destination_route).as_bytes());
+                        let (source, payload) = decode_datagram(&body[2 + length..]).unwrap();
+                        assert_eq!(source, own_route);
+                        assert_eq!(payload.len(), MAX_DATAGRAM);
+                        let index = u32::from_be_bytes(payload[..4].try_into().unwrap()) as usize;
+                        assert!(payload[4..].iter().all(|byte| *byte == index as u8));
+                        received.push(index);
+                        if received.len() == COUNT {
+                            if let Some(delivered) = delivered.take() {
+                                delivered.send(received.clone()).unwrap();
+                            }
+                        }
+                    }
+                    10 => socket
+                        .write_all(&[0xb0, 2, body[0], body[1]])
+                        .await
+                        .unwrap(),
+                    12 => socket.write_all(&[0xd0, 0]).await.unwrap(),
+                    14 => break,
+                    _ => panic!("unexpected owned broker packet"),
+                }
+            }
+            received
+        });
+        let mut options = MqttOptions::new(
+            "owned-poll-regression",
+            address.ip().to_string(),
+            address.port(),
+        );
+        options.set_keep_alive(Duration::from_secs(5));
+        options.set_clean_session(true);
+        options.set_max_packet_size(4096, 4096);
+        let (client, mut eventloop) = AsyncClient::new(options, QUEUE_DEPTH);
+        eventloop.network_options.set_tcp_send_buffer_size(1024);
+        eventloop.network_options.set_tcp_nodelay(true);
+        client
+            .subscribe(topic(own_route), QoS::AtMostOnce)
+            .await
+            .unwrap();
+        let traffic = Arc::new(Traffic::default());
+        let report = Arc::new(BindingReport::default());
+        let (status, mut ready) = watch::channel(Status::Starting);
+        let (stop, stopping) = watch::channel(false);
+        let (sender, queue) = mpsc::channel(QUEUE_DEPTH);
+        let (incoming, _received) = tokio::sync::mpsc::channel(QUEUE_DEPTH);
+        let addresses = Watchable::new(Vec::new());
+        let driver_status = status.clone();
+        let driver_traffic = traffic.clone();
+        let driver_report = report.clone();
+        let task = tokio::spawn(async move {
+            drive_connected(
+                client,
+                eventloop,
+                own_route,
+                None,
+                addresses,
+                queue,
+                &incoming,
+                driver_status,
+                driver_traffic,
+                driver_report,
+                stopping,
+            )
+            .await
+        });
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while *ready.borrow() != Status::Ready {
+                ready.changed().await.unwrap();
+            }
+        })
+        .await
+        .unwrap();
+        let shared = Shared {
+            route: own_route,
+            service: None,
+            outbound: Mutex::new(sender),
+            status,
+            shutdown: stop.clone(),
+            traffic: traffic.clone(),
+            report,
+        };
+        let target = address_for(None, destination_route);
+        for index in 0..COUNT {
+            let mut bytes = vec![index as u8; MAX_DATAGRAM];
+            bytes[..4].copy_from_slice(&(index as u32).to_be_bytes());
+            futures_util::future::poll_fn(|cx| shared.poll_datagram(cx, &target, &bytes))
+                .await
+                .unwrap();
+        }
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while traffic.sent_packets() < COUNT as u64 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        release.send(()).unwrap();
+        let delivered = tokio::time::timeout(Duration::from_secs(4), delivery)
+            .await
+            .unwrap()
+            .unwrap();
+        // Observe actual broker delivery before the original natural stop.
+        stop.send_replace(true);
+        task.await.unwrap().unwrap();
+        let actual = broker.await.unwrap();
+        assert_eq!(traffic.sent_packets(), COUNT as u64);
+        assert_eq!(delivered, actual, "delivery only appeared during shutdown");
+        assert_eq!(
+            actual,
+            (0..COUNT).collect::<Vec<_>>(),
+            "accepted datagrams were lost across cancellation of a real MQTT feed/flush"
+        );
     }
 }

@@ -1650,6 +1650,9 @@ impl EndpointInner {
             .map_err(|_| std::io::Error::other("remote state stopped"))?
             .map_err(std::io::Error::other)
     }
+    pub(crate) fn relay_mapped_addr(&self, remote: EndpointId, relay: &RelayUrl) -> SocketAddr {
+        self.sock.mapped_addrs.relay_addrs.get(&(relay.clone(), remote)).private_socket_addr()
+    }
     pub(crate) fn custom_mapped_addr(&self, route: &iroh_base::CustomAddr) -> SocketAddr {
         self.sock
             .mapped_addrs

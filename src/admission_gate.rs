@@ -21,10 +21,10 @@ use crate::member_bootstrap::MEMBER_BOOTSTRAP_ALPN;
 use crate::nat_selector::{LearningScope, ProbeProtocol};
 use crate::tcp_transport::DATA_TRANSPORT_ID;
 
-pub const ADMISSION_REQUEST_ALPN: &[u8] = b"miopunch/admission-request/1";
+pub const ADMISSION_REQUEST_ALPN: &[u8] = crate::connection_coordinator::ADMISSION_REQUEST_ALPN;
 /// Explicit precode selection lets one endpoint serve manual and preauthorized
 /// invitations concurrently. It grants only the same restricted request scope.
-pub const PRECODE_REQUEST_ALPN: &[u8] = b"miopunch/precode-request/1";
+pub const PRECODE_REQUEST_ALPN: &[u8] = crate::connection_coordinator::PRECODE_REQUEST_ALPN;
 pub const CONTROL_ALPN: &[u8] = b"miopunch/control/1";
 
 const MAX_SESSIONS: usize = 4096;
@@ -167,6 +167,12 @@ impl AdmissionGate {
             PRECODE_REQUEST_ALPN.to_vec(),
             ProtocolScope::AdmissionRequest,
         );
+        for alpn in [
+            crate::connection_coordinator::MEMBER_ALPN,
+            crate::connection_coordinator::REPLICA_ALPN,
+        ] {
+            protocols.insert(alpn.to_vec(), ProtocolScope::Member);
+        }
         protocols.insert(RECOVERY_ALPN.to_vec(), ProtocolScope::GenesisRecovery);
         protocols.insert(
             crate::management_recovery::MANAGEMENT_RECOVERY_ALPN.to_vec(),
@@ -393,6 +399,16 @@ impl AdmissionGate {
         let _ = self
             .path_updates
             .set(self.path_revision.load(Ordering::Acquire));
+    }
+
+    // A read witness for restricted control only. It is not a data lease/proof.
+    pub(crate) fn request_revision(&self, connection: &Connection) -> Option<u64> {
+        let state = self.state.lock().expect("admission policy lock");
+        let session = state.sessions.get(&connection.stable_id())?;
+        (session.peer == *connection.remote_id().as_bytes()
+            && session.scope == ProtocolScope::AdmissionRequest
+            && session.valid(&state.policy))
+        .then(|| self.path_revision.load(Ordering::Acquire))
     }
 
     pub(crate) fn path_qualification(&self, connection: &Connection) -> Option<PathQualification> {

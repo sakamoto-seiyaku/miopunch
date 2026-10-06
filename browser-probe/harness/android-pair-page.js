@@ -238,6 +238,8 @@ async function run(request) {
       return { id: network.id(), status: parsed(network.status()) };
     case 'status': return parsed(feature(network, 'status')());
     case 'request_admission': return parsed(await feature(network, 'request_admission')(args.invitation));
+    case 'request_precode': return parsed(await feature(network, 'request_precode')(args.code));
+    case 'admission_identity_probe': return parsed(await feature(network, 'admission_identity_probe')(args.request, args.claimed));
     case 'complete_admission': return parsed(await feature(network, 'complete_admission')());
     case 'material_receipt': return parsed(await feature(network, 'admission_material_receipt')());
     case 'open_member': {
