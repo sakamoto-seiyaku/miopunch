@@ -1,0 +1,5189 @@
+{
+  "scope": "actual Host Browser and Pixel Browser common SDK story",
+  "passed": false,
+  "physicalWanQualified": false,
+  "sdkCallerBudgetMs": 12000,
+  "case": "forward",
+  "sourceHashesBefore": {
+    "scripts/check_unified_browser_browser.py": "6c42021448e6ad3e2e4ca6b254933c55ac3126202dd34ea568698413ef346a29",
+    "scripts/host_browser_runtime.py": "cacaadc2f4640a4036f03389d469c10e9ad1f9051d1033196f598671265cebdd",
+    "browser-probe/harness/mio75-browser-pair-page.js": "93da4e866dd84d022794b4a325e5b3aadfee9c15c51bf785bfa7ba10bfbc7796",
+    "browser-probe/harness/mio75-host-browser.mjs": "784b12a0f9d10d40834e03b2e76a63363148e1601e5ef5debd4a0a67fad7e2b0",
+    "scripts/android_pair_runtime.py": "eb051f733893ae24a08620ca1cfebdccc17e5062fe8cc89b33cd5fe591b57998",
+    "scripts/host_native_runtime.py": "b7774089db4873c85137ad2777d749bd8995352b7445cb5be5030d46457f2df2",
+    "scripts/check_unified_admission.py": "d73a3f4ed69b70e0ad85a3ed12e03205d2e236dc8287fbda86d64e0af3e7912f",
+    "scripts/check_unified_browser_native.py": "f0ffb6bb33f6d918c7819fabe9b484657b9c227cfbaf3162533626c96d52e3d0",
+    "scripts/wan_environment_preflight.py": "bbefa9512d29a35aa483178ecaa67d40dbe5213caa1e270f679d1aa2b75c2509",
+    "browser-probe/harness/relay-cdp-observer.mjs": "4c07a9d4ca48496a230fabaec28669a77a2fda6405bc30e84c491b40bb4adb5f",
+    "browser-probe/harness/package.json": "510a3856fc117e0d6743244c32ed68ba5ece6813e3c1ab096e46af294e8a5b7f",
+    "browser-probe/harness/package-lock.json": "d7635ea41290d8309ca40251fa438f6eacbe73abbf8811c579615ddb6bc9184d",
+    "browser-probe/harness/rtc-capability-fixture.mjs": "08a9037def7379327740c05aa4e6bdcfa9118724c49d8cb2ef04aad9cb06f163",
+    "scripts/check_browser_relay_capability.py": "7e30d4dca960da185654462cc23f8f14926e05a47c39729bad1a0718bfc4a905"
+  },
+  "compiledInputs": {
+    "browser": {
+      "receiptSha256": "7a9d39cd1a95bf9778fa3841877b46e512436fbddd1db7f63426738b837b6d72",
+      "actualSelectedInputCount": 3152,
+      "selectedRepositoryCopies": 191,
+      "capturedDepfileCount": 264,
+      "selectedManifestSha256": "fb3791cbdd91cbddda23cfcee8477c40b2d433f282b26c033e85868ecace9a95",
+      "allSelectedInputsMatch": true,
+      "inactiveSdkExceptions": [],
+      "artifacts": {
+        "miopunch_browser_probe.d.ts": "a8ca573dd416dee6197e53a1f202e51c774c504edd8d4838481929bbc114aea5",
+        "miopunch_browser_probe.js": "5ec8b7ddde8e25c2ad0d37b93a085d71844950cfb2abd48e27366f4267a4e9db",
+        "miopunch_browser_probe_bg.wasm": "fddbe15827fa3575461933de4b0fcbfeeb0d77892a13c8c19406d9c8767e2d39",
+        "miopunch_browser_probe_bg.wasm.d.ts": "20ca533aab0a1625a60b449b7ba2a62674dec3b4013f618d5c24435b0a428bc4",
+        "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+        "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e"
+      }
+    },
+    "provisioner": {
+      "receiptSha256": "44becc0403c77a66f4988241bad1e9fed66917d05503bf5f37e4065ecac1558b",
+      "actualSelectedInputCount": 6573,
+      "selectedRepositoryCopies": 286,
+      "capturedDepfileCount": 478,
+      "selectedManifestSha256": "67c4595bc094c5384e9e955c2e3174c50e6b0b1301989704db61a7a9b656ea23",
+      "allSelectedInputsMatch": true,
+      "inactiveSdkExceptions": [],
+      "artifacts": {
+        "/tmp/mio75-active-qualification-20261006/host-current-build-first/pinned/unified_admission_story": "20dbceca18e3b521edfbf2041624b6224ffdf3f8a6ba81761ec07ead0106289a"
+      }
+    }
+  },
+  "command": [
+    "rtk",
+    "proxy",
+    "python3",
+    "/home/js/Git/miopunch/scripts/check_unified_browser_browser.py",
+    "--case",
+    "forward",
+    "--native-build-receipt",
+    "/tmp/mio75-active-qualification-20261006/host-current-build-first/build.json",
+    "--native-build-sha256",
+    "44becc0403c77a66f4988241bad1e9fed66917d05503bf5f37e4065ecac1558b",
+    "--wasm-build-receipt",
+    "/tmp/mio83-current-replica-gate-wasm-first-20261006/receipt.json",
+    "--wasm-build-sha256",
+    "7a9d39cd1a95bf9778fa3841877b46e512436fbddd1db7f63426738b837b6d72",
+    "--package",
+    "/tmp/mio83-current-replica-gate-wasm-first-20261006/pkg",
+    "--facility",
+    "/tmp/mio76-explicit-public-emqx-facility-20261005.json",
+    "--native-profile",
+    "/tmp/mio74-public-actual-gathered-candidates-preparation-20261006/browser-profile-actual-gathered.json",
+    "--browser-profile",
+    "/tmp/mio74-public-actual-gathered-candidates-preparation-20261006/browser-profile-actual-gathered.json",
+    "--host-chrome",
+    "/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome",
+    "--pixel-transport",
+    "usb",
+    "--host-warp",
+    "unknown",
+    "--pixel-overlay",
+    "unknown",
+    "--output",
+    "/tmp/mio75-public-host-browser-pixel-browser-lifecycle-observation-first-20261006"
+  ],
+  "configHashes": {
+    "facility": "d2d5b1c3d4dc399cbdc785d82dd0d3f8655297763014e9cf72a71149969af191",
+    "browser_profile": "86f5f0a72986389412a69d52b83cd015c71ad85bcb975624b1345716a570e009",
+    "native_profile": "86f5f0a72986389412a69d52b83cd015c71ad85bcb975624b1345716a570e009"
+  },
+  "hostChromeSha256": "8c599d43aec53f2460a31ae2f4af6bd863f8258b34ff519564bc5d4726bfaa1e",
+  "publicMqttStoryQualified": false,
+  "publicMqttOrigin": "wss://broker.emqx.io:8084",
+  "environment": {
+    "hostWarp": "unknown",
+    "pixelOverlay": "unknown",
+    "disclosureSource": "caller; no route/VPN mutation or inferred NAT proof",
+    "physicalSeparateNetworks": null,
+    "physicalUdpSocketUidRoute": null
+  },
+  "stages": [
+    {
+      "name": "owned-current-provisioner",
+      "ok": true,
+      "controllerElapsedMs": 1.074
+    },
+    {
+      "name": "provider-ready",
+      "ok": true,
+      "controllerElapsedMs": 1213.587
+    },
+    {
+      "name": "authorized-Pixel-selection",
+      "ok": true,
+      "controllerElapsedMs": 34.165
+    },
+    {
+      "name": "host-owned-page-ready",
+      "ok": true,
+      "controllerElapsedMs": 1034.111
+    },
+    {
+      "name": "host-independent-SDK-start",
+      "ok": true,
+      "controllerElapsedMs": 1913.503
+    },
+    {
+      "name": "host-register-request",
+      "ok": true,
+      "controllerElapsedMs": 3395.609
+    },
+    {
+      "name": "pixel-owned-page-ready",
+      "ok": true,
+      "controllerElapsedMs": 1323.02
+    },
+    {
+      "name": "pixel-independent-SDK-start",
+      "ok": true,
+      "controllerElapsedMs": 1715.628
+    },
+    {
+      "name": "pixel-register-request",
+      "ok": true,
+      "controllerElapsedMs": 3092.649
+    },
+    {
+      "name": "host-approve",
+      "ok": true,
+      "controllerElapsedMs": 38.384
+    },
+    {
+      "name": "pixel-approve",
+      "ok": true,
+      "controllerElapsedMs": 38.474
+    },
+    {
+      "name": "host-approved-authorization",
+      "ok": true,
+      "controllerElapsedMs": 4450.069
+    },
+    {
+      "name": "host-immediate-material-completion",
+      "ok": true,
+      "controllerElapsedMs": 1426.434
+    },
+    {
+      "name": "pixel-approved-authorization",
+      "ok": true,
+      "controllerElapsedMs": 4470.663
+    },
+    {
+      "name": "pixel-immediate-material-completion",
+      "ok": true,
+      "controllerElapsedMs": 1435.9
+    },
+    {
+      "name": "retire-provisioner-before-BB-business",
+      "ok": true,
+      "controllerElapsedMs": 457.655
+    },
+    {
+      "name": "host-dialer-only-reopen",
+      "ok": true,
+      "controllerElapsedMs": 2293.838
+    },
+    {
+      "name": "host-to-pixel-common-connect-accept",
+      "ok": false
+    }
+  ],
+  "sdkCalls": [
+    {
+      "actor": "host",
+      "operation": "start",
+      "ok": true,
+      "controlRpcElapsedMs": 1907.6549999713898
+    },
+    {
+      "actor": "host",
+      "operation": "request_admission",
+      "ok": true,
+      "controlRpcElapsedMs": 3389.7300000190735
+    },
+    {
+      "actor": "host",
+      "operation": "path_diagnostics",
+      "ok": true,
+      "controlRpcElapsedMs": 5.409999847412109
+    },
+    {
+      "actor": "pixel",
+      "operation": "start",
+      "ok": true,
+      "controlRpcElapsedMs": 1693.835000038147
+    },
+    {
+      "actor": "pixel",
+      "operation": "request_admission",
+      "ok": true,
+      "controlRpcElapsedMs": 3054.6050000190735
+    },
+    {
+      "actor": "pixel",
+      "operation": "path_diagnostics",
+      "ok": true,
+      "controlRpcElapsedMs": 34.625
+    },
+    {
+      "actor": "host",
+      "operation": "request_admission",
+      "ok": true,
+      "controlRpcElapsedMs": 4445.700000047684
+    },
+    {
+      "actor": "host",
+      "operation": "complete_admission",
+      "ok": true,
+      "controlRpcElapsedMs": 1421.4350001811981
+    },
+    {
+      "actor": "host",
+      "operation": "material_receipt",
+      "ok": true,
+      "controlRpcElapsedMs": 13.055000066757202
+    },
+    {
+      "actor": "pixel",
+      "operation": "request_admission",
+      "ok": true,
+      "controlRpcElapsedMs": 4451.125
+    },
+    {
+      "actor": "pixel",
+      "operation": "complete_admission",
+      "ok": true,
+      "controlRpcElapsedMs": 1412.6800000667572
+    },
+    {
+      "actor": "pixel",
+      "operation": "material_receipt",
+      "ok": true,
+      "controlRpcElapsedMs": 73.41000008583069
+    },
+    {
+      "actor": "pixel",
+      "operation": "path_diagnostics",
+      "ok": true,
+      "controlRpcElapsedMs": 5.090000152587891
+    },
+    {
+      "actor": "pixel",
+      "operation": "status",
+      "ok": true,
+      "controlRpcElapsedMs": 42.68499994277954
+    },
+    {
+      "actor": "host",
+      "operation": "stop",
+      "ok": true,
+      "controlRpcElapsedMs": 114.63000011444092
+    },
+    {
+      "actor": "host",
+      "operation": "start",
+      "ok": true,
+      "controlRpcElapsedMs": 2048.8550000190735
+    },
+    {
+      "actor": "host",
+      "operation": "material_receipt",
+      "ok": true,
+      "controlRpcElapsedMs": 15.724999904632568
+    },
+    {
+      "actor": "pixel",
+      "operation": "begin_accept",
+      "ok": true,
+      "controlRpcElapsedMs": 77.8199999332428
+    },
+    {
+      "actor": "host",
+      "operation": "begin_connect",
+      "ok": true,
+      "controlRpcElapsedMs": 14.815000057220459
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.08500003814697266
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.029999971389770508
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.029999971389770508
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02500009536743164
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.029999971389770508
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04999995231628418
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.029999971389770508
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.06499981880187988
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.03500008583068848
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.029999971389770508
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02500009536743164
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02500009536743164
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02499985694885254
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02499985694885254
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02500009536743164
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02499985694885254
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02500009536743164
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02500009536743164
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.010000228881835938
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02499985694885254
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02499985694885254
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02499985694885254
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.06000018119812012
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02500009536743164
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.020000219345092773
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.029999971389770508
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02500009536743164
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02499985694885254
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04499983787536621
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02500009536743164
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.02500009536743164
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.020000219345092773
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.020000219345092773
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.009999990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.014999866485595703
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.015000104904174805
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.019999980926513672
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.22499990463256836
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.059999942779541016
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.05500006675720215
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.05499982833862305
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.05500006675720215
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.06999993324279785
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.06500005722045898
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.059999942779541016
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.08500003814697266
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04999995231628418
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04999995231628418
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.03500008583068848
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.05500006675720215
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.06499981880187988
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.034999847412109375
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04499983787536621
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04999995231628418
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04499983787536621
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04999995231628418
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.03500008583068848
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04500007629394531
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.059999942779541016
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04500007629394531
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.040000200271606445
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.034999847412109375
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04500007629394531
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04499983787536621
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.05000019073486328
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.034999847412109375
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.040000200271606445
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.040000200271606445
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.06000018119812012
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04500007629394531
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.03500008583068848
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04500007629394531
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04500007629394531
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04500007629394531
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04999995231628418
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.05500006675720215
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04500007629394531
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04999995231628418
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.040000200271606445
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.034999847412109375
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04500007629394531
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04500007629394531
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.059999942779541016
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04999995231628418
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04999995231628418
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.06000018119812012
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.059999942779541016
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.03500008583068848
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04499983787536621
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04999995231628418
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.039999961853027344
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04499983787536621
+    },
+    {
+      "actor": "host",
+      "operation": "attempt_status",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04500007629394531
+    },
+    {
+      "actor": "host",
+      "operation": "finish_attempt",
+      "ok": true,
+      "controlRpcElapsedMs": 0.04500007629394531
+    }
+  ],
+  "admissionWire": {
+    "host": {
+      "actualAlpn": "miopunch/session/admission/1",
+      "expectedAlpn": "miopunch/session/admission/1",
+      "strictAlpnMatched": true,
+      "observedVersion": 1,
+      "observedPurposeCode": 2,
+      "matchingCommonPurposeObserved": true,
+      "restricted": true,
+      "dataReleased": false,
+      "ordinaryHandle": false,
+      "freshAck": null,
+      "freshAckFieldPresent": true,
+      "freshAckExplicitNull": true,
+      "stableUnchanged": true,
+      "bindingUnchanged": true
+    },
+    "pixel": {
+      "actualAlpn": "miopunch/session/admission/1",
+      "expectedAlpn": "miopunch/session/admission/1",
+      "strictAlpnMatched": true,
+      "observedVersion": 1,
+      "observedPurposeCode": 2,
+      "matchingCommonPurposeObserved": true,
+      "restricted": true,
+      "dataReleased": false,
+      "ordinaryHandle": false,
+      "freshAck": null,
+      "freshAckFieldPresent": true,
+      "freshAckExplicitNull": true,
+      "stableUnchanged": true,
+      "bindingUnchanged": true
+    }
+  },
+  "independentIdentities": true,
+  "bothVerifiedPeerMembershipGrantsSaved": true,
+  "providerCleanupBeforeBusiness": {
+    "forced": false,
+    "nativePlatform": "host",
+    "ownershipRefused": false,
+    "ownedProcessGroupBeforeClose": {
+      "observed": true,
+      "processCount": 2,
+      "socketCount": 4,
+      "ownership": "verified"
+    },
+    "commandExit": 0,
+    "leaderWaitedFor": true,
+    "ownedHostProcessAbsent": true,
+    "ownedProcessGroupAbsentImmediately": true,
+    "ownedProcessGroupImmediate": {
+      "observed": true,
+      "processCount": 0,
+      "socketCount": 0,
+      "ownership": "retired"
+    },
+    "ownedHostProcessAbsentLate": true,
+    "ownedProcessGroupAbsentLate": true,
+    "ownedProcessGroupLate": {
+      "observed": true,
+      "processCount": 0,
+      "socketCount": 0,
+      "ownership": "retired"
+    },
+    "lateDelayMs": 100,
+    "localReadersEnded": true,
+    "localPipesClosed": true,
+    "ownedDirectoryRemoved": true,
+    "elapsedMs": 457.622,
+    "sdkRetirement": {
+      "abortedHandlers": 0,
+      "activeRtcAssociations": 0,
+      "activeRtcPumps": 0,
+      "cleanupMs": 265,
+      "event": "closed",
+      "handlersAtClose": 1,
+      "handlersDrained": true,
+      "immediate": {
+        "activeRtcAssociations": 0,
+        "activeRtcPumps": 0,
+        "socketCount": 2,
+        "traffic": {
+          "driver_active": 0,
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": true,
+            "failure": null,
+            "ready_ms": 1791261840113,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": true,
+            "withdraw_ms": 1791261865003
+          },
+          "queue_depth": 64,
+          "queue_peak": 2,
+          "queued_packets": 0,
+          "received_bytes": 40634,
+          "received_packets": 106,
+          "rejected_packets": 0,
+          "rx_queue_peak": 3,
+          "sent_bytes": 40136,
+          "sent_packets": 100
+        }
+      },
+      "late": {
+        "activeRtcAssociations": 0,
+        "activeRtcPumps": 0,
+        "socketCount": 2,
+        "traffic": {
+          "driver_active": 0,
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": true,
+            "failure": null,
+            "ready_ms": 1791261840113,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": true,
+            "withdraw_ms": 1791261865003
+          },
+          "queue_depth": 64,
+          "queue_peak": 2,
+          "queued_packets": 0,
+          "received_bytes": 40634,
+          "received_packets": 106,
+          "rejected_packets": 0,
+          "rx_queue_peak": 3,
+          "sent_bytes": 40136,
+          "sent_packets": 100
+        }
+      },
+      "lateDelayMs": 100,
+      "nodeCloseReturned": true,
+      "socketsBefore": 2,
+      "socketsImmediate": 2,
+      "socketsLate": 2
+    }
+  },
+  "providerCommand": {
+    "commandReceiptSha256": "4b7cf5bf52e5d4c089bb9159c988cb63b76693c3dcc8b5d9f2da691e1638cdc6",
+    "commandExit": 0,
+    "sdkCleanupElapsedMs": 265
+  },
+  "sdkGenerationCleanup": [
+    {
+      "actor": "host",
+      "generation": 1,
+      "sdkCleanupElapsedMs": 114.32500004768372,
+      "resources": {
+        "cleanupSucceeded": true,
+        "networkClosed": true,
+        "networkFreed": true,
+        "ownedMemberHandles": 0,
+        "generation": 1,
+        "ownedRtcAllocationCount": 0,
+        "knownOriginalMCount": 0,
+        "lateHandleRetirements": 0,
+        "samples": [
+          {
+            "delayMs": 0,
+            "activeAssociations": 0,
+            "activePumpTasks": 0,
+            "cleanupObservers": 0,
+            "realRtcObjects": {
+              "pcCreated": 1,
+              "openPeers": 0,
+              "dcCreated": 1,
+              "openChannels": 0,
+              "closingChannels": 0,
+              "peers": [],
+              "answerHold": null
+            },
+            "retiredLeases": []
+          },
+          {
+            "delayMs": 100,
+            "activeAssociations": 0,
+            "activePumpTasks": 0,
+            "cleanupObservers": 0,
+            "realRtcObjects": {
+              "pcCreated": 1,
+              "openPeers": 0,
+              "dcCreated": 1,
+              "openChannels": 0,
+              "closingChannels": 0,
+              "peers": [],
+              "answerHold": null
+            },
+            "retiredLeases": []
+          }
+        ],
+        "storage": null,
+        "errors": []
+      },
+      "storePreserved": true
+    }
+  ],
+  "firstFailure": {
+    "actor": "host",
+    "stage": "host-to-pixel-common-connect-accept",
+    "check": "operation-failed",
+    "failureClass": "RuntimeError"
+  },
+  "cleanup": {
+    "pixelObserver": {
+      "forced": false,
+      "ownershipRefused": false,
+      "commandExit": 0,
+      "processGroupAbsentImmediate": true,
+      "processGroupAbsentLate": true,
+      "readerEnded": true,
+      "elapsedMs": 138.795
+    },
+    "host": {
+      "cleanupSucceeded": true,
+      "elapsedMs": 681.994,
+      "localListenerClosed": true,
+      "forwardRequired": false,
+      "forwardRuleAbsent": null,
+      "forwardRemoveExit": null,
+      "reverseRequired": false,
+      "reverseRuleAbsent": null,
+      "reverseRemoveExit": null,
+      "ownedProfileRemoved": true,
+      "sdkCleanupElapsedMs": 172.29999995231628,
+      "hostLifecycle": {
+        "ownedTargetAbsent": true,
+        "contextClosed": true,
+        "forced": false,
+        "ownershipRefused": false,
+        "commandExit": 0,
+        "localReadersEnded": true,
+        "localPipesClosed": true,
+        "before": {
+          "observed": true,
+          "processCount": 2,
+          "socketCount": 4,
+          "ownership": "verified"
+        },
+        "immediate": {
+          "observed": true,
+          "processCount": 0,
+          "socketCount": 0,
+          "ownership": "retired"
+        },
+        "late": {
+          "observed": true,
+          "processCount": 0,
+          "socketCount": 0,
+          "ownership": "retired"
+        },
+        "processGroupAbsentImmediate": true,
+        "processGroupAbsentLate": true,
+        "observations": [
+          {
+            "event": "socket-created",
+            "number": 1,
+            "origin": "wss://broker.emqx.io:8084"
+          },
+          {
+            "event": "handshake-sent",
+            "socket": 1,
+            "origin": "wss://broker.emqx.io:8084",
+            "timestamp": 1174061.546983
+          },
+          {
+            "event": "handshake-response",
+            "socket": 1,
+            "origin": "wss://broker.emqx.io:8084",
+            "timestamp": 1174061.885922,
+            "status": 101
+          },
+          {
+            "event": "socket-created",
+            "number": 2,
+            "origin": "wss://broker.emqx.io:8084"
+          },
+          {
+            "event": "socket-closed",
+            "socket": 1,
+            "origin": "wss://broker.emqx.io:8084",
+            "timestamp": 1174085.429171
+          },
+          {
+            "event": "handshake-sent",
+            "socket": 2,
+            "origin": "wss://broker.emqx.io:8084",
+            "timestamp": 1174085.737296
+          },
+          {
+            "event": "handshake-response",
+            "socket": 2,
+            "origin": "wss://broker.emqx.io:8084",
+            "timestamp": 1174086.271627,
+            "status": 101
+          }
+        ]
+      },
+      "sidecarCommandReceiptSha256": "851c3c4470fd4f9d72605b7c5fb77f192856a567e19bd23bce48892853bf7e85",
+      "sdkResources": {
+        "cleanupSucceeded": true,
+        "networkClosed": true,
+        "networkFreed": true,
+        "ownedMemberHandles": 0,
+        "generation": 2,
+        "ownedRtcAllocationCount": 1,
+        "knownOriginalMCount": 0,
+        "lateHandleRetirements": 0,
+        "samples": [
+          {
+            "delayMs": 0,
+            "activeAssociations": 0,
+            "activePumpTasks": 0,
+            "cleanupObservers": 0,
+            "realRtcObjects": {
+              "pcCreated": 3,
+              "openPeers": 0,
+              "dcCreated": 3,
+              "openChannels": 0,
+              "closingChannels": 0,
+              "peers": [
+                {
+                  "closed": true,
+                  "lifecycle": {
+                    "relativeToAttemptMs": null,
+                    "beforeClose": {
+                      "elapsedMs": 1782.6799998283386,
+                      "pcState": "connected",
+                      "iceState": "connected",
+                      "gatheringState": "complete",
+                      "signalingState": "stable",
+                      "local": {
+                        "present": true,
+                        "type": "offer",
+                        "candidates": {
+                          "total": 3,
+                          "host": 2,
+                          "srflx": 1,
+                          "prflx": 0,
+                          "relay": 0,
+                          "other": 0,
+                          "udp": 3,
+                          "tcp": 0
+                        }
+                      },
+                      "remote": {
+                        "present": true,
+                        "type": "answer",
+                        "candidates": {
+                          "total": 3,
+                          "host": 2,
+                          "srflx": 1,
+                          "prflx": 0,
+                          "relay": 0,
+                          "other": 0,
+                          "udp": 3,
+                          "tcp": 0
+                        }
+                      }
+                    },
+                    "listenersDetached": true,
+                    "events": [
+                      {
+                        "elapsedMs": 0.029999971389770508,
+                        "kind": "created",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 128.02499985694885,
+                        "kind": "createOffer-start",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 130.6449999809265,
+                        "kind": "createOffer-done",
+                        "result": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 130.77999997138977,
+                        "kind": "setLocalDescription-start",
+                        "argument": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 132.11999988555908,
+                        "kind": "signalingstatechange",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "have-local-offer",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 132.16999983787537,
+                        "kind": "setLocalDescription-done",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "have-local-offer",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 132.5,
+                        "kind": "icegatheringstatechange",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "gathering",
+                        "signalingState": "have-local-offer",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 345.164999961853,
+                        "kind": "icegatheringstatechange",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "complete",
+                        "signalingState": "have-local-offer",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 1605.3099999427795,
+                        "kind": "setRemoteDescription-start",
+                        "argument": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "complete",
+                        "signalingState": "have-local-offer",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 1606.784999847412,
+                        "kind": "iceconnectionstatechange",
+                        "pcState": "new",
+                        "iceState": "checking",
+                        "gatheringState": "complete",
+                        "signalingState": "have-local-offer",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 1607.1150000095367,
+                        "kind": "signalingstatechange",
+                        "pcState": "new",
+                        "iceState": "checking",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 1607.1499998569489,
+                        "kind": "setRemoteDescription-done",
+                        "pcState": "new",
+                        "iceState": "checking",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 1607.4449999332428,
+                        "kind": "connectionstatechange",
+                        "pcState": "connecting",
+                        "iceState": "checking",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 1665.0650000572205,
+                        "kind": "iceconnectionstatechange",
+                        "pcState": "connecting",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 1699.335000038147,
+                        "kind": "connectionstatechange",
+                        "pcState": "connected",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 1747.875,
+                        "kind": "channel-open",
+                        "pcState": "connected",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 1782.579999923706,
+                        "kind": "channel-before-close",
+                        "channelState": "closed",
+                        "pcState": "connected",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      }
+                    ],
+                    "channels": [
+                      {
+                        "everOpened": true,
+                        "beforeCloseState": "closed",
+                        "sentPackets": 1,
+                        "receivedPackets": 0,
+                        "sentBytes": 1200,
+                        "receivedBytes": 0
+                      }
+                    ]
+                  },
+                  "ownObserversDetached": true,
+                  "dataChannelCallbacksDetached": true,
+                  "callbacksDetached": true
+                }
+              ],
+              "answerHold": null
+            },
+            "retiredLeases": [
+              {
+                "samples": [
+                  {
+                    "active": false,
+                    "qualified": false,
+                    "owned_pump_tasks": 0,
+                    "tx_bytes": 0,
+                    "rx_bytes": 0,
+                    "phase": "immediate",
+                    "pcClosed": true,
+                    "dataChannelState": "closed"
+                  },
+                  {
+                    "active": false,
+                    "qualified": false,
+                    "owned_pump_tasks": 0,
+                    "tx_bytes": 0,
+                    "rx_bytes": 0,
+                    "phase": "late",
+                    "pcClosed": true,
+                    "dataChannelState": "closed"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "delayMs": 100,
+            "activeAssociations": 0,
+            "activePumpTasks": 0,
+            "cleanupObservers": 0,
+            "realRtcObjects": {
+              "pcCreated": 3,
+              "openPeers": 0,
+              "dcCreated": 3,
+              "openChannels": 0,
+              "closingChannels": 0,
+              "peers": [
+                {
+                  "closed": true,
+                  "lifecycle": {
+                    "relativeToAttemptMs": null,
+                    "beforeClose": {
+                      "elapsedMs": 1782.6799998283386,
+                      "pcState": "connected",
+                      "iceState": "connected",
+                      "gatheringState": "complete",
+                      "signalingState": "stable",
+                      "local": {
+                        "present": true,
+                        "type": "offer",
+                        "candidates": {
+                          "total": 3,
+                          "host": 2,
+                          "srflx": 1,
+                          "prflx": 0,
+                          "relay": 0,
+                          "other": 0,
+                          "udp": 3,
+                          "tcp": 0
+                        }
+                      },
+                      "remote": {
+                        "present": true,
+                        "type": "answer",
+                        "candidates": {
+                          "total": 3,
+                          "host": 2,
+                          "srflx": 1,
+                          "prflx": 0,
+                          "relay": 0,
+                          "other": 0,
+                          "udp": 3,
+                          "tcp": 0
+                        }
+                      }
+                    },
+                    "listenersDetached": true,
+                    "events": [
+                      {
+                        "elapsedMs": 0.029999971389770508,
+                        "kind": "created",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 128.02499985694885,
+                        "kind": "createOffer-start",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 130.6449999809265,
+                        "kind": "createOffer-done",
+                        "result": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 130.77999997138977,
+                        "kind": "setLocalDescription-start",
+                        "argument": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 132.11999988555908,
+                        "kind": "signalingstatechange",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "have-local-offer",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 132.16999983787537,
+                        "kind": "setLocalDescription-done",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "have-local-offer",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 132.5,
+                        "kind": "icegatheringstatechange",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "gathering",
+                        "signalingState": "have-local-offer",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 345.164999961853,
+                        "kind": "icegatheringstatechange",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "complete",
+                        "signalingState": "have-local-offer",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 1605.3099999427795,
+                        "kind": "setRemoteDescription-start",
+                        "argument": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "complete",
+                        "signalingState": "have-local-offer",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 1606.784999847412,
+                        "kind": "iceconnectionstatechange",
+                        "pcState": "new",
+                        "iceState": "checking",
+                        "gatheringState": "complete",
+                        "signalingState": "have-local-offer",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 1607.1150000095367,
+                        "kind": "signalingstatechange",
+                        "pcState": "new",
+                        "iceState": "checking",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 1607.1499998569489,
+                        "kind": "setRemoteDescription-done",
+                        "pcState": "new",
+                        "iceState": "checking",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 1607.4449999332428,
+                        "kind": "connectionstatechange",
+                        "pcState": "connecting",
+                        "iceState": "checking",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 1665.0650000572205,
+                        "kind": "iceconnectionstatechange",
+                        "pcState": "connecting",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 1699.335000038147,
+                        "kind": "connectionstatechange",
+                        "pcState": "connected",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 1747.875,
+                        "kind": "channel-open",
+                        "pcState": "connected",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 1782.579999923706,
+                        "kind": "channel-before-close",
+                        "channelState": "closed",
+                        "pcState": "connected",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      }
+                    ],
+                    "channels": [
+                      {
+                        "everOpened": true,
+                        "beforeCloseState": "closed",
+                        "sentPackets": 1,
+                        "receivedPackets": 0,
+                        "sentBytes": 1200,
+                        "receivedBytes": 0
+                      }
+                    ]
+                  },
+                  "ownObserversDetached": true,
+                  "dataChannelCallbacksDetached": true,
+                  "callbacksDetached": true
+                }
+              ],
+              "answerHold": null
+            },
+            "retiredLeases": [
+              {
+                "samples": [
+                  {
+                    "active": false,
+                    "qualified": false,
+                    "owned_pump_tasks": 0,
+                    "tx_bytes": 0,
+                    "rx_bytes": 0,
+                    "phase": "immediate",
+                    "pcClosed": true,
+                    "dataChannelState": "closed"
+                  },
+                  {
+                    "active": false,
+                    "qualified": false,
+                    "owned_pump_tasks": 0,
+                    "tx_bytes": 0,
+                    "rx_bytes": 0,
+                    "phase": "late",
+                    "pcClosed": true,
+                    "dataChannelState": "closed"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "storage": {
+          "required": true,
+          "ownedDatabaseClaimed": true,
+          "exclusiveStorageLock": true,
+          "outcome": "success",
+          "deleted": true,
+          "pending": false,
+          "terminal": true
+        },
+        "errors": []
+      },
+      "callerResourceSamples": [
+        {
+          "delayMs": 0,
+          "localListenerClosed": true
+        },
+        {
+          "delayMs": 100,
+          "localListenerClosed": true
+        }
+      ]
+    },
+    "pixel": {
+      "cleanupSucceeded": true,
+      "elapsedMs": 742.28,
+      "localListenerClosed": true,
+      "forwardRequired": true,
+      "forwardRuleAbsent": true,
+      "forwardRemoveExit": 0,
+      "reverseRequired": true,
+      "reverseRuleAbsent": true,
+      "reverseRemoveExit": 0,
+      "ownedProfileRemoved": null,
+      "sdkCleanupElapsedMs": 199.44000005722046,
+      "hostLifecycle": null,
+      "sdkResources": {
+        "cleanupSucceeded": true,
+        "networkClosed": true,
+        "networkFreed": true,
+        "ownedMemberHandles": 0,
+        "generation": 1,
+        "ownedRtcAllocationCount": 1,
+        "knownOriginalMCount": 0,
+        "lateHandleRetirements": 0,
+        "samples": [
+          {
+            "delayMs": 0,
+            "activeAssociations": 0,
+            "activePumpTasks": 0,
+            "cleanupObservers": 0,
+            "realRtcObjects": {
+              "pcCreated": 2,
+              "openPeers": 0,
+              "dcCreated": 2,
+              "openChannels": 0,
+              "closingChannels": 0,
+              "peers": [
+                {
+                  "closed": true,
+                  "lifecycle": {
+                    "relativeToAttemptMs": null,
+                    "beforeClose": {
+                      "elapsedMs": 907.4850001335144,
+                      "pcState": "connected",
+                      "iceState": "connected",
+                      "gatheringState": "complete",
+                      "signalingState": "stable",
+                      "local": {
+                        "present": true,
+                        "type": "answer",
+                        "candidates": {
+                          "total": 3,
+                          "host": 2,
+                          "srflx": 1,
+                          "prflx": 0,
+                          "relay": 0,
+                          "other": 0,
+                          "udp": 3,
+                          "tcp": 0
+                        }
+                      },
+                      "remote": {
+                        "present": true,
+                        "type": "offer",
+                        "candidates": {
+                          "total": 3,
+                          "host": 2,
+                          "srflx": 1,
+                          "prflx": 0,
+                          "relay": 0,
+                          "other": 0,
+                          "udp": 3,
+                          "tcp": 0
+                        }
+                      }
+                    },
+                    "listenersDetached": true,
+                    "events": [
+                      {
+                        "elapsedMs": 0.10000014305114746,
+                        "kind": "created",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 145.3600001335144,
+                        "kind": "setRemoteDescription-start",
+                        "argument": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 149.35000014305115,
+                        "kind": "signalingstatechange",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "have-remote-offer",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 149.625,
+                        "kind": "setRemoteDescription-done",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "have-remote-offer",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 150.0350000858307,
+                        "kind": "createAnswer-start",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "have-remote-offer",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 150.8199999332428,
+                        "kind": "createAnswer-done",
+                        "result": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "have-remote-offer",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 151.02999997138977,
+                        "kind": "setLocalDescription-start",
+                        "argument": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "have-remote-offer",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 153.04500007629395,
+                        "kind": "signalingstatechange",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 153.1050000190735,
+                        "kind": "setLocalDescription-done",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 155.82500004768372,
+                        "kind": "icegatheringstatechange",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "gathering",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 157.7350001335144,
+                        "kind": "iceconnectionstatechange",
+                        "pcState": "new",
+                        "iceState": "checking",
+                        "gatheringState": "gathering",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 158.01500010490417,
+                        "kind": "connectionstatechange",
+                        "pcState": "connecting",
+                        "iceState": "checking",
+                        "gatheringState": "gathering",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 1,
+                            "host": 1,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 1,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 371.13499999046326,
+                        "kind": "icegatheringstatechange",
+                        "pcState": "connecting",
+                        "iceState": "checking",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 792.414999961853,
+                        "kind": "iceconnectionstatechange",
+                        "pcState": "connecting",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 813.795000076294,
+                        "kind": "connectionstatechange",
+                        "pcState": "connected",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 865.1549999713898,
+                        "kind": "channel-open",
+                        "pcState": "connected",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 886.6400001049042,
+                        "kind": "channel-before-close",
+                        "channelState": "open",
+                        "pcState": "connected",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      }
+                    ],
+                    "channels": [
+                      {
+                        "everOpened": true,
+                        "beforeCloseState": "open",
+                        "sentPackets": 0,
+                        "receivedPackets": 1,
+                        "sentBytes": 0,
+                        "receivedBytes": 1200
+                      }
+                    ]
+                  },
+                  "ownObserversDetached": true,
+                  "dataChannelCallbacksDetached": true,
+                  "callbacksDetached": true
+                }
+              ],
+              "answerHold": null
+            },
+            "retiredLeases": [
+              {
+                "samples": [
+                  {
+                    "active": false,
+                    "qualified": false,
+                    "owned_pump_tasks": 0,
+                    "tx_bytes": 0,
+                    "rx_bytes": 0,
+                    "phase": "immediate",
+                    "pcClosed": true,
+                    "dataChannelState": "closing"
+                  },
+                  {
+                    "active": false,
+                    "qualified": false,
+                    "owned_pump_tasks": 0,
+                    "tx_bytes": 0,
+                    "rx_bytes": 0,
+                    "phase": "late",
+                    "pcClosed": true,
+                    "dataChannelState": "closed"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "delayMs": 100,
+            "activeAssociations": 0,
+            "activePumpTasks": 0,
+            "cleanupObservers": 0,
+            "realRtcObjects": {
+              "pcCreated": 2,
+              "openPeers": 0,
+              "dcCreated": 2,
+              "openChannels": 0,
+              "closingChannels": 0,
+              "peers": [
+                {
+                  "closed": true,
+                  "lifecycle": {
+                    "relativeToAttemptMs": null,
+                    "beforeClose": {
+                      "elapsedMs": 907.4850001335144,
+                      "pcState": "connected",
+                      "iceState": "connected",
+                      "gatheringState": "complete",
+                      "signalingState": "stable",
+                      "local": {
+                        "present": true,
+                        "type": "answer",
+                        "candidates": {
+                          "total": 3,
+                          "host": 2,
+                          "srflx": 1,
+                          "prflx": 0,
+                          "relay": 0,
+                          "other": 0,
+                          "udp": 3,
+                          "tcp": 0
+                        }
+                      },
+                      "remote": {
+                        "present": true,
+                        "type": "offer",
+                        "candidates": {
+                          "total": 3,
+                          "host": 2,
+                          "srflx": 1,
+                          "prflx": 0,
+                          "relay": 0,
+                          "other": 0,
+                          "udp": 3,
+                          "tcp": 0
+                        }
+                      }
+                    },
+                    "listenersDetached": true,
+                    "events": [
+                      {
+                        "elapsedMs": 0.10000014305114746,
+                        "kind": "created",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 145.3600001335144,
+                        "kind": "setRemoteDescription-start",
+                        "argument": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        }
+                      },
+                      {
+                        "elapsedMs": 149.35000014305115,
+                        "kind": "signalingstatechange",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "have-remote-offer",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 149.625,
+                        "kind": "setRemoteDescription-done",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "have-remote-offer",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 150.0350000858307,
+                        "kind": "createAnswer-start",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "have-remote-offer",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 150.8199999332428,
+                        "kind": "createAnswer-done",
+                        "result": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "have-remote-offer",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 151.02999997138977,
+                        "kind": "setLocalDescription-start",
+                        "argument": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "have-remote-offer",
+                        "local": {
+                          "present": false,
+                          "type": null,
+                          "candidates": null
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 153.04500007629395,
+                        "kind": "signalingstatechange",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 153.1050000190735,
+                        "kind": "setLocalDescription-done",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "new",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 155.82500004768372,
+                        "kind": "icegatheringstatechange",
+                        "pcState": "new",
+                        "iceState": "new",
+                        "gatheringState": "gathering",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 157.7350001335144,
+                        "kind": "iceconnectionstatechange",
+                        "pcState": "new",
+                        "iceState": "checking",
+                        "gatheringState": "gathering",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 0,
+                            "host": 0,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 0,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 158.01500010490417,
+                        "kind": "connectionstatechange",
+                        "pcState": "connecting",
+                        "iceState": "checking",
+                        "gatheringState": "gathering",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 1,
+                            "host": 1,
+                            "srflx": 0,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 1,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 371.13499999046326,
+                        "kind": "icegatheringstatechange",
+                        "pcState": "connecting",
+                        "iceState": "checking",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 792.414999961853,
+                        "kind": "iceconnectionstatechange",
+                        "pcState": "connecting",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 813.795000076294,
+                        "kind": "connectionstatechange",
+                        "pcState": "connected",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 865.1549999713898,
+                        "kind": "channel-open",
+                        "pcState": "connected",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      },
+                      {
+                        "elapsedMs": 886.6400001049042,
+                        "kind": "channel-before-close",
+                        "channelState": "open",
+                        "pcState": "connected",
+                        "iceState": "connected",
+                        "gatheringState": "complete",
+                        "signalingState": "stable",
+                        "local": {
+                          "present": true,
+                          "type": "answer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        },
+                        "remote": {
+                          "present": true,
+                          "type": "offer",
+                          "candidates": {
+                            "total": 3,
+                            "host": 2,
+                            "srflx": 1,
+                            "prflx": 0,
+                            "relay": 0,
+                            "other": 0,
+                            "udp": 3,
+                            "tcp": 0
+                          }
+                        }
+                      }
+                    ],
+                    "channels": [
+                      {
+                        "everOpened": true,
+                        "beforeCloseState": "open",
+                        "sentPackets": 0,
+                        "receivedPackets": 1,
+                        "sentBytes": 0,
+                        "receivedBytes": 1200
+                      }
+                    ]
+                  },
+                  "ownObserversDetached": true,
+                  "dataChannelCallbacksDetached": true,
+                  "callbacksDetached": true
+                }
+              ],
+              "answerHold": null
+            },
+            "retiredLeases": [
+              {
+                "samples": [
+                  {
+                    "active": false,
+                    "qualified": false,
+                    "owned_pump_tasks": 0,
+                    "tx_bytes": 0,
+                    "rx_bytes": 0,
+                    "phase": "immediate",
+                    "pcClosed": true,
+                    "dataChannelState": "closing"
+                  },
+                  {
+                    "active": false,
+                    "qualified": false,
+                    "owned_pump_tasks": 0,
+                    "tx_bytes": 0,
+                    "rx_bytes": 0,
+                    "phase": "late",
+                    "pcClosed": true,
+                    "dataChannelState": "closed"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "storage": {
+          "required": true,
+          "ownedDatabaseClaimed": true,
+          "exclusiveStorageLock": true,
+          "outcome": "success",
+          "deleted": true,
+          "pending": false,
+          "terminal": true
+        },
+        "errors": []
+      },
+      "callerResourceSamples": [
+        {
+          "delayMs": 0,
+          "localListenerClosed": true,
+          "forwardRuleAbsent": true,
+          "reverseRuleAbsent": true
+        },
+        {
+          "delayMs": 100,
+          "localListenerClosed": true,
+          "forwardRuleAbsent": true,
+          "reverseRuleAbsent": true
+        }
+      ]
+    }
+  },
+  "pixelCommands": {
+    "privateReceiptSha256": "62bf1d57ef93bdac0ecb9273da333808ce5ba01790ce21941a498ca68aa28c17",
+    "count": 11,
+    "exits": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "sourceHashesAfter": {
+    "scripts/check_unified_browser_browser.py": "6c42021448e6ad3e2e4ca6b254933c55ac3126202dd34ea568698413ef346a29",
+    "scripts/host_browser_runtime.py": "cacaadc2f4640a4036f03389d469c10e9ad1f9051d1033196f598671265cebdd",
+    "browser-probe/harness/mio75-browser-pair-page.js": "93da4e866dd84d022794b4a325e5b3aadfee9c15c51bf785bfa7ba10bfbc7796",
+    "browser-probe/harness/mio75-host-browser.mjs": "784b12a0f9d10d40834e03b2e76a63363148e1601e5ef5debd4a0a67fad7e2b0",
+    "scripts/android_pair_runtime.py": "eb051f733893ae24a08620ca1cfebdccc17e5062fe8cc89b33cd5fe591b57998",
+    "scripts/host_native_runtime.py": "b7774089db4873c85137ad2777d749bd8995352b7445cb5be5030d46457f2df2",
+    "scripts/check_unified_admission.py": "d73a3f4ed69b70e0ad85a3ed12e03205d2e236dc8287fbda86d64e0af3e7912f",
+    "scripts/check_unified_browser_native.py": "f0ffb6bb33f6d918c7819fabe9b484657b9c227cfbaf3162533626c96d52e3d0",
+    "scripts/wan_environment_preflight.py": "bbefa9512d29a35aa483178ecaa67d40dbe5213caa1e270f679d1aa2b75c2509",
+    "browser-probe/harness/relay-cdp-observer.mjs": "4c07a9d4ca48496a230fabaec28669a77a2fda6405bc30e84c491b40bb4adb5f",
+    "browser-probe/harness/package.json": "510a3856fc117e0d6743244c32ed68ba5ece6813e3c1ab096e46af294e8a5b7f",
+    "browser-probe/harness/package-lock.json": "d7635ea41290d8309ca40251fa438f6eacbe73abbf8811c579615ddb6bc9184d",
+    "browser-probe/harness/rtc-capability-fixture.mjs": "08a9037def7379327740c05aa4e6bdcfa9118724c49d8cb2ef04aad9cb06f163",
+    "scripts/check_browser_relay_capability.py": "7e30d4dca960da185654462cc23f8f14926e05a47c39729bad1a0718bfc4a905"
+  },
+  "controllerFrozenDuringRun": true,
+  "selectedSdkInputsAndArtifactsStableAfter": true,
+  "exit": 1
+}

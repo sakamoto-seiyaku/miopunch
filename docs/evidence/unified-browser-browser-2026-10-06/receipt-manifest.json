@@ -1,0 +1,38 @@
+{
+  "host-pixel-public-forward.json": {
+    "originalPath": "/tmp/mio75-public-host-browser-pixel-browser-early-receive-gather-observation-first-20261006/receipt.json",
+    "sha256": "b1ed57f36ad6fadfda284f99d0efa5e8cb92f826f9e800afd1ba8c65bffdae40"
+  },
+  "real-early-receive-regression.json": {
+    "originalPath": "/tmp/mio75-public-host-browser-pixel-browser-early-receive-gather-observation-first-20261006/early-receive-regression.json",
+    "sha256": "548518dce3a85e1678cf727c88484b876eb47ad1ab16fa2f09ea1dade51d6dbc"
+  },
+  "controlled-two-host-both.json": {
+    "originalPath": "/tmp/mio75-controlled-two-host-browsers-both-first-20261006/receipt.json",
+    "sha256": "35e7887a53a8527f79dcb5e3f1045d237cf6412872423beab702eeb64542cd16"
+  },
+  "controlled-two-host-cancel.json": {
+    "originalPath": "/tmp/mio75-controlled-two-host-browsers-cancel-after-startup-timeout-first-20261006/receipt.json",
+    "sha256": "7d87d0f041b778806c61eb097a31c3c8acbf8b4c144bdea73490fbb5a1fe022a"
+  },
+  "first-post-open-receive-failure.json": {
+    "originalPath": "/tmp/mio75-public-host-browser-pixel-browser-lifecycle-observation-first-20261006/receipt.json",
+    "sha256": "1ae691550d5327fa85cc17d21766ef17212c7c6ce46fc155d03b301069ced4b8"
+  },
+  "first-gather-incomplete-failure.json": {
+    "originalPath": "/tmp/mio75-public-host-browser-pixel-browser-early-receive-regression-first-20261006/receipt.json",
+    "sha256": "1c7acfe55668ae59bc226d8e64ba57d062e12b7189fc7ea0d8dad38fac9be807"
+  },
+  "unheld-host-pixel-gather-incomplete-failure.json": {
+    "originalPath": "/tmp/mio75-public-host-browser-pixel-browser-unheld-both-first-20261006/receipt.json",
+    "sha256": "e84a16d15c66e115193f055e859064433df6b55c233b618c31b7af86962475bd"
+  },
+  "first-provider-startup-failure.json": {
+    "originalPath": "/tmp/mio75-controlled-two-host-browsers-cancel-first-20261006/receipt.json",
+    "sha256": "833e935d477598b1452f702fd201d27474fd4eb094cb7b03c79f8ec43342674a"
+  },
+  "first-public-common-deadline-failure.json": {
+    "originalPath": "/tmp/mio75-public-host-browser-pixel-browser-current-w7a-forward-first-20261006/receipt.json",
+    "sha256": "47d14635dcd250649e96631808ea62945f67166a2f14c266667ba869b4a2995e"
+  }
+}

@@ -254,7 +254,7 @@ async fn phase(recv: &mut RecvStream, expected: &str) -> Result<Value, JsValue> 
     Ok(message)
 }
 
-async fn metadata(association: &Association) -> Result<Value, JsValue> {
+fn channel_metadata(association: &Association) -> Result<Value, JsValue> {
     let property = |object: &JsValue, name: &str| Reflect::get(object, &JsValue::from_str(name));
     let sctp = property(association.pc.as_ref(), "sctp")?;
     let dtls = property(&sctp, "transport")?;
@@ -263,9 +263,15 @@ async fn metadata(association: &Association) -> Result<Value, JsValue> {
         json!({"channel":{"id":association.dc.id(),"label":association.dc.label(),"protocol":property(association.dc.as_ref(),"protocol")?.as_string(),"ordered":property(association.dc.as_ref(),"ordered")?.as_bool(),
         "maxRetransmits":association.dc.max_retransmits(),"maxPacketLifeTime":association.dc.max_packet_life_time(),"negotiated":property(association.dc.as_ref(),"negotiated")?.as_bool()},
         "maxMessageSize":property(&sctp,"maxMessageSize")?.as_f64(),"iceState":property(&ice,"state")?.as_string(),"iceRole":property(&ice,"role")?.as_string(),
-        "dtlsState":property(&dtls,"state")?.as_string(),"sctpState":property(&sctp,"state")?.as_string(),"stats":stats(&association.pc).await?,
+        "dtlsState":property(&dtls,"state")?.as_string(),"sctpState":property(&sctp,"state")?.as_string(),
         "iceServers":association.ice_profile.stun_servers,"turnServers":[]}),
     )
+}
+
+async fn metadata(association: &Association) -> Result<Value, JsValue> {
+    let mut report = channel_metadata(association)?;
+    report["stats"] = stats(&association.pc).await?;
+    Ok(report)
 }
 
 /// The admission hook owns this setup, independent of a business or replica
@@ -453,13 +459,18 @@ pub(super) async fn bootstrap_control_inner(
 
         owner.association.wait_open().await?;
 
-        let opening = metadata(&owner.association).await?;
+        // Validate and activate in the same turn as the open wakeup. Awaiting
+        // getStats here lets a peer's first QUIC datagram reach an inactive
+        // receive lease and retire an otherwise valid, open association.
+        let mut opening = channel_metadata(&owner.association)?;
         if opening["channel"] != datagram_channel_parameters()
             || opening["maxMessageSize"].as_f64().is_none_or(|maximum| maximum < MAX_DATAGRAM as f64)
         { return Err(error("RTC negotiated profile/maximum mismatch")); }
 
         owner.lease.activate().map_err(error)?;
         owner.start_pump(connection.weak_handle());
+
+        opening["stats"] = stats(&owner.association.pc).await?;
 
         let actual = owner.stats.clone();
         transport.control_fixture_checkpoint(crate::rtc_invalidation_fixture::ControlCheckpointStage::ChannelReady,

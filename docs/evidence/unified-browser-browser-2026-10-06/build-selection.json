@@ -1,0 +1,62 @@
+{
+  "sourceView": "captured current mixed SDK source tree; preserved other user/M77 WIP, not a clean commit projection",
+  "wasm": {
+    "receiptOriginalPath": "/tmp/mio75-active-qualification-20261006/early-receive-fix/wasm-build-first/receipt.json",
+    "receiptSha256": "b108ead0904eb753d045250f17c819bccdf422673b00f0f752117bf4ce6177d4",
+    "loadedPackageWasmSha256": "b2b2d2949f86538d55f0cb533acf38679d2ae0c58cbc01e49eeb5aca1589111d",
+    "selectedManifestSha256": "9e89cd944043789b41f4cc6e8a1b6059756e0619b55388aaa0636f4dcead81be",
+    "actualInputs": 3152,
+    "repositorySourceCopies": 191,
+    "capturedDepfiles": 264,
+    "cargoExit": 0,
+    "cargoSeconds": 9.54135849699378,
+    "freshArtifacts": 295,
+    "rebuiltArtifacts": 1,
+    "rebuiltTargets": [
+      "miopunch_browser_probe"
+    ],
+    "sharedTargetDirectory": "/home/js/Git/miopunch/target",
+    "lockResolutionChanged": false,
+    "packageArtifacts": {
+      "miopunch_browser_probe.d.ts": "a8ca573dd416dee6197e53a1f202e51c774c504edd8d4838481929bbc114aea5",
+      "miopunch_browser_probe.js": "f11fb51b57cbd7c35a1a091d4f939200dc53901d82b3ec621bb0117e6d6d2b6e",
+      "miopunch_browser_probe_bg.wasm": "b2b2d2949f86538d55f0cb533acf38679d2ae0c58cbc01e49eeb5aca1589111d",
+      "miopunch_browser_probe_bg.wasm.d.ts": "20ca533aab0a1625a60b449b7ba2a62674dec3b4013f618d5c24435b0a428bc4",
+      "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+      "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e"
+    }
+  },
+  "native": {
+    "receiptOriginalPath": "/tmp/mio75-active-qualification-20261006/host-current-build-first/build.json",
+    "receiptSha256": "44becc0403c77a66f4988241bad1e9fed66917d05503bf5f37e4065ecac1558b",
+    "loadedExecutableSha256": "20dbceca18e3b521edfbf2041624b6224ffdf3f8a6ba81761ec07ead0106289a",
+    "selectedManifestSha256": "67c4595bc094c5384e9e955c2e3174c50e6b0b1301989704db61a7a9b656ea23",
+    "actualInputs": 6573,
+    "repositorySourceCopies": 286,
+    "capturedDepfiles": 478,
+    "runtimeReuseByteExact": true,
+    "sourceView": {
+      "nativeActualSelectedDeltas": {
+        "/home/js/Git/miopunch/src/network_maintenance.rs": {
+          "compiledSha256": "0ef69bcf78f1de7d83031942dbb043b2ae0062c45d69515164b6102c0112b087",
+          "currentSha256": "45ee8251d031e8ccb49c5d2e4b1e97391a3bb91319335d34a1b657a4c02c253c"
+        },
+        "/home/js/Git/miopunch/src/path_selection.rs": {
+          "compiledSha256": "83b9c5289a9ade4cd27b043c335d1e5fc22b2eb986e9754789c3c4803d43e5e6",
+          "currentSha256": "6093283dce8297830082e80fa2e778201a452448df126c53cc8730cdd9548585"
+        }
+      },
+      "wasmSelectedInputsMatch": true,
+      "wasmInputCount": 3152,
+      "wasmPackageReceiptSha256": "7a9d39cd1a95bf9778fa3841877b46e512436fbddd1db7f63426738b837b6d72",
+      "sourceView": "current mixed Native tree; both separate WIP modules preserved, no projection/source edit"
+    }
+  },
+  "reviewedFiveSources": {
+    "browser-probe/src/rtc_member.rs": "759d66ce4fc8723cef07636272ba2e538779be5b74654f7f622f55bcca5c49c5",
+    "browser-probe/harness/mio75-browser-pair-page.js": "9367e216d6176dab1a581a443de67e2624c334c9228cb4a9ac695b7de890e4b0",
+    "browser-probe/harness/mio75-host-browser.mjs": "784b12a0f9d10d40834e03b2e76a63363148e1601e5ef5debd4a0a67fad7e2b0",
+    "scripts/check_unified_browser_browser.py": "4e0a3201a3cb2048d5939e4a552f2f94abd006444e704f165d60d15eb609f94b",
+    "scripts/host_browser_runtime.py": "cacaadc2f4640a4036f03389d469c10e9ad1f9051d1033196f598671265cebdd"
+  }
+}

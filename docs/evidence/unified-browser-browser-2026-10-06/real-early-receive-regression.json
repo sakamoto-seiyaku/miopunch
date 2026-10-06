@@ -1,0 +1,123 @@
+{
+  "passed": true,
+  "storyExit": 0,
+  "realStatsAndRealIncomingOnly": true,
+  "witnesses": [
+    {
+      "armed": true,
+      "realStatsRequested": true,
+      "statsPendingAtFirstMessage": true,
+      "realMessageReceived": true,
+      "statsReleased": true,
+      "channelStayedOpenAfterReceive": true,
+      "listenersDetached": false
+    },
+    {
+      "armed": true,
+      "realStatsRequested": true,
+      "statsPendingAtFirstMessage": true,
+      "realMessageReceived": true,
+      "statsReleased": true,
+      "channelStayedOpenAfterReceive": true,
+      "listenersDetached": false
+    },
+    {
+      "armed": true,
+      "realStatsRequested": true,
+      "statsPendingAtFirstMessage": true,
+      "realMessageReceived": true,
+      "statsReleased": true,
+      "channelStayedOpenAfterReceive": true,
+      "listenersDetached": false
+    },
+    {
+      "armed": true,
+      "realStatsRequested": true,
+      "statsPendingAtFirstMessage": true,
+      "realMessageReceived": true,
+      "statsReleased": true,
+      "channelStayedOpenAfterReceive": true,
+      "listenersDetached": true
+    },
+    {
+      "armed": true,
+      "realStatsRequested": true,
+      "statsPendingAtFirstMessage": true,
+      "realMessageReceived": true,
+      "statsReleased": true,
+      "channelStayedOpenAfterReceive": true,
+      "listenersDetached": true
+    },
+    {
+      "armed": true,
+      "realStatsRequested": true,
+      "statsPendingAtFirstMessage": true,
+      "realMessageReceived": true,
+      "statsReleased": true,
+      "channelStayedOpenAfterReceive": true,
+      "listenersDetached": true
+    },
+    {
+      "armed": true,
+      "realStatsRequested": true,
+      "statsPendingAtFirstMessage": true,
+      "realMessageReceived": true,
+      "statsReleased": true,
+      "channelStayedOpenAfterReceive": true,
+      "listenersDetached": true
+    },
+    {
+      "armed": true,
+      "realStatsRequested": true,
+      "statsPendingAtFirstMessage": true,
+      "realMessageReceived": true,
+      "statsReleased": true,
+      "channelStayedOpenAfterReceive": true,
+      "listenersDetached": true
+    },
+    {
+      "armed": true,
+      "realStatsRequested": true,
+      "statsPendingAtFirstMessage": true,
+      "realMessageReceived": true,
+      "statsReleased": true,
+      "channelStayedOpenAfterReceive": true,
+      "listenersDetached": true
+    }
+  ],
+  "actualCommand": [
+    "rtk",
+    "proxy",
+    "python3",
+    "/tmp/mio75-active-qualification-20261006/early-receive-fix/run-forward-early-receive.py",
+    "--case",
+    "forward",
+    "--native-build-receipt",
+    "/tmp/mio75-active-qualification-20261006/host-current-build-first/build.json",
+    "--native-build-sha256",
+    "44becc0403c77a66f4988241bad1e9fed66917d05503bf5f37e4065ecac1558b",
+    "--wasm-build-receipt",
+    "/tmp/mio75-active-qualification-20261006/early-receive-fix/wasm-build-first/receipt.json",
+    "--wasm-build-sha256",
+    "b108ead0904eb753d045250f17c819bccdf422673b00f0f752117bf4ce6177d4",
+    "--package",
+    "/tmp/mio75-active-qualification-20261006/early-receive-fix/wasm-build-first/pkg",
+    "--facility",
+    "/tmp/mio76-explicit-public-emqx-facility-20261005.json",
+    "--native-profile",
+    "/tmp/mio74-public-actual-gathered-candidates-preparation-20261006/browser-profile-actual-gathered.json",
+    "--browser-profile",
+    "/tmp/mio74-public-actual-gathered-candidates-preparation-20261006/browser-profile-actual-gathered.json",
+    "--host-chrome",
+    "/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome",
+    "--pixel-transport",
+    "usb",
+    "--host-warp",
+    "unknown",
+    "--pixel-overlay",
+    "unknown",
+    "--output",
+    "/tmp/mio75-public-host-browser-pixel-browser-early-receive-gather-observation-first-20261006"
+  ],
+  "fixtureSha256": "1bb98adfa585a3182bf8c552febecd5f143d6808a2ca3fa3df06510c8f893888"
+}
