@@ -1,5 +1,7 @@
 # M76 current runtime evidence — 2026-10-06
 
+> The remaining API-available RTC network-failure qualification is independently verified in the [later follow-up record](../mio76-network-failure-2026-10-06/README.md). This earlier evidence and its known-gap wording remain readable as captured historical material.
+
 This evidence set records three actual HostNative + PixelBrowser runs through
 the current M76 controller:
 

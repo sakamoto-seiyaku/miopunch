@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "publication": {
+    "directory": "docs/evidence/mio76-network-failure-2026-10-06",
+    "files": [
+      "README.md",
+      "results.json",
+      "provenance.json",
+      "review-spec-followup.md"
+    ],
+    "publicationClass": "public-sanitized-evidence",
+    "rawRunCopied": false
+  },
+  "tickets": [
+    {
+      "key": "MIOPUNCH-76",
+      "url": "http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/a58dd0f6-99ba-4f26-a033-5a128c2f647a",
+      "role": "M76 qualification target"
+    },
+    {
+      "key": "MIOPUNCH-77",
+      "url": "http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/69773d76-0b92-49a2-8a56-cb323ee6272d",
+      "role": "controlled runtime receipt label"
+    }
+  ],
+  "immutableInputs": [
+    {
+      "kind": "runtime receipt",
+      "path": "/tmp/mio77-controlled-current-20261006/runtime-streams-first/receipt.json",
+      "sha256": "c08b80a4a54da3255cf31d062dcfdb20bf960e258c6567e75fd045713c320c16"
+    },
+    {
+      "kind": "private operation evidence",
+      "path": "/tmp/mio77-controlled-current-20261006/runtime-streams-first/private-operation-evidence.jsonl",
+      "sha256": "805f309bf5bd2784dc383f01e36d6793aef3bbf9c7b11b7a9b3c7cf8014e89d5",
+      "recordCount": 63,
+      "published": false
+    },
+    {
+      "kind": "Native build receipt",
+      "path": "/tmp/mio77-controlled-current-20261006/native-build-streams-first-20261006/build.json",
+      "sha256": "94021e5149ef75f66256be4a9c006e88800c696213bf57ca8321c70d9cc55efd"
+    },
+    {
+      "kind": "WASM build receipt",
+      "path": "/tmp/mio77-current-wasm-build-20261006/receipt.json",
+      "sha256": "6c382bb1fbd2122c93426d532c525faeae4e78413a8ed45e156b578e85d828a1"
+    },
+    {
+      "kind": "runtime freeze",
+      "path": "/tmp/mio77-controlled-current-20261006/binding-streams-first/runtime-freeze.json",
+      "sha256": "e01b9b261965825ddd599885dc58612a4b1a0bb35acd9edbdc20a517d9cc6dac",
+      "frozenFileCount": 27
+    },
+    {
+      "kind": "binding manifest",
+      "path": "/tmp/mio77-controlled-current-20261006/binding-streams-first/manifest.json",
+      "sha256": "2b39feece10d45ca7ddd8cadb0b5b3a54afee455a9f66701fa05ab75b58c5878"
+    },
+    {
+      "kind": "facility input",
+      "path": "/tmp/mio76-explicit-public-emqx-facility-20261005.json",
+      "sha256": "d2d5b1c3d4dc399cbdc785d82dd0d3f8655297763014e9cf72a71149969af191",
+      "role": "public EMQX admission/contact; local controlled data relay"
+    },
+    {
+      "kind": "controlled runtime profile",
+      "path": "/tmp/mio77-controlled-current-20261006/controlled-failure-profile.json",
+      "sha256": "e1b395daed8b19f27f27d49de34d7d774603c55bc424966cbd17a4b296fbbd1d",
+      "contentPublished": false
+    }
+  ],
+  "artifactPins": {
+    "providerBinarySha256": "06e245d88c64fe0455f1dcacc9497d1421680dc649665a570dc4c3bb8f4ef53a",
+    "maintainedBinarySha256": "42e8619c43bc4d2fc0caa94bb9f1a915cc8f2c00bb9e97a2cbc3d7619ca101d7",
+    "nativeBuildSourceDigest": "2db38b1528a29eec290d7b585ef2fc1ba4e6c79535b89e63b0dbbe7ae95b418a",
+    "wasmBuildSourceDigest": "8346033959e8e87260b0b34386a91b1be3390ae41fc8da84104c9ea4b46f0078",
+    "wasmPackage": {
+      "miopunch_browser_probe.d.ts": "b7e73bddde167ea19cf414b0f1b75f7cc13f13829ecb1fc59e08c28db6712805",
+      "miopunch_browser_probe.js": "82b4eb689521398faff67bcd546abae35244b7d50321435ac344f476dfe2e93b",
+      "miopunch_browser_probe_bg.wasm": "16f09dc5ed646ed7f083cf5a0ef8e5a6b102758cf41d2f6e7878a91fa76018b4",
+      "miopunch_browser_probe_bg.wasm.d.ts": "4191623db3701558d1d40f7a50f623b1c062371876eae6a7717b74910ccc2614",
+      "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+      "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e"
+    }
+  },
+  "priorM76ReviewReferences": {
+    "specification": {
+      "path": "/tmp/miopunch-root-current-20261006/M76-current.json",
+      "sha256": "eb8f284ecd73afebe5d9c3c056efd8eb484b18067744c68aa4333c5c097f10d0"
+    },
+    "sourceFreeze": {
+      "publicationPath": "../mio76-current-runtime-2026-10-06/source-freeze.json",
+      "sourcePath": "/tmp/mio76-concentrated-current-review-20261006/source-freeze.json",
+      "sha256": "4f118b66594751e2137238e6dcf025431ce0a8a426a9672f89b4f398bada365d"
+    },
+    "specReview": {
+      "publicationPath": "../mio76-current-runtime-2026-10-06/review-spec.md",
+      "sourcePath": "/tmp/mio76-concentrated-current-review-20261006/spec.md",
+      "sha256": "375d26829b3cb49210cc6b08e9b3a0dfa5da1e22807e89f0a759427475d98b6a"
+    },
+    "standardsReview": {
+      "publicationPath": "../mio76-current-runtime-2026-10-06/review-standards.md",
+      "sourcePath": "/tmp/mio76-concentrated-current-review-20261006/standards.md",
+      "sha256": "06ce9123384fe65257e1e6470ccb4a69faa95834ba30e16066b07f6826ac1c77"
+    }
+  },
+  "followupReview": {
+    "publicationPath": "review-spec-followup.md",
+    "sourcePath": "/tmp/mio76-network-gap-spec-review-20261006/report.md",
+    "sha256": "2a61151133ed06dd6ec7ff5b163b2eb3a2a41dec2cf08697e0f84c97b0b38cbd",
+    "remainingFindings": 0,
+    "requiredCodeFixes": 0,
+    "fullM77Approved": false,
+    "physicalWanApproved": false,
+    "publicDataRelayApproved": false
+  },
+  "privacy": {
+    "policy": "publish booleans, categories, timings and hashes only; retain raw private values at immutable local paths",
+    "rawSdpIceExporterIdentityAdmissionSecretProfileDeviceSerialOrOsRouteContentPublished": false,
+    "checker": {
+      "path": "/tmp/mio76-network-failure-closeout-20261006/privacy-check.py",
+      "sha256": "e7f652b50781df244cbaf608f4c40d1233d8ff9cfb3bb75311e51c198a241151",
+      "resultPath": "/tmp/mio76-network-failure-closeout-20261006/privacy-check.json",
+      "status": "passed",
+      "privateFilesScanned": 7,
+      "sensitiveValuesCompared": 12,
+      "sensitiveValueCollisions": 0,
+      "publicFilesChecked": 5,
+      "rawValuesPrinted": false
+    }
+  },
+  "closeout": {
+    "technicalGap": "satisfied",
+    "rootCommit": "pending",
+    "planeClosure": "pending",
+    "broaderM77": "open",
+    "ownedJobs": 0
+  }
+}
