@@ -8,7 +8,7 @@ Host Native and Host Browser, with a local owned loopback data relay and
 public EMQX admission/contact over normal TLS.
 
 The run is linked to [MIOPUNCH-76](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/a58dd0f6-99ba-4f26-a033-5a128c2f647a) and its controlled runtime receipt is labelled
-[MIOPUNCH-77](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/69773d76-0b92-49a2-8a56-cb323ee6272d). The earlier M76 publication remains at
+[MIOPUNCH-77](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/69773d76-0b92-49ca-8a56-cb323ee6272d). The earlier M76 publication remains at
 [mio76-current-runtime-2026-10-06](../mio76-current-runtime-2026-10-06/README.md);
 its source freeze and two concentrated reviews are linked from
 [provenance.json](provenance.json) and are unchanged.
