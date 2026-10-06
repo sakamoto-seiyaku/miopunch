@@ -1,0 +1,21 @@
+{
+  "base": "56140da9887cfecc24081015eeb49518b1ce3279",
+  "paths": {
+    "browser-probe/src/mqtt.rs": "b2893416f9b281fe1b6a426c17cb6347723226d3836d726881825390a5b007af",
+    "src/bin/unified_admission_story.rs": "25b5a63b1b490da327162dd8da30211b2d1d15695e1c6f60333ed32b634b3a5e",
+    "scripts/check_current_browser_relay.py": "f534c00ad76087aa23d42f83ab4dbc7ca3028798513dc132635387493ff0554d",
+    "browser-probe/harness/mio76-relay-capability-page.mjs": "4bcdceaca633922315655f34157e68e4e2edd858bc1461b1c0b578a432e420a3"
+  },
+  "patchSha256": "849da5345323a86ae388d588a2d910115d9db5c79cac3ae9bdf17bc2cc9cec07",
+  "trackedPaths": [
+    "browser-probe/src/mqtt.rs",
+    "src/bin/unified_admission_story.rs"
+  ],
+  "newPaths": [
+    "scripts/check_current_browser_relay.py",
+    "browser-probe/harness/mio76-relay-capability-page.mjs"
+  ],
+  "scope": "four current M76 source paths only; other user/M77/M78/M82 WIP excluded",
+  "knownQualificationGap": "API-available RTC network failure \u2192 successful allowed Relay remains unobserved; M76 not Done from this milestone",
+  "noGitMutation": true
+}

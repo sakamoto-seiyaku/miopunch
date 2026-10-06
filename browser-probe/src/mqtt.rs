@@ -404,6 +404,13 @@ impl BrowserMqttDatagram {
             state.report.disconnect_sent = state.send(&self.socket, &[0xe0, 0]).is_ok();
         }
         state.withdraw(None);
+        // Endpoint/transport clones can keep this carrier alive after close.
+        // Retire its callbacks here; Drop still keeps their owners alive until
+        // every binding has been removed.
+        self.socket.set_onopen(None);
+        self.socket.set_onmessage(None);
+        self.socket.set_onerror(None);
+        self.socket.set_onclose(None);
         let _ = self.socket.close();
     }
 }

@@ -527,6 +527,10 @@ mod enabled {
                                         if address.id()==miopunch_native_probe::mqtt_transport::TRANSPORT_ID)})).collect::<Vec<_>>()}));
                             let (send,recv) = connection.accept_bi().await?;
                             miopunch_native_probe::rtc_member::serve_stream(serving,connection.clone(),gate,rtc,send,recv).await?;
+                            // The consumer closes M after reading the queued reply.
+                            // An ordinary M outlives its completed setup deadline;
+                            // closing the owned endpoint also releases this waiter.
+                            connection.closed().await;
                             connection.close(0u32.into(),b"owned business ended");
                         }
                         Ok::<_, Failure>(())

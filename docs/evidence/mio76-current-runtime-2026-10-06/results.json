@@ -1,0 +1,383 @@
+{
+  "ticket": "MIOPUNCH-76",
+  "evidenceVersion": 1,
+  "publicationClass": "public-structured-results",
+  "scope": "Three current actual HostNative plus PixelBrowser M76 stories; no historical matrix replay",
+  "common": {
+    "runtime": "HostNative+PixelBrowser",
+    "callerBudgetMs": 12000,
+    "nativeRelayCeilingMs": 6000,
+    "lateObservationMs": 100,
+    "physicalWanQualified": false,
+    "actualCommandExit": 0,
+    "sourceArtifactPins": {
+      "reviewedSourceFreeze": {
+        "path": "/tmp/mio76-concentrated-current-review-20261006/source-freeze.json",
+        "sha256": "4f118b66594751e2137238e6dcf025431ce0a8a426a9672f89b4f398bada365d",
+        "patchSha256": "849da5345323a86ae388d588a2d910115d9db5c79cac3ae9bdf17bc2cc9cec07",
+        "files": {
+          "browser-probe/src/mqtt.rs": "b2893416f9b281fe1b6a426c17cb6347723226d3836d726881825390a5b007af",
+          "src/bin/unified_admission_story.rs": "25b5a63b1b490da327162dd8da30211b2d1d15695e1c6f60333ed32b634b3a5e",
+          "scripts/check_current_browser_relay.py": "f534c00ad76087aa23d42f83ab4dbc7ca3028798513dc132635387493ff0554d",
+          "browser-probe/harness/mio76-relay-capability-page.mjs": "4bcdceaca633922315655f34157e68e4e2edd858bc1461b1c0b578a432e420a3"
+        }
+      },
+      "native": {
+        "buildReceipt": "/tmp/mio76-real-carrier-close-20261006/native-business-lifetime/host-current-build-first/build.json",
+        "buildReceiptSha256": "588f7e473141b468adea9c64b502ba7fe16eb71a06ac84890454d6c0775fd83e",
+        "deployedBinary": "/tmp/mio76-real-carrier-close-20261006/native-business-lifetime/host-current-build-first/deploy/unified_admission_story",
+        "deployedBinarySha256": "a916f1d9f32487791d5be09b9ff30e2c08b7e04ff8687f10bc3914560fecfed3",
+        "selectedInputs": 6573,
+        "selectedRepositoryCopies": 286,
+        "capturedDepfiles": 478
+      },
+      "browser": {
+        "buildReceipt": "/tmp/mio76-real-carrier-close-20261006/wasm-build-first/receipt.json",
+        "buildReceiptSha256": "1a77f9443f86d83364c151338bd685cd55c9da4191754f35c2c6e0b764404019",
+        "package": "/tmp/mio76-real-carrier-close-20261006/wasm-build-first/pkg",
+        "packageCatalogSha256": "ef03a0a350254b914d57dd6c71131e7684aabd58a86f3e4c802908d83dab4529",
+        "wasmSha256": "8aa43e8412c264fc902935cadf7532884486f30ad23adbaed42b57560d9506de",
+        "selectedInputs": 3152,
+        "selectedRepositoryCopies": 191,
+        "capturedDepfiles": 264
+      },
+      "facilitySha256": "d2d5b1c3d4dc399cbdc785d82dd0d3f8655297763014e9cf72a71149969af191",
+      "nativeProfileSha256": "57b9efbdef55deb107fb3e99e9d56c0ea2664ae60e3edd5edcc27b3e5afb8ef6",
+      "browserProfileSha256": "57b9efbdef55deb107fb3e99e9d56c0ea2664ae60e3edd5edcc27b3e5afb8ef6"
+    },
+    "protocolEvidence": {
+      "admission": {
+        "strictAlpnMatched": true,
+        "observedVersion": 1,
+        "observedPurposeCode": 2,
+        "restricted": true,
+        "commonPurposeObserved": true,
+        "admissionMaterialsSaved": true,
+        "freshAckFieldPresent": true,
+        "freshAckExplicitNull": true,
+        "stableUnchanged": true,
+        "bindingUnchanged": true
+      },
+      "member": {
+        "version": 1,
+        "purposeCode": 1,
+        "nativeRole": "responder",
+        "browserRole": "initiator",
+        "rtcRole": "None",
+        "freshAck": true,
+        "stableUnchanged": true,
+        "bindingUnchanged": true,
+        "selected": true,
+        "peerIdentityMatch": true,
+        "currentGates": true,
+        "selectedPath": "permitted-relay",
+        "browserToNativeBytes": 4,
+        "nativeToBrowserBytes": 4,
+        "replyMatched": true,
+        "sameDurableMembership": true,
+        "originalMemberUnchanged": true
+      }
+    },
+    "relayCloseContract": {
+      "mqttSdkCallbacks": 0,
+      "permittedRelaySdkCallbacks": 4,
+      "permittedRelayState": "CLOSING",
+      "pendingRelayCloseSocketCount": 1,
+      "realCloseInitiated": true,
+      "bufferedBytes": 0,
+      "trafficUnchangedAt100ms": true,
+      "gracefulRelayCloseObserved": false,
+      "allSdkTerminalTasksRetiredProven": false,
+      "relayTrafficLoopState": "not-observed",
+      "relayReceiveQueuePackets": null,
+      "pageResourceContainmentIndependent": true
+    }
+  },
+  "stories": [
+    {
+      "name": "api-missing-no-relay-restoration",
+      "mode": "missing-answer",
+      "startedUtc": "2026-10-06T07:10:31Z",
+      "completedUtc": "2026-10-06T07:11:07Z",
+      "receipt": {
+        "path": "/tmp/mio76-public-host-native-pixel-browser-current-api-missing-restore-relay-close-tail-observed-first-20261006/receipt.json",
+        "sha256": "f8bbb9d86f1c838ab03c0b8593eddc478e30e476d80df9357eef27d6c5764216"
+      },
+      "command": "rtk proxy python3 /home/js/Git/miopunch/scripts/check_current_browser_relay.py --execute --mode missing-answer --native-build-receipt /tmp/mio76-real-carrier-close-20261006/native-business-lifetime/host-current-build-first/build.json --native-build-receipt-sha256 588f7e473141b468adea9c64b502ba7fe16eb71a06ac84890454d6c0775fd83e --native-binary /tmp/mio76-real-carrier-close-20261006/native-business-lifetime/host-current-build-first/deploy/unified_admission_story --native-binary-sha256 a916f1d9f32487791d5be09b9ff30e2c08b7e04ff8687f10bc3914560fecfed3 --browser-build-receipt /tmp/mio76-real-carrier-close-20261006/wasm-build-first/receipt.json --browser-build-receipt-sha256 1a77f9443f86d83364c151338bd685cd55c9da4191754f35c2c6e0b764404019 --package /tmp/mio76-real-carrier-close-20261006/wasm-build-first/pkg --package-sha256 ef03a0a350254b914d57dd6c71131e7684aabd58a86f3e4c802908d83dab4529 --facility /tmp/mio76-explicit-public-emqx-facility-20261005.json --native-profile /tmp/mio83-current-purpose-implementation-20261006/native-ice-disabled.json --browser-profile /tmp/mio83-current-purpose-implementation-20261006/browser-ice-disabled.json --output /tmp/mio76-public-host-native-pixel-browser-current-api-missing-restore-relay-close-tail-observed-first-20261006",
+      "result": {
+        "passed": true,
+        "commandExit": 0,
+        "newWireQualified": true,
+        "capability": {
+          "reason": "api-missing",
+          "supported": false,
+          "permitted": true,
+          "effective": false,
+          "snapshots": [
+            {"cumulative": true, "resetAttempts": 0, "peerCreated": 0, "peerCloseCalls": 0, "channelCreated": 0, "channelCloseCalls": 0, "openPeerConnections": 0, "openDataChannels": 0},
+            {"cumulative": true, "resetAttempts": 0, "peerCreated": 0, "peerCloseCalls": 0, "channelCreated": 0, "channelCloseCalls": 0, "openPeerConnections": 0, "openDataChannels": 0},
+            {"cumulative": true, "resetAttempts": 0, "peerCreated": 0, "peerCloseCalls": 0, "channelCreated": 0, "channelCloseCalls": 0, "openPeerConnections": 0, "openDataChannels": 0}
+          ]
+        },
+        "noData": {
+          "errorClass": "DataPathUnavailable",
+          "ordinaryHandleReturned": false,
+          "contactMqttReady": true,
+          "mqttQuicBytesSent": 0,
+          "mqttQuicBytesReceived": 0,
+          "nativeBusinessEvents": 0,
+          "admissionMaterialsRunningUnchanged": true,
+          "callerElapsedMs": 76.63
+        },
+        "restoration": {"newAttemptAfterReopen": true, "sameDurableMembership": true},
+        "member": {"noDataRestorationQualified": true}
+      },
+      "timing": {
+        "maxStageCallerMs": 7719.065,
+        "newMemberCallerMs": 7719.065,
+        "businessCallerMs": 886.576,
+        "browserSdkCleanupMs": 929.755,
+        "browserFullCleanupMs": 642.025,
+        "nativeCleanupMs": 307.992,
+        "lateObservationMs": 100.815
+      },
+      "cleanup": {
+        "browserQualified": true,
+        "nativeQualified": true,
+        "forced": false,
+        "networkClosedAndFreed": true,
+        "ownedMemberHandles": 0,
+        "activeRtcAssociations": 0,
+        "activeRtcPumps": 0,
+        "tabAbsent": true,
+        "ownedStoreDeleted": true,
+        "adbMappingsAbsent": true,
+        "localListenerClosed": true,
+        "nativeProcessGroupAbsentImmediateAndLate": true
+      },
+      "relayClose": {"immediateClosing": 2, "immediateClosed": 2, "lateClosing": 2, "lateClosed": 2}
+    },
+    {
+      "name": "peer-connection-denied-relay-business",
+      "mode": "pc-denied",
+      "startedUtc": "2026-10-06T07:27:47Z",
+      "completedUtc": "2026-10-06T07:28:19Z",
+      "receipt": {
+        "path": "/tmp/mio76-public-host-native-pixel-browser-current-pc-denied-relay-close-tail-observed-first-20261006/receipt.json",
+        "sha256": "c615bae87188b7298a29dfaec812541a4555e860cb94e21a44b2b168417a7909"
+      },
+      "command": "rtk proxy python3 /home/js/Git/miopunch/scripts/check_current_browser_relay.py --execute --mode pc-denied --native-build-receipt /tmp/mio76-real-carrier-close-20261006/native-business-lifetime/host-current-build-first/build.json --native-build-receipt-sha256 588f7e473141b468adea9c64b502ba7fe16eb71a06ac84890454d6c0775fd83e --native-binary /tmp/mio76-real-carrier-close-20261006/native-business-lifetime/host-current-build-first/deploy/unified_admission_story --native-binary-sha256 a916f1d9f32487791d5be09b9ff30e2c08b7e04ff8687f10bc3914560fecfed3 --browser-build-receipt /tmp/mio76-real-carrier-close-20261006/wasm-build-first/receipt.json --browser-build-receipt-sha256 1a77f9443f86d83364c151338bd685cd55c9da4191754f35c2c6e0b764404019 --package /tmp/mio76-real-carrier-close-20261006/wasm-build-first/pkg --package-sha256 ef03a0a350254b914d57dd6c71131e7684aabd58a86f3e4c802908d83dab4529 --facility /tmp/mio76-explicit-public-emqx-facility-20261005.json --native-profile /tmp/mio83-current-purpose-implementation-20261006/native-ice-disabled.json --browser-profile /tmp/mio83-current-purpose-implementation-20261006/browser-ice-disabled.json --output /tmp/mio76-public-host-native-pixel-browser-current-pc-denied-relay-close-tail-observed-first-20261006",
+      "result": {
+        "passed": true,
+        "commandExit": 0,
+        "newWireQualified": true,
+        "capability": {
+          "reason": "peer-connection-rejected",
+          "supported": false,
+          "permitted": true,
+          "effective": false,
+          "snapshots": [
+            {"cumulative": true, "resetAttempts": 0, "peerCreated": 0, "peerCloseCalls": 0, "channelCreated": 0, "channelCloseCalls": 0, "openPeerConnections": 0, "openDataChannels": 0},
+            {"cumulative": true, "resetAttempts": 0, "peerCreated": 0, "peerCloseCalls": 0, "channelCreated": 0, "channelCloseCalls": 0, "openPeerConnections": 0, "openDataChannels": 0}
+          ]
+        },
+        "member": {"noDataRestorationQualified": false},
+        "sameDurableMembership": true
+      },
+      "timing": {
+        "maxStageCallerMs": 7423.257,
+        "newMemberCallerMs": 7423.257,
+        "businessCallerMs": 878.592,
+        "browserSdkCleanupMs": 924.305,
+        "browserFullCleanupMs": 651.119,
+        "nativeCleanupMs": 308.186,
+        "lateObservationMs": 101.33
+      },
+      "cleanup": {
+        "browserQualified": true,
+        "nativeQualified": true,
+        "forced": false,
+        "networkClosedAndFreed": true,
+        "ownedMemberHandles": 0,
+        "activeRtcAssociations": 0,
+        "activeRtcPumps": 0,
+        "tabAbsent": true,
+        "ownedStoreDeleted": true,
+        "adbMappingsAbsent": true,
+        "localListenerClosed": true,
+        "nativeProcessGroupAbsentImmediateAndLate": true
+      },
+      "relayClose": {"immediateClosing": 2, "immediateClosed": 1, "lateClosing": 1, "lateClosed": 2}
+    },
+    {
+      "name": "data-channel-denied-relay-business",
+      "mode": "dc-denied",
+      "startedUtc": "2026-10-06T07:30:00Z",
+      "completedUtc": "2026-10-06T07:30:32Z",
+      "receipt": {
+        "path": "/tmp/mio76-public-host-native-pixel-browser-current-dc-denied-relay-close-tail-observed-first-20261006/receipt.json",
+        "sha256": "d6667842a489a2069f65de465ab3a81ddd02b8456d7ef46171cb9bfcb11b1410"
+      },
+      "command": "rtk proxy python3 /home/js/Git/miopunch/scripts/check_current_browser_relay.py --execute --mode dc-denied --native-build-receipt /tmp/mio76-real-carrier-close-20261006/native-business-lifetime/host-current-build-first/build.json --native-build-receipt-sha256 588f7e473141b468adea9c64b502ba7fe16eb71a06ac84890454d6c0775fd83e --native-binary /tmp/mio76-real-carrier-close-20261006/native-business-lifetime/host-current-build-first/deploy/unified_admission_story --native-binary-sha256 a916f1d9f32487791d5be09b9ff30e2c08b7e04ff8687f10bc3914560fecfed3 --browser-build-receipt /tmp/mio76-real-carrier-close-20261006/wasm-build-first/receipt.json --browser-build-receipt-sha256 1a77f9443f86d83364c151338bd685cd55c9da4191754f35c2c6e0b764404019 --package /tmp/mio76-real-carrier-close-20261006/wasm-build-first/pkg --package-sha256 ef03a0a350254b914d57dd6c71131e7684aabd58a86f3e4c802908d83dab4529 --facility /tmp/mio76-explicit-public-emqx-facility-20261005.json --native-profile /tmp/mio83-current-purpose-implementation-20261006/native-ice-disabled.json --browser-profile /tmp/mio83-current-purpose-implementation-20261006/browser-ice-disabled.json --output /tmp/mio76-public-host-native-pixel-browser-current-dc-denied-relay-close-tail-observed-first-20261006",
+      "result": {
+        "passed": true,
+        "commandExit": 0,
+        "newWireQualified": true,
+        "capability": {
+          "reason": "data-channel-rejected",
+          "supported": false,
+          "permitted": true,
+          "effective": false,
+          "snapshots": [
+            {"cumulative": true, "resetAttempts": 0, "peerCreated": 1, "peerCloseCalls": 1, "channelCreated": 0, "channelCloseCalls": 0, "openPeerConnections": 0, "openDataChannels": 0},
+            {"cumulative": true, "resetAttempts": 0, "peerCreated": 2, "peerCloseCalls": 2, "channelCreated": 0, "channelCloseCalls": 0, "openPeerConnections": 0, "openDataChannels": 0}
+          ]
+        },
+        "member": {"noDataRestorationQualified": false},
+        "sameDurableMembership": true
+      },
+      "timing": {
+        "maxStageCallerMs": 7294.424,
+        "newMemberCallerMs": 7294.424,
+        "businessCallerMs": 882.851,
+        "browserSdkCleanupMs": 924.66,
+        "browserFullCleanupMs": 640.69,
+        "nativeCleanupMs": 307.539,
+        "lateObservationMs": 100.67
+      },
+      "cleanup": {
+        "browserQualified": true,
+        "nativeQualified": true,
+        "forced": false,
+        "networkClosedAndFreed": true,
+        "ownedMemberHandles": 0,
+        "activeRtcAssociations": 0,
+        "activeRtcPumps": 0,
+        "tabAbsent": true,
+        "ownedStoreDeleted": true,
+        "adbMappingsAbsent": true,
+        "localListenerClosed": true,
+        "nativeProcessGroupAbsentImmediateAndLate": true
+      },
+      "relayClose": {"immediateClosing": 1, "immediateClosed": 2, "lateClosing": 1, "lateClosed": 2}
+    }
+  ],
+  "retainedCarrierEvidence": {
+    "mqttCarrierRed": {
+      "receipt": "/tmp/mio76-real-carrier-close-20261006/red-first/receipt.json",
+      "receiptSha256": "8f96c30153b5a4cad7775079d0ee564c1493ab52febd1d7eb5e09458c36d7939",
+      "outerReceipt": "/tmp/mio76-real-carrier-close-20261006/red-first/outer-receipt.json",
+      "outerReceiptSha256": "6c03b7b8c55a8d372244055cf3fb194c2a8fba835e3deeeccfaf7c59bc2e64bc",
+      "passed": false,
+      "failure": "retained real MQTT carrier still had four SDK callbacks at the late CLOSED observation",
+      "lateCallbacks": 4,
+      "lateBufferedBytes": 0,
+      "laterFreeRemovedCallbacks": true
+    },
+    "mqttCarrierGreen": {
+      "receipt": "/tmp/mio76-real-carrier-close-20261006/green-first/receipt.json",
+      "receiptSha256": "263a6e744fe9ad63e0d9b8c2800b121f00f8a9ec13927d3db2b1506823303d65",
+      "outerReceipt": "/tmp/mio76-real-carrier-close-20261006/green-first/outer-receipt.json",
+      "outerReceiptSha256": "d3d7c0c1c3aca221e3f3b390d3446047798763db4b1821c568a05c9648ab74a8",
+      "passed": true,
+      "sameCarrierHandleAndSocket": true,
+      "callbacksBeforeClose": 4,
+      "callbacksAfterClose": 0,
+      "lateReadyState": "CLOSED",
+      "lateBufferedBytes": 0,
+      "lateTrafficUnchanged": true,
+      "physicalOrPublicExecution": false
+    }
+  },
+  "nativeBusinessFailureAndFix": {
+    "firstFailure": {
+      "receipt": "/tmp/mio76-public-host-native-pixel-browser-current-api-missing-restore-carrier-close-fixed-first-20261006/receipt.json",
+      "receiptSha256": "3d96453b750a1bce1ce490f9ec4ed4dbc68e4eef76dad81ad4bffe6eda9c2f46",
+      "privateFirstRpc": "/tmp/mio76-public-host-native-pixel-browser-current-api-missing-restore-carrier-close-fixed-first-20261006/private-rpc-0030.json",
+      "privateFirstRpcSha256": "7d2805313b49d76145a7057b2b1400f4d52678726bbe3457f3bd1ed11ecd6ebb",
+      "privateNativeEventReceipt": "/tmp/mio76-public-host-native-pixel-browser-current-api-missing-restore-carrier-close-fixed-first-20261006/private-command-receipt-first-failure.json",
+      "privateNativeEventReceiptSha256": "fc1c941ea6186069e3d669f96d5ac7adf5bb65db7d799033cf7c533d076ef867",
+      "capturedFeedback": "/tmp/mio76-real-carrier-close-20261006/business-close-causal/captured-feedback.json",
+      "capturedFeedbackSha256": "dbbcda16614375db582f977c6d613be04ea1b5515d2d824d6b7063e4fc23d85d",
+      "failureClass": "real connection read after Native queued the response; original PONG predicate remained strict"
+    },
+    "appliedFixReference": {
+      "handoff": "/tmp/mio76-real-carrier-close-20261006/native-business-lifetime/HANDOFF.md",
+      "handoffSha256": "19bc79441cd98f15030c7a03132f4609787bf9bba6bd8d5c1b58f3820118b54f",
+      "patch": "/tmp/mio76-real-carrier-close-20261006/native-business-lifetime/operator-lifetime-fix.patch",
+      "patchSha256": "9c247fa4701ef17f8df77eb78b199fb8f2a152d4f0f4cad0c82ab3f15b63ecff",
+      "source": "src/bin/unified_admission_story.rs",
+      "sourceSha256": "25b5a63b1b490da327162dd8da30211b2d1d15695e1c6f60333ed32b634b3a5e",
+      "changeSummary": "retain the ordinary member connection until the existing consumer or endpoint close before defensive close"
+    }
+  },
+  "relayTailFailureAndContract": {
+    "originalFailureReceipt": "/tmp/mio76-public-host-native-pixel-browser-current-api-missing-restore-native-business-lifetime-fixed-first-20261006/receipt.json",
+    "originalFailureReceiptSha256": "d46ad77a0ff3d890760e4fb5505412a48c11a834773b51257e4919b790f056e1",
+    "privateStopReceipt": "/tmp/mio76-public-host-native-pixel-browser-current-api-missing-restore-native-business-lifetime-fixed-first-20261006/private-rpc-0033.json",
+    "privateStopReceiptSha256": "745de5bdb3b3670a4eb324c2419b421846de77b8ae428fe2de0e971051b81aea",
+    "capturedFeedback": "/tmp/mio76-real-carrier-close-20261006/relay-close-tail-causal/captured-feedback.json",
+    "capturedFeedbackSha256": "a5260d66090aa16f840a95e75d16c14eafea9a2a11d7bfff9c370c847b2fc1cc",
+    "capturedBoundary": "/tmp/mio76-real-carrier-close-20261006/relay-close-tail-contract/captured-boundary.json",
+    "capturedBoundarySha256": "212f49b27c4e7dcd882223d22ce30cee5cf51e4550f7b213660493bc4b3b416e",
+    "contract": {
+      "mqttCallbacksRedStillRejected": true,
+      "relayCallbacksPreserved": 4,
+      "relayClosePending": true,
+      "gracefulCompletionObserved": false,
+      "allSdkTerminalTasksRetiredProven": false,
+      "relayTrafficLoopState": "not-observed",
+      "relayReceiveQueuePackets": null,
+      "ownedTabStoreMappingsListenerRetired": true
+    }
+  },
+  "reviews": {
+    "sourceFreeze": {
+      "publicationPath": "docs/evidence/mio76-current-runtime-2026-10-06/source-freeze.json",
+      "sourcePath": "/tmp/mio76-concentrated-current-review-20261006/source-freeze.json",
+      "sha256": "4f118b66594751e2137238e6dcf025431ce0a8a426a9672f89b4f398bada365d"
+    },
+    "spec": {
+      "publicationPath": "docs/evidence/mio76-current-runtime-2026-10-06/review-spec.md",
+      "sourcePath": "/tmp/mio76-concentrated-current-review-20261006/spec.md",
+      "sha256": "375d26829b3cb49210cc6b08e9b3a0dfa5da1e22807e89f0a759427475d98b6a",
+      "requiredCodeFixes": 0,
+      "knownQualificationGap": "API-available RTC network failure followed by successful permitted Relay remains unobserved"
+    },
+    "standards": {
+      "publicationPath": "docs/evidence/mio76-current-runtime-2026-10-06/review-standards.md",
+      "sourcePath": "/tmp/mio76-concentrated-current-review-20261006/standards.md",
+      "sha256": "06ce9123384fe65257e1e6470ccb4a69faa95834ba30e16066b07f6826ac1c77",
+      "requiredViolations": 0,
+      "optionalJudgements": 2
+    }
+  },
+  "privacy": {
+    "rawPrivateJournalsCopied": false,
+    "rawCompilerArchivesCopied": false,
+    "rawSdpIceExporterIdentitySecretOrDeviceRouteValuesPublished": false,
+    "publishedRouteValuesCoarsenedToPathCategory": true,
+    "privateEvidenceReferencesRetainedAsPathAndHashOnly": true,
+    "threeCasePrivateFixtureComparisonPending": false,
+    "threeCasePrivateFixturePrivacyCheck": {
+      "passed": true,
+      "privateFilesScanned": 94,
+      "sensitiveStringValuesCompared": 17,
+      "sensitiveValueCollisions": 0,
+      "sourceWhitelistMatch": true,
+      "publicFilesChecked": 5
+    }
+  },
+  "limits": {
+    "physicalWanQualified": false,
+    "apiAvailableRtcNetworkFailureToRelay": "unqualified; planned M77 composition",
+    "historicalExplicitRtcDisabledR83": {
+      "status": "accepted unaffected reference only; not counted as a current M76 story",
+      "reference": "/tmp/mio83-current-purpose-implementation-20261006/final-runtime-freeze.json",
+      "sha256": "f4e48113c061a793ca1a0fb009228daf94be715cdfb95e87abc1367d8e742e21"
+    },
+    "old43StoryReplay": false,
+    "m76Complete": false
+  },
+  "ownedJobs": 0
+}
