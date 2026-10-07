@@ -840,7 +840,8 @@ def _finalize_m82_report(report: dict, current_runtime) -> dict:
         report.get("passed") is True
         and report.get("normalTlsVerified") is True
         and summary.get("physicalDataQualified") is True)
-    report["physicalWanQualified"] = report["physicalDataQualified"]
+    report["physicalWanQualified"] = bool(
+        report["physicalDataQualified"] and summary.get("physicalWanQualified") is True)
     return report
 
 

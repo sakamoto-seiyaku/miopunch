@@ -10,6 +10,7 @@ import tempfile
 import android_pair_packet_witness as packet_witness
 import host_pixel_route_receipt_current as host_routes
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 
 
@@ -52,6 +53,24 @@ def endpoint(role: str, *, native: bool, mark: bool) -> dict:
 
 
 class CurrentRouteQualificationTests(unittest.TestCase):
+    def test_sdk_finalizer_preserves_separate_wan_failure_and_cleanup_gates(self):
+        runtime = SimpleNamespace(browser_cleanup_succeeded=lambda value: value.get("cleanupSucceeded") is True)
+        report = {"passed": True, "normalTlsVerified": True,
+                  "cleanup": {"nativeQualified": True, "browser": {"cleanupSucceeded": True}},
+                  "routeObservation": {"summary": {"physicalDataQualified": True,
+                                                    "physicalWanQualified": False}}}
+        finalized = controller._finalize_m82_report(copy.deepcopy(report), runtime)
+        self.assertTrue(finalized["passed"])
+        self.assertTrue(finalized["physicalDataQualified"])
+        self.assertFalse(finalized["physicalWanQualified"])
+        report["routeObservation"]["summary"]["physicalWanQualified"] = True
+        self.assertTrue(controller._finalize_m82_report(copy.deepcopy(report), runtime)["physicalWanQualified"])
+        report["cleanup"]["nativeQualified"] = False
+        finalized = controller._finalize_m82_report(report, runtime)
+        self.assertFalse(finalized["passed"])
+        self.assertFalse(finalized["physicalDataQualified"])
+        self.assertFalse(finalized["physicalWanQualified"])
+
     def test_android_route_output_with_explicit_from_is_correlated(self):
         selected = {"localAddress": "192.0.2.7", "localPort": 40000,
                     "peerAddress": "198.51.100.9", "peerPort": 41000}

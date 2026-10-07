@@ -1,0 +1,22 @@
+{
+  "scope": "offline SDK qualification finalizer propagation",
+  "base": "b7c1360db11f384735551d493c7d63f23fd38e75",
+  "sourceHashes": {
+    "scripts/android_pair_route_receipt_current.py": "14670275d1ed9140f8faddac1f9034c6d130293a66fa3e6f11607f56b9f146b6",
+    "scripts/check_unified_admission_current.py": "bfa44ae548ca1e1b734407c1da5f74be6014a8c17008f1a1722ba5cbb9d79f9d",
+    "scripts/test_android_pair_route_receipt_current.py": "bbc0e0cbb485651cbae9085eaed2acb9b02c025037a5e22b1571ad5b9b23d946"
+  },
+  "tests": 23,
+  "exit": 0,
+  "regressionReceipt": "/tmp/mio82-wan-finalizer-green-root-20261008/receipt.json",
+  "regressionReceiptSha256": "05bdd3149b35659f649b20e6f1343ff4c73da51ba08b050974b49101425c5d16",
+  "correction": "Final SDK WAN qualification requires the independent collector WAN flag and successful physical data/TLS/cleanup; LAN data success cannot re-promote WAN.",
+  "actualHostFlagsReplayedWithoutSdkRun": {
+    "passed": true,
+    "physicalDataQualified": false,
+    "physicalWanQualified": false
+  },
+  "rawHostSdkReceiptSha256": "b90f5065f3af2ae34dae7b86bb763091c3389fec7f1ac8a15529eb4b1a7cdcba",
+  "sdkRerunPerformed": false,
+  "reviewStatus": "pending independent final follow-up"
+}
