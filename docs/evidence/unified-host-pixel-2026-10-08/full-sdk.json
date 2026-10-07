@@ -1,0 +1,422 @@
+{
+  "scope": "Actual Host/Linux Native and Pixel Android Browser SDK manual admission, durable interrupted completion, reopened nonempty Replica and member business",
+  "direction": "Browser initiates; PING/PONG is bidirectional business on the same original M",
+  "op13Used": false,
+  "turnConfigured": false,
+  "normalPublicTls": true,
+  "sdkStoryPassed": true,
+  "runtimeExit": 0,
+  "reviewStatus": "pending independent Standards/Spec",
+  "qualification": {
+    "wrongTlsIdentityCanonicallyRejected": true,
+    "unapprovedBusinessAndReplicaRejected": true,
+    "authorizationOnlyInterruptedAndResumedSameGrant": true,
+    "bothAdmissionMaterialsDurablySaved": true,
+    "bothIdentitiesReopened": true,
+    "independentOfflineAuthorRetired": true,
+    "strictNewReplicaPurposeAndFreshAck": true,
+    "nonemptyReplicaVerifiedSavedAppliedAndReopened": true,
+    "strictNewMemberGateRtcFreshAckAndOriginalMBusiness": true,
+    "revokedBusinessAndReplicaRejected": true,
+    "physicalWan": false,
+    "fullDirectionMatrix": false
+  },
+  "replica": {
+    "targetAbsentBefore": true,
+    "targetVerifiedSavedAfter": true,
+    "scopeCount": 4,
+    "savedCount": 4,
+    "appliedCount": 4,
+    "complete": true,
+    "targetVerifiedSavedAfterReopen": true
+  },
+  "wrongTlsIdentity": {
+    "canonicalRejected": true,
+    "noApprovedMaterial": true,
+    "restrictedNewPurpose": true,
+    "noLedgerMutation": true
+  },
+  "timings": {
+    "wholeCaseMs": 61982.961,
+    "ordinaryMemberOpenMs": 7577.433,
+    "nonemptyReplicaMs": 7891.627
+  },
+  "stages": [
+    {
+      "name": "native-device-selection",
+      "ok": true,
+      "elapsedMs": 0.002
+    },
+    {
+      "name": "owned-native-actor",
+      "ok": true,
+      "elapsedMs": 0.425
+    },
+    {
+      "name": "native-packet-capture-ready",
+      "ok": true,
+      "elapsedMs": 310.741
+    },
+    {
+      "name": "native-sdk-start",
+      "ok": true,
+      "elapsedMs": 1653.053
+    },
+    {
+      "name": "browser-device-selection",
+      "ok": true,
+      "elapsedMs": 31.918
+    },
+    {
+      "name": "browser-packet-capture-ready",
+      "ok": true,
+      "elapsedMs": 1009.512
+    },
+    {
+      "name": "owned-browser-page",
+      "ok": true,
+      "elapsedMs": 1378.287
+    },
+    {
+      "name": "m82-rtc-observer-ready",
+      "ok": true,
+      "elapsedMs": 100.244
+    },
+    {
+      "name": "m82-admission-fixture-ready",
+      "ok": true,
+      "elapsedMs": 0.012
+    },
+    {
+      "name": "browser-sdk-start",
+      "ok": true,
+      "elapsedMs": 1514.992
+    },
+    {
+      "name": "restricted-admission-request",
+      "ok": true,
+      "elapsedMs": 3503.93
+    },
+    {
+      "name": "native-restricted-admission",
+      "ok": true,
+      "elapsedMs": 0.244
+    },
+    {
+      "name": "different-TLS-identity-claim",
+      "ok": true,
+      "elapsedMs": 4706.639
+    },
+    {
+      "name": "native-TLS-claim-restricted",
+      "ok": true,
+      "elapsedMs": 0.292
+    },
+    {
+      "name": "native-TLS-claim-rejected",
+      "ok": true,
+      "elapsedMs": 0.261
+    },
+    {
+      "name": "unapproved-open_member-rejected",
+      "ok": true,
+      "elapsedMs": 66.287
+    },
+    {
+      "name": "unapproved-sync_replica-rejected",
+      "ok": true,
+      "elapsedMs": 55.356
+    },
+    {
+      "name": "authorization-only-stop",
+      "ok": true,
+      "elapsedMs": 1015.585
+    },
+    {
+      "name": "authorization-only-reopen",
+      "ok": true,
+      "elapsedMs": 1479.424
+    },
+    {
+      "name": "complete-reopen-stop",
+      "ok": true,
+      "elapsedMs": 735.959
+    },
+    {
+      "name": "independent-offline-author",
+      "ok": true,
+      "elapsedMs": 636.83
+    },
+    {
+      "name": "saved-provider-retirement",
+      "ok": true,
+      "elapsedMs": 319.044
+    },
+    {
+      "name": "saved-provider-reopen",
+      "ok": true,
+      "elapsedMs": 1815.029
+    },
+    {
+      "name": "complete-reopen",
+      "ok": true,
+      "elapsedMs": 1596.12
+    },
+    {
+      "name": "nonempty-sdk-replica",
+      "ok": true,
+      "elapsedMs": 7891.627
+    },
+    {
+      "name": "sender-durable-replica-receipt",
+      "ok": true,
+      "elapsedMs": 0.707
+    },
+    {
+      "name": "strict-new-replica-purpose",
+      "ok": true,
+      "elapsedMs": 0.023
+    },
+    {
+      "name": "replica-reopen-stop",
+      "ok": true,
+      "elapsedMs": 2924.685
+    },
+    {
+      "name": "replica-reopen",
+      "ok": true,
+      "elapsedMs": 1583.258
+    },
+    {
+      "name": "ordinary-member-open",
+      "ok": true,
+      "elapsedMs": 7577.433
+    },
+    {
+      "name": "native-live-member",
+      "ok": true,
+      "elapsedMs": 2.21
+    },
+    {
+      "name": "native-live-business",
+      "ok": true,
+      "elapsedMs": 2.135
+    },
+    {
+      "name": "ordinary-member-close",
+      "ok": true,
+      "elapsedMs": 114.297
+    },
+    {
+      "name": "actual-current-member-removal",
+      "ok": true,
+      "elapsedMs": 45.499
+    },
+    {
+      "name": "revoked-open_member-rejected",
+      "ok": true,
+      "elapsedMs": 1722.538
+    },
+    {
+      "name": "revoked-sync_replica-rejected",
+      "ok": true,
+      "elapsedMs": 1729.348
+    }
+  ],
+  "routeEvidence": {
+    "hostKernelRouteQualified": true,
+    "hostSelectedSocketOwned": true,
+    "pixelActiveNonVpnNetwork": false,
+    "pixelRouteQualified": true,
+    "twoEndSelectedTuplePacketsCorrelated": true,
+    "physicalDataQualified": false,
+    "physicalWanQualified": false,
+    "hostUpstreamRouteUnknown": true
+  },
+  "packetEvidence": {
+    "method": "bidirectional-exact-ICE-payloads-on-SDK-selected-tuples",
+    "nativeToBrowserMatchedRequests": 4,
+    "browserToNativeMatchedRequests": 3,
+    "correlated": true,
+    "captures": {
+      "native": {
+        "captureSha256": "27a9e933086080803d379227c507f1127c92ccd31229d34835e03210e73a1fcf",
+        "incompleteSnapshotTail": false,
+        "outboundIceRequests": 4,
+        "inboundIceRequests": 3
+      },
+      "browser": {
+        "captureSha256": "2d0829be5c5de39ee3193bea942f21c312b0cd9c5956c20000d0399b386d4b88",
+        "incompleteSnapshotTail": false,
+        "outboundIceRequests": 3,
+        "inboundIceRequests": 4
+      }
+    },
+    "independentMessageIntegrityValidation": false
+  },
+  "cleanup": {
+    "nativeNaturalExit": 0,
+    "nativeForced": false,
+    "nativeAbsentImmediate": true,
+    "nativeAbsentLate": true,
+    "nativeReadersEnded": true,
+    "nativeDirectoryRemoved": true,
+    "nativeCleanupMs": 318.515,
+    "nativeSdkAssociationsAfter": 0,
+    "nativeSdkPumpsAfter": 0,
+    "browserCleanupSucceeded": true,
+    "browserCleanupMs": 656.038,
+    "captureCleanupSucceeded": true,
+    "captures": {
+      "native": {
+        "ownedDirectoryAbsent": true,
+        "cleanupSucceeded": true,
+        "segments": [
+          {
+            "name": "pre-sdk-udp-and-mqtt",
+            "ready": true,
+            "startedBeforeSdk": true,
+            "forced": false,
+            "exit": 0,
+            "readersEnded": true,
+            "ownedProcessAbsentImmediate": true,
+            "ownedProcessAbsentLate": true,
+            "pcapBytes": 340347,
+            "pcapSha256": "30bae1efcea0de46b23fcd825fba53418df8ae5120f57a6782056298c1290f90",
+            "packetsCaptured": 1111,
+            "packetsReceivedByFilter": 1126,
+            "kernelDrops": 0,
+            "limitReached": false
+          }
+        ]
+      },
+      "browser": {
+        "ownedDirectoryAbsent": true,
+        "cleanupSucceeded": true,
+        "segments": [
+          {
+            "name": "pre-sdk-udp-and-mqtt",
+            "ready": true,
+            "startedBeforeSdk": true,
+            "forced": false,
+            "exit": 0,
+            "readersEnded": true,
+            "ownedProcessAbsentImmediate": true,
+            "ownedProcessAbsentLate": true,
+            "pcapBytes": 394819,
+            "pcapSha256": "e4affba21542c482960b30732948b55c891336bca8efec8cd461105bcb26da68",
+            "packetsCaptured": 1304,
+            "packetsReceivedByFilter": 1304,
+            "kernelDrops": 0,
+            "limitReached": false
+          }
+        ]
+      }
+    }
+  },
+  "precodeShortRegression": {
+    "command": [
+      "rtk",
+      "proxy",
+      "/tmp/mio82-selected-precode-original-graph-build-root-20261008/test-build/pinned-selected-sdk-test",
+      "--exact",
+      "interrupted_single_precode_keeps_same_grant_and_exhausts_other_holder",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit": 0,
+    "callerElapsedMs": 2039.352,
+    "forced": false,
+    "processGroupAbsentImmediate": true,
+    "processGroupAbsentLate": true,
+    "strictNewPurposeObservedOnBothEndpoints": true,
+    "sourcesAndArtifactsStable": true,
+    "bindingSha256": "f06ed4e959d582dc50615621ca5d3a99d21e5a82ea03ebbad2190e2c5679abf2",
+    "stdoutSha256": "fb0d5e28b0912d2010a7651851aaec2b857c2530035528681b535287d1da3db0",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "compilerSelectedInputsStillCurrent": true,
+    "selectedInputCount": 5716,
+    "unselectedLaterFixtureChange": "src/bin/unified_admission_story.rs"
+  },
+  "nativeBuild": {
+    "exit": 0,
+    "freshArtifacts": 527,
+    "rebuiltArtifacts": 1,
+    "deployedSha256": "477df66abd78f577c5ee5b7deaec5fe32f4ee263cb77714de2a5e76c4849d455",
+    "sourceDigestBefore": "f164b20097a73434a725a538591f7c53bf74857aba2e1d2dddf23841b9708680",
+    "sourceDigestAfter": "f164b20097a73434a725a538591f7c53bf74857aba2e1d2dddf23841b9708680",
+    "actualSelectedInputCount": 6578,
+    "actualSourceCopyCount": 291,
+    "actualCapturedDepfileCount": 477
+  },
+  "browserBuild": {
+    "receiptSha256": "ea598344aaef54ab723a35bde68a72662e18ac01d8dae463122bf5a75fbb3ccc",
+    "packageSha256": "47821ad51e121355662db0d9e84193ccfc021a31a7479a61540ca110f4943ad4",
+    "artifactCount": 6
+  },
+  "rawEvidence": {
+    "command": [
+      "rtk",
+      "proxy",
+      "python3",
+      "-B",
+      "/tmp/mio82-host-replica-phase-current-sdk-root-20261008/driver.py",
+      "execute"
+    ],
+    "driverSha256": "7b794d4a6929a72e60f89ec95f4803618e0c1cc3d7dc54d9d06adb09a4689946",
+    "bindingSha256": "178708a77bc74280f95a3066896d541817e2ff98c874646ea7beabc09382f939",
+    "sdkReceipt": "/tmp/mio82-host-replica-phase-current-sdk-root-20261008/runtime/receipt.json",
+    "sdkReceiptSha256": "b90f5065f3af2ae34dae7b86bb763091c3389fec7f1ac8a15529eb4b1a7cdcba",
+    "privateTranscriptSha256": "030ba6a3c3cac2b8578b34cd68639b7ac8589e1c111b344e938cb7ca94754b3d",
+    "privateRouteReceiptSha256": "bad000aa9b75b3bc79391bb0bfb4b04dee9359b57e05ec38fe6dd30629d106ec",
+    "nativeBuildReceiptSha256": "b573a97bc2608d5ec5461d759c46e21e2cd66b24cf23d31abd508eae7f6470ed",
+    "sourceAndArtifactPostchecks": true
+  },
+  "retainedFailures": [
+    {
+      "scope": "SDK passed; initial Host FD observer could not parse the long ls listing",
+      "exit": 0,
+      "executionReceipt": "/tmp/mio82-host-live-kernel-route-current-sdk-root-20261008/host-runtime-execution.json",
+      "executionSha256": "5227e8f64a7b4af896b1f1b564c5da2e1f2d9a99cc26e1d860e069d809aeb606",
+      "sourceAndArtifactPostchecks": true
+    },
+    {
+      "scope": "First nonempty extension stopped at Host actor restart assertion after natural provider exit",
+      "exit": 1,
+      "executionReceipt": "/tmp/mio82-host-nonempty-replica-current-sdk-root-20261008/host-runtime-execution.json",
+      "executionSha256": "774de36206e488d1580a1c34f4ef5b66fb75427767f015c1e2f58bbe6fc24155",
+      "sourceAndArtifactPostchecks": true
+    },
+    {
+      "scope": "Replica Native accepted durable receipt but immediate fixture close lost final confirmation at Browser",
+      "exit": 1,
+      "executionReceipt": "/tmp/mio82-host-provider-reopen-fixed-current-sdk-root-20261008/host-runtime-execution.json",
+      "executionSha256": "ec62ef42ed0c6d04a5504d57f0607549ccfdfa20da8d729c0306ddeb70db236a",
+      "sourceAndArtifactPostchecks": true
+    },
+    {
+      "scope": "Actual TLS claim rejected; controller expected the wrong literal ALPN",
+      "exit": 1,
+      "executionReceipt": "/tmp/mio82-host-replica-retirement-current-sdk-root-20261008/host-runtime-execution.json",
+      "executionSha256": "01253b2266bdefa55dc3e8c7b33f8042b1aeac134326e13abe365de54b3ad57c",
+      "sourceAndArtifactPostchecks": true
+    },
+    {
+      "scope": "Browser Replica succeeded; delayed Native completion event exceeded observer timeout",
+      "exit": 1,
+      "executionReceipt": "/tmp/mio82-host-tls-claim-alpn-fixed-current-sdk-root-20261008/host-runtime-execution.json",
+      "executionSha256": "411d91c974ba37a5cb9406e4ba548ce17f934dd7bcf9c89e155a891e47c4485b",
+      "sourceAndArtifactPostchecks": true
+    }
+  ],
+  "limits": [
+    "Current Host/Pixel functional SDK proof does not establish physical public NAT.",
+    "Linux selected default route and socket UID/mark were observed; Windows upstream route remains unknown.",
+    "Pixel selected route was observed, but its active Android agent did not report VALIDATED in this live receipt.",
+    "Two-end exact ICE-shaped payload matching is packet correlation, not independent message-integrity verification.",
+    "Capture counters describe bounded interface captures; unrelated captured flows are not attributed to the SDK.",
+    "Reverse Native initiation, the four-direction matrix and final old-wire cleanup are separate evidence.",
+    "Transparent-proxy diagnosis remains deferred; OP13 was not used.",
+    "Raw receipts retain their original per-case flags and private fields; this derivative publishes only scoped facts."
+  ]
+}

@@ -32,6 +32,33 @@ mod enabled {
     type Failure = Box<dyn Error + Send + Sync>;
     type OrdinaryMemberLedger = Arc<std::sync::Mutex<BTreeMap<usize, WeakConnectionHandle>>>;
 
+    async fn wait_owned_consumer(
+        connection: &iroh::endpoint::Connection,
+    ) -> Result<&'static str, Failure> {
+        let deadline = connection
+            .caller_deadline()
+            .ok_or("owned operation deadline absent")?;
+        let cancelled = async {
+            if let Some(cancellation) = connection.attempt_cancellation() {
+                cancellation.cancelled().await;
+            } else {
+                std::future::pending::<()>().await;
+            }
+        };
+        Ok(n0_future::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            async {
+                tokio::select! {
+                    biased;
+                    _ = cancelled => "Cancelled",
+                    _ = connection.closed() => "ConnectionEnded",
+                }
+            },
+        )
+        .await
+        .unwrap_or("DeadlineExceeded"))
+    }
+
     struct OrdinaryMemberGuard {
         ledger: OrdinaryMemberLedger,
         stable: usize,
@@ -130,6 +157,7 @@ mod enabled {
             let candidate_type = object
                 .get("candidateType")
                 .or_else(|| object.get("candidate_type"))
+                .or_else(|| object.get("typ"))
                 .or_else(|| object.get("type"))
                 .and_then(Value::as_str)
                 .ok_or("selected ICE endpoint has no candidate type")?;
@@ -178,6 +206,23 @@ mod enabled {
             .get("remote")
             .ok_or("selected ICE pair has no remote endpoint")?;
         Ok((endpoint(local, true)?, endpoint(remote, false)?))
+    }
+    #[test]
+    fn socket_observer_reads_current_native_candidate_serialization() {
+        let pair = json!({
+            "local": {"typ":"host","address":"192.0.2.7","port":40000},
+            "remote": {"typ":"srflx","address":"198.51.100.9","port":41000,
+                "related_address":"192.0.2.9","related_port":42000}
+        });
+        let (local, remote) = selected_pair_sockets(&pair).unwrap();
+        assert_eq!(local, "192.0.2.7:40000".parse::<SocketAddr>().unwrap());
+        assert_eq!(remote, "198.51.100.9:41000".parse::<SocketAddr>().unwrap());
+        let mut mapped = pair.clone();
+        mapped["local"] = json!({"typ":"srflx","address":"203.0.113.7","port":43000,
+            "related_address":"192.0.2.7","related_port":40000});
+        assert_eq!(selected_pair_sockets(&mapped).unwrap().0, local);
+        mapped["local"]["typ"] = "relay".into();
+        assert!(selected_pair_sockets(&mapped).is_err());
     }
     fn emit(value: Value) {
         println!("{value}");
@@ -785,21 +830,7 @@ mod enabled {
                                 // finish() queues the response. The consumer closes A
                                 // after processing it; an immediate provider close can
                                 // discard even received-but-unprocessed stream data.
-                                let original_deadline = connection.caller_deadline().ok_or("owned admission deadline absent")?;
-                                let cancelled = async {
-                                    if let Some(cancellation) = connection.attempt_cancellation() {
-                                        cancellation.cancelled().await;
-                                    } else {
-                                        std::future::pending::<()>().await;
-                                    }
-                                };
-                                n0_future::time::timeout(original_deadline.saturating_duration_since(n0_future::time::Instant::now()),async {
-                                    tokio::select! {
-                                        biased;
-                                        _ = cancelled => "Cancelled",
-                                        _ = connection.closed() => "ConnectionEnded",
-                                    }
-                                }).await.unwrap_or("DeadlineExceeded")
+                                wait_owned_consumer(&connection).await?
                             } else { "RejectedWithoutWait" };
                             emit(json!({"event":"admission-ended","alpn":String::from_utf8_lossy(connection.alpn()),
                                 "stableId":connection.stable_id(),"succeeded":result.is_ok(),
@@ -827,13 +858,25 @@ mod enabled {
                                 Some(connection.export_keying_material(&mut current,
                                     b"miopunch/replica-session-observation/1", &[]).is_ok() && current==binding)
                             } else {None};
+                            let provider_elapsed = operation_started.elapsed();
                             emit(json!({"event":"replica-finished","alpn":String::from_utf8_lossy(connection.alpn()),
                                 "stableId":connection.stable_id(),"stableUnchanged":connection.stable_id()==original,
                                 "memberAuthorizedBefore":member_before,"memberAuthorizedAfter":gate.allows(&connection,ProtocolScope::Member),
                                 "originalBindingObserved":binding_observed,"bindingUnchanged":binding_unchanged,
                                 "callerDeadlinePresent":connection.caller_deadline().is_some(),
                                 "durableReceiptAccepted":result.is_ok(),"newWireQualified":false,
-                                "callerElapsedMs":operation_started.elapsed().as_millis(),"callerBudgetMs":caller_budget.as_millis()}));
+                                "callerElapsedMs":provider_elapsed.as_millis(),"callerBudgetMs":caller_budget.as_millis()}));
+                            let retirement_started = n0_future::time::Instant::now();
+                            // The final receipt ACK is queued on the original M.
+                            // Report the durable receipt separately from retirement
+                            // while allowing its ACK to be retransmitted. The peer,
+                            // cancellation or owned endpoint shutdown ends this wait.
+                            let retirement = if result.is_ok() {
+                                wait_owned_consumer(&connection).await?
+                            } else { "RejectedWithoutWait" };
+                            emit(json!({"event":"replica-ended","stableId":connection.stable_id(),
+                                "operatorRetirementElapsedMs":retirement_started.elapsed().as_millis(),
+                                "operatorRetirementReason":retirement}));
                             connection.close(0u32.into(),b"owned replica ended");
                         } else if connection.alpn() == miopunch_native_probe::connection_recovery::CONNECTION_RECOVERY_ALPN {
                             node.lock().await.serve_connection_path_recovery(&assembly,&connection).await?;

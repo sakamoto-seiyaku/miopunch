@@ -1,0 +1,94 @@
+{
+  "scope": "Host/Linux Native ↔ Pixel Android Browser via actual public MQTT restricted admission and RTC data path",
+  "direction": "Browser initiates to Native; application PING/PONG travels both ways on the same M",
+  "nativePlatform": "Host/Linux",
+  "browserPlatform": "Android/Pixel_6a",
+  "op13Used": false,
+  "publicFacilityNormalTls": true,
+  "sdkStoryPassed": true,
+  "qualifications": {
+    "restrictedAdmissionAndDurableReopen": true,
+    "memberGateAndNewProtocol": true,
+    "selectedRtcFreshAck": true,
+    "sameConnectionBusinessPingPong": true,
+    "physicalWan": false,
+    "fullDirectionMatrix": false
+  },
+  "timings": {
+    "ordinaryMemberOpenMs": 8639.589,
+    "wholeCaseMs": 43733.928
+  },
+  "exit": 0,
+  "sourcesAndArtifactsRecheckedAfterCleanup": true,
+  "cleanup": {
+    "passed": true,
+    "normalTlsVerified": true,
+    "physicalWanQualified": false,
+    "nativeForced": false,
+    "nativeExit": 0,
+    "nativeAbsentImmediate": true,
+    "nativeAbsentLate": true,
+    "nativeQualified": true,
+    "browserCleanup": true,
+    "captureCleanup": true,
+    "captures": {
+      "native": [
+        {
+          "ready": true,
+          "exit": 0,
+          "forced": false,
+          "packetsCaptured": 741,
+          "packetsReceivedByFilter": 741,
+          "kernelDrops": 0,
+          "limitReached": false,
+          "ownedProcessAbsentImmediate": true,
+          "ownedProcessAbsentLate": true
+        }
+      ],
+      "browser": [
+        {
+          "ready": true,
+          "exit": 0,
+          "forced": false,
+          "packetsCaptured": 733,
+          "packetsReceivedByFilter": 733,
+          "kernelDrops": 0,
+          "limitReached": false,
+          "ownedProcessAbsentImmediate": true,
+          "ownedProcessAbsentLate": true
+        }
+      ]
+    },
+    "nativeSocketMarkAbiObserved": true,
+    "nativeOwnedFdMarkObserved": true
+  },
+  "nativeBuild": {
+    "receipt": "/tmp/mio82-host-observer-sdk-root-20261008/native-build/receipt.json",
+    "receiptSha256": "159d92f77be2ba473a71ada3892ae92c045d55fc287e1ef843e53f690a8bd678",
+    "binarySha256": "36638e414aab624fe1bbed1ac57b892969e86e33ce9b711c213689a484330bf3",
+    "sourceDigest": "31d17c4a9d992152faa21383d83ad56a38385ac7e9cbe9334936168f25708c0d",
+    "selectedInputs": 6578,
+    "sourceCopies": 291,
+    "capturedDepfiles": 477,
+    "freshArtifacts": 526,
+    "rebuiltArtifacts": 2,
+    "cargoExit": 0
+  },
+  "rawReceipt": {
+    "path": "/tmp/mio82-host-capture-uid-fixed-current-sdk-root-20261008/runtime/receipt.json",
+    "sha256": "2ed5f231a7ff3bc243acc20a6ad95666b2e3525822e32be7c0012c2a7d520a55"
+  },
+  "firstFailure": {
+    "scope": "Host capture startup before SDK; tcpdump could not transition uid/gid with dropped capabilities",
+    "sdkActorsStarted": 0,
+    "retainedExecution": "/tmp/mio82-host-observer-sdk-root-20261008/host-runtime-execution.json",
+    "retainedExecutionSha256": "480cd2765886dc5fcaeace35d363168c56370b7e5b75ea26e5640a0ea4d05e38"
+  },
+  "limits": [
+    "OP13 is temporarily unavailable and was not used.",
+    "Host upstream/Windows physical route qualification is separate and not claimed.",
+    "Two-end packet counts describe bounded captures; all captured packets are not claimed to belong to the SDK.",
+    "Transparent-proxy WebRTC diagnosis was deferred at the user request.",
+    "No throughput, success-rate or all-directions matrix claim."
+  ]
+}
