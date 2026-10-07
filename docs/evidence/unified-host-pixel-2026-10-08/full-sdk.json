@@ -6,7 +6,7 @@
   "normalPublicTls": true,
   "sdkStoryPassed": true,
   "runtimeExit": 0,
-  "reviewStatus": "pending independent Standards/Spec",
+  "reviewStatus": "independent Standards/Spec complete; environment qualification remains incomplete",
   "qualification": {
     "wrongTlsIdentityCanonicallyRejected": true,
     "unapprovedBusinessAndReplicaRejected": true,
@@ -418,5 +418,30 @@
     "Reverse Native initiation, the four-direction matrix and final old-wire cleanup are separate evidence.",
     "Transparent-proxy diagnosis remains deferred; OP13 was not used.",
     "Raw receipts retain their original per-case flags and private fields; this derivative publishes only scoped facts."
-  ]
+  ],
+  "formalReview": {
+    "sourceReviewCommit": "d91bb02a6b02c133f3758a829c1c5e823b6e6038",
+    "model": "gpt-6.1-sol",
+    "reasoningEffort": "high",
+    "serviceTier": "default",
+    "standardsHardFindings": 0,
+    "standardsParkedHeuristics": 1,
+    "specRequiredSourceFixes": 0,
+    "specEnvironmentGaps": 2,
+    "reports": {
+      "/tmp/mio82-final-functional-proof-root-20261008/standards/report.md": "7d73a78eb804f7ae4cd0322be6286809ec40da55812d0a925c5f985d0a126a23",
+      "/tmp/mio82-final-functional-proof-root-20261008/standards/qualification-followup/report.md": "e69c6a401f7f616f0fe5d6ff9e56ee8f4e820bab484b4e42f40ae560530b219f",
+      "/tmp/mio82-final-functional-proof-root-20261008/standards/finalizer-followup/report.md": "8f5d801dafb00756c092e005a48f412da398b93ee2bcfe4745c249fe114da0d9",
+      "/tmp/mio82-final-functional-proof-root-20261008/spec/report.md": "8b4bf79635b5311513b9b33b0f6390379148795df771eed7f549553663040c05",
+      "/tmp/mio82-final-functional-proof-root-20261008/spec/qualification-followup/report.md": "7dc5f2dabb56ceac734f405abc14ed514af3e62149be78113ebff675442b8e8d",
+      "/tmp/mio82-final-functional-proof-root-20261008/spec/finalizer-followup/report.md": "b15e6d8474e7988002521411a4b2bf868127fa5c31787ccb7efd6bcc6065058d",
+      "/tmp/mio82-final-functional-proof-root-20261008/standards/verification.json": "c6a5ac305cf134800aa31fc8cf4af18cb3742f13fef6b78eb8ccd9b30f61e2aa",
+      "/tmp/mio82-final-functional-proof-root-20261008/standards/qualification-followup/verification.json": "9dd8709032dd6e32c03154adfe2bf7f8cb21e1de74202311a2d6173e1a8d61f2",
+      "/tmp/mio82-final-functional-proof-root-20261008/standards/finalizer-followup/verification.json": "7dc16e3fad7a05d7842877f6492f9f8feffd9e0550ca2c2eeac2335421426fe4",
+      "/tmp/mio82-final-functional-proof-root-20261008/spec/verification.json": "b7aefbd4b849f48df502c9c0e7e07d7ac4adebcb01bfd71862a9dbe64b5689f1",
+      "/tmp/mio82-final-functional-proof-root-20261008/spec/qualification-followup/verification.json": "b03bab05d3a83324ac4db502b6502aa65b46cb486314b9e122d158fed7d21b6d",
+      "/tmp/mio82-final-functional-proof-root-20261008/spec/finalizer-followup/verification.json": "0a5d535ab100f6a87d416d7fda3ecb26a3ed4487c347d5cdbdb02a4ab1259bff"
+    },
+    "aggregateSha256": "3bbbae16064567a656aeac6ca0e7b3a74a7317341a1c4ccbdbcff3e2e7c7c843"
+  }
 }
