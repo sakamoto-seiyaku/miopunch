@@ -147,6 +147,7 @@ enum Command {
 }
 pub struct MaintainedNetwork {
     resources: Arc<ResourceEndpoint>,
+    active: crate::connection_coordinator::CoordinatorHook,
     contact_observer: Option<Arc<crate::mqtt_transport::MqttTransport>>,
     updates: watch::Receiver<MaintenanceStatus>,
     commands: mpsc::Sender<Command>,
@@ -166,6 +167,26 @@ impl MaintainedNetwork {
     /// its current resource snapshot and does not create a second Node owner.
     pub fn coordinator(&self) -> crate::connection_coordinator::ConnectionCoordinator {
         self.resources.coordinator()
+    }
+    /// Repair the exact member Connection kept by this caller. Existing Node
+    /// contact quota, original-M lease, Router and active protocol are shared;
+    /// the caller remainder and historical three-second cap bound the operation.
+    /// A failed repair with no fresh surviving DATA path terminates this M.
+    pub async fn repair_member_connection_until(
+        &self,
+        original: &Connection,
+        contact: EndpointAddr,
+        deadline: n0_future::time::Instant,
+    ) -> Result<(), crate::connection_recovery::ConnectionPathRecoveryError> {
+        self.active
+            .repair(
+                &self.resources,
+                original,
+                contact,
+                deadline,
+                self.cancel.child_token(),
+            )
+            .await
     }
     pub fn node_status(&self) -> NodeStatus {
         self.updates.borrow().node.clone()
@@ -1381,7 +1402,7 @@ impl NativeNetwork {
             published,
             provider: provider_tx,
             activity: activity.clone(),
-            active: active_adapter,
+            active: active_adapter.clone(),
         };
         for address in saved {
             if coordinator.member(address.id) {
@@ -1399,6 +1420,7 @@ impl NativeNetwork {
             tokio::spawn(coordinator.run(incoming, disable_incoming, cancel.clone(), router));
         Ok(MaintainedNetwork {
             resources,
+            active: active_adapter,
             contact_observer,
             updates,
             commands,

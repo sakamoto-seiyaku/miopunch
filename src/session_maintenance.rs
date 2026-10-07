@@ -178,22 +178,53 @@ impl<B> MaintenanceLease<B> {
     /// common coordinator must finish fresh ACK, current permission and both
     /// confirmations before returning success; selection remains its existing
     /// timer/policy. Dropping work on any losing race runs candidate-only RAII.
-    pub(crate) async fn run<T>(self, work: impl Future<Output = T>) -> Result<T, MaintenanceError> {
-        if !self.original.is_open() {
+    pub(crate) fn run<T>(
+        self,
+        work: impl Future<Output = T>,
+    ) -> impl Future<Output = Result<T, MaintenanceError>> {
+        let work = run_reserved_work(self.original.clone(), self.attempt.clone(), work);
+        async move {
+            let result = work.await;
+            drop(self);
+            result
+        }
+    }
+
+    /// Explicit repair keeps this same reservation/quota through its failure
+    /// decision. The candidate race finishes first; ownership ends when this
+    /// caller drops the lease after settlement, including Terminal closure.
+    pub(crate) fn run_ref<T>(
+        &self,
+        work: impl Future<Output = T>,
+    ) -> impl Future<Output = Result<T, MaintenanceError>> {
+        run_reserved_work(self.original.clone(), self.attempt.clone(), work)
+    }
+}
+
+fn run_reserved_work<T>(
+    original: WeakConnectionHandle,
+    attempt: AttemptContext,
+    work: impl Future<Output = T>,
+) -> impl Future<Output = Result<T, MaintenanceError>> {
+    // RTC preparation futures are large. Box before the async reservation race
+    // so nested wrappers do not repeatedly move them on a Tokio worker's stack.
+    let work = Box::pin(work);
+    async move {
+        if !original.is_open() {
             return Err(MaintenanceError::SessionClosed);
         }
-        if self.attempt.cancellation.is_cancelled() {
+        if attempt.cancellation.is_cancelled() {
             return Err(MaintenanceError::Cancelled);
         }
-        if self.attempt.deadline <= n0_future::time::Instant::now() {
+        if attempt.deadline <= n0_future::time::Instant::now() {
             return Err(MaintenanceError::DeadlineExceeded);
         }
-        let cancelled = self.attempt.cancellation.cancelled().fuse();
-        let closed = self.original.closed().fuse();
+        let cancelled = attempt.cancellation.cancelled().fuse();
+        let closed = original.closed().fuse();
         let work = work.fuse();
         futures_util::pin_mut!(cancelled, closed, work);
         n0_future::time::timeout(
-            self.attempt
+            attempt
                 .deadline
                 .saturating_duration_since(n0_future::time::Instant::now()),
             async {
@@ -208,6 +239,7 @@ impl<B> MaintenanceLease<B> {
         .map_err(|_| MaintenanceError::DeadlineExceeded)?
     }
 }
+
 impl<B> Drop for MaintenanceLease<B> {
     fn drop(&mut self) {
         let mut slots = self.registry.slots.lock().unwrap();
@@ -364,11 +396,14 @@ mod tests {
         registry.register(&client);
         let binding = crate::connection_recovery_core::binding(&client).unwrap();
         assert_eq!(registry.live().len(), 1);
-        assert!(registry.for_binding(client.remote_id(), &binding).is_none());
-        assert!(registry.for_binding(server.remote_id(), &binding).is_some());
+        let original_peer = client.remote_id();
+        let wrong_peer = server.remote_id();
+        assert_ne!(original_peer, wrong_peer);
+        assert!(registry.for_binding(wrong_peer, &binding).is_none());
+        assert!(registry.for_binding(original_peer, &binding).is_some());
         client.close(0u32.into(), b"ownership registry ended");
         assert!(registry.live().is_empty());
-        assert!(registry.for_binding(server.remote_id(), &binding).is_none());
+        assert!(registry.for_binding(original_peer, &binding).is_none());
         server.close(0u32.into(), b"ownership registry ended");
         tokio::join!(client_ep.close(), server_ep.close());
     }

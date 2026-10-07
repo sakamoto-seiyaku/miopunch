@@ -7,9 +7,9 @@ use std::{future::Future, io, pin::Pin};
 pub const MEMBER_ALPN: &[u8] = b"miopunch/session/member/1";
 pub const ADMISSION_REQUEST_ALPN: &[u8] = b"miopunch/session/admission/1";
 pub const PRECODE_REQUEST_ALPN: &[u8] = b"miopunch/session/precode/1";
-/// A restricted control connection used only to improve an already live
-/// ordinary member session.  It is intentionally a separate ALPN and wire
-/// discriminator from path repair and never returns an ordinary handle.
+/// Restricted control for improvement or repair of an already living ordinary
+/// member session. Both operations use the same binding/probe/commit exchange;
+/// this control session never returns an ordinary handle.
 pub const ACTIVE_IMPROVEMENT_ALPN: &[u8] = b"miopunch/session/improve/1";
 pub const REPLICA_ALPN: &[u8] = b"miopunch/session/replica/1";
 const FRAME_LEN: usize = 28;
@@ -18,6 +18,78 @@ pub(crate) const TCP: u8 = 2;
 pub(crate) const RELAY: u8 = 4;
 pub(crate) const RTC: u8 = 8;
 const CAPABILITIES: u8 = UDP | TCP | RELAY | RTC;
+
+/// Start real fresh QUIC probes on this operation's existing permitted DATA
+/// paths. The returned check requires the same still-open path, current
+/// permission and its post-entry ACK; a listed path or old ACK is insufficient.
+/// Probe progress belongs to the existing connection driver, with no task/timer.
+pub(crate) fn probe_existing_data_survival(
+    original: &Connection,
+    permits: impl Fn(&TransportAddr) -> bool,
+) -> impl Fn(&Connection, &dyn Fn(&TransportAddr) -> bool) -> bool {
+    let original_id = original.stable_id();
+    let original_peer = original.remote_id();
+    let probes: Vec<_> = original
+        .paths()
+        .iter()
+        .filter(|path| permits(path.remote_addr()))
+        .filter_map(|path| {
+            path.start_probe()
+                .ok()
+                .map(|probe| (path.id().to_string(), path.remote_addr().clone(), probe))
+        })
+        .collect();
+    move |original, permits| {
+        original.stable_id() == original_id
+            && original.remote_id() == original_peer
+            && original.close_reason().is_none()
+            && probes.iter().any(|(id, address, probe)| {
+                permits(address)
+                    && matches!(probe.is_acknowledged(), Ok(true))
+                    && original
+                        .paths()
+                        .iter()
+                        .any(|path| path.id().to_string() == *id && path.remote_addr() == address)
+            })
+    }
+}
+
+/// A fast control rejection can precede an existing path's new ACK. Reuse the
+/// established bounded path validator for the remainder of this same operation;
+/// contact addresses are never added to its DATA offer.
+pub(crate) async fn validate_existing_data_survival(
+    endpoint: &Endpoint,
+    original: &Connection,
+    deadline: n0_future::time::Instant,
+    permits: &impl Fn(&TransportAddr) -> bool,
+    check: &impl Fn(&Connection) -> io::Result<()>,
+) -> bool {
+    if deadline <= n0_future::time::Instant::now() || original.close_reason().is_some() {
+        return false;
+    }
+    let mut candidate = iroh::EndpointAddr::new(original.remote_id());
+    candidate.addrs.extend(
+        original
+            .paths()
+            .iter()
+            .map(|path| path.remote_addr().clone())
+            .filter(permits)
+            .take(crate::connection_recovery_core::MAX_CANDIDATES),
+    );
+    n0_future::time::timeout(
+        deadline.saturating_duration_since(n0_future::time::Instant::now()),
+        crate::connection_recovery_core::validate_candidates(
+            endpoint,
+            original,
+            original,
+            candidate,
+            permits,
+            &|original, _| check(original),
+        ),
+    )
+    .await
+    .is_ok_and(|result| result.is_ok())
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
@@ -1526,6 +1598,39 @@ pub(crate) async fn improve_existing<A: MemberPathAdapter>(
         peer,
     )
     .await
+}
+
+/// Fault fixture using the real active hello framing on an authenticated C.
+/// A deliberately different original exporter must fail before candidate setup.
+#[cfg(feature = "rtc-probe")]
+pub(crate) async fn wrong_active_binding_fixture(
+    original: &Connection,
+    control: &Connection,
+    caps: RuntimeCapabilities,
+    deadline: n0_future::time::Instant,
+) -> io::Result<io::Result<()>> {
+    if original.close_reason().is_some()
+        || control.close_reason().is_some()
+        || control.remote_id() != original.remote_id()
+        || control.alpn() != ACTIVE_IMPROVEMENT_ALPN
+    {
+        return Err(control_error("InvalidControl"));
+    }
+    let role = AttemptRole::initial(control);
+    let mut binding = crate::connection_recovery_core::binding(original)?;
+    binding[0] ^= 1;
+    n0_future::time::timeout(
+        deadline.saturating_duration_since(n0_future::time::Instant::now()),
+        async {
+            let (mut send, mut recv) = open_active_stream(control).await?;
+            write_active_hello(&mut send, active_hello(caps, role, binding)).await?;
+            // Outer success proves the exact faulty hello was accepted by the
+            // actual QUIC stream write; the inner result observes the response.
+            Ok(read_active_hello(&mut recv).await.map(|_| ()))
+        },
+    )
+    .await
+    .map_err(|_| control_error("DeadlineExceeded"))?
 }
 
 /// Server-side active-control entry. The hello's exporter binding selects the

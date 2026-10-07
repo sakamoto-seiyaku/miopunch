@@ -18,6 +18,20 @@ pub(crate) struct CoordinatorHook {
     #[cfg(feature = "rtc-probe")]
     rtc: Option<crate::rtc_transport::RtcTransport>,
 }
+
+struct CloseActiveControl(Connection);
+impl Drop for CloseActiveControl {
+    fn drop(&mut self) {
+        self.0
+            .close(0u32.into(), b"active improvement exchange ended");
+    }
+}
+struct CancelRepair(tokio_util::sync::CancellationToken);
+impl Drop for CancelRepair {
+    fn drop(&mut self) {
+        self.0.cancel();
+    }
+}
 impl CoordinatorHook {
     pub(crate) fn new(gate: AdmissionGate, udp_allowed: bool) -> Self {
         Self {
@@ -76,9 +90,124 @@ impl CoordinatorHook {
                 .connect_alpn(target, super::ACTIVE_IMPROVEMENT_ALPN, attempt.clone())
                 .await
                 .map_err(|error| io::Error::other(error.to_string()))?;
-        let result = super::improve_existing(endpoint, original, &control, self, attempt).await;
-        control.close(0u32.into(), b"active improvement complete");
-        result
+        let _control = CloseActiveControl(control.clone());
+        super::improve_existing(endpoint, original, &control, self, attempt).await
+    }
+
+    pub(crate) async fn repair(
+        &self,
+        resources: &crate::resources::ResourceEndpoint,
+        original: &Connection,
+        mut contact: iroh::EndpointAddr,
+        caller_deadline: n0_future::time::Instant,
+        cancel: tokio_util::sync::CancellationToken,
+    ) -> Result<(), crate::connection_recovery_core::ConnectionPathRecoveryError> {
+        use crate::connection_recovery_core as recovery;
+        let started = n0_future::time::Instant::now();
+        if original.close_reason().is_some() {
+            return Err(recovery::failed(original, "original connection closed"));
+        }
+        if caller_deadline <= started
+            || contact.id != original.remote_id()
+            || contact.addrs.len() > recovery::MAX_CANDIDATES
+            || !self.gate.allows_member_path_upgrade(original)
+        {
+            return Err(recovery::failed(
+                original,
+                "repair caller/peer/current member scope differs",
+            ));
+        }
+        let deadline = caller_deadline.min(started + recovery::REPAIR_TIMEOUT);
+        let quota = resources
+            .begin_contact_attempt_until(original.remote_id(), deadline)
+            .map_err(|cause| recovery::failed(original, cause))?;
+        let _cancel = CancelRepair(cancel.clone());
+        let attempt = AttemptContext::new(deadline, cancel);
+        let lease = self
+            .gate
+            .maintenance()
+            .acquire(original, &attempt, quota)
+            .map_err(|cause| {
+                recovery::failed(original, format!("repair reservation: {cause:?}"))
+            })?;
+        contact.addrs.extend(
+            original
+                .paths()
+                .iter()
+                .map(|path| path.remote_addr().clone())
+                .take(8),
+        );
+        if let Some(known) = resources.contacts.get_endpoint_info(original.remote_id()) {
+            contact.addrs.extend(known.into_endpoint_addr().addrs);
+        }
+        let permits =
+            |address: &TransportAddr| self.permits_repair_survival(resources, original, address);
+        let surviving = super::probe_existing_data_survival(original, &permits);
+        let result = lease
+            .run_ref(self.improve(resources.endpoint(), original, contact, attempt))
+            .await
+            .map_err(|cause| io::Error::other(format!("repair attempt: {cause:?}")))
+            .and_then(|result| result);
+        if result.is_ok() && original.close_reason().is_none() {
+            resources.reset_contact(original.remote_id());
+            return Ok(());
+        }
+        resources.contact_failed(original.remote_id());
+        let check = |original: &Connection| {
+            if self.gate.allows_member_path_upgrade(original) && original.close_reason().is_none() {
+                Ok(())
+            } else {
+                Err(control_error("IdentityOrAdmissionRejected"))
+            }
+        };
+        let maintained = surviving(original, &permits)
+            || lease
+                .run_ref(super::validate_existing_data_survival(
+                    resources.endpoint(),
+                    original,
+                    deadline,
+                    &permits,
+                    &check,
+                ))
+                .await
+                .unwrap_or(false)
+            || surviving(original, &permits);
+        if !maintained && original.close_reason().is_none() {
+            original.close(
+                0u32.into(),
+                b"same-session repair has no surviving data path",
+            );
+            original.closed().await;
+        }
+        Err(recovery::failed(
+            original,
+            result
+                .err()
+                .map(|cause| cause.to_string())
+                .unwrap_or_else(|| "original connection closed".into()),
+        ))
+    }
+
+    fn permits_repair_survival(
+        &self,
+        resources: &crate::resources::ResourceEndpoint,
+        original: &Connection,
+        address: &TransportAddr,
+    ) -> bool {
+        if !self.gate.allows_member_path_upgrade(original) || original.close_reason().is_some() {
+            return false;
+        }
+        #[cfg(feature = "rtc-probe")]
+        if let TransportAddr::Custom(address) = address
+            && address.id() == crate::rtc_transport::TRANSPORT_ID
+        {
+            use iroh::endpoint::transports::CustomSender;
+            return self
+                .rtc
+                .as_ref()
+                .is_some_and(|rtc| rtc.is_data_path_qualified(address, original.stable_id()));
+        }
+        resources.allows_data_path(address)
     }
 }
 impl MemberPathAdapter for CoordinatorHook {

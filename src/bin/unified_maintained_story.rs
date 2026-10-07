@@ -76,6 +76,7 @@ mod enabled {
     struct Observed {
         endpoint: Mutex<Option<Endpoint>>,
         original: Mutex<Option<Original>>,
+        allow_next_member: std::sync::atomic::AtomicBool,
         handlers: AtomicUsize,
         stream_handlers: AtomicUsize,
         accepted_streams: AtomicUsize,
@@ -119,6 +120,10 @@ mod enabled {
         let Some(original) = values.as_ref() else {
             return json!({"observed":false});
         };
+        member_facts(original, gate)
+    }
+
+    fn member_facts(original: &Original, gate: &AdmissionGate) -> Value {
         let Some(connection) = original.weak.upgrade() else {
             return json!({"observed":true,"open":false});
         };
@@ -185,21 +190,34 @@ mod enabled {
                     AcceptError::from_err(std::io::Error::other(error.to_string()))
                 })?,
             };
-            {
+            let admitted = member_facts(&original, &self.gate);
+            let primary = {
                 let mut current = self.observed.original.lock().unwrap();
+                let additional = current.is_some()
+                    && self
+                        .observed
+                        .allow_next_member
+                        .swap(false, Ordering::AcqRel);
                 if current
                     .as_ref()
                     .is_some_and(|original| original.weak.is_open())
                 {
-                    connection.close(0u32.into(), b"fixture owns one ordinary M");
-                    return Err(AcceptError::from_err(std::io::Error::other(
-                        "fixture original M already owned",
-                    )));
+                    if !additional {
+                        connection.close(0u32.into(), b"fixture owns one ordinary M");
+                        return Err(AcceptError::from_err(std::io::Error::other(
+                            "fixture original M already owned",
+                        )));
+                    }
+                    // Preserve the old peer half for honest Terminal observations.
+                    // This opt-in admits only one separate M, with its own streams.
+                    false
+                } else {
+                    *current = Some(original);
+                    true
                 }
-                *current = Some(original);
-            }
+            };
             emit(json!({"event":"member-released","identityMatched":true,
-                "ordinary":original_facts(&self.observed,&self.gate)}));
+                "ordinary":admitted,"fixturePrimary":primary}));
             let endpoint = self
                 .observed
                 .endpoint
@@ -591,6 +609,9 @@ mod enabled {
                 "relayAddressCount":endpoint.addr().relay_urls().count(),
                 "status":status(&owner,&observed,&gate,&rtc,&traffic,publications)}));
             let mut lines = BufReader::new(tokio::io::stdin()).lines();
+            // This fixture keeps the caller's exact old handle across Terminal
+            // observations and a later ordinary connect. It is not a registry.
+            let mut retained_repair_original: Option<Connection> = None;
             loop {
                 tokio::select! {
                     changed = updates.changed() => {
@@ -605,6 +626,102 @@ mod enabled {
                         let op = request.get("op").and_then(Value::as_str).ok_or("fixture command op missing")?;
                         match op {
                             "status" => emit(json!({"event":"status","status":status(&owner,&observed,&gate,&rtc,&traffic,publications)})),
+                            "stop-owned-data-relay" => {
+                                let before=original_facts(&observed,&gate);
+                                if !controlled_loopback || before["open"]!=true
+                                    || before["memberAuthorized"]!=true || before["bindingUnchanged"]!=true
+                                    || before["stableId"]!=request["originalStableId"]
+                                    || rtc.active_associations()!=0 || rtc.active_pumps()!=0 {
+                                    return Err("live sole-relay original M and exact owned loopback fault scope required".into());
+                                }
+                                let server=owned_relay.take().ok_or("owned relay server already stopped or absent")?;
+                                let started=std::time::Instant::now();
+                                server.shutdown().await?;
+                                emit(json!({"event":"owned-data-relay-stopped",
+                                    "actualPublicOperation":"iroh_relay::server::Server::shutdown",
+                                    "actualOwnedRelayShutdownCompleted":true,"faultWallMs":started.elapsed().as_millis(),
+                                    "beforeOriginal":before,"afterOriginal":original_facts(&observed,&gate),
+                                    "contactNodeStatus":status(&owner,&observed,&gate,&rtc,&traffic,publications)}));
+                            }
+                            "retain-original-member" => {
+                                let before=original_facts(&observed,&gate);
+                                if retained_repair_original.is_some() || before["open"]!=true
+                                    || before["memberAuthorized"]!=true || before["bindingUnchanged"]!=true
+                                    || before["stableId"]!=request["originalStableId"]
+                                    || request["allowOneSubsequentMember"]!=true {
+                                    return Err("exact first live original caller handle and explicit one-subsequent fixture scope required".into());
+                                }
+                                retained_repair_original=observed.original.lock().unwrap().as_ref()
+                                    .and_then(|original|original.weak.upgrade());
+                                let original=retained_repair_original.as_ref().ok_or("original caller handle unavailable")?;
+                                observed.allow_next_member.store(true,Ordering::Release);
+                                emit(json!({"event":"original-member-retained","originalStableId":original.stable_id(),
+                                    "retainedCallerHandle":true,"originalOpen":original.close_reason().is_none(),
+                                    "oneSubsequentMemberPermitted":observed.allow_next_member.load(Ordering::Acquire)}));
+                            }
+                            "retire-original-relay-paths" => {
+                                let before = original_facts(&observed,&gate);
+                                if before["open"]!=true || before["bindingUnchanged"]!=true
+                                    || before["memberAuthorized"]!=true
+                                    || before["stableId"]!=request["originalStableId"] {
+                                    return Err("exact qualified original M required for relay retirement".into());
+                                }
+                                let original = observed.original.lock().unwrap().as_ref()
+                                    .and_then(|original|original.weak.upgrade())
+                                    .ok_or("original M handle unavailable")?;
+                                let rtc_ready = original.paths().iter().any(|path| {
+                                    if let iroh::TransportAddr::Custom(address) = path.remote_addr()
+                                        && address.id()==TRANSPORT_ID {
+                                        return iroh::endpoint::transports::CustomSender::is_data_path_qualified(
+                                            &rtc,address,original.stable_id());
+                                    }
+                                    false
+                                });
+                                let paths = original.paths();
+                                let relays = paths.iter().filter(|path|path.is_relay()).collect::<Vec<_>>();
+                                if !rtc_ready || relays.is_empty() {
+                                    return Err("live qualified RTC and an old relay path required".into());
+                                }
+                                let count = relays.len();
+                                for path in relays { path.close()?; }
+                                emit(json!({"event":"original-relay-paths-retired",
+                                    "actualPublicOperation":"Connection::paths/Path::close",
+                                    "actualCloseCalls":count,"before":before,
+                                    "after":original_facts(&observed,&gate),
+                                    "rtcResource":rtc_resource_facts(&rtc)}));
+                            }
+                            "repair-original-member" => {
+                                let caller_ms = request.get("callerMs").and_then(Value::as_u64)
+                                    .filter(|value|*value>0 && *value<=60000)
+                                    .ok_or("explicit bounded repair caller required")?;
+                                if retained_repair_original.is_none() {
+                                    retained_repair_original = observed.original.lock().unwrap().as_ref()
+                                        .and_then(|original|original.weak.upgrade());
+                                }
+                                let original = retained_repair_original.as_ref()
+                                    .ok_or("original SDK caller handle unavailable")?;
+                                if request["originalStableId"].as_u64()!=Some(original.stable_id() as u64) {
+                                    return Err("retained repair handle differs from expected original".into());
+                                }
+                                let mut contact = iroh::EndpointAddr::new(original.remote_id());
+                                for url in endpoint.addr().relay_urls() {
+                                    contact.addrs.insert(iroh::TransportAddr::Relay(url.clone()));
+                                }
+                                let started = std::time::Instant::now();
+                                let deadline = n0_future::time::Instant::now()+Duration::from_millis(caller_ms);
+                                let result = owner.repair_member_connection_until(original,contact,deadline).await;
+                                let terminal = matches!(result.as_ref().err(),Some(
+                                    miopunch_native_probe::connection_recovery::ConnectionPathRecoveryError::Terminal{..}));
+                                emit(json!({"event":"original-member-repair-result",
+                                    "outcome":if result.is_ok(){"recovered"}else if terminal{"terminal"}else{"unreachable"},
+                                    "actualPublicOperation":"MaintainedNetwork::repair_member_connection_until",
+                                    "callerBudgetMs":caller_ms,"sdkCallerMs":started.elapsed().as_millis(),
+                                    "originalStableId":original.stable_id(),"originalOpen":original.close_reason().is_none(),
+                                    "controlAlpn":String::from_utf8_lossy(miopunch_native_probe::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN),
+                                    "failure":result.err().map(|cause|cause.to_string()),
+                                    "original":original_facts(&observed,&gate),
+                                    "rtcResource":rtc_resource_facts(&rtc)}));
+                            }
                             "member-data-attach" => {
                                 if !member_data_outer.is_empty() { return Err("MID1 fixture generation already attached".into()); }
                                 let via = member_data_via.ok_or("MID1 consumer not explicitly installed")?;

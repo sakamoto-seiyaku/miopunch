@@ -1092,8 +1092,24 @@ impl ResourceEndpoint {
         &self,
         id: iroh::EndpointId,
     ) -> Result<(n0_future::time::Instant, ContactAttempt), ResourceContactError> {
-        let timeout = self.timeout;
-        let deadline = n0_future::time::Instant::now() + timeout;
+        let deadline = n0_future::time::Instant::now() + self.timeout;
+        Ok((deadline, self.begin_contact_attempt_until(id, deadline)?))
+    }
+
+    /// Share this quota while an explicit operation supplies its own clock.
+    /// The background contact timeout does not replace a caller's remainder.
+    pub(crate) fn begin_contact_attempt_until(
+        &self,
+        id: iroh::EndpointId,
+        deadline: n0_future::time::Instant,
+    ) -> Result<ContactAttempt, ResourceContactError> {
+        let timeout = deadline.saturating_duration_since(n0_future::time::Instant::now());
+        if timeout.is_zero() {
+            return Err(ResourceContactError::TemporarilyUnreachable {
+                retry_after: timeout,
+                cause: Some("contact caller deadline expired".into()),
+            });
+        }
         let mut states = self.backoff.lock().expect("contact budget");
         let state = states.entry(id).or_default();
         if state.in_flight {
@@ -1112,13 +1128,10 @@ impl ResourceEndpoint {
             });
         }
         state.in_flight = true;
-        Ok((
-            deadline,
-            ContactAttempt {
-                states: self.backoff.clone(),
-                id,
-            },
-        ))
+        Ok(ContactAttempt {
+            states: self.backoff.clone(),
+            id,
+        })
     }
 
     /// Whole-operation ceiling owned by this existing resource budget.

@@ -35,6 +35,24 @@ pub(super) struct Continuity {
     binding: [u8; 32],
 }
 impl Continuity {
+    /// Observe a real write error on the retained old stream, only after its
+    /// original QUIC connection is already Terminal. Healthy business is never
+    /// bypassed through this fixture.
+    pub(super) async fn terminal_write_failure(
+        &mut self,
+        connection: &Connection,
+    ) -> Result<(String, bool), JsValue> {
+        if connection.close_reason().is_none() || connection.stable_id() != self.stable_id {
+            return Err(error("actual Terminal original stream required"));
+        }
+        let failed = self
+            .send
+            .write_all(b"old-terminal-stream-must-fail")
+            .await
+            .is_err();
+        Ok((self.stream_id.clone(), failed))
+    }
+
     async fn exchange(&mut self, connection: &Connection, sequence: u64) -> Result<Value, JsValue> {
         let payload = format!("original stream PING {sequence}");
         write_frame(
