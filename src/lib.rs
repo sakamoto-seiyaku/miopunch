@@ -62,12 +62,16 @@ mod precode_policy;
 pub mod mqtt_datagram;
 mod native_files;
 
+#[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+mod rtc_actual_dequeue_fixture;
 pub mod rtc_association;
 pub mod rtc_ice_profile;
 #[cfg(feature = "rtc-probe")]
 pub mod rtc_invalidation_fixture;
 #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
 pub mod rtc_member;
+#[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+pub mod rtc_packet_witness_fixture;
 #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
 pub mod rtc_probe;
 pub mod rtc_transport;

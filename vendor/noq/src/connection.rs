@@ -282,6 +282,7 @@ impl Future for ConnectionDriver {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let conn = &mut *self.0.lock_without_waking("poll");
 
+        let _witness_context = proto::packet_witness::enter_connection(self.0.stable_id());
         let span = debug_span!("drive", id = conn.handle.0);
         let _guard = span.enter();
 
@@ -371,8 +372,10 @@ impl Connection {
         &self,
         permit: impl Fn(FourTuple) -> bool + Send + Sync + 'static,
     ) {
-        self.0.lock_and_wake("restrict application data paths")
-            .inner.restrict_application_data_paths(permit);
+        self.0
+            .lock_and_wake("restrict application data paths")
+            .inner
+            .restrict_application_data_paths(permit);
     }
 
     /// Returns a weak reference to the inner connection struct.
@@ -1571,7 +1574,9 @@ impl WeakConnectionHandle {
     /// Whether this original connection is alive and has not terminated.
     /// This lock-free check is safe inside packet/path admission callbacks.
     pub fn is_open(&self) -> bool {
-        self.0.upgrade().is_some_and(|connection| !connection.shared.terminal.load(Ordering::Acquire))
+        self.0
+            .upgrade()
+            .is_some_and(|connection| !connection.shared.terminal.load(Ordering::Acquire))
     }
     /// Returns `true` if the [`Connection`] associated with this handle is still alive.
     pub fn is_alive(&self) -> bool {
@@ -1745,17 +1750,48 @@ impl State {
                 // path if one survives. Never hand this packet to the carrier.
                 continue;
             }
+            if proto::packet_witness::enabled() {
+                use proto::packet_witness::{Value as W, emit};
+                if len <= 64 * 1024 {
+                    emit(
+                        "before-actual-carrier-call",
+                        vec![
+                            ("handle", W::U64(self.handle.0 as u64)),
+                            ("transmit_len", W::U64(len as u64)),
+                            ("segment_size", W::U64(t.segment_size.unwrap_or(len) as u64)),
+                            ("destination", W::Text(t.destination.to_string())),
+                            (
+                                "ciphertext_exact",
+                                W::Bytes(self.send_buffer[..len].to_vec()),
+                            ),
+                        ],
+                    );
+                } else {
+                    emit(
+                        "private-transmit-bound-exceeded",
+                        vec![("transmit_len", W::U64(len as u64))],
+                    );
+                }
+            }
             match self
                 .sender
                 .as_mut()
                 .poll_send(&udp_transmit(&t, &self.send_buffer[..len]), cx)
             {
                 Poll::Pending => {
+                    if proto::packet_witness::enabled() {
+                        proto::packet_witness::emit("actual-sender-poll-pending", vec![]);
+                    }
                     self.buffered_transmit = Some(t);
                     return Ok(false);
                 }
                 Poll::Ready(Err(e)) => return Err(e),
-                Poll::Ready(Ok(())) => {}
+                Poll::Ready(Ok(())) => {
+                    // Iroh can suppress carrier failures; this is NOT wire-send proof.
+                    if proto::packet_witness::enabled() {
+                        proto::packet_witness::emit("actual-sender-returned-ok", vec![]);
+                    }
+                }
             }
 
             if transmits >= MAX_TRANSMIT_DATAGRAMS {

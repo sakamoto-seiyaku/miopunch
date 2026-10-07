@@ -230,6 +230,19 @@ pub(crate) trait MemberPathAdapter {
         _stage: &'static str,
     ) {
     }
+    /// An optional Native fixture yield after real authenticated Ready input.
+    /// Default adapters introduce no hold and no change to the wire protocol.
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    fn after_actual_ready_input_fixture<'a>(
+        &'a self,
+        _original: usize,
+        _control: usize,
+        _stream: String,
+        _frame: &'a [u8],
+        _deadline: n0_future::time::Instant,
+    ) -> impl Future<Output = io::Result<()>> + Send + 'a {
+        async { Ok(()) }
+    }
     /// Register a successfully released ordinary M with the existing
     /// maintenance owner.  Implementations store only a weak handle.
     fn register_original(&self, _connection: &Connection) {}
@@ -1106,11 +1119,33 @@ fn decode_active_hello(frame: &[u8]) -> io::Result<ActiveHello> {
     })
 }
 
+#[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+fn observe_actual_active_frame(
+    stage: &'static str,
+    original: usize,
+    control: usize,
+    stream: String,
+    frame: &[u8],
+) {
+    // Owned fixture stdout is PRIVATE. This observes SDK bytes; it never gates IO.
+    println!(
+        "{}",
+        serde_json::json!({"event":"actual-common-active-frame",
+        "stage":stage,"originalStableId":original,"controlStableId":control,
+        "streamId":stream,"kind":frame[5],"frameLength":frame.len(),
+        "frameBlake3":blake3::hash(frame).to_hex().to_string(),
+        "attemptBlake3":blake3::hash(&frame[6..22]).to_hex().to_string(),
+        "monotonicMs":crate::rtc_transport::diagnostic_monotonic_ms()})
+    );
+}
+
 async fn write_active_frame(
     send: &mut iroh::endpoint::SendStream,
     kind: u8,
     attempt: [u8; 16],
     watermark: u64,
+    _original_id: usize,
+    _control_id: usize,
 ) -> io::Result<()> {
     let mut frame = [0; ACTIVE_READY_LEN];
     frame[..4].copy_from_slice(ACTIVE_MAGIC);
@@ -1118,15 +1153,35 @@ async fn write_active_frame(
     frame[5] = kind;
     frame[6..22].copy_from_slice(&attempt);
     frame[22..].copy_from_slice(&watermark.to_be_bytes());
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    observe_actual_active_frame(
+        "sdk-frame-generated",
+        _original_id,
+        _control_id,
+        send.id().to_string(),
+        &frame,
+    );
     send.write_all(&(frame.len() as u16).to_be_bytes()).await?;
     send.write_all(&frame).await?;
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    observe_actual_active_frame(
+        "quic-stream-write-accepted",
+        _original_id,
+        _control_id,
+        send.id().to_string(),
+        &frame,
+    );
     Ok(())
 }
 
-async fn read_active_frame(
+async fn read_active_frame<A: MemberPathAdapter>(
     recv: &mut iroh::endpoint::RecvStream,
     expected_kind: u8,
     attempt: [u8; 16],
+    _original_id: usize,
+    _control_id: usize,
+    _adapter: &A,
+    _deadline: n0_future::time::Instant,
 ) -> io::Result<u64> {
     let mut length = [0; 2];
     recv.read_exact(&mut length)
@@ -1147,6 +1202,26 @@ async fn read_active_frame(
     {
         return Err(control_error("InvalidControl"));
     }
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    if expected_kind == ACTIVE_READY_KIND {
+        _adapter
+            .after_actual_ready_input_fixture(
+                _original_id,
+                _control_id,
+                recv.id().to_string(),
+                &frame,
+                _deadline,
+            )
+            .await?;
+    }
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    observe_actual_active_frame(
+        "peer-frame-parsed-and-attempt-validated",
+        _original_id,
+        _control_id,
+        recv.id().to_string(),
+        &frame,
+    );
     Ok(u64::from_be_bytes(frame[22..].try_into().unwrap()))
 }
 
@@ -1322,13 +1397,23 @@ async fn active_session<A: MemberPathAdapter>(
         ACTIVE_READY_KIND,
         protected.id,
         prepared.watermark,
+        original.stable_id(),
+        control.stable_id(),
     )
     .await?;
     let _peer_watermark = n0_future::time::timeout(
         attempt
             .deadline
             .saturating_duration_since(n0_future::time::Instant::now()),
-        read_active_frame(&mut ready_recv, ACTIVE_READY_KIND, protected.id),
+        read_active_frame(
+            &mut ready_recv,
+            ACTIVE_READY_KIND,
+            protected.id,
+            original.stable_id(),
+            control.stable_id(),
+            adapter,
+            attempt.deadline,
+        ),
     )
     .await
     .map_err(|_| control_error("DeadlineExceeded"))??;
@@ -1351,13 +1436,23 @@ async fn active_session<A: MemberPathAdapter>(
         ACTIVE_COMMITTED_KIND,
         protected.id,
         prepared.watermark,
+        original.stable_id(),
+        control.stable_id(),
     )
     .await?;
     let _peer_final = n0_future::time::timeout(
         attempt
             .deadline
             .saturating_duration_since(n0_future::time::Instant::now()),
-        read_active_frame(&mut ready_recv, ACTIVE_COMMITTED_KIND, protected.id),
+        read_active_frame(
+            &mut ready_recv,
+            ACTIVE_COMMITTED_KIND,
+            protected.id,
+            original.stable_id(),
+            control.stable_id(),
+            adapter,
+            attempt.deadline,
+        ),
     )
     .await
     .map_err(|_| control_error("DeadlineExceeded"))??;

@@ -136,6 +136,7 @@ mod enabled {
                 "isRtc":matches!(path.remote_addr(),iroh::TransportAddr::Custom(address) if address.id()==TRANSPORT_ID),
                 "rttMicros":path.stats().rtt.as_micros(),
                 "streamSent":path.stats().frame_tx.stream,"streamReceived":path.stats().frame_rx.stream,
+                "datagramSent":path.stats().frame_tx.datagram,"datagramReceived":path.stats().frame_rx.datagram,
                 "acksReceived":path.stats().frame_rx.acks})).collect::<Vec<_>>()})
     }
 
@@ -268,6 +269,13 @@ mod enabled {
         }
     }
 
+    fn rtc_resource_facts(rtc: &RtcTransport) -> Value {
+        json!({"resourceAllowed":rtc.resource_allowed(),"resourceRevision":rtc.resource_revision(),
+            "activeAssociations":rtc.active_associations(),"activePumpTasks":rtc.active_pumps(),
+            "publishedRoutes":rtc.published_routes_fixture(),
+            "pumpObservations":rtc.pump_observations_fixture()})
+    }
+
     fn status(
         owner: &MaintainedNetwork,
         observed: &Observed,
@@ -292,6 +300,7 @@ mod enabled {
             "watchNotifications":publications,"nodeId":owner.endpoint().id().to_string(),
             "contactListener":value.contact_listener,"homeRelayStatus":home_relay_status,
             "activeRtcAssociations":rtc.active_associations(),"activeRtcPumps":rtc.active_pumps(),
+            "rtcResource":rtc_resource_facts(rtc),
             "applicationHandlers":observed.handlers.load(Ordering::Acquire),
             "applicationStreamHandlers":observed.stream_handlers.load(Ordering::Acquire),
             "acceptedApplicationStreams":observed.accepted_streams.load(Ordering::Acquire),
@@ -324,9 +333,18 @@ mod enabled {
         let mut member_data_via = None::<iroh::EndpointId>;
         let mut member_data_forwarder = None::<bool>;
         let mut member_data_peer = None::<iroh::EndpointId>;
+        let mut private_packet_witness = None::<std::path::PathBuf>;
         let mut flags = args[6..].iter();
         while let Some(flag) = flags.next() {
             match flag.as_str() {
+                "--private-packet-witness" if private_packet_witness.is_none() => {
+                    private_packet_witness = Some(
+                        flags
+                            .next()
+                            .ok_or("owned private packet capture path required")?
+                            .into(),
+                    );
+                }
                 "--controlled-loopback" if !controlled_loopback => controlled_loopback = true,
                 "--no-public-data-relay" if !no_public_data_relay => no_public_data_relay = true,
                 "--native-udp" if !native_udp => native_udp = true,
@@ -374,6 +392,8 @@ mod enabled {
             return Err("a real saved SDK provider store is required".into());
         }
         let sockets_before = sockets()?.len();
+        let mut packet_capture = private_packet_witness.as_deref()
+            .map(miopunch_native_probe::rtc_packet_witness_fixture::PrivatePacketCaptureFixture::start).transpose()?;
         let node = NativeNetwork::open(&args[1]).await?;
         let expected = args[5].parse::<iroh::EndpointId>()?;
         if !node
@@ -643,6 +663,125 @@ mod enabled {
                                     "outerConnectionsOpen":member_data_outer.iter().filter(|connection|connection.close_reason().is_none()).count(),
                                     "activeForwarderLinks":member_data_service.as_ref().map(|service|service.active_links())}));
                             }
+                            "set-rtc-resource-allowed" => {
+                                let allowed = request.get("allowed").and_then(Value::as_bool)
+                                    .ok_or("explicit RTC resource boolean required")?;
+                                let stable = request.get("originalStableId").and_then(Value::as_u64)
+                                    .ok_or("exact original M required")?;
+                                let started = std::time::Instant::now();
+                                let before = rtc_resource_facts(&rtc);
+                                let before_original = original_facts(&observed,&gate);
+                                let current_original = before_original["stableId"].as_u64() == Some(stable)
+                                    && before_original["open"] == true
+                                    && before_original["memberAuthorized"] == true
+                                    && before_original["stableUnchanged"] == true
+                                    && before_original["bindingUnchanged"] == true;
+                                let actual_idle = before["pumpObservations"].as_array().is_some_and(|values| {
+                                    values.iter().any(|value|value["originalStableId"].as_u64()==Some(stable)
+                                        && value["originalOpen"]==true && value["routeReady"]==true
+                                        && value["routeRetired"]==false && value["resourceAllowed"]==true
+                                        && value["capturedResourceRevision"]==value["currentResourceRevision"]
+                                        && value["observation"]["version"]==1
+                                        && value["observation"]["phase"]=="actual-outbound-poll-pending"
+                                        && value["observation"]["pendingLength"]==0
+                                        && value["observation"]["blockedCause"].is_null())
+                                });
+                                let exact_path = request.get("pathId").and_then(Value::as_str)
+                                    .is_some_and(|path_id|before_original["paths"].as_array().is_some_and(|paths| {
+                                        paths.iter().any(|path|path["pathId"]==path_id && path["isRtc"]==true
+                                            && ["streamSent","streamReceived","datagramSent","datagramReceived"]
+                                                .iter().all(|key|path[*key].as_u64()==Some(0)))
+                                    }));
+                                let fresh_transition = before["resourceAllowed"].as_bool()==Some(!allowed);
+                                let permitted = current_original && fresh_transition &&
+                                    if allowed {
+                                        before["activeAssociations"]==0 && before["activePumpTasks"]==0
+                                            && before["publishedRoutes"].as_array().is_some_and(Vec::is_empty)
+                                    } else { actual_idle && exact_path };
+                                if permitted { rtc.set_resource_allowed(allowed); }
+                                emit(json!({"event":"rtc-resource-permission-updated","applied":permitted,
+                                    "requestedAllowed":allowed,"actualPublicOperation":"RtcTransport.set_resource_allowed",
+                                    "before":before,"after":rtc_resource_facts(&rtc),
+                                    "beforeOriginal":before_original,"afterOriginal":original_facts(&observed,&gate),
+                                    "sdkCallerMs":started.elapsed().as_millis()}));
+                            }
+                            "arm-common-ready-input" => {
+                                let stable = request.get("originalStableId").and_then(Value::as_u64)
+                                    .ok_or("exact original M required")?;
+                                let original = original_facts(&observed,&gate);
+                                if original["stableId"].as_u64()!=Some(stable) || original["open"]!=true
+                                    || original["memberAuthorized"]!=true || original["bindingUnchanged"]!=true
+                                    || rtc.active_associations()!=0 {
+                                    return Err("Common Ready fixture requires the healthy original M before improvement".into());
+                                }
+                                rtc.arm_common_ready_input_fixture(usize::try_from(stable)?)?;
+                                emit(json!({"event":"common-ready-input-armed","originalStableId":stable}));
+                            }
+                            "arm-actual-dequeue" => {
+                                let stable=request["originalStableId"].as_u64().ok_or("exact original M required")?;
+                                let path=request["pathId"].as_str().ok_or("actual selected RTC path required")?;
+                                let remaining=request["remainingMs"].as_u64().filter(|n|*n>0 && *n<=5000)
+                                    .ok_or("explicit <=5000ms fixture remaining budget required")?;
+                                let facts=original_facts(&observed,&gate);
+                                if facts["stableId"].as_u64()!=Some(stable) || facts["open"]!=true
+                                    || facts["memberAuthorized"]!=true || facts["bindingUnchanged"]!=true {
+                                    return Err("actual dequeue fixture needs the same healthy authorized M".into());
+                                }
+                                let connection={let original=observed.original.lock().unwrap();
+                                    original.as_ref().and_then(|o|o.weak.upgrade()).ok_or("original M ended")?};
+                                let matcher=packet_capture.as_ref().ok_or("owned private packet capture must be enabled")?
+                                    .matcher(usize::try_from(stable)?)?;
+                                rtc.arm_actual_dequeue_fixture(&connection,path,
+                                    n0_future::time::Instant::now()+Duration::from_millis(remaining),matcher)?;
+                                emit(json!({"event":"actual-dequeue-armed","observation":rtc.actual_dequeue_fixture_snapshot()}));
+                            }
+                            "actual-dequeue-state" => {
+                                let actual=rtc.actual_dequeue_fixture_snapshot();
+                                let proof=actual.as_ref().and_then(|a|Some((
+                                    usize::try_from(a["originalStableId"].as_u64()?).ok()?,
+                                    a["actualCiphertextSha256"].as_str()?)))
+                                    .and_then(|(stable,digest)|packet_capture.as_ref()?.proof(stable,digest));
+                                emit(json!({"event":"actual-dequeue-state","observation":actual,"encoderProof":proof,
+                                    "rtcResource":rtc_resource_facts(&rtc),"ordinary":original_facts(&observed,&gate)}));
+                            }
+                            "retire-matched-rtc-resource" => {
+                                let actual=rtc.actual_dequeue_fixture_snapshot().ok_or("actual dequeue fixture not armed")?;
+                                let stable=request["originalStableId"].as_u64().ok_or("exact original M required")?;
+                                let before=rtc_resource_facts(&rtc);let ordinary=original_facts(&observed,&gate);
+                                let matches=actual["matched"]==true && actual["waiting"]==true
+                                    && actual["originalStableId"].as_u64()==Some(stable)
+                                    && actual["actualCiphertextSha256"]==request["ciphertextSha256"]
+                                    && actual["actualRouteAtMatch"]["qualified"]==true
+                                    && ordinary["stableId"].as_u64()==Some(stable) && ordinary["open"]==true
+                                    && ordinary["memberAuthorized"]==true && ordinary["bindingUnchanged"]==true
+                                    && before["resourceAllowed"]==true;
+                                if !matches {return Err("actual matched selected business pending packet required before retirement".into());}
+                                let started=std::time::Instant::now();
+                                rtc.set_resource_allowed(false);
+                                emit(json!({"event":"matched-rtc-resource-retired","actualPublicOperation":"RtcTransport.set_resource_allowed(false)",
+                                    "before":before,"after":rtc_resource_facts(&rtc),"pendingBeforeRetirement":actual,
+                                    "ordinaryBefore":ordinary,"ordinaryAfter":original_facts(&observed,&gate),
+                                    "sdkCallerMs":started.elapsed().as_millis()}));
+                            }
+                            "common-ready-input-state" => {
+                                emit(json!({"event":"common-ready-input-state",
+                                    "observation":rtc.common_ready_input_fixture_snapshot(),
+                                    "rtcResource":rtc_resource_facts(&rtc),
+                                    "ordinary":original_facts(&observed,&gate)}));
+                            }
+                            "release-common-ready-input" => {
+                                let actual = rtc.common_ready_input_fixture_snapshot()
+                                    .ok_or("actual protected Ready input was not read")?;
+                                if actual["held"]!=true || actual["originalStableId"]!=request["originalStableId"]
+                                    || actual["controlStableId"]!=request["controlStableId"]
+                                    || actual["frameBlake3"]!=request["frameBlake3"] {
+                                    return Err("Common Ready fixture release identity mismatch".into());
+                                }
+                                rtc.release_common_ready_input_fixture();
+                                emit(json!({"event":"common-ready-input-released","actual":actual,
+                                    "rtcResource":rtc_resource_facts(&rtc),
+                                    "observation":rtc.common_ready_input_fixture_snapshot()}));
+                            }
                             "release-business-priority" => {
                                 if priority.take().is_none() { return Err("fixture priority already released".into()); }
                                 emit(json!({"event":"priority-released","businessPriorityReleased":true,
@@ -696,6 +835,7 @@ mod enabled {
             emit(json!({"event":"operator-error","failure":error.to_string()}));
         }
         let cleanup_started = std::time::Instant::now();
+        rtc.clear_common_ready_input_fixture();
         drop(priority.take());
         if let Some(service) = &member_data_service {
             service.set_enabled(false);
@@ -731,6 +871,22 @@ mod enabled {
             "activeRtcPumps":rtc.active_pumps(),"applicationHandlers":observed.handlers.load(Ordering::Acquire),
             "applicationStreamHandlers":observed.stream_handlers.load(Ordering::Acquire),
             "traffic":traffic.snapshot()});
+        let dequeue_terminal = rtc.clear_actual_dequeue_fixture()?;
+        let packet_capture_terminal = packet_capture
+            .as_mut()
+            .map(|capture| capture.finish())
+            .transpose()?;
+        if let Some(result) = &packet_capture_terminal {
+            emit(
+                json!({"event":"private-packet-capture-ended","result":result,"dequeueTerminal":dequeue_terminal}),
+            );
+            if result["adapterLost"] != 0
+                || result["observerLost"] != 0
+                || result["writerNaturallyJoined"] != true
+            {
+                return Err("owned private packet capture lost actual records".into());
+            }
+        }
         emit(
             json!({"event":"closed","activeRtcAssociations":rtc.active_associations(),
             "activeRtcPumps":rtc.active_pumps(),"socketsBefore":sockets_before,"socketsLate":sockets_late,

@@ -1,0 +1,1918 @@
+{
+  "ticket": "MIOPUNCH-80",
+  "qualificationScope": "owned Host Native + Host Browser common RTC cancellation/permission matrix; approved public APS1 relay and EMQX contact; local RTC data candidate",
+  "runtimeCasesPassed": 7,
+  "wholeTicketQualified": true,
+  "formalReview": {
+    "standards": {
+      "actionableFindings": 0,
+      "privateReport": "/tmp/mio80-final-functional-review-root-20261007/standards/REPORT.md",
+      "reportSha256": "b1b9b9c4b793a9bb48daa712044667e80264b342ee943e31221a72f3750b1b36",
+      "privateHandoff": "/tmp/mio80-final-functional-review-root-20261007/standards/HANDOFF.md",
+      "handoffSha256": "45d545470213bc85b5b494b147df0023121c01b0894f4cd665341a18ec63f7c4",
+      "verificationSha256": "dcf33a469f958a2f4068ce34ebf734c519c2dbed2fe65f35d6b25254ef55697a",
+      "requestedAndRetainedSettings": "GPT-6.1 Sol / High / Default",
+      "reviewerLiveJobs": 0
+    },
+    "spec": {
+      "actionableFindings": 0,
+      "privateReport": "/tmp/mio80-final-functional-review-root-20261007/spec/REPORT.md",
+      "reportSha256": "b3f0ea59c88b37071bcf462950461ef8f14eaf3d262423fcc6d2280d2f69ce72",
+      "privateHandoff": "/tmp/mio80-final-functional-review-root-20261007/spec/HANDOFF.md",
+      "handoffSha256": "fda1d92d4321e3aaca03df2aae242b56e5373017deaedf62497b593068108757",
+      "verificationSha256": "a20d9f266d45ab008fcc4f30378aa09cd49f514911057881e3000ca8630c9943",
+      "requestedAndRetainedSettings": "GPT-6.1 Sol / High / Default",
+      "reviewerLiveJobs": 0
+    }
+  },
+  "physicalWanQualified": false,
+  "fullGoalQualified": false,
+  "cases": [
+    {
+      "case": "owner-cancel",
+      "qualificationField": "m80OwnerCancelQualified",
+      "qualified": true,
+      "actualCasePassed": true,
+      "actualWholeTicketField": false,
+      "actualFullGoalField": false,
+      "inputsStable": true,
+      "scope": "owned Host Native + Host Browser, approved public APS1 data relay, local RTC candidate",
+      "actors": {
+        "native": "owned-host-native",
+        "browser": "owned-host-browser"
+      },
+      "runtimeSourceDigest": "4eb990b87f1a288c468a85063ee543ebe0d87cf4ca8457f170118b193ca26255",
+      "runtimeSourceCount": 555,
+      "sdkInputProofs": {
+        "provider": {
+          "sha256": "2830a0c6e1da0b7c9e0c0683f1d41abd6dd24b2a9dd8d8bb010599f0884c754a",
+          "buildReceiptSha256": "74a2ddfa5e1fdf7aec7bbc541ccc657849e8d6e44fb0711bd5ed38c3ad4ef3af",
+          "bindings": {
+            "actualSelectedInputCount": 6576,
+            "selectedRepositoryCopies": 289,
+            "capturedDepfileCount": 479,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "805ae8ff46dcf47dd7b06eef883eaf0971a46570e9e245ebc1162924cbc252c7"
+          }
+        },
+        "maintained": {
+          "sha256": "bb838a7b09208edeb8aab9072445459844d5f7f7baee01d943731718f0ab721d",
+          "buildReceiptSha256": "74a2ddfa5e1fdf7aec7bbc541ccc657849e8d6e44fb0711bd5ed38c3ad4ef3af",
+          "bindings": {
+            "actualSelectedInputCount": 6576,
+            "selectedRepositoryCopies": 289,
+            "capturedDepfileCount": 479,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "805ae8ff46dcf47dd7b06eef883eaf0971a46570e9e245ebc1162924cbc252c7"
+          }
+        },
+        "browser": {
+          "bindings": {
+            "actualSelectedInputCount": 3158,
+            "selectedRepositoryCopies": 197,
+            "capturedDepfileCount": 264,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "5cf9a02e64706652291ce6a61926377297b7a3cd98ba314429b981a7681cfa2f"
+          },
+          "buildReceiptSha256": "00ce811e3eb88459e5e92f24b914a7ff25ab6ef454dfdaa19f2eca0058409767",
+          "artifacts": {
+            "miopunch_browser_probe.d.ts": "b258947b2931405de55d6710a9f8e347d9ede843c001badaab721d783445d0fe",
+            "miopunch_browser_probe.js": "97cdc89d8cf7afe27805ee784fab79eb4affbb635b2c6806113a5b07af84ed4f",
+            "miopunch_browser_probe_bg.wasm": "e8797b74fa0663879125e9b8e95b278682e16dc9dc952e919d8aace4a86e55b8",
+            "miopunch_browser_probe_bg.wasm.d.ts": "a9886c74cc2b70177b5d92b4073c9410007f3c23d2ea602198c7d88d0a4ca4a9",
+            "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+            "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e"
+          }
+        }
+      },
+      "runtimeReceiptSha256": "a4cafbe60c7a2f95cf50a2be3713c1be5e3bf2ef40165cb8dcfd0c7a4d637f47",
+      "privateRuntimeReceipt": "/tmp/mio80-owner-cancel-current-sdk-root-20261007/runtime-mio80-owner-cancel-unused/receipt.json",
+      "privateRuntimeBinding": "/tmp/mio80-owner-cancel-current-sdk-root-20261007/binding-mio80-owner-cancel-unused/runtime-freeze.json",
+      "runtimeBindingSha256": "c04ce2df39845929866d022e1de60ce343bb3b4960410daa5922079f2a2a6eb5",
+      "cleanup": {
+        "browserQualified": true,
+        "nativeQualified": true,
+        "nativeForced": false,
+        "browserRelayTail": {
+          "observed": true,
+          "pendingSocketCount": 2,
+          "pendingRelaySocketCount": 1,
+          "pendingMqttSocketCount": 1,
+          "trafficUnchangedAt100Ms": true,
+          "gracefulRelayCloseObserved": false,
+          "allSdkTerminalTasksRetiredProven": false
+        },
+        "browserOwner": {
+          "ownedTargetAbsent": true,
+          "forced": false,
+          "commandExit": 0,
+          "localReadersEnded": true,
+          "localPipesClosed": true,
+          "immediate": {
+            "observed": true,
+            "processCount": 0,
+            "socketCount": 0,
+            "ownership": "retired"
+          },
+          "late": {
+            "observed": true,
+            "processCount": 0,
+            "socketCount": 0,
+            "ownership": "retired"
+          }
+        },
+        "browserElapsedMs": 1690.886,
+        "nativeElapsedMs": 337.137
+      },
+      "capture": {
+        "performed": false,
+        "qualified": false,
+        "packets": null,
+        "kernelDrops": null,
+        "receiptSha256": null,
+        "pcapSha256": null
+      },
+      "caseElapsedMs": 79407.968,
+      "sdkCallerTimes": [
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 5401.165000200272
+        },
+        {
+          "operation": "request_admission",
+          "ok": true,
+          "sdkCallerMs": 4015.100000143051
+        },
+        {
+          "operation": "request_admission",
+          "ok": true,
+          "sdkCallerMs": 4106.599999904633
+        },
+        {
+          "operation": "complete_admission",
+          "ok": true,
+          "sdkCallerMs": 2012.8399999141693
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 10.119999885559082
+        },
+        {
+          "operation": "stop",
+          "ok": true,
+          "sdkCallerMs": 1022.2300000190735
+        },
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 1536.0499999523163
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 9.434999942779541
+        },
+        {
+          "operation": "open_member",
+          "ok": true,
+          "sdkCallerMs": 7755.700000047684
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 9.694999933242798
+        },
+        {
+          "operation": "continuity_start",
+          "ok": true,
+          "sdkCallerMs": 905.2849998474121
+        },
+        {
+          "operation": "rtc_fixture_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.25499987602233887
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 8.555000066757202
+        },
+        {
+          "operation": "sdk_instance_observation",
+          "ok": true,
+          "sdkCallerMs": 0.014999866485595703
+        },
+        {
+          "operation": "arm_active_fault",
+          "ok": true,
+          "sdkCallerMs": 10.025000095367432
+        },
+        {
+          "operation": "cancel_pending_improvement",
+          "ok": true,
+          "sdkCallerMs": 10591.205000162125
+        },
+        {
+          "operation": "active_fault_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.04500007629394531
+        },
+        {
+          "operation": "active_fault_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.015000104904174805
+        },
+        {
+          "operation": "active_fault_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.015000104904174805
+        },
+        {
+          "operation": "continuity_exchange",
+          "ok": true,
+          "sdkCallerMs": 890.3900001049042
+        },
+        {
+          "operation": "exchange",
+          "ok": true,
+          "sdkCallerMs": 1054.6849999427795
+        },
+        {
+          "operation": "close_member",
+          "ok": true,
+          "sdkCallerMs": 1.0199999809265137
+        },
+        {
+          "operation": "open_member",
+          "ok": true,
+          "sdkCallerMs": 7583.569999933243
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 7.930000066757202
+        },
+        {
+          "operation": "continuity_start",
+          "ok": true,
+          "sdkCallerMs": 1026.8599998950958
+        },
+        {
+          "operation": "exchange",
+          "ok": true,
+          "sdkCallerMs": 991.1449999809265
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 8.359999895095825
+        },
+        {
+          "operation": "sdk_instance_observation",
+          "ok": true,
+          "sdkCallerMs": 0.019999980926513672
+        }
+      ],
+      "commandExit": 0
+    },
+    {
+      "case": "pending-original-close",
+      "qualificationField": "m80PendingCloseQualified",
+      "qualified": true,
+      "actualCasePassed": true,
+      "actualWholeTicketField": false,
+      "actualFullGoalField": false,
+      "inputsStable": true,
+      "scope": "owned Host Native + Host Browser, approved public APS1 data relay, local RTC candidate",
+      "actors": {
+        "native": "owned-host-native",
+        "browser": "owned-host-browser"
+      },
+      "runtimeSourceDigest": "4eb990b87f1a288c468a85063ee543ebe0d87cf4ca8457f170118b193ca26255",
+      "runtimeSourceCount": 555,
+      "sdkInputProofs": {
+        "provider": {
+          "sha256": "2830a0c6e1da0b7c9e0c0683f1d41abd6dd24b2a9dd8d8bb010599f0884c754a",
+          "buildReceiptSha256": "74a2ddfa5e1fdf7aec7bbc541ccc657849e8d6e44fb0711bd5ed38c3ad4ef3af",
+          "bindings": {
+            "actualSelectedInputCount": 6576,
+            "selectedRepositoryCopies": 289,
+            "capturedDepfileCount": 479,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "805ae8ff46dcf47dd7b06eef883eaf0971a46570e9e245ebc1162924cbc252c7"
+          }
+        },
+        "maintained": {
+          "sha256": "bb838a7b09208edeb8aab9072445459844d5f7f7baee01d943731718f0ab721d",
+          "buildReceiptSha256": "74a2ddfa5e1fdf7aec7bbc541ccc657849e8d6e44fb0711bd5ed38c3ad4ef3af",
+          "bindings": {
+            "actualSelectedInputCount": 6576,
+            "selectedRepositoryCopies": 289,
+            "capturedDepfileCount": 479,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "805ae8ff46dcf47dd7b06eef883eaf0971a46570e9e245ebc1162924cbc252c7"
+          }
+        },
+        "browser": {
+          "bindings": {
+            "actualSelectedInputCount": 3158,
+            "selectedRepositoryCopies": 197,
+            "capturedDepfileCount": 264,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "5cf9a02e64706652291ce6a61926377297b7a3cd98ba314429b981a7681cfa2f"
+          },
+          "buildReceiptSha256": "00ce811e3eb88459e5e92f24b914a7ff25ab6ef454dfdaa19f2eca0058409767",
+          "artifacts": {
+            "miopunch_browser_probe.d.ts": "b258947b2931405de55d6710a9f8e347d9ede843c001badaab721d783445d0fe",
+            "miopunch_browser_probe.js": "97cdc89d8cf7afe27805ee784fab79eb4affbb635b2c6806113a5b07af84ed4f",
+            "miopunch_browser_probe_bg.wasm": "e8797b74fa0663879125e9b8e95b278682e16dc9dc952e919d8aace4a86e55b8",
+            "miopunch_browser_probe_bg.wasm.d.ts": "a9886c74cc2b70177b5d92b4073c9410007f3c23d2ea602198c7d88d0a4ca4a9",
+            "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+            "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e"
+          }
+        }
+      },
+      "runtimeReceiptSha256": "a5b42fad41d7cf30acd2363e5afbc6d7b43d72a04341b56c12678cbe521cac48",
+      "privateRuntimeReceipt": "/tmp/mio80-pending-close-peer-end-root-20261007/runtime-mio80-pending-close-unused/receipt.json",
+      "privateRuntimeBinding": "/tmp/mio80-pending-close-peer-end-root-20261007/binding-mio80-pending-close-corrected/runtime-freeze.json",
+      "runtimeBindingSha256": "5dd3bbe0bf10d736e57f80a2f34cfdfa50353664fc7fccbc851b34aa5ac113ee",
+      "cleanup": {
+        "browserQualified": true,
+        "nativeQualified": true,
+        "nativeForced": false,
+        "browserRelayTail": {
+          "observed": true,
+          "pendingSocketCount": 2,
+          "pendingRelaySocketCount": 1,
+          "pendingMqttSocketCount": 1,
+          "trafficUnchangedAt100Ms": true,
+          "gracefulRelayCloseObserved": false,
+          "allSdkTerminalTasksRetiredProven": false
+        },
+        "browserOwner": {
+          "ownedTargetAbsent": true,
+          "forced": false,
+          "commandExit": 0,
+          "localReadersEnded": true,
+          "localPipesClosed": true,
+          "immediate": {
+            "observed": true,
+            "processCount": 0,
+            "socketCount": 0,
+            "ownership": "retired"
+          },
+          "late": {
+            "observed": true,
+            "processCount": 0,
+            "socketCount": 0,
+            "ownership": "retired"
+          }
+        },
+        "browserElapsedMs": 1578.548,
+        "nativeElapsedMs": 340.826
+      },
+      "capture": {
+        "performed": true,
+        "qualified": true,
+        "packets": 1617,
+        "kernelDrops": 0,
+        "receiptSha256": "6dc3ad13fd9711808745ddf62e8e3c99044d36947228fa2c2c3f2fa988192e21",
+        "pcapSha256": "f28d8d3e5ac0d9cd721a6083e30db6a1ee4dbeb2d669bf58b3c92496d38b09ee"
+      },
+      "caseElapsedMs": 81000.674,
+      "sdkCallerTimes": [
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 1746.5299999713898
+        },
+        {
+          "operation": "request_admission",
+          "ok": true,
+          "sdkCallerMs": 4294.340000152588
+        },
+        {
+          "operation": "request_admission",
+          "ok": true,
+          "sdkCallerMs": 4393.535000085831
+        },
+        {
+          "operation": "complete_admission",
+          "ok": true,
+          "sdkCallerMs": 1690.3300001621246
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 9.804999828338623
+        },
+        {
+          "operation": "stop",
+          "ok": true,
+          "sdkCallerMs": 921.7400000095367
+        },
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 1585.6499998569489
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 9.460000038146973
+        },
+        {
+          "operation": "open_member",
+          "ok": true,
+          "sdkCallerMs": 7899.724999904633
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 10.049999952316284
+        },
+        {
+          "operation": "continuity_start",
+          "ok": true,
+          "sdkCallerMs": 957.1349999904633
+        },
+        {
+          "operation": "rtc_fixture_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.2999999523162842
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 8.244999885559082
+        },
+        {
+          "operation": "sdk_instance_observation",
+          "ok": true,
+          "sdkCallerMs": 0.009999990463256836
+        },
+        {
+          "operation": "arm_active_fault",
+          "ok": true,
+          "sdkCallerMs": 9.730000019073486
+        },
+        {
+          "operation": "close_pending_improvement",
+          "ok": true,
+          "sdkCallerMs": 10835.08999991417
+        },
+        {
+          "operation": "active_fault_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.06499981880187988
+        },
+        {
+          "operation": "active_fault_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.009999990463256836
+        },
+        {
+          "operation": "active_fault_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.020000219345092773
+        },
+        {
+          "operation": "close_member",
+          "ok": true,
+          "sdkCallerMs": 0.31999993324279785
+        },
+        {
+          "operation": "open_member",
+          "ok": true,
+          "sdkCallerMs": 8613.659999847412
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 8.359999895095825
+        },
+        {
+          "operation": "continuity_start",
+          "ok": true,
+          "sdkCallerMs": 1555.6999998092651
+        },
+        {
+          "operation": "exchange",
+          "ok": true,
+          "sdkCallerMs": 873.7349998950958
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 8.03499984741211
+        },
+        {
+          "operation": "sdk_instance_observation",
+          "ok": true,
+          "sdkCallerMs": 0.009999990463256836
+        }
+      ],
+      "commandExit": 0
+    },
+    {
+      "case": "live-resource-disable-idle",
+      "qualificationField": "m80LiveResourceDisableQualified",
+      "qualified": true,
+      "actualCasePassed": true,
+      "actualWholeTicketField": false,
+      "actualFullGoalField": false,
+      "inputsStable": true,
+      "scope": "owned Host Native + Host Browser, approved public APS1 data relay, local RTC candidate",
+      "actors": {
+        "native": "owned-host-native",
+        "browser": "owned-host-browser"
+      },
+      "runtimeSourceDigest": "b99a7d176cb42afdba26e03ccaf1ba128f06f9f0548bfcfdc1efde0709905d42",
+      "runtimeSourceCount": 556,
+      "sdkInputProofs": {
+        "provider": {
+          "sha256": "c300264009bc2d0b7ea3a33a9506b8bd68a72d9a390e6c01bb4953ec3e00a98d",
+          "buildReceiptSha256": "102b3c3c309395a7a9153969f5810011f572aa6ffddbf8902e310cbc593a0c51",
+          "bindings": {
+            "actualSelectedInputCount": 6577,
+            "selectedRepositoryCopies": 290,
+            "capturedDepfileCount": 480,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "cfcae7a916f810f51c2d36b737748fe8aea4960763866ec80d3c7886387c218d"
+          }
+        },
+        "maintained": {
+          "sha256": "6123b03961d6ed928f1c989fc886d10e3fd69bbbd6e4a55ffd39cc8e0886383c",
+          "buildReceiptSha256": "102b3c3c309395a7a9153969f5810011f572aa6ffddbf8902e310cbc593a0c51",
+          "bindings": {
+            "actualSelectedInputCount": 6577,
+            "selectedRepositoryCopies": 290,
+            "capturedDepfileCount": 480,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "cfcae7a916f810f51c2d36b737748fe8aea4960763866ec80d3c7886387c218d"
+          }
+        },
+        "browser": {
+          "bindings": {
+            "actualSelectedInputCount": 3158,
+            "selectedRepositoryCopies": 197,
+            "capturedDepfileCount": 264,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "61613baba36e77689f1df5380420356b26f92925c26b66c478257949ff36dbb7"
+          },
+          "buildReceiptSha256": "01be740baa73fb3de741f801fef1b603c6981dc6962ee8041047758b80504d9d",
+          "artifacts": {
+            "miopunch_browser_probe.d.ts": "b258947b2931405de55d6710a9f8e347d9ede843c001badaab721d783445d0fe",
+            "miopunch_browser_probe.js": "1f65c24234eee6e6329cbd5cd6c3be4493b30a068add6eac4e893b5e55eb7da2",
+            "miopunch_browser_probe_bg.wasm": "63d304076ec56cea025dd4a3cc503a9698ea827043da0fe7148ce2c92cdc2300",
+            "miopunch_browser_probe_bg.wasm.d.ts": "a9886c74cc2b70177b5d92b4073c9410007f3c23d2ea602198c7d88d0a4ca4a9",
+            "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+            "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e"
+          }
+        }
+      },
+      "runtimeReceiptSha256": "633d9b76505c8756ee6fbc2a64beee45e6ad563c88634122c76585f9939467e5",
+      "privateRuntimeReceipt": "/tmp/mio80-live-resource-disable-current-sdk-root-20261007/runtime-mio80-live-resource-disable/receipt.json",
+      "privateRuntimeBinding": "/tmp/mio80-live-resource-disable-current-sdk-root-20261007/binding-mio80-live-resource-disable/runtime-freeze.json",
+      "runtimeBindingSha256": "6a6f22e093cc9a5148ecfcede48d6ca44063c9938b59fdca85893881739db5a3",
+      "cleanup": {
+        "browserQualified": true,
+        "nativeQualified": true,
+        "nativeForced": false,
+        "browserRelayTail": {
+          "observed": true,
+          "pendingSocketCount": 2,
+          "pendingRelaySocketCount": 1,
+          "pendingMqttSocketCount": 1,
+          "trafficUnchangedAt100Ms": true,
+          "gracefulRelayCloseObserved": false,
+          "allSdkTerminalTasksRetiredProven": false
+        },
+        "browserOwner": {
+          "ownedTargetAbsent": true,
+          "forced": false,
+          "commandExit": 0,
+          "localReadersEnded": true,
+          "localPipesClosed": true,
+          "immediate": {
+            "observed": true,
+            "processCount": 0,
+            "socketCount": 0,
+            "ownership": "retired"
+          },
+          "late": {
+            "observed": true,
+            "processCount": 0,
+            "socketCount": 0,
+            "ownership": "retired"
+          }
+        },
+        "browserElapsedMs": 1552.497,
+        "nativeElapsedMs": 340.569
+      },
+      "capture": {
+        "performed": true,
+        "qualified": true,
+        "packets": 1802,
+        "kernelDrops": 0,
+        "receiptSha256": "d457cb34b7101315d4c83665150723cdc73d53d12a83094c4a15c0f2dc298e28",
+        "pcapSha256": "bc63ea7b65f8b20a3411d3f87df6dbc77c4941920bfcd95df8b8b291ad3c52cc"
+      },
+      "caseElapsedMs": 74197.505,
+      "sdkCallerTimes": [
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 1545.4550001621246
+        },
+        {
+          "operation": "request_admission",
+          "ok": true,
+          "sdkCallerMs": 2578.3700001239777
+        },
+        {
+          "operation": "request_admission",
+          "ok": true,
+          "sdkCallerMs": 4263.914999961853
+        },
+        {
+          "operation": "complete_admission",
+          "ok": true,
+          "sdkCallerMs": 1166.784999847412
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 9.985000133514404
+        },
+        {
+          "operation": "stop",
+          "ok": true,
+          "sdkCallerMs": 676.9400000572205
+        },
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 1654.7699999809265
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 8.774999856948853
+        },
+        {
+          "operation": "open_member",
+          "ok": true,
+          "sdkCallerMs": 7552.035000085831
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 11.309999942779541
+        },
+        {
+          "operation": "continuity_start",
+          "ok": true,
+          "sdkCallerMs": 853.0550000667572
+        },
+        {
+          "operation": "rtc_fixture_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.27499985694885254
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 8.210000038146973
+        },
+        {
+          "operation": "sdk_instance_observation",
+          "ok": true,
+          "sdkCallerMs": 0.005000114440917969
+        },
+        {
+          "operation": "arm_active_fault",
+          "ok": true,
+          "sdkCallerMs": 9.950000047683716
+        },
+        {
+          "operation": "disable_native_rtc_resource_during_improvement",
+          "ok": true,
+          "sdkCallerMs": 11541.004999876022
+        },
+        {
+          "operation": "active_fault_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.039999961853027344
+        },
+        {
+          "operation": "active_fault_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.009999990463256836
+        },
+        {
+          "operation": "active_fault_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.019999980926513672
+        },
+        {
+          "operation": "continuity_exchange",
+          "ok": true,
+          "sdkCallerMs": 958.664999961853
+        },
+        {
+          "operation": "exchange",
+          "ok": true,
+          "sdkCallerMs": 1015.2249999046326
+        },
+        {
+          "operation": "continuity_exchange",
+          "ok": true,
+          "sdkCallerMs": 923.5600001811981
+        },
+        {
+          "operation": "close_member",
+          "ok": true,
+          "sdkCallerMs": 0.9049999713897705
+        },
+        {
+          "operation": "open_member",
+          "ok": true,
+          "sdkCallerMs": 6923.09500002861
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 7.8450000286102295
+        },
+        {
+          "operation": "continuity_start",
+          "ok": true,
+          "sdkCallerMs": 851.4500000476837
+        },
+        {
+          "operation": "exchange",
+          "ok": true,
+          "sdkCallerMs": 852.4800000190735
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 7.914999961853027
+        },
+        {
+          "operation": "sdk_instance_observation",
+          "ok": true,
+          "sdkCallerMs": 0.02500009536743164
+        }
+      ],
+      "commandExit": 0
+    },
+    {
+      "case": "signed-removal-pending",
+      "qualificationField": "m80SignedRemovalQualified",
+      "qualified": true,
+      "actualCasePassed": true,
+      "actualWholeTicketField": false,
+      "actualFullGoalField": false,
+      "inputsStable": true,
+      "scope": "owned Host Native + Host Browser, approved public APS1 data relay, local RTC candidate",
+      "actors": {
+        "native": "owned-host-native",
+        "browser": "owned-host-browser"
+      },
+      "runtimeSourceDigest": "b99a7d176cb42afdba26e03ccaf1ba128f06f9f0548bfcfdc1efde0709905d42",
+      "runtimeSourceCount": 556,
+      "sdkInputProofs": {
+        "provider": {
+          "sha256": "c300264009bc2d0b7ea3a33a9506b8bd68a72d9a390e6c01bb4953ec3e00a98d",
+          "buildReceiptSha256": "102b3c3c309395a7a9153969f5810011f572aa6ffddbf8902e310cbc593a0c51",
+          "bindings": {
+            "actualSelectedInputCount": 6577,
+            "selectedRepositoryCopies": 290,
+            "capturedDepfileCount": 480,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "cfcae7a916f810f51c2d36b737748fe8aea4960763866ec80d3c7886387c218d"
+          }
+        },
+        "maintained": {
+          "sha256": "6123b03961d6ed928f1c989fc886d10e3fd69bbbd6e4a55ffd39cc8e0886383c",
+          "buildReceiptSha256": "102b3c3c309395a7a9153969f5810011f572aa6ffddbf8902e310cbc593a0c51",
+          "bindings": {
+            "actualSelectedInputCount": 6577,
+            "selectedRepositoryCopies": 290,
+            "capturedDepfileCount": 480,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "cfcae7a916f810f51c2d36b737748fe8aea4960763866ec80d3c7886387c218d"
+          }
+        },
+        "signer": {
+          "sha256": "148bbfefbef8a02107755732f90a9c18448fd82f4b9e086bd629ebe993787550",
+          "buildReceiptSha256": "102b3c3c309395a7a9153969f5810011f572aa6ffddbf8902e310cbc593a0c51",
+          "bindings": {
+            "actualSelectedInputCount": 6577,
+            "selectedRepositoryCopies": 290,
+            "capturedDepfileCount": 480,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "cfcae7a916f810f51c2d36b737748fe8aea4960763866ec80d3c7886387c218d"
+          }
+        },
+        "browser": {
+          "bindings": {
+            "actualSelectedInputCount": 3158,
+            "selectedRepositoryCopies": 197,
+            "capturedDepfileCount": 264,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "61613baba36e77689f1df5380420356b26f92925c26b66c478257949ff36dbb7"
+          },
+          "buildReceiptSha256": "01be740baa73fb3de741f801fef1b603c6981dc6962ee8041047758b80504d9d",
+          "artifacts": {
+            "miopunch_browser_probe.d.ts": "b258947b2931405de55d6710a9f8e347d9ede843c001badaab721d783445d0fe",
+            "miopunch_browser_probe.js": "1f65c24234eee6e6329cbd5cd6c3be4493b30a068add6eac4e893b5e55eb7da2",
+            "miopunch_browser_probe_bg.wasm": "63d304076ec56cea025dd4a3cc503a9698ea827043da0fe7148ce2c92cdc2300",
+            "miopunch_browser_probe_bg.wasm.d.ts": "a9886c74cc2b70177b5d92b4073c9410007f3c23d2ea602198c7d88d0a4ca4a9",
+            "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+            "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e"
+          }
+        }
+      },
+      "runtimeReceiptSha256": "ea4d5d1c0eb413ae0f08dee8a338be77122fe8e0a79ebabeb79f9c2b7cf9dedc",
+      "privateRuntimeReceipt": "/tmp/mio80-signed-removal-pending-consumed-events-current-sdk-root-20261007/runtime-mio80-signed-removal-pending/receipt.json",
+      "privateRuntimeBinding": "/tmp/mio80-signed-removal-pending-consumed-events-current-sdk-root-20261007/binding-mio80-signed-removal-pending/runtime-freeze.json",
+      "runtimeBindingSha256": "ab133793090db95e8ba47e587c85533b9c5025d033cdfad44a9a851d8d8e210d",
+      "cleanup": {
+        "browserQualified": true,
+        "nativeQualified": true,
+        "nativeForced": false,
+        "browserRelayTail": {
+          "observed": true,
+          "pendingSocketCount": 2,
+          "pendingRelaySocketCount": 1,
+          "pendingMqttSocketCount": 1,
+          "trafficUnchangedAt100Ms": true,
+          "gracefulRelayCloseObserved": false,
+          "allSdkTerminalTasksRetiredProven": false
+        },
+        "browserOwner": {
+          "ownedTargetAbsent": true,
+          "forced": false,
+          "commandExit": 0,
+          "localReadersEnded": true,
+          "localPipesClosed": true,
+          "immediate": {
+            "observed": true,
+            "processCount": 0,
+            "socketCount": 0,
+            "ownership": "retired"
+          },
+          "late": {
+            "observed": true,
+            "processCount": 0,
+            "socketCount": 0,
+            "ownership": "retired"
+          }
+        },
+        "browserElapsedMs": 711.791,
+        "nativeElapsedMs": 346.789
+      },
+      "capture": {
+        "performed": true,
+        "qualified": true,
+        "packets": 1424,
+        "kernelDrops": 0,
+        "receiptSha256": "266bd114c0eb9ed4526331547859f9b635440ff80261645376ff1a1ba3891299",
+        "pcapSha256": "56f4ae131cea5f385de05139ffeb651397f7002dd30bf5ccf0e5b404d5071e10"
+      },
+      "caseElapsedMs": 67346.457,
+      "sdkCallerTimes": [
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 1588.3849999904633
+        },
+        {
+          "operation": "request_admission",
+          "ok": true,
+          "sdkCallerMs": 3592.9800000190735
+        },
+        {
+          "operation": "request_admission",
+          "ok": true,
+          "sdkCallerMs": 4419.054999828339
+        },
+        {
+          "operation": "complete_admission",
+          "ok": true,
+          "sdkCallerMs": 1496.460000038147
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 9.72000002861023
+        },
+        {
+          "operation": "stop",
+          "ok": true,
+          "sdkCallerMs": 875.335000038147
+        },
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 1498.1150000095367
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 8.78499984741211
+        },
+        {
+          "operation": "open_member",
+          "ok": true,
+          "sdkCallerMs": 7621.680000066757
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 11.679999828338623
+        },
+        {
+          "operation": "continuity_start",
+          "ok": true,
+          "sdkCallerMs": 868.0900001525879
+        },
+        {
+          "operation": "rtc_fixture_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.26999998092651367
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 8.490000009536743
+        },
+        {
+          "operation": "sdk_instance_observation",
+          "ok": true,
+          "sdkCallerMs": 0.009999990463256836
+        },
+        {
+          "operation": "control_state",
+          "ok": true,
+          "sdkCallerMs": 3.7899999618530273
+        },
+        {
+          "operation": "control_state",
+          "ok": true,
+          "sdkCallerMs": 3.484999895095825
+        },
+        {
+          "operation": "arm_active_fault",
+          "ok": true,
+          "sdkCallerMs": 9.995000123977661
+        },
+        {
+          "operation": "revoke_pending_improvement",
+          "ok": true,
+          "sdkCallerMs": 10670.144999980927
+        },
+        {
+          "operation": "continuity_exchange",
+          "ok": false,
+          "sdkCallerMs": 0.559999942779541
+        },
+        {
+          "operation": "exchange",
+          "ok": false,
+          "sdkCallerMs": 0.3299999237060547
+        },
+        {
+          "operation": "rtc_fixture_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.05500006675720215
+        },
+        {
+          "operation": "open_member",
+          "ok": false,
+          "sdkCallerMs": 6.430000066757202
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 6.7149999141693115
+        },
+        {
+          "operation": "stop_preserving_store",
+          "ok": true,
+          "sdkCallerMs": 501.75
+        },
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 1465.0750000476837
+        },
+        {
+          "operation": "control_record",
+          "ok": true,
+          "sdkCallerMs": 0.1549999713897705
+        },
+        {
+          "operation": "control_state",
+          "ok": true,
+          "sdkCallerMs": 5.0299999713897705
+        },
+        {
+          "operation": "open_member",
+          "ok": false,
+          "sdkCallerMs": 5.7200000286102295
+        }
+      ],
+      "commandExit": 0
+    },
+    {
+      "case": "signed-removal-retained",
+      "qualificationField": "m80SignedRemovalQualified",
+      "qualified": true,
+      "actualCasePassed": true,
+      "actualWholeTicketField": false,
+      "actualFullGoalField": false,
+      "inputsStable": true,
+      "scope": "owned Host Native + Host Browser, approved public APS1 data relay, local RTC candidate",
+      "actors": {
+        "native": "owned-host-native",
+        "browser": "owned-host-browser"
+      },
+      "runtimeSourceDigest": "b99a7d176cb42afdba26e03ccaf1ba128f06f9f0548bfcfdc1efde0709905d42",
+      "runtimeSourceCount": 556,
+      "sdkInputProofs": {
+        "provider": {
+          "sha256": "c300264009bc2d0b7ea3a33a9506b8bd68a72d9a390e6c01bb4953ec3e00a98d",
+          "buildReceiptSha256": "102b3c3c309395a7a9153969f5810011f572aa6ffddbf8902e310cbc593a0c51",
+          "bindings": {
+            "actualSelectedInputCount": 6577,
+            "selectedRepositoryCopies": 290,
+            "capturedDepfileCount": 480,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "cfcae7a916f810f51c2d36b737748fe8aea4960763866ec80d3c7886387c218d"
+          }
+        },
+        "maintained": {
+          "sha256": "6123b03961d6ed928f1c989fc886d10e3fd69bbbd6e4a55ffd39cc8e0886383c",
+          "buildReceiptSha256": "102b3c3c309395a7a9153969f5810011f572aa6ffddbf8902e310cbc593a0c51",
+          "bindings": {
+            "actualSelectedInputCount": 6577,
+            "selectedRepositoryCopies": 290,
+            "capturedDepfileCount": 480,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "cfcae7a916f810f51c2d36b737748fe8aea4960763866ec80d3c7886387c218d"
+          }
+        },
+        "signer": {
+          "sha256": "148bbfefbef8a02107755732f90a9c18448fd82f4b9e086bd629ebe993787550",
+          "buildReceiptSha256": "102b3c3c309395a7a9153969f5810011f572aa6ffddbf8902e310cbc593a0c51",
+          "bindings": {
+            "actualSelectedInputCount": 6577,
+            "selectedRepositoryCopies": 290,
+            "capturedDepfileCount": 480,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "cfcae7a916f810f51c2d36b737748fe8aea4960763866ec80d3c7886387c218d"
+          }
+        },
+        "browser": {
+          "bindings": {
+            "actualSelectedInputCount": 3158,
+            "selectedRepositoryCopies": 197,
+            "capturedDepfileCount": 264,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "61613baba36e77689f1df5380420356b26f92925c26b66c478257949ff36dbb7"
+          },
+          "buildReceiptSha256": "01be740baa73fb3de741f801fef1b603c6981dc6962ee8041047758b80504d9d",
+          "artifacts": {
+            "miopunch_browser_probe.d.ts": "b258947b2931405de55d6710a9f8e347d9ede843c001badaab721d783445d0fe",
+            "miopunch_browser_probe.js": "1f65c24234eee6e6329cbd5cd6c3be4493b30a068add6eac4e893b5e55eb7da2",
+            "miopunch_browser_probe_bg.wasm": "63d304076ec56cea025dd4a3cc503a9698ea827043da0fe7148ce2c92cdc2300",
+            "miopunch_browser_probe_bg.wasm.d.ts": "a9886c74cc2b70177b5d92b4073c9410007f3c23d2ea602198c7d88d0a4ca4a9",
+            "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+            "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e"
+          }
+        }
+      },
+      "runtimeReceiptSha256": "66e83efb08a0fda0b68b11e85cce2dea970d048f07b7945fb8f24510072605b2",
+      "privateRuntimeReceipt": "/tmp/mio80-signed-removal-retained-current-sdk-root-20261007/runtime-mio80-signed-removal-retained/receipt.json",
+      "privateRuntimeBinding": "/tmp/mio80-signed-removal-retained-current-sdk-root-20261007/binding-mio80-signed-removal-retained/runtime-freeze.json",
+      "runtimeBindingSha256": "44d80f4765cd4af5b7744968a0605d40eee038329bb22f51b40b7c1db91315ab",
+      "cleanup": {
+        "browserQualified": true,
+        "nativeQualified": true,
+        "nativeForced": false,
+        "browserRelayTail": {
+          "observed": true,
+          "pendingSocketCount": 2,
+          "pendingRelaySocketCount": 1,
+          "pendingMqttSocketCount": 1,
+          "trafficUnchangedAt100Ms": true,
+          "gracefulRelayCloseObserved": false,
+          "allSdkTerminalTasksRetiredProven": false
+        },
+        "browserOwner": {
+          "ownedTargetAbsent": true,
+          "forced": false,
+          "commandExit": 0,
+          "localReadersEnded": true,
+          "localPipesClosed": true,
+          "immediate": {
+            "observed": true,
+            "processCount": 0,
+            "socketCount": 0,
+            "ownership": "retired"
+          },
+          "late": {
+            "observed": true,
+            "processCount": 0,
+            "socketCount": 0,
+            "ownership": "retired"
+          }
+        },
+        "browserElapsedMs": 710.864,
+        "nativeElapsedMs": 348.133
+      },
+      "capture": {
+        "performed": true,
+        "qualified": true,
+        "packets": 1560,
+        "kernelDrops": 0,
+        "receiptSha256": "dc484e084a8077b29d762db5f8f3b300dcf3104408b955fd3cb8946436f2a768",
+        "pcapSha256": "c0bdb73fcb244bf7bef96d9b3bf29defc1db32c3c18dc26986c3d8777644a5a5"
+      },
+      "caseElapsedMs": 68824.859,
+      "sdkCallerTimes": [
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 2236.539999961853
+        },
+        {
+          "operation": "request_admission",
+          "ok": true,
+          "sdkCallerMs": 4385.744999885559
+        },
+        {
+          "operation": "request_admission",
+          "ok": true,
+          "sdkCallerMs": 4280.134999990463
+        },
+        {
+          "operation": "complete_admission",
+          "ok": true,
+          "sdkCallerMs": 2156.8450000286102
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 10.640000104904175
+        },
+        {
+          "operation": "stop",
+          "ok": true,
+          "sdkCallerMs": 922.335000038147
+        },
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 1512.039999961853
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 9.794999837875366
+        },
+        {
+          "operation": "open_member",
+          "ok": true,
+          "sdkCallerMs": 8164.964999914169
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 10.080000162124634
+        },
+        {
+          "operation": "continuity_start",
+          "ok": true,
+          "sdkCallerMs": 950.5299999713898
+        },
+        {
+          "operation": "rtc_fixture_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.2999999523162842
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 8.390000104904175
+        },
+        {
+          "operation": "sdk_instance_observation",
+          "ok": true,
+          "sdkCallerMs": 0.014999866485595703
+        },
+        {
+          "operation": "control_state",
+          "ok": true,
+          "sdkCallerMs": 4.559999942779541
+        },
+        {
+          "operation": "control_state",
+          "ok": true,
+          "sdkCallerMs": 3.424999952316284
+        },
+        {
+          "operation": "improve_path",
+          "ok": true,
+          "sdkCallerMs": 9448.52999997139
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 10.305000066757202
+        },
+        {
+          "operation": "rtc_fixture_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.1700000762939453
+        },
+        {
+          "operation": "continuity_exchange",
+          "ok": true,
+          "sdkCallerMs": 13.555000066757202
+        },
+        {
+          "operation": "exchange",
+          "ok": true,
+          "sdkCallerMs": 14.414999961853027
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 9.320000171661377
+        },
+        {
+          "operation": "ingest_signed_removal",
+          "ok": true,
+          "sdkCallerMs": 47.375
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 7.120000123977661
+        },
+        {
+          "operation": "rtc_fixture_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.04999995231628418
+        },
+        {
+          "operation": "continuity_exchange",
+          "ok": false,
+          "sdkCallerMs": 0.15000009536743164
+        },
+        {
+          "operation": "exchange",
+          "ok": false,
+          "sdkCallerMs": 0.10500001907348633
+        },
+        {
+          "operation": "rtc_fixture_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.09999990463256836
+        },
+        {
+          "operation": "candidate_observation",
+          "ok": true,
+          "sdkCallerMs": 115.25999999046326
+        },
+        {
+          "operation": "open_member",
+          "ok": false,
+          "sdkCallerMs": 5.930000066757202
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 6.56499981880188
+        },
+        {
+          "operation": "stop_preserving_store",
+          "ok": true,
+          "sdkCallerMs": 370.085000038147
+        },
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 1446.0099999904633
+        },
+        {
+          "operation": "control_record",
+          "ok": true,
+          "sdkCallerMs": 0.2999999523162842
+        },
+        {
+          "operation": "control_state",
+          "ok": true,
+          "sdkCallerMs": 5.68999981880188
+        },
+        {
+          "operation": "open_member",
+          "ok": false,
+          "sdkCallerMs": 5.9700000286102295
+        }
+      ],
+      "commandExit": 0
+    },
+    {
+      "case": "late-ready-input-completion",
+      "qualificationField": "m80LateReadyInputQualified",
+      "qualified": true,
+      "actualCasePassed": true,
+      "actualWholeTicketField": false,
+      "actualFullGoalField": false,
+      "inputsStable": true,
+      "scope": "owned Host Native + Host Browser, approved public APS1 data relay, local RTC candidate",
+      "actors": {
+        "native": "owned-host-native",
+        "browser": "owned-host-browser"
+      },
+      "runtimeSourceDigest": "f970e21bd9d181b392674c8dd90cd4053f57833afed881c476ae687cb0981be8",
+      "runtimeSourceCount": 559,
+      "sdkInputProofs": {
+        "provider": {
+          "sha256": "8417d309c9eba099d97ba1ede884c7cb47eee179894f6e8635fdf4a4458ff511",
+          "buildReceiptSha256": "c31277d29910bcac66c06b5cf0972b304d387966d37b445b6eb8c80a30ea9a76",
+          "bindings": {
+            "actualSelectedInputCount": 6580,
+            "selectedRepositoryCopies": 293,
+            "capturedDepfileCount": 480,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "af3934e746c5be2d0b27e1e7770f133d60c57e9cf4c38ce148cde700dc185ce3"
+          }
+        },
+        "maintained": {
+          "sha256": "172d5325fd8bbe017586ab526bfe278dbd86fe0c39ba5a5e043845004fed39eb",
+          "buildReceiptSha256": "c31277d29910bcac66c06b5cf0972b304d387966d37b445b6eb8c80a30ea9a76",
+          "bindings": {
+            "actualSelectedInputCount": 6580,
+            "selectedRepositoryCopies": 293,
+            "capturedDepfileCount": 480,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "af3934e746c5be2d0b27e1e7770f133d60c57e9cf4c38ce148cde700dc185ce3"
+          }
+        },
+        "browser": {
+          "bindings": {
+            "actualSelectedInputCount": 3159,
+            "selectedRepositoryCopies": 198,
+            "capturedDepfileCount": 264,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "9050960cf6871bf6928086a3e6713ab2ddcafa9e911bcb9073cd3bdc16458276"
+          },
+          "buildReceiptSha256": "d7907b31f7c8f9cbfc2d6efd25a82e47600eebcc33bbab7d4ab97561b94802de",
+          "artifacts": {
+            "miopunch_browser_probe.d.ts": "b258947b2931405de55d6710a9f8e347d9ede843c001badaab721d783445d0fe",
+            "miopunch_browser_probe.js": "17dc339359551f5259f9103bcf32bd7ec81f2cc4a30f77e3ce0306895dfd2555",
+            "miopunch_browser_probe_bg.wasm": "f3875f3240441965499ca931c14f93370fb0f81ec0df237e03696487b9f99a1b",
+            "miopunch_browser_probe_bg.wasm.d.ts": "a9886c74cc2b70177b5d92b4073c9410007f3c23d2ea602198c7d88d0a4ca4a9",
+            "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+            "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e"
+          }
+        }
+      },
+      "runtimeReceiptSha256": "ac2e929e45c12720ed1d5b80543e1c7998124ac2c74bee0c89311337d8b2896c",
+      "privateRuntimeReceipt": "/tmp/mio80-late-ready-input-passive-current-sdk-root-20261007/runtime-mio80-late-ready-input/receipt.json",
+      "privateRuntimeBinding": "/tmp/mio80-late-ready-input-passive-current-sdk-root-20261007/binding-mio80-late-ready-input/runtime-freeze.json",
+      "runtimeBindingSha256": "3feca912512ca02cd3d48ea5a7e78312c016ff60279617e32b5255d9c9355d3f",
+      "cleanup": {
+        "browserQualified": true,
+        "nativeQualified": true,
+        "nativeForced": false,
+        "browserRelayTail": {
+          "observed": true,
+          "pendingSocketCount": 2,
+          "pendingRelaySocketCount": 1,
+          "pendingMqttSocketCount": 1,
+          "trafficUnchangedAt100Ms": true,
+          "gracefulRelayCloseObserved": false,
+          "allSdkTerminalTasksRetiredProven": false
+        },
+        "browserOwner": {
+          "ownedTargetAbsent": true,
+          "forced": false,
+          "commandExit": 0,
+          "localReadersEnded": true,
+          "localPipesClosed": true,
+          "immediate": {
+            "observed": true,
+            "processCount": 0,
+            "socketCount": 0,
+            "ownership": "retired"
+          },
+          "late": {
+            "observed": true,
+            "processCount": 0,
+            "socketCount": 0,
+            "ownership": "retired"
+          }
+        },
+        "browserElapsedMs": 1754.76,
+        "nativeElapsedMs": 337.735
+      },
+      "capture": {
+        "performed": true,
+        "qualified": true,
+        "packets": 1441,
+        "kernelDrops": 0,
+        "receiptSha256": "321165ed7e440a3038cff7726565df79cb28ce9988307a8b6a9f72f060494ac2",
+        "pcapSha256": "bc4f5a77f556cbc2849a5cd37feb5a2acf1642dc9ad81de3aed6e4bc01d193aa"
+      },
+      "caseElapsedMs": 69468.428,
+      "sdkCallerTimes": [
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 2233.2300000190735
+        },
+        {
+          "operation": "request_admission",
+          "ok": true,
+          "sdkCallerMs": 3938.0849997997284
+        },
+        {
+          "operation": "request_admission",
+          "ok": true,
+          "sdkCallerMs": 4353.820000171661
+        },
+        {
+          "operation": "complete_admission",
+          "ok": true,
+          "sdkCallerMs": 1704.0099999904633
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 10.134999990463257
+        },
+        {
+          "operation": "stop",
+          "ok": true,
+          "sdkCallerMs": 1047.5099999904633
+        },
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 1589.4749999046326
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 9.40999984741211
+        },
+        {
+          "operation": "open_member",
+          "ok": true,
+          "sdkCallerMs": 8163.4800000190735
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 9.730000019073486
+        },
+        {
+          "operation": "continuity_start",
+          "ok": true,
+          "sdkCallerMs": 885.0050001144409
+        },
+        {
+          "operation": "rtc_fixture_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.26999998092651367
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 8.160000085830688
+        },
+        {
+          "operation": "sdk_instance_observation",
+          "ok": true,
+          "sdkCallerMs": 0.014999866485595703
+        },
+        {
+          "operation": "start_passive_candidate_sampler",
+          "ok": true,
+          "sdkCallerMs": 8.924999952316284
+        },
+        {
+          "operation": "improve_path",
+          "ok": false,
+          "sdkCallerMs": 10433.920000076294
+        },
+        {
+          "operation": "active_fault_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.05500006675720215
+        },
+        {
+          "operation": "active_fault_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.015000104904174805
+        },
+        {
+          "operation": "active_fault_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.015000104904174805
+        },
+        {
+          "operation": "candidate_observation",
+          "ok": true,
+          "sdkCallerMs": 118.91000008583069
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 9.174999952316284
+        },
+        {
+          "operation": "continuity_exchange",
+          "ok": true,
+          "sdkCallerMs": 1089.3399999141693
+        },
+        {
+          "operation": "exchange",
+          "ok": true,
+          "sdkCallerMs": 904.6949999332428
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 8.115000009536743
+        },
+        {
+          "operation": "sdk_instance_observation",
+          "ok": true,
+          "sdkCallerMs": 0.014999866485595703
+        }
+      ],
+      "commandExit": 0
+    },
+    {
+      "case": "genuine-dequeued-business",
+      "qualificationField": "m80DequeuedBusinessQualified",
+      "qualified": true,
+      "actualCasePassed": true,
+      "actualWholeTicketField": false,
+      "actualFullGoalField": false,
+      "inputsStable": true,
+      "scope": "owned Host Native + Host Browser, approved public APS1 data relay, local RTC candidate",
+      "actors": {
+        "native": "owned-host-native",
+        "browser": "owned-host-browser"
+      },
+      "runtimeSourceDigest": "a574361bd8d1f3c2ce0d818272fb1ff8b1db12c5ab1a546a221d3343c1bc6083",
+      "runtimeSourceCount": 559,
+      "sdkInputProofs": {
+        "provider": {
+          "sha256": "774d80d3cc1511daae800eafa4f61bf8230764d568a0882c9b924cd2cd489930",
+          "buildReceiptSha256": "f13591f83d5416f3aa3ae1351c1f244dbcddf10adafadd3f22213a947723abf9",
+          "bindings": {
+            "actualSelectedInputCount": 6580,
+            "selectedRepositoryCopies": 293,
+            "capturedDepfileCount": 480,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "c06ab5f81e9109f0f27cab0e5b75ee6a38beeddec897ec680eb7dcc3ad2bbaa5"
+          }
+        },
+        "maintained": {
+          "sha256": "4fb27ea2627c516b066e2c56455173934d5d4f2b91fc06961585a0e34febe384",
+          "buildReceiptSha256": "f13591f83d5416f3aa3ae1351c1f244dbcddf10adafadd3f22213a947723abf9",
+          "bindings": {
+            "actualSelectedInputCount": 6580,
+            "selectedRepositoryCopies": 293,
+            "capturedDepfileCount": 480,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "c06ab5f81e9109f0f27cab0e5b75ee6a38beeddec897ec680eb7dcc3ad2bbaa5"
+          }
+        },
+        "browser": {
+          "bindings": {
+            "actualSelectedInputCount": 3159,
+            "selectedRepositoryCopies": 198,
+            "capturedDepfileCount": 264,
+            "allCompiledSourcesMatch": true,
+            "inactiveCurrentSourceDeltas": {},
+            "selectedManifestSha256": "8e3b1fb549e28f2f8706ccb70ac54a7f7ecdfefdfe561f0b5b953a57516c9cd2"
+          },
+          "buildReceiptSha256": "7923c9ee2c8ec524b8897d744ec30ef6858d741a64465fc95a4da7d8028279bc",
+          "artifacts": {
+            "miopunch_browser_probe.d.ts": "b258947b2931405de55d6710a9f8e347d9ede843c001badaab721d783445d0fe",
+            "miopunch_browser_probe.js": "17dc339359551f5259f9103bcf32bd7ec81f2cc4a30f77e3ce0306895dfd2555",
+            "miopunch_browser_probe_bg.wasm": "db0bfdcc511b75d71e06284a9174e9ff11882798a473dacbd0025a57189e7b36",
+            "miopunch_browser_probe_bg.wasm.d.ts": "a9886c74cc2b70177b5d92b4073c9410007f3c23d2ea602198c7d88d0a4ca4a9",
+            "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+            "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e"
+          }
+        }
+      },
+      "runtimeReceiptSha256": "5e6cd683230d896242a932284cef861a031487f826071cffbcdb15e34d7a7c12",
+      "privateRuntimeReceipt": "/tmp/mio80-dequeued-business-contention-fixed-current-sdk-root-20261007/runtime-mio80-dequeued-business/receipt.json",
+      "privateRuntimeBinding": "/tmp/mio80-dequeued-business-contention-fixed-current-sdk-root-20261007/binding-mio80-dequeued-business/runtime-freeze.json",
+      "runtimeBindingSha256": "475e702e87816bdc539fa398dd4aff2c09ee6d7f2f093c9ba7c603eaf2497df0",
+      "cleanup": {
+        "browserQualified": true,
+        "nativeQualified": true,
+        "nativeForced": false,
+        "browserRelayTail": {
+          "observed": true,
+          "pendingSocketCount": 2,
+          "pendingRelaySocketCount": 1,
+          "pendingMqttSocketCount": 1,
+          "trafficUnchangedAt100Ms": true,
+          "gracefulRelayCloseObserved": false,
+          "allSdkTerminalTasksRetiredProven": false
+        },
+        "browserOwner": {
+          "ownedTargetAbsent": true,
+          "forced": false,
+          "commandExit": 0,
+          "localReadersEnded": true,
+          "localPipesClosed": true,
+          "immediate": {
+            "observed": true,
+            "processCount": 0,
+            "socketCount": 0,
+            "ownership": "retired"
+          },
+          "late": {
+            "observed": true,
+            "processCount": 0,
+            "socketCount": 0,
+            "ownership": "retired"
+          }
+        },
+        "browserElapsedMs": 608.625,
+        "nativeElapsedMs": 350.059
+      },
+      "capture": {
+        "performed": true,
+        "qualified": true,
+        "packets": 1676,
+        "kernelDrops": 0,
+        "receiptSha256": "9b6bce152aee2c64113211a12603a049fe150668dcbc1e2118697830a5809c61",
+        "pcapSha256": "fe1612202c4bba357392694f46bce46710ce3fa7435c64aa5bba5d32e9467ffa"
+      },
+      "caseElapsedMs": 69548.605,
+      "sdkCallerTimes": [
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 1795.3849999904633
+        },
+        {
+          "operation": "request_admission",
+          "ok": true,
+          "sdkCallerMs": 3966.545000076294
+        },
+        {
+          "operation": "request_admission",
+          "ok": true,
+          "sdkCallerMs": 3859.6050000190735
+        },
+        {
+          "operation": "complete_admission",
+          "ok": true,
+          "sdkCallerMs": 2444.100000143051
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 10.460000038146973
+        },
+        {
+          "operation": "stop",
+          "ok": true,
+          "sdkCallerMs": 897.4349999427795
+        },
+        {
+          "operation": "start",
+          "ok": true,
+          "sdkCallerMs": 1510.8300001621246
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 8.815000057220459
+        },
+        {
+          "operation": "open_member",
+          "ok": true,
+          "sdkCallerMs": 7503.479999780655
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 9.634999990463257
+        },
+        {
+          "operation": "continuity_start",
+          "ok": true,
+          "sdkCallerMs": 846.3650000095367
+        },
+        {
+          "operation": "rtc_fixture_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.4099998474121094
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 8.389999866485596
+        },
+        {
+          "operation": "sdk_instance_observation",
+          "ok": true,
+          "sdkCallerMs": 0.009999990463256836
+        },
+        {
+          "operation": "start_passive_candidate_sampler",
+          "ok": true,
+          "sdkCallerMs": 9.550000190734863
+        },
+        {
+          "operation": "improve_path",
+          "ok": true,
+          "sdkCallerMs": 8989.269999980927
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 10.144999980926514
+        },
+        {
+          "operation": "continuity_exchange",
+          "ok": true,
+          "sdkCallerMs": 13.819999933242798
+        },
+        {
+          "operation": "exchange",
+          "ok": true,
+          "sdkCallerMs": 13.93999981880188
+        },
+        {
+          "operation": "exchange",
+          "ok": true,
+          "sdkCallerMs": 5091.02999997139
+        },
+        {
+          "operation": "member_diagnostics",
+          "ok": true,
+          "sdkCallerMs": 8.535000085830688
+        },
+        {
+          "operation": "continuity_exchange",
+          "ok": true,
+          "sdkCallerMs": 970.125
+        },
+        {
+          "operation": "material_receipt",
+          "ok": true,
+          "sdkCallerMs": 8.22000002861023
+        },
+        {
+          "operation": "sdk_instance_observation",
+          "ok": true,
+          "sdkCallerMs": 0.009999990463256836
+        },
+        {
+          "operation": "stop",
+          "ok": true,
+          "sdkCallerMs": 1702.1500000953674
+        },
+        {
+          "operation": "private_packet_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.22499990463256836
+        },
+        {
+          "operation": "private_packet_snapshot",
+          "ok": true,
+          "sdkCallerMs": 0.02500009536743164
+        }
+      ],
+      "commandExit": 0
+    }
+  ],
+  "finalSDK": {
+    "native": {
+      "exit": 0,
+      "cargoSeconds": 19.969289480010048,
+      "freshArtifacts": 525,
+      "rebuiltArtifacts": 5,
+      "actualSelectedInputCount": 6580,
+      "actualSelectedRepositoryInputCount": 293,
+      "actualDepfileCount": 480,
+      "sourceDigestBefore": "f7f3e5f5b7b73e3dcb3bf505cfb024b567895730043b72eb5c7cea77833574e7",
+      "sourceDigestAfter": "f7f3e5f5b7b73e3dcb3bf505cfb024b567895730043b72eb5c7cea77833574e7",
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "receiptSha256": "9c7dd18e0701e1f230283d3b3734255c168049c5546d668192251ac00882e9a0",
+      "privateReceipt": "/tmp/mio80-final-documentation-sdk-root-20261007/native-build/build.json"
+    },
+    "wasm": {
+      "exit": 0,
+      "cargoSeconds": 0.3515452540013939,
+      "freshArtifacts": 296,
+      "rebuiltArtifacts": 0,
+      "actualSelectedInputCount": 3159,
+      "actualSelectedRepositoryInputCount": 198,
+      "actualDepfileCount": 264,
+      "sourceDigestBefore": "f7f3e5f5b7b73e3dcb3bf505cfb024b567895730043b72eb5c7cea77833574e7",
+      "sourceDigestAfter": "f7f3e5f5b7b73e3dcb3bf505cfb024b567895730043b72eb5c7cea77833574e7",
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "receiptSha256": "56f207625a8cc54f5b4db198ea01af13d0a3907e38fa207f33f96a23a5e4fd95",
+      "privateReceipt": "/tmp/mio80-final-documentation-sdk-root-20261007/wasm-build/receipt.json"
+    }
+  },
+  "finalSourceCount": 559,
+  "finalSourceDigest": "f7f3e5f5b7b73e3dcb3bf505cfb024b567895730043b72eb5c7cea77833574e7",
+  "finalDocumentationOnlySourceDelta": {
+    "file": "src/rtc_actual_dequeue_fixture.rs",
+    "proof": "/tmp/mio80-packet-capture-contention-root-20261007/dequeue-comment-correction.json",
+    "functionalCodeByteIdenticalOutsideOneComment": true
+  },
+  "localTests": {
+    "passed": true,
+    "totalTests": 15,
+    "actualCaseGroups": 6,
+    "privateReceipt": "/tmp/mio80-current-local-regressions-root-20261007/runtime/receipt.json",
+    "receiptSha256": "9e582c6b21e08cea57130738608c31084e7c3da299c9f3e32fb6d1c5e0e7ff97",
+    "sourceDigest": "a574361bd8d1f3c2ce0d818272fb1ff8b1db12c5ab1a546a221d3343c1bc6083"
+  },
+  "queuedCapture": {
+    "nativeRecords": 684,
+    "adapterLost": 0,
+    "observerLost": 0,
+    "uniqueCompleteSequenceSet": true,
+    "sameRealPendingDequeueToDropMs": 8,
+    "peerRtcCiphertextReceivesHashed": 24,
+    "sameHeldCiphertextAbsent": true,
+    "sameHeldCiphertextTrySendEntered": false,
+    "distinctAllowedRelayRetransmissionObserved": true,
+    "naturalSendBufferFull": "UNOBSERVED",
+    "privateSafeSummary": "/tmp/mio80-dequeued-business-contention-fixed-current-sdk-root-20261007/safe-result-summary.json"
+  },
+  "lateReadyBoundary": {
+    "actualAuthenticatedReadyReadCompletionAfterResourceRetirement": true,
+    "sameOriginalAuthenticatedInputAndAttempt": true,
+    "physicalArrivalAfterResourceRetirement": false,
+    "syntheticReadyOrPrivateAcceptanceCallback": false
+  },
+  "firstFailurePreservation": {
+    "privateCaptureDroppedRecords": 8,
+    "failedPacketRecords": 683,
+    "reservedRecords": 691,
+    "privateRuntimeReceipt": "/tmp/mio80-dequeued-business-current-sdk-root-20261007/runtime-mio80-dequeued-business/receipt.json",
+    "failedReceiptSha256": "6a3372bc55ea8069b00e5ba595566f3ba1cb8c55277bff9dec7ad0cf1f3d8aa8",
+    "diagnosisAndRedGreenProof": "/tmp/mio80-packet-capture-contention-root-20261007/diagnosis-and-fix.json",
+    "oldFailureReclassified": false
+  },
+  "limitations": [
+    "Each runtime receipt preserves its actual source/SDK epoch; final sole-comment correction changes no functional source bytes.",
+    "Browser stop/free leaves two quiet CLOSING relay/MQTT socket objects in the SDK 100ms late observation. Subsequent natural owned Browser closure has actual processCount=socketCount=0 immediately and late, forced=false. Graceful relay WebSocket close and joining every underlying SDK terminal task within SDK.stop remain unproven.",
+    "Native peer membership state remains propagation-pending when only Browser receives the actual signed removal; actual original communication ends.",
+    "This narrow matrix does not qualify physical WAN, all platform directions, or the whole MIOPUNCH-69 goal.",
+    "All raw captures, journals, signed record bytes, temporary identities and stores remain private OS-temporary evidence."
+  ],
+  "aggregateQualification": "Root accepts the complete seven-case M80 matrix after independent Standards0/Spec0; individual raw m80Qualified/fullGoal flags and real source epochs are unchanged."
+}

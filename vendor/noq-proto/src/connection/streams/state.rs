@@ -571,9 +571,27 @@ impl StreamsState {
             }
 
             let range = offsets.clone();
+            #[cfg(feature = "ring")]
+            let witness_offset = range.start;
             let meta = frame::StreamMeta { id, offsets, fin };
             builder.write_frame(meta.encoder(encode_length), stats);
+            #[cfg(feature = "ring")]
+            let witness_payload_start = builder.buf.len();
             stream.pending.get_into(range, builder.buf);
+            #[cfg(feature = "ring")]
+            if crate::packet_witness::enabled() {
+                let payload_len = builder.buf.len() - witness_payload_start;
+                let payload_sha256 = super::super::packet_builder::witness_sha256(
+                    &builder.buf.as_mut_slice()[witness_payload_start..],
+                );
+                builder.trace_payload_digest(
+                    "STREAM",
+                    Some(id),
+                    Some(witness_offset),
+                    payload_len,
+                    payload_sha256,
+                );
+            }
         }
     }
 

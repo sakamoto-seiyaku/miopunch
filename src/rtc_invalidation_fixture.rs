@@ -1,5 +1,5 @@
 //! One-shot, owned diagnostic holds at existing RTC Control boundaries.
-//! Never installed by default and never a scheduler or a permission source.
+//! Never installed by default and never a permission source.
 use crate::{
     rtc_association::RtcDeadline,
     rtc_transport::{RtcDatagramIo, RtcRouteLease},
@@ -229,5 +229,105 @@ struct Held(Arc<AtomicBool>);
 impl Drop for Held {
     fn drop(&mut self) {
         self.0.store(false, Ordering::Release);
+    }
+}
+
+/// A Native fixture scheduling pause after an authenticated C stream has
+/// supplied an actual matching Ready, before that read completes to the
+/// coordinator. The original bytes stay on the read future's stack. This
+/// neither fabricates Ready nor grants a candidate permission.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) struct CommonReadyInputFixture {
+    original: usize,
+    observation: Mutex<Option<Value>>,
+    release: CancellationToken,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl CommonReadyInputFixture {
+    pub(crate) fn new(original: usize) -> Self {
+        Self {
+            original,
+            observation: Mutex::new(None),
+            release: CancellationToken::new(),
+        }
+    }
+
+    pub(crate) fn snapshot(&self) -> Option<Value> {
+        self.observation.lock().unwrap().clone()
+    }
+
+    pub(crate) fn release(&self) {
+        // Scheduling release only. The coordinator still performs its actual
+        // authorization, revision and PreparedPath checks after this read.
+        if let Some(observation) = self.observation.lock().unwrap().as_mut() {
+            observation["releaseRequestedMonotonicMs"] =
+                json!(crate::rtc_transport::diagnostic_monotonic_ms());
+        }
+        self.release.cancel();
+    }
+
+    pub(crate) async fn after_actual_ready_input(
+        &self,
+        original: usize,
+        control: usize,
+        stream: String,
+        actual_frame: &[u8],
+        deadline: n0_future::time::Instant,
+    ) -> io::Result<()> {
+        if original != self.original || self.release.is_cancelled() {
+            return Ok(());
+        }
+        {
+            let mut observation = self.observation.lock().unwrap();
+            if observation.is_some() {
+                return Ok(());
+            }
+            *observation = Some(json!({"version":1,"held":true,
+                "originalStableId":original,"controlStableId":control,
+                "streamId":stream,"kind":actual_frame[5],"frameLength":actual_frame.len(),
+                "frameBlake3":blake3::hash(actual_frame).to_hex().to_string(),
+                "attemptBlake3":blake3::hash(&actual_frame[6..22]).to_hex().to_string(),
+                "actualAuthenticatedRead":true,"attemptMatched":true,
+                "physicalArrivalAfterInvalidation":false,
+                "readCompletionHeldMonotonicMs":crate::rtc_transport::diagnostic_monotonic_ms()}));
+        }
+        println!(
+            "{}",
+            json!({"event":"actual-common-ready-input-held","observation":self.snapshot()})
+        );
+        let _held = CommonReadyInputHeld(&self.observation);
+        let remaining = deadline
+            .saturating_duration_since(n0_future::time::Instant::now())
+            .min(std::time::Duration::from_secs(5));
+        n0_future::time::timeout(remaining, self.release.cancelled())
+            .await
+            .map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "owned Common Ready read scheduling deadline",
+                )
+            })?;
+        Ok(())
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl Drop for CommonReadyInputFixture {
+    fn drop(&mut self) {
+        self.release();
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+struct CommonReadyInputHeld<'a>(&'a Mutex<Option<Value>>);
+#[cfg(not(target_arch = "wasm32"))]
+impl Drop for CommonReadyInputHeld<'_> {
+    fn drop(&mut self) {
+        if let Some(observation) = self.0.lock().unwrap().as_mut() {
+            observation["held"] = json!(false);
+            observation["readWaitEndedMonotonicMs"] =
+                json!(crate::rtc_transport::diagnostic_monotonic_ms());
+        }
     }
 }

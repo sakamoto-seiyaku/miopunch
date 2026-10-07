@@ -11,6 +11,16 @@ use crate::{
     packet::{FIXED_BIT, Header, InitialHeader, LongType, PacketNumber, PartialEncode, SpaceId},
 };
 
+// Opt-in private tracing only; no payload, key or control decision is changed.
+#[cfg(feature = "ring")]
+pub(super) fn witness_sha256(bytes: &[u8]) -> String {
+    ring::digest::digest(&ring::digest::SHA256, bytes)
+        .as_ref()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 /// QUIC packet builder
 ///
 /// This allows building QUIC packets: it takes care of writing the header, allows writing
@@ -159,6 +169,23 @@ impl<'a, 'b> PacketBuilder<'a, 'b> {
         debug_assert!(max_size >= min_size);
 
         qlog.header(&header, Some(packet_number), level, path_id);
+        #[cfg(feature = "ring")]
+        if crate::packet_witness::enabled() {
+            use crate::packet_witness::{Value as W, emit};
+            emit(
+                "builder-open",
+                vec![
+                    ("packet_number", W::U64(packet_number)),
+                    ("path_id", W::U64(u64::from(path_id.as_u32()))),
+                    ("space", W::Text(format!("{space_id:?}"))),
+                    ("encryption_level", W::Text(format!("{level:?}"))),
+                    ("destination_cid", W::Text(dst_cid.to_string())),
+                    ("key_phase", W::Bool(conn.crypto_state.key_phase)),
+                    ("packet_offset", W::U64(partial_encode.start as u64)),
+                    ("header_len", W::U64(partial_encode.header_len as u64)),
+                ],
+            );
+        }
 
         Some(Self {
             buf: buffer,
@@ -240,6 +267,18 @@ impl<'a, 'b> PacketBuilder<'a, 'b> {
     ) {
         let frame = frame.into();
         frame.encode(&mut self.frame_space_mut());
+        #[cfg(feature = "ring")]
+        if crate::packet_witness::enabled()
+            && let EncodableFrame::Datagram(actual) = &frame
+        {
+            self.trace_payload_digest(
+                "DATAGRAM",
+                None,
+                None,
+                actual.data.len(),
+                witness_sha256(&actual.data),
+            );
+        }
         self.ack_eliciting |= frame.is_ack_eliciting();
         stats.record(frame.get_type());
         self.qlog.record(&frame);
@@ -248,6 +287,38 @@ impl<'a, 'b> PacketBuilder<'a, 'b> {
             None => trace!(%frame),
         }
         self.sent_frames.record_sent_frame(frame);
+    }
+
+    #[cfg(feature = "ring")]
+    pub(super) fn trace_payload_digest(
+        &self,
+        class: &'static str,
+        stream_id: Option<crate::StreamId>,
+        offset: Option<u64>,
+        payload_len: usize,
+        payload_sha256: String,
+    ) {
+        use crate::packet_witness::{Value as W, emit};
+        let mut fields = vec![
+            ("packet_number", W::U64(self.packet_number)),
+            ("path_id", W::U64(u64::from(self.path.as_u32()))),
+            ("space", W::Text(format!("{:?}", self.space))),
+            ("class", W::Text(class.to_owned())),
+            ("payload_len", W::U64(payload_len as u64)),
+            ("payload_sha256", W::Text(payload_sha256)),
+            ("packet_offset", W::U64(self.partial_encode.start as u64)),
+            (
+                "datagram_offset",
+                W::U64(self.buf.datagram_start_offset() as u64),
+            ),
+        ];
+        if let Some(stream) = stream_id {
+            fields.push(("stream_id", W::U64(u64::from(stream))));
+        }
+        if let Some(offset) = offset {
+            fields.push(("offset", W::U64(offset)));
+        }
+        emit("actual-payload-appended", fields);
     }
 
     /// Returns a writable buffer limited to the remaining frame space
@@ -364,6 +435,31 @@ impl<'a, 'b> PacketBuilder<'a, 'b> {
 
         let packet_len = self.buf.len() - encode_start;
         trace!(size = %packet_len, "wrote packet");
+        #[cfg(feature = "ring")]
+        if crate::packet_witness::enabled() {
+            let ciphertext_sha256 = witness_sha256(&self.buf.as_mut_slice()[encode_start..]);
+            use crate::packet_witness::{Value as W, emit};
+            emit(
+                "actual-packet-encrypted",
+                vec![
+                    ("packet_number", W::U64(self.packet_number)),
+                    ("path_id", W::U64(u64::from(self.path.as_u32()))),
+                    ("space", W::Text(format!("{:?}", self.space))),
+                    ("packet_offset", W::U64(encode_start as u64)),
+                    (
+                        "datagram_offset",
+                        W::U64(self.buf.datagram_start_offset() as u64),
+                    ),
+                    (
+                        "datagram_index",
+                        W::U64((self.buf.num_datagrams() - 1) as u64),
+                    ),
+                    ("packet_len", W::U64(packet_len as u64)),
+                    ("segment_size", W::U64(self.buf.segment_size() as u64)),
+                    ("ciphertext_sha256", W::Text(ciphertext_sha256)),
+                ],
+            );
+        }
         self.qlog.finalize(packet_len);
         conn.qlog.emit_packet_sent(self.qlog, now);
         (packet_len, pad, self.sent_frames)

@@ -116,6 +116,15 @@ pub async fn serve_stream(
         if !gate.allows(&connection, ProtocolScope::Member) {
             return Err("member message M is no longer qualified".into());
         }
+        if noq_proto::packet_witness::enabled() {
+            use sha2::{Digest, Sha256};
+            noq_proto::packet_witness::emit_ordinary_stream(
+                connection.stable_id(),
+                send.id(),
+                4,
+                &format!("{:x}", Sha256::digest(b"PONG")),
+            );
+        }
         crate::member_message::respond(&request, &mut send).await?;
     } else {
         send.write_all(&request).await?;
@@ -139,13 +148,64 @@ struct PumpStats {
     dropped_packets: AtomicU64,
     dropped_bytes: AtomicU64,
     buffer_peak: AtomicU64,
+    observation: Mutex<Value>,
 }
 impl PumpStats {
+    // Read-only last production-loop observation; never gates work or invents a packet.
+    fn observe_pump(
+        &self,
+        phase: &'static str,
+        pending_length: usize,
+        outstanding: Option<usize>,
+        blocked_cause: Option<&'static str>,
+    ) {
+        let mut state = self.observation.lock().unwrap();
+        if state["phase"] == phase
+            && state["pendingLength"] == pending_length
+            && state["outstandingBytes"] == json!(outstanding)
+            && state["blockedCause"] == json!(blocked_cause)
+        {
+            return;
+        }
+        let sequence = state["sequence"].as_u64().unwrap_or(0) + 1;
+        *state = json!({"version":1,"sequence":sequence,"phase":phase,
+            "pendingLength":pending_length,"outstandingBytes":outstanding,
+            "blockedCause":blocked_cause,
+            "monotonicMs":crate::rtc_transport::diagnostic_monotonic_ms()});
+    }
+    fn pump_observation(&self) -> Value {
+        self.observation.lock().unwrap().clone()
+    }
+    fn finish_pump_observation(&self, actually_active: bool) {
+        let mut state = self.observation.lock().unwrap();
+        let discarded = state["pendingLength"].as_u64();
+        let sequence = state["sequence"].as_u64().unwrap_or(0) + 1;
+        *state = json!({"version":1,"sequence":sequence,"phase":"pump-work-ended",
+            "pendingDiscardedOnWorkEnd":discarded,"pendingLength":0,
+            "routeActuallyActiveAtExit":actually_active,
+            "monotonicMs":crate::rtc_transport::diagnostic_monotonic_ms()});
+    }
     fn report(&self) -> Value {
         json!({"actualSentPackets":self.sent_packets.load(Ordering::Relaxed),"actualSentBytes":self.sent_bytes.load(Ordering::Relaxed),
             "actualReceivedPackets":self.received_packets.load(Ordering::Relaxed),"actualReceivedBytes":self.received_bytes.load(Ordering::Relaxed),
             "droppedQuicPackets":self.dropped_packets.load(Ordering::Relaxed),"droppedQuicBytes":self.dropped_bytes.load(Ordering::Relaxed),"bufferPeak":self.buffer_peak.load(Ordering::Relaxed)})
     }
+}
+
+fn trace_actual_pump_packet(stage: &'static str, io: &RtcDatagramIo, packet: &[u8]) {
+    if !noq_proto::packet_witness::enabled() {
+        return;
+    }
+    use sha2::{Digest, Sha256};
+    let digest = format!("{:x}", Sha256::digest(packet));
+    noq_proto::packet_witness::emit_pump(
+        stage,
+        io.report().original_stable_id,
+        packet.len(),
+        &digest,
+        io.is_active(),
+        crate::rtc_transport::diagnostic_monotonic_ms(),
+    );
 }
 
 async fn pump(
@@ -157,12 +217,22 @@ async fn pump(
     mut fault: tokio::sync::watch::Receiver<bool>,
 ) -> Result<()> {
     let _driver = io.pump_guard();
+    // Same real pending packet, owned by pump until one synchronous terminal
+    // witness after while_active drops the work future. Never reused or requeued.
+    let mut pending: Option<Vec<u8>> = None;
     let work = async {
         let closed = original.closed();
         tokio::pin!(closed);
-        let mut pending: Option<Vec<u8>> = None;
         let mut blocked = false;
+        let mut blocked_cause = None;
+        stats.observe_pump("work-started", 0, None, None);
         loop {
+            stats.observe_pump(
+                "querying-actual-capacity",
+                pending.as_ref().map_or(0, Vec::len),
+                None,
+                blocked_cause,
+            );
             let outstanding = channel.outstanding_bytes().await?;
             stats
                 .buffer_peak
@@ -171,6 +241,14 @@ async fn pump(
                 && pending
                     .as_ref()
                     .is_some_and(|packet| outstanding + packet.len() <= QUEUE_BYTES);
+            if pending.is_some() && !writable {
+                stats.observe_pump(
+                    "capacity-blocked",
+                    pending.as_ref().unwrap().len(),
+                    Some(outstanding),
+                    blocked_cause.or(Some("actual-outstanding-plus-packet-exceeds-queue-bytes")),
+                );
+            }
             tokio::select! { biased;
                 _ = &mut closed => return Ok(()),
                 _ = fault.changed() => return Err("injected native RTC pump failure".into()),
@@ -186,33 +264,65 @@ async fn pump(
                             io.receive(message.data.to_vec())?;
                         }
                     }
-                    Some(DataChannelEvent::OnBufferedAmountLow) => blocked = false,
+                    Some(DataChannelEvent::OnBufferedAmountLow) => {
+                        blocked = false; blocked_cause = None;
+                        stats.observe_pump("actual-buffer-low-event", pending.as_ref().map_or(0, Vec::len), Some(outstanding), None);
+                    },
                     Some(DataChannelEvent::OnClose | DataChannelEvent::OnClosing | DataChannelEvent::OnError) | None => return Err("RTC DataChannel ended".into()),
                     _ => {}
                 },
-                packet = poll_fn(|cx| io.poll_outbound(cx)), if pending.is_none() => {
+                packet = poll_fn(|cx| {
+                    let actual = io.poll_outbound(cx);
+                    if matches!(actual, std::task::Poll::Pending) {
+                        stats.observe_pump("actual-outbound-poll-pending", 0, Some(outstanding), None);
+                    }
+                    actual
+                }), if pending.is_none() => {
                     let packet = packet?;
+                    trace_actual_pump_packet("actual-pump-dequeued", &io, &packet);
+                    stats.observe_pump("actual-packet-dequeued", packet.len(), Some(outstanding), None);
+                    // Exact encrypted bytes remain available here for a future PRIVATE
+                    // provenance observer; length alone proves no business frame class.
                     if drop_quic.load(Ordering::Acquire) {
                         stats.dropped_packets.fetch_add(1, Ordering::Relaxed);
                         stats.dropped_bytes.fetch_add(packet.len() as u64, Ordering::Relaxed);
-                    } else { pending = Some(packet); }
+                        stats.observe_pump("actual-fixture-drop", 0, Some(outstanding), None);
+                    } else {
+                        pending = Some(packet);
+                        io.after_actual_pending_fixture(pending.as_ref().unwrap().as_slice()).await?;
+                    }
                 },
                 result = async {
+                    stats.observe_pump("actual-try-send-started", pending.as_ref().unwrap().len(), Some(outstanding), None);
                     if !io.is_active() { return Err(webrtc::error::Error::ErrClosedPipe); }
+                    trace_actual_pump_packet("actual-pump-try-send-enter", &io, pending.as_ref().unwrap());
                     channel.try_send(BytesMut::from(pending.as_ref().unwrap().as_slice())).await
                 }, if writable => match result {
                     Ok(()) => {
                         let packet = pending.take().unwrap();
+                        trace_actual_pump_packet("actual-pump-try-send-accepted", &io, &packet);
                         stats.sent_packets.fetch_add(1, Ordering::Relaxed);
                         stats.sent_bytes.fetch_add(packet.len() as u64, Ordering::Relaxed);
+                        stats.observe_pump("actual-try-send-accepted", 0, None, None);
                     }
-                    Err(webrtc::error::Error::ErrSendBufferFull) => blocked = true,
+                    Err(webrtc::error::Error::ErrSendBufferFull) => {
+                        trace_actual_pump_packet("actual-pump-try-send-buffer-full", &io, pending.as_ref().unwrap());
+                        blocked = true; blocked_cause = Some("actual-try-send-ErrSendBufferFull");
+                        stats.observe_pump("capacity-blocked", pending.as_ref().unwrap().len(), Some(outstanding), blocked_cause);
+                    },
                     Err(error) => return Err(error.into()),
                 },
             }
         }
     };
-    io.while_active(work).await?
+    let outcome = io.while_active(work).await;
+    if let Some(packet) = pending.as_ref() {
+        trace_actual_pump_packet("actual-pump-pending-drop-after-work", &io, packet);
+    }
+    io.observe_actual_pending_work_end(pending.as_deref());
+    drop(pending.take());
+    stats.finish_pump_observation(io.is_active());
+    outcome?
 }
 
 async fn phase(recv: &mut RecvStream, expected: &str, budget: RtcDeadline) -> Result<Value> {
@@ -555,14 +665,27 @@ async fn upgrade(
         let io = lease.io();
         let loss = drop_quic.clone();
         let traffic = pump_stats.clone();
+        // Optional read-only attachment is supplied by the transport-owned proposal.
+        // The closure owns stats only, never a strong M/PC or pending packet.
+        let observed = pump_stats.clone();
+        lease.attach_pump_observation(Arc::new(move || observed.pump_observation()))?;
         let stable = connection.stable_id();
         let done = pump_done_tx.take().ok_or("RTC pump already started")?;
         owned_pump = Some(tokio::spawn(async move {
-            let result = pump(original, dc, io.clone(), loss, traffic, pump_fault_rx).await;
+            let result = pump(
+                original,
+                dc,
+                io.clone(),
+                loss,
+                traffic.clone(),
+                pump_fault_rx,
+            )
+            .await;
             println!(
                 "{}",
                 json!({"event":"rtc-pump-ended","stableId":stable,"active":io.is_active(),"qualified":io.report().qualified,"failure":result.as_ref().err().map(ToString::to_string),
                     "retirementDiagnostic":io.retirement_diagnostic(),
+                    "pumpObservation":traffic.pump_observation(),
                     "monotonicMs":crate::rtc_transport::diagnostic_monotonic_ms()})
             );
             let _ = done.send(

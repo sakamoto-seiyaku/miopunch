@@ -82,6 +82,25 @@ impl CoordinatorHook {
     }
 }
 impl MemberPathAdapter for CoordinatorHook {
+    #[cfg(feature = "rtc-probe")]
+    fn after_actual_ready_input_fixture<'a>(
+        &'a self,
+        original: usize,
+        control: usize,
+        stream: String,
+        frame: &'a [u8],
+        deadline: n0_future::time::Instant,
+    ) -> impl Future<Output = io::Result<()>> + Send + 'a {
+        async move {
+            if let Some(rtc) = &self.rtc {
+                rtc.after_actual_common_ready_input_fixture(
+                    original, control, stream, frame, deadline,
+                )
+                .await?;
+            }
+            Ok(())
+        }
+    }
     fn committed(&self, connection: &Connection, report: serde_json::Value) {
         #[cfg(feature = "rtc-probe")]
         if report["event"] == "active-improvement-committed" {

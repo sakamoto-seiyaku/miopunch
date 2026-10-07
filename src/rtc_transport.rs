@@ -63,6 +63,12 @@ struct Registry {
     active_pumps: AtomicUsize,
     #[cfg(feature = "rtc-probe")]
     control_fixture: Mutex<Option<Arc<crate::rtc_invalidation_fixture::ControlFixture>>>,
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    actual_dequeue_fixture:
+        Mutex<Option<Arc<crate::rtc_actual_dequeue_fixture::ActualDequeueBarrier>>>,
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    ready_input_fixture:
+        Mutex<Option<Arc<crate::rtc_invalidation_fixture::CommonReadyInputFixture>>>,
 }
 impl Registry {
     fn refresh(&self) {
@@ -87,6 +93,10 @@ impl Registry {
     }
     fn close(&self) {
         self.retired.store(true, Ordering::Release);
+        #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+        if let Some(fixture) = self.ready_input_fixture.lock().unwrap().take() {
+            fixture.release();
+        }
         let routes: Vec<_> = self.routes.lock().unwrap().values().cloned().collect();
         for route in routes {
             route.close_with_reason("registry-shutdown");
@@ -105,6 +115,8 @@ struct Route {
     /// A weak diagnostic handle for this route's exact RTC association. It
     /// never keeps the peer connection alive or owns its cleanup.
     peer_connection: Mutex<Option<Weak<dyn webrtc::peer_connection::PeerConnection>>>,
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pump_observation: Mutex<Option<Arc<dyn Fn() -> serde_json::Value + Send + Sync>>>,
     current: Box<dyn Fn() -> bool + Send + Sync>,
     ready: AtomicBool,
     qualified: AtomicBool,
@@ -207,14 +219,20 @@ impl Route {
         self.qualified.store(false, Ordering::Release);
         #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
         self.peer_connection.lock().unwrap().take();
-        self.tx.close();
-        self.rx.close();
-        self.retirement.wake();
+        #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+        {
+            let observer = self.pump_observation.lock().unwrap().take();
+            drop(observer);
+        }
         if let Some(registry) = self.registry.upgrade() {
-            // Do not keep an association's queues alive in the transport registry.
+            // Withdraw this exact route and publish the new address set before
+            // queue/driver retirement wakes. No registry lock spans refresh.
             registry.routes.lock().unwrap().remove(&self.connection_id);
             registry.refresh();
         }
+        self.tx.close();
+        self.rx.close();
+        self.retirement.wake();
     }
 }
 
@@ -250,10 +268,69 @@ impl RtcTransport {
             active_pumps: AtomicUsize::new(0),
             #[cfg(feature = "rtc-probe")]
             control_fixture: Mutex::new(None),
+            #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+            actual_dequeue_fixture: Mutex::new(None),
+            #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+            ready_input_fixture: Mutex::new(None),
         })))
     }
     pub fn ice_profile(&self) -> &crate::rtc_ice_profile::RtcIceProfile {
         &self.0.ice_profile
+    }
+    /// Native fixture only: delay completion of one actual, matching protected
+    /// Common Ready read for this M. No candidate or carrier bytes are created.
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub fn arm_common_ready_input_fixture(&self, original: usize) -> io::Result<()> {
+        if self.0.retired.load(Ordering::Acquire) || !self.resource_allowed() {
+            return Err(invalid("RTC fixture transport unavailable"));
+        }
+        let mut slot = self.0.ready_input_fixture.lock().unwrap();
+        if slot.is_some() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                "Common Ready fixture already owned",
+            ));
+        }
+        *slot = Some(Arc::new(
+            crate::rtc_invalidation_fixture::CommonReadyInputFixture::new(original),
+        ));
+        Ok(())
+    }
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub fn common_ready_input_fixture_snapshot(&self) -> Option<serde_json::Value> {
+        let fixture = self.0.ready_input_fixture.lock().unwrap().clone();
+        fixture.and_then(|fixture| fixture.snapshot())
+    }
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub fn release_common_ready_input_fixture(&self) {
+        let fixture = self.0.ready_input_fixture.lock().unwrap().clone();
+        if let Some(fixture) = fixture {
+            fixture.release();
+        }
+    }
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub fn clear_common_ready_input_fixture(&self) {
+        let fixture = self.0.ready_input_fixture.lock().unwrap().take();
+        if let Some(fixture) = fixture {
+            fixture.release();
+        }
+    }
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub(crate) async fn after_actual_common_ready_input_fixture(
+        &self,
+        original: usize,
+        control: usize,
+        stream: String,
+        actual_frame: &[u8],
+        deadline: n0_future::time::Instant,
+    ) -> io::Result<()> {
+        let fixture = self.0.ready_input_fixture.lock().unwrap().clone();
+        if let Some(fixture) = fixture {
+            fixture
+                .after_actual_ready_input(original, control, stream, actual_frame, deadline)
+                .await?;
+        }
+        Ok(())
     }
     /// Reserve exactly one association for this original M. `current` must
     /// compare live membership/secret/resource/attempt generations, not a
@@ -305,6 +382,8 @@ impl RtcTransport {
             remote: Mutex::new(None),
             #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
             peer_connection: Mutex::new(None),
+            #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+            pump_observation: Mutex::new(None),
             current: Box::new(current),
             ready: AtomicBool::new(false),
             qualified: AtomicBool::new(false),
@@ -393,6 +472,137 @@ impl RtcTransport {
         self.0.resource_allowed.load(Ordering::Acquire)
     }
 
+    /// Arm only this actual selected, qualified original-M RTC route. The
+    /// matcher must read bounded PRIVATE actual encoder diagnostics only;
+    /// never capture a strong M/PC/lease/transport or guess ciphertext class.
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub fn arm_actual_dequeue_fixture(
+        &self,
+        original: &Connection,
+        selected_path_id: &str,
+        remaining_deadline: n0_future::time::Instant,
+        matcher: Arc<dyn Fn(&[u8]) -> bool + Send + Sync>,
+    ) -> io::Result<()> {
+        let route = self
+            .0
+            .routes
+            .lock()
+            .unwrap()
+            .get(&original.stable_id())
+            .cloned()
+            .ok_or_else(|| invalid("actual dequeue fixture original route unavailable"))?;
+        let remote = route
+            .remote
+            .lock()
+            .unwrap()
+            .clone()
+            .ok_or_else(|| invalid("actual dequeue fixture remote route unavailable"))?;
+        if original.close_reason().is_some()
+            || !route.active()
+            || !route.qualified.load(Ordering::Acquire)
+            || !route.original.upgrade().is_some_and(|actual| {
+                actual.stable_id() == original.stable_id()
+                    && actual.remote_id() == original.remote_id()
+            })
+            || !original.paths().iter().any(|path| {
+                path.id().to_string() == selected_path_id
+                    && path.is_selected()
+                    && path.remote_addr() == &TransportAddr::Custom(remote.clone())
+            })
+        {
+            return Err(invalid(
+                "actual dequeue fixture requires selected qualified exact original M",
+            ));
+        }
+        let fixture = Arc::new(
+            crate::rtc_actual_dequeue_fixture::ActualDequeueBarrier::new(
+                original.stable_id(),
+                route.local.clone(),
+                route.resource_revision,
+                selected_path_id.to_owned(),
+                remaining_deadline,
+                matcher,
+            )?,
+        );
+        {
+            let mut slot = self.0.actual_dequeue_fixture.lock().unwrap();
+            if slot.is_some() {
+                return Err(io::Error::new(
+                    io::ErrorKind::AlreadyExists,
+                    "owned actual dequeue fixture already armed",
+                ));
+            }
+            *slot = Some(fixture.clone());
+        }
+        // No registry/fixture lock spans qualification or endpoint operations.
+        if original.close_reason().is_some()
+            || !route.active()
+            || !route.qualified.load(Ordering::Acquire)
+        {
+            {
+                let mut slot = self.0.actual_dequeue_fixture.lock().unwrap();
+                if slot
+                    .as_ref()
+                    .is_some_and(|current| Arc::ptr_eq(current, &fixture))
+                {
+                    slot.take();
+                }
+            }
+            fixture.release_or_cleanup();
+            return Err(invalid("actual dequeue fixture route retired during arm"));
+        }
+        Ok(())
+    }
+
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub fn actual_dequeue_fixture_snapshot(&self) -> Option<serde_json::Value> {
+        let fixture = self.0.actual_dequeue_fixture.lock().unwrap().clone()?;
+        Some(fixture.snapshot())
+    }
+
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub fn release_actual_dequeue_fixture(&self) -> io::Result<()> {
+        let fixture = self
+            .0
+            .actual_dequeue_fixture
+            .lock()
+            .unwrap()
+            .clone()
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::NotFound, "actual dequeue fixture not armed")
+            })?;
+        fixture.release_or_cleanup();
+        Ok(())
+    }
+
+    /// Signal scheduler release outside locks; keep waiting-state diagnostics
+    /// until actual wait Drop is observed. Cleanup neither revives nor sends.
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub fn clear_actual_dequeue_fixture(&self) -> io::Result<Option<serde_json::Value>> {
+        let fixture = self.0.actual_dequeue_fixture.lock().unwrap().clone();
+        let Some(fixture) = fixture else {
+            return Ok(None);
+        };
+        fixture.release_or_cleanup();
+        if fixture.is_waiting() {
+            return Err(io::Error::new(
+                io::ErrorKind::WouldBlock,
+                "actual dequeue wait Drop remains unobserved; snapshot before cleanup",
+            ));
+        }
+        let snapshot = fixture.snapshot();
+        {
+            let mut slot = self.0.actual_dequeue_fixture.lock().unwrap();
+            if slot
+                .as_ref()
+                .is_some_and(|current| Arc::ptr_eq(current, &fixture))
+            {
+                slot.take();
+            }
+        }
+        Ok(Some(snapshot))
+    }
+
     /// Optional one-shot hold for this owned test transport, not runtime policy.
     #[cfg(feature = "rtc-probe")]
     pub fn arm_control_fixture(
@@ -447,6 +657,32 @@ impl RtcTransport {
             .iter()
             .map(|address| hex::encode(address.data()))
             .collect()
+    }
+
+    /// Read-only owned Native pump facts. Callback cloning and invocation are
+    /// separated from route/registry locks; raw route IDs stay private.
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub fn pump_observations_fixture(&self) -> Vec<serde_json::Value> {
+        let routes: Vec<_> = self.0.routes.lock().unwrap().values().cloned().collect();
+        let mut values = Vec::new();
+        for route in routes {
+            let observer = route.pump_observation.lock().unwrap().clone();
+            if let Some(observer) = observer {
+                let observation = observer();
+                values.push(serde_json::json!({
+                    "originalStableId":route.connection_id,
+                    "localRoute":hex::encode(route.local.data()),
+                    "originalOpen":route.original.is_open(),
+                    "routeReady":route.ready.load(Ordering::Acquire),
+                    "routeRetired":route.retired.load(Ordering::Acquire),
+                    "capturedResourceRevision":route.resource_revision,
+                    "currentResourceRevision":self.0.resource_revision.load(Ordering::Acquire),
+                    "resourceAllowed":self.0.resource_allowed.load(Ordering::Acquire),
+                    "observation":observation,
+                }));
+            }
+        }
+        values
     }
 
     #[cfg(feature = "rtc-probe")]
@@ -601,6 +837,30 @@ impl RtcRouteLease {
         *attached = Some(Arc::downgrade(peer));
         Ok(())
     }
+    /// Attach one read-only Native production-pump diagnostic. The callback
+    /// must capture only pump statistics, never a strong M/PC/transport/lease.
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub fn attach_pump_observation(
+        &self,
+        observer: Arc<dyn Fn() -> serde_json::Value + Send + Sync>,
+    ) -> io::Result<()> {
+        if !self.0.active() {
+            return Err(invalid("RTC association unavailable for pump observation"));
+        }
+        let mut attached = self.0.pump_observation.lock().unwrap();
+        if self.0.retired.load(Ordering::Acquire) {
+            return Err(invalid("RTC association retired before pump observation"));
+        }
+        if attached.is_some() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                "RTC pump observation already attached",
+            ));
+        }
+        *attached = Some(observer);
+        Ok(())
+    }
+
     /// Start a fresh QUIC PING on the exact address of this original M.
     /// A DataChannel open event or an old path snapshot cannot construct this proof.
     pub fn start_probe(&self, connection: &Connection) -> io::Result<RtcPathProbe> {
@@ -740,6 +1000,49 @@ impl Drop for RtcPumpGuard {
     }
 }
 impl RtcDatagramIo {
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    fn actual_dequeue_fixture(
+        &self,
+    ) -> Option<Arc<crate::rtc_actual_dequeue_fixture::ActualDequeueBarrier>> {
+        let registry = self.0.registry.upgrade()?;
+        let fixture = registry.actual_dequeue_fixture.lock().unwrap().clone();
+        fixture
+    }
+
+    /// Called only AFTER the genuine packet occupies production pending,
+    /// INSIDE existing while_active. No nested route watcher or fake queue.
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub(crate) async fn after_actual_pending_fixture(&self, packet: &[u8]) -> io::Result<()> {
+        let Some(fixture) = self.actual_dequeue_fixture() else {
+            return Ok(());
+        };
+        let selected = {
+            let original = self.0.original.upgrade();
+            let remote = self.0.remote.lock().unwrap().clone();
+            match (original, remote) {
+                (Some(original), Some(remote)) => original.paths().iter().any(|path| {
+                    path.id().to_string() == fixture.path_id()
+                        && path.is_selected()
+                        && path.remote_addr() == &TransportAddr::Custom(remote.clone())
+                }),
+                _ => false,
+            }
+        }; // Temporary original/path handles end before the scheduler await.
+        if !selected {
+            return Ok(());
+        }
+        fixture
+            .after_actual_pending(self, &self.0.local, packet)
+            .await
+    }
+
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub(crate) fn observe_actual_pending_work_end(&self, packet: Option<&[u8]>) {
+        if let Some(fixture) = self.actual_dequeue_fixture() {
+            fixture.observe_work_ended_pending(self, &self.0.local, packet);
+        }
+    }
+
     /// Cancel a driver's held work before it can use newly available channel
     /// capacity after qualification/resource retirement or original-M closure.
     pub async fn while_active<F: Future>(&self, work: F) -> io::Result<F::Output> {
