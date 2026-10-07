@@ -35,7 +35,7 @@ def endpoint(role: str, *, native: bool, mark: bool) -> dict:
             "activeNotVpnPhysicalNetwork": True,
             "selectedPairObserved": True,
             "selectedPairNonRelay": True,
-            "selectedRouteToActualInterface": True if native else False,
+            "selectedRouteToActualInterface": True,
             "nativeSocketTupleOwned": True if native else None,
             "nativeMarkObservedAndCorrelated": mark if native else None,
             "browserSocketUidUnknown": not native,
@@ -335,6 +335,45 @@ Network Requests:
         self.assertTrue(summary["physicalDataQualified"])
         self.assertTrue(summary["nativeMarkObservedAndCorrelated"])
         self.assertEqual(summary["actualSocketUidObservedCount"], 0)
+
+    def test_same_lan_or_unknown_access_does_not_qualify_physical_wan(self):
+        report = {"receipt": "/tmp/private.json", "commandExit": 0, "pairCorrelation": True,
+                  "endpoints": [endpoint("native", native=True, mark=True),
+                                endpoint("browser", native=False, mark=False)]}
+        self.assertTrue(collector._public_summary(report)["physicalDataQualified"])
+        self.assertFalse(collector._public_summary(report)["physicalWanQualified"])
+        for value in report["endpoints"]:
+            value["network"].update(defaultTransportWifi=True, defaultTransportCellular=False)
+        self.assertFalse(collector._public_summary(report)["physicalWanQualified"])
+
+    def test_browser_selected_route_failure_blocks_physical_qualification(self):
+        report = {"receipt": "/tmp/private.json", "commandExit": 0, "pairCorrelation": True,
+                  "endpoints": [endpoint("native", native=True, mark=True),
+                                endpoint("browser", native=False, mark=False)]}
+        report["endpoints"][1]["qualification"]["selectedRouteToActualInterface"] = False
+        summary = collector._public_summary(report)
+        self.assertFalse(summary["physicalDataQualified"])
+        self.assertFalse(summary["physicalWanQualified"])
+
+    def test_wan_requires_observed_distinct_access_and_global_wire_addresses(self):
+        native = endpoint("native", native=True, mark=True)
+        browser = endpoint("browser", native=False, mark=False)
+        native["network"].update(defaultTransportCellular=True, defaultTransportWifi=False)
+        browser["network"].update(defaultTransportWifi=True, defaultTransportCellular=False)
+        native["selectedTuple"] = {"peerAddress": "1.1.1.1"}
+        browser["selectedTuple"] = {"peerAddress": "8.8.8.8"}
+        report = {"receipt": "/tmp/private.json", "commandExit": 0, "pairCorrelation": True,
+                  "packetCorrelation": {"correlated": True}, "endpoints": [native, browser]}
+        self.assertTrue(collector._public_summary(report)["physicalWanQualified"])
+        for role, address in ((0, "192.168.1.2"), (1, "1.1.1.1")):
+            bad = copy.deepcopy(report)
+            bad["endpoints"][role]["selectedTuple"]["peerAddress"] = address
+            self.assertFalse(collector._public_summary(bad)["physicalWanQualified"])
+        bad = copy.deepcopy(report)
+        bad.pop("packetCorrelation")
+        self.assertFalse(collector._public_summary(bad)["physicalWanQualified"])
+        bad["packetCorrelation"] = None
+        self.assertFalse(collector._public_summary(bad)["physicalWanQualified"])
 
     def test_missing_native_mark_stays_unqualified_but_browser_unknown_is_allowed(self):
         report = {

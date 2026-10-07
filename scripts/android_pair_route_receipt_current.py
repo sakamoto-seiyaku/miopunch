@@ -621,7 +621,9 @@ def _collect_endpoint(endpoint: dict, device: CurrentDevice) -> dict:
         and item["qualification"]["selectedRouteToActualInterface"]
         and (endpoint["role"] != "native" or item["qualification"]["nativeSocketTupleOwned"])
     )
-    item["physicalWanQualified"] = item["physicalDataQualified"]
+    # A single endpoint cannot establish different access networks or WAN NAT.
+    # Only the pair summary can qualify that relation from both observations.
+    item["physicalWanQualified"] = False
     item["limits"] = [
         "ADB and shell reads are control/evidence channels, not data-route proof.",
         "Process/package UIDs are not actual selected socket UIDs.",
@@ -644,6 +646,30 @@ def _write_private(path: Path, value: dict) -> None:
     path.chmod(0o600)
 
 
+def _distinct_access_networks(native: dict, browser: dict) -> bool:
+    """Qualify only the observed cellular/Wi-Fi scene, never two LAN peers.
+
+    Device-local network IDs, interface names and different private addresses
+    cannot prove different access. Require opposite physical default types
+    and distinct global peer wire addresses measured on the selected pair.
+    Other scenes remain unknown rather than accepting a caller's WAN flag.
+    """
+    def transport(endpoint):
+        network = endpoint.get("network", {})
+        cellular = network.get("defaultTransportCellular") is True
+        wifi = network.get("defaultTransportWifi") is True
+        return "cellular" if cellular and not wifi else "wifi" if wifi and not cellular else None
+
+    if {transport(native), transport(browser)} != {"cellular", "wifi"}:
+        return False
+    try:
+        addresses = [ipaddress.ip_address(value.get("selectedTuple", {}).get("peerAddress"))
+                     for value in (native, browser)]
+    except ValueError:
+        return False
+    return all(address.is_global for address in addresses) and addresses[0] != addresses[1]
+
+
 def _public_summary(report: dict) -> dict:
     endpoints = report.get("endpoints", [])
     by_role = {item.get("role"): item for item in endpoints if isinstance(item, dict)}
@@ -663,7 +689,12 @@ def _public_summary(report: dict) -> dict:
         and browser_qualification.get("selectedPairObserved") is True
         and native_qualification.get("nativeSocketTupleOwned") is True
         and native_qualification.get("nativeMarkObservedAndCorrelated") is True
-        and native_qualification.get("selectedRouteToActualInterface") is True)
+        and native_qualification.get("selectedRouteToActualInterface") is True
+        and browser_qualification.get("selectedRouteToActualInterface") is True)
+    distinct_access = _distinct_access_networks(native, browser)
+    packet = report.get("packetCorrelation")
+    wan = bool(physical and distinct_access
+               and isinstance(packet, dict) and packet.get("correlated") is True)
     return {"receipt": report["receipt"], "commandExit": report["commandExit"],
             "endpointCount": len(endpoints),
             "activeValidatedNetworkCount": sum(bool(item.get("network", {}).get("activeValidatedNetwork"))
@@ -677,13 +708,16 @@ def _public_summary(report: dict) -> dict:
             "nativeSocketTupleOwned": native_qualification.get("nativeSocketTupleOwned"),
             "nativeMarkObservedAndCorrelated": native_qualification.get("nativeMarkObservedAndCorrelated"),
             "nativeRouteToActualInterface": native_qualification.get("selectedRouteToActualInterface"),
+            "browserRouteToActualInterface": browser_qualification.get("selectedRouteToActualInterface"),
+            "distinctAccessNetworksObserved": distinct_access,
+            "distinctAccessMethod": "opposite CELLULAR/WIFI defaults and distinct global peer wire addresses",
             "pairCorrelation": report.get("pairCorrelation", False),
             "actualSocketUidObservedCount": sum(bool(item.get("actualSocketUid", {}).get("observed"))
                                                 for item in endpoints),
             "actualSocketMarkObservedCount": sum(bool(item.get("socketMark", {}).get("observed"))
                                                  for item in endpoints),
             "physicalDataQualified": physical,
-            "physicalWanQualified": physical,
+            "physicalWanQualified": wan,
             "routeObservationUnknown": report.get("routeObservationUnknown", False)}
 
 

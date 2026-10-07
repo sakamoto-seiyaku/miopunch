@@ -1,0 +1,34 @@
+{
+  "scope": "offline Android-pair physical-data/WAN measurement predicates only",
+  "initialReviewCommit": "749baa2dde9c4d97c7c4d0f6dd25bf3351d60512",
+  "initialStandardsHardFindings": 0,
+  "initialStandardsParkedHeuristics": 1,
+  "initialSpecRequiredSourceFindings": 2,
+  "sourceHashes": {
+    "scripts/android_pair_route_receipt_current.py": "14670275d1ed9140f8faddac1f9034c6d130293a66fa3e6f11607f56b9f146b6",
+    "scripts/test_android_pair_route_receipt_current.py": "570e89919d6fb16e9ced44a07c7b13cb271d7fae198f7b462878aee9d7c15996"
+  },
+  "corrections": [
+    "Both observed selected routes must reach each active physical interface; Chrome socket UID/protect remain explicitly unknown.",
+    "Physical data and physical WAN are separate: same-LAN or unknown-access conditions cannot become WAN success.",
+    "Current WAN scene requires opposite CELLULAR/WIFI defaults, distinct global peer wire addresses and two-end exact packet correlation; other access combinations remain unknown.",
+    "A single endpoint never qualifies a pair WAN relation."
+  ],
+  "regressions": {
+    "redExit": 1,
+    "greenExit": 0,
+    "tests": 22,
+    "receipt": "/tmp/mio82-qualification-predicates-green-final-root-20261008/receipt.json",
+    "receiptSha256": "ef9e8f7d95ceca82bad7cd06689dd7a8ac107331172af255099255a2f64dcebc",
+    "redExitSha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+  },
+  "sdkRebuildPerformed": false,
+  "sdkRerunPerformed": false,
+  "priorHostSdkReceiptUnchanged": true,
+  "priorHostPhysicalWanQualified": false,
+  "reviewStatus": "pending independent follow-up",
+  "limits": [
+    "The original actual Host functional run belongs to its recorded source epoch; this offline fix does not create a new SDK result.",
+    "Host upstream Windows route remains unknown and prior Pixel active network lacked VALIDATED; actual different-network no-overlay environment remains unqualified."
+  ]
+}
