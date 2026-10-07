@@ -1,0 +1,407 @@
+{
+  "tickets": [
+    "MIOPUNCH-77",
+    "MIOPUNCH-78"
+  ],
+  "status": "functional acceptance and independent reviews complete within declared SDK scope",
+  "platformScope": "Host Native and Host Browser; actual public data/signaling facilities and local RTC/direct paths",
+  "m77Cases": {
+    "public-relay-retention": {
+      "receipt": "/tmp/mio77-retention-a361-current-preparation-sol61-medium-20261007/runtime-final-unused/receipt.json",
+      "receiptSha256": "0fbf7efa324d9bf4f18b5e42fa95a2b01802c7db0e03bdbed6566984649b96ef",
+      "passed": true,
+      "receiptCommandExit": 0,
+      "actualRootExecutionExit": 0,
+      "elapsedMs": 114253.781,
+      "sourceStable": true,
+      "physicalWanQualified": false
+    },
+    "member-data-upgrade": {
+      "receipt": "/tmp/mio77-member-data-final94e-preparation-sol61-medium-20261007/runtime-upgrade-unused/receipt.json",
+      "receiptSha256": "3976b4edef134ddb0ebbe693d3948469438b41c81a72ba59033315caf4f01fee",
+      "passed": true,
+      "receiptCommandExit": null,
+      "actualRootExecutionExit": 0,
+      "elapsedMs": null,
+      "sourceStable": true,
+      "physicalWanQualified": false,
+      "exitEvidence": "Root actual execution result; this member-data receipt schema does not include the controller exit field"
+    },
+    "member-data-server-disabled": {
+      "receipt": "/tmp/mio77-member-data-final94e-preparation-sol61-medium-20261007/runtime-server-disabled-unused/receipt.json",
+      "receiptSha256": "1613453a6e8d7e54f89928ed3559b55a2301f974373adfdfd677a3d4af215a5f",
+      "passed": true,
+      "receiptCommandExit": null,
+      "actualRootExecutionExit": 0,
+      "elapsedMs": null,
+      "sourceStable": true,
+      "physicalWanQualified": false,
+      "exitEvidence": "Root actual execution result; this member-data receipt schema does not include the controller exit field"
+    },
+    "member-data-no-opt-in": {
+      "receipt": "/tmp/mio77-member-data-final94e-preparation-sol61-medium-20261007/runtime-no-opt-in-unused/receipt.json",
+      "receiptSha256": "ade1f558bf1d85735d120492ab9f3dbc40a5124bd2789b1d2c095c893297b613",
+      "passed": true,
+      "receiptCommandExit": null,
+      "actualRootExecutionExit": 0,
+      "elapsedMs": null,
+      "sourceStable": true,
+      "physicalWanQualified": false,
+      "exitEvidence": "Root actual execution result; this member-data receipt schema does not include the controller exit field"
+    },
+    "lost-fresh-probe": {
+      "receipt": "/tmp/mio77-native-probe-peer-rejection-root-20261007/runtime-lost-fresh-probe-unused/receipt.json",
+      "receiptSha256": "6ef99c968902349011b67ea7e5d61b606f64af880117e30451ec707c25bdbeaf",
+      "passed": true,
+      "receiptCommandExit": 0,
+      "actualRootExecutionExit": 0,
+      "elapsedMs": 79064.606,
+      "sourceStable": true,
+      "physicalWanQualified": false,
+      "sameOriginalM": true,
+      "sameOriginalStreamSequence1": true,
+      "pong": true,
+      "currentMemberGatesBoth": true,
+      "noForcedSwitch": true,
+      "candidateFrames": {
+        "browser": {
+          "observation": "OBSERVED",
+          "sampleCount": 66,
+          "measuredKeys": [
+            "streamSent",
+            "streamReceived",
+            "datagramSent",
+            "datagramReceived"
+          ],
+          "allMeasuredApplicationFramesZero": true,
+          "nativeDatagramFrames": null
+        },
+        "native": {
+          "observation": "OBSERVED",
+          "sampleCount": 60,
+          "measuredKeys": [
+            "streamSent",
+            "streamReceived"
+          ],
+          "allMeasuredApplicationFramesZero": true,
+          "nativeDatagramFrames": "UNOBSERVED"
+        }
+      },
+      "failureReason": "PeerCandidateControlClosed",
+      "cleanup": {
+        "nativeForced": false,
+        "browserForced": false,
+        "nativeProcessAbsent": true,
+        "browserProcessAbsent": true,
+        "nativeLateSockets": 0,
+        "browserLateSockets": 0,
+        "browserSdkTail": {
+          "observed": true,
+          "pendingSocketCount": 2,
+          "pendingRelaySocketCount": 1,
+          "pendingMqttSocketCount": 1,
+          "trafficUnchangedAt100Ms": true,
+          "gracefulRelayCloseObserved": false,
+          "allSdkTerminalTasksRetiredProven": false
+        },
+        "ownedFaultTimers": 0
+      }
+    },
+    "candidate-driver-failure": {
+      "receipt": "/tmp/mio77-native-probe-peer-rejection-root-20261007/runtime-candidate-driver-failure-unused/receipt.json",
+      "receiptSha256": "f14404ccf121c8dcee19dad383c583e211ddc12dbe8d65420faf69bda37f28e8",
+      "passed": true,
+      "receiptCommandExit": 0,
+      "actualRootExecutionExit": 0,
+      "elapsedMs": 120198.865,
+      "sourceStable": true,
+      "physicalWanQualified": false,
+      "sameOriginalM": true,
+      "sameOriginalStreamSequence1": true,
+      "pong": true,
+      "currentMemberGatesBoth": true,
+      "noForcedSwitch": true,
+      "candidateFrames": {
+        "browser": {
+          "observation": "UNOBSERVED",
+          "sampleCount": 0,
+          "measuredKeys": [
+            "streamSent",
+            "streamReceived",
+            "datagramSent",
+            "datagramReceived"
+          ],
+          "allMeasuredApplicationFramesZero": null,
+          "nativeDatagramFrames": null
+        },
+        "native": {
+          "observation": "UNOBSERVED",
+          "sampleCount": 0,
+          "measuredKeys": [
+            "streamSent",
+            "streamReceived"
+          ],
+          "allMeasuredApplicationFramesZero": null,
+          "nativeDatagramFrames": "UNOBSERVED"
+        }
+      },
+      "failureReason": "DeadlineExceeded",
+      "cleanup": {
+        "nativeForced": false,
+        "browserForced": false,
+        "nativeProcessAbsent": true,
+        "browserProcessAbsent": true,
+        "nativeLateSockets": 0,
+        "browserLateSockets": 0,
+        "browserSdkTail": {
+          "observed": true,
+          "pendingSocketCount": 2,
+          "pendingRelaySocketCount": 1,
+          "pendingMqttSocketCount": 1,
+          "trafficUnchangedAt100Ms": true,
+          "gracefulRelayCloseObserved": false,
+          "allSdkTerminalTasksRetiredProven": false
+        },
+        "ownedFaultTimers": 0
+      }
+    },
+    "worse-rtc-rtt": {
+      "receipt": "/tmp/mio77-worse-rtc-real-delay3s-root-20261007/runtime-worse-rtc-rtt-unused/receipt.json",
+      "receiptSha256": "4506a9a9bb467b57a86f73b318b4bcc4feb5b48064db9a04ba66c3d0b686b67b",
+      "passed": true,
+      "receiptCommandExit": 0,
+      "actualRootExecutionExit": 0,
+      "elapsedMs": 78913.424,
+      "sourceStable": true,
+      "physicalWanQualified": false,
+      "measuredQualityComparison": {
+        "browser": {
+          "relayRttMicros": 1062065,
+          "retainedRtcRttMicros": 3284511,
+          "gapMicros": 2222446,
+          "lowerRttRelaySelected": true,
+          "retainedRtcSelected": false
+        },
+        "native": {
+          "relayRttMicros": 1171793,
+          "retainedRtcRttMicros": 1891107,
+          "gapMicros": 719314,
+          "lowerRttRelaySelected": true,
+          "retainedRtcSelected": false
+        }
+      },
+      "lateMeasuredQualityComparison": {
+        "browser": {
+          "relayRttMicros": 1025144,
+          "retainedRtcRttMicros": 3284511,
+          "gapMicros": 2259367,
+          "relaySelected": true,
+          "retainedRtcSelected": false
+        },
+        "native": {
+          "relayRttMicros": 1129604,
+          "retainedRtcRttMicros": 2030131,
+          "gapMicros": 900527,
+          "relaySelected": true,
+          "retainedRtcSelected": false
+        }
+      },
+      "sameOriginalM": true,
+      "sameOriginalStreamSequence1": true,
+      "pong": true,
+      "currentMemberGatesBoth": true,
+      "noForcedSwitch": true,
+      "candidateFrames": {
+        "browser": {
+          "observation": "OBSERVED",
+          "sampleCount": 43,
+          "measuredKeys": [
+            "streamSent",
+            "streamReceived",
+            "datagramSent",
+            "datagramReceived"
+          ],
+          "allMeasuredApplicationFramesZero": true,
+          "nativeDatagramFrames": null
+        },
+        "native": {
+          "observation": "OBSERVED",
+          "sampleCount": 29,
+          "measuredKeys": [
+            "streamSent",
+            "streamReceived"
+          ],
+          "allMeasuredApplicationFramesZero": true,
+          "nativeDatagramFrames": "UNOBSERVED"
+        }
+      },
+      "cleanup": {
+        "nativeForced": false,
+        "browserForced": false,
+        "nativeProcessAbsent": true,
+        "browserProcessAbsent": true,
+        "nativeLateSockets": 0,
+        "browserLateSockets": 0,
+        "browserSdkTail": {
+          "observed": true,
+          "pendingSocketCount": 2,
+          "pendingRelaySocketCount": 1,
+          "pendingMqttSocketCount": 1,
+          "trafficUnchangedAt100Ms": true,
+          "gracefulRelayCloseObserved": false,
+          "allSdkTerminalTasksRetiredProven": false
+        },
+        "ownedFaultTimers": 0
+      }
+    }
+  },
+  "finalSourceDigest": "4eb990b87f1a288c468a85063ee543ebe0d87cf4ca8457f170118b193ca26255",
+  "finalFormatting": {
+    "receipt": "/tmp/mio77-final-formatting-root-20261007/scope-receipt.json",
+    "behaviorChanged": false,
+    "rootAndBrowserFmtPassed": true
+  },
+  "finalSdk": {
+    "native": {
+      "receipt": "/tmp/mio77-final-all-formatted-sdk-root-20261007/native-build/build.json",
+      "sha256": "74a2ddfa5e1fdf7aec7bbc541ccc657849e8d6e44fb0711bd5ed38c3ad4ef3af",
+      "exit": 0,
+      "cargoSeconds": 18.42758045787923,
+      "freshArtifacts": 526,
+      "rebuiltArtifacts": 3,
+      "selectedInputs": 6576,
+      "selectedRepositoryCopies": 289,
+      "capturedDepfiles": 479,
+      "sourceDigest": "4eb990b87f1a288c468a85063ee543ebe0d87cf4ca8457f170118b193ca26255"
+    },
+    "wasm": {
+      "receipt": "/tmp/mio77-final-all-formatted-sdk-root-20261007/wasm-build/receipt.json",
+      "sha256": "00ce811e3eb88459e5e92f24b914a7ff25ab6ef454dfdaa19f2eca0058409767",
+      "exit": 0,
+      "cargoSeconds": 10.129909147974104,
+      "freshArtifacts": 295,
+      "rebuiltArtifacts": 1,
+      "selectedInputs": 3158,
+      "selectedRepositoryCopies": 197,
+      "capturedDepfiles": 264,
+      "sourceDigest": "4eb990b87f1a288c468a85063ee543ebe0d87cf4ca8457f170118b193ca26255"
+    }
+  },
+  "wholeGoalQualified": false,
+  "physicalWanQualified": false,
+  "rawPrivateMaterialPublished": false,
+  "m78Cases": [
+    {
+      "case": "member-first",
+      "receipt": "/tmp/mio78-native-member-asymmetric-a361-preparation-sol61-medium-20261007/case-runtime/available_member_contact_precedes_ready_configured_mqtt/receipt.json",
+      "sha256": "735a45b3db0ebb35522a6bfda8dd40fb1e6bc76a428b50f8f13880571b1d50f4",
+      "passed": true,
+      "scope": "actual original recorded source/ELF epoch, preserved"
+    },
+    {
+      "case": "public-fallback",
+      "receipt": "/tmp/mio78-native-public-mqtt-fallback-a361-preparation-sol61-medium-20261007/case-runtime/unavailable_member_contact_falls_back_with_original_deadline/receipt.json",
+      "sha256": "d9762ab002009eb322300542bca4954841e655b22b51a956084f0eade0803ba5",
+      "passed": true,
+      "scope": "actual original recorded source/ELF epoch, preserved"
+    },
+    {
+      "case": "public-asymmetric",
+      "receipt": "/tmp/mio78-asymmetric-a361-current-preparation-sol61-medium-20261007/runtime/receipt.json",
+      "sha256": "a6573ed2ee261a3a08f9f5df5fe3c7feda3b730d8a13e05b137cf8cdbf93f080",
+      "passed": true,
+      "scope": "actual original recorded source/ELF epoch, preserved"
+    },
+    {
+      "case": "lookup_query_disable_retires_stopped_origin_io_without_reopening",
+      "receipt": "/tmp/mio78-stopped-origin-query-responder-current-sdk-green-preparation-sol61-medium-20261007/case-runtime/lookup_query_disable_retires_stopped_origin_io_without_reopening/receipt.json",
+      "sha256": "2bbe5f4ee3e8b40317079773c51c9c63bd77daeccbe0da28ec2bbecf3be2bc93",
+      "passed": true,
+      "scope": "actual original recorded source/ELF epoch, preserved"
+    },
+    {
+      "case": "post_replacement_directory_sync_error_preserves_fail_closed_and_same_m",
+      "receipt": "/tmp/mio78-stopped-origin-query-responder-current-sdk-green-preparation-sol61-medium-20261007/case-runtime/post_replacement_directory_sync_error_preserves_fail_closed_and_same_m/receipt.json",
+      "sha256": "8b303ed42ca622685fd3c7909f5794d67713bbdeef7d0d40b3238eebd7323a51",
+      "passed": true,
+      "scope": "actual original recorded source/ELF epoch, preserved"
+    },
+    {
+      "case": "pre_replacement_save_error_preserves_original_bytes_and_same_m",
+      "receipt": "/tmp/mio78-stopped-origin-query-responder-current-sdk-green-preparation-sol61-medium-20261007/case-runtime/pre_replacement_save_error_preserves_original_bytes_and_same_m/receipt.json",
+      "sha256": "6386979dabb3e5d8fa5e6f33008da7d2dcd0c98fdbff5b73345189e33fbd4d50",
+      "passed": true,
+      "scope": "actual original recorded source/ELF epoch, preserved"
+    },
+    {
+      "case": "default_history_replica_sync_applies_missing_member_and_survives_reopen",
+      "receipt": "/tmp/mio78-stopped-origin-query-responder-current-sdk-green-preparation-sol61-medium-20261007/case-runtime/default_history_replica_sync_applies_missing_member_and_survives_reopen/receipt.json",
+      "sha256": "c7db18c36a0aed434d9ef535d3afcd306f3ca3c72016b4633e5b8ae924aa2ba1",
+      "passed": true,
+      "scope": "actual original recorded source/ELF epoch, preserved"
+    },
+    {
+      "case": "pending_replica_sync_disable_closes_actual_c_and_preserves_independent_m",
+      "receipt": "/tmp/mio78-stopped-origin-query-responder-current-sdk-green-preparation-sol61-medium-20261007/case-runtime/pending_replica_sync_disable_closes_actual_c_and_preserves_independent_m/receipt.json",
+      "sha256": "0feb24952c9c3d335ef8995b88b3f954da086c14e84121236964f0e16a1b3b8a",
+      "passed": true,
+      "scope": "actual original recorded source/ELF epoch, preserved"
+    },
+    {
+      "case": "node_keeps_contact_ready_and_restarts_during_healthy_relay_and_business",
+      "receipt": "/tmp/mio78-contact-pair-json-input-correction-sol61-medium-20261007/case-runtime/node_keeps_contact_ready_and_restarts_during_healthy_relay_and_business/receipt.json",
+      "sha256": "d3b9eab81d328acdcef410e0f37592d7dd20817e6b79d7c24326b2bee290d67a",
+      "passed": true,
+      "scope": "actual original recorded source/ELF epoch, preserved"
+    },
+    {
+      "case": "contact_listener::tests::ready_disconnect_restart_and_late_callback_preserve_exact_generation",
+      "receipt": "/tmp/mio78-contact-pair-json-input-correction-sol61-medium-20261007/case-runtime/contact_listener::tests::ready_disconnect_restart_and_late_callback_preserve_exact_generation/receipt.json",
+      "sha256": "8b19f15b96ae88f0e24f9f771e8fb0b72e08397e0532e000e2f0c488300bdac0",
+      "passed": true,
+      "scope": "actual original recorded source/ELF epoch, preserved"
+    }
+  ],
+  "affectedRootChecks": [
+    {
+      "receipt": "/tmp/mio77-mio78-final-root-tests-preparation-sol61-medium-20261007/case-runtime/contact_listener::tests::ready_disconnect_restart_and_late_callback_preserve_exact_generation/receipt.json",
+      "sha256": "2e4c37bf60e64e098859bfe10d034a59ce90a5876d602e9475c8d641b1ee4547",
+      "passed": true
+    },
+    {
+      "receipt": "/tmp/mio77-mio78-final-root-tests-preparation-sol61-medium-20261007/case-runtime/node_keeps_contact_ready_and_restarts_during_healthy_relay_and_business/receipt.json",
+      "sha256": "3306318be27b2683daafa296bf112334d0fa37661d6c725e846401add4d7e754",
+      "passed": true
+    },
+    {
+      "receipt": "/tmp/mio77-mio78-final-root-tests-preparation-sol61-medium-20261007/case-runtime/connection_coordinator::active_commit_tests::/receipt.json",
+      "sha256": "c1df60adfb42036b963e180bd768b7f87d3d14c80bc1cc9d6bb559bb3e75b125",
+      "passed": true
+    }
+  ],
+  "affectedRootCheckCount": 6,
+  "reviews": {
+    "standards": {
+      "requiredFindingCount": 1,
+      "finding": "two compilation drivers bypassed shared Cargo cache; Python-only fix applied",
+      "report": "/tmp/mio77-mio78-final-functional-review-root-20261007/standards/REPORT.md",
+      "closurePending": false,
+      "remainingRequiredFindingCount": 0,
+      "closureReport": "/tmp/mio77-mio78-cargo-cache-standard-fix-root-20261007/standards-closure/REPORT.md"
+    },
+    "spec": {
+      "requiredFindingCount": 0,
+      "functionalAcceptanceSatisfied": true,
+      "report": "/tmp/mio77-mio78-final-functional-review-root-20261007/spec/REPORT.md",
+      "remainingRequiredFindingCount": 0
+    }
+  },
+  "driverBoundaryVerification": {
+    "receipt": "/tmp/mio77-cache-driver-boundary-verification-20261007/receipt.json",
+    "actualSharedLeaseWithIndependentContender": true,
+    "invalidSourceLockRejectedBeforeCompiler": true,
+    "mutableArtifactPinnedUnderLease": true,
+    "invalidReuseArtifactRejectedBeforeTypecheck": true,
+    "rustSdkOrNetworkRuntimeExecuted": false
+  }
+}

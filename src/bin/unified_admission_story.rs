@@ -1,9 +1,12 @@
-//! Private operator for the MIO83 SDK story. Never persist its raw stdout.
+//! Private operator for the current M82 SDK story. Never persist its raw stdout.
 //! Admission and replica remain explicitly unqualified until their common
 //! purpose seam is released; this operator supplies no replacement protocol.
 #[cfg(feature = "rtc-probe")]
 mod enabled {
-    use iroh::{Endpoint, EndpointAddr, endpoint::presets};
+    use iroh::{
+        Endpoint, EndpointAddr,
+        endpoint::{WeakConnectionHandle, presets},
+    };
     use miopunch_native_probe::{
         admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope},
         daily_management::ManagementAction,
@@ -17,11 +20,165 @@ mod enabled {
     };
     use serde_json::{Value, json};
     use std::{
-        collections::BTreeSet, error::Error, net::Ipv4Addr, path::Path, sync::Arc, time::Duration,
+        collections::{BTreeMap, BTreeSet},
+        error::Error,
+        net::{Ipv4Addr, SocketAddr},
+        path::Path,
+        sync::Arc,
+        time::Duration,
     };
     use tokio::io::{AsyncBufReadExt, BufReader};
 
     type Failure = Box<dyn Error + Send + Sync>;
+    type OrdinaryMemberLedger = Arc<std::sync::Mutex<BTreeMap<usize, WeakConnectionHandle>>>;
+
+    struct OrdinaryMemberGuard {
+        ledger: OrdinaryMemberLedger,
+        stable: usize,
+    }
+    impl Drop for OrdinaryMemberGuard {
+        fn drop(&mut self) {
+            if let Ok(mut ledger) = self.ledger.lock() {
+                ledger.remove(&self.stable);
+            }
+        }
+    }
+
+    // Read only the exact selected tuple from descriptors owned by this
+    // operator.  A missing/ambiguous mark remains unknown; no socket is
+    // created, reconfigured, or retained by this observer.
+    #[cfg(any(target_os = "android", target_os = "linux"))]
+    fn observe_owned_udp_mark(selected: SocketAddr) -> Value {
+        use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+        unsafe extern "C" {
+            fn dup(fd: std::ffi::c_int) -> std::ffi::c_int;
+        }
+        let read = || -> std::io::Result<Vec<(String, u32)>> {
+            let entries = std::fs::read_dir("/proc/self/fd")?.collect::<Result<Vec<_>, _>>()?;
+            let mut marks = Vec::new();
+            for entry in entries {
+                let original = std::fs::read_link(entry.path())?;
+                let Some(original_text) = original
+                    .to_str()
+                    .filter(|value| value.starts_with("socket:["))
+                else {
+                    continue;
+                };
+                let fd = entry
+                    .file_name()
+                    .to_string_lossy()
+                    .parse::<std::ffi::c_int>()
+                    .map_err(|_| std::io::Error::other("invalid owned descriptor"))?;
+                let duplicate = unsafe { dup(fd) };
+                if duplicate < 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                let owned = unsafe { OwnedFd::from_raw_fd(duplicate) };
+                let copied = std::fs::read_link(format!("/proc/self/fd/{}", owned.as_raw_fd()))?;
+                let still_original = std::fs::read_link(entry.path())?;
+                if copied != original || still_original != original {
+                    return Err(std::io::Error::other(
+                        "owned descriptor changed during duplication",
+                    ));
+                }
+                let socket = socket2::SockRef::from(&owned);
+                if socket.r#type()? == socket2::Type::DGRAM
+                    && socket.protocol()? == Some(socket2::Protocol::UDP)
+                    && socket.local_addr()?.as_socket() == Some(selected)
+                {
+                    marks.push((original_text.to_owned(), socket.mark()?));
+                }
+            }
+            Ok(marks)
+        };
+        match read() {
+            Ok(marks) if marks.len() == 1 => {
+                let (inode, mark) = &marks[0];
+                let inode = inode
+                    .trim_start_matches("socket:[")
+                    .trim_end_matches(']')
+                    .parse::<u64>()
+                    .ok();
+                json!({"observed":inode.is_some(),"matchingFdCount":1,
+                    "socketEvidence":inode.map(|inode| json!({"operation":"getsockopt(SO_MARK)","success":true,
+                        "value":mark,"pid":std::process::id(),"localAddress":selected.ip().to_string(),
+                        "localPort":selected.port(),"inode":inode})),
+                    "actualSocketUid":null,"scope":"unique owned SOCK_DGRAM exact selected tuple",
+                    "duplicatesClosed":true})
+            }
+            Ok(marks) => {
+                json!({"observed":false,"matchingFdCount":marks.len(),"socketEvidence":null,
+                "actualSocketUid":null,"reason":"exact owned UDP tuple absent or ambiguous","duplicatesClosed":true})
+            }
+            Err(error) => json!({"observed":false,"matchingFdCount":null,"socketEvidence":null,
+                "actualSocketUid":null,"errno":error.raw_os_error(),
+                "reason":"owned fd/SO_TYPE/getsockname/SO_MARK observation failed","duplicatesClosed":true}),
+        }
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    fn observe_owned_udp_mark(_selected: SocketAddr) -> Value {
+        json!({"observed":false,"matchingFdCount":null,"socketEvidence":null,
+            "actualSocketUid":null,"reason":"owned UDP mark observation unsupported","duplicatesClosed":true})
+    }
+
+    fn selected_pair_sockets(pair: &Value) -> Result<(SocketAddr, SocketAddr), Failure> {
+        fn endpoint(raw: &Value, use_host_base: bool) -> Result<SocketAddr, Failure> {
+            let object = raw
+                .as_object()
+                .ok_or("selected ICE endpoint is not an object")?;
+            let candidate_type = object
+                .get("candidateType")
+                .or_else(|| object.get("candidate_type"))
+                .or_else(|| object.get("type"))
+                .and_then(Value::as_str)
+                .ok_or("selected ICE endpoint has no candidate type")?;
+            if candidate_type.eq_ignore_ascii_case("relay") {
+                return Err("selected RTC pair is relayed".into());
+            }
+            let (address, port) = if use_host_base
+                && matches!(
+                    candidate_type.to_ascii_lowercase().as_str(),
+                    "srflx" | "prflx"
+                ) {
+                (
+                    object
+                        .get("relatedAddress")
+                        .or_else(|| object.get("related_address"))
+                        .and_then(Value::as_str)
+                        .ok_or("selected mapped local candidate has no host base")?,
+                    object
+                        .get("relatedPort")
+                        .or_else(|| object.get("related_port"))
+                        .and_then(Value::as_u64)
+                        .ok_or("selected mapped local candidate has no host base port")?,
+                )
+            } else {
+                (
+                    object
+                        .get("address")
+                        .or_else(|| object.get("ip"))
+                        .and_then(Value::as_str)
+                        .ok_or("selected ICE endpoint has no address")?,
+                    object
+                        .get("port")
+                        .and_then(Value::as_u64)
+                        .ok_or("selected ICE endpoint has no port")?,
+                )
+            };
+            if port == 0 || port > u16::MAX as u64 {
+                return Err("selected ICE endpoint port is out of range".into());
+            }
+            Ok(SocketAddr::new(address.parse()?, port as u16))
+        }
+        let local = pair
+            .get("local")
+            .ok_or("selected ICE pair has no local endpoint")?;
+        let remote = pair
+            .get("remote")
+            .ok_or("selected ICE pair has no remote endpoint")?;
+        Ok((endpoint(local, true)?, endpoint(remote, false)?))
+    }
     fn emit(value: Value) {
         println!("{value}");
     }
@@ -233,6 +390,85 @@ mod enabled {
         Ok(facts)
     }
 
+    async fn admit_forwarding_member(
+        provider: &mut NativeNetwork,
+        directory: &Path,
+    ) -> Result<Value, Failure> {
+        if directory.exists() {
+            return Err("independent author directory already exists".into());
+        }
+        let mut author = NativeNetwork::join(directory, provider.manual_invitation()?).await?;
+        let author_id = author.status().node_id;
+        if author_id == provider.status().node_id {
+            return Err("author identity is not independent".into());
+        }
+        let pe = dataset_endpoint(provider).await?;
+        let ae = match dataset_endpoint(&author).await {
+            Ok(endpoint) => endpoint,
+            Err(error) => {
+                pe.close().await;
+                author.close().await;
+                return Err(error);
+            }
+        };
+        pe.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()]);
+        let owned = endpoint_socket_inodes(&ae).and_then(|author| {
+            Ok(author
+                .union(&endpoint_socket_inodes(&pe)?)
+                .cloned()
+                .collect::<BTreeSet<_>>())
+        });
+        let result = async {
+        owned.as_ref().map_err(|error|error.to_string())?;
+        let (client, server) = connect(&ae, &pe).await?;
+        let (request, received) = tokio::join!(author.request_manual_admission(&client), provider.serve_manual_admission(&server));
+        if !matches!(request?, ManualExchange::AwaitingApproval) { return Err("unexpected author admission phase".into()); }
+        received?;
+        let requests = provider.manual_requests().await?;
+        let exact: Vec<_> = requests.iter().filter(|request| request.applicant == author_id).collect();
+        if exact.len() != 1 { return Err("exact independent author request unavailable".into()); }
+        provider.approve_manual_admission(exact[0]).await?;
+        let delivery = async {
+            let ManualExchange::Materials(materials) = author.request_manual_admission(&client).await? else {
+                return Err("author materials absent".into());
+            };
+            author.complete_manual_admission(materials).await?;
+            Ok::<_, Failure>(())
+        };
+        let (saved, delivered) = tokio::join!(delivery, provider.serve_manual_admission(&server));
+        saved?; delivered?;
+        client.close(0u32.into(), b"author admission complete");
+        server.close(0u32.into(), b"author admission complete");
+        let status = author.status();
+        if status.node_id == provider.status().node_id
+            || !status.members.iter().any(|(id,_)| *id == author_id)
+            || !provider.status().members.iter().any(|(id,_)| *id == author_id)
+        { return Err("independent forwarding member durable membership absent".into()); }
+        Ok::<_, Failure>(json!({"event":"forwarding-member-admitted",
+            "independentIdentity":true,"id":author_id.to_string(),
+            "durableSdkStore":directory,"actualManualAdmission":true,
+            "membershipSaved":true,"knownMembers":status.members.iter().map(|(id,_)|id.to_string()).collect::<Vec<_>>(),
+            "setupScope":"owned loopback SDK admission only; not public transport qualification"}))
+    }.await;
+        ae.close().await;
+        pe.close().await;
+        author.close().await;
+        drop(ae);
+        drop(pe);
+        let owned = owned?;
+        let immediate = owned.is_disjoint(&socket_inodes()?);
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let late = owned.is_disjoint(&socket_inodes()?);
+        let mut facts = result?;
+        facts["authorCleanup"] = json!({"coResidentSdkNode":true,"endpointCloseReturned":true,
+        "nodeCloseReturned":true,"observedOwnedSocketCount":owned.len(),"ownedSocketsAbsent":immediate,
+        "ownedSocketsAbsentLate":late,"lateDelayMs":100,"separateProcessExit":null});
+        if !immediate || !late {
+            return Err("independent author sockets remain".into());
+        }
+        Ok(facts)
+    }
+
     #[tokio::main]
     pub(super) async fn main() -> Result<(), Failure> {
         let sockets_before = socket_inodes()?.len();
@@ -322,6 +558,7 @@ mod enabled {
             resources.disabled_uses.insert(ResourceUse::Observation);
         }
         node.save_resource_configuration(&resources)?;
+        let caller_budget = Duration::from_millis(resources.maintenance.contact_timeout_ms);
         let traffic = Arc::new(Traffic::default());
         let transport = Arc::new(MqttTransport::from_facility(
             &facility,
@@ -360,16 +597,23 @@ mod enabled {
         ]);
         endpoint.set_alpns(alpns);
         tokio::time::timeout(Duration::from_secs(10), transport.wait_ready()).await??;
+        let traffic_ready = traffic.snapshot();
+        let protocol_ready = traffic_ready["protocol"]["connack"].as_u64() == Some(0)
+            && traffic_ready["protocol"]["suback_codes"] == serde_json::json!([0]);
+        let normal_tls = facility.native_url.starts_with("mqtts://") && protocol_ready;
         emit(
             json!({"event":"ready","id":endpoint.id().to_string(),"route":transport.route()?,
-        "invitation":hex::encode(node.manual_invitation()?.encode()),"normalPublicTrust":true,"newWireQualified":false,
+        "invitation":hex::encode(node.manual_invitation()?.encode()),"normalPublicTrust":normal_tls,
+        "normalTlsVerified":normal_tls,"traffic":traffic_ready,"newWireQualified":false,
         "sourceContract":"strict common purpose SDK candidate; physical qualification requires full receipt",
-        "rtcEnabled":rtc_enabled,"permittedRelay":permitted_relay.map(|relay|relay.to_string())}),
+        "rtcEnabled":rtc_enabled,"callerBudgetMs":caller_budget.as_millis(),
+        "permittedRelay":permitted_relay.map(|relay|relay.to_string())}),
         );
         let node = Arc::new(tokio::sync::Mutex::new(node));
         let precode = Arc::new(tokio::sync::Mutex::new(None));
         let mut input = BufReader::new(tokio::io::stdin()).lines();
         let mut handlers = tokio::task::JoinSet::new();
+        let ordinary_members: OrdinaryMemberLedger = Arc::default();
         loop {
             tokio::select! {
                 line = input.next_line() => {
@@ -403,6 +647,8 @@ mod enabled {
                                 Ok(json!({"event":"approved","applicant":request.applicant.to_string(),"request":hex::encode(request.request_id),
                                     "authorization":approved.authorization.to_string(),"before":before,"after":node.status().applied_count}))
                             }
+                            "admit-forwarding-member" => admit_forwarding_member(&mut node,
+                                &Path::new(&args[1]).with_file_name("independent-forwarding-member")).await,
                             "offline-author" => offline_author(&mut node, &Path::new(&args[1]).with_file_name("independent-author")).await,
                             "remove-member" => {
                                 let target = text(&command,"target")?.parse()?;
@@ -427,6 +673,83 @@ mod enabled {
                                 Ok(json!({"event":"usage","uses":node.precode_usage(code).await?,"trusted":usage.count_trusted,
                                     "redemptionCount":redemptions.len(),"appliedCount":node.status().applied_count}))
                             }
+                            "member-socket-mark" => {
+                                let stable = command.get("stableId").and_then(Value::as_u64)
+                                    .ok_or("member-socket-mark requires exact original M stableId")? as usize;
+                                let weak = ordinary_members.lock()
+                                    .map_err(|_| "ordinary M ledger unavailable")?
+                                    .get(&stable).cloned()
+                                    .ok_or("exact live ordinary M is absent")?;
+                                let connection = weak.upgrade().ok_or("exact live ordinary M is no longer available")?;
+                                let gate = node.admission_gate();
+                                let selected_rtc = || connection.paths().iter().any(|path| path.is_selected()
+                                    && matches!(path.remote_addr(), iroh::TransportAddr::Custom(address)
+                                        if address.id() == miopunch_native_probe::rtc_transport::TRANSPORT_ID
+                                        && iroh::endpoint::transports::CustomSender::is_data_path_qualified(
+                                            &rtc, address, connection.stable_id())));
+                                let current = || connection.stable_id() == stable
+                                    && connection.close_reason().is_none()
+                                    && gate.allows(&connection, ProtocolScope::Member)
+                                    && selected_rtc();
+                                if !current() {
+                                    return Err("same original M/current member gate/selected RTC unavailable before read".into());
+                                }
+                                // Reuse the existing bounded RTC diagnostic
+                                // ceiling. This is an observation budget, not
+                                // a new M setup or transport policy clock.
+                                let observation_budget =
+                                    miopunch_native_probe::rtc_association::RtcDeadline::from_caller(
+                                        n0_future::time::Instant::now() + Duration::from_millis(250),
+                                    );
+                                let selected_pair = rtc
+                                    .selected_pair(stable, observation_budget)
+                                    .await
+                                    .map_err(|error| error.to_string())?;
+                                let (selected, remote) = selected_pair_sockets(&selected_pair)?;
+                                if selected.ip().is_unspecified() || selected.ip().is_loopback()
+                                    || selected.ip().is_multicast() {
+                                    return Err("selected local tuple is not usable".into());
+                                }
+                                let before = json!({"sameOriginal":true,"alive":true,"memberGate":true,
+                                    "selectedRtc":true,"stableId":stable,"localAddress":selected.ip().to_string(),
+                                    "localPort":selected.port(),"peerAddress":remote.ip().to_string(),
+                                    "peerPort":remote.port()});
+                                let observation = observe_owned_udp_mark(selected);
+                                // Re-read the same live association after the
+                                // owned-FD mark lookup. A changed ICE pair or
+                                // derived tuple makes this observation unusable.
+                                let selected_pair_after = rtc
+                                    .selected_pair(stable, observation_budget)
+                                    .await
+                                    .map_err(|error| error.to_string())?;
+                                let (selected_after, remote_after) =
+                                    selected_pair_sockets(&selected_pair_after)?;
+                                if selected_pair_after != selected_pair
+                                    || selected_after != selected
+                                    || remote_after != remote
+                                {
+                                    return Err("selected RTC pair changed during socket observation".into());
+                                }
+                                if !current() {
+                                    return Err("same original M/current member gate/selected RTC changed after read".into());
+                                }
+                                Ok(json!({"event":"member-socket-mark","operation":"member-socket-mark",
+                                    "currentReplyABI":"member-socket-mark/v3","originalM":before,
+                                    "selectedPair":selected_pair,
+                                    "pairStable":true,
+                                    "socketTuple":{"localAddress":selected.ip().to_string(),"localPort":selected.port(),
+                                        "peerAddress":remote.ip().to_string(),"peerPort":remote.port()},
+                                    "observation":observation,
+                                    "duplicatesClosed":observation["duplicatesClosed"],
+                                    "tupleCorrelation":{"observed":observation["observed"],
+                                        "socketEvidence":observation["socketEvidence"],
+                                        "matchingFdCount":observation["matchingFdCount"],
+                                        "duplicatesClosed":observation["duplicatesClosed"],
+                                        "actualSocketUid":observation["actualSocketUid"],
+                                        "reason":observation["reason"]},
+                                    "after":{"sameOriginal":true,"alive":true,"memberGate":true,
+                                        "selectedRtc":true,"stableId":stable}}))
+                            }
                             _ => Err("unknown private operator command".into()),
                         }
                     }.await;
@@ -435,9 +758,10 @@ mod enabled {
                 incoming = endpoint.accept() => {
                     let Some(incoming) = incoming else { break; };
                     let operation_started = n0_future::time::Instant::now();
-                    let deadline = operation_started+Duration::from_secs(12);
+                    let deadline = operation_started+caller_budget;
                     let incoming = incoming.with_caller_deadline(deadline);
                     let node = node.clone(); let assembly = assembly.clone(); let rtc = rtc.clone();
+                    let ordinary_members = ordinary_members.clone();
                     let serving = endpoint.clone(); let precode = precode.clone();
                     handlers.spawn(async move {
                         // The installed SDK admission hook owns all TLS and path
@@ -448,7 +772,7 @@ mod enabled {
                             let gate = node.lock().await.admission_gate();
                             emit(json!({"event":"admission-accepted","alpn":String::from_utf8_lossy(connection.alpn()),
                             "stableId":connection.stable_id(),"callerDeadlinePresent":connection.caller_deadline().is_some(),
-                            "callerElapsedMs":operation_started.elapsed().as_millis(),"callerBudgetMs":12000,
+                            "callerElapsedMs":operation_started.elapsed().as_millis(),"callerBudgetMs":caller_budget.as_millis(),
                             "restricted":gate.allows(&connection,ProtocolScope::AdmissionRequest),
                             "businessHandle":gate.allows(&connection,ProtocolScope::Member),"newWireQualified":false}));
                             let mut node = node.lock().await;
@@ -485,7 +809,7 @@ mod enabled {
                                     miopunch_native_probe::manual_admission::ManualAdmissionError::Store(_) => "Store",
                                     miopunch_native_probe::manual_admission::ManualAdmissionError::Node(_) => "Node",
                                 }),
-                                "callerElapsedMs":provider_elapsed.as_millis(),"callerBudgetMs":12000,
+                                "callerElapsedMs":provider_elapsed.as_millis(),"callerBudgetMs":caller_budget.as_millis(),
                                 "operatorRetirementElapsedMs":retirement_started.elapsed().as_millis(),
                                 "operatorRetirementReason":retirement,
                                 "stage":result.as_ref().ok().map(|stage|format!("{stage:?}"))}));
@@ -509,18 +833,33 @@ mod enabled {
                                 "originalBindingObserved":binding_observed,"bindingUnchanged":binding_unchanged,
                                 "callerDeadlinePresent":connection.caller_deadline().is_some(),
                                 "durableReceiptAccepted":result.is_ok(),"newWireQualified":false,
-                                "callerElapsedMs":operation_started.elapsed().as_millis(),"callerBudgetMs":12000}));
+                                "callerElapsedMs":operation_started.elapsed().as_millis(),"callerBudgetMs":caller_budget.as_millis()}));
                             connection.close(0u32.into(),b"owned replica ended");
                         } else if connection.alpn() == miopunch_native_probe::connection_recovery::CONNECTION_RECOVERY_ALPN {
                             node.lock().await.serve_connection_path_recovery(&assembly,&connection).await?;
                             connection.close(0u32.into(),b"owned recovery ended");
                         } else {
                             let gate = node.lock().await.admission_gate();
+                            let stable = connection.stable_id();
+                            {
+                                let mut ledger = ordinary_members.lock()
+                                    .map_err(|_| "ordinary M ledger unavailable")?;
+                                ledger.retain(|_, weak| weak.upgrade()
+                                    .map(|entry| entry.close_reason().is_none())
+                                    .unwrap_or(false));
+                                if ledger.len() >= 1 && !ledger.contains_key(&stable) {
+                                    return Err("bounded ordinary M ledger already contains a different live entry".into());
+                                }
+                                ledger.insert(stable, connection.weak_handle());
+                            }
+                            let _ordinary_member_guard = OrdinaryMemberGuard {
+                                ledger: ordinary_members.clone(), stable,
+                            };
                             emit(json!({"event":"member-released","stableId":connection.stable_id(),
                                 "remoteId":connection.remote_id().to_string(),"alpn":String::from_utf8_lossy(connection.alpn()),
                                 "memberAuthorized":gate.allows(&connection,ProtocolScope::Member),
                                 "newProtocol":connection.alpn()==miopunch_native_probe::connection_coordinator::MEMBER_ALPN,
-                                "callerElapsedMs":operation_started.elapsed().as_millis(),"callerBudgetMs":12000,
+                                "callerElapsedMs":operation_started.elapsed().as_millis(),"callerBudgetMs":caller_budget.as_millis(),
                                 "quicRole":if connection.side().is_client(){"client"}else{"server"},
                                 "paths":connection.paths().iter().map(|path|json!({"isRelay":path.is_relay(),"isIp":path.is_ip(),
                                     "selected":path.is_selected(),"isSignal":matches!(path.remote_addr(),iroh::TransportAddr::Custom(address)

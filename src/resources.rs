@@ -379,8 +379,25 @@ impl ResourceConfig {
         ),
         std::io::Error,
     > {
+        self.configure_with_tcp_and_rtc(builder, false)
+    }
+
+    pub(crate) fn configure_with_tcp_and_rtc(
+        &self,
+        builder: iroh::endpoint::Builder,
+        rtc_installed: bool,
+    ) -> Result<
+        (
+            iroh::endpoint::Builder,
+            Option<crate::tcp_transport::TcpTransport>,
+        ),
+        std::io::Error,
+    > {
         let config = self.clone();
-        let builder = builder.default_path_selector(self.path_selection.selector()?);
+        let builder = builder.default_path_selector(
+            self.path_selection
+                .selector_with_native_rtc(rtc_installed)?,
+        );
         let builder = if self.udp_direct_disabled {
             builder.clear_ip_transports()
         } else {
@@ -486,7 +503,7 @@ struct ContactBackoff {
     in_flight: bool,
 }
 
-struct ContactAttempt {
+pub(crate) struct ContactAttempt {
     states: std::sync::Arc<std::sync::Mutex<BTreeMap<iroh::EndpointId, ContactBackoff>>>,
     id: iroh::EndpointId,
 }
@@ -536,7 +553,7 @@ pub struct ResourceEndpoint {
     timeout: Duration,
     backoff: std::sync::Arc<std::sync::Mutex<BTreeMap<iroh::EndpointId, ContactBackoff>>>,
     pub(crate) contacts: iroh::address_lookup::memory::MemoryLookup,
-    pub(crate) responders: Vec<tokio::task::JoinHandle<()>>,
+    responders: std::sync::Mutex<Vec<(String, crate::mqtt_discovery::LiveResponder)>>,
     tcp: Option<crate::tcp_transport::TcpTransport>,
     mqtt: Vec<std::sync::Arc<crate::mqtt_transport::MqttTransport>>,
     contact_listener: Option<crate::contact_listener::ContactListenerControl>,
@@ -581,10 +598,10 @@ impl ResourceEndpoint {
         Self {
             endpoint,
             config,
-            timeout: Duration::from_secs(10),
+            timeout: crate::connection_budget::DEFAULT,
             backoff: Default::default(),
             contacts: iroh::address_lookup::memory::MemoryLookup::new(),
-            responders: Vec::new(),
+            responders: Default::default(),
             tcp: None,
             mqtt: Vec::new(),
             contact_listener: None,
@@ -599,7 +616,7 @@ impl ResourceEndpoint {
     /// Common SDK entry with purpose and caller budget, without carrier flags.
     pub fn coordinator(&self) -> crate::connection_coordinator::ConnectionCoordinator {
         use crate::connection_coordinator::{RELAY, TCP, UDP};
-        let permitted = if !self.config.udp_direct_disabled {
+        let mut permitted = if !self.config.udp_direct_disabled {
             UDP
         } else {
             0
@@ -617,15 +634,28 @@ impl ResourceEndpoint {
             0
         };
         #[cfg(feature = "rtc-probe")]
-        let permitted = permitted
+        let mut permitted = permitted
             | if self.rtc.as_ref().is_some_and(|rtc| rtc.resource_allowed()) {
                 crate::connection_coordinator::RTC
             } else {
                 0
             };
         let mut contact_ids = Vec::new();
+        if !self.config.member_data_relay_disabled
+            && !self.config.disabled_uses.contains(&ResourceUse::DataRelay)
+            && self
+                .endpoint
+                .custom_addrs()
+                .iter()
+                .any(|address| address.id() == crate::member_transport::DATA_TRANSPORT_ID)
+        {
+            permitted |= RELAY;
+            contact_ids.push(crate::member_transport::DATA_TRANSPORT_ID);
+        }
         if !self.config.disabled_uses.contains(&ResourceUse::Signaling) {
-            if self.contact_listener.is_some() {
+            if self.contact_listener.as_ref().is_some_and(|listener| {
+                listener.status().phase != crate::contact_listener::ContactListenerPhase::Stopped
+            }) {
                 contact_ids.push(crate::mqtt_datagram::TRANSPORT_ID);
             }
             if self
@@ -643,6 +673,7 @@ impl ResourceEndpoint {
             contact_ids,
         )
         .with_member_contact(crate::member_transport::TRANSPORT_ID)
+        .with_member_data(crate::member_transport::DATA_TRANSPORT_ID)
     }
     #[cfg(feature = "rtc-probe")]
     pub(crate) fn with_rtc(mut self, rtc: Option<crate::rtc_transport::RtcTransport>) -> Self {
@@ -670,6 +701,23 @@ impl ResourceEndpoint {
         self
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn active_coordinator(
+        &self,
+        gate: crate::admission_gate::AdmissionGate,
+    ) -> crate::connection_coordinator::CoordinatorHook {
+        let relay_allowed = self
+            .config
+            .relay_map(ResourceUse::DataRelay)
+            .is_ok_and(|relays| !relays.is_empty());
+        let coordinator = crate::connection_coordinator::CoordinatorHook::new(gate, false)
+            .with_resources(self.config.clone())
+            .with_relay(relay_allowed);
+        #[cfg(feature = "rtc-probe")]
+        let coordinator = coordinator.with_rtc(self.rtc.clone());
+        coordinator
+    }
+
     pub(crate) fn with_mqtt(
         mut self,
         mqtt: Vec<std::sync::Arc<crate::mqtt_transport::MqttTransport>>,
@@ -690,6 +738,61 @@ impl ResourceEndpoint {
         &self,
     ) -> Option<&crate::contact_listener::ContactListenerControl> {
         self.contact_listener.as_ref()
+    }
+
+    /// The actual selected carrier is authoritative; callers cannot disable an
+    /// unknown facility or substitute a native alias for a full saved WSS mapping.
+    pub(crate) fn disabled_contact_configuration(
+        &self,
+        mut config: ResourceConfig,
+    ) -> std::io::Result<ResourceConfig> {
+        use iroh::endpoint::transports::CustomTransport;
+        let listener = self.contact_listener.as_ref().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "no owned MQTT signaling listener",
+            )
+        })?;
+        let url = listener.resource_url();
+        let transport = self
+            .mqtt
+            .iter()
+            .find(|transport| {
+                transport
+                    .resource()
+                    .is_some_and(|(resource, _)| resource == url)
+            })
+            .ok_or_else(|| std::io::Error::other("owned contact carrier absent"))?;
+        config.validate_mqtt_facilities()?;
+        if let Some(facility) = transport.facility() {
+            if !config
+                .mqtt_facilities
+                .iter()
+                .any(|saved| saved.validate().is_ok_and(|saved| &saved == facility))
+            {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    "owned contact facility mapping no longer matches saved configuration",
+                ));
+            }
+            config
+                .disabled
+                .insert((facility.wss_url.clone(), ResourceUse::Signaling));
+        } else if config.mqtt_facilities.iter().any(|facility| {
+            facility
+                .native_url
+                .parse::<iroh::RelayUrl>()
+                .is_ok_and(|native| native == url)
+        }) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "unmapped contact cannot disable a saved MQTT facility",
+            ));
+        }
+        config
+            .disabled
+            .insert((url.to_string(), ResourceUse::Signaling));
+        Ok(config)
     }
 
     pub fn mqtt_diagnostics(&self) -> Vec<(String, bool, u64, u64)> {
@@ -787,10 +890,10 @@ impl ResourceEndpoint {
 
     /// A bounded contact attempt, independent of the resource startup snapshot.
     pub fn with_contact_timeout(mut self, timeout: Duration) -> Result<Self, std::io::Error> {
-        if timeout.is_zero() || timeout > Duration::from_secs(30) {
+        if timeout.is_zero() || timeout > crate::connection_budget::MAX {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                "contact timeout must be greater than zero and at most 30 seconds",
+                "contact timeout must be greater than zero and at most 60 seconds",
             ));
         }
         self.timeout = timeout;
@@ -911,11 +1014,60 @@ impl ResourceEndpoint {
             .failed(cause))
     }
 
+    pub(crate) fn add_recovery_responders(
+        &mut self,
+        responders: impl IntoIterator<Item = (String, crate::mqtt_discovery::LiveResponder)>,
+    ) {
+        self.responders
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .extend(responders);
+    }
+
+    /// Retire only standing discovery tasks for the selected contact origin.
+    /// Lookup permission and tasks belonging to other origins remain unchanged.
+    pub(crate) async fn retire_recovery_origin(
+        &self,
+        resource: &iroh::RelayUrl,
+    ) -> std::io::Result<()> {
+        let origin = resource_origin(resource.as_str())
+            .ok_or_else(|| std::io::Error::other("owned discovery origin invalid"))?;
+        let retiring = {
+            let mut responders = self
+                .responders
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let (retiring, remaining): (Vec<_>, Vec<_>) = std::mem::take(&mut *responders)
+                .into_iter()
+                .partition(|(owned, _)| owned == &origin);
+            *responders = remaining;
+            retiring
+        }; // Release the synchronous ownership lock before any await.
+        for (_, responder) in &retiring {
+            responder.cancel();
+        }
+        let mut first_error = None;
+        for (_, responder) in retiring {
+            if let Err(error) = responder.retire().await {
+                first_error.get_or_insert(error);
+            }
+        }
+        first_error.map_or(Ok(()), Err)
+    }
+
     pub(crate) fn recovery_origins(&self) -> Vec<iroh::RelayUrl> {
         self.config
             .mqtt_resources()
             .into_iter()
             .filter(|url| self.config.allows(url.as_str(), ResourceUse::Lookup))
+            .filter(|url| {
+                !self.contact_listener.as_ref().is_some_and(|listener| {
+                    listener.status().phase
+                        == crate::contact_listener::ContactListenerPhase::Stopped
+                        && resource_origin(url.as_str())
+                            == resource_origin(listener.resource_url().as_str())
+                })
+            })
             .take(4)
             .collect()
     }
@@ -931,6 +1083,54 @@ impl ResourceEndpoint {
             .entry(id)
             .or_default()
             .failed("candidate recovery did not complete".into());
+    }
+
+    /// Reserve the existing per-peer contact budget for one whole operation.
+    /// The guard is intentionally separate from `connect`: active improvement
+    /// must not re-enter `ResourceEndpoint::connect` and contend with itself.
+    pub(crate) fn begin_contact_attempt(
+        &self,
+        id: iroh::EndpointId,
+    ) -> Result<(n0_future::time::Instant, ContactAttempt), ResourceContactError> {
+        let timeout = self.timeout;
+        let deadline = n0_future::time::Instant::now() + timeout;
+        let mut states = self.backoff.lock().expect("contact budget");
+        let state = states.entry(id).or_default();
+        if state.in_flight {
+            return Err(ResourceContactError::TemporarilyUnreachable {
+                retry_after: timeout,
+                cause: Some("contact attempt already in flight for this identity".into()),
+            });
+        }
+        if let Some(retry_after) = state
+            .retry_at
+            .and_then(|at| at.checked_duration_since(Instant::now()))
+        {
+            return Err(ResourceContactError::TemporarilyUnreachable {
+                retry_after,
+                cause: state.cause.clone(),
+            });
+        }
+        state.in_flight = true;
+        Ok((
+            deadline,
+            ContactAttempt {
+                states: self.backoff.clone(),
+                id,
+            },
+        ))
+    }
+
+    /// Whole-operation ceiling owned by this existing resource budget.
+    pub(crate) fn contact_deadline(&self) -> n0_future::time::Instant {
+        self.contact_deadline_from(n0_future::time::Instant::now())
+    }
+
+    pub(crate) fn contact_deadline_from(
+        &self,
+        started: n0_future::time::Instant,
+    ) -> n0_future::time::Instant {
+        started + self.timeout
     }
 
     pub(crate) fn remember(&self, target: iroh::EndpointAddr) {
@@ -974,7 +1174,11 @@ impl ResourceEndpoint {
 
 impl Drop for ResourceEndpoint {
     fn drop(&mut self) {
-        for responder in &self.responders {
+        for (_, responder) in self
+            .responders
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+        {
             responder.abort();
         }
     }

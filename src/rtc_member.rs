@@ -70,6 +70,8 @@ pub async fn serve_stream(
             &mut recv,
             false,
             None,
+            false,
+            None,
         )
         .await
         {
@@ -270,19 +272,27 @@ async fn upgrade(
     recv: &mut RecvStream,
     control: bool,
     unified: Option<crate::connection_coordinator::ProtectedAttempt>,
+    active: bool,
+    active_deadline: Option<n0_future::time::Instant>,
 ) -> Result<Option<crate::connection_coordinator::PreparedPath>> {
     let offerer = unified
         .is_some_and(|attempt| attempt.rtc_role == crate::connection_coordinator::RtcRole::Offerer);
     let remaining_ms = request["remainingMs"]
         .as_u64()
-        .filter(|value| *value > 0 && *value <= 12000)
+        .filter(|value| *value > 0 && *value <= crate::connection_budget::MAX_MS)
         .ok_or("RTC caller remainder invalid")?;
     let remote_deadline = n0_future::time::Instant::now() + Duration::from_millis(remaining_ms);
-    let budget = RtcDeadline::from_caller(
-        connection
-            .caller_deadline()
-            .map_or(remote_deadline, |local| local.min(remote_deadline)),
-    );
+    let caller_deadline = active_deadline.or_else(|| connection.caller_deadline());
+    let peer_budget_receiver = control
+        && !active
+        && unified.is_some_and(|attempt| {
+            attempt.rtc_role == crate::connection_coordinator::RtcRole::Answerer
+        });
+    if caller_deadline.is_none() && !peer_budget_receiver {
+        return Err("RTC caller deadline absent".into());
+    }
+    let budget =
+        caller_deadline.map(|deadline| RtcDeadline::from_caller(deadline.min(remote_deadline)));
     let qualification = gate
         .path_qualification(connection)
         .ok_or("RTC requires current Ordinary M")?;
@@ -366,6 +376,10 @@ async fn upgrade(
         transport.ice_profile().check_remote_sdp(&offer.sdp)?;
         Some(offer)
     };
+    // Initial unified incoming M may have no local caller metadata. Only after
+    // validating its protected request can the answerer use the peer's existing
+    // remaining budget. Keep the receive-time deadline; never restart a stage.
+    let budget = budget.unwrap_or_else(|| RtcDeadline::from_caller(remote_deadline));
     let current = qualification.clone();
     let attempt_live = Arc::new(AtomicBool::new(true));
     let live = attempt_live.clone();
@@ -383,10 +397,13 @@ async fn upgrade(
     let socket_before = rtc_probe::sockets();
     let (gathered, mut gather_rx) = tokio::sync::mpsc::channel(1);
     let events = Arc::new(Mutex::new(Vec::new()));
-    let pc = tokio::select! { biased;
-        _ = connection.closed() => return Err("RTC original M closed during construction".into()),
-        result = tokio::time::timeout(budget.remaining()?, rtc_probe::peer_with_profile(gathered, events.clone(), transport.ice_profile())) => result??,
-    };
+    let preparation_io = lease.io();
+    let pc = preparation_io
+        .while_current(tokio::time::timeout(
+            budget.remaining()?,
+            rtc_probe::peer_with_profile(gathered, events.clone(), transport.ice_profile()),
+        ))
+        .await???;
     // Dropping a hook future must retire its exact route and close the PC,
     // even when it never reaches the explicit result/cleanup tail.
     let mut cancellation_cleanup = CancelRtc {
@@ -425,107 +442,115 @@ async fn upgrade(
         .collect();
 
     let work = async {
-        let dc = pc
-            .create_data_channel(
-                DATAGRAM_CHANNEL_LABEL,
-                Some(RTCDataChannelInit {
-                    ordered: false,
-                    max_retransmits: Some(0),
-                    negotiated: Some(CHANNEL_ID),
-                    protocol: DATAGRAM_CHANNEL_PROTOCOL.into(),
-                    ..Default::default()
-                }),
-            )
-            .await?;
-        dc.set_buffered_amount_low_threshold((QUEUE_BYTES - MAX_DATAGRAM) as u32)
-            .await?;
-        if control && transport.holds_cleanup_fixture() {
-            fixture_channel = Some(dc.clone());
-        }
-        if offerer {
-            let offer = pc.create_offer(None).await?;
-
-            pc.set_local_description(offer).await?;
-
-            tokio::time::timeout(budget.remaining()?, gather_rx.recv())
-                .await?
-                .ok_or("RTC gathering ended")?;
-
-            let mut offer = pc
-                .local_description()
-                .await
-                .ok_or("RTC native offer absent")?;
-
-            offer.sdp = transport.ice_profile().local_sdp(&offer.sdp)?;
-
-            request["description"] = serde_json::to_value(offer)?;
-            request["route"] = json!(hex::encode(lease.local_addr().data()));
-            request["remainingMs"] = json!(budget.remaining()?.as_millis() as u64);
-
-            write_frame(send, &request).await?;
-
-            let answer = phase(recv, "answer", budget).await?;
-
-            if answer["attempt"] != request["attempt"]
-                || answer["binding"] != request["binding"]
-                || answer["channel"] != datagram_channel_parameters()
-                || answer["description"]["type"] != "answer"
-            {
-                return Err(crate::connection_coordinator::control_error("InvalidControl").into());
+        let (dc, attributes, sctp, max_message_size) = preparation_io.while_current(async {
+            let dc = pc
+                .create_data_channel(
+                    DATAGRAM_CHANNEL_LABEL,
+                    Some(RTCDataChannelInit {
+                        ordered: false,
+                        max_retransmits: Some(0),
+                        negotiated: Some(CHANNEL_ID),
+                        protocol: DATAGRAM_CHANNEL_PROTOCOL.into(),
+                        ..Default::default()
+                    }),
+                )
+                .await?;
+            dc.set_buffered_amount_low_threshold((QUEUE_BYTES - MAX_DATAGRAM) as u32)
+                .await?;
+            if control && transport.holds_cleanup_fixture() {
+                fixture_channel = Some(dc.clone());
             }
-            let remote: RTCSessionDescription =
-                serde_json::from_value(answer["description"].clone())?;
-            transport.ice_profile().check_remote_sdp(&remote.sdp)?;
+            if offerer {
+                let offer = pc.create_offer(None).await?;
 
-            lease.set_remote(CustomAddr::from_parts(
-                TRANSPORT_ID,
-                &hex::decode(answer["route"].as_str().ok_or("RTC peer route missing")?)?,
-            ))?;
+                pc.set_local_description(offer).await?;
 
-            pc.set_remote_description(remote).await?;
-        } else {
-            pc.set_remote_description(offer.ok_or("RTC peer offer absent")?)
-                .await?;
-            pc.set_local_description(pc.create_answer(None).await?)
-                .await?;
-            tokio::time::timeout(budget.remaining()?, gather_rx.recv())
-                .await?
-                .ok_or("RTC gathering ended")?;
-            let mut answer = pc
-                .local_description()
-                .await
-                .ok_or("RTC native answer absent")?;
+                tokio::time::timeout(budget.remaining()?, gather_rx.recv())
+                    .await?
+                    .ok_or("RTC gathering ended")?;
 
-            answer.sdp = transport.ice_profile().local_sdp(&answer.sdp)?;
+                let mut offer = pc
+                    .local_description()
+                    .await
+                    .ok_or("RTC native offer absent")?;
 
-            write_frame(send, &json!({"kind":"answer","attempt":request["attempt"],"binding":request["binding"],"channel":datagram_channel_parameters(),"description":answer,"route":hex::encode(lease.local_addr().data()),"authorizationRevision":qualification.revision(),"resourceRevision":transport.resource_revision()})).await?;
-        }
+                offer.sdp = transport.ice_profile().local_sdp(&offer.sdp)?;
 
-        loop {
-            let event = tokio::time::timeout(budget.remaining()?, dc.poll()).await?;
+                request["description"] = serde_json::to_value(offer)?;
+                request["route"] = json!(hex::encode(lease.local_addr().data()));
+                request["remainingMs"] = json!(budget.remaining()?.as_millis() as u64);
 
-            match event {
-                Some(DataChannelEvent::OnOpen) => break,
-                Some(DataChannelEvent::OnClose | DataChannelEvent::OnError) | None => {
-                    return Err("RTC native channel did not open".into());
+                write_frame(send, &request).await?;
+
+                let answer = phase(recv, "answer", budget).await?;
+
+                if answer["attempt"] != request["attempt"]
+                    || answer["binding"] != request["binding"]
+                    || answer["channel"] != datagram_channel_parameters()
+                    || answer["description"]["type"] != "answer"
+                {
+                    return Err(crate::connection_coordinator::control_error("InvalidControl").into());
                 }
-                _ => {}
+                let remote: RTCSessionDescription =
+                    serde_json::from_value(answer["description"].clone())?;
+                transport.ice_profile().check_remote_sdp(&remote.sdp)?;
+
+                lease.set_remote(CustomAddr::from_parts(
+                    TRANSPORT_ID,
+                    &hex::decode(answer["route"].as_str().ok_or("RTC peer route missing")?)?,
+                ))?;
+
+                pc.set_remote_description(remote).await?;
+            } else {
+                pc.set_remote_description(offer.ok_or("RTC peer offer absent")?)
+                    .await?;
+                pc.set_local_description(pc.create_answer(None).await?)
+                    .await?;
+                tokio::time::timeout(budget.remaining()?, gather_rx.recv())
+                    .await?
+                    .ok_or("RTC gathering ended")?;
+                let mut answer = pc
+                    .local_description()
+                    .await
+                    .ok_or("RTC native answer absent")?;
+
+                answer.sdp = transport.ice_profile().local_sdp(&answer.sdp)?;
+
+                write_frame(send, &json!({"kind":"answer","attempt":request["attempt"],"binding":request["binding"],"channel":datagram_channel_parameters(),"description":answer,"route":hex::encode(lease.local_addr().data()),"authorizationRevision":qualification.revision(),"resourceRevision":transport.resource_revision()})).await?;
             }
-        }
 
-        let attributes = rtc_probe::channel_attributes(&dc).await?;
-        let mut parameters = datagram_channel_parameters();
-        parameters["readyState"] = "Open".into();
-        if attributes != parameters {
-            return Err(format!("RTC data channel profile mismatch: {attributes}").into());
-        }
-        let sctp = pc.sctp().await.ok_or("SCTP unavailable")?;
-        let max_message_size = sctp.max_message_size().await?;
-        if max_message_size < MAX_DATAGRAM as u32 {
-            return Err("RTC negotiated maximum below bridge bound".into());
-        }
+            loop {
+                let event = tokio::time::timeout(budget.remaining()?, dc.poll()).await?;
 
-        lease.activate()?;
+                match event {
+                    Some(DataChannelEvent::OnOpen) => break,
+                    Some(DataChannelEvent::OnClose | DataChannelEvent::OnError) | None => {
+                        return Err("RTC native channel did not open".into());
+                    }
+                    _ => {}
+                }
+            }
+
+            let attributes = rtc_probe::channel_attributes(&dc).await?;
+            let mut parameters = datagram_channel_parameters();
+            parameters["readyState"] = "Open".into();
+            if attributes != parameters {
+                return Err(format!("RTC data channel profile mismatch: {attributes}").into());
+            }
+            let sctp = pc.sctp().await.ok_or("SCTP unavailable")?;
+            let max_message_size = sctp.max_message_size().await?;
+            if max_message_size < MAX_DATAGRAM as u32 {
+                return Err("RTC negotiated maximum below bridge bound".into());
+            }
+
+            lease.activate()?;
+            // The route stores only a weak observer handle after the cancellation
+            // guard owns the strong PC and the route is active. This preserves the
+            // exact association without changing its cleanup lifetime.
+            lease.attach_peer_connection(&pc)?;
+            Ok::<_, Box<dyn std::error::Error + Send + Sync>>((dc, attributes, sctp, max_message_size))
+        }).await??;
+        // Preparation relinquishes its watcher before the pump acquires it.
         let original = connection.weak_handle();
         let io = lease.io();
         let loss = drop_quic.clone();
@@ -536,7 +561,9 @@ async fn upgrade(
             let result = pump(original, dc, io.clone(), loss, traffic, pump_fault_rx).await;
             println!(
                 "{}",
-                json!({"event":"rtc-pump-ended","stableId":stable,"active":io.is_active(),"qualified":io.report().qualified,"failure":result.as_ref().err().map(ToString::to_string)})
+                json!({"event":"rtc-pump-ended","stableId":stable,"active":io.is_active(),"qualified":io.report().qualified,"failure":result.as_ref().err().map(ToString::to_string),
+                    "retirementDiagnostic":io.retirement_diagnostic(),
+                    "monotonicMs":crate::rtc_transport::diagnostic_monotonic_ms()})
             );
             let _ = done.send(
                 result
@@ -551,15 +578,24 @@ async fn upgrade(
             .as_ref()
             .map(tokio::task::JoinHandle::abort_handle);
         if unified.is_some() {
-            // Initial Control M only: local channel readiness permits validation,
-            // not an ordinary handle. Both actors independently prove this route;
-            // the common nonce Ready remains the bilateral confirmation.
+            // Both endpoints validate their exact route independently. Active M
+            // keeps the lease validation-only until the common Ready barrier;
+            // initial Control M preserves its restricted control seal.
             if connection.side().is_client() {
                 loop {
                     budget.remaining()?;
-                    let result = endpoint
-                        .open_control_path(connection, lease.remote_addr()?)
-                        .await;
+                    let result = if active {
+                        endpoint
+                            .open_data_transport_path(
+                                connection,
+                                iroh::TransportAddr::Custom(lease.remote_addr()?),
+                            )
+                            .await
+                    } else {
+                        endpoint
+                            .open_control_path(connection, lease.remote_addr()?)
+                            .await
+                    };
 
                     match result {
                         Ok(()) => break,
@@ -571,14 +607,42 @@ async fn upgrade(
                 }
             }
 
-            let probe = path_probe(&lease, connection, budget).await?;
             let started = budget.elapsed_ms();
+            let probe = path_probe(&lease, connection, budget).await?;
+            if active {
+                let observed = connection.paths();
+                let frames = observed
+                    .iter()
+                    .find(|path| path.id().to_string() == probe.path_id())
+                    .map(|path| {
+                        json!({"streamSent":path.stats().frame_tx.stream,
+                        "streamReceived":path.stats().frame_rx.stream,
+                        "datagramSent":path.stats().frame_tx.datagram,
+                        "datagramReceived":path.stats().frame_rx.datagram})
+                    });
+                println!(
+                    "{}",
+                    json!({"event":"rtc-active-progress","stage":"probe-created",
+                    "stableId":connection.stable_id(),"pathId":probe.path_id(),
+                    "probeWatermark":probe.watermark(),"acknowledged":probe.is_acknowledged().ok(),
+                    "frames":frames,"elapsedMs":budget.elapsed_ms(),
+                    "rtcRole":if offerer {"offerer"} else {"answerer"}})
+                );
+            }
             while !probe.is_acknowledged()? {
                 budget.remaining()?;
                 if !qualification.is_current() || !lease.io().is_active() {
                     return Err("RTC initial qualification retired during probe".into());
                 }
                 tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            if active {
+                println!(
+                    "{}",
+                    json!({"event":"rtc-active-progress","stage":"probe-acknowledged",
+                    "stableId":connection.stable_id(),"pathId":probe.path_id(),
+                    "probeWatermark":probe.watermark(),"elapsedMs":budget.elapsed_ms()})
+                );
             }
 
             if !qualification.is_current() || !gate.allows(connection, ProtocolScope::Member) {
@@ -591,11 +655,12 @@ async fn upgrade(
                 .ok_or("RTC initial exact path disappeared")?;
             let frames = json!({"streamSent":path.stats().frame_tx.stream,"streamReceived":path.stats().frame_rx.stream,
                 "datagramSent":path.stats().frame_tx.datagram,"datagramReceived":path.stats().frame_rx.datagram});
-            lease.retain(connection, &probe)?;
-
-            endpoint
-                .retain_control_data_transport_path(connection, lease.remote_addr()?)
-                .await?;
+            if !active {
+                lease.retain(connection, &probe)?;
+                endpoint
+                    .retain_control_data_transport_path(connection, lease.remote_addr()?)
+                    .await?;
+            }
 
             send.finish()?;
             let report = json!({"prepared":true,"finalized":false,"switched":false,
@@ -728,7 +793,7 @@ async fn upgrade(
             endpoint
                 .retain_control_data_transport_path(connection, lease.remote_addr()?)
                 .await?;
-        } else {
+        } else if !active {
             endpoint
                 .retain_data_transport_path(connection, lease.remote_addr()?)
                 .await?;
@@ -738,7 +803,7 @@ async fn upgrade(
         } else {
             write_frame(send, &json!({"kind":"selected","pathId":probe.path_id()})).await?;
         }
-        if !control {
+        if !control && !active {
             phase(recv, "disable-relay", budget).await?;
             for path in connection.paths().iter().filter(|path| path.is_relay()) {
                 path.close()?;
@@ -783,11 +848,14 @@ async fn upgrade(
             )
             .await?;
         }
-        send.finish()?;
-        if control {
+        if !active {
+            send.finish()?;
+        }
+        if control || active {
             let actual = pump_stats.clone();
-            transport
-                .control_fixture_checkpoint(
+            if control {
+                transport
+                    .control_fixture_checkpoint(
                     crate::rtc_invalidation_fixture::ControlCheckpointStage::BeforeRelease,
                     connection,
                     &lease,
@@ -799,7 +867,8 @@ async fn upgrade(
                         "source":gate.qualification_fixture(),"resourceRevision":transport.resource_revision(),"resourceAllowed":transport.resource_allowed()}),
                     Arc::new(move || actual.report()),
                 )
-                .await?;
+                    .await?;
+            }
             // A resumed diagnostic is not an authorization snapshot. The real
             // final actor also rechecks the exact route seal after this hook.
             if !qualification.is_current()
@@ -814,7 +883,7 @@ async fn upgrade(
                 return Err("RTC current qualification changed during release validation".into());
             }
             let release_watermark = release_probe.watermark();
-            if unified.is_some() {
+            if unified.is_some() && control {
                 let io = lease.io();
                 let rollback_io = io.clone();
                 let path_id = release_probe.path_id().to_owned();
@@ -834,13 +903,18 @@ async fn upgrade(
                         },
                     )
                     .with_proof(path_id, watermark, move || release_probe.is_acknowledged())
-                    .with_rollback(move || rollback_io.retire()),
+                    .with_rollback(move || {
+                        rollback_io.retire_with_reason("prepared-path-rollback")
+                    }),
                 );
             }
             report["finalReleaseFreshAck"] = json!(true);
             report["finalReleaseProbeWatermark"] = json!(release_watermark);
             report["finalReleaseProbeStartedMs"] = json!(release_started);
             report["finalReleaseAckMs"] = json!(budget.elapsed_ms());
+        }
+        if active {
+            initial_unified_probe = Some(probe);
         }
         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(report)
     };
@@ -869,6 +943,7 @@ async fn upgrade(
         let original = connection.weak_handle();
         let gate = gate.clone();
         let transport = transport.clone();
+        let endpoint_for_retain = endpoint.clone();
         let pending = PreparedPath::candidate(
             connection,
             iroh::TransportAddr::Custom(remote),
@@ -885,7 +960,7 @@ async fn upgrade(
             },
         )
         .with_proof(initial_path, initial_watermark, move || probe.is_acknowledged())
-        .with_rollback(move || rollback_io.retire())
+        .with_rollback(move || rollback_io.retire_with_reason("prepared-path-rollback"))
         .with_retain(move || {
             Box::pin(async move {
                 // A pending finalizer owns the RAII lease/PC/pump. It upgrades
@@ -897,8 +972,9 @@ async fn upgrade(
                 let finalize = async {
 
                     let actual = pump_stats.clone();
-                    transport
-                        .control_fixture_checkpoint(
+                    if control {
+                        transport
+                            .control_fixture_checkpoint(
                             crate::rtc_invalidation_fixture::ControlCheckpointStage::BeforeRelease,
                             &current,
                             &lease,
@@ -912,7 +988,8 @@ async fn upgrade(
                                 "resourceRevision":transport.resource_revision(),"resourceAllowed":transport.resource_allowed()}),
                             Arc::new(move || actual.report()),
                         )
-                        .await?;
+                            .await?;
+                    }
 
                     if !qualification.is_current()
                         || !gate.allows(&current, ProtocolScope::Member)
@@ -932,10 +1009,18 @@ async fn upgrade(
                     // The restricted control seal was installed once during
                     // preparation. Renew the exact lease, never reseal M.
                     lease.retain(&current, &final_ack)?;
+                    if !control {
+                        endpoint_for_retain
+                            .retain_data_transport_path(&current, lease.remote_addr()?)
+                            .await?;
+                    }
                     report["prepared"] = json!(false);
                     report["finalized"] = json!(true);
-                    report["bothConfirmed"] = json!(true);
+                    if !active {
+                        report["bothConfirmed"] = json!(true);
+                    }
                     report["finalReleaseFreshAck"] = json!(true);
+                    report["finalReleasePathId"] = json!(final_ack.path_id());
                     report["finalReleaseProbeWatermark"] = json!(final_ack.watermark());
                     report["finalReleaseProbeStartedMs"] = json!(started);
                     report["finalReleaseAckMs"] = json!(budget.elapsed_ms());
@@ -1111,7 +1196,7 @@ impl Drop for CancelRtc {
         // retirement. Normal cleanup already retired the route before emptying it.
         if let Some(pc) = self.pc.take() {
             self.live.store(false, Ordering::Release);
-            self.io.retire();
+            self.io.retire_with_reason("candidate-cancellation-cleanup");
             if let Some(pump) = self.pump.take() {
                 pump.abort();
             }
@@ -1133,7 +1218,8 @@ pub(crate) async fn bootstrap_control(
     let (mut send, mut recv) = connection.accept_bi().await?;
     let request = read_frame(&mut recv).await.map_err(std::io::Error::other)?;
     upgrade(
-        endpoint, connection, gate, transport, request, &mut send, &mut recv, true, None,
+        endpoint, connection, gate, transport, request, &mut send, &mut recv, true, None, false,
+        None,
     )
     .await
     .map(|_| ())
@@ -1191,6 +1277,8 @@ pub(crate) async fn bootstrap_control_unified(
         &mut recv,
         true,
         Some(attempt),
+        false,
+        None,
     )
     .await
     .map_err(|error| {
@@ -1201,4 +1289,72 @@ pub(crate) async fn bootstrap_control_unified(
         }
     })?
     .ok_or_else(|| crate::connection_coordinator::control_error("DataPathUnavailable"))
+}
+
+/// Active M improvement adapter. SDP and candidate control run on the
+/// restricted C; QUIC path preparation and the eventual retain stay on the
+/// exact original M.
+pub(crate) async fn bootstrap_control_active(
+    endpoint: &Endpoint,
+    original: &Connection,
+    control: &Connection,
+    gate: &AdmissionGate,
+    transport: &RtcTransport,
+    attempt: crate::connection_coordinator::ProtectedAttempt,
+) -> std::io::Result<crate::connection_coordinator::PreparedPath> {
+    use crate::connection_coordinator::{RtcRole, control_error};
+    let proof = gate
+        .proof_for(original)
+        .ok_or_else(|| control_error("IdentityOrAdmissionRejected"))?;
+    let caller_deadline = control
+        .caller_deadline()
+        .unwrap_or_else(|| n0_future::time::Instant::now() + crate::connection_budget::DEFAULT);
+    let budget = RtcDeadline::from_caller(caller_deadline);
+    let id = attempt.id_hex();
+    let context = attempt_context(
+        &id,
+        proof.scope().network_id(),
+        proof.scope().secret_generation(),
+        &endpoint.id().to_string(),
+        &original.remote_id().to_string(),
+    );
+    let request = json!({"protocol":crate::rtc_association::UNIFIED_RTC_PROTOCOL,"attempt":id,
+        "context":context,"binding":rtc_probe::binding(original,context.as_bytes()).map_err(std::io::Error::other)?,
+        "channel":datagram_channel_parameters(),"quicDialer":attempt.quic_dialer(endpoint,original).to_string(),
+        "rtcOfferer":endpoint.id().to_string(),"rtcAnswerer":original.remote_id().to_string(),
+        "remainingMs":budget.remaining()?.as_millis() as u64});
+    let (mut send, mut recv, request) = match attempt.rtc_role {
+        RtcRole::Offerer => {
+            let (send, recv) = control.open_bi().await?;
+            (send, recv, request)
+        }
+        RtcRole::Answerer => {
+            let (send, mut recv) = control.accept_bi().await?;
+            let request = read_frame(&mut recv).await.map_err(std::io::Error::other)?;
+            (send, recv, request)
+        }
+        RtcRole::None => return Err(control_error("InvalidControl")),
+    };
+    upgrade(
+        endpoint,
+        original,
+        gate,
+        transport,
+        request,
+        &mut send,
+        &mut recv,
+        false,
+        Some(attempt),
+        true,
+        Some(caller_deadline),
+    )
+    .await
+    .map_err(|error| {
+        if error.to_string().starts_with("unified/") {
+            std::io::Error::other(error.to_string())
+        } else {
+            std::io::Error::other(error.to_string())
+        }
+    })?
+    .ok_or_else(|| control_error("DataPathUnavailable"))
 }

@@ -133,14 +133,56 @@ pub async fn respond<const N: usize>(
     scope: AdmissionScope,
     candidate: Candidate<N>,
 ) -> io::Result<tokio::task::JoinHandle<()>> {
-    respond_live(broker, scope, move || Some(candidate)).await
+    respond_live(broker, scope, move || Some(candidate))
+        .await
+        .map(LiveResponder::into_task)
+}
+
+/// Internal standing responder ownership. Normal resource retirement cancels
+/// and joins the task; dropping an interrupted owner retains the abort fallback.
+pub(crate) struct LiveResponder {
+    cancel: tokio_util::sync::CancellationToken,
+    task: Option<tokio::task::JoinHandle<()>>,
+}
+
+impl LiveResponder {
+    fn into_task(mut self) -> tokio::task::JoinHandle<()> {
+        // Public respond() keeps its historical caller-owned abortable task.
+        self.task.take().expect("owned discovery responder")
+    }
+
+    pub(crate) fn cancel(&self) {
+        self.cancel.cancel();
+    }
+
+    pub(crate) async fn retire(mut self) -> io::Result<()> {
+        self.cancel();
+        self.task
+            .as_mut()
+            .expect("owned discovery responder")
+            .await
+            .map_err(io::Error::other)
+    }
+
+    pub(crate) fn abort(&self) {
+        if let Some(task) = &self.task {
+            self.cancel();
+            task.abort();
+        }
+    }
+}
+
+impl Drop for LiveResponder {
+    fn drop(&mut self) {
+        self.abort();
+    }
 }
 
 pub(crate) async fn respond_live<const N: usize>(
     broker: SocketAddr,
     scope: AdmissionScope,
     candidate: impl Fn() -> Option<Candidate<N>> + Send + 'static,
-) -> io::Result<tokio::task::JoinHandle<()>> {
+) -> io::Result<LiveResponder> {
     let profile = DiscoveryProfile::for_route_width(N).ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -154,8 +196,18 @@ pub(crate) async fn respond_live<const N: usize>(
         .await
         .map_err(io::Error::other)?;
     subscribed(&mut events).await?;
-    Ok(tokio::spawn(async move {
-        while let Ok(event) = events.poll().await {
+    let cancel = tokio_util::sync::CancellationToken::new();
+    let task_cancel = cancel.clone();
+    let task = tokio::spawn(async move {
+        loop {
+            let event = tokio::select! {
+                biased;
+                _ = task_cancel.cancelled() => break,
+                event = events.poll() => match event {
+                    Ok(event) => event,
+                    Err(_) => break,
+                },
+            };
             let Event::Incoming(Packet::Publish(publish)) = event else {
                 continue;
             };
@@ -183,7 +235,11 @@ pub(crate) async fn respond_live<const N: usize>(
                 break;
             }
         }
-    }))
+    });
+    Ok(LiveResponder {
+        cancel,
+        task: Some(task),
+    })
 }
 
 /// Gather a bounded set of hints. The random reply route expires when this

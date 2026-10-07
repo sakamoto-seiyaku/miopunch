@@ -93,6 +93,95 @@ impl BrowserMemberConnection {
 }
 #[wasm_bindgen]
 impl BrowserMemberConnection {
+    /// Improve the existing ordinary M through a fresh restricted control C.
+    /// The operation has one caller clock and retires only its candidate on
+    /// failure; the original relay/stream remains owned by this handle.
+    pub async fn improve_path(&self, caller_ms: u32) -> Result<String, JsValue> {
+        if caller_ms == 0
+            || u64::from(caller_ms) > crate::connection_budget::MAX_MS
+            || self.is_closed()
+        {
+            return Err(error("active improvement caller budget is invalid"));
+        }
+        if self
+            .repair_active
+            .swap(true, std::sync::atomic::Ordering::AcqRel)
+        {
+            return Err(error("member path improvement already active"));
+        }
+        let cancel = tokio_util::sync::CancellationToken::new();
+        *self.repair_cancel.lock().unwrap() = Some(cancel.clone());
+        let _guard = RepairGuard {
+            active: &self.repair_active,
+            cancel: &self.repair_cancel,
+        };
+        let deadline = n0_future::time::Instant::now() + Duration::from_millis(caller_ms.into());
+        let mut target = EndpointAddr::new(self.connection.remote_id());
+        for path in self
+            .connection
+            .paths()
+            .iter()
+            .map(|path| path.remote_addr().clone())
+            .take(8)
+        {
+            target.addrs.insert(path);
+        }
+        if target.addrs.is_empty() {
+            return Err(error("active improvement has no current contact route"));
+        }
+        use crate::connection_coordinator::{AttemptContext, AttemptRole, MemberPathAdapter};
+        let caps = self
+            .gate
+            .capabilities(AttemptRole::initial(&self.connection));
+        let contact_ids = target
+            .addrs
+            .iter()
+            .filter_map(|path| match path {
+                iroh::TransportAddr::Custom(address) => Some(address.id()),
+                _ => None,
+            })
+            .collect();
+        let attempt = AttemptContext::new(deadline, cancel.clone());
+        let registry = self.gate.maintenance();
+        let lease = registry
+            .acquire(&self.connection, &attempt, ())
+            .map_err(|cause| error(format!("active improvement reservation: {cause:?}")))?;
+        let result = lease
+            .run(async {
+                let control = crate::connection_coordinator::ConnectionCoordinator::new(
+                    self.endpoint.clone(),
+                    caps.permitted,
+                    contact_ids,
+                )
+                .with_member_data(crate::member_data::DATA_TRANSPORT_ID)
+                .connect_alpn(
+                    target,
+                    crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN,
+                    attempt.clone(),
+                )
+                .await
+                .map_err(error)?;
+                // Own exact C before any further await, including losing guard races.
+                let _control = RequestConnection(Some(control.clone()));
+                crate::connection_coordinator::improve_existing(
+                    &self.endpoint,
+                    &self.connection,
+                    &control,
+                    &self.gate,
+                    attempt,
+                )
+                .await
+                .map_err(|cause| error(format!("active improvement failed: {cause:?}")))
+            })
+            .await;
+        result
+            .map_err(|cause| error(format!("active improvement failed: {cause:?}")))?
+            .map(|_| {
+                serde_json::json!({"outcome":"committed","stableId":self.connection.stable_id()})
+                    .to_string()
+            })
+    }
+
     /// Cancel only the outstanding explicit path-maintenance operation.
     pub fn cancel_path_recovery(&self) {
         if let Some(cancel) = self.repair_cancel.lock().unwrap().as_ref() {
@@ -110,7 +199,7 @@ impl BrowserMemberConnection {
                     .to_string(),
             );
         }
-        if caller_ms == 0 || caller_ms > TIMEOUT.as_millis() as u32 {
+        if caller_ms == 0 || u64::from(caller_ms) > crate::connection_budget::MAX_MS {
             return Err(error("repair caller budget must fit the browser budget"));
         }
         if self
@@ -236,13 +325,19 @@ impl BrowserMemberConnection {
                     #[cfg(not(feature="rtc-probe"))]
                     {false}
                 }),
+                "isMemberData":matches!(path.remote_addr(),iroh::TransportAddr::Custom(address)
+                    if address.id()==crate::member_data::DATA_TRANSPORT_ID),
+                "streamSent":path.stats().frame_tx.stream,"streamReceived":path.stats().frame_rx.stream,
+                "datagramSent":path.stats().frame_tx.datagram,"datagramReceived":path.stats().frame_rx.datagram,
                 "isSignal":matches!(path.remote_addr(),iroh::TransportAddr::Custom(address) if matches!(address.id(),crate::mqtt_datagram::TRANSPORT_ID|crate::irc_datagram::TRANSPORT_ID)),
+                "rttMicros":path.stats().rtt.as_micros(),
                 "sentBytes":path.stats().udp_tx.bytes,"receivedBytes":path.stats().udp_rx.bytes})).collect::<Vec<_>>()}).to_string()
     }
     pub fn is_closed(&self) -> bool {
         self.connection.close_reason().is_some()
     }
     pub fn close(&self) {
+        self.cancel_path_recovery();
         #[cfg(feature = "rtc-probe")]
         {
             self.rtc_live.borrow_mut().take();
@@ -458,16 +553,16 @@ impl BrowserMemberAcceptAttempt {
 
 #[wasm_bindgen]
 pub struct BrowserMemberAttempt {
-    endpoint: Endpoint,
-    gate: BrowserGate,
-    lease: u32,
-    saved: String,
-    address: EndpointAddr,
-    deadline: n0_future::time::Instant,
-    cancel: tokio_util::sync::CancellationToken,
-    started: std::sync::atomic::AtomicBool,
+    pub(super) endpoint: Endpoint,
+    pub(super) gate: BrowserGate,
+    pub(super) lease: u32,
+    pub(super) saved: String,
+    pub(super) address: EndpointAddr,
+    pub(super) deadline: n0_future::time::Instant,
+    pub(super) cancel: tokio_util::sync::CancellationToken,
+    pub(super) started: std::sync::atomic::AtomicBool,
     #[cfg(feature = "rtc-probe")]
-    rtc_transport: crate::rtc_transport::RtcTransport,
+    pub(super) rtc_transport: crate::rtc_transport::RtcTransport,
 }
 impl Drop for BrowserMemberAttempt {
     fn drop(&mut self) {
@@ -499,10 +594,16 @@ impl BrowserMemberAttempt {
             let coordinator = crate::connection_coordinator::ConnectionCoordinator::new(
                 self.endpoint.clone(),
                 caps.permitted,
-                if self.address.addrs.iter().any(|address|matches!(address,iroh::TransportAddr::Custom(address) if address.id()==crate::mqtt_datagram::TRANSPORT_ID)) {
-                    vec![crate::mqtt_datagram::TRANSPORT_ID]
-                } else {vec![]},
-            );
+                self.address
+                    .addrs
+                    .iter()
+                    .filter_map(|address| match address {
+                        iroh::TransportAddr::Custom(address) => Some(address.id()),
+                        _ => None,
+                    })
+                    .collect(),
+            )
+            .with_member_data(crate::member_data::DATA_TRANSPORT_ID);
             coordinator
                 .connect(
                     self.address.clone(),

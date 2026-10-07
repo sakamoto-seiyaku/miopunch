@@ -29,7 +29,11 @@ use ed25519_dalek::{VerifyingKey, pkcs8::DecodePublicKey};
 use futures_util::{FutureExt, future::Shared};
 use iroh_base::{EndpointId, RelayUrl};
 use n0_error::{e, stack_error};
-use n0_future::{TryFutureExt, future::Boxed as BoxFuture, time::{Duration, Instant}};
+use n0_future::{
+    TryFutureExt,
+    future::Boxed as BoxFuture,
+    time::{Duration, Instant},
+};
 use noq::WeakConnectionHandle as NoqWeakConnectionHandle;
 use pin_project::pin_project;
 use tracing::{error, event, warn};
@@ -114,7 +118,10 @@ impl Future for Accept<'_> {
                 let incoming = Incoming {
                     inner,
                     ep: this.ep.clone(),
-                    attempt: AttemptOptions::default(),
+                    attempt: AttemptOptions {
+                        incoming_received_at: Some(Instant::now()),
+                        ..Default::default()
+                    },
                 };
                 event!(
                     target: "iroh::_events::conn::incoming",
@@ -131,6 +138,7 @@ impl Future for Accept<'_> {
 #[derive(Debug, Clone, Default)]
 pub(super) struct AttemptOptions {
     pub(super) caller_deadline: Option<Instant>,
+    pub(super) incoming_received_at: Option<Instant>,
     pub(super) cancellation: Option<tokio_util::sync::CancellationToken>,
 }
 
@@ -144,6 +152,14 @@ pub struct Incoming {
 }
 
 impl Incoming {
+    /// Local receipt time captured when Endpoint::accept yields this attempt.
+    /// Preserved across acceptance/retry; it supplies no timeout or permission.
+    pub fn received_at(&self) -> Instant {
+        self.attempt
+            .incoming_received_at
+            .expect("incoming receipt time")
+    }
+
     /// Propagate this local caller's existing absolute deadline to the hooks.
     /// No deadline is supplied by default for incoming connections.
     pub fn with_caller_deadline(mut self, deadline: Instant) -> Self {
@@ -208,9 +224,13 @@ impl Incoming {
     /// Errors if `remote_address_validated()` is true.
     #[allow(clippy::result_large_err)]
     pub fn retry(self) -> Result<(), RetryError> {
-        self.inner
-            .retry()
-            .map_err(|err| e!(RetryError { err, ep: self.ep, attempt: self.attempt }))
+        self.inner.retry().map_err(|err| {
+            e!(RetryError {
+                err,
+                ep: self.ep,
+                attempt: self.attempt
+            })
+        })
     }
 
     /// Ignores this incoming connection attempt, not sending any packet in response.
@@ -335,7 +355,9 @@ pub enum AuthenticationError {
 /// when a private stream is still owned elsewhere. Success disarms it.
 struct PendingAdmission(Option<NoqWeakConnectionHandle>);
 impl PendingAdmission {
-    fn disarm(&mut self) { self.0.take(); }
+    fn disarm(&mut self) {
+        self.0.take();
+    }
 }
 impl Drop for PendingAdmission {
     fn drop(&mut self) {
@@ -404,63 +426,77 @@ fn conn_from_noq_conn(
     Ok(async move {
         let cancellation = attempt.cancellation.clone();
         let work = async move {
-        let paths = fut.await?;
-        let conn = Connection {
-            data: HandshakeCompletedData { info, paths, attempt },
-            inner: conn,
-        };
+            let paths = fut.await?;
+            let conn = Connection {
+                data: HandshakeCompletedData {
+                    info,
+                    paths,
+                    attempt,
+                },
+                inner: conn,
+            };
 
-        let release = match inner.hooks.after_handshake(&conn).await {
-            AfterHandshakeOutcome::Reject { error_code, reason } => {
-                conn.close(error_code, &reason);
+            let release = match inner.hooks.after_handshake(&conn).await {
+                AfterHandshakeOutcome::Reject { error_code, reason } => {
+                    conn.close(error_code, &reason);
+                    return Err(e!(ConnectingError::LocallyRejected));
+                }
+                AfterHandshakeOutcome::AcceptData {
+                    allowed_data_custom_ids,
+                } => {
+                    if !inner.static_config.admission_gated || control_only {
+                        conn.close(0u32.into(), b"incompatible admission path policy");
+                        return Err(e!(ConnectingError::LocallyRejected));
+                    }
+                    Some(allowed_data_custom_ids)
+                }
+                AfterHandshakeOutcome::Accept => {
+                    if inner.static_config.admission_gated {
+                        conn.close(0u32.into(), b"admission decision missing");
+                        return Err(e!(ConnectingError::LocallyRejected));
+                    }
+                    None
+                }
+                AfterHandshakeOutcome::AcceptRestricted => None,
+            };
+            if release.is_some()
+                && let Err(error) = inner.hooks.before_data_release(&endpoint, &conn).await
+            {
+                tracing::debug!(%error, "protected data path bootstrap failed");
+                conn.close(0u32.into(), b"data path bootstrap failed");
+                return Err(e!(ConnectingError::DataPathUnavailable {
+                    reason: error.to_string()
+                }));
+            }
+            if inner.static_config.admission_gated
+                && !control_only
+                && let Some(allowed_data_custom_ids) = release
+                && inner
+                    .authorize_candidates(
+                        conn.remote_id(),
+                        conn.stable_id(),
+                        allowed_data_custom_ids,
+                    )
+                    .await
+                    .is_err()
+            {
+                conn.close(0u32.into(), b"admission path release failed");
                 return Err(e!(ConnectingError::LocallyRejected));
             }
-            AfterHandshakeOutcome::AcceptData {
-                allowed_data_custom_ids,
-            } => {
-                if !inner.static_config.admission_gated || control_only {
-                    conn.close(0u32.into(), b"incompatible admission path policy");
-                    return Err(e!(ConnectingError::LocallyRejected));
-                }
-                Some(allowed_data_custom_ids)
-            }
-            AfterHandshakeOutcome::Accept => {
-                if inner.static_config.admission_gated {
-                    conn.close(0u32.into(), b"admission decision missing");
-                    return Err(e!(ConnectingError::LocallyRejected));
-                }
-                None
-            }
-            AfterHandshakeOutcome::AcceptRestricted => None,
-        };
-        if release.is_some()
-            && let Err(error) = inner.hooks.before_data_release(&endpoint, &conn).await
-        {
-            tracing::debug!(%error, "protected data path bootstrap failed");
-            conn.close(0u32.into(), b"data path bootstrap failed");
-            return Err(e!(ConnectingError::DataPathUnavailable { reason: error.to_string() }));
-        }
-        if inner.static_config.admission_gated
-            && !control_only
-            && let Some(allowed_data_custom_ids) = release
-            && inner
-                .authorize_candidates(conn.remote_id(), conn.stable_id(), allowed_data_custom_ids)
-                .await
-                .is_err()
-        {
-            conn.close(0u32.into(), b"admission path release failed");
-            return Err(e!(ConnectingError::LocallyRejected));
-        }
 
-        Ok(conn)
+            Ok(conn)
         };
         let result = if let Some(cancellation) = cancellation {
             tokio::select! { biased;
                 _ = cancellation.cancelled() => Err(e!(ConnectingError::AttemptCancelled)),
                 result = work => result,
             }
-        } else { work.await };
-        if result.is_ok() { pending.disarm(); }
+        } else {
+            work.await
+        };
+        if result.is_ok() {
+            pending.disarm();
+        }
         result
     })
 }
@@ -526,7 +562,8 @@ pub struct Connecting {
     ep: Endpoint,
     /// `Some(remote_id)` if this is an outgoing connection, `None` if this is an incoming conn
     remote_endpoint_id: EndpointId,
-    attempt: AttemptOptions,}
+    attempt: AttemptOptions,
+}
 
 type RegisterWithSocketFut = BoxFuture<Result<Connection, ConnectingError>>;
 
@@ -650,7 +687,8 @@ impl Connecting {
                     let noq_conn = noq_conn.clone();
                     async move {
                         let accepted = zrtt_accepted.await;
-                        let conn = conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?.await?;
+                        let conn =
+                            conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?.await?;
                         Ok(match accepted {
                             true => ZeroRttStatus::Accepted(conn),
                             false => ZeroRttStatus::Rejected(conn),
@@ -700,6 +738,14 @@ impl Future for Connecting {
 }
 
 impl Accepting {
+    /// Original local incoming receipt time, including ALPN classification.
+    /// Protocol owners may derive one absolute setup deadline from it.
+    pub fn received_at(&self) -> Instant {
+        self.attempt
+            .incoming_received_at
+            .expect("accepting receipt time")
+    }
+
     pub(super) fn new(inner: noq::Connecting, ep: Endpoint, attempt: AttemptOptions) -> Self {
         Self {
             inner,
@@ -1277,7 +1323,6 @@ impl Connection<HandshakeCompleted> {
     pub fn caller_deadline(&self) -> Option<Instant> {
         self.data.attempt.caller_deadline
     }
-
 
     /// Extracts the ALPN protocol from the peer's handshake data.
     pub fn alpn(&self) -> &[u8] {

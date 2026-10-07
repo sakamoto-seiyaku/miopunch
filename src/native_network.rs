@@ -44,6 +44,7 @@ const MAINTENANCE_CONTACTS: &str = "maintenance.contacts.json";
 fn network_protocols() -> Vec<Vec<u8>> {
     vec![
         crate::connection_coordinator::MEMBER_ALPN.to_vec(),
+        crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN.to_vec(),
         crate::connection_coordinator::REPLICA_ALPN.to_vec(),
         crate::admission_gate::PRECODE_REQUEST_ALPN.to_vec(),
         crate::admission_gate::ADMISSION_REQUEST_ALPN.to_vec(),
@@ -578,11 +579,17 @@ impl NativeNetwork {
         }
         #[cfg(feature = "rtc-probe")]
         let builder = if let Some(rtc) = &rtc {
+            self.gate
+                .register_data_carrier(crate::rtc_transport::TRANSPORT_ID);
             builder.add_custom_transport(Arc::new(rtc.clone()))
         } else {
             builder
         };
-        let (mut builder, tcp) = resources.configure_with_tcp(builder)?;
+        #[cfg(feature = "rtc-probe")]
+        let rtc_installed = rtc.is_some();
+        #[cfg(not(feature = "rtc-probe"))]
+        let rtc_installed = false;
+        let (mut builder, tcp) = resources.configure_with_tcp_and_rtc(builder, rtc_installed)?;
         if !resources.member_data_relay_disabled
             && !resources
                 .disabled_uses

@@ -37,7 +37,7 @@ use std::{
     time::Duration,
 };
 use tokio::{
-    sync::{Notify, Semaphore, mpsc, watch},
+    sync::{Notify, Semaphore, mpsc, oneshot, watch},
     task::JoinHandle,
     time::Instant,
 };
@@ -66,7 +66,7 @@ impl MaintenancePolicy {
             max_concurrent_contacts: 1,
             max_neighbors: 1,
             quality_interval_ms: 5_000,
-            contact_timeout_ms: 2_000,
+            contact_timeout_ms: crate::connection_budget::DEFAULT_MS,
         }
     }
     pub fn active() -> Self {
@@ -76,7 +76,7 @@ impl MaintenancePolicy {
             max_concurrent_contacts: 4,
             max_neighbors: 4,
             quality_interval_ms: 1_000,
-            contact_timeout_ms: 2_000,
+            contact_timeout_ms: crate::connection_budget::DEFAULT_MS,
         }
     }
     pub(crate) fn validate(&self) -> std::io::Result<()> {
@@ -85,7 +85,7 @@ impl MaintenancePolicy {
             || !(1..=8).contains(&self.max_concurrent_contacts)
             || !(1..=8).contains(&self.max_neighbors)
             || !(250..=30_000).contains(&self.quality_interval_ms)
-            || !(100..=30_000).contains(&self.contact_timeout_ms)
+            || !(100..=crate::connection_budget::MAX_MS).contains(&self.contact_timeout_ms)
         {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -143,11 +143,14 @@ impl Drop for BusinessActivity {
 enum Command {
     Contact(EndpointAddr),
     NetworkChanged,
+    DisableContactSignaling(oneshot::Sender<Result<(), NodeError>>),
 }
 pub struct MaintainedNetwork {
     resources: Arc<ResourceEndpoint>,
+    contact_observer: Option<Arc<crate::mqtt_transport::MqttTransport>>,
     updates: watch::Receiver<MaintenanceStatus>,
     commands: mpsc::Sender<Command>,
+    disable_commands: mpsc::Sender<Command>,
     activity: Arc<Activity>,
     cancel: CancellationToken,
     task: Option<JoinHandle<()>>,
@@ -158,6 +161,11 @@ impl MaintainedNetwork {
     }
     pub fn addr(&self) -> EndpointAddr {
         self.resources.addr()
+    }
+    /// The configured endpoint's existing common connection entry. This shares
+    /// its current resource snapshot and does not create a second Node owner.
+    pub fn coordinator(&self) -> crate::connection_coordinator::ConnectionCoordinator {
+        self.resources.coordinator()
     }
     pub fn node_status(&self) -> NodeStatus {
         self.updates.borrow().node.clone()
@@ -172,6 +180,14 @@ impl MaintainedNetwork {
             status.state = MaintenanceState::BusinessPriority;
         }
         status
+    }
+    /// Actual traffic from the explicitly supplied contact carrier. A normal
+    /// startup without that observer reports None, rather than invented counts.
+    /// The saved resource policy still decides whether the carrier may bind.
+    pub fn contact_listener_traffic(&self) -> Option<serde_json::Value> {
+        self.contact_observer
+            .as_ref()
+            .map(|transport| transport.traffic().snapshot())
     }
     pub fn watch_maintenance(&self) -> watch::Receiver<MaintenanceStatus> {
         self.updates.clone()
@@ -193,6 +209,30 @@ impl MaintainedNetwork {
             .send(Command::NetworkChanged)
             .await
             .map_err(|_| NodeError::InvalidData)
+    }
+    /// Disable this Node's selected MQTT signaling listener until a fresh startup.
+    /// Saves only that facility's Signaling disable and waits for actual address
+    /// withdrawal, observer retirement and carrier driver closure. Other resource
+    /// uses, member permissions and existing data sessions are retained.
+    /// A stopped owner, persistence failure or retirement failure returns an error.
+    pub async fn disable_contact_signaling(&self) -> Result<(), NodeError> {
+        let (completion, completed) = oneshot::channel();
+        // A terminal listener needs no urgent interruption. Repeated disable
+        // uses ordinary FIFO ordering, acknowledging preceding network events.
+        let commands = if self
+            .resources
+            .contact_listener()
+            .is_some_and(|listener| listener.status().phase == ContactListenerPhase::Stopped)
+        {
+            &self.commands
+        } else {
+            &self.disable_commands
+        };
+        commands
+            .send(Command::DisableContactSignaling(completion))
+            .await
+            .map_err(|_| NodeError::InvalidData)?;
+        completed.await.map_err(|_| NodeError::InvalidData)?
     }
     pub fn business_activity(&self) -> BusinessActivity {
         self.activity.count.fetch_add(1, Ordering::AcqRel);
@@ -312,6 +352,43 @@ impl std::fmt::Debug for HistoryHandler {
     }
 }
 impl ProtocolHandler for HistoryHandler {
+    async fn on_accepting(
+        &self,
+        mut accepting: iroh::endpoint::Accepting,
+    ) -> Result<Connection, iroh::protocol::AcceptError> {
+        // Retain the original receipt clock through Router ALPN classification.
+        let deadline = self
+            .resources
+            .contact_deadline_from(accepting.received_at());
+        let alpn = accepting
+            .alpn()
+            .await
+            .map_err(iroh::protocol::AcceptError::from_err)?;
+        if alpn != REPLICA_ALPN {
+            // Recovery's historical acceptance remains separate and unchanged.
+            return accepting.await.map_err(Into::into);
+        }
+        if deadline <= n0_future::time::Instant::now() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "replica admission deadline elapsed during classification",
+            )
+            .into());
+        }
+        tokio::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            accepting.with_caller_deadline(deadline),
+        )
+        .await
+        .map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "replica admission deadline exceeded",
+            )
+        })?
+        .map_err(Into::into)
+    }
+
     async fn accept(&self, connection: Connection) -> Result<(), iroh::protocol::AcceptError> {
         let Ok(_permit) = self.permits.clone().try_acquire_owned() else {
             connection.close(0u32.into(), b"maintenance serving budget busy");
@@ -354,6 +431,107 @@ impl ProtocolHandler for HistoryHandler {
         Ok(())
     }
 }
+
+#[derive(Clone)]
+struct ActiveImprovementHandler {
+    endpoint: Endpoint,
+    gate: AdmissionGate,
+    adapter: crate::connection_coordinator::CoordinatorHook,
+    resources: Arc<ResourceEndpoint>,
+}
+impl std::fmt::Debug for ActiveImprovementHandler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ActiveImprovementHandler")
+    }
+}
+impl ProtocolHandler for ActiveImprovementHandler {
+    async fn on_accepting(
+        &self,
+        accepting: iroh::endpoint::Accepting,
+    ) -> Result<Connection, iroh::protocol::AcceptError> {
+        // Router has identified this restricted ALPN; include its preceding
+        // classification time without imposing a clock on unrelated protocols.
+        let deadline = self
+            .resources
+            .contact_deadline_from(accepting.received_at());
+        if deadline <= n0_future::time::Instant::now() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "active improvement deadline elapsed during classification",
+            )
+            .into());
+        }
+        tokio::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            accepting.with_caller_deadline(deadline),
+        )
+        .await
+        .map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "active improvement admission deadline exceeded",
+            )
+        })?
+        .map_err(Into::into)
+    }
+
+    async fn accept(&self, control: Connection) -> Result<(), iroh::protocol::AcceptError> {
+        if control.alpn() != crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN
+            || !self.gate.allows_member_path_upgrade(&control)
+        {
+            control.close(0u32.into(), b"active improvement rejected");
+            return Ok(());
+        }
+        let endpoint = self.endpoint.clone();
+        let gate = self.gate.clone();
+        let maintenance = gate.maintenance();
+        let lookup_maintenance = maintenance.clone();
+        let lookup_gate = gate.clone();
+        let adapter = self.adapter.clone();
+        let Some(responder_deadline) = control.caller_deadline() else {
+            control.close(0u32.into(), b"active improvement clock missing");
+            return Ok(());
+        };
+        let result = tokio::time::timeout(
+            responder_deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            crate::connection_coordinator::serve_active_session(
+                &endpoint,
+                &control,
+                &adapter,
+                &maintenance,
+                responder_deadline,
+                move |peer, binding| {
+                    lookup_maintenance
+                        .for_binding(peer, binding)
+                        .or_else(|| lookup_gate.member_connection_for_binding(peer, binding))
+                },
+            ),
+        )
+        .await;
+        let result = result.unwrap_or_else(|_| {
+            Err(crate::connection_coordinator::control_error(
+                "DeadlineExceeded",
+            ))
+        });
+        #[cfg(feature = "rtc-probe")]
+        println!(
+            "{}",
+            serde_json::json!({"event":"unified-active-result",
+            "monotonicMs":crate::rtc_transport::diagnostic_monotonic_ms(),
+            "controlStableId":control.stable_id(),"ok":result.is_ok(),"controlOpen":control.close_reason().is_none(),
+            "failureClass":result.as_ref().err().map(|error| match error.kind() {
+                std::io::ErrorKind::TimedOut => "timed-out",
+                std::io::ErrorKind::PermissionDenied => "permission-denied",
+                std::io::ErrorKind::InvalidData => "invalid-data",
+                _ => "other",
+            })})
+        );
+        if result.is_err() {
+            control.close(0u32.into(), b"active improvement failed");
+        }
+        Ok(())
+    }
+}
 struct Coordinator {
     node: NativeNetwork,
     resources: Arc<ResourceEndpoint>,
@@ -373,6 +551,7 @@ struct Coordinator {
     published: watch::Sender<MaintenanceStatus>,
     provider: watch::Sender<ReplicaProvider>,
     activity: Arc<Activity>,
+    active: crate::connection_coordinator::CoordinatorHook,
 }
 impl Coordinator {
     fn listener_changed(&mut self) {
@@ -399,6 +578,10 @@ impl Coordinator {
         let Some(listener) = &self.contact_listener else {
             return;
         };
+        if listener.status().phase == ContactListenerPhase::Stopped {
+            self.listener_retry_at = None;
+            return;
+        }
         self.listener_last_attempt = Some(Instant::now());
         if let Err(error) = listener.restart() {
             self.status.cause = Some(error.to_string());
@@ -453,8 +636,42 @@ impl Coordinator {
         self.discover_at = self.explore_at;
         self.backoff.reset();
     }
+    async fn disable_contact_signaling(&mut self) -> Result<(), NodeError> {
+        let listener = self.contact_listener.as_ref().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "no owned MQTT signaling listener",
+            )
+        })?;
+        let config = self
+            .resources
+            .disabled_contact_configuration(self.node.resource_configuration()?)?;
+        let saved = self.node.save_resource_configuration(&config);
+        // Even a save error can occur after atomic replacement. Fail closed:
+        // retire the running resource, but never acknowledge persistence success.
+        self.listener_retry_at = None;
+        let retired = listener.shutdown().await;
+        let responders_retired = self
+            .resources
+            .retire_recovery_origin(&listener.resource_url())
+            .await;
+        self.status.contact_listener = Some(listener.status());
+        saved?;
+        retired?;
+        responders_retired?;
+        Ok(())
+    }
     async fn command(&mut self, command: Command) -> Result<(), NodeError> {
         match command {
+            Command::DisableContactSignaling(completion) => {
+                let result = self.disable_contact_signaling().await;
+                if let Err(error) = &result {
+                    self.status.cause = Some(error.to_string());
+                }
+                // Publish before acknowledging, including real terminal status.
+                self.publish().await;
+                let _ = completion.send(result);
+            }
             Command::Contact(address) => {
                 if self
                     .insert(Candidate {
@@ -607,6 +824,77 @@ impl Coordinator {
         }
         Ok(())
     }
+    async fn improve_live_member(&mut self) -> Result<bool, NodeError> {
+        if self.activity.count.load(Ordering::Acquire) > 0 {
+            return Ok(false);
+        }
+        let registry = self.node.gate.maintenance();
+        let Some(original) = registry.live().into_iter().next() else {
+            return Ok(false);
+        };
+        let id = original.remote_id();
+        if !self.node.gate.allows_member_path_upgrade(&original)
+            || !self.resources.contact_ready(id)
+        {
+            return Ok(false);
+        }
+        let mut target = EndpointAddr::new(id);
+        for path in original
+            .paths()
+            .iter()
+            .map(|path| path.remote_addr().clone())
+            .take(8)
+        {
+            target.addrs.insert(path);
+        }
+        if target.addrs.is_empty() {
+            if let Some(candidate) = self.candidates.get(&id) {
+                target = candidate.address.clone();
+            } else {
+                return Ok(false);
+            }
+        }
+        let (deadline, contact) = match self.resources.begin_contact_attempt(id) {
+            Ok(value) => value,
+            Err(_) => return Ok(false),
+        };
+        self.status.contact_attempts += 1;
+        self.last_attempt_at = Some(Instant::now());
+        let cancellation = CancellationToken::new();
+        let attempt = crate::connection_coordinator::AttemptContext::new(deadline, cancellation);
+        let lease = match registry.acquire(&original, &attempt, contact) {
+            Ok(lease) => lease,
+            Err(error) => {
+                self.status.cause = Some(format!("active improvement reservation: {error:?}"));
+                return Ok(false);
+            }
+        };
+        let result = lease
+            .run(
+                self.active
+                    .improve(self.resources.endpoint(), &original, target, attempt),
+            )
+            .await;
+        match result {
+            Ok(Ok(())) => {
+                self.resources.reset_contact(id);
+                self.status.cause = None;
+                Ok(true)
+            }
+            Ok(Err(error)) => {
+                self.resources.contact_failed(id);
+                self.status.cause = Some(format!("active improvement: {error:?}"));
+                self.status.state = MaintenanceState::TemporarilyUnreachable;
+                Ok(true)
+            }
+            Err(error) => {
+                self.resources.contact_failed(id);
+                self.status.cause = Some(format!("active improvement: {error:?}"));
+                self.status.state = MaintenanceState::TemporarilyUnreachable;
+                Ok(true)
+            }
+        }
+    }
     async fn step(&mut self) -> Result<(), NodeError> {
         self.neighbors.retain(|_, peer| {
             peer.connection.close_reason().is_none()
@@ -648,6 +936,12 @@ impl Coordinator {
             }
         }
         if self.activity.count.load(Ordering::Acquire) > 0 {
+            self.explore_at = Instant::now() + self.floor();
+            return Ok(());
+        }
+        // Improvement belongs to this same due batch and consumes the same
+        // contact guard/epoch reservation as ordinary maintenance contacts.
+        if self.improve_live_member().await? {
             self.explore_at = Instant::now() + self.floor();
             return Ok(());
         }
@@ -711,7 +1005,14 @@ impl Coordinator {
             match result {
                 Ok(connection) => self.synchronize(candidate, connection).await?,
                 Err(error) => {
-                    self.status.cause = Some(error.to_string());
+                    // Display reports retry pacing; retain the concrete dial failure too.
+                    self.status.cause = Some(match &error {
+                        crate::resources::ResourceContactError::TemporarilyUnreachable {
+                            cause: Some(cause),
+                            ..
+                        } => format!("{error}: {cause}"),
+                        _ => error.to_string(),
+                    });
                     self.status.state = MaintenanceState::TemporarilyUnreachable;
                 }
             }
@@ -784,6 +1085,7 @@ impl Coordinator {
     async fn run(
         mut self,
         mut commands: mpsc::Receiver<Command>,
+        mut disable_commands: mpsc::Receiver<Command>,
         cancel: CancellationToken,
         router: Router,
     ) {
@@ -799,6 +1101,10 @@ impl Coordinator {
             tokio::select! {
                 biased;
                 _ = cancel.cancelled() => break,
+                command = disable_commands.recv() => {
+                    let Some(command) = command else { break; };
+                    if let Err(error) = self.command(command).await { self.status.cause = Some(error.to_string()); }
+                }
                 command = commands.recv() => {
                     let Some(command) = command else { break; };
                     if let Err(error) = self.command(command).await { self.status.cause = Some(error.to_string()); }
@@ -817,6 +1123,14 @@ impl Coordinator {
                     tokio::select! {
                         biased;
                         _ = cancel.cancelled() => break,
+                        // Only explicit resource retirement interrupts a contact
+                        // or sync batch. Ordinary hints/events keep their ordering.
+                        command = disable_commands.recv() => {
+                            let Some(command) = command else { break; };
+                            if let Err(error) = self.command(command).await {
+                                self.status.cause = Some(error.to_string());
+                            }
+                        }
                         result = self.step() => {
                             if let Err(error) = result { self.status.cause = Some(error.to_string()); self.status.state = MaintenanceState::TemporarilyUnreachable; self.explore_at = Instant::now() + self.floor(); }
                         }
@@ -866,6 +1180,7 @@ impl NativeNetwork {
             routes,
             #[cfg(feature = "rtc-probe")]
             None,
+            None,
         )
         .await
     }
@@ -879,7 +1194,43 @@ impl NativeNetwork {
         rtc: crate::rtc_transport::RtcTransport,
         routes: impl FnOnce(RouterBuilder) -> RouterBuilder,
     ) -> Result<MaintainedNetwork, NodeError> {
-        self.maintain_network_inner(bind_ip, |builder| builder, routes, Some(rtc))
+        self.maintain_network_inner(bind_ip, |builder| builder, routes, Some(rtc), None)
+            .await
+    }
+
+    /// Use one explicit contact carrier on the same configured endpoint and
+    /// NodeMaintenance lifecycle. The existing resource assembly validates its
+    /// complete facility mapping and permission before binding any contact IO.
+    pub async fn maintain_network_with_contact(
+        self,
+        bind_ip: Ipv4Addr,
+        contact: Arc<crate::mqtt_transport::MqttTransport>,
+        configure: impl FnOnce(iroh::endpoint::Builder) -> iroh::endpoint::Builder,
+        routes: impl FnOnce(RouterBuilder) -> RouterBuilder,
+    ) -> Result<MaintainedNetwork, NodeError> {
+        self.maintain_network_inner(
+            bind_ip,
+            configure,
+            routes,
+            #[cfg(feature = "rtc-probe")]
+            None,
+            Some(contact),
+        )
+        .await
+    }
+
+    /// Compose the existing RTC and explicit contact assembly with application
+    /// hooks and routes while retaining the single NodeMaintenance owner.
+    #[cfg(feature = "rtc-probe")]
+    pub async fn maintain_network_with_rtc_and_contact(
+        self,
+        bind_ip: Ipv4Addr,
+        rtc: crate::rtc_transport::RtcTransport,
+        contact: Arc<crate::mqtt_transport::MqttTransport>,
+        configure: impl FnOnce(iroh::endpoint::Builder) -> iroh::endpoint::Builder,
+        routes: impl FnOnce(RouterBuilder) -> RouterBuilder,
+    ) -> Result<MaintainedNetwork, NodeError> {
+        self.maintain_network_inner(bind_ip, configure, routes, Some(rtc), Some(contact))
             .await
     }
 
@@ -889,6 +1240,7 @@ impl NativeNetwork {
         configure: impl FnOnce(iroh::endpoint::Builder) -> iroh::endpoint::Builder,
         routes: impl FnOnce(RouterBuilder) -> RouterBuilder,
         #[cfg(feature = "rtc-probe")] rtc: Option<crate::rtc_transport::RtcTransport>,
+        contact: Option<Arc<crate::mqtt_transport::MqttTransport>>,
     ) -> Result<MaintainedNetwork, NodeError> {
         let config = self.resource_configuration()?;
         self.gate
@@ -899,18 +1251,37 @@ impl NativeNetwork {
         path_policy.reevaluation_interval_ms = path_policy
             .reevaluation_interval_ms
             .max(policy.quality_interval_ms);
-        let builder = configure(Endpoint::builder(iroh::endpoint::presets::Minimal)
-            .bind_addr(SocketAddr::from((bind_ip, 0)))
-            .map_err(|_| NodeError::InvalidData)?
-            .path_selector(path_policy.selector()?));
         #[cfg(feature = "rtc-probe")]
-        let resources = if let Some(rtc) = rtc {
-            self.bind_configured_endpoint_with_rtc(builder, rtc).await?
+        let rtc_installed = rtc.is_some();
+        #[cfg(not(feature = "rtc-probe"))]
+        let rtc_installed = false;
+        let builder = configure(
+            Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .bind_addr(SocketAddr::from((bind_ip, 0)))
+                .map_err(|_| NodeError::InvalidData)?
+                .path_selector(path_policy.selector_with_native_rtc(rtc_installed)?),
+        );
+        let contact_observer = contact.clone();
+        #[cfg(feature = "rtc-probe")]
+        let resources = match (rtc, contact) {
+            (Some(rtc), Some(contact)) => {
+                self.bind_configured_endpoint_with_rtc_and_contact(builder, rtc, contact)
+                    .await?
+            }
+            (Some(rtc), None) => self.bind_configured_endpoint_with_rtc(builder, rtc).await?,
+            (None, Some(contact)) => {
+                self.bind_configured_endpoint_with_contact(builder, contact)
+                    .await?
+            }
+            (None, None) => self.bind_configured_endpoint_with(builder).await?,
+        };
+        #[cfg(not(feature = "rtc-probe"))]
+        let resources = if let Some(contact) = contact {
+            self.bind_configured_endpoint_with_contact(builder, contact)
+                .await?
         } else {
             self.bind_configured_endpoint_with(builder).await?
         };
-        #[cfg(not(feature = "rtc-probe"))]
-        let resources = self.bind_configured_endpoint_with(builder).await?;
         let resources =
             resources.with_contact_timeout(Duration::from_millis(policy.contact_timeout_ms))?;
         if resources.recovery_origins().is_empty() {
@@ -921,6 +1292,7 @@ impl NativeNetwork {
                 .add(resources.contacts.clone());
         }
         let resources = Arc::new(resources);
+        let active_adapter = resources.active_coordinator(self.gate.clone());
         let provider = ReplicaProvider::new(&self, self.management_history().await?);
         let (provider_tx, provider_rx) = watch::channel(provider);
         let handler = HistoryHandler {
@@ -931,10 +1303,20 @@ impl NativeNetwork {
                 policy.max_neighbors + policy.max_concurrent_contacts,
             )),
         };
+        let active_handler = ActiveImprovementHandler {
+            endpoint: resources.endpoint().clone(),
+            gate: self.gate.clone(),
+            adapter: active_adapter.clone(),
+            resources: resources.clone(),
+        };
         let router = routes(
             Router::builder(resources.endpoint().clone())
                 .accept(REPLICA_ALPN, handler.clone())
-                .accept(RECOVERY_REPLICA_ALPN, handler),
+                .accept(RECOVERY_REPLICA_ALPN, handler)
+                .accept(
+                    crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN,
+                    active_handler,
+                ),
         )
         .spawn();
         let status = MaintenanceStatus {
@@ -953,6 +1335,9 @@ impl NativeNetwork {
         };
         let (published, updates) = watch::channel(status.clone());
         let (commands, incoming) = mpsc::channel(16);
+        // A bounded urgent command queue shares the same owner/selector; it
+        // does not add another actor, retry loop or timer.
+        let (disable_commands, disable_incoming) = mpsc::channel(1);
         let activity = Arc::new(Activity {
             count: AtomicUsize::new(0),
             changed: Notify::new(),
@@ -996,6 +1381,7 @@ impl NativeNetwork {
             published,
             provider: provider_tx,
             activity: activity.clone(),
+            active: active_adapter,
         };
         for address in saved {
             if coordinator.member(address.id) {
@@ -1009,11 +1395,14 @@ impl NativeNetwork {
             }
         }
         let cancel = CancellationToken::new();
-        let task = tokio::spawn(coordinator.run(incoming, cancel.clone(), router));
+        let task =
+            tokio::spawn(coordinator.run(incoming, disable_incoming, cancel.clone(), router));
         Ok(MaintainedNetwork {
             resources,
+            contact_observer,
             updates,
             commands,
+            disable_commands,
             activity,
             cancel,
             task: Some(task),

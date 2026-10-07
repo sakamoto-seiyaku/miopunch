@@ -173,6 +173,8 @@ struct GateState {
     #[cfg(feature = "rtc-probe")]
     rtc: Option<crate::rtc_transport::RtcTransport>,
     member_reports: std::collections::BTreeMap<usize, serde_json::Value>,
+    member_data: Option<crate::member_data::BrowserMemberDataTransport>,
+    member_data_sources: std::collections::BTreeMap<usize, MemberDataQualificationSource>,
     // Temporary bounded causal-observation trace; no identities or wire values.
     relay_checks: Vec<RelayCheckAttempt>,
     relay_check_sequence: u64,
@@ -216,11 +218,73 @@ impl Drop for RtcQualificationSource {
         self.retire();
     }
 }
-#[derive(Clone, Default)]
-struct BrowserGate(Arc<Mutex<GateState>>);
+#[derive(Clone)]
+struct BrowserGate(
+    Arc<Mutex<GateState>>,
+    crate::session_maintenance::SessionMaintenance,
+);
+impl Default for BrowserGate {
+    fn default() -> Self {
+        Self(
+            Arc::new(Mutex::new(GateState::default())),
+            crate::session_maintenance::SessionMaintenance::default(),
+        )
+    }
+}
 impl std::fmt::Debug for BrowserGate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("BrowserGate")
+    }
+}
+impl BrowserGate {
+    fn maintenance(&self) -> crate::session_maintenance::SessionMaintenance {
+        self.1.clone()
+    }
+
+    /// The active-control responder uses the saved browser maintenance policy
+    /// as its whole incoming operation budget. This is read before polling
+    /// `Accepting`, so the same absolute deadline reaches the TLS hooks,
+    /// qualification checks, and the restricted C protocol.
+    fn active_control_timeout(&self) -> Duration {
+        let state = self.0.lock().unwrap();
+        state
+            .saved
+            .as_ref()
+            .and_then(|saved| saved.resources.as_ref())
+            .map(|resources| resources.maintenance.contact_timeout_ms)
+            .map(Duration::from_millis)
+            .unwrap_or_else(|| {
+                Duration::from_millis(BrowserMaintenancePolicy::default().contact_timeout_ms)
+            })
+    }
+
+    fn member_connection_for_binding(
+        &self,
+        peer: iroh_base::EndpointId,
+        binding: &[u8; 32],
+    ) -> Option<Connection> {
+        if let Some(connection) = self.maintenance().for_binding(peer, binding) {
+            return Some(connection);
+        }
+        let state = self.0.lock().unwrap();
+        let saved = state.saved.as_ref()?;
+        let invitation = saved.invitation().ok()?;
+        let scope = AdmissionScope::new(*invitation.anchor.root.as_bytes(), saved.generation);
+        state
+            .connections
+            .iter()
+            .filter_map(|weak| weak.upgrade())
+            .find(|connection| {
+                connection.remote_id() == peer
+                    && connection.close_reason().is_none()
+                    && crate::connection_recovery_core::binding(connection)
+                        .is_ok_and(|actual| &actual == binding)
+                    && Self::permits(saved, peer, BUSINESS_ALPN)
+                    && state
+                        .proofs
+                        .iter()
+                        .any(|proof| proof.applies_to(connection, &scope))
+            })
     }
 }
 
@@ -320,6 +384,19 @@ impl BrowserGate {
             });
             gate.rtc_qualifications = qualifications;
         }
+        let mut data_sources = std::mem::take(&mut gate.member_data_sources);
+        data_sources.retain(|_, source| {
+            let allowed = source.original.upgrade().is_some_and(|original| {
+                !credential_changed
+                    && Self::proved_member_current(&gate, saved, &original)
+                    && Self::member_data_allowed(saved, original.remote_id())
+            });
+            if !allowed {
+                source.retire();
+            }
+            allowed
+        });
+        gate.member_data_sources = data_sources;
         gate.connections.retain(|weak| {
             let Some(connection) = weak.upgrade() else {
                 return false;
@@ -346,7 +423,8 @@ impl BrowserGate {
         }
         if (alpn != BUSINESS_ALPN
             && alpn != REPLICA_ALPN
-            && alpn != crate::connection_recovery_core::CONNECTION_RECOVERY_ALPN)
+            && alpn != crate::connection_recovery_core::CONNECTION_RECOVERY_ALPN
+            && alpn != crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN)
             || saved.stage() != "Complete"
         {
             return false;
@@ -749,6 +827,10 @@ impl BrowserGate {
     }
 }
 impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
+    fn register_original(&self, connection: &Connection) {
+        self.maintenance().register(connection);
+    }
+
     fn capabilities(
         &self,
         role: crate::connection_coordinator::AttemptRole,
@@ -758,7 +840,11 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
         let relay = state
             .saved
             .as_ref()
-            .is_some_and(|saved| !Self::permitted_relay_origins(saved).is_empty());
+            .is_some_and(|saved| !Self::permitted_relay_origins(saved).is_empty())
+            || state
+                .member_data
+                .as_ref()
+                .is_some_and(|transport| transport.permitted());
         // Both role adapters share this runtime capability and resource permission.
         let supported = state
             .rtc_capability
@@ -785,6 +871,24 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
             permitted: if relay { RELAY } else { 0 } | if allowed { RTC } else { 0 },
             rtc_role: RtcRole::for_attempt(role, supported),
         }
+    }
+    fn existing_relay(&self, connection: &Connection) -> Option<iroh::TransportAddr> {
+        let gate = self.0.lock().unwrap();
+        let saved = gate.saved.as_ref()?;
+        connection
+            .paths()
+            .iter()
+            .filter(|path| match path.remote_addr() {
+                iroh::TransportAddr::Relay(url) => origin(url.as_str())
+                    .is_ok_and(|value| Self::permitted_relay_origins(saved).contains(&value)),
+                iroh::TransportAddr::Custom(address) => gate
+                    .member_data
+                    .as_ref()
+                    .is_some_and(|transport| transport.permits_address(address)),
+                _ => false,
+            })
+            .max_by_key(|path| path.is_selected())
+            .map(|path| path.remote_addr().clone())
     }
     fn committed(&self, connection: &Connection, report: serde_json::Value) {
         let mut state = self.0.lock().unwrap();
@@ -886,7 +990,9 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
     > + Send
     + 'a {
         send_wrapper::SendWrapper::new(async move {
-            use crate::connection_coordinator::{PathPlan, PreparedPath, control_error};
+            use crate::connection_coordinator::{
+                MemberPathAdapter, PathPlan, PreparedPath, control_error,
+            };
             match plan {
                 #[cfg(feature = "rtc-probe")]
                 PathPlan::Rtc => {
@@ -919,6 +1025,37 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
                     self.remember_bootstrap(connection, report);
                     Ok(prepared)
                 }
+                PathPlan::ExistingRelay => {
+                    let route = self
+                        .existing_relay(connection)
+                        .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                    let gate = self.clone();
+                    let current_route = route.clone();
+                    Ok(PreparedPath::candidate(connection, route, move || {
+                        let state = gate.0.lock().unwrap();
+                        let saved = state
+                            .saved
+                            .as_ref()
+                            .ok_or_else(|| control_error("IdentityOrAdmissionRejected"))?;
+                        let allowed = match &current_route {
+                            iroh::TransportAddr::Relay(url) => {
+                                origin(url.as_str()).is_ok_and(|value| {
+                                    BrowserGate::permitted_relay_origins(saved).contains(&value)
+                                })
+                            }
+                            iroh::TransportAddr::Custom(address) => state
+                                .member_data
+                                .as_ref()
+                                .is_some_and(|transport| transport.permits_address(address)),
+                            _ => false,
+                        };
+                        if allowed {
+                            Ok(())
+                        } else {
+                            Err(control_error("DataPathUnavailable"))
+                        }
+                    }))
+                }
                 PathPlan::Relay => {
                     let mut report = self.legacy_relay_continuation(endpoint, connection).await?;
                     report["capabilitiesVersion"] = serde_json::json!(1);
@@ -940,6 +1077,49 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
                     let _ = attempt;
                     Err(control_error("DataPathUnavailable"))
                 }
+            }
+        })
+    }
+
+    fn prepare_active<'a>(
+        &'a self,
+        endpoint: &'a Endpoint,
+        original: &'a Connection,
+        control: &'a Connection,
+        attempt: crate::connection_coordinator::ProtectedAttempt,
+        plan: crate::connection_coordinator::PathPlan,
+    ) -> impl std::future::Future<
+        Output = std::io::Result<crate::connection_coordinator::PreparedPath>,
+    > + Send
+    + 'a {
+        send_wrapper::SendWrapper::new(async move {
+            match plan {
+                #[cfg(feature = "rtc-probe")]
+                crate::connection_coordinator::PathPlan::Rtc => {
+                    let saved = self.qualified_snapshot(original).await.map_err(|_| {
+                        crate::connection_coordinator::control_error("IdentityOrAdmissionRejected")
+                    })?;
+                    let transport = self.0.lock().unwrap().rtc.clone().ok_or_else(|| {
+                        crate::connection_coordinator::control_error("DataPathUnavailable")
+                    })?;
+                    rtc_member::bootstrap_control_active(
+                        endpoint, original, control, self, &saved, &transport, attempt,
+                    )
+                    .await
+                    .map_err(|cause| {
+                        let text = cause
+                            .as_string()
+                            .unwrap_or_else(|| "RTC active candidate failed".into());
+                        if text.starts_with("unified/") {
+                            std::io::Error::other(text)
+                        } else {
+                            crate::connection_coordinator::control_error("DataPathUnavailable")
+                        }
+                    })
+                }
+                _ => Err(crate::connection_coordinator::control_error(
+                    "DataPathUnavailable",
+                )),
             }
         })
     }
@@ -1016,16 +1196,18 @@ impl EndpointHooks for BrowserGate {
         } else {
             None
         };
-        let agreement_budget = self
+        let request_deadline = self
             .0
             .lock()
             .unwrap()
             .request_deadline
-            .filter(|_| is_request_alpn(connection.alpn()))
-            .map_or(Duration::from_secs(5), |deadline| {
-                Duration::from_secs(5)
-                    .min(deadline.saturating_duration_since(n0_future::time::Instant::now()))
-            });
+            .filter(|_| is_request_alpn(connection.alpn()));
+        let agreement_budget = crate::connection_budget::remaining(
+            match (connection.caller_deadline(), request_deadline) {
+                (Some(caller), Some(request)) => Some(caller.min(request)),
+                (caller, request) => caller.or(request),
+            },
+        );
         let agreed = n0_future::time::timeout(agreement_budget, async {
             let (mut send, mut recv) = if connection.side().is_client() {
                 connection.open_bi().await.ok()?
@@ -1079,27 +1261,32 @@ impl EndpointHooks for BrowserGate {
             gate.proofs.push(proof);
             gate.connections.push(connection.weak_handle());
 
-            if connection.alpn() == crate::connection_recovery_core::CONNECTION_RECOVERY_ALPN {
+            if connection.alpn() == crate::connection_recovery_core::CONNECTION_RECOVERY_ALPN
+                || connection.alpn() == crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN
+            {
                 // Current member proof authorizes only this protected repair
                 // exchange. It must not run ordinary member RTC release hooks.
                 return AfterHandshakeOutcome::AcceptRestricted;
             }
             AfterHandshakeOutcome::AcceptData {
                 allowed_data_custom_ids: {
+                    let mut ids = Vec::new();
+                    let data = gate
+                        .member_data
+                        .as_ref()
+                        .is_some_and(|transport| transport.permitted());
+                    if data {
+                        ids.push(crate::member_data::DATA_TRANSPORT_ID);
+                    }
                     #[cfg(feature = "rtc-probe")]
-                    {
-                        // Existing admitted relay experiments retain their
-                        // S5 grant. Restricted MQTT M must seal one exact route.
-                        if connection.paths().iter().any(|path| path.is_relay()) {
-                            vec![crate::rtc_transport::TRANSPORT_ID]
-                        } else {
-                            Vec::new()
-                        }
+                    if connection.paths().iter().any(|path| {
+                        path.is_relay()
+                            || matches!(path.remote_addr(), iroh::TransportAddr::Custom(address)
+                            if data && address.id() == crate::member_data::DATA_TRANSPORT_ID)
+                    }) {
+                        ids.push(crate::rtc_transport::TRANSPORT_ID);
                     }
-                    #[cfg(not(feature = "rtc-probe"))]
-                    {
-                        Vec::new()
-                    }
+                    ids
                 },
             }
         } else {
@@ -1122,6 +1309,15 @@ impl EndpointHooks for BrowserGate {
     ) -> std::io::Result<()> {
         if crate::connection_coordinator::SessionPurpose::from_alpn(connection.alpn()).is_some() {
             if is_request_alpn(connection.alpn()) {
+                return Err(crate::connection_coordinator::control_error(
+                    "InvalidControl",
+                ));
+            }
+            if crate::connection_coordinator::SessionPurpose::from_alpn(connection.alpn())
+                == Some(crate::connection_coordinator::SessionPurpose::ActiveImprovement)
+            {
+                // Active C is a restricted control handle. It must never be
+                // released as an ordinary data-bearing connection.
                 return Err(crate::connection_coordinator::control_error(
                     "InvalidControl",
                 ));
@@ -1247,6 +1443,10 @@ fn rtc_enabled_by_default() -> bool {
 struct Configuration {
     #[serde(default = "rtc_enabled_by_default")]
     rtc_enabled: bool,
+    #[serde(default)]
+    member_data: Option<MemberDataConfiguration>,
+    #[serde(default)]
+    path_selection: crate::path_selection::PathSelectionPolicy,
     relays: Vec<String>,
     disabled: Vec<String>,
     #[serde(default)]
@@ -1254,10 +1454,54 @@ struct Configuration {
     #[serde(default)]
     contact_routes: Vec<ContactRoute>,
     #[serde(default)]
+    maintenance: BrowserMaintenancePolicy,
+    #[serde(default)]
     irc: Vec<IrcConfiguration>,
     #[cfg(feature = "rtc-probe")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     rtc_ice: Option<crate::rtc_ice_profile::RtcIceProfile>,
+}
+
+/// Browser-persisted maintenance policy. It mirrors the shared native policy
+/// fields so a saved configuration carries the complete operation budget,
+/// while this WASM crate avoids pulling in the native maintenance runtime.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default)]
+struct BrowserMaintenancePolicy {
+    exploration_interval_ms: u64,
+    discovery_interval_ms: u64,
+    max_concurrent_contacts: usize,
+    max_neighbors: usize,
+    quality_interval_ms: u64,
+    contact_timeout_ms: u64,
+}
+impl Default for BrowserMaintenancePolicy {
+    fn default() -> Self {
+        Self {
+            exploration_interval_ms: 5_000,
+            discovery_interval_ms: 15_000,
+            max_concurrent_contacts: 1,
+            max_neighbors: 1,
+            quality_interval_ms: 5_000,
+            contact_timeout_ms: crate::connection_budget::DEFAULT_MS,
+        }
+    }
+}
+impl BrowserMaintenancePolicy {
+    fn validate(&self) -> Result<(), JsValue> {
+        if !(250..=60_000).contains(&self.exploration_interval_ms)
+            || !(1_000..=120_000).contains(&self.discovery_interval_ms)
+            || !(1..=8).contains(&self.max_concurrent_contacts)
+            || !(1..=8).contains(&self.max_neighbors)
+            || !(250..=30_000).contains(&self.quality_interval_ms)
+            || !(100..=crate::connection_budget::MAX_MS).contains(&self.contact_timeout_ms)
+        {
+            return Err(error(
+                "browser maintenance budget is outside bounded limits",
+            ));
+        }
+        Ok(())
+    }
 }
 #[derive(Clone, Serialize, Deserialize)]
 struct ContactRoute {
@@ -1274,6 +1518,8 @@ impl Default for Configuration {
     fn default() -> Self {
         Self {
             rtc_enabled: true,
+            member_data: None,
+            path_selection: crate::path_selection::PathSelectionPolicy::default(),
             relays: iroh::defaults::prod::default_relay_map()
                 .urls::<Vec<_>>()
                 .into_iter()
@@ -1283,6 +1529,7 @@ impl Default for Configuration {
             mqtt: Vec::new(),
             irc: Vec::new(),
             contact_routes: Vec::new(),
+            maintenance: BrowserMaintenancePolicy::default(),
             #[cfg(feature = "rtc-probe")]
             rtc_ice: None,
         }
@@ -1290,12 +1537,15 @@ impl Default for Configuration {
 }
 #[derive(Deserialize)]
 struct ConfigurationInput {
+    member_data: Option<MemberDataConfiguration>,
+    path_selection: Option<crate::path_selection::PathSelectionPolicy>,
     rtc_enabled: Option<bool>,
     relays: Option<Vec<String>>,
     disabled: Option<Vec<String>>,
     mqtt: Option<Vec<crate::mqtt_datagram::MqttFacility>>,
     irc: Option<Vec<IrcConfiguration>>,
     contact_routes: Option<Vec<ContactRoute>>,
+    maintenance: Option<BrowserMaintenancePolicy>,
     #[cfg(feature = "rtc-probe")]
     rtc_ice: Option<crate::rtc_ice_profile::RtcIceProfile>,
 }
@@ -1341,6 +1591,8 @@ impl Drop for Delivery {
 pub struct BrowserNetwork {
     endpoint: Endpoint,
     incoming: std::rc::Rc<incoming::IncomingDispatcher>,
+    member_data_transport: Option<crate::member_data::BrowserMemberDataTransport>,
+    member_data_lease: Option<crate::member_data::MemberDataLease>,
     #[cfg(feature = "rtc-probe")]
     rtc_transport: crate::rtc_transport::RtcTransport,
     relays: Vec<RelayUrl>,
@@ -1369,11 +1621,11 @@ impl BrowserNetwork {
     /// Configuration is a startup snapshot. Allowed relays are replaceable;
     /// no default facility is silently installed when none can be used.
     pub async fn start(configuration: String) -> Result<BrowserNetwork, JsValue> {
-        Self::start_bounded(configuration, TIMEOUT).await
+        Self::start_bounded(configuration, crate::connection_budget::DEFAULT).await
     }
 
     /// Owned-fixture diagnostic only. This explicit budget never changes the
-    /// normal BrowserNetwork 12-second caller budget. No business handle escapes.
+    /// normal BrowserNetwork default caller budget. No business handle escapes.
     pub async fn irc_restricted_probe(
         configuration: String,
         invitation: String,
@@ -1462,6 +1714,16 @@ impl BrowserNetwork {
         };
         saved.verify()?;
         let mut configuration = saved.resources.clone().unwrap_or_default();
+        if let Some(path_selection) = input.path_selection {
+            configuration.path_selection = path_selection;
+        }
+        if let Some(member_data) = input.member_data {
+            member_data.validate()?;
+            configuration.member_data = Some(member_data);
+        }
+        if let Some(member_data) = &configuration.member_data {
+            member_data.validate()?;
+        }
         if let Some(enabled) = input.rtc_enabled {
             configuration.rtc_enabled = enabled;
         }
@@ -1480,6 +1742,10 @@ impl BrowserNetwork {
         if let Some(routes) = input.contact_routes {
             configuration.contact_routes = routes;
         }
+        if let Some(maintenance) = input.maintenance {
+            configuration.maintenance = maintenance;
+        }
+        configuration.maintenance.validate()?;
         #[cfg(feature = "rtc-probe")]
         if let Some(profile) = input.rtc_ice {
             configuration.rtc_ice = Some(profile);
@@ -1608,6 +1874,35 @@ impl BrowserNetwork {
                 ));
             }
         }
+        let member_data_transport = configuration
+            .member_data
+            .as_ref()
+            .filter(|entry| entry.forward_data && !entry.disabled)
+            .map(|entry| {
+                entry
+                    .via
+                    .parse()
+                    .map(crate::member_data::BrowserMemberDataTransport::new)
+            })
+            .transpose()
+            .map_err(error)?;
+        let mut installed_direct = Vec::new();
+        #[cfg(feature = "rtc-probe")]
+        if rtc_capability.effective {
+            installed_direct.push(crate::rtc_transport::TRANSPORT_ID);
+        }
+        let installed_relay = if member_data_transport.is_some() {
+            vec![crate::member_data::DATA_TRANSPORT_ID]
+        } else {
+            Vec::new()
+        };
+        let path_selector = configuration
+            .path_selection
+            .selector_with_carriers(crate::path_selection::CarrierClasses::new(
+                installed_direct,
+                installed_relay,
+            ))
+            .map_err(error)?;
         saved.resources = Some(configuration);
         let committed = serde_json::to_string(&saved).map_err(error)?;
         let previous = raw
@@ -1629,6 +1924,7 @@ impl BrowserNetwork {
         gate.install(&saved);
         gate.0.lock().unwrap().rtc_capability = Some(rtc_capability.clone());
         gate.0.lock().unwrap().lease = Some(lease.0);
+        gate.0.lock().unwrap().member_data = member_data_transport.clone();
         let mut signaling: Vec<iroh::RelayUrl> = mqtt
             .iter()
             .map(|(facility, _)| facility.wss_url.parse().unwrap())
@@ -1646,8 +1942,10 @@ impl BrowserNetwork {
             .map(|(facility, _)| facility.service_tag().unwrap())
             .collect();
         let rtc_effective = rtc_capability.effective;
+        let data_policy = member_data_transport.clone();
         let mut builder = Endpoint::builder(presets::Minimal)
             .secret_key(SecretKey::from_bytes(&saved.key))
+            .path_selector(path_selector)
             .relay_mode(RelayMode::custom(relays.clone()))
             .relay_resource_policy(
                 RelayResourcePolicy::new(move |url, usage| match usage {
@@ -1658,6 +1956,11 @@ impl BrowserNetwork {
                     _ => false,
                 })
                 .with_custom_addresses(move |addr| {
+                    if addr.id() == crate::member_data::DATA_TRANSPORT_ID {
+                        return data_policy
+                            .as_ref()
+                            .is_some_and(|transport| transport.permits_address(addr));
+                    }
                     #[cfg(feature = "rtc-probe")]
                     if addr.id() == crate::rtc_transport::TRANSPORT_ID && addr.data().len() == 16 {
                         return rtc_effective;
@@ -1671,11 +1974,15 @@ impl BrowserNetwork {
             )
             .alpns(vec![
                 BUSINESS_ALPN.to_vec(),
+                crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN.to_vec(),
                 REPLICA_ALPN.to_vec(),
                 REQUEST_ALPN.to_vec(),
                 PRECODE_REQUEST_ALPN.to_vec(),
             ])
             .admission_gate(gate.clone());
+        if let Some(transport) = &member_data_transport {
+            builder = builder.add_custom_transport(Arc::new(transport.clone()));
+        }
         for (_, transport) in &mqtt {
             builder = builder.add_custom_transport(Arc::new(transport.clone()));
         }
@@ -1747,9 +2054,70 @@ impl BrowserNetwork {
             ));
         }
         let incoming = incoming::IncomingDispatcher::start(endpoint.clone());
+        {
+            let active_endpoint = endpoint.clone();
+            let active_gate = gate.clone();
+            let budget_gate = gate.clone();
+            incoming.install_active(
+                crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN,
+                move || budget_gate.active_control_timeout(),
+                move |accepting, responder_deadline| {
+                    let endpoint = active_endpoint.clone();
+                    let gate = active_gate.clone();
+                    async move {
+                        if responder_deadline <= n0_future::time::Instant::now() {
+                            return;
+                        }
+                        let accepting = accepting.with_caller_deadline(responder_deadline);
+                        let Ok(Ok(control)) = n0_future::time::timeout(
+                            responder_deadline
+                                .saturating_duration_since(n0_future::time::Instant::now()),
+                            accepting,
+                        )
+                        .await
+                        else {
+                            return;
+                        };
+                        let _control = RequestConnection(Some(control.clone()));
+                        let lookup_gate = gate.clone();
+                        let maintenance = gate.maintenance();
+                        let result = n0_future::time::timeout(
+                            responder_deadline
+                                .saturating_duration_since(n0_future::time::Instant::now()),
+                            async {
+                                if gate.qualified_snapshot(&control).await.is_err() {
+                                    return Err(crate::connection_coordinator::control_error(
+                                        "IdentityOrAdmissionRejected",
+                                    ));
+                                }
+                                crate::connection_coordinator::serve_active_session(
+                                    &endpoint,
+                                    &control,
+                                    &gate,
+                                    &maintenance,
+                                    responder_deadline,
+                                    move |peer, binding| {
+                                        lookup_gate.member_connection_for_binding(peer, binding)
+                                    },
+                                )
+                                .await
+                            },
+                        )
+                        .await
+                        .map_err(|_| std::io::Error::other("active improvement deadline exceeded"))
+                        .and_then(|result| result);
+                        if result.is_err() {
+                            control.close(0u32.into(), b"active improvement failed");
+                        }
+                    }
+                },
+            );
+        }
         Ok(Self {
             endpoint,
             incoming,
+            member_data_transport,
+            member_data_lease: None,
             #[cfg(feature = "rtc-probe")]
             rtc_transport,
             relays,
@@ -2009,6 +2377,10 @@ impl BrowserNetwork {
     pub async fn close(&mut self) {
         self.delivery = None;
         self.management = None;
+        self.gate.retire_member_data();
+        if let Some(mut lease) = self.member_data_lease.take() {
+            let _ = lease.close().await;
+        }
         self.incoming.close();
         self.incoming.stopped().await;
         self.endpoint.close().await;
@@ -2284,7 +2656,9 @@ mod admission;
 
 #[path = "member_connection.rs"]
 mod member_connection;
-pub use member_connection::{BrowserMemberAcceptAttempt, BrowserMemberConnection};
+pub use member_connection::{
+    BrowserMemberAcceptAttempt, BrowserMemberAttempt, BrowserMemberConnection,
+};
 
 #[path = "incoming.rs"]
 mod incoming;
@@ -2295,3 +2669,7 @@ mod rtc;
 #[cfg(feature = "rtc-probe")]
 #[path = "rtc_member.rs"]
 mod rtc_member;
+
+#[path = "member_data_sdk.rs"]
+mod member_data_sdk;
+use member_data_sdk::{MemberDataConfiguration, MemberDataQualificationSource};

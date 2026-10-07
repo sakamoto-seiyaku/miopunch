@@ -308,6 +308,382 @@ pub(super) async fn bootstrap_control_unified(
     ))
 }
 
+/// Prepare one RTC candidate on the exact original M while using the
+/// restricted active C for SDP and readiness.  No ordinary handle or control
+/// path is released here; the common coordinator commits after bilateral
+/// Ready and a final fresh ACK.
+pub(super) async fn bootstrap_control_active(
+    endpoint: &Endpoint,
+    original: &Connection,
+    control: &Connection,
+    gate: &BrowserGate,
+    saved: &SavedNode,
+    transport: &crate::rtc_transport::RtcTransport,
+    attempt: crate::connection_coordinator::ProtectedAttempt,
+) -> Result<crate::connection_coordinator::PreparedPath, JsValue> {
+    use crate::connection_coordinator::{PreparedPath, RtcRole, control_error};
+    let offerer = attempt.rtc_role == RtcRole::Offerer;
+    if !matches!(attempt.rtc_role, RtcRole::Offerer | RtcRole::Answerer) {
+        return Err(error("unified/InvalidControl"));
+    }
+    let budget = RtcDeadline::from_caller(attempt_deadline(&attempt, control)?);
+    let stable = original.stable_id();
+    let original_binding = binding(original)?;
+    let attempt_id = attempt.id_hex();
+    let context = attempt_context(
+        &attempt_id,
+        saved.invitation()?.anchor.root.as_bytes(),
+        saved.generation,
+        &if offerer {
+            endpoint.id()
+        } else {
+            original.remote_id()
+        }
+        .to_string(),
+        &if offerer {
+            original.remote_id()
+        } else {
+            endpoint.id()
+        }
+        .to_string(),
+    );
+    let mut exporter = [0; 32];
+    let record_progress = |stage: &'static str, completed: bool| {
+        let mut state = gate.0.lock().unwrap();
+        if state.member_reports.len() >= 32 && !state.member_reports.contains_key(&stable) {
+            return;
+        }
+        let report = state
+            .member_reports
+            .entry(stable)
+            .or_insert_with(|| json!({}));
+        report["activeRtcPrepareProgress"] = json!({
+            "version": 1,
+            "stage": stage,
+            "completed": completed,
+            "role": if offerer { "offerer" } else { "answerer" },
+            "originalOpen": original.close_reason().is_none(),
+            "controlOpen": control.close_reason().is_none(),
+            "controlPeerMatchesOriginal": control.remote_id() == original.remote_id(),
+        });
+    };
+    original
+        .export_keying_material(&mut exporter, EXPORTER_LABEL, context.as_bytes())
+        .map_err(|_| error("original M exporter unavailable"))?;
+    let protected_binding = blake3::hash(&exporter).to_hex().to_string();
+    record_progress("control-stream-open", false);
+    let (mut send, mut recv) = if control.side().is_client() {
+        control.open_bi().await.map_err(error)?
+    } else {
+        control.accept_bi().await.map_err(error)?
+    };
+    record_progress("control-stream-open", true);
+    let mut request = if offerer {
+        json!({"protocol":crate::rtc_association::UNIFIED_RTC_PROTOCOL,"attempt":attempt_id,
+            "context":context,"binding":protected_binding,"channel":datagram_channel_parameters(),
+            "quicDialer":attempt.quic_dialer(endpoint,original).to_string(),
+            "rtcOfferer":endpoint.id().to_string(),"rtcAnswerer":original.remote_id().to_string()})
+    } else {
+        record_progress("answerer-read-offer", false);
+        let request = read_frame(&mut recv).await.map_err(error)?;
+        record_progress("answerer-read-offer", true);
+        record_progress("answerer-validate-offer", false);
+        if request["protocol"] != crate::rtc_association::UNIFIED_RTC_PROTOCOL
+            || request["attempt"] != attempt_id
+            || request["context"] != context
+            || request["binding"] != protected_binding
+            || request["channel"] != datagram_channel_parameters()
+            || request["rtcOfferer"] != original.remote_id().to_string()
+            || request["rtcAnswerer"] != endpoint.id().to_string()
+            || request["description"]["type"] != "offer"
+        {
+            return Err(error("unified/InvalidControl"));
+        }
+        transport
+            .ice_profile()
+            .check_remote_sdp(
+                request["description"]["sdp"]
+                    .as_str()
+                    .ok_or_else(|| error("unified/InvalidControl"))?,
+            )
+            .map_err(error)?;
+        record_progress("answerer-validate-offer", true);
+        request
+    };
+    record_progress("rtc-owner-create", false);
+    let (revision, observed, _) = gate.rtc_qualification(original)?;
+    let owner = OwnedRtc::new(original, transport, gate)?;
+    record_progress("rtc-owner-create", true);
+    let preparation_io = owner.lease.io();
+    let metadata = preparation_io.while_current(async {
+        if !offerer {
+            record_progress("answerer-set-remote-route", false);
+            owner.lease.set_remote(iroh_base::CustomAddr::from_parts(
+                crate::rtc_transport::TRANSPORT_ID,
+                &hex::decode(request["route"].as_str().ok_or_else(|| error("unified/InvalidControl"))?).map_err(error)?,
+            )).map_err(error)?;
+            record_progress("answerer-set-remote-route", true);
+        }
+        if offerer {
+            record_progress("offerer-signaling", false);
+            let offer: RtcSessionDescriptionInit = JsFuture::from(owner.association.pc.create_offer())
+                .await?
+                .unchecked_into();
+            JsFuture::from(owner.association.pc.set_local_description(&offer)).await?;
+            owner.association.gathered().await?;
+            let local = owner.association.pc.local_description().ok_or_else(|| error("RTC offer absent"))?;
+            local_sdp(&mut request, &local.sdp(), transport)?;
+            request["route"] = json!(hex::encode(owner.lease.local_addr().data()));
+            request["remainingMs"] = json!(budget.remaining().map_err(error)?.as_millis() as u64);
+            write_frame(&mut send, &request).await.map_err(error)?;
+            let answer = phase(&mut recv, "answer").await?;
+            if answer["attempt"] != attempt_id
+                || answer["binding"] != protected_binding
+                || answer["channel"] != datagram_channel_parameters()
+                || answer["description"]["type"] != "answer"
+            {
+                return Err(error("unified/InvalidControl"));
+            }
+            record_progress("offerer-validate-answer", false);
+            owner.lease.set_remote(iroh_base::CustomAddr::from_parts(
+                crate::rtc_transport::TRANSPORT_ID,
+                &hex::decode(answer["route"].as_str().ok_or_else(|| error("unified/InvalidControl"))?).map_err(error)?,
+            )).map_err(error)?;
+            let remote_sdp = answer["description"]["sdp"].as_str().ok_or_else(|| error("unified/InvalidControl"))?;
+            transport.ice_profile().check_remote_sdp(remote_sdp).map_err(error)?;
+            let init = RtcSessionDescriptionInit::new(RtcSdpType::Answer);
+            init.set_sdp(remote_sdp);
+            JsFuture::from(owner.association.pc.set_remote_description(&init)).await?;
+            record_progress("offerer-validate-answer", true);
+            record_progress("offerer-signaling", true);
+        } else {
+            record_progress("answerer-signaling", false);
+            let offer = RtcSessionDescriptionInit::new(RtcSdpType::Offer);
+            offer.set_sdp(request["description"]["sdp"].as_str().ok_or_else(|| error("unified/InvalidControl"))?);
+            JsFuture::from(owner.association.pc.set_remote_description(&offer)).await?;
+            let answer: RtcSessionDescriptionInit = JsFuture::from(owner.association.pc.create_answer()).await?.unchecked_into();
+            JsFuture::from(owner.association.pc.set_local_description(&answer)).await?;
+            owner.association.gathered().await?;
+            let local = owner.association.pc.local_description().ok_or_else(|| error("RTC answer absent"))?;
+            write_frame(&mut send, &json!({"kind":"answer","attempt":attempt_id,"binding":protected_binding,
+                "channel":datagram_channel_parameters(),"description":{"type":"answer","sdp":transport.ice_profile().local_sdp(&local.sdp()).map_err(error)?},
+                "route":hex::encode(owner.lease.local_addr().data())})).await.map_err(error)?;
+            record_progress("answerer-signaling", true);
+        }
+        record_progress("data-channel-open", false);
+        owner.association.wait_open().await?;
+        record_progress("data-channel-open", true);
+        record_progress("data-channel-metadata", false);
+        let metadata = channel_metadata(&owner.association)?;
+        if metadata["channel"] != datagram_channel_parameters()
+            || metadata["maxMessageSize"].as_f64().is_none_or(|size| size < MAX_DATAGRAM as f64)
+        {
+            return Err(error("unified/InvalidControl"));
+        }
+        record_progress("data-channel-metadata", true);
+        record_progress("lease-activate", false);
+        owner.lease.activate().map_err(error)?;
+        record_progress("lease-activate", true);
+        Ok::<_, JsValue>(metadata)
+    }).await.map_err(error)??;
+    // Only the pump owns retirement observation after activation.
+    owner.start_pump(original.weak_handle());
+    record_progress("pump-start", true);
+    record_progress("remote-route", false);
+    let remote = iroh::TransportAddr::Custom(owner.lease.remote_addr().map_err(error)?);
+    record_progress("remote-route", true);
+    if original.side().is_client() {
+        record_progress("data-path-open", false);
+        loop {
+            budget.remaining().map_err(error)?;
+            match endpoint
+                .open_data_transport_path(original, remote.clone())
+                .await
+            {
+                Ok(()) => break,
+                Err(cause) if cause.kind() == std::io::ErrorKind::WouldBlock => {
+                    n0_future::time::sleep(Duration::from_millis(10)).await
+                }
+                Err(cause) => return Err(error(cause)),
+            }
+        }
+        record_progress("data-path-open", true);
+    }
+    record_progress("data-path-present", false);
+    loop {
+        budget.remaining().map_err(error)?;
+        if original
+            .paths()
+            .iter()
+            .any(|path| path.remote_addr() == &remote)
+        {
+            break;
+        }
+        n0_future::time::sleep(Duration::from_millis(10)).await;
+    }
+    record_progress("data-path-present", true);
+    record_progress("probe-start", false);
+    let probe_started_ms = budget.elapsed_ms();
+    let probe = loop {
+        budget.remaining().map_err(error)?;
+        match owner.lease.start_probe(original) {
+            Ok(probe) => break probe,
+            Err(cause) if cause.kind() == std::io::ErrorKind::WouldBlock => {
+                n0_future::time::sleep(Duration::from_millis(10)).await
+            }
+            Err(cause) => return Err(error(cause)),
+        }
+    };
+    record_progress("probe-start", true);
+    record_progress("probe-ack", false);
+    while !probe.is_acknowledged().map_err(error)? {
+        budget.remaining().map_err(error)?;
+        if revision.load(Ordering::Acquire) != observed || !owner.lease.io().is_active() {
+            return Err(error("unified/IdentityOrAdmissionRejected"));
+        }
+        n0_future::time::sleep(Duration::from_millis(10)).await;
+    }
+    let ack_ms = budget.elapsed_ms();
+    record_progress("probe-ack", true);
+    record_progress("qualification", false);
+    gate.qualified_snapshot(original).await?;
+    record_progress("qualification", true);
+    if revision.load(Ordering::Acquire) != observed
+        || !owner.lease.io().is_active()
+        || binding(original)? != original_binding
+    {
+        return Err(error("unified/IdentityOrAdmissionRejected"));
+    }
+    let paths = original.paths();
+    let path = paths
+        .iter()
+        .find(|path| path.id().to_string() == probe.path_id())
+        .ok_or_else(|| error("unified/DataPathUnavailable"))?;
+    let before_retain_frames = json!({"streamSent":path.stats().frame_tx.stream,
+        "streamReceived":path.stats().frame_rx.stream,"datagramSent":path.stats().frame_tx.datagram,
+        "datagramReceived":path.stats().frame_rx.datagram});
+    record_progress("stream-finish", false);
+    send.finish().map_err(error)?;
+    record_progress("stream-finish", true);
+    let initial_path = probe.path_id().to_owned();
+    let initial_watermark = probe.watermark();
+    let io = owner.lease.io();
+    let rollback_io = io.clone();
+    let current_io = io.clone();
+    let original_weak = original.weak_handle();
+    let endpoint_for_retain = endpoint.clone();
+    let gate_for_retain = gate.clone();
+    let report = json!({"prepared":true,"finalized":false,"switched":false,
+        "memberStableId":stable,"stableUnchanged":original.stable_id()==stable,
+        "bindingUnchanged":binding(original)?==original_binding,"freshAck":true,
+        "initialFreshAck":true,"initialProbeWatermark":initial_watermark,
+        "probeWatermark":initial_watermark,"pathId":initial_path,
+        "freshProbeStartedMs":probe_started_ms,"freshAckMs":ack_ms,
+        "beforeRetainFrames":before_retain_frames,"finalReleaseFreshAck":false,
+        "channel":metadata,"authorizationRevision":observed,"secretGeneration":saved.generation,
+        "resourceRevision":transport.resource_revision(),"route":owner.lease.report(),
+        "dataChannel":owner.stats.report()});
+    let pending = send_wrapper::SendWrapper::new((owner, report));
+    record_progress("prepared-path-return", false);
+    let prepared = PreparedPath::candidate(original, remote, move || {
+        if current_io.is_active() {
+            Ok(())
+        } else {
+            Err(control_error("DataPathUnavailable"))
+        }
+    })
+    .with_proof(initial_path, initial_watermark, move || {
+        probe.is_acknowledged()
+    })
+    .with_rollback(move || rollback_io.retire())
+    .with_retain(move || {
+        Box::pin(send_wrapper::SendWrapper::new(async move {
+            let (owner, mut report) = pending.take();
+            let current = original_weak
+                .upgrade()
+                .ok_or_else(|| control_error("DataPathUnavailable"))?;
+            gate_for_retain
+                .qualified_snapshot(&current)
+                .await
+                .map_err(|_| control_error("IdentityOrAdmissionRejected"))?;
+            if revision.load(Ordering::Acquire) != observed || !owner.lease.io().is_active() {
+                return Err(control_error("IdentityOrAdmissionRejected"));
+            }
+            let started = budget.elapsed_ms();
+            let final_probe = owner.lease.validate_release(&current, budget).await?;
+            gate_for_retain
+                .qualified_snapshot(&current)
+                .await
+                .map_err(|_| control_error("IdentityOrAdmissionRejected"))?;
+            if revision.load(Ordering::Acquire) != observed
+                || !owner.lease.io().is_active()
+                || current.stable_id() != stable
+                || binding(&current).map_err(|_| control_error("IdentityOrAdmissionRejected"))?
+                    != original_binding
+            {
+                return Err(control_error("IdentityOrAdmissionRejected"));
+            }
+            owner.lease.retain(&current, &final_probe)?;
+            endpoint_for_retain
+                .retain_data_transport_path(&current, owner.lease.remote_addr()?)
+                .await?;
+            report["prepared"] = json!(false);
+            report["finalized"] = json!(true);
+            report["stableUnchanged"] = json!(current.stable_id() == stable);
+            report["bindingUnchanged"] = json!(
+                binding(&current).map_err(|_| control_error("IdentityOrAdmissionRejected"))?
+                    == original_binding
+            );
+            report["finalReleaseFreshAck"] = json!(final_probe.is_acknowledged()?);
+            report["finalReleasePathId"] = json!(final_probe.path_id());
+            report["finalReleaseProbeWatermark"] = json!(final_probe.watermark());
+            report["finalReleaseProbeStartedMs"] = json!(started);
+            report["finalReleaseAckMs"] = json!(budget.elapsed_ms());
+            report["route"] = json!(owner.lease.report());
+            report["dataChannel"] = owner.stats.report();
+            gate_for_retain.remember_bootstrap(&current, report);
+            let io = owner.lease.io();
+            let closed = current.weak_handle();
+            spawn_local(async move {
+                let retired = io
+                    .while_active(futures_util::future::pending::<()>())
+                    .fuse();
+                let closed_future = closed.closed().fuse();
+                futures_util::pin_mut!(retired, closed_future);
+                futures_util::select_biased! { _ = closed_future => {}, _ = retired => {} }
+                owner.retire();
+            });
+            Ok::<_, std::io::Error>(())
+        }))
+    });
+    record_progress("prepared-path-return", true);
+    Ok(prepared)
+}
+
+fn attempt_deadline(
+    attempt: &crate::connection_coordinator::ProtectedAttempt,
+    control: &Connection,
+) -> Result<n0_future::time::Instant, JsValue> {
+    let _ = attempt;
+    Ok(control
+        .caller_deadline()
+        .unwrap_or_else(|| n0_future::time::Instant::now() + crate::connection_budget::DEFAULT))
+}
+
+fn local_sdp(
+    request: &mut Value,
+    sdp: &str,
+    transport: &crate::rtc_transport::RtcTransport,
+) -> Result<(), JsValue> {
+    request["description"] =
+        json!({"type":"offer","sdp":transport.ice_profile().local_sdp(sdp).map_err(error)?});
+    Ok(())
+}
+
+fn report_stub(stable: usize, metadata: &Value) -> Value {
+    json!({"memberStableId":stable,"channel":metadata,"active":true})
+}
+
 pub(super) async fn bootstrap_control_inner(
     endpoint: &Endpoint,
     connection: &Connection,
@@ -375,7 +751,7 @@ pub(super) async fn bootstrap_control_inner(
         let request = read_frame(&mut recv).await.map_err(error)?;
         let remaining = request["remainingMs"]
             .as_u64()
-            .filter(|remaining| *remaining > 0 && *remaining <= 12000)
+            .filter(|remaining| *remaining > 0 && *remaining <= crate::connection_budget::MAX_MS)
             .ok_or_else(|| error("unified/InvalidControl"))?;
         if request["protocol"] != protocol
             || request["attempt"] != attempt
@@ -405,69 +781,73 @@ pub(super) async fn bootstrap_control_inner(
     let stream_id = send.id().to_string();
     let (revision, observed, _) = gate.rtc_qualification(connection)?;
 
+    let preparation_io = owner.lease.io();
     let work = async {
-        if offerer {
-            let offer: RtcSessionDescriptionInit = JsFuture::from(owner.association.pc.create_offer()).await?.unchecked_into();
-            JsFuture::from(owner.association.pc.set_local_description(&offer)).await?;
-            owner.association.gathered().await?;
-            let offer = owner.association.pc.local_description().ok_or_else(|| error("RTC offer absent"))?;
-            let local_sdp=offer.sdp();
+        let mut opening = preparation_io.while_current(async {
+            if offerer {
+                let offer: RtcSessionDescriptionInit = JsFuture::from(owner.association.pc.create_offer()).await?.unchecked_into();
+                JsFuture::from(owner.association.pc.set_local_description(&offer)).await?;
+                owner.association.gathered().await?;
+                let offer = owner.association.pc.local_description().ok_or_else(|| error("RTC offer absent"))?;
+                let local_sdp=offer.sdp();
 
-            let published_sdp=transport.ice_profile().local_sdp(&local_sdp).map_err(error)?;
+                let published_sdp=transport.ice_profile().local_sdp(&local_sdp).map_err(error)?;
 
-            write_frame(&mut send, &json!({"protocol":protocol,"attempt":attempt,"context":context,"binding":protected_binding,
-                "description":{"type":"offer","sdp":published_sdp},"channel":datagram_channel_parameters(),"route":hex::encode(owner.lease.local_addr().data()),
-                "quicDialer":quic_dialer.to_string(),"rtcOfferer":endpoint.id().to_string(),"rtcAnswerer":connection.remote_id().to_string(),
-                "remainingMs":budget.remaining().map_err(error)?.as_millis() as u64,"authorizationRevision":observed,"resourceRevision":transport.resource_revision()})).await.map_err(error)?;
-            let answer = phase(&mut recv, "answer").await?;
-            if answer["attempt"] != attempt || answer["binding"] != protected_binding || answer["channel"] != datagram_channel_parameters()
-                || answer["description"]["type"] != "answer" {
-                return Err(error(if unified.is_some() { "unified/InvalidControl" } else { "RTC answer context/profile binding mismatch" }));
+                write_frame(&mut send, &json!({"protocol":protocol,"attempt":attempt,"context":context,"binding":protected_binding,
+                    "description":{"type":"offer","sdp":published_sdp},"channel":datagram_channel_parameters(),"route":hex::encode(owner.lease.local_addr().data()),
+                    "quicDialer":quic_dialer.to_string(),"rtcOfferer":endpoint.id().to_string(),"rtcAnswerer":connection.remote_id().to_string(),
+                    "remainingMs":budget.remaining().map_err(error)?.as_millis() as u64,"authorizationRevision":observed,"resourceRevision":transport.resource_revision()})).await.map_err(error)?;
+                let answer = phase(&mut recv, "answer").await?;
+                if answer["attempt"] != attempt || answer["binding"] != protected_binding || answer["channel"] != datagram_channel_parameters()
+                    || answer["description"]["type"] != "answer" {
+                    return Err(error(if unified.is_some() { "unified/InvalidControl" } else { "RTC answer context/profile binding mismatch" }));
+                }
+                owner.lease.set_remote(iroh_base::CustomAddr::from_parts(crate::rtc_transport::TRANSPORT_ID,
+                    &hex::decode(answer["route"].as_str().ok_or_else(|| error("RTC peer route absent"))?).map_err(error)?)).map_err(error)?;
+                let init = RtcSessionDescriptionInit::new(RtcSdpType::Answer);
+                let remote_sdp = answer["description"]["sdp"].as_str().ok_or_else(|| error("RTC peer answer absent"))?;
+                transport.ice_profile().check_remote_sdp(remote_sdp).map_err(error)?;
+
+                init.set_sdp(remote_sdp);
+                JsFuture::from(owner.association.pc.set_remote_description(&init)).await?;
+            } else {
+                let request = request.as_ref().ok_or_else(|| error("unified/InvalidControl"))?;
+                owner.lease.set_remote(iroh_base::CustomAddr::from_parts(crate::rtc_transport::TRANSPORT_ID,
+                    &hex::decode(request["route"].as_str().ok_or_else(|| error("RTC peer route absent"))?).map_err(error)?)).map_err(error)?;
+                let offer = RtcSessionDescriptionInit::new(RtcSdpType::Offer);
+                offer.set_sdp(request["description"]["sdp"].as_str().ok_or_else(|| error("RTC peer offer absent"))?);
+
+                JsFuture::from(owner.association.pc.set_remote_description(&offer)).await?;
+
+                let answer: RtcSessionDescriptionInit = JsFuture::from(owner.association.pc.create_answer()).await?.unchecked_into();
+
+                JsFuture::from(owner.association.pc.set_local_description(&answer)).await?;
+
+                owner.association.gathered().await?;
+
+                let answer = owner.association.pc.local_description().ok_or_else(|| error("RTC browser answer absent"))?;
+                let local_sdp=answer.sdp();
+
+                let published_sdp=transport.ice_profile().local_sdp(&local_sdp).map_err(error)?;
+
+                write_frame(&mut send, &json!({"kind":"answer","attempt":attempt,"binding":protected_binding,
+                    "channel":datagram_channel_parameters(),"description":{"type":"answer","sdp":published_sdp},
+                    "route":hex::encode(owner.lease.local_addr().data()),"authorizationRevision":observed,"resourceRevision":transport.resource_revision()})).await.map_err(error)?;
             }
-            owner.lease.set_remote(iroh_base::CustomAddr::from_parts(crate::rtc_transport::TRANSPORT_ID,
-                &hex::decode(answer["route"].as_str().ok_or_else(|| error("RTC peer route absent"))?).map_err(error)?)).map_err(error)?;
-            let init = RtcSessionDescriptionInit::new(RtcSdpType::Answer);
-            let remote_sdp = answer["description"]["sdp"].as_str().ok_or_else(|| error("RTC peer answer absent"))?;
-            transport.ice_profile().check_remote_sdp(remote_sdp).map_err(error)?;
 
-            init.set_sdp(remote_sdp);
-            JsFuture::from(owner.association.pc.set_remote_description(&init)).await?;
-        } else {
-            let request = request.as_ref().ok_or_else(|| error("unified/InvalidControl"))?;
-            owner.lease.set_remote(iroh_base::CustomAddr::from_parts(crate::rtc_transport::TRANSPORT_ID,
-                &hex::decode(request["route"].as_str().ok_or_else(|| error("RTC peer route absent"))?).map_err(error)?)).map_err(error)?;
-            let offer = RtcSessionDescriptionInit::new(RtcSdpType::Offer);
-            offer.set_sdp(request["description"]["sdp"].as_str().ok_or_else(|| error("RTC peer offer absent"))?);
+            owner.association.wait_open().await?;
 
-            JsFuture::from(owner.association.pc.set_remote_description(&offer)).await?;
+            // Validate and activate in the same turn as the open wakeup. Awaiting
+            // getStats here lets a peer's first QUIC datagram reach an inactive
+            // receive lease and retire an otherwise valid, open association.
+            let opening = channel_metadata(&owner.association)?;
+            if opening["channel"] != datagram_channel_parameters()
+                || opening["maxMessageSize"].as_f64().is_none_or(|maximum| maximum < MAX_DATAGRAM as f64)
+            { return Err(error("RTC negotiated profile/maximum mismatch")); }
 
-            let answer: RtcSessionDescriptionInit = JsFuture::from(owner.association.pc.create_answer()).await?.unchecked_into();
-
-            JsFuture::from(owner.association.pc.set_local_description(&answer)).await?;
-
-            owner.association.gathered().await?;
-
-            let answer = owner.association.pc.local_description().ok_or_else(|| error("RTC browser answer absent"))?;
-            let local_sdp=answer.sdp();
-
-            let published_sdp=transport.ice_profile().local_sdp(&local_sdp).map_err(error)?;
-
-            write_frame(&mut send, &json!({"kind":"answer","attempt":attempt,"binding":protected_binding,
-                "channel":datagram_channel_parameters(),"description":{"type":"answer","sdp":published_sdp},
-                "route":hex::encode(owner.lease.local_addr().data()),"authorizationRevision":observed,"resourceRevision":transport.resource_revision()})).await.map_err(error)?;
-        }
-
-        owner.association.wait_open().await?;
-
-        // Validate and activate in the same turn as the open wakeup. Awaiting
-        // getStats here lets a peer's first QUIC datagram reach an inactive
-        // receive lease and retire an otherwise valid, open association.
-        let mut opening = channel_metadata(&owner.association)?;
-        if opening["channel"] != datagram_channel_parameters()
-            || opening["maxMessageSize"].as_f64().is_none_or(|maximum| maximum < MAX_DATAGRAM as f64)
-        { return Err(error("RTC negotiated profile/maximum mismatch")); }
-
-        owner.lease.activate().map_err(error)?;
+            owner.lease.activate().map_err(error)?;
+            Ok::<_, JsValue>(opening)
+        }).await.map_err(error)??;
         owner.start_pump(connection.weak_handle());
 
         opening["stats"] = stats(&owner.association.pc).await?;
@@ -849,7 +1229,7 @@ impl BrowserMemberConnection {
         caller_ms: u32,
     ) -> Result<String, JsValue> {
         if caller_ms == 0
-            || caller_ms > 12000
+            || u64::from(caller_ms) > crate::connection_budget::MAX_MS
             || !self.connection.side().is_client()
             || self.rtc_live.borrow().is_some()
         {
@@ -1029,7 +1409,7 @@ impl BrowserMemberConnection {
             }
         };
         report["callerBudgetMs"] = json!(caller_ms);
-        report["diagnosticCapMs"] = json!(45000);
+        report["diagnosticCapMs"] = json!(crate::connection_budget::MAX_MS);
         report["attemptMs"] = json!(budget.elapsed_ms());
         *self.rtc_continuity.borrow_mut() = Some(original);
         serde_json::to_string(&report).map_err(error)

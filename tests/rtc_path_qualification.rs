@@ -410,3 +410,74 @@ async fn held_datagram_retirement(trigger: RetireHeld) {
     server.close(0u32.into(), b"fixture ended");
     tokio::join!(a.close(), b.close());
 }
+
+#[tokio::test]
+async fn reserved_preparation_retirement_wakes_without_ready_or_pump_and_preserves_original_stream()
+{
+    for trigger in [
+        RetireHeld::Resource,
+        RetireHeld::Qualification,
+        RetireHeld::OriginalClosed,
+    ] {
+        let at = RtcTransport::new();
+        let bt = RtcTransport::new();
+        let a = endpoint(at.clone()).await;
+        let b = endpoint(bt.clone()).await;
+        let (client, server) = pair(&a, &b).await;
+        let (mut send, _) = client.open_bi().await.unwrap();
+        send.write_all(b"before").await.unwrap();
+        let (_, mut recv) = server.accept_bi().await.unwrap();
+        let mut first = [0; 6];
+        recv.read_exact(&mut first).await.unwrap();
+        assert_eq!(&first, b"before");
+        let valid = Arc::new(AtomicBool::new(true));
+        let current = valid.clone();
+        let updates = n0_watcher::Watchable::new(0);
+        let lease = at
+            .reserve_with_updates(
+                &client,
+                move || current.load(Ordering::Acquire),
+                updates.watch(),
+            )
+            .unwrap();
+        let io = lease.io();
+        let started = Arc::new(tokio::sync::Notify::new());
+        let entered = started.clone();
+        let task = tokio::spawn(async move {
+            io.while_current(async move {
+                entered.notify_one();
+                std::future::pending::<()>().await;
+            })
+            .await
+        });
+        started.notified().await;
+        assert!(!lease.report().active);
+        assert_eq!(at.active_pumps(), 0);
+        match trigger {
+            RetireHeld::Resource => at.set_resource_allowed(false),
+            RetireHeld::Qualification => {
+                valid.store(false, Ordering::Release);
+                let _ = updates.set(1);
+            }
+            RetireHeld::OriginalClosed => client.close(0u32.into(), b"original caller closed"),
+        }
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), task)
+                .await
+                .expect("Reserved retirement wakes preparation without channel readiness")
+                .unwrap()
+                .is_err()
+        );
+        if !matches!(trigger, RetireHeld::OriginalClosed) {
+            assert!(client.close_reason().is_none());
+            send.write_all(b"after").await.unwrap();
+            let mut after = [0; 5];
+            recv.read_exact(&mut after).await.unwrap();
+            assert_eq!(&after, b"after");
+        }
+        drop(lease);
+        client.close(0u32.into(), b"fixture ended");
+        server.close(0u32.into(), b"fixture ended");
+        tokio::join!(a.close(), b.close());
+    }
+}

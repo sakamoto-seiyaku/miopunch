@@ -1,7 +1,8 @@
 //! Native gate/candidate adapter for the common member coordinator.
 use super::{
-    AttemptRole, MemberPathAdapter, PathPlan, Platform, PreparedPath, ProtectedAttempt, RELAY, RTC,
-    RtcRole, RuntimeCapabilities, SessionPurpose, TCP, UDP, control_error, coordinate_session,
+    AttemptContext, AttemptRole, MemberPathAdapter, PathPlan, Platform, PreparedPath,
+    ProtectedAttempt, RELAY, RTC, RtcRole, RuntimeCapabilities, SessionPurpose, TCP, UDP,
+    control_error, coordinate_session,
 };
 use crate::{admission_gate::AdmissionGate, control_session::ControlSession};
 use iroh::{Endpoint, TransportAddr, endpoint::Connection};
@@ -49,8 +50,57 @@ impl CoordinatorHook {
         self.rtc = rtc;
         self
     }
+
+    /// Open one restricted active C through an existing permitted contact and
+    /// improve the exact original M. C never becomes an ordinary handle.
+    pub(crate) async fn improve(
+        &self,
+        endpoint: &Endpoint,
+        original: &Connection,
+        target: iroh::EndpointAddr,
+        attempt: AttemptContext,
+    ) -> io::Result<()> {
+        let role = AttemptRole::initial(original);
+        let caps = self.capabilities_for(original, role);
+        let contact_ids = target
+            .addrs
+            .iter()
+            .filter_map(|address| match address {
+                TransportAddr::Custom(address) => Some(address.id()),
+                _ => None,
+            })
+            .collect();
+        let control =
+            super::ConnectionCoordinator::new(endpoint.clone(), caps.permitted, contact_ids)
+                .with_member_data(crate::member_transport::DATA_TRANSPORT_ID)
+                .connect_alpn(target, super::ACTIVE_IMPROVEMENT_ALPN, attempt.clone())
+                .await
+                .map_err(|error| io::Error::other(error.to_string()))?;
+        let result = super::improve_existing(endpoint, original, &control, self, attempt).await;
+        control.close(0u32.into(), b"active improvement complete");
+        result
+    }
 }
 impl MemberPathAdapter for CoordinatorHook {
+    fn committed(&self, connection: &Connection, report: serde_json::Value) {
+        #[cfg(feature = "rtc-probe")]
+        if report["event"] == "active-improvement-committed" {
+            println!(
+                "{}",
+                serde_json::json!({"event":"unified-active-committed",
+                "stage":"common-committed","monotonicMs":crate::rtc_transport::diagnostic_monotonic_ms(),
+                "stableId":connection.stable_id(),"controlStableId":report["controlStableId"],
+                "originalOpen":connection.close_reason().is_none(),
+                "freshAck":report["freshAck"],"bothReady":report["bothReady"]})
+            );
+        }
+        #[cfg(not(feature = "rtc-probe"))]
+        let _ = (connection, report);
+    }
+    fn register_original(&self, connection: &Connection) {
+        self.gate.maintenance().register(connection);
+    }
+
     fn capabilities(&self, role: AttemptRole) -> RuntimeCapabilities {
         let (rtc_supported, rtc_allowed) = {
             #[cfg(feature = "rtc-probe")]
@@ -94,6 +144,32 @@ impl MemberPathAdapter for CoordinatorHook {
             rtc_role: RtcRole::for_attempt(role, rtc_supported),
         }
     }
+    fn capabilities_for(&self, connection: &Connection, role: AttemptRole) -> RuntimeCapabilities {
+        let mut caps = self.capabilities(role);
+        if self.existing_relay(connection).is_some() {
+            caps.permitted |= RELAY;
+        }
+        caps
+    }
+    fn existing_relay(&self, connection: &Connection) -> Option<TransportAddr> {
+        let resources = self.resources.as_ref()?;
+        connection
+            .paths()
+            .iter()
+            .filter(|path| match path.remote_addr() {
+                TransportAddr::Relay(url) => {
+                    resources.allows(url.as_str(), crate::resources::ResourceUse::DataRelay)
+                }
+                TransportAddr::Custom(address) => {
+                    address.id() == crate::member_transport::DATA_TRANSPORT_ID
+                        && address.data().len() == 48
+                        && resources.allows_custom(address)
+                }
+                _ => false,
+            })
+            .max_by_key(|path| path.is_selected())
+            .map(|path| path.remote_addr().clone())
+    }
     fn authorization_revision(
         &self,
         connection: &Connection,
@@ -124,12 +200,18 @@ impl MemberPathAdapter for CoordinatorHook {
             if connection.close_reason().is_some() {
                 return Err(control_error("DataPathUnavailable"));
             }
-            let scope = if purpose == SessionPurpose::AdmissionRequest {
-                crate::admission_gate::ProtocolScope::AdmissionRequest
+            let allowed = if purpose == SessionPurpose::AdmissionRequest {
+                self.gate.allows(
+                    connection,
+                    crate::admission_gate::ProtocolScope::AdmissionRequest,
+                )
+            } else if purpose == SessionPurpose::ActiveImprovement {
+                self.gate.allows_member_path_upgrade(connection)
             } else {
-                crate::admission_gate::ProtocolScope::Member
+                self.gate
+                    .allows(connection, crate::admission_gate::ProtocolScope::Member)
             };
-            if self.gate.allows(connection, scope) {
+            if allowed {
                 Ok(())
             } else {
                 Err(control_error("IdentityOrAdmissionRejected"))
@@ -196,6 +278,23 @@ impl MemberPathAdapter for CoordinatorHook {
                             control_error("DataPathUnavailable")
                         }
                     }),
+                PathPlan::ExistingRelay => {
+                    let route = self
+                        .existing_relay(connection)
+                        .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                    let gate = self.gate.clone();
+                    let weak = connection.weak_handle();
+                    Ok(PreparedPath::candidate(connection, route, move || {
+                        if weak
+                            .upgrade()
+                            .is_some_and(|original| gate.allows_member_path_upgrade(&original))
+                        {
+                            Ok(())
+                        } else {
+                            Err(control_error("IdentityOrAdmissionRejected"))
+                        }
+                    }))
+                }
                 PathPlan::Relay => {
                     crate::message_bootstrap::prepare_relay(
                         endpoint,
@@ -225,12 +324,47 @@ impl MemberPathAdapter for CoordinatorHook {
             }
         }
     }
+
+    fn prepare_active<'a>(
+        &'a self,
+        endpoint: &'a Endpoint,
+        original: &'a Connection,
+        control: &'a Connection,
+        attempt: ProtectedAttempt,
+        plan: PathPlan,
+    ) -> impl Future<Output = io::Result<PreparedPath>> + Send + 'a {
+        async move {
+            match plan {
+                #[cfg(feature = "rtc-probe")]
+                PathPlan::Rtc => {
+                    crate::rtc_member::bootstrap_control_active(
+                        endpoint,
+                        original,
+                        control,
+                        &self.gate,
+                        self.rtc
+                            .as_ref()
+                            .ok_or_else(|| control_error("DataPathUnavailable"))?,
+                        attempt,
+                    )
+                    .await
+                }
+                // Native punching still owns its historical ControlSession
+                // stream on M; keep it out of Active C until that adapter has
+                // a C-aware exchange rather than silently reusing M.
+                _ => Err(control_error("DataPathUnavailable")),
+            }
+        }
+    }
 }
 impl iroh::endpoint::EndpointHooks for CoordinatorHook {
     async fn after_handshake(
         &self,
         connection: &Connection,
     ) -> iroh::endpoint::AfterHandshakeOutcome {
+        if SessionPurpose::from_alpn(connection.alpn()) == Some(SessionPurpose::ActiveImprovement) {
+            return iroh::endpoint::AfterHandshakeOutcome::AcceptRestricted;
+        }
         if SessionPurpose::from_alpn(connection.alpn()) != Some(SessionPurpose::AdmissionRequest) {
             return iroh::endpoint::AfterHandshakeOutcome::Accept;
         }
@@ -247,7 +381,10 @@ impl iroh::endpoint::EndpointHooks for CoordinatorHook {
         endpoint: &Endpoint,
         connection: &Connection,
     ) -> io::Result<()> {
-        if SessionPurpose::from_alpn(connection.alpn()) == Some(SessionPurpose::AdmissionRequest) {
+        if matches!(
+            SessionPurpose::from_alpn(connection.alpn()),
+            Some(SessionPurpose::AdmissionRequest | SessionPurpose::ActiveImprovement)
+        ) {
             return Err(control_error("InvalidControl"));
         }
         coordinate_session(Some(endpoint), connection, self).await

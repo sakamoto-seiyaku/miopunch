@@ -26,6 +26,18 @@ pub const TRANSPORT_ID: u64 = 0x6d696f727463; // "miortc", data only after a fre
 pub const MAX_DATAGRAM: usize = 2048;
 const MAX_ASSOCIATIONS: usize = 32;
 
+#[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+pub(crate) fn diagnostic_monotonic_ms() -> u64 {
+    static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    u64::try_from(
+        START
+            .get_or_init(std::time::Instant::now)
+            .elapsed()
+            .as_millis(),
+    )
+    .unwrap_or(u64::MAX)
+}
+
 fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::PermissionDenied, message)
 }
@@ -77,7 +89,7 @@ impl Registry {
         self.retired.store(true, Ordering::Release);
         let routes: Vec<_> = self.routes.lock().unwrap().values().cloned().collect();
         for route in routes {
-            route.close();
+            route.close_with_reason("registry-shutdown");
         }
         self.refresh();
     }
@@ -89,6 +101,10 @@ struct Route {
     connection_id: usize,
     local: CustomAddr,
     remote: Mutex<Option<CustomAddr>>,
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    /// A weak diagnostic handle for this route's exact RTC association. It
+    /// never keeps the peer connection alive or owns its cleanup.
+    peer_connection: Mutex<Option<Weak<dyn webrtc::peer_connection::PeerConnection>>>,
     current: Box<dyn Fn() -> bool + Send + Sync>,
     ready: AtomicBool,
     qualified: AtomicBool,
@@ -103,6 +119,8 @@ struct Route {
     pumps: AtomicUsize,
     retirement: AtomicWaker,
     qualification_updates: Option<Direct<u64>>,
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    diagnostic_retirement: Mutex<Option<(&'static str, u64)>>,
 }
 impl Route {
     fn current(&self) -> bool {
@@ -113,8 +131,16 @@ impl Route {
             registry.resource_allowed.load(Ordering::Acquire)
                 && registry.resource_revision.load(Ordering::Acquire) == self.resource_revision
         });
-        if !resource_current || !(self.current)() || !self.original.is_open() {
-            self.close();
+        if !resource_current {
+            self.close_with_reason("resource-or-registry-invalid");
+            return false;
+        }
+        if !(self.current)() {
+            self.close_with_reason("qualification-or-attempt-invalid");
+            return false;
+        }
+        if !self.original.is_open() {
+            self.close_with_reason("original-M-closed");
             return false;
         }
         true
@@ -122,12 +148,65 @@ impl Route {
     fn active(&self) -> bool {
         self.current() && self.ready.load(Ordering::Acquire)
     }
+
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    async fn selected_pair(
+        &self,
+        budget: crate::rtc_association::RtcDeadline,
+    ) -> io::Result<serde_json::Value> {
+        if !self.active() || !self.qualified.load(Ordering::Acquire) {
+            return Err(invalid("RTC selected route is not qualified"));
+        }
+        let peer = self
+            .peer_connection
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(Weak::upgrade)
+            .ok_or_else(|| invalid("RTC peer connection is no longer live"))?;
+        if !self.active() || !self.qualified.load(Ordering::Acquire) {
+            return Err(invalid("RTC selected route is not qualified"));
+        }
+        let pair = tokio::time::timeout(budget.remaining()?, async {
+            peer.sctp()
+                .await
+                .ok_or_else(|| invalid("RTC SCTP transport is unavailable"))?
+                .transport()
+                .ice_transport()
+                .get_selected_candidate_pair()
+                .await
+                .map_err(io::Error::other)?
+                .ok_or_else(|| invalid("RTC selected candidate pair unavailable"))
+        })
+        .await
+        .map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::TimedOut,
+                "RTC selected-pair observation deadline exceeded",
+            )
+        })??;
+        if !self.active() || !self.qualified.load(Ordering::Acquire) {
+            return Err(invalid("RTC selected route changed during observation"));
+        }
+        Ok(serde_json::json!({"local":pair.local(),"remote":pair.remote()}))
+    }
     fn close(&self) {
+        self.close_with_reason("explicit-route-close");
+    }
+    fn close_with_reason(&self, reason: &'static str) {
         if self.retired.swap(true, Ordering::AcqRel) {
             return;
         }
+        #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+        {
+            *self.diagnostic_retirement.lock().unwrap() = Some((reason, diagnostic_monotonic_ms()));
+        }
+        #[cfg(not(all(feature = "rtc-probe", not(target_arch = "wasm32"))))]
+        let _ = reason;
         self.ready.store(false, Ordering::Release);
         self.qualified.store(false, Ordering::Release);
+        #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+        self.peer_connection.lock().unwrap().take();
         self.tx.close();
         self.rx.close();
         self.retirement.wake();
@@ -224,6 +303,8 @@ impl RtcTransport {
             connection_id: connection.stable_id(),
             local: CustomAddr::from_parts(TRANSPORT_ID, &rand::random::<[u8; 16]>()),
             remote: Mutex::new(None),
+            #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+            peer_connection: Mutex::new(None),
             current: Box::new(current),
             ready: AtomicBool::new(false),
             qualified: AtomicBool::new(false),
@@ -238,6 +319,8 @@ impl RtcTransport {
             pumps: AtomicUsize::new(0),
             retirement: AtomicWaker::new(),
             qualification_updates,
+            #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+            diagnostic_retirement: Mutex::new(None),
         });
         routes.insert(connection.stable_id(), route.clone());
         Ok(RtcRouteLease(route))
@@ -257,7 +340,7 @@ impl RtcTransport {
             .cloned();
         if let Some(route) = route {
             if route.original.is_open() && connection.close_reason().is_none() {
-                route.close();
+                route.close_with_reason("connection-route-replaced");
                 return true;
             }
         }
@@ -265,6 +348,26 @@ impl RtcTransport {
     }
     pub fn active_associations(&self) -> usize {
         self.0.routes.lock().unwrap().len()
+    }
+
+    /// Read the selected ICE pair from the live peer connection attached to
+    /// this exact original-M route. The weak handle is bounded by the route
+    /// lifetime and the getter never changes transport state.
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub async fn selected_pair(
+        &self,
+        connection_id: usize,
+        budget: crate::rtc_association::RtcDeadline,
+    ) -> io::Result<serde_json::Value> {
+        let route = self
+            .0
+            .routes
+            .lock()
+            .unwrap()
+            .get(&connection_id)
+            .cloned()
+            .ok_or_else(|| invalid("RTC association unavailable"))?;
+        route.selected_pair(budget).await
     }
     /// Runtime permission for this experimental direct carrier. A change
     /// retires existing leases; re-enabling permits only new attempts.
@@ -278,7 +381,7 @@ impl RtcTransport {
                 .expect("RTC resource revision exhausted");
             let routes: Vec<_> = self.0.routes.lock().unwrap().values().cloned().collect();
             for route in routes {
-                route.close();
+                route.close_with_reason("resource-permission-changed");
             }
         }
     }
@@ -476,6 +579,28 @@ impl RtcRouteLease {
     pub fn close(&self) {
         self.0.close();
     }
+
+    /// Attach a weak handle only after the caller's cancellation guard owns a
+    /// strong peer connection. This keeps observation tied to this route and
+    /// cannot extend the PC lifetime.
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub fn attach_peer_connection(
+        &self,
+        peer: &Arc<dyn webrtc::peer_connection::PeerConnection>,
+    ) -> io::Result<()> {
+        if !self.0.active() {
+            return Err(invalid("RTC association unavailable"));
+        }
+        let mut attached = self.0.peer_connection.lock().unwrap();
+        if attached.is_some() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                "RTC peer connection already attached",
+            ));
+        }
+        *attached = Some(Arc::downgrade(peer));
+        Ok(())
+    }
     /// Start a fresh QUIC PING on the exact address of this original M.
     /// A DataChannel open event or an old path snapshot cannot construct this proof.
     pub fn start_probe(&self, connection: &Connection) -> io::Result<RtcPathProbe> {
@@ -607,7 +732,7 @@ pub struct RtcPumpGuard {
 }
 impl Drop for RtcPumpGuard {
     fn drop(&mut self) {
-        self.io.retire();
+        self.io.retire_with_reason("pump-guard-exit");
         self.io.0.pumps.fetch_sub(1, Ordering::AcqRel);
         if let Some(registry) = &self.registry {
             registry.active_pumps.fetch_sub(1, Ordering::AcqRel);
@@ -618,9 +743,20 @@ impl RtcDatagramIo {
     /// Cancel a driver's held work before it can use newly available channel
     /// capacity after qualification/resource retirement or original-M closure.
     pub async fn while_active<F: Future>(&self, work: F) -> io::Result<F::Output> {
+        self.while_live(work, true).await
+    }
+
+    /// Guard Reserved preparation before handing the one retirement watcher to
+    /// the active pump. This grants no path or application-data qualification.
+    pub async fn while_current<F: Future>(&self, work: F) -> io::Result<F::Output> {
+        self.while_live(work, false).await
+    }
+
+    async fn while_live<F: Future>(&self, work: F, require_ready: bool) -> io::Result<F::Output> {
+        let live = || self.0.current() && (!require_ready || self.0.ready.load(Ordering::Acquire));
         let retired = poll_fn(|cx| {
             self.0.retirement.register(cx.waker());
-            if self.0.active() {
+            if live() {
                 Poll::Pending
             } else {
                 Poll::Ready(())
@@ -631,7 +767,7 @@ impl RtcDatagramIo {
         let qualification = async {
             if let Some(mut updates) = self.0.qualification_updates.clone() {
                 loop {
-                    if !self.0.active() {
+                    if !live() {
                         return;
                     }
                     if updates.updated().await.is_err() {
@@ -690,6 +826,16 @@ impl RtcDatagramIo {
     }
     pub fn retire(&self) {
         self.0.close();
+    }
+    pub(crate) fn retire_with_reason(&self, reason: &'static str) {
+        self.0.close_with_reason(reason);
+    }
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub(crate) fn retirement_diagnostic(&self) -> serde_json::Value {
+        match *self.0.diagnostic_retirement.lock().unwrap() {
+            Some((reason, at)) => serde_json::json!({"reason":reason,"monotonicMs":at}),
+            None => serde_json::Value::Null,
+        }
     }
     pub fn report(&self) -> RtcRouteReport {
         RtcRouteReport {
@@ -759,7 +905,7 @@ impl CustomEndpoint for RtcTransport {
             }
             if let Ok(Some(packet)) = route.rx.try_pop() {
                 if packet.len() > buffers[0].len() {
-                    route.close();
+                    route.close_with_reason("receive-buffer-too-small");
                     continue;
                 }
                 buffers[0][..packet.len()].copy_from_slice(&packet);

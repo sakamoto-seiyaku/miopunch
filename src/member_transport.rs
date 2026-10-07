@@ -198,15 +198,24 @@ async fn transmit_packets(
 /// Owns only a reserved signaling stream. Expiry/drop interrupts forwarding,
 /// without closing the underlying A-B or B-C member connection.
 #[derive(Debug)]
-pub struct SignalingLease(tokio::task::JoinHandle<()>);
+pub struct SignalingLease(Option<tokio::task::JoinHandle<()>>);
 impl Drop for SignalingLease {
     fn drop(&mut self) {
-        self.0.abort();
+        if let Some(task) = self.0.take() {
+            task.abort();
+        }
     }
 }
 impl SignalingLease {
+    /// Stop and join only this forwarding stream, preserving its outer M.
+    pub async fn close(&mut self) {
+        if let Some(task) = self.0.take() {
+            task.abort();
+            let _ = task.await;
+        }
+    }
     pub fn is_finished(&self) -> bool {
-        self.0.is_finished()
+        self.0.as_ref().is_none_or(|task| task.is_finished())
     }
 }
 
@@ -372,7 +381,7 @@ impl MemberForwarder {
         let links = self.links.clone();
         #[cfg(feature = "member-signaling-test-hooks")]
         let faults = self.faults.clone();
-        Ok(SignalingLease(tokio::spawn(async move {
+        Ok(SignalingLease(Some(tokio::spawn(async move {
             let _registration = registration;
             let permission = enabled.clone();
             let receive = async {
@@ -439,7 +448,7 @@ impl MemberForwarder {
                 tokio::select! { result = receive => result, result = transmit => result, _ = enabled.changed() => Ok(()) }
             };
             let _ = tokio::time::timeout_at(expires, operation).await;
-        })))
+        }))))
     }
 }
 struct Registration {
@@ -558,7 +567,7 @@ impl MemberSignalingTransport {
         addresses
             .set(vec![address(carrier, self.via, self.own)])
             .ok();
-        Ok(SignalingLease(tokio::spawn(async move {
+        Ok(SignalingLease(Some(tokio::spawn(async move {
             let _advertisement = Advertisement(addresses);
             let receive = async {
                 loop {
@@ -575,7 +584,7 @@ impl MemberSignalingTransport {
                 tokio::select! { result = receive => result, result = transmit => result, _ = stopped.changed() => Ok(()) }
             };
             let _ = tokio::time::timeout(lifetime, operation).await;
-        })))
+        }))))
     }
 }
 struct Advertisement(Watchable<Vec<CustomAddr>>);

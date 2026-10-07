@@ -28,6 +28,100 @@ fn socket_count() -> Option<usize> {
     Some(count)
 }
 
+fn startup_observation(
+    stage: &str,
+    phase: &str,
+    endpoint: &iroh::Endpoint,
+    transport: &MqttTransport,
+    traffic: &Traffic,
+    started: tokio::time::Instant,
+    deadline: tokio::time::Instant,
+    started_utc_ms: Option<u128>,
+    result: Option<&Result<Result<(), std::io::Error>, tokio::time::error::Elapsed>>,
+) {
+    use n0_watcher::Watcher;
+    let home = endpoint.home_relay_status().get();
+    let actual = traffic.snapshot();
+    let mut details = json!({"tag":"DEBUG-mio76-startup","stage":stage,"phase":phase,
+        "startedUtcMs":started_utc_ms,"elapsedMs":started.elapsed().as_millis(),
+        "budgetRemainingMs":deadline.saturating_duration_since(tokio::time::Instant::now()).as_millis(),
+        "budgetMs":10000,"mqttRouteReady":transport.route().is_ok(),
+        "mqttDriverActive":actual.get("driver_active"),"mqttQueuedPackets":actual.get("queued_packets"),
+        "mqttSentPackets":actual.get("sent_packets"),"mqttReceivedPackets":actual.get("received_packets"),
+        "localPublishedCount":endpoint.addr().relay_urls().count(),
+        "localConnectedCount":home.iter().filter(|status|status.is_connected()).count(),
+        "localRelayErrorCount":home.iter().filter(|status|status.last_error().is_some()).count(),
+        "socketCount":socket_count()});
+    if let Some(result) = result {
+        details["waitOk"] = json!(matches!(result, Ok(Ok(()))));
+        details["outerTimedOut"] = json!(result.is_err());
+        details["errorKind"] = match result {
+            Err(_) => json!("TimedOut"),
+            Ok(Err(error)) => json!(format!("{:?}", error.kind())),
+            Ok(Ok(())) => serde_json::Value::Null,
+        };
+    }
+    details
+        .as_object_mut()
+        .unwrap()
+        .retain(|_, value| !value.is_null());
+    eprintln!("[DEBUG-mio76-startup] {details}");
+}
+
+async fn startup_wait(
+    stage: &str,
+    endpoint: &iroh::Endpoint,
+    transport: &MqttTransport,
+    traffic: &Traffic,
+    work: impl std::future::Future<Output = Result<(), std::io::Error>>,
+) -> Result<(), Box<dyn Error>> {
+    // Keep the existing ten-second ceiling. Diagnostic samples do not refill it.
+    let started = tokio::time::Instant::now();
+    let deadline = started + Duration::from_secs(10);
+    let started_utc_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .map(|value| value.as_millis());
+    let work = tokio::time::timeout_at(deadline, work);
+    tokio::pin!(work);
+    startup_observation(
+        stage,
+        "begin",
+        endpoint,
+        transport,
+        traffic,
+        started,
+        deadline,
+        started_utc_ms,
+        None,
+    );
+    let samples = [1u64, 4, 8];
+    let mut sampled = 0;
+    let result = loop {
+        let next = started + Duration::from_secs(*samples.get(sampled).unwrap_or(&10));
+        tokio::select! {biased;
+            result=&mut work=>break result,
+            _=tokio::time::sleep_until(next),if sampled<samples.len()=>{
+                startup_observation(stage,"progress",endpoint,transport,traffic,started,deadline,started_utc_ms,None);
+                sampled+=1;
+            }
+        }
+    };
+    startup_observation(
+        stage,
+        "end",
+        endpoint,
+        transport,
+        traffic,
+        started,
+        deadline,
+        started_utc_ms,
+        Some(&result),
+    );
+    result??;
+    Ok(())
+}
+
 struct FixtureCleanup {
     node: Arc<tokio::sync::Mutex<NativeNetwork>>,
     assembly: Arc<miopunch_native_probe::resources::ResourceEndpoint>,
@@ -469,9 +563,46 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let assembly = Arc::new(assembly);
     let endpoint = assembly.endpoint().clone();
     endpoint.set_alpns(alpns);
-    tokio::time::timeout(Duration::from_secs(10), transport.wait_ready()).await??;
-    if permitted_relay.is_some() {
-        tokio::time::timeout(Duration::from_secs(10), endpoint.online()).await?;
+    let startup = async {
+        startup_wait(
+            "mqtt-ready",
+            &endpoint,
+            &transport,
+            &traffic,
+            transport.wait_ready(),
+        )
+        .await?;
+        if permitted_relay.is_some() {
+            startup_wait("relay-online", &endpoint, &transport, &traffic, async {
+                endpoint.online().await;
+                Ok(())
+            })
+            .await?;
+        }
+        Ok::<_, Box<dyn Error>>(())
+    }
+    .await;
+    if let Err(original) = startup {
+        let cleanup = FixtureCleanup {
+            node: Arc::new(tokio::sync::Mutex::new(node)),
+            assembly,
+            endpoint,
+            transport,
+            rtc_transport,
+            traffic,
+            handlers: tokio::task::JoinSet::new(),
+            sockets_before,
+        }
+        .close()
+        .await;
+        if cleanup.is_err() {
+            eprintln!(
+                "[DEBUG-mio76-startup] {}",
+                json!({"tag":"DEBUG-mio76-startup","stage":"cleanup","phase":"end","cleanupSucceeded":false})
+            );
+        }
+        // Cleanup cannot replace the original startup error or turn it into success.
+        return Err(original);
     }
     println!(
         "{}",

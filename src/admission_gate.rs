@@ -7,7 +7,6 @@ use std::sync::{
     Arc, Mutex,
     atomic::{AtomicU64, Ordering},
 };
-use std::time::Duration;
 
 use iroh::endpoint::{
     AfterHandshakeOutcome, BeforeConnectOutcome, Builder, Connection, EndpointHooks,
@@ -28,7 +27,6 @@ pub const PRECODE_REQUEST_ALPN: &[u8] = crate::connection_coordinator::PRECODE_R
 pub const CONTROL_ALPN: &[u8] = b"miopunch/control/1";
 
 const MAX_SESSIONS: usize = 4096;
-const STAGE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// The maximum scope an ALPN can receive. Its handler must still validate
 /// invitation or root proofs before releasing any admission material.
@@ -130,6 +128,7 @@ pub struct AdmissionGate {
     message_bootstrap: bool,
     path_revision: Arc<AtomicU64>,
     path_updates: Arc<n0_watcher::Watchable<u64>>,
+    maintenance: crate::session_maintenance::SessionMaintenance,
 }
 
 /// An independently readable generation token; safe under the QUIC driver lock.
@@ -173,6 +172,10 @@ impl AdmissionGate {
         ] {
             protocols.insert(alpn.to_vec(), ProtocolScope::Member);
         }
+        protocols.insert(
+            crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN.to_vec(),
+            ProtocolScope::Bootstrap,
+        );
         protocols.insert(RECOVERY_ALPN.to_vec(), ProtocolScope::GenesisRecovery);
         protocols.insert(
             crate::management_recovery::MANAGEMENT_RECOVERY_ALPN.to_vec(),
@@ -199,6 +202,7 @@ impl AdmissionGate {
         Self {
             path_revision: Arc::new(AtomicU64::new(0)),
             path_updates: Arc::new(n0_watcher::Watchable::new(0)),
+            maintenance: crate::session_maintenance::SessionMaintenance::default(),
             message_bootstrap: false,
             state: Arc::new(Mutex::new(State {
                 policy: Policy {
@@ -300,7 +304,12 @@ impl AdmissionGate {
             message_bootstrap: true,
             path_revision: self.path_revision.clone(),
             path_updates: self.path_updates.clone(),
+            maintenance: self.maintenance.clone(),
         }
+    }
+
+    pub(crate) fn maintenance(&self) -> crate::session_maintenance::SessionMaintenance {
+        self.maintenance.clone()
     }
 
     fn member_carrier_allowed(&self, id: u64, data_ids: &BTreeSet<u64>) -> bool {
@@ -539,18 +548,21 @@ impl AdmissionGate {
 /// requested stage. Without this second stream, a dialing side with stale
 /// membership could receive a normal handle just before the server rejects it.
 async fn agree_on_stage(connection: &Connection) -> bool {
-    tokio::time::timeout(STAGE_TIMEOUT, async {
-        let (mut send, mut recv) = if connection.side().is_client() {
-            connection.open_bi().await.ok()?
-        } else {
-            connection.accept_bi().await.ok()?
-        };
-        send.write_all(b"\x01").await.ok()?;
-        send.finish().ok()?;
-        let mut result = [0];
-        recv.read_exact(&mut result).await.ok()?;
-        (result == [1]).then_some(())
-    })
+    tokio::time::timeout(
+        crate::connection_budget::remaining(connection.caller_deadline()),
+        async {
+            let (mut send, mut recv) = if connection.side().is_client() {
+                connection.open_bi().await.ok()?
+            } else {
+                connection.accept_bi().await.ok()?
+            };
+            send.write_all(b"\x01").await.ok()?;
+            send.finish().ok()?;
+            let mut result = [0];
+            recv.read_exact(&mut result).await.ok()?;
+            (result == [1]).then_some(())
+        },
+    )
     .await
     .ok()
     .flatten()
@@ -618,32 +630,35 @@ impl EndpointHooks for AdmissionGate {
                 // the one permitted SCRAM attempt. This never repeats SASL on
                 // an existing session or promotes a staged proof to business.
                 let selected = if protocol == ProtocolScope::Rotation {
-                    let result = tokio::time::timeout(STAGE_TIMEOUT, async {
-                        let (mut send, mut recv) = if connection.side().is_client() {
-                            connection.open_bi().await.ok()?
-                        } else {
-                            connection.accept_bi().await.ok()?
-                        };
-                        let generation = if connection.side().is_client() {
-                            send.write_all(&policy.scope.secret_generation().to_be_bytes())
-                                .await
-                                .ok()?;
-                            policy.scope.secret_generation()
-                        } else {
-                            let mut bytes = [0; 8];
-                            recv.read_exact(&mut bytes).await.ok()?;
-                            u64::from_be_bytes(bytes)
-                        };
-                        send.finish().ok()?;
-                        if generation == policy.scope.secret_generation() {
-                            Some((policy.scope.clone(), policy.secret.clone()?))
-                        } else {
-                            policy
-                                .staged
-                                .clone()
-                                .filter(|(scope, _)| scope.secret_generation() == generation)
-                        }
-                    })
+                    let result = tokio::time::timeout(
+                        crate::connection_budget::remaining(connection.caller_deadline()),
+                        async {
+                            let (mut send, mut recv) = if connection.side().is_client() {
+                                connection.open_bi().await.ok()?
+                            } else {
+                                connection.accept_bi().await.ok()?
+                            };
+                            let generation = if connection.side().is_client() {
+                                send.write_all(&policy.scope.secret_generation().to_be_bytes())
+                                    .await
+                                    .ok()?;
+                                policy.scope.secret_generation()
+                            } else {
+                                let mut bytes = [0; 8];
+                                recv.read_exact(&mut bytes).await.ok()?;
+                                u64::from_be_bytes(bytes)
+                            };
+                            send.finish().ok()?;
+                            if generation == policy.scope.secret_generation() {
+                                Some((policy.scope.clone(), policy.secret.clone()?))
+                            } else {
+                                policy
+                                    .staged
+                                    .clone()
+                                    .filter(|(scope, _)| scope.secret_generation() == generation)
+                            }
+                        },
+                    )
                     .await
                     .ok()
                     .flatten();

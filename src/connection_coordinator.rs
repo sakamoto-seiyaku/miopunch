@@ -7,6 +7,10 @@ use std::{future::Future, io, pin::Pin};
 pub const MEMBER_ALPN: &[u8] = b"miopunch/session/member/1";
 pub const ADMISSION_REQUEST_ALPN: &[u8] = b"miopunch/session/admission/1";
 pub const PRECODE_REQUEST_ALPN: &[u8] = b"miopunch/session/precode/1";
+/// A restricted control connection used only to improve an already live
+/// ordinary member session.  It is intentionally a separate ALPN and wire
+/// discriminator from path repair and never returns an ordinary handle.
+pub const ACTIVE_IMPROVEMENT_ALPN: &[u8] = b"miopunch/session/improve/1";
 pub const REPLICA_ALPN: &[u8] = b"miopunch/session/replica/1";
 const FRAME_LEN: usize = 28;
 pub(crate) const UDP: u8 = 1;
@@ -21,6 +25,7 @@ pub enum SessionPurpose {
     MemberBusiness = 1,
     AdmissionRequest = 2,
     Replica = 3,
+    ActiveImprovement = 4,
 }
 impl SessionPurpose {
     pub fn alpn(self) -> &'static [u8] {
@@ -28,6 +33,7 @@ impl SessionPurpose {
             Self::MemberBusiness => MEMBER_ALPN,
             Self::AdmissionRequest => ADMISSION_REQUEST_ALPN,
             Self::Replica => REPLICA_ALPN,
+            Self::ActiveImprovement => ACTIVE_IMPROVEMENT_ALPN,
         }
     }
     pub fn from_alpn(alpn: &[u8]) -> Option<Self> {
@@ -35,17 +41,19 @@ impl SessionPurpose {
             MEMBER_ALPN => Some(Self::MemberBusiness),
             ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN => Some(Self::AdmissionRequest),
             REPLICA_ALPN => Some(Self::Replica),
+            ACTIVE_IMPROVEMENT_ALPN => Some(Self::ActiveImprovement),
             _ => None,
         }
     }
     pub(crate) fn requires_data(self) -> bool {
-        self != Self::AdmissionRequest
+        !matches!(self, Self::AdmissionRequest | Self::ActiveImprovement)
     }
     fn label(self) -> &'static str {
         match self {
             Self::MemberBusiness => "member-business",
             Self::AdmissionRequest => "admission-request",
             Self::Replica => "replica",
+            Self::ActiveImprovement => "active-improvement",
         }
     }
 }
@@ -160,12 +168,13 @@ impl ProtectedAttempt {
         self,
         connection: &Connection,
         direct: Option<&(TransportAddr, u8)>,
+        relay: Option<&TransportAddr>,
     ) -> io::Result<Vec<PathPlan>> {
-        let paths = connection.paths();
+        let _ = connection;
         if direct.is_some_and(|(_, capability)| self.mutual & capability != 0) {
             return Ok(vec![PathPlan::ExistingDirect]);
         }
-        if self.mutual & RELAY != 0 && paths.iter().any(|path| path.is_relay()) {
+        if self.mutual & RELAY != 0 && relay.is_some() {
             return Ok(vec![PathPlan::ExistingRelay]);
         }
         let mut plans = Vec::new();
@@ -194,12 +203,36 @@ impl ProtectedAttempt {
 /// membership. Preparation returns an exact, connection-owned candidate.
 pub(crate) trait MemberPathAdapter {
     fn capabilities(&self, role: AttemptRole) -> RuntimeCapabilities;
+    /// Installed one-hop relay clients can be learned from this exact M,
+    /// without advertising an uninstalled transport as a node capability.
+    fn capabilities_for(&self, _connection: &Connection, role: AttemptRole) -> RuntimeCapabilities {
+        self.capabilities(role)
+    }
+    fn existing_relay(&self, connection: &Connection) -> Option<TransportAddr> {
+        connection
+            .paths()
+            .iter()
+            .filter(|path| path.is_relay())
+            .max_by_key(|path| path.is_selected())
+            .map(|path| path.remote_addr().clone())
+    }
     fn authorization_revision(
         &self,
         connection: &Connection,
         purpose: SessionPurpose,
     ) -> io::Result<u64>;
     fn committed(&self, _connection: &Connection, _report: serde_json::Value) {}
+    // Bounded local diagnostics only; this callback cannot influence commit.
+    fn active_diagnostic(
+        &self,
+        _original: &Connection,
+        _control: &Connection,
+        _stage: &'static str,
+    ) {
+    }
+    /// Register a successfully released ordinary M with the existing
+    /// maintenance owner.  Implementations store only a weak handle.
+    fn register_original(&self, _connection: &Connection) {}
     fn existing_direct(&self, connection: &Connection) -> Option<(TransportAddr, u8)> {
         let paths = connection.paths();
         paths
@@ -220,6 +253,21 @@ pub(crate) trait MemberPathAdapter {
         attempt: ProtectedAttempt,
         plan: PathPlan,
     ) -> impl Future<Output = io::Result<PreparedPath>> + Send + 'a;
+
+    /// Prepare a candidate on an existing M while signalling on the distinct
+    /// restricted C.  Native/browser adapters override this for RTC; the
+    /// default keeps future direct adapters on the same exact-M seam.
+    fn prepare_active<'a>(
+        &'a self,
+        endpoint: &'a Endpoint,
+        original: &'a Connection,
+        control: &'a Connection,
+        attempt: ProtectedAttempt,
+        plan: PathPlan,
+    ) -> impl Future<Output = io::Result<PreparedPath>> + Send + 'a {
+        let _ = (endpoint, original, control, attempt, plan);
+        async { Err(control_error("DataPathUnavailable")) }
+    }
 }
 
 type Retain = Box<dyn FnOnce() -> Pin<Box<dyn Future<Output = io::Result<()>> + Send>> + Send>;
@@ -391,6 +439,7 @@ pub struct ConnectionCoordinator {
     permitted: u8,
     contact_ids: Vec<u64>,
     member_contact_id: Option<u64>,
+    member_data_id: Option<u64>,
 }
 impl ConnectionCoordinator {
     pub(crate) fn new(endpoint: Endpoint, permitted: u8, contact_ids: Vec<u64>) -> Self {
@@ -399,12 +448,30 @@ impl ConnectionCoordinator {
             permitted,
             contact_ids,
             member_contact_id: None,
+            member_data_id: None,
         }
     }
     /// The native resource owner supplies the installed member contact carrier.
     /// Browser callers have no member adapter and retain None.
     pub(crate) fn with_member_contact(mut self, id: u64) -> Self {
         self.member_contact_id = Some(id);
+        self
+    }
+    /// Separate from member signaling: only an installed, currently
+    /// advertised data adapter may enter the relay tier.
+    pub(crate) fn with_member_data(mut self, id: u64) -> Self {
+        if self.permitted & RELAY != 0
+            && self
+                .endpoint
+                .custom_addrs()
+                .iter()
+                .any(|address| address.id() == id)
+        {
+            self.member_data_id = Some(id);
+            if !self.contact_ids.contains(&id) {
+                self.contact_ids.push(id);
+            }
+        }
         self
     }
     async fn dial(
@@ -494,13 +561,32 @@ impl ConnectionCoordinator {
                 if target.addrs.is_empty() {
                     return Err(ConnectError::DataPathUnavailable);
                 }
+                let mut active_ips = Vec::new();
+                for info in self.endpoint.remote_info(target.id).await {
+                    for entry in info.addrs() {
+                        if matches!(entry.usage(), iroh::endpoint::TransportAddrUsage::Active)
+                            && let TransportAddr::Ip(address) = entry.addr()
+                        {
+                            active_ips.push(TransportAddr::Ip(*address));
+                        }
+                    }
+                }
+                let is_active_ip = |address: &TransportAddr| {
+                    matches!(address, TransportAddr::Ip(_))
+                        && active_ips.iter().any(|active| active == address)
+                };
                 let mut last_unavailable = None;
-                // A hint is not a usable data path. Trial each permitted data
-                // route in this attempt's exact bootstrap scope; cached contact
-                // routes cannot carry it before an actual setup failure.
-                for route in target.addrs.iter().filter(|address| {
-                    matches!(address, TransportAddr::Ip(_) | TransportAddr::Relay(_))
-                }) {
+                // A currently open IP path is the strongest direct hint. Relay
+                // routes remain eligible on first contact, even without a
+                // cached peer path. Unverified or inactive IP announcements
+                // are held until member/public contact has had its turn.
+                let active_routes = target.addrs.iter().filter(|address| is_active_ip(address));
+                let relay_routes = target.addrs.iter().filter(|address| {
+                    matches!(address, TransportAddr::Relay(_))
+                        || matches!(address, TransportAddr::Custom(route)
+                            if Some(route.id()) == self.member_data_id)
+                });
+                for route in active_routes.chain(relay_routes) {
                     let data = iroh::EndpointAddr::new(target.id).with_addrs([route.clone()]);
                     match self.dial(data, purpose, &attempt, wire_alpn).await {
                         Ok(connection) => return Ok(connection),
@@ -513,6 +599,8 @@ impl ConnectionCoordinator {
                 let mut public_contact = target.clone();
                 public_contact.addrs.retain(|address| {
                     !matches!(address, TransportAddr::Ip(_) | TransportAddr::Relay(_))
+                        && !matches!(address, TransportAddr::Custom(route)
+                            if Some(route.id()) == self.member_data_id)
                 });
                 if let Some(member_id) = self.member_contact_id {
                     public_contact.addrs.retain(|address| {
@@ -545,12 +633,44 @@ impl ConnectionCoordinator {
                         }
                     }
                 }
+                // Cold direct-only targets still need their announced IP
+                // fallback. When a contact alternative exists, this comes
+                // after member signaling and configured public contact.
+                let mut inactive_ips = target.addrs.iter().filter(|address| {
+                    matches!(address, TransportAddr::Ip(_)) && !is_active_ip(address)
+                });
                 if public_contact.addrs.is_empty() {
+                    for route in inactive_ips.by_ref() {
+                        let data = iroh::EndpointAddr::new(target.id).with_addrs([route.clone()]);
+                        match self.dial(data, purpose, &attempt, wire_alpn).await {
+                            Ok(connection) => return Ok(connection),
+                            Err(ContactDialFailure::Terminal(error)) => return Err(error),
+                            Err(ContactDialFailure::Unavailable(error)) => {
+                                last_unavailable = Some(error)
+                            }
+                        }
+                    }
                     return Err(last_unavailable.unwrap_or(ConnectError::DataPathUnavailable));
                 }
-                self.dial(public_contact, purpose, &attempt, wire_alpn)
+                match self
+                    .dial(public_contact, purpose, &attempt, wire_alpn)
                     .await
-                    .map_err(ContactDialFailure::into_error)
+                {
+                    Ok(connection) => return Ok(connection),
+                    Err(ContactDialFailure::Terminal(error)) => return Err(error),
+                    Err(ContactDialFailure::Unavailable(error)) => last_unavailable = Some(error),
+                }
+                for route in inactive_ips {
+                    let data = iroh::EndpointAddr::new(target.id).with_addrs([route.clone()]);
+                    match self.dial(data, purpose, &attempt, wire_alpn).await {
+                        Ok(connection) => return Ok(connection),
+                        Err(ContactDialFailure::Terminal(error)) => return Err(error),
+                        Err(ContactDialFailure::Unavailable(error)) => {
+                            last_unavailable = Some(error)
+                        }
+                    }
+                }
+                Err(last_unavailable.unwrap_or(ConnectError::DataPathUnavailable))
             })
             .await
     }
@@ -665,7 +785,7 @@ pub(crate) async fn coordinate_session<A: MemberPathAdapter>(
         adapter.check(connection, purpose).await?;
         let revision = adapter.authorization_revision(connection, purpose)?;
         let role = AttemptRole::initial(connection);
-        let mut local = adapter.capabilities(role);
+        let mut local = adapter.capabilities_for(connection, role);
         if purpose == SessionPurpose::AdmissionRequest {
             // Actual support remains visible, but A permits no data carrier.
             local.permitted = 0;
@@ -766,7 +886,8 @@ pub(crate) async fn coordinate_session<A: MemberPathAdapter>(
             return Ok(());
         }
         let direct = adapter.existing_direct(connection);
-        let plans = attempt.plans(connection, direct.as_ref())?;
+        let relay = adapter.existing_relay(connection);
+        let plans = attempt.plans(connection, direct.as_ref(), relay.as_ref())?;
         let mut prepared = None;
         for plan in plans {
             let candidate = match plan {
@@ -779,19 +900,6 @@ pub(crate) async fn coordinate_session<A: MemberPathAdapter>(
                         .clone(),
                     || Ok(()),
                 )),
-                PathPlan::ExistingRelay => {
-                    let paths = connection.paths();
-                    let path = paths
-                        .iter()
-                        .filter(|path| path.is_relay())
-                        .max_by_key(|path| path.is_selected())
-                        .ok_or_else(|| control_error("DataPathUnavailable"))?;
-                    Ok(PreparedPath::candidate(
-                        connection,
-                        path.remote_addr().clone(),
-                        || Ok(()),
-                    ))
-                }
                 _ => {
                     adapter
                         .prepare(
@@ -902,9 +1010,513 @@ pub(crate) async fn coordinate_session<A: MemberPathAdapter>(
         operation.await
     };
     if result.is_ok() {
+        if purpose == SessionPurpose::MemberBusiness {
+            adapter.register_original(connection);
+        }
         cancellation.0 = None;
     }
     result
+}
+
+const ACTIVE_MAGIC: &[u8; 4] = b"MIA1";
+const ACTIVE_VERSION: u8 = 1;
+const ACTIVE_HELLO_KIND: u8 = 1;
+const ACTIVE_READY_KIND: u8 = 2;
+const ACTIVE_COMMITTED_KIND: u8 = 3;
+// magic4 + version1 + kind1 + role1 + runtime1 + supported1 + permitted1
+// + rtc-role1 + nonce16 + exporter binding32.
+const ACTIVE_HELLO_LEN: usize = 59;
+const ACTIVE_READY_LEN: usize = 30;
+const ACTIVE_MAX_FRAME: usize = 96;
+
+#[derive(Clone, Copy)]
+struct ActiveHello {
+    role: AttemptRole,
+    runtime: Platform,
+    supported: u8,
+    permitted: u8,
+    rtc_role: RtcRole,
+    nonce: [u8; 16],
+    binding: [u8; 32],
+}
+
+fn active_hello(
+    capabilities: RuntimeCapabilities,
+    role: AttemptRole,
+    binding: [u8; 32],
+) -> ActiveHello {
+    ActiveHello {
+        role,
+        runtime: capabilities.runtime,
+        supported: capabilities.supported,
+        permitted: capabilities.permitted,
+        rtc_role: capabilities.rtc_role,
+        nonce: rand::random(),
+        binding,
+    }
+}
+
+fn encode_active_hello(hello: ActiveHello) -> [u8; ACTIVE_HELLO_LEN] {
+    let mut frame = [0; ACTIVE_HELLO_LEN];
+    frame[..4].copy_from_slice(ACTIVE_MAGIC);
+    frame[4] = ACTIVE_VERSION;
+    frame[5] = ACTIVE_HELLO_KIND;
+    frame[6] = hello.role as u8;
+    frame[7] = hello.runtime as u8;
+    frame[8] = hello.supported;
+    frame[9] = hello.permitted;
+    frame[10] = hello.rtc_role as u8;
+    frame[11..27].copy_from_slice(&hello.nonce);
+    frame[27..59].copy_from_slice(&hello.binding);
+    frame
+}
+
+fn decode_active_hello(frame: &[u8]) -> io::Result<ActiveHello> {
+    if frame.len() != ACTIVE_HELLO_LEN
+        || &frame[..4] != ACTIVE_MAGIC
+        || frame[4] != ACTIVE_VERSION
+        || frame[5] != ACTIVE_HELLO_KIND
+    {
+        return Err(control_error("ProtocolUnsupported"));
+    }
+    let role = match frame[6] {
+        1 => AttemptRole::Initiator,
+        2 => AttemptRole::Responder,
+        _ => return Err(control_error("InvalidControl")),
+    };
+    let runtime = match frame[7] {
+        1 => Platform::Native,
+        2 => Platform::Browser,
+        _ => return Err(control_error("InvalidControl")),
+    };
+    let rtc_role = match frame[10] {
+        0 => RtcRole::None,
+        1 => RtcRole::Offerer,
+        2 => RtcRole::Answerer,
+        _ => return Err(control_error("InvalidControl")),
+    };
+    Ok(ActiveHello {
+        role,
+        runtime,
+        supported: frame[8],
+        permitted: frame[9],
+        rtc_role,
+        nonce: frame[11..27].try_into().unwrap(),
+        binding: frame[27..59].try_into().unwrap(),
+    })
+}
+
+async fn write_active_frame(
+    send: &mut iroh::endpoint::SendStream,
+    kind: u8,
+    attempt: [u8; 16],
+    watermark: u64,
+) -> io::Result<()> {
+    let mut frame = [0; ACTIVE_READY_LEN];
+    frame[..4].copy_from_slice(ACTIVE_MAGIC);
+    frame[4] = ACTIVE_VERSION;
+    frame[5] = kind;
+    frame[6..22].copy_from_slice(&attempt);
+    frame[22..].copy_from_slice(&watermark.to_be_bytes());
+    send.write_all(&(frame.len() as u16).to_be_bytes()).await?;
+    send.write_all(&frame).await?;
+    Ok(())
+}
+
+async fn read_active_frame(
+    recv: &mut iroh::endpoint::RecvStream,
+    expected_kind: u8,
+    attempt: [u8; 16],
+) -> io::Result<u64> {
+    let mut length = [0; 2];
+    recv.read_exact(&mut length)
+        .await
+        .map_err(io::Error::other)?;
+    let length = usize::from(u16::from_be_bytes(length));
+    if length != ACTIVE_READY_LEN || length > ACTIVE_MAX_FRAME {
+        return Err(control_error("InvalidControl"));
+    }
+    let mut frame = [0; ACTIVE_READY_LEN];
+    recv.read_exact(&mut frame)
+        .await
+        .map_err(io::Error::other)?;
+    if &frame[..4] != ACTIVE_MAGIC
+        || frame[4] != ACTIVE_VERSION
+        || frame[5] != expected_kind
+        || frame[6..22] != attempt
+    {
+        return Err(control_error("InvalidControl"));
+    }
+    Ok(u64::from_be_bytes(frame[22..].try_into().unwrap()))
+}
+
+async fn write_active_hello(
+    send: &mut iroh::endpoint::SendStream,
+    hello: ActiveHello,
+) -> io::Result<()> {
+    let frame = encode_active_hello(hello);
+    send.write_all(&(frame.len() as u16).to_be_bytes()).await?;
+    send.write_all(&frame).await?;
+    send.finish()?;
+    Ok(())
+}
+
+async fn read_active_hello(recv: &mut iroh::endpoint::RecvStream) -> io::Result<ActiveHello> {
+    let mut length = [0; 2];
+    recv.read_exact(&mut length)
+        .await
+        .map_err(io::Error::other)?;
+    if usize::from(u16::from_be_bytes(length)) != ACTIVE_HELLO_LEN {
+        return Err(control_error("InvalidControl"));
+    }
+    let mut frame = [0; ACTIVE_HELLO_LEN];
+    recv.read_exact(&mut frame)
+        .await
+        .map_err(io::Error::other)?;
+    decode_active_hello(&frame)
+}
+
+impl ProtectedAttempt {
+    fn improvement_plans(self) -> Vec<PathPlan> {
+        if self.local_runtime == Platform::Native && self.peer_runtime == Platform::Native {
+            if self.mutual & (UDP | TCP) != 0 {
+                vec![PathPlan::Native {
+                    tcp: self.mutual & TCP != 0,
+                    udp: self.mutual & UDP != 0,
+                }]
+            } else {
+                // Native↔native uses its accepted UDP/TCP path family here;
+                // RTC is reserved for mixed runtime pairs in this slice.
+                Vec::new()
+            }
+        } else if self.mutual & RTC != 0 {
+            vec![PathPlan::Rtc]
+        } else {
+            Vec::new()
+        }
+    }
+}
+
+async fn open_active_stream(
+    control: &Connection,
+) -> io::Result<(iroh::endpoint::SendStream, iroh::endpoint::RecvStream)> {
+    if control.side().is_client() {
+        control
+            .open_bi()
+            .await
+            .map_err(|error| io::Error::other(error.to_string()))
+    } else {
+        control
+            .accept_bi()
+            .await
+            .map_err(|error| io::Error::other(error.to_string()))
+    }
+}
+
+async fn active_session<A: MemberPathAdapter>(
+    endpoint: &Endpoint,
+    original: Connection,
+    control: &Connection,
+    adapter: &A,
+    attempt: AttemptContext,
+    local: ActiveHello,
+    peer_hello: ActiveHello,
+) -> io::Result<()> {
+    // The active control initiator/responder owns RTC offer/answer roles;
+    // `ProtectedAttempt::quic_dialer` still derives the original M's QUIC
+    // dialing side independently.
+    let role = AttemptRole::initial(control);
+    let original_binding = crate::connection_recovery_core::binding(&original)?;
+    if peer_hello.role != role.opposite()
+        || local.role != role
+        || local.binding != original_binding
+        || peer_hello.binding != original_binding
+        || control.remote_id() != original.remote_id()
+    {
+        return Err(control_error("IdentityOrAdmissionRejected"));
+    }
+    RuntimeCapabilities {
+        runtime: local.runtime,
+        supported: local.supported,
+        permitted: local.permitted,
+        rtc_role: local.rtc_role,
+    }
+    .validate(role)?;
+    RuntimeCapabilities {
+        runtime: peer_hello.runtime,
+        supported: peer_hello.supported,
+        permitted: peer_hello.permitted,
+        rtc_role: peer_hello.rtc_role,
+    }
+    .validate(peer_hello.role)?;
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(b"miopunch/active-improvement/1");
+    if role == AttemptRole::Initiator {
+        hasher.update(&local.nonce);
+        hasher.update(&peer_hello.nonce);
+    } else {
+        hasher.update(&peer_hello.nonce);
+        hasher.update(&local.nonce);
+    }
+    let id: [u8; 16] = hasher.finalize().as_bytes()[..16].try_into().unwrap();
+    let protected = ProtectedAttempt {
+        id,
+        role,
+        rtc_role: local.rtc_role,
+        local_runtime: local.runtime,
+        peer_runtime: peer_hello.runtime,
+        mutual: local.permitted & peer_hello.permitted,
+    };
+    adapter
+        .check(&original, SessionPurpose::MemberBusiness)
+        .await?;
+    adapter
+        .check(control, SessionPurpose::ActiveImprovement)
+        .await?;
+    let revision = adapter.authorization_revision(&original, SessionPurpose::MemberBusiness)?;
+    if adapter.authorization_revision(&original, SessionPurpose::MemberBusiness)? != revision {
+        return Err(control_error("IdentityOrAdmissionRejected"));
+    }
+    let mut prepared = None;
+    for plan in protected.improvement_plans() {
+        match adapter
+            .prepare_active(endpoint, &original, control, protected, plan)
+            .await
+        {
+            Ok(candidate) => {
+                prepared = Some(candidate);
+                break;
+            }
+            Err(error) => {
+                adapter
+                    .check(&original, SessionPurpose::MemberBusiness)
+                    .await?;
+                adapter
+                    .check(control, SessionPurpose::ActiveImprovement)
+                    .await?;
+                if error
+                    .to_string()
+                    .starts_with("unified/IdentityOrAdmissionRejected")
+                    || error.to_string().starts_with("unified/InvalidControl")
+                {
+                    return Err(error);
+                }
+            }
+        }
+    }
+    let mut prepared = prepared.ok_or_else(|| control_error("DataPathUnavailable"))?;
+    prepared.check(&original, false)?;
+
+    // The first C stream is owned by the adapter's bounded candidate protocol.
+    // A second strictly framed stream carries the bilateral commit barrier.
+    let (mut ready_send, mut ready_recv) = n0_future::time::timeout(
+        attempt
+            .deadline
+            .saturating_duration_since(n0_future::time::Instant::now()),
+        open_active_stream(control),
+    )
+    .await
+    .map_err(|_| control_error("DeadlineExceeded"))??;
+    write_active_frame(
+        &mut ready_send,
+        ACTIVE_READY_KIND,
+        protected.id,
+        prepared.watermark,
+    )
+    .await?;
+    let _peer_watermark = n0_future::time::timeout(
+        attempt
+            .deadline
+            .saturating_duration_since(n0_future::time::Instant::now()),
+        read_active_frame(&mut ready_recv, ACTIVE_READY_KIND, protected.id),
+    )
+    .await
+    .map_err(|_| control_error("DeadlineExceeded"))??;
+    adapter
+        .check(&original, SessionPurpose::MemberBusiness)
+        .await?;
+    adapter
+        .check(control, SessionPurpose::ActiveImprovement)
+        .await?;
+    if adapter.authorization_revision(&original, SessionPurpose::MemberBusiness)? != revision {
+        return Err(control_error("IdentityOrAdmissionRejected"));
+    }
+    prepared.check(&original, true)?;
+    if let Some(retain) = prepared.retain.take() {
+        retain().await?;
+    }
+    prepared.check(&original, true)?;
+    write_active_frame(
+        &mut ready_send,
+        ACTIVE_COMMITTED_KIND,
+        protected.id,
+        prepared.watermark,
+    )
+    .await?;
+    let _peer_final = n0_future::time::timeout(
+        attempt
+            .deadline
+            .saturating_duration_since(n0_future::time::Instant::now()),
+        read_active_frame(&mut ready_recv, ACTIVE_COMMITTED_KIND, protected.id),
+    )
+    .await
+    .map_err(|_| control_error("DeadlineExceeded"))??;
+    adapter.active_diagnostic(&original, control, "peer-committed-observed");
+    adapter
+        .check(&original, SessionPurpose::MemberBusiness)
+        .await?;
+    adapter.active_diagnostic(&original, control, "post-committed-original-checked");
+    // Peer COMMITTED completes C's protocol role. Its peer may now close C;
+    // only current original-M authorization and candidate proof govern commit.
+    if adapter.authorization_revision(&original, SessionPurpose::MemberBusiness)? != revision {
+        return Err(control_error("IdentityOrAdmissionRejected"));
+    }
+    prepared.check(&original, true)?;
+    prepared.rollback = None;
+    adapter.active_diagnostic(&original, control, "rollback-disarmed");
+    // Terminal stream cleanup is best effort after bilateral qualified commit.
+    // A completed peer C cannot retire the retained original-M candidate.
+    if ready_send.finish().is_err() {
+        adapter.active_diagnostic(&original, control, "post-committed-send-finish-failed");
+    }
+    adapter.committed(
+        &original,
+        serde_json::json!({"event":"active-improvement-committed","version":1,
+            "stableId":original.stable_id(),"controlStableId":control.stable_id(),
+            "freshAck":true,"bothReady":true,
+            "authorizationRevision":revision}),
+    );
+    Ok(())
+}
+
+/// Run the active improvement protocol on an already connected restricted C.
+/// The original M is retained independently; C carries only bounded control.
+pub(crate) async fn improve_existing<A: MemberPathAdapter>(
+    endpoint: &Endpoint,
+    original: &Connection,
+    control: &Connection,
+    adapter: &A,
+    attempt: AttemptContext,
+) -> io::Result<()> {
+    if original.remote_id() != control.remote_id() || original.close_reason().is_some() {
+        return Err(control_error("DataPathUnavailable"));
+    }
+    let binding = crate::connection_recovery_core::binding(original)?;
+    let role = AttemptRole::initial(control);
+    let local = active_hello(adapter.capabilities_for(original, role), role, binding);
+    let (mut send, mut recv) = n0_future::time::timeout(
+        attempt
+            .deadline
+            .saturating_duration_since(n0_future::time::Instant::now()),
+        open_active_stream(control),
+    )
+    .await
+    .map_err(|_| control_error("DeadlineExceeded"))??;
+    write_active_hello(&mut send, local).await?;
+    let peer = n0_future::time::timeout(
+        attempt
+            .deadline
+            .saturating_duration_since(n0_future::time::Instant::now()),
+        read_active_hello(&mut recv),
+    )
+    .await
+    .map_err(|_| control_error("DeadlineExceeded"))??;
+    active_session(
+        endpoint,
+        original.clone(),
+        control,
+        adapter,
+        attempt,
+        local,
+        peer,
+    )
+    .await
+}
+
+/// Server-side active-control entry. The hello's exporter binding selects the
+/// exact original M from the existing weak registry/gate lookup.
+pub(crate) async fn serve_active_session<A, F>(
+    endpoint: &Endpoint,
+    control: &Connection,
+    adapter: &A,
+    registry: &crate::session_maintenance::SessionMaintenance,
+    responder_deadline: n0_future::time::Instant,
+    lookup: F,
+) -> io::Result<()>
+where
+    A: MemberPathAdapter,
+    F: Fn(iroh::EndpointId, &[u8; 32]) -> Option<Connection>,
+{
+    let deadline = control
+        .caller_deadline()
+        .map(|deadline| deadline.min(responder_deadline))
+        .unwrap_or(responder_deadline);
+    let (mut send, mut recv) = n0_future::time::timeout(
+        deadline.saturating_duration_since(n0_future::time::Instant::now()),
+        open_active_stream(control),
+    )
+    .await
+    .map_err(|_| control_error("DeadlineExceeded"))??;
+    let peer = n0_future::time::timeout(
+        deadline.saturating_duration_since(n0_future::time::Instant::now()),
+        read_active_hello(&mut recv),
+    )
+    .await
+    .map_err(|_| control_error("DeadlineExceeded"))??;
+    let original = lookup(control.remote_id(), &peer.binding)
+        .ok_or_else(|| control_error("DataPathUnavailable"))?;
+    let remaining = deadline;
+    let attempt = AttemptContext::new(remaining, tokio_util::sync::CancellationToken::new());
+    let role = AttemptRole::initial(control);
+    let local = active_hello(
+        adapter.capabilities_for(&original, role),
+        role,
+        peer.binding,
+    );
+    write_active_hello(&mut send, local).await?;
+    let lease = registry
+        .acquire(&original, &attempt, ())
+        .map_err(|error| control_error(&format!("active/{error:?}")))?;
+    lease
+        .run(active_session(
+            endpoint, original, control, adapter, attempt, local, peer,
+        ))
+        .await
+        .map_err(|error| control_error(&format!("active/{error:?}")))?
+}
+
+#[cfg(test)]
+mod active_wire_tests {
+    use super::*;
+
+    #[test]
+    fn bounded_active_hello_round_trips_and_rejects_mutation() {
+        let hello = active_hello(
+            RuntimeCapabilities {
+                runtime: Platform::Browser,
+                supported: RELAY | RTC,
+                permitted: RTC,
+                rtc_role: RtcRole::Offerer,
+            },
+            AttemptRole::Initiator,
+            [7; 32],
+        );
+        let encoded = encode_active_hello(hello);
+        assert_eq!(encoded.len(), ACTIVE_HELLO_LEN);
+        let decoded = decode_active_hello(&encoded).unwrap();
+        assert_eq!(decoded.role, hello.role);
+        assert_eq!(decoded.runtime, hello.runtime);
+        assert_eq!(decoded.supported, hello.supported);
+        assert_eq!(decoded.permitted, hello.permitted);
+        assert_eq!(decoded.rtc_role, hello.rtc_role);
+        assert_eq!(decoded.nonce, hello.nonce);
+        assert_eq!(decoded.binding, hello.binding);
+
+        let mut wrong_kind = encoded;
+        wrong_kind[5] = ACTIVE_READY_KIND;
+        assert!(decode_active_hello(&wrong_kind).is_err());
+        assert!(decode_active_hello(&wrong_kind[..ACTIVE_HELLO_LEN - 1]).is_err());
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -912,3 +1524,7 @@ pub(crate) async fn coordinate_session<A: MemberPathAdapter>(
 mod native;
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) use native::{CoordinatorHook, release_existing_data};
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "connection_coordinator_active_tests.rs"]
+mod active_commit_tests;

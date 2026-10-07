@@ -1,6 +1,5 @@
 //! Owned loopback lifecycle supplement; public SDK/device stories are separate.
 use miopunch_native_probe::{
-    admission_gate::ADMISSION_REQUEST_ALPN,
     connection_coordinator::{AttemptContext, MEMBER_ALPN, SessionPurpose},
     contact_listener::ContactListenerPhase,
     manual_admission::ManualExchange,
@@ -64,11 +63,34 @@ async fn admit(admin: &mut NativeNetwork, directory: &std::path::Path) -> Native
     let mut member = NativeNetwork::join(directory, admin.manual_invitation().unwrap())
         .await
         .unwrap();
-    let server = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let client = member.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
+    let server = admin
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let client = member
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let server_coordinator = server.coordinator();
+    let client_coordinator = client.coordinator();
+    let deadline = n0_future::time::Instant::now() + Duration::from_secs(12);
+    let cancellation = tokio_util::sync::CancellationToken::new();
     let (outgoing, incoming) = tokio::join!(
-        client.connect(server.addr(), ADMISSION_REQUEST_ALPN),
-        async { server.accept().await.unwrap().await }
+        client_coordinator.connect(
+            server.addr(),
+            SessionPurpose::AdmissionRequest,
+            AttemptContext::new(deadline, cancellation.clone()),
+        ),
+        async {
+            let incoming = server.endpoint().accept().await.unwrap();
+            server_coordinator
+                .accept(
+                    incoming,
+                    SessionPurpose::AdmissionRequest,
+                    AttemptContext::new(deadline, cancellation),
+                )
+                .await
+        }
     );
     let outgoing = outgoing.unwrap();
     let incoming = incoming.unwrap();
@@ -84,14 +106,14 @@ async fn admit(admin: &mut NativeNetwork, directory: &std::path::Path) -> Native
         let ManualExchange::Materials(material) =
             member.request_manual_admission(&outgoing).await.unwrap()
         else {
-            panic!("approved material required")
+            panic!("approved materials required");
         };
         member.complete_manual_admission(material).await.unwrap();
     };
     let (_, served) = tokio::join!(receive, admin.serve_manual_admission(&incoming));
     served.unwrap();
-    outgoing.close(0u32.into(), b"admitted");
-    incoming.close(0u32.into(), b"admitted");
+    outgoing.close(0u32.into(), b"owned admission complete");
+    incoming.close(0u32.into(), b"owned admission complete");
     client.close().await;
     server.close().await;
     member

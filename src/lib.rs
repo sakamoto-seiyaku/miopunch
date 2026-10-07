@@ -8,6 +8,7 @@ pub mod admission_rotation;
 mod android_desktop_cli;
 #[cfg(target_os = "android")]
 mod android_shell;
+mod connection_budget;
 pub mod connection_coordinator;
 pub mod connection_recovery;
 mod connection_recovery_core;
@@ -47,6 +48,7 @@ pub mod tcp_transport;
 
 pub mod network_maintenance;
 pub mod network_recovery;
+pub(crate) mod session_maintenance;
 
 pub mod management_record;
 mod replica_snapshot;

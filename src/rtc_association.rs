@@ -31,8 +31,8 @@ pub fn datagram_channel_parameters() -> serde_json::Value {
     profile
 }
 
-/// One monotonic deadline for the entire attempt. The diagnostic cap never
-/// extends a caller's existing 12/10/2 second budget.
+/// One monotonic deadline for the entire attempt. The shared connection cap
+/// never extends an explicit shorter caller deadline.
 #[derive(Clone, Copy, Debug)]
 pub struct RtcDeadline {
     started: n0_future::time::Instant,
@@ -43,7 +43,7 @@ impl RtcDeadline {
         let started = n0_future::time::Instant::now();
         Self {
             started,
-            deadline: deadline.min(started + std::time::Duration::from_secs(45)),
+            deadline: deadline.min(started + crate::connection_budget::MAX),
         }
     }
     pub fn remaining(&self) -> std::io::Result<std::time::Duration> {

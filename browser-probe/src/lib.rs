@@ -1,3 +1,5 @@
+#[path = "../../src/connection_budget.rs"]
+mod connection_budget;
 #[path = "../../src/connection_coordinator.rs"]
 pub mod connection_coordinator;
 mod custom_datagram;
@@ -19,12 +21,17 @@ pub mod irc_datagram;
 #[path = "../../src/management_auth.rs"]
 #[allow(dead_code)] // Durable native-store helpers are outside this platform adapter.
 pub mod management_auth;
+mod member_data;
 #[path = "../../src/member_path_protocol.rs"]
 pub mod member_path_protocol;
 mod mqtt;
 #[path = "../../src/mqtt_datagram.rs"]
 pub mod mqtt_datagram;
 mod network;
+#[path = "../../src/path_selection.rs"]
+mod path_selection;
+#[path = "../../src/session_maintenance.rs"]
+pub(crate) mod session_maintenance;
 pub use mqtt::BrowserMqttDatagram;
 pub use network::{BrowserMemberAcceptAttempt, BrowserMemberConnection, BrowserNetwork};
 

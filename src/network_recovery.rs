@@ -104,10 +104,11 @@ impl NativeNetwork {
             let gate = self.gate.clone();
             let scope = self.scope.clone();
             async move {
+                let origin = crate::resources::resource_origin(resource.as_str())?;
                 let service = mqtt_transport::service_tag(&resource).ok()?;
                 let broker = broker_address(&resource).await.ok()?;
                 let current_scope = scope.clone();
-                mqtt_discovery::respond_live(broker, scope, move || {
+                let responder = mqtt_discovery::respond_live(broker, scope, move || {
                     if !gate.discovery_current(&current_scope) {
                         return None;
                     }
@@ -127,10 +128,11 @@ impl NativeNetwork {
                     })
                 })
                 .await
-                .ok()
+                .ok()?;
+                Some((origin, responder))
             }
         });
-        resources.responders.extend(
+        resources.add_recovery_responders(
             futures_util::future::join_all(starts)
                 .await
                 .into_iter()

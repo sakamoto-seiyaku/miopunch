@@ -2,7 +2,12 @@
 //! their purpose and original clock; TLS classification never runs gate hooks.
 use super::*;
 use futures_util::{FutureExt, StreamExt, stream::FuturesUnordered};
-use std::{cell::RefCell, collections::VecDeque, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    collections::VecDeque,
+    pin::Pin,
+    rc::Rc,
+};
 use tokio::sync::{Notify, oneshot};
 
 struct Waiter {
@@ -21,6 +26,20 @@ struct State {
     stopped: std::cell::Cell<bool>,
     changed: Notify,
     joined: Notify,
+    active: RefCell<Option<ActiveRoute>>,
+    active_in_flight: Cell<usize>,
+}
+
+#[derive(Clone)]
+struct ActiveRoute {
+    alpn: Vec<u8>,
+    budget: Rc<dyn Fn() -> Duration>,
+    handler: Rc<
+        dyn Fn(
+            iroh::endpoint::Accepting,
+            n0_future::time::Instant,
+        ) -> Pin<Box<dyn std::future::Future<Output = ()>>>,
+    >,
 }
 
 pub(super) struct IncomingDispatcher {
@@ -39,10 +58,29 @@ struct Registration {
     id: u64,
 }
 
+struct ActiveHandler(Rc<State>);
+impl Drop for ActiveHandler {
+    fn drop(&mut self) {
+        self.0.active_in_flight.set(0);
+        self.0.changed.notify_one();
+    }
+}
+
 enum Event {
     Closed,
     Changed,
-    Classified(Option<Result<(Vec<u8>, iroh::endpoint::Accepting), JsValue>>),
+    Classified(
+        Option<
+            Result<
+                (
+                    Vec<u8>,
+                    iroh::endpoint::Accepting,
+                    Option<n0_future::time::Instant>,
+                ),
+                JsValue,
+            >,
+        >,
+    ),
     Incoming(Option<iroh::endpoint::Incoming>),
 }
 
@@ -74,14 +112,27 @@ impl IncomingDispatcher {
                         && waiter.attempt.deadline > now
                 });
                 let waiting = state.waiters.borrow().len();
-                if waiting == 0 {
+                let active_route = state.active.borrow().is_some();
+                // An installed active route owns incoming classification even
+                // while no foreground operation is waiting. Retiring the
+                // pending TLS futures here would drop an active-control C
+                // that has already reached this one dispatcher.
+                if waiting == 0 && !active_route {
                     classifications.clear();
                 }
                 state.pending_tls.set(classifications.len());
                 let event = {
                     let changed = state.changed.notified().fuse();
                     let stopped = cancel.cancelled().fuse();
-                    let accept_more = classifications.len() < waiting;
+                    // Keep one active-control classification/handler owned by
+                    // this dispatcher. Foreground callers still contribute
+                    // one bounded classification each, but an installed
+                    // route cannot turn endpoint.accept() into an unbounded
+                    // queue when no foreground waiter exists.
+                    let active_capacity =
+                        usize::from(active_route && state.active_in_flight.get() == 0);
+                    let accept_more =
+                        classifications.len() < waiting.saturating_add(active_capacity);
                     let accepting = async {
                         if accept_more {
                             endpoint.accept().await
@@ -110,7 +161,7 @@ impl IncomingDispatcher {
                     Event::Closed => break,
                     Event::Changed => continue,
                     Event::Classified(item) => {
-                        if let Some(Ok((alpn, accepting))) = item {
+                        if let Some(Ok((alpn, accepting, active_deadline))) = item {
                             let waiter = {
                                 let mut waiters = state.waiters.borrow_mut();
                                 waiters
@@ -121,6 +172,36 @@ impl IncomingDispatcher {
                             if let Some(waiter) = waiter {
                                 // Dropping the receiver on cancellation drops this exact raw M.
                                 let _ = waiter.sender.send(accepting);
+                            } else if let Some(route) = state
+                                .active
+                                .borrow()
+                                .as_ref()
+                                .filter(|route| route.alpn == alpn)
+                                .cloned()
+                            {
+                                if state.active_in_flight.get() != 0 {
+                                    state.rejected.set(state.rejected.get() + 1);
+                                    continue;
+                                }
+                                let Some(deadline) = active_deadline else {
+                                    state.rejected.set(state.rejected.get() + 1);
+                                    continue;
+                                };
+                                state.active_in_flight.set(1);
+                                let route_owner = ActiveHandler(state.clone());
+                                let route_cancel = cancel.clone();
+                                wasm_bindgen_futures::spawn_local(async move {
+                                    // Declared before work: its Drop publishes completion only
+                                    // after the handler's C/candidate future has been dropped.
+                                    let _owner = route_owner;
+                                    let work = (route.handler)(accepting, deadline).fuse();
+                                    let stopped = route_cancel.cancelled().fuse();
+                                    futures_util::pin_mut!(work, stopped);
+                                    futures_util::select_biased! {
+                                        _ = stopped => {},
+                                        _ = work => {},
+                                    }
+                                });
                             } else {
                                 state.rejected.set(state.rejected.get() + 1);
                             }
@@ -140,9 +221,24 @@ impl IncomingDispatcher {
                             .iter()
                             .map(|waiter| waiter.attempt.deadline)
                             .max();
-                        if let Some(deadline) = deadline {
+                        let active_deadline = state
+                            .active
+                            .borrow()
+                            .as_ref()
+                            .map(|route| incoming.received_at() + (route.budget)());
+                        let deadline = deadline
+                            .into_iter()
+                            .chain(active_deadline)
+                            .max()
+                            .unwrap_or_else(|| {
+                                n0_future::time::Instant::now() + crate::connection_budget::DEFAULT
+                            });
+                        if state.active.borrow().is_some() || waiting > 0 {
                             classifications.push(async move {
-                                let mut accepting = incoming.accept().map_err(error)?;
+                                let mut accepting = incoming
+                                    .accept()
+                                    .map_err(error)?
+                                    .with_caller_deadline(deadline);
                                 let alpn = n0_future::time::timeout(
                                     deadline
                                         .saturating_duration_since(n0_future::time::Instant::now()),
@@ -151,7 +247,7 @@ impl IncomingDispatcher {
                                 .await
                                 .map_err(error)?
                                 .map_err(error)?;
-                                Ok::<_, JsValue>((alpn, accepting))
+                                Ok::<_, JsValue>((alpn, accepting, active_deadline))
                             });
                         } else {
                             incoming.refuse();
@@ -162,6 +258,14 @@ impl IncomingDispatcher {
             classifications.clear();
             state.waiters.borrow_mut().clear();
             state.pending_tls.set(0);
+            cancel.cancel();
+            while state.active_in_flight.get() != 0 {
+                let changed = state.changed.notified();
+                if state.active_in_flight.get() == 0 {
+                    break;
+                }
+                changed.await;
+            }
             state.stopped.set(true);
             state.joined.notify_waiters();
         });
@@ -210,6 +314,21 @@ impl IncomingDispatcher {
         self.cancel.cancel();
     }
 
+    pub(super) fn install_active<B, F, Fut>(&self, alpn: &[u8], budget: B, handler: F)
+    where
+        B: Fn() -> Duration + 'static,
+        F: Fn(iroh::endpoint::Accepting, n0_future::time::Instant) -> Fut + 'static,
+        Fut: std::future::Future<Output = ()> + 'static,
+    {
+        let route = ActiveRoute {
+            alpn: alpn.to_vec(),
+            budget: Rc::new(budget),
+            handler: Rc::new(move |accepting, deadline| Box::pin(handler(accepting, deadline))),
+        };
+        *self.state.active.borrow_mut() = Some(route);
+        self.state.changed.notify_one();
+    }
+
     pub(super) async fn stopped(&self) {
         loop {
             let joined = self.state.joined.notified();
@@ -222,7 +341,8 @@ impl IncomingDispatcher {
 
     pub(super) fn diagnostics(&self) -> serde_json::Value {
         serde_json::json!({"pendingWaiters":self.state.waiters.borrow().len(),
-            "pendingTls":self.state.pending_tls.get(),"rejectedIncoming":self.state.rejected.get(),
+            "pendingTls":self.state.pending_tls.get(),"activeInFlight":self.state.active_in_flight.get(),
+            "rejectedIncoming":self.state.rejected.get(),
             "dispatcherStopped":self.state.stopped.get()})
     }
 }

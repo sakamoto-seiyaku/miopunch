@@ -30,9 +30,25 @@ async fn admitted_pair() -> (tempfile::TempDir, NativeNetwork, NativeNetwork) {
     }
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let be = b.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = tokio::join!(be.connect(ae.addr(), ADMISSION_REQUEST_ALPN), async {
-        ae.accept().await.unwrap().await
-    });
+    // Both sides consume the same original setup caller context required by
+    // the unified restricted admission protocol; no stage restarts this clock.
+    let deadline = n0_future::time::Instant::now() + Duration::from_secs(5);
+    let options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
+    let (client, server) = tokio::join!(
+        async {
+            be.connect_with_opts(ae.addr(), ADMISSION_REQUEST_ALPN, options)
+                .await
+                .unwrap()
+                .await
+        },
+        async {
+            ae.accept()
+                .await
+                .unwrap()
+                .with_caller_deadline(deadline)
+                .await
+        }
+    );
     let (client, server) = (client.unwrap(), server.unwrap());
     let (request, served) = tokio::join!(
         b.request_manual_admission(&client),
@@ -1176,8 +1192,15 @@ async fn cancel_or_timeout_after_real_rtc_answer_retires_candidate_and_late_answ
         peer_connection::{PeerConnection, PeerConnectionBuilder},
     };
     let (_directory, a, b) = admitted_pair().await;
+    // Install the real RTC carrier before creating the healthy M. Adding a
+    // carrier later intentionally retires old Member sessions in AdmissionGate.
     let ae = a
-        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .bind_configured_endpoint_with_rtc(
+            Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
+                .unwrap(),
+            miopunch_native_probe::rtc_transport::RtcTransport::new(),
+        )
         .await
         .unwrap();
     let be = b
@@ -1518,4 +1541,262 @@ async fn contact_override_cannot_borrow_another_facility_permission_at_same_nati
     );
     assert!(allowed_b_ready && b_retired.late_empty && udp_released_after_b);
     assert!(unmapped_raw_ready && raw_retired.late_empty && raw_denied);
+}
+
+#[path = "support/relay_contact_broker.rs"]
+mod relay_contact_broker;
+
+#[tokio::test]
+async fn late_home_relay_connection_after_mqtt_ready_preserves_the_same_sdk_member() {
+    use miopunch_native_probe::{
+        mqtt_transport::{MqttTransport, Traffic},
+        resources::{Resource, ResourceUse},
+    };
+    use n0_watcher::Watcher;
+    use std::collections::BTreeSet;
+    let mut outcomes = Vec::new();
+    for cold in [false, true] {
+        let (_directory, a, b) = admitted_pair().await;
+        let broker = relay_contact_broker::Broker::new().await;
+        let mut relay_config = iroh_relay::server::ServerConfig::default();
+        relay_config.relay = Some(iroh_relay::server::RelayConfig::new((
+            Ipv4Addr::LOCALHOST,
+            0,
+        )));
+        let relay = iroh_relay::server::Server::spawn(relay_config)
+            .await
+            .unwrap();
+        let backend = relay.http_url().unwrap();
+        let gate = relay_contact_broker::RelayGate::new(
+            (Ipv4Addr::LOCALHOST, backend.port().unwrap()).into(),
+        )
+        .await;
+        let relay_url: iroh::RelayUrl = format!("http://{}/", gate.address).parse().unwrap();
+        for node in [&a, &b] {
+            let mut config = node.resource_configuration().unwrap();
+            config.replacement = Some(vec![
+                Resource {
+                    url: format!("mqtt://{}/", broker.address),
+                    uses: BTreeSet::from([ResourceUse::Signaling]),
+                    limitation: "owned routed MQTT SDK fault fixture".into(),
+                },
+                Resource {
+                    url: relay_url.to_string(),
+                    uses: BTreeSet::from([ResourceUse::DataRelay]),
+                    limitation: "owned actual Iroh relay timing fixture".into(),
+                },
+            ]);
+            config.udp_direct_disabled = true;
+            config.tcp_direct_disabled = true;
+            config.member_data_relay_disabled = true;
+            config.disabled_uses.insert(ResourceUse::Observation);
+            node.save_resource_configuration(&config).unwrap();
+        }
+        let bt = Arc::new(MqttTransport::new(
+            broker.address,
+            Arc::new(Traffic::default()),
+        ));
+        let capture = Arc::new(Mutex::new(None));
+        let be = b
+            .bind_configured_endpoint_with_contact(
+                Endpoint::builder(iroh::endpoint::presets::Minimal)
+                    .hooks(CaptureRestrictedConnection(capture.clone())),
+                bt.clone(),
+            )
+            .await
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(2), bt.wait_ready())
+            .await
+            .unwrap()
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(2), be.endpoint().online())
+            .await
+            .unwrap();
+        if cold {
+            gate.hold_new();
+        }
+        let at = Arc::new(MqttTransport::new(
+            broker.address,
+            Arc::new(Traffic::default()),
+        ));
+        let ae = a
+            .bind_configured_endpoint_with_contact(
+                Endpoint::builder(iroh::endpoint::presets::Minimal),
+                at.clone(),
+            )
+            .await
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(2), at.wait_ready())
+            .await
+            .unwrap()
+            .unwrap();
+        if !cold {
+            tokio::time::timeout(Duration::from_secs(2), ae.endpoint().online())
+                .await
+                .unwrap();
+        }
+        let a_initial = ae.endpoint().addr().relay_urls().count();
+        let b_initial = be.endpoint().addr().relay_urls().count();
+        let initial_connected = [ae.endpoint(), be.endpoint()].map(|endpoint| {
+            endpoint
+                .home_relay_status()
+                .get()
+                .iter()
+                .any(|status| status.is_connected())
+        });
+        let no_ip_sockets =
+            ae.endpoint().bound_sockets().is_empty() && be.endpoint().bound_sockets().is_empty();
+        let fixture_matched =
+            a_initial == 1 && b_initial == 1 && initial_connected == [!cold, true] && no_ip_sockets;
+        let target =
+            iroh::EndpointAddr::new(be.endpoint().id()).with_addrs([iroh::TransportAddr::Custom(
+                MqttTransport::address(&bt.route().unwrap()).unwrap(),
+            )]);
+        let started = std::time::Instant::now();
+        let deadline = n0_future::time::Instant::now() + Duration::from_secs(2);
+        let release = async {
+            if cold {
+                let _ = tokio::time::timeout(Duration::from_secs(1), async {
+                    while capture.lock().unwrap().is_none() {
+                        tokio::time::sleep(Duration::from_millis(2)).await;
+                    }
+                })
+                .await;
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                gate.release();
+            }
+        };
+        let coordinator_a = ae.coordinator();
+        let coordinator_b = be.coordinator();
+        let (outgoing, incoming, _) = tokio::join!(
+            coordinator_a.connect(
+                target,
+                SessionPurpose::MemberBusiness,
+                AttemptContext::new(deadline, tokio_util::sync::CancellationToken::new())
+            ),
+            async {
+                let incoming = tokio::time::timeout(Duration::from_secs(2), be.endpoint().accept())
+                    .await
+                    .map_err(|_| ConnectError::DeadlineExceeded)?
+                    .ok_or(ConnectError::DataPathUnavailable)?;
+                coordinator_b
+                    .accept(
+                        incoming,
+                        SessionPurpose::MemberBusiness,
+                        AttemptContext::new(deadline, tokio_util::sync::CancellationToken::new()),
+                    )
+                    .await
+            },
+            release,
+        );
+        let caller_ms = started.elapsed().as_millis();
+        let success = outgoing.is_ok() && incoming.is_ok();
+        let mut matched = false;
+        let mut selected_relay = false;
+        let mut gate_checked = false;
+        if let (Ok(outgoing), Ok(incoming)) = (&outgoing, &incoming) {
+            streams(outgoing, incoming).await;
+            matched = outgoing.remote_id().as_bytes() == b.status().node_id.as_bytes()
+                && incoming.remote_id().as_bytes() == a.status().node_id.as_bytes();
+            selected_relay = [outgoing, incoming].iter().all(|connection| {
+                connection
+                    .paths()
+                    .iter()
+                    .any(|path| path.is_selected() && path.is_relay())
+            });
+            gate_checked = a.admission_gate().allows(outgoing, ProtocolScope::Member)
+                && b.admission_gate().allows(incoming, ProtocolScope::Member);
+            outgoing.close(0u32.into(), b"owned relay regression finished");
+            incoming.close(0u32.into(), b"owned relay regression finished");
+        }
+        println!(
+            "{}",
+            serde_json::json!({"event":"cold-relay-sdk-result","scope":"two reopened native SDK members with owned MQTT and actual Iroh relay; no browser/public claim","coldHome":cold,"initialHomeCounts":[a_initial,b_initial],"initialHomeConnected":initial_connected,"noIpObservationSockets":no_ip_sockets,"fixtureMatched":fixture_matched,"endHomeCounts":[ae.endpoint().addr().relay_urls().count(),be.endpoint().addr().relay_urls().count()],"memberHandlesReturned":success,"identityMatched":matched,"gateChecked":gate_checked,"selectedRelay":selected_relay,"callerMs":caller_ms,"callerBudgetMs":2000,"clientError":outgoing.as_ref().err().map(ToString::to_string),"serverError":incoming.as_ref().err().map(ToString::to_string)})
+        );
+        drop((outgoing, incoming));
+        capture.lock().unwrap().take();
+        let cleanup = std::time::Instant::now();
+        tokio::join!(ae.close(), be.close());
+        let (driver_a, driver_b) = tokio::join!(at.wait_driver_closed(), bt.wait_driver_closed());
+        driver_a.unwrap();
+        driver_b.unwrap();
+        tokio::join!(a.close(), b.close());
+        let retirement = relay_contact_broker::retired(&broker, &gate).await;
+        let driver_zero = at.traffic().snapshot()["driver_active"] == 0
+            && bt.traffic().snapshot()["driver_active"] == 0;
+        println!(
+            "{}",
+            serde_json::json!({"event":"cold-relay-sdk-cleanup","coldHome":cold,"cleanupMs":cleanup.elapsed().as_millis(),"socketsImmediateEmpty":retirement.0,"socketSettleMs":retirement.1,"socketsLateEmpty":retirement.2,"driversZero":driver_zero,"forced":false})
+        );
+        gate.close().await;
+        broker.close().await;
+        relay.shutdown().await.unwrap();
+        outcomes.push((
+            cold,
+            success
+                && matched
+                && selected_relay
+                && gate_checked
+                && retirement.2
+                && driver_zero
+                && fixture_matched,
+        ));
+    }
+    assert!(
+        outcomes.iter().all(|(_, passed)| *passed),
+        "a relay becoming available within the original caller budget must retain the original SDK member: {outcomes:?}"
+    );
+}
+
+#[tokio::test]
+async fn incoming_receipt_clock_survives_alpn_classification_and_reaches_admission_hook() {
+    #[derive(Debug)]
+    struct ClockHook(Arc<Mutex<Option<n0_future::time::Instant>>>);
+    impl EndpointHooks for ClockHook {
+        async fn after_handshake(
+            &self,
+            connection: &Connection,
+        ) -> iroh::endpoint::AfterHandshakeOutcome {
+            *self.0.lock().unwrap() = connection.caller_deadline();
+            iroh::endpoint::AfterHandshakeOutcome::AcceptRestricted
+        }
+    }
+    const ALPN: &[u8] = b"mio77/incoming-clock-unit/1";
+    let observed = Arc::new(Mutex::new(None));
+    let client = Endpoint::builder(iroh::endpoint::presets::Minimal)
+        .bind_addr((Ipv4Addr::LOCALHOST, 0))
+        .unwrap()
+        .clear_relay_transports()
+        .bind()
+        .await
+        .unwrap();
+    let server = Endpoint::builder(iroh::endpoint::presets::Minimal)
+        .bind_addr((Ipv4Addr::LOCALHOST, 0))
+        .unwrap()
+        .clear_relay_transports()
+        .alpns(vec![ALPN.to_vec()])
+        .admission_gate(ClockHook(observed.clone()))
+        .bind()
+        .await
+        .unwrap();
+    let expected = Arc::new(Mutex::new(None));
+    let captured = expected.clone();
+    let (outgoing, incoming) = tokio::join!(client.connect(server.addr(), ALPN), async {
+        let incoming = server.accept().await.unwrap();
+        let received = incoming.received_at();
+        let deadline = received + Duration::from_secs(5);
+        *captured.lock().unwrap() = Some(deadline);
+        let mut accepting = incoming.with_caller_deadline(deadline).accept().unwrap();
+        assert_eq!(accepting.received_at(), received);
+        assert_eq!(accepting.alpn().await.unwrap(), ALPN);
+        assert_eq!(accepting.received_at(), received);
+        let connection = accepting.await.unwrap();
+        assert_eq!(connection.caller_deadline(), Some(deadline));
+        connection
+    });
+    let outgoing = outgoing.unwrap();
+    assert_eq!(*observed.lock().unwrap(), *expected.lock().unwrap());
+    outgoing.close(0u32.into(), b"clock fixture ended");
+    incoming.close(0u32.into(), b"clock fixture ended");
+    tokio::join!(client.close(), server.close());
 }
