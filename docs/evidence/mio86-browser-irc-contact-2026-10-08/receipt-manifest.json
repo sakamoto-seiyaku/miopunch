@@ -1,0 +1,90 @@
+{
+  "baseCommit": "62d423252c785d20a1c314e596c7c0e55fbd299f",
+  "productSourcePaths": [
+    "browser-probe/src/network.rs"
+  ],
+  "productSourceChanges": "installed IRC transport ID added to the same coordinator contact registry as MQTT; no protocol/profile/default changes",
+  "sdkSnapshotDigest": "41b74b1db7d058e1a40efaa28ede74affd796ab4b4b55abd9a97e0526ce109bb",
+  "sdkModuleGraphReusedNative": true,
+  "privateRuntimeRoots": {
+    "beforeFix": "/tmp/mio84-current-public-irc-60-root-20261008",
+    "afterFixOriginalProfile": "/tmp/mio86-current-public-irc-contact-green-root-20261008",
+    "queue5sDiagnostic": "/tmp/mio86-current-public-irc-queue5s-root-20261008",
+    "ownedRegressions": "/tmp/mio86-owned-contact-regressions-root-20261008",
+    "disabledFinal": "/tmp/mio86-disabled-contact-final-root-20261008"
+  },
+  "privateEvidencePins": {
+    "/tmp/mio84-current-public-irc-60-root-20261008/execute.py": "047e84b94739db273da17a86fd92b9c55261a0d61e0cc690031535e3a83d1573",
+    "/tmp/mio84-current-public-irc-60-root-20261008/run.mjs": "8f1f216a23509197048d40a47f41a2d6f125ce544112e2a0b4ca85c9d0678824",
+    "/tmp/mio84-current-public-irc-60-root-20261008/context.json": "27aa9922b919c344adbee1c2e479643456bed36521593bab5f617b7e8c67078b",
+    "/tmp/mio84-current-public-irc-60-root-20261008/public-payload-scope.json": "cb6f571cc78d130c5b7ab79492ecf30aaba26490ece2e5fc4fdaa221d9736e72",
+    "/tmp/mio84-current-public-irc-60-root-20261008/execution-preconditions.json": "da0fe963a3990dc55439d04ce21f551967ac19a5dd158b1bbb093bbcbb711b0c",
+    "/tmp/mio84-current-public-irc-60-root-20261008/execution.json": "1f26ac91fe083f4eb08dc9fe23eb8f181de42b4322024d1cda1e74c47e921133",
+    "/tmp/mio84-current-public-irc-60-root-20261008/runtime/private-runtime-receipt.json": "5ea07cfe139b05a6c813f9244ad14578dc61df734a2dd47796420841a1048886",
+    "/tmp/mio86-current-public-irc-contact-green-root-20261008/execute.py": "989f63ccdf1e745e2a7f3467f2ad1dd171030d1a704fa8635767ba14d6c66ac0",
+    "/tmp/mio86-current-public-irc-contact-green-root-20261008/run.mjs": "ac783ebea06290470f052d2aaaa7b908c9b08f7440c560b82eb5d49a5c757b75",
+    "/tmp/mio86-current-public-irc-contact-green-root-20261008/context.json": "cd1e2b1e12eeb647bd1c53ff69ebf396b2ba1847e960205ff80398056390bd5f",
+    "/tmp/mio86-current-public-irc-contact-green-root-20261008/public-payload-scope.json": "b135d56168ec4f90a209ab0b12c039efe52fb90cc762f2361532624866b57819",
+    "/tmp/mio86-current-public-irc-contact-green-root-20261008/execution-preconditions.json": "76ec45dab5d4523daf5280aad7886a65d128cc7bf19d84248af8ca3c1af37e5b",
+    "/tmp/mio86-current-public-irc-contact-green-root-20261008/execution.json": "0adee7bcbf5612d6260872033724a108cbcf34db34145ec034c32a8e02575f6e",
+    "/tmp/mio86-current-public-irc-contact-green-root-20261008/runtime/private-runtime-receipt.json": "5f24819e3658fca15307d41d078fd091bb3648eb7b1ab88ff6047c81ab7be0c0",
+    "/tmp/mio86-current-public-irc-queue5s-root-20261008/execute.py": "989f63ccdf1e745e2a7f3467f2ad1dd171030d1a704fa8635767ba14d6c66ac0",
+    "/tmp/mio86-current-public-irc-queue5s-root-20261008/run.mjs": "f502aebd1c62dbeebd2350675c1338758e42716ed4dbfbd99a3098dfde507da8",
+    "/tmp/mio86-current-public-irc-queue5s-root-20261008/context.json": "cd1e2b1e12eeb647bd1c53ff69ebf396b2ba1847e960205ff80398056390bd5f",
+    "/tmp/mio86-current-public-irc-queue5s-root-20261008/public-payload-scope.json": "326149101a204ba2e9794abed45354a7e2f9d885b55a49ab1e41925c41866486",
+    "/tmp/mio86-current-public-irc-queue5s-root-20261008/execution-preconditions.json": "88ef1540b5c5ac241b17fa1e8bd6973d2ed72fc7d15191a1f63b4ec1e30cc4b4",
+    "/tmp/mio86-current-public-irc-queue5s-root-20261008/execution.json": "7ac27b19242fe70df98957dc84fa2a9c0f78d0474ca671e42209c2839474bad8",
+    "/tmp/mio86-current-public-irc-queue5s-root-20261008/runtime/private-runtime-receipt.json": "7a47c99ee95e99c2b90da82783f64387cd6da875661cb4b0d0db7474960cece6",
+    "/tmp/mio86-owned-contact-regressions-root-20261008/execute.py": "1acb5fecaa493d64b46d3cfb545e498ef3ea02c7575bc515d31e35a9be2ec5e3",
+    "/tmp/mio86-owned-contact-regressions-root-20261008/run.mjs": "b1f2ffbcab078fb2bc2d0314b4037f1948e66fb7dce767f83a1835dff52768c3",
+    "/tmp/mio86-owned-contact-regressions-root-20261008/context.json": "cd1e2b1e12eeb647bd1c53ff69ebf396b2ba1847e960205ff80398056390bd5f",
+    "/tmp/mio86-owned-contact-regressions-root-20261008/public-payload-scope.json": "2def1a9c216bb74b39ec6ab162322465bb0658c6930b5f8dd618966ef1258d8e",
+    "/tmp/mio86-owned-contact-regressions-root-20261008/execution-preconditions.json": "c53ab8e99123fa08c8e6c24c1c44e28140e848f34f103d6a790083352c31fb69",
+    "/tmp/mio86-owned-contact-regressions-root-20261008/execution.json": "3942ec30606a0936c648288ddfb88a4255069dfb1430387f72ee41b2afe3a8f3",
+    "/tmp/mio86-owned-contact-regressions-root-20261008/runtime/private-runtime-receipt.json": "cd51cf451ef80afe4b646ade031139ae7e3431a642cc1eb203a75ab49adaa28f",
+    "/tmp/mio86-disabled-contact-final-root-20261008/execute.py": "989f63ccdf1e745e2a7f3467f2ad1dd171030d1a704fa8635767ba14d6c66ac0",
+    "/tmp/mio86-disabled-contact-final-root-20261008/run.mjs": "792030773a772fa3bfb2103f40e403c82b0259bab15cebd98191d134267ae2eb",
+    "/tmp/mio86-disabled-contact-final-root-20261008/context.json": "cd1e2b1e12eeb647bd1c53ff69ebf396b2ba1847e960205ff80398056390bd5f",
+    "/tmp/mio86-disabled-contact-final-root-20261008/public-payload-scope.json": "9bdecb123eb29de49fbc90cdb081c9eb844630f9a53419ab130952afd9c7bbc1",
+    "/tmp/mio86-disabled-contact-final-root-20261008/execution-preconditions.json": "4deae140478db6a5c4f6cd9d57d86337f821e7fd2dea9c9c34d62b60897f1993",
+    "/tmp/mio86-disabled-contact-final-root-20261008/execution.json": "914c00d618adc20a4c8ccf69d6d3a38c043bedfdd268271b41ba0a7abae184e6",
+    "/tmp/mio86-disabled-contact-final-root-20261008/runtime/private-runtime-receipt.json": "f800ea23db82f1ce8bad3e672b7cd9f78fbc680a8ba85805efc7ffb987111d3a",
+    "/tmp/mio86-owned-contact-regressions-root-20261008/runtime/irc/private-runtime-receipt.json": "dc2748115006a478821a268085d90305d31ee615c1858f3f84383141bb3772c9",
+    "/tmp/mio86-owned-contact-regressions-root-20261008/runtime/mqtt/private-runtime-receipt.json": "65603938ca5959818bc4a318063f53fb24a64af30d12ce483417a25f9879c2d6",
+    "/tmp/mio86-browser-irc-contact-fix-root-20261008/build.py": "1bfed905e1df7dcce361f46da97ef4df381a11926ae1e2c469ffe9f45805337c",
+    "/tmp/mio86-browser-irc-contact-fix-root-20261008/context.json": "cd1e2b1e12eeb647bd1c53ff69ebf396b2ba1847e960205ff80398056390bd5f",
+    "/tmp/mio86-browser-irc-contact-fix-root-20261008/wasm/receipt.json": "40c2df297c0985ca99819869c33f5ed92551a16971580a5858d954c9bb18c8df",
+    "/tmp/mio86-browser-irc-contact-fix-root-20261008/wasm/selected-dependency-inputs.json": "983163324e1f3ac9e659ca3b939dbc31b367e2e835c0045ba0cc6e549544e918"
+  },
+  "publishedEvidencePins": {
+    "docs/evidence/mio86-browser-irc-contact-2026-10-08/disabled-boundaries.json": "08896d07ddc854d6aa45ecfc72e8e5d3ed4c90157a3d2addc14f47ae1d5040bf",
+    "docs/evidence/mio86-browser-irc-contact-2026-10-08/build.json": "ecdbcf51478f102ff0437abad6dee5c269878b7788b7f774b4ae0725fb72bc33",
+    "docs/evidence/mio86-browser-irc-contact-2026-10-08/public-qualification.json": "6f7e32982c1bf89e27f271e5f7a85f63805226346afad4e9f6a02e81dac47024",
+    "docs/evidence/mio86-browser-irc-contact-2026-10-08/owned-regressions.json": "6da398a0c9caaba1fc2e91558c6141d29dd9cceea942737e56b8fb67bf9c29f3"
+  },
+  "privateEvidencePreserved": true,
+  "noCurrentPublicIrcBusinessQualification": true,
+  "privacy": "Whitelist exports omit invitations, ephemeral endpoint IDs, QUIC contents, channel tokens, keys, CA private material, SDP, candidates and captures.",
+  "invalidBoundaryChecksPreserved": [
+    {
+      "path": "/tmp/mio86-disabled-contact-boundary-root-20261008",
+      "qualification": false,
+      "note": "Original harness outcome is preserved; early storage or incorrect startup assertions do not qualify policy."
+    },
+    {
+      "path": "/tmp/mio86-disabled-contact-boundary-unsandboxed-root-20261008",
+      "qualification": false,
+      "note": "Original harness outcome is preserved; early storage or incorrect startup assertions do not qualify policy."
+    },
+    {
+      "path": "/tmp/mio86-disabled-contact-secure-origin-root-20261008",
+      "qualification": false,
+      "note": "Original harness outcome is preserved; early storage or incorrect startup assertions do not qualify policy."
+    },
+    {
+      "path": "/tmp/mio86-disabled-contact-origin-diagnostic-root-20261008",
+      "qualification": false,
+      "note": "Original harness outcome is preserved; early storage or incorrect startup assertions do not qualify policy."
+    }
+  ]
+}

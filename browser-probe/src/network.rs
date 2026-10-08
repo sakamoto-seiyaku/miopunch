@@ -2355,14 +2355,17 @@ impl BrowserNetwork {
             let caps = self
                 .gate
                 .capabilities(crate::connection_coordinator::AttemptRole::Initiator);
+            let mut contact_ids = Vec::new();
+            if !self.mqtt.is_empty() {
+                contact_ids.push(crate::mqtt_datagram::TRANSPORT_ID);
+            }
+            if !self.irc.is_empty() {
+                contact_ids.push(crate::irc_datagram::TRANSPORT_ID);
+            }
             let coordinator = crate::connection_coordinator::ConnectionCoordinator::new(
                 self.endpoint.clone(),
                 caps.permitted,
-                if self.mqtt.is_empty() {
-                    vec![]
-                } else {
-                    vec![crate::mqtt_datagram::TRANSPORT_ID]
-                },
+                contact_ids,
             );
             return coordinator
                 .connect_alpn(

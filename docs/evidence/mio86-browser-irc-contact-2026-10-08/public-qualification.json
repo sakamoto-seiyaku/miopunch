@@ -1,0 +1,178 @@
+{
+  "beforeFix": {
+    "profile": {
+      "pacing_ms": 600,
+      "assembly_ttl_ms": 8000,
+      "queue_ttl_ms": 1500,
+      "attempt_ms": 60000
+    },
+    "callerBudgetMs": 60000,
+    "formalBrowserSdk": true,
+    "publicService": "Ergo testnet",
+    "normalHttpsOrigin": true,
+    "pageStatus": 200,
+    "wssStatus": [
+      101
+    ],
+    "callerElapsedMs": 6.799999952316284,
+    "callerResult": null,
+    "callerFailure": "no currently permitted data path",
+    "tlsAuthenticated": false,
+    "expectedContactVerified": false,
+    "gateStage": null,
+    "agreementElapsedMs": null,
+    "currentPurpose2Qualified": false,
+    "businessQualified": false,
+    "browserCarrier": {
+      "accepted_bytes": 0,
+      "received_bytes": 0,
+      "sent_packets": 0,
+      "received_packets": 0,
+      "rejected": 0,
+      "queue_peak": 0,
+      "queue_age_ms": 0,
+      "ready_ms": 1507.5,
+      "withdraw_ms": null,
+      "failure": null
+    },
+    "nativeManualInboxSampled": true,
+    "nativeRequestAccepted": false,
+    "runtimeFirstFailure": null,
+    "cleanup": {
+      "browser": {
+        "sdkStarted": true,
+        "closeReturned": true,
+        "freed": true,
+        "elapsedMs": 9
+      },
+      "websocketsClosedBeforeContext": true,
+      "nativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "ownedBrowserContextClosed": true,
+      "nativeProcessAbsentImmediate": true,
+      "nativeProcessAbsentLate": true,
+      "ownedFixtureRemoved": true
+    },
+    "sourceAndArtifactGuardsPassed": true,
+    "rawRuntimeReceiptSha256": "5ea07cfe139b05a6c813f9244ad14578dc61df734a2dd47796420841a1048886"
+  },
+  "afterFixOriginalProfile": {
+    "profile": {
+      "pacing_ms": 600,
+      "assembly_ttl_ms": 8000,
+      "queue_ttl_ms": 1500,
+      "attempt_ms": 60000
+    },
+    "callerBudgetMs": 60000,
+    "formalBrowserSdk": true,
+    "publicService": "Ergo testnet",
+    "normalHttpsOrigin": true,
+    "pageStatus": 200,
+    "wssStatus": [
+      101
+    ],
+    "callerElapsedMs": 60002,
+    "callerResult": null,
+    "callerFailure": "identity or admission rejected",
+    "tlsAuthenticated": true,
+    "expectedContactVerified": true,
+    "gateStage": "restricted-A",
+    "agreementElapsedMs": 22854,
+    "currentPurpose2Qualified": false,
+    "businessQualified": false,
+    "browserCarrier": {
+      "accepted_bytes": 23256,
+      "received_bytes": 6795,
+      "sent_packets": 39,
+      "received_packets": 33,
+      "rejected": 39,
+      "queue_peak": 14,
+      "queue_age_ms": 936.7000000476836,
+      "ready_ms": 1626,
+      "withdraw_ms": 59971.29999995232,
+      "failure": "JsValue(\"IRC whole attempt deadline\")"
+    },
+    "nativeManualInboxSampled": false,
+    "nativeRequestAccepted": null,
+    "runtimeFirstFailure": {
+      "class": "Error",
+      "message": "Error: owned native exited"
+    },
+    "cleanup": {
+      "browser": {
+        "closeReturned": false,
+        "error": "Error: SDK close local observer timeout"
+      },
+      "websocketsClosedBeforeContext": true,
+      "nativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "ownedBrowserContextClosed": true,
+      "nativeProcessAbsentImmediate": true,
+      "nativeProcessAbsentLate": true,
+      "ownedFixtureRemoved": true
+    },
+    "sourceAndArtifactGuardsPassed": true,
+    "rawRuntimeReceiptSha256": "5f24819e3658fca15307d41d078fd091bb3648eb7b1ab88ff6047c81ab7be0c0"
+  },
+  "queue5sDiagnostic": {
+    "profile": {
+      "pacing_ms": 600,
+      "assembly_ttl_ms": 8000,
+      "queue_ttl_ms": 5000,
+      "attempt_ms": 60000
+    },
+    "callerBudgetMs": 60000,
+    "formalBrowserSdk": true,
+    "publicService": "Ergo testnet",
+    "normalHttpsOrigin": true,
+    "pageStatus": 200,
+    "wssStatus": [
+      101
+    ],
+    "callerElapsedMs": 60001.5,
+    "callerResult": null,
+    "callerFailure": "temporarily unreachable; durable admission progress retained",
+    "tlsAuthenticated": true,
+    "expectedContactVerified": true,
+    "gateStage": "admission-stage-agreement",
+    "agreementElapsedMs": null,
+    "currentPurpose2Qualified": false,
+    "businessQualified": false,
+    "browserCarrier": {
+      "accepted_bytes": 16125,
+      "received_bytes": 5686,
+      "sent_packets": 54,
+      "received_packets": 10,
+      "rejected": 9,
+      "queue_peak": 10,
+      "queue_age_ms": 9.5,
+      "ready_ms": 1497.7000000476835,
+      "withdraw_ms": 59981,
+      "failure": "JsValue(\"IRC whole attempt deadline\")"
+    },
+    "nativeManualInboxSampled": false,
+    "nativeRequestAccepted": null,
+    "runtimeFirstFailure": null,
+    "cleanup": {
+      "browser": {
+        "closeReturned": false,
+        "error": "Error: SDK close local observer timeout"
+      },
+      "websocketsClosedBeforeContext": true,
+      "nativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "ownedBrowserContextClosed": true,
+      "nativeProcessAbsentImmediate": true,
+      "nativeProcessAbsentLate": true,
+      "ownedFixtureRemoved": true
+    },
+    "sourceAndArtifactGuardsPassed": true,
+    "rawRuntimeReceiptSha256": "7a47c99ee95e99c2b90da82783f64387cd6da875661cb4b0d0db7474960cece6"
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "publicTraffic": false,
+  "passed": true,
+  "cases": {
+    "irc": {
+      "runtimeExit": 0,
+      "passed": true,
+      "currentStrictPurpose2Qualified": true,
+      "nativeRequestAccepted": true,
+      "callerElapsedMs": 1216.2999999523163,
+      "requestFailure": null,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 5.700000047683716
+        },
+        "websocketsClosedBeforeContext": true,
+        "nativeExit": {
+          "code": 0,
+          "signal": null
+        },
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    "mqtt": {
+      "runtimeExit": 0,
+      "passed": true,
+      "currentStrictPurpose2Qualified": true,
+      "nativeRequestAccepted": true,
+      "callerElapsedMs": 111.29999995231628,
+      "requestFailure": null,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 3.9000000953674316
+        },
+        "websocketsClosedBeforeContext": true,
+        "nativeExit": {
+          "code": 0,
+          "signal": null
+        },
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedFixtureRemoved": true
+      }
+    }
+  },
+  "cleanup": [
+    {
+      "container": "miopunch-m86-mqtt-1791474372900931434",
+      "removed": true
+    },
+    {
+      "container": "miopunch-m86-irc-1791474372403759519",
+      "removed": true
+    }
+  ],
+  "images": {
+    "ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+    "eclipse-mosquitto:2": "sha256:315e99cbcdc0133a74897e77da0eb7124eec55fc17b617188874e8240738ae39"
+  },
+  "ownedCaSha256": "bdd2c6546e8af8eb5d28114a9a7fa9fd455e385da2a62cede5c1fde931623c12",
+  "sourceAndArtifactGuardsPassed": true,
+  "rawRuntimeReceiptSha256": "cd51cf451ef80afe4b646ade031139ae7e3431a642cc1eb203a75ab49adaa28f"
+}

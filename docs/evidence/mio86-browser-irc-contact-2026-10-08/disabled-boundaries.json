@@ -1,0 +1,53 @@
+{
+  "passed": true,
+  "scope": "formal SDK disabled IRC alias and empty contact boundary; no network permitted",
+  "cases": [
+    {
+      "disabled": "explicit-ergo-public-testnet-qualification",
+      "failure": "temporarily unreachable: no allowed browser relay or MQTT carrier",
+      "phase": "startup",
+      "startupReturned": false,
+      "socketAttempts": 0,
+      "storagePrerequisites": true,
+      "carriers": 0,
+      "closed": true
+    },
+    {
+      "disabled": "ircs://testnet.ergo.chat:6697/",
+      "failure": "temporarily unreachable: no allowed browser relay or MQTT carrier",
+      "phase": "startup",
+      "startupReturned": false,
+      "socketAttempts": 0,
+      "storagePrerequisites": true,
+      "carriers": 0,
+      "closed": true
+    },
+    {
+      "disabled": "wss://testnet.ergo.chat/webirc",
+      "failure": "temporarily unreachable: no allowed browser relay or MQTT carrier",
+      "phase": "startup",
+      "startupReturned": false,
+      "socketAttempts": 0,
+      "storagePrerequisites": true,
+      "carriers": 0,
+      "closed": true
+    },
+    {
+      "disabled": "no configured contacts",
+      "failure": "temporarily unreachable: no allowed browser relay or MQTT carrier",
+      "phase": "startup",
+      "startupReturned": false,
+      "socketAttempts": 0,
+      "storagePrerequisites": true,
+      "carriers": 0,
+      "closed": true
+    }
+  ],
+  "networkAttempts": [],
+  "cleanup": {
+    "ownedBrowserClosed": true,
+    "localServerClosed": true
+  },
+  "sourceAndArtifactGuardsPassed": true,
+  "rawRuntimeReceiptSha256": "f800ea23db82f1ce8bad3e672b7cd9f78fbc680a8ba85805efc7ffb987111d3a"
+}
