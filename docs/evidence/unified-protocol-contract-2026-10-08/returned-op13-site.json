@@ -1087,7 +1087,7 @@
   },
   "physicalWanQualified": true,
   "physicalDataQualified": true,
-  "M82Done": false,
+  "M82Done": true,
   "M84Done": false,
   "qualificationLimit": "One actual selected RTC SDK story on cellular/WiFi qualifies through immutable evidence replay with the corrected collector. Pixel Internet validation stays false. Browser actual socket UID/mark/protect stay unknown. This is a finite observed scene, not a NAT class, success rate, other-direction route proof or universal no-overlay guarantee.",
   "initialSimplifiedValidationSummaryWasIncorrect": true,
@@ -1151,7 +1151,7 @@
     "priorCollectorAllowedConcurrentVpn": true,
     "rustSdkOrWireChanged": false
   },
-  "M82ReadyToClose": true,
+  "M82ReadyToClose": false,
   "collectorSourceChanged": true,
   "newCollectorReviewPending": false,
   "failedNativePairObserverRunsPreserved": [
@@ -1290,5 +1290,17 @@
     "firstReceiptAllocationWitnessCleanupFailurePreserved": true,
     "physicalWanQualified": false,
     "appsInstalledOrNetworkSettingsChanged": false
+  },
+  "trackerClosure": {
+    "receiptSha256": "895b024c7113a3507fdee868c9c09bb2f492b330e9d421b1f5af670f14d0f7f3",
+    "M82Done": true,
+    "M84Done": false,
+    "parent69Done": false,
+    "originalFifteenDone": 14,
+    "originalFifteenRemaining": [
+      84
+    ],
+    "fullBodiesPriorCommentsAndNativeRelationsPreserved": true,
+    "sourceCommit": "71780c063fba2f7cece6fb504867ccdfb3bb07a9"
   }
 }

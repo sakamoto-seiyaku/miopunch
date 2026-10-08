@@ -376,14 +376,13 @@
   "irohOrNoqCoreChanged": false,
   "allUnrelatedProtectedWipFilesUnchanged": 234,
   "fullMatrixQualified": false,
-  "M82Done": false,
+  "M82Done": true,
   "M84Done": false,
   "reviewComplete": true,
   "pendingCases": [
     "Public IRC complete SDK qualification remains unavailable under prior budget",
     "Complete per-case physical matrix remains unfinished; one restored-site RTC story physically qualified",
-    "Two-phone Browser pair unavailable before SDK: OP13 Chrome not installed",
-    "M82 Plane closure pending"
+    "Two-phone Browser pair unavailable before SDK: OP13 Chrome not installed"
   ],
   "recordedSdkSourceEpoch": "Historical first contract, before direct-only release restoration and TCP contact eligibility fix; raw receipts unchanged. Current Native SDK compiled and public runtime pending.",
   "currentSourceHashes": {
@@ -5681,25 +5680,25 @@
   },
   "strictContractSourceCommit": "07d3a62776928a5799747b4dd1b9cb7935931c5c",
   "trackerCompletion": {
-    "receiptSha256": "e151138e917ea8f1361eeebba45228c0b584b503fd0c7c890d417c84fd0860f9",
+    "receiptSha256": "895b024c7113a3507fdee868c9c09bb2f492b330e9d421b1f5af670f14d0f7f3",
     "M85Done": true,
     "M85ActualParent": "MIOPUNCH-84",
-    "M82State": "In Progress",
-    "M82Triage": "ready-for-human",
+    "M82State": "Done",
+    "M82Triage": "none",
     "M84State": "In Progress",
     "parent69State": "In Progress",
     "originalM70Through84Total": 15,
-    "originalM70Through84Done": 13,
+    "originalM70Through84Done": 14,
     "unfinishedOriginalSequences": [
-      82,
       84
     ],
     "previousCommentsBodiesProtectedMetadataAndNativeRelationsPreserved": true,
-    "sourceCommitPushed": false
+    "sourceCommitPushed": false,
+    "previousCompletionReceiptSha256": "e151138e917ea8f1361eeebba45228c0b584b503fd0c7c890d417c84fd0860f9"
   },
   "returnedOp13Site": {
     "file": "returned-op13-site.json",
-    "artifactSha256": "ce5fc3a6900aef95ef2749db1411364d3e39524889035003cb8bc7c8bac5f9a6",
+    "artifactSha256": "ecbd30c405f9862088759228b0cf87909ddedc928fd0ddb9662207bac31bd07f",
     "successfulActualPhoneExecutions": 5,
     "physicalDataQualifiedByCorrectedCollectorReplay": true,
     "physicalWanQualifiedByCorrectedCollectorReplay": true,

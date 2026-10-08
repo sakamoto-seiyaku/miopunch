@@ -2,7 +2,7 @@
 
 2026-10-08. The source contract, eight earlier finite SDK cases and five
 restored OP13/Pixel SDK executions are recorded here. MIOPUNCH-82 environment
-qualification passed collector review and is ready for Plane closure; the complete MIOPUNCH-84
+qualification passed collector review and is Done in Plane; the complete MIOPUNCH-84
 public matrix remains unfinished.
 MIOPUNCH-85 is Done after its local acceptance checks, final source review,
 scoped commit and complete Plane readbacks. Functional success and physical WAN qualification have separate results.
@@ -139,10 +139,10 @@ and identifies the two disclosed environment/public-matrix acceptance gaps. Both
 reviewers were verified as GPT-6.1-sol/high/default; the reviewed Rust source is
 unchanged. The later Python collector fix receives a separate scoped review.
 The optional obsolete `Option<PreparedPath>` result state is parked. Source commit is `07d3a62776928a5799747b4dd1b9cb7935931c5c`, without push.
-M85 is Done under its actual parent M84. M82 is ready for closure after the
-successful independent collector review; its last verified Plane state remains In Progress with
-`ready-for-human`. M84/parent69 remain In Progress. Original M70–84 has
-13 of 15 Done at the last tracker readback, with M82 closure pending and M84 unfinished. The additional M85 fix does not turn
+M85 is Done under its actual parent M84. M82 is Done after
+successful independent collector review and full Plane readbacks. M84/parent69
+remain In Progress. Original M70–84 has
+14 of 15 Done at the current tracker readback, with M84 unfinished. The additional M85 fix does not turn
 the original fifteen into a complete matrix. Plane readbacks preserved prior
 comments, full protected task fields and native relationships.
 
