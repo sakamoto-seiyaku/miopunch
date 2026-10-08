@@ -501,10 +501,15 @@ def _collect_endpoint(endpoint: dict, device: CurrentDevice) -> dict:
         and (item["network"]["defaultTransportCellular"] or item["network"]["defaultTransportWifi"])
     )
     item["network"]["activeNotVpnPhysicalNetwork"] = bool(
-        item["network"]["activeValidatedNetwork"]
+        item["network"]["activeDefaultObserved"]
+        and item["network"]["defaultAgentObserved"]
         and item["network"]["defaultNotVpnCapability"]
-        and (item["network"]["defaultTransportCellular"] or item["network"]["defaultTransportWifi"])
+        and item["network"]["currentVpnAgentCount"] == 0
+        and (item["network"]["defaultTransportCellular"] != item["network"]["defaultTransportWifi"])
     )
+    # Android's Internet validation is retained separately. Physical path
+    # qualification also requires the selected tuple, route and pair evidence
+    # below; a VALIDATED flag alone neither proves nor disproves that path.
     item["network"]["defaultInterfaceNamesPrivate"] = network["interfaces"]
     item["routeFacts"] = {"ipv4RouteRows": len(v4_routes.splitlines()), "ipv6RouteRows": len(v6_routes.splitlines()),
                            "ipv4RuleRows": len(v4_rules.splitlines()), "ipv6RuleRows": len(v6_rules.splitlines())}

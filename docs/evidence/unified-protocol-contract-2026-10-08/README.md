@@ -1,7 +1,9 @@
 # Unified protocol contract evidence
 
-2026-10-08. The source contract and eight finite SDK cases are recorded here.
-MIOPUNCH-82 and the complete MIOPUNCH-84 public matrix remain unfinished.
+2026-10-08. The source contract, eight earlier finite SDK cases and five
+restored OP13/Pixel SDK executions are recorded here. MIOPUNCH-82 environment
+qualification passed collector review and is ready for Plane closure; the complete MIOPUNCH-84
+public matrix remains unfinished.
 MIOPUNCH-85 is Done after its local acceptance checks, final source review,
 scoped commit and complete Plane readbacks. Functional success and physical WAN qualification have separate results.
 
@@ -63,31 +65,64 @@ receipts. Raw captures, temporary identities, private addresses, SDP, credential
 exporters and transcripts stay private. Capturing other traffic on an interface
 is not a claim that all captured traffic belongs to the SDK.
 
-Native→Native public business and its reverse remain unqualified. The actual
-Android shell run reached preparation but normal platform TLS panicked because
-an Android application context was not initialized. Separate Host Native attempts
-had no ready public MQTT contact, including an explicit-facility attempt with TLS
-handshake EOF. The first failed case was inspected before expansion; no reverse
-was promoted or fabricated. These failed runs have verified owned-process and
-capture cleanup, but no successful graceful SDK/socket-release qualification.
+The restored OP13 cellular/Pixel Wi-Fi site now passes five additional current
+SDK executions, with Host providing only assets, wired control and evidence:
 
-Public RTC-disabled relay-only also remains failed: its first run completed
-admission, reopen, nonempty Replica and a relay member gate/fresh ACK, then an
-external observer requested an RTC-only stable-ID field before business. With
-that observer corrected, the next public run returned `connection lost` during
-admission. The separately passing owned-relay case establishes the functional
-semantics and does not turn either public failure into success. IRC's earlier
-full-SDK qualification gap remains; its branch was not expanded. TURN was not
-configured.
+| Restored-site case | Actual result |
+| --- | --- |
+| Browser→Native whole story | 69,782.113 ms. Normal public TLS/WSS, admission/reopen, four verified/saved/applied Replica records with persistence, original-M RTC PING/PONG and removal rejection. |
+| Native→Browser | 44,871.192 ms. Both original-M stream directions, initial/final fresh ACK, saved identities and both 12-second callers pass. |
+| Public RTC-disabled relay-only whole story | 166,848.693 ms across separate SDK operations. Normal public contact and selected public relay, admission/reopen, four-record Replica and original-M PING/PONG pass. RTC candidate/PC/DC creation remains zero. Individual SDK deadlines remain unchanged. |
+| Native OP13→Pixel | 49,893.634 ms including preparation and cleanup; actual original-M native UDP business returns within the 45-second callers. |
+| Native Pixel→OP13 | 45,241.182 ms including preparation and cleanup; reverse original-M native UDP business returns within the 45-second callers. |
 
-Both physical-data and physical-WAN qualification remain false. The Host kernel
-route and owned socket were observed, but its Windows upstream route remains
-unknown. Pixel's selected route was observed on its actual interface, while its
-default Wi-Fi agent was not marked validated and therefore did not meet the full
-non-overlay predicate. The latest complete-story two-end packet correlation is
-false; a historical different-source success is not substituted for it. A real
-different-network, non-overlay site with observed selected data routes is still
-needed; device movement and system network changes are left to its operator.
+Both Native directions retain current gates, expected identities, new protocol,
+fresh ACK and original binding. Natural SDK retirement, immediate/late socket
+release and verified durable material/record reopen pass. Their historical
+control labels `host`/`pixel` identify OP13/Pixel actors in these private runners;
+no Host SDK participant is used. Their own physical-WAN flags remain false:
+these cases do not have selected-tuple two-end packet/route qualification.
+
+Three failed Native-pair observer runs remain preserved. Android `ip -j` emitted
+text; the first observer incorrectly parsed JSON. Next, only the broker URL had
+been saved, so the existing explicit MQTT-facility configuration was applied.
+Finally, the bounded stdout reader stopped after its in-memory retention limit,
+blocking the SDK's pipe; OP13 required forced cleanup while Pixel returned its
+actual 45,013 ms deadline. The corrected private reader drains stdout to bounded
+private files and keeps memory bounded. It then passed both original directions.
+No Rust SDK, transport algorithm or caller budget changed.
+
+The first restored RTC story has physical route corroboration: opposite
+CELLULAR/WIFI defaults, zero current VPN agents, selected nonrelay UDP, exact
+routes to the actual default interfaces, live Native socket/inode/mark ownership,
+and matching two-end selected packet payloads. Full captures match 57 distinct
+Native→Browser and 61 Browser→Native encrypted DTLS application datagrams.
+Encrypted captures do not identify an individual inner STREAM by themselves;
+actual SDK business and unchanged original-M diagnostics supply that evidence.
+
+The original collector conflated Android Internet `VALIDATED` with physical
+non-VPN access. Its offline regressions reproduced both rejection of unvalidated
+physical Wi-Fi and acceptance of concurrent VPN with validated Wi-Fi. The fix
+retains validation independently and requires an observed default agent,
+`NOT_VPN`, exactly one physical transport and zero current VPN agents. All 25
+route checks pass. The selected tuple, route, live ownership/mark, distinct global
+wire addresses and two-end packet gates remain required.
+
+The fixed collector replayed every identical saved live read, with each operation
+bound to its original command, and revalidated the original selected-pair packet
+witness. This reevaluation qualifies physical data and WAN for that single RTC
+story. Original raw receipts, their false flags and captures are unchanged;
+Pixel `defaultValidated=false` remains false. This is offline evidence replay,
+not another SDK execution. Browser socket UID/mark/protect remain unknown.
+[returned-op13-site.json](returned-op13-site.json) records the old and new hashes,
+actual runtimes, cleanup, failure boundaries and qualification scope.
+
+Earlier Android platform-TLS, Host contact and public-relay failures remain
+historical failures. The restored public-relay story qualifies its own selected
+relay behavior, without relabelling earlier runs. IRC's existing full-SDK gap
+remains; that failed branch was not expanded. TURN was not configured. A single
+corroborated scene does not qualify every matrix direction or establish a NAT
+class, success rate or universal no-overlay guarantee.
 
 The user's explicit authorization of any related tests superseded the earlier
 approval blocker. Rejected commands did not start; later accepted executions and
@@ -101,10 +136,26 @@ limits. Twenty-two source paths belong to this change; 234 unrelated pre-existin
 WIP files remain unchanged. [Standards review](standards-review.md) has zero hard findings and one optional
 cleanup suggestion. [Spec review](spec-review.md) has zero required source fixes
 and identifies the two disclosed environment/public-matrix acceptance gaps. Both
-reviewers were verified as GPT-6.1-sol/high/default; no source changed after review.
+reviewers were verified as GPT-6.1-sol/high/default; the reviewed Rust source is
+unchanged. The later Python collector fix receives a separate scoped review.
 The optional obsolete `Option<PreparedPath>` result state is parked. Source commit is `07d3a62776928a5799747b4dd1b9cb7935931c5c`, without push.
-M85 is Done under its actual parent M84; M82 is In Progress with
-`ready-for-human`, and M84/parent69 remain In Progress. Original M70–84 has
-13 of 15 Done, with M82/M84 unfinished. The additional M85 fix does not turn
+M85 is Done under its actual parent M84. M82 is ready for closure after the
+successful independent collector review; its last verified Plane state remains In Progress with
+`ready-for-human`. M84/parent69 remain In Progress. Original M70–84 has
+13 of 15 Done at the last tracker readback, with M82 closure pending and M84 unfinished. The additional M85 fix does not turn
 the original fifteen into a complete matrix. Plane readbacks preserved prior
 comments, full protected task fields and native relationships.
+
+The separate [collector Standards review](op13-collector-standards-review.md)
+has zero hard or heuristic findings. The [collector Spec review](op13-collector-spec-review.md)
+has zero required source fixes and supports M82 closure for the observed scene;
+it retains two M84 gaps. Both reviewers were actually verified as
+GPT-6.1-sol/high/default. Collector and test hashes remain unchanged after review.
+
+An additional two-phone Browser pair stopped before any browser SDK call:
+OP13 has no installed Chrome package or resolvable activity. Its actual exit1
+and first page-launch failure remain. The provisioner naturally closed, owned
+control listeners/reverse forwarding and captures retired. Because neither
+Browser SDK started, the failed observer's missing RTC-allocation cleanup witness
+is preserved and no Browser SDK graceful-close qualification is claimed.
+No application was installed and no system network setting changed.

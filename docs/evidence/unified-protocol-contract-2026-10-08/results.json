@@ -380,10 +380,10 @@
   "M84Done": false,
   "reviewComplete": true,
   "pendingCases": [
-    "Actual distinct physical networks with observed non-overlay upstream and selected data route",
-    "Qualified public Native-to-Native ordinary M/business and reverse; Android shell platform TLS context unavailable, Host public contact failed",
-    "Complete public RTC-disabled relay-only story; current public attempts preserved as failed",
-    "IRC full SDK route remains unqualified from earlier work; corresponding branch not expanded"
+    "Public IRC complete SDK qualification remains unavailable under prior budget",
+    "Complete per-case physical matrix remains unfinished; one restored-site RTC story physically qualified",
+    "Two-phone Browser pair unavailable before SDK: OP13 Chrome not installed",
+    "M82 Plane closure pending"
   ],
   "recordedSdkSourceEpoch": "Historical first contract, before direct-only release restoration and TCP contact eligibility fix; raw receipts unchanged. Current Native SDK compiled and public runtime pending.",
   "currentSourceHashes": {
@@ -662,7 +662,7 @@
   },
   "currentTotalOwnedPathCount": 22,
   "currentWholeSourceDigest": "b63c31238a008b42e1ecc10bb5565bd4deb3d2e78bab0eb979d597a6ca08af7e",
-  "currentRuntimeValidationStatus": "Eight successful finite cases; Native public pair and public relay-only complete story unqualified",
+  "currentRuntimeValidationStatus": "Eight earlier finite cases plus five actual restored OP13/Pixel SDK executions passed; Native pair both directions and public relay-only now functionally pass. One RTC story physically corroborated through corrected collector replay. IRC and full per-case physical matrix remain incomplete.",
   "currentPublicSdkCases": {
     "browserToNativeComplete": {
       "runtimeReceiptSha256": "2e2c5743de65029b3ca0be34ea2a051e48a6a6f475d2f4ca455bb7806b997896",
@@ -5696,5 +5696,31 @@
     ],
     "previousCommentsBodiesProtectedMetadataAndNativeRelationsPreserved": true,
     "sourceCommitPushed": false
+  },
+  "returnedOp13Site": {
+    "file": "returned-op13-site.json",
+    "artifactSha256": "ce5fc3a6900aef95ef2749db1411364d3e39524889035003cb8bc7c8bac5f9a6",
+    "successfulActualPhoneExecutions": 5,
+    "physicalDataQualifiedByCorrectedCollectorReplay": true,
+    "physicalWanQualifiedByCorrectedCollectorReplay": true,
+    "originalReceiptsRetainedUnmodified": true,
+    "rustSdkSourceChanged": false,
+    "collectorSourceChanged": true
+  },
+  "newCollectorReview": {
+    "pending": false,
+    "fixedPoint": "2009be8921acfb39decc14c3c923acec2bdc733d",
+    "sourcePaths": [
+      "scripts/android_pair_route_receipt_current.py",
+      "scripts/test_android_pair_route_receipt_current.py"
+    ],
+    "standardsHardFindings": 0,
+    "standardsHeuristicFindings": 0,
+    "specRequiredSourceFixes": 0,
+    "specAcceptanceGaps": 2,
+    "M82ClosureSupported": true,
+    "modelsAndDefaultTierVerified": true,
+    "reviewedSourceUnchanged": true,
+    "finalMetadataVerified": true
   }
 }

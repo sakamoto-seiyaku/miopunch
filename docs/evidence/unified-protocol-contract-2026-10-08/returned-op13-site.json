@@ -1,0 +1,1294 @@
+{
+  "scope": "restored actual OP13 cellular Native and Pixel WiFi Browser; Host assets/control only; no global network changes",
+  "strictContractSourceCommit": "07d3a62776928a5799747b4dd1b9cb7935931c5c",
+  "rustSdkSourceChanged": false,
+  "protectedWipFilesUnchanged": 234,
+  "actualDevices": [
+    {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": true,
+      "defaultTransportWifi": false,
+      "defaultTransport": "CELLULAR",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0,
+      "defaultInterfaceIpv4Count": 1,
+      "defaultInterfaceGlobalIpv6Count": 1,
+      "tunnelInterfaceCount": 1,
+      "upTunnelInterfaceCount": 0,
+      "addressedTunnelInterfaceCount": 0,
+      "model": "PJZ110",
+      "modelMatched": true,
+      "normalizationOfAdbModelUnderscoreOnly": true,
+      "alwaysOnVpnConfigured": false,
+      "vpnLockdownEnabled": false
+    },
+    {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": false,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": false,
+      "defaultTransportWifi": true,
+      "defaultTransport": "WIFI",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0,
+      "defaultInterfaceIpv4Count": 1,
+      "defaultInterfaceGlobalIpv6Count": 2,
+      "tunnelInterfaceCount": 1,
+      "upTunnelInterfaceCount": 0,
+      "addressedTunnelInterfaceCount": 0,
+      "model": "Pixel_6a",
+      "modelMatched": true,
+      "normalizationOfAdbModelUnderscoreOnly": true,
+      "alwaysOnVpnConfigured": false,
+      "vpnLockdownEnabled": false
+    }
+  ],
+  "normalPublicTls": true,
+  "sameConfiguredStun": true,
+  "turnConfigured": false,
+  "networkSettingsChanged": false,
+  "cases": {
+    "browserToNativeWholeStory": {
+      "runtimeReceiptSha256": "8c3043a8a51366b7d4f488e65cb13efa827245ed6f9c6fa1bd784fda2a3dcd22",
+      "executionReceiptSha256": "6d7fe31e7d82339109998a36342869690e3ef85ab4a5bd28f814695a44d19b6e",
+      "driverSha256": "59ae9dca0153d1ca21e3316a59494645b74bafb9cd2ba6e06ef284aa6a2ef200",
+      "controllerSha256": "22aaad4b6e00641ddd9264199cd2294cb57882394bc5529b2e71c8e2cb9e39e3",
+      "passed": true,
+      "runtimeExit": 0,
+      "sourceAndArtifactGuardsPassed": true,
+      "wholeWallMs": 69782.113,
+      "normalTlsVerified": true,
+      "stages": [
+        {
+          "name": "native-device-selection",
+          "ok": true,
+          "elapsedMs": 50.752
+        },
+        {
+          "name": "owned-native-actor",
+          "ok": true,
+          "elapsedMs": 95.942
+        },
+        {
+          "name": "native-packet-capture-ready",
+          "ok": true,
+          "elapsedMs": 1039.804
+        },
+        {
+          "name": "native-sdk-start",
+          "ok": true,
+          "elapsedMs": 1785.084
+        },
+        {
+          "name": "browser-device-selection",
+          "ok": true,
+          "elapsedMs": 32.447
+        },
+        {
+          "name": "browser-packet-capture-ready",
+          "ok": true,
+          "elapsedMs": 1115.497
+        },
+        {
+          "name": "owned-browser-page",
+          "ok": true,
+          "elapsedMs": 1421.195
+        },
+        {
+          "name": "m82-rtc-observer-ready",
+          "ok": true,
+          "elapsedMs": 100.303
+        },
+        {
+          "name": "m82-admission-fixture-ready",
+          "ok": true,
+          "elapsedMs": 0.045
+        },
+        {
+          "name": "browser-sdk-start",
+          "ok": true,
+          "elapsedMs": 1729.159
+        },
+        {
+          "name": "restricted-admission-request",
+          "ok": true,
+          "elapsedMs": 2814.866
+        },
+        {
+          "name": "native-restricted-admission",
+          "ok": true,
+          "elapsedMs": 0.388
+        },
+        {
+          "name": "different-TLS-identity-claim",
+          "ok": true,
+          "elapsedMs": 3734.895
+        },
+        {
+          "name": "native-TLS-claim-restricted",
+          "ok": true,
+          "elapsedMs": 0.527
+        },
+        {
+          "name": "native-TLS-claim-rejected",
+          "ok": true,
+          "elapsedMs": 0.378
+        },
+        {
+          "name": "unapproved-open_member-rejected",
+          "ok": true,
+          "elapsedMs": 47.595
+        },
+        {
+          "name": "unapproved-sync_replica-rejected",
+          "ok": true,
+          "elapsedMs": 39.266
+        },
+        {
+          "name": "authorization-only-stop",
+          "ok": true,
+          "elapsedMs": 618.735
+        },
+        {
+          "name": "authorization-only-reopen",
+          "ok": true,
+          "elapsedMs": 1547.485
+        },
+        {
+          "name": "complete-reopen-stop",
+          "ok": true,
+          "elapsedMs": 784.397
+        },
+        {
+          "name": "independent-offline-author",
+          "ok": true,
+          "elapsedMs": 634.624
+        },
+        {
+          "name": "saved-provider-retirement",
+          "ok": true,
+          "elapsedMs": 850.973
+        },
+        {
+          "name": "saved-provider-reopen",
+          "ok": true,
+          "elapsedMs": 1774.138
+        },
+        {
+          "name": "complete-reopen",
+          "ok": true,
+          "elapsedMs": 1740.049
+        },
+        {
+          "name": "nonempty-sdk-replica",
+          "ok": true,
+          "elapsedMs": 8887.4
+        },
+        {
+          "name": "sender-durable-replica-receipt",
+          "ok": true,
+          "elapsedMs": 0.728
+        },
+        {
+          "name": "strict-new-replica-purpose",
+          "ok": true,
+          "elapsedMs": 0.053
+        },
+        {
+          "name": "replica-reopen-stop",
+          "ok": true,
+          "elapsedMs": 3490.215
+        },
+        {
+          "name": "replica-reopen",
+          "ok": true,
+          "elapsedMs": 1582.203
+        },
+        {
+          "name": "ordinary-member-open",
+          "ok": true,
+          "elapsedMs": 7116.056
+        },
+        {
+          "name": "native-live-member",
+          "ok": true,
+          "elapsedMs": 2.033
+        },
+        {
+          "name": "native-live-business",
+          "ok": true,
+          "elapsedMs": 1.975
+        },
+        {
+          "name": "ordinary-member-close",
+          "ok": true,
+          "elapsedMs": 113.447
+        },
+        {
+          "name": "actual-current-member-removal",
+          "ok": true,
+          "elapsedMs": 55.232
+        },
+        {
+          "name": "revoked-open_member-rejected",
+          "ok": true,
+          "elapsedMs": 1773.485
+        },
+        {
+          "name": "revoked-sync_replica-rejected",
+          "ok": true,
+          "elapsedMs": 1638.238
+        }
+      ],
+      "replica": {
+        "targetAbsentBefore": true,
+        "targetVerifiedSavedAfter": true,
+        "scopeCount": 4,
+        "savedCount": 4,
+        "appliedCount": 4,
+        "complete": true,
+        "targetVerifiedSavedAfterReopen": true
+      },
+      "wrongTlsClaimRejected": true,
+      "unapprovedDataRejected": true,
+      "revokedDataRejected": true,
+      "browserCleanupSucceeded": true,
+      "nativeCleanupQualified": true,
+      "captureCleanupSucceeded": true,
+      "nativeCompiledSha256": "96e96317c45fb0639e34485e282597f444b278d36e1979ab042fa59ca2d76a4c",
+      "nativeDeployedSha256": "3d237cf14665abe75f6ffa790b6e35cf52d2db80a4f1fa1c8cf349821bff8307",
+      "wasmReceiptSha256": "32e54deeb6b755531c273ff726e7c771006697560b1e3638ba586f439fbbdce6",
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "route": {
+        "receipt": "/tmp/mio82-op13-returned-runtime-root-20261008/runtime/private-route-receipt.json",
+        "commandExit": 0,
+        "endpointCount": 2,
+        "activeValidatedNetworkCount": 1,
+        "activeNotVpnPhysicalNetworkCount": 1,
+        "exactRouteLookupCount": 2,
+        "selectedNonRelayCount": 2,
+        "nativeSocketTupleOwned": true,
+        "nativeMarkObservedAndCorrelated": true,
+        "nativeRouteToActualInterface": true,
+        "browserRouteToActualInterface": true,
+        "distinctAccessNetworksObserved": true,
+        "distinctAccessMethod": "opposite CELLULAR/WIFI defaults and distinct global peer wire addresses",
+        "pairCorrelation": true,
+        "actualSocketUidObservedCount": 0,
+        "actualSocketMarkObservedCount": 1,
+        "physicalDataQualified": false,
+        "physicalWanQualified": false,
+        "routeObservationUnknown": false
+      }
+    },
+    "nativeToBrowser": {
+      "rawReceiptSha256": "f07d4d69ceafb8911178c2040b08d6821fd1c4a07158f9b504a6fdfc54b33cc8",
+      "driverSha256": "cd4a64a30cb8a8a8b675419f4293acc4e4a6b87d8f7d2e2cf10cc648119016d6",
+      "passed": true,
+      "exit": 0,
+      "wholeCaseWallMs": 44871.192,
+      "direction": {
+        "nativeInitiated": true,
+        "currentNewWire": true,
+        "independentPersistedIdentities": true,
+        "expectedPeerMatchedBoth": true,
+        "memberGatesBoth": true,
+        "freshAckBoth": true,
+        "browserInitialFreshAck": true,
+        "browserNewFinalFreshAck": true,
+        "bidirectionalOriginalMStreamsMatched": true,
+        "nativeCallerMs": 8757,
+        "browserCallerMs": 8965.369999885559,
+        "selectedRtcBoth": true,
+        "normalNativeTlsObserved": true
+      },
+      "stages": [
+        {
+          "name": "select-actual-pixel",
+          "ok": true,
+          "wallMs": 32.882
+        },
+        {
+          "name": "capture-native-before-sdk",
+          "ok": true,
+          "wallMs": 1019.33
+        },
+        {
+          "name": "capture-browser-before-sdk",
+          "ok": true,
+          "wallMs": 1047.672
+        },
+        {
+          "name": "owned-native-actor",
+          "ok": true,
+          "wallMs": 136.868
+        },
+        {
+          "name": "native-admission-ready",
+          "ok": true,
+          "wallMs": 1584.801
+        },
+        {
+          "name": "owned-browser-page",
+          "ok": true,
+          "wallMs": 1441.252
+        },
+        {
+          "name": "public-WSS-observer-start",
+          "ok": true,
+          "wallMs": 90.49
+        },
+        {
+          "name": "independent-browser-start",
+          "ok": true,
+          "wallMs": 1768.66
+        },
+        {
+          "name": "actual-admission-request",
+          "ok": true,
+          "wallMs": 5465.335
+        },
+        {
+          "name": "native-approve",
+          "ok": true,
+          "wallMs": 26.486
+        },
+        {
+          "name": "approved-materials",
+          "ok": true,
+          "wallMs": 3540.0
+        },
+        {
+          "name": "save-complete-admission",
+          "ok": true,
+          "wallMs": 1240.138
+        },
+        {
+          "name": "browser-preparation-stop",
+          "ok": true,
+          "wallMs": 930.941
+        },
+        {
+          "name": "native-preparation-stop",
+          "ok": true,
+          "wallMs": 773.665
+        },
+        {
+          "name": "native-saved-reopen",
+          "ok": true,
+          "wallMs": 1338.74
+        },
+        {
+          "name": "browser-saved-reopen",
+          "ok": true,
+          "wallMs": 1767.969
+        },
+        {
+          "name": "browser-original-accept",
+          "ok": true,
+          "wallMs": 78.032
+        },
+        {
+          "name": "native-original-connect",
+          "ok": true,
+          "wallMs": 8760.531
+        },
+        {
+          "name": "browser-serve-native-stream",
+          "ok": true,
+          "wallMs": 15.127
+        },
+        {
+          "name": "native-to-browser-business",
+          "ok": true,
+          "wallMs": 56.882
+        },
+        {
+          "name": "browser-to-native-business",
+          "ok": true,
+          "wallMs": 80.711
+        },
+        {
+          "name": "owned-member-close",
+          "ok": true,
+          "wallMs": 43.601
+        }
+      ],
+      "nativeCleanupQualified": true,
+      "browserCleanupQualified": true,
+      "captureCleanupSucceeded": true,
+      "sourceAndArtifactGuardsPassed": true,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false
+    },
+    "rtcDisabledPublicRelayWholeStory": {
+      "runtimeReceiptSha256": "ced5f768350423bf36d389357d8e7b23c115e21dd2fe1344c18ee4a013ac8708",
+      "executionReceiptSha256": "bdac48f7f5132f2ff5a7b76e3519bc59e55e24804744e2fed27ea9a89a814459",
+      "driverSha256": "d888e6fcb6585361c2ab65fe0c8b004f3e73ab53bb08f0a84c9af447c57fe0b5",
+      "controllerSha256": "14f8556e2ba7636317323aac95ca93d877ed47c2b986f9b7a2b970ffb05d6131",
+      "passed": true,
+      "runtimeExit": 0,
+      "sourceAndArtifactGuardsPassed": true,
+      "wholeWallMs": 166848.693,
+      "normalTlsVerified": true,
+      "stages": [
+        {
+          "name": "native-device-selection",
+          "ok": true,
+          "elapsedMs": 32.853
+        },
+        {
+          "name": "owned-native-actor",
+          "ok": true,
+          "elapsedMs": 106.486
+        },
+        {
+          "name": "native-packet-capture-ready",
+          "ok": true,
+          "elapsedMs": 999.861
+        },
+        {
+          "name": "native-sdk-start",
+          "ok": true,
+          "elapsedMs": 1437.466
+        },
+        {
+          "name": "browser-device-selection",
+          "ok": true,
+          "elapsedMs": 33.383
+        },
+        {
+          "name": "browser-packet-capture-ready",
+          "ok": true,
+          "elapsedMs": 1141.471
+        },
+        {
+          "name": "owned-browser-page",
+          "ok": true,
+          "elapsedMs": 1377.584
+        },
+        {
+          "name": "m82-rtc-observer-ready",
+          "ok": true,
+          "elapsedMs": 100.308
+        },
+        {
+          "name": "m82-admission-fixture-ready",
+          "ok": true,
+          "elapsedMs": 0.038
+        },
+        {
+          "name": "browser-sdk-start",
+          "ok": true,
+          "elapsedMs": 1858.281
+        },
+        {
+          "name": "restricted-admission-request",
+          "ok": true,
+          "elapsedMs": 20533.383
+        },
+        {
+          "name": "native-restricted-admission",
+          "ok": true,
+          "elapsedMs": 0.338
+        },
+        {
+          "name": "different-TLS-identity-claim",
+          "ok": true,
+          "elapsedMs": 12889.566
+        },
+        {
+          "name": "native-TLS-claim-restricted",
+          "ok": true,
+          "elapsedMs": 0.37
+        },
+        {
+          "name": "native-TLS-claim-rejected",
+          "ok": true,
+          "elapsedMs": 0.431
+        },
+        {
+          "name": "unapproved-open_member-rejected",
+          "ok": true,
+          "elapsedMs": 13.368
+        },
+        {
+          "name": "unapproved-sync_replica-rejected",
+          "ok": true,
+          "elapsedMs": 61.64
+        },
+        {
+          "name": "authorization-only-stop",
+          "ok": true,
+          "elapsedMs": 3783.926
+        },
+        {
+          "name": "authorization-only-reopen",
+          "ok": true,
+          "elapsedMs": 1939.999
+        },
+        {
+          "name": "complete-reopen-stop",
+          "ok": true,
+          "elapsedMs": 394.578
+        },
+        {
+          "name": "independent-offline-author",
+          "ok": true,
+          "elapsedMs": 423.112
+        },
+        {
+          "name": "saved-provider-retirement",
+          "ok": true,
+          "elapsedMs": 774.713
+        },
+        {
+          "name": "saved-provider-reopen",
+          "ok": true,
+          "elapsedMs": 1412.193
+        },
+        {
+          "name": "complete-reopen",
+          "ok": true,
+          "elapsedMs": 1677.608
+        },
+        {
+          "name": "nonempty-sdk-replica",
+          "ok": true,
+          "elapsedMs": 40124.971
+        },
+        {
+          "name": "sender-durable-replica-receipt",
+          "ok": true,
+          "elapsedMs": 0.688
+        },
+        {
+          "name": "strict-new-replica-purpose",
+          "ok": true,
+          "elapsedMs": 0.053
+        },
+        {
+          "name": "replica-reopen-stop",
+          "ok": true,
+          "elapsedMs": 312.768
+        },
+        {
+          "name": "replica-reopen",
+          "ok": true,
+          "elapsedMs": 1283.041
+        },
+        {
+          "name": "ordinary-member-open",
+          "ok": true,
+          "elapsedMs": 4674.693
+        },
+        {
+          "name": "native-live-member",
+          "ok": true,
+          "elapsedMs": 1.06
+        },
+        {
+          "name": "native-live-business",
+          "ok": true,
+          "elapsedMs": 0.999
+        },
+        {
+          "name": "ordinary-member-close",
+          "ok": true,
+          "elapsedMs": 53.189
+        },
+        {
+          "name": "actual-current-member-removal",
+          "ok": true,
+          "elapsedMs": 34.963
+        },
+        {
+          "name": "revoked-open_member-rejected",
+          "ok": true,
+          "elapsedMs": 1149.0
+        },
+        {
+          "name": "revoked-sync_replica-rejected",
+          "ok": true,
+          "elapsedMs": 1237.987
+        }
+      ],
+      "replica": {
+        "targetAbsentBefore": true,
+        "targetVerifiedSavedAfter": true,
+        "scopeCount": 4,
+        "savedCount": 4,
+        "appliedCount": 4,
+        "complete": true,
+        "targetVerifiedSavedAfterReopen": true
+      },
+      "wrongTlsClaimRejected": true,
+      "unapprovedDataRejected": true,
+      "revokedDataRejected": true,
+      "browserCleanupSucceeded": true,
+      "nativeCleanupQualified": true,
+      "captureCleanupSucceeded": true,
+      "nativeCompiledSha256": "96e96317c45fb0639e34485e282597f444b278d36e1979ab042fa59ca2d76a4c",
+      "nativeDeployedSha256": "3d237cf14665abe75f6ffa790b6e35cf52d2db80a4f1fa1c8cf349821bff8307",
+      "wasmReceiptSha256": "32e54deeb6b755531c273ff726e7c771006697560b1e3638ba586f439fbbdce6",
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "route": {
+        "receipt": "/tmp/mio84-op13-rtc-disabled-public-relay-root-20261008/runtime/private-route-receipt.json",
+        "commandExit": 0,
+        "endpointCount": 0,
+        "activeValidatedNetworkCount": 0,
+        "activeNotVpnPhysicalNetworkCount": 0,
+        "exactRouteLookupCount": 0,
+        "selectedNonRelayCount": 0,
+        "nativeSocketTupleOwned": null,
+        "nativeMarkObservedAndCorrelated": null,
+        "nativeRouteToActualInterface": null,
+        "browserRouteToActualInterface": null,
+        "distinctAccessNetworksObserved": false,
+        "distinctAccessMethod": "opposite CELLULAR/WIFI defaults and distinct global peer wire addresses",
+        "pairCorrelation": false,
+        "actualSocketUidObservedCount": 0,
+        "actualSocketMarkObservedCount": 0,
+        "physicalDataQualified": false,
+        "physicalWanQualified": false,
+        "routeObservationUnknown": true
+      },
+      "rtcDisabledRelay": {
+        "selectedRelay": true,
+        "freshAck": true,
+        "ordinaryOriginalM": true,
+        "noRtcCandidates": true,
+        "rtcRole": "None",
+        "peerCreated": 0,
+        "channelCreated": 0,
+        "businessMatched": true
+      }
+    },
+    "nativeOp13ToPixel": {
+      "receiptSha256": "434766ad28b780df59af448bd6a08d23e10d4ada7da7fb9b9347c45cc4d42df7",
+      "driverSha256": "beb1edffb5d2d78e70ba6ced26012d973b6ab413149df0695a3e67914b9dcc76",
+      "observerSha256": "0ff6a77fad20224f42a316edc4d49f40168f057da5213c387138db2a1857071c",
+      "passed": true,
+      "exit": 0,
+      "actualActors": [
+        "OP13/Android Native cellular",
+        "Pixel/Android Native WiFi"
+      ],
+      "controlLabelAliases": {
+        "host": "OP13 Native, no Host SDK process",
+        "pixel": "Pixel Native"
+      },
+      "directionEvidence": {
+        "client": {
+          "newProtocol": true,
+          "currentMemberGateAndExpectedPeer": true,
+          "freshAck": true,
+          "bindingUnchanged": true,
+          "runtime": "Native",
+          "peerRuntime": "Native",
+          "role": "initiator",
+          "callerMs": 18863,
+          "selectedKind": "native-udp",
+          "actualBidirectionalBusinessMatched": true
+        },
+        "server": {
+          "newProtocol": true,
+          "currentMemberGateAndExpectedPeer": true,
+          "freshAck": true,
+          "bindingUnchanged": true,
+          "runtime": "Native",
+          "peerRuntime": "Native",
+          "role": "responder",
+          "callerMs": 21068,
+          "selectedKind": "native-udp",
+          "actualBidirectionalBusinessMatched": true
+        }
+      },
+      "sdkCleanup": {
+        "client": {
+          "graceful": true,
+          "originalClosed": true,
+          "cleanupMs": 3516,
+          "lateObservationMs": 3619,
+          "socketReleasedImmediately": [
+            true
+          ],
+          "socketReleasedLate": [
+            true
+          ],
+          "tcpListenerReleasedImmediately": [],
+          "tcpListenerReleasedLate": []
+        },
+        "server": {
+          "graceful": true,
+          "originalClosed": true,
+          "cleanupMs": 3435,
+          "lateObservationMs": 3539,
+          "socketReleasedImmediately": [
+            true
+          ],
+          "socketReleasedLate": [
+            true
+          ],
+          "tcpListenerReleasedImmediately": [],
+          "tcpListenerReleasedLate": []
+        }
+      },
+      "reopened": {
+        "client": {
+          "identityMatched": true,
+          "complete": true,
+          "appliedRecords": 3,
+          "durableRecords": 3,
+          "nonemptyVerifiedRecordSaved": true
+        },
+        "server": {
+          "identityMatched": true,
+          "complete": true,
+          "appliedRecords": 3,
+          "durableRecords": 3,
+          "nonemptyVerifiedRecordSaved": true
+        }
+      },
+      "phases": [
+        {
+          "name": "actual-Pixel-selection",
+          "ok": true,
+          "wallMs": 33.295
+        },
+        {
+          "name": "native-host-capture-before-sdk",
+          "ok": true,
+          "wallMs": 1109.504
+        },
+        {
+          "name": "native-pixel-capture-before-sdk",
+          "ok": true,
+          "wallMs": 1030.269
+        },
+        {
+          "name": "actual-independent-member-preparation",
+          "ok": true,
+          "wallMs": 1397.627
+        },
+        {
+          "name": "save-explicit-MQTT-facility-server",
+          "ok": true,
+          "wallMs": 818.616
+        },
+        {
+          "name": "save-exact-authorized-resources-server",
+          "ok": true,
+          "wallMs": 163.974
+        },
+        {
+          "name": "save-explicit-MQTT-facility-client",
+          "ok": true,
+          "wallMs": 858.813
+        },
+        {
+          "name": "save-exact-authorized-resources-client",
+          "ok": true,
+          "wallMs": 135.454
+        },
+        {
+          "name": "actual-server-ready",
+          "ok": true,
+          "wallMs": 1550.406
+        },
+        {
+          "name": "client-actual-member-and-business",
+          "ok": true,
+          "wallMs": 20702.631
+        },
+        {
+          "name": "client-live-owned-sockets",
+          "ok": true,
+          "wallMs": 4.416
+        },
+        {
+          "name": "server-actual-member-and-business",
+          "ok": true,
+          "wallMs": 8.275
+        },
+        {
+          "name": "server-live-owned-sockets",
+          "ok": true,
+          "wallMs": 7.085
+        },
+        {
+          "name": "client-SDK-natural-cleanup",
+          "ok": true,
+          "wallMs": 3622.02
+        },
+        {
+          "name": "client-durable-material-reopen",
+          "ok": true,
+          "wallMs": 43.475
+        },
+        {
+          "name": "client-process-natural-retirement",
+          "ok": true,
+          "wallMs": 724.836
+        },
+        {
+          "name": "server-SDK-natural-cleanup",
+          "ok": true,
+          "wallMs": 0.036
+        },
+        {
+          "name": "server-durable-material-reopen",
+          "ok": true,
+          "wallMs": 0.046
+        },
+        {
+          "name": "server-process-natural-retirement",
+          "ok": true,
+          "wallMs": 668.059
+        }
+      ],
+      "wholeCaseWallMs": 49893.634,
+      "sourceAndArtifactGuardsPassed": true,
+      "ownedProcessDirectoriesAbsentBoth": true,
+      "captureCleanupSucceeded": true,
+      "normalTlsResourceRequested": true,
+      "physicalWanQualified": false,
+      "qualificationScope": "actual Native UDP business on the same restored cellular/WiFi devices; this case has no selected-tuple route/pcap correlation receipt and does not inherit RTC WAN qualification"
+    },
+    "nativePixelToOp13": {
+      "receiptSha256": "dc5586203cb4b3a7e7c43b51fe24ef321b8e05eef3ab87290ecf979b3be1c338",
+      "driverSha256": "beb1edffb5d2d78e70ba6ced26012d973b6ab413149df0695a3e67914b9dcc76",
+      "observerSha256": "0ff6a77fad20224f42a316edc4d49f40168f057da5213c387138db2a1857071c",
+      "passed": true,
+      "exit": 0,
+      "actualActors": [
+        "OP13/Android Native cellular",
+        "Pixel/Android Native WiFi"
+      ],
+      "controlLabelAliases": {
+        "host": "OP13 Native, no Host SDK process",
+        "pixel": "Pixel Native"
+      },
+      "directionEvidence": {
+        "client": {
+          "newProtocol": true,
+          "currentMemberGateAndExpectedPeer": true,
+          "freshAck": true,
+          "bindingUnchanged": true,
+          "runtime": "Native",
+          "peerRuntime": "Native",
+          "role": "initiator",
+          "callerMs": 16762,
+          "selectedKind": "native-udp",
+          "actualBidirectionalBusinessMatched": true
+        },
+        "server": {
+          "newProtocol": true,
+          "currentMemberGateAndExpectedPeer": true,
+          "freshAck": true,
+          "bindingUnchanged": true,
+          "runtime": "Native",
+          "peerRuntime": "Native",
+          "role": "responder",
+          "callerMs": 18730,
+          "selectedKind": "native-udp",
+          "actualBidirectionalBusinessMatched": true
+        }
+      },
+      "sdkCleanup": {
+        "client": {
+          "graceful": true,
+          "originalClosed": true,
+          "cleanupMs": 22,
+          "lateObservationMs": 125,
+          "socketReleasedImmediately": [
+            true
+          ],
+          "socketReleasedLate": [
+            true
+          ],
+          "tcpListenerReleasedImmediately": [],
+          "tcpListenerReleasedLate": []
+        },
+        "server": {
+          "graceful": true,
+          "originalClosed": true,
+          "cleanupMs": 3263,
+          "lateObservationMs": 3365,
+          "socketReleasedImmediately": [
+            true
+          ],
+          "socketReleasedLate": [
+            true
+          ],
+          "tcpListenerReleasedImmediately": [],
+          "tcpListenerReleasedLate": []
+        }
+      },
+      "reopened": {
+        "client": {
+          "identityMatched": true,
+          "complete": true,
+          "appliedRecords": 3,
+          "durableRecords": 3,
+          "nonemptyVerifiedRecordSaved": true
+        },
+        "server": {
+          "identityMatched": true,
+          "complete": true,
+          "appliedRecords": 3,
+          "durableRecords": 3,
+          "nonemptyVerifiedRecordSaved": true
+        }
+      },
+      "phases": [
+        {
+          "name": "actual-Pixel-selection",
+          "ok": true,
+          "wallMs": 33.063
+        },
+        {
+          "name": "native-host-capture-before-sdk",
+          "ok": true,
+          "wallMs": 1037.933
+        },
+        {
+          "name": "native-pixel-capture-before-sdk",
+          "ok": true,
+          "wallMs": 1081.571
+        },
+        {
+          "name": "actual-independent-member-preparation",
+          "ok": true,
+          "wallMs": 1368.066
+        },
+        {
+          "name": "save-explicit-MQTT-facility-server",
+          "ok": true,
+          "wallMs": 848.175
+        },
+        {
+          "name": "save-exact-authorized-resources-server",
+          "ok": true,
+          "wallMs": 128.718
+        },
+        {
+          "name": "save-explicit-MQTT-facility-client",
+          "ok": true,
+          "wallMs": 837.609
+        },
+        {
+          "name": "save-exact-authorized-resources-client",
+          "ok": true,
+          "wallMs": 112.546
+        },
+        {
+          "name": "actual-server-ready",
+          "ok": true,
+          "wallMs": 1433.894
+        },
+        {
+          "name": "client-actual-member-and-business",
+          "ok": true,
+          "wallMs": 18383.603
+        },
+        {
+          "name": "client-live-owned-sockets",
+          "ok": true,
+          "wallMs": 3.172
+        },
+        {
+          "name": "server-actual-member-and-business",
+          "ok": true,
+          "wallMs": 3.967
+        },
+        {
+          "name": "server-live-owned-sockets",
+          "ok": true,
+          "wallMs": 4.124
+        },
+        {
+          "name": "client-SDK-natural-cleanup",
+          "ok": true,
+          "wallMs": 128.856
+        },
+        {
+          "name": "client-durable-material-reopen",
+          "ok": true,
+          "wallMs": 41.353
+        },
+        {
+          "name": "client-process-natural-retirement",
+          "ok": true,
+          "wallMs": 741.409
+        },
+        {
+          "name": "server-SDK-natural-cleanup",
+          "ok": true,
+          "wallMs": 2455.179
+        },
+        {
+          "name": "server-durable-material-reopen",
+          "ok": true,
+          "wallMs": 29.518
+        },
+        {
+          "name": "server-process-natural-retirement",
+          "ok": true,
+          "wallMs": 661.026
+        }
+      ],
+      "wholeCaseWallMs": 45241.182,
+      "sourceAndArtifactGuardsPassed": true,
+      "ownedProcessDirectoriesAbsentBoth": true,
+      "captureCleanupSucceeded": true,
+      "normalTlsResourceRequested": true,
+      "physicalWanQualified": false,
+      "qualificationScope": "actual Native UDP business on the same restored cellular/WiFi devices; this case has no selected-tuple route/pcap correlation receipt and does not inherit RTC WAN qualification"
+    }
+  },
+  "selectedDataWitness": {
+    "scope": "offline exact SDK-selected tuple DTLS application record payload correlation; encrypted content not decrypted or assigned to a specific STREAM",
+    "directions": {
+      "nativeToBrowser": {
+        "matchedDistinctEncryptedDatagrams": 57
+      },
+      "browserToNative": {
+        "matchedDistinctEncryptedDatagrams": 61
+      }
+    },
+    "captures": {
+      "native": {
+        "sha256": "9ae753e5293b74e279a2fc91d28df4c9c06bbf0af0751a5f72cefcec91a00c27",
+        "selectedDtlsApplicationPackets": {
+          "outbound": 57,
+          "inbound": 61
+        }
+      },
+      "browser": {
+        "sha256": "49ee16d51ab21399997ff65af6590cbf8fd93fcca362249c417aac2ecc0f3800",
+        "selectedDtlsApplicationPackets": {
+          "outbound": 61,
+          "inbound": 57
+        }
+      }
+    },
+    "independentDtlsAuthentication": false,
+    "bidirectionalSelectedDtlsCorrelated": true,
+    "sourceCapturesUnchanged": true,
+    "receiptSha256": "716d18711259c85c61d226cdbfb334b418bacd9ace39ae8278441acb0b194514",
+    "observerSha256": "cfe62656e77128b159678aec66095d88e8b374c030f5f4e41925a660fbfb3381"
+  },
+  "physicalWanQualified": true,
+  "physicalDataQualified": true,
+  "M82Done": false,
+  "M84Done": false,
+  "qualificationLimit": "One actual selected RTC SDK story on cellular/WiFi qualifies through immutable evidence replay with the corrected collector. Pixel Internet validation stays false. Browser actual socket UID/mark/protect stay unknown. This is a finite observed scene, not a NAT class, success rate, other-direction route proof or universal no-overlay guarantee.",
+  "initialSimplifiedValidationSummaryWasIncorrect": true,
+  "strictPreflightPreservesNotValidated": true,
+  "rawReceiptsRewritten": false,
+  "oldFailuresPreserved": true,
+  "qualificationReevaluation": {
+    "receiptSha256": "1bad725e03d1643638e7c9ac16defbe3d35260657d20718cd1fdcc2f43833e6d",
+    "observerSha256": "53bcd178dd0c94ba60799af019e9be4ea970be697524bdbee9b5fa8bd706d7c2",
+    "sourceReceiptSha256": "2ce6b0f9100e2833feca3e3d286122b989105abc61f3a0b6a3e8e5f9a358696e",
+    "replayedRouteReceiptSha256": "14b42266e7c8759284fb8db8457f54a48a054fd920f2b7bda3d1c48417adbb6b",
+    "summary": {
+      "commandExit": 0,
+      "endpointCount": 2,
+      "activeValidatedNetworkCount": 1,
+      "activeNotVpnPhysicalNetworkCount": 2,
+      "exactRouteLookupCount": 2,
+      "selectedNonRelayCount": 2,
+      "nativeSocketTupleOwned": true,
+      "nativeMarkObservedAndCorrelated": true,
+      "nativeRouteToActualInterface": true,
+      "browserRouteToActualInterface": true,
+      "distinctAccessNetworksObserved": true,
+      "distinctAccessMethod": "opposite CELLULAR/WIFI defaults and distinct global peer wire addresses",
+      "pairCorrelation": true,
+      "actualSocketUidObservedCount": 0,
+      "actualSocketMarkObservedCount": 1,
+      "physicalDataQualified": true,
+      "physicalWanQualified": true,
+      "routeObservationUnknown": false
+    },
+    "androidValidationPreserved": [
+      {
+        "role": "native",
+        "defaultValidated": true,
+        "activeValidatedNetwork": true,
+        "currentVpnAgentCount": 0
+      },
+      {
+        "role": "browser",
+        "defaultValidated": false,
+        "activeValidatedNetwork": false,
+        "currentVpnAgentCount": 0
+      }
+    ],
+    "originalReadingsAndCapturesUnmodified": true,
+    "actorsStarted": 0,
+    "scope": "offline current collector replay of same-epoch live selected tuple, original SDK M, actual route/socket/mark reads and two-end packet witness; no additional runtime pass invented"
+  },
+  "qualificationPredicateFix": {
+    "sourcePath": "scripts/android_pair_route_receipt_current.py",
+    "sourceSha256": "7800280c021471d6558b01c343fc38e543fda0fec53ce69a405d5daaead11ff4",
+    "testsSha256": "003e3f13c9828505edb8308c825ffc25f9f5d3ed774081188ba49db8e6a84e71",
+    "redReceiptSha256": "bc1d3764cd3187f01b08bd836f086337dec5d0617cfffabc2800f068b02eacef",
+    "greenReceiptSha256": "c0cdd2226f177b8b1f9f7027b0d66a33f2bca49a2e9173530d8cbad5ad4f8157",
+    "redExit": 1,
+    "greenExit": 0,
+    "regressionTestsPassed": 25,
+    "meaning": "physical default corroboration is separate from Android Internet VALIDATED; require observed default/agent, NOT_VPN, exactly one physical transport and zero current VPN agents; selected pair, routes, native socket/mark and exact two-end correlation remain required",
+    "priorCollectorRejectedUnvalidatedPhysicalWifi": true,
+    "priorCollectorAllowedConcurrentVpn": true,
+    "rustSdkOrWireChanged": false
+  },
+  "M82ReadyToClose": true,
+  "collectorSourceChanged": true,
+  "newCollectorReviewPending": false,
+  "failedNativePairObserverRunsPreserved": [
+    {
+      "receiptSha256": "ffde18b19bdfd2ae721b69d9d0c6c95d273637146b69002b1d9a260c78660580",
+      "driverSha256": "c325e91d7a0f670fe8531f8f38907900a42ce5a2a539121749a4494535daa52e",
+      "exit": 1,
+      "passed": false,
+      "reason": "Android ip -j output was textual; observer JSONDecodeError before public actors",
+      "firstFailure": {
+        "phase": "save-exact-authorized-resources-client",
+        "class": "JSONDecodeError"
+      },
+      "wholeCaseWallMs": 30010.84,
+      "postSourceAndArtifactGuardsPassed": true,
+      "forcedCleanup": {
+        "host": false,
+        "pixel": false
+      },
+      "sdkGracefulCleanupQualified": false,
+      "ownedProcessDirectoriesAbsent": false,
+      "captureCleanupSucceeded": true
+    },
+    {
+      "receiptSha256": "dfe7d108783f277f62e71c27a3a854a7bbd2b183965f883a9b0dad322e897433",
+      "driverSha256": "8fb22f13267fbcf127a3d0bef0b9b9a6543917a0f04a995fc06b3ae8c81558a5",
+      "exit": 1,
+      "passed": false,
+      "reason": "missing explicit MQTT facility mapping; no ready configured contact",
+      "firstFailure": {
+        "phase": "actual-server-ready",
+        "class": "RuntimeError"
+      },
+      "wholeCaseWallMs": 19962.358,
+      "postSourceAndArtifactGuardsPassed": true,
+      "forcedCleanup": {
+        "host": false,
+        "pixel": false
+      },
+      "sdkGracefulCleanupQualified": false,
+      "ownedProcessDirectoriesAbsent": false,
+      "captureCleanupSucceeded": true
+    },
+    {
+      "receiptSha256": "c78e5bf8a65e35c244383108e3c2a4e203c938ad4994cf83194882fb1c7e5f3b",
+      "driverSha256": "965c8fa00136794654b565a3675a9e84afcca1d149d97a494912a80cf5506ce7",
+      "exit": 1,
+      "passed": false,
+      "reason": "bounded stdout memory cap stopped drainage; Native observer timeout and OP13 forced cleanup, Pixel actual 45013ms deadline",
+      "firstFailure": {
+        "phase": "client-actual-member-and-business",
+        "class": "TimeoutError"
+      },
+      "wholeCaseWallMs": 140314.658,
+      "postSourceAndArtifactGuardsPassed": true,
+      "forcedCleanup": {
+        "host": true,
+        "pixel": false
+      },
+      "sdkGracefulCleanupQualified": false,
+      "ownedProcessDirectoriesAbsent": true,
+      "captureCleanupSucceeded": true
+    }
+  ],
+  "newCollectorReview": {
+    "standardsReport": "op13-collector-standards-review.md",
+    "standardsReportSha256": "20943bb1a12009c57f053a35effd7739a8e203f6d091c906d28e4b354de29e80",
+    "specReport": "op13-collector-spec-review.md",
+    "specReportSha256": "e006d689b1f9ae1c0cab8608ac0bf41e10c7616ea2fe5a2b0e09c473ea99a644",
+    "standardsHardFindings": 0,
+    "standardsHeuristicFindings": 0,
+    "specRequiredSourceFixes": 0,
+    "specDisclosedM84AcceptanceGaps": 2,
+    "M82ClosureSupported": true,
+    "reviewersModel": "gpt-6.1-sol",
+    "reasoningEffort": "high",
+    "serviceTier": "default",
+    "modelAndTierActuallyVerified": true,
+    "collectorAndTestsUnchangedAfterReview": true,
+    "metadataFollowup": {
+      "standards": {
+        "reportSha256": "c1ee66548a27b7b0e0c802750b40431105f715d8de32347ef0b997116012a9e7",
+        "verificationSha256": "aff2c96c46c9c16e7ff51c451e3d235320acd32e4afcb44e391b794a732470d6",
+        "openSourceFindings": 0
+      },
+      "spec": {
+        "reportSha256": "5ef80fcea228ffe12dcd758010dcfc45d29513a28692fa6a067f19a1ee87b305",
+        "verificationSha256": "0500e26c05dd69e6a2e6cf7b754744c26f6719a4c47d89563a6ee49358d4f125",
+        "openSourceFindings": 0
+      }
+    }
+  },
+  "additionalPhoneBrowserPairUnavailable": {
+    "scope": "OP13 cellular Browser / Pixel WiFi Browser; existing pinned Android Native provisioner co-resident on OP13",
+    "rawReceiptSha256": "c4ed30719900114d9beba609bcee699a672945a0bbd23f2b301e0422da57d077",
+    "executionReceiptSha256": "f98b70e605f22538d8066b5096f6f4993bc4642b56491d04b1cc864203a4fe9c",
+    "driverSha256": "6a2c35648563acc55f0d1cdb10eb5c48f04fcc9788c18f8760a0a2a54d54d52f",
+    "controllerSha256": "4407d6e6341740a9c803b3784c92e7a9aee42e4e3b0eb6dde6274182131b7b35",
+    "availabilityReceiptSha256": "7a6cb5f743f9c9ed5f19d5b5f14ea9325506b9675b5f5e913faa19b94045fac5",
+    "runtimeExit": 1,
+    "sdkBrowserCalls": 0,
+    "passed": false,
+    "reason": "OP13 has no installed com.android.chrome package or resolvable activity; own page could not start",
+    "firstFailure": {
+      "actor": "host",
+      "stage": "host-owned-page-ready",
+      "check": "operation-failed",
+      "failureClass": "RuntimeError"
+    },
+    "wholeWallMs": 24188.238,
+    "sourceAndArtifactGuardsPassed": true,
+    "captureCleanupSucceeded": true,
+    "controlCleanup": {
+      "host-cleanup": {
+        "sdkRequired": false,
+        "tabRequired": false,
+        "cleanupSucceeded": true,
+        "reverseRequired": true,
+        "reverseRuleAbsent": true,
+        "reverseRemoveExit": 0,
+        "localListenerClosed": true
+      },
+      "pixel-cleanup": {
+        "sdkRequired": false,
+        "tabRequired": false,
+        "cleanupSucceeded": true,
+        "reverseRequired": false,
+        "reverseRuleAbsent": null,
+        "reverseRemoveExit": null,
+        "localListenerClosed": true
+      }
+    },
+    "provisionerNaturalCloseQualified": true,
+    "browserSdkGracefulCleanupQualified": false,
+    "browserSdkWasNotStarted": true,
+    "firstReceiptAllocationWitnessCleanupFailurePreserved": true,
+    "physicalWanQualified": false,
+    "appsInstalledOrNetworkSettingsChanged": false
+  }
+}

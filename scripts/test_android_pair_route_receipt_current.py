@@ -53,6 +53,60 @@ def endpoint(role: str, *, native: bool, mark: bool) -> dict:
 
 
 class CurrentRouteQualificationTests(unittest.TestCase):
+    def _collect_browser_network(self, *, validated: bool, active_vpn: bool = False):
+        capabilities = "NOT_VPN&INTERNET&" + ("VALIDATED" if validated else "NOT_VALIDATED")
+        connectivity = (
+            "Active default network: 640\nCurrent Networks:\n"
+            "  NetworkAgentInfo{network{640} ni{WIFI CONNECTED} "
+            "LinkProperties{{InterfaceName: wlan1}} nc{{[ Transports: WIFI Capabilities: "
+            + capabilities + " ]}}\n"
+        )
+        if active_vpn:
+            connectivity += (
+                "  NetworkAgentInfo{network{641} ni{VPN CONNECTED} "
+                "LinkProperties{{InterfaceName: tun0}} "
+                "nc{{[ Transports: VPN Capabilities: INTERNET ]}}\n"
+            )
+        connectivity += "Network Requests:\n"
+
+        class RecordedDevice:
+            commands = []
+
+            def shell(self, *args, required=False):
+                if args[:2] == ("getprop", "ro.product.model"):
+                    return "Pixel 6a\n", 0
+                if args[:2] == ("getprop", "ro.product.cpu.abilist"):
+                    return "arm64-v8a\n", 0
+                if args == ("dumpsys", "connectivity"):
+                    return connectivity, 0
+                if args[:4] == ("cmd", "package", "list", "packages"):
+                    return "package:com.android.chrome uid:10180\n", 0
+                if args[:4] == ("ip", "-4", "route", "get"):
+                    return "198.51.100.9 from 192.0.2.7 dev wlan1 table 1048 uid 10180\n", 0
+                return "", 0
+
+        selected = {"localAddress": "192.0.2.7", "localPort": 40000,
+                    "peerAddress": "198.51.100.9", "peerPort": 41000}
+        return collector._collect_endpoint({
+            "role": "browser", "model": "Pixel_6a", "transport": "usb",
+            "actor": {"kind": "chrome"}, "socketEvidence": None,
+            "selectedTuple": selected, "currentM": {}, "pcStats": {},
+            "selectedPair": {"nonRelay": True, "local": selected, "remote": selected},
+        }, RecordedDevice())
+
+    def test_unvalidated_wifi_can_corroborate_selected_physical_data(self):
+        observed = self._collect_browser_network(validated=False)
+        self.assertFalse(observed["network"]["defaultValidated"])
+        self.assertFalse(observed["network"]["activeValidatedNetwork"])
+        self.assertTrue(observed["routeLookup"]["actualInterfaceRoute"])
+        self.assertTrue(observed["physicalDataQualified"])
+
+    def test_active_vpn_prevents_physical_qualification_even_with_validated_wifi(self):
+        observed = self._collect_browser_network(validated=True, active_vpn=True)
+        self.assertTrue(observed["network"]["defaultValidated"])
+        self.assertEqual(observed["network"]["currentVpnAgentCount"], 1)
+        self.assertFalse(observed["physicalDataQualified"])
+
     def test_sdk_finalizer_preserves_separate_wan_failure_and_cleanup_gates(self):
         runtime = SimpleNamespace(browser_cleanup_succeeded=lambda value: value.get("cleanupSucceeded") is True)
         report = {"passed": True, "normalTlsVerified": True,
