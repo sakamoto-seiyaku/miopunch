@@ -1,18 +1,15 @@
-//! Protected wire-version negotiation on real authenticated QUIC connections.
-//! These narrow wire tests do not claim admission or a browser RTC data path.
+//! Relay validation remains private to the authenticated original M.
+//! Strict common member capabilities are exercised by unified_connection.
+use iroh::{
+    Endpoint,
+    endpoint::{Connection, presets},
+};
+use miopunch_native_probe::member_path_protocol::RelayValidation;
 use std::{
     net::{Ipv4Addr, SocketAddr},
     time::Duration,
 };
-
-use iroh::{
-    Endpoint,
-    endpoint::{ConnectOptions, Connection, presets},
-};
-use miopunch_native_probe::member_path_protocol::{
-    MemberProtocol, PathCapabilities, RtcRole, exchange_capabilities,
-};
-
+const ALPN: &[u8] = b"mio84/relay-validation-test/1";
 async fn endpoint(alpns: Vec<Vec<u8>>) -> Endpoint {
     Endpoint::builder(presets::Minimal)
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
@@ -24,223 +21,102 @@ async fn endpoint(alpns: Vec<Vec<u8>>) -> Endpoint {
         .unwrap()
 }
 
-fn binding(connection: &Connection) -> [u8; 32] {
-    let mut bytes = [0; 32];
-    connection
-        .export_keying_material(&mut bytes, b"member-version-test", &[])
-        .unwrap();
-    bytes
+async fn pair() -> (Endpoint, Endpoint, Connection, Connection) {
+    let client = endpoint(Vec::new()).await;
+    let server = endpoint(vec![ALPN.to_vec()]).await;
+    let (local, remote) = tokio::time::timeout(Duration::from_secs(3), async {
+        tokio::join!(client.connect(server.addr(), ALPN), async {
+            server.accept().await.unwrap().await
+        })
+    })
+    .await
+    .unwrap();
+    (client, server, local.unwrap(), remote.unwrap())
 }
 
 #[tokio::test]
-async fn upgraded_caller_preserves_legacy_four_bytes_on_the_same_connection() {
-    for protocol in [MemberProtocol::Business, MemberProtocol::Replica] {
-        let client = endpoint(Vec::new()).await;
-        let server = endpoint(vec![protocol.legacy_alpn().to_vec()]).await;
-        let (local, remote) = tokio::time::timeout(Duration::from_secs(3), async {
-            tokio::join!(
-                async {
-                    client
-                        .connect_with_opts(
-                            server.addr(),
-                            protocol.upgraded_alpn(),
-                            ConnectOptions::new()
-                                .with_additional_alpns(vec![protocol.legacy_alpn().to_vec()]),
-                        )
-                        .await
-                        .unwrap()
-                        .await
-                        .unwrap()
-                },
-                async { server.accept().await.unwrap().await.unwrap() }
+async fn private_relay_exchange_confirms_both_sides_on_original_m() {
+    let (a, b, local, remote) = pair().await;
+    let before = (local.stable_id(), remote.stable_id());
+    let left = vec!["https://relay-a.test/".parse().unwrap()];
+    let right = vec!["https://relay-b.test/".parse().unwrap()];
+    let (left_exchange, right_exchange) = tokio::time::timeout(Duration::from_secs(3), async {
+        tokio::join!(
+            RelayValidation::begin(&local, left.clone()),
+            RelayValidation::begin(&remote, right.clone())
+        )
+    })
+    .await
+    .unwrap();
+    let (left_exchange, right_exchange) = (left_exchange.unwrap(), right_exchange.unwrap());
+    assert_eq!(left_exchange.candidates, right);
+    assert_eq!(right_exchange.candidates, left);
+    let (left_result, right_result) = tokio::time::timeout(Duration::from_secs(3), async {
+        tokio::join!(
+            left_exchange.finish(&local, Ok(())),
+            right_exchange.finish(&remote, Ok(()))
+        )
+    })
+    .await
+    .unwrap();
+    for result in [left_result, right_result] {
+        let continuity = result.unwrap();
+        assert!(continuity.stable_unchanged && continuity.binding_unchanged);
+    }
+    assert_eq!((local.stable_id(), remote.stable_id()), before);
+    tokio::join!(a.close(), b.close());
+}
+
+#[tokio::test]
+async fn failed_peer_validation_never_becomes_bilateral_success() {
+    let (a, b, local, remote) = pair().await;
+    let (left, right) = tokio::time::timeout(Duration::from_secs(3), async {
+        tokio::join!(
+            RelayValidation::begin(&local, vec![]),
+            RelayValidation::begin(&remote, vec![])
+        )
+    })
+    .await
+    .unwrap();
+    let (left, right) = tokio::time::timeout(Duration::from_secs(3), async {
+        tokio::join!(
+            left.unwrap().finish(&local, Ok(())),
+            right.unwrap().finish(
+                &remote,
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    "candidate revoked"
+                ))
             )
-        })
-        .await
-        .unwrap();
-        let stable = (local.stable_id(), remote.stable_id());
-        let before = (binding(&local), binding(&remote));
-        assert!(before.0 == before.1, "TLS binding comparison must match");
-        assert_eq!(local.alpn(), protocol.legacy_alpn());
-        assert_eq!(remote.alpn(), protocol.legacy_alpn());
-        let (capabilities, ()) = tokio::time::timeout(Duration::from_secs(3), async {
-            tokio::join!(
-                async {
-                    exchange_capabilities(
-                        &local,
-                        PathCapabilities {
-                            tcp: false,
-                            udp: false,
-                            relay: true,
-                            rtc: RtcRole::Offerer,
-                        },
-                    )
-                    .await
-                    .unwrap()
-                },
-                async {
-                    // An independent legacy peer: its original exact four-byte
-                    // limit/version check rejects any appended RTC extension.
-                    let (mut send, mut recv) = remote.accept_bi().await.unwrap();
-                    send.write_all(&[2, 0, 0, 1]).await.unwrap();
-                    send.finish().unwrap();
-                    assert_eq!(recv.read_to_end(4).await.unwrap(), [2, 0, 0, 1]);
-                }
-            )
-        })
-        .await
-        .unwrap();
-        assert!(capabilities.relay);
-        assert!(!capabilities.rtc);
-        assert_eq!((local.stable_id(), remote.stable_id()), stable);
-        assert!(
-            (binding(&local), binding(&remote)) == before,
-            "same M binding comparison must remain true"
-        );
-        let (mut send, mut recv) = local.open_bi().await.unwrap();
-        send.write_all(b"legacy same session").await.unwrap();
+        )
+    })
+    .await
+    .unwrap();
+    assert!(left.is_err() && right.is_err());
+    tokio::join!(a.close(), b.close());
+}
+
+#[tokio::test]
+async fn five_peer_relay_candidates_are_rejected_before_path_preparation() {
+    let (a, b, local, remote) = pair().await;
+    let read = RelayValidation::begin(&local, vec![]);
+    let write = async {
+        let (mut send, mut recv) = remote.accept_bi().await.unwrap();
+        let encoded = serde_json::to_vec(&vec!["https://relay.test/"; 5]).unwrap();
+        send.write_all(&(encoded.len() as u16).to_be_bytes())
+            .await
+            .unwrap();
+        send.write_all(&encoded).await.unwrap();
         send.finish().unwrap();
-        let (mut reply, mut request) = remote.accept_bi().await.unwrap();
-        let request = request.read_to_end(64).await.unwrap();
-        reply.write_all(&request).await.unwrap();
-        reply.finish().unwrap();
-        assert_eq!(recv.read_to_end(64).await.unwrap(), b"legacy same session");
-        local.close(0u32.into(), b"test done");
-        remote.close(0u32.into(), b"test done");
-        client.close().await;
-        server.close().await;
-    }
-}
-
-#[tokio::test]
-async fn both_upgraded_peers_negotiate_v3_and_only_the_qualified_m_roles() {
-    for protocol in [MemberProtocol::Business, MemberProtocol::Replica] {
-        let client = endpoint(Vec::new()).await;
-        let server = endpoint(protocol.preferred_alpns()).await;
-        let (local, remote) = tokio::time::timeout(Duration::from_secs(3), async {
-            tokio::join!(
-                async {
-                    client
-                        .connect_with_opts(
-                            server.addr(),
-                            protocol.legacy_alpn(),
-                            protocol.connect_options(),
-                        )
-                        .await
-                        .unwrap()
-                        .await
-                        .unwrap()
-                },
-                async { server.accept().await.unwrap().await.unwrap() }
-            )
-        })
-        .await
-        .unwrap();
-        assert_eq!(local.alpn(), protocol.upgraded_alpn());
-        assert_eq!(remote.alpn(), protocol.upgraded_alpn());
-        assert_eq!(
-            RtcRole::native_adapter(&local, true),
-            RtcRole::None,
-            "native dialing role has no qualified RTC adapter"
-        );
-        assert_eq!(
-            RtcRole::browser_adapter(&remote, true),
-            RtcRole::None,
-            "browser accepting role has no qualified RTC adapter"
-        );
-        assert_eq!(
-            RtcRole::browser_adapter(&local, false),
-            RtcRole::None,
-            "an absent adapter cannot advertise RTC"
-        );
-        let (left, right) = tokio::time::timeout(Duration::from_secs(3), async {
-            tokio::join!(
-                exchange_capabilities(
-                    &local,
-                    PathCapabilities {
-                        tcp: false,
-                        udp: false,
-                        relay: false,
-                        rtc: RtcRole::browser_adapter(&local, true),
-                    }
-                ),
-                exchange_capabilities(
-                    &remote,
-                    PathCapabilities {
-                        tcp: false,
-                        udp: false,
-                        relay: false,
-                        rtc: RtcRole::native_adapter(&remote, true),
-                    }
-                )
-            )
-        })
-        .await
-        .unwrap();
-        let (left, right) = (left.unwrap(), right.unwrap());
-        assert_eq!(left.version.number(), 3);
-        assert_eq!(right.version.number(), 3);
-        assert!(
-            left.rtc && right.rtc,
-            "complementary supported roles negotiate RTC"
-        );
-        assert_eq!(left.local_rtc, RtcRole::Offerer);
-        assert_eq!(left.peer_rtc, RtcRole::Answerer);
-        assert!(
-            binding(&local) == binding(&remote),
-            "same TLS M remains bound"
-        );
-        local.close(0u32.into(), b"test done");
-        remote.close(0u32.into(), b"test done");
-        client.close().await;
-        server.close().await;
-    }
-}
-
-#[tokio::test]
-async fn legacy_caller_on_new_server_has_exact_v2_and_no_joint_path_is_unreachable() {
-    for protocol in [MemberProtocol::Business, MemberProtocol::Replica] {
-        let client = endpoint(Vec::new()).await;
-        let server = endpoint(protocol.preferred_alpns()).await;
-        let (local, remote) = tokio::time::timeout(Duration::from_secs(3), async {
-            tokio::join!(
-                client.connect(server.addr(), protocol.legacy_alpn()),
-                async { server.accept().await.unwrap().await }
-            )
-        })
-        .await
-        .unwrap();
-        let (local, remote) = (local.unwrap(), remote.unwrap());
-        let before = (local.stable_id(), remote.stable_id());
-        assert_eq!(local.alpn(), protocol.legacy_alpn());
-        assert_eq!(remote.alpn(), protocol.legacy_alpn());
-        let ((), negotiated) = tokio::time::timeout(Duration::from_secs(3), async {
-            tokio::join!(
-                async {
-                    let (mut send, mut recv) = local.open_bi().await.unwrap();
-                    send.write_all(&[2, 0, 0, 0]).await.unwrap();
-                    send.finish().unwrap();
-                    assert_eq!(recv.read_to_end(4).await.unwrap(), [2, 0, 0, 0]);
-                },
-                exchange_capabilities(
-                    &remote,
-                    PathCapabilities {
-                        tcp: false,
-                        udp: false,
-                        relay: false,
-                        rtc: RtcRole::native_adapter(&remote, true),
-                    }
-                )
-            )
-        })
-        .await
-        .unwrap();
-        let error = negotiated.unwrap().require_usable().unwrap_err();
-        assert_eq!(error.kind(), std::io::ErrorKind::NotConnected);
-        assert!(error.to_string().contains("temporarily unreachable"));
-        assert_eq!((local.stable_id(), remote.stable_id()), before);
-        local.close(0u32.into(), b"test done");
-        remote.close(0u32.into(), b"test done");
-        client.close().await;
-        server.close().await;
-    }
+        let mut prefix = [0; 2];
+        recv.read_exact(&mut prefix).await.unwrap();
+        assert_eq!(u16::from_be_bytes(prefix), 2);
+        assert_eq!(recv.read_to_end(2).await.unwrap(), b"[]");
+    };
+    let (result, _) =
+        tokio::time::timeout(Duration::from_secs(3), async { tokio::join!(read, write) })
+            .await
+            .unwrap();
+    assert!(result.is_err());
+    tokio::join!(a.close(), b.close());
 }

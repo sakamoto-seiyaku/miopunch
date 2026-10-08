@@ -24,9 +24,23 @@ pub async fn admitted_pair() -> (tempfile::TempDir, NativeNetwork, NativeNetwork
     }
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let be = b.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = tokio::join!(be.connect(ae.addr(), ADMISSION_REQUEST_ALPN), async {
-        ae.accept().await.unwrap().await
-    });
+    let deadline = n0_future::time::Instant::now() + Duration::from_secs(5);
+    let options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
+    let (client, server) = tokio::join!(
+        async {
+            be.connect_with_opts(ae.addr(), ADMISSION_REQUEST_ALPN, options)
+                .await
+                .unwrap()
+                .await
+        },
+        async {
+            ae.accept()
+                .await
+                .unwrap()
+                .with_caller_deadline(deadline)
+                .await
+        }
+    );
     let (client, server) = (client.unwrap(), server.unwrap());
     let (request, served) = tokio::join!(
         b.request_manual_admission(&client),

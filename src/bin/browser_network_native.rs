@@ -4,7 +4,7 @@ use std::{error::Error, sync::Arc};
 use iroh::{RelayMode, endpoint::presets};
 use iroh_base::TransportAddr;
 use miopunch_native_probe::{
-    admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope},
+    admission_gate::{ADMISSION_REQUEST_ALPN, PRECODE_REQUEST_ALPN, ProtocolScope},
     native_network::NativeNetwork,
     offline_replica::REPLICA_ALPN,
     resources::{Resource, ResourceUse},
@@ -12,7 +12,7 @@ use miopunch_native_probe::{
 use serde_json::json;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
-const BUSINESS: &[u8] = b"miopunch/browser-member/1";
+const BUSINESS: &[u8] = miopunch_native_probe::connection_coordinator::MEMBER_ALPN;
 
 // Public transport observations only; never emit admission or node secrets.
 fn paths(connection: &iroh::endpoint::Connection) -> Vec<serde_json::Value> {
@@ -66,6 +66,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .relay_mode(RelayMode::custom([relay.parse()?]))
         .alpns(vec![
             ADMISSION_REQUEST_ALPN.to_vec(),
+            PRECODE_REQUEST_ALPN.to_vec(),
             BUSINESS.to_vec(),
             REPLICA_ALPN.to_vec(),
         ]);
@@ -89,7 +90,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let node = Arc::new(tokio::sync::Mutex::new(node));
     let mut lines = BufReader::new(tokio::io::stdin()).lines();
     let mut handlers = tokio::task::JoinSet::new();
-    let precode_mode = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let mut issued = None;
     #[cfg(feature = "replica-test-hooks")]
     let replica_fixture = Arc::new(tokio::sync::Mutex::new(
@@ -146,7 +146,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         let expires=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs()+3600;
                         let code=node.issue_precode(expires,Some(1)).await?;
                         issued=Some(code);
-                        precode_mode.store(true,std::sync::atomic::Ordering::SeqCst);
+
                         println!("{}",json!({"event":"issued","code":hex::encode(code.encode())}));
                     }
                     "usage" => {
@@ -196,14 +196,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let rtc_endpoint = endpoint.clone();
                 #[cfg(feature = "rtc-probe")]
                 let rtc_transport = rtc_transport.clone();
-                let precode_mode=precode_mode.clone();
                 #[cfg(feature="replica-test-hooks")]
                 let replica_fixture=replica_fixture.clone();
                 handlers.spawn(async move {
-                    let connection = incoming.await?;
+                    let connection = incoming.with_caller_deadline(n0_future::time::Instant::now() + std::time::Duration::from_secs(60)).await?;
                     let result: Result<(), Box<dyn Error + Send + Sync>> = async {
-                        if connection.alpn() == ADMISSION_REQUEST_ALPN {
-                            let stage = if precode_mode.load(std::sync::atomic::Ordering::SeqCst) {
+                        if matches!(connection.alpn(), ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN) {
+                            let stage = if connection.alpn() == PRECODE_REQUEST_ALPN {
                                 node.lock().await.serve_precode_admission(&connection).await?
                             } else { node.lock().await.serve_manual_admission(&connection).await? };
                             println!("{}", json!({"event":"admission", "stage":format!("{stage:?}"), "paths":paths(&connection)}));

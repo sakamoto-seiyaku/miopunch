@@ -17,9 +17,7 @@ pub const CHANNEL_PROTOCOL: &str = "miopunch/synthetic/1";
 pub const EXPORTER_LABEL: &[u8] = b"miopunch/rtc-probe/1";
 pub const DATAGRAM_CHANNEL_LABEL: &str = "mio-quic-datagram/1";
 pub const DATAGRAM_CHANNEL_PROTOCOL: &str = "miopunch/quic-datagram/1";
-pub const MEMBER_RTC_PROTOCOL: &str = "miopunch/relay-member-rtc/1";
 pub const UNIFIED_RTC_PROTOCOL: &str = "miopunch/session/rtc-candidate/1";
-pub const CONTROL_MARKER: &[u8; 4] = b"MRC1";
 pub const CONTINUITY_MARKER: &[u8; 4] = b"MRS1";
 pub const CONTINUITY_BINDING_LABEL: &[u8] = b"miopunch/rtc-original-stream/1";
 
@@ -59,7 +57,7 @@ impl RtcDeadline {
     }
 }
 
-/// Fixed experimental role order, shared by the browser offerer and native answerer.
+/// Attempt role order shared by both native and browser adapters.
 pub fn attempt_context(
     attempt: &str,
     network: &[u8; 32],

@@ -8,6 +8,8 @@ import { resolve } from 'node:path';
 import { chromium } from 'playwright-core';
 import { observeTraffic, traffic, exactRtc, releaseProof, streamProgress, cleanupProof, absent } from './run-rtc-member-replica.mjs';
 
+throw new Error('Historical RTC cross-network fixture is retired with the old protocol. Use the current check_unified_* SDK runners. No test actor was started.');
+
 let configure;
 const initial = new Promise(resolve => { configure = resolve; });
 const requests = new Map();

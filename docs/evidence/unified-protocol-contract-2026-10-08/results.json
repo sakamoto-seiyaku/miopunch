@@ -1,0 +1,5683 @@
+{
+  "scope": "Current strict protocol source contract and finite actual SDK cases; complete public matrix and physical different-network environment remain unfinished",
+  "baseCommit": "14706af5caf8e14b3d9dad6c82ae2aa9aee9c23d",
+  "ownedSourceHashes": {
+    "src/member_path_protocol.rs": "6ab146207eab9d011d1efc2c37c7f2c5b7de87d106ef03faecb0f7129a9d7be9",
+    "src/message_bootstrap.rs": "7d13f8f24e9a47c558624bd09d236e0402847459cf785abdc4218116035b75ec",
+    "src/native_network.rs": "472c80dcf007823cc99c608564d49e308a0d4a67cac9387241f19a7687bc50ac",
+    "src/resources.rs": "aebe90cf3170e70d6359fa9a96f532a35235177a8b2b2e088831188779bd7b8e",
+    "browser-probe/src/network.rs": "7f0cd4c4e1a2356c7abf3b4b5800423a56425c7414c78fadf1a71085b23a5216",
+    "src/bin/browser_wss_member_native.rs": "1c8ece3bf3ccf7faaadb9d841d63cde0e8602500b62546d1e573af23eefea894",
+    "src/bin/browser_network_native.rs": "254c36133ffdb1c9d9a5c8b37dfd9ee6d50adee7d57735b8a20d535cf384c172",
+    "src/rtc_member.rs": "384525743969356e552b7826947966aca7171b9b46d116292f7471f125a33eaf",
+    "browser-probe/src/rtc_member.rs": "85a20174c12ed6a8b6d615cd8e0f2a9a3fe9a5c74a84822ddd9131a56973951a",
+    "src/rtc_association.rs": "8ae3837ed6382ed5c2d0aa02e15b3f58b3e9084d91efd0a4ed1df1b54fd7ce8e",
+    "tests/member_path_protocol.rs": "dc16add9270facebc4ece6ed8890770485a30859ccf911d731082ec2fe8897aa",
+    "tests/support/negotiated_accept_members.rs": "98efa35a48c8cc7b655c0cac14772009dc78fbbcd6d88bdb4c720310ccf7c3aa",
+    "tests/unified_connection.rs": "7d9827ac999e4c84cdd1218ae647a89500be7c106cd2bed6a9ed9ddc0b8d5580"
+  },
+  "builds": {
+    "native": {
+      "receiptSha256": "6b2b2d97f24243a38e71cba029a0902e6c8701ae756f01ad7cceb552c348ce04",
+      "exit": 0,
+      "cargoExit": 0,
+      "cargoSeconds": 29.948056235909462,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "actualSelectedInputCount": 6584,
+      "actualSourceCopyCount": 297,
+      "actualCapturedDepfileCount": 482,
+      "sourceDigestBefore": "85f0d4a44b92799f6e4f73132acbc2ac888a943898e7f56b71c2559e890d32a4",
+      "sourceDigestAfter": "85f0d4a44b92799f6e4f73132acbc2ac888a943898e7f56b71c2559e890d32a4",
+      "artifacts": {
+        "mio80_offline_removal_signer": "368415496e9e972c0884f5bfe69e2f51ed6c2b0db0127370ef4e245deb903581",
+        "browser_wss_member_native": "518e089f1264fb42096fef0c57598d45cd0d1fcd9886915958894681eee67c9c",
+        "unified_admission_story": "b3d5958e26675059d22650e8ec6b2735e552bae5b6d16abb8b761bc0cb174f88",
+        "browser_network_native": "8f508f4cc46c633104c4e10c37ce20784e2a5e1eec94923285ae44789f1fd8be",
+        "unified_native_member": "633be96547b7e27f34236378066ac23c9b72c6ae7fbfbd06ee7dd0a6bf36c08c",
+        "unified_maintained_story": "c791a5328776bb0c4b3143f49596f5e3caf161d3e21e88d4dcc8195e784cc601"
+      }
+    },
+    "wasm": {
+      "receiptSha256": "32e54deeb6b755531c273ff726e7c771006697560b1e3638ba586f439fbbdce6",
+      "exit": 0,
+      "cargoExit": 0,
+      "cargoSeconds": 9.531986135058105,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "actualSelectedInputCount": 3159,
+      "actualSourceCopyCount": 198,
+      "actualCapturedDepfileCount": 264,
+      "sourceDigestBefore": "85f0d4a44b92799f6e4f73132acbc2ac888a943898e7f56b71c2559e890d32a4",
+      "sourceDigestAfter": "85f0d4a44b92799f6e4f73132acbc2ac888a943898e7f56b71c2559e890d32a4",
+      "artifacts": {
+        "miopunch_browser_probe_bg.wasm": "15fb46280bd1e29cb0a474ebf0f0c0d7b7bd3304c692e16038f8e99306e3e5e3",
+        "miopunch_browser_probe_bg.wasm.d.ts": "8ff8262526f5b757036085ee949efd7a9446d40a7b190529a81fe34342347ff6",
+        "miopunch_browser_probe.js": "3514ed07b6a249abe7dfb3ff1d95374ef1efcba38519928a1d12b4a1eec03c89",
+        "miopunch_browser_probe.d.ts": "5e32a31236b89872b32934454164ff64dd45cabe21cd4565ecbc5ca7b9c53c1e",
+        "storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+        "rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96"
+      }
+    },
+    "tests": {
+      "receiptSha256": "33af677d6696ba0b0a2c6f7c7a61cddb7661a1a601348e282869337f6e946a54",
+      "exit": 0,
+      "cargoExit": 0,
+      "cargoSeconds": 5.533676804974675,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "actualSelectedInputCount": 5723,
+      "actualSourceCopyCount": 285,
+      "actualCapturedDepfileCount": 428,
+      "sourceDigestBefore": "de0ed04917c6ff83f828bbf586b4d50d0402e3cc28f30b5c147cd61e7f69d82b",
+      "sourceDigestAfter": "de0ed04917c6ff83f828bbf586b4d50d0402e3cc28f30b5c147cd61e7f69d82b",
+      "artifacts": {
+        "unified_admission_story": "e30ba01f70a4c8825f041bab42ccbe4ed94db7335f6de225a3e44e1cf90a67e6",
+        "negotiated_accept_context": "74bee969f614bccf2b99867804e580650face341ba6bdf4aa702d137e091b792",
+        "member_path_protocol": "bf6bd43dcaa637c2febd15178b36e3e6b289c286fa8b19f5971dadb682f9b205",
+        "unified_connection": "c804e398b40579323f5b974e954a50f935a1bf696cb2bcf644cea7970ab71593"
+      }
+    }
+  },
+  "checks": {
+    "relay": {
+      "receiptSha256": "88aa75e285ca593d84639cc3b1c88396063559f59f4b441fa76a3d0289778e4b",
+      "testCount": 3,
+      "passCount": 3,
+      "exit": 0,
+      "forced": false,
+      "ownedProcessGroupAbsentImmediately": true,
+      "ownedProcessGroupAbsentLate": true,
+      "actualSourceAndArtifactPostconditionsPassed": true,
+      "stdoutSha256": "490bde4e64566c6cba8519e8c953de4cbe92cbb5e0fbfd8c882641a8082d2eb2",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "admission": {
+      "receiptSha256": "d3ea43d8ddf51f8b76712c33730c5b471a757a2ce2df4408891065294824112e",
+      "testCount": 4,
+      "passCount": 4,
+      "exit": 0,
+      "forced": false,
+      "ownedProcessGroupAbsentImmediately": true,
+      "ownedProcessGroupAbsentLate": true,
+      "actualSourceAndArtifactPostconditionsPassed": true,
+      "stdoutSha256": "b5a535d2bcc4384e6429e21d7d2c6a1e9f7f7c595e11e9f0ee07a89ca64e133a",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "accept-context": {
+      "receiptSha256": "107ec439509cb4f5372de921bc8d98c29db6a00e3c674e9d1776f88489861860",
+      "testCount": 3,
+      "passCount": 3,
+      "exit": 0,
+      "forced": false,
+      "ownedProcessGroupAbsentImmediately": true,
+      "ownedProcessGroupAbsentLate": true,
+      "actualSourceAndArtifactPostconditionsPassed": true,
+      "stdoutSha256": "42ff5d7a8624470200d3f76dc346bd56f108a11de7145e9148e11a18fb3edf5a",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "common-before-observer-fix": {
+      "receiptSha256": "5df4ca6aecf5206c7be06b57ff023bfc83e13bf1533723c294ef83c3c23786e6",
+      "testCount": 11,
+      "passCount": 10,
+      "exit": 101,
+      "forced": false,
+      "ownedProcessGroupAbsentImmediately": true,
+      "ownedProcessGroupAbsentLate": true,
+      "actualSourceAndArtifactPostconditionsPassed": true,
+      "stdoutSha256": "c0ccf4e77eba61930954aac9da962c481f23d7727d5b453946bc70ed78df4a15",
+      "stderrSha256": "fd5dc9314a76d9469935657f9a4f4c7dbc666b8307415536f0e29cd5ffd83168"
+    },
+    "old-alpn-observer-fixed": {
+      "receiptSha256": "f050c003472dc75af0fb7f46cbcc09c976cf706e9da7a87dc5254107fdb82628",
+      "testCount": 1,
+      "passCount": 1,
+      "exit": 0,
+      "forced": false,
+      "ownedProcessGroupAbsentImmediately": true,
+      "ownedProcessGroupAbsentLate": true,
+      "actualSourceAndArtifactPostconditionsPassed": true,
+      "stdoutSha256": "48079e126278a4f207eaab77384600fdfa09aed79d2667274fae8848d2fc5485",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "distinctPassingChecksAcrossImmutableReceipts": 21,
+  "testEvidenceReuse": {
+    "unchangedFinalTestExecutableNames": [
+      "member_path_protocol",
+      "unified_admission_story"
+    ],
+    "reusedArtifactBytesExactlyMatchFinalBuild": true,
+    "commonTenPassingTestsPrecedeObserverOnlyFix": "Original 11-test run exited101 with ten passes and one observer timeout; only that observer was changed and rerun successfully. No library source changed."
+  },
+  "sdk": {
+    "rawReceiptSha256": "31a305047c2f9a4319b9c6579645821b0d604f00030a1a965246103aecea94f4",
+    "executionReceiptSha256": "3f55b5750a186e506e018b93ba8f2fd83b9c821294127f008027c48c48eef4bd",
+    "passed": true,
+    "runtimeExit": 0,
+    "sourceAndArtifactPostconditionsPassed": true,
+    "wholeCaseWallMs": 67164.656,
+    "normalTlsVerified": true,
+    "stages": [
+      {
+        "name": "native-device-selection",
+        "ok": true,
+        "elapsedMs": 0.004
+      },
+      {
+        "name": "owned-native-actor",
+        "ok": true,
+        "elapsedMs": 0.406
+      },
+      {
+        "name": "native-packet-capture-ready",
+        "ok": true,
+        "elapsedMs": 436.551
+      },
+      {
+        "name": "native-sdk-start",
+        "ok": true,
+        "elapsedMs": 1650.904
+      },
+      {
+        "name": "browser-device-selection",
+        "ok": true,
+        "elapsedMs": 35.661
+      },
+      {
+        "name": "browser-packet-capture-ready",
+        "ok": true,
+        "elapsedMs": 1109.207
+      },
+      {
+        "name": "owned-browser-page",
+        "ok": true,
+        "elapsedMs": 1422.731
+      },
+      {
+        "name": "m82-rtc-observer-ready",
+        "ok": true,
+        "elapsedMs": 100.213
+      },
+      {
+        "name": "m82-admission-fixture-ready",
+        "ok": true,
+        "elapsedMs": 0.009
+      },
+      {
+        "name": "browser-sdk-start",
+        "ok": true,
+        "elapsedMs": 1537.134
+      },
+      {
+        "name": "restricted-admission-request",
+        "ok": true,
+        "elapsedMs": 3372.538
+      },
+      {
+        "name": "native-restricted-admission",
+        "ok": true,
+        "elapsedMs": 0.244
+      },
+      {
+        "name": "different-TLS-identity-claim",
+        "ok": true,
+        "elapsedMs": 3202.814
+      },
+      {
+        "name": "native-TLS-claim-restricted",
+        "ok": true,
+        "elapsedMs": 0.313
+      },
+      {
+        "name": "native-TLS-claim-rejected",
+        "ok": true,
+        "elapsedMs": 0.283
+      },
+      {
+        "name": "unapproved-open_member-rejected",
+        "ok": true,
+        "elapsedMs": 28.374
+      },
+      {
+        "name": "unapproved-sync_replica-rejected",
+        "ok": true,
+        "elapsedMs": 35.018
+      },
+      {
+        "name": "authorization-only-stop",
+        "ok": true,
+        "elapsedMs": 874.583
+      },
+      {
+        "name": "authorization-only-reopen",
+        "ok": true,
+        "elapsedMs": 1565.762
+      },
+      {
+        "name": "complete-reopen-stop",
+        "ok": true,
+        "elapsedMs": 705.94
+      },
+      {
+        "name": "independent-offline-author",
+        "ok": true,
+        "elapsedMs": 618.887
+      },
+      {
+        "name": "saved-provider-retirement",
+        "ok": true,
+        "elapsedMs": 318.954
+      },
+      {
+        "name": "saved-provider-reopen",
+        "ok": true,
+        "elapsedMs": 1598.488
+      },
+      {
+        "name": "complete-reopen",
+        "ok": true,
+        "elapsedMs": 2405.267
+      },
+      {
+        "name": "nonempty-sdk-replica",
+        "ok": true,
+        "elapsedMs": 7897.14
+      },
+      {
+        "name": "sender-durable-replica-receipt",
+        "ok": true,
+        "elapsedMs": 0.836
+      },
+      {
+        "name": "strict-new-replica-purpose",
+        "ok": true,
+        "elapsedMs": 0.017
+      },
+      {
+        "name": "replica-reopen-stop",
+        "ok": true,
+        "elapsedMs": 2710.434
+      },
+      {
+        "name": "replica-reopen",
+        "ok": true,
+        "elapsedMs": 1553.464
+      },
+      {
+        "name": "ordinary-member-open",
+        "ok": true,
+        "elapsedMs": 7518.093
+      },
+      {
+        "name": "native-live-member",
+        "ok": true,
+        "elapsedMs": 1.895
+      },
+      {
+        "name": "native-live-business",
+        "ok": true,
+        "elapsedMs": 1.96
+      },
+      {
+        "name": "ordinary-member-close",
+        "ok": true,
+        "elapsedMs": 129.128
+      },
+      {
+        "name": "actual-current-member-removal",
+        "ok": true,
+        "elapsedMs": 48.312
+      },
+      {
+        "name": "revoked-open_member-rejected",
+        "ok": true,
+        "elapsedMs": 1578.262
+      },
+      {
+        "name": "revoked-sync_replica-rejected",
+        "ok": true,
+        "elapsedMs": 1639.198
+      }
+    ],
+    "replica": {
+      "targetAbsentBefore": true,
+      "targetVerifiedSavedAfter": true,
+      "scopeCount": 4,
+      "savedCount": 4,
+      "appliedCount": 4,
+      "complete": true,
+      "targetVerifiedSavedAfterReopen": true
+    },
+    "wrongTlsClaimRejected": true,
+    "unapprovedDataRejected": true,
+    "revokedDataRejected": true,
+    "route": {
+      "hostKernelRouteQualified": true,
+      "hostSelectedSocketOwned": true,
+      "pixelActiveNonVpnNetwork": false,
+      "pixelRouteQualified": true,
+      "twoEndSelectedTuplePacketsCorrelated": true,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "hostUpstreamRouteUnknown": true
+    },
+    "physicalDataQualified": false,
+    "physicalWanQualified": false,
+    "nativeCleanupQualified": true,
+    "captureCleanupSucceeded": true,
+    "captureObserverJoined": true,
+    "allPacketsClaimedOwned": false,
+    "wrongTlsClaimNoLedgerMutation": true
+  },
+  "originalFailureReceiptsPreserved": true,
+  "rawReceiptsRewritten": false,
+  "oldNatModeAlgorithmsChanged": false,
+  "irohOrNoqCoreChanged": false,
+  "allUnrelatedProtectedWipFilesUnchanged": 234,
+  "fullMatrixQualified": false,
+  "M82Done": false,
+  "M84Done": false,
+  "reviewComplete": true,
+  "pendingCases": [
+    "Actual distinct physical networks with observed non-overlay upstream and selected data route",
+    "Qualified public Native-to-Native ordinary M/business and reverse; Android shell platform TLS context unavailable, Host public contact failed",
+    "Complete public RTC-disabled relay-only story; current public attempts preserved as failed",
+    "IRC full SDK route remains unqualified from earlier work; corresponding branch not expanded",
+    "Scoped source commit and Plane M85 resolution; M82 and M84 acceptance remains incomplete"
+  ],
+  "recordedSdkSourceEpoch": "Historical first contract, before direct-only release restoration and TCP contact eligibility fix; raw receipts unchanged. Current Native SDK compiled and public runtime pending.",
+  "currentSourceHashes": {
+    "src/member_path_protocol.rs": "6ab146207eab9d011d1efc2c37c7f2c5b7de87d106ef03faecb0f7129a9d7be9",
+    "src/message_bootstrap.rs": "2a2474fd3f8685f0dddbea75700bac8b19920ef51e83ddb2d0d1e6cb065db938",
+    "src/native_network.rs": "cfba205655b7c1269ddc1281d94e6a583e3cc70da20976c656b113cfc4d33f04",
+    "src/resources.rs": "cc8fb33413dec1694a50c21328a6581ba0004de0ffded094a807a9889c160295",
+    "browser-probe/src/network.rs": "7f0cd4c4e1a2356c7abf3b4b5800423a56425c7414c78fadf1a71085b23a5216",
+    "src/bin/browser_wss_member_native.rs": "1c8ece3bf3ccf7faaadb9d841d63cde0e8602500b62546d1e573af23eefea894",
+    "src/bin/browser_network_native.rs": "254c36133ffdb1c9d9a5c8b37dfd9ee6d50adee7d57735b8a20d535cf384c172",
+    "src/rtc_member.rs": "384525743969356e552b7826947966aca7171b9b46d116292f7471f125a33eaf",
+    "browser-probe/src/rtc_member.rs": "85a20174c12ed6a8b6d615cd8e0f2a9a3fe9a5c74a84822ddd9131a56973951a",
+    "src/rtc_association.rs": "8ae3837ed6382ed5c2d0aa02e15b3f58b3e9084d91efd0a4ed1df1b54fd7ce8e",
+    "tests/member_path_protocol.rs": "dc16add9270facebc4ece6ed8890770485a30859ccf911d731082ec2fe8897aa",
+    "tests/support/negotiated_accept_members.rs": "98efa35a48c8cc7b655c0cac14772009dc78fbbcd6d88bdb4c720310ccf7c3aa",
+    "tests/unified_connection.rs": "7d9827ac999e4c84cdd1218ae647a89500be7c106cd2bed6a9ed9ddc0b8d5580",
+    "tests/tcp_direct.rs": "2e5af80409dd259a421ffff73dc8a7eea6d8312db2e145afa997aae33e7e8664",
+    "scripts/check_browser_rtc.py": "89f37fce0dd5d73df1fa5c95195db420c4a14c99f927c66903d1ffbd8077ff31",
+    "scripts/check_browser_rtc_cut.py": "e48e9bad818556b885c4a5c4afedf5d32d389a82f29edf3503823db73f84a5fe",
+    "scripts/check_browser_rtc_cross_network.py": "76f0fc6f8472c949484d5caf8471bb9050df6c106ffce503978d735357412631",
+    "scripts/check_browser_paths.py": "e5c924b685a5b0dd9a7f354f34eb86b0a9e41c346cbefe7a6405c491084454d1",
+    "browser-probe/harness/run-rtc.mjs": "81433d71a91241ad774b5bdae7bc592ba16d0ca4eb8caf67f6195094e065a270",
+    "browser-probe/harness/run-rtc-cross-network.mjs": "1a0e86c2204922ae42d44ca49ac197cdadd74ca2c0d040e7f0ad6b3b3ee68dc7",
+    "browser-probe/harness/run-rtc-member.mjs": "75946f48551e9db086dc4d87cf0b3aeccf986bea3d8b735b22f6cbbe2afd575e",
+    "src/bin/unified_native_member.rs": "2521899dcdd0d5427a1cc57e2327e1cff9a038aa1fd9a5eeaebd4c1355d755d4"
+  },
+  "currentNativeBuild": {
+    "receiptSha256": "bc8cf945df6527eeaaf6109a2fc7292836b856536e4a680e395b683a1e58562d",
+    "exit": 0,
+    "cargoExit": 0,
+    "cargoSeconds": 28.631288457196206,
+    "qualifiedForFrozenRun": true,
+    "sourceFrozenDuringBuild": true,
+    "freshArtifacts": 526,
+    "rebuiltArtifacts": 7,
+    "actualSelectedInputCount": 6584,
+    "actualSourceCopyCount": 297,
+    "actualCapturedDepfileCount": 482,
+    "sourceDigestBefore": "9a691e417d6ffc239586906a0be21f19268fe738e49810ea96d3a7df37b4789e",
+    "sourceDigestAfter": "9a691e417d6ffc239586906a0be21f19268fe738e49810ea96d3a7df37b4789e",
+    "artifacts": {
+      "unified_native_member": "78b345439b748cc65eac90e06f76181467ee81861d04ed4972419520aa16ad6d",
+      "mio80_offline_removal_signer": "c3815a60f81a9a1665edb3ee1e17d8a4510f5c22ad02f2fb24b7cae9b6520717",
+      "browser_wss_member_native": "a8e3cd32d9ad4d3b8ad95cb60290f4c3860ea43dadb64aca72058a1f3364d2d1",
+      "browser_network_native": "b2446ecc1ebc9f12640088ee886dd52ab66bd2d60674fb0624537da207e1fbdb",
+      "unified_admission_story": "44b0b7e2b0ce76b4f543faea52b78b59e48dd49f205ed41d727dbf91f2ed83f9",
+      "unified_maintained_story": "88d2697bf3151519745f2e7a1785a24f1bb76458b23be1d48cadff070a71ab50"
+    }
+  },
+  "currentSourceSdkRuntimeValidationPending": true,
+  "currentSourceShortChecksPending": false,
+  "currentSourceOwnedPathCount": 15,
+  "currentTestBuild": {
+    "receiptSha256": "3995ea9523a6b54a24535ea4843b0dbb22e85849f3e18c850b1533e12f59d817",
+    "exit": 0,
+    "cargoExit": 0,
+    "cargoSeconds": 12.074346357956529,
+    "qualifiedForFrozenRun": true,
+    "sourceFrozenDuringBuild": true,
+    "freshArtifacts": 467,
+    "rebuiltArtifacts": 5,
+    "actualSelectedInputCount": 5723,
+    "actualSourceCopyCount": 285,
+    "actualCapturedDepfileCount": 429,
+    "sourceDigestBefore": "9a691e417d6ffc239586906a0be21f19268fe738e49810ea96d3a7df37b4789e",
+    "sourceDigestAfter": "9a691e417d6ffc239586906a0be21f19268fe738e49810ea96d3a7df37b4789e",
+    "artifacts": {
+      "member_path_protocol": "b896703368dda22d9c89cb64262faafe8b5bbe06d64248852dbf7c2aebab8be7",
+      "unified_admission_story": "a4b70fd52d83319210d94dc393554ef76eff39e7bd5f5dca3398f9c9f80a8de3",
+      "negotiated_accept_context": "0c58cfa26f787a2a28d373518469f5a780a123bf2fb36a7f97132402d491a573",
+      "unified_connection": "f15bf97ae7094fcf5e440dfcd37f5b7f5129e95803e21eac891230b3b9893a86",
+      "tcp_direct_member_preserved": "05fd458e1fec0641021fd58f25c80b375435d3651ddd2e05080e1afc67b8ab58"
+    }
+  },
+  "currentSourceChecks": {
+    "common": {
+      "receiptSha256": "9bee71683873afcb80aee78523c7efe13197f4964c46295e96a96a9863039628",
+      "testCount": 11,
+      "passCount": 11,
+      "exit": 0,
+      "elapsedMs": 22866.955,
+      "forced": false,
+      "processGroupAbsentImmediate": true,
+      "processGroupAbsentLate": true,
+      "postSourceAndArtifactGuardsPassed": true,
+      "stdoutSha256": "57e18ed2b875e76bf43dd9436513d80726511bf551d40e211060f4673a303610",
+      "stderrSha256": "7674440e26d153b6f7402804adeff59e4fb6f6040d0090b59be8864b11e82cfc"
+    },
+    "admission": {
+      "receiptSha256": "2b6a7a2345a174c734c09eff72d792f5dfa3e483b09813e3919937a706cccd6e",
+      "testCount": 4,
+      "passCount": 4,
+      "exit": 0,
+      "elapsedMs": 6237.0,
+      "forced": false,
+      "processGroupAbsentImmediate": true,
+      "processGroupAbsentLate": true,
+      "postSourceAndArtifactGuardsPassed": true,
+      "stdoutSha256": "69bebab1c3a8b430dc45e6d917762275f67f28a7964bc414f3421629c7f13e5e",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "negotiated-accept": {
+      "receiptSha256": "5940b5c0ea68513eb9c6dd3123c76dc8029a376eaefb003da81a2815266b4306",
+      "testCount": 3,
+      "passCount": 3,
+      "exit": 0,
+      "elapsedMs": 12720.276,
+      "forced": false,
+      "processGroupAbsentImmediate": true,
+      "processGroupAbsentLate": true,
+      "postSourceAndArtifactGuardsPassed": true,
+      "stdoutSha256": "3663e11a7bc7f24c97d72d08cba324c77bde604c8fcfb4551ddaa604dde34c79",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "relay": {
+      "receiptSha256": "5033bd3464c1bc5773c8fe210cc6212e03c52d17960c4b28bd0b778c810ae8a7",
+      "testCount": 3,
+      "passCount": 3,
+      "exit": 0,
+      "elapsedMs": 3008.609,
+      "forced": false,
+      "processGroupAbsentImmediate": true,
+      "processGroupAbsentLate": true,
+      "postSourceAndArtifactGuardsPassed": true,
+      "stdoutSha256": "1404bdb2e24ab51340ca7b7ab05f90fed7ed3540f0fd037eccad424d363c951e",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tcp-only-admission-replica-business": {
+      "receiptSha256": "dcef2923e97c78b15375dcb4b1f8e7653daac48ee553cd4b0ba721030c9f1917",
+      "testCount": 1,
+      "passCount": 1,
+      "exit": 0,
+      "elapsedMs": 4872.263,
+      "forced": false,
+      "processGroupAbsentImmediate": true,
+      "processGroupAbsentLate": true,
+      "postSourceAndArtifactGuardsPassed": true,
+      "stdoutSha256": "d3d5eb991b680ed41102a1b980d4c12b710e4cc6f45a81dc920c139d608fec0b",
+      "stderrSha256": "b410faf7fbe7527c5e8c3cafbf5fb7cc4f7ec5c09ef3b285e46dc4aa3b982298"
+    },
+    "tcp-disabled-no-dial": {
+      "receiptSha256": "1197861a031af45d8867d72347fafc78f4b5d6392ae493dbc8ab4d4c834e0646",
+      "testCount": 1,
+      "passCount": 1,
+      "exit": 0,
+      "elapsedMs": 6411.796,
+      "forced": false,
+      "processGroupAbsentImmediate": true,
+      "processGroupAbsentLate": true,
+      "postSourceAndArtifactGuardsPassed": true,
+      "stdoutSha256": "9538ecf2c1568d96ee551158aad3d656d568f3b8a3945910795593de586e5f82",
+      "stderrSha256": "6458cd1ad07ff467c40102db26ffdd73497be88b608edd806689fca9d9b8f268"
+    },
+    "tcp-wrong-identity-refusal": {
+      "receiptSha256": "8ad9b423ed96e7711140cd858cd10952737ade273f69c25983d0c0500b527785",
+      "testCount": 1,
+      "passCount": 1,
+      "exit": 0,
+      "elapsedMs": 8873.501,
+      "forced": false,
+      "processGroupAbsentImmediate": true,
+      "processGroupAbsentLate": true,
+      "postSourceAndArtifactGuardsPassed": true,
+      "stdoutSha256": "9435aa37a5d44bed05a5774081e05430858b70085e9a5508f400b39ca2b84f24",
+      "stderrSha256": "68e9cf49256c76ef469e43475d8de88e83dc084df2513822f54366460f0885d4"
+    }
+  },
+  "distinctCurrentSourcePassingChecks": 24,
+  "wasmSelectedGraphReused": {
+    "actualSelectedInputCount": 3159,
+    "allSelectedInputsAndArtifactsCurrent": true,
+    "rawBuildReceiptUnmodified": true,
+    "declaredUnselectedSourcePaths": [
+      "src/message_bootstrap.rs",
+      "src/native_network.rs",
+      "src/resources.rs",
+      "tests/support/negotiated_accept_members.rs",
+      "tests/tcp_direct.rs",
+      "tests/unified_connection.rs"
+    ],
+    "provenanceSha256": "fb68c7aed87a2d663b575546296afd39a06d61278179977db29b85759ff6e6ba"
+  },
+  "M85Done": false,
+  "tcpContactEligibilityFix": {
+    "ticket": "MIOPUNCH-85",
+    "status": "In Progress",
+    "cause": "TCP permitted by resources but missing from the restricted contact transport registry",
+    "fix": "Include existing TCP data transport ID when TCP permission is enabled",
+    "coreAlgorithmChanged": false,
+    "initialFailuresPreserved": true,
+    "currentRealLocalChecksPassed": 3,
+    "scopedCommitAndReviewPending": true,
+    "publicWanClaim": false
+  },
+  "currentLocalSocketSandboxFailurePreserved": {
+    "receiptSha256": "f7a8761eda3e8b7a438f35abb7157c6bd8bb94cd11ce08f5dba92a0dd17452a6",
+    "exit": 101,
+    "cause": "Operation not permitted while binding sockets before protocol execution",
+    "samePinnedBinaryPassedWithLocalSocketPermission": true
+  },
+  "legacyCallerAudit": {
+    "receiptSha256": "ec2bdc7470c7caf527d011eafe584641c3460e9e9af85f4a08f878b7313b9226",
+    "productLegacyIdentifiersAbsent": true,
+    "staleHistoricalHarnessReferences": [
+      {
+        "path": "browser-probe/harness/run-rtc-cross-network.mjs",
+        "line": 169,
+        "legacyIdentifier": "miopunch/browser-member/rtc-path/3"
+      },
+      {
+        "path": "browser-probe/harness/run-rtc-cross-network.mjs",
+        "line": 171,
+        "legacyIdentifier": "miopunch/browser-member/1"
+      },
+      {
+        "path": "browser-probe/harness/run-rtc-member-replica.mjs",
+        "line": 144,
+        "legacyIdentifier": "miopunch/browser-member/rtc-path/3"
+      },
+      {
+        "path": "browser-probe/harness/run-rtc-member.mjs",
+        "line": 24,
+        "legacyIdentifier": "rtc_native_pump_failure_probe"
+      },
+      {
+        "path": "browser-probe/harness/run-rtc-member.mjs",
+        "line": 57,
+        "legacyIdentifier": "rtc_relay_member_probe"
+      },
+      {
+        "path": "browser-probe/harness/run-rtc-member.mjs",
+        "line": 137,
+        "legacyIdentifier": "rtc_relay_member_probe"
+      },
+      {
+        "path": "browser-probe/harness/run-rtc-member.mjs",
+        "line": 168,
+        "legacyIdentifier": "rtc_relay_member_probe"
+      },
+      {
+        "path": "browser-probe/harness/run-rtc.mjs",
+        "line": 303,
+        "legacyIdentifier": "miopunch/browser-member/1"
+      },
+      {
+        "path": "browser-probe/harness/run-rtc.mjs",
+        "line": 345,
+        "legacyIdentifier": "miopunch/browser-member/1"
+      },
+      {
+        "path": "browser-probe/harness/run-wss-admission-materials.mjs",
+        "line": 39,
+        "legacyIdentifier": "miopunch/browser-member/rtc-path/3"
+      }
+    ],
+    "finalCallerRetirementPending": false
+  },
+  "historicalFixtureRetirement": {
+    "receiptSha256": "364f32e4909a8b1d58ffdef30b4283427fbf5a7a5c5f28a77c3769399ceffaa3",
+    "retiredEntryChecksPassed": 17,
+    "currentSourceHashes": {
+      "scripts/check_browser_rtc.py": "89f37fce0dd5d73df1fa5c95195db420c4a14c99f927c66903d1ffbd8077ff31",
+      "scripts/check_browser_rtc_cut.py": "e48e9bad818556b885c4a5c4afedf5d32d389a82f29edf3503823db73f84a5fe",
+      "scripts/check_browser_rtc_cross_network.py": "76f0fc6f8472c949484d5caf8471bb9050df6c106ffce503978d735357412631",
+      "scripts/check_browser_paths.py": "e5c924b685a5b0dd9a7f354f34eb86b0a9e41c346cbefe7a6405c491084454d1",
+      "browser-probe/harness/run-rtc.mjs": "81433d71a91241ad774b5bdae7bc592ba16d0ca4eb8caf67f6195094e065a270",
+      "browser-probe/harness/run-rtc-cross-network.mjs": "1a0e86c2204922ae42d44ca49ac197cdadd74ca2c0d040e7f0ad6b3b3ee68dc7",
+      "browser-probe/harness/run-rtc-member.mjs": "75946f48551e9db086dc4d87cf0b3aeccf986bea3d8b735b22f6cbbe2afd575e"
+    },
+    "oldProbeCallerRemoved": true,
+    "legacyMemberEntryPointsRejectBeforePreparation": true,
+    "publicOperations": 0,
+    "sdkRebuildRequired": false,
+    "historicalReceiptsUnmodified": true,
+    "currentUnifiedRunnersUntouched": true
+  },
+  "currentTotalOwnedPathCount": 22,
+  "currentWholeSourceDigest": "b63c31238a008b42e1ecc10bb5565bd4deb3d2e78bab0eb979d597a6ca08af7e",
+  "currentRuntimeValidationStatus": "Eight successful finite cases; Native public pair and public relay-only complete story unqualified",
+  "currentPublicSdkCases": {
+    "browserToNativeComplete": {
+      "runtimeReceiptSha256": "2e2c5743de65029b3ca0be34ea2a051e48a6a6f475d2f4ca455bb7806b997896",
+      "passed": true,
+      "commandExit": 0,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": 71819.547,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "native-device-selection",
+          "ok": true,
+          "elapsedMs": 0.002
+        },
+        {
+          "name": "owned-native-actor",
+          "ok": true,
+          "elapsedMs": 0.58
+        },
+        {
+          "name": "native-packet-capture-ready",
+          "ok": true,
+          "elapsedMs": 483.014
+        },
+        {
+          "name": "native-sdk-start",
+          "ok": true,
+          "elapsedMs": 1710.305
+        },
+        {
+          "name": "browser-device-selection",
+          "ok": true,
+          "elapsedMs": 48.298
+        },
+        {
+          "name": "browser-packet-capture-ready",
+          "ok": true,
+          "elapsedMs": 1110.327
+        },
+        {
+          "name": "owned-browser-page",
+          "ok": true,
+          "elapsedMs": 1400.103
+        },
+        {
+          "name": "m82-rtc-observer-ready",
+          "ok": true,
+          "elapsedMs": 100.331
+        },
+        {
+          "name": "m82-admission-fixture-ready",
+          "ok": true,
+          "elapsedMs": 0.01
+        },
+        {
+          "name": "browser-sdk-start",
+          "ok": true,
+          "elapsedMs": 1843.657
+        },
+        {
+          "name": "restricted-admission-request",
+          "ok": true,
+          "elapsedMs": 3521.727
+        },
+        {
+          "name": "native-restricted-admission",
+          "ok": true,
+          "elapsedMs": 0.249
+        },
+        {
+          "name": "different-TLS-identity-claim",
+          "ok": true,
+          "elapsedMs": 3242.74
+        },
+        {
+          "name": "native-TLS-claim-restricted",
+          "ok": true,
+          "elapsedMs": 0.294
+        },
+        {
+          "name": "native-TLS-claim-rejected",
+          "ok": true,
+          "elapsedMs": 0.279
+        },
+        {
+          "name": "unapproved-open_member-rejected",
+          "ok": true,
+          "elapsedMs": 73.214
+        },
+        {
+          "name": "unapproved-sync_replica-rejected",
+          "ok": true,
+          "elapsedMs": 39.445
+        },
+        {
+          "name": "authorization-only-stop",
+          "ok": true,
+          "elapsedMs": 937.563
+        },
+        {
+          "name": "authorization-only-reopen",
+          "ok": true,
+          "elapsedMs": 1720.206
+        },
+        {
+          "name": "complete-reopen-stop",
+          "ok": true,
+          "elapsedMs": 817.338
+        },
+        {
+          "name": "independent-offline-author",
+          "ok": true,
+          "elapsedMs": 634.323
+        },
+        {
+          "name": "saved-provider-retirement",
+          "ok": true,
+          "elapsedMs": 320.542
+        },
+        {
+          "name": "saved-provider-reopen",
+          "ok": true,
+          "elapsedMs": 1999.425
+        },
+        {
+          "name": "complete-reopen",
+          "ok": true,
+          "elapsedMs": 1841.506
+        },
+        {
+          "name": "nonempty-sdk-replica",
+          "ok": true,
+          "elapsedMs": 9925.043
+        },
+        {
+          "name": "sender-durable-replica-receipt",
+          "ok": true,
+          "elapsedMs": 0.654
+        },
+        {
+          "name": "strict-new-replica-purpose",
+          "ok": true,
+          "elapsedMs": 0.016
+        },
+        {
+          "name": "replica-reopen-stop",
+          "ok": true,
+          "elapsedMs": 4962.786
+        },
+        {
+          "name": "replica-reopen",
+          "ok": true,
+          "elapsedMs": 1753.354
+        },
+        {
+          "name": "ordinary-member-open",
+          "ok": true,
+          "elapsedMs": 8791.611
+        },
+        {
+          "name": "native-live-member",
+          "ok": true,
+          "elapsedMs": 1.908
+        },
+        {
+          "name": "native-live-business",
+          "ok": true,
+          "elapsedMs": 1.935
+        },
+        {
+          "name": "ordinary-member-close",
+          "ok": true,
+          "elapsedMs": 103.345
+        },
+        {
+          "name": "actual-current-member-removal",
+          "ok": true,
+          "elapsedMs": 45.676
+        },
+        {
+          "name": "revoked-open_member-rejected",
+          "ok": true,
+          "elapsedMs": 2059.331
+        },
+        {
+          "name": "revoked-sync_replica-rejected",
+          "ok": true,
+          "elapsedMs": 2143.88
+        }
+      ],
+      "cleanup": {
+        "browserObserver": {
+          "forced": false,
+          "commandExit": 0,
+          "readerEnded": true
+        },
+        "browser": {
+          "sdk": {
+            "result": {
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [],
+              "networkDiagnostics": [
+                {
+                  "delayMs": 0,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0
+                  }
+                },
+                {
+                  "delayMs": 100,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0
+                  }
+                }
+              ],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 120.60000038146973,
+              "cleanupHistory": [
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 911.8200001716614
+                },
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 776.4450001716614
+                },
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 4926.264999866486
+                },
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 120.60000038146973
+                }
+              ]
+            }
+          },
+          "cleanupSucceeded": true
+        },
+        "native": {
+          "forced": false,
+          "commandExit": 0,
+          "leaderWaitedFor": true,
+          "ownedRemoteProcessAbsent": true,
+          "ownedRemoteProcessAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "sdkRetirement": {
+            "activeRtcAssociations": 0,
+            "activeRtcPumps": 0,
+            "cleanupMs": 104,
+            "immediate": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "late": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "socketsBefore": 2,
+            "socketsLate": 2
+          }
+        },
+        "nativeQualified": true,
+        "packetCapture": {
+          "cleanupSucceeded": true,
+          "observerJoined": true,
+          "devices": {
+            "native": {
+              "cleanupSucceeded": true,
+              "segments": [
+                {
+                  "startedBeforeSdk": true,
+                  "forced": false,
+                  "exit": 0,
+                  "readersEnded": true,
+                  "ownedProcessAbsentImmediate": true,
+                  "ownedProcessAbsentLate": true,
+                  "pcapBytes": 354482,
+                  "pcapSha256": "c1119ab739bcbde2eaf4e2a23050b1e80246176ef76ac6a46e5f4d2ded448dd7",
+                  "packetsCaptured": 1203,
+                  "packetsReceivedByFilter": 1210,
+                  "kernelDrops": 0,
+                  "limitReached": false
+                }
+              ]
+            },
+            "browser": {
+              "cleanupSucceeded": true,
+              "segments": [
+                {
+                  "startedBeforeSdk": true,
+                  "forced": false,
+                  "exit": 0,
+                  "readersEnded": true,
+                  "ownedProcessAbsentImmediate": true,
+                  "ownedProcessAbsentLate": true,
+                  "pcapBytes": 395585,
+                  "pcapSha256": "ffa0681bd6f771940bdb4405828ec8fba44722f2847076ef9ef4dc07c3b0e3dc",
+                  "packetsCaptured": 1303,
+                  "packetsReceivedByFilter": 1308,
+                  "kernelDrops": 0,
+                  "limitReached": false
+                }
+              ]
+            }
+          }
+        }
+      },
+      "executionReceiptSha256": "a7660bc13bac426d3e53fd993443c56fce7a484688603c24c2d5bce33840a2be",
+      "scope": "Host/Linux Native responder and actual Pixel Browser initiator; normal public EMQX TLS/WSS; RTC data",
+      "normalTlsVerified": true,
+      "completeSdkStory": true,
+      "wrongTlsClaimRejected": true,
+      "unapprovedDataRejected": true,
+      "durableAdmissionAndBothIdentitiesReopened": true,
+      "nonemptyReplicaVerifiedSavedAppliedAndReopened": true,
+      "originalMemberRtcPingPong": true,
+      "revokedBusinessAndReplicaRejected": true,
+      "routeSummary": {
+        "hostKernelRouteQualified": true,
+        "hostSelectedSocketOwned": true,
+        "pixelActiveNonVpnNetwork": false,
+        "pixelRouteQualified": true,
+        "twoEndSelectedTuplePacketsCorrelated": false,
+        "physicalDataQualified": false,
+        "physicalWanQualified": false,
+        "hostUpstreamRouteUnknown": true
+      }
+    },
+    "browserToBrowserBothDirections": {
+      "runtimeReceiptSha256": "7f14b52a2eee6d4719d31c0578b143405fddc72f96e09f18ea77a231e7ec02e8",
+      "passed": true,
+      "commandExit": 0,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": 71508.95,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "owned-current-provisioner",
+          "ok": true
+        },
+        {
+          "name": "provider-ready",
+          "ok": true
+        },
+        {
+          "name": "authorized-Pixel-selection",
+          "ok": true
+        },
+        {
+          "name": "host-owned-page-ready",
+          "ok": true
+        },
+        {
+          "name": "host-independent-SDK-start",
+          "ok": true
+        },
+        {
+          "name": "host-register-request",
+          "ok": true
+        },
+        {
+          "name": "pixel-owned-page-ready",
+          "ok": true
+        },
+        {
+          "name": "pixel-independent-SDK-start",
+          "ok": true
+        },
+        {
+          "name": "pixel-register-request",
+          "ok": true
+        },
+        {
+          "name": "host-approve",
+          "ok": true
+        },
+        {
+          "name": "pixel-approve",
+          "ok": true
+        },
+        {
+          "name": "host-approved-authorization",
+          "ok": true
+        },
+        {
+          "name": "host-immediate-material-completion",
+          "ok": true
+        },
+        {
+          "name": "pixel-approved-authorization",
+          "ok": true
+        },
+        {
+          "name": "pixel-immediate-material-completion",
+          "ok": true
+        },
+        {
+          "name": "retire-provisioner-before-BB-business",
+          "ok": true
+        },
+        {
+          "name": "host-dialer-only-reopen",
+          "ok": true
+        },
+        {
+          "name": "host-to-pixel-common-connect-accept",
+          "ok": true
+        },
+        {
+          "name": "host-to-pixel-bidirectional-business",
+          "ok": true
+        },
+        {
+          "name": "pixel-dialer-only-reopen",
+          "ok": true
+        },
+        {
+          "name": "pixel-to-host-common-connect-accept",
+          "ok": true
+        },
+        {
+          "name": "pixel-to-host-bidirectional-business",
+          "ok": true
+        },
+        {
+          "name": "host-post-story-persistence-reopen",
+          "ok": true
+        },
+        {
+          "name": "pixel-post-story-persistence-reopen",
+          "ok": true
+        }
+      ],
+      "cleanup": {
+        "host": {
+          "cleanupSucceeded": true
+        },
+        "pixel": {
+          "cleanupSucceeded": true
+        }
+      },
+      "executionReceiptSha256": "6229a87ec2ce95351e562feb95a85453265656fd1b1fc5660b651921a29e08b5",
+      "scope": "Independent Host Chromium and actual Pixel Chrome, both initiating directions; normal public EMQX WSS; RTC data",
+      "directions": [
+        {
+          "handles": {
+            "host": {
+              "role": "connect",
+              "callerElapsedMs": 7723.569999933243,
+              "callerBudgetMs": 12000,
+              "expectedPeerMatched": true,
+              "proof": {
+                "newWire": true,
+                "expectedPeerMatched": true,
+                "currentMemberGate": true,
+                "runtime": "Browser",
+                "peerRuntime": "Browser",
+                "role": "connect",
+                "quicRole": "client",
+                "rtcRole": "Offerer",
+                "originalMUnchanged": true,
+                "sameDiagnosticsM": true,
+                "initialFreshAck": true,
+                "newFinalFreshAck": true,
+                "exactRtcSelected": true,
+                "liveOwnedPeerMatched": true
+              }
+            },
+            "pixel": {
+              "role": "accept",
+              "callerElapsedMs": 7945.360000133514,
+              "callerBudgetMs": 12000,
+              "expectedPeerMatched": true,
+              "proof": {
+                "newWire": true,
+                "expectedPeerMatched": true,
+                "currentMemberGate": true,
+                "runtime": "Browser",
+                "peerRuntime": "Browser",
+                "role": "accept",
+                "quicRole": "server",
+                "rtcRole": "Answerer",
+                "originalMUnchanged": true,
+                "sameDiagnosticsM": true,
+                "initialFreshAck": true,
+                "newFinalFreshAck": true,
+                "exactRtcSelected": true,
+                "liveOwnedPeerMatched": true
+              }
+            }
+          },
+          "bidirectionalStreamsMatched": true
+        },
+        {
+          "handles": {
+            "pixel": {
+              "role": "connect",
+              "callerElapsedMs": 7933.6050000190735,
+              "callerBudgetMs": 12000,
+              "expectedPeerMatched": true,
+              "proof": {
+                "newWire": true,
+                "expectedPeerMatched": true,
+                "currentMemberGate": true,
+                "runtime": "Browser",
+                "peerRuntime": "Browser",
+                "role": "connect",
+                "quicRole": "client",
+                "rtcRole": "Offerer",
+                "originalMUnchanged": true,
+                "sameDiagnosticsM": true,
+                "initialFreshAck": true,
+                "newFinalFreshAck": true,
+                "exactRtcSelected": true,
+                "liveOwnedPeerMatched": true
+              }
+            },
+            "host": {
+              "role": "accept",
+              "callerElapsedMs": 7918.965000152588,
+              "callerBudgetMs": 12000,
+              "expectedPeerMatched": true,
+              "proof": {
+                "newWire": true,
+                "expectedPeerMatched": true,
+                "currentMemberGate": true,
+                "runtime": "Browser",
+                "peerRuntime": "Browser",
+                "role": "accept",
+                "quicRole": "server",
+                "rtcRole": "Answerer",
+                "originalMUnchanged": true,
+                "sameDiagnosticsM": true,
+                "initialFreshAck": true,
+                "newFinalFreshAck": true,
+                "exactRtcSelected": true,
+                "liveOwnedPeerMatched": true
+              }
+            }
+          },
+          "bidirectionalStreamsMatched": true
+        }
+      ],
+      "independentIdentities": true,
+      "savedPeerMembershipGrants": true
+    },
+    "nativeToBrowser": {
+      "runtimeReceiptSha256": "cf887aa4e8375a0200cc22e7bbbe19ac8bff557248cf8cdc0051c8fcab3deae5",
+      "passed": true,
+      "commandExit": 0,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": 36533.941,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "select-actual-pixel",
+          "ok": true,
+          "wallMs": 32.478
+        },
+        {
+          "name": "capture-native-before-sdk",
+          "ok": true,
+          "wallMs": 217.85
+        },
+        {
+          "name": "capture-browser-before-sdk",
+          "ok": true,
+          "wallMs": 1065.524
+        },
+        {
+          "name": "owned-native-actor",
+          "ok": true,
+          "wallMs": 1.04
+        },
+        {
+          "name": "native-admission-ready",
+          "ok": true,
+          "wallMs": 1629.732
+        },
+        {
+          "name": "owned-browser-page",
+          "ok": true,
+          "wallMs": 1325.284
+        },
+        {
+          "name": "public-WSS-observer-start",
+          "ok": true,
+          "wallMs": 88.632
+        },
+        {
+          "name": "independent-browser-start",
+          "ok": true,
+          "wallMs": 1763.533
+        },
+        {
+          "name": "actual-admission-request",
+          "ok": true,
+          "wallMs": 3399.181
+        },
+        {
+          "name": "native-approve",
+          "ok": true,
+          "wallMs": 39.431
+        },
+        {
+          "name": "approved-materials",
+          "ok": true,
+          "wallMs": 3318.181
+        },
+        {
+          "name": "save-complete-admission",
+          "ok": true,
+          "wallMs": 1506.888
+        },
+        {
+          "name": "browser-preparation-stop",
+          "ok": true,
+          "wallMs": 741.232
+        },
+        {
+          "name": "native-preparation-stop",
+          "ok": true,
+          "wallMs": 281.584
+        },
+        {
+          "name": "native-saved-reopen",
+          "ok": true,
+          "wallMs": 1609.325
+        },
+        {
+          "name": "browser-saved-reopen",
+          "ok": true,
+          "wallMs": 1547.639
+        },
+        {
+          "name": "browser-original-accept",
+          "ok": true,
+          "wallMs": 67.682
+        },
+        {
+          "name": "native-original-connect",
+          "ok": true,
+          "wallMs": 7376.955
+        },
+        {
+          "name": "browser-serve-native-stream",
+          "ok": true,
+          "wallMs": 14.567
+        },
+        {
+          "name": "native-to-browser-business",
+          "ok": true,
+          "wallMs": 39.687
+        },
+        {
+          "name": "browser-to-native-business",
+          "ok": true,
+          "wallMs": 46.403
+        },
+        {
+          "name": "owned-member-close",
+          "ok": true,
+          "wallMs": 27.651
+        }
+      ],
+      "cleanup": {
+        "observer": {
+          "forced": false,
+          "commandExit": 0,
+          "readerEnded": true
+        },
+        "browserQualified": true,
+        "browserSdkFacts": {
+          "cleanupSucceeded": true,
+          "networkClosed": true,
+          "networkFreed": true,
+          "ownedMemberHandles": 0
+        },
+        "nativeQualified": true,
+        "native": {
+          "forced": false,
+          "commandExit": 0,
+          "leaderWaitedFor": true,
+          "ownedHostProcessAbsent": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "sdkRetirement": {
+            "activeRtcAssociations": 0,
+            "activeRtcPumps": 0,
+            "cleanupMs": 414,
+            "cleanupSucceeded": true,
+            "socketsBefore": 3,
+            "socketsLate": 3,
+            "traffic": {
+              "driver_active": 0,
+              "queued_packets": 0
+            }
+          }
+        },
+        "captures": {
+          "devices": {
+            "native": {
+              "records": [
+                {
+                  "startedBeforeSdk": true,
+                  "forced": false,
+                  "exit": 0,
+                  "readersEnded": true,
+                  "ownedProcessAbsentImmediate": true,
+                  "ownedProcessAbsentLate": true,
+                  "pcapBytes": 178747,
+                  "pcapSha256": "9de25b99662d76ecd9f92d30d610c26cc82d95847dd90ae737c3ef27980daa09",
+                  "packetsCaptured": 625,
+                  "packetsReceivedByFilter": 625,
+                  "kernelDrops": 0,
+                  "limitReached": false
+                }
+              ],
+              "cleanupSucceeded": true
+            },
+            "browser": {
+              "records": [
+                {
+                  "startedBeforeSdk": true,
+                  "forced": false,
+                  "exit": 0,
+                  "readersEnded": true,
+                  "ownedProcessAbsentImmediate": true,
+                  "ownedProcessAbsentLate": true,
+                  "pcapBytes": 190107,
+                  "pcapSha256": "b82843c6cf884e5a23e9e0f295aad4be96184a43093f949233545ce9db7782ad",
+                  "packetsCaptured": 605,
+                  "packetsReceivedByFilter": 607,
+                  "kernelDrops": 0,
+                  "limitReached": false,
+                  "cleanupSucceeded": true
+                }
+              ],
+              "cleanupSucceeded": true
+            }
+          },
+          "observerJoined": true,
+          "cleanupSucceeded": true
+        }
+      },
+      "scope": "Host Native initiator / Pixel Browser responder; normal public EMQX TLS/WSS and CF STUN; RTC data",
+      "direction": {
+        "nativeInitiated": true,
+        "currentNewWire": true,
+        "independentPersistedIdentities": true,
+        "expectedPeerMatchedBoth": true,
+        "memberGatesBoth": true,
+        "freshAckBoth": true,
+        "browserInitialFreshAck": true,
+        "browserNewFinalFreshAck": true,
+        "bidirectionalOriginalMStreamsMatched": true,
+        "nativeCallerMs": 7376,
+        "browserCallerMs": 7608.030000209808,
+        "selectedRtcBoth": true,
+        "normalNativeTlsObserved": true
+      }
+    },
+    "relayFirstSameMDirectPreference": {
+      "runtimeReceiptSha256": "5ede962422adb55a2ea6969c3c002f796cd29502aa044255129be97d6c1470b9",
+      "passed": true,
+      "commandExit": 0,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": null,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "exact-input-guard",
+          "ok": true,
+          "phaseWallMs": 4333.333
+        },
+        {
+          "name": "owned-host-actor",
+          "ok": true,
+          "phaseWallMs": 0.953
+        },
+        {
+          "name": "deploy-provisioner",
+          "ok": true,
+          "phaseWallMs": 472.317
+        },
+        {
+          "name": "deploy-facility",
+          "ok": true,
+          "phaseWallMs": 0.262
+        },
+        {
+          "name": "deploy-provider-profile",
+          "ok": true,
+          "phaseWallMs": 0.192
+        },
+        {
+          "name": "start-real-provisioner",
+          "ok": true,
+          "phaseWallMs": 6.512
+        },
+        {
+          "name": "provisioner-ready",
+          "ok": true,
+          "phaseWallMs": 1571.018
+        },
+        {
+          "name": "owned-host-browser-page",
+          "ok": true,
+          "phaseWallMs": 38.189
+        },
+        {
+          "name": "host-browser-page-ready",
+          "ok": true,
+          "phaseWallMs": 937.22
+        },
+        {
+          "name": "sdk:start",
+          "ok": true,
+          "phaseWallMs": 2522.219
+        },
+        {
+          "name": "sdk:request_admission",
+          "ok": true,
+          "phaseWallMs": 4739.46
+        },
+        {
+          "name": "native:admission-status",
+          "ok": true,
+          "phaseWallMs": 2.064
+        },
+        {
+          "name": "native:approve-request",
+          "ok": true,
+          "phaseWallMs": 37.974
+        },
+        {
+          "name": "sdk:request_admission",
+          "ok": true,
+          "phaseWallMs": 4760.99
+        },
+        {
+          "name": "sdk:complete_admission",
+          "ok": true,
+          "phaseWallMs": 2070.369
+        },
+        {
+          "name": "sdk:material_receipt",
+          "ok": true,
+          "phaseWallMs": 14.399
+        },
+        {
+          "name": "sdk:stop",
+          "ok": true,
+          "phaseWallMs": 1074.83
+        },
+        {
+          "name": "provisioner-natural-retirement",
+          "ok": true,
+          "phaseWallMs": 284.237
+        },
+        {
+          "name": "deploy-maintained-fixture",
+          "ok": true,
+          "phaseWallMs": 510.3
+        },
+        {
+          "name": "deploy-native-profile",
+          "ok": true,
+          "phaseWallMs": 0.266
+        },
+        {
+          "name": "start-maintained-node",
+          "ok": true,
+          "phaseWallMs": 8.445
+        },
+        {
+          "name": "maintained-ready",
+          "ok": true,
+          "phaseWallMs": 1560.678
+        },
+        {
+          "name": "sdk:start",
+          "ok": true,
+          "phaseWallMs": 90.531
+        },
+        {
+          "name": "sdk:material_receipt",
+          "ok": true,
+          "phaseWallMs": 13.455
+        },
+        {
+          "name": "sdk:open_member",
+          "ok": true,
+          "phaseWallMs": 510.134
+        },
+        {
+          "name": "real-native-member",
+          "ok": true,
+          "phaseWallMs": 0.035
+        },
+        {
+          "name": "sdk:member_diagnostics",
+          "ok": true,
+          "phaseWallMs": 14.365
+        },
+        {
+          "name": "real-native-fresh-ack",
+          "ok": true,
+          "phaseWallMs": 0.029
+        },
+        {
+          "name": "sdk:continuity_start",
+          "ok": true,
+          "phaseWallMs": 19.117
+        },
+        {
+          "name": "sdk:rtc_fixture_snapshot",
+          "ok": true,
+          "phaseWallMs": 4.108
+        },
+        {
+          "name": "native:status",
+          "ok": true,
+          "phaseWallMs": 1.076
+        },
+        {
+          "name": "sdk:improve_path",
+          "ok": true,
+          "phaseWallMs": 978.501
+        },
+        {
+          "name": "sdk:member_diagnostics",
+          "ok": true,
+          "phaseWallMs": 14.812
+        },
+        {
+          "name": "sdk:rtc_fixture_snapshot",
+          "ok": true,
+          "phaseWallMs": 4.161
+        },
+        {
+          "name": "native:status",
+          "ok": true,
+          "phaseWallMs": 1.198
+        },
+        {
+          "name": "sdk:continuity_exchange",
+          "ok": true,
+          "phaseWallMs": 17.695
+        },
+        {
+          "name": "sdk:exchange",
+          "ok": true,
+          "phaseWallMs": 20.188
+        },
+        {
+          "name": "final-browser-cleanup",
+          "ok": true,
+          "phaseWallMs": 726.206
+        },
+        {
+          "name": "final-native-cleanup",
+          "ok": true,
+          "phaseWallMs": 351.458
+        },
+        {
+          "name": "final-input-guard",
+          "ok": true,
+          "phaseWallMs": 4346.85
+        }
+      ],
+      "cleanup": {
+        "browser": {
+          "sdk": {
+            "result": {
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [
+                {
+                  "activeAssociations": 0,
+                  "activePumpTasks": 0
+                }
+              ],
+              "networkDiagnostics": [
+                {
+                  "delayMs": 0,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 1,
+                    "publishedRtcRouteCount": 0
+                  }
+                },
+                {
+                  "delayMs": 100,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0,
+                    "publishedRtcRouteCount": 0
+                  }
+                }
+              ],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 109.63000011444092,
+              "cleanupHistory": [
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 1069.6100001335144
+                },
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [
+                    {
+                      "activeAssociations": 0,
+                      "activePumpTasks": 0
+                    }
+                  ],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 1,
+                        "publishedRtcRouteCount": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 109.63000011444092
+                }
+              ]
+            }
+          },
+          "cleanupSucceeded": true
+        },
+        "browserRelayTail": {
+          "observed": true
+        },
+        "browserQualified": true,
+        "native": {
+          "forced": false,
+          "commandExit": 0,
+          "leaderWaitedFor": true,
+          "ownedHostProcessAbsent": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "sdkRetirement": {
+            "activeRtcAssociations": 0,
+            "activeRtcPumps": 0,
+            "cleanupMs": 105,
+            "immediate": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "applicationHandlers": 0,
+              "applicationStreamHandlers": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "late": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "applicationHandlers": 0,
+              "applicationStreamHandlers": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "maintenanceStopped": true,
+            "maintenanceTaskJoined": true,
+            "socketsBefore": 2,
+            "socketsLate": 2
+          }
+        },
+        "nativeQualified": true
+      },
+      "executionReceiptSha256": "7801f9ba3b883602948b2475b406f5dbb65d142acab18b6086487563bba7e76f",
+      "scope": "Controlled Host Native/Host Browser with owned local data relay; public EMQX signaling only",
+      "relayBeforeRtc": {
+        "identitiesMatched": {
+          "native": true,
+          "browser": true
+        },
+        "currentMemberGates": true,
+        "freshAckBoth": true,
+        "path": "permitted-data-relay",
+        "sequence0Acknowledged": true,
+        "sameLocalBindings": true,
+        "payloadMatched": true,
+        "requestBytes": 22,
+        "responseBytes": 22,
+        "originalFreshAckWatermarks": {
+          "native": 20,
+          "browser": 24
+        },
+        "advertisedRtcRoles": {
+          "native": "Answerer",
+          "browser": "Offerer"
+        },
+        "browserObjectCounts": {
+          "peerCreated": 1,
+          "channelCreated": 1,
+          "openPeerConnections": 0,
+          "openDataChannels": 0
+        },
+        "originalQuicRoles": {
+          "native": "server",
+          "browser": "client"
+        }
+      },
+      "positive": {
+        "activeCAttempted": true,
+        "activeCCommitted": true,
+        "callerBudgetMs": 60000,
+        "callerElapsedMs": null,
+        "observedElapsedMs": 978.84,
+        "setupDeadlineSurvived": null,
+        "sameStableId": true,
+        "sameBinding": true,
+        "sameStream": true,
+        "pongAfterCommit": true,
+        "freshAck": true,
+        "bothConfirmed": null,
+        "finalReleaseFreshAck": true,
+        "pathPolicy": {
+          "preference": "PreferDirect",
+          "reevaluation_interval_ms": 1000
+        },
+        "selectedRtcRttMicros": [
+          7222
+        ],
+        "memberDataRelayOptIn": false,
+        "preferDirectCaseDeferred": false
+      },
+      "explicitPreference": "PreferDirect"
+    },
+    "rtcNoPathHealthyRelaySurvives": {
+      "runtimeReceiptSha256": "b08756c646a77dbf812158924363815a6276347844df015afdf68bf00fbba266",
+      "passed": true,
+      "commandExit": 0,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": null,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "exact-input-guard",
+          "ok": true,
+          "phaseWallMs": 4618.743
+        },
+        {
+          "name": "owned-host-actor",
+          "ok": true,
+          "phaseWallMs": 1.139
+        },
+        {
+          "name": "deploy-provisioner",
+          "ok": true,
+          "phaseWallMs": 649.728
+        },
+        {
+          "name": "deploy-facility",
+          "ok": true,
+          "phaseWallMs": 0.274
+        },
+        {
+          "name": "deploy-provider-profile",
+          "ok": true,
+          "phaseWallMs": 0.252
+        },
+        {
+          "name": "start-real-provisioner",
+          "ok": true,
+          "phaseWallMs": 6.739
+        },
+        {
+          "name": "provisioner-ready",
+          "ok": true,
+          "phaseWallMs": 1568.7
+        },
+        {
+          "name": "owned-host-browser-page",
+          "ok": true,
+          "phaseWallMs": 42.095
+        },
+        {
+          "name": "host-browser-page-ready",
+          "ok": true,
+          "phaseWallMs": 1096.123
+        },
+        {
+          "name": "sdk:start",
+          "ok": true,
+          "phaseWallMs": 2504.098
+        },
+        {
+          "name": "sdk:request_admission",
+          "ok": true,
+          "phaseWallMs": 4373.938
+        },
+        {
+          "name": "native:admission-status",
+          "ok": true,
+          "phaseWallMs": 2.166
+        },
+        {
+          "name": "native:approve-request",
+          "ok": true,
+          "phaseWallMs": 38.534
+        },
+        {
+          "name": "sdk:request_admission",
+          "ok": true,
+          "phaseWallMs": 4555.034
+        },
+        {
+          "name": "sdk:complete_admission",
+          "ok": true,
+          "phaseWallMs": 2217.178
+        },
+        {
+          "name": "sdk:material_receipt",
+          "ok": true,
+          "phaseWallMs": 14.436
+        },
+        {
+          "name": "sdk:stop",
+          "ok": true,
+          "phaseWallMs": 1084.766
+        },
+        {
+          "name": "provisioner-natural-retirement",
+          "ok": true,
+          "phaseWallMs": 285.411
+        },
+        {
+          "name": "deploy-maintained-fixture",
+          "ok": true,
+          "phaseWallMs": 702.657
+        },
+        {
+          "name": "deploy-native-profile",
+          "ok": true,
+          "phaseWallMs": 0.263
+        },
+        {
+          "name": "start-maintained-node",
+          "ok": true,
+          "phaseWallMs": 7.299
+        },
+        {
+          "name": "maintained-ready",
+          "ok": true,
+          "phaseWallMs": 1606.29
+        },
+        {
+          "name": "sdk:start",
+          "ok": true,
+          "phaseWallMs": 84.854
+        },
+        {
+          "name": "sdk:material_receipt",
+          "ok": true,
+          "phaseWallMs": 13.684
+        },
+        {
+          "name": "sdk:open_member",
+          "ok": true,
+          "phaseWallMs": 504.45
+        },
+        {
+          "name": "real-native-member",
+          "ok": true,
+          "phaseWallMs": 0.033
+        },
+        {
+          "name": "sdk:member_diagnostics",
+          "ok": true,
+          "phaseWallMs": 14.391
+        },
+        {
+          "name": "real-native-fresh-ack",
+          "ok": true,
+          "phaseWallMs": 0.031
+        },
+        {
+          "name": "sdk:continuity_start",
+          "ok": true,
+          "phaseWallMs": 20.121
+        },
+        {
+          "name": "sdk:rtc_fixture_snapshot",
+          "ok": true,
+          "phaseWallMs": 4.873
+        },
+        {
+          "name": "native:status",
+          "ok": true,
+          "phaseWallMs": 0.979
+        },
+        {
+          "name": "sdk-failure:improve_path",
+          "ok": true,
+          "phaseWallMs": 60007.943
+        },
+        {
+          "name": "sdk:candidate_observation",
+          "ok": true,
+          "phaseWallMs": 127.903
+        },
+        {
+          "name": "sdk:continuity_exchange",
+          "ok": true,
+          "phaseWallMs": 21.458
+        },
+        {
+          "name": "sdk:exchange",
+          "ok": true,
+          "phaseWallMs": 18.464
+        },
+        {
+          "name": "final-browser-cleanup",
+          "ok": true,
+          "phaseWallMs": 725.26
+        },
+        {
+          "name": "final-native-cleanup",
+          "ok": true,
+          "phaseWallMs": 337.139
+        },
+        {
+          "name": "final-input-guard",
+          "ok": true,
+          "phaseWallMs": 4384.714
+        }
+      ],
+      "cleanup": {
+        "browser": {
+          "sdk": {
+            "result": {
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [
+                {
+                  "activeAssociations": 0,
+                  "activePumpTasks": 0
+                }
+              ],
+              "networkDiagnostics": [
+                {
+                  "delayMs": 0,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0,
+                    "publishedRtcRouteCount": 0
+                  }
+                },
+                {
+                  "delayMs": 100,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0,
+                    "publishedRtcRouteCount": 0
+                  }
+                }
+              ],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 106.88000011444092,
+              "cleanupHistory": [
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 1079
+                },
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [
+                    {
+                      "activeAssociations": 0,
+                      "activePumpTasks": 0
+                    }
+                  ],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 106.88000011444092
+                }
+              ]
+            }
+          },
+          "cleanupSucceeded": true
+        },
+        "browserRelayTail": {
+          "observed": true
+        },
+        "browserQualified": true,
+        "native": {
+          "forced": false,
+          "commandExit": 0,
+          "leaderWaitedFor": true,
+          "ownedHostProcessAbsent": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "sdkRetirement": {
+            "activeRtcAssociations": 0,
+            "activeRtcPumps": 0,
+            "cleanupMs": 105,
+            "immediate": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "applicationHandlers": 0,
+              "applicationStreamHandlers": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "late": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "applicationHandlers": 0,
+              "applicationStreamHandlers": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "maintenanceStopped": true,
+            "maintenanceTaskJoined": true,
+            "socketsBefore": 2,
+            "socketsLate": 2
+          }
+        },
+        "nativeQualified": true
+      },
+      "executionReceiptSha256": "1840c88c3fc6ad0db1ffe393f50830bc4747bf7381002ec892556bc9a0f265a8",
+      "scope": "Controlled Host pair: actual RTC peer creates and closes while healthy owned relay M survives",
+      "failureProof": {
+        "activeCAttempted": true,
+        "failureReason": "DeadlineExceeded",
+        "failureClass": null,
+        "callerBudgetMs": 60000,
+        "callerElapsedMs": 60004.46500015259,
+        "sameStableId": true,
+        "sameBinding": true,
+        "sameStream": true,
+        "pongAfterFailure": true,
+        "relayHealthy": true
+      },
+      "actualRtcPeerCreationAndRetirementVerified": true
+    },
+    "actualRtcCarrierCutAndRepair": {
+      "runtimeReceiptSha256": "cf772f90ed5e96e465dbeb8f7686c19400d55550465108abd8f8bf3b8cd34279",
+      "passed": true,
+      "commandExit": 0,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": 38773.186,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "exact-input-guard",
+          "ok": true,
+          "phaseWallMs": 4306.736
+        },
+        {
+          "name": "owned-host-actor",
+          "ok": true,
+          "phaseWallMs": 1.153
+        },
+        {
+          "name": "deploy-provisioner",
+          "ok": true,
+          "phaseWallMs": 477.753
+        },
+        {
+          "name": "deploy-facility",
+          "ok": true,
+          "phaseWallMs": 0.259
+        },
+        {
+          "name": "deploy-provider-profile",
+          "ok": true,
+          "phaseWallMs": 0.192
+        },
+        {
+          "name": "start-real-provisioner",
+          "ok": true,
+          "phaseWallMs": 6.52
+        },
+        {
+          "name": "provisioner-ready",
+          "ok": true,
+          "phaseWallMs": 2272.673
+        },
+        {
+          "name": "owned-host-browser-page",
+          "ok": true,
+          "phaseWallMs": 38.462
+        },
+        {
+          "name": "host-browser-page-ready",
+          "ok": true,
+          "phaseWallMs": 1117.21
+        },
+        {
+          "name": "sdk:start",
+          "ok": true,
+          "phaseWallMs": 2813.814
+        },
+        {
+          "name": "sdk:request_admission",
+          "ok": true,
+          "phaseWallMs": 5161.479
+        },
+        {
+          "name": "native:admission-status",
+          "ok": true,
+          "phaseWallMs": 1.906
+        },
+        {
+          "name": "native:approve-request",
+          "ok": true,
+          "phaseWallMs": 38.981
+        },
+        {
+          "name": "sdk:request_admission",
+          "ok": true,
+          "phaseWallMs": 4969.77
+        },
+        {
+          "name": "sdk:complete_admission",
+          "ok": true,
+          "phaseWallMs": 2170.781
+        },
+        {
+          "name": "sdk:material_receipt",
+          "ok": true,
+          "phaseWallMs": 14.839
+        },
+        {
+          "name": "sdk:stop",
+          "ok": true,
+          "phaseWallMs": 1082.829
+        },
+        {
+          "name": "provisioner-natural-retirement",
+          "ok": true,
+          "phaseWallMs": 283.928
+        },
+        {
+          "name": "deploy-maintained-fixture",
+          "ok": true,
+          "phaseWallMs": 524.629
+        },
+        {
+          "name": "deploy-native-profile",
+          "ok": true,
+          "phaseWallMs": 0.264
+        },
+        {
+          "name": "start-maintained-node",
+          "ok": true,
+          "phaseWallMs": 7.251
+        },
+        {
+          "name": "maintained-ready",
+          "ok": true,
+          "phaseWallMs": 1640.542
+        },
+        {
+          "name": "sdk:start",
+          "ok": true,
+          "phaseWallMs": 90.61
+        },
+        {
+          "name": "sdk:material_receipt",
+          "ok": true,
+          "phaseWallMs": 13.339
+        },
+        {
+          "name": "sdk:open_member",
+          "ok": true,
+          "phaseWallMs": 498.514
+        },
+        {
+          "name": "real-native-member",
+          "ok": true,
+          "phaseWallMs": 0.032
+        },
+        {
+          "name": "sdk:member_diagnostics",
+          "ok": true,
+          "phaseWallMs": 15.562
+        },
+        {
+          "name": "real-native-fresh-ack",
+          "ok": true,
+          "phaseWallMs": 0.029
+        },
+        {
+          "name": "sdk:continuity_start",
+          "ok": true,
+          "phaseWallMs": 19.008
+        },
+        {
+          "name": "sdk:improve_path",
+          "ok": true,
+          "phaseWallMs": 1104.87
+        },
+        {
+          "name": "sdk:member_diagnostics",
+          "ok": true,
+          "phaseWallMs": 14.759
+        },
+        {
+          "name": "initial-native-common-committed",
+          "ok": true,
+          "phaseWallMs": 0.035
+        },
+        {
+          "name": "native:retire-original-relay-paths",
+          "ok": true,
+          "phaseWallMs": 1.677
+        },
+        {
+          "name": "sdk:member_diagnostics",
+          "ok": true,
+          "phaseWallMs": 13.491
+        },
+        {
+          "name": "native:status",
+          "ok": true,
+          "phaseWallMs": 1.008
+        },
+        {
+          "name": "sdk:member_diagnostics",
+          "ok": true,
+          "phaseWallMs": 13.861
+        },
+        {
+          "name": "native:status",
+          "ok": true,
+          "phaseWallMs": 1.328
+        },
+        {
+          "name": "sdk:continuity_exchange",
+          "ok": true,
+          "phaseWallMs": 16.877
+        },
+        {
+          "name": "sdk:rtc_fixture_snapshot",
+          "ok": true,
+          "phaseWallMs": 4.279
+        },
+        {
+          "name": "sdk:physical_rtc_snapshot",
+          "ok": true,
+          "phaseWallMs": 3.634
+        },
+        {
+          "name": "sdk:physical_close_single_owned_rtc",
+          "ok": true,
+          "phaseWallMs": 5.038
+        },
+        {
+          "name": "sdk:member_diagnostics",
+          "ok": true,
+          "phaseWallMs": 14.148
+        },
+        {
+          "name": "native:status",
+          "ok": true,
+          "phaseWallMs": 0.822
+        },
+        {
+          "name": "sdk:recover_path",
+          "ok": true,
+          "phaseWallMs": 956.685
+        },
+        {
+          "name": "sdk:member_diagnostics",
+          "ok": true,
+          "phaseWallMs": 16.661
+        },
+        {
+          "name": "native:status",
+          "ok": true,
+          "phaseWallMs": 1.098
+        },
+        {
+          "name": "repair-native-common-committed",
+          "ok": true,
+          "phaseWallMs": 0.097
+        },
+        {
+          "name": "sdk:continuity_exchange",
+          "ok": true,
+          "phaseWallMs": 16.524
+        },
+        {
+          "name": "sdk:continuity_exchange",
+          "ok": true,
+          "phaseWallMs": 18.092
+        },
+        {
+          "name": "sdk:continuity_exchange",
+          "ok": true,
+          "phaseWallMs": 19.389
+        },
+        {
+          "name": "sdk:physical_rtc_snapshot",
+          "ok": true,
+          "phaseWallMs": 5.193
+        },
+        {
+          "name": "final-browser-cleanup",
+          "ok": true,
+          "phaseWallMs": 959.617
+        },
+        {
+          "name": "final-native-cleanup",
+          "ok": true,
+          "phaseWallMs": 499.973
+        },
+        {
+          "name": "final-input-guard",
+          "ok": true,
+          "phaseWallMs": 4350.92
+        }
+      ],
+      "cleanup": {
+        "browser": {
+          "sdk": {
+            "result": {
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [
+                {
+                  "activeAssociations": 0,
+                  "activePumpTasks": 0
+                }
+              ],
+              "networkDiagnostics": [
+                {
+                  "delayMs": 0,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0,
+                    "publishedRtcRouteCount": 0
+                  }
+                },
+                {
+                  "delayMs": 100,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0,
+                    "publishedRtcRouteCount": 0
+                  }
+                }
+              ],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 342.52500009536743,
+              "cleanupHistory": [
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 1077.7800002098083
+                },
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [
+                    {
+                      "activeAssociations": 0,
+                      "activePumpTasks": 0
+                    }
+                  ],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 342.52500009536743
+                }
+              ]
+            }
+          },
+          "cleanupSucceeded": true
+        },
+        "browserRelayTail": {
+          "observed": true
+        },
+        "browserQualified": true,
+        "native": {
+          "forced": false,
+          "commandExit": 0,
+          "leaderWaitedFor": true,
+          "ownedHostProcessAbsent": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "sdkRetirement": {
+            "activeRtcAssociations": 0,
+            "activeRtcPumps": 0,
+            "cleanupMs": 289,
+            "immediate": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "applicationHandlers": 0,
+              "applicationStreamHandlers": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "late": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "applicationHandlers": 0,
+              "applicationStreamHandlers": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "maintenanceStopped": true,
+            "maintenanceTaskJoined": true,
+            "socketsBefore": 2,
+            "socketsLate": 2
+          }
+        },
+        "nativeQualified": true
+      },
+      "executionReceiptSha256": "9e3683fc7a43c14feb66d9cfe13401edcbf2babd1f2f7cac9dd6460c5703d1db",
+      "scope": "Controlled Host pair: normal close of exact owned live Browser RTC PeerConnection, current public SDK repair on same M/binding/stream",
+      "physicalFault": {
+        "normalActualPCCloseReturned": true,
+        "memberOrStreamCloseUsedAsFault": false,
+        "permissionChangedAsFault": false
+      },
+      "repair": {
+        "outcome": "recovered",
+        "elapsedMs": 951,
+        "callerBudgetMs": 60000,
+        "sdkReturnWallMs": 957.18,
+        "sameStableId": true,
+        "actualOriginalOpenAfterRepair": true
+      },
+      "laterBusiness": {
+        "originalRepairCapMs": 3000,
+        "observedAfterRepairReturnMs": 3120.02,
+        "sameOriginalMAndBindingBoth": true,
+        "sameOriginalStreamSequence": 4,
+        "actualLaterBusinessDelivered": true,
+        "newRepairOrConnectInvoked": false
+      },
+      "freshRepairProof": {
+        "sameOriginalMAndBindingBoth": true,
+        "sameOriginalStreamSequences": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "freshAckBoth": true,
+        "commonReadyCommittedBoth": true,
+        "replacementPCObserved": true,
+        "originalQuicRoles": {
+          "browser": "client",
+          "native": "server"
+        },
+        "CInitiator": "browser",
+        "prebuiltBackupDataPaths": 0,
+        "physicalCutOnlyOwnedPC": true
+      }
+    },
+    "actualPublicEntryFault": {
+      "runtimeReceiptSha256": "40ff182aa4dd22662632224cf02771b293dcc14aa239d58125edb51b8fa711e1",
+      "passed": true,
+      "commandExit": 0,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": 52601.197,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "select-actual-pixel",
+          "ok": true,
+          "wallMs": 33.067
+        },
+        {
+          "name": "capture-native-before-sdk",
+          "ok": true,
+          "wallMs": 254.159
+        },
+        {
+          "name": "capture-browser-before-sdk",
+          "ok": true,
+          "wallMs": 1120.227
+        },
+        {
+          "name": "owned-native-actor",
+          "ok": true,
+          "wallMs": 0.895
+        },
+        {
+          "name": "native-admission-ready",
+          "ok": true,
+          "wallMs": 1567.073
+        },
+        {
+          "name": "owned-browser-page",
+          "ok": true,
+          "wallMs": 1365.04
+        },
+        {
+          "name": "public-WSS-observer-start",
+          "ok": true,
+          "wallMs": 85.988
+        },
+        {
+          "name": "independent-browser-start",
+          "ok": true,
+          "wallMs": 1851.812
+        },
+        {
+          "name": "actual-admission-request",
+          "ok": true,
+          "wallMs": 3514.57
+        },
+        {
+          "name": "native-approve",
+          "ok": true,
+          "wallMs": 39.452
+        },
+        {
+          "name": "approved-materials",
+          "ok": true,
+          "wallMs": 6402.568
+        },
+        {
+          "name": "save-complete-admission",
+          "ok": true,
+          "wallMs": 1510.25
+        },
+        {
+          "name": "browser-preparation-stop",
+          "ok": true,
+          "wallMs": 714.857
+        },
+        {
+          "name": "native-preparation-stop",
+          "ok": true,
+          "wallMs": 282.38
+        },
+        {
+          "name": "native-saved-reopen",
+          "ok": true,
+          "wallMs": 1636.844
+        },
+        {
+          "name": "browser-saved-reopen",
+          "ok": true,
+          "wallMs": 1746.539
+        },
+        {
+          "name": "browser-original-accept",
+          "ok": true,
+          "wallMs": 75.51
+        },
+        {
+          "name": "native-original-connect",
+          "ok": true,
+          "wallMs": 7478.574
+        },
+        {
+          "name": "browser-serve-native-stream",
+          "ok": true,
+          "wallMs": 17.102
+        },
+        {
+          "name": "native-to-browser-business",
+          "ok": true,
+          "wallMs": 36.066
+        },
+        {
+          "name": "browser-to-native-business",
+          "ok": true,
+          "wallMs": 50.744
+        },
+        {
+          "name": "actual-owned-WSS-entry-close",
+          "ok": true,
+          "wallMs": 16.657
+        },
+        {
+          "name": "existing-original-M-survives-entry-close",
+          "ok": true,
+          "wallMs": 56.151
+        },
+        {
+          "name": "owned-member-close",
+          "ok": true,
+          "wallMs": 33.911
+        },
+        {
+          "name": "new-member-with-blocked-entry",
+          "ok": true,
+          "wallMs": 58.801
+        }
+      ],
+      "cleanup": {
+        "observer": {
+          "forced": false,
+          "commandExit": 0,
+          "readerEnded": true
+        },
+        "browserQualified": true,
+        "browserSdkFacts": {
+          "cleanupSucceeded": true,
+          "networkClosed": true,
+          "networkFreed": true,
+          "ownedMemberHandles": 0
+        },
+        "nativeQualified": true,
+        "native": {
+          "forced": false,
+          "commandExit": 0,
+          "leaderWaitedFor": true,
+          "ownedHostProcessAbsent": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "sdkRetirement": {
+            "activeRtcAssociations": 0,
+            "activeRtcPumps": 0,
+            "cleanupMs": 391,
+            "cleanupSucceeded": true,
+            "socketsBefore": 3,
+            "socketsLate": 3,
+            "traffic": {
+              "driver_active": 0,
+              "queued_packets": 0
+            }
+          }
+        },
+        "captures": {
+          "devices": {
+            "native": {
+              "records": [
+                {
+                  "startedBeforeSdk": true,
+                  "forced": false,
+                  "exit": 0,
+                  "readersEnded": true,
+                  "ownedProcessAbsentImmediate": true,
+                  "ownedProcessAbsentLate": true,
+                  "pcapBytes": 197683,
+                  "pcapSha256": "7dd05cbee47c3aab506d7b508b32297b45117d659b02bf43c6c826e6112b33bd",
+                  "packetsCaptured": 755,
+                  "packetsReceivedByFilter": 755,
+                  "kernelDrops": 0,
+                  "limitReached": false
+                }
+              ],
+              "cleanupSucceeded": true
+            },
+            "browser": {
+              "records": [
+                {
+                  "startedBeforeSdk": true,
+                  "forced": false,
+                  "exit": 0,
+                  "readersEnded": true,
+                  "ownedProcessAbsentImmediate": true,
+                  "ownedProcessAbsentLate": true,
+                  "pcapBytes": 203052,
+                  "pcapSha256": "b9c80a33e3e8ff6dd9672084d7e62d6920c5d63a5a86c5a3ef6e3138430335e5",
+                  "packetsCaptured": 676,
+                  "packetsReceivedByFilter": 677,
+                  "kernelDrops": 0,
+                  "limitReached": false,
+                  "cleanupSucceeded": true
+                }
+              ],
+              "cleanupSucceeded": true
+            }
+          },
+          "observerJoined": true,
+          "cleanupSucceeded": true
+        }
+      },
+      "scope": "Actual Host Native / Pixel Browser: normal-close only owned page exact public broker WSS entry; existing RTC business survives; later new M attempt fails",
+      "entryFault": {
+        "actualOwnedBrokerWebSocketClosed": true,
+        "ownedEntryRemainedUnavailableThroughNewAttempt": true,
+        "existingOriginalMBusinessSurvived": true,
+        "failedAttemptOrdinaryHandle": false,
+        "identityAndMaterialUnchanged": true,
+        "callerBudgetMs": 12000,
+        "callerElapsedMs": 12064.489999771118,
+        "sdkFailure": "member connection caller deadline exceeded",
+        "cleanupRetirementErrors": [],
+        "globalNetworkSettingsChanged": false
+      },
+      "nativeToBrowserDirection": {
+        "nativeInitiated": true,
+        "currentNewWire": true,
+        "independentPersistedIdentities": true,
+        "expectedPeerMatchedBoth": true,
+        "memberGatesBoth": true,
+        "freshAckBoth": true,
+        "browserInitialFreshAck": true,
+        "browserNewFinalFreshAck": true,
+        "bidirectionalOriginalMStreamsMatched": true,
+        "nativeCallerMs": 7478,
+        "browserCallerMs": 7625.260000228882,
+        "selectedRtcBoth": true,
+        "normalNativeTlsObserved": true
+      }
+    },
+    "rtcDisabledOwnedRelayOnly": {
+      "runtimeReceiptSha256": "2a9ba134ac19c1ec52b503bc8e90d66ff58ed23d804e30376ed8680b450231a0",
+      "passed": true,
+      "commandExit": 0,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": null,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "exact-input-guard",
+          "ok": true,
+          "phaseWallMs": 4393.66
+        },
+        {
+          "name": "owned-host-actor",
+          "ok": true,
+          "phaseWallMs": 0.96
+        },
+        {
+          "name": "deploy-provisioner",
+          "ok": true,
+          "phaseWallMs": 507.333
+        },
+        {
+          "name": "deploy-facility",
+          "ok": true,
+          "phaseWallMs": 0.274
+        },
+        {
+          "name": "deploy-provider-profile",
+          "ok": true,
+          "phaseWallMs": 0.197
+        },
+        {
+          "name": "start-real-provisioner",
+          "ok": true,
+          "phaseWallMs": 6.556
+        },
+        {
+          "name": "provisioner-ready",
+          "ok": true,
+          "phaseWallMs": 1775.19
+        },
+        {
+          "name": "owned-host-browser-page",
+          "ok": true,
+          "phaseWallMs": 37.181
+        },
+        {
+          "name": "host-browser-page-ready",
+          "ok": true,
+          "phaseWallMs": 923.581
+        },
+        {
+          "name": "sdk:start",
+          "ok": true,
+          "phaseWallMs": 2510.627
+        },
+        {
+          "name": "sdk:request_admission",
+          "ok": true,
+          "phaseWallMs": 4587.141
+        },
+        {
+          "name": "native:admission-status",
+          "ok": true,
+          "phaseWallMs": 1.804
+        },
+        {
+          "name": "native:approve-request",
+          "ok": true,
+          "phaseWallMs": 41.371
+        },
+        {
+          "name": "sdk:request_admission",
+          "ok": true,
+          "phaseWallMs": 4657.009
+        },
+        {
+          "name": "sdk:complete_admission",
+          "ok": true,
+          "phaseWallMs": 2192.428
+        },
+        {
+          "name": "sdk:material_receipt",
+          "ok": true,
+          "phaseWallMs": 16.33
+        },
+        {
+          "name": "sdk:stop",
+          "ok": true,
+          "phaseWallMs": 1079.67
+        },
+        {
+          "name": "provisioner-natural-retirement",
+          "ok": true,
+          "phaseWallMs": 286.719
+        },
+        {
+          "name": "deploy-maintained-fixture",
+          "ok": true,
+          "phaseWallMs": 657.003
+        },
+        {
+          "name": "deploy-native-profile",
+          "ok": true,
+          "phaseWallMs": 0.3
+        },
+        {
+          "name": "start-maintained-node",
+          "ok": true,
+          "phaseWallMs": 8.052
+        },
+        {
+          "name": "maintained-ready",
+          "ok": true,
+          "phaseWallMs": 1575.624
+        },
+        {
+          "name": "sdk:start",
+          "ok": true,
+          "phaseWallMs": 69.042
+        },
+        {
+          "name": "sdk:material_receipt",
+          "ok": true,
+          "phaseWallMs": 14.065
+        },
+        {
+          "name": "sdk:open_member",
+          "ok": true,
+          "phaseWallMs": 503.315
+        },
+        {
+          "name": "real-native-member",
+          "ok": true,
+          "phaseWallMs": 0.032
+        },
+        {
+          "name": "sdk:member_diagnostics",
+          "ok": true,
+          "phaseWallMs": 14.279
+        },
+        {
+          "name": "real-native-fresh-ack",
+          "ok": true,
+          "phaseWallMs": 0.043
+        },
+        {
+          "name": "sdk:continuity_start",
+          "ok": true,
+          "phaseWallMs": 19.189
+        },
+        {
+          "name": "sdk:rtc_fixture_snapshot",
+          "ok": true,
+          "phaseWallMs": 4.424
+        },
+        {
+          "name": "native:status",
+          "ok": true,
+          "phaseWallMs": 0.768
+        },
+        {
+          "name": "sdk:member_diagnostics",
+          "ok": true,
+          "phaseWallMs": 11.811
+        },
+        {
+          "name": "sdk:continuity_exchange",
+          "ok": true,
+          "phaseWallMs": 19.744
+        },
+        {
+          "name": "sdk:exchange",
+          "ok": true,
+          "phaseWallMs": 19.358
+        },
+        {
+          "name": "native:status",
+          "ok": true,
+          "phaseWallMs": 0.856
+        },
+        {
+          "name": "final-browser-cleanup",
+          "ok": true,
+          "phaseWallMs": 723.863
+        },
+        {
+          "name": "final-native-cleanup",
+          "ok": true,
+          "phaseWallMs": 341.482
+        },
+        {
+          "name": "final-input-guard",
+          "ok": true,
+          "phaseWallMs": 4354.893
+        }
+      ],
+      "cleanup": {
+        "browser": {
+          "sdk": {
+            "result": {
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [
+                {
+                  "activeAssociations": 0,
+                  "activePumpTasks": 0
+                }
+              ],
+              "networkDiagnostics": [
+                {
+                  "delayMs": 0,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0,
+                    "publishedRtcRouteCount": 0
+                  }
+                },
+                {
+                  "delayMs": 100,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0,
+                    "publishedRtcRouteCount": 0
+                  }
+                }
+              ],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 107.03999996185303,
+              "cleanupHistory": [
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 1073.3099999427795
+                },
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [
+                    {
+                      "activeAssociations": 0,
+                      "activePumpTasks": 0
+                    }
+                  ],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 107.03999996185303
+                }
+              ]
+            }
+          },
+          "cleanupSucceeded": true
+        },
+        "browserRelayTail": {
+          "observed": true
+        },
+        "browserQualified": true,
+        "native": {
+          "forced": false,
+          "commandExit": 0,
+          "leaderWaitedFor": true,
+          "ownedHostProcessAbsent": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "sdkRetirement": {
+            "activeRtcAssociations": 0,
+            "activeRtcPumps": 0,
+            "cleanupMs": 105,
+            "immediate": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "applicationHandlers": 0,
+              "applicationStreamHandlers": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "late": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "applicationHandlers": 0,
+              "applicationStreamHandlers": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "maintenanceStopped": true,
+            "maintenanceTaskJoined": true,
+            "socketsBefore": 2,
+            "socketsLate": 2
+          }
+        },
+        "nativeQualified": true
+      },
+      "executionReceiptSha256": "41ce1b12dce31b4d4452f47047cd691b54de75083d749b454ea843ec4471d22e",
+      "scope": "RTC-disabled Host Browser and actual Host Native; owned local data relay; public EMQX admission only",
+      "proof": {
+        "currentMemberGates": true,
+        "newProtocol": true,
+        "freshAckBoth": true,
+        "ordinaryOriginalM": true,
+        "sameOriginalStream": true,
+        "selectedOwnedRelayBoth": true,
+        "browserRtcEnabled": false,
+        "browserRtcRole": "None",
+        "nativeAdvertisedRtcRole": "Answerer",
+        "peerCreated": 0,
+        "channelCreated": 0,
+        "nativeRtcAssociations": 0,
+        "nativeRtcPumps": 0,
+        "sequence0And1Acknowledged": true,
+        "pingPong": true,
+        "scope": "owned loopback relay with real Host Native and Host Browser; public EMQX contact; no public relay or WAN claim"
+      }
+    }
+  },
+  "preservedCurrentRuntimeFailures": {
+    "nativeBrowserOpaqueIdObserver": {
+      "runtimeReceiptSha256": "bb0682ad30720994481f94294ebf8ae9f7d03e21f718e1ea30c452008224d26e",
+      "passed": false,
+      "commandExit": 1,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": 37188.684,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "select-actual-pixel",
+          "ok": true,
+          "wallMs": 33.012
+        },
+        {
+          "name": "capture-native-before-sdk",
+          "ok": true,
+          "wallMs": 225.086
+        },
+        {
+          "name": "capture-browser-before-sdk",
+          "ok": true,
+          "wallMs": 1096.11
+        },
+        {
+          "name": "owned-native-actor",
+          "ok": true,
+          "wallMs": 1.218
+        },
+        {
+          "name": "native-admission-ready",
+          "ok": true,
+          "wallMs": 1583.848
+        },
+        {
+          "name": "owned-browser-page",
+          "ok": true,
+          "wallMs": 1389.75
+        },
+        {
+          "name": "public-WSS-observer-start",
+          "ok": true,
+          "wallMs": 79.883
+        },
+        {
+          "name": "independent-browser-start",
+          "ok": true,
+          "wallMs": 1677.568
+        },
+        {
+          "name": "actual-admission-request",
+          "ok": true,
+          "wallMs": 3404.634
+        },
+        {
+          "name": "native-approve",
+          "ok": true,
+          "wallMs": 40.254
+        },
+        {
+          "name": "approved-materials",
+          "ok": true,
+          "wallMs": 3292.492
+        },
+        {
+          "name": "save-complete-admission",
+          "ok": true,
+          "wallMs": 1581.013
+        },
+        {
+          "name": "browser-preparation-stop",
+          "ok": true,
+          "wallMs": 694.395
+        },
+        {
+          "name": "native-preparation-stop",
+          "ok": true,
+          "wallMs": 280.932
+        },
+        {
+          "name": "native-saved-reopen",
+          "ok": true,
+          "wallMs": 1604.23
+        },
+        {
+          "name": "browser-saved-reopen",
+          "ok": true,
+          "wallMs": 1766.351
+        },
+        {
+          "name": "browser-original-accept",
+          "ok": true,
+          "wallMs": 68.878
+        },
+        {
+          "name": "native-original-connect",
+          "ok": true,
+          "wallMs": 7255.855
+        },
+        {
+          "name": "browser-serve-native-stream",
+          "ok": true,
+          "wallMs": 16.23
+        },
+        {
+          "name": "native-to-browser-business",
+          "ok": true,
+          "wallMs": 35.395
+        },
+        {
+          "name": "browser-to-native-business",
+          "ok": true,
+          "wallMs": 49.961
+        }
+      ],
+      "cleanup": {
+        "observer": {
+          "forced": false,
+          "commandExit": 0,
+          "readerEnded": true
+        },
+        "browserQualified": true,
+        "browserSdkFacts": {
+          "cleanupSucceeded": true,
+          "networkClosed": true,
+          "networkFreed": true,
+          "ownedMemberHandles": 0
+        },
+        "nativeQualified": true,
+        "native": {
+          "forced": false,
+          "commandExit": 0,
+          "leaderWaitedFor": true,
+          "ownedHostProcessAbsent": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "sdkRetirement": {
+            "activeRtcAssociations": 0,
+            "activeRtcPumps": 0,
+            "cleanupMs": 390,
+            "cleanupSucceeded": true,
+            "socketsBefore": 3,
+            "socketsLate": 3,
+            "traffic": {
+              "driver_active": 0,
+              "queued_packets": 0
+            }
+          }
+        },
+        "captures": {
+          "devices": {
+            "native": {
+              "records": [
+                {
+                  "startedBeforeSdk": true,
+                  "forced": false,
+                  "exit": 0,
+                  "readersEnded": true,
+                  "ownedProcessAbsentImmediate": true,
+                  "ownedProcessAbsentLate": true,
+                  "pcapBytes": 180073,
+                  "pcapSha256": "5bddc6eefe57ec0a1bca77c6fac413ec69d24d8872e643c8c427b62b68643c5f",
+                  "packetsCaptured": 641,
+                  "packetsReceivedByFilter": 646,
+                  "kernelDrops": 0,
+                  "limitReached": false
+                }
+              ],
+              "cleanupSucceeded": true
+            },
+            "browser": {
+              "records": [
+                {
+                  "startedBeforeSdk": true,
+                  "forced": false,
+                  "exit": 0,
+                  "readersEnded": true,
+                  "ownedProcessAbsentImmediate": true,
+                  "ownedProcessAbsentLate": true,
+                  "pcapBytes": 187130,
+                  "pcapSha256": "82f5f34056fd46b9dac6f3d52482f46dbb68c46a8c3e43bf1cd7f3343f0a6832",
+                  "packetsCaptured": 599,
+                  "packetsReceivedByFilter": 600,
+                  "kernelDrops": 0,
+                  "limitReached": false,
+                  "cleanupSucceeded": true
+                }
+              ],
+              "cleanupSucceeded": true
+            }
+          },
+          "observerJoined": true,
+          "cleanupSucceeded": true
+        }
+      },
+      "firstFailure": {
+        "phase": "browser-to-native-business",
+        "class": "KeyError"
+      },
+      "qualification": "failed or unavailable; never promoted to pass",
+      "explanation": "Actual connection and streams passed; external controller requested privacy-filtered memberStableId; corrected external controller passed"
+    },
+    "defaultQualitySelectionObserver": {
+      "runtimeReceiptSha256": "40794b86c59957d13948ca8664a47dd7063d8e5d506061205fa792c18c6d4198",
+      "passed": false,
+      "commandExit": 1,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": null,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "exact-input-guard",
+          "ok": true,
+          "phaseWallMs": 4391.351
+        },
+        {
+          "name": "owned-host-actor",
+          "ok": true,
+          "phaseWallMs": 0.891
+        },
+        {
+          "name": "deploy-provisioner",
+          "ok": true,
+          "phaseWallMs": 477.632
+        },
+        {
+          "name": "deploy-facility",
+          "ok": true,
+          "phaseWallMs": 0.288
+        },
+        {
+          "name": "deploy-provider-profile",
+          "ok": true,
+          "phaseWallMs": 0.187
+        },
+        {
+          "name": "start-real-provisioner",
+          "ok": true,
+          "phaseWallMs": 6.44
+        },
+        {
+          "name": "provisioner-ready",
+          "ok": true,
+          "phaseWallMs": 2156.621
+        },
+        {
+          "name": "owned-host-browser-page",
+          "ok": true,
+          "phaseWallMs": 39.433
+        },
+        {
+          "name": "host-browser-page-ready",
+          "ok": true,
+          "phaseWallMs": 1141.354
+        },
+        {
+          "name": "sdk:start",
+          "ok": true,
+          "phaseWallMs": 1865.87
+        },
+        {
+          "name": "sdk:request_admission",
+          "ok": true,
+          "phaseWallMs": 4626.414
+        },
+        {
+          "name": "native:admission-status",
+          "ok": true,
+          "phaseWallMs": 1.939
+        },
+        {
+          "name": "native:approve-request",
+          "ok": true,
+          "phaseWallMs": 38.549
+        },
+        {
+          "name": "sdk:request_admission",
+          "ok": true,
+          "phaseWallMs": 4710.745
+        },
+        {
+          "name": "sdk:complete_admission",
+          "ok": true,
+          "phaseWallMs": 2237.047
+        },
+        {
+          "name": "sdk:material_receipt",
+          "ok": true,
+          "phaseWallMs": 16.616
+        },
+        {
+          "name": "sdk:stop",
+          "ok": true,
+          "phaseWallMs": 1077.599
+        },
+        {
+          "name": "provisioner-natural-retirement",
+          "ok": true,
+          "phaseWallMs": 283.008
+        },
+        {
+          "name": "deploy-maintained-fixture",
+          "ok": true,
+          "phaseWallMs": 522.804
+        },
+        {
+          "name": "deploy-native-profile",
+          "ok": true,
+          "phaseWallMs": 0.326
+        },
+        {
+          "name": "start-maintained-node",
+          "ok": true,
+          "phaseWallMs": 7.71
+        },
+        {
+          "name": "maintained-ready",
+          "ok": true,
+          "phaseWallMs": 1629.273
+        },
+        {
+          "name": "sdk:start",
+          "ok": true,
+          "phaseWallMs": 91.587
+        },
+        {
+          "name": "sdk:material_receipt",
+          "ok": true,
+          "phaseWallMs": 14.48
+        },
+        {
+          "name": "sdk:open_member",
+          "ok": true,
+          "phaseWallMs": 500.343
+        },
+        {
+          "name": "real-native-member",
+          "ok": true,
+          "phaseWallMs": 0.035
+        },
+        {
+          "name": "sdk:member_diagnostics",
+          "ok": true,
+          "phaseWallMs": 15.264
+        },
+        {
+          "name": "real-native-fresh-ack",
+          "ok": true,
+          "phaseWallMs": 0.034
+        },
+        {
+          "name": "sdk:continuity_start",
+          "ok": true,
+          "phaseWallMs": 20.447
+        },
+        {
+          "name": "sdk:rtc_fixture_snapshot",
+          "ok": true,
+          "phaseWallMs": 4.819
+        },
+        {
+          "name": "native:status",
+          "ok": true,
+          "phaseWallMs": 1.052
+        },
+        {
+          "name": "sdk:improve_path",
+          "ok": true,
+          "phaseWallMs": 986.014
+        },
+        {
+          "name": "sdk:member_diagnostics",
+          "ok": true,
+          "phaseWallMs": 17.401
+        },
+        {
+          "name": "sdk:rtc_fixture_snapshot",
+          "ok": true,
+          "phaseWallMs": 4.725
+        },
+        {
+          "name": "native:status",
+          "ok": true,
+          "phaseWallMs": 1.143
+        },
+        {
+          "name": "final-browser-cleanup",
+          "ok": true,
+          "phaseWallMs": 728.953
+        },
+        {
+          "name": "final-native-cleanup",
+          "ok": true,
+          "phaseWallMs": 362.775
+        },
+        {
+          "name": "final-input-guard",
+          "ok": true,
+          "phaseWallMs": 4441.244
+        }
+      ],
+      "cleanup": {
+        "browser": {
+          "sdk": {
+            "result": {
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [
+                {
+                  "activeAssociations": 0,
+                  "activePumpTasks": 0
+                }
+              ],
+              "networkDiagnostics": [
+                {
+                  "delayMs": 0,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 1,
+                    "publishedRtcRouteCount": 0
+                  }
+                },
+                {
+                  "delayMs": 100,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0,
+                    "publishedRtcRouteCount": 0
+                  }
+                }
+              ],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 110.20500016212463,
+              "cleanupHistory": [
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 1072.4049999713898
+                },
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [
+                    {
+                      "activeAssociations": 0,
+                      "activePumpTasks": 0
+                    }
+                  ],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 1,
+                        "publishedRtcRouteCount": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 110.20500016212463
+                }
+              ]
+            }
+          },
+          "cleanupSucceeded": true
+        },
+        "browserRelayTail": {
+          "observed": true
+        },
+        "browserQualified": true,
+        "native": {
+          "forced": false,
+          "commandExit": 0,
+          "leaderWaitedFor": true,
+          "ownedHostProcessAbsent": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "sdkRetirement": {
+            "activeRtcAssociations": 0,
+            "activeRtcPumps": 0,
+            "cleanupMs": 106,
+            "immediate": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "applicationHandlers": 0,
+              "applicationStreamHandlers": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "late": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "applicationHandlers": 0,
+              "applicationStreamHandlers": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "maintenanceStopped": true,
+            "maintenanceTaskJoined": true,
+            "socketsBefore": 2,
+            "socketsLate": 2
+          }
+        },
+        "nativeQualified": true
+      },
+      "executionReceiptSha256": "c03f47f96a4d312c98e1a2ab8283efc3092e4c0e787a19aa136b6870a057ed7e",
+      "firstFailure": {
+        "phase": "native:status",
+        "failureClass": "EvidenceFailure",
+        "check": "positive-rtc-selected",
+        "safeReason": "the committed RTC path is not selected on both M views"
+      },
+      "qualification": "failed or unavailable; never promoted to pass",
+      "explanation": "Native selected RTC; Browser retained faster relay under default Quality. Overstrict both-RTC observer failed; explicit PreferDirect controlled case passed"
+    },
+    "nativePairInitialMissingCaller": {
+      "runtimeReceiptSha256": "46bc38bd5dbc7fc91c967d17b48436d001cf8d66353c0523c78b59d6a5e290c6",
+      "passed": false,
+      "commandExit": 1,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": 13684.218,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "actual-Pixel-selection",
+          "ok": true,
+          "wallMs": 48.321
+        },
+        {
+          "name": "native-host-capture-before-sdk",
+          "ok": true,
+          "wallMs": 450.325
+        },
+        {
+          "name": "native-pixel-capture-before-sdk",
+          "ok": true,
+          "wallMs": 1086.795
+        },
+        {
+          "name": "actual-independent-member-preparation",
+          "ok": false,
+          "failureClass": "RuntimeError",
+          "wallMs": 411.358
+        }
+      ],
+      "cleanup": {
+        "host": {
+          "forced": false,
+          "commandExit": null,
+          "leaderWaitedFor": null,
+          "ownedHostProcessAbsent": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedProcessGroupAbsentLate": true,
+          "ownedRemoteProcessAbsent": null,
+          "ownedRemoteProcessAbsentLate": null,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "qualified": false
+        },
+        "pixel": {
+          "forced": false,
+          "commandExit": 1,
+          "leaderWaitedFor": true,
+          "ownedHostProcessAbsent": null,
+          "ownedHostProcessAbsentLate": null,
+          "ownedProcessGroupAbsentImmediately": null,
+          "ownedProcessGroupAbsentLate": null,
+          "ownedRemoteProcessAbsent": true,
+          "ownedRemoteProcessAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "qualified": false
+        },
+        "capture": {
+          "cleanupSucceeded": true,
+          "observerJoined": true
+        }
+      },
+      "firstFailure": {
+        "phase": "actual-independent-member-preparation",
+        "class": "RuntimeError"
+      },
+      "qualification": "failed or unavailable; never promoted to pass",
+      "explanation": "Native fixture local preparation omitted required caller deadline; minimally fixed and real Host/Pixel preparation passed"
+    },
+    "nativePairStaleInterfaceObserver": {
+      "runtimeReceiptSha256": "b01005d4538002fb3a55692b37d986d21f6a5172f14fd77d77f8b64bd153ad99",
+      "passed": false,
+      "commandExit": 1,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": 15988.553,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "actual-Pixel-selection",
+          "ok": true,
+          "wallMs": 32.288
+        },
+        {
+          "name": "native-host-capture-before-sdk",
+          "ok": true,
+          "wallMs": 354.359
+        },
+        {
+          "name": "native-pixel-capture-before-sdk",
+          "ok": true,
+          "wallMs": 1101.745
+        },
+        {
+          "name": "actual-independent-member-preparation",
+          "ok": true,
+          "wallMs": 1299.83
+        },
+        {
+          "name": "save-exact-authorized-resources-server",
+          "ok": true,
+          "wallMs": 140.116
+        },
+        {
+          "name": "save-exact-authorized-resources-client",
+          "ok": true,
+          "wallMs": 150.976
+        }
+      ],
+      "cleanup": {
+        "host": {
+          "forced": false,
+          "commandExit": null,
+          "leaderWaitedFor": null,
+          "ownedHostProcessAbsent": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedProcessGroupAbsentLate": true,
+          "ownedRemoteProcessAbsent": null,
+          "ownedRemoteProcessAbsentLate": null,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "qualified": false
+        },
+        "pixel": {
+          "forced": false,
+          "commandExit": 0,
+          "leaderWaitedFor": true,
+          "ownedHostProcessAbsent": null,
+          "ownedHostProcessAbsentLate": null,
+          "ownedProcessGroupAbsentImmediately": null,
+          "ownedProcessGroupAbsentLate": null,
+          "ownedRemoteProcessAbsent": true,
+          "ownedRemoteProcessAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "qualified": true
+        },
+        "capture": {
+          "cleanupSucceeded": true,
+          "observerJoined": true
+        }
+      },
+      "firstFailure": {
+        "phase": "save-exact-authorized-resources-client",
+        "class": "RuntimeError"
+      },
+      "qualification": "failed or unavailable; never promoted to pass",
+      "explanation": "Native preparation and exact resource imports passed; controller assumed wlan0 while current kernel selected wlan1"
+    },
+    "nativePairAndroidTlsUnavailable": {
+      "runtimeReceiptSha256": "578bc7b4fc53f3483155afc33fd63ae34cd32938bb06c08be1defb28aef973ad",
+      "passed": false,
+      "commandExit": 1,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": 15938.035,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "actual-Pixel-selection",
+          "ok": true,
+          "wallMs": 32.214
+        },
+        {
+          "name": "native-host-capture-before-sdk",
+          "ok": true,
+          "wallMs": 322.106
+        },
+        {
+          "name": "native-pixel-capture-before-sdk",
+          "ok": true,
+          "wallMs": 1070.133
+        },
+        {
+          "name": "actual-independent-member-preparation",
+          "ok": true,
+          "wallMs": 1375.628
+        },
+        {
+          "name": "save-exact-authorized-resources-server",
+          "ok": true,
+          "wallMs": 120.533
+        },
+        {
+          "name": "save-exact-authorized-resources-client",
+          "ok": true,
+          "wallMs": 161.213
+        },
+        {
+          "name": "actual-server-ready",
+          "ok": false,
+          "failureClass": "RuntimeError",
+          "wallMs": 170.04
+        }
+      ],
+      "cleanup": {
+        "host": {
+          "forced": false,
+          "commandExit": null,
+          "leaderWaitedFor": null,
+          "ownedHostProcessAbsent": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedProcessGroupAbsentLate": true,
+          "ownedRemoteProcessAbsent": null,
+          "ownedRemoteProcessAbsentLate": null,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "qualified": false
+        },
+        "pixel": {
+          "forced": false,
+          "commandExit": 1,
+          "leaderWaitedFor": true,
+          "ownedHostProcessAbsent": null,
+          "ownedHostProcessAbsentLate": null,
+          "ownedProcessGroupAbsentImmediately": null,
+          "ownedProcessGroupAbsentLate": null,
+          "ownedRemoteProcessAbsent": true,
+          "ownedRemoteProcessAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "qualified": false
+        },
+        "capture": {
+          "cleanupSucceeded": true,
+          "observerJoined": true
+        }
+      },
+      "firstFailure": {
+        "phase": "actual-server-ready",
+        "class": "RuntimeError"
+      },
+      "qualification": "failed or unavailable; never promoted to pass",
+      "explanation": "Actual Android shell normal platform TLS panicked because Android application context was not initialized; public Native pair remains unavailable"
+    },
+    "nativePairHostContactUnavailable": {
+      "runtimeReceiptSha256": "dcfa6feb36f75d033f7a28401bf45ce928bc3154af430146ae6b94397262239b",
+      "passed": false,
+      "commandExit": 1,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": 8506.326,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "native-host-capture-before-sdk",
+          "ok": true,
+          "wallMs": 409.86
+        },
+        {
+          "name": "native-second-host-shares-capture",
+          "ok": true,
+          "wallMs": 0.012
+        },
+        {
+          "name": "actual-independent-member-preparation",
+          "ok": true,
+          "wallMs": 640.702
+        },
+        {
+          "name": "actual-server-ready",
+          "ok": false,
+          "failureClass": "RuntimeError",
+          "wallMs": 131.095
+        }
+      ],
+      "cleanup": {
+        "host": {
+          "forced": false,
+          "commandExit": null,
+          "leaderWaitedFor": null,
+          "ownedHostProcessAbsent": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedProcessGroupAbsentLate": true,
+          "ownedRemoteProcessAbsent": null,
+          "ownedRemoteProcessAbsentLate": null,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "qualified": false
+        },
+        "pixel": {
+          "forced": false,
+          "commandExit": 1,
+          "leaderWaitedFor": true,
+          "ownedHostProcessAbsent": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedProcessGroupAbsentLate": true,
+          "ownedRemoteProcessAbsent": null,
+          "ownedRemoteProcessAbsentLate": null,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "qualified": false
+        },
+        "capture": {
+          "cleanupSucceeded": true,
+          "observerJoined": true
+        }
+      },
+      "firstFailure": {
+        "phase": "actual-server-ready",
+        "class": "RuntimeError"
+      },
+      "qualification": "failed or unavailable; never promoted to pass",
+      "explanation": "Two Host Native controlled actors prepared but server had no ready configured MQTT contact; no ordinary handle/business qualified"
+    },
+    "nativePairHostMappedContactUnavailable": {
+      "runtimeReceiptSha256": "2cd5165b93f3dcfa7500714e24dc01d0d31fc008e3efdfdd7202a1459ce0d1b9",
+      "passed": false,
+      "commandExit": 1,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": 12484.794,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "native-host-capture-before-sdk",
+          "ok": true,
+          "wallMs": 422.532
+        },
+        {
+          "name": "native-second-host-shares-capture",
+          "ok": true,
+          "wallMs": 0.011
+        },
+        {
+          "name": "actual-independent-member-preparation",
+          "ok": true,
+          "wallMs": 635.148
+        },
+        {
+          "name": "configure-explicit-mapped-facility-server",
+          "ok": true,
+          "wallMs": 169.378
+        },
+        {
+          "name": "configure-explicit-mapped-facility-client",
+          "ok": true,
+          "wallMs": 170.51
+        },
+        {
+          "name": "actual-server-ready",
+          "ok": false,
+          "failureClass": "RuntimeError",
+          "wallMs": 3873.798
+        }
+      ],
+      "cleanup": {
+        "host": {
+          "forced": false,
+          "commandExit": null,
+          "leaderWaitedFor": null,
+          "ownedHostProcessAbsent": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedProcessGroupAbsentLate": true,
+          "ownedRemoteProcessAbsent": null,
+          "ownedRemoteProcessAbsentLate": null,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "qualified": false
+        },
+        "pixel": {
+          "forced": false,
+          "commandExit": 1,
+          "leaderWaitedFor": true,
+          "ownedHostProcessAbsent": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedProcessGroupAbsentLate": true,
+          "ownedRemoteProcessAbsent": null,
+          "ownedRemoteProcessAbsentLate": null,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "qualified": false
+        },
+        "capture": {
+          "cleanupSucceeded": true,
+          "observerJoined": true
+        }
+      },
+      "firstFailure": {
+        "phase": "actual-server-ready",
+        "class": "RuntimeError"
+      },
+      "qualification": "failed or unavailable; never promoted to pass",
+      "explanation": "Existing explicit public facility configuration used; actual public MQTT TLS handshake EOF and no ready contact; no reverse expansion after first failure"
+    },
+    "rtcDisabledPublicRelayObserver": {
+      "runtimeReceiptSha256": "13958a20e324e8e08efba8890b9b3bc3b91eb1678b1d2c81a8f540fd413deedb",
+      "passed": false,
+      "commandExit": 1,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": 182677.534,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "native-device-selection",
+          "ok": true,
+          "elapsedMs": 0.002
+        },
+        {
+          "name": "owned-native-actor",
+          "ok": true,
+          "elapsedMs": 0.469
+        },
+        {
+          "name": "native-packet-capture-ready",
+          "ok": true,
+          "elapsedMs": 316.651
+        },
+        {
+          "name": "native-sdk-start",
+          "ok": true,
+          "elapsedMs": 1642.631
+        },
+        {
+          "name": "browser-device-selection",
+          "ok": true,
+          "elapsedMs": 32.575
+        },
+        {
+          "name": "browser-packet-capture-ready",
+          "ok": true,
+          "elapsedMs": 1191.308
+        },
+        {
+          "name": "owned-browser-page",
+          "ok": true,
+          "elapsedMs": 1438.631
+        },
+        {
+          "name": "m82-rtc-observer-ready",
+          "ok": true,
+          "elapsedMs": 100.257
+        },
+        {
+          "name": "m82-admission-fixture-ready",
+          "ok": true,
+          "elapsedMs": 0.012
+        },
+        {
+          "name": "browser-sdk-start",
+          "ok": true,
+          "elapsedMs": 1630.25
+        },
+        {
+          "name": "restricted-admission-request",
+          "ok": true,
+          "elapsedMs": 17119.754
+        },
+        {
+          "name": "native-restricted-admission",
+          "ok": true,
+          "elapsedMs": 0.247
+        },
+        {
+          "name": "different-TLS-identity-claim",
+          "ok": true,
+          "elapsedMs": 14341.914
+        },
+        {
+          "name": "native-TLS-claim-restricted",
+          "ok": true,
+          "elapsedMs": 0.299
+        },
+        {
+          "name": "native-TLS-claim-rejected",
+          "ok": true,
+          "elapsedMs": 0.274
+        },
+        {
+          "name": "unapproved-open_member-rejected",
+          "ok": true,
+          "elapsedMs": 48.489
+        },
+        {
+          "name": "unapproved-sync_replica-rejected",
+          "ok": true,
+          "elapsedMs": 82.573
+        },
+        {
+          "name": "authorization-only-stop",
+          "ok": true,
+          "elapsedMs": 1856.401
+        },
+        {
+          "name": "authorization-only-reopen",
+          "ok": true,
+          "elapsedMs": 1428.518
+        },
+        {
+          "name": "complete-reopen-stop",
+          "ok": true,
+          "elapsedMs": 3056.012
+        },
+        {
+          "name": "independent-offline-author",
+          "ok": true,
+          "elapsedMs": 632.941
+        },
+        {
+          "name": "saved-provider-retirement",
+          "ok": true,
+          "elapsedMs": 320.109
+        },
+        {
+          "name": "saved-provider-reopen",
+          "ok": true,
+          "elapsedMs": 2275.779
+        },
+        {
+          "name": "complete-reopen",
+          "ok": true,
+          "elapsedMs": 1675.057
+        },
+        {
+          "name": "nonempty-sdk-replica",
+          "ok": true,
+          "elapsedMs": 50981.889
+        },
+        {
+          "name": "sender-durable-replica-receipt",
+          "ok": true,
+          "elapsedMs": 0.684
+        },
+        {
+          "name": "strict-new-replica-purpose",
+          "ok": true,
+          "elapsedMs": 0.016
+        },
+        {
+          "name": "replica-reopen-stop",
+          "ok": true,
+          "elapsedMs": 1534.87
+        },
+        {
+          "name": "replica-reopen",
+          "ok": true,
+          "elapsedMs": 1315.489
+        },
+        {
+          "name": "ordinary-member-open",
+          "ok": true,
+          "elapsedMs": 31622.764
+        },
+        {
+          "name": "native-live-member",
+          "ok": true,
+          "elapsedMs": 142.787
+        }
+      ],
+      "cleanup": {
+        "browserObserver": {
+          "forced": false,
+          "commandExit": 0,
+          "readerEnded": true
+        },
+        "browser": {
+          "sdk": {
+            "result": {
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [
+                {
+                  "activeAssociations": 0,
+                  "activePumpTasks": 0
+                }
+              ],
+              "networkDiagnostics": [
+                {
+                  "delayMs": 0,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0
+                  }
+                },
+                {
+                  "delayMs": 100,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0
+                  }
+                }
+              ],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 942.210000038147,
+              "cleanupHistory": [
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 1824.5600004196167
+                },
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 3005.619999885559
+                },
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 1512.3249998092651
+                },
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [
+                    {
+                      "activeAssociations": 0,
+                      "activePumpTasks": 0
+                    }
+                  ],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 942.210000038147
+                }
+              ]
+            }
+          },
+          "cleanupSucceeded": true
+        },
+        "native": {
+          "forced": false,
+          "commandExit": 0,
+          "leaderWaitedFor": true,
+          "ownedRemoteProcessAbsent": true,
+          "ownedRemoteProcessAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "sdkRetirement": {
+            "activeRtcAssociations": 0,
+            "activeRtcPumps": 0,
+            "cleanupMs": 103,
+            "immediate": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "late": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "socketsBefore": 2,
+            "socketsLate": 2
+          }
+        },
+        "nativeQualified": true,
+        "packetCapture": {
+          "cleanupSucceeded": true,
+          "observerJoined": true,
+          "devices": {
+            "native": {
+              "cleanupSucceeded": true,
+              "segments": [
+                {
+                  "startedBeforeSdk": true,
+                  "forced": false,
+                  "exit": 0,
+                  "readersEnded": true,
+                  "ownedProcessAbsentImmediate": true,
+                  "ownedProcessAbsentLate": true,
+                  "pcapBytes": 82764,
+                  "pcapSha256": "e100f12aaeaab76d36a9c368763bee225872428e62657650616a3196fd91f139",
+                  "packetsCaptured": 489,
+                  "packetsReceivedByFilter": 489,
+                  "kernelDrops": 0,
+                  "limitReached": false
+                }
+              ]
+            },
+            "browser": {
+              "cleanupSucceeded": true,
+              "segments": [
+                {
+                  "startedBeforeSdk": true,
+                  "forced": false,
+                  "exit": 0,
+                  "readersEnded": true,
+                  "ownedProcessAbsentImmediate": true,
+                  "ownedProcessAbsentLate": true,
+                  "pcapBytes": 73837,
+                  "pcapSha256": "7f71816f3c2b3a6b25fdcd36eababeeacac4fcea67ea4f6a96c45b3002677d84",
+                  "packetsCaptured": 236,
+                  "packetsReceivedByFilter": 236,
+                  "kernelDrops": 0,
+                  "limitReached": false
+                }
+              ]
+            }
+          }
+        }
+      },
+      "executionReceiptSha256": "807f52969429f8c89d4262c9f7559f6087f370241d6a87ddd0252798409b1da4",
+      "firstFailure": {
+        "phase": "m82-story",
+        "failureClass": "CurrentGuardError"
+      },
+      "qualification": "failed or unavailable; never promoted to pass",
+      "explanation": "Public relay admission/reopen/nonempty Replica/ordinary member gate and fresh ACK passed; external RTC-only stable-ID observer failed before business"
+    },
+    "rtcDisabledPublicRelayConnectionLost": {
+      "runtimeReceiptSha256": "75f02d51ca948f88ed6ad9b84e695407cfe50a57006eedbefe1340f66b5fb755",
+      "passed": false,
+      "commandExit": 1,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": 70166.022,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "native-device-selection",
+          "ok": true,
+          "elapsedMs": 0.002
+        },
+        {
+          "name": "owned-native-actor",
+          "ok": true,
+          "elapsedMs": 0.406
+        },
+        {
+          "name": "native-packet-capture-ready",
+          "ok": true,
+          "elapsedMs": 301.434
+        },
+        {
+          "name": "native-sdk-start",
+          "ok": true,
+          "elapsedMs": 1572.507
+        },
+        {
+          "name": "browser-device-selection",
+          "ok": true,
+          "elapsedMs": 32.427
+        },
+        {
+          "name": "browser-packet-capture-ready",
+          "ok": true,
+          "elapsedMs": 1079.787
+        },
+        {
+          "name": "owned-browser-page",
+          "ok": true,
+          "elapsedMs": 1394.832
+        },
+        {
+          "name": "m82-rtc-observer-ready",
+          "ok": true,
+          "elapsedMs": 100.22
+        },
+        {
+          "name": "m82-admission-fixture-ready",
+          "ok": true,
+          "elapsedMs": 0.009
+        },
+        {
+          "name": "browser-sdk-start",
+          "ok": true,
+          "elapsedMs": 1553.337
+        },
+        {
+          "name": "restricted-admission-request",
+          "ok": true,
+          "elapsedMs": 13616.068
+        },
+        {
+          "name": "native-restricted-admission",
+          "ok": true,
+          "elapsedMs": 0.324
+        },
+        {
+          "name": "different-TLS-identity-claim",
+          "ok": true,
+          "elapsedMs": 9498.605
+        },
+        {
+          "name": "native-TLS-claim-restricted",
+          "ok": true,
+          "elapsedMs": 0.296
+        },
+        {
+          "name": "native-TLS-claim-rejected",
+          "ok": true,
+          "elapsedMs": 0.284
+        },
+        {
+          "name": "unapproved-open_member-rejected",
+          "ok": true,
+          "elapsedMs": 30.081
+        },
+        {
+          "name": "unapproved-sync_replica-rejected",
+          "ok": true,
+          "elapsedMs": 46.338
+        }
+      ],
+      "cleanup": {
+        "browserObserver": {
+          "forced": false,
+          "commandExit": 0,
+          "readerEnded": true
+        },
+        "browser": {
+          "sdk": {
+            "result": {
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [],
+              "networkDiagnostics": [
+                {
+                  "delayMs": 0,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0
+                  }
+                },
+                {
+                  "delayMs": 100,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0
+                  }
+                }
+              ],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 165.61500024795532,
+              "cleanupHistory": [
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 165.61500024795532
+                }
+              ]
+            }
+          },
+          "cleanupSucceeded": true
+        },
+        "native": {
+          "forced": false,
+          "commandExit": 0,
+          "leaderWaitedFor": true,
+          "ownedRemoteProcessAbsent": true,
+          "ownedRemoteProcessAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "sdkRetirement": {
+            "activeRtcAssociations": 0,
+            "activeRtcPumps": 0,
+            "cleanupMs": 104,
+            "immediate": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "late": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "socketsBefore": 2,
+            "socketsLate": 2
+          }
+        },
+        "nativeQualified": true,
+        "packetCapture": {
+          "cleanupSucceeded": true,
+          "observerJoined": true,
+          "devices": {
+            "native": {
+              "cleanupSucceeded": true,
+              "segments": [
+                {
+                  "startedBeforeSdk": true,
+                  "forced": false,
+                  "exit": 0,
+                  "readersEnded": true,
+                  "ownedProcessAbsentImmediate": true,
+                  "ownedProcessAbsentLate": true,
+                  "pcapBytes": 45265,
+                  "pcapSha256": "c40005d38e1c3228e320ba3c3e32c6215d0f8cd178f87b265bfe3ec380c9cd6a",
+                  "packetsCaptured": 258,
+                  "packetsReceivedByFilter": 263,
+                  "kernelDrops": 0,
+                  "limitReached": false
+                }
+              ]
+            },
+            "browser": {
+              "cleanupSucceeded": true,
+              "segments": [
+                {
+                  "startedBeforeSdk": true,
+                  "forced": false,
+                  "exit": 0,
+                  "readersEnded": true,
+                  "ownedProcessAbsentImmediate": true,
+                  "ownedProcessAbsentLate": true,
+                  "pcapBytes": 28346,
+                  "pcapSha256": "5fd4a3ef06611210adfd023760497848ea1893e51a0fc78da6892fc8c9e3a43b",
+                  "packetsCaptured": 71,
+                  "packetsReceivedByFilter": 72,
+                  "kernelDrops": 0,
+                  "limitReached": false
+                }
+              ]
+            }
+          }
+        }
+      },
+      "executionReceiptSha256": "e1c8ab90785f26e60a79dd02e78095bbed2b87e46d8964d3b2abb6d2f5033732",
+      "firstFailure": {
+        "phase": "sdk:request_admission",
+        "failureClass": "SdkReplyFailure"
+      },
+      "qualification": "failed or unavailable; never promoted to pass",
+      "explanation": "After observer correction, public retry returned connection lost during admission; public relay-only complete story remains failed"
+    },
+    "entryFaultDisplayObserver": {
+      "runtimeReceiptSha256": "a6e365f7e06a05b9031cd4fc0ecfe120332ac1f9863978831dd7149d7f9fd551",
+      "passed": false,
+      "commandExit": 1,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": 50135.639,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "select-actual-pixel",
+          "ok": true,
+          "wallMs": 32.711
+        },
+        {
+          "name": "capture-native-before-sdk",
+          "ok": true,
+          "wallMs": 224.988
+        },
+        {
+          "name": "capture-browser-before-sdk",
+          "ok": true,
+          "wallMs": 1080.522
+        },
+        {
+          "name": "owned-native-actor",
+          "ok": true,
+          "wallMs": 0.979
+        },
+        {
+          "name": "native-admission-ready",
+          "ok": true,
+          "wallMs": 1694.057
+        },
+        {
+          "name": "owned-browser-page",
+          "ok": true,
+          "wallMs": 1343.787
+        },
+        {
+          "name": "public-WSS-observer-start",
+          "ok": true,
+          "wallMs": 87.473
+        },
+        {
+          "name": "independent-browser-start",
+          "ok": true,
+          "wallMs": 1865.097
+        },
+        {
+          "name": "actual-admission-request",
+          "ok": true,
+          "wallMs": 4143.839
+        },
+        {
+          "name": "native-approve",
+          "ok": true,
+          "wallMs": 38.787
+        },
+        {
+          "name": "approved-materials",
+          "ok": true,
+          "wallMs": 3506.104
+        },
+        {
+          "name": "save-complete-admission",
+          "ok": true,
+          "wallMs": 1605.045
+        },
+        {
+          "name": "browser-preparation-stop",
+          "ok": true,
+          "wallMs": 782.862
+        },
+        {
+          "name": "native-preparation-stop",
+          "ok": true,
+          "wallMs": 281.756
+        },
+        {
+          "name": "native-saved-reopen",
+          "ok": true,
+          "wallMs": 1581.68
+        },
+        {
+          "name": "browser-saved-reopen",
+          "ok": true,
+          "wallMs": 1693.737
+        },
+        {
+          "name": "browser-original-accept",
+          "ok": true,
+          "wallMs": 74.564
+        },
+        {
+          "name": "native-original-connect",
+          "ok": true,
+          "wallMs": 7133.026
+        },
+        {
+          "name": "browser-serve-native-stream",
+          "ok": true,
+          "wallMs": 16.831
+        },
+        {
+          "name": "native-to-browser-business",
+          "ok": true,
+          "wallMs": 39.136
+        },
+        {
+          "name": "browser-to-native-business",
+          "ok": true,
+          "wallMs": 51.772
+        },
+        {
+          "name": "actual-owned-WSS-entry-close",
+          "ok": true,
+          "wallMs": 14.457
+        },
+        {
+          "name": "existing-original-M-survives-entry-close",
+          "ok": true,
+          "wallMs": 60.336
+        },
+        {
+          "name": "owned-member-close",
+          "ok": true,
+          "wallMs": 38.07
+        },
+        {
+          "name": "new-member-with-blocked-entry",
+          "ok": true,
+          "wallMs": 56.652
+        }
+      ],
+      "cleanup": {
+        "observer": {
+          "forced": false,
+          "commandExit": 0,
+          "readerEnded": true
+        },
+        "browserQualified": true,
+        "browserSdkFacts": {
+          "cleanupSucceeded": true,
+          "networkClosed": true,
+          "networkFreed": true,
+          "ownedMemberHandles": 0
+        },
+        "nativeQualified": true,
+        "native": {
+          "forced": false,
+          "commandExit": 0,
+          "leaderWaitedFor": true,
+          "ownedHostProcessAbsent": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "sdkRetirement": {
+            "activeRtcAssociations": 0,
+            "activeRtcPumps": 0,
+            "cleanupMs": 397,
+            "cleanupSucceeded": true,
+            "socketsBefore": 3,
+            "socketsLate": 3,
+            "traffic": {
+              "driver_active": 0,
+              "queued_packets": 0
+            }
+          }
+        },
+        "captures": {
+          "devices": {
+            "native": {
+              "records": [
+                {
+                  "startedBeforeSdk": true,
+                  "forced": false,
+                  "exit": 0,
+                  "readersEnded": true,
+                  "ownedProcessAbsentImmediate": true,
+                  "ownedProcessAbsentLate": true,
+                  "pcapBytes": 180651,
+                  "pcapSha256": "3dc539c8798a52822ff7a62c65d9bc484490b502ce6c115163625e3ab15925b9",
+                  "packetsCaptured": 648,
+                  "packetsReceivedByFilter": 653,
+                  "kernelDrops": 0,
+                  "limitReached": false
+                }
+              ],
+              "cleanupSucceeded": true
+            },
+            "browser": {
+              "records": [
+                {
+                  "startedBeforeSdk": true,
+                  "forced": false,
+                  "exit": 0,
+                  "readersEnded": true,
+                  "ownedProcessAbsentImmediate": true,
+                  "ownedProcessAbsentLate": true,
+                  "pcapBytes": 203543,
+                  "pcapSha256": "a4473597d72ddf3a3d5c0400427196a5d57007791d0cfdd43904d46d99ef05be",
+                  "packetsCaptured": 661,
+                  "packetsReceivedByFilter": 661,
+                  "kernelDrops": 0,
+                  "limitReached": false,
+                  "cleanupSucceeded": true
+                }
+              ],
+              "cleanupSucceeded": true
+            }
+          },
+          "observerJoined": true,
+          "cleanupSucceeded": true
+        }
+      },
+      "firstFailure": {
+        "phase": "new-member-with-blocked-entry",
+        "class": "RuntimeError"
+      },
+      "qualification": "failed or unavailable; never promoted to pass",
+      "explanation": "Actual entry closed; existing RTC business survived; new attempt reported member connection caller deadline exceeded, which external observer failed to recognize. Corrected complete case passed"
+    },
+    "ownedRelayNativeRoleObserver": {
+      "runtimeReceiptSha256": "ffadb80e8577e00ea99d3bfe4a2d9158be45be04bda49705fccc2087655432b5",
+      "passed": false,
+      "commandExit": 1,
+      "physicalDataQualified": false,
+      "physicalWanQualified": false,
+      "wholeCaseWallMs": null,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "phases": [
+        {
+          "name": "exact-input-guard",
+          "ok": true,
+          "phaseWallMs": 4461.62
+        },
+        {
+          "name": "owned-host-actor",
+          "ok": true,
+          "phaseWallMs": 0.899
+        },
+        {
+          "name": "deploy-provisioner",
+          "ok": true,
+          "phaseWallMs": 589.393
+        },
+        {
+          "name": "deploy-facility",
+          "ok": true,
+          "phaseWallMs": 0.323
+        },
+        {
+          "name": "deploy-provider-profile",
+          "ok": true,
+          "phaseWallMs": 0.228
+        },
+        {
+          "name": "start-real-provisioner",
+          "ok": true,
+          "phaseWallMs": 6.732
+        },
+        {
+          "name": "provisioner-ready",
+          "ok": true,
+          "phaseWallMs": 1680.747
+        },
+        {
+          "name": "owned-host-browser-page",
+          "ok": true,
+          "phaseWallMs": 37.081
+        },
+        {
+          "name": "host-browser-page-ready",
+          "ok": true,
+          "phaseWallMs": 975.115
+        },
+        {
+          "name": "sdk:start",
+          "ok": true,
+          "phaseWallMs": 1920.06
+        },
+        {
+          "name": "sdk:request_admission",
+          "ok": true,
+          "phaseWallMs": 4170.068
+        },
+        {
+          "name": "native:admission-status",
+          "ok": true,
+          "phaseWallMs": 2.178
+        },
+        {
+          "name": "native:approve-request",
+          "ok": true,
+          "phaseWallMs": 39.049
+        },
+        {
+          "name": "sdk:request_admission",
+          "ok": true,
+          "phaseWallMs": 4031.97
+        },
+        {
+          "name": "sdk:complete_admission",
+          "ok": true,
+          "phaseWallMs": 1832.432
+        },
+        {
+          "name": "sdk:material_receipt",
+          "ok": true,
+          "phaseWallMs": 15.053
+        },
+        {
+          "name": "sdk:stop",
+          "ok": true,
+          "phaseWallMs": 1007.571
+        },
+        {
+          "name": "provisioner-natural-retirement",
+          "ok": true,
+          "phaseWallMs": 283.757
+        },
+        {
+          "name": "deploy-maintained-fixture",
+          "ok": true,
+          "phaseWallMs": 661.603
+        },
+        {
+          "name": "deploy-native-profile",
+          "ok": true,
+          "phaseWallMs": 0.273
+        },
+        {
+          "name": "start-maintained-node",
+          "ok": true,
+          "phaseWallMs": 9.675
+        },
+        {
+          "name": "maintained-ready",
+          "ok": true,
+          "phaseWallMs": 1575.151
+        },
+        {
+          "name": "sdk:start",
+          "ok": true,
+          "phaseWallMs": 69.263
+        },
+        {
+          "name": "sdk:material_receipt",
+          "ok": true,
+          "phaseWallMs": 13.48
+        },
+        {
+          "name": "sdk:open_member",
+          "ok": true,
+          "phaseWallMs": 505.091
+        },
+        {
+          "name": "real-native-member",
+          "ok": true,
+          "phaseWallMs": 0.043
+        },
+        {
+          "name": "sdk:member_diagnostics",
+          "ok": true,
+          "phaseWallMs": 15.482
+        },
+        {
+          "name": "real-native-fresh-ack",
+          "ok": true,
+          "phaseWallMs": 0.032
+        },
+        {
+          "name": "sdk:continuity_start",
+          "ok": true,
+          "phaseWallMs": 21.567
+        },
+        {
+          "name": "sdk:rtc_fixture_snapshot",
+          "ok": true,
+          "phaseWallMs": 4.606
+        },
+        {
+          "name": "native:status",
+          "ok": true,
+          "phaseWallMs": 0.792
+        },
+        {
+          "name": "sdk:member_diagnostics",
+          "ok": true,
+          "phaseWallMs": 13.426
+        },
+        {
+          "name": "final-browser-cleanup",
+          "ok": true,
+          "phaseWallMs": 724.543
+        },
+        {
+          "name": "final-native-cleanup",
+          "ok": true,
+          "phaseWallMs": 342.356
+        },
+        {
+          "name": "final-input-guard",
+          "ok": true,
+          "phaseWallMs": 4338.015
+        }
+      ],
+      "cleanup": {
+        "browser": {
+          "sdk": {
+            "result": {
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [
+                {
+                  "activeAssociations": 0,
+                  "activePumpTasks": 0
+                }
+              ],
+              "networkDiagnostics": [
+                {
+                  "delayMs": 0,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0,
+                    "publishedRtcRouteCount": 0
+                  }
+                },
+                {
+                  "delayMs": 100,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "cleanupObservers": 0,
+                    "publishedRtcRouteCount": 0
+                  }
+                }
+              ],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 107.49499988555908,
+              "cleanupHistory": [
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 1001.5349998474121
+                },
+                {
+                  "ownedMemberHandles": 0,
+                  "networkClosed": true,
+                  "networkFreed": true,
+                  "memberDiagnostics": [
+                    {
+                      "activeAssociations": 0,
+                      "activePumpTasks": 0
+                    }
+                  ],
+                  "networkDiagnostics": [
+                    {
+                      "delayMs": 0,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    },
+                    {
+                      "delayMs": 100,
+                      "observed": {
+                        "activeAssociations": 0,
+                        "activePumpTasks": 0,
+                        "cleanupObservers": 0,
+                        "publishedRtcRouteCount": 0
+                      }
+                    }
+                  ],
+                  "cleanupSucceeded": true,
+                  "cleanupElapsedMs": 107.49499988555908
+                }
+              ]
+            }
+          },
+          "cleanupSucceeded": true
+        },
+        "browserRelayTail": {
+          "observed": true
+        },
+        "browserQualified": true,
+        "native": {
+          "forced": false,
+          "commandExit": 0,
+          "leaderWaitedFor": true,
+          "ownedHostProcessAbsent": true,
+          "ownedProcessGroupAbsentImmediately": true,
+          "ownedHostProcessAbsentLate": true,
+          "ownedProcessGroupAbsentLate": true,
+          "localReadersEnded": true,
+          "ownedDirectoryRemoved": true,
+          "sdkRetirement": {
+            "activeRtcAssociations": 0,
+            "activeRtcPumps": 0,
+            "cleanupMs": 107,
+            "immediate": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "applicationHandlers": 0,
+              "applicationStreamHandlers": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "late": {
+              "activeRtcAssociations": 0,
+              "activeRtcPumps": 0,
+              "applicationHandlers": 0,
+              "applicationStreamHandlers": 0,
+              "traffic": {
+                "driver_active": 0,
+                "queued_packets": 0
+              }
+            },
+            "maintenanceStopped": true,
+            "maintenanceTaskJoined": true,
+            "socketsBefore": 2,
+            "socketsLate": 2
+          }
+        },
+        "nativeQualified": true
+      },
+      "executionReceiptSha256": "56a4f3706fd3d19c7b72b7c03e30a41dfa6bf9d8024439ffb2e268eca36da80f",
+      "firstFailure": {
+        "phase": "sdk:member_diagnostics",
+        "failureClass": "EvidenceFailure",
+        "check": "no-rtc-role",
+        "safeReason": "RTC-disabled pair advertised RTC data role"
+      },
+      "qualification": "failed or unavailable; never promoted to pass",
+      "explanation": "Browser was RTC disabled and relay business started; observer incorrectly required Native supported-role advertisement to be None. Browser-only role check and actual no-RTC-resource proof passed"
+    }
+  },
+  "latestFixtureBuilds": {
+    "nativeAfterFixtureFix": {
+      "exit": 0,
+      "cargoExit": 0,
+      "cargoSeconds": 7.316353145055473,
+      "freshArtifacts": 532,
+      "rebuiltArtifacts": 1,
+      "actualSelectedInputCount": 6584,
+      "actualSourceCopyCount": 297,
+      "actualCapturedDepfileCount": 482,
+      "sourceDigestBefore": "b63c31238a008b42e1ecc10bb5565bd4deb3d2e78bab0eb979d597a6ca08af7e",
+      "sourceDigestAfter": "b63c31238a008b42e1ecc10bb5565bd4deb3d2e78bab0eb979d597a6ca08af7e",
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "receiptSha256": "d3267f4ebe95b7e6ea6f8bba9cc6ae69f37952a94d240459fb48ae542838bd07",
+      "artifacts": {
+        "mio80_offline_removal_signer": "c3815a60f81a9a1665edb3ee1e17d8a4510f5c22ad02f2fb24b7cae9b6520717",
+        "browser_network_native": "b2446ecc1ebc9f12640088ee886dd52ab66bd2d60674fb0624537da207e1fbdb",
+        "unified_admission_story": "44b0b7e2b0ce76b4f543faea52b78b59e48dd49f205ed41d727dbf91f2ed83f9",
+        "unified_maintained_story": "88d2697bf3151519745f2e7a1785a24f1bb76458b23be1d48cadff070a71ab50",
+        "browser_wss_member_native": "a8e3cd32d9ad4d3b8ad95cb60290f4c3860ea43dadb64aca72058a1f3364d2d1",
+        "unified_native_member": "e5ddef7a83056158a895117942a4245211b3d604201cfca3dcb5bcd992237a20"
+      }
+    },
+    "androidAfterFixtureFix": {
+      "exit": 0,
+      "cargoExit": 0,
+      "cargoSeconds": 5.5745882000774145,
+      "freshArtifacts": 599,
+      "rebuiltArtifacts": 1,
+      "actualSelectedInputCount": 6712,
+      "actualSourceCopyCount": 300,
+      "actualCapturedDepfileCount": 546,
+      "sourceDigestBefore": "b63c31238a008b42e1ecc10bb5565bd4deb3d2e78bab0eb979d597a6ca08af7e",
+      "sourceDigestAfter": "b63c31238a008b42e1ecc10bb5565bd4deb3d2e78bab0eb979d597a6ca08af7e",
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "receiptSha256": "65a6fcf5f528872607b78b2132537b24e9e3d81b63f06e8f98c52213f1d0766e",
+      "artifacts": {
+        "unified_native_member": "38d4030ffa359589dffb91debb33c63f063008aa65fe205fe7de91aa864b2a68",
+        "miopunch-native-probe": "6691c71a3d7945aca6ce2d5b6ea52644271648411b0e1e2e386042744f1ba27e"
+      },
+      "deployments": {
+        "unified_native_member": {
+          "compiledSha256": "38d4030ffa359589dffb91debb33c63f063008aa65fe205fe7de91aa864b2a68",
+          "deployedSha256": "09ee6e91c51885d1d1677cd0991a2cf37e8e3cdf647e8079378f1d1c529e3d42",
+          "transformationExit": 0
+        },
+        "miopunch-native-probe": {
+          "compiledSha256": "6691c71a3d7945aca6ce2d5b6ea52644271648411b0e1e2e386042744f1ba27e",
+          "deployedSha256": "da68044296b7ad78b2eacd6eb2d0687439c6763b8c93c3dec1dcc68deb35f920",
+          "transformationExit": 0
+        }
+      }
+    }
+  },
+  "currentGraphReuseAfterFixtureOnlyFix": {
+    "sourceManifestSha256": "5d13ada8cea0141a69d8306781facabc385901ac069e6c509c03dcd89e146c51",
+    "onlyAdditionalSource": "src/bin/unified_native_member.rs",
+    "otherFiveNativeExecutableBytesUnchanged": true,
+    "unchangedNativeExecutableNames": [
+      "mio80_offline_removal_signer",
+      "browser_network_native",
+      "unified_admission_story",
+      "unified_maintained_story",
+      "browser_wss_member_native"
+    ],
+    "productTestAndWasmSelectedInputsUnchangedAndVerified": true,
+    "reExecutedProductChecksAfterFixtureOnlyFix": 0,
+    "newActualRegression": "Same local independent SDK prepare failed on Host before fix, passed after fix on Host and actual Pixel; shared 12-second caller passed to outgoing and incoming",
+    "wasmFullSnapshotUnselectedDeltaCount": 7
+  },
+  "publicExecutionAuthorization": "User explicitly authorized any tests related to this task; old approval blocker superseded; no rejected command started",
+  "review": {
+    "standards": {
+      "hardFindings": 0,
+      "optionalHeuristics": 1,
+      "optionalDisposition": "Parked: obsolete Result<Option<PreparedPath>> success state; no correctness gate",
+      "reportSha256": "b98cd2a7c1a6ee9bf058ceca984a1a31a2edcbf822fbcc430442f72ec30d1997"
+    },
+    "spec": {
+      "requiredSourceFixes": 0,
+      "scopeCreepFindings": 0,
+      "incorrectImplementationFindings": 0,
+      "disclosedAcceptanceGaps": 2,
+      "reportSha256": "054c8d66ca323ec493d86b436543b91d93d615511a67b8842f31dd44cca21d19"
+    },
+    "modelsVerified": {
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "serviceTier": "default"
+    },
+    "reviewedSourcePathCount": 22,
+    "reviewedStagedPathCount": 24,
+    "sourceChangedAfterReview": false
+  }
+}

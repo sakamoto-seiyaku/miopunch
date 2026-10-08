@@ -11,7 +11,7 @@ import tempfile
 import time
 
 from browser_mqtt_trust import certificates, private_nss
-from check_browser_rtc import ROOT, sha256, source_snapshot
+from check_browser_rtc import ROOT, sha256, source_snapshot, reject_retired_fixture
 
 IMAGE = "sha256:c9dbb88a37f58ae5105720e60bc5cc6eb40d8ad37106e57ce621d345b5ec62a2"
 
@@ -44,6 +44,7 @@ def main():
     parser.add_argument("--skip-build", action="store_true")
     parser.add_argument("--wasm-bindgen", default=shutil.which("wasm-bindgen") or "/tmp/miopunch-wasm-tools/bin/wasm-bindgen")
     args = parser.parse_args()
+    reject_retired_fixture()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     target = args.target_dir.resolve()

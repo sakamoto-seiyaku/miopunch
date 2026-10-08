@@ -641,6 +641,12 @@ impl ResourceEndpoint {
                 0
             };
         let mut contact_ids = Vec::new();
+        // Direct TCP can carry the same restricted TLS bootstrap as IP/relay.
+        // Register only the installed, permitted carrier; the admission gate
+        // and common coordinator still decide when any data may be released.
+        if permitted & TCP != 0 {
+            contact_ids.push(crate::tcp_transport::DATA_TRANSPORT_ID);
+        }
         if !self.config.member_data_relay_disabled
             && !self.config.disabled_uses.contains(&ResourceUse::DataRelay)
             && self
@@ -964,11 +970,7 @@ impl ResourceEndpoint {
                 .into_iter()
                 .map(iroh::TransportAddr::Relay),
         );
-        let options = crate::member_path_protocol::MemberProtocol::from_wire(alpn)
-            .map_or_else(iroh::endpoint::ConnectOptions::new, |(protocol, _)| {
-                protocol.connect_options()
-            })
-            .with_caller_deadline(deadline);
+        let options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
         let cause = match tokio::time::timeout(
             deadline.saturating_duration_since(n0_future::time::Instant::now()),
             async {

@@ -77,13 +77,24 @@ async fn prepare(args: &[String]) -> Result<(), Failure> {
     }
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await?;
     let be = b.bind_endpoint(Ipv4Addr::LOCALHOST).await?;
-    let (client, server) = tokio::join!(be.connect(ae.addr(), ADMISSION_REQUEST_ALPN), async {
-        ae.accept()
-            .await
-            .ok_or("admission endpoint closed")?
-            .await
-            .map_err(Failure::from)
-    });
+    let deadline = n0_future::time::Instant::now() + Duration::from_secs(12);
+    let options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
+    let (client, server) = tokio::join!(
+        async {
+            be.connect_with_opts(ae.addr(), ADMISSION_REQUEST_ALPN, options)
+                .await?
+                .await
+                .map_err(Failure::from)
+        },
+        async {
+            ae.accept()
+                .await
+                .ok_or("admission endpoint closed")?
+                .with_caller_deadline(deadline)
+                .await
+                .map_err(Failure::from)
+        }
+    );
     let (client, server) = (client?, server?);
     let (request, served) = tokio::join!(
         b.request_manual_admission(&client),

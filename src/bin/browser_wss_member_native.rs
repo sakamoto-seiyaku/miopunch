@@ -3,8 +3,7 @@ use std::{error::Error, sync::Arc, time::Duration};
 
 use iroh::endpoint::presets;
 use miopunch_native_probe::{
-    admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope},
-    member_path_protocol::MemberProtocol,
+    admission_gate::{ADMISSION_REQUEST_ALPN, PRECODE_REQUEST_ALPN, ProtocolScope},
     mqtt_datagram::MqttFacility,
     mqtt_transport::{MqttTransport, Traffic},
     native_network::NativeNetwork,
@@ -396,33 +395,28 @@ async fn serve_member_streams(
 
 struct FixtureOptions<'a> {
     admission: bool,
-    legacy_only: bool,
     unified_member: bool,
     permitted_relay: Option<&'a str>,
     ice_profile: Option<&'a str>,
 }
 
 fn fixture_options(args: &[String]) -> Result<FixtureOptions<'_>, &'static str> {
-    const USAGE: &str = "usage: browser_wss_member_native DATA_DIR FACILITY_JSON TEST_CA_PEM [admission | unified-member [RELAY_URL] | legacy-no-rtc | legacy-relay RELAY_URL | rtc-relay RELAY_URL] [--ice-profile FILE]";
+    const USAGE: &str = "usage: browser_wss_member_native DATA_DIR FACILITY_JSON TEST_CA_PEM [admission | unified-member [RELAY_URL]] [--ice-profile FILE]";
     let tail = args.get(4..).ok_or(USAGE)?;
     let (mode, ice_profile) = if tail.len() >= 2 && tail[tail.len() - 2] == "--ice-profile" {
         (&tail[..tail.len() - 2], Some(tail[tail.len() - 1].as_str()))
     } else {
         (tail, None)
     };
-    let (admission, legacy_only, unified_member, permitted_relay) = match mode {
-        [] => (false, false, true, None),
-        [mode] if mode == "unified-member" => (false, false, true, None),
-        [mode, relay] if mode == "unified-member" => (false, false, true, Some(relay.as_str())),
-        [mode] if mode == "admission" => (true, false, false, None),
-        [mode] if mode == "legacy-no-rtc" => (false, true, false, None),
-        [mode, relay] if mode == "legacy-relay" => (false, true, false, Some(relay.as_str())),
-        [mode, relay] if mode == "rtc-relay" => (false, false, true, Some(relay.as_str())),
+    let (admission, unified_member, permitted_relay) = match mode {
+        [] => (false, true, None),
+        [mode] if mode == "unified-member" => (false, true, None),
+        [mode, relay] if mode == "unified-member" => (false, true, Some(relay.as_str())),
+        [mode] if mode == "admission" => (true, false, None),
         _ => return Err(USAGE),
     };
     Ok(FixtureOptions {
         admission,
-        legacy_only,
         unified_member,
         permitted_relay,
         ice_profile,
@@ -435,7 +429,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<_> = std::env::args().collect();
     let options = fixture_options(&args)?;
     let admission_mode = options.admission;
-    let legacy_only = options.legacy_only;
     let unified_member = options.unified_member;
     let permitted_relay = options.permitted_relay;
     let ice_profile: miopunch_native_probe::rtc_ice_profile::RtcIceProfile =
@@ -471,7 +464,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         replacement.push(Resource {
             url: relay.to_owned(),
             uses: [ResourceUse::DataRelay].into(),
-            limitation: "owned explicitly permitted legacy relay compatibility".into(),
+            limitation: "owned explicitly permitted common relay path".into(),
         });
     }
     let observation_resources = ice_profile.observation_resources()?;
@@ -507,18 +500,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     node.save_resource_configuration(&resources)?;
     let mut alpns = Vec::new();
-    for protocol in [MemberProtocol::Business, MemberProtocol::Replica] {
-        for alpn in if unified_member && protocol == MemberProtocol::Business {
-            vec![miopunch_native_probe::connection_coordinator::MEMBER_ALPN.to_vec()]
-        } else if legacy_only {
-            vec![protocol.legacy_alpn().to_vec()]
-        } else {
-            protocol.preferred_alpns()
-        } {
-            node.admission_gate()
-                .register_protocol(&alpn, ProtocolScope::Member);
-            alpns.push(alpn);
-        }
+    for alpn in [
+        miopunch_native_probe::connection_coordinator::MEMBER_ALPN,
+        miopunch_native_probe::connection_coordinator::REPLICA_ALPN,
+    ] {
+        node.admission_gate()
+            .register_protocol(alpn, ProtocolScope::Member);
+        alpns.push(alpn.to_vec());
     }
     let traffic = Arc::new(Traffic::default());
     let transport = Arc::new(MqttTransport::from_facility(
@@ -545,21 +533,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     alpns.push(miopunch_native_probe::connection_recovery::CONNECTION_RECOVERY_ALPN.to_vec());
     if admission_mode {
-        alpns.push(ADMISSION_REQUEST_ALPN.to_vec());
+        alpns.extend([
+            ADMISSION_REQUEST_ALPN.to_vec(),
+            PRECODE_REQUEST_ALPN.to_vec(),
+        ]);
     }
     let rtc_transport =
         miopunch_native_probe::rtc_transport::RtcTransport::with_ice_profile(ice_profile)?;
-    let assembly = if legacy_only {
-        node.bind_configured_endpoint_with_contact(builder, transport.clone())
-            .await?
-    } else {
-        node.bind_configured_endpoint_with_rtc_and_contact(
+    let assembly = node
+        .bind_configured_endpoint_with_rtc_and_contact(
             builder,
             rtc_transport.clone(),
             transport.clone(),
         )
-        .await?
-    };
+        .await?;
     let assembly = Arc::new(assembly);
     let endpoint = assembly.endpoint().clone();
     endpoint.set_alpns(alpns);
@@ -609,7 +596,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         json!({"event":"ready", "pid":std::process::id(), "id":endpoint.id().to_string(), "route":transport.route()?,
         "knownMembers":node.status().members.iter().map(|(id,_)|id.to_string()).collect::<Vec<_>>(),
         "ipAddresses":endpoint.addr().ip_addrs().count(), "relayAddresses":endpoint.addr().relay_urls().count(),
-        "traffic":traffic.snapshot(), "socketCount":socket_count(),"legacyOnly":legacy_only,"unifiedMember":unified_member,"normalPublicTrust":args[3]=="-",
+        "traffic":traffic.snapshot(), "socketCount":socket_count(),"unifiedMember":unified_member,"normalPublicTrust":args[3]=="-",
         "invitation":if admission_mode {Some(hex::encode(node.manual_invitation()?.encode()))} else {None}})
     );
     let node = Arc::new(tokio::sync::Mutex::new(node));
@@ -626,7 +613,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     } else {
         None
     };
-    let precode_mode = Arc::new(std::sync::atomic::AtomicBool::new(issued.is_some()));
     loop {
         tokio::select! {
             line=input.next_line()=>match line?.as_deref() {
@@ -779,7 +765,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     let code=node.issue_precode(expires,Some(1)).await?;
                     let mut file=std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&code_path)?;
                     file.write_all(&code.encode())?;file.sync_all()?;
-                    issued=Some(code);precode_mode.store(true,std::sync::atomic::Ordering::Release);
+                    issued=Some(code);
                     println!("{}",json!({"event":"issued","code":hex::encode(code.encode())}));
                 },
                 Some("usage") if admission_mode=>{
@@ -893,14 +879,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let assembly=assembly.clone();
                 let rtc_transport=rtc_transport.clone();
                 let serving_endpoint=endpoint.clone();
-                let precode_mode=precode_mode.clone();
                 handlers.spawn(async move {
                     let accepted = if unified_member {
-                        assembly.coordinator().accept(incoming,
-                            miopunch_native_probe::connection_coordinator::SessionPurpose::MemberBusiness,
-                            miopunch_native_probe::connection_coordinator::AttemptContext::new(
-                                caller_deadline,tokio_util::sync::CancellationToken::new())).await
-                            .map_err(|error|error.to_string())
+                        async {
+                            let mut accepting=incoming.accept().map_err(|error|error.to_string())?
+                                .with_caller_deadline(caller_deadline);
+                            let alpn=accepting.alpn().await.map_err(|error|error.to_string())?;
+                            if let Some(purpose)=miopunch_native_probe::connection_coordinator::SessionPurpose::from_alpn(&alpn) {
+                                assembly.coordinator().accept_accepting(accepting,purpose,
+                                    miopunch_native_probe::connection_coordinator::AttemptContext::new(
+                                        caller_deadline,tokio_util::sync::CancellationToken::new())).await
+                                    .map_err(|error|error.to_string())
+                            } else {accepting.await.map_err(|error|error.to_string())}
+                        }.await
                     } else {incoming.await.map_err(|error|error.to_string())};
                     let connection=match accepted {
                         Ok(connection)=>connection,
@@ -909,7 +900,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             return Ok::<_,Box<dyn Error+Send+Sync>>(());
                         }
                     };
-                    if admission_mode && connection.alpn()==ADMISSION_REQUEST_ALPN {
+                    if admission_mode && matches!(connection.alpn(), ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN) {
                         let deadline=connection.caller_deadline().ok_or("owned admission deadline absent")?;
                         let gate=node.lock().await.admission_gate();
                         println!("{}",json!({"event":"admission-accepted","stableId":connection.stable_id(),"remoteId":connection.remote_id().to_string(),
@@ -917,7 +908,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             "businessHandle":gate.allows(&connection,ProtocolScope::Member),"paths":connection_paths(&connection)}));
                         let result=n0_future::time::timeout(deadline.saturating_duration_since(n0_future::time::Instant::now()),async {
                             let mut node=node.lock().await;
-                            if precode_mode.load(std::sync::atomic::Ordering::Acquire) {node.serve_precode_admission(&connection).await} else {node.serve_manual_admission(&connection).await}
+                            if connection.alpn()==PRECODE_REQUEST_ALPN {node.serve_precode_admission(&connection).await} else {node.serve_manual_admission(&connection).await}
                         }).await;
                         println!("{}",json!({"event":"admission-ended","stableId":connection.stable_id(),"remoteId":connection.remote_id().to_string(),"stage":format!("{result:?}"),"paths":connection_paths(&connection)}));
                         if matches!(&result,Ok(Ok(_))) {let _=n0_future::time::timeout(deadline.saturating_duration_since(n0_future::time::Instant::now()),connection.closed()).await;}
@@ -1000,20 +991,13 @@ mod tests {
     }
 
     #[test]
-    fn admission_and_legacy_forms_keep_profile_separate_from_relay() {
-        for (mode, admission, legacy, relay) in [
-            (vec![], false, false, None),
-            (vec!["admission"], true, false, None),
-            (vec!["legacy-no-rtc"], false, true, None),
+    fn common_forms_keep_profile_separate_from_relay() {
+        for (mode, admission, relay) in [
+            (vec![], false, None),
+            (vec!["admission"], true, None),
+            (vec!["unified-member"], false, None),
             (
-                vec!["legacy-relay", "https://relay.test/"],
-                false,
-                true,
-                Some("https://relay.test/"),
-            ),
-            (
-                vec!["rtc-relay", "https://relay.test/"],
-                false,
+                vec!["unified-member", "https://relay.test/"],
                 false,
                 Some("https://relay.test/"),
             ),
@@ -1026,7 +1010,6 @@ mod tests {
                 let args = arguments(&tail);
                 let parsed = fixture_options(&args).unwrap();
                 assert_eq!(parsed.admission, admission);
-                assert_eq!(parsed.legacy_only, legacy);
                 assert_eq!(parsed.permitted_relay, relay);
                 assert_eq!(parsed.ice_profile, profile.then_some("owned-profile.json"));
             }
@@ -1036,6 +1019,9 @@ mod tests {
     #[test]
     fn ambiguous_or_incomplete_profile_forms_are_rejected() {
         for tail in [
+            vec!["legacy-no-rtc"],
+            vec!["legacy-relay", "https://relay.test/"],
+            vec!["rtc-relay", "https://relay.test/"],
             vec!["--ice-profile"],
             vec!["admission", "--ice-profile"],
             vec!["--ice-profile", "one.json", "--ice-profile", "two.json"],

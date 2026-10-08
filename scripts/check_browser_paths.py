@@ -28,6 +28,9 @@ def main():
     parser.add_argument('--wasm-bindgen', default=shutil.which('wasm-bindgen') or '/tmp/miopunch-wasm-tools/bin/wasm-bindgen')
     parser.add_argument('--target-dir', type=Path, default=ROOT / 'target')
     args = parser.parse_args()
+    if args.case not in ('mqtt-datagram', 'wss-restricted-handshake', 'irc-datagram', 'rtc-channel'):
+        from check_browser_rtc import reject_retired_fixture
+        reject_retired_fixture()
     if args.case == 'rtc-cross-network':
         command = ['rtk', 'proxy', sys.executable, str(ROOT / 'scripts/check_browser_rtc_cross_network.py'),
                    '--output', str(args.output), '--target-dir', str(args.target_dir)]

@@ -45,8 +45,15 @@ async fn connect(
 ) -> (Connection, Connection) {
     tokio::time::timeout(Duration::from_secs(12), async {
         let address = target(server).await;
+        let deadline = n0_future::time::Instant::now() + Duration::from_secs(12);
         let (out, incoming) = tokio::join!(client.connect(address, alpn), async {
-            server.endpoint().accept().await.unwrap().await
+            server
+                .endpoint()
+                .accept()
+                .await
+                .unwrap()
+                .with_caller_deadline(deadline)
+                .await
         });
         (out.unwrap(), incoming.unwrap())
     })

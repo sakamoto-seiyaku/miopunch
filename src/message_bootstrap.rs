@@ -1,61 +1,45 @@
-//! The fork's admitted, restricted stage before ordinary connection release.
-use std::{fmt, io, sync::Arc, time::Duration};
-
+//! Private relay candidate preparation for the common coordinator.
+use crate::admission_gate::AdmissionGate;
 use iroh::{
     Endpoint, TransportAddr,
     endpoint::{Connection, EndpointHooks},
 };
+use std::{fmt, io, time::Duration};
 
-use crate::{
-    admission_gate::AdmissionGate,
-    control_session::{CommitError, ControlSession},
-    mqtt_transport::TRANSPORT_ID,
-    nat_connection::NatConnector,
-};
-
-use crate::member_path_protocol::{PathCapabilities, RtcRole, exchange_capabilities};
-
-pub(crate) struct MemberPathBootstrap {
+/// Preserve direct TCP release for separately registered purposes. Their
+/// permissions stay separate; this hook performs no capability or RTC wire.
+pub(crate) struct ExistingMemberDataRelease {
     gate: AdmissionGate,
-    udp: Arc<NatConnector>,
     tcp: Option<crate::tcp_punch::TcpPunch>,
-    resources: crate::resources::ResourceConfig,
-    #[cfg(feature = "rtc-probe")]
-    rtc: Option<crate::rtc_transport::RtcTransport>,
 }
-
-impl fmt::Debug for MemberPathBootstrap {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("MemberPathBootstrap")
+impl fmt::Debug for ExistingMemberDataRelease {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ExistingMemberDataRelease")
             .finish_non_exhaustive()
     }
 }
-
-impl MemberPathBootstrap {
-    pub(crate) fn new(
-        gate: AdmissionGate,
-        udp: Arc<NatConnector>,
-        tcp: Option<crate::tcp_punch::TcpPunch>,
-        resources: crate::resources::ResourceConfig,
-    ) -> Self {
-        Self {
-            gate,
-            udp,
-            tcp,
-            resources,
-            #[cfg(feature = "rtc-probe")]
-            rtc: None,
+impl ExistingMemberDataRelease {
+    pub(crate) fn new(gate: AdmissionGate, tcp: Option<crate::tcp_punch::TcpPunch>) -> Self {
+        Self { gate, tcp }
+    }
+}
+impl EndpointHooks for ExistingMemberDataRelease {
+    async fn before_data_release(
+        &self,
+        endpoint: &Endpoint,
+        connection: &Connection,
+    ) -> io::Result<()> {
+        if crate::connection_coordinator::SessionPurpose::from_alpn(connection.alpn()).is_some() {
+            return Ok(());
         }
-    }
-
-    #[cfg(feature = "rtc-probe")]
-    pub(crate) fn with_rtc(mut self, rtc: Option<crate::rtc_transport::RtcTransport>) -> Self {
-        self.rtc = rtc;
-        self
-    }
-
-    async fn relay_upgrade(&self, endpoint: &Endpoint, connection: &Connection) -> io::Result<()> {
-        prepare_relay(endpoint, connection, &self.gate, &self.resources).await
+        crate::connection_coordinator::release_existing_data(
+            endpoint,
+            connection,
+            self.tcp.as_ref(),
+            &self.gate,
+        )
+        .await
     }
 }
 
@@ -303,159 +287,4 @@ pub(crate) async fn prepare_relay(
         connection.paths()
     );
     Ok(())
-}
-
-impl EndpointHooks for MemberPathBootstrap {
-    async fn before_data_release(
-        &self,
-        endpoint: &Endpoint,
-        connection: &Connection,
-    ) -> io::Result<()> {
-        if crate::connection_coordinator::SessionPurpose::from_alpn(connection.alpn()).is_some() {
-            return Ok(()); // the common coordinator owns new-protocol release
-        }
-        if !connection.paths().iter().any(|path| {
-            matches!(path.remote_addr(),
-            TransportAddr::Custom(address) if matches!(address.id(), TRANSPORT_ID | crate::member_transport::TRANSPORT_ID | crate::irc_transport::TRANSPORT_ID))
-        }) {
-            return crate::connection_coordinator::release_existing_data(
-                endpoint, connection, self.tcp.as_ref(), &self.gate,
-            ).await;
-        }
-        let carrier = if connection.paths().iter().any(|path| matches!(path.remote_addr(), TransportAddr::Custom(address) if address.id() == crate::member_transport::TRANSPORT_ID)) { "MEMBER" } else if connection.paths().iter().any(|path| matches!(path.remote_addr(), TransportAddr::Custom(address) if address.id() == crate::irc_transport::TRANSPORT_ID)) { "IRC" } else { "MQTT" };
-        let control = ControlSession::from_connection(endpoint.clone(), connection.clone());
-        let mut cancellation = control.cancellation_guard();
-        println!(
-            "{carrier}_BOOTSTRAP_START stable_id={} peer={}",
-            connection.stable_id(),
-            connection.remote_id()
-        );
-        let operation = async {
-            let capabilities = exchange_capabilities(
-                connection,
-                PathCapabilities {
-                    tcp: self.tcp.is_some(),
-                    udp: self.udp.udp_enabled(),
-                    relay: !self
-                        .resources
-                        .relay_map(crate::resources::ResourceUse::DataRelay)?
-                        .is_empty(),
-                    rtc: {
-                        #[cfg(feature = "rtc-probe")]
-                        {
-                            RtcRole::native_adapter(
-                                connection,
-                                carrier == "MQTT"
-                                    && self.rtc.as_ref().is_some_and(|rtc| rtc.resource_allowed())
-                                    && self.gate.path_qualification(connection).is_some(),
-                            )
-                        }
-                        #[cfg(not(feature = "rtc-probe"))]
-                        {
-                            RtcRole::None
-                        }
-                    },
-                },
-            )
-            .await?;
-            println!(
-                "{}",
-                serde_json::json!({"event":"path-capabilities", "stableId":connection.stable_id(),
-                "alpn":String::from_utf8_lossy(connection.alpn()), "version":capabilities.version.number(),
-                "localRtc":format!("{:?}", capabilities.local_rtc), "peerRtc":format!("{:?}", capabilities.peer_rtc),
-                "rtc":capabilities.rtc,"tcp":capabilities.tcp,"udp":capabilities.udp,"relay":capabilities.relay,
-                "initialPaths":connection.paths().iter().map(|path|serde_json::json!({"isRelay":path.is_relay(),"isIp":path.is_ip(),"isMqtt":matches!(path.remote_addr(),TransportAddr::Custom(addr) if addr.id()==TRANSPORT_ID),"selected":path.is_selected()})).collect::<Vec<_>>()})
-            );
-            let capabilities = capabilities.require_usable()?;
-            #[cfg(feature = "rtc-probe")]
-            if capabilities.rtc {
-                return crate::rtc_member::bootstrap_control(
-                    endpoint,
-                    connection,
-                    &self.gate,
-                    self.rtc
-                        .as_ref()
-                        .ok_or_else(|| io::Error::other("RTC adapter absent"))?,
-                )
-                .await;
-            }
-            if capabilities.tcp
-                && let Some(tcp) = &self.tcp
-            {
-                match tcp.upgrade(endpoint, connection, &self.gate).await {
-                    Ok(()) => return Ok(()),
-                    Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
-                        return Err(error);
-                    }
-                    Err(error) => eprintln!(
-                        "TCP_PUNCH_FALLBACK stable_id={} error={error}",
-                        connection.stable_id()
-                    ),
-                }
-            }
-            if capabilities.relay {
-                match self.relay_upgrade(endpoint, connection).await {
-                    Ok(()) => return Ok(()),
-                    Err(error) => eprintln!(
-                        "MESSAGE_RELAY_FALLBACK stable_id={} error={error}",
-                        connection.stable_id()
-                    ),
-                }
-            }
-            if !capabilities.udp {
-                return Err(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    "no mutually permitted data path capability",
-                ));
-            }
-            let mut upgrade = self
-                .udp
-                .upgrade(control, &self.gate)
-                .await
-                .map_err(|error| match error {
-                    CommitError::Retryable { error, .. } | CommitError::Terminal { error } => error,
-                })?;
-            if let Some(attempt) = upgrade.attempt.as_mut() {
-                attempt.retain_application_path(&upgrade.data, &self.gate)?;
-            }
-            if !self.gate.allows_member_path_upgrade(connection)
-                || connection.close_reason().is_some()
-            {
-                return Err(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    "member scope changed before data release",
-                ));
-            }
-            println!(
-                "{carrier}_BOOTSTRAP_DATA stable_id={} peer={} paths={:?}",
-                connection.stable_id(),
-                connection.remote_id(),
-                connection.paths()
-            );
-            Ok(())
-        };
-        let budget = connection
-            .caller_deadline()
-            .map_or(Duration::from_secs(45), |deadline| {
-                deadline.saturating_duration_since(n0_future::time::Instant::now())
-            });
-        let result = tokio::time::timeout(budget, operation)
-            .await
-            .map_err(|_| {
-                io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    "message data path bootstrap timed out",
-                )
-            })
-            .and_then(|result| result);
-        if let Err(error) = result {
-            eprintln!(
-                "{carrier}_BOOTSTRAP_FAILED stable_id={} error={error}",
-                connection.stable_id()
-            );
-            return Err(error);
-        }
-        cancellation.disarm();
-        Ok(())
-    }
 }

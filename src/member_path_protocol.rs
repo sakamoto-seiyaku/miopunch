@@ -1,13 +1,13 @@
-//! Explicit member-path wire versions; application payloads retain their format.
+//! Bounded private relay validation on the authenticated original M.
 //! Negotiation runs on the already authenticated original QUIC connection.
 use std::io;
 
 use iroh::{
     RelayUrl,
-    endpoint::{ConnectOptions, Connection, RecvStream, SendStream},
+    endpoint::{Connection, RecvStream, SendStream},
 };
 
-/// Existing legacy relay validation wire, shared by native and browser hooks.
+/// Relay candidate exchange shared by the native and browser adapters.
 /// Its private stream belongs to the already authenticated original M.
 pub struct RelayValidation {
     pub candidates: Vec<RelayUrl>,
@@ -73,7 +73,7 @@ impl RelayValidation {
         })
     }
 
-    /// Strict legacy one-byte bilateral validation; no wire format upgrade.
+    /// One-byte bilateral confirmation inside the common coordinator exchange.
     /// Only the boolean continuity result may enter diagnostics.
     pub async fn finish(
         mut self,
@@ -97,205 +97,4 @@ impl RelayValidation {
             binding_unchanged,
         })
     }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum MemberProtocol {
-    Business,
-    Replica,
-}
-
-impl MemberProtocol {
-    pub const fn legacy_alpn(self) -> &'static [u8] {
-        match self {
-            Self::Business => b"miopunch/browser-member/1",
-            Self::Replica => crate::connection_coordinator::REPLICA_ALPN,
-        }
-    }
-
-    pub const fn upgraded_alpn(self) -> &'static [u8] {
-        match self {
-            Self::Business => b"miopunch/browser-member/rtc-path/3",
-            Self::Replica => crate::connection_coordinator::REPLICA_ALPN,
-        }
-    }
-
-    /// Explicit server preference, independent of identifier sorting.
-    /// A Router registering both handlers applies this list with set_alpns.
-    pub fn preferred_alpns(self) -> Vec<Vec<u8>> {
-        if self == Self::Replica {
-            return vec![crate::connection_coordinator::REPLICA_ALPN.to_vec()];
-        }
-        vec![self.upgraded_alpn().to_vec(), self.legacy_alpn().to_vec()]
-    }
-
-    /// Keep the original application ALPN as the before-connect gate input;
-    /// TLS chooses the server's explicit preference on this same connection.
-    pub fn connect_options(self) -> ConnectOptions {
-        if self == Self::Replica {
-            return ConnectOptions::new();
-        }
-        ConnectOptions::new().with_additional_alpns(vec![self.upgraded_alpn().to_vec()])
-    }
-
-    pub fn from_wire(alpn: &[u8]) -> Option<(Self, CapabilitiesVersion)> {
-        [Self::Business].into_iter().find_map(|protocol| {
-            if alpn == protocol.upgraded_alpn() {
-                Some((protocol, CapabilitiesVersion::Rtc3))
-            } else if alpn == protocol.legacy_alpn() {
-                Some((protocol, CapabilitiesVersion::Legacy2))
-            } else {
-                None
-            }
-        })
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum CapabilitiesVersion {
-    Legacy2,
-    Rtc3,
-}
-
-impl CapabilitiesVersion {
-    pub const fn number(self) -> u8 {
-        match self {
-            Self::Legacy2 => 2,
-            Self::Rtc3 => 3,
-        }
-    }
-}
-
-/// A capability of this M's actual role/installed adapter, never a node flag.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[repr(u8)]
-pub enum RtcRole {
-    None = 0,
-    Offerer = 1,
-    Answerer = 2,
-}
-
-impl RtcRole {
-    pub fn browser_adapter(connection: &Connection, installed_and_allowed: bool) -> Self {
-        if installed_and_allowed && connection.side().is_client() {
-            Self::Offerer
-        } else {
-            Self::None
-        }
-    }
-
-    pub fn native_adapter(connection: &Connection, installed_and_allowed: bool) -> Self {
-        if installed_and_allowed && connection.side().is_server() {
-            Self::Answerer
-        } else {
-            Self::None
-        }
-    }
-
-    fn decode(value: u8) -> io::Result<Self> {
-        match value {
-            0 => Ok(Self::None),
-            1 => Ok(Self::Offerer),
-            2 => Ok(Self::Answerer),
-            _ => Err(invalid_capabilities()),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct PathCapabilities {
-    pub tcp: bool,
-    pub udp: bool,
-    pub relay: bool,
-    pub rtc: RtcRole,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct NegotiatedPaths {
-    pub version: CapabilitiesVersion,
-    pub tcp: bool,
-    pub udp: bool,
-    pub relay: bool,
-    pub rtc: bool,
-    pub local_rtc: RtcRole,
-    pub peer_rtc: RtcRole,
-}
-
-impl NegotiatedPaths {
-    pub fn require_usable(self) -> io::Result<Self> {
-        if self.tcp || self.udp || self.relay || self.rtc {
-            Ok(self)
-        } else {
-            Err(io::Error::new(
-                io::ErrorKind::NotConnected,
-                "temporarily unreachable: no mutually permitted member data path",
-            ))
-        }
-    }
-}
-
-fn invalid_capabilities() -> io::Error {
-    io::Error::new(
-        io::ErrorKind::InvalidData,
-        "invalid protected data path capabilities",
-    )
-}
-
-/// Use the negotiated TLS ALPN to choose the wire version before writing.
-/// Other existing native application ALPNs retain their original v2 exchange.
-/// The caller owns the single attempt deadline and connection cancellation.
-pub async fn exchange_capabilities(
-    connection: &Connection,
-    local: PathCapabilities,
-) -> io::Result<NegotiatedPaths> {
-    let version = MemberProtocol::from_wire(connection.alpn())
-        .map_or(CapabilitiesVersion::Legacy2, |(_, version)| version);
-    let local_rtc = if version == CapabilitiesVersion::Rtc3 {
-        local.rtc
-    } else {
-        RtcRole::None
-    };
-    let mut bytes = vec![
-        version.number(),
-        u8::from(local.tcp),
-        u8::from(local.udp),
-        u8::from(local.relay),
-    ];
-    if version == CapabilitiesVersion::Rtc3 {
-        bytes.push(local_rtc as u8);
-    }
-    let (mut send, mut recv) = if connection.side().is_client() {
-        connection.open_bi().await?
-    } else {
-        connection.accept_bi().await?
-    };
-    send.write_all(&bytes).await?;
-    send.finish()?;
-    let peer = recv
-        .read_to_end(bytes.len())
-        .await
-        .map_err(io::Error::other)?;
-    if peer.len() != bytes.len()
-        || peer[0] != version.number()
-        || peer[1..4].iter().any(|value| *value > 1)
-    {
-        return Err(invalid_capabilities());
-    }
-    let peer_rtc = if version == CapabilitiesVersion::Rtc3 {
-        RtcRole::decode(peer[4])?
-    } else {
-        RtcRole::None
-    };
-    Ok(NegotiatedPaths {
-        version,
-        tcp: local.tcp && peer[1] == 1,
-        udp: local.udp && peer[2] == 1,
-        relay: local.relay && peer[3] == 1,
-        rtc: matches!(
-            (local_rtc, peer_rtc),
-            (RtcRole::Offerer, RtcRole::Answerer) | (RtcRole::Answerer, RtcRole::Offerer)
-        ),
-        local_rtc,
-        peer_rtc,
-    })
 }

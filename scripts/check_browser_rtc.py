@@ -17,6 +17,15 @@ ROOT = Path(__file__).resolve().parent.parent
 RELAYS = tuple(f"https://{region}.relay.n0.iroh.link./" for region in ("aps1-1", "use1-1", "usw1-1", "euc1-1"))
 
 
+def reject_retired_fixture():
+    raise SystemExit(
+        "Historical RTC member fixtures are retired with the old protocol. "
+        "Use scripts/check_unified_maintained.py, scripts/check_unified_admission_current.py "
+        "or scripts/check_unified_browser_browser.py with current pinned SDK receipts. "
+        "No build or test actor was started."
+    )
+
+
 def sha256(path):
     digest = hashlib.sha256()
     with path.open("rb") as source:
@@ -65,6 +74,8 @@ def main():
     parser.add_argument("--legacy-relay", action="store_true", help="owned MQTT-started legacy member with an explicitly permitted relay")
     parser.add_argument("--wasm-bindgen", default=shutil.which("wasm-bindgen") or "/tmp/miopunch-wasm-tools/bin/wasm-bindgen")
     args = parser.parse_args()
+    if args.case != "rtc-channel" or args.legacy_no_rtc or args.legacy_relay or args.pump_failure_only:
+        reject_retired_fixture()
     if args.case == "wss-member-rtc" and args.relay != "owned":
         parser.error("wss-member-rtc requires the owned normal-TLS fixture")
     output = args.output.resolve()

@@ -327,6 +327,53 @@ async fn strict_protocol_refuses_bad_versions_capabilities_roles_and_lengths_wit
 struct PendingControl {
     entered: Arc<Mutex<Option<tokio::sync::oneshot::Sender<iroh::endpoint::WeakConnectionHandle>>>>,
 }
+
+#[tokio::test]
+async fn retired_member_alpns_cannot_negotiate_or_disrupt_a_healthy_common_m() {
+    let (_dir, a, b) = admitted_pair().await;
+    let ae = a
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let be = b
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let (ac, bc) = (ae.coordinator(), be.coordinator());
+    let (healthy, peer) = tokio::join!(
+        ac.connect(be.addr(), SessionPurpose::MemberBusiness, attempt()),
+        async {
+            bc.accept(
+                be.endpoint().accept().await.unwrap(),
+                SessionPurpose::MemberBusiness,
+                attempt(),
+            )
+            .await
+        }
+    );
+    let (healthy, peer) = (healthy.unwrap(), peer.unwrap());
+    for alpn in [
+        b"miopunch/browser-member/1".as_slice(),
+        b"miopunch/browser-member/rtc-path/3".as_slice(),
+    ] {
+        // ALPN rejection may happen before Endpoint::accept publishes Incoming.
+        // Requiring an Incoming for rejected TLS would leave the observer waiting.
+        let old = tokio::time::timeout(
+            Duration::from_secs(3),
+            ae.endpoint().connect(be.addr(), alpn),
+        )
+        .await
+        .unwrap();
+        assert!(old.is_err(), "retired wire returned a handle");
+        streams(&healthy, &peer).await;
+        assert!(a.admission_gate().allows(&healthy, ProtocolScope::Member));
+    }
+    healthy.close(0u32.into(), b"done");
+    peer.close(0u32.into(), b"done");
+    drop((healthy, peer, ac, bc));
+    tokio::join!(ae.close(), be.close());
+    tokio::join!(a.close(), b.close());
+}
 impl EndpointHooks for PendingControl {
     async fn before_data_release(
         &self,

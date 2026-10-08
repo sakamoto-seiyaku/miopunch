@@ -11,7 +11,7 @@ import tempfile
 import time
 
 from browser_mqtt_trust import certificates, private_nss
-from check_browser_rtc import ROOT, sha256, source_snapshot
+from check_browser_rtc import ROOT, sha256, source_snapshot, reject_retired_fixture
 from rtc_cross_network_process import OwnedProcess, public_event
 from rtc_cross_network_evidence import validate as validate_network_evidence
 from rtc_cross_network_topology import OwnedLab
@@ -330,6 +330,7 @@ def main():
     parser.add_argument("--skip-build", action="store_true")
     parser.add_argument("--mode", choices=("all", "direct", "blocked", "relay"), default="all")
     args = parser.parse_args()
+    reject_retired_fixture()
     def interrupted(signum, frame):
         raise KeyboardInterrupt("owned STEP11 runner cancelled")
     signal.signal(signal.SIGTERM, interrupted)

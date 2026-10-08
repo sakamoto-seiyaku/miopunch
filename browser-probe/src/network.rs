@@ -659,7 +659,7 @@ impl BrowserGate {
         attempt.checks.push(details);
     }
 
-    async fn legacy_relay_continuation(
+    async fn prepare_relay(
         &self,
         endpoint: &Endpoint,
         connection: &Connection,
@@ -760,7 +760,7 @@ impl BrowserGate {
             ));
         }
         Ok(
-            serde_json::json!({"kind":"legacy-relay","capabilitiesVersion":2,"privateStreamId":stream_id,
+            serde_json::json!({"kind":"relay","capabilitiesVersion":1,"privateStreamId":stream_id,
             "memberStableId":connection.stable_id(),"stableUnchanged":continuity.stable_unchanged,"bindingUnchanged":continuity.binding_unchanged,"validatedRelay":observation,
             "relayFramesAfterConfirmation":connection.paths().iter().filter(|path|path.is_relay()).map(|path|serde_json::json!({"pathId":path.id().to_string(),"selected":path.is_selected(),"streamSent":path.stats().frame_tx.stream,"streamReceived":path.stats().frame_rx.stream})).collect::<Vec<_>>()}),
         )
@@ -1057,7 +1057,7 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
                     }))
                 }
                 PathPlan::Relay => {
-                    let mut report = self.legacy_relay_continuation(endpoint, connection).await?;
+                    let mut report = self.prepare_relay(endpoint, connection).await?;
                     report["capabilitiesVersion"] = serde_json::json!(1);
                     #[cfg(feature = "rtc-probe")]
                     self.remember_bootstrap(connection, report);
@@ -1327,106 +1327,7 @@ impl EndpointHooks for BrowserGate {
             )
             .await;
         }
-        use crate::member_path_protocol::{PathCapabilities, RtcRole, exchange_capabilities};
-        if crate::member_path_protocol::MemberProtocol::from_wire(connection.alpn()).is_none()
-            || !connection.paths().iter().any(|path| matches!(path.remote_addr(), iroh::TransportAddr::Custom(addr) if addr.id() == crate::mqtt_datagram::TRANSPORT_ID))
-        { return Ok(()); }
-        let deadline = connection
-            .caller_deadline()
-            .ok_or_else(|| std::io::Error::other("browser member caller deadline absent"))?;
-        // WASM hooks run on their originating browser thread. Wrap the complete
-        // local JS future; no Rc escapes into a transport callback or Noq lock.
-        send_wrapper::SendWrapper::new(async {
-            let relay = self
-                .0
-                .lock()
-                .unwrap()
-                .saved
-                .as_ref()
-                .is_some_and(|saved| !Self::permitted_relay_origins(saved).is_empty());
-            #[cfg(feature = "rtc-probe")]
-            let transport = self.0.lock().unwrap().rtc.clone();
-            #[cfg(feature = "rtc-probe")]
-            let qualified = self.qualified_snapshot(connection).await.map_err(|cause| {
-                std::io::Error::other(
-                    cause
-                        .as_string()
-                        .unwrap_or_else(|| "browser qualification failed".into()),
-                )
-            })?;
-            let role = {
-                #[cfg(feature = "rtc-probe")]
-                {
-                    RtcRole::browser_adapter(
-                        connection,
-                        transport.as_ref().is_some_and(|rtc| rtc.resource_allowed()),
-                    )
-                }
-                #[cfg(not(feature = "rtc-probe"))]
-                {
-                    RtcRole::None
-                }
-            };
-            let operation = async {
-                let paths = exchange_capabilities(
-                    connection,
-                    PathCapabilities {
-                        tcp: false,
-                        udp: false,
-                        relay,
-                        rtc: role,
-                    },
-                )
-                .await?
-                .require_usable()?;
-                #[cfg(feature = "rtc-probe")]
-                if paths.rtc {
-                    let mut report = rtc_member::bootstrap_control(
-                        endpoint,
-                        connection,
-                        self,
-                        &qualified,
-                        transport
-                            .as_ref()
-                            .ok_or_else(|| std::io::Error::other("browser RTC adapter absent"))?,
-                    )
-                    .await
-                    .map_err(|cause| {
-                        std::io::Error::other(
-                            cause
-                                .as_string()
-                                .unwrap_or_else(|| "browser RTC setup failed".into()),
-                        )
-                    })?;
-                    report["capabilitiesVersion"] = serde_json::json!(paths.version.number());
-                    self.remember_bootstrap(connection, report);
-                    return Ok(());
-                }
-                if paths.relay {
-                    let mut report = self.legacy_relay_continuation(endpoint, connection).await?;
-                    report["capabilitiesVersion"] = serde_json::json!(paths.version.number());
-                    #[cfg(feature = "rtc-probe")]
-                    self.remember_bootstrap(connection, report);
-                    return Ok(());
-                }
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::NotConnected,
-                    "temporarily unreachable: browser member data path unavailable",
-                ))
-            };
-            n0_future::time::timeout(
-                deadline.saturating_duration_since(n0_future::time::Instant::now()),
-                operation,
-            )
-            .await
-            .map_err(|_| {
-                std::io::Error::new(
-                    std::io::ErrorKind::TimedOut,
-                    "browser member caller deadline exceeded",
-                )
-            })?
-        })
-        .await
+        Ok(())
     }
 }
 
@@ -2475,11 +2376,7 @@ impl BrowserNetwork {
                 .await
                 .map_err(error);
         }
-        let options = crate::member_path_protocol::MemberProtocol::from_wire(alpn)
-            .map_or_else(iroh::endpoint::ConnectOptions::new, |(protocol, _)| {
-                protocol.connect_options()
-            })
-            .with_caller_deadline(deadline);
+        let options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
         n0_future::time::timeout(
             deadline.saturating_duration_since(n0_future::time::Instant::now()),
             async {

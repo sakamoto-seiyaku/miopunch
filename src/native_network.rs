@@ -720,20 +720,16 @@ impl NativeNetwork {
         #[cfg(feature = "rtc-probe")]
         let coordinator = coordinator.with_rtc(rtc.clone());
         let builder = if configured_startup {
-            let bootstrap = crate::message_bootstrap::MemberPathBootstrap::new(
+            let existing_data = crate::message_bootstrap::ExistingMemberDataRelease::new(
                 self.gate.clone(),
-                native_udp,
                 native_tcp
                     .filter(|tcp| !tcp.observers.is_empty() && tcp.transport.supports_punching()),
-                resources.clone(),
             );
-            #[cfg(feature = "rtc-probe")]
-            let bootstrap = bootstrap.with_rtc(rtc);
             self.gate
                 .with_message_bootstrap()
                 .configure(builder)
                 .hooks(coordinator)
-                .hooks(bootstrap)
+                .hooks(existing_data)
         } else {
             self.gate.configure(builder).hooks(coordinator)
         };

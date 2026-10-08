@@ -8,6 +8,12 @@ import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 
+if (process.argv.includes('--legacy-no-rtc') || process.argv.includes('--legacy-relay')
+    || process.argv.includes('--pump-failure-only')
+    || (process.argv.includes('--case') && process.argv[process.argv.indexOf('--case') + 1] !== 'rtc-channel')) {
+  throw new Error('Historical RTC member fixtures are retired with the old protocol. Use the current check_unified_* SDK runners. No test actor was started.');
+}
+
 const root = resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const argument = name => { const index = process.argv.indexOf(name); assert(index >= 0, `${name} required`); return process.argv[index + 1]; };
 const evidence = resolve(argument('--evidence'));
