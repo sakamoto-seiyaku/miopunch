@@ -1302,5 +1302,16 @@
     ],
     "fullBodiesPriorCommentsAndNativeRelationsPreserved": true,
     "sourceCommit": "71780c063fba2f7cece6fb504867ccdfb3bb07a9"
+  },
+  "additionalTitaniumPixelBrowserPair": {
+    "file": "titanium-pixel-browser-pair.json",
+    "artifactSha256": "ffb3e6b29743cd45bd201f84992c31ddb425422cf56ac7d1b3e00b7b83efebd3",
+    "functionalPassed": true,
+    "actualExecutions": 1,
+    "bothDirections": true,
+    "profile": "release",
+    "temporaryBrowserRtcPolicyRestored": true,
+    "physicalWanQualified": false,
+    "rawReceiptsRewritten": false
   }
 }

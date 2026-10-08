@@ -381,8 +381,7 @@
   "reviewComplete": true,
   "pendingCases": [
     "Public IRC complete SDK qualification remains unavailable under prior budget",
-    "Complete per-case physical matrix remains unfinished; one restored-site RTC story physically qualified",
-    "Two-phone Browser pair unavailable before SDK: OP13 Chrome not installed"
+    "Complete per-case physical matrix remains unfinished; one restored-site RTC story physically qualified"
   ],
   "recordedSdkSourceEpoch": "Historical first contract, before direct-only release restoration and TCP contact eligibility fix; raw receipts unchanged. Current Native SDK compiled and public runtime pending.",
   "currentSourceHashes": {
@@ -661,7 +660,7 @@
   },
   "currentTotalOwnedPathCount": 22,
   "currentWholeSourceDigest": "b63c31238a008b42e1ecc10bb5565bd4deb3d2e78bab0eb979d597a6ca08af7e",
-  "currentRuntimeValidationStatus": "Eight earlier finite cases plus five actual restored OP13/Pixel SDK executions passed; Native pair both directions and public relay-only now functionally pass. One RTC story physically corroborated through corrected collector replay. IRC and full per-case physical matrix remain incomplete.",
+  "currentRuntimeValidationStatus": "Eight earlier finite cases plus six actual restored OP13/Pixel SDK executions passed. Both Native directions, public relay-only and both independent phone Browser directions functionally pass. One earlier Native/Browser RTC story has physical route qualification; IRC and full per-case physical matrix remain incomplete.",
   "currentPublicSdkCases": {
     "browserToNativeComplete": {
       "runtimeReceiptSha256": "2e2c5743de65029b3ca0be34ea2a051e48a6a6f475d2f4ca455bb7806b997896",
@@ -5698,8 +5697,8 @@
   },
   "returnedOp13Site": {
     "file": "returned-op13-site.json",
-    "artifactSha256": "ecbd30c405f9862088759228b0cf87909ddedc928fd0ddb9662207bac31bd07f",
-    "successfulActualPhoneExecutions": 5,
+    "artifactSha256": "70653f1b869bb261b7dea3c1f1814a3590e483337ed7f7ddf43458b0f2149c1b",
+    "successfulActualPhoneExecutions": 6,
     "physicalDataQualifiedByCorrectedCollectorReplay": true,
     "physicalWanQualifiedByCorrectedCollectorReplay": true,
     "originalReceiptsRetainedUnmodified": true,
@@ -5721,5 +5720,31 @@
     "modelsAndDefaultTierVerified": true,
     "reviewedSourceUnchanged": true,
     "finalMetadataVerified": true
+  },
+  "additionalTitaniumPixelBrowserPair": {
+    "file": "titanium-pixel-browser-pair.json",
+    "artifactSha256": "ffb3e6b29743cd45bd201f84992c31ddb425422cf56ac7d1b3e00b7b83efebd3",
+    "functionalPassed": true,
+    "actualExecutions": 1,
+    "bothDirections": true,
+    "profile": "release",
+    "temporaryBrowserRtcPolicyRestored": true,
+    "physicalWanQualified": false,
+    "rawReceiptsRewritten": false
+  },
+  "titaniumPlaneProgress": {
+    "receiptSha256": "50742f7e7ad1a1100cd39854553e6cf8cf944ecd900c149ee036e848887f8c03",
+    "M84State": "In Progress",
+    "parent69State": "In Progress",
+    "commentsAdded": [
+      "MIOPUNCH-84",
+      "MIOPUNCH-69"
+    ],
+    "newCommentIds": {
+      "84": "8debf503-1967-4e6e-94be-7aa9746654a0",
+      "69": "a6e3a5fa-48c9-484b-9a1b-81dccf4f52a3"
+    },
+    "statesMutated": false,
+    "allProtectedFieldsPriorCommentsAndNativeEdgesPreserved": true
   }
 }

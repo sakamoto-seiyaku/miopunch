@@ -1,6 +1,6 @@
 # Unified protocol contract evidence
 
-2026-10-08. The source contract, eight earlier finite SDK cases and five
+2026-10-08. The source contract, eight earlier finite SDK cases and six
 restored OP13/Pixel SDK executions are recorded here. MIOPUNCH-82 environment
 qualification passed collector review and is Done in Plane; the complete MIOPUNCH-84
 public matrix remains unfinished.
@@ -152,10 +152,51 @@ has zero required source fixes and supports M82 closure for the observed scene;
 it retains two M84 gaps. Both reviewers were actually verified as
 GPT-6.1-sol/high/default. Collector and test hashes remain unchanged after review.
 
-An additional two-phone Browser pair stopped before any browser SDK call:
+An earlier two-phone Browser pair stopped before any browser SDK call:
 OP13 has no installed Chrome package or resolvable activity. Its actual exit1
 and first page-launch failure remain. The provisioner naturally closed, owned
 control listeners/reverse forwarding and captures retired. Because neither
 Browser SDK started, the failed observer's missing RTC-allocation cleanup witness
 is preserved and no Browser SDK graceful-close qualification is claimed.
-No application was installed and no system network setting changed.
+That first attempt installed no application and changed no system network setting.
+
+A subsequent authorized ADB install adds Titanium (the renamed Android Helium
+project, package `io.github.jqssun.helium`) version 154.0.8037.126 on OP13. The
+publisher APK digest, installed APK and signature verification match. The first
+local install wrapper reported failure although the device completed installation;
+that limitation remains recorded. No default browser or permission-grant flag changed.
+
+The two independent phone Browser SDKs now both complete manual admission, save
+both verified peer grants, reopen with the same identity/materials, and take both
+initiator/responder roles. Titanium initiates in 7,946.400 ms; Pixel initiates in
+7,417.450 ms, within the original 12,000 ms callers. Both original-M RTC stream
+directions, current gates, new wire, initial/new final fresh ACK, post-story
+persistence, natural SDK retirement and independent capture/control cleanup pass.
+The whole finite story takes 86,674.671 ms across separate operations.
+
+Five preceding failed SDK attempts remain preserved. Read-only owned storage
+comparison rules out different network/secret/verified records. CPU sampling
+shows the unoptimized Titanium WASM execution consuming most of its member caller;
+its precise inner interpreter operation was not resolved. A same-source release
+WASM build advances through member proof and offer/answer, without changing the
+proof algorithm, dependency pins, committed profiles, browser JIT or caller budgets.
+With Titanium's original `Disable non-proxied UDP` policy it still generates zero
+ICE candidates and fails, while Pixel generates three. Titanium's own checked UI
+confirms that policy.
+
+Selecting `Default public interface only` temporarily in this newly installed
+test browser then passes both directions with the same release SDK. The original
+policy was restored and its checked selection verified after cleanup. This is
+a declared browser configuration prerequisite. SDK admission and membership
+checks continue to apply.
+No OS network/VPN settings or JIT exceptions changed. The [Titanium documentation](https://github.com/jqssun/android-titanium-browser#webrtc-ip-policy) describes its
+default IP protection and the public-interface option. The new release build used
+the existing shared cache, with unchanged source/dependency locks and retained
+3159 input, 198 source-copy and 264 depfile proofs.
+
+[titanium-pixel-browser-pair.json](titanium-pixel-browser-pair.json) records the
+whitelisted runtimes, artifact hashes, failed attempts, policy restoration and
+cleanup. Its own physical-WAN flag remains false because selected-tuple route,
+socket and two-end packet qualification was not collected for this case. The
+earlier Native/Browser physical proof is not inherited. M84/parent69 remain
+In Progress; IRC and the full per-case physical matrix are unfinished.
