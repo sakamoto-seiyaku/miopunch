@@ -2,8 +2,8 @@
 
 2026-10-08. The source contract and eight finite SDK cases are recorded here.
 MIOPUNCH-82 and the complete MIOPUNCH-84 public matrix remain unfinished.
-MIOPUNCH-85 has passed its local acceptance checks and final source review;
-its scoped commit and Plane resolution follow. Functional success and physical WAN qualification have separate results.
+MIOPUNCH-85 is Done after its local acceptance checks, final source review,
+scoped commit and complete Plane readbacks. Functional success and physical WAN qualification have separate results.
 
 The migrated member, admission, precode and Replica entry points use the strict
 common version1 protocol. Old browser member ALPNs, v2/v3 capability exchange,
@@ -102,5 +102,9 @@ WIP files remain unchanged. [Standards review](standards-review.md) has zero har
 cleanup suggestion. [Spec review](spec-review.md) has zero required source fixes
 and identifies the two disclosed environment/public-matrix acceptance gaps. Both
 reviewers were verified as GPT-6.1-sol/high/default; no source changed after review.
-The optional obsolete `Option<PreparedPath>` result state is parked. The scoped
-commit and M85 tracker resolution follow; M82/M84 remain unfinished.
+The optional obsolete `Option<PreparedPath>` result state is parked. Source commit is `07d3a62776928a5799747b4dd1b9cb7935931c5c`, without push.
+M85 is Done under its actual parent M84; M82 is In Progress with
+`ready-for-human`, and M84/parent69 remain In Progress. Original M70–84 has
+13 of 15 Done, with M82/M84 unfinished. The additional M85 fix does not turn
+the original fifteen into a complete matrix. Plane readbacks preserved prior
+comments, full protected task fields and native relationships.

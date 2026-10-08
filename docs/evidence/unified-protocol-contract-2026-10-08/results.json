@@ -383,8 +383,7 @@
     "Actual distinct physical networks with observed non-overlay upstream and selected data route",
     "Qualified public Native-to-Native ordinary M/business and reverse; Android shell platform TLS context unavailable, Host public contact failed",
     "Complete public RTC-disabled relay-only story; current public attempts preserved as failed",
-    "IRC full SDK route remains unqualified from earlier work; corresponding branch not expanded",
-    "Scoped source commit and Plane M85 resolution; M82 and M84 acceptance remains incomplete"
+    "IRC full SDK route remains unqualified from earlier work; corresponding branch not expanded"
   ],
   "recordedSdkSourceEpoch": "Historical first contract, before direct-only release restoration and TCP contact eligibility fix; raw receipts unchanged. Current Native SDK compiled and public runtime pending.",
   "currentSourceHashes": {
@@ -567,7 +566,7 @@
     ],
     "provenanceSha256": "fb68c7aed87a2d663b575546296afd39a06d61278179977db29b85759ff6e6ba"
   },
-  "M85Done": false,
+  "M85Done": true,
   "tcpContactEligibilityFix": {
     "ticket": "MIOPUNCH-85",
     "status": "In Progress",
@@ -5679,5 +5678,23 @@
     "reviewedSourcePathCount": 22,
     "reviewedStagedPathCount": 24,
     "sourceChangedAfterReview": false
+  },
+  "strictContractSourceCommit": "07d3a62776928a5799747b4dd1b9cb7935931c5c",
+  "trackerCompletion": {
+    "receiptSha256": "e151138e917ea8f1361eeebba45228c0b584b503fd0c7c890d417c84fd0860f9",
+    "M85Done": true,
+    "M85ActualParent": "MIOPUNCH-84",
+    "M82State": "In Progress",
+    "M82Triage": "ready-for-human",
+    "M84State": "In Progress",
+    "parent69State": "In Progress",
+    "originalM70Through84Total": 15,
+    "originalM70Through84Done": 13,
+    "unfinishedOriginalSequences": [
+      82,
+      84
+    ],
+    "previousCommentsBodiesProtectedMetadataAndNativeRelationsPreserved": true,
+    "sourceCommitPushed": false
   }
 }
