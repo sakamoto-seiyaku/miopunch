@@ -340,7 +340,7 @@ def run(args):
                    'pixel': 'Host Browser B' if host_pair else 'Pixel Browser'},
         'actorLabels': 'stable controller aliases; see actors for actual endpoints',
         'deviceOperation': not host_pair,
-        'physicalWanQualified': False, 'sdkCallerBudgetMs': 12000, 'case': args.case,
+        'physicalWanQualified': False, 'sdkCallerBudgetMs': args.member_caller_ms, 'case': args.case,
         'sourceHashesBefore': freeze, 'compiledInputs': proof,
         'command': ['rtk', 'proxy', 'python3', str(Path(__file__).resolve()), *sys.argv[1:]],
         'configHashes': {name: sha(getattr(args, name)) for name in ('facility', 'browser_profile', 'native_profile')},
@@ -445,17 +445,19 @@ def run(args):
             'resources': sdk_cleanup_facts(cleanup), 'storePreserved': True})
         return cleanup
 
-    def wait_result(label, operation, values, predicate, timeout=14):
+    def wait_result(label, operation, values, predicate, timeout=None):
+        if timeout is None:
+            timeout = args.member_caller_ms / 1000 + 2
         deadline = time.monotonic()+timeout
         while time.monotonic() < deadline:
             result = sdk(label, operation, values)
             if predicate(result):
                 return result
             time.sleep(0.02)
-        raise TimeoutError('local settlement observation expired; SDK remains bound to original 12000ms')
+        raise TimeoutError('local settlement observation expired; SDK remains bound to its selected caller')
 
     def establish(dialer, answerer, name):
-        args75 = {'name': name, 'callerMs': 12000}
+        args75 = {'name': name, 'callerMs': args.member_caller_ms}
         sdk(answerer, 'begin_accept', {**args75, 'expectedPeer': identities[dialer]})
         sdk(dialer, 'begin_connect', {**args75, 'expectedPeer': identities[answerer]})
         facts = {}
@@ -464,7 +466,9 @@ def run(args):
             settled = sdk(label, 'finish_attempt', {'name': name})
             require(settled.get('returned') is True and settled.get('expectedPeerMatched') is True
                 and settled.get('cancelled') is False and settled.get('retirementErrors') == []
-                and settled.get('callerElapsedMs', 12000) < 12000, 'ordinary SDK handle did not qualify within original caller')
+                and settled.get('callerBudgetMs') == args.member_caller_ms
+                and settled.get('callerElapsedMs', args.member_caller_ms) < args.member_caller_ms,
+                'ordinary SDK handle did not qualify within the selected original caller')
             facts[label] = {key: settled[key] for key in ('role', 'callerElapsedMs', 'callerBudgetMs', 'expectedPeerMatched')}
             facts[label]['business'] = business_facts(sdk(label, 'member_diagnostics', {'name': name}), role)
         return facts
@@ -582,8 +586,8 @@ def run(args):
                 baseline = {label: {'objects': sdk(label, 'rtc_objects'), 'sdk': sdk(label, 'rtc_diagnostics')}
                     for label in ('host', 'pixel')}
                 sdk(answerer, 'hold_next_answer')
-                sdk(answerer, 'begin_accept', {'name': 'C', 'expectedPeer': identities[dialer], 'callerMs': 12000})
-                sdk(dialer, 'begin_connect', {'name': 'C', 'expectedPeer': identities[answerer], 'callerMs': 12000})
+                sdk(answerer, 'begin_accept', {'name': 'C', 'expectedPeer': identities[dialer], 'callerMs': args.member_caller_ms})
+                sdk(dialer, 'begin_connect', {'name': 'C', 'expectedPeer': identities[answerer], 'callerMs': args.member_caller_ms})
                 stage('real-C-answer-created-and-held', lambda: wait_result(answerer, 'rtc_objects', {},
                     lambda value: (value.get('answerHold') or {}).get('answerCreated') is True))
                 report['healthyDuringPendingC'] = stage('healthy-H-streams-during-C', lambda: streams(dialer, answerer, name))
@@ -761,6 +765,8 @@ def main():
     parser.add_argument('--actors', choices=('host-pixel', 'host-host'), default='host-pixel',
                         help='actual endpoints; host-host uses two independent owned Host profiles/stores')
     parser.add_argument('--case', choices=('forward', 'both', 'cancel'), default='forward')
+    parser.add_argument('--member-caller-ms', type=int, choices=(12000, 60000), default=12000,
+                        help='one explicit member connect/accept caller; existing 12000ms cases remain unchanged')
     parser.add_argument('--host-warp', choices=('active', 'inactive', 'unknown'), default='unknown')
     parser.add_argument('--pixel-overlay', choices=('active', 'inactive', 'unknown'), default='unknown')
     parser.add_argument('--output', type=Path)

@@ -224,7 +224,7 @@ async function retire(value, late = false) {
 function attemptFacts(entry) {
   return { name: entry.name, role: entry.role, settled: entry.settled, cancelled: entry.cancelled,
     returned: entry.returned === true, expectedPeerMatched: entry.expectedPeerMatched, sdkFailure: entry.failure,
-    callerBudgetMs: 12000, callerElapsedMs: entry.elapsedMs, failureClass: entry.failureClass,
+    callerBudgetMs: entry.callerMs, callerElapsedMs: entry.elapsedMs, failureClass: entry.failureClass,
     rtc: rtcObjects(entry.peerStart, entry.startedAt),
     lateHandleRetirements, retirementErrors: [...retirementErrors] };
 }
@@ -232,13 +232,14 @@ function beginAttempt(args, role) {
   const name = args.name;
   if (typeof name !== 'string' || !name || attempts.has(name) || members.has(name))
     throw new Error('owned attempt name is required and cannot be reused');
-  if (typeof args.expectedPeer !== 'string' || !args.expectedPeer || args.callerMs !== 12000)
-    throw new Error('independent expected peer and original 12000ms caller are required');
+  if (typeof args.expectedPeer !== 'string' || !args.expectedPeer
+    || !Number.isInteger(args.callerMs) || ![12000, 60000].includes(args.callerMs))
+    throw new Error('independent expected peer and explicit 12000ms or 60000ms caller are required');
   const started = performance.now(), epoch = generation;
   const handle = role === 'connect'
-    ? feature(network, 'member_connection_attempt')(args.expectedPeer, 12000)
-    : feature(network, 'member_accept_attempt')(12000);
-  const entry = { name, role, handle, settled: false, cancelled: false, peerStart: realPeers.length, startedAt: started };
+    ? feature(network, 'member_connection_attempt')(args.expectedPeer, args.callerMs)
+    : feature(network, 'member_accept_attempt')(args.callerMs);
+  const entry = { name, role, handle, callerMs: args.callerMs, settled: false, cancelled: false, peerStart: realPeers.length, startedAt: started };
   attempts.set(name, entry);
   entry.work = (async () => {
     let value;

@@ -120,6 +120,18 @@ def guard_build(receipt, pin, *, binary=None, binary_pin=None, package=None, pac
         'inactiveSdkExceptions': []}
 
 
+def native_caller_budget_facts(ready, reopened, released):
+    """Keep the Native fixture's saved caller policy across reopen and acceptance."""
+    budget = ready.get('callerBudgetMs')
+    require(type(budget) is int and budget > 0, 'native-configured-caller-budget-known')
+    require(type(reopened.get('callerBudgetMs')) is int and reopened['callerBudgetMs'] == budget,
+            'native-reopened-caller-budget-preserved')
+    require(type(released.get('callerBudgetMs')) is int and released['callerBudgetMs'] == budget,
+            'native-member-caller-budget-preserved')
+    return {'callerBudgetMs': budget, 'sameSavedPolicyAfterReopen': True,
+            'samePolicyAtMemberAcceptance': True}
+
+
 def websocket_retirement_facts(immediate, late):
     """Keep a quiescent Relay terminal-close tail distinct from retired callbacks."""
     relay = urlsplit(RELAY)
@@ -364,7 +376,8 @@ def run(args):
     args.output.mkdir(mode=0o700, parents=True)
     report = {'ticket': 'MIOPUNCH-76', 'mode': args.mode, 'passed': False, 'commandExit': None,
         'scope': 'current Host Native / Pixel Browser actual SDK capability and permitted relay member story',
-        'physicalWanQualified': False, 'callerBudgetMs': 12000, 'nativeRelayCeilingMs': 6000,
+        'physicalWanQualified': False, 'callerBudgetMs': 60000, 'nativeRelayCeilingMs': 6000,
+        'browserCallerPolicy': 'explicit 60000ms; current SDK default, no per-stage reset',
         'command': ['rtk', 'proxy', 'python3', str(Path(__file__).resolve()), *sys.argv[1:]],
         'startedUtc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
         'stages': [], 'sdkCalls': [], 'generationCleanup': [], 'nativeGenerationCleanup': []}
@@ -434,6 +447,7 @@ def run(args):
         nonlocal generation
         config = {'relays': [RELAY] if data else [], 'disabled': [], 'irc': [],
             'mqtt': [facility], 'rtc_enabled': True, 'rtc_ice': browser_profile,
+            'maintenance': {'contact_timeout_ms': report['callerBudgetMs']},
             'contact_routes': [{'contact': ready['id'], 'facility': facility['logical_id'],
                                 'address': ready['route']}]}
         result = rpc('start', {'configuration': config})
@@ -584,8 +598,7 @@ def run(args):
             'native-actual-member-peer-current-gate')
         require(type(released.get('stableId')) is int and released['stableId'] >= 0,
                 'native-original-m-known')
-        require(type(released.get('callerBudgetMs')) is int and released['callerBudgetMs'] == 12000,
-                'native-original-caller-budget')
+        report['nativeCallerBudget'] = native_caller_budget_facts(ready, reopened, released)
         common = actor.wait_event(lambda event: event.get('event') == 'unified-path-ready'
             and event.get('purposeCode') == 1 and event.get('stableId') == released['stableId'])
         report['nativeCommon'] = common_facts(common, 'responder', RELAY)
