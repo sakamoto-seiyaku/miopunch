@@ -1,0 +1,32 @@
+{
+  "reviews": [
+    {
+      "axis": "standards",
+      "findings": 0,
+      "privateReportSha256": "08d786f52a9726311b6444080cb7b0078d054893b4b867e73ba994606c210e60",
+      "fixedBase": "bd39f544b14181b7e5b7a09c6c9bf08a20eca440",
+      "productScopeSha256": "39fbcda07a1020e4c765a5c6c185e195535efa1d86fa8d00def63e7805fb0fa5"
+    },
+    {
+      "axis": "spec",
+      "findings": 0,
+      "privateReportSha256": "a8cb36119aa6920a0c0d74ec9043340d7f21d2ee5f9ed5676cdba4d35ee917c7",
+      "fixedBase": "bd39f544b14181b7e5b7a09c6c9bf08a20eca440",
+      "productScopeSha256": "39fbcda07a1020e4c765a5c6c185e195535efa1d86fa8d00def63e7805fb0fa5"
+    }
+  ],
+  "note": "independent source reviews completed while final public runtime was pending; this final actual qualification is separately checked against raw receipts after runtime; no product changes since reviews",
+  "finalEvidenceReviews": [
+    {
+      "axis": "standards",
+      "unresolvedFindings": 0,
+      "privateReportSha256": "7ae0091047354060f38848e5b0c5e0bdc1d039c3b9a83828e4b55fff7451c2dc"
+    },
+    {
+      "axis": "spec",
+      "unresolvedFindings": 0,
+      "privateReportSha256": "134f04a434c81a0f1c8442b914e468399f8bffa735e84992c168d08996bea202"
+    }
+  ],
+  "resolvedEvidenceIssue": "Publisher explicitly requires both actual Native graceful-close receipts and inactive IRC drivers, in addition to exit0; fixed and independently rechecked without product changes."
+}

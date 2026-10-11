@@ -1,0 +1,45 @@
+{
+  "scope": "Exact controller/operator/selector sources retained for the measured cases; paths identify pinned private artifacts and receipt environment, not portable new build defaults. No raw fixture stores, runtime packets or generated secret material copied. Private Native DEBUG observer belongs to the causal fixture, not the product sources.",
+  "files": {
+    "irc_current_native.rs": {
+      "originalPrivateSource": "/tmp/mio87-proper-sdk-close-order-build-root-20261011/irc_current_native.rs",
+      "sha256": "603f79596f47bc2c870e1699e09418724bd440d7c9b396faafc98547769f8e78"
+    },
+    "public-full-story.mjs": {
+      "originalPrivateSource": "/tmp/mio87-final3-public-proper-close-root-20261011/run.mjs",
+      "sha256": "cd524beae1c5fb76795bde30f7693037c2bb402098b2024b2fc87ab799a9afbd"
+    },
+    "owned-affected-regressions.mjs": {
+      "originalPrivateSource": "/tmp/mio87-final2-affected-regressions-root-20261011/run.mjs",
+      "sha256": "152bb8d7382466dff201eb1f3a5aad62ea5931865c0060a4bd9879b107b13681"
+    },
+    "owned-fixtures.py": {
+      "originalPrivateSource": "/tmp/mio87-final2-affected-regressions-root-20261011/local.py",
+      "sha256": "97201aa410bee34e1b322e7b290823741da55b92cf1c397ea802a3e8b2a08716"
+    },
+    "guard-public-execution.py": {
+      "originalPrivateSource": "/tmp/mio87-final3-public-proper-close-root-20261011/execute.py",
+      "sha256": "55578bb87f68b8f6c2a64bbeb1a13c89c8108fa221c50ccc1cfd7caf23c02537"
+    },
+    "guard-owned-execution.py": {
+      "originalPrivateSource": "/tmp/mio87-final2-affected-regressions-root-20261011/execute.py",
+      "sha256": "0fa767e20700d1f7e20b7a0635dd8a01f692510c950defbc5f47b3ffc6445d9c"
+    },
+    "guarded-build.py": {
+      "originalPrivateSource": "/tmp/mio87-proper-sdk-close-order-build-root-20261011/build.py",
+      "sha256": "1bfed905e1df7dcce361f46da97ef4df381a11926ae1e2c469ffe9f45805337c"
+    },
+    "selected-Cargo.toml": {
+      "originalPrivateSource": "/tmp/mio87-proper-sdk-close-order-build-root-20261011/selector/Cargo.toml",
+      "sha256": "c34d149b609af387b5de228507e2918cd1f89533fb6a20f43f8c382a8b0e7300"
+    },
+    "selected-Cargo.lock": {
+      "originalPrivateSource": "/tmp/mio87-proper-sdk-close-order-build-root-20261011/selector/Cargo.lock",
+      "sha256": "d41df66a181d4c6a79f4c6ae78145e1b8dd5cef0dab6bc7979a3b7ca0b37c8d7"
+    },
+    "verify-and-summarize-public.py": {
+      "originalPrivateSource": "/tmp/mio87-finalize-public-evidence.py",
+      "sha256": "90c842fb3efc8565d9cd77971c8ba1118ba0b180fd8975e03df1470a459458d0"
+    }
+  }
+}

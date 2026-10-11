@@ -1,0 +1,112 @@
+{
+  "sharedCache": "repository target; unchanged committed profiles and exact locked dependencies",
+  "builds": [
+    {
+      "label": "currentNative",
+      "privateDirectory": "/tmp/mio87-approved-relay-business-v4-build-root-20261011/native",
+      "rawReceiptSha256": "65a0410a0585ce475ba08c3f1c924a549e6d1a4694dd8c240062bf40f493b8dd",
+      "actualSelectedGraphSha256": "0ed38b262cddcfcbf96c0dd743eb47884e28375cf000a794001720d0f71ef184",
+      "exit": 0,
+      "cargoSeconds": 4.205376964993775,
+      "freshArtifacts": 528,
+      "rebuiltArtifacts": 1,
+      "actualSelectedInputCount": 6590,
+      "actualSourceCopyCount": 291,
+      "actualCapturedDepfileCount": 478,
+      "sourceFrozenDuringBuild": true,
+      "sourceDigestBefore": "80662fea0072392122f991b80ff0ec533967d3cb7feba191fd7de13fe35d38fd",
+      "sourceDigestAfter": "80662fea0072392122f991b80ff0ec533967d3cb7feba191fd7de13fe35d38fd",
+      "artifacts": {
+        "/tmp/mio87-approved-relay-business-v4-build-root-20261011/native/pinned/irc_current_native": "042368df3cf2ad2e839d87bae7c6f32b4cc7c5bb0cb5e4c200f430f384dff4e1"
+      },
+      "wholeSourceDigestIsHistoricalForReusedNativeGraph": true
+    },
+    {
+      "label": "finalWasm",
+      "privateDirectory": "/tmp/mio87-final-no-debug-sdk-v2-root-20261011/wasm",
+      "rawReceiptSha256": "e20c8288351b354b4559902d59b11567f832d7afe39c1009d0b6861b42e6d67b",
+      "actualSelectedGraphSha256": "d36f6a62e5eb9a936ac28931fc3e15fcdf0990bbf7aa5fc722bd132878ef1a1d",
+      "exit": 0,
+      "cargoSeconds": 24.104183092946187,
+      "freshArtifacts": 295,
+      "rebuiltArtifacts": 1,
+      "actualSelectedInputCount": 3159,
+      "actualSourceCopyCount": 198,
+      "actualCapturedDepfileCount": 264,
+      "sourceFrozenDuringBuild": true,
+      "sourceDigestBefore": "ae5db6746383dedc5d6cb1a4c011cccbbd71fd5e5ee3ac0a28a11a0241f38765",
+      "sourceDigestAfter": "ae5db6746383dedc5d6cb1a4c011cccbbd71fd5e5ee3ac0a28a11a0241f38765",
+      "artifacts": {
+        "/tmp/mio87-final-no-debug-sdk-v2-root-20261011/wasm/pkg/miopunch_browser_probe_bg.wasm": "4bdb5b9dffef5477bab903261f907a6a81e699615822b6800913fe0089b7a074",
+        "/tmp/mio87-final-no-debug-sdk-v2-root-20261011/wasm/pkg/miopunch_browser_probe_bg.wasm.d.ts": "4a5f2ab3fd6b86985a54edeba35c9b62cba3ec7187f1b54a7c60338215131a9d",
+        "/tmp/mio87-final-no-debug-sdk-v2-root-20261011/wasm/pkg/miopunch_browser_probe.js": "aeab672737fa133e646ca8e6110bd574dbcd6a2c6704a7afa20a52c4c3440ce0",
+        "/tmp/mio87-final-no-debug-sdk-v2-root-20261011/wasm/pkg/miopunch_browser_probe.d.ts": "8bf1905559cf25da9923ff34c57741d61c2ac87365ea99a0cd70d92737b948a7",
+        "/tmp/mio87-final-no-debug-sdk-v2-root-20261011/wasm/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+        "/tmp/mio87-final-no-debug-sdk-v2-root-20261011/wasm/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96"
+      },
+      "wholeSourceDigestIsHistoricalForReusedNativeGraph": false
+    },
+    {
+      "label": "affectedTests",
+      "privateDirectory": "/tmp/mio87-current-selected-tests-root-20261011/tests",
+      "rawReceiptSha256": "5cdc5c916ab7bda189f2f5e61cfe0dae681ef840039740754cc1193a9720958c",
+      "actualSelectedGraphSha256": "02242947d83db54e5e8dc13c0bb6c7972d197f07766280bb1706b7448b6117fb",
+      "exit": 0,
+      "cargoSeconds": 23.186421426013112,
+      "freshArtifacts": 466,
+      "rebuiltArtifacts": 7,
+      "actualSelectedInputCount": 5734,
+      "actualSourceCopyCount": 295,
+      "actualCapturedDepfileCount": 430,
+      "sourceFrozenDuringBuild": true,
+      "sourceDigestBefore": "80662fea0072392122f991b80ff0ec533967d3cb7feba191fd7de13fe35d38fd",
+      "sourceDigestAfter": "80662fea0072392122f991b80ff0ec533967d3cb7feba191fd7de13fe35d38fd",
+      "artifacts": {
+        "/tmp/mio87-current-selected-tests-root-20261011/tests/pinned/irc_current_native": "481d2412fd8d2c64f0a733f9ba0652247b2526fdf8d267637a2715f3a232d51c",
+        "/tmp/mio87-current-selected-tests-root-20261011/tests/pinned/unified_admission_story": "cb6c510d6acbab13b3c7b253fa84f66a998fb872576c9beac90199672a9656f3",
+        "/tmp/mio87-current-selected-tests-root-20261011/tests/pinned/irc_datagram": "c0a751af0d2fd2620a05f8839dc29863af5919eb8f919f36a18274c40bc7e836",
+        "/tmp/mio87-current-selected-tests-root-20261011/tests/pinned/member_path_protocol": "6d6243d0ce1716f4516d02018ba6b2643c0dfb7ec823b73643f4d4ebd255d4fa",
+        "/tmp/mio87-current-selected-tests-root-20261011/tests/pinned/negotiated_accept_context": "a1be51ec4f8eb6577e86a33225a9e708fb4ae53f41bcbe17bf780eb9bad13389",
+        "/tmp/mio87-current-selected-tests-root-20261011/tests/pinned/unified_connection": "e8caddda7ed9487379544a1f8041235b4b99742df8126636adb91b85d6148a8e"
+      },
+      "wholeSourceDigestIsHistoricalForReusedNativeGraph": true
+    },
+    {
+      "label": "finalNativeOperatorWithSDKCloseOrder",
+      "privateDirectory": "/tmp/mio87-proper-sdk-close-order-build-root-20261011/native",
+      "rawReceiptSha256": "b1cfc955ae74d09be97b5f89195e42db120ca8a2cfb4fd6b0fff74d65280e688",
+      "actualSelectedGraphSha256": "3efc581a80f2d717b7b6a1291cde5d7050cad0dced874d7c8c954377dcb52923",
+      "wholeSourceDigestIsHistoricalForReusedNativeGraph": false,
+      "reason": "private operator close-order correction; Native product/library selected inputs unchanged;528 dependency artifacts Fresh and1 operator rebuilt",
+      "exit": 0,
+      "cargoSeconds": 4.193775848951191,
+      "freshArtifacts": 528,
+      "rebuiltArtifacts": 1,
+      "actualSelectedInputCount": 6590,
+      "actualSourceCopyCount": 291,
+      "actualCapturedDepfileCount": 478,
+      "sourceFrozenDuringBuild": true,
+      "sourceDigestBefore": "ae5db6746383dedc5d6cb1a4c011cccbbd71fd5e5ee3ac0a28a11a0241f38765",
+      "sourceDigestAfter": "ae5db6746383dedc5d6cb1a4c011cccbbd71fd5e5ee3ac0a28a11a0241f38765",
+      "artifacts": {
+        "/tmp/mio87-proper-sdk-close-order-build-root-20261011/native/pinned/irc_current_native": "b9393e8f7355eeadbadf280ae3bd7cebfc2497a20393fb7e53e89a0d63ab4f06"
+      }
+    }
+  ],
+  "reuse": {
+    "wholeSourceDelta": {
+      "browser-probe/src/network.rs": {
+        "before": "2d98d679ba865e4f147a336682e89e79cd35bfe1d2db37676b669d02aae4f66e",
+        "after": "2a03874f0c99492de27a6717c31b84abbb70e5a19156b01561175a53fcf3521e"
+      }
+    },
+    "priorWholeDigest": "80662fea0072392122f991b80ff0ec533967d3cb7feba191fd7de13fe35d38fd",
+    "finalWholeDigest": "ae5db6746383dedc5d6cb1a4c011cccbbd71fd5e5ee3ac0a28a11a0241f38765",
+    "nativeReuse": {
+      "directory": "/tmp/mio87-approved-relay-business-v4-build-root-20261011/native",
+      "actualSelectedInputsUnchanged": true,
+      "historicalWholeReceiptDigestRetained": true,
+      "reason": "Browser-only removal of temporary console stages and validation before startup timeout; no selected Native compile input changed."
+    }
+  }
+}

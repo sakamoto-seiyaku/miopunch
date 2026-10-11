@@ -1,0 +1,236 @@
+{
+  "privateDirectory": "/tmp/mio87-final2-affected-regressions-root-20261011",
+  "sourceAndArtifactGuardsPassed": true,
+  "executionReceiptSha256": "7b2d7b4db45ef04bd21e7e41ccb5f135f5b240c5846d56940554297c17b4ab3d",
+  "passed": true,
+  "cases": [
+    {
+      "case": "invalid",
+      "functionalPassed": true,
+      "cleanupQualified": true,
+      "qualified": true,
+      "rawReceiptSha256": "2958f3a258ed1f905433889f10c5d76544cb8d0a316fe3e7368593d406f93dd9",
+      "requestElapsedMs": null,
+      "nativeRequestAccepted": null,
+      "strictPurpose2Qualified": null,
+      "browserWssCount": 0,
+      "callerBudgetMs": 20000,
+      "profile": {
+        "pacing_ms": 10,
+        "assembly_ttl_ms": 8000,
+        "queue_ttl_ms": 1500,
+        "attempt_ms": 1000
+      },
+      "listenerIdleMs": null,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": false
+        },
+        "socketImmediateObservationPassed": null,
+        "socketLateObservationPassed": true,
+        "lateSocketWaitMs": null,
+        "nativeExitCode": 0,
+        "nativeForced": false,
+        "nativeGracefulClose": true,
+        "nativeCloseMs": 12,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    {
+      "case": "short",
+      "functionalPassed": true,
+      "cleanupQualified": true,
+      "qualified": true,
+      "rawReceiptSha256": "03ca1aa46399c3f176986b9661d59c21edf043ffd08e8b514107933d5a2d6101",
+      "requestElapsedMs": 2007.8999998569489,
+      "nativeRequestAccepted": false,
+      "strictPurpose2Qualified": false,
+      "browserWssCount": 1,
+      "callerBudgetMs": 2000,
+      "profile": {
+        "pacing_ms": 10,
+        "assembly_ttl_ms": 8000,
+        "queue_ttl_ms": 1500,
+        "attempt_ms": 1000
+      },
+      "listenerIdleMs": null,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 2996.7000000476837
+        },
+        "socketImmediateObservationPassed": null,
+        "socketLateObservationPassed": true,
+        "lateSocketWaitMs": null,
+        "nativeExitCode": 0,
+        "nativeForced": false,
+        "nativeGracefulClose": true,
+        "nativeCloseMs": 12,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    {
+      "case": "aged",
+      "functionalPassed": true,
+      "cleanupQualified": true,
+      "qualified": true,
+      "rawReceiptSha256": "bf1c83d008a438b220842185416ee6636b8bc40ad021de95e6161304f5788dd5",
+      "requestElapsedMs": 1043.0999999046326,
+      "nativeRequestAccepted": true,
+      "strictPurpose2Qualified": true,
+      "browserWssCount": 1,
+      "callerBudgetMs": 20000,
+      "profile": {
+        "pacing_ms": 10,
+        "assembly_ttl_ms": 8000,
+        "queue_ttl_ms": 1500,
+        "attempt_ms": 1000
+      },
+      "listenerIdleMs": 3100,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 138.19999980926514
+        },
+        "socketImmediateObservationPassed": null,
+        "socketLateObservationPassed": true,
+        "lateSocketWaitMs": null,
+        "nativeExitCode": 0,
+        "nativeForced": false,
+        "nativeGracefulClose": true,
+        "nativeCloseMs": 13,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    {
+      "case": "cancel",
+      "functionalPassed": true,
+      "cleanupQualified": true,
+      "qualified": true,
+      "rawReceiptSha256": "32533436fbf3cdf14b6efb41138c598016910e7e5424c232f4f9f1bffc81f430",
+      "requestElapsedMs": 259.09999990463257,
+      "nativeRequestAccepted": false,
+      "strictPurpose2Qualified": false,
+      "browserWssCount": 1,
+      "callerBudgetMs": 20000,
+      "profile": {
+        "pacing_ms": 10,
+        "assembly_ttl_ms": 8000,
+        "queue_ttl_ms": 1500,
+        "attempt_ms": 1000
+      },
+      "listenerIdleMs": null,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 0.5
+        },
+        "socketImmediateObservationPassed": null,
+        "socketLateObservationPassed": true,
+        "lateSocketWaitMs": null,
+        "nativeExitCode": 0,
+        "nativeForced": false,
+        "nativeGracefulClose": true,
+        "nativeCloseMs": 12,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    {
+      "case": "disabled",
+      "functionalPassed": true,
+      "cleanupQualified": true,
+      "qualified": true,
+      "rawReceiptSha256": "eab13807e4d4facb178be50a7746c0cc1e41b4c2e9f4e7b81665ccc598857bb2",
+      "requestElapsedMs": null,
+      "nativeRequestAccepted": null,
+      "strictPurpose2Qualified": null,
+      "browserWssCount": 0,
+      "callerBudgetMs": 20000,
+      "profile": {
+        "pacing_ms": 10,
+        "assembly_ttl_ms": 8000,
+        "queue_ttl_ms": 1500,
+        "attempt_ms": 1000
+      },
+      "listenerIdleMs": null,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": false
+        },
+        "socketImmediateObservationPassed": null,
+        "socketLateObservationPassed": true,
+        "lateSocketWaitMs": null,
+        "nativeExitCode": 0,
+        "nativeForced": false,
+        "nativeGracefulClose": true,
+        "nativeCloseMs": 12,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    {
+      "case": "mqtt",
+      "functionalPassed": true,
+      "cleanupQualified": true,
+      "qualified": true,
+      "rawReceiptSha256": "14ac2b25981abdaa9d16741c1a1b0a5b807952ef898116fe74ab274e3caeeeea",
+      "requestElapsedMs": 186.20000004768372,
+      "nativeRequestAccepted": true,
+      "strictPurpose2Qualified": true,
+      "browserWssCount": 1,
+      "callerBudgetMs": 20000,
+      "profile": {
+        "pacing_ms": 10,
+        "assembly_ttl_ms": 8000,
+        "queue_ttl_ms": 1500,
+        "attempt_ms": 1000
+      },
+      "listenerIdleMs": null,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 3.5
+        },
+        "socketImmediateObservationPassed": null,
+        "socketLateObservationPassed": true,
+        "lateSocketWaitMs": null,
+        "nativeExitCode": 0,
+        "nativeForced": false,
+        "nativeGracefulClose": true,
+        "nativeCloseMs": 12,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "ownedFixtureRemoved": true
+      }
+    }
+  ]
+}

@@ -190,6 +190,18 @@ impl IrcTransport {
             endpoint: self.bind_endpoint()?,
         })
     }
+    /// A configured node keeps its permitted contact entry alive independently
+    /// of one caller's deadline. Explicit close still retires the binding.
+    pub fn from_maintained_facility(
+        facility: &IrcFacility,
+        disabled: &[String],
+        profile: Profile,
+        tls_ca: Option<Vec<u8>>,
+    ) -> io::Result<Self> {
+        let mut transport = Self::from_facility(facility, disabled, profile, tls_ca)?;
+        transport.bounded_attempt = false;
+        Ok(transport)
+    }
     pub fn traffic(&self) -> &Arc<Traffic> {
         &self.traffic
     }

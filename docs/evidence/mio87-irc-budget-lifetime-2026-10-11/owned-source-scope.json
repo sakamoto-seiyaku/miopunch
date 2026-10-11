@@ -1,0 +1,12 @@
+{
+  "fixedBase": "bd39f544b14181b7e5b7a09c6c9bf08a20eca440",
+  "productFiles": {
+    "src/connection_budget.rs": "9e043835093240a53b0e42b08fe644347aa3ae956fea28da3f12d7bd81e8d422",
+    "src/irc_datagram.rs": "c85197c65a86f14c657d88b36c1feaef50c51f79de794f5d25a94560b352e0f3",
+    "src/irc_transport.rs": "e0faa34f49b3b2703d20aaa6725e182297f801f919c4bf567e2b1839a620a17e",
+    "browser-probe/src/irc.rs": "db1f958efb3e1666371a23e2dac74b7e63bb887dfddf11cd6cda6af9f67f125d",
+    "browser-probe/src/network.rs": "2a03874f0c99492de27a6717c31b84abbb70e5a19156b01561175a53fcf3521e"
+  },
+  "existingProtectedWipManifest": "/tmp/mio82-final-functional-proof-root-20261008/protected-before-commit.json",
+  "finalWholeSourceDigest": "ae5db6746383dedc5d6cb1a4c011cccbbd71fd5e5ee3ac0a28a11a0241f38765"
+}

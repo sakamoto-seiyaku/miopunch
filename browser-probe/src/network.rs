@@ -1522,7 +1522,7 @@ impl BrowserNetwork {
     /// Configuration is a startup snapshot. Allowed relays are replaceable;
     /// no default facility is silently installed when none can be used.
     pub async fn start(configuration: String) -> Result<BrowserNetwork, JsValue> {
-        Self::start_bounded(configuration, crate::connection_budget::DEFAULT).await
+        Self::start_bounded(configuration, None).await
     }
 
     /// Owned-fixture diagnostic only. This explicit budget never changes the
@@ -1537,7 +1537,7 @@ impl BrowserNetwork {
         }
         let mut network = Self::start_bounded(
             configuration,
-            std::time::Duration::from_millis(budget_ms.into()),
+            Some(std::time::Duration::from_millis(budget_ms.into())),
         )
         .await?;
         if network.irc.is_empty() || !network.mqtt.is_empty() || !network.relays.is_empty() {
@@ -1571,19 +1571,31 @@ impl BrowserNetwork {
 impl BrowserNetwork {
     async fn start_bounded(
         configuration: String,
-        caller_budget: std::time::Duration,
+        caller_override: Option<std::time::Duration>,
     ) -> Result<BrowserNetwork, JsValue> {
+        let input: ConfigurationInput = serde_json::from_str(&configuration).map_err(error)?;
+        if let Some(policy) = &input.maintenance {
+            policy.validate()?;
+        }
+        let startup_budget = caller_override.unwrap_or_else(|| {
+            input
+                .maintenance
+                .as_ref()
+                .map_or(crate::connection_budget::DEFAULT, |policy| {
+                    std::time::Duration::from_millis(policy.contact_timeout_ms)
+                })
+        });
         let carrier_started = n0_future::time::Instant::now();
         n0_future::time::timeout(
-            caller_budget,
-            Self::start_inner(configuration, caller_budget, carrier_started),
+            startup_budget,
+            Self::start_inner(configuration, caller_override, carrier_started),
         )
         .await
         .map_err(|_| error("temporarily unreachable: browser startup caller deadline"))?
     }
     async fn start_inner(
         configuration: String,
-        caller_budget: std::time::Duration,
+        caller_override: Option<std::time::Duration>,
         carrier_started: n0_future::time::Instant,
     ) -> Result<BrowserNetwork, JsValue> {
         let input: ConfigurationInput = serde_json::from_str(&configuration).map_err(error)?;
@@ -1647,6 +1659,9 @@ impl BrowserNetwork {
             configuration.maintenance = maintenance;
         }
         configuration.maintenance.validate()?;
+        let caller_budget = caller_override.unwrap_or_else(|| {
+            std::time::Duration::from_millis(configuration.maintenance.contact_timeout_ms)
+        });
         #[cfg(feature = "rtc-probe")]
         if let Some(profile) = input.rtc_ice {
             configuration.rtc_ice = Some(profile);
@@ -1760,17 +1775,20 @@ impl BrowserNetwork {
                 .is_ok()
             {
                 let mut profile = entry.profile.clone();
-                profile.attempt_ms = profile.attempt_ms.min(
-                    caller_budget
-                        .saturating_sub(carrier_started.elapsed())
-                        .as_millis() as u64,
-                );
+                if caller_override.is_some() {
+                    profile.attempt_ms = profile.attempt_ms.min(
+                        caller_budget
+                            .saturating_sub(carrier_started.elapsed())
+                            .as_millis() as u64,
+                    );
+                }
                 irc.push((
                     entry.clone(),
                     crate::irc::BrowserIrcTransport::new(
                         &entry.facility,
                         &profile,
                         &configuration.disabled,
+                        caller_override.is_some(),
                     )?,
                 ));
             }

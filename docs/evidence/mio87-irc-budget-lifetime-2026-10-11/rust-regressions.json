@@ -1,0 +1,59 @@
+{
+  "passed": true,
+  "beforeAfterGuardsPassed": true,
+  "results": [
+    {
+      "name": "irc_datagram",
+      "exit": 0,
+      "seconds": 2.778,
+      "result": [
+        "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s"
+      ],
+      "stdoutSha256": "cbec8c59de62c170ee897a6a70acee4472c1397d44370a91e61d46ca20680250",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "unified_admission_story",
+      "exit": 0,
+      "seconds": 6.186,
+      "result": [
+        "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.71s"
+      ],
+      "stdoutSha256": "157dce35c1548af9eff3564ffb0f1bf22f6e152456bc8c5682e9bbeb1a3250f7",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "unified_connection",
+      "exit": 0,
+      "seconds": 20.985,
+      "result": [
+        "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.45s"
+      ],
+      "stdoutSha256": "1d7930169712463e24352a792fa6b3a387cd82f0ec52868abcb8c2afff4d17ff",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "negotiated_accept_context",
+      "exit": 0,
+      "seconds": 12.697,
+      "result": [
+        "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.18s"
+      ],
+      "stdoutSha256": "57d04ca2a3e11d92872efd973175e36ce50f6b860b4f49f86c67ad8e35eae32f",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "member_path_protocol",
+      "exit": 0,
+      "seconds": 3.031,
+      "result": [
+        "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s"
+      ],
+      "stdoutSha256": "fe49baf2f360640227ea27c2465c65259f2dca97a2c56ad085b459a1e24124ae",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "privateDirectory": "/tmp/mio87-current-selected-tests-root-20261011",
+  "rawReceiptSha256": "102ea92882e271df4ee651059b42ddf674cbc4890490d11a56403bebbe7d6127",
+  "note": "Native actual selected graph is unchanged by the final Browser-only validation and diagnostic removal; no duplicate compile/test run required."
+}

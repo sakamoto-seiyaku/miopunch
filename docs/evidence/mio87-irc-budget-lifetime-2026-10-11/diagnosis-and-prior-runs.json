@@ -1,0 +1,375 @@
+{
+  "privacy": "allowlisted scalar observations only; raw IDs, SDP, ciphertext, keys, grants, secrets and stored materials omitted",
+  "runs": [
+    {
+      "case": "owned60-baseline",
+      "privateDirectory": "/tmp/mio87-owned-slow-baseline-root-20261011",
+      "rawReceiptSha256": "da3f5b601a27cb345bd4dabae9cfb9cf06e701b4d0be67758b20a35743881aec",
+      "executionReceiptSha256": "1d9be78544d8934bcfc8987e59b4e157e74d14c794d8e6b73a4083e3f2d9c53b",
+      "runtimeExit": 1,
+      "sourceAndArtifactGuardsPassed": true,
+      "wholeWallMs": 62528.546,
+      "functionalPassed": false,
+      "profile": {
+        "pacing_ms": 600,
+        "assembly_ttl_ms": 8000,
+        "queue_ttl_ms": 1500,
+        "attempt_ms": 60000
+      },
+      "callerBudgetMs": 60000,
+      "requestResult": null,
+      "requestFailed": true,
+      "requestElapsedMs": 52039.90000009537,
+      "strictPurpose2Qualified": false,
+      "nativeRequestAccepted": false,
+      "businessQualified": null,
+      "stageEvents": [],
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 5.5
+        },
+        "socketImmediateObservationPassed": null,
+        "socketLateObservationPassed": true,
+        "lateSocketWaitMs": null,
+        "nativeExitCode": 0,
+        "nativeForced": false,
+        "nativeGracefulClose": true,
+        "nativeCloseMs": 13,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    {
+      "case": "owned180-short-queue",
+      "privateDirectory": "/tmp/mio87-owned-long-budget-old-queue-root-20261011",
+      "rawReceiptSha256": "5da6b397180112464c7fd9143627fc87f5b61f4555d2edf30a0397bb146bcda9",
+      "executionReceiptSha256": "2ef5fee9ff94dfaba268548010628faf870d073ff9c6729a4822b9277d581385",
+      "runtimeExit": 1,
+      "sourceAndArtifactGuardsPassed": true,
+      "wholeWallMs": 60119.119,
+      "functionalPassed": false,
+      "profile": {
+        "pacing_ms": 600,
+        "assembly_ttl_ms": 8000,
+        "queue_ttl_ms": 1500,
+        "attempt_ms": 180000
+      },
+      "callerBudgetMs": 180000,
+      "requestResult": null,
+      "requestFailed": true,
+      "requestElapsedMs": 52021.799999952316,
+      "strictPurpose2Qualified": false,
+      "nativeRequestAccepted": false,
+      "businessQualified": null,
+      "stageEvents": [],
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 5.6000001430511475
+        },
+        "socketImmediateObservationPassed": null,
+        "socketLateObservationPassed": true,
+        "lateSocketWaitMs": null,
+        "nativeExitCode": 0,
+        "nativeForced": false,
+        "nativeGracefulClose": true,
+        "nativeCloseMs": 12,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    {
+      "case": "owned180-long-queue-bounded-listener",
+      "privateDirectory": "/tmp/mio87-owned-long-budget-queue30s-root-20261011",
+      "rawReceiptSha256": "a905b876cdb06fe20f8f3c5c25cbc0bb259dca097e3d10c9909766e254199e8a",
+      "executionReceiptSha256": "6f043f6fe49bc48a100e6396563ab61a5e207613972f80e1c068bb80f268ffb4",
+      "runtimeExit": 1,
+      "sourceAndArtifactGuardsPassed": true,
+      "wholeWallMs": 308590.824,
+      "functionalPassed": false,
+      "profile": {
+        "pacing_ms": 600,
+        "assembly_ttl_ms": 8000,
+        "queue_ttl_ms": 30000,
+        "attempt_ms": 180000
+      },
+      "callerBudgetMs": 180000,
+      "requestResult": null,
+      "requestFailed": true,
+      "requestElapsedMs": 180008.20000004768,
+      "strictPurpose2Qualified": false,
+      "nativeRequestAccepted": false,
+      "businessQualified": null,
+      "stageEvents": [
+        {
+          "event": "[DEBUG-m87]native-tls",
+          "caller_remaining_ms": 71411
+        }
+      ],
+      "cleanup": {
+        "browser": {
+          "closeReturned": false
+        },
+        "socketImmediateObservationPassed": null,
+        "socketLateObservationPassed": false,
+        "lateSocketWaitMs": null,
+        "nativeExitCode": 0,
+        "nativeForced": false,
+        "nativeGracefulClose": true,
+        "nativeCloseMs": 2,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    {
+      "case": "owned300-maintained",
+      "privateDirectory": "/tmp/mio87-owned-300s-maintained-close-trace-root-20261011",
+      "rawReceiptSha256": "f524e72bee67b3c2b061ba9c5c6441de3ea8d3dc0357b02a4db87115f2c78fc1",
+      "executionReceiptSha256": "4ea697fdf70b64fda3c7a980bd6ad0477bf0864b78687490433f52e8239dcbdf",
+      "runtimeExit": 0,
+      "sourceAndArtifactGuardsPassed": true,
+      "wholeWallMs": 249572.083,
+      "functionalPassed": true,
+      "profile": {
+        "pacing_ms": 600,
+        "assembly_ttl_ms": 8000,
+        "queue_ttl_ms": 30000,
+        "attempt_ms": 300000
+      },
+      "callerBudgetMs": 300000,
+      "requestResult": "AwaitingApproval",
+      "requestFailed": false,
+      "requestElapsedMs": 217897.19999980927,
+      "strictPurpose2Qualified": true,
+      "nativeRequestAccepted": true,
+      "businessQualified": null,
+      "stageEvents": [
+        {
+          "event": "[DEBUG-m87]native-tls",
+          "caller_remaining_ms": 190961
+        },
+        {
+          "event": "unified-control-ready",
+          "version": 1,
+          "purposeCode": 2,
+          "restricted": true,
+          "ordinaryHandle": false
+        },
+        {
+          "event": "established",
+          "handshake_ms": 186100
+        },
+        {
+          "event": "admission",
+          "handshake_ms": 186100,
+          "exchange_ms": 188515,
+          "restricted": true
+        }
+      ],
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 23377.400000095367
+        },
+        "socketImmediateObservationPassed": null,
+        "socketLateObservationPassed": true,
+        "lateSocketWaitMs": null,
+        "nativeExitCode": 0,
+        "nativeForced": false,
+        "nativeGracefulClose": true,
+        "nativeCloseMs": 14,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    {
+      "case": "public300-restricted",
+      "privateDirectory": "/tmp/mio87-current-public-300s-isolated-browser-root-20261011",
+      "rawReceiptSha256": "32c39233cfd28fc71f34869a83fde315e06498c1b3676885519b81c9ac9e7efb",
+      "executionReceiptSha256": "ee064d4288a6caf158b1005cfcf5ea995ec26aa9358637218b104fbe09420403",
+      "runtimeExit": 0,
+      "sourceAndArtifactGuardsPassed": true,
+      "wholeWallMs": 291462.247,
+      "functionalPassed": true,
+      "profile": {
+        "pacing_ms": 600,
+        "assembly_ttl_ms": 8000,
+        "queue_ttl_ms": 30000,
+        "attempt_ms": 300000
+      },
+      "callerBudgetMs": 300000,
+      "requestResult": "AwaitingApproval",
+      "requestFailed": false,
+      "requestElapsedMs": 250461.29999995232,
+      "strictPurpose2Qualified": true,
+      "nativeRequestAccepted": true,
+      "businessQualified": null,
+      "stageEvents": [
+        {
+          "event": "[DEBUG-m87]native-tls",
+          "caller_remaining_ms": 183728
+        },
+        {
+          "event": "unified-control-ready",
+          "version": 1,
+          "purposeCode": 2,
+          "restricted": true,
+          "ordinaryHandle": false
+        },
+        {
+          "event": "established",
+          "handshake_ms": 211463
+        },
+        {
+          "event": "admission",
+          "handshake_ms": 211463,
+          "exchange_ms": 213889,
+          "restricted": true
+        }
+      ],
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 31201.700000047684
+        },
+        "socketImmediateObservationPassed": null,
+        "socketLateObservationPassed": false,
+        "lateSocketWaitMs": null,
+        "nativeExitCode": 0,
+        "nativeForced": false,
+        "nativeGracefulClose": true,
+        "nativeCloseMs": 14,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedBrowserContextClosed": true,
+        "ownedBrowserProcessClosed": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    {
+      "case": "public300-materials-business",
+      "privateDirectory": "/tmp/mio87-current-public-approved-relay-business-root-20261011",
+      "rawReceiptSha256": "16455aabb14f7b175b0b3208feceaf3764b3f9571dfc44da0682fdd5fd46a1e2",
+      "executionReceiptSha256": "45e3f83b8565e101802f5ff33cf0677e3b11bdbb10c07fbde2bc037203c29256",
+      "runtimeExit": 0,
+      "sourceAndArtifactGuardsPassed": true,
+      "wholeWallMs": 312620.619,
+      "functionalPassed": true,
+      "profile": {
+        "pacing_ms": 600,
+        "assembly_ttl_ms": 8000,
+        "queue_ttl_ms": 30000,
+        "attempt_ms": 300000
+      },
+      "callerBudgetMs": 300000,
+      "requestResult": "AwaitingApproval",
+      "requestFailed": false,
+      "requestElapsedMs": 249109.70000004768,
+      "strictPurpose2Qualified": true,
+      "nativeRequestAccepted": true,
+      "businessQualified": true,
+      "stageEvents": [
+        {
+          "event": "[DEBUG-m87]native-tls",
+          "caller_remaining_ms": 183868
+        },
+        {
+          "event": "unified-control-ready",
+          "version": 1,
+          "purposeCode": 2,
+          "restricted": true,
+          "ordinaryHandle": false
+        },
+        {
+          "event": "established",
+          "handshake_ms": 210723
+        },
+        {
+          "event": "admission",
+          "handshake_ms": 210723,
+          "exchange_ms": 212487,
+          "restricted": true
+        },
+        {
+          "event": "[DEBUG-m87]native-tls",
+          "caller_remaining_ms": 298805
+        },
+        {
+          "event": "unified-control-ready",
+          "version": 1,
+          "purposeCode": 2,
+          "restricted": true,
+          "ordinaryHandle": false
+        },
+        {
+          "event": "established",
+          "handshake_ms": 4006
+        },
+        {
+          "event": "admission",
+          "handshake_ms": 4006,
+          "exchange_ms": 6464,
+          "restricted": true
+        },
+        {
+          "event": "[DEBUG-m87]native-tls",
+          "caller_remaining_ms": 298803
+        },
+        {
+          "event": "established",
+          "handshake_ms": 8199
+        }
+      ],
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 972.7000000476837
+        },
+        "socketImmediateObservationPassed": null,
+        "socketLateObservationPassed": false,
+        "lateSocketWaitMs": null,
+        "nativeExitCode": 0,
+        "nativeForced": false,
+        "nativeGracefulClose": true,
+        "nativeCloseMs": 1,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedBrowserContextClosed": true,
+        "ownedBrowserProcessClosed": true,
+        "ownedFixtureRemoved": true
+      },
+      "materialStage": "Complete",
+      "completeReopenStage": "Complete",
+      "browserIdentityPreservedOnReopen": true,
+      "ordinaryMemberAlpn": "miopunch/session/member/1",
+      "memberAuthorized": true,
+      "selectedDataRelay": true,
+      "businessReply": "PONG",
+      "ordinaryStreamProgress": true,
+      "sameNativeBusinessStableId": true
+    }
+  ]
+}

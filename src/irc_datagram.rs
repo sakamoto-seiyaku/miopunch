@@ -41,8 +41,8 @@ impl Profile {
     pub fn validate(&self) -> io::Result<()> {
         if !(1..=2000).contains(&self.pacing_ms)
             || !(100..=15000).contains(&self.assembly_ttl_ms)
-            || !(1..=5000).contains(&self.queue_ttl_ms)
-            || !(100..=60000).contains(&self.attempt_ms)
+            || !(1..=crate::connection_budget::MAX_MS).contains(&self.queue_ttl_ms)
+            || !(100..=crate::connection_budget::MAX_MS).contains(&self.attempt_ms)
         {
             return Err(invalid("IRC profile exceeds bounded experiment limits"));
         }

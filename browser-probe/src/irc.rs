@@ -54,6 +54,7 @@ struct State {
     nick: String,
     channel: String,
     profile: Profile,
+    bounded_attempt: bool,
     qualification: Qualification,
     assembly: Reassembly,
     incoming: VecDeque<(Route, Vec<u8>)>,
@@ -189,7 +190,7 @@ impl State {
         }
         let age = self.elapsed();
         self.assembly.expire(age as u64);
-        if age >= self.profile.attempt_ms as f64 {
+        if self.bounded_attempt && age >= self.profile.attempt_ms as f64 {
             return Err(error("IRC whole attempt deadline"));
         }
         if !self.qualification.ready {
@@ -245,6 +246,86 @@ pub struct BrowserIrcDatagram {
 #[wasm_bindgen]
 impl BrowserIrcDatagram {
     pub fn connect(config: String) -> Result<Self, JsValue> {
+        Self::connect_inner(config, true)
+    }
+    pub async fn wait_ready(&self) -> Result<(), JsValue> {
+        poll_fn(|cx| {
+            let mut s = self.state.borrow_mut();
+            if s.closed {
+                return Poll::Ready(Err(error(
+                    s.report.failure.as_deref().unwrap_or("IRC closed"),
+                )));
+            }
+            if s.qualification.ready {
+                return Poll::Ready(Ok(()));
+            }
+            s.wait(cx.waker());
+            Poll::Pending
+        })
+        .await
+    }
+    pub fn route(&self) -> Result<String, JsValue> {
+        let s = self.state.borrow();
+        if s.closed || !s.qualification.ready {
+            return Err(error("IRC not ready"));
+        }
+        Ok(hex::encode(wire::address(s.service, s.route).data()))
+    }
+    pub fn send(&self, destination: String, bytes: Vec<u8>) -> Result<(), JsValue> {
+        let mut s = self.state.borrow_mut();
+        if s.closed || !s.qualification.ready {
+            return Err(error("IRC not ready"));
+        }
+        if s.outgoing.len() >= wire::QUEUE_DEPTH {
+            return Err(error("IRC queue full"));
+        }
+        let address = iroh_base::CustomAddr::from_parts(
+            wire::TRANSPORT_ID,
+            &hex::decode(destination).map_err(error)?,
+        );
+        let target = wire::route_from_addr(&address, s.service).map_err(error)?;
+        let parts = wire::fragments(target, s.route, rand::random(), &bytes).map_err(error)?;
+        let queued = s.elapsed();
+        s.report.accepted_bytes += bytes.len() as u64;
+        if s.report.accepted_datagrams.len() < 256 {
+            use sha2::{Digest, Sha256};
+            s.report.accepted_datagrams.push(serde_json::json!({"at_ms":queued,"bytes":bytes.len(),"first_five_bytes":hex::encode(&bytes[..bytes.len().min(5)]),"ciphertext_sha256":hex::encode(Sha256::digest(&bytes))}));
+        }
+        s.outgoing.push_back(Outbound {
+            parts: parts.into(),
+            queued,
+            started: false,
+        });
+        s.report.queue_peak = s.report.queue_peak.max(s.outgoing.len());
+        Ok(())
+    }
+    pub async fn receive(&self) -> Result<String, JsValue> {
+        poll_fn(|cx|{let mut s=self.state.borrow_mut();if s.closed{return Poll::Ready(Err(error("IRC closed")));}if let Some((source,bytes))=s.incoming.pop_front(){return Poll::Ready(Ok(serde_json::json!({"source":hex::encode(wire::address(s.service,source).data()),"bytes":hex::encode(bytes)}).to_string()));}s.wait(cx.waker());Poll::Pending}).await
+    }
+    pub fn report(&self) -> String {
+        let s = self.state.borrow();
+        serde_json::json!({"protocol":s.report,"qualification":s.qualification,"assembly":s.assembly.snapshot(),"queue_pending":s.outgoing.len(),"rx_pending":s.incoming.len(),"waiters":s.waiters.len(),"closed":s.closed,"timer_active":s.timer.is_some(),"socket_state":self.socket.ready_state(),"buffered_bytes":self.socket.buffered_amount()}).to_string()
+    }
+    pub fn close(&self) {
+        let mut s = self.state.borrow_mut();
+        if !s.closed && self.socket.ready_state() == WebSocket::OPEN {
+            let channel = s.channel.clone();
+            s.report.part_sent = s
+                .line(
+                    &self.socket,
+                    &format!("PART {channel} :experiment complete\r\n"),
+                )
+                .is_ok();
+            s.report.quit_sent = s
+                .line(&self.socket, "QUIT :experiment complete\r\n")
+                .is_ok();
+        }
+        s.withdraw(None);
+        let _ = self.socket.close();
+    }
+}
+impl BrowserIrcDatagram {
+    fn connect_inner(config: String, bounded_attempt: bool) -> Result<Self, JsValue> {
         let config: Config = serde_json::from_str(&config).map_err(error)?;
         config
             .facility
@@ -261,6 +342,7 @@ impl BrowserIrcDatagram {
             nick,
             channel: config.facility.channel,
             profile: config.profile.clone(),
+            bounded_attempt,
             qualification: Qualification::default(),
             assembly: Reassembly::new(config.profile).map_err(error)?,
             incoming: VecDeque::new(),
@@ -349,81 +431,6 @@ impl BrowserIrcDatagram {
             _tick: tick,
         })
     }
-    pub async fn wait_ready(&self) -> Result<(), JsValue> {
-        poll_fn(|cx| {
-            let mut s = self.state.borrow_mut();
-            if s.closed {
-                return Poll::Ready(Err(error(
-                    s.report.failure.as_deref().unwrap_or("IRC closed"),
-                )));
-            }
-            if s.qualification.ready {
-                return Poll::Ready(Ok(()));
-            }
-            s.wait(cx.waker());
-            Poll::Pending
-        })
-        .await
-    }
-    pub fn route(&self) -> Result<String, JsValue> {
-        let s = self.state.borrow();
-        if s.closed || !s.qualification.ready {
-            return Err(error("IRC not ready"));
-        }
-        Ok(hex::encode(wire::address(s.service, s.route).data()))
-    }
-    pub fn send(&self, destination: String, bytes: Vec<u8>) -> Result<(), JsValue> {
-        let mut s = self.state.borrow_mut();
-        if s.closed || !s.qualification.ready {
-            return Err(error("IRC not ready"));
-        }
-        if s.outgoing.len() >= wire::QUEUE_DEPTH {
-            return Err(error("IRC queue full"));
-        }
-        let address = iroh_base::CustomAddr::from_parts(
-            wire::TRANSPORT_ID,
-            &hex::decode(destination).map_err(error)?,
-        );
-        let target = wire::route_from_addr(&address, s.service).map_err(error)?;
-        let parts = wire::fragments(target, s.route, rand::random(), &bytes).map_err(error)?;
-        let queued = s.elapsed();
-        s.report.accepted_bytes += bytes.len() as u64;
-        if s.report.accepted_datagrams.len() < 256 {
-            use sha2::{Digest, Sha256};
-            s.report.accepted_datagrams.push(serde_json::json!({"at_ms":queued,"bytes":bytes.len(),"first_five_bytes":hex::encode(&bytes[..bytes.len().min(5)]),"ciphertext_sha256":hex::encode(Sha256::digest(&bytes))}));
-        }
-        s.outgoing.push_back(Outbound {
-            parts: parts.into(),
-            queued,
-            started: false,
-        });
-        s.report.queue_peak = s.report.queue_peak.max(s.outgoing.len());
-        Ok(())
-    }
-    pub async fn receive(&self) -> Result<String, JsValue> {
-        poll_fn(|cx|{let mut s=self.state.borrow_mut();if s.closed{return Poll::Ready(Err(error("IRC closed")));}if let Some((source,bytes))=s.incoming.pop_front(){return Poll::Ready(Ok(serde_json::json!({"source":hex::encode(wire::address(s.service,source).data()),"bytes":hex::encode(bytes)}).to_string()));}s.wait(cx.waker());Poll::Pending}).await
-    }
-    pub fn report(&self) -> String {
-        let s = self.state.borrow();
-        serde_json::json!({"protocol":s.report,"qualification":s.qualification,"assembly":s.assembly.snapshot(),"queue_pending":s.outgoing.len(),"rx_pending":s.incoming.len(),"waiters":s.waiters.len(),"closed":s.closed,"timer_active":s.timer.is_some(),"socket_state":self.socket.ready_state(),"buffered_bytes":self.socket.buffered_amount()}).to_string()
-    }
-    pub fn close(&self) {
-        let mut s = self.state.borrow_mut();
-        if !s.closed && self.socket.ready_state() == WebSocket::OPEN {
-            let channel = s.channel.clone();
-            s.report.part_sent = s
-                .line(
-                    &self.socket,
-                    &format!("PART {channel} :experiment complete\r\n"),
-                )
-                .is_ok();
-            s.report.quit_sent = s
-                .line(&self.socket, "QUIT :experiment complete\r\n")
-                .is_ok();
-        }
-        s.withdraw(None);
-        let _ = self.socket.close();
-    }
 }
 impl Drop for BrowserIrcDatagram {
     fn drop(&mut self) {
@@ -454,10 +461,12 @@ impl BrowserIrcTransport {
         facility: &IrcFacility,
         profile: &Profile,
         disabled: &[String],
+        bounded_attempt: bool,
     ) -> Result<Self, JsValue> {
-        let carrier = BrowserIrcDatagram::connect(
+        let carrier = BrowserIrcDatagram::connect_inner(
             serde_json::json!({"facility":facility,"profile":profile,"disabled":disabled})
                 .to_string(),
+            bounded_attempt,
         )?;
         Ok(Self {
             carrier: std::sync::Arc::new(send_wrapper::SendWrapper::new(Rc::new(carrier))),
