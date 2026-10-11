@@ -28,3 +28,5 @@ Native SDK 成员的联系入口回退在原 12 秒 deadline 内用 MQTT 控制�
 计时与计数、公共资格边界见
 [完整 dossier](../evidence/current-connection-mainline-2026-10-11/README.md)。
 任务状态和剩余验收归 Plane M84/M69，本文仅保存本轮结果。
+独立 Standards 未发现违规或可操作 smell；Spec 未发现需要修正的源码/证据
+问题，完整验收仍保留上述三类缺口。有限执行与审查范围完成，总验收保持进行中。

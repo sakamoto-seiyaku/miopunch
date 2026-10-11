@@ -82,4 +82,10 @@ SDK pins、正常 binary 或 toolchain。
 反例、Python AST、JavaScript syntax 与 diff 检查通过；没有重复未变 Rust 测试。
 实际执行探针副本及 hash 见 [manifest](probe-source-manifest.json)。
 
-独立 Standards 和 Spec 的源码审查报告及最终 dossier 审查另行附入本目录。
+独立 [Standards 源码审查](reviews/standards-source-report.md)及
+[最终证据审查](reviews/standards-final-evidence-report.md)无未解决发现。
+独立 [Spec 源码审查](reviews/spec-source-report.md)及
+[最终证据审查](reviews/spec-final-evidence-report.md)没有需要修正的源码或证据
+问题；[完整验收审计](reviews/acceptance-audit.md)保留上述三类整票缺口。
+[host 进程审计](final-host-process-audit.json)只证明本轮 runtime wrapper 与仓库
+compiler 已退出，不代替 Browser SDK 终止任务的自然退休证明。
