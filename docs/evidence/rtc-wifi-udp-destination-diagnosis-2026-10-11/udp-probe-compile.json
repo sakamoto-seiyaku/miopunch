@@ -1,0 +1,21 @@
+{
+  "exit": 0,
+  "command": [
+    "rtk",
+    "proxy",
+    "/home/js/Git/miopunch/target/.miopunch-toolchains/android/819952b742a9b0c29aa834531f706df7e5a103484645e65edf756cf7b4cffc9a/android-clang",
+    "-resource-dir=/mnt/c/Android/SDK/ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/lib/clang/21",
+    "--rtlib=compiler-rt",
+    "-O2",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/udp-destination-probe.c",
+    "-o",
+    "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/udp-destination-probe"
+  ],
+  "compilerSha256": "1f97921ae4e0747e8e3c1acb71f1dabe10198c336ce0083584a8147d720c2ab9",
+  "sourceSha256": "c0efcbf6a880b69d4ea6380e57f0efda9fe573e0dbbb5618bebb968f6087be8c",
+  "cargoInvoked": false,
+  "artifactSha256": "9dabe6e54d7ecbd1cee60dba5cd5a3aa78fe1699613ef3e618743e77971ef4cb"
+}

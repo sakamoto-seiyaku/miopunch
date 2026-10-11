@@ -1,0 +1,47 @@
+{
+  "scope": "retained physical SDK packet analysis plus independent raw Android UDP probes; no new SDK pass or firmware/router change",
+  "nativeModel": "PJZ110",
+  "browserModel": "Pixel_6a",
+  "previousPassDate": "2026-10-08",
+  "currentFailureDate": "2026-10-11",
+  "wifiAddressAndGatewayChangedSincePass": true,
+  "nativeCellularBindingChangedSincePass": true,
+  "sameStunProfileResource": true,
+  "currentPhoneVpnAgentCounts": [
+    0,
+    0
+  ],
+  "phoneRootIpv4NatRedirectCounts": [
+    0,
+    0
+  ],
+  "phoneRootIpv4MangleRedirectCounts": [
+    0,
+    0
+  ],
+  "wifiGatewayMihomoObserved": true,
+  "gatewayVersion": "Mihomo Meta v1.19.19",
+  "gatewayTunEnabled": true,
+  "gatewayTunStack": "mixed",
+  "gatewayAutoRoute": true,
+  "gatewayAutoRedirect": true,
+  "independentProbeUsesSdk": false,
+  "probeEndpointOrders": 2,
+  "nativeDestinationChecks": 6,
+  "nativeDestinationMatches": 6,
+  "browserDestinationChecks": 6,
+  "browserDestinationMatches": 4,
+  "browserReusedSocketSecondDestinationChecks": 2,
+  "browserReusedSocketSecondDestinationMismatch": 2,
+  "browserFreshSocketSecondDestinationMatches": 2,
+  "reversedOrderAlsoPinsFirstDestination": true,
+  "sdkFailuresObservedBeforeDtls": true,
+  "specificMihomoAdapterOrUpstreamComponentIsolated": false,
+  "sdkRegressionProven": false,
+  "sdkRetestAfterNetworkCorrectionPerformed": false,
+  "networkConfigurationsChanged": false,
+  "ownedProbeDirectoriesAllRemoved": true,
+  "physicalWanQualified": false,
+  "sdkSourcesChanged": false,
+  "cargoInvoked": false
+}

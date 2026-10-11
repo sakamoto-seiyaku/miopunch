@@ -1,0 +1,2 @@
+Mihomo Meta v1.19.19 linux amd64 with go1.25.6 Fri Jan 16 03:30:48 UTC 2026
+Use tags: with_gvisor

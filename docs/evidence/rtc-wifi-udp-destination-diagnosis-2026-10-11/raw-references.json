@@ -1,0 +1,266 @@
+[
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/profile-comparison.json",
+    "sha256": "72188a35983918913608eb8095ef157d01c05367ae91bb532681520c7865b3d1",
+    "bytes": 599,
+    "publicCopySha256": "72188a35983918913608eb8095ef157d01c05367ae91bb532681520c7865b3d1"
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/retained-udp-comparison-v2.json",
+    "sha256": "8ec6f7ea5ff8a1cc7b17d9972a8f7c5805b1be95e06daa3b08881274478f8a2f",
+    "bytes": 3555,
+    "publicCopySha256": "8ec6f7ea5ff8a1cc7b17d9972a8f7c5805b1be95e06daa3b08881274478f8a2f"
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/stun-mapping-correlation-v2.json",
+    "sha256": "3fa0d4014e19fde467759b11eb70a3d0ddc0a5cfccc37c4249b631663bb04df0",
+    "bytes": 3511,
+    "publicCopySha256": "3fa0d4014e19fde467759b11eb70a3d0ddc0a5cfccc37c4249b631663bb04df0"
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/device-preflight.json",
+    "sha256": "d1fcbf7ca60d226e969557df48de51924881fe80b111b68846dfaaa9b0e63c31",
+    "bytes": 2482,
+    "publicCopySha256": "d1fcbf7ca60d226e969557df48de51924881fe80b111b68846dfaaa9b0e63c31"
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/device-root-preflight.json",
+    "sha256": "827225138ba5c1e75d26a659110559931f9586b548f152382f4322c8918e6ee2",
+    "bytes": 1210,
+    "publicCopySha256": "827225138ba5c1e75d26a659110559931f9586b548f152382f4322c8918e6ee2"
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/udp-probe-result.json",
+    "sha256": "39e66f602876b55fcdeae19af453c297a6c52f83c0c10aee586a195c29200344",
+    "bytes": 1335,
+    "publicCopySha256": "39e66f602876b55fcdeae19af453c297a6c52f83c0c10aee586a195c29200344"
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/udp-probe-result-reverse.json",
+    "sha256": "e679c277ffcb244468abcdf69135f5315af13d58a545270446528bfbe73554c5",
+    "bytes": 1335,
+    "publicCopySha256": "e679c277ffcb244468abcdf69135f5315af13d58a545270446528bfbe73554c5"
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/udp-probe-compile.json",
+    "sha256": "6803538c97b5a69a6ff61acf267f8af0c72d7c8ce76920ca8d6f080fb33019d2",
+    "bytes": 844,
+    "publicCopySha256": "6803538c97b5a69a6ff61acf267f8af0c72d7c8ce76920ca8d6f080fb33019d2"
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/gateway-version-v2.txt",
+    "sha256": "55490a7307d87d725cac1d7c306d60b7405d7a968a4ede370859f3d458608683",
+    "bytes": 98,
+    "publicCopySha256": "55490a7307d87d725cac1d7c306d60b7405d7a968a4ede370859f3d458608683"
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/udp-destination-probe.c",
+    "sha256": "c0efcbf6a880b69d4ea6380e57f0efda9fe573e0dbbb5618bebb968f6087be8c",
+    "bytes": 2257,
+    "publicCopySha256": "c0efcbf6a880b69d4ea6380e57f0efda9fe573e0dbbb5618bebb968f6087be8c"
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/run-udp-probe.py",
+    "sha256": "37c4baa5b6a6e6911e9ab32b46545b5dc4bccaa1805daa2d506e077d9a7ba137",
+    "bytes": 1557,
+    "publicCopySha256": "37c4baa5b6a6e6911e9ab32b46545b5dc4bccaa1805daa2d506e077d9a7ba137"
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/run-udp-probe-reverse.py",
+    "sha256": "bc66dc550cac851387de369006a2f40316b991d45bfb10252767e86fa5b2f688",
+    "bytes": 1573,
+    "publicCopySha256": "bc66dc550cac851387de369006a2f40316b991d45bfb10252767e86fa5b2f688"
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/analyze-retained-udp-v2.py",
+    "sha256": "37888d1fdaf76b2999f94066641c9656521c53989e492f635394ce8ca839896e",
+    "bytes": 4080,
+    "publicCopySha256": "37888d1fdaf76b2999f94066641c9656521c53989e492f635394ce8ca839896e"
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/compare-stun-mappings-v2.py",
+    "sha256": "ae37bae1359f693017d5ba2bec7d852387efa56a662aafd360b1224a93e9d2dd",
+    "bytes": 3852,
+    "publicCopySha256": "ae37bae1359f693017d5ba2bec7d852387efa56a662aafd360b1224a93e9d2dd"
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-browser-addresses.txt",
+    "sha256": "cfb34e1420263cc01f6fb4884f3d28d1edb2414d280c20c3d25d2f016880f80b",
+    "bytes": 1151,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-browser-connectivity.txt",
+    "sha256": "91f28e7bb933ab8a57294f84baa0e4103850215d0b4b8e2d614f08d510199c29",
+    "bytes": 134227,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-browser-ipv6nat.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-browser-mangle.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-browser-nat.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-browser-routes.txt",
+    "sha256": "333c21541bc18e199b9ee9f18bf874579947cb4521fbec827fc9a67d3759eb6e",
+    "bytes": 784,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-browser-rules.txt",
+    "sha256": "85ebcb13e22927738278cfb5aaa190b3a43a52d04f279a4c8f01d516a1c79d6a",
+    "bytes": 2571,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-gateway-mounts.txt",
+    "sha256": "ac1c5ce3e915a519b57554b6bde640aa35413149eae8334fbd3f9e3513e51b39",
+    "bytes": 1010,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-gateway-routing.txt",
+    "sha256": "de63d6553d44d6525724e8712efea2c530a626f60dc38b996a2a338570b63cb2",
+    "bytes": 2986,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-gateway-service-ports.txt",
+    "sha256": "6a1ea81ff0b13941aed1059c9250bea27ca970107355be26d4a17f186099a0a1",
+    "bytes": 3401,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-gateway-services.txt",
+    "sha256": "a932f91733802527377e32a63bde6bd3f205dc519425c2ffdd455d90cc97779c",
+    "bytes": 1094,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-gateway-tun-config.txt",
+    "sha256": "8a51ac4c66b236a3fdae7617b54b169bb3e08d5e337728b826288ed30fdefdd6",
+    "bytes": 681,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-native-addresses.txt",
+    "sha256": "ace0ebbebd9784ad28f32984676867d2cb3c0a24ada3d499dade37a41b4ae399",
+    "bytes": 1719,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-native-connectivity.txt",
+    "sha256": "bba9fb5d8a816ef45d854e2e71e58468321e7b40655e4165d07ae7165f4ede90",
+    "bytes": 144850,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-native-ipv6nat.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-native-mangle.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-native-nat.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-native-routes.txt",
+    "sha256": "4eecc08ac403b48d66c60b84b97874e868bb55e5db79a1d015b48f007c105981",
+    "bytes": 1354,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-native-rules.txt",
+    "sha256": "d359d19c54a35e6f897a1e6068d3e229cb408f524d1dcbba5685c058f68c88b6",
+    "bytes": 2037,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-root-browser-ipv6nat.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-root-browser-mangle.txt",
+    "sha256": "f8457153111c9f9c9a5b714f028f206df1bcc2ae8fa68369f43fd14cb568d701",
+    "bytes": 1803,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-root-browser-nat.txt",
+    "sha256": "ff6604e1bc8907dd8276acf1233584de04284b097fce7acd1c7119145d14ef28",
+    "bytes": 394,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-root-native-ipv6nat.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-root-native-mangle.txt",
+    "sha256": "71efdbc473f70450130e9d60d794f73b87ec2d330615f5cc098d4a415a30d255",
+    "bytes": 3624,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-root-native-nat.txt",
+    "sha256": "021470259e2c00c626e4b9ff204f4aec1c28cf36b64e366b338589b979cf0851",
+    "bytes": 522,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-udp-probe-browser.jsonl",
+    "sha256": "10cc529cb31f5894f38746427f33531ded939fd2fb4c30b759ade7a14592a1c4",
+    "bytes": 499,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-udp-probe-native.jsonl",
+    "sha256": "c5970c437e16717dafe2b9341c4168321019708e29e09b57bb8f8f73dea43b87",
+    "bytes": 497,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-udp-probe-reverse-browser.jsonl",
+    "sha256": "4c5f2f45968b1a0989b10ac67bd18d8ae2d503a3e31ba3af9355b8491eed3e92",
+    "bytes": 498,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/private-udp-probe-reverse-native.jsonl",
+    "sha256": "f2978cf9a701d2c50d1b63e84cc29200c824d5067259afe4225b54f2a9f35406",
+    "bytes": 498,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-rtc-discrepancy-diagnosis-20261011/previous-peer-integrity-attribute-check.json",
+    "sha256": "9c22fe15a9a0a70c3f2397c318a563e97a140aeccbab68a084c8e5c5c741c13b",
+    "bytes": 196,
+    "publicCopySha256": "9c22fe15a9a0a70c3f2397c318a563e97a140aeccbab68a084c8e5c5c741c13b"
+  }
+]

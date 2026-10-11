@@ -1,0 +1,84 @@
+{
+  "native": {
+    "connectivity": {
+      "exit": 0,
+      "sha256": "bba9fb5d8a816ef45d854e2e71e58468321e7b40655e4165d07ae7165f4ede90"
+    },
+    "defaultNetwork": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": true,
+      "defaultTransportWifi": false,
+      "defaultTransport": "CELLULAR",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    },
+    "addresses": {
+      "exit": 0,
+      "sha256": "ace0ebbebd9784ad28f32984676867d2cb3c0a24ada3d499dade37a41b4ae399"
+    },
+    "routes": {
+      "exit": 0,
+      "sha256": "4eecc08ac403b48d66c60b84b97874e868bb55e5db79a1d015b48f007c105981"
+    },
+    "rules": {
+      "exit": 0,
+      "sha256": "d359d19c54a35e6f897a1e6068d3e229cb408f524d1dcbba5685c058f68c88b6"
+    },
+    "nat": {
+      "exit": 1,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "mangle": {
+      "exit": 1,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ipv6nat": {
+      "exit": 1,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "browser": {
+    "connectivity": {
+      "exit": 0,
+      "sha256": "91f28e7bb933ab8a57294f84baa0e4103850215d0b4b8e2d614f08d510199c29"
+    },
+    "defaultNetwork": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": false,
+      "defaultTransportWifi": true,
+      "defaultTransport": "WIFI",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    },
+    "addresses": {
+      "exit": 0,
+      "sha256": "cfb34e1420263cc01f6fb4884f3d28d1edb2414d280c20c3d25d2f016880f80b"
+    },
+    "routes": {
+      "exit": 0,
+      "sha256": "333c21541bc18e199b9ee9f18bf874579947cb4521fbec827fc9a67d3759eb6e"
+    },
+    "rules": {
+      "exit": 0,
+      "sha256": "85ebcb13e22927738278cfb5aaa190b3a43a52d04f279a4c8f01d516a1c79d6a"
+    },
+    "nat": {
+      "exit": 1,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "mangle": {
+      "exit": 1,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ipv6nat": {
+      "exit": 1,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

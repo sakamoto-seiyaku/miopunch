@@ -1,0 +1,46 @@
+{
+  "native": {
+    "nat": {
+      "exit": 0,
+      "sha256": "021470259e2c00c626e4b9ff204f4aec1c28cf36b64e366b338589b979cf0851",
+      "redirectRuleCount": 0,
+      "dnatRuleCount": 0,
+      "tproxyRuleCount": 0,
+      "udpRuleCount": 0
+    },
+    "mangle": {
+      "exit": 0,
+      "sha256": "71efdbc473f70450130e9d60d794f73b87ec2d330615f5cc098d4a415a30d255",
+      "redirectRuleCount": 0,
+      "dnatRuleCount": 0,
+      "tproxyRuleCount": 0,
+      "udpRuleCount": 0
+    },
+    "ipv6nat": {
+      "exit": 1,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "browser": {
+    "nat": {
+      "exit": 0,
+      "sha256": "ff6604e1bc8907dd8276acf1233584de04284b097fce7acd1c7119145d14ef28",
+      "redirectRuleCount": 0,
+      "dnatRuleCount": 0,
+      "tproxyRuleCount": 0,
+      "udpRuleCount": 0
+    },
+    "mangle": {
+      "exit": 0,
+      "sha256": "f8457153111c9f9c9a5b714f028f206df1bcc2ae8fa68369f43fd14cb568d701",
+      "redirectRuleCount": 0,
+      "dnatRuleCount": 0,
+      "tproxyRuleCount": 0,
+      "udpRuleCount": 0
+    },
+    "ipv6nat": {
+      "exit": 1,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

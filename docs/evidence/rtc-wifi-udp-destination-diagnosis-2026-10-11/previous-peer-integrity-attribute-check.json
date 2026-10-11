@@ -1,0 +1,10 @@
+{
+  "native": {
+    "bindingResponses": 22,
+    "responsesWithMessageIntegrityAttribute": 20
+  },
+  "browser": {
+    "bindingResponses": 22,
+    "responsesWithMessageIntegrityAttribute": 20
+  }
+}

@@ -1,0 +1,116 @@
+[
+  {
+    "case": "previous-pass",
+    "role": "native",
+    "captureSha256": "9ae753e5293b74e279a2fc91d28df4c9c06bbf0af0751a5f72cefcec91a00c27",
+    "counts": {
+      "udpDatagrams": 323,
+      "otherUdp": 10,
+      "observerBindingRequests": 2,
+      "peerBindingRequests": 32,
+      "peerBindingSuccessResponses": 20,
+      "observerBindingSuccessResponses": 2,
+      "dtlsRecords": 257,
+      "dtlsHandshake": 6,
+      "dtlsChangeCipherSpec": 2,
+      "dtlsApplication": 247,
+      "dtlsAlert": 2
+    },
+    "distinctObserverRequests": 1,
+    "observerRequestsWithCapturedSuccess": 1,
+    "distinctPeerRequests": 32,
+    "udpIpv4OnlyAnalysis": true,
+    "noEndpointOrPacketPayloadPublished": true
+  },
+  {
+    "case": "previous-pass",
+    "role": "browser",
+    "captureSha256": "49ee16d51ab21399997ff65af6590cbf8fd93fcca362249c417aac2ecc0f3800",
+    "counts": {
+      "udpDatagrams": 371,
+      "otherUdp": 48,
+      "observerBindingRequests": 2,
+      "observerBindingSuccessResponses": 2,
+      "peerBindingRequests": 40,
+      "peerBindingSuccessResponses": 20,
+      "dtlsRecords": 259,
+      "dtlsHandshake": 6,
+      "dtlsChangeCipherSpec": 2,
+      "dtlsApplication": 249,
+      "dtlsAlert": 2
+    },
+    "distinctObserverRequests": 2,
+    "observerRequestsWithCapturedSuccess": 2,
+    "distinctPeerRequests": 40,
+    "udpIpv4OnlyAnalysis": true,
+    "noEndpointOrPacketPayloadPublished": true
+  },
+  {
+    "case": "current-replica-fail",
+    "role": "native",
+    "captureSha256": "1ec5ff43c3ead1d0a0c5ca58033ce5a28198afc2fffde01b6be0962bc3da8b88",
+    "counts": {
+      "udpDatagrams": 138,
+      "otherUdp": 104,
+      "observerBindingRequests": 1,
+      "peerBindingRequests": 32,
+      "observerBindingSuccessResponses": 1
+    },
+    "distinctObserverRequests": 1,
+    "observerRequestsWithCapturedSuccess": 1,
+    "distinctPeerRequests": 32,
+    "udpIpv4OnlyAnalysis": true,
+    "noEndpointOrPacketPayloadPublished": true
+  },
+  {
+    "case": "current-replica-fail",
+    "role": "browser",
+    "captureSha256": "5d07bd17eb378397ef516d8dd9947e0dc23554eb52f115c0b433324bd02f1bea",
+    "counts": {
+      "udpDatagrams": 581,
+      "otherUdp": 92,
+      "observerBindingRequests": 4,
+      "observerBindingSuccessResponses": 244,
+      "peerBindingRequests": 241
+    },
+    "distinctObserverRequests": 2,
+    "observerRequestsWithCapturedSuccess": 2,
+    "distinctPeerRequests": 241,
+    "udpIpv4OnlyAnalysis": true,
+    "noEndpointOrPacketPayloadPublished": true
+  },
+  {
+    "case": "current-member-fail",
+    "role": "native",
+    "captureSha256": "62c2c9c73478f62a819b52e6790ce18a4a60db86e4a2e462d29e6fbcd94e61de",
+    "counts": {
+      "udpDatagrams": 178,
+      "otherUdp": 144,
+      "observerBindingRequests": 1,
+      "peerBindingRequests": 32,
+      "observerBindingSuccessResponses": 1
+    },
+    "distinctObserverRequests": 1,
+    "observerRequestsWithCapturedSuccess": 1,
+    "distinctPeerRequests": 32,
+    "udpIpv4OnlyAnalysis": true,
+    "noEndpointOrPacketPayloadPublished": true
+  },
+  {
+    "case": "current-member-fail",
+    "role": "browser",
+    "captureSha256": "24baf1f32430563b9643c5cf9f6a43bb378e52d52b30ab03e9238f72c2449f83",
+    "counts": {
+      "udpDatagrams": 714,
+      "otherUdp": 226,
+      "observerBindingRequests": 4,
+      "observerBindingSuccessResponses": 243,
+      "peerBindingRequests": 241
+    },
+    "distinctObserverRequests": 2,
+    "observerRequestsWithCapturedSuccess": 2,
+    "distinctPeerRequests": 241,
+    "udpIpv4OnlyAnalysis": true,
+    "noEndpointOrPacketPayloadPublished": true
+  }
+]

@@ -1,0 +1,22 @@
+{
+  "private-native-profile.json": {
+    "stunResourcesIdentical": true,
+    "stunResourceCountBefore": 1,
+    "stunResourceCountNow": 1,
+    "bindingCountBefore": 1,
+    "bindingCountNow": 1,
+    "bindingValuesEqual": false,
+    "publicationFilterEqual": true,
+    "allBindAddressesIpv4": true
+  },
+  "private-browser-profile.json": {
+    "stunResourcesIdentical": true,
+    "stunResourceCountBefore": 1,
+    "stunResourceCountNow": 1,
+    "bindingCountBefore": 0,
+    "bindingCountNow": 0,
+    "bindingValuesEqual": true,
+    "publicationFilterEqual": true,
+    "allBindAddressesIpv4": true
+  }
+}

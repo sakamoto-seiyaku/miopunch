@@ -1,0 +1,116 @@
+[
+  {
+    "peerTargetGroups": [
+      {
+        "targetIsConfiguredObserver": false,
+        "targetIsNativeMappedTuple": false,
+        "checks": 4,
+        "answersFromConfiguredObserver": 0
+      },
+      {
+        "targetIsConfiguredObserver": false,
+        "targetIsNativeMappedTuple": false,
+        "checks": 4,
+        "answersFromConfiguredObserver": 0
+      },
+      {
+        "targetIsConfiguredObserver": false,
+        "targetIsNativeMappedTuple": false,
+        "checks": 4,
+        "answersFromConfiguredObserver": 0
+      },
+      {
+        "targetIsConfiguredObserver": false,
+        "targetIsNativeMappedTuple": true,
+        "checks": 3,
+        "answersFromConfiguredObserver": 0
+      },
+      {
+        "targetIsConfiguredObserver": false,
+        "targetIsNativeMappedTuple": false,
+        "checks": 6,
+        "answersFromConfiguredObserver": 0
+      },
+      {
+        "targetIsConfiguredObserver": false,
+        "targetIsNativeMappedTuple": false,
+        "checks": 6,
+        "answersFromConfiguredObserver": 0
+      },
+      {
+        "targetIsConfiguredObserver": false,
+        "targetIsNativeMappedTuple": false,
+        "checks": 7,
+        "answersFromConfiguredObserver": 0
+      },
+      {
+        "targetIsConfiguredObserver": false,
+        "targetIsNativeMappedTuple": true,
+        "checks": 6,
+        "answersFromConfiguredObserver": 0
+      }
+    ],
+    "case": "previous-pass",
+    "nativeMappedTupleCount": 2,
+    "nativeMappedTupleIsObserver": false,
+    "browserPeerCheckTargetTupleCount": 8,
+    "browserChecksNativeMappedTuple": true,
+    "browserIceChecksAnsweredByConfiguredStunServer": 0,
+    "browserStunResponsesWithMessageIntegrity": 0,
+    "browserPeerRequestsWithMessageIntegrity": 40,
+    "browserMappingCount": 2,
+    "noAddressesPortsCredentialsOrPayloadPublished": true
+  },
+  {
+    "peerTargetGroups": [
+      {
+        "targetIsConfiguredObserver": false,
+        "targetIsNativeMappedTuple": false,
+        "checks": 121,
+        "answersFromConfiguredObserver": 120
+      },
+      {
+        "targetIsConfiguredObserver": false,
+        "targetIsNativeMappedTuple": true,
+        "checks": 120,
+        "answersFromConfiguredObserver": 120
+      }
+    ],
+    "case": "current-replica-fail",
+    "nativeMappedTupleCount": 1,
+    "nativeMappedTupleIsObserver": false,
+    "browserPeerCheckTargetTupleCount": 2,
+    "browserChecksNativeMappedTuple": true,
+    "browserIceChecksAnsweredByConfiguredStunServer": 240,
+    "browserStunResponsesWithMessageIntegrity": 0,
+    "browserPeerRequestsWithMessageIntegrity": 241,
+    "browserMappingCount": 1,
+    "noAddressesPortsCredentialsOrPayloadPublished": true
+  },
+  {
+    "peerTargetGroups": [
+      {
+        "targetIsConfiguredObserver": false,
+        "targetIsNativeMappedTuple": false,
+        "checks": 121,
+        "answersFromConfiguredObserver": 120
+      },
+      {
+        "targetIsConfiguredObserver": false,
+        "targetIsNativeMappedTuple": true,
+        "checks": 120,
+        "answersFromConfiguredObserver": 119
+      }
+    ],
+    "case": "current-member-fail",
+    "nativeMappedTupleCount": 1,
+    "nativeMappedTupleIsObserver": false,
+    "browserPeerCheckTargetTupleCount": 2,
+    "browserChecksNativeMappedTuple": true,
+    "browserIceChecksAnsweredByConfiguredStunServer": 239,
+    "browserStunResponsesWithMessageIntegrity": 0,
+    "browserPeerRequestsWithMessageIntegrity": 241,
+    "browserMappingCount": 1,
+    "noAddressesPortsCredentialsOrPayloadPublished": true
+  }
+]
