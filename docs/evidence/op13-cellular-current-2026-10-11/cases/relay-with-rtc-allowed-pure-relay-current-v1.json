@@ -322,7 +322,6 @@
       "reverseRequired": true,
       "errors": [],
       "sdk": {
-        "id": 26,
         "ok": true,
         "result": {
           "ownedMemberCount": 1,
@@ -349,25 +348,7 @@
                 "publishedRoutes": [],
                 "resourceAllowed": true,
                 "resourceRevision": 0,
-                "retiredMemberReports": {
-                  "1980528": {
-                    "coordinator": {
-                      "authorizationRevision": 1,
-                      "bindingUnchanged": true,
-                      "freshAck": true,
-                      "peerPermitted": 12,
-                      "peerSupported": 13,
-                      "permitted": 12,
-                      "probeWatermark": 22,
-                      "purposeCode": 1,
-                      "selected": true,
-                      "stableId": 1980528,
-                      "stableUnchanged": true,
-                      "supported": 12,
-                      "version": 1
-                    }
-                  }
-                },
+                "retiredMemberReportCount": 1,
                 "secretGeneration": 0,
                 "sourceRevision": 1
               }
@@ -382,25 +363,7 @@
                 "publishedRoutes": [],
                 "resourceAllowed": true,
                 "resourceRevision": 0,
-                "retiredMemberReports": {
-                  "1980528": {
-                    "coordinator": {
-                      "authorizationRevision": 1,
-                      "bindingUnchanged": true,
-                      "freshAck": true,
-                      "peerPermitted": 12,
-                      "peerSupported": 13,
-                      "permitted": 12,
-                      "probeWatermark": 22,
-                      "purposeCode": 1,
-                      "selected": true,
-                      "stableId": 1980528,
-                      "stableUnchanged": true,
-                      "supported": 12,
-                      "version": 1
-                    }
-                  }
-                },
+                "retiredMemberReportCount": 1,
                 "secretGeneration": 0,
                 "sourceRevision": 1
               }
@@ -430,7 +393,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": true,
                     "resourceRevision": 0,
-                    "retiredMemberReports": {},
+                    "retiredMemberReportCount": 0,
                     "secretGeneration": 0,
                     "sourceRevision": 3
                   }
@@ -445,7 +408,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": true,
                     "resourceRevision": 0,
-                    "retiredMemberReports": {},
+                    "retiredMemberReportCount": 0,
                     "secretGeneration": 0,
                     "sourceRevision": 3
                   }
@@ -475,7 +438,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": true,
                     "resourceRevision": 0,
-                    "retiredMemberReports": {},
+                    "retiredMemberReportCount": 0,
                     "secretGeneration": 0,
                     "sourceRevision": 2
                   }
@@ -490,7 +453,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": true,
                     "resourceRevision": 0,
-                    "retiredMemberReports": {},
+                    "retiredMemberReportCount": 0,
                     "secretGeneration": 0,
                     "sourceRevision": 2
                   }
@@ -520,25 +483,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": true,
                     "resourceRevision": 0,
-                    "retiredMemberReports": {
-                      "2014392": {
-                        "coordinator": {
-                          "authorizationRevision": 1,
-                          "bindingUnchanged": true,
-                          "freshAck": true,
-                          "peerPermitted": 12,
-                          "peerSupported": 13,
-                          "permitted": 12,
-                          "probeWatermark": 22,
-                          "purposeCode": 3,
-                          "selected": true,
-                          "stableId": 2014392,
-                          "stableUnchanged": true,
-                          "supported": 12,
-                          "version": 1
-                        }
-                      }
-                    },
+                    "retiredMemberReportCount": 1,
                     "secretGeneration": 0,
                     "sourceRevision": 3
                   }
@@ -553,25 +498,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": true,
                     "resourceRevision": 0,
-                    "retiredMemberReports": {
-                      "2014392": {
-                        "coordinator": {
-                          "authorizationRevision": 1,
-                          "bindingUnchanged": true,
-                          "freshAck": true,
-                          "peerPermitted": 12,
-                          "peerSupported": 13,
-                          "permitted": 12,
-                          "probeWatermark": 22,
-                          "purposeCode": 3,
-                          "selected": true,
-                          "stableId": 2014392,
-                          "stableUnchanged": true,
-                          "supported": 12,
-                          "version": 1
-                        }
-                      }
-                    },
+                    "retiredMemberReportCount": 1,
                     "secretGeneration": 0,
                     "sourceRevision": 3
                   }
@@ -607,25 +534,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": true,
                     "resourceRevision": 0,
-                    "retiredMemberReports": {
-                      "1980528": {
-                        "coordinator": {
-                          "authorizationRevision": 1,
-                          "bindingUnchanged": true,
-                          "freshAck": true,
-                          "peerPermitted": 12,
-                          "peerSupported": 13,
-                          "permitted": 12,
-                          "probeWatermark": 22,
-                          "purposeCode": 1,
-                          "selected": true,
-                          "stableId": 1980528,
-                          "stableUnchanged": true,
-                          "supported": 12,
-                          "version": 1
-                        }
-                      }
-                    },
+                    "retiredMemberReportCount": 1,
                     "secretGeneration": 0,
                     "sourceRevision": 1
                   }
@@ -640,25 +549,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": true,
                     "resourceRevision": 0,
-                    "retiredMemberReports": {
-                      "1980528": {
-                        "coordinator": {
-                          "authorizationRevision": 1,
-                          "bindingUnchanged": true,
-                          "freshAck": true,
-                          "peerPermitted": 12,
-                          "peerSupported": 13,
-                          "permitted": 12,
-                          "probeWatermark": 22,
-                          "purposeCode": 1,
-                          "selected": true,
-                          "stableId": 1980528,
-                          "stableUnchanged": true,
-                          "supported": 12,
-                          "version": 1
-                        }
-                      }
-                    },
+                    "retiredMemberReportCount": 1,
                     "secretGeneration": 0,
                     "sourceRevision": 1
                   }
@@ -722,8 +613,6 @@
               "failure": null,
               "ready_ms": null,
               "suback_codes": [],
-              "suback_id": null,
-              "subscribe_id": null,
               "unsubscribe_sent": false,
               "withdraw_ms": null
             },
@@ -752,8 +641,6 @@
               "failure": null,
               "ready_ms": null,
               "suback_codes": [],
-              "suback_id": null,
-              "subscribe_id": null,
               "unsubscribe_sent": false,
               "withdraw_ms": null
             },

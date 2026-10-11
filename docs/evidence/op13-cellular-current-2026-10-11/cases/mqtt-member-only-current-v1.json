@@ -249,7 +249,6 @@
       "reverseRequired": true,
       "errors": [],
       "sdk": {
-        "id": 22,
         "ok": true,
         "result": {
           "ownedMemberCount": 0,
@@ -270,52 +269,7 @@
                 "publishedRoutes": [],
                 "resourceAllowed": true,
                 "resourceRevision": 0,
-                "retiredMemberReports": {
-                  "1914024": {
-                    "rtcCleanup": [
-                      {
-                        "lease": {
-                          "active": false,
-                          "original_stable_id": 1914024,
-                          "owned_pump_tasks": 0,
-                          "qualified": false,
-                          "received_bytes": 0,
-                          "received_packets": 0,
-                          "resource_revision": 0,
-                          "rx_bytes": 0,
-                          "rx_peak_bytes": 0,
-                          "sent_bytes": 0,
-                          "sent_packets": 0,
-                          "tx_bytes": 0,
-                          "tx_peak_bytes": 0
-                        },
-                        "observedUtcMs": 1791723076749,
-                        "pcClosed": true,
-                        "retirementElapsedMs": 2
-                      },
-                      {
-                        "lease": {
-                          "active": false,
-                          "original_stable_id": 1914024,
-                          "owned_pump_tasks": 0,
-                          "qualified": false,
-                          "received_bytes": 0,
-                          "received_packets": 0,
-                          "resource_revision": 0,
-                          "rx_bytes": 0,
-                          "rx_peak_bytes": 0,
-                          "sent_bytes": 0,
-                          "sent_packets": 0,
-                          "tx_bytes": 0,
-                          "tx_peak_bytes": 0
-                        },
-                        "observedUtcMs": 1791723076857,
-                        "pcClosed": true,
-                        "retirementElapsedMs": 110
-                      }
-                    ]
-                  }
-                },
+                "retiredMemberReportCount": 1,
                 "secretGeneration": 0,
                 "sourceRevision": 1
               }
@@ -330,52 +284,7 @@
                 "publishedRoutes": [],
                 "resourceAllowed": true,
                 "resourceRevision": 0,
-                "retiredMemberReports": {
-                  "1914024": {
-                    "rtcCleanup": [
-                      {
-                        "lease": {
-                          "active": false,
-                          "original_stable_id": 1914024,
-                          "owned_pump_tasks": 0,
-                          "qualified": false,
-                          "received_bytes": 0,
-                          "received_packets": 0,
-                          "resource_revision": 0,
-                          "rx_bytes": 0,
-                          "rx_peak_bytes": 0,
-                          "sent_bytes": 0,
-                          "sent_packets": 0,
-                          "tx_bytes": 0,
-                          "tx_peak_bytes": 0
-                        },
-                        "observedUtcMs": 1791723076749,
-                        "pcClosed": true,
-                        "retirementElapsedMs": 2
-                      },
-                      {
-                        "lease": {
-                          "active": false,
-                          "original_stable_id": 1914024,
-                          "owned_pump_tasks": 0,
-                          "qualified": false,
-                          "received_bytes": 0,
-                          "received_packets": 0,
-                          "resource_revision": 0,
-                          "rx_bytes": 0,
-                          "rx_peak_bytes": 0,
-                          "sent_bytes": 0,
-                          "sent_packets": 0,
-                          "tx_bytes": 0,
-                          "tx_peak_bytes": 0
-                        },
-                        "observedUtcMs": 1791723076857,
-                        "pcClosed": true,
-                        "retirementElapsedMs": 110
-                      }
-                    ]
-                  }
-                },
+                "retiredMemberReportCount": 1,
                 "secretGeneration": 0,
                 "sourceRevision": 1
               }
@@ -405,7 +314,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": true,
                     "resourceRevision": 0,
-                    "retiredMemberReports": {},
+                    "retiredMemberReportCount": 0,
                     "secretGeneration": 0,
                     "sourceRevision": 3
                   }
@@ -420,7 +329,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": true,
                     "resourceRevision": 0,
-                    "retiredMemberReports": {},
+                    "retiredMemberReportCount": 0,
                     "secretGeneration": 0,
                     "sourceRevision": 3
                   }
@@ -450,7 +359,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": true,
                     "resourceRevision": 0,
-                    "retiredMemberReports": {},
+                    "retiredMemberReportCount": 0,
                     "secretGeneration": 0,
                     "sourceRevision": 2
                   }
@@ -465,7 +374,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": true,
                     "resourceRevision": 0,
-                    "retiredMemberReports": {},
+                    "retiredMemberReportCount": 0,
                     "secretGeneration": 0,
                     "sourceRevision": 2
                   }
@@ -495,52 +404,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": true,
                     "resourceRevision": 0,
-                    "retiredMemberReports": {
-                      "1914024": {
-                        "rtcCleanup": [
-                          {
-                            "lease": {
-                              "active": false,
-                              "original_stable_id": 1914024,
-                              "owned_pump_tasks": 0,
-                              "qualified": false,
-                              "received_bytes": 0,
-                              "received_packets": 0,
-                              "resource_revision": 0,
-                              "rx_bytes": 0,
-                              "rx_peak_bytes": 0,
-                              "sent_bytes": 0,
-                              "sent_packets": 0,
-                              "tx_bytes": 0,
-                              "tx_peak_bytes": 0
-                            },
-                            "observedUtcMs": 1791723076749,
-                            "pcClosed": true,
-                            "retirementElapsedMs": 2
-                          },
-                          {
-                            "lease": {
-                              "active": false,
-                              "original_stable_id": 1914024,
-                              "owned_pump_tasks": 0,
-                              "qualified": false,
-                              "received_bytes": 0,
-                              "received_packets": 0,
-                              "resource_revision": 0,
-                              "rx_bytes": 0,
-                              "rx_peak_bytes": 0,
-                              "sent_bytes": 0,
-                              "sent_packets": 0,
-                              "tx_bytes": 0,
-                              "tx_peak_bytes": 0
-                            },
-                            "observedUtcMs": 1791723076857,
-                            "pcClosed": true,
-                            "retirementElapsedMs": 110
-                          }
-                        ]
-                      }
-                    },
+                    "retiredMemberReportCount": 1,
                     "secretGeneration": 0,
                     "sourceRevision": 1
                   }
@@ -555,52 +419,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": true,
                     "resourceRevision": 0,
-                    "retiredMemberReports": {
-                      "1914024": {
-                        "rtcCleanup": [
-                          {
-                            "lease": {
-                              "active": false,
-                              "original_stable_id": 1914024,
-                              "owned_pump_tasks": 0,
-                              "qualified": false,
-                              "received_bytes": 0,
-                              "received_packets": 0,
-                              "resource_revision": 0,
-                              "rx_bytes": 0,
-                              "rx_peak_bytes": 0,
-                              "sent_bytes": 0,
-                              "sent_packets": 0,
-                              "tx_bytes": 0,
-                              "tx_peak_bytes": 0
-                            },
-                            "observedUtcMs": 1791723076749,
-                            "pcClosed": true,
-                            "retirementElapsedMs": 2
-                          },
-                          {
-                            "lease": {
-                              "active": false,
-                              "original_stable_id": 1914024,
-                              "owned_pump_tasks": 0,
-                              "qualified": false,
-                              "received_bytes": 0,
-                              "received_packets": 0,
-                              "resource_revision": 0,
-                              "rx_bytes": 0,
-                              "rx_peak_bytes": 0,
-                              "sent_bytes": 0,
-                              "sent_packets": 0,
-                              "tx_bytes": 0,
-                              "tx_peak_bytes": 0
-                            },
-                            "observedUtcMs": 1791723076857,
-                            "pcClosed": true,
-                            "retirementElapsedMs": 110
-                          }
-                        ]
-                      }
-                    },
+                    "retiredMemberReportCount": 1,
                     "secretGeneration": 0,
                     "sourceRevision": 1
                   }
@@ -666,8 +485,6 @@
               "suback_codes": [
                 0
               ],
-              "suback_id": 1,
-              "subscribe_id": 1,
               "unsubscribe_sent": true,
               "withdraw_ms": 1791723076500
             },
@@ -698,8 +515,6 @@
               "suback_codes": [
                 0
               ],
-              "suback_id": 1,
-              "subscribe_id": 1,
               "unsubscribe_sent": true,
               "withdraw_ms": 1791723076500
             },

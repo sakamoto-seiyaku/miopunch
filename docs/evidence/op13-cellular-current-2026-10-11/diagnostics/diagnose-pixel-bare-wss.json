@@ -54,7 +54,6 @@
     "reverseRequired": true,
     "errors": [],
     "sdk": {
-      "id": 1,
       "ok": true,
       "result": {
         "ownedMemberCount": 0,

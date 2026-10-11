@@ -219,7 +219,6 @@
       "reverseRequired": true,
       "errors": [],
       "sdk": {
-        "id": 15,
         "ok": true,
         "result": {
           "ownedMemberCount": 0,
@@ -240,7 +239,7 @@
                 "publishedRoutes": [],
                 "resourceAllowed": false,
                 "resourceRevision": 1,
-                "retiredMemberReports": {},
+                "retiredMemberReportCount": 0,
                 "secretGeneration": 0,
                 "sourceRevision": 2
               }
@@ -255,7 +254,7 @@
                 "publishedRoutes": [],
                 "resourceAllowed": false,
                 "resourceRevision": 1,
-                "retiredMemberReports": {},
+                "retiredMemberReportCount": 0,
                 "secretGeneration": 0,
                 "sourceRevision": 2
               }
@@ -285,7 +284,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": false,
                     "resourceRevision": 1,
-                    "retiredMemberReports": {},
+                    "retiredMemberReportCount": 0,
                     "secretGeneration": 0,
                     "sourceRevision": 3
                   }
@@ -300,7 +299,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": false,
                     "resourceRevision": 1,
-                    "retiredMemberReports": {},
+                    "retiredMemberReportCount": 0,
                     "secretGeneration": 0,
                     "sourceRevision": 3
                   }
@@ -330,7 +329,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": false,
                     "resourceRevision": 1,
-                    "retiredMemberReports": {},
+                    "retiredMemberReportCount": 0,
                     "secretGeneration": 0,
                     "sourceRevision": 2
                   }
@@ -345,7 +344,7 @@
                     "publishedRoutes": [],
                     "resourceAllowed": false,
                     "resourceRevision": 1,
-                    "retiredMemberReports": {},
+                    "retiredMemberReportCount": 0,
                     "secretGeneration": 0,
                     "sourceRevision": 2
                   }

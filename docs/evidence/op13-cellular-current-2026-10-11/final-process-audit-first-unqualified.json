@@ -1,0 +1,1 @@
+{"qualified":false,"reason":"broad per-proc cat scan exceeded the existing bounded ADB observer; no mutation or resource deletion performed","replacement":"fast ps snapshot matches executable prefixes for exact owned directories, plus independent directory absence"}

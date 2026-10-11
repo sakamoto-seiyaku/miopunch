@@ -90,7 +90,6 @@
       "reverseRequired": true,
       "errors": [],
       "sdk": {
-        "id": 2,
         "ok": true,
         "result": {
           "ownedMemberCount": 0,
@@ -175,8 +174,6 @@
               "suback_codes": [
                 0
               ],
-              "suback_id": 1,
-              "subscribe_id": 1,
               "unsubscribe_sent": true,
               "withdraw_ms": 1791720459178
             },
@@ -207,8 +204,6 @@
               "suback_codes": [
                 0
               ],
-              "suback_id": 1,
-              "subscribe_id": 1,
               "unsubscribe_sent": true,
               "withdraw_ms": 1791720459178
             },

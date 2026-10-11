@@ -1,0 +1,15 @@
+{
+  "hostProcessNamespaceAudit": true,
+  "exactNativeActorDirectoriesChecked": 12,
+  "allOwnedNativeDirectoriesAbsent": true,
+  "allOwnedNativeProcessesAbsent": true,
+  "ownedRuntimeWrappersAbsent": true,
+  "repositoryCompilersAbsent": true,
+  "protectedWipFilesUnchanged": 234,
+  "scope": "exact owned Native actor directories and wrappers; per-run browser/forward/store/pcap cleanup receipts are separate; full SDK callback retirement not proven",
+  "fullSdkTerminalRetirementQualified": false,
+  "disk": {
+    "freeBytes": 10540163072,
+    "cacheBytes": 82657579008
+  }
+}

@@ -1,0 +1,4 @@
+783e9ac8 docs(MIOPUNCH-84): retain current OP13 cellular relay MQTT and IRC results
+e361f45a docs(MIOPUNCH-84): retain independent final reviews and open acceptance gaps
+c0f4aa3a docs(MIOPUNCH-84): retain current SDK stories and acceptance boundaries
+78da27b2 test(MIOPUNCH-84): attest actual caller budgets in SDK probes
