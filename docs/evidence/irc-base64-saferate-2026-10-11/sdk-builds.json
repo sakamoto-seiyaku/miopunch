@@ -1,0 +1,79 @@
+{
+  "native": {
+    "qualified": true,
+    "privateDirectory": "/tmp/mio88-base64-current-sdk-v2-20261011/native",
+    "rawReceiptSha256": "29f10d3aa3c2a09a5fe560308f4a0c136696989fd9e342211fd11ff1b5341cea",
+    "selectedInputManifestSha256": "51fbb2cc5424527c96885a486bdbeb81a39e5f2704eac2cf22d16065a2acc456",
+    "contextSha256": "f071fb573635e8a8579298fa0f893515f3b662f2be14a8c87bdf1e1fb635b938",
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--manifest-path",
+      "/tmp/mio88-base64-final-sdk-20261011/nativeSelector/Cargo.toml",
+      "--features",
+      "rtc-probe",
+      "--bin",
+      "irc_current_native",
+      "--jobs",
+      "2",
+      "--message-format=json"
+    ],
+    "sourceDigestBefore": "af6c2150ecc8a193d44804bb9ceefe5c5f955f7da78acbc627c631d5ed618107",
+    "sourceDigestAfter": "af6c2150ecc8a193d44804bb9ceefe5c5f955f7da78acbc627c631d5ed618107",
+    "cargoSeconds": 25.95215510088019,
+    "freshArtifacts": 524,
+    "rebuiltArtifacts": 5,
+    "actualSelectedInputCount": 6590,
+    "actualRepositorySourceCopies": 291,
+    "actualCapturedDepfiles": 478,
+    "artifacts": {
+      "/tmp/mio88-base64-current-sdk-v2-20261011/native/pinned/irc_current_native": "85508751e204bbb1ce8bbc02ed54a6971623089c8395f4b60c318c25b8a93b2c"
+    }
+  },
+  "wasm": {
+    "qualified": true,
+    "privateDirectory": "/tmp/mio88-base64-current-sdk-v2-20261011/wasm",
+    "rawReceiptSha256": "70d1b040aca5d5912db9c82257014f0827f0df1312285c8f6211944d1600635e",
+    "selectedInputManifestSha256": "ac36df2bcfc432ab0a0eb8f148215f8b6db13a033fc0e0cc08663fdd6fd0db69",
+    "contextSha256": "f071fb573635e8a8579298fa0f893515f3b662f2be14a8c87bdf1e1fb635b938",
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "build",
+      "--release",
+      "--locked",
+      "--offline",
+      "--target",
+      "wasm32-unknown-unknown",
+      "-p",
+      "miopunch-browser-probe",
+      "--features",
+      "rtc-probe",
+      "--lib",
+      "--jobs",
+      "2",
+      "--message-format=json"
+    ],
+    "sourceDigestBefore": "af6c2150ecc8a193d44804bb9ceefe5c5f955f7da78acbc627c631d5ed618107",
+    "sourceDigestAfter": "af6c2150ecc8a193d44804bb9ceefe5c5f955f7da78acbc627c631d5ed618107",
+    "cargoSeconds": 41.692161123035476,
+    "freshArtifacts": 294,
+    "rebuiltArtifacts": 2,
+    "actualSelectedInputCount": 3159,
+    "actualRepositorySourceCopies": 198,
+    "actualCapturedDepfiles": 264,
+    "artifacts": {
+      "/tmp/mio88-base64-current-sdk-v2-20261011/wasm/pkg/miopunch_browser_probe_bg.wasm": "ed7796d40e40274684d4443dfb8c3ecde43d834d2f39e743393e61c8e7efb5d7",
+      "/tmp/mio88-base64-current-sdk-v2-20261011/wasm/pkg/miopunch_browser_probe_bg.wasm.d.ts": "4a5f2ab3fd6b86985a54edeba35c9b62cba3ec7187f1b54a7c60338215131a9d",
+      "/tmp/mio88-base64-current-sdk-v2-20261011/wasm/pkg/miopunch_browser_probe.js": "cc184fae1858add5e7576928a0e6c4cfd866eae71d76ee7576bff38c6062552c",
+      "/tmp/mio88-base64-current-sdk-v2-20261011/wasm/pkg/miopunch_browser_probe.d.ts": "8bf1905559cf25da9923ff34c57741d61c2ac87365ea99a0cd70d92737b948a7",
+      "/tmp/mio88-base64-current-sdk-v2-20261011/wasm/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+      "/tmp/mio88-base64-current-sdk-v2-20261011/wasm/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96"
+    }
+  }
+}

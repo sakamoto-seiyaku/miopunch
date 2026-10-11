@@ -1,0 +1,118 @@
+{
+  "qualified": true,
+  "passedTests": 39,
+  "rawRuntimeReceiptSha256": "0c9627e7457c63f2534a1fa0e56afb54da3b12adcdcf8c4227d2c81069507563",
+  "rawBuildReceiptSha256": "749e1d1ec46741d57d10837d215f37471063740a7a7f961f7e6a0ac6ebfdb176",
+  "privateDirectory": "/tmp/mio88-base64-final-sdk-20261011",
+  "results": [
+    {
+      "name": "irc_datagram",
+      "command": [
+        "rtk",
+        "proxy",
+        "timeout",
+        "45s",
+        "/tmp/mio88-base64-final-sdk-20261011/tests/pinned/irc_datagram",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 0.2594837120268494,
+      "passed": 16,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "name": "unified_connection",
+      "command": [
+        "rtk",
+        "proxy",
+        "timeout",
+        "45s",
+        "/tmp/mio88-base64-final-sdk-20261011/tests/pinned/unified_connection",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 7.036710519110784,
+      "passed": 13,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "name": "unified_admission_story",
+      "command": [
+        "rtk",
+        "proxy",
+        "timeout",
+        "45s",
+        "/tmp/mio88-base64-final-sdk-20261011/tests/pinned/unified_admission_story",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 2.27937363111414,
+      "passed": 4,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "name": "negotiated_accept_context",
+      "command": [
+        "rtk",
+        "proxy",
+        "timeout",
+        "45s",
+        "/tmp/mio88-base64-final-sdk-20261011/tests/pinned/negotiated_accept_context",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 5.314252100884914,
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "name": "member_path_protocol",
+      "command": [
+        "rtk",
+        "proxy",
+        "timeout",
+        "45s",
+        "/tmp/mio88-base64-final-sdk-20261011/tests/pinned/member_path_protocol",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 0.5245265339035541,
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0
+    }
+  ],
+  "currentActualInputGraphRevalidation": {
+    "qualified": true,
+    "passingNativeTestCount": 39,
+    "testBuildReceipt": "/tmp/mio88-base64-final-sdk-20261011/tests/receipt.json",
+    "testBuildReceiptSha256": "749e1d1ec46741d57d10837d215f37471063740a7a7f961f7e6a0ac6ebfdb176",
+    "testRuntimeReceipt": "/tmp/mio88-base64-final-sdk-20261011/runtime/receipt.json",
+    "testRuntimeReceiptSha256": "0c9627e7457c63f2534a1fa0e56afb54da3b12adcdcf8c4227d2c81069507563",
+    "executedBinaryHashes": {
+      "/tmp/mio88-base64-final-sdk-20261011/tests/pinned/member_path_protocol": "bdc9031a49686a3f188aa422e9460f1f21e67d0f4f9fd448c0ae806fd340ff26",
+      "/tmp/mio88-base64-final-sdk-20261011/tests/pinned/unified_admission_story": "93b827906fbe7b717acc6174228efa7e4391cd825fc727053e3857ee2e898813",
+      "/tmp/mio88-base64-final-sdk-20261011/tests/pinned/irc_datagram": "4460c97cba993647c4bcbac166413aad48dcb0b65c6a1f6a73957c86c25a87f7",
+      "/tmp/mio88-base64-final-sdk-20261011/tests/pinned/unified_connection": "1844a8658142cf47de719f27efe58afc37a45655709540375f94c1ded4f5431c",
+      "/tmp/mio88-base64-final-sdk-20261011/tests/pinned/negotiated_accept_context": "bd1653865afd73722d03ff9090ea19639343b40351f60a4a2180dc27625dd150"
+    },
+    "selectedInputGraphUnchangedAndVerifiedAgainstCurrentSources": true,
+    "actualSelectedInputCount": 5734,
+    "currentSourceDigest": "af6c2150ecc8a193d44804bb9ceefe5c5f955f7da78acbc627c631d5ed618107",
+    "globalSourceDeltaAfterTests": {
+      "Cargo.lock": {
+        "before": "78949a5e1ec652481d739edd5c629b576a1fd5bbfa0a7c05881f30dbc849e34a",
+        "after": "6eef7036ae001de95c7b6f126cb5aa73c8ff10d7e751af977c338f339d3d943c"
+      },
+      "browser-probe/Cargo.toml": {
+        "before": "470044552915bd030e321741ce7de7f1d4632e950094952ade2caed8915bf1c1",
+        "after": "b658125174b00a897ad5e1cdba737f7a99d308cd0b8113071952bf640c114081"
+      }
+    },
+    "reason": "Only the browser package gained its already-pinned Base64 direct dependency and local lockfile edge after Native tests. Every actual Native test .d input, root manifest, test selector lock, registry package version/source/checksum and executable remains unchanged. Browser change will be compiled and tested in the actual current WASM graph. No redundant Cargo build, binary copy or Native test rerun."
+  }
+}

@@ -1160,7 +1160,11 @@ impl RemoteStateActor {
     /// Refresh only live, qualified paths in existing connections. QUIC retains
     /// its own path/connection timeouts and reports final failure to callers.
     fn reevaluate_paths(&mut self) {
-        for state in self.connections.values() {
+        for state in self
+            .connections
+            .values()
+            .filter(|state| state.purpose != ConnectionPurpose::Control)
+        {
             if let Some(conn) = state
                 .handle
                 .upgrade()

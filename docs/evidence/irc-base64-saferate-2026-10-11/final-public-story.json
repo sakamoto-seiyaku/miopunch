@@ -1,0 +1,119 @@
+{
+  "qualified": true,
+  "functionalPassed": true,
+  "cleanupQualified": true,
+  "privateDirectory": "/tmp/mio88-base64-public-full-sdk-20261011",
+  "rawReceiptSha256": "2f51e1e7a7ecf9578076022e0838a5ba18c3dde1c0549f9c1580315ead3d3ba8",
+  "executionReceiptSha256": "eaf4ac4339e41c4da2fa7d47759c8468345fb8290c8e9cb06a3581d23387cd38",
+  "sourceAndArtifactGuardsPassed": true,
+  "wholeWallMs": 97811.995,
+  "callerBudgetMs": 300000,
+  "profile": {
+    "pacing_ms": 600,
+    "assembly_ttl_ms": 8000,
+    "queue_ttl_ms": 30000,
+    "attempt_ms": 300000
+  },
+  "initialIrcRequestMs": 60488,
+  "publicOrigin": "https://testnet.ergo.chat",
+  "HTTPSStatus": 200,
+  "initialBrowserDataPaths": {
+    "relays": 0,
+    "rtcEnabled": false
+  },
+  "restrictedAdmission": {
+    "version": 1,
+    "purposeCode": 2,
+    "TLSAuthenticated": true,
+    "expectedContactVerified": true,
+    "ordinaryHandle": false,
+    "result": "AwaitingApproval",
+    "actualNativeUnapprovedRequests": 1,
+    "actualNativeStrictPurpose2Events": 2
+  },
+  "approvalAndDurability": {
+    "newApprovalRecords": 1,
+    "approvedRelayRequestMs": 4837.299999952316,
+    "materialResult": "Complete",
+    "authorizationSaved": true,
+    "secretSaved": true,
+    "pendingAndCompleteBrowserIdentityPreserved": true,
+    "nativeIdentityPreservedOnReopen": true,
+    "completeStageAfterReopen": "Complete"
+  },
+  "ordinaryBusiness": {
+    "version": 1,
+    "purposeCode": 1,
+    "alpn": "miopunch/session/member/1",
+    "selectedRoute": "relay:https://aps1-1.relay.n0.iroh.link./",
+    "freshAck": true,
+    "bindingUnchanged": true,
+    "stableUnchanged": true,
+    "memberAuthorized": true,
+    "nativeAndBrowserSelectedRelay": true,
+    "actualNativeMemberReadyEvents": 1,
+    "memberOpenMs": 8025,
+    "reply": "PONG",
+    "nativeOrdinaryStreamProgress": true,
+    "nativeReleaseAndBusinessSameStableId": true
+  },
+  "cleanup": {
+    "sdkBrowserCloseReturned": true,
+    "sdkBrowserFreed": true,
+    "sdkBrowserCloseMs": 1001.6000001430511,
+    "socketImmediateObservationMs": 500,
+    "socketImmediateObservationPassed": false,
+    "socketLateObserverCeilingMs": 60000,
+    "socketLateWaitMs": 2005.6482070000056,
+    "allWssCloseEventsBeforeContext": true,
+    "wssSocketCount": 3,
+    "initialIRCIntermediateCloseMs": 3425.7000000476837,
+    "firstNativeExit": 0,
+    "firstNativeGracefulClose": true,
+    "firstNativeCloseMs": 13,
+    "firstNativeCloseObserverCeilingMs": 120000,
+    "finalNativeExit": 0,
+    "finalNativeGracefulClose": true,
+    "finalNativeCloseMs": 1,
+    "nativeProcessesAbsentImmediate": true,
+    "nativeProcessesAbsentLate": true,
+    "ownedBrowserContextClosed": true,
+    "ownedBrowserProcessClosed": true,
+    "ownedFixtureRemoved": true
+  },
+  "privacy": "only measured scalar assertions and hashes published; no identity strings, SDP, ciphertext, keys, actual grant IDs, secrets or stored materials",
+  "wireQualified": true,
+  "wireObservation": {
+    "protocol": "MIR2",
+    "encoding": "standard-padded-Base64",
+    "sentFragments": 132,
+    "receivedFragments": 108,
+    "legacyFragments": 0,
+    "invalidBase64": 0,
+    "maxSentClientLineBytes": 467,
+    "maxReceivedForwardedLineBytes": 509,
+    "maxDecodedFragmentBytes": 252
+  },
+  "actualBrowserPrefixBytes": 40,
+  "actualNativePrefixBytes": 40,
+  "actualTargetBytes": 25,
+  "actualBrowserFragmentCapacity": 252,
+  "actualNativeFragmentCapacity": 252,
+  "firstActualSentDatagram": {
+    "fragments": 5,
+    "decodedBytes": 1200,
+    "fragmentSpanMs": 0.23920499999985623
+  },
+  "actualSaferate": {
+    "browser": true,
+    "native": true
+  },
+  "testBudgetQualification": "Explicit 300-second caller budget. This measured 60.488-second request exceeds the current 60-second default; no default-budget success claimed.",
+  "comparison": {
+    "samePublicFacilityAndExplicitCallerProfile": true,
+    "priorM87RequestMs": 228689.5,
+    "currentM88RequestMs": 60488,
+    "reductionPercent": 73.55016299392845,
+    "scope": "One measured public run for each combined implementation; not a guaranteed latency or isolated causal attribution to each change."
+  }
+}

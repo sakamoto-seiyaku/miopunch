@@ -2420,6 +2420,7 @@ dependencies = [
 name = "miopunch-browser-probe"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "blake3",
  "futures-util",
  "hex",
@@ -2453,6 +2454,7 @@ name = "miopunch-native-probe"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "blake3",
  "bytes",
  "futures-channel",

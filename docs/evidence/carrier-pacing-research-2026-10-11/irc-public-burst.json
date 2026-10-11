@@ -1,0 +1,88 @@
+{
+  "service": "testnet.ergo.chat",
+  "scope": "one synthetic bounded TLS pair; wire observations only, no SDK qualification",
+  "normalCertificateValidation": true,
+  "maximumPrivmsgs": 38,
+  "maximumSentPrivmsgBytes": 20480,
+  "privmsgsSent": 38,
+  "sentPrivmsgBytes": 14002,
+  "requestedFragmentSleepMs": 0,
+  "connections": [
+    {
+      "normalTLS": true,
+      "saferate": true,
+      "closed": false,
+      "registrationMs": 789.999,
+      "closeErrorType": "SSLError"
+    },
+    {
+      "normalTLS": true,
+      "saferate": true,
+      "closed": false,
+      "registrationMs": 763.698,
+      "closeErrorType": "SSLError"
+    }
+  ],
+  "cases": [
+    {
+      "chunkBytes": 128,
+      "datagramBytes": 1200,
+      "fragments": 10,
+      "submitMs": 0.211,
+      "firstToLastArrivalMs": 3003.772,
+      "sendToCompleteMs": 3356.909,
+      "maximumSentLineBytesIncludingCRLF": 376,
+      "maximumReceivedLineBytesIncludingCRLF": 413,
+      "senderPrefixBytes": 35,
+      "syntheticWireByteEquality": true,
+      "payloadSha256": "27dd43e8c516b70a84c9d8f18aa77112f5acf4df685ecd7de556dbe989739ced",
+      "currentSdkChunkCompatible": true
+    },
+    {
+      "chunkBytes": 128,
+      "datagramBytes": 1200,
+      "fragments": 10,
+      "submitMs": 0.202,
+      "firstToLastArrivalMs": 2506.869,
+      "sendToCompleteMs": 2856.516,
+      "maximumSentLineBytesIncludingCRLF": 376,
+      "maximumReceivedLineBytesIncludingCRLF": 413,
+      "senderPrefixBytes": 35,
+      "syntheticWireByteEquality": true,
+      "payloadSha256": "27dd43e8c516b70a84c9d8f18aa77112f5acf4df685ecd7de556dbe989739ced",
+      "currentSdkChunkCompatible": true
+    },
+    {
+      "chunkBytes": 153,
+      "datagramBytes": 1200,
+      "fragments": 8,
+      "submitMs": 0.121,
+      "firstToLastArrivalMs": 1502.95,
+      "sendToCompleteMs": 1855.142,
+      "maximumSentLineBytesIncludingCRLF": 426,
+      "maximumReceivedLineBytesIncludingCRLF": 463,
+      "senderPrefixBytes": 35,
+      "syntheticWireByteEquality": true,
+      "payloadSha256": "27dd43e8c516b70a84c9d8f18aa77112f5acf4df685ecd7de556dbe989739ced",
+      "currentSdkChunkCompatible": false
+    },
+    {
+      "chunkBytes": 153,
+      "datagramBytes": 1200,
+      "fragments": 8,
+      "submitMs": 0.111,
+      "firstToLastArrivalMs": 1502.467,
+      "sendToCompleteMs": 1851.339,
+      "maximumSentLineBytesIncludingCRLF": 426,
+      "maximumReceivedLineBytesIncludingCRLF": 463,
+      "senderPrefixBytes": 35,
+      "syntheticWireByteEquality": true,
+      "payloadSha256": "27dd43e8c516b70a84c9d8f18aa77112f5acf4df685ecd7de556dbe989739ced",
+      "currentSdkChunkCompatible": false
+    }
+  ],
+  "passed": true,
+  "startedUtc": "2026-10-11T06:21:10Z",
+  "wallMs": 11912.292,
+  "finishedUtc": "2026-10-11T06:21:22Z"
+}

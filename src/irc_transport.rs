@@ -270,6 +270,7 @@ struct DriverBinding {
     service: Service,
     addresses: Watchable<Vec<CustomAddr>>,
     status: watch::Sender<Status>,
+    pacing: watch::Sender<u64>,
     traffic: Arc<Traffic>,
     channel: String,
     profile: Profile,
@@ -346,6 +347,7 @@ impl IrcTransport {
             service: self.service,
             addresses: addresses.clone(),
             status: status.clone(),
+            pacing: watch::channel(self.profile.pacing_ms).0,
             traffic: self.traffic.clone(),
             channel: self.channel.clone(),
             profile: self.profile.clone(),
@@ -506,10 +508,15 @@ async fn write_loop<W: AsyncWrite + Unpin>(
     mut stop: watch::Receiver<bool>,
 ) -> io::Result<()> {
     let mut ready = binding.status.subscribe();
+    let mut pacing = binding.pacing.subscribe();
     let traffic = &binding.traffic;
     let mut active: std::collections::VecDeque<String> = Default::default();
-    let mut next = tokio::time::Instant::now();
+    let mut last_fragment = None::<tokio::time::Instant>;
     loop {
+        let interval = Duration::from_millis(*pacing.borrow());
+        let next = last_fragment
+            .map(|last| last + interval)
+            .unwrap_or_else(tokio::time::Instant::now);
         tokio::select! {biased;
             _=stop.changed()=>{
                 return tokio::time::timeout(Duration::from_secs(2),async {
@@ -522,9 +529,12 @@ async fn write_loop<W: AsyncWrite + Unpin>(
                 let Some(command)=command else{return Ok(())};write_line(&mut write,&command).await?;
                 if command.starts_with("PONG "){binding.report.lock().unwrap().pong_sent+=1;}
             }
+            changed=pacing.changed()=>{changed.map_err(io::Error::other)?;}
             _=tokio::time::sleep_until(next),if !active.is_empty()=>{
-                let part=active.pop_front().unwrap();write_line(&mut write,&format!("PRIVMSG {} :{part}\r\n",binding.channel)).await?;
-                traffic.fragments.fetch_add(1,Ordering::Relaxed);next=tokio::time::Instant::now()+Duration::from_millis(binding.profile.pacing_ms);
+                let part=active.pop_front().unwrap();
+                let line=binding.report.lock().unwrap().qualification.privmsg_line(&binding.channel,&part)?;
+                write_line(&mut write,&line).await?;
+                traffic.fragments.fetch_add(1,Ordering::Relaxed);last_fragment=Some(tokio::time::Instant::now());
                 if active.is_empty(){traffic.sent.fetch_add(1,Ordering::Relaxed);let mut report=binding.report.lock().unwrap();report.queue_pending=report.queue_pending.saturating_sub(1);}
             }
             changed=ready.changed(),if *ready.borrow()!=Status::Ready=>{changed.map_err(io::Error::other)?;}
@@ -532,7 +542,8 @@ async fn write_loop<W: AsyncWrite + Unpin>(
                 let Some(item)=item else{return Ok(())};let age=item.queued.elapsed().as_millis() as u64;
                 binding.report.lock().unwrap().queue_age_ms=age;
                 if age>binding.profile.queue_ttl_ms{traffic.rejected.fetch_add(1,Ordering::Relaxed);let mut report=binding.report.lock().unwrap();report.queue_pending=report.queue_pending.saturating_sub(1);continue;}
-                active=wire::fragments(item.target,binding.route,rand::random(),&item.bytes)?.into();
+                let capacity=binding.report.lock().unwrap().qualification.fragment_capacity(&binding.channel)?;
+                active=wire::fragments_with_capacity(item.target,binding.route,rand::random(),&item.bytes,capacity)?.into();
             }
         }
     }
@@ -565,6 +576,10 @@ async fn read_loop<R: AsyncRead + Unpin>(
                 let mut report=binding.report.lock().unwrap();
                 if *binding.status.borrow()==Status::Closed { qualification.retire(); }
                 report.qualification=qualification.clone();
+                let interval=qualification.fragment_interval_ms(&binding.profile);
+                binding.pacing.send_if_modified(|current| {
+                    if *current==interval { false } else { *current=interval; true }
+                });
                     report.assembly=reassembly.snapshot();report.max_line_bytes=report.max_line_bytes.max(line.len()+2);
                     if report.server_prefix.is_empty()&&!parsed.prefix.is_empty(){report.server_prefix=parsed.prefix.into();}
                 if qualification.ready&&*binding.status.borrow()==Status::Starting {
@@ -572,7 +587,7 @@ async fn read_loop<R: AsyncRead + Unpin>(
                     binding.addresses.set(vec![address(binding.service,binding.route)]).ok();
                     binding.status.send_replace(Status::Ready);
                 }
-                    if is_packet&&parsed.trailing.starts_with("MIR1 ")&&report.fragments.len()<256{
+                    if is_packet&&parsed.trailing.starts_with("MIR2 ")&&report.fragments.len()<256{
                         report.fragments.push(FragmentEvent{at_ms:now,line_bytes:line.len()+2,prefix:parsed.prefix.into(),fragment:parsed.trailing.split(' ').nth(4).unwrap_or("").into()});
                     }
                 }

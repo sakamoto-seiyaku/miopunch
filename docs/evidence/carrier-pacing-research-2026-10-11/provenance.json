@@ -1,0 +1,41 @@
+{
+  "observedAtUtc": "2026-10-11T06:21:22Z",
+  "probeSourceSha256": "b9d6927c63b0035e6075495daf40bacd5cd5cfdc2c9803c8ea64f47a5fc088f4",
+  "rawReceiptSha256": "013d11a6d0fd9bc7d3f61b2e67b625eb2d570fcfdb3a66fda2c9792359811610",
+  "commandExit": 1,
+  "wirePayloadCasesPassed": true,
+  "tlsShutdownQualified": false,
+  "limits": "38 synthetic PRIVMSG / 20 KiB; no retries, accounts, channels, real network credentials or SDK runtime",
+  "sandboxFirstAttempt": {
+    "exit": 143,
+    "receiptWritten": false,
+    "observationsUnavailable": true,
+    "reason": "owned process stopped after bounded attempt failed to return; no assertion about DNS or actual sent traffic"
+  },
+  "productSourceSha256": {
+    "src/irc_datagram.rs": "c85197c65a86f14c657d88b36c1feaef50c51f79de794f5d25a94560b352e0f3",
+    "src/irc_transport.rs": "e0faa34f49b3b2703d20aaa6725e182297f801f919c4bf567e2b1839a620a17e",
+    "browser-probe/src/irc.rs": "db1f958efb3e1666371a23e2dac74b7e63bb887dfddf11cd6cda6af9f67f125d",
+    "src/mqtt_datagram.rs": "f47d5f02dcf39701d24680d5b0d1d990165f0801f53e08ef7ad23061f0a714c8",
+    "src/mqtt_transport.rs": "8400e0564f7e2b13dc62e3d04e115f105d8ca809f0f396725b1b3c928d77cd70",
+    "src/mqtt_discovery.rs": "d064f6817fda18ca15e0eb69f5e57f313b087f606aeafcad80dcb889dff243fb",
+    "browser-probe/src/mqtt.rs": "b2893416f9b281fe1b6a426c17cb6347723226d3836d726881825390a5b007af"
+  },
+  "wireMath": {
+    "MIR1HeaderBytes": 94,
+    "MQTTTopicBytes": 53,
+    "datagramBytes": [
+      1200,
+      2048
+    ],
+    "MqttCompleteQos0PacketBytes": [
+      1278,
+      2126
+    ],
+    "IrcCurrentChunkBytes": 128,
+    "IrcBodyCapBytes": 400,
+    "candidateHexChunkAtBodyCapBytes": 153,
+    "forwardedIrcLineFormula": "prefixBytes + targetBytes + 14 + 94 + 2*chunkBytes (including CRLF)",
+    "candidateFragmentFormula": "min(bodyCap, lineCap - prefixBytes - targetBytes - 14) => floor((bodyBudget - 94)/2); current decoder additionally requires 128B chunk"
+  }
+}

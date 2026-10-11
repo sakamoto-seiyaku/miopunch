@@ -1,4 +1,5 @@
-//! Shared MIR1 wire contract. Routes and logical facilities confer no identity.
+//! Shared MIR2 wire contract. Routes and logical facilities confer no identity.
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use iroh_base::{CustomAddr, RelayUrl};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -7,12 +8,18 @@ use std::{collections::BTreeMap, io};
 pub const TRANSPORT_ID: u64 = 0x6d696f697263;
 pub const MAX_DATAGRAM: usize = 2048;
 pub const CHUNK: usize = 128;
+pub const IRC_LINE_LIMIT: usize = 512;
+/// Fixed MIR2 fields and separators, before the Base64 fragment.
+const FRAGMENT_HEADER: usize = 94;
+const MAX_FRAGMENT: usize = (IRC_LINE_LIMIT - 2 - FRAGMENT_HEADER) / 4 * 3;
+const MAX_PARTS: usize = MAX_DATAGRAM.div_ceil(CHUNK);
 pub const QUEUE_DEPTH: usize = 64;
 pub type Route = [u8; 16];
 pub type Service = [u8; 16];
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Profile {
+    /// Fallback fragment interval for services without an active SAFERATE advertisement.
     pub pacing_ms: u64,
     pub assembly_ttl_ms: u64,
     pub queue_ttl_ms: u64,
@@ -151,19 +158,31 @@ pub fn route_from_addr(addr: &CustomAddr, service: Service) -> io::Result<Route>
     Ok(addr.data()[16..].try_into().unwrap())
 }
 pub fn fragments(target: Route, source: Route, id: u64, bytes: &[u8]) -> io::Result<Vec<String>> {
+    fragments_with_capacity(target, source, id, bytes, CHUNK)
+}
+pub fn fragments_with_capacity(
+    target: Route,
+    source: Route,
+    id: u64,
+    bytes: &[u8],
+    capacity: usize,
+) -> io::Result<Vec<String>> {
     if bytes.is_empty() || bytes.len() > MAX_DATAGRAM {
         return Err(invalid("invalid IRC datagram size"));
     }
-    let total = bytes.len().div_ceil(CHUNK);
+    if capacity == 0 || capacity > MAX_FRAGMENT || bytes.len().div_ceil(capacity) > MAX_PARTS {
+        return Err(invalid("IRC fragment capacity exceeds bounded wire limits"));
+    }
+    let total = bytes.len().div_ceil(capacity);
     Ok(bytes
-        .chunks(CHUNK)
+        .chunks(capacity)
         .enumerate()
         .map(|(index, chunk)| {
             format!(
-                "MIR1 {} {} {id:016x} {index:02x} {total:02x} {}",
+                "MIR2 {} {} {id:016x} {index:02x} {total:02x} {}",
                 hex::encode(target),
                 hex::encode(source),
-                hex::encode(chunk)
+                STANDARD.encode(chunk)
             )
         })
         .collect())
@@ -171,6 +190,8 @@ pub fn fragments(target: Route, source: Route, id: u64, bytes: &[u8]) -> io::Res
 struct Assembly {
     created: u64,
     parts: Vec<Option<Vec<u8>>>,
+    fragment_size: Option<usize>,
+    bytes: usize,
 }
 #[derive(Default, Clone, Debug, Serialize)]
 pub struct AssemblyReport {
@@ -242,12 +263,12 @@ impl Reassembly {
             return None;
         }
         self.expire(now);
-        if text.len() > 400 {
+        if text.len() > FRAGMENT_HEADER + MAX_FRAGMENT.div_ceil(3) * 4 {
             self.report.rejected += 1;
             return None;
         }
         let f: Vec<_> = text.split(' ').collect();
-        if f.len() != 7 || f[0] != "MIR1" || f[1] != hex::encode(own) {
+        if f.len() != 7 || f[0] != "MIR2" || f[1] != hex::encode(own) {
             return None;
         }
         let parsed = (|| {
@@ -259,15 +280,15 @@ impl Reassembly {
             let i = usize::from_str_radix(f[4], 16).ok()?;
             let n = usize::from_str_radix(f[5], 16).ok()?;
             if n == 0
-                || n > MAX_DATAGRAM.div_ceil(CHUNK)
+                || n > MAX_PARTS
                 || i >= n
                 || f[6].is_empty()
-                || f[6].len() > CHUNK * 2
+                || f[6].len() > MAX_FRAGMENT.div_ceil(3) * 4
             {
                 return None;
             }
-            let bytes = hex::decode(f[6]).ok()?;
-            if i + 1 < n && bytes.len() != CHUNK {
+            let bytes = STANDARD.decode(f[6]).ok()?;
+            if bytes.is_empty() || bytes.len() > MAX_FRAGMENT {
                 return None;
             }
             Some((source, id, i, n, bytes))
@@ -287,8 +308,32 @@ impl Reassembly {
         let assembly = self.pending.entry(key).or_insert_with(|| Assembly {
             created: now,
             parts: vec![None; n],
+            fragment_size: None,
+            bytes: 0,
         });
-        if assembly.parts.len() != n || assembly.parts[i].as_ref().is_some_and(|old| old != &bytes)
+        let new_part = assembly.parts.get(i).is_some_and(Option::is_none);
+        let fragment_size = if i + 1 < n {
+            Some(bytes.len())
+        } else {
+            assembly.fragment_size
+        };
+        let inconsistent_size = assembly
+            .fragment_size
+            .zip(fragment_size)
+            .is_some_and(|(old, new)| old != new)
+            || fragment_size.is_some_and(|size| {
+                (i + 1 == n && bytes.len() > size)
+                    || assembly
+                        .parts
+                        .last()
+                        .and_then(Option::as_ref)
+                        .is_some_and(|last| last.len() > size)
+                    || size * (n - 1) + 1 > MAX_DATAGRAM
+            });
+        if assembly.parts.len() != n
+            || assembly.parts[i].as_ref().is_some_and(|old| old != &bytes)
+            || inconsistent_size
+            || assembly.bytes + if new_part { bytes.len() } else { 0 } > MAX_DATAGRAM
         {
             self.pending.remove(&key);
             self.retire(key, now);
@@ -296,7 +341,11 @@ impl Reassembly {
             self.report.pending = self.pending.len();
             return None;
         }
-        assembly.parts[i] = Some(bytes);
+        if new_part {
+            assembly.bytes += bytes.len();
+            assembly.parts[i] = Some(bytes);
+        }
+        assembly.fragment_size = fragment_size;
         self.report.pending = self.pending.len();
         self.report.pending_peak = self.report.pending_peak.max(self.report.pending);
         if !self.pending[&key].parts.iter().all(Option::is_some) {
@@ -319,7 +368,7 @@ pub struct Line<'a> {
     pub trailing: &'a str,
 }
 pub fn parse_line(line: &str) -> io::Result<Line<'_>> {
-    if line.len() + 2 > 512 || line.contains(['\r', '\n', '\0']) {
+    if line.len() + 2 > IRC_LINE_LIMIT || line.contains(['\r', '\n', '\0']) {
         return Err(invalid("invalid IRC line"));
     }
     let (prefix, body) = if let Some(rest) = line.strip_prefix(':') {
@@ -345,6 +394,8 @@ pub struct Qualification {
     pub joined: bool,
     pub names_done: bool,
     pub ready: bool,
+    pub safe_rate: bool,
+    own_prefix_bytes: Option<usize>,
     pub isupport: Vec<String>,
 }
 impl Qualification {
@@ -376,6 +427,12 @@ impl Qualification {
             "005" if line.args.first() == Some(&nick) => {
                 self.capability = true;
                 for arg in line.args.iter().skip(1) {
+                    match *arg {
+                        "SAFERATE" => self.safe_rate = true,
+                        "-SAFERATE" => self.safe_rate = false,
+                        value if value.starts_with("SAFERATE=") => self.safe_rate = false,
+                        _ => {}
+                    }
                     if let Some(v) = arg.strip_prefix("NICKLEN=") {
                         if v.parse::<usize>().unwrap_or(0) < nick.len() {
                             return Err(invalid("IRC nick limit"));
@@ -390,7 +447,24 @@ impl Qualification {
                 if line.prefix.split('!').next() == Some(nick)
                     && (line.args.first() == Some(&channel) || line.trailing == channel) =>
             {
+                let (_, user_host) = line
+                    .prefix
+                    .split_once('!')
+                    .ok_or(invalid("missing IRC user prefix"))?;
+                let (user, host) = user_host
+                    .split_once('@')
+                    .ok_or(invalid("missing IRC host prefix"))?;
+                if user.is_empty() || host.is_empty() {
+                    return Err(invalid("invalid IRC user prefix"));
+                }
+                self.own_prefix_bytes = Some(line.prefix.len());
+                self.fragment_capacity(channel)?;
                 self.joined = true
+            }
+            "CHGHOST" if line.prefix.split('!').next() == Some(nick) && line.args.len() == 2 => {
+                self.own_prefix_bytes =
+                    Some(nick.len() + line.args[0].len() + line.args[1].len() + 2);
+                self.fragment_capacity(channel)?;
             }
             "366" if line.args.first() == Some(&nick) && line.args.get(1) == Some(&channel) => {
                 self.names_done = true
@@ -413,8 +487,47 @@ impl Qualification {
         self.ready = self.registered && self.capability && self.joined && self.names_done;
         Ok(control)
     }
+    /// A qualified service with SAFERATE handles rate limiting itself. Queue and
+    /// socket bounds still apply; this never grants an unready or retired route.
+    pub fn fragment_interval_ms(&self, profile: &Profile) -> u64 {
+        if self.ready && self.safe_rate {
+            0
+        } else {
+            profile.pacing_ms
+        }
+    }
+    /// Budget the forwarded PRIVMSG, including `:nick!user@host ` and CRLF.
+    pub fn fragment_capacity(&self, channel: &str) -> io::Result<usize> {
+        let prefix = self
+            .own_prefix_bytes
+            .ok_or(invalid("IRC user prefix not qualified"))?;
+        let remaining = IRC_LINE_LIMIT
+            .checked_sub(prefix + channel.len() + 14 + FRAGMENT_HEADER)
+            .ok_or(invalid("IRC prefix leaves no datagram capacity"))?;
+        let capacity = remaining / 4 * 3;
+        // Retain the existing sixteen-part and 2048-byte datagram bounds.
+        if capacity < MAX_DATAGRAM.div_ceil(MAX_PARTS) {
+            return Err(invalid("IRC prefix cannot carry bounded QUIC datagrams"));
+        }
+        Ok(capacity)
+    }
+    pub fn privmsg_line(&self, channel: &str, part: &str) -> io::Result<String> {
+        if !self.ready || self.retired {
+            return Err(invalid("IRC route not qualified"));
+        }
+        let prefix = self
+            .own_prefix_bytes
+            .ok_or(invalid("IRC user prefix not qualified"))?;
+        let line = format!("PRIVMSG {channel} :{part}\r\n");
+        if prefix + 2 + line.len() > IRC_LINE_LIMIT {
+            return Err(invalid("IRC forwarded fragment exceeds line limit"));
+        }
+        Ok(line)
+    }
     pub fn retire(&mut self) {
         self.retired = true;
         self.ready = false;
+        self.safe_rate = false;
+        self.own_prefix_bytes = None;
     }
 }

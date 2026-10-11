@@ -1,0 +1,22 @@
+{
+  "fixedBase": "b696ecbba54733277d2562e1a8a7ab78767dc494",
+  "files": {
+    "Cargo.toml": "64d42c0aabd5e9425e06a6e24a0a03269922b7ee7e1432cb5d88e8aea1b3685b",
+    "Cargo.lock": "6eef7036ae001de95c7b6f126cb5aa73c8ff10d7e751af977c338f339d3d943c",
+    "browser-probe/Cargo.toml": "b658125174b00a897ad5e1cdba737f7a99d308cd0b8113071952bf640c114081",
+    "src/irc_datagram.rs": "7bfe94fbb9ba8ab41b68c795dc7cd284e6c320b44f683e039a93b8b257978e61",
+    "src/irc_transport.rs": "0c186df026c7d06c6906b5beebcc63ec9e5ecde614cc345f5e8e6226e7b1eb64",
+    "browser-probe/src/irc.rs": "307783b004ac6afb2092463a57e5f81fbeafbbe58120ad37c0a729a349d84cff",
+    "tests/irc_datagram.rs": "864a636dfd83177e419a742660f0826585374397fac278a1950b29a9723fde39",
+    "tests/unified_connection.rs": "a69a74d0f829f4f6dfc1ca0004e075a49911ff6afda64b388ce3b0ff8864c4b9",
+    "vendor/iroh/src/socket/remote_map/remote_state.rs": "b160536ec7409d80f677fee06bb87bc76a6a6cbaaf0226fd36b6abebea14dc59"
+  },
+  "currentSourceDigest": "af6c2150ecc8a193d44804bb9ceefe5c5f955f7da78acbc627c631d5ed618107",
+  "registryPackageRowsVersionsSourcesAndChecksumsUnchanged": true,
+  "onlyLocalDependencyEdgesAdded": [
+    "miopunch-native-probe -> base64 0.22.1",
+    "miopunch-browser-probe -> base64 0.22.1"
+  ],
+  "noCargoLockResolution": true,
+  "noProductQuicAlgorithmOrDefaultCallerBudgetChange": true
+}

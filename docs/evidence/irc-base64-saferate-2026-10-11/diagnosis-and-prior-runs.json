@@ -1,0 +1,27 @@
+{
+  "qualityProbeBeforeFix": {
+    "privateDirectory": "/tmp/mio88-quality-red-20261011",
+    "rawRuntimeReceiptSha256": "1a0fd9f8e52adbe5a9a52fce57419a5042efc7fe3ef9bfc7debce16a622cd642",
+    "rawBuildReceiptSha256": "6a0a5102504268e7bbdd531f96acdc5f48c44324ff7fe76b3340e8dc35dfb74d",
+    "controlTestExit": 101,
+    "controlObservedPeriodicPingCount": 5,
+    "controlObservationMs": 1100,
+    "ordinaryTestExit": 0,
+    "nativeEndpointsNaturallyClosedBeforeAssertions": true
+  },
+  "saferatePacingOriginalRed": {
+    "privateDirectory": "/tmp/mio88-saferate-red-20261011",
+    "exit": 101,
+    "qualified": false,
+    "symptom": "Configured 600ms wait prevented complete datagram inside the 400ms bound."
+  },
+  "pacingOnlyPublicRun": {
+    "privateDirectory": "/tmp/mio88-public-full-sdk-20261011",
+    "rawReceiptSha256": "0b87bec3da4fbe53749eff283e884d6e5c83f0778ef6a22413e7ff2ce6ad6ec6",
+    "executionReceiptSha256": "6e498655eb631fc2c409e100e6db9f1a30fc28905bd3c8c83042d0c6751a58a5",
+    "functionalAndCleanupQualified": true,
+    "requestMs": 268032.59999990463,
+    "performanceQualified": false,
+    "reason": "Slower than the prior M87 complete request; kept as regression evidence, not relabelled as optimization success."
+  }
+}

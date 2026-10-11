@@ -15,6 +15,93 @@ use std::{
     time::Duration,
 };
 
+#[derive(Debug)]
+struct FrequentQualitySelector;
+
+impl iroh::endpoint::transports::PathSelector for FrequentQualitySelector {
+    fn reevaluation_interval(&self) -> Option<Duration> {
+        Some(Duration::from_millis(250))
+    }
+
+    fn select(
+        &self,
+        context: &iroh::endpoint::transports::PathSelectionContext<'_>,
+    ) -> iroh::endpoint::transports::PathSelection {
+        let mut selection = iroh::endpoint::transports::PathSelection::none();
+        if let Some(path) = context.paths().next() {
+            selection.set(&path);
+        }
+        selection
+    }
+}
+
+async fn quality_pings(restricted: bool) -> u64 {
+    use miopunch_native_probe::tcp_transport::{TcpTransport, Traffic};
+    const ALPN: &[u8] = b"mio88/quality-boundary/1";
+    let client_carrier = Arc::new(TcpTransport::new(
+        Ipv4Addr::LOCALHOST,
+        Arc::new(Traffic::default()),
+    ));
+    let server_carrier = Arc::new(TcpTransport::new(
+        Ipv4Addr::LOCALHOST,
+        Arc::new(Traffic::default()),
+    ));
+    let builder = |carrier: Arc<TcpTransport>| {
+        let builder = Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .clear_ip_transports()
+            .clear_relay_transports()
+            .add_custom_transport(carrier)
+            .alpns(vec![ALPN.to_vec()])
+            .path_selector(Arc::new(FrequentQualitySelector));
+        if restricted {
+            builder.control_only_alpns(vec![ALPN.to_vec()])
+        } else {
+            builder
+        }
+    };
+    let client = builder(client_carrier).bind().await.unwrap();
+    let server = builder(server_carrier.clone()).bind().await.unwrap();
+    let address = iroh::EndpointAddr::new(server.id()).with_addrs([iroh::TransportAddr::Custom(
+        TcpTransport::address(server_carrier.bound_socket_addr().unwrap()),
+    )]);
+    let (outgoing, incoming) = tokio::time::timeout(Duration::from_secs(5), async {
+        tokio::join!(client.connect(address, ALPN), async {
+            server.accept().await.unwrap().await
+        })
+    })
+    .await
+    .unwrap();
+    let outgoing = outgoing.unwrap();
+    let incoming = incoming.unwrap();
+    streams(&outgoing, &incoming).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let before = outgoing.stats().frame_tx.ping;
+    // Shorter than QUIC's own five-second heartbeat: isolate selector traffic.
+    tokio::time::sleep(Duration::from_millis(1100)).await;
+    let pings = outgoing.stats().frame_tx.ping - before;
+    outgoing.close(0u32.into(), b"quality boundary tested");
+    incoming.close(0u32.into(), b"quality boundary tested");
+    tokio::join!(client.close(), server.close());
+    pings
+}
+
+#[tokio::test]
+async fn restricted_control_excludes_periodic_quality_pings() {
+    assert_eq!(
+        quality_pings(true).await,
+        0,
+        "control bootstrap is not a scored data path"
+    );
+}
+
+#[tokio::test]
+async fn ordinary_data_retains_periodic_quality_pings() {
+    assert!(
+        quality_pings(false).await >= 3,
+        "ordinary paths still refresh quality"
+    );
+}
+
 async fn admitted_pair() -> (tempfile::TempDir, NativeNetwork, NativeNetwork) {
     let dir = tempfile::tempdir().unwrap();
     let a_path = dir.path().join("a");

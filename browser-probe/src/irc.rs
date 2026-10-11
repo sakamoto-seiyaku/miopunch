@@ -62,7 +62,7 @@ struct State {
     closed: bool,
     timer: Option<i32>,
     started: f64,
-    next_fragment: f64,
+    last_fragment: Option<f64>,
     waiters: Vec<Waker>,
     report: Report,
     addresses: n0_watcher::Watchable<Vec<iroh_base::CustomAddr>>,
@@ -162,7 +162,7 @@ impl State {
                 && parsed.args.first() == Some(&self.channel.as_str())
             {
                 let age = self.elapsed();
-                if parsed.trailing.starts_with("MIR1 ")
+                if parsed.trailing.starts_with("MIR2 ")
                     && self.report.received_fragments.len() < 256
                 {
                     self.report.received_fragments.push(serde_json::json!({"at_ms":age,"line_bytes":raw.len()+2,"prefix":parsed.prefix,"fragment":parsed.trailing.split(' ').nth(4)}));
@@ -199,10 +199,20 @@ impl State {
             }
             return Ok(());
         }
-        if age < self.next_fragment {
+        let interval = self.qualification.fragment_interval_ms(&self.profile);
+        if self
+            .last_fragment
+            .is_some_and(|last| age - last < interval as f64)
+        {
             return Ok(());
         }
-        while let Some(item) = self.outgoing.front_mut() {
+        // At most one maximum-sized datagram's fragments per turn. Return to
+        // the browser event loop so incoming control and cancellation can run.
+        let mut budget = wire::MAX_DATAGRAM.div_ceil(wire::CHUNK);
+        while budget > 0 {
+            let Some(item) = self.outgoing.front_mut() else {
+                break;
+            };
             if !item.started && age - item.queued > self.profile.queue_ttl_ms as f64 {
                 self.outgoing.pop_front();
                 self.report.rejected += 1;
@@ -214,19 +224,26 @@ impl State {
             }
             let fragment = item.parts.pop_front().expect("nonempty fragment queue");
             let done = item.parts.is_empty();
-            self.line(socket, &format!("PRIVMSG {} :{fragment}\r\n", self.channel))?;
+            let line = self
+                .qualification
+                .privmsg_line(&self.channel, &fragment)
+                .map_err(error)?;
+            self.line(socket, &line)?;
             if self.report.sent_fragments.len() < 256 {
                 self.report
                     .sent_fragments
                     .push(serde_json::json!({"at_ms":age,"fragment":fragment.split(' ').nth(4)}));
             }
-            self.next_fragment = age + self.profile.pacing_ms as f64;
+            self.last_fragment = Some(age);
+            budget -= 1;
             if done {
                 self.outgoing.pop_front();
                 self.report.sent_packets += 1;
                 self.wake();
             }
-            break;
+            if interval > 0 {
+                break;
+            }
         }
         Ok(())
     }
@@ -284,7 +301,13 @@ impl BrowserIrcDatagram {
             &hex::decode(destination).map_err(error)?,
         );
         let target = wire::route_from_addr(&address, s.service).map_err(error)?;
-        let parts = wire::fragments(target, s.route, rand::random(), &bytes).map_err(error)?;
+        let capacity = s
+            .qualification
+            .fragment_capacity(&s.channel)
+            .map_err(error)?;
+        let parts =
+            wire::fragments_with_capacity(target, s.route, rand::random(), &bytes, capacity)
+                .map_err(error)?;
         let queued = s.elapsed();
         s.report.accepted_bytes += bytes.len() as u64;
         if s.report.accepted_datagrams.len() < 256 {
@@ -350,7 +373,7 @@ impl BrowserIrcDatagram {
             closed: false,
             timer: None,
             started: now(),
-            next_fragment: 0.0,
+            last_fragment: None,
             waiters: vec![],
             report: Report::default(),
             addresses: n0_watcher::Watchable::new(Vec::new()),
@@ -589,8 +612,9 @@ pub fn fault_probe() -> Result<String, JsValue> {
     missing.expire(8000);
     let mut conflict = Reassembly::new(Profile::slow()).map_err(error)?;
     conflict.receive(&parts[0], own, 0);
-    let mut changed = parts[0].clone();
-    changed.replace_range(changed.len() - 2.., "ff");
+    let changed = wire::fragments(own, source, 1, &[0x5b; 1200])
+        .map_err(error)?
+        .remove(0);
     conflict.receive(&changed, own, 1);
     for part in &parts {
         if conflict.receive(part, own, 2).is_some() {

@@ -1,0 +1,21 @@
+{
+  "userAuthorized": "\u91cd\u65b0\u4fee\u6539\u5e76\u6d4b\u8bd5\uff1b\u6b64\u524d\u5141\u8bb8\u76f8\u540c\u65b0\u5408\u6210\u7f51\u7edc\u6750\u6599\u7ecfaps1-1 relay\u4ea4\u4ed8\u548c\u91cd\u5f00\u4e1a\u52a1\u6d4b\u8bd5",
+  "services": [
+    "https://testnet.ergo.chat",
+    "ircs://testnet.ergo.chat:6697",
+    "wss://testnet.ergo.chat/webirc",
+    "https://aps1-1.relay.n0.iroh.link./"
+  ],
+  "syntheticIdentitiesOnly": true,
+  "initialBrowserRelays": [],
+  "initialBrowserRtc": false,
+  "callerBudgetMs": 300000,
+  "pacingFallbackMs": 600,
+  "effectivePacingMs": "0 only after each actual service advertises valid SAFERATE",
+  "queueTtlMs": 30000,
+  "assemblyTtlMs": 8000,
+  "tlsCertificateBypass": false,
+  "sameQuicAndAdmissionAlgorithms": true,
+  "noRealUserMaterials": true,
+  "singleCaseOnly": true
+}
