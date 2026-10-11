@@ -1,0 +1,56 @@
+{
+  "scope": "Historical measured-call comparison and user-requested scoped closeout; no new network run or default-policy change",
+  "date": "2026-10-11",
+  "mqttRtc": {
+    "source": "docs/evidence/unified-browser-browser-2026-10-06/host-pixel-public-forward.json",
+    "sourceSha256": "b1ed57f36ad6fadfda284f99d0efa5e8cb92f826f9e800afd1ba8c65bffdae40",
+    "actors": "Host Chromium and Pixel Chrome; public EMQX signaling",
+    "measurement": "Already-authorized member connect/accept until ordinary handle is available; business exchange separately verified",
+    "callerElapsedMs": {
+      "host": 6866.6050000190735,
+      "pixel": 7034.055000066757
+    },
+    "bidirectionalBusinessVerified": true,
+    "physicalWanQualified": false,
+    "currentFinalSdkRerun": false
+  },
+  "relayThenRtc": {
+    "source": "/tmp/mio77-retention-a361-current-preparation-sol61-medium-20261007/runtime-final-unused/receipt.json",
+    "sourceSha256": "0fbf7efa324d9bf4f18b5e42fa95a2b01802c7db0e03bdbed6566984649b96ef",
+    "publishedIndex": "docs/evidence/unified-relay-contact-2026-10-07/results.json",
+    "actors": "Host Native and Host Browser; approved public APS1 data relay; local RTC candidate",
+    "relayOrdinaryHandleCallMs": 6711.009999990463,
+    "rtcImprovementCallMs": 7874.194999933243,
+    "sumOfTwoSdkCallMs": 14585.204999923706,
+    "sumIsContinuousWallTime": false,
+    "relayBusinessVerifiedBeforeRtc": true,
+    "sameConnectionAndStreamRetained": true,
+    "rtcFreshAckAndBothConfirmed": true,
+    "businessVerifiedAfterRtc": true,
+    "physicalWanQualified": false,
+    "turnUsed": false,
+    "currentFinalSdkRerun": false,
+    "cleanupQualification": "Natural actor exit recorded; SDK CLOSING socket tail and all terminal-task retirement remain incompletely proven in original evidence"
+  },
+  "ircAdmission": {
+    "source": "docs/evidence/irc-cid-confirmation-2026-10-11/final-public-story.json",
+    "sourceSha256": "9fe31056c9853cc041b03d83e5ff74a6e910ad549928395fd184a5581485cc9a",
+    "requestMs": 43080.6,
+    "measurement": "First restricted admission request returns AwaitingApproval; excludes later member data-path establishment",
+    "explicitCallerMs": 60000,
+    "explicitAttemptMs": 60000,
+    "explicitAssemblyMs": 8000,
+    "explicitQueueMs": 30000,
+    "wholeDefaultProfileQualified": false
+  },
+  "comparability": "Different dates, artifacts, actors and phases; values are observed examples, not a same-condition benchmark or latency guarantee",
+  "directionConfirmedInCloseout": {
+    "dataRelay": "Make permitted business communication available before optional path improvement",
+    "mqtt": "Primary configured side-channel signaling option",
+    "irc": "Backup contact/signaling option; does not replace a data path",
+    "existingUsableDirectPathStillPreferredForBootstrap": true,
+    "existingMemberContactPriorityPreserved": true,
+    "defaultQualityPolicyUnchanged": true,
+    "specificDefaultFacilitiesFrozen": false
+  }
+}
